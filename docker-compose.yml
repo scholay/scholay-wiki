@@ -1,0 +1,129 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: scholar_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-scholar}
+      MYSQL_USER: ${MYSQL_USER:-scholar_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-scholar_pass}
+      TZ: Asia/Shanghai
+    # MySQL不暴露端口到主机,仅容器内部访问
+    expose:
+      - "3306"
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+      - ./scripts/check-schema.sh:/check-schema.sh:ro
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - scholar-network
+
+  # Schema sync service - runs once to sync database schema
+  schema-sync:
+    image: mysql:8.0
+    container_name: scholar_schema_sync
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      MYSQL_USER: ${MYSQL_USER:-scholar_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-scholar_pass}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-scholar}
+    volumes:
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+      - ./scripts/check-schema.sh:/check-schema.sh:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - scholar-network
+    command: bash /check-schema.sh
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: scholar_backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${MYSQL_USER:-scholar_user}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-scholar_pass}
+      DB_NAME: ${MYSQL_DATABASE:-scholar}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      SERVER_PORT: 8080
+      ADMIN_INITIAL_USERNAME: admin
+      ADMIN_INITIAL_PASSWORD: adminadmin
+    # Backend不暴露端口,通过Nginx访问
+    expose:
+      - "8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      schema-sync:
+        condition: service_completed_successfully
+    networks:
+      - scholar-network
+
+  frontend-admin:
+    build:
+      context: ./frontend-admin
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: ""
+    container_name: scholar_frontend_admin
+    restart: unless-stopped
+    # Frontend不暴露端口,通过Nginx访问
+    expose:
+      - "80"
+    depends_on:
+      - backend
+    networks:
+      - scholar-network
+
+  frontend-user:
+    build:
+      context: ./frontend-user
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: ""
+    container_name: scholar_frontend_user
+    restart: unless-stopped
+    # Frontend不暴露端口,通过Nginx访问
+    expose:
+      - "80"
+    depends_on:
+      - backend
+    networks:
+      - scholar-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: scholar_nginx
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${ADMIN_PORT:-8001}:8001"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - backend
+      - frontend-admin
+      - frontend-user
+    networks:
+      - scholar-network
+
+networks:
+  scholar-network:
+    driver: bridge

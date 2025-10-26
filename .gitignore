@@ -1,0 +1,44 @@
+# Environment variables
+.env
+
+# Data directories
+data/
+!data/.gitkeep
+
+# Backend
+backend/tmp/
+backend/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Frontend
+frontend-admin/node_modules/
+frontend-admin/build/
+frontend-admin/.pnp
+frontend-admin/.pnp.js
+frontend-user/node_modules/
+frontend-user/build/
+frontend-user/.pnp
+frontend-user/.pnp.js
+
+# Testing
+coverage/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
