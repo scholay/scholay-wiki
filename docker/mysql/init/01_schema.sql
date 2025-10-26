@@ -66,5 +66,86 @@ CREATE TABLE IF NOT EXISTS `email_verification_codes` (
   INDEX `idx_expires_at` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Email verification codes';
 
--- Insert default admin user (password: adminadmin, hashed with bcrypt)
--- Note: This will be handled by the application on first startup
+-- Privacy policies
+CREATE TABLE IF NOT EXISTS `privacy_policies` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `content` TEXT NOT NULL,
+  `version` VARCHAR(50) NOT NULL,
+  `is_active` BOOLEAN NOT NULL DEFAULT TRUE,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_is_active` (`is_active`),
+  INDEX `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Privacy policies';
+
+-- Note: Default admin user and privacy policy are initialized by the application on first startup
+-- This ensures that existing data is not overwritten on container restart
+
+-- Email configurations
+CREATE TABLE IF NOT EXISTS `email_configs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `smtp_host` VARCHAR(255) NOT NULL,
+  `smtp_port` INT NOT NULL,
+  `smtp_user` VARCHAR(255) NOT NULL,
+  `smtp_password` VARCHAR(255) NOT NULL,
+  `from_email` VARCHAR(255) NOT NULL,
+  `from_name` VARCHAR(255) NOT NULL,
+  `is_active` BOOLEAN NOT NULL DEFAULT TRUE,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_is_active` (`is_active`),
+  INDEX `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Email server configurations';
+
+-- System configurations
+CREATE TABLE IF NOT EXISTS `system_configs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `require_email_verification` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '登录/注册是否需要邮箱验证码',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='System configuration settings';
+
+-- User sessions (for tracking online status)
+CREATE TABLE IF NOT EXISTS `user_sessions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL,
+  `token` VARCHAR(500) NOT NULL,
+  `ip` VARCHAR(45),
+  `user_agent` VARCHAR(500),
+  `last_activity` DATETIME NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `expires_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_token` (`token`),
+  INDEX `idx_last_activity` (`last_activity`),
+  INDEX `idx_expires_at` (`expires_at`),
+  FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='User sessions for online tracking';
+
+-- User statistics (daily aggregated data)
+CREATE TABLE IF NOT EXISTS `user_statistics` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `date` DATE NOT NULL UNIQUE COMMENT 'Statistics date (YYYY-MM-DD)',
+  `new_users` INT NOT NULL DEFAULT 0 COMMENT 'New registrations on this day',
+  `total_users` INT NOT NULL DEFAULT 0 COMMENT 'Total users up to this day',
+  `peak_online_users` INT NOT NULL DEFAULT 0 COMMENT 'Peak online users on this day',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_date` (`date`),
+  INDEX `idx_date` (`date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Daily user statistics';
+
+-- Online user snapshots (hourly data for real-time charts)
+CREATE TABLE IF NOT EXISTS `online_user_snapshots` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `timestamp` DATETIME NOT NULL COMMENT 'Snapshot timestamp',
+  `online_count` INT NOT NULL DEFAULT 0 COMMENT 'Number of online users at this time',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_timestamp` (`timestamp`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Hourly online user count snapshots';

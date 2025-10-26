@@ -6,6 +6,7 @@ import './Dashboard.css';
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
     newPassword: '',
@@ -74,7 +75,12 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard">
-      <aside className="sidebar">
+      {/* Mobile menu overlay */}
+      {mobileMenuOpen && (
+        <div className="mobile-overlay" onClick={() => setMobileMenuOpen(false)} />
+      )}
+
+      <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-header">
           <div className="logo">
             <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
@@ -119,7 +125,18 @@ const Dashboard = () => {
 
       <main className="main-content">
         <header className="top-bar">
-          <h1>Dashboard</h1>
+          <div className="top-bar-left">
+            <button
+              className="mobile-menu-btn"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 12h18M3 6h18M3 18h18" />
+              </svg>
+            </button>
+            <h1>Dashboard</h1>
+          </div>
           <div className="user-menu">
             <div className="user-info">
               <div className="user-avatar">

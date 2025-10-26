@@ -1,0 +1,187 @@
+.slider-captcha-container {
+  width: 100%;
+  margin: 1.5rem 0;
+  user-select: none;
+}
+
+/* Slider Track */
+.slider-captcha-track {
+  position: relative;
+  height: 50px;
+  background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 25px;
+  border: 2px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.slider-captcha-track.verified {
+  border-color: #10b981;
+  background: linear-gradient(to bottom, #d1fae5 0%, #a7f3d0 100%);
+}
+
+.slider-captcha-track.failed {
+  border-color: #ef4444;
+  background: linear-gradient(to bottom, #fee2e2 0%, #fecaca 100%);
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+
+/* Background Text */
+.slider-captcha-bg-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.875rem;
+  color: #94a3b8;
+  font-weight: 500;
+  user-select: none;
+  pointer-events: none;
+  white-space: nowrap;
+  transition: all 0.3s ease;
+  z-index: 1;
+}
+
+.slider-captcha-track.verified .slider-captcha-bg-text {
+  color: #059669;
+  font-weight: 600;
+}
+
+.slider-captcha-track.failed .slider-captcha-bg-text {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* Progress Bar */
+.slider-captcha-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(102, 126, 234, 0.15) 0%, rgba(102, 126, 234, 0.25) 100%);
+  transition: width 0.1s ease-out;
+  pointer-events: none;
+  border-radius: 25px 0 0 25px;
+}
+
+.slider-captcha-track.verified .slider-captcha-progress {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0.3) 100%);
+}
+
+.slider-captcha-track.failed .slider-captcha-progress {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.3) 100%);
+}
+
+/* Slider Button */
+.slider-captcha-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
+  user-select: none;
+  border: 3px solid white;
+  z-index: 2;
+}
+
+.slider-captcha-button:hover {
+  transform: translateY(-50%) scale(1.05);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+}
+
+.slider-captcha-button.dragging {
+  cursor: grabbing;
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.6);
+}
+
+.slider-captcha-track.verified .slider-captcha-button {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  cursor: default;
+  animation: success-glow 1s ease-in-out;
+}
+
+.slider-captcha-track.failed .slider-captcha-button {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+  cursor: default;
+}
+
+.slider-icon {
+  color: white;
+  font-size: 1.5rem;
+  font-weight: bold;
+  user-select: none;
+}
+
+@keyframes success-glow {
+  0% {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.7);
+  }
+  100% {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  }
+}
+
+/* Hint Text */
+.captcha-hint {
+  margin-top: 0.75rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: #64748b;
+  font-weight: 500;
+  min-height: 1.25rem;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  .slider-captcha-track {
+    height: 46px;
+  }
+
+  .slider-captcha-button {
+    width: 54px;
+    height: 54px;
+  }
+
+  .slider-icon {
+    font-size: 1.3rem;
+  }
+
+  .slider-captcha-bg-text {
+    font-size: 0.8125rem;
+  }
+
+  .captcha-hint {
+    font-size: 0.75rem;
+  }
+}
+
+/* Accessibility */
+.slider-captcha-button:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+.slider-captcha-button:focus:not(:focus-visible) {
+  outline: none;
+}

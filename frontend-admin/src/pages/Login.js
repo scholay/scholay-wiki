@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { adminAPI } from '../services/api';
+import SliderCaptcha from '../components/SliderCaptcha';
 import './Login.css';
 
 const Login = () => {
@@ -13,6 +14,8 @@ const Login = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [captchaVerified, setCaptchaVerified] = useState(false);
+  const captchaRef = useRef(null);
 
   const handleChange = (e) => {
     setFormData({
@@ -22,9 +25,23 @@ const Login = () => {
     setError('');
   };
 
+  const handleCaptchaSuccess = () => {
+    setCaptchaVerified(true);
+  };
+
+  const handleCaptchaFail = () => {
+    setCaptchaVerified(false);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (!captchaVerified) {
+      setError('Please complete the captcha verification');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -36,9 +53,19 @@ const Login = () => {
         navigate('/dashboard');
       } else {
         setError(response.data.message || 'Login failed');
+        // Reset captcha on login failure
+        setCaptchaVerified(false);
+        if (captchaRef.current && captchaRef.current.reset) {
+          captchaRef.current.reset();
+        }
       }
     } catch (err) {
       setError(err.response?.data?.message || 'An error occurred during login');
+      // Reset captcha on error
+      setCaptchaVerified(false);
+      if (captchaRef.current && captchaRef.current.reset) {
+        captchaRef.current.reset();
+      }
     } finally {
       setLoading(false);
     }
@@ -89,6 +116,12 @@ const Login = () => {
             />
           </div>
 
+          <SliderCaptcha
+            ref={captchaRef}
+            onSuccess={handleCaptchaSuccess}
+            onFail={handleCaptchaFail}
+          />
+
           {error && (
             <div className="error-message fade-in">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -98,7 +131,7 @@ const Login = () => {
             </div>
           )}
 
-          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+          <button type="submit" className="btn btn-primary btn-full" disabled={loading || !captchaVerified}>
             {loading ? (
               <>
                 <span className="spinner"></span>

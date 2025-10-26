@@ -49,6 +49,30 @@ export const adminAPI = {
 
   updatePassword: (oldPassword, newPassword) =>
     api.put('/admin/password', { old_password: oldPassword, new_password: newPassword }),
+
+  updatePrivacyPolicy: (content, version) =>
+    api.put('/admin/privacy-policy', { content, version }),
+
+  updateEmailConfig: (config) =>
+    api.put('/admin/email-config', config),
+
+  updateSystemConfig: (config) =>
+    api.put('/admin/system-config', config),
+
+  getUserStatistics: () =>
+    api.get('/admin/users/stats'),
+
+  getUserList: (page = 1, pageSize = 20) =>
+    api.get('/admin/users', { params: { page, page_size: pageSize } }),
+
+  getOnlineUsers: () =>
+    api.get('/admin/users/online'),
+
+  getUserStatisticsChart: (days = 30) =>
+    api.get('/admin/statistics/users', { params: { days } }),
+
+  getOnlineUserChart: (hours = 24) =>
+    api.get('/admin/statistics/online', { params: { hours } }),
 };
 
 export default api;

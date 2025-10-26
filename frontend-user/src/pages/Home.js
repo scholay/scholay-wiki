@@ -1,10 +1,25 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
+import AuthModal from '../components/AuthModal';
 import './Home.css';
 
 const Home = () => {
-  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const { isAuthenticated, user, logout } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const handleLoginSuccess = () => {
+    // AuthModal already handles login via AuthContext
+    setShowAuthModal(false);
+  };
+
+  const handleLogout = () => {
+    logout();
+    setShowUserMenu(false);
+    navigate('/');
+  };
 
   return (
     <div className="home">
@@ -29,18 +44,50 @@ const Home = () => {
 
           <div className="nav-links">
             {isAuthenticated ? (
-              <Link to="/dashboard" className="btn btn-primary">
-                Dashboard
-              </Link>
+              <div className="user-menu-container">
+                <button
+                  className="user-avatar-btn"
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                >
+                  <div className="user-avatar">
+                    {user?.avatar_url ? (
+                      <img src={user.avatar_url} alt="User avatar" />
+                    ) : (
+                      <svg width="24" height="24" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/>
+                      </svg>
+                    )}
+                  </div>
+                  <span className="user-email">{user?.email || user?.username || 'User'}</span>
+                  <svg className={`dropdown-icon ${showUserMenu ? 'rotate' : ''}`} width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+                  </svg>
+                </button>
+
+                {showUserMenu && (
+                  <div className="user-dropdown">
+                    <Link to="/dashboard" className="dropdown-item" onClick={() => setShowUserMenu(false)}>
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+                      </svg>
+                      Dashboard
+                    </Link>
+                    <button className="dropdown-item" onClick={handleLogout}>
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd"/>
+                      </svg>
+                      退出登录
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
-              <>
-                <Link to="/login" className="btn btn-outline">
-                  Sign In
-                </Link>
-                <Link to="/register" className="btn btn-primary">
-                  Get Started
-                </Link>
-              </>
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="btn btn-primary"
+              >
+                Sign In / Register
+              </button>
             )}
           </div>
         </div>
@@ -60,12 +107,15 @@ const Home = () => {
           </p>
 
           <div className="cta-buttons">
-            <Link to="/register" className="btn btn-primary btn-lg">
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="btn btn-primary btn-lg"
+            >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clipRule="evenodd"/>
               </svg>
               Start Exploring
-            </Link>
+            </button>
             <a href="#features" className="btn btn-outline btn-lg">
               Learn More
             </a>
@@ -145,6 +195,13 @@ const Home = () => {
           </linearGradient>
         </defs>
       </svg>
+
+      {/* 登录/注册弹窗 */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
     </div>
   );
 };

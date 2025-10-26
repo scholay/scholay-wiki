@@ -1,11 +1,24 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
+import DashboardLayout from './components/DashboardLayout';
+import DashboardHome from './pages/DashboardHome';
+import Settings from './pages/Settings';
+import UserManagement from './pages/UserManagement';
+import Toast from './components/Toast';
 import { AuthProvider, useAuth } from './utils/AuthContext';
 
 const PrivateRoute = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
@@ -19,12 +32,17 @@ function App() {
             path="/dashboard"
             element={
               <PrivateRoute>
-                <Dashboard />
+                <DashboardLayout />
               </PrivateRoute>
             }
-          />
+          >
+            <Route index element={<DashboardHome />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
           <Route path="/" element={<Navigate to="/dashboard" />} />
         </Routes>
+        <Toast />
       </Router>
     </AuthProvider>
   );

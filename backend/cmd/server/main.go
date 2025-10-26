@@ -2,10 +2,12 @@ package main
 
 import (
 	"log"
+	"time"
 	"scholar-backend/internal/admin"
-	"scholar-backend/internal/common/config"
+	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/middleware"
+	"scholar-backend/internal/config"
 	"scholar-backend/internal/user"
 
 	"github.com/gin-gonic/gin"
@@ -13,7 +15,7 @@ import (
 
 func main() {
 	// Load configuration
-	cfg := config.Load()
+	cfg := appconfig.Load()
 
 	// Initialize database
 	if err := database.Initialize(cfg); err != nil {
@@ -37,6 +39,25 @@ func main() {
 	userService := user.NewService(userRepo)
 	userHandler := user.NewHandler(userService)
 
+	// Initialize config module
+	configRepo := config.NewRepository(database.GetDB())
+	configService := config.NewService(configRepo)
+	configHandler := config.NewHandler(configService)
+
+	// Initialize default privacy policy
+	if err := configService.InitializeDefaultPrivacyPolicy(); err != nil {
+		log.Printf("Warning: Failed to initialize default privacy policy: %v", err)
+	} else {
+		log.Printf("Default privacy policy initialized")
+	}
+
+	// Initialize default system config
+	if err := configService.InitializeDefaultSystemConfig(); err != nil {
+		log.Printf("Warning: Failed to initialize default system config: %v", err)
+	} else {
+		log.Printf("Default system config initialized")
+	}
+
 	// Setup Gin router
 	router := gin.Default()
 
@@ -46,6 +67,9 @@ func main() {
 	// API routes
 	api := router.Group("/api/v1")
 	{
+		// Config routes (public)
+		configHandler.RegisterRoutes(api)
+
 		// Admin routes
 		adminHandler.RegisterRoutes(api)
 
@@ -55,6 +79,17 @@ func main() {
 		{
 			adminProtected.GET("/profile", adminHandler.GetProfile)
 			adminProtected.PUT("/password", adminHandler.UpdatePassword)
+			// Configuration management
+			adminProtected.PUT("/privacy-policy", configHandler.UpdatePrivacyPolicy)
+			adminProtected.PUT("/email-config", configHandler.UpdateEmailConfig)
+			adminProtected.PUT("/system-config", configHandler.UpdateSystemConfig)
+			// User management
+			adminProtected.GET("/users/stats", userHandler.GetUserStatistics)
+			adminProtected.GET("/users", userHandler.GetUserList)
+			adminProtected.GET("/users/online", userHandler.GetOnlineUsers)
+			// Statistics charts
+			adminProtected.GET("/statistics/users", userHandler.GetUserStatisticsChart)
+			adminProtected.GET("/statistics/online", userHandler.GetOnlineUserChart)
 		}
 
 		// User routes
@@ -66,6 +101,8 @@ func main() {
 		{
 			userProtected.GET("/profile", userHandler.GetProfile)
 			userProtected.PUT("/profile", userHandler.UpdateProfile)
+			userProtected.POST("/logout", userHandler.Logout)
+			userProtected.POST("/heartbeat", userHandler.Heartbeat)
 		}
 	}
 
@@ -76,6 +113,24 @@ func main() {
 			"service": "scholar-backend",
 		})
 	})
+
+	// Start background tasks
+	// Record online user snapshots every 5 minutes
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+
+		// Record initial snapshot
+		if err := userService.RecordOnlineUserSnapshot(); err != nil {
+			log.Printf("Failed to record initial online user snapshot: %v", err)
+		}
+
+		for range ticker.C {
+			if err := userService.RecordOnlineUserSnapshot(); err != nil {
+				log.Printf("Failed to record online user snapshot: %v", err)
+			}
+		}
+	}()
 
 	// Start server
 	addr := ":" + cfg.Server.Port

@@ -33,10 +33,13 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
   background: var(--background);
   color: var(--text-primary);
   line-height: 1.6;
   overflow-x: hidden;
+  /* Better touch scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Animated Background */

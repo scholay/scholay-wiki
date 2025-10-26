@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"scholar-backend/internal/common/model"
 	"gorm.io/gorm"
 )
 
@@ -15,6 +16,11 @@ type Repository struct {
 // NewRepository creates a new user repository
 func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
+}
+
+// GetDB returns the database instance
+func (r *Repository) GetDB() *gorm.DB {
+	return r.db
 }
 
 // FindByEmail finds a user by email
@@ -99,4 +105,193 @@ func (r *Repository) FindAuthProvider(provider, providerUserID string) (*UserAut
 		return nil, err
 	}
 	return &ap, nil
+}
+
+// GetTotalUserCount returns the total number of users
+func (r *Repository) GetTotalUserCount() (int64, error) {
+	var count int64
+	err := r.db.Model(&User{}).Count(&count).Error
+	return count, err
+}
+
+// GetOnlineUserCount returns the count of currently online users (active sessions)
+// A user is considered online if they have an active session with activity in the last 2 minutes
+func (r *Repository) GetOnlineUserCount() (int64, error) {
+	var count int64
+	onlineThreshold := time.Now().Add(-2 * time.Minute)
+	err := r.db.Model(&model.UserSession{}).
+		Where("expires_at > ? AND last_activity > ?", time.Now(), onlineThreshold).
+		Distinct("user_id").
+		Count(&count).Error
+	return count, err
+}
+
+// GetUserList returns a paginated list of users
+func (r *Repository) GetUserList(offset, limit int) ([]User, int64, error) {
+	var users []User
+	var total int64
+
+	// Get total count
+	if err := r.db.Model(&User{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated users
+	err := r.db.Order("created_at DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&users).Error
+
+	return users, total, err
+}
+
+// CreateSession creates a new user session
+func (r *Repository) CreateSession(session *model.UserSession) error {
+	return r.db.Create(session).Error
+}
+
+// UpdateSessionActivity updates the last activity time of a session
+func (r *Repository) UpdateSessionActivity(token string) error {
+	return r.db.Model(&model.UserSession{}).
+		Where("token = ?", token).
+		Update("last_activity", time.Now()).Error
+}
+
+// DeleteExpiredSessions deletes all expired sessions
+func (r *Repository) DeleteExpiredSessions() error {
+	return r.db.Where("expires_at < ?", time.Now()).
+		Delete(&model.UserSession{}).Error
+}
+
+// DeleteUserSessions deletes all sessions for a user
+func (r *Repository) DeleteUserSessions(userID uint) error {
+	return r.db.Where("user_id = ?", userID).
+		Delete(&model.UserSession{}).Error
+}
+
+// GetUserSession finds a session by token
+func (r *Repository) GetUserSession(token string) (*model.UserSession, error) {
+	var session model.UserSession
+	err := r.db.Where("token = ?", token).First(&session).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &session, nil
+}
+
+// GetOnlineUsers returns list of currently online users with their session info
+// A user is considered online if they have an active session with activity in the last 2 minutes
+func (r *Repository) GetOnlineUsers() ([]map[string]interface{}, error) {
+	var results []map[string]interface{}
+
+	// Consider a user online if they had activity in the last 2 minutes
+	onlineThreshold := time.Now().Add(-2 * time.Minute)
+
+	err := r.db.Raw(`
+		SELECT
+			u.id,
+			u.email,
+			u.username,
+			s2.last_activity,
+			s2.ip,
+			s2.user_agent
+		FROM users u
+		INNER JOIN (
+			SELECT
+				user_id,
+				last_activity,
+				ip,
+				user_agent
+			FROM user_sessions
+			WHERE expires_at > ? AND last_activity > ?
+			ORDER BY last_activity DESC
+		) s2 ON u.id = s2.user_id
+		GROUP BY u.id, s2.last_activity, s2.ip, s2.user_agent
+		ORDER BY s2.last_activity DESC
+	`, time.Now(), onlineThreshold).Scan(&results).Error
+
+	return results, err
+}
+
+// GetUserStatisticsByDateRange returns user statistics for a date range
+func (r *Repository) GetUserStatisticsByDateRange(startDate, endDate string) ([]model.UserStatistics, error) {
+	var stats []model.UserStatistics
+	err := r.db.Where("date >= ? AND date <= ?", startDate, endDate).
+		Order("date ASC").
+		Find(&stats).Error
+	return stats, err
+}
+
+// GetOrCreateDailyStatistics gets or creates statistics record for a specific date
+func (r *Repository) GetOrCreateDailyStatistics(date string) (*model.UserStatistics, error) {
+	var stats model.UserStatistics
+	err := r.db.Where("date = ?", date).First(&stats).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Create new record
+			stats.Date = date
+			stats.NewUsers = 0
+			stats.TotalUsers = 0
+			stats.PeakOnlineUsers = 0
+			if err := r.db.Create(&stats).Error; err != nil {
+				return nil, err
+			}
+			return &stats, nil
+		}
+		return nil, err
+	}
+
+	return &stats, nil
+}
+
+// UpdateDailyStatistics updates daily statistics
+func (r *Repository) UpdateDailyStatistics(date string, newUsers, totalUsers, peakOnline int) error {
+	return r.db.Model(&model.UserStatistics{}).
+		Where("date = ?", date).
+		Updates(map[string]interface{}{
+			"new_users":         newUsers,
+			"total_users":       totalUsers,
+			"peak_online_users": peakOnline,
+		}).Error
+}
+
+// IncrementNewUsers increments new users count for a specific date
+func (r *Repository) IncrementNewUsers(date string) error {
+	return r.db.Exec(`
+		INSERT INTO user_statistics (date, new_users, total_users, peak_online_users)
+		VALUES (?, 1, 0, 0)
+		ON DUPLICATE KEY UPDATE new_users = new_users + 1
+	`, date).Error
+}
+
+// UpdatePeakOnlineUsers updates peak online users if current count is higher
+func (r *Repository) UpdatePeakOnlineUsers(date string, currentOnline int) error {
+	return r.db.Exec(`
+		INSERT INTO user_statistics (date, new_users, total_users, peak_online_users)
+		VALUES (?, 0, 0, ?)
+		ON DUPLICATE KEY UPDATE
+			peak_online_users = IF(? > peak_online_users, ?, peak_online_users)
+	`, date, currentOnline, currentOnline, currentOnline).Error
+}
+
+// GetOnlineUserSnapshots returns online user snapshots for a time range
+func (r *Repository) GetOnlineUserSnapshots(startTime, endTime time.Time) ([]model.OnlineUserSnapshot, error) {
+	var snapshots []model.OnlineUserSnapshot
+	err := r.db.Where("timestamp >= ? AND timestamp <= ?", startTime, endTime).
+		Order("timestamp ASC").
+		Find(&snapshots).Error
+	return snapshots, err
+}
+
+// CreateOnlineUserSnapshot creates a new online user count snapshot
+func (r *Repository) CreateOnlineUserSnapshot(timestamp time.Time, onlineCount int) error {
+	snapshot := &model.OnlineUserSnapshot{
+		Timestamp:   timestamp,
+		OnlineCount: onlineCount,
+	}
+	return r.db.Create(snapshot).Error
 }
