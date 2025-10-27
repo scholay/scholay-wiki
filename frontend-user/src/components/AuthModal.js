@@ -401,8 +401,8 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
         {/* 隐私协议弹窗 */}
         {showPolicy && (
-          <div className="policy-modal-overlay" onClick={() => setShowPolicy(false)}>
-            <div className="policy-modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="policy-modal-overlay">
+            <div className="policy-modal-content">
               <div className="policy-header">
                 <h3>隐私协议</h3>
                 <button onClick={() => setShowPolicy(false)}>×</button>

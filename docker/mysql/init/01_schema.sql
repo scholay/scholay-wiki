@@ -149,3 +149,19 @@ CREATE TABLE IF NOT EXISTS `online_user_snapshots` (
   PRIMARY KEY (`id`),
   INDEX `idx_timestamp` (`timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Hourly online user count snapshots';
+
+-- Third-party account configurations
+CREATE TABLE IF NOT EXISTS `third_party_accounts` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(100) NOT NULL COMMENT 'Account name/description',
+  `type` VARCHAR(50) NOT NULL COMMENT 'Account type: semantic_scholar, ai_model',
+  `config` JSON NOT NULL COMMENT 'Configuration details (api_key, base_url, etc.)',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '1=active, 0=inactive',
+  `usage_count` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Number of times used',
+  `last_used_at` DATETIME COMMENT 'Last usage timestamp',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_type_status` (`type`, `status`),
+  INDEX `idx_last_used` (`last_used_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Third-party API account configurations';

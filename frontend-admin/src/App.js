@@ -5,6 +5,7 @@ import DashboardLayout from './components/DashboardLayout';
 import DashboardHome from './pages/DashboardHome';
 import Settings from './pages/Settings';
 import UserManagement from './pages/UserManagement';
+import ThirdPartyAccounts from './pages/ThirdPartyAccounts';
 import Toast from './components/Toast';
 import { AuthProvider, useAuth } from './utils/AuthContext';
 
@@ -38,6 +39,7 @@ function App() {
           >
             <Route index element={<DashboardHome />} />
             <Route path="users" element={<UserManagement />} />
+            <Route path="third-party-accounts" element={<ThirdPartyAccounts />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" />} />

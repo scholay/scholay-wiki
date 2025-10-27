@@ -223,8 +223,8 @@ const Dashboard = () => {
       </main>
 
       {showPasswordModal && (
-        <div className="modal-overlay" onClick={() => setShowPasswordModal(false)}>
-          <div className="modal fade-in" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <div className="modal fade-in">
             <div className="modal-header">
               <h2>Change Password</h2>
               <button onClick={() => setShowPasswordModal(false)} className="modal-close">

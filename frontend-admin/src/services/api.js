@@ -73,6 +73,31 @@ export const adminAPI = {
 
   getOnlineUserChart: (hours = 24) =>
     api.get('/admin/statistics/online', { params: { hours } }),
+
+  // Third-party account management
+  getThirdPartyAccounts: (type = '', activeOnly = false) =>
+    api.get('/admin/third-party-accounts', { params: { type, active: activeOnly } }),
+
+  getThirdPartyAccount: (id) =>
+    api.get(`/admin/third-party-accounts/${id}`),
+
+  createThirdPartyAccount: (data) =>
+    api.post('/admin/third-party-accounts', data),
+
+  updateThirdPartyAccount: (id, data) =>
+    api.put(`/admin/third-party-accounts/${id}`, data),
+
+  deleteThirdPartyAccount: (id) =>
+    api.delete(`/admin/third-party-accounts/${id}`),
+
+  getThirdPartyAccountStats: () =>
+    api.get('/admin/third-party-accounts/stats'),
+
+  testThirdPartyAccount: (id) =>
+    api.post(`/admin/third-party-accounts/${id}/test`),
+
+  refreshThirdPartyAccountCache: () =>
+    api.post('/admin/third-party-accounts/refresh-cache'),
 };
 
 export default api;

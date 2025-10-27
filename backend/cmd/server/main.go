@@ -8,6 +8,9 @@ import (
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/config"
+	"scholar-backend/internal/mcp"
+	"scholar-backend/internal/semanticscholar"
+	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/user"
 
 	"github.com/gin-gonic/gin"
@@ -58,6 +61,20 @@ func main() {
 		log.Printf("Default system config initialized")
 	}
 
+	// Initialize Third-party Account Management
+	thirdPartyRepo := thirdparty.NewRepository(database.GetDB())
+	thirdPartyService := thirdparty.NewService(thirdPartyRepo)
+	thirdPartyHandler := thirdparty.NewHandler(thirdPartyService)
+
+	// Start cache refresh task (every 5 minutes)
+	thirdPartyService.StartCacheRefreshTask(5 * time.Minute)
+	log.Printf("Third-party account service initialized with cache refresh")
+
+	// Initialize Semantic Scholar module with key rotation
+	scholarManager := semanticscholar.NewManager(thirdPartyService)
+	scholarHandler := semanticscholar.NewHandler(scholarManager)
+	mcpHandler := mcp.NewHandler("") // MCP will use key rotation through service
+
 	// Setup Gin router
 	router := gin.Default()
 
@@ -90,6 +107,15 @@ func main() {
 			// Statistics charts
 			adminProtected.GET("/statistics/users", userHandler.GetUserStatisticsChart)
 			adminProtected.GET("/statistics/online", userHandler.GetOnlineUserChart)
+			// Third-party account management
+			adminProtected.GET("/third-party-accounts", thirdPartyHandler.ListAccounts)
+			adminProtected.POST("/third-party-accounts", thirdPartyHandler.CreateAccount)
+			adminProtected.GET("/third-party-accounts/stats", thirdPartyHandler.GetStats)
+			adminProtected.POST("/third-party-accounts/refresh-cache", thirdPartyHandler.RefreshCache)
+			adminProtected.GET("/third-party-accounts/:id", thirdPartyHandler.GetAccount)
+			adminProtected.PUT("/third-party-accounts/:id", thirdPartyHandler.UpdateAccount)
+			adminProtected.DELETE("/third-party-accounts/:id", thirdPartyHandler.DeleteAccount)
+			adminProtected.POST("/third-party-accounts/:id/test", thirdPartyHandler.TestAccount)
 		}
 
 		// User routes
@@ -103,6 +129,34 @@ func main() {
 			userProtected.PUT("/profile", userHandler.UpdateProfile)
 			userProtected.POST("/logout", userHandler.Logout)
 			userProtected.POST("/heartbeat", userHandler.Heartbeat)
+		}
+
+		// Semantic Scholar API routes (public for now, can add auth later)
+		scholar := api.Group("/scholar")
+		{
+			// Paper endpoints
+			scholar.GET("/papers/search", scholarHandler.SearchPapers)
+			scholar.GET("/papers/:paperId", scholarHandler.GetPaper)
+			scholar.POST("/papers/batch", scholarHandler.GetPaperBatch)
+			scholar.GET("/papers/:paperId/citations", scholarHandler.GetPaperCitations)
+			scholar.GET("/papers/:paperId/references", scholarHandler.GetPaperReferences)
+			scholar.GET("/papers/:paperId/authors", scholarHandler.GetPaperAuthors)
+
+			// Author endpoints
+			scholar.GET("/authors/search", scholarHandler.SearchAuthors)
+			scholar.GET("/authors/:authorId", scholarHandler.GetAuthor)
+			scholar.GET("/authors/:authorId/papers", scholarHandler.GetAuthorPapers)
+
+			// Recommendations endpoints
+			scholar.GET("/recommendations/papers/:paperId", scholarHandler.GetRecommendationsForPaper)
+			scholar.POST("/recommendations/papers", scholarHandler.GetRecommendations)
+		}
+
+		// MCP endpoints
+		mcpGroup := api.Group("/mcp")
+		{
+			mcpGroup.GET("/tools", mcpHandler.ListTools)
+			mcpGroup.POST("/call", mcpHandler.CallTool)
 		}
 	}
 
