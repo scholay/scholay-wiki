@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './PaperList.css';
 
-const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActiveTab }) => {
+const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActiveTab, highlightedPaperIndex = null }) => {
   // 使用内部状态作为备选（如果父组件没有传递）
   const [internalActiveTab, setInternalActiveTab] = useState(0);
+  const paperRefs = useRef({});
 
   // 决定使用哪个状态
   const currentActiveTab = setActiveTab ? activeTab : internalActiveTab;
@@ -15,6 +16,17 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
       handleSetActiveTab(0);
     }
   }, [paperSets]);
+
+  // 当高亮的论文索引变化时，自动滚动到该论文
+  useEffect(() => {
+    if (highlightedPaperIndex !== null && paperRefs.current[highlightedPaperIndex]) {
+      paperRefs.current[highlightedPaperIndex].scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest'
+      });
+    }
+  }, [highlightedPaperIndex]);
 
   // 如果有 paperSets，使用它；否则使用传统的 papers/total 模式
   const usePaperSets = paperSets && paperSets.length > 0;
@@ -101,14 +113,20 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
 
       <div className="paper-list-content">
         {currentPapers.map((paper, index) => (
-          <PaperCard key={paper.paperId || index} paper={paper} index={index} />
+          <PaperCard
+            key={paper.paperId || index}
+            paper={paper}
+            index={index}
+            isHighlighted={highlightedPaperIndex === index}
+            ref={(el) => paperRefs.current[index] = el}
+          />
         ))}
       </div>
     </div>
   );
 };
 
-const PaperCard = ({ paper, index }) => {
+const PaperCard = React.forwardRef(({ paper, index, isHighlighted = false }, ref) => {
   const {
     title,
     authors,
@@ -130,7 +148,7 @@ const PaperCard = ({ paper, index }) => {
   };
 
   return (
-    <div className="paper-card">
+    <div ref={ref} className={`paper-card ${isHighlighted ? 'highlighted' : ''}`}>
       <div className="paper-index">{index + 1}</div>
       <div className="paper-main">
         <div className="paper-header">
@@ -196,6 +214,6 @@ const PaperCard = ({ paper, index }) => {
       </div>
     </div>
   );
-};
+});
 
 export default PaperList;

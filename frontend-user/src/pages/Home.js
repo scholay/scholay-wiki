@@ -5,6 +5,7 @@ import AuthModal from '../components/AuthModal';
 import ConversationSidebar from '../components/ConversationSidebar';
 import PaperList from '../components/PaperList';
 import ReactMarkdown from 'react-markdown';
+import PaperCitationMarkdown from '../components/PaperCitationMarkdown';
 import { conversationAPI } from '../services/api';
 import './Home.css';
 
@@ -29,24 +30,133 @@ const Home = () => {
   const [hasAdvancedSearch, setHasAdvancedSearch] = useState(false); // 标记是否进行过高级搜索
   const [isTransitioning, setIsTransitioning] = useState(false); // 动画过渡状态
   const [showAIThinking, setShowAIThinking] = useState(false); // AI 思考中状态
+  const [paperListWidth, setPaperListWidth] = useState(() => {
+    // 从 localStorage 读取用户偏好，默认 420px
+    const saved = localStorage.getItem('paperListWidth');
+    return saved ? parseInt(saved) : 420;
+  });
+  const [isResizing, setIsResizing] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true); // 是否自动滚动
+  const [highlightedPaperIndex, setHighlightedPaperIndex] = useState(null); // 高亮的论文索引
+  const [suggestedQuestions, setSuggestedQuestions] = useState([]); // AI 推荐的后续问题
   const messagesEndRef = useRef(null);
+  const chatMessagesRef = useRef(null);
   const eventSourceRef = useRef(null);
   const textareaRef = useRef(null);
   const prevMessagesLengthRef = useRef(0);
   const streamingContentRef = useRef('');
+  const userScrolledRef = useRef(false); // 标记用户是否手动滚动过
+
+  // 解析 AI 回复中的推荐问题
+  const extractSuggestedQuestions = (content) => {
+    const regex = /\[FOLLOW_UP_QUESTIONS\]([\s\S]*?)\[\/FOLLOW_UP_QUESTIONS\]/;
+    const match = content.match(regex);
+
+    if (match && match[1]) {
+      // 提取问题列表
+      const questionsText = match[1].trim();
+      const questions = questionsText
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.match(/^\d+\.\s+/)) // 匹配 "1. " 格式
+        .map(line => line.replace(/^\d+\.\s+/, '')); // 移除序号
+
+      return questions;
+    }
+
+    return [];
+  };
+
+  // 从内容中移除推荐问题标签（用于保存到数据库）
+  const removeQuestionTags = (content) => {
+    return content.replace(/\[FOLLOW_UP_QUESTIONS\][\s\S]*?\[\/FOLLOW_UP_QUESTIONS\]/g, '').trim();
+  };
+
+  // 渲染推荐问题组件
+  const renderSuggestedQuestions = (questions) => {
+    if (!questions || questions.length === 0) return null;
+
+    return (
+      <div className="suggested-questions-inline">
+        <div className="suggested-questions-list">
+          {questions.map((question, index) => (
+            <button
+              key={index}
+              className="suggested-question-btn"
+              onClick={() => {
+                setSearchQuery(question);
+                // 不清空问题，让它们保留在消息中
+              }}
+            >
+              {question}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // 检查是否滚动到底部
+  const isAtBottom = () => {
+    if (!chatMessagesRef.current) return true;
+    const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.current;
+    // 允许 50px 的误差范围
+    return scrollHeight - scrollTop - clientHeight < 50;
+  };
+
+  // 处理滚动事件
+  const handleScroll = () => {
+    if (!chatMessagesRef.current) return;
+
+    const atBottom = isAtBottom();
+
+    // 如果用户滚动到底部，重新启用自动滚动
+    if (atBottom) {
+      setAutoScroll(true);
+      userScrolledRef.current = false;
+    } else if (isStreaming || messages.length > 0) {
+      // 如果用户在流式传输或有消息时向上滚动，禁用自动滚动
+      setAutoScroll(false);
+      userScrolledRef.current = true;
+    }
+  };
+
+  // 监听滚动事件
   useEffect(() => {
-    // 只在消息数量增加或流式内容更新时滚动
-    // 避免重新加载时的滚动跳动
-    if (messages.length > prevMessagesLengthRef.current || isStreaming) {
+    const chatMessages = chatMessagesRef.current;
+    if (chatMessages) {
+      chatMessages.addEventListener('scroll', handleScroll);
+      return () => {
+        chatMessages.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, [isStreaming, messages.length]);
+
+  // 自动滚动逻辑
+  useEffect(() => {
+    // 只在以下情况自动滚动：
+    // 1. autoScroll 为 true
+    // 2. 消息数量增加或正在流式传输
+    if (autoScroll && (messages.length > prevMessagesLengthRef.current || isStreaming)) {
       scrollToBottom();
     }
     prevMessagesLengthRef.current = messages.length;
-  }, [messages, isStreaming]);
+  }, [messages, isStreaming, autoScroll]);
+
+  // 当流式内容更新时也自动滚动（如果启用了自动滚动）
+  useEffect(() => {
+    if (autoScroll && isStreaming && streamingContent) {
+      scrollToBottom();
+    }
+  }, [streamingContent, autoScroll, isStreaming]);
 
   // Clean up event source on unmount
   useEffect(() => {
@@ -291,12 +401,19 @@ const Home = () => {
 
         // 先清空流式内容和停止状态，避免重复显示
         const finalContent = streamingContentRef.current;
+
+        // 解析推荐问题
+        const questions = extractSuggestedQuestions(finalContent);
+
+        // 移除推荐问题标签后的内容（用于显示）
+        const cleanContent = removeQuestionTags(finalContent);
+
         setStreamingContent('');
         streamingContentRef.current = '';
         setIsStreaming(false);
 
-        // 然后将流式内容添加到消息列表
-        if (finalContent) {
+        // 然后将清理后的流式内容添加到消息列表，并附带推荐问题
+        if (cleanContent) {
           setMessages(prev => {
             const lastMessage = prev[prev.length - 1];
             // 如果最后一条消息不是 assistant 或内容为空，添加新的 assistant 消息
@@ -304,7 +421,8 @@ const Home = () => {
               return [...prev, {
                 id: 'assistant-' + Date.now(),
                 role: 'assistant',
-                content: finalContent,
+                content: cleanContent,
+                suggestedQuestions: questions.length > 0 ? questions : undefined,
                 created_at: new Date().toISOString()
               }];
             }
@@ -430,19 +548,27 @@ const Home = () => {
 
         // 先清空流式内容和停止状态，避免重复显示
         const finalContent = streamingContentRef.current;
+
+        // 解析推荐问题
+        const questions = extractSuggestedQuestions(finalContent);
+
+        // 移除推荐问题标签后的内容
+        const cleanContent = removeQuestionTags(finalContent);
+
         setStreamingContent('');
         streamingContentRef.current = '';
         setIsStreaming(false);
 
-        // 然后将流式内容添加到消息列表
-        if (finalContent) {
+        // 然后将清理后的流式内容添加到消息列表，并附带推荐问题
+        if (cleanContent) {
           setMessages(prev => {
             const lastMessage = prev[prev.length - 1];
             if (!lastMessage || lastMessage.role !== 'assistant' || !lastMessage.content) {
               return [...prev, {
                 id: 'assistant-' + Date.now(),
                 role: 'assistant',
-                content: finalContent,
+                content: cleanContent,
+                suggestedQuestions: questions.length > 0 ? questions : undefined,
                 created_at: new Date().toISOString()
               }];
             }
@@ -560,19 +686,26 @@ const Home = () => {
                 // 先清空流式内容和停止状态，避免重复显示
                 const finalContent = streamingContentRef.current;
 
+                // 解析推荐问题
+                const questions = extractSuggestedQuestions(finalContent);
+
+                // 移除推荐问题标签后的内容
+                const cleanContent = removeQuestionTags(finalContent);
+
                 setStreamingContent('');
                 streamingContentRef.current = '';
                 setIsStreaming(false);
 
-                // 然后将流式内容添加到消息列表
-                if (finalContent) {
+                // 然后将清理后的流式内容添加到消息列表，并附带推荐问题
+                if (cleanContent) {
                   setMessages(prev => {
                     const lastMessage = prev[prev.length - 1];
                     if (!lastMessage || lastMessage.role !== 'assistant' || !lastMessage.content) {
                       return [...prev, {
                         id: 'assistant-' + Date.now(),
                         role: 'assistant',
-                        content: finalContent,
+                        content: cleanContent,
+                        suggestedQuestions: questions.length > 0 ? questions : undefined,
                         created_at: new Date().toISOString()
                       }];
                     }
@@ -696,6 +829,44 @@ const Home = () => {
     }
   };
 
+  // 处理分割线拖动
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    setIsResizing(true);
+
+    const startX = e.clientX;
+    const startWidth = paperListWidth;
+    const windowWidth = window.innerWidth;
+
+    // 计算最小和最大宽度
+    const MIN_WIDTH = 320; // 最小 320px
+    const MAX_WIDTH = Math.floor(windowWidth * 0.5); // 最大屏幕宽度的 50%
+
+    let currentWidth = startWidth; // 记录当前宽度
+
+    const handleMouseMove = (e) => {
+      const diff = startX - e.clientX; // 向左拖动为正值
+      const newWidth = Math.min(Math.max(startWidth + diff, MIN_WIDTH), MAX_WIDTH);
+      currentWidth = newWidth; // 更新当前宽度
+      setPaperListWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      // 保存最新的宽度到 localStorage
+      localStorage.setItem('paperListWidth', currentWidth.toString());
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
   // Main search interface
   return (
     <div className="home-search">
@@ -751,7 +922,7 @@ const Home = () => {
 
         <div className="search-content">
           <div className="chat-container">
-            <div className="chat-messages">
+            <div className="chat-messages" ref={chatMessagesRef}>
               {messages.length === 0 ? (
                 <div className="welcome-screen">
                   <h1 className="welcome-title">我们先从哪里开始呢？</h1>
@@ -792,9 +963,17 @@ const Home = () => {
                             )}
                           </>
                         ) : (
-                          <div className="message-markdown">
-                            <ReactMarkdown>{message.content}</ReactMarkdown>
-                          </div>
+                          <>
+                            <div className="message-markdown">
+                              <PaperCitationMarkdown
+                                content={message.content}
+                                onCitationHover={setHighlightedPaperIndex}
+                                onCitationLeave={() => setHighlightedPaperIndex(null)}
+                              />
+                            </div>
+                            {/* 只在最后一条 assistant 消息显示推荐问题 */}
+                            {message.suggestedQuestions && index === messages.length - 1 && renderSuggestedQuestions(message.suggestedQuestions)}
+                          </>
                         )}
                       </div>
                     </div>
@@ -840,7 +1019,11 @@ const Home = () => {
                         </div>
                         <div className="message-content">
                           <div className="message-markdown">
-                            <ReactMarkdown>{streamingContent}</ReactMarkdown>
+                            <PaperCitationMarkdown
+                              content={streamingContent}
+                              onCitationHover={setHighlightedPaperIndex}
+                              onCitationLeave={() => setHighlightedPaperIndex(null)}
+                            />
                             <span className="typing-cursor">▊</span>
                           </div>
                         </div>
@@ -924,14 +1107,28 @@ const Home = () => {
           </div>
 
           {(papers.length > 0 || loading || paperSets.length > 0) && (
-            <PaperList
-              papers={papers}
-              loading={loading}
-              total={papersTotal}
-              paperSets={paperSets.length > 0 ? paperSets : null}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-            />
+            <>
+              {/* 可拖动的分割线 */}
+              <div
+                className={`resize-handle ${isResizing ? 'resizing' : ''}`}
+                onMouseDown={handleMouseDown}
+              >
+                <div className="resize-handle-line" />
+              </div>
+
+              {/* 论文列表 - 使用动态宽度 */}
+              <div style={{ width: `${paperListWidth}px`, flexShrink: 0 }}>
+                <PaperList
+                  papers={papers}
+                  loading={loading}
+                  total={papersTotal}
+                  paperSets={paperSets.length > 0 ? paperSets : null}
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                  highlightedPaperIndex={highlightedPaperIndex}
+                />
+              </div>
+            </>
           )}
         </div>
       </div>
