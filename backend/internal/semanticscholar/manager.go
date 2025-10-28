@@ -1,6 +1,9 @@
 package semanticscholar
 
 import (
+	"fmt"
+	"strings"
+
 	"scholar-backend/internal/thirdparty"
 )
 
@@ -18,13 +21,72 @@ func NewManager(accountService *thirdparty.Service) *Manager {
 
 // GetClient gets a client with a rotated API key
 func (m *Manager) GetClient() (*Client, error) {
-	apiKey, _, err := m.accountService.GetRandomAPIKey(thirdparty.AccountTypeSemanticScholar)
+	apiKey, accountID, err := m.accountService.GetRandomAPIKey(thirdparty.AccountTypeSemanticScholar)
 	if err != nil {
 		// Fallback to empty API key (free tier)
+		fmt.Printf("[Manager] Failed to get API key, using free tier: %v\n", err)
 		return NewClient(""), nil
 	}
 
-	return NewClient(apiKey), nil
+	fmt.Printf("[Manager] Got API key (length: %d) from account ID: %d\n", len(apiKey), accountID)
+
+	// Get the account to retrieve base URL configuration
+	accounts, err := m.accountService.GetActiveAccountsByType(thirdparty.AccountTypeSemanticScholar)
+	if err != nil || len(accounts) == 0 {
+		fmt.Printf("[Manager] Failed to get accounts or no accounts found, using default base URL\n")
+		return NewClient(apiKey), nil
+	}
+
+	// Find the account that was used
+	var baseURL string
+	for _, account := range accounts {
+		if account.ID == accountID {
+			config, err := account.GetSemanticScholarConfig()
+			if err == nil && config.BaseURL != "" {
+				baseURL = config.BaseURL
+				fmt.Printf("[Manager] Using custom base URL: %s\n", baseURL)
+			}
+			break
+		}
+	}
+
+	if baseURL == "" {
+		fmt.Printf("[Manager] No custom base URL, using default\n")
+	}
+
+	return NewClientWithBaseURL(apiKey, baseURL), nil
+}
+
+// GetAPIKey gets an API key from the account service for external use (e.g., MCP)
+func (m *Manager) GetAPIKey() (string, uint, error) {
+	return m.accountService.GetRandomAPIKey(thirdparty.AccountTypeSemanticScholar)
+}
+
+// GetAPIConfig gets both API key and base URL from the account service
+func (m *Manager) GetAPIConfig() (apiKey string, baseURL string, accountID uint, err error) {
+	apiKey, accountID, err = m.accountService.GetRandomAPIKey(thirdparty.AccountTypeSemanticScholar)
+	if err != nil {
+		return "", "", 0, err
+	}
+
+	// Get the account to retrieve base URL configuration
+	accounts, err := m.accountService.GetActiveAccountsByType(thirdparty.AccountTypeSemanticScholar)
+	if err != nil || len(accounts) == 0 {
+		return apiKey, "", accountID, nil
+	}
+
+	// Find the account that was used
+	for _, account := range accounts {
+		if account.ID == accountID {
+			config, err := account.GetSemanticScholarConfig()
+			if err == nil && config.BaseURL != "" {
+				baseURL = config.BaseURL
+			}
+			break
+		}
+	}
+
+	return apiKey, baseURL, accountID, nil
 }
 
 // SearchPapers searches for papers using key rotation
@@ -33,7 +95,27 @@ func (m *Manager) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error)
 	if err != nil {
 		return nil, err
 	}
-	return client.SearchPapers(opts)
+
+	// Try with API key first
+	result, err := client.SearchPapers(opts)
+	if err != nil {
+		errStr := err.Error()
+
+		// If rate limited (429), return error with friendly message
+		if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
+			return nil, fmt.Errorf("API rate limit exceeded. Please wait a moment and try again")
+		}
+
+		// If error contains "403" or "Forbidden" or "EOF", try without API key
+		if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
+			// Fallback to free tier (no API key)
+			freeClient := NewClient("")
+			return freeClient.SearchPapers(opts)
+		}
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // GetPaper retrieves paper details using key rotation

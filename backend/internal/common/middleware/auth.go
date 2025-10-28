@@ -10,22 +10,28 @@ import (
 // AuthMiddleware validates JWT tokens
 func AuthMiddleware(requiredType string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var token string
+
+		// Try to get token from Authorization header first
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			utils.Unauthorized(c, "Authorization header is required")
+		if authHeader != "" {
+			// Extract token from "Bearer <token>"
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				token = parts[1]
+			}
+		}
+
+		// Fallback to query parameter (for SSE/EventSource support)
+		if token == "" {
+			token = c.Query("token")
+		}
+
+		if token == "" {
+			utils.Unauthorized(c, "Authorization header or token query parameter is required")
 			c.Abort()
 			return
 		}
-
-		// Extract token from "Bearer <token>"
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			utils.Unauthorized(c, "Invalid authorization header format")
-			c.Abort()
-			return
-		}
-
-		token := parts[1]
 		claims, err := utils.ParseToken(token)
 		if err != nil {
 			utils.Unauthorized(c, "Invalid or expired token")

@@ -5,25 +5,29 @@
 }
 
 :root {
-  --primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --primary-solid: #667eea;
-  --primary-dark: #5568d3;
-  --accent: #f093fb;
-  --accent-2: #4facfe;
-  --background: #0f0f23;
-  --background-light: #1a1a2e;
-  --surface: #16213e;
-  --surface-light: #1f2a44;
-  --text-primary: #ffffff;
-  --text-secondary: #a8a8b3;
-  --success: #00f5a0;
-  --error: #ff6b6b;
-  --warning: #ffd93d;
+  /* ChatGPT-inspired color scheme */
+  --primary: linear-gradient(135deg, #10a37f 0%, #1a7f64 100%);
+  --primary-solid: #10a37f;
+  --primary-dark: #1a7f64;
+  --primary-light: #19c37d;
+  --accent: #19c37d;
+  --accent-2: #10a37f;
+  --bg-primary: #212121;
+  --bg-secondary: #2f2f2f;
+  --background: #212121;
+  --background-light: #2f2f2f;
+  --surface: #2f2f2f;
+  --surface-light: #3f3f3f;
+  --text-primary: #ececec;
+  --text-secondary: #c5c5d2;
+  --success: #10b981;
+  --error: #ef4444;
+  --warning: #f59e0b;
   --border: rgba(255, 255, 255, 0.1);
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --glow: 0 0 20px rgba(102, 126, 234, 0.4);
-  --radius: 16px;
-  --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  --glow: 0 0 20px rgba(16, 163, 127, 0.3);
+  --radius: 12px;
+  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 body {

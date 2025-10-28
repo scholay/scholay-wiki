@@ -8,6 +8,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const [step, setStep] = useState(1); // 1: 输入邮箱, 2: 登录/注册
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [code, setCode] = useState('');
   const [isExistingUser, setIsExistingUser] = useState(false);
   const [captchaVerified, setCaptchaVerified] = useState(false);
@@ -61,6 +62,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     setStep(1);
     setEmail('');
     setPassword('');
+    setConfirmPassword('');
     setCode('');
     setIsExistingUser(false);
     setCaptchaVerified(false);
@@ -185,6 +187,11 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const handleRegister = async () => {
     if (!password || password.length < 8) {
       setError('密码长度至少8位');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('两次输入的密码不一致');
       return;
     }
 
@@ -340,6 +347,16 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="请输入密码（至少8位）"
                 autoFocus
+              />
+            </div>
+
+            <div className="form-group">
+              <label>确认密码</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="请再次输入密码"
               />
             </div>
 

@@ -52,7 +52,8 @@ func (ThirdPartyAccount) TableName() string {
 
 // SemanticScholarConfig represents the config structure for Semantic Scholar
 type SemanticScholarConfig struct {
-	APIKey string `json:"api_key"`
+	APIKey  string `json:"api_key"`
+	BaseURL string `json:"base_url,omitempty"` // Optional: custom base URL (e.g., for proxies)
 }
 
 // AIModelConfig represents the config structure for AI models

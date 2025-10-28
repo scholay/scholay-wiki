@@ -291,3 +291,8 @@ func (s *Service) StartCacheRefreshTask(interval time.Duration) {
 		}
 	}()
 }
+
+// GetActiveAccountsByType retrieves active accounts of a specific type (public method for AI service)
+func (s *Service) GetActiveAccountsByType(accountType AccountType) ([]ThirdPartyAccount, error) {
+	return s.getActiveAccounts(accountType)
+}

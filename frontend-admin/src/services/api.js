@@ -98,6 +98,22 @@ export const adminAPI = {
 
   refreshThirdPartyAccountCache: () =>
     api.post('/admin/third-party-accounts/refresh-cache'),
+
+  // Prompt template management
+  getPromptTemplates: () =>
+    api.get('/admin/prompt-templates'),
+
+  getPromptTemplate: (id) =>
+    api.get(`/admin/prompt-templates/${id}`),
+
+  createPromptTemplate: (data) =>
+    api.post('/admin/prompt-templates', data),
+
+  updatePromptTemplate: (id, data) =>
+    api.put(`/admin/prompt-templates/${id}`, data),
+
+  deletePromptTemplate: (id) =>
+    api.delete(`/admin/prompt-templates/${id}`),
 };
 
 export default api;

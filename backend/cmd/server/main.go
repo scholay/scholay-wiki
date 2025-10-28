@@ -4,10 +4,12 @@ import (
 	"log"
 	"time"
 	"scholar-backend/internal/admin"
+	"scholar-backend/internal/ai"
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/config"
+	"scholar-backend/internal/conversation"
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/semanticscholar"
 	"scholar-backend/internal/thirdparty"
@@ -73,7 +75,16 @@ func main() {
 	// Initialize Semantic Scholar module with key rotation
 	scholarManager := semanticscholar.NewManager(thirdPartyService)
 	scholarHandler := semanticscholar.NewHandler(scholarManager)
-	mcpHandler := mcp.NewHandler("") // MCP will use key rotation through service
+	mcpHandler := mcp.NewHandler(scholarManager) // MCP uses manager for dynamic API key access
+
+	// Initialize AI service
+	aiService := ai.NewService(database.GetDB(), thirdPartyService)
+	aiHandler := ai.NewHandler(aiService)
+
+	// Initialize Conversation module
+	conversationRepo := conversation.NewRepository(database.GetDB())
+	conversationService := conversation.NewService(conversationRepo, scholarManager, aiService)
+	conversationHandler := conversation.NewHandler(conversationService)
 
 	// Setup Gin router
 	router := gin.Default()
@@ -116,6 +127,12 @@ func main() {
 			adminProtected.PUT("/third-party-accounts/:id", thirdPartyHandler.UpdateAccount)
 			adminProtected.DELETE("/third-party-accounts/:id", thirdPartyHandler.DeleteAccount)
 			adminProtected.POST("/third-party-accounts/:id/test", thirdPartyHandler.TestAccount)
+			// Prompt template management
+			adminProtected.GET("/prompt-templates", aiHandler.ListPromptTemplates)
+			adminProtected.POST("/prompt-templates", aiHandler.CreatePromptTemplate)
+			adminProtected.GET("/prompt-templates/:id", aiHandler.GetPromptTemplate)
+			adminProtected.PUT("/prompt-templates/:id", aiHandler.UpdatePromptTemplate)
+			adminProtected.DELETE("/prompt-templates/:id", aiHandler.DeletePromptTemplate)
 		}
 
 		// User routes
@@ -129,6 +146,17 @@ func main() {
 			userProtected.PUT("/profile", userHandler.UpdateProfile)
 			userProtected.POST("/logout", userHandler.Logout)
 			userProtected.POST("/heartbeat", userHandler.Heartbeat)
+
+			// Conversation routes
+			userProtected.GET("/conversations", conversationHandler.GetUserConversations)
+			userProtected.POST("/conversations", conversationHandler.CreateConversation)
+			userProtected.GET("/conversations/:id", conversationHandler.GetConversation)
+			userProtected.DELETE("/conversations/:id", conversationHandler.DeleteConversation)
+			userProtected.POST("/conversations/:id/messages", conversationHandler.AddMessage)
+			userProtected.PUT("/conversations/:id/title", conversationHandler.UpdateConversationTitle)
+			userProtected.GET("/conversations/:id/messages/:messageId/analysis", conversationHandler.StreamAnalysis)
+			userProtected.GET("/conversations/:id/messages/:messageId/advanced-search", conversationHandler.StreamAdvancedSearch)
+			userProtected.POST("/conversations/:id/continue", conversationHandler.StreamContinueConversation)
 		}
 
 		// Semantic Scholar API routes (public for now, can add auth later)

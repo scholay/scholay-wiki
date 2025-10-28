@@ -27,12 +27,20 @@ type Client struct {
 
 // NewClient creates a new Semantic Scholar API client
 func NewClient(apiKey string) *Client {
+	return NewClientWithBaseURL(apiKey, BaseURL)
+}
+
+// NewClientWithBaseURL creates a new Semantic Scholar API client with custom base URL
+func NewClientWithBaseURL(apiKey string, baseURL string) *Client {
+	if baseURL == "" {
+		baseURL = BaseURL
+	}
 	return &Client{
 		apiKey: apiKey,
 		httpClient: &http.Client{
 			Timeout: DefaultTimeout,
 		},
-		baseURL: BaseURL,
+		baseURL: baseURL,
 		recURL:  RecommendationsURL,
 	}
 }
@@ -47,6 +55,9 @@ func (c *Client) doRequest(method, urlStr string, body io.Reader) (*http.Respons
 	// Add headers
 	if c.apiKey != "" {
 		req.Header.Set("x-api-key", c.apiKey)
+		fmt.Printf("[Client] Using API key (length: %d) for request to: %s\n", len(c.apiKey), urlStr)
+	} else {
+		fmt.Printf("[Client] NO API KEY - Using free tier for request to: %s\n", urlStr)
 	}
 	req.Header.Set("Content-Type", "application/json")
 

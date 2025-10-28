@@ -57,4 +57,34 @@ export const userAPI = {
     api.put('/user/profile', { username, avatar_url: avatarURL }),
 };
 
+export const conversationAPI = {
+  // Get all conversations for current user
+  getConversations: (page = 1, pageSize = 20) =>
+    api.get('/user/conversations', { params: { page, page_size: pageSize } }),
+
+  // Create a new conversation
+  createConversation: (title) =>
+    api.post('/user/conversations', { title }),
+
+  // Get a conversation with all messages
+  getConversation: (id) =>
+    api.get(`/user/conversations/${id}`),
+
+  // Delete a conversation
+  deleteConversation: (id) =>
+    api.delete(`/user/conversations/${id}`),
+
+  // Add a message to a conversation (with optional paper search)
+  addMessage: (conversationId, content, searchQuery = '', searchPapers = false) =>
+    api.post(`/user/conversations/${conversationId}/messages`, {
+      content,
+      search_query: searchQuery,
+      search_papers: searchPapers,
+    }),
+
+  // Update conversation title
+  updateTitle: (conversationId, title) =>
+    api.put(`/user/conversations/${conversationId}/title`, { title }),
+};
+
 export default api;

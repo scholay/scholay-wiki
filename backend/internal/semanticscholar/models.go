@@ -17,12 +17,12 @@ type Paper struct {
 	OpenAccessPDF    *OpenAccessPDF     `json:"openAccessPdf,omitempty"`
 	FieldsOfStudy    []string           `json:"fieldsOfStudy,omitempty"`
 	S2FieldsOfStudy  []S2FieldOfStudy   `json:"s2FieldsOfStudy,omitempty"`
-	Authors          []Author           `json:"authors,omitempty"`
-	Citations        []Citation         `json:"citations,omitempty"`
-	References       []Citation         `json:"references,omitempty"`
-	Embedding        *PaperEmbedding    `json:"embedding,omitempty"`
-	TLDR             *TLDR              `json:"tldr,omitempty"`
-	ExternalIDs      map[string]string  `json:"externalIds,omitempty"`
+	Authors          []Author                `json:"authors,omitempty"`
+	Citations        []Citation              `json:"citations,omitempty"`
+	References       []Citation              `json:"references,omitempty"`
+	Embedding        *PaperEmbedding         `json:"embedding,omitempty"`
+	TLDR             *TLDR                   `json:"tldr,omitempty"`
+	ExternalIDs      map[string]interface{}  `json:"externalIds,omitempty"`
 }
 
 // Author represents a paper author

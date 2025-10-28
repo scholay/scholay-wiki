@@ -1,6 +1,9 @@
 -- Scholar Database Schema
 -- This file contains all table definitions for the Scholar project
 
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+
 -- Admin users table
 CREATE TABLE IF NOT EXISTS `admin_users` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -165,3 +168,49 @@ CREATE TABLE IF NOT EXISTS `third_party_accounts` (
   INDEX `idx_type_status` (`type`, `status`),
   INDEX `idx_last_used` (`last_used_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Third-party API account configurations';
+
+-- Conversations table
+CREATE TABLE IF NOT EXISTS `conversations` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT 'User ID',
+  `title` VARCHAR(255) NOT NULL COMMENT 'Conversation title (auto-generated from first message)',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_updated_at` (`updated_at`),
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='User conversation history';
+
+-- Conversation messages table
+CREATE TABLE IF NOT EXISTS `conversation_messages` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `conversation_id` BIGINT UNSIGNED NOT NULL COMMENT 'Conversation ID',
+  `role` VARCHAR(20) NOT NULL COMMENT 'Message role: user, assistant, system',
+  `content` TEXT NOT NULL COMMENT 'Message content',
+  `search_query` VARCHAR(500) COMMENT 'Search query if this is a user search message',
+  `search_results` JSON COMMENT 'Semantic Scholar search results',
+  `search_results_total` INT NOT NULL DEFAULT 0 COMMENT 'Total count of search results from Semantic Scholar',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_conversation_id` (`conversation_id`),
+  INDEX `idx_created_at` (`created_at`),
+  FOREIGN KEY (`conversation_id`) REFERENCES `conversations`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Messages within conversations';
+
+-- Prompt templates table
+CREATE TABLE IF NOT EXISTS `prompt_templates` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(100) NOT NULL COMMENT 'Template name',
+  `key` VARCHAR(50) NOT NULL UNIQUE COMMENT 'Template key for code reference',
+  `template` TEXT NOT NULL COMMENT 'Prompt template with placeholders',
+  `description` TEXT COMMENT 'Template description',
+  `variables` JSON COMMENT 'Template variables definition',
+  `is_active` TINYINT NOT NULL DEFAULT 1 COMMENT '1=active, 0=inactive',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `idx_key` (`key`),
+  INDEX `idx_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI prompt templates';
+

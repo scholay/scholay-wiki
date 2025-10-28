@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/semanticscholar"
 
 	"github.com/gin-gonic/gin"
 )
@@ -12,9 +13,9 @@ type Handler struct {
 }
 
 // NewHandler creates a new MCP handler
-func NewHandler(apiKey string) *Handler {
+func NewHandler(manager *semanticscholar.Manager) *Handler {
 	return &Handler{
-		server: NewMCPServer(apiKey),
+		server: NewMCPServer(manager),
 	}
 }
 

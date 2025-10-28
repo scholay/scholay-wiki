@@ -2,12 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
-import { AuthProvider, useAuth } from './utils/AuthContext';
-
-const PrivateRoute = ({ children }) => {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? children : <Navigate to="/" />;
-};
+import { AuthProvider } from './utils/AuthContext';
 
 function App() {
   return (
@@ -15,14 +10,8 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route
-            path="/dashboard"
-            element={
-              <PrivateRoute>
-                <Dashboard />
-              </PrivateRoute>
-            }
-          />
+          <Route path="/search" element={<Navigate to="/" replace />} />
+          <Route path="/dashboard" element={<Dashboard />} />
         </Routes>
       </Router>
     </AuthProvider>

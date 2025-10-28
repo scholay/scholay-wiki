@@ -9,13 +9,13 @@ import (
 
 // MCPServer represents an MCP server for Semantic Scholar API
 type MCPServer struct {
-	client *semanticscholar.Client
+	manager *semanticscholar.Manager
 }
 
-// NewMCPServer creates a new MCP server
-func NewMCPServer(apiKey string) *MCPServer {
+// NewMCPServer creates a new MCP server with Manager
+func NewMCPServer(manager *semanticscholar.Manager) *MCPServer {
 	return &MCPServer{
-		client: semanticscholar.NewClient(apiKey),
+		manager: manager,
 	}
 }
 
@@ -259,10 +259,18 @@ func (s *MCPServer) handleSearchPapers(args map[string]interface{}) (*ToolRespon
 		return nil, fmt.Errorf("query is required")
 	}
 
+	// Default fields to return for complete paper information
+	defaultFields := []string{
+		"paperId", "title", "abstract", "year", "authors",
+		"citationCount", "venue", "publicationDate", "url",
+		"referenceCount", "fieldsOfStudy", "externalIds",
+	}
+
 	opts := semanticscholar.PaperSearchOptions{
 		Query:  query,
-		Limit:  getIntArg(args, "limit", 10),
+		Limit:  getIntArg(args, "limit", 40),
 		Offset: getIntArg(args, "offset", 0),
+		Fields: defaultFields,
 	}
 
 	if year, ok := args["year"].(string); ok {
@@ -272,7 +280,8 @@ func (s *MCPServer) handleSearchPapers(args map[string]interface{}) (*ToolRespon
 		opts.FieldsOfStudy = interfaceSliceToStringSlice(fields)
 	}
 
-	result, err := s.client.SearchPapers(opts)
+	// Use manager which will automatically get API key from backend config
+	result, err := s.manager.SearchPapers(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +300,7 @@ func (s *MCPServer) handleGetPaper(args map[string]interface{}) (*ToolResponse, 
 		opts.Fields = interfaceSliceToStringSlice(fields)
 	}
 
-	result, err := s.client.GetPaper(paperID, opts)
+	result, err := s.manager.GetPaper(paperID, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +319,7 @@ func (s *MCPServer) handleGetPaperCitations(args map[string]interface{}) (*ToolR
 		Offset: getIntArg(args, "offset", 0),
 	}
 
-	result, err := s.client.GetPaperCitations(paperID, opts)
+	result, err := s.manager.GetPaperCitations(paperID, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +338,7 @@ func (s *MCPServer) handleGetPaperReferences(args map[string]interface{}) (*Tool
 		Offset: getIntArg(args, "offset", 0),
 	}
 
-	result, err := s.client.GetPaperReferences(paperID, opts)
+	result, err := s.manager.GetPaperReferences(paperID, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +358,7 @@ func (s *MCPServer) handleSearchAuthors(args map[string]interface{}) (*ToolRespo
 		Offset: getIntArg(args, "offset", 0),
 	}
 
-	result, err := s.client.SearchAuthors(opts)
+	result, err := s.manager.SearchAuthors(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -368,7 +377,7 @@ func (s *MCPServer) handleGetAuthor(args map[string]interface{}) (*ToolResponse,
 		fields = interfaceSliceToStringSlice(f)
 	}
 
-	result, err := s.client.GetAuthor(authorID, fields)
+	result, err := s.manager.GetAuthor(authorID, fields)
 	if err != nil {
 		return nil, err
 	}
@@ -385,7 +394,7 @@ func (s *MCPServer) handleGetAuthorPapers(args map[string]interface{}) (*ToolRes
 	limit := getIntArg(args, "limit", 100)
 	offset := getIntArg(args, "offset", 0)
 
-	result, err := s.client.GetAuthorPapers(authorID, nil, offset, limit)
+	result, err := s.manager.GetAuthorPapers(authorID, nil, offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -403,7 +412,7 @@ func (s *MCPServer) handleGetRecommendations(args map[string]interface{}) (*Tool
 		Limit: getIntArg(args, "limit", 10),
 	}
 
-	result, err := s.client.GetRecommendationsForPaper(paperID, opts)
+	result, err := s.manager.GetRecommendationsForPaper(paperID, opts)
 	if err != nil {
 		return nil, err
 	}
