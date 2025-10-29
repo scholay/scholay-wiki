@@ -1,0 +1,220 @@
+.filter-sidebar {
+  width: 280px;
+  height: 100%;
+  background: rgb(32, 33, 35);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.filter-sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.filter-sidebar-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgb(236, 236, 241);
+  margin: 0;
+}
+
+.clear-all-btn {
+  background: transparent;
+  border: none;
+  color: rgba(236, 236, 241, 0.6);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.clear-all-btn:hover {
+  background: rgba(64, 65, 79, 0.8);
+  color: rgb(236, 236, 241);
+}
+
+.results-summary {
+  padding: 12px 20px;
+  background: rgba(64, 65, 79, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 14px;
+  color: rgba(236, 236, 241, 0.6);
+}
+
+.results-summary strong {
+  color: rgb(236, 236, 241);
+  font-weight: 600;
+}
+
+.filter-sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.filter-sidebar-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.filter-sidebar-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.filter-sidebar-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.filter-sidebar-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.filter-section {
+  margin-bottom: 24px;
+}
+
+.filter-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgb(236, 236, 241);
+  margin: 0 0 12px 0;
+}
+
+/* Year Inputs - Dark theme */
+.year-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.year-field {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  font-size: 13px;
+  background: rgba(64, 65, 79, 0.3);
+  color: rgb(236, 236, 241);
+  transition: all 0.15s ease;
+}
+
+.year-field:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(64, 65, 79, 0.5);
+  box-shadow: none;
+}
+
+.year-dash {
+  color: rgba(236, 236, 241, 0.5);
+  font-weight: 500;
+}
+
+/* Filter Options - Dark theme */
+.filter-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.filter-options.scrollable {
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.filter-options.scrollable::-webkit-scrollbar {
+  width: 4px;
+}
+
+.filter-options.scrollable::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.filter-options.scrollable::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.filter-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  background: transparent;
+}
+
+.filter-option:hover {
+  background: rgba(64, 65, 79, 0.8);
+}
+
+.filter-option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: rgb(25, 195, 125);
+  flex-shrink: 0;
+}
+
+.filter-option span {
+  font-size: 14px;
+  color: rgba(236, 236, 241, 0.8);
+  user-select: none;
+}
+
+.filter-option:hover span {
+  color: rgb(236, 236, 241);
+}
+
+.filter-option.open-access {
+  padding: 10px;
+  background: transparent;
+  border-radius: 6px;
+  margin-top: -12px;
+}
+
+.filter-option.open-access:hover {
+  background: rgba(64, 65, 79, 0.8);
+}
+
+/* Venue Field - Dark theme */
+.venue-field {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  font-size: 13px;
+  background: rgba(64, 65, 79, 0.3);
+  color: rgb(236, 236, 241);
+  transition: all 0.15s ease;
+}
+
+.venue-field:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(64, 65, 79, 0.5);
+  box-shadow: none;
+}
+
+.venue-field::placeholder {
+  color: rgba(236, 236, 241, 0.4);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .filter-sidebar {
+    width: 240px;
+  }
+}

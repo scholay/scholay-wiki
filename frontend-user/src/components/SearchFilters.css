@@ -1,0 +1,303 @@
+/* Pure dark theme Search Filters - ChatGPT style */
+.search-filters {
+  background: rgb(32, 33, 35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 0;
+  margin-top: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  animation: expandDown 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: calc(100vh - 280px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes expandDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.filters-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgb(236, 236, 241);
+  margin: 0;
+}
+
+.clear-filters-btn {
+  background: transparent;
+  border: none;
+  color: rgba(236, 236, 241, 0.6);
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.clear-filters-btn:hover {
+  background: rgba(64, 65, 79, 1);
+  color: rgb(236, 236, 241);
+}
+
+.filters-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Custom scrollbar for filters content */
+.filters-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.filters-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  margin: 8px 0;
+}
+
+.filters-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.filters-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.filter-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgb(236, 236, 241);
+  margin-bottom: 8px;
+}
+
+/* Year filter group with histogram */
+.year-filter-group {
+  width: 100%;
+}
+
+/* Year Range - ChatGPT style */
+.year-range {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.year-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 400;
+  color: #1a1a1a;
+  background: white;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.year-input:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.year-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.12);
+}
+
+.year-separator {
+  color: #9ca3af;
+  font-weight: 400;
+  font-size: 14px;
+}
+
+/* Checkboxes - Clean grid layout */
+.checkbox-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.checkbox-list.scrollable {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  background: transparent;
+  border: none;
+}
+
+.checkbox-item:hover {
+  background: rgba(64, 65, 79, 0.8);
+}
+
+.checkbox-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: rgb(25, 195, 125);
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+
+.checkbox-item span {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(236, 236, 241, 0.8);
+  user-select: none;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checkbox-item:hover span {
+  color: rgb(236, 236, 241);
+}
+
+/* Open Access Toggle - Dark theme */
+.open-access-toggle {
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.open-access-toggle:hover {
+  background: rgba(64, 65, 79, 0.8);
+}
+
+.open-access-toggle span {
+  font-weight: 400;
+  font-size: 13px;
+  color: rgba(236, 236, 241, 0.8);
+}
+
+.open-access-toggle:hover span {
+  color: rgb(236, 236, 241);
+}
+
+.open-access-toggle input[type="checkbox"] {
+  accent-color: rgb(25, 195, 125);
+}
+
+/* Venue Input - Dark theme style */
+.venue-input {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgb(236, 236, 241);
+  background: rgba(64, 65, 79, 0.3);
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.venue-input:hover {
+  background: rgba(64, 65, 79, 0.5);
+}
+
+.venue-input:focus {
+  outline: none;
+  background: rgba(64, 65, 79, 0.6);
+}
+
+.venue-input::placeholder {
+  color: rgba(236, 236, 241, 0.4);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .filters-content {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .search-filters {
+    padding: 16px 18px;
+    margin-top: 10px;
+  }
+}
+
+/* Dark theme support for ChatGPT style */
+@media (prefers-color-scheme: dark) {
+  .search-filters {
+    background: rgba(32, 33, 35, 0.95);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .filters-header {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .filters-header h3 {
+    color: #ececec;
+  }
+
+  .filter-label {
+    color: #c5c5c5;
+  }
+
+  .year-input,
+  .venue-input {
+    background: rgba(64, 65, 79, 0.5);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #ececec;
+  }
+
+  .year-input:hover,
+  .venue-input:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .checkbox-item span {
+    color: #d1d1d1;
+  }
+
+  .checkbox-item:hover {
+    background: rgba(102, 126, 234, 0.1);
+  }
+
+  .checkbox-item:hover span {
+    color: #ececec;
+  }
+}

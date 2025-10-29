@@ -1,0 +1,419 @@
+.search-results-page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: rgb(32, 33, 35);
+}
+
+/* 顶部导航栏 - ChatGPT dark theme */
+.results-navbar {
+  background: rgb(32, 33, 35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  z-index: 10;
+}
+
+.navbar-content {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  max-width: 1920px;
+  margin: 0 auto;
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  font-size: 20px;
+  font-weight: 700;
+  color: rgb(236, 236, 241);
+}
+
+.navbar-search-form {
+  flex: 1;
+  max-width: 720px;
+}
+
+.search-input-group {
+  display: flex;
+  align-items: center;
+  background: rgba(64, 65, 79, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  transition: all 0.15s ease;
+}
+
+.search-input-group:focus-within {
+  background: rgba(64, 65, 79, 0.5);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: none;
+}
+
+.search-icon {
+  color: rgba(236, 236, 241, 0.6);
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.navbar-search-input {
+  flex: 1;
+  border: none;
+  background: none;
+  font-size: 15px;
+  color: rgb(236, 236, 241);
+  outline: none;
+}
+
+.navbar-search-input::placeholder {
+  color: rgba(236, 236, 241, 0.4);
+}
+
+.filter-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(236, 236, 241, 0.6);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 400;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  margin-right: 8px;
+}
+
+.filter-toggle-btn:hover {
+  background: rgba(64, 65, 79, 1);
+  color: rgba(236, 236, 241, 1);
+}
+
+.filter-toggle-btn.active {
+  background: rgba(64, 65, 79, 1);
+  color: rgba(236, 236, 241, 1);
+}
+
+.navbar-search-btn {
+  padding: 8px 20px;
+  background: rgb(25, 195, 125);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.navbar-search-btn:hover:not(:disabled) {
+  background: rgb(19, 171, 107);
+}
+
+.navbar-search-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.navbar-filters-container {
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* 主要内容区 - 三栏布局 */
+.results-main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* 中间论文列表容器 - Dark theme */
+.papers-container {
+  flex: 1;
+  overflow-y: auto;
+  background: rgb(32, 33, 35);
+  display: flex;
+  flex-direction: column;
+}
+
+.papers-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.papers-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.papers-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.papers-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* 加载和空状态 - Dark theme */
+.loading-state,
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: rgba(236, 236, 241, 0.6);
+  padding: 60px 20px;
+}
+
+.loading-state .spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top-color: rgb(25, 195, 125);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-state svg {
+  margin-bottom: 16px;
+  color: rgba(236, 236, 241, 0.3);
+}
+
+.empty-state h3 {
+  font-size: 18px;
+  color: rgb(236, 236, 241);
+  margin: 0 0 8px 0;
+}
+
+.empty-state p {
+  font-size: 14px;
+  color: rgba(236, 236, 241, 0.6);
+  margin: 0;
+}
+
+/* 结果头部 - Dark theme */
+.results-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgb(32, 33, 35);
+}
+
+.results-info {
+  font-size: 14px;
+  color: rgba(236, 236, 241, 0.6);
+  margin: 0;
+}
+
+.results-info strong {
+  color: rgb(236, 236, 241);
+  font-weight: 600;
+}
+
+/* 论文列表 */
+.papers-list {
+  flex: 1;
+}
+
+.paper-item {
+  display: flex;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: rgb(32, 33, 35);
+}
+
+.paper-item:hover {
+  background: rgba(64, 65, 79, 0.5);
+}
+
+.paper-item.selected {
+  background: rgba(64, 65, 79, 0.8);
+  border-left: 3px solid rgb(25, 195, 125);
+}
+
+.paper-number {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(64, 65, 79, 0.5);
+  color: rgba(236, 236, 241, 0.6);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.paper-item.selected .paper-number {
+  background: rgb(25, 195, 125);
+  color: white;
+}
+
+.paper-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.paper-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgb(236, 236, 241);
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.paper-item:hover .paper-title {
+  color: rgb(25, 195, 125);
+}
+
+.paper-authors {
+  font-size: 14px;
+  color: rgba(236, 236, 241, 0.6);
+  margin: 0 0 12px 0;
+}
+
+.paper-abstract {
+  font-size: 14px;
+  color: rgba(236, 236, 241, 0.8);
+  line-height: 1.6;
+  margin: 0 0 12px 0;
+  text-align: justify;
+}
+
+.paper-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: rgba(236, 236, 241, 0.6);
+  padding: 4px 8px;
+  background: rgba(64, 65, 79, 0.5);
+  border-radius: 4px;
+}
+
+.meta-item svg {
+  flex-shrink: 0;
+}
+
+.meta-item.open-access {
+  background: rgba(25, 195, 125, 0.2);
+  color: rgb(25, 195, 125);
+}
+
+/* 分页器 - Dark theme */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgb(32, 33, 35);
+}
+
+.pagination-btn {
+  padding: 8px 16px;
+  background: rgba(64, 65, 79, 0.5);
+  border: none;
+  color: rgba(236, 236, 241, 0.8);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: rgba(64, 65, 79, 0.8);
+  color: rgb(236, 236, 241);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-pages {
+  display: flex;
+  gap: 4px;
+}
+
+.pagination-page {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(64, 65, 79, 0.5);
+  border: none;
+  color: rgba(236, 236, 241, 0.8);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pagination-page:hover {
+  background: rgba(64, 65, 79, 0.8);
+  color: rgb(236, 236, 241);
+}
+
+.pagination-page.active {
+  background: rgb(25, 195, 125);
+  color: white;
+}
+
+/* 响应式 */
+@media (max-width: 1280px) {
+  .results-main {
+    position: relative;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .navbar-search-form {
+    max-width: 100%;
+  }
+
+  .results-main {
+    flex-direction: column;
+  }
+
+  .filter-sidebar {
+    display: none;
+  }
+}

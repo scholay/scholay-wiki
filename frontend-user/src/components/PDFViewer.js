@@ -1,0 +1,210 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+import './PDFViewer.css';
+
+// 为 PDF.js 指定静态 worker 文件
+const publicBase = process.env.PUBLIC_URL || '';
+const pdfWorkerSrc = `${publicBase}/pdf.worker.min.mjs`;
+const pdfAssetsBase = `${publicBase}/pdfjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
+
+const PDFViewer = ({ pdfUrl, paperTitle }) => {
+  const [numPages, setNumPages] = useState(null);
+  const [scale, setScale] = useState(1.0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // 使用后端代理来绕过CORS限制
+  const proxyUrl = `/api/v1/proxy/pdf?url=${encodeURIComponent(pdfUrl)}`;
+
+  // 调试日志
+  console.log('PDF原始URL:', pdfUrl);
+  console.log('PDF代理URL:', proxyUrl);
+
+  useEffect(() => {
+    setNumPages(null);
+    setIsLoading(true);
+    setError(null);
+    setScale(1.0);
+  }, [proxyUrl]);
+
+  const onDocumentLoadSuccess = ({ numPages }) => {
+    console.log('PDF加载成功,共', numPages, '页');
+    setNumPages(numPages);
+    setIsLoading(false);
+    setError(null);
+  };
+
+  const onDocumentLoadError = (error) => {
+    console.error('PDF加载失败:', error);
+    setError('PDF加载失败,可能是由于CORS限制或文件不可用');
+    setIsLoading(false);
+  };
+
+  // 配置PDF加载选项
+  const pdfOptions = {
+    withCredentials: false,
+  };
+
+  const documentOptions = useMemo(() => ({
+    cMapUrl: `${pdfAssetsBase}/cmaps/`,
+    cMapPacked: true,
+    standardFontDataUrl: `${pdfAssetsBase}/standard_fonts/`,
+  }), [pdfAssetsBase]);
+
+  const handleZoomIn = () => {
+    setScale(prev => Math.min(prev + 0.2, 3.0));
+  };
+
+  const handleZoomOut = () => {
+    setScale(prev => Math.max(prev - 0.2, 0.5));
+  };
+
+  const handleResetZoom = () => {
+    setScale(1.0);
+  };
+
+  return (
+    <div className="pdf-viewer">
+      {/* 工具栏 */}
+      <div className="pdf-toolbar">
+        <div className="pdf-info">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <span className="pdf-title">{paperTitle || 'PDF预览'}</span>
+        </div>
+
+        <div className="pdf-controls">
+          {/* 缩放控制 */}
+          <div className="zoom-controls">
+            <button
+              className="control-btn"
+              onClick={handleZoomOut}
+              disabled={scale <= 0.5}
+              title="缩小"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="8" y1="11" x2="14" y2="11"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </button>
+            <span className="zoom-level">{Math.round(scale * 100)}%</span>
+            <button
+              className="control-btn"
+              onClick={handleZoomIn}
+              disabled={scale >= 3.0}
+              title="放大"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="11" y1="8" x2="11" y2="14"/>
+                <line x1="8" y1="11" x2="14" y2="11"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </button>
+            <button
+              className="control-btn"
+              onClick={handleResetZoom}
+              title="重置缩放"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="23 4 23 10 17 10"/>
+                <polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+            </button>
+          </div>
+
+          <div className="divider"></div>
+
+          {numPages && (
+            <div className="page-controls">
+              <span className="page-info">共 {numPages} 页</span>
+            </div>
+          )}
+
+          <div className="divider"></div>
+
+          {/* 外部打开 */}
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="control-btn external-btn"
+            title="在新窗口打开"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      {/* PDF 内容区域 */}
+      <div className={`pdf-content ${isLoading ? 'pdf-content--loading' : ''}`}>
+        {isLoading && !error && (
+          <div className="pdf-skeleton-overlay" aria-hidden="true">
+            <div className="pdf-skeleton">
+              {Array.from({ length: Math.min(numPages || 3, 3) }, (_, index) => (
+                <div className="pdf-skeleton-page" key={`skeleton_${index}`}>
+                  <div className="pdf-skeleton-shimmer" />
+                </div>
+              ))}
+              <span className="pdf-skeleton-text">正在准备PDF预览…</span>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="pdf-error">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <p>{error}</p>
+            <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="fallback-link">
+              在新窗口打开PDF
+            </a>
+          </div>
+        )}
+
+        {!error && (
+          <Document
+            key={proxyUrl}
+            file={{ url: proxyUrl, ...pdfOptions }}
+            onLoadSuccess={onDocumentLoadSuccess}
+            onLoadError={onDocumentLoadError}
+            loading=""
+            error=""
+            className="pdf-document"
+            options={documentOptions}
+          >
+            {Array.from({ length: numPages || 0 }, (_, index) => index + 1)
+              .map(pageNumber => (
+                <Page
+                  key={`page_${pageNumber}`}
+                  pageNumber={pageNumber}
+                  scale={scale}
+                  renderTextLayer={true}
+                  renderAnnotationLayer={true}
+                  className="pdf-page"
+                  loading=""
+                  error=""
+                />
+              ))}
+          </Document>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default PDFViewer;

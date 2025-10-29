@@ -4,6 +4,7 @@ import { useAuth } from '../utils/AuthContext';
 import AuthModal from '../components/AuthModal';
 import ConversationSidebar from '../components/ConversationSidebar';
 import PaperList from '../components/PaperList';
+import SearchFilters from '../components/SearchFilters';
 import ReactMarkdown from 'react-markdown';
 import PaperCitationMarkdown from '../components/PaperCitationMarkdown';
 import { conversationAPI } from '../services/api';
@@ -15,6 +16,15 @@ const Home = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [searchMode, setSearchMode] = useState('advanced'); // 'normal' or 'advanced'
+  const [showFilters, setShowFilters] = useState(false); // 显示筛选条件
+  const [filters, setFilters] = useState({
+    yearFrom: '',
+    yearTo: '',
+    publicationTypes: [],
+    fieldsOfStudy: [],
+    openAccessPdf: '',
+    venue: '',
+  });
 
   // Conversation state
   const [currentConversationId, setCurrentConversationId] = useState(null);
@@ -251,6 +261,24 @@ const Home = () => {
     }
 
     const userMessage = searchQuery.trim();
+
+    // 普通搜索模式：直接跳转到结果页面，带上筛选条件
+    if (searchMode === 'normal') {
+      const params = new URLSearchParams({ query: userMessage });
+
+      // 添加筛选条件到URL参数
+      if (filters.yearFrom) params.set('yearFrom', filters.yearFrom);
+      if (filters.yearTo) params.set('yearTo', filters.yearTo);
+      if (filters.publicationTypes.length > 0) params.set('publicationTypes', filters.publicationTypes.join(','));
+      if (filters.fieldsOfStudy.length > 0) params.set('fieldsOfStudy', filters.fieldsOfStudy.join(','));
+      if (filters.openAccessPdf) params.set('openAccessPdf', filters.openAccessPdf);
+      if (filters.venue) params.set('venue', filters.venue);
+
+      navigate(`/search-results?${params.toString()}`);
+      return;
+    }
+
+    // 以下是高级搜索的逻辑（保持不变）
     const isFirstMessage = messages.length === 0;
 
     setSearchQuery('');
@@ -317,12 +345,12 @@ const Home = () => {
       if (searchMode === 'advanced' && hasAdvancedSearch) {
         startContinueConversation(conversationId, userMessage);
       } else {
-        // 其他模式需要先创建用户消息
+        // 高级搜索第一次
         const response = await conversationAPI.addMessage(
           conversationId,
           userMessage,
           userMessage,
-          searchMode === 'normal' // Only do direct search in normal mode
+          false // Advanced mode doesn't use direct search
         );
 
         if (response.data.code === 0 && response.data.data) {
@@ -332,17 +360,8 @@ const Home = () => {
             msg.id === tempUserMessage.id ? newMessage : msg
           ));
 
-          if (searchMode === 'normal') {
-            // Normal mode: direct search results
-            if (newMessage.search_results && newMessage.search_results.length > 0) {
-              setPapers(newMessage.search_results);
-              setPapersTotal(newMessage.search_results_total || 0);
-              startAIAnalysis(conversationId, newMessage.id);
-            }
-          } else {
-            // First time advanced search
-            startAdvancedSearch(conversationId, newMessage.id, userMessage);
-          }
+          // First time advanced search
+          startAdvancedSearch(conversationId, newMessage.id, userMessage);
         } else {
           throw new Error(response.data.message || 'Failed to send message');
         }
@@ -517,107 +536,8 @@ const Home = () => {
     };
   };
 
-  const startAIAnalysis = (convId, messageId) => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
-
-    const token = localStorage.getItem('user_token');
-    if (!token) {
-      console.error('No auth token found');
-      return;
-    }
-
-    setIsStreaming(true);
-    setStreamingContent('');
-    streamingContentRef.current = '';
-    setShowAIThinking(true);
-
-    const url = `${process.env.REACT_APP_API_URL || 'http://localhost:5411/api/v1'}/user/conversations/${convId}/messages/${messageId}/analysis`;
-    const eventSource = new EventSource(`${url}?token=${token}`);
-    eventSourceRef.current = eventSource;
-
-    eventSource.onopen = () => {
-      console.log('AI analysis stream started');
-    };
-
-    eventSource.onmessage = (event) => {
-      if (event.data.startsWith('[DONE]')) {
-        console.log('AI analysis completed');
-        eventSource.close();
-
-        // 先清空流式内容和停止状态，避免重复显示
-        const finalContent = streamingContentRef.current;
-
-        // 解析推荐问题
-        const questions = extractSuggestedQuestions(finalContent);
-
-        // 移除推荐问题标签后的内容
-        const cleanContent = removeQuestionTags(finalContent);
-
-        setStreamingContent('');
-        streamingContentRef.current = '';
-        setIsStreaming(false);
-
-        // 然后将清理后的流式内容添加到消息列表，并附带推荐问题
-        if (cleanContent) {
-          setMessages(prev => {
-            const lastMessage = prev[prev.length - 1];
-            if (!lastMessage || lastMessage.role !== 'assistant' || !lastMessage.content) {
-              return [...prev, {
-                id: 'assistant-' + Date.now(),
-                role: 'assistant',
-                content: cleanContent,
-                suggestedQuestions: questions.length > 0 ? questions : undefined,
-                created_at: new Date().toISOString()
-              }];
-            }
-            return prev;
-          });
-        }
-
-        setLoading(false);
-        setShowAIThinking(false);
-        return;
-      }
-
-      if (event.data.startsWith('[ERROR]')) {
-        console.error('AI analysis error:', event.data);
-        eventSource.close();
-        setIsStreaming(false);
-        setLoading(false);
-        setShowAIThinking(false);
-        setStreamingContent('');
-        return;
-      }
-
-      try {
-        const data = JSON.parse(event.data);
-        if (data.choices && data.choices[0] && data.choices[0].delta) {
-          const delta = data.choices[0].delta;
-          if (delta.content) {
-            // 收到第一个内容片段时，关闭 AI 思考动画和 loading 状态
-            if (streamingContentRef.current === '') {
-              setShowAIThinking(false);
-              setLoading(false);
-            }
-            streamingContentRef.current += delta.content;
-            setStreamingContent(prev => prev + delta.content);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to parse SSE data:', err);
-      }
-    };
-
-    eventSource.onerror = (err) => {
-      console.error('SSE error:', err);
-      eventSource.close();
-      setIsStreaming(false);
-      setLoading(false);
-      setShowAIThinking(false);
-    };
-  };
+  // startAIAnalysis 函数已被删除，因为普通搜索不再使用AI分析
+  // 普通搜索现在直接跳转到 /search-results 页面
 
   // 继续对话 - 用于高级搜索后的追问
   const startContinueConversation = async (conversationId, query) => {
@@ -1065,44 +985,78 @@ const Home = () => {
                 </div>
               )}
               <form onSubmit={handleSearch} className="chat-input-form">
-                <textarea
-                  ref={textareaRef}
-                  className="chat-input"
-                  placeholder={searchMode === 'normal' ? '输入论文标题、关键词进行搜索...' : '用自然语言描述您的搜索需求，AI 将智能理解并搜索...'}
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    // Auto-resize textarea
-                    e.target.style.height = 'auto';
-                    e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
-                  }}
-                  onFocus={() => {
-                    if (!isAuthenticated) {
-                      setShowAuthModal(true);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    // Submit on Enter, new line on Shift+Enter
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      if (!loading && searchQuery.trim()) {
-                        handleSearch(e);
-                      }
-                    }
-                  }}
-                  disabled={loading}
-                  rows={1}
-                />
-                <button type="submit" className="btn-send" disabled={loading || !searchQuery.trim()}>
-                  {loading ? (
-                    <div className="spinner-small"></div>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
+                <div className="input-with-filters">
+                  {/* 筛选按钮在最左侧 - ChatGPT style */}
+                  {searchMode === 'normal' && messages.length === 0 && (
+                    <button
+                      type="button"
+                      className={`filter-toggle-btn ${
+                        showFilters ||
+                        filters.yearFrom ||
+                        filters.yearTo ||
+                        filters.publicationTypes.length > 0 ||
+                        filters.fieldsOfStudy.length > 0 ||
+                        filters.openAccessPdf ||
+                        filters.venue
+                          ? 'active'
+                          : ''
+                      }`}
+                      onClick={() => setShowFilters(!showFilters)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M3 7h18M6 12h12M9 17h6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                      </svg>
+                      <span>筛选</span>
+                    </button>
                   )}
-                </button>
+                  <textarea
+                    ref={textareaRef}
+                    className="chat-input"
+                    placeholder={searchMode === 'normal' ? '输入论文标题、关键词进行搜索...' : '用自然语言描述您的搜索需求，AI 将智能理解并搜索...'}
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      // Auto-resize textarea
+                      e.target.style.height = 'auto';
+                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+                    }}
+                    onFocus={() => {
+                      if (!isAuthenticated) {
+                        setShowAuthModal(true);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      // Submit on Enter, new line on Shift+Enter
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (!loading && searchQuery.trim()) {
+                          handleSearch(e);
+                        }
+                      }
+                    }}
+                    disabled={loading}
+                    rows={1}
+                  />
+                  <button type="submit" className="btn-send" disabled={loading || !searchQuery.trim()}>
+                    {loading ? (
+                      <div className="spinner-small"></div>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </form>
+              {/* 普通搜索模式下的筛选条件 */}
+              {searchMode === 'normal' && messages.length === 0 && (
+                <SearchFilters
+                  filters={filters}
+                  onFiltersChange={setFilters}
+                  isExpanded={showFilters}
+                  onToggle={() => setShowFilters(!showFilters)}
+                />
+              )}
             </div>
           </div>
 

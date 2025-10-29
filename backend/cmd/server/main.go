@@ -11,6 +11,7 @@ import (
 	"scholar-backend/internal/config"
 	"scholar-backend/internal/conversation"
 	"scholar-backend/internal/mcp"
+	"scholar-backend/internal/proxy"
 	"scholar-backend/internal/semanticscholar"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/user"
@@ -85,6 +86,9 @@ func main() {
 	conversationRepo := conversation.NewRepository(database.GetDB())
 	conversationService := conversation.NewService(conversationRepo, scholarManager, aiService)
 	conversationHandler := conversation.NewHandler(conversationService)
+
+	// Initialize Proxy module
+	proxyHandler := proxy.NewHandler()
 
 	// Setup Gin router
 	router := gin.Default()
@@ -186,6 +190,9 @@ func main() {
 			mcpGroup.GET("/tools", mcpHandler.ListTools)
 			mcpGroup.POST("/call", mcpHandler.CallTool)
 		}
+
+		// Proxy endpoints (public)
+		proxyHandler.RegisterRoutes(api)
 	}
 
 	// Health check endpoint

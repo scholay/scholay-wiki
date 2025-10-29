@@ -1,0 +1,336 @@
+.paper-preview {
+  width: 480px;
+  height: 100%;
+  background: rgb(32, 33, 35);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.paper-preview.empty {
+  justify-content: center;
+  align-items: center;
+}
+
+.empty-state {
+  text-align: center;
+  color: rgba(236, 236, 241, 0.5);
+}
+
+.empty-state svg {
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+.empty-state p {
+  font-size: 14px;
+  margin: 0;
+}
+
+.paper-preview-header {
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.paper-preview-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgb(236, 236, 241);
+  margin: 0;
+}
+
+.toggle-view-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(236, 236, 241, 0.6);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.toggle-view-btn:hover {
+  background: rgba(64, 65, 79, 0.8);
+  color: rgb(236, 236, 241);
+}
+
+.toggle-view-btn.active {
+  background: rgba(25, 195, 125, 0.15);
+  color: rgb(25, 195, 125);
+}
+
+.toggle-view-btn svg {
+  flex-shrink: 0;
+}
+
+.close-preview-btn {
+  background: transparent;
+  border: none;
+  color: rgba(236, 236, 241, 0.6);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.close-preview-btn:hover {
+  background: rgba(64, 65, 79, 0.8);
+  color: rgb(236, 236, 241);
+}
+
+.paper-preview-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.paper-preview-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.paper-preview-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.paper-preview-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.paper-preview-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* PDF Viewer - Dark theme */
+.pdf-viewer-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.pdf-header {
+  padding: 16px 20px;
+  background: rgba(64, 65, 79, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pdf-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgb(236, 236, 241);
+}
+
+.open-pdf-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgb(25, 195, 125);
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.open-pdf-btn:hover {
+  background: rgb(19, 171, 107);
+}
+
+.pdf-iframe {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: rgba(64, 65, 79, 0.2);
+}
+
+/* Paper Details - Dark theme */
+.paper-details {
+  padding: 24px;
+}
+
+.paper-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: rgb(236, 236, 241);
+  margin: 0 0 24px 0;
+  line-height: 1.4;
+}
+
+.detail-section {
+  margin-bottom: 24px;
+}
+
+.detail-section h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(236, 236, 241, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 8px 0;
+}
+
+.detail-section p {
+  font-size: 14px;
+  color: rgba(236, 236, 241, 0.8);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.authors-list {
+  font-size: 14px;
+  color: rgba(236, 236, 241, 0.8);
+  line-height: 1.6;
+}
+
+.author-name {
+  color: rgba(236, 236, 241, 0.8);
+}
+
+.abstract-text {
+  text-align: justify;
+}
+
+.tldr-section {
+  background: rgba(25, 195, 125, 0.1);
+  padding: 16px;
+  border-radius: 8px;
+  border-left: 3px solid rgb(25, 195, 125);
+}
+
+.tldr-section h4 {
+  color: rgb(25, 195, 125);
+}
+
+.tldr-text {
+  color: rgba(236, 236, 241, 0.8);
+  font-style: italic;
+}
+
+/* Metrics - Dark theme */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: rgba(64, 65, 79, 0.5);
+  border-radius: 8px;
+}
+
+.metric-label {
+  font-size: 12px;
+  color: rgba(236, 236, 241, 0.6);
+  font-weight: 500;
+}
+
+.metric-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: rgb(236, 236, 241);
+}
+
+/* Fields Tags - Dark theme */
+.fields-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.field-tag {
+  padding: 4px 12px;
+  background: rgba(64, 65, 79, 0.5);
+  color: rgba(236, 236, 241, 0.8);
+  font-size: 13px;
+  border-radius: 16px;
+  font-weight: 500;
+}
+
+/* External Link - Dark theme */
+.external-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: rgba(64, 65, 79, 0.5);
+  color: rgb(25, 195, 125);
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.15s ease;
+}
+
+.external-link-btn:hover {
+  background: rgba(64, 65, 79, 0.8);
+  border-color: rgb(25, 195, 125);
+}
+
+/* No PDF Notice - Dark theme */
+.no-pdf-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 8px;
+  color: rgb(251, 191, 36);
+  font-size: 13px;
+}
+
+.no-pdf-notice svg {
+  flex-shrink: 0;
+  color: rgb(251, 191, 36);
+}
+
+/* Responsive */
+@media (max-width: 1280px) {
+  .paper-preview {
+    width: 400px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .paper-preview {
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: 100%;
+    max-width: 480px;
+    z-index: 100;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
+  }
+}
