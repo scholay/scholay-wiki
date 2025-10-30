@@ -11,6 +11,7 @@ import (
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
+	Redis    RedisConfig
 	JWT      JWTConfig
 	Admin    AdminConfig
 }
@@ -25,6 +26,13 @@ type DatabaseConfig struct {
 	User     string
 	Password string
 	DBName   string
+}
+
+type RedisConfig struct {
+	Host     string
+	Port     string
+	Password string
+	DB       int
 }
 
 type JWTConfig struct {
@@ -53,6 +61,12 @@ func Load() *Config {
 			User:     getEnv("DB_USER", "scholar_user"),
 			Password: getEnv("DB_PASSWORD", "scholar_pass"),
 			DBName:   getEnv("DB_NAME", "scholar"),
+		},
+		Redis: RedisConfig{
+			Host:     getEnv("REDIS_HOST", "localhost"),
+			Port:     getEnv("REDIS_PORT", "6379"),
+			Password: getEnv("REDIS_PASSWORD", ""),
+			DB:       getEnvAsInt("REDIS_DB", 0),
 		},
 		JWT: JWTConfig{
 			Secret: getEnv("JWT_SECRET", "default-secret-change-in-production"),

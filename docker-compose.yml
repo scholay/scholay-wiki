@@ -27,6 +27,25 @@ services:
     networks:
       - scholar-network
 
+  # Redis cache service
+  redis:
+    image: redis:7-alpine
+    container_name: scholar_redis
+    restart: unless-stopped
+    # Redis不暴露端口到主机,仅容器内部访问
+    expose:
+      - "6379"
+    volumes:
+      - ./data/redis:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - scholar-network
+
   # Schema sync service - runs once to sync database schema
   schema-sync:
     image: mysql:8.0
@@ -60,6 +79,10 @@ services:
       DB_USER: ${MYSQL_USER:-scholar_user}
       DB_PASSWORD: ${MYSQL_PASSWORD:-scholar_pass}
       DB_NAME: ${MYSQL_DATABASE:-scholar}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: 0
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
       SERVER_PORT: 8080
       ADMIN_INITIAL_USERNAME: admin
@@ -69,6 +92,8 @@ services:
       - "8080"
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       schema-sync:
         condition: service_completed_successfully

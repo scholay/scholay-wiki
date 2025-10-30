@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import PDFViewer from './PDFViewer';
 import './PaperPreview.css';
 
-const PaperPreview = ({ paper, onClose }) => {
+const PaperPreview = ({ paper, onClose, width }) => {
   const [showDetails, setShowDetails] = useState(false);
+  const containerStyle = width ? { width: typeof width === 'number' ? `${width}px` : width } : undefined;
 
   if (!paper) {
     return (
-      <div className="paper-preview empty">
+      <div className="paper-preview empty" style={containerStyle}>
         <div className="empty-state">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -25,7 +26,7 @@ const PaperPreview = ({ paper, onClose }) => {
   const hasPDF = paper.openAccessPdf && paper.openAccessPdf.url;
 
   return (
-    <div className="paper-preview">
+    <div className="paper-preview" style={containerStyle}>
       <div className="paper-preview-header">
         <div className="header-left">
           <h3>{hasPDF ? 'PDF预览' : '论文详情'}</h3>

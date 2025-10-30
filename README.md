@@ -206,8 +206,6 @@ The project features **fully automated database schema synchronization**:
 3. Run `docker-compose up -d --build`
 4. Done! Database automatically synced
 
-See [DATABASE_SYNC.md](DATABASE_SYNC.md) for detailed documentation.
-
 ### Tables
 
 **admin_users**

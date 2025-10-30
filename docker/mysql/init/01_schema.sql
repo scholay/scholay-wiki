@@ -55,19 +55,8 @@ CREATE TABLE IF NOT EXISTS `user_auth_providers` (
   CONSTRAINT `fk_user_auth_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='User authentication providers';
 
--- Email verification codes
-CREATE TABLE IF NOT EXISTS `email_verification_codes` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `email` VARCHAR(100) NOT NULL,
-  `code` VARCHAR(10) NOT NULL,
-  `purpose` VARCHAR(20) NOT NULL COMMENT 'register, login, reset_password',
-  `expires_at` DATETIME NOT NULL,
-  `used` BOOLEAN NOT NULL DEFAULT FALSE,
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  INDEX `idx_email_code` (`email`, `code`, `purpose`),
-  INDEX `idx_expires_at` (`expires_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Email verification codes';
+-- Note: Email verification codes are now stored in Redis (auto-expiring cache)
+-- Removed table: email_verification_codes
 
 -- Privacy policies
 CREATE TABLE IF NOT EXISTS `privacy_policies` (
@@ -126,6 +115,7 @@ CREATE TABLE IF NOT EXISTS `user_sessions` (
   INDEX `idx_token` (`token`),
   INDEX `idx_last_activity` (`last_activity`),
   INDEX `idx_expires_at` (`expires_at`),
+  INDEX `idx_active_sessions` (`last_activity`, `expires_at`),
   FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='User sessions for online tracking';
 
@@ -195,6 +185,7 @@ CREATE TABLE IF NOT EXISTS `conversation_messages` (
   PRIMARY KEY (`id`),
   INDEX `idx_conversation_id` (`conversation_id`),
   INDEX `idx_created_at` (`created_at`),
+  INDEX `idx_conversation_created` (`conversation_id`, `created_at`),
   FOREIGN KEY (`conversation_id`) REFERENCES `conversations`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Messages within conversations';
 
@@ -214,3 +205,57 @@ CREATE TABLE IF NOT EXISTS `prompt_templates` (
   INDEX `idx_active` (`is_active`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI prompt templates';
 
+-- ============================================
+-- Initial Data: Default Prompt Template
+-- ============================================
+
+INSERT INTO `prompt_templates` (`name`, `key`, `template`, `description`, `is_active`) VALUES
+('论文分析总结提示词', 'paper_analysis',
+'你是一位专业的学术研究助手。用户搜索了关键词：「{{query}}」，系统找到了相关的学术论文。请你对这些论文进行深入分析和总结。
+
+## 论文列表
+
+{{papers}}
+
+## 分析要求
+
+请按照以下结构输出分析报告（使用 Markdown 格式）：
+
+### 1. 研究主题概述
+- 简要说明这批论文围绕的核心研究主题
+- 指出该领域的研究热点和趋势
+
+### 2. 重点论文解读
+- 选择引用量最高或最具代表性的 3-5 篇论文
+- 对每篇论文进行简要介绍，包括：
+  - 研究目标和方法
+  - 主要贡献和创新点
+  - 研究结果和结论
+
+### 3. 研究方法分析
+- 总结这些论文中常用的研究方法
+- 分析方法的优缺点
+- 指出方法论上的创新
+
+### 4. 研究发现与结论
+- 汇总主要研究发现
+- 总结共同的结论和观点
+- 指出存在争议或分歧的地方
+
+### 5. 未来研究方向
+- 基于现有研究，提出可能的研究方向
+- 指出研究空白和待解决的问题
+- 给出学习和研究建议
+
+### 6. 推荐阅读
+- 推荐 3-5 篇最值得深入阅读的论文
+- 说明推荐理由
+
+请确保分析客观、准确、有深度，帮助用户快速了解该研究领域的现状和发展趋势。',
+'用于分析搜索到的学术论文并生成结构化综述',
+1)
+ON DUPLICATE KEY UPDATE
+  `name` = VALUES(`name`),
+  `template` = VALUES(`template`),
+  `description` = VALUES(`description`),
+  `is_active` = VALUES(`is_active`);

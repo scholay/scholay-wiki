@@ -3,7 +3,7 @@
 # This script automatically syncs database schema from init files on every startup
 # It safely applies CREATE TABLE IF NOT EXISTS and ALTER TABLE statements
 
-set -e
+set -e  # Exit on error
 
 DB_HOST="${DB_HOST:-mysql}"
 DB_PORT="${DB_PORT:-3306}"
@@ -11,6 +11,13 @@ DB_USER="${MYSQL_USER:-scholar_user}"
 DB_PASSWORD="${MYSQL_PASSWORD:-scholar_pass}"
 DB_NAME="${MYSQL_DATABASE:-scholar}"
 INIT_DIR="/docker-entrypoint-initdb.d"
+
+# Color codes for better readability
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
 echo "======================================="
 echo "  Scholar Database Schema Auto-Sync   "
@@ -34,8 +41,21 @@ until mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1
   sleep 2
 done
 
-echo "✓ MySQL is ready!"
+echo -e "${GREEN}✓ MySQL is ready!${NC}"
 echo ""
+
+# Check if init directory exists and has SQL files
+if [ ! -d "$INIT_DIR" ]; then
+  echo -e "${YELLOW}⚠ Warning: Init directory not found: $INIT_DIR${NC}"
+  exit 0
+fi
+
+# Count SQL files
+SQL_FILE_COUNT=$(find "$INIT_DIR" -maxdepth 1 -name "*.sql" -type f | wc -l)
+if [ "$SQL_FILE_COUNT" -eq 0 ]; then
+  echo -e "${YELLOW}⚠ No SQL files found in $INIT_DIR${NC}"
+  exit 0
+fi
 
 # Apply schema from init files
 echo "Syncing database schema from init files..."
@@ -45,22 +65,30 @@ SQL_FILES_FOUND=0
 SQL_FILES_PROCESSED=0
 SQL_FILES_FAILED=0
 
-for sql_file in "$INIT_DIR"/*.sql; do
-  if [ -f "$sql_file" ]; then
-    SQL_FILES_FOUND=$((SQL_FILES_FOUND + 1))
-    filename=$(basename "$sql_file")
+# Process files in sorted order (01_schema.sql, 02_..., etc.)
+for sql_file in $(find "$INIT_DIR" -maxdepth 1 -name "*.sql" -type f | sort); do
+  SQL_FILES_FOUND=$((SQL_FILES_FOUND + 1))
+  filename=$(basename "$sql_file")
 
-    echo "Processing: $filename"
+  echo -e "${BLUE}Processing: $filename${NC}"
 
-    if mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$sql_file" 2>&1; then
-      echo "  ✓ Successfully applied: $filename"
-      SQL_FILES_PROCESSED=$((SQL_FILES_PROCESSED + 1))
-    else
-      echo "  ✗ Failed to apply: $filename"
-      SQL_FILES_FAILED=$((SQL_FILES_FAILED + 1))
+  # Execute SQL file and capture output
+  if OUTPUT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$sql_file" 2>&1); then
+    echo -e "  ${GREEN}✓ Successfully applied: $filename${NC}"
+    SQL_FILES_PROCESSED=$((SQL_FILES_PROCESSED + 1))
+
+    # Show any output messages (like from SELECT statements)
+    if [ -n "$OUTPUT" ]; then
+      echo "$OUTPUT" | while IFS= read -r line; do
+        echo "    $line"
+      done
     fi
-    echo ""
+  else
+    echo -e "  ${RED}✗ Failed to apply: $filename${NC}"
+    echo -e "  ${RED}Error: $OUTPUT${NC}"
+    SQL_FILES_FAILED=$((SQL_FILES_FAILED + 1))
   fi
+  echo ""
 done
 
 # Show current tables
@@ -81,14 +109,16 @@ echo "======================================="
 echo "  Schema Sync Summary"
 echo "======================================="
 echo "SQL files found:     $SQL_FILES_FOUND"
-echo "Successfully applied: $SQL_FILES_PROCESSED"
-echo "Failed:              $SQL_FILES_FAILED"
+echo -e "Successfully applied: ${GREEN}$SQL_FILES_PROCESSED${NC}"
+echo -e "Failed:              ${RED}$SQL_FILES_FAILED${NC}"
 echo ""
 
 if [ $SQL_FILES_FAILED -eq 0 ]; then
-  echo "✓ Schema sync completed successfully!"
+  echo -e "${GREEN}✓ Schema sync completed successfully!${NC}"
+  exit 0
 else
-  echo "⚠ Schema sync completed with errors"
+  echo -e "${RED}⚠ Schema sync completed with $SQL_FILES_FAILED error(s)${NC}"
+  exit 1
 fi
 
 echo "======================================="

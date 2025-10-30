@@ -1,5 +1,6 @@
 .filter-sidebar {
-  width: 280px;
+  width: 100%;
+  max-width: 280px;
   height: 100%;
   background: rgb(32, 33, 35);
   border-right: 1px solid rgba(255, 255, 255, 0.1);

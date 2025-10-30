@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 	"time"
@@ -30,16 +31,13 @@ func (s *Service) CheckEmailExists(email string) (bool, error) {
 
 // RegisterWithEmail registers a new user with email and password
 func (s *Service) RegisterWithEmail(email, password, code string) (*User, string, error) {
-	// Verify the email code (only if code is provided)
-	var vc *EmailVerificationCode
+	// Verify the email code using Redis (only if code is provided)
 	if code != "" {
-		var err error
-		vc, err = s.repo.FindVerificationCode(email, code, "register")
+		valid, err := cache.VerifyCode(email, code, "register")
 		if err != nil {
-			return nil, "", err
+			return nil, "", fmt.Errorf("failed to verify code: %w", err)
 		}
-
-		if vc == nil {
+		if !valid {
 			return nil, "", errors.New("invalid or expired verification code")
 		}
 	}
@@ -76,10 +74,7 @@ func (s *Service) RegisterWithEmail(email, password, code string) (*User, string
 	// Update last login time (registration counts as first login)
 	_ = s.repo.UpdateLastLogin(user.ID)
 
-	// Mark verification code as used (only if code was provided)
-	if vc != nil {
-		_ = s.repo.MarkVerificationCodeAsUsed(vc.ID)
-	}
+	// Note: Verification code already deleted by cache.VerifyCode()
 
 	// Create auth provider record
 	authProvider := &UserAuthProvider{
@@ -152,23 +147,14 @@ func (s *Service) SendVerificationCode(email, purpose string) error {
 	// Generate 6-digit code
 	code := fmt.Sprintf("%06d", rand.Intn(1000000))
 
-	// Create verification code record
-	vc := &EmailVerificationCode{
-		Email:     email,
-		Code:      code,
-		Purpose:   purpose,
-		ExpiresAt: time.Now().Add(10 * time.Minute),
-		Used:      false,
-	}
-
-	err := s.repo.CreateVerificationCode(vc)
-	if err != nil {
-		return err
+	// Save verification code to Redis (auto-expires in 10 minutes)
+	if err := cache.SaveVerificationCode(email, code, purpose); err != nil {
+		return fmt.Errorf("failed to save verification code: %w", err)
 	}
 
 	// TODO: Send email with verification code
 	// For now, just log it (in production, use an email service)
-	fmt.Printf("Verification code for %s (%s): %s\n", email, purpose, code)
+	fmt.Printf("✓ Verification code for %s (%s): %s (expires in 10 min)\n", email, purpose, code)
 
 	return nil
 }

@@ -138,6 +138,59 @@
   overflow: hidden;
 }
 
+.filter-sidebar-wrapper {
+  width: 280px;
+  max-width: 280px;
+  height: 100%;
+  display: flex;
+  position: relative;
+  transition: width 0.25s ease;
+  flex-shrink: 0;
+}
+
+.filter-sidebar-wrapper.collapsed {
+  width: 36px;
+  max-width: 36px;
+}
+
+.filter-sidebar-wrapper .filter-sidebar {
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.filter-sidebar-wrapper.collapsed .filter-sidebar {
+  transform: translateX(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.filter-sidebar-toggle {
+  position: absolute;
+  top: 50%;
+  right: -12px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 48px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(64, 65, 79, 0.6);
+  color: rgba(236, 236, 241, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.filter-sidebar-toggle:hover {
+  background: rgba(64, 65, 79, 0.9);
+  color: rgb(236, 236, 241);
+}
+
+.filter-sidebar-toggle svg {
+  transition: transform 0.2s ease;
+}
+
 /* 中间论文列表容器 - Dark theme */
 .papers-container {
   flex: 1;
@@ -145,6 +198,76 @@
   background: rgb(32, 33, 35);
   display: flex;
   flex-direction: column;
+  min-width: 420px;
+}
+
+/* 拖拽分隔条（复用高级搜索样式） */
+.resize-handle {
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  position: relative;
+  flex-shrink: 0;
+  background: transparent;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+
+.resize-handle:hover {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+.resize-handle.resizing {
+  background: rgba(16, 163, 127, 0.15);
+}
+
+.resize-handle-line {
+  width: 2px;
+  height: 60px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 2px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.resize-handle-line::before,
+.resize-handle-line::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 6px;
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 1px;
+}
+
+.resize-handle-line::before {
+  top: -10px;
+}
+
+.resize-handle-line::after {
+  bottom: -10px;
+}
+
+.resize-handle:hover .resize-handle-line {
+  background: var(--primary-solid);
+  height: 80px;
+  box-shadow: 0 0 8px rgba(16, 163, 127, 0.3);
+}
+
+.resize-handle:hover .resize-handle-line::before,
+.resize-handle:hover .resize-handle-line::after {
+  background: var(--primary-solid);
+}
+
+.resize-handle.resizing .resize-handle-line {
+  background: var(--primary-solid);
+  height: 100%;
+  box-shadow: 0 0 12px rgba(16, 163, 127, 0.5);
 }
 
 .papers-container::-webkit-scrollbar {
@@ -415,5 +538,14 @@
 
   .filter-sidebar {
     display: none;
+  }
+
+  .resize-handle {
+    display: none;
+  }
+
+  .papers-container {
+    min-width: auto;
+    width: 100%;
   }
 }

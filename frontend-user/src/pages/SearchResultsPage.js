@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import FilterSidebar from '../components/FilterSidebar';
@@ -28,6 +28,44 @@ const SearchResultsPage = () => {
   const [selectedPaper, setSelectedPaper] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const papersPerPage = 10;
+
+  const PREVIEW_MIN_WIDTH = 320;
+  const PREVIEW_MAX_WIDTH = 800;
+
+  const clampPreviewWidth = useCallback((value, viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920) => {
+    const calculatedMax = Math.min(PREVIEW_MAX_WIDTH, Math.floor(viewportWidth * 0.65));
+    const safeMax = Math.max(PREVIEW_MIN_WIDTH, calculatedMax);
+    const safeMin = Math.min(PREVIEW_MIN_WIDTH, safeMax);
+    const target = Number.isFinite(value) ? value : 480;
+    return Math.min(Math.max(target, safeMin), safeMax);
+  }, [PREVIEW_MAX_WIDTH, PREVIEW_MIN_WIDTH]);
+
+  const [previewWidth, setPreviewWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedWidth = window.localStorage.getItem('previewPanelWidth');
+      if (savedWidth) {
+        const parsed = parseInt(savedWidth, 10);
+        if (!Number.isNaN(parsed)) {
+          return clampPreviewWidth(parsed);
+        }
+      }
+    }
+    return clampPreviewWidth(480);
+  });
+  const [isResizingPreview, setIsResizingPreview] = useState(false);
+  const [isCompactLayout, setIsCompactLayout] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 1024 : false));
+  const initialFilterCollapsed = () => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    const stored = window.localStorage.getItem('resultsFilterCollapsed');
+    if (stored !== null) {
+      return stored === 'true';
+    }
+    return window.innerWidth <= 1280;
+  };
+  const [filterSidebarCollapsed, setFilterSidebarCollapsed] = useState(initialFilterCollapsed);
+  const resultsMainRef = useRef(null);
 
   // 执行搜索
   const performSearch = async (query, currentFilters, page = 1) => {
@@ -93,6 +131,43 @@ const SearchResultsPage = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const handleResize = () => {
+      const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+      setPreviewWidth(prev => clampPreviewWidth(prev, viewportWidth));
+      setIsCompactLayout(viewportWidth <= 1024);
+      if (viewportWidth <= 1024) {
+        setFilterSidebarCollapsed(true);
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [clampPreviewWidth]);
+
+  useEffect(() => {
+    if (!isCompactLayout && typeof window !== 'undefined') {
+      const stored = window.localStorage.getItem('resultsFilterCollapsed');
+      if (stored !== null) {
+        setFilterSidebarCollapsed(stored === 'true');
+      }
+    }
+  }, [isCompactLayout]);
+
+  const toggleFilterSidebar = () => {
+    if (isCompactLayout) {
+      return;
+    }
+    setFilterSidebarCollapsed(prev => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('resultsFilterCollapsed', next ? 'true' : 'false');
+      }
+      return next;
+    });
+  };
+
   // 处理搜索
   const handleSearch = (e) => {
     e.preventDefault();
@@ -138,6 +213,70 @@ const SearchResultsPage = () => {
     updateURL(searchQuery, filters, newPage);
     performSearch(searchQuery, filters, newPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const startPreviewResize = (startClientX) => {
+    setIsResizingPreview(true);
+    const startWidth = previewWidth;
+    let currentWidth = startWidth;
+
+    const updateWidth = (clientX) => {
+      if (typeof clientX !== 'number' || Number.isNaN(clientX)) {
+        return;
+      }
+      const diff = startClientX - clientX;
+      const rawWidth = startWidth + diff;
+      const clampedWidth = clampPreviewWidth(rawWidth);
+      currentWidth = clampedWidth;
+      setPreviewWidth(clampedWidth);
+    };
+
+    const handleMouseMove = (event) => {
+      updateWidth(event.clientX);
+    };
+
+    const handleTouchMove = (event) => {
+      if (event.touches.length !== 1) {
+        return;
+      }
+      event.preventDefault();
+      updateWidth(event.touches[0].clientX);
+    };
+
+    const touchMoveOptions = { passive: false };
+
+    const finishResize = () => {
+      setIsResizingPreview(false);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('previewPanelWidth', Math.round(currentWidth).toString());
+      }
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', finishResize);
+      document.removeEventListener('touchmove', handleTouchMove, touchMoveOptions);
+      document.removeEventListener('touchend', finishResize);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', finishResize);
+    document.addEventListener('touchmove', handleTouchMove, touchMoveOptions);
+    document.addEventListener('touchend', finishResize);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  const handlePreviewResizeMouseDown = (event) => {
+    event.preventDefault();
+    startPreviewResize(event.clientX);
+  };
+
+  const handlePreviewResizeTouchStart = (event) => {
+    if (event.touches.length !== 1) {
+      return;
+    }
+    event.preventDefault();
+    startPreviewResize(event.touches[0].clientX);
   };
 
   // 计算分页信息
@@ -208,13 +347,34 @@ const SearchResultsPage = () => {
       </nav>
 
       {/* 三栏布局 */}
-      <div className="results-main">
+      <div className="results-main" ref={resultsMainRef}>
         {/* 左侧筛选栏 */}
-        <FilterSidebar
-          filters={filters}
-          onFiltersChange={handleFiltersChange}
-          resultsTotal={total}
-        />
+        {!isCompactLayout && (
+          <div className={`filter-sidebar-wrapper ${filterSidebarCollapsed ? 'collapsed' : ''}`}>
+            <FilterSidebar
+              filters={filters}
+              onFiltersChange={handleFiltersChange}
+              resultsTotal={total}
+            />
+            <button
+              type="button"
+              className={`filter-sidebar-toggle ${filterSidebarCollapsed ? 'collapsed' : ''}`}
+              onClick={toggleFilterSidebar}
+              aria-label={filterSidebarCollapsed ? '展开筛选条件' : '收起筛选条件'}
+              aria-expanded={!filterSidebarCollapsed}
+            >
+              {filterSidebarCollapsed ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="15 18 9 12 15 6"/>
+                </svg>
+              )}
+            </button>
+          </div>
+        )}
 
         {/* 中间论文列表 */}
         <div className="papers-container">
@@ -339,10 +499,24 @@ const SearchResultsPage = () => {
           )}
         </div>
 
+        {!isCompactLayout && (
+          <div
+            className={`resize-handle ${isResizingPreview ? 'resizing' : ''}`}
+            onMouseDown={handlePreviewResizeMouseDown}
+            onTouchStart={handlePreviewResizeTouchStart}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="调整预览区域宽度"
+          >
+            <div className="resize-handle-line" />
+          </div>
+        )}
+
         {/* 右侧预览区 */}
         <PaperPreview
           paper={selectedPaper}
           onClose={() => setSelectedPaper(null)}
+          width={isCompactLayout ? undefined : previewWidth}
         />
       </div>
     </div>

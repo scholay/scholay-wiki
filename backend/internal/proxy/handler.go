@@ -94,9 +94,11 @@ func (h *Handler) ProxyPDF(c *gin.Context) {
 		applyCommonHeaders(prefetchReq)
 		prefetchReq.Header.Set("Referer", prefetchURL)
 		prefetchReq.Header.Set("Connection", "keep-alive")
-		if _, err := client.Do(prefetchReq); err != nil {
+		prefetchResp, err := client.Do(prefetchReq)
+		if err != nil {
 			continue
 		}
+		_ = prefetchResp.Body.Close()
 	}
 
 	origin := parsedURL.Scheme + "://" + parsedURL.Host
@@ -122,25 +124,25 @@ func (h *Handler) ProxyPDF(c *gin.Context) {
 			req.Header.Del("Origin")
 			req.Header.Del("Referer")
 		},
-	func(req *http.Request) {
-		req.Header.Del("Origin")
-		req.Header.Set("Referer", pdfURL)
-	},
+		func(req *http.Request) {
+			req.Header.Del("Origin")
+			req.Header.Set("Referer", pdfURL)
+		},
 		func(req *http.Request) {
 			req.Header.Del("Origin")
 			req.Header.Set("Referer", origin+"/")
 			req.Header.Set("X-Requested-With", "XMLHttpRequest")
 		},
-	func(req *http.Request) {
-		req.Header.Del("Origin")
-		req.Header.Set("Referer", origin+"/")
-		req.Header.Set("X-Requested-With", "XMLHttpRequest")
-		req.AddCookie(&http.Cookie{
-			Name:  "download",
-			Value: "1",
-			Path:  "/",
-		})
-	},
+		func(req *http.Request) {
+			req.Header.Del("Origin")
+			req.Header.Set("Referer", origin+"/")
+			req.Header.Set("X-Requested-With", "XMLHttpRequest")
+			req.AddCookie(&http.Cookie{
+				Name:  "download",
+				Value: "1",
+				Path:  "/",
+			})
+		},
 	}
 
 	var resp *http.Response

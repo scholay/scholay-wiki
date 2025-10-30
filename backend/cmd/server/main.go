@@ -5,6 +5,8 @@ import (
 	"time"
 	"scholar-backend/internal/admin"
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/common/cleanup"
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/middleware"
@@ -23,10 +25,20 @@ func main() {
 	// Load configuration
 	cfg := appconfig.Load()
 
+	// Initialize Redis
+	if err := cache.InitRedis(cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.Password, cfg.Redis.DB); err != nil {
+		log.Fatalf("Failed to initialize Redis: %v", err)
+	}
+	log.Println("✓ Redis initialized successfully")
+
 	// Initialize database
 	if err := database.Initialize(cfg); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
+
+	// Initialize cleanup service
+	cleanupService := cleanup.NewCleanupService(database.GetDB())
+	cleanupService.Start()
 
 	// Initialize admin module
 	adminRepo := admin.NewRepository(database.GetDB())

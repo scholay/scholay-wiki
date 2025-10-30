@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
+	"scholar-backend/internal/common/cache"
 	"strconv"
 )
 
@@ -13,7 +15,44 @@ func (c *Client) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) 
 		return nil, fmt.Errorf("query is required")
 	}
 
-	// Build query parameters
+	// Build cache key parameters
+	cacheParams := map[string]interface{}{
+		"query":  opts.Query,
+		"offset": opts.Offset,
+		"limit":  opts.Limit,
+	}
+
+	if opts.Year != "" {
+		cacheParams["year"] = opts.Year
+	}
+	if opts.OpenAccessPDF != "" {
+		cacheParams["openAccessPdf"] = opts.OpenAccessPDF
+	}
+	if len(opts.PublicationTypes) > 0 {
+		cacheParams["publicationTypes"] = opts.PublicationTypes
+	}
+	if len(opts.Venue) > 0 {
+		cacheParams["venue"] = opts.Venue
+	}
+	if len(opts.FieldsOfStudy) > 0 {
+		cacheParams["fieldsOfStudy"] = opts.FieldsOfStudy
+	}
+	if len(opts.Fields) > 0 {
+		cacheParams["fields"] = opts.Fields
+	}
+
+	// Try to get from cache
+	var cachedResult SearchResponse
+	hit, err := cache.GetCachedSearchResult(cacheParams, &cachedResult)
+	if err != nil {
+		log.Printf("Warning: cache error: %v", err)
+	}
+	if hit {
+		log.Printf("✓ Cache hit for search: %s", opts.Query)
+		return &cachedResult, nil
+	}
+
+	// Build query parameters for API call
 	params := map[string]string{
 		"query":  opts.Query,
 		"offset": strconv.Itoa(opts.Offset),
@@ -59,6 +98,13 @@ func (c *Client) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) 
 		return nil, err
 	}
 
+	// Cache the result (async, don't block response)
+	go func() {
+		if err := cache.CacheSearchResult(cacheParams, &result); err != nil {
+			log.Printf("Warning: failed to cache search result: %v", err)
+		}
+	}()
+
 	return &result, nil
 }
 
@@ -66,6 +112,17 @@ func (c *Client) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) 
 func (c *Client) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, error) {
 	if paperID == "" {
 		return nil, fmt.Errorf("paperID is required")
+	}
+
+	// Try to get from cache
+	var cachedPaper Paper
+	hit, err := cache.GetCachedPaperDetails(paperID, &cachedPaper)
+	if err != nil {
+		log.Printf("Warning: cache error: %v", err)
+	}
+	if hit {
+		log.Printf("✓ Cache hit for paper: %s", paperID)
+		return &cachedPaper, nil
 	}
 
 	// Build query parameters
@@ -88,6 +145,13 @@ func (c *Client) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, err
 	if err := unmarshalResponse(resp, &result); err != nil {
 		return nil, err
 	}
+
+	// Cache the result (async)
+	go func() {
+		if err := cache.CachePaperDetails(paperID, &result); err != nil {
+			log.Printf("Warning: failed to cache paper details: %v", err)
+		}
+	}()
 
 	return &result, nil
 }
