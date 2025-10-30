@@ -5,10 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 Scholar is an academic search platform with AI-powered features. It consists of:
-- **Backend**: Go (Gin framework) + MySQL + GORM
+- **Backend**: Go (Gin framework) + MySQL + GORM + Redis
 - **Frontend User Portal**: React 18 (modern, innovative design)
 - **Frontend Admin Dashboard**: React 18 (flat, professional design)
 - **Infrastructure**: Docker Compose with Nginx reverse proxy
+- **Caching**: Redis for session management and API key caching
 
 ## Essential Commands
 
@@ -29,6 +30,7 @@ docker logs scholar_backend -f
 docker logs scholar_frontend_user -f
 docker logs scholar_frontend_admin -f
 docker logs scholar_mysql -f
+docker logs scholar_redis -f
 
 # Restart specific service after code changes
 docker-compose restart backend
@@ -94,6 +96,22 @@ docker-compose down -v
 docker-compose up -d --build
 ```
 
+### Redis Operations
+
+```bash
+# Access Redis CLI
+docker exec -it scholar_redis redis-cli
+
+# Common Redis commands
+docker exec -it scholar_redis redis-cli KEYS "*"              # List all keys
+docker exec -it scholar_redis redis-cli GET "key_name"        # Get value
+docker exec -it scholar_redis redis-cli FLUSHALL              # Clear all cache (use carefully!)
+docker exec -it scholar_redis redis-cli INFO                  # Redis stats
+
+# Monitor Redis operations in real-time
+docker exec -it scholar_redis redis-cli MONITOR
+```
+
 ### Testing API Endpoints
 
 ```bash
@@ -138,7 +156,7 @@ internal/
 ├── conversation/   # Conversation management with AI analysis
 ├── semanticscholar/# Semantic Scholar API client & MCP server
 ├── thirdparty/     # Third-party account management (API keys, OAuth)
-├── proxy/          # Proxy for external services
+├── proxy/          # HTTP proxy for external AI services
 ├── mcp/            # MCP (Model Context Protocol) server
 ├── config/         # System configuration (privacy policy, email, etc.)
 └── common/
@@ -146,7 +164,7 @@ internal/
     ├── database/   # Database connection & initialization
     ├── middleware/ # HTTP middleware (CORS, auth)
     ├── model/      # Shared models (sessions, statistics)
-    └── utils/      # Utilities (JWT, password, response)
+    └── utils/      # Utilities (JWT, password, response, Redis)
 ```
 
 **Key Pattern**: Each domain module (admin/user/ai/etc.) follows Repository → Service → Handler:
@@ -187,7 +205,8 @@ The backend integrates Semantic Scholar Academic Graph API with two access metho
 **Key Files**:
 - `backend/internal/semanticscholar/` - API client implementation
 - `backend/internal/mcp/` - MCP server implementation
-- `backend/internal/thirdparty/` - API key management with cache refresh
+- `backend/internal/thirdparty/` - API key management with Redis cache (5-min refresh)
+- `backend/SEMANTIC_SCHOLAR_API.md` - Detailed API documentation (Chinese)
 
 ### AI & Conversation System
 
@@ -228,6 +247,7 @@ The platform includes an AI-powered conversation system:
 - `user_sessions` table tracks online users
 - Heartbeat endpoint updates last_active_at
 - Background task records snapshots every 5 minutes
+- Redis caches session data and API keys for performance
 
 ### Frontend Architecture
 
@@ -282,8 +302,9 @@ The system supports managing multiple API keys for external services:
 
 1. Admin adds keys via Admin Dashboard → Third-party Accounts
 2. Backend stores in `third_party_accounts` table
-3. Service refreshes cache every 5 minutes
+3. Redis caches keys with 5-minute TTL (automatic refresh)
 4. Semantic Scholar Manager rotates keys on API calls
+5. AI service uses configurable third-party providers (OpenAI, Claude, etc.)
 
 ### Modifying Nginx Configuration
 
@@ -294,19 +315,21 @@ The system supports managing multiple API keys for external services:
 
 ## Important Notes
 
-### Database Connection
+### Database and Cache Connection
 
-- Backend connects to `mysql:3306` (container hostname, NOT localhost)
-- MySQL is NOT exposed to host by design (security)
-- For debugging: `docker exec -it scholar_mysql mysql -u scholar_user -pscholar_pass scholar`
+- Backend connects to `mysql:3306` and `redis:6379` (container hostnames, NOT localhost)
+- MySQL and Redis are NOT exposed to host by design (security best practice)
+- For debugging MySQL: `docker exec -it scholar_mysql mysql -u scholar_user -pscholar_pass scholar`
+- For debugging Redis: `docker exec -it scholar_redis redis-cli`
 
 ### Environment Variables
 
 Key variables in `.env`:
 - `JWT_SECRET` - Change in production
 - `MYSQL_*` - Database credentials
+- `REDIS_PASSWORD` - Redis password (optional, currently empty)
 - `SEMANTIC_SCHOLAR_API_KEY` - Optional (uses free tier if not set)
-- Port mappings: `HTTP_PORT`, `ADMIN_PORT`, `BACKEND_PORT`
+- Port mappings: `HTTP_PORT` (default 80), `ADMIN_PORT` (default 8001)
 
 ### Email Verification Codes
 
@@ -388,9 +411,10 @@ ADMIN_PORT=8002
 
 ### Backend Not Starting
 
-1. Check MySQL is healthy: `docker ps`
+1. Check MySQL and Redis are healthy: `docker ps`
 2. Check schema-sync completed: `docker logs scholar_schema_sync`
 3. Check backend logs: `docker logs scholar_backend`
+4. Verify Redis is accessible: `docker exec scholar_backend ping redis -c 1`
 
 ### Frontend Build Fails
 
@@ -420,6 +444,32 @@ docker-compose up -d --build
 1. Check backend is running: `docker ps | grep backend`
 2. Check backend health: `docker exec scholar_nginx wget -O- http://scholar_backend:8080/health`
 3. Check Nginx config: `docker exec scholar_nginx nginx -t`
+
+### Redis Connection Issues
+
+```bash
+# Check Redis is running
+docker ps | grep redis
+
+# Test Redis connectivity from backend
+docker exec scholar_backend ping redis -c 3
+
+# View Redis logs
+docker logs scholar_redis
+
+# Restart Redis
+docker-compose restart redis backend
+
+# Check Redis memory usage
+docker exec scholar_redis redis-cli INFO memory
+```
+
+If Redis cache is stale (e.g., API keys not updating):
+```bash
+# Clear Redis cache and restart backend
+docker exec scholar_redis redis-cli FLUSHALL
+docker-compose restart backend
+```
 
 ## Project Documentation
 

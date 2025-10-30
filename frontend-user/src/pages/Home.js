@@ -4,15 +4,17 @@ import { useAuth } from '../utils/AuthContext';
 import AuthModal from '../components/AuthModal';
 import SearchFilters from '../components/SearchFilters';
 import Logo from '../components/Logo';
+import AppSidebar from '../components/AppSidebar';
 import './Home.css';
 
 const Home = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [searchMode, setSearchMode] = useState('normal'); // 'normal' or 'advanced'
   const [showModeSelector, setShowModeSelector] = useState(false);
   const [showFilters, setShowFilters] = useState(false); // 显示筛选条件
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // 侧边栏收起状态
   const [filters, setFilters] = useState({
     yearFrom: '',
     yearTo: '',
@@ -146,10 +148,27 @@ const Home = () => {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
   // Main search interface
   return (
     <div className="home-search">
-      <div className="main-container sidebar-collapsed">
+      {/* 只在登录状态显示侧边栏 */}
+      {isAuthenticated && (
+        <AppSidebar
+          user={user}
+          onLogout={handleLogout}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        >
+          {/* 侧边栏内容区域可以后续自定义 */}
+        </AppSidebar>
+      )}
+
+      <div className={`main-container ${isAuthenticated ? (sidebarCollapsed ? 'sidebar-collapsed-narrow' : 'has-sidebar') : 'sidebar-collapsed'}`}>
         <nav className="top-navbar">
           <div className="navbar-left">
             <div className="logo">
