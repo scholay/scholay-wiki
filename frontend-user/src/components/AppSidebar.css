@@ -15,17 +15,20 @@
 
 .app-sidebar.collapsed {
   max-width: 64px;
-  background: #343541;
+  background: #212121;
 }
 
 /* 顶部Logo区域 */
 .app-sidebar-header {
-  padding: 20px 20px 20px 16px;
+  height: 56px;
+  padding: 0 20px 0 16px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
 .app-sidebar.collapsed .app-sidebar-header {
-  padding: 20px 12px 20px 16px;
+  padding: 0 12px 0 16px;
 }
 
 /* 顶部Logo和按钮区域 */
@@ -33,7 +36,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  width: 100%;
   position: relative;
 }
 
