@@ -14,7 +14,11 @@ const Home = () => {
   const [searchMode, setSearchMode] = useState('normal'); // 'normal' or 'advanced'
   const [showModeSelector, setShowModeSelector] = useState(false);
   const [showFilters, setShowFilters] = useState(false); // 显示筛选条件
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // 侧边栏收起状态
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    // 从localStorage读取侧边栏状态，默认为收起(true)
+    const saved = localStorage.getItem('sidebarCollapsed');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const [filters, setFilters] = useState({
     yearFrom: '',
     yearTo: '',
@@ -34,6 +38,11 @@ const Home = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showCursor, setShowCursor] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
+
+  // 保存侧边栏状态到localStorage
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     // Cursor blinking - only when not typing

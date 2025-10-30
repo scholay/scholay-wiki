@@ -10,11 +10,12 @@
   left: 0;
   top: 0;
   z-index: 100;
-  transition: max-width 0.3s ease;
+  transition: max-width 0.3s ease, background-color 0.3s ease;
 }
 
 .app-sidebar.collapsed {
   max-width: 64px;
+  background: #343541;
 }
 
 /* 顶部Logo区域 */
