@@ -28,15 +28,18 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  height: 32px;
 }
 
-.logo-text {
-  font-size: 1.5rem;
-  font-weight: 700;
-  background: var(--primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.top-navbar .logo .logo-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff !important;
+  background: none !important;
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  line-height: 1;
 }
 
 .nav-links {

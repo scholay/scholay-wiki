@@ -2,8 +2,7 @@
   width: 100%;
   max-width: 280px;
   height: 100vh;
-  background: rgb(32, 33, 35);
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  background: #171717;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -18,13 +17,9 @@
   max-width: 64px;
 }
 
-/* 顶部区域 */
+/* 顶部Logo区域 */
 .app-sidebar-header {
   padding: 20px 20px 20px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
   flex-shrink: 0;
 }
 
@@ -49,6 +44,19 @@
   flex-shrink: 0;
   position: relative;
   /* Logo始终在左侧固定位置 */
+  min-width: 20px;
+  min-height: 20px;
+}
+
+/* 确保Logo组件的SVG在收起状态下可见 */
+.sidebar-logo.collapsed-logo > div {
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-logo.collapsed-logo > div > svg {
+  display: block !important;
+  opacity: 1 !important;
 }
 
 .sidebar-logo:hover {
@@ -93,21 +101,28 @@
   color: rgb(236, 236, 241);
 }
 
-/* 用户信息区域 */
-.sidebar-user-section {
-  position: relative;
+/* 底部用户信息区域 */
+.sidebar-user-section.sidebar-footer {
+  margin-top: auto;
+  padding: 12px 12px 12px 10px;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.app-sidebar.collapsed .sidebar-user-section.sidebar-footer {
+  padding: 12px 8px 12px 10px;
+  border-top: none;
 }
 
 .sidebar-user-info {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 0;
+  gap: 8px;
+  padding: 4px 0;
   border-radius: 8px;
   cursor: pointer;
   transition: opacity 0.15s ease;
   background: transparent;
-  /* 头像区域固定在左侧 */
 }
 
 .sidebar-user-info:hover {
@@ -115,8 +130,8 @@
 }
 
 .user-avatar {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
@@ -124,7 +139,7 @@
   justify-content: center;
   color: white;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 14px;
   flex-shrink: 0;
 }
 
@@ -151,14 +166,14 @@
   white-space: nowrap;
 }
 
-/* 用户菜单弹窗 - 使用fixed定位，渲染到body */
+/* 用户菜单弹窗 - 使用fixed定位，渲染到body，向上弹出 */
 .user-menu-popup {
   min-width: 240px;
   background: rgb(32, 33, 35);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  animation: slideDown 0.2s ease;
+  animation: slideUp 0.2s ease;
   overflow: hidden;
 }
 
@@ -166,10 +181,10 @@
   min-width: 200px;
 }
 
-@keyframes slideDown {
+@keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;

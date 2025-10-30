@@ -172,7 +172,6 @@ const Home = () => {
         <nav className="top-navbar">
           <div className="navbar-left">
             <div className="logo">
-              <Logo width={40} height={40} variant="color" />
               <span className="logo-text">Scholabase</span>
             </div>
           </div>
