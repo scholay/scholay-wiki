@@ -1,26 +1,51 @@
 /* Pure dark theme Search Filters - ChatGPT style */
+
+/* 蒙层 */
+.filters-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 9999;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .search-filters {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 90vw;
+  max-width: 600px;
+  max-height: 80vh;
   background: rgb(32, 33, 35);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  padding: 0;
-  margin-top: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  animation: expandDown 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  max-height: calc(100vh - 280px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.1);
+  animation: expandCenter 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  z-index: 10000;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transform: translate(-50%, -50%) scale(0.9);
+  opacity: 0;
 }
 
-@keyframes expandDown {
+@keyframes expandCenter {
   from {
     opacity: 0;
-    transform: translateY(-8px) scale(0.98);
+    transform: translate(-50%, -50%) scale(0.9);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 
@@ -34,7 +59,7 @@
 }
 
 .filters-header h3 {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: rgb(236, 236, 241);
   margin: 0;
@@ -50,9 +75,18 @@
   padding: 6px 12px;
   border-radius: 6px;
   transition: all 0.15s ease;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
 }
 
-.clear-filters-btn:hover {
+.clear-filters-btn.visible {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.clear-filters-btn.visible:hover {
   background: rgba(64, 65, 79, 1);
   color: rgb(236, 236, 241);
 }
@@ -88,6 +122,43 @@
   background: rgba(255, 255, 255, 0.25);
 }
 
+/* Filters footer with apply button */
+.filters-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  background: rgb(32, 33, 35);
+}
+
+.apply-filters-btn {
+  width: 100%;
+  max-width: 200px;
+  padding: 10px 24px;
+  background: rgb(25, 195, 125);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(25, 195, 125, 0.2);
+}
+
+.apply-filters-btn:hover {
+  background: rgb(22, 163, 104);
+  box-shadow: 0 4px 12px rgba(25, 195, 125, 0.3);
+  transform: translateY(-1px);
+}
+
+.apply-filters-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(25, 195, 125, 0.2);
+}
+
 .filter-group {
   display: flex;
   flex-direction: column;
@@ -95,10 +166,34 @@
 }
 
 .filter-label {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: rgb(236, 236, 241);
   margin-bottom: 8px;
+}
+
+.filter-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.clear-section-btn {
+  background: transparent;
+  border: none;
+  color: rgba(236, 236, 241, 0.5);
+  font-size: 12px;
+  font-weight: 400;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.clear-section-btn:hover {
+  background: rgba(64, 65, 79, 0.8);
+  color: rgb(236, 236, 241);
 }
 
 /* Year filter group with histogram */
@@ -162,6 +257,7 @@
   transition: all 0.15s ease;
   background: transparent;
   border: none;
+  position: relative;
 }
 
 .checkbox-item:hover {
@@ -178,7 +274,7 @@
 }
 
 .checkbox-item span {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   color: rgba(236, 236, 241, 0.8);
   user-select: none;
@@ -207,7 +303,7 @@
 
 .open-access-toggle span {
   font-weight: 400;
-  font-size: 13px;
+  font-size: 14px;
   color: rgba(236, 236, 241, 0.8);
 }
 
@@ -224,7 +320,7 @@
   padding: 10px 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   color: rgb(236, 236, 241);
   background: rgba(64, 65, 79, 0.3);

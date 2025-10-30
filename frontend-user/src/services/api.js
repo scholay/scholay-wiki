@@ -31,10 +31,17 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Unauthorized - clear token and redirect to login
+      // Unauthorized - clear token and trigger auth event
       localStorage.removeItem('user_token');
       localStorage.removeItem('user_data');
-      window.location.href = '/login';
+
+      // Dispatch custom event to show login modal
+      window.dispatchEvent(new CustomEvent('auth:required'));
+
+      // Redirect to home page
+      if (window.location.pathname !== '/') {
+        window.location.href = '/';
+      }
     }
     return Promise.reject(error);
   }

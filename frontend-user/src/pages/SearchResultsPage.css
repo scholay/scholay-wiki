@@ -78,12 +78,13 @@
 .filter-toggle-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 6px 12px;
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: rgba(236, 236, 241, 0.6);
+  color: rgba(236, 236, 241, 0.5);
   cursor: pointer;
   font-size: 14px;
   font-weight: 400;
@@ -91,16 +92,53 @@
   transition: all 0.15s ease;
   white-space: nowrap;
   margin-right: 8px;
+  position: relative;
+  width: 42px;
+  height: 34px;
+}
+
+.filter-toggle-btn .filter-icon,
+.filter-toggle-btn .clear-icon {
+  position: absolute;
+  transition: all 0.2s ease;
+}
+
+.filter-toggle-btn .clear-icon {
+  opacity: 0;
+  transform: scale(0.8);
+  pointer-events: none;
 }
 
 .filter-toggle-btn:hover {
-  background: rgba(64, 65, 79, 1);
-  color: rgba(236, 236, 241, 1);
+  background: rgba(64, 65, 79, 0.5);
+  color: rgba(236, 236, 241, 0.9);
 }
 
 .filter-toggle-btn.active {
   background: rgba(64, 65, 79, 1);
   color: rgba(236, 236, 241, 1);
+}
+
+/* Has filters - bright text, no background */
+.filter-toggle-btn.has-filters {
+  background: transparent;
+  color: rgb(25, 195, 125);
+}
+
+/* When has filters and hovering - show subtle background and X icon */
+.filter-toggle-btn.has-filters:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: rgb(239, 68, 68);
+}
+
+.filter-toggle-btn.has-filters.hovering .filter-icon {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.filter-toggle-btn.has-filters.hovering .clear-icon {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .navbar-search-btn {

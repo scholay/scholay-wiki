@@ -1,142 +1,80 @@
-/* Year Histogram Component - Dark theme matching main app */
+/* Year Histogram Component - Direct interaction on chart */
 .year-histogram {
   display: flex;
   flex-direction: column;
-  gap: 20px;
   padding: 8px 0;
+  position: relative;
 }
 
-/* Preset buttons - ChatGPT dark theme */
-.preset-buttons {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.preset-btn {
-  padding: 6px 12px;
-  background: transparent;
-  border: none;
-  color: rgba(236, 236, 241, 0.6);
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 400;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-
-.preset-btn:hover {
-  background: rgba(64, 65, 79, 0.8);
-  color: rgb(236, 236, 241);
-}
-
-.preset-btn:active {
-  background: rgba(64, 65, 79, 1);
-}
-
-/* Histogram visualization - Dark theme */
+/* Histogram visualization - Interactive chart */
 .histogram-container {
   width: 100%;
-  height: 80px;
-  background: rgba(64, 65, 79, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 12px 8px 8px 8px;
+  height: 100px;
   position: relative;
-  overflow: hidden;
+  padding: 0 8px 8px 8px;
+  cursor: pointer;
+  user-select: none;
 }
 
 .histogram-svg {
   width: 100%;
   height: 100%;
   display: block;
+  pointer-events: none;
 }
 
-/* Slider - Dark theme */
-.year-slider {
-  position: relative;
-  height: 40px;
-  padding: 15px 0;
-  cursor: pointer;
-  user-select: none;
-}
-
-.slider-track {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 2px;
-  transform: translateY(-50%);
-}
-
-.slider-range {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  background: linear-gradient(90deg, rgb(74, 222, 128) 0%, rgb(34, 197, 94) 100%);
-  border-radius: 2px;
-  transition: all 0.1s ease;
-  box-shadow: 0 0 8px rgba(74, 222, 128, 0.3);
-}
-
-/* Slider handles - Clean modern style like screenshot */
+/* Slider handles - Position at absolute bottom, aligned with SVG baseline */
 .slider-handle {
   position: absolute;
-  top: 50%;
-  width: 20px;
-  height: 20px;
-  background: white;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  background: rgb(74, 222, 128);
+  border: 3px solid rgb(32, 33, 35);
   border-radius: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   cursor: grab;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: none; /* Remove transition for immediate response */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  z-index: 2;
+  z-index: 3;
 }
 
 .slider-handle:hover {
-  transform: translate(-50%, -50%) scale(1.15);
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
-  background: rgba(255, 255, 255, 0.95);
+  transform: translateX(-50%) scale(1.2);
+  box-shadow: 0 3px 12px rgba(74, 222, 128, 0.4);
+  background: rgb(34, 197, 94);
 }
 
 .slider-handle:active {
   cursor: grabbing;
-  transform: translate(-50%, -50%) scale(1.1);
+  transform: translateX(-50%) scale(1.15);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
-/* Handle labels - Minimal rounded style like screenshot */
+/* Handle labels - Below the handle */
 .handle-label {
   position: absolute;
-  bottom: 28px;
+  top: 18px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.85);
-  color: white;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
+  background: rgba(64, 65, 79, 0.95);
+  color: rgba(236, 236, 241, 0.9);
+  padding: 3px 9px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 500;
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(8px);
 }
 
-/* Remove the arrow pointer */
-.slider-handle-low .handle-label {
-  background: rgba(0, 0, 0, 0.85);
-}
-
+/* Style for both handle labels - keep them consistent */
+.slider-handle-low .handle-label,
 .slider-handle-high .handle-label {
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(64, 65, 79, 0.95);
+  color: rgba(236, 236, 241, 0.9);
 }
 
 /* Year labels - Dark theme */

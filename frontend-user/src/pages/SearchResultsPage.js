@@ -4,6 +4,7 @@ import axios from 'axios';
 import FilterSidebar from '../components/FilterSidebar';
 import PaperPreview from '../components/PaperPreview';
 import SearchFilters from '../components/SearchFilters';
+import Logo from '../components/Logo';
 import './SearchResultsPage.css';
 
 const SearchResultsPage = () => {
@@ -199,6 +200,30 @@ const SearchResultsPage = () => {
     setSearchParams(params);
   };
 
+  // 检查是否有活动的筛选条件
+  const hasActiveFilters = () => {
+    return filters.yearFrom || filters.yearTo ||
+           (filters.publicationTypes && filters.publicationTypes.length > 0) ||
+           (filters.fieldsOfStudy && filters.fieldsOfStudy.length > 0) ||
+           filters.openAccessPdf || filters.venue;
+  };
+
+  // 清除所有筛选条件
+  const handleClearFilters = () => {
+    const emptyFilters = {
+      yearFrom: '',
+      yearTo: '',
+      publicationTypes: [],
+      fieldsOfStudy: [],
+      openAccessPdf: '',
+      venue: '',
+    };
+    setFilters(emptyFilters);
+    setCurrentPage(1);
+    updateURL(searchQuery, emptyFilters, 1);
+    performSearch(searchQuery, emptyFilters, 1);
+  };
+
   // 处理筛选条件变化
   const handleFiltersChange = (newFilters) => {
     setFilters(newFilters);
@@ -290,18 +315,8 @@ const SearchResultsPage = () => {
       <nav className="results-navbar">
         <div className="navbar-content">
           <div className="navbar-left" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-            <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
-              <defs>
-                <linearGradient id="logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#667eea" />
-                  <stop offset="100%" stopColor="#764ba2" />
-                </linearGradient>
-              </defs>
-              <circle cx="24" cy="24" r="24" fill="url(#logo-gradient)" opacity="0.2"/>
-              <path d="M24 10L34 20H29V34H19V20H14L24 10Z" fill="url(#logo-gradient)"/>
-              <rect x="14" y="36" width="20" height="2" rx="1" fill="url(#logo-gradient)"/>
-            </svg>
-            <span className="logo-text">Scholar</span>
+            <Logo width={32} height={32} variant="color" />
+            <span className="logo-text">Scholabase</span>
           </div>
 
           {/* 搜索框 */}
@@ -320,12 +335,24 @@ const SearchResultsPage = () => {
               />
               <button
                 type="button"
-                className={`filter-toggle-btn ${showFilters ? 'active' : ''}`}
-                onClick={() => setShowFilters(!showFilters)}
-                title="筛选条件"
+                className={`filter-toggle-btn ${showFilters ? 'active' : ''} ${hasActiveFilters() ? 'has-filters' : ''}`}
+                onClick={(e) => {
+                  if (hasActiveFilters() && e.currentTarget.classList.contains('hovering')) {
+                    handleClearFilters();
+                  } else {
+                    setShowFilters(!showFilters);
+                  }
+                }}
+                onMouseEnter={(e) => e.currentTarget.classList.add('hovering')}
+                onMouseLeave={(e) => e.currentTarget.classList.remove('hovering')}
+                title={hasActiveFilters() ? "悬停清除筛选 / 点击打开筛选" : "筛选条件"}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="filter-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                </svg>
+                <svg className="clear-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
               </button>
               <button type="submit" className="navbar-search-btn" disabled={loading}>

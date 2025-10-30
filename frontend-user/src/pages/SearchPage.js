@@ -207,7 +207,7 @@ const SearchPage = () => {
 
       <div className="main-content">
         <div className="chat-header">
-          <h1>Scholar 学术搜索</h1>
+          <h1>Scholabase 学术搜索</h1>
           {user && (
             <div className="user-info">
               <span className="user-name">{user.username || user.email}</span>

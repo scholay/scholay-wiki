@@ -69,6 +69,15 @@ const YearHistogram = ({ yearFrom, yearTo, onChange }) => {
   const [dragging, setDragging] = useState(null); // 'low' or 'high'
   const sliderRef = useRef(null);
 
+  // Update internal state when props change (e.g., when filters are cleared)
+  // But only if not currently dragging
+  useEffect(() => {
+    if (!dragging) {
+      setLowYear(yearFrom || startYear);
+      setHighYear(yearTo || endYear);
+    }
+  }, [yearFrom, yearTo, dragging, startYear, endYear]);
+
   const maxValue = Math.max(...HISTOGRAM_DATA.map(d => d.docCount));
 
   // Convert year to slider position (0-100%)
@@ -84,106 +93,55 @@ const YearHistogram = ({ yearFrom, yearTo, onChange }) => {
   // Handle slider drag
   const handleMouseDown = (handle) => (e) => {
     e.preventDefault();
+    e.stopPropagation();
     setDragging(handle);
   };
 
-  const handleMouseMove = (e) => {
-    if (!dragging || !sliderRef.current) return;
-
-    const rect = sliderRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-    const percent = (x / rect.width) * 100;
-    const year = percentToYear(percent);
-
-    if (dragging === 'low') {
-      const newLowYear = Math.min(year, highYear - 1);
-      setLowYear(newLowYear);
-      onChange(newLowYear, highYear);
-    } else if (dragging === 'high') {
-      const newHighYear = Math.max(year, lowYear + 1);
-      setHighYear(newHighYear);
-      onChange(lowYear, newHighYear);
-    }
-  };
-
-  const handleMouseUp = () => {
-    setDragging(null);
-  };
-
   useEffect(() => {
-    if (dragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dragging]);
+    if (!dragging) return;
 
-  // Preset buttons handlers
-  const handlePreset = (years) => {
-    const currentYear = new Date().getFullYear();
-    const newLowYear = Math.max(startYear, currentYear - years);
-    const newHighYear = Math.min(endYear, currentYear);
-    setLowYear(newLowYear);
-    setHighYear(newHighYear);
-    onChange(newLowYear, newHighYear);
-  };
+    const handleMouseMove = (e) => {
+      if (!sliderRef.current) return;
 
-  const handleThisYear = () => {
-    const currentYear = new Date().getFullYear();
-    setLowYear(currentYear);
-    setHighYear(currentYear);
-    onChange(currentYear, currentYear);
-  };
+      const rect = sliderRef.current.getBoundingClientRect();
+      const padding = 8; // Match the CSS padding
+      const effectiveWidth = rect.width - padding * 2;
+      const x = Math.max(padding, Math.min(e.clientX - rect.left, rect.width - padding));
+      const percent = ((x - padding) / effectiveWidth) * 100;
+      const year = percentToYear(percent);
 
-  const handleAllYears = () => {
-    setLowYear(startYear);
-    setHighYear(endYear);
-    onChange(startYear, endYear);
-  };
+      if (dragging === 'low') {
+        const newLowYear = Math.min(year, highYear - 1);
+        setLowYear(newLowYear);
+      } else if (dragging === 'high') {
+        const newHighYear = Math.max(year, lowYear + 1);
+        setHighYear(newHighYear);
+      }
+    };
+
+    const handleMouseUp = () => {
+      // Call onChange when dragging ends
+      onChange(lowYear, highYear);
+      setDragging(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragging, lowYear, highYear, onChange, startYear, totalYears, yearToPercent, percentToYear]);
 
   const lowPercent = yearToPercent(lowYear);
   const highPercent = yearToPercent(highYear);
 
   return (
     <div className="year-histogram">
-      {/* Preset buttons */}
-      <div className="preset-buttons">
-        <button
-          type="button"
-          className="preset-btn"
-          onClick={handleThisYear}
-        >
-          This year
-        </button>
-        <button
-          type="button"
-          className="preset-btn"
-          onClick={() => handlePreset(5)}
-        >
-          Last 5 years
-        </button>
-        <button
-          type="button"
-          className="preset-btn"
-          onClick={() => handlePreset(10)}
-        >
-          Last 10 years
-        </button>
-        <button
-          type="button"
-          className="preset-btn"
-          onClick={handleAllYears}
-        >
-          All years
-        </button>
-      </div>
 
-      {/* Histogram visualization */}
-      <div className="histogram-container">
+      {/* Histogram visualization with integrated handles */}
+      <div className="histogram-container" ref={sliderRef}>
         <svg className="histogram-svg" viewBox="0 0 100 50" preserveAspectRatio="none">
           <defs>
             <linearGradient id="barGradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -204,7 +162,7 @@ const YearHistogram = ({ yearFrom, yearTo, onChange }) => {
             // Calculate position and size
             const x = ((midYear - startYear) / totalYears) * 100;
             const barWidth = ((rangeEnd - rangeStart) / totalYears) * 100 * 0.85; // 85% width for gaps
-            const height = (item.docCount / maxValue) * 48;
+            const height = (item.docCount / maxValue) * 50;
             const y = 50 - height;
 
             // Check if in selected range
@@ -224,20 +182,6 @@ const YearHistogram = ({ yearFrom, yearTo, onChange }) => {
             );
           })}
         </svg>
-      </div>
-
-      {/* Slider */}
-      <div className="year-slider" ref={sliderRef}>
-        {/* Track */}
-        <div className="slider-track">
-          <div
-            className="slider-range"
-            style={{
-              left: `${lowPercent}%`,
-              width: `${highPercent - lowPercent}%`
-            }}
-          />
-        </div>
 
         {/* Low handle */}
         <div
@@ -258,12 +202,6 @@ const YearHistogram = ({ yearFrom, yearTo, onChange }) => {
         </div>
       </div>
 
-      {/* Year labels */}
-      <div className="year-labels">
-        <span className="year-label">{startYear}</span>
-        <span className="year-label">{Math.floor((startYear + endYear) / 2)}</span>
-        <span className="year-label">{endYear}</span>
-      </div>
     </div>
   );
 };
