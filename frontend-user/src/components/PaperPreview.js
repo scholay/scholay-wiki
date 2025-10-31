@@ -2,23 +2,15 @@ import React, { useState } from 'react';
 import PDFViewer from './PDFViewer';
 import './PaperPreview.css';
 
-const PaperPreview = ({ paper, onClose, width }) => {
+const PaperPreview = ({ paper, onClose, width, onResizeMouseDown, onResizeTouchStart, isResizing }) => {
   const [showDetails, setShowDetails] = useState(false);
   const containerStyle = width ? { width: typeof width === 'number' ? `${width}px` : width } : undefined;
 
   if (!paper) {
+    // 保留空间但隐藏所有内容
     return (
       <div className="paper-preview empty" style={containerStyle}>
-        <div className="empty-state">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-            <polyline points="10 9 9 9 8 9"/>
-          </svg>
-          <p>选择一篇论文查看详情</p>
-        </div>
+        {/* 完全留白,不显示任何内容 */}
       </div>
     );
   }
@@ -27,6 +19,17 @@ const PaperPreview = ({ paper, onClose, width }) => {
 
   return (
     <div className="paper-preview" style={containerStyle}>
+      {/* 拖拽分隔条 - 在预览区域内渲染 */}
+      <div
+        className={`resize-handle ${isResizing ? 'resizing' : ''}`}
+        onMouseDown={onResizeMouseDown}
+        onTouchStart={onResizeTouchStart}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="调整预览区域宽度"
+      >
+        <div className="resize-handle-line" />
+      </div>
       <div className="paper-preview-header">
         <div className="header-left">
           <h3>{hasPDF ? 'PDF预览' : '论文详情'}</h3>

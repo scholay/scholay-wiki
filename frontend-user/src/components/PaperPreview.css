@@ -1,35 +1,25 @@
 .paper-preview {
-  width: 480px;
+  width: 480px; /* 默认宽度,会被props覆盖 */
   height: 100%;
   background: rgb(32, 33, 35);
   border-left: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  flex-shrink: 0;
-  flex-grow: 0;
+  flex-shrink: 0; /* 不收缩 */
+  flex-grow: 0; /* 不扩展 */
   min-width: 300px;
   max-width: 820px;
+  position: relative; /* 为拖拽分隔条提供定位参考 */
 }
 
 .paper-preview.empty {
-  justify-content: center;
-  align-items: center;
+  background: #212121; /* 与背景区域相同的颜色 */
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .empty-state {
-  text-align: center;
-  color: rgba(236, 236, 241, 0.5);
-}
-
-.empty-state svg {
-  margin-bottom: 16px;
-  opacity: 0.3;
-}
-
-.empty-state p {
-  font-size: 14px;
-  margin: 0;
+  display: none; /* 隐藏空状态提示 */
 }
 
 .paper-preview-header {
@@ -318,6 +308,46 @@
 .no-pdf-notice svg {
   flex-shrink: 0;
   color: rgb(251, 191, 36);
+}
+
+/* 拖拽分隔条 - 在预览区域左侧 */
+.paper-preview .resize-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  background: transparent;
+  transition: background-color 0.2s ease;
+  z-index: 10;
+}
+
+.paper-preview .resize-handle:hover {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+.paper-preview .resize-handle.resizing {
+  background: rgba(16, 163, 127, 0.15);
+}
+
+.paper-preview .resize-handle-line {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 60px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 2px;
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+.paper-preview .resize-handle:hover .resize-handle-line,
+.paper-preview .resize-handle.resizing .resize-handle-line {
+  background: rgba(16, 163, 127, 0.5);
+  height: 80px;
 }
 
 /* Responsive */

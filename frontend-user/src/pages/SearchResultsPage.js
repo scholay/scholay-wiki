@@ -6,7 +6,7 @@ import AppSidebar from '../components/AppSidebar';
 import FilterSidebar from '../components/FilterSidebar';
 import PaperPreview from '../components/PaperPreview';
 import SearchFilters from '../components/SearchFilters';
-import Logo from '../components/Logo';
+import PaperListSkeleton from '../components/PaperListSkeleton';
 import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory } from '../utils/searchHistory';
 import './SearchResultsPage.css';
 
@@ -66,21 +66,23 @@ const SearchResultsPage = () => {
   });
   const [isResizingPreview, setIsResizingPreview] = useState(false);
   const [isCompactLayout, setIsCompactLayout] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 1024 : false));
+
   const initialFilterCollapsed = () => {
     if (typeof window === 'undefined') {
-      return false;
+      return true; // 默认收起
     }
     const stored = window.localStorage.getItem('resultsFilterCollapsed');
     if (stored !== null) {
       return stored === 'true';
     }
-    return window.innerWidth <= 1280;
+    return true; // 默认收起状态
   };
   const [filterSidebarCollapsed, setFilterSidebarCollapsed] = useState(initialFilterCollapsed);
   const resultsMainRef = useRef(null);
+  const [selectedHistoryId, setSelectedHistoryId] = useState(null); // 选中的搜索历史ID
 
   // 执行搜索
-  const performSearch = async (query, currentFilters, page = 1) => {
+  const performSearch = async (query, currentFilters, page = 1, saveToHistory = true) => {
     if (!query.trim()) return;
 
     setLoading(true);
@@ -128,9 +130,11 @@ const SearchResultsPage = () => {
         setPapers(searchResults);
         setTotal(resultsTotal);
 
-        // 添加到搜索历史
-        addSearchHistory(query, currentFilters, resultsTotal);
-        loadSearchHistory();
+        // 只有在saveToHistory为true时才添加到搜索历史
+        if (saveToHistory) {
+          addSearchHistory(query, currentFilters, resultsTotal);
+          loadSearchHistory();
+        }
       }
     } catch (error) {
       console.error('搜索失败:', error);
@@ -159,6 +163,7 @@ const SearchResultsPage = () => {
   const handleSelectSearchHistory = (itemId) => {
     const history = searchHistory.find(h => h.id === itemId);
     if (history) {
+      setSelectedHistoryId(itemId); // 设置选中的历史记录ID
       setSearchQuery(history.query);
       setFilters(history.filters || {
         yearFrom: '',
@@ -170,7 +175,7 @@ const SearchResultsPage = () => {
       });
       setCurrentPage(1);
       updateURL(history.query, history.filters, 1);
-      performSearch(history.query, history.filters, 1);
+      performSearch(history.query, history.filters, 1, false); // 从历史记录搜索,不保存到历史记录
     }
   };
 
@@ -221,6 +226,7 @@ const SearchResultsPage = () => {
     if (isCompactLayout) {
       return;
     }
+
     setFilterSidebarCollapsed(prev => {
       const next = !prev;
       if (typeof window !== 'undefined') {
@@ -259,30 +265,6 @@ const SearchResultsPage = () => {
     if (page > 1) params.set('page', page);
 
     setSearchParams(params);
-  };
-
-  // 检查是否有活动的筛选条件
-  const hasActiveFilters = () => {
-    return filters.yearFrom || filters.yearTo ||
-           (filters.publicationTypes && filters.publicationTypes.length > 0) ||
-           (filters.fieldsOfStudy && filters.fieldsOfStudy.length > 0) ||
-           filters.openAccessPdf || filters.venue;
-  };
-
-  // 清除所有筛选条件
-  const handleClearFilters = () => {
-    const emptyFilters = {
-      yearFrom: '',
-      yearTo: '',
-      publicationTypes: [],
-      fieldsOfStudy: [],
-      openAccessPdf: '',
-      venue: '',
-    };
-    setFilters(emptyFilters);
-    setCurrentPage(1);
-    updateURL(searchQuery, emptyFilters, 1);
-    performSearch(searchQuery, emptyFilters, 1);
   };
 
   // 处理筛选条件变化
@@ -370,6 +352,9 @@ const SearchResultsPage = () => {
   const startIndex = (currentPage - 1) * papersPerPage + 1;
   const endIndex = Math.min(currentPage * papersPerPage, total);
 
+  // 判断是否为空状态（没有查询参数）
+  const isEmptyState = !searchParams.get('query');
+
   return (
     <div className="search-results-page">
       {/* 统一侧边栏 */}
@@ -382,78 +367,210 @@ const SearchResultsPage = () => {
           showHistory={true}
           historyType="search"
           historyItems={searchHistory}
-          currentItemId={null}
+          currentItemId={selectedHistoryId}
           onSelectItem={handleSelectSearchHistory}
           onDeleteItem={handleDeleteSearchHistory}
           onNewItem={null}
           historyLoading={false}
-          disableActiveState={true}
         />
       )}
 
       {/* 主内容区域 */}
       <div className={`search-results-content ${isAuthenticated ? (sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded') : 'no-sidebar'}`}>
-        {/* 顶部导航栏 */}
-        <nav className="results-navbar">
-        <div className="navbar-content">
-          <div className="navbar-left" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-            <Logo width={32} height={32} variant="color" />
-            <span className="logo-text">Scholabase</span>
-          </div>
+        {isEmptyState ? (
+          // 空状态：类似首页的简洁布局
+          <div className="empty-search-layout">
+            <nav className="empty-navbar">
+              <h1 className="empty-page-title">普通搜索</h1>
+            </nav>
 
-          {/* 搜索框 */}
-          <form onSubmit={handleSearch} className="navbar-search-form">
-            <div className="search-input-group">
-              <svg className="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8"/>
-                <path d="m21 21-4.35-4.35"/>
-              </svg>
-              <input
-                type="text"
-                className="navbar-search-input"
-                placeholder="搜索论文..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+            <div className="empty-search-content">
+              <form onSubmit={handleSearch} className="empty-composer-wrapper">
+                {/* 输入区域 */}
+                <div className="composer-input-area">
+                  <textarea
+                    className="chat-input"
+                    placeholder="搜索论文标题、作者、关键词..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      e.target.style.height = 'auto';
+                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (searchQuery.trim()) {
+                          handleSearch(e);
+                        }
+                      }
+                    }}
+                    rows={1}
+                  />
+                  <button type="submit" className="btn-send" disabled={!searchQuery.trim()}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                </div>
+
+                {/* 底部筛选按钮 */}
+                <div className="composer-footer">
+                  <div className="composer-footer-left">
+                    {(() => {
+                      const hasFilters = filters.yearFrom ||
+                                       filters.yearTo ||
+                                       filters.publicationTypes.length > 0 ||
+                                       filters.fieldsOfStudy.length > 0 ||
+                                       filters.openAccessPdf ||
+                                       filters.venue;
+
+                      const handleClearClick = (e) => {
+                        e.stopPropagation();
+                        setFilters({
+                          yearFrom: '',
+                          yearTo: '',
+                          publicationTypes: [],
+                          fieldsOfStudy: [],
+                          openAccessPdf: '',
+                          venue: '',
+                        });
+                      };
+
+                      return (
+                        <button
+                          type="button"
+                          className={`footer-btn filter-btn ${showFilters ? 'panel-open' : ''} ${hasFilters ? 'has-filters' : ''}`}
+                          onClick={() => setShowFilters(!showFilters)}
+                          onMouseEnter={(e) => e.currentTarget.classList.add('is-hovering')}
+                          onMouseLeave={(e) => e.currentTarget.classList.remove('is-hovering')}
+                          title={hasFilters ? "点击打开筛选" : "筛选条件"}
+                        >
+                          <div className="filter-icon-wrapper" onClick={(e) => {
+                            if (hasFilters && e.currentTarget.parentElement.classList.contains('is-hovering')) {
+                              e.stopPropagation();
+                              handleClearClick(e);
+                            }
+                          }}>
+                            <svg className="filter-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M2.5 3.75C2.5 3.19772 2.94772 2.75 3.5 2.75H16.5C17.0523 2.75 17.5 3.19772 17.5 3.75V5.25C17.5 5.51522 17.3946 5.76957 17.2071 5.95711L11.75 11.4142V16.25C11.75 16.6297 11.5085 16.9705 11.1522 17.1094L8.65217 18.1094C8.15522 18.3078 7.58333 17.9469 7.58333 17.4167V11.4142L2.79289 5.95711C2.60536 5.76957 2.5 5.51522 2.5 5.25V3.75Z"/>
+                            </svg>
+                            <svg className="clear-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M13.5355 5.46447C13.9261 5.85499 13.9261 6.48816 13.5355 6.87868L11.4142 9L13.5355 11.1213C13.9261 11.5118 13.9261 12.145 13.5355 12.5355C13.145 12.9261 12.5118 12.9261 12.1213 12.5355L10 10.4142L7.87868 12.5355C7.48816 12.9261 6.85499 12.9261 6.46447 12.5355C6.07394 12.145 6.07394 11.5118 6.46447 11.1213L8.58579 9L6.46447 6.87868C6.07394 6.48816 6.07394 5.85499 6.46447 5.46447C6.85499 5.07394 7.48816 5.07394 7.87868 5.46447L10 7.58579L12.1213 5.46447C12.5118 5.07394 13.145 5.07394 13.5355 5.46447Z"/>
+                            </svg>
+                          </div>
+                          <span>筛选</span>
+                        </button>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </form>
+
+              {/* 筛选条件面板 */}
+              <SearchFilters
+                filters={filters}
+                onFiltersChange={setFilters}
+                isExpanded={showFilters}
+                onToggle={() => setShowFilters(!showFilters)}
               />
-              <button
-                type="button"
-                className={`filter-toggle-btn ${showFilters ? 'active' : ''} ${hasActiveFilters() ? 'has-filters' : ''}`}
-                onClick={(e) => {
-                  if (hasActiveFilters() && e.currentTarget.classList.contains('hovering')) {
-                    handleClearFilters();
-                  } else {
-                    setShowFilters(!showFilters);
-                  }
-                }}
-                onMouseEnter={(e) => e.currentTarget.classList.add('hovering')}
-                onMouseLeave={(e) => e.currentTarget.classList.remove('hovering')}
-                title={hasActiveFilters() ? "悬停清除筛选 / 点击打开筛选" : "筛选条件"}
-              >
-                <svg className="filter-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-                </svg>
-                <svg className="clear-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-              <button type="submit" className="navbar-search-btn" disabled={loading}>
-                搜索
-              </button>
             </div>
-          </form>
-        </div>
+          </div>
+        ) : (
+          // 有搜索结果时的布局
+          <div className="results-layout">
+            {/* 顶部标题栏 */}
+            <nav className="results-navbar">
+              <h1 className="page-title">普通搜索</h1>
+            </nav>
 
-        {/* 展开的筛选条件 */}
-        <div className="navbar-filters-container">
-          <SearchFilters
-            filters={filters}
-            onFiltersChange={handleFiltersChange}
-            isExpanded={showFilters}
-            onToggle={() => setShowFilters(!showFilters)}
-          />
-        </div>
-      </nav>
+            {/* 居中搜索区域 */}
+            <div className="centered-search-area">
+              <form onSubmit={handleSearch} className="results-composer-wrapper">
+                {/* 输入区域 */}
+                <div className="composer-input-area">
+                  {/* 筛选按钮 - 最左边 */}
+                  {(() => {
+                    const hasFilters = filters.yearFrom ||
+                                     filters.yearTo ||
+                                     filters.publicationTypes.length > 0 ||
+                                     filters.fieldsOfStudy.length > 0 ||
+                                     filters.openAccessPdf ||
+                                     filters.venue;
+
+                    const handleClearClick = (e) => {
+                      e.stopPropagation();
+                      setFilters({
+                        yearFrom: '',
+                        yearTo: '',
+                        publicationTypes: [],
+                        fieldsOfStudy: [],
+                        openAccessPdf: '',
+                        venue: '',
+                      });
+                    };
+
+                    return (
+                      <button
+                        type="button"
+                        className={`footer-btn filter-btn ${showFilters ? 'panel-open' : ''} ${hasFilters ? 'has-filters' : ''}`}
+                        onClick={() => setShowFilters(!showFilters)}
+                        onMouseEnter={(e) => e.currentTarget.classList.add('is-hovering')}
+                        onMouseLeave={(e) => e.currentTarget.classList.remove('is-hovering')}
+                        title={hasFilters ? "点击打开筛选" : "筛选条件"}
+                      >
+                        <div className="filter-icon-wrapper" onClick={(e) => {
+                          if (hasFilters && e.currentTarget.parentElement.classList.contains('is-hovering')) {
+                            e.stopPropagation();
+                            handleClearClick(e);
+                          }
+                        }}>
+                          <svg className="filter-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M2.5 3.75C2.5 3.19772 2.94772 2.75 3.5 2.75H16.5C17.0523 2.75 17.5 3.19772 17.5 3.75V5.25C17.5 5.51522 17.3946 5.76957 17.2071 5.95711L11.75 11.4142V16.25C11.75 16.6297 11.5085 16.9705 11.1522 17.1094L8.65217 18.1094C8.15522 18.3078 7.58333 17.9469 7.58333 17.4167V11.4142L2.79289 5.95711C2.60536 5.76957 2.5 5.51522 2.5 5.25V3.75Z"/>
+                          </svg>
+                          <svg className="clear-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M13.5355 5.46447C13.9261 5.85499 13.9261 6.48816 13.5355 6.87868L11.4142 9L13.5355 11.1213C13.9261 11.5118 13.9261 12.145 13.5355 12.5355C13.145 12.9261 12.5118 12.9261 12.1213 12.5355L10 10.4142L7.87868 12.5355C7.48816 12.9261 6.85499 12.9261 6.46447 12.5355C6.07394 12.145 6.07394 11.5118 6.46447 11.1213L8.58579 9L6.46447 6.87868C6.07394 6.48816 6.07394 5.85499 6.46447 5.46447C6.85499 5.07394 7.48816 5.07394 7.87868 5.46447L10 7.58579L12.1213 5.46447C12.5118 5.07394 13.145 5.07394 13.5355 5.46447Z"/>
+                          </svg>
+                        </div>
+                      </button>
+                    );
+                  })()}
+
+                  <textarea
+                    className="chat-input"
+                    placeholder="搜索论文标题、作者、关键词..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      e.target.style.height = 'auto';
+                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (searchQuery.trim()) {
+                          handleSearch(e);
+                        }
+                      }
+                    }}
+                    rows={1}
+                  />
+                  <button type="submit" className="btn-send" disabled={!searchQuery.trim() || loading}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                </div>
+              </form>
+
+              {/* 筛选条件面板 */}
+              <SearchFilters
+                filters={filters}
+                onFiltersChange={setFilters}
+                isExpanded={showFilters}
+                onToggle={() => setShowFilters(!showFilters)}
+              />
+            </div>
 
       {/* 三栏布局 */}
       <div className="results-main" ref={resultsMainRef}>
@@ -465,45 +582,44 @@ const SearchResultsPage = () => {
               onFiltersChange={handleFiltersChange}
               resultsTotal={total}
             />
-            <button
-              type="button"
-              className={`filter-sidebar-toggle ${filterSidebarCollapsed ? 'collapsed' : ''}`}
-              onClick={toggleFilterSidebar}
-              aria-label={filterSidebarCollapsed ? '展开筛选条件' : '收起筛选条件'}
-              aria-expanded={!filterSidebarCollapsed}
-            >
-              {filterSidebarCollapsed ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="9 18 15 12 9 6"/>
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="15 18 9 12 15 6"/>
-                </svg>
-              )}
-            </button>
           </div>
         )}
 
-        {/* 中间论文列表 */}
+        {/* 中间论文列表区域 */}
         <div className="papers-container">
-          {loading && papers.length === 0 ? (
-            <div className="loading-state">
-              <div className="spinner"></div>
-              <p>正在搜索论文...</p>
-            </div>
-          ) : papers.length === 0 ? (
-            <div className="empty-state">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                <circle cx="11" cy="11" r="8"/>
-                <path d="m21 21-4.35-4.35"/>
-              </svg>
-              <h3>未找到相关论文</h3>
-              <p>请尝试其他关键词或调整筛选条件</p>
-            </div>
-          ) : (
+            {loading ? (
+              <PaperListSkeleton />
+            ) : papers.length === 0 ? (
+              <div className="empty-state">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="m21 21-4.35-4.35"/>
+                </svg>
+                <h3>未找到相关论文</h3>
+                <p>请尝试其他关键词或调整筛选条件</p>
+              </div>
+            ) : (
             <>
               <div className="results-header">
+                {!isCompactLayout && (
+                  <button
+                    type="button"
+                    className={`filter-sidebar-toggle ${filterSidebarCollapsed ? 'collapsed' : ''}`}
+                    onClick={toggleFilterSidebar}
+                    aria-label={filterSidebarCollapsed ? '展开筛选条件' : '收起筛选条件'}
+                    aria-expanded={!filterSidebarCollapsed}
+                  >
+                    {filterSidebarCollapsed ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="9 18 15 12 9 6"/>
+                      </svg>
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="15 18 9 12 15 6"/>
+                      </svg>
+                    )}
+                  </button>
+                )}
                 <p className="results-info">
                   显示 <strong>{startIndex}-{endIndex}</strong> / 共 <strong>{total.toLocaleString()}</strong> 篇论文
                 </p>
@@ -603,31 +719,25 @@ const SearchResultsPage = () => {
                     下一页
                   </button>
                 </div>
-              )}
-            </>
-          )}
+                )}
+              </>
+            )}
         </div>
 
-        {!isCompactLayout && (
-          <div
-            className={`resize-handle ${isResizingPreview ? 'resizing' : ''}`}
-            onMouseDown={handlePreviewResizeMouseDown}
-            onTouchStart={handlePreviewResizeTouchStart}
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="调整预览区域宽度"
-          >
-            <div className="resize-handle-line" />
-          </div>
+        {/* 右侧预览区 - 只在筛选区收起时显示 */}
+        {!isCompactLayout && filterSidebarCollapsed && (
+          <PaperPreview
+            paper={selectedPaper}
+            onClose={() => setSelectedPaper(null)}
+            width={previewWidth}
+            onResizeMouseDown={handlePreviewResizeMouseDown}
+            onResizeTouchStart={handlePreviewResizeTouchStart}
+            isResizing={isResizingPreview}
+          />
         )}
-
-        {/* 右侧预览区 */}
-        <PaperPreview
-          paper={selectedPaper}
-          onClose={() => setSelectedPaper(null)}
-          width={isCompactLayout ? undefined : previewWidth}
-        />
       </div>
+    </div>
+        )}
       </div>
     </div>
   );

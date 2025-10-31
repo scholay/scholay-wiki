@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import AuthModal from '../components/AuthModal';
 import SearchFilters from '../components/SearchFilters';
-import Logo from '../components/Logo';
 import AppSidebar from '../components/AppSidebar';
+import Logo from '../components/Logo';
 import './Home.css';
 
 const Home = () => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -10,11 +10,12 @@ const pdfWorkerSrc = `${publicBase}/pdf.worker.min.mjs`;
 const pdfAssetsBase = `${publicBase}/pdfjs`;
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
-const PDFViewer = ({ pdfUrl, paperTitle }) => {
+const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
   const [numPages, setNumPages] = useState(null);
   const [scale, setScale] = useState(1.0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const contentRef = useRef(null);
 
   // 使用后端代理来绕过CORS限制
   const proxyUrl = `/api/v1/proxy/pdf?url=${encodeURIComponent(pdfUrl)}`;
@@ -37,6 +38,16 @@ const PDFViewer = ({ pdfUrl, paperTitle }) => {
     setError(null);
   };
 
+  const onPageRenderSuccess = () => {
+    // 当第一页渲染完成后,初始化滚动位置到中心
+    if (contentRef.current) {
+      setTimeout(() => {
+        const container = contentRef.current;
+        container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
+      }, 100);
+    }
+  };
+
   const onDocumentLoadError = (error) => {
     console.error('PDF加载失败:', error);
     setError('PDF加载失败,可能是由于CORS限制或文件不可用');
@@ -54,8 +65,9 @@ const PDFViewer = ({ pdfUrl, paperTitle }) => {
     standardFontDataUrl: `${pdfAssetsBase}/standard_fonts/`,
   }), [pdfAssetsBase]);
 
+
   const handleZoomIn = () => {
-    setScale(prev => Math.min(prev + 0.2, 3.0));
+    setScale(prev => Math.min(prev + 0.2, 5.0));
   };
 
   const handleZoomOut = () => {
@@ -97,7 +109,7 @@ const PDFViewer = ({ pdfUrl, paperTitle }) => {
             <button
               className="control-btn"
               onClick={handleZoomIn}
-              disabled={scale >= 3.0}
+              disabled={scale >= 5.0}
               title="放大"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -148,7 +160,7 @@ const PDFViewer = ({ pdfUrl, paperTitle }) => {
       </div>
 
       {/* PDF 内容区域 */}
-      <div className={`pdf-content ${isLoading ? 'pdf-content--loading' : ''}`}>
+      <div ref={contentRef} className={`pdf-content ${isLoading ? 'pdf-content--loading' : ''}`}>
         {isLoading && !error && (
           <div className="pdf-skeleton-overlay" aria-hidden="true">
             <div className="pdf-skeleton">
@@ -187,24 +199,25 @@ const PDFViewer = ({ pdfUrl, paperTitle }) => {
             className="pdf-document"
             options={documentOptions}
           >
-            {Array.from({ length: numPages || 0 }, (_, index) => index + 1)
-              .map(pageNumber => (
-                <Page
-                  key={`page_${pageNumber}`}
-                  pageNumber={pageNumber}
-                  scale={scale}
-                  renderTextLayer={true}
-                  renderAnnotationLayer={true}
-                  className="pdf-page"
-                  loading=""
-                  error=""
-                />
-              ))}
+              {Array.from({ length: numPages || 0 }, (_, index) => index + 1)
+                .map(pageNumber => (
+                  <Page
+                    key={`page_${pageNumber}`}
+                    pageNumber={pageNumber}
+                    scale={scale}
+                    renderTextLayer={true}
+                    renderAnnotationLayer={true}
+                    className="pdf-page"
+                    loading=""
+                    error=""
+                    onRenderSuccess={pageNumber === 1 ? onPageRenderSuccess : undefined}
+                  />
+                ))}
           </Document>
         )}
       </div>
     </div>
   );
-};
+});
 
 export default PDFViewer;

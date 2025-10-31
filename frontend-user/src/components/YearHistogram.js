@@ -104,7 +104,7 @@ const YearHistogram = ({ yearFrom, yearTo, onChange }) => {
       if (!sliderRef.current) return;
 
       const rect = sliderRef.current.getBoundingClientRect();
-      const padding = 8; // Match the CSS padding
+      const padding = 12; // Match the CSS padding
       const effectiveWidth = rect.width - padding * 2;
       const x = Math.max(padding, Math.min(e.clientX - rect.left, rect.width - padding));
       const percent = ((x - padding) / effectiveWidth) * 100;

@@ -82,12 +82,6 @@ const FilterSidebar = ({ filters, onFiltersChange, resultsTotal }) => {
         )}
       </div>
 
-      {resultsTotal !== null && resultsTotal !== undefined && (
-        <div className="results-summary">
-          找到约 <strong>{resultsTotal.toLocaleString()}</strong> 篇论文
-        </div>
-      )}
-
       <div className="filter-sidebar-content">
         {/* Year Range with Histogram */}
         <div className="filter-section">

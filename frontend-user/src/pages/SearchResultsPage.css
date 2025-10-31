@@ -41,7 +41,7 @@
 /* 顶部导航栏 - ChatGPT dark theme */
 .results-navbar {
   background: #212121;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: none;
   box-shadow: none;
   z-index: 10;
 }
@@ -66,6 +66,14 @@
   font-size: 20px;
   font-weight: 700;
   color: rgb(236, 236, 241);
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: rgb(236, 236, 241);
+  margin: 0;
+  flex-shrink: 0;
 }
 
 .navbar-search-form {
@@ -207,6 +215,20 @@
   flex: 1;
   display: flex;
   overflow: hidden;
+  position: relative; /* 为绝对定位的resize-handle提供定位参考 */
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s both;
+}
+
+/* 三栏布局淡入向上动画 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .filter-sidebar-wrapper {
@@ -235,14 +257,10 @@
 }
 
 .filter-sidebar-toggle {
-  position: absolute;
-  top: 50%;
-  right: -12px;
-  transform: translateY(-50%);
-  width: 24px;
-  height: 48px;
+  width: 32px;
+  height: 32px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   background: rgba(64, 65, 79, 0.6);
   color: rgba(236, 236, 241, 0.8);
   display: flex;
@@ -250,7 +268,7 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
 }
 
 .filter-sidebar-toggle:hover {
@@ -262,83 +280,53 @@
   transition: transform 0.2s ease;
 }
 
-/* 中间论文列表容器 - Dark theme */
+/* 中间论文列表容器 - 使用flex自适应 */
 .papers-container {
-  flex: 1;
+  flex: 1 1 auto; /* 自动填充剩余空间 */
   overflow-y: auto;
+  overflow-x: hidden;
   background: #212121;
   display: flex;
   flex-direction: column;
-  min-width: 420px;
+  min-width: 420px; /* 最小宽度确保内容可读 */
 }
 
-/* 拖拽分隔条（复用高级搜索样式） */
-.resize-handle {
+/* Auto-hide scrollbar when not scrolling */
+.papers-container {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s ease;
+}
+
+.papers-container:hover,
+.papers-container:focus,
+.papers-container:active {
+  scrollbar-color: rgba(255, 255, 255, 0.15) rgba(255, 255, 255, 0.05);
+}
+
+/* Webkit scrollbar styling with auto-hide */
+.papers-container::-webkit-scrollbar {
   width: 8px;
-  height: 100%;
-  cursor: col-resize;
-  position: relative;
-  flex-shrink: 0;
+}
+
+.papers-container::-webkit-scrollbar-track {
   background: transparent;
-  transition: background-color 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 5;
 }
 
-.resize-handle:hover {
-  background: rgba(16, 163, 127, 0.1);
+.papers-container::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+  transition: background 0.3s ease;
 }
 
-.resize-handle.resizing {
-  background: rgba(16, 163, 127, 0.15);
+.papers-container:hover::-webkit-scrollbar-thumb,
+.papers-container:focus::-webkit-scrollbar-thumb,
+.papers-container:active::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
 }
 
-.resize-handle-line {
-  width: 2px;
-  height: 60px;
-  background: rgba(148, 163, 184, 0.2);
-  border-radius: 2px;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.resize-handle-line::before,
-.resize-handle-line::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 2px;
-  height: 6px;
-  background: rgba(148, 163, 184, 0.3);
-  border-radius: 1px;
-}
-
-.resize-handle-line::before {
-  top: -10px;
-}
-
-.resize-handle-line::after {
-  bottom: -10px;
-}
-
-.resize-handle:hover .resize-handle-line {
-  background: var(--primary-solid);
-  height: 80px;
-  box-shadow: 0 0 8px rgba(16, 163, 127, 0.3);
-}
-
-.resize-handle:hover .resize-handle-line::before,
-.resize-handle:hover .resize-handle-line::after {
-  background: var(--primary-solid);
-}
-
-.resize-handle.resizing .resize-handle-line {
-  background: var(--primary-solid);
-  height: 100%;
-  box-shadow: 0 0 12px rgba(16, 163, 127, 0.5);
+.papers-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .papers-container::-webkit-scrollbar {
@@ -369,6 +357,240 @@
   justify-content: center;
   color: rgba(236, 236, 241, 0.6);
   padding: 60px 20px;
+}
+
+/* 空状态布局 - 类似首页 */
+.empty-search-layout {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #212121;
+  position: relative;
+}
+
+.empty-navbar {
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+}
+
+.empty-page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: rgb(236, 236, 241);
+  margin: 0;
+}
+
+.empty-search-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0 1.5rem;
+}
+
+/* 搜索框 - ChatGPT Style */
+.empty-composer-wrapper {
+  width: calc(100% - 3rem);
+  max-width: 48rem;
+  background: #2f2f2f;
+  border-radius: 28px;
+  padding: 12px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 2rem;
+  animation: fadeInScale 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.empty-composer-wrapper:focus-within {
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+/* 空状态搜索框淡入缩放动画 */
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Composer Input Area */
+.composer-input-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  min-height: 56px;
+}
+
+.chat-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: rgb(236, 236, 241);
+  font-size: 1.125rem !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  outline: none;
+  padding: 10px 4px;
+  resize: none;
+  min-height: 28px;
+  max-height: 200px;
+  line-height: 1.6;
+  overflow-y: auto;
+  overflow-x: hidden;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.chat-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1.125rem !important;
+}
+
+.chat-input::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-input::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-input::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.chat-input::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.btn-send {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 12px;
+  background: rgb(16, 163, 127);
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.3);
+}
+
+.btn-send:hover:not(:disabled) {
+  background: rgba(16, 163, 127, 0.9);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.4);
+}
+
+.btn-send:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  transform: none;
+}
+
+/* Composer Footer */
+.composer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px 4px;
+  min-height: 44px;
+}
+
+.composer-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Footer Buttons - ChatGPT Style */
+.footer-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 18px;
+  background: transparent;
+  color: rgba(236, 236, 241, 0.6);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 400;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.footer-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(236, 236, 241, 0.9);
+}
+
+/* 筛选按钮样式 */
+.filter-btn {
+  position: relative;
+}
+
+.filter-btn .filter-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  position: relative;
+}
+
+.filter-btn .filter-icon,
+.filter-btn .clear-icon {
+  position: absolute;
+  transition: all 0.2s ease;
+}
+
+.filter-btn .clear-icon {
+  opacity: 0;
+  transform: scale(0.8);
+  pointer-events: none;
+}
+
+.filter-btn.panel-open {
+  background: rgba(64, 65, 79, 1);
+  color: rgba(236, 236, 241, 1);
+}
+
+.filter-btn.has-filters {
+  background: transparent;
+  color: rgb(25, 195, 125);
+}
+
+.filter-btn.has-filters.is-hovering {
+  background: rgba(239, 68, 68, 0.1);
+  color: rgb(239, 68, 68);
+}
+
+.filter-btn.has-filters.is-hovering .filter-icon {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.filter-btn.has-filters.is-hovering .clear-icon {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .loading-state .spinner {
@@ -407,6 +629,9 @@
   padding: 20px 24px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: #212121;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .results-info {
@@ -585,10 +810,84 @@
   color: white;
 }
 
+/* 结果页面布局 */
+.results-layout {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #212121;
+  position: relative;
+}
+
+/* 结果页面顶部导航栏 */
+.results-navbar {
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  background: #212121;
+  flex-shrink: 0;
+}
+
+/* 居中搜索区域 - 改为左对齐 */
+.centered-search-area {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 1.5rem 1.5rem;
+  position: relative;
+  background: #212121;
+  flex-shrink: 0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 结果页面搜索框 - 增大宽度 */
+.results-composer-wrapper {
+  width: 100%;
+  max-width: 56rem; /* 增大搜索框宽度 */
+  background: #2f2f2f;
+  border-radius: 28px;
+  padding: 12px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 1rem;
+  animation: slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.results-composer-wrapper:focus-within {
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+/* 搜索框滑动动画 */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* 响应式 */
 @media (max-width: 1280px) {
   .results-main {
     position: relative;
+  }
+
+  .results-composer-wrapper {
+    max-width: 36rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .results-composer-wrapper {
+    max-width: 100%;
+  }
+
+  .centered-search-area {
+    padding: 1.5rem 1rem;
   }
 }
 

@@ -7,11 +7,12 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  overflow-x: hidden; /* 防止横向滚动条 */
 }
 
 .filter-sidebar-header {
   padding: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: none;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -57,7 +58,12 @@
 .filter-sidebar-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden; /* 防止横向滚动条 */
   padding: 20px;
+  padding-right: 16px; /* 减少右侧padding,为滚动条留出空间 */
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box; /* 确保padding包含在宽度内 */
 }
 
 .filter-sidebar-content::-webkit-scrollbar {
@@ -80,6 +86,16 @@
 
 .filter-section {
   margin-bottom: 24px;
+  flex-shrink: 0; /* 防止收缩 */
+}
+
+/* 最后一个filter-section(研究领域)自动扩展到底部 */
+.filter-section:last-child {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+  min-height: 0; /* 重要:允许内部滚动 */
 }
 
 .filter-section-title {
@@ -126,6 +142,16 @@
   gap: 10px;
 }
 
+/* 当研究领域在最后一个section时,自动扩展填充剩余空间 */
+.filter-section:last-child .filter-options.scrollable {
+  flex: 1;
+  max-height: none; /* 移除最大高度限制 */
+  overflow-y: auto;
+  padding-right: 8px;
+  min-height: 0; /* 重要:允许滚动 */
+}
+
+/* 其他情况下保持原有的最大高度 */
 .filter-options.scrollable {
   max-height: 180px;
   overflow-y: auto;
@@ -173,6 +199,8 @@
   font-size: 14px;
   color: rgba(236, 236, 241, 0.8);
   user-select: none;
+  word-break: break-word; /* 长文本换行 */
+  overflow-wrap: break-word;
 }
 
 .filter-option:hover span {
