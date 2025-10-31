@@ -5,7 +5,7 @@
   background: #171717;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   position: fixed;
   left: 0;
   top: 0;
@@ -21,14 +21,15 @@
 /* 顶部Logo区域 */
 .app-sidebar-header {
   height: 56px;
-  padding: 0 20px 0 16px;
+  padding: 0 20px 0 10px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  overflow: visible;
 }
 
 .app-sidebar.collapsed .app-sidebar-header {
-  padding: 0 12px 0 16px;
+  padding: 0 10px;
 }
 
 /* 顶部Logo和按钮区域 */
@@ -37,19 +38,21 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  position: relative;
+  height: 44px;
+  gap: 8px;
 }
 
 /* Logo - 固定位置，不参与动画 */
 .sidebar-logo {
   display: flex;
   align-items: center;
+  justify-content: center;
   transition: opacity 0.15s ease;
   flex-shrink: 0;
-  position: relative;
-  /* Logo始终在左侧固定位置 */
-  min-width: 20px;
-  min-height: 20px;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  border-radius: 8px;
 }
 
 /* 确保Logo组件的SVG在收起状态下可见 */
@@ -63,14 +66,21 @@
   opacity: 1 !important;
 }
 
-.sidebar-logo:hover {
+/* 展开状态 - 原有的 hover 效果 */
+.app-sidebar:not(.collapsed) .sidebar-logo:hover {
   opacity: 0.8;
 }
 
-/* 收起状态的Logo - 显示展开图标 */
+/* 收起状态的Logo */
 .sidebar-logo.collapsed-logo svg {
   color: rgba(236, 236, 241, 0.8);
-  transition: color 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+/* 收起状态的Logo hover效果 - 显示深色背景 */
+.app-sidebar.collapsed .sidebar-logo:hover {
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 1;
 }
 
 .sidebar-logo.collapsed-logo:hover svg {
@@ -108,13 +118,14 @@
 /* 底部用户信息区域 */
 .sidebar-user-section.sidebar-footer {
   margin-top: auto;
-  padding: 12px 12px 12px 10px;
+  padding: 12px 10px;
   flex-shrink: 0;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
 }
 
 .app-sidebar.collapsed .sidebar-user-section.sidebar-footer {
-  padding: 12px 8px 12px 10px;
+  padding: 12px 10px;
   border-top: none;
 }
 
@@ -122,15 +133,30 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 0;
+  padding: 6px;
   border-radius: 8px;
   cursor: pointer;
-  transition: opacity 0.15s ease;
+  transition: background-color 0.15s ease;
   background: transparent;
+  position: relative;
+  min-height: 44px;
 }
 
-.sidebar-user-info:hover {
-  opacity: 0.8;
+/* 展开状态 - 原有的 hover 效果 */
+.app-sidebar:not(.collapsed) .sidebar-user-info:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* 收起状态下用户头像的hover效果 - 显示深色背景 */
+.app-sidebar.collapsed .sidebar-user-info {
+  justify-content: center;
+  padding: 6px;
+  width: 44px;
+  height: 44px;
+}
+
+.app-sidebar.collapsed .sidebar-user-info:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .user-avatar {
@@ -289,7 +315,7 @@
 .app-sidebar-content {
   flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: visible;
   padding: 12px 8px;
 }
 
@@ -339,21 +365,23 @@
 /* 导航分区 */
 .navigation-section {
   margin-bottom: 16px;
-  padding: 0 8px;
-  transition: padding 0.3s ease;
+  padding: 0 10px;
+  transition: none;
+  overflow: visible;
 }
 
 .navigation-items {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow: visible;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 0 12px 0 13px;
   border-radius: 10px;
   background: transparent;
   border: none;
@@ -365,7 +393,8 @@
   text-align: left;
   width: 100%;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  min-height: 44px;
 }
 
 .nav-item:hover {
@@ -373,7 +402,7 @@
 }
 
 .nav-item.active {
-  background: #343541;
+  background: #2f2f2f;
   font-weight: 500;
 }
 
@@ -397,8 +426,13 @@
 }
 
 .app-sidebar.collapsed .nav-item {
-  padding: 10px 12px;
-  gap: 12px;
+  padding: 0 0 0 13px;
+  gap: 0;
+  width: 44px;
+  height: 44px;
+  justify-content: flex-start;
+  align-items: center;
+  margin-left: 0;
 }
 
 .app-sidebar.collapsed .nav-item span {
@@ -407,50 +441,111 @@
   pointer-events: none;
 }
 
+/* 收起状态下导航项的hover效果 - 显示深色背景 */
+.app-sidebar.collapsed .nav-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 收起状态下激活项也保持背景色 */
+.app-sidebar.collapsed .nav-item.active {
+  background: #2f2f2f;
+}
+
+.app-sidebar.collapsed .nav-item.active:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 /* 历史记录分区 */
 .history-section {
   display: flex;
   flex-direction: column;
   height: 100%;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
   padding: 0 8px;
 }
 
-.btn-new-item {
-  padding: 6px 12px;
-  background: rgba(64, 65, 79, 0.5);
-  border: none;
-  border-radius: 6px;
-  color: rgba(236, 236, 241, 0.8);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
+/* 历史记录折叠按钮 */
+.history-toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: none;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  width: 100%;
+  text-align: left;
 }
 
-.btn-new-item:hover {
-  background: rgba(64, 65, 79, 0.8);
-  color: rgb(236, 236, 241);
+.history-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(236, 236, 241, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  user-select: none;
+  flex: 1;
+  text-align: left;
 }
 
-.btn-new-item svg {
+.toggle-icon {
+  flex-shrink: 0;
+  color: rgba(236, 236, 241, 0.5);
+  transition: transform 0.2s ease, opacity 0.15s ease;
+  transform: rotate(-90deg);
+  opacity: 0;
+}
+
+.history-toggle:hover .toggle-icon {
+  opacity: 1;
+}
+
+.toggle-icon.expanded {
+  transform: rotate(0deg);
+}
+
+/* 新建聊天/搜索按钮 */
+.btn-new-chat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(236, 236, 241, 0.9);
   font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.btn-new-chat:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.btn-new-chat svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+}
+
+.btn-new-chat span {
+  flex: 1;
+  white-space: nowrap;
 }
 
 /* 历史记录列表 */
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
   flex: 1;
   overflow-y: auto;
 }
@@ -475,8 +570,8 @@
 .history-item {
   position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   padding: 10px 12px;
   border-radius: 8px;
   background: transparent;
@@ -485,41 +580,37 @@
   transition: all 0.15s ease;
   text-align: left;
   width: 100%;
+  margin-bottom: 0px;
 }
 
 .history-item:hover {
-  background: rgba(64, 65, 79, 0.5);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .history-item.active {
-  background: rgba(64, 65, 79, 0.8);
+  background: #343541;
 }
 
-.history-item-content {
+.history-item-main {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
 }
 
 .history-item-title {
-  color: rgba(236, 236, 241, 0.9);
+  color: rgba(236, 236, 241, 0.8);
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  margin-bottom: 4px;
+  white-space: nowrap;
+  font-weight: 400;
 }
 
 .history-item.active .history-item-title {
   color: rgb(236, 236, 241);
-  font-weight: 500;
-}
-
-.history-item-time {
-  color: rgba(236, 236, 241, 0.5);
-  font-size: 12px;
+  font-weight: 400;
 }
 
 .btn-delete-item {
@@ -551,29 +642,52 @@
   font-size: 14px;
 }
 
-/* 空状态 */
-.history-empty {
-  text-align: center;
-  padding: 32px 16px;
-  color: rgba(236, 236, 241, 0.4);
-  font-size: 13px;
-}
-
 /* 加载状态 */
 .history-loading {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 16px;
+  padding: 20px 16px;
   color: rgba(236, 236, 241, 0.5);
   font-size: 13px;
 }
 
-/* 分隔线 */
-.sidebar-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.1);
-  margin: 16px 0;
+/* Tooltip 样式 - 在右侧显示 */
+.sidebar-tooltip {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(52, 53, 65, 0.98);
+  color: rgb(236, 236, 241);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  animation: tooltipFadeIn 0.15s ease;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+/* 确保相对定位的父元素 */
+.sidebar-logo,
+.nav-item,
+.sidebar-user-info {
+  position: relative;
 }
 
 /* 响应式设计 */

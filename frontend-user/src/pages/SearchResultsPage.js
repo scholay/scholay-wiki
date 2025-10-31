@@ -387,6 +387,7 @@ const SearchResultsPage = () => {
           onDeleteItem={handleDeleteSearchHistory}
           onNewItem={null}
           historyLoading={false}
+          disableActiveState={true}
         />
       )}
 

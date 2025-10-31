@@ -2,7 +2,7 @@
   width: 100%;
   max-width: 280px;
   height: 100%;
-  background: rgb(32, 33, 35);
+  background: #212121;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
@@ -37,7 +37,7 @@
 }
 
 .clear-all-btn:hover {
-  background: rgba(64, 65, 79, 0.8);
+  background: rgba(255, 255, 255, 0.1);
   color: rgb(236, 236, 241);
 }
 
@@ -158,7 +158,7 @@
 }
 
 .filter-option:hover {
-  background: rgba(64, 65, 79, 0.8);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .filter-option input[type="checkbox"] {
@@ -187,7 +187,7 @@
 }
 
 .filter-option.open-access:hover {
-  background: rgba(64, 65, 79, 0.8);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Venue Field - Dark theme */
