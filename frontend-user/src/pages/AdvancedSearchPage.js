@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
-import ConversationSidebar from '../components/ConversationSidebar';
+import AppSidebar from '../components/AppSidebar';
 import PaperList from '../components/PaperList';
 import PaperCitationMarkdown from '../components/PaperCitationMarkdown';
 import Logo from '../components/Logo';
@@ -11,11 +11,16 @@ import './AdvancedSearchPage.css';
 const AdvancedSearchPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated, logout } = useAuth();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { isAuthenticated, user, logout } = useAuth();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebarCollapsed');
+    return saved === 'true';
+  });
 
   // Conversation state
   const [currentConversationId, setCurrentConversationId] = useState(null);
+  const [conversations, setConversations] = useState([]);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
   const [messages, setMessages] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -50,6 +55,40 @@ const AdvancedSearchPage = () => {
       navigate('/');
     }
   }, [isAuthenticated, navigate]);
+
+  // 加载对话历史
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadConversations();
+    }
+  }, [isAuthenticated]);
+
+  // 当创建新对话时刷新对话列表
+  useEffect(() => {
+    if (currentConversationId && isAuthenticated) {
+      loadConversations();
+    }
+  }, [currentConversationId]);
+
+  const loadConversations = async () => {
+    setConversationsLoading(true);
+    try {
+      const response = await conversationAPI.getConversations(1, 50);
+      if (response.data.code === 0 && response.data.data) {
+        setConversations(response.data.data.conversations || []);
+      }
+    } catch (error) {
+      console.error('Failed to load conversations:', error);
+    } finally {
+      setConversationsLoading(false);
+    }
+  };
+
+  const handleToggleSidebar = () => {
+    const newCollapsed = !sidebarCollapsed;
+    setSidebarCollapsed(newCollapsed);
+    localStorage.setItem('sidebarCollapsed', newCollapsed.toString());
+  };
 
   // 从URL参数读取初始查询（仅执行一次）
   // 执行搜索后立即清除URL参数，避免刷新时重复搜索
@@ -208,6 +247,19 @@ const AdvancedSearchPage = () => {
     setStreamingContent('');
     setIsStreaming(false);
     setHasAdvancedSearch(false); // 重置高级搜索标志
+  };
+
+  const handleDeleteConversation = async (conversationId) => {
+    try {
+      await conversationAPI.deleteConversation(conversationId);
+      setConversations(conversations.filter(c => c.id !== conversationId));
+      if (currentConversationId === conversationId) {
+        handleNewConversation();
+      }
+    } catch (error) {
+      console.error('Failed to delete conversation:', error);
+      alert('删除失败');
+    }
   };
 
   const handleSelectConversation = async (conversationId) => {
@@ -737,13 +789,19 @@ const AdvancedSearchPage = () => {
   // Main advanced search interface
   return (
     <div className="advanced-search-page">
-      <ConversationSidebar
-        currentConversationId={currentConversationId}
-        onSelectConversation={handleSelectConversation}
-        onNewConversation={handleNewConversation}
-        collapsed={sidebarCollapsed}
-        onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+      <AppSidebar
+        user={user}
         onLogout={handleLogout}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={handleToggleSidebar}
+        showHistory={true}
+        historyType="conversation"
+        historyItems={conversations}
+        currentItemId={currentConversationId}
+        onSelectItem={handleSelectConversation}
+        onDeleteItem={handleDeleteConversation}
+        onNewItem={handleNewConversation}
+        historyLoading={conversationsLoading}
       />
 
       <div className={`main-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>

@@ -1,15 +1,26 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useAuth } from '../utils/AuthContext';
+import AppSidebar from '../components/AppSidebar';
 import FilterSidebar from '../components/FilterSidebar';
 import PaperPreview from '../components/PaperPreview';
 import SearchFilters from '../components/SearchFilters';
 import Logo from '../components/Logo';
+import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory } from '../utils/searchHistory';
 import './SearchResultsPage.css';
 
 const SearchResultsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user, isAuthenticated, logout } = useAuth();
+
+  // 侧边栏状态
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebarCollapsed');
+    return saved === 'true';
+  });
+  const [searchHistory, setSearchHistory] = useState([]);
 
   // 从URL参数初始化状态
   const [searchQuery, setSearchQuery] = useState(searchParams.get('query') || '');
@@ -112,8 +123,14 @@ const SearchResultsPage = () => {
       );
 
       if (response.data.code === 0 && response.data.data) {
-        setPapers(response.data.data.data || []);
-        setTotal(response.data.data.total || 0);
+        const searchResults = response.data.data.data || [];
+        const resultsTotal = response.data.data.total || 0;
+        setPapers(searchResults);
+        setTotal(resultsTotal);
+
+        // 添加到搜索历史
+        addSearchHistory(query, currentFilters, resultsTotal);
+        loadSearchHistory();
       }
     } catch (error) {
       console.error('搜索失败:', error);
@@ -121,6 +138,50 @@ const SearchResultsPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 加载搜索历史
+  useEffect(() => {
+    loadSearchHistory();
+  }, []);
+
+  const loadSearchHistory = () => {
+    const history = getFormattedSearchHistory();
+    setSearchHistory(history);
+  };
+
+  const handleToggleSidebar = () => {
+    const newCollapsed = !sidebarCollapsed;
+    setSidebarCollapsed(newCollapsed);
+    localStorage.setItem('sidebarCollapsed', newCollapsed.toString());
+  };
+
+  const handleSelectSearchHistory = (itemId) => {
+    const history = searchHistory.find(h => h.id === itemId);
+    if (history) {
+      setSearchQuery(history.query);
+      setFilters(history.filters || {
+        yearFrom: '',
+        yearTo: '',
+        publicationTypes: [],
+        fieldsOfStudy: [],
+        openAccessPdf: '',
+        venue: '',
+      });
+      setCurrentPage(1);
+      updateURL(history.query, history.filters, 1);
+      performSearch(history.query, history.filters, 1);
+    }
+  };
+
+  const handleDeleteSearchHistory = (itemId) => {
+    deleteSearchHistory(itemId);
+    loadSearchHistory();
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
   };
 
   // 初始化时从URL参数加载并搜索
@@ -311,8 +372,28 @@ const SearchResultsPage = () => {
 
   return (
     <div className="search-results-page">
-      {/* 顶部导航栏 */}
-      <nav className="results-navbar">
+      {/* 统一侧边栏 */}
+      {isAuthenticated && (
+        <AppSidebar
+          user={user}
+          onLogout={handleLogout}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={handleToggleSidebar}
+          showHistory={true}
+          historyType="search"
+          historyItems={searchHistory}
+          currentItemId={null}
+          onSelectItem={handleSelectSearchHistory}
+          onDeleteItem={handleDeleteSearchHistory}
+          onNewItem={null}
+          historyLoading={false}
+        />
+      )}
+
+      {/* 主内容区域 */}
+      <div className={`search-results-content ${isAuthenticated ? (sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded') : 'no-sidebar'}`}>
+        {/* 顶部导航栏 */}
+        <nav className="results-navbar">
         <div className="navbar-content">
           <div className="navbar-left" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
             <Logo width={32} height={32} variant="color" />
@@ -545,6 +626,7 @@ const SearchResultsPage = () => {
           onClose={() => setSelectedPaper(null)}
           width={isCompactLayout ? undefined : previewWidth}
         />
+      </div>
       </div>
     </div>
   );

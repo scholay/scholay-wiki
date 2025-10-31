@@ -1,8 +1,41 @@
 .search-results-page {
   height: 100vh;
   display: flex;
-  flex-direction: column;
   background: rgb(32, 33, 35);
+  position: relative;
+}
+
+/* 主内容区域 - 适应侧边栏 */
+.search-results-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left 0.3s ease;
+}
+
+.search-results-content.no-sidebar {
+  margin-left: 0;
+}
+
+.search-results-content.sidebar-expanded {
+  margin-left: 280px;
+}
+
+.search-results-content.sidebar-collapsed {
+  margin-left: 64px;
+}
+
+@media (max-width: 1024px) {
+  .search-results-content.sidebar-expanded {
+    margin-left: 240px;
+  }
+}
+
+@media (max-width: 768px) {
+  .search-results-content.sidebar-expanded,
+  .search-results-content.sidebar-collapsed {
+    margin-left: 0;
+  }
 }
 
 /* 顶部导航栏 - ChatGPT dark theme */

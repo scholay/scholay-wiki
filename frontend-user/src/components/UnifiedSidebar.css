@@ -1,0 +1,538 @@
+/* 统一侧边栏 */
+.unified-sidebar {
+  width: 100%;
+  max-width: 280px;
+  height: 100vh;
+  background: #171717;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100;
+  transition: max-width 0.3s ease, background-color 0.3s ease;
+}
+
+.unified-sidebar.collapsed {
+  max-width: 64px;
+  background: #212121;
+}
+
+/* 顶部Logo区域 */
+.unified-sidebar-header {
+  height: 56px;
+  padding: 0 20px 0 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.unified-sidebar.collapsed .unified-sidebar-header {
+  padding: 0 12px 0 16px;
+}
+
+/* 顶部Logo和按钮区域 */
+.sidebar-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  position: relative;
+}
+
+/* Logo */
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+  position: relative;
+  min-width: 20px;
+  min-height: 20px;
+}
+
+.sidebar-logo.collapsed-logo > div {
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-logo.collapsed-logo > div > svg {
+  display: block !important;
+  opacity: 1 !important;
+}
+
+.sidebar-logo:hover {
+  opacity: 0.8;
+}
+
+.sidebar-logo.collapsed-logo svg {
+  color: rgba(236, 236, 241, 0.8);
+  transition: color 0.15s ease;
+}
+
+.sidebar-logo.collapsed-logo:hover svg {
+  color: rgb(236, 236, 241);
+}
+
+/* 收起按钮 */
+.sidebar-collapse-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(236, 236, 241, 0.6);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.2s ease, width 0.3s ease;
+  flex-shrink: 0;
+  opacity: 1;
+  overflow: hidden;
+}
+
+.sidebar-collapse-btn.hidden {
+  opacity: 0;
+  width: 0;
+}
+
+.sidebar-collapse-btn:hover {
+  background: rgba(64, 65, 79, 0.8);
+  color: rgb(236, 236, 241);
+}
+
+/* 侧边栏内容区域 */
+.unified-sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.unified-sidebar-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.unified-sidebar-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.unified-sidebar-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.unified-sidebar-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* 侧边栏分区 */
+.sidebar-section {
+  padding: 16px 12px;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 8px 0;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(236, 236, 241, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  padding: 0 8px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+/* 功能导航区域 */
+.navigation-section {
+  flex-shrink: 0;
+}
+
+.navigation-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: rgba(236, 236, 241, 0.8);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.nav-item:hover {
+  background: rgba(64, 65, 79, 0.6);
+  color: rgb(236, 236, 241);
+}
+
+.nav-item.active {
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+}
+
+.nav-item svg {
+  flex-shrink: 0;
+}
+
+/* 历史记录区域 */
+.history-section {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.btn-new-item {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: rgba(236, 236, 241, 0.8);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.btn-new-item:hover {
+  background: rgba(64, 65, 79, 0.6);
+  color: rgb(236, 236, 241);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.history-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+.history-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.history-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.history-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.history-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 2px;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.history-item:hover {
+  background: rgba(64, 65, 79, 0.6);
+}
+
+.history-item.active {
+  background: rgba(102, 126, 234, 0.2);
+}
+
+.history-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-title {
+  font-size: 14px;
+  color: rgba(236, 236, 241, 0.9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 2px;
+}
+
+.history-item.active .history-title {
+  color: #667eea;
+  font-weight: 500;
+}
+
+.history-time {
+  font-size: 11px;
+  color: rgba(236, 236, 241, 0.4);
+}
+
+.btn-delete-item {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(236, 236, 241, 0.4);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.history-item:hover .btn-delete-item {
+  opacity: 1;
+}
+
+.btn-delete-item:hover {
+  background: rgba(220, 53, 69, 0.2);
+  color: #dc3545;
+}
+
+.history-loading,
+.history-empty {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(236, 236, 241, 0.5);
+}
+
+.history-empty p {
+  margin: 0;
+}
+
+/* 底部用户信息区域 */
+.sidebar-user-section.sidebar-footer {
+  margin-top: auto;
+  padding: 12px 12px 12px 10px;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.unified-sidebar.collapsed .sidebar-user-section.sidebar-footer {
+  padding: 12px 8px 12px 10px;
+  border-top: none;
+}
+
+.sidebar-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  background: transparent;
+}
+
+.sidebar-user-info:hover {
+  opacity: 0.8;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.user-email-wrapper {
+  flex: 1;
+  min-width: 0;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+  overflow: hidden;
+}
+
+.unified-sidebar.collapsed .user-email-wrapper {
+  opacity: 0;
+  width: 0;
+  pointer-events: none;
+}
+
+.user-email {
+  font-size: 14px;
+  color: rgb(236, 236, 241);
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 用户菜单弹窗 */
+.user-menu-popup {
+  min-width: 240px;
+  background: rgb(32, 33, 35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: slideUp 0.2s ease;
+  overflow: hidden;
+}
+
+.user-menu-popup.collapsed-menu {
+  min-width: 200px;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.user-menu-header {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(64, 65, 79, 0.3);
+}
+
+.user-avatar-large {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.user-info-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgb(236, 236, 241);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-email-small {
+  font-size: 13px;
+  color: rgba(236, 236, 241, 0.6);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.user-menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 8px 0;
+}
+
+.user-menu-options {
+  padding: 8px;
+}
+
+.user-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 14px;
+  color: rgba(236, 236, 241, 0.8);
+  text-align: left;
+}
+
+.user-menu-item:hover {
+  background: rgba(64, 65, 79, 0.8);
+  color: rgb(236, 236, 241);
+}
+
+.user-menu-item svg {
+  flex-shrink: 0;
+}
+
+.user-menu-item.logout-item {
+  color: rgba(239, 68, 68, 0.9);
+}
+
+.user-menu-item.logout-item:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: rgb(239, 68, 68);
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .unified-sidebar {
+    max-width: 240px;
+  }
+
+  .unified-sidebar.collapsed {
+    max-width: 64px;
+  }
+}
+
+@media (max-width: 768px) {
+  .unified-sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease, max-width 0.3s ease;
+  }
+
+  .unified-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+}

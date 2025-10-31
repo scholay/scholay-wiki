@@ -1,11 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Logo from './Logo';
 import './AppSidebar.css';
 
-const AppSidebar = ({ user, onLogout, children, collapsed, onToggleCollapse }) => {
+const AppSidebar = ({
+  user,
+  onLogout,
+  children,
+  collapsed,
+  onToggleCollapse,
+  // 历史记录相关 props
+  showHistory = false,
+  historyType = 'conversation', // 'conversation' 或 'search'
+  historyItems = [],
+  currentItemId = null,
+  onSelectItem = null,
+  onDeleteItem = null,
+  onNewItem = null,
+  historyLoading = false
+}) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [logoHovered, setLogoHovered] = useState(false);
   const userMenuRef = useRef(null);
@@ -66,6 +82,36 @@ const AppSidebar = ({ user, onLogout, children, collapsed, onToggleCollapse }) =
     }
   };
 
+  // 格式化时间
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return '刚刚';
+    if (diffMins < 60) return `${diffMins}分钟前`;
+    if (diffHours < 24) return `${diffHours}小时前`;
+    if (diffDays < 7) return `${diffDays}天前`;
+    return date.toLocaleDateString('zh-CN');
+  };
+
+  // 处理删除
+  const handleDelete = (e, itemId) => {
+    e.stopPropagation();
+    if (!window.confirm(historyType === 'conversation' ? '确定删除这个对话吗?' : '确定删除这条搜索记录吗?')) return;
+
+    if (onDeleteItem) {
+      onDeleteItem(itemId);
+    }
+  };
+
+  // 判断当前页面
+  const isSearchPage = location.pathname === '/search-results';
+  const isAdvancedSearchPage = location.pathname === '/advanced-search';
+
   return (
     <div className={`app-sidebar ${collapsed ? 'collapsed' : ''}`}>
       {/* 顶部Logo区域 */}
@@ -104,9 +150,108 @@ const AppSidebar = ({ user, onLogout, children, collapsed, onToggleCollapse }) =
         </div>
       </div>
 
-      {/* 侧边栏内容区域 - 可自定义，收起时隐藏 */}
+      {/* 功能导航 - 始终显示 */}
+      <div className="sidebar-section navigation-section">
+        <div className="navigation-items">
+          <button
+            className={`nav-item ${isSearchPage ? 'active' : ''}`}
+            onClick={() => navigate('/search-results?query=')}
+            title="普通搜索"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <circle cx="11.5" cy="14.5" r="2.5"/>
+              <path d="m13.25 16.25 1.5 1.5"/>
+            </svg>
+            <span>普通搜索</span>
+          </button>
+
+          <button
+            className={`nav-item ${isAdvancedSearchPage ? 'active' : ''}`}
+            onClick={() => navigate('/advanced-search')}
+            title="高级搜索"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+              <path d="M11 8l1.5 3 3 .5-2.5 2 .5 3-2.5-1.5L8.5 16.5l.5-3-2.5-2 3-.5z" fill="currentColor" strokeWidth="1"/>
+            </svg>
+            <span>高级搜索</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 侧边栏内容区域 - 历史记录部分 */}
       {!collapsed && (
         <div className="app-sidebar-content">
+
+          {/* 第二部分: 历史记录 (仅在搜索页面显示) */}
+          {showHistory && (
+            <>
+              <div className="sidebar-divider"></div>
+              <div className="sidebar-section history-section">
+                <div className="section-header">
+                  <div className="section-title">
+                    {historyType === 'conversation' ? '对话历史' : '搜索历史'}
+                  </div>
+                  {onNewItem && (
+                    <button
+                      className="btn-new-item"
+                      onClick={onNewItem}
+                      title={historyType === 'conversation' ? '新建对话' : '新建搜索'}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 5v14M5 12h14"/>
+                      </svg>
+                    </button>
+                  )}
+                </div>
+
+                <div className="history-list">
+                  {historyLoading ? (
+                    <div className="history-loading">加载中...</div>
+                  ) : historyItems.length === 0 ? (
+                    <div className="history-empty">
+                      暂无{historyType === 'conversation' ? '对话' : '搜索'}记录
+                    </div>
+                  ) : (
+                    historyItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`history-item ${currentItemId === item.id ? 'active' : ''}`}
+                        onClick={() => onSelectItem && onSelectItem(item.id)}
+                      >
+                        <div className="history-item-content">
+                          <div className="history-item-title">
+                            {item.title || item.query || '未命名'}
+                          </div>
+                          {item.updated_at && (
+                            <div className="history-item-time">
+                              {formatDate(item.updated_at)}
+                            </div>
+                          )}
+                        </div>
+                        {onDeleteItem && (
+                          <button
+                            className="btn-delete-item"
+                            onClick={(e) => handleDelete(e, item.id)}
+                            title="删除"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd"/>
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* 保留原有的children,以便向后兼容 */}
           {children}
         </div>
       )}

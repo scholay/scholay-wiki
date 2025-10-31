@@ -162,6 +162,12 @@ const Home = () => {
     navigate('/');
   };
 
+  const handleToggleSidebar = () => {
+    const newCollapsed = !sidebarCollapsed;
+    setSidebarCollapsed(newCollapsed);
+    localStorage.setItem('sidebarCollapsed', newCollapsed.toString());
+  };
+
   // Main search interface
   return (
     <div className="home-search">
@@ -171,10 +177,9 @@ const Home = () => {
           user={user}
           onLogout={handleLogout}
           collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        >
-          {/* 侧边栏内容区域可以后续自定义 */}
-        </AppSidebar>
+          onToggleCollapse={handleToggleSidebar}
+          showHistory={false}
+        />
       )}
 
       <div className={`main-container ${isAuthenticated ? (sidebarCollapsed ? 'sidebar-collapsed-narrow' : 'has-sidebar') : 'sidebar-collapsed'}`}>
@@ -263,14 +268,16 @@ const Home = () => {
                         >
                           {searchMode === 'normal' ? (
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <circle cx="11" cy="11" r="8"/>
-                              <path d="m21 21-4.35-4.35"/>
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                              <polyline points="14 2 14 8 20 8"/>
+                              <circle cx="11.5" cy="14.5" r="2.5"/>
+                              <path d="m13.25 16.25 1.5 1.5"/>
                             </svg>
                           ) : (
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                              <path d="M2 17l10 5 10-5"/>
-                              <path d="M2 12l10 5 10-5"/>
+                              <circle cx="11" cy="11" r="8"/>
+                              <path d="m21 21-4.35-4.35"/>
+                              <path d="M11 8l1.5 3 3 .5-2.5 2 .5 3-2.5-1.5L8.5 16.5l.5-3-2.5-2 3-.5z" fill="currentColor" strokeWidth="1"/>
                             </svg>
                           )}
                         </button>
@@ -294,8 +301,10 @@ const Home = () => {
                             >
                               <div className="mode-option-icon">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <circle cx="11" cy="11" r="8"/>
-                                  <path d="m21 21-4.35-4.35"/>
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                  <polyline points="14 2 14 8 20 8"/>
+                                  <circle cx="11.5" cy="14.5" r="2.5"/>
+                                  <path d="m13.25 16.25 1.5 1.5"/>
                                 </svg>
                               </div>
                               <div className="mode-option-content">
@@ -320,9 +329,9 @@ const Home = () => {
                             >
                               <div className="mode-option-icon">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                                  <path d="M2 17l10 5 10-5"/>
-                                  <path d="M2 12l10 5 10-5"/>
+                                  <circle cx="11" cy="11" r="8"/>
+                                  <path d="m21 21-4.35-4.35"/>
+                                  <path d="M11 8l1.5 3 3 .5-2.5 2 .5 3-2.5-1.5L8.5 16.5l.5-3-2.5-2 3-.5z" fill="currentColor" strokeWidth="1"/>
                                 </svg>
                               </div>
                               <div className="mode-option-content">
