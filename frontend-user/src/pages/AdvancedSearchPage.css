@@ -452,6 +452,9 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  max-width: 56rem;
+  width: 100%;
+  margin: 0;
 }
 
 /* When showing welcome screen, don't let messages take all space */
@@ -642,12 +645,277 @@
   opacity: 0.8;
 }
 
+/* ============================================
+   Results Layout (after search)
+   ============================================ */
+
+/* 结果布局容器 */
+.results-layout {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #212121;
+  position: relative;
+}
+
+/* 顶部导航栏 - 参考普通搜索 */
+.results-navbar {
+  background: #212121;
+  border-bottom: none;
+  box-shadow: none;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 10;
+}
+
+.results-navbar .page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: rgb(236, 236, 241);
+  margin: 0;
+}
+
+.new-conversation-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(16, 163, 127, 0.1);
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  border-radius: 8px;
+  color: rgb(16, 163, 127);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.new-conversation-btn:hover {
+  background: rgba(16, 163, 127, 0.15);
+  border-color: rgba(16, 163, 127, 0.5);
+  transform: translateY(-1px);
+}
+
+.new-conversation-btn svg {
+  flex-shrink: 0;
+}
+
+/* 居中搜索区域 - 参考普通搜索 */
+.centered-search-area {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 1.5rem 1.5rem;
+  position: relative;
+  background: #212121;
+  flex-shrink: 0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 结果页面搜索框 - 紧凑样式 */
+.results-composer-wrapper {
+  width: 100%;
+  max-width: 56rem;
+  background: #2f2f2f;
+  border-radius: 24px;
+  padding: 6px 12px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 1rem;
+  animation: slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.results-composer-wrapper:focus-within {
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+/* 搜索框滑动动画 */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 主内容区 - 包含消息和论文 */
+.results-main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+  background: #212121;
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s both;
+}
+
+/* 淡入向上动画 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 左侧消息容器 */
+.messages-container {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #212121;
+  display: flex;
+  flex-direction: column;
+  min-width: 420px;
+}
+
+/* Auto-hide scrollbar when not scrolling */
+.messages-container {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s ease;
+}
+
+.messages-container:hover,
+.messages-container:focus,
+.messages-container:active {
+  scrollbar-color: rgba(255, 255, 255, 0.15) rgba(255, 255, 255, 0.05);
+}
+
+/* Webkit scrollbar styling with auto-hide */
+.messages-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+.messages-container:hover::-webkit-scrollbar-thumb,
+.messages-container:focus::-webkit-scrollbar-thumb,
+.messages-container:active::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* 右侧论文列表包装器 */
+.papers-list-wrapper {
+  background: #212121;
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* 底部输入容器 */
+.bottom-input-container {
+  padding: 1rem 1.5rem 1.5rem;
+  background: #212121;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.bottom-composer-wrapper {
+  width: 100%;
+  max-width: 48rem;
+  background: #2f2f2f;
+  border-radius: 24px;
+  padding: 6px 12px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.bottom-composer-wrapper:focus-within {
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.bottom-composer-wrapper .chat-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  outline: none;
+  padding: 8px 4px;
+  resize: none;
+  min-height: 24px;
+  max-height: 150px;
+  line-height: 1.5;
+  overflow-y: auto;
+  overflow-x: hidden;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.bottom-composer-wrapper .chat-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.bottom-composer-wrapper .btn-send {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 10px;
+  background: rgb(16, 163, 127);
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  padding: 0;
+  box-shadow: 0 2px 6px rgba(16, 163, 127, 0.25);
+}
+
+.bottom-composer-wrapper .btn-send:hover:not(:disabled) {
+  background: rgba(16, 163, 127, 0.9);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(16, 163, 127, 0.35);
+}
+
+.bottom-composer-wrapper .btn-send:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  transform: none;
+}
+
+.bottom-composer-wrapper .composer-input-area {
+  padding: 6px 8px;
+  min-height: 44px;
+}
+
+.bottom-composer-wrapper .composer-footer {
+  padding: 2px 8px 4px;
+  min-height: 36px;
+}
+
 /* Chat Messages - ChatGPT Style */
 .message {
   display: flex;
   flex-direction: column;
   margin-bottom: 0;
-  padding: 1.5rem 0;
+  padding: 1rem 0;
 }
 
 /* 隐藏头像 */
@@ -660,13 +928,61 @@
 }
 
 /* 用户消息样式 - 更大更明显 */
+.message-user {
+}
+
+.message-user .message-content {
+  position: relative;
+  padding-left: 2.5rem;
+}
+
+/* SVG 思考气泡图标 - 不带方框 */
+.message-user .message-content::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='rgb(16, 163, 127)' stroke-width='6'%3E%3Cpath d='M20 50 Q20 30 35 20 Q50 10 65 20 Q80 30 80 50 Q80 60 75 65 Q70 70 65 70 L35 70 Q30 70 25 65 Q20 60 20 50 Z' fill='none'/%3E%3Ccircle cx='35' cy='45' r='4' fill='rgb(16, 163, 127)'/%3E%3Ccircle cx='50' cy='45' r='4' fill='rgb(16, 163, 127)'/%3E%3Ccircle cx='65' cy='45' r='4' fill='rgb(16, 163, 127)'/%3E%3Ccircle cx='25' cy='80' r='3' fill='rgb(16, 163, 127)'/%3E%3Ccircle cx='15' cy='90' r='4' fill='rgb(16, 163, 127)'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+/* AI 助手消息样式 */
+.message-assistant {
+}
+
+.message-assistant .message-content {
+  position: relative;
+  padding-left: 2.5rem;
+}
+
+/* SVG 学者图标 - 不带方框 */
+.message-assistant .message-content::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgb(59, 130, 246)' stroke-width='1.5'%3E%3Cpath d='M12 14l9-5-9-5-9 5 9 5z'/%3E%3Cpath d='M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z'/%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
 .message-user .message-text {
-  font-size: 1.375rem;
+  font-size: 1.5rem;
   line-height: 1.4;
   color: var(--text-primary);
   font-weight: 600;
   margin-bottom: 0.75rem;
   letter-spacing: -0.015em;
+  display: flex;
+  align-items: flex-start;
+  min-height: 24px;
 }
 
 /* AI 回答样式 - 标准阅读体验 */

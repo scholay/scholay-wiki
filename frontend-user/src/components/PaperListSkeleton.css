@@ -4,6 +4,7 @@
   overflow-x: hidden;
   padding: 0;
   background: #212121;
+  height: 100%;
 }
 
 /* Auto-hide scrollbar when not scrolling */

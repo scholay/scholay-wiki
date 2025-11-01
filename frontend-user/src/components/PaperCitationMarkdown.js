@@ -6,7 +6,7 @@ import './PaperCitationMarkdown.css';
  * 自定义 Markdown 组件，用于渲染带有论文引用的内容
  * 识别 【引用n：引用内容】 格式，并添加交互效果
  */
-const PaperCitationMarkdown = ({ content, onCitationHover, onCitationLeave }) => {
+const PaperCitationMarkdown = ({ content, onCitationHover, onCitationLeave, onCitationClick }) => {
   // 预处理内容：将 【引用n：文本】 转换为特殊的临时标记
   const processedContent = preprocessCitations(content);
 
@@ -14,38 +14,38 @@ const PaperCitationMarkdown = ({ content, onCitationHover, onCitationLeave }) =>
   const components = {
     // 处理段落中的文本
     p: ({ node, children, ...props }) => {
-      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave);
+      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave, onCitationClick);
       return <p {...props}>{processedChildren}</p>;
     },
     // 处理列表项中的文本
     li: ({ node, children, ...props }) => {
-      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave);
+      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave, onCitationClick);
       return <li {...props}>{processedChildren}</li>;
     },
     // 处理标题中的文本
     h1: ({ node, children, ...props }) => {
-      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave);
+      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave, onCitationClick);
       return <h1 {...props}>{processedChildren}</h1>;
     },
     h2: ({ node, children, ...props }) => {
-      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave);
+      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave, onCitationClick);
       return <h2 {...props}>{processedChildren}</h2>;
     },
     h3: ({ node, children, ...props }) => {
-      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave);
+      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave, onCitationClick);
       return <h3 {...props}>{processedChildren}</h3>;
     },
     h4: ({ node, children, ...props }) => {
-      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave);
+      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave, onCitationClick);
       return <h4 {...props}>{processedChildren}</h4>;
     },
     // 处理强调文本
     strong: ({ node, children, ...props }) => {
-      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave);
+      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave, onCitationClick);
       return <strong {...props}>{processedChildren}</strong>;
     },
     em: ({ node, children, ...props }) => {
-      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave);
+      const processedChildren = processTextWithCitations(children, onCitationHover, onCitationLeave, onCitationClick);
       return <em {...props}>{processedChildren}</em>;
     },
   };
@@ -79,19 +79,19 @@ function preprocessCitations(content) {
 /**
  * 处理文本内容，将临时标记转换为可交互的组件
  */
-function processTextWithCitations(children, onCitationHover, onCitationLeave) {
+function processTextWithCitations(children, onCitationHover, onCitationLeave, onCitationClick) {
   if (!children) return children;
 
   return React.Children.map(children, (child) => {
     // 如果是字符串，处理其中的引用
     if (typeof child === 'string') {
-      return processSingleText(child, onCitationHover, onCitationLeave);
+      return processSingleText(child, onCitationHover, onCitationLeave, onCitationClick);
     }
 
     // 如果是 React 元素，递归处理其子元素
     if (React.isValidElement(child) && child.props.children) {
       return React.cloneElement(child, {
-        children: processTextWithCitations(child.props.children, onCitationHover, onCitationLeave),
+        children: processTextWithCitations(child.props.children, onCitationHover, onCitationLeave, onCitationClick),
       });
     }
 
@@ -102,7 +102,7 @@ function processTextWithCitations(children, onCitationHover, onCitationLeave) {
 /**
  * 处理单个文本字符串，识别并替换 {{CITE:n:text}} 格式的标记
  */
-function processSingleText(text, onCitationHover, onCitationLeave) {
+function processSingleText(text, onCitationHover, onCitationLeave, onCitationClick) {
   // 正则表达式匹配 {{CITE:数字:文本}}
   const citationRegex = /\{\{CITE:(\d+):([^}]+)\}\}/g;
   const parts = [];
@@ -127,6 +127,7 @@ function processSingleText(text, onCitationHover, onCitationLeave) {
         className="paper-citation-text"
         onMouseEnter={() => onCitationHover && onCitationHover(paperIndex)}
         onMouseLeave={() => onCitationLeave && onCitationLeave()}
+        onClick={() => onCitationClick && onCitationClick(paperIndex)}
       >
         {citationText}
       </span>

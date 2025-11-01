@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './PaperList.css';
 
-const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActiveTab, highlightedPaperIndex = null }) => {
+const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActiveTab, highlightedPaperIndex = null, scrollToPaperIndex, onScrollComplete, onPaperClick }) => {
   // 使用内部状态作为备选（如果父组件没有传递）
   const [internalActiveTab, setInternalActiveTab] = useState(0);
   const paperRefs = useRef({});
+  const paperListContentRef = useRef(null);
 
   // 决定使用哪个状态
   const currentActiveTab = setActiveTab ? activeTab : internalActiveTab;
@@ -17,16 +18,66 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
     }
   }, [paperSets]);
 
-  // 当高亮的论文索引变化时，自动滚动到该论文
+  // 当需要滚动到某个论文时执行滚动
   useEffect(() => {
-    if (highlightedPaperIndex !== null && paperRefs.current[highlightedPaperIndex]) {
-      paperRefs.current[highlightedPaperIndex].scrollIntoView({
+    if (scrollToPaperIndex !== null && paperRefs.current[scrollToPaperIndex]) {
+      paperRefs.current[scrollToPaperIndex].scrollIntoView({
         behavior: 'smooth',
         block: 'center',
         inline: 'nearest'
       });
+
+      // 通知父组件滚动完成
+      if (onScrollComplete) {
+        onScrollComplete();
+      }
     }
-  }, [highlightedPaperIndex]);
+  }, [scrollToPaperIndex, onScrollComplete]);
+
+  // 处理论文卡片点击
+  const handlePaperCardClick = (index) => {
+    if (onPaperClick) {
+      onPaperClick(index);
+    }
+  };
+
+  // 计算箭头方向 - 检查目标论文是在可视区域的上方还是下方
+  const getArrowDirection = () => {
+    if (highlightedPaperIndex === null || !paperListContentRef.current || !paperRefs.current[highlightedPaperIndex]) {
+      return null;
+    }
+
+    const container = paperListContentRef.current;
+    const targetElement = paperRefs.current[highlightedPaperIndex];
+
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = targetElement.getBoundingClientRect();
+
+    // 检查目标是否在可视区域内 - 允许部分可见也算在视图内
+    const isFullyVisible = (
+      targetRect.top >= containerRect.top &&
+      targetRect.bottom <= containerRect.bottom
+    );
+
+    // 检查是否部分可见
+    const isPartiallyVisible = (
+      targetRect.bottom > containerRect.top &&
+      targetRect.top < containerRect.bottom
+    );
+
+    // 如果目标完全可见或大部分可见,不显示箭头
+    if (isFullyVisible || isPartiallyVisible) {
+      return null;
+    }
+
+    // 如果目标在容器上方，显示向上箭头；如果在下方，显示向下箭头
+    if (targetRect.bottom <= containerRect.top) {
+      return 'up';
+    } else if (targetRect.top >= containerRect.bottom) {
+      return 'down';
+    }
+    return null;
+  };
 
   // 如果有 paperSets，使用它；否则使用传统的 papers/total 模式
   const usePaperSets = paperSets && paperSets.length > 0;
@@ -80,8 +131,11 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
   if (!currentPapers || currentPapers.length === 0) {
     return null; // 不显示空状态
   }
+
+  const arrowDirection = getArrowDirection();
+
   return (
-    <div className="paper-list">
+    <div className="paper-list" style={{ position: 'relative' }}>
       <div className="paper-list-header">
         <div className="header-title">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -111,22 +165,38 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
         </div>
       )}
 
-      <div className="paper-list-content">
+      <div className="paper-list-content" ref={paperListContentRef}>
         {currentPapers.map((paper, index) => (
           <PaperCard
             key={paper.paperId || index}
             paper={paper}
             index={index}
             isHighlighted={highlightedPaperIndex === index}
+            onCardClick={() => handlePaperCardClick(index)}
             ref={(el) => paperRefs.current[index] = el}
           />
         ))}
       </div>
+
+      {/* 固定在容器中间的箭头指示器 */}
+      {arrowDirection && (
+        <div className={`paper-list-indicator ${arrowDirection}`}>
+          {arrowDirection === 'up' ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 19V5M12 5L5 12M12 5L19 12" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 5V19M12 19L5 12M12 19L19 12" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </div>
+      )}
     </div>
   );
 };
 
-const PaperCard = React.forwardRef(({ paper, index, isHighlighted = false }, ref) => {
+const PaperCard = React.forwardRef(({ paper, index, isHighlighted = false, onCardClick }, ref) => {
   const {
     title,
     authors,
@@ -148,7 +218,11 @@ const PaperCard = React.forwardRef(({ paper, index, isHighlighted = false }, ref
   };
 
   return (
-    <div ref={ref} className={`paper-card ${isHighlighted ? 'highlighted' : ''}`}>
+    <div
+      ref={ref}
+      className={`paper-card ${isHighlighted ? 'highlighted' : ''}`}
+      onClick={onCardClick}
+    >
       <div className="paper-index">{index + 1}</div>
       <div className="paper-main">
         <div className="paper-header">

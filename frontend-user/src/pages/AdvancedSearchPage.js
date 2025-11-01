@@ -11,7 +11,7 @@ import './AdvancedSearchPage.css';
 const AdvancedSearchPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, loading: authLoading } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebarCollapsed');
     return saved === 'true';
@@ -40,6 +40,7 @@ const AdvancedSearchPage = () => {
   const [isResizing, setIsResizing] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true); // 是否自动滚动
   const [highlightedPaperIndex, setHighlightedPaperIndex] = useState(null); // 高亮的论文索引
+  const [scrollToPaperIndex, setScrollToPaperIndex] = useState(null); // 需要滚动到的论文索引
   const [suggestedQuestions, setSuggestedQuestions] = useState([]); // AI 推荐的后续问题
   const messagesEndRef = useRef(null);
   const chatMessagesRef = useRef(null);
@@ -48,13 +49,14 @@ const AdvancedSearchPage = () => {
   const prevMessagesLengthRef = useRef(0);
   const streamingContentRef = useRef('');
   const userScrolledRef = useRef(false); // 标记用户是否手动滚动过
+  const isLoadingHistoryRef = useRef(false); // 标记是否正在加载历史对话
 
-  // 如果用户未登录，跳转到首页
+  // 如果用户未登录，跳转到首页（但要等认证状态加载完成）
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!authLoading && !isAuthenticated) {
       navigate('/');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, authLoading, navigate]);
 
   // 加载对话历史
   useEffect(() => {
@@ -90,11 +92,18 @@ const AdvancedSearchPage = () => {
     localStorage.setItem('sidebarCollapsed', newCollapsed.toString());
   };
 
-  // 从URL参数读取初始查询（仅执行一次）
-  // 执行搜索后立即清除URL参数，避免刷新时重复搜索
+  // 从URL参数读取对话ID或初始查询（仅执行一次）
   useEffect(() => {
+    const urlConversationId = searchParams.get('conversation');
     const query = searchParams.get('query');
-    if (query && isAuthenticated && messages.length === 0) {
+
+    if (urlConversationId && isAuthenticated && !currentConversationId && conversations.length > 0) {
+      // 恢复对话 - 确保对话列表已加载
+      const conversation = conversations.find(c => c.id === parseInt(urlConversationId));
+      if (conversation) {
+        handleSelectConversation(urlConversationId);
+      }
+    } else if (query && isAuthenticated && messages.length === 0 && !urlConversationId) {
       // 立即清除URL参数
       setSearchParams({});
       // 执行搜索
@@ -104,7 +113,24 @@ const AdvancedSearchPage = () => {
       }, 100);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, isAuthenticated]);
+  }, [searchParams, isAuthenticated, conversations]);
+
+  // 当对话ID变化时，更新URL参数
+  useEffect(() => {
+    if (currentConversationId) {
+      const currentUrl = new URLSearchParams(window.location.search);
+      const urlConvId = currentUrl.get('conversation');
+      if (urlConvId !== String(currentConversationId)) {
+        setSearchParams({ conversation: String(currentConversationId) });
+      }
+    } else {
+      const currentUrl = new URLSearchParams(window.location.search);
+      if (currentUrl.get('conversation')) {
+        setSearchParams({});
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentConversationId]);
 
   // 解析 AI 回复中的推荐问题
   const extractSuggestedQuestions = (content) => {
@@ -163,6 +189,12 @@ const AdvancedSearchPage = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const scrollToTop = () => {
+    if (chatMessagesRef.current) {
+      chatMessagesRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   // 检查是否滚动到底部
   const isAtBottom = () => {
     if (!chatMessagesRef.current) return true;
@@ -201,7 +233,14 @@ const AdvancedSearchPage = () => {
 
   // 自动滚动逻辑
   useEffect(() => {
-    // 只在以下情况自动滚动：
+    // 如果正在加载历史对话，滚动到顶部
+    if (isLoadingHistoryRef.current) {
+      scrollToTop();
+      isLoadingHistoryRef.current = false;
+      return;
+    }
+
+    // 只在以下情况自动滚动到底部：
     // 1. autoScroll 为 true
     // 2. 消息数量增加或正在流式传输
     if (autoScroll && (messages.length > prevMessagesLengthRef.current || isStreaming)) {
@@ -267,6 +306,7 @@ const AdvancedSearchPage = () => {
     setStreamingContent(''); // 切换对话时清空流式内容
     setPaperSets([]); // 清空论文集合
     setHasAdvancedSearch(false); // 重置高级搜索标志
+    isLoadingHistoryRef.current = true; // 标记正在加载历史对话
 
     try {
       const response = await conversationAPI.getConversation(conversationId);
@@ -864,20 +904,23 @@ const AdvancedSearchPage = () => {
             </div>
           </div>
         ) : (
-          /* 有消息时：显示对话历史 */
-          <>
-            <nav className="top-navbar">
-              <div className="navbar-left">
-                <h1 className="page-title">高级搜索</h1>
-              </div>
-
-              <div className="navbar-right">
-                {/* 可以添加用户菜单等 */}
-              </div>
+          /* 有消息时：显示结果布局 */
+          <div className="results-layout">
+            {/* 顶部标题栏 */}
+            <nav className="results-navbar">
+              <h1 className="page-title">高级搜索</h1>
+              <button className="new-conversation-btn" onClick={handleNewConversation} title="新建对话">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+                <span>新建对话</span>
+              </button>
             </nav>
 
-            <div className="search-content">
-              <div className="chat-container">
+            {/* 主内容区 */}
+            <div className="results-main">
+              {/* 左侧消息区域 */}
+              <div className="messages-container">
                 <div className="chat-messages" ref={chatMessagesRef}>
                 <>
                   {messages.map((message, index) => (
@@ -895,24 +938,7 @@ const AdvancedSearchPage = () => {
                       </div>
                       <div className="message-content">
                         {message.role === 'user' ? (
-                          <>
-                            <div className="message-text">{message.content}</div>
-                            {message.search_query && message.search_results && message.search_query !== message.content && (
-                              <div className="search-info" onClick={() => handlePaperInfoClick(message.search_query)} style={{ cursor: 'pointer' }}>
-                                搜索：{message.search_query}
-                                {message.search_results.length > 0 ? (
-                                  <span className="result-count"> - 找到 {message.search_results_total || message.search_results.length} 篇论文</span>
-                                ) : (
-                                  <span className="result-count"> - 未找到相关论文</span>
-                                )}
-                              </div>
-                            )}
-                            {message.search_query && message.search_results && message.search_query === message.content && message.search_results.length > 0 && (
-                              <div className="search-info" onClick={() => handlePaperInfoClick(message.search_query)} style={{ cursor: 'pointer' }}>
-                                <span className="result-count">找到 {message.search_results_total || message.search_results.length} 篇相关论文</span>
-                              </div>
-                            )}
-                          </>
+                          <div className="message-text">{message.content}</div>
                         ) : (
                           <>
                             <div className="message-markdown">
@@ -920,6 +946,10 @@ const AdvancedSearchPage = () => {
                                 content={message.content}
                                 onCitationHover={setHighlightedPaperIndex}
                                 onCitationLeave={() => setHighlightedPaperIndex(null)}
+                                onCitationClick={(index) => {
+                                  // 点击时只触发滚动，不影响高亮状态（高亮由 hover 控制）
+                                  setScrollToPaperIndex(index);
+                                }}
                               />
                             </div>
                             {/* 只在最后一条 assistant 消息显示推荐问题 */}
@@ -960,6 +990,10 @@ const AdvancedSearchPage = () => {
                             content={streamingContent}
                             onCitationHover={setHighlightedPaperIndex}
                             onCitationLeave={() => setHighlightedPaperIndex(null)}
+                            onCitationClick={(index) => {
+                              // 点击时只触发滚动，不影响高亮状态（高亮由 hover 控制）
+                              setScrollToPaperIndex(index);
+                            }}
                           />
                           <span className="typing-cursor">▊</span>
                         </div>
@@ -969,72 +1003,91 @@ const AdvancedSearchPage = () => {
 
                   <div ref={messagesEndRef} />
                 </>
+                </div>
+
+                {/* 底部输入框 */}
+                <div className="bottom-input-container">
+                  <form onSubmit={handleSearch} className="bottom-composer-wrapper">
+                    {/* 输入区域 */}
+                    <div className="composer-input-area">
+                      <textarea
+                        ref={textareaRef}
+                        className="chat-input"
+                        placeholder="继续追问或输入新的搜索需求..."
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          e.target.style.height = 'auto';
+                          e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            if (!loading && searchQuery.trim()) {
+                              handleSearch(e);
+                            }
+                          }
+                        }}
+                        disabled={loading}
+                        rows={1}
+                      />
+                      <button type="submit" className="btn-send" disabled={loading || !searchQuery.trim()}>
+                        {loading ? (
+                          <div className="spinner-small"></div>
+                        ) : (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* 底部操作栏 */}
+                    <div className="composer-footer">
+                      <div className="composer-footer-left">
+                        {/* 搜索模式标识 - 固定显示高级搜索 */}
+                        <div className="search-mode-indicator">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                          </svg>
+                          <span>高级搜索</span>
+                        </div>
+                      </div>
+                    </div>
+                  </form>
+                </div>
               </div>
 
-              <div className="chat-input-container">
-              <form onSubmit={handleSearch} className="chat-input-form">
-                <textarea
-                  ref={textareaRef}
-                  className="chat-input"
-                  placeholder="继续追问或输入新的搜索需求..."
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    // Auto-resize textarea
-                    e.target.style.height = 'auto';
-                    e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
-                  }}
-                  onKeyDown={(e) => {
-                    // Submit on Enter, new line on Shift+Enter
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      if (!loading && searchQuery.trim()) {
-                        handleSearch(e);
-                      }
-                    }
-                  }}
-                  disabled={loading}
-                  rows={1}
-                />
-                <button type="submit" className="btn-send" disabled={loading || !searchQuery.trim()}>
-                  {loading ? (
-                    <div className="spinner-small"></div>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                  )}
-                </button>
-              </form>
+              {/* 右侧论文列表 */}
+              {(papers.length > 0 || loading || paperSets.length > 0) && (
+                <>
+                  {/* 可拖动的分割线 */}
+                  <div
+                    className={`resize-handle ${isResizing ? 'resizing' : ''}`}
+                    onMouseDown={handleMouseDown}
+                  >
+                    <div className="resize-handle-line" />
+                  </div>
+
+                  {/* 论文列表 - 使用动态宽度 */}
+                  <div className="papers-list-wrapper" style={{ width: `${paperListWidth}px`, flexShrink: 0 }}>
+                    <PaperList
+                      papers={papers}
+                      loading={loading}
+                      total={papersTotal}
+                      paperSets={paperSets.length > 0 ? paperSets : null}
+                      activeTab={activeTab}
+                      setActiveTab={setActiveTab}
+                      highlightedPaperIndex={highlightedPaperIndex}
+                      scrollToPaperIndex={scrollToPaperIndex}
+                      onScrollComplete={() => setScrollToPaperIndex(null)}
+                      onPaperClick={() => setHighlightedPaperIndex(null)}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
-
-          {(papers.length > 0 || loading || paperSets.length > 0) && (
-            <>
-              {/* 可拖动的分割线 */}
-              <div
-                className={`resize-handle ${isResizing ? 'resizing' : ''}`}
-                onMouseDown={handleMouseDown}
-              >
-                <div className="resize-handle-line" />
-              </div>
-
-              {/* 论文列表 - 使用动态宽度 */}
-              <div style={{ width: `${paperListWidth}px`, flexShrink: 0 }}>
-                <PaperList
-                  papers={papers}
-                  loading={loading}
-                  total={papersTotal}
-                  paperSets={paperSets.length > 0 ? paperSets : null}
-                  activeTab={activeTab}
-                  setActiveTab={setActiveTab}
-                  highlightedPaperIndex={highlightedPaperIndex}
-                />
-              </div>
-            </>
-          )}
-        </div>
-        </>
         )}
       </div>
     </div>
