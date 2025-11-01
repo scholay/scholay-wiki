@@ -667,8 +667,14 @@
   padding: 12px 24px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   z-index: 10;
+}
+
+/* 标题组 - 标题和按钮在一起 */
+.navbar-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .results-navbar .page-title {
@@ -681,22 +687,19 @@
 .new-conversation-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: rgba(16, 163, 127, 0.1);
-  border: 1px solid rgba(16, 163, 127, 0.3);
-  border-radius: 8px;
-  color: rgb(16, 163, 127);
-  font-size: 14px;
-  font-weight: 500;
+  justify-content: center;
+  padding: 6px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .new-conversation-btn:hover {
-  background: rgba(16, 163, 127, 0.15);
-  border-color: rgba(16, 163, 127, 0.5);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .new-conversation-btn svg {
@@ -915,7 +918,7 @@
   display: flex;
   flex-direction: column;
   margin-bottom: 0;
-  padding: 1rem 0;
+  padding: 0.5rem 0;
 }
 
 /* 隐藏头像 */
