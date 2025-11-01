@@ -31,17 +31,24 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Unauthorized - clear token and trigger auth event
+      // Unauthorized - clear token and state
       localStorage.removeItem('user_token');
       localStorage.removeItem('user_data');
 
-      // Dispatch custom event to show login modal
-      window.dispatchEvent(new CustomEvent('auth:required'));
+      // Show notification to user
+      const message = error.response?.data?.message || '登录已失效,请重新登录';
 
-      // Redirect to home page
-      if (window.location.pathname !== '/') {
-        window.location.href = '/';
-      }
+      // Dispatch custom event with message
+      window.dispatchEvent(new CustomEvent('auth:expired', {
+        detail: { message }
+      }));
+
+      // Redirect to home page after a short delay
+      setTimeout(() => {
+        if (window.location.pathname !== '/') {
+          window.location.href = '/';
+        }
+      }, 500);
     }
     return Promise.reject(error);
   }
@@ -56,6 +63,12 @@ export const userAPI = {
 
   login: (email, password) =>
     api.post('/user/login', { email, password }),
+
+  logout: () =>
+    api.post('/user/logout'),
+
+  heartbeat: () =>
+    api.post('/user/heartbeat'),
 
   getProfile: () =>
     api.get('/user/profile'),
@@ -89,9 +102,44 @@ export const conversationAPI = {
       search_papers: searchPapers,
     }),
 
+  // Continue conversation (streaming)
+  continueConversation: (conversationId, content, mode = 'continue') =>
+    api.post(`/user/conversations/${conversationId}/continue`, {
+      content,
+      mode,
+    }),
+
   // Update conversation title
   updateTitle: (conversationId, title) =>
     api.put(`/user/conversations/${conversationId}/title`, { title }),
+};
+
+export const scholarAPI = {
+  // Search papers
+  searchPapers: (params) =>
+    api.get('/scholar/papers/search', { params }),
+
+  // Get paper details
+  getPaper: (paperId) =>
+    api.get(`/scholar/papers/${paperId}`),
+
+  // Get paper citations
+  getCitations: (paperId, params) =>
+    api.get(`/scholar/papers/${paperId}/citations`, { params }),
+
+  // Get paper references
+  getReferences: (paperId, params) =>
+    api.get(`/scholar/papers/${paperId}/references`, { params }),
+};
+
+export const configAPI = {
+  // Get privacy policy
+  getPrivacyPolicy: () =>
+    api.get('/config/privacy-policy'),
+
+  // Get system config
+  getSystemConfig: () =>
+    api.get('/config/system'),
 };
 
 export default api;

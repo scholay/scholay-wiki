@@ -175,8 +175,9 @@ func main() {
 			userProtected.POST("/conversations/:id/continue", conversationHandler.StreamContinueConversation)
 		}
 
-		// Semantic Scholar API routes (public for now, can add auth later)
+		// Semantic Scholar API routes (protected - requires user authentication)
 		scholar := api.Group("/scholar")
+		scholar.Use(middleware.UserAuthMiddleware())
 		{
 			// Paper endpoints
 			scholar.GET("/papers/search", scholarHandler.SearchPapers)
@@ -196,15 +197,16 @@ func main() {
 			scholar.POST("/recommendations/papers", scholarHandler.GetRecommendations)
 		}
 
-		// MCP endpoints
+		// MCP endpoints (protected - requires user authentication)
 		mcpGroup := api.Group("/mcp")
+		mcpGroup.Use(middleware.UserAuthMiddleware())
 		{
 			mcpGroup.GET("/tools", mcpHandler.ListTools)
 			mcpGroup.POST("/call", mcpHandler.CallTool)
 		}
 
-		// Proxy endpoints (public)
-		proxyHandler.RegisterRoutes(api)
+		// Proxy endpoints (protected - requires user authentication)
+		proxyHandler.RegisterRoutes(api, middleware.UserAuthMiddleware())
 	}
 
 	// Health check endpoint

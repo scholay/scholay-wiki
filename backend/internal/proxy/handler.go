@@ -229,9 +229,10 @@ func (h *Handler) ProxyPDF(c *gin.Context) {
 	}
 }
 
-// RegisterRoutes registers proxy routes
-func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
+// RegisterRoutes registers proxy routes with authentication middleware
+func (h *Handler) RegisterRoutes(rg *gin.RouterGroup, authMiddleware gin.HandlerFunc) {
 	proxy := rg.Group("/proxy")
+	proxy.Use(authMiddleware)
 	{
 		proxy.GET("/pdf", h.ProxyPDF)
 	}

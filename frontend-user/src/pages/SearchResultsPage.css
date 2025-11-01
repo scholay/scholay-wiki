@@ -421,13 +421,13 @@
   }
 }
 
-/* Composer Input Area */
+/* Composer Input Area - Google风格 */
 .composer-input-area {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  min-height: 56px;
+  gap: 8px;
+  padding: 4px 8px;
+  min-height: 44px;
 }
 
 .chat-input {
@@ -474,10 +474,10 @@
 }
 
 .btn-send {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   background: rgb(16, 163, 127);
   color: #ffffff;
   cursor: pointer;
@@ -504,13 +504,13 @@
   transform: none;
 }
 
-/* Composer Footer */
+/* Composer Footer - Google风格 */
 .composer-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 12px 4px;
-  min-height: 44px;
+  padding: 2px 8px 4px;
+  min-height: 36px;
 }
 
 .composer-footer-left {
@@ -841,13 +841,13 @@
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 结果页面搜索框 - 增大宽度 */
+/* 结果页面搜索框 - Google风格高度 */
 .results-composer-wrapper {
   width: 100%;
   max-width: 56rem; /* 增大搜索框宽度 */
   background: #2f2f2f;
-  border-radius: 28px;
-  padding: 12px;
+  border-radius: 24px;
+  padding: 6px 12px;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   margin-bottom: 1rem;

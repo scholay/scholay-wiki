@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { userAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -17,20 +18,14 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      const response = await fetch('/api/v1/user/heartbeat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        console.error('Heartbeat failed, stopping heartbeat');
-        stopHeartbeat();
-      }
+      await userAPI.heartbeat();
     } catch (error) {
-      console.error('Heartbeat error:', error);
+      // If 401, axios interceptor will handle it (clear token, redirect, etc.)
+      // For other errors, just stop heartbeat
+      if (error.response?.status !== 401) {
+        console.error('Heartbeat error:', error);
+      }
+      stopHeartbeat();
     }
   };
 
@@ -74,9 +69,24 @@ export const AuthProvider = ({ children }) => {
     }
     setLoading(false);
 
+    // Listen for auth expiration events
+    const handleAuthExpired = (event) => {
+      const message = event.detail?.message || '登录已失效';
+      // Stop heartbeat and clear state
+      stopHeartbeat();
+      setIsAuthenticated(false);
+      setUser(null);
+
+      // Show notification to user
+      alert(message);
+    };
+
+    window.addEventListener('auth:expired', handleAuthExpired);
+
     // Cleanup on unmount
     return () => {
       stopHeartbeat();
+      window.removeEventListener('auth:expired', handleAuthExpired);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -90,24 +100,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    const token = localStorage.getItem('user_token');
-
     // Stop heartbeat first
     stopHeartbeat();
 
     // Call backend logout API to delete session
-    if (token) {
-      try {
-        await fetch('/api/v1/user/logout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
-      } catch (error) {
-        console.error('Logout API call failed:', error);
-      }
+    try {
+      await userAPI.logout();
+    } catch (error) {
+      console.error('Logout API call failed:', error);
     }
 
     // Clear local storage and state

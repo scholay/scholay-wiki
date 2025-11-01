@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { useAuth } from '../utils/AuthContext';
+import { scholarAPI } from '../services/api';
 import AppSidebar from '../components/AppSidebar';
 import FilterSidebar from '../components/FilterSidebar';
 import PaperPreview from '../components/PaperPreview';
@@ -119,10 +119,7 @@ const SearchResultsPage = () => {
         params.venue = currentFilters.venue;
       }
 
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5411/api/v1'}/scholar/papers/search`,
-        { params }
-      );
+      const response = await scholarAPI.searchPapers(params);
 
       if (response.data.code === 0 && response.data.data) {
         const searchResults = response.data.data.data || [];
