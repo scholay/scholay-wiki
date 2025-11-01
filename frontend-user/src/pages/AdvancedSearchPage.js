@@ -804,33 +804,81 @@ const AdvancedSearchPage = () => {
         historyLoading={conversationsLoading}
       />
 
-      <div className={`main-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-        <nav className="top-navbar">
-          <div className="navbar-left" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-            <div className="logo">
-              <Logo width={32} height={32} variant="color" />
-              <span className="logo-text">Scholabase</span>
+      <div className={`advanced-search-content ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
+        {messages.length === 0 ? (
+          /* 空状态：参考普通搜索的布局 */
+          <div className="empty-search-layout">
+            <nav className="empty-navbar">
+              <h1 className="empty-page-title">高级搜索</h1>
+            </nav>
+
+            <div className="empty-search-content">
+              <form onSubmit={handleSearch} className="empty-composer-wrapper">
+                {/* 输入区域 */}
+                <div className="composer-input-area">
+                  <textarea
+                    ref={textareaRef}
+                    className="chat-input"
+                    placeholder="用自然语言描述研究需求，AI 智能解析并搜索..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      e.target.style.height = 'auto';
+                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (!loading && searchQuery.trim()) {
+                          handleSearch(e);
+                        }
+                      }
+                    }}
+                    disabled={loading}
+                    rows={1}
+                  />
+                  <button type="submit" className="btn-send" disabled={loading || !searchQuery.trim()}>
+                    {loading ? (
+                      <div className="spinner-small"></div>
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+
+                {/* 底部操作栏 */}
+                <div className="composer-footer">
+                  <div className="composer-footer-left">
+                    {/* 搜索模式标识 - 固定显示高级搜索 */}
+                    <div className="search-mode-indicator">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                      </svg>
+                      <span>高级搜索</span>
+                    </div>
+                  </div>
+                </div>
+              </form>
             </div>
           </div>
+        ) : (
+          /* 有消息时：显示对话历史 */
+          <>
+            <nav className="top-navbar">
+              <div className="navbar-left">
+                <h1 className="page-title">高级搜索</h1>
+              </div>
 
-          <div className="navbar-center">
-            <span className="page-title">高级搜索</span>
-          </div>
+              <div className="navbar-right">
+                {/* 可以添加用户菜单等 */}
+              </div>
+            </nav>
 
-          <div className="navbar-right">
-            {/* 可以添加用户菜单等 */}
-          </div>
-        </nav>
-
-        <div className="search-content">
-          <div className="chat-container">
-            <div className="chat-messages" ref={chatMessagesRef}>
-              {messages.length === 0 ? (
-                <div className="welcome-screen">
-                  <h1 className="welcome-title">开始您的高级搜索</h1>
-                  <p className="welcome-subtitle">用自然语言描述您的需求，AI 将智能理解并为您搜索相关论文</p>
-                </div>
-              ) : (
+            <div className="search-content">
+              <div className="chat-container">
+                <div className="chat-messages" ref={chatMessagesRef}>
                 <>
                   {messages.map((message, index) => (
                     <div key={message.id || index} className={`message message-${message.role}`}>
@@ -921,10 +969,9 @@ const AdvancedSearchPage = () => {
 
                   <div ref={messagesEndRef} />
                 </>
-              )}
-            </div>
+              </div>
 
-            <div className="chat-input-container">
+              <div className="chat-input-container">
               <form onSubmit={handleSearch} className="chat-input-form">
                 <textarea
                   ref={textareaRef}
@@ -987,6 +1034,8 @@ const AdvancedSearchPage = () => {
             </>
           )}
         </div>
+        </>
+        )}
       </div>
     </div>
   );
