@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import SearchResultsPage from './pages/SearchResultsPage';
 import AdvancedSearchPage from './pages/AdvancedSearchPage';
+import PaperDetailPage from './pages/PaperDetailPage';
 import AuthModal from './components/AuthModal';
 import { AuthProvider } from './utils/AuthContext';
 
@@ -30,6 +31,7 @@ function App() {
           <Route path="/search" element={<Navigate to="/" replace />} />
           <Route path="/search-results" element={<SearchResultsPage />} />
           <Route path="/advanced-search" element={<AdvancedSearchPage />} />
+          <Route path="/paper/:paperId" element={<PaperDetailPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
           {/* 404 redirect to home */}
           <Route path="*" element={<Navigate to="/" replace />} />

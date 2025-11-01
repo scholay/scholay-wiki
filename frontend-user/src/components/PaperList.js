@@ -281,13 +281,19 @@ const PaperCard = React.forwardRef(({ paper, index, isHighlighted = false, onCar
     venue,
     url,
     publicationDate,
+    paperId,
   } = paper;
 
   // 确保 authors 始终是数组
   const authorList = authors || [];
 
-  const handleOpenPaper = () => {
-    if (url) {
+  const handleOpenPaper = (e) => {
+    e.stopPropagation(); // 阻止事件冒泡
+    // 在新标签页中打开我们自己的论文详情页面
+    if (paperId) {
+      window.open(`/paper/${paperId}`, '_blank');
+    } else if (url) {
+      // 如果没有 paperId，fallback 到外部链接
       window.open(url, '_blank');
     }
   };
@@ -369,12 +375,17 @@ const PaperDetailPopup = ({ paper, position, onMouseEnter, onMouseLeave }) => {
     venue,
     url,
     publicationDate,
+    paperId,
   } = paper;
 
   const authorList = authors || [];
 
   const handleOpenPaper = () => {
-    if (url) {
+    // 在新标签页中打开我们自己的论文详情页面
+    if (paperId) {
+      window.open(`/paper/${paperId}`, '_blank');
+    } else if (url) {
+      // 如果没有 paperId，fallback 到外部链接
       window.open(url, '_blank');
     }
   };
