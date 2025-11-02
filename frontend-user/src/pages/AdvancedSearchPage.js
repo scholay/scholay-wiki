@@ -849,6 +849,53 @@ const AdvancedSearchPage = () => {
     }
   };
 
+  // 处理引文hover - 立即响应，无延迟
+  const handleCitationHover = (paperIndex) => {
+    // 立即设置高亮
+    setHighlightedPaperIndex(paperIndex);
+  };
+
+  const handleCitationLeave = () => {
+    // 使用 requestAnimationFrame 确保在下一帧检查，避免事件触发顺序问题
+    requestAnimationFrame(() => {
+      // 检查鼠标是否真的离开了所有引文元素
+      const citationElements = document.querySelectorAll('.paper-citation-text');
+      let isHoveringAnyCitation = false;
+
+      citationElements.forEach(element => {
+        if (element.matches(':hover')) {
+          isHoveringAnyCitation = true;
+        }
+      });
+
+      // 只有当鼠标不在任何引文上时才清除高亮
+      if (!isHoveringAnyCitation) {
+        setHighlightedPaperIndex(null);
+      }
+    });
+  };
+
+  // 清理全局鼠标移动监听
+  useEffect(() => {
+    // 全局监听鼠标移动，确保状态正确清理（无延迟）
+    const handleGlobalMouseMove = (e) => {
+      // 检查鼠标是否在引文元素上
+      const target = e.target;
+      const isCitation = target.closest('.paper-citation-text');
+
+      // 如果鼠标不在引文上且有高亮状态，立即清除
+      if (!isCitation && highlightedPaperIndex !== null) {
+        setHighlightedPaperIndex(null);
+      }
+    };
+
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+    };
+  }, [highlightedPaperIndex]);
+
   // 处理分割线拖动
   const handleMouseDown = (e) => {
     e.preventDefault();
@@ -1006,8 +1053,8 @@ const AdvancedSearchPage = () => {
                             <div className="message-markdown">
                               <PaperCitationMarkdown
                                 content={message.content}
-                                onCitationHover={setHighlightedPaperIndex}
-                                onCitationLeave={() => setHighlightedPaperIndex(null)}
+                                onCitationHover={handleCitationHover}
+                                onCitationLeave={handleCitationLeave}
                                 onCitationClick={(index) => {
                                   // 点击时只触发滚动，不影响高亮状态（高亮由 hover 控制）
                                   setScrollToPaperIndex(index);
@@ -1050,8 +1097,8 @@ const AdvancedSearchPage = () => {
                         <div className="message-markdown">
                           <PaperCitationMarkdown
                             content={streamingContent}
-                            onCitationHover={setHighlightedPaperIndex}
-                            onCitationLeave={() => setHighlightedPaperIndex(null)}
+                            onCitationHover={handleCitationHover}
+                            onCitationLeave={handleCitationLeave}
                             onCitationClick={(index) => {
                               // 点击时只触发滚动，不影响高亮状态（高亮由 hover 控制）
                               setScrollToPaperIndex(index);
