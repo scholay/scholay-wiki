@@ -5,7 +5,7 @@ import AppSidebar from '../components/AppSidebar';
 import PaperList from '../components/PaperList';
 import PaperCitationMarkdown from '../components/PaperCitationMarkdown';
 import Logo from '../components/Logo';
-import { conversationAPI } from '../services/api';
+import api, { conversationAPI } from '../services/api';
 import './AdvancedSearchPage.css';
 
 const AdvancedSearchPage = () => {
@@ -75,12 +75,12 @@ const AdvancedSearchPage = () => {
   const loadConversations = async () => {
     setConversationsLoading(true);
     try {
-      const response = await conversationAPI.getConversations(1, 50);
+      const response = await conversationAPI.getConversations(1, 50, 'search');
       if (response.data.code === 0 && response.data.data) {
         setConversations(response.data.data.conversations || []);
       }
     } catch (error) {
-      console.error('Failed to load conversations:', error);
+      console.error('Failed to load search conversations:', error);
     } finally {
       setConversationsLoading(false);
     }
@@ -357,6 +357,23 @@ const AdvancedSearchPage = () => {
     }
   };
 
+  const handleRenameConversation = async (conversationId, newTitle) => {
+    console.log('handleRenameConversation called:', { conversationId, newTitle });
+    try {
+      const response = await api.put(`/user/conversations/${conversationId}/title`, { title: newTitle });
+      console.log('Rename API response:', response.data);
+      setConversations(prevConversations =>
+        prevConversations.map(conv =>
+          conv.id === conversationId ? { ...conv, title: newTitle } : conv
+        )
+      );
+      console.log('Local conversations updated');
+    } catch (error) {
+      console.error('Failed to rename conversation:', error);
+      console.error('Error details:', error.response?.data);
+    }
+  };
+
   const handleSelectConversation = async (conversationId) => {
     setLoading(true);
     setStreamingContent(''); // 切换对话时清空流式内容
@@ -445,7 +462,8 @@ const AdvancedSearchPage = () => {
 
       if (!conversationId) {
         const createResponse = await conversationAPI.createConversation(
-          userMessage.length > 50 ? userMessage.substring(0, 50) + '...' : userMessage
+          userMessage.length > 50 ? userMessage.substring(0, 50) + '...' : userMessage,
+          'search'
         );
         if (createResponse.data.code === 0 && createResponse.data.data) {
           conversationId = createResponse.data.data.id;
@@ -948,6 +966,7 @@ const AdvancedSearchPage = () => {
         currentItemId={currentConversationId}
         onSelectItem={handleSelectConversation}
         onDeleteItem={handleDeleteConversation}
+        onRenameItem={handleRenameConversation}
         onNewItem={handleNewConversation}
         historyLoading={conversationsLoading}
       />

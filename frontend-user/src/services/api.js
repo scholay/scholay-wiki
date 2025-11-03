@@ -78,13 +78,18 @@ export const userAPI = {
 };
 
 export const conversationAPI = {
-  // Get all conversations for current user
-  getConversations: (page = 1, pageSize = 20) =>
-    api.get('/user/conversations', { params: { page, page_size: pageSize } }),
+  // Get all conversations for current user, optionally filtered by type
+  getConversations: (page = 1, pageSize = 20, conversationType = null) => {
+    const params = { page, page_size: pageSize };
+    if (conversationType) {
+      params.conversation_type = conversationType;
+    }
+    return api.get('/user/conversations', { params });
+  },
 
   // Create a new conversation
-  createConversation: (title) =>
-    api.post('/user/conversations', { title }),
+  createConversation: (title, conversationType = 'search') =>
+    api.post('/user/conversations', { title, conversation_type: conversationType }),
 
   // Get a conversation with all messages
   getConversation: (id) =>
@@ -112,6 +117,14 @@ export const conversationAPI = {
   // Update conversation title
   updateTitle: (conversationId, title) =>
     api.put(`/user/conversations/${conversationId}/title`, { title }),
+
+  // Get sibling messages for branch navigation
+  getSiblingMessages: (messageId) =>
+    api.get(`/user/conversations/messages/${messageId}/siblings`),
+
+  // Get complete branch chain (from root to leaf) for a message
+  getBranchChain: (messageId) =>
+    api.get(`/user/conversations/messages/${messageId}/branch`),
 };
 
 export const scholarAPI = {

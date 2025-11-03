@@ -6,13 +6,22 @@ import (
 	"time"
 )
 
+// ConversationType represents the type of conversation
+type ConversationType string
+
+const (
+	ConversationTypeChat   ConversationType = "chat"
+	ConversationTypeSearch ConversationType = "search"
+)
+
 // Conversation represents a conversation between user and system
 type Conversation struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	UserID    uint      `gorm:"not null;index:idx_user_id" json:"user_id"`
-	Title     string    `gorm:"type:varchar(255);not null" json:"title"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID               uint             `gorm:"primaryKey" json:"id"`
+	UserID           uint             `gorm:"not null;index:idx_user_id" json:"user_id"`
+	Title            string           `gorm:"type:varchar(255);not null" json:"title"`
+	ConversationType ConversationType `gorm:"type:varchar(20);not null;default:search;index:idx_conversation_type" json:"conversation_type"`
+	CreatedAt        time.Time        `json:"created_at"`
+	UpdatedAt        time.Time        `json:"updated_at"`
 }
 
 // MessageRole represents the role of a message sender
@@ -50,28 +59,44 @@ func (s SearchResults) Value() (driver.Value, error) {
 	return json.Marshal(s)
 }
 
-// ConversationMessage represents a message in a conversation
+// ConversationMessage represents a message in a conversation with chain support
 type ConversationMessage struct {
 	ID                  uint          `gorm:"primaryKey" json:"id"`
+	MessageID           string        `gorm:"type:varchar(36);uniqueIndex;not null" json:"message_id"`
 	ConversationID      uint          `gorm:"not null;index:idx_conversation_id" json:"conversation_id"`
+	ParentMessageID     *string       `gorm:"type:varchar(36);index:idx_parent_message_id" json:"parent_message_id,omitempty"`
 	Role                MessageRole   `gorm:"type:varchar(20);not null" json:"role"`
 	Content             string        `gorm:"type:text;not null" json:"content"`
 	SearchQuery         string        `gorm:"type:varchar(500)" json:"search_query,omitempty"`
 	SearchResults       SearchResults `gorm:"type:json" json:"search_results,omitempty"`
 	SearchResultsTotal  int           `gorm:"default:0" json:"search_results_total,omitempty"`
+	TokenCount          int           `gorm:"default:0" json:"token_count,omitempty"`
+	Model               string        `gorm:"type:varchar(50)" json:"model,omitempty"`
+	FinishReason        string        `gorm:"type:varchar(20)" json:"finish_reason,omitempty"`
+	Error               bool          `gorm:"default:false" json:"error"`
+	Unfinished          bool          `gorm:"default:false" json:"unfinished"`
 	CreatedAt           time.Time     `json:"created_at"`
+	UpdatedAt           time.Time     `json:"updated_at"`
 }
 
 // CreateConversationRequest represents the request to create a new conversation
 type CreateConversationRequest struct {
-	Title string `json:"title" binding:"required"`
+	Title            string           `json:"title" binding:"required"`
+	ConversationType ConversationType `json:"conversation_type"` // Optional, defaults to "search" if not provided
 }
 
 // CreateMessageRequest represents the request to add a message to a conversation
 type CreateMessageRequest struct {
-	Content     string                   `json:"content" binding:"required"`
-	SearchQuery string                   `json:"search_query"`
-	SearchPapers bool                    `json:"search_papers"` // Whether to search papers via Semantic Scholar
+	Content          string  `json:"content" binding:"required"`
+	ParentMessageID  *string `json:"parent_message_id,omitempty"` // For branching conversations
+	SearchQuery      string  `json:"search_query"`
+	SearchPapers     bool    `json:"search_papers"` // Whether to search papers via Semantic Scholar
+}
+
+// MessageChainResponse represents a message with its position in the chain
+type MessageChainResponse struct {
+	ConversationMessage
+	Children []string `json:"children,omitempty"` // Child message IDs (for branching visualization)
 }
 
 // ConversationWithMessages represents a conversation with its messages

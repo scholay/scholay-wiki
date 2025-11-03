@@ -7,7 +7,7 @@ import FilterSidebar from '../components/FilterSidebar';
 import PaperPreview from '../components/PaperPreview';
 import SearchFilters from '../components/SearchFilters';
 import PaperListSkeleton from '../components/PaperListSkeleton';
-import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory } from '../utils/searchHistory';
+import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory, renameSearchHistory } from '../utils/searchHistory';
 import './SearchResultsPage.css';
 
 const SearchResultsPage = () => {
@@ -178,6 +178,11 @@ const SearchResultsPage = () => {
 
   const handleDeleteSearchHistory = (itemId) => {
     deleteSearchHistory(itemId);
+    loadSearchHistory();
+  };
+
+  const handleRenameSearchHistory = (itemId, newTitle) => {
+    renameSearchHistory(itemId, newTitle);
     loadSearchHistory();
   };
 
@@ -367,6 +372,7 @@ const SearchResultsPage = () => {
           currentItemId={selectedHistoryId}
           onSelectItem={handleSelectSearchHistory}
           onDeleteItem={handleDeleteSearchHistory}
+          onRenameItem={handleRenameSearchHistory}
           onNewItem={null}
           historyLoading={false}
         />

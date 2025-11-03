@@ -27,19 +27,26 @@ func (r *Repository) GetConversationByID(id uint, userID uint) (*Conversation, e
 	return &conversation, nil
 }
 
-// GetUserConversations gets all conversations for a user
-func (r *Repository) GetUserConversations(userID uint, limit, offset int) ([]Conversation, int64, error) {
+// GetUserConversations gets all conversations for a user, optionally filtered by type
+func (r *Repository) GetUserConversations(userID uint, limit, offset int, conversationType *ConversationType) ([]Conversation, int64, error) {
 	var conversations []Conversation
 	var total int64
 
+	// Build base query
+	query := r.db.Model(&Conversation{}).Where("user_id = ?", userID)
+
+	// Add conversation type filter if provided
+	if conversationType != nil {
+		query = query.Where("conversation_type = ?", *conversationType)
+	}
+
 	// Get total count
-	if err := r.db.Model(&Conversation{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
+	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	// Get conversations ordered by updated_at DESC
-	err := r.db.Where("user_id = ?", userID).
-		Order("updated_at DESC").
+	err := query.Order("updated_at DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&conversations).Error
@@ -125,4 +132,169 @@ func (r *Repository) UpdateMessageSearchResults(conversationID uint, query strin
 		"search_results":       searchResults,
 		"search_results_total": total,
 	}).Error
+}
+
+// GetMessageByMessageID gets a message by its UUID message_id
+func (r *Repository) GetMessageByMessageID(messageID string) (*ConversationMessage, error) {
+	var message ConversationMessage
+	err := r.db.Where("message_id = ?", messageID).First(&message).Error
+	if err != nil {
+		return nil, err
+	}
+	return &message, nil
+}
+
+// GetMessagesByParentID gets all messages with a specific parent_message_id
+func (r *Repository) GetMessagesByParentID(conversationID uint, parentMessageID string) ([]ConversationMessage, error) {
+	var messages []ConversationMessage
+	err := r.db.Where("conversation_id = ? AND parent_message_id = ?", conversationID, parentMessageID).
+		Order("created_at ASC").
+		Find(&messages).Error
+	if err != nil {
+		return nil, err
+	}
+	return messages, nil
+}
+
+// BuildMessageChain builds the complete message chain from root to a specific message
+// Returns messages in chronological order (oldest to newest)
+func (r *Repository) BuildMessageChain(messageID string) ([]ConversationMessage, error) {
+	var chain []ConversationMessage
+	currentMessageID := messageID
+
+	// Traverse backwards through parent messages
+	for currentMessageID != "" {
+		message, err := r.GetMessageByMessageID(currentMessageID)
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				break
+			}
+			return nil, err
+		}
+
+		// Prepend to chain (to maintain chronological order)
+		chain = append([]ConversationMessage{*message}, chain...)
+
+		// Move to parent
+		if message.ParentMessageID != nil {
+			currentMessageID = *message.ParentMessageID
+		} else {
+			break
+		}
+	}
+
+	return chain, nil
+}
+
+// GetLatestMessageInConversation gets the most recent message in a conversation
+func (r *Repository) GetLatestMessageInConversation(conversationID uint) (*ConversationMessage, error) {
+	var message ConversationMessage
+	err := r.db.Where("conversation_id = ?", conversationID).
+		Order("created_at DESC, id DESC").
+		First(&message).Error
+	if err != nil {
+		return nil, err
+	}
+	return &message, nil
+}
+
+// UpdateMessage updates a message (for upsert-like behavior)
+func (r *Repository) UpdateMessage(message *ConversationMessage) error {
+	return r.db.Save(message).Error
+}
+
+// UpsertMessage creates or updates a message by message_id
+func (r *Repository) UpsertMessage(message *ConversationMessage) error {
+	// Check if message exists
+	var existing ConversationMessage
+	err := r.db.Where("message_id = ?", message.MessageID).First(&existing).Error
+
+	if err == gorm.ErrRecordNotFound {
+		// Create new message
+		return r.db.Create(message).Error
+	} else if err != nil {
+		return err
+	}
+
+	// Update existing message
+	message.ID = existing.ID // Preserve the primary key
+	return r.db.Save(message).Error
+}
+
+// GetMessageChildren gets all children of a message for building the message tree
+func (r *Repository) GetMessageChildren(conversationID uint, messageID string) ([]ConversationMessage, error) {
+	return r.GetMessagesByParentID(conversationID, messageID)
+}
+
+// GetAllMessagesForTree gets all messages in a conversation for building a complete tree
+func (r *Repository) GetAllMessagesForTree(conversationID uint) ([]ConversationMessage, error) {
+	var messages []ConversationMessage
+	err := r.db.Where("conversation_id = ?", conversationID).
+		Order("created_at ASC").
+		Find(&messages).Error
+	if err != nil {
+		return nil, err
+	}
+	return messages, nil
+}
+
+// GetSiblingMessages gets all sibling messages (same parent_message_id) for a given message
+// Returns messages ordered by created_at, useful for branch navigation
+func (r *Repository) GetSiblingMessages(messageID string) ([]ConversationMessage, error) {
+	// First get the target message to find its parent
+	targetMessage, err := r.GetMessageByMessageID(messageID)
+	if err != nil {
+		return nil, err
+	}
+
+	// If no parent, this is a root message - no siblings
+	if targetMessage.ParentMessageID == nil {
+		return []ConversationMessage{*targetMessage}, nil
+	}
+
+	// Get all messages with the same parent
+	var siblings []ConversationMessage
+	err = r.db.Where("conversation_id = ? AND parent_message_id = ?",
+		targetMessage.ConversationID,
+		*targetMessage.ParentMessageID).
+		Order("created_at ASC").
+		Find(&siblings).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return siblings, nil
+}
+
+// GetLatestLeafFromMessage finds the latest leaf node (deepest child) starting from a message
+// This is used for branch navigation to show the complete path of a sibling branch
+func (r *Repository) GetLatestLeafFromMessage(messageID string) (string, error) {
+	currentMessageID := messageID
+
+	for {
+		// Get children of current message
+		message, err := r.GetMessageByMessageID(currentMessageID)
+		if err != nil {
+			return "", err
+		}
+
+		var children []ConversationMessage
+		err = r.db.Where("conversation_id = ? AND parent_message_id = ?",
+			message.ConversationID, currentMessageID).
+			Order("created_at DESC"). // Get latest child first
+			Find(&children).Error
+
+		if err != nil {
+			return "", err
+		}
+
+		// If no children, this is a leaf node
+		if len(children) == 0 {
+			return currentMessageID, nil
+		}
+
+		// Continue with the latest child
+		currentMessageID = children[0].MessageID
+	}
 }

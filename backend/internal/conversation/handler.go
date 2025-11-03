@@ -31,7 +31,13 @@ func (h *Handler) CreateConversation(c *gin.Context) {
 		return
 	}
 
-	conversation, err := h.service.CreateConversation(userID.(uint), req.Title)
+	// Default to search type if not provided
+	conversationType := req.ConversationType
+	if conversationType == "" {
+		conversationType = ConversationTypeSearch
+	}
+
+	conversation, err := h.service.CreateConversation(userID.(uint), req.Title, conversationType)
 	if err != nil {
 		utils.Error(c, 500, "Failed to create conversation: "+err.Error())
 		return
@@ -51,7 +57,14 @@ func (h *Handler) GetUserConversations(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
-	result, err := h.service.GetUserConversations(userID.(uint), page, pageSize)
+	// Optional conversation_type filter
+	var conversationType *ConversationType
+	if typeParam := c.Query("conversation_type"); typeParam != "" {
+		convType := ConversationType(typeParam)
+		conversationType = &convType
+	}
+
+	result, err := h.service.GetUserConversations(userID.(uint), page, pageSize, conversationType)
 	if err != nil {
 		utils.Error(c, 500, "Failed to get conversations: "+err.Error())
 		return

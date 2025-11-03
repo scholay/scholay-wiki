@@ -51,6 +51,9 @@ type ChatMessage struct {
 	Content string `json:"content"`
 }
 
+// Message is an alias for ChatMessage for convenience
+type Message = ChatMessage
+
 // Tool represents an OpenAI function/tool definition
 type Tool struct {
 	Type     string       `json:"type"` // "function"

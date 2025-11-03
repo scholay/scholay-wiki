@@ -17,6 +17,7 @@ const AppSidebar = ({
   currentItemId = null,
   onSelectItem = null,
   onDeleteItem = null,
+  onRenameItem = null, // 重命名回调
   onNewItem = null,
   historyLoading = false,
   disableActiveState = false // 是否禁用选中状态
@@ -31,22 +32,54 @@ const AppSidebar = ({
   const [historyExpanded, setHistoryExpanded] = useState(true); // 历史记录展开状态
   const [hoveredItem, setHoveredItem] = useState(null); // 记录当前 hover 的项目
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
+  const [openHistoryMenuId, setOpenHistoryMenuId] = useState(null); // 记录哪个历史项的菜单是打开的
+  const [historyMenuPosition, setHistoryMenuPosition] = useState({ top: 0, left: 0 });
+  const [editingItemId, setEditingItemId] = useState(null); // 正在编辑的历史项ID
+  const [editingValue, setEditingValue] = useState(''); // 编辑中的值
+  const [originalValue, setOriginalValue] = useState(''); // 原始值，用于比较是否有变化
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // 显示删除确认弹窗
+  const [deleteTargetId, setDeleteTargetId] = useState(null); // 要删除的项ID
   const logoRef = useRef(null);
   const navItemRefs = useRef({});
+  const hoverTimeoutRef = useRef(null); // 用于延迟清除 hoveredItem
+  const historyMenuRef = useRef(null);
+  const historyMenuButtonRefs = useRef({}); // 记录每个三点按钮的ref
+  const editInputRef = useRef(null); // 编辑输入框的ref
 
-  // 点击外部关闭用户菜单
+  // Debug: Log props changes
+  useEffect(() => {
+    console.log('AppSidebar props:', {
+      showHistory,
+      historyType,
+      historyItems,
+      historyItemsLength: historyItems?.length,
+      currentItemId,
+      historyLoading
+    });
+  }, [showHistory, historyType, historyItems, currentItemId, historyLoading]);
+
+  // 点击外部关闭用户菜单和历史项菜单
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // 关闭用户菜单
       if (showUserMenu &&
           userMenuRef.current &&
           !userMenuRef.current.contains(event.target)) {
         setShowUserMenu(false);
       }
+
+      // 关闭历史项菜单
+      if (openHistoryMenuId !== null &&
+          historyMenuRef.current &&
+          !historyMenuRef.current.contains(event.target) &&
+          !Object.values(historyMenuButtonRefs.current).some(ref => ref && ref.contains(event.target))) {
+        setOpenHistoryMenuId(null);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showUserMenu]);
+  }, [showUserMenu, openHistoryMenuId]);
 
   // 获取用户头像首字母
   const getUserInitial = () => {
@@ -90,6 +123,14 @@ const AppSidebar = ({
     }
   }, [showUserMenu, collapsed]);
 
+  // 当进入编辑模式时，自动聚焦并选中输入框
+  useEffect(() => {
+    if (editingItemId !== null && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingItemId]);
+
   // Logo点击处理
   const handleLogoClick = () => {
     if (collapsed) {
@@ -98,6 +139,41 @@ const AppSidebar = ({
       navigate('/');
     }
   };
+
+  // 处理 hover 进入，立即设置 hoveredItem
+  const handleMouseEnter = (item, refElement) => {
+    // 清除任何待处理的 timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setHoveredItem(item);
+    if (item === 'logo') {
+      setLogoHovered(true);
+    }
+    if (refElement) {
+      updateTooltipPosition(refElement);
+    }
+  };
+
+  // 处理 hover 离开，延迟清除 hoveredItem
+  const handleMouseLeave = () => {
+    // 设置一个短暂的延迟（50ms），如果在此期间进入另一个项目，则取消清除
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredItem(null);
+      setLogoHovered(false);
+      hoverTimeoutRef.current = null;
+    }, 50);
+  };
+
+  // 清理 timeout
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // 格式化时间
   const formatDate = (dateString) => {
@@ -115,14 +191,89 @@ const AppSidebar = ({
     return date.toLocaleDateString('zh-CN');
   };
 
-  // 处理删除
-  const handleDelete = (e, itemId) => {
+  // 打开历史项菜单
+  const handleOpenHistoryMenu = (e, itemId) => {
     e.stopPropagation();
-    if (!window.confirm(historyType === 'conversation' ? '确定删除这个对话吗?' : '确定删除这条搜索记录吗?')) return;
-
-    if (onDeleteItem) {
-      onDeleteItem(itemId);
+    const buttonRef = historyMenuButtonRefs.current[itemId];
+    if (buttonRef) {
+      const rect = buttonRef.getBoundingClientRect();
+      setHistoryMenuPosition({
+        top: rect.top,
+        left: rect.left - 160 // 菜单宽度约160px，显示在按钮左侧
+      });
+      setOpenHistoryMenuId(itemId);
     }
+  };
+
+  // 处理菜单操作
+  const handleHistoryMenuAction = (action, itemId) => {
+    setOpenHistoryMenuId(null);
+
+    switch (action) {
+      case 'rename':
+        // 进入重命名模式
+        const item = historyItems.find(h => h.id === itemId);
+        if (item) {
+          const currentTitle = item.title || item.query || '未命名';
+          setEditingItemId(itemId);
+          setEditingValue(currentTitle);
+          setOriginalValue(currentTitle);
+        }
+        break;
+      case 'delete':
+        // 显示自定义删除确认弹窗
+        setDeleteTargetId(itemId);
+        setShowDeleteConfirm(true);
+        break;
+      default:
+        break;
+    }
+  };
+
+  // 处理重命名提交
+  const handleRenameSubmit = (itemId) => {
+    const newTitle = editingValue.trim();
+    console.log('handleRenameSubmit called:', { itemId, newTitle, originalValue, changed: newTitle !== originalValue, onRenameItem: !!onRenameItem });
+
+    // 只有当标题非空且与原始值不同时才提交
+    if (newTitle && newTitle !== '' && newTitle !== originalValue) {
+      // 调用重命名回调
+      if (onRenameItem) {
+        console.log('Calling onRenameItem:', itemId, newTitle);
+        onRenameItem(itemId, newTitle);
+      } else {
+        console.warn('onRenameItem callback is not provided!');
+      }
+    } else {
+      console.log('No changes or empty title, not submitting');
+    }
+
+    // 清除编辑状态
+    setEditingItemId(null);
+    setEditingValue('');
+    setOriginalValue('');
+  };
+
+  // 处理重命名取消
+  const handleRenameCancel = () => {
+    setEditingItemId(null);
+    setEditingValue('');
+    setOriginalValue('');
+  };
+
+  // 确认删除
+  const handleConfirmDelete = () => {
+    if (deleteTargetId !== null && onDeleteItem) {
+      onDeleteItem(deleteTargetId);
+    }
+    setShowDeleteConfirm(false);
+    setDeleteTargetId(null);
+  };
+
+  // 取消删除
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setDeleteTargetId(null);
   };
 
   // 判断当前页面
@@ -140,19 +291,14 @@ const AppSidebar = ({
             onClick={handleLogoClick}
             onMouseEnter={() => {
               if (collapsed) {
-                setHoveredItem('logo');
-                setLogoHovered(true);
-                updateTooltipPosition(logoRef.current);
+                handleMouseEnter('logo', logoRef.current);
               }
             }}
-            onMouseLeave={() => {
-              setHoveredItem(null);
-              setLogoHovered(false);
-            }}
+            onMouseLeave={handleMouseLeave}
             style={{ cursor: 'pointer' }}
           >
-            {collapsed && hoveredItem === 'logo' ? (
-              // 收起状态且hover时显示展开图标
+            {collapsed && hoveredItem ? (
+              // 收起状态且hover任何项时显示展开图标
               <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M6.83496 3.99992C6.38353 4.00411 6.01421 4.0122 5.69824 4.03801C5.31232 4.06954 5.03904 4.12266 4.82227 4.20012L4.62207 4.28606C4.18264 4.50996 3.81498 4.85035 3.55859 5.26848L3.45605 5.45207C3.33013 5.69922 3.25006 6.01354 3.20801 6.52824C3.16533 7.05065 3.16504 7.71885 3.16504 8.66301V11.3271C3.16504 12.2712 3.16533 12.9394 3.20801 13.4618C3.25006 13.9766 3.33013 14.2909 3.45605 14.538L3.55859 14.7216C3.81498 15.1397 4.18266 15.4801 4.62207 15.704L4.82227 15.79C5.03904 15.8674 5.31234 15.9205 5.69824 15.9521C6.01398 15.9779 6.383 15.986 6.83398 15.9902L6.83496 3.99992ZM18.165 11.3271C18.165 12.2493 18.1653 12.9811 18.1172 13.5702C18.0745 14.0924 17.9916 14.5472 17.8125 14.9648L17.7295 15.1415C17.394 15.8 16.8834 16.3511 16.2568 16.7353L15.9814 16.8896C15.5157 17.1268 15.0069 17.2285 14.4102 17.2773C13.821 17.3254 13.0893 17.3251 12.167 17.3251H7.83301C6.91071 17.3251 6.17898 17.3254 5.58984 17.2773C5.06757 17.2346 4.61294 17.1508 4.19531 16.9716L4.01855 16.8896C3.36014 16.5541 2.80898 16.0434 2.4248 15.4169L2.27051 15.1415C2.03328 14.6758 1.93158 14.167 1.88281 13.5702C1.83468 12.9811 1.83496 12.2493 1.83496 11.3271V8.66301C1.83496 7.74072 1.83468 7.00898 1.88281 6.41985C1.93157 5.82309 2.03329 5.31432 2.27051 4.84856L2.4248 4.57317C2.80898 3.94666 3.36012 3.436 4.01855 3.10051L4.19531 3.0175C4.61285 2.83843 5.06771 2.75548 5.58984 2.71281C6.17898 2.66468 6.91071 2.66496 7.83301 2.66496H12.167C13.0893 2.66496 13.821 2.66468 14.4102 2.71281C15.0069 2.76157 15.5157 2.86329 15.9814 3.10051L16.2568 3.25481C16.8833 3.63898 17.394 4.19012 17.7295 4.84856L17.8125 5.02531C17.9916 5.44285 18.0745 5.89771 18.1172 6.41985C18.1653 7.00898 18.165 7.74072 18.165 8.66301V11.3271ZM8.16406 15.995H12.167C13.1112 15.995 13.7794 15.9947 14.3018 15.9521C14.8164 15.91 15.1308 15.8299 15.3779 15.704L15.5615 15.6015C15.9797 15.3451 16.32 14.9774 16.5439 14.538L16.6299 14.3378C16.7074 14.121 16.7605 13.8478 16.792 13.4618C16.8347 12.9394 16.835 12.2712 16.835 11.3271V8.66301C16.835 7.71885 16.8347 7.05065 16.792 6.52824C16.7605 6.14232 16.7073 5.86904 16.6299 5.65227L16.5439 5.45207C16.32 5.01264 15.9796 4.64498 15.5615 4.3886L15.3779 4.28606C15.1308 4.16013 14.8165 4.08006 14.3018 4.03801C13.7794 3.99533 13.1112 3.99504 12.167 3.99504H8.16406C8.16407 3.99667 8.16504 3.99829 8.16504 3.99992L8.16406 15.995Z"></path>
               </svg>
@@ -185,11 +331,10 @@ const AppSidebar = ({
             onClick={() => navigate('/search-results?query=')}
             onMouseEnter={() => {
               if (collapsed) {
-                setHoveredItem('normal-search');
-                updateTooltipPosition(navItemRefs.current['normal-search']);
+                handleMouseEnter('normal-search', navItemRefs.current['normal-search']);
               }
             }}
-            onMouseLeave={() => setHoveredItem(null)}
+            onMouseLeave={handleMouseLeave}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -206,11 +351,10 @@ const AppSidebar = ({
             onClick={() => navigate('/advanced-search')}
             onMouseEnter={() => {
               if (collapsed) {
-                setHoveredItem('advanced-search');
-                updateTooltipPosition(navItemRefs.current['advanced-search']);
+                handleMouseEnter('advanced-search', navItemRefs.current['advanced-search']);
               }
             }}
-            onMouseLeave={() => setHoveredItem(null)}
+            onMouseLeave={handleMouseLeave}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8"/>
@@ -218,6 +362,23 @@ const AppSidebar = ({
               <path d="M11 8l1.5 3 3 .5-2.5 2 .5 3-2.5-1.5L8.5 16.5l.5-3-2.5-2 3-.5z" fill="currentColor" strokeWidth="1"/>
             </svg>
             <span>高级搜索</span>
+          </button>
+
+          <button
+            ref={(el) => (navItemRefs.current['chat'] = el)}
+            className={`nav-item ${location.pathname === '/chat' ? 'active' : ''}`}
+            onClick={() => navigate('/chat')}
+            onMouseEnter={() => {
+              if (collapsed) {
+                handleMouseEnter('chat', navItemRefs.current['chat']);
+              }
+            }}
+            onMouseLeave={handleMouseLeave}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span>AI 对话</span>
           </button>
         </div>
       </div>
@@ -255,20 +416,42 @@ const AppSidebar = ({
                     historyItems.map((item) => (
                       <div
                         key={item.id}
-                        className={`history-item ${!disableActiveState && currentItemId === item.id ? 'active' : ''}`}
+                        className={`history-item ${!disableActiveState && currentItemId === item.id ? 'active' : ''} ${openHistoryMenuId === item.id ? 'menu-open' : ''}`}
                         onClick={() => onSelectItem && onSelectItem(item.id)}
                       >
                         <div className="history-item-main">
-                          <div className="history-item-title">
-                            {item.title || item.query || '未命名'}
-                          </div>
+                          {editingItemId === item.id ? (
+                            // 编辑模式：显示输入框
+                            <input
+                              ref={editInputRef}
+                              type="text"
+                              className="history-item-edit-input"
+                              value={editingValue}
+                              onChange={(e) => setEditingValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleRenameSubmit(item.id);
+                                } else if (e.key === 'Escape') {
+                                  handleRenameCancel();
+                                }
+                              }}
+                              onBlur={() => handleRenameSubmit(item.id)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            // 正常模式：显示标题
+                            <div className="history-item-title">
+                              {item.title || item.query || '未命名'}
+                            </div>
+                          )}
                         </div>
 
-                        {onDeleteItem && (
+                        {onDeleteItem && editingItemId !== item.id && (
                           <button
-                            className="btn-delete-item"
-                            onClick={(e) => handleDelete(e, item.id)}
-                            title="删除"
+                            ref={(el) => (historyMenuButtonRefs.current[item.id] = el)}
+                            className="btn-history-menu"
+                            onClick={(e) => handleOpenHistoryMenu(e, item.id)}
+                            title="更多操作"
                           >
                             <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
                               <path d="M15.498 8.50159C16.3254 8.50159 16.9959 9.17228 16.9961 9.99963C16.9961 10.8271 16.3256 11.4987 15.498 11.4987C14.6705 11.4987 14 10.8271 14 9.99963C14.0002 9.17228 14.6706 8.50159 15.498 8.50159Z"></path>
@@ -298,11 +481,10 @@ const AppSidebar = ({
           onClick={() => setShowUserMenu(!showUserMenu)}
           onMouseEnter={() => {
             if (collapsed) {
-              setHoveredItem('user');
-              updateTooltipPosition(avatarRef.current);
+              handleMouseEnter('user', avatarRef.current);
             }
           }}
-          onMouseLeave={() => setHoveredItem(null)}
+          onMouseLeave={handleMouseLeave}
         >
           <div className="user-avatar">
             {getUserInitial()}
@@ -400,8 +582,8 @@ const AppSidebar = ({
             top: `${tooltipPosition.top}px`,
             left: `${tooltipPosition.left}px`,
             transform: 'translateY(-50%)',
-            background: 'rgba(52, 53, 65, 0.98)',
-            color: 'rgb(236, 236, 241)',
+            background: '#000000',
+            color: '#FFFFFF',
             padding: '8px 12px',
             borderRadius: '8px',
             fontSize: '13px',
@@ -409,15 +591,86 @@ const AppSidebar = ({
             whiteSpace: 'nowrap',
             pointerEvents: 'none',
             zIndex: 99999,
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+            boxShadow: 'none',
             animation: 'tooltipFadeIn 0.15s ease',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
+            border: 'none'
           }}
         >
           {hoveredItem === 'logo' && '展开侧边栏'}
           {hoveredItem === 'normal-search' && '普通搜索'}
           {hoveredItem === 'advanced-search' && '高级搜索'}
+          {hoveredItem === 'chat' && 'AI 对话'}
           {hoveredItem === 'user' && (user?.email || '用户')}
+        </div>,
+        document.body
+      )}
+
+      {/* 历史记录菜单弹窗 - 使用Portal渲染到body */}
+      {openHistoryMenuId !== null && ReactDOM.createPortal(
+        <div
+          ref={historyMenuRef}
+          className="history-menu-popup"
+          style={{
+            position: 'fixed',
+            top: `${historyMenuPosition.top}px`,
+            left: `${historyMenuPosition.left}px`,
+            zIndex: 10000
+          }}
+        >
+          <button
+            className="history-menu-item"
+            onClick={() => handleHistoryMenuAction('rename', openHistoryMenuId)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+            </svg>
+            <span>重命名</span>
+          </button>
+
+          <div className="history-menu-divider"></div>
+
+          <button
+            className="history-menu-item delete-item"
+            onClick={() => handleHistoryMenuAction('delete', openHistoryMenuId)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            <span>删除</span>
+          </button>
+        </div>,
+        document.body
+      )}
+
+      {/* 自定义删除确认弹窗 */}
+      {showDeleteConfirm && ReactDOM.createPortal(
+        <div className="delete-confirm-overlay" onClick={handleCancelDelete}>
+          <div className="delete-confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="delete-confirm-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <h3 className="delete-confirm-title">
+              {historyType === 'conversation' ? '删除对话' : '删除搜索记录'}
+            </h3>
+            <p className="delete-confirm-message">
+              {historyType === 'conversation'
+                ? '确定要删除这个对话吗？此操作将永久删除该对话及其所有消息，无法恢复。'
+                : '确定要删除这条搜索记录吗？此操作将永久删除该记录，无法恢复。'}
+            </p>
+            <div className="delete-confirm-actions">
+              <button className="btn-cancel" onClick={handleCancelDelete}>
+                取消
+              </button>
+              <button className="btn-confirm-delete" onClick={handleConfirmDelete}>
+                删除
+              </button>
+            </div>
+          </div>
         </div>,
         document.body
       )}

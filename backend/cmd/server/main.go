@@ -98,6 +98,7 @@ func main() {
 	conversationRepo := conversation.NewRepository(database.GetDB())
 	conversationService := conversation.NewService(conversationRepo, scholarManager, aiService)
 	conversationHandler := conversation.NewHandler(conversationService)
+	chatHandler := conversation.NewChatHandler(conversationRepo, aiService, conversationService)
 
 	// Initialize Proxy module
 	proxyHandler := proxy.NewHandler()
@@ -163,7 +164,7 @@ func main() {
 			userProtected.POST("/logout", userHandler.Logout)
 			userProtected.POST("/heartbeat", userHandler.Heartbeat)
 
-			// Conversation routes
+			// Conversation routes (legacy)
 			userProtected.GET("/conversations", conversationHandler.GetUserConversations)
 			userProtected.POST("/conversations", conversationHandler.CreateConversation)
 			userProtected.GET("/conversations/:id", conversationHandler.GetConversation)
@@ -173,6 +174,17 @@ func main() {
 			userProtected.GET("/conversations/:id/messages/:messageId/analysis", conversationHandler.StreamAnalysis)
 			userProtected.GET("/conversations/:id/messages/:messageId/advanced-search", conversationHandler.StreamAdvancedSearch)
 			userProtected.POST("/conversations/:id/continue", conversationHandler.StreamContinueConversation)
+
+			// Enhanced chat routes (LibreChat-style with message chains)
+			userProtected.POST("/conversations/chat/new", chatHandler.CreateConversationAndChat)
+			userProtected.POST("/conversations/:id/chat/stream", chatHandler.StreamChatMessage)
+			userProtected.POST("/conversations/:id/chat", chatHandler.QuickChat)
+			userProtected.GET("/conversations/:id/tree", chatHandler.GetMessageTree)
+			userProtected.GET("/conversations/:id/history", chatHandler.GetConversationHistory)
+			userProtected.POST("/conversations/messages/:messageId/regenerate", chatHandler.RegenerateMessage)
+			userProtected.POST("/conversations/messages/:messageId/edit", chatHandler.EditMessage)
+			userProtected.GET("/conversations/messages/:messageId/siblings", chatHandler.GetSiblingMessages)
+			userProtected.GET("/conversations/messages/:messageId/branch", chatHandler.GetBranchChain)
 		}
 
 		// Semantic Scholar API routes (protected - requires user authentication)

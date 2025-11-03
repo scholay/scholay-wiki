@@ -2,15 +2,16 @@
   width: 100%;
   max-width: 280px;
   height: 100vh;
-  background: #171717;
+  background: #181818;
   display: flex;
   flex-direction: column;
-  overflow: visible;
+  overflow-x: hidden;
+  overflow-y: visible;
   position: fixed;
   left: 0;
   top: 0;
   z-index: 100;
-  transition: max-width 0.3s ease, background-color 0.3s ease;
+  transition: max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease;
 }
 
 .app-sidebar.collapsed {
@@ -21,7 +22,7 @@
 /* 顶部Logo区域 */
 .app-sidebar-header {
   height: 56px;
-  padding: 0 20px 0 10px;
+  padding: 0 10px 0 10px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -89,17 +90,17 @@
 
 /* 收起按钮 */
 .sidebar-collapse-btn {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: 6px;
-  color: rgba(236, 236, 241, 0.6);
+  border-radius: 10px;
+  color: #AFAFAF;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.2s ease, width 0.3s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease, width 0.15s ease 0.1s;
   flex-shrink: 0;
   opacity: 1;
   overflow: hidden;
@@ -108,11 +109,12 @@
 .sidebar-collapse-btn.hidden {
   opacity: 0;
   width: 0;
+  transition: opacity 0.15s ease, width 0.15s ease;
 }
 
 .sidebar-collapse-btn:hover {
-  background: rgba(64, 65, 79, 0.8);
-  color: rgb(236, 236, 241);
+  background: #303030;
+  color: #FFFFFF;
 }
 
 /* 底部用户信息区域 */
@@ -177,7 +179,7 @@
   flex: 1;
   min-width: 0;
   opacity: 1;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.15s ease;
   overflow: hidden;
 }
 
@@ -185,11 +187,12 @@
   opacity: 0;
   width: 0;
   pointer-events: none;
+  transition: opacity 0.15s ease, width 0.15s ease 0.15s;
 }
 
 .user-email {
   font-size: 14px;
-  color: rgb(236, 236, 241);
+  color: #FFFFFF;
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -198,49 +201,50 @@
 
 /* 用户菜单弹窗 - 使用fixed定位，渲染到body，向上弹出 */
 .user-menu-popup {
-  min-width: 240px;
-  background: rgb(32, 33, 35);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  animation: slideUp 0.2s ease;
+  min-width: 280px;
+  background: #3a3a3c;
+  border: none;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 }
 
 .user-menu-popup.collapsed-menu {
-  min-width: 200px;
+  min-width: 280px;
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px) scale(0.96);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 .user-menu-header {
-  padding: 16px;
+  padding: 14px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(64, 65, 79, 0.3);
+  background: transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .user-avatar-large {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #4a9eff;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-weight: 600;
-  font-size: 20px;
+  font-weight: 500;
+  font-size: 16px;
   flex-shrink: 0;
 }
 
@@ -250,9 +254,9 @@
 }
 
 .user-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: rgb(236, 236, 241);
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.9);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -260,7 +264,7 @@
 
 .user-email-small {
   font-size: 13px;
-  color: rgba(236, 236, 241, 0.6);
+  color: rgba(255, 255, 255, 0.5);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -269,12 +273,12 @@
 
 .user-menu-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.1);
-  margin: 8px 0;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0;
 }
 
 .user-menu-options {
-  padding: 8px;
+  padding: 6px;
 }
 
 .user-menu-item {
@@ -285,38 +289,41 @@
   padding: 10px 12px;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
   font-size: 14px;
-  color: rgba(236, 236, 241, 0.8);
+  color: rgba(255, 255, 255, 0.9);
   text-align: left;
+  font-weight: 400;
 }
 
 .user-menu-item:hover {
-  background: rgba(64, 65, 79, 0.8);
-  color: rgb(236, 236, 241);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .user-menu-item svg {
   flex-shrink: 0;
+  width: 20px;
+  height: 20px;
 }
 
 .user-menu-item.logout-item {
-  color: rgba(239, 68, 68, 0.9);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .user-menu-item.logout-item:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: rgb(239, 68, 68);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* 侧边栏内容区域 */
 .app-sidebar-content {
   flex: 1;
   overflow-y: auto;
-  overflow-x: visible;
+  overflow-x: hidden;
   padding: 12px 8px;
+  opacity: 1;
+  transition: opacity 0.15s ease;
 }
 
 .app-sidebar-content::-webkit-scrollbar {
@@ -341,6 +348,7 @@
 .app-sidebar.collapsed .app-sidebar-content {
   opacity: 0;
   pointer-events: none;
+  transition: opacity 0.1s ease;
 }
 
 /* 侧边栏分区 */
@@ -387,7 +395,7 @@
   border: none;
   cursor: pointer;
   transition: background-color 0.2s ease;
-  color: #ececf1;
+  color: #FFFFFF;
   font-size: 14px;
   font-weight: 400;
   text-align: left;
@@ -398,11 +406,11 @@
 }
 
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: #303030;
 }
 
 .nav-item.active {
-  background: #2f2f2f;
+  background: #242424;
   font-weight: 500;
 }
 
@@ -416,8 +424,9 @@
 
 .nav-item span {
   opacity: 1;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.15s ease;
   white-space: nowrap;
+  overflow: hidden;
 }
 
 /* 侧边栏收起时的导航项样式 */
@@ -433,26 +442,28 @@
   justify-content: flex-start;
   align-items: center;
   margin-left: 0;
+  transition: all 0.3s ease;
 }
 
 .app-sidebar.collapsed .nav-item span {
   opacity: 0;
   width: 0;
   pointer-events: none;
+  transition: opacity 0.15s ease, width 0.15s ease 0.15s;
 }
 
 /* 收起状态下导航项的hover效果 - 显示深色背景 */
 .app-sidebar.collapsed .nav-item:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: #303030;
 }
 
 /* 收起状态下激活项也保持背景色 */
 .app-sidebar.collapsed .nav-item.active {
-  background: #2f2f2f;
+  background: #242424;
 }
 
 .app-sidebar.collapsed .nav-item.active:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: #303030;
 }
 
 /* 历史记录分区 */
@@ -460,14 +471,17 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 0 8px;
+  padding: 0 10px;
+  opacity: 1;
+  transition: opacity 0.15s ease;
 }
 
 /* 历史记录折叠按钮 */
 .history-toggle {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 6px;
   padding: 6px 8px;
   background: transparent;
   border: none;
@@ -486,7 +500,7 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   user-select: none;
-  flex: 1;
+  flex: 0 0 auto;
   text-align: left;
 }
 
@@ -545,9 +559,10 @@
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 2px;
   flex: 1;
   overflow-y: auto;
+  padding-right: 4px;
 }
 
 .history-list::-webkit-scrollbar {
@@ -579,16 +594,21 @@
   cursor: pointer;
   transition: all 0.15s ease;
   text-align: left;
-  width: 100%;
+  width: calc(100% - 4px);
   margin-bottom: 0px;
 }
 
 .history-item:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: #303030;
 }
 
 .history-item.active {
-  background: #343541;
+  background: #242424;
+}
+
+/* 当菜单打开时，保持该历史项的hover状态 */
+.history-item.menu-open {
+  background: #303030;
 }
 
 .history-item-main {
@@ -599,21 +619,42 @@
 }
 
 .history-item-title {
-  color: rgba(236, 236, 241, 0.8);
+  color: rgba(255, 255, 255, 0.8);
   font-size: 14px;
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 400;
+  transition: color 0.15s ease;
 }
 
 .history-item.active .history-item-title {
-  color: rgb(236, 236, 241);
+  color: #FFFFFF;
   font-weight: 400;
 }
 
-.btn-delete-item {
+/* 历史项编辑输入框 */
+.history-item-edit-input {
+  width: 100%;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 400;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.history-item-edit-input:focus {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #10a37f;
+  box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.2);
+}
+
+.btn-history-menu {
   flex-shrink: 0;
   width: 24px;
   height: 24px;
@@ -629,17 +670,87 @@
   transition: all 0.15s ease;
 }
 
-.history-item:hover .btn-delete-item {
+.history-item:hover .btn-history-menu {
   opacity: 1;
 }
 
-.btn-delete-item:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: rgb(239, 68, 68);
+/* 当菜单打开时，三个点按钮也保持可见 */
+.history-item.menu-open .btn-history-menu {
+  opacity: 1;
 }
 
-.btn-delete-item svg {
+.btn-history-menu:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(236, 236, 241, 0.8);
+}
+
+.btn-history-menu svg {
   font-size: 14px;
+}
+
+/* 历史记录菜单弹窗 */
+.history-menu-popup {
+  background: #2f2f2f;
+  border-radius: 12px;
+  padding: 6px;
+  min-width: 160px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  animation: menuFadeIn 0.15s ease;
+}
+
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.history-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #ECECEC;
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  text-align: left;
+}
+
+.history-menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.history-menu-item svg {
+  flex-shrink: 0;
+  color: currentColor;
+}
+
+.history-menu-item span {
+  flex: 1;
+}
+
+.history-menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 4px 0;
+}
+
+.history-menu-item.delete-item {
+  color: #FF6B6B;
+}
+
+.history-menu-item.delete-item:hover {
+  background: rgba(239, 68, 68, 0.15);
 }
 
 /* 加载状态 */
@@ -658,8 +769,8 @@
   left: calc(100% + 12px);
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(52, 53, 65, 0.98);
-  color: rgb(236, 236, 241);
+  background: #000000;
+  color: #FFFFFF;
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 13px;
@@ -688,6 +799,109 @@
 .nav-item,
 .sidebar-user-info {
   position: relative;
+}
+
+/* 删除确认弹窗 */
+.delete-confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  animation: overlayFadeIn 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.delete-confirm-dialog {
+  background: #2c2c2e;
+  border-radius: 20px;
+  padding: 24px 24px 20px;
+  max-width: 360px;
+  width: 90%;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+  animation: dialogSlideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+}
+
+@keyframes dialogSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.delete-confirm-icon {
+  display: none;
+}
+
+.delete-confirm-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin: 0 0 10px;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.delete-confirm-message {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.5;
+  margin: 0 0 24px;
+  text-align: left;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.delete-confirm-actions button {
+  padding: 11px 24px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+}
+
+.btn-cancel {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.btn-confirm-delete {
+  background: #ec5953;
+  color: #FFFFFF;
+}
+
+.btn-confirm-delete:hover {
+  background: #e04943;
 }
 
 /* 响应式设计 */

@@ -422,7 +422,7 @@
 }
 
 /* Composer Input Area - Google风格 */
-.composer-input-area {
+.search-results-page .composer-input-area {
   display: flex;
   align-items: center;
   gap: 8px;

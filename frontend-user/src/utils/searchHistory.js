@@ -90,6 +90,34 @@ export const addSearchHistory = (query, filters = {}, resultsCount = null) => {
 };
 
 /**
+ * 重命名搜索历史记录 (更新query字段)
+ * @param {number} id - 历史记录ID
+ * @param {string} newQuery - 新的查询名称
+ * @returns {boolean} 是否重命名成功
+ */
+export const renameSearchHistory = (id, newQuery) => {
+  if (!newQuery || newQuery.trim() === '') {
+    return false;
+  }
+
+  try {
+    const history = getSearchHistory();
+    const itemIndex = history.findIndex(item => item.id === id);
+
+    if (itemIndex !== -1) {
+      history[itemIndex].query = newQuery.trim();
+      localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history));
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Failed to rename search history:', error);
+    return false;
+  }
+};
+
+/**
  * 删除搜索历史记录
  * @param {number} id - 历史记录ID
  * @returns {boolean} 是否删除成功

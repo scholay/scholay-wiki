@@ -24,10 +24,16 @@ func NewService(repo *Repository, scholarManager *semanticscholar.Manager, aiSer
 }
 
 // CreateConversation creates a new conversation for a user
-func (s *Service) CreateConversation(userID uint, title string) (*Conversation, error) {
+func (s *Service) CreateConversation(userID uint, title string, conversationType ConversationType) (*Conversation, error) {
+	// Default to search type if not provided
+	if conversationType == "" {
+		conversationType = ConversationTypeSearch
+	}
+
 	conversation := &Conversation{
-		UserID: userID,
-		Title:  title,
+		UserID:           userID,
+		Title:            title,
+		ConversationType: conversationType,
 	}
 
 	if err := s.repo.CreateConversation(conversation); err != nil {
@@ -37,8 +43,8 @@ func (s *Service) CreateConversation(userID uint, title string) (*Conversation, 
 	return conversation, nil
 }
 
-// GetUserConversations gets all conversations for a user
-func (s *Service) GetUserConversations(userID uint, page, pageSize int) (*ConversationListResponse, error) {
+// GetUserConversations gets all conversations for a user, optionally filtered by type
+func (s *Service) GetUserConversations(userID uint, page, pageSize int, conversationType *ConversationType) (*ConversationListResponse, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -47,7 +53,7 @@ func (s *Service) GetUserConversations(userID uint, page, pageSize int) (*Conver
 	}
 
 	offset := (page - 1) * pageSize
-	conversations, total, err := s.repo.GetUserConversations(userID, pageSize, offset)
+	conversations, total, err := s.repo.GetUserConversations(userID, pageSize, offset, conversationType)
 	if err != nil {
 		return nil, err
 	}

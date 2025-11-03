@@ -15,6 +15,8 @@
     "react-pdf": "^10.2.0",
     "react-router-dom": "^6.20.1",
     "react-scripts": "5.0.1",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {

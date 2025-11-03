@@ -62,3 +62,20 @@ func BadRequest(c *gin.Context, message string) {
 		Message: message,
 	})
 }
+
+// ErrorResponse sends an error response with custom status code
+func ErrorResponse(c *gin.Context, statusCode int, message string) {
+	c.JSON(statusCode, Response{
+		Code:    statusCode,
+		Message: message,
+	})
+}
+
+// SuccessResponse sends a success response with custom status code and data
+func SuccessResponse(c *gin.Context, statusCode int, message string, data interface{}) {
+	c.JSON(statusCode, Response{
+		Code:    0,
+		Message: message,
+		Data:    data,
+	})
+}

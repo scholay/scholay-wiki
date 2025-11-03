@@ -1,0 +1,669 @@
+/* ChatGPT-Style Chat Interface - Complete Rewrite */
+/* IMPORTANT: All styles are scoped to .chat-page-wrapper to avoid conflicts with other pages */
+
+/* Main Page Wrapper */
+.chat-page-wrapper {
+  display: flex;
+  height: 100vh;
+  background: #212121;
+  overflow: hidden;
+}
+
+/* Main Container - Only within chat page */
+.chat-page-wrapper .main-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left 0.3s ease;
+  margin-left: 0;
+  background: #212121;
+}
+
+.chat-page-wrapper .main-container.has-sidebar {
+  margin-left: 280px;
+}
+
+.chat-page-wrapper .main-container.sidebar-collapsed-narrow {
+  margin-left: 64px;
+}
+
+.chat-page-wrapper .main-container.sidebar-collapsed {
+  margin-left: 0;
+}
+
+/* Content Area - Only within chat page */
+.chat-page-wrapper .search-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: #212121;
+  overflow: hidden;
+}
+
+/* Welcome Container - Centered Layout for New Conversations */
+.chat-page-wrapper .welcome-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  gap: 2rem;
+}
+
+.chat-page-wrapper .welcome-title {
+  font-size: 2rem;
+  font-weight: 400;
+  color: #ececf1;
+  text-align: center;
+  margin: 0;
+  line-height: 1.3;
+}
+
+@media (min-width: 768px) {
+  .chat-page-wrapper .welcome-title {
+    font-size: 2.5rem;
+  }
+}
+
+/* Welcome Composer - Centered input for new conversations */
+.chat-page-wrapper .welcome-composer {
+  width: 100%;
+  padding: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .chat-page-wrapper .welcome-composer {
+    padding: 1.5rem 2rem;
+  }
+}
+
+/* Chat View - Container for messages + bottom input (when messages exist) */
+.chat-page-wrapper .chat-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Ensure full height */
+  min-height: 0; /* Critical: allows flex children to shrink */
+  overflow: hidden;
+  position: relative; /* For absolute positioning of input if needed */
+}
+
+/* Messages Scrollable Area - Takes remaining space, allows scrolling */
+.chat-page-wrapper .messages-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 180px; /* Increased space at bottom for better separation from input */
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .chat-page-wrapper .messages-scrollable {
+    padding-bottom: 160px; /* Increased padding on desktop */
+  }
+}
+
+.chat-page-wrapper .messages-inner {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Message Group (Article) */
+.chat-page-wrapper .message-group {
+  width: 100%;
+  /* Removed border-bottom for cleaner look */
+}
+
+/* Message Wrapper - ChatGPT uses consistent padding */
+.chat-page-wrapper .message-wrapper {
+  padding: 1.5rem 1rem;
+  padding-bottom: 2.5rem; /* Extra padding for hover buttons */
+}
+
+@media (min-width: 768px) {
+  .chat-page-wrapper .message-wrapper {
+    padding: 1.5rem 2rem;
+    padding-bottom: 2.5rem; /* Extra padding for hover buttons */
+  }
+}
+
+/* Message Content Container - Center aligned with max-width */
+.chat-page-wrapper .message-content-container {
+  max-width: 48rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* User Message - Right aligned with bubble */
+.chat-page-wrapper .message-group[data-role="user"] .message-content-container {
+  align-items: flex-end;
+  position: relative; /* For absolute positioning of hover buttons in user messages */
+}
+
+.chat-page-wrapper .user-message-bubble {
+  background: #2f2f2f;
+  color: #ececf1;
+  border-radius: 1.375rem;
+  padding: 0.75rem 1rem;
+  max-width: 70%;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* Assistant Message - Full width with avatar on left */
+.chat-page-wrapper .message-group[data-role="assistant"] .message-content-container {
+  flex-direction: row;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+@media (min-width: 768px) {
+  .chat-page-wrapper .message-group[data-role="assistant"] .message-content-container {
+    gap: 1.5rem;
+  }
+}
+
+.chat-page-wrapper .message-avatar {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #19c37d 0%, #0d8c6c 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.chat-page-wrapper .message-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.chat-page-wrapper .message-content {
+  color: #ececf1;
+  font-size: 1rem;
+  line-height: 1.75;
+  word-wrap: break-word;
+}
+
+.chat-page-wrapper .message-content p {
+  margin: 0 0 1rem 0;
+}
+
+.chat-page-wrapper .message-content p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-page-wrapper .message-content ul,
+.chat-page-wrapper .message-content ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.chat-page-wrapper .message-content li {
+  margin: 0.25rem 0;
+}
+
+/* Hover buttons - Absolute positioning to avoid layout shift */
+.chat-page-wrapper .hover-buttons {
+  position: absolute;
+  bottom: -2rem; /* Position below the message content */
+  left: 0;
+  display: flex;
+  gap: 0.5rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none; /* Don't block clicks when hidden */
+  z-index: 5;
+}
+
+/* User messages: show buttons on hover */
+.chat-page-wrapper .message-group[data-role="user"]:hover .hover-buttons {
+  opacity: 1;
+  pointer-events: auto; /* Enable clicks when visible */
+}
+
+/* Assistant messages: always show buttons (no hover needed) */
+.chat-page-wrapper .message-group[data-role="assistant"] .hover-buttons {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* For user messages, align buttons to the right */
+.chat-page-wrapper .message-group[data-role="user"] .hover-buttons {
+  left: auto;
+  right: 0;
+}
+
+/* For assistant messages, position buttons relative to message body (not avatar) */
+.chat-page-wrapper .message-group[data-role="assistant"] .message-body {
+  position: relative; /* For absolute positioning of hover buttons */
+}
+
+.chat-page-wrapper .message-group[data-role="assistant"] .hover-buttons {
+  /* Will be positioned relative to .message-body instead of .message-content-container */
+}
+
+.chat-page-wrapper .hover-btn {
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.375rem;
+  color: #ececf1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.chat-page-wrapper .hover-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.chat-page-wrapper .hover-btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Branch navigation */
+.chat-page-wrapper .branch-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  width: fit-content;
+  font-size: 0.875rem;
+}
+
+.chat-page-wrapper .branch-nav-btn {
+  padding: 0.25rem;
+  background: transparent;
+  border: none;
+  color: #ececf1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+  transition: background 0.2s;
+}
+
+.chat-page-wrapper .branch-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.chat-page-wrapper .branch-nav-count {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+  padding: 0 0.25rem;
+}
+
+/* Edit container - Similar to composer style */
+.chat-page-wrapper .edit-container {
+  width: 100%;
+  max-width: 70%;
+  background: #2f2f2f;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.chat-page-wrapper .edit-textarea {
+  width: 100%;
+  padding: 0.5rem 0;
+  background: transparent;
+  border: none;
+  color: #ececf1;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  resize: none;
+  min-height: 60px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.chat-page-wrapper .edit-textarea:focus {
+  outline: none;
+}
+
+.chat-page-wrapper .edit-textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-page-wrapper .edit-textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-page-wrapper .edit-textarea::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.chat-page-wrapper .edit-buttons {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.chat-page-wrapper .edit-cancel,
+.chat-page-wrapper .edit-save {
+  padding: 0.5rem 1.25rem;
+  border: none;
+  border-radius: 1.25rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.chat-page-wrapper .edit-cancel {
+  background: transparent;
+  color: #ececf1;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.chat-page-wrapper .edit-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.chat-page-wrapper .edit-save {
+  background: #ececf1;
+  color: #212121;
+}
+
+.chat-page-wrapper .edit-save:hover {
+  background: #d1d1d6;
+}
+
+/* Composer (Input Area) - Fixed at bottom when in chat view */
+.chat-page-wrapper .composer-wrapper {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  background: #212121;
+  display: flex;
+  justify-content: center;
+  z-index: 10;
+}
+
+@media (min-width: 768px) {
+  .chat-page-wrapper .composer-wrapper {
+    padding: 1.5rem 2rem;
+  }
+}
+
+/* Base composer input area for ChatPage */
+.chat-page-wrapper .composer-input-area {
+  max-width: 48rem;
+  width: 100%;
+  background: #2f2f2f;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.75rem;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  transition: box-shadow 0.2s;
+}
+
+.chat-page-wrapper .composer-input-area:focus-within {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+
+.chat-page-wrapper .chat-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: #ececf1;
+  font-size: 1rem;
+  font-family: inherit;
+  outline: none;
+  padding: 0.25rem 0;
+  resize: none;
+  min-height: 24px;
+  max-height: 200px;
+  line-height: 1.5;
+}
+
+.chat-page-wrapper .chat-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.chat-page-wrapper .chat-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-page-wrapper .btn-send {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 0.5rem;
+  background: #ececf1;
+  color: #212121;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.chat-page-wrapper .btn-send:hover:not(:disabled) {
+  background: #d1d1d6;
+}
+
+.chat-page-wrapper .btn-send:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Loading dots - ChatGPT style breathing animation */
+.chat-page-wrapper .loading-dots {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+}
+
+.chat-page-wrapper .loading-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+  animation: breathing 1.4s ease-in-out infinite;
+}
+
+.chat-page-wrapper .loading-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.chat-page-wrapper .loading-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.chat-page-wrapper .loading-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes breathing {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Streaming indicator - smoother animation */
+.chat-page-wrapper .streaming-cursor {
+  display: inline-block;
+  animation: cursor-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  color: #10a37f;
+  margin-left: 0.25rem;
+  font-size: 0.6em;
+  vertical-align: middle;
+}
+
+@keyframes cursor-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(0.9);
+  }
+}
+
+/* Smooth content reveal during streaming */
+.chat-page-wrapper .message-content {
+  /* Enable hardware acceleration for smoother rendering */
+  will-change: contents;
+  contain: layout style paint;
+}
+
+/* Optimize streaming message rendering */
+.chat-page-wrapper .message-group[data-role="assistant"] .message-content {
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scrollbar - optimized for smooth scrolling */
+.chat-page-wrapper .messages-scrollable {
+  /* Enable smooth scrolling */
+  scroll-behavior: smooth;
+  /* Optimize rendering performance */
+  -webkit-overflow-scrolling: touch;
+}
+
+.chat-page-wrapper .messages-scrollable::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-page-wrapper .messages-scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-page-wrapper .messages-scrollable::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.chat-page-wrapper .messages-scrollable::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Code blocks */
+.chat-page-wrapper .code-block-wrapper {
+  margin: 1rem 0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chat-page-wrapper .code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.chat-page-wrapper .code-lang {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: lowercase;
+  font-weight: 400;
+}
+
+.chat-page-wrapper .code-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.375rem;
+  color: #ececf1;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.chat-page-wrapper .code-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.chat-page-wrapper .code-block-content {
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.chat-page-wrapper .code-block-content code {
+  font-family: 'Söhne Mono', Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.chat-page-wrapper .inline-code {
+  padding: 0.125rem 0.25rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 0.25rem;
+  font-family: 'Söhne Mono', Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+  font-size: 0.875em;
+  color: #ececf1;
+}
+
+/* Loading state */
+.chat-page-wrapper .empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.875rem;
+}

@@ -547,7 +547,7 @@
 }
 
 /* Composer Input Area */
-.composer-input-area {
+.advanced-search-page .composer-input-area {
   display: flex;
   align-items: center;
   gap: 12px;
