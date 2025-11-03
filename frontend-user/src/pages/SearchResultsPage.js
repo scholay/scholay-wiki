@@ -39,7 +39,10 @@ const SearchResultsPage = () => {
   const [loading, setLoading] = useState(false);
   const [selectedPaper, setSelectedPaper] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const papersPerPage = 10;
+  const [papersPerPage, setPapersPerPage] = useState(() => {
+    const saved = localStorage.getItem('papersPerPage');
+    return saved ? parseInt(saved, 10) : 50; // 默认50条/页
+  });
 
   const PREVIEW_MIN_WIDTH = 320;
   const PREVIEW_MAX_WIDTH = 800;
@@ -129,8 +132,12 @@ const SearchResultsPage = () => {
 
         // 只有在saveToHistory为true时才添加到搜索历史
         if (saveToHistory) {
-          addSearchHistory(query, currentFilters, resultsTotal);
+          const historyItem = addSearchHistory(query, currentFilters, resultsTotal);
           loadSearchHistory();
+          // 自动选中刚添加的历史记录
+          if (historyItem && historyItem.id) {
+            setSelectedHistoryId(historyItem.id);
+          }
         }
       }
     } catch (error) {
@@ -161,6 +168,8 @@ const SearchResultsPage = () => {
     const history = searchHistory.find(h => h.id === itemId);
     if (history) {
       setSelectedHistoryId(itemId); // 设置选中的历史记录ID
+      // 搜索框始终显示真正的搜索词（query），而不是重命名后的displayName
+      // 这样用户可以看到实际搜索的内容，也方便继续修改
       setSearchQuery(history.query);
       setFilters(history.filters || {
         yearFrom: '',
@@ -283,6 +292,14 @@ const SearchResultsPage = () => {
     updateURL(searchQuery, filters, newPage);
     performSearch(searchQuery, filters, newPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // 处理每页数量变化
+  const handlePageSizeChange = (newSize) => {
+    setPapersPerPage(newSize);
+    localStorage.setItem('papersPerPage', newSize.toString());
+    setCurrentPage(1); // 重置到第一页
+    performSearch(searchQuery, filters, 1);
   };
 
   const startPreviewResize = (startClientX) => {
@@ -428,33 +445,14 @@ const SearchResultsPage = () => {
                                        filters.openAccessPdf ||
                                        filters.venue;
 
-                      const handleClearClick = (e) => {
-                        e.stopPropagation();
-                        setFilters({
-                          yearFrom: '',
-                          yearTo: '',
-                          publicationTypes: [],
-                          fieldsOfStudy: [],
-                          openAccessPdf: '',
-                          venue: '',
-                        });
-                      };
-
                       return (
                         <button
                           type="button"
                           className={`footer-btn filter-btn ${showFilters ? 'panel-open' : ''} ${hasFilters ? 'has-filters' : ''}`}
                           onClick={() => setShowFilters(!showFilters)}
-                          onMouseEnter={(e) => e.currentTarget.classList.add('is-hovering')}
-                          onMouseLeave={(e) => e.currentTarget.classList.remove('is-hovering')}
                           title={hasFilters ? "点击打开筛选" : "筛选条件"}
                         >
-                          <div className="filter-icon-wrapper" onClick={(e) => {
-                            if (hasFilters && e.currentTarget.parentElement.classList.contains('is-hovering')) {
-                              e.stopPropagation();
-                              handleClearClick(e);
-                            }
-                          }}>
+                          <div className="filter-icon-wrapper">
                             <svg className="filter-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                               <path d="M2.5 3.75C2.5 3.19772 2.94772 2.75 3.5 2.75H16.5C17.0523 2.75 17.5 3.19772 17.5 3.75V5.25C17.5 5.51522 17.3946 5.76957 17.2071 5.95711L11.75 11.4142V16.25C11.75 16.6297 11.5085 16.9705 11.1522 17.1094L8.65217 18.1094C8.15522 18.3078 7.58333 17.9469 7.58333 17.4167V11.4142L2.79289 5.95711C2.60536 5.76957 2.5 5.51522 2.5 5.25V3.75Z"/>
                             </svg>
@@ -501,33 +499,14 @@ const SearchResultsPage = () => {
                                      filters.openAccessPdf ||
                                      filters.venue;
 
-                    const handleClearClick = (e) => {
-                      e.stopPropagation();
-                      setFilters({
-                        yearFrom: '',
-                        yearTo: '',
-                        publicationTypes: [],
-                        fieldsOfStudy: [],
-                        openAccessPdf: '',
-                        venue: '',
-                      });
-                    };
-
                     return (
                       <button
                         type="button"
                         className={`footer-btn filter-btn ${showFilters ? 'panel-open' : ''} ${hasFilters ? 'has-filters' : ''}`}
                         onClick={() => setShowFilters(!showFilters)}
-                        onMouseEnter={(e) => e.currentTarget.classList.add('is-hovering')}
-                        onMouseLeave={(e) => e.currentTarget.classList.remove('is-hovering')}
                         title={hasFilters ? "点击打开筛选" : "筛选条件"}
                       >
-                        <div className="filter-icon-wrapper" onClick={(e) => {
-                          if (hasFilters && e.currentTarget.parentElement.classList.contains('is-hovering')) {
-                            e.stopPropagation();
-                            handleClearClick(e);
-                          }
-                        }}>
+                        <div className="filter-icon-wrapper">
                           <svg className="filter-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M2.5 3.75C2.5 3.19772 2.94772 2.75 3.5 2.75H16.5C17.0523 2.75 17.5 3.19772 17.5 3.75V5.25C17.5 5.51522 17.3946 5.76957 17.2071 5.95711L11.75 11.4142V16.25C11.75 16.6297 11.5085 16.9705 11.1522 17.1094L8.65217 18.1094C8.15522 18.3078 7.58333 17.9469 7.58333 17.4167V11.4142L2.79289 5.95711C2.60536 5.76957 2.5 5.51522 2.5 5.25V3.75Z"/>
                           </svg>
@@ -609,18 +588,13 @@ const SearchResultsPage = () => {
                     type="button"
                     className={`filter-sidebar-toggle ${filterSidebarCollapsed ? 'collapsed' : ''}`}
                     onClick={toggleFilterSidebar}
-                    aria-label={filterSidebarCollapsed ? '展开筛选条件' : '收起筛选条件'}
+                    aria-label={filterSidebarCollapsed ? '展开筛选' : '收起筛选'}
                     aria-expanded={!filterSidebarCollapsed}
                   >
-                    {filterSidebarCollapsed ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="9 18 15 12 9 6"/>
-                      </svg>
-                    ) : (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="15 18 9 12 15 6"/>
-                      </svg>
-                    )}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                    <span>{filterSidebarCollapsed ? '展开筛选' : '收起筛选'}</span>
                   </button>
                 )}
                 <p className="results-info">
@@ -681,6 +655,21 @@ const SearchResultsPage = () => {
               {/* 分页器 */}
               {totalPages > 1 && (
                 <div className="pagination">
+                  {/* 每页数量选择器 - 移到最左侧 */}
+                  <div className="page-size-selector">
+                    <span className="page-size-label">每页</span>
+                    <select
+                      className="page-size-select"
+                      value={papersPerPage}
+                      onChange={(e) => handlePageSizeChange(parseInt(e.target.value, 10))}
+                    >
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                      <option value={200}>200</option>
+                    </select>
+                    <span className="page-size-label">条</span>
+                  </div>
+
                   <button
                     className="pagination-btn"
                     onClick={() => handlePageChange(currentPage - 1)}

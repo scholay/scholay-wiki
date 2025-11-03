@@ -5,8 +5,9 @@ const MAX_HISTORY_ITEMS = 50; // 最多保存50条历史记录
 // 搜索历史项目结构:
 // {
 //   id: number,
-//   query: string,
-//   filters: object, // 包含所有搜索过滤条件
+//   query: string,           // 实际的搜索查询词（不可变，用于搜索）
+//   displayName: string,     // 显示名称（可重命名，用于界面显示）
+//   filters: object,         // 包含所有搜索过滤条件
 //   timestamp: number,
 //   resultsCount: number (optional)
 // }
@@ -21,6 +22,21 @@ export const getSearchHistory = () => {
     if (!historyJson) return [];
 
     const history = JSON.parse(historyJson);
+
+    // 迁移旧数据：为没有displayName的项目添加displayName字段
+    let needsSave = false;
+    history.forEach(item => {
+      if (!item.displayName) {
+        item.displayName = item.query;
+        needsSave = true;
+      }
+    });
+
+    // 如果有数据被迁移，保存回localStorage
+    if (needsSave) {
+      localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history));
+    }
+
     // 按时间戳倒序排列(最新的在前)
     return history.sort((a, b) => b.timestamp - a.timestamp);
   } catch (error) {
@@ -65,6 +81,7 @@ export const addSearchHistory = (query, filters = {}, resultsCount = null) => {
       newItem = {
         id: Date.now(),
         query: query.trim(),
+        displayName: query.trim(), // 初始时显示名称和查询词相同
         filters: filters || {},
         timestamp: Date.now(),
         resultsCount
@@ -90,13 +107,13 @@ export const addSearchHistory = (query, filters = {}, resultsCount = null) => {
 };
 
 /**
- * 重命名搜索历史记录 (更新query字段)
+ * 重命名搜索历史记录 (只更新displayName字段，不改变实际的query)
  * @param {number} id - 历史记录ID
- * @param {string} newQuery - 新的查询名称
+ * @param {string} newDisplayName - 新的显示名称
  * @returns {boolean} 是否重命名成功
  */
-export const renameSearchHistory = (id, newQuery) => {
-  if (!newQuery || newQuery.trim() === '') {
+export const renameSearchHistory = (id, newDisplayName) => {
+  if (!newDisplayName || newDisplayName.trim() === '') {
     return false;
   }
 
@@ -105,7 +122,8 @@ export const renameSearchHistory = (id, newQuery) => {
     const itemIndex = history.findIndex(item => item.id === id);
 
     if (itemIndex !== -1) {
-      history[itemIndex].query = newQuery.trim();
+      // 只更新displayName，保持query不变
+      history[itemIndex].displayName = newDisplayName.trim();
       localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history));
       return true;
     }
@@ -155,7 +173,8 @@ export const clearSearchHistory = () => {
  * @returns {object} 格式化后的对象,包含title和updated_at
  */
 export const formatHistoryItem = (item) => {
-  let title = item.query;
+  // 使用displayName作为基础标题，如果不存在则使用query（兼容旧数据）
+  let title = item.displayName || item.query;
 
   // 添加过滤条件到标题(可选)
   const filterParts = [];
@@ -173,7 +192,7 @@ export const formatHistoryItem = (item) => {
   }
 
   if (filterParts.length > 0) {
-    title = `${item.query} (${filterParts.join(', ')})`;
+    title = `${item.displayName || item.query} (${filterParts.join(', ')})`;
   }
 
   if (item.resultsCount !== null && item.resultsCount !== undefined) {
@@ -183,7 +202,8 @@ export const formatHistoryItem = (item) => {
   return {
     id: item.id,
     title: title,
-    query: item.query,
+    query: item.query,              // 实际查询词，用于搜索
+    displayName: item.displayName || item.query,  // 显示名称，用于界面展示
     filters: item.filters,
     updated_at: new Date(item.timestamp).toISOString(),
     resultsCount: item.resultsCount

@@ -85,7 +85,14 @@ const FilterSidebar = ({ filters, onFiltersChange, resultsTotal }) => {
       <div className="filter-sidebar-content">
         {/* Year Range with Histogram */}
         <div className="filter-section">
-          <h3 className="filter-section-title">发表年份</h3>
+          <div className="filter-section-title-wrapper">
+            <h3 className="filter-section-title">发表年份</h3>
+            {(filters.yearFrom || filters.yearTo) && (
+              <span className="year-range-display">
+                {filters.yearFrom || '1920'} - {filters.yearTo || '2026'}
+              </span>
+            )}
+          </div>
           <YearHistogram
             yearFrom={filters.yearFrom ? parseInt(filters.yearFrom) : undefined}
             yearTo={filters.yearTo ? parseInt(filters.yearTo) : undefined}

@@ -113,14 +113,18 @@ const YearHistogram = ({ yearFrom, yearTo, onChange }) => {
       if (dragging === 'low') {
         const newLowYear = Math.min(year, highYear - 1);
         setLowYear(newLowYear);
+        // Call onChange immediately during drag for real-time update
+        onChange(newLowYear, highYear);
       } else if (dragging === 'high') {
         const newHighYear = Math.max(year, lowYear + 1);
         setHighYear(newHighYear);
+        // Call onChange immediately during drag for real-time update
+        onChange(lowYear, newHighYear);
       }
     };
 
     const handleMouseUp = () => {
-      // Call onChange when dragging ends
+      // Call onChange one final time when dragging ends (in case of any rounding)
       onChange(lowYear, highYear);
       setDragging(null);
     };
@@ -186,20 +190,16 @@ const YearHistogram = ({ yearFrom, yearTo, onChange }) => {
         {/* Low handle */}
         <div
           className="slider-handle slider-handle-low"
-          style={{ left: `${lowPercent}%` }}
+          style={{ left: `calc(${lowPercent}%)` }}
           onMouseDown={handleMouseDown('low')}
-        >
-          <div className="handle-label">{lowYear}</div>
-        </div>
+        />
 
         {/* High handle */}
         <div
           className="slider-handle slider-handle-high"
-          style={{ left: `${highPercent}%` }}
+          style={{ left: `calc(${highPercent}%)` }}
           onMouseDown={handleMouseDown('high')}
-        >
-          <div className="handle-label">{highYear}</div>
-        </div>
+        />
       </div>
 
     </div>

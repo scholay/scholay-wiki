@@ -468,6 +468,8 @@ const AdvancedSearchPage = () => {
         if (createResponse.data.code === 0 && createResponse.data.data) {
           conversationId = createResponse.data.data.id;
           setCurrentConversationId(conversationId);
+          // 刷新对话列表，确保新对话显示在侧边栏
+          loadConversations();
         } else {
           throw new Error('Failed to create conversation');
         }

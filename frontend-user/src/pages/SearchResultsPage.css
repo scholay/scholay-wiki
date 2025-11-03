@@ -257,27 +257,36 @@
 }
 
 .filter-sidebar-toggle {
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 6px;
-  background: rgba(64, 65, 79, 0.6);
-  color: rgba(236, 236, 241, 0.8);
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(25, 195, 125, 0.1);
+  color: rgb(25, 195, 125);
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
+  border: 1px solid rgba(25, 195, 125, 0.2);
 }
 
 .filter-sidebar-toggle:hover {
-  background: rgba(64, 65, 79, 0.9);
-  color: rgb(236, 236, 241);
+  background: rgba(25, 195, 125, 0.15);
+  border-color: rgba(25, 195, 125, 0.3);
+  color: rgb(25, 195, 125);
 }
 
 .filter-sidebar-toggle svg {
+  width: 14px;
+  height: 14px;
   transition: transform 0.2s ease;
+}
+
+.filter-sidebar-toggle.collapsed svg {
+  transform: rotate(180deg);
 }
 
 /* 中间论文列表容器 - 使用flex自适应 */
@@ -545,6 +554,12 @@
 /* 筛选按钮样式 */
 .filter-btn {
   position: relative;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+/* 普通筛选按钮的 hover 效果 */
+.filter-btn:hover {
+  background: rgba(64, 65, 79, 0.8);
 }
 
 .filter-btn .filter-icon-wrapper {
@@ -573,11 +588,22 @@
   color: rgba(236, 236, 241, 1);
 }
 
+.filter-btn.panel-open:hover {
+  background: rgba(64, 65, 79, 1);
+}
+
 .filter-btn.has-filters {
   background: transparent;
   color: rgb(25, 195, 125);
 }
 
+/* 普通搜索页面：hover 只显示背景，不显示删除图标 */
+.filter-btn.has-filters:hover {
+  background: rgba(25, 195, 125, 0.08);
+  color: rgb(25, 195, 125);
+}
+
+/* 以下样式保留用于 is-hovering 类（主页使用） */
 .filter-btn.has-filters.is-hovering {
   background: rgba(239, 68, 68, 0.1);
   color: rgb(239, 68, 68);
@@ -661,11 +687,11 @@
 }
 
 .paper-item:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: #303030;
 }
 
 .paper-item.selected {
-  background: #343541;
+  background: #242424;
   border-left: 3px solid rgb(25, 195, 125);
 }
 
@@ -676,16 +702,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(64, 65, 79, 0.5);
-  color: rgba(236, 236, 241, 0.6);
+  background: transparent;
+  color: rgba(236, 236, 241, 0.4);
   border-radius: 6px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .paper-item.selected .paper-number {
-  background: rgb(25, 195, 125);
-  color: white;
+  background: transparent;
+  color: rgb(25, 195, 125);
+  font-weight: 600;
 }
 
 .paper-content {
@@ -808,6 +835,50 @@
 .pagination-page.active {
   background: rgb(25, 195, 125);
   color: white;
+}
+
+/* 每页数量选择器 */
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 16px;
+  padding-right: 16px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.page-size-label {
+  font-size: 14px;
+  color: rgba(236, 236, 241, 0.6);
+  font-weight: 500;
+}
+
+.page-size-select {
+  padding: 6px 12px;
+  background: rgba(64, 65, 79, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgb(236, 236, 241);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.page-size-select:hover {
+  background: rgba(64, 65, 79, 0.7);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.page-size-select:focus {
+  border-color: rgb(25, 195, 125);
+  background: rgba(64, 65, 79, 0.8);
+}
+
+.page-size-select option {
+  background: rgb(40, 41, 45);
+  color: rgb(236, 236, 241);
 }
 
 /* 结果页面布局 */

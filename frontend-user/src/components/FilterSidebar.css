@@ -98,11 +98,28 @@
   min-height: 0; /* 重要:允许内部滚动 */
 }
 
+.filter-section-title-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
 .filter-section-title {
   font-size: 14px;
   font-weight: 600;
   color: rgb(236, 236, 241);
-  margin: 0 0 12px 0;
+  margin: 0;
+}
+
+.year-range-display {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgb(25, 195, 125);
+  padding: 2px 8px;
+  background: rgba(25, 195, 125, 0.12);
+  border-radius: 4px;
+  border: 1px solid rgba(25, 195, 125, 0.2);
 }
 
 /* Year Inputs - Dark theme */
