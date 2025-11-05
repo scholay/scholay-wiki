@@ -10,14 +10,28 @@ import (
 	"time"
 )
 
+// ConfigService interface for email configuration
+type ConfigService interface {
+	GetActiveEmailConfig() (*model.EmailConfig, error)
+}
+
 // Service handles business logic for user operations
 type Service struct {
-	repo *Repository
+	repo          *Repository
+	configService ConfigService
 }
 
 // NewService creates a new user service
 func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+	return &Service{
+		repo:          repo,
+		configService: nil, // Will be set via SetConfigService
+	}
+}
+
+// SetConfigService sets the config service (for dependency injection)
+func (s *Service) SetConfigService(configService ConfigService) {
+	s.configService = configService
 }
 
 // CheckEmailExists checks if an email is already registered
@@ -152,8 +166,64 @@ func (s *Service) SendVerificationCode(email, purpose string) error {
 		return fmt.Errorf("failed to save verification code: %w", err)
 	}
 
-	// TODO: Send email with verification code
-	// For now, just log it (in production, use an email service)
+	// Get email configuration from database
+	if s.configService != nil {
+		emailConfig, err := s.configService.GetActiveEmailConfig()
+		if err == nil && emailConfig != nil {
+			// Send email with TLS/SSL support
+			subject := "Scholar 验证码"
+
+			// Determine purpose text
+			purposeText := "验证码"
+			if purpose == "register" {
+				purposeText = "注册验证码"
+			} else if purpose == "reset_password" {
+				purposeText = "重置密码验证码"
+			} else if purpose == "login" {
+				purposeText = "登录验证码"
+			}
+
+			body := fmt.Sprintf(`
+			<html>
+			<body style="font-family: Arial, sans-serif; padding: 20px;">
+				<h2 style="color: #2563eb;">Scholar %s</h2>
+				<p>您的验证码是：</p>
+				<div style="background: #f1f5f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+					<h1 style="color: #1e293b; letter-spacing: 8px; text-align: center; margin: 0;">%s</h1>
+				</div>
+				<p style="color: #64748b; font-size: 0.875rem;">
+					验证码将在 <strong>10 分钟</strong> 后失效，请尽快使用。
+				</p>
+				<hr style="border: 1px solid #e2e8f0; margin: 20px 0;">
+				<p style="color: #94a3b8; font-size: 0.75rem;">
+					这是一封自动发送的邮件，请勿直接回复。如果您没有请求此验证码，请忽略此邮件。
+				</p>
+			</body>
+			</html>
+			`, purposeText, code)
+
+			config := utils.EmailConfig{
+				SMTPHost:     emailConfig.SMTPHost,
+				SMTPPort:     emailConfig.SMTPPort,
+				SMTPUser:     emailConfig.SMTPUser,
+				SMTPPassword: emailConfig.SMTPPassword,
+				FromEmail:    emailConfig.FromEmail,
+				FromName:     emailConfig.FromName,
+			}
+
+			if err := utils.SendEmailWithTLS(config, []string{email}, subject, body); err != nil {
+				// Log error but don't fail - still show code in console as fallback
+				fmt.Printf("⚠ Failed to send email: %v\n", err)
+				fmt.Printf("✓ Verification code for %s (%s): %s (expires in 10 min)\n", email, purpose, code)
+				return nil
+			}
+
+			fmt.Printf("✓ Verification code sent to %s (%s) via email (expires in 10 min)\n", email, purpose)
+			return nil
+		}
+	}
+
+	// Fallback: If no email config, just log it
 	fmt.Printf("✓ Verification code for %s (%s): %s (expires in 10 min)\n", email, purpose, code)
 
 	return nil

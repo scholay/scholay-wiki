@@ -64,6 +64,9 @@ func main() {
 	configService := config.NewService(configRepo)
 	configHandler := config.NewHandler(configService)
 
+	// Inject config service into user service (for email sending)
+	userService.SetConfigService(configService)
+
 	// Initialize default privacy policy
 	if err := configService.InitializeDefaultPrivacyPolicy(); err != nil {
 		log.Printf("Warning: Failed to initialize default privacy policy: %v", err)
@@ -135,7 +138,12 @@ func main() {
 			adminProtected.PUT("/password", adminHandler.UpdatePassword)
 			// Configuration management
 			adminProtected.PUT("/privacy-policy", configHandler.UpdatePrivacyPolicy)
+			adminProtected.GET("/email-config", configHandler.GetEmailConfig)
 			adminProtected.PUT("/email-config", configHandler.UpdateEmailConfig)
+			adminProtected.POST("/email-config/test", configHandler.TestEmailConfig)
+			adminProtected.GET("/sms-config", configHandler.GetSMSConfig)
+			adminProtected.PUT("/sms-config", configHandler.UpdateSMSConfig)
+			adminProtected.POST("/sms-config/test", configHandler.TestSMSConfig)
 			adminProtected.PUT("/system-config", configHandler.UpdateSystemConfig)
 			// User management
 			adminProtected.GET("/users/stats", userHandler.GetUserStatistics)

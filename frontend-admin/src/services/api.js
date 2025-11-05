@@ -53,8 +53,23 @@ export const adminAPI = {
   updatePrivacyPolicy: (content, version) =>
     api.put('/admin/privacy-policy', { content, version }),
 
+  getEmailConfig: () =>
+    api.get('/admin/email-config'),
+
   updateEmailConfig: (config) =>
     api.put('/admin/email-config', config),
+
+  testEmailConfig: (config) =>
+    api.post('/admin/email-config/test', config),
+
+  getSMSConfig: () =>
+    api.get('/admin/sms-config'),
+
+  updateSMSConfig: (config) =>
+    api.put('/admin/sms-config', config),
+
+  testSMSConfig: (config) =>
+    api.post('/admin/sms-config/test', config),
 
   updateSystemConfig: (config) =>
     api.put('/admin/system-config', config),

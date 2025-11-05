@@ -128,3 +128,20 @@ func (s *Service) UpdateSystemConfig(requireEmailVerification bool) error {
 	config.RequireEmailVerification = requireEmailVerification
 	return s.repo.UpdateSystemConfig(config)
 }
+
+// GetActiveSMSConfig gets the active SMS configuration
+func (s *Service) GetActiveSMSConfig() (*model.SMSConfig, error) {
+	return s.repo.FindActiveSMSConfig()
+}
+
+// CreateSMSConfig creates a new SMS configuration and deactivates old ones
+func (s *Service) CreateSMSConfig(config *model.SMSConfig) error {
+	// Deactivate all existing configs
+	err := s.repo.DeactivateAllSMSConfigs()
+	if err != nil {
+		return err
+	}
+
+	// Create new config
+	return s.repo.CreateSMSConfig(config)
+}

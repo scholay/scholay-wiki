@@ -85,3 +85,28 @@ func (r *Repository) CreateSystemConfig(config *model.SystemConfig) error {
 func (r *Repository) UpdateSystemConfig(config *model.SystemConfig) error {
 	return r.db.Save(config).Error
 }
+
+// FindActiveSMSConfig finds the active SMS configuration
+func (r *Repository) FindActiveSMSConfig() (*model.SMSConfig, error) {
+	var config model.SMSConfig
+	err := r.db.Where("is_active = ?", true).
+		Order("created_at DESC").
+		First(&config).Error
+
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &config, err
+}
+
+// CreateSMSConfig creates a new SMS configuration
+func (r *Repository) CreateSMSConfig(config *model.SMSConfig) error {
+	return r.db.Create(config).Error
+}
+
+// DeactivateAllSMSConfigs deactivates all existing SMS configs
+func (r *Repository) DeactivateAllSMSConfigs() error {
+	return r.db.Model(&model.SMSConfig{}).
+		Where("is_active = ?", true).
+		Update("is_active", false).Error
+}

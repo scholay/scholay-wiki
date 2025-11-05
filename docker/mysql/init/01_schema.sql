@@ -94,6 +94,23 @@ CREATE TABLE IF NOT EXISTS `email_configs` (
   INDEX `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Email server configurations';
 
+-- SMS configurations (Aliyun SMS)
+CREATE TABLE IF NOT EXISTS `sms_configs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `access_key_id` VARCHAR(255) NOT NULL COMMENT 'Aliyun Access Key ID',
+  `access_secret` VARCHAR(255) NOT NULL COMMENT 'Aliyun Access Secret',
+  `sign_name` VARCHAR(100) NOT NULL COMMENT 'SMS signature name',
+  `template_code` VARCHAR(50) NOT NULL COMMENT 'SMS template code',
+  `template_content` TEXT NOT NULL COMMENT 'SMS template content with variables like ${code}',
+  `endpoint` VARCHAR(255) NOT NULL DEFAULT 'dysmsapi.aliyuncs.com' COMMENT 'Aliyun SMS endpoint',
+  `is_active` BOOLEAN NOT NULL DEFAULT TRUE,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_is_active` (`is_active`),
+  INDEX `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='SMS service configurations (Aliyun)';
+
 -- System configurations
 CREATE TABLE IF NOT EXISTS `system_configs` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
