@@ -15,6 +15,15 @@ const (
 	AccountTypeAIModel         AccountType = "ai_model"
 )
 
+// ModelLevel represents the AI model capability level
+type ModelLevel string
+
+const (
+	ModelLevelLow  ModelLevel = "low"
+	ModelLevelMid  ModelLevel = "mid"
+	ModelLevelHigh ModelLevel = "high"
+)
+
 // AccountConfig represents the configuration stored in JSON
 type AccountConfig map[string]interface{}
 
@@ -57,10 +66,13 @@ type SemanticScholarConfig struct {
 }
 
 // AIModelConfig represents the config structure for AI models
+// One account can configure three different model codes for low/mid/high levels
 type AIModelConfig struct {
-	BaseURL string `json:"base_url"`
-	APIKey  string `json:"api_key"`
-	Model   string `json:"model,omitempty"` // Optional: specific model name
+	BaseURL  string `json:"base_url"`
+	APIKey   string `json:"api_key"`
+	ModelLow string `json:"model_low,omitempty"`  // Model code for low-level tasks
+	ModelMid string `json:"model_mid,omitempty"`  // Model code for mid-level tasks
+	ModelHigh string `json:"model_high,omitempty"` // Model code for high-level tasks
 }
 
 // GetSemanticScholarConfig extracts Semantic Scholar config
@@ -99,4 +111,32 @@ func (a *ThirdPartyAccount) GetAIModelConfig() (*AIModelConfig, error) {
 	}
 
 	return &config, nil
+}
+
+// GetModelCodeByLevel returns the model code for a specific level from AI model config
+func (a *ThirdPartyAccount) GetModelCodeByLevel(level ModelLevel) (string, error) {
+	config, err := a.GetAIModelConfig()
+	if err != nil {
+		return "", err
+	}
+
+	switch level {
+	case ModelLevelLow:
+		if config.ModelLow == "" {
+			return "", fmt.Errorf("model_low not configured")
+		}
+		return config.ModelLow, nil
+	case ModelLevelMid:
+		if config.ModelMid == "" {
+			return "", fmt.Errorf("model_mid not configured")
+		}
+		return config.ModelMid, nil
+	case ModelLevelHigh:
+		if config.ModelHigh == "" {
+			return "", fmt.Errorf("model_high not configured")
+		}
+		return config.ModelHigh, nil
+	default:
+		return "", fmt.Errorf("invalid model level: %s", level)
+	}
 }

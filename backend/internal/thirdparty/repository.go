@@ -62,6 +62,12 @@ func (r *Repository) GetActiveByType(accountType AccountType) ([]ThirdPartyAccou
 	return accounts, err
 }
 
+// GetActiveByTypeAndLevel is deprecated - no longer needed since accounts now contain all three model levels
+// Kept for backwards compatibility but will always return error
+func (r *Repository) GetActiveByTypeAndLevel(accountType AccountType, modelLevel ModelLevel) ([]ThirdPartyAccount, error) {
+	return nil, fmt.Errorf("GetActiveByTypeAndLevel is deprecated - use GetActiveByType and check model configs instead")
+}
+
 // Update updates an account
 func (r *Repository) Update(account *ThirdPartyAccount) error {
 	return r.db.Save(account).Error

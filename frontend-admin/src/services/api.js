@@ -114,6 +114,13 @@ export const adminAPI = {
 
   deletePromptTemplate: (id) =>
     api.delete(`/admin/prompt-templates/${id}`),
+
+  // Subscription plan management
+  getSubscriptionPlans: () =>
+    api.get('/user/subscription/plans'),
+
+  updateSubscriptionPlan: (id, data) =>
+    api.put(`/admin/subscription-plans/${id}`, data),
 };
 
 export default api;

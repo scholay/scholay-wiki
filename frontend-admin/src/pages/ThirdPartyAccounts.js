@@ -17,7 +17,9 @@ const ThirdPartyAccounts = () => {
     config: {
       api_key: '',
       base_url: '',
-      model: '',
+      model_low: '',
+      model_mid: '',
+      model_high: '',
     },
     status: 1,
   });
@@ -60,7 +62,9 @@ const ThirdPartyAccounts = () => {
       config: {
         api_key: '',
         base_url: '',
-        model: '',
+        model_low: '',
+        model_mid: '',
+        model_high: '',
       },
       status: 1,
     });
@@ -141,8 +145,15 @@ const ThirdPartyAccounts = () => {
         base_url: formData.config.base_url,
         api_key: formData.config.api_key,
       };
-      if (formData.config.model) {
-        config.model = formData.config.model;
+      // Add model codes if provided
+      if (formData.config.model_low) {
+        config.model_low = formData.config.model_low;
+      }
+      if (formData.config.model_mid) {
+        config.model_mid = formData.config.model_mid;
+      }
+      if (formData.config.model_high) {
+        config.model_high = formData.config.model_high;
       }
     }
 
@@ -197,6 +208,15 @@ const ThirdPartyAccounts = () => {
     ) : (
       <span className="status-badge status-inactive">停用</span>
     );
+  };
+
+  const getModelCodesLabel = (config) => {
+    if (!config) return '-';
+    const models = [];
+    if (config.model_low) models.push(`Low: ${config.model_low}`);
+    if (config.model_mid) models.push(`Mid: ${config.model_mid}`);
+    if (config.model_high) models.push(`High: ${config.model_high}`);
+    return models.length > 0 ? models.join(' / ') : '-';
   };
 
   return (
@@ -266,6 +286,7 @@ const ThirdPartyAccounts = () => {
                 <th>ID</th>
                 <th>名称</th>
                 <th>类型</th>
+                <th>模型编码</th>
                 <th>状态</th>
                 <th>使用次数</th>
                 <th>最后使用时间</th>
@@ -279,6 +300,7 @@ const ThirdPartyAccounts = () => {
                   <td>{account.id}</td>
                   <td>{account.name}</td>
                   <td>{getAccountTypeLabel(account.type)}</td>
+                  <td className="model-codes-cell">{account.type === 'ai_model' ? getModelCodesLabel(account.config) : '-'}</td>
                   <td>{getStatusLabel(account.status)}</td>
                   <td>{account.usage_count || 0}</td>
                   <td>{formatDate(account.last_used_at)}</td>
@@ -399,19 +421,66 @@ const ThirdPartyAccounts = () => {
                       required
                     />
                   </div>
-                  <div className="form-group">
-                    <label>模型名称（可选）</label>
-                    <input
-                      type="text"
-                      value={formData.config.model || ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          config: { ...formData.config, model: e.target.value },
-                        })
-                      }
-                      placeholder="例如: gpt-4"
-                    />
+
+                  <div className="model-codes-section">
+                    <h4>模型编码配置</h4>
+                    <small style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '1rem', display: 'block' }}>
+                      为不同级别的任务配置对应的模型编码。至少配置一个模型编码。
+                    </small>
+
+                    <div className="form-group">
+                      <label>低级模型编码（Low）</label>
+                      <input
+                        type="text"
+                        value={formData.config.model_low || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            config: { ...formData.config, model_low: e.target.value },
+                          })
+                        }
+                        placeholder="例如: gpt-3.5-turbo, claude-3-haiku"
+                      />
+                      <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                        用于普通任务和基础对话
+                      </small>
+                    </div>
+
+                    <div className="form-group">
+                      <label>中级模型编码（Mid）</label>
+                      <input
+                        type="text"
+                        value={formData.config.model_mid || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            config: { ...formData.config, model_mid: e.target.value },
+                          })
+                        }
+                        placeholder="例如: gpt-4, claude-3-sonnet"
+                      />
+                      <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                        用于复杂分析和深度对话
+                      </small>
+                    </div>
+
+                    <div className="form-group">
+                      <label>高级模型编码（High）</label>
+                      <input
+                        type="text"
+                        value={formData.config.model_high || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            config: { ...formData.config, model_high: e.target.value },
+                          })
+                        }
+                        placeholder="例如: gpt-4-turbo, claude-3-opus"
+                      />
+                      <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                        用于最高质量的任务和专业分析
+                      </small>
+                    </div>
                   </div>
                 </>
               )}

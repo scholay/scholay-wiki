@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/thirdparty"
 	"strings"
 
 	"github.com/google/uuid"
@@ -16,9 +17,14 @@ import (
 
 // ChatService handles chat-style conversations with message chains
 type ChatService struct {
-	repo         *Repository
-	aiService    *ai.Service
-	tokenCounter *TokenCounter
+	repo               *Repository
+	aiService          *ai.Service
+	tokenCounter       *TokenCounter
+	subscriptionRepo   interface {
+		CheckQuota(userID uint, featureType string) (bool, error)
+		IncrementUsage(userID uint, featureType string) error
+		CheckAndIncrementQuota(userID uint, featureType string) error
+	}
 }
 
 // NewChatService creates a new chat service
@@ -32,11 +38,21 @@ func NewChatService(repo *Repository, aiService *ai.Service) *ChatService {
 	}
 }
 
+// SetSubscriptionService sets the subscription service for quota checking
+func (s *ChatService) SetSubscriptionService(subscriptionService interface {
+	CheckQuota(userID uint, featureType string) (bool, error)
+	IncrementUsage(userID uint, featureType string) error
+	CheckAndIncrementQuota(userID uint, featureType string) error
+}) {
+	s.subscriptionRepo = subscriptionService
+}
+
 // ChatRequest represents a streaming chat request
 type ChatRequest struct {
 	ConversationID  uint    `json:"conversation_id"` // Set by handler from URL param
 	Content         string  `json:"content" binding:"required"`
 	ParentMessageID *string `json:"parent_message_id,omitempty"`
+	ModelLevel      string  `json:"model_level,omitempty"` // "low", "mid", "high"
 }
 
 // ChatResponse represents a streaming chat response chunk
@@ -50,6 +66,33 @@ type ChatResponse struct {
 
 // StreamChat handles a chat request with streaming response
 func (s *ChatService) StreamChat(ctx context.Context, userID uint, req ChatRequest, writer io.Writer) error {
+	// 0. Atomically check and increment quota before processing
+	if s.subscriptionRepo != nil {
+		// Determine feature type based on model level
+		modelLevel := req.ModelLevel
+		if modelLevel == "" {
+			modelLevel = "low"
+		}
+
+		var featureType string
+		switch modelLevel {
+		case "low":
+			featureType = "ai_chat_normal"
+		case "mid":
+			featureType = "ai_chat_mid"
+		case "high":
+			featureType = "ai_chat_high"
+		default:
+			featureType = "ai_chat_normal"
+		}
+
+		// Atomically check and increment quota to prevent race conditions
+		if err := s.subscriptionRepo.CheckAndIncrementQuota(userID, featureType); err != nil {
+			log.Printf("Quota check failed: %v", err)
+			return fmt.Errorf("配额不足：%s", err.Error())
+		}
+	}
+
 	// 1. Verify conversation ownership
 	_, err := s.repo.GetConversationByID(req.ConversationID, userID)
 	if err != nil {
@@ -119,7 +162,18 @@ func (s *ChatService) StreamChat(ctx context.Context, userID uint, req ChatReque
 		},
 	})
 
-	// 8. Stream AI response using existing StreamChatCompletion
+	// 8. Stream AI response with specified model level
+	// Determine model level (default to "low" if not specified)
+	modelLevel := thirdparty.ModelLevelLow
+	if req.ModelLevel != "" {
+		switch req.ModelLevel {
+		case "mid":
+			modelLevel = thirdparty.ModelLevelMid
+		case "high":
+			modelLevel = thirdparty.ModelLevelHigh
+		}
+	}
+
 	fullContent := ""
 	var streamBuffer bytes.Buffer
 	multiWriter := io.MultiWriter(&streamBuffer, writer)
@@ -133,7 +187,7 @@ func (s *ChatService) StreamChat(ctx context.Context, userID uint, req ChatReque
 		})
 	}}
 
-	err = s.aiService.StreamChatCompletion(aiMessages, customWriter)
+	err = s.aiService.StreamChatCompletionWithLevel(aiMessages, customWriter, modelLevel)
 	if err != nil {
 		s.sendEvent(writer, ChatResponse{
 			Type:  "error",

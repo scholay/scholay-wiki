@@ -138,8 +138,8 @@ curl "http://localhost:8080/api/v1/scholar/papers/search?query=transformer&limit
 
 The project uses Nginx as a reverse proxy to provide unified entry points and solve CORS issues:
 
-- **Port 80** → User Portal (frontend-user + backend API via `/api/*`)
-- **Port 8001** → Admin Dashboard (frontend-admin + backend API via `/api/*`)
+- **HTTP_PORT** (configured in .env) → User Portal (frontend-user + backend API via `/api/*`)
+- **ADMIN_PORT** (configured in .env) → Admin Dashboard (frontend-admin + backend API via `/api/*`)
 - **Internal**: MySQL (3306), Backend (8080) are NOT exposed to host
 
 All frontend-to-backend API calls go through Nginx, enabling same-origin requests. Backend containers communicate via internal Docker network (`scholar-network`).
@@ -263,6 +263,7 @@ The platform includes an AI-powered conversation system:
 - Conversation interface with AI
 - Captcha support (rc-slider-captcha)
 - Responsive design for mobile
+- Custom SVG icon set (`SearchIcons.js`) with multiple design variants
 
 **Admin Dashboard Features**:
 - User management & statistics (Recharts)
@@ -329,7 +330,7 @@ Key variables in `.env`:
 - `MYSQL_*` - Database credentials
 - `REDIS_PASSWORD` - Redis password (optional, currently empty)
 - `SEMANTIC_SCHOLAR_API_KEY` - Optional (uses free tier if not set)
-- Port mappings: `HTTP_PORT` (default 80), `ADMIN_PORT` (default 8001)
+- Port mappings: `HTTP_PORT` (user portal port), `ADMIN_PORT` (admin dashboard port)
 
 ### Email Verification Codes
 
@@ -371,6 +372,20 @@ Both admin and user frontends include a slider CAPTCHA component for login/regis
 - **Current**: Frontend-only validation (can be enhanced with backend verification)
 - To reset after failed login: Use `ref` and call `captchaRef.current.reset()`
 
+### Custom Icon System
+
+The user portal includes a custom SVG icon set for search modes:
+- **Component**: `frontend-user/src/components/SearchIcons.js`
+- **Available Icons**:
+  - `NormalSearchIcon` - Simple document search (magnifying glass + document)
+  - `AdvancedSearchIcon` - AI-powered search (chip + circuit pins)
+  - Multiple alternative designs (Alt1, Alt2) for each mode
+- **Features**:
+  - Scalable SVG with responsive sizing
+  - Uses `currentColor` for automatic theme adaptation
+  - Flat design with consistent visual language
+- **Documentation**: See `frontend-user/ICONS_PREVIEW.md` for visual guide and switching instructions
+
 ### Mobile Responsive Design
 
 Both frontends are fully mobile-responsive:
@@ -383,11 +398,11 @@ Both frontends are fully mobile-responsive:
 
 ## Access Information
 
-**Development URLs**:
-- User Portal: http://localhost (port 80)
-- Admin Dashboard: http://localhost:8001
+**Development URLs** (check `.env` for actual port configuration):
+- User Portal: http://localhost:${HTTP_PORT} (default in current setup: 5411)
+- Admin Dashboard: http://localhost:${ADMIN_PORT} (default in current setup: 5455)
 - Backend API: http://localhost:8080 (internal only, access via Nginx)
-- Health Check: http://localhost:8080/health
+- Health Check: http://localhost:8080/health (internal only)
 
 **Default Credentials**:
 - Admin: username=`admin`, password=`adminadmin` (CHANGE IN PRODUCTION)
@@ -403,11 +418,12 @@ Both frontends are fully mobile-responsive:
 
 ### Port Conflicts
 
-Edit `.env` and change port mappings:
+If you encounter port conflicts, edit `.env` and change port mappings:
 ```
-HTTP_PORT=8080
-ADMIN_PORT=8002
+HTTP_PORT=5411    # Change to any available port for user portal
+ADMIN_PORT=5455   # Change to any available port for admin dashboard
 ```
+Then restart services: `docker-compose down && docker-compose up -d --build`
 
 ### Backend Not Starting
 
@@ -473,8 +489,9 @@ docker-compose restart backend
 
 ## Project Documentation
 
-This CLAUDE.md file consolidates all essential development information. The project also has:
+This CLAUDE.md file consolidates all essential development information. Additional documentation:
 - **README.md** - User-facing project overview and getting started guide
-- **Backend API docs** - `backend/SEMANTIC_SCHOLAR_API.md` for Semantic Scholar API details
+- **backend/SEMANTIC_SCHOLAR_API.md** - Detailed Semantic Scholar API documentation (Chinese)
+- **frontend-user/ICONS_PREVIEW.md** - Visual guide for custom search icons and design variants
 
 All other documentation has been consolidated into this file for simplicity.

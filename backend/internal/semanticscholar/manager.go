@@ -101,14 +101,21 @@ func (m *Manager) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error)
 	if err != nil {
 		errStr := err.Error()
 
-		// If rate limited (429), return error with friendly message
+		// If rate limited (429), try to fall back to free tier
 		if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
-			return nil, fmt.Errorf("API rate limit exceeded. Please wait a moment and try again")
+			fmt.Printf("[Manager] API key rate limited, falling back to free tier\n")
+			freeClient := NewClient("")
+			result, freeErr := freeClient.SearchPapers(opts)
+			if freeErr != nil {
+				// If free tier also fails, return the original rate limit error with helpful message
+				return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable. Please add more API keys or wait a moment")
+			}
+			return result, nil
 		}
 
 		// If error contains "403" or "Forbidden" or "EOF", try without API key
 		if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
-			// Fallback to free tier (no API key)
+			fmt.Printf("[Manager] API key forbidden/error, falling back to free tier\n")
 			freeClient := NewClient("")
 			return freeClient.SearchPapers(opts)
 		}
@@ -124,7 +131,33 @@ func (m *Manager) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, er
 	if err != nil {
 		return nil, err
 	}
-	return client.GetPaper(paperID, opts)
+
+	paper, err := client.GetPaper(paperID, opts)
+	if err != nil {
+		errStr := err.Error()
+
+		// If rate limited (429), try to fall back to free tier
+		if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
+			fmt.Printf("[Manager] API key rate limited for GetPaper, falling back to free tier\n")
+			freeClient := NewClient("")
+			paper, freeErr := freeClient.GetPaper(paperID, opts)
+			if freeErr != nil {
+				return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable. Please add more API keys or wait a moment")
+			}
+			return paper, nil
+		}
+
+		// If error contains "403" or "Forbidden", try without API key
+		if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
+			fmt.Printf("[Manager] API key forbidden/error for GetPaper, falling back to free tier\n")
+			freeClient := NewClient("")
+			return freeClient.GetPaper(paperID, opts)
+		}
+
+		return nil, err
+	}
+
+	return paper, nil
 }
 
 // GetPaperBatch retrieves multiple papers using key rotation

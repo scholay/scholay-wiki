@@ -5,6 +5,8 @@ import AuthModal from '../components/AuthModal';
 import SearchFilters from '../components/SearchFilters';
 import AppSidebar from '../components/AppSidebar';
 import Logo from '../components/Logo';
+import ModelSelector from '../components/ModelSelector';
+import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import './Home.css';
 
 const Home = () => {
@@ -14,6 +16,7 @@ const Home = () => {
   const [searchMode, setSearchMode] = useState('normal'); // 'normal' or 'advanced'
   const [showModeSelector, setShowModeSelector] = useState(false);
   const [showFilters, setShowFilters] = useState(false); // 显示筛选条件
+  const [modelLevel, setModelLevel] = useState('low'); // 'low', 'mid', 'high' - 默认普通模型
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     // 从localStorage读取侧边栏状态，默认为收起(true)
     const saved = localStorage.getItem('sidebarCollapsed');
@@ -151,7 +154,10 @@ const Home = () => {
 
     // 高级搜索模式：跳转到高级搜索页面，带上query参数以便自动搜索
     if (searchMode === 'advanced') {
-      const params = new URLSearchParams({ query: userMessage });
+      const params = new URLSearchParams({
+        query: userMessage,
+        modelLevel: modelLevel  // 传递模型级别
+      });
       navigate(`/advanced-search?${params.toString()}`);
       return;
     }
@@ -186,13 +192,19 @@ const Home = () => {
         <nav className="top-navbar">
           <div className="navbar-left">
             <div className="logo">
-              <span className="logo-text">Scholabase</span>
+              <span className="logo-text">Scholay</span>
             </div>
           </div>
 
           <div className="navbar-right">
             {!isAuthenticated && (
               <div className="auth-buttons">
+                <button
+                  onClick={() => navigate('/pricing')}
+                  className="btn-auth btn-pricing"
+                >
+                  价格方案
+                </button>
                 <button
                   onClick={() => setShowAuthModal(true)}
                   className="btn-auth btn-login"
@@ -267,18 +279,9 @@ const Home = () => {
                           onClick={() => setShowModeSelector(!showModeSelector)}
                         >
                           {searchMode === 'normal' ? (
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                              <polyline points="14 2 14 8 20 8"/>
-                              <circle cx="11.5" cy="14.5" r="2.5"/>
-                              <path d="m13.25 16.25 1.5 1.5"/>
-                            </svg>
+                            <NormalSearchIcon size={16} />
                           ) : (
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <circle cx="11" cy="11" r="8"/>
-                              <path d="m21 21-4.35-4.35"/>
-                              <path d="M11 8l1.5 3 3 .5-2.5 2 .5 3-2.5-1.5L8.5 16.5l.5-3-2.5-2 3-.5z" fill="currentColor" strokeWidth="1"/>
-                            </svg>
+                            <AdvancedSearchIcon size={16} />
                           )}
                         </button>
 
@@ -300,23 +303,11 @@ const Home = () => {
                               }}
                             >
                               <div className="mode-option-icon">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                  <polyline points="14 2 14 8 20 8"/>
-                                  <circle cx="11.5" cy="14.5" r="2.5"/>
-                                  <path d="m13.25 16.25 1.5 1.5"/>
-                                </svg>
+                                <NormalSearchIcon size={28} />
                               </div>
                               <div className="mode-option-content">
                                 <div className="mode-option-title">普通搜索</div>
                                 <div className="mode-option-desc">直接搜索论文标题、作者、关键词</div>
-                              </div>
-                              <div className="mode-option-help" title="精确匹配关键词,支持筛选条件">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <circle cx="12" cy="12" r="10"/>
-                                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                                  <line x1="12" y1="17" x2="12.01" y2="17"/>
-                                </svg>
                               </div>
                             </button>
                             <button
@@ -328,22 +319,11 @@ const Home = () => {
                               }}
                             >
                               <div className="mode-option-icon">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <circle cx="11" cy="11" r="8"/>
-                                  <path d="m21 21-4.35-4.35"/>
-                                  <path d="M11 8l1.5 3 3 .5-2.5 2 .5 3-2.5-1.5L8.5 16.5l.5-3-2.5-2 3-.5z" fill="currentColor" strokeWidth="1"/>
-                                </svg>
+                                <AdvancedSearchIcon size={28} />
                               </div>
                               <div className="mode-option-content">
                                 <div className="mode-option-title">高级搜索</div>
                                 <div className="mode-option-desc">AI智能理解并解析研究需求</div>
-                              </div>
-                              <div className="mode-option-help" title="使用自然语言描述需求,AI辅助搜索">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <circle cx="12" cy="12" r="10"/>
-                                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                                  <line x1="12" y1="17" x2="12.01" y2="17"/>
-                                </svg>
                               </div>
                             </button>
                           </div>
@@ -397,6 +377,17 @@ const Home = () => {
                           </button>
                         );
                       })()}
+
+                      {/* 模型选择器 - 仅在高级搜索模式显示 */}
+                      {searchMode === 'advanced' && isAuthenticated && (
+                        <div className="model-selector-wrapper">
+                          <ModelSelector
+                            value={modelLevel}
+                            onChange={setModelLevel}
+                            userSubscription={user?.subscription}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
             </form>

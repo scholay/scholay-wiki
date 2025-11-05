@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
+import api from '../services/api';
 import Logo from './Logo';
+import { NormalSearchIcon, AdvancedSearchIcon } from './SearchIcons';
 import './UnifiedSidebar.css';
 
 const UnifiedSidebar = ({
@@ -26,6 +28,25 @@ const UnifiedSidebar = ({
   const userMenuRef = useRef(null);
   const avatarRef = useRef(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const [subscription, setSubscription] = useState(null);
+
+  // 获取订阅信息
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      try {
+        const response = await api.get('/user/subscription/my');
+        if (response.data.code === 0) {
+          setSubscription(response.data.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch subscription:', error);
+      }
+    };
+
+    if (user) {
+      fetchSubscription();
+    }
+  }, [user]);
 
   // 点击外部关闭用户菜单
   useEffect(() => {
@@ -160,10 +181,7 @@ const UnifiedSidebar = ({
                 onClick={() => navigate('/search-results?query=')}
                 title="普通搜索"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="8"/>
-                  <path d="m21 21-4.35-4.35"/>
-                </svg>
+                <NormalSearchIcon size={20} />
                 <span>普通搜索</span>
               </button>
 
@@ -172,11 +190,7 @@ const UnifiedSidebar = ({
                 onClick={() => navigate('/advanced-search')}
                 title="高级搜索"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                  <line x1="12" x2="12" y1="19" y2="22"/>
-                </svg>
+                <AdvancedSearchIcon size={20} />
                 <span>高级搜索</span>
               </button>
             </div>
@@ -280,13 +294,20 @@ const UnifiedSidebar = ({
             zIndex: 10000
           }}
         >
-          <div className="user-menu-header">
+          <div className={`user-menu-header ${subscription && subscription.plan_code === 'pro' ? 'premium-pro' : ''} ${subscription && subscription.plan_code === 'max' ? 'premium-max' : ''}`}>
             <div className="user-avatar-large">
               {getUserInitial()}
             </div>
             <div className="user-info-text">
               <div className="user-name">{user?.username || user?.email?.split('@')[0] || '用户'}</div>
               <div className="user-email-small">{user?.email}</div>
+              {subscription && (
+                <div className="user-subscription-badge">
+                  <span className={`subscription-plan-badge ${subscription.plan_code}`}>
+                    {subscription.plan_name}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -305,6 +326,21 @@ const UnifiedSidebar = ({
                 <circle cx="12" cy="7" r="4"/>
               </svg>
               <span>个人资料</span>
+            </button>
+
+            <button
+              className="user-menu-item"
+              onClick={() => {
+                setShowUserMenu(false);
+                navigate('/subscription');
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="8" width="18" height="12" rx="2" ry="2"/>
+                <path d="M3 8v-2a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <span>管理订阅</span>
             </button>
 
             <button

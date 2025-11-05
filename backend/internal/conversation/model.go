@@ -4,6 +4,9 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // ConversationType represents the type of conversation
@@ -77,6 +80,14 @@ type ConversationMessage struct {
 	Unfinished          bool          `gorm:"default:false" json:"unfinished"`
 	CreatedAt           time.Time     `json:"created_at"`
 	UpdatedAt           time.Time     `json:"updated_at"`
+}
+
+// BeforeCreate hook to generate message_id if not set
+func (m *ConversationMessage) BeforeCreate(tx *gorm.DB) error {
+	if m.MessageID == "" {
+		m.MessageID = uuid.New().String()
+	}
+	return nil
 }
 
 // CreateConversationRequest represents the request to create a new conversation

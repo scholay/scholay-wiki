@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS `users` (
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '1=active, 0=inactive, 2=suspended',
   `email_verified` BOOLEAN NOT NULL DEFAULT FALSE,
   `phone_verified` BOOLEAN NOT NULL DEFAULT FALSE,
+  `subscription_plan` VARCHAR(20) NOT NULL DEFAULT 'free' COMMENT 'free, pro, max',
+  `subscription_expires_at` DATETIME COMMENT 'Subscription expiration date (NULL for free tier)',
   `last_login_at` DATETIME,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -37,7 +39,8 @@ CREATE TABLE IF NOT EXISTS `users` (
   INDEX `idx_email` (`email`),
   INDEX `idx_phone` (`phone`),
   INDEX `idx_username` (`username`),
-  INDEX `idx_status` (`status`)
+  INDEX `idx_status` (`status`),
+  INDEX `idx_subscription_plan` (`subscription_plan`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Users table';
 
 -- User authentication providers (for OAuth, WeChat, etc.)
@@ -148,7 +151,7 @@ CREATE TABLE IF NOT EXISTS `third_party_accounts` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(100) NOT NULL COMMENT 'Account name/description',
   `type` VARCHAR(50) NOT NULL COMMENT 'Account type: semantic_scholar, ai_model',
-  `config` JSON NOT NULL COMMENT 'Configuration details (api_key, base_url, etc.)',
+  `config` JSON NOT NULL COMMENT 'Configuration details (api_key, base_url, model_low, model_mid, model_high for AI models)',
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '1=active, 0=inactive',
   `usage_count` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Number of times used',
   `last_used_at` DATETIME COMMENT 'Last usage timestamp',
@@ -158,6 +161,42 @@ CREATE TABLE IF NOT EXISTS `third_party_accounts` (
   INDEX `idx_type_status` (`type`, `status`),
   INDEX `idx_last_used` (`last_used_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Third-party API account configurations';
+
+-- Remove old model_level column if exists (for migration)
+-- Use procedure to safely drop column and index if they exist
+DELIMITER $$
+CREATE PROCEDURE drop_model_level_if_exists()
+BEGIN
+    DECLARE column_exists INT DEFAULT 0;
+    DECLARE index_exists INT DEFAULT 0;
+
+    -- Check if column exists
+    SELECT COUNT(*) INTO column_exists
+    FROM information_schema.columns
+    WHERE table_schema = 'scholar'
+    AND table_name = 'third_party_accounts'
+    AND column_name = 'model_level';
+
+    IF column_exists > 0 THEN
+        ALTER TABLE `third_party_accounts` DROP COLUMN `model_level`;
+    END IF;
+
+    -- Check if index exists
+    SELECT COUNT(*) INTO index_exists
+    FROM information_schema.statistics
+    WHERE table_schema = 'scholar'
+    AND table_name = 'third_party_accounts'
+    AND index_name = 'idx_type_level';
+
+    IF index_exists > 0 THEN
+        ALTER TABLE `third_party_accounts` DROP INDEX `idx_type_level`;
+    END IF;
+END$$
+DELIMITER ;
+
+CALL drop_model_level_if_exists();
+DROP PROCEDURE drop_model_level_if_exists;
+
 
 -- Conversations table
 CREATE TABLE IF NOT EXISTS `conversations` (
@@ -219,6 +258,110 @@ CREATE TABLE IF NOT EXISTS `prompt_templates` (
   INDEX `idx_active` (`is_active`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI prompt templates';
 
+-- Subscription plans table
+CREATE TABLE IF NOT EXISTS `subscription_plans` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `plan_code` VARCHAR(20) NOT NULL UNIQUE COMMENT 'Plan code: free, pro, max',
+  `plan_name` VARCHAR(50) NOT NULL COMMENT 'Plan display name',
+  `price_monthly` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Monthly price in CNY/USD',
+  `price_yearly` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Yearly price in CNY/USD',
+  `features` JSON NOT NULL COMMENT 'Plan features and quotas',
+  `is_active` TINYINT NOT NULL DEFAULT 1 COMMENT '1=active, 0=inactive',
+  `sort_order` INT NOT NULL DEFAULT 0 COMMENT 'Display order',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `idx_plan_code` (`plan_code`),
+  INDEX `idx_is_active` (`is_active`),
+  INDEX `idx_sort_order` (`sort_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Subscription plans';
+
+-- User subscriptions table
+CREATE TABLE IF NOT EXISTS `user_subscriptions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL,
+  `plan_code` VARCHAR(20) NOT NULL COMMENT 'Plan code: free, pro, max',
+  `start_date` DATETIME NOT NULL COMMENT 'Subscription start date',
+  `end_date` DATETIME COMMENT 'Subscription end date (NULL for lifetime/free)',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'active' COMMENT 'active, expired, cancelled',
+  `auto_renew` TINYINT NOT NULL DEFAULT 0 COMMENT '1=auto-renew, 0=manual',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_status` (`status`),
+  INDEX `idx_end_date` (`end_date`),
+  INDEX `idx_user_status` (`user_id`, `status`),
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='User subscription records';
+
+-- Usage quotas table (for tracking user usage)
+CREATE TABLE IF NOT EXISTS `usage_quotas` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL,
+  `quota_date` DATE NOT NULL COMMENT 'Usage date (YYYY-MM-DD)',
+  `normal_search_count` INT NOT NULL DEFAULT 0 COMMENT 'Normal search count',
+  `advanced_search_low_count` INT NOT NULL DEFAULT 0 COMMENT 'Advanced search (low mode) count',
+  `advanced_search_mid_count` INT NOT NULL DEFAULT 0 COMMENT 'Advanced search (mid mode) count',
+  `advanced_search_high_count` INT NOT NULL DEFAULT 0 COMMENT 'Advanced search (high mode) count',
+  `ai_chat_normal_count` INT NOT NULL DEFAULT 0 COMMENT 'AI chat (normal model) count',
+  `ai_chat_mid_count` INT NOT NULL DEFAULT 0 COMMENT 'AI chat (mid model) count',
+  `ai_chat_high_count` INT NOT NULL DEFAULT 0 COMMENT 'AI chat (high model) count',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_date` (`user_id`, `quota_date`),
+  INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_quota_date` (`quota_date`),
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Daily usage quota tracking';
+
+-- ============================================
+-- Initial Data: Subscription Plans
+-- ============================================
+
+INSERT INTO `subscription_plans` (`plan_code`, `plan_name`, `price_monthly`, `price_yearly`, `features`, `is_active`, `sort_order`) VALUES
+('free', 'FREE', 0.00, 0.00, '{
+  "normal_search": {"limit": -1, "description": "无限制"},
+  "advanced_search_low": {"limit": 5, "period": "day", "description": "5/天"},
+  "advanced_search_mid": {"limit": 3, "period": "day", "description": "3/天"},
+  "advanced_search_high": {"limit": 2, "period": "day", "description": "2/天"},
+  "ai_chat_normal": {"limit": -1, "description": "无限制"},
+  "ai_chat_mid": {"limit": 50, "period": "day", "description": "50/天"},
+  "ai_chat_high": {"limit": 10, "period": "day", "description": "10/天"},
+  "advanced_search_data": {"enabled": true, "description": "无限制"},
+  "ai_history_data": {"enabled": true, "description": "无限制"}
+}', 1, 1),
+('pro', 'PRO', 88.00, 880.00, '{
+  "normal_search": {"limit": -1, "description": "无限制"},
+  "advanced_search_low": {"limit": -1, "description": "无限制"},
+  "advanced_search_mid": {"limit": -1, "description": "无限制"},
+  "advanced_search_high": {"limit": -1, "description": "无限制"},
+  "ai_chat_normal": {"limit": -1, "description": "无限制"},
+  "ai_chat_mid": {"limit": -1, "description": "无限制"},
+  "ai_chat_high": {"limit": -1, "description": "无限制"},
+  "advanced_search_data": {"enabled": true, "description": "无限制"},
+  "ai_history_data": {"enabled": true, "description": "无限制"}
+}', 1, 2),
+('max', 'MAX1', 199.00, 1990.00, '{
+  "normal_search": {"limit": -1, "description": "无限制"},
+  "advanced_search_low": {"limit": -1, "description": "无限制"},
+  "advanced_search_mid": {"limit": -1, "description": "无限制"},
+  "advanced_search_high": {"limit": -1, "description": "无限制"},
+  "ai_chat_normal": {"limit": -1, "description": "无限制"},
+  "ai_chat_mid": {"limit": -1, "description": "无限制"},
+  "ai_chat_high": {"limit": -1, "description": "无限制"},
+  "advanced_search_data": {"enabled": true, "description": "无限制"},
+  "ai_history_data": {"enabled": true, "description": "无限制"}
+}', 1, 3)
+ON DUPLICATE KEY UPDATE
+  `plan_name` = VALUES(`plan_name`),
+  `price_monthly` = VALUES(`price_monthly`),
+  `price_yearly` = VALUES(`price_yearly`),
+  `features` = VALUES(`features`),
+  `is_active` = VALUES(`is_active`),
+  `sort_order` = VALUES(`sort_order`);
+
 -- ============================================
 -- Initial Data: Default Prompt Template
 -- ============================================
@@ -273,3 +416,44 @@ ON DUPLICATE KEY UPDATE
   `template` = VALUES(`template`),
   `description` = VALUES(`description`),
   `is_active` = VALUES(`is_active`);
+
+-- ============================================
+-- Orders and Payments
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS `orders` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL,
+  `order_no` VARCHAR(64) NOT NULL UNIQUE COMMENT 'Order number',
+  `plan_code` VARCHAR(20) NOT NULL COMMENT 'Subscription plan code',
+  `plan_name` VARCHAR(50) NOT NULL COMMENT 'Plan name at the time of order',
+  `billing_cycle` VARCHAR(20) NOT NULL COMMENT 'monthly or yearly',
+  `amount` DECIMAL(10,2) NOT NULL COMMENT 'Order amount',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT 'pending, paid, cancelled, refunded',
+  `payment_method` VARCHAR(50) COMMENT 'Payment method: alipay, wechat, stripe, etc.',
+  `payment_time` DATETIME COMMENT 'Payment completion time',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_order_no` (`order_no`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created_at` (`created_at`),
+  CONSTRAINT `fk_orders_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Subscription orders';
+
+CREATE TABLE IF NOT EXISTS `payment_transactions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `order_id` BIGINT UNSIGNED NOT NULL,
+  `transaction_no` VARCHAR(100) COMMENT 'External transaction ID from payment gateway',
+  `payment_method` VARCHAR(50) NOT NULL COMMENT 'Payment method',
+  `amount` DECIMAL(10,2) NOT NULL,
+  `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT 'pending, success, failed',
+  `payment_data` JSON COMMENT 'Additional payment data',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_order_id` (`order_id`),
+  KEY `idx_transaction_no` (`transaction_no`),
+  CONSTRAINT `fk_payment_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Payment transactions';

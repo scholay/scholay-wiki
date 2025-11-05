@@ -7,6 +7,7 @@ import Settings from './pages/Settings';
 import UserManagement from './pages/UserManagement';
 import ThirdPartyAccounts from './pages/ThirdPartyAccounts';
 import PromptTemplates from './pages/PromptTemplates';
+import SubscriptionPlans from './pages/SubscriptionPlans';
 import Toast from './components/Toast';
 import { AuthProvider, useAuth } from './utils/AuthContext';
 
@@ -42,6 +43,7 @@ function App() {
             <Route path="users" element={<UserManagement />} />
             <Route path="third-party-accounts" element={<ThirdPartyAccounts />} />
             <Route path="prompt-templates" element={<PromptTemplates />} />
+            <Route path="subscription-plans" element={<SubscriptionPlans />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" />} />

@@ -385,6 +385,17 @@
   white-space: nowrap;
 }
 
+.btn-pricing {
+  background: transparent;
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.btn-pricing:hover {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.5);
+}
+
 .btn-login {
   background: transparent;
   color: var(--text-primary);
@@ -1258,10 +1269,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 40px;
+  height: 40px;
   background: rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
+  border-radius: 8px;
   margin-top: 2px;
 }
 
@@ -1272,14 +1283,13 @@
 
 .home .mode-option-icon svg,
 .home-search .mode-option-icon svg {
-  width: 16px;
-  height: 16px;
-  stroke: rgba(255, 255, 255, 0.6);
+  /* 移除固定尺寸，使用组件传入的size属性 */
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .home .mode-option.active .mode-option-icon svg,
 .home-search .mode-option.active .mode-option-icon svg {
-  stroke: rgb(16, 163, 127);
+  color: rgb(16, 163, 127);
 }
 
 .home .mode-option-content,
@@ -1596,5 +1606,22 @@
   }
   50%, 100% {
     opacity: 0;
+  }
+}
+
+/* Model Selector Wrapper */
+.model-selector-wrapper {
+  margin-left: 0.5rem;
+}
+
+.composer-footer-left .model-selector-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .model-selector-wrapper {
+    margin-left: 0.25rem;
   }
 }

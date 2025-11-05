@@ -7,19 +7,22 @@ import (
 
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/semanticscholar"
+	"scholar-backend/internal/subscription"
 )
 
 type Service struct {
-	repo           *Repository
-	scholarManager *semanticscholar.Manager
-	aiService      *ai.Service
+	repo                *Repository
+	scholarManager      *semanticscholar.Manager
+	aiService           *ai.Service
+	subscriptionService *subscription.Service
 }
 
-func NewService(repo *Repository, scholarManager *semanticscholar.Manager, aiService *ai.Service) *Service {
+func NewService(repo *Repository, scholarManager *semanticscholar.Manager, aiService *ai.Service, subscriptionService *subscription.Service) *Service {
 	return &Service{
-		repo:           repo,
-		scholarManager: scholarManager,
-		aiService:      aiService,
+		repo:                repo,
+		scholarManager:      scholarManager,
+		aiService:           aiService,
+		subscriptionService: subscriptionService,
 	}
 }
 
@@ -224,7 +227,17 @@ func (s *Service) StreamAIAnalysis(query string, papers []map[string]interface{}
 }
 
 // StreamAIAnalysisAndSave streams AI analysis and saves it as assistant message
-func (s *Service) StreamAIAnalysisAndSave(conversationID uint, query string, papers []map[string]interface{}, writer io.Writer) (string, error) {
+// This uses normal-level AI chat (unlimited for all users)
+func (s *Service) StreamAIAnalysisAndSave(conversationID uint, query string, papers []map[string]interface{}, writer io.Writer, userID uint) (string, error) {
+	// Check quota for ai_chat_normal (should be unlimited for all, but check anyway)
+	hasQuota, err := s.subscriptionService.CheckQuota(userID, "ai_chat_normal")
+	if err != nil {
+		return "", fmt.Errorf("failed to check quota: %w", err)
+	}
+	if !hasQuota {
+		return "", fmt.Errorf("超出AI对话配额限制")
+	}
+
 	// Get prompt template
 	template, err := s.aiService.GetPromptTemplate("paper_analysis")
 	if err != nil {
@@ -252,10 +265,15 @@ func (s *Service) StreamAIAnalysisAndSave(conversationID uint, query string, pap
 		},
 	}
 
-	// Stream AI response and collect full content
+	// Stream AI response and collect full content (using normal model level)
 	fullContent, err := s.aiService.StreamChatCompletionAndCollect(messages, writer)
 	if err != nil {
 		return "", err
+	}
+
+	// Increment usage count
+	if err := s.subscriptionService.IncrementUsage(userID, "ai_chat_normal"); err != nil {
+		fmt.Printf("Warning: failed to increment usage: %v\n", err)
 	}
 
 	// Save assistant message to conversation

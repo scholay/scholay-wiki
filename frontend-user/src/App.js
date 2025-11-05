@@ -6,6 +6,9 @@ import SearchResultsPage from './pages/SearchResultsPage';
 import AdvancedSearchPage from './pages/AdvancedSearchPage';
 import PaperDetailPage from './pages/PaperDetailPage';
 import ChatPage from './pages/ChatPage';
+import Pricing from './pages/Pricing';
+import SubscriptionManagement from './pages/SubscriptionManagement';
+import Settings from './pages/Settings';
 import AuthModal from './components/AuthModal';
 import { AuthProvider } from './utils/AuthContext';
 
@@ -34,6 +37,9 @@ function App() {
           <Route path="/advanced-search" element={<AdvancedSearchPage />} />
           <Route path="/paper/:paperId" element={<PaperDetailPage />} />
           <Route path="/chat" element={<ChatPage />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/subscription" element={<SubscriptionManagement />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/dashboard" element={<Dashboard />} />
           {/* 404 redirect to home */}
           <Route path="*" element={<Navigate to="/" replace />} />

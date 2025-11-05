@@ -296,3 +296,102 @@ func (s *Service) StartCacheRefreshTask(interval time.Duration) {
 func (s *Service) GetActiveAccountsByType(accountType AccountType) ([]ThirdPartyAccount, error) {
 	return s.getActiveAccounts(accountType)
 }
+
+// GetRandomAIModelConfigByLevel gets a random AI model configuration and returns the model code for the specified level
+// Now each AI account can contain three model codes (low/mid/high), so we select an account and return the appropriate model code
+func (s *Service) GetRandomAIModelConfigByLevel(modelLevel ModelLevel) (*AIModelConfig, uint, error) {
+	// Get all active AI model accounts
+	accounts, err := s.getActiveAccounts(AccountTypeAIModel)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get active AI model accounts: %w", err)
+	}
+
+	if len(accounts) == 0 {
+		return nil, 0, fmt.Errorf("no active ai_model accounts found")
+	}
+
+	// Filter accounts that have the requested model level configured
+	var validAccounts []ThirdPartyAccount
+	for _, account := range accounts {
+		modelCode, err := account.GetModelCodeByLevel(modelLevel)
+		if err == nil && modelCode != "" {
+			validAccounts = append(validAccounts, account)
+		}
+	}
+
+	if len(validAccounts) == 0 {
+		return nil, 0, fmt.Errorf("no active ai_model accounts found with %s model configured", modelLevel)
+	}
+
+	// Use weighted random selection
+	selected := s.weightedRandomSelect(validAccounts)
+
+	// Increment usage count
+	if err := s.repo.IncrementUsage(selected.ID); err != nil {
+		fmt.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
+	}
+
+	config, err := selected.GetAIModelConfig()
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	// Get the specific model code for this level
+	modelCode, err := selected.GetModelCodeByLevel(modelLevel)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get model code for level %s: %w", modelLevel, err)
+	}
+
+	// Return a simplified config with BaseURL, APIKey, and the specific model code in ModelLow field
+	// (AI service will use ModelLow as the actual model parameter)
+	levelConfig := &AIModelConfig{
+		BaseURL:   config.BaseURL,
+		APIKey:    config.APIKey,
+		ModelLow:  modelCode, // The actual model code to use for this request
+		ModelMid:  "",        // Not used
+		ModelHigh: "",        // Not used
+	}
+
+	return levelConfig, selected.ID, nil
+}
+
+// GetRandomAPIKeyByLevel gets a random AI model API key that has the specified level configured (with usage tracking)
+func (s *Service) GetRandomAPIKeyByLevel(modelLevel ModelLevel) (string, uint, error) {
+	// Get all active AI model accounts
+	accounts, err := s.getActiveAccounts(AccountTypeAIModel)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to get active AI model accounts: %w", err)
+	}
+
+	if len(accounts) == 0 {
+		return "", 0, fmt.Errorf("no active ai_model accounts found")
+	}
+
+	// Filter accounts that have the requested model level configured
+	var validAccounts []ThirdPartyAccount
+	for _, account := range accounts {
+		modelCode, err := account.GetModelCodeByLevel(modelLevel)
+		if err == nil && modelCode != "" {
+			validAccounts = append(validAccounts, account)
+		}
+	}
+
+	if len(validAccounts) == 0 {
+		return "", 0, fmt.Errorf("no active ai_model accounts found with %s model configured", modelLevel)
+	}
+
+	// Use weighted random selection
+	selected := s.weightedRandomSelect(validAccounts)
+
+	// Increment usage count
+	if err := s.repo.IncrementUsage(selected.ID); err != nil {
+		fmt.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
+	}
+
+	config, err := selected.GetAIModelConfig()
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	return config.APIKey, selected.ID, nil
+}

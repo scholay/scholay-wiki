@@ -8,46 +8,88 @@ import (
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/semanticscholar"
+	"scholar-backend/internal/thirdparty"
 )
 
 // AdvancedSearchAndAnalyze performs AI-powered search using MCP tools and streams results
-func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, writer io.Writer) error {
+// It checks quota and uses appropriate model level based on user's subscription
+// It also supports conversation context for follow-up searches
+func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, writer io.Writer, userID uint, modelLevel thirdparty.ModelLevel) error {
+	// Determine feature type based on model level
+	var featureType string
+	switch modelLevel {
+	case thirdparty.ModelLevelLow:
+		featureType = "advanced_search_low"
+	case thirdparty.ModelLevelMid:
+		featureType = "advanced_search_mid"
+	case thirdparty.ModelLevelHigh:
+		featureType = "advanced_search_high"
+	default:
+		return fmt.Errorf("invalid model level: %s", modelLevel)
+	}
+
+	// Increment usage (quota check already done in handler before SSE started)
+	// Use atomic increment to ensure thread safety
+	if err := s.subscriptionService.IncrementUsage(userID, featureType); err != nil {
+		return fmt.Errorf("failed to increment usage: %w", err)
+	}
+
 	// Create MCP server with manager
 	// Manager will automatically get API key and base URL from backend config
 	mcpServer := mcp.NewMCPServer(s.scholarManager)
 
-	// Step 1: Let AI decide what tools to call based on user query
-	// Get available MCP tools
+	// Step 1: Build context from conversation history (last 5 rounds)
+	fmt.Printf("[DEBUG] Getting conversation messages for conversation ID: %d\n", conversationID)
+	messages, err := s.repo.GetConversationMessages(conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to get conversation messages: %w", err)
+	}
+	fmt.Printf("[DEBUG] Got %d messages for conversation %d\n", len(messages), conversationID)
+	contextMessages := s.buildContextMessages(messages, 5)
+	fmt.Printf("[DEBUG] Built context with %d messages\n", len(contextMessages))
+
+	// Step 2: Get available MCP tools
 	mcpTools := mcpServer.ListTools()
 	aiTools := ai.ConvertMCPToolsToOpenAIFormat(mcpTools)
 
-	// Create initial message for AI to understand user intent
-	initialMessages := []ai.ChatMessage{
-		{
-			Role: "system",
-			Content: `你是一位专业的学术研究助手。你可以使用工具来搜索学术论文。
-根据用户的查询，使用 search_papers 工具来搜索相关论文。
-请分析用户的需求，提取合适的搜索关键词，并调用工具。
+	// Step 3: Create messages with system prompt and context
+	systemMessage := ai.ChatMessage{
+		Role: "system",
+		Content: `你是一位专业的学术研究助手。你可以使用 search_papers 工具来搜索学术论文。
 
-重要：调用 search_papers 时，请设置 limit 参数为 40，以返回更多相关论文。`,
-		},
-		{
-			Role:    "user",
-			Content: query,
-		},
+当用户需要搜索新的论文时，使用 search_papers 工具。
+否则，基于对话历史和已有的论文信息回答用户的问题。
+
+重要：调用 search_papers 时，请设置 limit 参数为 40，以返回更多相关论文。
+
+请用中文回答，使用 Markdown 格式。`,
 	}
 
-	// Step 2: Call AI with tools to get tool calls
-	toolCallResponse, err := s.aiService.ChatCompletionWithTools(initialMessages, aiTools, "auto")
+	// Add current user query
+	contextMessages = append(contextMessages, ai.ChatMessage{
+		Role:    "user",
+		Content: query,
+	})
+
+	// Prepend system message
+	initialMessages := append([]ai.ChatMessage{systemMessage}, contextMessages...)
+
+	// Step 4: Call AI with tools to get tool calls
+	// Use low-level model for tool calling to save cost (tool selection doesn't need advanced reasoning)
+	fmt.Printf("[DEBUG] Calling AI with tools, initial messages count: %d, tools count: %d\n", len(initialMessages), len(aiTools))
+	toolCallResponse, err := s.aiService.ChatCompletionWithTools(initialMessages, aiTools, "auto", thirdparty.ModelLevelLow)
 	if err != nil {
+		fmt.Printf("[ERROR] AI tool call failed: %v\n", err)
 		return fmt.Errorf("AI tool call failed: %w", err)
 	}
+	fmt.Printf("[DEBUG] Got tool call response, choices count: %d\n", len(toolCallResponse.Choices))
 
-	// Step 3: Execute tool calls and collect results
+	// Step 5: Execute tool calls and collect results
 	var allPapers []map[string]interface{}
 	var totalCount int
 
 	if len(toolCallResponse.Choices) > 0 && len(toolCallResponse.Choices[0].Message.ToolCalls) > 0 {
+		fmt.Printf("[DEBUG] Found %d tool calls\n", len(toolCallResponse.Choices[0].Message.ToolCalls))
 		for _, toolCall := range toolCallResponse.Choices[0].Message.ToolCalls {
 			if toolCall.Function.Name == "search_papers" {
 				// Parse tool arguments
@@ -81,6 +123,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 
 	// If no papers found, try a simple direct search
 	if len(allPapers) == 0 {
+		fmt.Printf("[DEBUG] No papers from tool calls, doing direct search\n")
 		papers, total, err := s.mcpSearch(query, mcpServer)
 		if err != nil {
 			return fmt.Errorf("search failed: %w", err)
@@ -89,7 +132,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		totalCount = total
 	}
 
-	// Step 4: Send papers to frontend
+	// Step 6: Send papers to frontend
 	papersData := map[string]interface{}{
 		"papers": allPapers,
 		"total":  totalCount,
@@ -105,8 +148,10 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		fmt.Printf("Warning: failed to save search results to message: %v\n", err)
 	}
 
-	// Step 5: Generate AI analysis of the papers and save to database
+	// Step 7: Generate AI analysis of the papers and save to database
+	fmt.Printf("[DEBUG] Formatting %d papers for AI analysis\n", len(allPapers))
 	papersForPrompt := ai.FormatPapersForPrompt(allPapers)
+	fmt.Printf("[DEBUG] Formatted papers, length: %d characters\n", len(papersForPrompt))
 	analysisPrompt := fmt.Sprintf(`用户查询：%s
 
 找到的论文：
@@ -196,11 +241,16 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		},
 	}
 
-	// Stream AI response and collect full content
-	fullContent, err := s.aiService.StreamChatCompletionAndCollect(analysisMessages, writer)
+	fmt.Printf("[DEBUG] About to call StreamChatCompletionAndCollectWithLevel, modelLevel: %s, messages count: %d, prompt length: %d\n",
+		modelLevel, len(analysisMessages), len(analysisPrompt))
+
+	// Stream AI response and collect full content using specified model level
+	fullContent, err := s.aiService.StreamChatCompletionAndCollectWithLevel(analysisMessages, writer, modelLevel)
 	if err != nil {
 		return err
 	}
+
+	// Note: Usage was already incremented at the beginning with CheckAndIncrementQuota
 
 	// Save assistant message to conversation
 	assistantMessage := &ConversationMessage{

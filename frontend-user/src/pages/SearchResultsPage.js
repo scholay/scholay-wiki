@@ -200,6 +200,13 @@ const SearchResultsPage = () => {
     navigate('/');
   };
 
+  // Check authentication - redirect to home if not logged in
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
   // 初始化时从URL参数加载并搜索
   useEffect(() => {
     const query = searchParams.get('query');

@@ -155,4 +155,18 @@ export const configAPI = {
     api.get('/config/system'),
 };
 
+export const subscriptionAPI = {
+  // Get user's quota information
+  getQuota: () =>
+    api.get('/user/subscription/quota'),
+
+  // Get user's usage information
+  getUsage: () =>
+    api.get('/user/subscription/usage'),
+
+  // Get user's active subscription
+  getSubscription: () =>
+    api.get('/user/subscription'),
+};
+
 export default api;

@@ -139,7 +139,7 @@ const Logo = ({
           color: variant === 'white' ? '#FFFFFF' : '#1E293B',
           letterSpacing: '-0.02em'
         }}>
-          SCHOLABASE
+          SCHOLAY
         </div>
       )}
     </div>

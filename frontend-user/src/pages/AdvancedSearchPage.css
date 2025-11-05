@@ -1797,3 +1797,20 @@
     opacity: 0;
   }
 }
+
+/* Model Selector Wrapper */
+.model-selector-wrapper {
+  margin-left: 0.5rem;
+}
+
+.composer-footer-left .model-selector-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .model-selector-wrapper {
+    margin-left: 0.25rem;
+  }
+}

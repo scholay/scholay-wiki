@@ -4,8 +4,9 @@ import { useAuth } from '../utils/AuthContext';
 import AppSidebar from '../components/AppSidebar';
 import PaperList from '../components/PaperList';
 import PaperCitationMarkdown from '../components/PaperCitationMarkdown';
+import ModelSelector from '../components/ModelSelector';
 import Logo from '../components/Logo';
-import api, { conversationAPI } from '../services/api';
+import api, { conversationAPI, subscriptionAPI } from '../services/api';
 import './AdvancedSearchPage.css';
 
 const AdvancedSearchPage = () => {
@@ -24,6 +25,9 @@ const AdvancedSearchPage = () => {
   const [messages, setMessages] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [modelLevel, setModelLevel] = useState('low'); // 'low', 'mid', 'high' - 当前对话使用的模型级别，默认普通模型
+  const [quota, setQuota] = useState(null); // 用户配额信息
+  const [usage, setUsage] = useState(null); // 用户使用情况
   const [papers, setPapers] = useState([]);
   const [papersTotal, setPapersTotal] = useState(0);
   const [paperSets, setPaperSets] = useState([]); // 多个论文集合，用于 Tab 切换
@@ -72,6 +76,42 @@ const AdvancedSearchPage = () => {
     }
   }, [currentConversationId]);
 
+  // 获取配额和使用情况
+  useEffect(() => {
+    const fetchQuotaAndUsage = async () => {
+      try {
+        const response = await subscriptionAPI.getUsage();
+
+        if (response.data.code === 0) {
+          const data = response.data.data;
+          // 后端返回的数据包含 usage 和 limits
+          // 将 limits 映射为 quota 格式
+          const quotaData = {
+            advancedSearchLowQuota: data.limits?.advanced_search_low?.limit ?? -1,
+            advancedSearchMidQuota: data.limits?.advanced_search_mid?.limit ?? -1,
+            advancedSearchHighQuota: data.limits?.advanced_search_high?.limit ?? -1,
+          };
+
+          // 将 usage 映射为前端格式
+          const usageData = {
+            advancedSearchLowCount: data.usage?.advanced_search_low ?? 0,
+            advancedSearchMidCount: data.usage?.advanced_search_mid ?? 0,
+            advancedSearchHighCount: data.usage?.advanced_search_high ?? 0,
+          };
+
+          setQuota(quotaData);
+          setUsage(usageData);
+        }
+      } catch (error) {
+        console.error('Failed to fetch quota/usage:', error);
+      }
+    };
+
+    if (isAuthenticated && user) {
+      fetchQuotaAndUsage();
+    }
+  }, [isAuthenticated, user]);
+
   const loadConversations = async () => {
     setConversationsLoading(true);
     try {
@@ -92,10 +132,46 @@ const AdvancedSearchPage = () => {
     localStorage.setItem('sidebarCollapsed', newCollapsed.toString());
   };
 
+  // 获取当前模型的剩余次数
+  const getRemainingCount = () => {
+    if (!quota || !usage) return null;
+
+    // 映射配额和使用情况字段
+    const quotaFieldMap = {
+      'low': 'advancedSearchLowQuota',
+      'mid': 'advancedSearchMidQuota',
+      'high': 'advancedSearchHighQuota'
+    };
+
+    const usageFieldMap = {
+      'low': 'advancedSearchLowCount',
+      'mid': 'advancedSearchMidCount',
+      'high': 'advancedSearchHighCount'
+    };
+
+    const quotaField = quotaFieldMap[modelLevel];
+    const usageField = usageFieldMap[modelLevel];
+
+    const quotaValue = quota[quotaField];
+    const usageValue = usage[usageField] || 0;
+
+    // -1 表示无限制
+    if (quotaValue === -1) return null; // 无限制时不显示提示
+
+    const remaining = Math.max(0, quotaValue - usageValue);
+    return remaining;
+  };
+
   // 从URL参数读取对话ID或初始查询（仅执行一次）
   useEffect(() => {
     const urlConversationId = searchParams.get('conversation');
     const query = searchParams.get('query');
+    const urlModelLevel = searchParams.get('modelLevel');
+
+    // 如果URL中有模型级别参数，设置模型级别
+    if (urlModelLevel && ['low', 'mid', 'high'].includes(urlModelLevel)) {
+      setModelLevel(urlModelLevel);
+    }
 
     if (urlConversationId && isAuthenticated && !currentConversationId && conversations.length > 0) {
       // 恢复对话 - 确保对话列表已加载
@@ -475,30 +551,26 @@ const AdvancedSearchPage = () => {
         }
       }
 
-      // 如果是继续对话模式，不需要预先创建消息，让后端自己创建
-      if (hasAdvancedSearch) {
-        startContinueConversation(conversationId, userMessage);
+      // 所有搜索都使用 advanced-search API，而不是 continue API
+      // 这样确保每次搜索都计入 advanced_search_* 配额
+      const response = await conversationAPI.addMessage(
+        conversationId,
+        userMessage,
+        userMessage,
+        false // Advanced mode doesn't use direct search
+      );
+
+      if (response.data.code === 0 && response.data.data) {
+        const newMessage = response.data.data;
+        // Replace temp message with real message
+        setMessages(prev => prev.map(msg =>
+          msg.id === tempUserMessage.id ? newMessage : msg
+        ));
+
+        // Always use advanced search for all searches
+        startAdvancedSearch(conversationId, newMessage.id, userMessage);
       } else {
-        // 高级搜索第一次
-        const response = await conversationAPI.addMessage(
-          conversationId,
-          userMessage,
-          userMessage,
-          false // Advanced mode doesn't use direct search
-        );
-
-        if (response.data.code === 0 && response.data.data) {
-          const newMessage = response.data.data;
-          // Replace temp message with real message
-          setMessages(prev => prev.map(msg =>
-            msg.id === tempUserMessage.id ? newMessage : msg
-          ));
-
-          // First time advanced search
-          startAdvancedSearch(conversationId, newMessage.id, userMessage);
-        } else {
-          throw new Error(response.data.message || 'Failed to send message');
-        }
+        throw new Error(response.data.message || 'Failed to send message');
       }
     } catch (error) {
       console.error('Search failed:', error);
@@ -551,7 +623,7 @@ const AdvancedSearchPage = () => {
     ]);
 
     const url = `${process.env.REACT_APP_API_URL || 'http://localhost:5411/api/v1'}/user/conversations/${convId}/messages/${messageId}/advanced-search`;
-    const eventSource = new EventSource(`${url}?token=${token}`);
+    const eventSource = new EventSource(`${url}?token=${token}&model_level=${modelLevel}`);
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
@@ -601,12 +673,30 @@ const AdvancedSearchPage = () => {
       }
 
       if (event.data.startsWith('[ERROR]')) {
-        console.error('Advanced search error:', event.data);
+        const errorMsg = event.data.substring(7).trim(); // Remove '[ERROR]' prefix
+        console.error('Advanced search error:', errorMsg);
         eventSource.close();
+
+        // Clear all loading states
         setIsStreaming(false);
         setLoading(false);
         setShowAIThinking(false);
-        // 不清空 streamingContent，保留错误信息
+
+        // Remove loading placeholder from paper sets
+        setPaperSets(prevSets => prevSets.filter(set => !set.isLoading));
+
+        // Display error message to user
+        setStreamingContent('');
+        streamingContentRef.current = '';
+
+        // Add error message as assistant message
+        setMessages(prev => [...prev, {
+          id: 'error-' + Date.now(),
+          role: 'assistant',
+          content: `搜索失败：${errorMsg}\n\n请稍后重试或联系管理员。`,
+          created_at: new Date().toISOString()
+        }]);
+
         return;
       }
 
@@ -720,7 +810,10 @@ const AdvancedSearchPage = () => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ query })
+          body: JSON.stringify({
+            query,
+            model_level: modelLevel  // 传递模型级别
+          })
         }
       );
 
@@ -988,7 +1081,16 @@ const AdvancedSearchPage = () => {
                   <textarea
                     ref={textareaRef}
                     className="chat-input"
-                    placeholder="用自然语言描述研究需求，AI 智能解析并搜索..."
+                    placeholder={
+                      (() => {
+                        const remaining = getRemainingCount();
+                        const modelName = modelLevel === 'low' ? '普通' : modelLevel === 'mid' ? '进阶' : '高级';
+                        if (remaining !== null) {
+                          return `用自然语言描述研究需求，AI 智能解析并搜索... (${modelName}模型剩余 ${remaining} 次)`;
+                        }
+                        return "用自然语言描述研究需求，AI 智能解析并搜索...";
+                      })()
+                    }
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -1026,6 +1128,16 @@ const AdvancedSearchPage = () => {
                         <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
                       </svg>
                       <span>高级搜索</span>
+                    </div>
+
+                    {/* 模型选择器 */}
+                    <div className="model-selector-wrapper">
+                      <ModelSelector
+                        value={modelLevel}
+                        onChange={setModelLevel}
+                        disabled={loading}
+                        userSubscription={user?.subscription}
+                      />
                     </div>
                   </div>
                 </div>
@@ -1143,7 +1255,16 @@ const AdvancedSearchPage = () => {
                       <textarea
                         ref={textareaRef}
                         className="chat-input"
-                        placeholder="继续追问或输入新的搜索需求..."
+                        placeholder={
+                          (() => {
+                            const remaining = getRemainingCount();
+                            const modelName = modelLevel === 'low' ? '普通' : modelLevel === 'mid' ? '进阶' : '高级';
+                            if (remaining !== null) {
+                              return `继续追问或输入新的搜索需求... (${modelName}模型剩余 ${remaining} 次)`;
+                            }
+                            return "继续追问或输入新的搜索需求...";
+                          })()
+                        }
                         value={searchQuery}
                         onChange={(e) => {
                           setSearchQuery(e.target.value);
@@ -1181,6 +1302,16 @@ const AdvancedSearchPage = () => {
                             <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
                           </svg>
                           <span>高级搜索</span>
+                        </div>
+
+                        {/* 模型选择器 - 对话中禁用，显示当前使用的模型 */}
+                        <div className="model-selector-wrapper">
+                          <ModelSelector
+                            value={modelLevel}
+                            onChange={() => {}} // 对话中不允许更改
+                            disabled={true} // 对话开始后禁用
+                            userSubscription={user?.subscription}
+                          />
                         </div>
                       </div>
                     </div>

@@ -20,9 +20,15 @@ type ChatHandler struct {
 }
 
 // NewChatHandler creates a new chat handler
-func NewChatHandler(repo *Repository, aiService *ai.Service, service *Service) *ChatHandler {
+func NewChatHandler(repo *Repository, aiService *ai.Service, service *Service, subscriptionService interface {
+	CheckQuota(userID uint, featureType string) (bool, error)
+	IncrementUsage(userID uint, featureType string) error
+	CheckAndIncrementQuota(userID uint, featureType string) error
+}) *ChatHandler {
+	chatService := NewChatService(repo, aiService)
+	chatService.SetSubscriptionService(subscriptionService)
 	return &ChatHandler{
-		chatService: NewChatService(repo, aiService),
+		chatService: chatService,
 		service:     service,
 	}
 }
@@ -179,8 +185,9 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 	userID := c.GetUint("user_id")
 
 	var req struct {
-		Title   string `json:"title"`
-		Content string `json:"content" binding:"required"`
+		Title      string `json:"title"`
+		Content    string `json:"content" binding:"required"`
+		ModelLevel string `json:"model_level,omitempty"` // "low", "mid", "high"
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -221,6 +228,7 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 		ConversationID:  conversation.ID,
 		Content:         req.Content,
 		ParentMessageID: nil,
+		ModelLevel:      req.ModelLevel, // Pass model level to chat service
 	}
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)

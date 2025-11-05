@@ -183,6 +183,32 @@
   color: #991b1b;
 }
 
+/* Model Codes Cell */
+.model-codes-cell {
+  font-size: 0.75rem;
+  color: #64748b;
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Model Codes Section in Form */
+.model-codes-section {
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+  border: 1px solid #e2e8f0;
+}
+
+.model-codes-section h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
 /* Action Buttons */
 .action-buttons {
   display: flex;

@@ -8,11 +8,31 @@ import (
 
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/mcp"
+	"scholar-backend/internal/thirdparty"
 )
 
 // ContinueConversation continues the conversation with context from previous messages
 // It supports multi-turn dialogue with context length control and MCP tool calling
-func (s *Service) ContinueConversation(conversationID uint, userQuery string, writer io.Writer) error {
+func (s *Service) ContinueConversation(conversationID uint, userQuery string, writer io.Writer, userID uint, modelLevel thirdparty.ModelLevel) error {
+	// Determine feature type based on model level
+	var featureType string
+	switch modelLevel {
+	case thirdparty.ModelLevelLow:
+		featureType = "ai_chat_normal" // Low uses normal chat
+	case thirdparty.ModelLevelMid:
+		featureType = "ai_chat_mid"
+	case thirdparty.ModelLevelHigh:
+		featureType = "ai_chat_high"
+	default:
+		return fmt.Errorf("invalid model level: %s", modelLevel)
+	}
+
+	// Atomically check and increment quota at the beginning
+	// This ensures quota is enforced even before the API call starts
+	if err := s.subscriptionService.CheckAndIncrementQuota(userID, featureType); err != nil {
+		// Return user-friendly error message
+		return fmt.Errorf("配额不足：%s", err.Error())
+	}
 	// Step 1: Get messages for this conversation (permission already checked in handler)
 	messages, err := s.repo.GetConversationMessages(conversationID)
 	if err != nil {
@@ -48,7 +68,8 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	messagesWithSystem := append([]ai.ChatMessage{systemMessage}, contextMessages...)
 
 	// Step 6: Call AI with tools to get response or tool calls
-	toolCallResponse, err := s.aiService.ChatCompletionWithTools(messagesWithSystem, aiTools, "auto")
+	// Use low-level model for tool calling to save cost (tool selection doesn't need advanced reasoning)
+	toolCallResponse, err := s.aiService.ChatCompletionWithTools(messagesWithSystem, aiTools, "auto", thirdparty.ModelLevelLow)
 	if err != nil {
 		return fmt.Errorf("AI tool call failed: %w", err)
 	}
@@ -191,11 +212,13 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		}
 	}
 
-	// Step 10: Stream AI response and collect content
-	fullContent, err := s.aiService.StreamChatCompletionAndCollect(finalMessages, writer)
+	// Step 10: Stream AI response and collect content using specified model level
+	fullContent, err := s.aiService.StreamChatCompletionAndCollectWithLevel(finalMessages, writer, modelLevel)
 	if err != nil {
 		return err
 	}
+
+	// Note: Usage was already incremented at the beginning with CheckAndIncrementQuota
 
 	// Step 11: Save assistant message to conversation
 	assistantMessage := &ConversationMessage{

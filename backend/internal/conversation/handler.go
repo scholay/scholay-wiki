@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/thirdparty"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -242,6 +243,7 @@ func (h *Handler) StreamAnalysis(c *gin.Context) {
 		targetMessage.SearchQuery,
 		papers,
 		c.Writer,
+		userID.(uint),
 	)
 	if err != nil {
 		// Error handling for streaming - write error as SSE
@@ -275,6 +277,16 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 		return
 	}
 
+	// Get model level from query parameter (default to "mid")
+	modelLevelParam := c.DefaultQuery("model_level", "mid")
+	var modelLevel string
+	switch modelLevelParam {
+	case "low", "mid", "high":
+		modelLevel = modelLevelParam
+	default:
+		modelLevel = "mid"
+	}
+
 	// Verify conversation belongs to user
 	conversation, err := h.service.GetConversationWithMessages(uint(conversationID), userID.(uint))
 	if err != nil {
@@ -296,17 +308,44 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 		return
 	}
 
+	// Check quota BEFORE setting SSE headers to return proper HTTP error
+	var featureType string
+	switch modelLevel {
+	case "low":
+		featureType = "advanced_search_low"
+	case "mid":
+		featureType = "advanced_search_mid"
+	case "high":
+		featureType = "advanced_search_high"
+	default:
+		featureType = "advanced_search_mid"
+	}
+
+	// Perform quota check before SSE stream starts
+	// Use the conversation service's subscription service to check quota
+	hasQuota, err := h.service.subscriptionService.CheckQuota(userID.(uint), featureType)
+	if err != nil {
+		utils.Error(c, 500, fmt.Sprintf("Failed to check quota: %s", err.Error()))
+		return
+	}
+	if !hasQuota {
+		utils.Error(c, 403, "配额不足，请升级订阅")
+		return
+	}
+
 	// Set headers for SSE
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 
-	// Perform advanced search and stream results
+	// Perform advanced search and stream results with specified model level
 	err = h.service.AdvancedSearchAndAnalyze(
 		uint(conversationID),
 		targetMessage.SearchQuery,
 		c.Writer,
+		userID.(uint),
+		thirdparty.ModelLevel(modelLevel),
 	)
 	if err != nil {
 		// Error handling for streaming - write error as SSE
@@ -335,11 +374,24 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 	}
 
 	var req struct {
-		Query string `json:"query" binding:"required"`
+		Query      string `json:"query" binding:"required"`
+		ModelLevel string `json:"model_level"` // Optional, defaults to "mid"
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.Error(c, 400, "Invalid request: "+err.Error())
 		return
+	}
+
+	// Validate and default model level
+	modelLevel := req.ModelLevel
+	if modelLevel == "" {
+		modelLevel = "mid"
+	}
+	switch modelLevel {
+	case "low", "mid", "high":
+		// Valid model level
+	default:
+		modelLevel = "mid"
 	}
 
 	// Verify conversation belongs to user
@@ -361,11 +413,13 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 
-	// Continue the conversation
+	// Continue the conversation with specified model level
 	err = h.service.ContinueConversation(
 		uint(conversationID),
 		req.Query,
 		c.Writer,
+		userID.(uint),
+		thirdparty.ModelLevel(modelLevel),
 	)
 	if err != nil {
 		// Error handling for streaming - write error as SSE

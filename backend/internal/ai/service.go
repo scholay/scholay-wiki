@@ -78,38 +78,31 @@ func (s *Service) RenderPrompt(template string, variables map[string]string) str
 }
 
 // ChatCompletionWithTools sends a chat completion request with tools (non-streaming)
-func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, toolChoice string) (*ChatCompletionResponse, error) {
-	// Get AI model config
-	apiKey, _, err := s.accountService.GetRandomAPIKey(thirdparty.AccountTypeAIModel)
-	if err != nil {
-		return nil, fmt.Errorf("no AI model account configured: %w", err)
-	}
+func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, toolChoice string, modelLevel thirdparty.ModelLevel) (*ChatCompletionResponse, error) {
+	fmt.Printf("[DEBUG] ChatCompletionWithTools called, messages: %d, tools: %d, modelLevel: %s\n", len(messages), len(tools), modelLevel)
 
-	// Get AI model config details
-	accounts, err := s.accountService.GetActiveAccountsByType(thirdparty.AccountTypeAIModel)
-	if err != nil || len(accounts) == 0 {
-		return nil, fmt.Errorf("no active AI model account found")
-	}
-
-	config, err := accounts[0].GetAIModelConfig()
+	// Get AI model config by level
+	config, _, err := s.accountService.GetRandomAIModelConfigByLevel(modelLevel)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse AI model config: %w", err)
+		fmt.Printf("[ERROR] Failed to get AI config: %v\n", err)
+		return nil, fmt.Errorf("no AI model account configured for level %s: %w", modelLevel, err)
+	}
+	fmt.Printf("[DEBUG] Got AI config, BaseURL: %s, ModelLow: %s\n", config.BaseURL, config.ModelLow)
+
+	// ModelLow field contains the actual model code for the requested level
+	modelCode := config.ModelLow
+	if modelCode == "" {
+		modelCode = "gpt-3.5-turbo" // Final fallback
 	}
 
 	// Prepare request
 	reqBody := ChatCompletionRequest{
-		Model:       config.Model,
+		Model:       modelCode,
 		Messages:    messages,
 		Tools:       tools,
 		ToolChoice:  toolChoice,
 		Stream:      false,
 		Temperature: 0.7,
-		MaxTokens:   2000,
-	}
-
-	// Set default model if not configured
-	if reqBody.Model == "" {
-		reqBody.Model = "gpt-3.5-turbo"
 	}
 
 	jsonData, err := json.Marshal(reqBody)
@@ -125,7 +118,78 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", "Bearer "+config.APIKey)
+
+	// Send request
+	client := &http.Client{
+		Timeout: 5 * time.Minute,
+	}
+
+	fmt.Printf("[DEBUG] Sending tool call request to: %s, model: %s\n", url, modelCode)
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("[ERROR] Tool call request failed: %v\n", err)
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+	fmt.Printf("[DEBUG] Tool call response status: %d\n", resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		fmt.Printf("[ERROR] Tool call API error, status %d: %s\n", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var result ChatCompletionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		fmt.Printf("[ERROR] Failed to decode tool call response: %v\n", err)
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	fmt.Printf("[DEBUG] Tool call completed successfully, got %d choices\n", len(result.Choices))
+	if len(result.Choices) > 0 {
+		fmt.Printf("[DEBUG] First choice has %d tool calls\n", len(result.Choices[0].Message.ToolCalls))
+	}
+
+	return &result, nil
+}
+
+// StreamChatCompletionWithLevel sends a streaming chat completion request with a specific model level
+func (s *Service) StreamChatCompletionWithLevel(messages []ChatMessage, writer io.Writer, modelLevel thirdparty.ModelLevel) error {
+	// Get AI model config by level
+	config, _, err := s.accountService.GetRandomAIModelConfigByLevel(modelLevel)
+	if err != nil {
+		return fmt.Errorf("no AI model account configured for level %s: %w", modelLevel, err)
+	}
+
+	// Prepare request - ModelLow field contains the actual model code for this level
+	reqBody := ChatCompletionRequest{
+		Model:       config.ModelLow, // This now contains the model code for the requested level
+		Messages:    messages,
+		Stream:      true,
+		Temperature: 0.7,
+	}
+
+	// Set default model if not configured
+	if reqBody.Model == "" {
+		reqBody.Model = "gpt-3.5-turbo"
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+config.APIKey)
 
 	// Send request
 	client := &http.Client{
@@ -134,22 +198,17 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
+		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		return fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	// Parse response
-	var result ChatCompletionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return &result, nil
+	// Stream response
+	return s.streamResponse(resp.Body, writer)
 }
 
 // StreamChatCompletion sends a streaming chat completion request
@@ -171,18 +230,24 @@ func (s *Service) StreamChatCompletion(messages []ChatMessage, writer io.Writer)
 		return fmt.Errorf("failed to parse AI model config: %w", err)
 	}
 
+	// Select model code: prefer ModelMid for general streaming, fallback to any available model
+	modelCode := config.ModelMid
+	if modelCode == "" {
+		modelCode = config.ModelLow
+	}
+	if modelCode == "" {
+		modelCode = config.ModelHigh
+	}
+	if modelCode == "" {
+		modelCode = "gpt-3.5-turbo" // Final fallback
+	}
+
 	// Prepare request
 	reqBody := ChatCompletionRequest{
-		Model:       config.Model,
+		Model:       modelCode,
 		Messages:    messages,
 		Stream:      true,
 		Temperature: 0.7,
-		MaxTokens:   2000,
-	}
-
-	// Set default model if not configured
-	if reqBody.Model == "" {
-		reqBody.Model = "gpt-3.5-turbo"
 	}
 
 	jsonData, err := json.Marshal(reqBody)
@@ -220,6 +285,77 @@ func (s *Service) StreamChatCompletion(messages []ChatMessage, writer io.Writer)
 	return s.streamResponse(resp.Body, writer)
 }
 
+// StreamChatCompletionAndCollectWithLevel streams chat completion with specific model level and collects full content
+func (s *Service) StreamChatCompletionAndCollectWithLevel(messages []ChatMessage, writer io.Writer, modelLevel thirdparty.ModelLevel) (string, error) {
+	fmt.Printf("[DEBUG] StreamChatCompletionAndCollectWithLevel called, modelLevel: %s, messages count: %d\n", modelLevel, len(messages))
+
+	// Get AI model config by level
+	fmt.Printf("[DEBUG] Getting AI model config for level: %s\n", modelLevel)
+	config, _, err := s.accountService.GetRandomAIModelConfigByLevel(modelLevel)
+	if err != nil {
+		fmt.Printf("[ERROR] Failed to get AI model config: %v\n", err)
+		return "", fmt.Errorf("no AI model account configured for level %s: %w", modelLevel, err)
+	}
+	fmt.Printf("[DEBUG] Got AI model config, BaseURL: %s, ModelLow: %s\n", config.BaseURL, config.ModelLow)
+
+	// Create request - ModelLow field contains the actual model code for this level
+	reqBody := ChatCompletionRequest{
+		Model:       config.ModelLow, // This now contains the model code for the requested level
+		Messages:    messages,
+		Stream:      true,
+		Temperature: 0.7,
+	}
+
+	// Use default model if not specified
+	if reqBody.Model == "" {
+		reqBody.Model = "gpt-3.5-turbo"
+	}
+	fmt.Printf("[DEBUG] Final model for request: %s\n", reqBody.Model)
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		fmt.Printf("[ERROR] Failed to marshal request: %v\n", err)
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+	fmt.Printf("[DEBUG] Request marshaled successfully, size: %d bytes\n", len(jsonData))
+
+	// Create HTTP request
+	url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
+	fmt.Printf("[DEBUG] Creating request to URL: %s\n", url)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		fmt.Printf("[ERROR] Failed to create HTTP request: %v\n", err)
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	fmt.Printf("[DEBUG] HTTP request created successfully\n")
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+config.APIKey)
+
+	// Send request
+	client := &http.Client{
+		Timeout: 5 * time.Minute,
+	}
+
+	fmt.Printf("[DEBUG] Sending AI request, model: %s, url: %s, level: %s\n", reqBody.Model, url, modelLevel)
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("[ERROR] AI request failed: %v\n", err)
+		return "", fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		fmt.Printf("[ERROR] AI API returned status %d, model: %s, body: %s\n", resp.StatusCode, reqBody.Model, string(body))
+		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	fmt.Printf("[DEBUG] AI API call successful, model: %s, starting to stream response\n", reqBody.Model)
+	// Stream response and collect content
+	return s.streamResponseAndCollect(resp.Body, writer)
+}
+
 // StreamChatCompletionAndCollect streams chat completion and collects full content
 func (s *Service) StreamChatCompletionAndCollect(messages []ChatMessage, writer io.Writer) (string, error) {
 	// Get AI model account
@@ -240,18 +376,24 @@ func (s *Service) StreamChatCompletionAndCollect(messages []ChatMessage, writer 
 		return "", fmt.Errorf("failed to parse AI model config: %w", err)
 	}
 
+	// Select model code: prefer ModelMid for general streaming with collection, fallback to any available model
+	modelCode := config.ModelMid
+	if modelCode == "" {
+		modelCode = config.ModelLow
+	}
+	if modelCode == "" {
+		modelCode = config.ModelHigh
+	}
+	if modelCode == "" {
+		modelCode = "gpt-3.5-turbo" // Final fallback
+	}
+
 	// Create request
 	reqBody := ChatCompletionRequest{
-		Model:       config.Model,
+		Model:       modelCode,
 		Messages:    messages,
 		Stream:      true,
 		Temperature: 0.7,
-		MaxTokens:   2000,
-	}
-
-	// Use default model if not specified
-	if reqBody.Model == "" {
-		reqBody.Model = "gpt-3.5-turbo"
 	}
 
 	jsonData, err := json.Marshal(reqBody)

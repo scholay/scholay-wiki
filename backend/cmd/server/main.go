@@ -13,8 +13,10 @@ import (
 	"scholar-backend/internal/config"
 	"scholar-backend/internal/conversation"
 	"scholar-backend/internal/mcp"
+	"scholar-backend/internal/order"
 	"scholar-backend/internal/proxy"
 	"scholar-backend/internal/semanticscholar"
+	"scholar-backend/internal/subscription"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/user"
 
@@ -94,14 +96,21 @@ func main() {
 	aiService := ai.NewService(database.GetDB(), thirdPartyService)
 	aiHandler := ai.NewHandler(aiService)
 
+	// Initialize Subscription module
+	subscriptionService := subscription.NewService(database.GetDB())
+	subscriptionHandler := subscription.NewHandler(database.GetDB())
+
 	// Initialize Conversation module
 	conversationRepo := conversation.NewRepository(database.GetDB())
-	conversationService := conversation.NewService(conversationRepo, scholarManager, aiService)
+	conversationService := conversation.NewService(conversationRepo, scholarManager, aiService, subscriptionService)
 	conversationHandler := conversation.NewHandler(conversationService)
-	chatHandler := conversation.NewChatHandler(conversationRepo, aiService, conversationService)
+	chatHandler := conversation.NewChatHandler(conversationRepo, aiService, conversationService, subscriptionService)
 
 	// Initialize Proxy module
 	proxyHandler := proxy.NewHandler()
+
+	// Initialize Order module
+	orderHandler := order.NewHandler(database.GetDB())
 
 	// Setup Gin router
 	router := gin.Default()
@@ -150,10 +159,18 @@ func main() {
 			adminProtected.GET("/prompt-templates/:id", aiHandler.GetPromptTemplate)
 			adminProtected.PUT("/prompt-templates/:id", aiHandler.UpdatePromptTemplate)
 			adminProtected.DELETE("/prompt-templates/:id", aiHandler.DeletePromptTemplate)
+			// Subscription plan management
+			adminProtected.PUT("/subscription-plans/:id", subscriptionHandler.UpdatePlan)
 		}
 
 		// User routes
 		userHandler.RegisterRoutes(api)
+
+		// Public subscription routes (no auth required)
+		subscriptionPublic := api.Group("/user/subscription")
+		{
+			subscriptionPublic.GET("/plans", subscriptionHandler.GetPlans)
+		}
 
 		// User protected routes
 		userProtected := api.Group("/user")
@@ -163,6 +180,20 @@ func main() {
 			userProtected.PUT("/profile", userHandler.UpdateProfile)
 			userProtected.POST("/logout", userHandler.Logout)
 			userProtected.POST("/heartbeat", userHandler.Heartbeat)
+
+			// Subscription routes (protected)
+			userProtected.GET("/subscription/my", subscriptionHandler.GetMySubscription)
+			userProtected.GET("/subscription/usage", subscriptionHandler.GetMyUsageQuota)
+			userProtected.POST("/subscription/upgrade", subscriptionHandler.UpgradeSubscription)
+			userProtected.POST("/subscription/renew", subscriptionHandler.RenewSubscription)
+			userProtected.GET("/subscription/check-quota", subscriptionHandler.CheckQuota)
+
+			// Order routes
+			userProtected.POST("/orders/create", orderHandler.CreateOrder)
+			userProtected.GET("/orders/my", orderHandler.GetMyOrders)
+			userProtected.GET("/orders/:order_no", orderHandler.GetOrderDetail)
+			userProtected.POST("/orders/pay", orderHandler.ProcessPayment)
+			userProtected.POST("/orders/cancel", orderHandler.CancelOrder)
 
 			// Conversation routes (legacy)
 			userProtected.GET("/conversations", conversationHandler.GetUserConversations)
