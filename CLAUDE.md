@@ -115,21 +115,31 @@ docker exec -it scholar_redis redis-cli MONITOR
 ### Testing API Endpoints
 
 ```bash
-# Health check
-curl http://localhost:8080/health
+# Health check (via Nginx - check actual port from .env)
+curl http://localhost:5411/health
 
-# Admin login
-curl -X POST http://localhost:8080/api/v1/admin/login \
+# Admin login (use actual ADMIN_PORT from .env)
+curl -X POST http://localhost:5455/api/v1/admin/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"adminadmin"}'
 
-# User login
-curl -X POST http://localhost:8080/api/v1/user/login \
+# User login (use actual HTTP_PORT from .env)
+curl -X POST http://localhost:5411/api/v1/user/login \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"password123"}'
 
-# Search papers (Semantic Scholar)
-curl "http://localhost:8080/api/v1/scholar/papers/search?query=transformer&limit=5"
+# Search papers (Semantic Scholar) with auth
+TOKEN="your-jwt-token-here"
+curl "http://localhost:5411/api/v1/scholar/papers/search?query=transformer&limit=5" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Check user subscription quota
+curl "http://localhost:5411/api/v1/user/subscription/quota" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Check user subscription usage
+curl "http://localhost:5411/api/v1/user/subscription/usage" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ## Architecture & Important Concepts
@@ -156,6 +166,8 @@ internal/
 ├── conversation/   # Conversation management with AI analysis
 ├── semanticscholar/# Semantic Scholar API client & MCP server
 ├── thirdparty/     # Third-party account management (API keys, OAuth)
+├── subscription/   # Subscription plans and quota management
+├── order/          # Order processing and management
 ├── proxy/          # HTTP proxy for external AI services
 ├── mcp/            # MCP (Model Context Protocol) server
 ├── config/         # System configuration (privacy policy, email, etc.)
@@ -164,6 +176,8 @@ internal/
     ├── database/   # Database connection & initialization
     ├── middleware/ # HTTP middleware (CORS, auth)
     ├── model/      # Shared models (sessions, statistics)
+    ├── cache/      # Redis cache utilities
+    ├── cleanup/    # Background cleanup tasks
     └── utils/      # Utilities (JWT, password, response, Redis)
 ```
 
@@ -226,6 +240,26 @@ The platform includes an AI-powered conversation system:
 - `backend/internal/ai/` - AI service and prompt templates
 - Streaming responses via Server-Sent Events (SSE)
 
+### Subscription & Order System
+
+The platform includes a subscription management system with quota tracking:
+
+- **Subscription Plans**: Admin can create and manage subscription plans (free, basic, premium, etc.)
+- **User Subscriptions**: Each user has an active subscription with associated quotas
+- **Quota Management**:
+  - API call quotas (conversations, searches, advanced searches)
+  - PDF preview quotas
+  - Automatic quota reset on subscription renewal
+  - Real-time quota tracking and enforcement
+- **Usage Tracking**: Records user API usage and deducts from quotas
+- **Orders**: Tracks subscription purchases and payment records
+
+**Implementation**:
+- `backend/internal/subscription/` - Subscription plans, user subscriptions, quota management
+- `backend/internal/order/` - Order processing
+- Quota checks integrated into conversation and search endpoints
+- Background tasks for quota reset and cleanup
+
 ### Authentication System
 
 **Two separate authentication flows**:
@@ -248,6 +282,34 @@ The platform includes an AI-powered conversation system:
 - Heartbeat endpoint updates last_active_at
 - Background task records snapshots every 5 minutes
 - Redis caches session data and API keys for performance
+
+### HTTP Proxy Service
+
+The platform includes a built-in HTTP proxy for AI service access:
+
+- **Purpose**: Allows frontend to make requests to third-party AI services through backend
+- **CORS Handling**: Eliminates cross-origin restrictions for AI API calls
+- **Security**: Backend controls and validates all proxied requests
+- **Use Case**: Used for direct AI API access from conversation/chat interfaces
+
+**Implementation**:
+- `backend/internal/proxy/` - HTTP proxy handler
+- Routes: `/api/v1/proxy/*` forwards to configured AI service endpoints
+
+### Background Tasks & Caching
+
+The backend runs several background tasks for performance and maintenance:
+
+- **API Key Cache Refresh**: Third-party API keys refreshed every 5 minutes from database to Redis
+- **Session Snapshots**: User session statistics recorded every 5 minutes
+- **Cleanup Service**: Automatically runs on startup via `cleanup.CleanupService`
+  - Removes expired email verification codes
+  - Cleans up stale session data
+  - Other maintenance tasks
+- **Redis Cache Strategy**:
+  - API keys: 5-minute TTL with automatic refresh
+  - Session data: Cached for performance
+  - LRU eviction policy with 512MB max memory
 
 ### Frontend Architecture
 

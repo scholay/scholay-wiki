@@ -1156,17 +1156,32 @@
   position: relative;
   cursor: pointer;
   transition: all 0.2s ease;
+  color: rgba(236, 236, 241, 0.6);
 }
 
 .home .mode-icon-btn:hover,
 .home-search .mode-icon-btn:hover {
   background: rgba(255, 255, 255, 0.08);
   transform: scale(1.05);
+  color: rgba(236, 236, 241, 0.9);
 }
 
 .home .mode-icon-btn:active,
 .home-search .mode-icon-btn:active {
   transform: scale(0.95);
+}
+
+/* 高级搜索模式下的高亮样式 */
+.home .mode-icon-btn.advanced-mode,
+.home-search .mode-icon-btn.advanced-mode {
+  color: rgb(16, 163, 127);
+  background: rgba(16, 163, 127, 0.1);
+}
+
+.home .mode-icon-btn.advanced-mode:hover,
+.home-search .mode-icon-btn.advanced-mode:hover {
+  color: rgb(16, 163, 127);
+  background: rgba(16, 163, 127, 0.15);
 }
 
 /* Tooltip提示 */

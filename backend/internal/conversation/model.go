@@ -23,6 +23,7 @@ type Conversation struct {
 	UserID           uint             `gorm:"not null;index:idx_user_id" json:"user_id"`
 	Title            string           `gorm:"type:varchar(255);not null" json:"title"`
 	ConversationType ConversationType `gorm:"type:varchar(20);not null;default:search;index:idx_conversation_type" json:"conversation_type"`
+	ModelLevel       string           `gorm:"type:varchar(20);default:low" json:"model_level"` // Model level used: low, mid, high
 	CreatedAt        time.Time        `json:"created_at"`
 	UpdatedAt        time.Time        `json:"updated_at"`
 }

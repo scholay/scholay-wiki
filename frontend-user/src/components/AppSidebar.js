@@ -66,17 +66,6 @@ const AppSidebar = ({
     }
   }, [user]);
 
-  // Debug: Log props changes
-  useEffect(() => {
-    console.log('AppSidebar props:', {
-      showHistory,
-      historyType,
-      historyItems,
-      historyItemsLength: historyItems?.length,
-      currentItemId,
-      historyLoading
-    });
-  }, [showHistory, historyType, historyItems, currentItemId, historyLoading]);
 
   // 点击外部关闭用户菜单和历史项菜单
   useEffect(() => {
@@ -253,19 +242,13 @@ const AppSidebar = ({
   // 处理重命名提交
   const handleRenameSubmit = (itemId) => {
     const newTitle = editingValue.trim();
-    console.log('handleRenameSubmit called:', { itemId, newTitle, originalValue, changed: newTitle !== originalValue, onRenameItem: !!onRenameItem });
 
     // 只有当标题非空且与原始值不同时才提交
     if (newTitle && newTitle !== '' && newTitle !== originalValue) {
       // 调用重命名回调
       if (onRenameItem) {
-        console.log('Calling onRenameItem:', itemId, newTitle);
         onRenameItem(itemId, newTitle);
-      } else {
-        console.warn('onRenameItem callback is not provided!');
       }
-    } else {
-      console.log('No changes or empty title, not submitting');
     }
 
     // 清除编辑状态

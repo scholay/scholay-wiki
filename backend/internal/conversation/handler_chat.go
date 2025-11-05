@@ -159,7 +159,7 @@ func (h *ChatHandler) EditMessage(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-// GetConversationHistory returns the main conversation path
+// GetConversationHistory returns the main conversation path with metadata
 // GET /api/v1/conversations/:id/history
 func (h *ChatHandler) GetConversationHistory(c *gin.Context) {
 	userID := c.GetUint("user_id")
@@ -176,7 +176,20 @@ func (h *ChatHandler) GetConversationHistory(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, "Conversation history retrieved successfully", messages)
+	// Also get conversation metadata (including model_level)
+	conversation, err := h.chatService.repo.GetConversationByID(uint(conversationID), userID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Return both conversation metadata and messages
+	response := map[string]interface{}{
+		"conversation": conversation,
+		"messages":     messages,
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Conversation history retrieved successfully", response)
 }
 
 // CreateConversationAndChat creates a new conversation and starts chatting

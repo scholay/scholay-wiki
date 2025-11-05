@@ -275,7 +275,7 @@ const Home = () => {
                       <div className="search-mode-toggle" ref={modeToggleRef}>
                         <button
                           type="button"
-                          className="footer-btn mode-icon-btn"
+                          className={`footer-btn mode-icon-btn ${searchMode === 'advanced' ? 'advanced-mode' : ''}`}
                           onClick={() => setShowModeSelector(!showModeSelector)}
                         >
                           {searchMode === 'normal' ? (

@@ -33,6 +33,19 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		// Return user-friendly error message
 		return fmt.Errorf("配额不足：%s", err.Error())
 	}
+
+	// Update conversation's model level
+	conversation, err := s.repo.GetConversationByID(conversationID, userID)
+	if err != nil {
+		return fmt.Errorf("conversation not found: %w", err)
+	}
+	if conversation.ModelLevel != string(modelLevel) {
+		conversation.ModelLevel = string(modelLevel)
+		if err := s.repo.UpdateConversation(conversation); err != nil {
+			fmt.Printf("Warning: failed to update conversation model level: %v\n", err)
+		}
+	}
+
 	// Step 1: Get messages for this conversation (permission already checked in handler)
 	messages, err := s.repo.GetConversationMessages(conversationID)
 	if err != nil {

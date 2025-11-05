@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { useAuth } from '../utils/AuthContext';
 import AppSidebar from '../components/AppSidebar';
-import ModelSelector from '../components/ModelSelector';
-import api from '../services/api';
+import api, { subscriptionAPI } from '../services/api';
 import './ChatPageNew.css';
 import 'highlight.js/styles/github-dark.css';
 
@@ -75,8 +75,9 @@ function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false); // Loading dots before streaming starts
   const [modelLevel, setModelLevel] = useState('low'); // 'low', 'mid', 'high' - AI chat model level
-  const [userSubscription, setUserSubscription] = useState(null); // User subscription info for quota display
   const [showModelDropdown, setShowModelDropdown] = useState(false); // Model selector dropdown state
+  const [quota, setQuota] = useState(null); // AI Chat quota limits
+  const [usage, setUsage] = useState(null); // AI Chat usage counts
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebarCollapsed');
     return saved === 'true';
@@ -90,33 +91,45 @@ function ChatPage() {
   const textareaRef = useRef(null);
   const loadingStartTimeRef = useRef(null); // Track when loading started for minimum display time
 
+  // Fetch AI Chat quota and usage
   useEffect(() => {
-    loadConversations();
-    // Load user subscription info for quota display
+    const fetchQuotaAndUsage = async () => {
+      try {
+        const response = await subscriptionAPI.getUsage();
+        if (response.data.code === 0) {
+          const data = response.data.data;
+          // Map backend data to frontend format for AI Chat quotas
+          const quotaData = {
+            aiChatNormalQuota: data.limits?.ai_chat_normal?.limit ?? -1,
+            aiChatMidQuota: data.limits?.ai_chat_mid?.limit ?? -1,
+            aiChatHighQuota: data.limits?.ai_chat_high?.limit ?? -1,
+          };
+          const usageData = {
+            aiChatNormalCount: data.usage?.ai_chat_normal ?? 0,
+            aiChatMidCount: data.usage?.ai_chat_mid ?? 0,
+            aiChatHighCount: data.usage?.ai_chat_high ?? 0,
+          };
+          setQuota(quotaData);
+          setUsage(usageData);
+        }
+      } catch (error) {
+        console.error('Failed to fetch AI Chat quota/usage:', error);
+      }
+    };
+
     if (isAuthenticated) {
-      fetchUserSubscription();
+      fetchQuotaAndUsage();
     }
   }, [isAuthenticated]);
 
-  const fetchUserSubscription = async () => {
-    try {
-      const response = await api.get('/api/v1/user/subscription');
-      if (response.data.code === 0) {
-        setUserSubscription(response.data.data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch user subscription:', error);
-    }
-  };
+  useEffect(() => {
+    loadConversations();
+  }, [isAuthenticated]);
 
   // Save sidebar state to localStorage
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', sidebarCollapsed.toString());
   }, [sidebarCollapsed]);
-
-  useEffect(() => {
-    console.log('Conversations state updated:', conversations);
-  }, [conversations]);
 
   // Auto-scroll during streaming and message updates
   useEffect(() => {
@@ -134,13 +147,58 @@ function ChatPage() {
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
-      // Use smooth scroll for better UX
-      messagesEndRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'end',
-        inline: 'nearest'
-      });
+      // Get the scrollable container (.messages-scrollable)
+      // messagesEndRef -> .messages-inner -> .messages-scrollable
+      const scrollContainer = messagesEndRef.current.parentElement?.parentElement;
+      if (scrollContainer) {
+        // Scroll to the absolute bottom of the container
+        // This ensures the content is fully visible above the fixed input
+        scrollContainer.scrollTo({
+          top: scrollContainer.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
     }
+  };
+
+  // Get remaining count for a model level
+  const getRemainingCount = (level) => {
+    if (!quota || !usage) return null;
+
+    const quotaMap = {
+      'low': { quota: quota.aiChatNormalQuota, usage: usage.aiChatNormalCount },
+      'mid': { quota: quota.aiChatMidQuota, usage: usage.aiChatMidCount },
+      'high': { quota: quota.aiChatHighQuota, usage: usage.aiChatHighCount }
+    };
+
+    const { quota: quotaValue, usage: usageValue } = quotaMap[level] || {};
+    if (quotaValue === undefined) return null;
+
+    // -1 means unlimited
+    if (quotaValue === -1) return '无限制';
+
+    const remaining = Math.max(0, quotaValue - usageValue);
+    return remaining;
+  };
+
+  // Check if model is available based on user subscription
+  const isModelAvailable = (level) => {
+    if (!user?.subscription) return true;
+
+    const planCode = user.subscription.plan_code;
+
+    // FREE users can only use 'low' (normal)
+    if (planCode === 'FREE' && level !== 'low') {
+      return false;
+    }
+
+    // PRO users can use 'low' and 'mid'
+    if (planCode === 'PRO' && level === 'high') {
+      return false;
+    }
+
+    // MAX users can use all models
+    return true;
   };
 
   const loadConversations = async () => {
@@ -148,11 +206,9 @@ function ChatPage() {
       const response = await api.get('/user/conversations', {
         params: { page: 1, page_size: 50, conversation_type: 'chat' }
       });
-      console.log('Load conversations response:', response.data);
       // Backend returns {code: 0, message, data}, not {success: true}
       if (response.data.code === 0 && response.data.data) {
         const convs = response.data.data.conversations || [];
-        console.log('Setting chat conversations:', convs);
         setConversations(convs);
       }
     } catch (error) {
@@ -163,15 +219,20 @@ function ChatPage() {
   const loadConversation = async (conversationId) => {
     try {
       setLoading(true);
-      console.log('Loading conversation:', conversationId);
       const response = await api.get(`/user/conversations/${conversationId}/history`);
-      console.log('Conversation history response:', response.data);
 
       if (response.data.code === 0) {
+        const data = response.data.data || {};
+        const conversation = data.conversation || {};
+        const loadedMessages = data.messages || [];
+
         setCurrentConversation({ id: conversationId });
-        const loadedMessages = response.data.data || [];
-        console.log('Loaded messages:', loadedMessages);
-        console.log('Message count:', loadedMessages.length);
+
+        // Set model level from conversation metadata
+        if (conversation.model_level) {
+          setModelLevel(conversation.model_level);
+        }
+
         setMessages(loadedMessages);
 
         // Load sibling info for all assistant messages
@@ -298,25 +359,15 @@ function ChatPage() {
         console.error('Failed to send message:', error);
       }
     } finally {
-      console.log('[DEBUG] Finally block: Clearing streaming state');
       setIsStreaming(false);
       setStreamingContent('');
       setIsWaitingForResponse(false); // Hide loading dots
     }
   };
 
-  // Ensure loading dots show for minimum duration
-  const hideLoadingDots = async () => {
-    const minDisplayTime = 600; // Minimum 600ms display
-    if (loadingStartTimeRef.current) {
-      const elapsed = Date.now() - loadingStartTimeRef.current;
-      if (elapsed < minDisplayTime) {
-        await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsed));
-      }
-    }
-    setIsWaitingForResponse(false);
-    loadingStartTimeRef.current = null;
-  };
+  // Note: We no longer use a minimum display time for loading dots
+  // because we want to hide them immediately when streaming content arrives
+  // This prevents double indicators (loading dots + streaming cursor)
 
   const handleStreamResponse = async (response) => {
     const reader = response.body.getReader();
@@ -349,7 +400,6 @@ function ChatPage() {
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
-          console.log('[DEBUG] Stream reading completed, done=true');
           // Final update to ensure all content is displayed
           if (animationFrameId) {
             cancelAnimationFrame(animationFrameId);
@@ -390,19 +440,25 @@ function ChatPage() {
                 assistantMessageId = data.message_id;
                 // Get parent_message_id from metadata (sent by backend)
                 parentMessageId = data.metadata?.parent_message_id || parentMessageId;
-                // Hide loading dots when stream starts (with minimum display time)
-                hideLoadingDots();
+                // Don't hide loading yet - wait for first content_delta
               } else if (data.type === 'content_delta') {
+                const isFirstContent = fullContent === '';
                 fullContent += data.content;
-                // Schedule batched update instead of immediate setState
-                scheduleUpdate();
-              } else if (data.type === 'message_end') {
-                console.log('[DEBUG] Received message_end event:', {
-                  assistantMessageId,
-                  contentLength: fullContent.length,
-                  parentMessageId
-                });
 
+                if (isFirstContent) {
+                  // For the first content, use flushSync to ensure atomic state updates
+                  // This prevents both loading indicators from showing at the same time
+                  flushSync(() => {
+                    setIsWaitingForResponse(false);
+                    setStreamingContent(fullContent);
+                  });
+                  pendingContent = fullContent;
+                  loadingStartTimeRef.current = null;
+                } else {
+                  // For subsequent content, use batched updates for smooth streaming
+                  scheduleUpdate();
+                }
+              } else if (data.type === 'message_end') {
                 const assistantMessage = {
                   message_id: assistantMessageId,
                   role: 'assistant',
@@ -413,12 +469,7 @@ function ChatPage() {
                   finish_reason: data.metadata?.finish_reason
                 };
 
-                console.log('[DEBUG] Adding assistant message to state:', assistantMessage);
-                setMessages(prev => {
-                  const newMessages = [...prev, assistantMessage];
-                  console.log('[DEBUG] Messages array after adding:', newMessages.length);
-                  return newMessages;
-                });
+                setMessages(prev => [...prev, assistantMessage]);
 
                 // Load sibling info for the new assistant message
                 if (assistantMessageId) {
@@ -432,23 +483,18 @@ function ChatPage() {
               }
             } catch (e) {
               // Skip invalid JSON lines
-              console.warn('[DEBUG] Failed to parse JSON line:', line, e);
             }
           }
         }
       }
     } catch (error) {
       if (error.name !== 'AbortError') {
-        console.error('[DEBUG] Stream error:', error);
+        console.error('Stream error:', error);
         throw error;
-      } else {
-        console.log('[DEBUG] Stream aborted by user');
       }
     } finally {
-      console.log('[DEBUG] handleStreamResponse finally block, messageEndReceived:', messageEndReceived);
       // If stream ended but we never received message_end, add whatever content we have
       if (fullContent && !messageEndReceived && assistantMessageId) {
-        console.warn('[DEBUG] Stream ended without message_end event, adding partial content');
         const assistantMessage = {
           message_id: assistantMessageId,
           role: 'assistant',
@@ -461,11 +507,16 @@ function ChatPage() {
           loadSiblings(assistantMessageId);
         }
       }
+
+      // Refocus the input textarea after streaming completes
+      // This allows the user to immediately type their next question
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
     }
 
     // Wait a tick to ensure state updates are processed
     if (messageEndReceived) {
-      console.log('[DEBUG] Waiting for state to settle before clearing streaming state');
       await new Promise(resolve => setTimeout(resolve, 0));
     }
   };
@@ -587,7 +638,6 @@ function ChatPage() {
         console.error('Failed to edit message:', error);
       }
     } finally {
-      console.log('[DEBUG] Edit completed, clearing streaming state');
       setIsStreaming(false);
       setStreamingContent('');
       setIsWaitingForResponse(false); // Hide loading dots
@@ -684,20 +734,16 @@ function ChatPage() {
   };
 
   const renameConversation = async (conversationId, newTitle) => {
-    console.log('renameConversation called:', { conversationId, newTitle });
     try {
-      const response = await api.put(`/user/conversations/${conversationId}/title`, { title: newTitle });
-      console.log('Rename API response:', response.data);
+      await api.put(`/user/conversations/${conversationId}/title`, { title: newTitle });
       // 更新本地conversations列表
       setConversations(prevConversations =>
         prevConversations.map(conv =>
           conv.id === conversationId ? { ...conv, title: newTitle } : conv
         )
       );
-      console.log('Local conversations updated');
     } catch (error) {
       console.error('Failed to rename conversation:', error);
-      console.error('Error details:', error.response?.data);
     }
   };
 
@@ -761,7 +807,7 @@ function ChatPage() {
               <nav className="empty-navbar">
                 <div className="navbar-left-group">
                   <h1 className="empty-page-title">AI 对话</h1>
-                  {/* Lightweight Model Selector */}
+                  {/* Lightweight Model Selector with quota display */}
                   <div className="model-selector-simple">
                     <button
                       type="button"
@@ -791,33 +837,65 @@ function ChatPage() {
                         <div className="model-dropdown-menu">
                           <button
                             type="button"
-                            className={`model-dropdown-item ${modelLevel === 'low' ? 'active' : ''}`}
+                            className={`model-dropdown-item ${modelLevel === 'low' ? 'active' : ''} ${!isModelAvailable('low') ? 'disabled' : ''}`}
                             onClick={() => {
-                              setModelLevel('low');
-                              setShowModelDropdown(false);
+                              if (isModelAvailable('low')) {
+                                setModelLevel('low');
+                                setShowModelDropdown(false);
+                              }
                             }}
+                            disabled={!isModelAvailable('low')}
                           >
-                            普通
+                            <span>普通</span>
+                            {getRemainingCount('low') !== null && getRemainingCount('low') !== '无限制' && (
+                              <span className="quota-badge">
+                                剩余 {getRemainingCount('low')} 次
+                              </span>
+                            )}
                           </button>
                           <button
                             type="button"
-                            className={`model-dropdown-item ${modelLevel === 'mid' ? 'active' : ''}`}
+                            className={`model-dropdown-item ${modelLevel === 'mid' ? 'active' : ''} ${!isModelAvailable('mid') ? 'disabled' : ''}`}
                             onClick={() => {
-                              setModelLevel('mid');
-                              setShowModelDropdown(false);
+                              if (isModelAvailable('mid')) {
+                                setModelLevel('mid');
+                                setShowModelDropdown(false);
+                              }
                             }}
+                            disabled={!isModelAvailable('mid')}
                           >
-                            进阶
+                            <span>进阶</span>
+                            {getRemainingCount('mid') !== null && getRemainingCount('mid') !== '无限制' && (
+                              <span className="quota-badge">
+                                剩余 {getRemainingCount('mid')} 次
+                              </span>
+                            )}
+                            {!isModelAvailable('mid') && user?.subscription?.plan_code === 'FREE' && (
+                              <span className="upgrade-badge">需要升级</span>
+                            )}
                           </button>
                           <button
                             type="button"
-                            className={`model-dropdown-item ${modelLevel === 'high' ? 'active' : ''}`}
+                            className={`model-dropdown-item ${modelLevel === 'high' ? 'active' : ''} ${!isModelAvailable('high') ? 'disabled' : ''}`}
                             onClick={() => {
-                              setModelLevel('high');
-                              setShowModelDropdown(false);
+                              if (isModelAvailable('high')) {
+                                setModelLevel('high');
+                                setShowModelDropdown(false);
+                              }
                             }}
+                            disabled={!isModelAvailable('high')}
                           >
-                            高级
+                            <span>高级</span>
+                            {getRemainingCount('high') !== null && getRemainingCount('high') !== '无限制' && (
+                              <span className="quota-badge">
+                                剩余 {getRemainingCount('high')} 次
+                              </span>
+                            )}
+                            {!isModelAvailable('high') && (
+                              <span className="upgrade-badge">
+                                {user?.subscription?.plan_code === 'FREE' ? '需要升级' : '需要 MAX'}
+                              </span>
+                            )}
                           </button>
                         </div>
                       </>
@@ -870,7 +948,7 @@ function ChatPage() {
               <nav className="results-navbar">
                 <div className="navbar-title-group">
                   <h1 className="page-title">AI 对话</h1>
-                  {/* Lightweight Model Selector */}
+                  {/* Lightweight Model Selector with quota display */}
                   <div className="model-selector-simple">
                     <button
                       type="button"
@@ -900,33 +978,65 @@ function ChatPage() {
                         <div className="model-dropdown-menu">
                           <button
                             type="button"
-                            className={`model-dropdown-item ${modelLevel === 'low' ? 'active' : ''}`}
+                            className={`model-dropdown-item ${modelLevel === 'low' ? 'active' : ''} ${!isModelAvailable('low') ? 'disabled' : ''}`}
                             onClick={() => {
-                              setModelLevel('low');
-                              setShowModelDropdown(false);
+                              if (isModelAvailable('low')) {
+                                setModelLevel('low');
+                                setShowModelDropdown(false);
+                              }
                             }}
+                            disabled={!isModelAvailable('low')}
                           >
-                            普通
+                            <span>普通</span>
+                            {getRemainingCount('low') !== null && getRemainingCount('low') !== '无限制' && (
+                              <span className="quota-badge">
+                                剩余 {getRemainingCount('low')} 次
+                              </span>
+                            )}
                           </button>
                           <button
                             type="button"
-                            className={`model-dropdown-item ${modelLevel === 'mid' ? 'active' : ''}`}
+                            className={`model-dropdown-item ${modelLevel === 'mid' ? 'active' : ''} ${!isModelAvailable('mid') ? 'disabled' : ''}`}
                             onClick={() => {
-                              setModelLevel('mid');
-                              setShowModelDropdown(false);
+                              if (isModelAvailable('mid')) {
+                                setModelLevel('mid');
+                                setShowModelDropdown(false);
+                              }
                             }}
+                            disabled={!isModelAvailable('mid')}
                           >
-                            进阶
+                            <span>进阶</span>
+                            {getRemainingCount('mid') !== null && getRemainingCount('mid') !== '无限制' && (
+                              <span className="quota-badge">
+                                剩余 {getRemainingCount('mid')} 次
+                              </span>
+                            )}
+                            {!isModelAvailable('mid') && user?.subscription?.plan_code === 'FREE' && (
+                              <span className="upgrade-badge">需要升级</span>
+                            )}
                           </button>
                           <button
                             type="button"
-                            className={`model-dropdown-item ${modelLevel === 'high' ? 'active' : ''}`}
+                            className={`model-dropdown-item ${modelLevel === 'high' ? 'active' : ''} ${!isModelAvailable('high') ? 'disabled' : ''}`}
                             onClick={() => {
-                              setModelLevel('high');
-                              setShowModelDropdown(false);
+                              if (isModelAvailable('high')) {
+                                setModelLevel('high');
+                                setShowModelDropdown(false);
+                              }
                             }}
+                            disabled={!isModelAvailable('high')}
                           >
-                            高级
+                            <span>高级</span>
+                            {getRemainingCount('high') !== null && getRemainingCount('high') !== '无限制' && (
+                              <span className="quota-badge">
+                                剩余 {getRemainingCount('high')} 次
+                              </span>
+                            )}
+                            {!isModelAvailable('high') && (
+                              <span className="upgrade-badge">
+                                {user?.subscription?.plan_code === 'FREE' ? '需要升级' : '需要 MAX'}
+                              </span>
+                            )}
                           </button>
                         </div>
                       </>
@@ -1069,8 +1179,8 @@ function ChatPage() {
                     </article>
                   ))}
 
-                  {/* Loading dots - shown while waiting for response */}
-                  {isWaitingForResponse && (
+                  {/* ChatGPT-style thinking indicator - shown while waiting for response */}
+                  {isWaitingForResponse && !streamingContent && (
                     <article className="message-group" data-role="assistant">
                       <div className="message-wrapper">
                         <div className="message-content-container">
@@ -1081,10 +1191,10 @@ function ChatPage() {
                             </svg>
                           </div>
                           <div className="message-body">
-                            <div className="loading-dots">
-                              <div className="loading-dot"></div>
-                              <div className="loading-dot"></div>
-                              <div className="loading-dot"></div>
+                            <div className="thinking-indicator">
+                              <div className="thinking-dot"></div>
+                              <div className="thinking-dot"></div>
+                              <div className="thinking-dot"></div>
                             </div>
                           </div>
                         </div>
@@ -1092,7 +1202,8 @@ function ChatPage() {
                     </article>
                   )}
 
-                  {isStreaming && streamingContent && (
+                  {/* Streaming content - shown when content arrives */}
+                  {streamingContent && (
                     <article className="message-group" data-role="assistant">
                       <div className="message-wrapper">
                         <div className="message-content-container">
@@ -1113,7 +1224,6 @@ function ChatPage() {
                               >
                                 {streamingContent}
                               </ReactMarkdown>
-                              <span className="streaming-cursor">⬤</span>
                             </div>
                           </div>
                         </div>

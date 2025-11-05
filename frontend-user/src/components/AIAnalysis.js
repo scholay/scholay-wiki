@@ -19,7 +19,7 @@ const AIAnalysis = ({ conversationId, messageId, onClose }) => {
     }
 
     // Create EventSource for SSE
-    const url = `${process.env.REACT_APP_API_URL || 'http://localhost:5411/api/v1'}/user/conversations/${conversationId}/messages/${messageId}/analysis`;
+    const url = `/api/v1/user/conversations/${conversationId}/messages/${messageId}/analysis`;
 
     // EventSource doesn't support custom headers, so we pass token as query param
     const eventSource = new EventSource(`${url}?token=${token}`);

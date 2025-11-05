@@ -214,6 +214,26 @@ CREATE TABLE IF NOT EXISTS `conversations` (
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='User conversation history';
 
+-- Add model_level column to conversations table (for AI chat model persistence)
+-- Use stored procedure to handle IF NOT EXISTS for column
+DELIMITER //
+CREATE PROCEDURE add_model_level_if_not_exists()
+BEGIN
+  IF NOT EXISTS (
+    SELECT * FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'conversations'
+    AND COLUMN_NAME = 'model_level'
+  ) THEN
+    ALTER TABLE `conversations`
+    ADD COLUMN `model_level` VARCHAR(20) DEFAULT 'low' COMMENT 'Model level used: low, mid, high';
+  END IF;
+END//
+DELIMITER ;
+
+CALL add_model_level_if_not_exists();
+DROP PROCEDURE add_model_level_if_not_exists;
+
 -- Conversation messages table (Enhanced with LibreChat-style message chain support)
 CREATE TABLE IF NOT EXISTS `conversation_messages` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

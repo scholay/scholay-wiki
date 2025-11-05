@@ -487,42 +487,42 @@
   color: rgba(255, 255, 255, 0.3);
 }
 
-/* Loading dots - ChatGPT style breathing animation */
-.chat-page-wrapper .loading-dots {
+/* ChatGPT-style thinking indicator */
+.chat-page-wrapper .thinking-indicator {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 0;
+  gap: 4px;
+  padding: 12px 0;
 }
 
-.chat-page-wrapper .loading-dot {
+.chat-page-wrapper .thinking-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.6);
-  animation: breathing 1.4s ease-in-out infinite;
+  background: rgba(255, 255, 255, 0.4);
+  animation: chatgpt-thinking 1.4s ease-in-out infinite;
 }
 
-.chat-page-wrapper .loading-dot:nth-child(1) {
+.chat-page-wrapper .thinking-dot:nth-child(1) {
   animation-delay: 0s;
 }
 
-.chat-page-wrapper .loading-dot:nth-child(2) {
+.chat-page-wrapper .thinking-dot:nth-child(2) {
   animation-delay: 0.2s;
 }
 
-.chat-page-wrapper .loading-dot:nth-child(3) {
+.chat-page-wrapper .thinking-dot:nth-child(3) {
   animation-delay: 0.4s;
 }
 
-@keyframes breathing {
-  0%, 100% {
-    opacity: 0.2;
-    transform: scale(0.8);
+@keyframes chatgpt-thinking {
+  0%, 60%, 100% {
+    opacity: 0.25;
+    transform: scale(0.8) translateY(0);
   }
-  50% {
+  30% {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(-4px);
   }
 }
 
@@ -772,7 +772,7 @@
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  min-width: 120px;
+  min-width: 180px;
   background: #2f2f2f;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
@@ -783,7 +783,10 @@
 
 /* Dropdown items */
 .model-dropdown-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
   padding: 8px 12px;
   background: transparent;
@@ -797,7 +800,7 @@
   transition: all 0.2s ease;
 }
 
-.model-dropdown-item:hover {
+.model-dropdown-item:hover:not(.disabled) {
   background: rgba(255, 255, 255, 0.1);
   color: rgba(236, 236, 241, 1);
 }
@@ -805,6 +808,33 @@
 .model-dropdown-item.active {
   background: rgba(255, 255, 255, 0.15);
   color: rgba(236, 236, 241, 1);
+}
+
+.model-dropdown-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Quota badge */
+.quota-badge {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 400;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Upgrade badge */
+.upgrade-badge {
+  font-size: 11px;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .results-navbar .page-title {

@@ -7,6 +7,7 @@ import FilterSidebar from '../components/FilterSidebar';
 import PaperPreview from '../components/PaperPreview';
 import SearchFilters from '../components/SearchFilters';
 import PaperListSkeleton from '../components/PaperListSkeleton';
+import { NormalSearchIcon } from '../components/SearchIcons';
 import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory, renameSearchHistory } from '../utils/searchHistory';
 import './SearchResultsPage.css';
 
@@ -441,9 +442,16 @@ const SearchResultsPage = () => {
                   </button>
                 </div>
 
-                {/* 底部筛选按钮 */}
+                {/* 底部操作栏 */}
                 <div className="composer-footer">
                   <div className="composer-footer-left">
+                    {/* 搜索模式标识 - 固定显示普通搜索 */}
+                    <div className="search-mode-indicator">
+                      <NormalSearchIcon size={16} />
+                      <span>普通搜索</span>
+                    </div>
+
+                    {/* 筛选按钮 */}
                     {(() => {
                       const hasFilters = filters.yearFrom ||
                                        filters.yearTo ||
@@ -497,7 +505,13 @@ const SearchResultsPage = () => {
               <form onSubmit={handleSearch} className="results-composer-wrapper">
                 {/* 输入区域 */}
                 <div className="composer-input-area">
-                  {/* 筛选按钮 - 最左边 */}
+                  {/* 搜索模式标识 - 最左边 */}
+                  <div className="search-mode-indicator">
+                    <NormalSearchIcon size={16} />
+                    <span>普通搜索</span>
+                  </div>
+
+                  {/* 筛选按钮 */}
                   {(() => {
                     const hasFilters = filters.yearFrom ||
                                      filters.yearTo ||

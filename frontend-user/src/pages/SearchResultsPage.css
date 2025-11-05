@@ -529,6 +529,23 @@
   flex-wrap: wrap;
 }
 
+/* Search Mode Indicator */
+.search-mode-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  color: rgba(142, 142, 160, 1);
+  font-size: 14px;
+  font-weight: 400;
+  cursor: default;
+}
+
+.search-mode-indicator svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
 /* Footer Buttons - ChatGPT Style */
 .footer-btn {
   display: flex;

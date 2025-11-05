@@ -8,8 +8,9 @@ import './ModelSelector.css';
  * @param {function} onChange - 模型变更回调
  * @param {boolean} disabled - 是否禁用
  * @param {object} userSubscription - 用户订阅信息
+ * @param {string} mode - 使用场景 ('advanced-search' 或 'ai-chat')，默认 'advanced-search'
  */
-const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscription }) => {
+const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscription, mode = 'advanced-search' }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [quota, setQuota] = useState(null);
   const [usage, setUsage] = useState(null);
@@ -97,10 +98,10 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
       }
     };
 
-    if (userSubscription) {
-      fetchQuotaAndUsage();
-    }
-  }, [userSubscription]);
+    // 只在组件挂载时获取一次配额信息
+    fetchQuotaAndUsage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 获取当前选中的模型（默认第一个，即普通模型）
   const selectedModel = models.find(m => m.value === value) || models[0];
@@ -129,27 +130,46 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
   const getRemainingCount = (model) => {
     if (!quota || !usage) return null;
 
-    // 对于高级搜索，检查 advanced_search_* 配额
-    const searchFeature = model.featureTypes.find(ft => ft.startsWith('advanced_search_'));
-    if (searchFeature) {
-      const quotaKey = `${searchFeature.replace('advanced_search_', '')}Count`;
-      const usageKey = `${searchFeature.replace('advanced_search_', '')}Count`;
+    // 根据 mode 选择对应的 feature type
+    const featurePrefix = mode === 'ai-chat' ? 'ai_chat_' : 'advanced_search_';
+    const feature = model.featureTypes.find(ft => ft.startsWith(featurePrefix));
+
+    if (feature) {
+      // 提取级别名称（low, mid, high 或 normal）
+      const levelName = feature.replace(featurePrefix, '');
 
       // 映射配额字段名
       const quotaFieldMap = {
-        'lowCount': 'advancedSearchLowQuota',
-        'midCount': 'advancedSearchMidQuota',
-        'highCount': 'advancedSearchHighQuota'
+        // Advanced Search
+        'low': 'advancedSearchLowQuota',
+        'mid': 'advancedSearchMidQuota',
+        'high': 'advancedSearchHighQuota',
+        // AI Chat
+        'normal': 'aiChatNormalQuota',
       };
 
       const usageFieldMap = {
-        'lowCount': 'advancedSearchLowCount',
-        'midCount': 'advancedSearchMidCount',
-        'highCount': 'advancedSearchHighCount'
+        // Advanced Search
+        'low': 'advancedSearchLowCount',
+        'mid': 'advancedSearchMidCount',
+        'high': 'advancedSearchHighCount',
+        // AI Chat
+        'normal': 'aiChatNormalCount',
       };
 
-      const quotaField = quotaFieldMap[quotaKey];
-      const usageField = usageFieldMap[usageKey];
+      // AI Chat 的 mid 和 high
+      if (mode === 'ai-chat') {
+        if (levelName === 'mid') {
+          quotaFieldMap['mid'] = 'aiChatMidQuota';
+          usageFieldMap['mid'] = 'aiChatMidCount';
+        } else if (levelName === 'high') {
+          quotaFieldMap['high'] = 'aiChatHighQuota';
+          usageFieldMap['high'] = 'aiChatHighCount';
+        }
+      }
+
+      const quotaField = quotaFieldMap[levelName];
+      const usageField = usageFieldMap[levelName];
 
       const quotaValue = quota[quotaField];
       const usageValue = usage[usageField] || 0;
@@ -174,7 +194,7 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
     <div className="model-selector">
       <button
         type="button"
-        className="model-selector-btn"
+        className={`model-selector-btn ${showDropdown ? 'open' : ''}`}
         onClick={() => !disabled && setShowDropdown(!showDropdown)}
         disabled={disabled}
       >
@@ -211,32 +231,31 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
                   onClick={() => handleModelSelect(model)}
                   disabled={!available}
                 >
+                  <div className="model-option-icon-wrapper">
+                    {model.icon}
+                  </div>
                   <div className="model-option-header">
-                    <span className="model-option-icon">{model.icon}</span>
-                    <span className="model-option-label">{model.label}</span>
-                    {isSelected && (
-                      <svg className="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                        <path d="M20 6L9 17l-5-5"/>
-                      </svg>
+                    <div className="model-option-top">
+                      <span className="model-option-label">{model.label}</span>
+                      {isSelected && (
+                        <svg className="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                          <path d="M20 6L9 17l-5-5"/>
+                        </svg>
+                      )}
+                    </div>
+                    <div className="model-option-desc">{model.description}</div>
+                    {!available && (
+                      <div className="model-option-badge">
+                        {userSubscription?.plan_code === 'FREE' && '需要升级订阅'}
+                        {userSubscription?.plan_code === 'PRO' && model.value === 'high' && '需要 MAX 订阅'}
+                      </div>
+                    )}
+                    {available && remaining !== null && remaining !== '无限制' && (
+                      <div className="model-option-quota">
+                        剩余 {remaining} 次
+                      </div>
                     )}
                   </div>
-                  <div className="model-option-desc">{model.description}</div>
-                  {!available && (
-                    <div className="model-option-badge">
-                      {userSubscription?.plan_code === 'FREE' && '需要升级订阅'}
-                      {userSubscription?.plan_code === 'PRO' && model.value === 'high' && '需要 MAX 订阅'}
-                    </div>
-                  )}
-                  {available && remaining !== null && remaining !== '无限制' && (
-                    <div className="model-option-quota">
-                      剩余 {remaining} 次
-                    </div>
-                  )}
-                  {available && remaining === '无限制' && (
-                    <div className="model-option-quota unlimited">
-                      无限制使用
-                    </div>
-                  )}
                 </button>
               );
             })}

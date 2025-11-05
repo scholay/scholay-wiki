@@ -6,6 +6,7 @@ import PaperList from '../components/PaperList';
 import PaperCitationMarkdown from '../components/PaperCitationMarkdown';
 import ModelSelector from '../components/ModelSelector';
 import Logo from '../components/Logo';
+import { AdvancedSearchIcon } from '../components/SearchIcons';
 import api, { conversationAPI, subscriptionAPI } from '../services/api';
 import './AdvancedSearchPage.css';
 
@@ -622,7 +623,7 @@ const AdvancedSearchPage = () => {
       ...prevSets
     ]);
 
-    const url = `${process.env.REACT_APP_API_URL || 'http://localhost:5411/api/v1'}/user/conversations/${convId}/messages/${messageId}/advanced-search`;
+    const url = `/api/v1/user/conversations/${convId}/messages/${messageId}/advanced-search`;
     const eventSource = new EventSource(`${url}?token=${token}&model_level=${modelLevel}`);
     eventSourceRef.current = eventSource;
 
@@ -803,7 +804,7 @@ const AdvancedSearchPage = () => {
     try {
       // 调用继续对话 API
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5411/api/v1'}/user/conversations/${conversationId}/continue`,
+        `/api/v1/user/conversations/${conversationId}/continue`,
         {
           method: 'POST',
           headers: {
@@ -1124,9 +1125,7 @@ const AdvancedSearchPage = () => {
                   <div className="composer-footer-left">
                     {/* 搜索模式标识 - 固定显示高级搜索 */}
                     <div className="search-mode-indicator">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                      </svg>
+                      <AdvancedSearchIcon size={16} />
                       <span>高级搜索</span>
                     </div>
 
@@ -1298,9 +1297,7 @@ const AdvancedSearchPage = () => {
                       <div className="composer-footer-left">
                         {/* 搜索模式标识 - 固定显示高级搜索 */}
                         <div className="search-mode-indicator">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                          </svg>
+                          <AdvancedSearchIcon size={16} />
                           <span>高级搜索</span>
                         </div>
 

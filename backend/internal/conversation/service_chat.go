@@ -93,10 +93,18 @@ func (s *ChatService) StreamChat(ctx context.Context, userID uint, req ChatReque
 		}
 	}
 
-	// 1. Verify conversation ownership
-	_, err := s.repo.GetConversationByID(req.ConversationID, userID)
+	// 1. Verify conversation ownership and update model level
+	conversation, err := s.repo.GetConversationByID(req.ConversationID, userID)
 	if err != nil {
 		return fmt.Errorf("conversation not found: %w", err)
+	}
+
+	// Update conversation's model level if changed
+	if modelLevel := req.ModelLevel; modelLevel != "" && conversation.ModelLevel != modelLevel {
+		conversation.ModelLevel = modelLevel
+		if err := s.repo.UpdateConversation(conversation); err != nil {
+			log.Printf("Failed to update conversation model level: %v", err)
+		}
 	}
 
 	// 2. Create user message
