@@ -195,29 +195,17 @@ const Settings = () => {
       return;
     }
 
-    // Use saved config or editing config
-    const configToTest = isEditingEmail ? emailConfig : {
-      smtpHost: savedEmailConfig?.smtp_host || '',
-      smtpPort: savedEmailConfig?.smtp_port || '',
-      smtpUser: savedEmailConfig?.smtp_user || '',
-      smtpPassword: savedEmailConfig?.smtp_password || '',
-      fromEmail: savedEmailConfig?.from_email || '',
-      fromName: savedEmailConfig?.from_name || '',
-    };
-
-    // Validate email config
-    if (!configToTest.smtpHost || !configToTest.smtpPort || !configToTest.smtpUser || !configToTest.smtpPassword) {
-      showToast('请先配置邮箱服务器', 'error');
+    // Check if email configuration is saved
+    if (!savedEmailConfig) {
+      showToast('请先保存邮箱配置后再进行测试', 'error');
       return;
     }
 
     setTestingEmail(true);
 
     try {
-      // Ensure smtpPort is a number
+      // Only send test email address, backend will use saved config
       const testConfig = {
-        ...configToTest,
-        smtpPort: typeof configToTest.smtpPort === 'string' ? parseInt(configToTest.smtpPort, 10) : configToTest.smtpPort,
         testEmail: testEmail
       };
 

@@ -118,20 +118,28 @@ func (h *Handler) UpdateEmailConfig(c *gin.Context) {
 
 // TestEmailConfigRequest represents a test email config request
 type TestEmailConfigRequest struct {
-	SMTPHost     string `json:"smtpHost" binding:"required"`
-	SMTPPort     int    `json:"smtpPort" binding:"required"`
-	SMTPUser     string `json:"smtpUser" binding:"required"`
-	SMTPPassword string `json:"smtpPassword" binding:"required"`
-	FromEmail    string `json:"fromEmail" binding:"required,email"`
-	FromName     string `json:"fromName" binding:"required"`
-	TestEmail    string `json:"testEmail" binding:"required,email"`
+	TestEmail string `json:"testEmail" binding:"required,email"`
 }
 
 // TestEmailConfig handles testing email configuration by sending a test email
+// This endpoint uses the currently saved email configuration from database
+// Admin must save the configuration first before testing
 func (h *Handler) TestEmailConfig(c *gin.Context) {
 	var req TestEmailConfigRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	// Get active email configuration from database
+	emailConfig, err := h.service.GetActiveEmailConfig()
+	if err != nil {
+		utils.Error(c, 3005, "Failed to get email configuration")
+		return
+	}
+
+	if emailConfig == nil {
+		utils.Error(c, 3006, "No email configuration found. Please save configuration first.")
 		return
 	}
 
@@ -155,21 +163,21 @@ func (h *Handler) TestEmailConfig(c *gin.Context) {
 		</p>
 	</body>
 	</html>
-	`, req.SMTPHost, req.SMTPPort, req.FromEmail, req.FromName)
+	`, emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.FromEmail, emailConfig.FromName)
 
 	// Send email with TLS/SSL support using shared utility
-	emailConfig := utils.EmailConfig{
-		SMTPHost:     req.SMTPHost,
-		SMTPPort:     req.SMTPPort,
-		SMTPUser:     req.SMTPUser,
-		SMTPPassword: req.SMTPPassword,
-		FromEmail:    req.FromEmail,
-		FromName:     req.FromName,
+	config := utils.EmailConfig{
+		SMTPHost:     emailConfig.SMTPHost,
+		SMTPPort:     emailConfig.SMTPPort,
+		SMTPUser:     emailConfig.SMTPUser,
+		SMTPPassword: emailConfig.SMTPPassword,
+		FromEmail:    emailConfig.FromEmail,
+		FromName:     emailConfig.FromName,
 	}
 
-	err := utils.SendEmailWithTLS(emailConfig, []string{req.TestEmail}, subject, body)
+	err = utils.SendEmailWithTLS(config, []string{req.TestEmail}, subject, body)
 	if err != nil {
-		utils.Error(c, 3005, fmt.Sprintf("Failed to send test email: %v", err))
+		utils.Error(c, 3007, fmt.Sprintf("Failed to send test email: %v", err))
 		return
 	}
 

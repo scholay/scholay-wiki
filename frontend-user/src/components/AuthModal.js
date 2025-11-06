@@ -911,7 +911,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   />
                   <button
                     className="auth-code-button"
-                    onClick={handleSendCode}
+                    onClick={() => handleSendCode('register')}
                     disabled={countdown > 0 || loading || !email}
                   >
                     {countdown > 0 ? `${countdown}秒` : '发送'}
