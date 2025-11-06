@@ -26,6 +26,9 @@ func Initialize(cfg *config.Config) error {
 	var err error
 	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
+		// 性能优化配置
+		PrepareStmt:            true, // 预编译SQL语句,提升性能
+		SkipDefaultTransaction: true, // 跳过默认事务,读操作更快
 	})
 
 	if err != nil {
@@ -37,12 +40,13 @@ func Initialize(cfg *config.Config) error {
 		return fmt.Errorf("failed to get database instance: %w", err)
 	}
 
-	// Set connection pool settings
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
+	// Set connection pool settings - 优化为更高的并发能力
+	sqlDB.SetMaxIdleConns(25)                   // 增加空闲连接数,减少连接建立开销
+	sqlDB.SetMaxOpenConns(200)                  // 增加最大连接数,支持更高并发
+	sqlDB.SetConnMaxLifetime(time.Hour)         // 连接最大生命周期
+	sqlDB.SetConnMaxIdleTime(10 * time.Minute) // 空闲连接最大存活时间
 
-	log.Println("Database connection established successfully")
+	log.Println("Database connection established successfully with optimized pool settings")
 	return nil
 }
 

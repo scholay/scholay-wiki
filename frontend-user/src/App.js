@@ -1,19 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Home from './pages/Home';
-import Dashboard from './pages/Dashboard';
-import SearchResultsPage from './pages/SearchResultsPage';
-import AdvancedSearchPage from './pages/AdvancedSearchPage';
-import PaperDetailPage from './pages/PaperDetailPage';
-import ChatPage from './pages/ChatPage';
-import Pricing from './pages/Pricing';
-import SubscriptionManagement from './pages/SubscriptionManagement';
-import Settings from './pages/Settings';
-import WeChatCallback from './pages/WeChatCallback';
-import OrderConfirmation from './pages/OrderConfirmation';
-import AuthModal from './components/AuthModal';
 import { AuthProvider } from './utils/AuthContext';
 import { ToastProvider } from './components/ToastContainer';
+
+// 首页立即加载(最常访问)
+import Home from './pages/Home';
+
+// 其他页面使用懒加载 - 大幅减少初始bundle大小
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const SearchResultsPage = lazy(() => import('./pages/SearchResultsPage'));
+const AdvancedSearchPage = lazy(() => import('./pages/AdvancedSearchPage'));
+const PaperDetailPage = lazy(() => import('./pages/PaperDetailPage'));
+const ChatPage = lazy(() => import('./pages/ChatPage'));
+const Pricing = lazy(() => import('./pages/Pricing'));
+const SubscriptionManagement = lazy(() => import('./pages/SubscriptionManagement'));
+const Settings = lazy(() => import('./pages/Settings'));
+const WeChatCallback = lazy(() => import('./pages/WeChatCallback'));
+const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
+const AuthModal = lazy(() => import('./components/AuthModal'));
+
+// Loading组件 - 页面加载时的占位符
+const PageLoader = () => (
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100vh',
+    fontSize: '18px',
+    color: '#666',
+    backgroundColor: '#f5f5f5'
+  }}>
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ marginBottom: '10px' }}>⏳</div>
+      <div>加载中...</div>
+    </div>
+  </div>
+);
 
 function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -34,30 +56,34 @@ function App() {
     <ToastProvider>
       <AuthProvider>
         <Router>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/search" element={<Navigate to="/" replace />} />
-            <Route path="/search-results" element={<SearchResultsPage />} />
-            <Route path="/advanced-search" element={<AdvancedSearchPage />} />
-            <Route path="/paper/:paperId" element={<PaperDetailPage />} />
-            <Route path="/chat" element={<ChatPage />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/subscription" element={<SubscriptionManagement />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/order-confirmation" element={<OrderConfirmation />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/wechat/callback" element={<WeChatCallback />} />
-            {/* 404 redirect to home */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/search" element={<Navigate to="/" replace />} />
+              <Route path="/search-results" element={<SearchResultsPage />} />
+              <Route path="/advanced-search" element={<AdvancedSearchPage />} />
+              <Route path="/paper/:paperId" element={<PaperDetailPage />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/subscription" element={<SubscriptionManagement />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/order-confirmation" element={<OrderConfirmation />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/wechat/callback" element={<WeChatCallback />} />
+              {/* 404 redirect to home */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
 
-        {/* Global auth modal for session expiry */}
-        <AuthModal
-          isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-          onLoginSuccess={() => setShowAuthModal(false)}
-        />
+            {/* Global auth modal for session expiry - 条件渲染避免不必要的组件加载 */}
+            {showAuthModal && (
+              <AuthModal
+                isOpen={showAuthModal}
+                onClose={() => setShowAuthModal(false)}
+                onLoginSuccess={() => setShowAuthModal(false)}
+              />
+            )}
+          </Suspense>
+        </Router>
       </AuthProvider>
     </ToastProvider>
   );

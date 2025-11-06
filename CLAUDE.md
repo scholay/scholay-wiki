@@ -149,10 +149,18 @@ curl "http://localhost:5411/api/v1/user/subscription/usage" \
 The project uses Nginx as a reverse proxy to provide unified entry points and solve CORS issues:
 
 - **HTTP_PORT** (configured in .env) → User Portal (frontend-user + backend API via `/api/*`)
+  - Nginx listens on port 80 internally, mapped to HTTP_PORT (default: 5411) on host
+  - Config: `nginx/conf.d/user.conf`
 - **ADMIN_PORT** (configured in .env) → Admin Dashboard (frontend-admin + backend API via `/api/*`)
-- **Internal**: MySQL (3306), Backend (8080) are NOT exposed to host
+  - Nginx listens on port 8001 internally, mapped to ADMIN_PORT (default: 5455) on host
+  - Config: `nginx/conf.d/admin.conf`
+- **Internal**: MySQL (3306), Backend (8080), Redis (6379) are NOT exposed to host
 
-All frontend-to-backend API calls go through Nginx, enabling same-origin requests. Backend containers communicate via internal Docker network (`scholar-network`).
+**How it works**:
+- User requests → Nginx:80 (HTTP_PORT) → Routes `/api/*` to backend:8080, `/` to frontend-user:80
+- Admin requests → Nginx:8001 (ADMIN_PORT) → Routes `/api/*` to backend:8080, `/` to frontend-admin:80
+- All frontend-to-backend API calls go through Nginx, enabling same-origin requests
+- Backend containers communicate via internal Docker network (`scholar-network`)
 
 ### Backend Layered Architecture
 
@@ -168,6 +176,8 @@ internal/
 ├── thirdparty/     # Third-party account management (API keys, OAuth)
 ├── subscription/   # Subscription plans and quota management
 ├── order/          # Order processing and management
+├── payment/        # Payment integration (Alipay)
+├── wechat/         # WeChat integration (Mini Program, OAuth)
 ├── proxy/          # HTTP proxy for external AI services
 ├── mcp/            # MCP (Model Context Protocol) server
 ├── config/         # System configuration (privacy policy, email, etc.)
@@ -191,6 +201,9 @@ internal/
 **Critical Feature**: Database schema is automatically synchronized on every startup.
 
 - Schema files: `docker/mysql/init/*.sql` (executed in alphabetical order)
+  - `01_schema.sql` - Table definitions only (no data)
+  - `02_indexes_optimization.sql` - Performance indexes
+  - `03_seed_data.sql` - Initial data (INSERT IGNORE)
 - Sync service: `schema-sync` container runs `scripts/check-schema.sh`
 - Backend starts ONLY after schema-sync completes successfully
 
@@ -199,6 +212,11 @@ internal/
 2. Use `CREATE TABLE IF NOT EXISTS` or `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
 3. Run `docker-compose up -d --build` or `docker-compose restart schema-sync backend`
 4. Check logs: `docker logs scholar_schema_sync`
+
+**To add/modify seed data**:
+1. Edit `docker/mysql/init/03_seed_data.sql`
+2. Use `INSERT IGNORE` instead of `ON DUPLICATE KEY UPDATE`
+3. This ensures重启不会覆盖已修改的数据
 
 **Never** use `DROP TABLE` or destructive operations in init scripts. Always make schema changes idempotent.
 
@@ -259,6 +277,31 @@ The platform includes a subscription management system with quota tracking:
 - `backend/internal/order/` - Order processing
 - Quota checks integrated into conversation and search endpoints
 - Background tasks for quota reset and cleanup
+
+### Payment System
+
+The platform integrates with Alipay for payment processing:
+
+- **Alipay Integration**: Supports web and mobile payment flows
+- **Order Management**: Links orders with subscription purchases
+- **Payment Verification**: Validates Alipay callbacks and signatures
+- **Refund Support**: Admin can process refunds through the system
+
+**Implementation**:
+- `backend/internal/payment/` - Alipay payment handler, service, and repository
+- Payment callbacks trigger subscription activation
+- Secure signature verification for all payment notifications
+
+### WeChat Integration
+
+The platform includes WeChat integration for Chinese market:
+
+- **Mini Program Support**: Backend support for WeChat Mini Program authentication
+- **WeChat OAuth**: Login via WeChat (schema ready)
+- **WeChat Pay**: (Can be extended from payment module)
+
+**Implementation**:
+- `backend/internal/wechat/` - WeChat authentication and API integration
 
 ### Authentication System
 
