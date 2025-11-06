@@ -107,7 +107,7 @@ func SendEmailWithTLS(config EmailConfig, to []string, subject, body string) err
 	// Authenticate
 	auth := smtp.PlainAuth("", config.SMTPUser, config.SMTPPassword, config.SMTPHost)
 	if err = client.Auth(auth); err != nil {
-		return fmt.Errorf("authentication failed: %w", err)
+		return fmt.Errorf("authentication failed (user: %s, host: %s, port: %d): %w", config.SMTPUser, config.SMTPHost, config.SMTPPort, err)
 	}
 
 	// Set sender
