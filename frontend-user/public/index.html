@@ -10,6 +10,18 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo.png" />
     <title>Scholay - Academic Search</title>
+    <style>
+      /* 初始加载样式 - React加载后会自动移除 */
+      #root:empty {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+      }
+      /* 全局重置，避免白色闪烁 */
+      body {
+        margin: 0;
+        background: #f5f5f5;
+      }
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

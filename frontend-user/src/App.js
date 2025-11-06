@@ -19,24 +19,6 @@ const WeChatCallback = lazy(() => import('./pages/WeChatCallback'));
 const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
 const AuthModal = lazy(() => import('./components/AuthModal'));
 
-// Loading组件 - 页面加载时的占位符
-const PageLoader = () => (
-  <div style={{
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100vh',
-    fontSize: '18px',
-    color: '#666',
-    backgroundColor: '#f5f5f5'
-  }}>
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ marginBottom: '10px' }}>⏳</div>
-      <div>加载中...</div>
-    </div>
-  </div>
-);
-
 function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -56,7 +38,7 @@ function App() {
     <ToastProvider>
       <AuthProvider>
         <Router>
-          <Suspense fallback={<PageLoader />}>
+          <Suspense fallback={null}>
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/search" element={<Navigate to="/" replace />} />

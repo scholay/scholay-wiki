@@ -1,13 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
-import AuthModal from '../components/AuthModal';
 import SearchFilters from '../components/SearchFilters';
 import AppSidebar from '../components/AppSidebar';
 import Logo from '../components/Logo';
 import ModelSelector from '../components/ModelSelector';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import './Home.css';
+
+// 懒加载 AuthModal - 只在需要时加载
+const AuthModal = lazy(() => import('../components/AuthModal'));
 
 const Home = () => {
   const navigate = useNavigate();
@@ -405,11 +407,16 @@ const Home = () => {
         </div>
       </div>
 
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onLoginSuccess={handleLoginSuccess}
-      />
+      {/* 条件渲染 AuthModal - 只在需要时加载 */}
+      {showAuthModal && (
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+            onLoginSuccess={handleLoginSuccess}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };
