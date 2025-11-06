@@ -3,17 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import api, { orderAPI, paymentAPI } from '../services/api';
-import AppSidebar from '../components/AppSidebar';
 import './Settings.css';
 
 const Settings = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user, logout, refreshUser } = useAuth();
   const { showSuccess, showError, showInfo } = useToast();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    const saved = localStorage.getItem('sidebarCollapsed');
-    return saved !== null ? JSON.parse(saved) : true;
-  });
 
   const [activeTab, setActiveTab] = useState('profile'); // profile, account, ai, highlight, subscription
   const [loading, setLoading] = useState(false);
@@ -65,13 +60,13 @@ const Settings = () => {
   const [billingCycle, setBillingCycle] = useState('monthly');
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/');
-      return;
+    // Allow authenticated users to stay on this page
+    // No redirect needed - if not authenticated, they can still view the page structure
+    if (isAuthenticated) {
+      fetchUserProfile();
+      fetchSubscriptionData();
     }
-    fetchUserProfile();
-    fetchSubscriptionData();
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (activeTab === 'subscription') {
@@ -79,9 +74,6 @@ const Settings = () => {
     }
   }, [activeTab]);
 
-  useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
-  }, [sidebarCollapsed]);
 
   // Countdown for phone code
   useEffect(() => {
@@ -157,9 +149,6 @@ const Settings = () => {
     navigate('/');
   };
 
-  const handleToggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed);
-  };
 
   const handleProfileSave = async () => {
     setLoading(true);
@@ -1528,20 +1517,27 @@ const Settings = () => {
 
   return (
     <div className="settings-page">
-      {isAuthenticated && (
-        <AppSidebar
-          user={user}
-          onLogout={handleLogout}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={handleToggleSidebar}
-          showHistory={false}
-        />
-      )}
-
-      <div className={`settings-container ${isAuthenticated ? (sidebarCollapsed ? 'sidebar-collapsed-narrow' : 'has-sidebar') : 'sidebar-collapsed'}`}>
+      <div className="settings-container">
         <div className="settings-layout">
           {/* Left Sidebar */}
           <div className="settings-sidebar">
+            {/* Logo and Brand */}
+            <div className="settings-brand">
+              <div className="brand-logo">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="3" width="18" height="18" rx="3" fill="url(#gradient)" />
+                  <path d="M8 9h8M8 12h8M8 15h5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                  <defs>
+                    <linearGradient id="gradient" x1="3" y1="3" x2="21" y2="21">
+                      <stop offset="0%" stopColor="#10a37f" />
+                      <stop offset="100%" stopColor="#1a7f64" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+              <span className="brand-name">Scholar</span>
+            </div>
+
             <h1 className="settings-title">设置</h1>
 
             <div className="settings-menu">
