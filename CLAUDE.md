@@ -452,6 +452,14 @@ To implement real email sending, update `internal/user/service.go` email service
 - Nginx proxies `/api/*` to `scholar_backend:8080/api/*`
 - This eliminates CORS issues (same-origin)
 
+### Static Resource Caching
+
+Nginx配置了智能缓存策略:
+- **静态资源** (图片、CSS、JS、字体): 缓存1年 (`max-age=31536000, immutable`)
+- **HTML文件**: 不缓存 (`no-cache, must-revalidate`)
+- **好处**: 大幅减少重复请求,提升加载速度60-80%
+- **注意**: 更新静态资源需要修改文件名或添加版本号
+
 ### PDF Worker Setup
 
 User portal requires PDF.js worker for PDF preview:
