@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS `sms_configs` (
   `sign_name` VARCHAR(100) NOT NULL COMMENT 'SMS signature name',
   `template_code` VARCHAR(50) NOT NULL COMMENT 'SMS template code',
   `template_content` TEXT NOT NULL COMMENT 'SMS template content with variables like ${code}',
-  `endpoint` VARCHAR(255) NOT NULL DEFAULT 'dysmsapi.aliyuncs.com' COMMENT 'Aliyun SMS endpoint',
+  `endpoint` VARCHAR(255) NOT NULL DEFAULT 'dypnsapi.aliyuncs.com' COMMENT 'Aliyun Phone Number Service endpoint',
   `is_active` BOOLEAN NOT NULL DEFAULT TRUE,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -110,6 +110,37 @@ CREATE TABLE IF NOT EXISTS `sms_configs` (
   INDEX `idx_is_active` (`is_active`),
   INDEX `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='SMS service configurations (Aliyun)';
+
+-- Alipay configurations
+CREATE TABLE IF NOT EXISTS `alipay_configs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `app_id` VARCHAR(32) NOT NULL COMMENT 'Alipay App ID',
+  `private_key` TEXT NOT NULL COMMENT 'Application private key (PKCS8 format)',
+  `alipay_public_key` TEXT NOT NULL COMMENT 'Alipay public key',
+  `gateway_url` VARCHAR(255) NOT NULL DEFAULT 'https://openapi.alipay.com/gateway.do' COMMENT 'Alipay gateway URL',
+  `notify_url` VARCHAR(255) NOT NULL COMMENT 'Payment callback URL',
+  `return_url` VARCHAR(255) COMMENT 'Return URL after payment',
+  `is_sandbox` BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Whether using sandbox environment',
+  `is_active` BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Whether this config is active',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_is_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Alipay payment configurations';
+
+-- WeChat OAuth configurations
+CREATE TABLE IF NOT EXISTS `wechat_configs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `app_id` VARCHAR(32) NOT NULL COMMENT 'WeChat App ID',
+  `app_secret` VARCHAR(64) NOT NULL COMMENT 'WeChat App Secret',
+  `redirect_uri` VARCHAR(255) NOT NULL COMMENT 'OAuth redirect URI',
+  `scope` VARCHAR(50) NOT NULL DEFAULT 'snsapi_login' COMMENT 'OAuth scope: snsapi_login for web, snsapi_userinfo for mobile',
+  `is_active` BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Whether this config is active',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_is_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='WeChat OAuth configurations';
 
 -- System configurations
 CREATE TABLE IF NOT EXISTS `system_configs` (

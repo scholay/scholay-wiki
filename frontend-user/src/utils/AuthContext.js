@@ -117,11 +117,33 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // Update user data in state and localStorage
+  const updateUser = (userData) => {
+    localStorage.setItem('user_data', JSON.stringify(userData));
+    setUser(userData);
+  };
+
+  // Refresh user data from backend
+  const refreshUser = async () => {
+    try {
+      const response = await userAPI.getProfile();
+      if (response.data.code === 0 && response.data.data) {
+        updateUser(response.data.data);
+        return response.data.data;
+      }
+    } catch (error) {
+      console.error('Failed to refresh user data:', error);
+    }
+    return null;
+  };
+
   const value = {
     isAuthenticated,
     user,
     login,
     logout,
+    updateUser,
+    refreshUser,
     loading,
   };
 

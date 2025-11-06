@@ -905,3 +905,427 @@
     width: 100%;
   }
 }
+
+/* Account Binding Cards */
+.account-bindings {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.account-binding-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.account-binding-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.binding-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(16, 163, 127, 0.1);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #10a37f;
+}
+
+.binding-icon-wechat {
+  background: rgba(7, 193, 96, 0.1);
+  border-color: rgba(7, 193, 96, 0.2);
+  color: #07c160;
+}
+
+.binding-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.binding-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 4px;
+}
+
+.binding-value {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.binding-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+}
+
+.btn-action {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-action-primary {
+  background: linear-gradient(135deg, #10a37f 0%, #1a7f64 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.3);
+}
+
+.btn-action-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.5);
+}
+
+.btn-action-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btn-action-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+.btn-action-danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-action-danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.5);
+  transform: translateY(-2px);
+}
+
+/* Change Password Button */
+.password-change-section {
+  margin-top: 32px;
+  padding-top: 32px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-change-password {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+  justify-content: center;
+}
+
+.btn-change-password:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.btn-change-password svg {
+  flex-shrink: 0;
+}
+
+/* Account Modal */
+.account-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.account-modal {
+  background: #2a2a2a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.6);
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-info {
+  padding: 16px;
+  background: rgba(16, 163, 127, 0.1);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.modal-info.modal-warning {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.2);
+}
+
+.modal-info p {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.5;
+}
+
+.modal-info p:not(:last-child) {
+  margin-bottom: 8px;
+}
+
+.modal-info strong {
+  color: white;
+  font-weight: 600;
+}
+
+.warning-text {
+  color: #fbbf24 !important;
+  font-weight: 500;
+}
+
+.modal-form-group {
+  margin-bottom: 20px;
+}
+
+.modal-form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 8px;
+}
+
+.modal-form-group input {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.modal-form-group input:focus {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #10a37f;
+  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
+}
+
+.modal-form-group input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.modal-code-input {
+  display: flex;
+  gap: 10px;
+}
+
+.modal-code-input input {
+  flex: 1;
+}
+
+.btn-send-code {
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  min-width: 100px;
+}
+
+.btn-send-code:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.btn-send-code:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-modal-submit {
+  width: 100%;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #10a37f 0%, #1a7f64 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
+  margin-top: 4px;
+}
+
+.btn-modal-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 163, 127, 0.5);
+}
+
+.btn-modal-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-modal-submit.btn-modal-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.btn-modal-submit.btn-modal-danger:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+}
+
+/* Link button style for modal */
+.btn-link {
+  background: none;
+  border: none;
+  color: #10a37f;
+  padding: 0;
+  margin-left: 12px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  text-decoration: underline;
+  transition: opacity 0.2s;
+}
+
+.btn-link:hover {
+  opacity: 0.8;
+}
+
+/* Mobile Responsive for Account Management */
+@media (max-width: 640px) {
+  .account-binding-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .binding-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .btn-action {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .account-modal {
+    margin: 0;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .modal-code-input {
+    flex-direction: column;
+  }
+
+  .btn-send-code {
+    width: 100%;
+  }
+}

@@ -2,9 +2,12 @@ package user
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"scholar-backend/internal/common/model"
+	conversationModel "scholar-backend/internal/conversation"
+	subscriptionModel "scholar-backend/internal/subscription"
 	"gorm.io/gorm"
 )
 
@@ -49,6 +52,19 @@ func (r *Repository) FindByID(id uint) (*User, error) {
 	return &user, nil
 }
 
+// FindByUsername finds a user by username
+func (r *Repository) FindByUsername(username string) (*User, error) {
+	var user User
+	err := r.db.Where("username = ?", username).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
 // Create creates a new user
 func (r *Repository) Create(user *User) error {
 	return r.db.Create(user).Error
@@ -63,6 +79,11 @@ func (r *Repository) Update(user *User) error {
 func (r *Repository) UpdateLastLogin(id uint) error {
 	now := time.Now()
 	return r.db.Model(&User{}).Where("id = ?", id).Update("last_login_at", now).Error
+}
+
+// UpdatePassword updates the user's password
+func (r *Repository) UpdatePassword(id uint, passwordHash string) error {
+	return r.db.Model(&User{}).Where("id = ?", id).Update("password_hash", passwordHash).Error
 }
 
 // CreateVerificationCode creates a new verification code
@@ -294,4 +315,88 @@ func (r *Repository) CreateOnlineUserSnapshot(timestamp time.Time, onlineCount i
 		OnlineCount: onlineCount,
 	}
 	return r.db.Create(snapshot).Error
+}
+
+// FindByPhone finds a user by phone number
+func (r *Repository) FindByPhone(phone string) (*User, error) {
+	var user User
+	err := r.db.Where("phone = ?", phone).First(&user).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &user, err
+}
+
+// FindAuthProviderByUserAndProvider finds auth provider by user ID and provider type
+func (r *Repository) FindAuthProviderByUserAndProvider(userID uint, provider string) (*UserAuthProvider, error) {
+	var authProvider UserAuthProvider
+	err := r.db.Where("user_id = ? AND provider = ?", userID, provider).First(&authProvider).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &authProvider, err
+}
+
+// UpdateAuthProvider updates an auth provider record
+func (r *Repository) UpdateAuthProvider(provider *UserAuthProvider) error {
+	return r.db.Save(provider).Error
+}
+
+// DeleteAuthProvider deletes an auth provider by ID
+func (r *Repository) DeleteAuthProvider(id uint) error {
+	return r.db.Delete(&UserAuthProvider{}, id).Error
+}
+
+// FindAuthProviderByProviderAndProviderUserID finds auth provider by provider type and provider user ID
+func (r *Repository) FindAuthProviderByProviderAndProviderUserID(provider, providerUserID string) (*UserAuthProvider, error) {
+	var authProvider UserAuthProvider
+	err := r.db.Where("provider = ? AND provider_user_id = ?", provider, providerUserID).First(&authProvider).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &authProvider, err
+}
+
+// DeleteUser deletes a user and all associated data (except statistics)
+// This method performs a cascading delete for all user-related data
+func (r *Repository) DeleteUser(userID uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Delete usage quotas (not cascaded by FK)
+		if err := tx.Where("user_id = ?", userID).Delete(&subscriptionModel.UsageQuota{}).Error; err != nil {
+			return fmt.Errorf("failed to delete usage quotas: %w", err)
+		}
+
+		// 2. Delete conversation messages (not directly cascaded)
+		// First get all conversation IDs for this user
+		var conversationIDs []uint
+		if err := tx.Model(&conversationModel.Conversation{}).
+			Where("user_id = ?", userID).
+			Pluck("id", &conversationIDs).Error; err != nil {
+			return fmt.Errorf("failed to get conversation IDs: %w", err)
+		}
+
+		// Delete all messages for these conversations
+		if len(conversationIDs) > 0 {
+			if err := tx.Where("conversation_id IN ?", conversationIDs).
+				Delete(&conversationModel.ConversationMessage{}).Error; err != nil {
+				return fmt.Errorf("failed to delete conversation messages: %w", err)
+			}
+		}
+
+		// 3. Delete the user (this will cascade delete the following via FK constraints):
+		//    - user_auth_providers (ON DELETE CASCADE)
+		//    - user_sessions (ON DELETE CASCADE)
+		//    - conversations (ON DELETE CASCADE)
+		//    - user_subscriptions (ON DELETE CASCADE)
+		//    - orders (ON DELETE CASCADE)
+		//    - payment_transactions (via orders ON DELETE CASCADE)
+		if err := tx.Delete(&User{}, userID).Error; err != nil {
+			return fmt.Errorf("failed to delete user: %w", err)
+		}
+
+		// Note: user_statistics and online_user_snapshots are intentionally NOT deleted
+		// as they are kept for historical statistical analysis
+
+		return nil
+	})
 }

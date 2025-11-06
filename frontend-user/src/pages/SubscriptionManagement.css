@@ -619,6 +619,50 @@
   font-weight: 600;
 }
 
+.order-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btn-pay-order,
+.btn-cancel-order {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-pay-order {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-pay-order:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+}
+
+.btn-cancel-order {
+  background: rgba(156, 163, 175, 0.2);
+  color: #9ca3af;
+  border: 1px solid rgba(156, 163, 175, 0.3);
+}
+
+.btn-cancel-order:hover:not(:disabled) {
+  background: rgba(156, 163, 175, 0.3);
+  border-color: rgba(156, 163, 175, 0.4);
+}
+
+.btn-pay-order:disabled,
+.btn-cancel-order:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .order-status.status-pending {
   background: rgba(251, 191, 36, 0.2);
   color: #fbbf24;

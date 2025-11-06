@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
-import api from '../services/api';
+import { useToast } from '../components/ToastContainer';
+import api, { orderAPI, paymentAPI } from '../services/api';
 import AppSidebar from '../components/AppSidebar';
 import './Settings.css';
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, refreshUser } = useAuth();
+  const { showSuccess, showError, showInfo } = useToast();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebarCollapsed');
     return saved !== null ? JSON.parse(saved) : true;
@@ -15,7 +17,6 @@ const Settings = () => {
 
   const [activeTab, setActiveTab] = useState('profile'); // profile, account, ai, highlight, subscription
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
 
   // Profile form state
   const [profile, setProfile] = useState({
@@ -30,6 +31,32 @@ const Settings = () => {
     newPassword: '',
     confirmPassword: ''
   });
+
+  // Binding form state
+  const [bindPhone, setBindPhone] = useState('');
+  const [bindEmail, setBindEmail] = useState('');
+  const [bindPhoneCode, setBindPhoneCode] = useState('');
+  const [bindEmailCode, setBindEmailCode] = useState('');
+  const [phoneCodeCountdown, setPhoneCodeCountdown] = useState(0);
+  const [emailCodeCountdown, setEmailCodeCountdown] = useState(0);
+
+  // Account management modal state
+  const [accountModal, setAccountModal] = useState({
+    show: false,
+    type: '', // 'bind-email', 'bind-phone', 'bind-wechat', 'unbind-email', 'unbind-phone', 'unbind-wechat', 'rebind-email', 'rebind-phone'
+    title: '',
+    currentValue: '', // for unbind/rebind
+    step: 1 // 1 = enter email/phone, 2 = enter verification code
+  });
+  const [modalForm, setModalForm] = useState({
+    email: '',
+    phone: '',
+    code: '',
+    password: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [modalCodeCountdown, setModalCodeCountdown] = useState(0);
 
   // Subscription state
   const [currentSubscription, setCurrentSubscription] = useState(null);
@@ -56,11 +83,42 @@ const Settings = () => {
     localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
+  // Countdown for phone code
+  useEffect(() => {
+    if (phoneCodeCountdown > 0) {
+      const timer = setTimeout(() => setPhoneCodeCountdown(phoneCodeCountdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [phoneCodeCountdown]);
+
+  // Countdown for email code
+  useEffect(() => {
+    if (emailCodeCountdown > 0) {
+      const timer = setTimeout(() => setEmailCodeCountdown(emailCodeCountdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [emailCodeCountdown]);
+
+  // Countdown for modal code
+  useEffect(() => {
+    if (modalCodeCountdown > 0) {
+      const timer = setTimeout(() => setModalCodeCountdown(modalCodeCountdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [modalCodeCountdown]);
+
   const fetchUserProfile = async () => {
     try {
-      // Assuming there's an API endpoint to get user profile
-      // For now, we'll use the user data from AuthContext
-      if (user) {
+      // Call refreshUser to get latest data from backend
+      const userData = await refreshUser();
+      if (userData) {
+        setProfile({
+          name: userData.username || userData.email || '',
+          userId: userData.id || '',
+          bio: userData.bio || ''
+        });
+      } else if (user) {
+        // Fallback to cached user data
         setProfile({
           name: user.username || user.email || '',
           userId: user.id || '',
@@ -105,7 +163,6 @@ const Settings = () => {
 
   const handleProfileSave = async () => {
     setLoading(true);
-    setMessage({ type: '', text: '' });
 
     try {
       // API call to update profile
@@ -115,12 +172,12 @@ const Settings = () => {
       });
 
       if (response.data.code === 0) {
-        setMessage({ type: 'success', text: '个人信息已保存' });
+        showSuccess('个人信息已保存');
       } else {
-        setMessage({ type: 'error', text: '保存失败：' + response.data.message });
+        showError('保存失败：' + response.data.message);
       }
     } catch (error) {
-      setMessage({ type: 'error', text: '保存失败，请稍后重试' });
+      showError('保存失败，请稍后重试');
       console.error('Failed to update profile:', error);
     } finally {
       setLoading(false);
@@ -129,17 +186,16 @@ const Settings = () => {
 
   const handlePasswordChange = async () => {
     if (accountForm.newPassword !== accountForm.confirmPassword) {
-      setMessage({ type: 'error', text: '两次输入的密码不一致' });
+      showError('两次输入的密码不一致');
       return;
     }
 
     if (accountForm.newPassword.length < 8) {
-      setMessage({ type: 'error', text: '新密码长度至少为8个字符' });
+      showError('新密码长度至少为8个字符');
       return;
     }
 
     setLoading(true);
-    setMessage({ type: '', text: '' });
 
     try {
       const response = await api.post('/user/change-password', {
@@ -148,44 +204,785 @@ const Settings = () => {
       });
 
       if (response.data.code === 0) {
-        setMessage({ type: 'success', text: '密码修改成功' });
+        showSuccess('密码修改成功');
         setAccountForm({
           currentPassword: '',
           newPassword: '',
           confirmPassword: ''
         });
       } else {
-        setMessage({ type: 'error', text: '密码修改失败：' + response.data.message });
+        showError('密码修改失败：' + response.data.message);
       }
     } catch (error) {
-      setMessage({ type: 'error', text: '密码修改失败，请稍后重试' });
+      showError('密码修改失败,请稍后重试');
       console.error('Failed to change password:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubscribe = async (planCode) => {
-    setSubscriptionLoading(true);
-    setMessage({ type: '', text: '' });
+  // Send phone verification code
+  const handleSendPhoneCode = async () => {
+    if (!bindPhone || !/^1[3-9]\d{9}$/.test(bindPhone)) {
+      showError('请输入有效的手机号码');
+      return;
+    }
+
+    if (phoneCodeCountdown > 0) return;
+
+    setLoading(true);
 
     try {
-      const duration = billingCycle === 'monthly' ? 1 : 12;
-      const response = await api.post('/user/subscription/upgrade', {
-        plan_code: planCode,
-        duration: duration
+      const response = await api.post('/user/send-phone-code', {
+        phone: bindPhone,
+        purpose: 'bind'
       });
 
       if (response.data.code === 0) {
-        setMessage({ type: 'success', text: '订阅成功！' });
-        fetchSubscriptionData();
+        setPhoneCodeCountdown(60);
+        showSuccess('验证码已发送');
       } else {
-        setMessage({ type: 'error', text: '订阅失败：' + response.data.message });
+        showError('发送验证码失败：' + response.data.message);
       }
     } catch (error) {
-      setMessage({ type: 'error', text: '订阅失败，请稍后重试' });
-      console.error('Failed to subscribe:', error);
+      showError('发送验证码失败,请稍后重试');
+      console.error('Failed to send phone code:', error);
     } finally {
+      setLoading(false);
+    }
+  };
+
+  // Send email verification code
+  const handleSendEmailCode = async () => {
+    if (!bindEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bindEmail)) {
+      showError('请输入有效的邮箱地址');
+      return;
+    }
+
+    if (emailCodeCountdown > 0) return;
+
+    setLoading(true);
+
+    try {
+      const response = await api.post('/user/send-code', {
+        email: bindEmail,
+        purpose: 'bind'
+      });
+
+      if (response.data.code === 0) {
+        setEmailCodeCountdown(60);
+        showSuccess('验证码已发送');
+      } else {
+        showError('发送验证码失败：' + response.data.message);
+      }
+    } catch (error) {
+      showError('发送验证码失败,请稍后重试');
+      console.error('Failed to send email code:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Bind phone
+  const handleBindPhone = async () => {
+    if (!bindPhone || !/^1[3-9]\d{9}$/.test(bindPhone)) {
+      showError('请输入有效的手机号码');
+      return;
+    }
+
+    if (!bindPhoneCode) {
+      showError('请输入验证码');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await api.post('/user/bind-phone', {
+        phone: bindPhone,
+        code: bindPhoneCode
+      });
+
+      if (response.data.code === 0) {
+        showSuccess('手机号绑定成功');
+        setBindPhone('');
+        setBindPhoneCode('');
+        // Refresh user profile
+        fetchUserProfile();
+      } else {
+        showError('绑定失败：' + response.data.message);
+      }
+    } catch (error) {
+      showError('绑定失败,请稍后重试');
+      console.error('Failed to bind phone:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Bind email
+  const handleBindEmail = async () => {
+    if (!bindEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bindEmail)) {
+      showError('请输入有效的邮箱地址');
+      return;
+    }
+
+    if (!bindEmailCode) {
+      showError('请输入验证码');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await api.post('/user/bind-email', {
+        email: bindEmail,
+        code: bindEmailCode
+      });
+
+      if (response.data.code === 0) {
+        showSuccess('邮箱绑定成功');
+        setBindEmail('');
+        setBindEmailCode('');
+        // Refresh user profile
+        fetchUserProfile();
+      } else {
+        showError('绑定失败：' + response.data.message);
+      }
+    } catch (error) {
+      showError('绑定失败,请稍后重试');
+      console.error('Failed to bind email:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // WeChat binding
+  const handleBindWeChat = async () => {
+    try {
+      // Generate random state for CSRF protection
+      const state = Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('wechat_bind_state', state);
+      localStorage.setItem('wechat_bind_mode', 'bind'); // Mark as binding mode
+
+      // Get WeChat login URL from backend
+      const response = await api.get('/user/wechat/login-url', { params: { state } });
+
+      if (response.data.code === 0 && response.data.data) {
+        const loginURL = response.data.data.login_url;
+        // Redirect to WeChat OAuth page
+        window.location.href = loginURL;
+      } else {
+        showError('获取微信登录链接失败');
+      }
+    } catch (err) {
+      console.error('WeChat binding error:', err);
+      showError('微信绑定失败,请稍后重试');
+    }
+  };
+
+  // Count available login methods
+  const getLoginMethodCount = () => {
+    let count = 0;
+    if (user?.email) count++;
+    if (user?.phone) count++;
+    if (user?.wechat_openid) count++;
+    return count;
+  };
+
+  // Modal handlers
+  const handleOpenModal = (type, currentValue) => {
+    const titles = {
+      'bind-email': '绑定邮箱',
+      'bind-phone': '绑定手机号',
+      'rebind-email': '换绑邮箱',
+      'rebind-phone': '换绑手机号',
+      'unbind-email': '解绑邮箱',
+      'unbind-phone': '解绑手机号',
+      'unbind-wechat': '解绑微信',
+      'change-password': '修改密码'
+    };
+
+    setAccountModal({
+      show: true,
+      type,
+      title: titles[type] || '',
+      currentValue,
+      step: 1 // Always start at step 1
+    });
+
+    // Reset form
+    setModalForm({
+      email: '',
+      phone: '',
+      code: '',
+      password: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setModalCodeCountdown(0);
+  };
+
+  const handleCloseModal = () => {
+    setAccountModal({
+      show: false,
+      type: '',
+      title: '',
+      currentValue: '',
+      step: 1
+    });
+    setModalForm({
+      email: '',
+      phone: '',
+      code: '',
+      password: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setModalCodeCountdown(0);
+  };
+
+  // Check availability and proceed to step 2 (for bind/rebind operations)
+  const handleCheckAvailability = async () => {
+    const type = accountModal.type;
+    setLoading(true);
+
+    try {
+      let response;
+
+      if (type.includes('email')) {
+        // Validate email format
+        if (!modalForm.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(modalForm.email)) {
+          showError('请输入有效的邮箱地址');
+          setLoading(false);
+          return;
+        }
+
+        // Check email availability
+        response = await api.post('/user/check-email-availability', {
+          email: modalForm.email
+        });
+      } else if (type.includes('phone')) {
+        // Validate phone format
+        if (!modalForm.phone || !/^1[3-9]\d{9}$/.test(modalForm.phone)) {
+          showError('请输入有效的手机号码');
+          setLoading(false);
+          return;
+        }
+
+        // Check phone availability
+        response = await api.post('/user/check-phone-availability', {
+          phone: modalForm.phone
+        });
+      }
+
+      if (response && response.data.code === 0) {
+        if (response.data.data.available) {
+          // Available - proceed to step 2
+          setAccountModal(prev => ({ ...prev, step: 2 }));
+          showSuccess('验证通过,请继续输入验证码');
+        } else {
+          // Not available
+          if (type.includes('email')) {
+            showError('该邮箱已被其他账号绑定');
+          } else {
+            showError('该手机号已被其他账号绑定');
+          }
+        }
+      } else {
+        showError('检查失败：' + (response?.data?.message || '未知错误'));
+      }
+    } catch (error) {
+      showError('检查失败,请稍后重试');
+      console.error('Failed to check availability:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Send modal verification code
+  const handleSendModalCode = async () => {
+    if (modalCodeCountdown > 0) return;
+
+    const type = accountModal.type;
+    let endpoint = '';
+    let payload = {};
+    let purpose = '';
+
+    // Determine endpoint and purpose based on modal type
+    if (type.includes('email')) {
+      if (!modalForm.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(modalForm.email)) {
+        showError('请输入有效的邮箱地址');
+        return;
+      }
+      endpoint = '/user/send-code';
+      payload = { email: modalForm.email, purpose: type.includes('bind') ? 'bind' : 'unbind' };
+    } else if (type.includes('phone')) {
+      if (!modalForm.phone || !/^1[3-9]\d{9}$/.test(modalForm.phone)) {
+        showError('请输入有效的手机号码');
+        return;
+      }
+      endpoint = '/user/send-phone-code';
+      payload = { phone: modalForm.phone, purpose: type.includes('bind') ? 'bind' : 'unbind' };
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await api.post(endpoint, payload);
+
+      if (response.data.code === 0) {
+        setModalCodeCountdown(60);
+        showSuccess('验证码已发送');
+      } else {
+        showError('发送验证码失败：' + response.data.message);
+      }
+    } catch (error) {
+      showError('发送验证码失败,请稍后重试');
+      console.error('Failed to send code:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle modal submit
+  const handleModalSubmit = async () => {
+    const type = accountModal.type;
+    setLoading(true);
+
+    try {
+      let response;
+
+      switch (type) {
+        case 'bind-email':
+          if (!modalForm.email || !modalForm.code) {
+            showError('请填写完整信息');
+            setLoading(false);
+            return;
+          }
+          response = await api.post('/user/bind-email', {
+            email: modalForm.email,
+            code: modalForm.code
+          });
+          break;
+
+        case 'bind-phone':
+          if (!modalForm.phone || !modalForm.code) {
+            showError('请填写完整信息');
+            setLoading(false);
+            return;
+          }
+          response = await api.post('/user/bind-phone', {
+            phone: modalForm.phone,
+            code: modalForm.code
+          });
+          break;
+
+        case 'rebind-email':
+          if (!modalForm.email || !modalForm.code) {
+            showError('请填写完整信息');
+            setLoading(false);
+            return;
+          }
+          // Direct replacement - bind new email (will replace the old one)
+          response = await api.post('/user/bind-email', {
+            email: modalForm.email,
+            code: modalForm.code
+          });
+          break;
+
+        case 'rebind-phone':
+          if (!modalForm.phone || !modalForm.code) {
+            showError('请填写完整信息');
+            setLoading(false);
+            return;
+          }
+          // Direct replacement - bind new phone (will replace the old one)
+          response = await api.post('/user/bind-phone', {
+            phone: modalForm.phone,
+            code: modalForm.code
+          });
+          break;
+
+        case 'unbind-email':
+          if (!modalForm.code) {
+            showError('请输入验证码');
+            setLoading(false);
+            return;
+          }
+          response = await api.post('/user/unbind-email', { code: modalForm.code });
+          break;
+
+        case 'unbind-phone':
+          if (!modalForm.code) {
+            showError('请输入验证码');
+            setLoading(false);
+            return;
+          }
+          response = await api.post('/user/unbind-phone', { code: modalForm.code });
+          break;
+
+        case 'unbind-wechat':
+          response = await api.post('/user/unbind-wechat');
+          break;
+
+        case 'change-password':
+          if (!modalForm.password || !modalForm.newPassword || !modalForm.confirmPassword) {
+            showError('请填写完整信息');
+            setLoading(false);
+            return;
+          }
+          if (modalForm.newPassword !== modalForm.confirmPassword) {
+            showError('两次输入的密码不一致');
+            setLoading(false);
+            return;
+          }
+          if (modalForm.newPassword.length < 8) {
+            showError('新密码长度至少为8个字符');
+            setLoading(false);
+            return;
+          }
+          response = await api.post('/user/change-password', {
+            current_password: modalForm.password,
+            new_password: modalForm.newPassword
+          });
+          break;
+
+        default:
+          setLoading(false);
+          return;
+      }
+
+      if (response && response.data.code === 0) {
+        showSuccess('操作成功');
+        handleCloseModal();
+        // Refresh user profile
+        fetchUserProfile();
+      } else {
+        showError('操作失败：' + (response?.data?.message || '未知错误'));
+      }
+    } catch (error) {
+      showError('操作失败,请稍后重试');
+      console.error('Modal submit error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Render modal content based on type
+  const renderModalContent = () => {
+    const type = accountModal.type;
+    const step = accountModal.step;
+
+    if (type === 'bind-email' || type === 'rebind-email') {
+      if (step === 1) {
+        // Step 1: Enter email and check availability
+        return (
+          <>
+            {type === 'rebind-email' && (
+              <div className="modal-info">
+                <p>当前邮箱: <strong>{accountModal.currentValue}</strong></p>
+                <p>请输入新邮箱地址</p>
+              </div>
+            )}
+            <div className="modal-form-group">
+              <label>新邮箱地址</label>
+              <input
+                type="email"
+                value={modalForm.email}
+                onChange={(e) => setModalForm({ ...modalForm, email: e.target.value })}
+                placeholder="输入邮箱地址"
+              />
+            </div>
+            <button className="btn-modal-submit" onClick={handleCheckAvailability} disabled={loading}>
+              {loading ? '检查中...' : '继续'}
+            </button>
+          </>
+        );
+      } else {
+        // Step 2: Enter verification code
+        return (
+          <>
+            <div className="modal-info">
+              <p>邮箱: <strong>{modalForm.email}</strong></p>
+              <button
+                className="btn-link"
+                onClick={() => setAccountModal(prev => ({ ...prev, step: 1 }))}
+              >
+                返回修改
+              </button>
+            </div>
+            <div className="modal-form-group">
+              <label>验证码</label>
+              <div className="modal-code-input">
+                <input
+                  type="text"
+                  value={modalForm.code}
+                  onChange={(e) => setModalForm({ ...modalForm, code: e.target.value })}
+                  placeholder="输入验证码"
+                  maxLength={6}
+                />
+                <button
+                  className="btn-send-code"
+                  onClick={handleSendModalCode}
+                  disabled={modalCodeCountdown > 0 || loading}
+                >
+                  {modalCodeCountdown > 0 ? `${modalCodeCountdown}秒` : '发送验证码'}
+                </button>
+              </div>
+            </div>
+            <button className="btn-modal-submit" onClick={handleModalSubmit} disabled={loading}>
+              {loading ? '处理中...' : '确认'}
+            </button>
+          </>
+        );
+      }
+    }
+
+    if (type === 'bind-phone' || type === 'rebind-phone') {
+      if (step === 1) {
+        // Step 1: Enter phone and check availability
+        return (
+          <>
+            {type === 'rebind-phone' && (
+              <div className="modal-info">
+                <p>当前手机号: <strong>{accountModal.currentValue}</strong></p>
+                <p>请输入新手机号</p>
+              </div>
+            )}
+            <div className="modal-form-group">
+              <label>新手机号</label>
+              <input
+                type="tel"
+                value={modalForm.phone}
+                onChange={(e) => setModalForm({ ...modalForm, phone: e.target.value.replace(/\D/g, '') })}
+                placeholder="输入11位手机号码"
+                maxLength={11}
+              />
+            </div>
+            <button className="btn-modal-submit" onClick={handleCheckAvailability} disabled={loading}>
+              {loading ? '检查中...' : '继续'}
+            </button>
+          </>
+        );
+      } else {
+        // Step 2: Enter verification code
+        return (
+          <>
+            <div className="modal-info">
+              <p>手机号: <strong>{modalForm.phone}</strong></p>
+              <button
+                className="btn-link"
+                onClick={() => setAccountModal(prev => ({ ...prev, step: 1 }))}
+              >
+                返回修改
+              </button>
+            </div>
+            <div className="modal-form-group">
+              <label>验证码</label>
+              <div className="modal-code-input">
+                <input
+                  type="text"
+                  value={modalForm.code}
+                  onChange={(e) => setModalForm({ ...modalForm, code: e.target.value })}
+                  placeholder="输入验证码"
+                  maxLength={6}
+                />
+                <button
+                  className="btn-send-code"
+                  onClick={handleSendModalCode}
+                  disabled={modalCodeCountdown > 0 || loading}
+                >
+                  {modalCodeCountdown > 0 ? `${modalCodeCountdown}秒` : '发送验证码'}
+                </button>
+              </div>
+            </div>
+            <button className="btn-modal-submit" onClick={handleModalSubmit} disabled={loading}>
+              {loading ? '处理中...' : '确认'}
+            </button>
+          </>
+        );
+      }
+    }
+
+    if (type === 'unbind-email') {
+      return (
+        <>
+          <div className="modal-info modal-warning">
+            <p>即将解绑邮箱: <strong>{accountModal.currentValue}</strong></p>
+            <p className="warning-text">注意：必须至少保留一种登录方式</p>
+          </div>
+          <div className="modal-form-group">
+            <label>验证码（将发送到当前邮箱）</label>
+            <div className="modal-code-input">
+              <input
+                type="text"
+                value={modalForm.code}
+                onChange={(e) => setModalForm({ ...modalForm, code: e.target.value })}
+                placeholder="输入验证码"
+                maxLength={6}
+              />
+              <button
+                className="btn-send-code"
+                onClick={async () => {
+                  if (modalCodeCountdown > 0) return;
+                  setLoading(true);
+                  try {
+                    const response = await api.post('/user/send-code', {
+                      email: user.email,
+                      purpose: 'unbind'
+                    });
+                    if (response.data.code === 0) {
+                      setModalCodeCountdown(60);
+                      showSuccess('验证码已发送');
+                    } else {
+                      showError(response.data.message);
+                    }
+                  } catch (err) {
+                    showError('发送失败');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={modalCodeCountdown > 0 || loading}
+              >
+                {modalCodeCountdown > 0 ? `${modalCodeCountdown}秒` : '发送验证码'}
+              </button>
+            </div>
+          </div>
+          <button className="btn-modal-submit btn-modal-danger" onClick={handleModalSubmit} disabled={loading}>
+            {loading ? '处理中...' : '确认解绑'}
+          </button>
+        </>
+      );
+    }
+
+    if (type === 'unbind-phone') {
+      return (
+        <>
+          <div className="modal-info modal-warning">
+            <p>即将解绑手机号: <strong>{accountModal.currentValue}</strong></p>
+            <p className="warning-text">注意：必须至少保留一种登录方式</p>
+          </div>
+          <div className="modal-form-group">
+            <label>验证码（将发送到当前手机）</label>
+            <div className="modal-code-input">
+              <input
+                type="text"
+                value={modalForm.code}
+                onChange={(e) => setModalForm({ ...modalForm, code: e.target.value })}
+                placeholder="输入验证码"
+                maxLength={6}
+              />
+              <button
+                className="btn-send-code"
+                onClick={async () => {
+                  if (modalCodeCountdown > 0) return;
+                  setLoading(true);
+                  try {
+                    const response = await api.post('/user/send-phone-code', {
+                      phone: user.phone,
+                      purpose: 'unbind'
+                    });
+                    if (response.data.code === 0) {
+                      setModalCodeCountdown(60);
+                      showSuccess('验证码已发送');
+                    } else {
+                      showError(response.data.message);
+                    }
+                  } catch (err) {
+                    showError('发送失败');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={modalCodeCountdown > 0 || loading}
+              >
+                {modalCodeCountdown > 0 ? `${modalCodeCountdown}秒` : '发送验证码'}
+              </button>
+            </div>
+          </div>
+          <button className="btn-modal-submit btn-modal-danger" onClick={handleModalSubmit} disabled={loading}>
+            {loading ? '处理中...' : '确认解绑'}
+          </button>
+        </>
+      );
+    }
+
+    if (type === 'unbind-wechat') {
+      return (
+        <>
+          <div className="modal-info modal-warning">
+            <p>即将解绑微信账号</p>
+            <p className="warning-text">注意：必须至少保留一种登录方式</p>
+          </div>
+          <button className="btn-modal-submit btn-modal-danger" onClick={handleModalSubmit} disabled={loading}>
+            {loading ? '处理中...' : '确认解绑'}
+          </button>
+        </>
+      );
+    }
+
+    if (type === 'change-password') {
+      return (
+        <>
+          <div className="modal-form-group">
+            <label>当前密码</label>
+            <input
+              type="password"
+              value={modalForm.password}
+              onChange={(e) => setModalForm({ ...modalForm, password: e.target.value })}
+              placeholder="输入当前密码"
+            />
+          </div>
+          <div className="modal-form-group">
+            <label>新密码</label>
+            <input
+              type="password"
+              value={modalForm.newPassword}
+              onChange={(e) => setModalForm({ ...modalForm, newPassword: e.target.value })}
+              placeholder="输入新密码（至少8个字符）"
+            />
+          </div>
+          <div className="modal-form-group">
+            <label>确认新密码</label>
+            <input
+              type="password"
+              value={modalForm.confirmPassword}
+              onChange={(e) => setModalForm({ ...modalForm, confirmPassword: e.target.value })}
+              placeholder="再次输入新密码"
+            />
+          </div>
+          <button className="btn-modal-submit" onClick={handleModalSubmit} disabled={loading}>
+            {loading ? '处理中...' : '确认修改'}
+          </button>
+        </>
+      );
+    }
+
+    return null;
+  };
+
+  const handleSubscribe = async (planCode) => {
+    setSubscriptionLoading(true);
+
+    try {
+      // Create order
+      const orderResponse = await orderAPI.createOrder(planCode, billingCycle);
+
+      if (orderResponse.data.code !== 0 || !orderResponse.data.data) {
+        showError('创建订单失败：' + (orderResponse.data.message || '未知错误'));
+        setSubscriptionLoading(false);
+        return;
+      }
+
+      const order = orderResponse.data.data;
+
+      // Navigate to order confirmation page
+      navigate('/order-confirmation', { state: { orderNo: order.order_no } });
+    } catch (error) {
+      showError('订阅失败，请稍后重试');
+      console.error('Failed to subscribe:', error);
       setSubscriptionLoading(false);
     }
   };
@@ -194,24 +991,24 @@ const Settings = () => {
     if (!currentSubscription) return;
 
     setSubscriptionLoading(true);
-    setMessage({ type: '', text: '' });
 
     try {
-      const duration = billingCycle === 'monthly' ? 1 : 12;
-      const response = await api.post('/user/subscription/renew', {
-        duration: duration
-      });
+      // Create order for renewal (use current plan)
+      const orderResponse = await orderAPI.createOrder(currentSubscription.plan_code, billingCycle);
 
-      if (response.data.code === 0) {
-        setMessage({ type: 'success', text: '续期成功！' });
-        fetchSubscriptionData();
-      } else {
-        setMessage({ type: 'error', text: '续期失败：' + response.data.message });
+      if (orderResponse.data.code !== 0 || !orderResponse.data.data) {
+        showError('创建续期订单失败：' + (orderResponse.data.message || '未知错误'));
+        setSubscriptionLoading(false);
+        return;
       }
+
+      const order = orderResponse.data.data;
+
+      // Navigate to order confirmation page
+      navigate('/order-confirmation', { state: { orderNo: order.order_no } });
     } catch (error) {
-      setMessage({ type: 'error', text: '续期失败，请稍后重试' });
+      showError('续期失败，请稍后重试');
       console.error('Failed to renew:', error);
-    } finally {
       setSubscriptionLoading(false);
     }
   };
@@ -329,56 +1126,131 @@ const Settings = () => {
     <div className="settings-section">
       <h2>账户管理</h2>
 
-      <div className="account-info-card">
-        <div className="info-row">
-          <span className="info-label">登录邮箱</span>
-          <span className="info-value">{user?.email || '未设置'}</span>
+      {/* Account Binding Cards */}
+      <div className="account-bindings">
+        {/* Email Card */}
+        <div className="account-binding-card">
+          <div className="binding-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+          </div>
+          <div className="binding-info">
+            <div className="binding-label">邮箱</div>
+            <div className="binding-value">{user?.email || '未绑定'}</div>
+          </div>
+          <div className="binding-actions">
+            {user?.email ? (
+              <>
+                <button className="btn-action btn-action-secondary" onClick={() => handleOpenModal('rebind-email', user.email)}>
+                  换绑
+                </button>
+                {getLoginMethodCount() > 1 && (
+                  <button className="btn-action btn-action-danger" onClick={() => handleOpenModal('unbind-email', user.email)}>
+                    解绑
+                  </button>
+                )}
+              </>
+            ) : (
+              <button className="btn-action btn-action-primary" onClick={() => handleOpenModal('bind-email', '')}>
+                绑定
+              </button>
+            )}
+          </div>
         </div>
-        <div className="info-row">
-          <span className="info-label">账号创建时间</span>
-          <span className="info-value">{user?.created_at ? new Date(user.created_at).toLocaleDateString('zh-CN') : '未知'}</span>
+
+        {/* Phone Card */}
+        <div className="account-binding-card">
+          <div className="binding-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+              <line x1="12" y1="18" x2="12.01" y2="18"/>
+            </svg>
+          </div>
+          <div className="binding-info">
+            <div className="binding-label">手机号</div>
+            <div className="binding-value">{user?.phone || '未绑定'}</div>
+          </div>
+          <div className="binding-actions">
+            {user?.phone ? (
+              <>
+                <button className="btn-action btn-action-secondary" onClick={() => handleOpenModal('rebind-phone', user.phone)}>
+                  换绑
+                </button>
+                {getLoginMethodCount() > 1 && (
+                  <button className="btn-action btn-action-danger" onClick={() => handleOpenModal('unbind-phone', user.phone)}>
+                    解绑
+                  </button>
+                )}
+              </>
+            ) : (
+              <button className="btn-action btn-action-primary" onClick={() => handleOpenModal('bind-phone', '')}>
+                绑定
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* WeChat Card */}
+        <div className="account-binding-card">
+          <div className="binding-icon binding-icon-wechat">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 0 1 .598.082l1.584.926a.272.272 0 0 0 .14.047c.134 0 .24-.111.24-.247 0-.06-.023-.12-.038-.177l-.327-1.233a.582.582 0 0 1-.023-.156.49.49 0 0 1 .201-.398C23.024 18.48 24 16.82 24 14.98c0-3.21-2.931-5.837-6.656-6.088V8.89c-.135-.01-.27-.027-.407-.03zm-2.53 3.274c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.969-.982zm4.844 0c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.969-.982z"/>
+            </svg>
+          </div>
+          <div className="binding-info">
+            <div className="binding-label">微信</div>
+            <div className="binding-value">{user?.wechat_openid ? '已绑定' : '未绑定'}</div>
+          </div>
+          <div className="binding-actions">
+            {user?.wechat_openid ? (
+              <>
+                {getLoginMethodCount() > 1 && (
+                  <button className="btn-action btn-action-danger" onClick={() => handleOpenModal('unbind-wechat', '')}>
+                    解绑
+                  </button>
+                )}
+              </>
+            ) : (
+              <button className="btn-action btn-action-primary" onClick={handleBindWeChat}>
+                绑定
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      <h3>修改密码</h3>
-
-      <div className="form-group">
-        <label>当前密码</label>
-        <input
-          type="password"
-          value={accountForm.currentPassword}
-          onChange={(e) => setAccountForm({ ...accountForm, currentPassword: e.target.value })}
-          placeholder="输入当前密码"
-        />
+      {/* Change Password Button */}
+      <div className="password-change-section">
+        <button className="btn-change-password" onClick={() => handleOpenModal('change-password', '')}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <span>修改密码</span>
+        </button>
       </div>
 
-      <div className="form-group">
-        <label>新密码</label>
-        <input
-          type="password"
-          value={accountForm.newPassword}
-          onChange={(e) => setAccountForm({ ...accountForm, newPassword: e.target.value })}
-          placeholder="输入新密码（至少8个字符）"
-        />
-      </div>
-
-      <div className="form-group">
-        <label>确认新密码</label>
-        <input
-          type="password"
-          value={accountForm.confirmPassword}
-          onChange={(e) => setAccountForm({ ...accountForm, confirmPassword: e.target.value })}
-          placeholder="再次输入新密码"
-        />
-      </div>
-
-      <button
-        className="btn-save"
-        onClick={handlePasswordChange}
-        disabled={loading || !accountForm.currentPassword || !accountForm.newPassword}
-      >
-        {loading ? '修改中...' : '修改密码'}
-      </button>
+      {/* Account Modal */}
+      {accountModal.show && (
+        <div className="account-modal-overlay" onClick={handleCloseModal}>
+          <div className="account-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{accountModal.title}</h3>
+              <button className="modal-close" onClick={handleCloseModal}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <div className="modal-body">
+              {renderModalContent()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -742,12 +1614,6 @@ const Settings = () => {
 
           {/* Right Content */}
           <div className="settings-content">
-            {message.text && (
-              <div className={`message message-${message.type}`}>
-                {message.text}
-              </div>
-            )}
-
             {activeTab === 'profile' && renderProfileTab()}
             {activeTab === 'account' && renderAccountTab()}
             {activeTab === 'ai' && renderAITab()}

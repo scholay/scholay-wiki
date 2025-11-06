@@ -8,14 +8,29 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// WeChatService interface for WeChat OAuth operations
+type WeChatService interface {
+	GetAccessToken(code string) (accessToken, openID, unionID string, err error)
+	GetUserInfo(accessToken, openID string) (nickname, headImgURL, unionID string, err error)
+}
+
 // Handler handles HTTP requests for user operations
 type Handler struct {
-	service *Service
+	service        *Service
+	wechatService  WeChatService
 }
 
 // NewHandler creates a new user handler
 func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+	return &Handler{
+		service:       service,
+		wechatService: nil, // Will be set via SetWeChatService
+	}
+}
+
+// SetWeChatService sets the WeChat service
+func (h *Handler) SetWeChatService(wechatService WeChatService) {
+	h.wechatService = wechatService
 }
 
 // CheckEmailRequest represents a check email request
@@ -31,7 +46,53 @@ type CheckEmailResponse struct {
 // SendCodeRequest represents a send verification code request
 type SendCodeRequest struct {
 	Email   string `json:"email" binding:"required,email"`
-	Purpose string `json:"purpose" binding:"required,oneof=register login reset_password"`
+	Purpose string `json:"purpose" binding:"required,oneof=register login bind reset_password"`
+}
+
+// CheckPhoneRequest represents a check phone request
+type CheckPhoneRequest struct {
+	Phone string `json:"phone" binding:"required,len=11"`
+}
+
+// CheckPhoneResponse represents a check phone response
+type CheckPhoneResponse struct {
+	Exists bool `json:"exists"`
+}
+
+// SendPhoneCodeRequest represents a send phone verification code request
+type SendPhoneCodeRequest struct {
+	Phone   string `json:"phone" binding:"required,len=11"`
+	Purpose string `json:"purpose" binding:"required,oneof=register login bind reset_password"`
+}
+
+// RegisterPhoneRequest represents a phone registration request
+type RegisterPhoneRequest struct {
+	Phone    string `json:"phone" binding:"required,len=11"`
+	Password string `json:"password" binding:"required,min=8"`
+	Code     string `json:"code" binding:"required,len=6"`
+}
+
+// LoginPhoneRequest represents a phone login request
+type LoginPhoneRequest struct {
+	Phone    string `json:"phone" binding:"required,len=11"`
+	Password string `json:"password" binding:"required"`
+}
+
+// BindPhoneRequest represents a bind phone request
+type BindPhoneRequest struct {
+	Phone string `json:"phone" binding:"required,len=11"`
+	Code  string `json:"code" binding:"required,len=6"`
+}
+
+// BindEmailRequest represents a bind email request
+type BindEmailRequest struct {
+	Email string `json:"email" binding:"required,email"`
+	Code  string `json:"code" binding:"required,len=6"`
+}
+
+// UnbindRequest represents an unbind request (requires verification code)
+type UnbindRequest struct {
+	Code string `json:"code" binding:"required,len=6"`
 }
 
 // RegisterRequest represents a registration request
@@ -57,6 +118,22 @@ type AuthResponse struct {
 type UpdateProfileRequest struct {
 	Username  *string `json:"username"`
 	AvatarURL *string `json:"avatar_url"`
+}
+
+// UserProfileResponse represents an extended user profile response with auth providers
+type UserProfileResponse struct {
+	ID            uint       `json:"id"`
+	Username      *string    `json:"username"`
+	Email         *string    `json:"email"`
+	Phone         *string    `json:"phone"`
+	AvatarURL     *string    `json:"avatar_url"`
+	Status        int8       `json:"status"`
+	EmailVerified bool       `json:"email_verified"`
+	PhoneVerified bool       `json:"phone_verified"`
+	WeChatOpenID  *string    `json:"wechat_openid"` // WeChat OpenID if bound
+	LastLoginAt   *time.Time `json:"last_login_at"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
 // CheckEmail handles checking if email exists
@@ -86,7 +163,8 @@ func (h *Handler) SendVerificationCode(c *gin.Context) {
 
 	err := h.service.SendVerificationCode(req.Email, req.Purpose)
 	if err != nil {
-		utils.Error(c, 2001, "Failed to send verification code")
+		// Return the specific error message from service (includes rate limit info)
+		utils.Error(c, 2001, err.Error())
 		return
 	}
 
@@ -162,7 +240,30 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, user)
+	// Check if WeChat is bound
+	var wechatOpenID *string
+	wechatProvider, err := h.service.repo.FindAuthProviderByUserAndProvider(userID.(uint), "wechat")
+	if err == nil && wechatProvider != nil {
+		wechatOpenID = &wechatProvider.ProviderUserID
+	}
+
+	// Build extended response
+	response := UserProfileResponse{
+		ID:            user.ID,
+		Username:      user.Username,
+		Email:         user.Email,
+		Phone:         user.Phone,
+		AvatarURL:     user.AvatarURL,
+		Status:        user.Status,
+		EmailVerified: user.EmailVerified,
+		PhoneVerified: user.PhoneVerified,
+		WeChatOpenID:  wechatOpenID,
+		LastLoginAt:   user.LastLoginAt,
+		CreatedAt:     user.CreatedAt,
+		UpdatedAt:     user.UpdatedAt,
+	}
+
+	utils.Success(c, response)
 }
 
 // UpdateProfile handles updating user profile
@@ -186,6 +287,199 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	}
 
 	utils.SuccessWithMessage(c, "Profile updated successfully", nil)
+}
+
+// CheckPhone handles checking if phone exists
+func (h *Handler) CheckPhone(c *gin.Context) {
+	var req CheckPhoneRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	exists, err := h.service.CheckPhoneExists(req.Phone)
+	if err != nil {
+		utils.Error(c, 2020, "Failed to check phone")
+		return
+	}
+
+	utils.Success(c, CheckPhoneResponse{Exists: exists})
+}
+
+// SendPhoneVerificationCode handles sending phone verification code
+func (h *Handler) SendPhoneVerificationCode(c *gin.Context) {
+	var req SendPhoneCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	err := h.service.SendPhoneVerificationCode(req.Phone, req.Purpose)
+	if err != nil {
+		utils.Error(c, 2021, "Failed to send verification code: "+err.Error())
+		return
+	}
+
+	utils.SuccessWithMessage(c, "Verification code sent successfully", nil)
+}
+
+// RegisterWithPhone handles user registration with phone
+func (h *Handler) RegisterWithPhone(c *gin.Context) {
+	var req RegisterPhoneRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	user, token, err := h.service.RegisterWithPhone(req.Phone, req.Password, req.Code)
+	if err != nil {
+		utils.Error(c, 2022, err.Error())
+		return
+	}
+
+	// Create session for the new user
+	ip := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
+	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
+
+	utils.Success(c, AuthResponse{
+		Token: token,
+		User:  user,
+	})
+}
+
+// LoginWithPhone handles user login with phone
+func (h *Handler) LoginWithPhone(c *gin.Context) {
+	var req LoginPhoneRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	user, token, err := h.service.LoginWithPhone(req.Phone, req.Password)
+	if err != nil {
+		utils.Error(c, 2023, err.Error())
+		return
+	}
+
+	// Create session for the user
+	ip := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
+	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
+
+	utils.Success(c, AuthResponse{
+		Token: token,
+		User:  user,
+	})
+}
+
+// BindPhone handles binding phone to user account
+func (h *Handler) BindPhone(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	var req BindPhoneRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	err := h.service.BindPhone(userID.(uint), req.Phone, req.Code)
+	if err != nil {
+		utils.Error(c, 2024, err.Error())
+		return
+	}
+
+	utils.SuccessWithMessage(c, "Phone bound successfully", nil)
+}
+
+// BindEmail handles binding email to user account
+func (h *Handler) BindEmail(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	var req BindEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	err := h.service.BindEmail(userID.(uint), req.Email, req.Code)
+	if err != nil {
+		utils.Error(c, 2025, err.Error())
+		return
+	}
+
+	utils.SuccessWithMessage(c, "Email bound successfully", nil)
+}
+
+// UnbindPhone handles unbinding phone from user account
+func (h *Handler) UnbindPhone(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	var req UnbindRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	err := h.service.UnbindPhone(userID.(uint), req.Code)
+	if err != nil {
+		utils.Error(c, 2026, err.Error())
+		return
+	}
+
+	utils.SuccessWithMessage(c, "Phone unbound successfully", nil)
+}
+
+// UnbindEmail handles unbinding email from user account
+func (h *Handler) UnbindEmail(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	var req UnbindRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	err := h.service.UnbindEmail(userID.(uint), req.Code)
+	if err != nil {
+		utils.Error(c, 2027, err.Error())
+		return
+	}
+
+	utils.SuccessWithMessage(c, "Email unbound successfully", nil)
+}
+
+// UnbindWeChat handles unbinding WeChat from user account
+func (h *Handler) UnbindWeChat(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	err := h.service.UnbindWeChat(userID.(uint))
+	if err != nil {
+		utils.Error(c, 2028, err.Error())
+		return
+	}
+
+	utils.SuccessWithMessage(c, "WeChat unbound successfully", nil)
 }
 
 // GetUserStatistics handles getting user statistics (admin only)
@@ -323,14 +617,407 @@ func (h *Handler) GetOnlineUserChart(c *gin.Context) {
 	})
 }
 
+// ResetPasswordRequest represents a password reset request
+type ResetPasswordRequest struct {
+	Email       string `json:"email" binding:"required,email"`
+	Code        string `json:"code" binding:"required,len=6"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}
+
+// ResetPasswordPhoneRequest represents a phone password reset request
+type ResetPasswordPhoneRequest struct {
+	Phone       string `json:"phone" binding:"required,len=11"`
+	Code        string `json:"code" binding:"required,len=6"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}
+
+// LoginWithCodeRequest represents a login with verification code request
+type LoginWithCodeRequest struct {
+	Email string `json:"email" binding:"required,email"`
+	Code  string `json:"code" binding:"required,len=6"`
+}
+
+// LoginPhoneWithCodeRequest represents a phone login with verification code request
+type LoginPhoneWithCodeRequest struct {
+	Phone string `json:"phone" binding:"required,len=11"`
+	Code  string `json:"code" binding:"required,len=6"`
+}
+
+// ResetPassword handles password reset with email verification code
+func (h *Handler) ResetPassword(c *gin.Context) {
+	var req ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	err := h.service.ResetPassword(req.Email, req.Code, req.NewPassword)
+	if err != nil {
+		utils.Error(c, 2014, err.Error())
+		return
+	}
+
+	utils.SuccessWithMessage(c, "Password reset successfully", nil)
+}
+
+// ResetPasswordPhone handles password reset with phone verification code
+func (h *Handler) ResetPasswordPhone(c *gin.Context) {
+	var req ResetPasswordPhoneRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	err := h.service.ResetPasswordPhone(req.Phone, req.Code, req.NewPassword)
+	if err != nil {
+		utils.Error(c, 2015, err.Error())
+		return
+	}
+
+	utils.SuccessWithMessage(c, "Password reset successfully", nil)
+}
+
+// LoginWithCode handles login with email verification code
+func (h *Handler) LoginWithCode(c *gin.Context) {
+	var req LoginWithCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	user, token, err := h.service.LoginWithEmailCode(req.Email, req.Code)
+	if err != nil {
+		utils.Error(c, 2016, err.Error())
+		return
+	}
+
+	// Create session for the user
+	ip := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
+	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
+
+	utils.Success(c, AuthResponse{
+		Token: token,
+		User:  user,
+	})
+}
+
+// LoginPhoneWithCode handles login with phone verification code
+func (h *Handler) LoginPhoneWithCode(c *gin.Context) {
+	var req LoginPhoneWithCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	user, token, err := h.service.LoginWithPhoneCode(req.Phone, req.Code)
+	if err != nil {
+		utils.Error(c, 2017, err.Error())
+		return
+	}
+
+	// Create session for the user
+	ip := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
+	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
+
+	utils.Success(c, AuthResponse{
+		Token: token,
+		User:  user,
+	})
+}
+
 // RegisterRoutes registers user routes
 func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 	user := router.Group("/user")
 	{
+		// Email-based auth
 		user.POST("/check-email", h.CheckEmail)
 		user.POST("/send-code", h.SendVerificationCode)
 		user.POST("/register", h.Register)
 		user.POST("/login", h.Login)
+		user.POST("/login-with-code", h.LoginWithCode)
+		user.POST("/reset-password", h.ResetPassword)
+
+		// Phone-based auth
+		user.POST("/check-phone", h.CheckPhone)
+		user.POST("/send-phone-code", h.SendPhoneVerificationCode)
+		user.POST("/register-phone", h.RegisterWithPhone)
+		user.POST("/login-phone", h.LoginWithPhone)
+		user.POST("/login-phone-with-code", h.LoginPhoneWithCode)
+		user.POST("/reset-password-phone", h.ResetPasswordPhone)
+
 		// Protected routes will be added in the main server setup with middleware
 	}
+}
+
+// WeChatCallbackRequest represents WeChat OAuth callback request
+type WeChatCallbackRequest struct {
+	Code  string `json:"code" binding:"required"`
+	State string `json:"state" binding:"required"`
+}
+
+// WeChatCallback handles WeChat OAuth callback for login/register
+// POST /api/v1/user/wechat/callback
+func (h *Handler) WeChatCallback(c *gin.Context) {
+	var req WeChatCallbackRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	// Get WeChat service (needs to be injected)
+	wechatService := h.wechatService
+	if wechatService == nil {
+		utils.Error(c, 5000, "WeChat service not available")
+		return
+	}
+
+	// Exchange code for access token
+	accessToken, openID, unionID1, err := wechatService.GetAccessToken(req.Code)
+	if err != nil {
+		utils.Error(c, 5001, "Failed to get access token: "+err.Error())
+		return
+	}
+
+	// Get user info
+	nickname, headImgURL, unionID2, err := wechatService.GetUserInfo(accessToken, openID)
+	if err != nil {
+		utils.Error(c, 5002, "Failed to get user info: "+err.Error())
+		return
+	}
+
+	// Use unionID from GetUserInfo if available, otherwise from GetAccessToken
+	unionID := unionID2
+	if unionID == "" {
+		unionID = unionID1
+	}
+
+	// Login or register user
+	user, token, isNewUser, err := h.service.LoginOrRegisterWithWeChat(
+		openID,
+		unionID,
+		nickname,
+		headImgURL,
+	)
+	if err != nil {
+		utils.Error(c, 5003, "Failed to login/register: "+err.Error())
+		return
+	}
+
+	// Create session
+	ip := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
+	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour)
+
+	utils.Success(c, gin.H{
+		"token":       token,
+		"user":        user,
+		"is_new_user": isNewUser,
+	})
+}
+
+// BindWeChatRequest represents WeChat binding request
+type BindWeChatRequest struct {
+	Code  string `json:"code" binding:"required"`
+	State string `json:"state" binding:"required"`
+}
+
+// BindWeChatAccount binds WeChat account to current user
+// POST /api/v1/user/bind-wechat
+func (h *Handler) BindWeChatAccount(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	var req BindWeChatRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	// Get WeChat service
+	wechatService := h.wechatService
+	if wechatService == nil {
+		utils.Error(c, 5000, "WeChat service not available")
+		return
+	}
+
+	// Exchange code for access token
+	accessToken, openID, unionID1, err := wechatService.GetAccessToken(req.Code)
+	if err != nil {
+		utils.Error(c, 5001, "Failed to get access token: "+err.Error())
+		return
+	}
+
+	// Get user info
+	nickname, headImgURL, unionID2, err := wechatService.GetUserInfo(accessToken, openID)
+	if err != nil {
+		utils.Error(c, 5002, "Failed to get user info: "+err.Error())
+		return
+	}
+
+	// Use unionID from GetUserInfo if available, otherwise from GetAccessToken
+	unionID := unionID2
+	if unionID == "" {
+		unionID = unionID1
+	}
+
+	// Bind WeChat to user
+	if err := h.service.BindWeChat(
+		userID.(uint),
+		openID,
+		unionID,
+		nickname,
+		headImgURL,
+	); err != nil {
+		utils.Error(c, 5003, "Failed to bind WeChat: "+err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{"message": "WeChat account bound successfully"})
+}
+
+// BindEmailWithPasswordRequest represents email binding with password request
+type BindEmailWithPasswordRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=8"`
+	Code     string `json:"code" binding:"required,len=6"`
+}
+
+// BindEmailWithPassword binds email to WeChat user with password (first-time binding)
+// POST /api/v1/user/bind-email-with-password
+func (h *Handler) BindEmailWithPassword(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	var req BindEmailWithPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	if err := h.service.BindEmailWithPassword(userID.(uint), req.Email, req.Password, req.Code); err != nil {
+		utils.Error(c, 2010, err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{"message": "Email and password set successfully"})
+}
+
+// BindPhoneWithPasswordRequest represents phone binding with password request
+type BindPhoneWithPasswordRequest struct {
+	Phone    string `json:"phone" binding:"required,len=11"`
+	Password string `json:"password" binding:"required,min=8"`
+	Code     string `json:"code" binding:"required,len=6"`
+}
+
+// BindPhoneWithPassword binds phone to WeChat user with password (first-time binding)
+// POST /api/v1/user/bind-phone-with-password
+func (h *Handler) BindPhoneWithPassword(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	var req BindPhoneWithPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	if err := h.service.BindPhoneWithPassword(userID.(uint), req.Phone, req.Password, req.Code); err != nil {
+		utils.Error(c, 2020, err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{"message": "Phone and password set successfully"})
+}
+
+// DeleteUser handles deleting a user account (admin only)
+// This endpoint removes the user and all associated data except statistics
+func (h *Handler) DeleteUser(c *gin.Context) {
+	// Get user ID from URL parameter
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 64)
+	if err != nil {
+		utils.BadRequest(c, "Invalid user ID")
+		return
+	}
+
+	// Call service to delete the user
+	if err := h.service.DeleteUser(uint(userID)); err != nil {
+		utils.Error(c, 3001, err.Error())
+		return
+	}
+
+	utils.SuccessWithMessage(c, "User deleted successfully", nil)
+}
+
+// CheckEmailAvailabilityRequest represents email availability check request
+type CheckEmailAvailabilityRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+// CheckEmailAvailability checks if an email is available for binding
+func (h *Handler) CheckEmailAvailability(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	var req CheckEmailAvailabilityRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	available, err := h.service.CheckEmailAvailability(req.Email, userID.(uint))
+	if err != nil {
+		utils.Error(c, 2029, "Failed to check email availability")
+		return
+	}
+
+	utils.Success(c, gin.H{
+		"available": available,
+		"email":     req.Email,
+	})
+}
+
+// CheckPhoneAvailabilityRequest represents phone availability check request
+type CheckPhoneAvailabilityRequest struct {
+	Phone string `json:"phone" binding:"required,len=11"`
+}
+
+// CheckPhoneAvailability checks if a phone is available for binding
+func (h *Handler) CheckPhoneAvailability(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	var req CheckPhoneAvailabilityRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	available, err := h.service.CheckPhoneAvailability(req.Phone, userID.(uint))
+	if err != nil {
+		utils.Error(c, 2030, "Failed to check phone availability")
+		return
+	}
+
+	utils.Success(c, gin.H{
+		"available": available,
+		"phone":     req.Phone,
+	})
 }

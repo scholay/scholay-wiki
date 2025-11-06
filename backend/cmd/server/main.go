@@ -14,11 +14,13 @@ import (
 	"scholar-backend/internal/conversation"
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/order"
+	"scholar-backend/internal/payment"
 	"scholar-backend/internal/proxy"
 	"scholar-backend/internal/semanticscholar"
 	"scholar-backend/internal/subscription"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/user"
+	"scholar-backend/internal/wechat"
 
 	"github.com/gin-gonic/gin"
 )
@@ -115,6 +117,17 @@ func main() {
 	// Initialize Order module
 	orderHandler := order.NewHandler(database.GetDB())
 
+	// Initialize Payment module
+	alipayHandler := payment.NewAlipayHandler(database.GetDB())
+
+	// Initialize WeChat module
+	wechatService := wechat.NewService(database.GetDB())
+	wechatHandler := wechat.NewHandler(database.GetDB())
+
+	// Create adapter and inject into user handler
+	wechatAdapter := wechat.NewServiceAdapter(wechatService)
+	userHandler.SetWeChatService(wechatAdapter)
+
 	// Setup Gin router
 	router := gin.Default()
 
@@ -149,6 +162,7 @@ func main() {
 			adminProtected.GET("/users/stats", userHandler.GetUserStatistics)
 			adminProtected.GET("/users", userHandler.GetUserList)
 			adminProtected.GET("/users/online", userHandler.GetOnlineUsers)
+			adminProtected.DELETE("/users/:id", userHandler.DeleteUser)
 			// Statistics charts
 			adminProtected.GET("/statistics/users", userHandler.GetUserStatisticsChart)
 			adminProtected.GET("/statistics/online", userHandler.GetOnlineUserChart)
@@ -169,7 +183,26 @@ func main() {
 			adminProtected.DELETE("/prompt-templates/:id", aiHandler.DeletePromptTemplate)
 			// Subscription plan management
 			adminProtected.PUT("/subscription-plans/:id", subscriptionHandler.UpdatePlan)
+
+			// Alipay payment configuration (Admin only)
+			adminProtected.GET("/payment/alipay/config", alipayHandler.GetActiveConfig)
+			adminProtected.GET("/payment/alipay/configs", alipayHandler.ListConfigs)
+			adminProtected.POST("/payment/alipay/config", alipayHandler.CreateConfig)
+			adminProtected.PUT("/payment/alipay/config/:id", alipayHandler.UpdateConfig)
+			adminProtected.DELETE("/payment/alipay/config/:id", alipayHandler.DeleteConfig)
+			adminProtected.POST("/payment/alipay/config/:id/activate", alipayHandler.SetActiveConfig)
+
+			// WeChat OAuth configuration (Admin only)
+			adminProtected.GET("/wechat/config", wechatHandler.GetActiveConfig)
+			adminProtected.GET("/wechat/configs", wechatHandler.ListConfigs)
+			adminProtected.POST("/wechat/config", wechatHandler.CreateConfig)
+			adminProtected.PUT("/wechat/config/:id", wechatHandler.UpdateConfig)
+			adminProtected.DELETE("/wechat/config/:id", wechatHandler.DeleteConfig)
+			adminProtected.POST("/wechat/config/:id/activate", wechatHandler.SetActiveConfig)
 		}
+
+		// Payment callback routes (public, no auth required)
+		api.POST("/payment/alipay/notify", alipayHandler.HandleCallback)
 
 		// User routes
 		userHandler.RegisterRoutes(api)
@@ -180,6 +213,13 @@ func main() {
 			subscriptionPublic.GET("/plans", subscriptionHandler.GetPlans)
 		}
 
+		// Public WeChat routes (no auth required)
+		wechatPublic := api.Group("/user/wechat")
+		{
+			wechatPublic.GET("/login-url", wechatHandler.GetLoginURL)
+			wechatPublic.POST("/callback", userHandler.WeChatCallback)
+		}
+
 		// User protected routes
 		userProtected := api.Group("/user")
 		userProtected.Use(middleware.UserAuthMiddleware())
@@ -188,6 +228,22 @@ func main() {
 			userProtected.PUT("/profile", userHandler.UpdateProfile)
 			userProtected.POST("/logout", userHandler.Logout)
 			userProtected.POST("/heartbeat", userHandler.Heartbeat)
+
+			// Account availability check routes (protected)
+			userProtected.POST("/check-email-availability", userHandler.CheckEmailAvailability)
+			userProtected.POST("/check-phone-availability", userHandler.CheckPhoneAvailability)
+
+			// Account binding routes (protected)
+			userProtected.POST("/bind-phone", userHandler.BindPhone)
+			userProtected.POST("/bind-email", userHandler.BindEmail)
+			userProtected.POST("/bind-wechat", userHandler.BindWeChatAccount)
+			userProtected.POST("/bind-email-with-password", userHandler.BindEmailWithPassword)
+			userProtected.POST("/bind-phone-with-password", userHandler.BindPhoneWithPassword)
+
+			// Account unbinding routes (protected)
+			userProtected.POST("/unbind-phone", userHandler.UnbindPhone)
+			userProtected.POST("/unbind-email", userHandler.UnbindEmail)
+			userProtected.POST("/unbind-wechat", userHandler.UnbindWeChat)
 
 			// Subscription routes (protected)
 			userProtected.GET("/subscription/my", subscriptionHandler.GetMySubscription)
@@ -202,6 +258,9 @@ func main() {
 			userProtected.GET("/orders/:order_no", orderHandler.GetOrderDetail)
 			userProtected.POST("/orders/pay", orderHandler.ProcessPayment)
 			userProtected.POST("/orders/cancel", orderHandler.CancelOrder)
+
+			// Payment routes (Alipay)
+			userProtected.POST("/payment/alipay/create", alipayHandler.CreatePayment)
 
 			// Conversation routes (legacy)
 			userProtected.GET("/conversations", conversationHandler.GetUserConversations)

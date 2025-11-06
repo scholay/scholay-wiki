@@ -19,6 +19,7 @@ const UserManagement = () => {
     total: 0,
   });
   const [activeView, setActiveView] = useState('list'); // 'list' or 'online'
+  const [deleteConfirm, setDeleteConfirm] = useState({ show: false, userId: null, userEmail: '' });
 
   useEffect(() => {
     loadUserStatistics();
@@ -80,6 +81,37 @@ const UserManagement = () => {
 
   const handlePageChange = (newPage) => {
     setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  const handleDeleteClick = (user) => {
+    setDeleteConfirm({
+      show: true,
+      userId: user.id,
+      userEmail: user.email || user.username || `用户ID: ${user.id}`,
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm.userId) return;
+
+    try {
+      const response = await adminAPI.deleteUser(deleteConfirm.userId);
+      if (response.data.code === 0) {
+        showToast('用户删除成功', 'success');
+        setDeleteConfirm({ show: false, userId: null, userEmail: '' });
+        // Refresh the user list and statistics
+        loadUserList();
+        loadUserStatistics();
+      } else {
+        showToast(response.data.message || '删除失败', 'error');
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || '删除用户失败', 'error');
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirm({ show: false, userId: null, userEmail: '' });
   };
 
   const formatDate = (dateString) => {
@@ -211,6 +243,7 @@ const UserManagement = () => {
                       <th>状态</th>
                       <th>最后登录</th>
                       <th>注册时间</th>
+                      <th>操作</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -223,11 +256,20 @@ const UserManagement = () => {
                           <td>{getUserStatusLabel(user.status)}</td>
                           <td>{formatDate(user.last_login_at)}</td>
                           <td>{formatDate(user.created_at)}</td>
+                          <td>
+                            <button
+                              className="action-btn delete-btn"
+                              onClick={() => handleDeleteClick(user)}
+                              title="删除用户"
+                            >
+                              删除
+                            </button>
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="6" className="no-data">暂无用户数据</td>
+                        <td colSpan="7" className="no-data">暂无用户数据</td>
                       </tr>
                     )}
                   </tbody>
@@ -293,6 +335,41 @@ const UserManagement = () => {
           </>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm.show && (
+        <div className="modal-overlay" onClick={handleDeleteCancel}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>确认删除用户</h3>
+            </div>
+            <div className="modal-body">
+              <p>您确定要删除用户 <strong>{deleteConfirm.userEmail}</strong> 吗？</p>
+              <p className="warning-text">
+                ⚠️ 此操作将删除该用户的所有数据（除统计数据外），包括：
+              </p>
+              <ul className="delete-list">
+                <li>用户账号信息</li>
+                <li>登录认证信息</li>
+                <li>会话记录</li>
+                <li>对话历史和消息</li>
+                <li>订阅记录</li>
+                <li>订单和支付记录</li>
+                <li>使用配额记录</li>
+              </ul>
+              <p className="warning-text">此操作<strong>不可撤销</strong>！</p>
+            </div>
+            <div className="modal-footer">
+              <button className="modal-btn cancel-btn" onClick={handleDeleteCancel}>
+                取消
+              </button>
+              <button className="modal-btn confirm-btn danger-btn" onClick={handleDeleteConfirm}>
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

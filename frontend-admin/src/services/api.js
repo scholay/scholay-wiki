@@ -89,6 +89,9 @@ export const adminAPI = {
   getOnlineUserChart: (hours = 24) =>
     api.get('/admin/statistics/online', { params: { hours } }),
 
+  deleteUser: (userId) =>
+    api.delete(`/admin/users/${userId}`),
+
   // Third-party account management
   getThirdPartyAccounts: (type = '', activeOnly = false) =>
     api.get('/admin/third-party-accounts', { params: { type, active: activeOnly } }),
@@ -136,6 +139,44 @@ export const adminAPI = {
 
   updateSubscriptionPlan: (id, data) =>
     api.put(`/admin/subscription-plans/${id}`, data),
+
+  // Alipay payment configuration management
+  getAlipayConfigs: () =>
+    api.get('/admin/payment/alipay/configs'),
+
+  getAlipayConfig: () =>
+    api.get('/admin/payment/alipay/config'),
+
+  createAlipayConfig: (data) =>
+    api.post('/admin/payment/alipay/config', data),
+
+  updateAlipayConfig: (id, data) =>
+    api.put(`/admin/payment/alipay/config/${id}`, data),
+
+  deleteAlipayConfig: (id) =>
+    api.delete(`/admin/payment/alipay/config/${id}`),
+
+  activateAlipayConfig: (id) =>
+    api.post(`/admin/payment/alipay/config/${id}/activate`),
+
+  // WeChat OAuth configuration management
+  getWeChatConfigs: () =>
+    api.get('/admin/wechat/configs'),
+
+  getWeChatConfig: () =>
+    api.get('/admin/wechat/config'),
+
+  createWeChatConfig: (data) =>
+    api.post('/admin/wechat/config', data),
+
+  updateWeChatConfig: (id, data) =>
+    api.put(`/admin/wechat/config/${id}`, data),
+
+  deleteWeChatConfig: (id) =>
+    api.delete(`/admin/wechat/config/${id}`),
+
+  activateWeChatConfig: (id) =>
+    api.post(`/admin/wechat/config/${id}/activate`),
 };
 
 export default api;

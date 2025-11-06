@@ -1,0 +1,143 @@
+/* Error Dialog Overlay */
+.error-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10002; /* Higher than toast */
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Error Dialog */
+.error-dialog {
+  background: #2a2a2a;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.3s ease-out;
+  text-align: center;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Error Icon */
+.error-dialog-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 2px solid rgba(239, 68, 68, 0.3);
+  border-radius: 50%;
+  color: #ef4444;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+}
+
+/* Error Title */
+.error-dialog-title {
+  margin: 0 0 16px 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ececec;
+}
+
+/* Error Message */
+.error-dialog-message {
+  margin: 0 0 32px 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #9ca3af;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Confirm Button */
+.error-dialog-button {
+  width: 100%;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.error-dialog-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+}
+
+.error-dialog-button:active {
+  transform: translateY(0);
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+  .error-dialog {
+    padding: 24px;
+    max-width: 100%;
+  }
+
+  .error-dialog-icon {
+    width: 64px;
+    height: 64px;
+  }
+
+  .error-dialog-icon svg {
+    width: 36px;
+    height: 36px;
+  }
+
+  .error-dialog-title {
+    font-size: 1.25rem;
+  }
+
+  .error-dialog-message {
+    font-size: 0.9375rem;
+  }
+}

@@ -1,0 +1,76 @@
+package payment
+
+import (
+	"scholar-backend/internal/common/model"
+
+	"gorm.io/gorm"
+)
+
+// AlipayRepository handles database operations for Alipay configurations
+type AlipayRepository struct {
+	db *gorm.DB
+}
+
+// NewAlipayRepository creates a new Alipay repository
+func NewAlipayRepository(db *gorm.DB) *AlipayRepository {
+	return &AlipayRepository{db: db}
+}
+
+// GetActiveConfig retrieves the active Alipay configuration
+func (r *AlipayRepository) GetActiveConfig() (*model.AlipayConfig, error) {
+	var config model.AlipayConfig
+	err := r.db.Where("is_active = ?", true).First(&config).Error
+	if err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+// GetConfigByID retrieves an Alipay configuration by ID
+func (r *AlipayRepository) GetConfigByID(id uint) (*model.AlipayConfig, error) {
+	var config model.AlipayConfig
+	err := r.db.Where("id = ?", id).First(&config).Error
+	if err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+// ListConfigs retrieves all Alipay configurations
+func (r *AlipayRepository) ListConfigs() ([]model.AlipayConfig, error) {
+	var configs []model.AlipayConfig
+	err := r.db.Order("created_at DESC").Find(&configs).Error
+	return configs, err
+}
+
+// CreateConfig creates a new Alipay configuration
+func (r *AlipayRepository) CreateConfig(config *model.AlipayConfig) error {
+	return r.db.Create(config).Error
+}
+
+// UpdateConfig updates an Alipay configuration
+func (r *AlipayRepository) UpdateConfig(config *model.AlipayConfig) error {
+	return r.db.Save(config).Error
+}
+
+// DeleteConfig deletes an Alipay configuration
+func (r *AlipayRepository) DeleteConfig(id uint) error {
+	return r.db.Delete(&model.AlipayConfig{}, id).Error
+}
+
+// DeactivateAllConfigs deactivates all Alipay configurations
+func (r *AlipayRepository) DeactivateAllConfigs() error {
+	return r.db.Model(&model.AlipayConfig{}).Where("is_active = ?", true).Update("is_active", false).Error
+}
+
+// SetActiveConfig sets a specific configuration as active (and deactivates others)
+func (r *AlipayRepository) SetActiveConfig(id uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// Deactivate all configs
+		if err := tx.Model(&model.AlipayConfig{}).Where("is_active = ?", true).Update("is_active", false).Error; err != nil {
+			return err
+		}
+		// Activate the specified config
+		return tx.Model(&model.AlipayConfig{}).Where("id = ?", id).Update("is_active", true).Error
+	})
+}

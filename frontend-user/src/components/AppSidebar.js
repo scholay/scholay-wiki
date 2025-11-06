@@ -92,8 +92,11 @@ const AppSidebar = ({
 
   // 获取用户头像首字母
   const getUserInitial = () => {
-    if (!user || !user.email) return '?';
-    return user.email.charAt(0).toUpperCase();
+    if (!user) return '?';
+    // 优先使用用户名，如果没有则使用邮箱
+    const displayName = user.username || user.email;
+    if (!displayName) return '?';
+    return displayName.charAt(0).toUpperCase();
   };
 
   // 更新菜单位置 - 向上弹出
@@ -485,7 +488,7 @@ const AppSidebar = ({
           </div>
           {!collapsed && (
             <div className="user-email-wrapper">
-              <span className="user-email">{user?.email || '未登录'}</span>
+              <span className="user-email">{user?.username || user?.email?.split('@')[0] || '未登录'}</span>
             </div>
           )}
         </div>
@@ -601,7 +604,7 @@ const AppSidebar = ({
           {hoveredItem === 'normal-search' && '普通搜索'}
           {hoveredItem === 'advanced-search' && '高级搜索'}
           {hoveredItem === 'chat' && 'AI 对话'}
-          {hoveredItem === 'user' && (user?.email || '用户')}
+          {hoveredItem === 'user' && (user?.username || user?.email?.split('@')[0] || '用户')}
         </div>,
         document.body
       )}

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import api from '../services/api';
+import api, { orderAPI, paymentAPI } from '../services/api';
+import { useToast } from '../components/ToastContainer';
 import AuthModal from '../components/AuthModal';
 import './Pricing.css';
 
 const Pricing = () => {
+  const { showError } = useToast();
   const [plans, setPlans] = useState([]);
   const [currentPlan, setCurrentPlan] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -53,20 +55,47 @@ const Pricing = () => {
     }
 
     try {
-      const duration = billingCycle === 'monthly' ? 1 : 12;
-      const response = await api.post('/user/subscription/upgrade', {
-        plan_code: planCode,
-        duration: duration
-      });
+      // Step 1: Create order
+      const orderResponse = await orderAPI.createOrder(planCode, billingCycle);
 
-      if (response.data.code === 0) {
-        alert('订阅升级成功！');
-        fetchCurrentSubscription();
+      if (orderResponse.data.code !== 0 || !orderResponse.data.data) {
+        showError('创建订单失败：' + (orderResponse.data.message || '未知错误'));
+        return;
+      }
+
+      const order = orderResponse.data.data;
+
+      // Step 2: Get plan details for payment
+      const plan = plans.find(p => p.plan_code === planCode);
+      if (!plan) {
+        showError('无法找到订阅方案信息');
+        return;
+      }
+
+      // Step 3: Create Alipay payment
+      const returnURL = `${window.location.origin}/subscription`;
+      const subject = `Scholar ${plan.plan_name} ${billingCycle === 'monthly' ? '月付' : '年付'}订阅`;
+      const description = `订单号: ${order.order_no}`;
+
+      // Temporary: Use 0.01 for testing
+      const testAmount = 0.01;
+
+      const paymentResponse = await paymentAPI.createAlipayPayment(
+        order.order_no,
+        subject,
+        testAmount, // Using test amount instead of order.amount
+        returnURL,
+        description
+      );
+
+      if (paymentResponse.data.code === 0 && paymentResponse.data.data) {
+        // Redirect to Alipay payment page
+        window.location.href = paymentResponse.data.data.payment_url;
       } else {
-        alert('订阅升级失败：' + response.data.message);
+        showError('创建支付失败：' + (paymentResponse.data.message || '未知错误'));
       }
     } catch (error) {
-      alert('订阅升级失败，请稍后重试');
+      showError('订阅升级失败，请稍后重试');
       console.error('Upgrade failed:', error);
     }
   };

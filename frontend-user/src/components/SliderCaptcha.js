@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import './SliderCaptcha.css';
 
-const SliderCaptcha = ({ onSuccess, onFail }) => {
+const SliderCaptcha = forwardRef(({ onSuccess, onFail }, ref) => {
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState(0);
   const [verified, setVerified] = useState(false);
@@ -110,13 +110,14 @@ const SliderCaptcha = ({ onSuccess, onFail }) => {
     currentPositionRef.current = 0;
     setVerified(false);
     setFailed(false);
+    setIsDragging(false);
+    isDraggingRef.current = false;
   }, []);
 
-  useEffect(() => {
-    if (sliderRef.current) {
-      sliderRef.current.reset = reset;
-    }
-  }, [reset]);
+  // Expose reset method to parent component via ref
+  useImperativeHandle(ref, () => ({
+    reset
+  }), [reset]);
 
   // 计算进度百分比用于显示
   const getProgressPercent = () => {
@@ -160,6 +161,6 @@ const SliderCaptcha = ({ onSuccess, onFail }) => {
       </div>
     </div>
   );
-};
+});
 
 export default SliderCaptcha;

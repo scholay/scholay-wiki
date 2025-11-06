@@ -75,6 +75,22 @@ export const userAPI = {
 
   updateProfile: (username, avatarURL) =>
     api.put('/user/profile', { username, avatar_url: avatarURL }),
+
+  // WeChat OAuth
+  getWeChatLoginURL: (state) =>
+    api.get('/user/wechat/login-url', { params: { state } }),
+
+  wechatCallback: (code, state) =>
+    api.post('/user/wechat/callback', { code, state }),
+
+  bindWeChatAccount: (code, state) =>
+    api.post('/user/bind-wechat', { code, state }),
+
+  bindEmailWithPassword: (email, password, code) =>
+    api.post('/user/bind-email-with-password', { email, password, code }),
+
+  bindPhoneWithPassword: (phone, password, code) =>
+    api.post('/user/bind-phone-with-password', { phone, password, code }),
 };
 
 export const conversationAPI = {
@@ -167,6 +183,40 @@ export const subscriptionAPI = {
   // Get user's active subscription
   getSubscription: () =>
     api.get('/user/subscription'),
+};
+
+export const orderAPI = {
+  // Create a new order
+  createOrder: (planCode, billingCycle) =>
+    api.post('/user/orders/create', { plan_code: planCode, billing_cycle: billingCycle }),
+
+  // Get user's orders with pagination
+  getMyOrders: (page = 1, pageSize = 20) =>
+    api.get('/user/orders/my', { params: { page, page_size: pageSize } }),
+
+  // Get order detail by order number
+  getOrderDetail: (orderNo) =>
+    api.get(`/user/orders/${orderNo}`),
+
+  // Cancel an order
+  cancelOrder: (orderNo) =>
+    api.post('/user/orders/cancel', { order_no: orderNo }),
+
+  // Process payment (for mock/testing)
+  processPayment: (orderNo, paymentMethod) =>
+    api.post('/user/orders/pay', { order_no: orderNo, payment_method: paymentMethod }),
+};
+
+export const paymentAPI = {
+  // Create Alipay payment
+  createAlipayPayment: (orderNo, subject, amount, returnURL, description) =>
+    api.post('/user/payment/alipay/create', {
+      order_no: orderNo,
+      subject,
+      amount,
+      return_url: returnURL,
+      description,
+    }),
 };
 
 export default api;

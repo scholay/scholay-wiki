@@ -1,17 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../utils/AuthContext';
+import { userAPI } from '../services/api';
 import SliderCaptcha from './SliderCaptcha';
+import { useToast } from './ToastContainer';
 import './AuthModal.css';
 
 const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const { login } = useAuth();
-  const [mode, setMode] = useState('welcome'); // 'welcome', 'login', 'register'
+  const { showError, showSuccess } = useToast();
+  const [mode, setMode] = useState('welcome'); // 'welcome', 'login', 'register', 'phone-welcome', 'phone-login', 'phone-register', 'forgot-password-email', 'forgot-password-phone'
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [code, setCode] = useState('');
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [agreedToPolicy, setAgreedToPolicy] = useState(false);
+  const [useCodeLogin, setUseCodeLogin] = useState(false); // Toggle between password and code login
+
+  // Refs for captcha components
+  const emailCaptchaRef = useRef(null);
+  const phoneCaptchaRef = useRef(null);
 
   // 每次打开弹窗时重置条款同意状态
   useEffect(() => {
@@ -23,7 +32,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const [policyContent, setPolicyContent] = useState('');
   const [countdown, setCountdown] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [requireEmailVerification, setRequireEmailVerification] = useState(true);
 
   // 获取隐私协议和系统配置
@@ -63,16 +72,26 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     }
   }, [countdown]);
 
+  // 验证确认密码
+  const validateConfirmPassword = () => {
+    if (confirmPassword && password !== confirmPassword) {
+      setPasswordError('两次输入的密码不一致');
+    } else {
+      setPasswordError('');
+    }
+  };
+
   // 重置状态
   const resetState = () => {
     setMode('welcome');
     setEmail('');
+    setPhone('');
     setPassword('');
     setConfirmPassword('');
     setCode('');
     setCaptchaVerified(false);
     setAgreedToPolicy(false);
-    setError('');
+    setPasswordError('');
   };
 
   // 关闭弹窗
@@ -84,12 +103,12 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   // 检查邮箱并进入下一步
   const handleEmailContinue = async () => {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('请输入有效的邮箱地址');
+      showError('请输入有效的邮箱地址');
       return;
     }
 
     setLoading(true);
-    setError('');
+    
 
     try {
       const response = await fetch('/api/v1/user/check-email', {
@@ -104,39 +123,39 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         // 根据邮箱是否存在决定是登录还是注册
         setMode(data.data.exists ? 'login' : 'register');
       } else {
-        setError(data.message || '检查邮箱失败');
+        showError(data.message || '检查邮箱失败');
       }
     } catch (err) {
-      setError('网络错误，请稍后重试');
+      showError('网络错误，请稍后重试');
     } finally {
       setLoading(false);
     }
   };
 
   // 发送验证码
-  const handleSendCode = async () => {
+  const handleSendCode = async (purpose = 'register') => {
     if (countdown > 0) return;
 
     setLoading(true);
-    setError('');
+
 
     try {
       const response = await fetch('/api/v1/user/send-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, purpose: 'register' }),
+        body: JSON.stringify({ email, purpose }),
       });
 
       const data = await response.json();
 
       if (data.code === 0) {
         setCountdown(60);
-        setError('');
+        showSuccess('验证码已发送');
       } else {
-        setError(data.message || '发送验证码失败');
+        showError(data.message || '发送验证码失败');
       }
     } catch (err) {
-      setError('网络错误，请稍后重试');
+      showError('网络错误，请稍后重试');
     } finally {
       setLoading(false);
     }
@@ -145,22 +164,22 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   // 登录
   const handleLogin = async () => {
     if (!password) {
-      setError('请输入密码');
+      showError('请输入密码');
       return;
     }
 
     if (!captchaVerified) {
-      setError('请完成滑块验证');
+      showError('请完成滑块验证');
       return;
     }
 
     if (!agreedToPolicy) {
-      setError('请同意使用条款和隐私政策');
+      showError('请同意使用条款和隐私政策');
       return;
     }
 
     setLoading(true);
-    setError('');
+    
 
     try {
       const response = await fetch('/api/v1/user/login', {
@@ -176,12 +195,20 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         if (onLoginSuccess) onLoginSuccess(data.data.user);
         handleClose();
       } else {
-        setError(data.message || '登录失败');
+        showError(data.message || '登录失败');
+        // Reset captcha state to allow re-verification
         setCaptchaVerified(false);
+        if (emailCaptchaRef.current) {
+          emailCaptchaRef.current.reset();
+        }
       }
     } catch (err) {
-      setError('网络错误，请稍后重试');
+      showError('网络错误，请稍后重试');
+      // Reset captcha state to allow re-verification
       setCaptchaVerified(false);
+      if (emailCaptchaRef.current) {
+        emailCaptchaRef.current.reset();
+      }
     } finally {
       setLoading(false);
     }
@@ -190,32 +217,32 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   // 注册
   const handleRegister = async () => {
     if (!password || password.length < 8) {
-      setError('密码长度至少8位');
+      showError('密码长度至少8位');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('两次输入的密码不一致');
+      showError('两次输入的密码不一致');
       return;
     }
 
     if (requireEmailVerification && !code) {
-      setError('请输入验证码');
+      showError('请输入验证码');
       return;
     }
 
     if (!captchaVerified) {
-      setError('请完成滑块验证');
+      showError('请完成滑块验证');
       return;
     }
 
     if (!agreedToPolicy) {
-      setError('请同意使用条款和隐私政策');
+      showError('请同意使用条款和隐私政策');
       return;
     }
 
     setLoading(true);
-    setError('');
+
 
     try {
       const response = await fetch('/api/v1/user/register', {
@@ -231,14 +258,422 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         if (onLoginSuccess) onLoginSuccess(data.data.user);
         handleClose();
       } else {
-        setError(data.message || '注册失败');
+        showError(data.message || '注册失败');
+        // Reset verification state but keep password and countdown
+        setCode('');
         setCaptchaVerified(false);
+        // Reset slider captcha to allow re-verification
+        if (emailCaptchaRef.current) {
+          emailCaptchaRef.current.reset();
+        }
       }
     } catch (err) {
-      setError('网络错误，请稍后重试');
+      showError('网络错误,请稍后重试');
+      // Reset verification state but keep password and countdown
+      setCode('');
       setCaptchaVerified(false);
+      // Reset slider captcha to allow re-verification
+      if (emailCaptchaRef.current) {
+        emailCaptchaRef.current.reset();
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 检查手机号并进入下一步
+  const handlePhoneContinue = async () => {
+    if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
+      showError('请输入有效的手机号码');
+      return;
+    }
+
+    setLoading(true);
+    
+
+    try {
+      const response = await fetch('/api/v1/user/check-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+
+      const data = await response.json();
+
+      if (data.code === 0) {
+        // 根据手机号是否存在决定是登录还是注册
+        setMode(data.data.exists ? 'phone-login' : 'phone-register');
+      } else {
+        showError(data.message || '检查手机号失败');
+      }
+    } catch (err) {
+      showError('网络错误,请稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 发送手机验证码
+  const handleSendPhoneCode = async (purpose) => {
+    if (countdown > 0) return;
+
+    setLoading(true);
+    
+
+    try {
+      const response = await fetch('/api/v1/user/send-phone-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, purpose }),
+      });
+
+      const data = await response.json();
+
+      if (data.code === 0) {
+        setCountdown(60);
+        
+      } else {
+        showError(data.message || '发送验证码失败');
+      }
+    } catch (err) {
+      showError('网络错误,请稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 手机号登录
+  const handlePhoneLogin = async () => {
+    if (!password) {
+      showError('请输入密码');
+      return;
+    }
+
+    if (!captchaVerified) {
+      showError('请完成滑块验证');
+      return;
+    }
+
+    if (!agreedToPolicy) {
+      showError('请同意使用条款和隐私政策');
+      return;
+    }
+
+    setLoading(true);
+
+
+    try {
+      const response = await fetch('/api/v1/user/login-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password }),
+      });
+
+      const data = await response.json();
+
+      if (data.code === 0) {
+        login(data.data.token, data.data.user);
+        if (onLoginSuccess) onLoginSuccess(data.data.user);
+        handleClose();
+      } else {
+        showError(data.message || '登录失败');
+        // Reset captcha state to allow re-verification
+        setCaptchaVerified(false);
+        if (phoneCaptchaRef.current) {
+          phoneCaptchaRef.current.reset();
+        }
+      }
+    } catch (err) {
+      showError('网络错误,请稍后重试');
+      // Reset captcha state to allow re-verification
+      setCaptchaVerified(false);
+      if (phoneCaptchaRef.current) {
+        phoneCaptchaRef.current.reset();
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 手机号注册
+  const handlePhoneRegister = async () => {
+    if (!password || password.length < 8) {
+      showError('密码长度至少8位');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      showError('两次输入的密码不一致');
+      return;
+    }
+
+    if (!code) {
+      showError('请输入验证码');
+      return;
+    }
+
+    if (!captchaVerified) {
+      showError('请完成滑块验证');
+      return;
+    }
+
+    if (!agreedToPolicy) {
+      showError('请同意使用条款和隐私政策');
+      return;
+    }
+
+    setLoading(true);
+
+
+    try {
+      const response = await fetch('/api/v1/user/register-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password, code }),
+      });
+
+      const data = await response.json();
+
+      if (data.code === 0) {
+        login(data.data.token, data.data.user);
+        if (onLoginSuccess) onLoginSuccess(data.data.user);
+        handleClose();
+      } else {
+        showError(data.message || '注册失败');
+        // Reset verification state but keep password and countdown
+        setCode('');
+        setCaptchaVerified(false);
+        // Reset slider captcha to allow re-verification
+        if (phoneCaptchaRef.current) {
+          phoneCaptchaRef.current.reset();
+        }
+      }
+    } catch (err) {
+      showError('网络错误,请稍后重试');
+      // Reset verification state but keep password and countdown
+      setCode('');
+      setCaptchaVerified(false);
+      // Reset slider captcha to allow re-verification
+      if (phoneCaptchaRef.current) {
+        phoneCaptchaRef.current.reset();
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 邮箱重置密码
+  const handleResetPassword = async () => {
+    if (!code) {
+      showError('请输入验证码');
+      return;
+    }
+
+    if (!password || password.length < 8) {
+      showError('密码长度至少8位');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      showError('两次输入的密码不一致');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/v1/user/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code, new_password: password }),
+      });
+
+      const data = await response.json();
+
+      if (data.code === 0) {
+        showSuccess('密码重置成功');
+        setMode('login');
+        setPassword('');
+        setConfirmPassword('');
+        setCode('');
+      } else {
+        showError(data.message || '重置密码失败');
+      }
+    } catch (err) {
+      showError('网络错误，请稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 手机号重置密码
+  const handleResetPasswordPhone = async () => {
+    if (!code) {
+      showError('请输入验证码');
+      return;
+    }
+
+    if (!password || password.length < 8) {
+      showError('密码长度至少8位');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      showError('两次输入的密码不一致');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/v1/user/reset-password-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, code, new_password: password }),
+      });
+
+      const data = await response.json();
+
+      if (data.code === 0) {
+        showSuccess('密码重置成功');
+        setMode('phone-login');
+        setPassword('');
+        setConfirmPassword('');
+        setCode('');
+      } else {
+        showError(data.message || '重置密码失败');
+      }
+    } catch (err) {
+      showError('网络错误，请稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 邮箱验证码登录
+  const handleLoginWithCode = async () => {
+    if (!code) {
+      showError('请输入验证码');
+      return;
+    }
+
+    if (!captchaVerified) {
+      showError('请完成滑块验证');
+      return;
+    }
+
+    if (!agreedToPolicy) {
+      showError('请同意使用条款和隐私政策');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/v1/user/login-with-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code }),
+      });
+
+      const data = await response.json();
+
+      if (data.code === 0) {
+        login(data.data.token, data.data.user);
+        if (onLoginSuccess) onLoginSuccess(data.data.user);
+        handleClose();
+      } else {
+        showError(data.message || '登录失败');
+        setCode('');
+        setCaptchaVerified(false);
+        if (emailCaptchaRef.current) {
+          emailCaptchaRef.current.reset();
+        }
+      }
+    } catch (err) {
+      showError('网络错误，请稍后重试');
+      setCode('');
+      setCaptchaVerified(false);
+      if (emailCaptchaRef.current) {
+        emailCaptchaRef.current.reset();
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 手机号验证码登录
+  const handleLoginPhoneWithCode = async () => {
+    if (!code) {
+      showError('请输入验证码');
+      return;
+    }
+
+    if (!captchaVerified) {
+      showError('请完成滑块验证');
+      return;
+    }
+
+    if (!agreedToPolicy) {
+      showError('请同意使用条款和隐私政策');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/v1/user/login-phone-with-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, code }),
+      });
+
+      const data = await response.json();
+
+      if (data.code === 0) {
+        login(data.data.token, data.data.user);
+        if (onLoginSuccess) onLoginSuccess(data.data.user);
+        handleClose();
+      } else {
+        showError(data.message || '登录失败');
+        setCode('');
+        setCaptchaVerified(false);
+        if (phoneCaptchaRef.current) {
+          phoneCaptchaRef.current.reset();
+        }
+      }
+    } catch (err) {
+      showError('网络错误，请稍后重试');
+      setCode('');
+      setCaptchaVerified(false);
+      if (phoneCaptchaRef.current) {
+        phoneCaptchaRef.current.reset();
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 微信登录
+  const handleWeChatLogin = async () => {
+    try {
+      // Generate random state for CSRF protection
+      const state = Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('wechat_oauth_state', state);
+
+      // Get WeChat login URL from backend
+      const response = await userAPI.getWeChatLoginURL(state);
+
+      if (response.data.code === 0 && response.data.data) {
+        const loginURL = response.data.data.login_url;
+        // Redirect to WeChat OAuth page
+        window.location.href = loginURL;
+      } else {
+        showError(response.data.message || '获取微信登录链接失败');
+      }
+    } catch (err) {
+      console.error('WeChat login error:', err);
+      showError('微信登录失败,请稍后重试');
     }
   };
 
@@ -270,7 +705,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 autoFocus
               />
 
-              {error && <div className="auth-error">{error}</div>}
 
               <button
                 className="auth-button auth-button-primary"
@@ -290,34 +724,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
               </div>
 
               <div className="auth-social-buttons">
-                <button className="auth-social-button" disabled>
-                  <svg width="24" height="24" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                  </svg>
-                  <span>继续使用 Google 登录</span>
-                </button>
-
-                <button className="auth-social-button" disabled>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-                  </svg>
-                  <span>继续使用 Apple 登录</span>
-                </button>
-
-                <button className="auth-social-button" disabled>
-                  <svg width="24" height="24" viewBox="0 0 24 24">
-                    <path fill="#F25022" d="M1 1h10v10H1z"/>
-                    <path fill="#00A4EF" d="M13 1h10v10H13z"/>
-                    <path fill="#7FBA00" d="M1 13h10v10H1z"/>
-                    <path fill="#FFB900" d="M13 13h10v10H13z"/>
-                  </svg>
-                  <span>继续使用 Microsoft 登录</span>
-                </button>
-
-                <button className="auth-social-button" disabled>
+                <button className="auth-social-button" onClick={() => setMode('phone-welcome')}>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
                   </svg>
@@ -351,22 +758,66 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
             </div>
 
             <div className="auth-form">
-              <input
-                type="password"
-                className="auth-input"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="密码"
-                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-                autoFocus
-              />
+              {/* Login method toggle */}
+              <div className="auth-login-method-toggle">
+                <button
+                  className={`auth-toggle-btn ${!useCodeLogin ? 'active' : ''}`}
+                  onClick={() => setUseCodeLogin(false)}
+                >
+                  密码登录
+                </button>
+                <button
+                  className={`auth-toggle-btn ${useCodeLogin ? 'active' : ''}`}
+                  onClick={() => setUseCodeLogin(true)}
+                >
+                  验证码登录
+                </button>
+              </div>
+
+              {!useCodeLogin ? (
+                <>
+                  <input
+                    type="password"
+                    className="auth-input"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="密码"
+                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                    autoFocus
+                  />
+
+                  <div className="auth-forgot-password">
+                    <button className="auth-link" onClick={() => setMode('forgot-password-email')}>
+                      忘记密码？
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="auth-code-group">
+                  <input
+                    type="text"
+                    className="auth-input auth-code-input"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="验证码"
+                    maxLength={6}
+                    autoFocus
+                  />
+                  <button
+                    className="auth-code-button"
+                    onClick={() => handleSendCode('login')}
+                    disabled={countdown > 0 || loading || !email}
+                  >
+                    {countdown > 0 ? `${countdown}秒` : '发送'}
+                  </button>
+                </div>
+              )}
 
               <SliderCaptcha
+                ref={emailCaptchaRef}
                 onSuccess={() => setCaptchaVerified(true)}
                 onFail={() => setCaptchaVerified(false)}
               />
-
-              {error && <div className="auth-error">{error}</div>}
 
               <div className="auth-checkbox">
                 <label>
@@ -386,7 +837,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
               <button
                 className="auth-button auth-button-primary"
-                onClick={handleLogin}
+                onClick={useCodeLogin ? handleLoginWithCode : handleLogin}
                 disabled={loading || !captchaVerified || !agreedToPolicy}
               >
                 {loading ? '登录中...' : '登录'}
@@ -439,21 +890,27 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 className="auth-input"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                onBlur={validateConfirmPassword}
                 placeholder="确认密码"
               />
+
+              {/* 密码错误提示 - 预留位置 */}
+              <div className="auth-password-error-placeholder">
+                {passwordError && <div className="auth-password-error">{passwordError}</div>}
+              </div>
 
               {requireEmailVerification && (
                 <div className="auth-code-group">
                   <input
                     type="text"
-                    className="auth-input"
+                    className="auth-input auth-code-input"
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
                     placeholder="验证码"
                     maxLength={6}
                   />
                   <button
-                    className="auth-button auth-button-secondary"
+                    className="auth-code-button"
                     onClick={handleSendCode}
                     disabled={countdown > 0 || loading || !email}
                   >
@@ -463,11 +920,11 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
               )}
 
               <SliderCaptcha
+                ref={emailCaptchaRef}
                 onSuccess={() => setCaptchaVerified(true)}
                 onFail={() => setCaptchaVerified(false)}
               />
 
-              {error && <div className="auth-error">{error}</div>}
 
               <div className="auth-checkbox">
                 <label>
@@ -497,6 +954,406 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 <span>已有账户？</span>
                 <button className="auth-link" onClick={() => setMode('welcome')}>立即登录</button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 手机号欢迎页面 */}
+        {mode === 'phone-welcome' && (
+          <div className="auth-content">
+            <button className="auth-back" onClick={() => setMode('welcome')}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+
+            <h1 className="auth-title">手机号登录</h1>
+
+            <div className="auth-form">
+              <input
+                type="tel"
+                className="auth-input"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                placeholder="手机号码"
+                onKeyPress={(e) => e.key === 'Enter' && handlePhoneContinue()}
+                maxLength={11}
+                autoFocus
+              />
+
+
+              <button
+                className="auth-button auth-button-primary"
+                onClick={handlePhoneContinue}
+                disabled={loading}
+              >
+                {loading ? '检查中...' : '继续'}
+              </button>
+
+              <div className="auth-divider">
+                <span>还没有账户?</span>
+                <button className="auth-link" onClick={() => setMode('phone-register')}>请注册</button>
+              </div>
+            </div>
+
+            <div className="auth-footer">
+              <button className="auth-footer-link" onClick={() => setShowPolicy(true)}>使用条款</button>
+              <span>|</span>
+              <button className="auth-footer-link" onClick={() => setShowPolicy(true)}>隐私政策</button>
+            </div>
+          </div>
+        )}
+
+        {/* 手机号登录页面 */}
+        {mode === 'phone-login' && (
+          <div className="auth-content">
+            <button className="auth-back" onClick={() => setMode('phone-welcome')}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+
+            <h1 className="auth-title">登录</h1>
+
+            <div className="auth-email-display">
+              <span>{phone}</span>
+              <button className="auth-change-email" onClick={() => setMode('phone-welcome')}>更换</button>
+            </div>
+
+            <div className="auth-form">
+              {/* Login method toggle */}
+              <div className="auth-login-method-toggle">
+                <button
+                  className={`auth-toggle-btn ${!useCodeLogin ? 'active' : ''}`}
+                  onClick={() => setUseCodeLogin(false)}
+                >
+                  密码登录
+                </button>
+                <button
+                  className={`auth-toggle-btn ${useCodeLogin ? 'active' : ''}`}
+                  onClick={() => setUseCodeLogin(true)}
+                >
+                  验证码登录
+                </button>
+              </div>
+
+              {!useCodeLogin ? (
+                <>
+                  <input
+                    type="password"
+                    className="auth-input"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="密码"
+                    onKeyPress={(e) => e.key === 'Enter' && handlePhoneLogin()}
+                    autoFocus
+                  />
+
+                  <div className="auth-forgot-password">
+                    <button className="auth-link" onClick={() => setMode('forgot-password-phone')}>
+                      忘记密码？
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="auth-code-group">
+                  <input
+                    type="text"
+                    className="auth-input auth-code-input"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="验证码"
+                    maxLength={6}
+                    autoFocus
+                  />
+                  <button
+                    className="auth-code-button"
+                    onClick={() => handleSendPhoneCode('login')}
+                    disabled={countdown > 0 || loading || !phone}
+                  >
+                    {countdown > 0 ? `${countdown}秒` : '发送'}
+                  </button>
+                </div>
+              )}
+
+              <SliderCaptcha
+                ref={phoneCaptchaRef}
+                onSuccess={() => setCaptchaVerified(true)}
+                onFail={() => setCaptchaVerified(false)}
+              />
+
+              <div className="auth-checkbox">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={agreedToPolicy}
+                    onChange={(e) => setAgreedToPolicy(e.target.checked)}
+                  />
+                  <span>
+                    我已阅读并同意
+                    <button className="auth-policy-link" onClick={() => setShowPolicy(true)}>
+                      使用条款和隐私政策
+                    </button>
+                  </span>
+                </label>
+              </div>
+
+              <button
+                className="auth-button auth-button-primary"
+                onClick={useCodeLogin ? handleLoginPhoneWithCode : handlePhoneLogin}
+                disabled={loading || !captchaVerified || !agreedToPolicy}
+              >
+                {loading ? '登录中...' : '登录'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 手机号注册页面 */}
+        {mode === 'phone-register' && (
+          <div className="auth-content">
+            <button className="auth-back" onClick={() => setMode('phone-welcome')}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+
+            <h1 className="auth-title">注册账户</h1>
+
+            <div className="auth-email-display">
+              <span>{phone || '输入手机号码'}</span>
+              {phone && (
+                <button className="auth-change-email" onClick={() => setMode('phone-welcome')}>更换</button>
+              )}
+            </div>
+
+            <div className="auth-form">
+              {!phone && (
+                <input
+                  type="tel"
+                  className="auth-input"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                  placeholder="手机号码"
+                  maxLength={11}
+                  autoFocus
+                />
+              )}
+
+              <input
+                type="password"
+                className="auth-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="密码(至少8位)"
+                autoFocus={!!phone}
+              />
+
+              <input
+                type="password"
+                className="auth-input"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onBlur={validateConfirmPassword}
+                placeholder="确认密码"
+              />
+
+              {/* 密码错误提示 - 预留位置 */}
+              <div className="auth-password-error-placeholder">
+                {passwordError && <div className="auth-password-error">{passwordError}</div>}
+              </div>
+
+              <div className="auth-code-group">
+                <input
+                  type="text"
+                  className="auth-input auth-code-input"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="验证码"
+                  maxLength={6}
+                />
+                <button
+                  className="auth-code-button"
+                  onClick={() => handleSendPhoneCode('register')}
+                  disabled={countdown > 0 || loading || !phone}
+                >
+                  {countdown > 0 ? `${countdown}秒` : '发送'}
+                </button>
+              </div>
+
+              <SliderCaptcha
+                ref={phoneCaptchaRef}
+                onSuccess={() => setCaptchaVerified(true)}
+                onFail={() => setCaptchaVerified(false)}
+              />
+
+
+              <div className="auth-checkbox">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={agreedToPolicy}
+                    onChange={(e) => setAgreedToPolicy(e.target.checked)}
+                  />
+                  <span>
+                    我已阅读并同意
+                    <button className="auth-policy-link" onClick={() => setShowPolicy(true)}>
+                      使用条款和隐私政策
+                    </button>
+                  </span>
+                </label>
+              </div>
+
+              <button
+                className="auth-button auth-button-primary"
+                onClick={handlePhoneRegister}
+                disabled={!captchaVerified || !agreedToPolicy}
+              >
+                注册
+              </button>
+
+              <div className="auth-divider">
+                <span>已有账户?</span>
+                <button className="auth-link" onClick={() => setMode('phone-welcome')}>立即登录</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 忘记密码 - 邮箱 */}
+        {mode === 'forgot-password-email' && (
+          <div className="auth-content">
+            <button className="auth-back" onClick={() => setMode('login')}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+
+            <h1 className="auth-title">重置密码</h1>
+
+            <div className="auth-email-display">
+              <span>{email}</span>
+              <button className="auth-change-email" onClick={() => setMode('welcome')}>更换</button>
+            </div>
+
+            <div className="auth-form">
+              <div className="auth-code-group">
+                <input
+                  type="text"
+                  className="auth-input auth-code-input"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="验证码"
+                  maxLength={6}
+                  autoFocus
+                />
+                <button
+                  className="auth-code-button"
+                  onClick={() => handleSendCode('reset_password')}
+                  disabled={countdown > 0 || loading || !email}
+                >
+                  {countdown > 0 ? `${countdown}秒` : '发送'}
+                </button>
+              </div>
+
+              <input
+                type="password"
+                className="auth-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="新密码（至少8位）"
+              />
+
+              <input
+                type="password"
+                className="auth-input"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onBlur={validateConfirmPassword}
+                placeholder="确认新密码"
+              />
+
+              {/* 密码错误提示 - 预留位置 */}
+              <div className="auth-password-error-placeholder">
+                {passwordError && <div className="auth-password-error">{passwordError}</div>}
+              </div>
+
+              <button
+                className="auth-button auth-button-primary"
+                onClick={handleResetPassword}
+                disabled={loading}
+              >
+                {loading ? '重置中...' : '重置密码'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 忘记密码 - 手机号 */}
+        {mode === 'forgot-password-phone' && (
+          <div className="auth-content">
+            <button className="auth-back" onClick={() => setMode('phone-login')}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+
+            <h1 className="auth-title">重置密码</h1>
+
+            <div className="auth-email-display">
+              <span>{phone}</span>
+              <button className="auth-change-email" onClick={() => setMode('phone-welcome')}>更换</button>
+            </div>
+
+            <div className="auth-form">
+              <div className="auth-code-group">
+                <input
+                  type="text"
+                  className="auth-input auth-code-input"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="验证码"
+                  maxLength={6}
+                  autoFocus
+                />
+                <button
+                  className="auth-code-button"
+                  onClick={() => handleSendPhoneCode('reset_password')}
+                  disabled={countdown > 0 || loading || !phone}
+                >
+                  {countdown > 0 ? `${countdown}秒` : '发送'}
+                </button>
+              </div>
+
+              <input
+                type="password"
+                className="auth-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="新密码（至少8位）"
+              />
+
+              <input
+                type="password"
+                className="auth-input"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onBlur={validateConfirmPassword}
+                placeholder="确认新密码"
+              />
+
+              {/* 密码错误提示 - 预留位置 */}
+              <div className="auth-password-error-placeholder">
+                {passwordError && <div className="auth-password-error">{passwordError}</div>}
+              </div>
+
+              <button
+                className="auth-button auth-button-primary"
+                onClick={handleResetPasswordPhone}
+                disabled={loading}
+              >
+                {loading ? '重置中...' : '重置密码'}
+              </button>
             </div>
           </div>
         )}

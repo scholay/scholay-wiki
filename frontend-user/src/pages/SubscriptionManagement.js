@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
-import api from '../services/api';
+import api, { orderAPI, paymentAPI } from '../services/api';
 import AppSidebar from '../components/AppSidebar';
 import './SubscriptionManagement.css';
 
@@ -84,22 +84,48 @@ const SubscriptionManagement = () => {
     setMessage({ type: '', text: '' });
 
     try {
-      const duration = billingCycle === 'monthly' ? 1 : 12;
-      const response = await api.post('/user/subscription/upgrade', {
-        plan_code: planCode,
-        duration: duration
-      });
+      // Step 1: Create order
+      const orderResponse = await orderAPI.createOrder(planCode, billingCycle);
 
-      if (response.data.code === 0) {
-        setMessage({ type: 'success', text: '订阅升级成功！' });
-        await fetchAllData();
+      if (orderResponse.data.code !== 0 || !orderResponse.data.data) {
+        setMessage({ type: 'error', text: '创建订单失败：' + (orderResponse.data.message || '未知错误') });
+        setActionLoading(false);
+        return;
+      }
+
+      const order = orderResponse.data.data;
+
+      // Step 2: Get plan details for payment
+      const plan = plans.find(p => p.plan_code === planCode);
+      if (!plan) {
+        setMessage({ type: 'error', text: '无法找到订阅方案信息' });
+        setActionLoading(false);
+        return;
+      }
+
+      // Step 3: Create Alipay payment
+      const returnURL = `${window.location.origin}/subscription`;
+      const subject = `Scholar ${plan.plan_name} ${billingCycle === 'monthly' ? '月付' : '年付'}订阅`;
+      const description = `订单号: ${order.order_no}`;
+
+      const paymentResponse = await paymentAPI.createAlipayPayment(
+        order.order_no,
+        subject,
+        order.amount,
+        returnURL,
+        description
+      );
+
+      if (paymentResponse.data.code === 0 && paymentResponse.data.data) {
+        // Redirect to Alipay payment page
+        window.location.href = paymentResponse.data.data.payment_url;
       } else {
-        setMessage({ type: 'error', text: '订阅升级失败：' + response.data.message });
+        setMessage({ type: 'error', text: '创建支付失败：' + (paymentResponse.data.message || '未知错误') });
+        setActionLoading(false);
       }
     } catch (error) {
       setMessage({ type: 'error', text: '订阅升级失败，请稍后重试' });
       console.error('Upgrade failed:', error);
-    } finally {
       setActionLoading(false);
     }
   };
@@ -111,21 +137,48 @@ const SubscriptionManagement = () => {
     setMessage({ type: '', text: '' });
 
     try {
-      const duration = billingCycle === 'monthly' ? 1 : 12;
-      const response = await api.post('/user/subscription/renew', {
-        duration: duration
-      });
+      // Step 1: Create order with current plan
+      const orderResponse = await orderAPI.createOrder(subscription.plan_code, billingCycle);
 
-      if (response.data.code === 0) {
-        setMessage({ type: 'success', text: '续期成功！' });
-        await fetchAllData();
+      if (orderResponse.data.code !== 0 || !orderResponse.data.data) {
+        setMessage({ type: 'error', text: '创建订单失败：' + (orderResponse.data.message || '未知错误') });
+        setActionLoading(false);
+        return;
+      }
+
+      const order = orderResponse.data.data;
+
+      // Step 2: Get plan details for payment
+      const plan = plans.find(p => p.plan_code === subscription.plan_code);
+      if (!plan) {
+        setMessage({ type: 'error', text: '无法找到订阅方案信息' });
+        setActionLoading(false);
+        return;
+      }
+
+      // Step 3: Create Alipay payment
+      const returnURL = `${window.location.origin}/subscription`;
+      const subject = `Scholar ${plan.plan_name} ${billingCycle === 'monthly' ? '月付' : '年付'}续期`;
+      const description = `订单号: ${order.order_no}`;
+
+      const paymentResponse = await paymentAPI.createAlipayPayment(
+        order.order_no,
+        subject,
+        order.amount,
+        returnURL,
+        description
+      );
+
+      if (paymentResponse.data.code === 0 && paymentResponse.data.data) {
+        // Redirect to Alipay payment page
+        window.location.href = paymentResponse.data.data.payment_url;
       } else {
-        setMessage({ type: 'error', text: '续期失败：' + response.data.message });
+        setMessage({ type: 'error', text: '创建支付失败：' + (paymentResponse.data.message || '未知错误') });
+        setActionLoading(false);
       }
     } catch (error) {
       setMessage({ type: 'error', text: '续期失败，请稍后重试' });
       console.error('Failed to renew:', error);
-    } finally {
       setActionLoading(false);
     }
   };
@@ -178,6 +231,71 @@ const SubscriptionManagement = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const handlePayOrder = async (order) => {
+    setActionLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      // Get plan details for payment
+      const plan = plans.find(p => p.plan_code === order.plan_code);
+      if (!plan) {
+        setMessage({ type: 'error', text: '无法找到订阅方案信息' });
+        setActionLoading(false);
+        return;
+      }
+
+      // Create Alipay payment
+      const returnURL = `${window.location.origin}/subscription`;
+      const subject = `Scholar ${order.plan_name} ${order.billing_cycle === 'monthly' ? '月付' : '年付'}订阅`;
+      const description = `订单号: ${order.order_no}`;
+
+      const paymentResponse = await paymentAPI.createAlipayPayment(
+        order.order_no,
+        subject,
+        order.amount,
+        returnURL,
+        description
+      );
+
+      if (paymentResponse.data.code === 0 && paymentResponse.data.data) {
+        // Redirect to Alipay payment page
+        window.location.href = paymentResponse.data.data.payment_url;
+      } else {
+        setMessage({ type: 'error', text: '创建支付失败：' + (paymentResponse.data.message || '未知错误') });
+        setActionLoading(false);
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: '创建支付失败，请稍后重试' });
+      console.error('Payment failed:', error);
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancelOrder = async (orderNo) => {
+    if (!window.confirm('确认取消此订单吗？')) {
+      return;
+    }
+
+    setActionLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const response = await orderAPI.cancelOrder(orderNo);
+
+      if (response.data.code === 0) {
+        setMessage({ type: 'success', text: '订单已取消' });
+        await fetchAllData();
+      } else {
+        setMessage({ type: 'error', text: '取消订单失败：' + (response.data.message || '未知错误') });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: '取消订单失败，请稍后重试' });
+      console.error('Cancel order failed:', error);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   if (loading) {
@@ -515,6 +633,24 @@ const SubscriptionManagement = () => {
                           <span className={`order-status status-${statusInfo.class}`}>
                             {statusInfo.text}
                           </span>
+                          {order.status === 'pending' && (
+                            <div className="order-actions">
+                              <button
+                                className="btn-pay-order"
+                                onClick={() => handlePayOrder(order)}
+                                disabled={actionLoading}
+                              >
+                                立即支付
+                              </button>
+                              <button
+                                className="btn-cancel-order"
+                                onClick={() => handleCancelOrder(order.order_no)}
+                                disabled={actionLoading}
+                              >
+                                取消订单
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

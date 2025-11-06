@@ -352,6 +352,52 @@
   text-decoration: underline;
 }
 
+/* Login Method Toggle */
+.auth-login-method-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.auth-toggle-btn {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: transparent;
+  color: #9ca3af;
+}
+
+.auth-toggle-btn:hover {
+  color: #ececec;
+}
+
+.auth-toggle-btn.active {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.08) 100%);
+  color: rgb(16, 163, 127);
+  font-weight: 600;
+}
+
+/* Forgot Password Link */
+.auth-forgot-password {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -10px;
+  margin-bottom: 12px;
+}
+
+.auth-forgot-password .auth-link {
+  font-size: 0.875rem;
+}
+
 /* Separator */
 .auth-separator {
   position: relative;
@@ -451,6 +497,24 @@
   text-align: left;
   position: relative;
   z-index: 1;
+}
+
+/* WeChat button special styling */
+.auth-wechat-button {
+  background: linear-gradient(135deg, #09BB07 0%, #07C160 100%);
+  border-color: rgba(9, 187, 7, 0.3);
+  color: white;
+}
+
+.auth-wechat-button::before {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.auth-wechat-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #07C160 0%, #09BB07 100%);
+  border-color: rgba(9, 187, 7, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(9, 187, 7, 0.3);
 }
 
 /* Footer */
@@ -649,3 +713,58 @@
 }
 
 /* Disabled State - No Loading Animation */
+
+/* Verification Code Input Styling */
+.auth-code-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.auth-code-button {
+  flex-shrink: 0;
+  padding: 15px 24px;
+  min-width: 90px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: rgba(16, 163, 127, 0.1);
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  color: rgb(16, 163, 127);
+}
+
+.auth-code-button:hover:not(:disabled) {
+  background: rgba(16, 163, 127, 0.2);
+  border-color: rgb(16, 163, 127);
+  transform: translateY(-1px);
+}
+
+.auth-code-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #6b7280;
+}
+
+/* Password Error Placeholder - Prevents Layout Shift */
+.auth-password-error-placeholder {
+  min-height: 36px;
+  margin-top: -18px;
+  margin-bottom: -18px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.auth-password-error {
+  padding: 6px 12px;
+  background: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 8px;
+  color: #fca5a5;
+  font-size: 0.875rem;
+  animation: shake 0.3s;
+  line-height: 1.4;
+}

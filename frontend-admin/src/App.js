@@ -8,6 +8,8 @@ import UserManagement from './pages/UserManagement';
 import ThirdPartyAccounts from './pages/ThirdPartyAccounts';
 import PromptTemplates from './pages/PromptTemplates';
 import SubscriptionPlans from './pages/SubscriptionPlans';
+import AlipayConfig from './pages/AlipayConfig';
+import WeChatConfig from './pages/WeChatConfig';
 import Toast from './components/Toast';
 import { AuthProvider, useAuth } from './utils/AuthContext';
 
@@ -44,6 +46,8 @@ function App() {
             <Route path="third-party-accounts" element={<ThirdPartyAccounts />} />
             <Route path="prompt-templates" element={<PromptTemplates />} />
             <Route path="subscription-plans" element={<SubscriptionPlans />} />
+            <Route path="alipay-config" element={<AlipayConfig />} />
+            <Route path="wechat-config" element={<WeChatConfig />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" />} />
