@@ -77,8 +77,8 @@ export const userAPI = {
     api.put('/user/profile', { username, avatar_url: avatarURL }),
 
   // WeChat OAuth
-  getWeChatLoginURL: (state) =>
-    api.get('/user/wechat/login-url', { params: { state } }),
+  getWeChatLoginURL: () =>
+    api.get('/user/wechat/login-url'),
 
   wechatCallback: (code, state) =>
     api.post('/user/wechat/callback', { code, state }),

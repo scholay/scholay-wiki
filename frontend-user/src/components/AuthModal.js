@@ -671,15 +671,16 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   // 微信登录
   const handleWeChatLogin = async () => {
     try {
-      // Generate random state for CSRF protection
-      const state = Math.random().toString(36).substring(2, 15);
-      localStorage.setItem('wechat_oauth_state', state);
-
-      // Get WeChat login URL from backend
-      const response = await userAPI.getWeChatLoginURL(state);
+      // Get WeChat login URL from backend (backend will generate state)
+      const response = await userAPI.getWeChatLoginURL();
 
       if (response.data.code === 0 && response.data.data) {
         const loginURL = response.data.data.login_url;
+        const state = response.data.data.state;
+
+        // Save state for verification after callback
+        localStorage.setItem('wechat_oauth_state', state);
+
         // Redirect to WeChat OAuth page
         window.location.href = loginURL;
       } else {
