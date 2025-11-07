@@ -4,6 +4,16 @@ import { useAuth } from '../utils/AuthContext';
 import { userAPI } from '../services/api';
 import './WeChatCallback.css';
 
+// CRITICAL: Clear old tokens IMMEDIATELY before component renders
+// This prevents AuthContext from starting heartbeat with expired tokens
+// Must be outside the component to run before React lifecycle
+const bindMode = localStorage.getItem('wechat_bind_mode');
+if (bindMode !== 'bind') {
+  // Only clear tokens in login mode, not binding mode
+  localStorage.removeItem('user_token');
+  localStorage.removeItem('user_data');
+}
+
 const WeChatCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -34,12 +44,8 @@ const WeChatCallback = () => {
         return;
       }
 
-      // Clear old token before calling callback API (if this is login mode, not binding)
-      // This prevents 401 errors from expired tokens interfering with the callback
-      if (bindMode !== 'bind') {
-        localStorage.removeItem('user_token');
-        localStorage.removeItem('user_data');
-      }
+      // Note: Old tokens were already cleared at module load time (lines 10-15)
+      // to prevent AuthContext from starting heartbeat with expired tokens
 
       try {
         let response;
@@ -75,8 +81,8 @@ const WeChatCallback = () => {
             // Clean up
             localStorage.removeItem('wechat_oauth_state');
 
-            // Update auth context
-            login(user, token);
+            // Update auth context (token first, then user data)
+            login(token, user);
 
             setStatus('success');
             setMessage(is_new_user ? '微信账号注册成功！即将跳转...' : '微信登录成功！即将跳转...');
