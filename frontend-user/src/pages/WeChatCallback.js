@@ -50,7 +50,13 @@ const WeChatCallback = () => {
         console.error('State mismatch - expected:', savedState, 'got:', state);
         setStatus('error');
         setMessage('安全验证失败，请重试');
-        const redirectPath = bindMode === 'bind' ? '/settings' : '/';
+
+        // Show error toast for binding mode
+        if (bindMode === 'bind') {
+          showToast('安全验证失败，请重试', 'error');
+        }
+
+        const redirectPath = bindMode === 'bind' ? '/settings#account-management' : '/';
         setTimeout(() => navigate(redirectPath), 3000);
         return;
       }
@@ -70,9 +76,9 @@ const WeChatCallback = () => {
             localStorage.removeItem('wechat_bind_state');
             localStorage.removeItem('wechat_bind_mode');
 
-            // Show success toast and redirect immediately
+            // Show success toast and redirect to account management section
             showToast('微信账号绑定成功！', 'success');
-            navigate('/settings');
+            navigate('/settings#account-management');
           } else {
             throw new Error(response.data.message || '微信绑定失败');
           }
@@ -105,6 +111,12 @@ const WeChatCallback = () => {
         const errorMessage = error.response?.data?.message || error.message || (bindMode === 'bind' ? '微信绑定失败' : '微信登录失败');
         setStatus('error');
         setMessage(errorMessage);
+
+        // Show error toast with specific message
+        if (bindMode === 'bind') {
+          showToast(errorMessage, 'error');
+        }
+
         // Clean up on error
         if (bindMode === 'bind') {
           localStorage.removeItem('wechat_bind_state');
@@ -112,7 +124,9 @@ const WeChatCallback = () => {
         } else {
           localStorage.removeItem('wechat_oauth_state');
         }
-        setTimeout(() => navigate(bindMode === 'bind' ? '/settings' : '/'), 3000);
+
+        const redirectPath = bindMode === 'bind' ? '/settings#account-management' : '/';
+        setTimeout(() => navigate(redirectPath), 3000);
       }
     };
 
