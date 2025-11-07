@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import SEO from '../components/SEO';
+import { generateScholarlyArticleSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
 import './PaperDetailPage.css';
 
 const PaperDetailPage = () => {
@@ -88,8 +90,30 @@ const PaperDetailPage = () => {
     );
   }
 
+  // 生成SEO数据
+  const pageTitle = paper?.title
+    ? `${paper.title} - Scholay学术论文`
+    : '论文详情 - Scholay';
+
+  const pageDescription = paper?.abstract
+    ? truncateText(paper.abstract, 160)
+    : `查看这篇${paper?.year || ''}年发表的学术论文详情，作者：${paper?.authors?.slice(0, 3).map(a => a.name).join(', ')}等。`;
+
+  const breadcrumbData = [
+    { name: '首页', url: '/' },
+    { name: '论文详情', url: `/paper/${paperId}` }
+  ];
+
   return (
     <div className="paper-detail-page" style={{ overflow: 'auto' }}>
+      <SEO
+        title={pageTitle}
+        description={pageDescription}
+        keywords={`${paper?.title},${paper?.authors?.slice(0, 5).map(a => a.name).join(',')},${paper?.fieldsOfStudy?.join(',')}`}
+        canonical={`/paper/${paperId}`}
+        ogType="article"
+        structuredData={paper ? generateScholarlyArticleSchema(paper) : generateBreadcrumbSchema(breadcrumbData)}
+      />
       {/* 顶部导航栏 */}
       <div className="paper-detail-header">
         <div className="header-logo" onClick={handleLogoClick}>

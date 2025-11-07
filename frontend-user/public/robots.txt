@@ -1,0 +1,35 @@
+# robots.txt for Scholay
+# https://www.scholay.com/robots.txt
+
+User-agent: *
+Allow: /
+Allow: /search-results
+Allow: /paper/*
+Allow: /pricing
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /subscription
+Disallow: /order-confirmation
+Disallow: /wechat/callback
+Disallow: /api/
+
+# Crawl-delay for respectful crawling
+Crawl-delay: 1
+
+# Sitemaps
+Sitemap: https://www.scholay.com/sitemap.xml
+
+# Popular search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
+Crawl-delay: 2
+
+User-agent: Sogou web spider
+Allow: /
+Crawl-delay: 2

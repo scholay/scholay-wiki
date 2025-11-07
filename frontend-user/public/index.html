@@ -1,15 +1,103 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" type="image/png" href="%PUBLIC_URL%/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
     <meta name="theme-color" content="#667eea" />
-    <meta name="description" content="Scholay - Academic Search Platform - Mobile Friendly" />
+
+    <!-- Primary Meta Tags -->
+    <title>Scholay - AI驱动的学术搜索平台 | 智能文献检索与分析</title>
+    <meta name="title" content="Scholay - AI驱动的学术搜索平台 | 智能文献检索与分析" />
+    <meta name="description" content="Scholay是一个创新的学术搜索平台，提供AI驱动的文献检索、智能论文分析、引用图谱可视化等功能。帮助研究人员快速找到高质量学术资源，提升科研效率。" />
+    <meta name="keywords" content="学术搜索,论文检索,文献查找,AI论文分析,学术资源,科研工具,Semantic Scholar,论文引用,学术数据库,研究助手" />
+    <meta name="author" content="Scholay" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <link rel="canonical" href="https://www.scholay.com/" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.scholay.com/" />
+    <meta property="og:title" content="Scholay - AI驱动的学术搜索平台" />
+    <meta property="og:description" content="创新的学术搜索平台，提供AI驱动的文献检索、智能论文分析、引用图谱可视化等功能。提升科研效率。" />
+    <meta property="og:image" content="%PUBLIC_URL%/og-image.png" />
+    <meta property="og:site_name" content="Scholay" />
+    <meta property="og:locale" content="zh_CN" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://www.scholay.com/" />
+    <meta name="twitter:title" content="Scholay - AI驱动的学术搜索平台" />
+    <meta name="twitter:description" content="创新的学术搜索平台，提供AI驱动的文献检索、智能论文分析、引用图谱可视化等功能。" />
+    <meta name="twitter:image" content="%PUBLIC_URL%/og-image.png" />
+
+    <!-- Mobile Web App -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Scholay" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo.png" />
-    <title>Scholay - Academic Search</title>
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Scholay",
+      "alternateName": "Scholay学术搜索",
+      "url": "https://www.scholay.com",
+      "description": "AI驱动的学术搜索平台，提供智能文献检索与分析服务",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://www.scholay.com/search-results?query={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Scholay",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://www.scholay.com/logo.png"
+        }
+      }
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Scholay",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "CNY"
+      },
+      "description": "AI驱动的学术搜索平台，提供智能文献检索、论文分析、引用图谱等功能",
+      "featureList": [
+        "AI智能搜索",
+        "论文详细分析",
+        "引用关系可视化",
+        "PDF在线预览",
+        "个性化推荐"
+      ],
+      "screenshot": "https://www.scholay.com/screenshot.png"
+    }
+    </script>
+
+    <!-- Microsoft Clarity Analytics -->
+    <script type="text/javascript">
+      (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+      })(window, document, "clarity", "script", "u14c9rnomm");
+    </script>
     <style>
       /* 初始加载样式 - React加载后会自动移除 */
       #root:empty {

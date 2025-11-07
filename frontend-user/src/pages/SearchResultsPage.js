@@ -9,6 +9,8 @@ import SearchFilters from '../components/SearchFilters';
 import PaperListSkeleton from '../components/PaperListSkeleton';
 import { NormalSearchIcon } from '../components/SearchIcons';
 import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory, renameSearchHistory } from '../utils/searchHistory';
+import SEO from '../components/SEO';
+import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
 import './SearchResultsPage.css';
 
 const SearchResultsPage = () => {
@@ -382,8 +384,29 @@ const SearchResultsPage = () => {
   // 判断是否为空状态（没有查询参数）
   const isEmptyState = !searchParams.get('query');
 
+  // 生成SEO数据
+  const pageTitle = searchQuery
+    ? `"${searchQuery}"的搜索结果 - Scholay学术搜索`
+    : '搜索结果 - Scholay学术搜索';
+
+  const pageDescription = searchQuery && papers.length > 0
+    ? `为您找到${total}篇关于"${searchQuery}"的学术论文。${truncateText(papers[0]?.title || '', 100)}`
+    : `使用Scholay智能搜索引擎查找学术论文、研究文献和科研资料。`;
+
+  const breadcrumbData = [
+    { name: '首页', url: '/' },
+    { name: '搜索结果', url: `/search-results?query=${encodeURIComponent(searchQuery)}` }
+  ];
+
   return (
     <div className="search-results-page">
+      <SEO
+        title={pageTitle}
+        description={pageDescription}
+        keywords={`${searchQuery},学术搜索,论文检索,文献查找,${filters.fieldsOfStudy.join(',')}`}
+        canonical={`/search-results?query=${encodeURIComponent(searchQuery)}`}
+        structuredData={papers.length > 0 ? generateSearchResultsSchema(searchQuery, papers) : generateBreadcrumbSchema(breadcrumbData)}
+      />
       {/* 统一侧边栏 */}
       {isAuthenticated && (
         <AppSidebar

@@ -85,8 +85,8 @@ services:
       REDIS_DB: 0
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
       SERVER_PORT: 8080
-      ADMIN_INITIAL_USERNAME: admin
-      ADMIN_INITIAL_PASSWORD: adminadmin
+      ADMIN_INITIAL_USERNAME: ${ADMIN_INITIAL_USERNAME:-admin}
+      ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-adminadmin}
     # Backend不暴露端口,通过Nginx访问
     expose:
       - "8080"

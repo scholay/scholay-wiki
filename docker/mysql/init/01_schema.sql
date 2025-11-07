@@ -423,9 +423,9 @@ SET foreign_key_checks = 1;
 -- 使用INSERT IGNORE确保不会覆盖已有数据
 -- ============================================
 
--- 默认管理员账号（密码: adminadmin）
-INSERT IGNORE INTO `admin_users` (`id`, `username`, `password_hash`, `email`, `status`) VALUES
-(1, 'admin', '$2a$10$K7L1OJ45/4Y2nIghXc8q4OaGnOmNXbRD9Q2K50jif3ojI8Vg7wZQW', 'admin@scholar.local', 1);
+-- 默认管理员账号由后端服务启动时自动初始化（从环境变量读取）
+-- 配置环境变量: ADMIN_INITIAL_USERNAME, ADMIN_INITIAL_PASSWORD
+-- 详见 backend/internal/admin/service.go InitializeDefaultAdmin()
 
 -- 默认订阅计划
 INSERT IGNORE INTO `subscription_plans` (`plan_code`, `plan_name`, `price_monthly`, `price_yearly`, `features`, `is_active`, `sort_order`) VALUES

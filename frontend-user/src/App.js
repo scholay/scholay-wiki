@@ -1,5 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from './utils/AuthContext';
 import { ToastProvider } from './components/ToastContainer';
 
@@ -35,39 +36,41 @@ function App() {
   }, []);
 
   return (
-    <ToastProvider>
-      <AuthProvider>
-        <Router>
-          <Suspense fallback={null}>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/search" element={<Navigate to="/" replace />} />
-              <Route path="/search-results" element={<SearchResultsPage />} />
-              <Route path="/advanced-search" element={<AdvancedSearchPage />} />
-              <Route path="/paper/:paperId" element={<PaperDetailPage />} />
-              <Route path="/chat" element={<ChatPage />} />
-              <Route path="/pricing" element={<Pricing />} />
-              <Route path="/subscription" element={<SubscriptionManagement />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/order-confirmation" element={<OrderConfirmation />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/wechat/callback" element={<WeChatCallback />} />
-              {/* 404 redirect to home */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+    <HelmetProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <Router>
+            <Suspense fallback={null}>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/search" element={<Navigate to="/" replace />} />
+                <Route path="/search-results" element={<SearchResultsPage />} />
+                <Route path="/advanced-search" element={<AdvancedSearchPage />} />
+                <Route path="/paper/:paperId" element={<PaperDetailPage />} />
+                <Route path="/chat" element={<ChatPage />} />
+                <Route path="/pricing" element={<Pricing />} />
+                <Route path="/subscription" element={<SubscriptionManagement />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/order-confirmation" element={<OrderConfirmation />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/wechat/callback" element={<WeChatCallback />} />
+                {/* 404 redirect to home */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
 
-            {/* Global auth modal for session expiry - 条件渲染避免不必要的组件加载 */}
-            {showAuthModal && (
-              <AuthModal
-                isOpen={showAuthModal}
-                onClose={() => setShowAuthModal(false)}
-                onLoginSuccess={() => setShowAuthModal(false)}
-              />
-            )}
-          </Suspense>
-        </Router>
-      </AuthProvider>
-    </ToastProvider>
+              {/* Global auth modal for session expiry - 条件渲染避免不必要的组件加载 */}
+              {showAuthModal && (
+                <AuthModal
+                  isOpen={showAuthModal}
+                  onClose={() => setShowAuthModal(false)}
+                  onLoginSuccess={() => setShowAuthModal(false)}
+                />
+              )}
+            </Suspense>
+          </Router>
+        </AuthProvider>
+      </ToastProvider>
+    </HelmetProvider>
   );
 }
 

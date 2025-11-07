@@ -80,12 +80,16 @@ for TABLE in $TABLES; do
     TABLE_DEF=$(sed -n "${START_LINE},${END_LINE}p" "$SCHEMA_FILE")
 
     # ========== 同步字段 ==========
-    # 提取schema中的字段（排除PRIMARY KEY、INDEX等）
-    echo "$TABLE_DEF" | grep "^  \`" | grep -v "PRIMARY KEY\|INDEX\|UNIQUE\|KEY\|CONSTRAINT\|FOREIGN KEY" | while IFS= read -r LINE; do
+    # 提取schema中的字段（排除PRIMARY KEY、INDEX等行，但保留字段定义中的UNIQUE约束）
+    # 首先收集schema中定义的所有字段名
+    SCHEMA_FIELDS=""
+    echo "$TABLE_DEF" | grep "^  \`" | grep -v "PRIMARY KEY\|^  INDEX\|^  UNIQUE\|^  KEY\|^  CONSTRAINT\|^  FOREIGN KEY" | while IFS= read -r LINE; do
         # 提取字段名
         FIELD_NAME=$(echo "$LINE" | sed "s/^  \`\([^\`]*\)\`.*/\1/")
-        # 提取字段定义（去掉字段名和末尾逗号）
-        FIELD_DEF=$(echo "$LINE" | sed "s/^  \`[^\`]*\` //; s/,$//" )
+        # 提取字段定义（去掉字段名和末尾逗号，保留 UNIQUE 约束）
+        # 注意：保留 UNIQUE 可以确保新增字段的唯一性约束不丢失
+        # 虽然可能导致索引名称不可控，但功能上是正确的
+        FIELD_DEF=$(echo "$LINE" | sed "s/^  \`[^\`]*\` //; s/,$//")
 
         # 检查字段是否存在
         EXISTS=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -sN -e "
@@ -95,14 +99,22 @@ for TABLE in $TABLES; do
             AND COLUMN_NAME='$FIELD_NAME'" 2>/dev/null)
 
         if [ "$EXISTS" = "0" ]; then
-            # 字段不存在，添加字段
+            # 字段不存在，添加字段（保留 UNIQUE 约束，确保唯一性不丢失）
             log_info "  Adding column: $FIELD_NAME"
             mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e "
                 ALTER TABLE \`$TABLE\` ADD COLUMN \`$FIELD_NAME\` $FIELD_DEF" 2>/dev/null || log_warning "  Failed to add column $FIELD_NAME"
         else
+            # 字段存在，跳过 MODIFY 操作（避免重复创建索引）
+            # 注意：MODIFY COLUMN 会导致包含 UNIQUE 的字段重复创建索引
+            # 如果确实需要修改字段类型，请手动执行 ALTER TABLE MODIFY COLUMN
             echo "  ✓ Column $FIELD_NAME exists"
         fi
     done
+
+    # ========== 删除schema中不存在的字段 ==========
+    # 注意：删除字段是危险操作，可能导致数据丢失
+    # 因此这个功能已被禁用。如需删除字段，请手动执行 ALTER TABLE DROP COLUMN
+    # log_info "  Skipping column removal (disabled for safety)"
 
     # ========== 同步索引 ==========
     # 提取schema中的索引

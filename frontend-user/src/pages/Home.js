@@ -5,6 +5,8 @@ import SearchFilters from '../components/SearchFilters';
 import AppSidebar from '../components/AppSidebar';
 import ModelSelector from '../components/ModelSelector';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
+import SEO from '../components/SEO';
+import { generateFAQSchema } from '../utils/seoHelpers';
 import './Home.css';
 
 // 懒加载 AuthModal - 只在需要时加载
@@ -175,9 +177,32 @@ const Home = () => {
     localStorage.setItem('sidebarCollapsed', newCollapsed.toString());
   };
 
+  // FAQ数据用于结构化数据
+  const faqData = [
+    {
+      question: '什么是Scholay学术搜索平台？',
+      answer: 'Scholay是一个AI驱动的学术搜索平台，提供智能文献检索、论文分析、引用图谱可视化等功能，帮助研究人员快速找到高质量学术资源。'
+    },
+    {
+      question: 'Scholay支持哪些搜索模式？',
+      answer: 'Scholay支持普通搜索和高级搜索两种模式。普通搜索可以快速检索论文标题、作者和关键词；高级搜索使用AI智能理解并解析您的研究需求，提供更精准的结果。'
+    },
+    {
+      question: 'Scholay的数据来源是什么？',
+      answer: 'Scholay基于Semantic Scholar学术图谱API，提供来自计算机科学、生物医学等多个领域的数百万篇学术论文数据。'
+    }
+  ];
+
   // Main search interface
   return (
     <div className="home-search">
+      <SEO
+        title="Scholay - AI驱动的学术搜索平台 | 智能文献检索与分析"
+        description="Scholay是创新的学术搜索平台，提供AI驱动的文献检索、智能论文分析、引用图谱可视化等功能。支持普通搜索和高级AI搜索，帮助研究人员快速找到高质量学术资源，提升科研效率。"
+        keywords="学术搜索,论文检索,文献查找,AI论文分析,学术资源,科研工具,Semantic Scholar,论文引用,学术数据库,研究助手,智能搜索"
+        canonical="/"
+        structuredData={generateFAQSchema(faqData)}
+      />
       {/* 只在登录状态显示侧边栏 */}
       {isAuthenticated && (
         <AppSidebar
