@@ -166,6 +166,21 @@ func (r *Repository) GetUserList(offset, limit int) ([]User, int64, error) {
 	return users, total, err
 }
 
+// GetUserAuthProviders returns all auth providers for given user IDs
+func (r *Repository) GetUserAuthProviders(userIDs []uint) (map[uint][]UserAuthProvider, error) {
+	var providers []UserAuthProvider
+	if err := r.db.Where("user_id IN ?", userIDs).Find(&providers).Error; err != nil {
+		return nil, err
+	}
+
+	// Group by user ID
+	result := make(map[uint][]UserAuthProvider)
+	for _, p := range providers {
+		result[p.UserID] = append(result[p.UserID], p)
+	}
+	return result, nil
+}
+
 // CreateSession creates a new user session
 func (r *Repository) CreateSession(session *model.UserSession) error {
 	return r.db.Create(session).Error

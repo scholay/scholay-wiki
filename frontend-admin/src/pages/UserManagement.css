@@ -181,6 +181,16 @@
   color: #64748b;
 }
 
+.wechat-openid {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.825rem;
+  color: #64748b;
+  font-family: monospace;
+}
+
 /* Status Badges */
 .status-badge {
   display: inline-block;

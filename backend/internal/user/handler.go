@@ -511,8 +511,44 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		return
 	}
 
+	// Get user IDs for fetching auth providers
+	userIDs := make([]uint, len(users))
+	for i, user := range users {
+		userIDs[i] = user.ID
+	}
+
+	// Fetch auth providers (including WeChat) for all users
+	authProviders, err := h.service.repo.GetUserAuthProviders(userIDs)
+	if err != nil {
+		// Log error but continue without provider info
+		authProviders = make(map[uint][]UserAuthProvider)
+	}
+
+	// Build response with auth provider info
+	type UserResponse struct {
+		User
+		WeChatOpenID string `json:"wechat_openid,omitempty"`
+	}
+
+	userResponses := make([]UserResponse, len(users))
+	for i, user := range users {
+		response := UserResponse{User: user}
+
+		// Find WeChat provider
+		if providers, ok := authProviders[user.ID]; ok {
+			for _, provider := range providers {
+				if provider.Provider == "wechat" {
+					response.WeChatOpenID = provider.ProviderUserID
+					break
+				}
+			}
+		}
+
+		userResponses[i] = response
+	}
+
 	utils.Success(c, gin.H{
-		"users": users,
+		"users": userResponses,
 		"total": total,
 		"page":  page,
 		"page_size": pageSize,

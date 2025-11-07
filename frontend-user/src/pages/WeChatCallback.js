@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
+import { useToast } from '../components/ToastContainer';
 import { userAPI } from '../services/api';
 import './WeChatCallback.css';
 
 // CRITICAL: Clear old tokens IMMEDIATELY before component renders
 // This prevents AuthContext from starting heartbeat with expired tokens
 // Must be outside the component to run before React lifecycle
+// NOTE: We only clear auth tokens, NOT OAuth state which is needed for verification
 const bindMode = localStorage.getItem('wechat_bind_mode');
 if (bindMode !== 'bind') {
   // Only clear tokens in login mode, not binding mode
+  // DO NOT clear wechat_oauth_state here - it's needed for verification
   localStorage.removeItem('user_token');
   localStorage.removeItem('user_data');
 }
@@ -18,6 +21,7 @@ const WeChatCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
+  const { showToast } = useToast();
   const [status, setStatus] = useState('processing'); // 'processing', 'success', 'error'
   const [message, setMessage] = useState('正在处理微信登录...');
 
@@ -37,14 +41,21 @@ const WeChatCallback = () => {
       const bindMode = localStorage.getItem('wechat_bind_mode');
       const savedState = localStorage.getItem(bindMode === 'bind' ? 'wechat_bind_state' : 'wechat_oauth_state');
 
+      // Debug logging
+      console.log('WeChat callback - bindMode:', bindMode);
+      console.log('WeChat callback - URL state:', state);
+      console.log('WeChat callback - Saved state:', savedState);
+
       if (state !== savedState) {
+        console.error('State mismatch - expected:', savedState, 'got:', state);
         setStatus('error');
         setMessage('安全验证失败，请重试');
-        setTimeout(() => navigate('/'), 3000);
+        const redirectPath = bindMode === 'bind' ? '/settings' : '/';
+        setTimeout(() => navigate(redirectPath), 3000);
         return;
       }
 
-      // Note: Old tokens were already cleared at module load time (lines 10-15)
+      // Note: Old tokens were already cleared at module load time (lines 10-17)
       // to prevent AuthContext from starting heartbeat with expired tokens
 
       try {
@@ -59,11 +70,9 @@ const WeChatCallback = () => {
             localStorage.removeItem('wechat_bind_state');
             localStorage.removeItem('wechat_bind_mode');
 
-            setStatus('success');
-            setMessage('微信账号绑定成功！即将跳转回设置页面...');
-
-            // Redirect to settings page
-            setTimeout(() => navigate('/settings'), 1500);
+            // Show success toast and redirect immediately
+            showToast('微信账号绑定成功！', 'success');
+            navigate('/settings');
           } else {
             throw new Error(response.data.message || '微信绑定失败');
           }
@@ -84,25 +93,31 @@ const WeChatCallback = () => {
             // Update auth context (token first, then user data)
             login(token, user);
 
-            setStatus('success');
-            setMessage(is_new_user ? '微信账号注册成功！即将跳转...' : '微信登录成功！即将跳转...');
-
-            // Redirect to home page
-            setTimeout(() => navigate('/'), 1500);
+            // Show success toast and redirect immediately
+            showToast(is_new_user ? '微信账号注册成功！' : '微信登录成功！', 'success');
+            navigate('/');
           } else {
             throw new Error(response.data.message || '微信登录失败');
           }
         }
       } catch (error) {
         console.error('WeChat callback error:', error);
+        const errorMessage = error.response?.data?.message || error.message || (bindMode === 'bind' ? '微信绑定失败' : '微信登录失败');
         setStatus('error');
-        setMessage(error.response?.data?.message || error.message || (bindMode === 'bind' ? '微信绑定失败，请重试' : '微信登录失败，请重试'));
+        setMessage(errorMessage);
+        // Clean up on error
+        if (bindMode === 'bind') {
+          localStorage.removeItem('wechat_bind_state');
+          localStorage.removeItem('wechat_bind_mode');
+        } else {
+          localStorage.removeItem('wechat_oauth_state');
+        }
         setTimeout(() => navigate(bindMode === 'bind' ? '/settings' : '/'), 3000);
       }
     };
 
     handleCallback();
-  }, [searchParams, navigate, login]);
+  }, [searchParams, navigate, login, showToast]);
 
   return (
     <div className="wechat-callback">

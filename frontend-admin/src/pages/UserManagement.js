@@ -238,8 +238,10 @@ const UserManagement = () => {
                   <thead>
                     <tr>
                       <th>ID</th>
-                      <th>邮箱</th>
                       <th>用户名</th>
+                      <th>邮箱</th>
+                      <th>手机号</th>
+                      <th>微信OpenID</th>
                       <th>状态</th>
                       <th>最后登录</th>
                       <th>注册时间</th>
@@ -251,8 +253,10 @@ const UserManagement = () => {
                       users.map(user => (
                         <tr key={user.id}>
                           <td>{user.id}</td>
-                          <td>{user.email || '-'}</td>
                           <td>{user.username || '-'}</td>
+                          <td>{user.email || '-'}</td>
+                          <td>{user.phone || '-'}</td>
+                          <td className="wechat-openid">{user.wechat_openid || '-'}</td>
                           <td>{getUserStatusLabel(user.status)}</td>
                           <td>{formatDate(user.last_login_at)}</td>
                           <td>{formatDate(user.created_at)}</td>
@@ -269,7 +273,7 @@ const UserManagement = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="7" className="no-data">暂无用户数据</td>
+                        <td colSpan="9" className="no-data">暂无用户数据</td>
                       </tr>
                     )}
                   </tbody>
