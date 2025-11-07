@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import logger from '../utils/logger';
 import './PaperCitationMarkdown.css';
 
 /**
@@ -66,12 +67,12 @@ function preprocessCitations(content) {
 
   const matches = content.match(citeRegex);
   if (matches && matches.length > 0) {
-    console.log('🔗 找到引用标记:', matches.length, '个', matches);
+    logger.log('🔗 找到引用标记:', matches.length, '个', matches);
   }
 
   return content.replace(citeRegex, (match, paperNum, text) => {
     // 使用特殊标记，格式：{{CITE:论文编号:引用文本}}
-    console.log('📝 转换引用:', match, '->', `{{CITE:${paperNum}:${text}}}`);
+    logger.log('📝 转换引用:', match, '->', `{{CITE:${paperNum}:${text}}}`);
     return `{{CITE:${paperNum}:${text}}}`;
   });
 }

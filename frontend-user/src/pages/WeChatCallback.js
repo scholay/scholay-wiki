@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { userAPI } from '../services/api';
+import logger from '../utils/logger';
 
 // CRITICAL: Clear old tokens IMMEDIATELY before component renders
 // This prevents AuthContext from starting heartbeat with expired tokens
@@ -36,9 +37,9 @@ const WeChatCallback = () => {
       const savedState = localStorage.getItem(bindMode === 'bind' ? 'wechat_bind_state' : 'wechat_oauth_state');
 
       // Debug logging
-      console.log('WeChat callback - bindMode:', bindMode);
-      console.log('WeChat callback - URL state:', state);
-      console.log('WeChat callback - Saved state:', savedState);
+      logger.log('WeChat callback - bindMode:', bindMode);
+      logger.log('WeChat callback - URL state:', state);
+      logger.log('WeChat callback - Saved state:', savedState);
 
       if (state !== savedState) {
         console.error('State mismatch - expected:', savedState, 'got:', state);

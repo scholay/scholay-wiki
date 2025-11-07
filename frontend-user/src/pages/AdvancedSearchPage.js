@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
+import logger from '../utils/logger';
 import AppSidebar from '../components/AppSidebar';
 import PaperList from '../components/PaperList';
 import PaperCitationMarkdown from '../components/PaperCitationMarkdown';
@@ -434,16 +435,16 @@ const AdvancedSearchPage = () => {
   };
 
   const handleRenameConversation = async (conversationId, newTitle) => {
-    console.log('handleRenameConversation called:', { conversationId, newTitle });
+    logger.log('handleRenameConversation called:', { conversationId, newTitle });
     try {
       const response = await api.put(`/user/conversations/${conversationId}/title`, { title: newTitle });
-      console.log('Rename API response:', response.data);
+      logger.log('Rename API response:', response.data);
       setConversations(prevConversations =>
         prevConversations.map(conv =>
           conv.id === conversationId ? { ...conv, title: newTitle } : conv
         )
       );
-      console.log('Local conversations updated');
+      logger.log('Local conversations updated');
     } catch (error) {
       console.error('Failed to rename conversation:', error);
       console.error('Error details:', error.response?.data);
@@ -627,12 +628,12 @@ const AdvancedSearchPage = () => {
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
-      console.log('Advanced search stream started');
+      logger.log('Advanced search stream started');
     };
 
     eventSource.onmessage = (event) => {
       if (event.data.startsWith('[DONE]')) {
-        console.log('Advanced search completed');
+        logger.log('Advanced search completed');
         eventSource.close();
 
         // 先清空流式内容和停止状态，避免重复显示

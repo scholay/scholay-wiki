@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../utils/AuthContext';
+import logger from '../utils/logger';
 import ConversationSidebar from '../components/ConversationSidebar';
 import PaperList from '../components/PaperList';
 import ReactMarkdown from 'react-markdown';
@@ -140,12 +141,12 @@ const SearchPage = () => {
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
-      console.log('AI analysis stream started');
+      logger.log('AI analysis stream started');
     };
 
     eventSource.onmessage = (event) => {
       if (event.data.startsWith('[DONE]')) {
-        console.log('AI analysis completed');
+        logger.log('AI analysis completed');
         eventSource.close();
         setIsStreaming(false);
 

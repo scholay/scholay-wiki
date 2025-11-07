@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import logger from '../utils/logger';
 import './AIAnalysis.css';
 
 const AIAnalysis = ({ conversationId, messageId, onClose }) => {
@@ -26,13 +27,13 @@ const AIAnalysis = ({ conversationId, messageId, onClose }) => {
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
-      console.log('SSE connection opened');
+      logger.log('SSE connection opened');
       setLoading(false);
     };
 
     eventSource.onmessage = (event) => {
       if (event.data === '[DONE]') {
-        console.log('SSE stream completed');
+        logger.log('SSE stream completed');
         eventSource.close();
         setLoading(false);
         return;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
 import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -90,6 +90,12 @@ function ChatPage() {
   const abortControllerRef = useRef(null);
   const textareaRef = useRef(null);
   const loadingStartTimeRef = useRef(null); // Track when loading started for minimum display time
+
+  // Memoize dropdown arrow style to prevent unnecessary re-renders
+  const dropdownArrowStyle = useMemo(() => ({
+    transform: showModelDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
+    transition: 'transform 0.2s ease'
+  }), [showModelDropdown]);
 
   // Fetch AI Chat quota and usage
   useEffect(() => {
@@ -823,10 +829,7 @@ function ChatPage() {
                         fill="none"
                         stroke="currentColor"
                         strokeWidth="2"
-                        style={{
-                          transform: showModelDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
-                          transition: 'transform 0.2s ease'
-                        }}
+                        style={dropdownArrowStyle}
                       >
                         <path d="M6 9l6 6 6-6"/>
                       </svg>
@@ -964,10 +967,7 @@ function ChatPage() {
                         fill="none"
                         stroke="currentColor"
                         strokeWidth="2"
-                        style={{
-                          transform: showModelDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
-                          transition: 'transform 0.2s ease'
-                        }}
+                        style={dropdownArrowStyle}
                       >
                         <path d="M6 9l6 6 6-6"/>
                       </svg>
