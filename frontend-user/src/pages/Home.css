@@ -488,6 +488,30 @@
   margin-top: -120px;
 }
 
+/* ICP Filing */
+.icp-filing {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 10;
+}
+
+.icp-filing a {
+  font-size: 0.875rem;
+  color: rgba(148, 163, 184, 0.6);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.icp-filing a:hover {
+  color: rgba(148, 163, 184, 0.9);
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .welcome-title {
   font-size: 2.75rem;
   font-weight: 400;
@@ -1541,6 +1565,14 @@
     justify-content: center;
     padding: 0.5rem 0.75rem;
     font-size: 0.8125rem;
+  }
+
+  .icp-filing {
+    bottom: 10px;
+  }
+
+  .icp-filing a {
+    font-size: 0.75rem;
   }
 }
 

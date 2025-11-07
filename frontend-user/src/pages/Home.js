@@ -233,6 +233,17 @@ const Home = () => {
               </h1>
             </div>
 
+            {/* 备案号 */}
+            <div className="icp-filing">
+              <a
+                href="https://beian.miit.gov.cn/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                蜀ICP备2025145653号
+              </a>
+            </div>
+
             <form onSubmit={handleSearch} className="composer-wrapper">
               {/* 输入区域 */}
               <div className="composer-input-area">
