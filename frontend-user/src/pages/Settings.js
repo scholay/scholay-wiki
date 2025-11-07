@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import api, { orderAPI, paymentAPI } from '../services/api';
@@ -7,6 +7,7 @@ import './Settings.css';
 
 const Settings = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user, logout, refreshUser } = useAuth();
   const { showSuccess, showError, showInfo } = useToast();
 
@@ -63,6 +64,34 @@ const Settings = () => {
   const [privacyPolicy, setPrivacyPolicy] = useState('');
   const [termsOfService, setTermsOfService] = useState('');
   const [legalLoading, setLegalLoading] = useState(false);
+
+  // Handle URL parameters for WeChat binding feedback and tab switching
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const wechatBindStatus = searchParams.get('wechat_bind_status');
+    const message = searchParams.get('message');
+
+    // Switch to specified tab if provided
+    if (tab && ['profile', 'account', 'ai', 'highlight', 'subscription', 'legal'].includes(tab)) {
+      setActiveTab(tab);
+    }
+
+    // Show WeChat binding feedback
+    if (wechatBindStatus && message) {
+      if (wechatBindStatus === 'success') {
+        showSuccess(message);
+      } else if (wechatBindStatus === 'error') {
+        showError(message);
+      }
+
+      // Clean up URL parameters after showing toast
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('wechat_bind_status');
+      newParams.delete('message');
+      newParams.delete('tab');
+      setSearchParams(newParams);
+    }
+  }, [searchParams, setSearchParams, showSuccess, showError]);
 
   useEffect(() => {
     // Allow authenticated users to stay on this page

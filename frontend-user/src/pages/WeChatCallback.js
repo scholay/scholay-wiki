@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
-import { useToast } from '../components/ToastContainer';
 import { userAPI } from '../services/api';
 import './WeChatCallback.css';
 
@@ -21,7 +20,6 @@ const WeChatCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
-  const { showToast } = useToast();
   const [status, setStatus] = useState('processing'); // 'processing', 'success', 'error'
   const [message, setMessage] = useState('正在处理微信登录...');
 
@@ -51,13 +49,17 @@ const WeChatCallback = () => {
         setStatus('error');
         setMessage('安全验证失败，请重试');
 
-        // Show error toast for binding mode
+        // Redirect with error state
         if (bindMode === 'bind') {
-          showToast('安全验证失败，请重试', 'error');
+          const params = new URLSearchParams({
+            tab: 'account',
+            wechat_bind_status: 'error',
+            message: '安全验证失败，请重试'
+          });
+          setTimeout(() => navigate(`/settings?${params.toString()}`), 1000);
+        } else {
+          setTimeout(() => navigate('/'), 3000);
         }
-
-        const redirectPath = bindMode === 'bind' ? '/settings#account-management' : '/';
-        setTimeout(() => navigate(redirectPath), 3000);
         return;
       }
 
@@ -76,9 +78,13 @@ const WeChatCallback = () => {
             localStorage.removeItem('wechat_bind_state');
             localStorage.removeItem('wechat_bind_mode');
 
-            // Show success toast and redirect to account management section
-            showToast('微信账号绑定成功！', 'success');
-            navigate('/settings#account-management');
+            // Redirect to settings with success state
+            const params = new URLSearchParams({
+              tab: 'account',
+              wechat_bind_status: 'success',
+              message: '微信账号绑定成功！'
+            });
+            navigate(`/settings?${params.toString()}`);
           } else {
             throw new Error(response.data.message || '微信绑定失败');
           }
@@ -99,8 +105,7 @@ const WeChatCallback = () => {
             // Update auth context (token first, then user data)
             login(token, user);
 
-            // Show success toast and redirect immediately
-            showToast(is_new_user ? '微信账号注册成功！' : '微信登录成功！', 'success');
+            // Redirect to homepage immediately (login mode doesn't need toast)
             navigate('/');
           } else {
             throw new Error(response.data.message || '微信登录失败');
@@ -112,26 +117,27 @@ const WeChatCallback = () => {
         setStatus('error');
         setMessage(errorMessage);
 
-        // Show error toast with specific message
-        if (bindMode === 'bind') {
-          showToast(errorMessage, 'error');
-        }
-
         // Clean up on error
         if (bindMode === 'bind') {
           localStorage.removeItem('wechat_bind_state');
           localStorage.removeItem('wechat_bind_mode');
+
+          // Redirect to settings with error state
+          const params = new URLSearchParams({
+            tab: 'account',
+            wechat_bind_status: 'error',
+            message: errorMessage
+          });
+          setTimeout(() => navigate(`/settings?${params.toString()}`), 1000);
         } else {
           localStorage.removeItem('wechat_oauth_state');
+          setTimeout(() => navigate('/'), 3000);
         }
-
-        const redirectPath = bindMode === 'bind' ? '/settings#account-management' : '/';
-        setTimeout(() => navigate(redirectPath), 3000);
       }
     };
 
     handleCallback();
-  }, [searchParams, navigate, login, showToast]);
+  }, [searchParams, navigate, login]);
 
   return (
     <div className="wechat-callback">
