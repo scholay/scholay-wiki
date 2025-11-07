@@ -50,6 +50,9 @@ export const adminAPI = {
   updatePassword: (oldPassword, newPassword) =>
     api.put('/admin/password', { old_password: oldPassword, new_password: newPassword }),
 
+  verifyPassword: (password) =>
+    api.post('/admin/verify-password', { password }),
+
   updatePrivacyPolicy: (content, version) =>
     api.put('/admin/privacy-policy', { content, version }),
 

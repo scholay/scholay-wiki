@@ -34,6 +34,11 @@ type UpdatePasswordRequest struct {
 	NewPassword string `json:"new_password" binding:"required,min=8"`
 }
 
+// VerifyPasswordRequest represents a verify password request
+type VerifyPasswordRequest struct {
+	Password string `json:"password" binding:"required"`
+}
+
 // Login handles admin login
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
@@ -97,6 +102,34 @@ func (h *Handler) UpdatePassword(c *gin.Context) {
 	}
 
 	utils.SuccessWithMessage(c, "Password updated successfully", nil)
+}
+
+// VerifyPassword handles verifying admin password (for sensitive operations)
+func (h *Handler) VerifyPassword(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	var req VerifyPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	valid, err := h.service.VerifyPassword(userID.(uint), req.Password)
+	if err != nil {
+		utils.Error(c, 1005, err.Error())
+		return
+	}
+
+	if !valid {
+		utils.Error(c, 1006, "Invalid password")
+		return
+	}
+
+	utils.SuccessWithMessage(c, "Password verified successfully", nil)
 }
 
 // RegisterRoutes registers admin routes

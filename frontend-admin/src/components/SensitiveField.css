@@ -1,0 +1,81 @@
+.sensitive-field {
+  margin-bottom: 1.5rem;
+}
+
+.sensitive-field label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.sensitive-field-input-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.sensitive-field-input {
+  flex: 1;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: 'Monaco', 'Consolas', monospace;
+  background: #f9fafb;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.sensitive-field-btn {
+  padding: 0 1rem;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+}
+
+.sensitive-field-btn:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+.sensitive-field-btn:active {
+  transform: scale(0.95);
+}
+
+.sensitive-field-btn svg {
+  flex-shrink: 0;
+}
+
+.sensitive-field-hint {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #f59e0b;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.sensitive-field-hint svg {
+  flex-shrink: 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 640px) {
+  .sensitive-field-input-group {
+    flex-direction: column;
+  }
+
+  .sensitive-field-btn {
+    width: 100%;
+  }
+}

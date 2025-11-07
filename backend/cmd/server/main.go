@@ -156,6 +156,7 @@ func main() {
 		{
 			adminProtected.GET("/profile", adminHandler.GetProfile)
 			adminProtected.PUT("/password", adminHandler.UpdatePassword)
+		adminProtected.POST("/verify-password", adminHandler.VerifyPassword)
 			// Configuration management
 			// System configuration
 			adminProtected.PUT("/privacy-policy", configHandler.UpdatePrivacyPolicy)

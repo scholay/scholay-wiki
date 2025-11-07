@@ -3,13 +3,11 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './pages/Login';
 import DashboardLayout from './components/DashboardLayout';
 import DashboardHome from './pages/DashboardHome';
-import Settings from './pages/Settings';
+import SystemSettings from './pages/SystemSettings';
 import UserManagement from './pages/UserManagement';
 import ThirdPartyAccounts from './pages/ThirdPartyAccounts';
 import PromptTemplates from './pages/PromptTemplates';
 import SubscriptionPlans from './pages/SubscriptionPlans';
-import AlipayConfig from './pages/AlipayConfig';
-import WeChatConfig from './pages/WeChatConfig';
 import Toast from './components/Toast';
 import { AuthProvider, useAuth } from './utils/AuthContext';
 
@@ -46,9 +44,10 @@ function App() {
             <Route path="third-party-accounts" element={<ThirdPartyAccounts />} />
             <Route path="prompt-templates" element={<PromptTemplates />} />
             <Route path="subscription-plans" element={<SubscriptionPlans />} />
-            <Route path="alipay-config" element={<AlipayConfig />} />
-            <Route path="wechat-config" element={<WeChatConfig />} />
-            <Route path="settings" element={<Settings />} />
+            <Route path="settings" element={<SystemSettings />} />
+            {/* 保留旧路由以防万一，但重定向到设置页 */}
+            <Route path="alipay-config" element={<Navigate to="/dashboard/settings?tab=alipay" replace />} />
+            <Route path="wechat-config" element={<Navigate to="/dashboard/settings?tab=wechat" replace />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" />} />
         </Routes>

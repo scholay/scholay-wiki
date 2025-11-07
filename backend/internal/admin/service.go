@@ -69,6 +69,20 @@ func (s *Service) UpdatePassword(id uint, oldPassword, newPassword string) error
 	return s.repo.UpdatePassword(id, hashedPassword)
 }
 
+// VerifyPassword verifies an admin user's password (for sensitive operations)
+func (s *Service) VerifyPassword(id uint, password string) (bool, error) {
+	admin, err := s.repo.FindByID(id)
+	if err != nil {
+		return false, err
+	}
+
+	if admin == nil {
+		return false, errors.New("admin user not found")
+	}
+
+	return utils.CheckPassword(password, admin.PasswordHash), nil
+}
+
 // GetProfile gets an admin user's profile
 func (s *Service) GetProfile(id uint) (*AdminUser, error) {
 	return s.repo.FindByID(id)
