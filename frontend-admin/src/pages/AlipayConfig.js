@@ -252,7 +252,7 @@ const AlipayConfig = () => {
               </div>
 
               <div className="form-group">
-                <label>应用私钥 (PKCS8格式) *</label>
+                <label>应用私钥 (PKCS8格式) {!editingConfig && '*'}</label>
                 <textarea
                   name="private_key"
                   value={formData.private_key}
@@ -261,11 +261,11 @@ const AlipayConfig = () => {
                   rows={6}
                   required={!editingConfig}
                 />
-                <small>请妥善保管私钥，不要泄露</small>
+                <small>{editingConfig ? "留空表示不修改现有私钥" : "请妥善保管私钥，不要泄露"}</small>
               </div>
 
               <div className="form-group">
-                <label>支付宝公钥 *</label>
+                <label>支付宝公钥 {!editingConfig && '*'}</label>
                 <textarea
                   name="alipay_public_key"
                   value={formData.alipay_public_key}
@@ -274,7 +274,7 @@ const AlipayConfig = () => {
                   rows={6}
                   required={!editingConfig}
                 />
-                <small>从支付宝开放平台获取</small>
+                <small>{editingConfig ? "留空表示不修改现有公钥" : "从支付宝开放平台获取"}</small>
               </div>
 
               <div className="form-group">

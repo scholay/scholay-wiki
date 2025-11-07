@@ -50,7 +50,21 @@ func (r *Repository) CreateConfig(config *model.WeChatConfig) error {
 
 // UpdateConfig updates a WeChat configuration
 func (r *Repository) UpdateConfig(config *model.WeChatConfig) error {
-	return r.db.Save(config).Error
+	// Use Updates instead of Save to avoid updating created_at
+	// and to allow selective field updates
+	updates := map[string]interface{}{
+		"app_id":       config.AppID,
+		"redirect_uri": config.RedirectURI,
+		"scope":        config.Scope,
+		"is_active":    config.IsActive,
+	}
+
+	// Only update app_secret if it's not empty
+	if config.AppSecret != "" {
+		updates["app_secret"] = config.AppSecret
+	}
+
+	return r.db.Model(&model.WeChatConfig{}).Where("id = ?", config.ID).Updates(updates).Error
 }
 
 // DeleteConfig deletes a WeChat configuration

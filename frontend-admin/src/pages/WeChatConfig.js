@@ -234,7 +234,7 @@ const WeChatConfig = () => {
               </div>
 
               <div className="form-group">
-                <label>应用密钥 (AppSecret) *</label>
+                <label>应用密钥 (AppSecret) {!editingConfig && '*'}</label>
                 <input
                   type="password"
                   name="app_secret"
@@ -243,7 +243,7 @@ const WeChatConfig = () => {
                   placeholder={editingConfig ? "留空表示不修改" : "请输入应用密钥"}
                   required={!editingConfig}
                 />
-                <small>请妥善保管密钥，不要泄露</small>
+                <small>{editingConfig ? "留空表示不修改现有密钥" : "请妥善保管密钥，不要泄露"}</small>
               </div>
 
               <div className="form-group">

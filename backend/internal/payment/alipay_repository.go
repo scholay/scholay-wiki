@@ -50,7 +50,27 @@ func (r *AlipayRepository) CreateConfig(config *model.AlipayConfig) error {
 
 // UpdateConfig updates an Alipay configuration
 func (r *AlipayRepository) UpdateConfig(config *model.AlipayConfig) error {
-	return r.db.Save(config).Error
+	// Use Updates instead of Save to avoid updating created_at
+	// and to allow selective field updates
+	updates := map[string]interface{}{
+		"app_id":     config.AppID,
+		"notify_url": config.NotifyURL,
+		"return_url": config.ReturnURL,
+		"is_sandbox": config.IsSandbox,
+		"is_active":  config.IsActive,
+	}
+
+	// Only update private_key if it's not empty
+	if config.PrivateKey != "" {
+		updates["private_key"] = config.PrivateKey
+	}
+
+	// Only update alipay_public_key if it's not empty
+	if config.AlipayPublicKey != "" {
+		updates["alipay_public_key"] = config.AlipayPublicKey
+	}
+
+	return r.db.Model(&model.AlipayConfig{}).Where("id = ?", config.ID).Updates(updates).Error
 }
 
 // DeleteConfig deletes an Alipay configuration
