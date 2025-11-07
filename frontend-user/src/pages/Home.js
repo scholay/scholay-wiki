@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import SearchFilters from '../components/SearchFilters';
 import AppSidebar from '../components/AppSidebar';
-import Logo from '../components/Logo';
 import ModelSelector from '../components/ModelSelector';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import './Home.css';

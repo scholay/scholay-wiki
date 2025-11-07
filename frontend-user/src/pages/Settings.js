@@ -11,8 +11,9 @@ const Settings = () => {
   const { isAuthenticated, user, logout, refreshUser } = useAuth();
   const { showSuccess, showError, showInfo } = useToast();
 
-  const [activeTab, setActiveTab] = useState('profile'); // profile, account, ai, highlight, subscription, legal
+  const [activeTab, setActiveTab] = useState('profile'); // profile, account, subscription
   const [loading, setLoading] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false); // 控制个人介绍编辑状态
 
   // Profile form state
   const [profile, setProfile] = useState({
@@ -60,11 +61,6 @@ const Settings = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [billingCycle, setBillingCycle] = useState('monthly');
 
-  // Legal documents state
-  const [privacyPolicy, setPrivacyPolicy] = useState('');
-  const [termsOfService, setTermsOfService] = useState('');
-  const [legalLoading, setLegalLoading] = useState(false);
-
   // Handle URL parameters for WeChat binding feedback and tab switching
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -72,7 +68,7 @@ const Settings = () => {
     const message = searchParams.get('message');
 
     // Switch to specified tab if provided
-    if (tab && ['profile', 'account', 'ai', 'highlight', 'subscription', 'legal'].includes(tab)) {
+    if (tab && ['profile', 'account', 'subscription'].includes(tab)) {
       setActiveTab(tab);
     }
 
@@ -105,8 +101,6 @@ const Settings = () => {
   useEffect(() => {
     if (activeTab === 'subscription') {
       fetchSubscriptionData();
-    } else if (activeTab === 'legal') {
-      fetchLegalDocuments();
     }
   }, [activeTab]);
 
@@ -180,30 +174,6 @@ const Settings = () => {
     }
   };
 
-  const fetchLegalDocuments = async () => {
-    setLegalLoading(true);
-    try {
-      // Fetch privacy policy
-      const privacyResponse = await fetch('/api/v1/config/privacy-policy');
-      const privacyData = await privacyResponse.json();
-      if (privacyData.code === 0 && privacyData.data) {
-        setPrivacyPolicy(privacyData.data.content || '');
-      }
-
-      // Fetch terms of service
-      const termsResponse = await fetch('/api/v1/config/terms-of-service');
-      const termsData = await termsResponse.json();
-      if (termsData.code === 0 && termsData.data) {
-        setTermsOfService(termsData.data.content || '');
-      }
-    } catch (error) {
-      console.error('Failed to fetch legal documents:', error);
-      showError('加载法律条款失败');
-    } finally {
-      setLegalLoading(false);
-    }
-  };
-
   const handleLogout = () => {
     logout();
     navigate('/');
@@ -222,6 +192,10 @@ const Settings = () => {
 
       if (response.data.code === 0) {
         showSuccess('个人信息已保存');
+        // 保存成功后重新获取用户信息
+        await fetchUserProfile();
+        // 退出编辑模式
+        setIsEditingProfile(false);
       } else {
         showError('保存失败：' + response.data.message);
       }
@@ -1089,85 +1063,144 @@ const Settings = () => {
 
   const renderProfileTab = () => (
     <div className="settings-section">
-      <h2>我的介绍</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h2 style={{ margin: 0 }}>我的介绍</h2>
+        {!isEditingProfile && (
+          <button
+            className="btn-edit"
+            onClick={() => setIsEditingProfile(true)}
+            style={{
+              padding: '8px 16px',
+              background: 'linear-gradient(135deg, #10a37f 0%, #1a7f64 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 4px 12px rgba(16, 163, 127, 0.3)'
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            编辑
+          </button>
+        )}
+      </div>
 
       <div className="profile-avatar-section">
         <div className="avatar-wrapper">
           <div className="avatar-circle">
             {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
           </div>
-          <button className="avatar-edit-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 20h9"/>
-              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-            </svg>
-          </button>
         </div>
       </div>
 
-      <div className="form-group">
-        <label>名字</label>
-        <div className="input-with-clear">
-          <input
-            type="text"
-            value={profile.name}
-            onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-            placeholder="输入你的名字"
-          />
-          {profile.name && (
+      {isEditingProfile ? (
+        // 编辑模式
+        <>
+          <div className="form-group">
+            <label>名字</label>
+            <div className="input-with-clear">
+              <input
+                type="text"
+                value={profile.name}
+                onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                placeholder="输入你的名字"
+              />
+              {profile.name && (
+                <button
+                  className="clear-btn"
+                  onClick={() => setProfile({ ...profile, name: '' })}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="15" y1="9" x2="9" y2="15"/>
+                    <line x1="9" y1="9" x2="15" y2="15"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>简介</label>
+            <textarea
+              value={profile.bio}
+              onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+              placeholder="介绍一下自己"
+              rows="4"
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px' }}>
             <button
-              className="clear-btn"
-              onClick={() => setProfile({ ...profile, name: '' })}
+              className="btn-save"
+              onClick={handleProfileSave}
+              disabled={loading}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="15" y1="9" x2="9" y2="15"/>
-                <line x1="9" y1="9" x2="15" y2="15"/>
-              </svg>
+              {loading ? '保存中...' : '保存'}
             </button>
-          )}
-        </div>
-      </div>
-
-      <div className="form-group">
-        <label>用户号</label>
-        <div className="input-with-clear">
-          <input
-            type="text"
-            value={profile.userId}
-            readOnly
-            disabled
-            placeholder="自动生成"
-          />
-          {profile.userId && (
-            <button className="clear-btn" disabled>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="15" y1="9" x2="9" y2="15"/>
-                <line x1="9" y1="9" x2="15" y2="15"/>
-              </svg>
+            <button
+              className="btn-cancel"
+              onClick={() => {
+                setIsEditingProfile(false);
+                // 取消时重新加载数据，恢复到原始状态
+                fetchUserProfile();
+              }}
+              disabled={loading}
+              style={{
+                padding: '12px 24px',
+                background: '#e5e7eb',
+                color: '#374151',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 500
+              }}
+            >
+              取消
             </button>
-          )}
-        </div>
-      </div>
+          </div>
+        </>
+      ) : (
+        // 展示模式 - 使用现有暗色设计风格
+        <>
+          <div className="form-group">
+            <label>名字</label>
+            <div style={{
+              padding: '12px 16px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '8px',
+              color: 'rgba(255, 255, 255, 0.9)'
+            }}>
+              {profile.name || '未设置'}
+            </div>
+          </div>
 
-      <div className="form-group">
-        <label>简介</label>
-        <textarea
-          value={profile.bio}
-          onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-          placeholder="介绍一下自己"
-          rows="4"
-        />
-      </div>
-
-      <button
-        className="btn-save"
-        onClick={handleProfileSave}
-        disabled={loading}
-      >
-        {loading ? '保存中...' : '保存'}
-      </button>
+          <div className="form-group">
+            <label>简介</label>
+            <div style={{
+              padding: '12px 16px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '8px',
+              minHeight: '100px',
+              whiteSpace: 'pre-wrap',
+              color: 'rgba(255, 255, 255, 0.9)'
+            }}>
+              {profile.bio || '未设置简介'}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 
@@ -1300,34 +1333,6 @@ const Settings = () => {
           </div>
         </div>
       )}
-    </div>
-  );
-
-  const renderAITab = () => (
-    <div className="settings-section">
-      <h2>AI设置</h2>
-      <div className="coming-soon">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M12 16v-4"/>
-          <circle cx="12" cy="8" r="0.5" fill="currentColor"/>
-        </svg>
-        <p>AI模型偏好设置即将推出</p>
-      </div>
-    </div>
-  );
-
-  const renderHighlightTab = () => (
-    <div className="settings-section">
-      <h2>Highlight设置</h2>
-      <div className="coming-soon">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M12 16v-4"/>
-          <circle cx="12" cy="8" r="0.5" fill="currentColor"/>
-        </svg>
-        <p>文献高亮设置即将推出</p>
-      </div>
     </div>
   );
 
@@ -1515,84 +1520,7 @@ const Settings = () => {
     );
   };
 
-  const renderLegalTab = () => {
-    return (
-      <div className="tab-content">
-        <h2>法律条款</h2>
-        <p className="tab-description">查看我们的使用条款和隐私政策</p>
-
-        {legalLoading ? (
-          <div className="loading-state">
-            <div className="spinner"></div>
-            <p>加载中...</p>
-          </div>
-        ) : (
-          <div className="legal-documents">
-            <div className="legal-document-section">
-              <h3 className="document-title">使用条款</h3>
-              <div className="document-content">
-                <pre className="legal-text">{termsOfService}</pre>
-              </div>
-            </div>
-
-            <div className="legal-document-section">
-              <h3 className="document-title">隐私政策</h3>
-              <div className="document-content">
-                <pre className="legal-text">{privacyPolicy}</pre>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderExternalLinks = () => (
-    <div className="settings-section external-links">
-      <a href="#" className="external-link">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-          <polyline points="15 3 21 3 21 9"/>
-          <line x1="10" y1="14" x2="21" y2="3"/>
-        </svg>
-        <span>公告</span>
-      </a>
-      <a href="#" className="external-link">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="10"/>
-          <circle cx="12" cy="10" r="3"/>
-          <path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/>
-        </svg>
-        <span>客户</span>
-      </a>
-      <a href="#" className="external-link">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-          <line x1="16" y1="13" x2="8" y2="13"/>
-          <line x1="16" y1="17" x2="8" y2="17"/>
-          <polyline points="10 9 9 9 8 9"/>
-        </svg>
-        <span>服务条款</span>
-      </a>
-      <a href="#" className="external-link">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
-        <span>隐私政策</span>
-      </a>
-      <a href="#" className="external-link">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-          <line x1="12" y1="18" x2="12" y2="12"/>
-          <line x1="9" y1="15" x2="15" y2="15"/>
-        </svg>
-        <span>用户指南</span>
-      </a>
-    </div>
-  );
+  const renderExternalLinks = () => null;
 
   const renderLogoutSection = () => (
     <div className="settings-section logout-section">
@@ -1609,27 +1537,46 @@ const Settings = () => {
 
   return (
     <div className="settings-page">
+      {/* Header with Logo - fixed at top left, outside sidebar */}
+      <div
+        className="settings-header"
+        onClick={() => navigate('/')}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          zIndex: 1000,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '20px 24px',
+          background: '#212121'
+        }}
+      >
+        <img
+          src="/logo.png"
+          alt="Scholay"
+          style={{
+            width: '18px',
+            height: '18px',
+            objectFit: 'contain'
+          }}
+        />
+        <span style={{
+          fontSize: '16px',
+          fontWeight: '600',
+          color: 'white',
+          letterSpacing: '0.5px'
+        }}>
+          Scholay
+        </span>
+      </div>
+
       <div className="settings-container">
         <div className="settings-layout">
           {/* Left Sidebar */}
           <div className="settings-sidebar">
-            {/* Logo and Brand */}
-            <div className="settings-brand">
-              <div className="brand-logo">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                  <rect x="3" y="3" width="18" height="18" rx="3" fill="url(#gradient)" />
-                  <path d="M8 9h8M8 12h8M8 15h5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-                  <defs>
-                    <linearGradient id="gradient" x1="3" y1="3" x2="21" y2="21">
-                      <stop offset="0%" stopColor="#10a37f" />
-                      <stop offset="100%" stopColor="#1a7f64" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </div>
-              <span className="brand-name">Scholar</span>
-            </div>
-
             <h1 className="settings-title">设置</h1>
 
             <div className="settings-menu">
@@ -1657,31 +1604,6 @@ const Settings = () => {
                   <span>账户管理</span>
                 </button>
                 <button
-                  className={`menu-item ${activeTab === 'ai' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('ai')}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                    <polyline points="7.5 4.21 12 6.81 16.5 4.21"/>
-                    <polyline points="7.5 19.79 7.5 14.6 3 12"/>
-                    <polyline points="21 12 16.5 14.6 16.5 19.79"/>
-                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-                    <line x1="12" y1="22.08" x2="12" y2="12"/>
-                  </svg>
-                  <span>AI设置</span>
-                </button>
-                <button
-                  className={`menu-item ${activeTab === 'highlight' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('highlight')}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                    <path d="M2 17l10 5 10-5"/>
-                    <path d="M2 12l10 5 10-5"/>
-                  </svg>
-                  <span>Highlight设置</span>
-                </button>
-                <button
                   className={`menu-item ${activeTab === 'subscription' ? 'active' : ''}`}
                   onClick={() => setActiveTab('subscription')}
                 >
@@ -1692,19 +1614,6 @@ const Settings = () => {
                     <line x1="11" y1="14" x2="13" y2="14"/>
                   </svg>
                   <span>订阅</span>
-                </button>
-                <button
-                  className={`menu-item ${activeTab === 'legal' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('legal')}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                    <line x1="16" y1="13" x2="8" y2="13"/>
-                    <line x1="16" y1="17" x2="8" y2="17"/>
-                    <polyline points="10 9 9 9 8 9"/>
-                  </svg>
-                  <span>法律条款</span>
                 </button>
               </div>
 
@@ -1717,10 +1626,7 @@ const Settings = () => {
           <div className="settings-content">
             {activeTab === 'profile' && renderProfileTab()}
             {activeTab === 'account' && renderAccountTab()}
-            {activeTab === 'ai' && renderAITab()}
-            {activeTab === 'highlight' && renderHighlightTab()}
             {activeTab === 'subscription' && renderSubscriptionTab()}
-            {activeTab === 'legal' && renderLegalTab()}
           </div>
         </div>
       </div>

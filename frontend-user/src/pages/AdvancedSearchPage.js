@@ -5,7 +5,6 @@ import AppSidebar from '../components/AppSidebar';
 import PaperList from '../components/PaperList';
 import PaperCitationMarkdown from '../components/PaperCitationMarkdown';
 import ModelSelector from '../components/ModelSelector';
-import Logo from '../components/Logo';
 import { AdvancedSearchIcon } from '../components/SearchIcons';
 import api, { conversationAPI, subscriptionAPI } from '../services/api';
 import './AdvancedSearchPage.css';

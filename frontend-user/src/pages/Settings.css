@@ -34,7 +34,7 @@
 /* Left Sidebar */
 .settings-sidebar {
   width: 280px;
-  padding: 40px 24px;
+  padding: 80px 24px 40px 24px; /* 增加顶部padding为fixed header留出空间 */
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
 }
@@ -196,7 +196,7 @@
 /* Right Content */
 .settings-content {
   flex: 1;
-  padding: 40px 48px;
+  padding: 80px 48px 40px 48px; /* 增加顶部padding为fixed header留出空间 */
   overflow-y: auto;
 }
 

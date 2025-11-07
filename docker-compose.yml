@@ -17,7 +17,7 @@ services:
     volumes:
       - ./data/mysql:/var/lib/mysql
       - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
-      - ./scripts/check-schema.sh:/check-schema.sh:ro
+      - ./scripts:/app/scripts:ro
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
@@ -58,13 +58,13 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-scholar}
     volumes:
       - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
-      - ./scripts/check-schema.sh:/check-schema.sh:ro
+      - ./scripts:/app/scripts:ro
     depends_on:
       mysql:
         condition: service_healthy
     networks:
       - scholar-network
-    command: bash /check-schema.sh
+    command: bash /app/scripts/check-schema.sh
     restart: "no"
 
   backend:

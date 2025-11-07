@@ -380,7 +380,7 @@ func (s *Service) GetProfile(id uint) (*User, error) {
 }
 
 // UpdateProfile updates a user's profile
-func (s *Service) UpdateProfile(id uint, username *string, avatarURL *string) error {
+func (s *Service) UpdateProfile(id uint, username *string, avatarURL *string, bio *string) error {
 	user, err := s.repo.FindByID(id)
 	if err != nil {
 		return err
@@ -395,6 +395,9 @@ func (s *Service) UpdateProfile(id uint, username *string, avatarURL *string) er
 	}
 	if avatarURL != nil {
 		user.AvatarURL = avatarURL
+	}
+	if bio != nil {
+		user.Bio = bio
 	}
 
 	return s.repo.Update(user)

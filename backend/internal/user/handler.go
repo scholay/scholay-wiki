@@ -118,6 +118,7 @@ type AuthResponse struct {
 type UpdateProfileRequest struct {
 	Username  *string `json:"username"`
 	AvatarURL *string `json:"avatar_url"`
+	Bio       *string `json:"bio"`
 }
 
 // UserProfileResponse represents an extended user profile response with auth providers
@@ -127,6 +128,7 @@ type UserProfileResponse struct {
 	Email         *string    `json:"email"`
 	Phone         *string    `json:"phone"`
 	AvatarURL     *string    `json:"avatar_url"`
+	Bio           *string    `json:"bio"`
 	Status        int8       `json:"status"`
 	EmailVerified bool       `json:"email_verified"`
 	PhoneVerified bool       `json:"phone_verified"`
@@ -254,6 +256,7 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		Email:         user.Email,
 		Phone:         user.Phone,
 		AvatarURL:     user.AvatarURL,
+		Bio:           user.Bio,
 		Status:        user.Status,
 		EmailVerified: user.EmailVerified,
 		PhoneVerified: user.PhoneVerified,
@@ -280,7 +283,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	err := h.service.UpdateProfile(userID.(uint), req.Username, req.AvatarURL)
+	err := h.service.UpdateProfile(userID.(uint), req.Username, req.AvatarURL, req.Bio)
 	if err != nil {
 		utils.Error(c, 2006, err.Error())
 		return
@@ -805,21 +808,21 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 	// Get WeChat service (needs to be injected)
 	wechatService := h.wechatService
 	if wechatService == nil {
-		utils.Error(c, 5000, "WeChat service not available")
+		utils.Error(c, 5000, "微信服务暂不可用")
 		return
 	}
 
 	// Exchange code for access token
 	accessToken, openID, unionID1, err := wechatService.GetAccessToken(req.Code)
 	if err != nil {
-		utils.Error(c, 5001, "Failed to get access token: "+err.Error())
+		utils.Error(c, 5001, "获取微信访问令牌失败："+err.Error())
 		return
 	}
 
 	// Get user info
 	nickname, headImgURL, unionID2, err := wechatService.GetUserInfo(accessToken, openID)
 	if err != nil {
-		utils.Error(c, 5002, "Failed to get user info: "+err.Error())
+		utils.Error(c, 5002, "获取微信用户信息失败："+err.Error())
 		return
 	}
 
@@ -837,7 +840,7 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 		headImgURL,
 	)
 	if err != nil {
-		utils.Error(c, 5003, "Failed to login/register: "+err.Error())
+		utils.Error(c, 5003, "微信登录失败："+err.Error())
 		return
 	}
 
@@ -877,21 +880,21 @@ func (h *Handler) BindWeChatAccount(c *gin.Context) {
 	// Get WeChat service
 	wechatService := h.wechatService
 	if wechatService == nil {
-		utils.Error(c, 5000, "WeChat service not available")
+		utils.Error(c, 5000, "微信服务暂不可用")
 		return
 	}
 
 	// Exchange code for access token
 	accessToken, openID, unionID1, err := wechatService.GetAccessToken(req.Code)
 	if err != nil {
-		utils.Error(c, 5001, "Failed to get access token: "+err.Error())
+		utils.Error(c, 5001, "获取微信访问令牌失败："+err.Error())
 		return
 	}
 
 	// Get user info
 	nickname, headImgURL, unionID2, err := wechatService.GetUserInfo(accessToken, openID)
 	if err != nil {
-		utils.Error(c, 5002, "Failed to get user info: "+err.Error())
+		utils.Error(c, 5002, "获取微信用户信息失败："+err.Error())
 		return
 	}
 
@@ -909,7 +912,7 @@ func (h *Handler) BindWeChatAccount(c *gin.Context) {
 		nickname,
 		headImgURL,
 	); err != nil {
-		utils.Error(c, 5003, "Failed to bind WeChat: "+err.Error())
+		utils.Error(c, 5003, err.Error())
 		return
 	}
 
