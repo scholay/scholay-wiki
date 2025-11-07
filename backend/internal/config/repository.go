@@ -110,3 +110,28 @@ func (r *Repository) DeactivateAllSMSConfigs() error {
 		Where("is_active = ?", true).
 		Update("is_active", false).Error
 }
+
+// FindActiveTermsOfService finds the active terms of service
+func (r *Repository) FindActiveTermsOfService() (*model.TermsOfService, error) {
+	var terms model.TermsOfService
+	err := r.db.Where("is_active = ?", true).
+		Order("created_at DESC").
+		First(&terms).Error
+
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &terms, err
+}
+
+// CreateTermsOfService creates a new terms of service
+func (r *Repository) CreateTermsOfService(terms *model.TermsOfService) error {
+	return r.db.Create(terms).Error
+}
+
+// DeactivateAllTermsOfService deactivates all existing terms of service
+func (r *Repository) DeactivateAllTermsOfService() error {
+	return r.db.Model(&model.TermsOfService{}).
+		Where("is_active = ?", true).
+		Update("is_active", false).Error
+}

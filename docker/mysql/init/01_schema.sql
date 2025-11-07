@@ -74,7 +74,20 @@ CREATE TABLE IF NOT EXISTS `privacy_policies` (
   INDEX `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Privacy policies';
 
--- Note: Default admin user and privacy policy are initialized by the application on first startup
+-- Terms of service
+CREATE TABLE IF NOT EXISTS `terms_of_service` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `content` TEXT NOT NULL,
+  `version` VARCHAR(50) NOT NULL,
+  `is_active` BOOLEAN NOT NULL DEFAULT TRUE,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_is_active` (`is_active`),
+  INDEX `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Terms of service';
+
+-- Note: Default admin user, privacy policy, and terms of service are initialized by the application on first startup
 -- This ensures that existing data is not overwritten on container restart
 
 -- Email configurations

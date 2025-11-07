@@ -76,6 +76,13 @@ func main() {
 		log.Printf("Default privacy policy initialized")
 	}
 
+	// Initialize default terms of service
+	if err := configService.InitializeDefaultTermsOfService(); err != nil {
+		log.Printf("Warning: Failed to initialize default terms of service: %v", err)
+	} else {
+		log.Printf("Default terms of service initialized")
+	}
+
 	// Initialize default system config
 	if err := configService.InitializeDefaultSystemConfig(); err != nil {
 		log.Printf("Warning: Failed to initialize default system config: %v", err)
@@ -150,7 +157,9 @@ func main() {
 			adminProtected.GET("/profile", adminHandler.GetProfile)
 			adminProtected.PUT("/password", adminHandler.UpdatePassword)
 			// Configuration management
+			// System configuration
 			adminProtected.PUT("/privacy-policy", configHandler.UpdatePrivacyPolicy)
+			adminProtected.PUT("/terms-of-service", configHandler.UpdateTermsOfService)
 			adminProtected.GET("/email-config", configHandler.GetEmailConfig)
 			adminProtected.PUT("/email-config", configHandler.UpdateEmailConfig)
 			adminProtected.POST("/email-config/test", configHandler.TestEmailConfig)

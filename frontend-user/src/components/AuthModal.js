@@ -29,13 +29,15 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     }
   }, [isOpen]);
   const [showPolicy, setShowPolicy] = useState(false);
-  const [policyContent, setPolicyContent] = useState('');
+  const [policyType, setPolicyType] = useState('privacy'); // 'privacy' or 'terms'
+  const [privacyContent, setPrivacyContent] = useState('');
+  const [termsContent, setTermsContent] = useState('');
   const [countdown, setCountdown] = useState(0);
   const [loading, setLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [requireEmailVerification, setRequireEmailVerification] = useState(true);
 
-  // 获取隐私协议和系统配置
+  // 获取隐私协议、用户协议和系统配置
   useEffect(() => {
     if (isOpen) {
       // 获取隐私协议
@@ -43,11 +45,23 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         .then(res => res.json())
         .then(data => {
           if (data.code === 0 && data.data) {
-            setPolicyContent(data.data.content);
+            setPrivacyContent(data.data.content);
           }
         })
         .catch(() => {
-          setPolicyContent('隐私协议加载失败');
+          setPrivacyContent('隐私协议加载失败');
+        });
+
+      // 获取用户协议
+      fetch('/api/v1/config/terms-of-service')
+        .then(res => res.json())
+        .then(data => {
+          if (data.code === 0 && data.data) {
+            setTermsContent(data.data.content);
+          }
+        })
+        .catch(() => {
+          setTermsContent('用户协议加载失败');
         });
 
       // 获取系统配置
@@ -174,7 +188,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     }
 
     if (!agreedToPolicy) {
-      showError('请同意使用条款和隐私政策');
+      showError('请阅读并同意使用条款和隐私政策');
       return;
     }
 
@@ -237,7 +251,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     }
 
     if (!agreedToPolicy) {
-      showError('请同意使用条款和隐私政策');
+      showError('请阅读并同意使用条款和隐私政策');
       return;
     }
 
@@ -355,7 +369,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     }
 
     if (!agreedToPolicy) {
-      showError('请同意使用条款和隐私政策');
+      showError('请阅读并同意使用条款和隐私政策');
       return;
     }
 
@@ -418,7 +432,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     }
 
     if (!agreedToPolicy) {
-      showError('请同意使用条款和隐私政策');
+      showError('请阅读并同意使用条款和隐私政策');
       return;
     }
 
@@ -563,7 +577,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     }
 
     if (!agreedToPolicy) {
-      showError('请同意使用条款和隐私政策');
+      showError('请阅读并同意使用条款和隐私政策');
       return;
     }
 
@@ -615,7 +629,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     }
 
     if (!agreedToPolicy) {
-      showError('请同意使用条款和隐私政策');
+      showError('请阅读并同意使用条款和隐私政策');
       return;
     }
 
@@ -730,13 +744,19 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   </svg>
                   <span>继续使用手机登录</span>
                 </button>
+                <button className="auth-social-button auth-wechat-button" onClick={handleWeChatLogin}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-0.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 0 1 .598.082l1.584.926a.272.272 0 0 0 .14.047c.134 0 .24-.111.24-.247 0-.06-.023-.12-.038-.177l-.327-1.233a.582.582 0 0 1-.023-.156.49.49 0 0 1 .201-.398C23.024 18.48 24 16.82 24 14.98c0-3.21-2.931-5.837-6.656-6.088V8.89c-.135-.01-.27-.027-.407-.03zm-2.53 3.274c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.969-.982zm4.844 0c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.969-.982z"/>
+                  </svg>
+                  <span>微信扫码登录</span>
+                </button>
               </div>
             </div>
 
             <div className="auth-footer">
-              <button className="auth-footer-link" onClick={() => setShowPolicy(true)}>使用条款</button>
+              <button className="auth-footer-link" onClick={() => { setPolicyType('terms'); setShowPolicy(true); }}>使用条款</button>
               <span>|</span>
-              <button className="auth-footer-link" onClick={() => setShowPolicy(true)}>隐私政策</button>
+              <button className="auth-footer-link" onClick={() => { setPolicyType('privacy'); setShowPolicy(true); }}>隐私政策</button>
             </div>
           </div>
         )}
@@ -828,8 +848,12 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   />
                   <span>
                     我已阅读并同意
-                    <button className="auth-policy-link" onClick={() => setShowPolicy(true)}>
-                      使用条款和隐私政策
+                    <button className="auth-policy-link" onClick={() => { setPolicyType('terms'); setShowPolicy(true); }}>
+                      使用条款
+                    </button>
+                    和
+                    <button className="auth-policy-link" onClick={() => { setPolicyType('privacy'); setShowPolicy(true); }}>
+                      隐私政策
                     </button>
                   </span>
                 </label>
@@ -935,8 +959,12 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   />
                   <span>
                     我已阅读并同意
-                    <button className="auth-policy-link" onClick={() => setShowPolicy(true)}>
-                      使用条款和隐私政策
+                    <button className="auth-policy-link" onClick={() => { setPolicyType('terms'); setShowPolicy(true); }}>
+                      使用条款
+                    </button>
+                    和
+                    <button className="auth-policy-link" onClick={() => { setPolicyType('privacy'); setShowPolicy(true); }}>
+                      隐私政策
                     </button>
                   </span>
                 </label>
@@ -997,9 +1025,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
             </div>
 
             <div className="auth-footer">
-              <button className="auth-footer-link" onClick={() => setShowPolicy(true)}>使用条款</button>
+              <button className="auth-footer-link" onClick={() => { setPolicyType('terms'); setShowPolicy(true); }}>使用条款</button>
               <span>|</span>
-              <button className="auth-footer-link" onClick={() => setShowPolicy(true)}>隐私政策</button>
+              <button className="auth-footer-link" onClick={() => { setPolicyType('privacy'); setShowPolicy(true); }}>隐私政策</button>
             </div>
           </div>
         )}
@@ -1091,8 +1119,12 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   />
                   <span>
                     我已阅读并同意
-                    <button className="auth-policy-link" onClick={() => setShowPolicy(true)}>
-                      使用条款和隐私政策
+                    <button className="auth-policy-link" onClick={() => { setPolicyType('terms'); setShowPolicy(true); }}>
+                      使用条款
+                    </button>
+                    和
+                    <button className="auth-policy-link" onClick={() => { setPolicyType('privacy'); setShowPolicy(true); }}>
+                      隐私政策
                     </button>
                   </span>
                 </label>
@@ -1197,8 +1229,12 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   />
                   <span>
                     我已阅读并同意
-                    <button className="auth-policy-link" onClick={() => setShowPolicy(true)}>
-                      使用条款和隐私政策
+                    <button className="auth-policy-link" onClick={() => { setPolicyType('terms'); setShowPolicy(true); }}>
+                      使用条款
+                    </button>
+                    和
+                    <button className="auth-policy-link" onClick={() => { setPolicyType('privacy'); setShowPolicy(true); }}>
+                      隐私政策
                     </button>
                   </span>
                 </label>
@@ -1363,11 +1399,11 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
           <div className="policy-overlay" onClick={() => setShowPolicy(false)}>
             <div className="policy-container" onClick={(e) => e.stopPropagation()}>
               <div className="policy-header">
-                <h3>使用条款和隐私政策</h3>
+                <h3>{policyType === 'privacy' ? '隐私政策' : '使用条款'}</h3>
                 <button onClick={() => setShowPolicy(false)}>×</button>
               </div>
               <div className="policy-body">
-                <pre>{policyContent}</pre>
+                <pre>{policyType === 'privacy' ? privacyContent : termsContent}</pre>
               </div>
               <div className="policy-footer">
                 <button

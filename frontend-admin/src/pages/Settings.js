@@ -54,6 +54,12 @@ const Settings = () => {
     version: '',
   });
 
+  // Terms of service state
+  const [termsOfService, setTermsOfService] = useState({
+    content: '',
+    version: '',
+  });
+
   // System config state
   const [systemConfig, setSystemConfig] = useState({
     requireEmailVerification: true,
@@ -66,6 +72,8 @@ const Settings = () => {
       loadSMSConfig();
     } else if (activeTab === 'privacy') {
       loadPrivacyPolicy();
+    } else if (activeTab === 'terms') {
+      loadTermsOfService();
     } else if (activeTab === 'system') {
       loadSystemConfig();
     }
@@ -100,6 +108,21 @@ const Settings = () => {
       }
     } catch (err) {
       console.error('Failed to load privacy policy:', err);
+    }
+  };
+
+  const loadTermsOfService = async () => {
+    try {
+      const response = await fetch('/api/v1/config/terms-of-service');
+      const data = await response.json();
+      if (data.code === 0 && data.data) {
+        setTermsOfService({
+          content: data.data.content || '',
+          version: data.data.version || '',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load terms of service:', err);
     }
   };
 
@@ -156,6 +179,13 @@ const Settings = () => {
   const handlePrivacyPolicyChange = (e) => {
     setPrivacyPolicy({
       ...privacyPolicy,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleTermsOfServiceChange = (e) => {
+    setTermsOfService({
+      ...termsOfService,
       [e.target.name]: e.target.value,
     });
   };
@@ -382,6 +412,28 @@ const Settings = () => {
     }
   };
 
+  const handleTermsOfServiceSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const response = await adminAPI.updateTermsOfService(
+        termsOfService.content,
+        termsOfService.version
+      );
+
+      if (response.data.code === 0) {
+        showToast('用户协议已成功更新', 'success');
+      } else {
+        showToast(response.data.message || '更新失败', 'error');
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || '更新失败，请稍后重试', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSystemConfigSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -438,6 +490,15 @@ const Settings = () => {
             <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zM4 4h3a3 3 0 006 0h3a2 2 0 012 2v9a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2zm2.5 7a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm2.45 4a2.5 2.5 0 10-4.9 0h4.9zM12 9a1 1 0 100 2h3a1 1 0 100-2h-3zm-1 4a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1z" clipRule="evenodd"/>
           </svg>
           隐私协议
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'terms' ? 'active' : ''}`}
+          onClick={() => setActiveTab('terms')}
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/>
+          </svg>
+          用户协议
         </button>
         <button
           className={`tab-button ${activeTab === 'system' ? 'active' : ''}`}
@@ -985,7 +1046,7 @@ const Settings = () => {
           <div className="settings-section fade-in">
             <div className="section-header">
               <h2>隐私协议配置</h2>
-              <p>编辑用户注册和登录时显示的隐私协议内容</p>
+              <p>编辑用户注册和登录时显示的隐私协议内容,支持Markdown格式</p>
             </div>
 
             <form onSubmit={handlePrivacyPolicySubmit} className="settings-form">
@@ -1013,10 +1074,10 @@ const Settings = () => {
                   value={privacyPolicy.content}
                   onChange={handlePrivacyPolicyChange}
                   rows={15}
-                  placeholder="请输入隐私协议的详细内容..."
+                  placeholder="请输入隐私协议的详细内容...支持Markdown格式"
                   required
                 />
-                <small className="form-hint">支持换行，用户将看到与您输入相同格式的内容</small>
+                <small className="form-hint">支持Markdown格式,用户端会以美化的格式展示</small>
               </div>
 
               <div className="form-actions">
@@ -1028,6 +1089,60 @@ const Settings = () => {
                     </>
                   ) : (
                     '更新隐私协议'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {activeTab === 'terms' && (
+          <div className="settings-section fade-in">
+            <div className="section-header">
+              <h2>用户协议配置</h2>
+              <p>编辑用户注册和登录时显示的用户协议内容,支持Markdown格式</p>
+            </div>
+
+            <form onSubmit={handleTermsOfServiceSubmit} className="settings-form">
+              <div className="form-group">
+                <label htmlFor="terms-version">版本号</label>
+                <input
+                  type="text"
+                  id="terms-version"
+                  name="version"
+                  className="input"
+                  value={termsOfService.version}
+                  onChange={handleTermsOfServiceChange}
+                  placeholder="1.0"
+                  required
+                />
+                <small className="form-hint">更新版本号以标识新版本的用户协议</small>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="terms-content">用户协议内容</label>
+                <textarea
+                  id="terms-content"
+                  name="content"
+                  className="textarea"
+                  value={termsOfService.content}
+                  onChange={handleTermsOfServiceChange}
+                  rows={15}
+                  placeholder="请输入用户协议的详细内容...支持Markdown格式"
+                  required
+                />
+                <small className="form-hint">支持Markdown格式,用户端会以美化的格式展示</small>
+              </div>
+
+              <div className="form-actions">
+                <button type="submit" className="btn btn-primary" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <span className="spinner"></span>
+                      <span style={{ marginLeft: '0.5rem' }}>更新中...</span>
+                    </>
+                  ) : (
+                    '更新用户协议'
                   )}
                 </button>
               </div>

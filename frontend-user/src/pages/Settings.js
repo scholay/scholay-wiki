@@ -10,7 +10,7 @@ const Settings = () => {
   const { isAuthenticated, user, logout, refreshUser } = useAuth();
   const { showSuccess, showError, showInfo } = useToast();
 
-  const [activeTab, setActiveTab] = useState('profile'); // profile, account, ai, highlight, subscription
+  const [activeTab, setActiveTab] = useState('profile'); // profile, account, ai, highlight, subscription, legal
   const [loading, setLoading] = useState(false);
 
   // Profile form state
@@ -59,6 +59,11 @@ const Settings = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [billingCycle, setBillingCycle] = useState('monthly');
 
+  // Legal documents state
+  const [privacyPolicy, setPrivacyPolicy] = useState('');
+  const [termsOfService, setTermsOfService] = useState('');
+  const [legalLoading, setLegalLoading] = useState(false);
+
   useEffect(() => {
     // Allow authenticated users to stay on this page
     // No redirect needed - if not authenticated, they can still view the page structure
@@ -71,6 +76,8 @@ const Settings = () => {
   useEffect(() => {
     if (activeTab === 'subscription') {
       fetchSubscriptionData();
+    } else if (activeTab === 'legal') {
+      fetchLegalDocuments();
     }
   }, [activeTab]);
 
@@ -141,6 +148,30 @@ const Settings = () => {
       console.error('Failed to fetch subscription data:', error);
     } finally {
       setSubscriptionLoading(false);
+    }
+  };
+
+  const fetchLegalDocuments = async () => {
+    setLegalLoading(true);
+    try {
+      // Fetch privacy policy
+      const privacyResponse = await fetch('/api/v1/config/privacy-policy');
+      const privacyData = await privacyResponse.json();
+      if (privacyData.code === 0 && privacyData.data) {
+        setPrivacyPolicy(privacyData.data.content || '');
+      }
+
+      // Fetch terms of service
+      const termsResponse = await fetch('/api/v1/config/terms-of-service');
+      const termsData = await termsResponse.json();
+      if (termsData.code === 0 && termsData.data) {
+        setTermsOfService(termsData.data.content || '');
+      }
+    } catch (error) {
+      console.error('Failed to fetch legal documents:', error);
+      showError('加载法律条款失败');
+    } finally {
+      setLegalLoading(false);
     }
   };
 
@@ -1455,6 +1486,38 @@ const Settings = () => {
     );
   };
 
+  const renderLegalTab = () => {
+    return (
+      <div className="tab-content">
+        <h2>法律条款</h2>
+        <p className="tab-description">查看我们的使用条款和隐私政策</p>
+
+        {legalLoading ? (
+          <div className="loading-state">
+            <div className="spinner"></div>
+            <p>加载中...</p>
+          </div>
+        ) : (
+          <div className="legal-documents">
+            <div className="legal-document-section">
+              <h3 className="document-title">使用条款</h3>
+              <div className="document-content">
+                <pre className="legal-text">{termsOfService}</pre>
+              </div>
+            </div>
+
+            <div className="legal-document-section">
+              <h3 className="document-title">隐私政策</h3>
+              <div className="document-content">
+                <pre className="legal-text">{privacyPolicy}</pre>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderExternalLinks = () => (
     <div className="settings-section external-links">
       <a href="#" className="external-link">
@@ -1601,6 +1664,19 @@ const Settings = () => {
                   </svg>
                   <span>订阅</span>
                 </button>
+                <button
+                  className={`menu-item ${activeTab === 'legal' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('legal')}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                  </svg>
+                  <span>法律条款</span>
+                </button>
               </div>
 
               {renderExternalLinks()}
@@ -1615,6 +1691,7 @@ const Settings = () => {
             {activeTab === 'ai' && renderAITab()}
             {activeTab === 'highlight' && renderHighlightTab()}
             {activeTab === 'subscription' && renderSubscriptionTab()}
+            {activeTab === 'legal' && renderLegalTab()}
           </div>
         </div>
       </div>

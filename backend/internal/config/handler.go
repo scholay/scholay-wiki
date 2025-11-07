@@ -31,6 +31,17 @@ func (h *Handler) GetPrivacyPolicy(c *gin.Context) {
 	utils.Success(c, policy)
 }
 
+// GetTermsOfService handles getting active terms of service
+func (h *Handler) GetTermsOfService(c *gin.Context) {
+	terms, err := h.service.GetActiveTermsOfService()
+	if err != nil {
+		utils.Error(c, 3012, "Failed to get terms of service")
+		return
+	}
+
+	utils.Success(c, terms)
+}
+
 // UpdatePrivacyPolicyRequest represents an update privacy policy request
 type UpdatePrivacyPolicyRequest struct {
 	Content string `json:"content" binding:"required"`
@@ -58,6 +69,35 @@ func (h *Handler) UpdatePrivacyPolicy(c *gin.Context) {
 	}
 
 	utils.SuccessWithMessage(c, "Privacy policy updated successfully", policy)
+}
+
+// UpdateTermsOfServiceRequest represents an update terms of service request
+type UpdateTermsOfServiceRequest struct {
+	Content string `json:"content" binding:"required"`
+	Version string `json:"version" binding:"required"`
+}
+
+// UpdateTermsOfService handles updating terms of service (admin only)
+func (h *Handler) UpdateTermsOfService(c *gin.Context) {
+	var req UpdateTermsOfServiceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	terms := &model.TermsOfService{
+		Content:  req.Content,
+		Version:  req.Version,
+		IsActive: true,
+	}
+
+	err := h.service.CreateTermsOfService(terms)
+	if err != nil {
+		utils.Error(c, 3013, "Failed to update terms of service")
+		return
+	}
+
+	utils.SuccessWithMessage(c, "Terms of service updated successfully", terms)
 }
 
 // GetEmailConfig handles getting active email configuration (admin only)
@@ -387,7 +427,9 @@ func (h *Handler) TestSMSConfig(c *gin.Context) {
 func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 	config := router.Group("/config")
 	{
+		// Public endpoints
 		config.GET("/privacy-policy", h.GetPrivacyPolicy)
+		config.GET("/terms-of-service", h.GetTermsOfService)
 		config.GET("/system", h.GetSystemConfig)
 	}
 }

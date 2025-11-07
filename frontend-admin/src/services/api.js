@@ -53,6 +53,9 @@ export const adminAPI = {
   updatePrivacyPolicy: (content, version) =>
     api.put('/admin/privacy-policy', { content, version }),
 
+  updateTermsOfService: (content, version) =>
+    api.put('/admin/terms-of-service', { content, version }),
+
   getEmailConfig: () =>
     api.get('/admin/email-config'),
 

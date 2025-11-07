@@ -145,3 +145,60 @@ func (s *Service) CreateSMSConfig(config *model.SMSConfig) error {
 	// Create new config
 	return s.repo.CreateSMSConfig(config)
 }
+
+// InitializeDefaultTermsOfService creates default terms of service if none exists
+func (s *Service) InitializeDefaultTermsOfService() error {
+	// Check if any terms of service exists
+	terms, err := s.repo.FindActiveTermsOfService()
+	if err != nil {
+		return err
+	}
+
+	// If terms exists, don't create default
+	if terms != nil {
+		return nil
+	}
+
+	// Create default terms of service
+	defaultTerms := &model.TermsOfService{
+		Content: `欢迎使用 Scholar 学术搜索平台服务。请仔细阅读以下条款：
+
+1. 服务说明
+Scholar 提供学术论文搜索、AI分析等服务。我们保留随时修改或终止服务的权利。
+
+2. 用户责任
+用户应遵守相关法律法规，不得利用本平台从事违法活动。用户对其账户的所有活动负责。
+
+3. 知识产权
+本平台的所有内容和功能均受知识产权法保护。未经授权，不得复制或使用。
+
+4. 免责声明
+本平台按"现状"提供服务，不对服务的准确性、可靠性或适用性作任何保证。
+
+5. 服务变更
+我们保留随时修改这些条款的权利。继续使用服务即表示您接受修改后的条款。
+
+最后更新日期：2025年1月`,
+		Version:  "1.0",
+		IsActive: true,
+	}
+
+	return s.repo.CreateTermsOfService(defaultTerms)
+}
+
+// GetActiveTermsOfService gets the active terms of service
+func (s *Service) GetActiveTermsOfService() (*model.TermsOfService, error) {
+	return s.repo.FindActiveTermsOfService()
+}
+
+// CreateTermsOfService creates a new terms of service and deactivates old ones
+func (s *Service) CreateTermsOfService(terms *model.TermsOfService) error {
+	// Deactivate all existing terms
+	err := s.repo.DeactivateAllTermsOfService()
+	if err != nil {
+		return err
+	}
+
+	// Create new terms
+	return s.repo.CreateTermsOfService(terms)
+}
