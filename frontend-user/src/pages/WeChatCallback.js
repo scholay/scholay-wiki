@@ -34,6 +34,13 @@ const WeChatCallback = () => {
         return;
       }
 
+      // Clear old token before calling callback API (if this is login mode, not binding)
+      // This prevents 401 errors from expired tokens interfering with the callback
+      if (bindMode !== 'bind') {
+        localStorage.removeItem('user_token');
+        localStorage.removeItem('user_data');
+      }
+
       try {
         let response;
 
