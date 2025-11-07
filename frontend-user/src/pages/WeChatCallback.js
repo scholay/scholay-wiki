@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { userAPI } from '../services/api';
-import './WeChatCallback.css';
 
 // CRITICAL: Clear old tokens IMMEDIATELY before component renders
 // This prevents AuthContext from starting heartbeat with expired tokens
@@ -20,8 +19,6 @@ const WeChatCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
-  const [status, setStatus] = useState('processing'); // 'processing', 'success', 'error'
-  const [message, setMessage] = useState('正在处理微信登录...');
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -29,9 +26,8 @@ const WeChatCallback = () => {
       const state = searchParams.get('state');
 
       if (!code || !state) {
-        setStatus('error');
-        setMessage('无效的微信回调参数');
-        setTimeout(() => navigate('/'), 3000);
+        console.error('Invalid WeChat callback parameters');
+        navigate('/');
         return;
       }
 
@@ -46,8 +42,6 @@ const WeChatCallback = () => {
 
       if (state !== savedState) {
         console.error('State mismatch - expected:', savedState, 'got:', state);
-        setStatus('error');
-        setMessage('安全验证失败，请重试');
 
         // Redirect with error state
         if (bindMode === 'bind') {
@@ -56,9 +50,9 @@ const WeChatCallback = () => {
             wechat_bind_status: 'error',
             message: '安全验证失败，请重试'
           });
-          setTimeout(() => navigate(`/settings?${params.toString()}`), 1000);
+          navigate(`/settings?${params.toString()}`);
         } else {
-          setTimeout(() => navigate('/'), 3000);
+          navigate('/');
         }
         return;
       }
@@ -93,7 +87,7 @@ const WeChatCallback = () => {
           response = await userAPI.wechatCallback(code, state);
 
           if (response.data.code === 0 && response.data.data) {
-            const { token, user, is_new_user } = response.data.data;
+            const { token, user } = response.data.data;
 
             // Save token and user data
             localStorage.setItem('user_token', token);
@@ -114,8 +108,6 @@ const WeChatCallback = () => {
       } catch (error) {
         console.error('WeChat callback error:', error);
         const errorMessage = error.response?.data?.message || error.message || (bindMode === 'bind' ? '微信绑定失败' : '微信登录失败');
-        setStatus('error');
-        setMessage(errorMessage);
 
         // Clean up on error
         if (bindMode === 'bind') {
@@ -128,10 +120,10 @@ const WeChatCallback = () => {
             wechat_bind_status: 'error',
             message: errorMessage
           });
-          setTimeout(() => navigate(`/settings?${params.toString()}`), 1000);
+          navigate(`/settings?${params.toString()}`);
         } else {
           localStorage.removeItem('wechat_oauth_state');
-          setTimeout(() => navigate('/'), 3000);
+          navigate('/');
         }
       }
     };
@@ -139,42 +131,8 @@ const WeChatCallback = () => {
     handleCallback();
   }, [searchParams, navigate, login]);
 
-  return (
-    <div className="wechat-callback">
-      <div className="wechat-callback-card">
-        {status === 'processing' && (
-          <>
-            <div className="wechat-callback-spinner"></div>
-            <div className="wechat-callback-message">{message}</div>
-          </>
-        )}
-
-        {status === 'success' && (
-          <>
-            <div className="wechat-callback-icon success">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            </div>
-            <div className="wechat-callback-message success">{message}</div>
-          </>
-        )}
-
-        {status === 'error' && (
-          <>
-            <div className="wechat-callback-icon error">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="15" y1="9" x2="9" y2="15"></line>
-                <line x1="9" y1="9" x2="15" y2="15"></line>
-              </svg>
-            </div>
-            <div className="wechat-callback-message error">{message}</div>
-          </>
-        )}
-      </div>
-    </div>
-  );
+  // No UI - just processing in background
+  return null;
 };
 
 export default WeChatCallback;

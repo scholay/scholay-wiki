@@ -1261,7 +1261,7 @@ func (s *Service) BindWeChat(userID uint, openID, unionID, nickname, avatarURL s
 	}
 
 	if existing != nil && existing.UserID != userID {
-		return errors.New("WeChat account already bound to another user")
+		return errors.New("该微信账号已被其他账号绑定")
 	}
 
 	// Get current user
