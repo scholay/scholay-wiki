@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -10,21 +10,21 @@ import api, { subscriptionAPI } from '../services/api';
 import './ChatPageNew.css';
 import 'highlight.js/styles/github-dark.css';
 
-// Code Block Component with Copy Button
-function CodeBlock({ inline, className, children, ...props }) {
+// Code Block Component with Copy Button (Memoized for performance)
+const CodeBlock = React.memo(({ inline, className, children, ...props }) => {
   const [isCopied, setIsCopied] = useState(false);
   const codeRef = useRef(null);
   const match = /language-(\w+)/.exec(className || '');
   const lang = match ? match[1] : '';
 
-  const copyCode = () => {
+  const copyCode = React.useCallback(() => {
     const code = codeRef.current?.textContent;
     if (code) {
       navigator.clipboard.writeText(code.trim());
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 3000);
     }
-  };
+  }, []);
 
   if (inline) {
     return <code className="inline-code" {...props}>{children}</code>;
@@ -60,7 +60,7 @@ function CodeBlock({ inline, className, children, ...props }) {
       </div>
     </div>
   );
-}
+});
 
 function ChatPage() {
   const navigate = useNavigate();

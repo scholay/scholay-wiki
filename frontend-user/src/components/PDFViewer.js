@@ -20,10 +20,6 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
   // 使用后端代理来绕过CORS限制
   const proxyUrl = `/api/v1/proxy/pdf?url=${encodeURIComponent(pdfUrl)}`;
 
-  // 调试日志
-  console.log('PDF原始URL:', pdfUrl);
-  console.log('PDF代理URL:', proxyUrl);
-
   useEffect(() => {
     setNumPages(null);
     setIsLoading(true);
@@ -32,7 +28,6 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
   }, [proxyUrl]);
 
   const onDocumentLoadSuccess = ({ numPages }) => {
-    console.log('PDF加载成功,共', numPages, '页');
     setNumPages(numPages);
     setIsLoading(false);
     setError(null);
