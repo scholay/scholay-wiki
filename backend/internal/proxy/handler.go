@@ -55,10 +55,12 @@ func (h *Handler) ProxyPDF(c *gin.Context) {
 		return
 	}
 
-	// Create HTTP client with timeout and cookie jar (to follow auth/redirect flows)
+	// Create HTTP client with shared transport for connection pooling
+	// but unique cookie jar for session handling
 	client := &http.Client{
-		Timeout: 30 * time.Second,
-		Jar:     jar,
+		Timeout:   30 * time.Second,
+		Transport: GetProxyTransport(),
+		Jar:       jar,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
 				return http.ErrUseLastResponse
@@ -252,10 +254,12 @@ func (h *Handler) ProxySemanticScholar(c *gin.Context) {
 	// Create cookie jar to maintain session
 	jar, _ := cookiejar.New(nil)
 
-	// Create HTTP client with timeout and redirect handling
+	// Create HTTP client with shared transport for connection pooling
+	// but unique cookie jar for session handling
 	client := &http.Client{
-		Timeout: 30 * time.Second,
-		Jar:     jar,
+		Timeout:   30 * time.Second,
+		Transport: GetProxyTransport(),
+		Jar:       jar,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			// Allow up to 10 redirects
 			if len(via) >= 10 {

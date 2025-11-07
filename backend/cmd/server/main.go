@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 	"scholar-backend/internal/admin"
 	"scholar-backend/internal/ai"
@@ -138,8 +142,16 @@ func main() {
 	// Setup Gin router
 	router := gin.Default()
 
-	// Apply middleware
+	// Apply global middleware
 	router.Use(middleware.CORSMiddleware())
+
+	// Add rate limiting middleware (100 requests per second per IP)
+	// This prevents DoS attacks and ensures fair resource allocation
+	router.Use(middleware.RateLimitMiddleware(100, 1*time.Second))
+
+	// Add adaptive timeout middleware
+	// Automatically adjusts timeout based on endpoint type
+	router.Use(middleware.APITimeoutMiddleware())
 
 	// API routes
 	api := router.Group("/api/v1")
@@ -337,28 +349,59 @@ func main() {
 		})
 	})
 
+	// Create context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Start background tasks
 	// Record online user snapshots every 5 minutes
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
 
+		log.Println("Online user snapshot task started")
+
 		// Record initial snapshot
 		if err := userService.RecordOnlineUserSnapshot(); err != nil {
 			log.Printf("Failed to record initial online user snapshot: %v", err)
 		}
 
-		for range ticker.C {
-			if err := userService.RecordOnlineUserSnapshot(); err != nil {
-				log.Printf("Failed to record online user snapshot: %v", err)
+		for {
+			select {
+			case <-ticker.C:
+				if err := userService.RecordOnlineUserSnapshot(); err != nil {
+					log.Printf("Failed to record online user snapshot: %v", err)
+				}
+			case <-ctx.Done():
+				log.Println("Online user snapshot task stopped")
+				return
 			}
 		}
 	}()
 
-	// Start server
+	// Setup graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start server in a goroutine
 	addr := ":" + cfg.Server.Port
 	log.Printf("Server starting on %s", addr)
-	if err := router.Run(addr); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
-	}
+
+	go func() {
+		if err := router.Run(addr); err != nil {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	<-quit
+	log.Println("Shutting down server...")
+
+	// Cancel context to stop background tasks
+	cancel()
+
+	// Give background tasks time to cleanup
+	time.Sleep(2 * time.Second)
+
+	log.Println("Server stopped")
 }

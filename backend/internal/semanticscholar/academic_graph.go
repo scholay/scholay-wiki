@@ -2,6 +2,7 @@ package semanticscholar
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -43,7 +44,7 @@ func (c *Client) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) 
 
 	// Try to get from cache
 	var cachedResult SearchResponse
-	hit, err := cache.GetCachedSearchResult(cacheParams, &cachedResult)
+	hit, err := cache.GetCachedSearchResult(context.Background(), cacheParams, &cachedResult)
 	if err != nil {
 		log.Printf("Warning: cache error: %v", err)
 	}
@@ -100,7 +101,7 @@ func (c *Client) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) 
 
 	// Cache the result (async, don't block response)
 	go func() {
-		if err := cache.CacheSearchResult(cacheParams, &result); err != nil {
+		if err := cache.CacheSearchResult(context.Background(), cacheParams, &result); err != nil {
 			log.Printf("Warning: failed to cache search result: %v", err)
 		}
 	}()
@@ -116,7 +117,7 @@ func (c *Client) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, err
 
 	// Try to get from cache
 	var cachedPaper Paper
-	hit, err := cache.GetCachedPaperDetails(paperID, &cachedPaper)
+	hit, err := cache.GetCachedPaperDetails(context.Background(), paperID, &cachedPaper)
 	if err != nil {
 		log.Printf("Warning: cache error: %v", err)
 	}
@@ -148,7 +149,7 @@ func (c *Client) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, err
 
 	// Cache the result (async)
 	go func() {
-		if err := cache.CachePaperDetails(paperID, &result); err != nil {
+		if err := cache.CachePaperDetails(context.Background(), paperID, &result); err != nil {
 			log.Printf("Warning: failed to cache paper details: %v", err)
 		}
 	}()

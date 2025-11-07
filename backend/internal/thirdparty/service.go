@@ -1,6 +1,7 @@
 package thirdparty
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -9,16 +10,21 @@ import (
 
 // Service handles business logic for third-party accounts
 type Service struct {
-	repo  *Repository
-	mu    sync.RWMutex
-	cache map[AccountType][]ThirdPartyAccount // Cached active accounts
+	repo   *Repository
+	mu     sync.RWMutex
+	cache  map[AccountType][]ThirdPartyAccount // Cached active accounts
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // NewService creates a new service
 func NewService(repo *Repository) *Service {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Service{
-		repo:  repo,
-		cache: make(map[AccountType][]ThirdPartyAccount),
+		repo:   repo,
+		cache:  make(map[AccountType][]ThirdPartyAccount),
+		ctx:    ctx,
+		cancel: cancel,
 	}
 }
 
@@ -284,12 +290,28 @@ func (s *Service) GetStats() (map[string]interface{}, error) {
 func (s *Service) StartCacheRefreshTask(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	go func() {
-		for range ticker.C {
-			if err := s.RefreshCache(); err != nil {
-				fmt.Printf("Warning: failed to refresh account cache: %v\n", err)
+		defer ticker.Stop()
+		fmt.Println("Third-party account cache refresh task started")
+
+		for {
+			select {
+			case <-ticker.C:
+				if err := s.RefreshCache(); err != nil {
+					fmt.Printf("Warning: failed to refresh account cache: %v\n", err)
+				}
+			case <-s.ctx.Done():
+				fmt.Println("Third-party account cache refresh task stopped")
+				return
 			}
 		}
 	}()
+}
+
+// Stop gracefully stops the cache refresh task
+func (s *Service) Stop() {
+	fmt.Println("Stopping third-party service...")
+	s.cancel()
+	fmt.Println("✓ Third-party service stopped")
 }
 
 // GetActiveAccountsByType retrieves active accounts of a specific type (public method for AI service)

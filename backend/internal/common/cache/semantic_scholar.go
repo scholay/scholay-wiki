@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
@@ -33,16 +34,16 @@ func GenerateCacheKey(prefix string, params map[string]interface{}) string {
 
 // CacheSearchResult caches a search result
 // params should include: query, year, limit, offset, fields, etc.
-func CacheSearchResult(params map[string]interface{}, result interface{}) error {
+func CacheSearchResult(ctx context.Context, params map[string]interface{}, result interface{}) error {
 	key := GenerateCacheKey(scholarSearchPrefix, params)
-	return Set(key, result, searchCacheTTL)
+	return Set(ctx, key, result, searchCacheTTL)
 }
 
 // GetCachedSearchResult retrieves a cached search result
-func GetCachedSearchResult(params map[string]interface{}, result interface{}) (bool, error) {
+func GetCachedSearchResult(ctx context.Context, params map[string]interface{}, result interface{}) (bool, error) {
 	key := GenerateCacheKey(scholarSearchPrefix, params)
 
-	err := Get(key, result)
+	err := Get(ctx, key, result)
 	if err != nil {
 		if err.Error() == "redis: nil" {
 			// Cache miss
@@ -57,16 +58,16 @@ func GetCachedSearchResult(params map[string]interface{}, result interface{}) (b
 }
 
 // CachePaperDetails caches paper details by paperId
-func CachePaperDetails(paperId string, paper interface{}) error {
+func CachePaperDetails(ctx context.Context, paperId string, paper interface{}) error {
 	key := fmt.Sprintf("%s:%s", scholarPaperPrefix, paperId)
-	return Set(key, paper, paperCacheTTL)
+	return Set(ctx, key, paper, paperCacheTTL)
 }
 
 // GetCachedPaperDetails retrieves cached paper details
-func GetCachedPaperDetails(paperId string, result interface{}) (bool, error) {
+func GetCachedPaperDetails(ctx context.Context, paperId string, result interface{}) (bool, error) {
 	key := fmt.Sprintf("%s:%s", scholarPaperPrefix, paperId)
 
-	err := Get(key, result)
+	err := Get(ctx, key, result)
 	if err != nil {
 		if err.Error() == "redis: nil" {
 			return false, nil
@@ -78,16 +79,16 @@ func GetCachedPaperDetails(paperId string, result interface{}) (bool, error) {
 }
 
 // CacheAuthorDetails caches author details by authorId
-func CacheAuthorDetails(authorId string, author interface{}) error {
+func CacheAuthorDetails(ctx context.Context, authorId string, author interface{}) error {
 	key := fmt.Sprintf("%s:%s", scholarAuthorPrefix, authorId)
-	return Set(key, author, authorCacheTTL)
+	return Set(ctx, key, author, authorCacheTTL)
 }
 
 // GetCachedAuthorDetails retrieves cached author details
-func GetCachedAuthorDetails(authorId string, result interface{}) (bool, error) {
+func GetCachedAuthorDetails(ctx context.Context, authorId string, result interface{}) (bool, error) {
 	key := fmt.Sprintf("%s:%s", scholarAuthorPrefix, authorId)
 
-	err := Get(key, result)
+	err := Get(ctx, key, result)
 	if err != nil {
 		if err.Error() == "redis: nil" {
 			return false, nil
@@ -99,25 +100,25 @@ func GetCachedAuthorDetails(authorId string, result interface{}) (bool, error) {
 }
 
 // InvalidateSearchCache invalidates all search caches
-func InvalidateSearchCache() error {
+func InvalidateSearchCache(ctx context.Context) error {
 	pattern := fmt.Sprintf("%s:*", scholarSearchPrefix)
-	return InvalidatePattern(pattern)
+	return InvalidatePattern(ctx, pattern)
 }
 
 // InvalidatePaperCache invalidates a specific paper cache
-func InvalidatePaperCache(paperId string) error {
+func InvalidatePaperCache(ctx context.Context, paperId string) error {
 	key := fmt.Sprintf("%s:%s", scholarPaperPrefix, paperId)
-	return Delete(key)
+	return Delete(ctx, key)
 }
 
 // InvalidateAuthorCache invalidates a specific author cache
-func InvalidateAuthorCache(authorId string) error {
+func InvalidateAuthorCache(ctx context.Context, authorId string) error {
 	key := fmt.Sprintf("%s:%s", scholarAuthorPrefix, authorId)
-	return Delete(key)
+	return Delete(ctx, key)
 }
 
 // GetCacheStats returns cache statistics (for debugging/monitoring)
-func GetCacheStats() (map[string]int64, error) {
+func GetCacheStats(ctx context.Context) (map[string]int64, error) {
 	stats := make(map[string]int64)
 
 	// Count keys for each prefix

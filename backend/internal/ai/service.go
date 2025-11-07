@@ -12,6 +12,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"scholar-backend/internal/common/circuitbreaker"
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/thirdparty"
 )
@@ -120,39 +121,50 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+config.APIKey)
 
-	// Send request
-	client := &http.Client{
-		Timeout: 5 * time.Minute,
-	}
+	// Send request using shared HTTP client for connection pooling with circuit breaker protection
+	client := GetHTTPClient()
 
 	fmt.Printf("[DEBUG] Sending tool call request to: %s, model: %s\n", url, modelCode)
-	resp, err := client.Do(req)
+
+	// Execute with circuit breaker protection
+	resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Printf("[ERROR] Tool call request failed: %v\n", err)
+			return nil, fmt.Errorf("failed to send request: %w", err)
+		}
+		defer resp.Body.Close()
+		fmt.Printf("[DEBUG] Tool call response status: %d\n", resp.StatusCode)
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			fmt.Printf("[ERROR] Tool call API error, status %d: %s\n", resp.StatusCode, string(body))
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		}
+
+		// Parse response
+		var result ChatCompletionResponse
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			fmt.Printf("[ERROR] Failed to decode tool call response: %v\n", err)
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		fmt.Printf("[DEBUG] Tool call completed successfully, got %d choices\n", len(result.Choices))
+		if len(result.Choices) > 0 {
+			fmt.Printf("[DEBUG] First choice has %d tool calls\n", len(result.Choices[0].Message.ToolCalls))
+		}
+
+		return &result, nil
+	})
+
 	if err != nil {
-		fmt.Printf("[ERROR] Tool call request failed: %v\n", err)
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-	fmt.Printf("[DEBUG] Tool call response status: %d\n", resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		fmt.Printf("[ERROR] Tool call API error, status %d: %s\n", resp.StatusCode, string(body))
-		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			return nil, fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+		}
+		return nil, err
 	}
 
-	// Parse response
-	var result ChatCompletionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		fmt.Printf("[ERROR] Failed to decode tool call response: %v\n", err)
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	fmt.Printf("[DEBUG] Tool call completed successfully, got %d choices\n", len(result.Choices))
-	if len(result.Choices) > 0 {
-		fmt.Printf("[DEBUG] First choice has %d tool calls\n", len(result.Choices[0].Message.ToolCalls))
-	}
-
-	return &result, nil
+	return resultInterface.(*ChatCompletionResponse), nil
 }
 
 // StreamChatCompletionWithLevel sends a streaming chat completion request with a specific model level
@@ -191,24 +203,34 @@ func (s *Service) StreamChatCompletionWithLevel(messages []ChatMessage, writer i
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+config.APIKey)
 
-	// Send request
-	client := &http.Client{
-		Timeout: 5 * time.Minute,
-	}
+	// Send request using shared HTTP client for connection pooling with circuit breaker protection
+	client := GetHTTPClient()
 
-	resp, err := client.Do(req)
+	// Execute with circuit breaker protection
+	_, err = circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to send request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		}
+
+		// Stream response
+		return nil, s.streamResponse(resp.Body, writer)
+	})
+
 	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			return fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+		}
+		return err
 	}
 
-	// Stream response
-	return s.streamResponse(resp.Body, writer)
+	return nil
 }
 
 // StreamChatCompletion sends a streaming chat completion request
@@ -265,24 +287,34 @@ func (s *Service) StreamChatCompletion(messages []ChatMessage, writer io.Writer)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-	// Send request
-	client := &http.Client{
-		Timeout: 5 * time.Minute,
-	}
+	// Send request using shared HTTP client for connection pooling with circuit breaker protection
+	client := GetHTTPClient()
 
-	resp, err := client.Do(req)
+	// Execute with circuit breaker protection
+	_, err = circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to send request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		}
+
+		// Stream response
+		return nil, s.streamResponse(resp.Body, writer)
+	})
+
 	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			return fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+		}
+		return err
 	}
 
-	// Stream response
-	return s.streamResponse(resp.Body, writer)
+	return nil
 }
 
 // StreamChatCompletionAndCollectWithLevel streams chat completion with specific model level and collects full content
@@ -332,28 +364,41 @@ func (s *Service) StreamChatCompletionAndCollectWithLevel(messages []ChatMessage
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+config.APIKey)
 
-	// Send request
+	// Send request with circuit breaker protection
 	client := &http.Client{
 		Timeout: 5 * time.Minute,
 	}
 
 	fmt.Printf("[DEBUG] Sending AI request, model: %s, url: %s, level: %s\n", reqBody.Model, url, modelLevel)
-	resp, err := client.Do(req)
+
+	// Execute with circuit breaker protection
+	resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Printf("[ERROR] AI request failed: %v\n", err)
+			return nil, fmt.Errorf("failed to send request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			fmt.Printf("[ERROR] AI API returned status %d, model: %s, body: %s\n", resp.StatusCode, reqBody.Model, string(body))
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		}
+
+		fmt.Printf("[DEBUG] AI API call successful, model: %s, starting to stream response\n", reqBody.Model)
+		// Stream response and collect content
+		return s.streamResponseAndCollect(resp.Body, writer)
+	})
+
 	if err != nil {
-		fmt.Printf("[ERROR] AI request failed: %v\n", err)
-		return "", fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		fmt.Printf("[ERROR] AI API returned status %d, model: %s, body: %s\n", resp.StatusCode, reqBody.Model, string(body))
-		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			return "", fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+		}
+		return "", err
 	}
 
-	fmt.Printf("[DEBUG] AI API call successful, model: %s, starting to stream response\n", reqBody.Model)
-	// Stream response and collect content
-	return s.streamResponseAndCollect(resp.Body, writer)
+	return resultInterface.(string), nil
 }
 
 // StreamChatCompletionAndCollect streams chat completion and collects full content
@@ -411,24 +456,34 @@ func (s *Service) StreamChatCompletionAndCollect(messages []ChatMessage, writer 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-	// Send request
-	client := &http.Client{
-		Timeout: 5 * time.Minute,
-	}
+	// Send request using shared HTTP client for connection pooling with circuit breaker protection
+	client := GetHTTPClient()
 
-	resp, err := client.Do(req)
+	// Execute with circuit breaker protection
+	resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to send request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		}
+
+		// Stream response and collect content
+		return s.streamResponseAndCollect(resp.Body, writer)
+	})
+
 	if err != nil {
-		return "", fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			return "", fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+		}
+		return "", err
 	}
 
-	// Stream response and collect content
-	return s.streamResponseAndCollect(resp.Body, writer)
+	return resultInterface.(string), nil
 }
 
 // streamResponse reads SSE stream and writes to output

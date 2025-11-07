@@ -1,6 +1,7 @@
 package cleanup
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -10,12 +11,19 @@ import (
 
 // CleanupService handles periodic database cleanup tasks
 type CleanupService struct {
-	db *gorm.DB
+	db     *gorm.DB
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // NewCleanupService creates a new cleanup service
 func NewCleanupService(db *gorm.DB) *CleanupService {
-	return &CleanupService{db: db}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &CleanupService{
+		db:     db,
+		ctx:    ctx,
+		cancel: cancel,
+	}
 }
 
 // Start starts all cleanup tasks as background goroutines
@@ -31,6 +39,13 @@ func (s *CleanupService) Start() {
 	log.Println("✓ Cleanup service started")
 }
 
+// Stop gracefully stops all cleanup tasks
+func (s *CleanupService) Stop() {
+	log.Println("Stopping cleanup service...")
+	s.cancel()
+	log.Println("✓ Cleanup service stopped")
+}
+
 // runPeriodic runs a cleanup task at regular intervals
 func (s *CleanupService) runPeriodic(name string, interval time.Duration, task func() error) {
 	ticker := time.NewTicker(interval)
@@ -41,9 +56,15 @@ func (s *CleanupService) runPeriodic(name string, interval time.Duration, task f
 		log.Printf("Warning: cleanup task '%s' failed: %v\n", name, err)
 	}
 
-	for range ticker.C {
-		if err := task(); err != nil {
-			log.Printf("Warning: cleanup task '%s' failed: %v\n", name, err)
+	for {
+		select {
+		case <-ticker.C:
+			if err := task(); err != nil {
+				log.Printf("Warning: cleanup task '%s' failed: %v\n", name, err)
+			}
+		case <-s.ctx.Done():
+			log.Printf("Cleanup task '%s' stopped\n", name)
+			return
 		}
 	}
 }
@@ -62,11 +83,19 @@ func (s *CleanupService) runDaily(name string, hour, minute int, task func() err
 		duration := time.Until(next)
 		log.Printf("Next '%s' cleanup scheduled at: %s (in %v)\n", name, next.Format("2006-01-02 15:04:05"), duration)
 
-		time.Sleep(duration)
-
-		if err := task(); err != nil {
-			log.Printf("Warning: cleanup task '%s' failed: %v\n", name, err)
+		// Use a timer with context cancellation support
+		timer := time.NewTimer(duration)
+		select {
+		case <-timer.C:
+			if err := task(); err != nil {
+				log.Printf("Warning: cleanup task '%s' failed: %v\n", name, err)
+			}
+		case <-s.ctx.Done():
+			timer.Stop()
+			log.Printf("Cleanup task '%s' stopped\n", name)
+			return
 		}
+		timer.Stop()
 	}
 }
 

@@ -339,6 +339,36 @@ The platform includes a built-in HTTP proxy for AI service access:
 - `backend/internal/proxy/` - HTTP proxy handler
 - Routes: `/api/v1/proxy/*` forwards to configured AI service endpoints
 
+### Performance & Reliability Features
+
+The backend implements several patterns for high performance and reliability:
+
+**Circuit Breakers** (`internal/common/circuitbreaker/`):
+- Prevents cascading failures when external services are down
+- Three breakers: `SemanticScholarBreaker`, `AIServiceBreaker`, `ProxyServiceBreaker`
+- Uses gobreaker library with configurable thresholds
+- Automatically opens circuit on high failure rates, prevents unnecessary requests
+- Half-open state for gradual recovery testing
+
+**Rate Limiting** (`internal/common/middleware/ratelimit.go`):
+- Custom sliding window rate limiter (no external dependencies)
+- IP-based and user-based rate limiting
+- Automatic cleanup of stale entries
+- Configurable per endpoint (e.g., 100 req/s)
+
+**Request Timeouts** (`internal/common/middleware/timeout.go`):
+- Smart timeout middleware with different timeouts based on operation type
+- Read operations: 15s, Write operations: 30s, Streaming: 5m
+- Prevents hanging requests and resource exhaustion
+- Returns 408 status on timeout
+
+**HTTP Connection Pooling**:
+- Shared HTTP clients across all external API calls
+- AI service: `internal/ai/httpclient.go` (100 max idle connections)
+- Proxy service: `internal/proxy/httpclient.go` (100 max connections per host)
+- Reduces latency by reusing TCP connections
+- Configurable timeouts, keep-alive, and TLS settings
+
 ### Background Tasks & Caching
 
 The backend runs several background tasks for performance and maintenance:
@@ -418,6 +448,33 @@ The system supports managing multiple API keys for external services:
 2. Test config: `docker exec scholar_nginx nginx -t`
 3. Reload: `docker exec scholar_nginx nginx -s reload`
 4. Or restart: `docker-compose restart nginx`
+
+### Making External API Calls
+
+When adding new external API integrations:
+
+1. **Use Circuit Breakers**: Wrap calls in circuit breaker to prevent cascading failures
+   ```go
+   result, err := circuitbreaker.YourServiceBreaker.Execute(func() (interface{}, error) {
+       return makeAPICall()
+   })
+   ```
+
+2. **Use Shared HTTP Clients**: Don't create new http.Client for each request
+   - For AI services: Use `ai.GetHTTPClient()`
+   - For proxy services: Use `proxy.GetProxyHTTPClient(timeout)`
+   - For Semantic Scholar: Use existing manager's client
+
+3. **Add Rate Limiting**: Protect endpoints with rate limiting middleware
+   ```go
+   router.Use(middleware.RateLimitMiddleware(100, time.Second))
+   ```
+
+4. **Set Appropriate Timeouts**: Use context with timeout for all external calls
+   ```go
+   ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+   defer cancel()
+   ```
 
 ## Important Notes
 
@@ -599,6 +656,33 @@ If Redis cache is stale (e.g., API keys not updating):
 docker exec scholar_redis redis-cli FLUSHALL
 docker-compose restart backend
 ```
+
+### Circuit Breaker Open
+
+If you see "circuit breaker open" errors:
+
+1. Check external service status (Semantic Scholar, AI service)
+2. View backend logs: `docker logs scholar_backend | grep "Circuit Breaker"`
+3. Circuit will auto-recover after timeout period (30s-60s)
+4. If persistent, check API keys: `docker logs scholar_backend | grep "API key"`
+
+### Rate Limiting Issues
+
+If legitimate requests are being rate limited:
+
+1. Check rate limit configuration in backend code
+2. Adjust limits in middleware: `RateLimitMiddleware(maxRequests, windowSize)`
+3. For testing, temporarily increase limits or disable rate limiting
+4. Check client IP identification: `docker logs scholar_backend | grep "Rate limit"`
+
+### Request Timeouts
+
+If requests timeout frequently:
+
+1. Check if timeout is appropriate for operation (streaming = 5m, write = 30s, read = 15s)
+2. Adjust in `internal/common/middleware/timeout.go`
+3. For long-running operations, consider implementing as background job
+4. Check backend performance: `docker stats scholar_backend`
 
 ## Project Documentation
 
