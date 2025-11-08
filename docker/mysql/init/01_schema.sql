@@ -15,7 +15,7 @@ SET foreign_key_checks = 0;
 -- 管理员用户表
 CREATE TABLE IF NOT EXISTS `admin_users` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `username` VARCHAR(50) NOT NULL UNIQUE,
+  `username` VARCHAR(50) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
   `email` VARCHAR(100),
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '1=active, 0=inactive',
@@ -23,16 +23,16 @@ CREATE TABLE IF NOT EXISTS `admin_users` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  INDEX `idx_username` (`username`),
+  UNIQUE INDEX `uk_username` (`username`),
   INDEX `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='管理员用户表';
 
 -- 用户表（支持多种认证方式）
 CREATE TABLE IF NOT EXISTS `users` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `username` VARCHAR(50) UNIQUE,
-  `email` VARCHAR(100) UNIQUE,
-  `phone` VARCHAR(20) UNIQUE,
+  `username` VARCHAR(50),
+  `email` VARCHAR(100),
+  `phone` VARCHAR(20),
   `password_hash` VARCHAR(255),
   `avatar_url` VARCHAR(255),
   `bio` TEXT COMMENT '用户简介',
@@ -47,9 +47,9 @@ CREATE TABLE IF NOT EXISTS `users` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  INDEX `idx_email` (`email`),
-  INDEX `idx_phone` (`phone`),
-  INDEX `idx_username` (`username`),
+  UNIQUE INDEX `uk_username` (`username`),
+  UNIQUE INDEX `uk_email` (`email`),
+  UNIQUE INDEX `uk_phone` (`phone`),
   INDEX `idx_status` (`status`),
   INDEX `idx_subscription_plan` (`subscription_plan`),
   INDEX `idx_location` (`location`)
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS `conversations` (
 -- 对话消息表（支持消息链）
 CREATE TABLE IF NOT EXISTS `conversation_messages` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `message_id` VARCHAR(36) NOT NULL UNIQUE COMMENT '消息UUID',
+  `message_id` VARCHAR(36) NOT NULL COMMENT '消息UUID',
   `conversation_id` BIGINT UNSIGNED NOT NULL,
   `parent_message_id` VARCHAR(36) COMMENT '父消息ID（支持分支）',
   `role` VARCHAR(20) NOT NULL COMMENT 'user, assistant, system',
@@ -159,7 +159,7 @@ CREATE TABLE IF NOT EXISTS `conversation_messages` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_message_id` (`message_id`),
+  UNIQUE INDEX `uk_message_id` (`message_id`),
   INDEX `idx_conversation_id` (`conversation_id`),
   INDEX `idx_parent_message_id` (`parent_message_id`),
   INDEX `idx_created_at` (`created_at`),
@@ -176,7 +176,7 @@ CREATE TABLE IF NOT EXISTS `conversation_messages` (
 -- 订阅计划表
 CREATE TABLE IF NOT EXISTS `subscription_plans` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `plan_code` VARCHAR(20) NOT NULL UNIQUE COMMENT '计划代码: free, pro, max',
+  `plan_code` VARCHAR(20) NOT NULL COMMENT '计划代码: free, pro, max',
   `plan_name` VARCHAR(50) NOT NULL COMMENT '计划名称',
   `price_monthly` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '月费',
   `price_yearly` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '年费',
@@ -186,7 +186,7 @@ CREATE TABLE IF NOT EXISTS `subscription_plans` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE INDEX `idx_plan_code` (`plan_code`),
+  UNIQUE INDEX `uk_plan_code` (`plan_code`),
   INDEX `idx_is_active` (`is_active`),
   INDEX `idx_sort_order` (`sort_order`),
   INDEX `idx_active_type` (`is_active`, `plan_code`)
@@ -242,7 +242,7 @@ CREATE TABLE IF NOT EXISTS `usage_quotas` (
 CREATE TABLE IF NOT EXISTS `orders` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id` BIGINT UNSIGNED NOT NULL,
-  `order_no` VARCHAR(64) NOT NULL UNIQUE COMMENT '订单号',
+  `order_no` VARCHAR(64) NOT NULL COMMENT '订单号',
   `plan_code` VARCHAR(20) NOT NULL COMMENT '订阅计划代码',
   `plan_name` VARCHAR(50) NOT NULL COMMENT '下单时的计划名称',
   `billing_cycle` VARCHAR(20) NOT NULL COMMENT 'monthly或yearly',
@@ -253,7 +253,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_order_no` (`order_no`),
+  UNIQUE INDEX `uk_order_no` (`order_no`),
   INDEX `idx_user_id` (`user_id`),
   INDEX `idx_status` (`status`),
   INDEX `idx_created_at` (`created_at`),
@@ -403,7 +403,7 @@ CREATE TABLE IF NOT EXISTS `third_party_accounts` (
 CREATE TABLE IF NOT EXISTS `prompt_templates` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(100) NOT NULL COMMENT '模板名称',
-  `key` VARCHAR(50) NOT NULL UNIQUE COMMENT '模板键值',
+  `key` VARCHAR(50) NOT NULL COMMENT '模板键值',
   `template` TEXT NOT NULL COMMENT '提示词模板',
   `description` TEXT COMMENT '模板描述',
   `variables` JSON COMMENT '模板变量定义',
@@ -411,7 +411,7 @@ CREATE TABLE IF NOT EXISTS `prompt_templates` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE INDEX `idx_key` (`key`),
+  UNIQUE INDEX `uk_key` (`key`),
   INDEX `idx_active` (`is_active`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI提示词模板';
 
