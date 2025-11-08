@@ -20,10 +20,10 @@ func InitRedis(host string, port string, password string, db int) error {
 		Password:     password,
 		DB:           db,
 		DialTimeout:  5 * time.Second,
-		ReadTimeout:  3 * time.Second,
-		WriteTimeout: 3 * time.Second,
-		PoolSize:     10,
-		MinIdleConns: 5,
+		ReadTimeout:  10 * time.Second,  // Increased from 3s to prevent premature timeouts
+		WriteTimeout: 10 * time.Second,  // Increased from 3s to prevent premature timeouts
+		PoolSize:     100,               // Increased from 10 to match database connection pool scale
+		MinIdleConns: 25,                // Increased from 5 to keep more warm connections
 	})
 
 	// Test connection

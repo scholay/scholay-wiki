@@ -39,6 +39,9 @@ func main() {
 	}
 	log.Println("✓ Redis initialized successfully")
 
+	// Initialize cache worker pool (prevents goroutine accumulation from async cache writes)
+	cache.InitWorkerPool(10, 100) // 10 workers, queue size 100
+
 	// Initialize database
 	if err := database.Initialize(cfg); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
@@ -353,6 +356,9 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Start database connection pool monitoring
+	database.StartConnectionPoolMonitoring(ctx, 5*time.Minute)
+
 	// Start background tasks
 	// Record online user snapshots every 5 minutes
 	go func() {
@@ -399,6 +405,9 @@ func main() {
 
 	// Cancel context to stop background tasks
 	cancel()
+
+	// Shutdown cache worker pool gracefully
+	cache.ShutdownGlobalPool()
 
 	// Give background tasks time to cleanup
 	time.Sleep(2 * time.Second)

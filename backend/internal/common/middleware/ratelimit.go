@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -21,6 +22,7 @@ type RateLimiter struct {
 	mu          sync.RWMutex
 	windowSize  time.Duration
 	maxRequests int
+	stopCleanup chan struct{} // Channel to signal cleanup goroutine to stop
 }
 
 // NewRateLimiter creates a new rate limiter
@@ -31,6 +33,7 @@ func NewRateLimiter(maxRequests int, windowSize time.Duration) *RateLimiter {
 		clients:     make(map[string]*clientLimiter),
 		windowSize:  windowSize,
 		maxRequests: maxRequests,
+		stopCleanup: make(chan struct{}),
 	}
 }
 
@@ -89,10 +92,39 @@ func (rl *RateLimiter) Cleanup() {
 func (rl *RateLimiter) StartCleanup(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	go func() {
-		for range ticker.C {
-			rl.Cleanup()
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				rl.Cleanup()
+			case <-rl.stopCleanup:
+				return
+			}
 		}
 	}()
+}
+
+// StartCleanupWithContext periodically cleans up old entries, respecting context cancellation
+func (rl *RateLimiter) StartCleanupWithContext(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				rl.Cleanup()
+			case <-ctx.Done():
+				return
+			case <-rl.stopCleanup:
+				return
+			}
+		}
+	}()
+}
+
+// StopCleanup signals the cleanup goroutine to stop
+func (rl *RateLimiter) StopCleanup() {
+	close(rl.stopCleanup)
 }
 
 // RateLimitMiddleware creates a rate limiting middleware

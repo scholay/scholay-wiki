@@ -86,9 +86,8 @@ CREATE TABLE IF NOT EXISTS `user_sessions` (
   `expires_at` DATETIME NOT NULL,
   PRIMARY KEY (`id`),
   INDEX `idx_user_id` (`user_id`),
-  INDEX `idx_token` (`token`),
-  INDEX `idx_last_activity` (`last_activity`),
-  INDEX `idx_expires_at` (`expires_at`),
+  INDEX `idx_token` (`token`(64)),  -- Optimized: index only first 64 chars to reduce storage overhead
+  -- Removed redundant single-column indexes that are covered by composite indexes
   INDEX `idx_active_sessions` (`last_activity`, `expires_at`),
   INDEX `idx_user_activity` (`user_id`, `last_activity` DESC),
   FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE

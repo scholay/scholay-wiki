@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from './utils/AuthContext';
 import { ToastProvider } from './components/ToastContainer';
+import { SubscriptionProvider } from './contexts/SubscriptionContext';
 
 // 首页立即加载(最常访问)
 import Home from './pages/Home';
@@ -39,7 +40,8 @@ function App() {
     <HelmetProvider>
       <ToastProvider>
         <AuthProvider>
-          <Router>
+          <SubscriptionProvider>
+            <Router>
             <Suspense fallback={null}>
               <Routes>
                 <Route path="/" element={<Home />} />
@@ -68,6 +70,7 @@ function App() {
               )}
             </Suspense>
           </Router>
+        </SubscriptionProvider>
         </AuthProvider>
       </ToastProvider>
     </HelmetProvider>

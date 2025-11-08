@@ -9,6 +9,12 @@ import (
 
 // TimeoutMiddleware adds request timeout to all requests
 // This prevents hanging requests and ensures better resource control
+//
+// IMPORTANT: This implementation has a known limitation where handler goroutines
+// may continue running after timeout. The context cancellation propagates to handlers
+// that properly respect context, but handlers that don't check context.Done() may leak.
+// This is a known Go timeout pattern limitation. Ensure all long-running operations
+// in handlers properly check and respond to context cancellation.
 func TimeoutMiddleware(timeout time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Create a context with timeout
@@ -16,24 +22,36 @@ func TimeoutMiddleware(timeout time.Duration) gin.HandlerFunc {
 		defer cancel()
 
 		// Replace request context with timeout context
+		// This propagates cancellation to handlers that respect context
 		c.Request = c.Request.WithContext(ctx)
 
 		// Channel to signal when request processing is done
 		done := make(chan struct{})
+		panicChan := make(chan interface{}, 1)
 
 		// Process request in goroutine
 		go func() {
+			defer func() {
+				if p := recover(); p != nil {
+					panicChan <- p
+				}
+			}()
 			c.Next()
 			close(done)
 		}()
 
 		// Wait for either completion or timeout
 		select {
+		case p := <-panicChan:
+			// Handler panicked, re-panic after cleanup
+			panic(p)
 		case <-done:
 			// Request completed successfully
 			return
 		case <-ctx.Done():
 			// Timeout occurred
+			// Note: The handler goroutine may still be running. Context cancellation
+			// should trigger cleanup in well-behaved handlers that check ctx.Done().
 			if ctx.Err() == context.DeadlineExceeded {
 				c.JSON(408, gin.H{
 					"code":    408,
@@ -42,6 +60,9 @@ func TimeoutMiddleware(timeout time.Duration) gin.HandlerFunc {
 				})
 				c.Abort()
 			}
+			// Give handler a brief moment to clean up
+			// This doesn't fully solve goroutine leaks but allows context-aware handlers to exit
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 }

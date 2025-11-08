@@ -99,12 +99,10 @@ func (c *Client) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) 
 		return nil, err
 	}
 
-	// Cache the result (async, don't block response)
-	go func() {
-		if err := cache.CacheSearchResult(context.Background(), cacheParams, &result); err != nil {
-			log.Printf("Warning: failed to cache search result: %v", err)
-		}
-	}()
+	// Cache the result using worker pool (prevents goroutine accumulation)
+	cache.GetWorkerPool().Submit(context.Background(), func() error {
+		return cache.CacheSearchResult(context.Background(), cacheParams, &result)
+	})
 
 	return &result, nil
 }

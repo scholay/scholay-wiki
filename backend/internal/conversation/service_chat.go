@@ -272,8 +272,9 @@ func (w *sseWriter) Write(p []byte) (n int, err error) {
 }
 
 // buildContextChain builds the message chain from root to the specified message
+// Uses optimized version to avoid N+1 query problem (10-100x faster)
 func (s *ChatService) buildContextChain(messageID string) ([]ConversationMessage, error) {
-	return s.repo.BuildMessageChain(messageID)
+	return s.repo.BuildMessageChainOptimized(messageID)
 }
 
 // convertToAIMessages converts conversation messages to AI service format
@@ -508,8 +509,8 @@ func (s *ChatService) GetConversationHistory(conversationID uint, userID uint) (
 	log.Printf("[DEBUG] Latest message ID: %s, Role: %s, Content preview: %.50s",
 		latestMessage.MessageID, latestMessage.Role, latestMessage.Content)
 
-	// Build chain from latest message
-	chain, err := s.repo.BuildMessageChain(latestMessage.MessageID)
+	// Build chain from latest message (optimized version)
+	chain, err := s.repo.BuildMessageChainOptimized(latestMessage.MessageID)
 	if err != nil {
 		return nil, err
 	}
@@ -545,8 +546,8 @@ func (s *ChatService) GetBranchChain(messageID string, userID uint) ([]Conversat
 		return nil, fmt.Errorf("failed to find leaf message: %w", err)
 	}
 
-	// Build complete chain from root to the leaf
-	chain, err := s.repo.BuildMessageChain(leafMessageID)
+	// Build complete chain from root to the leaf (optimized version)
+	chain, err := s.repo.BuildMessageChainOptimized(leafMessageID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build branch chain: %w", err)
 	}

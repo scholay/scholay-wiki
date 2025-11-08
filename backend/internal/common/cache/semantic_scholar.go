@@ -40,13 +40,14 @@ func CacheSearchResult(ctx context.Context, params map[string]interface{}, resul
 }
 
 // GetCachedSearchResult retrieves a cached search result
+// Returns (found, error) - found=true if cache hit, found=false if cache miss
 func GetCachedSearchResult(ctx context.Context, params map[string]interface{}, result interface{}) (bool, error) {
 	key := GenerateCacheKey(scholarSearchPrefix, params)
 
 	err := Get(ctx, key, result)
 	if err != nil {
 		if err.Error() == "redis: nil" {
-			// Cache miss
+			// Cache miss - caller should use GetOrSetSearchResult for stampede protection
 			return false, nil
 		}
 		// Redis error
@@ -55,6 +56,13 @@ func GetCachedSearchResult(ctx context.Context, params map[string]interface{}, r
 
 	// Cache hit
 	return true, nil
+}
+
+// GetOrSetSearchResult retrieves from cache or fetches with stampede protection
+// This prevents multiple concurrent requests from hitting the API on cache miss
+func GetOrSetSearchResult(ctx context.Context, params map[string]interface{}, fetchFn func() (interface{}, error), result interface{}) error {
+	key := GenerateCacheKey(scholarSearchPrefix, params)
+	return GetOrSet(ctx, key, searchCacheTTL, fetchFn, result)
 }
 
 // CachePaperDetails caches paper details by paperId
@@ -78,6 +86,12 @@ func GetCachedPaperDetails(ctx context.Context, paperId string, result interface
 	return true, nil
 }
 
+// GetOrSetPaperDetails retrieves from cache or fetches with stampede protection
+func GetOrSetPaperDetails(ctx context.Context, paperId string, fetchFn func() (interface{}, error), result interface{}) error {
+	key := fmt.Sprintf("%s:%s", scholarPaperPrefix, paperId)
+	return GetOrSet(ctx, key, paperCacheTTL, fetchFn, result)
+}
+
 // CacheAuthorDetails caches author details by authorId
 func CacheAuthorDetails(ctx context.Context, authorId string, author interface{}) error {
 	key := fmt.Sprintf("%s:%s", scholarAuthorPrefix, authorId)
@@ -97,6 +111,12 @@ func GetCachedAuthorDetails(ctx context.Context, authorId string, result interfa
 	}
 
 	return true, nil
+}
+
+// GetOrSetAuthorDetails retrieves from cache or fetches with stampede protection
+func GetOrSetAuthorDetails(ctx context.Context, authorId string, fetchFn func() (interface{}, error), result interface{}) error {
+	key := fmt.Sprintf("%s:%s", scholarAuthorPrefix, authorId)
+	return GetOrSet(ctx, key, authorCacheTTL, fetchFn, result)
 }
 
 // InvalidateSearchCache invalidates all search caches
