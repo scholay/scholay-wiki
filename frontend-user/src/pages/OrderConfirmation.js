@@ -173,6 +173,48 @@ const OrderConfirmation = () => {
 
   return (
     <div className="order-confirmation-container">
+      {/* Top Header with Logo */}
+      <div className="pricing-top-header" style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        width: '100%',
+        zIndex: 1000,
+        background: '#212121',
+        padding: '20px 24px',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+      }}>
+        <div
+          onClick={() => navigate('/')}
+          style={{
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            width: 'fit-content'
+          }}
+        >
+          <img
+            src="/logo.png"
+            alt="Scholay"
+            style={{
+              width: '18px',
+              height: '18px',
+              objectFit: 'contain'
+            }}
+          />
+          <span style={{
+            fontSize: '16px',
+            fontWeight: '600',
+            color: 'white',
+            letterSpacing: '0.5px'
+          }}>
+            Scholay
+          </span>
+        </div>
+      </div>
+
       <div className="order-confirmation-card">
         {/* Header */}
         <div className="order-header">

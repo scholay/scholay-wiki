@@ -2,17 +2,18 @@
   min-height: 100vh;
   background: #212121;
   color: white;
+  padding-top: 60px; /* Add space for fixed header */
 }
 
 .pricing-header {
   text-align: center;
-  padding: 80px 20px 60px;
+  padding: 40px 20px 32px; /* Reduced from 80px 20px 60px */
 }
 
 .pricing-header h1 {
-  font-size: 48px;
+  font-size: 40px; /* Reduced from 48px */
   font-weight: 700;
-  margin-bottom: 16px;
+  margin-bottom: 12px; /* Reduced from 16px */
   background: linear-gradient(135deg, #10a37f 0%, #1a7f64 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -20,9 +21,9 @@
 }
 
 .pricing-header .subtitle {
-  font-size: 18px;
+  font-size: 16px; /* Reduced from 18px */
   color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 48px;
+  margin-bottom: 32px; /* Reduced from 48px */
 }
 
 .billing-toggle {
@@ -154,15 +155,15 @@
   justify-content: center;
   gap: 4px;
   text-decoration: line-through;
-  opacity: 0.5;
+  opacity: 0.85; /* Increased from 0.65 for better visibility */
   margin-bottom: 4px;
 }
 
 .original-price .currency,
 .original-price .amount,
 .original-price .period {
-  font-size: 0.7em;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 1em;
+  color: rgba(255, 255, 255, 0.8); /* Increased from 0.6 for better contrast */
 }
 
 .price-amount {
@@ -170,23 +171,27 @@
   align-items: baseline;
   justify-content: center;
   gap: 4px;
+  line-height: 1; /* Reduce height by tightening line height */
 }
 
 .currency {
   font-size: 24px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.8);
+  line-height: 1; /* Tighten line height */
 }
 
 .amount {
   font-size: 48px;
   font-weight: 700;
   color: white;
+  line-height: 1; /* Tighten line height */
 }
 
 .period {
   font-size: 18px;
   color: rgba(255, 255, 255, 0.6);
+  line-height: 1; /* Tighten line height */
 }
 
 .total-price {

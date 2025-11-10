@@ -1431,40 +1431,48 @@ const Settings = () => {
 
   return (
     <div className="settings-page">
-      {/* Header with Logo - fixed at top left, outside sidebar */}
+      {/* Header with Logo - fixed at top, full width */}
       <div
         className="settings-header"
-        onClick={() => navigate('/')}
         style={{
           position: 'fixed',
           top: 0,
           left: 0,
+          right: 0,
+          width: '100%',
           zIndex: 1000,
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '20px 24px',
-          background: '#212121'
+          background: '#212121',
+          padding: '20px 24px'
         }}
       >
-        <img
-          src="/logo.png"
-          alt="Scholay"
+        <div
+          onClick={() => navigate('/')}
           style={{
-            width: '18px',
-            height: '18px',
-            objectFit: 'contain'
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            width: 'fit-content'
           }}
-        />
-        <span style={{
-          fontSize: '16px',
-          fontWeight: '600',
-          color: 'white',
-          letterSpacing: '0.5px'
-        }}>
-          Scholay
-        </span>
+        >
+          <img
+            src="/logo.png"
+            alt="Scholay"
+            style={{
+              width: '18px',
+              height: '18px',
+              objectFit: 'contain'
+            }}
+          />
+          <span style={{
+            fontSize: '16px',
+            fontWeight: '600',
+            color: 'white',
+            letterSpacing: '0.5px'
+          }}>
+            Scholay
+          </span>
+        </div>
       </div>
 
       <div className="settings-container">

@@ -44,9 +44,10 @@ function App() {
             <Router>
             <Suspense fallback={null}>
               <Routes>
-                {/* 公开路由 - 首页可以未登录访问 */}
+                {/* 公开路由 - 无需登录即可访问 */}
                 <Route path="/" element={<Home />} />
                 <Route path="/search" element={<Navigate to="/" replace />} />
+                <Route path="/pricing" element={<Pricing />} />
 
                 {/* 需要登录的路由 - 使用 ProtectedRoute 包裹 */}
                 <Route path="/search-results" element={
@@ -67,11 +68,6 @@ function App() {
                 <Route path="/chat" element={
                   <ProtectedRoute>
                     <ChatPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/pricing" element={
-                  <ProtectedRoute>
-                    <Pricing />
                   </ProtectedRoute>
                 } />
                 <Route path="/settings" element={

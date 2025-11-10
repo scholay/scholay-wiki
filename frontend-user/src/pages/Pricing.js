@@ -99,21 +99,26 @@ const Pricing = () => {
     if (billingCycle === 'monthly') {
       return plan.price_monthly;
     }
-    return (plan.price_yearly / 12).toFixed(2);
+    // For yearly: original price per month is always based on current monthly price
+    return plan.current_price_monthly || plan.price_monthly;
   };
 
   const hasDiscount = (plan) => {
     if (billingCycle === 'monthly') {
       return plan.price_monthly !== plan.current_price_monthly;
     }
-    return plan.price_yearly !== plan.current_price_yearly;
+    // For yearly: compare configured yearly price with monthly price × 12
+    const monthlyBasedYearlyPrice = (plan.current_price_monthly || plan.price_monthly) * 12;
+    const actualYearlyPrice = plan.current_price_yearly || plan.price_yearly;
+    return monthlyBasedYearlyPrice > actualYearlyPrice;
   };
 
   const getOriginalTotalPrice = (plan) => {
     if (billingCycle === 'monthly') {
       return plan.price_monthly;
     }
-    return plan.price_yearly;
+    // For yearly: original total is always monthly price × 12
+    return ((plan.current_price_monthly || plan.price_monthly) * 12).toFixed(2);
   };
 
   const isCurrentPlan = (planCode) => {
@@ -169,6 +174,60 @@ const Pricing = () => {
       return plan.current_price_monthly || plan.price_monthly;
     }
     return plan.current_price_yearly || plan.price_yearly;
+  };
+
+  // Calculate yearly discount badge text based on backend configuration
+  const getYearlyDiscountText = () => {
+    // Find any plan with yearly pricing to determine discount display
+    const paidPlan = plans.find(p => p.price_yearly > 0);
+    if (!paidPlan) return null;
+
+    // Method 1: Percentage discount (if enabled and percentage is set)
+    if (paidPlan.yearly_discount_enabled && paidPlan.yearly_discount_percent > 0) {
+      return `优惠 ${paidPlan.yearly_discount_percent}%`;
+    }
+
+    // Method 2: Price optimization (calculate savings if prices differ)
+    if (paidPlan.price_yearly > paidPlan.current_price_yearly) {
+      const savings = paidPlan.price_yearly - paidPlan.current_price_yearly;
+      return `省 ¥${savings.toFixed(0)}`;
+    }
+
+    // Fallback: Calculate equivalent months saved (original behavior)
+    const monthlyEquivalent = paidPlan.price_monthly * 12;
+    if (monthlyEquivalent > paidPlan.current_price_yearly) {
+      const monthsSaved = Math.round((monthlyEquivalent - paidPlan.current_price_yearly) / paidPlan.price_monthly);
+      if (monthsSaved > 0) {
+        return `省 ${monthsSaved} 个月`;
+      }
+    }
+
+    return null;
+  };
+
+  // Simplify multi-level feature display
+  // If all unlimited -> "无限制请求"
+  // If some have limits -> "较少次数限制"
+  // If all disabled -> "-"
+  const formatMultiLevelFeature = (low, mid, high) => {
+    const features = [low, mid, high].filter(f => f && f !== '-');
+
+    // All disabled
+    if (features.length === 0) {
+      return '-';
+    }
+
+    // Check if all are unlimited
+    const allUnlimited = features.every(f =>
+      f.includes('无限制') || f.includes('unlimited') || f === '不限'
+    );
+
+    if (allUnlimited) {
+      return '无限制请求';
+    }
+
+    // Some have limits
+    return '较少次数限制';
   };
 
   // Generate dynamic comparison data from plans
@@ -276,6 +335,50 @@ const Pricing = () => {
 
   return (
     <div className="pricing-container">
+      {/* Header with Logo - fixed at top, full width */}
+      <div
+        className="pricing-top-header"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          width: '100%',
+          zIndex: 1000,
+          background: '#212121',
+          padding: '20px 24px'
+        }}
+      >
+        <div
+          onClick={() => navigate('/')}
+          style={{
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            width: 'fit-content'
+          }}
+        >
+          <img
+            src="/logo.png"
+            alt="Scholay"
+            style={{
+              width: '18px',
+              height: '18px',
+              objectFit: 'contain'
+            }}
+          />
+          <span style={{
+            fontSize: '16px',
+            fontWeight: '600',
+            color: 'white',
+            letterSpacing: '0.5px'
+          }}>
+            Scholay
+          </span>
+        </div>
+      </div>
+
       {/* Header Section */}
       <div className="pricing-header">
         <h1>定价</h1>
@@ -292,7 +395,7 @@ const Pricing = () => {
             className={billingCycle === 'yearly' ? 'active' : ''}
             onClick={() => setBillingCycle('yearly')}
           >
-            按年付费 <span className="save-badge">省 2 个月</span>
+            按年付费 {getYearlyDiscountText() && <span className="save-badge">{getYearlyDiscountText()}</span>}
           </button>
         </div>
       </div>
@@ -339,14 +442,6 @@ const Pricing = () => {
                       <span className="amount">{getPricePerMonth(plan)}</span>
                       <span className="period">/月</span>
                     </div>
-                    {billingCycle === 'yearly' && (
-                      <div className="total-price">
-                        {hasDiscount(plan) && (
-                          <span className="original-total">原价 ¥{getOriginalTotalPrice(plan)}</span>
-                        )}
-                        <span>年付 ¥{getTotalPrice(plan)}</span>
-                      </div>
-                    )}
                   </>
                 )}
               </div>
@@ -359,28 +454,24 @@ const Pricing = () => {
                     <span className="feature-value">{plan.features.normal_search.description}</span>
                   </li>
                   <li>
-                    <span className="feature-label">高级搜索（低模）：</span>
-                    <span className="feature-value">{plan.features.advanced_search_low.description}</span>
+                    <span className="feature-label">高级搜索：</span>
+                    <span className="feature-value">
+                      {formatMultiLevelFeature(
+                        plan.features.advanced_search_low.description,
+                        plan.features.advanced_search_mid.description,
+                        plan.features.advanced_search_high.description
+                      )}
+                    </span>
                   </li>
                   <li>
-                    <span className="feature-label">高级搜索（中模）：</span>
-                    <span className="feature-value">{plan.features.advanced_search_mid.description}</span>
-                  </li>
-                  <li>
-                    <span className="feature-label">高级搜索（高模）：</span>
-                    <span className="feature-value">{plan.features.advanced_search_high.description}</span>
-                  </li>
-                  <li>
-                    <span className="feature-label">AI 聊天（普通）：</span>
-                    <span className="feature-value">{plan.features.ai_chat_normal.description}</span>
-                  </li>
-                  <li>
-                    <span className="feature-label">AI 聊天（中级）：</span>
-                    <span className="feature-value">{plan.features.ai_chat_mid.description}</span>
-                  </li>
-                  <li>
-                    <span className="feature-label">AI 聊天（高级）：</span>
-                    <span className="feature-value">{plan.features.ai_chat_high.description}</span>
+                    <span className="feature-label">AI 聊天：</span>
+                    <span className="feature-value">
+                      {formatMultiLevelFeature(
+                        plan.features.ai_chat_normal.description,
+                        plan.features.ai_chat_mid.description,
+                        plan.features.ai_chat_high.description
+                      )}
+                    </span>
                   </li>
                 </ul>
               </div>
