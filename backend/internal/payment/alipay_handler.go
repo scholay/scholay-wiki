@@ -137,8 +137,8 @@ func (h *AlipayHandler) HandleCallback(c *gin.Context) {
 	// Check trade status
 	if tradeStatus == "TRADE_SUCCESS" || tradeStatus == "TRADE_FINISHED" {
 		fmt.Printf("[ALIPAY_CALLBACK] Processing successful payment...\n")
-		// Process successful payment
-		if err := h.processSuccessfulPayment(orderNo, tradeNo, totalAmount); err != nil {
+		// Process successful payment with complete callback data
+		if err := h.processSuccessfulPayment(orderNo, tradeNo, totalAmount, params); err != nil {
 			fmt.Printf("[ALIPAY_CALLBACK_ERROR] Failed to process payment: %v\n", err)
 			fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: PROCESS_FAILED ==========\n\n")
 			c.String(500, "fail")
@@ -155,8 +155,8 @@ func (h *AlipayHandler) HandleCallback(c *gin.Context) {
 	c.String(200, "success")
 }
 
-// processSuccessfulPayment processes a successful payment
-func (h *AlipayHandler) processSuccessfulPayment(orderNo, transactionNo, amountStr string) error {
+// processSuccessfulPayment processes a successful payment from Alipay callback
+func (h *AlipayHandler) processSuccessfulPayment(orderNo, transactionNo, amountStr string, callbackData map[string]string) error {
 	// Get order
 	orderRecord, err := h.orderService.GetOrderByOrderNo(orderNo)
 	if err != nil {
@@ -180,16 +180,9 @@ func (h *AlipayHandler) processSuccessfulPayment(orderNo, transactionNo, amountS
 		return fmt.Errorf("amount mismatch: expected %.2f, got %.2f", orderRecord.Amount, amount)
 	}
 
-	// Use the order service's ProcessPayment method to handle the payment
-	// We need to create a mock request since the payment is already verified by Alipay
-	req := order.ProcessPaymentRequest{
-		OrderNo:       orderNo,
-		PaymentMethod: "alipay",
-	}
-
-	// Note: The ProcessPayment method will create a transaction record
-	// We need to modify it to accept external transaction number
-	if err := h.orderService.ProcessPayment(orderRecord.UserID, req); err != nil {
+	// Process Alipay callback using the dedicated method
+	// This will create a payment transaction record with complete callback data
+	if err := h.orderService.ProcessAlipayCallback(orderNo, transactionNo, amount, callbackData); err != nil {
 		return fmt.Errorf("failed to process payment: %w", err)
 	}
 

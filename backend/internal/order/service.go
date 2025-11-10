@@ -1,6 +1,7 @@
 package order
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -130,6 +131,7 @@ func (s *Service) ProcessPayment(userID uint, req ProcessPaymentRequest) error {
 		PaymentMethod: req.PaymentMethod,
 		Amount:        order.Amount,
 		Status:        "pending",
+		PaymentData:   "{}", // Initialize with empty JSON object (MySQL JSON type cannot be empty string)
 	}
 
 	if err := s.repo.CreatePaymentTransaction(transaction); err != nil {
@@ -189,5 +191,67 @@ func (s *Service) CancelOrder(userID uint, orderNo string) error {
 		return fmt.Errorf("failed to cancel order: %w", err)
 	}
 
+	return nil
+}
+
+// ProcessAlipayCallback processes an Alipay payment callback
+// This is called by the payment handler after signature verification
+func (s *Service) ProcessAlipayCallback(orderNo, transactionNo string, amount float64, callbackData map[string]string) error {
+	// Get order
+	order, err := s.repo.GetOrderByOrderNo(orderNo)
+	if err != nil {
+		return fmt.Errorf("order not found: %w", err)
+	}
+
+	// Check if order is already paid
+	if order.Status == "paid" {
+		fmt.Printf("✓ Order %s already processed, skipping\n", orderNo)
+		return nil
+	}
+
+	// Check if order is cancelled
+	if order.Status == "cancelled" {
+		return errors.New("order is cancelled")
+	}
+
+	// Convert callback data to JSON string for storage
+	callbackJSON, err := json.Marshal(callbackData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal callback data: %w", err)
+	}
+
+	// Create payment transaction record with callback data
+	transaction := &PaymentTransaction{
+		OrderID:       order.ID,
+		TransactionNo: transactionNo,
+		PaymentMethod: "alipay",
+		Amount:        amount,
+		Status:        "success",
+		PaymentData:   string(callbackJSON), // Store complete callback data
+	}
+
+	if err := s.repo.CreatePaymentTransaction(transaction); err != nil {
+		return fmt.Errorf("failed to create payment transaction: %w", err)
+	}
+
+	// Update order status
+	if err := s.repo.UpdateOrderStatus(order.ID, "paid", "alipay"); err != nil {
+		return fmt.Errorf("failed to update order status: %w", err)
+	}
+
+	// Calculate subscription duration
+	var duration int
+	if order.BillingCycle == "monthly" {
+		duration = 1
+	} else {
+		duration = 12
+	}
+
+	// Upgrade user subscription
+	if err := s.subsService.UpgradeSubscription(order.UserID, order.PlanCode, duration); err != nil {
+		return fmt.Errorf("failed to upgrade subscription: %w", err)
+	}
+
+	fmt.Printf("✓ Alipay payment processed successfully for order %s\n", orderNo)
 	return nil
 }

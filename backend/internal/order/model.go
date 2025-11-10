@@ -26,7 +26,7 @@ type PaymentTransaction struct {
 	PaymentMethod string    `gorm:"size:50;not null" json:"payment_method"`
 	Amount        float64   `gorm:"type:decimal(10,2);not null" json:"amount"`
 	Status        string    `gorm:"size:20;not null;default:'pending'" json:"status"` // pending, success, failed
-	PaymentData   string    `gorm:"type:json" json:"payment_data"`
+	PaymentData   string    `gorm:"type:json;default:'{}'" json:"payment_data"` // IMPORTANT: MySQL JSON type cannot be empty string, use {} or null
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }

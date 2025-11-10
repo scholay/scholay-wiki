@@ -369,6 +369,39 @@
   }
 }
 
+/* Polling Indicator */
+.polling-indicator {
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 12px;
+  padding: 20px 32px;
+  margin: 24px 32px 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.polling-indicator .spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(251, 191, 36, 0.2);
+  border-top-color: #fbbf24;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.polling-indicator p {
+  margin: 0;
+  font-size: 14px;
+  color: #fbbf24;
+  font-weight: 500;
+}
+
 /* Payment Success Message */
 .payment-success-message {
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
@@ -392,6 +425,21 @@
   color: white;
   font-weight: bold;
   box-shadow: 0 8px 16px rgba(16, 185, 129, 0.3);
+  animation: successPulse 0.5s ease-out;
+}
+
+@keyframes successPulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .payment-success-message h2 {
@@ -408,6 +456,13 @@
   line-height: 1.6;
 }
 
+.payment-success-message .redirect-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}
+
 @media (max-width: 640px) {
   .order-content {
     padding: 16px;
@@ -415,6 +470,18 @@
 
   .order-actions {
     flex-direction: column;
+  }
+
+  .polling-indicator {
+    margin: 16px;
+    padding: 16px 20px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .polling-indicator p {
+    font-size: 13px;
+    text-align: center;
   }
 
   .payment-success-message {

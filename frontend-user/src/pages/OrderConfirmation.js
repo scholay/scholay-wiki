@@ -13,6 +13,8 @@ const OrderConfirmation = () => {
   const [loading, setLoading] = useState(true);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('alipay');
+  const [isPolling, setIsPolling] = useState(false);
+  const [pollingCount, setPollingCount] = useState(0);
 
   useEffect(() => {
     // Get order number from location state or URL parameter
@@ -27,21 +29,78 @@ const OrderConfirmation = () => {
     fetchOrderDetails(orderNo);
   }, [location.state, location.search]);
 
-  const fetchOrderDetails = async (orderNo) => {
+  // Polling effect - check order status periodically after payment redirect
+  useEffect(() => {
+    if (!order || order.status !== 'pending') {
+      return;
+    }
+
+    // Start polling if we came from payment (URL has orderNo parameter)
+    const searchParams = new URLSearchParams(location.search);
+    const orderNoFromURL = searchParams.get('orderNo');
+
+    if (orderNoFromURL && !isPolling) {
+      setIsPolling(true);
+      console.log('[Payment Polling] Starting payment status polling...');
+    }
+
+    if (!isPolling) {
+      return;
+    }
+
+    // Maximum polling duration: 60 seconds (30 attempts × 2 seconds)
+    if (pollingCount >= 30) {
+      console.log('[Payment Polling] Polling timeout, stopping');
+      setIsPolling(false);
+      return;
+    }
+
+    // Poll every 2 seconds
+    const pollTimer = setTimeout(() => {
+      console.log(`[Payment Polling] Checking order status (attempt ${pollingCount + 1}/30)...`);
+      fetchOrderDetails(order.order_no, true);
+      setPollingCount(prev => prev + 1);
+    }, 2000);
+
+    return () => clearTimeout(pollTimer);
+  }, [order, isPolling, pollingCount, location.search]);
+
+  const fetchOrderDetails = async (orderNo, isPollingRequest = false) => {
     try {
       const response = await orderAPI.getOrderDetail(orderNo);
       if (response.data.code === 0 && response.data.data) {
-        setOrder(response.data.data);
+        const newOrder = response.data.data;
+        setOrder(newOrder);
+
+        // If polling and order status changed to paid, stop polling and show success
+        if (isPollingRequest && newOrder.status === 'paid') {
+          console.log('[Payment Polling] Payment confirmed! Status changed to paid');
+          setIsPolling(false);
+          setPollingCount(0);
+
+          // Show a brief success message before redirecting
+          setTimeout(() => {
+            navigate('/settings?tab=subscription');
+          }, 2000);
+        }
       } else {
-        showError('获取订单详情失败：' + (response.data.message || '未知错误'));
-        navigate('/settings');
+        if (!isPollingRequest) {
+          showError('获取订单详情失败：' + (response.data.message || '未知错误'));
+          navigate('/settings');
+        }
       }
     } catch (error) {
-      showError('获取订单详情失败,请重试');
-      console.error('Failed to fetch order details:', error);
-      navigate('/settings');
+      if (!isPollingRequest) {
+        showError('获取订单详情失败,请重试');
+        console.error('Failed to fetch order details:', error);
+        navigate('/settings');
+      } else {
+        console.error('[Payment Polling] Failed to fetch order status:', error);
+      }
     } finally {
-      setLoading(false);
+      if (!isPollingRequest) {
+        setLoading(false);
+      }
     }
   };
 
@@ -111,12 +170,21 @@ const OrderConfirmation = () => {
           </span>
         </div>
 
+        {/* Polling Indicator */}
+        {isPolling && order.status === 'pending' && (
+          <div className="polling-indicator">
+            <div className="spinner"></div>
+            <p>正在确认支付结果，请稍候... ({pollingCount}/30)</p>
+          </div>
+        )}
+
         {/* Success Message for Paid Orders */}
         {order.status === 'paid' && (
           <div className="payment-success-message">
             <div className="success-icon">✓</div>
             <h2>恭喜您,订阅已激活!</h2>
             <p>您的 {order.plan_name} 订阅已成功激活,现在可以享受所有功能。</p>
+            <p className="redirect-hint">即将跳转到订阅管理页面...</p>
           </div>
         )}
 
