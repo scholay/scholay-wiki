@@ -17,6 +17,7 @@ import (
 type ConfigService interface {
 	GetActiveEmailConfig() (*model.EmailConfig, error)
 	GetActiveSMSConfig() (*model.SMSConfig, error)
+	GetSystemConfig() (*model.SystemConfig, error)
 }
 
 // Service handles business logic for user operations
@@ -36,6 +37,14 @@ func NewService(repo *Repository) *Service {
 // SetConfigService sets the config service (for dependency injection)
 func (s *Service) SetConfigService(configService ConfigService) {
 	s.configService = configService
+}
+
+// GetSystemConfig gets the system configuration
+func (s *Service) GetSystemConfig() (*model.SystemConfig, error) {
+	if s.configService == nil {
+		return nil, fmt.Errorf("config service not initialized")
+	}
+	return s.configService.GetSystemConfig()
 }
 
 // CheckEmailExists checks if an email is already registered

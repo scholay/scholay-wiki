@@ -1,6 +1,7 @@
 package user
 
 import (
+	"scholar-backend/internal/common/turnstile"
 	"scholar-backend/internal/common/utils"
 	"strconv"
 	"time"
@@ -97,15 +98,17 @@ type UnbindRequest struct {
 
 // RegisterRequest represents a registration request
 type RegisterRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=8"`
-	Code     string `json:"code"`
+	Email          string `json:"email" binding:"required,email"`
+	Password       string `json:"password" binding:"required,min=8"`
+	Code           string `json:"code"`
+	TurnstileToken string `json:"turnstile_token"`
 }
 
 // LoginRequest represents a login request
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Email          string `json:"email" binding:"required,email"`
+	Password       string `json:"password" binding:"required"`
+	TurnstileToken string `json:"turnstile_token"`
 }
 
 // AuthResponse represents an authentication response
@@ -181,6 +184,24 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
+	// Get system configuration
+	systemConfig, err := h.service.GetSystemConfig()
+	if err != nil {
+		utils.Error(c, 5000, "Failed to get system configuration")
+		return
+	}
+
+	// Verify Turnstile token (if enabled)
+	ip := c.ClientIP()
+	if valid, err := turnstile.VerifyWithConfig(req.TurnstileToken, ip, systemConfig); !valid {
+		errMsg := "人机验证失败"
+		if err != nil {
+			errMsg = err.Error()
+		}
+		utils.Error(c, 4001, errMsg)
+		return
+	}
+
 	user, token, err := h.service.RegisterWithEmail(req.Email, req.Password, req.Code)
 	if err != nil {
 		utils.Error(c, 2002, err.Error())
@@ -188,7 +209,6 @@ func (h *Handler) Register(c *gin.Context) {
 	}
 
 	// Create session for the new user
-	ip := c.ClientIP()
 	userAgent := c.GetHeader("User-Agent")
 	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
 
@@ -206,6 +226,24 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
+	// Get system configuration
+	systemConfig, err := h.service.GetSystemConfig()
+	if err != nil {
+		utils.Error(c, 5000, "Failed to get system configuration")
+		return
+	}
+
+	// Verify Turnstile token (if enabled)
+	ip := c.ClientIP()
+	if valid, err := turnstile.VerifyWithConfig(req.TurnstileToken, ip, systemConfig); !valid {
+		errMsg := "人机验证失败"
+		if err != nil {
+			errMsg = err.Error()
+		}
+		utils.Error(c, 4001, errMsg)
+		return
+	}
+
 	user, token, err := h.service.LoginWithEmail(req.Email, req.Password)
 	if err != nil {
 		utils.Error(c, 2003, err.Error())
@@ -213,7 +251,6 @@ func (h *Handler) Login(c *gin.Context) {
 	}
 
 	// Create session for the user
-	ip := c.ClientIP()
 	userAgent := c.GetHeader("User-Agent")
 	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
 
@@ -672,14 +709,16 @@ type ResetPasswordPhoneRequest struct {
 
 // LoginWithCodeRequest represents a login with verification code request
 type LoginWithCodeRequest struct {
-	Email string `json:"email" binding:"required,email"`
-	Code  string `json:"code" binding:"required,len=6"`
+	Email          string `json:"email" binding:"required,email"`
+	Code           string `json:"code" binding:"required,len=6"`
+	TurnstileToken string `json:"turnstile_token"`
 }
 
 // LoginPhoneWithCodeRequest represents a phone login with verification code request
 type LoginPhoneWithCodeRequest struct {
-	Phone string `json:"phone" binding:"required,len=11"`
-	Code  string `json:"code" binding:"required,len=6"`
+	Phone          string `json:"phone" binding:"required,len=11"`
+	Code           string `json:"code" binding:"required,len=6"`
+	TurnstileToken string `json:"turnstile_token"`
 }
 
 // ResetPassword handles password reset with email verification code
@@ -724,6 +763,24 @@ func (h *Handler) LoginWithCode(c *gin.Context) {
 		return
 	}
 
+	// Get system configuration
+	systemConfig, err := h.service.GetSystemConfig()
+	if err != nil {
+		utils.Error(c, 5000, "Failed to get system configuration")
+		return
+	}
+
+	// Verify Turnstile token (if enabled)
+	ip := c.ClientIP()
+	if valid, err := turnstile.VerifyWithConfig(req.TurnstileToken, ip, systemConfig); !valid {
+		errMsg := "人机验证失败"
+		if err != nil {
+			errMsg = err.Error()
+		}
+		utils.Error(c, 4001, errMsg)
+		return
+	}
+
 	user, token, err := h.service.LoginWithEmailCode(req.Email, req.Code)
 	if err != nil {
 		utils.Error(c, 2016, err.Error())
@@ -731,7 +788,6 @@ func (h *Handler) LoginWithCode(c *gin.Context) {
 	}
 
 	// Create session for the user
-	ip := c.ClientIP()
 	userAgent := c.GetHeader("User-Agent")
 	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
 
@@ -749,6 +805,24 @@ func (h *Handler) LoginPhoneWithCode(c *gin.Context) {
 		return
 	}
 
+	// Get system configuration
+	systemConfig, err := h.service.GetSystemConfig()
+	if err != nil {
+		utils.Error(c, 5000, "Failed to get system configuration")
+		return
+	}
+
+	// Verify Turnstile token (if enabled)
+	ip := c.ClientIP()
+	if valid, err := turnstile.VerifyWithConfig(req.TurnstileToken, ip, systemConfig); !valid {
+		errMsg := "人机验证失败"
+		if err != nil {
+			errMsg = err.Error()
+		}
+		utils.Error(c, 4001, errMsg)
+		return
+	}
+
 	user, token, err := h.service.LoginWithPhoneCode(req.Phone, req.Code)
 	if err != nil {
 		utils.Error(c, 2017, err.Error())
@@ -756,7 +830,6 @@ func (h *Handler) LoginPhoneWithCode(c *gin.Context) {
 	}
 
 	// Create session for the user
-	ip := c.ClientIP()
 	userAgent := c.GetHeader("User-Agent")
 	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
 

@@ -93,6 +93,9 @@ const SystemSettings = () => {
   // 系统配置
   const [systemConfig, setSystemConfig] = useState({
     requireEmailVerification: true,
+    enableTurnstile: false,
+    turnstileSiteKey: '',
+    turnstileSecretKey: '',
   });
 
   // Update tab when URL changes
@@ -748,6 +751,9 @@ const SystemSettings = () => {
       if (data.code === 0 && data.data) {
         setSystemConfig({
           requireEmailVerification: data.data.require_email_verification ?? true,
+          enableTurnstile: data.data.enable_turnstile ?? false,
+          turnstileSiteKey: data.data.turnstile_site_key ?? '',
+          turnstileSecretKey: data.data.turnstile_secret_key ?? '',
         });
       }
     } catch (err) {
@@ -762,6 +768,9 @@ const SystemSettings = () => {
     try {
       const response = await adminAPI.updateSystemConfig({
         require_email_verification: systemConfig.requireEmailVerification,
+        enable_turnstile: systemConfig.enableTurnstile,
+        turnstile_site_key: systemConfig.turnstileSiteKey,
+        turnstile_secret_key: systemConfig.turnstileSecretKey,
       });
 
       if (response.data.code === 0) {
@@ -1809,6 +1818,65 @@ const SystemSettings = () => {
                   </label>
                 </label>
               </div>
+
+              <div className="divider"></div>
+
+              <div className="form-group">
+                <label className="toggle-label">
+                  <span className="toggle-label-text">
+                    <span className="toggle-title">Cloudflare Turnstile 人机验证</span>
+                    <small className="form-hint">启用后，用户登录和注册时需要通过 Turnstile 人机验证</small>
+                  </span>
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={systemConfig.enableTurnstile}
+                      onChange={(e) => setSystemConfig({
+                        ...systemConfig,
+                        enableTurnstile: e.target.checked
+                      })}
+                    />
+                    <span className="slider"></span>
+                  </label>
+                </label>
+              </div>
+
+              {systemConfig.enableTurnstile && (
+                <>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="turnstileSiteKey">Turnstile Site Key (公钥)</label>
+                      <input
+                        type="text"
+                        id="turnstileSiteKey"
+                        className="input"
+                        value={systemConfig.turnstileSiteKey}
+                        onChange={(e) => setSystemConfig({
+                          ...systemConfig,
+                          turnstileSiteKey: e.target.value
+                        })}
+                        placeholder="1x00000000000000000000AA (测试密钥)"
+                      />
+                      <small className="form-hint">从 Cloudflare Turnstile 控制台获取</small>
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="turnstileSecretKey">Turnstile Secret Key (私钥)</label>
+                      <input
+                        type="password"
+                        id="turnstileSecretKey"
+                        className="input"
+                        value={systemConfig.turnstileSecretKey}
+                        onChange={(e) => setSystemConfig({
+                          ...systemConfig,
+                          turnstileSecretKey: e.target.value
+                        })}
+                        placeholder="1x0000000000000000000000000000000AA (测试密钥)"
+                      />
+                      <small className="form-hint">从 Cloudflare Turnstile 控制台获取</small>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="form-actions">
                 <button type="submit" className="btn btn-primary" disabled={loading}>

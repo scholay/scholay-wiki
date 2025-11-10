@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../utils/AuthContext';
 import { userAPI } from '../services/api';
-import SliderCaptcha from './SliderCaptcha';
+import TurnstileCaptcha from './TurnstileCaptcha';
 import { useToast } from './ToastContainer';
 import './AuthModal.css';
 
@@ -14,7 +14,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [code, setCode] = useState('');
-  const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
   const [agreedToPolicy, setAgreedToPolicy] = useState(false);
   const [useCodeLogin, setUseCodeLogin] = useState(false); // Toggle between password and code login
 
@@ -36,6 +36,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [requireEmailVerification, setRequireEmailVerification] = useState(true);
+  const [enableTurnstile, setEnableTurnstile] = useState(false);
 
   // 获取隐私协议、用户协议和系统配置
   useEffect(() => {
@@ -70,10 +71,19 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         .then(data => {
           if (data.code === 0 && data.data) {
             setRequireEmailVerification(data.data.require_email_verification ?? true);
+            const turnstileEnabled = data.data.enable_turnstile ?? false;
+            setEnableTurnstile(turnstileEnabled);
+            // If Turnstile is disabled, set a placeholder token to allow form submission
+            if (!turnstileEnabled) {
+              setTurnstileToken('disabled');
+            }
           }
         })
         .catch(() => {
           setRequireEmailVerification(true);
+          setEnableTurnstile(false);
+          // On error, assume Turnstile is disabled and set placeholder token
+          setTurnstileToken('disabled');
         });
     }
   }, [isOpen]);
@@ -103,7 +113,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     setPassword('');
     setConfirmPassword('');
     setCode('');
-    setCaptchaVerified(false);
+    setTurnstileToken('');
     setAgreedToPolicy(false);
     setPasswordError('');
   };
@@ -182,8 +192,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       return;
     }
 
-    if (!captchaVerified) {
-      showError('请完成滑块验证');
+    // Only check Turnstile token if Turnstile is enabled
+    if (enableTurnstile && !turnstileToken) {
+      showError('请完成人机验证');
       return;
     }
 
@@ -193,13 +204,13 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     }
 
     setLoading(true);
-    
+
 
     try {
       const response = await fetch('/api/v1/user/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, turnstile_token: turnstileToken }),
       });
 
       const data = await response.json();
@@ -211,7 +222,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       } else {
         showError(data.message || '登录失败');
         // Reset captcha state to allow re-verification
-        setCaptchaVerified(false);
+        setTurnstileToken('');
         if (emailCaptchaRef.current) {
           emailCaptchaRef.current.reset();
         }
@@ -219,7 +230,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     } catch (err) {
       showError('网络错误，请稍后重试');
       // Reset captcha state to allow re-verification
-      setCaptchaVerified(false);
+      setTurnstileToken('');
       if (emailCaptchaRef.current) {
         emailCaptchaRef.current.reset();
       }
@@ -245,8 +256,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       return;
     }
 
-    if (!captchaVerified) {
-      showError('请完成滑块验证');
+    // Only check Turnstile token if Turnstile is enabled
+    if (enableTurnstile && !turnstileToken) {
+      showError('请完成人机验证');
       return;
     }
 
@@ -262,7 +274,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       const response = await fetch('/api/v1/user/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, code }),
+        body: JSON.stringify({ email, password, code, turnstile_token: turnstileToken }),
       });
 
       const data = await response.json();
@@ -275,8 +287,8 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         showError(data.message || '注册失败');
         // Reset verification state but keep password and countdown
         setCode('');
-        setCaptchaVerified(false);
-        // Reset slider captcha to allow re-verification
+        setTurnstileToken('');
+        // Reset turnstile captcha to allow re-verification
         if (emailCaptchaRef.current) {
           emailCaptchaRef.current.reset();
         }
@@ -285,8 +297,8 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       showError('网络错误,请稍后重试');
       // Reset verification state but keep password and countdown
       setCode('');
-      setCaptchaVerified(false);
-      // Reset slider captcha to allow re-verification
+      setTurnstileToken('');
+      // Reset turnstile captcha to allow re-verification
       if (emailCaptchaRef.current) {
         emailCaptchaRef.current.reset();
       }
@@ -363,8 +375,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       return;
     }
 
-    if (!captchaVerified) {
-      showError('请完成滑块验证');
+    // Only check Turnstile token if Turnstile is enabled
+    if (enableTurnstile && !turnstileToken) {
+      showError('请完成人机验证');
       return;
     }
 
@@ -392,7 +405,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       } else {
         showError(data.message || '登录失败');
         // Reset captcha state to allow re-verification
-        setCaptchaVerified(false);
+        setTurnstileToken('');
         if (phoneCaptchaRef.current) {
           phoneCaptchaRef.current.reset();
         }
@@ -400,7 +413,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     } catch (err) {
       showError('网络错误,请稍后重试');
       // Reset captcha state to allow re-verification
-      setCaptchaVerified(false);
+      setTurnstileToken('');
       if (phoneCaptchaRef.current) {
         phoneCaptchaRef.current.reset();
       }
@@ -426,8 +439,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       return;
     }
 
-    if (!captchaVerified) {
-      showError('请完成滑块验证');
+    // Only check Turnstile token if Turnstile is enabled
+    if (enableTurnstile && !turnstileToken) {
+      showError('请完成人机验证');
       return;
     }
 
@@ -456,8 +470,8 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         showError(data.message || '注册失败');
         // Reset verification state but keep password and countdown
         setCode('');
-        setCaptchaVerified(false);
-        // Reset slider captcha to allow re-verification
+        setTurnstileToken('');
+        // Reset turnstile captcha to allow re-verification
         if (phoneCaptchaRef.current) {
           phoneCaptchaRef.current.reset();
         }
@@ -466,8 +480,8 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       showError('网络错误,请稍后重试');
       // Reset verification state but keep password and countdown
       setCode('');
-      setCaptchaVerified(false);
-      // Reset slider captcha to allow re-verification
+      setTurnstileToken('');
+      // Reset turnstile captcha to allow re-verification
       if (phoneCaptchaRef.current) {
         phoneCaptchaRef.current.reset();
       }
@@ -571,8 +585,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       return;
     }
 
-    if (!captchaVerified) {
-      showError('请完成滑块验证');
+    // Only check Turnstile token if Turnstile is enabled
+    if (enableTurnstile && !turnstileToken) {
+      showError('请完成人机验证');
       return;
     }
 
@@ -587,7 +602,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       const response = await fetch('/api/v1/user/login-with-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code }),
+        body: JSON.stringify({ email, code, turnstile_token: turnstileToken }),
       });
 
       const data = await response.json();
@@ -599,7 +614,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       } else {
         showError(data.message || '登录失败');
         setCode('');
-        setCaptchaVerified(false);
+        setTurnstileToken('');
         if (emailCaptchaRef.current) {
           emailCaptchaRef.current.reset();
         }
@@ -607,7 +622,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     } catch (err) {
       showError('网络错误，请稍后重试');
       setCode('');
-      setCaptchaVerified(false);
+      setTurnstileToken('');
       if (emailCaptchaRef.current) {
         emailCaptchaRef.current.reset();
       }
@@ -623,8 +638,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       return;
     }
 
-    if (!captchaVerified) {
-      showError('请完成滑块验证');
+    // Only check Turnstile token if Turnstile is enabled
+    if (enableTurnstile && !turnstileToken) {
+      showError('请完成人机验证');
       return;
     }
 
@@ -639,7 +655,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       const response = await fetch('/api/v1/user/login-phone-with-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code }),
+        body: JSON.stringify({ phone, code, turnstile_token: turnstileToken }),
       });
 
       const data = await response.json();
@@ -651,7 +667,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       } else {
         showError(data.message || '登录失败');
         setCode('');
-        setCaptchaVerified(false);
+        setTurnstileToken('');
         if (phoneCaptchaRef.current) {
           phoneCaptchaRef.current.reset();
         }
@@ -659,7 +675,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     } catch (err) {
       showError('网络错误，请稍后重试');
       setCode('');
-      setCaptchaVerified(false);
+      setTurnstileToken('');
       if (phoneCaptchaRef.current) {
         phoneCaptchaRef.current.reset();
       }
@@ -834,10 +850,11 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 </div>
               )}
 
-              <SliderCaptcha
+              <TurnstileCaptcha
                 ref={emailCaptchaRef}
-                onSuccess={() => setCaptchaVerified(true)}
-                onFail={() => setCaptchaVerified(false)}
+                onSuccess={(token) => setTurnstileToken(token)}
+                onFail={() => setTurnstileToken('')}
+                onExpire={() => setTurnstileToken('')}
               />
 
               <div className="auth-checkbox">
@@ -863,7 +880,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
               <button
                 className="auth-button auth-button-primary"
                 onClick={useCodeLogin ? handleLoginWithCode : handleLogin}
-                disabled={loading || !captchaVerified || !agreedToPolicy}
+                disabled={loading || (enableTurnstile && !turnstileToken) || !agreedToPolicy}
               >
                 {loading ? '登录中...' : '登录'}
               </button>
@@ -944,10 +961,11 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 </div>
               )}
 
-              <SliderCaptcha
+              <TurnstileCaptcha
                 ref={emailCaptchaRef}
-                onSuccess={() => setCaptchaVerified(true)}
-                onFail={() => setCaptchaVerified(false)}
+                onSuccess={(token) => setTurnstileToken(token)}
+                onFail={() => setTurnstileToken('')}
+                onExpire={() => setTurnstileToken('')}
               />
 
 
@@ -974,7 +992,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
               <button
                 className="auth-button auth-button-primary"
                 onClick={handleRegister}
-                disabled={!captchaVerified || !agreedToPolicy}
+                disabled={(enableTurnstile && !turnstileToken) || !agreedToPolicy}
               >
                 注册
               </button>
@@ -1105,10 +1123,11 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 </div>
               )}
 
-              <SliderCaptcha
+              <TurnstileCaptcha
                 ref={phoneCaptchaRef}
-                onSuccess={() => setCaptchaVerified(true)}
-                onFail={() => setCaptchaVerified(false)}
+                onSuccess={(token) => setTurnstileToken(token)}
+                onFail={() => setTurnstileToken('')}
+                onExpire={() => setTurnstileToken('')}
               />
 
               <div className="auth-checkbox">
@@ -1134,7 +1153,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
               <button
                 className="auth-button auth-button-primary"
                 onClick={useCodeLogin ? handleLoginPhoneWithCode : handlePhoneLogin}
-                disabled={loading || !captchaVerified || !agreedToPolicy}
+                disabled={loading || (enableTurnstile && !turnstileToken) || !agreedToPolicy}
               >
                 {loading ? '登录中...' : '登录'}
               </button>
@@ -1214,10 +1233,11 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 </button>
               </div>
 
-              <SliderCaptcha
+              <TurnstileCaptcha
                 ref={phoneCaptchaRef}
-                onSuccess={() => setCaptchaVerified(true)}
-                onFail={() => setCaptchaVerified(false)}
+                onSuccess={(token) => setTurnstileToken(token)}
+                onFail={() => setTurnstileToken('')}
+                onExpire={() => setTurnstileToken('')}
               />
 
 
@@ -1244,7 +1264,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
               <button
                 className="auth-button auth-button-primary"
                 onClick={handlePhoneRegister}
-                disabled={!captchaVerified || !agreedToPolicy}
+                disabled={(enableTurnstile && !turnstileToken) || !agreedToPolicy}
               >
                 注册
               </button>

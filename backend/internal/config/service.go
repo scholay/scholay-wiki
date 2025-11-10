@@ -111,7 +111,7 @@ func (s *Service) GetSystemConfig() (*model.SystemConfig, error) {
 }
 
 // UpdateSystemConfig updates system configuration
-func (s *Service) UpdateSystemConfig(requireEmailVerification bool) error {
+func (s *Service) UpdateSystemConfig(requireEmailVerification bool, enableTurnstile bool, turnstileSiteKey string, turnstileSecretKey string) error {
 	config, err := s.repo.GetSystemConfig()
 	if err != nil {
 		return err
@@ -121,11 +121,17 @@ func (s *Service) UpdateSystemConfig(requireEmailVerification bool) error {
 		// Create if not exists
 		config = &model.SystemConfig{
 			RequireEmailVerification: requireEmailVerification,
+			EnableTurnstile:          enableTurnstile,
+			TurnstileSiteKey:         turnstileSiteKey,
+			TurnstileSecretKey:       turnstileSecretKey,
 		}
 		return s.repo.CreateSystemConfig(config)
 	}
 
 	config.RequireEmailVerification = requireEmailVerification
+	config.EnableTurnstile = enableTurnstile
+	config.TurnstileSiteKey = turnstileSiteKey
+	config.TurnstileSecretKey = turnstileSecretKey
 	return s.repo.UpdateSystemConfig(config)
 }
 

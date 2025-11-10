@@ -1,0 +1,12 @@
+.turnstile-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 16px 0;
+  min-height: 65px;
+}
+
+/* Ensure Turnstile widget fits well in dark theme */
+.turnstile-container iframe {
+  border-radius: 8px;
+}

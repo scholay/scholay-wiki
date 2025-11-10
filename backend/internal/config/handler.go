@@ -268,7 +268,10 @@ func (h *Handler) GetSystemConfig(c *gin.Context) {
 
 // UpdateSystemConfigRequest represents an update system config request
 type UpdateSystemConfigRequest struct {
-	RequireEmailVerification bool `json:"require_email_verification"`
+	RequireEmailVerification bool   `json:"require_email_verification"`
+	EnableTurnstile          bool   `json:"enable_turnstile"`
+	TurnstileSiteKey         string `json:"turnstile_site_key"`
+	TurnstileSecretKey       string `json:"turnstile_secret_key"`
 }
 
 // UpdateSystemConfig handles updating system configuration (admin only)
@@ -279,7 +282,12 @@ func (h *Handler) UpdateSystemConfig(c *gin.Context) {
 		return
 	}
 
-	err := h.service.UpdateSystemConfig(req.RequireEmailVerification)
+	err := h.service.UpdateSystemConfig(
+		req.RequireEmailVerification,
+		req.EnableTurnstile,
+		req.TurnstileSiteKey,
+		req.TurnstileSecretKey,
+	)
 	if err != nil {
 		utils.Error(c, 3004, "Failed to update system configuration")
 		return
