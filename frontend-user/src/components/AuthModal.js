@@ -689,6 +689,12 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   // 微信登录
   const handleWeChatLogin = async () => {
     try {
+      // CRITICAL: Clean up any bind-related data from previous operations
+      // This prevents state mismatch when different users attempt login
+      // after a previous bind operation left data in localStorage
+      localStorage.removeItem('wechat_bind_state');
+      localStorage.removeItem('wechat_bind_mode');
+
       // Get WeChat login URL from backend (backend will generate state)
       const response = await userAPI.getWeChatLoginURL();
 
