@@ -399,6 +399,9 @@ const Settings = () => {
   // WeChat binding
   const handleBindWeChat = async () => {
     try {
+      // Clean up old state before starting new binding flow
+      localStorage.removeItem('wechat_bind_state');
+
       // Mark as binding mode
       localStorage.setItem('wechat_bind_mode', 'bind');
 
