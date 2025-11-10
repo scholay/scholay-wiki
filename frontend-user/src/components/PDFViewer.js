@@ -17,15 +17,19 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
   const [error, setError] = useState(null);
   const contentRef = useRef(null);
 
-  // 使用后端代理来绕过CORS限制
-  const proxyUrl = `/api/v1/proxy/pdf?url=${encodeURIComponent(pdfUrl)}`;
+  // 使用外部预览服务，使用 useMemo 确保只在 pdfUrl 变化时重新计算
+  const proxyUrl = useMemo(
+    () => `https://filepreview.scholay.com/api/preview?url=${encodeURIComponent(pdfUrl)}`,
+    [pdfUrl]
+  );
 
+  // 只在 pdfUrl 原始值变化时重置状态
   useEffect(() => {
     setNumPages(null);
     setIsLoading(true);
     setError(null);
     setScale(1.0);
-  }, [proxyUrl]);
+  }, [pdfUrl]);
 
   const onDocumentLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
@@ -49,17 +53,22 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
     setIsLoading(false);
   };
 
-  // 配置PDF加载选项
-  const pdfOptions = {
+  // 配置PDF加载选项 - 使用 useMemo 避免每次渲染都创建新对象
+  const pdfOptions = useMemo(() => ({
     withCredentials: false,
-  };
+  }), []);
 
   const documentOptions = useMemo(() => ({
     cMapUrl: `${pdfAssetsBase}/cmaps/`,
     cMapPacked: true,
     standardFontDataUrl: `${pdfAssetsBase}/standard_fonts/`,
-  }), [pdfAssetsBase]);
+  }), []);
 
+  // 创建稳定的 file 对象，避免 Document 组件因对象引用变化而重新挂载
+  const fileConfig = useMemo(() => ({
+    url: proxyUrl,
+    ...pdfOptions
+  }), [proxyUrl, pdfOptions]);
 
   const handleZoomIn = () => {
     setScale(prev => Math.min(prev + 0.2, 5.0));
@@ -185,8 +194,7 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
 
         {!error && (
           <Document
-            key={proxyUrl}
-            file={{ url: proxyUrl, ...pdfOptions }}
+            file={fileConfig}
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={onDocumentLoadError}
             loading=""
@@ -213,6 +221,10 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
       </div>
     </div>
   );
+}, (prevProps, nextProps) => {
+  // 自定义比较函数：只在 pdfUrl 或 paperTitle 实际变化时才重新渲染
+  return prevProps.pdfUrl === nextProps.pdfUrl &&
+         prevProps.paperTitle === nextProps.paperTitle;
 });
 
 export default PDFViewer;
