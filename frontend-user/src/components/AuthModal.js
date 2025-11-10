@@ -3,6 +3,8 @@ import { useAuth } from '../utils/AuthContext';
 import { userAPI } from '../services/api';
 import TurnstileCaptcha from './TurnstileCaptcha';
 import { useToast } from './ToastContainer';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import './AuthModal.css';
 
 const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
@@ -1424,7 +1426,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 <button onClick={() => setShowPolicy(false)}>×</button>
               </div>
               <div className="policy-body">
-                <pre>{policyType === 'privacy' ? privacyContent : termsContent}</pre>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {policyType === 'privacy' ? privacyContent : termsContent}
+                </ReactMarkdown>
               </div>
               <div className="policy-footer">
                 <button

@@ -415,9 +415,9 @@ const Pricing = () => {
               <div className="plan-header">
                 <h2>{plan.plan_name}</h2>
                 <p>
-                  {plan.plan_code === 'free' && 'Intelligence for everyday tasks'}
-                  {plan.plan_code === 'pro' && '利用扩展访问权限提升效率和创意'}
-                  {plan.plan_code === 'max' && 'Full access to the best of Scholar'}
+                  {plan.plan_code === 'free' && '体验基础学术搜索能力，开启研究之旅'}
+                  {plan.plan_code === 'pro' && '为学术研究提供更高级的AI分析能力'}
+                  {plan.plan_code === 'max' && '提供最全面的学术研究工具和无限制访问'}
                 </p>
               </div>
 
