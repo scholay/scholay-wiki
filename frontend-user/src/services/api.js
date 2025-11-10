@@ -194,6 +194,10 @@ export const orderAPI = {
   getMyOrders: (page = 1, pageSize = 20) =>
     api.get('/user/orders/my', { params: { page, page_size: pageSize } }),
 
+  // Get user's billing history (paid orders only)
+  getBillingHistory: (page = 1, pageSize = 20) =>
+    api.get('/user/orders/billing-history', { params: { page, page_size: pageSize } }),
+
   // Get order detail by order number
   getOrderDetail: (orderNo) =>
     api.get(`/user/orders/${orderNo}`),

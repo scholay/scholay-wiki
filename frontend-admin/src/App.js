@@ -12,6 +12,7 @@ const UserManagement = lazy(() => import('./pages/UserManagement'));
 const ThirdPartyAccounts = lazy(() => import('./pages/ThirdPartyAccounts'));
 const PromptTemplates = lazy(() => import('./pages/PromptTemplates'));
 const SubscriptionPlans = lazy(() => import('./pages/SubscriptionPlans'));
+const OrderManagement = lazy(() => import('./pages/OrderManagement'));
 
 // Loading component for Suspense fallback
 const LoadingFallback = () => (
@@ -47,6 +48,7 @@ function App() {
             >
               <Route index element={<DashboardHome />} />
               <Route path="users" element={<UserManagement />} />
+              <Route path="orders" element={<OrderManagement />} />
               <Route path="third-party-accounts" element={<ThirdPartyAccounts />} />
               <Route path="prompt-templates" element={<PromptTemplates />} />
               <Route path="subscription-plans" element={<SubscriptionPlans />} />

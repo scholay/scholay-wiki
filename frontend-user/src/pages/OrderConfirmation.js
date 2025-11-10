@@ -70,7 +70,10 @@ const OrderConfirmation = () => {
       const response = await orderAPI.getOrderDetail(orderNo);
       if (response.data.code === 0 && response.data.data) {
         const newOrder = response.data.data;
+        const previousStatus = order?.status;
         setOrder(newOrder);
+
+        console.log(`[Order Status] Current: ${newOrder.status}, Previous: ${previousStatus}, IsPolling: ${isPollingRequest}`);
 
         // If polling and order status changed to paid, stop polling and show success
         if (isPollingRequest && newOrder.status === 'paid') {
@@ -79,9 +82,20 @@ const OrderConfirmation = () => {
           setPollingCount(0);
 
           // Show a brief success message before redirecting
+          console.log('[Payment Polling] Redirecting to subscription page in 2 seconds...');
           setTimeout(() => {
+            console.log('[Payment Polling] Executing redirect now');
             navigate('/settings?tab=subscription');
           }, 2000);
+        }
+
+        // Also handle case where user refreshes a paid order page - auto redirect
+        if (!isPollingRequest && newOrder.status === 'paid' && !previousStatus) {
+          console.log('[Order] Detected paid order on initial load, redirecting in 3 seconds...');
+          setTimeout(() => {
+            console.log('[Order] Executing redirect for paid order');
+            navigate('/settings?tab=subscription');
+          }, 3000);
         }
       } else {
         if (!isPollingRequest) {
@@ -174,7 +188,7 @@ const OrderConfirmation = () => {
         {isPolling && order.status === 'pending' && (
           <div className="polling-indicator">
             <div className="spinner"></div>
-            <p>正在确认支付结果，请稍候... ({pollingCount}/30)</p>
+            <p>正在确认支付结果，请稍候...</p>
           </div>
         )}
 

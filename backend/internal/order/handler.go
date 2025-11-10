@@ -158,3 +158,65 @@ func (h *Handler) CancelOrder(c *gin.Context) {
 		"message": "Order cancelled successfully",
 	})
 }
+
+// GetBillingHistory handles GET /api/v1/user/orders/billing-history
+// Returns user's paid orders (billing history)
+func (h *Handler) GetBillingHistory(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	// Parse pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	orders, total, err := h.service.GetUserPaidOrders(userID.(uint), page, pageSize)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to retrieve billing history")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
+		"orders":    orders,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
+}
+
+// GetOrderStatistics handles GET /api/v1/admin/orders/statistics
+// Returns order statistics (admin only)
+func (h *Handler) GetOrderStatistics(c *gin.Context) {
+	stats, err := h.service.GetOrderStatistics()
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to retrieve order statistics")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "success", stats)
+}
+
+// AdminListOrders handles GET /api/v1/admin/orders
+// Returns all paid orders with filters (admin only)
+func (h *Handler) AdminListOrders(c *gin.Context) {
+	// Parse query parameters
+	planCode := c.Query("plan_code")
+	userEmail := c.Query("user_email")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	orders, total, err := h.service.AdminListOrders(planCode, userEmail, page, pageSize)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to retrieve orders")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
+		"orders":    orders,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
+}

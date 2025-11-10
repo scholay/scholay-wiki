@@ -209,6 +209,10 @@ func main() {
 			// Subscription plan management
 			adminProtected.PUT("/subscription-plans/:id", subscriptionHandler.UpdatePlan)
 
+			// Order management (Admin only)
+			adminProtected.GET("/orders/statistics", orderHandler.GetOrderStatistics)
+			adminProtected.GET("/orders", orderHandler.AdminListOrders)
+
 			// Alipay payment configuration (Admin only)
 			adminProtected.GET("/payment/alipay/config", alipayHandler.GetActiveConfig)
 			adminProtected.GET("/payment/alipay/configs", alipayHandler.ListConfigs)
@@ -283,6 +287,7 @@ func main() {
 			userProtected.GET("/orders/:order_no", orderHandler.GetOrderDetail)
 			userProtected.POST("/orders/pay", orderHandler.ProcessPayment)
 			userProtected.POST("/orders/cancel", orderHandler.CancelOrder)
+			userProtected.GET("/orders/billing-history", orderHandler.GetBillingHistory)
 
 			// Payment routes (Alipay)
 			userProtected.POST("/payment/alipay/create", alipayHandler.CreatePayment)

@@ -1,6 +1,8 @@
 package order
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -104,4 +106,99 @@ func (r *Repository) GetPaymentTransactionsByOrderID(orderID uint) ([]PaymentTra
 // UpdatePaymentTransaction updates a payment transaction
 func (r *Repository) UpdatePaymentTransaction(tx *PaymentTransaction) error {
 	return r.db.Save(tx).Error
+}
+
+// GetUserPaidOrders retrieves only paid orders for a user
+func (r *Repository) GetUserPaidOrders(userID uint, limit, offset int) ([]Order, int64, error) {
+	var orders []Order
+	var total int64
+
+	// Get total count of paid orders
+	if err := r.db.Model(&Order{}).Where("user_id = ? AND status = ?", userID, "paid").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Get paid orders with pagination
+	err := r.db.Where("user_id = ? AND status = ?", userID, "paid").
+		Order("payment_time DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&orders).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return orders, total, nil
+}
+
+// GetOrderStatistics retrieves order statistics (admin only)
+func (r *Repository) GetOrderStatistics() (*OrderStatistics, error) {
+	stats := &OrderStatistics{}
+	now := time.Now()
+
+	// Today statistics
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	r.db.Model(&Order{}).
+		Where("status = ? AND payment_time >= ?", "paid", todayStart).
+		Select("COALESCE(SUM(amount), 0) as today_amount, COUNT(*) as today_count, COUNT(DISTINCT user_id) as today_users").
+		Scan(stats)
+
+	// Week statistics
+	weekStart := todayStart.AddDate(0, 0, -int(now.Weekday()))
+	r.db.Model(&Order{}).
+		Where("status = ? AND payment_time >= ?", "paid", weekStart).
+		Select("COALESCE(SUM(amount), 0) as week_amount, COUNT(*) as week_count, COUNT(DISTINCT user_id) as week_users").
+		Scan(stats)
+
+	// Month statistics
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	r.db.Model(&Order{}).
+		Where("status = ? AND payment_time >= ?", "paid", monthStart).
+		Select("COALESCE(SUM(amount), 0) as month_amount, COUNT(*) as month_count, COUNT(DISTINCT user_id) as month_users").
+		Scan(stats)
+
+	// Total statistics
+	r.db.Model(&Order{}).
+		Where("status = ?", "paid").
+		Select("COALESCE(SUM(amount), 0) as total_amount, COUNT(*) as total_count, COUNT(DISTINCT user_id) as total_users").
+		Scan(stats)
+
+	return stats, nil
+}
+
+// AdminListOrders retrieves all paid orders with optional filters (admin only)
+func (r *Repository) AdminListOrders(planCode, userEmail string, limit, offset int) ([]Order, int64, error) {
+	var orders []Order
+	var total int64
+
+	query := r.db.Model(&Order{}).Where("status = ?", "paid")
+
+	// Apply filters
+	if planCode != "" {
+		query = query.Where("plan_code = ?", planCode)
+	}
+
+	if userEmail != "" {
+		// Join with users table to filter by email
+		query = query.Joins("JOIN users ON users.id = orders.user_id").
+			Where("users.email LIKE ?", "%"+userEmail+"%")
+	}
+
+	// Get total count
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Get orders with pagination
+	err := query.Order("payment_time DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&orders).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return orders, total, nil
 }

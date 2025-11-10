@@ -86,6 +86,19 @@ func (s *Service) GetUserOrders(userID uint, page, pageSize int) ([]Order, int64
 	return s.repo.GetUserOrders(userID, pageSize, offset)
 }
 
+// GetUserPaidOrders retrieves only paid orders for a user (for billing history)
+func (s *Service) GetUserPaidOrders(userID uint, page, pageSize int) ([]Order, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	offset := (page - 1) * pageSize
+	return s.repo.GetUserPaidOrders(userID, pageSize, offset)
+}
+
 // GetOrderByID retrieves an order by ID
 func (s *Service) GetOrderByID(orderID uint) (*Order, error) {
 	return s.repo.GetOrderByID(orderID)
@@ -254,4 +267,38 @@ func (s *Service) ProcessAlipayCallback(orderNo, transactionNo string, amount fl
 
 	fmt.Printf("✓ Alipay payment processed successfully for order %s\n", orderNo)
 	return nil
+}
+
+// OrderStatistics represents order statistics
+type OrderStatistics struct {
+	TodayAmount    float64 `json:"today_amount"`
+	TodayCount     int64   `json:"today_count"`
+	TodayUsers     int64   `json:"today_users"`
+	WeekAmount     float64 `json:"week_amount"`
+	WeekCount      int64   `json:"week_count"`
+	WeekUsers      int64   `json:"week_users"`
+	MonthAmount    float64 `json:"month_amount"`
+	MonthCount     int64   `json:"month_count"`
+	MonthUsers     int64   `json:"month_users"`
+	TotalAmount    float64 `json:"total_amount"`
+	TotalCount     int64   `json:"total_count"`
+	TotalUsers     int64   `json:"total_users"`
+}
+
+// GetOrderStatistics retrieves order statistics (admin only)
+func (s *Service) GetOrderStatistics() (*OrderStatistics, error) {
+	return s.repo.GetOrderStatistics()
+}
+
+// AdminListOrders retrieves all paid orders with filters (admin only)
+func (s *Service) AdminListOrders(planCode, userEmail string, page, pageSize int) ([]Order, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	offset := (page - 1) * pageSize
+	return s.repo.AdminListOrders(planCode, userEmail, pageSize, offset)
 }

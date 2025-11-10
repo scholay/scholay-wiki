@@ -191,6 +191,17 @@ export const adminAPI = {
 
   activateWeChatConfig: (id) =>
     api.post(`/admin/wechat/config/${id}/activate`),
+
+  // Order management
+  getOrderStatistics: () =>
+    api.get('/admin/orders/statistics'),
+
+  getOrders: (page = 1, pageSize = 20, planCode = '', userEmail = '') => {
+    const params = { page, page_size: pageSize };
+    if (planCode) params.plan_code = planCode;
+    if (userEmail) params.user_email = userEmail;
+    return api.get('/admin/orders', { params });
+  },
 };
 
 export default api;

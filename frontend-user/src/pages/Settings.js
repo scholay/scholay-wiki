@@ -59,6 +59,12 @@ const Settings = () => {
   const [currentSubscription, setCurrentSubscription] = useState(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
+  // Billing history state
+  const [billingHistory, setBillingHistory] = useState([]);
+  const [billingPage, setBillingPage] = useState(1);
+  const [billingTotal, setBillingTotal] = useState(0);
+  const [billingLoading, setBillingLoading] = useState(false);
+
   // Handle URL parameters for WeChat binding feedback and tab switching
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -99,6 +105,7 @@ const Settings = () => {
   useEffect(() => {
     if (activeTab === 'subscription') {
       fetchSubscriptionData();
+      fetchBillingHistory(1);
     }
   }, [activeTab]);
 
@@ -163,6 +170,23 @@ const Settings = () => {
       console.error('Failed to fetch subscription data:', error);
     } finally {
       setSubscriptionLoading(false);
+    }
+  };
+
+  const fetchBillingHistory = async (page = 1) => {
+    try {
+      setBillingLoading(true);
+      const response = await orderAPI.getBillingHistory(page, 10);
+      if (response.data.code === 0) {
+        setBillingHistory(response.data.data.orders || []);
+        setBillingTotal(response.data.data.total || 0);
+        setBillingPage(page);
+      }
+    } catch (error) {
+      console.error('Failed to fetch billing history:', error);
+      showError('获取历史账单失败');
+    } finally {
+      setBillingLoading(false);
     }
   };
 
@@ -1314,6 +1338,78 @@ const Settings = () => {
             </button>
           </div>
         )}
+
+        {/* Billing History */}
+        <div className="billing-history-section">
+          <h3>历史账单</h3>
+          {billingLoading ? (
+            <div className="billing-loading">
+              <div className="spinner"></div>
+              <p>加载中...</p>
+            </div>
+          ) : billingHistory.length > 0 ? (
+            <>
+              <div className="billing-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>订单号</th>
+                      <th>套餐</th>
+                      <th>金额</th>
+                      <th>支付时间</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {billingHistory.map((order) => (
+                      <tr key={order.id}>
+                        <td className="order-no">{order.order_no}</td>
+                        <td>
+                          <div className="plan-info">
+                            <span className="plan-name">{order.plan_name}</span>
+                            <span className="billing-cycle">
+                              {order.billing_cycle === 'monthly' ? '月付' : '年付'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="amount">¥{order.amount.toFixed(2)}</td>
+                        <td className="payment-time">
+                          {new Date(order.payment_time).toLocaleString('zh-CN')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {billingTotal > 10 && (
+                <div className="pagination">
+                  <button
+                    className="pagination-btn"
+                    disabled={billingPage === 1}
+                    onClick={() => fetchBillingHistory(billingPage - 1)}
+                  >
+                    上一页
+                  </button>
+                  <span className="pagination-info">
+                    第 {billingPage} 页，共 {Math.ceil(billingTotal / 10)} 页
+                  </span>
+                  <button
+                    className="pagination-btn"
+                    disabled={billingPage >= Math.ceil(billingTotal / 10)}
+                    onClick={() => fetchBillingHistory(billingPage + 1)}
+                  >
+                    下一页
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="empty-billing">
+              <p>暂无订单记录</p>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
