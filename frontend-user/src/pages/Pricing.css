@@ -275,6 +275,17 @@
   box-shadow: 0 6px 20px rgba(16, 163, 127, 0.5);
 }
 
+.btn-renew {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-renew:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+}
+
 .btn-current {
   background: rgba(16, 185, 129, 0.2);
   color: #10b981;

@@ -16,7 +16,6 @@ const AdvancedSearchPage = lazy(() => import('./pages/AdvancedSearchPage'));
 const PaperDetailPage = lazy(() => import('./pages/PaperDetailPage'));
 const ChatPage = lazy(() => import('./pages/ChatPage'));
 const Pricing = lazy(() => import('./pages/Pricing'));
-const SubscriptionManagement = lazy(() => import('./pages/SubscriptionManagement'));
 const Settings = lazy(() => import('./pages/Settings'));
 const WeChatCallback = lazy(() => import('./pages/WeChatCallback'));
 const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
@@ -73,11 +72,6 @@ function App() {
                 <Route path="/pricing" element={
                   <ProtectedRoute>
                     <Pricing />
-                  </ProtectedRoute>
-                } />
-                <Route path="/subscription" element={
-                  <ProtectedRoute>
-                    <SubscriptionManagement />
                   </ProtectedRoute>
                 } />
                 <Route path="/settings" element={

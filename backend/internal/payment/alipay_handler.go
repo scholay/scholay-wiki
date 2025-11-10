@@ -2,10 +2,12 @@ package payment
 
 import (
 	"fmt"
+	"math"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/order"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -79,9 +81,16 @@ func (h *AlipayHandler) CreatePayment(c *gin.Context) {
 // HandleCallback handles Alipay payment callback
 // POST /api/v1/payment/alipay/notify
 func (h *AlipayHandler) HandleCallback(c *gin.Context) {
+	// ========== [ALIPAY_CALLBACK_START] ==========
+	fmt.Printf("\n========== [ALIPAY_CALLBACK_START] Time: %s ==========\n", time.Now().Format("2006-01-02 15:04:05"))
+	fmt.Printf("[ALIPAY_CALLBACK] Remote IP: %s\n", c.ClientIP())
+	fmt.Printf("[ALIPAY_CALLBACK] User-Agent: %s\n", c.Request.UserAgent())
+
 	// Parse callback parameters
 	params := make(map[string]string)
 	if err := c.Request.ParseForm(); err != nil {
+		fmt.Printf("[ALIPAY_CALLBACK_ERROR] Failed to parse form: %v\n", err)
+		fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: PARSE_FAILED ==========\n\n")
 		c.String(400, "fail")
 		return
 	}
@@ -92,13 +101,26 @@ func (h *AlipayHandler) HandleCallback(c *gin.Context) {
 		}
 	}
 
+	// Log all received parameters
+	fmt.Printf("[ALIPAY_CALLBACK] Received %d parameters:\n", len(params))
+	for k, v := range params {
+		if k == "sign" {
+			fmt.Printf("  - %s: %s...(truncated)\n", k, v[:50])
+		} else {
+			fmt.Printf("  - %s: %s\n", k, v)
+		}
+	}
+
 	// Verify signature
+	fmt.Printf("[ALIPAY_CALLBACK] Verifying signature...\n")
 	valid, err := h.alipayService.VerifyCallback(params)
 	if err != nil || !valid {
-		fmt.Printf("⚠ Alipay callback verification failed: %v\n", err)
+		fmt.Printf("[ALIPAY_CALLBACK_ERROR] Signature verification failed: %v\n", err)
+		fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: VERIFY_FAILED ==========\n\n")
 		c.String(400, "fail")
 		return
 	}
+	fmt.Printf("[ALIPAY_CALLBACK] Signature verified successfully ✓\n")
 
 	// Extract payment information
 	orderNo := params["out_trade_no"]
@@ -106,17 +128,27 @@ func (h *AlipayHandler) HandleCallback(c *gin.Context) {
 	tradeStatus := params["trade_status"]
 	totalAmount := params["total_amount"]
 
-	fmt.Printf("✓ Alipay callback received: order=%s, trade=%s, status=%s, amount=%s\n",
-		orderNo, tradeNo, tradeStatus, totalAmount)
+	fmt.Printf("[ALIPAY_CALLBACK] Payment Info:\n")
+	fmt.Printf("  - Order No: %s\n", orderNo)
+	fmt.Printf("  - Trade No: %s\n", tradeNo)
+	fmt.Printf("  - Trade Status: %s\n", tradeStatus)
+	fmt.Printf("  - Total Amount: %s\n", totalAmount)
 
 	// Check trade status
 	if tradeStatus == "TRADE_SUCCESS" || tradeStatus == "TRADE_FINISHED" {
+		fmt.Printf("[ALIPAY_CALLBACK] Processing successful payment...\n")
 		// Process successful payment
 		if err := h.processSuccessfulPayment(orderNo, tradeNo, totalAmount); err != nil {
-			fmt.Printf("⚠ Failed to process payment: %v\n", err)
+			fmt.Printf("[ALIPAY_CALLBACK_ERROR] Failed to process payment: %v\n", err)
+			fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: PROCESS_FAILED ==========\n\n")
 			c.String(500, "fail")
 			return
 		}
+		fmt.Printf("[ALIPAY_CALLBACK] Payment processed successfully ✓\n")
+		fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: SUCCESS ==========\n\n")
+	} else {
+		fmt.Printf("[ALIPAY_CALLBACK] Trade status is %s, not processing\n", tradeStatus)
+		fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: STATUS_IGNORED ==========\n\n")
 	}
 
 	// Return success response to Alipay
@@ -137,16 +169,16 @@ func (h *AlipayHandler) processSuccessfulPayment(orderNo, transactionNo, amountS
 		return nil
 	}
 
-	// Verify amount
-	// Temporary: Comment out for testing with 0.01
-	// amount, err := strconv.ParseFloat(amountStr, 64)
-	// if err != nil {
-	// 	return fmt.Errorf("invalid amount: %w", err)
-	// }
+	// Verify amount - CRITICAL SECURITY CHECK
+	amount, err := strconv.ParseFloat(amountStr, 64)
+	if err != nil {
+		return fmt.Errorf("invalid amount: %w", err)
+	}
 
-	// if amount != orderRecord.Amount {
-	// 	return fmt.Errorf("amount mismatch: expected %.2f, got %.2f", orderRecord.Amount, amount)
-	// }
+	// Compare amounts with 0.01 tolerance for floating point precision
+	if math.Abs(amount-orderRecord.Amount) > 0.01 {
+		return fmt.Errorf("amount mismatch: expected %.2f, got %.2f", orderRecord.Amount, amount)
+	}
 
 	// Use the order service's ProcessPayment method to handle the payment
 	// We need to create a mock request since the payment is already verified by Alipay

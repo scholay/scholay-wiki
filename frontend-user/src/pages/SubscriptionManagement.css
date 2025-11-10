@@ -225,6 +225,62 @@
   margin-bottom: 80px;
 }
 
+.view-plans-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 20px;
+}
+
+.view-plans-content {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 48px 60px;
+  text-align: center;
+  max-width: 600px;
+  backdrop-filter: blur(10px);
+}
+
+.view-plans-icon {
+  margin: 0 auto 24px;
+  width: 48px;
+  height: 48px;
+  color: #10a37f;
+}
+
+.view-plans-content h3 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: white;
+}
+
+.view-plans-content p {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 32px;
+}
+
+.btn-view-plans {
+  background: linear-gradient(135deg, #10a37f 0%, #1a7f64 100%);
+  color: white;
+  border: none;
+  padding: 14px 32px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
+}
+
+.btn-view-plans:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 163, 127, 0.5);
+}
+
 .billing-toggle {
   display: inline-flex;
   background: rgba(255, 255, 255, 0.05);

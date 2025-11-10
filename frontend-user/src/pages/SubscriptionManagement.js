@@ -79,108 +79,9 @@ const SubscriptionManagement = () => {
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
-  const handleUpgrade = async (planCode) => {
-    setActionLoading(true);
-    setMessage({ type: '', text: '' });
-
-    try {
-      // Step 1: Create order
-      const orderResponse = await orderAPI.createOrder(planCode, billingCycle);
-
-      if (orderResponse.data.code !== 0 || !orderResponse.data.data) {
-        setMessage({ type: 'error', text: '创建订单失败：' + (orderResponse.data.message || '未知错误') });
-        setActionLoading(false);
-        return;
-      }
-
-      const order = orderResponse.data.data;
-
-      // Step 2: Get plan details for payment
-      const plan = plans.find(p => p.plan_code === planCode);
-      if (!plan) {
-        setMessage({ type: 'error', text: '无法找到订阅方案信息' });
-        setActionLoading(false);
-        return;
-      }
-
-      // Step 3: Create Alipay payment
-      const returnURL = `${window.location.origin}/subscription`;
-      const subject = `Scholar ${plan.plan_name} ${billingCycle === 'monthly' ? '月付' : '年付'}订阅`;
-      const description = `订单号: ${order.order_no}`;
-
-      const paymentResponse = await paymentAPI.createAlipayPayment(
-        order.order_no,
-        subject,
-        order.amount,
-        returnURL,
-        description
-      );
-
-      if (paymentResponse.data.code === 0 && paymentResponse.data.data) {
-        // Redirect to Alipay payment page
-        window.location.href = paymentResponse.data.data.payment_url;
-      } else {
-        setMessage({ type: 'error', text: '创建支付失败：' + (paymentResponse.data.message || '未知错误') });
-        setActionLoading(false);
-      }
-    } catch (error) {
-      setMessage({ type: 'error', text: '订阅升级失败，请稍后重试' });
-      console.error('Upgrade failed:', error);
-      setActionLoading(false);
-    }
-  };
-
-  const handleRenew = async () => {
-    if (!subscription) return;
-
-    setActionLoading(true);
-    setMessage({ type: '', text: '' });
-
-    try {
-      // Step 1: Create order with current plan
-      const orderResponse = await orderAPI.createOrder(subscription.plan_code, billingCycle);
-
-      if (orderResponse.data.code !== 0 || !orderResponse.data.data) {
-        setMessage({ type: 'error', text: '创建订单失败：' + (orderResponse.data.message || '未知错误') });
-        setActionLoading(false);
-        return;
-      }
-
-      const order = orderResponse.data.data;
-
-      // Step 2: Get plan details for payment
-      const plan = plans.find(p => p.plan_code === subscription.plan_code);
-      if (!plan) {
-        setMessage({ type: 'error', text: '无法找到订阅方案信息' });
-        setActionLoading(false);
-        return;
-      }
-
-      // Step 3: Create Alipay payment
-      const returnURL = `${window.location.origin}/subscription`;
-      const subject = `Scholar ${plan.plan_name} ${billingCycle === 'monthly' ? '月付' : '年付'}续期`;
-      const description = `订单号: ${order.order_no}`;
-
-      const paymentResponse = await paymentAPI.createAlipayPayment(
-        order.order_no,
-        subject,
-        order.amount,
-        returnURL,
-        description
-      );
-
-      if (paymentResponse.data.code === 0 && paymentResponse.data.data) {
-        // Redirect to Alipay payment page
-        window.location.href = paymentResponse.data.data.payment_url;
-      } else {
-        setMessage({ type: 'error', text: '创建支付失败：' + (paymentResponse.data.message || '未知错误') });
-        setActionLoading(false);
-      }
-    } catch (error) {
-      setMessage({ type: 'error', text: '续期失败，请稍后重试' });
-      console.error('Failed to renew:', error);
-      setActionLoading(false);
-    }
+  const handleViewPlans = () => {
+    // Navigate to pricing page
+    navigate('/pricing');
   };
 
   const getPricePerMonth = (plan) => {
@@ -188,16 +89,6 @@ const SubscriptionManagement = () => {
       return plan.price_monthly;
     }
     return (plan.price_yearly / 12).toFixed(2);
-  };
-
-  const canUpgradeTo = (planCode) => {
-    if (!subscription) return planCode !== 'free';
-    const planOrder = { 'free': 0, 'pro': 1, 'max': 2 };
-    return planOrder[planCode] > planOrder[subscription.plan_code];
-  };
-
-  const isCurrentPlan = (planCode) => {
-    return subscription && subscription.plan_code === planCode;
   };
 
   const getUsagePercentage = (used, limit) => {
@@ -396,8 +287,7 @@ const SubscriptionManagement = () => {
               {subscription.plan_code !== 'free' && (
                 <button
                   className="btn-renew-primary"
-                  onClick={handleRenew}
-                  disabled={actionLoading}
+                  onClick={handleViewPlans}
                 >
                   续期订阅
                 </button>
@@ -405,95 +295,34 @@ const SubscriptionManagement = () => {
             </div>
           )}
 
-          {/* Plans Section */}
-          {subscription && subscription.plan_code !== 'max' && (
-            <div className="plans-section">
-              <div className="section-header">
-                <h2>升级您的订阅</h2>
-                <p>选择更高级别的套餐，解锁更多功能</p>
-              </div>
+          {/* Plans Section - Link to Pricing Page */}
+          <div className="plans-section">
+            <div className="section-header">
+              <h2>订阅方案</h2>
+              <p>查看所有可用的订阅套餐，并选择适合您的方案</p>
+            </div>
 
-              {/* Billing Cycle Toggle */}
-              <div className="billing-toggle">
+            <div className="view-plans-container">
+              <div className="view-plans-content">
+                <div className="view-plans-icon">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/>
+                    <rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1"/>
+                    <rect x="14" y="14" width="7" height="7" rx="1"/>
+                  </svg>
+                </div>
+                <h3>浏览所有订阅方案</h3>
+                <p>比较不同套餐的功能和价格，选择最适合您需求的订阅方案</p>
                 <button
-                  className={billingCycle === 'monthly' ? 'active' : ''}
-                  onClick={() => setBillingCycle('monthly')}
+                  className="btn-view-plans"
+                  onClick={handleViewPlans}
                 >
-                  按月付费
+                  查看所有方案
                 </button>
-                <button
-                  className={billingCycle === 'yearly' ? 'active' : ''}
-                  onClick={() => setBillingCycle('yearly')}
-                >
-                  按年付费 <span className="save-badge">省 2 个月</span>
-                </button>
-              </div>
-
-              {/* Plans Grid */}
-              <div className="plans-grid">
-                {plans
-                  .filter(plan => canUpgradeTo(plan.plan_code))
-                  .map((plan) => (
-                    <div
-                      key={plan.plan_code}
-                      className={`plan-card ${plan.plan_code} ${plan.plan_code === 'pro' ? 'recommended' : ''}`}
-                    >
-                      {plan.plan_code === 'pro' && (
-                        <div className="popular-badge">最受欢迎</div>
-                      )}
-
-                      <div className="plan-header">
-                        <h3>{plan.plan_name}</h3>
-                        <p className="plan-desc">
-                          {plan.plan_code === 'pro' && '利用扩展访问权限提升效率和创意'}
-                          {plan.plan_code === 'max' && 'Full access to the best of Scholar'}
-                        </p>
-                      </div>
-
-                      <div className="price">
-                        <div className="price-amount">
-                          <span className="currency">¥</span>
-                          <span className="amount">{getPricePerMonth(plan)}</span>
-                          <span className="period">/月</span>
-                        </div>
-                        {billingCycle === 'yearly' && (
-                          <div className="total-price">年付 ¥{plan.price_yearly}</div>
-                        )}
-                      </div>
-
-                      <div className="plan-features">
-                        <div className="feature-highlight">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="20 6 9 17 4 12"/>
-                          </svg>
-                          <span>高级搜索: {plan.features.advanced_search_high?.description}</span>
-                        </div>
-                        <div className="feature-highlight">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="20 6 9 17 4 12"/>
-                          </svg>
-                          <span>AI对话: {plan.features.ai_chat_high?.description}</span>
-                        </div>
-                        <div className="feature-highlight">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="20 6 9 17 4 12"/>
-                          </svg>
-                          <span>AI聊天: {plan.features.ai_chat_mid?.description}</span>
-                        </div>
-                      </div>
-
-                      <button
-                        className="btn-upgrade"
-                        onClick={() => handleUpgrade(plan.plan_code)}
-                        disabled={actionLoading || isCurrentPlan(plan.plan_code)}
-                      >
-                        {isCurrentPlan(plan.plan_code) ? '当前方案' : '升级至此方案'}
-                      </button>
-                    </div>
-                  ))}
               </div>
             </div>
-          )}
+          </div>
 
           {/* Detailed Usage Section */}
           {usage && usage.usage && usage.limits && (

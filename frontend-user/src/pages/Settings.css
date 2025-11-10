@@ -553,8 +553,6 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   margin-bottom: 20px;
 }
 
@@ -625,6 +623,48 @@
 .btn-renew:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.subscription-description {
+  margin: 20px 0;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+
+.subscription-description p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+.btn-view-pricing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #10a37f 0%, #1a7f64 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
+  margin-top: 20px;
+}
+
+.btn-view-pricing:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 163, 127, 0.5);
+}
+
+.btn-view-pricing svg {
+  flex-shrink: 0;
 }
 
 .subscription-features {

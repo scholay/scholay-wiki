@@ -369,6 +369,45 @@
   }
 }
 
+/* Payment Success Message */
+.payment-success-message {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 12px;
+  padding: 32px;
+  margin: 24px 32px 0 32px;
+  text-align: center;
+}
+
+.payment-success-message .success-icon {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 20px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 8px 16px rgba(16, 185, 129, 0.3);
+}
+
+.payment-success-message h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #10b981;
+  margin: 0 0 12px 0;
+}
+
+.payment-success-message p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  line-height: 1.6;
+}
+
 @media (max-width: 640px) {
   .order-content {
     padding: 16px;
@@ -376,5 +415,20 @@
 
   .order-actions {
     flex-direction: column;
+  }
+
+  .payment-success-message {
+    margin: 16px;
+    padding: 24px;
+  }
+
+  .payment-success-message .success-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 26px;
+  }
+
+  .payment-success-message h2 {
+    font-size: 18px;
   }
 }

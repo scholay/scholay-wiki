@@ -57,9 +57,7 @@ const Settings = () => {
 
   // Subscription state
   const [currentSubscription, setCurrentSubscription] = useState(null);
-  const [availablePlans, setAvailablePlans] = useState([]);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
-  const [billingCycle, setBillingCycle] = useState('monthly');
 
   // Handle URL parameters for WeChat binding feedback and tab switching
   useEffect(() => {
@@ -156,16 +154,10 @@ const Settings = () => {
     try {
       setSubscriptionLoading(true);
 
-      // Fetch current subscription
+      // Fetch current subscription only
       const subResponse = await api.get('/user/subscription/my');
       if (subResponse.data.code === 0) {
         setCurrentSubscription(subResponse.data.data);
-      }
-
-      // Fetch available plans
-      const plansResponse = await api.get('/user/subscription/plans');
-      if (plansResponse.data.code === 0) {
-        setAvailablePlans(plansResponse.data.data);
       }
     } catch (error) {
       console.error('Failed to fetch subscription data:', error);
@@ -986,80 +978,6 @@ const Settings = () => {
     return null;
   };
 
-  const handleSubscribe = async (planCode) => {
-    setSubscriptionLoading(true);
-
-    try {
-      // Create order
-      const orderResponse = await orderAPI.createOrder(planCode, billingCycle);
-
-      if (orderResponse.data.code !== 0 || !orderResponse.data.data) {
-        showError('创建订单失败：' + (orderResponse.data.message || '未知错误'));
-        setSubscriptionLoading(false);
-        return;
-      }
-
-      const order = orderResponse.data.data;
-
-      // Navigate to order confirmation page
-      navigate('/order-confirmation', { state: { orderNo: order.order_no } });
-    } catch (error) {
-      showError('订阅失败，请稍后重试');
-      console.error('Failed to subscribe:', error);
-      setSubscriptionLoading(false);
-    }
-  };
-
-  const handleRenew = async () => {
-    if (!currentSubscription) return;
-
-    setSubscriptionLoading(true);
-
-    try {
-      // Create order for renewal (use current plan)
-      const orderResponse = await orderAPI.createOrder(currentSubscription.plan_code, billingCycle);
-
-      if (orderResponse.data.code !== 0 || !orderResponse.data.data) {
-        showError('创建续期订单失败：' + (orderResponse.data.message || '未知错误'));
-        setSubscriptionLoading(false);
-        return;
-      }
-
-      const order = orderResponse.data.data;
-
-      // Navigate to order confirmation page
-      navigate('/order-confirmation', { state: { orderNo: order.order_no } });
-    } catch (error) {
-      showError('续期失败，请稍后重试');
-      console.error('Failed to renew:', error);
-      setSubscriptionLoading(false);
-    }
-  };
-
-  const getPlanPrice = (plan) => {
-    if (billingCycle === 'monthly') {
-      return plan.price_monthly;
-    }
-    return plan.price_yearly;
-  };
-
-  const getPricePerMonth = (plan) => {
-    if (billingCycle === 'monthly') {
-      return plan.price_monthly;
-    }
-    return (plan.price_yearly / 12).toFixed(2);
-  };
-
-  const canUpgradeTo = (planCode) => {
-    if (!currentSubscription) return planCode !== 'free';
-
-    const planOrder = { 'free': 0, 'pro': 1, 'max': 2 };
-    return planOrder[planCode] > planOrder[currentSubscription.plan_code];
-  };
-
-  const isCurrentPlan = (planCode) => {
-    return currentSubscription && currentSubscription.plan_code === planCode;
-  };
 
   const renderProfileTab = () => (
     <div className="settings-section">
@@ -1340,7 +1258,7 @@ const Settings = () => {
     if (subscriptionLoading) {
       return (
         <div className="settings-section">
-          <h2>订阅管理</h2>
+          <h2>订阅</h2>
           <div className="subscription-loading">
             <div className="spinner"></div>
             <p>加载中...</p>
@@ -1351,9 +1269,9 @@ const Settings = () => {
 
     return (
       <div className="settings-section subscription-section">
-        <h2>订阅管理</h2>
+        <h2>订阅</h2>
 
-        {/* Current Plan Card */}
+        {/* Current Subscription Card */}
         {currentSubscription && (
           <div className="current-subscription-card">
             <div className="subscription-header">
@@ -1370,152 +1288,32 @@ const Settings = () => {
                   )}
                 </div>
               </div>
-              {currentSubscription.plan_code !== 'free' && (
-                <button className="btn-renew" onClick={handleRenew} disabled={subscriptionLoading}>
-                  续期订阅
-                </button>
-              )}
             </div>
 
-            {/* Plan Features */}
-            {currentSubscription.features && (
-              <div className="subscription-features">
-                <div className="feature-grid">
-                  <div className="feature-col">
-                    <h4>搜索功能</h4>
-                    <div className="feature-list">
-                      <div className="feature-item-small">
-                        <span className="feature-label">普通搜索</span>
-                        <span className="feature-value">{currentSubscription.features.normal_search?.description}</span>
-                      </div>
-                      <div className="feature-item-small">
-                        <span className="feature-label">高级搜索（低模）</span>
-                        <span className="feature-value">{currentSubscription.features.advanced_search_low?.description}</span>
-                      </div>
-                      <div className="feature-item-small">
-                        <span className="feature-label">高级搜索（中模）</span>
-                        <span className="feature-value">{currentSubscription.features.advanced_search_mid?.description}</span>
-                      </div>
-                      <div className="feature-item-small">
-                        <span className="feature-label">高级搜索（高模）</span>
-                        <span className="feature-value">{currentSubscription.features.advanced_search_high?.description}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="feature-col">
-                    <h4>AI对话</h4>
-                    <div className="feature-list">
-                      <div className="feature-item-small">
-                        <span className="feature-label">普通模型</span>
-                        <span className="feature-value">{currentSubscription.features.ai_chat_normal?.description}</span>
-                      </div>
-                      <div className="feature-item-small">
-                        <span className="feature-label">中级模型</span>
-                        <span className="feature-value">{currentSubscription.features.ai_chat_mid?.description}</span>
-                      </div>
-                      <div className="feature-item-small">
-                        <span className="feature-label">高级模型</span>
-                        <span className="feature-value">{currentSubscription.features.ai_chat_high?.description}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Simple description */}
+            <div className="subscription-description">
+              <p>
+                {currentSubscription.plan_code === 'free' && '免费方案提供基础功能，升级至付费方案以享受更多权益'}
+                {currentSubscription.plan_code === 'pro' && '您正在使用 PRO 方案，享受扩展访问权限和高级功能'}
+                {currentSubscription.plan_code === 'max' && '您正在使用 MAX 方案，畅享所有功能无限使用'}
+              </p>
+            </div>
+
+            {/* View Plans Button */}
+            <button
+              className="btn-view-pricing"
+              onClick={() => navigate('/pricing')}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/>
+                <rect x="14" y="14" width="7" height="7" rx="1"/>
+              </svg>
+              <span>查看所有订阅方案</span>
+            </button>
           </div>
         )}
-
-        {/* Upgrade Section */}
-        {currentSubscription && currentSubscription.plan_code !== 'max' && (
-          <div className="upgrade-section">
-            <h3>升级订阅</h3>
-            <p className="upgrade-desc">选择更高级别的套餐，享受更多功能</p>
-
-            {/* Billing Cycle Toggle */}
-            <div className="billing-cycle-toggle">
-              <button
-                className={billingCycle === 'monthly' ? 'active' : ''}
-                onClick={() => setBillingCycle('monthly')}
-              >
-                按月付费
-              </button>
-              <button
-                className={billingCycle === 'yearly' ? 'active' : ''}
-                onClick={() => setBillingCycle('yearly')}
-              >
-                按年付费 <span className="save-tag">省 2 个月</span>
-              </button>
-            </div>
-
-            {/* Available Plans */}
-            <div className="subscription-plans">
-              {availablePlans
-                .filter(plan => canUpgradeTo(plan.plan_code))
-                .map(plan => (
-                  <div key={plan.plan_code} className={`subscription-plan-card ${plan.plan_code === 'pro' ? 'recommended' : ''}`}>
-                    {plan.plan_code === 'pro' && (
-                      <div className="recommended-badge">推荐</div>
-                    )}
-                    <div className="plan-header">
-                      <h4>{plan.plan_name}</h4>
-                      <div className="plan-price">
-                        <span className="price-currency">¥</span>
-                        <span className="price-amount">{getPricePerMonth(plan)}</span>
-                        <span className="price-period">/月</span>
-                      </div>
-                      {billingCycle === 'yearly' && (
-                        <div className="total-price">年付 ¥{plan.price_yearly}</div>
-                      )}
-                    </div>
-
-                    <div className="plan-features-list">
-                      <div className="plan-feature">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                        <span>高级搜索: {plan.features.advanced_search_high?.description}</span>
-                      </div>
-                      <div className="plan-feature">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                        <span>AI对话: {plan.features.ai_chat_high?.description}</span>
-                      </div>
-                      <div className="plan-feature">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                        <span>无限制普通搜索</span>
-                      </div>
-                    </div>
-
-                    <button
-                      className="btn-subscribe"
-                      onClick={() => handleSubscribe(plan.plan_code)}
-                      disabled={subscriptionLoading}
-                    >
-                      {isCurrentPlan(plan.plan_code) ? '当前方案' : '升级至此方案'}
-                    </button>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-
-        {/* Link to Full Subscription Management */}
-        <div className="subscription-link">
-          <p>查看完整的订阅管理和账单历史</p>
-          <button
-            className="btn-link"
-            onClick={() => navigate('/subscription')}
-          >
-            前往订阅管理
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="5" y1="12" x2="19" y2="12"/>
-              <polyline points="12 5 19 12 12 19"/>
-            </svg>
-          </button>
-        </div>
       </div>
     );
   };

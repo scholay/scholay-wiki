@@ -15,8 +15,8 @@ const OrderConfirmation = () => {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('alipay');
 
   useEffect(() => {
-    // Get order number from location state
-    const orderNo = location.state?.orderNo;
+    // Get order number from location state or URL parameter
+    const orderNo = location.state?.orderNo || new URLSearchParams(location.search).get('orderNo');
 
     if (!orderNo) {
       showError('订单信息不存在,请重新下单');
@@ -25,7 +25,7 @@ const OrderConfirmation = () => {
     }
 
     fetchOrderDetails(orderNo);
-  }, [location.state]);
+  }, [location.state, location.search]);
 
   const fetchOrderDetails = async (orderNo) => {
     try {
@@ -53,17 +53,16 @@ const OrderConfirmation = () => {
     try {
       if (selectedPaymentMethod === 'alipay') {
         // Create Alipay payment
-        const returnURL = `${window.location.origin}/settings`;
+        // Return to order confirmation page with order number so user can see payment result
+        const returnURL = `${window.location.origin}/order-confirmation?orderNo=${order.order_no}`;
         const subject = `Scholar ${order.plan_name} ${order.billing_cycle === 'monthly' ? '月付' : '年付'}订阅`;
         const description = `订单号: ${order.order_no}`;
 
-        // Temporary: Use 0.01 for testing
-        const testAmount = 0.01;
-
+        // IMPORTANT: Use actual order amount (calculated by backend)
         const paymentResponse = await paymentAPI.createAlipayPayment(
           order.order_no,
           subject,
-          testAmount, // Using test amount instead of order.amount
+          order.amount, // Use actual amount from order
           returnURL,
           description
         );
@@ -104,13 +103,22 @@ const OrderConfirmation = () => {
       <div className="order-confirmation-card">
         {/* Header */}
         <div className="order-header">
-          <h1>订单确认</h1>
+          <h1>{order.status === 'paid' ? '支付成功' : order.status === 'cancelled' ? '订单已取消' : '订单确认'}</h1>
           <span className={`status-badge ${order.status}`}>
             {order.status === 'pending' ? '待支付' :
              order.status === 'paid' ? '已支付' :
              order.status === 'cancelled' ? '已取消' : '未知'}
           </span>
         </div>
+
+        {/* Success Message for Paid Orders */}
+        {order.status === 'paid' && (
+          <div className="payment-success-message">
+            <div className="success-icon">✓</div>
+            <h2>恭喜您,订阅已激活!</h2>
+            <p>您的 {order.plan_name} 订阅已成功激活,现在可以享受所有功能。</p>
+          </div>
+        )}
 
         {/* Two Column Layout */}
         <div className="order-content">
@@ -193,20 +201,50 @@ const OrderConfirmation = () => {
 
             {/* Actions */}
             <div className="order-actions">
-              <button
-                className="btn-cancel"
-                onClick={handleCancel}
-                disabled={paymentLoading}
-              >
-                取消
-              </button>
-              <button
-                className="btn-pay"
-                onClick={handlePayment}
-                disabled={paymentLoading || order.status !== 'pending'}
-              >
-                {paymentLoading ? '跳转中...' : '去支付'}
-              </button>
+              {order.status === 'pending' && (
+                <>
+                  <button
+                    className="btn-cancel"
+                    onClick={handleCancel}
+                    disabled={paymentLoading}
+                  >
+                    取消
+                  </button>
+                  <button
+                    className="btn-pay"
+                    onClick={handlePayment}
+                    disabled={paymentLoading}
+                  >
+                    {paymentLoading ? '跳转中...' : '去支付'}
+                  </button>
+                </>
+              )}
+
+              {order.status === 'paid' && (
+                <>
+                  <button
+                    className="btn-cancel"
+                    onClick={() => navigate('/pricing')}
+                  >
+                    查看其他方案
+                  </button>
+                  <button
+                    className="btn-pay"
+                    onClick={() => navigate('/settings?tab=subscription')}
+                  >
+                    查看我的订阅
+                  </button>
+                </>
+              )}
+
+              {order.status === 'cancelled' && (
+                <button
+                  className="btn-pay"
+                  onClick={() => navigate('/pricing')}
+                >
+                  重新选择方案
+                </button>
+              )}
             </div>
           </div>
         </div>

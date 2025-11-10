@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import api, { orderAPI, paymentAPI } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import api, { orderAPI } from '../services/api';
 import { useToast } from '../components/ToastContainer';
 import AuthModal from '../components/AuthModal';
 import './Pricing.css';
 
 const Pricing = () => {
+  const navigate = useNavigate();
   const { showError } = useToast();
   const [plans, setPlans] = useState([]);
   const [currentPlan, setCurrentPlan] = useState(null);
@@ -46,7 +48,7 @@ const Pricing = () => {
     }
   };
 
-  const handleUpgrade = async (planCode) => {
+  const handlePlanAction = async (planCode, action) => {
     const token = localStorage.getItem('user_token');
     if (!token) {
       // User is not logged in, show auth modal
@@ -54,8 +56,13 @@ const Pricing = () => {
       return;
     }
 
+    // Ignore if action is 'none'
+    if (action === 'none') {
+      return;
+    }
+
     try {
-      // Step 1: Create order
+      // Create order (backend will calculate actual amount based on current prices)
       const orderResponse = await orderAPI.createOrder(planCode, billingCycle);
 
       if (orderResponse.data.code !== 0 || !orderResponse.data.data) {
@@ -65,38 +72,12 @@ const Pricing = () => {
 
       const order = orderResponse.data.data;
 
-      // Step 2: Get plan details for payment
-      const plan = plans.find(p => p.plan_code === planCode);
-      if (!plan) {
-        showError('无法找到订阅方案信息');
-        return;
-      }
-
-      // Step 3: Create Alipay payment
-      const returnURL = `${window.location.origin}/subscription`;
-      const subject = `Scholar ${plan.plan_name} ${billingCycle === 'monthly' ? '月付' : '年付'}订阅`;
-      const description = `订单号: ${order.order_no}`;
-
-      // Use current price based on billing cycle
-      const amount = getTotalPrice(plan);
-
-      const paymentResponse = await paymentAPI.createAlipayPayment(
-        order.order_no,
-        subject,
-        amount,
-        returnURL,
-        description
-      );
-
-      if (paymentResponse.data.code === 0 && paymentResponse.data.data) {
-        // Redirect to Alipay payment page
-        window.location.href = paymentResponse.data.data.payment_url;
-      } else {
-        showError('创建支付失败：' + (paymentResponse.data.message || '未知错误'));
-      }
+      // Navigate to order confirmation page where user can review and pay
+      navigate('/order-confirmation', { state: { orderNo: order.order_no } });
     } catch (error) {
-      showError('订阅升级失败，请稍后重试');
-      console.error('Upgrade failed:', error);
+      const actionText = action === 'renew' ? '续期' : '订阅';
+      showError(`${actionText}失败，请稍后重试`);
+      console.error(`${actionText} failed:`, error);
     }
   };
 
@@ -128,13 +109,6 @@ const Pricing = () => {
     return plan.price_yearly !== plan.current_price_yearly;
   };
 
-  const getTotalPrice = (plan) => {
-    if (billingCycle === 'monthly') {
-      return plan.current_price_monthly || plan.price_monthly;
-    }
-    return plan.current_price_yearly || plan.price_yearly;
-  };
-
   const getOriginalTotalPrice = (plan) => {
     if (billingCycle === 'monthly') {
       return plan.price_monthly;
@@ -146,38 +120,150 @@ const Pricing = () => {
     return currentPlan && currentPlan.plan_code === planCode;
   };
 
-  // 功能对比数据
-  const comparisonData = {
-    sections: [
-      {
-        title: '核心功能',
-        features: [
-          { name: '普通搜索', free: '无限制', pro: '无限制', max: '无限制' },
-          { name: '聊天历史记录', free: '无限制', pro: '无限制', max: '无限制' },
-          { name: '访问网页、iOS 和 Android 应用', free: true, pro: true, max: true },
-        ]
-      },
-      {
-        title: 'AI 模型',
-        features: [
-          { name: '高级搜索 - 低级模型', free: '5/天', pro: '无限制', max: '无限制' },
-          { name: '高级搜索 - 中级模型', free: '3/天', pro: '无限制', max: '无限制' },
-          { name: '高级搜索 - 高级模型', free: '2/天', pro: '无限制', max: '无限制' },
-          { name: 'AI 聊天 - 普通模型', free: '无限制', pro: '无限制', max: '无限制' },
-          { name: 'AI 聊天 - 中级模型', free: '50/天', pro: '无限制', max: '无限制' },
-          { name: 'AI 聊天 - 高级模型', free: '10/天', pro: '无限制', max: '无限制' },
-        ]
-      },
-      {
-        title: '数据与分析',
-        features: [
-          { name: '高级搜索数据', free: true, pro: true, max: true },
-          { name: 'AI 对话历史数据', free: true, pro: true, max: true },
-          { name: '深度分析能力', free: '受限', pro: '标准', max: '最大' },
-          { name: '上下文记忆', free: '受限', pro: '标准', max: '最大' },
-        ]
+  // Determine button state and text for each plan
+  const getPlanButtonInfo = (planCode) => {
+    const token = localStorage.getItem('user_token');
+
+    // Plan hierarchy: free < pro < max
+    const planOrder = { 'free': 0, 'pro': 1, 'max': 2 };
+
+    // Not logged in
+    if (!token) {
+      if (planCode === 'free') {
+        return { text: '免费使用', disabled: true, action: 'none' };
       }
-    ]
+      return { text: '立即订阅', disabled: false, action: 'subscribe' };
+    }
+
+    // Logged in but no subscription data yet (should not happen, but handle gracefully)
+    if (!currentPlan) {
+      if (planCode === 'free') {
+        return { text: '免费使用', disabled: true, action: 'none' };
+      }
+      return { text: '立即订阅', disabled: false, action: 'subscribe' };
+    }
+
+    const currentOrder = planOrder[currentPlan.plan_code];
+    const targetOrder = planOrder[planCode];
+
+    // Current plan
+    if (planCode === currentPlan.plan_code) {
+      if (planCode === 'free') {
+        return { text: '当前方案', disabled: true, action: 'none' };
+      }
+      return { text: '续期订阅', disabled: false, action: 'renew' };
+    }
+
+    // Higher plan - upgrade
+    if (targetOrder > currentOrder) {
+      return { text: '升级至此方案', disabled: false, action: 'upgrade' };
+    }
+
+    // Lower plan - cannot downgrade, show disabled
+    return { text: '已是更高套餐', disabled: true, action: 'none' };
+  };
+
+  // Get total price for display purposes only (actual payment uses backend-calculated order.amount)
+  const getTotalPrice = (plan) => {
+    if (billingCycle === 'monthly') {
+      return plan.current_price_monthly || plan.price_monthly;
+    }
+    return plan.current_price_yearly || plan.price_yearly;
+  };
+
+  // Generate dynamic comparison data from plans
+  const getComparisonData = () => {
+    if (plans.length === 0) return { sections: [] };
+
+    // Find plans by code for easy access
+    const plansByCode = {};
+    plans.forEach(plan => {
+      plansByCode[plan.plan_code] = plan;
+    });
+
+    const freePlan = plansByCode['free'];
+    const proPlan = plansByCode['pro'];
+    const maxPlan = plansByCode['max'];
+
+    if (!freePlan || !proPlan || !maxPlan) {
+      return { sections: [] };
+    }
+
+    return {
+      sections: [
+        {
+          title: '核心功能',
+          features: [
+            {
+              name: '普通搜索',
+              free: freePlan.features?.normal_search?.description || '无限制',
+              pro: proPlan.features?.normal_search?.description || '无限制',
+              max: maxPlan.features?.normal_search?.description || '无限制'
+            },
+            { name: '聊天历史记录', free: true, pro: true, max: true },
+            { name: '访问网页、iOS 和 Android 应用', free: true, pro: true, max: true },
+          ]
+        },
+        {
+          title: 'AI 模型',
+          features: [
+            {
+              name: '高级搜索 - 低级模型',
+              free: freePlan.features?.advanced_search_low?.description || '-',
+              pro: proPlan.features?.advanced_search_low?.description || '-',
+              max: maxPlan.features?.advanced_search_low?.description || '-'
+            },
+            {
+              name: '高级搜索 - 中级模型',
+              free: freePlan.features?.advanced_search_mid?.description || '-',
+              pro: proPlan.features?.advanced_search_mid?.description || '-',
+              max: maxPlan.features?.advanced_search_mid?.description || '-'
+            },
+            {
+              name: '高级搜索 - 高级模型',
+              free: freePlan.features?.advanced_search_high?.description || '-',
+              pro: proPlan.features?.advanced_search_high?.description || '-',
+              max: maxPlan.features?.advanced_search_high?.description || '-'
+            },
+            {
+              name: 'AI 聊天 - 普通模型',
+              free: freePlan.features?.ai_chat_normal?.description || '-',
+              pro: proPlan.features?.ai_chat_normal?.description || '-',
+              max: maxPlan.features?.ai_chat_normal?.description || '-'
+            },
+            {
+              name: 'AI 聊天 - 中级模型',
+              free: freePlan.features?.ai_chat_mid?.description || '-',
+              pro: proPlan.features?.ai_chat_mid?.description || '-',
+              max: maxPlan.features?.ai_chat_mid?.description || '-'
+            },
+            {
+              name: 'AI 聊天 - 高级模型',
+              free: freePlan.features?.ai_chat_high?.description || '-',
+              pro: proPlan.features?.ai_chat_high?.description || '-',
+              max: maxPlan.features?.ai_chat_high?.description || '-'
+            },
+          ]
+        },
+        {
+          title: '数据与分析',
+          features: [
+            {
+              name: '高级搜索数据',
+              free: freePlan.features?.advanced_search_data?.enabled,
+              pro: proPlan.features?.advanced_search_data?.enabled,
+              max: maxPlan.features?.advanced_search_data?.enabled
+            },
+            {
+              name: 'AI 对话历史数据',
+              free: freePlan.features?.ai_history_data?.enabled,
+              pro: proPlan.features?.ai_history_data?.enabled,
+              max: maxPlan.features?.ai_history_data?.enabled
+            },
+          ]
+        }
+      ]
+    };
   };
 
   if (loading) {
@@ -300,22 +386,27 @@ const Pricing = () => {
               </div>
 
               <div className="plan-action">
-                {isCurrentPlan(plan.plan_code) ? (
-                  <button className="btn-current" disabled>
-                    当前方案
-                  </button>
-                ) : plan.price_monthly === 0 ? (
-                  <button className="btn-free" disabled>
-                    免费使用
-                  </button>
-                ) : (
-                  <button
-                    className="btn-upgrade"
-                    onClick={() => handleUpgrade(plan.plan_code)}
-                  >
-                    {currentPlan && currentPlan.plan_code === 'free' ? '立即订阅' : '升级至此方案'}
-                  </button>
-                )}
+                {(() => {
+                  const buttonInfo = getPlanButtonInfo(plan.plan_code);
+
+                  // Determine button CSS class based on action
+                  let buttonClass = 'btn-upgrade';
+                  if (buttonInfo.disabled) {
+                    buttonClass = buttonInfo.action === 'none' && plan.plan_code === 'free' ? 'btn-free' : 'btn-current';
+                  } else if (buttonInfo.action === 'renew') {
+                    buttonClass = 'btn-renew';
+                  }
+
+                  return (
+                    <button
+                      className={buttonClass}
+                      onClick={() => handlePlanAction(plan.plan_code, buttonInfo.action)}
+                      disabled={buttonInfo.disabled}
+                    >
+                      {buttonInfo.text}
+                    </button>
+                  );
+                })()}
               </div>
             </div>
           ))}
@@ -337,7 +428,7 @@ const Pricing = () => {
             <div className="table-header-cell">MAX</div>
           </div>
 
-          {comparisonData.sections.map((section, sectionIndex) => (
+          {getComparisonData().sections.map((section, sectionIndex) => (
             <div key={sectionIndex} className="table-section">
               <div className="section-title">{section.title}</div>
               {section.features.map((feature, featureIndex) => (
