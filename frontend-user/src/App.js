@@ -85,11 +85,8 @@ function App() {
                     <Dashboard />
                   </ProtectedRoute>
                 } />
-                <Route path="/wechat/callback" element={
-                  <ProtectedRoute>
-                    <WeChatCallback />
-                  </ProtectedRoute>
-                } />
+                {/* WeChat callback - PUBLIC route (must be accessible without login for OAuth flow) */}
+                <Route path="/wechat/callback" element={<WeChatCallback />} />
 
                 {/* 404 redirect to home */}
                 <Route path="*" element={<Navigate to="/" replace />} />
