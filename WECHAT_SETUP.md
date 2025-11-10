@@ -42,7 +42,34 @@
 <Route path="/wechat/callback" element={<WeChatCallback />} />
 ```
 
-### 2. 缺少微信OAuth配置
+### 3. State不匹配问题（已修复 ✓）
+
+**问题**：绑定微信功能中，前端生成的state与后端生成的state不一致，导致回调时验证失败。
+
+```
+State mismatch - expected: 17m6yvu042s got: 1762783817593555780
+```
+
+**原因**：
+- Settings.js 中使用前端生成的随机state（`Math.random().toString(36)`）
+- 后端忽略前端传入的state，自己生成新的UnixNano时间戳
+- 前端保存了旧state，导致回调验证失败
+
+**修复**：修改 `Settings.js` 使用后端生成的state：
+
+```javascript
+// ❌ 修复前（错误）
+const state = Math.random().toString(36).substring(2, 15);
+localStorage.setItem('wechat_bind_state', state);
+const response = await api.get('/user/wechat/login-url', { params: { state } });
+
+// ✓ 修复后（正确）
+const response = await api.get('/user/wechat/login-url');
+const state = response.data.data.state;  // 使用后端生成的state
+localStorage.setItem('wechat_bind_state', state);
+```
+
+### 4. 缺少微信OAuth配置
 
 **问题**：数据库 `wechat_configs` 表为空，导致生成登录URL失败。
 
@@ -295,4 +322,5 @@ Response: {
   - 修复 `/wechat/callback` 路由保护问题
   - 实现return URL功能，支持登录后回到原页面
   - 添加return URL白名单验证
+  - 修复Settings.js中state不匹配问题（前端生成vs后端生成）
   - 添加完整配置文档

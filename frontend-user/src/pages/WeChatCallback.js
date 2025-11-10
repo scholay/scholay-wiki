@@ -72,15 +72,26 @@ const WeChatCallback = () => {
 
       // Check if this is a binding operation
       const bindMode = localStorage.getItem('wechat_bind_mode');
-      const savedState = localStorage.getItem(bindMode === 'bind' ? 'wechat_bind_state' : 'wechat_oauth_state');
+      const stateKey = bindMode === 'bind' ? 'wechat_bind_state' : 'wechat_oauth_state';
+      const savedState = localStorage.getItem(stateKey);
 
       // Debug logging
       logger.log('WeChat callback - bindMode:', bindMode);
+      logger.log('WeChat callback - State key:', stateKey);
       logger.log('WeChat callback - URL state:', state);
       logger.log('WeChat callback - Saved state:', savedState);
+      logger.log('WeChat callback - All localStorage keys:', Object.keys(localStorage));
 
       if (state !== savedState) {
-        console.error('State mismatch - expected:', savedState, 'got:', state);
+        console.error('State mismatch!');
+        console.error('  Expected (from localStorage):', savedState);
+        console.error('  Received (from URL):', state);
+        console.error('  Storage key used:', stateKey);
+        console.error('  All localStorage:', JSON.stringify({
+          wechat_oauth_state: localStorage.getItem('wechat_oauth_state'),
+          wechat_bind_state: localStorage.getItem('wechat_bind_state'),
+          wechat_bind_mode: localStorage.getItem('wechat_bind_mode'),
+        }));
 
         // Redirect with error state
         if (bindMode === 'bind') {

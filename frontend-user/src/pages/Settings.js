@@ -399,16 +399,19 @@ const Settings = () => {
   // WeChat binding
   const handleBindWeChat = async () => {
     try {
-      // Generate random state for CSRF protection
-      const state = Math.random().toString(36).substring(2, 15);
-      localStorage.setItem('wechat_bind_state', state);
-      localStorage.setItem('wechat_bind_mode', 'bind'); // Mark as binding mode
+      // Mark as binding mode
+      localStorage.setItem('wechat_bind_mode', 'bind');
 
-      // Get WeChat login URL from backend
-      const response = await api.get('/user/wechat/login-url', { params: { state } });
+      // Get WeChat login URL from backend (backend will generate state)
+      const response = await api.get('/user/wechat/login-url');
 
       if (response.data.code === 0 && response.data.data) {
         const loginURL = response.data.data.login_url;
+        const state = response.data.data.state;
+
+        // Save backend-generated state for verification after callback
+        localStorage.setItem('wechat_bind_state', state);
+
         // Redirect to WeChat OAuth page
         window.location.href = loginURL;
       } else {
