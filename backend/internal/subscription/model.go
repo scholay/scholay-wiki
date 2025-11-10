@@ -6,16 +6,20 @@ import (
 
 // SubscriptionPlan represents a subscription plan
 type SubscriptionPlan struct {
-	ID           uint      `gorm:"primaryKey" json:"id"`
-	PlanCode     string    `gorm:"uniqueIndex;size:20;not null" json:"plan_code"`
-	PlanName     string    `gorm:"size:50;not null" json:"plan_name"`
-	PriceMonthly float64   `gorm:"type:decimal(10,2);not null;default:0.00" json:"price_monthly"`
-	PriceYearly  float64   `gorm:"type:decimal(10,2);not null;default:0.00" json:"price_yearly"`
-	Features     string    `gorm:"type:json;not null" json:"features"` // JSON string
-	IsActive     bool      `gorm:"not null;default:1" json:"is_active"`
-	SortOrder    int       `gorm:"not null;default:0" json:"sort_order"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID                     uint      `gorm:"primaryKey" json:"id"`
+	PlanCode               string    `gorm:"uniqueIndex;size:20;not null" json:"plan_code"`
+	PlanName               string    `gorm:"size:50;not null" json:"plan_name"`
+	PriceMonthly           float64   `gorm:"type:decimal(10,2);not null;default:0.00" json:"price_monthly"`
+	CurrentPriceMonthly    float64   `gorm:"type:decimal(10,2);not null;default:0.00" json:"current_price_monthly"`
+	PriceYearly            float64   `gorm:"type:decimal(10,2);not null;default:0.00" json:"price_yearly"`
+	CurrentPriceYearly     float64   `gorm:"type:decimal(10,2);not null;default:0.00" json:"current_price_yearly"`
+	YearlyDiscountEnabled  bool      `gorm:"not null;default:0" json:"yearly_discount_enabled"`
+	YearlyDiscountPercent  float64   `gorm:"type:decimal(5,2);not null;default:0.00" json:"yearly_discount_percent"`
+	Features               string    `gorm:"type:json;not null" json:"features"` // JSON string
+	IsActive               bool      `gorm:"not null;default:1" json:"is_active"`
+	SortOrder              int       `gorm:"not null;default:0" json:"sort_order"`
+	CreatedAt              time.Time `json:"created_at"`
+	UpdatedAt              time.Time `json:"updated_at"`
 }
 
 // TableName specifies the table name for SubscriptionPlan

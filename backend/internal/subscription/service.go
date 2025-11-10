@@ -36,14 +36,18 @@ func (s *Service) GetAllPlans() ([]map[string]interface{}, error) {
 		}
 
 		result[i] = map[string]interface{}{
-			"id":            plan.ID,
-			"plan_code":     plan.PlanCode,
-			"plan_name":     plan.PlanName,
-			"price_monthly": plan.PriceMonthly,
-			"price_yearly":  plan.PriceYearly,
-			"features":      features,
-			"is_active":     plan.IsActive,
-			"sort_order":    plan.SortOrder,
+			"id":                       plan.ID,
+			"plan_code":                plan.PlanCode,
+			"plan_name":                plan.PlanName,
+			"price_monthly":            plan.PriceMonthly,
+			"current_price_monthly":    plan.CurrentPriceMonthly,
+			"price_yearly":             plan.PriceYearly,
+			"current_price_yearly":     plan.CurrentPriceYearly,
+			"yearly_discount_enabled":  plan.YearlyDiscountEnabled,
+			"yearly_discount_percent":  plan.YearlyDiscountPercent,
+			"features":                 features,
+			"is_active":                plan.IsActive,
+			"sort_order":               plan.SortOrder,
 		}
 	}
 
@@ -312,7 +316,7 @@ func (s *Service) UpgradeSubscription(userID uint, newPlanCode string, duration 
 }
 
 // UpdatePlan updates a subscription plan
-func (s *Service) UpdatePlan(planID uint, planName string, priceMonthly, priceYearly float64, features PlanFeatures) error {
+func (s *Service) UpdatePlan(planID uint, planName string, priceMonthly, currentPriceMonthly, priceYearly, currentPriceYearly float64, yearlyDiscountEnabled bool, yearlyDiscountPercent float64, features PlanFeatures) error {
 	// Get the plan
 	plan, err := s.repo.GetPlanByID(planID)
 	if err != nil {
@@ -322,7 +326,11 @@ func (s *Service) UpdatePlan(planID uint, planName string, priceMonthly, priceYe
 	// Update fields
 	plan.PlanName = planName
 	plan.PriceMonthly = priceMonthly
+	plan.CurrentPriceMonthly = currentPriceMonthly
 	plan.PriceYearly = priceYearly
+	plan.CurrentPriceYearly = currentPriceYearly
+	plan.YearlyDiscountEnabled = yearlyDiscountEnabled
+	plan.YearlyDiscountPercent = yearlyDiscountPercent
 
 	// Marshal features to JSON
 	featuresJSON, err := json.Marshal(features)

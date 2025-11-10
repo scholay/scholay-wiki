@@ -178,8 +178,12 @@ CREATE TABLE IF NOT EXISTS `subscription_plans` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `plan_code` VARCHAR(20) NOT NULL COMMENT '计划代码: free, pro, max',
   `plan_name` VARCHAR(50) NOT NULL COMMENT '计划名称',
-  `price_monthly` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '月费',
-  `price_yearly` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '年费',
+  `price_monthly` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '月费原价',
+  `current_price_monthly` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '月费实时价格',
+  `price_yearly` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '年费原价',
+  `current_price_yearly` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '年费实时价格',
+  `yearly_discount_enabled` TINYINT NOT NULL DEFAULT 0 COMMENT '年费是否使用折扣计算: 1=使用折扣, 0=直接定价',
+  `yearly_discount_percent` DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT '年费折扣百分比(0-100)',
   `features` JSON NOT NULL COMMENT '计划功能和配额',
   `is_active` TINYINT NOT NULL DEFAULT 1 COMMENT '1=启用, 0=停用',
   `sort_order` INT NOT NULL DEFAULT 0 COMMENT '显示顺序',
@@ -427,8 +431,8 @@ SET foreign_key_checks = 1;
 -- 详见 backend/internal/admin/service.go InitializeDefaultAdmin()
 
 -- 默认订阅计划
-INSERT IGNORE INTO `subscription_plans` (`plan_code`, `plan_name`, `price_monthly`, `price_yearly`, `features`, `is_active`, `sort_order`) VALUES
-('free', 'FREE', 0.00, 0.00, '{
+INSERT IGNORE INTO `subscription_plans` (`plan_code`, `plan_name`, `price_monthly`, `current_price_monthly`, `price_yearly`, `current_price_yearly`, `yearly_discount_enabled`, `yearly_discount_percent`, `features`, `is_active`, `sort_order`) VALUES
+('free', 'FREE', 0.00, 0.00, 0.00, 0.00, 0, 0.00, '{
   "normal_search": {"limit": -1, "description": "无限制"},
   "advanced_search_low": {"limit": 5, "period": "day", "description": "5/天"},
   "advanced_search_mid": {"limit": 3, "period": "day", "description": "3/天"},
@@ -439,7 +443,7 @@ INSERT IGNORE INTO `subscription_plans` (`plan_code`, `plan_name`, `price_monthl
   "advanced_search_data": {"enabled": true, "description": "无限制"},
   "ai_history_data": {"enabled": true, "description": "无限制"}
 }', 1, 1),
-('pro', 'PRO', 88.00, 880.00, '{
+('pro', 'PRO', 88.00, 88.00, 880.00, 880.00, 0, 0.00, '{
   "normal_search": {"limit": -1, "description": "无限制"},
   "advanced_search_low": {"limit": -1, "description": "无限制"},
   "advanced_search_mid": {"limit": -1, "description": "无限制"},
@@ -450,7 +454,7 @@ INSERT IGNORE INTO `subscription_plans` (`plan_code`, `plan_name`, `price_monthl
   "advanced_search_data": {"enabled": true, "description": "无限制"},
   "ai_history_data": {"enabled": true, "description": "无限制"}
 }', 1, 2),
-('max', 'MAX', 199.00, 1990.00, '{
+('max', 'MAX', 199.00, 199.00, 1990.00, 1990.00, 0, 0.00, '{
   "normal_search": {"limit": -1, "description": "无限制"},
   "advanced_search_low": {"limit": -1, "description": "无限制"},
   "advanced_search_mid": {"limit": -1, "description": "无限制"},

@@ -77,13 +77,13 @@ const Pricing = () => {
       const subject = `Scholar ${plan.plan_name} ${billingCycle === 'monthly' ? '月付' : '年付'}订阅`;
       const description = `订单号: ${order.order_no}`;
 
-      // Temporary: Use 0.01 for testing
-      const testAmount = 0.01;
+      // Use current price based on billing cycle
+      const amount = getTotalPrice(plan);
 
       const paymentResponse = await paymentAPI.createAlipayPayment(
         order.order_no,
         subject,
-        testAmount, // Using test amount instead of order.amount
+        amount,
         returnURL,
         description
       );
@@ -108,9 +108,38 @@ const Pricing = () => {
 
   const getPricePerMonth = (plan) => {
     if (billingCycle === 'monthly') {
+      return plan.current_price_monthly || plan.price_monthly;
+    }
+    const yearlyPrice = plan.current_price_yearly || plan.price_yearly;
+    return (yearlyPrice / 12).toFixed(2);
+  };
+
+  const getOriginalPricePerMonth = (plan) => {
+    if (billingCycle === 'monthly') {
       return plan.price_monthly;
     }
     return (plan.price_yearly / 12).toFixed(2);
+  };
+
+  const hasDiscount = (plan) => {
+    if (billingCycle === 'monthly') {
+      return plan.price_monthly !== plan.current_price_monthly;
+    }
+    return plan.price_yearly !== plan.current_price_yearly;
+  };
+
+  const getTotalPrice = (plan) => {
+    if (billingCycle === 'monthly') {
+      return plan.current_price_monthly || plan.price_monthly;
+    }
+    return plan.current_price_yearly || plan.price_yearly;
+  };
+
+  const getOriginalTotalPrice = (plan) => {
+    if (billingCycle === 'monthly') {
+      return plan.price_monthly;
+    }
+    return plan.price_yearly;
   };
 
   const isCurrentPlan = (planCode) => {
@@ -212,6 +241,13 @@ const Pricing = () => {
                   </div>
                 ) : (
                   <>
+                    {hasDiscount(plan) && (
+                      <div className="original-price">
+                        <span className="currency">¥</span>
+                        <span className="amount">{getOriginalPricePerMonth(plan)}</span>
+                        <span className="period">/月</span>
+                      </div>
+                    )}
                     <div className="price-amount">
                       <span className="currency">¥</span>
                       <span className="amount">{getPricePerMonth(plan)}</span>
@@ -219,7 +255,10 @@ const Pricing = () => {
                     </div>
                     {billingCycle === 'yearly' && (
                       <div className="total-price">
-                        年付 ¥{plan.price_yearly}
+                        {hasDiscount(plan) && (
+                          <span className="original-total">原价 ¥{getOriginalTotalPrice(plan)}</span>
+                        )}
+                        <span>年付 ¥{getTotalPrice(plan)}</span>
                       </div>
                     )}
                   </>

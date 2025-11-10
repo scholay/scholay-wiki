@@ -43,12 +43,12 @@ func (s *Service) CreateOrder(userID uint, req CreateOrderRequest) (*Order, erro
 		return nil, fmt.Errorf("failed to get plan: %w", err)
 	}
 
-	// Calculate amount
+	// Calculate amount using current prices
 	var amount float64
 	if req.BillingCycle == "monthly" {
-		amount = plan.PriceMonthly
+		amount = plan.CurrentPriceMonthly
 	} else {
-		amount = plan.PriceYearly
+		amount = plan.CurrentPriceYearly
 	}
 
 	// Generate order number (timestamp + user_id)

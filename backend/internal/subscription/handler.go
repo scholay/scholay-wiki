@@ -221,10 +221,14 @@ func (h *Handler) UpdatePlan(c *gin.Context) {
 	}
 
 	var req struct {
-		PlanName     string      `json:"plan_name" binding:"required"`
-		PriceMonthly float64     `json:"price_monthly" binding:"required"`
-		PriceYearly  float64     `json:"price_yearly" binding:"required"`
-		Features     PlanFeatures `json:"features" binding:"required"`
+		PlanName              string       `json:"plan_name" binding:"required"`
+		PriceMonthly          float64      `json:"price_monthly"`
+		CurrentPriceMonthly   float64      `json:"current_price_monthly"`
+		PriceYearly           float64      `json:"price_yearly"`
+		CurrentPriceYearly    float64      `json:"current_price_yearly"`
+		YearlyDiscountEnabled bool         `json:"yearly_discount_enabled"`
+		YearlyDiscountPercent float64      `json:"yearly_discount_percent"`
+		Features              PlanFeatures `json:"features" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -232,7 +236,13 @@ func (h *Handler) UpdatePlan(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.UpdatePlan(uint(planID), req.PlanName, req.PriceMonthly, req.PriceYearly, req.Features); err != nil {
+	// If yearly discount is enabled, calculate the yearly price from monthly price
+	if req.YearlyDiscountEnabled {
+		// Calculate yearly price: monthly * 12 * (1 - discount/100)
+		req.CurrentPriceYearly = req.CurrentPriceMonthly * 12 * (1 - req.YearlyDiscountPercent/100)
+	}
+
+	if err := h.service.UpdatePlan(uint(planID), req.PlanName, req.PriceMonthly, req.CurrentPriceMonthly, req.PriceYearly, req.CurrentPriceYearly, req.YearlyDiscountEnabled, req.YearlyDiscountPercent, req.Features); err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to update plan: "+err.Error())
 		return
 	}

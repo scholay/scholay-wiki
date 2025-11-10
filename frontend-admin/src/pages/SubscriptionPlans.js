@@ -11,7 +11,11 @@ const SubscriptionPlans = () => {
   const [formData, setFormData] = useState({
     plan_name: '',
     price_monthly: 0,
+    current_price_monthly: 0,
     price_yearly: 0,
+    current_price_yearly: 0,
+    yearly_discount_enabled: false,
+    yearly_discount_percent: 0,
     features: {
       normal_search: { limit: -1, period: 'day', description: '无限制' },
       advanced_search_low: { limit: 5, period: 'day', description: '5/天' },
@@ -48,7 +52,11 @@ const SubscriptionPlans = () => {
     setFormData({
       plan_name: plan.plan_name,
       price_monthly: plan.price_monthly,
+      current_price_monthly: plan.current_price_monthly || plan.price_monthly,
       price_yearly: plan.price_yearly,
+      current_price_yearly: plan.current_price_yearly || plan.price_yearly,
+      yearly_discount_enabled: plan.yearly_discount_enabled || false,
+      yearly_discount_percent: plan.yearly_discount_percent || 0,
       features: plan.features,
     });
     setShowModal(true);
@@ -62,10 +70,22 @@ const SubscriptionPlans = () => {
       return;
     }
 
+    // Calculate yearly price if discount is enabled
+    let currentPriceYearly = parseFloat(formData.current_price_yearly);
+    if (formData.yearly_discount_enabled) {
+      const monthlyPrice = parseFloat(formData.current_price_monthly);
+      const discountPercent = parseFloat(formData.yearly_discount_percent);
+      currentPriceYearly = monthlyPrice * 12 * (1 - discountPercent / 100);
+    }
+
     const data = {
       plan_name: formData.plan_name,
       price_monthly: parseFloat(formData.price_monthly),
+      current_price_monthly: parseFloat(formData.current_price_monthly),
       price_yearly: parseFloat(formData.price_yearly),
+      current_price_yearly: currentPriceYearly,
+      yearly_discount_enabled: formData.yearly_discount_enabled,
+      yearly_discount_percent: parseFloat(formData.yearly_discount_percent),
       features: formData.features,
     };
 
@@ -145,11 +165,32 @@ const SubscriptionPlans = () => {
               <div className="plan-pricing">
                 <div className="price-item">
                   <span className="price-label">月付</span>
-                  <span className="price-value">¥{plan.price_monthly}</span>
+                  <div className="price-values">
+                    {plan.price_monthly !== plan.current_price_monthly && (plan.price_monthly || 0) > 0 ? (
+                      <>
+                        <span className="price-original">¥{(plan.price_monthly || 0).toFixed(2)}</span>
+                        <span className="price-current">¥{(plan.current_price_monthly || 0).toFixed(2)}</span>
+                      </>
+                    ) : (
+                      <span className="price-value">¥{(plan.current_price_monthly || plan.price_monthly || 0).toFixed(2)}</span>
+                    )}
+                  </div>
                 </div>
                 <div className="price-item">
                   <span className="price-label">年付</span>
-                  <span className="price-value">¥{plan.price_yearly}</span>
+                  <div className="price-values">
+                    {plan.price_yearly !== plan.current_price_yearly && (plan.price_yearly || 0) > 0 ? (
+                      <>
+                        <span className="price-original">¥{(plan.price_yearly || 0).toFixed(2)}</span>
+                        <span className="price-current">¥{(plan.current_price_yearly || 0).toFixed(2)}</span>
+                      </>
+                    ) : (
+                      <span className="price-value">¥{(plan.current_price_yearly || plan.price_yearly || 0).toFixed(2)}</span>
+                    )}
+                    {plan.yearly_discount_enabled && (plan.yearly_discount_percent || 0) > 0 && (
+                      <span className="discount-badge">{(100 - (plan.yearly_discount_percent || 0)).toFixed(0)}折</span>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="plan-features">
@@ -194,27 +235,90 @@ const SubscriptionPlans = () => {
                       required
                     />
                   </div>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>月付价格 (¥)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.price_monthly}
-                        onChange={(e) => setFormData({ ...formData, price_monthly: e.target.value })}
-                        required
-                      />
+                  <div className="pricing-section">
+                    <h5>月付定价</h5>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>月付原价 (¥)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.price_monthly}
+                          onChange={(e) => setFormData({ ...formData, price_monthly: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>月付实时价格 (¥)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.current_price_monthly}
+                          onChange={(e) => setFormData({ ...formData, current_price_monthly: e.target.value })}
+                          required
+                        />
+                      </div>
                     </div>
-                    <div className="form-group">
-                      <label>年付价格 (¥)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.price_yearly}
-                        onChange={(e) => setFormData({ ...formData, price_yearly: e.target.value })}
-                        required
-                      />
+                  </div>
+
+                  <div className="pricing-section">
+                    <h5>年付定价</h5>
+                    <div className="form-group checkbox-group">
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={formData.yearly_discount_enabled}
+                          onChange={(e) => setFormData({ ...formData, yearly_discount_enabled: e.target.checked })}
+                        />
+                        <span>使用月付价格折扣计算</span>
+                      </label>
+                      <small className="hint-text">
+                        {formData.yearly_discount_enabled
+                          ? `年付价格将自动计算为: 月付实时价格 × 12 × (1 - ${formData.yearly_discount_percent}%)`
+                          : '取消勾选则使用直接定价'}
+                      </small>
                     </div>
+
+                    {formData.yearly_discount_enabled ? (
+                      <div className="form-group">
+                        <label>折扣百分比 (%)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={formData.yearly_discount_percent}
+                          onChange={(e) => setFormData({ ...formData, yearly_discount_percent: e.target.value })}
+                          required
+                        />
+                        <small className="hint-text">
+                          计算后的年付价格: ¥{(formData.current_price_monthly * 12 * (1 - formData.yearly_discount_percent / 100)).toFixed(2)}
+                        </small>
+                      </div>
+                    ) : (
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>年付原价 (¥)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={formData.price_yearly}
+                            onChange={(e) => setFormData({ ...formData, price_yearly: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>年付实时价格 (¥)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={formData.current_price_yearly}
+                            onChange={(e) => setFormData({ ...formData, current_price_yearly: e.target.value })}
+                            required
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 

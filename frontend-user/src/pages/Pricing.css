@@ -148,6 +148,23 @@
   margin-bottom: 24px;
 }
 
+.original-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  text-decoration: line-through;
+  opacity: 0.5;
+  margin-bottom: 4px;
+}
+
+.original-price .currency,
+.original-price .amount,
+.original-price .period {
+  font-size: 0.7em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
 .price-amount {
   display: flex;
   align-items: baseline;
@@ -174,8 +191,18 @@
 
 .total-price {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
-  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.original-total {
+  text-decoration: line-through;
+  opacity: 0.5;
+  font-size: 0.9em;
 }
 
 .plan-features {
