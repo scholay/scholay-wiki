@@ -99,16 +99,22 @@ func (s *AlipayService) VerifyCallback(params map[string]string) (bool, error) {
 		return false, fmt.Errorf("no active Alipay configuration found: %w", err)
 	}
 
-	// Extract and remove sign from params
-	// Note: Only remove "sign", keep "sign_type" for verification
+	// Extract sign from params
 	sign, exists := params["sign"]
 	if !exists {
 		return false, errors.New("sign parameter not found")
 	}
+
+	// IMPORTANT: Remove both "sign" and "sign_type" before building sign content
+	// According to Alipay docs, these two params should NOT be included in verification
 	delete(params, "sign")
+	delete(params, "sign_type")
 
 	// Build sign content
 	signContent := s.buildSignContent(params)
+
+	fmt.Printf("[ALIPAY_VERIFY] Sign content: %s\n", signContent)
+	fmt.Printf("[ALIPAY_VERIFY] Sign to verify: %s...\n", sign[:50])
 
 	// Verify signature
 	return s.verifySign(signContent, sign, config.AlipayPublicKey)
