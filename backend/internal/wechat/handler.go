@@ -52,7 +52,7 @@ func (h *Handler) GetActiveConfig(c *gin.Context) {
 	}
 
 	// Mask sensitive information
-	config.AppSecret = "***MASKED***"
+	config.AppSecret = "********"
 
 	utils.Success(c, config)
 }
@@ -66,10 +66,16 @@ func (h *Handler) ListConfigs(c *gin.Context) {
 		return
 	}
 
-	// Mask sensitive information
-	for i := range configs {
-		configs[i].AppSecret = "***MASKED***"
+	// Check if client requests unmasked secret (via query parameter)
+	showSecret := c.Query("show_secret") == "true"
+
+	if !showSecret {
+		// Mask sensitive information
+		for i := range configs {
+			configs[i].AppSecret = "********"
+		}
 	}
+	// If show_secret=true, return the real secret (client should verify admin first)
 
 	utils.Success(c, configs)
 }
@@ -111,7 +117,7 @@ func (h *Handler) CreateConfig(c *gin.Context) {
 	}
 
 	// Mask sensitive information before returning
-	config.AppSecret = "***MASKED***"
+	config.AppSecret = "********"
 
 	utils.Success(c, config)
 }
@@ -151,7 +157,7 @@ func (h *Handler) UpdateConfig(c *gin.Context) {
 	if req.AppID != "" {
 		config.AppID = req.AppID
 	}
-	if req.AppSecret != "" && req.AppSecret != "***MASKED***" {
+	if req.AppSecret != "" && req.AppSecret != "********" {
 		config.AppSecret = req.AppSecret
 	}
 	if req.RedirectURI != "" {
@@ -170,7 +176,7 @@ func (h *Handler) UpdateConfig(c *gin.Context) {
 	}
 
 	// Mask sensitive information before returning
-	config.AppSecret = "***MASKED***"
+	config.AppSecret = "********"
 
 	utils.Success(c, config)
 }

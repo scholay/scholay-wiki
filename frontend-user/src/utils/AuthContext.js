@@ -71,14 +71,14 @@ export const AuthProvider = ({ children }) => {
 
     // Listen for auth expiration events
     const handleAuthExpired = (event) => {
-      const message = event.detail?.message || '登录已失效';
       // Stop heartbeat and clear state
       stopHeartbeat();
       setIsAuthenticated(false);
       setUser(null);
 
-      // Show notification to user
-      alert(message);
+      // 静默处理，不显示 alert 弹窗
+      // API 拦截器已经处理了重定向到首页
+      console.log('Auth expired:', event.detail?.message || '登录已失效');
     };
 
     window.addEventListener('auth:expired', handleAuthExpired);

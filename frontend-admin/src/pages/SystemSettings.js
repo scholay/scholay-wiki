@@ -50,6 +50,7 @@ const SystemSettings = () => {
 
   // 邮件配置
   const [savedEmailConfig, setSavedEmailConfig] = useState(null);
+  const [realEmailPassword, setRealEmailPassword] = useState(null); // 存储真实密码
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [emailConfig, setEmailConfig] = useState({
     smtpHost: '',
@@ -64,6 +65,7 @@ const SystemSettings = () => {
 
   // 短信配置
   const [savedSMSConfig, setSavedSMSConfig] = useState(null);
+  const [realSMSSecret, setRealSMSSecret] = useState(null); // 存储真实密钥
   const [isEditingSMS, setIsEditingSMS] = useState(false);
   const [smsConfig, setSMSConfig] = useState({
     accessKeyId: '',
@@ -136,12 +138,65 @@ const SystemSettings = () => {
   };
 
   // Password verification handlers
-  const handleVerified = () => {
+  const handleVerified = async () => {
     setIsVerified(true);
     setShowVerifyModal(false);
+
+    // Load real email password if we're on email tab and config exists
+    if (activeTab === 'email' && savedEmailConfig && !realEmailPassword) {
+      try {
+        const response = await adminAPI.getEmailConfig(true); // true = show_password
+        if (response.data.code === 0 && response.data.data) {
+          setRealEmailPassword(response.data.data.smtp_password);
+        }
+      } catch (err) {
+        console.error('Failed to load real password:', err);
+      }
+    }
+
+    // Load real SMS secret if we're on sms tab and config exists
+    if (activeTab === 'sms' && savedSMSConfig && !realSMSSecret) {
+      try {
+        const response = await adminAPI.getSMSConfig(true); // true = show_secret
+        if (response.data.code === 0 && response.data.data) {
+          setRealSMSSecret(response.data.data.access_secret);
+        }
+      } catch (err) {
+        console.error('Failed to load real secret:', err);
+      }
+    }
+
+    // Load real Alipay keys if we're on alipay tab
+    if (activeTab === 'alipay') {
+      try {
+        const response = await adminAPI.getAlipayConfigs(true); // true = show_keys
+        if (response.data.code === 0 && response.data.data) {
+          setAlipayConfigs(response.data.data);
+        }
+      } catch (err) {
+        console.error('Failed to load real alipay keys:', err);
+      }
+    }
+
+    // Load real WeChat secret if we're on wechat tab
+    if (activeTab === 'wechat') {
+      try {
+        const response = await adminAPI.getWeChatConfigs(true); // true = show_secret
+        if (response.data.code === 0 && response.data.data) {
+          setWechatConfigs(response.data.data);
+        }
+      } catch (err) {
+        console.error('Failed to load real wechat secret:', err);
+      }
+    }
+
     // Auto-expire verification after 5 minutes
     setTimeout(() => {
       setIsVerified(false);
+      setRealEmailPassword(null); // Clear real password when verification expires
+      setRealSMSSecret(null); // Clear real SMS secret when verification expires
+      // Reload configs to reset masked values
+      loadTabData();
     }, 5 * 60 * 1000);
   };
 
@@ -182,8 +237,8 @@ const SystemSettings = () => {
     setEditingAlipay(config);
     setAlipayForm({
       app_id: config.app_id,
-      private_key: config.private_key === '***MASKED***' ? '' : config.private_key,
-      alipay_public_key: config.alipay_public_key === '***MASKED***' ? '' : config.alipay_public_key,
+      private_key: config.private_key === '********' ? '' : config.private_key,
+      alipay_public_key: config.alipay_public_key === '********' ? '' : config.alipay_public_key,
       notify_url: config.notify_url,
       return_url: config.return_url || '',
       is_sandbox: config.is_sandbox,
@@ -282,7 +337,7 @@ const SystemSettings = () => {
     setEditingWechat(config);
     setWechatForm({
       app_id: config.app_id,
-      app_secret: config.app_secret === '***MASKED***' ? '' : config.app_secret,
+      app_secret: config.app_secret === '********' ? '' : config.app_secret,
       redirect_uri: config.redirect_uri,
       scope: config.scope,
       is_active: config.is_active,
@@ -842,7 +897,11 @@ const SystemSettings = () => {
                   </div>
                   <div className="config-item">
                     <label>SMTP密码</label>
-                    <div className="config-value">••••••••</div>
+                    <SensitiveField
+                      value={realEmailPassword || savedEmailConfig.smtp_password}
+                      isVerified={isVerified}
+                      onRequestVerify={handleRequestVerify}
+                    />
                   </div>
                   <div className="config-item">
                     <label>发件人邮箱</label>
@@ -925,7 +984,9 @@ const SystemSettings = () => {
                       />
                     </div>
                     <div className="form-group">
-                      <label htmlFor="smtpPassword">SMTP密码 *</label>
+                      <label htmlFor="smtpPassword">
+                        SMTP密码 {!savedEmailConfig && '*'}
+                      </label>
                       <input
                         type="password"
                         id="smtpPassword"
@@ -936,6 +997,9 @@ const SystemSettings = () => {
                         placeholder={savedEmailConfig ? "留空则不修改密码" : "输入SMTP密码"}
                         required={!savedEmailConfig}
                       />
+                      {savedEmailConfig && (
+                        <small className="form-hint">留空则不修改密码</small>
+                      )}
                     </div>
                   </div>
 
@@ -1073,7 +1137,11 @@ const SystemSettings = () => {
                   </div>
                   <div className="config-item">
                     <label className="config-label">Access Secret</label>
-                    <div className="config-value">********</div>
+                    <SensitiveField
+                      value={realSMSSecret || savedSMSConfig.access_secret}
+                      isVerified={isVerified}
+                      onRequestVerify={handleRequestVerify}
+                    />
                   </div>
                   <div className="config-item">
                     <label className="config-label">签名名称</label>
@@ -1131,7 +1199,9 @@ const SystemSettings = () => {
                       <small className="form-hint">阿里云账号的 Access Key ID</small>
                     </div>
                     <div className="form-group">
-                      <label htmlFor="accessSecret">Access Secret *</label>
+                      <label htmlFor="accessSecret">
+                        Access Secret {!savedSMSConfig && '*'}
+                      </label>
                       <input
                         type="password"
                         id="accessSecret"
@@ -1139,10 +1209,14 @@ const SystemSettings = () => {
                         className="input"
                         value={smsConfig.accessSecret}
                         onChange={(e) => setSMSConfig({ ...smsConfig, accessSecret: e.target.value })}
-                        placeholder="请输入 Access Secret"
-                        required
+                        placeholder={savedSMSConfig ? "留空则不修改密钥" : "请输入 Access Secret"}
+                        required={!savedSMSConfig}
                       />
-                      <small className="form-hint">阿里云账号的 Access Secret</small>
+                      {savedSMSConfig ? (
+                        <small className="form-hint">留空则不修改密钥</small>
+                      ) : (
+                        <small className="form-hint">阿里云账号的 Access Secret</small>
+                      )}
                     </div>
                   </div>
 
@@ -1754,12 +1828,11 @@ const SystemSettings = () => {
       </div>
 
       {/* Verify Password Modal */}
-      {showVerifyModal && (
-        <VerifyPasswordModal
-          onClose={() => setShowVerifyModal(false)}
-          onVerified={handleVerified}
-        />
-      )}
+      <VerifyPasswordModal
+        isOpen={showVerifyModal}
+        onClose={() => setShowVerifyModal(false)}
+        onVerified={handleVerified}
+      />
     </div>
   );
 };

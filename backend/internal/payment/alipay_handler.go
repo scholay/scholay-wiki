@@ -179,8 +179,8 @@ func (h *AlipayHandler) GetActiveConfig(c *gin.Context) {
 	}
 
 	// Mask sensitive information
-	config.PrivateKey = "***MASKED***"
-	config.AlipayPublicKey = "***MASKED***"
+	config.PrivateKey = "********"
+	config.AlipayPublicKey = "********"
 
 	utils.Success(c, config)
 }
@@ -194,11 +194,17 @@ func (h *AlipayHandler) ListConfigs(c *gin.Context) {
 		return
 	}
 
-	// Mask sensitive information
-	for i := range configs {
-		configs[i].PrivateKey = "***MASKED***"
-		configs[i].AlipayPublicKey = "***MASKED***"
+	// Check if client requests unmasked keys (via query parameter)
+	showKeys := c.Query("show_keys") == "true"
+
+	if !showKeys {
+		// Mask sensitive information
+		for i := range configs {
+			configs[i].PrivateKey = "********"
+			configs[i].AlipayPublicKey = "********"
+		}
 	}
+	// If show_keys=true, return the real keys (client should verify admin first)
 
 	utils.Success(c, configs)
 }
@@ -246,8 +252,8 @@ func (h *AlipayHandler) CreateConfig(c *gin.Context) {
 	}
 
 	// Mask sensitive information before returning
-	config.PrivateKey = "***MASKED***"
-	config.AlipayPublicKey = "***MASKED***"
+	config.PrivateKey = "********"
+	config.AlipayPublicKey = "********"
 
 	utils.Success(c, config)
 }
@@ -323,8 +329,8 @@ func (h *AlipayHandler) UpdateConfig(c *gin.Context) {
 	}
 
 	// Mask sensitive information before returning
-	config.PrivateKey = "***MASKED***"
-	config.AlipayPublicKey = "***MASKED***"
+	config.PrivateKey = "********"
+	config.AlipayPublicKey = "********"
 
 	utils.Success(c, config)
 }

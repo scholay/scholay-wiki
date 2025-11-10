@@ -7,12 +7,27 @@ import './SensitiveField.css';
  */
 const SensitiveField = ({ label, value, isVerified, onRequestVerify, type = 'text' }) => {
   const [showValue, setShowValue] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const handleViewClick = () => {
     if (!isVerified) {
-      onRequestVerify();
+      if (onRequestVerify) {
+        onRequestVerify();
+      }
     } else {
       setShowValue(!showValue);
+    }
+  };
+
+  const handleCopyClick = async () => {
+    if (!isVerified || !showValue || !value) return;
+
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
     }
   };
 
@@ -21,7 +36,7 @@ const SensitiveField = ({ label, value, isVerified, onRequestVerify, type = 'tex
 
   return (
     <div className="sensitive-field">
-      <label>{label}</label>
+      {label && <label>{label}</label>}
       <div className="sensitive-field-input-group">
         <input
           type={showValue ? 'text' : 'password'}
@@ -29,6 +44,25 @@ const SensitiveField = ({ label, value, isVerified, onRequestVerify, type = 'tex
           readOnly
           className="sensitive-field-input"
         />
+        {isVerified && showValue && (
+          <button
+            type="button"
+            onClick={handleCopyClick}
+            className="sensitive-field-btn sensitive-field-copy-btn"
+            title={copySuccess ? '已复制' : '复制'}
+          >
+            {copySuccess ? (
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/>
+                <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/>
+              </svg>
+            )}
+          </button>
+        )}
         <button
           type="button"
           onClick={handleViewClick}

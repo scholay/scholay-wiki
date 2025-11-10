@@ -30,25 +30,25 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Unauthorized - clear token and state
+    // 处理 401 (未授权) 和 403 (禁止访问) 错误
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      // Unauthorized/Forbidden - clear token and state
       localStorage.removeItem('user_token');
       localStorage.removeItem('user_data');
 
       // Show notification to user
-      const message = error.response?.data?.message || '登录已失效,请重新登录';
+      const message = error.response?.data?.message ||
+        (error.response?.status === 403 ? '访问被拒绝，请重新登录' : '登录已失效，请重新登录');
 
       // Dispatch custom event with message
       window.dispatchEvent(new CustomEvent('auth:expired', {
         detail: { message }
       }));
 
-      // Redirect to home page after a short delay
-      setTimeout(() => {
-        if (window.location.pathname !== '/') {
-          window.location.href = '/';
-        }
-      }, 500);
+      // Redirect to home page immediately if not already there
+      if (window.location.pathname !== '/') {
+        window.location.href = '/';
+      }
     }
     return Promise.reject(error);
   }

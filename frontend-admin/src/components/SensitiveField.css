@@ -56,6 +56,17 @@
   flex-shrink: 0;
 }
 
+.sensitive-field-copy-btn {
+  color: #10b981;
+  border-color: #10b981;
+}
+
+.sensitive-field-copy-btn:hover {
+  background: #d1fae5;
+  border-color: #059669;
+  color: #059669;
+}
+
 .sensitive-field-hint {
   margin-top: 0.5rem;
   font-size: 0.75rem;

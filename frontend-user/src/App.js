@@ -4,6 +4,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from './utils/AuthContext';
 import { ToastProvider } from './components/ToastContainer';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // 首页立即加载(最常访问)
 import Home from './pages/Home';
@@ -44,18 +45,62 @@ function App() {
             <Router>
             <Suspense fallback={null}>
               <Routes>
+                {/* 公开路由 - 首页可以未登录访问 */}
                 <Route path="/" element={<Home />} />
                 <Route path="/search" element={<Navigate to="/" replace />} />
-                <Route path="/search-results" element={<SearchResultsPage />} />
-                <Route path="/advanced-search" element={<AdvancedSearchPage />} />
-                <Route path="/paper/:paperId" element={<PaperDetailPage />} />
-                <Route path="/chat" element={<ChatPage />} />
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/subscription" element={<SubscriptionManagement />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/order-confirmation" element={<OrderConfirmation />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/wechat/callback" element={<WeChatCallback />} />
+
+                {/* 需要登录的路由 - 使用 ProtectedRoute 包裹 */}
+                <Route path="/search-results" element={
+                  <ProtectedRoute>
+                    <SearchResultsPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/advanced-search" element={
+                  <ProtectedRoute>
+                    <AdvancedSearchPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/paper/:paperId" element={
+                  <ProtectedRoute>
+                    <PaperDetailPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/chat" element={
+                  <ProtectedRoute>
+                    <ChatPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/pricing" element={
+                  <ProtectedRoute>
+                    <Pricing />
+                  </ProtectedRoute>
+                } />
+                <Route path="/subscription" element={
+                  <ProtectedRoute>
+                    <SubscriptionManagement />
+                  </ProtectedRoute>
+                } />
+                <Route path="/settings" element={
+                  <ProtectedRoute>
+                    <Settings />
+                  </ProtectedRoute>
+                } />
+                <Route path="/order-confirmation" element={
+                  <ProtectedRoute>
+                    <OrderConfirmation />
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="/wechat/callback" element={
+                  <ProtectedRoute>
+                    <WeChatCallback />
+                  </ProtectedRoute>
+                } />
+
                 {/* 404 redirect to home */}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

@@ -114,8 +114,15 @@ func (h *Handler) GetEmailConfig(c *gin.Context) {
 		return
 	}
 
-	// Mask the password for security
-	config.SMTPPassword = "********"
+	// Check if client requests unmasked password (via query parameter)
+	showPassword := c.Query("show_password") == "true"
+
+	if !showPassword {
+		// Mask the password for security
+		config.SMTPPassword = "********"
+	}
+	// If show_password=true, return the real password (client should verify admin first)
+
 	utils.Success(c, config)
 }
 
@@ -124,7 +131,7 @@ type UpdateEmailConfigRequest struct {
 	SMTPHost     string `json:"smtpHost" binding:"required"`
 	SMTPPort     int    `json:"smtpPort" binding:"required"`
 	SMTPUser     string `json:"smtpUser" binding:"required"`
-	SMTPPassword string `json:"smtpPassword" binding:"required"`
+	SMTPPassword string `json:"smtpPassword"` // 不设置 required，允许留空
 	FromEmail    string `json:"fromEmail" binding:"required,email"`
 	FromName     string `json:"fromName" binding:"required"`
 }
@@ -137,17 +144,34 @@ func (h *Handler) UpdateEmailConfig(c *gin.Context) {
 		return
 	}
 
+	// Get existing config to check if this is an update
+	existingConfig, err := h.service.GetActiveEmailConfig()
+	if err != nil {
+		utils.Error(c, 3002, "Failed to get existing email configuration")
+		return
+	}
+
+	// If password is empty and config exists, keep the old password
+	password := req.SMTPPassword
+	if password == "" && existingConfig != nil {
+		password = existingConfig.SMTPPassword
+	} else if password == "" && existingConfig == nil {
+		// New config must have password
+		utils.BadRequest(c, "Password is required for new email configuration")
+		return
+	}
+
 	config := &model.EmailConfig{
 		SMTPHost:     req.SMTPHost,
 		SMTPPort:     req.SMTPPort,
 		SMTPUser:     req.SMTPUser,
-		SMTPPassword: req.SMTPPassword,
+		SMTPPassword: password,
 		FromEmail:    req.FromEmail,
 		FromName:     req.FromName,
 		IsActive:     true,
 	}
 
-	err := h.service.CreateEmailConfig(config)
+	err = h.service.CreateEmailConfig(config)
 	if err != nil {
 		utils.Error(c, 3002, "Failed to update email configuration")
 		return
@@ -278,15 +302,22 @@ func (h *Handler) GetSMSConfig(c *gin.Context) {
 		return
 	}
 
-	// Mask the access secret for security
-	config.AccessSecret = "********"
+	// Check if client requests unmasked secret (via query parameter)
+	showSecret := c.Query("show_secret") == "true"
+
+	if !showSecret {
+		// Mask the access secret for security
+		config.AccessSecret = "********"
+	}
+	// If show_secret=true, return the real secret (client should verify admin first)
+
 	utils.Success(c, config)
 }
 
 // UpdateSMSConfigRequest represents an update SMS config request
 type UpdateSMSConfigRequest struct {
 	AccessKeyID     string `json:"access_key_id" binding:"required"`
-	AccessSecret    string `json:"access_secret" binding:"required"`
+	AccessSecret    string `json:"access_secret"` // 不设置 required，允许留空
 	SignName        string `json:"sign_name" binding:"required"`
 	TemplateCode    string `json:"template_code" binding:"required"`
 	TemplateContent string `json:"template_content" binding:"required"`
@@ -301,6 +332,23 @@ func (h *Handler) UpdateSMSConfig(c *gin.Context) {
 		return
 	}
 
+	// Get existing config to check if this is an update
+	existingConfig, err := h.service.GetActiveSMSConfig()
+	if err != nil {
+		utils.Error(c, 3008, "Failed to get existing SMS configuration")
+		return
+	}
+
+	// If access secret is empty and config exists, keep the old secret
+	accessSecret := req.AccessSecret
+	if accessSecret == "" && existingConfig != nil {
+		accessSecret = existingConfig.AccessSecret
+	} else if accessSecret == "" && existingConfig == nil {
+		// New config must have access secret
+		utils.BadRequest(c, "Access secret is required for new SMS configuration")
+		return
+	}
+
 	endpoint := req.Endpoint
 	if endpoint == "" {
 		endpoint = "dypnsapi.aliyuncs.com" // Phone Number Service for verification codes
@@ -309,7 +357,7 @@ func (h *Handler) UpdateSMSConfig(c *gin.Context) {
 	// Trim whitespace from all string fields to avoid issues
 	config := &model.SMSConfig{
 		AccessKeyID:     strings.TrimSpace(req.AccessKeyID),
-		AccessSecret:    strings.TrimSpace(req.AccessSecret),
+		AccessSecret:    strings.TrimSpace(accessSecret),
 		SignName:        strings.TrimSpace(req.SignName),
 		TemplateCode:    strings.TrimSpace(req.TemplateCode),
 		TemplateContent: strings.TrimSpace(req.TemplateContent),
@@ -317,7 +365,7 @@ func (h *Handler) UpdateSMSConfig(c *gin.Context) {
 		IsActive:        true,
 	}
 
-	err := h.service.CreateSMSConfig(config)
+	err = h.service.CreateSMSConfig(config)
 	if err != nil {
 		utils.Error(c, 3008, "Failed to update SMS configuration")
 		return

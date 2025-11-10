@@ -59,8 +59,10 @@ export const adminAPI = {
   updateTermsOfService: (content, version) =>
     api.put('/admin/terms-of-service', { content, version }),
 
-  getEmailConfig: () =>
-    api.get('/admin/email-config'),
+  getEmailConfig: (showPassword = false) =>
+    api.get('/admin/email-config', {
+      params: showPassword ? { show_password: 'true' } : {}
+    }),
 
   updateEmailConfig: (config) =>
     api.put('/admin/email-config', config),
@@ -68,8 +70,10 @@ export const adminAPI = {
   testEmailConfig: (config) =>
     api.post('/admin/email-config/test', config),
 
-  getSMSConfig: () =>
-    api.get('/admin/sms-config'),
+  getSMSConfig: (showSecret = false) =>
+    api.get('/admin/sms-config', {
+      params: showSecret ? { show_secret: 'true' } : {}
+    }),
 
   updateSMSConfig: (config) =>
     api.put('/admin/sms-config', config),
@@ -147,8 +151,10 @@ export const adminAPI = {
     api.put(`/admin/subscription-plans/${id}`, data),
 
   // Alipay payment configuration management
-  getAlipayConfigs: () =>
-    api.get('/admin/payment/alipay/configs'),
+  getAlipayConfigs: (showKeys = false) =>
+    api.get('/admin/payment/alipay/configs', {
+      params: showKeys ? { show_keys: 'true' } : {}
+    }),
 
   getAlipayConfig: () =>
     api.get('/admin/payment/alipay/config'),
@@ -166,8 +172,10 @@ export const adminAPI = {
     api.post(`/admin/payment/alipay/config/${id}/activate`),
 
   // WeChat OAuth configuration management
-  getWeChatConfigs: () =>
-    api.get('/admin/wechat/configs'),
+  getWeChatConfigs: (showSecret = false) =>
+    api.get('/admin/wechat/configs', {
+      params: showSecret ? { show_secret: 'true' } : {}
+    }),
 
   getWeChatConfig: () =>
     api.get('/admin/wechat/config'),
