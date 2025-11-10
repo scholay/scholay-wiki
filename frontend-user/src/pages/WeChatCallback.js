@@ -4,6 +4,44 @@ import { useAuth } from '../utils/AuthContext';
 import { userAPI } from '../services/api';
 import logger from '../utils/logger';
 
+// Whitelist of allowed return URLs (paths only, no query params validation)
+// Only these paths are allowed for redirect after WeChat login
+const RETURN_URL_WHITELIST = [
+  '/pricing',
+  '/search-results',
+  '/advanced-search',
+  '/chat',
+  '/settings',
+  '/dashboard',
+  '/order-confirmation',
+];
+
+/**
+ * Check if a return URL is in the whitelist
+ * @param {string} url - The URL to check (can be full path or just pathname)
+ * @returns {boolean} - True if the URL is whitelisted
+ */
+const isWhitelistedReturnURL = (url) => {
+  if (!url || typeof url !== 'string') return false;
+
+  // Extract pathname from URL (remove query string and hash)
+  let pathname;
+  try {
+    // Handle both absolute URLs and relative paths
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      pathname = new URL(url).pathname;
+    } else {
+      // Relative path - extract pathname before query/hash
+      pathname = url.split('?')[0].split('#')[0];
+    }
+  } catch (e) {
+    return false;
+  }
+
+  // Check if pathname is in whitelist
+  return RETURN_URL_WHITELIST.includes(pathname);
+};
+
 // CRITICAL: Clear old tokens IMMEDIATELY before component renders
 // This prevents AuthContext from starting heartbeat with expired tokens
 // Must be outside the component to run before React lifecycle
@@ -94,14 +132,28 @@ const WeChatCallback = () => {
             localStorage.setItem('user_token', token);
             localStorage.setItem('user_data', JSON.stringify(user));
 
+            // Check for return URL and validate against whitelist
+            const returnURL = localStorage.getItem('wechat_return_url');
+            let redirectPath = '/'; // Default to home
+
+            if (returnURL && isWhitelistedReturnURL(returnURL)) {
+              // URL is whitelisted, use it for redirect
+              redirectPath = returnURL;
+              logger.log('WeChat login success - redirecting to whitelisted URL:', redirectPath);
+            } else if (returnURL) {
+              // URL provided but not whitelisted - log warning and use default
+              logger.warn('WeChat login - return URL not whitelisted:', returnURL);
+            }
+
             // Clean up
             localStorage.removeItem('wechat_oauth_state');
+            localStorage.removeItem('wechat_return_url');
 
             // Update auth context (token first, then user data)
             login(token, user);
 
-            // Redirect to homepage immediately (login mode doesn't need toast)
-            navigate('/');
+            // Redirect to target page
+            navigate(redirectPath);
           } else {
             throw new Error(response.data.message || '微信登录失败');
           }
@@ -124,6 +176,7 @@ const WeChatCallback = () => {
           navigate(`/settings?${params.toString()}`);
         } else {
           localStorage.removeItem('wechat_oauth_state');
+          localStorage.removeItem('wechat_return_url'); // Clean up return URL on error
           navigate('/');
         }
       }

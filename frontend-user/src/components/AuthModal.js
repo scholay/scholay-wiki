@@ -699,6 +699,12 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         // Save state for verification after callback
         localStorage.setItem('wechat_oauth_state', state);
 
+        // Save current URL for redirect after login (whitelist check will be done in callback)
+        const currentPath = window.location.pathname + window.location.search;
+        if (currentPath !== '/') {
+          localStorage.setItem('wechat_return_url', currentPath);
+        }
+
         // Redirect to WeChat OAuth page
         window.location.href = loginURL;
       } else {

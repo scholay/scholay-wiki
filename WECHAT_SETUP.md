@@ -12,6 +12,24 @@
 
 **修复**：将 `/wechat/callback` 改为公开路由，允许未登录用户访问以完成OAuth流程。
 
+### 2. 登录后跳转问题（已修复 ✓）
+
+**问题**：用户在某个页面（如 `/pricing`）点击微信登录后，登录成功总是跳转到首页，无法回到原页面。
+
+**修复**：实现了return URL功能，带白名单验证：
+- 用户点击微信登录时，保存当前页面URL
+- 登录成功后，检查return URL是否在白名单中
+- 如果在白名单中，跳转回原页面；否则跳转到首页
+
+**白名单路径**：
+- `/pricing` - 定价页面
+- `/search-results` - 搜索结果
+- `/advanced-search` - 高级搜索
+- `/chat` - 对话页面
+- `/settings` - 设置页面
+- `/dashboard` - 控制面板
+- `/order-confirmation` - 订单确认
+
 ```javascript
 // 修复前（错误）
 <Route path="/wechat/callback" element={
@@ -123,7 +141,8 @@ VALUES ('YOUR_APP_ID', 'YOUR_APP_SECRET', 'http://localhost:5411/wechat/callback
 1. **用户点击微信登录**
    - 前端调用 `GET /api/v1/user/wechat/login-url`
    - 后端生成随机state，返回微信二维码URL
-   - 前端保存state到localStorage并打开新窗口
+   - 前端保存state和当前URL到localStorage
+   - 跳转到微信扫码页面
 
 2. **用户扫码授权**
    - 微信重定向到 `redirect_uri?code=xxx&state=yyy`
@@ -141,14 +160,17 @@ VALUES ('YOUR_APP_ID', 'YOUR_APP_SECRET', 'http://localhost:5411/wechat/callback
 4. **前端完成登录**
    - 保存token到localStorage
    - 更新AuthContext
-   - 跳转到首页
+   - 检查return URL：
+     - 如果在白名单中 → 跳转回原页面
+     - 否则 → 跳转到首页
 
 ### 安全机制
 
 1. **State验证**：防止CSRF攻击
-2. **HTTPS强制**：生产环境必须使用HTTPS
-3. **Token过期**：Access token有效期2小时
-4. **Session管理**：JWT token + Redis session
+2. **Return URL白名单**：只允许跳转到预定义的安全路径
+3. **HTTPS强制**：生产环境必须使用HTTPS
+4. **Token过期**：Access token有效期2小时
+5. **Session管理**：JWT token + Redis session
 
 ## 常见问题
 
@@ -160,11 +182,20 @@ VALUES ('YOUR_APP_ID', 'YOUR_APP_SECRET', 'http://localhost:5411/wechat/callback
 
 ### Q2：扫码后跳转到首页但没有登录
 
-**原因**：这是本次修复的主要问题，`/wechat/callback` 路由被保护导致无法访问
+**原因**：`/wechat/callback` 路由被保护导致无法访问（已修复）
 
 **解决**：已修复，重启前端服务即可
 
-### Q3：微信回调时报错「redirect_uri参数错误」
+### Q3：从某个页面登录后，总是跳转到首页而不是回到原页面
+
+**原因**：未实现return URL功能（已修复）
+
+**解决**：
+- 已实现return URL白名单功能
+- 支持的页面：`/pricing`, `/search-results`, `/advanced-search`, `/chat`, `/settings`, `/dashboard`, `/order-confirmation`
+- 如需添加其他页面，修改 `frontend-user/src/pages/WeChatCallback.js` 中的 `RETURN_URL_WHITELIST` 常量
+
+### Q4：微信回调时报错「redirect_uri参数错误」
 
 **原因**：
 1. 微信开放平台未配置回调域名
@@ -174,7 +205,7 @@ VALUES ('YOUR_APP_ID', 'YOUR_APP_SECRET', 'http://localhost:5411/wechat/callback
 1. 确保微信开放平台已添加回调域名
 2. 检查数据库中的redirect_uri与微信配置一致
 
-### Q4：开发环境如何测试微信登录？
+### Q5：开发环境如何测试微信登录？
 
 **方法1**：使用ngrok等内网穿透工具
 ```bash
@@ -186,7 +217,7 @@ ngrok http 5411
 - 配置hosts文件指向本地
 - 使用Nginx配置SSL证书
 
-### Q5：生产环境部署注意事项
+### Q6：生产环境部署注意事项
 
 1. **修改.env配置**：
    - 确保 `HTTP_PORT` 和 `ADMIN_PORT` 正确
@@ -260,4 +291,8 @@ Response: {
 
 ## 更新日志
 
-- **2025-11-10**：修复 `/wechat/callback` 路由保护问题，添加配置文档
+- **2025-11-10**：
+  - 修复 `/wechat/callback` 路由保护问题
+  - 实现return URL功能，支持登录后回到原页面
+  - 添加return URL白名单验证
+  - 添加完整配置文档
