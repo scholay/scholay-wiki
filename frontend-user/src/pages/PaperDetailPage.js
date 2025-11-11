@@ -13,6 +13,9 @@ const PaperDetailPage = () => {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('citations'); // 'citations' or 'references'
+  const [showCiteModal, setShowCiteModal] = useState(false);
+  const [citationFormat, setCitationFormat] = useState('bibtex'); // 'bibtex', 'mla', 'apa', 'chicago'
+  const [copied, setCopied] = useState(false);
 
   // 构建 Semantic Scholar 的 URL
   const semanticScholarUrl = `https://www.semanticscholar.org/paper/${paperId}`;
@@ -24,7 +27,7 @@ const PaperDetailPage = () => {
         setIsLoading(true);
         const response = await api.get(`/public/papers/${paperId}`, {
           params: {
-            fields: 'paperId,title,abstract,authors,year,citationCount,referenceCount,venue,publicationDate,publicationTypes,fieldsOfStudy,s2FieldsOfStudy,externalIds,url,openAccessPdf,influentialCitationCount,isOpenAccess,tldr,citations.paperId,citations.externalIds,citations.url,citations.title,citations.abstract,citations.venue,citations.publicationVenue,citations.year,citations.referenceCount,citations.citationCount,citations.influentialCitationCount,citations.openAccessPdf,citations.s2FieldsOfStudy,citations.publicationTypes,citations.publicationDate,citations.journal,citations.citationStyles,citations.authors,references.paperId,references.externalIds,references.url,references.title,references.abstract,references.venue,references.publicationVenue,references.year,references.referenceCount,references.citationCount,references.influentialCitationCount,references.openAccessPdf,references.s2FieldsOfStudy,references.publicationTypes,references.publicationDate,references.journal,references.citationStyles,references.authors'
+            fields: 'paperId,title,abstract,authors,year,citationCount,referenceCount,venue,publicationDate,publicationTypes,fieldsOfStudy,s2FieldsOfStudy,externalIds,url,openAccessPdf,influentialCitationCount,isOpenAccess,tldr,journal,citations.paperId,citations.externalIds,citations.url,citations.title,citations.abstract,citations.venue,citations.publicationVenue,citations.year,citations.referenceCount,citations.citationCount,citations.influentialCitationCount,citations.openAccessPdf,citations.s2FieldsOfStudy,citations.publicationTypes,citations.publicationDate,citations.journal,citations.citationStyles,citations.authors,references.paperId,references.externalIds,references.url,references.title,references.abstract,references.venue,references.publicationVenue,references.year,references.referenceCount,references.citationCount,references.influentialCitationCount,references.openAccessPdf,references.s2FieldsOfStudy,references.publicationTypes,references.publicationDate,references.journal,references.citationStyles,references.authors'
           }
         });
         // API返回格式: { code: 0, message: "success", data: {...} }
@@ -61,6 +64,123 @@ const PaperDetailPage = () => {
 
   const handleSignUp = () => {
     navigate('/');
+  };
+
+  // 生成引用格式
+  const generateCitation = (format) => {
+    if (!paper) return '';
+
+    const authors = paper.authors || [];
+    const title = paper.title || 'Untitled';
+    const year = paper.year || 'n.d.';
+    const venue = paper.venue || '';
+    const doi = paper.externalIds?.DOI || '';
+    const corpusId = paper.externalIds?.CorpusId || '';
+
+    // 获取期刊信息
+    const journal = paper.journal || {};
+    const volume = journal.volume || '';
+    const pages = journal.pages || '';
+
+    switch (format) {
+      case 'bibtex':
+        // 生成 BibTeX key: 第一作者姓氏 + 年份 + 标题首个实词 + 第二个实词首字母缩写
+        const firstAuthor = authors[0]?.name || 'Unknown';
+        const lastName = firstAuthor.split(' ').pop();
+
+        // 找到标题中的主要词汇（过滤掉介词、冠词等）
+        const stopWords = ['of', 'the', 'in', 'for', 'and', 'a', 'an', 'to', 'on'];
+        const titleWords = title.split(' ').filter(w =>
+          w.length > 2 && !stopWords.includes(w.toLowerCase())
+        );
+
+        const firstTitleWord = titleWords[0]?.replace(/[^a-zA-Z]/g, '') || 'Paper';
+        const secondTitleWord = titleWords[1]?.replace(/[^a-zA-Z]/g, '') || '';
+        const secondWordInitials = secondTitleWord.slice(0, 2).toUpperCase();
+
+        const bibtexKey = `${lastName}${year}${firstTitleWord}${secondWordInitials}`;
+
+        let bibtex = `@article{${bibtexKey},\n  title={${title}},\n  author={${authors.map(a => a.name).join(' and ')}}`;
+        if (venue) bibtex += `,\n  journal={${venue}}`;
+        if (year) bibtex += `,\n  year={${year}}`;
+        if (volume) bibtex += `,\n  volume={${volume}}`;
+        if (pages) bibtex += `,\n  pages={${pages}}`;
+        bibtex += `,\n  url={https://api.semanticscholar.org/CorpusID:${corpusId}}\n}`;
+        return bibtex;
+
+      case 'mla':
+        // MLA: 作者姓, 名. "标题." 期刊 卷号 (年份): 页码.
+        const mlaAuthors = authors.length > 0
+          ? authors.map((a, i) => {
+              const nameParts = a.name.split(' ');
+              if (i === 0 && nameParts.length > 1) {
+                // 第一作者: 姓, 名
+                return `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`;
+              }
+              return a.name;
+            }).join(', ')
+          : 'Unknown';
+
+        let mla = `${mlaAuthors}. "${title}."`;
+        if (venue) mla += ` ${venue}`;
+        if (volume) mla += ` ${volume}`;
+        if (year && pages) mla += ` (${year}): ${pages}`;
+        else if (year) mla += ` (${year})`;
+        else if (pages) mla += `: ${pages}`;
+        mla += '.';
+        return mla;
+
+      case 'apa':
+        // APA: 作者姓, 名首字母. (年份). 标题. 期刊, 卷号, 页码.
+        const apaAuthors = authors.length > 0
+          ? authors.map(a => {
+              const nameParts = a.name.split(' ');
+              if (nameParts.length > 1) {
+                const initials = nameParts.slice(0, -1).map(n => n[0] + '.').join(' ');
+                return `${nameParts[nameParts.length - 1]}, ${initials}`;
+              }
+              return a.name;
+            }).join(', ')
+          : 'Unknown';
+
+        let apa = `${apaAuthors} (${year}). ${title}.`;
+        if (venue) apa += ` ${venue}`;
+        if (volume && pages) apa += `, ${volume}, ${pages}`;
+        else if (volume) apa += `, ${volume}`;
+        apa += '.';
+        return apa;
+
+      case 'chicago':
+        // Chicago: 作者姓, 名. "标题." 期刊 卷号 (年份): 页码.
+        const chicagoAuthors = authors.length > 0
+          ? authors.map((a, i) => {
+              const nameParts = a.name.split(' ');
+              if (i === 0 && nameParts.length > 1) {
+                return `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`;
+              }
+              return a.name;
+            }).join(', ')
+          : 'Unknown';
+
+        let chicago = `${chicagoAuthors}. "${title}."`;
+        if (venue) chicago += ` ${venue}`;
+        if (volume) chicago += ` ${volume}`;
+        if (year && pages) chicago += ` (${year}): ${pages}`;
+        else if (year) chicago += ` (${year})`;
+        else if (pages) chicago += `: ${pages}`;
+        chicago += '.';
+        return chicago;
+
+      default:
+        return '';
+    }
+  };
+
+  const copyCitation = () => {
+    const citation = generateCitation(citationFormat);
+    navigator.clipboard.writeText(citation);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000); // 2秒后恢复
   };
 
   if (isLoading) {
@@ -241,8 +361,17 @@ const PaperDetailPage = () => {
             </div>
           )}
 
-          {/* 操作按钮 - DOI链接和PDF */}
+          {/* 操作按钮 - Cite、DOI链接和PDF */}
           <div className="action-buttons">
+            <button
+              onClick={() => setShowCiteModal(true)}
+              className="action-btn"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11M20 10v11M8 21V10M16 21V10"/>
+              </svg>
+              Cite
+            </button>
             {paper.externalIds?.DOI && (
               <a
                 href={`https://doi.org/${paper.externalIds.DOI}`}
@@ -356,14 +485,8 @@ const PaperDetailPage = () => {
                         )}
 
                         {/* 底部操作 */}
-                        <div className="citation-actions">
-                          <button className="citation-action-btn">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
-                            </svg>
-                            Save
-                          </button>
-                          {citation.openAccessPdf?.url && (
+                        {citation.openAccessPdf?.url && (
+                          <div className="citation-actions">
                             <a href={citation.openAccessPdf.url} target="_blank" rel="noopener noreferrer" className="citation-action-btn">
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
@@ -371,8 +494,8 @@ const PaperDetailPage = () => {
                               </svg>
                               PDF
                             </a>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     ))
                   ) : (
@@ -443,14 +566,8 @@ const PaperDetailPage = () => {
                         )}
 
                         {/* 底部操作 */}
-                        <div className="citation-actions">
-                          <button className="citation-action-btn">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
-                            </svg>
-                            Save
-                          </button>
-                          {reference.openAccessPdf?.url && (
+                        {reference.openAccessPdf?.url && (
+                          <div className="citation-actions">
                             <a href={reference.openAccessPdf.url} target="_blank" rel="noopener noreferrer" className="citation-action-btn">
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
@@ -458,8 +575,8 @@ const PaperDetailPage = () => {
                               </svg>
                               PDF
                             </a>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     ))
                   ) : (
@@ -502,6 +619,15 @@ const PaperDetailPage = () => {
 
           {/* 快捷操作按钮 */}
           <div className="sidebar-card">
+            <button
+              onClick={() => setShowCiteModal(true)}
+              className="sidebar-action-btn"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11M20 10v11M8 21V10M16 21V10"/>
+              </svg>
+              Cite
+            </button>
             {paper.externalIds?.DOI && (
               <a
                 href={`https://doi.org/${paper.externalIds.DOI}`}
@@ -532,6 +658,75 @@ const PaperDetailPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Citation Modal */}
+      {showCiteModal && (
+        <div className="cite-modal-overlay" onClick={() => setShowCiteModal(false)}>
+          <div className="cite-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cite-modal-header">
+              <h2>Cite Paper</h2>
+              <button className="close-btn" onClick={() => setShowCiteModal(false)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+
+            <div className="cite-format-tabs">
+              <button
+                className={citationFormat === 'bibtex' ? 'active' : ''}
+                onClick={() => setCitationFormat('bibtex')}
+              >
+                BibTeX
+              </button>
+              <button
+                className={citationFormat === 'mla' ? 'active' : ''}
+                onClick={() => setCitationFormat('mla')}
+              >
+                MLA
+              </button>
+              <button
+                className={citationFormat === 'apa' ? 'active' : ''}
+                onClick={() => setCitationFormat('apa')}
+              >
+                APA
+              </button>
+              <button
+                className={citationFormat === 'chicago' ? 'active' : ''}
+                onClick={() => setCitationFormat('chicago')}
+              >
+                Chicago
+              </button>
+            </div>
+
+            <div className="cite-content">
+              <pre>{generateCitation(citationFormat)}</pre>
+            </div>
+
+            <div className="cite-modal-footer">
+              <button className={`copy-btn ${copied ? 'copied' : ''}`} onClick={copyCitation}>
+                {copied ? (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+                    </svg>
+                    Copy
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

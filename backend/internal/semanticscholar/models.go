@@ -23,6 +23,7 @@ type Paper struct {
 	Embedding        *PaperEmbedding         `json:"embedding,omitempty"`
 	TLDR             *TLDR                   `json:"tldr,omitempty"`
 	ExternalIDs      map[string]interface{}  `json:"externalIds,omitempty"`
+	Journal          *Journal                `json:"journal,omitempty"`
 }
 
 // Author represents a paper author
