@@ -60,11 +60,8 @@ function App() {
                     <AdvancedSearchPage />
                   </ProtectedRoute>
                 } />
-                <Route path="/paper/:paperId" element={
-                  <ProtectedRoute>
-                    <PaperDetailPage />
-                  </ProtectedRoute>
-                } />
+                {/* 论文详情页 - 公开访问 */}
+                <Route path="/paper/:paperId" element={<PaperDetailPage />} />
                 <Route path="/chat" element={
                   <ProtectedRoute>
                     <ChatPage />

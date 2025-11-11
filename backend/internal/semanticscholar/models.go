@@ -39,22 +39,61 @@ type Author struct {
 
 // Citation represents a citation/reference relationship
 type Citation struct {
-	PaperId            string   `json:"paperId,omitempty"`
-	Title              string   `json:"title,omitempty"`
-	Year               int      `json:"year,omitempty"`
-	Authors            []Author `json:"authors,omitempty"`
-	Venue              string   `json:"venue,omitempty"`
-	CitationCount      int      `json:"citationCount,omitempty"`
-	IsInfluential      bool     `json:"isInfluential,omitempty"`
-	IntentScore        float64  `json:"intentScore,omitempty"`
-	Contexts           []string `json:"contexts,omitempty"`
-	Intents            []string `json:"intents,omitempty"`
+	PaperId                 string                 `json:"paperId,omitempty"`
+	ExternalIDs             map[string]interface{} `json:"externalIds,omitempty"`
+	URL                     string                 `json:"url,omitempty"`
+	Title                   string                 `json:"title,omitempty"`
+	Abstract                string                 `json:"abstract,omitempty"`
+	Venue                   string                 `json:"venue,omitempty"`
+	PublicationVenue        *PublicationVenue      `json:"publicationVenue,omitempty"`
+	Year                    int                    `json:"year,omitempty"`
+	ReferenceCount          int                    `json:"referenceCount,omitempty"`
+	CitationCount           int                    `json:"citationCount,omitempty"`
+	InfluentialCitationCount int                   `json:"influentialCitationCount,omitempty"`
+	IsInfluential           bool                   `json:"isInfluential,omitempty"`
+	OpenAccessPdf           *OpenAccessPDF         `json:"openAccessPdf,omitempty"`
+	S2FieldsOfStudy         []S2FieldOfStudy       `json:"s2FieldsOfStudy,omitempty"`
+	PublicationTypes        []string               `json:"publicationTypes,omitempty"`
+	PublicationDate         string                 `json:"publicationDate,omitempty"`
+	Journal                 *Journal               `json:"journal,omitempty"`
+	CitationStyles          *CitationStyles        `json:"citationStyles,omitempty"`
+	Authors                 []Author               `json:"authors,omitempty"`
+	TLDR                    *TLDR                  `json:"tldr,omitempty"`
+	// Legacy fields for backward compatibility
+	IntentScore             float64                `json:"intentScore,omitempty"`
+	Contexts                []string               `json:"contexts,omitempty"`
+	Intents                 []string               `json:"intents,omitempty"`
 }
 
 // OpenAccessPDF contains open access PDF information
 type OpenAccessPDF struct {
-	URL    string `json:"url,omitempty"`
-	Status string `json:"status,omitempty"`
+	URL        string `json:"url,omitempty"`
+	Status     string `json:"status,omitempty"`
+	License    string `json:"license,omitempty"`
+	Disclaimer string `json:"disclaimer,omitempty"`
+}
+
+// PublicationVenue represents venue information
+type PublicationVenue struct {
+	ID             string   `json:"id,omitempty"`
+	Name           string   `json:"name,omitempty"`
+	Type           string   `json:"type,omitempty"`
+	AlternateNames []string `json:"alternate_names,omitempty"`
+	ISSN           string   `json:"issn,omitempty"`
+	URL            string   `json:"url,omitempty"`
+	AlternateURLs  []string `json:"alternate_urls,omitempty"`
+}
+
+// Journal represents journal publication information
+type Journal struct {
+	Name   string `json:"name,omitempty"`
+	Pages  string `json:"pages,omitempty"`
+	Volume string `json:"volume,omitempty"`
+}
+
+// CitationStyles represents citation formatting
+type CitationStyles struct {
+	BibTeX string `json:"bibtex,omitempty"`
 }
 
 // S2FieldOfStudy represents Semantic Scholar's field of study classification

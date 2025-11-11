@@ -65,15 +65,25 @@ func GetOrSetSearchResult(ctx context.Context, params map[string]interface{}, fe
 	return GetOrSet(ctx, key, searchCacheTTL, fetchFn, result)
 }
 
-// CachePaperDetails caches paper details by paperId
-func CachePaperDetails(ctx context.Context, paperId string, paper interface{}) error {
-	key := fmt.Sprintf("%s:%s", scholarPaperPrefix, paperId)
+// CachePaperDetails caches paper details by paperId and fields
+// fields parameter ensures different field requests are cached separately
+func CachePaperDetails(ctx context.Context, paperId string, fields []string, paper interface{}) error {
+	params := map[string]interface{}{
+		"paperId": paperId,
+		"fields":  fields,
+	}
+	key := GenerateCacheKey(scholarPaperPrefix, params)
 	return Set(ctx, key, paper, paperCacheTTL)
 }
 
-// GetCachedPaperDetails retrieves cached paper details
-func GetCachedPaperDetails(ctx context.Context, paperId string, result interface{}) (bool, error) {
-	key := fmt.Sprintf("%s:%s", scholarPaperPrefix, paperId)
+// GetCachedPaperDetails retrieves cached paper details by paperId and fields
+// Only returns cached data if the exact same fields were requested
+func GetCachedPaperDetails(ctx context.Context, paperId string, fields []string, result interface{}) (bool, error) {
+	params := map[string]interface{}{
+		"paperId": paperId,
+		"fields":  fields,
+	}
+	key := GenerateCacheKey(scholarPaperPrefix, params)
 
 	err := Get(ctx, key, result)
 	if err != nil {
@@ -87,8 +97,13 @@ func GetCachedPaperDetails(ctx context.Context, paperId string, result interface
 }
 
 // GetOrSetPaperDetails retrieves from cache or fetches with stampede protection
-func GetOrSetPaperDetails(ctx context.Context, paperId string, fetchFn func() (interface{}, error), result interface{}) error {
-	key := fmt.Sprintf("%s:%s", scholarPaperPrefix, paperId)
+// fields parameter ensures cache key uniqueness for different field requests
+func GetOrSetPaperDetails(ctx context.Context, paperId string, fields []string, fetchFn func() (interface{}, error), result interface{}) error {
+	params := map[string]interface{}{
+		"paperId": paperId,
+		"fields":  fields,
+	}
+	key := GenerateCacheKey(scholarPaperPrefix, params)
 	return GetOrSet(ctx, key, paperCacheTTL, fetchFn, result)
 }
 

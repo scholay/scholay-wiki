@@ -1,540 +1,880 @@
+/* 论文详情页 - Semantic Scholar 风格 */
+
 .paper-detail-page {
-  width: 100vw;
-  height: 100vh;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
-  position: relative;
+  min-height: 100vh;
+  background: #fff;
 }
 
-.paper-iframe {
-  width: 100%;
-  height: 100%;
-  border: none;
-  margin: 0;
-  padding: 0;
-}
-
-.paper-detail-loading {
-  position: absolute;
+/* ========== 顶部导航栏 ========== */
+.paper-top-header {
+  position: fixed;
   top: 0;
   left: 0;
+  right: 0;
   width: 100%;
-  height: 100%;
+  z-index: 1000;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  padding: 12px 24px;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 1.5rem;
-  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
-  z-index: 10;
-}
-
-.loading-spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid rgba(16, 163, 127, 0.1);
-  border-top-color: rgb(16, 163, 127);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.paper-detail-loading p {
-  color: rgba(148, 163, 184, 0.9);
-  font-size: 1rem;
-  margin: 0;
-}
-
-.hint-text {
-  font-size: 0.875rem;
-  color: rgba(148, 163, 184, 0.7) !important;
-  margin-top: 1rem !important;
-}
-
-.countdown-text {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: rgb(16, 163, 127) !important;
-  margin-top: 1rem !important;
-}
-
-.manual-link, .manual-link-small {
-  margin-top: 1.5rem;
-  padding: 0.75rem 1.5rem;
-  background: rgba(16, 163, 127, 0.15);
-  border: 1px solid rgba(16, 163, 127, 0.3);
-  border-radius: 10px;
-  color: rgb(16, 163, 127);
-  font-size: 0.9375rem;
-  font-weight: 500;
-  text-decoration: none;
-  transition: all 0.2s;
-  display: inline-block;
-  cursor: pointer;
-}
-
-.manual-link-small {
-  font-size: 0.8125rem;
-  padding: 0.625rem 1.25rem;
-  margin-top: 1rem;
-}
-
-.manual-link:hover, .manual-link-small:hover {
-  background: rgba(16, 163, 127, 0.25);
-  border-color: rgba(16, 163, 127, 0.5);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.2);
-}
-
-/* 顶部导航栏 */
-.paper-detail-header {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: rgba(26, 26, 26, 0.95);
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
-  padding: 1rem 2rem;
-  display: flex;
   justify-content: space-between;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.header-left {
+  display: flex;
   align-items: center;
+  gap: 20px;
+  flex: 1;
+  max-width: 800px;
 }
 
 .header-logo {
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  cursor: pointer;
-  transition: all 0.3s;
-  padding: 0.5rem;
-  margin-left: -0.5rem;
-  border-radius: 8px;
+  gap: 8px;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
 }
 
 .header-logo:hover {
-  background: rgba(16, 163, 127, 0.1);
+  opacity: 0.7;
 }
 
-.logo-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, rgba(16, 163, 127, 0.2), rgba(16, 163, 127, 0.3));
-  border-radius: 8px;
-  border: 1px solid rgba(16, 163, 127, 0.4);
-}
-
-.logo-icon svg {
-  color: rgb(16, 163, 127);
+.logo-image {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
 }
 
 .logo-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
+  font-size: 17px;
+  font-weight: 600;
+  color: #1857b6;
+  letter-spacing: -0.3px;
 }
 
-.logo-name {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: #f1f5f9;
-  letter-spacing: -0.02em;
+/* 搜索框 */
+.header-search-form {
+  flex: 1;
+  max-width: 500px;
 }
 
-.logo-tagline {
-  font-size: 0.6875rem;
-  color: rgba(148, 163, 184, 0.8);
-  font-weight: 400;
-  letter-spacing: 0.02em;
+.search-input-wrapper {
+  position: relative;
+  width: 100%;
 }
 
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  stroke: #999;
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px 8px 38px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #333;
+  background: #fafafa;
+  transition: all 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #1857b6;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(24, 87, 182, 0.1);
+}
+
+.search-input::placeholder {
+  color: #999;
+}
+
+/* 右侧按钮 */
 .header-actions {
   display: flex;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 12px;
 }
 
-.external-link-btn {
+.header-btn {
+  padding: 7px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid;
+}
+
+.signin-btn {
+  background: #fff;
+  color: #1857b6;
+  border-color: #d0d0d0;
+}
+
+.signin-btn:hover {
+  background: #f5f5f5;
+  border-color: #1857b6;
+}
+
+.signup-btn {
+  background: #1857b6;
+  color: #fff;
+  border-color: #1857b6;
+}
+
+.signup-btn:hover {
+  background: #1443a0;
+  border-color: #1443a0;
+}
+
+/* ========== 主内容区域 ========== */
+.paper-content-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 80px 32px 64px;
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 40px;
+}
+
+/* ========== 左侧主要内容 ========== */
+.paper-main-column {
+  min-width: 0; /* 防止内容溢出 */
+}
+
+/* 论文头部 */
+.paper-header-section {
+  margin-bottom: 24px;
+}
+
+/* 顶部元信息 (DOI, Corpus ID) */
+.top-meta-info {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 8px;
-  color: rgba(148, 163, 184, 0.9);
-  font-size: 0.875rem;
-  text-decoration: none;
-  transition: all 0.2s;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #666;
 }
 
-.external-link-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(148, 163, 184, 0.4);
-  color: #f1f5f9;
+.top-meta-item {
+  color: #666;
 }
 
-/* 主内容区 */
-.paper-detail-content {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 2rem;
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 2rem;
-}
-
-.paper-detail-main {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-/* 论文标题区 */
-.paper-header-section {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  border-radius: 16px;
-  padding: 2rem;
-}
-
-.paper-main-title {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #f1f5f9;
+.paper-title {
+  font-size: 30px;
+  font-weight: 600;
   line-height: 1.3;
-  margin: 0 0 1.5rem 0;
+  color: #1a1a1a;
+  margin: 0 0 16px 0;
+  word-wrap: break-word;
 }
 
-.paper-meta-bar {
+/* 出版元数据 - 包含作者、出版信息、研究领域 */
+.publication-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 12px 0 20px;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+}
+
+/* 作者名 */
+.author-name {
+  color: #1857b6;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.author-name:hover {
+  color: #1443a0;
+  text-decoration: underline;
+}
+
+.author-separator {
+  color: #666;
+}
+
+/* 元数据分隔符 */
+.meta-dot {
+  color: #666;
+}
+
+/* Published in 文本 */
+.meta-text {
+  color: #666;
+}
+
+/* 会议/期刊名 */
+.meta-venue {
+  font-weight: 600;
+  color: #333;
+}
+
+/* 年份 */
+.meta-year {
+  color: #666;
+}
+
+/* 研究领域 */
+.meta-fields {
+  color: #666;
+}
+
+/* TL;DR */
+.tldr-section {
+  background: #f0f7ff;
+  border-left: 3px solid #1857b6;
+  padding: 16px 20px;
+  margin: 24px 0;
+  border-radius: 3px;
+}
+
+.tldr-header {
+  margin-bottom: 8px;
+}
+
+.tldr-badge {
+  display: inline-block;
+  background: #1857b6;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
+.tldr-text {
+  color: #333;
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* 操作按钮 */
+.action-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 10px;
+  margin: 24px 0;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e8e8e8;
 }
 
-.meta-badge {
-  display: flex;
+.action-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: 8px;
-  font-size: 0.875rem;
-  color: rgba(148, 163, 184, 0.9);
-}
-
-.meta-badge svg {
-  opacity: 0.7;
-  flex-shrink: 0;
-}
-
-.year-badge {
-  background: rgba(16, 163, 127, 0.1);
-  border-color: rgba(16, 163, 127, 0.3);
-  color: rgb(16, 163, 127);
-}
-
-.citation-badge {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.3);
-  color: rgb(96, 165, 250);
-}
-
-/* 论文章节 */
-.paper-section {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  border-radius: 16px;
-  padding: 2rem;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: rgb(16, 163, 127);
-  margin: 0 0 1.5rem 0;
-}
-
-.section-title svg {
-  opacity: 0.8;
-}
-
-/* 作者列表 */
-.authors-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
-}
-
-.author-card {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(148, 163, 184, 0.08);
-  border-radius: 10px;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #fff;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  color: #333;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
   transition: all 0.2s;
 }
 
-.author-card:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(148, 163, 184, 0.15);
-  transform: translateY(-2px);
+.action-btn:hover {
+  background: #f5f5f5;
+  border-color: #999;
 }
 
-.author-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(16, 163, 127, 0.3), rgba(16, 163, 127, 0.6));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.125rem;
-  font-weight: 600;
+.action-btn.pdf-btn {
+  background: #1857b6;
   color: #fff;
+  border-color: #1857b6;
+}
+
+.action-btn.pdf-btn:hover {
+  background: #1443a0;
+  border-color: #1443a0;
+}
+
+.action-btn svg {
   flex-shrink: 0;
 }
 
-.author-name-detail {
-  font-size: 0.9375rem;
-  color: rgba(148, 163, 184, 0.95);
-  font-weight: 500;
+/* ========== 内容区块 ========== */
+.content-section {
+  margin: 40px 0;
+  padding-bottom: 40px;
+  border-bottom: 1px solid #e8e8e8;
 }
 
-/* 摘要 */
-.paper-abstract-text {
-  font-size: 1rem;
-  color: rgba(241, 245, 249, 0.9);
-  line-height: 1.8;
+.content-section:last-child {
+  border-bottom: none;
+}
+
+.section-heading {
+  font-size: 22px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 16px 0;
+}
+
+.section-header-with-count {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.count-badge {
+  background: #e8e8e8;
+  color: #666;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.abstract-text {
+  font-size: 15px;
+  line-height: 1.7;
+  color: #333;
   margin: 0;
   text-align: justify;
 }
 
-/* PDF 预览占位符 */
-.pdf-preview-placeholder {
+.placeholder-text {
+  color: #999;
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* ========== 右侧边栏 ========== */
+.paper-sidebar-column {
+  position: sticky;
+  top: 90px;
+  height: fit-content;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
-  background: rgba(255, 255, 255, 0.02);
-  border: 2px dashed rgba(148, 163, 184, 0.15);
-  border-radius: 12px;
-  text-align: center;
-}
-
-.pdf-preview-placeholder svg {
-  opacity: 0.3;
-  margin-bottom: 1rem;
-}
-
-.pdf-preview-placeholder p {
-  font-size: 1rem;
-  color: rgba(148, 163, 184, 0.7);
-  margin: 0 0 1.5rem 0;
-}
-
-.view-external-btn {
-  padding: 0.75rem 1.5rem;
-  background: rgba(16, 163, 127, 0.15);
-  border: 1px solid rgba(16, 163, 127, 0.3);
-  border-radius: 10px;
-  color: rgb(16, 163, 127);
-  font-size: 0.9375rem;
-  font-weight: 500;
-  text-decoration: none;
-  transition: all 0.2s;
-  display: inline-block;
-}
-
-.view-external-btn:hover {
-  background: rgba(16, 163, 127, 0.25);
-  border-color: rgba(16, 163, 127, 0.5);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.2);
-}
-
-/* 右侧边栏 */
-.paper-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+  gap: 16px;
 }
 
 .sidebar-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  border-radius: 16px;
-  padding: 1.5rem;
+  background: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  padding: 16px;
 }
 
 .sidebar-title {
-  font-size: 1rem;
+  font-size: 13px;
   font-weight: 600;
-  color: rgb(16, 163, 127);
-  margin: 0 0 1rem 0;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 12px 0;
 }
 
-.sidebar-info {
+/* 统计行 */
+.stat-row {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 6px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e8e8e8;
 }
 
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.625rem 0;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.06);
-}
-
-.info-row:last-child {
+.stat-row:last-child {
   border-bottom: none;
+  padding-bottom: 0;
 }
 
-.info-label {
-  font-size: 0.8125rem;
-  color: rgba(148, 163, 184, 0.7);
+.stat-row:first-child {
+  padding-top: 0;
 }
 
-.info-value {
-  font-size: 0.875rem;
-  color: rgba(241, 245, 249, 0.9);
-  font-weight: 500;
-}
-
-.sidebar-link {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  border-radius: 10px;
-  color: rgba(148, 163, 184, 0.9);
-  font-size: 0.875rem;
-  text-decoration: none;
+/* 可点击的统计行 */
+.stat-row.clickable {
+  cursor: pointer;
+  padding: 12px;
+  margin: -12px -16px;
+  margin-bottom: 0;
+  border-radius: 4px;
   transition: all 0.2s;
 }
 
-.sidebar-link:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(148, 163, 184, 0.2);
-  color: #f1f5f9;
-  transform: translateX(4px);
+.stat-row.clickable:first-child {
+  margin-top: -16px;
 }
 
-/* 错误状态 */
-.paper-detail-error {
-  position: absolute;
-  top: 0;
-  left: 0;
+.stat-row.clickable:last-child {
+  margin-bottom: -16px;
+}
+
+.stat-row.clickable:hover {
+  background: #f0f0f0;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.stat-value.highlighted {
+  color: #1857b6;
+}
+
+/* 侧边栏操作按钮 */
+.sidebar-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
-  height: 100%;
+  padding: 10px 16px;
+  background: #fff;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  color: #333;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 8px;
+}
+
+.sidebar-action-btn:last-child {
+  margin-bottom: 0;
+}
+
+.sidebar-action-btn:hover {
+  background: #f5f5f5;
+  border-color: #999;
+  color: #1857b6;
+}
+
+.sidebar-action-btn.pdf-btn {
+  background: #1857b6;
+  color: #fff;
+  border-color: #1857b6;
+}
+
+.sidebar-action-btn.pdf-btn:hover {
+  background: #1443a0;
+  border-color: #1443a0;
+  color: #fff;
+}
+
+.sidebar-action-btn svg {
+  flex-shrink: 0;
+}
+
+/* 研究领域列表 */
+.fields-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-item {
+  font-size: 14px;
+  color: #333;
+  padding: 4px 0;
+}
+
+/* 出版类型 */
+.pub-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pub-type-tag {
+  background: #e8e8e8;
+  color: #333;
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* DOI 链接 */
+.doi-link {
+  color: #1857b6;
+  font-size: 13px;
+  word-break: break-all;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.doi-link:hover {
+  color: #1443a0;
+  text-decoration: underline;
+}
+
+/* Corpus ID */
+.corpus-id {
+  font-size: 14px;
+  color: #333;
+  font-family: 'Courier New', monospace;
+}
+
+/* ========== 加载和错误状态 ========== */
+.paper-detail-loading,
+.paper-detail-error {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
-  z-index: 10;
-}
-
-.paper-detail-error svg {
-  color: rgba(16, 163, 127, 0.7);
-  margin-bottom: 1rem;
-}
-
-.paper-detail-error p {
-  color: rgba(148, 163, 184, 0.9);
-  font-size: 0.9375rem;
+  min-height: 100vh;
+  padding: 40px;
   text-align: center;
-  max-width: 500px;
-  margin: 0.5rem 0;
+  background: #fff;
 }
 
 .loading-spinner {
   width: 48px;
   height: 48px;
-  border: 4px solid rgba(16, 163, 127, 0.1);
-  border-top-color: rgb(16, 163, 127);
+  border: 4px solid #e8e8e8;
+  border-top-color: #1857b6;
   border-radius: 50%;
   animation: spin 1s linear infinite;
+  margin-bottom: 20px;
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
+}
+
+.paper-detail-loading p,
+.paper-detail-error p {
+  color: #666;
+  font-size: 16px;
+  margin: 12px 0 0;
 }
 
 .paper-detail-error h2 {
-  color: rgba(148, 163, 184, 0.9);
-  font-size: 1.5rem;
-  margin: 0 0 1rem 0;
+  color: #1a1a1a;
+  font-size: 24px;
+  margin: 16px 0 8px;
 }
 
-.paper-detail-error button {
-  padding: 0.75rem 1.5rem;
-  background: rgba(16, 163, 127, 0.15);
-  border: 1px solid rgba(16, 163, 127, 0.3);
-  border-radius: 10px;
-  color: rgb(16, 163, 127);
-  font-size: 0.9375rem;
-  font-weight: 500;
+.paper-detail-error svg {
+  stroke: #e74c3c;
+}
+
+.error-btn {
+  padding: 10px 20px;
+  background: #1857b6;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.paper-detail-error button:hover {
-  background: rgba(16, 163, 127, 0.25);
-  border-color: rgba(16, 163, 127, 0.5);
+.error-btn:hover {
+  background: #1443a0;
 }
 
-/* 响应式设计 */
+.error-btn.secondary {
+  background: #fff;
+  color: #333;
+  border: 1px solid #d0d0d0;
+}
+
+.error-btn.secondary:hover {
+  background: #f5f5f5;
+}
+
+/* ========== Citations & References Tab ========== */
+.citations-references-section {
+  border-bottom: none;
+}
+
+/* Tab 头部 - 滚动时固定在顶部 */
+.tab-header {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid #e8e8e8;
+  margin-bottom: 24px;
+  position: sticky;
+  top: 47px; /* 紧贴顶部导航栏 (padding 12px*2 + 内容约22px + border 1px) */
+  background: #fff;
+  z-index: 100;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #666;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  bottom: -1px;
+}
+
+.tab-btn:hover {
+  color: #1857b6;
+  background: #f5f5f5;
+}
+
+.tab-btn.active {
+  color: #1857b6;
+  border-bottom-color: #1857b6;
+}
+
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 20px;
+  padding: 0 6px;
+  background: #e8e8e8;
+  color: #666;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 10px;
+}
+
+.tab-btn.active .tab-count {
+  background: #e3f2fd;
+  color: #1857b6;
+}
+
+/* Citation/Reference 列表项 */
+.citation-item {
+  padding: 20px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.citation-item:last-child {
+  border-bottom: none;
+}
+
+.citation-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.citation-link {
+  color: #1857b6;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.citation-link:hover {
+  color: #1443a0;
+  text-decoration: underline;
+}
+
+.citation-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 8px 0;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+}
+
+.citation-author {
+  color: #666;
+}
+
+.citation-venue {
+  font-weight: 500;
+  color: #333;
+}
+
+.citation-year {
+  color: #666;
+}
+
+.citation-fields {
+  color: #666;
+}
+
+/* Citation TLDR */
+.citation-tldr {
+  margin: 12px 0;
+  padding: 10px 12px;
+  background: #f9f9f9;
+  border-radius: 3px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.tldr-label {
+  display: inline-block;
+  background: #1857b6;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 2px;
+  letter-spacing: 0.5px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.tldr-text-inline {
+  color: #333;
+}
+
+/* Citation Abstract */
+.citation-abstract {
+  margin: 12px 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #555;
+  text-align: justify;
+}
+
+/* Citation Actions */
+.citation-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.citation-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #fff;
+  border: 1px solid #d0d0d0;
+  border-radius: 3px;
+  color: #666;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.citation-action-btn:hover {
+  background: #f5f5f5;
+  border-color: #999;
+  color: #333;
+}
+
+.citation-action-btn svg {
+  flex-shrink: 0;
+}
+
+/* ========== 响应式设计 ========== */
 @media (max-width: 1024px) {
-  .paper-detail-content {
+  .paper-content-container {
     grid-template-columns: 1fr;
+    padding: 80px 24px 48px;
   }
 
-  .paper-sidebar {
-    order: -1;
+  .paper-sidebar-column {
+    position: relative;
+    top: auto;
+    order: -1; /* 移动端边栏显示在上方 */
   }
 }
 
 @media (max-width: 768px) {
-  .paper-detail-header {
-    padding: 1rem;
+  .paper-top-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px 16px;
   }
 
-  .paper-detail-content {
-    padding: 1rem;
+  .header-left {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    max-width: none;
   }
 
-  .paper-main-title {
-    font-size: 1.5rem;
+  .header-search-form {
+    max-width: none;
   }
 
-  .authors-list {
-    grid-template-columns: 1fr;
+  .header-actions {
+    justify-content: stretch;
   }
 
-  .external-link-btn span {
-    display: none;
+  .header-btn {
+    flex: 1;
+    text-align: center;
+  }
+
+  .paper-content-container {
+    padding: 140px 16px 32px;
+  }
+
+  .paper-title {
+    font-size: 24px;
+  }
+
+  .section-heading {
+    font-size: 20px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .logo-text {
+    font-size: 15px;
+  }
+
+  .paper-title {
+    font-size: 20px;
+  }
+
+  .authors-section {
+    font-size: 14px;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-btn {
+    width: 100%;
+    justify-content: center;
   }
 }

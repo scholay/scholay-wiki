@@ -315,6 +315,13 @@ func main() {
 			userProtected.GET("/conversations/messages/:messageId/branch", chatHandler.GetBranchChain)
 		}
 
+		// Public API routes (no authentication required)
+		publicAPI := api.Group("/public")
+		{
+			// Public paper detail endpoint - for anonymous access from paper detail page
+			publicAPI.GET("/papers/:paperId", scholarHandler.GetPaper)
+		}
+
 		// Semantic Scholar API routes (protected - requires user authentication)
 		scholar := api.Group("/scholar")
 		scholar.Use(middleware.UserAuthMiddleware())

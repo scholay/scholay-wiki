@@ -113,14 +113,14 @@ func (c *Client) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, err
 		return nil, fmt.Errorf("paperID is required")
 	}
 
-	// Try to get from cache
+	// Try to get from cache (with fields parameter to ensure exact match)
 	var cachedPaper Paper
-	hit, err := cache.GetCachedPaperDetails(context.Background(), paperID, &cachedPaper)
+	hit, err := cache.GetCachedPaperDetails(context.Background(), paperID, opts.Fields, &cachedPaper)
 	if err != nil {
 		log.Printf("Warning: cache error: %v", err)
 	}
 	if hit {
-		log.Printf("✓ Cache hit for paper: %s", paperID)
+		log.Printf("✓ Cache hit for paper: %s with fields: %v", paperID, opts.Fields)
 		return &cachedPaper, nil
 	}
 
@@ -145,9 +145,9 @@ func (c *Client) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, err
 		return nil, err
 	}
 
-	// Cache the result (async)
+	// Cache the result (async) with fields parameter for unique cache key
 	go func() {
-		if err := cache.CachePaperDetails(context.Background(), paperID, &result); err != nil {
+		if err := cache.CachePaperDetails(context.Background(), paperID, opts.Fields, &result); err != nil {
 			log.Printf("Warning: failed to cache paper details: %v", err)
 		}
 	}()
