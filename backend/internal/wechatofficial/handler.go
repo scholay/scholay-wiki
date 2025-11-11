@@ -167,12 +167,17 @@ func (h *Handler) GetConfig(c *gin.Context) {
 		return
 	}
 
-	// Hide sensitive fields
-	config.AppSecret = ""
-	config.Token = ""
-	config.EncodingAESKey = ""
+	// Check if request wants to show sensitive data
+	showSensitive := c.Query("show_sensitive") == "true"
 
-	utils.SuccessResponse(c, http.StatusOK, "success", config)
+	if showSensitive {
+		// Return real values without masking
+		utils.SuccessResponse(c, http.StatusOK, "success", config)
+	} else {
+		// Mask sensitive fields for display
+		maskedConfig := config.MaskSensitiveData()
+		utils.SuccessResponse(c, http.StatusOK, "success", maskedConfig)
+	}
 }
 
 // UpdateConfig handles PUT /api/v1/admin/wechat-official/config

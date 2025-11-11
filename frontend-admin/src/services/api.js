@@ -193,8 +193,10 @@ export const adminAPI = {
     api.post(`/admin/wechat/config/${id}/activate`),
 
   // WeChat Official Account configuration management
-  getWeChatOfficialConfig: () =>
-    api.get('/admin/wechat-official/config'),
+  getWeChatOfficialConfig: (showSensitive = false) =>
+    api.get('/admin/wechat-official/config', {
+      params: showSensitive ? { show_sensitive: 'true' } : {}
+    }),
 
   updateWeChatOfficialConfig: (data) =>
     api.put('/admin/wechat-official/config', data),

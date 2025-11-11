@@ -100,6 +100,7 @@ const SystemSettings = () => {
 
   // 微信公众号配置
   const [savedWechatOfficialConfig, setSavedWechatOfficialConfig] = useState(null);
+  const [realWechatOfficialConfig, setRealWechatOfficialConfig] = useState(null); // 存储真实敏感数据
   const [isEditingWechatOfficial, setIsEditingWechatOfficial] = useState(false);
   const [wechatOfficialConfig, setWechatOfficialConfig] = useState({
     app_id: '',
@@ -195,6 +196,18 @@ const SystemSettings = () => {
         }
       } catch (err) {
         console.error('Failed to load real alipay keys:', err);
+      }
+    }
+
+    // Load real WeChat Official config if we're on wechat-official tab and config exists
+    if (activeTab === 'wechat-official' && savedWechatOfficialConfig && !realWechatOfficialConfig) {
+      try {
+        const response = await adminAPI.getWeChatOfficialConfig(true); // true = show_sensitive
+        if (response.data.code === 0 && response.data.data) {
+          setRealWechatOfficialConfig(response.data.data);
+        }
+      } catch (err) {
+        console.error('Failed to load real wechat official config:', err);
       }
     }
 
@@ -1871,22 +1884,28 @@ const SystemSettings = () => {
                       <div className="config-value">{savedWechatOfficialConfig.app_id || '-'}</div>
                     </div>
                     <div className="config-item">
-                      <label>AppSecret</label>
-                      <div className="config-value">
-                        {savedWechatOfficialConfig.app_secret ? '已配置 ********' : '未配置'}
-                      </div>
+                      <SensitiveField
+                        label="AppSecret"
+                        value={realWechatOfficialConfig?.app_secret || savedWechatOfficialConfig.app_secret}
+                        isVerified={isVerified}
+                        onRequestVerify={() => setShowVerifyModal(true)}
+                      />
                     </div>
                     <div className="config-item">
-                      <label>Token</label>
-                      <div className="config-value">
-                        {savedWechatOfficialConfig.token ? '已配置 ********' : '未配置'}
-                      </div>
+                      <SensitiveField
+                        label="Token"
+                        value={realWechatOfficialConfig?.token || savedWechatOfficialConfig.token}
+                        isVerified={isVerified}
+                        onRequestVerify={() => setShowVerifyModal(true)}
+                      />
                     </div>
                     <div className="config-item">
-                      <label>EncodingAESKey</label>
-                      <div className="config-value">
-                        {savedWechatOfficialConfig.encoding_aes_key ? '已配置 ********' : '未配置'}
-                      </div>
+                      <SensitiveField
+                        label="EncodingAESKey"
+                        value={realWechatOfficialConfig?.encoding_aes_key || savedWechatOfficialConfig.encoding_aes_key}
+                        isVerified={isVerified}
+                        onRequestVerify={() => setShowVerifyModal(true)}
+                      />
                     </div>
                     <div className="config-item">
                       <label>消息加密方式</label>

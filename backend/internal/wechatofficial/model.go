@@ -63,3 +63,28 @@ type WeChatAccessTokenResponse struct {
 	ErrCode     int    `json:"errcode"`
 	ErrMsg      string `json:"errmsg"`
 }
+
+// MaskSensitiveData masks sensitive fields in the config for display
+func (c *WeChatOfficialConfig) MaskSensitiveData() *WeChatOfficialConfig {
+	masked := *c
+	masked.AppSecret = maskString(c.AppSecret)
+	masked.Token = maskString(c.Token)
+	masked.EncodingAESKey = maskString(c.EncodingAESKey)
+	return &masked
+}
+
+// maskString masks a string by showing first 4 and last 4 characters
+func maskString(s string) string {
+	if s == "" {
+		return ""
+	}
+
+	length := len(s)
+	if length <= 8 {
+		// For short strings, show only asterisks
+		return "****"
+	}
+
+	// Show first 4 and last 4 characters, mask the middle
+	return s[:4] + "****" + s[length-4:]
+}
