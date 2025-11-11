@@ -45,10 +45,29 @@ type PromptTemplate struct {
 	UpdatedAt   time.Time         `json:"updated_at"`
 }
 
+// MessageContent represents content that can be either text or multimodal
+type MessageContent interface{}
+
+// TextContent represents plain text content
+type TextContent struct {
+	Type string `json:"type"` // "text"
+	Text string `json:"text"`
+}
+
+// ImageURLContent represents image URL content
+type ImageURLContent struct {
+	Type     string `json:"type"` // "image_url"
+	ImageURL struct {
+		URL    string `json:"url"`    // can be http URL or base64 data URL
+		Detail string `json:"detail"` // "auto", "low", "high"
+	} `json:"image_url"`
+}
+
 // ChatMessage represents a message in OpenAI chat format
+// Content can be either string (for simple text) or []MessageContent (for multimodal)
 type ChatMessage struct {
-	Role    string `json:"role"`    // system, user, assistant
-	Content string `json:"content"`
+	Role    string         `json:"role"`    // system, user, assistant
+	Content MessageContent `json:"content"` // string or array of content parts
 }
 
 // Message is an alias for ChatMessage for convenience

@@ -59,37 +59,86 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 
 	fmt.Printf("[WeChat] Received message: %s\n", string(body))
 
-	// Parse XML message
-	var msg WeChatTextMessage
-	if err := xml.Unmarshal(body, &msg); err != nil {
+	// Parse XML to determine message type
+	var baseMsg struct {
+		MsgType string `xml:"MsgType"`
+	}
+	if err := xml.Unmarshal(body, &baseMsg); err != nil {
 		fmt.Printf("[WeChat] Failed to parse XML: %v\n", err)
 		c.String(http.StatusBadRequest, "Failed to parse XML")
 		return
 	}
 
-	fmt.Printf("[WeChat] Parsed message - From: %s, Content: %s, Type: %s\n", msg.FromUserName, msg.Content, msg.MsgType)
+	fmt.Printf("[WeChat] Message type: %s\n", baseMsg.MsgType)
 
-	// Only handle text messages
-	if msg.MsgType != "text" {
-		fmt.Printf("[WeChat] Ignoring non-text message type: %s\n", msg.MsgType)
+	var reply string
+	var toUser, fromUser string
+
+	switch baseMsg.MsgType {
+	case "text":
+		// Handle text message
+		var msg WeChatTextMessage
+		if err := xml.Unmarshal(body, &msg); err != nil {
+			fmt.Printf("[WeChat] Failed to parse text message: %v\n", err)
+			c.String(http.StatusBadRequest, "Failed to parse text message")
+			return
+		}
+
+		fmt.Printf("[WeChat] Text message - From: %s, Content: %s\n", msg.FromUserName, msg.Content)
+
+		toUser = msg.FromUserName
+		fromUser = msg.ToUserName
+
+		// Get AI reply (text only)
+		reply, err = h.service.GetAIReply(msg.Content, "")
+		if err != nil {
+			fmt.Printf("[WeChat] Failed to get AI reply: %v\n", err)
+			reply = "抱歉，我暂时无法处理您的消息，请稍后再试。"
+		}
+
+	case "image":
+		// Handle image message
+		var msg WeChatImageMessage
+		if err := xml.Unmarshal(body, &msg); err != nil {
+			fmt.Printf("[WeChat] Failed to parse image message: %v\n", err)
+			c.String(http.StatusBadRequest, "Failed to parse image message")
+			return
+		}
+
+		fmt.Printf("[WeChat] Image message - From: %s, PicUrl: %s, MediaId: %s\n",
+			msg.FromUserName, msg.PicUrl, msg.MediaId)
+
+		toUser = msg.FromUserName
+		fromUser = msg.ToUserName
+
+		// Download image from WeChat
+		base64Image, err := h.service.DownloadImage(msg.MediaId)
+		if err != nil {
+			fmt.Printf("[WeChat] Failed to download image: %v\n", err)
+			reply = "抱歉，我无法处理这张图片，请稍后再试。"
+		} else {
+			// Get AI reply with image
+			userMessage := "请分析这张图片并回答相关问题。"
+			reply, err = h.service.GetAIReplyWithImage(userMessage, base64Image, "")
+			if err != nil {
+				fmt.Printf("[WeChat] Failed to get AI reply with image: %v\n", err)
+				reply = "抱歉，我暂时无法处理您的图片，请稍后再试。"
+			}
+		}
+
+	default:
+		// Ignore other message types
+		fmt.Printf("[WeChat] Ignoring message type: %s\n", baseMsg.MsgType)
 		c.String(http.StatusOK, "success")
 		return
-	}
-
-	// Get AI reply
-	reply, err := h.service.GetAIReply(msg.Content, "")
-	if err != nil {
-		fmt.Printf("[WeChat] Failed to get AI reply: %v\n", err)
-		// Return a default message on error
-		reply = "抱歉，我暂时无法处理您的消息，请稍后再试。"
 	}
 
 	fmt.Printf("[WeChat] AI reply: %s\n", reply)
 
 	// Build response
 	response := WeChatTextResponse{
-		ToUserName:   msg.FromUserName,
-		FromUserName: msg.ToUserName,
+		ToUserName:   toUser,
+		FromUserName: fromUser,
 		CreateTime:   time.Now().Unix(),
 		MsgType:      "text",
 		Content:      reply,

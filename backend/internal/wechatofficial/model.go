@@ -35,6 +35,17 @@ type WeChatTextMessage struct {
 	MsgID        int64  `xml:"MsgId"`
 }
 
+// WeChatImageMessage represents an image message from WeChat
+type WeChatImageMessage struct {
+	ToUserName   string `xml:"ToUserName"`
+	FromUserName string `xml:"FromUserName"`
+	CreateTime   int64  `xml:"CreateTime"`
+	MsgType      string `xml:"MsgType"`
+	PicUrl       string `xml:"PicUrl"`
+	MediaId      string `xml:"MediaId"`
+	MsgID        int64  `xml:"MsgId"`
+}
+
 // WeChatTextResponse represents a text response to WeChat
 type WeChatTextResponse struct {
 	XMLName      xml.Name `xml:"xml"`
@@ -43,4 +54,12 @@ type WeChatTextResponse struct {
 	CreateTime   int64    `xml:"CreateTime"`
 	MsgType      string   `xml:"MsgType"`
 	Content      string   `xml:"Content"`
+}
+
+// WeChatAccessTokenResponse represents WeChat access token response
+type WeChatAccessTokenResponse struct {
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
+	ErrCode     int    `json:"errcode"`
+	ErrMsg      string `json:"errmsg"`
 }
