@@ -245,29 +245,33 @@ const PaperDetailPage = () => {
 
       {/* 顶部导航栏 - 带搜索框和登录/注册按钮 */}
       <div className="paper-top-header">
+        {/* Logo */}
         <div className="header-left">
           <div className="header-logo" onClick={handleLogoClick}>
             <img src="/logo.png" alt="Scholay" className="logo-image" />
             <span className="logo-text">Scholay</span>
           </div>
-
-          {/* 搜索框 */}
-          <form className="header-search-form" onSubmit={handleSearch}>
-            <div className="search-input-wrapper">
-              <svg className="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8"/>
-                <path d="m21 21-4.35-4.35"/>
-              </svg>
-              <input
-                type="text"
-                className="search-input"
-                placeholder="Search papers..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </form>
         </div>
+
+        {/* 搜索框 - 居中 */}
+        <form className="header-search-form" onSubmit={handleSearch}>
+          <div className="search-input-wrapper">
+            <svg className="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Search papers..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <button type="submit" className="search-submit-btn">
+            Search
+          </button>
+        </form>
 
         {/* 右侧按钮 */}
         <div className="header-actions">
