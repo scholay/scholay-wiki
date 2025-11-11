@@ -390,6 +390,22 @@ CREATE TABLE IF NOT EXISTS `system_configs` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置';
 
+-- 微信公众号自动回复配置
+CREATE TABLE IF NOT EXISTS `wechat_official_config` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `app_id` VARCHAR(100) NOT NULL DEFAULT '' COMMENT '微信公众号AppID',
+  `app_secret` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '微信公众号AppSecret',
+  `token` VARCHAR(100) NOT NULL DEFAULT '' COMMENT '微信公众号Token',
+  `encoding_aes_key` VARCHAR(100) NOT NULL DEFAULT '' COMMENT '微信公众号EncodingAESKey',
+  `encryption_mode` VARCHAR(20) NOT NULL DEFAULT 'plaintext' COMMENT '消息加密方式: plaintext=明文模式, compatible=兼容模式, secure=安全模式',
+  `auto_reply_enabled` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否启用自动回复',
+  `ai_model_level` VARCHAR(20) NOT NULL DEFAULT 'low' COMMENT 'AI模型等级: low, medium, high',
+  `system_prompt` TEXT COMMENT 'AI系统提示词',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='微信公众号自动回复配置';
+
 -- 第三方账号配置
 CREATE TABLE IF NOT EXISTS `third_party_accounts` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

@@ -98,6 +98,20 @@ const SystemSettings = () => {
     turnstileSecretKey: '',
   });
 
+  // 微信公众号配置
+  const [savedWechatOfficialConfig, setSavedWechatOfficialConfig] = useState(null);
+  const [isEditingWechatOfficial, setIsEditingWechatOfficial] = useState(false);
+  const [wechatOfficialConfig, setWechatOfficialConfig] = useState({
+    app_id: '',
+    app_secret: '',
+    token: '',
+    encoding_aes_key: '',
+    encryption_mode: 'plaintext',
+    auto_reply_enabled: false,
+    ai_model_level: 'low',
+    system_prompt: '',
+  });
+
   // Update tab when URL changes
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -119,6 +133,9 @@ const SystemSettings = () => {
         break;
       case 'wechat':
         loadWechatConfigs();
+        break;
+      case 'wechat-official':
+        loadWechatOfficialConfig();
         break;
       case 'email':
         loadEmailConfig();
@@ -653,6 +670,109 @@ const SystemSettings = () => {
     }
   };
 
+  // === 微信公众号配置管理 ===
+  const loadWechatOfficialConfig = async () => {
+    setLoadingConfig(true);
+    try {
+      const response = await adminAPI.getWeChatOfficialConfig();
+      if (response.data.code === 0 && response.data.data) {
+        setSavedWechatOfficialConfig(response.data.data);
+        setIsEditingWechatOfficial(false);
+      } else {
+        setSavedWechatOfficialConfig(null);
+      }
+    } catch (err) {
+      console.error('Failed to load WeChat official config:', err);
+      setSavedWechatOfficialConfig(null);
+    } finally {
+      setLoadingConfig(false);
+    }
+  };
+
+  const handleStartEditingWechatOfficial = () => {
+    if (savedWechatOfficialConfig) {
+      setWechatOfficialConfig({
+        app_id: savedWechatOfficialConfig.app_id || '',
+        app_secret: '',
+        token: '',
+        encoding_aes_key: '',
+        encryption_mode: savedWechatOfficialConfig.encryption_mode || 'plaintext',
+        auto_reply_enabled: savedWechatOfficialConfig.auto_reply_enabled || false,
+        ai_model_level: savedWechatOfficialConfig.ai_model_level || 'low',
+        system_prompt: savedWechatOfficialConfig.system_prompt || '',
+      });
+    }
+    setIsEditingWechatOfficial(true);
+  };
+
+  const handleCancelEditingWechatOfficial = () => {
+    setIsEditingWechatOfficial(false);
+    setWechatOfficialConfig({
+      app_id: '',
+      app_secret: '',
+      token: '',
+      encoding_aes_key: '',
+      encryption_mode: 'plaintext',
+      auto_reply_enabled: false,
+      ai_model_level: 'low',
+      system_prompt: '',
+    });
+  };
+
+  const handleWechatOfficialConfigChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setWechatOfficialConfig({
+      ...wechatOfficialConfig,
+      [name]: type === 'checkbox' ? checked : value,
+    });
+  };
+
+  const handleGenerateToken = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let token = '';
+    for (let i = 0; i < 32; i++) {
+      token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setWechatOfficialConfig({ ...wechatOfficialConfig, token });
+    showToast('Token已生成', 'success');
+  };
+
+  const handleGenerateEncodingAESKey = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let key = '';
+    for (let i = 0; i < 43; i++) {
+      key += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setWechatOfficialConfig({ ...wechatOfficialConfig, encoding_aes_key: key });
+    showToast('EncodingAESKey已生成', 'success');
+  };
+
+  const handleWechatOfficialConfigSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const response = await adminAPI.updateWeChatOfficialConfig(wechatOfficialConfig);
+
+      if (response.data.code === 0) {
+        showToast('微信公众号配置已成功保存', 'success');
+        setIsEditingWechatOfficial(false);
+        loadWechatOfficialConfig();
+      } else {
+        showToast(response.data.message || '保存失败', 'error');
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || '保存失败，请稍后重试', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getWebhookUrl = () => {
+    const domain = window.location.origin;
+    return `${domain}/api/v1/wechat-official/webhook`;
+  };
+
   // === 隐私政策管理 ===
   const loadPrivacyPolicy = async () => {
     try {
@@ -830,6 +950,16 @@ const SystemSettings = () => {
             <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd"/>
           </svg>
           微信配置
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'wechat-official' ? 'active' : ''}`}
+          onClick={() => setActiveTab('wechat-official')}
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"/>
+            <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"/>
+          </svg>
+          微信公众号
         </button>
         <button
           className={`tab-button ${activeTab === 'privacy' ? 'active' : ''}`}
@@ -1676,6 +1806,330 @@ const SystemSettings = () => {
                   </form>
                 </div>
               </div>
+            )}
+          </div>
+        )}
+
+        {/* WeChat Official Account Tab */}
+        {activeTab === 'wechat-official' && (
+          <div className="settings-section fade-in">
+            <div className="section-header">
+              <h2>微信公众号自动回复配置</h2>
+              <p>配置微信公众号服务器信息和AI自动回复功能</p>
+            </div>
+
+            {loadingConfig ? (
+              <div className="loading-container">
+                <div className="spinner"></div>
+                <p>加载中...</p>
+              </div>
+            ) : (
+              <>
+                {/* Webhook URL 展示 */}
+                <div className="info-box" style={{ marginBottom: '2rem' }}>
+                  <h3>服务器地址(URL)</h3>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginTop: '0.5rem' }}>
+                    <code style={{ flex: 1, padding: '0.75rem', background: '#f5f5f5', borderRadius: '4px', fontSize: '0.9rem', wordBreak: 'break-all' }}>
+                      {getWebhookUrl()}
+                    </code>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => {
+                        navigator.clipboard.writeText(getWebhookUrl());
+                        showToast('已复制到剪贴板', 'success');
+                      }}
+                    >
+                      复制
+                    </button>
+                  </div>
+                  <small style={{ display: 'block', marginTop: '0.5rem', color: '#666' }}>
+                    此URL需要配置在微信公众号后台
+                  </small>
+                </div>
+
+                {!savedWechatOfficialConfig && !isEditingWechatOfficial ? (
+                  // 无配置且未编辑状态 - 显示创建提示
+                  <div className="empty-state">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ opacity: 0.3, marginBottom: '1rem' }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                    <p style={{ marginBottom: '1.5rem', color: '#666' }}>尚未配置微信公众号</p>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleStartEditingWechatOfficial}
+                    >
+                      开始配置
+                    </button>
+                  </div>
+                ) : !isEditingWechatOfficial ? (
+                  // 已有配置且未编辑状态 - 显示当前配置
+                  <div className="config-display">
+                    <div className="config-item">
+                      <label>AppID</label>
+                      <div className="config-value">{savedWechatOfficialConfig.app_id || '-'}</div>
+                    </div>
+                    <div className="config-item">
+                      <label>AppSecret</label>
+                      <div className="config-value">
+                        {savedWechatOfficialConfig.app_secret ? '已配置 ********' : '未配置'}
+                      </div>
+                    </div>
+                    <div className="config-item">
+                      <label>Token</label>
+                      <div className="config-value">
+                        {savedWechatOfficialConfig.token ? '已配置 ********' : '未配置'}
+                      </div>
+                    </div>
+                    <div className="config-item">
+                      <label>EncodingAESKey</label>
+                      <div className="config-value">
+                        {savedWechatOfficialConfig.encoding_aes_key ? '已配置 ********' : '未配置'}
+                      </div>
+                    </div>
+                    <div className="config-item">
+                      <label>消息加密方式</label>
+                      <div className="config-value">
+                        {savedWechatOfficialConfig.encryption_mode === 'plaintext' && '明文模式'}
+                        {savedWechatOfficialConfig.encryption_mode === 'compatible' && '兼容模式'}
+                        {savedWechatOfficialConfig.encryption_mode === 'secure' && '安全模式（加密）'}
+                      </div>
+                    </div>
+                    <div className="config-item">
+                      <label>AI自动回复</label>
+                      <div className="config-value">
+                        {savedWechatOfficialConfig.auto_reply_enabled ? (
+                          <span style={{ color: '#10b981' }}>✓ 已启用</span>
+                        ) : (
+                          <span style={{ color: '#6b7280' }}>未启用</span>
+                        )}
+                      </div>
+                    </div>
+                    {savedWechatOfficialConfig.auto_reply_enabled && (
+                      <>
+                        <div className="config-item">
+                          <label>AI模型等级</label>
+                          <div className="config-value">
+                            {savedWechatOfficialConfig.ai_model_level === 'low' && 'Low - 低成本模型'}
+                            {savedWechatOfficialConfig.ai_model_level === 'medium' && 'Medium - 中等模型'}
+                            {savedWechatOfficialConfig.ai_model_level === 'high' && 'High - 高级模型'}
+                          </div>
+                        </div>
+                        <div className="config-item">
+                          <label>系统提示词</label>
+                          <div className="config-value" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                            {savedWechatOfficialConfig.system_prompt || '使用默认提示词'}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <div className="form-actions" style={{ marginTop: '2rem' }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={handleStartEditingWechatOfficial}
+                      >
+                        修改配置
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // 编辑状态 - 显示表单
+                  <form onSubmit={handleWechatOfficialConfigSubmit} className="settings-form">
+                    <div className="form-group">
+                      <label htmlFor="app_id">AppID</label>
+                      <input
+                        type="text"
+                        id="app_id"
+                        name="app_id"
+                        className="input"
+                        value={wechatOfficialConfig.app_id}
+                        onChange={handleWechatOfficialConfigChange}
+                        placeholder="wx1234567890abcdef"
+                      />
+                      <small className="form-hint">从微信公众号后台获取</small>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="app_secret">AppSecret</label>
+                      <input
+                        type="password"
+                        id="app_secret"
+                        name="app_secret"
+                        className="input"
+                        value={wechatOfficialConfig.app_secret}
+                        onChange={handleWechatOfficialConfigChange}
+                        placeholder={savedWechatOfficialConfig ? "留空表示不修改" : "请输入AppSecret"}
+                      />
+                      <small className="form-hint">
+                        {savedWechatOfficialConfig ? "留空表示不修改当前配置" : "从微信公众号后台获取，请妥善保管"}
+                      </small>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="token">Token</label>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input
+                          type="text"
+                          id="token"
+                          name="token"
+                          className="input"
+                          value={wechatOfficialConfig.token}
+                          onChange={handleWechatOfficialConfigChange}
+                          placeholder={savedWechatOfficialConfig ? "留空表示不修改" : "必须为英文或数字，长度为3-32字符"}
+                          style={{ flex: 1 }}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={handleGenerateToken}
+                        >
+                          随机生成
+                        </button>
+                      </div>
+                      <small className="form-hint">
+                        {savedWechatOfficialConfig ? "留空表示不修改当前配置" : "消息加密密钥，由开发者任意填写"}
+                      </small>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="encoding_aes_key">EncodingAESKey</label>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input
+                          type="text"
+                          id="encoding_aes_key"
+                          name="encoding_aes_key"
+                          className="input"
+                          value={wechatOfficialConfig.encoding_aes_key}
+                          onChange={handleWechatOfficialConfigChange}
+                          placeholder={savedWechatOfficialConfig ? "留空表示不修改" : "消息加密密钥由43位字符组成"}
+                          style={{ flex: 1 }}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={handleGenerateEncodingAESKey}
+                        >
+                          随机生成
+                        </button>
+                      </div>
+                      <small className="form-hint">
+                        {savedWechatOfficialConfig ? "留空表示不修改当前配置" : "消息体加解密密钥，由43位字符组成"}
+                      </small>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="encryption_mode">消息加密方式</label>
+                      <select
+                        id="encryption_mode"
+                        name="encryption_mode"
+                        className="input"
+                        value={wechatOfficialConfig.encryption_mode}
+                        onChange={handleWechatOfficialConfigChange}
+                      >
+                        <option value="plaintext">明文模式</option>
+                        <option value="compatible">兼容模式</option>
+                        <option value="secure">安全模式（加密）</option>
+                      </select>
+                      <small className="form-hint">
+                        {wechatOfficialConfig.encryption_mode === 'plaintext' && '明文模式下，不使用消息体加解密功能，安全系数较低'}
+                        {wechatOfficialConfig.encryption_mode === 'compatible' && '兼容模式下，明文、密文将共存，方便开发者调试和维护'}
+                        {wechatOfficialConfig.encryption_mode === 'secure' && '安全模式下，消息包为纯密文，需要开发者加密和解密，安全系数高'}
+                      </small>
+                    </div>
+
+                    <div className="section-divider" style={{ margin: '2rem 0', borderTop: '1px solid #e5e7eb' }}></div>
+
+                    <div className="section-header">
+                      <h3>AI自动回复配置</h3>
+                      <p style={{ fontSize: '0.875rem', color: '#666' }}>配置AI模型自动回复用户消息</p>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          name="auto_reply_enabled"
+                          checked={wechatOfficialConfig.auto_reply_enabled}
+                          onChange={handleWechatOfficialConfigChange}
+                        />
+                        <span>启用AI自动回复</span>
+                      </label>
+                      <small className="form-hint">开启后，用户发送文本消息时将自动调用AI生成回复</small>
+                    </div>
+
+                    {wechatOfficialConfig.auto_reply_enabled && (
+                      <>
+                        <div className="form-group">
+                          <label htmlFor="ai_model_level">AI模型等级</label>
+                          <select
+                            id="ai_model_level"
+                            name="ai_model_level"
+                            className="input"
+                            value={wechatOfficialConfig.ai_model_level}
+                            onChange={handleWechatOfficialConfigChange}
+                          >
+                            <option value="low">Low - 低成本模型（适合简单对话）</option>
+                            <option value="medium">Medium - 中等模型（平衡性能和成本）</option>
+                            <option value="high">High - 高级模型（最佳回复质量）</option>
+                          </select>
+                          <small className="form-hint">选择用于自动回复的AI模型等级，需要在"第三方账号管理"中配置对应的AI模型</small>
+                        </div>
+
+                        <div className="form-group">
+                          <label htmlFor="system_prompt">系统提示词</label>
+                          <textarea
+                            id="system_prompt"
+                            name="system_prompt"
+                            className="input"
+                            value={wechatOfficialConfig.system_prompt}
+                            onChange={handleWechatOfficialConfigChange}
+                            placeholder="你是一个友好的助手，请简洁准确地回答用户的问题。回复不要超过200字。"
+                            rows="4"
+                            style={{ resize: 'vertical', minHeight: '100px' }}
+                          />
+                          <small className="form-hint">配置AI回复用户消息时使用的系统提示词，留空将使用默认提示词</small>
+                        </div>
+                      </>
+                    )}
+
+                    <div className="form-actions">
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={handleCancelEditingWechatOfficial}
+                      >
+                        取消
+                      </button>
+                      <button type="submit" className="btn btn-primary" disabled={loading}>
+                        {loading ? (
+                          <>
+                            <span className="spinner"></span>
+                            <span style={{ marginLeft: '0.5rem' }}>保存中...</span>
+                          </>
+                        ) : (
+                          '保存配置'
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* 配置步骤说明 */}
+                <div className="info-box" style={{ marginTop: '2rem', background: '#fff3cd', border: '1px solid #ffc107' }}>
+                  <h3>配置步骤</h3>
+                  <ol style={{ margin: '0.5rem 0 0 1.5rem', padding: 0 }}>
+                    <li>登录微信公众平台，进入"开发" - "基本配置"</li>
+                    <li>填写上方的"服务器地址(URL)"</li>
+                    <li>填写Token和EncodingAESKey（可使用"随机生成"按钮）</li>
+                    <li>选择消息加密方式</li>
+                    <li>点击"保存配置"按钮保存设置</li>
+                    <li>在微信公众平台点击"提交"进行服务器验证</li>
+                    <li>启用"AI自动回复"功能，选择合适的AI模型等级</li>
+                  </ol>
+                </div>
+              </>
             )}
           </div>
         )}

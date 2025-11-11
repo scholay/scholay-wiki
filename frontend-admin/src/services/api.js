@@ -192,6 +192,13 @@ export const adminAPI = {
   activateWeChatConfig: (id) =>
     api.post(`/admin/wechat/config/${id}/activate`),
 
+  // WeChat Official Account configuration management
+  getWeChatOfficialConfig: () =>
+    api.get('/admin/wechat-official/config'),
+
+  updateWeChatOfficialConfig: (data) =>
+    api.put('/admin/wechat-official/config', data),
+
   // Order management
   getOrderStatistics: () =>
     api.get('/admin/orders/statistics'),

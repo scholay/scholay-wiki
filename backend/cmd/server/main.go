@@ -25,6 +25,7 @@ import (
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/user"
 	"scholar-backend/internal/wechat"
+	"scholar-backend/internal/wechatofficial"
 
 	"github.com/gin-gonic/gin"
 )
@@ -142,6 +143,10 @@ func main() {
 	wechatAdapter := wechat.NewServiceAdapter(wechatService)
 	userHandler.SetWeChatService(wechatAdapter)
 
+	// Initialize WeChat Official Account module
+	wechatOfficialService := wechatofficial.NewService(database.GetDB(), aiService)
+	wechatOfficialHandler := wechatofficial.NewHandler(wechatOfficialService)
+
 	// Setup Gin router
 	router := gin.Default()
 
@@ -228,10 +233,21 @@ func main() {
 			adminProtected.PUT("/wechat/config/:id", wechatHandler.UpdateConfig)
 			adminProtected.DELETE("/wechat/config/:id", wechatHandler.DeleteConfig)
 			adminProtected.POST("/wechat/config/:id/activate", wechatHandler.SetActiveConfig)
+
+			// WeChat Official Account configuration (Admin only)
+			adminProtected.GET("/wechat-official/config", wechatOfficialHandler.GetConfig)
+			adminProtected.PUT("/wechat-official/config", wechatOfficialHandler.UpdateConfig)
 		}
 
 		// Payment callback routes (public, no auth required)
 		api.POST("/payment/alipay/notify", alipayHandler.HandleCallback)
+
+		// WeChat Official Account webhook (public, no auth required)
+		wechatOfficialWebhook := api.Group("/wechat-official")
+		{
+			wechatOfficialWebhook.GET("/webhook", wechatOfficialHandler.HandleVerification)
+			wechatOfficialWebhook.POST("/webhook", wechatOfficialHandler.HandleMessage)
+		}
 
 		// User routes
 		userHandler.RegisterRoutes(api)
