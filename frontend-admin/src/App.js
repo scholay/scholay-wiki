@@ -13,6 +13,9 @@ const ThirdPartyAccounts = lazy(() => import('./pages/ThirdPartyAccounts'));
 const PromptTemplates = lazy(() => import('./pages/PromptTemplates'));
 const SubscriptionPlans = lazy(() => import('./pages/SubscriptionPlans'));
 const OrderManagement = lazy(() => import('./pages/OrderManagement'));
+const CouponManagement = lazy(() => import('./pages/CouponManagement'));
+const CouponBatchManagement = lazy(() => import('./pages/CouponBatchManagement'));
+const DistributedCoupons = lazy(() => import('./pages/DistributedCoupons'));
 
 // Loading component for Suspense fallback
 const LoadingFallback = () => (
@@ -49,6 +52,9 @@ function App() {
               <Route index element={<DashboardHome />} />
               <Route path="users" element={<UserManagement />} />
               <Route path="orders" element={<OrderManagement />} />
+              <Route path="coupons" element={<CouponManagement />} />
+              <Route path="coupon-batches" element={<CouponBatchManagement />} />
+              <Route path="distributed-coupons" element={<DistributedCoupons />} />
               <Route path="third-party-accounts" element={<ThirdPartyAccounts />} />
               <Route path="prompt-templates" element={<PromptTemplates />} />
               <Route path="subscription-plans" element={<SubscriptionPlans />} />

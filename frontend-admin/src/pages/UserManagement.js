@@ -3,6 +3,7 @@ import { adminAPI } from '../services/api';
 import { showToast } from '../components/Toast';
 import UserStatisticsChart from '../components/UserStatisticsChart';
 import OnlineUserChart from '../components/OnlineUserChart';
+import UserDetailDrawer from '../components/UserDetailDrawer';
 import './UserManagement.css';
 
 const UserManagement = () => {
@@ -20,6 +21,7 @@ const UserManagement = () => {
   });
   const [activeView, setActiveView] = useState('list'); // 'list' or 'online'
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, userId: null, userEmail: '' });
+  const [selectedUserId, setSelectedUserId] = useState(null);
 
   useEffect(() => {
     loadUserStatistics();
@@ -262,6 +264,13 @@ const UserManagement = () => {
                           <td>{formatDate(user.created_at)}</td>
                           <td>
                             <button
+                              className="action-btn view-btn"
+                              onClick={() => setSelectedUserId(user.id)}
+                              title="查看详情"
+                            >
+                              查看
+                            </button>
+                            <button
                               className="action-btn delete-btn"
                               onClick={() => handleDeleteClick(user)}
                               title="删除用户"
@@ -373,6 +382,14 @@ const UserManagement = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* User Detail Drawer */}
+      {selectedUserId && (
+        <UserDetailDrawer
+          userId={selectedUserId}
+          onClose={() => setSelectedUserId(null)}
+        />
       )}
     </div>
   );

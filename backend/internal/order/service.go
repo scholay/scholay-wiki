@@ -6,15 +6,19 @@ import (
 	"fmt"
 	"time"
 
+	"scholar-backend/internal/coupon"
 	"scholar-backend/internal/subscription"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Service handles business logic for orders
 type Service struct {
 	repo        *Repository
 	subsService *subscription.Service
+	couponRepo  *coupon.Repository
+	db          *gorm.DB
 }
 
 // NewService creates a new order service
@@ -22,16 +26,19 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{
 		repo:        NewRepository(db),
 		subsService: subscription.NewService(db),
+		couponRepo:  coupon.NewRepository(db),
+		db:          db,
 	}
 }
 
 // CreateOrderRequest represents the request to create an order
 type CreateOrderRequest struct {
-	PlanCode     string `json:"plan_code" binding:"required"`
-	BillingCycle string `json:"billing_cycle" binding:"required"` // monthly or yearly
+	PlanCode     string  `json:"plan_code" binding:"required"`
+	BillingCycle string  `json:"billing_cycle" binding:"required"` // monthly or yearly
+	CouponID     *uint64 `json:"coupon_id"` // Optional coupon ID
 }
 
-// CreateOrder creates a new order for a user
+// CreateOrder creates a new order for a user with optional coupon
 func (s *Service) CreateOrder(userID uint, req CreateOrderRequest) (*Order, error) {
 	// Validate billing cycle
 	if req.BillingCycle != "monthly" && req.BillingCycle != "yearly" {
@@ -44,7 +51,7 @@ func (s *Service) CreateOrder(userID uint, req CreateOrderRequest) (*Order, erro
 		return nil, fmt.Errorf("failed to get plan: %w", err)
 	}
 
-	// Calculate amount using current prices
+	// Calculate original amount using current prices
 	var amount float64
 	if req.BillingCycle == "monthly" {
 		amount = plan.CurrentPriceMonthly
@@ -52,18 +59,98 @@ func (s *Service) CreateOrder(userID uint, req CreateOrderRequest) (*Order, erro
 		amount = plan.CurrentPriceYearly
 	}
 
+	// Initialize discount variables
+	var discountAmount float64 = 0
+	var finalAmount float64 = amount
+	var couponID *uint64 = nil
+
+	// If coupon is provided, validate and apply it
+	if req.CouponID != nil && *req.CouponID > 0 {
+		// Use a database transaction to ensure atomicity and prevent concurrent usage
+		err := s.db.Transaction(func(tx *gorm.DB) error {
+			// Get the coupon with pessimistic lock (SELECT FOR UPDATE)
+			var userCoupon coupon.UserCoupon
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+				Where("id = ? AND user_id = ? AND status = ?",
+					*req.CouponID, userID, coupon.CouponStatusUnused).
+				First(&userCoupon).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return errors.New("coupon not found or already used")
+				}
+				return fmt.Errorf("failed to get coupon: %w", err)
+			}
+
+			// Preload template
+			if err := tx.Preload("Template").First(&userCoupon, userCoupon.ID).Error; err != nil {
+				return fmt.Errorf("failed to load coupon template: %w", err)
+			}
+
+			// Validate coupon
+			if userCoupon.Template == nil {
+				return errors.New("coupon template not found")
+			}
+
+			// Check if template is active
+			if userCoupon.Template.Status != coupon.TemplateStatusActive {
+				return errors.New("coupon template is not active")
+			}
+
+			// Check if coupon is valid (time range)
+			now := time.Now()
+			if now.Before(userCoupon.ValidFrom) || now.After(userCoupon.ValidUntil) {
+				return errors.New("coupon is expired or not yet valid")
+			}
+
+			// Check minimum purchase amount
+			if amount < userCoupon.MinPurchaseAmount {
+				return fmt.Errorf("order amount %.2f is less than minimum required %.2f",
+					amount, userCoupon.MinPurchaseAmount)
+			}
+
+			// Calculate discount
+			discountAmount = coupon.CalculateDiscount(
+				userCoupon.Template.Type,
+				userCoupon.DiscountValue,
+				amount,
+			)
+
+			finalAmount = amount - discountAmount
+			if finalAmount < 0 {
+				finalAmount = 0
+			}
+
+			couponID = req.CouponID
+
+			// Mark coupon as reserved (we'll mark it as used when payment succeeds)
+			// For now, just update the status to "reserved" to prevent concurrent usage
+			userCoupon.Status = coupon.CouponStatusReserved
+			if err := tx.Save(&userCoupon).Error; err != nil {
+				return fmt.Errorf("failed to reserve coupon: %w", err)
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			return nil, fmt.Errorf("coupon validation failed: %w", err)
+		}
+	}
+
 	// Generate order number (timestamp + user_id)
 	orderNo := fmt.Sprintf("ORD%d%d", time.Now().Unix(), userID)
 
-	// Create order
+	// Create order with coupon information
 	order := &Order{
-		UserID:       userID,
-		OrderNo:      orderNo,
-		PlanCode:     plan.PlanCode,
-		PlanName:     plan.PlanName,
-		BillingCycle: req.BillingCycle,
-		Amount:       amount,
-		Status:       "pending",
+		UserID:         userID,
+		OrderNo:        orderNo,
+		PlanCode:       plan.PlanCode,
+		PlanName:       plan.PlanName,
+		BillingCycle:   req.BillingCycle,
+		Amount:         amount,
+		CouponID:       couponID,
+		DiscountAmount: discountAmount,
+		FinalAmount:    finalAmount,
+		Status:         "pending",
 	}
 
 	if err := s.repo.CreateOrder(order); err != nil {
@@ -181,7 +268,7 @@ func (s *Service) ProcessPayment(userID uint, req ProcessPaymentRequest) error {
 	return nil
 }
 
-// CancelOrder cancels an order
+// CancelOrder cancels an order and unreserves the coupon if applicable
 func (s *Service) CancelOrder(userID uint, orderNo string) error {
 	// Get order
 	order, err := s.repo.GetOrderByOrderNo(orderNo)
@@ -197,6 +284,19 @@ func (s *Service) CancelOrder(userID uint, orderNo string) error {
 	// Check if order can be cancelled
 	if order.Status != "pending" {
 		return errors.New("only pending orders can be cancelled")
+	}
+
+	// If order has a reserved coupon, unreserve it
+	if order.CouponID != nil && *order.CouponID > 0 {
+		// Change coupon status back to unused
+		if err := s.couponRepo.UpdateUserCoupon(*order.CouponID, map[string]interface{}{
+			"status": coupon.CouponStatusUnused,
+		}); err != nil {
+			// Log error but continue with cancellation
+			fmt.Printf("⚠ Warning: Failed to unreserve coupon %d: %v\n", *order.CouponID, err)
+		} else {
+			fmt.Printf("✓ Coupon %d unreserved after order cancellation\n", *order.CouponID)
+		}
 	}
 
 	// Update order status
@@ -263,6 +363,16 @@ func (s *Service) ProcessAlipayCallback(orderNo, transactionNo string, amount fl
 	// Upgrade user subscription
 	if err := s.subsService.UpgradeSubscription(order.UserID, order.PlanCode, duration); err != nil {
 		return fmt.Errorf("failed to upgrade subscription: %w", err)
+	}
+
+	// Mark coupon as used if order has a coupon
+	if order.CouponID != nil && *order.CouponID > 0 {
+		if err := s.couponRepo.UseCoupon(*order.CouponID, uint64(order.ID)); err != nil {
+			// Log error but don't fail the payment process
+			fmt.Printf("⚠ Warning: Failed to mark coupon %d as used: %v\n", *order.CouponID, err)
+		} else {
+			fmt.Printf("✓ Coupon %d marked as used for order %s\n", *order.CouponID, orderNo)
+		}
 	}
 
 	fmt.Printf("✓ Alipay payment processed successfully for order %s\n", orderNo)

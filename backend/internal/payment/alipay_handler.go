@@ -175,9 +175,9 @@ func (h *AlipayHandler) processSuccessfulPayment(orderNo, transactionNo, amountS
 		return fmt.Errorf("invalid amount: %w", err)
 	}
 
-	// Compare amounts with 0.01 tolerance for floating point precision
-	if math.Abs(amount-orderRecord.Amount) > 0.01 {
-		return fmt.Errorf("amount mismatch: expected %.2f, got %.2f", orderRecord.Amount, amount)
+	// Compare amounts with final amount (after coupon discount) with 0.01 tolerance for floating point precision
+	if math.Abs(amount-orderRecord.FinalAmount) > 0.01 {
+		return fmt.Errorf("amount mismatch: expected %.2f, got %.2f", orderRecord.FinalAmount, amount)
 	}
 
 	// Process Alipay callback using the dedicated method
@@ -394,4 +394,90 @@ func (h *AlipayHandler) SetActiveConfig(c *gin.Context) {
 	}
 
 	utils.Success(c, gin.H{"message": "Configuration activated successfully"})
+}
+
+// SimulatePayment simulates a successful payment for development/testing
+// POST /api/v1/user/payment/simulate
+func (h *AlipayHandler) SimulatePayment(c *gin.Context) {
+	var req struct {
+		OrderNo string  `json:"order_no" binding:"required"`
+		Amount  float64 `json:"amount" binding:"required,gt=0"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	// Get user ID from context
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		utils.Unauthorized(c, "User not authenticated")
+		return
+	}
+	userID := userIDInterface.(uint)
+
+	// Verify order exists and belongs to user
+	orderRecord, err := h.orderService.GetOrderByOrderNo(req.OrderNo)
+	if err != nil {
+		utils.Error(c, 4001, "Order not found")
+		return
+	}
+
+	if orderRecord.UserID != userID {
+		utils.Error(c, 4003, "Order does not belong to user")
+		return
+	}
+
+	// Check order status
+	if orderRecord.Status != "pending" {
+		utils.Error(c, 4004, "Order is not in pending status")
+		return
+	}
+
+	// Verify amount matches final amount (with coupon discount) (with 0.01 tolerance)
+	if math.Abs(req.Amount-orderRecord.FinalAmount) > 0.01 {
+		utils.Error(c, 4005, fmt.Sprintf("Amount mismatch: expected %.2f, got %.2f", orderRecord.FinalAmount, req.Amount))
+		return
+	}
+
+	// Generate a mock transaction number
+	mockTransactionNo := fmt.Sprintf("MOCK_%s_%d", req.OrderNo, time.Now().Unix())
+
+	// Create mock callback data
+	mockCallbackData := map[string]string{
+		"out_trade_no": req.OrderNo,
+		"trade_no":     mockTransactionNo,
+		"trade_status": "TRADE_SUCCESS",
+		"total_amount": fmt.Sprintf("%.2f", req.Amount),
+		"notify_time":  time.Now().Format("2006-01-02 15:04:05"),
+		"notify_type":  "trade_status_sync",
+		"app_id":       "MOCK_DEV_APP",
+		"seller_id":    "MOCK_SELLER",
+		"buyer_id":     "MOCK_BUYER",
+		"receipt_amount": fmt.Sprintf("%.2f", req.Amount),
+	}
+
+	// Process the simulated payment
+	fmt.Printf("\n========== [SIMULATE_PAYMENT_START] Time: %s ==========\n", time.Now().Format("2006-01-02 15:04:05"))
+	fmt.Printf("[SIMULATE_PAYMENT] Order No: %s\n", req.OrderNo)
+	fmt.Printf("[SIMULATE_PAYMENT] Amount: %.2f\n", req.Amount)
+	fmt.Printf("[SIMULATE_PAYMENT] Mock Transaction No: %s\n", mockTransactionNo)
+
+	if err := h.orderService.ProcessAlipayCallback(req.OrderNo, mockTransactionNo, req.Amount, mockCallbackData); err != nil {
+		fmt.Printf("[SIMULATE_PAYMENT_ERROR] Failed to process: %v\n", err)
+		fmt.Printf("========== [SIMULATE_PAYMENT_END] Result: FAILED ==========\n\n")
+		utils.Error(c, 5000, "Failed to simulate payment: "+err.Error())
+		return
+	}
+
+	fmt.Printf("[SIMULATE_PAYMENT] Payment processed successfully ✓\n")
+	fmt.Printf("========== [SIMULATE_PAYMENT_END] Result: SUCCESS ==========\n\n")
+
+	utils.Success(c, gin.H{
+		"message":        "Payment simulated successfully",
+		"order_no":       req.OrderNo,
+		"transaction_no": mockTransactionNo,
+		"status":         "paid",
+	})
 }

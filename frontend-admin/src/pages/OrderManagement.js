@@ -203,7 +203,19 @@ const OrderManagement = () => {
                           </span>
                         </div>
                       </td>
-                      <td className="amount">{formatCurrency(order.amount)}</td>
+                      <td className="amount">
+                        <div className="amount-details">
+                          {order.discount_amount > 0 ? (
+                            <>
+                              <span className="final-amount">{formatCurrency(order.final_amount)}</span>
+                              <span className="original-amount">{formatCurrency(order.amount)}</span>
+                              <span className="discount-badge">已优惠{formatCurrency(order.discount_amount)}</span>
+                            </>
+                          ) : (
+                            <span className="final-amount">{formatCurrency(order.final_amount)}</span>
+                          )}
+                        </div>
+                      </td>
                       <td className="payment-method">{order.payment_method || '-'}</td>
                       <td className="payment-time">
                         {order.payment_time ? formatDateTime(order.payment_time) : '-'}

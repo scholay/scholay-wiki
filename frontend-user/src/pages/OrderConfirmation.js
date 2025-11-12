@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { orderAPI, paymentAPI } from '../services/api';
+import api, { orderAPI, paymentAPI } from '../services/api';
 import { useToast } from '../components/ToastContainer';
 import './OrderConfirmation.css';
 
@@ -13,21 +13,61 @@ const OrderConfirmation = () => {
   const [loading, setLoading] = useState(true);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('alipay');
+  const [isDevMode, setIsDevMode] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [pollingCount, setPollingCount] = useState(0);
 
-  useEffect(() => {
-    // Get order number from location state or URL parameter
-    const orderNo = location.state?.orderNo || new URLSearchParams(location.search).get('orderNo');
+  // 折扣券相关状态
+  const [availableCoupons, setAvailableCoupons] = useState([]);
+  const [selectedCoupon, setSelectedCoupon] = useState(null);
+  const [showCouponModal, setShowCouponModal] = useState(false);
+  const [discountPreview, setDiscountPreview] = useState(null);
 
-    if (!orderNo) {
-      showError('订单信息不存在,请重新下单');
-      navigate('/settings');
+  useEffect(() => {
+    // Check if in development mode (localhost or dev environment)
+    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    setIsDevMode(isDev);
+
+    // Check if we have plan details (new flow - order not created yet)
+    const { planCode, billingCycle } = location.state || {};
+
+    if (planCode && billingCycle) {
+      // New flow: order not created yet, fetch plan details and show preview
+      fetchPlanDetails(planCode, billingCycle);
       return;
     }
 
-    fetchOrderDetails(orderNo);
+    // Old flow: order already created (for backward compatibility or payment callback)
+    const orderNo = location.state?.orderNo || new URLSearchParams(location.search).get('orderNo');
+    if (orderNo) {
+      fetchOrderDetails(orderNo);
+      fetchAvailableCoupons(orderNo);
+      return;
+    }
+
+    // No valid state
+    showError('订单信息不存在,请重新下单');
+    navigate('/pricing');
   }, [location.state, location.search]);
+
+  // 获取可用折扣券
+  const fetchAvailableCoupons = async (orderNo) => {
+    try {
+      // 先获取订单详情以获取订单金额
+      const orderResponse = await orderAPI.getOrderDetail(orderNo);
+      if (orderResponse.data.code === 0 && orderResponse.data.data) {
+        const orderAmount = orderResponse.data.data.amount;
+
+        // 获取可用的折扣券
+        const couponsResponse = await api.get(`/user/coupons/available?amount=${orderAmount}`);
+        if (couponsResponse.data.code === 0) {
+          setAvailableCoupons(couponsResponse.data.data || []);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch available coupons:', error);
+    }
+  };
 
   // Polling effect - check order status periodically after payment redirect
   useEffect(() => {
@@ -64,6 +104,45 @@ const OrderConfirmation = () => {
 
     return () => clearTimeout(pollTimer);
   }, [order, isPolling, pollingCount, location.search]);
+
+  // Fetch plan details and create a preview order object (order not created on backend yet)
+  const fetchPlanDetails = async (planCode, billingCycle) => {
+    try {
+      const response = await api.get(`/user/subscription/plans/${planCode}`);
+      if (response.data.code === 0 && response.data.data) {
+        const plan = response.data.data;
+        const amount = billingCycle === 'monthly' ? plan.current_price_monthly : plan.current_price_yearly;
+
+        // Create a preview order object (not saved to backend yet)
+        const previewOrder = {
+          plan_code: plan.plan_code,
+          plan_name: plan.plan_name,
+          billing_cycle: billingCycle,
+          amount: amount,
+          final_amount: amount, // Will be updated when coupon is selected
+          discount_amount: 0,
+          coupon_id: null,
+          status: 'preview', // Special status to indicate this is a preview
+          order_no: null, // Will be generated on payment
+          created_at: new Date().toISOString(), // Add current time for preview
+        };
+
+        setOrder(previewOrder);
+
+        // Fetch available coupons
+        const couponsResponse = await api.get(`/user/coupons/available?amount=${amount}`);
+        if (couponsResponse.data.code === 0 && couponsResponse.data.data) {
+          setAvailableCoupons(couponsResponse.data.data || []);
+        }
+      }
+      setLoading(false);
+    } catch (error) {
+      showError('获取套餐信息失败,请重试');
+      console.error('Failed to fetch plan details:', error);
+      setLoading(false);
+      navigate('/pricing');
+    }
+  };
 
   const fetchOrderDetails = async (orderNo, isPollingRequest = false) => {
     try {
@@ -118,24 +197,120 @@ const OrderConfirmation = () => {
     }
   };
 
+  // 选择折扣券
+  const handleSelectCoupon = async (coupon) => {
+    if (!coupon || !order) return;
+
+    try {
+      // 计算折扣预览
+      const response = await api.get(`/user/coupons/calculate-discount?coupon_id=${coupon.id}&amount=${order.amount}`);
+      if (response.data.code === 0) {
+        setSelectedCoupon(coupon);
+        setDiscountPreview(response.data.data);
+        setShowCouponModal(false);
+
+        // If order is in preview mode, update the preview order with discount information
+        if (order.status === 'preview') {
+          const discountData = response.data.data;
+          setOrder({
+            ...order,
+            coupon_id: coupon.id,
+            discount_amount: discountData.discount_amount,
+            final_amount: discountData.final_amount,
+          });
+        }
+      }
+    } catch (error) {
+      showError('计算折扣失败：' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  // 取消选择折扣券
+  const handleRemoveCoupon = () => {
+    setSelectedCoupon(null);
+    setDiscountPreview(null);
+
+    // If order is in preview mode, reset the discount information
+    if (order && order.status === 'preview') {
+      setOrder({
+        ...order,
+        coupon_id: null,
+        discount_amount: 0,
+        final_amount: order.amount,
+      });
+    }
+  };
+
+  // 获取最终支付金额
+  const getFinalAmount = () => {
+    if (discountPreview) {
+      return discountPreview.final_amount;
+    }
+    return order.amount;
+  };
+
   const handlePayment = async () => {
     if (!order) return;
 
     setPaymentLoading(true);
 
+    // If order is in preview status, create the order first
+    let actualOrder = order;
+    if (order.status === 'preview') {
+      try {
+        console.log('[Order Creation] Creating order with coupon:', selectedCoupon?.id);
+        const createOrderResponse = await orderAPI.createOrder(
+          order.plan_code,
+          order.billing_cycle,
+          selectedCoupon?.id // Pass coupon_id if selected
+        );
+
+        if (createOrderResponse.data.code !== 0 || !createOrderResponse.data.data) {
+          showError('创建订单失败：' + (createOrderResponse.data.message || '未知错误'));
+          setPaymentLoading(false);
+          return;
+        }
+
+        actualOrder = createOrderResponse.data.data;
+        setOrder(actualOrder);
+        console.log('[Order Creation] Order created successfully:', actualOrder.order_no);
+      } catch (error) {
+        showError('创建订单失败：' + (error.response?.data?.message || error.message));
+        setPaymentLoading(false);
+        return;
+      }
+    }
+
     try {
-      if (selectedPaymentMethod === 'alipay') {
+      // Use the final_amount from the order (backend has already calculated discount)
+      const finalAmount = actualOrder.final_amount;
+
+      if (selectedPaymentMethod === 'simulate') {
+        // Simulate payment for development
+        const response = await api.post('/user/payment/simulate', {
+          order_no: actualOrder.order_no,
+          amount: finalAmount
+        });
+
+        if (response.data.code === 0) {
+          // Payment simulated successfully, start polling
+          setIsPolling(true);
+          console.log('[Simulate Payment] Payment simulated, starting polling...');
+        } else {
+          showError('模拟支付失败：' + (response.data.message || '未知错误'));
+          setPaymentLoading(false);
+        }
+      } else if (selectedPaymentMethod === 'alipay') {
         // Create Alipay payment
         // Return to order confirmation page with order number so user can see payment result
         const returnURL = `${window.location.origin}/order-confirmation?orderNo=${order.order_no}`;
         const subject = `Scholar ${order.plan_name} ${order.billing_cycle === 'monthly' ? '月付' : '年付'}订阅`;
         const description = `订单号: ${order.order_no}`;
 
-        // IMPORTANT: Use actual order amount (calculated by backend)
         const paymentResponse = await paymentAPI.createAlipayPayment(
           order.order_no,
           subject,
-          order.amount, // Use actual amount from order
+          finalAmount, // Use discounted amount if coupon applied
           returnURL,
           description
         );
@@ -219,11 +394,13 @@ const OrderConfirmation = () => {
         {/* Header */}
         <div className="order-header">
           <h1>{order.status === 'paid' ? '支付成功' : order.status === 'cancelled' ? '订单已取消' : '订单确认'}</h1>
-          <span className={`status-badge ${order.status}`}>
-            {order.status === 'pending' ? '待支付' :
-             order.status === 'paid' ? '已支付' :
-             order.status === 'cancelled' ? '已取消' : '未知'}
-          </span>
+          {order.status !== 'preview' && (
+            <span className={`status-badge ${order.status}`}>
+              {order.status === 'pending' ? '待支付' :
+               order.status === 'paid' ? '已支付' :
+               order.status === 'cancelled' ? '已取消' : '未知'}
+            </span>
+          )}
         </div>
 
         {/* Polling Indicator */}
@@ -251,19 +428,29 @@ const OrderConfirmation = () => {
             {/* Order Info */}
             <div className="info-section">
               <h3>订单信息</h3>
-              <div className="info-row">
-                <span className="label">订单号</span>
-                <span className="value">{order.order_no}</span>
-              </div>
-              <div className="info-row">
-                <span className="label">创建时间</span>
-                <span className="value">{new Date(order.created_at).toLocaleString('zh-CN')}</span>
-              </div>
+              {order.order_no && (
+                <div className="info-row">
+                  <span className="label">订单号</span>
+                  <span className="value">{order.order_no}</span>
+                </div>
+              )}
+              {order.created_at && (
+                <div className="info-row">
+                  <span className="label">{order.status === 'preview' ? '预计创建时间' : '创建时间'}</span>
+                  <span className="value">{new Date(order.created_at).toLocaleString('zh-CN')}</span>
+                </div>
+              )}
+              {order.status === 'preview' && (
+                <div className="info-row">
+                  <span className="label">订单状态</span>
+                  <span className="value" style={{color: 'rgba(255, 255, 255, 0.5)'}}>待创建</span>
+                </div>
+              )}
             </div>
 
             {/* Plan Info */}
             <div className="plan-info">
-              <div className="plan-name">{order.plan_name}</div>
+              <div className="plan-name">{order.plan_name || 'PRO'}</div>
               <div className="plan-cycle">
                 {order.billing_cycle === 'monthly' ? '按月付费' : '按年付费'}
               </div>
@@ -279,10 +466,39 @@ const OrderConfirmation = () => {
                 <span className="amount-label">套餐价格</span>
                 <span className="amount-value">¥{order.amount.toFixed(2)}</span>
               </div>
+
+              {/* 折扣券选择 */}
+              <div className="coupon-selection">
+                {selectedCoupon ? (
+                  <div className="selected-coupon">
+                    <div className="coupon-info">
+                      <span className="coupon-name">{selectedCoupon.template?.name || '优惠券'}</span>
+                      <span className="coupon-discount">-¥{discountPreview?.discount_amount?.toFixed(2)}</span>
+                    </div>
+                    <button className="btn-remove-coupon" onClick={handleRemoveCoupon}>×</button>
+                  </div>
+                ) : (
+                  <button
+                    className="btn-select-coupon"
+                    onClick={() => setShowCouponModal(true)}
+                    disabled={availableCoupons.length === 0}
+                  >
+                    {availableCoupons.length > 0 ? (
+                      <>
+                        <span>🎟️ 使用折扣券</span>
+                        <span className="coupon-count">{availableCoupons.length}张可用</span>
+                      </>
+                    ) : (
+                      <span>暂无可用折扣券</span>
+                    )}
+                  </button>
+                )}
+              </div>
+
               <div className="amount-divider"></div>
               <div className="amount-row total">
                 <span className="amount-label">实付金额</span>
-                <span className="amount-value">¥{order.amount.toFixed(2)}</span>
+                <span className="amount-value amount-final">¥{getFinalAmount().toFixed(2)}</span>
               </div>
             </div>
 
@@ -309,6 +525,35 @@ const OrderConfirmation = () => {
                   )}
                 </div>
 
+                {isDevMode && (
+                  <div
+                    className={`payment-method-item ${selectedPaymentMethod === 'simulate' ? 'selected' : ''}`}
+                    onClick={() => setSelectedPaymentMethod('simulate')}
+                  >
+                    <div className="payment-icon">
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '6px',
+                        background: 'linear-gradient(135deg, #10a37f 0%, #0d8566 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '16px'
+                      }}>
+                        🧪
+                      </div>
+                    </div>
+                    <div className="payment-method-info">
+                      <div className="payment-name">手动支付</div>
+                      <div className="payment-coming-soon" style={{color: '#10a37f'}}>开发模式</div>
+                    </div>
+                    {selectedPaymentMethod === 'simulate' && (
+                      <div className="payment-check">✓</div>
+                    )}
+                  </div>
+                )}
+
                 <div className="payment-method-item disabled">
                   <div className="payment-icon">
                     <svg viewBox="0 0 1024 1024" width="32" height="32">
@@ -325,7 +570,7 @@ const OrderConfirmation = () => {
 
             {/* Actions */}
             <div className="order-actions">
-              {order.status === 'pending' && (
+              {(order.status === 'pending' || order.status === 'preview') && (
                 <>
                   <button
                     className="btn-cancel"
@@ -372,6 +617,60 @@ const OrderConfirmation = () => {
             </div>
           </div>
         </div>
+
+        {/* 折扣券选择弹窗 */}
+        {showCouponModal && (
+          <div className="coupon-modal-overlay" onClick={() => setShowCouponModal(false)}>
+            <div className="coupon-modal" onClick={e => e.stopPropagation()}>
+              <div className="coupon-modal-header">
+                <h3>选择折扣券</h3>
+                <button className="btn-close-modal" onClick={() => setShowCouponModal(false)}>×</button>
+              </div>
+              <div className="coupon-modal-body">
+                {availableCoupons.length === 0 ? (
+                  <div className="empty-coupons">
+                    <p>暂无可用的折扣券</p>
+                    <small>快去领取专属折扣券吧~</small>
+                  </div>
+                ) : (
+                  <div className="coupon-list">
+                    {availableCoupons.map(coupon => (
+                      <div
+                        key={coupon.id}
+                        className="coupon-item"
+                        onClick={() => handleSelectCoupon(coupon)}
+                      >
+                        <div className="coupon-header">
+                          <div className="coupon-title">
+                            <div className="coupon-name">{coupon.template?.name || '优惠券'}</div>
+                            <div className="coupon-desc">{coupon.template?.description || ''}</div>
+                          </div>
+                          <div className="coupon-discount-badge">
+                            {coupon.template?.type === 'percentage'
+                              ? `${coupon.discount_value}%`
+                              : coupon.template?.type === 'fixed'
+                              ? `¥${coupon.discount_value}`
+                              : `-¥${coupon.discount_value}`}
+                          </div>
+                        </div>
+                        <div className="coupon-details">
+                          <div className="coupon-detail-item">
+                            {coupon.min_purchase_amount > 0
+                              ? `满¥${coupon.min_purchase_amount}可用`
+                              : '无门槛'}
+                          </div>
+                          <div className="coupon-detail-item">
+                            有效期至: {new Date(coupon.valid_until).toLocaleDateString('zh-CN')}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

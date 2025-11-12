@@ -11,7 +11,7 @@ const Settings = () => {
   const { isAuthenticated, user, logout, refreshUser } = useAuth();
   const { showSuccess, showError, showInfo } = useToast();
 
-  const [activeTab, setActiveTab] = useState('profile'); // profile, account, subscription
+  const [activeTab, setActiveTab] = useState('profile'); // profile, account, subscription, invitation
   const [loading, setLoading] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false); // 控制个人介绍编辑状态
 
@@ -65,6 +65,12 @@ const Settings = () => {
   const [billingTotal, setBillingTotal] = useState(0);
   const [billingLoading, setBillingLoading] = useState(false);
 
+  // Invitation state
+  const [invitation, setInvitation] = useState(null);
+  const [invitees, setInvitees] = useState([]);
+  const [invitationLoading, setInvitationLoading] = useState(false);
+  const [copySuccess, setCopySuccess] = useState('');
+
   // Handle URL parameters for WeChat binding feedback and tab switching
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -72,7 +78,7 @@ const Settings = () => {
     const message = searchParams.get('message');
 
     // Switch to specified tab if provided
-    if (tab && ['profile', 'account', 'subscription'].includes(tab)) {
+    if (tab && ['profile', 'account', 'subscription', 'invitation'].includes(tab)) {
       setActiveTab(tab);
     }
 
@@ -106,6 +112,8 @@ const Settings = () => {
     if (activeTab === 'subscription') {
       fetchSubscriptionData();
       fetchBillingHistory(1);
+    } else if (activeTab === 'invitation') {
+      fetchInvitationData();
     }
   }, [activeTab]);
 
@@ -188,6 +196,77 @@ const Settings = () => {
     } finally {
       setBillingLoading(false);
     }
+  };
+
+  const fetchInvitationData = async () => {
+    setInvitationLoading(true);
+    try {
+      // 获取邀请信息
+      const inviteRes = await api.get('/user/invitation/my');
+      if (inviteRes.data.code === 0) {
+        // 新的API返回格式: { invitation: {...}, has_invitation: true/false }
+        const { invitation: invitationData, has_invitation } = inviteRes.data.data;
+        setInvitation(has_invitation ? invitationData : null);
+
+        // 只有当用户有邀请码时才获取统计信息
+        if (has_invitation) {
+          // 获取邀请统计（包含被邀请者列表）
+          const statsRes = await api.get('/user/invitation/statistics');
+          if (statsRes.data.code === 0) {
+            setInvitees(statsRes.data.data.relationships || []);
+          }
+        } else {
+          // 没有邀请码时清空被邀请者列表
+          setInvitees([]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch invitation data:', error);
+    } finally {
+      setInvitationLoading(false);
+    }
+  };
+
+  const generateInvitation = async () => {
+    try {
+      const response = await api.post('/user/invitation/generate');
+      if (response.data.code === 0) {
+        setInvitation(response.data.data);
+        showSuccess('邀请码生成成功！');
+      }
+    } catch (error) {
+      showError('生成邀请码失败：' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const copyToClipboard = async (text, label) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopySuccess(label);
+      showSuccess(`${label}已复制到剪贴板！`);
+      setTimeout(() => setCopySuccess(''), 2000);
+    } catch (err) {
+      showError('复制失败，请手动复制');
+    }
+  };
+
+  const maskEmail = (email) => {
+    if (!email) return '***';
+    const [username, domain] = email.split('@');
+    if (username.length <= 2) {
+      return `${username[0]}***@${domain}`;
+    }
+    return `${username.substring(0, 2)}***@${domain}`;
+  };
+
+  const maskPhone = (phone) => {
+    if (!phone) return '***';
+    return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
+  };
+
+  const getInvitationUrl = () => {
+    if (!invitation) return '';
+    return `${window.location.origin}/?invite=${invitation.invitation_code}`;
   };
 
   const handleLogout = () => {
@@ -1284,6 +1363,243 @@ const Settings = () => {
     </div>
   );
 
+  // Invitation Tab
+  const renderInvitationTab = () => {
+
+    if (invitationLoading) {
+      return (
+        <div className="settings-section">
+          <h2>邀请推广</h2>
+          <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.6)' }}>
+            加载中...
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="settings-section">
+        <h2>邀请推广</h2>
+        <p className="section-description">
+          邀请好友注册，双方都可获得折扣券奖励
+        </p>
+
+        {/* Invitation Code Card */}
+        <div className="invitation-card" style={{
+          background: 'linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(13, 133, 102, 0.1) 100%)',
+          border: '1px solid rgba(16, 163, 127, 0.2)',
+          borderRadius: '12px',
+          padding: '24px',
+          marginBottom: '24px',
+          color: 'white'
+        }}>
+          {!invitation ? (
+            <div style={{ textAlign: 'center' }}>
+              <h3 style={{ margin: '0 0 16px 0', color: 'white' }}>开始邀请好友</h3>
+              <p style={{ margin: '0 0 20px 0', color: 'rgba(255, 255, 255, 0.7)' }}>
+                生成你的专属邀请码，分享给好友即可获得奖励
+              </p>
+              <button
+                onClick={generateInvitation}
+                style={{
+                  background: 'linear-gradient(135deg, #10a37f 0%, #0d8566 100%)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 32px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(16, 163, 127, 0.3)',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+              >
+                生成邀请码
+              </button>
+            </div>
+          ) : (
+            <div>
+              <h3 style={{ margin: '0 0 20px 0' }}>我的邀请码</h3>
+
+              {/* Invitation Code */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', fontWeight: '500' }}>
+                  邀请码
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    value={invitation.invitation_code}
+                    readOnly
+                    style={{
+                      flex: 1,
+                      padding: '12px 16px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(16, 163, 127, 0.3)',
+                      background: 'rgba(16, 163, 127, 0.08)',
+                      color: '#10a37f',
+                      fontSize: '18px',
+                      fontWeight: '700',
+                      letterSpacing: '3px',
+                      textAlign: 'center'
+                    }}
+                  />
+                  <button
+                    onClick={() => copyToClipboard(invitation.invitation_code, '邀请码')}
+                    style={{
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(16, 163, 127, 0.3)',
+                      background: copySuccess === '邀请码' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 163, 127, 0.1)',
+                      color: copySuccess === '邀请码' ? '#10b981' : '#10a37f',
+                      cursor: 'pointer',
+                      fontWeight: '600',
+                      transition: 'all 0.2s ease',
+                      whiteSpace: 'nowrap'
+                    }}
+                    onMouseOver={(e) => {
+                      if (copySuccess !== '邀请码') {
+                        e.target.style.background = 'rgba(16, 163, 127, 0.15)';
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      if (copySuccess !== '邀请码') {
+                        e.target.style.background = 'rgba(16, 163, 127, 0.1)';
+                      }
+                    }}
+                  >
+                    {copySuccess === '邀请码' ? '✓ 已复制' : '复制'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Invitation URL */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', fontWeight: '500' }}>
+                  邀请链接
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    value={getInvitationUrl()}
+                    readOnly
+                    style={{
+                      flex: 1,
+                      padding: '12px 16px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(16, 163, 127, 0.3)',
+                      background: 'rgba(16, 163, 127, 0.08)',
+                      color: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: '13px',
+                      fontFamily: 'monospace'
+                    }}
+                  />
+                  <button
+                    onClick={() => copyToClipboard(getInvitationUrl(), '邀请链接')}
+                    style={{
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(16, 163, 127, 0.3)',
+                      background: copySuccess === '邀请链接' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 163, 127, 0.1)',
+                      color: copySuccess === '邀请链接' ? '#10b981' : '#10a37f',
+                      cursor: 'pointer',
+                      fontWeight: '600',
+                      transition: 'all 0.2s ease',
+                      whiteSpace: 'nowrap'
+                    }}
+                    onMouseOver={(e) => {
+                      if (copySuccess !== '邀请链接') {
+                        e.target.style.background = 'rgba(16, 163, 127, 0.15)';
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      if (copySuccess !== '邀请链接') {
+                        e.target.style.background = 'rgba(16, 163, 127, 0.1)';
+                      }
+                    }}
+                  >
+                    {copySuccess === '邀请链接' ? '✓ 已复制' : '复制'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Invitees List */}
+        {invitation && (
+          <div>
+            <h3 style={{ marginBottom: '16px' }}>被邀请者列表</h3>
+            {invitees.length === 0 ? (
+              <div style={{
+                padding: '40px',
+                textAlign: 'center',
+                background: 'rgba(255,255,255,0.02)',
+                borderRadius: '12px',
+                border: '1px solid rgba(255,255,255,0.08)'
+              }}>
+                <p style={{ color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+                  还没有人使用你的邀请码注册
+                </p>
+              </div>
+            ) : (
+              <div style={{
+                background: 'rgba(255,255,255,0.02)',
+                borderRadius: '12px',
+                border: '1px solid rgba(255,255,255,0.08)',
+                overflow: 'hidden'
+              }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(255,255,255,0.05)' }}>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>
+                        用户信息
+                      </th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>
+                        注册时间
+                      </th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>
+                        状态
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invitees.map((invitee, index) => (
+                      <tr key={index} style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                        <td style={{ padding: '12px 16px' }}>
+                          {invitee.invitee_email ? maskEmail(invitee.invitee_email) :
+                           invitee.invitee_phone ? maskPhone(invitee.invitee_phone) : '用户***'}
+                        </td>
+                        <td style={{ padding: '12px 16px', fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>
+                          {new Date(invitee.created_at).toLocaleDateString('zh-CN')}
+                        </td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <span style={{
+                            padding: '4px 12px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            background: invitee.has_purchased ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 163, 127, 0.1)',
+                            border: invitee.has_purchased ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(16, 163, 127, 0.2)',
+                            color: invitee.has_purchased ? '#10b981' : '#10a37f'
+                          }}>
+                            {invitee.has_purchased ? '✓ 已付费' : '已注册'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderSubscriptionTab = () => {
     if (subscriptionLoading) {
       return (
@@ -1377,7 +1693,19 @@ const Settings = () => {
                             </span>
                           </div>
                         </td>
-                        <td className="amount">¥{order.amount.toFixed(2)}</td>
+                        <td className="amount">
+                          <div className="amount-details">
+                            {order.discount_amount > 0 ? (
+                              <>
+                                <span className="final-amount">¥{order.final_amount.toFixed(2)}</span>
+                                <span className="original-amount">¥{order.amount.toFixed(2)}</span>
+                                <span className="discount-badge">已优惠¥{order.discount_amount.toFixed(2)}</span>
+                              </>
+                            ) : (
+                              <span className="final-amount">¥{order.final_amount.toFixed(2)}</span>
+                            )}
+                          </div>
+                        </td>
                         <td className="payment-time">
                           {new Date(order.payment_time).toLocaleString('zh-CN')}
                         </td>
@@ -1523,6 +1851,18 @@ const Settings = () => {
                   </svg>
                   <span>订阅</span>
                 </button>
+                <button
+                  className={`menu-item ${activeTab === 'invitation' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('invitation')}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                  <span>邀请推广</span>
+                </button>
               </div>
 
               {renderExternalLinks()}
@@ -1535,6 +1875,7 @@ const Settings = () => {
             {activeTab === 'profile' && renderProfileTab()}
             {activeTab === 'account' && renderAccountTab()}
             {activeTab === 'subscription' && renderSubscriptionTab()}
+            {activeTab === 'invitation' && renderInvitationTab()}
           </div>
         </div>
       </div>

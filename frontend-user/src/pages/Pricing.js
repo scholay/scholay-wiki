@@ -61,24 +61,13 @@ const Pricing = () => {
       return;
     }
 
-    try {
-      // Create order (backend will calculate actual amount based on current prices)
-      const orderResponse = await orderAPI.createOrder(planCode, billingCycle);
-
-      if (orderResponse.data.code !== 0 || !orderResponse.data.data) {
-        showError('创建订单失败：' + (orderResponse.data.message || '未知错误'));
-        return;
+    // Navigate to order confirmation page with plan details (order will be created on payment)
+    navigate('/order-confirmation', {
+      state: {
+        planCode,
+        billingCycle
       }
-
-      const order = orderResponse.data.data;
-
-      // Navigate to order confirmation page where user can review and pay
-      navigate('/order-confirmation', { state: { orderNo: order.order_no } });
-    } catch (error) {
-      const actionText = action === 'renew' ? '续期' : '订阅';
-      showError(`${actionText}失败，请稍后重试`);
-      console.error(`${actionText} failed:`, error);
-    }
+    });
   };
 
   const handleAuthSuccess = () => {

@@ -351,6 +351,22 @@
   transition: all 0.2s;
   border: none;
   outline: none;
+  margin-right: 0.5rem;
+}
+
+.action-btn:last-child {
+  margin-right: 0;
+}
+
+.view-btn {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.view-btn:hover {
+  background: #bfdbfe;
+  border-color: #93c5fd;
 }
 
 .delete-btn {

@@ -141,27 +141,27 @@ func (r *Repository) GetOrderStatistics() (*OrderStatistics, error) {
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	r.db.Model(&Order{}).
 		Where("status = ? AND payment_time >= ?", "paid", todayStart).
-		Select("COALESCE(SUM(amount), 0) as today_amount, COUNT(*) as today_count, COUNT(DISTINCT user_id) as today_users").
+		Select("COALESCE(SUM(final_amount), 0) as today_amount, COUNT(*) as today_count, COUNT(DISTINCT user_id) as today_users").
 		Scan(stats)
 
 	// Week statistics
 	weekStart := todayStart.AddDate(0, 0, -int(now.Weekday()))
 	r.db.Model(&Order{}).
 		Where("status = ? AND payment_time >= ?", "paid", weekStart).
-		Select("COALESCE(SUM(amount), 0) as week_amount, COUNT(*) as week_count, COUNT(DISTINCT user_id) as week_users").
+		Select("COALESCE(SUM(final_amount), 0) as week_amount, COUNT(*) as week_count, COUNT(DISTINCT user_id) as week_users").
 		Scan(stats)
 
 	// Month statistics
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	r.db.Model(&Order{}).
 		Where("status = ? AND payment_time >= ?", "paid", monthStart).
-		Select("COALESCE(SUM(amount), 0) as month_amount, COUNT(*) as month_count, COUNT(DISTINCT user_id) as month_users").
+		Select("COALESCE(SUM(final_amount), 0) as month_amount, COUNT(*) as month_count, COUNT(DISTINCT user_id) as month_users").
 		Scan(stats)
 
 	// Total statistics
 	r.db.Model(&Order{}).
 		Where("status = ?", "paid").
-		Select("COALESCE(SUM(amount), 0) as total_amount, COUNT(*) as total_count, COUNT(DISTINCT user_id) as total_users").
+		Select("COALESCE(SUM(final_amount), 0) as total_amount, COUNT(*) as total_count, COUNT(DISTINCT user_id) as total_users").
 		Scan(stats)
 
 	return stats, nil

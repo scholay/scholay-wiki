@@ -250,7 +250,10 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `plan_code` VARCHAR(20) NOT NULL COMMENT '订阅计划代码',
   `plan_name` VARCHAR(50) NOT NULL COMMENT '下单时的计划名称',
   `billing_cycle` VARCHAR(20) NOT NULL COMMENT 'monthly或yearly',
-  `amount` DECIMAL(10,2) NOT NULL COMMENT '订单金额',
+  `amount` DECIMAL(10,2) NOT NULL COMMENT '订单原价（折扣前）',
+  `coupon_id` BIGINT UNSIGNED COMMENT '使用的折扣券ID',
+  `discount_amount` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '折扣金额',
+  `final_amount` DECIMAL(10,2) NOT NULL COMMENT '最终支付金额（折扣后）',
   `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT 'pending, paid, cancelled, refunded',
   `payment_method` VARCHAR(50) COMMENT '支付方式',
   `payment_time` DATETIME COMMENT '支付完成时间',
@@ -259,6 +262,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_order_no` (`order_no`),
   INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_coupon_id` (`coupon_id`),
   INDEX `idx_status` (`status`),
   INDEX `idx_created_at` (`created_at`),
   INDEX `idx_user_created` (`user_id`, `created_at` DESC),
@@ -282,6 +286,206 @@ CREATE TABLE IF NOT EXISTS `payment_transactions` (
   INDEX `idx_transaction_no` (`transaction_no`),
   CONSTRAINT `fk_payment_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='支付交易记录';
+
+-- ============================================
+-- 折扣券系统表
+-- ============================================
+
+-- 折扣券模板表
+CREATE TABLE IF NOT EXISTS `coupon_templates` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `code` VARCHAR(50) NOT NULL COMMENT '折扣券代码',
+  `name` VARCHAR(100) NOT NULL COMMENT '折扣券名称',
+  `description` TEXT COMMENT '折扣券描述',
+  `type` ENUM('percentage', 'fixed', 'price_off') NOT NULL DEFAULT 'percentage' COMMENT '折扣类型',
+  `discount_value` DECIMAL(10,2) NOT NULL COMMENT '折扣值',
+
+  -- 使用条件
+  `min_purchase_amount` DECIMAL(10,2) DEFAULT 0 COMMENT '最低消费金额',
+  `applicable_plans` JSON COMMENT '适用的订阅计划ID列表',
+  `applicable_products` JSON COMMENT '适用的产品类型列表',
+
+  -- 发放规则
+  `distribution_type` ENUM('manual', 'auto_invite', 'auto_register', 'batch', 'targeted') NOT NULL DEFAULT 'manual' COMMENT '发放类型',
+
+  -- 时间限制
+  `valid_days` INT DEFAULT 30 COMMENT '有效天数（从领取时开始计算）',
+  `fixed_valid_start` DATETIME COMMENT '固定有效开始时间',
+  `fixed_valid_end` DATETIME COMMENT '固定有效结束时间',
+
+  -- 使用限制
+  `max_usage_total` INT DEFAULT NULL COMMENT '总使用次数限制',
+  `max_usage_per_user` INT DEFAULT 1 COMMENT '每用户使用次数限制',
+  `first_purchase_only` BOOLEAN DEFAULT FALSE COMMENT '仅限首次购买',
+  `new_user_only` BOOLEAN DEFAULT FALSE COMMENT '仅限新用户',
+
+  -- 状态管理
+  `status` ENUM('draft', 'active', 'paused', 'expired') DEFAULT 'draft' COMMENT '状态',
+  `priority` INT DEFAULT 0 COMMENT '优先级',
+
+  -- 邀请相关
+  `is_invite_coupon` BOOLEAN DEFAULT FALSE COMMENT '是否为邀请折扣券',
+  `inviter_benefit` JSON COMMENT '邀请人奖励配置',
+
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `created_by` BIGINT UNSIGNED COMMENT '创建人ID',
+
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_code` (`code`),
+  INDEX `idx_status_type` (`status`, `distribution_type`),
+  INDEX `idx_valid_time` (`fixed_valid_start`, `fixed_valid_end`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='折扣券模板表';
+
+-- 用户折扣券表
+CREATE TABLE IF NOT EXISTS `user_coupons` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+  `template_id` BIGINT UNSIGNED NOT NULL COMMENT '折扣券模板ID',
+  `coupon_code` VARCHAR(100) COMMENT '折扣券唯一码',
+
+  -- 来源追踪
+  `source_type` ENUM('manual', 'invite', 'register', 'batch', 'targeted', 'activity') NOT NULL COMMENT '获取方式',
+  `source_id` VARCHAR(100) COMMENT '来源ID',
+  `source_detail` JSON COMMENT '来源详情',
+
+  -- 有效期
+  `valid_from` DATETIME NOT NULL COMMENT '生效时间',
+  `valid_until` DATETIME NOT NULL COMMENT '失效时间',
+
+  -- 使用状态
+  `status` ENUM('unused', 'reserved', 'used', 'expired', 'cancelled') DEFAULT 'unused' COMMENT '状态: unused=未使用, reserved=已预留, used=已使用, expired=已过期, cancelled=已取消',
+  `used_at` DATETIME COMMENT '使用时间',
+  `used_order_id` BIGINT UNSIGNED COMMENT '使用订单ID',
+
+  -- 折扣信息（冗余存储）
+  `discount_type` VARCHAR(20) NOT NULL COMMENT '折扣类型',
+  `discount_value` DECIMAL(10,2) NOT NULL COMMENT '折扣值',
+  `min_purchase_amount` DECIMAL(10,2) DEFAULT 0 COMMENT '最低消费金额',
+
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_coupon_code` (`coupon_code`),
+  INDEX `idx_user_status` (`user_id`, `status`),
+  INDEX `idx_template` (`template_id`),
+  INDEX `idx_valid_time` (`valid_from`, `valid_until`),
+  INDEX `idx_source` (`source_type`, `source_id`),
+  CONSTRAINT `fk_user_coupon_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_user_coupon_template` FOREIGN KEY (`template_id`) REFERENCES `coupon_templates` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户折扣券表';
+
+-- 折扣券使用记录表
+CREATE TABLE IF NOT EXISTS `coupon_usage_logs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_coupon_id` BIGINT UNSIGNED NOT NULL COMMENT '用户折扣券ID',
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+  `order_id` BIGINT UNSIGNED NOT NULL COMMENT '订单ID',
+
+  `original_amount` DECIMAL(10,2) NOT NULL COMMENT '原始金额',
+  `discount_amount` DECIMAL(10,2) NOT NULL COMMENT '折扣金额',
+  `final_amount` DECIMAL(10,2) NOT NULL COMMENT '最终金额',
+
+  `status` ENUM('applied', 'confirmed', 'refunded') DEFAULT 'applied' COMMENT '状态',
+
+  `applied_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '应用时间',
+  `confirmed_at` DATETIME COMMENT '确认时间',
+  `refunded_at` DATETIME COMMENT '退款时间',
+
+  `metadata` JSON COMMENT '额外信息',
+
+  PRIMARY KEY (`id`),
+  INDEX `idx_user_coupon` (`user_coupon_id`),
+  INDEX `idx_user` (`user_id`),
+  INDEX `idx_order` (`order_id`),
+  CONSTRAINT `fk_usage_log_user_coupon` FOREIGN KEY (`user_coupon_id`) REFERENCES `user_coupons` (`id`),
+  CONSTRAINT `fk_usage_log_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_usage_log_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='折扣券使用记录表';
+
+-- 用户邀请表（优化版）
+CREATE TABLE IF NOT EXISTS `user_invitations` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+  `invitation_code` VARCHAR(50) NOT NULL COMMENT '邀请码',
+  `invitation_url` VARCHAR(500) COMMENT '邀请链接',
+
+  -- 统计数据
+  `total_invites` INT DEFAULT 0 COMMENT '总邀请数',
+  `successful_invites` INT DEFAULT 0 COMMENT '成功邀请数（完成注册）',
+  `paid_invites` INT DEFAULT 0 COMMENT '付费邀请数（完成首购）',
+
+  -- 状态
+  `is_active` BOOLEAN DEFAULT TRUE COMMENT '是否激活',
+
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_id` (`user_id`),
+  UNIQUE KEY `uk_invitation_code` (`invitation_code`),
+  INDEX `idx_is_active` (`is_active`),
+  CONSTRAINT `fk_invitation_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户邀请信息表';
+
+-- 邀请关系表
+CREATE TABLE IF NOT EXISTS `invitation_relationships` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `inviter_id` BIGINT UNSIGNED NOT NULL COMMENT '邀请人用户ID',
+  `invitee_id` BIGINT UNSIGNED NOT NULL COMMENT '被邀请人用户ID',
+  `invitation_code` VARCHAR(50) COMMENT '使用的邀请码',
+
+  `status` ENUM('pending', 'registered', 'activated', 'rewarded') DEFAULT 'pending' COMMENT '状态',
+
+  `invitee_coupon_id` BIGINT UNSIGNED COMMENT '被邀请人获得的折扣券ID',
+  `inviter_reward_id` BIGINT UNSIGNED COMMENT '邀请人奖励ID',
+
+  `registered_at` DATETIME COMMENT '注册时间',
+  `activated_at` DATETIME COMMENT '激活时间（首次付费）',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_invitee` (`invitee_id`),
+  INDEX `idx_inviter` (`inviter_id`),
+  INDEX `idx_invitation_code` (`invitation_code`),
+  INDEX `idx_status` (`status`),
+  CONSTRAINT `fk_relationship_inviter` FOREIGN KEY (`inviter_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_relationship_invitee` FOREIGN KEY (`invitee_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='邀请关系表';
+
+-- 折扣券批次表
+CREATE TABLE IF NOT EXISTS `coupon_batches` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `batch_code` VARCHAR(50) NOT NULL COMMENT '批次号',
+  `template_id` BIGINT UNSIGNED NOT NULL COMMENT '折扣券模板ID',
+  `name` VARCHAR(100) NOT NULL COMMENT '批次名称',
+  `description` TEXT COMMENT '批次描述',
+
+  -- 发放规则
+  `target_type` ENUM('all', 'new_users', 'paid_users', 'specific_users', 'user_group') NOT NULL COMMENT '目标用户类型',
+  `target_users` JSON COMMENT '特定用户ID列表',
+  `target_conditions` JSON COMMENT '用户筛选条件',
+
+  `total_quantity` INT NOT NULL COMMENT '发放总量',
+  `distributed_quantity` INT DEFAULT 0 COMMENT '已发放数量',
+  `used_quantity` INT DEFAULT 0 COMMENT '已使用数量',
+
+  `status` ENUM('draft', 'processing', 'completed', 'cancelled') DEFAULT 'draft',
+
+  `scheduled_at` DATETIME COMMENT '计划发放时间',
+  `started_at` DATETIME COMMENT '开始发放时间',
+  `completed_at` DATETIME COMMENT '完成时间',
+
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_by` BIGINT UNSIGNED COMMENT '创建人ID',
+
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_batch_code` (`batch_code`),
+  INDEX `idx_template` (`template_id`),
+  INDEX `idx_status` (`status`),
+  CONSTRAINT `fk_batch_template` FOREIGN KEY (`template_id`) REFERENCES `coupon_templates` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='折扣券批次表';
 
 -- ============================================
 -- 系统配置表

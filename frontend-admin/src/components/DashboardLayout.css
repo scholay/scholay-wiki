@@ -356,3 +356,55 @@
     padding: 1rem 1.5rem;
   }
 }
+
+/* Submenu Styles */
+.nav-group {
+  margin-bottom: 0.25rem;
+}
+
+.nav-item {
+  position: relative;
+}
+
+.nav-item span {
+  flex: 1;
+}
+
+.submenu-arrow {
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+.submenu-arrow.open {
+  transform: rotate(180deg);
+}
+
+.submenu {
+  padding-left: 2.5rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.submenu-item {
+  display: flex;
+  align-items: center;
+  padding: 0.625rem 1rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 0.25rem;
+}
+
+.submenu-item:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: var(--primary-color);
+}
+
+.submenu-item.active {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: var(--primary-color);
+  font-weight: 500;
+}

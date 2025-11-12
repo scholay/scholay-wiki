@@ -39,6 +39,21 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const [passwordError, setPasswordError] = useState('');
   const [requireEmailVerification, setRequireEmailVerification] = useState(true);
   const [enableTurnstile, setEnableTurnstile] = useState(false);
+  const [invitationCode, setInvitationCode] = useState('');
+  const [inviterInfo, setInviterInfo] = useState(null);
+
+  // 读取URL中的邀请码参数
+  useEffect(() => {
+    if (isOpen) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const inviteParam = urlParams.get('invite');
+      if (inviteParam) {
+        setInvitationCode(inviteParam);
+        // 可以在这里调用API验证邀请码并获取邀请人信息
+        // 暂时不验证,直接使用
+      }
+    }
+  }, [isOpen]);
 
   // 获取隐私协议、用户协议和系统配置
   useEffect(() => {
@@ -118,6 +133,8 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     setTurnstileToken('');
     setAgreedToPolicy(false);
     setPasswordError('');
+    setInvitationCode('');
+    setInviterInfo(null);
   };
 
   // 关闭弹窗
@@ -273,10 +290,22 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
 
     try {
+      const requestBody = {
+        email,
+        password,
+        code,
+        turnstile_token: turnstileToken
+      };
+
+      // 如果有邀请码，添加到请求中
+      if (invitationCode) {
+        requestBody.invitation_code = invitationCode;
+      }
+
       const response = await fetch('/api/v1/user/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, code, turnstile_token: turnstileToken }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
@@ -456,10 +485,21 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
 
     try {
+      const requestBody = {
+        phone,
+        password,
+        code
+      };
+
+      // 如果有邀请码，添加到请求中
+      if (invitationCode) {
+        requestBody.invitation_code = invitationCode;
+      }
+
       const response = await fetch('/api/v1/user/register-phone', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password, code }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
@@ -975,6 +1015,19 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 </div>
               )}
 
+              <input
+                type="text"
+                className="auth-input"
+                value={invitationCode}
+                onChange={(e) => setInvitationCode(e.target.value.toUpperCase())}
+                placeholder="邀请码（可选）"
+                maxLength={20}
+                style={{
+                  background: invitationCode ? 'rgba(16, 163, 127, 0.1)' : undefined,
+                  borderColor: invitationCode ? 'rgba(16, 163, 127, 0.3)' : undefined
+                }}
+              />
+
               <TurnstileCaptcha
                 ref={emailCaptchaRef}
                 onSuccess={(token) => setTurnstileToken(token)}
@@ -1246,6 +1299,19 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   {countdown > 0 ? `${countdown}秒` : '发送'}
                 </button>
               </div>
+
+              <input
+                type="text"
+                className="auth-input"
+                value={invitationCode}
+                onChange={(e) => setInvitationCode(e.target.value.toUpperCase())}
+                placeholder="邀请码（可选）"
+                maxLength={20}
+                style={{
+                  background: invitationCode ? 'rgba(16, 163, 127, 0.1)' : undefined,
+                  borderColor: invitationCode ? 'rgba(16, 163, 127, 0.3)' : undefined
+                }}
+              />
 
               <TurnstileCaptcha
                 ref={phoneCaptchaRef}

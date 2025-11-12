@@ -186,9 +186,13 @@ export const subscriptionAPI = {
 };
 
 export const orderAPI = {
-  // Create a new order
-  createOrder: (planCode, billingCycle) =>
-    api.post('/user/orders/create', { plan_code: planCode, billing_cycle: billingCycle }),
+  // Create a new order with optional coupon
+  createOrder: (planCode, billingCycle, couponId = null) =>
+    api.post('/user/orders/create', {
+      plan_code: planCode,
+      billing_cycle: billingCycle,
+      coupon_id: couponId // Optional coupon_id parameter
+    }),
 
   // Get user's orders with pagination
   getMyOrders: (page = 1, pageSize = 20) =>

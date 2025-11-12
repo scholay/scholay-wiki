@@ -16,6 +16,7 @@ import (
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/config"
 	"scholar-backend/internal/conversation"
+	"scholar-backend/internal/coupon"
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/order"
 	"scholar-backend/internal/payment"
@@ -74,8 +75,21 @@ func main() {
 	configService := config.NewService(configRepo)
 	configHandler := config.NewHandler(configService)
 
+	// Initialize coupon module
+	baseURL := "http://localhost:" + cfg.Server.Port // TODO: Configure from env
+	redisClient := cache.GetRedis()
+	couponService := coupon.NewService(database.GetDB(), userRepo, redisClient, baseURL)
+	couponHandler := coupon.NewHandler(couponService)
+
+	// Start coupon scheduler for automated tasks
+	couponScheduler := coupon.NewScheduler(couponService)
+	couponScheduler.Start()
+
 	// Inject config service into user service (for email sending)
 	userService.SetConfigService(configService)
+
+	// Inject coupon service into user service (for invitation handling)
+	userService.SetCouponService(couponService)
 
 	// Initialize default privacy policy
 	if err := configService.InitializeDefaultPrivacyPolicy(); err != nil {
@@ -192,6 +206,7 @@ func main() {
 			adminProtected.GET("/users/stats", userHandler.GetUserStatistics)
 			adminProtected.GET("/users", userHandler.GetUserList)
 			adminProtected.GET("/users/online", userHandler.GetOnlineUsers)
+			adminProtected.GET("/users/:id", userHandler.GetUserDetail)
 			adminProtected.DELETE("/users/:id", userHandler.DeleteUser)
 			// Statistics charts
 			adminProtected.GET("/statistics/users", userHandler.GetUserStatisticsChart)
@@ -237,6 +252,27 @@ func main() {
 			// WeChat Official Account configuration (Admin only)
 			adminProtected.GET("/wechat-official/config", wechatOfficialHandler.GetConfig)
 			adminProtected.PUT("/wechat-official/config", wechatOfficialHandler.UpdateConfig)
+
+			// Coupon management (Admin only)
+			adminProtected.POST("/coupon-templates", couponHandler.CreateTemplate)
+			adminProtected.GET("/coupon-templates", couponHandler.ListTemplates)
+			adminProtected.GET("/coupon-templates/:id", couponHandler.GetTemplate)
+			adminProtected.PUT("/coupon-templates/:id", couponHandler.UpdateTemplate)
+			adminProtected.DELETE("/coupon-templates/:id", couponHandler.DeleteTemplate)
+			adminProtected.POST("/coupon-templates/:id/activate", couponHandler.ActivateTemplate)
+			adminProtected.POST("/coupon-templates/:id/pause", couponHandler.PauseTemplate)
+
+			// Coupon distribution (Admin only)
+			adminProtected.POST("/coupons/distribute", couponHandler.DistributeCoupons)
+			adminProtected.GET("/coupons/distributed", couponHandler.AdminListAllDistributedCoupons)
+			adminProtected.GET("/coupons/statistics", couponHandler.GetStatistics)
+
+			// Batch distribution (Admin only)
+			adminProtected.POST("/coupon-batches", couponHandler.CreateBatch)
+			adminProtected.GET("/coupon-batches", couponHandler.ListBatches)
+			adminProtected.GET("/coupon-batches/:id", couponHandler.GetBatch)
+			adminProtected.POST("/coupon-batches/:id/execute", couponHandler.ExecuteBatch)
+			adminProtected.POST("/coupon-batches/:id/cancel", couponHandler.CancelBatch)
 		}
 
 		// Payment callback routes (public, no auth required)
@@ -256,6 +292,7 @@ func main() {
 		subscriptionPublic := api.Group("/user/subscription")
 		{
 			subscriptionPublic.GET("/plans", subscriptionHandler.GetPlans)
+			subscriptionPublic.GET("/plans/:code", subscriptionHandler.GetPlanByCode)
 		}
 
 		// Public WeChat routes (no auth required)
@@ -272,6 +309,7 @@ func main() {
 			userProtected.GET("/profile", userHandler.GetProfile)
 			userProtected.PUT("/profile", userHandler.UpdateProfile)
 			userProtected.POST("/logout", userHandler.Logout)
+			userProtected.POST("/change-password", userHandler.ChangePassword)
 			userProtected.POST("/heartbeat", userHandler.Heartbeat)
 
 			// Account availability check routes (protected)
@@ -307,6 +345,19 @@ func main() {
 
 			// Payment routes (Alipay)
 			userProtected.POST("/payment/alipay/create", alipayHandler.CreatePayment)
+			userProtected.POST("/payment/simulate", alipayHandler.SimulatePayment)
+
+			// Coupon routes (User)
+			userProtected.GET("/coupons", couponHandler.GetMyCoupons)
+			userProtected.GET("/coupons/available", couponHandler.GetAvailableCoupons)
+			userProtected.POST("/coupons/claim", couponHandler.ClaimCoupon)
+			userProtected.POST("/coupons/apply", couponHandler.ApplyCoupon)
+			userProtected.GET("/coupons/calculate-discount", couponHandler.CalculateDiscount)
+
+			// Invitation routes (User)
+			userProtected.POST("/invitation/generate", couponHandler.GenerateInvitation)
+			userProtected.GET("/invitation/my", couponHandler.GetMyInvitation)
+			userProtected.GET("/invitation/statistics", couponHandler.GetInvitationStatistics)
 
 			// Conversation routes (legacy)
 			userProtected.GET("/conversations", conversationHandler.GetUserConversations)

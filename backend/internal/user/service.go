@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ConfigService interface for email and SMS configuration
@@ -20,10 +21,16 @@ type ConfigService interface {
 	GetSystemConfig() (*model.SystemConfig, error)
 }
 
+// CouponService interface for coupon operations
+type CouponService interface {
+	RegisterWithInvitation(invitationCode string, inviteeID uint64) error
+}
+
 // Service handles business logic for user operations
 type Service struct {
 	repo          *Repository
 	configService ConfigService
+	couponService CouponService
 }
 
 // NewService creates a new user service
@@ -31,12 +38,18 @@ func NewService(repo *Repository) *Service {
 	return &Service{
 		repo:          repo,
 		configService: nil, // Will be set via SetConfigService
+		couponService: nil, // Will be set via SetCouponService
 	}
 }
 
 // SetConfigService sets the config service (for dependency injection)
 func (s *Service) SetConfigService(configService ConfigService) {
 	s.configService = configService
+}
+
+// SetCouponService sets the coupon service (for dependency injection)
+func (s *Service) SetCouponService(couponService CouponService) {
+	s.couponService = couponService
 }
 
 // GetSystemConfig gets the system configuration
@@ -84,6 +97,11 @@ func (s *Service) generateRandomUsername() (string, error) {
 // RegisterWithEmail registers a new user with email and password
 // Enhanced with transaction support for concurrency safety
 func (s *Service) RegisterWithEmail(email, password, code string) (*User, string, error) {
+	return s.RegisterWithEmailAndInvitation(email, password, code, "")
+}
+
+// RegisterWithEmailAndInvitation registers a new user with email, password and optional invitation code
+func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitationCode string) (*User, string, error) {
 	// Verify the email code using Redis (only if code is provided)
 	if code != "" {
 		valid, err := cache.VerifyCode(context.Background(), email, code, "register")
@@ -180,6 +198,14 @@ func (s *Service) RegisterWithEmail(email, password, code string) (*User, string
 		today := time.Now().Format("2006-01-02")
 		_ = s.repo.IncrementNewUsers(today)
 	}()
+
+	// Handle invitation code if provided
+	if invitationCode != "" && s.couponService != nil {
+		// Process invitation in background to not block registration
+		go func() {
+			_ = s.couponService.RegisterWithInvitation(invitationCode, uint64(user.ID))
+		}()
+	}
 
 	return user, token, nil
 }
@@ -444,6 +470,209 @@ func (s *Service) GetOnlineUsers() ([]map[string]interface{}, error) {
 	return s.repo.GetOnlineUsers()
 }
 
+// UserDetail represents detailed user information for admin
+type UserDetail struct {
+	// Basic Info
+	ID            uint       `json:"id"`
+	Username      *string    `json:"username"`
+	Email         *string    `json:"email"`
+	Phone         *string    `json:"phone"`
+	EmailVerified bool       `json:"email_verified"`
+	PhoneVerified bool       `json:"phone_verified"`
+	Status        int8       `json:"status"`
+	CreatedAt     time.Time  `json:"created_at"`
+	LastLoginAt   *time.Time `json:"last_login_at"`
+
+	// Auth Providers
+	AuthProviders []string `json:"auth_providers"`
+
+	// Subscription Info
+	CurrentSubscription *SubscriptionInfo `json:"current_subscription,omitempty"`
+
+	// Order Statistics
+	OrderStats OrderStats `json:"order_stats"`
+
+	// Invitation Statistics
+	InvitationStats InvitationStats `json:"invitation_stats"`
+
+	// Coupon Statistics
+	CouponStats CouponStats `json:"coupon_stats"`
+}
+
+type SubscriptionInfo struct {
+	PlanName      string    `json:"plan_name"`
+	PlanCode      string    `json:"plan_code"`
+	BillingCycle  string    `json:"billing_cycle"`
+	Status        string    `json:"status"`
+	StartDate     time.Time `json:"start_date"`
+	EndDate       time.Time `json:"end_date"`
+	AutoRenew     bool      `json:"auto_renew"`
+	TotalQuota    int       `json:"total_quota"`
+	UsedQuota     int       `json:"used_quota"`
+	RemainingDays int       `json:"remaining_days"`
+}
+
+type OrderStats struct {
+	TotalOrders  int     `json:"total_orders"`
+	TotalAmount  float64 `json:"total_amount"`
+	TotalSaved   float64 `json:"total_saved"`
+	LastOrderAt  *time.Time `json:"last_order_at,omitempty"`
+}
+
+type InvitationStats struct {
+	InvitationCode   string `json:"invitation_code"`
+	TotalInvited     int    `json:"total_invited"`
+	SuccessInvited   int    `json:"success_invited"`
+	RewardsEarned    int    `json:"rewards_earned"`
+}
+
+type CouponStats struct {
+	TotalCoupons     int `json:"total_coupons"`
+	UsedCoupons      int `json:"used_coupons"`
+	AvailableCoupons int `json:"available_coupons"`
+	ExpiredCoupons   int `json:"expired_coupons"`
+}
+
+// GetUserDetail returns detailed user information for admin
+func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
+	// Get user basic info
+	user, err := s.repo.FindByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find user: %w", err)
+	}
+	if user == nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	detail := &UserDetail{
+		ID:            user.ID,
+		Username:      user.Username,
+		Email:         user.Email,
+		Phone:         user.Phone,
+		EmailVerified: user.EmailVerified,
+		PhoneVerified: user.PhoneVerified,
+		Status:        user.Status,
+		CreatedAt:     user.CreatedAt,
+		LastLoginAt:   user.LastLoginAt,
+		AuthProviders: []string{},
+	}
+
+	// Get auth providers
+	authProviders, err := s.repo.GetUserAuthProviders([]uint{userID})
+	if err == nil && len(authProviders[userID]) > 0 {
+		for _, provider := range authProviders[userID] {
+			detail.AuthProviders = append(detail.AuthProviders, provider.Provider)
+		}
+	}
+
+	// Get subscription info
+	var subData struct {
+		PlanName     string    `gorm:"column:plan_name"`
+		PlanCode     string    `gorm:"column:plan_code"`
+		BillingCycle string    `gorm:"column:billing_cycle"`
+		Status       string    `gorm:"column:status"`
+		StartDate    time.Time `gorm:"column:start_date"`
+		EndDate      time.Time `gorm:"column:end_date"`
+		AutoRenew    bool      `gorm:"column:auto_renew"`
+	}
+	err = s.repo.GetDB().Table("user_subscriptions").
+		Select("subscription_plans.name as plan_name, subscription_plans.code as plan_code, user_subscriptions.billing_cycle, user_subscriptions.status, user_subscriptions.start_date, user_subscriptions.end_date, user_subscriptions.auto_renew").
+		Joins("LEFT JOIN subscription_plans ON user_subscriptions.plan_id = subscription_plans.id").
+		Where("user_subscriptions.user_id = ? AND user_subscriptions.status = ?", userID, "active").
+		First(&subData).Error
+
+	if err == nil {
+		remainingDays := int(time.Until(subData.EndDate).Hours() / 24)
+		if remainingDays < 0 {
+			remainingDays = 0
+		}
+
+		detail.CurrentSubscription = &SubscriptionInfo{
+			PlanName:      subData.PlanName,
+			PlanCode:      subData.PlanCode,
+			BillingCycle:  subData.BillingCycle,
+			Status:        subData.Status,
+			StartDate:     subData.StartDate,
+			EndDate:       subData.EndDate,
+			AutoRenew:     subData.AutoRenew,
+			RemainingDays: remainingDays,
+		}
+
+		// Get quota usage
+		var quotaData struct {
+			TotalQuota int `gorm:"column:total_quota"`
+			UsedQuota  int `gorm:"column:used_quota"`
+		}
+		s.repo.GetDB().Table("subscription_quota").
+			Select("SUM(conversations_quota + searches_quota + advanced_searches_quota + pdf_previews_quota) as total_quota, SUM(conversations_used + searches_used + advanced_searches_used + pdf_previews_used) as used_quota").
+			Where("user_id = ?", userID).
+			Scan(&quotaData)
+
+		detail.CurrentSubscription.TotalQuota = quotaData.TotalQuota
+		detail.CurrentSubscription.UsedQuota = quotaData.UsedQuota
+	}
+
+	// Get order statistics
+	var orderStats struct {
+		TotalOrders int        `gorm:"column:total_orders"`
+		TotalAmount float64    `gorm:"column:total_amount"`
+		TotalSaved  float64    `gorm:"column:total_saved"`
+		LastOrderAt *time.Time `gorm:"column:last_order_at"`
+	}
+	s.repo.GetDB().Table("orders").
+		Select("COUNT(*) as total_orders, COALESCE(SUM(final_amount), 0) as total_amount, COALESCE(SUM(discount_amount), 0) as total_saved, MAX(payment_time) as last_order_at").
+		Where("user_id = ? AND status = ?", userID, "paid").
+		Scan(&orderStats)
+
+	detail.OrderStats = OrderStats{
+		TotalOrders: orderStats.TotalOrders,
+		TotalAmount: orderStats.TotalAmount,
+		TotalSaved:  orderStats.TotalSaved,
+		LastOrderAt: orderStats.LastOrderAt,
+	}
+
+	// Get invitation statistics
+	var invitationData struct {
+		Code           string `gorm:"column:code"`
+		TotalInvited   int    `gorm:"column:total_invited"`
+		SuccessInvited int    `gorm:"column:success_invited"`
+	}
+	err = s.repo.GetDB().Table("user_invitations").
+		Where("inviter_id = ?", userID).
+		First(&invitationData).Error
+
+	if err == nil {
+		detail.InvitationStats = InvitationStats{
+			InvitationCode: invitationData.Code,
+			TotalInvited:   invitationData.TotalInvited,
+			SuccessInvited: invitationData.SuccessInvited,
+			RewardsEarned:  invitationData.SuccessInvited, // Assuming 1 reward per successful invite
+		}
+	}
+
+	// Get coupon statistics
+	var couponStats struct {
+		Total     int `gorm:"column:total"`
+		Used      int `gorm:"column:used"`
+		Available int `gorm:"column:available"`
+		Expired   int `gorm:"column:expired"`
+	}
+	now := time.Now()
+	s.repo.GetDB().Table("user_coupons").
+		Select("COUNT(*) as total, SUM(CASE WHEN status = 'used' THEN 1 ELSE 0 END) as used, SUM(CASE WHEN status = 'unused' AND valid_until >= ? THEN 1 ELSE 0 END) as available, SUM(CASE WHEN status = 'expired' OR (status = 'unused' AND valid_until < ?) THEN 1 ELSE 0 END) as expired", now, now).
+		Where("user_id = ?", userID).
+		Scan(&couponStats)
+
+	detail.CouponStats = CouponStats{
+		TotalCoupons:     couponStats.Total,
+		UsedCoupons:      couponStats.Used,
+		AvailableCoupons: couponStats.Available,
+		ExpiredCoupons:   couponStats.Expired,
+	}
+
+	return detail, nil
+}
+
 // CreateSession creates a new user session
 func (s *Service) CreateSession(userID uint, token, ip, userAgent string, expiresIn time.Duration) error {
 	session := &model.UserSession{
@@ -470,6 +699,37 @@ func (s *Service) CleanupExpiredSessions() error {
 // Logout deletes all sessions for a user
 func (s *Service) Logout(userID uint) error {
 	return s.repo.DeleteUserSessions(userID)
+}
+
+// ChangePassword changes user password with current password verification
+func (s *Service) ChangePassword(userID uint, currentPassword, newPassword string) error {
+	// Get user by ID
+	user, err := s.repo.FindByID(userID)
+	if err != nil {
+		return fmt.Errorf("failed to find user: %w", err)
+	}
+	if user == nil {
+		return errors.New("user not found")
+	}
+
+	// Check if user has a password set
+	if user.PasswordHash == nil || *user.PasswordHash == "" {
+		return errors.New("no password set for this account")
+	}
+
+	// Verify current password
+	if !utils.CheckPassword(currentPassword, *user.PasswordHash) {
+		return errors.New("current password is incorrect")
+	}
+
+	// Hash new password
+	hashedPassword, err := utils.HashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Update password
+	return s.repo.UpdatePassword(userID, hashedPassword)
 }
 
 // GetUserStatisticsChart returns user registration statistics for charts
@@ -674,7 +934,7 @@ func (s *Service) SendPhoneVerificationCode(phone, purpose string) error {
 
 // RegisterWithPhone registers a new user with phone and password
 // Enhanced with transaction support for concurrency safety
-func (s *Service) RegisterWithPhone(phone, password, code string) (*User, string, error) {
+func (s *Service) RegisterWithPhone(phone, password, code, invitationCode string) (*User, string, error) {
 	// Verify the phone code using Redis
 	valid, err := cache.VerifyCode(context.Background(), phone, code, "register")
 	if err != nil {
@@ -759,6 +1019,14 @@ func (s *Service) RegisterWithPhone(phone, password, code string) (*User, string
 	token, err = utils.GenerateToken(user.ID, tokenUsername, "user")
 	if err != nil {
 		return nil, "", err
+	}
+
+	// Handle invitation code if provided (same logic as email registration)
+	if invitationCode != "" && s.couponService != nil {
+		// Process invitation in background to not block registration
+		go func() {
+			_ = s.couponService.RegisterWithInvitation(invitationCode, uint64(user.ID))
+		}()
 	}
 
 	return user, token, nil
@@ -1037,7 +1305,7 @@ func (s *Service) BindEmail(userID uint, email, code string) error {
 
 // UnbindPhone unbinds phone from user account
 func (s *Service) UnbindPhone(userID uint, code string) error {
-	// Get current user
+	// First get user to verify code (without lock)
 	user, err := s.repo.FindByID(userID)
 	if err != nil {
 		return err
@@ -1051,7 +1319,7 @@ func (s *Service) UnbindPhone(userID uint, code string) error {
 		return errors.New("phone is not bound")
 	}
 
-	// Verify the code
+	// Verify the code before starting transaction
 	valid, err := cache.VerifyCode(context.Background(), *user.Phone, code, "unbind")
 	if err != nil {
 		return fmt.Errorf("failed to verify code: %w", err)
@@ -1060,35 +1328,64 @@ func (s *Service) UnbindPhone(userID uint, code string) error {
 		return errors.New("invalid or expired verification code")
 	}
 
-	// Check if user has at least one other login method
-	hasEmail := user.Email != nil && *user.Email != ""
-	hasWeChat := false
-	wechatProvider, _ := s.repo.FindAuthProviderByUserAndProvider(userID, "wechat")
-	if wechatProvider != nil {
-		hasWeChat = true
+	// Start transaction with pessimistic locking
+	tx := s.repo.GetDB().Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Lock the user row using FOR UPDATE
+	var lockedUser User
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id = ?", userID).First(&lockedUser).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to lock user record: %w", err)
 	}
 
+	// Re-check if phone is still bound (might have been changed by another transaction)
+	if lockedUser.Phone == nil || *lockedUser.Phone == "" {
+		tx.Rollback()
+		return errors.New("phone is not bound")
+	}
+
+	// Check if user has at least one other login method (within transaction)
+	hasEmail := lockedUser.Email != nil && *lockedUser.Email != ""
+
+	var wechatCount int64
+	if err := tx.Model(&UserAuthProvider{}).
+		Where("user_id = ? AND provider = ?", userID, "wechat").
+		Count(&wechatCount).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to check WeChat binding: %w", err)
+	}
+	hasWeChat := wechatCount > 0
+
 	if !hasEmail && !hasWeChat {
+		tx.Rollback()
 		return errors.New("cannot unbind phone: at least one login method must remain")
 	}
 
 	// Remove phone
-	user.Phone = nil
-	user.PhoneVerified = false
+	lockedUser.Phone = nil
+	lockedUser.PhoneVerified = false
 
-	if err := s.repo.Update(user); err != nil {
-		return err
+	if err := tx.Save(&lockedUser).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to unbind phone: %w", err)
 	}
 
 	// Remove auth provider
-	authProvider, err := s.repo.FindAuthProviderByUserAndProvider(userID, "phone")
-	if err != nil {
-		return err
+	if err := tx.Where("user_id = ? AND provider = ?", userID, "phone").
+		Delete(&UserAuthProvider{}).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to delete phone auth provider: %w", err)
 	}
-	if authProvider != nil {
-		if err := s.repo.DeleteAuthProvider(authProvider.ID); err != nil {
-			return err
-		}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -1096,7 +1393,7 @@ func (s *Service) UnbindPhone(userID uint, code string) error {
 
 // UnbindEmail unbinds email from user account
 func (s *Service) UnbindEmail(userID uint, code string) error {
-	// Get current user
+	// First get user to verify code (without lock)
 	user, err := s.repo.FindByID(userID)
 	if err != nil {
 		return err
@@ -1110,7 +1407,7 @@ func (s *Service) UnbindEmail(userID uint, code string) error {
 		return errors.New("email is not bound")
 	}
 
-	// Verify the code
+	// Verify the code before starting transaction
 	valid, err := cache.VerifyCode(context.Background(), *user.Email, code, "unbind")
 	if err != nil {
 		return fmt.Errorf("failed to verify code: %w", err)
@@ -1119,35 +1416,64 @@ func (s *Service) UnbindEmail(userID uint, code string) error {
 		return errors.New("invalid or expired verification code")
 	}
 
-	// Check if user has at least one other login method
-	hasPhone := user.Phone != nil && *user.Phone != ""
-	hasWeChat := false
-	wechatProvider, _ := s.repo.FindAuthProviderByUserAndProvider(userID, "wechat")
-	if wechatProvider != nil {
-		hasWeChat = true
+	// Start transaction with pessimistic locking
+	tx := s.repo.GetDB().Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Lock the user row using FOR UPDATE
+	var lockedUser User
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id = ?", userID).First(&lockedUser).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to lock user record: %w", err)
 	}
 
+	// Re-check if email is still bound (might have been changed by another transaction)
+	if lockedUser.Email == nil || *lockedUser.Email == "" {
+		tx.Rollback()
+		return errors.New("email is not bound")
+	}
+
+	// Check if user has at least one other login method (within transaction)
+	hasPhone := lockedUser.Phone != nil && *lockedUser.Phone != ""
+
+	var wechatCount int64
+	if err := tx.Model(&UserAuthProvider{}).
+		Where("user_id = ? AND provider = ?", userID, "wechat").
+		Count(&wechatCount).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to check WeChat binding: %w", err)
+	}
+	hasWeChat := wechatCount > 0
+
 	if !hasPhone && !hasWeChat {
+		tx.Rollback()
 		return errors.New("cannot unbind email: at least one login method must remain")
 	}
 
 	// Remove email
-	user.Email = nil
-	user.EmailVerified = false
+	lockedUser.Email = nil
+	lockedUser.EmailVerified = false
 
-	if err := s.repo.Update(user); err != nil {
-		return err
+	if err := tx.Save(&lockedUser).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to unbind email: %w", err)
 	}
 
 	// Remove auth provider
-	authProvider, err := s.repo.FindAuthProviderByUserAndProvider(userID, "email")
-	if err != nil {
-		return err
+	if err := tx.Where("user_id = ? AND provider = ?", userID, "email").
+		Delete(&UserAuthProvider{}).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to delete email auth provider: %w", err)
 	}
-	if authProvider != nil {
-		if err := s.repo.DeleteAuthProvider(authProvider.ID); err != nil {
-			return err
-		}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -1155,35 +1481,55 @@ func (s *Service) UnbindEmail(userID uint, code string) error {
 
 // UnbindWeChat unbinds WeChat from user account
 func (s *Service) UnbindWeChat(userID uint) error {
-	// Get current user
-	user, err := s.repo.FindByID(userID)
-	if err != nil {
-		return err
-	}
-	if user == nil {
-		return errors.New("user not found")
+	// Start transaction with pessimistic locking
+	tx := s.repo.GetDB().Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Lock the user row using FOR UPDATE
+	var lockedUser User
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id = ?", userID).First(&lockedUser).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to lock user record: %w", err)
 	}
 
-	// Check if WeChat is bound
-	wechatProvider, err := s.repo.FindAuthProviderByUserAndProvider(userID, "wechat")
-	if err != nil {
-		return err
+	// Check if WeChat is bound (within transaction)
+	var wechatCount int64
+	if err := tx.Model(&UserAuthProvider{}).
+		Where("user_id = ? AND provider = ?", userID, "wechat").
+		Count(&wechatCount).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to check WeChat binding: %w", err)
 	}
-	if wechatProvider == nil {
+
+	if wechatCount == 0 {
+		tx.Rollback()
 		return errors.New("WeChat is not bound")
 	}
 
-	// Check if user has at least one other login method
-	hasEmail := user.Email != nil && *user.Email != ""
-	hasPhone := user.Phone != nil && *user.Phone != ""
+	// Check if user has at least one other login method (within transaction)
+	hasEmail := lockedUser.Email != nil && *lockedUser.Email != ""
+	hasPhone := lockedUser.Phone != nil && *lockedUser.Phone != ""
 
 	if !hasEmail && !hasPhone {
+		tx.Rollback()
 		return errors.New("cannot unbind WeChat: at least one login method must remain")
 	}
 
 	// Remove auth provider
-	if err := s.repo.DeleteAuthProvider(wechatProvider.ID); err != nil {
-		return err
+	if err := tx.Where("user_id = ? AND provider = ?", userID, "wechat").
+		Delete(&UserAuthProvider{}).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to delete WeChat auth provider: %w", err)
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil

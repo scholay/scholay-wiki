@@ -47,7 +47,7 @@ type CheckEmailResponse struct {
 // SendCodeRequest represents a send verification code request
 type SendCodeRequest struct {
 	Email   string `json:"email" binding:"required,email"`
-	Purpose string `json:"purpose" binding:"required,oneof=register login bind reset_password"`
+	Purpose string `json:"purpose" binding:"required,oneof=register login bind unbind reset_password"`
 }
 
 // CheckPhoneRequest represents a check phone request
@@ -63,14 +63,15 @@ type CheckPhoneResponse struct {
 // SendPhoneCodeRequest represents a send phone verification code request
 type SendPhoneCodeRequest struct {
 	Phone   string `json:"phone" binding:"required,len=11"`
-	Purpose string `json:"purpose" binding:"required,oneof=register login bind reset_password"`
+	Purpose string `json:"purpose" binding:"required,oneof=register login bind unbind reset_password"`
 }
 
 // RegisterPhoneRequest represents a phone registration request
 type RegisterPhoneRequest struct {
-	Phone    string `json:"phone" binding:"required,len=11"`
-	Password string `json:"password" binding:"required,min=8"`
-	Code     string `json:"code" binding:"required,len=6"`
+	Phone          string `json:"phone" binding:"required,len=11"`
+	Password       string `json:"password" binding:"required,min=8"`
+	Code           string `json:"code" binding:"required,len=6"`
+	InvitationCode string `json:"invitation_code"` // 邀请码（可选）
 }
 
 // LoginPhoneRequest represents a phone login request
@@ -101,6 +102,7 @@ type RegisterRequest struct {
 	Email          string `json:"email" binding:"required,email"`
 	Password       string `json:"password" binding:"required,min=8"`
 	Code           string `json:"code"`
+	InvitationCode string `json:"invitation_code"` // 邀请码（可选）
 	TurnstileToken string `json:"turnstile_token"`
 }
 
@@ -202,7 +204,7 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.service.RegisterWithEmail(req.Email, req.Password, req.Code)
+	user, token, err := h.service.RegisterWithEmailAndInvitation(req.Email, req.Password, req.Code, req.InvitationCode)
 	if err != nil {
 		utils.Error(c, 2002, err.Error())
 		return
@@ -371,7 +373,7 @@ func (h *Handler) RegisterWithPhone(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.service.RegisterWithPhone(req.Phone, req.Password, req.Code)
+	user, token, err := h.service.RegisterWithPhone(req.Phone, req.Password, req.Code, req.InvitationCode)
 	if err != nil {
 		utils.Error(c, 2022, err.Error())
 		return
@@ -608,6 +610,24 @@ func (h *Handler) GetOnlineUsers(c *gin.Context) {
 	})
 }
 
+// GetUserDetail handles getting detailed user information (admin only)
+func (h *Handler) GetUserDetail(c *gin.Context) {
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 64)
+	if err != nil {
+		utils.BadRequest(c, "Invalid user ID")
+		return
+	}
+
+	detail, err := h.service.GetUserDetail(uint(userID))
+	if err != nil {
+		utils.Error(c, 2030, "Failed to get user detail: "+err.Error())
+		return
+	}
+
+	utils.Success(c, detail)
+}
+
 // Logout handles user logout
 func (h *Handler) Logout(c *gin.Context) {
 	userID, exists := c.Get("user_id")
@@ -623,6 +643,37 @@ func (h *Handler) Logout(c *gin.Context) {
 	}
 
 	utils.SuccessWithMessage(c, "Logged out successfully", nil)
+}
+
+// ChangePassword handles user password change
+func (h *Handler) ChangePassword(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	var req struct {
+		CurrentPassword string `json:"current_password" binding:"required"`
+		NewPassword     string `json:"new_password" binding:"required,min=8"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	err := h.service.ChangePassword(userID.(uint), req.CurrentPassword, req.NewPassword)
+	if err != nil {
+		if err.Error() == "current password is incorrect" {
+			utils.Error(c, 2012, "Current password is incorrect")
+			return
+		}
+		utils.Error(c, 2013, "Failed to change password")
+		return
+	}
+
+	utils.SuccessWithMessage(c, "Password changed successfully", nil)
 }
 
 // Heartbeat handles heartbeat requests to update session activity

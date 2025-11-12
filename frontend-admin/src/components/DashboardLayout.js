@@ -10,6 +10,7 @@ const DashboardLayout = () => {
   const location = useLocation();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [couponMenuOpen, setCouponMenuOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
     newPassword: '',
@@ -121,6 +122,50 @@ const DashboardLayout = () => {
             </svg>
             订单管理
           </a>
+
+          {/* Coupon Management Parent Menu */}
+          <div className="nav-group">
+            <a
+              onClick={() => setCouponMenuOpen(!couponMenuOpen)}
+              className={`nav-item ${(isActive('/dashboard/coupons') || isActive('/dashboard/coupon-batches') || isActive('/dashboard/distributed-coupons')) ? 'active' : ''}`}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05L11.949 18H6.051L.333 13.98a1 1 0 01-.285-1.049l1.738-5.42-1.233-.617a1 1 0 11.894-1.788l1.599.799L7 4.323V3a1 1 0 011-1h2zm0 2.274L7 5.607v3.893a1 1 0 01-1 1H4.268l-1.2 3.748L7.586 17h4.828l4.519-2.752-1.2-3.748H14a1 1 0 01-1-1V5.607L10 4.274z"/>
+              </svg>
+              <span>折扣券管理</span>
+              <svg
+                className={`submenu-arrow ${couponMenuOpen ? 'open' : ''}`}
+                width="16"
+                height="16"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+              </svg>
+            </a>
+            {couponMenuOpen && (
+              <div className="submenu">
+                <a
+                  onClick={() => { navigate('/dashboard/coupons'); setMobileMenuOpen(false); }}
+                  className={`submenu-item ${isActive('/dashboard/coupons') ? 'active' : ''}`}
+                >
+                  创建模版
+                </a>
+                <a
+                  onClick={() => { navigate('/dashboard/coupon-batches'); setMobileMenuOpen(false); }}
+                  className={`submenu-item ${isActive('/dashboard/coupon-batches') ? 'active' : ''}`}
+                >
+                  批量发放
+                </a>
+                <a
+                  onClick={() => { navigate('/dashboard/distributed-coupons'); setMobileMenuOpen(false); }}
+                  className={`submenu-item ${isActive('/dashboard/distributed-coupons') ? 'active' : ''}`}
+                >
+                  发放列表
+                </a>
+              </div>
+            )}
+          </div>
           <a
             onClick={() => { navigate('/dashboard/third-party-accounts'); setMobileMenuOpen(false); }}
             className={`nav-item ${isActive('/dashboard/third-party-accounts') ? 'active' : ''}`}

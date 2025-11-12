@@ -34,6 +34,24 @@ func (h *Handler) GetPlans(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "success", plans)
 }
 
+// GetPlanByCode handles GET /api/v1/user/subscription/plans/:code
+// Returns a specific subscription plan by its plan code
+func (h *Handler) GetPlanByCode(c *gin.Context) {
+	planCode := c.Param("code")
+	if planCode == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Plan code is required")
+		return
+	}
+
+	plan, err := h.service.GetPlanByCode(planCode)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "Plan not found")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "success", plan)
+}
+
 // GetMySubscription handles GET /api/v1/user/subscription/my
 // Returns current user's subscription info
 func (h *Handler) GetMySubscription(c *gin.Context) {

@@ -140,6 +140,26 @@ curl "http://localhost:5411/api/v1/user/subscription/quota" \
 # Check user subscription usage
 curl "http://localhost:5411/api/v1/user/subscription/usage" \
   -H "Authorization: Bearer $TOKEN"
+
+# Get WeChat Official Account config (admin only)
+ADMIN_TOKEN="your-admin-jwt-token"
+curl "http://localhost:5455/api/v1/admin/wechat-official/config" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# Update WeChat Official Account config (admin only)
+curl -X PUT "http://localhost:5455/api/v1/admin/wechat-official/config" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_id": "wx1234567890abcdef",
+    "app_secret": "your_app_secret",
+    "token": "your_token",
+    "encoding_aes_key": "your_aes_key",
+    "encryption_mode": "plaintext",
+    "auto_reply_enabled": true,
+    "ai_model_level": "low",
+    "system_prompt": "你是一个友好的AI助手"
+  }'
 ```
 
 ## Architecture & Important Concepts
@@ -178,6 +198,7 @@ internal/
 ├── order/          # Order processing and management
 ├── payment/        # Payment integration (Alipay)
 ├── wechat/         # WeChat integration (Mini Program, OAuth)
+├── wechatofficial/ # WeChat Official Account auto-reply with AI
 ├── proxy/          # HTTP proxy for external AI services
 ├── mcp/            # MCP (Model Context Protocol) server
 ├── config/         # System configuration (privacy policy, email, etc.)
@@ -294,14 +315,20 @@ The platform integrates with Alipay for payment processing:
 
 ### WeChat Integration
 
-The platform includes WeChat integration for Chinese market:
+The platform includes comprehensive WeChat integration for Chinese market:
 
 - **Mini Program Support**: Backend support for WeChat Mini Program authentication
-- **WeChat OAuth**: Login via WeChat (schema ready)
+- **WeChat OAuth**: Login via WeChat
+- **WeChat Official Account**: Auto-reply with AI-powered responses
+  - Supports text and image messages
+  - Configurable AI model levels (low, medium, high)
+  - Admin-configurable system prompts
+  - Multiple encryption modes (plaintext, compatible, secure)
 - **WeChat Pay**: (Can be extended from payment module)
 
 **Implementation**:
 - `backend/internal/wechat/` - WeChat authentication and API integration
+- `backend/internal/wechatofficial/` - WeChat Official Account auto-reply with AI
 
 ### Authentication System
 
@@ -690,5 +717,6 @@ This CLAUDE.md file consolidates all essential development information. Addition
 - **README.md** - User-facing project overview and getting started guide
 - **backend/SEMANTIC_SCHOLAR_API.md** - Detailed Semantic Scholar API documentation (Chinese)
 - **frontend-user/ICONS_PREVIEW.md** - Visual guide for custom search icons and design variants
+- **frontend-user/SEO_*.md** - SEO implementation guides and checklists for search engine optimization
 
 All other documentation has been consolidated into this file for simplicity.

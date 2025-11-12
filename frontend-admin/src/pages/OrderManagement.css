@@ -255,6 +255,35 @@
   font-size: 15px;
 }
 
+.orders-table .amount-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.orders-table .amount-details .final-amount {
+  font-weight: 600;
+  color: #10a37f;
+  font-size: 15px;
+}
+
+.orders-table .amount-details .original-amount {
+  font-size: 12px;
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+.orders-table .amount-details .discount-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(16, 163, 127, 0.15);
+  color: #10a37f;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  width: fit-content;
+}
+
 .orders-table td.payment-method,
 .orders-table td.payment-time {
   color: #64748b;

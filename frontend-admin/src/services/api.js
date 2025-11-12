@@ -93,6 +93,9 @@ export const adminAPI = {
   getOnlineUsers: () =>
     api.get('/admin/users/online'),
 
+  getUserDetail: (userId) =>
+    api.get(`/admin/users/${userId}`),
+
   getUserStatisticsChart: (days = 30) =>
     api.get('/admin/statistics/users', { params: { days } }),
 
@@ -211,6 +214,64 @@ export const adminAPI = {
     if (userEmail) params.user_email = userEmail;
     return api.get('/admin/orders', { params });
   },
+
+  // Coupon management
+  getCouponTemplates: (page = 1, pageSize = 20, status = '', distributionType = '') => {
+    const params = { page, page_size: pageSize };
+    if (status) params.status = status;
+    if (distributionType) params.distribution_type = distributionType;
+    return api.get('/admin/coupon-templates', { params });
+  },
+
+  getCouponTemplate: (id) =>
+    api.get(`/admin/coupon-templates/${id}`),
+
+  createCouponTemplate: (data) =>
+    api.post('/admin/coupon-templates', data),
+
+  updateCouponTemplate: (id, data) =>
+    api.put(`/admin/coupon-templates/${id}`, data),
+
+  deleteCouponTemplate: (id) =>
+    api.delete(`/admin/coupon-templates/${id}`),
+
+  activateCouponTemplate: (id) =>
+    api.post(`/admin/coupon-templates/${id}/activate`),
+
+  pauseCouponTemplate: (id) =>
+    api.post(`/admin/coupon-templates/${id}/pause`),
+
+  distributeCoupons: (data) =>
+    api.post('/admin/coupons/distribute', data),
+
+  getDistributedCoupons: (page = 1, pageSize = 20, templateId = '', status = '', userEmail = '') => {
+    const params = { page, page_size: pageSize };
+    if (templateId) params.template_id = templateId;
+    if (status) params.status = status;
+    if (userEmail) params.user_email = userEmail;
+    return api.get('/admin/coupons/distributed', { params });
+  },
+
+  getCouponStatistics: () =>
+    api.get('/admin/coupons/statistics'),
+
+  getCouponBatches: (page = 1, pageSize = 20, status = '') => {
+    const params = { page, page_size: pageSize };
+    if (status) params.status = status;
+    return api.get('/admin/coupon-batches', { params });
+  },
+
+  getCouponBatch: (id) =>
+    api.get(`/admin/coupon-batches/${id}`),
+
+  createCouponBatch: (data) =>
+    api.post('/admin/coupon-batches', data),
+
+  executeCouponBatch: (id) =>
+    api.post(`/admin/coupon-batches/${id}/execute`),
+
+  cancelCouponBatch: (id) =>
+    api.post(`/admin/coupon-batches/${id}/cancel`),
 };
 
 export default api;
