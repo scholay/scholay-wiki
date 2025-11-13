@@ -263,7 +263,31 @@ func (h *Handler) GetSystemConfig(c *gin.Context) {
 		}
 	}
 
-	utils.Success(c, config)
+	// Get GitHub OAuth configuration
+	githubConfig, err := h.service.GetGithubOAuthConfig()
+	if err != nil {
+		// Log error but don't fail the request
+		// GitHub config is optional
+		githubConfig = nil
+	}
+
+	// Build response with system config and GitHub config
+	response := map[string]interface{}{
+		"id":                         config.ID,
+		"require_email_verification": config.RequireEmailVerification,
+		"enable_turnstile":           config.EnableTurnstile,
+		"turnstile_site_key":         config.TurnstileSiteKey,
+		"turnstile_secret_key":       config.TurnstileSecretKey,
+		"created_at":                 config.CreatedAt,
+		"updated_at":                 config.UpdatedAt,
+	}
+
+	// Add GitHub client_id if configured and enabled
+	if githubConfig != nil && githubConfig.Enabled && githubConfig.ClientID != "" {
+		response["github_client_id"] = githubConfig.ClientID
+	}
+
+	utils.Success(c, response)
 }
 
 // UpdateSystemConfigRequest represents an update system config request
