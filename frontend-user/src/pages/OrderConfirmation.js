@@ -308,12 +308,12 @@ const OrderConfirmation = () => {
       } else if (selectedPaymentMethod === 'alipay') {
         // Create Alipay payment
         // Return to order confirmation page with order number so user can see payment result
-        const returnURL = `${window.location.origin}/order-confirmation?orderNo=${order.order_no}`;
-        const subject = `Scholar ${order.plan_name} ${order.billing_cycle === 'monthly' ? '月付' : '年付'}订阅`;
-        const description = `订单号: ${order.order_no}`;
+        const returnURL = `${window.location.origin}/order-confirmation?orderNo=${actualOrder.order_no}`;
+        const subject = `Scholar ${actualOrder.plan_name} ${actualOrder.billing_cycle === 'monthly' ? '月付' : '年付'}订阅`;
+        const description = `订单号: ${actualOrder.order_no}`;
 
         const paymentResponse = await paymentAPI.createAlipayPayment(
-          order.order_no,
+          actualOrder.order_no,
           subject,
           finalAmount, // Use discounted amount if coupon applied
           returnURL,
@@ -330,7 +330,7 @@ const OrderConfirmation = () => {
       } else if (selectedPaymentMethod === 'wechat') {
         // Create WeChat Pay payment
         const paymentResponse = await paymentAPI.createWeChatPayment(
-          order.order_no,
+          actualOrder.order_no,
           finalAmount // Use discounted amount if coupon applied
         );
 
@@ -340,7 +340,7 @@ const OrderConfirmation = () => {
           setShowWeChatQRModal(true);
           setPaymentLoading(false);
           // Start polling for payment status
-          startWeChatPaymentPolling(order.order_no);
+          startWeChatPaymentPolling(actualOrder.order_no);
         } else {
           showError('创建微信支付失败：' + (paymentResponse.data.message || '未知错误'));
           setPaymentLoading(false);
@@ -592,7 +592,8 @@ const OrderConfirmation = () => {
                   )}
                 </div>
 
-                {isDevMode && (
+                {/* 暂时注释掉手动支付 */}
+                {/* {isDevMode && (
                   <div
                     className={`payment-method-item ${selectedPaymentMethod === 'simulate' ? 'selected' : ''}`}
                     onClick={() => setSelectedPaymentMethod('simulate')}
@@ -619,9 +620,10 @@ const OrderConfirmation = () => {
                       <div className="payment-check">✓</div>
                     )}
                   </div>
-                )}
+                )} */}
 
-                <div
+                {/* 暂时注释掉微信支付 */}
+                {/* <div
                   className={`payment-method-item ${selectedPaymentMethod === 'wechat' ? 'selected' : ''}`}
                   onClick={() => setSelectedPaymentMethod('wechat')}
                 >
@@ -636,7 +638,7 @@ const OrderConfirmation = () => {
                   {selectedPaymentMethod === 'wechat' && (
                     <div className="payment-check">✓</div>
                   )}
-                </div>
+                </div> */}
               </div>
             </div>
 

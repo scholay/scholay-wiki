@@ -35,9 +35,17 @@ const isWhitelistedReturnURL = (url) => {
   return RETURN_URL_WHITELIST.includes(pathname);
 };
 
-// Clear old tokens before component renders
-localStorage.removeItem('user_token');
-localStorage.removeItem('user_data');
+// CRITICAL: Clear old tokens IMMEDIATELY before component renders
+// This prevents AuthContext from starting heartbeat with expired tokens
+// Must be outside the component to run before React lifecycle
+// NOTE: We only clear auth tokens, NOT OAuth state which is needed for verification
+const bindMode = localStorage.getItem('github_bind_mode');
+if (bindMode !== 'bind') {
+  // Only clear tokens in login mode, not binding mode
+  // DO NOT clear github_bind_state/github_oauth_state here - it's needed for verification
+  localStorage.removeItem('user_token');
+  localStorage.removeItem('user_data');
+}
 
 const GithubCallback = () => {
   const navigate = useNavigate();

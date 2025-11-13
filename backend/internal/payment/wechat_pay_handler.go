@@ -123,14 +123,24 @@ func (h *WeChatPayHandler) ActivateConfig(c *gin.Context) {
 	utils.Success(c, gin.H{"message": "WeChat Pay config activated successfully"})
 }
 
+// WeChatPaymentRequest 微信支付请求结构体
+type WeChatPaymentRequest struct {
+	OrderNo string  `json:"order_no" binding:"required"`
+	Amount  float64 `json:"amount" binding:"required,gt=0"`
+}
+
 // CreatePayment 创建微信支付订单
 // POST /api/v1/user/payment/wechat/create
 func (h *WeChatPayHandler) CreatePayment(c *gin.Context) {
-	var req PaymentRequest
+	var req WeChatPaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		// Log the detailed error for debugging
+		fmt.Printf("[WECHAT_PAY] Request binding error: %v\n", err)
 		utils.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+
+	fmt.Printf("[WECHAT_PAY] Creating payment - OrderNo: %s, Amount: %.2f\n", req.OrderNo, req.Amount)
 
 	// Get user ID from context
 	userID, exists := c.Get("user_id")
