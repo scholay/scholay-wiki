@@ -379,6 +379,78 @@ func (s *Service) ProcessAlipayCallback(orderNo, transactionNo string, amount fl
 	return nil
 }
 
+// ProcessWeChatPayCallback processes a WeChat Pay payment callback
+// This is called by the payment handler after signature verification
+func (s *Service) ProcessWeChatPayCallback(orderNo, transactionNo string, amount float64, callbackData map[string]interface{}) error {
+	// Get order
+	order, err := s.repo.GetOrderByOrderNo(orderNo)
+	if err != nil {
+		return fmt.Errorf("order not found: %w", err)
+	}
+
+	// Check if order is already paid
+	if order.Status == "paid" {
+		fmt.Printf("✓ Order %s already processed, skipping\n", orderNo)
+		return nil
+	}
+
+	// Check if order is cancelled
+	if order.Status == "cancelled" {
+		return errors.New("order is cancelled")
+	}
+
+	// Convert callback data to JSON string for storage
+	callbackJSON, err := json.Marshal(callbackData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal callback data: %w", err)
+	}
+
+	// Create payment transaction record with callback data
+	transaction := &PaymentTransaction{
+		OrderID:       order.ID,
+		TransactionNo: transactionNo,
+		PaymentMethod: "wechat",
+		Amount:        amount,
+		Status:        "success",
+		PaymentData:   string(callbackJSON), // Store complete callback data
+	}
+
+	if err := s.repo.CreatePaymentTransaction(transaction); err != nil {
+		return fmt.Errorf("failed to create payment transaction: %w", err)
+	}
+
+	// Update order status
+	if err := s.repo.UpdateOrderStatus(order.ID, "paid", "wechat"); err != nil {
+		return fmt.Errorf("failed to update order status: %w", err)
+	}
+
+	// Calculate subscription duration
+	var duration int
+	if order.BillingCycle == "monthly" {
+		duration = 1
+	} else {
+		duration = 12
+	}
+
+	// Upgrade user subscription
+	if err := s.subsService.UpgradeSubscription(order.UserID, order.PlanCode, duration); err != nil {
+		return fmt.Errorf("failed to upgrade subscription: %w", err)
+	}
+
+	// Mark coupon as used if order has a coupon
+	if order.CouponID != nil && *order.CouponID > 0 {
+		if err := s.couponRepo.UseCoupon(*order.CouponID, uint64(order.ID)); err != nil {
+			// Log error but don't fail the payment process
+			fmt.Printf("⚠ Warning: Failed to mark coupon %d as used: %v\n", *order.CouponID, err)
+		} else {
+			fmt.Printf("✓ Coupon %d marked as used for order %s\n", *order.CouponID, orderNo)
+		}
+	}
+
+	fmt.Printf("✓ WeChat Pay payment processed successfully for order %s\n", orderNo)
+	return nil
+}
+
 // OrderStatistics represents order statistics
 type OrderStatistics struct {
 	TodayAmount    float64 `json:"today_amount"`

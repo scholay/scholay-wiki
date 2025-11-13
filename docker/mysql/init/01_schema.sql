@@ -568,7 +568,24 @@ CREATE TABLE IF NOT EXISTS `alipay_configs` (
   INDEX `idx_is_active` (`is_active`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='支付宝配置';
 
--- 微信OAuth配置
+-- 微信支付配置
+CREATE TABLE IF NOT EXISTS `wechat_pay_configs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `mch_id` VARCHAR(32) NOT NULL COMMENT '商户号',
+  `app_id` VARCHAR(32) NOT NULL COMMENT '微信App ID',
+  `api_v3_key` VARCHAR(64) NOT NULL COMMENT 'APIv3密钥',
+  `serial_no` VARCHAR(64) NOT NULL COMMENT '商户API证书序列号',
+  `private_key` TEXT NOT NULL COMMENT '商户私钥',
+  `notify_url` VARCHAR(255) NOT NULL COMMENT '支付回调URL',
+  `is_sandbox` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否沙箱环境',
+  `is_active` BOOLEAN NOT NULL DEFAULT TRUE,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_is_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='微信支付配置';
+
+-- 微信扫码登录配置（原微信OAuth配置）
 CREATE TABLE IF NOT EXISTS `wechat_configs` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `app_id` VARCHAR(32) NOT NULL COMMENT '微信App ID',

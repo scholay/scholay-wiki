@@ -22,6 +22,13 @@ func NewHandler(db *gorm.DB) *Handler {
 	}
 }
 
+// NewHandlerWithService creates a new order handler with an existing service
+func NewHandlerWithService(service *Service) *Handler {
+	return &Handler{
+		service: service,
+	}
+}
+
 // CreateOrder handles POST /api/v1/user/orders/create
 // Creates a new order for subscription
 func (h *Handler) CreateOrder(c *gin.Context) {

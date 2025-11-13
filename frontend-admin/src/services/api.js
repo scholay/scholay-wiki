@@ -174,6 +174,27 @@ export const adminAPI = {
   activateAlipayConfig: (id) =>
     api.post(`/admin/payment/alipay/config/${id}/activate`),
 
+  // WeChat Pay configuration management
+  getWeChatPayConfigs: (showKeys = false) =>
+    api.get('/admin/payment/wechat/configs', {
+      params: showKeys ? { show_keys: 'true' } : {}
+    }),
+
+  getWeChatPayConfig: () =>
+    api.get('/admin/payment/wechat/config'),
+
+  createWeChatPayConfig: (data) =>
+    api.post('/admin/payment/wechat/config', data),
+
+  updateWeChatPayConfig: (id, data) =>
+    api.put(`/admin/payment/wechat/config/${id}`, data),
+
+  deleteWeChatPayConfig: (id) =>
+    api.delete(`/admin/payment/wechat/config/${id}`),
+
+  activateWeChatPayConfig: (id) =>
+    api.post(`/admin/payment/wechat/config/${id}/activate`),
+
   // WeChat OAuth configuration management
   getWeChatConfigs: (showSecret = false) =>
     api.get('/admin/wechat/configs', {

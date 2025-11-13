@@ -144,10 +144,14 @@ func main() {
 	proxyHandler := proxy.NewHandler()
 
 	// Initialize Order module
-	orderHandler := order.NewHandler(database.GetDB())
+	orderService := order.NewService(database.GetDB())
+	orderHandler := order.NewHandlerWithService(orderService)
 
 	// Initialize Payment module
 	alipayHandler := payment.NewAlipayHandler(database.GetDB())
+	wechatPayRepo := payment.NewWeChatPayRepository(database.GetDB())
+	wechatPayService := payment.NewWeChatPayService(wechatPayRepo)
+	wechatPayHandler := payment.NewWeChatPayHandler(wechatPayService, orderService)
 
 	// Initialize WeChat module
 	wechatService := wechat.NewService(database.GetDB())
@@ -241,6 +245,14 @@ func main() {
 			adminProtected.DELETE("/payment/alipay/config/:id", alipayHandler.DeleteConfig)
 			adminProtected.POST("/payment/alipay/config/:id/activate", alipayHandler.SetActiveConfig)
 
+			// WeChat Pay configuration (Admin only)
+			adminProtected.GET("/payment/wechat/config", wechatPayHandler.GetActiveConfig)
+			adminProtected.GET("/payment/wechat/configs", wechatPayHandler.GetAllConfigs)
+			adminProtected.POST("/payment/wechat/config", wechatPayHandler.CreateConfig)
+			adminProtected.PUT("/payment/wechat/config/:id", wechatPayHandler.UpdateConfig)
+			adminProtected.DELETE("/payment/wechat/config/:id", wechatPayHandler.DeleteConfig)
+			adminProtected.POST("/payment/wechat/config/:id/activate", wechatPayHandler.ActivateConfig)
+
 			// WeChat OAuth configuration (Admin only)
 			adminProtected.GET("/wechat/config", wechatHandler.GetActiveConfig)
 			adminProtected.GET("/wechat/configs", wechatHandler.ListConfigs)
@@ -277,6 +289,7 @@ func main() {
 
 		// Payment callback routes (public, no auth required)
 		api.POST("/payment/alipay/notify", alipayHandler.HandleCallback)
+		api.POST("/payment/wechat/notify", wechatPayHandler.HandleNotify)
 
 		// WeChat Official Account webhook (public, no auth required)
 		wechatOfficialWebhook := api.Group("/wechat-official")
@@ -346,6 +359,9 @@ func main() {
 			// Payment routes (Alipay)
 			userProtected.POST("/payment/alipay/create", alipayHandler.CreatePayment)
 			userProtected.POST("/payment/simulate", alipayHandler.SimulatePayment)
+
+			// Payment routes (WeChat Pay)
+			userProtected.POST("/payment/wechat/create", wechatPayHandler.CreatePayment)
 
 			// Coupon routes (User)
 			userProtected.GET("/coupons", couponHandler.GetMyCoupons)

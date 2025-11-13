@@ -225,6 +225,13 @@ export const paymentAPI = {
       return_url: returnURL,
       description,
     }),
+
+  // Create WeChat Pay payment
+  createWeChatPayment: (orderNo, amount) =>
+    api.post('/user/payment/wechat/create', {
+      order_no: orderNo,
+      amount,
+    }),
 };
 
 export default api;
