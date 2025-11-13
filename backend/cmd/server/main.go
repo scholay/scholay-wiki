@@ -68,7 +68,7 @@ func main() {
 	// Initialize user module
 	userRepo := user.NewRepository(database.GetDB())
 	userService := user.NewService(userRepo)
-	userHandler := user.NewHandler(userService)
+	userHandler := user.NewHandler(userService, database.GetDB())
 
 	// Initialize config module
 	configRepo := config.NewRepository(database.GetDB())
@@ -315,6 +315,13 @@ func main() {
 			wechatPublic.POST("/callback", userHandler.WeChatCallback)
 		}
 
+		// Public GitHub OAuth routes (no auth required)
+		githubPublic := api.Group("/user/github")
+		{
+			githubPublic.GET("/login-url", userHandler.GetGithubLoginURL)
+			githubPublic.GET("/callback", userHandler.GithubCallback)
+		}
+
 		// User protected routes
 		userProtected := api.Group("/user")
 		userProtected.Use(middleware.UserAuthMiddleware())
@@ -333,6 +340,7 @@ func main() {
 			userProtected.POST("/bind-phone", userHandler.BindPhone)
 			userProtected.POST("/bind-email", userHandler.BindEmail)
 			userProtected.POST("/bind-wechat", userHandler.BindWeChatAccount)
+			userProtected.POST("/bind-github", userHandler.BindGitHubAccount)
 			userProtected.POST("/bind-email-with-password", userHandler.BindEmailWithPassword)
 			userProtected.POST("/bind-phone-with-password", userHandler.BindPhoneWithPassword)
 
@@ -340,6 +348,7 @@ func main() {
 			userProtected.POST("/unbind-phone", userHandler.UnbindPhone)
 			userProtected.POST("/unbind-email", userHandler.UnbindEmail)
 			userProtected.POST("/unbind-wechat", userHandler.UnbindWeChat)
+			userProtected.POST("/unbind-github", userHandler.UnbindGitHub)
 
 			// Subscription routes (protected)
 			userProtected.GET("/subscription/my", subscriptionHandler.GetMySubscription)

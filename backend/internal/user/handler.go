@@ -3,10 +3,12 @@ package user
 import (
 	"scholar-backend/internal/common/turnstile"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/config"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // WeChatService interface for WeChat OAuth operations
@@ -19,13 +21,17 @@ type WeChatService interface {
 type Handler struct {
 	service        *Service
 	wechatService  WeChatService
+	userRepo       *Repository
+	configRepo     *config.Repository
 }
 
 // NewHandler creates a new user handler
-func NewHandler(service *Service) *Handler {
+func NewHandler(service *Service, db *gorm.DB) *Handler {
 	return &Handler{
 		service:       service,
 		wechatService: nil, // Will be set via SetWeChatService
+		userRepo:      NewRepository(db),
+		configRepo:    config.NewRepository(db),
 	}
 }
 
@@ -138,6 +144,7 @@ type UserProfileResponse struct {
 	EmailVerified bool       `json:"email_verified"`
 	PhoneVerified bool       `json:"phone_verified"`
 	WeChatOpenID  *string    `json:"wechat_openid"` // WeChat OpenID if bound
+	GitHubID      *string    `json:"github_id"`     // GitHub ID if bound
 	LastLoginAt   *time.Time `json:"last_login_at"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
@@ -288,6 +295,13 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		wechatOpenID = &wechatProvider.ProviderUserID
 	}
 
+	// Check if GitHub is bound
+	var githubID *string
+	githubProvider, err := h.service.repo.FindAuthProviderByUserAndProvider(userID.(uint), "github")
+	if err == nil && githubProvider != nil {
+		githubID = &githubProvider.ProviderUserID
+	}
+
 	// Build extended response
 	response := UserProfileResponse{
 		ID:            user.ID,
@@ -300,6 +314,7 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		EmailVerified: user.EmailVerified,
 		PhoneVerified: user.PhoneVerified,
 		WeChatOpenID:  wechatOpenID,
+		GitHubID:      githubID,
 		LastLoginAt:   user.LastLoginAt,
 		CreatedAt:     user.CreatedAt,
 		UpdatedAt:     user.UpdatedAt,
@@ -522,6 +537,23 @@ func (h *Handler) UnbindWeChat(c *gin.Context) {
 	}
 
 	utils.SuccessWithMessage(c, "WeChat unbound successfully", nil)
+}
+
+// UnbindGitHub handles unbinding GitHub from user account
+func (h *Handler) UnbindGitHub(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	err := h.service.UnbindGitHub(userID.(uint))
+	if err != nil {
+		utils.Error(c, 2029, err.Error())
+		return
+	}
+
+	utils.SuccessWithMessage(c, "GitHub unbound successfully", nil)
 }
 
 // GetUserStatistics handles getting user statistics (admin only)

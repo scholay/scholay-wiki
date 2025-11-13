@@ -86,6 +86,16 @@ export const userAPI = {
   bindWeChatAccount: (code, state) =>
     api.post('/user/bind-wechat', { code, state }),
 
+  // GitHub OAuth
+  getGithubLoginURL: () =>
+    api.get('/user/github/login-url'),
+
+  githubCallback: (code, state) =>
+    api.get(`/user/github/callback?code=${code}&state=${state}`),
+
+  bindGitHubAccount: (code, state) =>
+    api.post('/user/bind-github', { code, state }),
+
   bindEmailWithPassword: (email, password, code) =>
     api.post('/user/bind-email-with-password', { email, password, code }),
 

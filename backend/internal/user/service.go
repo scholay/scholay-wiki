@@ -1535,6 +1535,72 @@ func (s *Service) UnbindWeChat(userID uint) error {
 	return nil
 }
 
+// UnbindGitHub unbinds GitHub from user account
+func (s *Service) UnbindGitHub(userID uint) error {
+	// Start transaction with pessimistic locking
+	tx := s.repo.GetDB().Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Lock the user row using FOR UPDATE
+	var lockedUser User
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id = ?", userID).First(&lockedUser).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to lock user record: %w", err)
+	}
+
+	// Check if GitHub is bound (within transaction)
+	var githubCount int64
+	if err := tx.Model(&UserAuthProvider{}).
+		Where("user_id = ? AND provider = ?", userID, "github").
+		Count(&githubCount).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to check GitHub binding: %w", err)
+	}
+
+	if githubCount == 0 {
+		tx.Rollback()
+		return errors.New("GitHub is not bound")
+	}
+
+	// Check if user has at least one other login method (within transaction)
+	hasEmail := lockedUser.Email != nil && *lockedUser.Email != ""
+	hasPhone := lockedUser.Phone != nil && *lockedUser.Phone != ""
+
+	// Check for WeChat binding
+	var wechatCount int64
+	if err := tx.Model(&UserAuthProvider{}).
+		Where("user_id = ? AND provider = ?", userID, "wechat").
+		Count(&wechatCount).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to check WeChat binding: %w", err)
+	}
+	hasWeChat := wechatCount > 0
+
+	if !hasEmail && !hasPhone && !hasWeChat {
+		tx.Rollback()
+		return errors.New("cannot unbind GitHub: at least one login method must remain")
+	}
+
+	// Remove auth provider
+	if err := tx.Where("user_id = ? AND provider = ?", userID, "github").
+		Delete(&UserAuthProvider{}).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to delete GitHub auth provider: %w", err)
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
 // LoginOrRegisterWithWeChat handles WeChat login or registration
 func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL string) (*User, string, bool, error) {
 	// Try to find existing user by openID

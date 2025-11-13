@@ -272,6 +272,9 @@ type UpdateSystemConfigRequest struct {
 	EnableTurnstile          bool   `json:"enable_turnstile"`
 	TurnstileSiteKey         string `json:"turnstile_site_key"`
 	TurnstileSecretKey       string `json:"turnstile_secret_key"`
+	GithubClientID           string `json:"github_client_id"`
+	GithubClientSecret       string `json:"github_client_secret"`
+	GithubRedirectURI        string `json:"github_redirect_uri"`
 }
 
 // UpdateSystemConfig handles updating system configuration (admin only)
@@ -287,6 +290,9 @@ func (h *Handler) UpdateSystemConfig(c *gin.Context) {
 		req.EnableTurnstile,
 		req.TurnstileSiteKey,
 		req.TurnstileSecretKey,
+		req.GithubClientID,
+		req.GithubClientSecret,
+		req.GithubRedirectURI,
 	)
 	if err != nil {
 		utils.Error(c, 3004, "Failed to update system configuration")

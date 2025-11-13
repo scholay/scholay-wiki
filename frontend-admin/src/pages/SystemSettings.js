@@ -114,6 +114,13 @@ const SystemSettings = () => {
     turnstileSecretKey: '',
   });
 
+  // GitHub OAuth 配置
+  const [githubConfig, setGithubConfig] = useState({
+    githubClientId: '',
+    githubClientSecret: '',
+    githubRedirectUri: '',
+  });
+
   // 微信公众号配置
   const [savedWechatOfficialConfig, setSavedWechatOfficialConfig] = useState(null);
   const [realWechatOfficialConfig, setRealWechatOfficialConfig] = useState(null); // 存储真实敏感数据
@@ -166,6 +173,9 @@ const SystemSettings = () => {
         break;
       case 'sms':
         loadSMSConfig();
+        break;
+      case 'github':
+        loadGithubConfig();
         break;
       case 'privacy':
         loadPrivacyPolicy();
@@ -1060,6 +1070,50 @@ const SystemSettings = () => {
     }
   };
 
+  // GitHub OAuth Configuration
+  const loadGithubConfig = async () => {
+    try {
+      const response = await fetch('/api/v1/config/system');
+      const data = await response.json();
+      if (data.code === 0 && data.data) {
+        setGithubConfig({
+          githubClientId: data.data.github_client_id ?? '',
+          githubClientSecret: data.data.github_client_secret ?? '',
+          githubRedirectUri: data.data.github_redirect_uri ?? '',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load GitHub config:', err);
+    }
+  };
+
+  const handleGithubConfigSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // Generate callback URL from user-configured domain
+      const domain = githubConfig.githubRedirectUri.replace(/\/$/, ''); // Remove trailing slash
+      const callbackUrl = `${domain}/github/callback`;
+
+      const response = await adminAPI.updateSystemConfig({
+        github_client_id: githubConfig.githubClientId,
+        github_client_secret: githubConfig.githubClientSecret,
+        github_redirect_uri: callbackUrl,
+      });
+
+      if (response.data.code === 0) {
+        showToast('GitHub 配置已成功保存', 'success');
+      } else {
+        showToast(response.data.message || '保存失败', 'error');
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || '保存失败，请稍后重试', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="settings-container">
       <div className="settings-header">
@@ -1105,6 +1159,15 @@ const SystemSettings = () => {
             <path d="M664.250054 368.541681c10.015098 0 19.892049 0.732687 29.67281 1.795902-26.647917-122.810047-159.358451-214.077703-310.826188-214.077703-169.353083 0-308.085774 114.232694-308.085774 259.274068 0 83.708494 46.165436 152.460344 123.281791 205.78483l-30.80868 92.49925 107.688651-53.455469c38.558178 7.53665 69.459978 15.308661 107.924012 15.308661 9.66308 0 19.230993-0.470721 28.752858-1.225921-6.025227-20.36584-9.521864-41.723264-9.521864-63.862493C402.328693 476.632491 517.908058 368.541681 664.250054 368.541681zM498.62897 285.87389c23.200398 0 38.557154 15.120372 38.557154 38.061874 0 22.846334-15.356756 38.156018-38.557154 38.156018-23.107277 0-46.260603-15.309684-46.260603-38.156018C452.368366 300.994262 475.522716 285.87389 498.62897 285.87389zM283.016307 362.090758c-23.107277 0-46.402843-15.309684-46.402843-38.156018 0-22.941502 23.295566-38.061874 46.402843-38.061874 23.081695 0 38.46301 15.120372 38.46301 38.061874C321.479317 346.782098 306.098002 362.090758 283.016307 362.090758zM945.448458 606.151333c0-121.888048-123.258255-221.236753-261.683954-221.236753-146.57838 0-262.015505 99.348706-262.015505 221.236753 0 122.06508 115.437126 221.200938 262.015505 221.200938 30.66644 0 61.617359-7.609305 92.423993-15.262612l84.513836 45.786813-23.178909-76.17082C899.379213 735.776599 945.448458 674.90216 945.448458 606.151333zM598.803483 567.994292c-15.332197 0-30.807656-15.096836-30.807656-30.501688 0-15.190981 15.47546-30.477129 30.807656-30.477129 23.295566 0 38.558178 15.286148 38.558178 30.477129C637.361661 552.897456 622.099049 567.994292 598.803483 567.994292zM768.25071 567.994292c-15.213493 0-30.594809-15.096836-30.594809-30.501688 0-15.190981 15.381315-30.477129 30.594809-30.477129 23.107277 0 38.558178 15.286148 38.558178 30.477129C806.808888 552.897456 791.357987 567.994292 768.25071 567.994292z"/>
           </svg>
           微信开发者配置
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'github' ? 'active' : ''}`}
+          onClick={() => setActiveTab('github')}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+          GitHub 登录
         </button>
         <button
           className={`tab-button ${activeTab === 'privacy' ? 'active' : ''}`}
@@ -2623,6 +2686,179 @@ const SystemSettings = () => {
                     </>
                   ) : (
                     '更新用户协议'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* GitHub OAuth Configuration Tab */}
+        {activeTab === 'github' && (
+          <div className="settings-section fade-in">
+            <div className="section-header">
+              <h2>GitHub 登录配置</h2>
+              <p>配置 GitHub App 或 OAuth App 以支持用户通过 GitHub 账号登录</p>
+            </div>
+
+            <form onSubmit={handleGithubConfigSubmit} className="settings-form">
+              <div className="form-group">
+                <label htmlFor="githubClientId">Client ID</label>
+                <input
+                  type="text"
+                  id="githubClientId"
+                  className="input"
+                  value={githubConfig.githubClientId}
+                  onChange={(e) => setGithubConfig({
+                    ...githubConfig,
+                    githubClientId: e.target.value
+                  })}
+                  placeholder="Iv1.1234567890abcdef"
+                  required
+                />
+                <small className="form-hint">从 GitHub App 或 OAuth App 设置中获取</small>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="githubClientSecret">Client Secret</label>
+                <input
+                  type="password"
+                  id="githubClientSecret"
+                  className="input"
+                  value={githubConfig.githubClientSecret}
+                  onChange={(e) => setGithubConfig({
+                    ...githubConfig,
+                    githubClientSecret: e.target.value
+                  })}
+                  placeholder="输入 Client Secret"
+                  required
+                />
+                <small className="form-hint">从 GitHub App 或 OAuth App 设置中获取（请妥善保管，不要泄露）</small>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="githubDomain">网站域名</label>
+                <input
+                  type="url"
+                  id="githubDomain"
+                  className="input"
+                  value={githubConfig.githubRedirectUri}
+                  onChange={(e) => setGithubConfig({
+                    ...githubConfig,
+                    githubRedirectUri: e.target.value
+                  })}
+                  placeholder="https://scholar.example.com"
+                  required
+                />
+                <small className="form-hint">填写您的网站域名（包含 http:// 或 https://，不要以 / 结尾）</small>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="githubCallbackUrl">完整回调地址（自动生成）</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    id="githubCallbackUrl"
+                    className="input"
+                    value={githubConfig.githubRedirectUri ? `${githubConfig.githubRedirectUri.replace(/\/$/, '')}/github/callback` : '请先填写网站域名'}
+                    readOnly
+                    style={{
+                      backgroundColor: '#f8fafc',
+                      cursor: 'default',
+                      paddingRight: '5rem'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (githubConfig.githubRedirectUri) {
+                        const url = `${githubConfig.githubRedirectUri.replace(/\/$/, '')}/github/callback`;
+                        navigator.clipboard.writeText(url);
+                        showToast('回调地址已复制到剪贴板', 'success');
+                      }
+                    }}
+                    disabled={!githubConfig.githubRedirectUri}
+                    style={{
+                      position: 'absolute',
+                      right: '0.5rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      padding: '0.375rem 0.75rem',
+                      background: githubConfig.githubRedirectUri ? '#667eea' : '#cbd5e0',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      fontSize: '0.875rem',
+                      cursor: githubConfig.githubRedirectUri ? 'pointer' : 'not-allowed',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (githubConfig.githubRedirectUri) {
+                        e.target.style.background = '#5568d3';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (githubConfig.githubRedirectUri) {
+                        e.target.style.background = '#667eea';
+                      }
+                    }}
+                  >
+                    复制
+                  </button>
+                </div>
+                <small className="form-hint">
+                  根据您的域名自动生成，复制此地址到 GitHub App 或 OAuth App 的 Callback URL 配置中
+                </small>
+              </div>
+
+              <div className="divider"></div>
+
+              <div className="info-box">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" style={{ marginRight: '0.75rem', flexShrink: 0 }}>
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                </svg>
+                <div>
+                  <strong>如何创建 GitHub App（推荐方式）：</strong>
+                  <ol style={{ marginTop: '0.5rem', paddingLeft: '1.25rem', marginBottom: '0.75rem' }}>
+                    <li>访问 GitHub Settings → Developer settings → GitHub Apps</li>
+                    <li>点击 "New GitHub App" 创建新应用</li>
+                    <li>填写基本信息（App name, Homepage URL, Description）</li>
+                    <li><strong>Callback URL</strong>：填写上面配置的回调地址</li>
+                    <li><strong>权限设置</strong>：在 "Account permissions" 中选择：
+                      <ul style={{ marginTop: '0.25rem', paddingLeft: '1.25rem' }}>
+                        <li>Email addresses: Read-only（必需，用于获取用户邮箱）</li>
+                      </ul>
+                    </li>
+                    <li>取消勾选 "Webhook" 相关选项（不需要接收 webhook）</li>
+                    <li><strong>Where can this GitHub App be installed?</strong> 选择 "Any account"</li>
+                    <li>创建后，进入 App 设置页面：
+                      <ul style={{ marginTop: '0.25rem', paddingLeft: '1.25rem' }}>
+                        <li>复制 <strong>Client ID</strong></li>
+                        <li>点击 "Generate a new client secret" 生成并复制 <strong>Client Secret</strong></li>
+                      </ul>
+                    </li>
+                    <li>将获取的信息填入上方表单并保存</li>
+                  </ol>
+                  <div style={{ padding: '0.75rem', background: 'rgba(255, 255, 255, 0.7)', borderRadius: '6px', marginTop: '0.5rem' }}>
+                    <strong style={{ color: '#1e3a8a' }}>💡 提示：</strong>
+                    <ul style={{ marginTop: '0.25rem', paddingLeft: '1.25rem', marginBottom: 0 }}>
+                      <li>GitHub App 是 GitHub 官方推荐的方式，比传统 OAuth App 更安全、权限控制更细</li>
+                      <li>如果已有 OAuth App，也可以继续使用（向下兼容）</li>
+                      <li>Client Secret 只显示一次，请妥善保存</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="submit" className="btn btn-primary" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <span className="spinner"></span>
+                      <span style={{ marginLeft: '0.5rem' }}>保存中...</span>
+                    </>
+                  ) : (
+                    '保存配置'
                   )}
                 </button>
               </div>

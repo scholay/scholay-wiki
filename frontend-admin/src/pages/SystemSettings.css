@@ -853,3 +853,31 @@
     width: 100%;
   }
 }
+
+/* Info box styling */
+.info-box {
+  display: flex;
+  align-items: flex-start;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%);
+  border: 1px solid #b8d4ff;
+  border-radius: 8px;
+  color: #2c5282;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin-top: 1rem;
+}
+
+.info-box strong {
+  color: #1e3a8a;
+  font-weight: 600;
+}
+
+.info-box ol {
+  margin: 0;
+  color: #2c5282;
+}
+
+.info-box li {
+  margin-bottom: 0.25rem;
+}

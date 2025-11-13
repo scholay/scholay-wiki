@@ -18,6 +18,7 @@ const ChatPage = lazy(() => import('./pages/ChatPage'));
 const Pricing = lazy(() => import('./pages/Pricing'));
 const Settings = lazy(() => import('./pages/Settings'));
 const WeChatCallback = lazy(() => import('./pages/WeChatCallback'));
+const GithubCallback = lazy(() => import('./pages/GithubCallback'));
 const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
 const AuthModal = lazy(() => import('./components/AuthModal'));
 
@@ -84,6 +85,9 @@ function App() {
                 } />
                 {/* WeChat callback - PUBLIC route (must be accessible without login for OAuth flow) */}
                 <Route path="/wechat/callback" element={<WeChatCallback />} />
+
+                {/* GitHub callback - PUBLIC route (must be accessible without login for OAuth flow) */}
+                <Route path="/github/callback" element={<GithubCallback />} />
 
                 {/* 404 redirect to home */}
                 <Route path="*" element={<Navigate to="/" replace />} />

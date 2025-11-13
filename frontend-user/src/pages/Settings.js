@@ -71,10 +71,11 @@ const Settings = () => {
   const [invitationLoading, setInvitationLoading] = useState(false);
   const [copySuccess, setCopySuccess] = useState('');
 
-  // Handle URL parameters for WeChat binding feedback and tab switching
+  // Handle URL parameters for WeChat/GitHub binding feedback and tab switching
   useEffect(() => {
     const tab = searchParams.get('tab');
     const wechatBindStatus = searchParams.get('wechat_bind_status');
+    const githubBindStatus = searchParams.get('github_bind_status');
     const message = searchParams.get('message');
 
     // Switch to specified tab if provided
@@ -93,6 +94,24 @@ const Settings = () => {
       // Clean up URL parameters after showing toast
       const newParams = new URLSearchParams(searchParams);
       newParams.delete('wechat_bind_status');
+      newParams.delete('message');
+      newParams.delete('tab');
+      setSearchParams(newParams);
+    }
+
+    // Show GitHub binding feedback
+    if (githubBindStatus && message) {
+      if (githubBindStatus === 'success') {
+        showSuccess(message);
+        // Refresh user profile to show updated GitHub binding
+        fetchUserProfile();
+      } else if (githubBindStatus === 'error') {
+        showError(message);
+      }
+
+      // Clean up URL parameters after showing toast
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('github_bind_status');
       newParams.delete('message');
       newParams.delete('tab');
       setSearchParams(newParams);
@@ -505,12 +524,41 @@ const Settings = () => {
     }
   };
 
+  // Handle GitHub binding
+  const handleBindGitHub = async () => {
+    try {
+      // Save current page URL for return after binding
+      const currentPath = window.location.pathname + window.location.search;
+      localStorage.setItem('github_return_url', currentPath);
+
+      // Get GitHub login URL
+      const response = await api.get('/user/github/login-url');
+
+      if (response.data.code === 0 && response.data.data) {
+        const { url, state } = response.data.data;
+
+        // Store state and bind mode in localStorage for verification
+        localStorage.setItem('github_bind_state', state);
+        localStorage.setItem('github_bind_mode', 'bind');
+
+        // Redirect to GitHub OAuth
+        window.location.href = url;
+      } else {
+        showError('获取 GitHub 登录链接失败');
+      }
+    } catch (err) {
+      console.error('GitHub binding error:', err);
+      showError('GitHub 绑定失败,请稍后重试');
+    }
+  };
+
   // Count available login methods
   const getLoginMethodCount = () => {
     let count = 0;
     if (user?.email) count++;
     if (user?.phone) count++;
     if (user?.wechat_openid) count++;
+    if (user?.github_id) count++;
     return count;
   };
 
@@ -524,6 +572,7 @@ const Settings = () => {
       'unbind-email': '解绑邮箱',
       'unbind-phone': '解绑手机号',
       'unbind-wechat': '解绑微信',
+      'unbind-github': '解绑 GitHub',
       'change-password': '修改密码'
     };
 
@@ -748,6 +797,10 @@ const Settings = () => {
 
         case 'unbind-wechat':
           response = await api.post('/user/unbind-wechat');
+          break;
+
+        case 'unbind-github':
+          response = await api.post('/user/unbind-github');
           break;
 
         case 'change-password':
@@ -1047,6 +1100,20 @@ const Settings = () => {
       );
     }
 
+    if (type === 'unbind-github') {
+      return (
+        <>
+          <div className="modal-info modal-warning">
+            <p>即将解绑 GitHub 账号</p>
+            <p className="warning-text">注意：必须至少保留一种登录方式</p>
+          </div>
+          <button className="btn-modal-submit btn-modal-danger" onClick={handleModalSubmit} disabled={loading}>
+            {loading ? '处理中...' : '确认解绑'}
+          </button>
+        </>
+      );
+    }
+
     if (type === 'change-password') {
       return (
         <>
@@ -1323,6 +1390,34 @@ const Settings = () => {
               </>
             ) : (
               <button className="btn-action btn-action-primary" onClick={handleBindWeChat}>
+                绑定
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* GitHub Card */}
+        <div className="account-binding-card">
+          <div className="binding-icon binding-icon-github">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+          </div>
+          <div className="binding-info">
+            <div className="binding-label">GitHub</div>
+            <div className="binding-value">{user?.github_id ? '已绑定' : '未绑定'}</div>
+          </div>
+          <div className="binding-actions">
+            {user?.github_id ? (
+              <>
+                {getLoginMethodCount() > 1 && (
+                  <button className="btn-action btn-action-danger" onClick={() => handleOpenModal('unbind-github', '')}>
+                    解绑
+                  </button>
+                )}
+              </>
+            ) : (
+              <button className="btn-action btn-action-primary" onClick={handleBindGitHub}>
                 绑定
               </button>
             )}

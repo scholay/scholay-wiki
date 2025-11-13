@@ -111,7 +111,7 @@ func (s *Service) GetSystemConfig() (*model.SystemConfig, error) {
 }
 
 // UpdateSystemConfig updates system configuration
-func (s *Service) UpdateSystemConfig(requireEmailVerification bool, enableTurnstile bool, turnstileSiteKey string, turnstileSecretKey string) error {
+func (s *Service) UpdateSystemConfig(requireEmailVerification bool, enableTurnstile bool, turnstileSiteKey string, turnstileSecretKey string, githubClientID string, githubClientSecret string, githubRedirectURI string) error {
 	config, err := s.repo.GetSystemConfig()
 	if err != nil {
 		return err
@@ -124,6 +124,9 @@ func (s *Service) UpdateSystemConfig(requireEmailVerification bool, enableTurnst
 			EnableTurnstile:          enableTurnstile,
 			TurnstileSiteKey:         turnstileSiteKey,
 			TurnstileSecretKey:       turnstileSecretKey,
+			GithubClientID:           githubClientID,
+			GithubClientSecret:       githubClientSecret,
+			GithubRedirectURI:        githubRedirectURI,
 		}
 		return s.repo.CreateSystemConfig(config)
 	}
@@ -132,6 +135,9 @@ func (s *Service) UpdateSystemConfig(requireEmailVerification bool, enableTurnst
 	config.EnableTurnstile = enableTurnstile
 	config.TurnstileSiteKey = turnstileSiteKey
 	config.TurnstileSecretKey = turnstileSecretKey
+	config.GithubClientID = githubClientID
+	config.GithubClientSecret = githubClientSecret
+	config.GithubRedirectURI = githubRedirectURI
 	return s.repo.UpdateSystemConfig(config)
 }
 

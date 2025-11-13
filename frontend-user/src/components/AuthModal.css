@@ -517,6 +517,24 @@
   box-shadow: 0 4px 12px rgba(9, 187, 7, 0.3);
 }
 
+/* GitHub button special styling */
+.auth-github-button {
+  background: linear-gradient(135deg, #24292e 0%, #1a1e22 100%);
+  border-color: rgba(36, 41, 46, 0.3);
+  color: white;
+}
+
+.auth-github-button::before {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.auth-github-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1a1e22 0%, #24292e 100%);
+  border-color: rgba(36, 41, 46, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(36, 41, 46, 0.3);
+}
+
 /* Footer */
 .auth-footer {
   margin-top: 36px;
