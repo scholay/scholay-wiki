@@ -84,6 +84,13 @@ export const adminAPI = {
   updateSystemConfig: (config) =>
     api.put('/admin/system-config', config),
 
+  // GitHub OAuth configuration
+  getGithubConfig: () =>
+    api.get('/admin/github-config'),
+
+  updateGithubConfig: (config) =>
+    api.put('/admin/github-config', config),
+
   getUserStatistics: () =>
     api.get('/admin/users/stats'),
 

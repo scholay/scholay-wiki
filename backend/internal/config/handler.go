@@ -267,17 +267,16 @@ func (h *Handler) GetSystemConfig(c *gin.Context) {
 }
 
 // UpdateSystemConfigRequest represents an update system config request
+// Using pointers for optional fields to distinguish between "not provided" and "empty string"
 type UpdateSystemConfigRequest struct {
-	RequireEmailVerification bool   `json:"require_email_verification"`
-	EnableTurnstile          bool   `json:"enable_turnstile"`
-	TurnstileSiteKey         string `json:"turnstile_site_key"`
-	TurnstileSecretKey       string `json:"turnstile_secret_key"`
-	GithubClientID           string `json:"github_client_id"`
-	GithubClientSecret       string `json:"github_client_secret"`
-	GithubRedirectURI        string `json:"github_redirect_uri"`
+	RequireEmailVerification *bool   `json:"require_email_verification"`
+	EnableTurnstile          *bool   `json:"enable_turnstile"`
+	TurnstileSiteKey         *string `json:"turnstile_site_key"`
+	TurnstileSecretKey       *string `json:"turnstile_secret_key"`
 }
 
 // UpdateSystemConfig handles updating system configuration (admin only)
+// This endpoint supports partial updates - only provided fields will be updated
 func (h *Handler) UpdateSystemConfig(c *gin.Context) {
 	var req UpdateSystemConfigRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -285,15 +284,15 @@ func (h *Handler) UpdateSystemConfig(c *gin.Context) {
 		return
 	}
 
-	err := h.service.UpdateSystemConfig(
-		req.RequireEmailVerification,
-		req.EnableTurnstile,
-		req.TurnstileSiteKey,
-		req.TurnstileSecretKey,
-		req.GithubClientID,
-		req.GithubClientSecret,
-		req.GithubRedirectURI,
-	)
+	// Convert handler request to service request
+	serviceReq := &SystemConfigPartialUpdate{
+		RequireEmailVerification: req.RequireEmailVerification,
+		EnableTurnstile:          req.EnableTurnstile,
+		TurnstileSiteKey:         req.TurnstileSiteKey,
+		TurnstileSecretKey:       req.TurnstileSecretKey,
+	}
+
+	err := h.service.UpdateSystemConfigPartial(serviceReq)
 	if err != nil {
 		utils.Error(c, 3004, "Failed to update system configuration")
 		return
@@ -483,6 +482,62 @@ func (h *Handler) TestSMSConfig(c *gin.Context) {
 	}
 
 	utils.SuccessWithMessage(c, "Test SMS sent successfully", nil)
+}
+
+// ============================================
+// GitHub OAuth Configuration Handlers
+// ============================================
+
+// GetGithubOAuthConfig handles getting GitHub OAuth configuration
+func (h *Handler) GetGithubOAuthConfig(c *gin.Context) {
+	config, err := h.service.GetGithubOAuthConfig()
+	if err != nil {
+		utils.Error(c, 3020, "Failed to get GitHub OAuth configuration")
+		return
+	}
+
+	if config == nil {
+		// Return default empty config if not found
+		config = &model.GithubOAuthConfig{
+			ClientID:     "",
+			ClientSecret: "",
+			RedirectURI:  "",
+			Enabled:      false,
+		}
+	}
+
+	utils.Success(c, config)
+}
+
+// UpdateGithubOAuthConfigRequest represents an update GitHub OAuth config request
+type UpdateGithubOAuthConfigRequest struct {
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	RedirectURI  string `json:"redirect_uri"`
+	Enabled      bool   `json:"enabled"`
+}
+
+// UpdateGithubOAuthConfig handles updating GitHub OAuth configuration (admin only)
+func (h *Handler) UpdateGithubOAuthConfig(c *gin.Context) {
+	var req UpdateGithubOAuthConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	// Generate full callback URL from base domain
+	callbackURL := req.RedirectURI
+	if callbackURL != "" && !strings.HasSuffix(callbackURL, "/github/callback") {
+		callbackURL = strings.TrimSuffix(callbackURL, "/") + "/github/callback"
+	}
+
+	err := h.service.UpdateGithubOAuthConfig(req.ClientID, req.ClientSecret, callbackURL, req.Enabled)
+	if err != nil {
+		utils.Error(c, 3021, "Failed to update GitHub OAuth configuration")
+		return
+	}
+
+	utils.SuccessWithMessage(c, "GitHub OAuth configuration updated successfully", nil)
 }
 
 // RegisterRoutes registers config routes

@@ -38,20 +38,20 @@ type GithubTokenResponse struct {
 
 // GetGithubLoginURL generates GitHub OAuth login URL
 func (h *Handler) GetGithubLoginURL(c *gin.Context) {
-	// Get system config
-	systemConfig, err := h.configRepo.GetSystemConfig()
+	// Get GitHub OAuth config from dedicated table
+	githubConfig, err := h.configRepo.GetGithubOAuthConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get system config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get GitHub OAuth config")
 		return
 	}
 
-	if systemConfig == nil || systemConfig.GithubClientID == "" {
+	if githubConfig == nil || githubConfig.ClientID == "" {
 		utils.ErrorResponse(c, http.StatusServiceUnavailable, "GitHub login is not configured. Please configure Client ID in admin settings.")
 		return
 	}
 
 	// Use configured redirect URI or fallback to default
-	redirectURI := systemConfig.GithubRedirectURI
+	redirectURI := githubConfig.RedirectURI
 	if redirectURI == "" {
 		// Get origin from request header
 		origin := c.GetHeader("Origin")
@@ -72,7 +72,7 @@ func (h *Handler) GetGithubLoginURL(c *gin.Context) {
 	// Build GitHub OAuth URL
 	authURL := fmt.Sprintf(
 		"https://github.com/login/oauth/authorize?client_id=%s&redirect_uri=%s&state=%s&scope=user:email",
-		url.QueryEscape(systemConfig.GithubClientID),
+		url.QueryEscape(githubConfig.ClientID),
 		url.QueryEscape(redirectURI),
 		state,
 	)
@@ -94,20 +94,20 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 		return
 	}
 
-	// Get system config
-	systemConfig, err := h.configRepo.GetSystemConfig()
+	// Get GitHub OAuth config
+	githubConfig, err := h.configRepo.GetGithubOAuthConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get system config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get GitHub OAuth config")
 		return
 	}
 
-	if systemConfig == nil || systemConfig.GithubClientID == "" || systemConfig.GithubClientSecret == "" {
+	if githubConfig == nil || githubConfig.ClientID == "" || githubConfig.ClientSecret == "" {
 		utils.ErrorResponse(c, http.StatusServiceUnavailable, "GitHub login is not configured properly")
 		return
 	}
 
 	// Exchange code for access token
-	accessToken, err := h.exchangeGithubCode(code, systemConfig)
+	accessToken, err := h.exchangeGithubCode(code, githubConfig)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, fmt.Sprintf("Failed to exchange code: %v", err))
 		return
@@ -151,12 +151,12 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 }
 
 // exchangeGithubCode exchanges authorization code for access token
-func (h *Handler) exchangeGithubCode(code string, config *model.SystemConfig) (string, error) {
+func (h *Handler) exchangeGithubCode(code string, config *model.GithubOAuthConfig) (string, error) {
 	data := url.Values{}
-	data.Set("client_id", config.GithubClientID)
-	data.Set("client_secret", config.GithubClientSecret)
+	data.Set("client_id", config.ClientID)
+	data.Set("client_secret", config.ClientSecret)
 	data.Set("code", code)
-	data.Set("redirect_uri", config.GithubRedirectURI)
+	data.Set("redirect_uri", config.RedirectURI)
 
 	req, err := http.NewRequestWithContext(
 		context.Background(),
@@ -382,20 +382,20 @@ func (h *Handler) BindGitHubAccount(c *gin.Context) {
 		return
 	}
 
-	// Get system config
-	systemConfig, err := h.configRepo.GetSystemConfig()
+	// Get GitHub OAuth config
+	githubConfig, err := h.configRepo.GetGithubOAuthConfig()
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get system config")
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get GitHub OAuth config")
 		return
 	}
 
-	if systemConfig == nil || systemConfig.GithubClientID == "" || systemConfig.GithubClientSecret == "" {
+	if githubConfig == nil || githubConfig.ClientID == "" || githubConfig.ClientSecret == "" {
 		utils.ErrorResponse(c, http.StatusServiceUnavailable, "GitHub login is not configured properly")
 		return
 	}
 
 	// Exchange code for access token
-	accessToken, err := h.exchangeGithubCode(req.Code, systemConfig)
+	accessToken, err := h.exchangeGithubCode(req.Code, githubConfig)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, fmt.Sprintf("Failed to exchange code: %v", err))
 		return

@@ -111,33 +111,46 @@ func (s *Service) GetSystemConfig() (*model.SystemConfig, error) {
 }
 
 // UpdateSystemConfig updates system configuration
-func (s *Service) UpdateSystemConfig(requireEmailVerification bool, enableTurnstile bool, turnstileSiteKey string, turnstileSecretKey string, githubClientID string, githubClientSecret string, githubRedirectURI string) error {
+// SystemConfigPartialUpdate represents a partial update request for system config
+type SystemConfigPartialUpdate struct {
+	RequireEmailVerification *bool
+	EnableTurnstile          *bool
+	TurnstileSiteKey         *string
+	TurnstileSecretKey       *string
+}
+
+// UpdateSystemConfigPartial updates system configuration with partial update support
+// Only non-nil fields in the request will be updated
+func (s *Service) UpdateSystemConfigPartial(req *SystemConfigPartialUpdate) error {
 	config, err := s.repo.GetSystemConfig()
 	if err != nil {
 		return err
 	}
 
 	if config == nil {
-		// Create if not exists
+		// Create new config with provided values (use defaults for nil fields)
 		config = &model.SystemConfig{
-			RequireEmailVerification: requireEmailVerification,
-			EnableTurnstile:          enableTurnstile,
-			TurnstileSiteKey:         turnstileSiteKey,
-			TurnstileSecretKey:       turnstileSecretKey,
-			GithubClientID:           githubClientID,
-			GithubClientSecret:       githubClientSecret,
-			GithubRedirectURI:        githubRedirectURI,
+			RequireEmailVerification: true, // default
 		}
-		return s.repo.CreateSystemConfig(config)
 	}
 
-	config.RequireEmailVerification = requireEmailVerification
-	config.EnableTurnstile = enableTurnstile
-	config.TurnstileSiteKey = turnstileSiteKey
-	config.TurnstileSecretKey = turnstileSecretKey
-	config.GithubClientID = githubClientID
-	config.GithubClientSecret = githubClientSecret
-	config.GithubRedirectURI = githubRedirectURI
+	// Update only non-nil fields (partial update)
+	if req.RequireEmailVerification != nil {
+		config.RequireEmailVerification = *req.RequireEmailVerification
+	}
+	if req.EnableTurnstile != nil {
+		config.EnableTurnstile = *req.EnableTurnstile
+	}
+	if req.TurnstileSiteKey != nil {
+		config.TurnstileSiteKey = *req.TurnstileSiteKey
+	}
+	if req.TurnstileSecretKey != nil {
+		config.TurnstileSecretKey = *req.TurnstileSecretKey
+	}
+
+	if config.ID == 0 {
+		return s.repo.CreateSystemConfig(config)
+	}
 	return s.repo.UpdateSystemConfig(config)
 }
 
@@ -213,4 +226,39 @@ func (s *Service) CreateTermsOfService(terms *model.TermsOfService) error {
 
 	// Create new terms
 	return s.repo.CreateTermsOfService(terms)
+}
+
+// ============================================
+// GitHub OAuth Configuration Methods
+// ============================================
+
+// GetGithubOAuthConfig gets the GitHub OAuth configuration
+func (s *Service) GetGithubOAuthConfig() (*model.GithubOAuthConfig, error) {
+	return s.repo.GetGithubOAuthConfig()
+}
+
+// UpdateGithubOAuthConfig updates or creates GitHub OAuth configuration
+func (s *Service) UpdateGithubOAuthConfig(clientID, clientSecret, redirectURI string, enabled bool) error {
+	config, err := s.repo.GetGithubOAuthConfig()
+	if err != nil {
+		return err
+	}
+
+	if config == nil {
+		// Create new config
+		config = &model.GithubOAuthConfig{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			RedirectURI:  redirectURI,
+			Enabled:      enabled,
+		}
+		return s.repo.CreateGithubOAuthConfig(config)
+	}
+
+	// Update existing config
+	config.ClientID = clientID
+	config.ClientSecret = clientSecret
+	config.RedirectURI = redirectURI
+	config.Enabled = enabled
+	return s.repo.UpdateGithubOAuthConfig(config)
 }

@@ -206,6 +206,9 @@ func main() {
 			adminProtected.PUT("/sms-config", configHandler.UpdateSMSConfig)
 			adminProtected.POST("/sms-config/test", configHandler.TestSMSConfig)
 			adminProtected.PUT("/system-config", configHandler.UpdateSystemConfig)
+			// GitHub OAuth configuration
+			adminProtected.GET("/github-config", configHandler.GetGithubOAuthConfig)
+			adminProtected.PUT("/github-config", configHandler.UpdateGithubOAuthConfig)
 			// User management
 			adminProtected.GET("/users/stats", userHandler.GetUserStatistics)
 			adminProtected.GET("/users", userHandler.GetUserList)

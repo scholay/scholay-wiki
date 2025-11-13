@@ -135,3 +135,27 @@ func (r *Repository) DeactivateAllTermsOfService() error {
 		Where("is_active = ?", true).
 		Update("is_active", false).Error
 }
+
+// ============================================
+// GitHub OAuth Configuration Methods
+// ============================================
+
+// GetGithubOAuthConfig gets the GitHub OAuth configuration (singleton pattern - always ID=1)
+func (r *Repository) GetGithubOAuthConfig() (*model.GithubOAuthConfig, error) {
+	var config model.GithubOAuthConfig
+	err := r.db.First(&config).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &config, err
+}
+
+// CreateGithubOAuthConfig creates a new GitHub OAuth configuration
+func (r *Repository) CreateGithubOAuthConfig(config *model.GithubOAuthConfig) error {
+	return r.db.Create(config).Error
+}
+
+// UpdateGithubOAuthConfig updates the GitHub OAuth configuration
+func (r *Repository) UpdateGithubOAuthConfig(config *model.GithubOAuthConfig) error {
+	return r.db.Save(config).Error
+}

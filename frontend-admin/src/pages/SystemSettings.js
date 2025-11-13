@@ -1073,13 +1073,12 @@ const SystemSettings = () => {
   // GitHub OAuth Configuration
   const loadGithubConfig = async () => {
     try {
-      const response = await fetch('/api/v1/config/system');
-      const data = await response.json();
-      if (data.code === 0 && data.data) {
+      const response = await adminAPI.getGithubConfig();
+      if (response.data.code === 0 && response.data.data) {
         setGithubConfig({
-          githubClientId: data.data.github_client_id ?? '',
-          githubClientSecret: data.data.github_client_secret ?? '',
-          githubRedirectUri: data.data.github_redirect_uri ?? '',
+          githubClientId: response.data.data.client_id ?? '',
+          githubClientSecret: response.data.data.client_secret ?? '',
+          githubRedirectUri: response.data.data.redirect_uri ?? '',
         });
       }
     } catch (err) {
@@ -1092,14 +1091,14 @@ const SystemSettings = () => {
     setLoading(true);
 
     try {
-      // Generate callback URL from user-configured domain
-      const domain = githubConfig.githubRedirectUri.replace(/\/$/, ''); // Remove trailing slash
-      const callbackUrl = `${domain}/github/callback`;
+      // Remove trailing slash from domain
+      const domain = githubConfig.githubRedirectUri.replace(/\/$/, '');
 
-      const response = await adminAPI.updateSystemConfig({
-        github_client_id: githubConfig.githubClientId,
-        github_client_secret: githubConfig.githubClientSecret,
-        github_redirect_uri: callbackUrl,
+      const response = await adminAPI.updateGithubConfig({
+        client_id: githubConfig.githubClientId,
+        client_secret: githubConfig.githubClientSecret,
+        redirect_uri: domain, // Backend will append /github/callback
+        enabled: true,
       });
 
       if (response.data.code === 0) {
