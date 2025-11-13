@@ -52,17 +52,25 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	mcpTools := mcpServer.ListTools()
 	aiTools := ai.ConvertMCPToolsToOpenAIFormat(mcpTools)
 
-	// Step 3: Create messages with system prompt and context
-	systemMessage := ai.ChatMessage{
-		Role: "system",
-		Content: `你是一位专业的学术研究助手。你可以使用 search_papers 工具来搜索学术论文。
+	// Step 3: Create messages with system prompt from template
+	// Get MCP system prompt template
+	mcpSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_mcp_system", nil)
+	if err != nil {
+		// Fallback to hardcoded prompt if template not found
+		fmt.Printf("[WARN] Failed to get MCP system prompt template, using fallback: %v\n", err)
+		mcpSystemPrompt = `你是一位专业的学术研究助手。你可以使用 search_papers 工具来搜索学术论文。
 
 当用户需要搜索新的论文时，使用 search_papers 工具。
 否则，基于对话历史和已有的论文信息回答用户的问题。
 
 重要：调用 search_papers 时，请设置 limit 参数为 40，以返回更多相关论文。
 
-请用中文回答，使用 Markdown 格式。`,
+请用中文回答，使用 Markdown 格式。`
+	}
+
+	systemMessage := ai.ChatMessage{
+		Role:    "system",
+		Content: mcpSystemPrompt,
 	}
 
 	// Add current user query
@@ -152,7 +160,22 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	fmt.Printf("[DEBUG] Formatting %d papers for AI analysis\n", len(allPapers))
 	papersForPrompt := ai.FormatPapersForPrompt(allPapers)
 	fmt.Printf("[DEBUG] Formatted papers, length: %d characters\n", len(papersForPrompt))
-	analysisPrompt := fmt.Sprintf(`用户查询：%s
+
+	// Get analysis prompt templates
+	analysisSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_analysis_system", nil)
+	if err != nil {
+		fmt.Printf("[WARN] Failed to get analysis system prompt template, using fallback: %v\n", err)
+		analysisSystemPrompt = "你是一位专业的学术研究助手，擅长分析和总结学术论文。"
+	}
+
+	analysisPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_analysis", map[string]string{
+		"query":  query,
+		"papers": papersForPrompt,
+	})
+	if err != nil {
+		// Fallback to hardcoded prompt if template not found
+		fmt.Printf("[WARN] Failed to get analysis prompt template, using fallback: %v\n", err)
+		analysisPrompt = fmt.Sprintf(`用户查询：%s
 
 找到的论文：
 %s
@@ -229,11 +252,12 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 5. 确保后续问题放在 [FOLLOW_UP_QUESTIONS] 标签内
 
 请用 Markdown 格式输出完整的分析报告。`, query, papersForPrompt)
+	}
 
 	analysisMessages := []ai.ChatMessage{
 		{
 			Role:    "system",
-			Content: "你是一位专业的学术研究助手，擅长分析和总结学术论文。",
+			Content: analysisSystemPrompt,
 		},
 		{
 			Role:    "user",

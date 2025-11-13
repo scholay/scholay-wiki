@@ -78,6 +78,18 @@ func (s *Service) RenderPrompt(template string, variables map[string]string) str
 	return result
 }
 
+// GetAndRenderPrompt gets a prompt template by key and renders it with variables
+// Returns the rendered prompt and the template (for fallback scenarios)
+func (s *Service) GetAndRenderPrompt(key string, variables map[string]string) (string, *PromptTemplate, error) {
+	template, err := s.GetPromptTemplate(key)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get prompt template '%s': %w", key, err)
+	}
+
+	rendered := s.RenderPrompt(template.Template, variables)
+	return rendered, template, nil
+}
+
 // ChatCompletionWithTools sends a chat completion request with tools (non-streaming)
 func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, toolChoice string, modelLevel thirdparty.ModelLevel) (*ChatCompletionResponse, error) {
 	fmt.Printf("[DEBUG] ChatCompletionWithTools called, messages: %d, tools: %d, modelLevel: %s\n", len(messages), len(tools), modelLevel)

@@ -160,6 +160,18 @@ curl -X PUT "http://localhost:5455/api/v1/admin/wechat-official/config" \
     "ai_model_level": "low",
     "system_prompt": "你是一个友好的AI助手"
   }'
+
+# List coupon templates (admin only)
+curl "http://localhost:5455/api/v1/admin/coupon-templates" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# Get user's available coupons for an order
+curl "http://localhost:5411/api/v1/user/coupons/available?amount=19.99" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Generate invitation code (user)
+curl -X POST "http://localhost:5411/api/v1/user/invitation/generate" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ## Architecture & Important Concepts
@@ -196,7 +208,8 @@ internal/
 ├── thirdparty/     # Third-party account management (API keys, OAuth)
 ├── subscription/   # Subscription plans and quota management
 ├── order/          # Order processing and management
-├── payment/        # Payment integration (Alipay)
+├── payment/        # Payment integration (Alipay + WeChat Pay)
+├── coupon/         # Coupon/discount system with invitation rewards
 ├── wechat/         # WeChat integration (Mini Program, OAuth)
 ├── wechatofficial/ # WeChat Official Account auto-reply with AI
 ├── proxy/          # HTTP proxy for external AI services
@@ -301,34 +314,84 @@ The platform includes a subscription management system with quota tracking:
 
 ### Payment System
 
-The platform integrates with Alipay for payment processing:
+The platform integrates with multiple payment providers for the Chinese market:
 
 - **Alipay Integration**: Supports web and mobile payment flows
+- **WeChat Pay Integration**: Native WeChat payment support (JSAPI, APP, Native, H5)
 - **Order Management**: Links orders with subscription purchases
-- **Payment Verification**: Validates Alipay callbacks and signatures
+- **Payment Verification**: Validates payment callbacks and signatures
 - **Refund Support**: Admin can process refunds through the system
+- **Unified Interface**: Common payment interface for both providers
 
 **Implementation**:
-- `backend/internal/payment/` - Alipay payment handler, service, and repository
+- `backend/internal/payment/` - Payment handlers, services, and repositories
+  - Alipay: `alipay_*.go` files
+  - WeChat Pay: `wechat_pay_*.go` files
 - Payment callbacks trigger subscription activation
 - Secure signature verification for all payment notifications
+- Support for multiple payment scenarios (web, mobile app, mini program)
+
+### Coupon & Discount System
+
+The platform includes a comprehensive coupon/discount system with invitation rewards:
+
+- **Coupon Templates**: Admin can create and manage reusable coupon templates
+  - Multiple discount types: percentage, fixed amount, price-off
+  - Flexible conditions: minimum purchase amount, applicable plans/products
+  - Usage limits: per user, total usage, first purchase only, new user only
+  - Time limits: fixed period or relative validity (days from issuance)
+- **Distribution Methods**:
+  - Manual distribution by admin
+  - Auto-distribution on registration
+  - Invitation rewards (both inviter and invitee)
+  - Batch distribution with targeting rules
+  - Public claim codes
+- **Invitation System**: Built-in referral program
+  - Each user gets unique invitation code and URL
+  - Track invitation statistics (total, successful, paid invites)
+  - Automatic coupon rewards for both parties
+  - Invitation relationship tracking
+- **Usage Tracking**: Complete audit trail
+  - Coupon status lifecycle (unused, reserved, used, expired, cancelled)
+  - Usage logs with discount calculations
+  - Order integration with coupon validation
+  - Refund handling
+- **Batch Management**: Scheduled bulk distribution
+  - Target specific user groups (new users, paid users, custom segments)
+  - Track distribution and usage statistics
+  - Schedule distribution for future dates
+
+**Key Tables**:
+- `coupon_templates` - Template definitions
+- `user_coupons` - Issued coupons with validity and status
+- `coupon_usage_logs` - Complete usage history
+- `user_invitations` - User invitation codes and statistics
+- `invitation_relationships` - Inviter-invitee tracking
+- `coupon_batches` - Batch distribution management
+
+**Implementation**:
+- `backend/internal/coupon/` - Full coupon system implementation
+- Integration with order and payment systems
+- Real-time coupon validation during checkout
+- Automatic expiration and status management
 
 ### WeChat Integration
 
 The platform includes comprehensive WeChat integration for Chinese market:
 
 - **Mini Program Support**: Backend support for WeChat Mini Program authentication
-- **WeChat OAuth**: Login via WeChat
+- **WeChat OAuth**: Login via WeChat Open Platform
 - **WeChat Official Account**: Auto-reply with AI-powered responses
   - Supports text and image messages
   - Configurable AI model levels (low, medium, high)
   - Admin-configurable system prompts
   - Multiple encryption modes (plaintext, compatible, secure)
-- **WeChat Pay**: (Can be extended from payment module)
+- **WeChat Pay**: See Payment System section above
 
 **Implementation**:
 - `backend/internal/wechat/` - WeChat authentication and API integration
 - `backend/internal/wechatofficial/` - WeChat Official Account auto-reply with AI
+- `backend/internal/payment/wechat_pay_*.go` - WeChat Pay implementation
 
 ### Authentication System
 

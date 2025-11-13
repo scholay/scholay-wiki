@@ -204,9 +204,9 @@ const PromptTemplates = () => {
         </div>
       )}
 
-      {showModal && (
+{showModal && (
         <div className="modal-overlay">
-          <div className="modal-content modal-large">
+          <div className="modal-content modal-xlarge">
             <div className="modal-header">
               <h2>{editingTemplate ? '编辑提示词模板' : '新建提示词模板'}</h2>
               <button className="btn-close" onClick={() => setShowModal(false)}>
@@ -217,69 +217,140 @@ const PromptTemplates = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="modal-body">
-              <div className="form-group">
-                <label>模板名称 *</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  placeholder="例如：论文分析总结提示词"
-                />
-              </div>
+              {/* 基本信息区域 */}
+              <div className="form-section">
+                <div className="section-header">
+                  <h3>基本信息</h3>
+                  <p>设置模板的基本属性和标识</p>
+                </div>
 
-              <div className="form-group">
-                <label>模板Key *</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={formData.key}
-                  onChange={(e) => setFormData({ ...formData, key: e.target.value })}
-                  required
-                  disabled={!!editingTemplate}
-                  placeholder="例如：paper_analysis（创建后不可修改）"
-                />
-                <small className="form-help">模板的唯一标识，用于代码中调用</small>
-              </div>
+                <div className="form-row">
+                  <div className="form-group form-group-flex">
+                    <label>模板名称 <span className="required">*</span></label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      required
+                      placeholder="例如：论文分析总结提示词"
+                    />
+                  </div>
 
-              <div className="form-group">
-                <label>模板描述</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="简短描述这个模板的用途"
-                />
-              </div>
+                  <div className="form-group form-group-flex">
+                    <label>模板Key <span className="required">*</span></label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={formData.key}
+                      onChange={(e) => setFormData({ ...formData, key: e.target.value })}
+                      required
+                      disabled={!!editingTemplate}
+                      placeholder="例如：paper_analysis"
+                    />
+                    {editingTemplate && (
+                      <small className="form-help">创建后不可修改</small>
+                    )}
+                  </div>
+                </div>
 
-              <div className="form-group">
-                <label>模板内容 *</label>
-                <textarea
-                  className="form-control template-textarea"
-                  value={formData.template}
-                  onChange={(e) => setFormData({ ...formData, template: e.target.value })}
-                  required
-                  rows="15"
-                  placeholder="输入提示词模板内容，可以使用变量如 {{query}} 和 {{papers}}"
-                />
-                <small className="form-help">
-                  支持的变量：
-                  <code>{'{{query}}'}</code> - 搜索关键词，
-                  <code>{'{{papers}}'}</code> - 论文列表
-                </small>
-              </div>
-
-              <div className="form-group">
-                <label className="checkbox-label">
+                <div className="form-group">
+                  <label>模板描述</label>
                   <input
-                    type="checkbox"
-                    checked={formData.is_active}
-                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                    type="text"
+                    className="form-control"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="简短描述这个模板的用途，例如：用于分析搜索到的学术论文并生成结构化综述"
                   />
-                  <span>启用此模板</span>
-                </label>
+                </div>
+
+                <div className="form-group">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_active}
+                      onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                    />
+                    <span>启用此模板</span>
+                  </label>
+                  <small className="form-help">停用的模板不会在系统中生效</small>
+                </div>
+              </div>
+
+              {/* 模板内容区域 */}
+              <div className="form-section">
+                <div className="section-header">
+                  <h3>模板内容 <span className="required">*</span></h3>
+                  <p>编写提示词模板，使用变量占位符实现动态内容</p>
+                </div>
+
+                {/* 变量快速插入工具 */}
+                <div className="variable-toolbar">
+                  <span className="toolbar-label">常用变量：</span>
+                  <button
+                    type="button"
+                    className="btn-variable"
+                    onClick={() => {
+                      const textarea = document.querySelector('.template-textarea');
+                      const cursorPos = textarea.selectionStart;
+                      const textBefore = formData.template.substring(0, cursorPos);
+                      const textAfter = formData.template.substring(cursorPos);
+                      setFormData({ ...formData, template: textBefore + '{{query}}' + textAfter });
+                    }}
+                  >
+                    <code>{'{{query}}'}</code>
+                    <span>搜索关键词</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-variable"
+                    onClick={() => {
+                      const textarea = document.querySelector('.template-textarea');
+                      const cursorPos = textarea.selectionStart;
+                      const textBefore = formData.template.substring(0, cursorPos);
+                      const textAfter = formData.template.substring(cursorPos);
+                      setFormData({ ...formData, template: textBefore + '{{papers}}' + textAfter });
+                    }}
+                  >
+                    <code>{'{{papers}}'}</code>
+                    <span>论文列表</span>
+                  </button>
+                </div>
+
+                <div className="form-group">
+                  <textarea
+                    className="form-control template-textarea"
+                    value={formData.template}
+                    onChange={(e) => setFormData({ ...formData, template: e.target.value })}
+                    required
+                    rows="18"
+                    placeholder="输入提示词模板内容...&#10;&#10;例如：&#10;你是一位专业的学术研究助手。用户搜索了关键词：「{{query}}」&#10;&#10;## 论文列表&#10;{{papers}}&#10;&#10;请对这些论文进行深入分析..."
+                  />
+                  <div className="template-stats">
+                    <span>字符数: {formData.template.length}</span>
+                    <span>行数: {formData.template.split('\n').length}</span>
+                    <span>变量: {(formData.template.match(/\{\{.*?\}\}/g) || []).length}</span>
+                  </div>
+                </div>
+
+                {/* 预览区域 */}
+                {formData.template && (
+                  <div className="template-preview-box">
+                    <div className="preview-header">
+                      <strong>模板预览</strong>
+                      <span className="preview-hint">变量会以高亮显示</span>
+                    </div>
+                    <div className="preview-content">
+                      {formData.template.split(/(\{\{.*?\}\})/).map((part, index) => {
+                        if (part.match(/\{\{.*?\}\}/)) {
+                          return <span key={index} className="variable-highlight">{part}</span>;
+                        }
+                        return part;
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="modal-footer">
@@ -287,6 +358,9 @@ const PromptTemplates = () => {
                   取消
                 </button>
                 <button type="submit" className="btn-primary">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{marginRight: '6px'}}>
+                    <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"/>
+                  </svg>
                   {editingTemplate ? '保存修改' : '创建模板'}
                 </button>
               </div>
