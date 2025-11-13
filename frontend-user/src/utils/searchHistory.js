@@ -1,6 +1,15 @@
 // 搜索历史管理工具
-const SEARCH_HISTORY_KEY = 'scholar_search_history';
+const SEARCH_HISTORY_KEY_PREFIX = 'scholar_search_history';
 const MAX_HISTORY_ITEMS = 50; // 最多保存50条历史记录
+
+/**
+ * 获取用户特定的localStorage键名
+ * @param {number|null} userId - 用户ID (null表示游客用户)
+ * @returns {string} localStorage键名
+ */
+const getUserHistoryKey = (userId) => {
+  return userId ? `${SEARCH_HISTORY_KEY_PREFIX}_${userId}` : `${SEARCH_HISTORY_KEY_PREFIX}_guest`;
+};
 
 // 搜索历史项目结构:
 // {
@@ -13,12 +22,14 @@ const MAX_HISTORY_ITEMS = 50; // 最多保存50条历史记录
 // }
 
 /**
- * 获取所有搜索历史
+ * 获取指定用户的所有搜索历史
+ * @param {number|null} userId - 用户ID (null表示游客用户)
  * @returns {Array} 搜索历史数组,按时间倒序排列
  */
-export const getSearchHistory = () => {
+export const getSearchHistory = (userId = null) => {
   try {
-    const historyJson = localStorage.getItem(SEARCH_HISTORY_KEY);
+    const historyKey = getUserHistoryKey(userId);
+    const historyJson = localStorage.getItem(historyKey);
     if (!historyJson) return [];
 
     const history = JSON.parse(historyJson);
@@ -34,7 +45,7 @@ export const getSearchHistory = () => {
 
     // 如果有数据被迁移，保存回localStorage
     if (needsSave) {
-      localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history));
+      localStorage.setItem(historyKey, JSON.stringify(history));
     }
 
     // 按时间戳倒序排列(最新的在前)
@@ -50,15 +61,17 @@ export const getSearchHistory = () => {
  * @param {string} query - 搜索关键词
  * @param {object} filters - 搜索过滤条件
  * @param {number} resultsCount - 搜索结果数量(可选)
+ * @param {number|null} userId - 用户ID (null表示游客用户)
  * @returns {object} 新添加的历史记录项
  */
-export const addSearchHistory = (query, filters = {}, resultsCount = null) => {
+export const addSearchHistory = (query, filters = {}, resultsCount = null, userId = null) => {
   if (!query || query.trim() === '') {
     return null;
   }
 
   try {
-    const history = getSearchHistory();
+    const historyKey = getUserHistoryKey(userId);
+    const history = getSearchHistory(userId);
 
     // 检查是否已存在相同的搜索(query和主要filters相同)
     const existingIndex = history.findIndex(item =>
@@ -97,7 +110,7 @@ export const addSearchHistory = (query, filters = {}, resultsCount = null) => {
     }
 
     // 保存到localStorage
-    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history));
+    localStorage.setItem(historyKey, JSON.stringify(history));
 
     return newItem;
   } catch (error) {
@@ -110,21 +123,23 @@ export const addSearchHistory = (query, filters = {}, resultsCount = null) => {
  * 重命名搜索历史记录 (只更新displayName字段，不改变实际的query)
  * @param {number} id - 历史记录ID
  * @param {string} newDisplayName - 新的显示名称
+ * @param {number|null} userId - 用户ID (null表示游客用户)
  * @returns {boolean} 是否重命名成功
  */
-export const renameSearchHistory = (id, newDisplayName) => {
+export const renameSearchHistory = (id, newDisplayName, userId = null) => {
   if (!newDisplayName || newDisplayName.trim() === '') {
     return false;
   }
 
   try {
-    const history = getSearchHistory();
+    const historyKey = getUserHistoryKey(userId);
+    const history = getSearchHistory(userId);
     const itemIndex = history.findIndex(item => item.id === id);
 
     if (itemIndex !== -1) {
       // 只更新displayName，保持query不变
       history[itemIndex].displayName = newDisplayName.trim();
-      localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history));
+      localStorage.setItem(historyKey, JSON.stringify(history));
       return true;
     }
 
@@ -138,14 +153,16 @@ export const renameSearchHistory = (id, newDisplayName) => {
 /**
  * 删除搜索历史记录
  * @param {number} id - 历史记录ID
+ * @param {number|null} userId - 用户ID (null表示游客用户)
  * @returns {boolean} 是否删除成功
  */
-export const deleteSearchHistory = (id) => {
+export const deleteSearchHistory = (id, userId = null) => {
   try {
-    const history = getSearchHistory();
+    const historyKey = getUserHistoryKey(userId);
+    const history = getSearchHistory(userId);
     const filteredHistory = history.filter(item => item.id !== id);
 
-    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(filteredHistory));
+    localStorage.setItem(historyKey, JSON.stringify(filteredHistory));
     return true;
   } catch (error) {
     console.error('Failed to delete search history:', error);
@@ -154,12 +171,14 @@ export const deleteSearchHistory = (id) => {
 };
 
 /**
- * 清空所有搜索历史
+ * 清空指定用户的所有搜索历史
+ * @param {number|null} userId - 用户ID (null表示游客用户)
  * @returns {boolean} 是否清空成功
  */
-export const clearSearchHistory = () => {
+export const clearSearchHistory = (userId = null) => {
   try {
-    localStorage.removeItem(SEARCH_HISTORY_KEY);
+    const historyKey = getUserHistoryKey(userId);
+    localStorage.removeItem(historyKey);
     return true;
   } catch (error) {
     console.error('Failed to clear search history:', error);
@@ -212,9 +231,37 @@ export const formatHistoryItem = (item) => {
 
 /**
  * 获取格式化的搜索历史(用于侧边栏显示)
+ * @param {number|null} userId - 用户ID (null表示游客用户)
  * @returns {Array} 格式化后的历史记录数组
  */
-export const getFormattedSearchHistory = () => {
-  const history = getSearchHistory();
+export const getFormattedSearchHistory = (userId = null) => {
+  const history = getSearchHistory(userId);
   return history.map(formatHistoryItem);
+};
+
+/**
+ * 迁移旧的搜索历史数据到新的用户特定格式
+ * 仅在用户首次使用新系统时调用一次
+ * @param {number} userId - 当前用户ID
+ */
+export const migrateOldSearchHistory = (userId) => {
+  try {
+    const oldKey = 'scholar_search_history';
+    const newKey = getUserHistoryKey(userId);
+
+    // 如果用户已有新格式的历史数据，不进行迁移
+    if (localStorage.getItem(newKey)) {
+      return;
+    }
+
+    // 获取旧格式的历史数据
+    const oldHistoryJson = localStorage.getItem(oldKey);
+    if (oldHistoryJson) {
+      // 将旧数据复制到新的用户特定key
+      localStorage.setItem(newKey, oldHistoryJson);
+      console.log(`Migrated search history for user ${userId}`);
+    }
+  } catch (error) {
+    console.error('Failed to migrate search history:', error);
+  }
 };

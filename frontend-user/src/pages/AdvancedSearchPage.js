@@ -1064,7 +1064,7 @@ const AdvancedSearchPage = () => {
         onDeleteItem={handleDeleteConversation}
         onRenameItem={handleRenameConversation}
         onNewItem={handleNewConversation}
-        historyLoading={conversationsLoading}
+        historyLoading={false}
       />
 
       <div className={`advanced-search-content ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>

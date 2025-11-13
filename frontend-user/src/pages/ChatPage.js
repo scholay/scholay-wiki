@@ -796,7 +796,7 @@ function ChatPage() {
           onDeleteItem={deleteConversation}
           onRenameItem={renameConversation}
           onNewItem={handleNewConversation}
-          historyLoading={loading}
+          historyLoading={false}
         />
       )}
 

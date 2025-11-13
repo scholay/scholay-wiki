@@ -8,7 +8,7 @@ import PaperPreview from '../components/PaperPreview';
 import SearchFilters from '../components/SearchFilters';
 import PaperListSkeleton from '../components/PaperListSkeleton';
 import { NormalSearchIcon } from '../components/SearchIcons';
-import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory, renameSearchHistory } from '../utils/searchHistory';
+import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory, renameSearchHistory, migrateOldSearchHistory } from '../utils/searchHistory';
 import SEO from '../components/SEO';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
 import './SearchResultsPage.css';
@@ -135,7 +135,7 @@ const SearchResultsPage = () => {
 
         // 只有在saveToHistory为true时才添加到搜索历史
         if (saveToHistory) {
-          const historyItem = addSearchHistory(query, currentFilters, resultsTotal);
+          const historyItem = addSearchHistory(query, currentFilters, resultsTotal, user?.id);
           loadSearchHistory();
           // 自动选中刚添加的历史记录
           if (historyItem && historyItem.id) {
@@ -151,13 +151,17 @@ const SearchResultsPage = () => {
     }
   };
 
-  // 加载搜索历史
+  // 加载搜索历史 (当用户切换时重新加载)
   useEffect(() => {
+    // 首次加载时尝试迁移旧的搜索历史
+    if (user?.id) {
+      migrateOldSearchHistory(user.id);
+    }
     loadSearchHistory();
-  }, []);
+  }, [user?.id]);
 
   const loadSearchHistory = () => {
-    const history = getFormattedSearchHistory();
+    const history = getFormattedSearchHistory(user?.id);
     setSearchHistory(history);
   };
 
@@ -189,12 +193,12 @@ const SearchResultsPage = () => {
   };
 
   const handleDeleteSearchHistory = (itemId) => {
-    deleteSearchHistory(itemId);
+    deleteSearchHistory(itemId, user?.id);
     loadSearchHistory();
   };
 
   const handleRenameSearchHistory = (itemId, newTitle) => {
-    renameSearchHistory(itemId, newTitle);
+    renameSearchHistory(itemId, newTitle, user?.id);
     loadSearchHistory();
   };
 
