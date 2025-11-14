@@ -66,17 +66,30 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	mcpTools := mcpServer.ListTools()
 	aiTools := ai.ConvertMCPToolsToOpenAIFormat(mcpTools)
 
-	// Step 5: Add system message for tool usage
+	// Step 5: Add system message for tool usage from database template
+	mcpSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("continue_conversation_mcp_system", nil)
+	if err != nil {
+		// Fallback to hardcoded prompt if template not found
+		fmt.Printf("[WARN] Failed to get MCP system prompt template for continue conversation, using fallback: %v\n", err)
+		mcpSystemPrompt = `你是一位专业的学术研究助手,专门帮助用户搜索和分析学术论文。
+
+**工具使用规则**:
+- 当用户提出新的研究问题或需要查找论文时,使用 search_papers 工具搜索相关论文
+- 将中文查询转换为合适的英文学术搜索关键词(Semantic Scholar主要收录英文论文)
+- 设置 limit 参数为 40,返回更多相关论文
+- 如果用户只是对已有论文提问或讨论,可以基于对话历史回答
+
+**搜索策略**:
+- 提取查询中的核心技术术语和概念
+- 优先使用英文学术关键词
+- 组合相关概念进行搜索以获得更精准的结果
+
+请用中文回答，使用 Markdown 格式。`
+	}
+
 	systemMessage := ai.ChatMessage{
-		Role: "system",
-		Content: `你是一位专业的学术研究助手。你可以使用 search_papers 工具来搜索学术论文。
-
-当用户需要搜索新的论文时，使用 search_papers 工具。
-否则，基于对话历史和已有的论文信息回答用户的问题。
-
-重要：调用 search_papers 时，请设置 limit 参数为 40，以返回更多相关论文。
-
-请用中文回答，使用 Markdown 格式。`,
+		Role:    "system",
+		Content: mcpSystemPrompt,
 	}
 	messagesWithSystem := append([]ai.ChatMessage{systemMessage}, contextMessages...)
 
@@ -84,7 +97,14 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	// Use low-level model for tool calling to save cost (tool selection doesn't need advanced reasoning)
 	toolCallResponse, err := s.aiService.ChatCompletionWithTools(messagesWithSystem, aiTools, "auto", thirdparty.ModelLevelLow)
 	if err != nil {
-		return fmt.Errorf("AI tool call failed: %w", err)
+		fmt.Printf("[ERROR] AI tool call failed: %v\n", err)
+		// Send error event to frontend instead of returning error
+		fmt.Fprintf(writer, "data: [ERROR] AI工具调用失败: %s\n\n", err.Error())
+		if flusher, ok := writer.(interface{ Flush() }); ok {
+			flusher.Flush()
+		}
+		// Set toolCallResponse to nil and continue without tool calls
+		toolCallResponse = nil
 	}
 
 	// Step 7: Check if AI wants to use tools
@@ -92,7 +112,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	var totalCount int
 	hasToolCalls := false
 
-	if len(toolCallResponse.Choices) > 0 && len(toolCallResponse.Choices[0].Message.ToolCalls) > 0 {
+	if toolCallResponse != nil && len(toolCallResponse.Choices) > 0 && len(toolCallResponse.Choices[0].Message.ToolCalls) > 0 {
 		hasToolCalls = true
 		for _, toolCall := range toolCallResponse.Choices[0].Message.ToolCalls {
 			if toolCall.Function.Name == "search_papers" {
@@ -143,7 +163,23 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	if hasToolCalls && len(allPapers) > 0 {
 		// If we searched for papers, generate analysis including the new papers
 		papersForPrompt := ai.FormatPapersForPrompt(allPapers)
-		analysisPrompt := fmt.Sprintf(`用户问题：%s
+
+		// Get analysis system prompt from database
+		analysisSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("continue_conversation_analysis_system", nil)
+		if err != nil {
+			fmt.Printf("[WARN] Failed to get analysis system prompt template for continue conversation, using fallback: %v\n", err)
+			analysisSystemPrompt = "你是一位专业的学术研究助手，擅长分析和总结学术论文。"
+		}
+
+		// Get analysis prompt from database
+		analysisPrompt, _, err := s.aiService.GetAndRenderPrompt("continue_conversation_analysis", map[string]string{
+			"query":  userQuery,
+			"papers": papersForPrompt,
+		})
+		if err != nil {
+			// Fallback to hardcoded prompt if template not found
+			fmt.Printf("[WARN] Failed to get analysis prompt template for continue conversation, using fallback: %v\n", err)
+			analysisPrompt = fmt.Sprintf(`用户问题：%s
 
 新找到的论文：
 %s
@@ -177,11 +213,12 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 - 能够引发深入讨论
 
 请用 Markdown 格式输出完整的回答。`, userQuery, papersForPrompt)
+		}
 
 		finalMessages = []ai.ChatMessage{
 			{
 				Role:    "system",
-				Content: "你是一位专业的学术研究助手，擅长分析和总结学术论文。",
+				Content: analysisSystemPrompt,
 			},
 			{
 				Role:    "user",
@@ -231,9 +268,23 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		return err
 	}
 
+	// Step 11: Generate follow-up questions using low model (independent AI call)
+	// Only generate if we had tool calls and found papers (i.e., this is a paper-related query)
+	if hasToolCalls && len(allPapers) > 0 {
+		fmt.Printf("[DEBUG] Generating follow-up questions with low model for continue conversation\n")
+		followUpQuestions, err := s.generateFollowUpQuestions(userQuery, fullContent, writer)
+		if err != nil {
+			// Log error but don't fail - follow-up questions are optional
+			fmt.Printf("[WARN] Failed to generate follow-up questions: %v\n", err)
+		} else if followUpQuestions != "" {
+			// Append follow-up questions to the full content
+			fullContent += "\n\n" + followUpQuestions
+		}
+	}
+
 	// Note: Usage was already incremented at the beginning with CheckAndIncrementQuota
 
-	// Step 11: Save assistant message to conversation
+	// Step 12: Save assistant message to conversation (including follow-up questions if any)
 	assistantMessage := &ConversationMessage{
 		ConversationID: conversationID,
 		Role:           MessageRoleAssistant,

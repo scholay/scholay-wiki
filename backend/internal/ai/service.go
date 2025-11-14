@@ -17,6 +17,14 @@ import (
 	"scholar-backend/internal/thirdparty"
 )
 
+// min returns the smaller of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 type Service struct {
 	db             *gorm.DB
 	accountService *thirdparty.Service
@@ -123,6 +131,12 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
+	// Debug: Print tool request details
+	fmt.Printf("[DEBUG] Tool call request body (first 500 chars): %s\n", string(jsonData[:min(500, len(jsonData))]))
+	if len(tools) > 0 {
+		fmt.Printf("[DEBUG] First tool: name=%s, description=%s\n", tools[0].Function.Name, tools[0].Function.Description)
+	}
+
 	// Create HTTP request
 	url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
@@ -164,6 +178,10 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 		fmt.Printf("[DEBUG] Tool call completed successfully, got %d choices\n", len(result.Choices))
 		if len(result.Choices) > 0 {
 			fmt.Printf("[DEBUG] First choice has %d tool calls\n", len(result.Choices[0].Message.ToolCalls))
+			// Debug: Print the AI's response message
+			if result.Choices[0].Message.Content != "" {
+				fmt.Printf("[DEBUG] AI response content (no tool call): %s\n", result.Choices[0].Message.Content[:min(200, len(result.Choices[0].Message.Content))])
+			}
 		}
 
 		return &result, nil

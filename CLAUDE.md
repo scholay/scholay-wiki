@@ -172,6 +172,24 @@ curl "http://localhost:5411/api/v1/user/coupons/available?amount=19.99" \
 # Generate invitation code (user)
 curl -X POST "http://localhost:5411/api/v1/user/invitation/generate" \
   -H "Authorization: Bearer $TOKEN"
+
+# Get GitHub OAuth login URL
+curl "http://localhost:5411/api/v1/user/github/login-url"
+
+# Get GitHub OAuth config (admin only)
+curl "http://localhost:5455/api/v1/admin/github-oauth/config" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# Update GitHub OAuth config (admin only)
+curl -X PUT "http://localhost:5455/api/v1/admin/github-oauth/config" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_id": "your_github_client_id",
+    "client_secret": "your_github_client_secret",
+    "redirect_uri": "http://localhost:5411/github/callback",
+    "enabled": true
+  }'
 ```
 
 ## Architecture & Important Concepts
@@ -234,10 +252,9 @@ internal/
 
 **Critical Feature**: Database schema is automatically synchronized on every startup.
 
-- Schema files: `docker/mysql/init/*.sql` (executed in alphabetical order)
-  - `01_schema.sql` - Table definitions only (no data)
-  - `02_indexes_optimization.sql` - Performance indexes
-  - `03_seed_data.sql` - Initial data (INSERT IGNORE)
+- Schema file: `docker/mysql/init/01_schema.sql` (single consolidated file)
+  - Contains table definitions, indexes, and seed data
+  - Uses `INSERT IGNORE` for seed data to preserve existing records
 - Sync service: `schema-sync` container runs `scripts/check-schema.sh`
 - Backend starts ONLY after schema-sync completes successfully
 
@@ -248,9 +265,9 @@ internal/
 4. Check logs: `docker logs scholar_schema_sync`
 
 **To add/modify seed data**:
-1. Edit `docker/mysql/init/03_seed_data.sql`
+1. Edit `docker/mysql/init/01_schema.sql` (scroll to bottom for INSERT statements)
 2. Use `INSERT IGNORE` instead of `ON DUPLICATE KEY UPDATE`
-3. This ensures重启不会覆盖已修改的数据
+3. This ensures restarts don't overwrite modified data
 
 **Never** use `DROP TABLE` or destructive operations in init scripts. Always make schema changes idempotent.
 
@@ -393,6 +410,29 @@ The platform includes comprehensive WeChat integration for Chinese market:
 - `backend/internal/wechatofficial/` - WeChat Official Account auto-reply with AI
 - `backend/internal/payment/wechat_pay_*.go` - WeChat Pay implementation
 
+### GitHub OAuth Integration
+
+The platform supports GitHub OAuth for user authentication:
+
+- **Admin Configuration**: GitHub OAuth settings (Client ID, Secret, Redirect URI) are managed via Admin Dashboard
+- **Automatic Account Linking**: If a user with the same email exists, GitHub account is linked automatically
+- **Profile Sync**: User's GitHub profile information (name, avatar, bio, location) is synced on login
+- **Dedicated Config Table**: `github_oauth_config` stores OAuth credentials (separate from general config)
+- **Frontend Callback**: `frontend-user/src/pages/GithubCallback.js` handles OAuth redirect
+
+**OAuth Flow**:
+1. User clicks "Login with GitHub" → Frontend requests login URL from backend
+2. Backend generates OAuth URL with Client ID and redirect URI
+3. User authorizes on GitHub → Redirected to callback URL with code
+4. Frontend sends code to backend → Backend exchanges for access token
+5. Backend fetches user info from GitHub API → Creates or links user account
+6. JWT token returned for authenticated session
+
+**Implementation**:
+- `backend/internal/user/github_oauth.go` - GitHub OAuth handlers
+- `backend/internal/config/` - Admin config management for GitHub OAuth
+- Stored in dedicated `github_oauth_config` table (admin-configurable)
+
 ### Authentication System
 
 **Two separate authentication flows**:
@@ -407,8 +447,10 @@ The platform includes comprehensive WeChat integration for Chinese market:
    - Table: `users` + `user_auth_providers`
    - JWT with role="user"
    - Middleware: `middleware.UserAuthMiddleware()`
-   - Supports: email/password, Google, WeChat (schema ready)
+   - Supports: email/password, phone/SMS, GitHub OAuth, Google OAuth, WeChat OAuth
    - Email verification codes stored in `email_verification_codes`
+   - Phone verification codes stored in `phone_verification_codes`
+   - GitHub OAuth config stored in `github_oauth_config` (admin-configurable)
 
 **Session Management**:
 - `user_sessions` table tracks online users

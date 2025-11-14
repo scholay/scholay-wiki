@@ -58,14 +58,28 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	if err != nil {
 		// Fallback to hardcoded prompt if template not found
 		fmt.Printf("[WARN] Failed to get MCP system prompt template, using fallback: %v\n", err)
-		mcpSystemPrompt = `你是一位专业的学术研究助手。你可以使用 search_papers 工具来搜索学术论文。
+		mcpSystemPrompt = `你是一位专业的学术研究助手,专门帮助用户搜索和分析学术论文。
 
-当用户需要搜索新的论文时，使用 search_papers 工具。
-否则，基于对话历史和已有的论文信息回答用户的问题。
+**核心任务**:
+- 这是一个学术论文搜索系统,用户的每个查询都是为了找到相关的学术论文
+- 你必须使用 search_papers 工具来搜索论文,即使用户的查询看起来像是在问概念或问题
+- 不要直接回答问题或解释概念,而是搜索相关论文
 
-重要：调用 search_papers 时，请设置 limit 参数为 40，以返回更多相关论文。
+**工具调用规则**:
+1. 对于所有用户查询,首先调用 search_papers 工具搜索论文
+2. 将用户的查询转换为合适的英文学术搜索关键词(因为Semantic Scholar主要收录英文论文)
+3. 设置 limit 参数为 40,返回更多相关论文
+4. 可以提取查询中的关键概念作为搜索词,例如:
+   - "大语言模型的算力需求" → "large language models computational requirements GPU"
+   - "向量搜索算法" → "vector search algorithms"
+   - "Transformer架构" → "Transformer architecture"
 
-请用中文回答，使用 Markdown 格式。`
+**搜索策略**:
+- 优先使用核心技术术语和英文关键词
+- 如果查询包含多个概念,组合关键概念进行搜索
+- 确保搜索词足够具体以找到相关论文
+
+请务必调用工具,不要直接回答!`
 	}
 
 	systemMessage := ai.ChatMessage{
@@ -88,15 +102,20 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	toolCallResponse, err := s.aiService.ChatCompletionWithTools(initialMessages, aiTools, "auto", thirdparty.ModelLevelLow)
 	if err != nil {
 		fmt.Printf("[ERROR] AI tool call failed: %v\n", err)
-		return fmt.Errorf("AI tool call failed: %w", err)
+		// Send error event to frontend instead of returning error
+		fmt.Fprintf(writer, "data: [ERROR] AI工具调用失败: %s\n\n", err.Error())
+		if flusher, ok := writer.(interface{ Flush() }); ok {
+			flusher.Flush()
+		}
+		// Still try fallback search below
+		toolCallResponse = nil
 	}
-	fmt.Printf("[DEBUG] Got tool call response, choices count: %d\n", len(toolCallResponse.Choices))
 
 	// Step 5: Execute tool calls and collect results
 	var allPapers []map[string]interface{}
 	var totalCount int
 
-	if len(toolCallResponse.Choices) > 0 && len(toolCallResponse.Choices[0].Message.ToolCalls) > 0 {
+	if toolCallResponse != nil && len(toolCallResponse.Choices) > 0 && len(toolCallResponse.Choices[0].Message.ToolCalls) > 0 {
 		fmt.Printf("[DEBUG] Found %d tool calls\n", len(toolCallResponse.Choices[0].Message.ToolCalls))
 		for _, toolCall := range toolCallResponse.Choices[0].Message.ToolCalls {
 			if toolCall.Function.Name == "search_papers" {
@@ -274,9 +293,20 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		return err
 	}
 
+	// Step 8: Generate follow-up questions using low model (independent AI call)
+	fmt.Printf("[DEBUG] Generating follow-up questions with low model\n")
+	followUpQuestions, err := s.generateFollowUpQuestions(query, fullContent, writer)
+	if err != nil {
+		// Log error but don't fail - follow-up questions are optional
+		fmt.Printf("[WARN] Failed to generate follow-up questions: %v\n", err)
+	} else if followUpQuestions != "" {
+		// Append follow-up questions to the full content
+		fullContent += "\n\n" + followUpQuestions
+	}
+
 	// Note: Usage was already incremented at the beginning with CheckAndIncrementQuota
 
-	// Save assistant message to conversation
+	// Save assistant message to conversation (including follow-up questions)
 	assistantMessage := &ConversationMessage{
 		ConversationID: conversationID,
 		Role:           MessageRoleAssistant,
@@ -289,6 +319,65 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	}
 
 	return nil
+}
+
+// generateFollowUpQuestions generates follow-up questions based on the analysis
+// Uses low model for cost efficiency and streams the questions to the writer
+func (s *Service) generateFollowUpQuestions(query string, analysisContent string, writer io.Writer) (string, error) {
+	// Get follow-up questions prompt from database
+	followUpSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("follow_up_questions_system", nil)
+	if err != nil {
+		fmt.Printf("[WARN] Failed to get follow-up questions system prompt, using fallback: %v\n", err)
+		followUpSystemPrompt = "你是一位专业的学术研究助手，擅长基于研究分析提出有深度的延伸问题。"
+	}
+
+	followUpPrompt, _, err := s.aiService.GetAndRenderPrompt("follow_up_questions", map[string]string{
+		"query":    query,
+		"analysis": analysisContent,
+	})
+	if err != nil {
+		// Fallback to hardcoded prompt
+		fmt.Printf("[WARN] Failed to get follow-up questions prompt, using fallback: %v\n", err)
+		followUpPrompt = fmt.Sprintf(`用户查询：%s
+
+已完成的分析：
+%s
+
+基于上述分析，请提供3-5个发散性的后续研究问题，格式如下：
+[FOLLOW_UP_QUESTIONS]
+1. 问题文本1
+2. 问题文本2
+3. 问题文本3
+[/FOLLOW_UP_QUESTIONS]
+
+这些问题应该：
+- 基于当前研究的自然延伸
+- 具有一定的探索性和前瞻性
+- 涵盖不同角度（技术深化、应用拓展、跨领域融合、伦理思考等）
+- 能够引发深入讨论
+- 每个问题都应该简洁明了，一句话即可
+
+请直接输出问题列表，不要有其他内容。`, query, analysisContent)
+	}
+
+	followUpMessages := []ai.ChatMessage{
+		{
+			Role:    "system",
+			Content: followUpSystemPrompt,
+		},
+		{
+			Role:    "user",
+			Content: followUpPrompt,
+		},
+	}
+
+	// Use low model for follow-up questions generation (cost-efficient)
+	followUpContent, err := s.aiService.StreamChatCompletionAndCollectWithLevel(followUpMessages, writer, thirdparty.ModelLevelLow)
+	if err != nil {
+		return "", err
+	}
+
+	return followUpContent, nil
 }
 
 // executeMCPToolCall executes a single MCP tool call and returns papers

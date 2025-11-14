@@ -154,8 +154,37 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
     );
   }
 
+  // 如果没有数据但已经加载完成(不是loading状态),显示"未找到结果"的提示
   if (!currentPapers || currentPapers.length === 0) {
-    return null; // 不显示空状态
+    // 如果还在加载中,已经由上面的skeleton处理了,这里不需要再return
+    // 如果加载完成但没有数据,显示空状态提示
+    if (!shouldShowSkeleton) {
+      return (
+        <div className="paper-list">
+          <div className="paper-list-header">
+            <div className="header-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              <h3>论文搜索结果</h3>
+            </div>
+          </div>
+          <div className="paper-list-content">
+            <div className="empty-papers-message">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+                <path d="M11 8v6"/>
+                <path d="M8 11h6"/>
+              </svg>
+              <p>未找到相关论文</p>
+              <span>请尝试使用不同的关键词或更具体的描述</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null; // 还在loading,不显示
   }
 
   const arrowDirection = getArrowDirection();
@@ -171,13 +200,18 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
           {/* 轻量的tab指示器 - 仅在有多个论文集时显示 */}
           {usePaperSets && paperSets.length > 1 && (
             <div className="paper-tab-indicator">
-              {paperSets.map((set, index) => (
-                <div
-                  key={index}
-                  className={`tab-dot ${currentActiveTab === index ? 'active' : ''}`}
-                  title={set.title || `搜索 ${index + 1}`}
-                />
-              ))}
+              {/* 反转 paperSets 顺序渲染，让最早的在左边，最新的在右边 */}
+              {[...paperSets].reverse().map((set, reversedIndex) => {
+                // 计算原始索引（因为 paperSets 是倒序的）
+                const originalIndex = paperSets.length - 1 - reversedIndex;
+                return (
+                  <div
+                    key={originalIndex}
+                    className={`tab-dot ${currentActiveTab === originalIndex ? 'active' : ''}`}
+                    title={set.title || `搜索 ${reversedIndex + 1}`}
+                  />
+                );
+              })}
             </div>
           )}
         </div>

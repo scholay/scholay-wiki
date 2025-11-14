@@ -438,6 +438,48 @@
   }
 }
 
+/* 空状态样式 */
+.empty-papers-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: rgba(236, 236, 241, 0.5);
+  min-height: 300px;
+}
+
+.empty-papers-message svg {
+  margin-bottom: 1.5rem;
+  color: rgba(16, 163, 127, 0.3);
+  animation: fade-in 0.5s ease-out;
+}
+
+.empty-papers-message p {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(236, 236, 241, 0.7);
+}
+
+.empty-papers-message span {
+  font-size: 0.875rem;
+  color: rgba(236, 236, 241, 0.4);
+  max-width: 300px;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Responsive */
 @media (max-width: 1200px) {
   .paper-list {

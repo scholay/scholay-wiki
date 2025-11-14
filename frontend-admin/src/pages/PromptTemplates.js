@@ -53,7 +53,7 @@ const PromptTemplates = () => {
       key: template.key,
       template: template.template,
       description: template.description || '',
-      is_active: template.is_active
+      is_active: Boolean(template.is_active) // Convert 0/1 to false/true
     });
     setShowModal(true);
   };

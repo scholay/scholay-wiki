@@ -367,8 +367,9 @@ const AdvancedSearchPage = () => {
 
       // 如果找到了可见的 assistant 消息
       if (closestMessageIndex >= 0 && closestMessageIndex < paperSets.length) {
-        // paperSets 是倒序的，需要转换索引
-        const tabIndex = closestMessageIndex;
+        // paperSets 是倒序的（最新在索引0），assistantMessages 是正序的（最老在索引0）
+        // 需要反转索引：第一条消息（索引0）对应最后一个 paperSet（索引 length-1）
+        const tabIndex = paperSets.length - 1 - closestMessageIndex;
         if (activeTab !== tabIndex) {
           setActiveTab(tabIndex);
         }
@@ -471,14 +472,15 @@ const AdvancedSearchPage = () => {
         );
 
         if (messagesWithPapers.length > 0) {
-          // 倒序排列，最新的在前
-          const sets = messagesWithPapers.reverse().map((msg, index) => ({
-            title: index === 0 ? '最新搜索' : `搜索 ${messagesWithPapers.length - index}`,
+          // 按时间顺序（最新的在前），不需要 reverse，因为 messages 本身就是按时间顺序的
+          const sets = messagesWithPapers.map((msg, index) => ({
+            title: index === messagesWithPapers.length - 1 ? '最新搜索' : `搜索 ${index + 1}`,
             papers: msg.search_results,
             total: msg.search_results_total || msg.search_results.length,
             query: msg.search_query
           }));
-          setPaperSets(sets);
+          // 倒序，让最新的在数组第一个位置
+          setPaperSets(sets.reverse());
           setPapers(sets[0].papers);
           setPapersTotal(sets[0].total);
 
@@ -788,6 +790,11 @@ const AdvancedSearchPage = () => {
     setStreamingContent('');
     streamingContentRef.current = '';
     setLoading(true);
+    setShowAIThinking(true); // 显示 AI 思考状态
+
+    // 清空当前论文列表，显示 loading skeleton
+    setPapers([]);
+    setPapersTotal(0);
 
     // 添加新的论文集合占位符，用于新的搜索
     setPaperSets(prevSets => [
@@ -877,6 +884,7 @@ const AdvancedSearchPage = () => {
                 console.error('Continue conversation error:', data);
                 setIsStreaming(false);
                 setLoading(false);
+                setShowAIThinking(false); // 关闭 AI 思考状态
                 alert('对话失败: ' + data.substring(8));
                 return;
               }
@@ -948,6 +956,7 @@ const AdvancedSearchPage = () => {
       console.error('Continue conversation failed:', error);
       setIsStreaming(false);
       setLoading(false);
+      setShowAIThinking(false); // 关闭 AI 思考状态
       alert('继续对话失败: ' + error.message);
     }
   };
