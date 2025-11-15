@@ -293,24 +293,34 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		return err
 	}
 
-	// Step 8: Generate follow-up questions using low model (independent AI call)
+	// Step 8: Generate follow-up questions using low model (independent AI call, non-streaming)
 	fmt.Printf("[DEBUG] Generating follow-up questions with low model\n")
-	followUpQuestions, err := s.generateFollowUpQuestions(query, fullContent, writer)
+	var followUpQuestions string
+	followUpQuestions, err = s.generateFollowUpQuestions(query, fullContent)
 	if err != nil {
 		// Log error but don't fail - follow-up questions are optional
 		fmt.Printf("[WARN] Failed to generate follow-up questions: %v\n", err)
 	} else if followUpQuestions != "" {
-		// Append follow-up questions to the full content
-		fullContent += "\n\n" + followUpQuestions
+		// Send follow-up questions as a special SSE event (non-streaming, all at once)
+		fmt.Fprintf(writer, "data: [FOLLOW_UP_QUESTIONS]%s\n\n", followUpQuestions)
+		if flusher, ok := writer.(interface{ Flush() }); ok {
+			flusher.Flush()
+		}
 	}
 
 	// Note: Usage was already incremented at the beginning with CheckAndIncrementQuota
 
-	// Save assistant message to conversation (including follow-up questions)
+	// Step 9: Clear old follow-up questions from previous messages in this conversation
+	if err := s.repo.ClearOldFollowUpQuestions(conversationID); err != nil {
+		fmt.Printf("[WARN] Failed to clear old follow-up questions: %v\n", err)
+	}
+
+	// Save assistant message to conversation with follow-up questions in separate field
 	assistantMessage := &ConversationMessage{
-		ConversationID: conversationID,
-		Role:           MessageRoleAssistant,
-		Content:        fullContent,
+		ConversationID:    conversationID,
+		Role:              MessageRoleAssistant,
+		Content:           fullContent,
+		FollowUpQuestions: followUpQuestions, // Save in separate field, not in content
 	}
 
 	if err := s.repo.CreateMessage(assistantMessage); err != nil {
@@ -322,8 +332,8 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 }
 
 // generateFollowUpQuestions generates follow-up questions based on the analysis
-// Uses low model for cost efficiency and streams the questions to the writer
-func (s *Service) generateFollowUpQuestions(query string, analysisContent string, writer io.Writer) (string, error) {
+// Uses low model for cost efficiency and returns all questions at once (non-streaming)
+func (s *Service) generateFollowUpQuestions(query string, analysisContent string) (string, error) {
 	// Get follow-up questions prompt from database
 	followUpSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("follow_up_questions_system", nil)
 	if err != nil {
@@ -371,8 +381,8 @@ func (s *Service) generateFollowUpQuestions(query string, analysisContent string
 		},
 	}
 
-	// Use low model for follow-up questions generation (cost-efficient)
-	followUpContent, err := s.aiService.StreamChatCompletionAndCollectWithLevel(followUpMessages, writer, thirdparty.ModelLevelLow)
+	// Use low model for follow-up questions generation (cost-efficient, non-streaming)
+	followUpContent, err := s.aiService.ChatCompletionWithLevel(followUpMessages, thirdparty.ModelLevelLow)
 	if err != nil {
 		return "", err
 	}

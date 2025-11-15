@@ -151,6 +151,7 @@ CREATE TABLE IF NOT EXISTS `conversation_messages` (
   `search_query` VARCHAR(500) COMMENT '搜索查询（如果是搜索消息）',
   `search_results` JSON COMMENT 'Semantic Scholar搜索结果',
   `search_results_total` INT NOT NULL DEFAULT 0 COMMENT '搜索结果总数',
+  `follow_up_questions` TEXT COMMENT '延伸思考问题（仅最新一轮assistant消息保存）',
   `token_count` INT DEFAULT 0 COMMENT 'Token计数',
   `model` VARCHAR(50) COMMENT 'AI模型',
   `finish_reason` VARCHAR(20) COMMENT '完成原因',
@@ -168,6 +169,10 @@ CREATE TABLE IF NOT EXISTS `conversation_messages` (
   INDEX `idx_parent` (`parent_message_id`, `conversation_id`),
   FOREIGN KEY (`conversation_id`) REFERENCES `conversations`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对话消息';
+
+-- Add follow_up_questions column if it doesn't exist (for existing databases)
+ALTER TABLE `conversation_messages`
+ADD COLUMN IF NOT EXISTS `follow_up_questions` TEXT COMMENT '延伸思考问题（仅最新一轮assistant消息保存）' AFTER `search_results_total`;
 
 -- ============================================
 -- 订阅和配额表

@@ -131,7 +131,7 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
           <div className="paper-count-badge skeleton"></div>
         </div>
         <div className="paper-list-content">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
             <div key={i} className="paper-card skeleton-card">
               <div className="paper-index skeleton-text" style={{width: '20px'}}></div>
               <div className="paper-main">

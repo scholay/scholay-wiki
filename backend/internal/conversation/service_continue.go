@@ -268,27 +268,37 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		return err
 	}
 
-	// Step 11: Generate follow-up questions using low model (independent AI call)
+	// Step 11: Generate follow-up questions using low model (independent AI call, non-streaming)
 	// Only generate if we had tool calls and found papers (i.e., this is a paper-related query)
+	var followUpQuestions string
 	if hasToolCalls && len(allPapers) > 0 {
 		fmt.Printf("[DEBUG] Generating follow-up questions with low model for continue conversation\n")
-		followUpQuestions, err := s.generateFollowUpQuestions(userQuery, fullContent, writer)
+		followUpQuestions, err = s.generateFollowUpQuestions(userQuery, fullContent)
 		if err != nil {
 			// Log error but don't fail - follow-up questions are optional
 			fmt.Printf("[WARN] Failed to generate follow-up questions: %v\n", err)
 		} else if followUpQuestions != "" {
-			// Append follow-up questions to the full content
-			fullContent += "\n\n" + followUpQuestions
+			// Send follow-up questions as a special SSE event (non-streaming, all at once)
+			fmt.Fprintf(writer, "data: [FOLLOW_UP_QUESTIONS]%s\n\n", followUpQuestions)
+			if flusher, ok := writer.(interface{ Flush() }); ok {
+				flusher.Flush()
+			}
 		}
 	}
 
 	// Note: Usage was already incremented at the beginning with CheckAndIncrementQuota
 
-	// Step 12: Save assistant message to conversation (including follow-up questions if any)
+	// Step 12: Clear old follow-up questions from previous messages in this conversation
+	if err := s.repo.ClearOldFollowUpQuestions(conversationID); err != nil {
+		fmt.Printf("[WARN] Failed to clear old follow-up questions: %v\n", err)
+	}
+
+	// Save assistant message to conversation with follow-up questions in separate field
 	assistantMessage := &ConversationMessage{
-		ConversationID: conversationID,
-		Role:           MessageRoleAssistant,
-		Content:        fullContent,
+		ConversationID:    conversationID,
+		Role:              MessageRoleAssistant,
+		Content:           fullContent,
+		FollowUpQuestions: followUpQuestions, // Save in separate field, not in content
 	}
 
 	if err := s.repo.CreateMessage(assistantMessage); err != nil {

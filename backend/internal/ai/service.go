@@ -721,3 +721,98 @@ func FormatPapersForPrompt(papers []map[string]interface{}) string {
 
 	return builder.String()
 }
+
+// ChatCompletionWithLevel calls AI model without streaming and returns the complete response
+// Used for non-streaming operations like generating follow-up questions
+func (s *Service) ChatCompletionWithLevel(messages []ChatMessage, modelLevel thirdparty.ModelLevel) (string, error) {
+	fmt.Printf("[DEBUG] ChatCompletionWithLevel called, modelLevel: %s, messages count: %d\n", modelLevel, len(messages))
+
+	// Get AI model config by level
+	config, _, err := s.accountService.GetRandomAIModelConfigByLevel(modelLevel)
+	if err != nil {
+		return "", fmt.Errorf("no AI model account configured for level %s: %w", modelLevel, err)
+	}
+
+	// Select model code based on level
+	modelCode := config.ModelLow
+	if modelLevel == thirdparty.ModelLevelMid {
+		modelCode = config.ModelMid
+	} else if modelLevel == thirdparty.ModelLevelHigh {
+		modelCode = config.ModelHigh
+	}
+
+	// Fallback logic
+	if modelCode == "" {
+		modelCode = config.ModelLow
+	}
+	if modelCode == "" {
+		modelCode = config.ModelMid
+	}
+	if modelCode == "" {
+		modelCode = config.ModelHigh
+	}
+	if modelCode == "" {
+		modelCode = "gpt-3.5-turbo" // Final fallback
+	}
+
+	// Prepare request (NO streaming)
+	reqBody := ChatCompletionRequest{
+		Model:       modelCode,
+		Messages:    messages,
+		Stream:      false, // Non-streaming
+		Temperature: 0.7,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+config.APIKey)
+
+	// Send request using shared HTTP client with circuit breaker protection
+	client := GetHTTPClient()
+
+	// Execute with circuit breaker protection
+	resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to send request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		}
+
+		// Parse non-streaming response
+		var response ChatCompletionResponse
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		if len(response.Choices) == 0 {
+			return nil, fmt.Errorf("no response choices returned")
+		}
+
+		return response.Choices[0].Message.Content, nil
+	})
+
+	if err != nil {
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			return "", fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+		}
+		return "", err
+	}
+
+	return resultInterface.(string), nil
+}

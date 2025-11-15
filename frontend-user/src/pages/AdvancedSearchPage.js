@@ -487,6 +487,16 @@ const AdvancedSearchPage = () => {
           // 检查是否有 assistant 消息，判断是否进行过高级搜索
           const hasAssistantMessages = conv.messages.some(m => m.role === 'assistant');
           setHasAdvancedSearch(hasAssistantMessages);
+
+          // 从最新的 assistant 消息中提取 follow_up_questions
+          const latestAssistantMessage = [...conv.messages].reverse().find(m => m.role === 'assistant');
+          if (latestAssistantMessage && latestAssistantMessage.follow_up_questions) {
+            console.log('Found follow_up_questions in history:', latestAssistantMessage.follow_up_questions);
+            const questions = extractSuggestedQuestions(latestAssistantMessage.follow_up_questions);
+            if (questions.length > 0) {
+              setSuggestedQuestions(questions);
+            }
+          }
         } else {
           setPapers([]);
           setPapersTotal(0);
@@ -747,6 +757,23 @@ const AdvancedSearchPage = () => {
         return;
       }
 
+      if (event.data.startsWith('[FOLLOW_UP_QUESTIONS]')) {
+        // Handle follow-up questions (non-streaming, all at once)
+        try {
+          const followUpQuestions = event.data.substring(21); // Remove '[FOLLOW_UP_QUESTIONS]' prefix
+          console.log('Received follow-up questions:', followUpQuestions);
+
+          // Extract questions from the content
+          const questions = extractSuggestedQuestions(followUpQuestions);
+          if (questions.length > 0) {
+            setSuggestedQuestions(questions);
+          }
+        } catch (err) {
+          console.error('Failed to parse follow-up questions:', err);
+        }
+        return;
+      }
+
       try {
         const data = JSON.parse(event.data);
         if (data.choices && data.choices[0] && data.choices[0].delta) {
@@ -925,6 +952,23 @@ const AdvancedSearchPage = () => {
                   });
                 } catch (err) {
                   console.error('Failed to parse papers data:', err);
+                }
+                continue;
+              }
+
+              if (data.startsWith('[FOLLOW_UP_QUESTIONS]')) {
+                // Handle follow-up questions (non-streaming, all at once)
+                try {
+                  const followUpQuestions = data.substring(21); // Remove '[FOLLOW_UP_QUESTIONS]' prefix
+                  console.log('Received follow-up questions for continue conversation:', followUpQuestions);
+
+                  // Extract questions from the content
+                  const questions = extractSuggestedQuestions(followUpQuestions);
+                  if (questions.length > 0) {
+                    setSuggestedQuestions(questions);
+                  }
+                } catch (err) {
+                  console.error('Failed to parse follow-up questions:', err);
                 }
                 continue;
               }

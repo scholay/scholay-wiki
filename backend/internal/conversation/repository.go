@@ -298,3 +298,12 @@ func (r *Repository) GetLatestLeafFromMessage(messageID string) (string, error) 
 		currentMessageID = children[0].MessageID
 	}
 }
+
+// ClearOldFollowUpQuestions clears follow_up_questions field from all previous messages in a conversation
+// This ensures only the latest assistant message shows follow-up questions
+func (r *Repository) ClearOldFollowUpQuestions(conversationID uint) error {
+	return r.db.Model(&ConversationMessage{}).
+		Where("conversation_id = ? AND role = ? AND follow_up_questions IS NOT NULL AND follow_up_questions != ?",
+			conversationID, MessageRoleAssistant, "").
+		Update("follow_up_questions", "").Error
+}

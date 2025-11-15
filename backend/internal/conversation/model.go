@@ -74,6 +74,7 @@ type ConversationMessage struct {
 	SearchQuery         string        `gorm:"type:varchar(500)" json:"search_query,omitempty"`
 	SearchResults       SearchResults `gorm:"type:json" json:"search_results,omitempty"`
 	SearchResultsTotal  int           `gorm:"default:0" json:"search_results_total,omitempty"`
+	FollowUpQuestions   string        `gorm:"type:text" json:"follow_up_questions,omitempty"` // Only saved for latest assistant message
 	TokenCount          int           `gorm:"default:0" json:"token_count,omitempty"`
 	Model               string        `gorm:"type:varchar(50)" json:"model,omitempty"`
 	FinishReason        string        `gorm:"type:varchar(20)" json:"finish_reason,omitempty"`
