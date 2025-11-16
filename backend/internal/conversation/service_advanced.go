@@ -58,28 +58,43 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	if err != nil {
 		// Fallback to hardcoded prompt if template not found
 		fmt.Printf("[WARN] Failed to get MCP system prompt template, using fallback: %v\n", err)
-		mcpSystemPrompt = `你是一位专业的学术研究助手,专门帮助用户搜索和分析学术论文。
+		mcpSystemPrompt = `你是一位专业的学术研究助手，专门帮助用户搜索和分析高质量的学术论文。
 
 **核心任务**:
-- 这是一个学术论文搜索系统,用户的每个查询都是为了找到相关的学术论文
-- 你必须使用 search_papers 工具来搜索论文,即使用户的查询看起来像是在问概念或问题
-- 不要直接回答问题或解释概念,而是搜索相关论文
+- 这是一个高级学术论文搜索系统，用户的每个查询都是为了找到相关的高质量学术论文
+- 你必须且只能使用 search_papers_advanced 工具来搜索论文（绝对不要使用 search_papers 工具）
+- search_papers_advanced 工具支持多关键词搜索（OR运算）、质量筛选和排序
+- 不要直接回答问题或解释概念，而是搜索相关论文
+
+**重要规则**:
+⚠️ 永远不要使用 search_papers 工具（这是旧版本，功能有限）
+✅ 始终使用 search_papers_advanced 工具（这是新版本，支持多关键词和高级筛选）
+
+**关键词提取策略**:
+1. 从用户查询中提取 2-5 个相关的学术关键词
+2. 将中文概念转换为对应的英文学术术语
+3. 包括同义词和相关术语以提高召回率
+4. 示例：
+   - "大语言模型的算力需求" → ["large language models", "computational requirements", "GPU training", "model scaling", "compute resources"]
+   - "向量搜索算法" → ["vector search", "similarity search", "nearest neighbor", "embedding retrieval", "approximate nearest neighbor"]
+   - "Transformer架构" → ["Transformer architecture", "attention mechanism", "self-attention", "BERT", "GPT"]
 
 **工具调用规则**:
-1. 对于所有用户查询,首先调用 search_papers 工具搜索论文
-2. 将用户的查询转换为合适的英文学术搜索关键词(因为Semantic Scholar主要收录英文论文)
-3. 设置 limit 参数为 40,返回更多相关论文
-4. 可以提取查询中的关键概念作为搜索词,例如:
-   - "大语言模型的算力需求" → "large language models computational requirements GPU"
-   - "向量搜索算法" → "vector search algorithms"
-   - "Transformer架构" → "Transformer architecture"
+1. 对于所有用户查询，必须使用 search_papers_advanced 工具（不要使用 search_papers）
+2. 设置合理的参数：
+   - keywords: 提取的多个关键词（2-5个）
+   - year_from/year_to: 根据查询调整，默认近5年
+   - min_citations: 根据领域热度调整（热门领域50+，新兴领域10+）
+   - sort_by: 默认 "citationCount:desc" 获取高影响力论文
+   - fields_of_study: 如果查询明确涉及特定领域，添加相应筛选
+   - limit: 设置为 50-100 以获得充分的结果
 
-**搜索策略**:
-- 优先使用核心技术术语和英文关键词
-- 如果查询包含多个概念,组合关键概念进行搜索
-- 确保搜索词足够具体以找到相关论文
+**质量控制**:
+- 优先返回高引用、近期发表的论文
+- 确保论文与查询高度相关
+- 通过多关键词组合提高搜索精准度
 
-请务必调用工具,不要直接回答!`
+请务必调用 search_papers_advanced 工具，不要直接回答！`
 	}
 
 	systemMessage := ai.ChatMessage{
@@ -118,10 +133,15 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	if toolCallResponse != nil && len(toolCallResponse.Choices) > 0 && len(toolCallResponse.Choices[0].Message.ToolCalls) > 0 {
 		fmt.Printf("[DEBUG] Found %d tool calls\n", len(toolCallResponse.Choices[0].Message.ToolCalls))
 		for _, toolCall := range toolCallResponse.Choices[0].Message.ToolCalls {
-			if toolCall.Function.Name == "search_papers" {
+			fmt.Printf("[DEBUG] Tool call name: %s\n", toolCall.Function.Name)
+			fmt.Printf("[DEBUG] Tool call arguments: %s\n", toolCall.Function.Arguments)
+
+			// Support both search_papers and search_papers_advanced
+			if toolCall.Function.Name == "search_papers" || toolCall.Function.Name == "search_papers_advanced" {
 				// Parse tool arguments
 				var args map[string]interface{}
 				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
+					fmt.Printf("[ERROR] Failed to parse tool arguments: %v\n", err)
 					continue
 				}
 
@@ -159,10 +179,18 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		totalCount = total
 	}
 
-	// Step 6: Send papers to frontend
+	// Limit papers to top 50 for frontend display and AI analysis
+	const maxPapersToShow = 50
+	displayPapers := allPapers
+	if len(displayPapers) > maxPapersToShow {
+		fmt.Printf("[DEBUG] Limiting papers from %d to %d for display and analysis\n", len(allPapers), maxPapersToShow)
+		displayPapers = displayPapers[:maxPapersToShow]
+	}
+
+	// Step 6: Send papers to frontend (only top 50)
 	papersData := map[string]interface{}{
-		"papers": allPapers,
-		"total":  totalCount,
+		"papers": displayPapers,
+		"total":  totalCount,  // Still show the real total count
 	}
 	papersJSON, _ := json.Marshal(papersData)
 	fmt.Fprintf(writer, "data: [PAPERS]%s\n\n", string(papersJSON))
@@ -170,14 +198,15 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		flusher.Flush()
 	}
 
-	// Save papers to the user message in database
-	if err := s.repo.UpdateMessageSearchResults(conversationID, query, allPapers, totalCount); err != nil {
+	// Save papers to the user message in database (only top 50)
+	if err := s.repo.UpdateMessageSearchResults(conversationID, query, displayPapers, totalCount); err != nil {
 		fmt.Printf("Warning: failed to save search results to message: %v\n", err)
 	}
 
 	// Step 7: Generate AI analysis of the papers and save to database
-	fmt.Printf("[DEBUG] Formatting %d papers for AI analysis\n", len(allPapers))
-	papersForPrompt := ai.FormatPapersForPrompt(allPapers)
+	fmt.Printf("[DEBUG] Formatting %d papers for AI analysis\n", len(displayPapers))
+	// Use more papers for analysis (up to 30) with shorter abstracts
+	papersForPrompt := ai.FormatPapersForPromptWithLimit(displayPapers, 30, 200)
 	fmt.Printf("[DEBUG] Formatted papers, length: %d characters\n", len(papersForPrompt))
 
 	// Get analysis prompt templates
@@ -237,20 +266,6 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 - 未来可能的研究方向和突破点
 - 跨学科融合的可能性
 
-## 延伸思考
-在分析的最后，提供3-5个发散性的后续研究问题，格式如下：
-[FOLLOW_UP_QUESTIONS]
-1. 问题文本1
-2. 问题文本2
-3. 问题文本3
-[/FOLLOW_UP_QUESTIONS]
-
-这些问题应该：
-- 基于当前研究的自然延伸
-- 具有一定的探索性和前瞻性
-- 涵盖不同角度（技术深化、应用拓展、跨领域融合、伦理思考等）
-- 能够引发深入讨论
-
 重要提示：
 1. **引用格式（非常重要）**：当提到具体论文的观点、数据或结论时，必须使用以下格式：
    【引用编号：引用的具体内容】
@@ -268,7 +283,6 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 2. 分析要深入且有洞察力，避免表面化和泛泛而谈
 3. 多引用论文中的具体数据、实验结果和关键结论（使用【引用n：内容】格式）
 4. 保持客观和批判性思维，指出优点的同时也要指出不足
-5. 确保后续问题放在 [FOLLOW_UP_QUESTIONS] 标签内
 
 请用 Markdown 格式输出完整的分析报告。`, query, papersForPrompt)
 	}
@@ -283,6 +297,10 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 			Content: analysisPrompt,
 		},
 	}
+
+	// Apply context truncation to ensure we stay within 128K limit
+	const max128K = 128000 * 4 // Roughly 128K tokens * 4 chars per token
+	analysisMessages = ai.TruncateContextForLimit(analysisMessages, max128K)
 
 	fmt.Printf("[DEBUG] About to call StreamChatCompletionAndCollectWithLevel, modelLevel: %s, messages count: %d, prompt length: %d\n",
 		modelLevel, len(analysisMessages), len(analysisPrompt))

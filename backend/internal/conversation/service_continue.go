@@ -71,18 +71,42 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	if err != nil {
 		// Fallback to hardcoded prompt if template not found
 		fmt.Printf("[WARN] Failed to get MCP system prompt template for continue conversation, using fallback: %v\n", err)
-		mcpSystemPrompt = `你是一位专业的学术研究助手,专门帮助用户搜索和分析学术论文。
+		mcpSystemPrompt = `你是一位专业的学术研究助手，专门帮助用户搜索和分析高质量的学术论文。
 
-**工具使用规则**:
-- 当用户提出新的研究问题或需要查找论文时,使用 search_papers 工具搜索相关论文
-- 将中文查询转换为合适的英文学术搜索关键词(Semantic Scholar主要收录英文论文)
-- 设置 limit 参数为 40,返回更多相关论文
-- 如果用户只是对已有论文提问或讨论,可以基于对话历史回答
+**核心任务**:
+- 这是一个高级学术论文搜索系统，用户的每个查询都是为了找到相关的高质量学术论文
+- 你必须且只能使用 search_papers_advanced 工具来搜索论文（绝对不要使用 search_papers 工具）
+- search_papers_advanced 工具支持多关键词搜索（OR运算）、质量筛选和排序
+- 当用户提出新的研究问题或需要查找论文时，使用工具搜索相关论文
+- 如果用户只是对已有论文提问或讨论，可以基于对话历史回答
 
-**搜索策略**:
-- 提取查询中的核心技术术语和概念
-- 优先使用英文学术关键词
-- 组合相关概念进行搜索以获得更精准的结果
+**重要规则**:
+⚠️ 永远不要使用 search_papers 工具（这是旧版本，功能有限）
+✅ 始终使用 search_papers_advanced 工具（这是新版本，支持多关键词和高级筛选）
+
+**关键词提取策略**:
+1. 从用户查询中提取 2-5 个相关的学术关键词
+2. 将中文概念转换为对应的英文学术术语
+3. 包括同义词和相关术语以提高召回率
+4. 示例：
+   - "大语言模型的算力需求" → ["large language models", "computational requirements", "GPU training", "model scaling", "compute resources"]
+   - "向量搜索算法" → ["vector search", "similarity search", "nearest neighbor", "embedding retrieval", "approximate nearest neighbor"]
+   - "Transformer架构" → ["Transformer architecture", "attention mechanism", "self-attention", "BERT", "GPT"]
+
+**工具调用规则**:
+1. 对于新的研究查询，必须使用 search_papers_advanced 工具（不要使用 search_papers）
+2. 设置合理的参数：
+   - keywords: 提取的多个关键词（2-5个）
+   - year_from/year_to: 根据查询调整，默认近5年
+   - min_citations: 根据领域热度调整（热门领域50+，新兴领域10+）
+   - sort_by: 默认 "citationCount:desc" 获取高影响力论文
+   - fields_of_study: 如果查询明确涉及特定领域，添加相应筛选
+   - limit: 设置为 50-100 以获得充分的结果
+
+**质量控制**:
+- 优先返回高引用、近期发表的论文
+- 确保论文与查询高度相关
+- 通过多关键词组合提高搜索精准度
 
 请用中文回答，使用 Markdown 格式。`
 	}
@@ -115,10 +139,14 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	if toolCallResponse != nil && len(toolCallResponse.Choices) > 0 && len(toolCallResponse.Choices[0].Message.ToolCalls) > 0 {
 		hasToolCalls = true
 		for _, toolCall := range toolCallResponse.Choices[0].Message.ToolCalls {
-			if toolCall.Function.Name == "search_papers" {
+			fmt.Printf("[DEBUG] Continue conversation - Tool call: %s\n", toolCall.Function.Name)
+
+			// Support both search_papers and search_papers_advanced
+			if toolCall.Function.Name == "search_papers" || toolCall.Function.Name == "search_papers_advanced" {
 				// Parse tool arguments
 				var args map[string]interface{}
 				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
+					fmt.Printf("[ERROR] Failed to parse tool arguments: %v\n", err)
 					continue
 				}
 
@@ -143,26 +171,36 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 				}
 			}
 		}
+	}
 
-		// Send papers to frontend if any were found
-		if len(allPapers) > 0 {
-			papersData := map[string]interface{}{
-				"papers": allPapers,
-				"total":  totalCount,
-			}
-			papersJSON, _ := json.Marshal(papersData)
-			fmt.Fprintf(writer, "data: [PAPERS]%s\n\n", string(papersJSON))
-			if flusher, ok := writer.(interface{ Flush() }); ok {
-				flusher.Flush()
-			}
+	// Limit papers to top 50 for all purposes (display, storage, analysis)
+	const maxPapersLimit = 50
+	limitedPapers := allPapers
+	if len(limitedPapers) > maxPapersLimit {
+		fmt.Printf("[DEBUG] Limiting papers from %d to %d for all purposes\n", len(allPapers), maxPapersLimit)
+		limitedPapers = limitedPapers[:maxPapersLimit]
+	}
+
+	// Send papers to frontend if any were found
+	if len(limitedPapers) > 0 {
+		papersData := map[string]interface{}{
+			"papers": limitedPapers,
+			"total":  totalCount,  // Still show the real total count
+		}
+		papersJSON, _ := json.Marshal(papersData)
+		fmt.Fprintf(writer, "data: [PAPERS]%s\n\n", string(papersJSON))
+		if flusher, ok := writer.(interface{ Flush() }); ok {
+			flusher.Flush()
 		}
 	}
 
 	// Step 8: Generate final AI response
 	var finalMessages []ai.ChatMessage
-	if hasToolCalls && len(allPapers) > 0 {
+	if hasToolCalls && len(limitedPapers) > 0 {
+
 		// If we searched for papers, generate analysis including the new papers
-		papersForPrompt := ai.FormatPapersForPrompt(allPapers)
+		// Use up to 30 papers with shorter abstracts for analysis (same as AdvancedSearchAndAnalyze)
+		papersForPrompt := ai.FormatPapersForPromptWithLimit(limitedPapers, 30, 200)
 
 		// Get analysis system prompt from database
 		analysisSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("continue_conversation_analysis_system", nil)
@@ -179,38 +217,72 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		if err != nil {
 			// Fallback to hardcoded prompt if template not found
 			fmt.Printf("[WARN] Failed to get analysis prompt template for continue conversation, using fallback: %v\n", err)
-			analysisPrompt = fmt.Sprintf(`用户问题：%s
+			analysisPrompt = fmt.Sprintf(`用户查询：%s
 
-新找到的论文：
+找到的论文：
 %s
 
-请作为资深学术研究专家，基于对话历史和新找到的论文，深入回答用户的问题。
+请作为资深学术研究专家，基于对话历史和新找到的论文，对用户的查询进行深入、全面的分析。你的分析应该包括：
 
-回答要求：
-1. 针对性：直接回答用户的具体问题，不要泛泛而谈
-2. 深度：提供深入的分析和见解，引用论文中的具体数据和结论
-3. 批判性：保持客观，既要指出研究的贡献，也要指出局限性
-4. 结构化：使用清晰的 Markdown 格式组织内容
-5. **引用规范（非常重要）**：当提到具体论文内容时，必须使用格式：【引用编号：引用的具体内容】
+## 1. 研究领域概览（200-300字）
+- 这些论文所属的主要研究领域和细分方向
+- 该领域当前的研究热点和发展趋势
+- 这些论文在整个领域中的定位和意义
+
+## 2. 核心研究方法与创新点（按论文分析，每篇100-150字）
+- 每篇论文采用的核心研究方法和技术路线
+- 相比前人工作的创新之处（方法创新、应用创新、理论创新）
+- 技术实现的关键突破点和独特优势
+- 实验设计的亮点和数据支撑的充分性
+
+## 3. 研究发现与学术贡献（深度分析）
+- 各论文的核心发现和主要结论
+- 对现有理论或认知的突破或修正
+- 实证数据和实验结果的说服力
+- 研究结果的普适性和局限性
+- 不同论文之间的相互印证或矛盾之处
+
+## 4. 实际应用价值与影响
+- 研究成果的实际应用场景和商业价值
+- 对产业发展或社会问题的潜在影响
+- 技术转化的可行性和实施难度
+- 已产生的实际应用案例（如有）
+
+## 5. 研究脉络与发展演进
+- 论文之间的引用关系和研究传承
+- 研究思路的演进轨迹和方法论发展
+- 从早期到近期研究的进步和突破
+- 研究范式的转变和新兴方向
+
+## 6. 批判性思考与研究展望
+- 现有研究的局限性和不足之处
+- 尚未解决的核心问题和研究空白
+- 未来可能的研究方向和突破点
+- 跨学科融合的可能性
+
+## 7. 与历史对话的关联（如果有历史对话）
+- 新论文如何补充或扩展之前讨论的内容
+- 与之前提到的研究的关联和对比
+- 对之前问题的进一步解答
+
+重要提示：
+1. **引用格式（非常重要）**：当提到具体论文的观点、数据或结论时，必须使用以下格式：
+   【引用编号：引用的具体内容】
 
    正确示例：
-   - 【引用1：该模型在BERT基准测试中取得了92.3%%的F1分数】显示了其优越性能。
-   - 实验结果表明，【引用2：处理速度提升了3倍，内存占用减少了50%%】。
+   - 【引用1：深度学习模型在ImageNet数据集上达到了95%%的准确率】表明该方法效果显著。
+   - 研究表明，【引用3：Transformer架构相比CNN减少了40%%的训练时间】。
 
-   **回答中至少使用5-10个引用标记**，确保有具体论文支撑。
+   错误示例（不要这样做）：
+   - 论文1指出深度学习效果很好 [1]  ❌
+   - 根据研究[3]，效果提升明显 ❌
 
-在回答的最后，提供3-5个延伸思考问题，格式如下：
-[FOLLOW_UP_QUESTIONS]
-1. 问题文本1
-2. 问题文本2
-3. 问题文本3
-[/FOLLOW_UP_QUESTIONS]
+   **每个段落至少使用3-5个引用标记**，确保分析有具体的论文支撑。
 
-这些问题应该：
-- 基于用户当前关注点的自然延伸
-- 具有探索性和前瞻性
-- 涵盖不同角度（技术、应用、伦理等）
-- 能够引发深入讨论
+2. 分析要深入且有洞察力，避免表面化和泛泛而谈
+3. 多引用论文中的具体数据、实验结果和关键结论（使用【引用n：内容】格式）
+4. 保持客观和批判性思维，指出优点的同时也要指出不足
+
 
 请用 Markdown 格式输出完整的回答。`, userQuery, papersForPrompt)
 		}
@@ -232,8 +304,16 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 
 	// Step 9: Save user message first (if we found papers)
 	if len(allPapers) > 0 {
+		// Use the already limited papers for storage (consistency with display)
+		const maxPapersToStore = 50
+		papersToStore := limitedPapers  // Use limitedPapers instead of allPapers
+		if len(papersToStore) > maxPapersToStore {
+			fmt.Printf("[DEBUG] Limiting papers for storage from %d to %d\n", len(allPapers), maxPapersToStore)
+			papersToStore = papersToStore[:maxPapersToStore]
+		}
+
 		// Convert papers to JSON for storage
-		papersJSON, _ := json.Marshal(allPapers)
+		papersJSON, _ := json.Marshal(papersToStore)
 		var papersForDB []map[string]interface{}
 		json.Unmarshal(papersJSON, &papersForDB)
 
@@ -261,6 +341,10 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 			fmt.Printf("Warning: failed to save user message: %v\n", err)
 		}
 	}
+
+	// Apply context truncation to ensure we stay within 128K limit
+	const max128K = 128000 * 4 // Roughly 128K tokens * 4 chars per token
+	finalMessages = ai.TruncateContextForLimit(finalMessages, max128K)
 
 	// Step 10: Stream AI response and collect content using specified model level
 	fullContent, err := s.aiService.StreamChatCompletionAndCollectWithLevel(finalMessages, writer, modelLevel)
@@ -321,6 +405,7 @@ func (s *Service) buildContextMessages(messages []ConversationMessage, maxRounds
 
 	for i := startIdx; i < len(messages); i++ {
 		msg := messages[i]
+		isLastMessage := (i == len(messages)-1)
 
 		// Build message content
 		var content string
@@ -329,7 +414,12 @@ func (s *Service) buildContextMessages(messages []ConversationMessage, maxRounds
 
 			// Add search results summary if available
 			if len(msg.SearchResults) > 0 {
-				papersSummary := s.summarizePapers(msg.SearchResults, 10) // Max 10 papers in context
+				// For older messages, use fewer papers; for recent messages, keep more
+				maxPapersInContext := 5
+				if isLastMessage || i >= len(messages)-2 {
+					maxPapersInContext = 10 // Keep more papers for recent messages
+				}
+				papersSummary := s.summarizePapers(msg.SearchResults, maxPapersInContext)
 				content += fmt.Sprintf("\n\n[搜索结果摘要：找到 %d 篇论文]\n%s", msg.SearchResultsTotal, papersSummary)
 			}
 		} else {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"scholar-backend/internal/semanticscholar"
 )
 
@@ -71,6 +72,52 @@ func (s *MCPServer) ListTools() []Tool {
 					},
 				},
 				"required": []string{"query"},
+			},
+		},
+		{
+			Name:        "search_papers_advanced",
+			Description: "Advanced paper search with multiple keywords (OR operation), quality filters, and sorting",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"keywords": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]string{"type": "string"},
+						"description": "Multiple keywords to search (combined with OR operator)",
+					},
+					"year_from": map[string]interface{}{
+						"type":        "string",
+						"description": "Start year (e.g., '2020')",
+						"default":     "2020",
+					},
+					"year_to": map[string]interface{}{
+						"type":        "string",
+						"description": "End year (e.g., '2024')",
+						"default":     "2024",
+					},
+					"min_citations": map[string]interface{}{
+						"type":        "number",
+						"description": "Minimum citation count for quality filtering",
+						"default":     10,
+					},
+					"sort_by": map[string]interface{}{
+						"type":        "string",
+						"enum":        []string{"citationCount:desc", "publicationDate:desc", "paperId"},
+						"description": "Sort order for results",
+						"default":     "citationCount:desc",
+					},
+					"fields_of_study": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]string{"type": "string"},
+						"description": "Fields of study filter (e.g., ['Computer Science', 'Medicine'])",
+					},
+					"limit": map[string]interface{}{
+						"type":        "number",
+						"description": "Number of results to return (max 100)",
+						"default":     50,
+					},
+				},
+				"required": []string{"keywords"},
 			},
 		},
 		{
@@ -234,6 +281,8 @@ func (s *MCPServer) CallTool(req ToolRequest) (*ToolResponse, error) {
 	switch req.Name {
 	case "search_papers":
 		return s.handleSearchPapers(req.Arguments)
+	case "search_papers_advanced":
+		return s.handleSearchPapersAdvanced(req.Arguments)
 	case "get_paper":
 		return s.handleGetPaper(req.Arguments)
 	case "get_paper_citations":
@@ -287,6 +336,84 @@ func (s *MCPServer) handleSearchPapers(args map[string]interface{}) (*ToolRespon
 	}
 
 	return createJSONResponse(result)
+}
+
+func (s *MCPServer) handleSearchPapersAdvanced(args map[string]interface{}) (*ToolResponse, error) {
+	// Get keywords array
+	keywords, ok := args["keywords"].([]interface{})
+	if !ok || len(keywords) == 0 {
+		return nil, fmt.Errorf("keywords array is required")
+	}
+
+	fmt.Printf("[MCP DEBUG] ============ search_papers_advanced called ============\n")
+	fmt.Printf("[MCP DEBUG] Raw keywords from AI: %v\n", keywords)
+
+	// Get parameters with defaults
+	yearFrom := getStringArg(args, "year_from", "2020")
+	yearTo := getStringArg(args, "year_to", "2024")
+	minCitations := getIntArg(args, "min_citations", 10)
+	sortBy := getStringArg(args, "sort_by", "citationCount:desc")
+	limit := getIntArg(args, "limit", 50)
+
+	fmt.Printf("[MCP DEBUG] Parameters: yearFrom=%s, yearTo=%s, minCitations=%d, sortBy=%s, limit=%d\n",
+		yearFrom, yearTo, minCitations, sortBy, limit)
+
+	// Get optional fields of study
+	var fieldsOfStudy []string
+	if fields, ok := args["fields_of_study"].([]interface{}); ok {
+		fieldsOfStudy = interfaceSliceToStringSlice(fields)
+	}
+
+	// Build year range
+	yearRange := fmt.Sprintf("%s-%s", yearFrom, yearTo)
+
+	// Convert keywords to query with OR operator
+	keywordStrings := interfaceSliceToStringSlice(keywords)
+	query := strings.Join(keywordStrings, " | ")
+
+	fmt.Printf("[MCP DEBUG] Converted keywords to strings: %v\n", keywordStrings)
+	fmt.Printf("[MCP DEBUG] Final query with OR operator: %s\n", query)
+	fmt.Printf("[MCP DEBUG] Year range: %s\n", yearRange)
+
+	// Default fields to return
+	defaultFields := []string{
+		"paperId", "title", "abstract", "year", "authors",
+		"citationCount", "venue", "publicationDate", "url",
+		"referenceCount", "fieldsOfStudy", "externalIds",
+		"openAccessPdf", "journal",
+	}
+
+	// Use bulk search for better performance and features
+	opts := semanticscholar.BulkSearchOptions{
+		Query:            query,
+		Year:             yearRange,
+		MinCitationCount: minCitations,
+		Sort:             sortBy,
+		FieldsOfStudy:    fieldsOfStudy,
+		Fields:           defaultFields,
+	}
+
+	// Use manager which will handle API key rotation
+	result, err := s.manager.SearchPapersBulk(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add search parameters to response for transparency
+	responseData := map[string]interface{}{
+		"data":  result.Data,
+		"total": result.Total,
+		"search_params": map[string]interface{}{
+			"keywords":      keywordStrings,
+			"query":         query,
+			"year_range":    yearRange,
+			"min_citations": minCitations,
+			"sort_by":       sortBy,
+			"limit":         limit,
+		},
+	}
+
+	return createJSONResponse(responseData)
 }
 
 func (s *MCPServer) handleGetPaper(args map[string]interface{}) (*ToolResponse, error) {
@@ -429,6 +556,15 @@ func getIntArg(args map[string]interface{}, key string, defaultValue int) int {
 			return int(v)
 		case int:
 			return v
+		}
+	}
+	return defaultValue
+}
+
+func getStringArg(args map[string]interface{}, key string, defaultValue string) string {
+	if val, ok := args[key]; ok {
+		if str, ok := val.(string); ok {
+			return str
 		}
 	}
 	return defaultValue

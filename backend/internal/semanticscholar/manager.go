@@ -90,6 +90,55 @@ func (m *Manager) GetAPIConfig() (apiKey string, baseURL string, accountID uint,
 	return apiKey, baseURL, accountID, nil
 }
 
+// SearchPapersBulk searches for papers using bulk endpoint with key rotation and circuit breaker protection
+func (m *Manager) SearchPapersBulk(opts BulkSearchOptions) (*SearchResponse, error) {
+	// Execute with circuit breaker protection
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
+		client, err := m.GetClient()
+		if err != nil {
+			return nil, err
+		}
+
+		// Try with API key first
+		result, err := client.SearchPapersBulk(opts)
+		if err != nil {
+			errStr := err.Error()
+
+			// If rate limited (429), try to fall back to free tier
+			if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
+				fmt.Printf("[Manager] API key rate limited, falling back to free tier\n")
+				freeClient := NewClient("")
+				result, freeErr := freeClient.SearchPapersBulk(opts)
+				if freeErr != nil {
+					// If free tier also fails, return the original rate limit error with helpful message
+					return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable. Please add more API keys or wait a moment")
+				}
+				return result, nil
+			}
+
+			// If error contains "403" or "Forbidden" or "EOF", try without API key
+			if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
+				fmt.Printf("[Manager] API key forbidden/error, falling back to free tier\n")
+				freeClient := NewClient("")
+				return freeClient.SearchPapersBulk(opts)
+			}
+			return nil, err
+		}
+
+		return result, nil
+	})
+
+	if err != nil {
+		// Check if circuit breaker is open
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			return nil, fmt.Errorf("Semantic Scholar service temporarily unavailable (circuit breaker open): %w", err)
+		}
+		return nil, err
+	}
+
+	return result.(*SearchResponse), nil
+}
+
 // SearchPapers searches for papers using key rotation with circuit breaker protection
 func (m *Manager) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) {
 	// Execute with circuit breaker protection

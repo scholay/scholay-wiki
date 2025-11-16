@@ -10,6 +10,104 @@ import (
 	"strconv"
 )
 
+// SearchPapersBulk searches for papers using bulk endpoint with advanced features
+func (c *Client) SearchPapersBulk(opts BulkSearchOptions) (*SearchResponse, error) {
+	// Build cache key parameters
+	cacheParams := map[string]interface{}{
+		"bulk":  true,
+		"query": opts.Query,
+		"sort":  opts.Sort,
+		"token": opts.Token,
+	}
+
+	if opts.MinCitationCount > 0 {
+		cacheParams["minCitations"] = opts.MinCitationCount
+	}
+	if opts.Year != "" {
+		cacheParams["year"] = opts.Year
+	}
+	if len(opts.Fields) > 0 {
+		cacheParams["fields"] = opts.Fields
+	}
+
+	// Try to get from cache
+	var cachedResult SearchResponse
+	hit, err := cache.GetCachedSearchResult(context.Background(), cacheParams, &cachedResult)
+	if err != nil {
+		log.Printf("Warning: cache error: %v", err)
+	}
+	if hit {
+		log.Printf("✓ Cache hit for bulk search: %s", opts.Query)
+		return &cachedResult, nil
+	}
+
+	// Build query parameters for API call
+	params := map[string]string{}
+
+	if opts.Query != "" {
+		params["query"] = opts.Query
+	}
+	if opts.Token != "" {
+		params["token"] = opts.Token
+	}
+	if opts.Sort != "" {
+		params["sort"] = opts.Sort
+	}
+	if opts.MinCitationCount > 0 {
+		params["minCitationCount"] = strconv.Itoa(opts.MinCitationCount)
+	}
+	if opts.Year != "" {
+		params["year"] = opts.Year
+	}
+	if opts.OpenAccessPDF != "" {
+		params["openAccessPdf"] = opts.OpenAccessPDF
+	}
+	if len(opts.PublicationTypes) > 0 {
+		params["publicationTypes"] = joinStrings(opts.PublicationTypes, ",")
+	}
+	if len(opts.Venue) > 0 {
+		params["venue"] = joinStrings(opts.Venue, ",")
+	}
+	if len(opts.FieldsOfStudy) > 0 {
+		params["fieldsOfStudy"] = joinStrings(opts.FieldsOfStudy, ",")
+	}
+	if len(opts.Fields) > 0 {
+		params["fields"] = joinStrings(opts.Fields, ",")
+	}
+
+	// Build URL for bulk endpoint
+	urlStr := c.baseURL + "/paper/search/bulk" + buildQueryString(params)
+
+	// Debug: Log the actual API call
+	fmt.Printf("[Semantic Scholar DEBUG] ============ Bulk Search API Call ============\n")
+	fmt.Printf("[Semantic Scholar DEBUG] URL: %s\n", urlStr)
+	fmt.Printf("[Semantic Scholar DEBUG] Query parameter: %s\n", opts.Query)
+	fmt.Printf("[Semantic Scholar DEBUG] Year range: %s\n", opts.Year)
+	fmt.Printf("[Semantic Scholar DEBUG] Min citations: %d\n", opts.MinCitationCount)
+	fmt.Printf("[Semantic Scholar DEBUG] Sort: %s\n", opts.Sort)
+	fmt.Printf("[Semantic Scholar DEBUG] Fields of study: %v\n", opts.FieldsOfStudy)
+	fmt.Printf("[Semantic Scholar DEBUG] =============================================\n")
+
+	// Perform request
+	resp, err := c.doRequest("GET", urlStr, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse response
+	var result SearchResponse
+	if err := unmarshalResponse(resp, &result); err != nil {
+		return nil, err
+	}
+
+	// Cache the result using worker pool
+	cache.GetWorkerPool().Submit(context.Background(), func() error {
+		return cache.CacheSearchResult(context.Background(), cacheParams, &result)
+	})
+
+	return &result, nil
+}
+
 // SearchPapers searches for papers by query
 func (c *Client) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) {
 	if opts.Query == "" {

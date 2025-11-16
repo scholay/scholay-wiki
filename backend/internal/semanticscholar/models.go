@@ -168,6 +168,20 @@ type PaperSearchOptions struct {
 	Limit          int
 }
 
+// BulkSearchOptions contains options for bulk paper search
+type BulkSearchOptions struct {
+	Query            string   // Supports OR operator with |, e.g. "machine learning | deep learning"
+	Fields           []string // Fields to return
+	Sort             string   // e.g., "citationCount:desc", "publicationDate:desc"
+	MinCitationCount int      // Minimum citation count filter
+	Year             string   // e.g., "2020" or "2019-2024"
+	PublicationTypes []string
+	OpenAccessPDF    string
+	Venue            []string
+	FieldsOfStudy    []string
+	Token            string // For pagination
+}
+
 // AuthorSearchOptions contains options for author search
 type AuthorSearchOptions struct {
 	Query  string
