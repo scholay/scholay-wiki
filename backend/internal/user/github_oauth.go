@@ -342,6 +342,12 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser) (*User, bool, e
 		if err := h.userRepo.Create(user); err != nil {
 			return nil, false, err
 		}
+
+		// Update last login time (registration counts as first login)
+		_ = h.userRepo.UpdateLastLogin(user.ID)
+	} else {
+		// Existing user logging in - update last login time
+		_ = h.userRepo.UpdateLastLogin(user.ID)
 	}
 
 	// Create auth provider link

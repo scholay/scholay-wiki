@@ -441,19 +441,52 @@ func (s *Service) UpdateProfile(id uint, username *string, avatarURL *string, bi
 
 // GetUserStatistics returns user statistics
 func (s *Service) GetUserStatistics() (map[string]interface{}, error) {
-	totalUsers, err := s.repo.GetTotalUserCount()
-	if err != nil {
-		return nil, err
-	}
-
 	onlineUsers, err := s.repo.GetOnlineUserCount()
 	if err != nil {
 		return nil, err
 	}
 
+	// 获取今日注册用户数
+	now := time.Now()
+	today := now.Format("2006-01-02")
+	var todayRegistrations int64
+	s.repo.db.Table("users").
+		Where("DATE(created_at) = ?", today).
+		Count(&todayRegistrations)
+
+	// 获取本周注册用户数 (从周一开始)
+	weekStart := now.AddDate(0, 0, -int(now.Weekday())+1) // 本周一
+	if now.Weekday() == time.Sunday {
+		weekStart = now.AddDate(0, 0, -6) // 如果今天是周日，往前推6天到周一
+	}
+	weekStartStr := weekStart.Format("2006-01-02")
+	var weekRegistrations int64
+	s.repo.db.Table("users").
+		Where("DATE(created_at) >= ?", weekStartStr).
+		Count(&weekRegistrations)
+
+	// 获取本月注册用户数
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	monthStartStr := monthStart.Format("2006-01-02")
+	var monthRegistrations int64
+	s.repo.db.Table("users").
+		Where("DATE(created_at) >= ?", monthStartStr).
+		Count(&monthRegistrations)
+
+	// 获取今年注册用户数
+	yearStart := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
+	yearStartStr := yearStart.Format("2006-01-02")
+	var yearRegistrations int64
+	s.repo.db.Table("users").
+		Where("DATE(created_at) >= ?", yearStartStr).
+		Count(&yearRegistrations)
+
 	stats := map[string]interface{}{
-		"total_users":  totalUsers,
-		"online_users": onlineUsers,
+		"online_users":        onlineUsers,
+		"today_registrations": todayRegistrations,
+		"week_registrations":  weekRegistrations,
+		"month_registrations": monthRegistrations,
+		"year_registrations":  yearRegistrations,
 	}
 
 	return stats, nil
@@ -734,22 +767,9 @@ func (s *Service) ChangePassword(userID uint, currentPassword, newPassword strin
 
 // GetUserStatisticsChart returns user registration statistics for charts
 func (s *Service) GetUserStatisticsChart(days int) ([]map[string]interface{}, error) {
-	endDate := time.Now()
 	startDate := time.Now().AddDate(0, 0, -days+1)
 	// Set to beginning of day (00:00:00)
 	startDate = time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, startDate.Location())
-
-	// Get existing stats from database
-	stats, err := s.repo.GetUserStatisticsByDateRange(startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a map for quick lookup of existing stats
-	statsMap := make(map[string]*model.UserStatistics)
-	for i := range stats {
-		statsMap[stats[i].Date] = &stats[i]
-	}
 
 	// Generate result with all dates filled
 	result := make([]map[string]interface{}, 0, days)
@@ -758,27 +778,18 @@ func (s *Service) GetUserStatisticsChart(days int) ([]map[string]interface{}, er
 	for i := 0; i < days; i++ {
 		dateStr := currentDate.Format("2006-01-02")
 
-		// Get stats for this date or use zeros
-		var newUsers, peakOnline int
-		if stat, exists := statsMap[dateStr]; exists {
-			newUsers = stat.NewUsers
-			peakOnline = stat.PeakOnlineUsers
-		}
-
-		// Calculate total users up to this date using SQL
-		var totalUsers int64
+		// Calculate new users for this date directly from users table
+		var newUsers int64
 		err := s.repo.GetDB().Model(&User{}).
-			Where("DATE(created_at) <= ?", dateStr).
-			Count(&totalUsers).Error
+			Where("DATE(created_at) = ?", dateStr).
+			Count(&newUsers).Error
 		if err != nil {
-			totalUsers = 0
+			newUsers = 0
 		}
 
 		result = append(result, map[string]interface{}{
-			"date":              dateStr,
-			"new_users":         newUsers,
-			"total_users":       totalUsers,
-			"peak_online_users": peakOnline,
+			"date":      dateStr,
+			"new_users": newUsers,
 		})
 
 		// Move to next day
@@ -993,6 +1004,9 @@ func (s *Service) RegisterWithPhone(phone, password, code, invitationCode string
 		if err := txRepo.Create(user); err != nil {
 			return err
 		}
+
+		// Update last login time (registration counts as first login)
+		_ = txRepo.UpdateLastLogin(user.ID)
 
 		// Create auth provider entry
 		authProvider := &UserAuthProvider{
@@ -1656,6 +1670,9 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	if err := s.repo.Create(user); err != nil {
 		return nil, "", false, err
 	}
+
+	// Update last login time (registration counts as first login)
+	_ = s.repo.UpdateLastLogin(user.ID)
 
 	// Create auth provider entry
 	authProvider = &UserAuthProvider{

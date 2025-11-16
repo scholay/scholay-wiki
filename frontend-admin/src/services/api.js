@@ -47,6 +47,9 @@ export const adminAPI = {
   getProfile: () =>
     api.get('/admin/profile'),
 
+  getDashboardStatistics: () =>
+    api.get('/admin/dashboard/statistics'),
+
   updatePassword: (oldPassword, newPassword) =>
     api.put('/admin/password', { old_password: oldPassword, new_password: newPassword }),
 

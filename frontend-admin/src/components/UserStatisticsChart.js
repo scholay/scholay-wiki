@@ -100,15 +100,6 @@ const UserStatisticsChart = () => {
             dot={{ r: 3 }}
             activeDot={{ r: 5 }}
           />
-          <Line
-            type="monotone"
-            dataKey="total_users"
-            stroke="#10b981"
-            strokeWidth={2}
-            name="总用户数"
-            dot={{ r: 3 }}
-            activeDot={{ r: 5 }}
-          />
         </LineChart>
       </ResponsiveContainer>
     </div>
