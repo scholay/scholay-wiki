@@ -229,10 +229,13 @@ const AdvancedSearchPage = () => {
 
           logger.log(`Loaded ${questions.length} follow-up questions`);
 
-          // 延伸问题加载后，自动滚动到底部
+          // 延伸问题加载后，确保滚动到底部显示出来
           setTimeout(() => {
-            scrollToBottom();
-          }, 100);
+            if (autoScroll) {
+              // 滚动到底部，确保延伸问题完全可见
+              scrollToBottom(0);
+            }
+          }, 150);
         }
       }
     } catch (error) {
@@ -291,8 +294,8 @@ const AdvancedSearchPage = () => {
     return (
       <div className="suggested-questions-inline">
         <div className="suggested-questions-header">
-          <span className="suggested-questions-title">💡 延伸问题</span>
-          <span className="suggested-questions-hint">点击直接搜索</span>
+          <span className="suggested-questions-title">🔍 相关探索</span>
+          <span className="suggested-questions-hint">点击继续深入</span>
         </div>
         <div className="suggested-questions-list">
           {questions.map((question, index) => (
@@ -315,8 +318,15 @@ const AdvancedSearchPage = () => {
     );
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = (extraHeight = 0) => {
+    const container = chatMessagesRef.current;
+    if (container) {
+      const targetScroll = container.scrollHeight + extraHeight;
+      container.scrollTo({
+        top: targetScroll,
+        behavior: 'smooth'
+      });
+    }
   };
 
   const scrollToTop = () => {
@@ -507,6 +517,7 @@ const AdvancedSearchPage = () => {
 
   const handleSelectConversation = async (conversationId) => {
     setLoading(true);
+    setSearchQuery(''); // 清空搜索输入框
     setStreamingContent(''); // 切换对话时清空流式内容
     setPaperSets([]); // 清空论文集合
     setHasAdvancedSearch(false); // 重置高级搜索标志
@@ -730,6 +741,14 @@ const AdvancedSearchPage = () => {
                 suggestedQuestions: [], // 初始化为空，稍后通过 API 加载
                 created_at: new Date().toISOString()
               };
+
+              // 流式输出结束后，滚动并预留延伸问题的空间
+              setTimeout(() => {
+                if (autoScroll) {
+                  // 滚动到底部，并额外预留150px空间给延伸问题
+                  scrollToBottom(300);
+                }
+              }, 200);
 
               // 异步加载延伸问题
               fetchFollowUpQuestions(convId, messageId, newMessage);
