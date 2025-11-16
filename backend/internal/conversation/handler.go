@@ -432,3 +432,38 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 	c.Writer.Write([]byte("data: [DONE]\n\n"))
 	c.Writer.(http.Flusher).Flush()
 }
+
+
+// GetFollowUpQuestions handles getting follow-up questions for a message
+// This is a separate endpoint called after the streaming response completes
+func (h *Handler) GetFollowUpQuestions(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Error(c, 401, "Unauthorized")
+		return
+	}
+
+	conversationID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		utils.Error(c, 400, "Invalid conversation ID")
+		return
+	}
+
+	messageID, err := strconv.ParseUint(c.Param("messageId"), 10, 32)
+	if err != nil {
+		utils.Error(c, 400, "Invalid message ID")
+		return
+	}
+
+	// Call service to get or generate follow-up questions
+	questions, err := h.service.GetFollowUpQuestions(uint(conversationID), uint(messageID), userID.(uint))
+	if err != nil {
+		utils.Error(c, 404, err.Error())
+		return
+	}
+
+	// Return questions as JSON
+	utils.Success(c, map[string]interface{}{
+		"questions": questions,
+	})
+}

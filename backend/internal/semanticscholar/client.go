@@ -1,9 +1,11 @@
 package semanticscholar
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -13,8 +15,11 @@ import (
 const (
 	BaseURL            = "https://api.semanticscholar.org/graph/v1"
 	RecommendationsURL = "https://api.semanticscholar.org/recommendations/v1"
-	DefaultTimeout     = 30 * time.Second
-	DefaultLimit       = 100 // API max limit per request
+	DefaultTimeout     = 60 * time.Second  // Increased from 30s to 60s
+	DialTimeout        = 15 * time.Second  // Time to establish TCP connection
+	TLSHandshakeTimeout = 15 * time.Second // Time for TLS handshake
+	KeepAlive          = 30 * time.Second  // Keep-alive probe interval
+	DefaultLimit       = 100               // API max limit per request
 )
 
 // Client represents a Semantic Scholar API client
@@ -35,10 +40,29 @@ func NewClientWithBaseURL(apiKey string, baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = BaseURL
 	}
+
+	// Create a custom transport with proper timeout configurations
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   DialTimeout,
+			KeepAlive: KeepAlive,
+		}).DialContext,
+		TLSHandshakeTimeout:   TLSHandshakeTimeout,
+		ResponseHeaderTimeout: 30 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   10,
+		IdleConnTimeout:       90 * time.Second,
+		TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		},
+	}
+
 	return &Client{
 		apiKey: apiKey,
 		httpClient: &http.Client{
-			Timeout: DefaultTimeout,
+			Timeout:   DefaultTimeout,
+			Transport: transport,
 		},
 		baseURL: baseURL,
 		recURL:  RecommendationsURL,

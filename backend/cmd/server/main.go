@@ -396,6 +396,7 @@ func main() {
 			userProtected.PUT("/conversations/:id/title", conversationHandler.UpdateConversationTitle)
 			userProtected.GET("/conversations/:id/messages/:messageId/analysis", conversationHandler.StreamAnalysis)
 			userProtected.GET("/conversations/:id/messages/:messageId/advanced-search", conversationHandler.StreamAdvancedSearch)
+			userProtected.GET("/conversations/:id/messages/:messageId/follow-up-questions", conversationHandler.GetFollowUpQuestions)
 			userProtected.POST("/conversations/:id/continue", conversationHandler.StreamContinueConversation)
 
 			// Enhanced chat routes (LibreChat-style with message chains)

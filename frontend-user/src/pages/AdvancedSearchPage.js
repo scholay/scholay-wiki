@@ -209,6 +209,39 @@ const AdvancedSearchPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentConversationId]);
 
+  // 获取延伸问题（通过独立 API）
+  const fetchFollowUpQuestions = async (conversationId, messageId, message) => {
+    try {
+      logger.log(`Fetching follow-up questions for message ${messageId}`);
+      const response = await conversationAPI.getFollowUpQuestions(conversationId, messageId);
+
+      if (response.data.code === 0 && response.data.data.questions) {
+        const questionsText = response.data.data.questions;
+        const questions = extractSuggestedQuestions(questionsText);
+
+        if (questions.length > 0) {
+          // 更新消息的延伸问题
+          setMessages(prev => prev.map(msg =>
+            msg.id === messageId
+              ? { ...msg, suggestedQuestions: questions }
+              : msg
+          ));
+
+          logger.log(`Loaded ${questions.length} follow-up questions`);
+
+          // 延伸问题加载后，自动滚动到底部
+          setTimeout(() => {
+            scrollToBottom();
+          }, 100);
+        }
+      }
+    } catch (error) {
+      // 延伸问题加载失败不影响主流程，只记录日志
+      console.error('Failed to load follow-up questions:', error);
+      logger.log('Failed to load follow-up questions, but search completed successfully');
+    }
+  };
+
   // 解析 AI 回复中的推荐问题
   const extractSuggestedQuestions = (content) => {
     const regex = /\[FOLLOW_UP_QUESTIONS\]([\s\S]*?)\[\/FOLLOW_UP_QUESTIONS\]/;
@@ -229,9 +262,26 @@ const AdvancedSearchPage = () => {
     return [];
   };
 
-  // 从内容中移除推荐问题标签（用于保存到数据库）
-  const removeQuestionTags = (content) => {
-    return content.replace(/\[FOLLOW_UP_QUESTIONS\][\s\S]*?\[\/FOLLOW_UP_QUESTIONS\]/g, '').trim();
+  // 处理延伸问题点击 - 直接触发新搜索
+  const handleFollowUpQuestionClick = async (question) => {
+    // 检查是否已登录
+    if (!isAuthenticated) {
+      alert('请先登录');
+      return;
+    }
+
+    // 检查是否正在加载
+    if (loading || isStreaming) {
+      return;
+    }
+
+    // 立即滚动到底部并启用自动滚动
+    setAutoScroll(true);
+    setTimeout(() => scrollToBottom(), 100);
+
+    // 使用现有的 handleInitialSearch 函数触发新搜索
+    // 这会自动处理配额检查、创建消息、启动流式搜索等所有逻辑
+    await handleInitialSearch(question);
   };
 
   // 渲染推荐问题组件
@@ -240,20 +290,23 @@ const AdvancedSearchPage = () => {
 
     return (
       <div className="suggested-questions-inline">
+        <div className="suggested-questions-header">
+          <span className="suggested-questions-title">💡 延伸问题</span>
+          <span className="suggested-questions-hint">点击直接搜索</span>
+        </div>
         <div className="suggested-questions-list">
           {questions.map((question, index) => (
             <button
               key={index}
               className="suggested-question-btn"
-              onClick={() => {
-                setSearchQuery(question);
-                // 不清空问题，让它们保留在消息中
-              }}
+              onClick={() => handleFollowUpQuestionClick(question)}
+              disabled={loading}
             >
-              {question}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="5" y1="12" x2="19" y2="12"/>
-                <polyline points="12 5 19 12 12 19"/>
+              <span className="question-text">{question}</span>
+              <svg className="question-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 8 16 12 12 16"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
               </svg>
             </button>
           ))}
@@ -488,15 +541,24 @@ const AdvancedSearchPage = () => {
           const hasAssistantMessages = conv.messages.some(m => m.role === 'assistant');
           setHasAdvancedSearch(hasAssistantMessages);
 
-          // 从最新的 assistant 消息中提取 follow_up_questions
-          const latestAssistantMessage = [...conv.messages].reverse().find(m => m.role === 'assistant');
-          if (latestAssistantMessage && latestAssistantMessage.follow_up_questions) {
-            console.log('Found follow_up_questions in history:', latestAssistantMessage.follow_up_questions);
-            const questions = extractSuggestedQuestions(latestAssistantMessage.follow_up_questions);
-            if (questions.length > 0) {
-              setSuggestedQuestions(questions);
+          // 对于所有 assistant 消息，如果还没有延伸问题，则异步加载
+          const assistantMessages = conv.messages.filter(m => m.role === 'assistant');
+          assistantMessages.forEach(assistantMsg => {
+            // 如果已有 follow_up_questions 字段，直接解析
+            if (assistantMsg.follow_up_questions) {
+              const questions = extractSuggestedQuestions(assistantMsg.follow_up_questions);
+              if (questions.length > 0) {
+                setMessages(prev => prev.map(msg =>
+                  msg.id === assistantMsg.id
+                    ? { ...msg, suggestedQuestions: questions }
+                    : msg
+                ));
+              }
+            } else {
+              // 如果没有，异步获取（不阻塞UI）
+              fetchFollowUpQuestions(conv.id, assistantMsg.id, assistantMsg);
             }
-          }
+          });
         } else {
           setPapers([]);
           setPapersTotal(0);
@@ -651,29 +713,28 @@ const AdvancedSearchPage = () => {
         // 先清空流式内容和停止状态，避免重复显示
         const finalContent = streamingContentRef.current;
 
-        // 解析推荐问题
-        const questions = extractSuggestedQuestions(finalContent);
-
-        // 移除推荐问题标签后的内容（用于显示）
-        const cleanContent = removeQuestionTags(finalContent);
-
         setStreamingContent('');
         streamingContentRef.current = '';
         setIsStreaming(false);
 
-        // 然后将清理后的流式内容添加到消息列表，并附带推荐问题
-        if (cleanContent) {
+        // 将流式内容添加到消息列表（不包含延伸问题，延伸问题将通过独立API获取）
+        if (finalContent) {
           setMessages(prev => {
             const lastMessage = prev[prev.length - 1];
             // 如果最后一条消息不是 assistant 或内容为空，添加新的 assistant 消息
             if (!lastMessage || lastMessage.role !== 'assistant' || !lastMessage.content) {
-              return [...prev, {
-                id: 'assistant-' + Date.now(),
+              const newMessage = {
+                id: messageId, // 使用实际的 messageId
                 role: 'assistant',
-                content: cleanContent,
-                suggestedQuestions: questions.length > 0 ? questions : undefined,
+                content: finalContent,
+                suggestedQuestions: [], // 初始化为空，稍后通过 API 加载
                 created_at: new Date().toISOString()
-              }];
+              };
+
+              // 异步加载延伸问题
+              fetchFollowUpQuestions(convId, messageId, newMessage);
+
+              return [...prev, newMessage];
             }
             return prev;
           });
@@ -876,26 +937,19 @@ const AdvancedSearchPage = () => {
                 // 先清空流式内容和停止状态，避免重复显示
                 const finalContent = streamingContentRef.current;
 
-                // 解析推荐问题
-                const questions = extractSuggestedQuestions(finalContent);
-
-                // 移除推荐问题标签后的内容
-                const cleanContent = removeQuestionTags(finalContent);
-
                 setStreamingContent('');
                 streamingContentRef.current = '';
                 setIsStreaming(false);
 
-                // 然后将清理后的流式内容添加到消息列表，并附带推荐问题
-                if (cleanContent) {
+                // 将流式内容添加到消息列表（不包含延伸问题）
+                if (finalContent) {
                   setMessages(prev => {
                     const lastMessage = prev[prev.length - 1];
                     if (!lastMessage || lastMessage.role !== 'assistant' || !lastMessage.content) {
                       return [...prev, {
                         id: 'assistant-' + Date.now(),
                         role: 'assistant',
-                        content: cleanContent,
-                        suggestedQuestions: questions.length > 0 ? questions : undefined,
+                        content: finalContent,
                         created_at: new Date().toISOString()
                       }];
                     }

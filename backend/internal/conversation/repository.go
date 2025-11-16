@@ -307,3 +307,20 @@ func (r *Repository) ClearOldFollowUpQuestions(conversationID uint) error {
 			conversationID, MessageRoleAssistant, "").
 		Update("follow_up_questions", "").Error
 }
+
+// GetMessageByID gets a message by its numeric ID
+func (r *Repository) GetMessageByID(id uint) (*ConversationMessage, error) {
+	var message ConversationMessage
+	err := r.db.Where("id = ?", id).First(&message).Error
+	if err != nil {
+		return nil, err
+	}
+	return &message, nil
+}
+
+// UpdateMessageFollowUpQuestions updates the follow_up_questions field of a message
+func (r *Repository) UpdateMessageFollowUpQuestions(messageID uint, questions string) error {
+	return r.db.Model(&ConversationMessage{}).
+		Where("id = ?", messageID).
+		Update("follow_up_questions", questions).Error
+}

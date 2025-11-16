@@ -290,37 +290,45 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	// Stream AI response and collect full content using specified model level
 	fullContent, err := s.aiService.StreamChatCompletionAndCollectWithLevel(analysisMessages, writer, modelLevel)
 	if err != nil {
-		return err
-	}
+		// 生成友好的错误消息
+		friendlyError := "网络异常，请稍后重试。如果问题持续，请联系管理员。"
+		fmt.Printf("[ERROR] AI analysis failed: %v\n", err)
 
-	// Step 8: Generate follow-up questions using low model (independent AI call, non-streaming)
-	fmt.Printf("[DEBUG] Generating follow-up questions with low model\n")
-	var followUpQuestions string
-	followUpQuestions, err = s.generateFollowUpQuestions(query, fullContent)
-	if err != nil {
-		// Log error but don't fail - follow-up questions are optional
-		fmt.Printf("[WARN] Failed to generate follow-up questions: %v\n", err)
-	} else if followUpQuestions != "" {
-		// Send follow-up questions as a special SSE event (non-streaming, all at once)
-		fmt.Fprintf(writer, "data: [FOLLOW_UP_QUESTIONS]%s\n\n", followUpQuestions)
+		// 将错误消息保存为 assistant 消息，以便历史记录中显示
+		errorMessage := &ConversationMessage{
+			ConversationID:    conversationID,
+			Role:              MessageRoleAssistant,
+			Content:           friendlyError,
+			FollowUpQuestions: "",
+		}
+
+		if saveErr := s.repo.CreateMessage(errorMessage); saveErr != nil {
+			fmt.Printf("[WARN] Failed to save error message: %v\n", saveErr)
+		}
+
+		// 通过流式接口发送错误消息
+		fmt.Fprintf(writer, "data: %s\n\n", friendlyError)
 		if flusher, ok := writer.(interface{ Flush() }); ok {
 			flusher.Flush()
 		}
+
+		return fmt.Errorf("AI analysis failed: %w", err)
 	}
 
-	// Note: Usage was already incremented at the beginning with CheckAndIncrementQuota
+	// Note: Usage was already incremented at the beginning
 
-	// Step 9: Clear old follow-up questions from previous messages in this conversation
+	// Step 8: Clear old follow-up questions from previous messages in this conversation
 	if err := s.repo.ClearOldFollowUpQuestions(conversationID); err != nil {
 		fmt.Printf("[WARN] Failed to clear old follow-up questions: %v\n", err)
 	}
 
-	// Save assistant message to conversation with follow-up questions in separate field
+	// Save assistant message to conversation
+	// Follow-up questions will be generated on-demand via separate endpoint
 	assistantMessage := &ConversationMessage{
 		ConversationID:    conversationID,
 		Role:              MessageRoleAssistant,
 		Content:           fullContent,
-		FollowUpQuestions: followUpQuestions, // Save in separate field, not in content
+		FollowUpQuestions: "", // Will be generated on-demand
 	}
 
 	if err := s.repo.CreateMessage(assistantMessage); err != nil {
@@ -451,4 +459,100 @@ func (s *Service) mcpSearch(query string, mcpServer *mcp.MCPServer) ([]map[strin
 	}
 
 	return s.executeMCPToolCall(mcpServer, toolRequest)
+}
+
+// GetFollowUpQuestions generates and returns follow-up questions for a message
+// This is a separate endpoint to avoid including questions in the streaming response
+// messageID can be either user message ID or assistant message ID
+func (s *Service) GetFollowUpQuestions(conversationID uint, messageID uint, userID uint) (string, error) {
+	// Verify conversation belongs to user
+	_, err := s.repo.GetConversationByID(conversationID, userID)
+	if err != nil {
+		return "", fmt.Errorf("conversation not found: %w", err)
+	}
+
+	// Get all messages to find the right user and assistant message pair
+	messages, err := s.repo.GetConversationMessages(conversationID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get conversation messages: %w", err)
+	}
+
+	// Find the message by ID
+	var targetMessage *ConversationMessage
+	var targetIndex int
+	for i, msg := range messages {
+		if msg.ID == messageID {
+			targetMessage = &messages[i]
+			targetIndex = i
+			break
+		}
+	}
+
+	if targetMessage == nil {
+		return "", fmt.Errorf("message not found")
+	}
+
+	var userMessage *ConversationMessage
+	var assistantMessage *ConversationMessage
+
+	// Determine which is the user message and which is the assistant message
+	if targetMessage.Role == MessageRoleUser {
+		// If target is user message, find the next assistant message
+		userMessage = targetMessage
+		for i := targetIndex + 1; i < len(messages); i++ {
+			if messages[i].Role == MessageRoleAssistant {
+				assistantMessage = &messages[i]
+				break
+			}
+		}
+	} else if targetMessage.Role == MessageRoleAssistant {
+		// If target is assistant message, find the previous user message
+		assistantMessage = targetMessage
+		for i := targetIndex - 1; i >= 0; i-- {
+			if messages[i].Role == MessageRoleUser {
+				userMessage = &messages[i]
+				break
+			}
+		}
+	} else {
+		return "", fmt.Errorf("invalid message role")
+	}
+
+	if userMessage == nil || assistantMessage == nil {
+		return "", fmt.Errorf("could not find message pair")
+	}
+
+	// Check if follow-up questions already exist in assistant message
+	if assistantMessage.FollowUpQuestions != "" {
+		fmt.Printf("[DEBUG] Returning cached follow-up questions for assistant message %d\n", assistantMessage.ID)
+		return assistantMessage.FollowUpQuestions, nil
+	}
+
+	// Get search query from user message
+	searchQuery := userMessage.SearchQuery
+	if searchQuery == "" {
+		searchQuery = userMessage.Content
+	}
+
+	if searchQuery == "" {
+		return "", fmt.Errorf("no search query found")
+	}
+
+	// Generate follow-up questions based on user query and assistant response
+	fmt.Printf("[DEBUG] Generating follow-up questions for user query: %s, assistant message ID: %d\n", searchQuery, assistantMessage.ID)
+	followUpQuestions, err := s.generateFollowUpQuestions(searchQuery, assistantMessage.Content)
+	if err != nil {
+		fmt.Printf("[ERROR] Failed to generate follow-up questions: %v\n", err)
+		// 返回友好的错误提示，而不是空字符串
+		// 这样前端可以显示有意义的错误信息
+		return "", fmt.Errorf("网络异常，暂时无法生成延伸问题。请稍后重试")
+	}
+
+	// Save to database for caching (save to assistant message)
+	if err := s.repo.UpdateMessageFollowUpQuestions(assistantMessage.ID, followUpQuestions); err != nil {
+		fmt.Printf("[WARN] Failed to cache follow-up questions: %v\n", err)
+		// Don't fail the request, just log the warning
+	}
+
+	return followUpQuestions, nil
 }
