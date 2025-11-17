@@ -8,7 +8,7 @@ import './Pricing.css';
 const PLAN_DISPLAY_ORDER = ['free', 'pro', 'max'];
 
 const HERO_STATS = [
-  { value: '200万+', label: '可检索文献' },
+  { value: '2亿+', label: '可检索文献' },
   { value: '< 10 秒', label: '平均响应时间' },
   { value: '99.9%', label: '服务可用率' }
 ];
@@ -45,11 +45,7 @@ const FAQ_ITEMS = [
   },
   {
     question: '支持哪些支付方式？',
-    answer: '我们支持支付宝、微信支付、银行卡等多种方式，确保支付过程安全可靠。'
-  },
-  {
-    question: '如何查看我的使用配额？',
-    answer: '登录后访问“订阅管理”即可查看当前方案、剩余额度以及每项能力的使用明细。'
+    answer: '我们支持支付宝等方式，陆续推出更多支付方式，确保支付过程安全可靠。'
   }
 ];
 
@@ -371,7 +367,7 @@ const Pricing = () => {
               max: maxPlan.features?.normal_search?.description || '无限制'
             },
             { name: '聊天历史记录', free: true, pro: true, max: true },
-            { name: '访问网页、iOS 和 Android 应用', free: true, pro: true, max: true },
+            { name: '访问网页、移动端应用', free: true, pro: true, max: true },
           ]
         },
         {
@@ -554,7 +550,7 @@ const Pricing = () => {
               <h2>根据研究节奏选择方案</h2>
             </div>
             <p className="section-description">
-              从基础体验到高频研究，灵活切换；支持团队扩展以及 API 联动。
+              从基础体验到高频研究，灵活切换；将支持团队扩展以及 API 联动。
             </p>
           </div>
           <div className="plan-grid">

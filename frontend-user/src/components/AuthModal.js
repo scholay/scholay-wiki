@@ -139,6 +139,22 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     setPasswordError('');
     setInvitationCode('');
     setInviterInfo(null);
+    setUseCodeLogin(false);
+  };
+
+  // 清空输入框内容（切换登录方式时使用）
+  const clearInputs = () => {
+    setPassword('');
+    setConfirmPassword('');
+    setCode('');
+    setPasswordError('');
+    setCountdown(0);
+    if (emailCaptchaRef.current) {
+      emailCaptchaRef.current.reset();
+    }
+    if (phoneCaptchaRef.current) {
+      phoneCaptchaRef.current.reset();
+    }
   };
 
   // 关闭弹窗
@@ -807,13 +823,43 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
             <line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>
-
+        <div className="auth-modal-body">
         {/* 欢迎页面 */}
         {mode === 'welcome' && (
           <div className="auth-content">
-            <h1 className="auth-title">欢迎回来</h1>
+            <div className="auth-headline">
+              <h1 className="auth-title">开始使用 Scholay</h1>
+              <p className="auth-subtitle">邮箱或其他方式快速进入。</p>
+            </div>
 
             <div className="auth-form">
+              <div className="auth-social-buttons">
+                <button className="auth-social-button" onClick={() => { clearInputs(); setMode('phone-welcome'); }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                  <span>继续手机登录</span>
+                </button>
+                <button className="auth-social-button auth-wechat-button" onClick={handleWeChatLogin}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-0.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 0 1 .598.082l1.584.926a.272.272 0 0 0 .14.047c.134 0 .24-.111.24-.247 0-.06-.023-.12-.038-.177l-.327-1.233a.582.582 0 0 1-.023-.156.49.49 0 0 1 .201-.398C23.024 18.48 24 16.82 24 14.98c0-3.21-2.931-5.837-6.656-6.088V8.89c-.135-.01-.27-.027-.407-.03zm-2.53 3.274c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.969-.982zm4.844 0c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.969-.982z"/>
+                  </svg>
+                  <span>继续微信扫码登录</span>
+                </button>
+                {enableGithubOAuth && (
+                  <button className="auth-social-button auth-github-button" onClick={handleGithubLogin}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    <span>继续GitHub 登录</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="auth-separator">
+                <span>或</span>
+              </div>
+
               <input
                 type="email"
                 className="auth-input"
@@ -824,7 +870,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 autoFocus
               />
 
-
               <button
                 className="auth-button auth-button-primary"
                 onClick={handleEmailContinue}
@@ -832,44 +877,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
               >
                 {loading ? '检查中...' : '继续'}
               </button>
-
-              <div className="auth-divider">
-                <span>还没有账户？</span>
-                <button className="auth-link" onClick={() => setMode('register')}>请注册</button>
-              </div>
-
-              <div className="auth-separator">
-                <span>或</span>
-              </div>
-
-              <div className="auth-social-buttons">
-                <button className="auth-social-button" onClick={() => setMode('phone-welcome')}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-                  </svg>
-                  <span>继续使用手机登录</span>
-                </button>
-                <button className="auth-social-button auth-wechat-button" onClick={handleWeChatLogin}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-0.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 0 1 .598.082l1.584.926a.272.272 0 0 0 .14.047c.134 0 .24-.111.24-.247 0-.06-.023-.12-.038-.177l-.327-1.233a.582.582 0 0 1-.023-.156.49.49 0 0 1 .201-.398C23.024 18.48 24 16.82 24 14.98c0-3.21-2.931-5.837-6.656-6.088V8.89c-.135-.01-.27-.027-.407-.03zm-2.53 3.274c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.969-.982zm4.844 0c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.969-.982z"/>
-                  </svg>
-                  <span>微信扫码登录</span>
-                </button>
-                {enableGithubOAuth && (
-                  <button className="auth-social-button auth-github-button" onClick={handleGithubLogin}>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                    </svg>
-                    <span>GitHub 登录</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="auth-footer">
-              <button className="auth-footer-link" onClick={() => { setPolicyType('terms'); setShowPolicy(true); }}>使用条款</button>
-              <span>|</span>
-              <button className="auth-footer-link" onClick={() => { setPolicyType('privacy'); setShowPolicy(true); }}>隐私政策</button>
             </div>
           </div>
         )}
@@ -877,81 +884,37 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         {/* 登录页面 */}
         {mode === 'login' && (
           <div className="auth-content">
-            <button className="auth-back" onClick={() => setMode('welcome')}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-            </button>
-
-            <h1 className="auth-title">登录</h1>
-
-            <div className="auth-email-display">
-              <span>{email}</span>
-              <button className="auth-change-email" onClick={() => setMode('welcome')}>更换</button>
+            <div className="auth-headline">
+              <h1 className="auth-title">输入密码</h1>
             </div>
 
             <div className="auth-form">
-              {/* Login method toggle */}
-              <div className="auth-login-method-toggle">
-                <button
-                  className={`auth-toggle-btn ${!useCodeLogin ? 'active' : ''}`}
-                  onClick={() => setUseCodeLogin(false)}
-                >
-                  密码登录
-                </button>
-                <button
-                  className={`auth-toggle-btn ${useCodeLogin ? 'active' : ''}`}
-                  onClick={() => setUseCodeLogin(true)}
-                >
-                  验证码登录
-                </button>
+              <div className="auth-email-input-group">
+                <input
+                  type="email"
+                  className="auth-input"
+                  value={email}
+                  disabled
+                  placeholder="电子邮件地址"
+                />
+                <button className="auth-edit-button" onClick={() => { clearInputs(); setMode('welcome'); }}>编辑</button>
               </div>
 
-              {!useCodeLogin ? (
-                <>
-                  <input
-                    type="password"
-                    className="auth-input"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="密码"
-                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-                    autoFocus
-                  />
-
-                  <div className="auth-forgot-password">
-                    <button className="auth-link" onClick={() => setMode('forgot-password-email')}>
-                      忘记密码？
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="auth-code-group">
-                  <input
-                    type="text"
-                    className="auth-input auth-code-input"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    placeholder="验证码"
-                    maxLength={6}
-                    autoFocus
-                  />
-                  <button
-                    className="auth-code-button"
-                    onClick={() => handleSendCode('login')}
-                    disabled={countdown > 0 || loading || !email}
-                  >
-                    {countdown > 0 ? `${countdown}秒` : '发送'}
-                  </button>
-                </div>
-              )}
-
-              <TurnstileCaptcha
-                ref={emailCaptchaRef}
-                onSuccess={(token) => setTurnstileToken(token)}
-                onFail={() => setTurnstileToken('')}
-                onExpire={() => setTurnstileToken('')}
+              <input
+                type="password"
+                className="auth-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="密码"
+                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                autoFocus
               />
+
+              <div className="auth-forgot-password">
+                <button className="auth-link" onClick={() => setMode('forgot-password-email')}>
+                  忘记了密码?
+                </button>
+              </div>
 
               <div className="auth-checkbox">
                 <label>
@@ -975,10 +938,10 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
               <button
                 className="auth-button auth-button-primary"
-                onClick={useCodeLogin ? handleLoginWithCode : handleLogin}
-                disabled={loading || (enableTurnstile && !turnstileToken) || !agreedToPolicy}
+                onClick={handleLogin}
+                disabled={loading || !agreedToPolicy}
               >
-                {loading ? '登录中...' : '登录'}
+                {loading ? '登录中...' : '继续'}
               </button>
             </div>
           </div>
@@ -987,18 +950,15 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         {/* 注册页面 */}
         {mode === 'register' && (
           <div className="auth-content">
-            <button className="auth-back" onClick={() => setMode('welcome')}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-            </button>
-
-            <h1 className="auth-title">注册账户</h1>
+            <div className="auth-headline">
+              <h1 className="auth-title">注册 Scholay</h1>
+              <p className="auth-subtitle">1 分钟完成，立即上手。</p>
+            </div>
 
             <div className="auth-email-display">
               <span>{email || '输入邮箱地址'}</span>
               {email && (
-                <button className="auth-change-email" onClick={() => setMode('welcome')}>更换</button>
+                <button className="auth-change-email" onClick={() => { clearInputs(); setMode('welcome'); }}>更换</button>
               )}
             </div>
 
@@ -1059,23 +1019,21 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
               <input
                 type="text"
-                className="auth-input"
+                className={`auth-input ${invitationCode ? 'auth-input-highlight' : ''}`}
                 value={invitationCode}
                 onChange={(e) => setInvitationCode(e.target.value.toUpperCase())}
                 placeholder="邀请码（可选）"
                 maxLength={20}
-                style={{
-                  background: invitationCode ? 'rgba(16, 163, 127, 0.1)' : undefined,
-                  borderColor: invitationCode ? 'rgba(16, 163, 127, 0.3)' : undefined
-                }}
               />
 
-              <TurnstileCaptcha
-                ref={emailCaptchaRef}
-                onSuccess={(token) => setTurnstileToken(token)}
-                onFail={() => setTurnstileToken('')}
-                onExpire={() => setTurnstileToken('')}
-              />
+              <div className="auth-turnstile">
+                <TurnstileCaptcha
+                  ref={emailCaptchaRef}
+                  onSuccess={(token) => setTurnstileToken(token)}
+                  onFail={() => setTurnstileToken('')}
+                  onExpire={() => setTurnstileToken('')}
+                />
+              </div>
 
 
               <div className="auth-checkbox">
@@ -1105,11 +1063,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
               >
                 注册
               </button>
-
-              <div className="auth-divider">
-                <span>已有账户？</span>
-                <button className="auth-link" onClick={() => setMode('welcome')}>立即登录</button>
-              </div>
             </div>
           </div>
         )}
@@ -1117,13 +1070,10 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         {/* 手机号欢迎页面 */}
         {mode === 'phone-welcome' && (
           <div className="auth-content">
-            <button className="auth-back" onClick={() => setMode('welcome')}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-            </button>
-
-            <h1 className="auth-title">手机号登录</h1>
+            <div className="auth-headline">
+              <h1 className="auth-title">手机快速登录</h1>
+              <p className="auth-subtitle">短信验证，更快进入。</p>
+            </div>
 
             <div className="auth-form">
               <input
@@ -1147,15 +1097,8 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
               </button>
 
               <div className="auth-divider">
-                <span>还没有账户?</span>
-                <button className="auth-link" onClick={() => setMode('phone-register')}>请注册</button>
+                <button className="auth-link" onClick={() => { clearInputs(); setMode('welcome'); }}>更多登录方式</button>
               </div>
-            </div>
-
-            <div className="auth-footer">
-              <button className="auth-footer-link" onClick={() => { setPolicyType('terms'); setShowPolicy(true); }}>使用条款</button>
-              <span>|</span>
-              <button className="auth-footer-link" onClick={() => { setPolicyType('privacy'); setShowPolicy(true); }}>隐私政策</button>
             </div>
           </div>
         )}
@@ -1163,36 +1106,17 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         {/* 手机号登录页面 */}
         {mode === 'phone-login' && (
           <div className="auth-content">
-            <button className="auth-back" onClick={() => setMode('phone-welcome')}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-            </button>
-
-            <h1 className="auth-title">登录</h1>
+            <div className="auth-headline">
+              <h1 className="auth-title">使用手机登录</h1>
+              <p className="auth-subtitle">密码或验证码皆可。</p>
+            </div>
 
             <div className="auth-email-display">
               <span>{phone}</span>
-              <button className="auth-change-email" onClick={() => setMode('phone-welcome')}>更换</button>
+              <button className="auth-change-email" onClick={() => { clearInputs(); setMode('phone-welcome'); }}>更换</button>
             </div>
 
             <div className="auth-form">
-              {/* Login method toggle */}
-              <div className="auth-login-method-toggle">
-                <button
-                  className={`auth-toggle-btn ${!useCodeLogin ? 'active' : ''}`}
-                  onClick={() => setUseCodeLogin(false)}
-                >
-                  密码登录
-                </button>
-                <button
-                  className={`auth-toggle-btn ${useCodeLogin ? 'active' : ''}`}
-                  onClick={() => setUseCodeLogin(true)}
-                >
-                  验证码登录
-                </button>
-              </div>
-
               {!useCodeLogin ? (
                 <>
                   <input
@@ -1206,38 +1130,51 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   />
 
                   <div className="auth-forgot-password">
+                    <button className="auth-link" onClick={() => setUseCodeLogin(true)}>
+                      使用验证码
+                    </button>
                     <button className="auth-link" onClick={() => setMode('forgot-password-phone')}>
                       忘记密码？
                     </button>
                   </div>
                 </>
               ) : (
-                <div className="auth-code-group">
-                  <input
-                    type="text"
-                    className="auth-input auth-code-input"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    placeholder="验证码"
-                    maxLength={6}
-                    autoFocus
-                  />
-                  <button
-                    className="auth-code-button"
-                    onClick={() => handleSendPhoneCode('login')}
-                    disabled={countdown > 0 || loading || !phone}
-                  >
-                    {countdown > 0 ? `${countdown}秒` : '发送'}
-                  </button>
-                </div>
+                <>
+                  <div className="auth-code-group">
+                    <input
+                      type="text"
+                      className="auth-input auth-code-input"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
+                      placeholder="验证码"
+                      maxLength={6}
+                      autoFocus
+                    />
+                    <button
+                      className="auth-code-button"
+                      onClick={() => handleSendPhoneCode('login')}
+                      disabled={countdown > 0 || loading || !phone}
+                    >
+                      {countdown > 0 ? `${countdown}秒` : '发送'}
+                    </button>
+                  </div>
+
+                  <div className="auth-forgot-password">
+                    <button className="auth-link" onClick={() => setUseCodeLogin(false)}>
+                      使用密码
+                    </button>
+                  </div>
+                </>
               )}
 
-              <TurnstileCaptcha
-                ref={phoneCaptchaRef}
-                onSuccess={(token) => setTurnstileToken(token)}
-                onFail={() => setTurnstileToken('')}
-                onExpire={() => setTurnstileToken('')}
-              />
+              <div className="auth-turnstile">
+                <TurnstileCaptcha
+                  ref={phoneCaptchaRef}
+                  onSuccess={(token) => setTurnstileToken(token)}
+                  onFail={() => setTurnstileToken('')}
+                  onExpire={() => setTurnstileToken('')}
+                />
+              </div>
 
               <div className="auth-checkbox">
                 <label>
@@ -1273,18 +1210,15 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         {/* 手机号注册页面 */}
         {mode === 'phone-register' && (
           <div className="auth-content">
-            <button className="auth-back" onClick={() => setMode('phone-welcome')}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-            </button>
-
-            <h1 className="auth-title">注册账户</h1>
+            <div className="auth-headline">
+              <h1 className="auth-title">注册 Scholay</h1>
+              <p className="auth-subtitle">输入手机号 快速上手。</p>
+            </div>
 
             <div className="auth-email-display">
               <span>{phone || '输入手机号码'}</span>
               {phone && (
-                <button className="auth-change-email" onClick={() => setMode('phone-welcome')}>更换</button>
+                <button className="auth-change-email" onClick={() => { clearInputs(); setMode('phone-welcome'); }}>更换</button>
               )}
             </div>
 
@@ -1344,23 +1278,21 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
               <input
                 type="text"
-                className="auth-input"
+                className={`auth-input ${invitationCode ? 'auth-input-highlight' : ''}`}
                 value={invitationCode}
                 onChange={(e) => setInvitationCode(e.target.value.toUpperCase())}
                 placeholder="邀请码（可选）"
                 maxLength={20}
-                style={{
-                  background: invitationCode ? 'rgba(16, 163, 127, 0.1)' : undefined,
-                  borderColor: invitationCode ? 'rgba(16, 163, 127, 0.3)' : undefined
-                }}
               />
 
-              <TurnstileCaptcha
-                ref={phoneCaptchaRef}
-                onSuccess={(token) => setTurnstileToken(token)}
-                onFail={() => setTurnstileToken('')}
-                onExpire={() => setTurnstileToken('')}
-              />
+              <div className="auth-turnstile">
+                <TurnstileCaptcha
+                  ref={phoneCaptchaRef}
+                  onSuccess={(token) => setTurnstileToken(token)}
+                  onFail={() => setTurnstileToken('')}
+                  onExpire={() => setTurnstileToken('')}
+                />
+              </div>
 
 
               <div className="auth-checkbox">
@@ -1390,11 +1322,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
               >
                 注册
               </button>
-
-              <div className="auth-divider">
-                <span>已有账户?</span>
-                <button className="auth-link" onClick={() => setMode('phone-welcome')}>立即登录</button>
-              </div>
             </div>
           </div>
         )}
@@ -1402,13 +1329,10 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         {/* 忘记密码 - 邮箱 */}
         {mode === 'forgot-password-email' && (
           <div className="auth-content">
-            <button className="auth-back" onClick={() => setMode('login')}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-            </button>
-
-            <h1 className="auth-title">重置密码</h1>
+            <div className="auth-headline">
+              <h1 className="auth-title">重置密码</h1>
+              <p className="auth-subtitle">输入验证码后立刻修改。</p>
+            </div>
 
             <div className="auth-email-display">
               <span>{email}</span>
@@ -1471,17 +1395,14 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         {/* 忘记密码 - 手机号 */}
         {mode === 'forgot-password-phone' && (
           <div className="auth-content">
-            <button className="auth-back" onClick={() => setMode('phone-login')}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-            </button>
-
-            <h1 className="auth-title">重置密码</h1>
+            <div className="auth-headline">
+              <h1 className="auth-title">短信重置密码</h1>
+              <p className="auth-subtitle">短信验证码后即可修改。</p>
+            </div>
 
             <div className="auth-email-display">
               <span>{phone}</span>
-              <button className="auth-change-email" onClick={() => setMode('phone-welcome')}>更换</button>
+              <button className="auth-change-email" onClick={() => { clearInputs(); setMode('phone-welcome'); }}>更换</button>
             </div>
 
             <div className="auth-form">
@@ -1536,6 +1457,16 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
             </div>
           </div>
         )}
+
+        {/* 只在没有政策复选框的页面显示 footer */}
+        {mode !== 'login' && mode !== 'register' && mode !== 'phone-login' && mode !== 'phone-register' && (
+          <div className="auth-footer">
+            <button className="auth-footer-link" onClick={() => { setPolicyType('terms'); setShowPolicy(true); }}>使用条款</button>
+            <span>|</span>
+            <button className="auth-footer-link" onClick={() => { setPolicyType('privacy'); setShowPolicy(true); }}>隐私政策</button>
+          </div>
+        )}
+        </div>
 
         {/* 隐私协议弹窗 */}
         {showPolicy && (
