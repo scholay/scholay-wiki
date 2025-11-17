@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import './CouponBatchManagement.css';
+import './CouponsBase.css';
 
 const CouponBatchManagement = () => {
   const [batches, setBatches] = useState([]);

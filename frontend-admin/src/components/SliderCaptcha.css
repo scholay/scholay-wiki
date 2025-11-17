@@ -1,187 +1,153 @@
 .slider-captcha-container {
   width: 100%;
-  margin: 1.5rem 0;
+  margin: var(--space-4) 0;
   user-select: none;
 }
 
-/* Slider Track */
 .slider-captcha-track {
   position: relative;
-  height: 50px;
-  background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 25px;
-  border: 2px solid #e2e8f0;
+  height: 52px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
   overflow: hidden;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
+  box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.08);
+  transition: var(--transition);
 }
 
 .slider-captcha-track.verified {
-  border-color: #10b981;
-  background: linear-gradient(to bottom, #d1fae5 0%, #a7f3d0 100%);
+  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.15);
 }
 
 .slider-captcha-track.failed {
-  border-color: #ef4444;
-  background: linear-gradient(to bottom, #fee2e2 0%, #fecaca 100%);
-  animation: shake 0.5s ease-in-out;
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.1);
+  animation: slider-shake 0.4s ease;
 }
 
-@keyframes shake {
+@keyframes slider-shake {
   0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-8px); }
-  75% { transform: translateX(8px); }
+  30% { transform: translateX(-10px); }
+  60% { transform: translateX(8px); }
 }
 
-/* Background Text */
 .slider-captcha-bg-text {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 0.875rem;
-  color: #94a3b8;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
   font-weight: 500;
-  user-select: none;
   pointer-events: none;
-  white-space: nowrap;
-  transition: all 0.3s ease;
+  transition: var(--transition);
   z-index: 1;
 }
 
 .slider-captcha-track.verified .slider-captcha-bg-text {
-  color: #059669;
+  color: var(--success-500);
   font-weight: 600;
 }
 
 .slider-captcha-track.failed .slider-captcha-bg-text {
-  color: #dc2626;
+  color: var(--danger-500);
   font-weight: 600;
 }
 
-/* Progress Bar */
 .slider-captcha-progress {
   position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  background: linear-gradient(90deg, rgba(102, 126, 234, 0.15) 0%, rgba(102, 126, 234, 0.25) 100%);
+  inset: 0;
+  width: 0;
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.12), rgba(37, 99, 235, 0.2));
   transition: width 0.1s ease-out;
+  border-radius: inherit;
   pointer-events: none;
-  border-radius: 25px 0 0 25px;
 }
 
 .slider-captcha-track.verified .slider-captcha-progress {
-  background: linear-gradient(90deg, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0.3) 100%);
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.35));
 }
 
 .slider-captcha-track.failed .slider-captcha-progress {
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.3) 100%);
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.35));
 }
 
-/* Slider Button */
 .slider-captcha-button {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 60px;
-  height: 60px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
+  border: 3px solid #fff;
+  background: linear-gradient(135deg, var(--brand-500), var(--brand-400));
+  color: #fff;
+  display: grid;
+  place-items: center;
   cursor: grab;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-  transition: all 0.3s ease;
-  user-select: none;
-  border: 3px solid white;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.35);
+  transition: var(--transition);
   z-index: 2;
 }
 
 .slider-captcha-button:hover {
   transform: translateY(-50%) scale(1.05);
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
 }
 
 .slider-captcha-button.dragging {
   cursor: grabbing;
-  transform: translateY(-50%) scale(1.1);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.6);
+  transform: translateY(-50%) scale(1.08);
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.45);
 }
 
 .slider-captcha-track.verified .slider-captcha-button {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, var(--success-500), #059669);
+  box-shadow: 0 8px 18px rgba(16, 185, 129, 0.35);
   cursor: default;
-  animation: success-glow 1s ease-in-out;
 }
 
 .slider-captcha-track.failed .slider-captcha-button {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+  background: linear-gradient(135deg, var(--danger-500), #b91c1c);
+  box-shadow: 0 8px 18px rgba(239, 68, 68, 0.35);
   cursor: default;
 }
 
 .slider-icon {
-  color: white;
-  font-size: 1.5rem;
-  font-weight: bold;
-  user-select: none;
+  font-size: 1.3rem;
+  font-weight: 700;
 }
 
-@keyframes success-glow {
-  0% {
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-  }
-  50% {
-    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.7);
-  }
-  100% {
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-  }
-}
-
-/* Hint Text */
 .captcha-hint {
   margin-top: 0.75rem;
   text-align: center;
-  font-size: 0.8125rem;
-  color: #64748b;
-  font-weight: 500;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
   min-height: 1.25rem;
 }
 
-/* Responsive Design */
 @media (max-width: 480px) {
   .slider-captcha-track {
     height: 46px;
   }
 
   .slider-captcha-button {
-    width: 54px;
-    height: 54px;
-  }
-
-  .slider-icon {
-    font-size: 1.3rem;
+    width: 52px;
+    height: 52px;
   }
 
   .slider-captcha-bg-text {
-    font-size: 0.8125rem;
-  }
-
-  .captcha-hint {
-    font-size: 0.75rem;
+    font-size: 0.78rem;
   }
 }
 
-/* Accessibility */
 .slider-captcha-button:focus {
-  outline: 2px solid #667eea;
+  outline: 2px solid var(--brand-300);
   outline-offset: 2px;
 }
 
 .slider-captcha-button:focus:not(:focus-visible) {
   outline: none;
 }
+

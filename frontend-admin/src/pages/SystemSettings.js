@@ -1221,7 +1221,7 @@ const SystemSettings = () => {
                     <span>已保存的配置</span>
                   </div>
                   <button className="btn btn-outline" onClick={handleStartEditing}>
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" className="icon-inline">
                       <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
                     </svg>
                     编辑配置
@@ -1267,7 +1267,7 @@ const SystemSettings = () => {
                 </svg>
                 <p>尚未配置邮箱服务器</p>
                 <button className="btn btn-primary" onClick={() => setIsEditingEmail(true)}>
-                  <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" className="icon-inline">
                     <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd"/>
                   </svg>
                   开始配置
@@ -1386,7 +1386,7 @@ const SystemSettings = () => {
                       {loading ? (
                         <>
                           <span className="spinner"></span>
-                          <span style={{ marginLeft: '0.5rem' }}>保存中...</span>
+                          <span className="text-gap-left">保存中...</span>
                         </>
                       ) : (
                         '保存配置'
@@ -1427,11 +1427,11 @@ const SystemSettings = () => {
                       {testingEmail ? (
                         <>
                           <span className="spinner"></span>
-                          <span style={{ marginLeft: '0.5rem' }}>发送中...</span>
+                          <span className="text-gap-left">发送中...</span>
                         </>
                       ) : (
                         <>
-                          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" className="icon-inline">
                             <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
                             <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
                           </svg>
@@ -1469,7 +1469,7 @@ const SystemSettings = () => {
                     <span>已保存的配置</span>
                   </div>
                   <button type="button" className="btn btn-outline" onClick={handleStartEditingSMS}>
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" className="icon-inline">
                       <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
                     </svg>
                     编辑配置
@@ -1497,9 +1497,9 @@ const SystemSettings = () => {
                     <label className="config-label">模板代码</label>
                     <div className="config-value">{savedSMSConfig.template_code}</div>
                   </div>
-                  <div className="config-item" style={{ gridColumn: '1 / -1' }}>
+                  <div className="config-item full-width-grid">
                     <label className="config-label">模板内容</label>
-                    <div className="config-value" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{savedSMSConfig.template_content}</div>
+                    <div className="config-value text-pre-wrap">{savedSMSConfig.template_content}</div>
                   </div>
                   <div className="config-item">
                     <label className="config-label">接入点</label>
@@ -1602,14 +1602,13 @@ const SystemSettings = () => {
                     <textarea
                       id="templateContent"
                       name="templateContent"
-                      className="input"
+                      className="input resize-vertical"
                       rows="3"
                       value={smsConfig.templateContent}
                       onChange={(e) => setSMSConfig({ ...smsConfig, templateContent: e.target.value })}
                       // eslint-disable-next-line no-template-curly-in-string
                       placeholder="请输入模板内容，例如：您的验证码是${code},有效期为5分钟,请勿泄露给他人。"
                       required
-                      style={{ resize: 'vertical' }}
                     />
                     <small className="form-hint">
                       模板内容需要与阿里云模板一致，使用 $&#123;变量名&#125; 表示变量，如: $&#123;code&#125;、$&#123;min&#125; 等
@@ -1640,7 +1639,7 @@ const SystemSettings = () => {
                       {loading ? (
                         <>
                           <span className="spinner"></span>
-                          <span style={{ marginLeft: '0.5rem' }}>保存中...</span>
+                          <span className="text-gap-left">保存中...</span>
                         </>
                       ) : (
                         '保存配置'
@@ -1673,11 +1672,11 @@ const SystemSettings = () => {
                       {testingSMS ? (
                         <>
                           <span className="spinner"></span>
-                          <span style={{ marginLeft: '0.5rem' }}>发送中...</span>
+                          <span className="text-gap-left">发送中...</span>
                         </>
                       ) : (
                         <>
-                          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" className="icon-inline">
                             <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
                           </svg>
                           发送测试短信
@@ -1698,7 +1697,7 @@ const SystemSettings = () => {
               <h2>支付宝配置</h2>
               <p>管理支付宝支付配置</p>
               <button className="btn btn-primary" onClick={handleCreateAlipay}>
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" className="icon-inline">
                   <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd"/>
                 </svg>
                 添加配置
@@ -1914,8 +1913,8 @@ const SystemSettings = () => {
                 <div className="section-header">
                   <h2>微信支付配置</h2>
                   <p>管理微信支付配置</p>
-                  <button className="btn btn-primary" onClick={handleCreateWechatPay}>
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+              <button className="btn btn-primary" onClick={handleCreateWechatPay}>
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" className="icon-inline">
                   <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd"/>
                 </svg>
                 添加配置
@@ -2110,7 +2109,7 @@ const SystemSettings = () => {
                   <h2>微信扫码登录配置</h2>
                   <p>管理微信扫码登录配置</p>
                   <button className="btn btn-primary" onClick={handleCreateWechat}>
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" className="icon-inline">
                       <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd"/>
                     </svg>
                     添加配置
@@ -2266,10 +2265,10 @@ const SystemSettings = () => {
                 ) : (
                   <>
                     {/* Webhook URL 展示 */}
-                    <div className="info-box" style={{ marginBottom: '2rem' }}>
+                    <div className="info-box mb-4">
                       <h3>服务器地址(URL)</h3>
-                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginTop: '0.5rem' }}>
-                        <code style={{ flex: 1, padding: '0.75rem', background: '#f5f5f5', borderRadius: '4px', fontSize: '0.9rem', wordBreak: 'break-all' }}>
+                      <div className="flex-row-gap mt-sm">
+                        <code className="inline-code-block flex-1">
                           {getWebhookUrl()}
                         </code>
                         <button
@@ -2283,18 +2282,16 @@ const SystemSettings = () => {
                           复制
                         </button>
                       </div>
-                      <small style={{ display: 'block', marginTop: '0.5rem', color: '#666' }}>
-                        此URL需要配置在微信公众号后台
-                      </small>
+                      <small>此URL需要配置在微信公众号后台</small>
                     </div>
 
                     {!savedWechatOfficialConfig && !isEditingWechatOfficial ? (
                       // 无配置且未编辑状态 - 显示创建提示
                       <div className="empty-state">
-                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ opacity: 0.3, marginBottom: '1rem' }}>
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="empty-icon subtle-icon">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                         </svg>
-                        <p style={{ marginBottom: '1.5rem', color: '#666' }}>尚未配置微信公众号</p>
+                        <p className="text-secondary-sm mb-3">尚未配置微信公众号</p>
                         <button
                           type="button"
                           className="btn btn-primary"
@@ -2346,9 +2343,9 @@ const SystemSettings = () => {
                           <label>AI自动回复</label>
                           <div className="config-value">
                             {savedWechatOfficialConfig.auto_reply_enabled ? (
-                              <span style={{ color: '#10b981' }}>✓ 已启用</span>
+                              <span className="text-success">✓ 已启用</span>
                             ) : (
-                              <span style={{ color: '#6b7280' }}>未启用</span>
+                              <span className="text-muted">未启用</span>
                             )}
                           </div>
                         </div>
@@ -2364,13 +2361,13 @@ const SystemSettings = () => {
                             </div>
                             <div className="config-item">
                               <label>系统提示词</label>
-                              <div className="config-value" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                              <div className="config-value text-pre-wrap">
                                 {savedWechatOfficialConfig.system_prompt || '使用默认提示词'}
                               </div>
                             </div>
                           </>
                         )}
-                        <div className="form-actions" style={{ marginTop: '2rem' }}>
+                        <div className="form-actions mt-4">
                           <button
                             type="button"
                             className="btn btn-primary"
@@ -2415,16 +2412,15 @@ const SystemSettings = () => {
 
                         <div className="form-group">
                           <label htmlFor="token">Token</label>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <div className="flex-gap-sm">
                             <input
                               type="text"
                               id="token"
                               name="token"
-                              className="input"
+                              className="input flex-1"
                               value={wechatOfficialConfig.token}
                               onChange={handleWechatOfficialConfigChange}
                               placeholder={savedWechatOfficialConfig ? "留空表示不修改" : "必须为英文或数字，长度为3-32字符"}
-                              style={{ flex: 1 }}
                             />
                             <button
                               type="button"
@@ -2441,16 +2437,15 @@ const SystemSettings = () => {
 
                         <div className="form-group">
                           <label htmlFor="encoding_aes_key">EncodingAESKey</label>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <div className="flex-gap-sm">
                             <input
                               type="text"
                               id="encoding_aes_key"
                               name="encoding_aes_key"
-                              className="input"
+                              className="input flex-1"
                               value={wechatOfficialConfig.encoding_aes_key}
                               onChange={handleWechatOfficialConfigChange}
                               placeholder={savedWechatOfficialConfig ? "留空表示不修改" : "消息加密密钥由43位字符组成"}
-                              style={{ flex: 1 }}
                             />
                             <button
                               type="button"
@@ -2485,11 +2480,11 @@ const SystemSettings = () => {
                           </small>
                         </div>
 
-                        <div className="section-divider" style={{ margin: '2rem 0', borderTop: '1px solid #e5e7eb' }}></div>
+                        <div className="section-divider"></div>
 
                         <div className="section-header">
                           <h3>AI自动回复配置</h3>
-                          <p style={{ fontSize: '0.875rem', color: '#666' }}>配置AI模型自动回复用户消息</p>
+                          <p className="text-secondary-sm">配置AI模型自动回复用户消息</p>
                         </div>
 
                         <div className="form-group">
@@ -2528,12 +2523,11 @@ const SystemSettings = () => {
                               <textarea
                                 id="system_prompt"
                                 name="system_prompt"
-                                className="input"
+                                className="input resize-vertical min-h-100"
                                 value={wechatOfficialConfig.system_prompt}
                                 onChange={handleWechatOfficialConfigChange}
                                 placeholder="你是一个友好的助手，请简洁准确地回答用户的问题。回复不要超过200字。"
                                 rows="4"
-                                style={{ resize: 'vertical', minHeight: '100px' }}
                               />
                               <small className="form-hint">配置AI回复用户消息时使用的系统提示词，留空将使用默认提示词</small>
                             </div>
@@ -2552,7 +2546,7 @@ const SystemSettings = () => {
                             {loading ? (
                               <>
                                 <span className="spinner"></span>
-                                <span style={{ marginLeft: '0.5rem' }}>保存中...</span>
+                                <span className="text-gap-left">保存中...</span>
                               </>
                             ) : (
                               '保存配置'
@@ -2563,9 +2557,9 @@ const SystemSettings = () => {
                     )}
 
                     {/* 配置步骤说明 */}
-                    <div className="info-box" style={{ marginTop: '2rem', background: '#fff3cd', border: '1px solid #ffc107' }}>
+                    <div className="info-box warning mt-4">
                       <h3>配置步骤</h3>
-                      <ol style={{ margin: '0.5rem 0 0 1.5rem', padding: 0 }}>
+                      <ol className="tip-list">
                         <li>登录微信公众平台，进入"开发" - "基本配置"</li>
                         <li>填写上方的"服务器地址(URL)"</li>
                         <li>填写Token和EncodingAESKey（可使用"随机生成"按钮）</li>
@@ -2626,7 +2620,7 @@ const SystemSettings = () => {
                   {loading ? (
                     <>
                       <span className="spinner"></span>
-                      <span style={{ marginLeft: '0.5rem' }}>更新中...</span>
+                      <span className="text-gap-left">更新中...</span>
                     </>
                   ) : (
                     '更新隐私协议'
@@ -2681,7 +2675,7 @@ const SystemSettings = () => {
                   {loading ? (
                     <>
                       <span className="spinner"></span>
-                      <span style={{ marginLeft: '0.5rem' }}>更新中...</span>
+                      <span className="text-gap-left">更新中...</span>
                     </>
                   ) : (
                     '更新用户协议'
@@ -2754,21 +2748,17 @@ const SystemSettings = () => {
 
               <div className="form-group">
                 <label htmlFor="githubCallbackUrl">完整回调地址（自动生成）</label>
-                <div style={{ position: 'relative' }}>
+                <div className="relative">
                   <input
                     type="text"
                     id="githubCallbackUrl"
-                    className="input"
+                    className="input readonly-input"
                     value={githubConfig.githubRedirectUri ? `${githubConfig.githubRedirectUri.replace(/\/$/, '')}/github/callback` : '请先填写网站域名'}
                     readOnly
-                    style={{
-                      backgroundColor: '#f8fafc',
-                      cursor: 'default',
-                      paddingRight: '5rem'
-                    }}
                   />
                   <button
                     type="button"
+                    className="copy-button"
                     onClick={() => {
                       if (githubConfig.githubRedirectUri) {
                         const url = `${githubConfig.githubRedirectUri.replace(/\/$/, '')}/github/callback`;
@@ -2777,30 +2767,6 @@ const SystemSettings = () => {
                       }
                     }}
                     disabled={!githubConfig.githubRedirectUri}
-                    style={{
-                      position: 'absolute',
-                      right: '0.5rem',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      padding: '0.375rem 0.75rem',
-                      background: githubConfig.githubRedirectUri ? '#667eea' : '#cbd5e0',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      fontSize: '0.875rem',
-                      cursor: githubConfig.githubRedirectUri ? 'pointer' : 'not-allowed',
-                      transition: 'background 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (githubConfig.githubRedirectUri) {
-                        e.target.style.background = '#5568d3';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (githubConfig.githubRedirectUri) {
-                        e.target.style.background = '#667eea';
-                      }
-                    }}
                   >
                     复制
                   </button>
@@ -2813,34 +2779,34 @@ const SystemSettings = () => {
               <div className="divider"></div>
 
               <div className="info-box">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" style={{ marginRight: '0.75rem', flexShrink: 0 }}>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" className="icon-inline-lg">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
                 </svg>
                 <div>
                   <strong>如何创建 GitHub App（推荐方式）：</strong>
-                  <ol style={{ marginTop: '0.5rem', paddingLeft: '1.25rem', marginBottom: '0.75rem' }}>
+                  <ol className="tip-list">
                     <li>访问 GitHub Settings → Developer settings → GitHub Apps</li>
                     <li>点击 "New GitHub App" 创建新应用</li>
                     <li>填写基本信息（App name, Homepage URL, Description）</li>
                     <li><strong>Callback URL</strong>：填写上面配置的回调地址</li>
                     <li><strong>权限设置</strong>：在 "Account permissions" 中选择：
-                      <ul style={{ marginTop: '0.25rem', paddingLeft: '1.25rem' }}>
+                      <ul className="tip-list">
                         <li>Email addresses: Read-only（必需，用于获取用户邮箱）</li>
                       </ul>
                     </li>
                     <li>取消勾选 "Webhook" 相关选项（不需要接收 webhook）</li>
                     <li><strong>Where can this GitHub App be installed?</strong> 选择 "Any account"</li>
                     <li>创建后，进入 App 设置页面：
-                      <ul style={{ marginTop: '0.25rem', paddingLeft: '1.25rem' }}>
+                      <ul className="tip-list">
                         <li>复制 <strong>Client ID</strong></li>
                         <li>点击 "Generate a new client secret" 生成并复制 <strong>Client Secret</strong></li>
                       </ul>
                     </li>
                     <li>将获取的信息填入上方表单并保存</li>
                   </ol>
-                  <div style={{ padding: '0.75rem', background: 'rgba(255, 255, 255, 0.7)', borderRadius: '6px', marginTop: '0.5rem' }}>
-                    <strong style={{ color: '#1e3a8a' }}>💡 提示：</strong>
-                    <ul style={{ marginTop: '0.25rem', paddingLeft: '1.25rem', marginBottom: 0 }}>
+                  <div className="hint-box">
+                    <strong className="text-brand">💡 提示：</strong>
+                    <ul className="tip-list">
                       <li>GitHub App 是 GitHub 官方推荐的方式，比传统 OAuth App 更安全、权限控制更细</li>
                       <li>如果已有 OAuth App，也可以继续使用（向下兼容）</li>
                       <li>Client Secret 只显示一次，请妥善保存</li>
@@ -2854,7 +2820,7 @@ const SystemSettings = () => {
                   {loading ? (
                     <>
                       <span className="spinner"></span>
-                      <span style={{ marginLeft: '0.5rem' }}>保存中...</span>
+                      <span className="text-gap-left">保存中...</span>
                     </>
                   ) : (
                     '保存配置'
@@ -2958,7 +2924,7 @@ const SystemSettings = () => {
                   {loading ? (
                     <>
                       <span className="spinner"></span>
-                      <span style={{ marginLeft: '0.5rem' }}>保存中...</span>
+                      <span className="text-gap-left">保存中...</span>
                     </>
                   ) : (
                     '保存配置'
