@@ -1870,8 +1870,12 @@ const Settings = () => {
           right: 0,
           width: '100%',
           zIndex: 1000,
-          background: '#212121',
-          padding: '20px 24px'
+          background: 'rgba(33, 33, 33, 0.8)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+          padding: '20px 24px',
+          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15)'
         }}
       >
         <div

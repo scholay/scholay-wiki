@@ -12,7 +12,6 @@ import MainLayout from './components/MainLayout';
 import Home from './pages/Home';
 
 // 其他页面使用懒加载 - 大幅减少初始bundle大小
-const Dashboard = lazy(() => import('./pages/Dashboard'));
 const SearchResultsPage = lazy(() => import('./pages/SearchResultsPage'));
 const AdvancedSearchPage = lazy(() => import('./pages/AdvancedSearchPage'));
 const PaperDetailPage = lazy(() => import('./pages/PaperDetailPage'));
@@ -67,11 +66,6 @@ function App() {
                       <Route path="/chat" element={
                         <ProtectedRoute>
                           <ChatPage />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/dashboard" element={
-                        <ProtectedRoute>
-                          <Dashboard />
                         </ProtectedRoute>
                       } />
                     </Route>
