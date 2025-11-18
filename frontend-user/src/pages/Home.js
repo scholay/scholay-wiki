@@ -17,7 +17,6 @@ const Home = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [searchMode, setSearchMode] = useState('normal'); // 'normal' or 'advanced'
-  const [showModeSelector, setShowModeSelector] = useState(false);
   const [showFilters, setShowFilters] = useState(false); // 显示筛选条件
   const [modelLevel, setModelLevel] = useState('low'); // 'low', 'mid', 'high' - 默认普通模型
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -35,8 +34,6 @@ const Home = () => {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const textareaRef = useRef(null);
-  const modeSelectorRef = useRef(null);
-  const modeToggleRef = useRef(null);
   const lastTypingDelayRef = useRef(90);
 
   // Typewriter effect for welcome title
@@ -48,20 +45,6 @@ const Home = () => {
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
   }, [sidebarCollapsed]);
-
-  // 点击外部关闭模式选择器
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showModeSelector &&
-          modeToggleRef.current &&
-          !modeToggleRef.current.contains(event.target)) {
-        setShowModeSelector(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showModeSelector]);
 
   useEffect(() => {
     const phrases = [
@@ -305,69 +288,32 @@ const Home = () => {
                   {/* 底部操作栏 */}
                   <div className="home-composer-footer">
                     <div className="home-composer-footer-left">
-                      {/* 搜索模式切换 - 单个图标+悬浮窗 */}
-                      <div className="search-mode-toggle" ref={modeToggleRef}>
+                      {/* 搜索模式切换 - 分段控制器设计 */}
+                      <div className="search-mode-segmented">
                         <button
                           type="button"
-                          className={`footer-btn mode-icon-btn ${searchMode === 'advanced' ? 'advanced-mode' : ''}`}
-                          onClick={() => setShowModeSelector(!showModeSelector)}
+                          className={`mode-segment ${searchMode === 'normal' ? 'active' : ''}`}
+                          onClick={() => setSearchMode('normal')}
                         >
-                          <span className="mode-icon">
-                            {searchMode === 'normal' ? (
-                              <NormalSearchIcon size={20} />
-                            ) : (
-                              <AdvancedSearchIcon size={20} />
-                            )}
+                          <span className="mode-segment-icon">
+                            <NormalSearchIcon size={16} />
                           </span>
-                          <span className="mode-label">
-                            {searchMode === 'normal' ? '普通' : '高级'}
-                          </span>
+                          <span className="mode-segment-label">普通搜索</span>
                         </button>
-
-                        {/* 悬浮选择器 */}
-                        {showModeSelector && (
-                          <div
-                            className="mode-selector-popup"
-                            ref={modeSelectorRef}
-                          >
-                            <div className="mode-selector-header">
-                              <span>搜索模式</span>
-                            </div>
-                            <button
-                              type="button"
-                              className={`mode-option ${searchMode === 'normal' ? 'active' : ''}`}
-                              onClick={() => {
-                                setSearchMode('normal');
-                                setShowModeSelector(false);
-                              }}
-                            >
-                              <div className="mode-option-icon">
-                                <NormalSearchIcon size={24} />
-                              </div>
-                              <div className="mode-option-content">
-                                <div className="mode-option-title">普通搜索</div>
-                                <div className="mode-option-desc">直接搜索论文标题、作者、关键词</div>
-                              </div>
-                            </button>
-                            <button
-                              type="button"
-                              className={`mode-option ${searchMode === 'advanced' ? 'active' : ''}`}
-                              onClick={() => {
-                                setSearchMode('advanced');
-                                setShowModeSelector(false);
-                              }}
-                            >
-                              <div className="mode-option-icon">
-                                <AdvancedSearchIcon size={24} />
-                              </div>
-                              <div className="mode-option-content">
-                                <div className="mode-option-title">高级搜索</div>
-                                <div className="mode-option-desc">AI智能理解并解析研究需求</div>
-                              </div>
-                            </button>
-                          </div>
-                        )}
+                        <button
+                          type="button"
+                          className={`mode-segment ${searchMode === 'advanced' ? 'active' : ''}`}
+                          onClick={() => setSearchMode('advanced')}
+                        >
+                          <span className="mode-segment-icon">
+                            <AdvancedSearchIcon size={16} />
+                          </span>
+                          <span className="mode-segment-label">高级搜索</span>
+                        </button>
                       </div>
+
+                      {/* 分隔线 */}
+                      <div className="footer-divider"></div>
 
                       {/* 筛选按钮 - 仅在普通搜索模式显示 */}
                       {searchMode === 'normal' && (() => {
