@@ -498,7 +498,16 @@ const SearchResultsPage = () => {
                       <button
                         type="button"
                         className="mode-segment"
-                        onClick={() => navigate('/advanced-search')}
+                        onClick={() => {
+                          // 使用 View Transitions API 实现平滑过渡
+                          if (document.startViewTransition) {
+                            document.startViewTransition(() => {
+                              navigate('/advanced-search');
+                            });
+                          } else {
+                            navigate('/advanced-search');
+                          }
+                        }}
                       >
                         <span className="mode-segment-icon">
                           <AdvancedSearchIcon size={16} />

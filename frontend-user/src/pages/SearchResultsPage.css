@@ -418,6 +418,7 @@
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   margin-bottom: 2rem;
   animation: fadeInScale 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  view-transition-name: search-composer;
 }
 
 .normal-search-composer-wrapper:focus-within {

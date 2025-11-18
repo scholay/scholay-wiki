@@ -328,3 +328,77 @@ body {
     font-size: 0.875rem;
   }
 }
+
+/* View Transitions API - 页面切换动画 */
+@supports (view-transition-name: search-composer) {
+  /* 搜索框的过渡动画 - 交叉淡化效果 */
+  ::view-transition-old(search-composer),
+  ::view-transition-new(search-composer) {
+    animation-duration: 0.4s;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    /* 混合模式让新旧元素同时显示 */
+    mix-blend-mode: normal;
+  }
+
+  /* 旧元素淡出 */
+  ::view-transition-old(search-composer) {
+    animation-name: composer-fade-out;
+  }
+
+  /* 新元素淡入 */
+  ::view-transition-new(search-composer) {
+    animation-name: composer-fade-in;
+  }
+
+  @keyframes composer-fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes composer-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* 页面根元素的过渡动画 - 更快速 */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.25s;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* 让根元素的过渡更加平滑 */
+  ::view-transition-old(root) {
+    animation-name: root-fade-out;
+  }
+
+  ::view-transition-new(root) {
+    animation-name: root-fade-in;
+  }
+
+  @keyframes root-fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes root-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
