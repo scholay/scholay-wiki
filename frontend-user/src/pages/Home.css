@@ -910,16 +910,28 @@
   transform: translate(-50%, -50%);
   width: calc(100% - 3rem);
   max-width: 48rem;
-  background: #2f2f2f;
+  background: rgba(47, 47, 47, 0.6);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
   border-radius: 28px;
   padding: 12px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .home .home-composer-wrapper:focus-within,
 .home-search .home-composer-wrapper:focus-within {
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+  background: rgba(47, 47, 47, 0.7);
+  border-color: rgba(16, 163, 127, 0.3);
+  box-shadow: 
+    0 12px 48px rgba(0, 0, 0, 0.5),
+    0 4px 16px rgba(16, 163, 127, 0.15),
+    0 0 0 1px rgba(16, 163, 127, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 /* Composer Input Area */
