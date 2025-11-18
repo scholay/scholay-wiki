@@ -1157,144 +1157,125 @@ const Settings = () => {
 
   const renderProfileTab = () => (
     <div className="settings-section">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h2 style={{ margin: 0 }}>我的介绍</h2>
+      <div className="profile-header">
+        <h2>个人资料</h2>
         {!isEditingProfile && (
           <button
-            className="btn-edit"
+            className="btn-edit-profile"
             onClick={() => setIsEditingProfile(true)}
-            style={{
-              padding: '8px 16px',
-              background: 'linear-gradient(135deg, #10a37f 0%, #1a7f64 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 500,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 4px 12px rgba(16, 163, 127, 0.3)'
-            }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 20h9"/>
               <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
             </svg>
-            编辑
+            编辑资料
           </button>
         )}
       </div>
 
-      <div className="profile-avatar-section">
-        <div className="avatar-wrapper">
-          <div className="avatar-circle">
-            {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
+      {/* 个人资料卡片 */}
+      <div className="profile-card">
+        <div className="profile-card-header">
+          <div className="avatar-wrapper">
+            <div className="avatar-circle">
+              {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
+            </div>
+          </div>
+          <div className="profile-basic-info">
+            <h3 className="profile-name">{profile.name || '未设置名字'}</h3>
           </div>
         </div>
-      </div>
 
-      {isEditingProfile ? (
-        // 编辑模式
-        <>
-          <div className="form-group">
-            <label>名字</label>
-            <div className="input-with-clear">
-              <input
-                type="text"
-                value={profile.name}
-                onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                placeholder="输入你的名字"
+        {isEditingProfile ? (
+          // 编辑模式
+          <div className="profile-edit-form">
+            <div className="form-group">
+              <label>名字</label>
+              <div className="input-with-clear">
+                <input
+                  type="text"
+                  value={profile.name}
+                  onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                  placeholder="输入你的名字"
+                />
+                {profile.name && (
+                  <button
+                    className="clear-btn"
+                    onClick={() => setProfile({ ...profile, name: '' })}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="15" y1="9" x2="9" y2="15"/>
+                      <line x1="9" y1="9" x2="15" y2="15"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>个人简介</label>
+              <textarea
+                value={profile.bio}
+                onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+                placeholder="介绍一下自己..."
+                rows="4"
               />
-              {profile.name && (
-                <button
-                  className="clear-btn"
-                  onClick={() => setProfile({ ...profile, name: '' })}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="15" y1="9" x2="9" y2="15"/>
-                    <line x1="9" y1="9" x2="15" y2="15"/>
-                  </svg>
-                </button>
-              )}
+            </div>
+
+            <div className="profile-edit-actions">
+              <button
+                className="btn-save"
+                onClick={handleProfileSave}
+                disabled={loading}
+              >
+                {loading ? '保存中...' : '保存更改'}
+              </button>
+              <button
+                className="btn-cancel-edit"
+                onClick={() => {
+                  setIsEditingProfile(false);
+                  fetchUserProfile();
+                }}
+                disabled={loading}
+              >
+                取消
+              </button>
             </div>
           </div>
+        ) : (
+          // 展示模式
+          <div className="profile-display">
+            <div className="profile-field">
+              <div className="profile-field-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+                名字
+              </div>
+              <div className="profile-field-value">
+                {profile.name || <span className="empty-value">未设置</span>}
+              </div>
+            </div>
 
-          <div className="form-group">
-            <label>简介</label>
-            <textarea
-              value={profile.bio}
-              onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-              placeholder="介绍一下自己"
-              rows="4"
-            />
-          </div>
-
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button
-              className="btn-save"
-              onClick={handleProfileSave}
-              disabled={loading}
-            >
-              {loading ? '保存中...' : '保存'}
-            </button>
-            <button
-              className="btn-cancel"
-              onClick={() => {
-                setIsEditingProfile(false);
-                // 取消时重新加载数据，恢复到原始状态
-                fetchUserProfile();
-              }}
-              disabled={loading}
-              style={{
-                padding: '12px 24px',
-                background: '#e5e7eb',
-                color: '#374151',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 500
-              }}
-            >
-              取消
-            </button>
-          </div>
-        </>
-      ) : (
-        // 展示模式 - 使用现有暗色设计风格
-        <>
-          <div className="form-group">
-            <label>名字</label>
-            <div style={{
-              padding: '12px 16px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '8px',
-              color: 'rgba(255, 255, 255, 0.9)'
-            }}>
-              {profile.name || '未设置'}
+            <div className="profile-field">
+              <div className="profile-field-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="17" y1="10" x2="3" y2="10"/>
+                  <line x1="21" y1="6" x2="3" y2="6"/>
+                  <line x1="21" y1="14" x2="3" y2="14"/>
+                  <line x1="17" y1="18" x2="3" y2="18"/>
+                </svg>
+                个人简介
+              </div>
+              <div className="profile-field-value bio-value">
+                {profile.bio || <span className="empty-value">未设置简介，点击编辑添加...</span>}
+              </div>
             </div>
           </div>
-
-          <div className="form-group">
-            <label>简介</label>
-            <div style={{
-              padding: '12px 16px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '8px',
-              minHeight: '100px',
-              whiteSpace: 'pre-wrap',
-              color: 'rgba(255, 255, 255, 0.9)'
-            }}>
-              {profile.bio || '未设置简介'}
-            </div>
-          </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 
@@ -1305,7 +1286,7 @@ const Settings = () => {
       {/* Account Binding Cards */}
       <div className="account-bindings">
         {/* Email Card */}
-        <div className="account-binding-card">
+        <div className={`account-binding-card ${user?.email ? 'bound' : 'unbound'}`}>
           <div className="binding-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
@@ -1337,7 +1318,7 @@ const Settings = () => {
         </div>
 
         {/* Phone Card */}
-        <div className="account-binding-card">
+        <div className={`account-binding-card ${user?.phone ? 'bound' : 'unbound'}`}>
           <div className="binding-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
@@ -1369,7 +1350,7 @@ const Settings = () => {
         </div>
 
         {/* WeChat Card */}
-        <div className="account-binding-card">
+        <div className={`account-binding-card ${user?.wechat_openid ? 'bound' : 'unbound'}`}>
           <div className="binding-icon binding-icon-wechat">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 0 1 .598.082l1.584.926a.272.272 0 0 0 .14.047c.134 0 .24-.111.24-.247 0-.06-.023-.12-.038-.177l-.327-1.233a.582.582 0 0 1-.023-.156.49.49 0 0 1 .201-.398C23.024 18.48 24 16.82 24 14.98c0-3.21-2.931-5.837-6.656-6.088V8.89c-.135-.01-.27-.027-.407-.03zm-2.53 3.274c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.969-.982zm4.844 0c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.969-.982z"/>
@@ -1397,7 +1378,7 @@ const Settings = () => {
         </div>
 
         {/* GitHub Card */}
-        <div className="account-binding-card">
+        <div className={`account-binding-card ${user?.github_id ? 'bound' : 'unbound'}`}>
           <div className="binding-icon binding-icon-github">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
@@ -1465,8 +1446,9 @@ const Settings = () => {
       return (
         <div className="settings-section">
           <h2>邀请推广</h2>
-          <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.6)' }}>
-            加载中...
+          <div className="invitation-loading">
+            <div className="spinner"></div>
+            <p>加载中...</p>
           </div>
         </div>
       );
@@ -1480,90 +1462,40 @@ const Settings = () => {
         </p>
 
         {/* Invitation Code Card */}
-        <div className="invitation-card" style={{
-          background: 'linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(13, 133, 102, 0.1) 100%)',
-          border: '1px solid rgba(16, 163, 127, 0.2)',
-          borderRadius: '12px',
-          padding: '24px',
-          marginBottom: '24px',
-          color: 'white'
-        }}>
+        <div className="invitation-card">
           {!invitation ? (
-            <div style={{ textAlign: 'center' }}>
-              <h3 style={{ margin: '0 0 16px 0', color: 'white' }}>开始邀请好友</h3>
-              <p style={{ margin: '0 0 20px 0', color: 'rgba(255, 255, 255, 0.7)' }}>
-                生成你的专属邀请码，分享给好友即可获得奖励
-              </p>
-              <button
-                onClick={generateInvitation}
-                style={{
-                  background: 'linear-gradient(135deg, #10a37f 0%, #0d8566 100%)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '12px 32px',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(16, 163, 127, 0.3)',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-              >
+            <div className="invitation-empty">
+              <div className="invitation-empty-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <h3>开始邀请好友</h3>
+              <p>生成你的专属邀请码，分享给好友即可获得奖励</p>
+              <button className="btn-generate-code" onClick={generateInvitation}>
                 生成邀请码
               </button>
             </div>
           ) : (
-            <div>
-              <h3 style={{ margin: '0 0 20px 0' }}>我的邀请码</h3>
+            <div className="invitation-content">
+              <h3>我的邀请码</h3>
 
               {/* Invitation Code */}
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', fontWeight: '500' }}>
-                  邀请码
-                </label>
-                <div style={{ display: 'flex', gap: '8px' }}>
+              <div className="invitation-field">
+                <label>邀请码</label>
+                <div className="invitation-input-group">
                   <input
                     type="text"
                     value={invitation.invitation_code}
                     readOnly
-                    style={{
-                      flex: 1,
-                      padding: '12px 16px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(16, 163, 127, 0.3)',
-                      background: 'rgba(16, 163, 127, 0.08)',
-                      color: '#10a37f',
-                      fontSize: '18px',
-                      fontWeight: '700',
-                      letterSpacing: '3px',
-                      textAlign: 'center'
-                    }}
+                    className="invitation-code-input"
                   />
                   <button
+                    className={`btn-copy ${copySuccess === '邀请码' ? 'copied' : ''}`}
                     onClick={() => copyToClipboard(invitation.invitation_code, '邀请码')}
-                    style={{
-                      padding: '12px 24px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(16, 163, 127, 0.3)',
-                      background: copySuccess === '邀请码' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 163, 127, 0.1)',
-                      color: copySuccess === '邀请码' ? '#10b981' : '#10a37f',
-                      cursor: 'pointer',
-                      fontWeight: '600',
-                      transition: 'all 0.2s ease',
-                      whiteSpace: 'nowrap'
-                    }}
-                    onMouseOver={(e) => {
-                      if (copySuccess !== '邀请码') {
-                        e.target.style.background = 'rgba(16, 163, 127, 0.15)';
-                      }
-                    }}
-                    onMouseOut={(e) => {
-                      if (copySuccess !== '邀请码') {
-                        e.target.style.background = 'rgba(16, 163, 127, 0.1)';
-                      }
-                    }}
                   >
                     {copySuccess === '邀请码' ? '✓ 已复制' : '复制'}
                   </button>
@@ -1571,49 +1503,18 @@ const Settings = () => {
               </div>
 
               {/* Invitation URL */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', fontWeight: '500' }}>
-                  邀请链接
-                </label>
-                <div style={{ display: 'flex', gap: '8px' }}>
+              <div className="invitation-field">
+                <label>邀请链接</label>
+                <div className="invitation-input-group">
                   <input
                     type="text"
                     value={getInvitationUrl()}
                     readOnly
-                    style={{
-                      flex: 1,
-                      padding: '12px 16px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(16, 163, 127, 0.3)',
-                      background: 'rgba(16, 163, 127, 0.08)',
-                      color: 'rgba(255, 255, 255, 0.9)',
-                      fontSize: '13px',
-                      fontFamily: 'monospace'
-                    }}
+                    className="invitation-url-input"
                   />
                   <button
+                    className={`btn-copy ${copySuccess === '邀请链接' ? 'copied' : ''}`}
                     onClick={() => copyToClipboard(getInvitationUrl(), '邀请链接')}
-                    style={{
-                      padding: '12px 24px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(16, 163, 127, 0.3)',
-                      background: copySuccess === '邀请链接' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 163, 127, 0.1)',
-                      color: copySuccess === '邀请链接' ? '#10b981' : '#10a37f',
-                      cursor: 'pointer',
-                      fontWeight: '600',
-                      transition: 'all 0.2s ease',
-                      whiteSpace: 'nowrap'
-                    }}
-                    onMouseOver={(e) => {
-                      if (copySuccess !== '邀请链接') {
-                        e.target.style.background = 'rgba(16, 163, 127, 0.15)';
-                      }
-                    }}
-                    onMouseOut={(e) => {
-                      if (copySuccess !== '邀请链接') {
-                        e.target.style.background = 'rgba(16, 163, 127, 0.1)';
-                      }
-                    }}
                   >
                     {copySuccess === '邀请链接' ? '✓ 已复制' : '复制'}
                   </button>
@@ -1625,68 +1526,36 @@ const Settings = () => {
 
         {/* Invitees List */}
         {invitation && (
-          <div>
-            <h3 style={{ marginBottom: '16px' }}>被邀请者列表</h3>
+          <div className="invitees-section">
+            <h3>被邀请者列表</h3>
             {invitees.length === 0 ? (
-              <div style={{
-                padding: '40px',
-                textAlign: 'center',
-                background: 'rgba(255,255,255,0.02)',
-                borderRadius: '12px',
-                border: '1px solid rgba(255,255,255,0.08)'
-              }}>
-                <p style={{ color: 'rgba(255,255,255,0.5)', margin: 0 }}>
-                  还没有人使用你的邀请码注册
-                </p>
+              <div className="invitees-empty">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <line x1="19" y1="8" x2="19" y2="14"/>
+                  <line x1="22" y1="11" x2="16" y2="11"/>
+                </svg>
+                <p>还没有人使用你的邀请码注册</p>
               </div>
             ) : (
-              <div style={{
-                background: 'rgba(255,255,255,0.02)',
-                borderRadius: '12px',
-                border: '1px solid rgba(255,255,255,0.08)',
-                overflow: 'hidden'
-              }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ background: 'rgba(255,255,255,0.05)' }}>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>
-                        用户信息
-                      </th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>
-                        注册时间
-                      </th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>
-                        状态
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invitees.map((invitee, index) => (
-                      <tr key={index} style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                        <td style={{ padding: '12px 16px' }}>
-                          {invitee.invitee_email ? maskEmail(invitee.invitee_email) :
-                           invitee.invitee_phone ? maskPhone(invitee.invitee_phone) : '用户***'}
-                        </td>
-                        <td style={{ padding: '12px 16px', fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>
-                          {new Date(invitee.created_at).toLocaleDateString('zh-CN')}
-                        </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{
-                            padding: '4px 12px',
-                            borderRadius: '12px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            background: invitee.has_purchased ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 163, 127, 0.1)',
-                            border: invitee.has_purchased ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(16, 163, 127, 0.2)',
-                            color: invitee.has_purchased ? '#10b981' : '#10a37f'
-                          }}>
-                            {invitee.has_purchased ? '✓ 已付费' : '已注册'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="invitees-list">
+                {invitees.map((invitee, index) => (
+                  <div key={index} className="invitee-item">
+                    <div className="invitee-info">
+                      <span className="invitee-name">
+                        {invitee.invitee_email ? maskEmail(invitee.invitee_email) :
+                         invitee.invitee_phone ? maskPhone(invitee.invitee_phone) : '用户***'}
+                      </span>
+                      <span className="invitee-date">
+                        {new Date(invitee.created_at).toLocaleDateString('zh-CN')}
+                      </span>
+                    </div>
+                    <span className={`invitee-status ${invitee.has_purchased ? 'paid' : 'registered'}`}>
+                      {invitee.has_purchased ? '✓ 已付费' : '已注册'}
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -1696,69 +1565,76 @@ const Settings = () => {
   };
 
   const renderSubscriptionTab = () => {
-    if (subscriptionLoading) {
-      return (
-        <div className="settings-section">
-          <h2>订阅</h2>
-          <div className="subscription-loading">
-            <div className="spinner"></div>
-            <p>加载中...</p>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="settings-section subscription-section">
-        <h2>订阅</h2>
+        <h2>管理订阅</h2>
 
-        {/* Current Subscription Card */}
-        {currentSubscription && (
-          <div className="current-subscription-card">
-            <div className="subscription-header">
-              <div>
-                <h3>当前订阅</h3>
-                <div className="plan-badge-container">
-                  <span className={`plan-badge plan-badge-${currentSubscription.plan_code}`}>
-                    {currentSubscription.plan_name}
-                  </span>
-                  {currentSubscription.plan_code !== 'free' && currentSubscription.end_date && (
-                    <span className="expiry-date">
-                      到期: {new Date(currentSubscription.end_date).toLocaleDateString('zh-CN')}
+        {/* Current Subscription Card - Compact Design */}
+        <div className={`subscription-compact ${subscriptionLoading ? 'loading' : ''}`}>
+          {subscriptionLoading ? (
+            <div className="subscription-compact-skeleton">
+              <div className="skeleton-badge"></div>
+              <div className="skeleton-text"></div>
+              <div className="skeleton-btn"></div>
+            </div>
+          ) : currentSubscription ? (
+            <div className="subscription-compact-content">
+              <div className="subscription-compact-left">
+                <span className={`subscription-plan-badge ${currentSubscription.plan_code}`}>
+                  {currentSubscription.plan_name}
+                </span>
+                {currentSubscription.plan_code !== 'free' && currentSubscription.end_date && (() => {
+                  const endDate = new Date(currentSubscription.end_date);
+                  const today = new Date();
+                  const diffTime = endDate - today;
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                  const isExpiring = diffDays <= 7;
+                  const isUrgent = diffDays <= 3;
+                  
+                  return (
+                    <span className={`subscription-compact-expiry ${isUrgent ? 'urgent' : isExpiring ? 'warning' : ''}`}>
+                      {diffDays <= 0 ? (
+                        '已到期'
+                      ) : diffDays <= 7 ? (
+                        <>剩余 <strong>{diffDays}</strong> 天</>
+                      ) : (
+                        <>{endDate.toLocaleDateString('zh-CN')} 到期</>
+                      )}
                     </span>
-                  )}
-                </div>
+                  );
+                })()}
+                {currentSubscription.plan_code === 'free' && (
+                  <span className="subscription-compact-hint">升级享受更多权益</span>
+                )}
               </div>
+              <button
+                className="btn-upgrade-compact"
+                onClick={() => navigate('/pricing')}
+              >
+                {currentSubscription.plan_code === 'free' ? '升级方案' : '管理方案'}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
             </div>
-
-            {/* Simple description */}
-            <div className="subscription-description">
-              <p>
-                {currentSubscription.plan_code === 'free' && '免费方案提供基础功能，升级至付费方案以享受更多权益'}
-                {currentSubscription.plan_code === 'pro' && '您正在使用 PRO 方案，享受扩展访问权限和高级功能'}
-                {currentSubscription.plan_code === 'max' && '您正在使用 MAX 方案，畅享所有功能无限使用'}
-              </p>
-            </div>
-
-            {/* View Plans Button */}
-            <button
-              className="btn-view-pricing"
-              onClick={() => navigate('/pricing')}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="7" height="7" rx="1"/>
-                <rect x="14" y="3" width="7" height="7" rx="1"/>
-                <rect x="3" y="14" width="7" height="7" rx="1"/>
-                <rect x="14" y="14" width="7" height="7" rx="1"/>
-              </svg>
-              <span>查看所有订阅方案</span>
-            </button>
-          </div>
-        )}
+          ) : null}
+        </div>
 
         {/* Billing History */}
-        <div className="billing-history-section">
-          <h3>历史账单</h3>
+        <div className="billing-section">
+          <div className="billing-section-header">
+            <h3>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+              历史账单
+            </h3>
+          </div>
+          
           {billingLoading ? (
             <div className="billing-loading">
               <div className="spinner"></div>
@@ -1766,48 +1642,38 @@ const Settings = () => {
             </div>
           ) : billingHistory.length > 0 ? (
             <>
-              <div className="billing-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>订单号</th>
-                      <th>套餐</th>
-                      <th>金额</th>
-                      <th>支付时间</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {billingHistory.map((order) => (
-                      <tr key={order.id}>
-                        <td className="order-no">{order.order_no}</td>
-                        <td>
-                          <div className="plan-info">
-                            <span className="plan-name">{order.plan_name}</span>
-                            <span className="billing-cycle">
-                              {order.billing_cycle === 'monthly' ? '月付' : '年付'}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="amount">
-                          <div className="amount-details">
-                            {order.discount_amount > 0 ? (
-                              <>
-                                <span className="final-amount">¥{order.final_amount.toFixed(2)}</span>
-                                <span className="original-amount">¥{order.amount.toFixed(2)}</span>
-                                <span className="discount-badge">已优惠¥{order.discount_amount.toFixed(2)}</span>
-                              </>
-                            ) : (
-                              <span className="final-amount">¥{order.final_amount.toFixed(2)}</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="payment-time">
-                          {new Date(order.payment_time).toLocaleString('zh-CN')}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="billing-list">
+                {billingHistory.map((order) => (
+                  <div key={order.id} className="billing-item">
+                    <div className="billing-item-main">
+                      <div className="billing-item-plan">
+                        <span className="billing-plan-name">{order.plan_name}</span>
+                        <span className="billing-cycle-tag">
+                          {order.billing_cycle === 'monthly' ? '月付' : '年付'}
+                        </span>
+                      </div>
+                      <div className="billing-item-amount">
+                        {order.discount_amount > 0 ? (
+                          <>
+                            <span className="billing-final">¥{order.final_amount.toFixed(2)}</span>
+                            <span className="billing-original">¥{order.amount.toFixed(2)}</span>
+                          </>
+                        ) : (
+                          <span className="billing-final">¥{order.final_amount.toFixed(2)}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="billing-item-meta">
+                      <span className="billing-order-no">订单号：{order.order_no}</span>
+                      <span className="billing-time">{new Date(order.payment_time).toLocaleString('zh-CN')}</span>
+                    </div>
+                    {order.discount_amount > 0 && (
+                      <div className="billing-discount-tag">
+                        已优惠 ¥{order.discount_amount.toFixed(2)}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
 
               {/* Pagination */}
@@ -1835,6 +1701,10 @@ const Settings = () => {
             </>
           ) : (
             <div className="empty-billing">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
               <p>暂无订单记录</p>
             </div>
           )}
@@ -1922,33 +1792,21 @@ const Settings = () => {
                   onClick={() => setActiveTab('profile')}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="3"/>
-                    <circle cx="12" cy="10" r="3"/>
-                    <path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/>
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
                   </svg>
-                  <span>我的介绍</span>
-                </button>
-                <button
-                  className={`menu-item ${activeTab === 'account' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('account')}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                  </svg>
-                  <span>账户管理</span>
+                  <span>个人资料</span>
                 </button>
                 <button
                   className={`menu-item ${activeTab === 'subscription' ? 'active' : ''}`}
                   onClick={() => setActiveTab('subscription')}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="6" width="18" height="14" rx="2" ry="2"/>
-                    <line x1="3" y1="10" x2="21" y2="10"/>
-                    <line x1="7" y1="14" x2="7.01" y2="14"/>
-                    <line x1="11" y1="14" x2="13" y2="14"/>
+                    <rect x="3" y="8" width="18" height="12" rx="2" ry="2"/>
+                    <path d="M3 8v-2a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
                   </svg>
-                  <span>订阅</span>
+                  <span>管理订阅</span>
                 </button>
                 <button
                   className={`menu-item ${activeTab === 'invitation' ? 'active' : ''}`}
@@ -1962,6 +1820,16 @@ const Settings = () => {
                   </svg>
                   <span>邀请推广</span>
                 </button>
+                <button
+                  className={`menu-item ${activeTab === 'account' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('account')}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
+                  </svg>
+                  <span>账户管理</span>
+                </button>
               </div>
 
               {renderExternalLinks()}
@@ -1972,9 +1840,9 @@ const Settings = () => {
           {/* Right Content */}
           <div className="settings-content">
             {activeTab === 'profile' && renderProfileTab()}
-            {activeTab === 'account' && renderAccountTab()}
             {activeTab === 'subscription' && renderSubscriptionTab()}
             {activeTab === 'invitation' && renderInvitationTab()}
+            {activeTab === 'account' && renderAccountTab()}
           </div>
         </div>
       </div>
