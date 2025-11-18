@@ -37,27 +37,17 @@ const Home = () => {
   const textareaRef = useRef(null);
   const modeSelectorRef = useRef(null);
   const modeToggleRef = useRef(null);
+  const lastTypingDelayRef = useRef(90);
 
   // Typewriter effect for welcome title
   const [displayedText, setDisplayedText] = useState('');
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showCursor, setShowCursor] = useState(true);
-  const [isTyping, setIsTyping] = useState(false);
 
   // 保存侧边栏状态到localStorage
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
   }, [sidebarCollapsed]);
-
-  useEffect(() => {
-    // Cursor blinking - only when not typing
-    const cursorInterval = setInterval(() => {
-      setShowCursor(prev => !prev);
-    }, 530);
-
-    return () => clearInterval(cursorInterval);
-  }, []);
 
   // 点击外部关闭模式选择器
   useEffect(() => {
@@ -82,17 +72,13 @@ const Home = () => {
     ];
 
     const currentPhrase = phrases[currentPhraseIndex];
-    // 使用随机速度增加自然感
-    const typingSpeed = isDeleting ? 30 : 80 + Math.random() * 40;
-    const pauseAfterComplete = 2000;
+    const pauseAfterComplete = 30000; // 30s 展示间隔
     const pauseAfterDelete = 500;
 
     if (!isDeleting && displayedText === currentPhrase) {
       // Finished typing, pause then start deleting
-      setIsTyping(false);
       const timeout = setTimeout(() => {
         setIsDeleting(true);
-        setIsTyping(true);
       }, pauseAfterComplete);
       return () => clearTimeout(timeout);
     }
@@ -100,16 +86,28 @@ const Home = () => {
     if (isDeleting && displayedText === '') {
       // Finished deleting, move to next phrase
       setIsDeleting(false);
-      setIsTyping(false);
       setCurrentPhraseIndex((prev) => (prev + 1) % phrases.length);
       const timeout = setTimeout(() => {
-        setIsTyping(true);
       }, pauseAfterDelete);
       return () => clearTimeout(timeout);
     }
 
+    const phraseLength = currentPhrase.length || 1;
+    const rawProgress = displayedText.length / phraseLength;
+    const directionalProgress = isDeleting ? 1 - rawProgress : rawProgress;
+    const clampedProgress = Math.min(1, Math.max(0, directionalProgress));
+    const wave = Math.sin(Math.PI * clampedProgress);
+    const config = isDeleting
+      ? { base: 60, variance: 18, min: 28 }
+      : { base: 115, variance: 35, min: 60 };
+    const targetDelay = Math.max(
+      config.min,
+      config.base - wave * config.variance
+    );
+    const smoothDelay = lastTypingDelayRef.current * 0.4 + targetDelay * 0.6;
+    lastTypingDelayRef.current = smoothDelay;
+
     // Type or delete character
-    setIsTyping(true);
     const timeout = setTimeout(() => {
       setDisplayedText(prev => {
         if (isDeleting) {
@@ -118,7 +116,7 @@ const Home = () => {
           return currentPhrase.substring(0, prev.length + 1);
         }
       });
-    }, typingSpeed);
+    }, smoothDelay);
 
     return () => clearTimeout(timeout);
   }, [displayedText, isDeleting, currentPhraseIndex]);
@@ -253,7 +251,6 @@ const Home = () => {
             <div className="welcome-screen">
               <h1 className="welcome-title">
                 {displayedText}
-                <span className={`typewriter-cursor ${showCursor ? 'visible' : ''}`}></span>
               </h1>
             </div>
 
@@ -315,11 +312,16 @@ const Home = () => {
                           className={`footer-btn mode-icon-btn ${searchMode === 'advanced' ? 'advanced-mode' : ''}`}
                           onClick={() => setShowModeSelector(!showModeSelector)}
                         >
-                          {searchMode === 'normal' ? (
-                            <NormalSearchIcon size={16} />
-                          ) : (
-                            <AdvancedSearchIcon size={16} />
-                          )}
+                          <span className="mode-icon">
+                            {searchMode === 'normal' ? (
+                              <NormalSearchIcon size={22} />
+                            ) : (
+                              <AdvancedSearchIcon size={22} />
+                            )}
+                          </span>
+                          <span className="mode-label">
+                            {searchMode === 'normal' ? '普通' : '高级'}
+                          </span>
                         </button>
 
                         {/* 悬浮选择器 */}

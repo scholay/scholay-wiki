@@ -533,17 +533,19 @@
 .search-mode-indicator {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 6px 0;
-  color: rgba(142, 142, 160, 1);
-  font-size: 14px;
-  font-weight: 400;
+  color: rgba(236, 236, 241, 0.85);
+  font-size: 15px;
+  font-weight: 600;
   cursor: default;
 }
 
 .search-mode-indicator svg {
   flex-shrink: 0;
-  opacity: 0.8;
+  width: 22px;
+  height: 22px;
+  opacity: 0.95;
 }
 
 /* Footer Buttons - ChatGPT Style */
@@ -583,14 +585,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   position: relative;
+  border-radius: 4px;
+  background: none !important;
+  box-shadow: none !important;
 }
 
 .filter-btn .filter-icon,
 .filter-btn .clear-icon {
   position: absolute;
+  width: 16px;
+  height: 16px;
   transition: all 0.2s ease;
 }
 

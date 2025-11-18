@@ -474,7 +474,7 @@ const SearchResultsPage = () => {
                   <div className="composer-footer-left">
                     {/* 搜索模式标识 - 固定显示普通搜索 */}
                     <div className="search-mode-indicator">
-                      <NormalSearchIcon size={16} />
+                      <NormalSearchIcon size={22} />
                       <span>普通搜索</span>
                     </div>
 
@@ -534,7 +534,8 @@ const SearchResultsPage = () => {
                 <div className="composer-input-area">
                   {/* 搜索模式标识 - 最左边 */}
                   <div className="search-mode-indicator">
-                    <NormalSearchIcon size={16} />
+                    <NormalSearchIcon size={22} />
+                    <NormalSearchIcon size={22} />
                     <span>普通搜索</span>
                   </div>
 
