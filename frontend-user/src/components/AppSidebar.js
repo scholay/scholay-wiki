@@ -99,6 +99,38 @@ const AppSidebar = ({
     return displayName.charAt(0).toUpperCase();
   };
 
+  // 获取用户显示标识（邮箱 > 手机号 > 微信昵称 > GitHub用户名）
+  const getUserIdentifier = () => {
+    if (!user) return '未登录';
+    
+    // 优先级1: 邮箱
+    if (user.email) {
+      return user.email;
+    }
+    
+    // 优先级2: 手机号
+    if (user.phone) {
+      return user.phone;
+    }
+    
+    // 优先级3: 微信昵称
+    if (user.wechat_name) {
+      return `微信: ${user.wechat_name}`;
+    }
+    
+    // 优先级4: GitHub用户名
+    if (user.github_login) {
+      return `GitHub: ${user.github_login}`;
+    }
+    
+    // 兜底：用户名
+    if (user.username) {
+      return user.username;
+    }
+    
+    return '用户';
+  };
+
   // 更新菜单位置 - 向上弹出
   const updateMenuPosition = () => {
     if (avatarRef.current) {
@@ -488,7 +520,7 @@ const AppSidebar = ({
           </div>
           {!collapsed && (
             <div className="user-email-wrapper">
-              <span className="user-email">{user?.username || user?.email?.split('@')[0] || '未登录'}</span>
+              <span className="user-email" title={getUserIdentifier()}>{getUserIdentifier()}</span>
             </div>
           )}
         </div>
@@ -512,7 +544,7 @@ const AppSidebar = ({
                 </div>
                 <div className="user-info-text">
                   <div className="user-name">{user?.username || user?.email?.split('@')[0] || '用户'}</div>
-                  <div className="user-email-small">{user?.email}</div>
+                  <div className="user-email-small" title={getUserIdentifier()}>{getUserIdentifier()}</div>
                 </div>
                 {subscription && (
                   <div className="user-subscription-badge">

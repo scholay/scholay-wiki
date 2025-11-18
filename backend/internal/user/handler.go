@@ -1,6 +1,7 @@
 package user
 
 import (
+	"encoding/json"
 	"scholar-backend/internal/common/turnstile"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/config"
@@ -143,8 +144,10 @@ type UserProfileResponse struct {
 	Status        int8       `json:"status"`
 	EmailVerified bool       `json:"email_verified"`
 	PhoneVerified bool       `json:"phone_verified"`
-	WeChatOpenID  *string    `json:"wechat_openid"` // WeChat OpenID if bound
-	GitHubID      *string    `json:"github_id"`     // GitHub ID if bound
+	WeChatOpenID  *string    `json:"wechat_openid"`   // WeChat OpenID if bound
+	WeChatName    *string    `json:"wechat_name"`     // WeChat nickname if bound
+	GitHubID      *string    `json:"github_id"`       // GitHub ID if bound
+	GitHubLogin   *string    `json:"github_login"`    // GitHub login username if bound
 	LastLoginAt   *time.Time `json:"last_login_at"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
@@ -290,16 +293,44 @@ func (h *Handler) GetProfile(c *gin.Context) {
 
 	// Check if WeChat is bound
 	var wechatOpenID *string
+	var wechatName *string
 	wechatProvider, err := h.service.repo.FindAuthProviderByUserAndProvider(userID.(uint), "wechat")
 	if err == nil && wechatProvider != nil {
 		wechatOpenID = &wechatProvider.ProviderUserID
+		// Try to get WeChat nickname from provider_data first
+		if wechatProvider.ProviderData != nil {
+			// Parse JSON to extract nickname field
+			// Expected format: {"nickname":"xxx","avatar_url":"xxx"}
+			var providerData map[string]interface{}
+			if err := json.Unmarshal([]byte(*wechatProvider.ProviderData), &providerData); err == nil {
+				if nickname, ok := providerData["nickname"].(string); ok && nickname != "" {
+					wechatName = &nickname
+				}
+			}
+		}
+		// Fallback to username if provider_data doesn't have nickname
+		if wechatName == nil && user.Username != nil && *user.Username != "" {
+			wechatName = user.Username
+		}
 	}
 
 	// Check if GitHub is bound
 	var githubID *string
+	var githubLogin *string
 	githubProvider, err := h.service.repo.FindAuthProviderByUserAndProvider(userID.(uint), "github")
 	if err == nil && githubProvider != nil {
 		githubID = &githubProvider.ProviderUserID
+		// Try to extract GitHub login from provider_data JSON
+		if githubProvider.ProviderData != nil {
+			// Parse JSON to extract login field
+			// Expected format: {"login":"username","name":"Full Name","avatar_url":"..."}
+			var providerData map[string]interface{}
+			if err := json.Unmarshal([]byte(*githubProvider.ProviderData), &providerData); err == nil {
+				if login, ok := providerData["login"].(string); ok && login != "" {
+					githubLogin = &login
+				}
+			}
+		}
 	}
 
 	// Build extended response
@@ -314,7 +345,9 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		EmailVerified: user.EmailVerified,
 		PhoneVerified: user.PhoneVerified,
 		WeChatOpenID:  wechatOpenID,
+		WeChatName:    wechatName,
 		GitHubID:      githubID,
+		GitHubLogin:   githubLogin,
 		LastLoginAt:   user.LastLoginAt,
 		CreatedAt:     user.CreatedAt,
 		UpdatedAt:     user.UpdatedAt,

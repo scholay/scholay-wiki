@@ -1674,11 +1674,13 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	// Update last login time (registration counts as first login)
 	_ = s.repo.UpdateLastLogin(user.ID)
 
-	// Create auth provider entry
+	// Create auth provider entry with nickname in provider_data
+	providerDataJSON := fmt.Sprintf(`{"nickname":"%s","avatar_url":"%s"}`, nickname, avatarURL)
 	authProvider = &UserAuthProvider{
 		UserID:         user.ID,
 		Provider:       "wechat",
 		ProviderUserID: openID,
+		ProviderData:   &providerDataJSON,
 	}
 
 	if err := s.repo.CreateAuthProvider(authProvider); err != nil {
@@ -1734,12 +1736,16 @@ func (s *Service) BindWeChat(userID uint, openID, unionID, nickname, avatarURL s
 		return err
 	}
 
+	// Prepare provider data
+	providerDataJSON := fmt.Sprintf(`{"nickname":"%s","avatar_url":"%s"}`, nickname, avatarURL)
+	
 	if authProvider == nil {
 		// Create new auth provider
 		authProvider = &UserAuthProvider{
 			UserID:         userID,
 			Provider:       "wechat",
 			ProviderUserID: openID,
+			ProviderData:   &providerDataJSON,
 		}
 		if err := s.repo.CreateAuthProvider(authProvider); err != nil {
 			return err
@@ -1747,6 +1753,7 @@ func (s *Service) BindWeChat(userID uint, openID, unionID, nickname, avatarURL s
 	} else {
 		// Update existing auth provider
 		authProvider.ProviderUserID = openID
+		authProvider.ProviderData = &providerDataJSON
 		if err := s.repo.UpdateAuthProvider(authProvider); err != nil {
 			return err
 		}
