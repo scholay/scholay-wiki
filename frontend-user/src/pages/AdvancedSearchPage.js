@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
+import { useSidebar } from '../contexts/SidebarContext';
 import logger from '../utils/logger';
-import AppSidebar from '../components/AppSidebar';
 import PaperList from '../components/PaperList';
 import PaperCitationMarkdown from '../components/PaperCitationMarkdown';
 import ModelSelector from '../components/ModelSelector';
@@ -13,11 +13,10 @@ import './AdvancedSearchPage.css';
 const AdvancedSearchPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated, user, logout, loading: authLoading } = useAuth();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    const saved = localStorage.getItem('sidebarCollapsed');
-    return saved === 'true';
-  });
+  const { isAuthenticated, user, loading: authLoading } = useAuth();
+  const { updateSidebarConfig } = useSidebar();
+  const outletContext = useOutletContext();
+  const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
 
   // Conversation state
   const [currentConversationId, setCurrentConversationId] = useState(null);
@@ -125,12 +124,6 @@ const AdvancedSearchPage = () => {
     } finally {
       setConversationsLoading(false);
     }
-  };
-
-  const handleToggleSidebar = () => {
-    const newCollapsed = !sidebarCollapsed;
-    setSidebarCollapsed(newCollapsed);
-    localStorage.setItem('sidebarCollapsed', newCollapsed.toString());
   };
 
   // 获取当前模型的剩余次数
@@ -462,13 +455,20 @@ const AdvancedSearchPage = () => {
     };
   }, []);
 
-  const handleLogout = () => {
-    logout();
-    setCurrentConversationId(null);
-    setMessages([]);
-    setPapers([]);
-    navigate('/');
-  };
+  // 更新侧边栏配置
+  useEffect(() => {
+    updateSidebarConfig({
+      showHistory: true,
+      historyType: 'conversation',
+      historyItems: conversations,
+      currentItemId: currentConversationId,
+      onSelectItem: handleSelectConversation,
+      onDeleteItem: handleDeleteConversation,
+      onRenameItem: handleRenameConversation,
+      onNewItem: handleNewConversation,
+      historyLoading: conversationsLoading,
+    });
+  }, [conversations, currentConversationId, conversationsLoading, updateSidebarConfig]);
 
   const handleNewConversation = () => {
     if (eventSourceRef.current) {
@@ -1177,22 +1177,6 @@ const AdvancedSearchPage = () => {
   // Main advanced search interface
   return (
     <div className="advanced-search-page">
-      <AppSidebar
-        user={user}
-        onLogout={handleLogout}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={handleToggleSidebar}
-        showHistory={true}
-        historyType="conversation"
-        historyItems={conversations}
-        currentItemId={currentConversationId}
-        onSelectItem={handleSelectConversation}
-        onDeleteItem={handleDeleteConversation}
-        onRenameItem={handleRenameConversation}
-        onNewItem={handleNewConversation}
-        historyLoading={false}
-      />
-
       <div className={`advanced-search-content ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
         {messages.length === 0 ? (
           /* 空状态：参考普通搜索的布局 */

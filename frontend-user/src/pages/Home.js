@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, lazy, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
+import { useSidebar } from '../contexts/SidebarContext';
 import SearchFilters from '../components/SearchFilters';
-import AppSidebar from '../components/AppSidebar';
 import ModelSelector from '../components/ModelSelector';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import SEO from '../components/SEO';
@@ -14,16 +14,15 @@ const AuthModal = lazy(() => import('../components/AuthModal'));
 
 const Home = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const { resetSidebarConfig } = useSidebar();
+  const outletContext = useOutletContext();
+  const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
+  
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [searchMode, setSearchMode] = useState('normal'); // 'normal' or 'advanced'
   const [showFilters, setShowFilters] = useState(false); // 显示筛选条件
   const [modelLevel, setModelLevel] = useState('low'); // 'low', 'mid', 'high' - 默认普通模型
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    // 从localStorage读取侧边栏状态，默认为收起(true)
-    const saved = localStorage.getItem('sidebarCollapsed');
-    return saved !== null ? JSON.parse(saved) : true;
-  });
   const [filters, setFilters] = useState({
     yearFrom: '',
     yearTo: '',
@@ -75,10 +74,10 @@ const Home = () => {
     ]
   };
 
-  // 保存侧边栏状态到localStorage
+  // 重置侧边栏配置（Home 页面不需要历史记录）
   useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
-  }, [sidebarCollapsed]);
+    resetSidebarConfig();
+  }, [resetSidebarConfig]);
 
   // 搜索示例轮播效果
   useEffect(() => {
@@ -196,17 +195,6 @@ const Home = () => {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
-
-  const handleToggleSidebar = () => {
-    const newCollapsed = !sidebarCollapsed;
-    setSidebarCollapsed(newCollapsed);
-    localStorage.setItem('sidebarCollapsed', newCollapsed.toString());
-  };
-
   // FAQ数据用于结构化数据
   const faqData = [
     {
@@ -233,17 +221,7 @@ const Home = () => {
         canonical="/"
         structuredData={generateFAQSchema(faqData)}
       />
-      {/* 只在登录状态显示侧边栏 */}
-      {isAuthenticated && (
-        <AppSidebar
-          user={user}
-          onLogout={handleLogout}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={handleToggleSidebar}
-          showHistory={false}
-        />
-      )}
-
+      
       <div className={`main-container ${isAuthenticated ? (sidebarCollapsed ? 'sidebar-collapsed-narrow' : 'has-sidebar') : 'sidebar-collapsed'}`}>
         <nav className="top-navbar">
           <div className="navbar-left">

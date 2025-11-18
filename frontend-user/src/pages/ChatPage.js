@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { flushSync } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { useAuth } from '../utils/AuthContext';
-import AppSidebar from '../components/AppSidebar';
+import { useSidebar } from '../contexts/SidebarContext';
 import api, { subscriptionAPI } from '../services/api';
 import './ChatPageNew.css';
 import 'highlight.js/styles/github-dark.css';
@@ -64,7 +64,10 @@ const CodeBlock = React.memo(({ inline, className, children, ...props }) => {
 
 function ChatPage() {
   const navigate = useNavigate();
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const { updateSidebarConfig } = useSidebar();
+  const outletContext = useOutletContext();
+  const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
 
   const [conversations, setConversations] = useState([]);
   const [currentConversation, setCurrentConversation] = useState(null);
@@ -78,10 +81,6 @@ function ChatPage() {
   const [showModelDropdown, setShowModelDropdown] = useState(false); // Model selector dropdown state
   const [quota, setQuota] = useState(null); // AI Chat quota limits
   const [usage, setUsage] = useState(null); // AI Chat usage counts
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    const saved = localStorage.getItem('sidebarCollapsed');
-    return saved === 'true';
-  });
   const [hoveredMessage, setHoveredMessage] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
   const [editContent, setEditContent] = useState('');
@@ -753,18 +752,20 @@ function ChatPage() {
     }
   };
 
-  const handleToggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate('/');
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
-  };
+  // 更新侧边栏配置
+  useEffect(() => {
+    updateSidebarConfig({
+      showHistory: true,
+      historyType: 'conversation',
+      historyItems: conversations,
+      currentItemId: currentConversation?.id || null,
+      onSelectItem: loadConversation,
+      onDeleteItem: deleteConversation,
+      onRenameItem: renameConversation,
+      onNewItem: handleNewConversation,
+      historyLoading: loading,
+    });
+  }, [conversations, currentConversation?.id, loading, updateSidebarConfig]);
 
   const handleNewConversation = () => {
     setCurrentConversation(null);
@@ -781,25 +782,6 @@ function ChatPage() {
 
   return (
     <div className="chat-page-wrapper">
-      {/* AppSidebar with conversation history */}
-      {isAuthenticated && (
-        <AppSidebar
-          user={user}
-          onLogout={handleLogout}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={handleToggleSidebar}
-          showHistory={true}
-          historyType="conversation"
-          historyItems={conversations}
-          currentItemId={currentConversation?.id}
-          onSelectItem={loadConversation}
-          onDeleteItem={deleteConversation}
-          onRenameItem={renameConversation}
-          onNewItem={handleNewConversation}
-          historyLoading={false}
-        />
-      )}
-
       {/* Main Chat Area - Completely Rewritten */}
       <div className={`main-container ${isAuthenticated ? (sidebarCollapsed ? 'sidebar-collapsed-narrow' : 'has-sidebar') : 'sidebar-collapsed'}`}>
         <div className="search-content">

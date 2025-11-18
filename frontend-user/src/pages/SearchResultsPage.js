@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
+import { useSidebar } from '../contexts/SidebarContext';
 import { scholarAPI } from '../services/api';
-import AppSidebar from '../components/AppSidebar';
 import FilterSidebar from '../components/FilterSidebar';
 import PaperPreview from '../components/PaperPreview';
 import SearchFilters from '../components/SearchFilters';
@@ -16,13 +16,12 @@ import './SearchResultsPage.css';
 const SearchResultsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const { updateSidebarConfig } = useSidebar();
+  const outletContext = useOutletContext();
+  const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
 
-  // 侧边栏状态
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    const saved = localStorage.getItem('sidebarCollapsed');
-    return saved === 'true';
-  });
+  // 搜索历史状态
   const [searchHistory, setSearchHistory] = useState([]);
 
   // 从URL参数初始化状态
@@ -165,12 +164,6 @@ const SearchResultsPage = () => {
     setSearchHistory(history);
   };
 
-  const handleToggleSidebar = () => {
-    const newCollapsed = !sidebarCollapsed;
-    setSidebarCollapsed(newCollapsed);
-    localStorage.setItem('sidebarCollapsed', newCollapsed.toString());
-  };
-
   const handleSelectSearchHistory = (itemId) => {
     const history = searchHistory.find(h => h.id === itemId);
     if (history) {
@@ -202,10 +195,20 @@ const SearchResultsPage = () => {
     loadSearchHistory();
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
+  // 更新侧边栏配置
+  useEffect(() => {
+    updateSidebarConfig({
+      showHistory: true,
+      historyType: 'search',
+      historyItems: searchHistory,
+      currentItemId: selectedHistoryId,
+      onSelectItem: handleSelectSearchHistory,
+      onDeleteItem: handleDeleteSearchHistory,
+      onRenameItem: handleRenameSearchHistory,
+      onNewItem: null,
+      historyLoading: false,
+    });
+  }, [searchHistory, selectedHistoryId, updateSidebarConfig]);
 
   // Check authentication - redirect to home if not logged in
   useEffect(() => {
@@ -411,24 +414,6 @@ const SearchResultsPage = () => {
         canonical={`/search-results?query=${encodeURIComponent(searchQuery)}`}
         structuredData={papers.length > 0 ? generateSearchResultsSchema(searchQuery, papers) : generateBreadcrumbSchema(breadcrumbData)}
       />
-      {/* 统一侧边栏 */}
-      {isAuthenticated && (
-        <AppSidebar
-          user={user}
-          onLogout={handleLogout}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={handleToggleSidebar}
-          showHistory={true}
-          historyType="search"
-          historyItems={searchHistory}
-          currentItemId={selectedHistoryId}
-          onSelectItem={handleSelectSearchHistory}
-          onDeleteItem={handleDeleteSearchHistory}
-          onRenameItem={handleRenameSearchHistory}
-          onNewItem={null}
-          historyLoading={false}
-        />
-      )}
 
       {/* 主内容区域 */}
       <div className={`search-results-content ${isAuthenticated ? (sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded') : 'no-sidebar'}`}>
