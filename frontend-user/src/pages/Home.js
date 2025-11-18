@@ -265,12 +265,12 @@ const Home = () => {
               </a>
             </div>
 
-            <form onSubmit={handleSearch} className="composer-wrapper">
+            <form onSubmit={handleSearch} className="home-composer-wrapper">
               {/* 输入区域 */}
-              <div className="composer-input-area">
+              <div className="home-composer-input-area">
                     <textarea
                       ref={textareaRef}
-                      className="chat-input"
+                      className="home-chat-input"
                       placeholder={searchMode === 'normal' ? '搜索论文标题、作者、关键词...' : '用自然语言描述研究需求,AI 智能解析并搜索...'}
                       value={searchQuery}
                       onChange={(e) => {
@@ -303,8 +303,8 @@ const Home = () => {
                   </div>
 
                   {/* 底部操作栏 */}
-                  <div className="composer-footer">
-                    <div className="composer-footer-left">
+                  <div className="home-composer-footer">
+                    <div className="home-composer-footer-left">
                       {/* 搜索模式切换 - 单个图标+悬浮窗 */}
                       <div className="search-mode-toggle" ref={modeToggleRef}>
                         <button

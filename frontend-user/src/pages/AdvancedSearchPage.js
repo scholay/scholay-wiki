@@ -1202,12 +1202,12 @@ const AdvancedSearchPage = () => {
             </nav>
 
             <div className="empty-search-content">
-              <form onSubmit={handleSearch} className="empty-composer-wrapper">
+              <form onSubmit={handleSearch} className="advanced-search-composer-wrapper">
                 {/* 输入区域 */}
-                <div className="composer-input-area">
+                <div className="advanced-search-composer-input-area">
                   <textarea
                     ref={textareaRef}
-                    className="chat-input"
+                    className="advanced-search-chat-input"
                     placeholder={
                       (() => {
                         const remaining = getRemainingCount();
@@ -1247,8 +1247,8 @@ const AdvancedSearchPage = () => {
                 </div>
 
                 {/* 底部操作栏 */}
-                <div className="composer-footer">
-                  <div className="composer-footer-left">
+                <div className="advanced-search-composer-footer">
+                  <div className="advanced-search-composer-footer-left">
                     {/* 搜索模式标识 - 固定显示高级搜索 */}
                     <div className="search-mode-indicator">
                       <AdvancedSearchIcon size={16} />
@@ -1374,12 +1374,12 @@ const AdvancedSearchPage = () => {
 
                 {/* 底部输入框 */}
                 <div className="bottom-input-container">
-                  <form onSubmit={handleSearch} className="bottom-composer-wrapper">
+                  <form onSubmit={handleSearch} className="advanced-bottom-composer-wrapper">
                     {/* 输入区域 */}
-                    <div className="composer-input-area">
+                    <div className="advanced-bottom-composer-input-area">
                       <textarea
                         ref={textareaRef}
-                        className="chat-input"
+                        className="advanced-bottom-chat-input"
                         placeholder={
                           (() => {
                             const remaining = getRemainingCount();
@@ -1419,8 +1419,8 @@ const AdvancedSearchPage = () => {
                     </div>
 
                     {/* 底部操作栏 */}
-                    <div className="composer-footer">
-                      <div className="composer-footer-left">
+                    <div className="advanced-bottom-composer-footer">
+                      <div className="advanced-bottom-composer-footer-left">
                         {/* 搜索模式标识 - 固定显示高级搜索 */}
                         <div className="search-mode-indicator">
                           <AdvancedSearchIcon size={16} />

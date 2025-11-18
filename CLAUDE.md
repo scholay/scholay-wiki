@@ -50,13 +50,18 @@ go mod tidy
 GOPROXY=https://mirrors.aliyun.com/goproxy/,direct go mod tidy  # If in China
 go run cmd/server/main.go
 
-# Run backend tests (if available)
+# Run backend tests
 cd backend
 go test ./...
 
 # Format Go code
 cd backend
 go fmt ./...
+
+# Generate test coverage report
+cd backend
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
 ```
 
 ### Frontend Development
@@ -66,14 +71,14 @@ go fmt ./...
 cd frontend-admin
 npm install
 npm start        # Development server on port 3000
-npm run build    # Production build
+npm run build    # Production build (optimized, no source maps)
 
 # User Portal
 cd frontend-user
 npm install
 npm run copy-pdf-worker  # Copy PDF.js worker (required for PDF preview)
 npm start        # Development server on port 3000
-npm run build    # Production build
+npm run build    # Production build (optimized, no source maps)
 ```
 
 ### Database Operations
@@ -94,6 +99,9 @@ docker exec scholar_mysql mysqldump -u scholar_user -pscholar_pass scholar > bac
 # Reset database (WARNING: deletes all data)
 docker-compose down -v
 docker-compose up -d --build
+
+# Test seed data idempotency
+./scripts/test-seed-data.sh
 ```
 
 ### Redis Operations
@@ -107,9 +115,25 @@ docker exec -it scholar_redis redis-cli KEYS "*"              # List all keys
 docker exec -it scholar_redis redis-cli GET "key_name"        # Get value
 docker exec -it scholar_redis redis-cli FLUSHALL              # Clear all cache (use carefully!)
 docker exec -it scholar_redis redis-cli INFO                  # Redis stats
+docker exec -it scholar_redis redis-cli INFO memory           # Memory usage
 
 # Monitor Redis operations in real-time
 docker exec -it scholar_redis redis-cli MONITOR
+```
+
+### Utility Scripts
+
+```bash
+# Check Alipay payment callback logs
+./scripts/check-alipay-callback.sh          # View last 10 callbacks
+./scripts/check-alipay-callback.sh 20       # View last 20 callbacks
+./scripts/check-alipay-callback.sh ORDER123 # View specific order
+
+# Test database seed data idempotency
+./scripts/test-seed-data.sh
+
+# Optimize images (requires ImageMagick)
+./scripts/optimize-images.sh
 ```
 
 ### Testing API Endpoints
@@ -212,6 +236,16 @@ The project uses Nginx as a reverse proxy to provide unified entry points and so
 - All frontend-to-backend API calls go through Nginx, enabling same-origin requests
 - Backend containers communicate via internal Docker network (`scholar-network`)
 
+**Nginx Performance Configuration**:
+- **Worker processes**: Auto-scale based on CPU cores
+- **Worker connections**: 1024 per process
+- **Gzip compression**: Level 6 for text/JSON content
+- **Two-tier caching**:
+  - Static cache: 1GB max, 7-day inactive timeout
+  - API cache: 100MB max, 1-hour inactive timeout
+  - Static assets: 1-year cache headers
+  - HTML files: no-cache headers
+
 ### Backend Layered Architecture
 
 The Go backend follows a clean architecture pattern with clear separation:
@@ -240,6 +274,7 @@ internal/
     ├── model/      # Shared models (sessions, statistics)
     ├── cache/      # Redis cache utilities
     ├── cleanup/    # Background cleanup tasks
+    ├── circuitbreaker/ # Circuit breakers for external services
     └── utils/      # Utilities (JWT, password, response, Redis)
 ```
 
@@ -247,6 +282,51 @@ internal/
 - **Repository**: Database operations (GORM)
 - **Service**: Business logic
 - **Handler**: HTTP request/response (Gin)
+
+### Database Schema (31 Tables)
+
+The system uses MySQL with the following tables:
+
+**Core Tables**:
+- `users` - User accounts
+- `admin_users` - Admin accounts
+- `user_auth_providers` - OAuth provider associations
+- `user_sessions` - Active session tracking
+- `online_user_snapshots` - User activity statistics
+
+**Subscription & Order**:
+- `subscription_plans` - Available subscription tiers
+- `user_subscriptions` - Active user subscriptions
+- `usage_quotas` - API call quotas per subscription
+- `orders` - Purchase orders
+- `payment_transactions` - Payment records
+
+**Coupon System**:
+- `coupon_templates` - Reusable coupon definitions
+- `user_coupons` - Issued coupons
+- `coupon_usage_logs` - Usage history
+- `coupon_batches` - Bulk distribution management
+- `user_invitations` - User invitation codes
+- `invitation_relationships` - Inviter-invitee tracking
+
+**Configuration**:
+- `third_party_accounts` - API keys and credentials
+- `prompt_templates` - AI prompt configurations
+- `system_configs` - System-wide settings
+- `github_oauth_config` - GitHub OAuth settings
+- `wechat_configs` - WeChat Mini Program config
+- `wechat_official_config` - WeChat Official Account config
+- `wechat_pay_configs` - WeChat Pay settings
+- `alipay_configs` - Alipay settings
+- `email_configs` - Email service settings
+- `sms_configs` - SMS service settings
+- `privacy_policies` - Privacy policy versions
+- `terms_of_service` - Terms of service versions
+
+**Content**:
+- `conversations` - User AI conversations
+- `conversation_messages` - Individual messages
+- `user_statistics` - User analytics data
 
 ### Automatic Database Schema Synchronization
 
@@ -268,8 +348,31 @@ internal/
 1. Edit `docker/mysql/init/01_schema.sql` (scroll to bottom for INSERT statements)
 2. Use `INSERT IGNORE` instead of `ON DUPLICATE KEY UPDATE`
 3. This ensures restarts don't overwrite modified data
+4. Test idempotency: `./scripts/test-seed-data.sh`
 
 **Never** use `DROP TABLE` or destructive operations in init scripts. Always make schema changes idempotent.
+
+### Docker Service Architecture
+
+**Multi-stage Builds**:
+- Backend: Go 1.21 builder → Alpine runtime with mysql-client
+- Frontend: Node 18 builder → Nginx Alpine runtime
+- All containers use Asia/Shanghai timezone
+
+**Health Checks**:
+- MySQL: `mysqladmin ping` (10s interval, 5s timeout, 5 retries)
+- Redis: `redis-cli ping` (10s interval, 3s timeout, 5 retries)
+- Schema-sync: Waits for MySQL health
+- Backend: Waits for MySQL, Redis, and schema-sync
+
+**Service Dependencies**:
+```
+MySQL → Schema-sync → Backend
+Redis ↗                    ↓
+                        Nginx
+Frontend-user ↗            ↓
+Frontend-admin → Nginx → User/Admin access
+```
 
 ### Semantic Scholar Integration
 
@@ -279,6 +382,7 @@ The backend integrates Semantic Scholar Academic Graph API with two access metho
    - Paper search, details, citations, references
    - Author search, details, papers
    - Recommendations
+   - Full OpenAPI specification in `swagger.json`
 
 2. **MCP Protocol** (`/api/v1/mcp/*`):
    - Provides tool-based access for LLMs
@@ -290,6 +394,7 @@ The backend integrates Semantic Scholar Academic Graph API with two access metho
 - `backend/internal/mcp/` - MCP server implementation
 - `backend/internal/thirdparty/` - API key management with Redis cache (5-min refresh)
 - `backend/SEMANTIC_SCHOLAR_API.md` - Detailed API documentation (Chinese)
+- `swagger.json` - Complete OpenAPI 2.0 specification
 
 ### AI & Conversation System
 
@@ -347,6 +452,7 @@ The platform integrates with multiple payment providers for the Chinese market:
 - Payment callbacks trigger subscription activation
 - Secure signature verification for all payment notifications
 - Support for multiple payment scenarios (web, mobile app, mini program)
+- Debug tool: `./scripts/check-alipay-callback.sh` for troubleshooting
 
 ### Coupon & Discount System
 
@@ -515,6 +621,7 @@ The backend runs several background tasks for performance and maintenance:
   - API keys: 5-minute TTL with automatic refresh
   - Session data: Cached for performance
   - LRU eviction policy with 512MB max memory
+  - AOF persistence enabled for durability
 
 ### Frontend Architecture
 
@@ -531,12 +638,21 @@ The backend runs several background tasks for performance and maintenance:
 - Captcha support (rc-slider-captcha)
 - Responsive design for mobile
 - Custom SVG icon set (`SearchIcons.js`) with multiple design variants
+- Markdown rendering with syntax highlighting
+- Cloudflare Turnstile integration
 
 **Admin Dashboard Features**:
 - User management & statistics (Recharts)
 - Third-party account management (API keys)
 - Prompt template management
 - System configuration (privacy policy, email)
+- Analytics visualization
+
+**Production Build Optimization**:
+- Source maps disabled (GENERATE_SOURCEMAP=false)
+- Console logs removed in production
+- Static asset caching via Nginx
+- Gzip compression for all text content
 
 ## Common Development Tasks
 
@@ -609,6 +725,26 @@ When adding new external API integrations:
    ```
 
 ## Important Notes
+
+### Key Dependencies
+
+**Backend (Go 1.21)**:
+- Gin Web Framework
+- GORM + MySQL driver
+- Redis Go client v9
+- JWT v5
+- gobreaker (circuit breaker)
+- Aliyun SDK (SMS, payments)
+- godotenv
+
+**Frontend (React 18)**:
+- axios (API calls)
+- react-router-dom v6
+- pdfjs-dist + react-pdf (PDF preview)
+- rc-slider-captcha (slider CAPTCHA)
+- recharts (admin analytics)
+- react-markdown + rehype-highlight (markdown rendering)
+- @marsidev/react-turnstile (Cloudflare Turnstile)
 
 ### Database and Cache Connection
 
@@ -698,6 +834,15 @@ Both frontends are fully mobile-responsive:
 - **Viewport meta**: Allows zoom (accessibility), PWA-ready
 - Test with Chrome DevTools device emulator or real devices
 
+### Required CLI Tools
+
+The following tools are used in various operations:
+- `mysqladmin` - Database health checks
+- `mysql` - Database CLI operations
+- `redis-cli` - Redis operations
+- `convert` (ImageMagick) - Image optimization
+- `jq` - JSON processing (optional, for API testing)
+
 ## Access Information
 
 **Development URLs** (check `.env` for actual port configuration):
@@ -751,6 +896,9 @@ cat docker/mysql/init/01_schema.sql
 
 # Trigger sync manually
 docker-compose restart schema-sync backend
+
+# Test seed data idempotency
+./scripts/test-seed-data.sh
 
 # Nuclear option (deletes all data)
 docker-compose down -v
@@ -816,10 +964,22 @@ If requests timeout frequently:
 3. For long-running operations, consider implementing as background job
 4. Check backend performance: `docker stats scholar_backend`
 
+### Payment Callback Debugging
+
+For Alipay payment issues:
+```bash
+# View last 10 callbacks
+./scripts/check-alipay-callback.sh
+
+# View specific order
+./scripts/check-alipay-callback.sh ORDER123
+```
+
 ## Project Documentation
 
 This CLAUDE.md file consolidates all essential development information. Additional documentation:
 - **README.md** - User-facing project overview and getting started guide
+- **swagger.json** - Complete OpenAPI 2.0 specification for Semantic Scholar API
 - **backend/SEMANTIC_SCHOLAR_API.md** - Detailed Semantic Scholar API documentation (Chinese)
 - **frontend-user/ICONS_PREVIEW.md** - Visual guide for custom search icons and design variants
 - **frontend-user/SEO_*.md** - SEO implementation guides and checklists for search engine optimization

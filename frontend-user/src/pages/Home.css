@@ -902,8 +902,8 @@
 }
 
 /* Composer Wrapper - ChatGPT Style - 直接居中 */
-.home .composer-wrapper,
-.home-search .composer-wrapper {
+.home .home-composer-wrapper,
+.home-search .home-composer-wrapper {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -917,14 +917,14 @@
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.home .composer-wrapper:focus-within,
-.home-search .composer-wrapper:focus-within {
+.home .home-composer-wrapper:focus-within,
+.home-search .home-composer-wrapper:focus-within {
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
 }
 
 /* Composer Input Area */
-.home .composer-input-area,
-.home-search .composer-input-area {
+.home .home-composer-input-area,
+.home-search .home-composer-input-area {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -932,8 +932,8 @@
   min-height: 56px;
 }
 
-.home .chat-input,
-.home-search .chat-input {
+.home .home-chat-input,
+.home-search .home-chat-input {
   flex: 1;
   border: none;
   background: transparent;
@@ -1016,8 +1016,8 @@
 }
 
 /* Composer Footer */
-.home .composer-footer,
-.home-search .composer-footer {
+.home .home-composer-footer,
+.home-search .home-composer-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1025,8 +1025,8 @@
   min-height: 44px;
 }
 
-.home .composer-footer-left,
-.home-search .composer-footer-left {
+.home .home-composer-footer-left,
+.home-search .home-composer-footer-left {
   display: flex;
   align-items: center;
   gap: 6px;

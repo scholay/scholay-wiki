@@ -440,11 +440,11 @@ const SearchResultsPage = () => {
             </nav>
 
             <div className="empty-search-content">
-              <form onSubmit={handleSearch} className="empty-composer-wrapper">
+              <form onSubmit={handleSearch} className="normal-search-composer-wrapper">
                 {/* 输入区域 */}
-                <div className="composer-input-area">
+                <div className="normal-search-composer-input-area">
                   <textarea
-                    className="chat-input"
+                    className="normal-search-chat-input"
                     placeholder="搜索论文标题、作者、关键词..."
                     value={searchQuery}
                     onChange={(e) => {
@@ -470,8 +470,8 @@ const SearchResultsPage = () => {
                 </div>
 
                 {/* 底部操作栏 */}
-                <div className="composer-footer">
-                  <div className="composer-footer-left">
+                <div className="normal-search-composer-footer">
+                  <div className="normal-search-composer-footer-left">
                     {/* 搜索模式标识 - 固定显示普通搜索 */}
                     <div className="search-mode-indicator">
                       <NormalSearchIcon size={22} />
@@ -531,7 +531,7 @@ const SearchResultsPage = () => {
             <div className="centered-search-area">
               <form onSubmit={handleSearch} className="results-composer-wrapper">
                 {/* 输入区域 */}
-                <div className="composer-input-area">
+                <div className="results-composer-input-area">
                   {/* 搜索模式标识 - 最左边 */}
                   <div className="search-mode-indicator">
                     <NormalSearchIcon size={22} />
@@ -568,7 +568,7 @@ const SearchResultsPage = () => {
                   })()}
 
                   <textarea
-                    className="chat-input"
+                    className="results-chat-input"
                     placeholder="搜索论文标题、作者、关键词..."
                     value={searchQuery}
                     onChange={(e) => {

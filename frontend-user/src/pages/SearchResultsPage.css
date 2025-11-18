@@ -402,7 +402,7 @@
 }
 
 /* 搜索框 - ChatGPT Style */
-.empty-composer-wrapper {
+.normal-search-composer-wrapper {
   width: calc(100% - 3rem);
   max-width: 48rem;
   background: #2f2f2f;
@@ -414,7 +414,7 @@
   animation: fadeInScale 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.empty-composer-wrapper:focus-within {
+.normal-search-composer-wrapper:focus-within {
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
 }
 
@@ -431,7 +431,7 @@
 }
 
 /* Composer Input Area - Google风格 */
-.search-results-page .composer-input-area {
+.search-results-page .normal-search-composer-input-area {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -439,7 +439,16 @@
   min-height: 44px;
 }
 
-.chat-input {
+.search-results-page .results-composer-input-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  min-height: 44px;
+}
+
+.normal-search-chat-input,
+.results-chat-input {
   flex: 1;
   border: none;
   background: transparent;
@@ -514,7 +523,8 @@
 }
 
 /* Composer Footer - Google风格 */
-.composer-footer {
+.normal-search-composer-footer,
+.results-composer-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -522,7 +532,8 @@
   min-height: 36px;
 }
 
-.composer-footer-left {
+.normal-search-composer-footer-left,
+.results-composer-footer-left {
   display: flex;
   align-items: center;
   gap: 6px;

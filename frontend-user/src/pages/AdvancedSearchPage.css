@@ -518,7 +518,7 @@
 }
 
 /* 空状态搜索框 - ChatGPT Style */
-.empty-composer-wrapper {
+.advanced-search-composer-wrapper {
   width: calc(100% - 3rem);
   max-width: 48rem;
   background: #2f2f2f;
@@ -530,7 +530,7 @@
   animation: fadeInScale 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.empty-composer-wrapper:focus-within {
+.advanced-search-composer-wrapper:focus-within {
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
 }
 
@@ -547,7 +547,8 @@
 }
 
 /* Composer Input Area */
-.advanced-search-page .composer-input-area {
+.advanced-search-page .advanced-search-composer-input-area,
+.advanced-search-page .advanced-bottom-composer-input-area {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -555,7 +556,8 @@
   min-height: 56px;
 }
 
-.empty-composer-wrapper .chat-input {
+.advanced-search-composer-wrapper .advanced-search-chat-input,
+.advanced-bottom-composer-wrapper .advanced-bottom-chat-input {
   flex: 1;
   border: none;
   background: transparent;
@@ -613,7 +615,8 @@
 }
 
 /* Composer Footer */
-.composer-footer {
+.advanced-search-composer-footer,
+.advanced-bottom-composer-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -621,7 +624,8 @@
   min-height: 44px;
 }
 
-.composer-footer-left {
+.advanced-search-composer-footer-left,
+.advanced-bottom-composer-footer-left {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -835,7 +839,7 @@
   justify-content: center;
 }
 
-.bottom-composer-wrapper {
+.advanced-bottom-composer-wrapper {
   width: 100%;
   max-width: 48rem;
   background: #2f2f2f;
@@ -845,11 +849,11 @@
   transition: all 0.3s ease;
 }
 
-.bottom-composer-wrapper:focus-within {
+.advanced-bottom-composer-wrapper:focus-within {
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
 }
 
-.bottom-composer-wrapper .chat-input {
+.advanced-bottom-composer-wrapper .advanced-bottom-chat-input {
   flex: 1;
   border: none;
   background: transparent;
