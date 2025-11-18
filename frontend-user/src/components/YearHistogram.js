@@ -143,18 +143,24 @@ const YearHistogram = ({ yearFrom, yearTo, onChange }) => {
 
   return (
     <div className="year-histogram">
+      {/* 年份范围显示 */}
+      <div className="year-range-display">
+        <span className="year-value">{lowYear}</span>
+        <span className="year-separator-display">至</span>
+        <span className="year-value">{highYear}</span>
+      </div>
 
       {/* Histogram visualization with integrated handles */}
       <div className="histogram-container" ref={sliderRef}>
         <svg className="histogram-svg" viewBox="0 0 100 50" preserveAspectRatio="none">
           <defs>
             <linearGradient id="barGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#4ade80" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="#22c55e" stopOpacity="0.6" />
+              <stop offset="0%" stopColor="rgb(16, 163, 127)" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="rgb(16, 163, 127)" stopOpacity="0.15" />
             </linearGradient>
             <linearGradient id="barGradientSelected" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#4ade80" stopOpacity="1" />
-              <stop offset="100%" stopColor="#16a34a" stopOpacity="0.8" />
+              <stop offset="0%" stopColor="rgb(16, 163, 127)" stopOpacity="0.9" />
+              <stop offset="100%" stopColor="rgb(16, 163, 127)" stopOpacity="0.6" />
             </linearGradient>
           </defs>
 

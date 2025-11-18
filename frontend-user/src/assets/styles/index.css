@@ -18,8 +18,17 @@
   --background-light: #212121;
   --surface: #444654;
   --surface-light: #565869;
-  --text-primary: #ececec;
-  --text-secondary: #c5c5d2;
+  
+  /* 统一的字体颜色系统 - 针对毛玻璃优化 */
+  --text-primary: rgba(255, 255, 255, 0.95);      /* 主要文字：标题、重要内容 */
+  --text-secondary: rgba(255, 255, 255, 0.75);    /* 次要文字：描述、说明 */
+  --text-tertiary: rgba(255, 255, 255, 0.55);     /* 三级文字：辅助信息、提示 */
+  --text-quaternary: rgba(255, 255, 255, 0.35);   /* 四级文字：占位符、禁用状态 */
+  --text-accent: rgb(16, 163, 127);               /* 强调文字：品牌色 */
+  --text-success: rgb(16, 185, 129);              /* 成功状态 */
+  --text-error: rgb(239, 68, 68);                 /* 错误状态 */
+  --text-warning: rgb(245, 158, 11);              /* 警告状态 */
+  
   --success: #10b981;
   --error: #ef4444;
   --warning: #f59e0b;

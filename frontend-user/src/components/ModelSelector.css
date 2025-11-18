@@ -14,7 +14,7 @@
   background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  color: rgba(236, 236, 241, 0.6);
+  color: var(--text-tertiary);
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
@@ -31,7 +31,7 @@
 
 .model-selector-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.05);
-  color: rgba(236, 236, 241, 0.9);
+  color: var(--text-secondary);
   border-color: rgba(255, 255, 255, 0.15);
 }
 
@@ -45,7 +45,7 @@
   background: linear-gradient(135deg, 
     rgba(16, 163, 127, 0.25) 0%, 
     rgba(16, 163, 127, 0.15) 100%);
-  color: rgb(255, 255, 255);
+  color: var(--text-primary);
   border-color: rgba(16, 163, 127, 0.3);
   box-shadow: 
     0 2px 8px rgba(16, 163, 127, 0.3),
@@ -76,7 +76,7 @@
 }
 
 .model-selector-btn.open .model-icon {
-  color: rgb(16, 163, 127);
+  color: var(--text-accent);
   transform: scale(1.08);
   filter: drop-shadow(0 2px 4px rgba(16, 163, 127, 0.4));
 }
@@ -136,7 +136,7 @@
   padding: 12px 14px 8px;
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.8px;
 }
@@ -198,7 +198,7 @@
 }
 
 .model-option.selected .model-option-icon-wrapper svg {
-  color: rgb(16, 163, 127);
+  color: var(--text-accent);
 }
 
 .model-option-top {
@@ -210,13 +210,13 @@
 .model-option-label {
   font-size: 14px;
   font-weight: 500;
-  color: white;
+  color: var(--text-primary);
   line-height: 1.3;
   flex: 1;
 }
 
 .check-icon {
-  color: rgb(16, 163, 127);
+  color: var(--text-accent);
   flex-shrink: 0;
   width: 16px;
   height: 16px;
@@ -224,7 +224,7 @@
 
 .model-option-desc {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary);
   line-height: 1.35;
 }
 
@@ -242,13 +242,13 @@
 
 .model-option-quota {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary);
   margin-top: 0.25rem;
   font-weight: 400;
 }
 
 .model-option-quota.unlimited {
-  color: rgb(16, 163, 127);
+  color: var(--text-accent);
   font-weight: 500;
 }
 

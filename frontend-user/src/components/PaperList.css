@@ -26,7 +26,7 @@
 }
 
 .header-title svg {
-  color: rgb(16, 163, 127);
+  color: var(--text-accent);
   flex-shrink: 0;
   width: 18px;
   height: 18px;
@@ -36,7 +36,7 @@
   margin: 0;
   font-size: 0.875rem;
   font-weight: 600;
-  color: rgb(236, 236, 241);
+  color: var(--text-primary);
   letter-spacing: 0;
 }
 
@@ -76,14 +76,14 @@
 .count-number {
   font-size: 1.125rem;
   font-weight: 700;
-  color: rgb(16, 163, 127);
+  color: var(--text-accent);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
 .count-label {
   font-size: 0.8125rem;
-  color: rgba(148, 163, 184, 0.7);
+  color: var(--text-tertiary);
   font-weight: 400;
   letter-spacing: 0;
 }
@@ -176,7 +176,7 @@
   right: 16px;
   top: 50%;
   transform: translateY(-50%);
-  color: rgb(16, 163, 127);
+  color: var(--text-accent);
   background: rgba(16, 163, 127, 0.15);
   border-radius: 50%;
   padding: 8px;
@@ -218,7 +218,7 @@
 .paper-index {
   font-size: 1.25rem;
   font-weight: 700;
-  color: rgba(148, 163, 184, 0.4);
+  color: var(--text-quaternary);
   min-width: 32px;
   text-align: center;
   line-height: 1.4;
@@ -284,13 +284,13 @@
 }
 
 .author-more {
-  color: rgba(148, 163, 184, 0.5);
+  color: var(--text-tertiary);
   font-style: italic;
 }
 
 .paper-abstract {
   font-size: 0.8125rem;
-  color: rgba(241, 245, 249, 0.8);
+  color: var(--text-secondary);
   line-height: 1.6;
   margin: 0.625rem 0;
   display: -webkit-box;
@@ -324,7 +324,7 @@
 
 .meta-item.venue {
   font-weight: 500;
-  color: rgba(148, 163, 184, 0.9);
+  color: var(--text-secondary);
 }
 
 .meta-item.venue svg {
@@ -336,7 +336,7 @@
 }
 
 .meta-item.date svg {
-  color: rgba(148, 163, 184, 0.6);
+  color: var(--text-tertiary);
 }
 
 .btn-view-paper {
@@ -446,7 +446,7 @@
   justify-content: center;
   padding: 4rem 2rem;
   text-align: center;
-  color: rgba(236, 236, 241, 0.5);
+  color: var(--text-tertiary);
   min-height: 300px;
 }
 
@@ -460,12 +460,12 @@
   margin: 0 0 0.5rem 0;
   font-size: 1rem;
   font-weight: 600;
-  color: rgba(236, 236, 241, 0.7);
+  color: var(--text-secondary);
 }
 
 .empty-papers-message span {
   font-size: 0.875rem;
-  color: rgba(236, 236, 241, 0.4);
+  color: var(--text-quaternary);
   max-width: 300px;
 }
 
@@ -535,7 +535,7 @@
   background: rgba(47, 47, 47, 0.6);
   border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 10px;
-  color: rgba(148, 163, 184, 0.9);
+  color: var(--text-secondary);
   font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
@@ -654,7 +654,7 @@
 .popup-title {
   font-size: 1.125rem;
   font-weight: 700;
-  color: rgb(236, 236, 241);
+  color: var(--text-primary);
   line-height: 1.4;
   margin: 0;
   flex: 1;
@@ -663,7 +663,7 @@
 .popup-year {
   font-size: 0.875rem;
   font-weight: 600;
-  color: rgb(16, 163, 127);
+  color: var(--text-accent);
   background: rgba(16, 163, 127, 0.15);
   padding: 0.375rem 0.75rem;
   border-radius: 8px;
@@ -695,18 +695,18 @@
 
 .popup-authors {
   font-size: 0.875rem;
-  color: rgba(148, 163, 184, 0.95);
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
 .popup-author {
   display: inline;
-  color: rgba(148, 163, 184, 0.95);
+  color: var(--text-secondary);
 }
 
 .popup-abstract {
   font-size: 0.875rem;
-  color: rgba(241, 245, 249, 0.9);
+  color: var(--text-secondary);
   line-height: 1.7;
 }
 
@@ -721,7 +721,7 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8125rem;
-  color: rgba(148, 163, 184, 0.9);
+  color: var(--text-secondary);
   padding: 0.625rem;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 8px;
@@ -733,7 +733,7 @@
   height: 16px;
   opacity: 0.7;
   flex-shrink: 0;
-  color: rgb(16, 163, 127);
+  color: var(--text-accent);
 }
 
 .popup-actions {
@@ -750,7 +750,7 @@
   border: 1px solid rgba(16, 163, 127, 0.3);
   border-radius: 10px;
   background: rgba(16, 163, 127, 0.08);
-  color: rgb(16, 163, 127);
+  color: var(--text-accent);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;

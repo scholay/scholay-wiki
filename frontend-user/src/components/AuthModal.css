@@ -3,13 +3,13 @@
    ============================================ */
 
 .auth-modal-overlay {
-  --auth-primary: #10a37f;
+  --auth-primary: var(--text-accent);
   --auth-primary-strong: #1ed79f;
   --auth-primary-dark: #0d755a;
   --auth-surface: rgba(20, 20, 20, 0.94);
   --auth-border: rgba(255, 255, 255, 0.08);
-  --auth-text: #f6fffb;
-  --auth-text-muted: rgba(246, 255, 251, 0.75);
+  --auth-text: var(--text-primary);
+  --auth-text-muted: var(--text-secondary);
   --auth-shadow: 0 32px 80px rgba(0, 0, 0, 0.75);
   position: fixed;
   inset: 0;
@@ -85,7 +85,7 @@
 
 .auth-modal-close:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: rgb(16, 163, 127);
+  color: var(--text-accent);
   transform: rotate(90deg);
 }
 

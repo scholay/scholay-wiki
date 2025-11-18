@@ -513,14 +513,14 @@ const AppSidebar = ({
                 <div className="user-info-text">
                   <div className="user-name">{user?.username || user?.email?.split('@')[0] || '用户'}</div>
                   <div className="user-email-small">{user?.email}</div>
-                  {subscription && (
-                    <div className="user-subscription-badge">
-                      <span className={`subscription-plan-badge ${subscription.plan_code}`}>
-                        {subscription.plan_name}
-                      </span>
-                    </div>
-                  )}
                 </div>
+                {subscription && (
+                  <div className="user-subscription-badge">
+                    <span className={`subscription-plan-badge ${subscription.plan_code}`}>
+                      {subscription.plan_name}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="user-menu-divider"></div>

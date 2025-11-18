@@ -48,7 +48,7 @@
 
 .toast-message {
   flex: 1;
-  color: #ececec;
+  color: var(--text-primary);
   font-size: 0.9375rem;
   line-height: 1.5;
   word-break: break-word;
@@ -71,7 +71,7 @@
 
 .toast-close:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: #ececec;
+  color: var(--text-primary);
 }
 
 /* Toast Types */

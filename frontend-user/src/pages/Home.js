@@ -35,16 +35,65 @@ const Home = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const textareaRef = useRef(null);
   const lastTypingDelayRef = useRef(90);
+  const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
 
   // Typewriter effect for welcome title
   const [displayedText, setDisplayedText] = useState('');
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Placeholder examples carousel
+  const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
+  
+  // 搜索示例数据 - 覆盖多个学科领域
+  const searchExamples = {
+    normal: [
+      '搜索论文标题、作者、关键词...',                                    // 说明文字
+      '示例：深度学习在医学影像诊断中的应用',                             // 计算机+医学
+      '示例：量子纠缠在量子通信中的研究',                                 // 物理学
+      '示例：CRISPR基因编辑技术的伦理问题',                              // 生物+伦理
+      '示例：碳纳米管在新能源电池中的应用',                               // 材料+化学
+      '示例：行为经济学对消费决策的影响',                                 // 经济学+心理学
+      '示例：气候变化对海洋生态系统的影响',                               // 环境+生态
+      '示例：人工智能在药物研发中的应用',                                 // AI+医药
+      '示例：区块链技术在供应链管理中的创新',                             // 计算机+管理
+      '示例：纳米机器人在精准医疗中的前景',                               // 工程+医学
+      '示例：社交媒体对青少年心理健康的影响'                              // 社会学+心理学
+    ],
+    advanced: [
+      '用自然语言描述研究需求，AI 智能解析并搜索...',                      // 说明文字
+      '示例：帮我找一些关于肿瘤免疫治疗最新突破的高引用论文',              // 医学
+      '示例：我想了解拓扑量子计算在容错量子计算中的应用研究',              // 物理+计算机
+      '示例：寻找关于可持续城市发展和智慧城市建设的综述文章',              // 城市规划+工程
+      '示例：推荐一些讨论人工智能在金融风险预测中的机器学习方法',          // 金融+AI
+      '示例：我需要了解石墨烯在光电器件中的最新应用进展',                  // 材料+物理
+      '示例：帮我找关于神经退行性疾病发病机制的前沿研究',                  // 神经科学+医学
+      '示例：想看看生物降解塑料材料的环境友好型设计研究',                  // 环境+化学
+      '示例：寻找探讨社会不平等对教育机会影响的实证研究',                  // 社会学+教育
+      '示例：推荐一些关于合成生物学在生物制造中的应用论文',                // 生物+工程
+      '示例：我想研究脑机接口技术在神经康复中的临床应用'                   // 神经科学+工程
+    ]
+  };
+
   // 保存侧边栏状态到localStorage
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
   }, [sidebarCollapsed]);
+
+  // 搜索示例轮播效果
+  useEffect(() => {
+    const currentExamples = searchExamples[searchMode];
+    const interval = setInterval(() => {
+      setCurrentExampleIndex((prevIndex) => (prevIndex + 1) % currentExamples.length);
+    }, 3000); // 每3秒切换一次
+
+    return () => clearInterval(interval);
+  }, [searchMode]); // 当searchMode变化时重新开始轮播
+
+  // 当切换搜索模式时，重置示例索引
+  useEffect(() => {
+    setCurrentExampleIndex(0);
+  }, [searchMode]);
 
   useEffect(() => {
     const phrases = [
@@ -254,7 +303,7 @@ const Home = () => {
                     <textarea
                       ref={textareaRef}
                       className="home-chat-input"
-                      placeholder={searchMode === 'normal' ? '搜索论文标题、作者、关键词...' : '用自然语言描述研究需求,AI 智能解析并搜索...'}
+                      placeholder={searchExamples[searchMode][currentExampleIndex]}
                       value={searchQuery}
                       onChange={(e) => {
                         setSearchQuery(e.target.value);
@@ -267,9 +316,12 @@ const Home = () => {
                           setShowAuthModal(true);
                         }
                       }}
+                      onCompositionStart={() => setIsComposing(true)}
+                      onCompositionEnd={() => setIsComposing(false)}
                       onKeyDown={(e) => {
                         // Submit on Enter, new line on Shift+Enter
-                        if (e.key === 'Enter' && !e.shiftKey) {
+                        // 但要避免在输入法输入过程中触发提交
+                        if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
                           e.preventDefault();
                           if (searchQuery.trim()) {
                             handleSearch(e);

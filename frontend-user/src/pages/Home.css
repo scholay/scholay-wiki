@@ -500,7 +500,7 @@
 
 .icp-filing a {
   font-size: 0.875rem;
-  color: rgba(148, 163, 184, 0.6);
+  color: var(--text-quaternary);
   text-decoration: none;
   transition: all 0.2s ease;
   padding: 4px 8px;
@@ -508,7 +508,7 @@
 }
 
 .icp-filing a:hover {
-  color: rgba(148, 163, 184, 0.9);
+  color: var(--text-tertiary);
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -571,7 +571,7 @@
 .message-assistant .message-text {
   font-size: 0.9375rem;
   line-height: 1.75;
-  color: rgba(209, 213, 219, 0.95);
+  color: var(--text-secondary);
   margin-bottom: 0.5rem;
 }
 
@@ -950,7 +950,7 @@
   border: none;
   background: transparent;
   color: var(--text-primary);
-  font-size: 1.125rem !important;
+  font-size: 1rem !important;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
@@ -964,6 +964,34 @@
   overflow-x: hidden;
   word-wrap: break-word;
   white-space: pre-wrap;
+}
+
+/* Placeholder 轮播淡入淡出动画 */
+@keyframes placeholderFadeInOut {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  90% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+/* Placeholder 样式和动画 */
+.home .home-chat-input::placeholder,
+.home-search .home-chat-input::placeholder {
+  color: var(--text-quaternary);
+  font-size: 0.9375rem;
+  animation: placeholderFadeInOut 3s ease-in-out infinite;
 }
 
 .home .chat-input::placeholder,
@@ -993,38 +1021,92 @@
   background: rgba(255, 255, 255, 0.3);
 }
 
+/* 搜索按钮 - 毛玻璃效果 */
 .home .btn-send,
 .home-search .btn-send {
   width: 36px;
   height: 36px;
-  border: none;
+  border: 1px solid rgba(16, 163, 127, 0.3);
   border-radius: 12px;
-  background: rgb(16, 163, 127);
-  color: #ffffff;
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.25) 0%, 
+    rgba(16, 163, 127, 0.15) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: var(--text-accent);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all 0.15s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   padding: 0;
-  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.3);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* 悬浮光效 */
+.home .btn-send::before,
+.home-search .btn-send::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.3) 0%, 
+    transparent 50%);
+  opacity: 0;
+  transition: opacity 0.25s;
 }
 
 .home .btn-send:hover:not(:disabled),
 .home-search .btn-send:hover:not(:disabled) {
-  background: rgba(16, 163, 127, 0.9);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.4);
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.35) 0%, 
+    rgba(16, 163, 127, 0.25) 100%);
+  border-color: rgba(16, 163, 127, 0.5);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 
+    0 4px 16px rgba(16, 163, 127, 0.35),
+    0 0 0 1px rgba(16, 163, 127, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.15);
+}
+
+.home .btn-send:hover:not(:disabled)::before,
+.home-search .btn-send:hover:not(:disabled)::before {
+  opacity: 1;
+}
+
+.home .btn-send:active:not(:disabled),
+.home-search .btn-send:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.25),
+    inset 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .home .btn-send:disabled,
 .home-search .btn-send:disabled {
-  opacity: 0.3;
+  opacity: 0.4;
   cursor: not-allowed;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-quaternary);
   box-shadow: none;
   transform: none;
+}
+
+.home .btn-send svg,
+.home-search .btn-send svg {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+  transition: transform 0.2s;
+}
+
+.home .btn-send:hover:not(:disabled) svg,
+.home-search .btn-send:hover:not(:disabled) svg {
+  transform: translateX(2px);
 }
 
 /* Composer Footer */
@@ -1055,7 +1137,7 @@
   border: none;
   border-radius: 18px;
   background: transparent;
-  color: rgba(236, 236, 241, 0.6);
+  color: var(--text-tertiary);
   cursor: pointer;
   font-size: 14px;
   font-weight: 400;
@@ -1081,7 +1163,7 @@
 .home .footer-btn:hover,
 .home-search .footer-btn:hover {
   background: rgba(255, 255, 255, 0.08);
-  color: rgba(236, 236, 241, 0.9);
+  color: var(--text-secondary);
 }
 
 /* Filter button specific styles - Premium Glassmorphism */
@@ -1150,7 +1232,7 @@
   background: linear-gradient(135deg, 
     rgba(16, 163, 127, 0.25) 0%, 
     rgba(16, 163, 127, 0.15) 100%);
-  color: rgb(255, 255, 255);
+  color: var(--text-primary);
   border-color: rgba(16, 163, 127, 0.3);
   box-shadow: 
     0 2px 8px rgba(16, 163, 127, 0.3),
@@ -1169,7 +1251,7 @@
 .home .footer-btn.filter-btn.has-filters,
 .home-search .footer-btn.filter-btn.has-filters {
   background: rgba(16, 163, 127, 0.08) !important;
-  color: rgb(16, 163, 127) !important;
+  color: var(--text-accent) !important;
   font-weight: 600 !important;
   border-color: rgba(16, 163, 127, 0.25);
   box-shadow: 
@@ -1181,7 +1263,7 @@
 .home .footer-btn.filter-btn.has-filters:hover,
 .home-search .footer-btn.filter-btn.has-filters:hover {
   background: rgba(16, 163, 127, 0.15) !important;
-  color: rgb(16, 163, 127) !important;
+  color: var(--text-accent) !important;
   border-color: rgba(16, 163, 127, 0.35);
   box-shadow: 
     0 4px 12px rgba(16, 163, 127, 0.25),
@@ -1256,7 +1338,7 @@
   border: none;
   border-radius: 20px;
   background: transparent;
-  color: rgba(236, 236, 241, 0.5);
+  color: var(--text-tertiary);
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;

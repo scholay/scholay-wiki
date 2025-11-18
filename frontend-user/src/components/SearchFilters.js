@@ -142,16 +142,19 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
           />
         </div>
 
-        {/* Open Access */}
+        {/* Open Access - Toggle Switch */}
         <div className="filter-group">
-          <label className="checkbox-item open-access-toggle">
-            <input
-              type="checkbox"
-              checked={filters.openAccessPdf === 'true'}
-              onChange={handleOpenAccessToggle}
-            />
-            <span>仅显示开放获取论文 (Open Access)</span>
-          </label>
+          <div className="open-access-switch-container">
+            <span className="switch-label">仅显示开放获取论文 (Open Access)</span>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={filters.openAccessPdf === 'true'}
+                onChange={handleOpenAccessToggle}
+              />
+              <span className="toggle-slider"></span>
+            </label>
+          </div>
         </div>
 
         {/* Fields of Study */}
