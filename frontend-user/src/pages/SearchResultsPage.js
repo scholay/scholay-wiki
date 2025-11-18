@@ -7,7 +7,7 @@ import FilterSidebar from '../components/FilterSidebar';
 import PaperPreview from '../components/PaperPreview';
 import SearchFilters from '../components/SearchFilters';
 import PaperListSkeleton from '../components/PaperListSkeleton';
-import { NormalSearchIcon } from '../components/SearchIcons';
+import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory, renameSearchHistory, migrateOldSearchHistory } from '../utils/searchHistory';
 import SEO from '../components/SEO';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
@@ -23,6 +23,24 @@ const SearchResultsPage = () => {
 
   // 搜索历史状态
   const [searchHistory, setSearchHistory] = useState([]);
+
+  // Placeholder examples carousel - 轮播提示
+  const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
+  
+  // 搜索示例数据 - 覆盖多个学科领域
+  const searchExamples = [
+    '搜索论文标题、作者、关键词...',                                    // 说明文字
+    '示例：深度学习在医学影像诊断中的应用',                             // 计算机+医学
+    '示例：量子纠缠在量子通信中的研究',                                 // 物理学
+    '示例：CRISPR基因编辑技术的伦理问题',                              // 生物+伦理
+    '示例：碳纳米管在新能源电池中的应用',                               // 材料+化学
+    '示例：行为经济学对消费决策的影响',                                 // 经济学+心理学
+    '示例：气候变化对海洋生态系统的影响',                               // 环境+生态
+    '示例：人工智能在药物研发中的应用',                                 // AI+医药
+    '示例：区块链技术在供应链管理中的创新',                             // 计算机+管理
+    '示例：纳米机器人在精准医疗中的前景',                               // 工程+医学
+    '示例：社交媒体对青少年心理健康的影响'                              // 社会学+心理学
+  ];
 
   // 从URL参数初始化状态
   const [searchQuery, setSearchQuery] = useState(searchParams.get('query') || '');
@@ -163,6 +181,15 @@ const SearchResultsPage = () => {
     const history = getFormattedSearchHistory(user?.id);
     setSearchHistory(history);
   };
+
+  // 搜索示例轮播效果
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentExampleIndex((prevIndex) => (prevIndex + 1) % searchExamples.length);
+    }, 3000); // 每3秒切换一次
+
+    return () => clearInterval(interval);
+  }, [searchExamples.length]);
 
   const handleSelectSearchHistory = (itemId) => {
     const history = searchHistory.find(h => h.id === itemId);
@@ -430,7 +457,7 @@ const SearchResultsPage = () => {
                 <div className="normal-search-composer-input-area">
                   <textarea
                     className="normal-search-chat-input"
-                    placeholder="搜索论文标题、作者、关键词..."
+                    placeholder={searchExamples[currentExampleIndex]}
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -457,11 +484,30 @@ const SearchResultsPage = () => {
                 {/* 底部操作栏 */}
                 <div className="normal-search-composer-footer">
                   <div className="normal-search-composer-footer-left">
-                    {/* 搜索模式标识 - 固定显示普通搜索 */}
-                    <div className="search-mode-indicator">
-                      <NormalSearchIcon size={22} />
-                      <span>普通搜索</span>
+                    {/* 搜索模式切换 - 分段控制器设计 */}
+                    <div className="normal-search-mode-segmented">
+                      <button
+                        type="button"
+                        className="mode-segment active"
+                      >
+                        <span className="mode-segment-icon">
+                          <NormalSearchIcon size={16} />
+                        </span>
+                        <span className="mode-segment-label">普通搜索</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="mode-segment"
+                        onClick={() => navigate('/advanced-search')}
+                      >
+                        <span className="mode-segment-icon">
+                          <AdvancedSearchIcon size={16} />
+                        </span>
+                      </button>
                     </div>
+
+                    {/* 分隔线 */}
+                    <div className="footer-divider"></div>
 
                     {/* 筛选按钮 */}
                     {(() => {
@@ -519,8 +565,7 @@ const SearchResultsPage = () => {
                 <div className="results-composer-input-area">
                   {/* 搜索模式标识 - 最左边 */}
                   <div className="search-mode-indicator">
-                    <NormalSearchIcon size={22} />
-                    <NormalSearchIcon size={22} />
+                    <NormalSearchIcon size={16} />
                     <span>普通搜索</span>
                   </div>
 

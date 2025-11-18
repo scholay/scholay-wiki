@@ -319,7 +319,7 @@ const Home = () => {
                   <div className="home-composer-footer">
                     <div className="home-composer-footer-left">
                       {/* 搜索模式切换 - 分段控制器设计 */}
-                      <div className="search-mode-segmented">
+                      <div className="home-search-mode-segmented">
                         <button
                           type="button"
                           className={`mode-segment ${searchMode === 'normal' ? 'active' : ''}`}

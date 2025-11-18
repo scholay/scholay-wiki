@@ -1283,8 +1283,8 @@
 }
 
 /* Segmented Control for Search Mode - Premium Design */
-.home .search-mode-segmented,
-.home-search .search-mode-segmented {
+.home .home-search-mode-segmented,
+.home-search .home-search-mode-segmented {
   display: inline-flex;
   align-items: center;
   background: rgba(255, 255, 255, 0.03);
@@ -1301,8 +1301,8 @@
 }
 
 /* 滑动背景指示器 */
-.home .search-mode-segmented::before,
-.home-search .search-mode-segmented::before {
+.home .home-search-mode-segmented::before,
+.home-search .home-search-mode-segmented::before {
   content: '';
   position: absolute;
   top: 4px;
@@ -1324,8 +1324,8 @@
 }
 
 /* 高级搜索时滑动到右侧 */
-.home .search-mode-segmented:has(.mode-segment:last-child.active)::before,
-.home-search .search-mode-segmented:has(.mode-segment:last-child.active)::before {
+.home .home-search-mode-segmented:has(.mode-segment:last-child.active)::before,
+.home-search .home-search-mode-segmented:has(.mode-segment:last-child.active)::before {
   transform: translateX(calc(100% + 4px));
 }
 

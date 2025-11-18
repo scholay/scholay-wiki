@@ -6,7 +6,7 @@ import logger from '../utils/logger';
 import PaperList from '../components/PaperList';
 import PaperCitationMarkdown from '../components/PaperCitationMarkdown';
 import ModelSelector from '../components/ModelSelector';
-import { AdvancedSearchIcon } from '../components/SearchIcons';
+import { AdvancedSearchIcon, NormalSearchIcon } from '../components/SearchIcons';
 import api, { conversationAPI, subscriptionAPI } from '../services/api';
 import './AdvancedSearchPage.css';
 
@@ -46,6 +46,23 @@ const AdvancedSearchPage = () => {
   const [highlightedPaperIndex, setHighlightedPaperIndex] = useState(null); // 高亮的论文索引
   const [scrollToPaperIndex, setScrollToPaperIndex] = useState(null); // 需要滚动到的论文索引
   const [suggestedQuestions, setSuggestedQuestions] = useState([]); // AI 推荐的后续问题
+  const [currentExampleIndex, setCurrentExampleIndex] = useState(0); // 搜索示例轮播索引
+  
+  // 搜索示例数据 - 覆盖多个学科领域
+  const searchExamples = [
+    '用自然语言描述研究需求，AI 智能解析并搜索...',                      // 说明文字
+    '示例：帮我找一些关于肿瘤免疫治疗最新突破的高引用论文',              // 医学
+    '示例：我想了解拓扑量子计算在容错量子计算中的应用研究',              // 物理+计算机
+    '示例：寻找关于可持续城市发展和智慧城市建设的综述文章',              // 城市规划+工程
+    '示例：推荐一些讨论人工智能在金融风险预测中的机器学习方法',          // 金融+AI
+    '示例：我需要了解石墨烯在光电器件中的最新应用进展',                  // 材料+物理
+    '示例：帮我找关于神经退行性疾病发病机制的前沿研究',                  // 神经科学+医学
+    '示例：想看看生物降解塑料材料的环境友好型设计研究',                  // 环境+化学
+    '示例：寻找探讨社会不平等对教育机会影响的实证研究',                  // 社会学+教育
+    '示例：推荐一些关于合成生物学在生物制造中的应用论文',                // 生物+工程
+    '示例：我想研究脑机接口技术在神经康复中的临床应用'                   // 神经科学+工程
+  ];
+
   const messagesEndRef = useRef(null);
   const chatMessagesRef = useRef(null);
   const eventSourceRef = useRef(null);
@@ -111,6 +128,15 @@ const AdvancedSearchPage = () => {
       fetchQuotaAndUsage();
     }
   }, [isAuthenticated, user]);
+
+  // 搜索示例轮播效果
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentExampleIndex((prevIndex) => (prevIndex + 1) % searchExamples.length);
+    }, 3000); // 每3秒切换一次
+
+    return () => clearInterval(interval);
+  }, [searchExamples.length]);
 
   const loadConversations = async () => {
     setConversationsLoading(true);
@@ -1192,16 +1218,7 @@ const AdvancedSearchPage = () => {
                   <textarea
                     ref={textareaRef}
                     className="advanced-search-chat-input"
-                    placeholder={
-                      (() => {
-                        const remaining = getRemainingCount();
-                        const modelName = modelLevel === 'low' ? '普通' : modelLevel === 'mid' ? '进阶' : '高级';
-                        if (remaining !== null) {
-                          return `用自然语言描述研究需求，AI 智能解析并搜索... (${modelName}模型剩余 ${remaining} 次)`;
-                        }
-                        return "用自然语言描述研究需求，AI 智能解析并搜索...";
-                      })()
-                    }
+                    placeholder={searchExamples[currentExampleIndex]}
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -1233,11 +1250,30 @@ const AdvancedSearchPage = () => {
                 {/* 底部操作栏 */}
                 <div className="advanced-search-composer-footer">
                   <div className="advanced-search-composer-footer-left">
-                    {/* 搜索模式标识 - 固定显示高级搜索 */}
-                    <div className="search-mode-indicator">
-                      <AdvancedSearchIcon size={16} />
-                      <span>高级搜索</span>
+                    {/* 搜索模式切换 - 分段控制器设计 */}
+                    <div className="advanced-search-mode-segmented">
+                      <button
+                        type="button"
+                        className="mode-segment"
+                        onClick={() => navigate('/search-results')}
+                      >
+                        <span className="mode-segment-icon">
+                          <NormalSearchIcon size={16} />
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="mode-segment active"
+                      >
+                        <span className="mode-segment-icon">
+                          <AdvancedSearchIcon size={16} />
+                        </span>
+                        <span className="mode-segment-label">高级搜索</span>
+                      </button>
                     </div>
+
+                    {/* 分隔线 */}
+                    <div className="footer-divider"></div>
 
                     {/* 模型选择器 */}
                     <div className="model-selector-wrapper">
