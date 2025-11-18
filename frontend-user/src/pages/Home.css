@@ -1170,29 +1170,29 @@
 
 .home .mode-icon-btn,
 .home-search .mode-icon-btn {
-  padding: 6px 16px 6px 12px;
+  padding: 6px 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   position: relative;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: rgba(236, 236, 241, 0.85);
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  font-size: 0.9rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  color: rgba(236, 236, 241, 0.6);
+  background: transparent;
+  border-radius: 18px;
+  border: none;
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: normal;
 }
 
 .home .mode-icon-btn .mode-icon,
 .home-search .mode-icon-btn .mode-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
   background: transparent;
   display: flex;
   align-items: center;
@@ -1214,9 +1214,8 @@
 
 .home .mode-icon-btn:hover,
 .home-search .mode-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.15);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(236, 236, 241, 0.9);
 }
 
 .home .mode-icon-btn:hover .mode-icon,

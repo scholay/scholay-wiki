@@ -314,9 +314,9 @@ const Home = () => {
                         >
                           <span className="mode-icon">
                             {searchMode === 'normal' ? (
-                              <NormalSearchIcon size={22} />
+                              <NormalSearchIcon size={20} />
                             ) : (
-                              <AdvancedSearchIcon size={22} />
+                              <AdvancedSearchIcon size={20} />
                             )}
                           </span>
                           <span className="mode-label">
@@ -342,7 +342,7 @@ const Home = () => {
                               }}
                             >
                               <div className="mode-option-icon">
-                                <NormalSearchIcon size={28} />
+                                <NormalSearchIcon size={24} />
                               </div>
                               <div className="mode-option-content">
                                 <div className="mode-option-title">普通搜索</div>
@@ -358,7 +358,7 @@ const Home = () => {
                               }}
                             >
                               <div className="mode-option-icon">
-                                <AdvancedSearchIcon size={28} />
+                                <AdvancedSearchIcon size={24} />
                               </div>
                               <div className="mode-option-content">
                                 <div className="mode-option-title">高级搜索</div>
