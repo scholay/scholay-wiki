@@ -921,6 +921,15 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 </button>
               </div>
 
+              <div className="auth-turnstile">
+                <TurnstileCaptcha
+                  ref={emailCaptchaRef}
+                  onSuccess={(token) => setTurnstileToken(token)}
+                  onFail={() => setTurnstileToken('')}
+                  onExpire={() => setTurnstileToken('')}
+                />
+              </div>
+
               <div className="auth-checkbox">
                 <label>
                   <input
@@ -944,7 +953,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
               <button
                 className="auth-button auth-button-primary"
                 onClick={handleLogin}
-                disabled={loading || !agreedToPolicy}
+                disabled={loading || (enableTurnstile && !turnstileToken) || !agreedToPolicy}
               >
                 {loading ? '登录中...' : '继续'}
               </button>
