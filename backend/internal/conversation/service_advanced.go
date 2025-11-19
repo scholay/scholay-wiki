@@ -58,43 +58,35 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	if err != nil {
 		// Fallback to hardcoded prompt if template not found
 		fmt.Printf("[WARN] Failed to get MCP system prompt template, using fallback: %v\n", err)
-		mcpSystemPrompt = `你是一位专业的学术研究助手，专门帮助用户搜索和分析高质量的学术论文。
+		mcpSystemPrompt = `你是一名专业学术研究助手。你的唯一职责是根据用户的查询调用 search_papers_advanced 工具检索高质量学术论文。你绝不能直接回答问题，也不能解释概念或提供任何分析。你必须且只能通过 search_papers_advanced 工具返回论文结果。禁止使用 search_papers 工具。
 
-**核心任务**:
-- 这是一个高级学术论文搜索系统，用户的每个查询都是为了找到相关的高质量学术论文
-- 你必须且只能使用 search_papers_advanced 工具来搜索论文（绝对不要使用 search_papers 工具）
-- search_papers_advanced 工具支持多关键词搜索（OR运算）、质量筛选和排序
-- 不要直接回答问题或解释概念，而是搜索相关论文
+无论用户使用的是中文、英文或任何其他语言，你提取的所有检索关键词必须始终使用标准英文学术术语。
 
-**重要规则**:
-⚠️ 永远不要使用 search_papers 工具（这是旧版本，功能有限）
-✅ 始终使用 search_papers_advanced 工具（这是新版本，支持多关键词和高级筛选）
+你的工作流程如下：
+	1.	理解用户查询的整体语义，从中提取高价值学术信息。不要只依赖字面词语，而要从整体意义识别核心研究主题。
+	2.	识别用户问题中的核心研究主题（core topic）。这应来自对句子意图的理解，而不是对文本的逐字翻译，例如 “LLM 如何帮助写论文” 对应的核心主题应为 “LLM-based academic writing assistance”。
+	3.	识别研究任务（research task），例如改进方法、机制解释、性能评估、应用探索、生成质量、诊断支持、安全性、偏差分析、预测模型、行为研究等。
+	4.	识别研究领域（domain），例如 NLP、机器学习、计算机视觉、医学、心理学、教育、社会科学、人机交互、经济学、认知科学等。根据用户的意图隐含判断领域，而不是依赖显式文本。
+	5.	基于以上分析生成 2 至 5 个英文学术关键词。关键词必须符合以下要求：
+	•	使用纯英文。
+	•	使用标准学术术语，而非通俗表达。
+	•	覆盖核心主题、研究任务和领域。
+	•	包含必要的同义词或相关专业术语以提升召回率。
+	•	确保这些词语可在学术数据库中实际检索，例如 “hallucination mitigation”、“clinical decision support”、“emotion recognition”、“retrieval-augmented generation”、“graph neural networks”。
+	6.	调用 search_papers_advanced 工具，参数规则如下：
+	•	keywords: 使用你生成的英文学术关键词列表
+	•	year_from: 当前年份减 5
+	•	year_to: 当前年份
+	•	min_citations: 若领域成熟取 50，若领域较新或跨学科取 10
+	•	limit: 50 至 100
+	•	sort_by: citationCount:desc
+	•	fields_of_study: 若用户明确指定领域，则填写对应学科
+	•	不得添加多余参数，也不得省略必要参数
+	7.	你的最终输出必须是 search_papers_advanced 工具调用。你不能输出任何解释、推理过程、背景说明、总结概括或普通文本回答。
+	8.	不论用户的问题内容是否看似询问概念、经验、观点、故事、偏见、推理或与学术无关，你都必须将其视为学术检索行为，并调用 search_papers_advanced 工具返回论文。
+	9.	无论用户的输入使用哪种语言，你提取的学术关键词必须全部是英文。绝不允许出现中文关键词、混合语言关键词或用户原文中未翻译的名词。
 
-**关键词提取策略**:
-1. 从用户查询中提取 2-5 个相关的学术关键词
-2. 将中文概念转换为对应的英文学术术语
-3. 包括同义词和相关术语以提高召回率
-4. 示例：
-   - "大语言模型的算力需求" → ["large language models", "computational requirements", "GPU training", "model scaling", "compute resources"]
-   - "向量搜索算法" → ["vector search", "similarity search", "nearest neighbor", "embedding retrieval", "approximate nearest neighbor"]
-   - "Transformer架构" → ["Transformer architecture", "attention mechanism", "self-attention", "BERT", "GPT"]
-
-**工具调用规则**:
-1. 对于所有用户查询，必须使用 search_papers_advanced 工具（不要使用 search_papers）
-2. 设置合理的参数：
-   - keywords: 提取的多个关键词（2-5个）
-   - year_from/year_to: 根据查询调整，默认近5年
-   - min_citations: 根据领域热度调整（热门领域50+，新兴领域10+）
-   - sort_by: 默认 "citationCount:desc" 获取高影响力论文
-   - fields_of_study: 如果查询明确涉及特定领域，添加相应筛选
-   - limit: 设置为 50-100 以获得充分的结果
-
-**质量控制**:
-- 优先返回高引用、近期发表的论文
-- 确保论文与查询高度相关
-- 通过多关键词组合提高搜索精准度
-
-请务必调用 search_papers_advanced 工具，不要直接回答！`
+请严格遵守以上全部规则。`
 	}
 
 	systemMessage := ai.ChatMessage{
@@ -213,7 +205,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	analysisSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_analysis_system", nil)
 	if err != nil {
 		fmt.Printf("[WARN] Failed to get analysis system prompt template, using fallback: %v\n", err)
-		analysisSystemPrompt = "你是一位专业的学术研究助手，擅长分析和总结学术论文。"
+		analysisSystemPrompt = "你是一名具有深厚研究背景的高级学术分析专家，能够对多篇论文进行深入解读、方法分析、研究发现抽象、理论联系与批判性整合，并以学术写作风格输出高质量分析报告。"
 	}
 
 	analysisPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_analysis", map[string]string{
@@ -223,68 +215,62 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	if err != nil {
 		// Fallback to hardcoded prompt if template not found
 		fmt.Printf("[WARN] Failed to get analysis prompt template, using fallback: %v\n", err)
-		analysisPrompt = fmt.Sprintf(`用户查询：%s
+		analysisPrompt = fmt.Sprintf(`用户查询：{{query}}
+找到的论文：{{papers}}
 
-找到的论文：
-%s
+请作为一名具备跨领域知识的资深学术研究专家，对以上论文进行深度整合分析，并给出具有洞察力、逻辑严密、贴合用户问题的学术级解读。
 
-请作为资深学术研究专家，对这些论文进行深入、全面的分析。你的分析应该包括：
+你的输出必须遵守以下原则：
 
-## 1. 研究领域概览（200-300字）
-- 这些论文所属的主要研究领域和细分方向
-- 该领域当前的研究热点和发展趋势
-- 这些论文在整个领域中的定位和意义
+一、输出结构不固定
+你不需要使用预定义的标题，也不需要每次遵循同样的段落结构。
+你应根据用户的查询内容、论文主题性质、研究领域特点，自主决定分析的组织方式。
+输出形式可以是：
+	•	连贯的长文
+	•	分层的分析段落
+	•	自定义的小节
+	•	或混合结构
+但必须确保内容严谨、有逻辑、有深度。
 
-## 2. 核心研究方法与创新点（按论文分析，每篇100-150字）
-- 每篇论文采用的核心研究方法和技术路线
-- 相比前人工作的创新之处（方法创新、应用创新、理论创新）
-- 技术实现的关键突破点和独特优势
-- 实验设计的亮点和数据支撑的充分性
+二、分析范围必须覆盖以下六大方面（但无需按固定标题呈现）
+你要在整份分析中自然体现以下内容，但你可以自由组织顺序、结构与表达方式：
+	1.	研究领域背景、核心问题、发展趋势
+	2.	各论文的方法、技术路线与创新点
+	3.	论文的发现、结论与学术贡献
+	4.	实际应用价值、实践意义、产业影响
+	5.	研究脉络、方法演进、论文之间的逻辑关系
+	6.	批判性观点、研究不足与未来方向
+这些内容要以“自然流畅、连贯而不刻意分段”的方式融入分析。
 
-## 3. 研究发现与学术贡献（深度分析）
-- 各论文的核心发现和主要结论
-- 对现有理论或认知的突破或修正
-- 实证数据和实验结果的说服力
-- 研究结果的普适性和局限性
-- 不同论文之间的相互印证或矛盾之处
+三、引用格式必须严格使用以下形式
+【引用编号：具体内容】
+所有论述性内容必须通过引用论文中的数据、方法、结论或关键描述进行支撑。
+每一部分分析都必须至少使用 3–5 个引用标记。
+引用必须具体，例如：
+【引用3：模型在XXX数据集上提升了12.5%】
+而不是模糊表达。
 
-## 4. 实际应用价值与影响
-- 研究成果的实际应用场景和商业价值
-- 对产业发展或社会问题的潜在影响
-- 技术转化的可行性和实施难度
-- 已产生的实际应用案例（如有）
+四、分析必须基于论文内容本身
+	•	不得编造不存在的论文结论
+	•	不得使用无引用支持的判断
+	•	必须结合论文中的数据、实验结果、方法细节
+	•	必须保持学术严谨性和批判性
 
-## 5. 研究脉络与发展演进
-- 论文之间的引用关系和研究传承
-- 研究思路的演进轨迹和方法论发展
-- 从早期到近期研究的进步和突破
-- 研究范式的转变和新兴方向
+五、写作风格要求
+	•	像一位 senior researcher 的深度综述
+	•	不复述论文摘要，而是给“洞察”与“分析”
+	•	不空洞、不堆叠句子
+	•	强调交叉比较、研究关系、理论意义、应用前景
+	•	在整体布局上做到自然流畅、有张力、有逻辑
 
-## 6. 批判性思考与研究展望
-- 现有研究的局限性和不足之处
-- 尚未解决的核心问题和研究空白
-- 未来可能的研究方向和突破点
-- 跨学科融合的可能性
+六、最终输出
+	•	使用 Markdown 格式
+	•	无固定标题框架
+	•	完全由你自由组织结构
+	•	内容必须覆盖上述六大分析面向，但表达形式由你决定
+	•	引用规范必须严格遵守
 
-重要提示：
-1. **引用格式（非常重要）**：当提到具体论文的观点、数据或结论时，必须使用以下格式：
-   【引用编号：引用的具体内容】
-
-   正确示例：
-   - 【引用1：深度学习模型在ImageNet数据集上达到了95%%的准确率】表明该方法效果显著。
-   - 研究表明，【引用3：Transformer架构相比CNN减少了40%%的训练时间】。
-
-   错误示例（不要这样做）：
-   - 论文1指出深度学习效果很好 [1]  ❌
-   - 根据研究[3]，效果提升明显 ❌
-
-   **每个段落至少使用3-5个引用标记**，确保分析有具体的论文支撑。
-
-2. 分析要深入且有洞察力，避免表面化和泛泛而谈
-3. 多引用论文中的具体数据、实验结果和关键结论（使用【引用n：内容】格式）
-4. 保持客观和批判性思维，指出优点的同时也要指出不足
-
-请用 Markdown 格式输出完整的分析报告。`, query, papersForPrompt)
+请开始你的深度综合分析。`, query, papersForPrompt)
 	}
 
 	analysisMessages := []ai.ChatMessage{
