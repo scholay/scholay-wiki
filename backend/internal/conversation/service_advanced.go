@@ -215,8 +215,8 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	if err != nil {
 		// Fallback to hardcoded prompt if template not found
 		fmt.Printf("[WARN] Failed to get analysis prompt template, using fallback: %v\n", err)
-		analysisPrompt = fmt.Sprintf(`用户查询：{{query}}
-找到的论文：{{papers}}
+		analysisPrompt = fmt.Sprintf(`用户查询：%s
+找到的论文：%s
 
 请作为一名具备跨领域知识的资深学术研究专家，对以上论文进行深度整合分析，并给出具有洞察力、逻辑严密、贴合用户问题的学术级解读。
 
