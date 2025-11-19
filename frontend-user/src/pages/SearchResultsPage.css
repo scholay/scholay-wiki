@@ -456,7 +456,7 @@
 
 .search-results-page .results-composer-input-area {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 8px 12px;
   min-height: 56px;
@@ -553,6 +553,7 @@
   padding: 0;
   position: relative;
   overflow: hidden;
+  margin-top: 6px;
   box-shadow: 
     0 2px 8px rgba(16, 163, 127, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -885,6 +886,7 @@
   cursor: pointer;
   flex-shrink: 0;
   transition: all 0.2s ease;
+  margin-top: 6px;
 }
 
 .filter-btn-minimal:hover {
@@ -960,7 +962,7 @@
 
 /* 结果头部 */
 .results-header {
-  padding: 16px 28px;
+  padding: 8px 28px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -979,7 +981,7 @@
 
 /* 论文列表 */
 .papers-list {
-  padding: 16px 0;
+  padding: 8px 0;
   display: flex;
   flex-direction: column;
 }
@@ -1359,7 +1361,7 @@ a.meta-item.pdf-link:hover {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 1.5rem 1.5rem;
+  padding: 1rem 1.5rem 0.5rem;
   position: relative;
   background: #212121;
   flex-shrink: 0;
@@ -1371,9 +1373,14 @@ a.meta-item.pdf-link:hover {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 16px;
+  padding: 4px 16px;
   width: 100%;
   max-width: 56rem;
+  min-height: 28px;
+}
+
+.active-filters-bar.empty {
+  /* 保留空间但不显示内容 */
 }
 
 .filter-tags {
