@@ -290,10 +290,10 @@ const SearchResultsPage = () => {
     setFilters(newFilters);
   };
 
-  // 处理顶部筛选面板关闭（关闭时触发搜索）
-  const handleTopFiltersToggle = () => {
-    if (showFilters) {
-      // 面板正在关闭，检查是否有搜索词并触发搜索
+  // 处理顶部筛选面板关闭（只在有结果页面关闭时触发搜索）
+  const handleTopFiltersToggle = (shouldSearchOnClose = false) => {
+    if (showFilters && shouldSearchOnClose) {
+      // 面板正在关闭，且明确要求搜索时才触发
       if (searchQuery.trim()) {
         setCurrentPage(1);
         updateURL(searchQuery, filters, 1);
@@ -301,6 +301,96 @@ const SearchResultsPage = () => {
       }
     }
     setShowFilters(!showFilters);
+  };
+
+  // 检查是否有筛选条件
+  const hasActiveFilters = () => {
+    return filters.yearFrom ||
+           filters.yearTo ||
+           filters.publicationTypes.length > 0 ||
+           filters.fieldsOfStudy.length > 0 ||
+           filters.openAccessPdf ||
+           filters.venue;
+  };
+
+  // 获取当前筛选标签列表
+  const getFilterTags = () => {
+    const tags = [];
+    
+    if (filters.yearFrom && filters.yearTo) {
+      tags.push({ key: 'year', label: `${filters.yearFrom}-${filters.yearTo}`, type: 'year' });
+    } else if (filters.yearFrom) {
+      tags.push({ key: 'yearFrom', label: `${filters.yearFrom}年起`, type: 'year' });
+    } else if (filters.yearTo) {
+      tags.push({ key: 'yearTo', label: `至${filters.yearTo}年`, type: 'year' });
+    }
+    
+    if (filters.openAccessPdf) {
+      tags.push({ key: 'openAccess', label: '开放获取', type: 'openAccess' });
+    }
+    
+    filters.fieldsOfStudy.forEach(field => {
+      tags.push({ key: `field-${field}`, label: field, type: 'field' });
+    });
+    
+    filters.publicationTypes.forEach(type => {
+      tags.push({ key: `type-${type}`, label: type, type: 'pubType' });
+    });
+    
+    if (filters.venue) {
+      tags.push({ key: 'venue', label: filters.venue, type: 'venue' });
+    }
+    
+    return tags;
+  };
+
+  // 移除单个筛选条件
+  const removeFilter = (tagKey, tagType) => {
+    const newFilters = { ...filters };
+    
+    if (tagType === 'year') {
+      newFilters.yearFrom = '';
+      newFilters.yearTo = '';
+    } else if (tagType === 'openAccess') {
+      newFilters.openAccessPdf = '';
+    } else if (tagType === 'field') {
+      const fieldName = tagKey.replace('field-', '');
+      newFilters.fieldsOfStudy = newFilters.fieldsOfStudy.filter(f => f !== fieldName);
+    } else if (tagType === 'pubType') {
+      const typeName = tagKey.replace('type-', '');
+      newFilters.publicationTypes = newFilters.publicationTypes.filter(t => t !== typeName);
+    } else if (tagType === 'venue') {
+      newFilters.venue = '';
+    }
+    
+    setFilters(newFilters);
+    
+    // 如果已经执行过搜索，自动重新搜索
+    if (searchQuery.trim()) {
+      setCurrentPage(1);
+      updateURL(searchQuery, newFilters, 1);
+      performSearch(searchQuery, newFilters, 1);
+    }
+  };
+
+  // 清除所有筛选条件
+  const clearAllFilters = () => {
+    const newFilters = {
+      yearFrom: '',
+      yearTo: '',
+      publicationTypes: [],
+      fieldsOfStudy: [],
+      openAccessPdf: '',
+      venue: '',
+    };
+    setFilters(newFilters);
+    
+    // 如果已经执行过搜索，自动重新搜索
+    if (searchQuery.trim()) {
+      setCurrentPage(1);
+      updateURL(searchQuery, newFilters, 1);
+      performSearch(searchQuery, newFilters, 1);
+    }
   };
 
   // 处理分页
@@ -530,7 +620,7 @@ const SearchResultsPage = () => {
                 filters={filters}
                 onFiltersChange={handleTopFiltersChange}
                 isExpanded={showFilters}
-                onToggle={handleTopFiltersToggle}
+                onToggle={() => handleTopFiltersToggle(false)}
               />
             </div>
           </div>
@@ -606,8 +696,33 @@ const SearchResultsPage = () => {
                 filters={filters}
                 onFiltersChange={handleTopFiltersChange}
                 isExpanded={showFilters}
-                onToggle={handleTopFiltersToggle}
+                onToggle={() => handleTopFiltersToggle(true)}
               />
+
+              {/* 当前筛选条件标签 */}
+              {hasActiveFilters() && (
+                <div className="active-filters-bar">
+                  <div className="filter-tags">
+                    {getFilterTags().map(tag => (
+                      <span key={tag.key} className={`filter-tag filter-tag-${tag.type}`}>
+                        {tag.label}
+                        <button 
+                          className="filter-tag-remove"
+                          onClick={() => removeFilter(tag.key, tag.type)}
+                          aria-label={`移除筛选: ${tag.label}`}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                            <path d="M9.35355 3.35355C9.54882 3.15829 9.54882 2.84171 9.35355 2.64645C9.15829 2.45118 8.84171 2.45118 8.64645 2.64645L6 5.29289L3.35355 2.64645C3.15829 2.45118 2.84171 2.45118 2.64645 2.64645C2.45118 2.84171 2.45118 3.15829 2.64645 3.35355L5.29289 6L2.64645 8.64645C2.45118 8.84171 2.45118 9.15829 2.64645 9.35355C2.84171 9.54882 3.15829 9.54882 3.35355 9.35355L6 6.70711L8.64645 9.35355C8.84171 9.54882 9.15829 9.54882 9.35355 9.35355C9.54882 9.15829 9.54882 8.84171 9.35355 8.64645L6.70711 6L9.35355 3.35355Z"/>
+                          </svg>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <button className="clear-all-filters" onClick={clearAllFilters}>
+                    清除全部
+                  </button>
+                </div>
+              )}
             </div>
 
       {/* 两栏布局 */}
@@ -638,41 +753,90 @@ const SearchResultsPage = () => {
                   <div
                     key={paper.paperId}
                     className={`paper-item ${selectedPaper?.paperId === paper.paperId ? 'selected' : ''}`}
-                    onClick={() => setSelectedPaper(paper)}
                   >
                     <div className="paper-number">{startIndex + index}</div>
                     <div className="paper-content">
-                      <h3 className="paper-title">{paper.title}</h3>
+                      <h3 
+                        className="paper-title" 
+                        onClick={() => setSelectedPaper(paper)}
+                      >
+                        {paper.title}
+                      </h3>
 
+                      {/* 作者列表 */}
                       {paper.authors && paper.authors.length > 0 && (
-                        <p className="paper-authors">
-                          {paper.authors.slice(0, 3).map(a => a.name).join(', ')}
-                          {paper.authors.length > 3 && ` +${paper.authors.length - 3} more`}
+                        <div className="paper-authors-row">
+                          <div className="paper-author-tags">
+                            {paper.authors.slice(0, 4).map((author, idx) => (
+                              <span key={idx} className="author-tag">{author.name}</span>
+                            ))}
+                            {paper.authors.length > 4 && (
+                              <span className="author-tag author-more">+{paper.authors.length - 4} authors</span>
+                            )}
+                          </div>
+                          {/* 研究领域 */}
+                          {paper.fieldsOfStudy && paper.fieldsOfStudy.length > 0 && (
+                            <span className="paper-fields">
+                              {paper.fieldsOfStudy.slice(0, 2).join(', ')}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 期刊/会议 + 日期 */}
+                      {(paper.venue || paper.publicationDate || paper.year) && (
+                        <p className="paper-venue-date">
+                          {paper.venue && (
+                            <span className="venue-name">{paper.venue}</span>
+                          )}
+                          {paper.venue && (paper.publicationDate || paper.year) && ' · '}
+                          {paper.publicationDate ? (
+                            <span className="pub-date">
+                              {new Date(paper.publicationDate).toLocaleDateString('zh-CN', { 
+                                year: 'numeric',
+                                month: 'long', 
+                                day: 'numeric'
+                              })}
+                            </span>
+                          ) : paper.year && (
+                            <span className="pub-date">{paper.year}年</span>
+                          )}
                         </p>
                       )}
 
+                      {/* TLDR 摘要 */}
+                      {paper.tldr && paper.tldr.text && (
+                        <div className="paper-tldr">
+                          <span className="tldr-label">TLDR</span>
+                          <span className="tldr-text">{paper.tldr.text}</span>
+                        </div>
+                      )}
+
+                      {/* 完整摘要 */}
                       {paper.abstract && (
-                        <p className="paper-abstract">
-                          {paper.abstract.length > 200 ? paper.abstract.substring(0, 200) + '...' : paper.abstract}
-                        </p>
+                        <div className="paper-abstract-section">
+                          <span className="abstract-label">Abstract</span>
+                          <span className="abstract-text">
+                            {paper.abstract.length > 300 ? paper.abstract.substring(0, 300) + '...' : paper.abstract}
+                          </span>
+                        </div>
                       )}
 
+                      {/* 底部元信息和操作 */}
                       <div className="paper-meta">
-                        {paper.year && <span className="meta-item">{paper.year}</span>}
-                        {paper.venue && <span className="meta-item">{paper.venue}</span>}
+                        {/* 引用数 */}
                         {paper.citationCount !== undefined && (
-                          <span className="meta-item">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
-                            </svg>
-                            {paper.citationCount} 引用
+                          <span className="meta-item citations">
+                            引用 {paper.citationCount}
                           </span>
                         )}
+                        
+                        {/* 开放获取/PDF */}
                         {paper.isOpenAccess && (
                           <span className="meta-item open-access">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                              <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
                             </svg>
                             开放获取
                           </span>

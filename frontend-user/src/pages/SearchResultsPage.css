@@ -289,7 +289,7 @@
   transform: rotate(180deg);
 }
 
-/* 中间论文列表容器 - 使用flex自适应 */
+/* 论文列表容器 - 使用flex自适应 */
 .papers-container {
   flex: 1 1 auto; /* 自动填充剩余空间 */
   overflow-y: auto;
@@ -356,7 +356,7 @@
   background: rgba(255, 255, 255, 0.25);
 }
 
-/* 加载和空状态 - Dark theme */
+/* 加载和空状态 */
 .loading-state,
 .empty-state {
   flex: 1;
@@ -364,8 +364,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: rgba(236, 236, 241, 0.6);
+  color: rgba(255, 255, 255, 0.5);
   padding: 60px 20px;
+  background: #212121;
 }
 
 /* 空状态布局 - 类似首页 */
@@ -920,10 +921,10 @@
 }
 
 .loading-state .spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid rgba(255, 255, 255, 0.1);
-  border-top-color: rgb(25, 195, 125);
+  width: 32px;
+  height: 32px;
+  border: 2px solid rgba(16, 185, 129, 0.2);
+  border-top-color: rgb(16, 185, 129);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin-bottom: 16px;
@@ -931,6 +932,12 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.loading-state p {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  margin: 0;
 }
 
 .empty-state svg {
@@ -950,69 +957,45 @@
   margin: 0;
 }
 
-/* 结果头部 - Dark theme */
+/* 结果头部 */
 .results-header {
-  padding: 20px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: #212121;
+  padding: 16px 28px;
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
 .results-info {
-  font-size: 14px;
-  color: rgba(236, 236, 241, 0.6);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
   margin: 0;
 }
 
 .results-info strong {
-  color: rgb(236, 236, 241);
+  color: rgba(255, 255, 255, 0.8);
   font-weight: 600;
 }
 
 /* 论文列表 */
 .papers-list {
-  flex: 1;
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .paper-item {
-  display: flex;
-  gap: 16px;
-  padding: 20px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  background: #212121;
-}
-
-.paper-item:hover {
-  background: #303030;
+  display: block;
+  padding: 20px 28px;
+  background: transparent;
+  position: relative;
 }
 
 .paper-item.selected {
-  background: #242424;
-  border-left: 3px solid rgb(25, 195, 125);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .paper-number {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  color: rgba(236, 236, 241, 0.4);
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.paper-item.selected .paper-number {
-  background: transparent;
-  color: rgb(25, 195, 125);
-  font-weight: 600;
+  display: none;
 }
 
 .paper-content {
@@ -1022,87 +1005,258 @@
 
 .paper-title {
   font-size: 18px;
-  font-weight: 600;
-  color: rgb(236, 236, 241);
+  font-weight: 500;
+  color: #4A90D9;
   margin: 0 0 8px 0;
-  line-height: 1.4;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: color 0.15s ease;
 }
 
-.paper-item:hover .paper-title {
-  color: rgb(25, 195, 125);
+.paper-title:hover {
+  color: #5BA3EC;
+  text-decoration: underline;
+}
+
+.paper-item.selected .paper-title {
+  color: #5BA3EC;
 }
 
 .paper-authors {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0 0 10px 0;
+  font-style: italic;
+}
+
+/* 作者行 - 包含作者标签和研究领域 */
+.paper-authors-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.paper-author-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.author-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.author-tag.author-more {
+  color: rgba(255, 255, 255, 0.5);
+  background: transparent;
+}
+
+.paper-fields {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-left: 4px;
+}
+
+/* 期刊/会议 + 日期 */
+.paper-venue-date {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 10px 0;
+}
+
+.venue-name {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.pub-date {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* TLDR 摘要 */
+.paper-tldr {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.tldr-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 5px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.tldr-text {
   font-size: 14px;
-  color: rgba(236, 236, 241, 0.6);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Abstract 摘要 */
+.paper-abstract-section {
+  margin-bottom: 12px;
+  line-height: 1.55;
+}
+
+.abstract-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 5px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: top;
+}
+
+.abstract-text {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 链接样式 */
+.meta-link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.meta-link:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.paper-venue {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
   margin: 0 0 12px 0;
 }
 
-.paper-abstract {
-  font-size: 14px;
-  color: rgba(236, 236, 241, 0.8);
-  line-height: 1.6;
+.paper-venue a {
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: underline;
+}
+
+.paper-venue a:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.paper-tldr {
   margin: 0 0 12px 0;
-  text-align: justify;
+}
+
+.paper-tldr-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.paper-abstract {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.6;
+  margin: 0 0 14px 0;
+  display: inline;
+}
+
+.paper-expand {
+  color: #4A90D9;
+  font-size: 13px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.paper-expand:hover {
+  text-decoration: underline;
 }
 
 .paper-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
 }
 
 .meta-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   font-size: 13px;
-  color: rgba(236, 236, 241, 0.6);
-  padding: 4px 8px;
-  background: rgba(64, 65, 79, 0.5);
-  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  font-weight: 400;
 }
 
 .meta-item svg {
   flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
+}
+
+.meta-item.citations {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .meta-item.open-access {
-  background: rgba(25, 195, 125, 0.2);
-  color: rgb(25, 195, 125);
+  background: rgba(16, 185, 129, 0.12);
+  color: rgb(52, 211, 153);
 }
 
-/* 分页器 - Dark theme */
+.meta-item.pdf {
+  background: rgba(16, 185, 129, 0.12);
+  color: rgb(52, 211, 153);
+}
+
+/* 分页器 */
 .pagination {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 8px;
   padding: 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: #212121;
 }
 
 .pagination-btn {
-  padding: 8px 16px;
-  background: rgba(64, 65, 79, 0.5);
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.06);
   border: none;
-  color: rgba(236, 236, 241, 0.8);
+  color: rgba(255, 255, 255, 0.6);
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .pagination-btn:hover:not(:disabled) {
-  background: rgba(64, 65, 79, 0.8);
-  color: rgb(236, 236, 241);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .pagination-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
@@ -1212,6 +1366,91 @@
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* 筛选条件标签栏 */
+.active-filters-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  width: 100%;
+  max-width: 56rem;
+}
+
+.filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+}
+
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.filter-tag-year {
+  color: rgba(59, 130, 246, 0.9);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.filter-tag-openAccess {
+  color: rgb(52, 211, 153);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.filter-tag-field {
+  color: rgba(168, 85, 247, 0.9);
+  background: rgba(168, 85, 247, 0.1);
+}
+
+.filter-tag-pubType {
+  color: rgba(251, 146, 60, 0.9);
+  background: rgba(251, 146, 60, 0.1);
+}
+
+.filter-tag-venue {
+  color: rgba(236, 72, 153, 0.9);
+  background: rgba(236, 72, 153, 0.1);
+}
+
+.filter-tag-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.filter-tag-remove:hover {
+  opacity: 1;
+}
+
+.clear-all-filters {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: color 0.15s ease;
+  white-space: nowrap;
+}
+
+.clear-all-filters:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
 /* 结果页面搜索框 - Google风格高度 */
 .results-composer-wrapper {
   width: 100%;
@@ -1288,5 +1527,13 @@
   .papers-container {
     min-width: auto;
     width: 100%;
+  }
+
+  .paper-item {
+    padding: 20px;
+  }
+
+  .paper-title {
+    font-size: 15px;
   }
 }
