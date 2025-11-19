@@ -15,7 +15,9 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
   const [scale, setScale] = useState(1.0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isUnmounted, setIsUnmounted] = useState(false);
   const contentRef = useRef(null);
+  const documentRef = useRef(null);
 
   // 使用外部预览服务，使用 useMemo 确保只在 pdfUrl 变化时重新计算
   const proxyUrl = useMemo(
@@ -29,25 +31,38 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
     setIsLoading(true);
     setError(null);
     setScale(1.0);
+    setIsUnmounted(false);
   }, [pdfUrl]);
 
+  // 组件卸载时的清理
+  useEffect(() => {
+    return () => {
+      setIsUnmounted(true);
+    };
+  }, []);
+
   const onDocumentLoadSuccess = ({ numPages }) => {
+    if (isUnmounted) return;
     setNumPages(numPages);
     setIsLoading(false);
     setError(null);
   };
 
   const onPageRenderSuccess = () => {
+    if (isUnmounted) return;
     // 当第一页渲染完成后,初始化滚动位置到中心
     if (contentRef.current) {
       setTimeout(() => {
-        const container = contentRef.current;
-        container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
+        if (contentRef.current) {
+          const container = contentRef.current;
+          container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
+        }
       }, 100);
     }
   };
 
   const onDocumentLoadError = (error) => {
+    if (isUnmounted) return;
     console.error('PDF加载失败:', error);
     setError('PDF加载失败,可能是由于CORS限制或文件不可用');
     setIsLoading(false);

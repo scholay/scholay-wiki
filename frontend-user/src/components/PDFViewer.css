@@ -1,24 +1,22 @@
-/* PDF Viewer Container - Dark theme */
+/* PDF Viewer 容器 */
 .pdf-viewer {
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, rgb(24, 25, 27) 0%, rgb(28, 29, 31) 100%);
+  background: #212121;
   overflow: hidden;
 }
 
-/* Toolbar - ChatGPT dark theme */
+/* 工具栏 */
 .pdf-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  background: rgba(40, 41, 45, 0.85);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.02);
   flex-shrink: 0;
-  gap: 16px;
+  gap: 12px;
 }
 
 .pdf-info {
@@ -27,54 +25,61 @@
   gap: 8px;
   flex: 1;
   min-width: 0;
-  color: rgb(236, 236, 241);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .pdf-info svg {
   flex-shrink: 0;
-  color: rgba(236, 236, 241, 0.6);
+  width: 16px;
+  height: 16px;
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .pdf-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Controls */
+/* 控制按钮 */
 .pdf-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
 }
 
 .zoom-controls,
 .page-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
 }
 
 .control-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   background: transparent;
   border: none;
-  border-radius: 6px;
-  color: rgba(236, 236, 241, 0.8);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
   transition: all 0.15s ease;
   flex-shrink: 0;
 }
 
+.control-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
 .control-btn:hover:not(:disabled) {
-  background: rgba(64, 65, 79, 0.8);
-  color: rgb(236, 236, 241);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .control-btn:disabled {
@@ -83,116 +88,80 @@
 }
 
 .control-btn.external-btn {
-  color: rgb(25, 195, 125);
+  color: rgb(52, 211, 153);
 }
 
 .control-btn.external-btn:hover {
-  background: rgba(25, 195, 125, 0.15);
+  background: rgba(16, 185, 129, 0.1);
 }
 
 .zoom-level {
-  font-size: 13px;
-  color: rgba(236, 236, 241, 0.8);
-  min-width: 50px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  min-width: 40px;
   text-align: center;
   font-weight: 500;
 }
 
 .page-info {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: rgba(236, 236, 241, 0.8);
-}
-
-.page-input {
-  width: 45px;
-  padding: 4px 6px;
-  background: rgba(64, 65, 79, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  color: rgb(236, 236, 241);
-  font-size: 13px;
-  text-align: center;
-  transition: all 0.15s ease;
-}
-
-.page-input:focus {
-  outline: none;
-  border-color: rgb(25, 195, 125);
-  background: rgba(64, 65, 79, 0.7);
-}
-
-.page-input::-webkit-inner-spin-button,
-.page-input::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.page-total {
-  color: rgba(236, 236, 241, 0.6);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 0 4px;
 }
 
 .divider {
   width: 1px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.1);
+  height: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 0 4px;
 }
 
-/* PDF Content Area */
+/* PDF 内容区域 */
 .pdf-content {
   flex: 1;
   overflow: auto;
-  background: linear-gradient(135deg, rgb(30, 31, 34) 0%, rgb(35, 36, 39) 50%, rgb(30, 31, 34) 100%);
-  padding: 20px;
+  background: #1a1a1a;
+  padding: 16px;
   position: relative;
   box-sizing: border-box;
 }
 
 .pdf-content--loading {
-  padding-top: 48px;
+  padding-top: 32px;
 }
 
 .pdf-content::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
 }
 
 .pdf-content::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: transparent;
 }
 
 .pdf-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
 }
 
 .pdf-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.15);
 }
-
 
 .pdf-document {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
-  padding-top: 8px;
+  gap: 12px;
   box-sizing: border-box;
   min-width: 100%;
 }
 
 .pdf-page {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   background: white;
-  border-radius: 6px;
+  border-radius: 2px;
   overflow: hidden;
-  transition: box-shadow 0.3s ease;
-}
-
-.pdf-page:hover {
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 .pdf-page canvas {
@@ -200,7 +169,7 @@
   height: auto !important;
 }
 
-/* Loading State */
+/* 加载状态 */
 .pdf-skeleton-overlay {
   position: absolute;
   top: 0;
@@ -209,46 +178,43 @@
   pointer-events: none;
   display: flex;
   justify-content: center;
-  padding-top: 12px;
+  padding-top: 8px;
   box-sizing: border-box;
 }
 
 .pdf-skeleton {
   width: 100%;
-  max-width: 720px;
+  max-width: 500px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
-  padding: 20px 20px 40px;
+  gap: 12px;
+  padding: 16px 16px 32px;
   box-sizing: border-box;
 }
 
 .pdf-skeleton-page {
   width: 100%;
   aspect-ratio: 1 / 1.414;
-  border-radius: 8px;
+  border-radius: 4px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .pdf-skeleton-shimmer {
   width: 100%;
   height: 100%;
   background: linear-gradient(110deg,
-    rgba(255, 255, 255, 0.05) 25%,
-    rgba(255, 255, 255, 0.18) 50%,
-    rgba(255, 255, 255, 0.05) 75%);
+    rgba(255, 255, 255, 0.02) 25%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.02) 75%);
   background-size: 200% 100%;
-  animation: pdf-skeleton-loading 1.4s ease-in-out infinite;
+  animation: pdf-skeleton-loading 1.5s ease-in-out infinite;
 }
 
 @keyframes pdf-skeleton-loading {
   0% {
     background-position: 200% 0;
-  }
-  50% {
-    background-position: 100% 0;
   }
   100% {
     background-position: -200% 0;
@@ -256,65 +222,67 @@
 }
 
 .pdf-skeleton-text {
-  font-size: 13px;
-  color: rgba(236, 236, 241, 0.5);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
 }
 
-/* Error State */
+/* 错误状态 */
 .pdf-error {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  color: rgba(236, 236, 241, 0.6);
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.45);
   text-align: center;
-  padding: 40px;
+  padding: 40px 20px;
 }
 
 .pdf-error svg {
-  color: rgba(236, 236, 241, 0.3);
+  width: 36px;
+  height: 36px;
+  color: rgba(255, 255, 255, 0.2);
 }
 
 .pdf-error p {
-  font-size: 14px;
+  font-size: 13px;
   margin: 0;
-  max-width: 300px;
+  max-width: 260px;
+  line-height: 1.5;
 }
 
 .fallback-link {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 16px;
-  background: rgb(25, 195, 125);
+  padding: 8px 14px;
+  background: rgba(16, 185, 129, 0.9);
   color: white;
   text-decoration: none;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   transition: all 0.15s ease;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .fallback-link:hover {
-  background: rgb(19, 171, 107);
+  background: rgb(16, 185, 129);
 }
 
-/* Responsive */
+/* 响应式 */
 @media (max-width: 768px) {
   .pdf-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
+    padding: 8px 12px;
+    gap: 8px;
   }
 
   .pdf-controls {
-    justify-content: center;
     flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .pdf-content {
-    padding: 10px;
+    padding: 8px;
   }
 }

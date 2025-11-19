@@ -1221,6 +1221,7 @@ const AdvancedSearchPage = () => {
                     className="advanced-search-chat-input"
                     placeholder={searchExamples[currentExampleIndex]}
                     value={searchQuery}
+                    maxLength={1000}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
                       e.target.style.height = 'auto';
@@ -1423,6 +1424,7 @@ const AdvancedSearchPage = () => {
                           })()
                         }
                         value={searchQuery}
+                        maxLength={1000}
                         onChange={(e) => {
                           setSearchQuery(e.target.value);
                           e.target.style.height = 'auto';

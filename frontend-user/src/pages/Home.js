@@ -283,6 +283,7 @@ const Home = () => {
                       className="home-chat-input"
                       placeholder={searchExamples[searchMode][currentExampleIndex]}
                       value={searchQuery}
+                      maxLength={1000}
                       onChange={(e) => {
                         setSearchQuery(e.target.value);
                         // Auto-resize textarea

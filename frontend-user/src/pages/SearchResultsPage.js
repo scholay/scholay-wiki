@@ -74,18 +74,18 @@ const SearchResultsPage = () => {
     return Math.min(Math.max(target, safeMin), safeMax);
   }, [PREVIEW_MAX_WIDTH, PREVIEW_MIN_WIDTH]);
 
-  const [previewWidth, setPreviewWidth] = useState(() => {
+  // 默认预览面板宽度为内容区域的1/3（考虑侧边栏）
+  const getDefaultPreviewWidth = useCallback(() => {
     if (typeof window !== 'undefined') {
-      const savedWidth = window.localStorage.getItem('previewPanelWidth');
-      if (savedWidth) {
-        const parsed = parseInt(savedWidth, 10);
-        if (!Number.isNaN(parsed)) {
-          return clampPreviewWidth(parsed);
-        }
-      }
+      // 侧边栏宽度：展开280px，收起64px，未登录0px
+      const sidebarWidth = 280; // 假设侧边栏展开
+      const contentWidth = window.innerWidth - sidebarWidth;
+      return clampPreviewWidth(Math.floor(contentWidth / 3));
     }
     return clampPreviewWidth(480);
-  });
+  }, [clampPreviewWidth]);
+
+  const [previewWidth, setPreviewWidth] = useState(getDefaultPreviewWidth);
   const [isResizingPreview, setIsResizingPreview] = useState(false);
   const [isCompactLayout, setIsCompactLayout] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 1024 : false));
 
@@ -98,6 +98,9 @@ const SearchResultsPage = () => {
     if (!query.trim()) return;
 
     setLoading(true);
+    // 重置右侧预览面板
+    setSelectedPaper(null);
+    setPreviewWidth(getDefaultPreviewWidth());
     try {
       const params = {
         query: query,
@@ -441,9 +444,6 @@ const SearchResultsPage = () => {
 
     const finishResize = () => {
       setIsResizingPreview(false);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('previewPanelWidth', Math.round(currentWidth).toString());
-      }
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', finishResize);
       document.removeEventListener('touchmove', handleTouchMove, touchMoveOptions);
@@ -522,6 +522,7 @@ const SearchResultsPage = () => {
                     className="normal-search-chat-input"
                     placeholder={searchExamples[currentExampleIndex]}
                     value={searchQuery}
+                    maxLength={1000}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
                       e.target.style.height = 'auto';
@@ -641,6 +642,7 @@ const SearchResultsPage = () => {
                     className="results-chat-input"
                     placeholder={searchExamples[currentExampleIndex]}
                     value={searchQuery}
+                    maxLength={1000}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
                       e.target.style.height = 'auto';
@@ -831,15 +833,24 @@ const SearchResultsPage = () => {
                           </span>
                         )}
                         
-                        {/* 开放获取/PDF */}
-                        {paper.isOpenAccess && (
-                          <span className="meta-item open-access">
+                        {/* PDF 链接 */}
+                        {paper.openAccessPdf && paper.openAccessPdf.url && (
+                          <a 
+                            href={paper.openAccessPdf.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="meta-item pdf-link"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                              <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                              <polyline points="14 2 14 8 20 8"/>
+                              <line x1="16" y1="13" x2="8" y2="13"/>
+                              <line x1="16" y1="17" x2="8" y2="17"/>
+                              <polyline points="10 9 9 9 8 9"/>
                             </svg>
-                            开放获取
-                          </span>
+                            PDF
+                          </a>
                         )}
                       </div>
                     </div>
@@ -911,7 +922,7 @@ const SearchResultsPage = () => {
             )}
         </div>
 
-        {/* 右侧预览区 */}
+        {/* 右侧预览区 - 始终显示，无论是否选中论文 */}
         {!isCompactLayout && (
           <PaperPreview
             paper={selectedPaper}

@@ -298,6 +298,7 @@
   display: flex;
   flex-direction: column;
   min-width: 420px; /* 最小宽度确保内容可读 */
+  max-width: 100%; /* 当有预览面板时自动收缩 */
 }
 
 /* Auto-hide scrollbar when not scrolling */
@@ -1219,14 +1220,17 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
-.meta-item.open-access {
-  background: rgba(16, 185, 129, 0.12);
-  color: rgb(52, 211, 153);
+a.meta-item.pdf-link {
+  background: rgba(59, 130, 246, 0.1);
+  color: rgba(147, 197, 253, 0.9);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.meta-item.pdf {
-  background: rgba(16, 185, 129, 0.12);
-  color: rgb(52, 211, 153);
+a.meta-item.pdf-link:hover {
+  background: rgba(59, 130, 246, 0.18);
+  color: rgb(147, 197, 253);
 }
 
 /* 分页器 */
@@ -1234,25 +1238,64 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 8px;
-  padding: 24px;
+  gap: 16px;
+  padding: 32px 24px;
+}
+
+/* 每页数量选择器 */
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.page-size-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.page-size-select {
+  padding: 5px 24px 5px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+}
+
+.page-size-select:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.page-size-select option {
+  background: #2a2a2a;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .pagination-btn {
-  padding: 6px 14px;
-  background: rgba(255, 255, 255, 0.06);
+  padding: 6px 12px;
+  background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.6);
-  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
   font-size: 13px;
-  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .pagination-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .pagination-btn:disabled {
@@ -1262,77 +1305,34 @@
 
 .pagination-pages {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: 2px;
 }
 
 .pagination-page {
-  width: 36px;
-  height: 36px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(64, 65, 79, 0.5);
+  background: transparent;
   border: none;
-  color: rgba(236, 236, 241, 0.8);
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .pagination-page:hover {
-  background: rgba(64, 65, 79, 0.8);
-  color: rgb(236, 236, 241);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .pagination-page.active {
-  background: rgb(25, 195, 125);
-  color: white;
-}
-
-/* 每页数量选择器 */
-.page-size-selector {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-right: 16px;
-  padding-right: 16px;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.page-size-label {
-  font-size: 14px;
-  color: rgba(236, 236, 241, 0.6);
-  font-weight: 500;
-}
-
-.page-size-select {
-  padding: 6px 12px;
-  background: rgba(64, 65, 79, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgb(236, 236, 241);
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  outline: none;
-}
-
-.page-size-select:hover {
-  background: rgba(64, 65, 79, 0.7);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.page-size-select:focus {
-  border-color: rgb(25, 195, 125);
-  background: rgba(64, 65, 79, 0.8);
-}
-
-.page-size-select option {
-  background: rgb(40, 41, 45);
-  color: rgb(236, 236, 241);
+  background: rgba(59, 130, 246, 0.15);
+  color: rgba(147, 197, 253, 1);
 }
 
 /* 结果页面布局 */
@@ -1371,7 +1371,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 0;
+  padding: 10px 16px;
   width: 100%;
   max-width: 56rem;
 }
@@ -1379,44 +1379,44 @@
 .filter-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
 }
 
 .filter-tag {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 4px;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .filter-tag-year {
-  color: rgba(59, 130, 246, 0.9);
-  background: rgba(59, 130, 246, 0.1);
+  color: rgba(147, 197, 253, 0.9);
+  background: rgba(59, 130, 246, 0.08);
 }
 
 .filter-tag-openAccess {
-  color: rgb(52, 211, 153);
-  background: rgba(16, 185, 129, 0.1);
+  color: rgba(110, 231, 183, 0.9);
+  background: rgba(16, 185, 129, 0.08);
 }
 
 .filter-tag-field {
-  color: rgba(168, 85, 247, 0.9);
-  background: rgba(168, 85, 247, 0.1);
+  color: rgba(196, 181, 253, 0.9);
+  background: rgba(139, 92, 246, 0.08);
 }
 
 .filter-tag-pubType {
-  color: rgba(251, 146, 60, 0.9);
-  background: rgba(251, 146, 60, 0.1);
+  color: rgba(253, 186, 116, 0.9);
+  background: rgba(245, 158, 11, 0.08);
 }
 
 .filter-tag-venue {
-  color: rgba(236, 72, 153, 0.9);
-  background: rgba(236, 72, 153, 0.1);
+  color: rgba(251, 207, 232, 0.9);
+  background: rgba(236, 72, 153, 0.08);
 }
 
 .filter-tag-remove {
@@ -1439,10 +1439,11 @@
 .clear-all-filters {
   background: none;
   border: none;
-  padding: 4px 8px;
+  padding: 3px 8px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.4);
   cursor: pointer;
+  flex-shrink: 0;
   transition: color 0.15s ease;
   white-space: nowrap;
 }
