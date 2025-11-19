@@ -48,14 +48,14 @@ const PaperPreview = ({ paper, onClose, width, onResizeMouseDown, onResizeTouchS
               >
                 详情
               </button>
-              <button
+            <button
                 className={`tab-btn ${activeTab === 'pdf' ? 'active' : ''}`}
                 onClick={() => setActiveTab('pdf')}
-              >
+            >
                 PDF预览
               </button>
-            </>
-          )}
+                </>
+              )}
           {!hasPDF && (
             <span className="tab-title">论文详情</span>
           )}
@@ -100,7 +100,7 @@ const PaperPreview = ({ paper, onClose, width, onResizeMouseDown, onResizeTouchS
                 <span className="detail-label">作者</span>
                 <span className="detail-value">
                   {paper.authors.map(a => a.name).join(', ')}
-                </span>
+                    </span>
               </div>
             )}
 

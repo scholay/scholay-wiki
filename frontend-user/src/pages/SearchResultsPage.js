@@ -59,7 +59,25 @@ const SearchResultsPage = () => {
   const [loading, setLoading] = useState(false);
   const [selectedPaper, setSelectedPaper] = useState(null);
   const [citePaper, setCitePaper] = useState(null);
+  const [expandedTldr, setExpandedTldr] = useState({}); // TLDR 展开状态
+  const [expandedAbstract, setExpandedAbstract] = useState({}); // 摘要展开状态
   const [currentPage, setCurrentPage] = useState(1);
+  
+  // 切换 TLDR 展开/折叠
+  const toggleTldrExpand = (paperId) => {
+    setExpandedTldr(prev => ({
+      ...prev,
+      [paperId]: !prev[paperId]
+    }));
+  };
+  
+  // 切换摘要展开/折叠
+  const toggleAbstractExpand = (paperId) => {
+    setExpandedAbstract(prev => ({
+      ...prev,
+      [paperId]: !prev[paperId]
+    }));
+  };
   const [papersPerPage, setPapersPerPage] = useState(() => {
     const saved = localStorage.getItem('papersPerPage');
     return saved ? parseInt(saved, 10) : 50; // 默认50条/页
@@ -401,9 +419,9 @@ const SearchResultsPage = () => {
     
     // 如果已经执行过搜索，自动重新搜索
     if (searchQuery.trim()) {
-      setCurrentPage(1);
-      updateURL(searchQuery, newFilters, 1);
-      performSearch(searchQuery, newFilters, 1);
+    setCurrentPage(1);
+    updateURL(searchQuery, newFilters, 1);
+    performSearch(searchQuery, newFilters, 1);
     }
   };
 
@@ -691,7 +709,7 @@ const SearchResultsPage = () => {
                     }}
                     rows={1}
                   />
-                  
+
                   {/* 筛选按钮 - 放在发送按钮左侧 */}
                   {(() => {
                     const hasFilters = filters.yearFrom ||
@@ -709,8 +727,8 @@ const SearchResultsPage = () => {
                         title={hasFilters ? "已设置筛选条件" : "筛选条件"}
                       >
                         <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M2.5 3.75C2.5 3.19772 2.94772 2.75 3.5 2.75H16.5C17.0523 2.75 17.5 3.19772 17.5 3.75V5.25C17.5 5.51522 17.3946 5.76957 17.2071 5.95711L11.75 11.4142V16.25C11.75 16.6297 11.5085 16.9705 11.1522 17.1094L8.65217 18.1094C8.15522 18.3078 7.58333 17.9469 7.58333 17.4167V11.4142L2.79289 5.95711C2.60536 5.76957 2.5 5.51522 2.5 5.25V3.75Z"/>
-                        </svg>
+                            <path d="M2.5 3.75C2.5 3.19772 2.94772 2.75 3.5 2.75H16.5C17.0523 2.75 17.5 3.19772 17.5 3.75V5.25C17.5 5.51522 17.3946 5.76957 17.2071 5.95711L11.75 11.4142V16.25C11.75 16.6297 11.5085 16.9705 11.1522 17.1094L8.65217 18.1094C8.15522 18.3078 7.58333 17.9469 7.58333 17.4167V11.4142L2.79289 5.95711C2.60536 5.76957 2.5 5.51522 2.5 5.25V3.75Z"/>
+                          </svg>
                         {hasFilters && <span className="filter-dot"></span>}
                       </button>
                     );
@@ -751,7 +769,7 @@ const SearchResultsPage = () => {
                           </button>
                         </span>
                       ))}
-                    </div>
+          </div>
                     <button className="clear-all-filters" onClick={clearAllFilters}>
                       清除全部
                     </button>
@@ -841,29 +859,83 @@ const SearchResultsPage = () => {
 
                       {/* TLDR 摘要 */}
                       {paper.tldr && paper.tldr.text && (
-                        <div className="paper-tldr">
+                        <div className={`paper-tldr ${expandedTldr[paper.paperId] ? 'expanded' : ''}`}>
                           <span className="tldr-label">TLDR</span>
-                          <span className="tldr-text">{paper.tldr.text}</span>
+                          <span className="tldr-text">
+                            {expandedTldr[paper.paperId] 
+                              ? paper.tldr.text 
+                              : (paper.tldr.text.length > 300 
+                                  ? paper.tldr.text.substring(0, 300) + '...' 
+                                  : paper.tldr.text)
+                            }
+                          </span>
+                          {paper.tldr.text.length > 300 && (
+                            <button 
+                              className="expand-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleTldrExpand(paper.paperId);
+                              }}
+                            >
+                              {expandedTldr[paper.paperId] ? '收起' : '展开'}
+                            </button>
+                          )}
                         </div>
                       )}
 
                       {/* 完整摘要 */}
                       {paper.abstract && (
-                        <div className="paper-abstract-section">
+                        <div className={`paper-abstract-section ${expandedAbstract[paper.paperId] ? 'expanded' : ''}`}>
                           <span className="abstract-label">Abstract</span>
                           <span className="abstract-text">
-                            {paper.abstract.length > 300 ? paper.abstract.substring(0, 300) + '...' : paper.abstract}
+                            {expandedAbstract[paper.paperId] 
+                              ? paper.abstract 
+                              : (paper.abstract.length > 300 
+                                  ? paper.abstract.substring(0, 300) + '...' 
+                                  : paper.abstract)
+                            }
                           </span>
+                          {paper.abstract.length > 300 && (
+                            <button 
+                              className="expand-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleAbstractExpand(paper.paperId);
+                              }}
+                            >
+                              {expandedAbstract[paper.paperId] ? '收起' : '展开'}
+                            </button>
+                          )}
                         </div>
                       )}
 
                       {/* 底部元信息和操作 */}
                       <div className="paper-meta">
-                        {/* 引用数 */}
+                        {/* 被引用数 */}
                         {paper.citationCount !== undefined && (
-                          <span className="meta-item citations">
-                            引用 {paper.citationCount}
-                          </span>
+                          <>
+                            <span className="citation-count">
+                              <span className="citation-number">{paper.citationCount}</span>
+                              <span className="citation-label">被引</span>
+                            </span>
+                            <span className="meta-divider"></span>
+                          </>
+                        )}
+                        
+                        {/* DOI 链接 */}
+                        {paper.externalIds?.DOI && (
+                          <a
+                            href={`https://doi.org/${paper.externalIds.DOI}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="paper-doi-link"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
+                            </svg>
+                            DOI
+                          </a>
                         )}
                         
                         {/* PDF 链接 */}

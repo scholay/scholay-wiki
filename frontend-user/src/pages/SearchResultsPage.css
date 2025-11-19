@@ -1089,7 +1089,7 @@
 }
 
 .tldr-label {
-  display: inline-block;
+  display: inline;
   font-size: 11px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.6);
@@ -1097,7 +1097,6 @@
   padding: 1px 5px;
   border-radius: 2px;
   margin-right: 6px;
-  vertical-align: middle;
 }
 
 .tldr-text {
@@ -1112,7 +1111,7 @@
 }
 
 .abstract-label {
-  display: inline-block;
+  display: inline;
   font-size: 11px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.6);
@@ -1126,6 +1125,23 @@
 .abstract-text {
   font-size: 14px;
   color: rgba(255, 255, 255, 0.7);
+}
+
+/* 展开/收起按钮 */
+.expand-btn {
+  background: none;
+  border: none;
+  color: rgba(74, 144, 217, 0.9);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 6px;
+  transition: color 0.15s ease;
+}
+
+.expand-btn:hover {
+  color: rgb(91, 163, 236);
+  text-decoration: underline;
 }
 
 /* 链接样式 */
@@ -1220,6 +1236,60 @@
 .meta-item.citations {
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.7);
+}
+
+/* 被引用数 */
+.citation-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.citation-number {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.citation-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* 竖线分割 */
+.meta-divider {
+  width: 1px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 8px;
+}
+
+/* DOI 链接按钮 */
+.paper-doi-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: rgba(16, 185, 129, 0.1);
+  color: rgba(110, 231, 183, 0.9);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.paper-doi-link svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
+}
+
+.paper-doi-link:hover {
+  background: rgba(16, 185, 129, 0.18);
+  color: rgb(110, 231, 183);
 }
 
 a.meta-item.pdf-link {

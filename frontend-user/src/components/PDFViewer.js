@@ -68,8 +68,8 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
     if (contentRef.current) {
       setTimeout(() => {
         if (contentRef.current) {
-          const container = contentRef.current;
-          container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
+        const container = contentRef.current;
+        container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
         }
       }, 100);
     }
