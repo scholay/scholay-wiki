@@ -6,6 +6,7 @@ import { scholarAPI } from '../services/api';
 import PaperPreview from '../components/PaperPreview';
 import SearchFilters from '../components/SearchFilters';
 import PaperListSkeleton from '../components/PaperListSkeleton';
+import CiteModal from '../components/CiteModal';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory, renameSearchHistory, migrateOldSearchHistory } from '../utils/searchHistory';
 import SEO from '../components/SEO';
@@ -57,6 +58,7 @@ const SearchResultsPage = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [selectedPaper, setSelectedPaper] = useState(null);
+  const [citePaper, setCitePaper] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [papersPerPage, setPapersPerPage] = useState(() => {
     const saved = localStorage.getItem('papersPerPage');
@@ -90,8 +92,10 @@ const SearchResultsPage = () => {
   const [isCompactLayout, setIsCompactLayout] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 1024 : false));
 
   const resultsMainRef = useRef(null);
+  const papersContainerRef = useRef(null);
   const [selectedHistoryId, setSelectedHistoryId] = useState(null); // 选中的搜索历史ID
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
+  const [isSearchBarCollapsed, setIsSearchBarCollapsed] = useState(false); // 搜索框收缩状态
 
   // 执行搜索
   const performSearch = async (query, currentFilters, page = 1, saveToHistory = true) => {
@@ -106,7 +110,7 @@ const SearchResultsPage = () => {
         query: query,
         offset: (page - 1) * papersPerPage,
         limit: papersPerPage,
-        fields: 'paperId,title,abstract,authors,year,citationCount,url,venue,publicationDate,openAccessPdf,fieldsOfStudy,isOpenAccess,referenceCount,influentialCitationCount,tldr'
+        fields: 'paperId,title,abstract,authors,year,citationCount,url,venue,publicationDate,openAccessPdf,fieldsOfStudy,isOpenAccess,referenceCount,influentialCitationCount,tldr,journal,externalIds'
       };
 
       // 添加筛选条件
@@ -256,6 +260,33 @@ const SearchResultsPage = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [clampPreviewWidth]);
+
+  // 监听论文列表滚动，控制搜索框收缩
+  useEffect(() => {
+    const container = papersContainerRef.current;
+    if (!container) return;
+
+    let lastScrollTop = 0;
+    const scrollThreshold = 50; // 滚动多少像素后触发收缩
+
+    const handleScroll = () => {
+      const scrollTop = container.scrollTop;
+      
+      // 向下滚动超过阈值时收缩
+      if (scrollTop > scrollThreshold && !isSearchBarCollapsed) {
+        setIsSearchBarCollapsed(true);
+      }
+      // 滚动回顶部时展开
+      else if (scrollTop <= 10 && isSearchBarCollapsed) {
+        setIsSearchBarCollapsed(false);
+      }
+      
+      lastScrollTop = scrollTop;
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [isSearchBarCollapsed]);
 
   // 处理搜索
   const handleSearch = (e) => {
@@ -634,7 +665,7 @@ const SearchResultsPage = () => {
             </nav>
 
             {/* 居中搜索区域 */}
-            <div className="centered-search-area">
+            <div className={`centered-search-area ${isSearchBarCollapsed ? 'collapsed' : ''}`}>
               <form onSubmit={handleSearch} className="results-composer-wrapper">
                 {/* 输入区域 */}
                 <div className="results-composer-input-area">
@@ -732,7 +763,7 @@ const SearchResultsPage = () => {
       {/* 两栏布局 */}
       <div className="results-main" ref={resultsMainRef}>
         {/* 论文列表区域 */}
-        <div className="papers-container">
+        <div className="papers-container" ref={papersContainerRef}>
             {loading ? (
               <PaperListSkeleton />
             ) : papers.length === 0 ? (
@@ -854,6 +885,20 @@ const SearchResultsPage = () => {
                             PDF
                           </a>
                         )}
+                        
+                        {/* Cite 按钮 */}
+                        <button
+                          className="paper-cite-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCitePaper(paper);
+                          }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11M20 10v11M8 21V10M16 21V10"/>
+                          </svg>
+                          Cite
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -939,6 +984,14 @@ const SearchResultsPage = () => {
     </div>
         )}
       </div>
+
+      {/* 引用弹窗 */}
+      {citePaper && (
+        <CiteModal
+          paper={citePaper}
+          onClose={() => setCitePaper(null)}
+        />
+      )}
     </div>
   );
 };

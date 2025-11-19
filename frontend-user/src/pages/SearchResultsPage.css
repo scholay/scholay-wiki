@@ -1235,6 +1235,35 @@ a.meta-item.pdf-link:hover {
   color: rgb(147, 197, 253);
 }
 
+/* Cite 按钮 - 独立样式 */
+.paper-cite-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: rgba(139, 92, 246, 0.1);
+  color: rgba(196, 181, 253, 0.9);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.paper-cite-btn svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
+}
+
+.paper-cite-btn:hover {
+  background: rgba(139, 92, 246, 0.18);
+  color: rgb(196, 181, 253);
+}
+
 /* 分页器 */
 .pagination {
   display: flex;
@@ -1365,7 +1394,53 @@ a.meta-item.pdf-link:hover {
   position: relative;
   background: #212121;
   flex-shrink: 0;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 搜索框收缩状态 */
+.centered-search-area.collapsed {
+  padding: 0.5rem 1.5rem 0.25rem;
+}
+
+.centered-search-area.collapsed .results-composer-wrapper {
+  transform: scale(0.95);
+  transform-origin: left center;
+}
+
+.centered-search-area.collapsed .results-composer-input-area {
+  min-height: 44px;
+}
+
+.centered-search-area.collapsed .results-chat-input {
+  font-size: 0.875rem !important;
+  padding: 8px 4px;
+  min-height: 24px;
+}
+
+.centered-search-area.collapsed .btn-send {
+  width: 32px;
+  height: 32px;
+  margin-top: 4px;
+}
+
+.centered-search-area.collapsed .filter-btn-minimal {
+  width: 32px;
+  height: 32px;
+  margin-top: 4px;
+}
+
+.centered-search-area.collapsed .active-filters-bar {
+  padding: 2px 16px;
+  min-height: 24px;
+}
+
+.centered-search-area.collapsed .filter-tag {
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.centered-search-area.collapsed .clear-all-filters {
+  font-size: 11px;
 }
 
 /* 筛选条件标签栏 */
@@ -1459,21 +1534,24 @@ a.meta-item.pdf-link:hover {
   color: rgba(255, 255, 255, 0.8);
 }
 
-/* 结果页面搜索框 - Google风格高度 */
+/* 结果页面搜索框 - 毛玻璃效果 */
 .results-composer-wrapper {
   width: 100%;
-  max-width: 56rem; /* 增大搜索框宽度 */
-  background: #2f2f2f;
+  max-width: 56rem;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 24px;
   padding: 6px 12px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  margin-bottom: 1rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 0.5rem;
   animation: slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .results-composer-wrapper:focus-within {
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 /* 搜索框滑动动画 */

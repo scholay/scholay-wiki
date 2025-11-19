@@ -16,8 +16,14 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isUnmounted, setIsUnmounted] = useState(false);
+  const [autoOpenOnError, setAutoOpenOnError] = useState(() => {
+    // 从 localStorage 读取用户偏好
+    const saved = localStorage.getItem('pdf_auto_open_on_error');
+    return saved === 'true';
+  });
   const contentRef = useRef(null);
   const documentRef = useRef(null);
+  const hasAutoOpenedRef = useRef(false); // 防止重复打开
 
   // 使用外部预览服务，使用 useMemo 确保只在 pdfUrl 变化时重新计算
   const proxyUrl = useMemo(
@@ -32,7 +38,15 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
     setError(null);
     setScale(1.0);
     setIsUnmounted(false);
+    hasAutoOpenedRef.current = false; // 重置自动打开标记
   }, [pdfUrl]);
+
+  // 切换自动打开设置
+  const toggleAutoOpen = () => {
+    const newValue = !autoOpenOnError;
+    setAutoOpenOnError(newValue);
+    localStorage.setItem('pdf_auto_open_on_error', String(newValue));
+  };
 
   // 组件卸载时的清理
   useEffect(() => {
@@ -64,8 +78,14 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
   const onDocumentLoadError = (error) => {
     if (isUnmounted) return;
     console.error('PDF加载失败:', error);
-    setError('PDF加载失败,可能是由于CORS限制或文件不可用');
+    setError('PDF 暂时无法加载，请点击下方按钮在新窗口中查看');
     setIsLoading(false);
+    
+    // 如果开启了自动打开，且还未自动打开过，则自动在新窗口打开
+    if (autoOpenOnError && !hasAutoOpenedRef.current) {
+      hasAutoOpenedRef.current = true;
+      window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+    }
   };
 
   // 配置PDF加载选项 - 使用 useMemo 避免每次渲染都创建新对象
@@ -204,6 +224,14 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
             <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="fallback-link">
               在新窗口打开PDF
             </a>
+            <label className="auto-open-toggle">
+              <input
+                type="checkbox"
+                checked={autoOpenOnError}
+                onChange={toggleAutoOpen}
+              />
+              <span className="toggle-label">加载失败时自动打开</span>
+            </label>
           </div>
         )}
 

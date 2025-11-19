@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PDFViewer from './PDFViewer';
 import './PaperPreview.css';
 
 const PaperPreview = ({ paper, onClose, width, onResizeMouseDown, onResizeTouchStart, isResizing }) => {
-  const [activeTab, setActiveTab] = useState('pdf'); // 'pdf' or 'details'
+  const [activeTab, setActiveTab] = useState('details'); // 'details' or 'pdf'，默认展示详情
   const containerStyle = width ? { width: typeof width === 'number' ? `${width}px` : width } : undefined;
+
+  // 当切换论文时，重置为详情 tab
+  useEffect(() => {
+    if (paper) {
+      setActiveTab('details');
+    }
+  }, [paper?.paperId]);
 
   if (!paper) {
     return (
@@ -36,16 +43,16 @@ const PaperPreview = ({ paper, onClose, width, onResizeMouseDown, onResizeTouchS
           {hasPDF && (
             <>
               <button
-                className={`tab-btn ${activeTab === 'pdf' ? 'active' : ''}`}
-                onClick={() => setActiveTab('pdf')}
-              >
-                PDF预览
-              </button>
-              <button
                 className={`tab-btn ${activeTab === 'details' ? 'active' : ''}`}
                 onClick={() => setActiveTab('details')}
               >
                 详情
+              </button>
+              <button
+                className={`tab-btn ${activeTab === 'pdf' ? 'active' : ''}`}
+                onClick={() => setActiveTab('pdf')}
+              >
+                PDF预览
               </button>
             </>
           )}
