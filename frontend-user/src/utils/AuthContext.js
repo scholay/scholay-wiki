@@ -1,55 +1,179 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { userAPI } from '../services/api';
 
 const AuthContext = createContext(null);
+
+// 配置常量
+const HEARTBEAT_CONFIG = {
+  ACTIVE_INTERVAL: 30000,      // 活跃状态下的心跳间隔：30秒
+  IDLE_INTERVAL: 120000,       // 空闲状态下的心跳间隔：2分钟
+  IDLE_TIMEOUT: 60000,         // 空闲超时时间：1分钟无操作视为空闲
+  INACTIVE_TIMEOUT: 300000,    // 不活跃超时时间：5分钟无操作停止心跳
+};
+
+// 需要监听的用户活动事件
+const USER_ACTIVITY_EVENTS = [
+  'mousedown',
+  'mousemove', 
+  'keydown',
+  'scroll',
+  'touchstart',
+  'click',
+  'focus',
+];
 
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // 心跳相关的 refs
   const heartbeatIntervalRef = useRef(null);
+  const lastActivityRef = useRef(Date.now());
+  const isIdleRef = useRef(false);
+  const activityCheckIntervalRef = useRef(null);
+  
+  // 使用 ref 存储函数引用，避免循环依赖
+  const startHeartbeatRef = useRef(null);
 
   // Heartbeat function to keep session alive
-  const sendHeartbeat = async () => {
+  const sendHeartbeat = useCallback(async () => {
     const token = localStorage.getItem('user_token');
     if (!token) {
-      stopHeartbeat();
-      return;
+      return false;
     }
 
     try {
       await userAPI.heartbeat();
+      return true;
     } catch (error) {
       // If 401, axios interceptor will handle it (clear token, redirect, etc.)
-      // For other errors, just stop heartbeat
+      // For other errors, just log
       if (error.response?.status !== 401) {
         console.error('Heartbeat error:', error);
       }
-      stopHeartbeat();
+      return false;
     }
-  };
+  }, []);
 
-  // Start heartbeat
-  const startHeartbeat = () => {
-    // Clear any existing interval
+  // 重新设置心跳间隔
+  const restartHeartbeatWithInterval = useCallback((interval) => {
     if (heartbeatIntervalRef.current) {
       clearInterval(heartbeatIntervalRef.current);
     }
+    heartbeatIntervalRef.current = setInterval(sendHeartbeat, interval);
+  }, [sendHeartbeat]);
 
-    // Send initial heartbeat
-    sendHeartbeat();
-
-    // Set up interval to send heartbeat every 30 seconds
-    heartbeatIntervalRef.current = setInterval(sendHeartbeat, 30000);
-  };
-
-  // Stop heartbeat
-  const stopHeartbeat = () => {
+  // Stop heartbeat - 定义在前面以便其他函数使用
+  const stopHeartbeat = useCallback(() => {
     if (heartbeatIntervalRef.current) {
       clearInterval(heartbeatIntervalRef.current);
       heartbeatIntervalRef.current = null;
     }
-  };
+    if (activityCheckIntervalRef.current) {
+      clearInterval(activityCheckIntervalRef.current);
+      activityCheckIntervalRef.current = null;
+    }
+  }, []);
+
+  // 检查用户活动状态
+  const checkActivityStatus = useCallback(() => {
+    const now = Date.now();
+    const timeSinceLastActivity = now - lastActivityRef.current;
+
+    // 如果超过不活跃时间，停止心跳
+    if (timeSinceLastActivity >= HEARTBEAT_CONFIG.INACTIVE_TIMEOUT) {
+      if (heartbeatIntervalRef.current) {
+        stopHeartbeat();
+      }
+      return;
+    }
+
+    // 如果超过空闲时间但未超过不活跃时间，降低心跳频率
+    if (timeSinceLastActivity >= HEARTBEAT_CONFIG.IDLE_TIMEOUT && !isIdleRef.current) {
+      isIdleRef.current = true;
+      restartHeartbeatWithInterval(HEARTBEAT_CONFIG.IDLE_INTERVAL);
+    }
+  }, [stopHeartbeat, restartHeartbeatWithInterval]);
+
+  // 更新最后活动时间
+  const updateLastActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    
+    // 如果之前是空闲状态，现在变为活跃
+    if (isIdleRef.current) {
+      isIdleRef.current = false;
+      // 立即发送一次心跳，然后重新设置活跃间隔
+      const token = localStorage.getItem('user_token');
+      if (token) {
+        sendHeartbeat();
+        restartHeartbeatWithInterval(HEARTBEAT_CONFIG.ACTIVE_INTERVAL);
+      }
+    }
+  }, [sendHeartbeat, restartHeartbeatWithInterval]);
+
+  // Handle page visibility change
+  const handleVisibilityChange = useCallback(() => {
+    if (document.visibilityState === 'visible') {
+      // Page became visible, update activity
+      lastActivityRef.current = Date.now();
+      const token = localStorage.getItem('user_token');
+      if (token && !heartbeatIntervalRef.current) {
+        // Restart heartbeat if it was stopped - 使用 ref 引用
+        if (startHeartbeatRef.current) {
+          startHeartbeatRef.current();
+        }
+      }
+    }
+  }, []);
+
+  // Start heartbeat with activity detection
+  const startHeartbeat = useCallback(() => {
+    // Clear any existing intervals
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+    }
+    if (activityCheckIntervalRef.current) {
+      clearInterval(activityCheckIntervalRef.current);
+    }
+
+    // Reset activity state
+    lastActivityRef.current = Date.now();
+    isIdleRef.current = false;
+
+    // Send initial heartbeat
+    sendHeartbeat();
+
+    // Set up interval to send heartbeat (active interval initially)
+    heartbeatIntervalRef.current = setInterval(sendHeartbeat, HEARTBEAT_CONFIG.ACTIVE_INTERVAL);
+
+    // Set up activity status check (every 10 seconds)
+    activityCheckIntervalRef.current = setInterval(checkActivityStatus, 10000);
+
+    // Add activity event listeners
+    USER_ACTIVITY_EVENTS.forEach(event => {
+      window.addEventListener(event, updateLastActivity, { passive: true });
+    });
+
+    // Also listen for visibility change
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+  }, [sendHeartbeat, checkActivityStatus, updateLastActivity, handleVisibilityChange]);
+
+  // 更新 ref
+  useEffect(() => {
+    startHeartbeatRef.current = startHeartbeat;
+  }, [startHeartbeat]);
+
+  // 完整的 stopHeartbeat（包含清理事件监听器）
+  const fullStopHeartbeat = useCallback(() => {
+    stopHeartbeat();
+    
+    // Remove activity event listeners
+    USER_ACTIVITY_EVENTS.forEach(event => {
+      window.removeEventListener(event, updateLastActivity);
+    });
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [stopHeartbeat, updateLastActivity, handleVisibilityChange]);
 
   useEffect(() => {
     // Check for existing token on mount
@@ -72,7 +196,7 @@ export const AuthProvider = ({ children }) => {
     // Listen for auth expiration events
     const handleAuthExpired = (event) => {
       // Stop heartbeat and clear state
-      stopHeartbeat();
+      fullStopHeartbeat();
       setIsAuthenticated(false);
       setUser(null);
 
@@ -85,7 +209,7 @@ export const AuthProvider = ({ children }) => {
 
     // Cleanup on unmount
     return () => {
-      stopHeartbeat();
+      fullStopHeartbeat();
       window.removeEventListener('auth:expired', handleAuthExpired);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -101,7 +225,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     // Stop heartbeat first
-    stopHeartbeat();
+    fullStopHeartbeat();
 
     // Call backend logout API to delete session
     try {

@@ -85,6 +85,7 @@ function ChatPage() {
   const [editingMessage, setEditingMessage] = useState(null);
   const [editContent, setEditContent] = useState('');
   const [siblingInfo, setSiblingInfo] = useState({}); // Map of message_id -> {siblings, currentIndex, total}
+  const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
   const textareaRef = useRef(null);
@@ -898,8 +899,10 @@ function ChatPage() {
                       ref={textareaRef}
                       value={inputMessage}
                       onChange={(e) => setInputMessage(e.target.value)}
+                      onCompositionStart={() => setIsComposing(true)}
+                      onCompositionEnd={() => setIsComposing(false)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
+                        if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
                           e.preventDefault();
                           handleSubmit(e);
                         }
@@ -1224,8 +1227,10 @@ function ChatPage() {
                     ref={textareaRef}
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
+                    onCompositionStart={() => setIsComposing(true)}
+                    onCompositionEnd={() => setIsComposing(false)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
+                      if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
                         e.preventDefault();
                         handleSubmit(e);
                       }

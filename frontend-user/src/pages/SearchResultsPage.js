@@ -3,7 +3,6 @@ import { useSearchParams, useNavigate, useOutletContext } from 'react-router-dom
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
 import { scholarAPI } from '../services/api';
-import FilterSidebar from '../components/FilterSidebar';
 import PaperPreview from '../components/PaperPreview';
 import SearchFilters from '../components/SearchFilters';
 import PaperListSkeleton from '../components/PaperListSkeleton';
@@ -90,19 +89,9 @@ const SearchResultsPage = () => {
   const [isResizingPreview, setIsResizingPreview] = useState(false);
   const [isCompactLayout, setIsCompactLayout] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 1024 : false));
 
-  const initialFilterCollapsed = () => {
-    if (typeof window === 'undefined') {
-      return true; // 默认收起
-    }
-    const stored = window.localStorage.getItem('resultsFilterCollapsed');
-    if (stored !== null) {
-      return stored === 'true';
-    }
-    return true; // 默认收起状态
-  };
-  const [filterSidebarCollapsed, setFilterSidebarCollapsed] = useState(initialFilterCollapsed);
   const resultsMainRef = useRef(null);
   const [selectedHistoryId, setSelectedHistoryId] = useState(null); // 选中的搜索历史ID
+  const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
 
   // 执行搜索
   const performSearch = async (query, currentFilters, page = 1, saveToHistory = true) => {
@@ -258,38 +247,12 @@ const SearchResultsPage = () => {
       const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
       setPreviewWidth(prev => clampPreviewWidth(prev, viewportWidth));
       setIsCompactLayout(viewportWidth <= 1024);
-      if (viewportWidth <= 1024) {
-        setFilterSidebarCollapsed(true);
-      }
     };
 
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [clampPreviewWidth]);
-
-  useEffect(() => {
-    if (!isCompactLayout && typeof window !== 'undefined') {
-      const stored = window.localStorage.getItem('resultsFilterCollapsed');
-      if (stored !== null) {
-        setFilterSidebarCollapsed(stored === 'true');
-      }
-    }
-  }, [isCompactLayout]);
-
-  const toggleFilterSidebar = () => {
-    if (isCompactLayout) {
-      return;
-    }
-
-    setFilterSidebarCollapsed(prev => {
-      const next = !prev;
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('resultsFilterCollapsed', next ? 'true' : 'false');
-      }
-      return next;
-    });
-  };
 
   // 处理搜索
   const handleSearch = (e) => {
@@ -322,12 +285,22 @@ const SearchResultsPage = () => {
     setSearchParams(params);
   };
 
-  // 处理筛选条件变化
-  const handleFiltersChange = (newFilters) => {
+  // 处理顶部筛选面板的筛选条件变化（不立即搜索，只更新状态）
+  const handleTopFiltersChange = (newFilters) => {
     setFilters(newFilters);
-    setCurrentPage(1);
-    updateURL(searchQuery, newFilters, 1);
-    performSearch(searchQuery, newFilters, 1);
+  };
+
+  // 处理顶部筛选面板关闭（关闭时触发搜索）
+  const handleTopFiltersToggle = () => {
+    if (showFilters) {
+      // 面板正在关闭，检查是否有搜索词并触发搜索
+      if (searchQuery.trim()) {
+        setCurrentPage(1);
+        updateURL(searchQuery, filters, 1);
+        performSearch(searchQuery, filters, 1);
+      }
+    }
+    setShowFilters(!showFilters);
   };
 
   // 处理分页
@@ -464,8 +437,10 @@ const SearchResultsPage = () => {
                       e.target.style.height = 'auto';
                       e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
                     }}
+                    onCompositionStart={() => setIsComposing(true)}
+                    onCompositionEnd={() => setIsComposing(false)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
+                      if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
                         e.preventDefault();
                         if (searchQuery.trim()) {
                           handleSearch(e);
@@ -553,9 +528,9 @@ const SearchResultsPage = () => {
               {/* 筛选条件面板 */}
               <SearchFilters
                 filters={filters}
-                onFiltersChange={setFilters}
+                onFiltersChange={handleTopFiltersChange}
                 isExpanded={showFilters}
-                onToggle={() => setShowFilters(!showFilters)}
+                onToggle={handleTopFiltersToggle}
               />
             </div>
           </div>
@@ -572,13 +547,29 @@ const SearchResultsPage = () => {
               <form onSubmit={handleSearch} className="results-composer-wrapper">
                 {/* 输入区域 */}
                 <div className="results-composer-input-area">
-                  {/* 搜索模式标识 - 最左边 */}
-                  <div className="search-mode-indicator">
-                    <NormalSearchIcon size={16} />
-                    <span>普通搜索</span>
-                  </div>
-
-                  {/* 筛选按钮 */}
+                  <textarea
+                    className="results-chat-input"
+                    placeholder={searchExamples[currentExampleIndex]}
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      e.target.style.height = 'auto';
+                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+                    }}
+                    onCompositionStart={() => setIsComposing(true)}
+                    onCompositionEnd={() => setIsComposing(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
+                        e.preventDefault();
+                        if (searchQuery.trim()) {
+                          handleSearch(e);
+                        }
+                      }
+                    }}
+                    rows={1}
+                  />
+                  
+                  {/* 筛选按钮 - 放在发送按钮左侧 */}
                   {(() => {
                     const hasFilters = filters.yearFrom ||
                                      filters.yearTo ||
@@ -590,41 +581,18 @@ const SearchResultsPage = () => {
                     return (
                       <button
                         type="button"
-                        className={`footer-btn filter-btn ${showFilters ? 'panel-open' : ''} ${hasFilters ? 'has-filters' : ''}`}
+                        className={`filter-btn-minimal ${showFilters ? 'panel-open' : ''} ${hasFilters ? 'has-filters' : ''}`}
                         onClick={() => setShowFilters(!showFilters)}
-                        title={hasFilters ? "点击打开筛选" : "筛选条件"}
+                        title={hasFilters ? "已设置筛选条件" : "筛选条件"}
                       >
-                        <div className="filter-icon-wrapper">
-                          <svg className="filter-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M2.5 3.75C2.5 3.19772 2.94772 2.75 3.5 2.75H16.5C17.0523 2.75 17.5 3.19772 17.5 3.75V5.25C17.5 5.51522 17.3946 5.76957 17.2071 5.95711L11.75 11.4142V16.25C11.75 16.6297 11.5085 16.9705 11.1522 17.1094L8.65217 18.1094C8.15522 18.3078 7.58333 17.9469 7.58333 17.4167V11.4142L2.79289 5.95711C2.60536 5.76957 2.5 5.51522 2.5 5.25V3.75Z"/>
-                          </svg>
-                          <svg className="clear-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M13.5355 5.46447C13.9261 5.85499 13.9261 6.48816 13.5355 6.87868L11.4142 9L13.5355 11.1213C13.9261 11.5118 13.9261 12.145 13.5355 12.5355C13.145 12.9261 12.5118 12.9261 12.1213 12.5355L10 10.4142L7.87868 12.5355C7.48816 12.9261 6.85499 12.9261 6.46447 12.5355C6.07394 12.145 6.07394 11.5118 6.46447 11.1213L8.58579 9L6.46447 6.87868C6.07394 6.48816 6.07394 5.85499 6.46447 5.46447C6.85499 5.07394 7.48816 5.07394 7.87868 5.46447L10 7.58579L12.1213 5.46447C12.5118 5.07394 13.145 5.07394 13.5355 5.46447Z"/>
-                          </svg>
-                        </div>
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M2.5 3.75C2.5 3.19772 2.94772 2.75 3.5 2.75H16.5C17.0523 2.75 17.5 3.19772 17.5 3.75V5.25C17.5 5.51522 17.3946 5.76957 17.2071 5.95711L11.75 11.4142V16.25C11.75 16.6297 11.5085 16.9705 11.1522 17.1094L8.65217 18.1094C8.15522 18.3078 7.58333 17.9469 7.58333 17.4167V11.4142L2.79289 5.95711C2.60536 5.76957 2.5 5.51522 2.5 5.25V3.75Z"/>
+                        </svg>
+                        {hasFilters && <span className="filter-dot"></span>}
                       </button>
                     );
                   })()}
 
-                  <textarea
-                    className="results-chat-input"
-                    placeholder="搜索论文标题、作者、关键词..."
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      e.target.style.height = 'auto';
-                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        if (searchQuery.trim()) {
-                          handleSearch(e);
-                        }
-                      }
-                    }}
-                    rows={1}
-                  />
                   <button type="submit" className="btn-send" disabled={!searchQuery.trim() || loading}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -636,26 +604,15 @@ const SearchResultsPage = () => {
               {/* 筛选条件面板 */}
               <SearchFilters
                 filters={filters}
-                onFiltersChange={setFilters}
+                onFiltersChange={handleTopFiltersChange}
                 isExpanded={showFilters}
-                onToggle={() => setShowFilters(!showFilters)}
+                onToggle={handleTopFiltersToggle}
               />
             </div>
 
-      {/* 三栏布局 */}
+      {/* 两栏布局 */}
       <div className="results-main" ref={resultsMainRef}>
-        {/* 左侧筛选栏 */}
-        {!isCompactLayout && (
-          <div className={`filter-sidebar-wrapper ${filterSidebarCollapsed ? 'collapsed' : ''}`}>
-            <FilterSidebar
-              filters={filters}
-              onFiltersChange={handleFiltersChange}
-              resultsTotal={total}
-            />
-          </div>
-        )}
-
-        {/* 中间论文列表区域 */}
+        {/* 论文列表区域 */}
         <div className="papers-container">
             {loading ? (
               <PaperListSkeleton />
@@ -671,20 +628,6 @@ const SearchResultsPage = () => {
             ) : (
             <>
               <div className="results-header">
-                {!isCompactLayout && (
-                  <button
-                    type="button"
-                    className={`filter-sidebar-toggle ${filterSidebarCollapsed ? 'collapsed' : ''}`}
-                    onClick={toggleFilterSidebar}
-                    aria-label={filterSidebarCollapsed ? '展开筛选' : '收起筛选'}
-                    aria-expanded={!filterSidebarCollapsed}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="15 18 9 12 15 6"/>
-                    </svg>
-                    <span>{filterSidebarCollapsed ? '展开筛选' : '收起筛选'}</span>
-                  </button>
-                )}
                 <p className="results-info">
                   显示 <strong>{startIndex}-{endIndex}</strong> / 共 <strong>{total.toLocaleString()}</strong> 篇论文
                 </p>
@@ -804,8 +747,8 @@ const SearchResultsPage = () => {
             )}
         </div>
 
-        {/* 右侧预览区 - 只在筛选区收起时显示 */}
-        {!isCompactLayout && filterSidebarCollapsed && (
+        {/* 右侧预览区 */}
+        {!isCompactLayout && (
           <PaperPreview
             paper={selectedPaper}
             onClose={() => setSelectedPaper(null)}

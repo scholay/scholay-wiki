@@ -47,6 +47,7 @@ const AdvancedSearchPage = () => {
   const [scrollToPaperIndex, setScrollToPaperIndex] = useState(null); // 需要滚动到的论文索引
   const [suggestedQuestions, setSuggestedQuestions] = useState([]); // AI 推荐的后续问题
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0); // 搜索示例轮播索引
+  const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
   
   // 搜索示例数据 - 覆盖多个学科领域
   const searchExamples = [
@@ -1225,8 +1226,10 @@ const AdvancedSearchPage = () => {
                       e.target.style.height = 'auto';
                       e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
                     }}
+                    onCompositionStart={() => setIsComposing(true)}
+                    onCompositionEnd={() => setIsComposing(false)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
+                      if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
                         e.preventDefault();
                         if (!loading && searchQuery.trim()) {
                           handleSearch(e);
@@ -1425,8 +1428,10 @@ const AdvancedSearchPage = () => {
                           e.target.style.height = 'auto';
                           e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
                         }}
+                        onCompositionStart={() => setIsComposing(true)}
+                        onCompositionEnd={() => setIsComposing(false)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
+                          if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
                             e.preventDefault();
                             if (!loading && searchQuery.trim()) {
                               handleSearch(e);

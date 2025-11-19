@@ -868,6 +868,57 @@
   transform: scale(1);
 }
 
+/* Minimal Filter Button - 简约筛选按钮 */
+.filter-btn-minimal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.filter-btn-minimal:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.filter-btn-minimal.panel-open {
+  background: rgba(16, 163, 127, 0.15);
+  color: var(--text-accent);
+}
+
+.filter-btn-minimal.panel-open:hover {
+  background: rgba(16, 163, 127, 0.25);
+}
+
+.filter-btn-minimal.has-filters {
+  color: var(--text-accent);
+}
+
+.filter-btn-minimal.has-filters:hover {
+  background: rgba(16, 163, 127, 0.15);
+}
+
+/* Filter indicator dot */
+.filter-btn-minimal .filter-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  background: var(--text-accent);
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(16, 163, 127, 0.5);
+}
+
 .loading-state .spinner {
   width: 48px;
   height: 48px;

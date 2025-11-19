@@ -12,6 +12,7 @@ const MyCoupons = () => {
   const [showClaimModal, setShowClaimModal] = useState(false);
   const [claimCode, setClaimCode] = useState('');
   const [invitationCopied, setInvitationCopied] = useState(false);
+  const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -275,7 +276,9 @@ const MyCoupons = () => {
                   value={claimCode}
                   onChange={e => setClaimCode(e.target.value)}
                   placeholder="请输入折扣券代码"
-                  onKeyPress={e => e.key === 'Enter' && claimCoupon()}
+                  onCompositionStart={() => setIsComposing(true)}
+                  onCompositionEnd={() => setIsComposing(false)}
+                  onKeyDown={e => e.key === 'Enter' && !isComposing && claimCoupon()}
                 />
               </div>
             </div>

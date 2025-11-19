@@ -42,6 +42,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const [enableGithubOAuth, setEnableGithubOAuth] = useState(false);
   const [invitationCode, setInvitationCode] = useState('');
   const [inviterInfo, setInviterInfo] = useState(null);
+  const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
 
   // 读取URL中的邀请码参数
   useEffect(() => {
@@ -866,7 +867,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="电子邮件地址"
-                onKeyPress={(e) => e.key === 'Enter' && handleEmailContinue()}
+                onCompositionStart={() => setIsComposing(true)}
+                onCompositionEnd={() => setIsComposing(false)}
+                onKeyDown={(e) => e.key === 'Enter' && !isComposing && handleEmailContinue()}
                 autoFocus
               />
 
@@ -906,7 +909,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="密码"
-                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                onCompositionStart={() => setIsComposing(true)}
+                onCompositionEnd={() => setIsComposing(false)}
+                onKeyDown={(e) => e.key === 'Enter' && !isComposing && handleLogin()}
                 autoFocus
               />
 
@@ -1082,7 +1087,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                 placeholder="手机号码"
-                onKeyPress={(e) => e.key === 'Enter' && handlePhoneContinue()}
+                onCompositionStart={() => setIsComposing(true)}
+                onCompositionEnd={() => setIsComposing(false)}
+                onKeyDown={(e) => e.key === 'Enter' && !isComposing && handlePhoneContinue()}
                 maxLength={11}
                 autoFocus
               />
@@ -1125,7 +1132,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="密码"
-                    onKeyPress={(e) => e.key === 'Enter' && handlePhoneLogin()}
+                    onCompositionStart={() => setIsComposing(true)}
+                    onCompositionEnd={() => setIsComposing(false)}
+                    onKeyDown={(e) => e.key === 'Enter' && !isComposing && handlePhoneLogin()}
                     autoFocus
                   />
 
