@@ -1618,28 +1618,38 @@ const AdvancedSearchPage = () => {
                               />
                             </div>
                             {/* 在最后一个助手消息后显示延伸问题 */}
-                            {message.suggestedQuestions && 
-                             msgIndex === messages.length - 1 && 
-                             renderSuggestedQuestions(message.suggestedQuestions)}
-                            {/* 推荐问题加载 - 只在最后一条消息且没有推荐问题时显示 */}
-                            {isLoadingSuggestedQuestions && 
-                             msgIndex === messages.length - 1 && 
-                             message.role === 'assistant' && 
-                             !message.suggestedQuestions && (
+                            {msgIndex === messages.length - 1 && message.role === 'assistant' && (
                               <div className="suggested-questions-inline">
                                 <div className="suggested-questions-header">
                                   <span className="suggested-questions-title">你可以继续提问</span>
                                 </div>
                                 <div className="suggested-questions-list">
-                                  <div className="suggested-question-btn skeleton-loading">
-                                    <span className="question-text"></span>
-                                  </div>
-                                  <div className="suggested-question-btn skeleton-loading">
-                                    <span className="question-text"></span>
-                                  </div>
-                                  <div className="suggested-question-btn skeleton-loading">
-                                    <span className="question-text"></span>
-                                  </div>
+                                  {/* 如果正在加载或者问题列表为空，显示skeleton */}
+                                  {(isLoadingSuggestedQuestions || !message.suggestedQuestions || message.suggestedQuestions.length === 0) ? (
+                                    <>
+                                      <div className="suggested-question-btn skeleton-loading">
+                                        <span className="question-text"></span>
+                                      </div>
+                                      <div className="suggested-question-btn skeleton-loading">
+                                        <span className="question-text"></span>
+                                      </div>
+                                      <div className="suggested-question-btn skeleton-loading">
+                                        <span className="question-text"></span>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    /* 如果已加载完成，显示实际问题 */
+                                    message.suggestedQuestions.map((question, index) => (
+                                      <button
+                                        key={index}
+                                        className="suggested-question-btn"
+                                        onClick={() => handleFollowUpQuestionClick(question)}
+                                        disabled={loading}
+                                      >
+                                        <span className="question-text">{question}</span>
+                                      </button>
+                                    ))
+                                  )}
                                 </div>
                               </div>
                             )}
