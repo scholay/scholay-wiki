@@ -683,8 +683,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 12px 4px;
-  min-height: 44px;
+  padding: 2px 8px 4px;
+  min-height: 32px;
 }
 
 .advanced-search-composer-footer-left,
@@ -693,6 +693,61 @@
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+/* 高级搜索页面专用 - 紧凑模式的模型选择器容器 */
+.advanced-search-page .as-model-selector-wrapper.as-compact-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.03) 0%, 
+    rgba(255, 255, 255, 0.01) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s ease;
+}
+
+.advanced-search-page .as-model-selector-wrapper.as-compact-mode:hover {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.05) 0%, 
+    rgba(255, 255, 255, 0.02) 100%);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* 高级搜索页面 - 模型提示文本 */
+.advanced-search-page .as-model-hint-text {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.advanced-search-page .as-model-hint-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+/* 高级搜索页面 - 紧凑模式下的模型选择器 */
+.advanced-search-page .as-model-selector-wrapper.as-compact-mode .model-selector-btn {
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.advanced-search-page .as-model-selector-wrapper.as-compact-mode .model-selector-btn:hover:not(:disabled) {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+.advanced-search-page .as-model-selector-wrapper.as-compact-mode .model-icon svg {
+  width: 13px;
+  height: 13px;
 }
 
 /* Footer Divider - 分隔线 */
@@ -826,6 +881,176 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
+}
+
+/* 问题历史下拉组件 - 紧跟标题 */
+.as-question-history-dropdown {
+  position: relative;
+  margin-left: 0;
+}
+
+/* 新建按钮不需要额外间距 */
+.as-new-btn-spacing {
+  margin-left: 0;
+}
+
+.as-question-dropdown-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.as-question-dropdown-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.as-question-dropdown-btn svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s ease;
+}
+
+.as-question-dropdown-btn.open svg {
+  transform: rotate(180deg);
+}
+
+.as-question-count {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* 问题历史下拉菜单 */
+.as-dropdown-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 998;
+}
+
+.as-question-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 320px;
+  max-width: 400px;
+  background: #2a2a2a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 999;
+  overflow: hidden;
+}
+
+.as-dropdown-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.as-question-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.as-question-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+  cursor: pointer;
+}
+
+.as-question-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.as-question-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(16, 163, 127, 0.15);
+  color: var(--text-accent);
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.as-question-text {
+  flex: 1;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.as-question-empty {
+  padding: 24px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+}
+
+/* 模型指示器 - 低调展示 */
+.as-model-indicator {
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-left: 8px;
+}
+
+.as-model-indicator .model-selector {
+  pointer-events: none; /* 禁用交互 */
+}
+
+.as-model-indicator .model-selector-btn {
+  padding: 2px 6px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: default;
+}
+
+.as-model-indicator .model-selector-btn:disabled {
+  opacity: 1;
+}
+
+.as-model-indicator .model-icon svg {
+  width: 12px;
+  height: 12px;
+  opacity: 0.6;
 }
 
 .as-results-navbar .as-page-title {
@@ -1425,15 +1650,27 @@
 .advanced-bottom-composer-wrapper {
   width: 100%;
   max-width: 48rem;
-  background: #2f2f2f;
+  background: linear-gradient(135deg,
+    rgba(47, 47, 47, 0.95) 0%,
+    rgba(42, 42, 42, 0.95) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 24px;
-  padding: 6px 12px;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s ease;
+  padding: 8px 12px;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
 }
 
 .advanced-bottom-composer-wrapper:focus-within {
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.2),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+  border-color: rgba(16, 163, 127, 0.2);
+  background: linear-gradient(135deg,
+    rgba(47, 47, 47, 1) 0%,
+    rgba(42, 42, 42, 1) 100%);
 }
 
 /* 搜索模式指示器 - 对话中使用 */

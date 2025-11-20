@@ -3,6 +3,11 @@
   display: inline-block;
 }
 
+/* 紧凑模式的选择器 */
+.model-selector.compact {
+  display: inline-flex;
+}
+
 /* 模型选择器按钮 - Premium Glassmorphism */
 .model-selector-btn {
   display: flex;
@@ -27,6 +32,33 @@
     0 2px 8px rgba(0, 0, 0, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   letter-spacing: 0.2px;
+}
+
+/* 紧凑模式按钮样式 */
+.model-selector-btn.compact {
+  padding: 6px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  gap: 5px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.model-selector-btn.compact:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.model-selector-btn.compact .model-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.model-selector-btn.compact .model-label {
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .model-selector-btn:hover:not(:disabled) {

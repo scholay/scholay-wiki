@@ -9,8 +9,10 @@ import './ModelSelector.css';
  * @param {boolean} disabled - 是否禁用
  * @param {object} userSubscription - 用户订阅信息
  * @param {string} mode - 使用场景 ('advanced-search' 或 'ai-chat')，默认 'advanced-search'
+ * @param {boolean} compact - 是否使用紧凑模式
+ * @param {boolean} showOnly - 是否只显示，不可交互
  */
-const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscription, mode = 'advanced-search' }) => {
+const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscription, mode = 'advanced-search', compact = false, showOnly = false }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [quota, setQuota] = useState(null);
   const [usage, setUsage] = useState(null);
@@ -191,26 +193,28 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
   };
 
   return (
-    <div className="model-selector">
+    <div className={`model-selector ${compact ? 'compact' : ''} ${showOnly ? 'show-only' : ''}`}>
       <button
         type="button"
-        className={`model-selector-btn ${showDropdown ? 'open' : ''}`}
-        onClick={() => !disabled && setShowDropdown(!showDropdown)}
-        disabled={disabled}
+        className={`model-selector-btn ${showDropdown ? 'open' : ''} ${compact ? 'compact' : ''} ${showOnly ? 'show-only' : ''}`}
+        onClick={() => !disabled && !showOnly && setShowDropdown(!showDropdown)}
+        disabled={disabled || showOnly}
       >
         <span className="model-icon">{selectedModel.icon}</span>
         <span className="model-label">{selectedModel.label}</span>
-        <svg
-          className={`dropdown-arrow ${showDropdown ? 'open' : ''}`}
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M6 9l6 6 6-6"/>
-        </svg>
+        {!compact && !showOnly && (
+          <svg
+            className={`dropdown-arrow ${showDropdown ? 'open' : ''}`}
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        )}
       </button>
 
       {showDropdown && (
