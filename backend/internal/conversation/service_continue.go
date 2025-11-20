@@ -34,6 +34,29 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		return fmt.Errorf("配额不足：%s", err.Error())
 	}
 
+	// Get the user message (it should already exist, created by frontend)
+	// We need to find the latest user message with this query
+	messages, err := s.repo.GetConversationMessages(conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to get messages: %w", err)
+	}
+	
+	var userMessage *ConversationMessage
+	// Find the latest user message with matching query
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == MessageRoleUser && messages[i].SearchQuery == userQuery {
+			userMessage = &messages[i]
+			break
+		}
+	}
+	
+	if userMessage == nil {
+		return fmt.Errorf("user message not found")
+	}
+	
+	userMessageID := userMessage.MessageID
+	fmt.Printf("[DEBUG] Found user message with ID: %s\n", userMessageID)
+
 	// Update conversation's model level
 	conversation, err := s.repo.GetConversationByID(conversationID, userID)
 	if err != nil {
@@ -46,11 +69,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		}
 	}
 
-	// Step 1: Get messages for this conversation
-	messages, err := s.repo.GetConversationMessages(conversationID)
-	if err != nil {
-		return fmt.Errorf("failed to get messages: %w", err)
-	}
+	// We already have messages from above, no need to fetch again
 
 	// Step 2: Build combined query context from historical queries and current query
 	combinedQuery := s.buildHistoryQueriesContext(messages, userQuery, 5)
@@ -172,9 +191,10 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 			// Send friendly error message
 			friendlyError := "网络异常，请稍后重试。如果问题持续，请联系管理员。"
 			
-			// Save error message to database
+			// Save error message to database with parent_message_id
 			errorMessage := &ConversationMessage{
 				ConversationID:    conversationID,
+				ParentMessageID:   &userMessageID,
 				Role:              MessageRoleAssistant,
 				Content:           friendlyError,
 				FollowUpQuestions: "",
@@ -215,9 +235,9 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		flusher.Flush()
 	}
 
-	// Save papers to the user message in database (only top 50)
-	if err := s.repo.UpdateMessageSearchResults(conversationID, userQuery, displayPapers, totalCount); err != nil {
-		fmt.Printf("Warning: failed to save search results to message: %v\n", err)
+	// Update user message with search results
+	if err := s.repo.UpdateMessageSearchResultsByID(userMessage.ID, displayPapers, totalCount); err != nil {
+		fmt.Printf("Warning: failed to update user message with search results: %v\n", err)
 	}
 
 	// Step 9: Generate AI analysis of the papers (same as AdvancedSearchAndAnalyze)
@@ -326,6 +346,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		// 将错误消息保存为 assistant 消息，以便历史记录中显示
 		errorMessage := &ConversationMessage{
 			ConversationID:    conversationID,
+			ParentMessageID:   &userMessageID,
 			Role:              MessageRoleAssistant,
 			Content:           friendlyError,
 			FollowUpQuestions: "",
@@ -351,10 +372,11 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		fmt.Printf("[WARN] Failed to clear old follow-up questions: %v\n", err)
 	}
 
-	// Save assistant message to conversation
+	// Save assistant message to conversation with parent_message_id
 	// Follow-up questions will be generated on-demand via separate endpoint (same as AdvancedSearchAndAnalyze)
 	assistantMessage := &ConversationMessage{
 		ConversationID:    conversationID,
+		ParentMessageID:   &userMessageID, // Link to user message
 		Role:              MessageRoleAssistant,
 		Content:           fullContent,
 		FollowUpQuestions: "", // Will be generated on-demand

@@ -10,6 +10,71 @@ import { AdvancedSearchIcon, NormalSearchIcon } from '../components/SearchIcons'
 import api, { conversationAPI, subscriptionAPI } from '../services/api';
 import './AdvancedSearchPage.css';
 
+// 辅助函数：根据parent_message_id组织消息，确保问答对正确匹配
+// 对于有parent_message_id的新消息，使用严格的父子关系
+// 对于没有parent_message_id的旧消息，回退到时间顺序
+const organizeMessagesByParentId = (messages) => {
+  if (!messages || messages.length === 0) return [];
+  
+  // 检查是否有消息包含parent_message_id
+  const hasParentIds = messages.some(m => m.parent_message_id);
+  
+  // 如果没有parent_message_id，使用原始顺序（向后兼容旧数据）
+  if (!hasParentIds) {
+    return messages;
+  }
+  
+  // 构建消息映射
+  const messageMap = {};
+  messages.forEach(msg => {
+    messageMap[msg.message_id] = msg;
+  });
+  
+  // 找到所有根消息（用户消息且没有parent_message_id的）
+  const rootMessages = messages.filter(m => m.role === 'user' && !m.parent_message_id);
+  
+  // 构建有序的消息列表
+  const organized = [];
+  const processedIds = new Set();
+  
+  // 对每个根消息，递归添加其子消息
+  const addMessageAndChildren = (msg) => {
+    if (processedIds.has(msg.id)) return;
+    
+    organized.push(msg);
+    processedIds.add(msg.id);
+    
+    // 查找以当前消息为parent的子消息
+    const children = messages.filter(m => 
+      m.parent_message_id === msg.message_id && !processedIds.has(m.id)
+    );
+    
+    // 按时间排序子消息
+    children.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    
+    children.forEach(child => {
+      addMessageAndChildren(child);
+    });
+  };
+  
+  // 按时间排序根消息
+  rootMessages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  
+  // 处理所有根消息
+  rootMessages.forEach(rootMsg => {
+    addMessageAndChildren(rootMsg);
+  });
+  
+  // 添加任何未被处理的消息（孤儿消息，可能是数据不一致）
+  messages.forEach(msg => {
+    if (!processedIds.has(msg.id)) {
+      organized.push(msg);
+    }
+  });
+  
+  return organized;
+};
+
 const AdvancedSearchPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -654,10 +719,13 @@ const AdvancedSearchPage = () => {
       if (response.data.code === 0 && response.data.data) {
         const conv = response.data.data;
         setCurrentConversationId(conv.id);
-        setMessages(conv.messages || []);
+        
+        // 重新组织消息顺序，使用parent_message_id建立问答对
+        const organizedMessages = organizeMessagesByParentId(conv.messages || []);
+        setMessages(organizedMessages);
 
         // 查找所有有论文结果的消息，构建 paperSets
-        const messagesWithPapers = conv.messages.filter(
+        const messagesWithPapers = organizedMessages.filter(
           m => m.role === 'user' && m.search_results && m.search_results.length > 0
         );
 
@@ -675,11 +743,11 @@ const AdvancedSearchPage = () => {
           setPapersTotal(sets[0].total);
 
           // 检查是否有 assistant 消息，判断是否进行过高级搜索
-          const hasAssistantMessages = conv.messages.some(m => m.role === 'assistant');
+          const hasAssistantMessages = organizedMessages.some(m => m.role === 'assistant');
           setHasAdvancedSearch(hasAssistantMessages);
 
           // 对于历史对话中的 assistant 消息，只加载已有的推荐问题，不再异步获取
-          const assistantMessages = conv.messages.filter(m => m.role === 'assistant');
+          const assistantMessages = organizedMessages.filter(m => m.role === 'assistant');
           assistantMessages.forEach((assistantMsg) => {
             // 如果已有 follow_up_questions 字段，直接解析
             if (assistantMsg.follow_up_questions) {

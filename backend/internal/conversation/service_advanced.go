@@ -34,16 +34,35 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		return fmt.Errorf("failed to increment usage: %w", err)
 	}
 
+	// Get the user message (it should already exist, created by AddMessage)
+	// We need to find the latest user message with this query
+	var userMessage *ConversationMessage
+	messages, err := s.repo.GetConversationMessages(conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to get conversation messages: %w", err)
+	}
+	
+	// Find the latest user message with matching query
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == MessageRoleUser && messages[i].SearchQuery == query {
+			userMessage = &messages[i]
+			break
+		}
+	}
+	
+	if userMessage == nil {
+		return fmt.Errorf("user message not found")
+	}
+	
+	userMessageID := userMessage.MessageID
+	fmt.Printf("[DEBUG] Found user message with ID: %s\n", userMessageID)
+
 	// Create MCP server with manager
 	// Manager will automatically get API key and base URL from backend config
 	mcpServer := mcp.NewMCPServer(s.scholarManager)
 
 	// Step 1: Build context from conversation history (last 5 rounds)
-	fmt.Printf("[DEBUG] Getting conversation messages for conversation ID: %d\n", conversationID)
-	messages, err := s.repo.GetConversationMessages(conversationID)
-	if err != nil {
-		return fmt.Errorf("failed to get conversation messages: %w", err)
-	}
+	// We already have messages from above, no need to fetch again
 	fmt.Printf("[DEBUG] Got %d messages for conversation %d\n", len(messages), conversationID)
 	contextMessages := s.buildContextMessages(messages, 5)
 	fmt.Printf("[DEBUG] Built context with %d messages\n", len(contextMessages))
@@ -162,9 +181,10 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 			// Send friendly error message
 			friendlyError := "网络异常，请稍后重试。如果问题持续，请联系管理员。"
 			
-			// Save error message to database
+			// Save error message to database with parent_message_id
 			errorMessage := &ConversationMessage{
 				ConversationID:    conversationID,
+				ParentMessageID:   &userMessageID,
 				Role:              MessageRoleAssistant,
 				Content:           friendlyError,
 				FollowUpQuestions: "",
@@ -194,7 +214,12 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		displayPapers = displayPapers[:maxPapersToShow]
 	}
 
-	// Step 6: Send papers to frontend (only top 50)
+	// Step 6: Update user message with search results
+	if err := s.repo.UpdateMessageSearchResultsByID(userMessage.ID, displayPapers, totalCount); err != nil {
+		fmt.Printf("Warning: failed to update user message with search results: %v\n", err)
+	}
+
+	// Send papers to frontend (only top 50)
 	papersData := map[string]interface{}{
 		"papers": displayPapers,
 		"total":  totalCount,  // Still show the real total count
@@ -203,11 +228,6 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	fmt.Fprintf(writer, "data: [PAPERS]%s\n\n", string(papersJSON))
 	if flusher, ok := writer.(interface{ Flush() }); ok {
 		flusher.Flush()
-	}
-
-	// Save papers to the user message in database (only top 50)
-	if err := s.repo.UpdateMessageSearchResults(conversationID, query, displayPapers, totalCount); err != nil {
-		fmt.Printf("Warning: failed to save search results to message: %v\n", err)
 	}
 
 	// Step 7: Generate AI analysis of the papers and save to database
@@ -316,6 +336,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		// 将错误消息保存为 assistant 消息，以便历史记录中显示
 		errorMessage := &ConversationMessage{
 			ConversationID:    conversationID,
+			ParentMessageID:   &userMessageID,
 			Role:              MessageRoleAssistant,
 			Content:           friendlyError,
 			FollowUpQuestions: "",
@@ -341,10 +362,11 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		fmt.Printf("[WARN] Failed to clear old follow-up questions: %v\n", err)
 	}
 
-	// Save assistant message to conversation
+	// Save assistant message to conversation with parent_message_id
 	// Follow-up questions will be generated on-demand via separate endpoint
 	assistantMessage := &ConversationMessage{
 		ConversationID:    conversationID,
+		ParentMessageID:   &userMessageID, // Link to user message
 		Role:              MessageRoleAssistant,
 		Content:           fullContent,
 		FollowUpQuestions: "", // Will be generated on-demand

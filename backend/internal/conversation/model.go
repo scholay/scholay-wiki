@@ -68,7 +68,7 @@ type ConversationMessage struct {
 	ID                  uint          `gorm:"primaryKey" json:"id"`
 	MessageID           string        `gorm:"type:varchar(36);uniqueIndex;not null" json:"message_id"`
 	ConversationID      uint          `gorm:"not null;index:idx_conversation_id" json:"conversation_id"`
-	ParentMessageID     *string       `gorm:"type:varchar(36);index:idx_parent_message_id" json:"parent_message_id,omitempty"`
+	ParentMessageID     *string       `gorm:"type:varchar(36);index:idx_parent_message_id" json:"parent_message_id"`
 	Role                MessageRole   `gorm:"type:varchar(20);not null" json:"role"`
 	Content             string        `gorm:"type:text;not null" json:"content"`
 	SearchQuery         string        `gorm:"type:varchar(500)" json:"search_query,omitempty"`

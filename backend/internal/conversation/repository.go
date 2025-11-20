@@ -134,6 +134,21 @@ func (r *Repository) UpdateMessageSearchResults(conversationID uint, query strin
 	}).Error
 }
 
+// UpdateMessageSearchResultsByID updates the search results for a specific message by its ID
+func (r *Repository) UpdateMessageSearchResultsByID(messageID uint, papers []map[string]interface{}, total int) error {
+	// Convert papers to SearchResults
+	searchResults := make(SearchResults, len(papers))
+	for i, paper := range papers {
+		searchResults[i] = paper
+	}
+
+	// Update the message with search results
+	return r.db.Model(&ConversationMessage{}).Where("id = ?", messageID).Updates(map[string]interface{}{
+		"search_results":       searchResults,
+		"search_results_total": total,
+	}).Error
+}
+
 // GetMessageByMessageID gets a message by its UUID message_id
 func (r *Repository) GetMessageByMessageID(messageID string) (*ConversationMessage, error) {
 	var message ConversationMessage
