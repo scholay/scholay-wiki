@@ -155,13 +155,17 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
     return (
       <div className="paper-list">
         <div className="paper-list-header">
-          <div className="header-title">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
-            <h3>参考资料</h3>
+          <div className="header-info">
+            <div className="header-title-row">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              <h3>参考资料</h3>
+            </div>
+            <div className="header-stats">
+              <div className="skeleton-stats skeleton-text" style={{width: '150px', height: '20px'}}></div>
+            </div>
           </div>
-          <div className="paper-count-badge skeleton"></div>
         </div>
         <div className="paper-list-content">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
