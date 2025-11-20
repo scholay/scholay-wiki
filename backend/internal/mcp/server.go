@@ -312,7 +312,7 @@ func (s *MCPServer) handleSearchPapers(args map[string]interface{}) (*ToolRespon
 	defaultFields := []string{
 		"paperId", "title", "abstract", "year", "authors",
 		"citationCount", "venue", "publicationDate", "url",
-		"referenceCount", "fieldsOfStudy", "externalIds",
+		"referenceCount", "fieldsOfStudy", "externalIds", "tldr",
 	}
 
 	opts := semanticscholar.PaperSearchOptions{
@@ -376,6 +376,7 @@ func (s *MCPServer) handleSearchPapersAdvanced(args map[string]interface{}) (*To
 	fmt.Printf("[MCP DEBUG] Year range: %s\n", yearRange)
 
 	// Default fields to return
+	// Note: tldr is not supported in bulk search API, only in regular search
 	defaultFields := []string{
 		"paperId", "title", "abstract", "year", "authors",
 		"citationCount", "venue", "publicationDate", "url",

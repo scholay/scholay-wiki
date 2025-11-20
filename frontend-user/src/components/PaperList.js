@@ -126,7 +126,7 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
-            <h3>论文搜索结果</h3>
+            <h3>参考资料</h3>
           </div>
           <div className="paper-count-badge skeleton"></div>
         </div>
@@ -166,7 +166,7 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>
-              <h3>论文搜索结果</h3>
+              <h3>参考资料</h3>
             </div>
           </div>
           <div className="paper-list-content">
@@ -191,33 +191,26 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
 
   return (
     <div className="paper-list" ref={paperListRef} style={{ position: 'relative' }}>
-      <div className="paper-list-header">
-        <div className="header-title">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          <h3>论文搜索结果</h3>
-          {/* 轻量的tab指示器 - 仅在有多个论文集时显示 */}
-          {usePaperSets && paperSets.length > 1 && (
-            <div className="paper-tab-indicator">
-              {/* 反转 paperSets 顺序渲染，让最早的在左边，最新的在右边 */}
-              {[...paperSets].reverse().map((set, reversedIndex) => {
-                // 计算原始索引（因为 paperSets 是倒序的）
-                const originalIndex = paperSets.length - 1 - reversedIndex;
-                return (
-                  <div
-                    key={originalIndex}
-                    className={`tab-dot ${currentActiveTab === originalIndex ? 'active' : ''}`}
-                    title={set.title || `搜索 ${reversedIndex + 1}`}
-                  />
-                );
-              })}
+        <div className="paper-list-header">
+          <div className="header-info">
+            <div className="header-title-row">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              <h3>参考资料</h3>
             </div>
-          )}
-        </div>
-        <div className="paper-count-badge">
-          <span className="count-number">{currentTotal || currentPapers.length}</span>
-          <span className="count-label">篇论文</span>
+          <div className="header-stats">
+            <span className="total-count">共找到 <strong>{currentTotal || currentPapers.length}</strong> 篇论文</span>
+            {/* 多轮搜索指示器 */}
+            {usePaperSets && paperSets.length > 1 && (
+              <>
+                <span className="stats-divider">•</span>
+                <span className="search-rounds">
+                  第 <strong>{currentActiveTab + 1}</strong> 轮搜索，共 <strong>{paperSets.length}</strong> 轮
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -316,21 +309,63 @@ const PaperCard = React.forwardRef(({ paper, index, isHighlighted = false, onCar
     url,
     publicationDate,
     paperId,
+    externalIds,
   } = paper;
 
   // 确保 authors 始终是数组
   const authorList = authors || [];
 
+  // 获取 DOI 链接
+  const getDOIUrl = () => {
+    if (externalIds && externalIds.DOI) {
+      return `https://doi.org/${externalIds.DOI}`;
+    }
+    return null;
+  };
+
   const handleOpenPaper = (e) => {
     e.stopPropagation(); // 阻止事件冒泡
-    // 在新标签页中打开我们自己的论文详情页面
-    if (paperId) {
+    // 优先使用 DOI 跳转到出版商页面
+    const doiUrl = getDOIUrl();
+    if (doiUrl) {
+      window.open(doiUrl, '_blank');
+    } else if (paperId) {
+      // 如果没有 DOI，跳转到论文详情页面
       window.open(`/paper/${paperId}`, '_blank');
     } else if (url) {
       // 如果没有 paperId，fallback 到外部链接
       window.open(url, '_blank');
     }
   };
+
+  // 期刊 Logo 处理
+  const [logoError, setLogoError] = React.useState(false);
+  
+  // 获取期刊 Logo URL
+  const getJournalLogoUrl = () => {
+    if (!venue) return null;
+    // 使用 Google 的 favicon 服务或其他服务来获取期刊网站的 logo
+    // 这里可以根据期刊名称尝试获取其官方网站的 favicon
+    // 对于一些知名期刊，可以使用特定的映射
+    const venueMap = {
+      'Nature': 'https://www.nature.com/static/images/favicons/nature/apple-touch-icon.png',
+      'Science': 'https://www.science.org/pb-assets/images/favicons/science/apple-touch-icon-1645011967513.png',
+      'Cell': 'https://www.cell.com/favicon.ico',
+      'PNAS': 'https://www.pnas.org/favicon.ico',
+      'arXiv': 'https://arxiv.org/static/browse/0.3.4/images/icons/favicon.ico',
+    };
+    
+    // 检查是否有预定义的映射
+    for (const [key, url] of Object.entries(venueMap)) {
+      if (venue.toLowerCase().includes(key.toLowerCase())) {
+        return url;
+      }
+    }
+    
+    return null;
+  };
+
+  const logoUrl = getJournalLogoUrl();
 
   return (
     <div
@@ -340,15 +375,42 @@ const PaperCard = React.forwardRef(({ paper, index, isHighlighted = false, onCar
       onMouseEnter={() => onCardHover && onCardHover(paper)}
       onMouseLeave={() => onCardLeave && onCardLeave()}
     >
-      <div className="paper-index">{index + 1}</div>
-      <div className="paper-main">
+      <div className="paper-content">
+        {/* 第一行：序号 + 期刊信息 */}
+        <div className="paper-first-row">
+          <div className="paper-rank-inline">
+            <span className="rank-number">{index + 1}</span>
+          </div>
+          
+          {venue && (
+            <div className="paper-venue-info" onClick={handleOpenPaper}>
+              <div className="venue-logo">
+                {logoUrl && !logoError ? (
+                  <img 
+                    src={logoUrl} 
+                    alt={venue}
+                    onError={() => setLogoError(true)}
+                  />
+                ) : (
+                  // 默认学术图标
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/>
+                  </svg>
+                )}
+              </div>
+              <span className="venue-name">{venue}</span>
+            </div>
+          )}
+        </div>
+        
+        {/* 标题 - 左对齐到序号位置 */}
         <div className="paper-header">
           <h4 className="paper-title" onClick={handleOpenPaper} title={title}>
             {title || '无标题'}
           </h4>
-          {year && <span className="paper-year">{year}</span>}
         </div>
 
+        {/* 作者 - 左对齐到序号位置 */}
         {authorList.length > 0 && (
           <div className="paper-authors">
             {authorList.slice(0, 3).map((author, idx) => (
@@ -361,27 +423,21 @@ const PaperCard = React.forwardRef(({ paper, index, isHighlighted = false, onCar
           </div>
         )}
 
+        {/* 摘要 - 左对齐到序号位置 */}
         {abstract && (
           <p className="paper-abstract">
-            {abstract.length > 180 ? `${abstract.substring(0, 180)}...` : abstract}
+            {abstract}
           </p>
         )}
 
+        {/* Meta 信息 - 左对齐到序号位置 */}
         <div className="paper-meta">
-          {venue && (
-            <span className="meta-item venue">
-              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z"/>
-              </svg>
-              {venue}
-            </span>
-          )}
           {citationCount !== undefined && (
             <span className="meta-item citations">
               <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/>
               </svg>
-              {citationCount} 引用
+              {citationCount} 被引
             </span>
           )}
           {publicationDate && (

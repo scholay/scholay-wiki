@@ -119,12 +119,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	toolCallResponse, err := s.aiService.ChatCompletionWithTools(initialMessages, aiTools, "auto", thirdparty.ModelLevelLow)
 	if err != nil {
 		fmt.Printf("[ERROR] AI tool call failed: %v\n", err)
-		// Send error event to frontend instead of returning error
-		fmt.Fprintf(writer, "data: [ERROR] AI工具调用失败: %s\n\n", err.Error())
-		if flusher, ok := writer.(interface{ Flush() }); ok {
-			flusher.Flush()
-		}
-		// Set toolCallResponse to nil and continue without tool calls
+		// Still try fallback search below, don't send error to frontend yet
 		toolCallResponse = nil
 	}
 
@@ -155,10 +150,8 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 
 				papers, total, err := s.executeMCPToolCall(mcpServer, toolRequest)
 				if err != nil {
-					fmt.Fprintf(writer, "data: [ERROR] %s\n\n", err.Error())
-					if flusher, ok := writer.(interface{ Flush() }); ok {
-						flusher.Flush()
-					}
+					fmt.Printf("[ERROR] MCP tool call failed: %v\n", err)
+					// Don't send technical error to frontend, will handle at the end
 					continue
 				}
 
@@ -175,6 +168,28 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		fmt.Printf("[DEBUG] No papers from tool calls, doing direct search\n")
 		papers, total, err := s.mcpSearch(combinedQuery, mcpServer)
 		if err != nil {
+			fmt.Printf("[ERROR] Direct search failed: %v\n", err)
+			// Send friendly error message
+			friendlyError := "网络异常，请稍后重试。如果问题持续，请联系管理员。"
+			
+			// Save error message to database
+			errorMessage := &ConversationMessage{
+				ConversationID:    conversationID,
+				Role:              MessageRoleAssistant,
+				Content:           friendlyError,
+				FollowUpQuestions: "",
+			}
+			
+			if saveErr := s.repo.CreateMessage(errorMessage); saveErr != nil {
+				fmt.Printf("[WARN] Failed to save error message: %v\n", saveErr)
+			}
+			
+			// Send error to frontend
+			fmt.Fprintf(writer, "data: [ERROR] %s\n\n", friendlyError)
+			if flusher, ok := writer.(interface{ Flush() }); ok {
+				flusher.Flush()
+			}
+			
 			return fmt.Errorf("search failed: %w", err)
 		}
 		allPapers = papers
