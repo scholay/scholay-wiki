@@ -1061,7 +1061,9 @@
 }
 
 .as-papers-list-wrapper .paper-card:hover {
-  background: rgba(16, 163, 127, 0.04);
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
 }
 
 .as-papers-list-wrapper .paper-card.highlighted {
@@ -1112,11 +1114,7 @@
   padding: 0 5px;
 }
 
-.as-papers-list-wrapper .paper-card:hover .rank-number {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.65);
-}
+/* 移除序号的 hover 效果 */
 
 /* 期刊信息 - 带 Logo */
 .as-papers-list-wrapper .paper-venue-info {

@@ -204,6 +204,11 @@
   width: 100%;
 }
 
+/* 可 hover 区域容器 - 将标题、作者、摘要作为一个整体 */
+.paper-hoverable-area {
+  /* 无需额外样式，只是作为 hover 事件的容器 */
+}
+
 /* 第一行：序号 + 期刊 */
 .paper-first-row {
   display: flex;
@@ -657,24 +662,25 @@
 /* 论文详情弹窗 */
 .paper-detail-popup {
   /* position 和 left/top 由内联样式控制 */
-  width: 500px;
-  max-height: calc(100vh - 80px);
+  width: 480px;
+  max-height: 400px;
   background: linear-gradient(135deg, rgba(33, 33, 33, 0.98) 0%, rgba(40, 40, 40, 0.98) 100%);
   border: 1px solid rgba(16, 163, 127, 0.3);
-  border-radius: 16px;
-  padding: 1.5rem;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(16, 163, 127, 0.1);
+  border-radius: 12px;
+  padding: 1.25rem;
+  padding-right: 1.5rem; /* 右边多一点 padding，让鼠标容易进入 */
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(16, 163, 127, 0.1);
   z-index: 10000;
   overflow-y: auto;
   backdrop-filter: blur(20px);
-  animation: slideInLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: slideInRight 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: auto;
 }
 
-@keyframes slideInLeft {
+@keyframes slideInRight {
   from {
     opacity: 0;
-    transform: translateX(-30px);
+    transform: translateX(20px);
   }
   to {
     opacity: 1;
@@ -829,4 +835,169 @@
 .popup-btn svg {
   width: 16px;
   height: 16px;
+}
+
+/* 弹窗包装器 - 用于创建透明的连接区域 */
+.paper-detail-popup-wrapper {
+  /* 创建一个透明的扩展区域，连接弹窗和论文卡片 */
+  padding-right: 40px; /* 右侧增加透明区域与论文卡片连接 */
+  padding-left: 20px; /* 左侧增加间距，让内容与论文有视觉距离 */
+  pointer-events: auto;
+  z-index: 10000;
+}
+
+/* 新弹窗样式 - 基于图片设计 */
+.paper-detail-popup {
+  width: 380px !important;
+  max-height: 500px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: 8px !important;
+  box-shadow: 
+    0 0 0 1px rgba(16, 163, 127, 0.1),
+    0 10px 25px -5px rgba(0, 0, 0, 0.5),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04),
+    0 0 40px rgba(16, 163, 127, 0.05) !important;
+}
+
+/* 顶部期刊信息 */
+.popup-venue-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(16, 163, 127, 0.08);
+  border-bottom: 1px solid rgba(16, 163, 127, 0.15);
+  gap: 8px;
+}
+
+.popup-venue-header .venue-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--text-accent);
+  flex-shrink: 0;
+}
+
+.popup-venue-header .venue-text {
+  font-size: 0.9rem;
+  color: var(--text-accent);
+  font-weight: 500;
+}
+
+/* 标题部分 */
+.popup-title-section {
+  padding: 16px 16px 8px;
+}
+
+.popup-main-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* 元信息行 */
+.popup-meta-line {
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+}
+
+.meta-divider {
+  color: var(--text-quaternary);
+}
+
+/* 作者行 */
+.popup-authors-line {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* 摘要标题 */
+.popup-abstract-header {
+  padding: 16px 16px 8px;
+  border-top: 1px solid var(--border-primary);
+  margin-top: 8px;
+}
+
+.abstract-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 摘要内容 */
+.popup-abstract-content {
+  flex: 1;
+  padding: 0 16px 16px;
+  overflow-y: auto;
+  max-height: 200px;
+}
+
+.abstract-text {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* 底部按钮 */
+.popup-footer {
+  padding: 16px;
+  border-top: 1px solid var(--border-primary);
+  display: flex;
+  justify-content: center;
+}
+
+.popup-abstract-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  background: rgba(16, 163, 127, 0.08);
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  border-radius: 6px;
+  color: var(--text-accent);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.popup-abstract-btn:hover {
+  background: rgba(16, 163, 127, 0.15);
+  border-color: rgba(16, 163, 127, 0.5);
+  transform: translateY(-1px);
+}
+
+.popup-abstract-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* 滚动条样式 */
+.popup-abstract-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.popup-abstract-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.popup-abstract-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.popup-abstract-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }

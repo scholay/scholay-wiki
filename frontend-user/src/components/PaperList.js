@@ -6,12 +6,12 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
   // 使用内部状态作为备选（如果父组件没有传递）
   const [internalActiveTab, setInternalActiveTab] = useState(0);
   const [hoveredPaper, setHoveredPaper] = useState(null); // 鼠标悬停的论文
-  const [isPopupHovered, setIsPopupHovered] = useState(false); // 弹窗是否被悬停
   const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 }); // 弹窗位置
   const paperRefs = useRef({});
   const paperListContentRef = useRef(null);
   const paperListRef = useRef(null); // 论文列表容器的引用
   const hideTimeoutRef = useRef(null); // 用于延迟隐藏弹窗的定时器
+  const showTimeoutRef = useRef(null); // 用于延迟显示弹窗的定时器
 
   // 决定使用哪个状态
   const currentActiveTab = setActiveTab ? activeTab : internalActiveTab;
@@ -40,22 +40,49 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
     }
   }, [scrollToPaperIndex, onScrollComplete]);
 
-  // 计算弹窗位置
+  // 计算弹窗位置 - 显示在当前 hover 的论文左侧，垂直居中，紧贴无间隙
   useEffect(() => {
     if (hoveredPaper && paperListRef.current) {
-      const rect = paperListRef.current.getBoundingClientRect();
-      setPopupPosition({
-        top: rect.top,
-        left: rect.left - 520 - 20 // 弹窗宽度 + 间距
-      });
+      // 找到当前 hover 的论文在列表中的索引
+      const currentPapers = usePaperSets ? (paperSets[currentActiveTab]?.papers || []) : papers;
+      const paperIndex = currentPapers.findIndex(p => p.paperId === hoveredPaper.paperId);
+      
+      if (paperIndex !== -1 && paperRefs.current[paperIndex]) {
+        const paperRect = paperRefs.current[paperIndex].getBoundingClientRect();
+        const popupWidth = 380 + 20; // 弹窗宽度 + 左侧padding
+        const popupHeight = 500; // 最大弹窗高度
+        const viewportHeight = window.innerHeight;
+        const minMargin = 20; // 距离视窗边缘的最小边距
+        
+        // 计算理想的垂直位置（与论文居中）
+        let idealTop = paperRect.top + paperRect.height / 2 - popupHeight / 2;
+        
+        // 确保弹窗在视窗内可见
+        let finalTop = idealTop;
+        if (idealTop < minMargin) {
+          // 如果超出顶部，调整到顶部边缘
+          finalTop = minMargin;
+        } else if (idealTop + popupHeight > viewportHeight - minMargin) {
+          // 如果超出底部，调整到底部边缘
+          finalTop = viewportHeight - popupHeight - minMargin;
+        }
+        
+        setPopupPosition({
+          top: finalTop,
+          left: paperRect.left - popupWidth, // 显示在左侧，包含padding
+        });
+      }
     }
-  }, [hoveredPaper]);
+  }, [hoveredPaper, papers, paperSets, currentActiveTab]);
 
   // 清理定时器
   useEffect(() => {
     return () => {
       if (hideTimeoutRef.current) {
         clearTimeout(hideTimeoutRef.current);
+      }
+      if (showTimeoutRef.current) {
+        clearTimeout(showTimeoutRef.current);
       }
     };
   }, []);
@@ -244,15 +271,34 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
                 clearTimeout(hideTimeoutRef.current);
                 hideTimeoutRef.current = null;
               }
-              setHoveredPaper(paper);
+              
+              // 清除显示定时器
+              if (showTimeoutRef.current) {
+                clearTimeout(showTimeoutRef.current);
+                showTimeoutRef.current = null;
+              }
+              
+              // 如果是同一篇论文的弹窗已经显示，保持显示
+              if (hoveredPaper && hoveredPaper.paperId === paper.paperId) {
+                return;
+              }
+              
+              // 延迟显示新弹窗
+              showTimeoutRef.current = setTimeout(() => {
+                setHoveredPaper(paper);
+              }, 500);
             }}
             onCardLeave={() => {
-              // 延迟隐藏弹窗，给用户时间移动鼠标到弹窗上
+              // 清除显示定时器
+              if (showTimeoutRef.current) {
+                clearTimeout(showTimeoutRef.current);
+                showTimeoutRef.current = null;
+              }
+              
+              // 延迟隐藏弹窗
               hideTimeoutRef.current = setTimeout(() => {
-                if (!isPopupHovered) {
-                  setHoveredPaper(null);
-                }
-              }, 100); // 100ms 延迟
+                setHoveredPaper(null);
+              }, 200);
             }}
             ref={(el) => paperRefs.current[index] = el}
           />
@@ -285,11 +331,12 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
               clearTimeout(hideTimeoutRef.current);
               hideTimeoutRef.current = null;
             }
-            setIsPopupHovered(true);
           }}
           onMouseLeave={() => {
-            setIsPopupHovered(false);
-            setHoveredPaper(null);
+            // 延迟关闭
+            hideTimeoutRef.current = setTimeout(() => {
+              setHoveredPaper(null);
+            }, 200);
           }}
         />,
         document.body
@@ -338,6 +385,19 @@ const PaperCard = React.forwardRef(({ paper, index, isHighlighted = false, onCar
     }
   };
 
+  // 处理特定区域的 hover
+  const handleHoverableAreaEnter = () => {
+    if (onCardHover) {
+      onCardHover(paper);
+    }
+  };
+
+  const handleHoverableAreaLeave = () => {
+    if (onCardLeave) {
+      onCardLeave();
+    }
+  };
+
   // 期刊 Logo 处理
   const [logoError, setLogoError] = React.useState(false);
   
@@ -372,8 +432,6 @@ const PaperCard = React.forwardRef(({ paper, index, isHighlighted = false, onCar
       ref={ref}
       className={`paper-card ${isHighlighted ? 'highlighted' : ''}`}
       onClick={onCardClick}
-      onMouseEnter={() => onCardHover && onCardHover(paper)}
-      onMouseLeave={() => onCardLeave && onCardLeave()}
     >
       <div className="paper-content">
         {/* 第一行：序号 + 期刊信息 */}
@@ -403,32 +461,39 @@ const PaperCard = React.forwardRef(({ paper, index, isHighlighted = false, onCar
           )}
         </div>
         
-        {/* 标题 - 左对齐到序号位置 */}
-        <div className="paper-header">
-          <h4 className="paper-title" onClick={handleOpenPaper} title={title}>
-            {title || '无标题'}
-          </h4>
-        </div>
-
-        {/* 作者 - 左对齐到序号位置 */}
-        {authorList.length > 0 && (
-          <div className="paper-authors">
-            {authorList.slice(0, 3).map((author, idx) => (
-              <span key={author.authorId || idx} className="author-name">
-                {author.name}
-                {idx < Math.min(authorList.length - 1, 2) && ', '}
-              </span>
-            ))}
-            {authorList.length > 3 && <span className="author-more"> 等 {authorList.length} 位作者</span>}
+        {/* 可 hover 区域：标题 + 作者 + 摘要作为一个整体 */}
+        <div 
+          className="paper-hoverable-area"
+          onMouseEnter={handleHoverableAreaEnter}
+          onMouseLeave={handleHoverableAreaLeave}
+        >
+          {/* 标题 */}
+          <div className="paper-header">
+            <h4 className="paper-title" onClick={handleOpenPaper} title={title}>
+              {title || '无标题'}
+            </h4>
           </div>
-        )}
 
-        {/* 摘要 - 左对齐到序号位置 */}
-        {abstract && (
-          <p className="paper-abstract">
-            {abstract}
-          </p>
-        )}
+          {/* 作者 */}
+          {authorList.length > 0 && (
+            <div className="paper-authors">
+              {authorList.slice(0, 3).map((author, idx) => (
+                <span key={author.authorId || idx} className="author-name">
+                  {author.name}
+                  {idx < Math.min(authorList.length - 1, 2) && ', '}
+                </span>
+              ))}
+              {authorList.length > 3 && <span className="author-more"> 等 {authorList.length} 位作者</span>}
+            </div>
+          )}
+
+          {/* 摘要 */}
+          {abstract && (
+            <p className="paper-abstract">
+              {abstract}
+            </p>
+          )}
+        </div>
 
         {/* Meta 信息 - 左对齐到序号位置 */}
         <div className="paper-meta">
@@ -480,9 +545,25 @@ const PaperDetailPopup = ({ paper, position, onMouseEnter, onMouseLeave }) => {
     }
   };
 
+  // 格式化日期
+  const formatDate = (date) => {
+    if (!date) return '';
+    const d = new Date(date);
+    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  };
+
+  // 格式化作者列表
+  const formatAuthors = () => {
+    if (authorList.length === 0) return '';
+    if (authorList.length <= 3) {
+      return authorList.map(a => a.name).join(', ');
+    }
+    return `${authorList[0].name} 等${authorList.length}人`;
+  };
+
   return (
     <div
-      className="paper-detail-popup"
+      className="paper-detail-popup-wrapper"
       style={{
         position: 'fixed',
         top: `${position.top}px`,
@@ -491,88 +572,64 @@ const PaperDetailPopup = ({ paper, position, onMouseEnter, onMouseLeave }) => {
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div className="popup-header">
-        <h3 className="popup-title">{title || '无标题'}</h3>
-        {year && <span className="popup-year">{year}</span>}
-      </div>
-
-      {authorList.length > 0 && (
-        <div className="popup-section">
-          <div className="popup-section-title">
-            <svg viewBox="0 0 20 20" fill="currentColor">
-              <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+      <div className="paper-detail-popup">
+        {/* 顶部期刊信息 */}
+        {venue && (
+          <div className="popup-venue-header">
+            <svg className="venue-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
             </svg>
-            作者
+            <span className="venue-text">{venue}</span>
           </div>
-          <div className="popup-authors">
-            {authorList.map((author, idx) => (
-              <span key={author.authorId || idx} className="popup-author">
-                {author.name}
-                {idx < authorList.length - 1 && ', '}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+        )}
 
-      {abstract && (
-        <div className="popup-section">
-          <div className="popup-section-title">
-            <svg viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/>
-            </svg>
-            摘要
-          </div>
-          <p className="popup-abstract">{abstract}</p>
+        {/* 标题部分 */}
+        <div className="popup-title-section">
+          <h3 className="popup-main-title">{title || '无标题'}</h3>
         </div>
-      )}
 
-      <div className="popup-section">
-        <div className="popup-section-title">
-          <svg viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/>
-          </svg>
-          详细信息
-        </div>
-        <div className="popup-meta-grid">
-          {venue && (
-            <div className="popup-meta-item">
-              <svg viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z"/>
-              </svg>
-              <span>{venue}</span>
-            </div>
+        {/* 日期和引用次数 */}
+        <div className="popup-meta-line">
+          {publicationDate && (
+            <span className="meta-date">{formatDate(publicationDate)}</span>
+          )}
+          {publicationDate && citationCount !== undefined && (
+            <span className="meta-divider">•</span>
           )}
           {citationCount !== undefined && (
-            <div className="popup-meta-item">
-              <svg viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/>
-              </svg>
-              <span>{citationCount} 引用</span>
-            </div>
-          )}
-          {publicationDate && (
-            <div className="popup-meta-item">
-              <svg viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/>
-              </svg>
-              <span>{new Date(publicationDate).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-            </div>
+            <span className="meta-citations">被引 {citationCount} 次</span>
           )}
         </div>
-      </div>
 
-      {url && (
-        <div className="popup-actions">
-          <button className="popup-btn" onClick={handleOpenPaper}>
-            <svg viewBox="0 0 20 20" fill="currentColor">
-              <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"/>
-              <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"/>
+        {/* 作者 */}
+        {authorList.length > 0 && (
+          <div className="popup-authors-line">
+            <span className="authors-text">{formatAuthors()}</span>
+          </div>
+        )}
+
+        {/* 摘要标题 */}
+        <div className="popup-abstract-header">
+          <span className="abstract-label">Abstract</span>
+        </div>
+
+        {/* 摘要内容 */}
+        {abstract && (
+          <div className="popup-abstract-content">
+            <p className="abstract-text">{abstract}</p>
+          </div>
+        )}
+
+        {/* 底部按钮 */}
+        <div className="popup-footer">
+          <button className="popup-abstract-btn" onClick={handleOpenPaper}>
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
             </svg>
             <span>查看全文</span>
           </button>
         </div>
-      )}
+      </div>
     </div>
   );
 };
