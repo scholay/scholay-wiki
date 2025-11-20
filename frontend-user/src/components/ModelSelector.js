@@ -203,17 +203,17 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
         <span className="model-icon">{selectedModel.icon}</span>
         <span className="model-label">{selectedModel.label}</span>
         {!compact && !showOnly && (
-          <svg
-            className={`dropdown-arrow ${showDropdown ? 'open' : ''}`}
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M6 9l6 6 6-6"/>
-          </svg>
+        <svg
+          className={`dropdown-arrow ${showDropdown ? 'open' : ''}`}
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
         )}
       </button>
 

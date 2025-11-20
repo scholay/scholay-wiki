@@ -447,14 +447,16 @@
 /* Chat Messages */
 .chat-messages {
   flex: 1;
-  overflow-y: auto;
-  padding: 2rem 2rem 2rem;
+  overflow-y: auto;  /* 这是唯一的滚动容器 */
+  overflow-x: hidden;
+  padding: 1rem 2rem 2rem;  /* 减少顶部padding */
   display: flex;
   flex-direction: column;
   gap: 1rem;
   max-width: 56rem;
   width: 100%;
   margin: 0 auto;
+  height: 100%;  /* 确保占满父容器高度 */
 }
 
 /* When showing welcome screen, don't let messages take all space */
@@ -1148,51 +1150,17 @@
 /* 左侧消息容器 */
 .as-messages-container {
   flex: 1 1 auto;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;  /* 移除这一层的滚动条，让chat-messages处理滚动 */
   background: #212121;
   display: flex;
   flex-direction: column;
   min-width: 420px;
+  position: relative; /* 为蒙层loading提供定位基准 */
 }
 
-/* Auto-hide scrollbar when not scrolling */
-.as-messages-container {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-  transition: scrollbar-color 0.3s ease;
-}
+/* 移除as-messages-container的滚动条样式，因为滚动现在由chat-messages处理 */
 
-.as-messages-container:hover,
-.as-messages-container:focus,
-.as-messages-container:active {
-  scrollbar-color: rgba(255, 255, 255, 0.15) rgba(255, 255, 255, 0.05);
-}
-
-/* Webkit scrollbar styling with auto-hide */
-.as-messages-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.as-messages-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.as-messages-container::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 4px;
-  transition: background 0.3s ease;
-}
-
-.as-messages-container:hover::-webkit-scrollbar-thumb,
-.as-messages-container:focus::-webkit-scrollbar-thumb,
-.as-messages-container:active::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.as-messages-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
-}
+/* 移除as-messages-container的滚动条样式，因为滚动现在由chat-messages处理 */
 
 /* 右侧论文区域容器 */
 .as-papers-section {
@@ -1757,6 +1725,8 @@
   min-height: 36px;
 }
 
+/* 消息容器样式已简化，不再使用问答对容器 */
+
 /* Chat Messages - ChatGPT Style */
 .message {
   display: flex;
@@ -1783,7 +1753,7 @@
   padding-left: 2.5rem;
 }
 
-/* SVG 思考气泡图标 - 不带方框 */
+/* 用户提问图标 - 与第一行文字中线对齐 */
 .message-user .message-content::before {
   content: '';
   position: absolute;
@@ -1791,10 +1761,12 @@
   top: 0;
   width: 24px;
   height: 24px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='rgb(16, 163, 127)' stroke-width='6'%3E%3Cpath d='M20 50 Q20 30 35 20 Q50 10 65 20 Q80 30 80 50 Q80 60 75 65 Q70 70 65 70 L35 70 Q30 70 25 65 Q20 60 20 50 Z' fill='none'/%3E%3Ccircle cx='35' cy='45' r='4' fill='rgb(16, 163, 127)'/%3E%3Ccircle cx='50' cy='45' r='4' fill='rgb(16, 163, 127)'/%3E%3Ccircle cx='65' cy='45' r='4' fill='rgb(16, 163, 127)'/%3E%3Ccircle cx='25' cy='80' r='3' fill='rgb(16, 163, 127)'/%3E%3Ccircle cx='15' cy='90' r='4' fill='rgb(16, 163, 127)'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='rgba(16, 163, 127, 0.85)'%3E%3Cpath fill-rule='evenodd' d='M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z' clip-rule='evenodd'/%3E%3C/svg%3E");
   background-size: contain;
   background-repeat: no-repeat;
   pointer-events: none;
+  /* 与第一行文字基线对齐 */
+  margin-top: calc((1.5rem * 1.4 - 24px) / 2);
 }
 
 /* AI 助手消息样式 */
@@ -1806,15 +1778,15 @@
   padding-left: 2.5rem;
 }
 
-/* SVG 学者图标 - 不带方框 */
+/* AI回答图标 - 学术图标配色优化 */
 .message-assistant .message-content::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 0;
+  top: 2px;
   width: 24px;
   height: 24px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgb(59, 130, 246)' stroke-width='1.5'%3E%3Cpath d='M12 14l9-5-9-5-9 5 9 5z'/%3E%3Cpath d='M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z'/%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='rgba(139, 92, 246, 0.75)'%3E%3Cpath d='M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253'/%3E%3C/svg%3E");
   background-size: contain;
   background-repeat: no-repeat;
   pointer-events: none;
@@ -1840,10 +1812,75 @@
   margin-bottom: 0.5rem;
 }
 
+.message-assistant .message-markdown {
+  line-height: 1.75;
+}
+
 /* 消息之间的分隔 */
 .message + .message {
   border-top: 1px solid rgba(148, 163, 184, 0.06);
 }
+
+/* AI 思考中 - Skeleton Loading */
+.ai-thinking-skeleton {
+  padding: 0.5rem 0;
+  pointer-events: none;
+}
+
+.ai-thinking-skeleton .message-content {
+  padding-left: 2.5rem;
+}
+
+.skeleton-line {
+  height: 1.2em;
+  background: linear-gradient(
+    90deg,
+    rgba(139, 92, 246, 0.08) 0%,
+    rgba(139, 92, 246, 0.15) 50%,
+    rgba(139, 92, 246, 0.08) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+}
+
+.skeleton-line:last-child {
+  margin-bottom: 0;
+}
+
+/* 推荐问题 Skeleton Loading - 复用实际样式 */
+.suggested-questions-skeleton .suggested-question-btn.skeleton-loading {
+  pointer-events: none;
+  cursor: default;
+}
+
+.suggested-questions-skeleton .suggested-question-btn.skeleton-loading .question-text {
+  display: block;
+  height: 20px;
+  width: 70%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.02) 0%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Shimmer 动画 */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
 
 .search-info {
   font-size: 0.875rem;
@@ -2099,11 +2136,9 @@
 
 /* 推荐问题样式 - 作为消息内容的一部分 */
 .suggested-questions-inline {
-  margin-top: 1rem;
-  padding-top: 0.875rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
   border-top: 1px solid rgba(148, 163, 184, 0.06);
-  /* 添加最小高度以预留空间，避免突然跳动 */
-  min-height: 120px;
   animation: fadeIn 0.3s ease-in;
 }
 
@@ -2119,28 +2154,14 @@
 }
 
 .suggested-questions-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.5rem;
-  padding-bottom: 0.375rem;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.04);
+  margin-bottom: 0.625rem;
 }
 
 .suggested-questions-title {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: rgba(148, 163, 184, 0.8);
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  letter-spacing: 0.3px;
-}
-
-.suggested-questions-hint {
-  font-size: 0.75rem;
-  color: rgba(148, 163, 184, 0.5);
-  font-style: normal;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(148, 163, 184, 0.75);
+  letter-spacing: 0.2px;
 }
 
 .suggested-questions-list {
@@ -2151,21 +2172,18 @@
 
 .suggested-question-btn {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.625rem 0.875rem;
+  align-items: flex-start;
+  padding: 0.75rem 1rem;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(148, 163, 184, 0.08);
-  border-radius: 8px;
+  border-radius: 10px;
   color: rgba(209, 213, 219, 0.85);
   font-size: 0.875rem;
-  line-height: 1.4;
+  line-height: 1.5;
   text-align: left;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  overflow: hidden;
   width: 100%;
 }
 
@@ -2176,60 +2194,44 @@
 
 .suggested-question-btn:disabled:hover {
   transform: none;
-  background: rgba(255, 255, 255, 0.03);
-  border-color: rgba(148, 163, 184, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(148, 163, 184, 0.08);
 }
 
 .question-text {
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-wrap: break-word;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
-.question-arrow {
-  flex-shrink: 0;
-  transition: all 0.2s;
+.suggested-question-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(16, 163, 127, 0.3);
+  color: rgba(255, 255, 255, 0.95);
+  transform: translateX(4px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
 }
 
 .suggested-question-btn::before {
   content: '';
   position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(16, 163, 127, 0.05) 0%, transparent 100%);
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: rgb(16, 163, 127);
   opacity: 0;
   transition: opacity 0.2s;
-}
-
-.suggested-question-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(16, 163, 127, 0.3);
-  color: var(--text-primary);
-  transform: translateX(4px);
+  border-radius: 10px 0 0 10px;
 }
 
 .suggested-question-btn:hover::before {
   opacity: 1;
 }
 
-.suggested-question-btn svg {
-  flex-shrink: 0;
-  color: var(--primary-solid);
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: all 0.2s;
-}
-
-.suggested-question-btn:hover .question-arrow {
-  opacity: 1;
-  transform: translateX(2px) scale(1.1);
-}
-
 .suggested-question-btn:active {
-  transform: translateX(2px) scale(0.98);
-}
-
-.suggested-question-btn:disabled .question-arrow {
-  opacity: 0.3;
+  transform: translateX(2px) scale(0.99);
 }
 
 /* Chat Input */
