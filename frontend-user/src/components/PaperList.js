@@ -49,10 +49,14 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
       
       if (paperIndex !== -1 && paperRefs.current[paperIndex]) {
         const paperRect = paperRefs.current[paperIndex].getBoundingClientRect();
-        const popupContentWidth = 380; // 弹窗内容宽度
+        const popupContentWidth = 360; // 弹窗内容宽度
         const visualGap = 10; // 弹窗内容与论文的视觉间距
         const popupWrapperWidth = popupContentWidth + visualGap; // wrapper总宽度
-        const popupHeight = 500; // 最大弹窗高度
+        
+        // 根据是否有摘要确定弹窗高度
+        const hasAbstract = hoveredPaper?.abstract ? true : false;
+        const popupHeight = hasAbstract ? 380 : 200; // 有摘要380px，无摘要200px
+        
         const viewportHeight = window.innerHeight;
         const minMargin = 20; // 距离视窗边缘的最小边距
         
@@ -574,7 +578,7 @@ const PaperDetailPopup = ({ paper, position, onMouseEnter, onMouseLeave }) => {
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div className="paper-detail-popup">
+      <div className={`paper-detail-popup ${abstract ? 'with-abstract' : 'no-abstract'}`}>
         {/* 顶部期刊信息 */}
         {venue && (
           <div className="popup-venue-header">
@@ -610,16 +614,16 @@ const PaperDetailPopup = ({ paper, position, onMouseEnter, onMouseLeave }) => {
           </div>
         )}
 
-        {/* 摘要标题 */}
-        <div className="popup-abstract-header">
-          <span className="abstract-label">Abstract</span>
-        </div>
-
-        {/* 摘要内容 */}
+        {/* 摘要区域 - 只在有摘要时显示 */}
         {abstract && (
-          <div className="popup-abstract-content">
-            <p className="abstract-text">{abstract}</p>
-          </div>
+          <>
+            <div className="popup-abstract-header">
+              <span className="abstract-label">Abstract</span>
+            </div>
+            <div className="popup-abstract-content">
+              <p className="abstract-text">{abstract}</p>
+            </div>
+          </>
         )}
 
         {/* 底部按钮 */}
