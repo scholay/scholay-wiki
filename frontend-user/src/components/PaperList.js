@@ -234,15 +234,6 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
             </div>
           <div className="header-stats">
             <span className="total-count">共找到 <strong>{currentTotal || currentPapers.length}</strong> 篇论文</span>
-            {/* 多轮搜索指示器 */}
-            {usePaperSets && paperSets.length > 1 && (
-              <>
-                <span className="stats-divider">•</span>
-                <span className="search-rounds">
-                  第 <strong>{currentActiveTab + 1}</strong> 轮搜索，共 <strong>{paperSets.length}</strong> 轮
-                </span>
-              </>
-            )}
           </div>
         </div>
       </div>

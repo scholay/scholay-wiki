@@ -1850,12 +1850,12 @@
 }
 
 /* 推荐问题 Skeleton Loading - 复用实际样式 */
-.suggested-questions-skeleton .suggested-question-btn.skeleton-loading {
+.suggested-question-btn.skeleton-loading {
   pointer-events: none;
   cursor: default;
 }
 
-.suggested-questions-skeleton .suggested-question-btn.skeleton-loading .question-text {
+.suggested-question-btn.skeleton-loading .question-text {
   display: block;
   height: 20px;
   width: 70%;

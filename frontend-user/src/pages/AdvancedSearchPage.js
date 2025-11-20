@@ -54,6 +54,7 @@ const AdvancedSearchPage = () => {
   const [isLoadingSuggestedQuestions, setIsLoadingSuggestedQuestions] = useState(false); // 推荐问题加载状态
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // 当前选中的问题索引
   const [isScrollingToQuestion, setIsScrollingToQuestion] = useState(false); // 是否正在滚动到指定问题
+  const [manualTabSwitch, setManualTabSwitch] = useState(false); // 是否手动切换了 tab（点击引文）
   
   // 搜索示例数据 - 覆盖多个学科领域
   const searchExamples = [
@@ -236,10 +237,13 @@ const AdvancedSearchPage = () => {
   }, [currentConversationId]);
 
   // 获取延伸问题（通过独立 API）
-  const fetchFollowUpQuestions = async (conversationId, messageId, message) => {
+  const fetchFollowUpQuestions = async (conversationId, messageId, message, showLoading = true) => {
     try {
       logger.log(`Fetching follow-up questions for message ${messageId}`);
-      setIsLoadingSuggestedQuestions(true); // 开始加载
+      // 只有在需要显示 loading 时才设置状态（通常只有最新消息才显示）
+      if (showLoading) {
+        setIsLoadingSuggestedQuestions(true);
+      }
       const response = await conversationAPI.getFollowUpQuestions(conversationId, messageId);
 
       if (response.data.code === 0 && response.data.data.questions) {
@@ -270,7 +274,9 @@ const AdvancedSearchPage = () => {
       console.error('Failed to load follow-up questions:', error);
       logger.log('Failed to load follow-up questions, but search completed successfully');
     } finally {
-      setIsLoadingSuggestedQuestions(false); // 结束加载
+      if (showLoading) {
+        setIsLoadingSuggestedQuestions(false);
+      }
     }
   };
 
@@ -382,8 +388,9 @@ const AdvancedSearchPage = () => {
       return;
     }
 
-    // 用户手动滚动
+    // 用户手动滚动，恢复自动切换 tab
     setUserScrolling(true);
+    setManualTabSwitch(false); // 用户滚动时，取消手动切换标志，恢复自动切换
     
     const atBottom = isAtBottom();
 
@@ -406,6 +413,9 @@ const AdvancedSearchPage = () => {
   const updateVisibleQuestionIndex = () => {
     // 如果正在滚动到指定问题，不更新索引
     if (isScrollingToQuestion) return;
+    
+    // 如果正在流式传输，不更新索引（避免流式渲染时索引跳动）
+    if (isStreaming) return;
     
     const container = chatMessagesRef.current;
     if (!container) return;
@@ -443,7 +453,7 @@ const AdvancedSearchPage = () => {
         chatMessages.removeEventListener('scroll', handleScroll);
       };
     }
-  }, [isStreaming, messages.length]);
+  }, [isStreaming, messages.length, isScrollingToQuestion]); // 添加 isScrollingToQuestion 依赖
 
   // 自动滚动逻辑
   useEffect(() => {
@@ -491,6 +501,9 @@ const AdvancedSearchPage = () => {
     if (!chatMessagesRef.current || paperSets.length <= 1) return;
 
     const handleTabSwitch = () => {
+      // 如果是手动切换的 tab，不执行自动切换
+      if (manualTabSwitch) return;
+      
       const container = chatMessagesRef.current;
       if (!container) return;
 
@@ -541,7 +554,7 @@ const AdvancedSearchPage = () => {
         container.removeEventListener('scroll', handleTabSwitch);
       }
     };
-  }, [paperSets, activeTab, setActiveTab]);
+  }, [paperSets, activeTab, setActiveTab, manualTabSwitch]);
 
   // Clean up event source on unmount
   useEffect(() => {
@@ -651,9 +664,9 @@ const AdvancedSearchPage = () => {
           const hasAssistantMessages = conv.messages.some(m => m.role === 'assistant');
           setHasAdvancedSearch(hasAssistantMessages);
 
-          // 对于所有 assistant 消息，如果还没有延伸问题，则异步加载
+          // 对于历史对话中的 assistant 消息，只加载已有的推荐问题，不再异步获取
           const assistantMessages = conv.messages.filter(m => m.role === 'assistant');
-          assistantMessages.forEach(assistantMsg => {
+          assistantMessages.forEach((assistantMsg) => {
             // 如果已有 follow_up_questions 字段，直接解析
             if (assistantMsg.follow_up_questions) {
               const questions = extractSuggestedQuestions(assistantMsg.follow_up_questions);
@@ -664,10 +677,8 @@ const AdvancedSearchPage = () => {
                     : msg
                 ));
               }
-            } else {
-              // 如果没有，异步获取（不阻塞UI）
-              fetchFollowUpQuestions(conv.id, assistantMsg.id, assistantMsg);
             }
+            // 历史对话中没有推荐问题的消息，不再尝试加载
           });
         } else {
           setPapers([]);
@@ -1221,8 +1232,30 @@ const AdvancedSearchPage = () => {
   };
 
   // 处理引文hover - 立即响应，无延迟
-  const handleCitationHover = (paperIndex) => {
-    // 立即设置高亮
+  const handleCitationHover = (paperIndex, messageId) => {
+    // 检查这个论文索引是否属于当前显示的论文集合
+    if (paperSets && paperSets.length > 0) {
+      // 找到所有 assistant 消息
+      const assistantMessages = messages.filter(m => m.role === 'assistant');
+      // 找到当前消息在 assistant 消息中的索引
+      const assistantIndex = assistantMessages.findIndex(m => m.id === messageId);
+      
+      if (assistantIndex !== -1) {
+        // 计算对应的 tab 索引
+        const tabIndex = paperSets.length - 1 - assistantIndex;
+        
+        // 只有当论文属于当前显示的 tab 时才设置高亮
+        if (tabIndex === activeTab) {
+          setHighlightedPaperIndex(paperIndex);
+        } else {
+          // 不是当前 tab 的论文，不设置高亮
+          setHighlightedPaperIndex(null);
+        }
+        return;
+      }
+    }
+    
+    // 如果没有 paperSets（单个搜索），直接设置高亮
     setHighlightedPaperIndex(paperIndex);
   };
 
@@ -1517,11 +1550,11 @@ const AdvancedSearchPage = () => {
                 <div className="chat-messages" ref={chatMessagesRef}>
                 <>
                   {/* 简单的消息列表 */}
-                  {messages.map((message, index) => (
+                  {messages.map((message, msgIndex) => (
                     <div 
-                      key={message.id || index} 
+                      key={message.id || msgIndex} 
                       className={`message message-${message.role}`}
-                      id={`message-${index}`}
+                      id={`message-${msgIndex}`}
                     >
                       <div className="message-avatar">
                         {message.role === 'user' ? (
@@ -1542,22 +1575,44 @@ const AdvancedSearchPage = () => {
                             <div className="message-markdown">
                               <PaperCitationMarkdown
                                 content={message.content}
-                                onCitationHover={handleCitationHover}
+                                onCitationHover={(paperIndex) => handleCitationHover(paperIndex, message.id)}
                                 onCitationLeave={handleCitationLeave}
-                                onCitationClick={(index) => {
-                                  setScrollToPaperIndex(index);
+                                onCitationClick={(paperIndex) => {
+                                  // 找到这条消息对应的论文集合
+                                  if (paperSets && paperSets.length > 0) {
+                                    // 找到所有 assistant 消息
+                                    const assistantMessages = messages.filter(m => m.role === 'assistant');
+                                    // 找到当前消息在 assistant 消息中的索引
+                                    const assistantIndex = assistantMessages.findIndex(m => m.id === message.id);
+                                    
+                                    if (assistantIndex !== -1) {
+                                      // paperSets 是倒序的（最新在索引0），assistantMessages 是正序的（最老在索引0）
+                                      // 需要反转索引：第一条消息（索引0）对应最后一个 paperSet（索引 length-1）
+                                      const tabIndex = paperSets.length - 1 - assistantIndex;
+                                      
+                                      // 切换到对应的 tab，并标记为手动切换
+                                      if (tabIndex >= 0 && tabIndex < paperSets.length) {
+                                        setActiveTab(tabIndex);
+                                        setManualTabSwitch(true); // 标记为手动切换，禁用自动切换
+                                      }
+                                    }
+                                  }
+                                  
+                                  // 设置需要滚动到的论文索引
+                                  setScrollToPaperIndex(paperIndex);
                                 }}
                               />
                             </div>
                             {/* 在最后一个助手消息后显示延伸问题 */}
                             {message.suggestedQuestions && 
-                             index === messages.length - 1 && 
+                             msgIndex === messages.length - 1 && 
                              renderSuggestedQuestions(message.suggestedQuestions)}
-                            {/* 推荐问题加载 - 放在最后一个助手消息内部 */}
+                            {/* 推荐问题加载 - 只在最后一条消息且没有推荐问题时显示 */}
                             {isLoadingSuggestedQuestions && 
-                             index === messages.length - 1 && 
-                             message.role === 'assistant' && (
-                              <div className="suggested-questions-inline suggested-questions-skeleton">
+                             msgIndex === messages.length - 1 && 
+                             message.role === 'assistant' && 
+                             !message.suggestedQuestions && (
+                              <div className="suggested-questions-inline">
                                 <div className="suggested-questions-header">
                                   <span className="suggested-questions-title">你可以继续提问</span>
                                 </div>
