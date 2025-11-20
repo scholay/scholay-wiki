@@ -1618,7 +1618,10 @@ const AdvancedSearchPage = () => {
                               />
                             </div>
                             {/* 在最后一个助手消息后显示延伸问题 */}
-                            {msgIndex === messages.length - 1 && message.role === 'assistant' && (
+                            {/* 只有当消息有suggestedQuestions属性时才显示（新消息或有follow_up_questions的历史消息） */}
+                            {msgIndex === messages.length - 1 && 
+                             message.role === 'assistant' && 
+                             'suggestedQuestions' in message && (
                               <div className="suggested-questions-inline">
                                 <div className="suggested-questions-header">
                                   <span className="suggested-questions-title">你可以继续提问</span>
