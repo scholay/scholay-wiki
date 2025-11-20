@@ -49,7 +49,9 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
       
       if (paperIndex !== -1 && paperRefs.current[paperIndex]) {
         const paperRect = paperRefs.current[paperIndex].getBoundingClientRect();
-        const popupWidth = 380 + 20; // 弹窗宽度 + 左侧padding
+        const popupContentWidth = 380; // 弹窗内容宽度
+        const visualGap = 10; // 弹窗内容与论文的视觉间距
+        const popupWrapperWidth = popupContentWidth + visualGap; // wrapper总宽度
         const popupHeight = 500; // 最大弹窗高度
         const viewportHeight = window.innerHeight;
         const minMargin = 20; // 距离视窗边缘的最小边距
@@ -69,7 +71,7 @@ const PaperList = ({ papers, loading, total, paperSets, activeTab = 0, setActive
         
         setPopupPosition({
           top: finalTop,
-          left: paperRect.left - popupWidth, // 显示在左侧，包含padding
+          left: paperRect.left - popupWrapperWidth, // wrapper紧贴论文左边缘
         });
       }
     }

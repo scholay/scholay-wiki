@@ -206,7 +206,8 @@
 
 /* 可 hover 区域容器 - 将标题、作者、摘要作为一个整体 */
 .paper-hoverable-area {
-  /* 无需额外样式，只是作为 hover 事件的容器 */
+  /* 作为 hover 事件的容器 */
+  position: relative;
 }
 
 /* 第一行：序号 + 期刊 */
@@ -312,6 +313,7 @@
   transition: color 0.2s;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -358,6 +360,7 @@
   margin: 0.625rem 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -839,11 +842,26 @@
 
 /* 弹窗包装器 - 用于创建透明的连接区域 */
 .paper-detail-popup-wrapper {
-  /* 创建一个透明的扩展区域，连接弹窗和论文卡片 */
-  padding-right: 40px; /* 右侧增加透明区域与论文卡片连接 */
-  padding-left: 20px; /* 左侧增加间距，让内容与论文有视觉距离 */
+  /* 透明容器，紧贴论文左侧 */
   pointer-events: auto;
   z-index: 10000;
+  /* 使用 flex 布局确保正确的尺寸 */
+  display: inline-block;
+  /* 创建透明连接区域 - 使用伪元素 */
+  position: relative;
+}
+
+/* 创建透明的连接桥梁 */
+.paper-detail-popup-wrapper::before {
+  content: '';
+  position: absolute;
+  right: -10px; /* 向右延伸到论文 */
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  background: transparent;
+  pointer-events: auto;
+  z-index: 1;
 }
 
 /* 新弹窗样式 - 基于图片设计 */
@@ -851,6 +869,7 @@
   width: 380px !important;
   max-height: 500px !important;
   padding: 0 !important;
+  margin-right: 10px !important; /* 与论文的小间距 */
   overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
@@ -862,6 +881,7 @@
     0 10px 25px -5px rgba(0, 0, 0, 0.5),
     0 10px 10px -5px rgba(0, 0, 0, 0.04),
     0 0 40px rgba(16, 163, 127, 0.05) !important;
+  pointer-events: auto !important; /* 确保内容可交互 */
 }
 
 /* 顶部期刊信息 */
