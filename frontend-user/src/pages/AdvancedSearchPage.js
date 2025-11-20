@@ -348,8 +348,8 @@ const AdvancedSearchPage = () => {
   };
 
   const scrollToBottom = (extraHeight = 0) => {
-    // 如果用户正在手动滚动，不执行自动滚动
-    if (userScrolling && !autoScroll) return;
+    // 如果用户正在手动滚动或已禁用自动滚动，不执行自动滚动
+    if (userScrolling || !autoScroll) return;
     
     const container = chatMessagesRef.current;
     if (container) {
@@ -384,7 +384,8 @@ const AdvancedSearchPage = () => {
     const timeSinceLastScroll = now - lastScrollTime.current;
     
     // 如果距离上次程序滚动时间很短，说明是程序触发的滚动
-    if (timeSinceLastScroll < 100) {
+    // 使用 200ms 阈值，给 smooth 滚动动画留足时间
+    if (timeSinceLastScroll < 200) {
       return;
     }
 
@@ -448,9 +449,22 @@ const AdvancedSearchPage = () => {
   useEffect(() => {
     const chatMessages = chatMessagesRef.current;
     if (chatMessages) {
+      // 监听滚轮事件，立即检测用户滚动意图
+      const handleWheel = (e) => {
+        // 用户使用滚轮，立即禁用自动滚动
+        if (isStreaming) {
+          setAutoScroll(false);
+          setUserScrolling(true);
+          userScrolledRef.current = true;
+        }
+      };
+      
       chatMessages.addEventListener('scroll', handleScroll);
+      chatMessages.addEventListener('wheel', handleWheel, { passive: true });
+      
       return () => {
         chatMessages.removeEventListener('scroll', handleScroll);
+        chatMessages.removeEventListener('wheel', handleWheel);
       };
     }
   }, [isStreaming, messages.length, isScrollingToQuestion]); // 添加 isScrollingToQuestion 依赖
