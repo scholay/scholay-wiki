@@ -974,7 +974,7 @@ const AdvancedSearchPage = () => {
     };
 
     let isFirstMessage = true;
-    
+
     eventSource.onmessage = (event) => {
       // 检查是否是错误消息（第一条消息）
       if (isFirstMessage) {

@@ -235,7 +235,7 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
 
     // limit === -1 表示无限制
     if (limitValue === -1) {
-      return true;
+    return true;
     }
 
     // limit > 0 表示有配额限制，检查是否还有剩余
@@ -308,60 +308,60 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
 
   return (
     <div ref={containerRef} className={`model-selector ${compact ? 'compact' : ''} ${showOnly ? 'show-only' : ''}`}>
-      <button
-        type="button"
-        className={`model-selector-btn ${showDropdown ? 'open' : ''} ${compact ? 'compact' : ''} ${showOnly ? 'show-only' : ''}`}
-        onClick={() => !disabled && !showOnly && setShowDropdown(!showDropdown)}
-        disabled={disabled || showOnly}
-      >
-        <span className="model-icon">{selectedModel.icon}</span>
-        <span className="model-label">{selectedModel.label}</span>
-        {!compact && !showOnly && (
-        <svg
-          className={`dropdown-arrow ${showDropdown ? 'open' : ''}`}
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
+        <button
+          type="button"
+          className={`model-selector-btn ${showDropdown ? 'open' : ''} ${compact ? 'compact' : ''} ${showOnly ? 'show-only' : ''}`}
+          onClick={() => !disabled && !showOnly && setShowDropdown(!showDropdown)}
+          disabled={disabled || showOnly}
         >
-          <path d="M6 9l6 6 6-6"/>
-        </svg>
-        )}
-      </button>
+          <span className="model-icon">{selectedModel.icon}</span>
+          <span className="model-label">{selectedModel.label}</span>
+          {!compact && !showOnly && (
+          <svg
+            className={`dropdown-arrow ${showDropdown ? 'open' : ''}`}
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+          )}
+        </button>
 
-      {showDropdown && (
-        <div className="model-selector-dropdown">
-          <div className="dropdown-header">选择模型</div>
-          {models.map((model) => {
-            const available = isModelAvailable(model);
-            const remaining = getRemainingCount(model);
-            const isSelected = model.value === value;
+        {showDropdown && (
+          <div className="model-selector-dropdown">
+            <div className="dropdown-header">选择模型</div>
+            {models.map((model) => {
+              const available = isModelAvailable(model);
+              const remaining = getRemainingCount(model);
+              const isSelected = model.value === value;
 
-            return (
-              <button
-                key={model.value}
-                type="button"
-                className={`model-option ${isSelected ? 'selected' : ''} ${!available ? 'disabled' : ''}`}
-                onClick={() => handleModelSelect(model)}
-                disabled={!available}
-              >
-                <div className="model-option-icon-wrapper">
-                  {model.icon}
-                </div>
-                <div className="model-option-header">
-                  <div className="model-option-top">
-                    <span className="model-option-label">{model.label}</span>
-                    {isSelected && (
-                      <svg className="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                        <path d="M20 6L9 17l-5-5"/>
-                      </svg>
-                    )}
+              return (
+                <button
+                  key={model.value}
+                  type="button"
+                  className={`model-option ${isSelected ? 'selected' : ''} ${!available ? 'disabled' : ''}`}
+                  onClick={() => handleModelSelect(model)}
+                  disabled={!available}
+                >
+                  <div className="model-option-icon-wrapper">
+                    {model.icon}
                   </div>
-                  <div className="model-option-desc">{model.description}</div>
-                  {!available && (
-                    <div className="model-option-badge">
+                  <div className="model-option-header">
+                    <div className="model-option-top">
+                      <span className="model-option-label">{model.label}</span>
+                      {isSelected && (
+                        <svg className="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                          <path d="M20 6L9 17l-5-5"/>
+                        </svg>
+                      )}
+                    </div>
+                    <div className="model-option-desc">{model.description}</div>
+                    {!available && (
+                      <div className="model-option-badge">
                       {(() => {
                         // 未登录
                         if (!isAuthenticated) {
@@ -422,20 +422,20 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
 
                         return '需要升级订阅';
                       })()}
-                    </div>
-                  )}
-                  {available && isAuthenticated && remaining !== null && remaining !== '无限制' && (
-                    <div className="model-option-quota">
-                      剩余 {remaining} 次
-                    </div>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
+                      </div>
+                    )}
+                    {available && isAuthenticated && remaining !== null && remaining !== '无限制' && (
+                      <div className="model-option-quota">
+                        剩余 {remaining} 次
+                      </div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
   );
 };
 

@@ -314,7 +314,7 @@
 .advanced-search-page {
   height: 100vh;
   display: flex;
-  background: #212121;
+  background: var(--background);
   position: relative;
 }
 
@@ -492,7 +492,7 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #212121;
+  background: var(--background);
   position: relative;
 }
 
@@ -505,7 +505,7 @@
 .as-empty-page-title {
   font-size: 20px;
   font-weight: 700;
-  color: rgb(236, 236, 241);
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -523,23 +523,35 @@
 .advanced-search-composer-wrapper {
   width: calc(100% - 3rem);
   max-width: 48rem;
-  background: rgba(47, 47, 47, 0.6);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
   border-radius: 28px;
   padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    0 2px 8px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   margin-bottom: 2rem;
   animation: fadeInScale 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   view-transition-name: search-composer;
 }
 
-.advanced-search-composer-wrapper:focus-within {
+[data-theme="dark"] .advanced-search-composer-wrapper {
+  background: rgba(47, 47, 47, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] .advanced-search-composer-wrapper {
+  background: #ffffff;
+  border: 2px solid rgba(16, 163, 127, 0.45);
+  box-shadow: 
+    0 20px 70px rgba(16, 163, 127, 0.12),
+    0 10px 40px rgba(0, 0, 0, 0.06),
+    0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="dark"] .advanced-search-composer-wrapper:focus-within {
   background: rgba(47, 47, 47, 0.7);
   border-color: rgba(16, 163, 127, 0.3);
   box-shadow: 
@@ -547,6 +559,16 @@
     0 4px 16px rgba(16, 163, 127, 0.15),
     0 0 0 1px rgba(16, 163, 127, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .advanced-search-composer-wrapper:focus-within {
+  background: #ffffff;
+  border-color: var(--text-accent);
+  box-shadow: 
+    0 24px 80px rgba(16, 163, 127, 0.15),
+    0 12px 48px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(16, 163, 127, 0.15),
+    0 0 0 3px rgba(16, 163, 127, 0.15);
 }
 
 /* 空状态搜索框淡入缩放动画 */
@@ -760,6 +782,10 @@
   flex-shrink: 0;
 }
 
+[data-theme="light"] .footer-divider {
+  background: rgba(16, 163, 127, 0.15);
+}
+
 /* Segmented Control for Search Mode - Premium Design */
 .advanced-search-mode-segmented {
   display: inline-flex;
@@ -839,7 +865,7 @@
 }
 
 .advanced-search-mode-segmented .mode-segment:hover:not(.active) {
-  color: rgba(236, 236, 241, 0.8);
+  color: var(--text-secondary);
   background: rgba(255, 255, 255, 0.04);
 }
 
@@ -853,6 +879,37 @@
   transform: scale(0.96);
 }
 
+/* Light theme mode switcher styles */
+[data-theme="light"] .advanced-search-mode-segmented {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+[data-theme="light"] .advanced-search-mode-segmented .mode-segment {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .advanced-search-mode-segmented .mode-segment:hover:not(.active) {
+  color: rgba(0, 0, 0, 0.8);
+  background: rgba(16, 163, 127, 0.08);
+}
+
+[data-theme="light"] .advanced-search-mode-segmented .mode-segment.active {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.85) 0%, 
+    rgba(16, 163, 127, 0.75) 100%);
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.3),
+    0 0 0 1px rgba(16, 163, 127, 0.4);
+}
+
+[data-theme="light"] .advanced-search-mode-segmented .mode-segment.active .mode-segment-icon {
+  color: white;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.2));
+}
+
 /* ============================================
    Results Layout (after search)
    ============================================ */
@@ -863,13 +920,13 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #212121;
+  background: var(--background);
   position: relative;
 }
 
 /* 顶部导航栏 - 参考普通搜索 */
 .as-results-navbar {
-  background: #212121;
+  background: var(--background);
   border-bottom: none;
   box-shadow: none;
   padding: 12px 24px;
@@ -950,10 +1007,10 @@
   transform: translateX(-50%);
   min-width: 320px;
   max-width: 400px;
-  background: #2a2a2a;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow);
   z-index: 999;
   overflow: hidden;
 }
@@ -1058,7 +1115,7 @@
 .as-results-navbar .as-page-title {
   font-size: 20px;
   font-weight: 700;
-  color: rgb(236, 236, 241);
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -1091,7 +1148,7 @@
   align-items: flex-start;
   padding: 1.5rem 1.5rem;
   position: relative;
-  background: #212121;
+  background: var(--background);
   flex-shrink: 0;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -1100,10 +1157,10 @@
 .as-results-composer-wrapper {
   width: 100%;
   max-width: 56rem;
-  background: #2f2f2f;
+  background: var(--surface);
   border-radius: 24px;
   padding: 6px 12px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   margin-bottom: 1rem;
   animation: slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1131,7 +1188,7 @@
   display: flex;
   overflow: hidden;
   position: relative;
-  background: #212121;
+  background: var(--background);
   animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s both;
 }
 
@@ -1151,7 +1208,7 @@
 .as-messages-container {
   flex: 1 1 auto;
   overflow: hidden;  /* 移除这一层的滚动条，让chat-messages处理滚动 */
-  background: #212121;
+  background: var(--background);
   display: flex;
   flex-direction: column;
   min-width: 420px;
@@ -1167,7 +1224,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #212121;
+  background: var(--background);
   border-left: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -1608,7 +1665,7 @@
 /* 底部输入容器 */
 .as-bottom-input-container {
   padding: 12px 24px 20px;
-  background: #212121;
+  background: var(--background);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
   display: flex;
@@ -2359,7 +2416,7 @@
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: rgba(236, 236, 241, 0.6);
+  color: var(--text-tertiary);
   cursor: pointer;
   font-size: 14px;
   font-weight: 400;
@@ -2377,17 +2434,32 @@
 }
 
 .filter-toggle-btn:hover {
-  background: rgba(64, 65, 79, 1);
-  color: rgba(236, 236, 241, 1);
+  background: var(--surface);
+  color: var(--text-primary);
 }
 
 .filter-toggle-btn.active {
-  background: rgba(64, 65, 79, 1);
-  color: rgba(236, 236, 241, 1);
+  background: var(--surface-light);
+  color: var(--text-primary);
 }
 
 .filter-toggle-btn.active:hover {
   background: rgba(86, 88, 105, 1);
+}
+
+/* Light theme filter toggle button styles */
+[data-theme="light"] .filter-toggle-btn {
+  color: #374151;
+}
+
+[data-theme="light"] .filter-toggle-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .filter-toggle-btn.active {
+  background: var(--surface-light);
+  color: var(--text-primary);
 }
 
 /* Resize Handle */
@@ -2606,9 +2678,9 @@
 }
 
 .mode-btn.active {
-  background: #2f2f2f;
+  background: var(--surface);
   color: var(--text-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow);
 }
 
 .mode-btn.active svg {

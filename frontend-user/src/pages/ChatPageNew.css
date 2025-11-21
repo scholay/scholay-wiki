@@ -320,8 +320,8 @@
 .chat-page-wrapper .edit-container {
   width: 100%;
   max-width: 70%;
-  background: #2f2f2f;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 1.75rem;
   padding: 0.75rem 1rem;
 }
@@ -406,7 +406,7 @@
   left: 0;
   right: 0;
   padding: 1rem;
-  background: #212121;
+  background: var(--background);
   display: flex;
   justify-content: center;
   z-index: 10;
@@ -422,8 +422,8 @@
 .chat-page-wrapper .composer-input-area {
   max-width: 48rem;
   width: 100%;
-  background: #2f2f2f;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 1.75rem;
   display: flex;
   align-items: flex-end;
@@ -674,7 +674,7 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #212121;
+  background: var(--background);
   position: relative;
 }
 
@@ -695,13 +695,13 @@
 .empty-page-title {
   font-size: 20px;
   font-weight: 700;
-  color: rgb(236, 236, 241);
+  color: var(--text-primary);
   margin: 0;
 }
 
 /* Results navbar - for existing conversations with messages */
 .results-navbar {
-  background: #212121;
+  background: var(--background);
   border-bottom: none;
   box-shadow: none;
   padding: 12px 24px;
@@ -734,7 +734,7 @@
   background: transparent;
   border: none;
   border-radius: 8px;
-  color: rgba(236, 236, 241, 0.7);
+  color: var(--text-secondary);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -744,7 +744,7 @@
 
 .model-selector-simple-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
-  color: rgba(236, 236, 241, 0.9);
+  color: var(--text-primary);
 }
 
 .model-selector-simple-btn:disabled {
@@ -773,7 +773,7 @@
   top: calc(100% + 4px);
   left: 0;
   min-width: 180px;
-  background: #2f2f2f;
+  background: var(--surface);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 4px;
@@ -792,7 +792,7 @@
   background: transparent;
   border: none;
   border-radius: 6px;
-  color: rgba(236, 236, 241, 0.8);
+  color: var(--text-secondary);
   font-size: 14px;
   font-weight: 500;
   text-align: left;
@@ -802,12 +802,12 @@
 
 .model-dropdown-item:hover:not(.disabled) {
   background: rgba(255, 255, 255, 0.1);
-  color: rgba(236, 236, 241, 1);
+  color: var(--text-primary);
 }
 
 .model-dropdown-item.active {
   background: rgba(255, 255, 255, 0.15);
-  color: rgba(236, 236, 241, 1);
+  color: var(--text-primary);
 }
 
 .model-dropdown-item.disabled {
@@ -840,7 +840,7 @@
 .results-navbar .page-title {
   font-size: 20px;
   font-weight: 700;
-  color: rgb(236, 236, 241);
+  color: var(--text-primary);
   margin: 0;
 }
 

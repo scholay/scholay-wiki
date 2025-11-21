@@ -72,7 +72,7 @@
 }
 
 .sidebar-logo.collapsed-logo:hover svg {
-  color: rgb(236, 236, 241);
+  color: var(--text-primary);
 }
 
 /* 收起按钮 */
@@ -100,7 +100,7 @@
 
 .sidebar-collapse-btn:hover {
   background: rgba(64, 65, 79, 0.8);
-  color: rgb(236, 236, 241);
+  color: var(--text-primary);
 }
 
 /* 侧边栏内容区域 */
@@ -187,7 +187,7 @@
 
 .nav-item:hover {
   background: rgba(64, 65, 79, 0.6);
-  color: rgb(236, 236, 241);
+  color: var(--text-primary);
 }
 
 .nav-item.active {
@@ -225,7 +225,7 @@
 
 .btn-new-item:hover {
   background: rgba(64, 65, 79, 0.6);
-  color: rgb(236, 236, 241);
+  color: var(--text-primary);
   border-color: rgba(255, 255, 255, 0.3);
 }
 
@@ -393,7 +393,7 @@
 
 .user-email {
   font-size: 14px;
-  color: rgb(236, 236, 241);
+  color: var(--text-primary);
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -495,7 +495,7 @@
 .user-name {
   font-size: 15px;
   font-weight: 600;
-  color: rgb(236, 236, 241);
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -649,7 +649,7 @@
 
 .user-menu-item:hover {
   background: rgba(64, 65, 79, 0.8);
-  color: rgb(236, 236, 241);
+  color: var(--text-primary);
 }
 
 .user-menu-item svg {

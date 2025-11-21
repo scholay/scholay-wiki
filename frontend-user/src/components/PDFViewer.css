@@ -4,7 +4,7 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #212121;
+  background: var(--background);
   overflow: hidden;
 }
 

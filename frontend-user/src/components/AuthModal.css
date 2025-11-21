@@ -1418,26 +1418,26 @@
 
 /* 政策弹窗 - 日间模式 */
 [data-theme="light"] .policy-overlay {
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
 }
 
 [data-theme="light"] .policy-container {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
 }
 
 [data-theme="light"] .policy-header {
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border);
 }
 
 [data-theme="light"] .policy-header h3 {
-  color: #10a37f;
+  color: var(--text-accent);
 }
 
 [data-theme="light"] .policy-header button {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--surface-light);
   color: #6b7280;
 }
 
@@ -1447,29 +1447,30 @@
 }
 
 [data-theme="light"] .policy-body {
-  color: #374151;
+  color: var(--text-secondary);
+  background: var(--surface);
 }
 
 [data-theme="light"] .policy-body pre {
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 [data-theme="light"] .policy-footer {
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border);
 }
 
 /* 滚动条 - 日间模式 */
 [data-theme="light"] .auth-modal-container::-webkit-scrollbar-track,
 [data-theme="light"] .policy-body::-webkit-scrollbar-track {
-  background: #f3f4f6;
+  background: var(--surface-light);
 }
 
 [data-theme="light"] .auth-modal-container::-webkit-scrollbar-thumb,
 [data-theme="light"] .policy-body::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: var(--border-hover);
 }
 
 [data-theme="light"] .auth-modal-container::-webkit-scrollbar-thumb:hover,
 [data-theme="light"] .policy-body::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: var(--text-quaternary);
 }

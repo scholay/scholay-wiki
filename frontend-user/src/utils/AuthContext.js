@@ -177,15 +177,15 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      // Check for existing token on mount
-      const token = localStorage.getItem('user_token');
-      const userData = localStorage.getItem('user_data');
+    // Check for existing token on mount
+    const token = localStorage.getItem('user_token');
+    const userData = localStorage.getItem('user_data');
 
-      if (token && userData && userData !== 'undefined') {
-        try {
-          setIsAuthenticated(true);
-          setUser(JSON.parse(userData));
-          startHeartbeat(); // Start heartbeat for existing session
+    if (token && userData && userData !== 'undefined') {
+      try {
+        setIsAuthenticated(true);
+        setUser(JSON.parse(userData));
+        startHeartbeat(); // Start heartbeat for existing session
           
           // 立即获取最新的用户信息和订阅信息
           try {
@@ -211,13 +211,13 @@ export const AuthProvider = ({ children }) => {
           } catch (error) {
             console.error('Failed to refresh user data on init:', error);
           }
-        } catch (error) {
-          // Clear invalid data
-          localStorage.removeItem('user_token');
-          localStorage.removeItem('user_data');
-        }
+      } catch (error) {
+        // Clear invalid data
+        localStorage.removeItem('user_token');
+        localStorage.removeItem('user_data');
       }
-      setLoading(false);
+    }
+    setLoading(false);
     };
 
     initializeAuth();

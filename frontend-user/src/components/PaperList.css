@@ -130,8 +130,6 @@
 
 /* Paper Card */
 .paper-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(148, 163, 184, 0.1);
   border-radius: 12px;
   padding: 0.875rem 0.75rem;
   margin-bottom: 1rem;
@@ -142,16 +140,38 @@
   overflow: hidden;
 }
 
-.paper-card:hover {
+[data-theme="dark"] .paper-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+[data-theme="light"] .paper-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+[data-theme="dark"] .paper-card:hover {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(59, 130, 246, 0.3);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.paper-card.highlighted {
+[data-theme="light"] .paper-card:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .paper-card.highlighted {
   background: rgba(16, 163, 127, 0.08);
   border-color: rgba(16, 163, 127, 0.4);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="light"] .paper-card.highlighted {
+  background: rgba(16, 163, 127, 0.05);
+  border-color: var(--text-accent);
+  box-shadow: var(--shadow-accent);
 }
 
 /* 固定在论文列表中间的箭头指示器 */
@@ -607,8 +627,6 @@
 .paper-tab {
   flex-shrink: 0;
   padding: 0.625rem 1.125rem;
-  background: rgba(47, 47, 47, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 10px;
   color: var(--text-secondary);
   font-size: 0.8125rem;
@@ -623,6 +641,16 @@
   overflow: hidden;
 }
 
+[data-theme="dark"] .paper-tab {
+  background: rgba(47, 47, 47, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+[data-theme="light"] .paper-tab {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
 .paper-tab::before {
   content: '';
   position: absolute;
@@ -632,23 +660,37 @@
   transition: opacity 0.25s;
 }
 
-.paper-tab:hover {
+[data-theme="dark"] .paper-tab:hover {
   background: rgba(47, 47, 47, 0.8);
   border-color: rgba(148, 163, 184, 0.2);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+[data-theme="light"] .paper-tab:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
 .paper-tab:hover::before {
   opacity: 1;
 }
 
-.paper-tab.active {
+[data-theme="dark"] .paper-tab.active {
   background: linear-gradient(135deg, rgba(16, 163, 127, 0.18) 0%, rgba(16, 163, 127, 0.1) 100%);
   border-color: rgba(16, 163, 127, 0.35);
   color: var(--primary-solid);
   box-shadow: 0 2px 8px rgba(16, 163, 127, 0.15),
               inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] .paper-tab.active {
+  background: rgba(16, 163, 127, 0.08);
+  border-color: var(--text-accent);
+  color: var(--text-accent);
+  box-shadow: var(--shadow-accent);
 }
 
 .paper-tab.active::before {

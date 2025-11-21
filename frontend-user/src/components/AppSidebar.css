@@ -2,13 +2,8 @@
   width: 100%;
   max-width: 280px;
   height: 100vh;
-  background: rgba(24, 24, 24, 0.6);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 
-    2px 0 20px rgba(0, 0, 0, 0.3),
-    inset -1px 0 0 rgba(255, 255, 255, 0.03);
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
@@ -20,11 +15,30 @@
   transition: max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1), background 0.25s ease, border-color 0.25s ease;
 }
 
+[data-theme="dark"] .app-sidebar {
+  background: rgba(24, 24, 24, 0.6);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    2px 0 20px rgba(0, 0, 0, 0.3),
+    inset -1px 0 0 rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="light"] .app-sidebar {
+  background: rgba(255, 255, 255, 0.95);
+  border-right: 1px solid var(--border);
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.04);
+}
+
 .app-sidebar.collapsed {
   max-width: 64px;
+}
+
+[data-theme="dark"] .app-sidebar.collapsed {
   background: rgba(33, 33, 33, 0.7);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
+}
+
+[data-theme="light"] .app-sidebar.collapsed {
+  background: rgba(255, 255, 255, 0.98);
 }
 
 /* 顶部Logo区域 */
@@ -1386,4 +1400,194 @@
   .app-sidebar.mobile-open {
     transform: translateX(0);
   }
+}
+
+/* ==================== 日间模式样式 ==================== */
+
+/* 用户菜单弹窗 - 只修改颜色 */
+[data-theme="light"] .user-menu-popup {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+[data-theme="light"] .user-menu-header {
+  background: var(--surface-light);
+  border-bottom: 1px solid var(--border);
+}
+
+[data-theme="light"] .user-menu-divider {
+  background: var(--border);
+}
+
+[data-theme="light"] .user-menu-item:hover {
+  background: var(--surface-hover);
+}
+
+[data-theme="light"] .user-menu-item.logout-item:hover {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--text-error);
+}
+
+/* 导航项 - 只修改颜色，保持原有结构 */
+[data-theme="light"] .nav-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .nav-item.active {
+  background: rgba(16, 163, 127, 0.08);
+  color: var(--text-accent);
+}
+
+/* 收起按钮和Logo - 只修改颜色 */
+[data-theme="light"] .sidebar-collapse-btn {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .sidebar-collapse-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .app-sidebar.collapsed .sidebar-logo:hover {
+  background: var(--surface-hover);
+}
+
+[data-theme="light"] .sidebar-logo.collapsed-logo svg {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .sidebar-logo.collapsed-logo:hover svg {
+  color: var(--text-primary);
+}
+
+/* Logo图片 - 日间模式反色 */
+[data-theme="light"] .sidebar-logo img {
+  filter: invert(1) brightness(0.3) sepia(1) saturate(10) hue-rotate(140deg);
+}
+
+/* 用户信息区域 - 只修改颜色 */
+[data-theme="light"] .sidebar-user-section.sidebar-footer {
+  border-top: 1px solid var(--border);
+}
+
+[data-theme="light"] .app-sidebar:not(.collapsed) .sidebar-user-info:hover,
+[data-theme="light"] .app-sidebar.collapsed .sidebar-user-info:hover {
+  background: var(--surface-hover);
+}
+
+/* 新建按钮 - 只修改颜色 */
+[data-theme="light"] .btn-new-chat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+[data-theme="light"] .btn-new-chat:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+}
+
+/* 历史项 - 只修改颜色，保持原有结构 */
+[data-theme="light"] .history-item:hover {
+  background: var(--surface-hover);
+}
+
+[data-theme="light"] .history-item.active {
+  background: rgba(16, 163, 127, 0.08);
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .history-item.active .history-item-title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .history-item.menu-open {
+  background: var(--surface-hover);
+}
+
+/* 历史项编辑输入框 */
+[data-theme="light"] .history-item-edit-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .history-item-edit-input:focus {
+  background: var(--surface);
+  border-color: var(--text-accent);
+  box-shadow: var(--glow);
+}
+
+/* 历史菜单按钮 - 只修改颜色 */
+[data-theme="light"] .btn-history-menu {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .btn-history-menu:hover {
+  background: var(--surface-light);
+  color: var(--text-primary);
+}
+
+/* 历史记录菜单弹窗 - 只修改颜色 */
+[data-theme="light"] .history-menu-popup {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+[data-theme="light"] .history-menu-item:hover {
+  background: var(--surface-hover);
+}
+
+[data-theme="light"] .history-menu-divider {
+  background: var(--border);
+}
+
+[data-theme="light"] .history-menu-item.delete-item:hover {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--text-error);
+}
+
+/* Tooltip */
+[data-theme="light"] .sidebar-tooltip {
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-md);
+}
+
+/* 删除确认弹窗 - 只修改颜色 */
+[data-theme="light"] .delete-confirm-overlay {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .delete-confirm-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+[data-theme="light"] .btn-cancel {
+  background: var(--surface-light);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .btn-cancel:hover {
+  background: var(--surface-hover);
+}
+
+/* 滚动条 */
+[data-theme="light"] .app-sidebar-content::-webkit-scrollbar-track,
+[data-theme="light"] .history-list::-webkit-scrollbar-track {
+  background: var(--surface-light);
+}
+
+[data-theme="light"] .app-sidebar-content::-webkit-scrollbar-thumb,
+[data-theme="light"] .history-list::-webkit-scrollbar-thumb {
+  background: var(--border-hover);
+}
+
+[data-theme="light"] .app-sidebar-content::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .history-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-quaternary);
 }

@@ -146,8 +146,8 @@
   bottom: calc(100% + 12px);
   left: 0;
   min-width: 320px;
-  background: #2f2f2f;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 6px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.1);

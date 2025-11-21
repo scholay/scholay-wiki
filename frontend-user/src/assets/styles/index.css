@@ -40,38 +40,55 @@
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 日间主题 */
+/* 日间主题 - 全新设计 */
 [data-theme="light"] {
-  /* 品牌色保持一致，但调整适应日间模式 */
+  /* 品牌色 - 保持一致性 */
   --primary: linear-gradient(135deg, #10a37f 0%, #0d8968 100%);
   --primary-solid: #10a37f;
   --primary-dark: #0d8968;
   --primary-light: #19c37d;
   --accent: #10a37f;
   --accent-2: #0d8968;
-  --bg-primary: #ffffff;
-  --bg-secondary: #f9fafb;
-  --background: #ffffff;
-  --background-light: #f9fafb;
-  --surface: #f3f4f6;
-  --surface-light: #e5e7eb;
   
-  /* 统一的字体颜色系统 - 日间模式 */
-  --text-primary: rgba(17, 24, 39, 0.95);         /* 主要文字：标题、重要内容 */
-  --text-secondary: rgba(55, 65, 81, 0.85);       /* 次要文字：描述、说明 */
-  --text-tertiary: rgba(107, 114, 128, 0.75);     /* 三级文字：辅助信息、提示 */
-  --text-quaternary: rgba(156, 163, 175, 0.65);   /* 四级文字：占位符、禁用状态 */
-  --text-accent: #10a37f;                         /* 强调文字：品牌色 */
+  /* 背景色系统 - 采用柔和的渐变背景 */
+  --bg-primary: #fafbfc;                          /* 主背景：非常浅的灰蓝色 */
+  --bg-secondary: #f5f7fa;                        /* 次级背景：浅灰蓝 */
+  --background: linear-gradient(180deg, #fafbfc 0%, #f0f4f8 100%);
+  --background-light: #ffffff;
+  --surface: #ffffff;                             /* 卡片表面：纯白 */
+  --surface-hover: #f8fafb;                       /* 悬停状态 */
+  --surface-light: #f5f7fa;                       /* 浅表面 */
+  
+  /* 字体颜色系统 - 更高对比度 */
+  --text-primary: #1a202c;                        /* 主要文字：深灰蓝，接近黑色 */
+  --text-secondary: #4a5568;                      /* 次要文字：中灰 */
+  --text-tertiary: #718096;                       /* 三级文字：浅灰 */
+  --text-quaternary: #a0aec0;                     /* 四级文字：更浅的灰 */
+  --text-accent: #10a37f;                         /* 强调文字：品牌绿色 */
   --text-success: #059669;                        /* 成功状态 */
-  --text-error: #dc2626;                          /* 错误状态 */
-  --text-warning: #d97706;                        /* 警告状态 */
+  --text-error: #e53e3e;                          /* 错误状态：更鲜艳的红 */
+  --text-warning: #dd6b20;                        /* 警告状态：更鲜艳的橙 */
   
+  /* 边框颜色 */
+  --border: #e2e8f0;                              /* 默认边框：浅灰 */
+  --border-light: #edf2f7;                        /* 更浅的边框 */
+  --border-hover: #cbd5e0;                        /* 悬停边框 */
+  
+  /* 阴影系统 */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12), 0 6px 12px rgba(0, 0, 0, 0.08);
+  --shadow-accent: 0 4px 16px rgba(16, 163, 127, 0.15);
+  --glow: 0 0 0 3px rgba(16, 163, 127, 0.12);
+  
+  /* 状态颜色 */
   --success: #059669;
-  --error: #dc2626;
-  --warning: #d97706;
-  --border: rgba(0, 0, 0, 0.08);
-  --shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  --glow: 0 0 20px rgba(16, 163, 127, 0.2);
+  --error: #e53e3e;
+  --warning: #dd6b20;
+  --info: #3182ce;
+  
+  /* 其他 */
   --radius: 12px;
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -139,30 +156,36 @@ body {
   right: -200px;
 }
 
-/* 日间模式动画背景 - 更柔和的渐变 */
+/* 日间模式动画背景 - 更细腻的渐变装饰 */
+[data-theme="light"] .animated-bg {
+  background: linear-gradient(180deg, #fafbfc 0%, #f0f4f8 100%);
+}
+
 [data-theme="light"] .animated-bg::before,
 [data-theme="light"] .animated-bg::after {
   content: '';
   position: absolute;
-  width: 500px;
-  height: 500px;
   border-radius: 50%;
-  filter: blur(120px);
-  opacity: 0.05;
-  animation: float 25s ease-in-out infinite;
+  filter: blur(100px);
+  opacity: 0.08;
+  animation: float 30s ease-in-out infinite;
 }
 
 [data-theme="light"] .animated-bg::before {
-  background: linear-gradient(135deg, #10a37f 0%, #19c37d 100%);
-  top: -150px;
-  left: -150px;
-  animation-delay: -12s;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(16, 163, 127, 0.3) 0%, transparent 70%);
+  top: -200px;
+  right: -100px;
+  animation-delay: -15s;
 }
 
 [data-theme="light"] .animated-bg::after {
-  background: linear-gradient(135deg, #93c5fd 0%, #ddd6fe 100%);
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, transparent 70%);
   bottom: -150px;
-  right: -150px;
+  left: -100px;
 }
 
 @keyframes float {
@@ -195,7 +218,7 @@ body {
 
 /* Glassmorphism card - 日间模式 */
 [data-theme="light"] .glass-card {
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--surface);
   backdrop-filter: blur(10px);
   border-radius: var(--radius);
   border: 1px solid var(--border);
@@ -204,9 +227,10 @@ body {
 }
 
 [data-theme="light"] .glass-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  border-color: rgba(16, 163, 127, 0.2);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-hover);
+  background: var(--surface-hover);
 }
 
 /* Buttons */
@@ -273,10 +297,15 @@ body {
   background: rgba(16, 163, 127, 0.1);
 }
 
+[data-theme="light"] .btn-outline {
+  border-color: var(--border);
+}
+
 [data-theme="light"] .btn-outline:hover:not(:disabled) {
   border-color: var(--primary-solid);
   background: rgba(16, 163, 127, 0.05);
-  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.15);
+  box-shadow: var(--shadow-accent);
+  color: var(--text-accent);
 }
 
 /* Input fields */
@@ -296,7 +325,8 @@ body {
 }
 
 [data-theme="light"] .input {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--surface);
+  border-color: var(--border);
 }
 
 [data-theme="dark"] .input:focus {
@@ -307,8 +337,8 @@ body {
 
 [data-theme="light"] .input:focus {
   border-color: var(--primary-solid);
-  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
-  background: white;
+  box-shadow: var(--glow);
+  background: var(--background-light);
 }
 
 .input::placeholder {
@@ -348,8 +378,8 @@ body {
 }
 
 [data-theme="light"] .message-error {
-  background: rgba(220, 38, 38, 0.05);
-  border: 1px solid rgba(220, 38, 38, 0.2);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
   color: var(--error);
 }
 
@@ -360,8 +390,8 @@ body {
 }
 
 [data-theme="light"] .message-success {
-  background: rgba(5, 150, 105, 0.05);
-  border: 1px solid rgba(5, 150, 105, 0.2);
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
   color: var(--success);
 }
 
@@ -372,8 +402,8 @@ body {
 }
 
 [data-theme="light"] .message-info {
-  background: rgba(16, 163, 127, 0.05);
-  border: 1px solid rgba(16, 163, 127, 0.2);
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
   color: var(--accent);
 }
 

@@ -2,7 +2,7 @@
 .paper-preview {
   width: 480px;
   height: 100%;
-  background: #212121;
+  background: var(--background);
   display: flex;
   flex-direction: column;
   overflow: hidden;
