@@ -259,7 +259,7 @@
 }
 
 .paper-venue-info:hover .venue-name {
-  color: var(--text-accent);
+  color: rgba(134, 239, 172, 1);
 }
 
 .venue-logo {
@@ -289,7 +289,7 @@
 .venue-name {
   font-size: 12px;
   font-weight: 500;
-  color: rgba(16, 163, 127, 0.9);
+  color: rgba(134, 239, 172, 0.9);
   white-space: nowrap;
   line-height: 1.3;
 }
@@ -398,7 +398,7 @@
 }
 
 .meta-item.citations svg {
-  color: var(--accent);
+  color: rgba(251, 191, 36, 0.9);
 }
 
 .meta-item.date svg {

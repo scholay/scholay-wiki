@@ -1544,12 +1544,12 @@
 
 /* 引用数 */
 .as-papers-list-wrapper .meta-item.citations {
-  color: rgba(16, 163, 127, 0.85);
+  color: rgba(251, 191, 36, 0.9);
 }
 
 .as-papers-list-wrapper .meta-item.citations svg {
-  color: var(--text-accent);
-  opacity: 0.7;
+  color: rgba(251, 191, 36, 0.9);
+  opacity: 0.85;
 }
 
 /* 被引用数 */
@@ -1562,12 +1562,12 @@
 .as-papers-list-wrapper .citation-number {
   font-size: 12px;
   font-weight: 500;
-  color: rgba(16, 163, 127, 0.85);
+  color: rgba(251, 191, 36, 0.9);
 }
 
 .as-papers-list-wrapper .citation-label {
   font-size: 11px;
-  color: rgba(16, 163, 127, 0.6);
+  color: rgba(251, 191, 36, 0.65);
 }
 
 /* 日期 */
@@ -1753,7 +1753,7 @@
   padding-left: 2.5rem;
 }
 
-/* 用户提问图标 - 与第一行文字中线对齐 */
+/* 用户提问图标 - 柔和蓝色 */
 .message-user .message-content::before {
   content: '';
   position: absolute;
@@ -1761,7 +1761,7 @@
   top: 0;
   width: 24px;
   height: 24px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='rgba(16, 163, 127, 0.85)'%3E%3Cpath fill-rule='evenodd' d='M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z' clip-rule='evenodd'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='rgba(96, 165, 250, 0.9)'%3E%3Cpath fill-rule='evenodd' d='M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z' clip-rule='evenodd'/%3E%3C/svg%3E");
   background-size: contain;
   background-repeat: no-repeat;
   pointer-events: none;
@@ -1778,7 +1778,7 @@
   padding-left: 2.5rem;
 }
 
-/* AI回答图标 - 学术图标配色优化 */
+/* AI回答图标 - 柔和紫色 */
 .message-assistant .message-content::before {
   content: '';
   position: absolute;
@@ -1786,7 +1786,7 @@
   top: 2px;
   width: 24px;
   height: 24px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='rgba(139, 92, 246, 0.75)'%3E%3Cpath d='M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='rgba(167, 139, 250, 0.85)'%3E%3Cpath d='M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253'/%3E%3C/svg%3E");
   background-size: contain;
   background-repeat: no-repeat;
   pointer-events: none;
@@ -1835,9 +1835,9 @@
   height: 1.2em;
   background: linear-gradient(
     90deg,
-    rgba(139, 92, 246, 0.08) 0%,
-    rgba(139, 92, 246, 0.15) 50%,
-    rgba(139, 92, 246, 0.08) 100%
+    rgba(167, 139, 250, 0.08) 0%,
+    rgba(167, 139, 250, 0.15) 50%,
+    rgba(167, 139, 250, 0.08) 100%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
