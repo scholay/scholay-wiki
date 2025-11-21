@@ -124,13 +124,13 @@ func main() {
 	thirdPartyService.StartCacheRefreshTask(5 * time.Minute)
 	log.Printf("Third-party account service initialized with cache refresh")
 
+	// Initialize AI service (需要在scholar handler之前初始化)
+	aiService := ai.NewService(database.GetDB(), thirdPartyService)
+	
 	// Initialize Semantic Scholar module with key rotation
 	scholarManager := semanticscholar.NewManager(thirdPartyService)
-	scholarHandler := semanticscholar.NewHandler(scholarManager)
+	scholarHandler := semanticscholar.NewHandler(scholarManager, aiService) // 传入aiService用于查询翻译
 	mcpHandler := mcp.NewHandler(scholarManager) // MCP uses manager for dynamic API key access
-
-	// Initialize AI service
-	aiService := ai.NewService(database.GetDB(), thirdPartyService)
 	aiHandler := ai.NewHandler(aiService)
 
 	// Initialize Subscription module
@@ -428,7 +428,7 @@ func main() {
 		scholar.Use(middleware.UserAuthMiddleware())
 		{
 			// Paper endpoints
-			scholar.GET("/papers/search", scholarHandler.SearchPapers)
+			scholar.POST("/papers/search", scholarHandler.SearchPapers) // 学术检索（改为POST）
 			scholar.GET("/papers/:paperId", scholarHandler.GetPaper)
 			scholar.POST("/papers/batch", scholarHandler.GetPaperBatch)
 			scholar.GET("/papers/:paperId/citations", scholarHandler.GetPaperCitations)

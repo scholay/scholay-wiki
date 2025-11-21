@@ -57,6 +57,21 @@ const SearchResultsPage = () => {
   const [papers, setPapers] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  
+  // 查询信息状态
+  const [queryInfo, setQueryInfo] = useState({
+    originalQuery: '',
+    translatedQuery: '',
+    actualQuery: '',
+    translationEnabled: false
+  });
+  
+  // 当前查询的翻译缓存（用于筛选和分页时复用，避免重复翻译）
+  const [cachedTranslation, setCachedTranslation] = useState({
+    query: '',           // 缓存的查询
+    translated: '',      // 翻译结果
+    actual: ''           // 实际使用的查询
+  });
   const [selectedPaper, setSelectedPaper] = useState(null);
   const [citePaper, setCitePaper] = useState(null);
   const [expandedTldr, setExpandedTldr] = useState({}); // TLDR 展开状态
@@ -116,7 +131,7 @@ const SearchResultsPage = () => {
   const [isSearchBarCollapsed, setIsSearchBarCollapsed] = useState(false); // 搜索框收缩状态
 
   // 执行搜索
-  const performSearch = async (query, currentFilters, page = 1, saveToHistory = true) => {
+  const performSearch = async (query, currentFilters, page = 1, saveToHistory = true, enableTranslation = true) => {
     if (!query.trim()) return;
 
     setLoading(true);
@@ -124,28 +139,39 @@ const SearchResultsPage = () => {
     setSelectedPaper(null);
     setPreviewWidth(getDefaultPreviewWidth());
     try {
+      // 检查是否可以复用缓存的翻译结果
+      // 条件：查询词相同 && 不是第一次搜索 && 不是禁用翻译的搜索
+      const canReuseTranslation = 
+        cachedTranslation.query === query && 
+        cachedTranslation.translated && 
+        enableTranslation &&
+        (page > 1 || saveToHistory === false); // 分页或筛选时复用
+      
       const params = {
         query: query,
         offset: (page - 1) * papersPerPage,
         limit: papersPerPage,
-        fields: 'paperId,title,abstract,authors,year,citationCount,url,venue,publicationDate,openAccessPdf,fieldsOfStudy,isOpenAccess,referenceCount,influentialCitationCount,tldr,journal,externalIds'
+        // 如果可以复用缓存，禁用后端翻译；否则根据参数决定
+        enableTranslation: canReuseTranslation ? false : enableTranslation,
+        fields: ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
       };
+      
+      if (canReuseTranslation) {
+        console.log('[Search] Reusing cached translation:', cachedTranslation);
+      }
 
       // 添加筛选条件
-      if (currentFilters.yearFrom && currentFilters.yearTo) {
-        params.year = `${currentFilters.yearFrom}-${currentFilters.yearTo}`;
-      } else if (currentFilters.yearFrom) {
-        params.year = currentFilters.yearFrom;
-      } else if (currentFilters.yearTo) {
-        params.year = currentFilters.yearTo;
+      if (currentFilters.yearFrom || currentFilters.yearTo) {
+        params.yearFrom = currentFilters.yearFrom;
+        params.yearTo = currentFilters.yearTo;
       }
 
       if (currentFilters.publicationTypes && currentFilters.publicationTypes.length > 0) {
-        params.publicationTypes = currentFilters.publicationTypes.join(',');
+        params.publicationTypes = currentFilters.publicationTypes;
       }
 
       if (currentFilters.fieldsOfStudy && currentFilters.fieldsOfStudy.length > 0) {
-        params.fieldsOfStudy = currentFilters.fieldsOfStudy.join(',');
+        params.fieldsOfStudy = currentFilters.fieldsOfStudy;
       }
 
       if (currentFilters.openAccessPdf) {
@@ -153,16 +179,53 @@ const SearchResultsPage = () => {
       }
 
       if (currentFilters.venue) {
-        params.venue = currentFilters.venue;
+        params.venue = [currentFilters.venue];
       }
 
       const response = await scholarAPI.searchPapers(params);
 
       if (response.data.code === 0 && response.data.data) {
-        const searchResults = response.data.data.data || [];
-        const resultsTotal = response.data.data.total || 0;
+        const responseData = response.data.data;
+        const searchResults = responseData.data?.data || [];
+        const resultsTotal = responseData.data?.total || 0;
+        
         setPapers(searchResults);
         setTotal(resultsTotal);
+        
+        // 如果是复用缓存的情况，使用缓存的查询信息
+        let finalQueryInfo;
+        if (canReuseTranslation) {
+          finalQueryInfo = {
+            originalQuery: query,
+            translatedQuery: cachedTranslation.translated,
+            actualQuery: cachedTranslation.actual,
+            translationEnabled: true
+          };
+        } else {
+          finalQueryInfo = {
+            originalQuery: responseData.originalQuery || query,
+            translatedQuery: responseData.translatedQuery || '',
+            actualQuery: responseData.actualQuery || query,
+            translationEnabled: responseData.translationEnabled || false
+          };
+          
+          // 如果是新的翻译结果，更新缓存
+          if (responseData.translationEnabled && responseData.translatedQuery) {
+            setCachedTranslation({
+              query: query,
+              translated: responseData.translatedQuery,
+              actual: responseData.actualQuery
+            });
+            console.log('[Search] Cached new translation:', {
+              query,
+              translated: responseData.translatedQuery,
+              actual: responseData.actualQuery
+            });
+          }
+        }
+        
+        // 保存查询信息用于展示
+        setQueryInfo(finalQueryInfo);
 
         // 只有在saveToHistory为true时才添加到搜索历史
         if (saveToHistory) {
@@ -313,6 +376,11 @@ const SearchResultsPage = () => {
 
     // 重置分页
     setCurrentPage(1);
+    
+    // 如果查询词改变了，清除翻译缓存
+    if (cachedTranslation.query !== searchQuery) {
+      setCachedTranslation({ query: '', translated: '', actual: '' });
+    }
 
     // 更新URL参数
     updateURL(searchQuery, filters, 1);
@@ -749,6 +817,21 @@ const SearchResultsPage = () => {
                 isExpanded={showFilters}
                 onToggle={() => handleTopFiltersToggle(true)}
               />
+
+              {/* AI翻译提示 - 类似Google/百度搜索的提示 */}
+              {queryInfo.translationEnabled && queryInfo.translatedQuery && (
+                <div className="search-translation-hint">
+                  <span className="hint-text">
+                    已为你找到 "<strong>{queryInfo.actualQuery}</strong>" 的结果
+                  </span>
+                  <button
+                    className="hint-action-btn"
+                    onClick={() => performSearch(queryInfo.originalQuery, filters, 1, false, false)}
+                  >
+                    仅按 "<strong>{queryInfo.originalQuery}</strong>" 查找
+                  </button>
+                </div>
+              )}
 
               {/* 当前筛选条件标签 - 始终保留空间 */}
               <div className={`active-filters-bar ${hasActiveFilters() ? 'has-filters' : 'empty'}`}>

@@ -158,9 +158,9 @@ export const conversationAPI = {
 };
 
 export const scholarAPI = {
-  // Search papers
+  // Search papers (学术检索 - 改为POST请求)
   searchPapers: (params) =>
-    api.get('/scholar/papers/search', { params }),
+    api.post('/scholar/papers/search', params),
 
   // Get paper details
   getPaper: (paperId) =>

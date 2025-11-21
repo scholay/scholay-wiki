@@ -1,6 +1,7 @@
 package semanticscholar
 
 import (
+	"fmt"
 	"scholar-backend/internal/common/utils"
 	"strconv"
 	"strings"
@@ -8,15 +9,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// QueryTranslator 定义查询翻译接口（避免循环依赖）
+type QueryTranslator interface {
+	TranslateToEnglish(query string) (string, error)
+}
+
 // Handler handles HTTP requests for Semantic Scholar API
 type Handler struct {
-	manager *Manager
+	manager    *Manager
+	translator QueryTranslator
 }
 
 // NewHandler creates a new Semantic Scholar handler with key rotation
-func NewHandler(manager *Manager) *Handler {
+func NewHandler(manager *Manager, translator QueryTranslator) *Handler {
 	return &Handler{
-		manager: manager,
+		manager:    manager,
+		translator: translator,
 	}
 }
 
@@ -27,38 +35,113 @@ func NewHandlerWithAPIKey(apiKey string) *Handler {
 	}
 }
 
-// SearchPapers handles paper search requests
-// GET /api/v1/scholar/papers/search
+// SearchPapersRequest 定义学术检索的POST请求结构
+type SearchPapersRequest struct {
+	Query             string   `json:"query" binding:"required"`
+	Year              string   `json:"year"`
+	YearFrom          string   `json:"yearFrom"`
+	YearTo            string   `json:"yearTo"`
+	Offset            int      `json:"offset"`
+	Limit             int      `json:"limit"`
+	Fields            []string `json:"fields"`
+	PublicationTypes  []string `json:"publicationTypes"`
+	Venue             []string `json:"venue"`
+	FieldsOfStudy     []string `json:"fieldsOfStudy"`
+	OpenAccessPdf     string   `json:"openAccessPdf"`
+	EnableTranslation *bool    `json:"enableTranslation,omitempty"` // 是否启用AI翻译，nil表示默认true，false表示禁用
+}
+
+// SearchPapersResponse 定义学术检索的响应结构
+type SearchPapersResponse struct {
+	Data              interface{} `json:"data"`               // 原始搜索结果
+	OriginalQuery     string      `json:"originalQuery"`     // 用户原始输入
+	TranslatedQuery   string      `json:"translatedQuery"`   // AI翻译后的查询
+	ActualQuery       string      `json:"actualQuery"`       // 实际使用的查询（组合后）
+	TranslationEnabled bool       `json:"translationEnabled"` // 是否启用了翻译
+}
+
+// SearchPapers handles paper search requests (学术检索)
+// POST /api/v1/scholar/papers/search
 func (h *Handler) SearchPapers(c *gin.Context) {
-	query := c.Query("query")
-	if query == "" {
+	var req SearchPapersRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Error(c, 4001, "Invalid request: "+err.Error())
+		return
+	}
+
+	// 验证查询字符长度限制（最多500字符）
+	if len(req.Query) > 500 {
+		utils.Error(c, 4001, "Query exceeds 500 characters limit")
+		return
+	}
+
+	if req.Query == "" {
 		utils.Error(c, 4001, "Query parameter is required")
 		return
 	}
 
-	// Parse options
+	// 使用AI将查询翻译成英文（使用low级别模型）
+	// 检查请求中的 enableTranslation 参数
+	// nil 表示未设置，默认启用翻译
+	// false 表示显式禁用翻译（用户点击"仅按原始查询"）
+	enableTranslation := true
+	if req.EnableTranslation != nil && !*req.EnableTranslation {
+		enableTranslation = false
+		fmt.Printf("[INFO] Translation explicitly disabled by request\n")
+	}
+	
+	// 分页请求时不重新翻译，避免结果不一致
+	if req.Offset > 0 {
+		enableTranslation = false
+	}
+
+	translatedQuery := ""
+	if enableTranslation && h.translator != nil {
+		translated, err := h.translator.TranslateToEnglish(req.Query)
+		if err != nil {
+			fmt.Printf("[WARN] Failed to translate query with AI: %v, using original query\n", err)
+		} else {
+			translatedQuery = strings.TrimSpace(translated)
+			fmt.Printf("[INFO] Query translation: '%s' -> '%s'\n", req.Query, translatedQuery)
+		}
+	}
+
+	// 组合查询：原始查询 + 翻译后的查询（用空格连接）
+	finalQuery := req.Query
+	if translatedQuery != "" && translatedQuery != req.Query {
+		finalQuery = req.Query + " " + translatedQuery
+		fmt.Printf("[INFO] Final combined query: %s\n", finalQuery)
+	}
+
+	// 处理年份范围参数
+	year := req.Year
+	if year == "" && (req.YearFrom != "" || req.YearTo != "") {
+		if req.YearFrom != "" && req.YearTo != "" {
+			year = req.YearFrom + "-" + req.YearTo
+		} else if req.YearFrom != "" {
+			year = req.YearFrom + "-"
+		} else if req.YearTo != "" {
+			year = "-" + req.YearTo
+		}
+	}
+
+	// 构建搜索选项
 	opts := PaperSearchOptions{
-		Query:  query,
-		Year:   c.Query("year"),
-		Offset: parseIntQuery(c, "offset", 0),
-		Limit:  parseIntQuery(c, "limit", 10),
+		Query:            finalQuery,
+		Year:             year,
+		Offset:           req.Offset,
+		Limit:            req.Limit,
+		Fields:           req.Fields,
+		PublicationTypes: req.PublicationTypes,
+		Venue:            req.Venue,
+		FieldsOfStudy:    req.FieldsOfStudy,
+		OpenAccessPDF:    req.OpenAccessPdf,
 	}
 
-	// Parse string arrays
-	if fields := c.Query("fields"); fields != "" {
-		opts.Fields = strings.Split(fields, ",")
+	// 设置默认limit
+	if opts.Limit == 0 {
+		opts.Limit = 10
 	}
-	if pubTypes := c.Query("publicationTypes"); pubTypes != "" {
-		opts.PublicationTypes = strings.Split(pubTypes, ",")
-	}
-	if venue := c.Query("venue"); venue != "" {
-		opts.Venue = strings.Split(venue, ",")
-	}
-	if fieldsOfStudy := c.Query("fieldsOfStudy"); fieldsOfStudy != "" {
-		opts.FieldsOfStudy = strings.Split(fieldsOfStudy, ",")
-	}
-
-	opts.OpenAccessPDF = c.Query("openAccessPdf")
 
 	// Call API with key rotation
 	result, err := h.manager.SearchPapers(opts)
@@ -67,7 +150,16 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, result)
+	// 构建响应，包含查询信息
+	response := SearchPapersResponse{
+		Data:               result,
+		OriginalQuery:      req.Query,
+		TranslatedQuery:    translatedQuery,
+		ActualQuery:        finalQuery,
+		TranslationEnabled: enableTranslation && translatedQuery != "",
+	}
+
+	utils.Success(c, response)
 }
 
 // GetPaper handles get paper details requests

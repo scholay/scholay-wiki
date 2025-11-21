@@ -3,6 +3,9 @@ package ai
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +15,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/circuitbreaker"
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/thirdparty"
@@ -35,6 +39,77 @@ func NewService(db *gorm.DB, accountService *thirdparty.Service) *Service {
 		db:             db,
 		accountService: accountService,
 	}
+}
+
+// TranslateToEnglish 将查询翻译成英文学术术语（实现 QueryTranslator 接口）
+// 使用Redis缓存避免重复翻译，缓存时间12小时
+func (s *Service) TranslateToEnglish(query string) (string, error) {
+	ctx := context.Background()
+	
+	// 1. 生成缓存key（使用MD5避免特殊字符）
+	cacheKey := generateTranslationCacheKey(query)
+	
+	// 2. 尝试从Redis缓存获取
+	var cachedTranslation string
+	translationCache := cache.NewQueryCache("translation", 12*time.Hour)
+	err := translationCache.Get(ctx, cacheKey, &cachedTranslation)
+	if err == nil && cachedTranslation != "" {
+		fmt.Printf("[Translation Cache] Hit for query: '%s' -> '%s'\n", query, cachedTranslation)
+		return cachedTranslation, nil
+	}
+	
+	fmt.Printf("[Translation Cache] Miss for query: '%s', calling AI...\n", query)
+	
+	// 3. 缓存未命中，调用AI翻译
+	// 构建翻译提示词（硬编码）
+	translatePrompt := fmt.Sprintf(`你是一个专业的学术翻译助手。请将以下查询关键词翻译成准确的英文学术术语。
+
+要求：
+1. 只返回翻译后的英文，不要有任何额外说明
+2. 保持学术专业性
+3. 如果原文已经是英文，直接返回原文
+4. 如果是混合语言，只翻译非英文部分
+
+查询：%s
+
+翻译：`, query)
+
+	messages := []ChatMessage{
+		{
+			Role:    "user",
+			Content: translatePrompt,
+		},
+	}
+
+	// 使用low级别模型调用AI
+	response, err := s.ChatCompletionWithTools(messages, nil, "", thirdparty.ModelLevelLow)
+	if err != nil {
+		return "", fmt.Errorf("AI translation failed: %w", err)
+	}
+	
+	if len(response.Choices) == 0 {
+		return "", fmt.Errorf("no response from AI")
+	}
+
+	translatedText := strings.TrimSpace(response.Choices[0].Message.Content)
+	
+	// 4. 存入Redis缓存（异步，失败不影响返回）
+	go func() {
+		if err := translationCache.Set(context.Background(), cacheKey, translatedText); err != nil {
+			fmt.Printf("[Translation Cache] Failed to cache translation: %v\n", err)
+		} else {
+			fmt.Printf("[Translation Cache] Cached: '%s' -> '%s'\n", query, translatedText)
+		}
+	}()
+
+	return translatedText, nil
+}
+
+// generateTranslationCacheKey 生成翻译缓存的key
+// 使用MD5哈希避免特殊字符和长度问题
+func generateTranslationCacheKey(query string) string {
+	hash := md5.Sum([]byte(strings.TrimSpace(strings.ToLower(query))))
+	return hex.EncodeToString(hash[:])
 }
 
 // ListPromptTemplates lists all prompt templates

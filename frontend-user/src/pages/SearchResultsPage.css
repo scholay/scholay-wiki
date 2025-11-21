@@ -1512,6 +1512,49 @@ a.meta-item.pdf-link:hover {
   font-size: 11px;
 }
 
+/* AI翻译提示 - 类似Google/百度搜索 */
+.search-translation-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  width: 100%;
+  max-width: 56rem;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.search-translation-hint .hint-text {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.search-translation-hint .hint-text strong {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+.search-translation-hint .hint-action-btn {
+  background: transparent;
+  border: none;
+  color: #8ab4f8;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.search-translation-hint .hint-action-btn:hover {
+  background: rgba(138, 180, 248, 0.1);
+  text-decoration: underline;
+}
+
+.search-translation-hint .hint-action-btn strong {
+  font-weight: 500;
+}
+
 /* 筛选条件标签栏 */
 .active-filters-bar {
   display: flex;
