@@ -262,14 +262,14 @@ const SubscriptionManagement = () => {
                     <div className="usage-stat">
                       <div className="stat-icon">🔍</div>
                       <div className="stat-info">
-                        <div className="stat-label">普通搜索</div>
+                        <div className="stat-label">学术检索</div>
                         <div className="stat-value">{formatUsageText(usage.usage.normal_search, usage.limits.normal_search)}</div>
                       </div>
                     </div>
                     <div className="usage-stat">
                       <div className="stat-icon">⚡</div>
                       <div className="stat-info">
-                        <div className="stat-label">高级搜索</div>
+                        <div className="stat-label">智能分析</div>
                         <div className="stat-value">{formatUsageText(usage.usage.advanced_search_high, usage.limits.advanced_search_high)}</div>
                       </div>
                     </div>
@@ -337,10 +337,10 @@ const SubscriptionManagement = () => {
                   <h3>搜索功能</h3>
                   <div className="usage-items">
                     {[
-                      { label: '普通搜索', key: 'normal_search', color: '#3b82f6' },
-                      { label: '高级搜索 - 低模', key: 'advanced_search_low', color: '#8b5cf6' },
-                      { label: '高级搜索 - 中模', key: 'advanced_search_mid', color: '#ec4899' },
-                      { label: '高级搜索 - 高模', key: 'advanced_search_high', color: '#f59e0b' }
+                      { label: '学术检索', key: 'normal_search', color: '#3b82f6' },
+                      { label: '智能分析 - 低模', key: 'advanced_search_low', color: '#8b5cf6' },
+                      { label: '智能分析 - 中模', key: 'advanced_search_mid', color: '#ec4899' },
+                      { label: '智能分析 - 高模', key: 'advanced_search_high', color: '#f59e0b' }
                     ].map(item => {
                       const used = usage.usage[item.key];
                       const limit = usage.limits[item.key];
@@ -507,7 +507,7 @@ const SubscriptionManagement = () => {
               <div className="table-section">
                 <div className="section-title">核心功能</div>
                 <div className="table-row">
-                  <div className="cell">普通搜索</div>
+                  <div className="cell">学术检索</div>
                   <div className="cell"><span className="unlimited">无限制</span></div>
                   <div className="cell"><span className="unlimited">无限制</span></div>
                   <div className="cell"><span className="unlimited">无限制</span></div>
@@ -523,19 +523,19 @@ const SubscriptionManagement = () => {
               <div className="table-section">
                 <div className="section-title">AI 模型</div>
                 <div className="table-row">
-                  <div className="cell">高级搜索 - 低级模型</div>
+                  <div className="cell">智能分析 - 低级模型</div>
                   <div className="cell">5/天</div>
                   <div className="cell"><span className="unlimited">无限制</span></div>
                   <div className="cell"><span className="unlimited">无限制</span></div>
                 </div>
                 <div className="table-row">
-                  <div className="cell">高级搜索 - 中级模型</div>
+                  <div className="cell">智能分析 - 中级模型</div>
                   <div className="cell">3/天</div>
                   <div className="cell"><span className="unlimited">无限制</span></div>
                   <div className="cell"><span className="unlimited">无限制</span></div>
                 </div>
                 <div className="table-row">
-                  <div className="cell">高级搜索 - 高级模型</div>
+                  <div className="cell">智能分析 - 高级模型</div>
                   <div className="cell">2/天</div>
                   <div className="cell"><span className="unlimited">无限制</span></div>
                   <div className="cell"><span className="unlimited">无限制</span></div>

@@ -168,7 +168,7 @@ const Home = () => {
 
     const userMessage = searchQuery.trim();
 
-    // 普通搜索模式：直接跳转到结果页面，带上筛选条件
+    // 学术检索模式：直接跳转到结果页面，带上筛选条件
     if (searchMode === 'normal') {
       const params = new URLSearchParams({ query: userMessage });
 
@@ -184,7 +184,7 @@ const Home = () => {
       return;
     }
 
-    // 高级搜索模式：跳转到高级搜索页面，带上query参数以便自动搜索
+    // 智能分析模式：跳转到智能分析页面，带上query参数以便自动搜索
     if (searchMode === 'advanced') {
       const params = new URLSearchParams({
         query: userMessage,
@@ -203,7 +203,7 @@ const Home = () => {
     },
     {
       question: 'Scholay支持哪些搜索模式？',
-      answer: 'Scholay支持普通搜索和高级搜索两种模式。普通搜索可以快速检索论文标题、作者和关键词；高级搜索使用AI智能理解并解析您的研究需求，提供更精准的结果。'
+      answer: 'Scholay支持学术检索和智能分析两种模式。学术检索可以快速检索论文标题、作者和关键词；智能分析使用AI智能理解并解析您的研究需求，提供更精准的结果。'
     },
     {
       question: 'Scholay的数据来源是什么？',
@@ -216,7 +216,7 @@ const Home = () => {
     <div className="home-search">
       <SEO
         title="Scholay - AI驱动的学术搜索平台 | 智能文献检索与分析"
-        description="Scholay是创新的学术搜索平台，提供AI驱动的文献检索、智能论文分析、引用图谱可视化等功能。支持普通搜索和高级AI搜索，帮助研究人员快速找到高质量学术资源，提升科研效率。"
+        description="Scholay是创新的学术搜索平台，提供AI驱动的文献检索、智能论文分析、引用图谱可视化等功能。支持学术检索和智能分析两种模式，帮助研究人员快速找到高质量学术资源，提升科研效率。"
         keywords="学术搜索,论文检索,文献查找,AI论文分析,学术资源,科研工具,Semantic Scholar,论文引用,学术数据库,研究助手,智能搜索"
         canonical="/"
         structuredData={generateFAQSchema(faqData)}
@@ -329,7 +329,7 @@ const Home = () => {
                           <span className="mode-segment-icon">
                             <NormalSearchIcon size={16} />
                           </span>
-                          <span className="mode-segment-label">普通搜索</span>
+                          <span className="mode-segment-label">学术检索</span>
                         </button>
                         <button
                           type="button"
@@ -339,14 +339,14 @@ const Home = () => {
                           <span className="mode-segment-icon">
                             <AdvancedSearchIcon size={16} />
                           </span>
-                          <span className="mode-segment-label">高级搜索</span>
+                          <span className="mode-segment-label">智能分析</span>
                         </button>
                       </div>
 
                       {/* 分隔线 */}
                       <div className="footer-divider"></div>
 
-                      {/* 筛选按钮 - 仅在普通搜索模式显示 */}
+                      {/* 筛选按钮 - 仅在学术检索模式显示 */}
                       {searchMode === 'normal' && (() => {
                         const hasFilters = filters.yearFrom ||
                                          filters.yearTo ||
@@ -394,7 +394,7 @@ const Home = () => {
                         );
                       })()}
 
-                      {/* 模型选择器 - 仅在高级搜索模式显示 */}
+                      {/* 模型选择器 - 仅在智能分析模式显示 */}
                       {searchMode === 'advanced' && isAuthenticated && (
                         <div className="model-selector-wrapper">
                           <ModelSelector
@@ -408,7 +408,7 @@ const Home = () => {
                   </div>
             </form>
 
-            {/* 普通搜索模式下的筛选条件 */}
+            {/* 学术检索模式下的筛选条件 */}
             {searchMode === 'normal' && (
               <SearchFilters
                 filters={filters}

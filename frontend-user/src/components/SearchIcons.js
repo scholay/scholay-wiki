@@ -1,7 +1,7 @@
 import React from 'react';
 
 /**
- * 普通搜索图标 - 极简扁平化设计（纯白色填充）
+ * 学术检索图标 - 极简扁平化设计（纯白色填充）
  * 设计理念：圆形放大镜，简洁清晰
  */
 export const NormalSearchIcon = ({ size = 20, className = '' }) => (
@@ -28,8 +28,8 @@ export const NormalSearchIcon = ({ size = 20, className = '' }) => (
 );
 
 /**
- * 高级搜索图标 - 极简扁平化设计（纯白色填充）
- * 设计理念：魔法棒/星形，表示智能AI搜索
+ * 智能分析图标 - 极简扁平化设计（纯白色填充）
+ * 设计理念：魔法棒/星形，表示智能AI分析
  */
 export const AdvancedSearchIcon = ({ size = 20, className = '' }) => (
   <svg
@@ -74,7 +74,7 @@ export const AdvancedSearchIcon = ({ size = 20, className = '' }) => (
 );
 
 /**
- * 普通搜索图标 - 备选方案1（文档+放大镜，扁平填充）
+ * 学术检索图标 - 备选方案1（文档+放大镜，扁平填充）
  */
 export const NormalSearchIconAlt1 = ({ size = 20, className = '' }) => (
   <svg
@@ -106,7 +106,7 @@ export const NormalSearchIconAlt1 = ({ size = 20, className = '' }) => (
 );
 
 /**
- * 高级搜索图标 - 备选方案1（闪电+放大镜，表示快速智能搜索）
+ * 智能分析图标 - 备选方案1（闪电+放大镜，表示快速智能分析）
  */
 export const AdvancedSearchIconAlt1 = ({ size = 20, className = '' }) => (
   <svg
@@ -133,7 +133,7 @@ export const AdvancedSearchIconAlt1 = ({ size = 20, className = '' }) => (
 );
 
 /**
- * 普通搜索图标 - 备选方案2（圆角方形+放大镜）
+ * 学术检索图标 - 备选方案2（圆角方形+放大镜）
  */
 export const NormalSearchIconAlt2 = ({ size = 20, className = '' }) => (
   <svg
@@ -158,7 +158,7 @@ export const NormalSearchIconAlt2 = ({ size = 20, className = '' }) => (
 );
 
 /**
- * 高级搜索图标 - 备选方案2（六边形+星星，科技感）
+ * 智能分析图标 - 备选方案2（六边形+星星，科技感）
  */
 export const AdvancedSearchIconAlt2 = ({ size = 20, className = '' }) => (
   <svg

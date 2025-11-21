@@ -231,12 +231,12 @@ const Pricing = () => {
     const features = [
       {
         key: 'normal',
-        label: '普通搜索',
+        label: '学术检索',
         value: featureSet.normal_search?.description || '无限制'
       },
       {
         key: 'advanced',
-        label: '高级搜索',
+        label: '智能分析',
         value: formatMultiLevelFeature(
           featureSet.advanced_search_low?.description,
           featureSet.advanced_search_mid?.description,
@@ -260,7 +260,7 @@ const Pricing = () => {
       {
         key: 'data',
         label: '数据洞察',
-        value: featureSet.advanced_search_data?.enabled ? '高级搜索数据导出' : '基础使用统计'
+        value: featureSet.advanced_search_data?.enabled ? '智能分析数据导出' : '基础使用统计'
       }
     ];
 
@@ -361,7 +361,7 @@ const Pricing = () => {
           title: '核心功能',
           features: [
             {
-              name: '普通搜索',
+              name: '学术检索',
               free: freePlan.features?.normal_search?.description || '无限制',
               pro: proPlan.features?.normal_search?.description || '无限制',
               max: maxPlan.features?.normal_search?.description || '无限制'
@@ -374,19 +374,19 @@ const Pricing = () => {
           title: 'AI 模型',
           features: [
             {
-              name: '高级搜索 - 低级模型',
+              name: '智能分析 - 低级模型',
               free: freePlan.features?.advanced_search_low?.description || '-',
               pro: proPlan.features?.advanced_search_low?.description || '-',
               max: maxPlan.features?.advanced_search_low?.description || '-'
             },
             {
-              name: '高级搜索 - 中级模型',
+              name: '智能分析 - 中级模型',
               free: freePlan.features?.advanced_search_mid?.description || '-',
               pro: proPlan.features?.advanced_search_mid?.description || '-',
               max: maxPlan.features?.advanced_search_mid?.description || '-'
             },
             {
-              name: '高级搜索 - 高级模型',
+              name: '智能分析 - 高级模型',
               free: freePlan.features?.advanced_search_high?.description || '-',
               pro: proPlan.features?.advanced_search_high?.description || '-',
               max: maxPlan.features?.advanced_search_high?.description || '-'
@@ -415,7 +415,7 @@ const Pricing = () => {
           title: '数据与分析',
           features: [
             {
-              name: '高级搜索数据',
+              name: '智能分析数据',
               free: freePlan.features?.advanced_search_data?.enabled,
               pro: proPlan.features?.advanced_search_data?.enabled,
               max: maxPlan.features?.advanced_search_data?.enabled

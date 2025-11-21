@@ -257,7 +257,7 @@ func (h *Handler) StreamAnalysis(c *gin.Context) {
 	c.Writer.(http.Flusher).Flush()
 }
 
-// StreamAdvancedSearch handles advanced AI-powered search using MCP tools
+// StreamAdvancedSearch 处理基于AI的智能分析请求（使用MCP工具）
 func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -339,7 +339,7 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 
-	// Perform advanced search and stream results with specified model level
+	// 执行智能分析并流式返回结果（使用指定的模型级别）
 	err = h.service.AdvancedSearchAndAnalyze(
 		uint(conversationID),
 		targetMessage.SearchQuery,

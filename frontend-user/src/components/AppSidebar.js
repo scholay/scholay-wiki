@@ -375,7 +375,7 @@ const AppSidebar = ({
             onMouseLeave={handleMouseLeave}
           >
             <NormalSearchIcon size={20} />
-            <span>普通搜索</span>
+            <span>学术检索</span>
           </button>
 
           <button
@@ -390,7 +390,7 @@ const AppSidebar = ({
             onMouseLeave={handleMouseLeave}
           >
             <AdvancedSearchIcon size={20} />
-            <span>高级搜索</span>
+            <span>智能分析</span>
           </button>
 
           <button
@@ -664,8 +664,8 @@ const AppSidebar = ({
           }}
         >
           {hoveredItem === 'logo' && '展开侧边栏'}
-          {hoveredItem === 'normal-search' && '普通搜索'}
-          {hoveredItem === 'advanced-search' && '高级搜索'}
+          {hoveredItem === 'normal-search' && '学术检索'}
+          {hoveredItem === 'advanced-search' && '智能分析'}
           {hoveredItem === 'chat' && 'AI 对话'}
           {hoveredItem === 'user' && (user?.username || user?.email?.split('@')[0] || '用户')}
         </div>,

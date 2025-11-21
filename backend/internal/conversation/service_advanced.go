@@ -11,9 +11,9 @@ import (
 	"scholar-backend/internal/thirdparty"
 )
 
-// AdvancedSearchAndAnalyze performs AI-powered search using MCP tools and streams results
-// It checks quota and uses appropriate model level based on user's subscription
-// It also supports conversation context for follow-up searches
+// AdvancedSearchAndAnalyze 执行基于AI的智能分析（使用MCP工具）并流式返回结果
+// 检查配额并根据用户订阅使用相应的模型级别
+// 支持对话上下文以便进行后续分析
 func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, writer io.Writer, userID uint, modelLevel thirdparty.ModelLevel) error {
 	// Determine feature type based on model level
 	var featureType string

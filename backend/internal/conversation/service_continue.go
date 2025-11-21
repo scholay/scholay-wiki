@@ -11,8 +11,8 @@ import (
 	"scholar-backend/internal/thirdparty"
 )
 
-// ContinueConversation continues the conversation with context from previous messages
-// It now uses the same logic as AdvancedSearchAndAnalyze: always performs MCP search with combined historical queries
+// ContinueConversation 继续对话并使用之前消息的上下文
+// 现在使用与智能分析相同的逻辑：始终执行MCP搜索并结合历史查询
 func (s *Service) ContinueConversation(conversationID uint, userQuery string, writer io.Writer, userID uint, modelLevel thirdparty.ModelLevel) error {
 	// Determine feature type based on model level
 	var featureType string
@@ -82,10 +82,10 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	mcpTools := mcpServer.ListTools()
 	aiTools := ai.ConvertMCPToolsToOpenAIFormat(mcpTools)
 
-	// Step 5: Create messages with system prompt from template (same as AdvancedSearchAndAnalyze)
+	// Step 5: 从模板创建消息和系统提示（与智能分析相同）
 	mcpSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_mcp_system", nil)
 	if err != nil {
-		// Fallback to hardcoded prompt if template not found (same as AdvancedSearchAndAnalyze)
+		// 如果未找到模板，使用备用提示（与智能分析相同）
 		fmt.Printf("[WARN] Failed to get MCP system prompt template, using fallback: %v\n", err)
 		mcpSystemPrompt = `你是一名专业学术研究助手。你的唯一职责是根据用户的查询调用 search_papers_advanced 工具检索高质量学术论文。你绝不能直接回答问题，也不能解释概念或提供任何分析。你必须且只能通过 search_papers_advanced 工具返回论文结果。禁止使用 search_papers 工具。
 
@@ -132,7 +132,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		},
 	}
 
-	// Step 6: Call AI with tools to get tool calls (same as AdvancedSearchAndAnalyze)
+	// Step 6: 调用AI获取工具调用（与智能分析相同）
 	// Use low-level model for tool calling to save cost
 	fmt.Printf("[DEBUG] Calling AI with tools, messages count: %d, tools count: %d\n", len(initialMessages), len(aiTools))
 	toolCallResponse, err := s.aiService.ChatCompletionWithTools(initialMessages, aiTools, "auto", thirdparty.ModelLevelLow)
@@ -142,7 +142,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		toolCallResponse = nil
 	}
 
-	// Step 7: Execute tool calls and collect results (same as AdvancedSearchAndAnalyze)
+	// Step 7: 执行工具调用并收集结果（与智能分析相同）
 	var allPapers []map[string]interface{}
 	var totalCount int
 
@@ -240,13 +240,13 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		fmt.Printf("Warning: failed to update user message with search results: %v\n", err)
 	}
 
-	// Step 9: Generate AI analysis of the papers (same as AdvancedSearchAndAnalyze)
+	// Step 9: 生成论文的AI分析（与智能分析相同）
 	fmt.Printf("[DEBUG] Formatting %d papers for AI analysis\n", len(displayPapers))
 	// Use more papers for analysis (up to 30) with shorter abstracts
 	papersForPrompt := ai.FormatPapersForPromptWithLimit(displayPapers, 30, 200)
 	fmt.Printf("[DEBUG] Formatted papers, length: %d characters\n", len(papersForPrompt))
 
-	// Get analysis prompt templates (same as AdvancedSearchAndAnalyze)
+	// 获取分析提示模板（与智能分析相同）
 	analysisSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_analysis_system", nil)
 	if err != nil {
 		fmt.Printf("[WARN] Failed to get analysis system prompt template, using fallback: %v\n", err)
@@ -258,7 +258,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		"papers": papersForPrompt,
 	})
 	if err != nil {
-		// Fallback to hardcoded prompt if template not found (same as AdvancedSearchAndAnalyze)
+		// 如果未找到模板，使用备用提示（与智能分析相同）
 		fmt.Printf("[WARN] Failed to get analysis prompt template, using fallback: %v\n", err)
 		analysisPrompt = fmt.Sprintf(`用户查询：%s
 找到的论文：%s
@@ -372,8 +372,8 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		fmt.Printf("[WARN] Failed to clear old follow-up questions: %v\n", err)
 	}
 
-	// Save assistant message to conversation with parent_message_id
-	// Follow-up questions will be generated on-demand via separate endpoint (same as AdvancedSearchAndAnalyze)
+	// 保存助手消息到对话中（包含parent_message_id）
+	// 后续问题将通过单独的端点按需生成（与智能分析相同）
 	assistantMessage := &ConversationMessage{
 		ConversationID:    conversationID,
 		ParentMessageID:   &userMessageID, // Link to user message

@@ -560,7 +560,7 @@ const SearchResultsPage = () => {
           // 空状态：类似首页的简洁布局
           <div className="empty-search-layout">
             <nav className="empty-navbar">
-              <h1 className="empty-page-title">普通搜索</h1>
+              <h1 className="empty-page-title">学术检索</h1>
             </nav>
 
             <div className="empty-search-content">
@@ -608,7 +608,7 @@ const SearchResultsPage = () => {
                         <span className="mode-segment-icon">
                           <NormalSearchIcon size={16} />
                         </span>
-                        <span className="mode-segment-label">普通搜索</span>
+                        <span className="mode-segment-label">学术检索</span>
                       </button>
                       <button
                         type="button"
@@ -679,7 +679,7 @@ const SearchResultsPage = () => {
           <div className="results-layout">
             {/* 顶部标题栏 */}
             <nav className="results-navbar">
-              <h1 className="page-title">普通搜索</h1>
+              <h1 className="page-title">学术检索</h1>
             </nav>
 
             {/* 居中搜索区域 */}

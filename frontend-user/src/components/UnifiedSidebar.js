@@ -179,19 +179,19 @@ const UnifiedSidebar = ({
               <button
                 className={`nav-item ${isSearchPage ? 'active' : ''}`}
                 onClick={() => navigate('/search-results?query=')}
-                title="普通搜索"
+                title="学术检索"
               >
                 <NormalSearchIcon size={20} />
-                <span>普通搜索</span>
+                <span>学术检索</span>
               </button>
 
               <button
                 className={`nav-item ${isAdvancedSearchPage ? 'active' : ''}`}
                 onClick={() => navigate('/advanced-search')}
-                title="高级搜索"
+                title="智能分析"
               >
                 <AdvancedSearchIcon size={20} />
-                <span>高级搜索</span>
+                <span>智能分析</span>
               </button>
             </div>
           </div>

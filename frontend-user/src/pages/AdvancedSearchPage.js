@@ -99,7 +99,7 @@ const AdvancedSearchPage = () => {
   const [activeTab, setActiveTab] = useState(0); // 当前激活的 tab
   const [streamingContent, setStreamingContent] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [hasAdvancedSearch, setHasAdvancedSearch] = useState(false); // 标记是否进行过高级搜索
+  const [hasAdvancedSearch, setHasAdvancedSearch] = useState(false); // 标记是否进行过智能分析
   const [showAIThinking, setShowAIThinking] = useState(false); // AI 思考中状态
   const [paperListWidth, setPaperListWidth] = useState(() => {
     // 从 localStorage 读取用户偏好，默认 420px
@@ -671,7 +671,7 @@ const AdvancedSearchPage = () => {
     setSearchQuery('');
     setStreamingContent('');
     setIsStreaming(false);
-    setHasAdvancedSearch(false); // 重置高级搜索标志
+    setHasAdvancedSearch(false); // 重置智能分析标志
   };
 
   const handleDeleteConversation = async (conversationId) => {
@@ -709,7 +709,7 @@ const AdvancedSearchPage = () => {
     setSearchQuery(''); // 清空搜索输入框
     setStreamingContent(''); // 切换对话时清空流式内容
     setPaperSets([]); // 清空论文集合
-    setHasAdvancedSearch(false); // 重置高级搜索标志
+    setHasAdvancedSearch(false); // 重置智能分析标志
     isLoadingHistoryRef.current = true; // 标记正在加载历史对话
     setCurrentQuestionIndex(0); // 加载历史对话时，默认显示第一个问题
     setAutoScroll(false); // 加载历史对话时禁用自动滚动
@@ -742,7 +742,7 @@ const AdvancedSearchPage = () => {
           setPapers(sets[0].papers);
           setPapersTotal(sets[0].total);
 
-          // 检查是否有 assistant 消息，判断是否进行过高级搜索
+          // 检查是否有 assistant 消息，判断是否进行过智能分析
           const hasAssistantMessages = organizedMessages.some(m => m.role === 'assistant');
           setHasAdvancedSearch(hasAssistantMessages);
 
@@ -1039,7 +1039,7 @@ const AdvancedSearchPage = () => {
             return newSets;
           });
 
-          setHasAdvancedSearch(true); // 标记已进行高级搜索
+          setHasAdvancedSearch(true); // 标记已进行智能分析
           // 收到论文数据后立即停止 loading，让 PaperList 显示论文
           setLoading(false);
         } catch (err) {
@@ -1093,7 +1093,7 @@ const AdvancedSearchPage = () => {
     };
   };
 
-  // 继续对话 - 用于高级搜索后的追问
+  // 继续对话 - 用于智能分析后的追问
   const startContinueConversation = async (conversationId, query) => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -1425,10 +1425,10 @@ const AdvancedSearchPage = () => {
     <div className="advanced-search-page">
       <div className={`advanced-search-content ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
         {messages.length === 0 ? (
-          /* 空状态：参考普通搜索的布局 */
+          /* 空状态：参考学术检索的布局 */
           <div className="as-empty-search-layout">
             <nav className="as-empty-navbar">
-              <h1 className="as-empty-page-title">高级搜索</h1>
+              <h1 className="as-empty-page-title">智能分析</h1>
             </nav>
 
             <div className="as-empty-search-content">
@@ -1500,7 +1500,7 @@ const AdvancedSearchPage = () => {
                         <span className="mode-segment-icon">
                           <AdvancedSearchIcon size={16} />
                         </span>
-                        <span className="mode-segment-label">高级搜索</span>
+                        <span className="mode-segment-label">智能分析</span>
                       </button>
                     </div>
 
@@ -1527,7 +1527,7 @@ const AdvancedSearchPage = () => {
             {/* 顶部标题栏 */}
             <nav className="as-results-navbar">
               <div className="as-navbar-title-group">
-                <h1 className="as-page-title">高级搜索</h1>
+                <h1 className="as-page-title">智能分析</h1>
                 
                 {/* 问题记录下拉组件 - 紧跟标题 */}
                 <div className="as-question-history-dropdown">
