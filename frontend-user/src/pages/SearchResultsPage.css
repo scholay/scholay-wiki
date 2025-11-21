@@ -358,8 +358,7 @@
 }
 
 /* 加载和空状态 */
-.loading-state,
-.empty-state {
+.loading-state {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -368,6 +367,19 @@
   color: rgba(255, 255, 255, 0.5);
   padding: 60px 20px;
   background: #212121;
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 40px;
+  background: #212121;
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
 }
 
 /* 空状态布局 - 类似首页 */
@@ -943,21 +955,81 @@
   margin: 0;
 }
 
-.empty-state svg {
-  margin-bottom: 16px;
-  color: rgba(236, 236, 241, 0.3);
+.empty-state-icon {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+  border: 2px solid rgba(99, 102, 241, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32px;
+  animation: float 3s ease-in-out infinite;
 }
 
-.empty-state h3 {
-  font-size: 18px;
-  color: rgb(236, 236, 241);
-  margin: 0 0 8px 0;
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
-.empty-state p {
-  font-size: 14px;
-  color: rgba(236, 236, 241, 0.6);
-  margin: 0;
+.empty-state-icon svg {
+  color: rgba(99, 102, 241, 0.6);
+}
+
+.empty-state-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 16px 0;
+  letter-spacing: -0.02em;
+}
+
+.empty-state-description {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin: 0 0 40px 0;
+  line-height: 1.6;
+}
+
+/* 操作按钮 */
+.empty-state-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.empty-state-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 32px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.empty-state-button.primary {
+  background: linear-gradient(135deg, var(--text-accent) 0%, #1ed79f 100%);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(16, 163, 127, 0.3);
+}
+
+.empty-state-button.primary:hover {
+  background: linear-gradient(135deg, #1ed79f 0%, var(--text-accent) 100%);
+  box-shadow: 0 6px 20px rgba(16, 163, 127, 0.4);
+  transform: translateY(-2px);
+}
+
+.empty-state-button.primary:active {
+  transform: translateY(0);
 }
 
 /* 结果头部 */
@@ -1770,4 +1842,44 @@ a.meta-item.pdf-link:hover {
   .paper-title {
     font-size: 15px;
   }
+
+  /* 空状态响应式 */
+  .empty-state {
+    padding: 60px 24px;
+  }
+
+  .empty-state-icon {
+    width: 96px;
+    height: 96px;
+  }
+
+  .empty-state-icon svg {
+    width: 64px;
+    height: 64px;
+  }
+
+  .empty-state-title {
+    font-size: 20px;
+  }
+
+  .empty-state-description {
+    font-size: 14px;
+  }
+}
+
+/* ============================================
+   日间模式样式
+   ============================================ */
+
+[data-theme="light"] .empty-state {
+  background: #f8fafc;
+}
+
+[data-theme="light"] .empty-state-icon {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+[data-theme="light"] .empty-state-icon svg {
+  color: rgba(99, 102, 241, 0.7);
 }

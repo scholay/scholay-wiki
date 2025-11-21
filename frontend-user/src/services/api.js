@@ -197,6 +197,10 @@ export const subscriptionAPI = {
   // Get user's active subscription
   getMySubscription: () =>
     api.get('/user/subscription/my'),
+
+  // Check if user has quota for a feature
+  checkQuota: (featureType) =>
+    api.get('/user/subscription/check-quota', { params: { feature_type: featureType } }),
 };
 
 export const orderAPI = {

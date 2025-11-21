@@ -377,9 +377,16 @@ const SearchResultsPage = () => {
     // 重置分页
     setCurrentPage(1);
     
-    // 如果查询词改变了，清除翻译缓存
+    // 如果查询词改变了，清除翻译缓存和查询信息
     if (cachedTranslation.query !== searchQuery) {
       setCachedTranslation({ query: '', translated: '', actual: '' });
+      // 立即清除旧的查询信息提示
+      setQueryInfo({
+        originalQuery: '',
+        translatedQuery: '',
+        actualQuery: '',
+        translationEnabled: false
+      });
     }
 
     // 更新URL参数
@@ -878,12 +885,26 @@ const SearchResultsPage = () => {
               <PaperListSkeleton />
             ) : papers.length === 0 ? (
               <div className="empty-state">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                  <circle cx="11" cy="11" r="8"/>
-                  <path d="m21 21-4.35-4.35"/>
-                </svg>
-                <h3>未找到相关论文</h3>
-                <p>请尝试其他关键词或调整筛选条件</p>
+                <div className="empty-state-icon">
+                  <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="m21 21-4.35-4.35"/>
+                  </svg>
+                </div>
+                <h3 className="empty-state-title">未找到相关论文</h3>
+                <p className="empty-state-description">
+                  请尝试使用其他关键词或调整筛选条件
+                </p>
+
+                {/* 快捷操作按钮 */}
+                <div className="empty-state-actions">
+                  <button 
+                    className="empty-state-button primary"
+                    onClick={() => navigate(`/advanced-search?query=${encodeURIComponent(searchQuery)}`)}
+                  >
+                    使用智能分析
+                  </button>
+                </div>
               </div>
             ) : (
             <>

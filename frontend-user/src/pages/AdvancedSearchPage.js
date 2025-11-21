@@ -6,6 +6,7 @@ import logger from '../utils/logger';
 import PaperList from '../components/PaperList';
 import PaperCitationMarkdown from '../components/PaperCitationMarkdown';
 import ModelSelector from '../components/ModelSelector';
+import QuotaModal from '../components/QuotaModal';
 import { AdvancedSearchIcon, NormalSearchIcon } from '../components/SearchIcons';
 import api, { conversationAPI, subscriptionAPI } from '../services/api';
 import './AdvancedSearchPage.css';
@@ -95,6 +96,7 @@ const AdvancedSearchPage = () => {
   const [usage, setUsage] = useState(null); // 用户使用情况
   const [papers, setPapers] = useState([]);
   const [papersTotal, setPapersTotal] = useState(0);
+  const [showQuotaModal, setShowQuotaModal] = useState(false); // 配额不足弹窗
   const [paperSets, setPaperSets] = useState([]); // 多个论文集合，用于 Tab 切换
   const [activeTab, setActiveTab] = useState(0); // 当前激活的 tab
   const [streamingContent, setStreamingContent] = useState('');
@@ -826,6 +828,26 @@ const AdvancedSearchPage = () => {
     setPapersTotal(0);
 
     try {
+      // 🔥 先检查配额，避免保存无效的消息
+      const featureType = modelLevel === 'low' ? 'advanced_search_low' : 
+                         modelLevel === 'mid' ? 'advanced_search_mid' : 
+                         'advanced_search_high';
+      
+      try {
+        const quotaCheck = await subscriptionAPI.checkQuota(featureType);
+        if (quotaCheck.data.code === 0 && !quotaCheck.data.data.has_quota) {
+          // 配额不足，直接返回
+          setMessages(prev => prev.filter(msg => msg.id !== tempUserMessage.id));
+          setLoading(false);
+          setShowAIThinking(false);
+          setShowQuotaModal(true);
+          return;
+        }
+      } catch (quotaError) {
+        console.error('Failed to check quota:', quotaError);
+        // 如果检查失败，继续尝试（让后端再次检查）
+      }
+
       let conversationId = currentConversationId;
 
       if (!conversationId) {
@@ -886,7 +908,7 @@ const AdvancedSearchPage = () => {
     await handleInitialSearch(searchQuery);
   };
 
-  const startAdvancedSearch = (convId, messageId, query) => {
+  const startAdvancedSearch = async (convId, messageId, query) => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
     }
@@ -895,6 +917,30 @@ const AdvancedSearchPage = () => {
     if (!token) {
       console.error('No auth token found');
       return;
+    }
+
+    // 先检查配额
+    const featureType = modelLevel === 'low' ? 'advanced_search_low' : 
+                       modelLevel === 'mid' ? 'advanced_search_mid' : 
+                       'advanced_search_high';
+    
+    try {
+      const quotaCheck = await subscriptionAPI.checkQuota(featureType);
+      if (quotaCheck.data.code === 0 && !quotaCheck.data.data.has_quota) {
+        // 配额不足
+        setLoading(false);
+        setShowAIThinking(false);
+        
+        // 删除刚添加的用户消息
+        setMessages(prev => prev.filter(msg => msg.id !== messageId));
+        
+        // 显示配额不足的提示
+        setShowQuotaModal(true);
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to check quota:', error);
+      // 如果检查失败，继续尝试请求（让后端再次检查）
     }
 
     setIsStreaming(true);
@@ -927,7 +973,36 @@ const AdvancedSearchPage = () => {
       logger.log('Advanced search stream started');
     };
 
+    let isFirstMessage = true;
+    
     eventSource.onmessage = (event) => {
+      // 检查是否是错误消息（第一条消息）
+      if (isFirstMessage) {
+        isFirstMessage = false;
+        try {
+          const data = JSON.parse(event.data);
+          if (data.code === 403 || data.message?.includes('配额不足')) {
+            // 配额不足错误
+            eventSource.close();
+            setIsStreaming(false);
+            setShowAIThinking(false);
+            setLoading(false);
+            
+            // 删除刚添加的用户消息
+            setMessages(prev => prev.filter(msg => msg.id !== messageId));
+            
+            // 移除添加的论文集合占位符
+            setPaperSets(prevSets => prevSets.slice(1));
+            
+            // 显示配额不足的提示
+            alert('配额不足，请升级订阅');
+            return;
+          }
+        } catch (e) {
+          // 如果不是JSON格式，继续正常处理
+        }
+      }
+      
       if (event.data.startsWith('[DONE]')) {
         logger.log('Advanced search completed');
         eventSource.close();
@@ -1090,6 +1165,14 @@ const AdvancedSearchPage = () => {
       eventSource.close();
       setIsStreaming(false);
       setShowAIThinking(false);
+      setLoading(false);
+      
+      // 如果是连接失败（可能是403），删除用户消息和论文集合占位符
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      setPaperSets(prevSets => prevSets.slice(1));
+      
+      // 显示配额不足弹窗
+      setShowQuotaModal(true);
     };
   };
 
@@ -1779,16 +1862,7 @@ const AdvancedSearchPage = () => {
                       <textarea
                         ref={textareaRef}
                         className="advanced-bottom-chat-input"
-                        placeholder={
-                          (() => {
-                            const remaining = getRemainingCount();
-                            const modelName = modelLevel === 'low' ? '普通' : modelLevel === 'mid' ? '进阶' : '高级';
-                            if (remaining !== null) {
-                              return `继续追问或输入新的搜索需求... (${modelName}模型剩余 ${remaining} 次)`;
-                            }
-                            return "继续追问或输入新的搜索需求...";
-                          })()
-                        }
+                        placeholder="继续追问或输入新的搜索需求..."
                         value={searchQuery}
                         maxLength={1000}
                         onChange={(e) => {
@@ -1868,6 +1942,13 @@ const AdvancedSearchPage = () => {
           </div>
         )}
       </div>
+
+      {/* 配额不足弹窗 */}
+      <QuotaModal 
+        isOpen={showQuotaModal} 
+        onClose={() => setShowQuotaModal(false)}
+        message="当前模型配额已用完，升级订阅即可解锁更多功能"
+      />
     </div>
   );
 };

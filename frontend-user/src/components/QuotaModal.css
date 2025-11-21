@@ -1,0 +1,243 @@
+/* ============================================
+   Quota Modal - 配额不足弹窗
+   ============================================ */
+
+.quota-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(12px, 3vw, 32px);
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.quota-modal-container {
+  position: relative;
+  width: min(440px, 100%);
+  background: rgba(20, 20, 20, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.75);
+  animation: slideUp 0.3s ease-out;
+  overflow: hidden;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.quota-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #b1b5bd;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.quota-modal-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-accent);
+  transform: rotate(90deg);
+}
+
+.quota-modal-content {
+  padding: 48px 32px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 20px;
+}
+
+.quota-modal-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.15));
+  border: 2px solid rgba(251, 191, 36, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fbbf24;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}
+
+.quota-modal-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.quota-modal-message {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.6;
+  max-width: 320px;
+}
+
+.quota-modal-actions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.quota-modal-button {
+  flex: 1;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.quota-modal-button-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.quota-modal-button-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.quota-modal-button-primary {
+  background: linear-gradient(135deg, var(--text-accent) 0%, #1ed79f 100%);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(16, 163, 127, 0.3);
+}
+
+.quota-modal-button-primary:hover {
+  background: linear-gradient(135deg, #1ed79f 0%, var(--text-accent) 100%);
+  box-shadow: 0 6px 20px rgba(16, 163, 127, 0.4);
+  transform: translateY(-1px);
+}
+
+.quota-modal-button-primary:active {
+  transform: translateY(0);
+}
+
+/* 响应式 */
+@media (max-width: 640px) {
+  .quota-modal-container {
+    border-radius: 20px;
+  }
+
+  .quota-modal-content {
+    padding: 40px 24px 24px;
+  }
+
+  .quota-modal-icon {
+    width: 64px;
+    height: 64px;
+  }
+
+  .quota-modal-icon svg {
+    width: 48px;
+    height: 48px;
+  }
+
+  .quota-modal-title {
+    font-size: 20px;
+  }
+
+  .quota-modal-message {
+    font-size: 14px;
+  }
+
+  .quota-modal-actions {
+    flex-direction: column;
+  }
+
+  .quota-modal-button {
+    width: 100%;
+  }
+}
+
+/* 日间模式 */
+[data-theme="light"] .quota-modal-overlay {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .quota-modal-container {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .quota-modal-close {
+  background: rgba(0, 0, 0, 0.05);
+  color: #6b7280;
+}
+
+[data-theme="light"] .quota-modal-close:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .quota-modal-icon {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.1));
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+[data-theme="light"] .quota-modal-button-secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border-color: #e5e7eb;
+}
+
+[data-theme="light"] .quota-modal-button-secondary:hover {
+  background: #e5e7eb;
+  color: #111827;
+  border-color: #d1d5db;
+}
+
