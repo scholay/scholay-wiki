@@ -822,13 +822,22 @@ const SearchResultsPage = () => {
               {queryInfo.translationEnabled && queryInfo.translatedQuery && (
                 <div className="search-translation-hint">
                   <span className="hint-text">
-                    已为你找到 "<strong>{queryInfo.actualQuery}</strong>" 的结果
+                    已为你找到 "
+                    <span className="hint-query-original" title={queryInfo.originalQuery}>
+                      {queryInfo.originalQuery}
+                    </span>
+                    {' '}
+                    <span className="hint-query-translated" title={queryInfo.translatedQuery}>
+                      {queryInfo.translatedQuery}
+                    </span>
+                    " 的结果
                   </span>
                   <button
                     className="hint-action-btn"
                     onClick={() => performSearch(queryInfo.originalQuery, filters, 1, false, false)}
+                    title={`仅按 "${queryInfo.originalQuery}" 查找`}
                   >
-                    仅按 "<strong>{queryInfo.originalQuery}</strong>" 查找
+                    仅按 "<span className="hint-btn-query" title={queryInfo.originalQuery}>{queryInfo.originalQuery}</span>" 查找
                   </button>
                 </div>
               )}

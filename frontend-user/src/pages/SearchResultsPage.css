@@ -1523,15 +1523,41 @@ a.meta-item.pdf-link:hover {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.7);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  overflow: hidden; /* 确保内容不溢出 */
+  justify-content: flex-start; /* 内容靠左，紧凑排列 */
 }
 
 .search-translation-hint .hint-text {
   color: rgba(255, 255, 255, 0.6);
+  flex: 0 1 auto; /* 不占据剩余空间，根据内容自适应 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0; /* 重要：允许flex子元素收缩 */
 }
 
-.search-translation-hint .hint-text strong {
+/* 原始查询词 - 可省略 */
+.search-translation-hint .hint-query-original {
   color: rgba(255, 255, 255, 0.9);
   font-weight: 500;
+  display: inline-block;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+/* 翻译后的查询词 - 可省略 */
+.search-translation-hint .hint-query-translated {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+  display: inline-block;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 
 .search-translation-hint .hint-action-btn {
@@ -1544,6 +1570,9 @@ a.meta-item.pdf-link:hover {
   font-size: 13px;
   transition: all 0.2s ease;
   white-space: nowrap;
+  flex-shrink: 0; /* 按钮不收缩 */
+  max-width: 300px;
+  overflow: hidden;
 }
 
 .search-translation-hint .hint-action-btn:hover {
@@ -1551,7 +1580,14 @@ a.meta-item.pdf-link:hover {
   text-decoration: underline;
 }
 
-.search-translation-hint .hint-action-btn strong {
+/* 按钮内的查询词 - 可省略 */
+.search-translation-hint .hint-btn-query {
+  display: inline-block;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
   font-weight: 500;
 }
 
