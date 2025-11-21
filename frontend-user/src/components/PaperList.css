@@ -1,7 +1,7 @@
 .paper-list {
   width: 100%;
   height: 100%;
-  background: #212121;
+  background: var(--background);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -9,8 +9,8 @@
 
 .paper-list-header {
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: #212121;
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -60,7 +60,7 @@
 }
 
 .stats-divider {
-  color: rgba(255, 255, 255, 0.2);
+  color: var(--text-quaternary);
   font-weight: 300;
 }
 
@@ -69,7 +69,7 @@
 }
 
 .search-rounds strong {
-  color: rgba(16, 163, 127, 0.85);
+  color: var(--text-accent);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -89,12 +89,12 @@
 }
 
 .paper-list-content::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.2);
+  background: var(--text-quaternary);
   border-radius: 3px;
 }
 
 .paper-list-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.3);
+  background: var(--text-tertiary);
 }
 
 .loading-state {
@@ -306,7 +306,7 @@
   margin: 0;
   font-size: 0.9375rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #10a37f;
   line-height: 1.4;
   cursor: pointer;
   flex: 1;
@@ -320,7 +320,16 @@
 }
 
 .paper-title:hover {
-  color: var(--primary-light);
+  color: #19c37d;
+}
+
+/* 日间模式下的标题颜色 */
+[data-theme="light"] .paper-title {
+  color: #0d8c6c;
+}
+
+[data-theme="light"] .paper-title:hover {
+  color: #10a37f;
 }
 
 .paper-year {

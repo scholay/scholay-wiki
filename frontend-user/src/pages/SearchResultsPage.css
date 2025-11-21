@@ -1,7 +1,7 @@
 .search-results-page {
   height: 100vh;
   display: flex;
-  background: #212121;
+  background: var(--background);
   position: relative;
 }
 
@@ -40,7 +40,7 @@
 
 /* 顶部导航栏 - ChatGPT dark theme */
 .results-navbar {
-  background: #212121;
+  background: var(--background);
   border-bottom: none;
   box-shadow: none;
   z-index: 10;
@@ -65,13 +65,13 @@
 .logo-text {
   font-size: 20px;
   font-weight: 700;
-  color: rgb(236, 236, 241);
+  color: var(--text-primary);
 }
 
 .page-title {
   font-size: 20px;
   font-weight: 700;
-  color: rgb(236, 236, 241);
+  color: var(--text-primary);
   margin: 0;
   flex-shrink: 0;
 }
@@ -84,16 +84,16 @@
 .search-input-group {
   display: flex;
   align-items: center;
-  background: rgba(64, 65, 79, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 12px;
   transition: all 0.15s ease;
 }
 
 .search-input-group:focus-within {
-  background: rgba(64, 65, 79, 0.5);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--surface-light);
+  border-color: var(--text-quaternary);
   box-shadow: none;
 }
 

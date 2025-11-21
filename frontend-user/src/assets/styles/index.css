@@ -4,8 +4,9 @@
   box-sizing: border-box;
 }
 
-:root {
-  /* ChatGPT-inspired color scheme */
+/* 默认为夜间主题（保持向后兼容） */
+:root, [data-theme="dark"] {
+  /* ChatGPT-inspired color scheme - 夜间模式 */
   --primary: linear-gradient(135deg, #10a37f 0%, #1a7f64 100%);
   --primary-solid: #10a37f;
   --primary-dark: #1a7f64;
@@ -19,7 +20,7 @@
   --surface: #444654;
   --surface-light: #565869;
   
-  /* 统一的字体颜色系统 - 针对毛玻璃优化 */
+  /* 统一的字体颜色系统 - 夜间模式 */
   --text-primary: rgba(255, 255, 255, 0.95);      /* 主要文字：标题、重要内容 */
   --text-secondary: rgba(255, 255, 255, 0.75);    /* 次要文字：描述、说明 */
   --text-tertiary: rgba(255, 255, 255, 0.55);     /* 三级文字：辅助信息、提示 */
@@ -35,6 +36,42 @@
   --border: rgba(255, 255, 255, 0.1);
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   --glow: 0 0 20px rgba(16, 163, 127, 0.3);
+  --radius: 12px;
+  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 日间主题 */
+[data-theme="light"] {
+  /* 品牌色保持一致，但调整适应日间模式 */
+  --primary: linear-gradient(135deg, #10a37f 0%, #0d8968 100%);
+  --primary-solid: #10a37f;
+  --primary-dark: #0d8968;
+  --primary-light: #19c37d;
+  --accent: #10a37f;
+  --accent-2: #0d8968;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --background: #ffffff;
+  --background-light: #f9fafb;
+  --surface: #f3f4f6;
+  --surface-light: #e5e7eb;
+  
+  /* 统一的字体颜色系统 - 日间模式 */
+  --text-primary: rgba(17, 24, 39, 0.95);         /* 主要文字：标题、重要内容 */
+  --text-secondary: rgba(55, 65, 81, 0.85);       /* 次要文字：描述、说明 */
+  --text-tertiary: rgba(107, 114, 128, 0.75);     /* 三级文字：辅助信息、提示 */
+  --text-quaternary: rgba(156, 163, 175, 0.65);   /* 四级文字：占位符、禁用状态 */
+  --text-accent: #10a37f;                         /* 强调文字：品牌色 */
+  --text-success: #059669;                        /* 成功状态 */
+  --text-error: #dc2626;                          /* 错误状态 */
+  --text-warning: #d97706;                        /* 警告状态 */
+  
+  --success: #059669;
+  --error: #dc2626;
+  --warning: #d97706;
+  --border: rgba(0, 0, 0, 0.08);
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --glow: 0 0 20px rgba(16, 163, 127, 0.2);
   --radius: 12px;
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -76,8 +113,9 @@ body {
   overflow: hidden;
 }
 
-.animated-bg::before,
-.animated-bg::after {
+/* 夜间模式动画背景 */
+[data-theme="dark"] .animated-bg::before,
+[data-theme="dark"] .animated-bg::after {
   content: '';
   position: absolute;
   width: 600px;
@@ -88,17 +126,43 @@ body {
   animation: float 20s ease-in-out infinite;
 }
 
-.animated-bg::before {
+[data-theme="dark"] .animated-bg::before {
   background: var(--primary);
   top: -200px;
   left: -200px;
   animation-delay: -10s;
 }
 
-.animated-bg::after {
+[data-theme="dark"] .animated-bg::after {
   background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
   bottom: -200px;
   right: -200px;
+}
+
+/* 日间模式动画背景 - 更柔和的渐变 */
+[data-theme="light"] .animated-bg::before,
+[data-theme="light"] .animated-bg::after {
+  content: '';
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.05;
+  animation: float 25s ease-in-out infinite;
+}
+
+[data-theme="light"] .animated-bg::before {
+  background: linear-gradient(135deg, #10a37f 0%, #19c37d 100%);
+  top: -150px;
+  left: -150px;
+  animation-delay: -12s;
+}
+
+[data-theme="light"] .animated-bg::after {
+  background: linear-gradient(135deg, #93c5fd 0%, #ddd6fe 100%);
+  bottom: -150px;
+  right: -150px;
 }
 
 @keyframes float {
@@ -113,8 +177,8 @@ body {
   }
 }
 
-/* Glassmorphism card */
-.glass-card {
+/* Glassmorphism card - 夜间模式 */
+[data-theme="dark"] .glass-card {
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(10px);
   border-radius: var(--radius);
@@ -123,10 +187,26 @@ body {
   transition: var(--transition);
 }
 
-.glass-card:hover {
+[data-theme="dark"] .glass-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
-  border-color: rgba(102, 126, 234, 0.3);
+  border-color: rgba(16, 163, 127, 0.3);
+}
+
+/* Glassmorphism card - 日间模式 */
+[data-theme="light"] .glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  transition: var(--transition);
+}
+
+[data-theme="light"] .glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border-color: rgba(16, 163, 127, 0.2);
 }
 
 /* Buttons */
@@ -187,9 +267,16 @@ body {
   border: 2px solid var(--border);
 }
 
-.btn-outline:hover:not(:disabled) {
+[data-theme="dark"] .btn-outline:hover:not(:disabled) {
   border-color: var(--primary-solid);
   box-shadow: var(--glow);
+  background: rgba(16, 163, 127, 0.1);
+}
+
+[data-theme="light"] .btn-outline:hover:not(:disabled) {
+  border-color: var(--primary-solid);
+  background: rgba(16, 163, 127, 0.05);
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.15);
 }
 
 /* Input fields */
@@ -198,21 +285,34 @@ body {
   padding: 0.875rem 1.125rem;
   font-size: 0.9375rem;
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border);
   border-radius: 12px;
   outline: none;
   transition: var(--transition);
 }
 
-.input:focus {
+[data-theme="dark"] .input {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] .input {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="dark"] .input:focus {
   border-color: var(--primary-solid);
   box-shadow: var(--glow);
   background: rgba(255, 255, 255, 0.08);
 }
 
+[data-theme="light"] .input:focus {
+  border-color: var(--primary-solid);
+  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
+  background: white;
+}
+
 .input::placeholder {
-  color: var(--text-secondary);
+  color: var(--text-quaternary);
 }
 
 /* Form elements */
@@ -241,22 +341,40 @@ body {
   animation: slideIn 0.3s ease-out;
 }
 
-.message-error {
+[data-theme="dark"] .message-error {
   background: rgba(255, 107, 107, 0.1);
   border: 1px solid rgba(255, 107, 107, 0.3);
   color: var(--error);
 }
 
-.message-success {
+[data-theme="light"] .message-error {
+  background: rgba(220, 38, 38, 0.05);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  color: var(--error);
+}
+
+[data-theme="dark"] .message-success {
   background: rgba(0, 245, 160, 0.1);
   border: 1px solid rgba(0, 245, 160, 0.3);
   color: var(--success);
 }
 
-.message-info {
+[data-theme="light"] .message-success {
+  background: rgba(5, 150, 105, 0.05);
+  border: 1px solid rgba(5, 150, 105, 0.2);
+  color: var(--success);
+}
+
+[data-theme="dark"] .message-info {
   background: rgba(79, 172, 254, 0.1);
   border: 1px solid rgba(79, 172, 254, 0.3);
   color: var(--accent-2);
+}
+
+[data-theme="light"] .message-info {
+  background: rgba(16, 163, 127, 0.05);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  color: var(--accent);
 }
 
 /* Animations */

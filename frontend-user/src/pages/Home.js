@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
+import { useTheme } from '../contexts/ThemeContext';
 import SearchFilters from '../components/SearchFilters';
 import ModelSelector from '../components/ModelSelector';
+import ThemeToggle from '../components/ThemeToggle';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import SEO from '../components/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
@@ -16,6 +18,7 @@ const Home = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const { resetSidebarConfig } = useSidebar();
+  const { theme } = useTheme();
   const outletContext = useOutletContext();
   const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
   
@@ -231,6 +234,7 @@ const Home = () => {
           </div>
 
           <div className="navbar-right">
+            <ThemeToggle />
             {!isAuthenticated && (
               <div className="auth-buttons">
                 <button
@@ -395,12 +399,13 @@ const Home = () => {
                       })()}
 
                       {/* 模型选择器 - 仅在智能分析模式显示 */}
-                      {searchMode === 'advanced' && isAuthenticated && (
+                      {searchMode === 'advanced' && (
                         <div className="model-selector-wrapper">
                           <ModelSelector
                             value={modelLevel}
                             onChange={setModelLevel}
                             userSubscription={user?.subscription}
+                            isAuthenticated={isAuthenticated}
                           />
                         </div>
                       )}

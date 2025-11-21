@@ -147,6 +147,41 @@
 }
 
 /* Responsive */
+/* Light theme styles */
+[data-theme="light"] .year-range-display {
+  background: rgba(16, 163, 127, 0.06);
+  border: 1px solid rgba(16, 163, 127, 0.15);
+  box-shadow: 
+    0 2px 6px rgba(16, 163, 127, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .year-value {
+  color: #0d8c6c;
+}
+
+[data-theme="light"] .year-separator-display {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .slider-handle {
+  border-bottom-color: #10a37f;
+  filter: drop-shadow(0 2px 4px rgba(16, 163, 127, 0.3));
+}
+
+[data-theme="light"] .slider-handle:hover {
+  border-bottom-color: #19c37d;
+  filter: drop-shadow(0 3px 8px rgba(16, 163, 127, 0.4));
+}
+
+[data-theme="light"] .handle-label {
+  background: rgba(16, 163, 127, 0.1);
+  color: #0d8c6c;
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Mobile responsive */
 @media (max-width: 768px) {
   .histogram-container {
     height: 50px;

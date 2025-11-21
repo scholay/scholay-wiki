@@ -195,8 +195,8 @@ export const subscriptionAPI = {
     api.get('/user/subscription/usage'),
 
   // Get user's active subscription
-  getSubscription: () =>
-    api.get('/user/subscription'),
+  getMySubscription: () =>
+    api.get('/user/subscription/my'),
 };
 
 export const orderAPI = {

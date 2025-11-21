@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { subscriptionAPI } from '../services/api';
 import './ModelSelector.css';
 
@@ -12,10 +12,42 @@ import './ModelSelector.css';
  * @param {boolean} compact - 是否使用紧凑模式
  * @param {boolean} showOnly - 是否只显示，不可交互
  */
-const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscription, mode = 'advanced-search', compact = false, showOnly = false }) => {
+const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscription: userSubscriptionProp, mode = 'advanced-search', compact = false, showOnly = false, isAuthenticated = true }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [quota, setQuota] = useState(null);
   const [usage, setUsage] = useState(null);
+  const [userSubscription, setUserSubscription] = useState(userSubscriptionProp);
+  const containerRef = useRef(null);
+
+  // 获取订阅信息
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      // 未登录时不获取
+      if (!isAuthenticated) {
+        return;
+      }
+
+      // 如果已经通过 prop 传入了订阅信息，优先使用
+      if (userSubscriptionProp) {
+        setUserSubscription(userSubscriptionProp);
+        console.log('[ModelSelector] Using subscription from props:', userSubscriptionProp);
+        return;
+      }
+
+      // 否则自己获取订阅信息
+      try {
+        const response = await subscriptionAPI.getMySubscription();
+        if (response.data.code === 0 && response.data.data) {
+          setUserSubscription(response.data.data);
+          console.log('[ModelSelector] Fetched subscription:', response.data.data);
+        }
+      } catch (error) {
+        console.error('[ModelSelector] Failed to fetch subscription:', error);
+      }
+    };
+
+    fetchSubscription();
+  }, [isAuthenticated, userSubscriptionProp]);
 
   // SVG图标组件
   const LowIcon = () => (
@@ -66,6 +98,11 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
   // 获取配额和使用情况
   useEffect(() => {
     const fetchQuotaAndUsage = async () => {
+      // 未登录时不获取配额
+      if (!isAuthenticated) {
+        return;
+      }
+      
       try {
         const response = await subscriptionAPI.getUsage();
 
@@ -103,29 +140,106 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
     // 只在组件挂载时获取一次配额信息
     fetchQuotaAndUsage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAuthenticated]);
+
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+
+    if (showDropdown) {
+      // 使用 capture 阶段捕获事件，确保优先处理
+      document.addEventListener('mousedown', handleClickOutside, true);
+      document.addEventListener('touchstart', handleClickOutside, true);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside, true);
+      document.removeEventListener('touchstart', handleClickOutside, true);
+    };
+  }, [showDropdown]);
 
   // 获取当前选中的模型（默认第一个，即普通模型）
   const selectedModel = models.find(m => m.value === value) || models[0];
 
   // 检查模型是否可用
   const isModelAvailable = (model) => {
-    if (!quota || !userSubscription) return true;
+    // 未登录用户只能使用普通模型
+    if (!isAuthenticated) {
+      return model.value === 'low';
+    }
+    
+    // 如果没有 quota 数据，还在加载中，默认只允许普通模型
+    if (!quota) {
+      return model.value === 'low';
+    }
 
-    const planCode = userSubscription.plan_code;
-
-    // FREE 用户只能使用普通模型
-    if (planCode === 'FREE' && model.value !== 'low') {
+    // 根据 mode 和 model.value 确定对应的 feature type
+    const featurePrefix = mode === 'ai-chat' ? 'ai_chat_' : 'advanced_search_';
+    const feature = model.featureTypes.find(ft => ft.startsWith(featurePrefix));
+    
+    if (!feature) {
       return false;
     }
 
-    // PRO 用户可以使用普通和进阶模型
-    if (planCode === 'PRO' && model.value === 'high') {
+    // 提取级别名称（low, mid, high 或 normal）
+    const levelName = feature.replace(featurePrefix, '');
+    
+    // 映射配额字段名
+    const quotaFieldMap = {
+      // Advanced Search
+      'low': 'advancedSearchLowQuota',
+      'mid': 'advancedSearchMidQuota',
+      'high': 'advancedSearchHighQuota',
+      // AI Chat
+      'normal': 'aiChatNormalQuota',
+    };
+
+    const usageFieldMap = {
+      // Advanced Search
+      'low': 'advancedSearchLowCount',
+      'mid': 'advancedSearchMidCount',
+      'high': 'advancedSearchHighCount',
+      // AI Chat
+      'normal': 'aiChatNormalCount',
+    };
+
+    // AI Chat 的 mid 和 high
+    if (mode === 'ai-chat') {
+      if (levelName === 'mid') {
+        quotaFieldMap['mid'] = 'aiChatMidQuota';
+        usageFieldMap['mid'] = 'aiChatMidCount';
+      } else if (levelName === 'high') {
+        quotaFieldMap['high'] = 'aiChatHighQuota';
+        usageFieldMap['high'] = 'aiChatHighCount';
+      }
+    }
+
+    const quotaField = quotaFieldMap[levelName];
+    const usageField = usageFieldMap[levelName];
+    
+    if (!quotaField || !usageField) {
       return false;
     }
 
-    // MAX 用户可以使用所有模型
-    return true;
+    const limitValue = quota[quotaField];
+    const usageValue = usage ? usage[usageField] || 0 : 0;
+
+    // limit === 0 表示没有权限
+    if (limitValue === 0) {
+      return false;
+    }
+
+    // limit === -1 表示无限制
+    if (limitValue === -1) {
+      return true;
+    }
+
+    // limit > 0 表示有配额限制，检查是否还有剩余
+    return usageValue < limitValue;
   };
 
   // 获取模型的剩余次数
@@ -193,7 +307,7 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
   };
 
   return (
-    <div className={`model-selector ${compact ? 'compact' : ''} ${showOnly ? 'show-only' : ''}`}>
+    <div ref={containerRef} className={`model-selector ${compact ? 'compact' : ''} ${showOnly ? 'show-only' : ''}`}>
       <button
         type="button"
         className={`model-selector-btn ${showDropdown ? 'open' : ''} ${compact ? 'compact' : ''} ${showOnly ? 'show-only' : ''}`}
@@ -218,53 +332,108 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
       </button>
 
       {showDropdown && (
-        <>
-          <div className="model-selector-overlay" onClick={() => setShowDropdown(false)} />
-          <div className="model-selector-dropdown">
-            <div className="dropdown-header">选择模型</div>
-            {models.map((model) => {
-              const available = isModelAvailable(model);
-              const remaining = getRemainingCount(model);
-              const isSelected = model.value === value;
+        <div className="model-selector-dropdown">
+          <div className="dropdown-header">选择模型</div>
+          {models.map((model) => {
+            const available = isModelAvailable(model);
+            const remaining = getRemainingCount(model);
+            const isSelected = model.value === value;
 
-              return (
-                <button
-                  key={model.value}
-                  type="button"
-                  className={`model-option ${isSelected ? 'selected' : ''} ${!available ? 'disabled' : ''}`}
-                  onClick={() => handleModelSelect(model)}
-                  disabled={!available}
-                >
-                  <div className="model-option-icon-wrapper">
-                    {model.icon}
+            return (
+              <button
+                key={model.value}
+                type="button"
+                className={`model-option ${isSelected ? 'selected' : ''} ${!available ? 'disabled' : ''}`}
+                onClick={() => handleModelSelect(model)}
+                disabled={!available}
+              >
+                <div className="model-option-icon-wrapper">
+                  {model.icon}
+                </div>
+                <div className="model-option-header">
+                  <div className="model-option-top">
+                    <span className="model-option-label">{model.label}</span>
+                    {isSelected && (
+                      <svg className="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                        <path d="M20 6L9 17l-5-5"/>
+                      </svg>
+                    )}
                   </div>
-                  <div className="model-option-header">
-                    <div className="model-option-top">
-                      <span className="model-option-label">{model.label}</span>
-                      {isSelected && (
-                        <svg className="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                          <path d="M20 6L9 17l-5-5"/>
-                        </svg>
-                      )}
+                  <div className="model-option-desc">{model.description}</div>
+                  {!available && (
+                    <div className="model-option-badge">
+                      {(() => {
+                        // 未登录
+                        if (!isAuthenticated) {
+                          return '需要登录';
+                        }
+                        
+                        // 已登录但没有配额数据
+                        if (!quota) {
+                          return '加载中...';
+                        }
+
+                        // 根据 feature type 检查具体原因
+                        const featurePrefix = mode === 'ai-chat' ? 'ai_chat_' : 'advanced_search_';
+                        const feature = model.featureTypes.find(ft => ft.startsWith(featurePrefix));
+                        
+                        if (feature) {
+                          const levelName = feature.replace(featurePrefix, '');
+                          const quotaFieldMap = {
+                            'low': 'advancedSearchLowQuota',
+                            'mid': 'advancedSearchMidQuota',
+                            'high': 'advancedSearchHighQuota',
+                            'normal': 'aiChatNormalQuota',
+                          };
+
+                          if (mode === 'ai-chat') {
+                            if (levelName === 'mid') quotaFieldMap['mid'] = 'aiChatMidQuota';
+                            if (levelName === 'high') quotaFieldMap['high'] = 'aiChatHighQuota';
+                          }
+
+                          const quotaField = quotaFieldMap[levelName];
+                          const limitValue = quota[quotaField];
+
+                          // limit === 0 表示没有权限
+                          if (limitValue === 0) {
+                            return '需要升级订阅';
+                          }
+
+                          // limit > 0 但已用完
+                          const usageFieldMap = {
+                            'low': 'advancedSearchLowCount',
+                            'mid': 'advancedSearchMidCount',
+                            'high': 'advancedSearchHighCount',
+                            'normal': 'aiChatNormalCount',
+                          };
+
+                          if (mode === 'ai-chat') {
+                            if (levelName === 'mid') usageFieldMap['mid'] = 'aiChatMidCount';
+                            if (levelName === 'high') usageFieldMap['high'] = 'aiChatHighCount';
+                          }
+
+                          const usageField = usageFieldMap[levelName];
+                          const usageValue = usage ? usage[usageField] || 0 : 0;
+
+                          if (limitValue > 0 && usageValue >= limitValue) {
+                            return '今日配额已用完';
+                          }
+                        }
+
+                        return '需要升级订阅';
+                      })()}
                     </div>
-                    <div className="model-option-desc">{model.description}</div>
-                    {!available && (
-                      <div className="model-option-badge">
-                        {userSubscription?.plan_code === 'FREE' && '需要升级订阅'}
-                        {userSubscription?.plan_code === 'PRO' && model.value === 'high' && '需要 MAX 订阅'}
-                      </div>
-                    )}
-                    {available && remaining !== null && remaining !== '无限制' && (
-                      <div className="model-option-quota">
-                        剩余 {remaining} 次
-                      </div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </>
+                  )}
+                  {available && isAuthenticated && remaining !== null && remaining !== '无限制' && (
+                    <div className="model-option-quota">
+                      剩余 {remaining} 次
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );

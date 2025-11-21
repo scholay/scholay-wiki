@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { userAPI } from '../services/api';
+import { userAPI, subscriptionAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -176,22 +176,51 @@ export const AuthProvider = ({ children }) => {
   }, [stopHeartbeat, updateLastActivity, handleVisibilityChange]);
 
   useEffect(() => {
-    // Check for existing token on mount
-    const token = localStorage.getItem('user_token');
-    const userData = localStorage.getItem('user_data');
+    const initializeAuth = async () => {
+      // Check for existing token on mount
+      const token = localStorage.getItem('user_token');
+      const userData = localStorage.getItem('user_data');
 
-    if (token && userData && userData !== 'undefined') {
-      try {
-        setIsAuthenticated(true);
-        setUser(JSON.parse(userData));
-        startHeartbeat(); // Start heartbeat for existing session
-      } catch (error) {
-        // Clear invalid data
-        localStorage.removeItem('user_token');
-        localStorage.removeItem('user_data');
+      if (token && userData && userData !== 'undefined') {
+        try {
+          setIsAuthenticated(true);
+          setUser(JSON.parse(userData));
+          startHeartbeat(); // Start heartbeat for existing session
+          
+          // 立即获取最新的用户信息和订阅信息
+          try {
+            const [profileResponse, subscriptionResponse] = await Promise.all([
+              userAPI.getProfile(),
+              subscriptionAPI.getMySubscription().catch(err => {
+                console.error('Failed to fetch subscription:', err);
+                return null;
+              })
+            ]);
+
+            if (profileResponse.data.code === 0 && profileResponse.data.data) {
+              const freshUserData = profileResponse.data.data;
+              
+              // 如果成功获取订阅信息，将其添加到用户数据中
+              if (subscriptionResponse && subscriptionResponse.data.code === 0) {
+                freshUserData.subscription = subscriptionResponse.data.data;
+              }
+              
+              localStorage.setItem('user_data', JSON.stringify(freshUserData));
+              setUser(freshUserData);
+            }
+          } catch (error) {
+            console.error('Failed to refresh user data on init:', error);
+          }
+        } catch (error) {
+          // Clear invalid data
+          localStorage.removeItem('user_token');
+          localStorage.removeItem('user_data');
+        }
       }
-    }
-    setLoading(false);
+      setLoading(false);
+    };
+
+    initializeAuth();
 
     // Listen for auth expiration events
     const handleAuthExpired = (event) => {
@@ -215,12 +244,24 @@ export const AuthProvider = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const login = (token, userData) => {
+  const login = async (token, userData) => {
     localStorage.setItem('user_token', token);
     localStorage.setItem('user_data', JSON.stringify(userData));
     setIsAuthenticated(true);
     setUser(userData);
     startHeartbeat(); // Start heartbeat when user logs in
+    
+    // 登录后立即获取订阅信息
+    try {
+      const subscriptionResponse = await subscriptionAPI.getMySubscription();
+      if (subscriptionResponse.data.code === 0) {
+        const updatedUserData = { ...userData, subscription: subscriptionResponse.data.data };
+        localStorage.setItem('user_data', JSON.stringify(updatedUserData));
+        setUser(updatedUserData);
+      }
+    } catch (error) {
+      console.error('Failed to fetch subscription after login:', error);
+    }
   };
 
   const logout = async () => {
@@ -250,10 +291,25 @@ export const AuthProvider = ({ children }) => {
   // Refresh user data from backend
   const refreshUser = async () => {
     try {
-      const response = await userAPI.getProfile();
-      if (response.data.code === 0 && response.data.data) {
-        updateUser(response.data.data);
-        return response.data.data;
+      // 同时获取用户信息和订阅信息
+      const [profileResponse, subscriptionResponse] = await Promise.all([
+        userAPI.getProfile(),
+        subscriptionAPI.getMySubscription().catch(err => {
+          console.error('Failed to fetch subscription:', err);
+          return null;
+        })
+      ]);
+
+      if (profileResponse.data.code === 0 && profileResponse.data.data) {
+        const userData = profileResponse.data.data;
+        
+        // 如果成功获取订阅信息，将其添加到用户数据中
+        if (subscriptionResponse && subscriptionResponse.data.code === 0) {
+          userData.subscription = subscriptionResponse.data.data;
+        }
+        
+        updateUser(userData);
+        return userData;
       }
     } catch (error) {
       console.error('Failed to refresh user data:', error);

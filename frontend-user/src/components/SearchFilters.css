@@ -1,20 +1,35 @@
 /* Pure dark theme Search Filters - ChatGPT style */
 
+/* Container wrapper for conditional display */
+.filters-container {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.filters-container.expanded {
+  pointer-events: auto;
+  opacity: 1;
+}
+
 /* 蒙层 - 增强毛玻璃效果 */
 .filters-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: rgba(4, 7, 11, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  z-index: 9999;
-  animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.filters-container.expanded .filters-overlay {
+  opacity: 1;
 }
+
 
 /* 主弹窗 - 高级毛玻璃设计 */
 .search-filters {
@@ -29,18 +44,25 @@
     0 40px 100px rgba(0, 0, 0, 0.7),
     0 0 0 1px rgba(16, 163, 127, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  animation: expandCenter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   z-index: 10000;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, calc(-50% + 20px)) scale(0.95);
   opacity: 0;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
   background: linear-gradient(135deg, 
     rgba(30, 30, 32, 0.95) 0%, 
     rgba(24, 24, 26, 0.92) 100%);
+}
+
+.filters-container.expanded .search-filters {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  pointer-events: auto;
   --filters-accent: var(--text-accent);
   --filters-accent-hover: rgba(16, 163, 127, 0.9);
   --filters-accent-soft: rgba(16, 163, 127, 0.18);
@@ -50,16 +72,138 @@
   --filters-muted: var(--text-secondary);
 }
 
-@keyframes expandCenter {
-  from {
-    opacity: 0;
-    transform: translate(-50%, calc(-50% + 8px));
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%);
-  }
+/* Light theme styles for search filters */
+[data-theme="light"] .filters-container.expanded .filters-overlay {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
+
+[data-theme="light"] .search-filters {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.98) 0%, 
+    rgba(248, 250, 252, 0.95) 100%);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  box-shadow: 
+    0 30px 80px rgba(0, 0, 0, 0.12),
+    0 10px 40px rgba(16, 163, 127, 0.08),
+    0 0 0 1px rgba(16, 163, 127, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  --filters-accent: #10a37f;
+  --filters-accent-hover: #0d8c6c;
+  --filters-accent-soft: rgba(16, 163, 127, 0.12);
+  --filters-panel: rgba(16, 163, 127, 0.04);
+  --filters-border: rgba(16, 163, 127, 0.12);
+  --filters-text: rgba(0, 0, 0, 0.9);
+  --filters-muted: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .filters-header {
+  background: linear-gradient(180deg, rgba(16, 163, 127, 0.04), transparent);
+  border-bottom: 1px solid rgba(16, 163, 127, 0.12);
+}
+
+[data-theme="light"] .clear-filters-btn.visible {
+  color: #0d8c6c;
+  border-color: rgba(16, 163, 127, 0.25);
+  background: rgba(16, 163, 127, 0.08);
+  box-shadow: 
+    0 2px 6px rgba(16, 163, 127, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .clear-filters-btn.visible:hover {
+  background: linear-gradient(135deg,
+    rgba(16, 163, 127, 0.15) 0%,
+    rgba(16, 163, 127, 0.1) 100%);
+  border-color: rgba(16, 163, 127, 0.35);
+  box-shadow: 
+    0 4px 10px rgba(16, 163, 127, 0.18),
+    0 0 0 1px rgba(16, 163, 127, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Light theme filter groups */
+[data-theme="light"] .filter-group {
+  border: 1px solid rgba(16, 163, 127, 0.1);
+  background: rgba(248, 250, 252, 0.6);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .filter-group:hover {
+  border-color: rgba(16, 163, 127, 0.15);
+  background: rgba(248, 250, 252, 0.8);
+  box-shadow: 
+    0 4px 12px rgba(16, 163, 127, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Light theme year inputs */
+[data-theme="light"] .year-input {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(16, 163, 127, 0.15);
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .year-input:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(16, 163, 127, 0.2);
+}
+
+[data-theme="light"] .year-input:focus {
+  background: white;
+  border-color: rgba(16, 163, 127, 0.4);
+  box-shadow: 
+    0 0 0 3px rgba(16, 163, 127, 0.1),
+    inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .year-input::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+/* Light theme filters footer */
+[data-theme="light"] .filters-footer {
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(255, 255, 255, 0.95));
+  border-top: 1px solid rgba(16, 163, 127, 0.12);
+}
+
+/* Light theme apply button */
+[data-theme="light"] .apply-filters-btn {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.9) 0%, 
+    rgba(16, 163, 127, 0.85) 100%);
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  color: white;
+  box-shadow: 
+    0 4px 12px rgba(16, 163, 127, 0.25),
+    0 2px 4px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="light"] .apply-filters-btn:hover {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 1) 0%, 
+    rgba(16, 163, 127, 0.95) 100%);
+  border-color: rgba(16, 163, 127, 0.4);
+  box-shadow: 
+    0 8px 20px rgba(16, 163, 127, 0.3),
+    0 4px 8px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(16, 163, 127, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+[data-theme="light"] .apply-filters-btn:active {
+  background: linear-gradient(135deg, 
+    rgba(13, 140, 108, 0.95) 0%, 
+    rgba(13, 140, 108, 0.9) 100%);
+  box-shadow: 
+    0 2px 6px rgba(16, 163, 127, 0.2),
+    inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
 
 .filters-header {
   display: flex;

@@ -1514,6 +1514,7 @@ const AdvancedSearchPage = () => {
                         onChange={setModelLevel}
                         disabled={loading}
                         userSubscription={user?.subscription}
+                        isAuthenticated={isAuthenticated}
                       />
                     </div>
                   </div>
@@ -1618,6 +1619,7 @@ const AdvancedSearchPage = () => {
                     onChange={() => {}}
                     disabled={true}
                     userSubscription={user?.subscription}
+                    isAuthenticated={isAuthenticated}
                     compact={true}
                     showOnly={true} // 只显示，不可交互
                   />

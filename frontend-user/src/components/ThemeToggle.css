@@ -1,0 +1,125 @@
+/* 主题切换按钮样式 */
+.theme-toggle {
+  position: relative;
+  width: 52px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 26px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-toggle:hover .theme-toggle-track {
+  box-shadow: 0 0 8px rgba(16, 163, 127, 0.3);
+}
+
+.theme-toggle:focus {
+  outline: none;
+}
+
+.theme-toggle:focus-visible .theme-toggle-track {
+  box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.5);
+}
+
+.theme-toggle-track {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+/* 夜间模式样式 */
+[data-theme="dark"] .theme-toggle-track {
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f1f3d 100%);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 日间模式样式 */
+[data-theme="light"] .theme-toggle-track {
+  background: linear-gradient(135deg, #87ceeb 0%, #ffd700 100%);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.theme-toggle-thumb {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: white;
+  top: 2px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* 夜间模式 - 月亮在左边 */
+[data-theme="dark"] .theme-toggle-thumb {
+  transform: translateX(2px);
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  color: #ffd700;
+}
+
+/* 日间模式 - 太阳在右边 */
+[data-theme="light"] .theme-toggle-thumb {
+  transform: translateX(28px);
+  background: linear-gradient(135deg, #fff 0%, #fffacd 100%);
+  color: #ff8c00;
+}
+
+/* 动画效果 */
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.theme-toggle-thumb svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.3s ease;
+}
+
+[data-theme="light"] .theme-toggle-thumb svg {
+  animation: rotate 15s linear infinite;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .theme-toggle {
+    width: 46px;
+    height: 24px;
+  }
+
+  .theme-toggle-thumb {
+    width: 20px;
+    height: 20px;
+    top: 2px;
+  }
+
+  [data-theme="dark"] .theme-toggle-thumb {
+    transform: translateX(2px);
+  }
+
+  [data-theme="light"] .theme-toggle-thumb {
+    transform: translateX(24px);
+  }
+
+  .theme-toggle-thumb svg {
+    width: 12px;
+    height: 12px;
+  }
+}

@@ -5,6 +5,7 @@ import { AuthProvider } from './utils/AuthContext';
 import { ToastProvider } from './components/ToastContainer';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { SidebarProvider } from './contexts/SidebarContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './components/MainLayout';
 
@@ -40,6 +41,7 @@ function App() {
 
   return (
     <HelmetProvider>
+      <ThemeProvider>
       <ToastProvider>
         <AuthProvider>
           <SubscriptionProvider>
@@ -109,6 +111,7 @@ function App() {
           </SubscriptionProvider>
         </AuthProvider>
       </ToastProvider>
+    </ThemeProvider>
     </HelmetProvider>
   );
 }

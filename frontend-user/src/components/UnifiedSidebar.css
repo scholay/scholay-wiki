@@ -3,7 +3,7 @@
   width: 100%;
   max-width: 280px;
   height: 100vh;
-  background: #171717;
+  background: var(--sidebar-bg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -16,7 +16,7 @@
 
 .unified-sidebar.collapsed {
   max-width: 64px;
-  background: #212121;
+  background: var(--background);
 }
 
 /* 顶部Logo区域 */

@@ -111,10 +111,8 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
            filters.openAccessPdf || filters.venue;
   };
 
-  if (!isExpanded) return null;
-
   return (
-    <>
+    <div className={`filters-container ${isExpanded ? 'expanded' : ''}`}>
       {/* 蒙层 */}
       <div className="filters-overlay" ref={overlayRef} onClick={handleOverlayClick} />
 
@@ -197,9 +195,9 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
         >
           应用筛选
         </button>
+        </div>
       </div>
     </div>
-    </>
   );
 };
 

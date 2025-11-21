@@ -136,7 +136,9 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 999;
+  z-index: 1002;
+  background: transparent;
+  cursor: default;
 }
 
 .model-selector-dropdown {
@@ -149,7 +151,7 @@
   border-radius: 16px;
   padding: 6px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.1);
-  z-index: 1000;
+  z-index: 1003;
   animation: popupFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -298,4 +300,173 @@
   .model-option {
     padding: 0.75rem 0.875rem;
   }
+}
+
+/* ============================================
+   日间模式样式
+   ============================================ */
+
+/* 模型选择器按钮 - 日间模式 */
+[data-theme="light"] .model-selector-btn {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #374151;
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.1),
+    0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .model-selector-btn:hover:not(:disabled) {
+  background: #ffffff;
+  border-color: #10a37f;
+  color: #111827;
+  box-shadow: 
+    0 4px 6px rgba(0, 0, 0, 0.1),
+    0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .model-selector-btn.open {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.1) 0%, 
+    rgba(16, 163, 127, 0.05) 100%);
+  color: #10a37f;
+  border-color: #10a37f;
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.2),
+    0 0 0 1px rgba(16, 163, 127, 0.2);
+}
+
+[data-theme="light"] .model-selector-btn.open:hover {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.15) 0%, 
+    rgba(16, 163, 127, 0.08) 100%);
+}
+
+/* 紧凑模式按钮 - 日间模式 */
+[data-theme="light"] .model-selector-btn.compact {
+  background: transparent;
+  color: #6b7280;
+}
+
+[data-theme="light"] .model-selector-btn.compact:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+  color: #374151;
+}
+
+/* 下拉菜单 - 日间模式 */
+[data-theme="light"] .model-selector-dropdown {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* 模型选项 - 日间模式 */
+[data-theme="light"] .model-option {
+  color: #374151;
+  border: 1px solid transparent;
+  background: #ffffff;
+}
+
+[data-theme="light"] .model-option:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+[data-theme="light"] .model-option.selected {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.12) 0%, 
+    rgba(16, 163, 127, 0.08) 100%);
+  border-color: #10a37f;
+}
+
+[data-theme="light"] .model-option.selected:hover {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.18) 0%, 
+    rgba(16, 163, 127, 0.12) 100%);
+}
+
+[data-theme="light"] .model-option.selected .model-option-label {
+  color: #0d8a6b;
+  font-weight: 600;
+}
+
+[data-theme="light"] .model-option.selected .model-option-desc {
+  color: #10a37f;
+}
+
+[data-theme="light"] .model-option-label {
+  color: #111827;
+  font-weight: 600;
+}
+
+[data-theme="light"] .model-option-desc {
+  color: #4b5563;
+  font-weight: 500;
+}
+
+[data-theme="light"] .model-badge {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: #ffffff;
+}
+
+[data-theme="light"] .dropdown-arrow {
+  color: #6b7280;
+}
+
+[data-theme="light"] .dropdown-arrow.open {
+  color: #10a37f;
+}
+
+[data-theme="light"] .model-icon {
+  color: #6b7280;
+}
+
+[data-theme="light"] .model-selector-btn.open .model-icon {
+  color: #10a37f;
+  filter: drop-shadow(0 2px 4px rgba(16, 163, 127, 0.2));
+}
+
+[data-theme="light"] .model-label {
+  color: inherit;
+}
+
+/* 下拉菜单标题 - 日间模式 */
+[data-theme="light"] .dropdown-header {
+  color: #6b7280;
+  font-weight: 700;
+}
+
+/* 模型选项图标包装器 - 日间模式 */
+[data-theme="light"] .model-option-icon-wrapper {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .model-option.selected .model-option-icon-wrapper {
+  background: rgba(16, 163, 127, 0.15);
+}
+
+[data-theme="light"] .model-option-icon-wrapper svg {
+  color: #6b7280;
+}
+
+[data-theme="light"] .model-option.selected .model-option-icon-wrapper svg {
+  color: #10a37f;
+}
+
+/* 勾选图标 - 日间模式 */
+[data-theme="light"] .check-icon {
+  color: #10a37f;
+}
+
+/* 徽章和配额 - 日间模式 */
+[data-theme="light"] .model-option-badge {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+[data-theme="light"] .model-option-quota {
+  color: #10a37f;
+  font-weight: 600;
 }
