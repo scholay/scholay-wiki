@@ -61,8 +61,18 @@ func (s *Service) TranslateToEnglish(query string) (string, error) {
 	fmt.Printf("[Translation Cache] Miss for query: '%s', calling AI...\n", query)
 	
 	// 3. 缓存未命中，调用AI翻译
-	// 构建翻译提示词（硬编码）
-	translatePrompt := fmt.Sprintf(`你是一个专业的学术翻译助手。请将以下查询关键词翻译成准确的英文学术术语。
+	// 优先从数据库读取提示词模版，本地兜底
+	var translatePrompt string
+	
+	// 尝试从数据库获取提示词模版
+	renderedPrompt, template, err := s.GetAndRenderPrompt("search_term_translation", map[string]string{
+		"query": query,
+	})
+	
+	if err != nil || template == nil {
+		// 数据库获取失败，使用本地兜底提示词
+		fmt.Printf("[WARN] Failed to get prompt template from DB: %v, using fallback\n", err)
+		translatePrompt = fmt.Sprintf(`你是一个专业的学术翻译助手。请将以下查询关键词翻译成准确的英文学术术语。
 
 要求：
 1. 只返回翻译后的英文，不要有任何额外说明
@@ -73,6 +83,11 @@ func (s *Service) TranslateToEnglish(query string) (string, error) {
 查询：%s
 
 翻译：`, query)
+	} else {
+		// 成功从数据库获取提示词模版
+		translatePrompt = renderedPrompt
+		fmt.Printf("[INFO] Using prompt template from DB: '%s' (ID: %d)\n", template.Name, template.ID)
+	}
 
 	messages := []ChatMessage{
 		{
