@@ -338,15 +338,16 @@ const ThirdPartyAccounts = () => {
       </div>
 
       {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{editingAccount ? '编辑账号' : '添加账号'}</h3>
               <button className="modal-close" onClick={() => setShowModal(false)}>
                 ×
               </button>
             </div>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <div className="modal-body" style={{ flex: 1, overflowY: 'auto' }}>
               <div className="form-group">
                 <label>账号名称</label>
                 <input
@@ -495,6 +496,7 @@ const ThirdPartyAccounts = () => {
                   <option value="1">启用</option>
                   <option value="0">停用</option>
                 </select>
+              </div>
               </div>
 
               <div className="modal-actions">
