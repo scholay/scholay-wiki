@@ -438,6 +438,11 @@
   padding: 0 1.5rem;
 }
 
+/* 日间模式 - 聊天容器背景 */
+[data-theme="light"] .chat-container {
+  background: transparent;
+}
+
 /* When showing welcome screen, center the entire container */
 .chat-container:has(.welcome-screen) {
   justify-content: center;
@@ -457,6 +462,11 @@
   width: 100%;
   margin: 0 auto;
   height: 100%;  /* 确保占满父容器高度 */
+}
+
+/* 日间模式 - 消息区域背景 */
+[data-theme="light"] .chat-messages {
+  background: transparent;
 }
 
 /* When showing welcome screen, don't let messages take all space */
@@ -943,6 +953,22 @@
   width: 100%;
 }
 
+/* 日间模式 - 导航栏标题 */
+[data-theme="light"] .as-page-title,
+[data-theme="light"] .as-empty-page-title {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+/* 日间模式 - 新建对话按钮 */
+[data-theme="light"] .new-conversation-btn {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .new-conversation-btn:hover {
+  color: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.05);
+}
+
 /* 问题历史下拉组件 - 紧跟标题 */
 .as-question-history-dropdown {
   position: relative;
@@ -1000,6 +1026,7 @@
   z-index: 998;
 }
 
+/* 问题下拉菜单 - 参考模型选择器样式 */
 .as-question-dropdown-menu {
   position: absolute;
   top: calc(100% + 8px);
@@ -1007,41 +1034,96 @@
   transform: translateX(-50%);
   min-width: 320px;
   max-width: 400px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
+  background: linear-gradient(135deg, 
+    rgb(26, 26, 28) 0%, 
+    rgb(20, 20, 22) 100%);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 6px;
+  box-shadow: 
+    0 40px 100px rgba(0, 0, 0, 0.9), 
+    0 0 0 1px rgba(16, 163, 127, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   z-index: 999;
   overflow: hidden;
+  animation: popupFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popupFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+/* 日间模式 - 问题下拉菜单 */
+[data-theme="light"] .as-question-dropdown-menu {
+  background: #ffffff;
+  backdrop-filter: none;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 .as-dropdown-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 13px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.5);
+  background: transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 4px;
+}
+
+/* 日间模式 - 下拉菜单头部 */
+[data-theme="light"] .as-dropdown-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.6);
+  background: transparent;
 }
 
 .as-question-list {
   max-height: 300px;
   overflow-y: auto;
-  padding: 8px;
+  padding: 0px;
 }
 
 .as-question-item {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  transition: background 0.2s ease;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  transition: all 0.15s ease;
   cursor: pointer;
+  margin-bottom: 2px;
 }
 
 .as-question-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* 日间模式 - 问题项悬停 */
+[data-theme="light"] .as-question-item {
+  background: #ffffff;
+  border: 1px solid transparent;
+}
+
+[data-theme="light"] .as-question-item:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  box-shadow: none;
 }
 
 .as-question-number {
@@ -1070,6 +1152,11 @@
   -webkit-box-orient: vertical;
 }
 
+/* 日间模式 - 问题文本 */
+[data-theme="light"] .as-question-text {
+  color: rgba(0, 0, 0, 0.75);
+}
+
 .as-question-empty {
   padding: 24px;
   text-align: center;
@@ -1077,14 +1164,19 @@
   font-size: 13px;
 }
 
-/* 模型指示器 - 低调展示 */
+/* 日间模式 - 空状态文本 */
+[data-theme="light"] .as-question-empty {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+/* 模型指示器 - 只显示内容，无背景无边框 */
 .as-model-indicator {
   display: flex;
   align-items: center;
-  padding: 4px 10px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
   margin-left: 8px;
 }
 
@@ -1092,24 +1184,41 @@
   pointer-events: none; /* 禁用交互 */
 }
 
-.as-model-indicator .model-selector-btn {
-  padding: 2px 6px;
-  border: none;
-  background: transparent;
-  box-shadow: none;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-  cursor: default;
-}
-
+/* 完全覆盖按钮样式，不受其他样式影响 */
+.as-model-indicator .model-selector-btn,
+.as-model-indicator .model-selector-btn.compact,
+.as-model-indicator .model-selector-btn.show-only,
+.as-model-indicator .model-selector-btn:hover,
 .as-model-indicator .model-selector-btn:disabled {
-  opacity: 1;
+  padding: 2px 6px !important;
+  border: none !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  cursor: default !important;
+  opacity: 1 !important;
+  border-radius: 0 !important;
 }
 
 .as-model-indicator .model-icon svg {
   width: 12px;
   height: 12px;
   opacity: 0.6;
+}
+
+/* 日间模式 */
+[data-theme="light"] .as-model-indicator .model-selector-btn,
+[data-theme="light"] .as-model-indicator .model-selector-btn.compact,
+[data-theme="light"] .as-model-indicator .model-selector-btn.show-only,
+[data-theme="light"] .as-model-indicator .model-selector-btn:hover,
+[data-theme="light"] .as-model-indicator .model-selector-btn:disabled {
+  background: transparent !important;
+  border: none !important;
+  color: rgba(0, 0, 0, 0.6) !important;
+  box-shadow: none !important;
 }
 
 .as-results-navbar .as-page-title {
@@ -1215,6 +1324,11 @@
   position: relative; /* 为蒙层loading提供定位基准 */
 }
 
+/* 日间模式 - 消息容器背景 */
+[data-theme="light"] .as-messages-container {
+  background: #ffffff;
+}
+
 /* 移除as-messages-container的滚动条样式，因为滚动现在由chat-messages处理 */
 
 /* 移除as-messages-container的滚动条样式，因为滚动现在由chat-messages处理 */
@@ -1306,6 +1420,11 @@
   overflow: visible;
 }
 
+/* 日间模式论文卡片 */
+[data-theme="light"] .as-papers-list-wrapper .paper-card {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
 .as-papers-list-wrapper .paper-card:last-child {
   border-bottom: none;
 }
@@ -1316,8 +1435,17 @@
   box-shadow: none;
 }
 
+[data-theme="light"] .as-papers-list-wrapper .paper-card:hover {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
 .as-papers-list-wrapper .paper-card.highlighted {
   background: rgba(16, 163, 127, 0.08);
+}
+
+[data-theme="light"] .as-papers-list-wrapper .paper-card.highlighted {
+  background: rgba(16, 163, 127, 0.1);
 }
 
 /* 隐藏来源信息 */
@@ -1362,6 +1490,13 @@
   transition: all 0.2s;
   font-variant-numeric: tabular-nums;
   padding: 0 5px;
+}
+
+/* 日间模式 - 论文序号 */
+[data-theme="light"] .as-papers-list-wrapper .rank-number {
+  color: rgba(16, 163, 127, 0.85);
+  background: rgba(16, 163, 127, 0.1);
+  border: 1px solid rgba(16, 163, 127, 0.2);
 }
 
 /* 移除序号的 hover 效果 */
@@ -1414,6 +1549,11 @@
   line-height: 1.3;
 }
 
+/* 日间模式期刊名称 - 保持主题色 */
+[data-theme="light"] .as-papers-list-wrapper .venue-name {
+  color: rgba(16, 163, 127, 0.85);
+}
+
 /* 论文标题样式 */
 .as-papers-list-wrapper .paper-header {
   display: flex;
@@ -1436,6 +1576,11 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   flex: 1;
+}
+
+/* 日间模式论文标题 */
+[data-theme="light"] .as-papers-list-wrapper .paper-title {
+  color: rgba(0, 0, 0, 0.9);
 }
 
 .as-papers-list-wrapper .paper-title:hover {
@@ -1462,13 +1607,28 @@
   text-overflow: ellipsis;
 }
 
+/* 日间模式作者信息 */
+[data-theme="light"] .as-papers-list-wrapper .paper-authors {
+  color: rgba(0, 0, 0, 0.6);
+}
+
 .as-papers-list-wrapper .author-name {
   color: rgba(255, 255, 255, 0.6);
+}
+
+/* 日间模式 - 作者名称 */
+[data-theme="light"] .as-papers-list-wrapper .author-name {
+  color: rgba(0, 0, 0, 0.6);
 }
 
 .as-papers-list-wrapper .author-more {
   color: rgba(255, 255, 255, 0.4);
   font-style: italic;
+}
+
+/* 日间模式 - 更多作者提示 */
+[data-theme="light"] .as-papers-list-wrapper .author-more {
+  color: rgba(0, 0, 0, 0.4);
 }
 
 /* 隐藏作者标签行 */
@@ -1516,6 +1676,11 @@
   overflow: hidden;
 }
 
+/* 日间模式TLDR文本 */
+[data-theme="light"] .as-papers-list-wrapper .tldr-text {
+  color: rgba(0, 0, 0, 0.55);
+}
+
 /* Abstract 摘要 - 作为主要摘要显示 */
 .as-papers-list-wrapper .paper-abstract-section {
   margin-bottom: 8px;
@@ -1553,6 +1718,11 @@
   text-overflow: ellipsis;
 }
 
+/* 日间模式摘要 */
+[data-theme="light"] .as-papers-list-wrapper .paper-abstract {
+  color: rgba(0, 0, 0, 0.6);
+}
+
 .as-papers-list-wrapper .paper-expand {
   display: none;
 }
@@ -1568,6 +1738,11 @@
   margin-top: 8px;
 }
 
+/* 日间模式元信息 */
+[data-theme="light"] .as-papers-list-wrapper .paper-meta {
+  color: rgba(0, 0, 0, 0.5);
+}
+
 /* 元信息项 - 简洁风格 */
 .as-papers-list-wrapper .meta-item {
   display: inline-flex;
@@ -1576,6 +1751,11 @@
   font-size: 12px;
   color: rgba(255, 255, 255, 0.5);
   font-weight: 400;
+}
+
+/* 日间模式元信息项 */
+[data-theme="light"] .as-papers-list-wrapper .meta-item {
+  color: rgba(0, 0, 0, 0.55);
 }
 
 .as-papers-list-wrapper .meta-item svg {
@@ -1594,6 +1774,10 @@
   white-space: nowrap;
 }
 
+[data-theme="light"] .as-papers-list-wrapper .meta-item.venue {
+  color: rgba(0, 0, 0, 0.6);
+}
+
 .as-papers-list-wrapper .meta-item.venue svg {
   color: var(--text-accent);
   opacity: 0.6;
@@ -1604,9 +1788,17 @@
   color: rgba(251, 191, 36, 0.9);
 }
 
+[data-theme="light"] .as-papers-list-wrapper .meta-item.citations {
+  color: rgba(245, 158, 11, 0.9);
+}
+
 .as-papers-list-wrapper .meta-item.citations svg {
   color: rgba(251, 191, 36, 0.9);
   opacity: 0.85;
+}
+
+[data-theme="light"] .as-papers-list-wrapper .meta-item.citations svg {
+  color: rgba(245, 158, 11, 0.9);
 }
 
 /* 被引用数 */
@@ -1630,6 +1822,10 @@
 /* 日期 */
 .as-papers-list-wrapper .meta-item.date svg {
   color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="light"] .as-papers-list-wrapper .meta-item.date svg {
+  color: rgba(0, 0, 0, 0.4);
 }
 
 /* 竖线分割 - 隐藏，使用gap */
@@ -1826,6 +2022,11 @@
   margin-top: calc((1.5rem * 1.4 - 24px) / 2);
 }
 
+/* 日间模式 - 用户图标 */
+[data-theme="light"] .message-user .message-content::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='rgba(59, 130, 246, 0.85)'%3E%3Cpath fill-rule='evenodd' d='M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z' clip-rule='evenodd'/%3E%3C/svg%3E");
+}
+
 /* AI 助手消息样式 */
 .message-assistant {
 }
@@ -1849,6 +2050,11 @@
   pointer-events: none;
 }
 
+/* 日间模式 - AI图标 */
+[data-theme="light"] .message-assistant .message-content::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='rgba(139, 92, 246, 0.8)'%3E%3Cpath d='M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253'/%3E%3C/svg%3E");
+}
+
 .message-user .message-text {
   font-size: 1.5rem;
   line-height: 1.4;
@@ -1861,12 +2067,60 @@
   min-height: 24px;
 }
 
+/* 日间模式 - 用户消息文本 */
+[data-theme="light"] .message-user .message-text {
+  color: rgba(0, 0, 0, 0.9);
+}
+
 /* AI 回答样式 - 标准阅读体验 */
 .message-assistant .message-text {
   font-size: 0.9375rem;
   line-height: 1.75;
   color: rgba(209, 213, 219, 0.95);
   margin-bottom: 0.5rem;
+}
+
+/* 日间模式 - AI助手消息文本 */
+[data-theme="light"] .message-assistant .message-text {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="light"] .message-assistant .message-markdown {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="light"] .message-assistant .message-markdown p {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="light"] .message-assistant .message-markdown h1,
+[data-theme="light"] .message-assistant .message-markdown h2,
+[data-theme="light"] .message-assistant .message-markdown h3 {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .message-assistant .message-markdown code {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .message-assistant .message-markdown pre {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .message-assistant .message-markdown pre code {
+  background: transparent;
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .message-assistant .message-markdown a {
+  color: #10a37f;
+}
+
+[data-theme="light"] .message-assistant .message-markdown blockquote {
+  border-left-color: rgba(0, 0, 0, 0.2);
+  color: rgba(0, 0, 0, 0.65);
 }
 
 .message-assistant .message-markdown {
@@ -1876,6 +2130,11 @@
 /* 消息之间的分隔 */
 .message + .message {
   border-top: 1px solid rgba(148, 163, 184, 0.06);
+}
+
+/* 日间模式 - 消息分隔线 */
+[data-theme="light"] .message + .message {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 /* AI 思考中 - Skeleton Loading */
@@ -1900,6 +2159,16 @@
   animation: shimmer 1.5s infinite;
   border-radius: 4px;
   margin-bottom: 0.75rem;
+}
+
+/* 日间模式 - 骨架屏加载效果 */
+[data-theme="light"] .skeleton-line {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.06) 0%,
+    rgba(0, 0, 0, 0.12) 50%,
+    rgba(0, 0, 0, 0.06) 100%
+  );
 }
 
 .skeleton-line:last-child {
@@ -2199,6 +2468,11 @@
   animation: fadeIn 0.3s ease-in;
 }
 
+/* 日间模式 - 建议问题分隔线 */
+[data-theme="light"] .suggested-questions-inline {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -2219,6 +2493,11 @@
   font-weight: 600;
   color: rgba(148, 163, 184, 0.75);
   letter-spacing: 0.2px;
+}
+
+/* 日间模式 - 建议问题标题 */
+[data-theme="light"] .suggested-questions-title {
+  color: rgba(0, 0, 0, 0.6);
 }
 
 .suggested-questions-list {
@@ -2242,6 +2521,13 @@
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   width: 100%;
+}
+
+/* 日间模式 - 建议问题按钮 */
+[data-theme="light"] .suggested-question-btn {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.75);
 }
 
 .suggested-question-btn:disabled {
@@ -2268,6 +2554,14 @@
   color: rgba(255, 255, 255, 0.95);
   transform: translateX(4px);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* 日间模式 - 建议问题按钮悬停 */
+[data-theme="light"] .suggested-question-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(16, 163, 127, 0.4);
+  color: rgba(0, 0, 0, 0.85);
+  box-shadow: 0 2px 12px rgba(16, 163, 127, 0.15);
 }
 
 .suggested-question-btn::before {
@@ -2298,6 +2592,11 @@
   flex-shrink: 0;
 }
 
+/* 日间模式 - 输入容器背景 */
+[data-theme="light"] .chat-input-container {
+  background: transparent;
+}
+
 .chat-input-form {
   display: flex;
   gap: 0.5rem;
@@ -2312,10 +2611,29 @@
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
 }
 
+/* 日间模式 - 输入框表单 */
+[data-theme="light"] .chat-input-form {
+  background: #ffffff;
+  border: 2px solid rgba(16, 163, 127, 0.45);
+  box-shadow: 0 20px 70px rgba(16, 163, 127, 0.12), 
+              0 10px 40px rgba(0, 0, 0, 0.06), 
+              0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
 .chat-input-form:focus-within {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.25);
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+}
+
+/* 日间模式 - 输入框聚焦状态 */
+[data-theme="light"] .chat-input-form:focus-within {
+  background: #ffffff;
+  border-color: rgba(16, 163, 127, 0.6);
+  box-shadow: 0 20px 70px rgba(16, 163, 127, 0.15), 
+              0 10px 40px rgba(0, 0, 0, 0.08), 
+              0 4px 12px rgba(0, 0, 0, 0.05),
+              0 0 0 3px rgba(16, 163, 127, 0.1);
 }
 
 .chat-input {
@@ -2341,6 +2659,15 @@
 
 .chat-input::placeholder {
   color: rgba(255, 255, 255, 0.4);
+}
+
+/* 日间模式 - 输入框文字和占位符 */
+[data-theme="light"] .chat-input {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .chat-input::placeholder {
+  color: rgba(0, 0, 0, 0.4);
 }
 
 .chat-input::-webkit-scrollbar {
@@ -2376,14 +2703,37 @@
   padding: 0;
 }
 
+/* 日间模式 - 发送按钮 */
+[data-theme="light"] .btn-send {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.8) 0%, rgba(16, 163, 127, 0.7) 100%);
+  border: 1px solid rgba(16, 163, 127, 0.9);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(16, 163, 127, 0.25);
+}
+
 .btn-send:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* 日间模式 - 发送按钮悬停 */
+[data-theme="light"] .btn-send:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.9) 0%, rgba(16, 163, 127, 0.8) 100%);
+  transform: scale(1.05);
+  box-shadow: 0 4px 10px rgba(16, 163, 127, 0.3);
 }
 
 .btn-send:disabled {
   opacity: 0.25;
   cursor: not-allowed;
   background: rgba(255, 255, 255, 0.08);
+}
+
+/* 日间模式 - 发送按钮禁用 */
+[data-theme="light"] .btn-send:disabled {
+  background: rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.3);
+  box-shadow: none;
 }
 
 .spinner-small {

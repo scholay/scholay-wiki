@@ -379,15 +379,15 @@
 }
 
 [data-theme="light"] .tab-btn {
-  color: var(--text-tertiary);
+  color: rgba(0, 0, 0, 0.5);
 }
 
 [data-theme="light"] .tab-btn:hover {
-  color: var(--text-secondary);
+  color: rgba(0, 0, 0, 0.7);
 }
 
 [data-theme="light"] .tab-btn.active {
-  color: var(--text-accent);
+  color: #10a37f;
 }
 
 [data-theme="light"] .tab-btn.active::after {
@@ -395,25 +395,25 @@
 }
 
 [data-theme="light"] .tab-title {
-  color: var(--text-secondary);
+  color: rgba(0, 0, 0, 0.7);
 }
 
 [data-theme="light"] .close-btn {
-  color: var(--text-quaternary);
+  color: rgba(0, 0, 0, 0.4);
 }
 
 [data-theme="light"] .close-btn:hover {
-  background: var(--surface-hover);
-  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.7);
 }
 
 [data-theme="light"] .preview-title-bar h2 {
-  color: var(--text-primary);
+  color: rgba(0, 0, 0, 0.9);
 }
 
 [data-theme="light"] .view-detail-link {
   background: rgba(16, 163, 127, 0.1);
-  color: var(--text-accent);
+  color: #10a37f;
 }
 
 [data-theme="light"] .view-detail-link:hover {
@@ -433,12 +433,12 @@
 }
 
 [data-theme="light"] .detail-label {
-  color: var(--text-secondary);
+  color: rgba(0, 0, 0, 0.5);
   font-weight: 500;
 }
 
 [data-theme="light"] .detail-value {
-  color: var(--text-primary);
+  color: rgba(0, 0, 0, 0.85);
   font-weight: 400;
 }
 
@@ -448,22 +448,22 @@
 }
 
 [data-theme="light"] .metrics-row .detail-label {
-  color: var(--text-secondary);
+  color: rgba(0, 0, 0, 0.5);
   font-weight: 500;
 }
 
 [data-theme="light"] .metric-num {
-  color: var(--text-primary);
+  color: rgba(0, 0, 0, 0.9);
   font-weight: 600;
 }
 
 [data-theme="light"] .metric-name {
-  color: var(--text-tertiary);
+  color: rgba(0, 0, 0, 0.45);
 }
 
 [data-theme="light"] .field-tag {
-  background: var(--surface-hover);
-  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.7);
 }
 
 [data-theme="light"] .detail-block {
@@ -471,21 +471,21 @@
 }
 
 [data-theme="light"] .detail-block-label {
-  color: var(--text-tertiary);
+  color: rgba(0, 0, 0, 0.5);
 }
 
 [data-theme="light"] .detail-block-content {
-  color: var(--text-primary);
+  color: rgba(0, 0, 0, 0.85);
 }
 
 [data-theme="light"] .author-tag {
-  background: var(--surface-hover);
-  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.7);
 }
 
 [data-theme="light"] .author-tag.author-more {
   background: transparent;
-  color: var(--text-tertiary);
+  color: rgba(0, 0, 0, 0.5);
 }
 
 [data-theme="light"] .action-btn {
@@ -512,24 +512,24 @@
 }
 
 [data-theme="light"] .empty-preview {
-  color: var(--text-quaternary);
+  color: rgba(0, 0, 0, 0.35);
 }
 
 [data-theme="light"] .empty-preview-icon {
-  background: var(--surface-hover);
-  border-color: var(--border);
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.1);
 }
 
 [data-theme="light"] .empty-preview-icon svg {
-  color: var(--text-quaternary);
+  color: rgba(0, 0, 0, 0.35);
 }
 
 [data-theme="light"] .empty-preview h3 {
-  color: var(--text-tertiary);
+  color: rgba(0, 0, 0, 0.5);
 }
 
 [data-theme="light"] .empty-preview p {
-  color: var(--text-quaternary);
+  color: rgba(0, 0, 0, 0.35);
 }
 
 /* 日间模式 TLDR 块样式 */
@@ -538,7 +538,7 @@
 }
 
 [data-theme="light"] .block-label {
-  color: var(--text-secondary);
+  color: rgba(0, 0, 0, 0.6);
   font-weight: 500;
 }
 
@@ -548,11 +548,11 @@
 }
 
 [data-theme="light"] .tldr-block .block-text {
-  color: var(--text-primary);
+  color: rgba(0, 0, 0, 0.85);
 }
 
 /* 日间模式 detail-block 样式 */
 [data-theme="light"] .detail-block .detail-block-content {
-  color: var(--text-primary);
+  color: rgba(0, 0, 0, 0.85);
   line-height: 1.6;
 }

@@ -165,15 +165,23 @@
     0 0 0 1px rgba(16, 163, 127, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   z-index: 1003;
-  animation: popupFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: popupFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  /* 防止闪烁和布局抖动 */
+  will-change: transform, opacity;
+  transform-origin: bottom left;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* 初始状态 - 防止未渲染前可见 */
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
 }
 
 @keyframes popupFadeIn {
-  from {
+  0% {
     opacity: 0;
     transform: translateY(8px) scale(0.96);
   }
-  to {
+  100% {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
