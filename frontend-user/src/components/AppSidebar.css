@@ -1591,3 +1591,68 @@
 [data-theme="light"] .history-list::-webkit-scrollbar-thumb:hover {
   background: var(--text-quaternary);
 }
+
+/* 登录按钮样式 */
+.sidebar-login-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  margin: 4px 8px;
+  width: calc(100% - 16px);
+}
+
+.sidebar-login-btn:hover {
+  background: var(--surface-hover);
+}
+
+.sidebar-login-btn .login-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.sidebar-login-btn .login-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 折叠状态下的登录按钮 */
+.app-sidebar.collapsed .sidebar-login-btn {
+  padding: 12px;
+  justify-content: center;
+  margin: 4px;
+  width: calc(100% - 8px);
+}
+
+.app-sidebar.collapsed .sidebar-login-btn .login-text {
+  display: none;
+}
+
+/* 暗色主题下的登录按钮 */
+[data-theme="dark"] .sidebar-login-btn {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .sidebar-login-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* 亮色主题下的登录按钮 */
+[data-theme="light"] .sidebar-login-btn {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .sidebar-login-btn:hover {
+  background: var(--surface-hover);
+}

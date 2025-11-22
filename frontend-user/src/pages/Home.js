@@ -163,15 +163,9 @@ const Home = () => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
 
-    // Check if user is authenticated
-    if (!isAuthenticated) {
-      setShowAuthModal(true);
-      return;
-    }
-
     const userMessage = searchQuery.trim();
 
-    // 学术检索模式：直接跳转到结果页面，带上筛选条件
+    // 学术检索模式：允许未登录用户使用
     if (searchMode === 'normal') {
       const params = new URLSearchParams({ query: userMessage });
 
@@ -187,8 +181,14 @@ const Home = () => {
       return;
     }
 
-    // 智能分析模式：跳转到智能分析页面，带上query参数以便自动搜索
+    // 智能分析模式：需要登录才能使用
     if (searchMode === 'advanced') {
+      // Check if user is authenticated
+      if (!isAuthenticated) {
+        setShowAuthModal(true);
+        return;
+      }
+
       const params = new URLSearchParams({
         query: userMessage,
         modelLevel: modelLevel  // 传递模型级别
@@ -295,9 +295,8 @@ const Home = () => {
                         e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
                       }}
                       onFocus={() => {
-                        if (!isAuthenticated) {
-                          setShowAuthModal(true);
-                        }
+                        // 移除自动弹窗逻辑，让用户可以正常输入
+                        // 只在智能分析模式下提交时才检查登录
                       }}
                       onCompositionStart={() => setIsComposing(true)}
                       onCompositionEnd={() => setIsComposing(false)}

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { useSearchParams, useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
-import { scholarAPI } from '../services/api';
+import { scholarAPI, publicScholarAPI } from '../services/api';
 import PaperPreview from '../components/PaperPreview';
 import SearchFilters from '../components/SearchFilters';
 import PaperListSkeleton from '../components/PaperListSkeleton';
@@ -12,6 +12,9 @@ import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory, renam
 import SEO from '../components/SEO';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
 import './SearchResultsPage.css';
+
+// 懒加载 AuthModal
+const AuthModal = lazy(() => import('../components/AuthModal'));
 
 const SearchResultsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -182,7 +185,9 @@ const SearchResultsPage = () => {
         params.venue = [currentFilters.venue];
       }
 
-      const response = await scholarAPI.searchPapers(params);
+      // 根据用户是否登录选择不同的API
+      const searchAPI = isAuthenticated ? scholarAPI : publicScholarAPI;
+      const response = await searchAPI.searchPapers(params);
 
       if (response.data.code === 0 && response.data.data) {
         const responseData = response.data.data;
@@ -227,9 +232,9 @@ const SearchResultsPage = () => {
         // 保存查询信息用于展示
         setQueryInfo(finalQueryInfo);
 
-        // 只有在saveToHistory为true时才添加到搜索历史
-        if (saveToHistory) {
-          const historyItem = addSearchHistory(query, currentFilters, resultsTotal, user?.id);
+        // 只有在saveToHistory为true且用户已登录时才添加到搜索历史
+        if (saveToHistory && isAuthenticated && user?.id) {
+          const historyItem = addSearchHistory(query, currentFilters, resultsTotal, user.id);
           loadSearchHistory();
           // 自动选中刚添加的历史记录
           if (historyItem && historyItem.id) {
@@ -299,27 +304,24 @@ const SearchResultsPage = () => {
     loadSearchHistory();
   };
 
-  // 更新侧边栏配置
+  // 更新侧边栏配置 - 只在用户登录时
   useEffect(() => {
-    updateSidebarConfig({
-      showHistory: true,
-      historyType: 'search',
-      historyItems: searchHistory,
-      currentItemId: selectedHistoryId,
-      onSelectItem: handleSelectSearchHistory,
-      onDeleteItem: handleDeleteSearchHistory,
-      onRenameItem: handleRenameSearchHistory,
-      onNewItem: null,
-      historyLoading: false,
-    });
-  }, [searchHistory, selectedHistoryId, updateSidebarConfig]);
-
-  // Check authentication - redirect to home if not logged in
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/', { replace: true });
+    if (isAuthenticated) {
+      updateSidebarConfig({
+        showHistory: true,
+        historyType: 'search',
+        historyItems: searchHistory,
+        currentItemId: selectedHistoryId,
+        onSelectItem: handleSelectSearchHistory,
+        onDeleteItem: handleDeleteSearchHistory,
+        onRenameItem: handleRenameSearchHistory,
+        onNewItem: null,
+        historyLoading: false,
+      });
     }
-  }, [isAuthenticated, navigate]);
+  }, [searchHistory, selectedHistoryId, updateSidebarConfig, isAuthenticated]);
+
+  // 不再需要认证检查 - 允许未登录用户访问
 
   // 初始化时从URL参数加载并搜索
   useEffect(() => {

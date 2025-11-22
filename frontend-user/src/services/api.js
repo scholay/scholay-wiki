@@ -175,6 +175,20 @@ export const scholarAPI = {
     api.get(`/scholar/papers/${paperId}/references`, { params }),
 };
 
+// 公共API - 不需要认证
+const publicApi = axios.create({
+  baseURL: `${API_URL}/api/v1/public`,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+export const publicScholarAPI = {
+  // Public search papers (公共学术检索 - 不需要登录)
+  searchPapers: (params) =>
+    publicApi.post('/papers/search', params),
+};
+
 export const configAPI = {
   // Get privacy policy
   getPrivacyPolicy: () =>

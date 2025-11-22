@@ -23,7 +23,9 @@ const AppSidebar = ({
   onRenameItem = null, // 重命名回调
   onNewItem = null,
   historyLoading = false,
-  disableActiveState = false // 是否禁用选中状态
+  disableActiveState = false, // 是否禁用选中状态
+  isAuthenticated = true, // 新增：是否已登录
+  onShowLogin = null // 新增：显示登录弹窗的回调
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -507,30 +509,57 @@ const AppSidebar = ({
 
       {/* 底部用户信息区域 */}
       <div className="sidebar-user-section sidebar-footer">
-        <div
-          ref={avatarRef}
-          className="sidebar-user-info"
-          onClick={() => setShowUserMenu(!showUserMenu)}
-          onMouseEnter={() => {
-            if (collapsed) {
-              handleMouseEnter('user', avatarRef.current);
-            }
-          }}
-          onMouseLeave={handleMouseLeave}
-        >
-          <div className="user-avatar">
-            {getUserInitial()}
-          </div>
-          {!collapsed && (
-            <div className="user-email-wrapper">
-              <span className="user-email" title={getUserIdentifier()}>{getUserIdentifier()}</span>
+        {isAuthenticated ? (
+          // 已登录：显示用户头像
+          <div
+            ref={avatarRef}
+            className="sidebar-user-info"
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            onMouseEnter={() => {
+              if (collapsed) {
+                handleMouseEnter('user', avatarRef.current);
+              }
+            }}
+            onMouseLeave={handleMouseLeave}
+          >
+            <div className="user-avatar">
+              {getUserInitial()}
             </div>
-          )}
-        </div>
+            {!collapsed && (
+              <div className="user-email-wrapper">
+                <span className="user-email" title={getUserIdentifier()}>{getUserIdentifier()}</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          // 未登录：显示登录按钮
+          <button
+            className="sidebar-login-btn"
+            onClick={() => {
+              // 如果提供了显示登录弹窗的回调，使用它；否则导航到首页
+              if (onShowLogin) {
+                onShowLogin();
+              } else {
+                navigate('/');
+              }
+            }}
+            onMouseEnter={() => {
+              if (collapsed) {
+                handleMouseEnter('login', avatarRef.current);
+              }
+            }}
+            onMouseLeave={handleMouseLeave}
+          >
+            <svg className="login-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            {!collapsed && <span className="login-text">登录</span>}
+          </button>
+        )}
       </div>
 
       {/* 用户菜单弹窗 - 使用Portal渲染到body，向上弹出 */}
-      {showUserMenu && ReactDOM.createPortal(
+      {showUserMenu && isAuthenticated && ReactDOM.createPortal(
         <div
           ref={userMenuRef}
           className={`user-menu-popup ${collapsed ? 'collapsed-menu' : ''}`}

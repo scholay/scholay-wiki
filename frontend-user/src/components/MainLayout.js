@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useState, lazy, Suspense } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
 import AppSidebar from './AppSidebar';
+
+// 懒加载 AuthModal
+const AuthModal = lazy(() => import('./AuthModal'));
 
 /**
  * MainLayout - 主布局组件
@@ -14,12 +17,16 @@ import AppSidebar from './AppSidebar';
 const MainLayout = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const { sidebarConfig } = useSidebar();
+  const location = useLocation();
   
   // 侧边栏折叠状态 - 从 localStorage 持久化
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebarCollapsed');
     return saved === 'true';
   });
+  
+  // 登录弹窗状态
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // 保存侧边栏状态到 localStorage
   const handleToggleSidebar = () => {
@@ -33,11 +40,22 @@ const MainLayout = () => {
   const handleLogout = () => {
     logout();
   };
+  
+  const handleShowLogin = () => {
+    setShowAuthModal(true);
+  };
+  
+  const handleLoginSuccess = () => {
+    setShowAuthModal(false);
+  };
+
+  // 判断是否应该显示侧边栏
+  const shouldShowSidebar = isAuthenticated || location.pathname === '/search-results';
 
   return (
     <>
-      {/* 持久化的侧边栏 - 只在登录时显示 */}
-      {isAuthenticated && (
+      {/* 持久化的侧边栏 - 在搜索结果页面总是显示 */}
+      {shouldShowSidebar && (
         <AppSidebar
           user={user}
           onLogout={handleLogout}
@@ -52,11 +70,24 @@ const MainLayout = () => {
           onRenameItem={sidebarConfig.onRenameItem}
           onNewItem={sidebarConfig.onNewItem}
           historyLoading={sidebarConfig.historyLoading}
+          isAuthenticated={isAuthenticated}
+          onShowLogin={handleShowLogin}
         />
       )}
       
       {/* 子路由内容 - 通过 context 传递 sidebarCollapsed 状态 */}
-      <Outlet context={{ sidebarCollapsed, isAuthenticated }} />
+      <Outlet context={{ sidebarCollapsed: shouldShowSidebar ? sidebarCollapsed : false, isAuthenticated }} />
+      
+      {/* 登录弹窗 */}
+      {showAuthModal && (
+        <Suspense fallback={<div>Loading...</div>}>
+          <AuthModal 
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+            onLoginSuccess={handleLoginSuccess}
+          />
+        </Suspense>
+      )}
     </>
   );
 };

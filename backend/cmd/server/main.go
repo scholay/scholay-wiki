@@ -421,6 +421,8 @@ func main() {
 		{
 			// Public paper detail endpoint - for anonymous access from paper detail page
 			publicAPI.GET("/papers/:paperId", scholarHandler.GetPaper)
+			// Public search endpoint - for anonymous access from home page
+			publicAPI.POST("/papers/search", scholarHandler.SearchPapers)
 		}
 
 		// Semantic Scholar API routes (protected - requires user authentication)

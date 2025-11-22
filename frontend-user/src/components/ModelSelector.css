@@ -8,7 +8,7 @@
   display: inline-flex;
 }
 
-/* 模型选择器按钮 - Premium Glassmorphism */
+/* 模型选择器按钮 - Premium Glassmorphism (与筛选按钮一致) */
 .model-selector-btn {
   display: flex;
   align-items: center;
@@ -19,7 +19,7 @@
   background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  color: var(--text-tertiary);
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
@@ -39,15 +39,18 @@
   padding: 6px 10px;
   border-radius: 12px;
   font-size: 12px;
-  background: transparent;
-  border: none;
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: none;
   gap: 5px;
   color: rgba(255, 255, 255, 0.7);
 }
 
 .model-selector-btn.compact:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
   color: rgba(255, 255, 255, 0.9);
 }
 
@@ -63,8 +66,11 @@
 
 .model-selector-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.05);
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.85);
   border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .model-selector-btn:disabled {
@@ -72,7 +78,7 @@
   cursor: not-allowed;
 }
 
-/* 展开状态样式 */
+/* 展开状态样式 (与筛选按钮一致) */
 .model-selector-btn.open {
   background: linear-gradient(135deg, 
     rgba(16, 163, 127, 0.25) 0%, 
@@ -146,11 +152,18 @@
   bottom: calc(100% + 12px);
   left: 0;
   min-width: 320px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: linear-gradient(135deg, 
+    rgb(26, 26, 28) 0%, 
+    rgb(20, 20, 22) 100%);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   padding: 6px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 40px 100px rgba(0, 0, 0, 0.9), 
+    0 0 0 1px rgba(16, 163, 127, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   z-index: 1003;
   animation: popupFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -250,10 +263,11 @@
 }
 
 .check-icon {
-  color: var(--text-accent);
+  color: #10a37f;
   flex-shrink: 0;
   width: 16px;
   height: 16px;
+  filter: drop-shadow(0 1px 2px rgba(16, 163, 127, 0.3));
 }
 
 .model-option-desc {
@@ -300,6 +314,159 @@
   .model-option {
     padding: 0.75rem 0.875rem;
   }
+}
+
+/* ============================================
+   暗色主题样式
+   ============================================ */
+
+/* 模型选择器按钮 - 暗色主题 (与筛选按钮一致) */
+[data-theme="dark"] .model-selector-btn {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .model-selector-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .model-selector-btn.open {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.25) 0%, 
+    rgba(16, 163, 127, 0.15) 100%);
+  border-color: rgba(16, 163, 127, 0.3);
+  color: var(--text-primary);
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.3),
+    0 0 0 1px rgba(16, 163, 127, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.15);
+}
+
+/* 下拉菜单 - 暗色主题完全不透明背景 */
+[data-theme="dark"] .model-selector-dropdown {
+  background: linear-gradient(135deg, 
+    rgb(26, 26, 28) 0%, 
+    rgb(20, 20, 22) 100%);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 40px 100px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(16, 163, 127, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* 下拉头部 - 暗色主题 */
+[data-theme="dark"] .dropdown-header {
+  color: rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 4px;
+  padding-bottom: 10px;
+}
+
+/* 模型选项 - 暗色主题 */
+[data-theme="dark"] .model-option {
+  background: rgba(255, 255, 255, 0.03);
+  transition: all 0.15s ease;
+  border-radius: 10px;
+}
+
+[data-theme="dark"] .model-option:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .model-option.selected {
+  background: linear-gradient(135deg,
+    rgba(16, 163, 127, 0.15) 0%,
+    rgba(16, 163, 127, 0.08) 100%);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .model-option-icon-wrapper {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .model-option.selected .model-option-icon-wrapper {
+  background: rgba(16, 163, 127, 0.12);
+  border-color: rgba(16, 163, 127, 0.2);
+  box-shadow: 0 2px 6px rgba(16, 163, 127, 0.15);
+}
+
+/* 文字颜色 - 暗色主题 */
+[data-theme="dark"] .model-option-label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .model-option-desc {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .model-option.selected .model-option-label {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+}
+
+[data-theme="dark"] .model-option.selected .model-option-desc {
+  color: rgba(16, 163, 127, 0.9);
+}
+
+[data-theme="dark"] .model-option-quota {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .model-option-quota.unlimited {
+  color: rgba(16, 163, 127, 0.8);
+}
+
+/* 紧凑模式 - 暗色主题 */
+[data-theme="dark"] .model-selector-btn.compact {
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .model-selector-btn.compact:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .model-selector-btn.compact.open {
+  background: rgba(16, 163, 127, 0.15);
+  border-color: rgba(16, 163, 127, 0.25);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* 禁用状态 - 暗色主题 */
+[data-theme="dark"] .model-option:disabled {
+  opacity: 0.3;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="dark"] .model-option-badge {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.2);
+  color: rgba(251, 191, 36, 0.9);
 }
 
 /* ============================================
