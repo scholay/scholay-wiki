@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
-import { useSearchParams, useNavigate, useOutletContext } from 'react-router-dom';
+import { useSearchParams, useNavigate, useOutletContext, useLocation } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
 import { scholarAPI, publicScholarAPI } from '../services/api';
@@ -19,6 +19,7 @@ const AuthModal = lazy(() => import('../components/AuthModal'));
 const SearchResultsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, user } = useAuth();
   const { updateSidebarConfig } = useSidebar();
   const outletContext = useOutletContext();
@@ -346,30 +347,54 @@ const SearchResultsPage = () => {
 
   // 监听论文列表滚动，控制搜索框收缩
   useEffect(() => {
-    const container = papersContainerRef.current;
-    if (!container) return;
-
-    let lastScrollTop = 0;
-    const scrollThreshold = 50; // 滚动多少像素后触发收缩
-
-    const handleScroll = () => {
-      const scrollTop = container.scrollTop;
+    let scrollHandler = null;
+    let retryCount = 0;
+    const maxRetries = 10;
+    
+    const setupScrollListener = () => {
+      const container = papersContainerRef.current;
       
-      // 向下滚动超过阈值时收缩
-      if (scrollTop > scrollThreshold && !isSearchBarCollapsed) {
-        setIsSearchBarCollapsed(true);
+      if (!container) {
+        // 如果容器还不存在，重试
+        if (retryCount < maxRetries) {
+          retryCount++;
+          setTimeout(setupScrollListener, 200);
+        }
+        return;
       }
-      // 滚动回顶部时展开
-      else if (scrollTop <= 10 && isSearchBarCollapsed) {
-        setIsSearchBarCollapsed(false);
-      }
-      
-      lastScrollTop = scrollTop;
+
+      const scrollThreshold = 50; // 滚动多少像素后触发收缩
+
+      scrollHandler = () => {
+        const scrollTop = container.scrollTop;
+        
+        // 向下滚动超过阈值时收缩
+        if (scrollTop > scrollThreshold) {
+          setIsSearchBarCollapsed(true);
+        }
+        // 滚动回顶部时展开
+        else if (scrollTop <= 10) {
+          setIsSearchBarCollapsed(false);
+        }
+      };
+
+      // 初始化时检查滚动位置
+      scrollHandler();
+
+      // 添加滚动监听器
+      container.addEventListener('scroll', scrollHandler, { passive: true });
     };
 
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [isSearchBarCollapsed]);
+    // 开始设置监听器
+    setupScrollListener();
+
+    // 清理函数
+    return () => {
+      if (scrollHandler && papersContainerRef.current) {
+        papersContainerRef.current.removeEventListener('scroll', scrollHandler);
+      }
+    };
+  }, [location.pathname, papers.length]); // 依赖于路径变化和论文数据变化
 
   // 处理搜索
   const handleSearch = (e) => {
