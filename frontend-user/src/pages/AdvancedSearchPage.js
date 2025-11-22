@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
@@ -10,6 +10,9 @@ import QuotaModal from '../components/QuotaModal';
 import { AdvancedSearchIcon, NormalSearchIcon } from '../components/SearchIcons';
 import api, { conversationAPI, subscriptionAPI } from '../services/api';
 import './AdvancedSearchPage.css';
+
+// 懒加载 AuthModal
+const AuthModal = lazy(() => import('../components/AuthModal'));
 
 // 辅助函数：根据parent_message_id组织消息，确保问答对正确匹配
 // 对于有parent_message_id的新消息，使用严格的父子关系
@@ -97,6 +100,7 @@ const AdvancedSearchPage = () => {
   const [papers, setPapers] = useState([]);
   const [papersTotal, setPapersTotal] = useState(0);
   const [showQuotaModal, setShowQuotaModal] = useState(false); // 配额不足弹窗
+  const [showAuthModal, setShowAuthModal] = useState(false); // 登录弹窗
   const [paperSets, setPaperSets] = useState([]); // 多个论文集合，用于 Tab 切换
   const [activeTab, setActiveTab] = useState(0); // 当前激活的 tab
   const [streamingContent, setStreamingContent] = useState('');
@@ -147,12 +151,7 @@ const AdvancedSearchPage = () => {
   const userScrolledRef = useRef(false); // 标记用户是否手动滚动过
   const isLoadingHistoryRef = useRef(false); // 标记是否正在加载历史对话
 
-  // 如果用户未登录，跳转到首页（但要等认证状态加载完成）
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      navigate('/');
-    }
-  }, [isAuthenticated, authLoading, navigate]);
+  // 移除自动跳转逻辑，允许未登录用户访问页面
 
   // 加载对话历史
   useEffect(() => {
@@ -646,20 +645,22 @@ const AdvancedSearchPage = () => {
     };
   }, []);
 
-  // 更新侧边栏配置
+  // 更新侧边栏配置 - 只在登录状态下更新
   useEffect(() => {
-    updateSidebarConfig({
-      showHistory: true,
-      historyType: 'conversation',
-      historyItems: conversations,
-      currentItemId: currentConversationId,
-      onSelectItem: handleSelectConversation,
-      onDeleteItem: handleDeleteConversation,
-      onRenameItem: handleRenameConversation,
-      onNewItem: handleNewConversation,
-      historyLoading: conversationsLoading,
-    });
-  }, [conversations, currentConversationId, conversationsLoading, updateSidebarConfig]);
+    if (isAuthenticated) {
+      updateSidebarConfig({
+        showHistory: true,
+        historyType: 'conversation',
+        historyItems: conversations,
+        currentItemId: currentConversationId,
+        onSelectItem: handleSelectConversation,
+        onDeleteItem: handleDeleteConversation,
+        onRenameItem: handleRenameConversation,
+        onNewItem: handleNewConversation,
+        historyLoading: conversationsLoading,
+      });
+    }
+  }, [conversations, currentConversationId, conversationsLoading, updateSidebarConfig, isAuthenticated]);
 
   const handleNewConversation = () => {
     if (eventSourceRef.current) {
@@ -779,6 +780,12 @@ const AdvancedSearchPage = () => {
 
   const handleInitialSearch = async (query) => {
     if (!query.trim()) return;
+
+    // 检查是否登录，未登录则弹出登录弹窗
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
 
     const userMessage = query.trim();
     const isFirstMessage = messages.length === 0;
@@ -1949,6 +1956,23 @@ const AdvancedSearchPage = () => {
         onClose={() => setShowQuotaModal(false)}
         message="当前模型配额已用完，升级订阅即可解锁更多功能"
       />
+
+      {/* 登录弹窗 */}
+      {showAuthModal && (
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+            onSuccess={() => {
+              setShowAuthModal(false);
+              // 登录成功后可以自动执行搜索
+              if (searchQuery.trim()) {
+                handleSearch({ preventDefault: () => {} });
+              }
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };

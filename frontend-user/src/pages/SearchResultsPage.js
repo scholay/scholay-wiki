@@ -632,7 +632,7 @@ const SearchResultsPage = () => {
       />
 
       {/* 主内容区域 */}
-      <div className={`search-results-content ${isAuthenticated ? (sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded') : 'no-sidebar'}`}>
+      <div className={`search-results-content ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
         {isEmptyState ? (
           // 空状态：类似首页的简洁布局
           <div className="empty-search-layout">

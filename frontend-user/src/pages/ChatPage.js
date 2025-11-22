@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { flushSync } from 'react-dom';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -9,6 +9,9 @@ import { useSidebar } from '../contexts/SidebarContext';
 import api, { subscriptionAPI } from '../services/api';
 import './ChatPageNew.css';
 import 'highlight.js/styles/github-dark.css';
+
+// 懒加载 AuthModal
+const AuthModal = lazy(() => import('../components/AuthModal'));
 
 // Code Block Component with Copy Button (Memoized for performance)
 const CodeBlock = React.memo(({ inline, className, children, ...props }) => {
@@ -81,6 +84,7 @@ function ChatPage() {
   const [showModelDropdown, setShowModelDropdown] = useState(false); // Model selector dropdown state
   const [quota, setQuota] = useState(null); // AI Chat quota limits
   const [usage, setUsage] = useState(null); // AI Chat usage counts
+  const [showAuthModal, setShowAuthModal] = useState(false); // 登录弹窗
   const [hoveredMessage, setHoveredMessage] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
   const [editContent, setEditContent] = useState('');
@@ -100,6 +104,9 @@ function ChatPage() {
   // Fetch AI Chat quota and usage
   useEffect(() => {
     const fetchQuotaAndUsage = async () => {
+      // 只在登录状态下获取配额
+      if (!isAuthenticated) return;
+      
       try {
         const response = await subscriptionAPI.getUsage();
         if (response.data.code === 0) {
@@ -129,7 +136,10 @@ function ChatPage() {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    loadConversations();
+    // 只在登录状态下加载对话历史
+    if (isAuthenticated) {
+      loadConversations();
+    }
   }, [isAuthenticated]);
 
   // Save sidebar state to localStorage
@@ -258,6 +268,12 @@ function ChatPage() {
   };
 
   const createNewConversation = async (content) => {
+    // 检查是否登录，未登录则弹出登录弹窗
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+    
     try {
       setIsStreaming(true);
       setStreamingContent('');
@@ -305,6 +321,12 @@ function ChatPage() {
 
   const sendMessage = async (content) => {
     if (!content.trim()) return;
+
+    // 检查是否登录，未登录则弹出登录弹窗
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
 
     if (!currentConversation) {
       await createNewConversation(content);
@@ -753,20 +775,22 @@ function ChatPage() {
     }
   };
 
-  // 更新侧边栏配置
+  // 更新侧边栏配置 - 只在登录状态下更新
   useEffect(() => {
-    updateSidebarConfig({
-      showHistory: true,
-      historyType: 'conversation',
-      historyItems: conversations,
-      currentItemId: currentConversation?.id || null,
-      onSelectItem: loadConversation,
-      onDeleteItem: deleteConversation,
-      onRenameItem: renameConversation,
-      onNewItem: handleNewConversation,
-      historyLoading: loading,
-    });
-  }, [conversations, currentConversation?.id, loading, updateSidebarConfig]);
+    if (isAuthenticated) {
+      updateSidebarConfig({
+        showHistory: true,
+        historyType: 'conversation',
+        historyItems: conversations,
+        currentItemId: currentConversation?.id || null,
+        onSelectItem: loadConversation,
+        onDeleteItem: deleteConversation,
+        onRenameItem: renameConversation,
+        onNewItem: handleNewConversation,
+        historyLoading: loading,
+      });
+    }
+  }, [conversations, currentConversation?.id, loading, updateSidebarConfig, isAuthenticated]);
 
   const handleNewConversation = () => {
     setCurrentConversation(null);
@@ -1261,6 +1285,23 @@ function ChatPage() {
 
         </div>
       </div>
+      
+      {/* 登录弹窗 */}
+      {showAuthModal && (
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+            onSuccess={() => {
+              setShowAuthModal(false);
+              // 登录成功后可以自动发送消息
+              if (inputMessage.trim()) {
+                sendMessage(inputMessage);
+              }
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

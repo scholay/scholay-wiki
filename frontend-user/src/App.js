@@ -53,23 +53,12 @@ function App() {
                     <Route element={<MainLayout />}>
                       {/* 公开路由 - 无需登录即可访问 */}
                       <Route path="/" element={<Home />} />
+                      <Route path="/search-results" element={<SearchResultsPage />} />
                       
-                      {/* 需要登录的路由 - 使用 ProtectedRoute 包裹 */}
-                      <Route path="/search-results" element={
-                        <ProtectedRoute>
-                          <SearchResultsPage />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/advanced-search" element={
-                        <ProtectedRoute>
-                          <AdvancedSearchPage />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/chat" element={
-                        <ProtectedRoute>
-                          <ChatPage />
-                        </ProtectedRoute>
-                      } />
+                      {/* 智能分析页面 - 允许未登录访问 */}
+                      <Route path="/advanced-search" element={<AdvancedSearchPage />} />
+                      {/* AI对话页面 - 允许未登录访问 */}
+                      <Route path="/chat" element={<ChatPage />} />
                     </Route>
 
                     {/* 不需要侧边栏的路由 */}

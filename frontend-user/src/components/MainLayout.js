@@ -50,7 +50,10 @@ const MainLayout = () => {
   };
 
   // 判断是否应该显示侧边栏
-  const shouldShowSidebar = isAuthenticated || location.pathname === '/search-results';
+  const shouldShowSidebar = isAuthenticated || 
+    location.pathname === '/search-results' || 
+    location.pathname === '/advanced-search' || 
+    location.pathname === '/chat';
 
   return (
     <>
