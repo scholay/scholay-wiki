@@ -157,6 +157,30 @@
   white-space: pre-wrap;
   font-size: 1rem;
   line-height: 1.5;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  transition: all 0.2s ease;
+}
+
+/* 夜间模式用户消息气泡 */
+[data-theme="dark"] .chat-page-wrapper .user-message-bubble {
+  background: rgba(71, 71, 76, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* 日间模式用户消息气泡 */
+[data-theme="light"] .chat-page-wrapper .user-message-bubble {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.08) 0%, 
+    rgba(16, 163, 127, 0.05) 100%);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  color: #1a1a1a;
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.1),
+    0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 /* Assistant Message - Full width with avatar on left */
@@ -275,6 +299,21 @@
   background: rgba(255, 255, 255, 0.05);
 }
 
+/* 日间模式hover按钮样式 */
+[data-theme="light"] .chat-page-wrapper .hover-btn {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: #374151;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .chat-page-wrapper .hover-btn:hover {
+  background: #f9fafb;
+  border-color: rgba(16, 163, 127, 0.4);
+  color: #10a37f;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
+}
+
 .chat-page-wrapper .hover-btn svg {
   width: 1rem;
   height: 1rem;
@@ -293,9 +332,41 @@
   font-size: 0.875rem;
 }
 
+/* 日间模式分支导航样式 */
+[data-theme="light"] .chat-page-wrapper .branch-nav {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
 .chat-page-wrapper .branch-nav-btn {
   padding: 0.25rem;
   background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.chat-page-wrapper .branch-nav-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.chat-page-wrapper .branch-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 日间模式分支导航按钮 */
+[data-theme="light"] .chat-page-wrapper .branch-nav-btn {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .chat-page-wrapper .branch-nav-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.9);
   border: none;
   color: #ececf1;
   cursor: pointer;
@@ -429,7 +500,49 @@
   align-items: flex-end;
   gap: 0.75rem;
   padding: 0.75rem;
-  transition: box-shadow 0.2s;
+  transition: all 0.2s ease;
+}
+
+/* 夜间模式输入框容器样式 - 与智能分析页面保持一致 */
+[data-theme="dark"] .chat-page-wrapper .composer-input-area {
+  background: rgba(47, 47, 47, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+}
+
+[data-theme="dark"] .chat-page-wrapper .composer-input-area:focus-within {
+  background: rgba(47, 47, 47, 0.7);
+  border-color: rgba(16, 163, 127, 0.3);
+  box-shadow: 
+    0 12px 48px rgba(0, 0, 0, 0.5),
+    0 4px 16px rgba(16, 163, 127, 0.15),
+    0 0 0 1px rgba(16, 163, 127, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* 日间模式输入框容器样式 - 与智能分析页面保持一致 */
+[data-theme="light"] .chat-page-wrapper .composer-input-area {
+  background: #ffffff;
+  border: 2px solid rgba(16, 163, 127, 0.45);
+  box-shadow: 
+    0 20px 70px rgba(16, 163, 127, 0.12),
+    0 10px 40px rgba(0, 0, 0, 0.06),
+    0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .chat-page-wrapper .composer-input-area:focus-within {
+  background: #ffffff;
+  border-color: var(--text-accent);
+  box-shadow: 
+    0 24px 80px rgba(16, 163, 127, 0.15),
+    0 12px 48px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(16, 163, 127, 0.15),
+    0 0 0 3px rgba(16, 163, 127, 0.15);
 }
 
 .chat-page-wrapper .composer-input-area:focus-within {
@@ -440,7 +553,7 @@
   flex: 1;
   border: none;
   background: transparent;
-  color: #ececf1;
+  color: var(--text-primary);
   font-size: 1rem;
   font-family: inherit;
   outline: none;
@@ -452,7 +565,26 @@
 }
 
 .chat-page-wrapper .chat-input::placeholder {
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
+/* 夜间模式输入框样式优化 */
+[data-theme="dark"] .chat-page-wrapper .chat-input {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="dark"] .chat-page-wrapper .chat-input::placeholder {
   color: rgba(255, 255, 255, 0.4);
+}
+
+/* 日间模式输入框样式 */
+[data-theme="light"] .chat-page-wrapper .chat-input {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .chat-page-wrapper .chat-input::placeholder {
+  color: var(--text-secondary);
 }
 
 .chat-page-wrapper .chat-input:disabled {
@@ -474,6 +606,75 @@
   flex-shrink: 0;
   transition: all 0.15s;
   padding: 0;
+}
+
+/* 发送按钮样式 - 夜间模式 */
+[data-theme="dark"] .chat-page-wrapper .btn-send {
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.25) 0%, 
+    rgba(16, 163, 127, 0.15) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: var(--text-accent);
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.25),
+    inset 0 1px 2px rgba(255, 255, 255, 0.1);
+}
+
+/* 发送按钮样式 - 日间模式 */
+[data-theme="light"] .chat-page-wrapper .btn-send {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.8) 0%, 
+    rgba(16, 163, 127, 0.7) 100%);
+  border: 1px solid rgba(16, 163, 127, 0.9);
+  color: #ffffff;
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.3),
+    0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .chat-page-wrapper .btn-send:hover:not(:disabled) {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.35) 0%, 
+    rgba(16, 163, 127, 0.25) 100%);
+  border-color: rgba(16, 163, 127, 0.5);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 
+    0 4px 16px rgba(16, 163, 127, 0.35),
+    0 0 0 1px rgba(16, 163, 127, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="light"] .chat-page-wrapper .btn-send:hover:not(:disabled) {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.9) 0%, 
+    rgba(16, 163, 127, 0.8) 100%);
+  border-color: rgba(16, 163, 127, 1);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 
+    0 4px 16px rgba(16, 163, 127, 0.4),
+    0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="dark"] .chat-page-wrapper .btn-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-quaternary);
+  box-shadow: none;
+  transform: none;
+}
+
+[data-theme="light"] .chat-page-wrapper .btn-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.3);
+  box-shadow: none;
+  transform: none;
 }
 
 .chat-page-wrapper .btn-send:hover:not(:disabled) {
@@ -757,6 +958,20 @@
   flex-shrink: 0;
 }
 
+/* 日间模式模型选择器按钮 */
+[data-theme="light"] .model-selector-simple-btn {
+  color: #374151;
+}
+
+[data-theme="light"] .model-selector-simple-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+  color: #111827;
+}
+
+[data-theme="light"] .model-selector-simple-btn svg {
+  opacity: 0.5;
+}
+
 /* Dropdown overlay */
 .model-dropdown-overlay {
   position: fixed;
@@ -775,10 +990,33 @@
   min-width: 180px;
   background: var(--surface);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 4px;
+  border-radius: 12px;
+  padding: 6px;
   z-index: 1000;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+}
+
+/* 夜间模式下拉菜单样式 - 与 ModelSelector 保持一致 */
+[data-theme="dark"] .model-dropdown-menu {
+  background: linear-gradient(135deg, 
+    rgb(26, 26, 28) 0%, 
+    rgb(20, 20, 22) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 40px 100px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(16, 163, 127, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* 日间模式下拉菜单样式 */
+[data-theme="light"] .model-dropdown-menu {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 /* Dropdown items */
@@ -789,9 +1027,9 @@
   gap: 8px;
   width: 100%;
   padding: 8px 12px;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.03);
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text-secondary);
   font-size: 14px;
   font-weight: 500;
@@ -800,14 +1038,39 @@
   transition: all 0.2s ease;
 }
 
-.model-dropdown-item:hover:not(.disabled) {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
+/* 夜间模式下拉项样式 */
+[data-theme="dark"] .model-dropdown-item {
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.7);
 }
 
-.model-dropdown-item.active {
-  background: rgba(255, 255, 255, 0.15);
-  color: var(--text-primary);
+[data-theme="dark"] .model-dropdown-item:hover:not(.disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="dark"] .model-dropdown-item.active {
+  background: rgba(16, 163, 127, 0.18);
+  color: var(--text-accent);
+  border: 1px solid rgba(16, 163, 127, 0.3);
+}
+
+/* 日间模式下拉项样式 */
+[data-theme="light"] .model-dropdown-item {
+  background: #ffffff;
+  color: #374151;
+  border: 1px solid transparent;
+}
+
+[data-theme="light"] .model-dropdown-item:hover:not(.disabled) {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+[data-theme="light"] .model-dropdown-item.active {
+  background: rgba(16, 163, 127, 0.1);
+  color: var(--text-accent);
+  border: 1px solid rgba(16, 163, 127, 0.3);
 }
 
 .model-dropdown-item.disabled {
@@ -822,6 +1085,16 @@
   font-weight: 400;
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+/* 夜间模式 quota badge */
+[data-theme="dark"] .quota-badge {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* 日间模式 quota badge */
+[data-theme="light"] .quota-badge {
+  color: rgba(0, 0, 0, 0.4);
 }
 
 /* Upgrade badge */
@@ -860,6 +1133,16 @@
 .new-conversation-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.9);
+}
+
+/* 日间模式新建对话按钮 */
+[data-theme="light"] .new-conversation-btn {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .new-conversation-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.9);
 }
 
 .new-conversation-btn svg {

@@ -94,6 +94,7 @@ function ChatPage() {
   const abortControllerRef = useRef(null);
   const textareaRef = useRef(null);
   const loadingStartTimeRef = useRef(null); // Track when loading started for minimum display time
+  const hoverTimeoutRef = useRef(null); // 用于延迟显示hover按钮
 
   // Memoize dropdown arrow style to prevent unnecessary re-renders
   const dropdownArrowStyle = useMemo(() => ({
@@ -140,6 +141,13 @@ function ChatPage() {
     if (isAuthenticated) {
       loadConversations();
     }
+    
+    // 清理hover定时器
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
   }, [isAuthenticated]);
 
   // Save sidebar state to localStorage
@@ -316,6 +324,12 @@ function ChatPage() {
       setIsStreaming(false);
       setStreamingContent('');
       setIsWaitingForResponse(false); // Hide loading dots
+      // 自动聚焦到输入框，方便用户继续对话
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      }, 100);
     }
   };
 
@@ -390,6 +404,12 @@ function ChatPage() {
       setIsStreaming(false);
       setStreamingContent('');
       setIsWaitingForResponse(false); // Hide loading dots
+      // 自动聚焦到输入框，方便用户继续对话
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      }, 100);
     }
   };
 
@@ -799,10 +819,10 @@ function ChatPage() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 5) return 'Working late';
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 5) return '夜深了';
+    if (hour < 12) return '早上好';
+    if (hour < 18) return '下午好';
+    return '晚上好';
   };
 
   return (
@@ -931,7 +951,7 @@ function ChatPage() {
                           handleSubmit(e);
                         }
                       }}
-                      placeholder="Message..."
+                      placeholder="输入您的问题..."
                       rows={1}
                       disabled={isStreaming}
                       className="chat-input"
@@ -1065,8 +1085,24 @@ function ChatPage() {
                       key={msg.message_id || index}
                       className="message-group"
                       data-role={msg.role}
-                      onMouseEnter={() => setHoveredMessage(msg.message_id)}
-                      onMouseLeave={() => setHoveredMessage(null)}
+                      onMouseEnter={() => {
+                        // 清除之前的定时器
+                        if (hoverTimeoutRef.current) {
+                          clearTimeout(hoverTimeoutRef.current);
+                        }
+                        // 设置1秒延迟显示hover按钮
+                        hoverTimeoutRef.current = setTimeout(() => {
+                          setHoveredMessage(msg.message_id);
+                        }, 1000);
+                      }}
+                      onMouseLeave={() => {
+                        // 清除定时器
+                        if (hoverTimeoutRef.current) {
+                          clearTimeout(hoverTimeoutRef.current);
+                          hoverTimeoutRef.current = null;
+                        }
+                        setHoveredMessage(null);
+                      }}
                     >
                       <div className="message-wrapper">
                         <div className="message-content-container">
@@ -1259,7 +1295,7 @@ function ChatPage() {
                         handleSubmit(e);
                       }
                     }}
-                    placeholder="Message..."
+                    placeholder="输入您的问题..."
                     rows={1}
                     disabled={isStreaming}
                     className="chat-input"
