@@ -149,6 +149,51 @@
 .skeleton-paper-card:nth-child(9) .skeleton-shimmer { animation-delay: 0.64s; }
 .skeleton-paper-card:nth-child(10) .skeleton-shimmer { animation-delay: 0.72s; }
 
+/* 日间模式样式 */
+[data-theme="light"] .paper-list-skeleton {
+  background: transparent;
+}
+
+[data-theme="light"] .paper-list-skeleton:hover,
+[data-theme="light"] .paper-list-skeleton:focus,
+[data-theme="light"] .paper-list-skeleton:active {
+  scrollbar-color: rgba(0, 0, 0, 0.2) rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .paper-list-skeleton:hover::-webkit-scrollbar-thumb,
+[data-theme="light"] .paper-list-skeleton:focus::-webkit-scrollbar-thumb,
+[data-theme="light"] .paper-list-skeleton:active::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .paper-list-skeleton::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .skeleton-title {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+[data-theme="light"] .skeleton-title-second {
+  background: rgba(37, 99, 235, 0.08);
+}
+
+[data-theme="light"] .skeleton-authors {
+  background: var(--surface-hover);
+}
+
+[data-theme="light"] .skeleton-venue {
+  background: var(--surface-light);
+}
+
+[data-theme="light"] .skeleton-line {
+  background: var(--surface-light);
+}
+
+[data-theme="light"] .skeleton-badge {
+  background: var(--surface-hover);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .skeleton-paper-card {

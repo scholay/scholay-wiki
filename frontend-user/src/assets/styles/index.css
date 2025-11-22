@@ -50,10 +50,10 @@
   --accent: #10a37f;
   --accent-2: #0d8968;
   
-  /* 背景色系统 - 采用柔和的渐变背景 */
-  --bg-primary: #fafbfc;                          /* 主背景：非常浅的灰蓝色 */
+  /* 背景色系统 - 采用统一的纯色背景 */
+  --bg-primary: #f9fafb;                          /* 主背景：统一的浅灰色 */
   --bg-secondary: #f5f7fa;                        /* 次级背景：浅灰蓝 */
-  --background: linear-gradient(180deg, #fafbfc 0%, #f0f4f8 100%);
+  --background: #f9fafb;                           /* 统一背景色，不使用渐变 */
   --background-light: #ffffff;
   --surface: #ffffff;                             /* 卡片表面：纯白 */
   --surface-hover: #f8fafb;                       /* 悬停状态 */
@@ -156,9 +156,9 @@ body {
   right: -200px;
 }
 
-/* 日间模式动画背景 - 更细腻的渐变装饰 */
+/* 日间模式动画背景 - 统一的纯色背景 */
 [data-theme="light"] .animated-bg {
-  background: linear-gradient(180deg, #fafbfc 0%, #f0f4f8 100%);
+  background: #f9fafb;
 }
 
 [data-theme="light"] .animated-bg::before,

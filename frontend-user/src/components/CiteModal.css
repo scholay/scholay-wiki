@@ -192,6 +192,97 @@
 }
 
 
+/* 日间模式样式 */
+[data-theme="light"] .cite-modal-overlay {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .cite-modal {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  box-shadow: 
+    0 24px 48px rgba(0, 0, 0, 0.12),
+    0 12px 24px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .cite-modal-header {
+  border-bottom: 1px solid var(--border-light);
+}
+
+[data-theme="light"] .cite-modal-header h2 {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .cite-close-btn {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .cite-close-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .cite-format-tabs {
+  border-bottom: 1px solid var(--border-light);
+}
+
+[data-theme="light"] .cite-format-tabs .format-hint {
+  color: var(--text-quaternary);
+}
+
+[data-theme="light"] .cite-format-tabs button {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .cite-format-tabs button:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .cite-format-tabs button.active {
+  background: rgba(16, 163, 127, 0.12);
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+[data-theme="light"] .cite-content pre {
+  background: var(--surface-light);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+}
+
+[data-theme="light"] .cite-content pre.bibtex {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .cite-inline-copy {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+
+[data-theme="light"] .cite-inline-copy:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+[data-theme="light"] .cite-inline-copy.copied {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--text-success);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+[data-theme="light"] .cite-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .cite-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
 /* 响应式 */
 @media (max-width: 640px) {
   .cite-modal {

@@ -46,6 +46,13 @@
   z-index: 10;
 }
 
+/* 日间模式导航栏 */
+[data-theme="light"] .results-navbar {
+  background: transparent;
+  border-bottom: none;
+  box-shadow: none;
+}
+
 .navbar-content {
   display: flex;
   align-items: center;
@@ -302,6 +309,11 @@
   max-width: 100%; /* 当有预览面板时自动收缩 */
 }
 
+/* 日间模式论文容器背景 */
+[data-theme="light"] .papers-container {
+  background: var(--background);
+}
+
 /* Auto-hide scrollbar when not scrolling */
 .papers-container {
   scrollbar-width: thin;
@@ -358,6 +370,27 @@
   background: rgba(255, 255, 255, 0.25);
 }
 
+/* 日间模式滚动条 */
+[data-theme="light"] .papers-container:hover,
+[data-theme="light"] .papers-container:focus,
+[data-theme="light"] .papers-container:active {
+  scrollbar-color: rgba(0, 0, 0, 0.2) rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .papers-container::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .papers-container:hover::-webkit-scrollbar-thumb,
+[data-theme="light"] .papers-container:focus::-webkit-scrollbar-thumb,
+[data-theme="light"] .papers-container:active::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .papers-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
 /* 加载和空状态 */
 .loading-state {
   flex: 1;
@@ -389,7 +422,7 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: transparent;
+  background: var(--background);
   position: relative;
 }
 
@@ -440,12 +473,9 @@
 }
 
 [data-theme="light"] .normal-search-composer-wrapper {
-  background: #ffffff;
-  border: 2px solid rgba(16, 163, 127, 0.45);
-  box-shadow: 
-    0 20px 70px rgba(16, 163, 127, 0.12),
-    0 10px 40px rgba(0, 0, 0, 0.06),
-    0 4px 12px rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 [data-theme="dark"] .normal-search-composer-wrapper:focus-within {
@@ -460,12 +490,8 @@
 
 [data-theme="light"] .normal-search-composer-wrapper:focus-within {
   background: #ffffff;
-  border-color: var(--text-accent);
-  box-shadow: 
-    0 24px 80px rgba(16, 163, 127, 0.15),
-    0 12px 48px rgba(0, 0, 0, 0.08),
-    0 4px 16px rgba(16, 163, 127, 0.15),
-    0 0 0 3px rgba(16, 163, 127, 0.15);
+  border-color: rgba(16, 163, 127, 0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
 /* 空状态搜索框淡入缩放动画 */
@@ -642,9 +668,22 @@
   border-color: rgba(255, 255, 255, 0.08);
 }
 
+[data-theme="light"] .btn-send {
+  background: var(--text-accent);
+  border: 2px solid var(--text-accent);
+  color: white;
+}
+
+[data-theme="light"] .btn-send:hover:not(:disabled) {
+  background: #0d8968;
+  border-color: #0d8968;
+  transform: scale(1.05);
+}
+
 [data-theme="light"] .btn-send:disabled {
   background: var(--surface-light);
   border-color: var(--border);
+  color: var(--text-quaternary);
 }
 
 .btn-send svg {
@@ -1150,10 +1189,36 @@
   padding: 20px 28px;
   background: transparent;
   position: relative;
+  border-bottom: none;
+  transition: all 0.15s ease;
+}
+
+.paper-item:hover {
+  background: transparent;
 }
 
 .paper-item.selected {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* 日间模式论文样式 - 保持平面设计 */
+[data-theme="light"] .paper-item {
+  background: transparent;
+  border: none;
+  border-bottom: none;
+  border-radius: 0;
+  margin: 0;
+  box-shadow: none;
+  transition: all 0.15s ease;
+}
+
+[data-theme="light"] .paper-item:hover {
+  background: transparent;
+  transform: none;
+}
+
+[data-theme="light"] .paper-item.selected {
+  background: rgba(16, 163, 127, 0.05);
 }
 
 .paper-number {
@@ -1182,6 +1247,21 @@
 
 .paper-item.selected .paper-title {
   color: #5BA3EC;
+}
+
+/* 日间模式论文标题 */
+[data-theme="light"] .paper-title {
+  color: #1e40af;  /* 深蓝色，更好的对比度 */
+  font-weight: 600;
+}
+
+[data-theme="light"] .paper-title:hover {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+[data-theme="light"] .paper-item.selected .paper-title {
+  color: var(--text-accent);
 }
 
 .paper-authors {
@@ -1501,6 +1581,14 @@ a.meta-item.pdf-link:hover {
   padding: 32px 24px;
 }
 
+/* 日间模式分页器背景 */
+[data-theme="light"] .pagination {
+  background: transparent;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  margin: 0;
+  border-radius: 0;
+}
+
 /* 每页数量选择器 */
 .page-size-selector {
   display: flex;
@@ -1562,6 +1650,26 @@ a.meta-item.pdf-link:hover {
   cursor: not-allowed;
 }
 
+/* 日间模式分页按钮 */
+[data-theme="light"] .pagination-btn {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+[data-theme="light"] .pagination-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+[data-theme="light"] .pagination-btn:disabled {
+  background: var(--surface-light);
+  color: var(--text-quaternary);
+  border-color: var(--border-light);
+  opacity: 0.5;
+}
+
 .pagination-pages {
   display: flex;
   align-items: center;
@@ -1594,6 +1702,26 @@ a.meta-item.pdf-link:hover {
   color: rgba(147, 197, 253, 1);
 }
 
+/* 日间模式分页页码 */
+[data-theme="light"] .pagination-page {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+}
+
+[data-theme="light"] .pagination-page:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+[data-theme="light"] .pagination-page.active {
+  background: var(--text-accent);
+  color: white;
+  border-color: var(--text-accent);
+  font-weight: 600;
+}
+
 /* 结果页面布局 */
 .results-layout {
   width: 100%;
@@ -1623,6 +1751,13 @@ a.meta-item.pdf-link:hover {
   background: transparent;
   flex-shrink: 0;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 日间模式居中搜索区域 */
+[data-theme="light"] .centered-search-area {
+  background: transparent;
+  border-bottom: none;
+  box-shadow: none;
 }
 
 /* 搜索框收缩状态 */
@@ -1761,6 +1896,16 @@ a.meta-item.pdf-link:hover {
   min-height: 28px;
 }
 
+/* 日间模式筛选标签栏 */
+[data-theme="light"] .active-filters-bar {
+  background: transparent;
+}
+
+[data-theme="light"] .active-filters-bar.has-filters {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.04) 0%, transparent 100%);
+  padding: 8px 16px;
+}
+
 .active-filters-bar.empty {
   /* 保留空间但不显示内容 */
 }
@@ -1860,11 +2005,9 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .results-composer-wrapper {
-  background: #ffffff;
-  border: 2px solid rgba(16, 163, 127, 0.45);
-  box-shadow: 
-    0 8px 24px rgba(16, 163, 127, 0.1),
-    0 4px 12px rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 [data-theme="dark"] .results-composer-wrapper:focus-within {
@@ -1874,11 +2017,8 @@ a.meta-item.pdf-link:hover {
 
 [data-theme="light"] .results-composer-wrapper:focus-within {
   background: #ffffff;
-  border-color: var(--text-accent);
-  box-shadow: 
-    0 12px 32px rgba(16, 163, 127, 0.12),
-    0 6px 16px rgba(0, 0, 0, 0.06),
-    0 0 0 3px rgba(16, 163, 127, 0.15);
+  border-color: rgba(16, 163, 127, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 /* 搜索框滑动动画 */
@@ -2072,13 +2212,17 @@ a.meta-item.pdf-link:hover {
 
 /* 论文卡片中的作者标签 */
 [data-theme="light"] .author-tag {
-  background: var(--surface-hover);
-  color: var(--text-secondary);
+  background: #e8f4fd;
+  color: #1e40af;
+  font-weight: 500;
+  border: 1px solid rgba(30, 64, 175, 0.15);
 }
 
 [data-theme="light"] .author-tag.author-more {
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   background: transparent;
+  border: none;
+  font-weight: 400;
 }
 
 /* 研究领域 */
@@ -2101,8 +2245,9 @@ a.meta-item.pdf-link:hover {
 
 /* TLDR标签和文字 */
 [data-theme="light"] .tldr-label {
-  color: var(--text-secondary);
-  background: var(--surface-hover);
+  color: #10a37f;
+  background: rgba(16, 163, 127, 0.12);
+  font-weight: 600;
 }
 
 [data-theme="light"] .tldr-text {
@@ -2111,8 +2256,9 @@ a.meta-item.pdf-link:hover {
 
 /* Abstract标签和文字 */
 [data-theme="light"] .abstract-label {
-  color: var(--text-secondary);
-  background: var(--surface-hover);
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.1);
+  font-weight: 600;
 }
 
 [data-theme="light"] .abstract-text {
@@ -2159,7 +2305,7 @@ a.meta-item.pdf-link:hover {
 
 /* 元数据项 */
 [data-theme="light"] .paper-meta {
-  border-top: 1px solid var(--border);
+  border-top: none;
 }
 
 [data-theme="light"] .meta-item {
