@@ -1089,3 +1089,46 @@
 .popup-abstract-content::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }
+
+/* ============================================
+   日间模式颜色优化
+   ============================================ */
+
+[data-theme="light"] .venue-name {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .venue-name:hover {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .author-name {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .author-more {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .paper-abstract {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .paper-meta {
+  border-top: 1px solid var(--border);
+}
+
+[data-theme="light"] .meta-item {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .btn-view-paper {
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  background: rgba(16, 163, 127, 0.05);
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .btn-view-paper:hover {
+  background: rgba(16, 163, 127, 0.1);
+  border-color: var(--text-accent);
+}
