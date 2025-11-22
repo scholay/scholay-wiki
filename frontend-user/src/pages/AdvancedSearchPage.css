@@ -1001,6 +1001,25 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
+/* 日间模式 - 问题历史下拉按钮 */
+[data-theme="light"] .as-question-dropdown-btn {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: #4a5568;
+}
+
+[data-theme="light"] .as-question-dropdown-btn:hover {
+  background: #f8fafb;
+  border-color: rgba(16, 163, 127, 0.4);
+  color: #1a202c;
+}
+
+[data-theme="light"] .as-question-dropdown-btn.open {
+  background: #f8fafb;
+  border-color: var(--text-accent);
+  color: var(--text-accent);
+}
+
 .as-question-dropdown-btn svg {
   width: 14px;
   height: 14px;
@@ -1152,9 +1171,10 @@
   -webkit-box-orient: vertical;
 }
 
-/* 日间模式 - 问题文本 */
+/* 日间模式 - 问题文本 - 深色高对比度 */
 [data-theme="light"] .as-question-text {
-  color: rgba(0, 0, 0, 0.75);
+  color: #1a202c;
+  font-weight: 500;
 }
 
 .as-question-empty {
@@ -1324,9 +1344,9 @@
   position: relative; /* 为蒙层loading提供定位基准 */
 }
 
-/* 日间模式 - 消息容器背景 */
+/* 日间模式 - 消息容器背景 - 与顶部背景一致 */
 [data-theme="light"] .as-messages-container {
-  background: #ffffff;
+  background: #f9fafb;
 }
 
 /* 移除as-messages-container的滚动条样式，因为滚动现在由chat-messages处理 */
@@ -1423,6 +1443,7 @@
 /* 日间模式论文卡片 */
 [data-theme="light"] .as-papers-list-wrapper .paper-card {
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  transition: none; /* 移除过渡动画 */
 }
 
 .as-papers-list-wrapper .paper-card:last-child {
@@ -1435,9 +1456,11 @@
   box-shadow: none;
 }
 
+/* 日间模式 - 移除 hover 背景效果和动画 */
 [data-theme="light"] .as-papers-list-wrapper .paper-card:hover {
-  background: rgba(0, 0, 0, 0.02);
+  background: transparent;
   border-color: rgba(0, 0, 0, 0.08);
+  transform: none; /* 确保没有移动 */
 }
 
 .as-papers-list-wrapper .paper-card.highlighted {
@@ -1868,6 +1891,13 @@
   justify-content: center;
 }
 
+/* 日间模式 - 底部输入容器 */
+[data-theme="light"] .as-bottom-input-container {
+  background: #f9fafb;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* 夜间模式 - 底部输入框 */
 .advanced-bottom-composer-wrapper {
   width: 100%;
   max-width: 48rem;
@@ -1892,6 +1922,27 @@
   background: linear-gradient(135deg,
     rgba(47, 47, 47, 1) 0%,
     rgba(42, 42, 42, 1) 100%);
+}
+
+/* 日间模式 - 底部输入框 */
+[data-theme="light"] .advanced-bottom-composer-wrapper {
+  background: #ffffff;
+  border: 2px solid rgba(16, 163, 127, 0.45);
+  box-shadow: 
+    0 20px 70px rgba(16, 163, 127, 0.12),
+    0 10px 40px rgba(0, 0, 0, 0.06),
+    0 4px 12px rgba(0, 0, 0, 0.04);
+  backdrop-filter: none;
+}
+
+[data-theme="light"] .advanced-bottom-composer-wrapper:focus-within {
+  background: #ffffff;
+  border-color: var(--text-accent);
+  box-shadow: 
+    0 24px 80px rgba(16, 163, 127, 0.15),
+    0 12px 48px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(16, 163, 127, 0.15),
+    0 0 0 3px rgba(16, 163, 127, 0.15);
 }
 
 /* 搜索模式指示器 - 对话中使用 */
@@ -2067,9 +2118,11 @@
   min-height: 24px;
 }
 
-/* 日间模式 - 用户消息文本 */
+/* 日间模式 - 用户消息文本 - 深黑色，高对比度 */
 [data-theme="light"] .message-user .message-text {
-  color: rgba(0, 0, 0, 0.9);
+  color: #000000 !important;
+  font-weight: 700;
+  text-shadow: none;
 }
 
 /* AI 回答样式 - 标准阅读体验 */
@@ -2195,6 +2248,17 @@
   animation: shimmer 1.5s infinite;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* 日间模式 - 建议问题加载骨架屏 */
+[data-theme="light"] .suggested-question-btn.skeleton-loading .question-text {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.04) 0%,
+    rgba(0, 0, 0, 0.08) 50%,
+    rgba(0, 0, 0, 0.04) 100%
+  );
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 /* Shimmer 动画 */
@@ -2745,6 +2809,12 @@
   animation: spin 0.8s linear infinite;
 }
 
+/* 日间模式 - 小型加载动画 */
+[data-theme="light"] .spinner-small {
+  border: 2px solid rgba(0, 0, 0, 0.15);
+  border-top-color: var(--text-accent);
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -3052,6 +3122,11 @@
   border-radius: 50%;
   background: var(--text-secondary);
   animation: thinkingBounce 1.4s infinite ease-in-out both;
+}
+
+/* 日间模式 - 思考动画点 */
+[data-theme="light"] .thinking-dots span {
+  background: var(--text-accent);
 }
 
 .thinking-dots span:nth-child(1) {

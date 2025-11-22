@@ -170,6 +170,27 @@
   background: rgba(0, 0, 0, 0.25);
 }
 
+/* 日间模式 - 骨架屏元素 - 更浅的颜色 */
+[data-theme="light"] .skeleton-title {
+  background: rgba(16, 163, 127, 0.05);
+}
+
+[data-theme="light"] .skeleton-title-second {
+  background: rgba(16, 163, 127, 0.04);
+}
+
+[data-theme="light"] .skeleton-authors {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .skeleton-line {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .skeleton-badge {
+  background: rgba(0, 0, 0, 0.03);
+}
+
 [data-theme="light"] .skeleton-title {
   background: rgba(37, 99, 235, 0.12);
 }

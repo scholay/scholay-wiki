@@ -488,6 +488,22 @@
   margin-bottom: 0.5rem;
 }
 
+/* 日间模式 - 骨架屏卡片 */
+[data-theme="light"] .skeleton-card {
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* 日间模式 - 骨架屏文本 */
+[data-theme="light"] .skeleton-text {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.03) 0%,
+    rgba(0, 0, 0, 0.05) 50%,
+    rgba(0, 0, 0, 0.03) 100%
+  );
+}
+
 .skeleton-title {
   height: 1.2em;
   margin-bottom: 0.75rem;
@@ -510,6 +526,11 @@
   border-top: 1px solid rgba(148, 163, 184, 0.1);
 }
 
+/* 日间模式 - 骨架屏元信息分隔线 */
+[data-theme="light"] .skeleton-meta {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
 .paper-count-badge.skeleton {
   width: 80px;
   height: 20px;
@@ -522,6 +543,16 @@
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 4px;
+}
+
+/* 日间模式 - 论文数量徽章骨架屏 */
+[data-theme="light"] .paper-count-badge.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(16, 163, 127, 0.03) 0%,
+    rgba(16, 163, 127, 0.06) 50%,
+    rgba(16, 163, 127, 0.03) 100%
+  );
 }
 
 @keyframes shimmer {
