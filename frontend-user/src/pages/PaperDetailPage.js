@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import SEO from '../components/SEO';
+import FloatingGuide from '../components/FloatingGuide';
+import CTABanner from '../components/CTABanner';
 import { generateScholarlyArticleSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
 import './PaperDetailPage.css';
 
@@ -234,6 +236,12 @@ const PaperDetailPage = () => {
 
   return (
     <div className="paper-detail-page">
+      {/* 悬浮引导卡片 */}
+      <FloatingGuide />
+      
+      {/* 顶部CTA横幅 */}
+      <CTABanner />
+      
       <SEO
         title={pageTitle}
         description={pageDescription}

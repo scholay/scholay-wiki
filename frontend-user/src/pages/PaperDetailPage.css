@@ -41,6 +41,7 @@
   align-items: center;
   gap: 24px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  transition: top 0.3s ease;
 }
 
 .header-left {
@@ -160,6 +161,10 @@
   cursor: pointer;
   transition: all 0.2s;
   border: 1px solid;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .signin-btn {
@@ -188,10 +193,11 @@
 .paper-content-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 80px 32px 64px;
+  padding: 128px 32px 64px; /* 增加顶部padding: 导航栏(64px) + 横幅(48px) + 间距(16px) */
   display: grid;
   grid-template-columns: 1fr 300px;
   gap: 40px;
+  transition: padding-top 0.3s ease;
 }
 
 /* ========== 左侧主要内容 ========== */
@@ -678,6 +684,7 @@
   z-index: 100;
   padding-top: 0;
   margin-top: 0;
+  transition: top 0.3s ease;
 }
 
 .tab-btn {
@@ -1005,7 +1012,7 @@
 @media (max-width: 1024px) {
   .paper-content-container {
     grid-template-columns: 1fr;
-    padding: 80px 24px 48px;
+    padding: 128px 24px 48px; /* 适配横幅高度 */
   }
 
   .paper-sidebar-column {
@@ -1041,10 +1048,11 @@
   .header-btn {
     flex: 1;
     text-align: center;
+    justify-content: center;
   }
 
   .paper-content-container {
-    padding: 140px 16px 32px;
+    padding: 160px 16px 32px; /* 移动端也要适配横幅 */
   }
 
   .paper-title {

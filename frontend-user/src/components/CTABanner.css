@@ -1,0 +1,236 @@
+/* CTA Banner Container - 固定在顶部导航栏下方 */
+.cta-banner {
+  position: fixed;
+  top: 64px; /* 导航栏高度 */
+  left: 0;
+  right: 0;
+  height: 48px; /* 固定高度 */
+  background: linear-gradient(135deg, #1857b6 0%, #0f3d8a 50%, #1857b6 100%);
+  background-size: 200% 100%;
+  animation: gradientShift 8s ease infinite;
+  z-index: 998; /* 低于导航栏但高于内容 */
+  box-shadow: 0 2px 12px rgba(24, 87, 182, 0.25);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+/* 横幅悬停效果 */
+.cta-banner:hover {
+  box-shadow: 0 4px 20px rgba(24, 87, 182, 0.35);
+  transform: translateY(1px);
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Banner Content */
+.cta-banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  height: 48px; /* 固定高度 */
+}
+
+.cta-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.cta-banner-badge {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #7c2d12;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(251, 191, 36, 0.4);
+  animation: pulse 2s infinite;
+  white-space: nowrap;
+}
+
+.cta-banner-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+@keyframes pulse {
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 2px 8px rgba(251, 191, 36, 0.4);
+  }
+  50% { 
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.6);
+  }
+}
+
+.cta-banner-text {
+  color: white;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0.2px;
+}
+
+.cta-banner-text strong {
+  font-weight: 600;
+  color: #fff;
+}
+
+.cta-banner-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cta-banner-btn {
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  text-decoration: none;
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-banner-btn.primary {
+  background: white;
+  color: #1857b6;
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.25);
+}
+
+.cta-banner-btn.primary:hover {
+  background: #f9fafb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.35);
+}
+
+.cta-banner-btn.primary svg {
+  animation: playPulse 1.5s infinite;
+}
+
+@keyframes playPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.cta-banner-btn.secondary {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #7c2d12;
+  border: none;
+  box-shadow: 0 2px 8px rgba(251, 191, 36, 0.3);
+  font-weight: 700;
+}
+
+.cta-banner-btn.secondary:hover {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  transform: translateX(2px);
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
+}
+
+.cta-banner-btn.secondary svg {
+  transition: transform 0.3s ease;
+}
+
+.cta-banner-btn.secondary:hover svg {
+  transform: translateX(3px);
+}
+
+/* 添加闪光效果 */
+.cta-banner-btn.primary::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(24, 87, 182, 0.1), transparent);
+  transform: rotate(45deg) translateX(-100%);
+  transition: transform 0.6s;
+}
+
+.cta-banner-btn.primary:hover::before {
+  transform: rotate(45deg) translateX(100%);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .cta-banner {
+    height: auto; /* 移动端自适应高度 */
+    min-height: 48px;
+  }
+  
+  .cta-banner-content {
+    padding: 8px 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+    height: auto;
+    min-height: 48px;
+  }
+
+  .cta-banner-left {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .cta-banner-right {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .cta-banner-text {
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .cta-banner-btn {
+    padding: 6px 14px;
+    font-size: 13px;
+    flex: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .cta-banner-badge {
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+
+  .cta-banner-text {
+    font-size: 12px;
+  }
+
+  .cta-banner-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .cta-banner-btn span {
+    display: none;
+  }
+
+  .cta-banner-btn svg {
+    margin: 0;
+  }
+}
