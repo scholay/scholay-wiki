@@ -471,9 +471,7 @@
 }
 
 [data-theme="light"] .detail-block-label {
-  color: var(--text-secondary);
-  font-weight: 500;
-  font-size: 12px;
+  color: var(--text-tertiary);
 }
 
 [data-theme="light"] .detail-block-content {
@@ -539,6 +537,11 @@
   background: rgba(16, 163, 127, 0.06);
 }
 
+[data-theme="light"] .block-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
 [data-theme="light"] .tldr-block .block-label {
   color: #10a37f;
   background: transparent;
@@ -548,13 +551,7 @@
   color: var(--text-primary);
 }
 
-/* 日间模式 Abstract 和其他 detail-block 样式 */
-[data-theme="light"] .detail-block .detail-block-label {
-  color: var(--text-secondary);
-  font-weight: 500;
-  font-size: 12px;
-}
-
+/* 日间模式 detail-block 样式 */
 [data-theme="light"] .detail-block .detail-block-content {
   color: var(--text-primary);
   line-height: 1.6;

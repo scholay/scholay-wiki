@@ -5,7 +5,7 @@ import { useSidebar } from '../contexts/SidebarContext';
 import { useTheme } from '../contexts/ThemeContext';
 import SearchFilters from '../components/SearchFilters';
 import ModelSelector from '../components/ModelSelector';
-import ThemeToggle from '../components/ThemeToggle';
+import IOSThemeToggle from '../components/IOSThemeToggle';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import SEO from '../components/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
@@ -234,7 +234,6 @@ const Home = () => {
           </div>
 
           <div className="navbar-right">
-            <ThemeToggle />
             {!isAuthenticated && (
               <div className="auth-buttons">
                 <button
@@ -243,6 +242,7 @@ const Home = () => {
                 >
                   价格方案
                 </button>
+                <IOSThemeToggle className="nav-theme-toggle" />
                 <button
                   onClick={() => setShowAuthModal(true)}
                   className="btn-auth btn-login"
