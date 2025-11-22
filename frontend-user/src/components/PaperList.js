@@ -457,7 +457,7 @@ const PaperCard = React.forwardRef(({ paper, index, isHighlighted = false, onCar
                   </svg>
                 )}
               </div>
-              <span className="venue-name">{venue}</span>
+              <span className="pl-venue-name">{venue}</span>
             </div>
           )}
         </div>
@@ -470,7 +470,7 @@ const PaperCard = React.forwardRef(({ paper, index, isHighlighted = false, onCar
         >
           {/* 标题 */}
           <div className="paper-header">
-            <h4 className="paper-title" onClick={handleOpenPaper} title={title}>
+            <h4 className="paper-list-title" onClick={handleOpenPaper} title={title}>
               {title || '无标题'}
             </h4>
           </div>

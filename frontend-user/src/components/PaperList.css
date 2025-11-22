@@ -278,7 +278,7 @@
   transition: all 0.2s;
 }
 
-.paper-venue-info:hover .venue-name {
+.paper-venue-info:hover .pl-venue-name {
   color: rgba(134, 239, 172, 1);
 }
 
@@ -306,7 +306,7 @@
   color: var(--text-accent);
 }
 
-.venue-name {
+.pl-venue-name {
   font-size: 12px;
   font-weight: 500;
   color: rgba(134, 239, 172, 0.9);
@@ -322,7 +322,7 @@
   margin-bottom: 0.625rem;
 }
 
-.paper-title {
+.paper-list-title {
   margin: 0;
   font-size: 0.9375rem;
   font-weight: 600;
@@ -339,16 +339,16 @@
   text-overflow: ellipsis;
 }
 
-.paper-title:hover {
+.paper-list-title:hover {
   color: #19c37d;
 }
 
 /* 日间模式下的标题颜色 */
-[data-theme="light"] .paper-title {
+[data-theme="light"] .paper-list-title {
   color: #0d8c6c;
 }
 
-[data-theme="light"] .paper-title:hover {
+[data-theme="light"] .paper-list-title:hover {
   color: #10a37f;
 }
 
@@ -1094,11 +1094,11 @@
    日间模式颜色优化
    ============================================ */
 
-[data-theme="light"] .venue-name {
+[data-theme="light"] .pl-venue-name {
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .venue-name:hover {
+[data-theme="light"] .pl-venue-name:hover {
   color: var(--text-primary);
 }
 

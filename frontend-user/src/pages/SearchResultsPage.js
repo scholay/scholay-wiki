@@ -760,7 +760,7 @@ const SearchResultsPage = () => {
             </nav>
 
             {/* 居中搜索区域 */}
-            <div className={`centered-search-area ${isSearchBarCollapsed ? 'collapsed' : ''}`}>
+            <div className={`search-results-centered-area ${isSearchBarCollapsed ? 'collapsed' : ''}`}>
               <form onSubmit={handleSearch} className="results-composer-wrapper">
                 {/* 输入区域 */}
                 <div className="results-composer-input-area">
@@ -920,12 +920,12 @@ const SearchResultsPage = () => {
                 {papers.map((paper, index) => (
                   <div
                     key={paper.paperId}
-                    className={`paper-item ${selectedPaper?.paperId === paper.paperId ? 'selected' : ''}`}
+                    className={`search-result-paper-item ${selectedPaper?.paperId === paper.paperId ? 'selected' : ''}`}
                   >
-                    <div className="paper-number">{startIndex + index}</div>
-                    <div className="paper-content">
+                    <div className="search-result-paper-number">{startIndex + index}</div>
+                    <div className="search-result-paper-content">
                       <h3 
-                        className="paper-title" 
+                        className="search-result-paper-title" 
                         onClick={() => setSelectedPaper(paper)}
                       >
                         {paper.title}
@@ -933,8 +933,8 @@ const SearchResultsPage = () => {
 
                       {/* 作者列表 */}
                       {paper.authors && paper.authors.length > 0 && (
-                        <div className="paper-authors-row">
-                          <div className="paper-author-tags">
+                        <div className="search-result-paper-authors-row">
+                          <div className="search-result-paper-author-tags">
                             {paper.authors.slice(0, 4).map((author, idx) => (
                               <span key={idx} className="author-tag">{author.name}</span>
                             ))}
@@ -944,7 +944,7 @@ const SearchResultsPage = () => {
                           </div>
                           {/* 研究领域 */}
                           {paper.fieldsOfStudy && paper.fieldsOfStudy.length > 0 && (
-                            <span className="paper-fields">
+                            <span className="search-result-paper-fields">
                               {paper.fieldsOfStudy.slice(0, 2).join(', ')}
                             </span>
                           )}
@@ -953,9 +953,9 @@ const SearchResultsPage = () => {
 
                       {/* 期刊/会议 + 日期 */}
                       {(paper.venue || paper.publicationDate || paper.year) && (
-                        <p className="paper-venue-date">
+                        <p className="search-result-paper-venue-date">
                           {paper.venue && (
-                            <span className="venue-name">{paper.venue}</span>
+                            <span className="search-result-venue-name">{paper.venue}</span>
                           )}
                           {paper.venue && (paper.publicationDate || paper.year) && ' · '}
                           {paper.publicationDate ? (
@@ -1025,7 +1025,7 @@ const SearchResultsPage = () => {
                       )}
 
                       {/* 底部元信息和操作 */}
-                      <div className="paper-meta">
+                      <div className="search-result-paper-meta">
                         {/* 被引用数 */}
                         {paper.citationCount !== undefined && (
                           <>
@@ -1043,7 +1043,7 @@ const SearchResultsPage = () => {
                             href={`https://doi.org/${paper.externalIds.DOI}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="paper-doi-link"
+                            className="search-result-paper-doi-link"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1075,7 +1075,7 @@ const SearchResultsPage = () => {
                         
                         {/* Cite 按钮 */}
                         <button
-                          className="paper-cite-btn"
+                          className="search-result-paper-cite-btn"
                           onClick={(e) => {
                             e.stopPropagation();
                             setCitePaper(paper);
