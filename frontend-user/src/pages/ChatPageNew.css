@@ -152,7 +152,6 @@
   color: var(--text-primary);
   border-radius: 1.375rem;
   padding: 0.75rem 1rem;
-  max-width: 70%;
   word-wrap: break-word;
   white-space: pre-wrap;
   font-size: 1rem;
@@ -160,6 +159,7 @@
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   transition: all 0.2s ease;
+  display: inline-block;
 }
 
 /* 夜间模式用户消息气泡 */
@@ -208,6 +208,25 @@
   color: white;
 }
 
+/* Assistant logo styling */
+.chat-page-wrapper .assistant-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  filter: brightness(1);
+  transition: filter 0.2s ease;
+}
+
+/* 夜间模式下的logo处理 - 保持原色 */
+[data-theme="dark"] .chat-page-wrapper .assistant-logo {
+  filter: brightness(1);
+}
+
+/* 日间模式下的logo处理 - 稍微加深以提高对比度 */
+[data-theme="light"] .chat-page-wrapper .assistant-logo {
+  filter: brightness(0.85) contrast(1.1);
+}
+
 .chat-page-wrapper .message-body {
   flex: 1;
   min-width: 0;
@@ -254,8 +273,16 @@
   z-index: 5;
 }
 
-/* User messages: show buttons on hover */
-.chat-page-wrapper .message-group[data-role="user"]:hover .hover-buttons {
+/* User message wrapper for hover area */
+.chat-page-wrapper .user-message-wrapper {
+  position: relative;
+  display: inline-block;
+  max-width: 70%;
+  margin-left: auto;
+}
+
+/* User messages: show buttons on hover of the bubble area only */
+.chat-page-wrapper .user-message-wrapper:hover .hover-buttons {
   opacity: 1;
   pointer-events: auto; /* Enable clicks when visible */
 }
@@ -266,10 +293,12 @@
   pointer-events: auto !important;
 }
 
-/* For user messages, align buttons to the right */
-.chat-page-wrapper .message-group[data-role="user"] .hover-buttons {
-  left: auto;
+/* For user messages, position buttons below the bubble */
+.chat-page-wrapper .user-message-wrapper .hover-buttons {
+  position: absolute;
+  bottom: -2rem;
   right: 0;
+  left: auto;
 }
 
 /* For assistant messages, position buttons relative to message body (not avatar) */
@@ -385,6 +414,12 @@
   color: rgba(255, 255, 255, 0.6);
   font-size: 0.875rem;
   padding: 0 0.25rem;
+}
+
+/* 日间模式分支导航计数文字 */
+[data-theme="light"] .chat-page-wrapper .branch-nav-count {
+  color: rgba(0, 0, 0, 0.7);
+  font-weight: 500;
 }
 
 /* Edit container - Similar to composer style */
@@ -702,6 +737,11 @@
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.4);
   animation: chatgpt-thinking 1.4s ease-in-out infinite;
+}
+
+/* 日间模式 loading dots */
+[data-theme="light"] .chat-page-wrapper .thinking-dot {
+  background: rgba(0, 0, 0, 0.4);
 }
 
 .chat-page-wrapper .thinking-dot:nth-child(1) {

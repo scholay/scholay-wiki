@@ -1085,24 +1085,6 @@ function ChatPage() {
                       key={msg.message_id || index}
                       className="message-group"
                       data-role={msg.role}
-                      onMouseEnter={() => {
-                        // 清除之前的定时器
-                        if (hoverTimeoutRef.current) {
-                          clearTimeout(hoverTimeoutRef.current);
-                        }
-                        // 设置1秒延迟显示hover按钮
-                        hoverTimeoutRef.current = setTimeout(() => {
-                          setHoveredMessage(msg.message_id);
-                        }, 1000);
-                      }}
-                      onMouseLeave={() => {
-                        // 清除定时器
-                        if (hoverTimeoutRef.current) {
-                          clearTimeout(hoverTimeoutRef.current);
-                          hoverTimeoutRef.current = null;
-                        }
-                        setHoveredMessage(null);
-                      }}
                     >
                       <div className="message-wrapper">
                         <div className="message-content-container">
@@ -1126,7 +1108,27 @@ function ChatPage() {
                                 </div>
                               </div>
                             ) : (
-                              <>
+                              <div 
+                                className="user-message-wrapper"
+                                onMouseEnter={() => {
+                                  // 清除之前的定时器
+                                  if (hoverTimeoutRef.current) {
+                                    clearTimeout(hoverTimeoutRef.current);
+                                  }
+                                  // 设置1秒延迟显示hover按钮
+                                  hoverTimeoutRef.current = setTimeout(() => {
+                                    setHoveredMessage(msg.message_id);
+                                  }, 1000);
+                                }}
+                                onMouseLeave={() => {
+                                  // 清除定时器
+                                  if (hoverTimeoutRef.current) {
+                                    clearTimeout(hoverTimeoutRef.current);
+                                    hoverTimeoutRef.current = null;
+                                  }
+                                  setHoveredMessage(null);
+                                }}
+                              >
                                 <div className="user-message-bubble">
                                   {msg.content}
                                 </div>
@@ -1147,16 +1149,13 @@ function ChatPage() {
                                     </button>
                                   </div>
                                 )}
-                              </>
+                              </div>
                             )
                           ) : (
                             // Assistant message - Full width with avatar
                             <>
                               <div className="message-avatar">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                  <circle cx="12" cy="12" r="10"/>
-                                  <path d="M9 10h.01M15 10h.01M8 13.5c.5 1 1.5 2 4 2s3.5-1 4-2" fill="none" stroke="#212121" strokeWidth="1.5"/>
-                                </svg>
+                                <img src="/logo.png" alt="AI Assistant" className="assistant-logo" />
                               </div>
 
                               <div className="message-body">
@@ -1230,10 +1229,7 @@ function ChatPage() {
                       <div className="message-wrapper">
                         <div className="message-content-container">
                           <div className="message-avatar">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                              <circle cx="12" cy="12" r="10"/>
-                              <path d="M9 10h.01M15 10h.01M8 13.5c.5 1 1.5 2 4 2s3.5-1 4-2" fill="none" stroke="#212121" strokeWidth="1.5"/>
-                            </svg>
+                            <img src="/logo.png" alt="AI Assistant" className="assistant-logo" />
                           </div>
                           <div className="message-body">
                             <div className="thinking-indicator">
@@ -1253,10 +1249,7 @@ function ChatPage() {
                       <div className="message-wrapper">
                         <div className="message-content-container">
                           <div className="message-avatar">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                              <circle cx="12" cy="12" r="10"/>
-                              <path d="M9 10h.01M15 10h.01M8 13.5c.5 1 1.5 2 4 2s3.5-1 4-2" fill="none" stroke="#212121" strokeWidth="1.5"/>
-                            </svg>
+                            <img src="/logo.png" alt="AI Assistant" className="assistant-logo" />
                           </div>
                           <div className="message-body">
                             <div className="message-content streaming">
