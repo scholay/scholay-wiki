@@ -420,6 +420,13 @@
   gap: 0.75rem;
 }
 
+/* 顶部导航栏中的主题切换器 */
+.navbar-right .toggle {
+  width: 80px !important;
+  height: 30px !important;
+  flex-shrink: 0;
+}
+
 .btn-auth {
   padding: 0.5rem 1.25rem;
   border-radius: 8px;

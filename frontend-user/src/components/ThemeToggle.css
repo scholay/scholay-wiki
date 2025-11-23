@@ -1,125 +1,91 @@
-/* 主题切换按钮样式 */
-.theme-toggle {
-  position: relative;
-  width: 52px;
-  height: 26px;
-  padding: 0;
-  border: none;
-  border-radius: 26px;
-  background: transparent;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
+/* Theme Toggle - Simple Style */
+
+.theme-toggle-container {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
 }
 
-.theme-toggle:hover .theme-toggle-track {
-  box-shadow: 0 0 8px rgba(16, 163, 127, 0.3);
-}
-
-.theme-toggle:focus {
-  outline: none;
-}
-
-.theme-toggle:focus-visible .theme-toggle-track {
-  box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.5);
-}
-
-.theme-toggle-track {
+.checkbox {
+  opacity: 0;
   position: absolute;
-  width: 100%;
-  height: 100%;
-  border-radius: 26px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.3s ease;
-  overflow: hidden;
+  pointer-events: none;
 }
 
-/* 夜间模式样式 */
-[data-theme="dark"] .theme-toggle-track {
-  background: linear-gradient(135deg, #1e3a5f 0%, #0f1f3d 100%);
-  border-color: rgba(255, 255, 255, 0.1);
+.checkbox-label {
+  background-color: #111;
+  width: 50px;
+  height: 26px;
+  border-radius: 50px;
+  position: relative;
+  padding: 5px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-/* 日间模式样式 */
-[data-theme="light"] .theme-toggle-track {
-  background: linear-gradient(135deg, #87ceeb 0%, #ffd700 100%);
-  border-color: rgba(0, 0, 0, 0.1);
+.fa-moon {
+  color: #f1c40f;
+  flex-shrink: 0;
 }
 
-.theme-toggle-thumb {
-  position: absolute;
+.fa-sun {
+  color: #f39c12;
+  flex-shrink: 0;
+}
+
+.checkbox-label .ball {
+  background-color: #fff;
   width: 22px;
   height: 22px;
-  border-radius: 50%;
-  background: white;
+  position: absolute;
+  left: 2px;
   top: 2px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border-radius: 50%;
+  transition: transform 0.2s linear;
 }
 
-/* 夜间模式 - 月亮在左边 */
-[data-theme="dark"] .theme-toggle-thumb {
-  transform: translateX(2px);
-  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-  color: #ffd700;
+.checkbox:checked + .checkbox-label .ball {
+  transform: translateX(24px);
 }
 
-/* 日间模式 - 太阳在右边 */
-[data-theme="light"] .theme-toggle-thumb {
-  transform: translateX(28px);
-  background: linear-gradient(135deg, #fff 0%, #fffacd 100%);
-  color: #ff8c00;
+/* 导航栏中的尺寸 */
+.navbar-right .checkbox-label {
+  width: 50px;
+  height: 26px;
 }
 
-/* 动画效果 */
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.navbar-right .checkbox-label .ball {
+  width: 22px;
+  height: 22px;
 }
 
-.theme-toggle-thumb svg {
+.navbar-right .fa-moon,
+.navbar-right .fa-sun {
   width: 14px;
   height: 14px;
-  transition: transform 0.3s ease;
 }
 
-[data-theme="light"] .theme-toggle-thumb svg {
-  animation: rotate 15s linear infinite;
+/* 用户菜单中的尺寸 */
+.user-menu-theme-toggle-wrapper .checkbox-label {
+  width: 60px;
+  height: 30px;
+  padding: 6px;
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .theme-toggle {
-    width: 46px;
-    height: 24px;
-  }
+.user-menu-theme-toggle-wrapper .checkbox-label .ball {
+  width: 26px;
+  height: 26px;
+  left: 2px;
+  top: 2px;
+}
 
-  .theme-toggle-thumb {
-    width: 20px;
-    height: 20px;
-    top: 2px;
-  }
+.user-menu-theme-toggle-wrapper .checkbox:checked + .checkbox-label .ball {
+  transform: translateX(30px);
+}
 
-  [data-theme="dark"] .theme-toggle-thumb {
-    transform: translateX(2px);
-  }
-
-  [data-theme="light"] .theme-toggle-thumb {
-    transform: translateX(24px);
-  }
-
-  .theme-toggle-thumb svg {
-    width: 12px;
-    height: 12px;
-  }
+.user-menu-theme-toggle-wrapper .fa-moon,
+.user-menu-theme-toggle-wrapper .fa-sun {
+  width: 16px;
+  height: 16px;
 }

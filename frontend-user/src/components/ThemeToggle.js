@@ -4,30 +4,35 @@ import './ThemeToggle.css';
 
 const ThemeToggle = () => {
   const { theme, toggleTheme } = useTheme();
+  const isDark = theme === 'dark';
 
   return (
-    <button
-      className="theme-toggle"
-      onClick={toggleTheme}
-      aria-label={`切换到${theme === 'dark' ? '日间' : '夜间'}模式`}
-      title={`切换到${theme === 'dark' ? '日间' : '夜间'}模式`}
-    >
-      <div className="theme-toggle-track">
-        <div className="theme-toggle-thumb">
-          {theme === 'dark' ? (
-            // 月亮图标
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M21.64 13a1 1 0 0 0-1.05-.14 8.05 8.05 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.79 9.79 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/>
-            </svg>
-          ) : (
-            // 太阳图标
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 17.5a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11Zm0-9.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-3.5a.75.75 0 0 1-.75-.75V2.75a.75.75 0 0 1 1.5 0v1a.75.75 0 0 1-.75.75ZM12 19.5a.75.75 0 0 1 .75.75v1a.75.75 0 0 1-1.5 0v-1a.75.75 0 0 1 .75-.75ZM4.5 12a.75.75 0 0 1-.75.75h-1a.75.75 0 0 1 0-1.5h1a.75.75 0 0 1 .75.75ZM19.5 12a.75.75 0 0 1 .75-.75h1a.75.75 0 0 1 0 1.5h-1a.75.75 0 0 1-.75-.75ZM6.22 6.22a.75.75 0 0 1 0-1.06l.71-.71a.75.75 0 0 1 1.06 1.06l-.71.71a.75.75 0 0 1-1.06 0ZM17.78 17.78a.75.75 0 0 1 0 1.06l-.71.71a.75.75 0 0 1-1.06-1.06l.71-.71a.75.75 0 0 1 1.06 0ZM17.78 6.22a.75.75 0 0 1-1.06 0l-.71-.71a.75.75 0 0 1 1.06-1.06l.71.71a.75.75 0 0 1 0 1.06ZM6.22 17.78a.75.75 0 0 1 1.06 0l.71.71a.75.75 0 0 1-1.06 1.06l-.71-.71a.75.75 0 0 1 0-1.06Z"/>
-            </svg>
-          )}
-        </div>
-      </div>
-    </button>
+    <div className="theme-toggle-container">
+      <input
+        type="checkbox"
+        className="checkbox"
+        id="theme-checkbox"
+        checked={isDark}
+        onChange={toggleTheme}
+      />
+      <label htmlFor="theme-checkbox" className="checkbox-label">
+        <svg className="fa-moon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <svg className="fa-sun" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" strokeWidth="2"/>
+          <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" strokeWidth="2"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" strokeWidth="2"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" strokeWidth="2"/>
+          <line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" strokeWidth="2"/>
+          <line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" strokeWidth="2"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" strokeWidth="2"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" strokeWidth="2"/>
+        </svg>
+        <span className="ball"></span>
+      </label>
+    </div>
   );
 };
 
