@@ -14,6 +14,7 @@ type Config struct {
 	Redis    RedisConfig
 	JWT      JWTConfig
 	Admin    AdminConfig
+	SigNoz   SigNozConfig
 }
 
 type ServerConfig struct {
@@ -42,6 +43,16 @@ type JWTConfig struct {
 type AdminConfig struct {
 	InitialUsername string
 	InitialPassword string
+}
+
+type SigNozConfig struct {
+	Endpoint      string
+	ServiceName   string
+	Environment   string
+	EnableTracing bool
+	EnableLogging bool
+	EnableMetrics bool
+	SamplingRate  float64
 }
 
 var AppConfig *Config
@@ -75,6 +86,15 @@ func Load() *Config {
 			InitialUsername: getEnv("ADMIN_INITIAL_USERNAME", "admin"),
 			InitialPassword: getEnv("ADMIN_INITIAL_PASSWORD", "adminadmin"),
 		},
+		SigNoz: SigNozConfig{
+			Endpoint:      getEnv("SIGNOZ_ENDPOINT", "http://198.44.187.186:4318"),
+			ServiceName:   getEnv("SIGNOZ_SERVICE_NAME", "scholar-backend"),
+			Environment:   getEnv("SIGNOZ_ENVIRONMENT", "production"),
+			EnableTracing: getEnvAsBool("SIGNOZ_ENABLE_TRACING", true),
+			EnableLogging: getEnvAsBool("SIGNOZ_ENABLE_LOGGING", true),
+			EnableMetrics: getEnvAsBool("SIGNOZ_ENABLE_METRICS", true),
+			SamplingRate:  getEnvAsFloat("SIGNOZ_SAMPLING_RATE", 1.0),
+		},
 	}
 
 	log.Println("Configuration loaded successfully")
@@ -95,6 +115,30 @@ func getEnvAsInt(key string, defaultValue int) int {
 		return defaultValue
 	}
 	value, err := strconv.Atoi(valueStr)
+	if err != nil {
+		return defaultValue
+	}
+	return value
+}
+
+func getEnvAsBool(key string, defaultValue bool) bool {
+	valueStr := os.Getenv(key)
+	if valueStr == "" {
+		return defaultValue
+	}
+	value, err := strconv.ParseBool(valueStr)
+	if err != nil {
+		return defaultValue
+	}
+	return value
+}
+
+func getEnvAsFloat(key string, defaultValue float64) float64 {
+	valueStr := os.Getenv(key)
+	if valueStr == "" {
+		return defaultValue
+	}
+	value, err := strconv.ParseFloat(valueStr, 64)
 	if err != nil {
 		return defaultValue
 	}

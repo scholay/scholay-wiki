@@ -14,6 +14,7 @@ import (
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/middleware"
+	"scholar-backend/internal/common/telemetry"
 	"scholar-backend/internal/config"
 	"scholar-backend/internal/conversation"
 	"scholar-backend/internal/coupon"
@@ -29,15 +30,68 @@ import (
 	"scholar-backend/internal/wechatofficial"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 func main() {
 	// Load configuration
 	cfg := appconfig.Load()
 
+	// Initialize OpenTelemetry with SigNoz
+	ctx := context.Background()
+	if cfg.SigNoz.EnableTracing || cfg.SigNoz.EnableLogging {
+		telemetryCfg := &telemetry.Config{
+			Endpoint:      cfg.SigNoz.Endpoint,
+			ServiceName:   cfg.SigNoz.ServiceName,
+			Environment:   cfg.SigNoz.Environment,
+			EnableTracing: cfg.SigNoz.EnableTracing,
+			EnableLogging: cfg.SigNoz.EnableLogging,
+			EnableMetrics: cfg.SigNoz.EnableMetrics,
+			SamplingRate:  cfg.SigNoz.SamplingRate,
+		}
+		
+		telemetryShutdown, err := telemetry.Initialize(ctx, telemetryCfg)
+		if err != nil {
+			log.Printf("Warning: Failed to initialize telemetry: %v", err)
+		} else {
+			log.Printf("✓ Telemetry initialized (SigNoz endpoint: %s)", telemetryCfg.Endpoint)
+			log.Printf("  - Service: %s", telemetryCfg.ServiceName)
+			log.Printf("  - Environment: %s", telemetryCfg.Environment)
+			log.Printf("  - Tracing: %v, Logging: %v, Metrics: %v", 
+				telemetryCfg.EnableTracing, telemetryCfg.EnableLogging, telemetryCfg.EnableMetrics)
+			log.Printf("  - Sampling Rate: %.1f%%", telemetryCfg.SamplingRate*100)
+			
+			defer func() {
+				shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := telemetryShutdown(shutdownCtx); err != nil {
+					log.Printf("Error shutting down telemetry: %v", err)
+				}
+			}()
+		}
+	} else {
+		log.Println("✓ Telemetry disabled by configuration")
+	}
+
+	// Create logger for main (only if telemetry is enabled)
+	var logger *telemetry.Logger
+	if cfg.SigNoz.EnableLogging {
+		logger = telemetry.NewLogger("main")
+		logger.Info(ctx, "Starting Scholar Backend Service",
+			attribute.String("version", "1.0.0"),
+			attribute.String("environment", cfg.SigNoz.Environment),
+		)
+	}
+
 	// Initialize Redis
 	if err := cache.InitRedis(cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.Password, cfg.Redis.DB); err != nil {
+		if logger != nil {
+			logger.Fatal(ctx, "Failed to initialize Redis", err)
+		}
 		log.Fatalf("Failed to initialize Redis: %v", err)
+	}
+	if logger != nil {
+		logger.Info(ctx, "Redis initialized successfully")
 	}
 	log.Println("✓ Redis initialized successfully")
 
@@ -173,6 +227,17 @@ func main() {
 
 	// Apply global middleware
 	router.Use(middleware.CORSMiddleware())
+	
+	// Add telemetry middleware only if enabled
+	if cfg.SigNoz.EnableTracing {
+		// Add OpenTelemetry middleware for distributed tracing
+		router.Use(middleware.OpenTelemetryGinMiddleware(cfg.SigNoz.ServiceName))
+	}
+	
+	if cfg.SigNoz.EnableLogging {
+		// Add comprehensive telemetry middleware for logging
+		router.Use(middleware.TelemetryMiddleware())
+	}
 
 	// Add rate limiting middleware (100 requests per second per IP)
 	// This prevents DoS attacks and ensures fair resource allocation
