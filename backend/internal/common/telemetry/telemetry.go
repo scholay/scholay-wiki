@@ -50,22 +50,35 @@ func Initialize(ctx context.Context, cfg *Config) (shutdown func(context.Context
 
 // initTracing initializes OpenTelemetry tracing
 func initTracing(ctx context.Context, cfg *Config, res *resource.Resource) (func(context.Context) error, error) {
-	// Create OTLP trace exporter
+	// Create OTLP trace exporter with retry configuration
 	traceExporter, err := otlptrace.New(
 		ctx,
 		otlptracehttp.NewClient(
 			otlptracehttp.WithEndpoint(cfg.Endpoint),
 			otlptracehttp.WithInsecure(),
 			otlptracehttp.WithTimeout(30*time.Second),
+			otlptracehttp.WithRetry(otlptracehttp.RetryConfig{
+				Enabled:         true,
+				InitialInterval: 1 * time.Second,
+				MaxInterval:     10 * time.Second,
+				MaxElapsedTime:  1 * time.Minute,
+			}),
+			// Add compression to reduce payload size
+			otlptracehttp.WithCompression(1), // 1 = gzip compression
 		),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
 
-	// Create trace provider
+	// Create trace provider with optimized batch settings
 	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(traceExporter),
+		sdktrace.WithBatcher(
+			traceExporter,
+			sdktrace.WithMaxExportBatchSize(512),      // Batch up to 512 spans
+			sdktrace.WithBatchTimeout(5*time.Second),  // Export every 5 seconds
+			sdktrace.WithMaxQueueSize(2048),           // Queue up to 2048 spans
+		),
 		sdktrace.WithResource(res),
 		sdktrace.WithSampler(sdktrace.TraceIDRatioBased(cfg.SamplingRate)),
 	)
@@ -89,16 +102,22 @@ func initTracing(ctx context.Context, cfg *Config, res *resource.Resource) (func
 
 // newResource creates a new resource with service information
 func newResource(cfg *Config) (*resource.Resource, error) {
-	return resource.Merge(
-		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceName(cfg.ServiceName),
-			semconv.ServiceVersion("1.0.0"),
-			attribute.String("environment", cfg.Environment),
-			attribute.String("service.namespace", "scholar"),
-		),
+	// Create resource with attributes (without specifying SchemaURL to avoid conflicts)
+	res := resource.NewWithAttributes(
+		"", // Empty schema URL to avoid version conflicts
+		semconv.ServiceName(cfg.ServiceName),
+		semconv.ServiceVersion("1.0.0"),
+		attribute.String("environment", cfg.Environment),
+		attribute.String("service.namespace", "scholar"),
 	)
+	
+	// Merge with default resource (without SchemaURL)
+	defaultRes, err := resource.New(context.Background())
+	if err != nil {
+		return res, nil // Return custom resource if default fails
+	}
+	
+	return resource.Merge(defaultRes, res)
 }
 
 // GetTracer returns the global tracer

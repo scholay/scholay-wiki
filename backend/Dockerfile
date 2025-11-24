@@ -7,8 +7,8 @@ WORKDIR /build
 RUN apk add --no-cache git gcc musl-dev
 
 # Set Go proxy for China (use Aliyun mirror)
-# ENV GOPROXY=https://mirrors.aliyun.com/goproxy/,https://goproxy.cn,direct
-# ENV GO111MODULE=on
+ENV GOPROXY=https://goproxy.cn,direct
+ENV GO111MODULE=on
 
 # Copy go mod files
 COPY go.mod ./
