@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/common/model"
+	"scholar-backend/internal/common/utils"
 	conversationModel "scholar-backend/internal/conversation"
 	subscriptionModel "scholar-backend/internal/subscription"
 	"gorm.io/gorm"
@@ -186,11 +187,32 @@ func (r *Repository) CreateSession(session *model.UserSession) error {
 	return r.db.Create(session).Error
 }
 
-// UpdateSessionActivity updates the last activity time of a session
+// UpdateSessionActivity updates the last activity time of a session and user's last login time
 func (r *Repository) UpdateSessionActivity(token string) error {
-	return r.db.Model(&model.UserSession{}).
-		Where("token = ?", token).
-		Update("last_activity", time.Now()).Error
+	// Get session to find user_id
+	var session model.UserSession
+	if err := r.db.Where("token = ?", token).First(&session).Error; err != nil {
+		return err
+	}
+
+	// Use transaction to update both session and user
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// Update session last_activity
+		if err := tx.Model(&model.UserSession{}).
+			Where("token = ?", token).
+			Update("last_activity", time.Now()).Error; err != nil {
+			return err
+		}
+
+		// Update user's last_login_at
+		if err := tx.Model(&User{}).
+			Where("id = ?", session.UserID).
+			Update("last_login_at", time.Now()).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 // DeleteExpiredSessions deletes all expired sessions
@@ -221,7 +243,16 @@ func (r *Repository) GetUserSession(token string) (*model.UserSession, error) {
 // GetOnlineUsers returns list of currently online users with their session info
 // A user is considered online if they have an active session with activity in the last 2 minutes
 func (r *Repository) GetOnlineUsers() ([]map[string]interface{}, error) {
-	var results []map[string]interface{}
+	type OnlineUserRaw struct {
+		ID           uint      `json:"id"`
+		Email        *string   `json:"email"`
+		Username     *string   `json:"username"`
+		LastActivity time.Time `json:"last_activity"`
+		IP           string    `json:"ip"`
+		UserAgent    string    `json:"user_agent"`
+	}
+
+	var rawResults []OnlineUserRaw
 
 	// Consider a user online if they had activity in the last 2 minutes
 	onlineThreshold := time.Now().Add(-2 * time.Minute)
@@ -247,9 +278,38 @@ func (r *Repository) GetOnlineUsers() ([]map[string]interface{}, error) {
 		) s2 ON u.id = s2.user_id
 		GROUP BY u.id, s2.last_activity, s2.ip, s2.user_agent
 		ORDER BY s2.last_activity DESC
-	`, time.Now(), onlineThreshold).Scan(&results).Error
+	`, time.Now(), onlineThreshold).Scan(&rawResults).Error
 
-	return results, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to map and add parsed information
+	results := make([]map[string]interface{}, len(rawResults))
+	for i, raw := range rawResults {
+		result := map[string]interface{}{
+			"id":            raw.ID,
+			"email":         raw.Email,
+			"username":      raw.Username,
+			"last_activity": raw.LastActivity,
+			"ip":            raw.IP,
+			"user_agent":    raw.UserAgent,
+		}
+
+		// Parse IP location
+		location := utils.ParseIPLocation(raw.IP)
+		result["location"] = utils.GetLocationString(location)
+		result["location_detail"] = location
+
+		// Parse user agent
+		deviceInfo := utils.ParseUserAgent(raw.UserAgent)
+		result["device"] = utils.GetSimpleDeviceString(deviceInfo)
+		result["device_detail"] = deviceInfo
+
+		results[i] = result
+	}
+
+	return results, nil
 }
 
 // GetUserStatisticsByDateRange returns user statistics for a date range
@@ -366,6 +426,16 @@ func (r *Repository) DeleteAuthProvider(id uint) error {
 func (r *Repository) FindAuthProviderByProviderAndProviderUserID(provider, providerUserID string) (*UserAuthProvider, error) {
 	var authProvider UserAuthProvider
 	err := r.db.Where("provider = ? AND provider_user_id = ?", provider, providerUserID).First(&authProvider).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &authProvider, err
+}
+
+// FindAuthProviderByUnionID finds auth provider by provider type and union ID (for WeChat UnionID)
+func (r *Repository) FindAuthProviderByUnionID(provider, unionID string) (*UserAuthProvider, error) {
+	var authProvider UserAuthProvider
+	err := r.db.Where("provider = ? AND provider_union_id = ?", provider, unionID).First(&authProvider).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}

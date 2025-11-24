@@ -136,6 +136,47 @@
   font-size: 0.82rem;
 }
 
+/* 用户信息列样式 */
+.user-info-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-width: 280px;
+}
+
+.user-info-username {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.user-info-details-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.user-info-detail {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.user-info-detail .info-label {
+  font-weight: 500;
+  color: var(--text-tertiary);
+  margin-right: 0.3rem;
+}
+
+.user-info-divider {
+  height: 1px;
+  background-color: var(--border-subtle);
+  margin: 0.2rem 0;
+}
+
 @media (max-width: 1024px) {
   .order-stats {
     grid-template-columns: repeat(2, 1fr);

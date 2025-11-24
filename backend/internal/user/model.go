@@ -28,13 +28,14 @@ func (User) TableName() string {
 
 // UserAuthProvider represents a user's authentication provider
 type UserAuthProvider struct {
-	ID             uint      `gorm:"primaryKey" json:"id"`
-	UserID         uint      `gorm:"not null" json:"user_id"`
-	Provider       string    `gorm:"not null;size:20" json:"provider"` // email, phone, wechat, google, etc.
-	ProviderUserID string    `gorm:"not null;size:255" json:"provider_user_id"`
-	ProviderData   *string   `gorm:"type:json" json:"provider_data"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID              uint      `gorm:"primaryKey" json:"id"`
+	UserID          uint      `gorm:"not null" json:"user_id"`
+	Provider        string    `gorm:"not null;size:20" json:"provider"` // email, phone, wechat, google, etc.
+	ProviderUserID  string    `gorm:"not null;size:255" json:"provider_user_id"` // 微信为 openID
+	ProviderUnionID *string   `gorm:"size:255" json:"provider_union_id"` // 微信 UnionID，用于跨应用识别
+	ProviderData    *string   `gorm:"type:json" json:"provider_data"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // TableName specifies the table name for UserAuthProvider

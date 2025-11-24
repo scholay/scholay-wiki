@@ -90,6 +90,71 @@ const OrderManagement = () => {
     return new Date(dateStr).toLocaleString('zh-CN');
   };
 
+  // 渲染用户信息
+  const renderUserInfo = (order) => {
+    const userInfo = [];
+    
+    // 用户名（主要显示）
+    if (order.username) {
+      userInfo.push(<div key="username" className="user-info-username">{order.username}</div>);
+    } else {
+      userInfo.push(<div key="userid" className="user-info-username">用户 {order.user_id}</div>);
+    }
+
+    const details = [];
+    if (order.phone) {
+      details.push(
+        <div key="phone" className="user-info-detail">
+          <span className="info-label">手机:</span> {order.phone}
+        </div>
+      );
+    }
+    if (order.email) {
+      details.push(
+        <div key="email" className="user-info-detail">
+          <span className="info-label">邮箱:</span> {order.email}
+        </div>
+      );
+    }
+    if (order.wechat_name) {
+      details.push(
+        <div key="wechat_name" className="user-info-detail">
+          <span className="info-label">微信:</span> {order.wechat_name}
+        </div>
+      );
+    }
+    if (order.wechat_union_id) {
+      details.push(
+        <div key="wechat_union_id" className="user-info-detail">
+          <span className="info-label">UnionID:</span> {order.wechat_union_id}
+        </div>
+      );
+    }
+    if (order.github_name) {
+      details.push(
+        <div key="github_name" className="user-info-detail">
+          <span className="info-label">GitHub:</span> {order.github_name}
+        </div>
+      );
+    }
+
+    return (
+      <div className="user-info-cell">
+        {userInfo}
+        {details.length > 0 && (
+          <div className="user-info-details-wrapper">
+            {details.map((detail, index) => (
+              <React.Fragment key={index}>
+                {index > 0 && <div className="user-info-divider"></div>}
+                {detail}
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="order-management">
       <h1 className="page-title">订单管理</h1>
@@ -181,7 +246,7 @@ const OrderManagement = () => {
                 <thead>
                   <tr>
                     <th>订单号</th>
-                    <th>用户ID</th>
+                    <th>用户信息</th>
                     <th>套餐</th>
                     <th>金额</th>
                     <th>支付方式</th>
@@ -192,7 +257,7 @@ const OrderManagement = () => {
                   {orders.map((order) => (
                     <tr key={order.id}>
                       <td className="order-no">{order.order_no}</td>
-                      <td>{order.user_id}</td>
+                      <td className="user-info">{renderUserInfo(order)}</td>
                       <td>
                         <div className="plan-info">
                           <span className={`plan-badge plan-badge-${order.plan_code}`}>

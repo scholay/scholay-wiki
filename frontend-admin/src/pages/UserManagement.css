@@ -14,6 +14,41 @@
   min-height: 300px;
 }
 
+/* 联系方式列样式 */
+.user-table .contact-info-td {
+  max-width: 300px;
+}
+
+.contact-info-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-width: 300px;
+}
+
+.contact-info-detail {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.contact-info-detail .info-label {
+  font-weight: 500;
+  color: var(--text-tertiary);
+  margin-right: 0.3rem;
+}
+
+.contact-info-divider {
+  height: 1px;
+  background-color: var(--border-subtle);
+  margin: 0.2rem 0;
+}
+
+.empty-contact {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+}
+
 .user-table .wechat-openid,
 .wechat-openid {
   max-width: 220px;
@@ -32,6 +67,36 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* IP 地址和地理位置样式 */
+.ip-location-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ip-address {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.location-info {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  padding: 0.15rem 0.5rem;
+  background: var(--gray-50);
+  border-radius: var(--radius-sm);
+  width: fit-content;
+}
+
+/* 设备信息样式 */
+.device-info-cell {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  max-width: 280px;
 }
 
 .action-btn {

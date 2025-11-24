@@ -1617,10 +1617,23 @@ func (s *Service) UnbindGitHub(userID uint) error {
 
 // LoginOrRegisterWithWeChat handles WeChat login or registration
 func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL string) (*User, string, bool, error) {
-	// Try to find existing user by openID
-	authProvider, err := s.repo.FindAuthProviderByProviderAndProviderUserID("wechat", openID)
-	if err != nil {
-		return nil, "", false, err
+	var authProvider *UserAuthProvider
+	var err error
+	
+	// Priority 1: Try to find by unionID if available (for users who have it)
+	if unionID != "" {
+		authProvider, err = s.repo.FindAuthProviderByUnionID("wechat", unionID)
+		if err != nil {
+			return nil, "", false, err
+		}
+	}
+	
+	// Priority 2: If not found by unionID, try by openID (for backward compatibility)
+	if authProvider == nil {
+		authProvider, err = s.repo.FindAuthProviderByProviderAndProviderUserID("wechat", openID)
+		if err != nil {
+			return nil, "", false, err
+		}
 	}
 
 	isNewUser := false
@@ -1646,6 +1659,12 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 		user.LastLoginAt = &now
 		if err := s.repo.Update(user); err != nil {
 			return nil, "", false, err
+		}
+		
+		// Update unionID if it's not set (migration for old records)
+		if authProvider.ProviderUnionID == nil && unionID != "" {
+			authProvider.ProviderUnionID = &unionID
+			_ = s.repo.UpdateAuthProvider(authProvider)
 		}
 
 		// Generate JWT token
@@ -1674,13 +1693,21 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	// Update last login time (registration counts as first login)
 	_ = s.repo.UpdateLastLogin(user.ID)
 
-	// Create auth provider entry with nickname in provider_data
+	// Create auth provider entry
+	// Save nickname and avatar in provider_data
 	providerDataJSON := fmt.Sprintf(`{"nickname":"%s","avatar_url":"%s"}`, nickname, avatarURL)
+	
+	var unionIDPtr *string
+	if unionID != "" {
+		unionIDPtr = &unionID
+	}
+	
 	authProvider = &UserAuthProvider{
-		UserID:         user.ID,
-		Provider:       "wechat",
-		ProviderUserID: openID,
-		ProviderData:   &providerDataJSON,
+		UserID:          user.ID,
+		Provider:        "wechat",
+		ProviderUserID:  openID, // openID 作为主要标识
+		ProviderUnionID: unionIDPtr, // UnionID 作为跨应用标识
+		ProviderData:    &providerDataJSON,
 	}
 
 	if err := s.repo.CreateAuthProvider(authProvider); err != nil {
@@ -1698,7 +1725,7 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 
 // BindWeChat binds a WeChat account to an existing user
 func (s *Service) BindWeChat(userID uint, openID, unionID, nickname, avatarURL string) error {
-	// Check if WeChat is already bound to another user
+	// Check if WeChat is already bound to another user (check both openID and unionID)
 	existing, err := s.repo.FindAuthProviderByProviderAndProviderUserID("wechat", openID)
 	if err != nil {
 		return err
@@ -1706,6 +1733,17 @@ func (s *Service) BindWeChat(userID uint, openID, unionID, nickname, avatarURL s
 
 	if existing != nil && existing.UserID != userID {
 		return errors.New("该微信账号已被其他账号绑定")
+	}
+	
+	// Also check by unionID if available
+	if unionID != "" {
+		existingByUnionID, err := s.repo.FindAuthProviderByUnionID("wechat", unionID)
+		if err != nil {
+			return err
+		}
+		if existingByUnionID != nil && existingByUnionID.UserID != userID {
+			return errors.New("该微信账号已被其他账号绑定")
+		}
 	}
 
 	// Get current user
@@ -1739,13 +1777,19 @@ func (s *Service) BindWeChat(userID uint, openID, unionID, nickname, avatarURL s
 	// Prepare provider data
 	providerDataJSON := fmt.Sprintf(`{"nickname":"%s","avatar_url":"%s"}`, nickname, avatarURL)
 	
+	var unionIDPtr *string
+	if unionID != "" {
+		unionIDPtr = &unionID
+	}
+	
 	if authProvider == nil {
 		// Create new auth provider
 		authProvider = &UserAuthProvider{
-			UserID:         userID,
-			Provider:       "wechat",
-			ProviderUserID: openID,
-			ProviderData:   &providerDataJSON,
+			UserID:          userID,
+			Provider:        "wechat",
+			ProviderUserID:  openID,
+			ProviderUnionID: unionIDPtr,
+			ProviderData:    &providerDataJSON,
 		}
 		if err := s.repo.CreateAuthProvider(authProvider); err != nil {
 			return err
@@ -1753,6 +1797,7 @@ func (s *Service) BindWeChat(userID uint, openID, unionID, nickname, avatarURL s
 	} else {
 		// Update existing auth provider
 		authProvider.ProviderUserID = openID
+		authProvider.ProviderUnionID = unionIDPtr
 		authProvider.ProviderData = &providerDataJSON
 		if err := s.repo.UpdateAuthProvider(authProvider); err != nil {
 			return err

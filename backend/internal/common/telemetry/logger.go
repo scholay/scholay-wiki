@@ -1,14 +1,17 @@
 package telemetry
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"runtime"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -23,44 +26,53 @@ const (
 	LogLevelFatal LogLevel = "FATAL"
 )
 
-// Logger provides structured logging with OpenTelemetry integration
+// Logger provides structured logging with SigNoz integration
 type Logger struct {
-	logger log.Logger
-	tracer trace.Tracer
+	logger   *logrus.Logger
+	tracer   trace.Tracer
+	endpoint string
+}
+
+var globalEndpoint string
+
+// SetGlobalEndpoint sets the global SigNoz endpoint
+func SetGlobalEndpoint(endpoint string) {
+	globalEndpoint = endpoint
 }
 
 // NewLogger creates a new logger instance
 func NewLogger(name string) *Logger {
-	var logger log.Logger
-	if loggerProvider != nil {
-		logger = loggerProvider.Logger(name)
-	}
+	logger := logrus.New()
+	logger.SetFormatter(&logrus.JSONFormatter{
+		TimestampFormat: time.RFC3339Nano,
+	})
 	
 	return &Logger{
-		logger: logger,
-		tracer: GetTracer(),
+		logger:   logger,
+		tracer:   GetTracer(),
+		endpoint: globalEndpoint,
 	}
 }
 
 // LogEntry represents a structured log entry
 type LogEntry struct {
-	Level       LogLevel
-	Message     string
-	Attributes  []attribute.KeyValue
-	Error       error
-	Timestamp   time.Time
-	TraceID     string
-	SpanID      string
-	UserID      string
-	RequestID   string
-	Method      string
-	Path        string
-	StatusCode  int
-	Latency     time.Duration
-	ClientIP    string
-	UserAgent   string
-	RefererURL  string
-	RequestSize int64
+	Level        LogLevel
+	Message      string
+	Attributes   []attribute.KeyValue
+	Error        error
+	Timestamp    time.Time
+	TraceID      string
+	SpanID       string
+	UserID       string
+	RequestID    string
+	Method       string
+	Path         string
+	StatusCode   int
+	Latency      time.Duration
+	ClientIP     string
+	UserAgent    string
+	RefererURL   string
+	RequestSize  int64
 	ResponseSize int64
 }
 
@@ -144,67 +156,78 @@ func (l *Logger) LogRequest(ctx context.Context, entry *LogEntry) {
 
 // log is the internal logging method
 func (l *Logger) log(ctx context.Context, level LogLevel, msg string, err error, attrs ...attribute.KeyValue) {
-	if l.logger == nil {
-		// Fallback to standard logging if logger not initialized
-		fmt.Printf("[%s] %s %v\n", level, msg, attrs)
-		return
-	}
-	
 	// Get trace and span IDs from context
 	span := trace.SpanFromContext(ctx)
 	spanCtx := span.SpanContext()
 	
+	// Prepare log fields
+	fields := logrus.Fields{
+		"level":   string(level),
+		"message": msg,
+	}
+	
 	// Add trace context
 	if spanCtx.HasTraceID() {
-		attrs = append(attrs, attribute.String("trace.id", spanCtx.TraceID().String()))
+		fields["trace.id"] = spanCtx.TraceID().String()
 	}
 	if spanCtx.HasSpanID() {
-		attrs = append(attrs, attribute.String("span.id", spanCtx.SpanID().String()))
+		fields["span.id"] = spanCtx.SpanID().String()
+	}
+	
+	// Add attributes
+	for _, attr := range attrs {
+		fields[string(attr.Key)] = attr.Value.AsInterface()
 	}
 	
 	// Add error if present
 	if err != nil {
-		attrs = append(attrs, 
-			attribute.String("error.type", fmt.Sprintf("%T", err)),
-			attribute.String("error.message", err.Error()),
-		)
+		fields["error.type"] = fmt.Sprintf("%T", err)
+		fields["error.message"] = err.Error()
 		
 		// Add stack trace for errors
 		if level == LogLevelError || level == LogLevelFatal {
-			attrs = append(attrs, attribute.String("error.stack", getStackTrace()))
+			fields["error.stack"] = getStackTrace()
 		}
 	}
 	
-	// Add severity
-	attrs = append(attrs, attribute.String("severity", string(level)))
-	
-	// Create log record
-	record := log.Record{}
-	record.SetTimestamp(time.Now())
-	record.SetBody(log.StringValue(msg))
-	record.SetSeverity(mapLogLevel(level))
-	record.AddAttributes(attrs...)
-	
-	// Emit the log
-	l.logger.Emit(ctx, record)
-}
-
-// mapLogLevel maps our log level to OpenTelemetry severity
-func mapLogLevel(level LogLevel) log.Severity {
+	// Log to local logger
+	entry := l.logger.WithFields(fields)
 	switch level {
 	case LogLevelDebug:
-		return log.SeverityDebug
+		entry.Debug(msg)
 	case LogLevelInfo:
-		return log.SeverityInfo
+		entry.Info(msg)
 	case LogLevelWarn:
-		return log.SeverityWarn
+		entry.Warn(msg)
 	case LogLevelError:
-		return log.SeverityError
+		entry.Error(msg)
 	case LogLevelFatal:
-		return log.SeverityFatal
-	default:
-		return log.SeverityInfo
+		entry.Fatal(msg)
 	}
+	
+	// Send to SigNoz if endpoint is configured
+	if l.endpoint != "" {
+		go l.sendToSigNoz(fields)
+	}
+}
+
+// sendToSigNoz sends log to SigNoz via HTTP
+func (l *Logger) sendToSigNoz(fields logrus.Fields) {
+	// Convert to JSON
+	data, err := json.Marshal(fields)
+	if err != nil {
+		return
+	}
+	
+	// Send HTTP request
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest("POST", l.endpoint+"/v1/logs", bytes.NewBuffer(data))
+	if err != nil {
+		return
+	}
+	
+	req.Header.Set("Content-Type", "application/json")
+	_, _ = client.Do(req)
 }
 
 // getStackTrace returns the current stack trace
@@ -216,7 +239,6 @@ func getStackTrace() string {
 
 // WithAttributes adds attributes to the logger context
 func WithAttributes(ctx context.Context, attrs ...attribute.KeyValue) context.Context {
-	// Store attributes in context for later use
 	type contextKey string
 	const attributesKey contextKey = "logger.attributes"
 	

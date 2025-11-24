@@ -140,13 +140,13 @@ func TelemetryMiddleware() gin.HandlerFunc {
 			logEntry.Error = c.Errors.Last().Err
 			logEntry.Message = fmt.Sprintf("Request failed: %s", c.Errors.Last().Error())
 			
-			// Log all errors
-			for _, e := range c.Errors {
-				logger.Error(ctx, e.Error(), e.Err,
-					attribute.String("error.type", e.Type),
-					attribute.String("error.meta", fmt.Sprintf("%v", e.Meta)),
-				)
-			}
+		// Log all errors
+		for _, e := range c.Errors {
+			logger.Error(ctx, e.Error(), e.Err,
+				attribute.String("error.type", fmt.Sprintf("%d", e.Type)),
+				attribute.String("error.meta", fmt.Sprintf("%v", e.Meta)),
+			)
+		}
 		}
 		
 		// Add response headers for debugging
@@ -181,12 +181,7 @@ func TelemetryMiddleware() gin.HandlerFunc {
 
 // OpenTelemetryGinMiddleware wraps the otelgin middleware for additional setup
 func OpenTelemetryGinMiddleware(serviceName string) gin.HandlerFunc {
-	return otelgin.Middleware(serviceName,
-		otelgin.WithFilter(func(req *gin.Context) bool {
-			// Skip health check endpoints
-			return req.Request.URL.Path != "/health"
-		}),
-	)
+	return otelgin.Middleware(serviceName)
 }
 
 // bodyLogWriter wraps gin.ResponseWriter to capture response body size

@@ -167,34 +167,55 @@ func (r *Repository) GetOrderStatistics() (*OrderStatistics, error) {
 	return stats, nil
 }
 
-// AdminListOrders retrieves all paid orders with optional filters (admin only)
-func (r *Repository) AdminListOrders(planCode, userEmail string, limit, offset int) ([]Order, int64, error) {
-	var orders []Order
+// AdminListOrders retrieves all paid orders with optional filters and user information (admin only)
+func (r *Repository) AdminListOrders(planCode, userEmail string, limit, offset int) ([]OrderWithUserInfo, int64, error) {
+	var orders []OrderWithUserInfo
 	var total int64
 
-	query := r.db.Model(&Order{}).Where("status = ?", "paid")
+	// Base query with user join
+	query := r.db.Table("orders").
+		Select(`orders.*, 
+			users.username, 
+			users.email, 
+			users.phone,
+			JSON_UNQUOTE(JSON_EXTRACT(wechat_providers.provider_data, '$.nickname')) as wechat_name,
+			wechat_providers.provider_union_id as wechat_union_id,
+			JSON_UNQUOTE(JSON_EXTRACT(github_providers.provider_data, '$.login')) as github_name`).
+		Joins("LEFT JOIN users ON users.id = orders.user_id").
+		Joins("LEFT JOIN user_auth_providers as wechat_providers ON wechat_providers.user_id = orders.user_id AND wechat_providers.provider = 'wechat'").
+		Joins("LEFT JOIN user_auth_providers as github_providers ON github_providers.user_id = orders.user_id AND github_providers.provider = 'github'").
+		Where("orders.status = ?", "paid")
 
 	// Apply filters
 	if planCode != "" {
-		query = query.Where("plan_code = ?", planCode)
+		query = query.Where("orders.plan_code = ?", planCode)
 	}
 
 	if userEmail != "" {
-		// Join with users table to filter by email
-		query = query.Joins("JOIN users ON users.id = orders.user_id").
-			Where("users.email LIKE ?", "%"+userEmail+"%")
+		query = query.Where("users.email LIKE ?", "%"+userEmail+"%")
 	}
 
 	// Get total count
-	if err := query.Count(&total).Error; err != nil {
+	countQuery := r.db.Table("orders").
+		Joins("LEFT JOIN users ON users.id = orders.user_id").
+		Where("orders.status = ?", "paid")
+	
+	if planCode != "" {
+		countQuery = countQuery.Where("orders.plan_code = ?", planCode)
+	}
+	if userEmail != "" {
+		countQuery = countQuery.Where("users.email LIKE ?", "%"+userEmail+"%")
+	}
+	
+	if err := countQuery.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	// Get orders with pagination
-	err := query.Order("payment_time DESC").
+	err := query.Order("orders.payment_time DESC").
 		Limit(limit).
 		Offset(offset).
-		Find(&orders).Error
+		Scan(&orders).Error
 
 	if err != nil {
 		return nil, 0, err

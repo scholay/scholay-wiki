@@ -43,3 +43,14 @@ func (Order) TableName() string {
 func (PaymentTransaction) TableName() string {
 	return "payment_transactions"
 }
+
+// OrderWithUserInfo represents an order with user information for admin display
+type OrderWithUserInfo struct {
+	Order
+	Username      *string `gorm:"column:username" json:"username"`
+	Email         *string `gorm:"column:email" json:"email"`
+	Phone         *string `gorm:"column:phone" json:"phone"`
+	WechatName    *string `gorm:"column:wechat_name" json:"wechat_name"`
+	WechatUnionID *string `gorm:"column:wechat_union_id" json:"wechat_union_id"`
+	GithubName    *string `gorm:"column:github_name" json:"github_name"`
+}

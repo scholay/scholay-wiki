@@ -141,6 +141,68 @@ const UserManagement = () => {
     }
   };
 
+  // 渲染联系方式列（包含邮箱、手机号、微信、GitHub）
+  const renderContactInfo = (user) => {
+    const contactInfo = [];
+    
+    if (user.email) {
+      contactInfo.push(
+        <div key="email" className="contact-info-detail">
+          <span className="info-label">邮箱:</span> {user.email}
+        </div>
+      );
+    }
+    if (user.phone) {
+      contactInfo.push(
+        <div key="phone" className="contact-info-detail">
+          <span className="info-label">手机:</span> {user.phone}
+        </div>
+      );
+    }
+    if (user.wechat_name) {
+      contactInfo.push(
+        <div key="wechat_name" className="contact-info-detail">
+          <span className="info-label">微信:</span> {user.wechat_name}
+        </div>
+      );
+    } else if (user.wechat_openid) {
+      contactInfo.push(
+        <div key="wechat_openid" className="contact-info-detail">
+          <span className="info-label">微信:</span> 微信用户
+        </div>
+      );
+    }
+    if (user.wechat_union_id) {
+      contactInfo.push(
+        <div key="wechat_union_id" className="contact-info-detail">
+          <span className="info-label">UnionID:</span> {user.wechat_union_id}
+        </div>
+      );
+    }
+    if (user.github_login) {
+      contactInfo.push(
+        <div key="github_login" className="contact-info-detail">
+          <span className="info-label">GitHub:</span> {user.github_login}
+        </div>
+      );
+    }
+
+    if (contactInfo.length === 0) {
+      return <span className="empty-contact">-</span>;
+    }
+
+    return (
+      <div className="contact-info-cell">
+        {contactInfo.map((info, index) => (
+          <React.Fragment key={index}>
+            {index > 0 && <div className="contact-info-divider"></div>}
+            {info}
+          </React.Fragment>
+        ))}
+      </div>
+    );
+  };
+
   const totalPages = Math.ceil(pagination.total / pagination.pageSize);
 
   return (
@@ -271,9 +333,7 @@ const UserManagement = () => {
                     <tr>
                       <th>ID</th>
                       <th>用户名</th>
-                      <th>邮箱</th>
-                      <th>手机号</th>
-                      <th>微信OpenID</th>
+                      <th>联系方式</th>
                       <th>状态</th>
                       <th>最后登录</th>
                       <th>注册时间</th>
@@ -286,9 +346,7 @@ const UserManagement = () => {
                         <tr key={user.id}>
                           <td>{user.id}</td>
                           <td>{user.username || '-'}</td>
-                          <td>{user.email || '-'}</td>
-                          <td>{user.phone || '-'}</td>
-                          <td className="wechat-openid">{user.wechat_openid || '-'}</td>
+                          <td className="contact-info-td">{renderContactInfo(user)}</td>
                           <td>{getUserStatusLabel(user.status)}</td>
                           <td>{formatDate(user.last_login_at)}</td>
                           <td>{formatDate(user.created_at)}</td>
@@ -351,7 +409,7 @@ const UserManagement = () => {
                     <th>邮箱</th>
                     <th>用户名</th>
                     <th>最后活跃时间</th>
-                    <th>IP地址</th>
+                    <th>IP地址/地区</th>
                     <th>设备信息</th>
                   </tr>
                 </thead>
@@ -363,8 +421,19 @@ const UserManagement = () => {
                         <td>{user.email || '-'}</td>
                         <td>{user.username || '-'}</td>
                         <td>{formatDate(user.last_activity)}</td>
-                        <td>{user.ip || '-'}</td>
-                        <td className="user-agent">{user.user_agent || '-'}</td>
+                        <td>
+                          <div className="ip-location-cell">
+                            <div className="ip-address">{user.ip || '-'}</div>
+                            {user.location && (
+                              <div className="location-info">{user.location}</div>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="device-info-cell">
+                            {user.device || '-'}
+                          </div>
+                        </td>
                       </tr>
                     ))
                   ) : (

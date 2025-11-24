@@ -634,19 +634,43 @@ func (h *Handler) GetUserList(c *gin.Context) {
 	// Build response with auth provider info
 	type UserResponse struct {
 		User
-		WeChatOpenID string `json:"wechat_openid,omitempty"`
+		WeChatOpenID  string `json:"wechat_openid,omitempty"`
+		WeChatUnionID string `json:"wechat_union_id,omitempty"`
+		WeChatName    string `json:"wechat_name,omitempty"`
+		GithubLogin   string `json:"github_login,omitempty"`
 	}
 
 	userResponses := make([]UserResponse, len(users))
 	for i, user := range users {
 		response := UserResponse{User: user}
 
-		// Find WeChat provider
+		// Find auth providers
 		if providers, ok := authProviders[user.ID]; ok {
 			for _, provider := range providers {
 				if provider.Provider == "wechat" {
 					response.WeChatOpenID = provider.ProviderUserID
-					break
+					if provider.ProviderUnionID != nil {
+						response.WeChatUnionID = *provider.ProviderUnionID
+					}
+					// Extract nickname from provider_data
+					if provider.ProviderData != nil {
+						var providerData map[string]interface{}
+						if err := json.Unmarshal([]byte(*provider.ProviderData), &providerData); err == nil {
+							if nickname, ok := providerData["nickname"].(string); ok {
+								response.WeChatName = nickname
+							}
+						}
+					}
+				} else if provider.Provider == "github" {
+					// Extract GitHub login from provider_data
+					if provider.ProviderData != nil {
+						var providerData map[string]interface{}
+						if err := json.Unmarshal([]byte(*provider.ProviderData), &providerData); err == nil {
+							if login, ok := providerData["login"].(string); ok {
+								response.GithubLogin = login
+							}
+						}
+					}
 				}
 			}
 		}

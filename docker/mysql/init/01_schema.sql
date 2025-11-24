@@ -60,13 +60,16 @@ CREATE TABLE IF NOT EXISTS `user_auth_providers` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id` BIGINT UNSIGNED NOT NULL,
   `provider` VARCHAR(20) NOT NULL COMMENT 'email, phone, wechat, google等',
-  `provider_user_id` VARCHAR(255) NOT NULL COMMENT '第三方平台用户ID',
+  `provider_user_id` VARCHAR(255) NOT NULL COMMENT '第三方平台用户ID（微信为openID）',
+  `provider_union_id` VARCHAR(255) COMMENT '第三方平台联合ID（微信UnionID，用于跨应用识别同一用户）',
   `provider_data` JSON COMMENT '第三方平台额外数据',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_provider_user` (`provider`, `provider_user_id`),
+  UNIQUE KEY `uk_provider_union` (`provider`, `provider_union_id`),
   INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_union_id` (`provider_union_id`),
   CONSTRAINT `fk_user_auth_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户认证提供者';
 

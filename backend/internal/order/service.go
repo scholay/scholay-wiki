@@ -472,8 +472,8 @@ func (s *Service) GetOrderStatistics() (*OrderStatistics, error) {
 	return s.repo.GetOrderStatistics()
 }
 
-// AdminListOrders retrieves all paid orders with filters (admin only)
-func (s *Service) AdminListOrders(planCode, userEmail string, page, pageSize int) ([]Order, int64, error) {
+// AdminListOrders retrieves all paid orders with filters and user information (admin only)
+func (s *Service) AdminListOrders(planCode, userEmail string, page, pageSize int) ([]OrderWithUserInfo, int64, error) {
 	if page < 1 {
 		page = 1
 	}

@@ -50,6 +50,9 @@ func main() {
 			SamplingRate:  cfg.SigNoz.SamplingRate,
 		}
 		
+		// Set global endpoint for logger
+		telemetry.SetGlobalEndpoint(telemetryCfg.Endpoint)
+		
 		telemetryShutdown, err := telemetry.Initialize(ctx, telemetryCfg)
 		if err != nil {
 			log.Printf("Warning: Failed to initialize telemetry: %v", err)
@@ -57,8 +60,7 @@ func main() {
 			log.Printf("✓ Telemetry initialized (SigNoz endpoint: %s)", telemetryCfg.Endpoint)
 			log.Printf("  - Service: %s", telemetryCfg.ServiceName)
 			log.Printf("  - Environment: %s", telemetryCfg.Environment)
-			log.Printf("  - Tracing: %v, Logging: %v, Metrics: %v", 
-				telemetryCfg.EnableTracing, telemetryCfg.EnableLogging, telemetryCfg.EnableMetrics)
+			log.Printf("  - Tracing: %v, Logging: %v", telemetryCfg.EnableTracing, telemetryCfg.EnableLogging)
 			log.Printf("  - Sampling Rate: %.1f%%", telemetryCfg.SamplingRate*100)
 			
 			defer func() {
