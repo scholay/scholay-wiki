@@ -142,9 +142,62 @@ const UserManagement = () => {
   };
 
   // 渲染联系方式列（包含邮箱、手机号、微信、GitHub）
+  const renderSubscriptionPlan = (subscription) => {
+    if (!subscription) {
+      return <span className="plan-badge plan-free">免费</span>;
+    }
+
+    const planClass = `plan-badge plan-${subscription.plan_code}`;
+    return (
+      <span className={planClass}>
+        {subscription.plan_name || subscription.plan_code}
+      </span>
+    );
+  };
+
+  const renderSubscriptionExpiry = (subscription) => {
+    if (!subscription || !subscription.end_date) {
+      return <span className="expiry-none">-</span>;
+    }
+
+    const endDate = new Date(subscription.end_date);
+    const remainingDays = subscription.remaining_days;
+
+    let expiryClass = 'expiry-normal';
+    let warningIcon = null;
+
+    if (remainingDays <= 0) {
+      expiryClass = 'expiry-expired';
+      warningIcon = '❌';
+    } else if (remainingDays <= 3) {
+      expiryClass = 'expiry-critical';
+      warningIcon = '🔴';
+    } else if (remainingDays <= 7) {
+      expiryClass = 'expiry-warning';
+      warningIcon = '⚠️';
+    } else if (remainingDays <= 30) {
+      expiryClass = 'expiry-soon';
+    }
+
+    return (
+      <div className={`subscription-expiry ${expiryClass}`}>
+        <div className="expiry-date">
+          {warningIcon && <span className="expiry-icon">{warningIcon}</span>}
+          {endDate.toLocaleDateString('zh-CN')}
+        </div>
+        <div className="expiry-days">
+          剩余 {remainingDays} 天
+        </div>
+        {subscription.auto_renew && (
+          <div className="expiry-auto-renew">自动续费</div>
+        )}
+      </div>
+    );
+  };
+
   const renderContactInfo = (user) => {
     const contactInfo = [];
-    
+
     if (user.email) {
       contactInfo.push(
         <div key="email" className="contact-info-detail">
@@ -334,6 +387,8 @@ const UserManagement = () => {
                       <th>ID</th>
                       <th>用户名</th>
                       <th>联系方式</th>
+                      <th>会员套餐</th>
+                      <th>套餐到期</th>
                       <th>状态</th>
                       <th>最后登录</th>
                       <th>注册时间</th>
@@ -347,6 +402,8 @@ const UserManagement = () => {
                           <td>{user.id}</td>
                           <td>{user.username || '-'}</td>
                           <td className="contact-info-td">{renderContactInfo(user)}</td>
+                          <td>{renderSubscriptionPlan(user.subscription)}</td>
+                          <td>{renderSubscriptionExpiry(user.subscription)}</td>
                           <td>{getUserStatusLabel(user.status)}</td>
                           <td>{formatDate(user.last_login_at)}</td>
                           <td>{formatDate(user.created_at)}</td>

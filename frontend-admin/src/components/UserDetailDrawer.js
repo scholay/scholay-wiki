@@ -94,6 +94,18 @@ const UserDetailDrawer = ({ userId, onClose }) => {
                     <span>{getStatusLabel(detail.status)}</span>
                   </div>
                   <div className="info-item">
+                    <label>会员状态</label>
+                    <span>
+                      {detail.current_subscription ? (
+                        <span className={getPlanBadgeClass(detail.current_subscription.plan_code)}>
+                          {detail.current_subscription.plan_name}
+                        </span>
+                      ) : (
+                        <span className="plan-badge plan-free">免费用户</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="info-item">
                     <label>用户名</label>
                     <span>{detail.username || '-'}</span>
                   </div>
@@ -137,6 +149,29 @@ const UserDetailDrawer = ({ userId, onClose }) => {
                     <label>最后登录</label>
                     <span>{formatDate(detail.last_login_at)}</span>
                   </div>
+                  {detail.current_subscription && (
+                    <>
+                      <div className="info-item">
+                        <label>订阅到期</label>
+                        <span>
+                          {formatDate(detail.current_subscription.end_date)}
+                          {detail.current_subscription.remaining_days >= 0 && (
+                            <span className={`days-badge ${detail.current_subscription.remaining_days <= 7 ? 'warning' : ''}`}>
+                              剩余 {detail.current_subscription.remaining_days} 天
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="info-item">
+                        <label>自动续费</label>
+                        <span>
+                          <span className={`auto-renew-badge ${detail.current_subscription.auto_renew ? 'enabled' : 'disabled'}`}>
+                            {detail.current_subscription.auto_renew ? '已开启' : '未开启'}
+                          </span>
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -281,6 +316,160 @@ const UserDetailDrawer = ({ userId, onClose }) => {
                     <span className="coupon-label">已过期：</span>
                     <span className="coupon-value expired">{detail.coupon_stats.expired_coupons}</span>
                   </div>
+                </div>
+              </div>
+
+              {/* Invitation Relationships */}
+              <div className="detail-section">
+                <h3 className="section-title">邀请关系</h3>
+                
+                {/* Invited By */}
+                {detail.invited_by ? (
+                  <div className="relationship-card">
+                    <div className="relationship-header">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="8.5" cy="7" r="4"></circle>
+                        <polyline points="17 11 19 13 23 9"></polyline>
+                      </svg>
+                      <span>邀请人</span>
+                    </div>
+                    <div className="inviter-info">
+                      <div className="inviter-details">
+                        <div className="inviter-name">
+                          {detail.invited_by.username || detail.invited_by.email || `用户 ${detail.invited_by.user_id}`}
+                        </div>
+                        <div className="inviter-meta">
+                          <span>ID: {detail.invited_by.user_id}</span>
+                          {detail.invited_by.email && <span>{detail.invited_by.email}</span>}
+                          <span>邀请时间: {formatDate(detail.invited_by.invited_at)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relationship-empty">
+                    <span>该用户无邀请人（直接注册）</span>
+                  </div>
+                )}
+
+                {/* Invited Users */}
+                {detail.invited_users && detail.invited_users.length > 0 && (
+                  <div className="relationship-card">
+                    <div className="relationship-header">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                      </svg>
+                      <span>已邀请用户 ({detail.invited_users.length})</span>
+                    </div>
+                    <div className="invited-users-list">
+                      {detail.invited_users.map((user) => (
+                        <div key={user.user_id} className="invited-user-item">
+                          <div className="invited-user-main">
+                            <div className="invited-user-name">
+                              {user.username || user.email || `用户 ${user.user_id}`}
+                            </div>
+                            <div className="invited-user-badges">
+                              {user.is_registered && (
+                                <span className="user-badge registered">已注册</span>
+                              )}
+                              {user.has_ordered && (
+                                <span className="user-badge ordered">已下单</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="invited-user-meta">
+                            <span>ID: {user.user_id}</span>
+                            {user.email && <span>{user.email}</span>}
+                            <span>{formatDate(user.invited_at)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* AI Conversation Statistics */}
+              <div className="detail-section">
+                <h3 className="section-title">AI对话统计</h3>
+                <div className="conversation-stats-card">
+                  <div className="conv-stats-overview">
+                    <div className="conv-stat-main">
+                      <div className="conv-stat-number">{detail.ai_conversation_stats.total_conversations}</div>
+                      <div className="conv-stat-label">总对话数</div>
+                    </div>
+                    <div className="conv-stat-main">
+                      <div className="conv-stat-number">{detail.ai_conversation_stats.total_rounds}</div>
+                      <div className="conv-stat-label">总轮次</div>
+                    </div>
+                    <div className="conv-stat-main">
+                      <div className="conv-stat-number">{detail.ai_conversation_stats.avg_rounds_per_conv.toFixed(1)}</div>
+                      <div className="conv-stat-label">平均轮次/对话</div>
+                    </div>
+                  </div>
+                  <div className="conv-stats-timeline">
+                    <div className="timeline-item">
+                      <span className="timeline-label">今日</span>
+                      <span className="timeline-value">{detail.ai_conversation_stats.today_rounds} 轮</span>
+                    </div>
+                    <div className="timeline-item">
+                      <span className="timeline-label">本周</span>
+                      <span className="timeline-value">{detail.ai_conversation_stats.week_rounds} 轮</span>
+                    </div>
+                    <div className="timeline-item">
+                      <span className="timeline-label">本月</span>
+                      <span className="timeline-value">{detail.ai_conversation_stats.month_rounds} 轮</span>
+                    </div>
+                  </div>
+                  {detail.ai_conversation_stats.last_conv_at && (
+                    <div className="conv-last-activity">
+                      最后对话: {formatDate(detail.ai_conversation_stats.last_conv_at)}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Analysis Conversation Statistics */}
+              <div className="detail-section">
+                <h3 className="section-title">智能分析统计</h3>
+                <div className="conversation-stats-card analysis">
+                  <div className="conv-stats-overview">
+                    <div className="conv-stat-main">
+                      <div className="conv-stat-number">{detail.analysis_conversation_stats.total_conversations}</div>
+                      <div className="conv-stat-label">总分析数</div>
+                    </div>
+                    <div className="conv-stat-main">
+                      <div className="conv-stat-number">{detail.analysis_conversation_stats.total_rounds}</div>
+                      <div className="conv-stat-label">总轮次</div>
+                    </div>
+                    <div className="conv-stat-main">
+                      <div className="conv-stat-number">{detail.analysis_conversation_stats.avg_rounds_per_conv.toFixed(1)}</div>
+                      <div className="conv-stat-label">平均轮次/分析</div>
+                    </div>
+                  </div>
+                  <div className="conv-stats-timeline">
+                    <div className="timeline-item">
+                      <span className="timeline-label">今日</span>
+                      <span className="timeline-value">{detail.analysis_conversation_stats.today_rounds} 轮</span>
+                    </div>
+                    <div className="timeline-item">
+                      <span className="timeline-label">本周</span>
+                      <span className="timeline-value">{detail.analysis_conversation_stats.week_rounds} 轮</span>
+                    </div>
+                    <div className="timeline-item">
+                      <span className="timeline-label">本月</span>
+                      <span className="timeline-value">{detail.analysis_conversation_stats.month_rounds} 轮</span>
+                    </div>
+                  </div>
+                  {detail.analysis_conversation_stats.last_conv_at && (
+                    <div className="conv-last-activity">
+                      最后分析: {formatDate(detail.analysis_conversation_stats.last_conv_at)}
+                    </div>
+                  )}
                 </div>
               </div>
             </>

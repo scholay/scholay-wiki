@@ -163,6 +163,56 @@
   color: var(--brand-600);
 }
 
+.plan-badge.plan-free {
+  background: var(--gray-100);
+  color: var(--text-secondary);
+}
+
+.plan-badge.plan-pro {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(99, 102, 241, 0.2));
+  color: var(--brand-700);
+  border: 1px solid var(--brand-200);
+}
+
+.plan-badge.plan-max {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(236, 72, 153, 0.2));
+  color: var(--purple-700);
+  border: 1px solid var(--purple-200);
+}
+
+.days-badge,
+.auto-renew-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-left: 0.5rem;
+}
+
+.days-badge {
+  background: var(--success-50);
+  color: var(--success-600);
+}
+
+.days-badge.warning {
+  background: var(--warning-50);
+  color: var(--warning-600);
+}
+
+.auto-renew-badge.enabled {
+  background: var(--brand-50);
+  color: var(--brand-600);
+}
+
+.auto-renew-badge.disabled {
+  background: var(--gray-100);
+  color: var(--text-tertiary);
+}
+
 .subscription-card {
   padding: var(--space-5);
   border-radius: var(--radius-lg);
@@ -252,6 +302,241 @@
   color: var(--text-tertiary) !important;
 }
 
+/* Invitation Relationships */
+.relationship-card {
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  background: var(--surface-muted);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+}
+
+.relationship-card:last-child {
+  margin-bottom: 0;
+}
+
+.relationship-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.relationship-header svg {
+  color: var(--brand-500);
+}
+
+.relationship-empty {
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 0.9rem;
+  background: var(--surface-muted);
+  border-radius: var(--radius);
+  border: 1px dashed var(--border-subtle);
+}
+
+.inviter-info {
+  padding: var(--space-3);
+  background: #fff;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-subtle);
+}
+
+.inviter-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.inviter-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.inviter-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.inviter-meta span {
+  display: inline-flex;
+  align-items: center;
+}
+
+.invited-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.invited-user-item {
+  padding: var(--space-3);
+  background: #fff;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-subtle);
+  transition: var(--transition);
+}
+
+.invited-user-item:hover {
+  border-color: var(--brand-300);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.invited-user-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.invited-user-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.invited-user-badges {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.user-badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.user-badge.registered {
+  background: var(--success-50);
+  color: var(--success-600);
+}
+
+.user-badge.ordered {
+  background: var(--brand-50);
+  color: var(--brand-600);
+}
+
+.invited-user-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.invited-user-meta span {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Conversation Statistics */
+.conversation-stats-card {
+  padding: var(--space-5);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(147, 51, 234, 0.12));
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+}
+
+.conversation-stats-card.analysis {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 182, 212, 0.12));
+}
+
+.conv-stats-overview {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.conv-stat-main {
+  text-align: center;
+  padding: var(--space-3);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+}
+
+.conversation-stats-card.analysis .conv-stat-main {
+  border-color: rgba(16, 185, 129, 0.15);
+}
+
+.conv-stat-number {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--brand-600);
+  line-height: 1;
+  margin-bottom: 0.4rem;
+}
+
+.conversation-stats-card.analysis .conv-stat-number {
+  color: var(--success-600);
+}
+
+.conv-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.conv-stats-timeline {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.timeline-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: var(--space-2) var(--space-3);
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-subtle);
+}
+
+.timeline-label {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.timeline-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.conv-last-activity {
+  padding: var(--space-2) var(--space-3);
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-align: center;
+  border: 1px solid var(--border-subtle);
+}
+
 @media (max-width: 768px) {
   .drawer-container {
     width: 100%;
@@ -260,6 +545,14 @@
   .invitation-stats {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .conv-stats-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .conv-stats-timeline {
+    grid-template-columns: 1fr;
   }
 }
 

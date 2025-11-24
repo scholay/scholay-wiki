@@ -631,18 +631,68 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		authProviders = make(map[uint][]UserAuthProvider)
 	}
 
-	// Build response with auth provider info
+	// Build response with auth provider info and subscription info
+	type SubscriptionInfo struct {
+		PlanCode      string     `json:"plan_code"`
+		PlanName      string     `json:"plan_name"`
+		Status        string     `json:"status"`
+		EndDate       *time.Time `json:"end_date,omitempty"`
+		RemainingDays int        `json:"remaining_days"`
+		AutoRenew     bool       `json:"auto_renew"`
+	}
+
 	type UserResponse struct {
 		User
-		WeChatOpenID  string `json:"wechat_openid,omitempty"`
-		WeChatUnionID string `json:"wechat_union_id,omitempty"`
-		WeChatName    string `json:"wechat_name,omitempty"`
-		GithubLogin   string `json:"github_login,omitempty"`
+		WeChatOpenID  string            `json:"wechat_openid,omitempty"`
+		WeChatUnionID string            `json:"wechat_union_id,omitempty"`
+		WeChatName    string            `json:"wechat_name,omitempty"`
+		GithubLogin   string            `json:"github_login,omitempty"`
+		Subscription  *SubscriptionInfo `json:"subscription,omitempty"`
+	}
+
+	// Get subscriptions for all users
+	var subscriptions []struct {
+		UserID    uint       `gorm:"column:user_id"`
+		PlanCode  string     `gorm:"column:plan_code"`
+		PlanName  string     `gorm:"column:plan_name"`
+		Status    string     `gorm:"column:status"`
+		EndDate   *time.Time `gorm:"column:end_date"`
+		AutoRenew bool       `gorm:"column:auto_renew"`
+	}
+	h.service.repo.GetDB().Table("user_subscriptions").
+		Select("user_subscriptions.user_id, user_subscriptions.plan_code, subscription_plans.plan_name, user_subscriptions.status, user_subscriptions.end_date, user_subscriptions.auto_renew").
+		Joins("LEFT JOIN subscription_plans ON user_subscriptions.plan_code = subscription_plans.plan_code").
+		Where("user_subscriptions.user_id IN ? AND user_subscriptions.status = ?", userIDs, "active").
+		Scan(&subscriptions)
+
+	// Map subscriptions by user ID
+	subscriptionMap := make(map[uint]*SubscriptionInfo)
+	for _, sub := range subscriptions {
+		remainingDays := 0
+		if sub.EndDate != nil {
+			remainingDays = int(time.Until(*sub.EndDate).Hours() / 24)
+			if remainingDays < 0 {
+				remainingDays = 0
+			}
+		}
+		subscriptionMap[sub.UserID] = &SubscriptionInfo{
+			PlanCode:      sub.PlanCode,
+			PlanName:      sub.PlanName,
+			Status:        sub.Status,
+			EndDate:       sub.EndDate,
+			RemainingDays: remainingDays,
+			AutoRenew:     sub.AutoRenew,
+		}
 	}
 
 	userResponses := make([]UserResponse, len(users))
 	for i, user := range users {
 		response := UserResponse{User: user}
+
+		// Add subscription info
+		if subInfo, ok := subscriptionMap[user.ID]; ok {
+			response.Subscription = subInfo
+		}
 
 		// Find auth providers
 		if providers, ok := authProviders[user.ID]; ok {

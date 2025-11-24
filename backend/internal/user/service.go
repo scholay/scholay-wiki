@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -530,6 +531,14 @@ type UserDetail struct {
 
 	// Coupon Statistics
 	CouponStats CouponStats `json:"coupon_stats"`
+
+	// NEW: Invitation Relationships
+	InvitedBy    *InviterInfo   `json:"invited_by,omitempty"`     // 谁邀请了我
+	InvitedUsers []InvitedUser  `json:"invited_users,omitempty"`  // 我邀请的人
+
+	// NEW: Conversation Statistics
+	AIConversationStats     ConversationStats `json:"ai_conversation_stats"`      // AI对话统计
+	AnalysisConversationStats ConversationStats `json:"analysis_conversation_stats"` // 智能分析统计
 }
 
 type SubscriptionInfo struct {
@@ -566,6 +575,35 @@ type CouponStats struct {
 	ExpiredCoupons   int `json:"expired_coupons"`
 }
 
+// InviterInfo represents the person who invited this user
+type InviterInfo struct {
+	UserID    uint    `json:"user_id"`
+	Username  *string `json:"username"`
+	Email     *string `json:"email"`
+	InvitedAt time.Time `json:"invited_at"`
+}
+
+// InvitedUser represents a user that was invited by this user
+type InvitedUser struct {
+	UserID       uint      `json:"user_id"`
+	Username     *string   `json:"username"`
+	Email        *string   `json:"email"`
+	InvitedAt    time.Time `json:"invited_at"`
+	IsRegistered bool      `json:"is_registered"` // 是否已注册
+	HasOrdered   bool      `json:"has_ordered"`   // 是否已下单
+}
+
+// ConversationStats represents conversation statistics
+type ConversationStats struct {
+	TotalConversations int       `json:"total_conversations"` // 总对话数
+	TotalRounds        int       `json:"total_rounds"`        // 总轮次
+	TodayRounds        int       `json:"today_rounds"`        // 今日轮次
+	WeekRounds         int       `json:"week_rounds"`         // 本周轮次
+	MonthRounds        int       `json:"month_rounds"`        // 本月轮次
+	AvgRoundsPerConv   float64   `json:"avg_rounds_per_conv"` // 平均每个对话的轮次
+	LastConvAt         *time.Time `json:"last_conv_at,omitempty"` // 最后对话时间
+}
+
 // GetUserDetail returns detailed user information for admin
 func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
 	// Get user basic info
@@ -598,51 +636,120 @@ func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
 		}
 	}
 
-	// Get subscription info
-	var subData struct {
-		PlanName     string    `gorm:"column:plan_name"`
-		PlanCode     string    `gorm:"column:plan_code"`
-		BillingCycle string    `gorm:"column:billing_cycle"`
-		Status       string    `gorm:"column:status"`
-		StartDate    time.Time `gorm:"column:start_date"`
-		EndDate      time.Time `gorm:"column:end_date"`
-		AutoRenew    bool      `gorm:"column:auto_renew"`
+	// Get subscription info using the same logic as GetUserSubscription
+	var subscription struct {
+		PlanCode  string     `gorm:"column:plan_code"`
+		Status    string     `gorm:"column:status"`
+		StartDate time.Time  `gorm:"column:start_date"`
+		EndDate   *time.Time `gorm:"column:end_date"`
+		AutoRenew bool       `gorm:"column:auto_renew"`
 	}
+	
 	err = s.repo.GetDB().Table("user_subscriptions").
-		Select("subscription_plans.name as plan_name, subscription_plans.code as plan_code, user_subscriptions.billing_cycle, user_subscriptions.status, user_subscriptions.start_date, user_subscriptions.end_date, user_subscriptions.auto_renew").
-		Joins("LEFT JOIN subscription_plans ON user_subscriptions.plan_id = subscription_plans.id").
-		Where("user_subscriptions.user_id = ? AND user_subscriptions.status = ?", userID, "active").
-		First(&subData).Error
+		Where("user_id = ? AND status = ?", userID, "active").
+		Order("created_at DESC").
+		First(&subscription).Error
 
 	if err == nil {
-		remainingDays := int(time.Until(subData.EndDate).Hours() / 24)
-		if remainingDays < 0 {
-			remainingDays = 0
+		// Get plan details
+		var plan struct {
+			PlanName string `gorm:"column:plan_name"`
+			Features string `gorm:"column:features"`
+		}
+		s.repo.GetDB().Table("subscription_plans").
+			Select("plan_name, features").
+			Where("plan_code = ? AND is_active = ?", subscription.PlanCode, true).
+			First(&plan)
+
+		remainingDays := 0
+		endDate := time.Time{}
+		
+		if subscription.EndDate != nil {
+			endDate = *subscription.EndDate
+			remainingDays = int(time.Until(endDate).Hours() / 24)
+			if remainingDays < 0 {
+				remainingDays = 0
+			}
+		}
+
+		// 计算 billing_cycle (根据订阅时长推断)
+		billingCycle := "monthly" // 默认月付
+		if subscription.EndDate != nil {
+			duration := subscription.EndDate.Sub(subscription.StartDate)
+			// 如果订阅期大于40天，认为是年付
+			if duration.Hours() > 40*24 {
+				billingCycle = "yearly"
+			}
 		}
 
 		detail.CurrentSubscription = &SubscriptionInfo{
-			PlanName:      subData.PlanName,
-			PlanCode:      subData.PlanCode,
-			BillingCycle:  subData.BillingCycle,
-			Status:        subData.Status,
-			StartDate:     subData.StartDate,
-			EndDate:       subData.EndDate,
-			AutoRenew:     subData.AutoRenew,
+			PlanName:      plan.PlanName,
+			PlanCode:      subscription.PlanCode,
+			BillingCycle:  billingCycle,
+			Status:        subscription.Status,
+			StartDate:     subscription.StartDate,
+			EndDate:       endDate,
+			AutoRenew:     subscription.AutoRenew,
 			RemainingDays: remainingDays,
 		}
 
-		// Get quota usage
-		var quotaData struct {
-			TotalQuota int `gorm:"column:total_quota"`
-			UsedQuota  int `gorm:"column:used_quota"`
+		// Get today's quota usage
+		today := time.Now().Format("2006-01-02")
+		var todayQuota struct {
+			TotalUsed int `gorm:"column:total_used"`
 		}
-		s.repo.GetDB().Table("subscription_quota").
-			Select("SUM(conversations_quota + searches_quota + advanced_searches_quota + pdf_previews_quota) as total_quota, SUM(conversations_used + searches_used + advanced_searches_used + pdf_previews_used) as used_quota").
-			Where("user_id = ?", userID).
-			Scan(&quotaData)
+		s.repo.GetDB().Table("usage_quotas").
+			Select("COALESCE(normal_search_count + advanced_search_low_count + advanced_search_mid_count + advanced_search_high_count + ai_chat_normal_count + ai_chat_mid_count + ai_chat_high_count, 0) as total_used").
+			Where("user_id = ? AND quota_date = ?", userID, today).
+			Scan(&todayQuota)
 
-		detail.CurrentSubscription.TotalQuota = quotaData.TotalQuota
-		detail.CurrentSubscription.UsedQuota = quotaData.UsedQuota
+		// Parse features to get quota limits
+		var features struct {
+			NormalSearch struct {
+				Limit int `json:"limit"`
+			} `json:"normal_search"`
+			AdvancedSearchLow struct {
+				Limit int `json:"limit"`
+			} `json:"advanced_search_low"`
+			AdvancedSearchMid struct {
+				Limit int `json:"limit"`
+			} `json:"advanced_search_mid"`
+			AdvancedSearchHigh struct {
+				Limit int `json:"limit"`
+			} `json:"advanced_search_high"`
+			AIChatNormal struct {
+				Limit int `json:"limit"`
+			} `json:"ai_chat_normal"`
+			AIChatMid struct {
+				Limit int `json:"limit"`
+			} `json:"ai_chat_mid"`
+			AIChatHigh struct {
+				Limit int `json:"limit"`
+			} `json:"ai_chat_high"`
+		}
+		
+		totalQuota := 0
+		if plan.Features != "" {
+			json.Unmarshal([]byte(plan.Features), &features)
+			// 计算总配额（取最大的作为代表，或者求和）
+			limits := []int{
+				features.NormalSearch.Limit,
+				features.AdvancedSearchLow.Limit,
+				features.AdvancedSearchMid.Limit,
+				features.AdvancedSearchHigh.Limit,
+				features.AIChatNormal.Limit,
+				features.AIChatMid.Limit,
+				features.AIChatHigh.Limit,
+			}
+			for _, limit := range limits {
+				if limit > totalQuota && limit != -1 {
+					totalQuota = limit
+				}
+			}
+		}
+
+		detail.CurrentSubscription.TotalQuota = totalQuota
+		detail.CurrentSubscription.UsedQuota = todayQuota.TotalUsed
 	}
 
 	// Get order statistics
@@ -701,6 +808,165 @@ func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
 		UsedCoupons:      couponStats.Used,
 		AvailableCoupons: couponStats.Available,
 		ExpiredCoupons:   couponStats.Expired,
+	}
+
+	// NEW: Get inviter information (who invited this user)
+	// 使用 invitation_relationships 表
+	var inviterData struct {
+		InviterID    uint       `gorm:"column:inviter_id"`
+		Username     *string    `gorm:"column:username"`
+		Email        *string    `gorm:"column:email"`
+		RegisteredAt *time.Time `gorm:"column:registered_at"`
+	}
+	err = s.repo.GetDB().Table("invitation_relationships").
+		Select("invitation_relationships.inviter_id, users.username, users.email, invitation_relationships.registered_at").
+		Joins("LEFT JOIN users ON users.id = invitation_relationships.inviter_id").
+		Where("invitation_relationships.invitee_id = ?", userID).
+		First(&inviterData).Error
+	
+	if err == nil && inviterData.InviterID > 0 {
+		invitedAt := user.CreatedAt
+		if inviterData.RegisteredAt != nil {
+			invitedAt = *inviterData.RegisteredAt
+		}
+		detail.InvitedBy = &InviterInfo{
+			UserID:    inviterData.InviterID,
+			Username:  inviterData.Username,
+			Email:     inviterData.Email,
+			InvitedAt: invitedAt,
+		}
+	}
+
+	// NEW: Get list of users invited by this user
+	// 使用 invitation_relationships 表
+	type invitedUserRaw struct {
+		UserID       uint       `gorm:"column:user_id"`
+		Username     *string    `gorm:"column:username"`
+		Email        *string    `gorm:"column:email"`
+		RegisteredAt *time.Time `gorm:"column:registered_at"`
+		Status       string     `gorm:"column:status"`
+		HasOrdered   bool       `gorm:"column:has_ordered"`
+	}
+	var invitedUsersData []invitedUserRaw
+	err = s.repo.GetDB().Table("invitation_relationships").
+		Select("users.id as user_id, users.username, users.email, invitation_relationships.registered_at, "+
+			"invitation_relationships.status, "+
+			"EXISTS(SELECT 1 FROM orders WHERE orders.user_id = users.id AND orders.status = 'paid') as has_ordered").
+		Joins("LEFT JOIN users ON users.id = invitation_relationships.invitee_id").
+		Where("invitation_relationships.inviter_id = ?", userID).
+		Order("invitation_relationships.created_at DESC").
+		Find(&invitedUsersData).Error
+
+	if err == nil && len(invitedUsersData) > 0 {
+		detail.InvitedUsers = make([]InvitedUser, len(invitedUsersData))
+		for i, invitee := range invitedUsersData {
+			invitedAt := user.CreatedAt
+			if invitee.RegisteredAt != nil {
+				invitedAt = *invitee.RegisteredAt
+			}
+			detail.InvitedUsers[i] = InvitedUser{
+				UserID:       invitee.UserID,
+				Username:     invitee.Username,
+				Email:        invitee.Email,
+				InvitedAt:    invitedAt,
+				IsRegistered: invitee.Status != "pending", // pending 表示还未注册
+				HasOrdered:   invitee.HasOrdered,
+			}
+		}
+	}
+
+	// NEW: Get AI conversation statistics
+	var aiConvStats struct {
+		TotalConv   int        `gorm:"column:total_conv"`
+		TotalRounds int        `gorm:"column:total_rounds"`
+		LastConvAt  *time.Time `gorm:"column:last_conv_at"`
+	}
+	s.repo.GetDB().Table("conversations").
+		Select("COUNT(DISTINCT id) as total_conv, "+
+			"COALESCE(SUM((SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = conversations.id)), 0) as total_rounds, "+
+			"MAX(updated_at) as last_conv_at").
+		Where("user_id = ? AND conversation_type = ?", userID, "chat").
+		Scan(&aiConvStats)
+
+	// Get time-based statistics for AI conversations
+	todayStart := time.Now().Truncate(24 * time.Hour)
+	weekStart := todayStart.AddDate(0, 0, -int(todayStart.Weekday()))
+	monthStart := time.Date(todayStart.Year(), todayStart.Month(), 1, 0, 0, 0, 0, todayStart.Location())
+
+	var todayRounds, weekRounds, monthRounds int64
+	s.repo.GetDB().Table("conversation_messages").
+		Joins("JOIN conversations ON conversations.id = conversation_messages.conversation_id").
+		Where("conversations.user_id = ? AND conversations.conversation_type = ? AND conversation_messages.created_at >= ?", userID, "chat", todayStart).
+		Count(&todayRounds)
+
+	s.repo.GetDB().Table("conversation_messages").
+		Joins("JOIN conversations ON conversations.id = conversation_messages.conversation_id").
+		Where("conversations.user_id = ? AND conversations.conversation_type = ? AND conversation_messages.created_at >= ?", userID, "chat", weekStart).
+		Count(&weekRounds)
+
+	s.repo.GetDB().Table("conversation_messages").
+		Joins("JOIN conversations ON conversations.id = conversation_messages.conversation_id").
+		Where("conversations.user_id = ? AND conversations.conversation_type = ? AND conversation_messages.created_at >= ?", userID, "chat", monthStart).
+		Count(&monthRounds)
+
+	avgRounds := 0.0
+	if aiConvStats.TotalConv > 0 {
+		avgRounds = float64(aiConvStats.TotalRounds) / float64(aiConvStats.TotalConv)
+	}
+
+	detail.AIConversationStats = ConversationStats{
+		TotalConversations: aiConvStats.TotalConv,
+		TotalRounds:        aiConvStats.TotalRounds,
+		TodayRounds:        int(todayRounds),
+		WeekRounds:         int(weekRounds),
+		MonthRounds:        int(monthRounds),
+		AvgRoundsPerConv:   avgRounds,
+		LastConvAt:         aiConvStats.LastConvAt,
+	}
+
+	// NEW: Get Analysis conversation statistics (使用 'search' 作为智能分析类型)
+	var analysisConvStats struct {
+		TotalConv   int        `gorm:"column:total_conv"`
+		TotalRounds int        `gorm:"column:total_rounds"`
+		LastConvAt  *time.Time `gorm:"column:last_conv_at"`
+	}
+	s.repo.GetDB().Table("conversations").
+		Select("COUNT(DISTINCT id) as total_conv, "+
+			"COALESCE(SUM((SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = conversations.id)), 0) as total_rounds, "+
+			"MAX(updated_at) as last_conv_at").
+		Where("user_id = ? AND conversation_type = ?", userID, "search").
+		Scan(&analysisConvStats)
+
+	// Get time-based statistics for Analysis conversations
+	var todayRoundsAnalysis, weekRoundsAnalysis, monthRoundsAnalysis int64
+	s.repo.GetDB().Table("conversation_messages").
+		Joins("JOIN conversations ON conversations.id = conversation_messages.conversation_id").
+		Where("conversations.user_id = ? AND conversations.conversation_type = ? AND conversation_messages.created_at >= ?", userID, "search", todayStart).
+		Count(&todayRoundsAnalysis)
+
+	s.repo.GetDB().Table("conversation_messages").
+		Joins("JOIN conversations ON conversations.id = conversation_messages.conversation_id").
+		Where("conversations.user_id = ? AND conversations.conversation_type = ? AND conversation_messages.created_at >= ?", userID, "search", weekStart).
+		Count(&weekRoundsAnalysis)
+
+	s.repo.GetDB().Table("conversation_messages").
+		Joins("JOIN conversations ON conversations.id = conversation_messages.conversation_id").
+		Where("conversations.user_id = ? AND conversations.conversation_type = ? AND conversation_messages.created_at >= ?", userID, "search", monthStart).
+		Count(&monthRoundsAnalysis)
+
+	avgAnalysisRounds := 0.0
+	if analysisConvStats.TotalConv > 0 {
+		avgAnalysisRounds = float64(analysisConvStats.TotalRounds) / float64(analysisConvStats.TotalConv)
+	}
+
+	detail.AnalysisConversationStats = ConversationStats{
+		TotalConversations: analysisConvStats.TotalConv,
+		TotalRounds:        analysisConvStats.TotalRounds,
+		TodayRounds:        int(todayRoundsAnalysis),
+		WeekRounds:         int(weekRoundsAnalysis),
+		MonthRounds:        int(monthRoundsAnalysis),
+		AvgRoundsPerConv:   avgAnalysisRounds,
+		LastConvAt:         analysisConvStats.LastConvAt,
 	}
 
 	return detail, nil

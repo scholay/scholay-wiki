@@ -150,6 +150,135 @@
   margin: 0.35rem 0;
 }
 
+/* Subscription Plan Badge */
+.plan-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.plan-badge.plan-free {
+  background: var(--gray-100);
+  color: var(--text-secondary);
+}
+
+.plan-badge.plan-pro {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(99, 102, 241, 0.2));
+  color: var(--brand-700);
+  border: 1px solid var(--brand-200);
+}
+
+.plan-badge.plan-max {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(236, 72, 153, 0.2));
+  color: var(--purple-700);
+  border: 1px solid var(--purple-200);
+}
+
+/* Subscription Expiry */
+.subscription-expiry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.expiry-date {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.expiry-icon {
+  font-size: 0.9rem;
+}
+
+.expiry-days {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.expiry-auto-renew {
+  font-size: 0.7rem;
+  color: var(--success-600);
+  background: var(--success-50);
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-pill);
+  display: inline-block;
+  width: fit-content;
+}
+
+/* Expiry Warning Levels */
+.expiry-normal .expiry-date {
+  color: var(--text-primary);
+}
+
+.expiry-soon .expiry-date {
+  color: var(--text-primary);
+}
+
+.expiry-soon .expiry-days {
+  color: var(--warning-600);
+  font-weight: 500;
+}
+
+.expiry-warning .expiry-date {
+  color: var(--warning-700);
+  font-weight: 600;
+}
+
+.expiry-warning .expiry-days {
+  color: var(--warning-600);
+  font-weight: 600;
+  background: var(--warning-50);
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-pill);
+  display: inline-block;
+  width: fit-content;
+}
+
+.expiry-critical .expiry-date {
+  color: var(--danger-700);
+  font-weight: 700;
+}
+
+.expiry-critical .expiry-days {
+  color: var(--danger-700);
+  background: var(--danger-50);
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  display: inline-block;
+  width: fit-content;
+}
+
+.expiry-expired .expiry-date {
+  color: var(--danger-700);
+  font-weight: 700;
+  text-decoration: line-through;
+}
+
+.expiry-expired .expiry-days {
+  color: var(--danger-700);
+  background: var(--danger-100);
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  display: inline-block;
+  width: fit-content;
+}
+
+.expiry-none {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+}
+
 @media (max-width: 1024px) {
   .charts-section {
     grid-template-columns: 1fr;
@@ -166,6 +295,6 @@
   }
 
   .user-table {
-    min-width: 820px;
+    min-width: 1000px;
   }
 }
