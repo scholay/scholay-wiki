@@ -308,19 +308,142 @@
   font-weight: 500;
 }
 
-/* 响应式 */
+/* 响应式 - 平板 */
+@media (max-width: 768px) {
+  .model-selector-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+    gap: 5px;
+    border-radius: 18px;
+  }
+
+  .model-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .model-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .model-label {
+    font-size: 12px;
+  }
+
+  .dropdown-arrow svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .model-selector-dropdown {
+    min-width: 280px;
+    left: auto;
+    right: 0;
+    padding: 4px;
+    border-radius: 14px;
+  }
+
+  .model-option {
+    padding: 8px;
+    gap: 8px;
+    border-radius: 8px;
+  }
+
+  .model-option-icon-wrapper {
+    width: 36px;
+    height: 36px;
+  }
+
+  .model-option-label {
+    font-size: 13px;
+  }
+
+  .model-option-desc {
+    font-size: 12px;
+  }
+
+  .dropdown-header {
+    padding: 10px 12px 6px;
+    font-size: 10px;
+  }
+}
+
+/* 响应式 - 手机 */
 @media (max-width: 640px) {
   .model-selector-btn {
-    padding: 0.4rem 0.6rem;
-    font-size: 0.8125rem;
+    padding: 6px 10px;
+    font-size: 11px;
+    border-radius: 16px;
+  }
+
+  .model-icon {
+    width: 12px;
+    height: 12px;
+  }
+
+  .model-icon svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .model-label {
+    font-size: 11px;
   }
 
   .model-selector-dropdown {
     min-width: 260px;
+    position: fixed;
+    left: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    max-width: calc(100vw - 2rem);
+    max-height: 80vh;
+    overflow-y: auto;
   }
 
   .model-option {
-    padding: 0.75rem 0.875rem;
+    padding: 10px 8px;
+  }
+
+  .model-option-icon-wrapper {
+    width: 32px;
+    height: 32px;
+  }
+
+  .model-option-label {
+    font-size: 13px;
+  }
+
+  .model-option-desc {
+    font-size: 11px;
+  }
+
+  .model-option-badge {
+    font-size: 10px;
+    padding: 0.2rem 0.4rem;
+  }
+
+  .model-option-quota {
+    font-size: 11px;
+  }
+}
+
+/* 小屏手机 */
+@media (max-width: 375px) {
+  .model-selector-btn {
+    padding: 5px 8px;
+    font-size: 10px;
+  }
+
+  .model-label {
+    font-size: 10px;
+  }
+
+  .model-selector-dropdown {
+    min-width: 240px;
   }
 }
 

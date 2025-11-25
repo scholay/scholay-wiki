@@ -1,0 +1,211 @@
+/* Mobile Help Dropdown - 轻量下拉菜单 */
+.mobile-help-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.mobile-help-modal {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  width: 200px;
+  border-radius: 14px;
+  z-index: 10001;
+  overflow: hidden;
+  animation: dropdownSlide 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top right;
+}
+
+[data-theme="dark"] .mobile-help-modal {
+  background: rgba(40, 40, 42, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] .mobile-help-modal {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.03);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dropdownSlide {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 隐藏标题栏 - 下拉菜单不需要 */
+.mobile-help-header {
+  display: none;
+}
+
+.mobile-help-content {
+  padding: 6px;
+}
+
+.mobile-help-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+
+.mobile-help-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .mobile-help-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.mobile-help-item:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="light"] .mobile-help-item:active {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.mobile-help-item-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mobile-help-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  background: transparent;
+}
+
+.mobile-help-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+[data-theme="light"] .mobile-help-icon {
+  color: var(--text-tertiary);
+}
+
+.mobile-help-icon.pricing {
+  color: #fbbf24;
+}
+
+[data-theme="light"] .mobile-help-icon.pricing {
+  color: #d97706;
+}
+
+.mobile-help-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.mobile-help-arrow {
+  color: var(--text-quaternary);
+}
+
+.mobile-help-arrow svg {
+  width: 14px;
+  height: 14px;
+}
+
+.mobile-help-version {
+  font-size: 12px;
+  color: var(--text-quaternary);
+}
+
+.mobile-help-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 4px 8px;
+}
+
+[data-theme="light"] .mobile-help-divider {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* Theme Toggle Switch - 更小巧 */
+.mobile-theme-toggle {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 24px;
+}
+
+.mobile-theme-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.mobile-theme-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  transition: all 0.25s;
+}
+
+[data-theme="light"] .mobile-theme-slider {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.mobile-theme-slider:before {
+  content: "";
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.25s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.mobile-theme-toggle input:checked + .mobile-theme-slider {
+  background: var(--primary-solid);
+}
+
+.mobile-theme-toggle input:checked + .mobile-theme-slider:before {
+  transform: translateX(18px);
+}
+

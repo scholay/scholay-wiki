@@ -6,6 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import SearchFilters from '../components/SearchFilters';
 import ModelSelector from '../components/ModelSelector';
 import ThemeToggle from '../components/ThemeToggle';
+import MobileHelpModal from '../components/MobileHelpModal';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import SEO from '../components/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
@@ -14,6 +15,23 @@ import './Home.css';
 // 懒加载 AuthModal - 只在需要时加载
 const AuthModal = lazy(() => import('../components/AuthModal'));
 
+// 检测是否为移动端
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return isMobile;
+};
+
 const Home = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
@@ -21,8 +39,10 @@ const Home = () => {
   const { theme } = useTheme();
   const outletContext = useOutletContext();
   const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
+  const isMobile = useIsMobile();
   
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [searchMode, setSearchMode] = useState('normal'); // 'normal' or 'advanced'
   const [showFilters, setShowFilters] = useState(false); // 显示筛选条件
   const [modelLevel, setModelLevel] = useState('low'); // 'low', 'mid', 'high' - 默认普通模型
@@ -236,24 +256,46 @@ const Home = () => {
           <div className="navbar-right">
             {!isAuthenticated && (
               <div className="auth-buttons">
+                {/* 桌面端显示的按钮 */}
                 <button
                   onClick={() => navigate('/pricing')}
-                  className="btn-auth btn-pricing"
+                  className="btn-auth btn-pricing desktop-only"
                 >
                   价格方案
                 </button>
-                <ThemeToggle />
+                <div className="desktop-only">
+                  <ThemeToggle />
+                </div>
                 <button
                   onClick={() => setShowAuthModal(true)}
-                  className="btn-auth btn-login"
+                  className="btn-auth btn-login desktop-only"
                 >
                   登录
                 </button>
                 <button
                   onClick={() => setShowAuthModal(true)}
-                  className="btn-auth btn-register"
+                  className="btn-auth btn-register desktop-only"
                 >
                   免费注册
+                </button>
+
+                {/* 移动端显示的按钮 */}
+                <button
+                  onClick={() => setShowHelpModal(true)}
+                  className="btn-mobile-help mobile-only"
+                  aria-label="帮助与设置"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                    <path d="M12 17h.01" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="btn-auth btn-login-mobile mobile-only"
+                >
+                  登录
                 </button>
               </div>
             )}
@@ -435,6 +477,12 @@ const Home = () => {
           />
         </Suspense>
       )}
+
+      {/* 移动端帮助弹窗 */}
+      <MobileHelpModal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+      />
     </div>
   );
 };
