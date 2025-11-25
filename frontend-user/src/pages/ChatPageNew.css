@@ -919,7 +919,7 @@
   position: relative;
 }
 
-.empty-navbar {
+.chat-page-wrapper .empty-navbar {
   padding: 12px 24px;
   display: flex;
   align-items: center;
@@ -927,13 +927,13 @@
   gap: 16px;
 }
 
-.navbar-left-group {
+.chat-page-wrapper .navbar-left-group {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.empty-page-title {
+.chat-page-wrapper .empty-page-title {
   font-size: 20px;
   font-weight: 700;
   color: var(--text-primary);
@@ -941,7 +941,7 @@
 }
 
 /* Results navbar - for existing conversations with messages */
-.results-navbar {
+.chat-page-wrapper .results-navbar {
   background: var(--background);
   border-bottom: none;
   box-shadow: none;
@@ -954,7 +954,7 @@
 }
 
 /* Title group - title and button together */
-.navbar-title-group {
+.chat-page-wrapper .navbar-title-group {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1150,7 +1150,7 @@
   flex-shrink: 0;
 }
 
-.results-navbar .page-title {
+.chat-page-wrapper .results-navbar .page-title {
   font-size: 20px;
   font-weight: 700;
   color: var(--text-primary);
@@ -1231,16 +1231,23 @@
     background: rgba(0, 0, 0, 0.05);
   }
 
-  /* 空状态导航栏布局 */
+  /* 空状态导航栏布局 - 移动端靠左 */
   .chat-page-wrapper .empty-navbar {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
   }
 
-  /* 结果页导航栏布局 */
+  /* 结果页导航栏布局 - 移动端靠左 */
   .chat-page-wrapper .results-navbar {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
+  }
+
+  /* 移动端隐藏右侧空白区域 - 仅限AI对话页面 */
+  .chat-page-wrapper.chat-page .navbar-right-group {
+    display: none;
   }
 
   /* 移动端欢迎页输入框底部固定 */
@@ -1256,7 +1263,7 @@
     padding: 12px 16px;
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     background: var(--background);
-    border-top: 1px solid var(--border);
+    border-top: none;
     z-index: 100;
   }
 
@@ -1269,7 +1276,7 @@
     padding: 12px 16px;
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     background: var(--background);
-    border-top: 1px solid var(--border);
+    border-top: none;
     z-index: 100;
   }
 
