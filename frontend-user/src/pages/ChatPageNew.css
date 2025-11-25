@@ -1188,3 +1188,93 @@
 .new-conversation-btn svg {
   flex-shrink: 0;
 }
+
+/* ============================================
+   移动端样式 - 菜单按钮和底部输入框
+   ============================================ */
+@media (max-width: 768px) {
+  /* 移动端侧边栏margin清除 */
+  .chat-page-wrapper .main-container,
+  .chat-page-wrapper .main-container.has-sidebar,
+  .chat-page-wrapper .main-container.sidebar-collapsed-narrow,
+  .chat-page-wrapper .main-container.sidebar-collapsed {
+    margin-left: 0 !important;
+  }
+
+  /* 移动端菜单按钮 */
+  .chat-page-wrapper .mobile-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+    color: var(--text-secondary);
+    margin-right: 12px;
+    flex-shrink: 0;
+  }
+
+  .chat-page-wrapper .mobile-menu-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+  }
+
+  .chat-page-wrapper .mobile-menu-btn:active {
+    transform: scale(0.95);
+  }
+
+  [data-theme="light"] .chat-page-wrapper .mobile-menu-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  /* 空状态导航栏布局 */
+  .chat-page-wrapper .empty-navbar {
+    display: flex;
+    align-items: center;
+  }
+
+  /* 结果页导航栏布局 */
+  .chat-page-wrapper .results-navbar {
+    display: flex;
+    align-items: center;
+  }
+
+  /* 移动端欢迎页输入框底部固定 */
+  .chat-page-wrapper .welcome-container {
+    padding-bottom: 140px;
+  }
+
+  .chat-page-wrapper .welcome-composer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    background: var(--background);
+    border-top: 1px solid var(--border);
+    z-index: 100;
+  }
+
+  /* 聊天视图底部输入框固定 */
+  .chat-page-wrapper .composer-wrapper {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    background: var(--background);
+    border-top: 1px solid var(--border);
+    z-index: 100;
+  }
+
+  /* 消息列表需要留出底部空间 */
+  .chat-page-wrapper .messages-scrollable {
+    padding-bottom: 140px !important;
+  }
+}

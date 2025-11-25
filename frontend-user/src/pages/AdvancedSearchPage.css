@@ -834,25 +834,38 @@
   justify-content: center;
 }
 
-/* 左侧普通搜索按钮 - 只显示图标宽度 */
+/* 非激活状态按钮 - 只显示图标 */
 .advanced-search-mode-segmented .mode-segment:not(.active) {
   padding: 7px 10px;
   min-width: auto;
 }
 
-/* 右侧高级搜索按钮 - 完整宽度，带背景 */
+/* 激活状态按钮 - 使用::before伪元素实现绿色背景（高度比按钮小） */
 .advanced-search-mode-segmented .mode-segment.active {
-  background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 0.25) 0%, 
-    rgba(16, 163, 127, 0.15) 100%);
+  background: transparent;
   color: rgb(255, 255, 255);
   font-weight: 600;
   text-shadow: 0 1px 3px rgba(16, 163, 127, 0.5);
+}
+
+.advanced-search-mode-segmented .mode-segment.active::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.25) 0%, 
+    rgba(16, 163, 127, 0.15) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 16px;
   box-shadow: 
     0 2px 8px rgba(16, 163, 127, 0.3),
     0 0 0 1px rgba(16, 163, 127, 0.3),
     inset 0 1px 2px rgba(255, 255, 255, 0.15);
-  min-width: 110px;
+  z-index: -1;
 }
 
 .advanced-search-mode-segmented .mode-segment-icon {
@@ -905,11 +918,15 @@
 }
 
 [data-theme="light"] .advanced-search-mode-segmented .mode-segment.active {
+  background: transparent;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .advanced-search-mode-segmented .mode-segment.active::before {
   background: linear-gradient(135deg, 
     rgba(16, 163, 127, 0.85) 0%, 
     rgba(16, 163, 127, 0.75) 100%);
-  color: white;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   box-shadow: 
     0 2px 8px rgba(16, 163, 127, 0.3),
     0 0 0 1px rgba(16, 163, 127, 0.4);
@@ -3221,5 +3238,258 @@
 @media (max-width: 768px) {
   .model-selector-wrapper {
     margin: 0;
+  }
+}
+
+/* ============================================
+   移动端样式 - 菜单按钮和输入框布局
+   ============================================ */
+@media (max-width: 768px) {
+  /* 移动端菜单按钮 */
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+    color: var(--text-secondary);
+    margin-right: 12px;
+    flex-shrink: 0;
+  }
+
+  .mobile-menu-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+  }
+
+  .mobile-menu-btn:active {
+    transform: scale(0.95);
+  }
+
+  [data-theme="light"] .mobile-menu-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  /* 空状态导航栏布局 */
+  .as-empty-navbar {
+    display: flex;
+    align-items: center;
+  }
+
+  /* 结果页导航栏布局 */
+  .as-results-navbar {
+    display: flex;
+    align-items: center;
+  }
+
+  /* 移动端空状态 - 输入框固定在底部（类似首页） */
+  .as-empty-search-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .as-empty-search-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px 16px;
+    padding-bottom: 200px; /* 为底部输入框留出空间 */
+  }
+
+  /* 空状态输入框 - 固定在底部 */
+  .advanced-search-composer-wrapper {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 12px !important;
+    left: 12px !important;
+    right: 12px !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: calc(100% - 24px) !important;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+    border-radius: 24px !important;
+    margin: 0 !important;
+    z-index: 100 !important;
+  }
+
+  /* 暗色主题样式 */
+  [data-theme="dark"] .advanced-search-composer-wrapper {
+    background: rgba(47, 47, 47, 0.6) !important;
+    backdrop-filter: blur(40px) !important;
+    -webkit-backdrop-filter: blur(40px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      0 2px 8px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  }
+
+  /* 亮色主题样式 */
+  [data-theme="light"] .advanced-search-composer-wrapper {
+    background: #ffffff !important;
+    backdrop-filter: blur(40px) !important;
+    -webkit-backdrop-filter: blur(40px) !important;
+    border: 2px solid rgba(16, 163, 127, 0.45) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  /* ============================================
+     移动端模式切换按钮 - 与首页完全对齐 (32px高度)
+     ============================================ */
+  .advanced-search-mode-segmented {
+    padding: 2px;
+    gap: 2px;
+    border-radius: 14px;
+    height: 32px;
+  }
+
+  /* 所有按钮的基础样式 */
+  .advanced-search-mode-segmented .mode-segment {
+    padding: 0 10px;
+    font-size: 12px;
+    gap: 4px;
+    border-radius: 12px;
+    height: 28px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    min-width: auto;
+  }
+
+  /* 移动端激活按钮的::before伪元素 */
+  .advanced-search-mode-segmented .mode-segment.active::before {
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    bottom: 2px;
+    border-radius: 10px;
+  }
+
+  /* 非激活状态按钮 */
+  .advanced-search-mode-segmented .mode-segment:not(.active) {
+    padding: 0 8px;
+  }
+
+  .advanced-search-mode-segmented .mode-segment-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .advanced-search-mode-segmented .mode-segment-label {
+    font-size: 12px;
+  }
+
+  /* 移动端分隔线 */
+  .advanced-search-page .advanced-search-composer-footer-left .footer-divider {
+    height: 16px;
+  }
+
+  /* 移动端筛选按钮 - 高度32px */
+  .advanced-search-page .footer-btn.filter-btn {
+    padding: 0 12px !important;
+    border-radius: 14px !important;
+    gap: 5px !important;
+    height: 32px !important;
+    line-height: 1 !important;
+    box-sizing: border-box !important;
+  }
+
+  .advanced-search-page .footer-btn.filter-btn span {
+    font-size: 12px !important;
+  }
+
+  .advanced-search-page .footer-btn.filter-btn .filter-icon-wrapper {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  .advanced-search-page .footer-btn.filter-btn .filter-icon,
+  .advanced-search-page .footer-btn.filter-btn .clear-icon {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  /* 移动端筛选按钮 - 高度32px */
+  .footer-btn.filter-btn {
+    padding: 0 12px;
+    border-radius: 14px;
+    gap: 5px;
+    height: 32px;
+    line-height: 1;
+  }
+
+  .footer-btn.filter-btn span {
+    font-size: 12px;
+  }
+
+  .footer-btn.filter-btn .filter-icon-wrapper {
+    width: 14px;
+    height: 14px;
+  }
+
+  .footer-btn.filter-btn .filter-icon,
+  .footer-btn.filter-btn .clear-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* ============================================
+     移动端 placeholder 单行显示 - 与首页对齐
+     ============================================ */
+  .advanced-search-chat-input::placeholder,
+  .advanced-bottom-chat-input::placeholder {
+    font-size: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    max-width: 100%;
+  }
+
+  /* placeholder 显示时限制高度 */
+  .advanced-search-chat-input:placeholder-shown,
+  .advanced-bottom-chat-input:placeholder-shown {
+    max-height: 40px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* 用户输入内容时恢复自动撑高 */
+  .advanced-search-chat-input:not(:placeholder-shown),
+  .advanced-bottom-chat-input:not(:placeholder-shown) {
+    max-height: none;
+    overflow: auto;
+    white-space: pre-wrap;
+  }
+
+  /* 有结果时的底部输入框固定 */
+  .as-bottom-input-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    background: var(--background);
+    border-top: 1px solid var(--border);
+    z-index: 100;
+  }
+
+  /* 结果区域需要留出底部空间 */
+  .as-conversation-area {
+    padding-bottom: 120px;
+  }
+
+  .as-paper-list-container {
+    padding-bottom: 120px;
   }
 }

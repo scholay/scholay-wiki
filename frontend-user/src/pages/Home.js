@@ -277,7 +277,7 @@ const Home = () => {
                   价格方案
                 </button>
                 <div className="desktop-only">
-                  <ThemeToggle />
+                <ThemeToggle />
                 </div>
                 <button
                   onClick={() => setShowAuthModal(true)}

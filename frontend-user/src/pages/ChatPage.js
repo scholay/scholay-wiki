@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
+import { Menu } from 'lucide-react';
 import api, { subscriptionAPI } from '../services/api';
 import './ChatPageNew.css';
 import 'highlight.js/styles/github-dark.css';
@@ -68,7 +69,7 @@ const CodeBlock = React.memo(({ inline, className, children, ...props }) => {
 function ChatPage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const { updateSidebarConfig } = useSidebar();
+  const { updateSidebarConfig, isMobile, openMobileSidebar } = useSidebar();
   const outletContext = useOutletContext();
   const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
 
@@ -838,6 +839,19 @@ function ChatPage() {
             /* New Conversation - Centered Layout with navbar */
             <div className="empty-search-layout">
               <nav className="empty-navbar">
+                {/* 移动端菜单按钮 */}
+                {isMobile && (
+                  <button 
+                    className="mobile-menu-btn"
+                    onClick={openMobileSidebar}
+                    aria-label="打开菜单"
+                  >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <line x1="4" y1="8" x2="20" y2="8" />
+                      <line x1="4" y1="16" x2="14" y2="16" />
+                    </svg>
+                  </button>
+                )}
                 <div className="navbar-left-group">
                   <h1 className="empty-page-title">AI 对话</h1>
                   {/* Lightweight Model Selector with quota display */}
@@ -978,6 +992,19 @@ function ChatPage() {
             /* Existing Conversation - Messages + Fixed Bottom Input */
             <div className="chat-view">
               <nav className="results-navbar">
+                {/* 移动端菜单按钮 */}
+                {isMobile && (
+                  <button 
+                    className="mobile-menu-btn"
+                    onClick={openMobileSidebar}
+                    aria-label="打开菜单"
+                  >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <line x1="4" y1="8" x2="20" y2="8" />
+                      <line x1="4" y1="16" x2="14" y2="16" />
+                    </svg>
+                  </button>
+                )}
                 <div className="navbar-title-group">
                   <h1 className="page-title">AI 对话</h1>
                   {/* Lightweight Model Selector with quota display */}

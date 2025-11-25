@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
+import { Menu } from 'lucide-react';
 import logger from '../utils/logger';
 import PaperList from '../components/PaperList';
 import PaperCitationMarkdown from '../components/PaperCitationMarkdown';
@@ -83,7 +84,7 @@ const AdvancedSearchPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user, loading: authLoading } = useAuth();
-  const { updateSidebarConfig } = useSidebar();
+  const { updateSidebarConfig, isMobile, openMobileSidebar } = useSidebar();
   const outletContext = useOutletContext();
   const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
 
@@ -1518,6 +1519,19 @@ const AdvancedSearchPage = () => {
           /* 空状态：参考学术检索的布局 */
           <div className="as-empty-search-layout">
             <nav className="as-empty-navbar">
+              {/* 移动端菜单按钮 */}
+              {isMobile && (
+                <button 
+                  className="mobile-menu-btn"
+                  onClick={openMobileSidebar}
+                  aria-label="打开菜单"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <line x1="4" y1="8" x2="20" y2="8" />
+                    <line x1="4" y1="16" x2="14" y2="16" />
+                  </svg>
+                </button>
+              )}
               <h1 className="as-empty-page-title">智能分析</h1>
             </nav>
 
@@ -1617,6 +1631,19 @@ const AdvancedSearchPage = () => {
           <div className="as-results-layout">
             {/* 顶部标题栏 */}
             <nav className="as-results-navbar">
+              {/* 移动端菜单按钮 */}
+              {isMobile && (
+                <button 
+                  className="mobile-menu-btn"
+                  onClick={openMobileSidebar}
+                  aria-label="打开菜单"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <line x1="4" y1="8" x2="20" y2="8" />
+                    <line x1="4" y1="16" x2="14" y2="16" />
+                  </svg>
+                </button>
+              )}
               <div className="as-navbar-title-group">
                 <h1 className="as-page-title">智能分析</h1>
                 
