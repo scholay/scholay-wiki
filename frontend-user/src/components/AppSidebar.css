@@ -1822,3 +1822,84 @@
 [data-theme="light"] .sidebar-login-btn:hover {
   background: var(--surface-hover);
 }
+
+/* ============================================
+   移动端用户菜单弹窗适配
+   ============================================ */
+@media (max-width: 768px) {
+  /* 移动端用户菜单 - 底部弹出样式 */
+  .user-menu-popup {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    margin: 0 !important;
+    max-height: 70vh;
+    overflow-y: auto;
+    animation: slideUpMobile 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes slideUpMobile {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* 移动端用户菜单头部 */
+  .user-menu-header {
+    padding: 20px 20px 16px;
+  }
+
+  /* 移动端头像稍大一点 */
+  .user-avatar-large {
+    width: 52px;
+    height: 52px;
+  }
+
+  .user-avatar-large span {
+    font-size: 20px;
+  }
+
+  /* 移动端用户信息 */
+  .user-info-section h4 {
+    font-size: 17px;
+  }
+
+  /* 移动端菜单选项 */
+  .user-menu-options {
+    padding: 8px 12px;
+  }
+
+  .user-menu-item {
+    padding: 14px 16px;
+    font-size: 15px;
+    border-radius: 12px;
+  }
+
+  .user-menu-item svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* 移动端底部操作区域 */
+  .user-menu-bottom-actions {
+    padding: 16px 20px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .user-menu-bottom-btn.logout-btn {
+    padding: 14px 20px;
+    font-size: 15px;
+    border-radius: 12px;
+  }
+}
