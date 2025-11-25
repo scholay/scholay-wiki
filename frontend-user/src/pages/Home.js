@@ -36,11 +36,10 @@ const useIsMobile = () => {
 const Home = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const { resetSidebarConfig } = useSidebar();
+  const { resetSidebarConfig, isMobile, openMobileSidebar } = useSidebar();
   const { theme } = useTheme();
   const outletContext = useOutletContext();
   const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
-  const isMobile = useIsMobile();
   
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -249,6 +248,19 @@ const Home = () => {
       <div className={`main-container ${isAuthenticated ? (sidebarCollapsed ? 'sidebar-collapsed-narrow' : 'has-sidebar') : 'sidebar-collapsed'}`}>
         <nav className="top-navbar">
           <div className="navbar-left">
+            {/* 移动端菜单按钮 - 登录状态下显示 */}
+            {isMobile && isAuthenticated && (
+              <button 
+                className="mobile-menu-btn"
+                onClick={openMobileSidebar}
+                aria-label="打开菜单"
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="4" y1="8" x2="20" y2="8" />
+                  <line x1="4" y1="16" x2="14" y2="16" />
+                </svg>
+              </button>
+            )}
             <div className="logo">
               <span className="logo-text">Scholay</span>
             </div>

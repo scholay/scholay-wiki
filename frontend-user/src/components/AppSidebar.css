@@ -1391,14 +1391,117 @@
   }
 }
 
+/* ============================================
+   移动端侧边栏样式 - 768px 以下
+   ============================================ */
 @media (max-width: 768px) {
-  .app-sidebar {
-    transform: translateX(-100%);
-    transition: transform 0.3s ease, max-width 0.3s ease;
+  /* 移动端侧边栏关闭按钮 */
+  .mobile-sidebar-close {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-left: auto;
   }
 
-  .app-sidebar.mobile-open {
+  .mobile-sidebar-close:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+  }
+
+  .mobile-sidebar-close:active {
+    transform: scale(0.95);
+  }
+
+  [data-theme="light"] .mobile-sidebar-close:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  /* 移动端遮罩层 */
+  .mobile-sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 999;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* 移动端侧边栏基础样式 */
+  .app-sidebar.mobile {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 280px;
+    max-width: 85vw;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* 移动端侧边栏打开状态 */
+  .app-sidebar.mobile.mobile-open {
     transform: translateX(0);
+  }
+
+  /* 移动端侧边栏始终展开显示 */
+  .app-sidebar.mobile .app-sidebar-content {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .app-sidebar.mobile .nav-item {
+    padding: 0 12px 0 13px;
+    gap: 12px;
+    width: 100%;
+    height: auto;
+    min-height: 44px;
+    justify-content: flex-start;
+  }
+
+  .app-sidebar.mobile .nav-item span {
+    opacity: 1;
+    width: auto;
+    pointer-events: auto;
+  }
+
+  .app-sidebar.mobile .user-email-wrapper {
+    opacity: 1;
+    width: auto;
+    pointer-events: auto;
+  }
+
+  .app-sidebar.mobile .sidebar-user-info {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 6px;
+  }
+
+  /* 隐藏收起按钮（移动端不需要） */
+  .app-sidebar.mobile .sidebar-collapse-btn {
+    display: none;
+  }
+
+  /* 移动端 Logo 点击行为 - 直接返回首页 */
+  .app-sidebar.mobile .sidebar-logo {
+    cursor: pointer;
   }
 }
 

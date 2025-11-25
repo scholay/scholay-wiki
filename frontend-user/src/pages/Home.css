@@ -1761,8 +1761,11 @@
     padding: 1rem;
   }
 
-  .main-container {
-    margin-left: 0;
+  .main-container,
+  .main-container.has-sidebar,
+  .main-container.sidebar-collapsed-narrow,
+  .main-container.sidebar-collapsed {
+    margin-left: 0 !important;
   }
 
   .chat-container {
@@ -2000,6 +2003,35 @@
     padding: 0.5rem 0.75rem;
     font-size: 0.8125rem;
   }
+}
+
+/* 移动端菜单按钮 - 一长一短横线 */
+.mobile-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+  color: var(--text-secondary);
+  margin-right: 8px;
+}
+
+.mobile-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.mobile-menu-btn:active {
+  transform: scale(0.95);
+}
+
+[data-theme="light"] .mobile-menu-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 /* 移动端帮助按钮 */

@@ -16,7 +16,7 @@ const AuthModal = lazy(() => import('./AuthModal'));
  */
 const MainLayout = () => {
   const { user, isAuthenticated, logout } = useAuth();
-  const { sidebarConfig } = useSidebar();
+  const { sidebarConfig, isMobile } = useSidebar();
   const location = useLocation();
   
   // 侧边栏折叠状态 - 从 localStorage 持久化
@@ -49,16 +49,17 @@ const MainLayout = () => {
     setShowAuthModal(false);
   };
 
-  // 判断是否应该显示侧边栏
-  const shouldShowSidebar = isAuthenticated || 
+  // 判断是否应该渲染侧边栏组件
+  // 登录状态或特定页面时渲染侧边栏
+  const shouldRenderSidebar = isAuthenticated || 
     location.pathname === '/search-results' || 
     location.pathname === '/advanced-search' || 
     location.pathname === '/chat';
 
   return (
     <>
-      {/* 持久化的侧边栏 - 在搜索结果页面总是显示 */}
-      {shouldShowSidebar && (
+      {/* 持久化的侧边栏 */}
+      {shouldRenderSidebar && (
         <AppSidebar
           user={user}
           onLogout={handleLogout}
@@ -79,7 +80,7 @@ const MainLayout = () => {
       )}
       
       {/* 子路由内容 - 通过 context 传递 sidebarCollapsed 状态 */}
-      <Outlet context={{ sidebarCollapsed: shouldShowSidebar ? sidebarCollapsed : false, isAuthenticated }} />
+      <Outlet context={{ sidebarCollapsed: shouldRenderSidebar ? sidebarCollapsed : false, isAuthenticated }} />
       
       {/* 登录弹窗 */}
       {showAuthModal && (
