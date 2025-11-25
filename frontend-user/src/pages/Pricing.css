@@ -772,3 +772,423 @@ body.pricing-page-active {
     overflow-x: auto;
   }
 }
+
+/* ============================================
+   移动端适配 - 768px 以下
+   ============================================ */
+@media (max-width: 768px) {
+  .pricing-page {
+    overflow-x: hidden;
+  }
+
+  .pricing-nav {
+    margin: 12px 12px 0;
+    padding: 12px 16px;
+    border-radius: 20px;
+    gap: 12px;
+  }
+
+  .nav-logo img {
+    width: 20px;
+    height: 20px;
+  }
+
+  .nav-logo span {
+    font-size: 14px;
+  }
+
+  .nav-link,
+  .nav-cta {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  .pricing-main {
+    padding: 0 16px 60px;
+  }
+
+  .pricing-hero {
+    padding: 80px 0 40px;
+  }
+
+  .hero-grid {
+    gap: 32px;
+  }
+
+  .hero-pill {
+    font-size: 11px;
+    padding: 5px 12px;
+    margin-bottom: 14px;
+  }
+
+  .hero-content h1 {
+    font-size: 28px;
+    line-height: 1.2;
+  }
+
+  .hero-subtitle {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .hero-actions {
+    margin-top: 24px;
+    gap: 10px;
+  }
+
+  .billing-toggle {
+    width: 100%;
+    padding: 4px;
+    gap: 4px;
+  }
+
+  .billing-toggle button {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .save-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    margin-left: 4px;
+  }
+
+  .billing-hint {
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .hero-meta {
+    margin-top: 28px;
+    gap: 12px;
+  }
+
+  .hero-meta-item {
+    padding: 14px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .hero-meta-value {
+    font-size: 20px;
+  }
+
+  .hero-meta-label {
+    font-size: 12px;
+  }
+
+  .hero-card {
+    padding: 24px;
+    border-radius: 20px;
+    gap: 20px;
+  }
+
+  .hero-card-header span {
+    font-size: 12px;
+  }
+
+  .hero-card-header p {
+    font-size: 14px;
+  }
+
+  .hero-card-body h3 {
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
+
+  .hero-card-body ul {
+    gap: 10px;
+    font-size: 14px;
+  }
+
+  .hero-card-footer {
+    font-size: 13px;
+    gap: 10px;
+  }
+
+  .hero-card-footer button {
+    padding: 10px 20px;
+    font-size: 14px;
+  }
+
+  /* 套餐网格区域 */
+  .plan-grid-section,
+  .plan-comparison,
+  .pricing-faq {
+    padding: 16px 0 50px;
+  }
+
+  .section-heading {
+    margin-bottom: 24px;
+    gap: 16px;
+  }
+
+  .section-heading h2 {
+    font-size: 24px;
+    line-height: 1.3;
+  }
+
+  .section-description {
+    font-size: 14px;
+    max-width: 100%;
+  }
+
+  .section-eyebrow {
+    font-size: 11px;
+  }
+
+  .plan-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .plan-card {
+    padding: 20px;
+    border-radius: 18px;
+    gap: 20px;
+  }
+
+  .plan-name {
+    font-size: 20px;
+  }
+
+  .plan-badge {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .plan-description {
+    font-size: 13px;
+  }
+
+  .current-chip {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .amount {
+    font-size: 36px;
+  }
+
+  .currency {
+    font-size: 18px;
+  }
+
+  .period {
+    font-size: 14px;
+  }
+
+  .plan-total {
+    font-size: 13px;
+  }
+
+  .plan-savings {
+    font-size: 11px;
+  }
+
+  .plan-feature-list {
+    gap: 10px;
+  }
+
+  .plan-feature-list li {
+    font-size: 13px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .feature-desc {
+    text-align: left;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .plan-cta button {
+    padding: 12px 16px;
+    font-size: 14px;
+    border-radius: 10px;
+  }
+
+  /* 对比区域 */
+  .comparison-heading {
+    margin-bottom: 24px;
+  }
+
+  .comparison-heading h2 {
+    font-size: 22px;
+  }
+
+  .comparison-heading p {
+    font-size: 14px;
+    padding: 0 8px;
+  }
+
+  .comparison-plan-cards {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .comparison-plan-card {
+    padding: 14px 8px;
+    border-radius: 12px;
+  }
+
+  .plan-tier-label {
+    font-size: 12px;
+  }
+
+  .plan-tier-price {
+    font-size: 14px;
+    margin: 6px 0 12px;
+  }
+
+  .plan-tier-btn {
+    padding: 8px 0;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+
+  /* FAQ区域 */
+  .faq-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .faq-item {
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .faq-item h3 {
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+
+  .faq-item p {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+}
+
+/* ============================================
+   小屏手机适配 - 375px 以下
+   ============================================ */
+@media (max-width: 375px) {
+  .pricing-nav {
+    margin: 8px 8px 0;
+    padding: 10px 12px;
+    border-radius: 16px;
+  }
+
+  .nav-logo span {
+    font-size: 13px;
+  }
+
+  .nav-link,
+  .nav-cta {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .pricing-main {
+    padding: 0 12px 50px;
+  }
+
+  .pricing-hero {
+    padding: 60px 0 30px;
+  }
+
+  .hero-content h1 {
+    font-size: 24px;
+  }
+
+  .hero-subtitle {
+    font-size: 14px;
+  }
+
+  .billing-toggle button {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .save-badge {
+    font-size: 9px;
+    padding: 1px 5px;
+  }
+
+  .hero-meta-item {
+    padding: 12px;
+  }
+
+  .hero-meta-value {
+    font-size: 18px;
+  }
+
+  .hero-meta-label {
+    font-size: 11px;
+  }
+
+  .hero-card {
+    padding: 20px;
+    border-radius: 16px;
+  }
+
+  .section-heading h2 {
+    font-size: 20px;
+  }
+
+  .plan-card {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .plan-name {
+    font-size: 18px;
+  }
+
+  .amount {
+    font-size: 32px;
+  }
+
+  .plan-feature-list li {
+    font-size: 12px;
+  }
+
+  .plan-cta button {
+    padding: 11px 14px;
+    font-size: 13px;
+  }
+
+  .comparison-plan-card {
+    padding: 10px 6px;
+  }
+
+  .plan-tier-label {
+    font-size: 11px;
+  }
+
+  .plan-tier-price {
+    font-size: 12px;
+  }
+
+  .plan-tier-btn {
+    font-size: 11px;
+    padding: 6px 0;
+  }
+
+  .faq-item {
+    padding: 14px;
+  }
+
+  .faq-item h3 {
+    font-size: 14px;
+  }
+
+  .faq-item p {
+    font-size: 12px;
+  }
+}

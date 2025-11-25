@@ -1114,33 +1114,364 @@
   color: #ef4444;
 }
 
-@media (max-width: 640px) {
+/* ============================================
+   移动端适配 - 768px 以下
+   ============================================ */
+@media (max-width: 768px) {
   .auth-modal-overlay {
     padding: 0;
+    align-items: flex-end;
   }
 
-  .auth-modal-container,
-  .policy-container {
-    border-radius: 0;
-    max-height: 100vh;
+  .auth-modal-container {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 24px 24px 0 0;
+    border: none;
+    border-top: 1px solid var(--auth-border);
+    animation: slideUpMobile 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes slideUpMobile {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .auth-modal-body {
-    padding: 40px 20px 20px;
-    gap: 20px;
+    padding: 20px 16px 32px;
+    padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+    gap: 16px;
+  }
+
+  .auth-modal-close {
+    top: 14px;
+    right: 14px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .auth-modal-close svg {
+    width: 18px;
+    height: 18px;
   }
 
   .auth-content {
-    padding: 0 20px;
+    padding: 0 8px;
+    gap: 16px;
+  }
+
+  .auth-headline {
+    gap: 6px;
+  }
+
+  .auth-title {
+    font-size: 1.5rem;
+    white-space: normal;
+  }
+
+  .auth-subtitle {
+    font-size: 0.875rem;
+    max-width: 100%;
   }
 
   .auth-form {
-    padding: 0;
-    border-radius: 0;
+    gap: 14px;
+  }
+
+  .auth-input {
+    padding: 13px 16px;
+    font-size: 16px; /* 防止iOS缩放 */
+    border-radius: 14px;
+  }
+
+  .auth-button {
+    padding: 13px 16px;
+    font-size: 0.95rem;
+    border-radius: 14px;
   }
 
   .auth-social-buttons {
     gap: 10px;
+  }
+
+  .auth-social-button {
+    min-height: 50px;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    border-radius: 14px;
+    gap: 12px;
+  }
+
+  .auth-social-button svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .auth-code-group {
+    gap: 10px;
+  }
+
+  .auth-code-button {
+    padding: 12px 18px;
+    min-width: 80px;
+    font-size: 0.9rem;
+  }
+
+  .auth-email-display {
+    padding: 10px 14px;
+    font-size: 0.875rem;
+    border-radius: 14px;
+    margin-bottom: 16px;
+  }
+
+  .auth-email-display span {
+    font-size: 0.875rem;
+  }
+
+  .auth-change-email {
+    font-size: 0.8rem;
+  }
+
+  .auth-email-input-group .auth-input {
+    padding-right: 60px;
+  }
+
+  .auth-edit-button {
+    font-size: 0.85rem;
+    right: 12px;
+  }
+
+  .auth-checkbox {
+    margin: 8px 0;
+  }
+
+  .auth-checkbox label {
+    gap: 8px;
+  }
+
+  .auth-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+  }
+
+  .auth-checkbox span {
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+
+  .auth-policy-link {
+    font-size: 0.8rem;
+  }
+
+  .auth-forgot-password {
+    margin-top: -8px;
+    margin-bottom: 8px;
+    gap: 12px;
+  }
+
+  .auth-forgot-password .auth-link {
+    font-size: 0.8rem;
+  }
+
+  .auth-separator {
+    margin: 2px 0;
+  }
+
+  .auth-separator span {
+    font-size: 0.8rem;
+  }
+
+  .auth-divider {
+    margin: 2px 0;
+    font-size: 0.875rem;
+  }
+
+  .auth-turnstile {
+    padding: 8px;
+    border-radius: 14px;
+  }
+
+  .auth-password-error-placeholder {
+    min-height: 28px;
+    margin-top: -14px;
+    margin-bottom: -14px;
+  }
+
+  .auth-password-error {
+    font-size: 0.8rem;
+  }
+
+  .auth-footer {
+    margin-top: 8px;
+    gap: 6px;
+    font-size: 0.8rem;
+  }
+
+  .auth-footer-link {
+    font-size: 0.8rem;
+  }
+
+  /* 政策弹窗移动端 */
+  .policy-container {
+    width: 100%;
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: 24px 24px 0 0;
+    border: none;
+    border-top: 1px solid var(--auth-border);
+  }
+
+  .policy-header {
+    padding: 20px 20px;
+  }
+
+  .policy-header h3 {
+    font-size: 1.125rem;
+  }
+
+  .policy-header button {
+    width: 32px;
+    height: 32px;
+    font-size: 1.25rem;
+  }
+
+  .policy-body {
+    padding: 20px 20px;
+  }
+
+  .policy-body pre {
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+
+  .policy-footer {
+    padding: 16px 20px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .policy-footer .auth-button {
+    padding: 12px;
+  }
+
+  /* 登录方式切换 */
+  .auth-login-method-toggle {
+    padding: 3px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+
+  .auth-toggle-btn {
+    padding: 10px 16px;
+    font-size: 0.875rem;
+    border-radius: 7px;
+  }
+}
+
+/* ============================================
+   小屏手机适配 - 375px 以下
+   ============================================ */
+@media (max-width: 375px) {
+  .auth-modal-container {
+    max-height: 95vh;
+  }
+
+  .auth-modal-body {
+    padding: 16px 12px 28px;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+    gap: 14px;
+  }
+
+  .auth-content {
+    padding: 0 4px;
+    gap: 14px;
+  }
+
+  .auth-title {
+    font-size: 1.35rem;
+  }
+
+  .auth-subtitle {
+    font-size: 0.8rem;
+  }
+
+  .auth-form {
+    gap: 12px;
+  }
+
+  .auth-input {
+    padding: 12px 14px;
+    font-size: 16px;
+    border-radius: 12px;
+  }
+
+  .auth-button {
+    padding: 12px 14px;
+    font-size: 0.9rem;
+    border-radius: 12px;
+  }
+
+  .auth-social-button {
+    min-height: 46px;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    border-radius: 12px;
+    gap: 10px;
+  }
+
+  .auth-social-button svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .auth-code-button {
+    padding: 10px 14px;
+    min-width: 70px;
+    font-size: 0.85rem;
+  }
+
+  .auth-email-display {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+
+  .auth-checkbox span,
+  .auth-policy-link {
+    font-size: 0.75rem;
+  }
+
+  .auth-forgot-password .auth-link {
+    font-size: 0.75rem;
+  }
+
+  .auth-turnstile {
+    padding: 6px;
+    border-radius: 12px;
+  }
+
+  .policy-header {
+    padding: 16px;
+  }
+
+  .policy-body {
+    padding: 16px;
+  }
+
+  .policy-body pre {
+    font-size: 0.8rem;
+  }
+
+  .policy-footer {
+    padding: 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   }
 }
 

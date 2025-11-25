@@ -1849,9 +1849,32 @@
     min-height: 24px;
   }
 
+  /* 移动端 placeholder 单行显示 - 与输入文字大小一致 */
   .home .home-chat-input::placeholder,
   .home-search .home-chat-input::placeholder {
-    font-size: 14px;
+    font-size: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    max-width: 100%;
+  }
+
+  /* placeholder 显示时限制高度 */
+  .home .home-chat-input:placeholder-shown,
+  .home-search .home-chat-input:placeholder-shown {
+    max-height: 40px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* 用户输入内容时恢复自动撑高 */
+  .home .home-chat-input:not(:placeholder-shown),
+  .home-search .home-chat-input:not(:placeholder-shown) {
+    max-height: none;
+    overflow: auto;
+    white-space: pre-wrap;
   }
 
   /* 移动端发送按钮 */
@@ -1881,18 +1904,23 @@
   /* 移动端搜索模式切换器 */
   .home .home-search-mode-segmented,
   .home-search .home-search-mode-segmented {
-    padding: 3px;
+    padding: 2px;
     gap: 2px;
-    border-radius: 16px;
+    border-radius: 14px;
+    height: 32px;
   }
 
   .home .mode-segment,
   .home-search .mode-segment {
-    padding: 6px 12px;
+    padding: 0 10px;
     min-width: auto;
     font-size: 12px;
-    gap: 5px;
-    border-radius: 13px;
+    gap: 4px;
+    border-radius: 12px;
+    height: 28px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
   }
 
   .home .mode-segment-icon svg,
@@ -1912,12 +1940,14 @@
     height: 16px;
   }
 
-  /* 移动端筛选按钮 */
+  /* 移动端筛选按钮 - 高度32px */
   .home .footer-btn.filter-btn,
   .home-search .footer-btn.filter-btn {
-    padding: 6px 12px;
-    border-radius: 16px;
+    padding: 0 12px;
+    border-radius: 14px;
     gap: 5px;
+    height: 32px;
+    line-height: 1;
   }
 
   .home .footer-btn.filter-btn span,

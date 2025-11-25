@@ -94,40 +94,6 @@
   background: rgba(0, 0, 0, 0.08);
 }
 
-.mobile-help-item-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.mobile-help-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  color: var(--text-secondary);
-  background: transparent;
-}
-
-.mobile-help-icon svg {
-  width: 18px;
-  height: 18px;
-}
-
-[data-theme="light"] .mobile-help-icon {
-  color: var(--text-tertiary);
-}
-
-.mobile-help-icon.pricing {
-  color: #fbbf24;
-}
-
-[data-theme="light"] .mobile-help-icon.pricing {
-  color: #d97706;
-}
-
 .mobile-help-label {
   font-size: 14px;
   font-weight: 500;
