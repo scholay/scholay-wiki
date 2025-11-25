@@ -1731,50 +1731,23 @@ const Settings = () => {
   return (
     <div className="settings-page">
       {/* Header with Logo - fixed at top, full width */}
-      <div
-        className="settings-header"
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          width: '100%',
-          zIndex: 1000,
-          background: 'rgba(33, 33, 33, 0.8)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-          padding: '20px 24px',
-          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15)'
-        }}
-      >
-        <div
-          onClick={() => navigate('/')}
-          style={{
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            width: 'fit-content'
-          }}
-        >
-          <img
-            src="/logo.png"
-            alt="Scholay"
-            style={{
-              width: '18px',
-              height: '18px',
-              objectFit: 'contain'
-            }}
-          />
-          <span style={{
-            fontSize: '16px',
-            fontWeight: '600',
-            color: 'white',
-            letterSpacing: '0.5px'
-          }}>
-            Scholay
-          </span>
+      <div className="settings-header">
+        <div className="settings-header-content">
+          <button className="settings-header-back-btn" onClick={() => navigate(-1)} title="返回">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <div
+            onClick={() => navigate('/')}
+            className="settings-header-logo"
+          >
+            <img
+              src="/logo.png"
+              alt="Scholay"
+            />
+            <span>Scholay</span>
+          </div>
         </div>
       </div>
 
@@ -1782,7 +1755,14 @@ const Settings = () => {
         <div className="settings-layout">
           {/* Left Sidebar */}
           <div className="settings-sidebar">
-            <h1 className="settings-title">设置</h1>
+            <div className="settings-title-row">
+              <button className="settings-back-btn" onClick={() => navigate(-1)} title="返回">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+              </button>
+              <h1 className="settings-title">设置</h1>
+            </div>
 
             <div className="settings-menu">
               <div className="menu-section">
@@ -1845,6 +1825,53 @@ const Settings = () => {
             {activeTab === 'account' && renderAccountTab()}
           </div>
         </div>
+      </div>
+
+      {/* Mobile Bottom Tab Bar */}
+      <div className="settings-mobile-tabs">
+        <button
+          className={`mobile-tab-item ${activeTab === 'profile' ? 'active' : ''}`}
+          onClick={() => setActiveTab('profile')}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span>资料</span>
+        </button>
+        <button
+          className={`mobile-tab-item ${activeTab === 'subscription' ? 'active' : ''}`}
+          onClick={() => setActiveTab('subscription')}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="8" width="18" height="12" rx="2" ry="2"/>
+            <path d="M3 8v-2a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span>订阅</span>
+        </button>
+        <button
+          className={`mobile-tab-item ${activeTab === 'invitation' ? 'active' : ''}`}
+          onClick={() => setActiveTab('invitation')}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <span>邀请</span>
+        </button>
+        <button
+          className={`mobile-tab-item ${activeTab === 'account' ? 'active' : ''}`}
+          onClick={() => setActiveTab('account')}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
+          </svg>
+          <span>账户</span>
+        </button>
       </div>
     </div>
   );
