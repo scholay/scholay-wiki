@@ -299,7 +299,7 @@
 
 /* 论文列表容器 - 使用flex自适应 */
 .papers-container {
-  flex: 1 1 auto; /* 自动填充剩余空间 */
+  flex: 1 1 0; /* 自动填充剩余空间，但允许收缩 */
   overflow-y: auto;
   overflow-x: hidden;
   background: transparent;
@@ -307,6 +307,7 @@
   flex-direction: column;
   min-width: 420px; /* 最小宽度确保内容可读 */
   max-width: 100%; /* 当有预览面板时自动收缩 */
+  width: 0; /* 配合 flex: 1 1 0 防止内容撑大 */
 }
 
 /* 日间模式论文容器背景 */
@@ -1194,6 +1195,75 @@
   font-weight: 600;
 }
 
+.srp-results-info-hint {
+  color: rgba(251, 191, 36, 0.7);
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+[data-theme="light"] .srp-results-info-hint {
+  color: #b45309;
+}
+
+/* 视图切换按钮 - srp前缀防止冲突 */
+.srp-view-mode-switcher {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.srp-view-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.srp-view-mode-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.srp-view-mode-btn.active {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.srp-view-mode-btn svg {
+  flex-shrink: 0;
+}
+
+/* 日间模式 - 视图切换按钮 */
+[data-theme="light"] .srp-view-mode-switcher {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .srp-view-mode-btn {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] .srp-view-mode-btn:hover {
+  color: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .srp-view-mode-btn.active {
+  color: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.08);
+}
+
 /* 论文列表 */
 .papers-list {
   padding: 8px 0;
@@ -1821,6 +1891,52 @@ a.meta-item.pdf-link:hover {
 
 .search-results-centered-area.collapsed .clear-all-filters {
   font-size: 11px;
+}
+
+/* 表格模式下的搜索区域 - 更紧凑 */
+.search-results-centered-area.table-mode {
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.search-results-centered-area.table-mode .results-composer-wrapper {
+  max-width: 600px;
+}
+
+.search-results-centered-area.table-mode .results-composer-input-area {
+  min-height: 40px;
+  padding: 6px 8px;
+}
+
+.search-results-centered-area.table-mode .results-chat-input {
+  font-size: 13px !important;
+  padding: 6px 4px;
+  min-height: 20px;
+}
+
+.search-results-centered-area.table-mode .btn-send {
+  width: 32px;
+  height: 32px;
+}
+
+[data-theme="light"] .search-results-centered-area.table-mode {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+/* 表格视图包装器 - 保持与papers-list相同的布局 */
+.papers-list.ptv-wrapper {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* 隐藏筛选条件栏 */
+.active-filters-bar.hidden {
+  display: none;
 }
 
 /* AI翻译提示 - 类似Google/百度搜索 */
@@ -3400,4 +3516,17 @@ a.meta-item.pdf-link:hover {
   background: rgba(251, 191, 36, 0.08);
   border-color: rgba(251, 191, 36, 0.15);
   color: #b45309;
+}
+
+/* ===== 表格视图右侧列配置面板 ===== */
+.table-column-panel-wrapper {
+  flex-shrink: 0;
+  height: 100%;
+  background: var(--background);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+[data-theme="light"] .table-column-panel-wrapper {
+  border-left-color: rgba(0, 0, 0, 0.08);
 }

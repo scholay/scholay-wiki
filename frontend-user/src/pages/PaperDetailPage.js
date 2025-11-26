@@ -236,9 +236,9 @@ const PaperDetailPage = () => {
 
   if (isLoading) {
     return (
-      <div className="paper-detail-page">
-        <div className="paper-detail-loading">
-          <div className="loading-spinner"></div>
+      <div className="pd-page">
+        <div className="pd-loading">
+          <div className="pd-loading-spinner"></div>
           <p>Loading paper details...</p>
         </div>
       </div>
@@ -247,8 +247,8 @@ const PaperDetailPage = () => {
 
   if (error || !paper) {
     return (
-      <div className="paper-detail-page">
-        <div className="paper-detail-error">
+      <div className="pd-page">
+        <div className="pd-error">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="8" x2="12" y2="12" />
@@ -257,10 +257,10 @@ const PaperDetailPage = () => {
           <h2>Failed to load</h2>
           <p>{error || 'Paper not found'}</p>
           <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-            <button onClick={handleLogoClick} className="error-btn">
+            <button onClick={handleLogoClick} className="pd-error-btn">
               Back to Home
             </button>
-            <button onClick={() => window.open(semanticScholarUrl, '_blank')} className="error-btn secondary">
+            <button onClick={() => window.open(semanticScholarUrl, '_blank')} className="pd-error-btn secondary">
               View on Semantic Scholar
             </button>
           </div>
@@ -284,7 +284,7 @@ const PaperDetailPage = () => {
   ];
 
   return (
-    <div className="paper-detail-page">
+    <div className="pd-page">
       {/* 悬浮引导卡片 */}
       <FloatingGuide />
       
@@ -301,41 +301,41 @@ const PaperDetailPage = () => {
       />
 
       {/* 顶部导航栏 - 带搜索框和登录/注册按钮 */}
-      <div className="paper-top-header">
+      <div className="pd-top-header">
         {/* Logo */}
-        <div className="header-left">
-          <div className="header-logo" onClick={handleLogoClick}>
-            <img src="/logo.png" alt="Scholay" className="logo-image" />
-            <span className="logo-text">Scholay</span>
+        <div className="pd-header-left">
+          <div className="pd-header-logo" onClick={handleLogoClick}>
+            <img src="/logo.png" alt="Scholay" className="pd-logo-image" />
+            <span className="pd-logo-text">Scholay</span>
           </div>
         </div>
 
         {/* 搜索框 - 居中 */}
-        <form className="header-search-form" onSubmit={handleSearch}>
-          <div className="search-input-wrapper">
-            <svg className="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <form className="pd-header-search-form" onSubmit={handleSearch}>
+          <div className="pd-search-input-wrapper">
+            <svg className="pd-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8"/>
               <path d="m21 21-4.35-4.35"/>
             </svg>
             <input
               type="text"
-              className="search-input"
+              className="pd-search-input"
               placeholder="Search papers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <button type="submit" className="search-submit-btn">
+          <button type="submit" className="pd-search-submit-btn">
             Search
           </button>
         </form>
 
         {/* 右侧按钮 */}
-        <div className="header-actions">
-          <button className="header-btn signin-btn" onClick={handleSignIn}>
+        <div className="pd-header-actions">
+          <button className="pd-header-btn pd-signin-btn" onClick={handleSignIn}>
             Sign In
           </button>
-          <button className="header-btn signup-btn" onClick={handleSignUp}>
+          <button className="pd-header-btn pd-signup-btn" onClick={handleSignUp}>
             Sign Up
           </button>
         </div>
@@ -344,14 +344,14 @@ const PaperDetailPage = () => {
       {/* 主内容区域 */}
       {hasSearched ? (
         /* 搜索结果展示区域 - 替换原有内容 */
-        <div className="search-results-section">
-          <div className="search-results-container">
-            <div className="search-results-header">
-              <h3 className="search-results-title">
+        <div className="pd-search-results-section">
+          <div className="pd-search-results-container">
+            <div className="pd-search-results-header">
+              <h3 className="pd-search-results-title">
                 搜索结果: "{searchQuery}"
-                {searchTotal > 0 && <span className="results-count">({searchTotal}篇)</span>}
+                {searchTotal > 0 && <span className="pd-results-count">({searchTotal}篇)</span>}
               </h3>
-              <button className="back-to-paper-btn" onClick={clearSearchResults}>
+              <button className="pd-back-to-paper-btn" onClick={clearSearchResults}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
@@ -360,72 +360,72 @@ const PaperDetailPage = () => {
             </div>
             
             {isSearching ? (
-              <div className="search-loading">
-                <div className="loading-spinner small"></div>
+              <div className="pd-search-loading">
+                <div className="pd-loading-spinner small"></div>
                 <span>正在搜索...</span>
               </div>
             ) : searchError ? (
-              <div className="search-error-msg">{searchError}</div>
+              <div className="pd-search-error-msg">{searchError}</div>
             ) : searchResults.length === 0 ? (
-              <div className="no-results">未找到相关论文</div>
+              <div className="pd-no-results">未找到相关论文</div>
             ) : (
-              <div className="search-results-list">
+              <div className="pd-search-results-list">
                 {/* 只展示前3篇结果 */}
                 {searchResults.slice(0, 3).map((result, index) => (
                   <div 
                     key={result.paperId || index} 
-                    className="search-result-item"
+                    className="pd-search-result-item"
                   >
-                    <h4 className="result-title">
-                      <a href={`/paper/${result.paperId}`} className="result-link">
+                    <h4 className="pd-result-title">
+                      <a href={`/paper/${result.paperId}`} className="pd-result-link">
                         {result.title || 'Untitled'}
                       </a>
                     </h4>
                     
-                    <div className="result-meta">
+                    <div className="pd-result-meta">
                       {result.authors && result.authors.length > 0 && (
                         <>
                           {result.authors.slice(0, 3).map((author, i) => (
                             <React.Fragment key={i}>
-                              <span className="result-author">{author.name}</span>
+                              <span className="pd-result-author">{author.name}</span>
                               {i < Math.min(result.authors.length - 1, 2) && <span>, </span>}
                             </React.Fragment>
                           ))}
                           {result.authors.length > 3 && <span> et al.</span>}
-                          {(result.venue || result.year) && <span className="meta-dot"> · </span>}
+                          {(result.venue || result.year) && <span className="pd-meta-dot"> · </span>}
                         </>
                       )}
-                      {result.venue && <span className="result-venue">{result.venue}</span>}
+                      {result.venue && <span className="pd-result-venue">{result.venue}</span>}
                       {result.venue && result.year && <span> </span>}
-                      {result.year && <span className="result-year">{result.year}</span>}
+                      {result.year && <span className="pd-result-year">{result.year}</span>}
                       {result.citationCount > 0 && (
                         <>
-                          <span className="meta-dot"> · </span>
-                          <span className="result-citations">{result.citationCount} citations</span>
+                          <span className="pd-meta-dot"> · </span>
+                          <span className="pd-result-citations">{result.citationCount} citations</span>
                         </>
                       )}
                     </div>
                     
                     {result.tldr?.text && (
-                      <p className="result-tldr">{result.tldr.text}</p>
+                      <p className="pd-result-tldr">{result.tldr.text}</p>
                     )}
                   </div>
                 ))}
                 
                 {/* 蒙版遮罩区域 - 当总结果超过3篇时显示 */}
                 {searchTotal > 3 && (
-                  <div className="search-results-overlay-wrapper">
+                  <div className="pd-search-results-overlay-wrapper">
                     {/* 模糊预览的后续结果 */}
-                    <div className="blurred-results">
+                    <div className="pd-blurred-results">
                       {searchResults.slice(3, 6).map((result, index) => (
-                        <div key={result.paperId || index} className="search-result-item blurred">
-                          <h4 className="result-title">
-                            <span className="result-link">{result.title || 'Untitled'}</span>
+                        <div key={result.paperId || index} className="pd-search-result-item blurred">
+                          <h4 className="pd-result-title">
+                            <span className="pd-result-link">{result.title || 'Untitled'}</span>
                           </h4>
-                          <div className="result-meta">
+                          <div className="pd-result-meta">
                             {result.authors && result.authors.slice(0, 2).map((author, i) => (
                               <React.Fragment key={i}>
-                                <span className="result-author">{author.name}</span>
+                                <span className="pd-result-author">{author.name}</span>
                                 {i < Math.min(result.authors.length - 1, 1) && <span>, </span>}
                               </React.Fragment>
                             ))}
@@ -436,13 +436,13 @@ const PaperDetailPage = () => {
                     </div>
                     
                     {/* 提示卡片 - 在蒙层顶部 */}
-                    <div className="overlay-content">
+                    <div className="pd-overlay-content">
                       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="11" cy="11" r="8"/>
                         <path d="m21 21-4.35-4.35"/>
                       </svg>
                       <p>更多搜索结果请前往首页查看</p>
-                      <button className="go-home-btn" onClick={goToHomeSearch}>
+                      <button className="pd-go-home-btn" onClick={goToHomeSearch}>
                         <span>前往首页搜索</span>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -454,9 +454,9 @@ const PaperDetailPage = () => {
                 
                 {/* 结果不足3篇但总数更多时的提示 */}
                 {searchResults.length <= 3 && searchTotal > searchResults.length && (
-                  <div className="more-results-hint">
+                  <div className="pd-more-results-hint">
                     <p>还有 {searchTotal - searchResults.length} 篇相关论文</p>
-                    <button className="go-home-btn" onClick={goToHomeSearch}>
+                    <button className="pd-go-home-btn" onClick={goToHomeSearch}>
                       <span>前往首页查看全部</span>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -469,22 +469,22 @@ const PaperDetailPage = () => {
           </div>
         </div>
       ) : (
-      <div className="paper-content-container">
+      <div className="pd-content-container">
         {/* 左侧主要内容 */}
-        <div className="paper-main-column">
+        <div className="pd-main-column">
           {/* 论文标题和元数据 */}
-          <div className="paper-header-section">
+          <div className="pd-header-section">
             {/* DOI 和 Corpus ID (顶部显示) */}
-            <div className="top-meta-info">
+            <div className="pd-top-meta-info">
               {paper.externalIds?.DOI && (
-                <span className="top-meta-item">
+                <span className="pd-top-meta-item">
                   DOI: {paper.externalIds.DOI}
                 </span>
               )}
               {paper.externalIds?.CorpusId && (
                 <>
-                  {paper.externalIds?.DOI && <span className="meta-dot">•</span>}
-                  <span className="top-meta-item">
+                  {paper.externalIds?.DOI && <span className="pd-meta-dot">•</span>}
+                  <span className="pd-top-meta-item">
                     Corpus ID: {paper.externalIds.CorpusId}
                   </span>
                 </>
@@ -492,21 +492,21 @@ const PaperDetailPage = () => {
             </div>
 
             {/* 标题 */}
-            <h1 className="paper-title">{paper.title}</h1>
+            <h1 className="pd-paper-title">{paper.title}</h1>
 
             {/* 作者和出版信息 */}
-            <div className="publication-meta">
+            <div className="pd-publication-meta">
               {/* 作者列表 */}
               {paper.authors && paper.authors.length > 0 && (
                 <>
                   {paper.authors.map((author, index) => (
                     <React.Fragment key={index}>
-                      <span className="author-name">{author.name}</span>
-                      {index < paper.authors.length - 1 && <span className="author-separator">, </span>}
+                      <span className="pd-author-name">{author.name}</span>
+                      {index < paper.authors.length - 1 && <span className="pd-author-separator">, </span>}
                     </React.Fragment>
                   ))}
                   {(paper.venue || paper.year || (paper.fieldsOfStudy && paper.fieldsOfStudy.length > 0)) && (
-                    <span className="meta-dot"> · </span>
+                    <span className="pd-meta-dot"> · </span>
                   )}
                 </>
               )}
@@ -514,46 +514,46 @@ const PaperDetailPage = () => {
               {/* Published in 信息 */}
               {(paper.venue || paper.year) && (
                 <>
-                  <span className="meta-text">Published in </span>
-                  {paper.venue && <span className="meta-venue">{paper.venue}</span>}
+                  <span className="pd-meta-text">Published in </span>
+                  {paper.venue && <span className="pd-meta-venue">{paper.venue}</span>}
                   {paper.venue && paper.year && <span> </span>}
-                  {paper.year && <span className="meta-year">{paper.year}</span>}
+                  {paper.year && <span className="pd-meta-year">{paper.year}</span>}
                   {paper.fieldsOfStudy && paper.fieldsOfStudy.length > 0 && (
-                    <span className="meta-dot"> · </span>
+                    <span className="pd-meta-dot"> · </span>
                   )}
                 </>
               )}
 
               {/* 研究领域 */}
               {paper.fieldsOfStudy && paper.fieldsOfStudy.length > 0 && (
-                <span className="meta-fields">{paper.fieldsOfStudy.join(', ')}</span>
+                <span className="pd-meta-fields">{paper.fieldsOfStudy.join(', ')}</span>
               )}
             </div>
           </div>
 
           {/* TL;DR */}
           {paper.tldr && (
-            <div className="tldr-section">
-              <div className="tldr-header">
-                <span className="tldr-badge">TLDR</span>
+            <div className="pd-tldr-section">
+              <div className="pd-tldr-header">
+                <span className="pd-tldr-badge">TLDR</span>
               </div>
-              <p className="tldr-text">{paper.tldr.text}</p>
+              <p className="pd-tldr-text">{paper.tldr.text}</p>
             </div>
           )}
 
           {/* Abstract */}
           {paper.abstract && (
-            <div className="content-section">
-              <h2 className="section-heading">Abstract</h2>
-              <p className="abstract-text">{paper.abstract}</p>
+            <div className="pd-content-section">
+              <h2 className="pd-section-heading">Abstract</h2>
+              <p className="pd-abstract-text">{paper.abstract}</p>
             </div>
           )}
 
           {/* 操作按钮 - Cite、DOI链接和PDF */}
-          <div className="action-buttons">
+          <div className="pd-action-buttons">
             <button
               onClick={() => setShowCiteModal(true)}
-              className="action-btn"
+              className="pd-action-btn"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11M20 10v11M8 21V10M16 21V10"/>
@@ -565,7 +565,7 @@ const PaperDetailPage = () => {
                 href={`https://doi.org/${paper.externalIds.DOI}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="action-btn"
+                className="pd-action-btn"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
@@ -578,7 +578,7 @@ const PaperDetailPage = () => {
                 href={paper.openAccessPdf.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="action-btn pdf-btn"
+                className="pd-action-btn pd-pdf-btn"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
@@ -590,70 +590,70 @@ const PaperDetailPage = () => {
           </div>
 
           {/* Citations & References Tab */}
-          <div className="content-section citations-references-section">
+          <div className="pd-content-section pd-citations-references-section">
             {/* Tab 头部 */}
-            <div className="tab-header">
+            <div className="pd-tab-header">
               <button
-                className={`tab-btn ${activeTab === 'citations' ? 'active' : ''}`}
+                className={`pd-tab-btn ${activeTab === 'citations' ? 'active' : ''}`}
                 onClick={() => setActiveTab('citations')}
               >
                 Citations
-                <span className="tab-count">{paper.citationCount || 0}</span>
+                <span className="pd-tab-count">{paper.citationCount || 0}</span>
               </button>
               <button
-                className={`tab-btn ${activeTab === 'references' ? 'active' : ''}`}
+                className={`pd-tab-btn ${activeTab === 'references' ? 'active' : ''}`}
                 onClick={() => setActiveTab('references')}
               >
                 References
-                <span className="tab-count">{paper.referenceCount || 0}</span>
+                <span className="pd-tab-count">{paper.referenceCount || 0}</span>
               </button>
             </div>
 
             {/* Tab 内容 */}
-            <div className="tab-content">
+            <div className="pd-tab-content">
               {activeTab === 'citations' && (
-                <div className="citations-list">
+                <div className="pd-citations-list">
                   {paper.citations && paper.citations.length > 0 ? (
                     paper.citations.map((citation, index) => (
-                      <div key={citation.paperId || index} className="citation-item">
-                        <h3 className="citation-title">
-                          <a href={`/paper/${citation.paperId}`} className="citation-link">
+                      <div key={citation.paperId || index} className="pd-citation-item">
+                        <h3 className="pd-citation-title">
+                          <a href={`/paper/${citation.paperId}`} className="pd-citation-link">
                             {citation.title || 'Untitled'}
                           </a>
                         </h3>
 
-                        <div className="citation-meta">
+                        <div className="pd-citation-meta">
                           {/* 作者 */}
                           {citation.authors && citation.authors.length > 0 && (
                             <>
                               {citation.authors.slice(0, 5).map((author, i) => (
                                 <React.Fragment key={i}>
-                                  <span className="citation-author">{author.name}</span>
-                                  {i < Math.min(citation.authors.length - 1, 4) && <span className="author-separator">, </span>}
+                                  <span className="pd-citation-author">{author.name}</span>
+                                  {i < Math.min(citation.authors.length - 1, 4) && <span className="pd-author-separator">, </span>}
                                 </React.Fragment>
                               ))}
-                              {citation.authors.length > 5 && <span className="citation-author"> et al.</span>}
-                              <span className="meta-dot"> · </span>
+                              {citation.authors.length > 5 && <span className="pd-citation-author"> et al.</span>}
+                              <span className="pd-meta-dot"> · </span>
                             </>
                           )}
 
                           {/* 出版信息 */}
                           {citation.venue && (
                             <>
-                              <span className="citation-venue">{citation.venue}</span>
+                              <span className="pd-citation-venue">{citation.venue}</span>
                               {citation.year && <span> </span>}
                             </>
                           )}
                           {citation.year && (
                             <>
-                              <span className="citation-year">{citation.year}</span>
-                              <span className="meta-dot"> · </span>
+                              <span className="pd-citation-year">{citation.year}</span>
+                              <span className="pd-meta-dot"> · </span>
                             </>
                           )}
 
                           {/* 研究领域 */}
                           {citation.s2FieldsOfStudy && citation.s2FieldsOfStudy.length > 0 && (
-                            <span className="citation-fields">
+                            <span className="pd-citation-fields">
                               {citation.s2FieldsOfStudy.map(f => f.category).join(', ')}
                             </span>
                           )}
@@ -661,21 +661,21 @@ const PaperDetailPage = () => {
 
                         {/* TLDR */}
                         {citation.tldr && (
-                          <div className="citation-tldr">
-                            <span className="tldr-label">TLDR</span>
-                            <span className="tldr-text-inline">{citation.tldr.text}</span>
+                          <div className="pd-citation-tldr">
+                            <span className="pd-tldr-label">TLDR</span>
+                            <span className="pd-tldr-text-inline">{citation.tldr.text}</span>
                           </div>
                         )}
 
                         {/* Abstract摘要 */}
                         {citation.abstract && (
-                          <p className="citation-abstract">{citation.abstract}</p>
+                          <p className="pd-citation-abstract">{citation.abstract}</p>
                         )}
 
                         {/* 底部操作 */}
                         {citation.openAccessPdf?.url && (
-                          <div className="citation-actions">
-                            <a href={citation.openAccessPdf.url} target="_blank" rel="noopener noreferrer" className="citation-action-btn">
+                          <div className="pd-citation-actions">
+                            <a href={citation.openAccessPdf.url} target="_blank" rel="noopener noreferrer" className="pd-citation-action-btn">
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
                                 <polyline points="14 2 14 8 20 8"/>
@@ -687,54 +687,54 @@ const PaperDetailPage = () => {
                       </div>
                     ))
                   ) : (
-                    <p className="placeholder-text">No citations found.</p>
+                    <p className="pd-placeholder-text">No citations found.</p>
                   )}
                 </div>
               )}
 
               {activeTab === 'references' && (
-                <div className="references-list">
+                <div className="pd-references-list">
                   {paper.references && paper.references.length > 0 ? (
                     paper.references.map((reference, index) => (
-                      <div key={reference.paperId || index} className="citation-item">
-                        <h3 className="citation-title">
-                          <a href={`/paper/${reference.paperId}`} className="citation-link">
+                      <div key={reference.paperId || index} className="pd-citation-item">
+                        <h3 className="pd-citation-title">
+                          <a href={`/paper/${reference.paperId}`} className="pd-citation-link">
                             {reference.title || 'Untitled'}
                           </a>
                         </h3>
 
-                        <div className="citation-meta">
+                        <div className="pd-citation-meta">
                           {/* 作者 */}
                           {reference.authors && reference.authors.length > 0 && (
                             <>
                               {reference.authors.slice(0, 5).map((author, i) => (
                                 <React.Fragment key={i}>
-                                  <span className="citation-author">{author.name}</span>
-                                  {i < Math.min(reference.authors.length - 1, 4) && <span className="author-separator">, </span>}
+                                  <span className="pd-citation-author">{author.name}</span>
+                                  {i < Math.min(reference.authors.length - 1, 4) && <span className="pd-author-separator">, </span>}
                                 </React.Fragment>
                               ))}
-                              {reference.authors.length > 5 && <span className="citation-author"> et al.</span>}
-                              <span className="meta-dot"> · </span>
+                              {reference.authors.length > 5 && <span className="pd-citation-author"> et al.</span>}
+                              <span className="pd-meta-dot"> · </span>
                             </>
                           )}
 
                           {/* 出版信息 */}
                           {reference.venue && (
                             <>
-                              <span className="citation-venue">{reference.venue}</span>
+                              <span className="pd-citation-venue">{reference.venue}</span>
                               {reference.year && <span> </span>}
                             </>
                           )}
                           {reference.year && (
                             <>
-                              <span className="citation-year">{reference.year}</span>
-                              <span className="meta-dot"> · </span>
+                              <span className="pd-citation-year">{reference.year}</span>
+                              <span className="pd-meta-dot"> · </span>
                             </>
                           )}
 
                           {/* 研究领域 */}
                           {reference.s2FieldsOfStudy && reference.s2FieldsOfStudy.length > 0 && (
-                            <span className="citation-fields">
+                            <span className="pd-citation-fields">
                               {reference.s2FieldsOfStudy.map(f => f.category).join(', ')}
                             </span>
                           )}
@@ -742,21 +742,21 @@ const PaperDetailPage = () => {
 
                         {/* TLDR */}
                         {reference.tldr && (
-                          <div className="citation-tldr">
-                            <span className="tldr-label">TLDR</span>
-                            <span className="tldr-text-inline">{reference.tldr.text}</span>
+                          <div className="pd-citation-tldr">
+                            <span className="pd-tldr-label">TLDR</span>
+                            <span className="pd-tldr-text-inline">{reference.tldr.text}</span>
                           </div>
                         )}
 
                         {/* Abstract摘要 */}
                         {reference.abstract && (
-                          <p className="citation-abstract">{reference.abstract}</p>
+                          <p className="pd-citation-abstract">{reference.abstract}</p>
                         )}
 
                         {/* 底部操作 */}
                         {reference.openAccessPdf?.url && (
-                          <div className="citation-actions">
-                            <a href={reference.openAccessPdf.url} target="_blank" rel="noopener noreferrer" className="citation-action-btn">
+                          <div className="pd-citation-actions">
+                            <a href={reference.openAccessPdf.url} target="_blank" rel="noopener noreferrer" className="pd-citation-action-btn">
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
                                 <polyline points="14 2 14 8 20 8"/>
@@ -768,7 +768,7 @@ const PaperDetailPage = () => {
                       </div>
                     ))
                   ) : (
-                    <p className="placeholder-text">No references found.</p>
+                    <p className="pd-placeholder-text">No references found.</p>
                   )}
                 </div>
               )}
@@ -777,39 +777,39 @@ const PaperDetailPage = () => {
         </div>
 
         {/* 右侧边栏 */}
-        <div className="paper-sidebar-column">
+        <div className="pd-sidebar-column">
           {/* 快捷统计和导航 */}
-          <div className="sidebar-card">
+          <div className="pd-sidebar-card">
             {/* Citations 统计 - 可点击跳转 */}
             <div
-              className="stat-row clickable"
+              className="pd-stat-row clickable"
               onClick={() => {
                 setActiveTab('citations');
-                document.querySelector('.tab-header')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                document.querySelector('.pd-tab-header')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
             >
-              <div className="stat-label">Citations</div>
-              <div className="stat-value">{paper.citationCount?.toLocaleString() || 0}</div>
+              <div className="pd-stat-label">Citations</div>
+              <div className="pd-stat-value">{paper.citationCount?.toLocaleString() || 0}</div>
             </div>
 
             {/* References 统计 - 可点击跳转 */}
             <div
-              className="stat-row clickable"
+              className="pd-stat-row clickable"
               onClick={() => {
                 setActiveTab('references');
-                document.querySelector('.tab-header')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                document.querySelector('.pd-tab-header')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
             >
-              <div className="stat-label">References</div>
-              <div className="stat-value">{paper.referenceCount?.toLocaleString() || 0}</div>
+              <div className="pd-stat-label">References</div>
+              <div className="pd-stat-value">{paper.referenceCount?.toLocaleString() || 0}</div>
             </div>
           </div>
 
           {/* 快捷操作按钮 */}
-          <div className="sidebar-card">
+          <div className="pd-sidebar-card">
             <button
               onClick={() => setShowCiteModal(true)}
-              className="sidebar-action-btn"
+              className="pd-sidebar-action-btn"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11M20 10v11M8 21V10M16 21V10"/>
@@ -821,7 +821,7 @@ const PaperDetailPage = () => {
                 href={`https://doi.org/${paper.externalIds.DOI}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="sidebar-action-btn"
+                className="pd-sidebar-action-btn"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
@@ -834,7 +834,7 @@ const PaperDetailPage = () => {
                 href={paper.openAccessPdf.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="sidebar-action-btn pdf-btn"
+                className="pd-sidebar-action-btn pd-pdf-btn"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
@@ -850,11 +850,11 @@ const PaperDetailPage = () => {
 
       {/* Citation Modal */}
       {showCiteModal && (
-        <div className="cite-modal-overlay" onClick={() => setShowCiteModal(false)}>
-          <div className="cite-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="cite-modal-header">
+        <div className="pd-cite-modal-overlay" onClick={() => setShowCiteModal(false)}>
+          <div className="pd-cite-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="pd-cite-modal-header">
               <h2>Cite Paper</h2>
-              <button className="close-btn" onClick={() => setShowCiteModal(false)}>
+              <button className="pd-close-btn" onClick={() => setShowCiteModal(false)}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -862,7 +862,7 @@ const PaperDetailPage = () => {
               </button>
             </div>
 
-            <div className="cite-format-tabs">
+            <div className="pd-cite-format-tabs">
               <button
                 className={citationFormat === 'bibtex' ? 'active' : ''}
                 onClick={() => setCitationFormat('bibtex')}
@@ -889,12 +889,12 @@ const PaperDetailPage = () => {
               </button>
             </div>
 
-            <div className="cite-content">
+            <div className="pd-cite-content">
               <pre>{generateCitation(citationFormat)}</pre>
             </div>
 
-            <div className="cite-modal-footer">
-              <button className={`copy-btn ${copied ? 'copied' : ''}`} onClick={copyCitation}>
+            <div className="pd-cite-modal-footer">
+              <button className={`pd-copy-btn ${copied ? 'copied' : ''}`} onClick={copyCitation}>
                 {copied ? (
                   <>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

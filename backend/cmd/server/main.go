@@ -305,6 +305,9 @@ func main() {
 			adminProtected.GET("/prompt-templates/:id", aiHandler.GetPromptTemplate)
 			adminProtected.PUT("/prompt-templates/:id", aiHandler.UpdatePromptTemplate)
 			adminProtected.DELETE("/prompt-templates/:id", aiHandler.DeletePromptTemplate)
+			// Analysis dimensions management (Admin only)
+			adminProtected.GET("/analysis/dimensions", aiHandler.AdminGetSystemDimensions)
+			adminProtected.PUT("/analysis/dimensions/:id", aiHandler.AdminUpdateSystemDimension)
 			// Subscription plan management
 			adminProtected.PUT("/subscription-plans/:id", subscriptionHandler.UpdatePlan)
 
@@ -490,6 +493,30 @@ func main() {
 			publicAPI.GET("/papers/:paperId", scholarHandler.GetPaper)
 			// Public search endpoint - for anonymous access from home page
 			publicAPI.POST("/papers/search", scholarHandler.SearchPapers)
+			// Public paper analysis endpoint - AI-powered abstract analysis
+			publicAPI.POST("/papers/analyze", aiHandler.AnalyzePaper)
+			// Public analysis dimensions endpoint - get system default dimensions
+			publicAPI.GET("/analysis/dimensions", aiHandler.GetSystemDimensions)
+		}
+
+		// Analysis dimensions routes (protected - requires user authentication)
+		analysisGroup := api.Group("/analysis")
+		analysisGroup.Use(middleware.UserAuthMiddleware())
+		{
+			// Get user's dimensions (custom or system default)
+			analysisGroup.GET("/dimensions", aiHandler.GetAnalysisDimensions)
+			// Create custom dimension
+			analysisGroup.POST("/dimensions", aiHandler.CreateUserDimension)
+			// Update custom dimension
+			analysisGroup.PUT("/dimensions/:id", aiHandler.UpdateUserDimension)
+			// Delete custom dimension
+			analysisGroup.DELETE("/dimensions/:id", aiHandler.DeleteUserDimension)
+			// Reset single dimension to default
+			analysisGroup.DELETE("/dimensions/reset/:dimensionKey", aiHandler.ResetUserDimension)
+			// Reset all dimensions to default
+			analysisGroup.DELETE("/dimensions/reset-all", aiHandler.ResetAllUserDimensions)
+			// Copy system dimensions to user (deprecated, kept for compatibility)
+			analysisGroup.POST("/dimensions/copy-from-system", aiHandler.CopySystemDimensionsToUser)
 		}
 
 		// Semantic Scholar API routes (protected - requires user authentication)

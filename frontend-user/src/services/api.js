@@ -187,6 +187,47 @@ export const publicScholarAPI = {
   // Public search papers (公共学术检索 - 不需要登录)
   searchPapers: (params) =>
     publicApi.post('/papers/search', params),
+  
+  // Public paper analysis (AI分析论文摘要 - 不需要登录)
+  // paperId用于数据库缓存，优先从缓存获取
+  analyzePaper: (paperId, title, abstract) =>
+    publicApi.post('/papers/analyze', { paperId, title, abstract }),
+
+  // Public analysis dimensions (获取系统默认分析维度 - 不需要登录)
+  getSystemDimensions: () =>
+    publicApi.get('/analysis/dimensions'),
+};
+
+// 分析维度API - 需要认证
+export const analysisDimensionAPI = {
+  // 获取用户的分析维度（合并：系统默认 + 用户自定义覆盖）
+  getDimensions: () =>
+    api.get('/analysis/dimensions'),
+
+  // 创建或更新用户自定义维度（覆盖系统默认）
+  // dimensionKey 用于标识要覆盖的系统维度
+  createDimension: (dimensionKey, name, description, sortOrder = 0) =>
+    api.post('/analysis/dimensions', { dimensionKey, name, description, sortOrder }),
+
+  // 更新用户自定义维度
+  updateDimension: (id, name, description, sortOrder = 0) =>
+    api.put(`/analysis/dimensions/${id}`, { name, description, sortOrder }),
+
+  // 删除用户自定义维度
+  deleteDimension: (id) =>
+    api.delete(`/analysis/dimensions/${id}`),
+
+  // 重置单个维度为系统默认（删除用户的自定义覆盖）
+  resetDimension: (dimensionKey) =>
+    api.delete(`/analysis/dimensions/reset/${dimensionKey}`),
+
+  // 重置所有维度为系统默认
+  resetAllDimensions: () =>
+    api.delete('/analysis/dimensions/reset-all'),
+
+  // 将系统默认维度复制给用户（已废弃，保留兼容性）
+  copyFromSystem: () =>
+    api.post('/analysis/dimensions/copy-from-system'),
 };
 
 export const configAPI = {

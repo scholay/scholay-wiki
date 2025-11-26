@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -901,6 +902,220 @@ func TruncateContextForLimit(messages []ChatMessage, maxChars int) []ChatMessage
 	return result
 }
 
+// AnalyzePaperAbstract 分析论文摘要，提取结构化信息
+// 使用low级别模型进行分析，根据用户的分析维度动态生成提示词
+// 优先从数据库缓存获取，如果没有则调用AI分析并保存结果
+// userID: 用户ID，用于获取用户自定义的分析维度（nil表示使用系统默认）
+func (s *Service) AnalyzePaperAbstract(paperId string, paperTitle string, abstract string, userID *uint) (*PaperAnalysisResult, error) {
+	if abstract == "" {
+		return nil, fmt.Errorf("abstract is required for analysis")
+	}
+
+	// 1. 获取用户的分析维度
+	dimensionResult, err := s.GetAnalysisDimensions(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get analysis dimensions: %w", err)
+	}
+
+	dimensions := dimensionResult.Dimensions
+	if len(dimensions) == 0 {
+		return nil, fmt.Errorf("no active analysis dimensions found")
+	}
+
+	// 生成维度的哈希值，用于缓存key
+	dimensionHash := s.generateDimensionHash(dimensions)
+
+	// 2. 检查数据库缓存（需要匹配维度哈希）
+	if paperId != "" {
+		var cachedAnalysis PaperAnalysis
+		if err := s.db.Where("paper_id = ? AND dimension_hash = ?", paperId, dimensionHash).First(&cachedAnalysis).Error; err == nil {
+			// 找到匹配的缓存，直接返回
+			fmt.Printf("[INFO] Found cached analysis for paper: %s (dimension_hash: %s)\n", paperId, dimensionHash)
+			return s.convertCachedAnalysisToResult(cachedAnalysis, dimensions), nil
+		}
+		// 没找到匹配的缓存，继续调用AI分析
+		fmt.Printf("[INFO] No cached analysis found for paper: %s with dimension_hash: %s, calling AI...\n", paperId, dimensionHash)
+	}
+
+	// 3. 动态构建提示词
+	prompt := s.buildAnalysisPrompt(paperTitle, abstract, dimensions)
+
+	messages := []ChatMessage{
+		{
+			Role:    "user",
+			Content: prompt,
+		},
+	}
+
+	// 使用low级别模型调用AI
+	response, err := s.ChatCompletionWithTools(messages, nil, "", thirdparty.ModelLevelLow)
+	if err != nil {
+		return nil, fmt.Errorf("AI analysis failed: %w", err)
+	}
+
+	if len(response.Choices) == 0 {
+		return nil, fmt.Errorf("no response from AI")
+	}
+
+	content := strings.TrimSpace(response.Choices[0].Message.Content)
+	
+	// 尝试从响应中提取JSON
+	// 可能包含```json ... ```标记
+	if strings.Contains(content, "```json") {
+		start := strings.Index(content, "```json") + 7
+		end := strings.LastIndex(content, "```")
+		if end > start {
+			content = strings.TrimSpace(content[start:end])
+		}
+	} else if strings.Contains(content, "```") {
+		start := strings.Index(content, "```") + 3
+		end := strings.LastIndex(content, "```")
+		if end > start {
+			content = strings.TrimSpace(content[start:end])
+		}
+	}
+
+	// 解析JSON响应为动态map
+	var resultMap map[string]string
+	if err := json.Unmarshal([]byte(content), &resultMap); err != nil {
+		// 如果JSON解析失败，返回错误
+		fmt.Printf("[WARN] Failed to parse AI analysis response as JSON: %v\n", err)
+		fmt.Printf("[DEBUG] Raw content: %s\n", content[:min(500, len(content))])
+		// 创建一个包含所有维度的失败结果
+		resultMap = make(map[string]string)
+		for _, dim := range dimensions {
+			resultMap[dim.DimensionKey] = "解析失败"
+		}
+	}
+
+	// 4. 保存分析结果到数据库（如果有paperId）
+	if paperId != "" {
+		// 将resultMap转为JSON存储
+		analysisDataJSON, _ := json.Marshal(resultMap)
+		
+		paperAnalysis := PaperAnalysis{
+			PaperID:       paperId,
+			PaperTitle:    paperTitle,
+			DimensionHash: dimensionHash,
+			AnalysisData:  string(analysisDataJSON),
+		}
+		
+		// 使用 upsert 逻辑：如果存在相同 paper_id + dimension_hash 则更新，否则创建
+		if err := s.db.Where("paper_id = ? AND dimension_hash = ?", paperId, dimensionHash).
+			Assign(paperAnalysis).FirstOrCreate(&paperAnalysis).Error; err != nil {
+			fmt.Printf("[WARN] Failed to save paper analysis to database: %v\n", err)
+		} else {
+			fmt.Printf("[INFO] Saved paper analysis to database for paper: %s (dimension_hash: %s)\n", paperId, dimensionHash)
+		}
+	}
+
+	// 5. 转换为 PaperAnalysisResult 返回
+	result := s.convertMapToResult(resultMap, dimensions)
+	return result, nil
+}
+
+// PaperAnalysisResult 论文分析结果结构（动态维度）
+type PaperAnalysisResult struct {
+	// 动态维度数据，key为dimension_key，value为分析结果
+	Data map[string]string `json:"data"`
+	// 维度元信息，用于前端显示
+	Dimensions []DimensionInfo `json:"dimensions"`
+}
+
+// DimensionInfo 维度信息（用于前端显示）
+type DimensionInfo struct {
+	Key   string `json:"key"`
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// generateDimensionHash 生成维度配置的哈希值
+// 用于判断缓存是否匹配当前维度配置
+func (s *Service) generateDimensionHash(dimensions []AnalysisDimension) string {
+	// 将维度的key和description拼接后计算MD5
+	var sb strings.Builder
+	for _, dim := range dimensions {
+		sb.WriteString(dim.DimensionKey)
+		sb.WriteString(":")
+		sb.WriteString(dim.Description)
+		sb.WriteString(";")
+	}
+	hash := md5.Sum([]byte(sb.String()))
+	return hex.EncodeToString(hash[:8]) // 只取前8字节，生成16位哈希
+}
+
+// buildAnalysisPrompt 动态构建分析提示词
+func (s *Service) buildAnalysisPrompt(paperTitle, abstract string, dimensions []AnalysisDimension) string {
+	var sb strings.Builder
+	
+	sb.WriteString("请你阅读以下论文摘要，并严格根据摘要内容进行分析。\n\n")
+	sb.WriteString(fmt.Sprintf("论文标题：%s\n\n", paperTitle))
+	sb.WriteString(fmt.Sprintf("论文摘要：%s\n\n", abstract))
+	
+	sb.WriteString("为确保输出稳定性、可控性与准确性，请遵守以下规则：\n")
+	sb.WriteString("【核心规则】\n")
+	sb.WriteString("1. 必须先在内部逐步推理，但不要展示推理过程，只输出最终结果。\n")
+	sb.WriteString("2. 所有分类必须完全基于摘要原文，不允许推断、不允许类比、不允许编造。\n")
+	sb.WriteString("3. 允许所有维度的结果为空。如果摘要中完全没有对应信息，请回答：未提及。\n")
+	sb.WriteString("4. 当摘要极短、极度模糊、非学术化、甚至不含任何可分析内容时，你必须保持结构完整，但允许全部返回未提及。\n")
+	sb.WriteString("5. 不要引入摘要中没有的技术、领域、理论、国家、组织、数据、研究方法等信息。\n")
+	sb.WriteString("6. 每一项结论都必须在摘要中找到明确对应的词句；若无法定位对应内容，必须回答：未提及。\n\n")
+	
+	sb.WriteString("【分析维度】\n")
+	for i, dim := range dimensions {
+		sb.WriteString(fmt.Sprintf("%d. %s（%s）\n", i+1, dim.Name, dim.DimensionKey))
+		sb.WriteString(fmt.Sprintf("分析指示：%s\n\n", dim.Description))
+	}
+	
+	sb.WriteString("【输出格式】\n")
+	sb.WriteString("请严格使用以下JSON格式输出，不得增删字段：\n")
+	sb.WriteString("{\n")
+	for i, dim := range dimensions {
+		if i < len(dimensions)-1 {
+			sb.WriteString(fmt.Sprintf("  \"%s\": \"%s分析结果\",\n", dim.DimensionKey, dim.Name))
+		} else {
+			sb.WriteString(fmt.Sprintf("  \"%s\": \"%s分析结果\"\n", dim.DimensionKey, dim.Name))
+		}
+	}
+	sb.WriteString("}\n\n")
+	sb.WriteString("所有维度都必须输出，即使内容全部为\"未提及\"。")
+	
+	return sb.String()
+}
+
+// convertCachedAnalysisToResult 将缓存的分析结果转换为返回结构
+func (s *Service) convertCachedAnalysisToResult(cached PaperAnalysis, dimensions []AnalysisDimension) *PaperAnalysisResult {
+	// 解析存储的JSON数据
+	var dataMap map[string]string
+	if err := json.Unmarshal([]byte(cached.AnalysisData), &dataMap); err != nil {
+		dataMap = make(map[string]string)
+	}
+	
+	return s.convertMapToResult(dataMap, dimensions)
+}
+
+// convertMapToResult 将map数据转换为返回结构
+func (s *Service) convertMapToResult(dataMap map[string]string, dimensions []AnalysisDimension) *PaperAnalysisResult {
+	result := &PaperAnalysisResult{
+		Data:       dataMap,
+		Dimensions: make([]DimensionInfo, 0, len(dimensions)),
+	}
+	
+	for _, dim := range dimensions {
+		value := dataMap[dim.DimensionKey]
+		if value == "" {
+			value = "未提及"
+		}
+		result.Dimensions = append(result.Dimensions, DimensionInfo{
+			Key:   dim.DimensionKey,
+			Name:  dim.Name,
+			Value: value,
+		})
+	}
+	
+	return result
+}
+
 // ChatCompletionWithLevel calls AI model without streaming and returns the complete response
 // Used for non-streaming operations like generating follow-up questions
 func (s *Service) ChatCompletionWithLevel(messages []ChatMessage, modelLevel thirdparty.ModelLevel) (string, error) {
@@ -994,4 +1209,258 @@ func (s *Service) ChatCompletionWithLevel(messages []ChatMessage, modelLevel thi
 	}
 
 	return resultInterface.(string), nil
+}
+
+// GetAnalysisDimensions 获取用户的分析维度
+// 采用覆盖式设计：系统默认维度 + 用户自定义维度（用户自定义覆盖同dimension_key的系统默认）
+// GetAnalysisDimensionsResult 返回维度列表和是否自定义的标志
+type GetAnalysisDimensionsResult struct {
+	Dimensions []AnalysisDimension
+	IsCustom   bool // 是否包含用户自定义维度
+}
+
+func (s *Service) GetAnalysisDimensions(userID *uint) (*GetAnalysisDimensionsResult, error) {
+	// 1. 获取系统默认维度
+	var systemDimensions []AnalysisDimension
+	err := s.db.Where("user_id IS NULL AND is_active = ?", true).
+		Order("sort_order ASC").
+		Find(&systemDimensions).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to get system dimensions: %w", err)
+	}
+
+	// 如果没有用户ID，直接返回系统默认维度
+	if userID == nil || *userID == 0 {
+		fmt.Printf("[INFO] Using %d system default dimensions (no user)\n", len(systemDimensions))
+		return &GetAnalysisDimensionsResult{
+			Dimensions: systemDimensions,
+			IsCustom:   false,
+		}, nil
+	}
+
+	// 2. 获取用户自定义维度
+	var userDimensions []AnalysisDimension
+	err = s.db.Where("user_id = ?", *userID).
+		Find(&userDimensions).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user dimensions: %w", err)
+	}
+
+	// 如果用户没有任何自定义维度，直接返回系统默认
+	if len(userDimensions) == 0 {
+		fmt.Printf("[INFO] Using %d system default dimensions for user %d (no customization)\n", len(systemDimensions), *userID)
+		return &GetAnalysisDimensionsResult{
+			Dimensions: systemDimensions,
+			IsCustom:   false,
+		}, nil
+	}
+
+	// 3. 合并：用户自定义覆盖系统默认（按dimension_key匹配）
+	userDimMap := make(map[string]AnalysisDimension)
+	for _, ud := range userDimensions {
+		userDimMap[ud.DimensionKey] = ud
+	}
+
+	var mergedDimensions []AnalysisDimension
+	customCount := 0
+	for _, sd := range systemDimensions {
+		if ud, exists := userDimMap[sd.DimensionKey]; exists {
+			// 用户有自定义，检查是否启用
+			if ud.IsActive {
+				mergedDimensions = append(mergedDimensions, ud)
+				customCount++
+			}
+			// 如果用户自定义为停用，则该维度不显示
+		} else {
+			// 用户没有自定义，使用系统默认
+			mergedDimensions = append(mergedDimensions, sd)
+		}
+	}
+
+	// 4. 检查用户是否有额外的自定义维度（不在系统默认中的）
+	systemKeySet := make(map[string]bool)
+	for _, sd := range systemDimensions {
+		systemKeySet[sd.DimensionKey] = true
+	}
+	for _, ud := range userDimensions {
+		if !systemKeySet[ud.DimensionKey] && ud.IsActive {
+			// 用户新增的维度
+			mergedDimensions = append(mergedDimensions, ud)
+			customCount++
+		}
+	}
+
+	// 按sort_order排序
+	sort.Slice(mergedDimensions, func(i, j int) bool {
+		return mergedDimensions[i].SortOrder < mergedDimensions[j].SortOrder
+	})
+
+	fmt.Printf("[INFO] Merged dimensions for user %d: %d total (%d customized)\n", *userID, len(mergedDimensions), customCount)
+	return &GetAnalysisDimensionsResult{
+		Dimensions: mergedDimensions,
+		IsCustom:   customCount > 0, // 只有当实际有自定义维度时才为true
+	}, nil
+}
+
+// GetSystemDimensions 获取系统默认维度
+func (s *Service) GetSystemDimensions() ([]AnalysisDimension, error) {
+	var dimensions []AnalysisDimension
+	err := s.db.Where("user_id IS NULL AND is_active = ?", true).
+		Order("sort_order ASC").
+		Find(&dimensions).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to get system dimensions: %w", err)
+	}
+	return dimensions, nil
+}
+
+// GetUserDimensions 获取用户自定义维度
+func (s *Service) GetUserDimensions(userID uint) ([]AnalysisDimension, error) {
+	var dimensions []AnalysisDimension
+	err := s.db.Where("user_id = ? AND is_active = ?", userID, true).
+		Order("sort_order ASC").
+		Find(&dimensions).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user dimensions: %w", err)
+	}
+	return dimensions, nil
+}
+
+// CreateUserDimension 创建或更新用户自定义维度
+// 如果用户已有该dimension_key的自定义，则更新；否则创建新的
+func (s *Service) CreateUserDimension(userID uint, dimensionKey, name, description string, sortOrder int) (*AnalysisDimension, error) {
+	// 检查用户是否已有该dimension_key的自定义
+	var existingDimension AnalysisDimension
+	err := s.db.Where("user_id = ? AND dimension_key = ?", userID, dimensionKey).First(&existingDimension).Error
+	
+	if err == nil {
+		// 已存在，更新
+		existingDimension.Name = name
+		existingDimension.Description = description
+		existingDimension.SortOrder = sortOrder
+		existingDimension.IsActive = true
+		
+		if err := s.db.Save(&existingDimension).Error; err != nil {
+			return nil, fmt.Errorf("failed to update dimension: %w", err)
+		}
+		fmt.Printf("[INFO] Updated user dimension: %s for user %d\n", dimensionKey, userID)
+		return &existingDimension, nil
+	}
+
+	// 不存在，创建新的
+	dimension := &AnalysisDimension{
+		UserID:       &userID,
+		DimensionKey: dimensionKey,
+		Name:         name,
+		Description:  description,
+		SortOrder:    sortOrder,
+		IsActive:     true,
+	}
+
+	if err := s.db.Create(dimension).Error; err != nil {
+		return nil, fmt.Errorf("failed to create dimension: %w", err)
+	}
+
+	fmt.Printf("[INFO] Created user dimension: %s for user %d\n", dimensionKey, userID)
+	return dimension, nil
+}
+
+// UpdateUserDimension 更新用户自定义维度
+func (s *Service) UpdateUserDimension(userID uint, dimensionID uint, name, description string, sortOrder int) (*AnalysisDimension, error) {
+	var dimension AnalysisDimension
+	if err := s.db.Where("id = ? AND user_id = ?", dimensionID, userID).First(&dimension).Error; err != nil {
+		return nil, fmt.Errorf("dimension not found: %w", err)
+	}
+
+	dimension.Name = name
+	dimension.Description = description
+	dimension.SortOrder = sortOrder
+
+	if err := s.db.Save(&dimension).Error; err != nil {
+		return nil, fmt.Errorf("failed to update dimension: %w", err)
+	}
+
+	return &dimension, nil
+}
+
+// DeleteUserDimension 删除用户自定义维度
+func (s *Service) DeleteUserDimension(userID uint, dimensionID uint) error {
+	result := s.db.Where("id = ? AND user_id = ?", dimensionID, userID).Delete(&AnalysisDimension{})
+	if result.Error != nil {
+		return fmt.Errorf("failed to delete dimension: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("dimension not found or not owned by user")
+	}
+	return nil
+}
+
+// ResetUserDimensionToDefault 重置用户的某个维度为系统默认（删除用户的自定义覆盖）
+func (s *Service) ResetUserDimensionToDefault(userID uint, dimensionKey string) error {
+	result := s.db.Where("user_id = ? AND dimension_key = ?", userID, dimensionKey).Delete(&AnalysisDimension{})
+	if result.Error != nil {
+		return fmt.Errorf("failed to reset dimension: %w", result.Error)
+	}
+	fmt.Printf("[INFO] Reset dimension %s to default for user %d\n", dimensionKey, userID)
+	return nil
+}
+
+// ResetAllUserDimensions 重置用户的所有维度为系统默认（删除用户的所有自定义）
+func (s *Service) ResetAllUserDimensions(userID uint) error {
+	result := s.db.Where("user_id = ?", userID).Delete(&AnalysisDimension{})
+	if result.Error != nil {
+		return fmt.Errorf("failed to reset all dimensions: %w", result.Error)
+	}
+	fmt.Printf("[INFO] Reset all dimensions to default for user %d (deleted %d)\n", userID, result.RowsAffected)
+	return nil
+}
+
+// CopySystemDimensionsToUser 将系统默认维度复制给用户（用于用户首次自定义）
+func (s *Service) CopySystemDimensionsToUser(userID uint) ([]AnalysisDimension, error) {
+	// 获取系统默认维度
+	systemDimensions, err := s.GetSystemDimensions()
+	if err != nil {
+		return nil, err
+	}
+
+	// 复制给用户
+	var userDimensions []AnalysisDimension
+	for _, sd := range systemDimensions {
+		ud := AnalysisDimension{
+			UserID:       &userID,
+			DimensionKey: sd.DimensionKey,
+			Name:         sd.Name,
+			Description:  sd.Description,
+			SortOrder:    sd.SortOrder,
+			IsActive:     true,
+		}
+		if err := s.db.Create(&ud).Error; err != nil {
+			return nil, fmt.Errorf("failed to copy dimension %s: %w", sd.DimensionKey, err)
+		}
+		userDimensions = append(userDimensions, ud)
+	}
+
+	fmt.Printf("[INFO] Copied %d system dimensions to user %d\n", len(userDimensions), userID)
+	return userDimensions, nil
+}
+
+// UpdateSystemDimension 更新系统默认维度（管理员接口）
+func (s *Service) UpdateSystemDimension(dimensionID uint, name, description string, sortOrder int, isActive bool) (*AnalysisDimension, error) {
+	var dimension AnalysisDimension
+	// 只能更新系统默认维度（user_id IS NULL）
+	if err := s.db.Where("id = ? AND user_id IS NULL", dimensionID).First(&dimension).Error; err != nil {
+		return nil, fmt.Errorf("system dimension not found: %w", err)
+	}
+
+	dimension.Name = name
+	dimension.Description = description
+	dimension.SortOrder = sortOrder
+	dimension.IsActive = isActive
+
+	if err := s.db.Save(&dimension).Error; err != nil {
+		return nil, fmt.Errorf("failed to update dimension: %w", err)
+	}
+
+	fmt.Printf("[INFO] Updated system dimension: %s (ID: %d)\n", dimension.DimensionKey, dimension.ID)
+	return &dimension, nil
 }

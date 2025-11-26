@@ -145,3 +145,40 @@ type ChatCompletionChunk struct {
 		FinishReason string `json:"finish_reason,omitempty"`
 	} `json:"choices"`
 }
+
+// PaperAnalysis 论文AI分析结果存储表
+// 用于缓存论文摘要的AI分析结果，避免重复请求大模型
+// 采用动态维度设计：使用 dimension_hash 标识维度配置，analysis_data 存储JSON格式的分析结果
+type PaperAnalysis struct {
+	ID            uint      `gorm:"primaryKey" json:"id"`
+	PaperID       string    `gorm:"type:varchar(100);not null;uniqueIndex:uk_paper_dimension,priority:1" json:"paperId"`
+	PaperTitle    string    `gorm:"type:varchar(500)" json:"paperTitle"`
+	DimensionHash string    `gorm:"type:varchar(32);not null;uniqueIndex:uk_paper_dimension,priority:2;index:idx_dimension_hash" json:"dimensionHash"` // 维度配置哈希，用于判断缓存是否匹配
+	AnalysisData  string    `gorm:"type:text" json:"analysisData"`                                                                                      // JSON格式的分析结果 {"dimensionKey": "分析内容", ...}
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+}
+
+// TableName 指定表名
+func (PaperAnalysis) TableName() string {
+	return "paper_analysis"
+}
+
+// AnalysisDimension 分析维度定义表
+// 支持系统默认维度和用户自定义维度
+type AnalysisDimension struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	UserID       *uint     `gorm:"index:idx_user_id" json:"userId"`                                    // NULL表示系统默认维度
+	DimensionKey string    `gorm:"type:varchar(50);not null;uniqueIndex:uk_user_dimension,priority:2" json:"dimensionKey"` // 维度标识符
+	Name         string    `gorm:"type:varchar(100);not null" json:"name"`                             // 维度名称
+	Description  string    `gorm:"type:text;not null" json:"description"`                              // 维度解释/分析指示
+	SortOrder    int       `gorm:"default:0;index:idx_sort_order" json:"sortOrder"`                    // 排序顺序
+	IsActive     bool      `gorm:"default:true" json:"isActive"`                                       // 是否启用
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
+// TableName 指定表名
+func (AnalysisDimension) TableName() string {
+	return "analysis_dimensions"
+}

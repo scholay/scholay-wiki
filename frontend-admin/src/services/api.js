@@ -303,6 +303,13 @@ export const adminAPI = {
 
   cancelCouponBatch: (id) =>
     api.post(`/admin/coupon-batches/${id}/cancel`),
+
+  // Analysis dimensions management (默认业务数据)
+  getAnalysisDimensions: () =>
+    api.get('/admin/analysis/dimensions'),
+
+  updateAnalysisDimension: (id, data) =>
+    api.put(`/admin/analysis/dimensions/${id}`, data),
 };
 
 export default api;

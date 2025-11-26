@@ -2,12 +2,14 @@ import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 
 import { useSearchParams, useNavigate, useOutletContext, useLocation } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
-import { Menu } from 'lucide-react';
+import { Menu, List, Table2 } from 'lucide-react';
 import { scholarAPI, publicScholarAPI } from '../services/api';
 import PaperPreview from '../components/PaperPreview';
 import SearchFilters from '../components/SearchFilters';
 import PaperListSkeleton from '../components/PaperListSkeleton';
 import CiteModal from '../components/CiteModal';
+import PaperTableView from '../components/PaperTableView';
+import TableColumnPanel from '../components/TableColumnPanel';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory, renameSearchHistory, migrateOldSearchHistory } from '../utils/searchHistory';
 import SEO from '../components/SEO';
@@ -134,10 +136,14 @@ const SearchResultsPage = () => {
   const [selectedHistoryId, setSelectedHistoryId] = useState(null); // 选中的搜索历史ID
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
   const [isSearchBarCollapsed, setIsSearchBarCollapsed] = useState(false); // 搜索框收缩状态
+  const [viewMode, setViewMode] = useState('list'); // 视图模式: 'list' 或 'table'
 
   // 执行搜索
   const performSearch = async (query, currentFilters, page = 1, saveToHistory = true, enableTranslation = true) => {
     if (!query.trim()) return;
+
+    // 搜索时自动切换回列表视图
+    setViewMode('list');
 
     setLoading(true);
     // 重置右侧预览面板
@@ -812,7 +818,7 @@ const SearchResultsPage = () => {
             </nav>
 
             {/* 居中搜索区域 */}
-            <div className={`search-results-centered-area ${isSearchBarCollapsed ? 'collapsed' : ''}`}>
+            <div className={`search-results-centered-area ${isSearchBarCollapsed ? 'collapsed' : ''} ${viewMode === 'table' ? 'table-mode' : ''}`}>
               <form onSubmit={handleSearch} className="results-composer-wrapper">
                 {/* 输入区域 */}
                 <div className="results-composer-input-area">
@@ -839,8 +845,8 @@ const SearchResultsPage = () => {
                     rows={1}
                   />
 
-                  {/* 筛选按钮 - 放在发送按钮左侧 */}
-                  {(() => {
+                  {/* 筛选按钮 - 放在发送按钮左侧（表格模式下隐藏） */}
+                  {viewMode !== 'table' && (() => {
                     const hasFilters = filters.yearFrom ||
                                      filters.yearTo ||
                                      filters.publicationTypes.length > 0 ||
@@ -871,16 +877,18 @@ const SearchResultsPage = () => {
                 </div>
               </form>
 
-              {/* 筛选条件面板 */}
-              <SearchFilters
-                filters={filters}
-                onFiltersChange={handleTopFiltersChange}
-                isExpanded={showFilters}
-                onToggle={() => handleTopFiltersToggle(true)}
-              />
+              {/* 筛选条件面板（表格模式下隐藏） */}
+              {viewMode !== 'table' && (
+                <SearchFilters
+                  filters={filters}
+                  onFiltersChange={handleTopFiltersChange}
+                  isExpanded={showFilters}
+                  onToggle={() => handleTopFiltersToggle(true)}
+                />
+              )}
 
-              {/* AI翻译提示 - 类似Google/百度搜索的提示 */}
-              {queryInfo.translationEnabled && queryInfo.translatedQuery && (
+              {/* AI翻译提示 - 类似Google/百度搜索的提示（表格模式下隐藏） */}
+              {viewMode !== 'table' && queryInfo.translationEnabled && queryInfo.translatedQuery && (
                 <div className="search-translation-hint">
                   <span className="hint-text">
                     已为你找到 "
@@ -903,8 +911,8 @@ const SearchResultsPage = () => {
                 </div>
               )}
 
-              {/* 当前筛选条件标签 - 始终保留空间 */}
-              <div className={`active-filters-bar ${hasActiveFilters() ? 'has-filters' : 'empty'}`}>
+              {/* 当前筛选条件标签 - 始终保留空间（表格模式下隐藏） */}
+              <div className={`active-filters-bar ${hasActiveFilters() ? 'has-filters' : 'empty'} ${viewMode === 'table' ? 'hidden' : ''}`}>
                 {hasActiveFilters() && (
                   <>
                     <div className="filter-tags">
@@ -963,11 +971,40 @@ const SearchResultsPage = () => {
             ) : (
             <>
               <div className="results-header">
-                <p className="results-info">
-                  显示 <strong>{startIndex}-{endIndex}</strong> / 共 <strong>{total.toLocaleString()}</strong> 篇论文
-                </p>
+                {/* 列表视图显示分页统计，表格视图显示总数 */}
+                {viewMode === 'list' ? (
+                  <p className="results-info">
+                    显示 <strong>{startIndex}-{endIndex}</strong> / 共 <strong>{total.toLocaleString()}</strong> 篇论文
+                  </p>
+                ) : (
+                  <p className="results-info">
+                    共 <strong>{total.toLocaleString()}</strong> 篇论文
+                    <span className="srp-results-info-hint">（仅显示有摘要的论文）</span>
+                  </p>
+                )}
+                
+                {/* 视图切换按钮 */}
+                <div className="srp-view-mode-switcher">
+                  <button
+                    className={`srp-view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
+                    onClick={() => setViewMode('list')}
+                    title="列表视图"
+                  >
+                    <List size={18} />
+                    <span>列表</span>
+                  </button>
+                  <button
+                    className={`srp-view-mode-btn ${viewMode === 'table' ? 'active' : ''}`}
+                    onClick={() => setViewMode('table')}
+                    title="表格视图 (AI分析)"
+                  >
+                    <Table2 size={18} />
+                    <span>表格</span>
+                  </button>
+                </div>
               </div>
 
+              {viewMode === 'list' ? (
               <div className="papers-list">
                 {papers.map((paper, index) => (
                   <div
@@ -1143,9 +1180,19 @@ const SearchResultsPage = () => {
                   </div>
                 ))}
               </div>
+              ) : (
+                <div className="papers-list ptv-wrapper">
+                  <PaperTableView 
+                    searchQuery={queryInfo.actualQuery || searchQuery}
+                    filters={filters}
+                    onPaperClick={setSelectedPaper}
+                    totalResults={total}
+                  />
+                </div>
+              )}
 
-              {/* 分页器 */}
-              {totalPages > 1 && (
+              {/* 分页器（表格模式下隐藏） */}
+              {viewMode === 'list' && totalPages > 1 && (
                 <div className="pagination">
                   {/* 每页数量选择器 - 移到最左侧 */}
                   <div className="page-size-selector">
@@ -1208,16 +1255,27 @@ const SearchResultsPage = () => {
             )}
         </div>
 
-        {/* 右侧预览区 - PC端始终显示，无论是否选中论文 */}
+        {/* 右侧预览区 - PC端始终显示 */}
         {!isCompactLayout && !isMobile && (
-          <PaperPreview
-            paper={selectedPaper}
-            onClose={() => setSelectedPaper(null)}
-            width={previewWidth}
-            onResizeMouseDown={handlePreviewResizeMouseDown}
-            onResizeTouchStart={handlePreviewResizeTouchStart}
-            isResizing={isResizingPreview}
-          />
+          viewMode === 'table' ? (
+            // 表格视图：显示列配置面板
+            <div 
+              className="preview-panel table-column-panel-wrapper"
+              style={{ width: previewWidth }}
+            >
+              <TableColumnPanel />
+            </div>
+          ) : (
+            // 列表视图：显示论文预览
+            <PaperPreview
+              paper={selectedPaper}
+              onClose={() => setSelectedPaper(null)}
+              width={previewWidth}
+              onResizeMouseDown={handlePreviewResizeMouseDown}
+              onResizeTouchStart={handlePreviewResizeTouchStart}
+              isResizing={isResizingPreview}
+            />
+          )
         )}
       </div>
     </div>
