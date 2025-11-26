@@ -503,6 +503,8 @@ func main() {
 		analysisGroup := api.Group("/analysis")
 		analysisGroup.Use(middleware.UserAuthMiddleware())
 		{
+			// Analyze paper with user's custom dimensions
+			analysisGroup.POST("/paper", aiHandler.AnalyzePaper)
 			// Get user's dimensions (custom or system default)
 			analysisGroup.GET("/dimensions", aiHandler.GetAnalysisDimensions)
 			// Create custom dimension

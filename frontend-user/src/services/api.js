@@ -200,6 +200,11 @@ export const publicScholarAPI = {
 
 // 分析维度API - 需要认证
 export const analysisDimensionAPI = {
+  // 分析论文摘要（使用用户自定义维度）
+  // paperId用于数据库缓存，优先从缓存获取
+  analyzePaper: (paperId, title, abstract) =>
+    api.post('/analysis/paper', { paperId, title, abstract }),
+
   // 获取用户的分析维度（合并：系统默认 + 用户自定义覆盖）
   getDimensions: () =>
     api.get('/analysis/dimensions'),

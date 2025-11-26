@@ -145,6 +145,25 @@
   color: rgba(255, 255, 255, 0.85);
 }
 
+/* 自定义标签 */
+.tcp-item-custom-tag {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: rgba(16, 163, 127, 0.15);
+  color: #10a37f;
+  border-radius: 4px;
+  margin-right: 8px;
+  font-weight: 500;
+}
+
+.tcp-list-item-custom {
+  background: rgba(16, 163, 127, 0.03);
+}
+
+.tcp-list-item-custom:hover {
+  background: rgba(16, 163, 127, 0.08);
+}
+
 .tcp-item-arrow {
   color: rgba(255, 255, 255, 0.3);
   transition: transform 0.15s ease;
@@ -446,6 +465,19 @@
 
 [data-theme="light"] .tcp-item-name {
   color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .tcp-item-custom-tag {
+  background: rgba(16, 163, 127, 0.1);
+  color: #0d8a6a;
+}
+
+[data-theme="light"] .tcp-list-item-custom {
+  background: rgba(16, 163, 127, 0.02);
+}
+
+[data-theme="light"] .tcp-list-item-custom:hover {
+  background: rgba(16, 163, 127, 0.06);
 }
 
 [data-theme="light"] .tcp-item-arrow {

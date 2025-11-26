@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { publicScholarAPI, analysisDimensionAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
+import { AlertCircle } from 'lucide-react';
 import './TableColumnPanel.css';
 
 // 生成随机维度标识
@@ -13,7 +14,7 @@ const generateDimensionKey = () => {
   return result;
 };
 
-const TableColumnPanel = ({ onDimensionsChange }) => {
+const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensionSelect, onDimensionsUpdated }) => {
   const { isAuthenticated } = useAuth();
   const [dimensions, setDimensions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +28,20 @@ const TableColumnPanel = ({ onDimensionsChange }) => {
   const [isAdding, setIsAdding] = useState(false); // 是否正在添加新维度
   const [editForm, setEditForm] = useState({ name: '', description: '' });
   const [saving, setSaving] = useState(false);
+
+  // 当外部选中维度变化时，同步更新展开状态
+  useEffect(() => {
+    if (selectedDimensionKey && selectedDimensionKey !== expandedColumn) {
+      setExpandedColumn(selectedDimensionKey);
+      setIsEditing(false);
+      setIsAdding(false);
+      // 初始化编辑表单
+      const column = dimensions.find(c => c.dimensionKey === selectedDimensionKey);
+      if (column) {
+        setEditForm({ name: column.name, description: column.description });
+      }
+    }
+  }, [selectedDimensionKey, dimensions]);
 
   // 加载分析维度
   const loadDimensions = useCallback(async () => {
@@ -71,11 +86,19 @@ const TableColumnPanel = ({ onDimensionsChange }) => {
     if (column) {
       setEditForm({ name: column.name, description: column.description });
     }
+    // 通知父组件选中了某个维度
+    if (onDimensionSelect) {
+      onDimensionSelect(key);
+    }
   };
 
   const handleBack = () => {
     setExpandedColumn(null);
     setIsEditing(false);
+    // 清除选中状态
+    if (onDimensionSelect) {
+      onDimensionSelect(null);
+    }
   };
 
   // 切换提示显示状态
@@ -114,18 +137,26 @@ const TableColumnPanel = ({ onDimensionsChange }) => {
 
     setSaving(true);
     try {
-      // 如果当前不是自定义维度，需要先复制系统维度
-      if (!isCustom) {
-        await analysisDimensionAPI.copyFromSystem();
+      let response;
+      
+      // 判断是用户自定义维度还是系统维度
+      if (column.userId) {
+        // 用户自定义维度：直接更新
+        response = await analysisDimensionAPI.updateDimension(
+          column.id,
+          editForm.name,
+          editForm.description,
+          column.sortOrder
+        );
+      } else {
+        // 系统维度：创建一个同key的用户维度来覆盖
+        response = await analysisDimensionAPI.createDimension(
+          column.dimensionKey,  // 使用相同的key来覆盖
+          editForm.name,
+          editForm.description,
+          column.sortOrder
+        );
       }
-
-      // 更新维度
-      const response = await analysisDimensionAPI.updateDimension(
-        column.id,
-        editForm.name,
-        editForm.description,
-        column.sortOrder
-      );
 
       if (response.data.code === 0) {
         // 重新加载维度列表
@@ -135,6 +166,10 @@ const TableColumnPanel = ({ onDimensionsChange }) => {
         const updatedColumn = dimensions.find(c => c.dimensionKey === expandedColumn);
         if (updatedColumn) {
           setEditForm({ name: updatedColumn.name, description: updatedColumn.description });
+        }
+        // 通知父组件维度已更新，需要重新加载表格数据
+        if (onDimensionsUpdated) {
+          onDimensionsUpdated('edit', editForm.name);
         }
       } else {
         alert('保存失败: ' + (response.data.message || '未知错误'));
@@ -173,11 +208,6 @@ const TableColumnPanel = ({ onDimensionsChange }) => {
 
     setSaving(true);
     try {
-      // 如果当前不是自定义维度，需要先复制系统维度
-      if (!isCustom) {
-        await analysisDimensionAPI.copyFromSystem();
-      }
-
       // 生成随机维度标识
       const dimensionKey = generateDimensionKey();
       
@@ -201,6 +231,10 @@ const TableColumnPanel = ({ onDimensionsChange }) => {
         setIsAdding(false);
         setIsEditing(false);
         setExpandedColumn(null);
+        // 通知父组件维度已更新，需要重新加载表格数据
+        if (onDimensionsUpdated) {
+          onDimensionsUpdated('add', editForm.name);
+        }
       } else {
         alert('创建失败: ' + (response.data.message || '未知错误'));
       }
@@ -440,10 +474,7 @@ const TableColumnPanel = ({ onDimensionsChange }) => {
           title={showHint ? "隐藏提示" : "显示提示"}
           onClick={toggleHint}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 16v-4M12 8h.01"/>
-          </svg>
+          <AlertCircle size={18} />
         </button>
       </div>
 
@@ -467,7 +498,6 @@ const TableColumnPanel = ({ onDimensionsChange }) => {
       {/* 列列表头部 */}
       <div className="tcp-list-header">
         <span>列</span>
-        {isCustom && <span className="tcp-custom-badge">自定义</span>}
       </div>
 
       {/* 列列表 */}
@@ -475,7 +505,7 @@ const TableColumnPanel = ({ onDimensionsChange }) => {
         {dimensions.map((column) => (
           <div 
             key={column.dimensionKey} 
-            className="tcp-list-item"
+            className={`tcp-list-item ${column.userId ? 'tcp-list-item-custom' : ''}`}
             onClick={() => handleColumnClick(column.dimensionKey)}
           >
             <div className="tcp-item-icon">
@@ -486,6 +516,9 @@ const TableColumnPanel = ({ onDimensionsChange }) => {
               </svg>
             </div>
             <span className="tcp-item-name">{column.name}</span>
+            {column.userId && (
+              <span className="tcp-item-custom-tag">自定义</span>
+            )}
             <svg className="tcp-item-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 18l6-6-6-6"/>
             </svg>

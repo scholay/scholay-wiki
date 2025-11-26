@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { publicScholarAPI } from '../services/api';
+import { publicScholarAPI, analysisDimensionAPI } from '../services/api';
+import { useAuth } from '../utils/AuthContext';
 import './PaperTableView.css';
 
 // 分析结果缓存
@@ -23,7 +24,10 @@ const DEFAULT_COLUMNS = [
   { key: 'challengesLimitations', label: '挑战与局限' },
 ];
 
-const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults }) => {
+const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults, selectedDimensionKey, onDimensionSelect, reloadTrigger }) => {
+  // 获取用户认证状态
+  const { isAuthenticated } = useAuth();
+  
   // 已加载的有摘要论文列表
   const [papersWithAbstract, setPapersWithAbstract] = useState([]);
   // 当前显示的数量
@@ -36,6 +40,10 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults }) =>
   const [hasMoreFromBackend, setHasMoreFromBackend] = useState(true);
   // 初始加载状态
   const [initialLoading, setInitialLoading] = useState(true);
+  // 重新加载提示
+  const [reloadNotice, setReloadNotice] = useState(null);
+  // 重新加载计数器（用于触发数据重新加载）
+  const [reloadCounter, setReloadCounter] = useState(0);
   
   const [analysisResults, setAnalysisResults] = useState({});
   const [loadingPapers, setLoadingPapers] = useState({});
@@ -43,8 +51,88 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults }) =>
   // 动态列定义（从第一个分析结果中获取）
   const [dynamicColumns, setDynamicColumns] = useState(null);
   const tableRef = useRef(null);
+  const tableWrapperRef = useRef(null);
+  const columnRefs = useRef({}); // 列头引用，用于滚动定位
   const observerRef = useRef(null);
   const paperRefs = useRef({});
+
+  // 重新加载数据（清除缓存并重新获取）
+  const reloadData = useCallback(() => {
+    // 清除分析缓存
+    analysisCache.clear();
+    // 重置状态
+    setAnalysisResults({});
+    setDynamicColumns(null);
+    setPapersWithAbstract([]);
+    setDisplayCount(PAPERS_PER_DISPLAY);
+    setOffset(0);
+    setHasMoreFromBackend(true);
+    setInitialLoading(true);
+    setReloadNotice(null);
+    // 增加计数器以触发数据重新加载
+    setReloadCounter(prev => prev + 1);
+  }, []);
+
+  // 监听 reloadTrigger 变化，触发重新加载
+  useEffect(() => {
+    if (reloadTrigger && reloadTrigger.timestamp) {
+      // 显示提示
+      const actionText = reloadTrigger.action === 'add' ? '新增' : '修改';
+      setReloadNotice({
+        message: `维度"${reloadTrigger.dimensionName}"已${actionText}，正在重新加载数据...`,
+        type: 'info'
+      });
+      
+      // 延迟一下再重新加载，让用户看到提示
+      setTimeout(() => {
+        reloadData();
+      }, 500);
+    }
+  }, [reloadTrigger, reloadData]);
+
+  // 当用户登录状态变化时，清除缓存并重新加载
+  // 因为登录/登出会影响使用的维度配置
+  useEffect(() => {
+    // 清除缓存
+    analysisCache.clear();
+    // 重置分析结果和动态列
+    setAnalysisResults({});
+    setDynamicColumns(null);
+  }, [isAuthenticated]);
+
+  // 当选中维度变化时，自动滚动到对应列
+  useEffect(() => {
+    if (selectedDimensionKey && columnRefs.current[selectedDimensionKey] && tableWrapperRef.current) {
+      const columnElement = columnRefs.current[selectedDimensionKey];
+      const wrapperElement = tableWrapperRef.current;
+      
+      // 计算需要滚动的位置
+      const columnRect = columnElement.getBoundingClientRect();
+      const wrapperRect = wrapperElement.getBoundingClientRect();
+      
+      // 第一列是固定的，宽度约340px
+      const stickyColumnWidth = 340;
+      
+      // 计算列相对于wrapper的位置
+      const columnLeft = columnElement.offsetLeft;
+      const scrollTarget = columnLeft - stickyColumnWidth - 20; // 留一点边距
+      
+      // 平滑滚动到目标位置
+      wrapperElement.scrollTo({
+        left: Math.max(0, scrollTarget),
+        behavior: 'smooth'
+      });
+    }
+  }, [selectedDimensionKey]);
+
+  // 点击列头处理
+  const handleColumnHeaderClick = (key) => {
+    if (key === 'paper') return; // 论文列不可选中
+    if (onDimensionSelect) {
+      // 如果已经选中，则取消选中；否则选中
+      onDimensionSelect(selectedDimensionKey === key ? null : key);
+    }
+  };
 
   // 从后端加载论文数据
   const fetchPapers = useCallback(async (query, currentFilters, currentOffset, append = false) => {
@@ -126,9 +214,9 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults }) =>
     }
   }, []);
 
-  // 初始加载 - 当searchQuery或filters变化时重新加载
+  // 初始加载 - 当searchQuery、filters或reloadCounter变化时重新加载
   useEffect(() => {
-    console.log('[PaperTableView] useEffect triggered, searchQuery:', searchQuery);
+    console.log('[PaperTableView] useEffect triggered, searchQuery:', searchQuery, 'reloadCounter:', reloadCounter);
     
     if (!searchQuery) {
       console.log('[PaperTableView] No searchQuery, skipping');
@@ -148,7 +236,7 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults }) =>
     };
     
     loadInitial();
-  }, [searchQuery, filters, fetchPapers]);
+  }, [searchQuery, filters, fetchPapers, reloadCounter]);
 
   // 当前显示的论文
   const displayedPapers = papersWithAbstract.slice(0, displayCount);
@@ -195,7 +283,7 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults }) =>
       return;
     }
 
-    // 检查缓存
+    // 检查缓存（注意：如果用户登录状态变化，缓存可能不适用）
     if (analysisCache.has(paper.paperId)) {
       setAnalysisResults(prev => ({
         ...prev,
@@ -207,7 +295,13 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults }) =>
     setLoadingPapers(prev => ({ ...prev, [paper.paperId]: true }));
 
     try {
-      const response = await publicScholarAPI.analyzePaper(paper.paperId, paper.title, paper.abstract);
+      // 根据登录状态选择API：
+      // - 已登录：使用带认证的API，获取用户自定义维度的分析结果
+      // - 未登录：使用公共API，获取系统默认维度的分析结果
+      const response = isAuthenticated
+        ? await analysisDimensionAPI.analyzePaper(paper.paperId, paper.title, paper.abstract)
+        : await publicScholarAPI.analyzePaper(paper.paperId, paper.title, paper.abstract);
+      
       if (response.data.code === 0 && response.data.data) {
         const result = response.data.data;
         // 存入缓存
@@ -239,7 +333,7 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults }) =>
     } finally {
       setLoadingPapers(prev => ({ ...prev, [paper.paperId]: false }));
     }
-  }, [loadingPapers, analysisResults, dynamicColumns]);
+  }, [loadingPapers, analysisResults, dynamicColumns, isAuthenticated]);
 
   // 使用 Intersection Observer 实现懒加载
   useEffect(() => {
@@ -372,16 +466,34 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults }) =>
   return (
     <div className="ptv-container">
 
-      <div className="ptv-table-wrapper" ref={tableRef}>
-        <table className="ptv-table">
+      {/* 重新加载提示 */}
+      {reloadNotice && (
+        <div className={`ptv-reload-notice ptv-reload-notice-${reloadNotice.type}`}>
+          <div className="ptv-reload-notice-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M23 4v6h-6M1 20v-6h6"/>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+          </div>
+          <span className="ptv-reload-notice-text">{reloadNotice.message}</span>
+        </div>
+      )}
+
+      <div className="ptv-table-wrapper" ref={tableWrapperRef}>
+        <table className="ptv-table" ref={tableRef}>
           <thead>
             <tr>
               {columns.map(col => (
                 <th 
                   key={col.key} 
-                  className={col.sticky ? 'ptv-sticky-col' : ''}
+                  ref={el => { if (!col.sticky) columnRefs.current[col.key] = el; }}
+                  className={`${col.sticky ? 'ptv-sticky-col' : ''} ${!col.sticky ? 'ptv-clickable-header' : ''} ${selectedDimensionKey === col.key ? 'ptv-selected-header' : ''}`}
+                  onClick={() => handleColumnHeaderClick(col.key)}
                 >
                   {col.label}
+                  {selectedDimensionKey === col.key && (
+                    <span className="ptv-selected-indicator"></span>
+                  )}
                 </th>
               ))}
             </tr>

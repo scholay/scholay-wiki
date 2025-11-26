@@ -137,6 +137,20 @@ const SearchResultsPage = () => {
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
   const [isSearchBarCollapsed, setIsSearchBarCollapsed] = useState(false); // 搜索框收缩状态
   const [viewMode, setViewMode] = useState('list'); // 视图模式: 'list' 或 'table'
+  const [selectedDimensionKey, setSelectedDimensionKey] = useState(null); // 表格视图中选中的维度
+  const [tableReloadTrigger, setTableReloadTrigger] = useState(null); // 触发表格重新加载
+
+  // 处理维度更新（编辑或新增）
+  const handleDimensionsUpdated = useCallback((action, dimensionName) => {
+    // 设置重新加载触发器
+    setTableReloadTrigger({
+      action,
+      dimensionName,
+      timestamp: Date.now()
+    });
+    // 清除选中的维度
+    setSelectedDimensionKey(null);
+  }, []);
 
   // 执行搜索
   const performSearch = async (query, currentFilters, page = 1, saveToHistory = true, enableTranslation = true) => {
@@ -1187,6 +1201,9 @@ const SearchResultsPage = () => {
                     filters={filters}
                     onPaperClick={setSelectedPaper}
                     totalResults={total}
+                    selectedDimensionKey={selectedDimensionKey}
+                    onDimensionSelect={setSelectedDimensionKey}
+                    reloadTrigger={tableReloadTrigger}
                   />
                 </div>
               )}
@@ -1263,7 +1280,11 @@ const SearchResultsPage = () => {
               className="preview-panel table-column-panel-wrapper"
               style={{ width: previewWidth }}
             >
-              <TableColumnPanel />
+              <TableColumnPanel 
+                selectedDimensionKey={selectedDimensionKey}
+                onDimensionSelect={setSelectedDimensionKey}
+                onDimensionsUpdated={handleDimensionsUpdated}
+              />
             </div>
           ) : (
             // 列表视图：显示论文预览
