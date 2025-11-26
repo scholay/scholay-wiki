@@ -373,7 +373,7 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
             返回
           </button>
           <span className="tcp-detail-title">列详情</span>
-          {!isEditing && (
+          {!isEditing && isAuthenticated && (
             <button className="tcp-edit-btn" onClick={handleStartEdit} title="编辑">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -526,15 +526,28 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
         ))}
       </div>
 
-      {/* 添加自定义维度按钮 */}
+      {/* 添加自定义维度按钮 / 登录引导 */}
       <div className="tcp-add-dimension">
-        <button className="tcp-add-dimension-btn" onClick={handleAddDimension}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          <span>添加自定义维度</span>
-        </button>
+        {isAuthenticated ? (
+          <button className="tcp-add-dimension-btn" onClick={handleAddDimension}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span>添加自定义维度</span>
+          </button>
+        ) : (
+          <div className="tcp-login-prompt">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            <p>登录后可自定义维度</p>
+            <button className="tcp-login-btn" onClick={() => window.dispatchEvent(new CustomEvent('openAuthModal'))}>
+              登录
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

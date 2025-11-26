@@ -10,6 +10,8 @@ const analysisCache = new Map();
 const PAPERS_PER_DISPLAY = 10;
 // 每次从后端加载的论文数量（需要多加载一些，因为要过滤无摘要的）
 const PAPERS_PER_FETCH = 50;
+// 未登录用户最多显示的论文数量
+const GUEST_MAX_PAPERS = 5;
 
 // 默认列定义（当无法从API获取维度时使用）
 const DEFAULT_COLUMNS = [
@@ -241,8 +243,8 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults, sele
   // 当前显示的论文
   const displayedPapers = papersWithAbstract.slice(0, displayCount);
 
-  // 是否可以显示更多（本地已有数据或后端还有数据）
-  const canLoadMore = displayCount < papersWithAbstract.length || hasMoreFromBackend;
+  // 是否可以显示更多（本地已有数据或后端还有数据）- 仅登录用户可用
+  const canLoadMore = isAuthenticated && (displayCount < papersWithAbstract.length || hasMoreFromBackend);
 
   // 剩余可加载数量提示
   const remainingHint = displayCount < papersWithAbstract.length 
@@ -502,12 +504,15 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults, sele
             {displayedPapers.map((paper, index) => {
               const analysis = analysisResults[paper.paperId];
               const isLoading = loadingPapers[paper.paperId];
+              // 未登录用户第5行之后需要限制
+              const isRestricted = !isAuthenticated && index >= GUEST_MAX_PAPERS;
 
               return (
                 <tr 
                   key={paper.paperId || index}
                   ref={el => paperRefs.current[paper.paperId] = el}
                   data-paper-id={paper.paperId}
+                  className={isRestricted ? 'ptv-restricted-row' : ''}
                 >
                   {/* 论文列 - 固定，使用类似列表的布局 */}
                   <td className="ptv-sticky-col ptv-paper-cell">
@@ -558,8 +563,14 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults, sele
 
                   {/* 动态渲染分析维度列 */}
                   {columns.filter(col => !col.sticky).map(col => (
-                    <td key={col.key}>
-                      {renderCell(paper.paperId, col.key, getAnalysisValue(analysis, col.key), isLoading)}
+                    <td key={col.key} className={isRestricted ? 'ptv-restricted-cell' : ''}>
+                      {isRestricted ? (
+                        <div className="ptv-restricted-content">
+                          <span className="ptv-blur-text">需要登录查看</span>
+                        </div>
+                      ) : (
+                        renderCell(paper.paperId, col.key, getAnalysisValue(analysis, col.key), isLoading)
+                      )}
                     </td>
                   ))}
                 </tr>
@@ -569,7 +580,21 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults, sele
         </table>
       </div>
 
-      {/* 加载更多按钮 */}
+      {/* 未登录用户的登录引导 */}
+      {!isAuthenticated && displayedPapers.length > GUEST_MAX_PAPERS && (
+        <div className="ptv-guest-prompt">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <span>登录后查看全部分析结果</span>
+          <button className="ptv-guest-login-btn" onClick={() => window.dispatchEvent(new CustomEvent('openAuthModal'))}>
+            登录 / 注册
+          </button>
+        </div>
+      )}
+
+      {/* 加载更多按钮 - 仅登录用户可见 */}
       {canLoadMore && (
         <div className="ptv-load-more">
           <button 

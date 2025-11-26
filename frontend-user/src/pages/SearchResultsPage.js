@@ -10,6 +10,7 @@ import PaperListSkeleton from '../components/PaperListSkeleton';
 import CiteModal from '../components/CiteModal';
 import PaperTableView from '../components/PaperTableView';
 import TableColumnPanel from '../components/TableColumnPanel';
+import TableViewGuide from '../components/TableViewGuide';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory, renameSearchHistory, migrateOldSearchHistory } from '../utils/searchHistory';
 import SEO from '../components/SEO';
@@ -133,12 +134,14 @@ const SearchResultsPage = () => {
 
   const resultsMainRef = useRef(null);
   const papersContainerRef = useRef(null);
+  const tableViewBtnRef = useRef(null); // 表格视图按钮引用
   const [selectedHistoryId, setSelectedHistoryId] = useState(null); // 选中的搜索历史ID
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
   const [isSearchBarCollapsed, setIsSearchBarCollapsed] = useState(false); // 搜索框收缩状态
   const [viewMode, setViewMode] = useState('list'); // 视图模式: 'list' 或 'table'
   const [selectedDimensionKey, setSelectedDimensionKey] = useState(null); // 表格视图中选中的维度
   const [tableReloadTrigger, setTableReloadTrigger] = useState(null); // 触发表格重新加载
+  const [showTableGuide, setShowTableGuide] = useState(false); // 表格视图引导弹窗
 
   // 处理维度更新（编辑或新增）
   const handleDimensionsUpdated = useCallback((action, dimensionName) => {
@@ -351,6 +354,27 @@ const SearchResultsPage = () => {
     if (query) {
       setSearchQuery(query);
       performSearch(query, filters, currentPage);
+    }
+    
+    // 检查是否需要显示表格视图引导弹窗（每个用户只显示一次）
+    const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
+    console.log('[TableViewGuide] Check:', { hasSeenTableGuide, query });
+    // 测试时可以注释掉 hasSeenTableGuide 检查
+    if (!hasSeenTableGuide && query) {
+      // 延迟显示，等搜索结果加载后
+      console.log('[TableViewGuide] Will show guide in 1.5s');
+      setTimeout(() => {
+        console.log('[TableViewGuide] Showing guide now');
+        setShowTableGuide(true);
+      }, 1500);
+    }
+    
+    // TODO: 测试完成后删除这段代码
+    // 强制显示引导（测试用）
+    if (query) {
+      setTimeout(() => {
+        setShowTableGuide(true);
+      }, 1500);
     }
   }, []);
 
@@ -1008,6 +1032,7 @@ const SearchResultsPage = () => {
                     <span>列表</span>
                   </button>
                   <button
+                    ref={tableViewBtnRef}
                     className={`srp-view-mode-btn ${viewMode === 'table' ? 'active' : ''}`}
                     onClick={() => setViewMode('table')}
                     title="表格视图 (AI分析)"
@@ -1340,6 +1365,22 @@ const SearchResultsPage = () => {
         <CiteModal
           paper={citePaper}
           onClose={() => setCitePaper(null)}
+        />
+      )}
+
+      {/* 表格视图引导弹窗 */}
+      {showTableGuide && (
+        <TableViewGuide
+          targetRef={tableViewBtnRef}
+          onClose={() => {
+            setShowTableGuide(false);
+            localStorage.setItem('hasSeenTableViewGuide', 'true');
+          }}
+          onTryIt={() => {
+            setShowTableGuide(false);
+            localStorage.setItem('hasSeenTableViewGuide', 'true');
+            setViewMode('table');
+          }}
         />
       )}
     </div>
