@@ -773,32 +773,38 @@
   position: relative;
 }
 
-.ptv-restricted-content {
+/* 受限行合并单元格 */
+.ptv-restricted-merged {
+  cursor: pointer;
+  position: relative;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.ptv-restricted-merged:hover {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+.ptv-restricted-overlay {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 60px;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 4px;
-  cursor: pointer;
+  gap: 8px;
+  padding: 16px 24px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
   transition: all 0.2s ease;
 }
 
-.ptv-restricted-content:hover {
-  background: rgba(16, 163, 127, 0.08);
+.ptv-restricted-merged:hover .ptv-restricted-overlay {
+  color: #10a37f;
 }
 
-.ptv-restricted-content:hover .ptv-blur-text {
-  color: rgba(16, 163, 127, 0.6);
-  filter: none;
+.ptv-restricted-overlay svg {
+  opacity: 0.7;
 }
 
-.ptv-blur-text {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.25);
-  filter: blur(1px);
-  user-select: none;
-  transition: all 0.2s ease;
+.ptv-restricted-merged:hover .ptv-restricted-overlay svg {
+  opacity: 1;
 }
 
 /* 底部登录引导条 */
@@ -842,20 +848,17 @@
 }
 
 /* 浅色主题 */
-[data-theme="light"] .ptv-restricted-content {
-  background: rgba(0, 0, 0, 0.02);
+/* 浅色主题 - 受限行 */
+[data-theme="light"] .ptv-restricted-merged {
+  background: rgba(0, 0, 0, 0.04);
 }
 
-[data-theme="light"] .ptv-restricted-content:hover {
+[data-theme="light"] .ptv-restricted-merged:hover {
   background: rgba(16, 163, 127, 0.08);
 }
 
-[data-theme="light"] .ptv-restricted-content:hover .ptv-blur-text {
-  color: rgba(16, 163, 127, 0.8);
-}
-
-[data-theme="light"] .ptv-blur-text {
-  color: rgba(0, 0, 0, 0.2);
+[data-theme="light"] .ptv-restricted-overlay {
+  color: rgba(0, 0, 0, 0.4);
 }
 
 [data-theme="light"] .ptv-guest-prompt {

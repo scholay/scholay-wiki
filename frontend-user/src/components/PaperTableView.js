@@ -582,17 +582,29 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults, sele
                   </td>
 
                   {/* 动态渲染分析维度列 */}
-                  {columns.filter(col => !col.sticky).map(col => (
-                    <td key={col.key} className={isRestricted ? 'ptv-restricted-cell' : ''}>
-                      {isRestricted ? (
-                        <div className="ptv-restricted-content" onClick={handleOpenAuthModal}>
-                          <span className="ptv-blur-text">需要登录查看</span>
-                        </div>
-                      ) : (
-                        renderCell(paper.paperId, col.key, getAnalysisValue(analysis, col.key), isLoading)
-                      )}
+                  {isRestricted ? (
+                    // 未登录受限行：合并所有分析列，只显示一个登录提示
+                    <td 
+                      colSpan={columns.filter(col => !col.sticky).length} 
+                      className="ptv-restricted-cell ptv-restricted-merged"
+                      onClick={handleOpenAuthModal}
+                    >
+                      <div className="ptv-restricted-overlay">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
+                        <span>登录查看分析结果</span>
+                      </div>
                     </td>
-                  ))}
+                  ) : (
+                    // 正常渲染每个分析列
+                    columns.filter(col => !col.sticky).map(col => (
+                      <td key={col.key}>
+                        {renderCell(paper.paperId, col.key, getAnalysisValue(analysis, col.key), isLoading)}
+                      </td>
+                    ))
+                  )}
                 </tr>
               );
             })}

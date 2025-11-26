@@ -42,14 +42,6 @@
   color: rgba(255, 255, 255, 0.8);
 }
 
-.tcp-info-btn-active {
-  color: #10a37f;
-}
-
-.tcp-info-btn-active:hover {
-  color: #10a37f;
-}
-
 /* 添加提取列提示 */
 .tcp-add-hint {
   display: flex;
@@ -703,11 +695,6 @@
   background: rgba(16, 163, 127, 0.12);
   border-color: rgba(16, 163, 127, 0.4);
 }
-
-[data-theme="light"] .tcp-info-btn-active {
-  color: #10a37f;
-}
-
 
 /* ===== 登录引导 ===== */
 .tcp-login-prompt {

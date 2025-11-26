@@ -501,7 +501,7 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
       <div className="tcp-header">
         <h3 className="tcp-title">列</h3>
         <button 
-          className={`tcp-info-btn ${!showHint ? 'tcp-info-btn-active' : ''}`} 
+          className="tcp-info-btn"
           title={showHint ? "隐藏提示" : "显示提示"}
           onClick={toggleHint}
         >
@@ -525,11 +525,6 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
           </div>
         </div>
       )}
-
-      {/* 列列表头部 */}
-      <div className="tcp-list-header">
-        <span>列</span>
-      </div>
 
       {/* 列列表 */}
       <div className="tcp-list">

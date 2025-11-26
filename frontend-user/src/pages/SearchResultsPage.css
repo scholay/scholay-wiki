@@ -1893,34 +1893,118 @@ a.meta-item.pdf-link:hover {
   font-size: 11px;
 }
 
-/* 表格模式下的搜索区域 - 更紧凑 */
+/* 表格模式下的搜索区域 - 简化展示 */
 .search-results-centered-area.table-mode {
-  padding: 8px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.search-results-centered-area.table-mode .results-composer-wrapper {
-  max-width: 600px;
+/* 表格模式下的搜索词展示 */
+.srp-table-search-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.search-results-centered-area.table-mode .results-composer-input-area {
-  min-height: 40px;
-  padding: 6px 8px;
+.srp-table-search-display:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(16, 163, 127, 0.3);
 }
 
-.search-results-centered-area.table-mode .results-chat-input {
-  font-size: 13px !important;
-  padding: 6px 4px;
-  min-height: 20px;
+.srp-table-search-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
 }
 
-.search-results-centered-area.table-mode .btn-send {
-  width: 32px;
-  height: 32px;
+.srp-table-search-content svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.4);
 }
 
+.srp-table-search-display:hover .srp-table-search-content svg {
+  color: #10a37f;
+}
+
+.srp-table-search-query {
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.5;
+  /* 多行截断 */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.srp-table-search-hint {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  padding-left: 16px;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+
+.srp-table-search-display:hover .srp-table-search-hint {
+  color: #10a37f;
+}
+
+/* 响应式 - 小屏幕隐藏提示文字 */
+@media (max-width: 640px) {
+  .srp-table-search-display {
+    padding: 10px 14px;
+  }
+  
+  .srp-table-search-query {
+    font-size: 14px;
+    -webkit-line-clamp: 2;
+  }
+  
+  .srp-table-search-hint {
+    display: none;
+  }
+}
+
+/* 浅色主题 - 表格模式搜索展示 */
 [data-theme="light"] .search-results-centered-area.table-mode {
   border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .srp-table-search-display {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .srp-table-search-display:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(16, 163, 127, 0.3);
+}
+
+[data-theme="light"] .srp-table-search-content svg {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .srp-table-search-query {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .srp-table-search-hint {
+  color: rgba(0, 0, 0, 0.4);
 }
 
 /* 表格视图包装器 - 保持与papers-list相同的布局 */

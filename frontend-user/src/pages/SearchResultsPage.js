@@ -860,65 +860,93 @@ const SearchResultsPage = () => {
 
             {/* 居中搜索区域 */}
             <div className={`search-results-centered-area ${isSearchBarCollapsed ? 'collapsed' : ''} ${viewMode === 'table' ? 'table-mode' : ''}`}>
-              <form onSubmit={handleSearch} className="results-composer-wrapper">
-                {/* 输入区域 */}
-                <div className="results-composer-input-area">
-                  <textarea
-                    className="results-chat-input"
-                    placeholder={searchExamples[currentExampleIndex]}
-                    value={searchQuery}
-                    maxLength={1000}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      e.target.style.height = 'auto';
-                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
-                    }}
-                    onCompositionStart={() => setIsComposing(true)}
-                    onCompositionEnd={() => setIsComposing(false)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
-                        e.preventDefault();
-                        if (searchQuery.trim()) {
-                          handleSearch(e);
-                        }
+              {viewMode === 'table' ? (
+                // 表格模式下的简化搜索词展示
+                <div 
+                  className="srp-table-search-display"
+                  onClick={() => {
+                    setViewMode('list');
+                    // 延迟聚焦，等待视图切换完成
+                    setTimeout(() => {
+                      const textarea = document.querySelector('.results-chat-input');
+                      if (textarea) {
+                        textarea.focus();
+                        textarea.select();
                       }
-                    }}
-                    rows={1}
-                  />
-
-                  {/* 筛选按钮 - 放在发送按钮左侧（表格模式下隐藏） */}
-                  {viewMode !== 'table' && (() => {
-                    const hasFilters = filters.yearFrom ||
-                                     filters.yearTo ||
-                                     filters.publicationTypes.length > 0 ||
-                                     filters.fieldsOfStudy.length > 0 ||
-                                     filters.openAccessPdf ||
-                                     filters.venue;
-
-                    return (
-                      <button
-                        type="button"
-                        className={`filter-btn-minimal ${showFilters ? 'panel-open' : ''} ${hasFilters ? 'has-filters' : ''}`}
-                        onClick={() => setShowFilters(!showFilters)}
-                        title={hasFilters ? "已设置筛选条件" : "筛选条件"}
-                      >
-                        <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M2.5 3.75C2.5 3.19772 2.94772 2.75 3.5 2.75H16.5C17.0523 2.75 17.5 3.19772 17.5 3.75V5.25C17.5 5.51522 17.3946 5.76957 17.2071 5.95711L11.75 11.4142V16.25C11.75 16.6297 11.5085 16.9705 11.1522 17.1094L8.65217 18.1094C8.15522 18.3078 7.58333 17.9469 7.58333 17.4167V11.4142L2.79289 5.95711C2.60536 5.76957 2.5 5.51522 2.5 5.25V3.75Z"/>
-                          </svg>
-                        {hasFilters && <span className="filter-dot"></span>}
-                      </button>
-                    );
-                  })()}
-
-                  <button type="submit" className="btn-send" disabled={!searchQuery.trim() || loading}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M5 12h14M12 5l7 7-7 7"/>
+                    }, 100);
+                  }}
+                >
+                  <div className="srp-table-search-content">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="11" cy="11" r="8"/>
+                      <path d="M21 21l-4.35-4.35"/>
                     </svg>
-                  </button>
+                    <span className="srp-table-search-query">{searchQuery}</span>
+                  </div>
+                  <span className="srp-table-search-hint">点击修改搜索</span>
                 </div>
-              </form>
+              ) : (
+                // 列表模式下的完整搜索表单
+                <form onSubmit={handleSearch} className="results-composer-wrapper">
+                  {/* 输入区域 */}
+                  <div className="results-composer-input-area">
+                    <textarea
+                      className="results-chat-input"
+                      placeholder={searchExamples[currentExampleIndex]}
+                      value={searchQuery}
+                      maxLength={1000}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        e.target.style.height = 'auto';
+                        e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+                      }}
+                      onCompositionStart={() => setIsComposing(true)}
+                      onCompositionEnd={() => setIsComposing(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
+                          e.preventDefault();
+                          if (searchQuery.trim()) {
+                            handleSearch(e);
+                          }
+                        }
+                      }}
+                      rows={1}
+                    />
 
-              {/* 筛选条件面板（表格模式下隐藏） */}
+                    {/* 筛选按钮 - 放在发送按钮左侧 */}
+                    {(() => {
+                      const hasFilters = filters.yearFrom ||
+                                       filters.yearTo ||
+                                       filters.publicationTypes.length > 0 ||
+                                       filters.fieldsOfStudy.length > 0 ||
+                                       filters.openAccessPdf ||
+                                       filters.venue;
+
+                      return (
+                        <button
+                          type="button"
+                          className={`filter-btn-minimal ${showFilters ? 'panel-open' : ''} ${hasFilters ? 'has-filters' : ''}`}
+                          onClick={() => setShowFilters(!showFilters)}
+                          title={hasFilters ? "已设置筛选条件" : "筛选条件"}
+                        >
+                          <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M2.5 3.75C2.5 3.19772 2.94772 2.75 3.5 2.75H16.5C17.0523 2.75 17.5 3.19772 17.5 3.75V5.25C17.5 5.51522 17.3946 5.76957 17.2071 5.95711L11.75 11.4142V16.25C11.75 16.6297 11.5085 16.9705 11.1522 17.1094L8.65217 18.1094C8.15522 18.3078 7.58333 17.9469 7.58333 17.4167V11.4142L2.79289 5.95711C2.60536 5.76957 2.5 5.51522 2.5 5.25V3.75Z"/>
+                            </svg>
+                          {hasFilters && <span className="filter-dot"></span>}
+                        </button>
+                      );
+                    })()}
+
+                    <button type="submit" className="btn-send" disabled={!searchQuery.trim() || loading}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                      </svg>
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* 筛选条件面板（列表模式下显示） */}
               {viewMode !== 'table' && (
                 <SearchFilters
                   filters={filters}
@@ -928,7 +956,7 @@ const SearchResultsPage = () => {
                 />
               )}
 
-              {/* AI翻译提示 - 类似Google/百度搜索的提示（表格模式下隐藏） */}
+              {/* AI翻译提示 - 类似Google/百度搜索的提示（列表模式下显示） */}
               {viewMode !== 'table' && queryInfo.translationEnabled && queryInfo.translatedQuery && (
                 <div className="search-translation-hint">
                   <span className="hint-text">
