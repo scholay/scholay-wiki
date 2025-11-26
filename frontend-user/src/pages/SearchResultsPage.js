@@ -138,7 +138,17 @@ const SearchResultsPage = () => {
   const [selectedHistoryId, setSelectedHistoryId] = useState(null); // 选中的搜索历史ID
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
   const [isSearchBarCollapsed, setIsSearchBarCollapsed] = useState(false); // 搜索框收缩状态
-  const [viewMode, setViewMode] = useState('list'); // 视图模式: 'list' 或 'table'
+  // 检查是否需要返回表格视图（从登录后跳转回来）
+  const returnedFromLogin = useRef(false);
+  const [viewMode, setViewMode] = useState(() => {
+    const returnToTable = localStorage.getItem('returnToTableView');
+    if (returnToTable === 'true') {
+      localStorage.removeItem('returnToTableView');
+      returnedFromLogin.current = true; // 标记是从登录返回的
+      return 'table';
+    }
+    return 'list';
+  }); // 视图模式: 'list' 或 'table'
   const [selectedDimensionKey, setSelectedDimensionKey] = useState(null); // 表格视图中选中的维度
   const [tableReloadTrigger, setTableReloadTrigger] = useState(null); // 触发表格重新加载
   const [showTableGuide, setShowTableGuide] = useState(false); // 表格视图引导弹窗
@@ -159,8 +169,13 @@ const SearchResultsPage = () => {
   const performSearch = async (query, currentFilters, page = 1, saveToHistory = true, enableTranslation = true) => {
     if (!query.trim()) return;
 
-    // 搜索时自动切换回列表视图
-    setViewMode('list');
+    // 搜索时自动切换回列表视图（除非是从登录返回的）
+    if (returnedFromLogin.current) {
+      // 从登录返回时，保持表格视图，只在第一次搜索时跳过重置
+      returnedFromLogin.current = false;
+    } else {
+      setViewMode('list');
+    }
 
     setLoading(true);
     // 重置右侧预览面板
@@ -358,20 +373,8 @@ const SearchResultsPage = () => {
     
     // 检查是否需要显示表格视图引导弹窗（每个用户只显示一次）
     const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
-    console.log('[TableViewGuide] Check:', { hasSeenTableGuide, query });
-    // 测试时可以注释掉 hasSeenTableGuide 检查
     if (!hasSeenTableGuide && query) {
       // 延迟显示，等搜索结果加载后
-      console.log('[TableViewGuide] Will show guide in 1.5s');
-      setTimeout(() => {
-        console.log('[TableViewGuide] Showing guide now');
-        setShowTableGuide(true);
-      }, 1500);
-    }
-    
-    // TODO: 测试完成后删除这段代码
-    // 强制显示引导（测试用）
-    if (query) {
       setTimeout(() => {
         setShowTableGuide(true);
       }, 1500);
@@ -1034,7 +1037,12 @@ const SearchResultsPage = () => {
                   <button
                     ref={tableViewBtnRef}
                     className={`srp-view-mode-btn ${viewMode === 'table' ? 'active' : ''}`}
-                    onClick={() => setViewMode('table')}
+                    onClick={() => {
+                      setViewMode('table');
+                      // 用户主动点击表格按钮，标记为已看过引导
+                      localStorage.setItem('hasSeenTableViewGuide', 'true');
+                      setShowTableGuide(false);
+                    }}
                     title="表格视图 (AI分析)"
                   >
                     <Table2 size={18} />

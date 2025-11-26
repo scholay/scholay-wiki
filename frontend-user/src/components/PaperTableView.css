@@ -780,6 +780,17 @@
   min-height: 60px;
   background: rgba(255, 255, 255, 0.02);
   border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ptv-restricted-content:hover {
+  background: rgba(16, 163, 127, 0.08);
+}
+
+.ptv-restricted-content:hover .ptv-blur-text {
+  color: rgba(16, 163, 127, 0.6);
+  filter: none;
 }
 
 .ptv-blur-text {
@@ -787,6 +798,7 @@
   color: rgba(255, 255, 255, 0.25);
   filter: blur(1px);
   user-select: none;
+  transition: all 0.2s ease;
 }
 
 /* 底部登录引导条 */
@@ -832,6 +844,14 @@
 /* 浅色主题 */
 [data-theme="light"] .ptv-restricted-content {
   background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .ptv-restricted-content:hover {
+  background: rgba(16, 163, 127, 0.08);
+}
+
+[data-theme="light"] .ptv-restricted-content:hover .ptv-blur-text {
+  color: rgba(16, 163, 127, 0.8);
 }
 
 [data-theme="light"] .ptv-blur-text {

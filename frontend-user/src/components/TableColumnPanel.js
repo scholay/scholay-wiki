@@ -1,8 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { publicScholarAPI, analysisDimensionAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
 import { AlertCircle } from 'lucide-react';
 import './TableColumnPanel.css';
+
+// 懒加载 AuthModal
+const AuthModal = lazy(() => import('./AuthModal'));
 
 // 生成随机维度标识
 const generateDimensionKey = () => {
@@ -21,13 +24,20 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
   const [error, setError] = useState(null);
   const [expandedColumn, setExpandedColumn] = useState(null);
   const [isCustom, setIsCustom] = useState(false);
-  const [showHint, setShowHint] = useState(true); // 控制绿色提示的显示/隐藏
+  // 控制绿色提示的显示/隐藏，从 localStorage 读取初始值
+  const [showHint, setShowHint] = useState(() => {
+    const hidden = localStorage.getItem('hideTableColumnHint');
+    return hidden !== 'true';
+  });
   
   // 编辑相关状态
   const [isEditing, setIsEditing] = useState(false);
   const [isAdding, setIsAdding] = useState(false); // 是否正在添加新维度
   const [editForm, setEditForm] = useState({ name: '', description: '' });
   const [saving, setSaving] = useState(false);
+  
+  // 登录弹窗状态
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // 当外部选中维度变化时，同步更新展开状态
   useEffect(() => {
@@ -103,7 +113,14 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
 
   // 切换提示显示状态
   const toggleHint = () => {
-    setShowHint(!showHint);
+    const newValue = !showHint;
+    setShowHint(newValue);
+    // 保存到 localStorage
+    if (newValue) {
+      localStorage.removeItem('hideTableColumnHint');
+    } else {
+      localStorage.setItem('hideTableColumnHint', 'true');
+    }
   };
 
   // 开始编辑
@@ -252,6 +269,20 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
     setIsEditing(false);
     setExpandedColumn(null);
     setEditForm({ name: '', description: '' });
+  };
+
+  // 打开登录弹窗
+  const handleOpenAuthModal = () => {
+    setShowAuthModal(true);
+  };
+
+  // 登录成功回调
+  const handleLoginSuccess = () => {
+    setShowAuthModal(false);
+    // 设置标记，让页面刷新后自动切换到表格视图
+    localStorage.setItem('returnToTableView', 'true');
+    // 刷新页面以重新加载数据
+    window.location.reload();
   };
 
   // 加载中状态
@@ -543,12 +574,23 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
               <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </svg>
             <p>登录后可自定义维度</p>
-            <button className="tcp-login-btn" onClick={() => window.dispatchEvent(new CustomEvent('openAuthModal'))}>
+            <button className="tcp-login-btn" onClick={handleOpenAuthModal}>
               登录
             </button>
           </div>
         )}
       </div>
+
+      {/* 登录弹窗 */}
+      {showAuthModal && (
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+            onLoginSuccess={handleLoginSuccess}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };

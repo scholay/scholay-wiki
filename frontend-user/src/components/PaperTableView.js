@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { publicScholarAPI, analysisDimensionAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
 import './PaperTableView.css';
+
+// 懒加载 AuthModal
+const AuthModal = lazy(() => import('./AuthModal'));
 
 // 分析结果缓存
 const analysisCache = new Map();
@@ -29,6 +32,9 @@ const DEFAULT_COLUMNS = [
 const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults, selectedDimensionKey, onDimensionSelect, reloadTrigger }) => {
   // 获取用户认证状态
   const { isAuthenticated } = useAuth();
+  
+  // 登录弹窗状态
+  const [showAuthModal, setShowAuthModal] = useState(false);
   
   // 已加载的有摘要论文列表
   const [papersWithAbstract, setPapersWithAbstract] = useState([]);
@@ -423,6 +429,20 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults, sele
 
   // 表格列定义 - 优先使用动态列，否则使用默认列
   const columns = dynamicColumns || DEFAULT_COLUMNS;
+
+  // 打开登录弹窗
+  const handleOpenAuthModal = () => {
+    setShowAuthModal(true);
+  };
+
+  // 登录成功回调
+  const handleLoginSuccess = () => {
+    setShowAuthModal(false);
+    // 设置标记，让页面刷新后自动切换到表格视图
+    localStorage.setItem('returnToTableView', 'true');
+    // 刷新页面以重新加载数据
+    window.location.reload();
+  };
   
   // 获取分析数据中的某个维度值
   const getAnalysisValue = (analysis, key) => {
@@ -565,7 +585,7 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults, sele
                   {columns.filter(col => !col.sticky).map(col => (
                     <td key={col.key} className={isRestricted ? 'ptv-restricted-cell' : ''}>
                       {isRestricted ? (
-                        <div className="ptv-restricted-content">
+                        <div className="ptv-restricted-content" onClick={handleOpenAuthModal}>
                           <span className="ptv-blur-text">需要登录查看</span>
                         </div>
                       ) : (
@@ -588,10 +608,21 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults, sele
             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
           <span>登录后查看全部分析结果</span>
-          <button className="ptv-guest-login-btn" onClick={() => window.dispatchEvent(new CustomEvent('openAuthModal'))}>
+          <button className="ptv-guest-login-btn" onClick={handleOpenAuthModal}>
             登录 / 注册
           </button>
         </div>
+      )}
+
+      {/* 登录弹窗 */}
+      {showAuthModal && (
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+            onLoginSuccess={handleLoginSuccess}
+          />
+        </Suspense>
       )}
 
       {/* 加载更多按钮 - 仅登录用户可见 */}
