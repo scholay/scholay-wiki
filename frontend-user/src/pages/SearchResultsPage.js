@@ -1208,8 +1208,8 @@ const SearchResultsPage = () => {
             )}
         </div>
 
-        {/* 右侧预览区 - 始终显示，无论是否选中论文 */}
-        {!isCompactLayout && (
+        {/* 右侧预览区 - PC端始终显示，无论是否选中论文 */}
+        {!isCompactLayout && !isMobile && (
           <PaperPreview
             paper={selectedPaper}
             onClose={() => setSelectedPaper(null)}
@@ -1223,6 +1223,38 @@ const SearchResultsPage = () => {
     </div>
         )}
       </div>
+
+      {/* 移动端底部弹窗预览 */}
+      {isMobile && selectedPaper && (
+        <div className="mobile-preview-overlay" onClick={() => setSelectedPaper(null)}>
+          <div className="mobile-preview-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="mobile-preview-header">
+              <span className="mobile-preview-title">论文详情</span>
+              <button 
+                className="mobile-preview-close" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSelectedPaper(null);
+                }}
+                type="button"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <div className="mobile-preview-body">
+              <PaperPreview
+                paper={selectedPaper}
+                onClose={() => setSelectedPaper(null)}
+                isMobileModal={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 引用弹窗 */}
       {citePaper && (

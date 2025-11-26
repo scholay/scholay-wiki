@@ -556,3 +556,304 @@
   color: rgba(0, 0, 0, 0.85);
   line-height: 1.6;
 }
+
+/* ==================== 移动端弹窗模式样式 ==================== */
+.paper-preview.mobile-modal {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 100% !important;
+  height: auto !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+.paper-preview.mobile-modal .resize-handle {
+  display: none !important;
+}
+
+.paper-preview.mobile-modal .preview-tabs {
+  padding: 12px 20px;
+  height: auto;
+  min-height: 48px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 8px;
+}
+
+.paper-preview.mobile-modal .preview-tabs .close-btn {
+  display: none; /* 使用外部关闭按钮 */
+}
+
+.paper-preview.mobile-modal .tabs-left {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.paper-preview.mobile-modal .tab-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.paper-preview.mobile-modal .tab-btn.active {
+  background: rgba(16, 163, 127, 0.15);
+}
+
+.paper-preview.mobile-modal .tab-btn.active::after {
+  display: none;
+}
+
+.paper-preview.mobile-modal .tab-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.paper-preview.mobile-modal .preview-title-bar {
+  padding: 16px 20px;
+}
+
+.paper-preview.mobile-modal .preview-title-bar h2 {
+  font-size: 17px;
+  line-height: 1.45;
+  font-weight: 600;
+  -webkit-line-clamp: 5;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.paper-preview.mobile-modal .view-detail-link {
+  font-size: 14px;
+  padding: 10px 16px;
+  margin-top: 12px;
+  border-radius: 10px;
+}
+
+.paper-preview.mobile-modal .preview-content {
+  padding: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+.paper-preview.mobile-modal .details-content {
+  padding: 0 20px 20px;
+}
+
+/* 移动端详情行 - 卡片式设计 */
+.paper-preview.mobile-modal .detail-row {
+  padding: 16px;
+  margin: 0 0 8px 0;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: none;
+}
+
+.paper-preview.mobile-modal .detail-row:not(:last-child) {
+  border-bottom: none;
+}
+
+.paper-preview.mobile-modal .detail-label {
+  font-size: 12px;
+  min-width: auto;
+  width: auto;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+  padding-top: 0;
+}
+
+.paper-preview.mobile-modal .detail-value {
+  font-size: 15px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.paper-preview.mobile-modal .field-tags {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.paper-preview.mobile-modal .field-tag {
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(16, 163, 127, 0.1);
+  color: rgb(52, 211, 153);
+}
+
+/* 移动端学术指标 - 横向卡片 */
+.paper-preview.mobile-modal .metrics-row {
+  padding: 16px;
+  margin: 0 0 8px 0;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: none;
+}
+
+.paper-preview.mobile-modal .metrics-row .detail-label {
+  margin-bottom: 16px;
+}
+
+.paper-preview.mobile-modal .metrics-items {
+  display: flex;
+  gap: 0;
+  justify-content: space-around;
+}
+
+.paper-preview.mobile-modal .metric {
+  flex: 1;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.paper-preview.mobile-modal .metric:not(:last-child) {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.paper-preview.mobile-modal .metric-num {
+  font-size: 24px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.paper-preview.mobile-modal .metric-name {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 4px;
+}
+
+/* 移动端 TLDR 块 */
+.paper-preview.mobile-modal .tldr-block {
+  padding: 16px;
+  margin: 0 0 8px 0;
+  border-radius: 12px;
+  background: rgba(16, 163, 127, 0.08);
+  border: 1px solid rgba(16, 163, 127, 0.15);
+}
+
+.paper-preview.mobile-modal .tldr-block .block-label {
+  color: rgb(52, 211, 153);
+  font-weight: 600;
+}
+
+/* 移动端摘要块 */
+.paper-preview.mobile-modal .detail-block {
+  padding: 16px;
+  margin: 0 0 8px 0;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: none;
+}
+
+.paper-preview.mobile-modal .block-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.paper-preview.mobile-modal .block-text,
+.paper-preview.mobile-modal .detail-block-content {
+  font-size: 15px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.paper-preview.mobile-modal .abstract-text {
+  text-align: justify;
+}
+
+.paper-preview.mobile-modal .no-pdf-hint {
+  margin: 16px 0 0 0;
+  padding: 14px 16px;
+  font-size: 13px;
+  border-radius: 12px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+/* 日间模式移动端弹窗 */
+[data-theme="light"] .paper-preview.mobile-modal .preview-tabs {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .tab-btn {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .tab-btn.active {
+  background: rgba(16, 163, 127, 0.12);
+  color: #10a37f;
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .preview-title-bar h2 {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .detail-row {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .detail-label {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .detail-value {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .field-tag {
+  background: rgba(16, 163, 127, 0.1);
+  color: #10a37f;
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .metrics-row {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .metric:not(:last-child) {
+  border-right-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .metric-num {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .metric-name {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .tldr-block {
+  background: rgba(16, 163, 127, 0.06);
+  border-color: rgba(16, 163, 127, 0.15);
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .tldr-block .block-label {
+  color: #10a37f;
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .tldr-block .block-text {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .detail-block {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .block-label {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .block-text,
+[data-theme="light"] .paper-preview.mobile-modal .detail-block-content {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .paper-preview.mobile-modal .no-pdf-hint {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.2);
+}

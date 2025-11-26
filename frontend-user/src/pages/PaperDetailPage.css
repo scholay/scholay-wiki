@@ -1008,6 +1008,275 @@
   flex-shrink: 0;
 }
 
+/* ========== 搜索结果展示区域 ========== */
+.search-results-section {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 128px 32px 64px; /* 与原有内容区域保持一致的顶部间距 */
+  min-height: 100vh;
+  background: #fff;
+}
+
+.search-results-container {
+  background: #fff;
+}
+
+.search-results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.search-results-title {
+  font-family: "Charter", "Georgia", "Cambria", "Times New Roman", serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.results-count {
+  font-size: 16px;
+  font-weight: 400;
+  color: #666;
+}
+
+.back-to-paper-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #fff;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  color: #333;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-to-paper-btn:hover {
+  background: #f5f5f5;
+  border-color: #1857b6;
+  color: #1857b6;
+}
+
+.back-to-paper-btn svg {
+  flex-shrink: 0;
+}
+
+.search-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 80px 40px;
+  color: #666;
+  font-size: 16px;
+}
+
+.loading-spinner.small {
+  width: 28px;
+  height: 28px;
+  border-width: 3px;
+}
+
+.search-error-msg {
+  text-align: center;
+  color: #e74c3c;
+  padding: 80px 40px;
+  font-size: 16px;
+}
+
+.no-results {
+  text-align: center;
+  color: #666;
+  padding: 80px 40px;
+  font-size: 16px;
+  font-style: italic;
+}
+
+.search-results-list {
+  position: relative;
+}
+
+.search-result-item {
+  padding: 24px 0;
+  border-bottom: 1px solid #f0f0f0;
+  transition: all 0.3s;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+/* 模糊效果 - 第4篇及之后的结果 */
+.search-result-item.blurred {
+  filter: blur(5px);
+  pointer-events: none;
+  user-select: none;
+}
+
+.result-title {
+  font-family: "Charter", "Georgia", "Cambria", "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 10px 0;
+  line-height: 1.4;
+}
+
+.result-link {
+  color: #1857b6;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.result-link:hover {
+  color: #1443a0;
+  text-decoration: underline;
+}
+
+.result-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.result-author {
+  color: #666;
+}
+
+.result-venue {
+  font-weight: 500;
+  color: #333;
+}
+
+.result-year {
+  color: #666;
+}
+
+.result-citations {
+  color: #1857b6;
+  font-weight: 500;
+}
+
+.result-tldr {
+  font-size: 15px;
+  color: #555;
+  line-height: 1.7;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 蒙版遮罩区域包装器 */
+.search-results-overlay-wrapper {
+  position: relative;
+  margin-top: 8px;
+}
+
+/* 模糊的后续结果 */
+.blurred-results {
+  filter: blur(5px);
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.6;
+}
+
+.blurred-results .search-result-item {
+  padding: 16px 0;
+}
+
+.blurred-results .result-title {
+  font-size: 17px;
+}
+
+/* 提示卡片 - 绝对定位在模糊区域上方 */
+.overlay-content {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: #fff;
+  padding: 32px 48px;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+}
+
+.overlay-content svg {
+  color: #1857b6;
+  margin-bottom: 16px;
+}
+
+.overlay-content p {
+  font-size: 18px;
+  color: #333;
+  margin: 0 0 20px 0;
+  font-weight: 500;
+}
+
+.go-home-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 32px;
+  background: linear-gradient(135deg, #1857b6 0%, #2a6fd6 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 16px rgba(24, 87, 182, 0.3);
+}
+
+.go-home-btn:hover {
+  background: linear-gradient(135deg, #1443a0 0%, #1857b6 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(24, 87, 182, 0.4);
+}
+
+.go-home-btn svg {
+  color: #fff;
+  margin-bottom: 0;
+}
+
+/* 结果不足时的提示 */
+.more-results-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px 20px;
+  margin-top: 20px;
+  border-top: 1px solid #e8e8e8;
+}
+
+.more-results-hint p {
+  font-size: 16px;
+  color: #666;
+  margin: 0 0 16px 0;
+}
+
 /* ========== 响应式设计 ========== */
 @media (max-width: 1024px) {
   .paper-content-container {
@@ -1065,6 +1334,50 @@
 
   .stat-value {
     font-size: 20px;
+  }
+
+  /* 搜索结果区域响应式 */
+  .search-results-section {
+    padding: 160px 16px 32px;
+  }
+
+  .search-results-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .search-results-title {
+    font-size: 20px;
+  }
+
+  .back-to-paper-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .result-title {
+    font-size: 17px;
+  }
+
+  .overlay-content {
+    padding: 24px 32px;
+    left: 16px;
+    right: 16px;
+    transform: none;
+  }
+
+  .overlay-content p {
+    font-size: 16px;
+  }
+
+  .go-home-btn {
+    padding: 12px 24px;
+    font-size: 15px;
+  }
+
+  .more-results-hint {
+    padding: 32px 16px;
   }
 }
 

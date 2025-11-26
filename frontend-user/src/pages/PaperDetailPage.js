@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import api, { publicScholarAPI } from '../services/api';
 import SEO from '../components/SEO';
 import FloatingGuide from '../components/FloatingGuide';
 import CTABanner from '../components/CTABanner';
@@ -18,6 +18,13 @@ const PaperDetailPage = () => {
   const [showCiteModal, setShowCiteModal] = useState(false);
   const [citationFormat, setCitationFormat] = useState('bibtex'); // 'bibtex', 'mla', 'apa', 'chicago'
   const [copied, setCopied] = useState(false);
+  
+  // 搜索结果相关状态
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchTotal, setSearchTotal] = useState(0); // 搜索结果总数
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState(null);
+  const [hasSearched, setHasSearched] = useState(false);
 
   // 构建 Semantic Scholar 的 URL
   const semanticScholarUrl = `https://www.semanticscholar.org/paper/${paperId}`;
@@ -52,11 +59,53 @@ const PaperDetailPage = () => {
     navigate('/');
   };
 
-  const handleSearch = (e) => {
+  const handleSearch = async (e) => {
     e.preventDefault();
+    if (!searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    setSearchError(null);
+    setHasSearched(true);
+    
+    try {
+      const response = await publicScholarAPI.searchPapers({
+        query: searchQuery.trim(),
+        limit: 10, // 最多获取10篇
+        fields: ['paperId', 'title', 'abstract', 'authors', 'year', 'venue', 'citationCount', 'openAccessPdf', 's2FieldsOfStudy', 'tldr']
+      });
+      
+      if (response.data.code === 0 && response.data.data) {
+        const results = response.data.data.data?.data || [];
+        const total = response.data.data.data?.total || results.length;
+        setSearchResults(results);
+        setSearchTotal(total);
+      } else {
+        setSearchResults([]);
+        setSearchTotal(0);
+      }
+    } catch (err) {
+      console.error('Search failed:', err);
+      setSearchError('搜索失败，请稍后重试');
+      setSearchResults([]);
+      setSearchTotal(0);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+  
+  // 清除搜索结果
+  const clearSearchResults = () => {
+    setSearchResults([]);
+    setHasSearched(false);
+    setSearchQuery('');
+  };
+  
+  // 跳转到学术检索页面进行完整搜索
+  const goToHomeSearch = () => {
     if (searchQuery.trim()) {
-      // 跳转到首页并传递搜索参数
-      navigate(`/?search=${encodeURIComponent(searchQuery.trim())}`);
+      navigate(`/search-results?query=${encodeURIComponent(searchQuery.trim())}`);
+    } else {
+      navigate('/search-results');
     }
   };
 
@@ -293,6 +342,133 @@ const PaperDetailPage = () => {
       </div>
 
       {/* 主内容区域 */}
+      {hasSearched ? (
+        /* 搜索结果展示区域 - 替换原有内容 */
+        <div className="search-results-section">
+          <div className="search-results-container">
+            <div className="search-results-header">
+              <h3 className="search-results-title">
+                搜索结果: "{searchQuery}"
+                {searchTotal > 0 && <span className="results-count">({searchTotal}篇)</span>}
+              </h3>
+              <button className="back-to-paper-btn" onClick={clearSearchResults}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                返回论文详情
+              </button>
+            </div>
+            
+            {isSearching ? (
+              <div className="search-loading">
+                <div className="loading-spinner small"></div>
+                <span>正在搜索...</span>
+              </div>
+            ) : searchError ? (
+              <div className="search-error-msg">{searchError}</div>
+            ) : searchResults.length === 0 ? (
+              <div className="no-results">未找到相关论文</div>
+            ) : (
+              <div className="search-results-list">
+                {/* 只展示前3篇结果 */}
+                {searchResults.slice(0, 3).map((result, index) => (
+                  <div 
+                    key={result.paperId || index} 
+                    className="search-result-item"
+                  >
+                    <h4 className="result-title">
+                      <a href={`/paper/${result.paperId}`} className="result-link">
+                        {result.title || 'Untitled'}
+                      </a>
+                    </h4>
+                    
+                    <div className="result-meta">
+                      {result.authors && result.authors.length > 0 && (
+                        <>
+                          {result.authors.slice(0, 3).map((author, i) => (
+                            <React.Fragment key={i}>
+                              <span className="result-author">{author.name}</span>
+                              {i < Math.min(result.authors.length - 1, 2) && <span>, </span>}
+                            </React.Fragment>
+                          ))}
+                          {result.authors.length > 3 && <span> et al.</span>}
+                          {(result.venue || result.year) && <span className="meta-dot"> · </span>}
+                        </>
+                      )}
+                      {result.venue && <span className="result-venue">{result.venue}</span>}
+                      {result.venue && result.year && <span> </span>}
+                      {result.year && <span className="result-year">{result.year}</span>}
+                      {result.citationCount > 0 && (
+                        <>
+                          <span className="meta-dot"> · </span>
+                          <span className="result-citations">{result.citationCount} citations</span>
+                        </>
+                      )}
+                    </div>
+                    
+                    {result.tldr?.text && (
+                      <p className="result-tldr">{result.tldr.text}</p>
+                    )}
+                  </div>
+                ))}
+                
+                {/* 蒙版遮罩区域 - 当总结果超过3篇时显示 */}
+                {searchTotal > 3 && (
+                  <div className="search-results-overlay-wrapper">
+                    {/* 模糊预览的后续结果 */}
+                    <div className="blurred-results">
+                      {searchResults.slice(3, 6).map((result, index) => (
+                        <div key={result.paperId || index} className="search-result-item blurred">
+                          <h4 className="result-title">
+                            <span className="result-link">{result.title || 'Untitled'}</span>
+                          </h4>
+                          <div className="result-meta">
+                            {result.authors && result.authors.slice(0, 2).map((author, i) => (
+                              <React.Fragment key={i}>
+                                <span className="result-author">{author.name}</span>
+                                {i < Math.min(result.authors.length - 1, 1) && <span>, </span>}
+                              </React.Fragment>
+                            ))}
+                            {result.year && <span> · {result.year}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* 提示卡片 - 在蒙层顶部 */}
+                    <div className="overlay-content">
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.35-4.35"/>
+                      </svg>
+                      <p>更多搜索结果请前往首页查看</p>
+                      <button className="go-home-btn" onClick={goToHomeSearch}>
+                        <span>前往首页搜索</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* 结果不足3篇但总数更多时的提示 */}
+                {searchResults.length <= 3 && searchTotal > searchResults.length && (
+                  <div className="more-results-hint">
+                    <p>还有 {searchTotal - searchResults.length} 篇相关论文</p>
+                    <button className="go-home-btn" onClick={goToHomeSearch}>
+                      <span>前往首页查看全部</span>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
       <div className="paper-content-container">
         {/* 左侧主要内容 */}
         <div className="paper-main-column">
@@ -670,6 +846,7 @@ const PaperDetailPage = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Citation Modal */}
       {showCiteModal && (

@@ -2424,7 +2424,7 @@ a.meta-item.pdf-link:hover {
     align-items: center;
   }
 
-  /* 移动端空状态 - 输入框固定在底部（类似首页） */
+  /* 移动端空状态 - 输入框固定在底部 */
   .empty-search-layout {
     display: flex;
     flex-direction: column;
@@ -2438,7 +2438,7 @@ a.meta-item.pdf-link:hover {
     justify-content: center;
     align-items: center;
     padding: 20px 16px;
-    padding-bottom: 200px; /* 为底部输入框留出空间 */
+    padding-bottom: 180px; /* 为底部输入框留出空间 */
   }
 
   /* 空状态输入框 - 固定在底部 */
@@ -2459,23 +2459,25 @@ a.meta-item.pdf-link:hover {
 
   /* 暗色主题样式 */
   [data-theme="dark"] .normal-search-composer-wrapper {
-    background: rgba(47, 47, 47, 0.6) !important;
+    background: rgba(47, 47, 47, 0.85) !important;
     backdrop-filter: blur(40px) !important;
     -webkit-backdrop-filter: blur(40px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
     box-shadow: 
+      0 -4px 24px rgba(0, 0, 0, 0.3),
       0 8px 32px rgba(0, 0, 0, 0.4),
-      0 2px 8px rgba(0, 0, 0, 0.2),
       inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
   }
 
   /* 亮色主题样式 */
   [data-theme="light"] .normal-search-composer-wrapper {
-    background: #ffffff !important;
+    background: rgba(255, 255, 255, 0.98) !important;
     backdrop-filter: blur(40px) !important;
     -webkit-backdrop-filter: blur(40px) !important;
-    border: 2px solid rgba(16, 163, 127, 0.45) !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 
+      0 -4px 20px rgba(0, 0, 0, 0.08),
+      0 4px 20px rgba(0, 0, 0, 0.08) !important;
   }
 
   /* ============================================
@@ -2584,25 +2586,818 @@ a.meta-item.pdf-link:hover {
     white-space: pre-wrap;
   }
 
-  /* 有结果时的输入框固定在底部 */
+  /* 有结果时的输入框保持在顶部 */
   .search-results-centered-area {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    position: relative;
     padding: 12px 16px;
-    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     background: var(--background);
-    border-top: 1px solid var(--border);
-    z-index: 100;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    z-index: 10;
+  }
+
+  [data-theme="dark"] .search-results-centered-area {
+    background: var(--background);
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+  }
+
+  [data-theme="light"] .search-results-centered-area {
+    background: var(--background);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   }
 
   .search-results-centered-area.collapsed {
-    display: none;
+    padding: 8px 16px;
   }
 
-  /* 结果列表需要留出底部空间 */
-  .results-main {
-    padding-bottom: 120px;
+  .search-results-centered-area.collapsed .results-composer-wrapper {
+    transform: none;
   }
+
+  /* 结果列表不需要额外底部空间 */
+  .results-main {
+    padding-bottom: 0;
+  }
+
+  /* ============================================
+     移动端论文列表优化
+     ============================================ */
+  
+  /* 论文容器优化 */
+  .papers-container {
+    min-width: auto;
+    padding: 0;
+  }
+
+  /* 结果头部 */
+  .results-header {
+    padding: 12px 16px;
+    position: sticky;
+    top: 0;
+    background: var(--background);
+    z-index: 5;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  [data-theme="light"] .results-header {
+    border-bottom-color: rgba(0, 0, 0, 0.06);
+  }
+
+  .results-info {
+    font-size: 13px;
+  }
+
+  /* 论文列表 */
+  .papers-list {
+    padding: 0;
+  }
+
+  /* 论文卡片 - 移动端优化 */
+  .search-result-paper-item {
+    padding: 16px;
+    margin: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  [data-theme="light"] .search-result-paper-item {
+    border-bottom-color: rgba(0, 0, 0, 0.06);
+  }
+
+  .search-result-paper-item:last-child {
+    border-bottom: none;
+  }
+
+  /* 论文标题 - 移动端 */
+  .search-result-paper-title {
+    font-size: 16px;
+    line-height: 1.4;
+    margin-bottom: 10px;
+    -webkit-line-clamp: 3;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* 作者行 - 移动端 */
+  .search-result-paper-authors-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .search-result-paper-author-tags {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .author-tag {
+    font-size: 12px;
+    padding: 3px 8px;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .author-tag.author-more {
+    max-width: none;
+  }
+
+  .search-result-paper-fields {
+    font-size: 12px;
+    margin-left: 0;
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  [data-theme="light"] .search-result-paper-fields {
+    color: rgba(0, 0, 0, 0.45);
+  }
+
+  /* 期刊/日期 - 移动端 */
+  .search-result-paper-venue-date {
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+
+  /* TLDR - 移动端 */
+  .paper-tldr {
+    margin-bottom: 10px;
+  }
+
+  .tldr-label {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .tldr-text {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  /* Abstract - 移动端 */
+  .paper-abstract-section {
+    margin-bottom: 12px;
+  }
+
+  .abstract-label {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .abstract-text {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .expand-btn {
+    font-size: 12px;
+  }
+
+  /* 元信息区 - 移动端 */
+  .search-result-paper-meta {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    margin-top: 4px;
+  }
+
+  [data-theme="light"] .search-result-paper-meta {
+    border-top-color: rgba(0, 0, 0, 0.04);
+  }
+
+  .citation-count {
+    gap: 3px;
+  }
+
+  .citation-number {
+    font-size: 14px;
+  }
+
+  .citation-label {
+    font-size: 11px;
+  }
+
+  .meta-divider {
+    height: 12px;
+    margin: 0 4px;
+  }
+
+  .search-result-paper-doi-link,
+  a.meta-item.pdf-link,
+  .search-result-paper-cite-btn {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+
+  .search-result-paper-doi-link svg,
+  a.meta-item.pdf-link svg,
+  .search-result-paper-cite-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* ============================================
+     移动端分页器优化
+     ============================================ */
+  .pagination {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 20px 16px 24px;
+    justify-content: center;
+  }
+
+  .page-size-selector {
+    width: 100%;
+    justify-content: center;
+    order: 3;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    margin-top: 4px;
+  }
+
+  [data-theme="light"] .page-size-selector {
+    border-top-color: rgba(0, 0, 0, 0.06);
+  }
+
+  .page-size-label {
+    font-size: 12px;
+  }
+
+  .page-size-select {
+    font-size: 12px;
+    padding: 6px 28px 6px 12px;
+  }
+
+  .pagination-btn {
+    padding: 10px 16px;
+    font-size: 14px;
+    min-height: 44px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .pagination-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  [data-theme="light"] .pagination-btn {
+    background: var(--surface);
+  }
+
+  .pagination-pages {
+    gap: 4px;
+  }
+
+  .pagination-page {
+    min-width: 40px;
+    height: 40px;
+    font-size: 14px;
+    border-radius: 8px;
+  }
+
+  /* ============================================
+     移动端翻译提示优化
+     ============================================ */
+  .search-translation-hint {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+
+  .search-translation-hint .hint-text {
+    width: 100%;
+    white-space: normal;
+    line-height: 1.5;
+  }
+
+  .search-translation-hint .hint-query-original,
+  .search-translation-hint .hint-query-translated {
+    max-width: 150px;
+  }
+
+  .search-translation-hint .hint-action-btn {
+    font-size: 12px;
+    padding: 6px 10px;
+    background: rgba(138, 180, 248, 0.1);
+    border-radius: 6px;
+  }
+
+  .search-translation-hint .hint-btn-query {
+    max-width: 120px;
+  }
+
+  /* ============================================
+     移动端筛选标签栏优化
+     ============================================ */
+  .active-filters-bar {
+    padding: 8px 16px;
+    min-height: auto;
+    flex-wrap: wrap;
+  }
+
+  .filter-tags {
+    gap: 6px;
+  }
+
+  .filter-tag {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  .clear-all-filters {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  /* ============================================
+     移动端搜索框优化
+     ============================================ */
+  .results-composer-wrapper {
+    border-radius: 20px;
+    padding: 8px 12px;
+  }
+
+  .results-composer-input-area {
+    min-height: 48px;
+    gap: 8px;
+  }
+
+  .results-chat-input {
+    font-size: 15px !important;
+    padding: 8px 4px;
+  }
+
+  .filter-btn-minimal {
+    width: 32px;
+    height: 32px;
+    margin-top: 4px;
+  }
+
+  .filter-btn-minimal svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .btn-send {
+    width: 32px;
+    height: 32px;
+    margin-top: 4px;
+    border-radius: 10px;
+  }
+
+  .btn-send svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* ============================================
+     移动端空状态优化
+     ============================================ */
+  .empty-state {
+    padding: 40px 20px;
+  }
+
+  .empty-state-icon {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 24px;
+  }
+
+  .empty-state-icon svg {
+    width: 48px;
+    height: 48px;
+  }
+
+  .empty-state-title {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+
+  .empty-state-description {
+    font-size: 14px;
+    margin-bottom: 28px;
+  }
+
+  .empty-state-button {
+    padding: 12px 24px;
+    font-size: 14px;
+  }
+}
+
+/* ==================== 移动端论文预览弹窗 ==================== */
+.mobile-preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 99999;
+  display: flex;
+  align-items: flex-end;
+  animation: mobileOverlayFadeIn 0.25s ease-out;
+  touch-action: none;
+}
+
+@keyframes mobileOverlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mobile-preview-modal {
+  width: 100%;
+  height: 85vh;
+  max-height: 85vh;
+  background: #1a1a1a;
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  animation: mobileModalSlideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  overflow: hidden;
+  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.4);
+  position: relative;
+}
+
+@keyframes mobileModalSlideUp {
+  from {
+    opacity: 0.5;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mobile-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 14px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #1a1a1a;
+  z-index: 100;
+}
+
+.mobile-preview-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: -0.2px;
+}
+
+.mobile-preview-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.mobile-preview-close:active {
+  transform: scale(0.9);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.mobile-preview-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  min-height: 0;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+}
+
+/* 移动端弹窗内的PaperPreview样式调整 */
+.mobile-preview-body .paper-preview {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 100%;
+  border: none !important;
+  background: transparent !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-preview-body .paper-preview .resize-handle {
+  display: none !important;
+}
+
+/* 隐藏内部tabs栏，使用外部header */
+.mobile-preview-body .paper-preview .preview-tabs {
+  display: none !important;
+}
+
+/* 论文标题区域 */
+.mobile-preview-body .paper-preview .preview-title-bar {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mobile-preview-body .paper-preview .preview-title-bar h2 {
+  font-size: 17px;
+  line-height: 1.45;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mobile-preview-body .paper-preview .view-detail-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  background: #10a37f;
+  color: white;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.mobile-preview-body .paper-preview .view-detail-link:active {
+  transform: scale(0.97);
+  background: #0d8a6a;
+}
+
+/* 内容区域 */
+.mobile-preview-body .paper-preview .preview-content {
+  flex: 1;
+  padding: 0;
+  overflow: visible;
+}
+
+.mobile-preview-body .paper-preview .details-content {
+  padding: 0 16px 32px;
+}
+
+/* 详情行 - 卡片式设计 */
+.mobile-preview-body .paper-preview .details-content .detail-row {
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mobile-preview-body .paper-preview .details-content .detail-row:last-child {
+  border-bottom: none;
+}
+
+.mobile-preview-body .paper-preview .details-content .detail-label {
+  font-size: 12px;
+  font-weight: 500;
+  width: auto;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mobile-preview-body .paper-preview .details-content .detail-value {
+  font-size: 15px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 研究领域标签 */
+.mobile-preview-body .paper-preview .field-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.mobile-preview-body .paper-preview .field-tag {
+  font-size: 13px;
+  padding: 6px 12px;
+  background: rgba(16, 163, 127, 0.15);
+  color: #10a37f;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+/* 学术指标 */
+.mobile-preview-body .paper-preview .metrics-row {
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mobile-preview-body .paper-preview .metrics-row .detail-label {
+  margin-bottom: 14px;
+}
+
+.mobile-preview-body .paper-preview .metrics-items {
+  display: flex;
+  gap: 0;
+}
+
+.mobile-preview-body .paper-preview .metric {
+  flex: 1;
+  text-align: center;
+  padding: 12px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  margin-right: 10px;
+}
+
+.mobile-preview-body .paper-preview .metric:last-child {
+  margin-right: 0;
+}
+
+.mobile-preview-body .paper-preview .metric-num {
+  font-size: 24px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.2;
+}
+
+.mobile-preview-body .paper-preview .metric-name {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* TLDR 块 */
+.mobile-preview-body .paper-preview .tldr-block {
+  margin: 16px 0;
+  padding: 16px;
+  background: rgba(16, 163, 127, 0.08);
+  border: 1px solid rgba(16, 163, 127, 0.15);
+  border-radius: 12px;
+}
+
+.mobile-preview-body .paper-preview .tldr-block .block-label {
+  color: #10a37f;
+  font-weight: 600;
+}
+
+.mobile-preview-body .paper-preview .tldr-block .block-text {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* 摘要等文本块 */
+.mobile-preview-body .paper-preview .detail-block {
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mobile-preview-body .paper-preview .detail-block:last-child {
+  border-bottom: none;
+}
+
+.mobile-preview-body .paper-preview .block-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+.mobile-preview-body .paper-preview .block-text {
+  font-size: 15px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* 无PDF提示 */
+.mobile-preview-body .paper-preview .no-pdf-hint {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 10px;
+  font-size: 13px;
+  color: rgba(251, 191, 36, 0.9);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 日间模式 */
+[data-theme="light"] .mobile-preview-overlay {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .mobile-preview-modal {
+  background: #ffffff;
+  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .mobile-preview-header {
+  background: #ffffff;
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .mobile-preview-title {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .mobile-preview-close {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .mobile-preview-close:active {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .preview-title-bar {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .preview-title-bar h2 {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .view-detail-link {
+  background: #10a37f;
+  color: white;
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .details-content .detail-row {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .details-content .detail-label {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .details-content .detail-value {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .field-tag {
+  background: rgba(16, 163, 127, 0.1);
+  color: #0d8a6a;
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .metrics-row {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .metric {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .metric-num {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .metric-name {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .tldr-block {
+  background: rgba(16, 163, 127, 0.06);
+  border-color: rgba(16, 163, 127, 0.12);
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .tldr-block .block-label {
+  color: #0d8a6a;
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .tldr-block .block-text {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .detail-block {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .block-label {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .block-text {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .mobile-preview-body .paper-preview .no-pdf-hint {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.15);
+  color: #b45309;
 }

@@ -1738,14 +1738,14 @@ const Settings = () => {
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
           </button>
-          <div
-            onClick={() => navigate('/')}
+        <div
+          onClick={() => navigate('/')}
             className="settings-header-logo"
-          >
-            <img
-              src="/logo.png"
-              alt="Scholay"
-            />
+        >
+          <img
+            src="/logo.png"
+            alt="Scholay"
+          />
             <span>Scholay</span>
           </div>
         </div>
@@ -1761,7 +1761,7 @@ const Settings = () => {
                   <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
               </button>
-              <h1 className="settings-title">设置</h1>
+            <h1 className="settings-title">设置</h1>
             </div>
 
             <div className="settings-menu">
