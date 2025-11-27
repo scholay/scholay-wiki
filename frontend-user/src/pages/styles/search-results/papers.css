@@ -1,0 +1,633 @@
+/* 结果头部 */
+.results-header {
+  padding: 8px 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.results-info {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+}
+
+.results-info strong {
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
+}
+
+.srp-results-info-hint {
+  color: rgba(251, 191, 36, 0.7);
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+[data-theme="light"] .srp-results-info-hint {
+  color: #b45309;
+}
+
+/* 视图切换按钮 - srp前缀防止冲突 */
+.srp-view-mode-switcher {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.srp-view-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.srp-view-mode-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.srp-view-mode-btn.active {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.srp-view-mode-btn svg {
+  flex-shrink: 0;
+}
+
+/* 日间模式 - 视图切换按钮 */
+[data-theme="light"] .srp-view-mode-switcher {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .srp-view-mode-btn {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] .srp-view-mode-btn:hover {
+  color: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .srp-view-mode-btn.active {
+  color: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* 论文列表 */
+.papers-list {
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.search-result-paper-item {
+  display: block;
+  padding: 20px 28px;
+  background: transparent;
+  position: relative;
+  border-bottom: none;
+  transition: all 0.15s ease;
+}
+
+.search-result-paper-item:hover {
+  background: transparent;
+}
+
+.search-result-paper-item.selected {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* 日间模式论文样式 - 保持平面设计 */
+[data-theme="light"] .search-result-paper-item {
+  background: transparent;
+  border: none;
+  border-bottom: none;
+  border-radius: 0;
+  margin: 0;
+  box-shadow: none;
+  transition: all 0.15s ease;
+}
+
+[data-theme="light"] .search-result-paper-item:hover {
+  background: transparent;
+  transform: none;
+}
+
+[data-theme="light"] .search-result-paper-item.selected {
+  background: rgba(16, 163, 127, 0.05);
+}
+
+.search-result-paper-number {
+  display: none;
+}
+
+.search-result-paper-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-result-paper-title {
+  font-size: 18px;
+  font-weight: 500;
+  color: #4A90D9;
+  margin: 0 0 8px 0;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.search-result-paper-title:hover {
+  color: #5BA3EC;
+  text-decoration: underline;
+}
+
+.search-result-paper-item.selected .search-result-paper-title {
+  color: #5BA3EC;
+}
+
+/* 日间模式论文标题 */
+[data-theme="light"] .search-result-paper-title {
+  color: #1e40af;  /* 深蓝色，更好的对比度 */
+  font-weight: 600;
+}
+
+[data-theme="light"] .search-result-paper-title:hover {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+[data-theme="light"] .search-result-paper-item.selected .search-result-paper-title {
+  color: var(--text-accent);
+}
+
+.search-result-paper-authors {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0 0 10px 0;
+  font-style: italic;
+}
+
+/* 作者行 - 包含作者标签和研究领域 */
+.search-result-paper-authors-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.search-result-paper-author-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.author-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.author-tag.author-more {
+  color: rgba(255, 255, 255, 0.5);
+  background: transparent;
+}
+
+.search-result-paper-fields {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-left: 4px;
+}
+
+/* 期刊/会议 + 日期 */
+.search-result-paper-venue-date {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 10px 0;
+}
+
+.search-result-venue-name {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.pub-date {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* TLDR 摘要 */
+.search-result-paper-tldr {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.tldr-label {
+  display: inline;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 5px;
+  border-radius: 2px;
+  margin-right: 6px;
+}
+
+.tldr-text {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Abstract 摘要 */
+.search-result-paper-abstract-section {
+  margin-bottom: 12px;
+  line-height: 1.55;
+}
+
+.abstract-label {
+  display: inline;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 5px;
+  border-radius: 2px;
+  margin-right: 6px;
+}
+
+.abstract-text {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 展开/收起按钮 */
+.expand-btn {
+  background: none;
+  border: none;
+  color: rgba(74, 144, 217, 0.9);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 6px;
+  transition: color 0.15s ease;
+}
+
+.expand-btn:hover {
+  color: rgb(91, 163, 236);
+  text-decoration: underline;
+}
+
+/* 链接样式 */
+.meta-link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.meta-link:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.search-result-paper-venue {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 12px 0;
+}
+
+.search-result-paper-venue a {
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: underline;
+}
+
+.search-result-paper-venue a:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.search-result-paper-tldr {
+  margin: 0 0 12px 0;
+}
+
+.search-result-paper-tldr-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.search-result-paper-abstract {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.6;
+  margin: 0 0 14px 0;
+  display: inline;
+}
+
+.search-result-paper-expand {
+  color: #4A90D9;
+  font-size: 13px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.search-result-paper-expand:hover {
+  text-decoration: underline;
+}
+
+.search-result-paper-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  font-weight: 400;
+}
+
+.meta-item svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
+}
+
+.meta-item.citations {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 被引用数 */
+.citation-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.citation-number {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.citation-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* 竖线分割 */
+.meta-divider {
+  width: 1px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 8px;
+}
+
+/* DOI 链接按钮 */
+.search-result-paper-doi-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: rgba(16, 185, 129, 0.1);
+  color: rgba(110, 231, 183, 0.9);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.search-result-paper-doi-link svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
+}
+
+.search-result-paper-doi-link:hover {
+  background: rgba(16, 185, 129, 0.18);
+  color: rgb(110, 231, 183);
+}
+
+a.meta-item.pdf-link {
+  background: rgba(59, 130, 246, 0.1);
+  color: rgba(147, 197, 253, 0.9);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+a.meta-item.pdf-link:hover {
+  background: rgba(59, 130, 246, 0.18);
+  color: rgb(147, 197, 253);
+}
+
+/* Cite 按钮 - 独立样式 */
+.search-result-paper-cite-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: rgba(139, 92, 246, 0.1);
+  color: rgba(196, 181, 253, 0.9);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.search-result-paper-cite-btn svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
+}
+
+.search-result-paper-cite-btn:hover {
+  background: rgba(139, 92, 246, 0.18);
+  color: rgb(196, 181, 253);
+}
+
+/* 分页器 */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 32px 24px;
+}
+
+/* 日间模式分页器背景 */
+[data-theme="light"] .pagination {
+  background: transparent;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  margin: 0;
+  border-radius: 0;
+}
+
+/* 每页数量选择器 */
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.page-size-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.page-size-select {
+  padding: 5px 24px 5px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+}
+
+.page-size-select:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.page-size-select option {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.pagination-btn {
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* 日间模式分页按钮 */
+[data-theme="light"] .pagination-btn {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+[data-theme="light"] .pagination-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+[data-theme="light"] .pagination-btn:disabled {
+  background: var(--surface-light);
+  color: var(--text-quaternary);
+  border-color: var(--border-light);
+  opacity: 0.5;
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pagination-page {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pagination-page:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.pagination-page.active {
+  background: rgba(59, 130, 246, 0.15);
+  color: rgba(147, 197, 253, 1);
+}
+
+/* 日间模式分页页码 */
+[data-theme="light"] .pagination-page {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+}
+
+[data-theme="light"] .pagination-page:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+[data-theme="light"] .pagination-page.active {
+  background: var(--text-accent);
+  color: white;
+  border-color: var(--text-accent);
+  font-weight: 600;
+}
+

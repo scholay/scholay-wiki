@@ -1,0 +1,221 @@
+/* Policy Modal */
+.policy-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.policy-container {
+  width: 90%;
+  max-width: 650px;
+  max-height: 85vh;
+  background: #212121;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease-out;
+}
+
+.policy-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px 32px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.policy-header h3 {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 600;
+  color: rgb(16, 163, 127);
+}
+
+.policy-header button {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #9ca3af;
+  font-size: 1.5rem;
+  transition: all 0.2s;
+}
+
+.policy-header button:hover {
+  background: rgba(16, 163, 127, 0.2);
+  color: rgb(16, 163, 127);
+  transform: rotate(90deg);
+}
+
+.policy-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px;
+}
+
+.policy-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.policy-body::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+}
+
+.policy-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.policy-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.policy-body pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: #d1d5db;
+  margin: 0;
+}
+
+.policy-footer {
+  padding: 24px 32px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.policy-footer .auth-button {
+  width: 100%;
+}
+
+/* Custom Scrollbar for Modal */
+.auth-modal-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.auth-modal-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+}
+
+.auth-modal-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.auth-modal-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .auth-content {
+    padding: 48px 28px 36px;
+  }
+
+  .auth-title {
+    font-size: 2rem;
+    margin-bottom: 28px;
+  }
+
+  .auth-modal-container {
+    max-width: 100%;
+    border-radius: 0;
+    max-height: 100vh;
+    border: none;
+  }
+
+  .auth-social-button span {
+    font-size: 0.875rem;
+  }
+
+  .policy-container {
+    max-width: 100%;
+    border-radius: 0;
+    max-height: 100vh;
+    border: none;
+  }
+}
+
+/* Additional Enhancements */
+.auth-input:-webkit-autofill,
+.auth-input:-webkit-autofill:hover,
+.auth-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ececec;
+  -webkit-box-shadow: 0 0 0 1000px #2a2a2a inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Disabled State - No Loading Animation */
+
+/* Verification Code Input Styling */
+.auth-code-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.auth-code-button {
+  flex-shrink: 0;
+  padding: 14px 24px;
+  min-width: 90px;
+  border: 1px solid rgba(16, 163, 127, 0.6);
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+  color: var(--auth-primary);
+}
+
+.auth-code-button:hover:not(:disabled) {
+  background: rgba(16, 163, 127, 0.1);
+  border-color: var(--auth-primary);
+  transform: translateY(-1px);
+}
+
+.auth-code-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Password Error Placeholder - Prevents Layout Shift */
+.auth-password-error-placeholder {
+  min-height: 36px;
+  margin-top: -18px;
+  margin-bottom: -18px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.auth-password-error {
+  padding: 0;
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 0.875rem;
+  animation: shake 0.3s;
+  line-height: 1.4;
+}
+

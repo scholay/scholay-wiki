@@ -10,7 +10,7 @@ import ModelSelector from '../components/ModelSelector';
 import QuotaModal from '../components/QuotaModal';
 import { AdvancedSearchIcon, NormalSearchIcon } from '../components/SearchIcons';
 import api, { conversationAPI, subscriptionAPI } from '../services/api';
-import './AdvancedSearchPage.css';
+import './styles/advanced-search/index.css';
 
 // 懒加载 AuthModal
 const AuthModal = lazy(() => import('../components/AuthModal'));

@@ -1,0 +1,514 @@
+/* Account Modal */
+.account-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999; /* 确保在所有元素之上，包括底部Tab栏 */
+  padding: 20px;
+  animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(12px);
+  }
+}
+
+.account-modal {
+  background: linear-gradient(135deg, rgba(42, 42, 42, 0.95) 0%, rgba(33, 33, 33, 0.98) 100%);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 
+    0 25px 80px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: modalSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.modal-header h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.6);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: white;
+  transform: rotate(90deg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-info {
+  padding: 16px;
+  background: rgba(16, 163, 127, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  border-radius: 14px;
+  margin-bottom: 20px;
+  box-shadow: 
+    0 4px 16px rgba(16, 163, 127, 0.1),
+    inset 0 1px 0 rgba(16, 163, 127, 0.1);
+}
+
+.modal-info.modal-warning {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.2);
+  box-shadow: 
+    0 4px 16px rgba(251, 191, 36, 0.1),
+    inset 0 1px 0 rgba(251, 191, 36, 0.1);
+}
+
+.modal-info p {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.5;
+}
+
+.modal-info p:not(:last-child) {
+  margin-bottom: 8px;
+}
+
+.modal-info strong {
+  color: white;
+  font-weight: 600;
+}
+
+.warning-text {
+  color: #fbbf24 !important;
+  font-weight: 500;
+}
+
+.modal-form-group {
+  margin-bottom: 20px;
+}
+
+.modal-form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 8px;
+}
+
+.modal-form-group input {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  color: white;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.modal-form-group input:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.modal-form-group input:focus {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(16, 163, 127, 0.5);
+  box-shadow: 
+    0 0 0 3px rgba(16, 163, 127, 0.1),
+    0 4px 16px rgba(16, 163, 127, 0.15),
+    inset 0 1px 0 rgba(16, 163, 127, 0.1);
+}
+
+.modal-form-group input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.modal-code-input {
+  display: flex;
+  gap: 10px;
+}
+
+.modal-code-input input {
+  flex: 1;
+}
+
+.btn-send-code {
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  min-width: 100px;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.btn-send-code:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.btn-send-code:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-modal-submit {
+  width: 100%;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.9) 0%, rgba(26, 127, 100, 0.9) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: white;
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 4px 16px rgba(16, 163, 127, 0.3),
+    0 0 20px rgba(16, 163, 127, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  margin-top: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-modal-submit::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-modal-submit:hover:not(:disabled)::before {
+  left: 100%;
+}
+
+.btn-modal-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 24px rgba(16, 163, 127, 0.4),
+    0 0 30px rgba(16, 163, 127, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  border-color: rgba(16, 163, 127, 0.5);
+}
+
+.btn-modal-submit:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-modal-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-modal-submit.btn-modal-danger {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.9) 0%, rgba(220, 38, 38, 0.9) 100%);
+  border-color: rgba(239, 68, 68, 0.3);
+  box-shadow: 
+    0 4px 16px rgba(239, 68, 68, 0.3),
+    0 0 20px rgba(239, 68, 68, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.btn-modal-submit.btn-modal-danger:hover:not(:disabled) {
+  box-shadow: 
+    0 8px 24px rgba(239, 68, 68, 0.4),
+    0 0 30px rgba(239, 68, 68, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* Link button style for modal */
+.btn-link {
+  background: none;
+  border: none;
+  color: #10a37f;
+  padding: 0;
+  margin-left: 12px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  text-decoration: underline;
+  transition: opacity 0.2s;
+}
+
+.btn-link:hover {
+  opacity: 0.8;
+}
+
+/* Mobile Responsive for Account Management */
+@media (max-width: 768px) {
+  /* 账户管理标题 */
+  .settings-section h2 {
+    font-size: 20px;
+    margin-bottom: 20px;
+  }
+
+  /* 账户绑定卡片容器 */
+  .account-bindings {
+    border-radius: 16px;
+    margin-bottom: 20px;
+  }
+
+  /* 账户绑定卡片 - 移动端友好布局 */
+  .account-binding-card {
+    flex-direction: row;
+    align-items: center;
+    padding: 16px;
+    gap: 14px;
+  }
+
+  /* 绑定图标 - 移动端稍小 */
+  .binding-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  .binding-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* 绑定信息 */
+  .binding-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .binding-label {
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+
+  .binding-value {
+    font-size: 13px;
+  }
+
+  /* 绑定操作按钮 - 移动端紧凑布局 */
+  .binding-actions {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .btn-action {
+    padding: 8px 14px;
+    font-size: 13px;
+    border-radius: 8px;
+  }
+
+  /* 修改密码按钮 */
+  .password-change-section {
+    margin-top: 20px;
+  }
+
+  .btn-change-password {
+    width: 100%;
+    padding: 14px 20px;
+    font-size: 15px;
+    border-radius: 12px;
+  }
+
+  /* 账户管理弹窗 - 移动端底部弹出 */
+  .account-modal-overlay {
+    align-items: flex-end;
+    padding: 0; /* 移动端不需要padding */
+  }
+
+  .account-modal {
+    margin: 0;
+    max-height: 85vh;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 20px 20px 0 0;
+    animation: slideUpModal 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* 底部增加足够的padding，确保内容不被遮挡 */
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+
+  @keyframes slideUpModal {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .modal-header {
+    padding: 20px 20px 16px;
+  }
+
+  .modal-header h3 {
+    font-size: 18px;
+  }
+
+  .modal-body {
+    padding: 0 20px 20px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .modal-form-group {
+    margin-bottom: 16px;
+  }
+
+  .modal-form-group label {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .modal-form-group input {
+    padding: 14px 16px;
+    font-size: 16px; /* 防止iOS缩放 */
+    border-radius: 12px;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  .modal-actions button {
+    width: 100%;
+    padding: 14px 20px;
+    font-size: 15px;
+    border-radius: 12px;
+  }
+
+  /* 验证码输入行 */
+  .code-input-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .code-input-row input {
+    width: 100%;
+  }
+
+  .code-input-row button {
+    width: 100%;
+    padding: 14px 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  /* 更小屏幕的额外调整 */
+  .account-binding-card {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .binding-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .binding-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .btn-action {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .modal-code-input {
+    flex-direction: column;
+  }
+
+  .btn-send-code {
+    width: 100%;
+  }
+}
+

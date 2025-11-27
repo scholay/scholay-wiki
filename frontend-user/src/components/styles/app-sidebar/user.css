@@ -1,0 +1,532 @@
+/* 底部用户信息区域 */
+.sidebar-user-section.sidebar-footer {
+  margin-top: auto;
+  padding: 12px 10px;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.app-sidebar.collapsed .sidebar-user-section.sidebar-footer {
+  padding: 12px 10px;
+  border-top: none;
+}
+
+.sidebar-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  background: transparent;
+  position: relative;
+  min-height: 44px;
+}
+
+/* 展开状态 - 毛玻璃 hover 效果 */
+.app-sidebar:not(.collapsed) .sidebar-user-info:hover {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* 收起状态下用户头像的hover效果 - 毛玻璃背景 */
+.app-sidebar.collapsed .sidebar-user-info {
+  justify-content: center;
+  padding: 6px;
+  width: 44px;
+  height: 44px;
+}
+
+.app-sidebar.collapsed .sidebar-user-info:hover {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.user-email-wrapper {
+  flex: 1;
+  min-width: 0;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+  overflow: hidden;
+}
+
+.app-sidebar.collapsed .user-email-wrapper {
+  opacity: 0;
+  width: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, width 0.15s ease 0.15s;
+}
+
+.user-email {
+  font-size: 14px;
+  color: var(--text-primary);
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 用户菜单弹窗 - 使用fixed定位，渲染到body，向上弹出 */
+.user-menu-popup {
+  min-width: 280px;
+  background: rgba(58, 58, 60, 0.8);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  box-shadow: 
+    0 12px 48px rgba(0, 0, 0, 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: slideUp 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.user-menu-popup.collapsed-menu {
+  min-width: 280px;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.user-menu-header {
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Premium member header styling - Pro (淡金色) */
+.user-menu-header.premium-pro {
+  background: linear-gradient(135deg, 
+    rgba(217, 175, 107, 0.1) 0%, 
+    rgba(205, 164, 94, 0.06) 50%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  border-bottom: 1px solid rgba(217, 175, 107, 0.2);
+}
+
+.user-menu-header.premium-pro::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+    ellipse at top left,
+    rgba(217, 175, 107, 0.12) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Premium member header styling - Max (亮金色) */
+.user-menu-header.premium-max {
+  background: linear-gradient(135deg, 
+    rgba(251, 191, 36, 0.15) 0%, 
+    rgba(245, 158, 11, 0.1) 35%,
+    rgba(234, 88, 12, 0.06) 70%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  border-bottom: 1px solid rgba(251, 191, 36, 0.28);
+}
+
+.user-menu-header.premium-max::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+    ellipse at top right,
+    rgba(251, 191, 36, 0.18) 0%,
+    rgba(245, 158, 11, 0.08) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.user-menu-header.premium-max::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  right: -50%;
+  bottom: -50%;
+  background: linear-gradient(
+    60deg,
+    transparent 30%,
+    rgba(251, 191, 36, 0.08) 50%,
+    transparent 70%
+  );
+  animation: premiumHeaderShine 6s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.user-menu-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes premiumHeaderShine {
+  0% {
+    transform: translateX(-100%) translateY(-100%) rotate(30deg);
+  }
+  100% {
+    transform: translateX(100%) translateY(100%) rotate(30deg);
+  }
+}
+
+/* 头像容器 - 根据套餐不同有不同的装饰 */
+.user-avatar-large {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 18px;
+  flex-shrink: 0;
+  position: relative;
+  box-shadow: 
+    0 3px 10px rgba(0, 0, 0, 0.2),
+    0 0 0 2px rgba(255, 255, 255, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Free 套餐 - 简洁灰色边框 */
+.user-menu-header:not(.premium-pro):not(.premium-max) .user-avatar-large {
+  box-shadow: 
+    0 3px 10px rgba(0, 0, 0, 0.2),
+    0 0 0 2px rgba(156, 163, 175, 0.15);
+}
+
+/* Pro 套餐 - 淡金色光晕 */
+.user-menu-header.premium-pro .user-avatar-large {
+  box-shadow: 
+    0 3px 12px rgba(217, 175, 107, 0.35),
+    0 0 0 2px rgba(217, 175, 107, 0.3),
+    0 0 16px rgba(205, 164, 94, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Max 套餐 - 亮金色光晕 + 旋转光环 */
+.user-menu-header.premium-max .user-avatar-large {
+  box-shadow: 
+    0 3px 16px rgba(251, 191, 36, 0.5),
+    0 0 0 2px rgba(251, 191, 36, 0.4),
+    0 0 24px rgba(251, 191, 36, 0.35),
+    0 0 36px rgba(234, 88, 12, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.user-menu-header.premium-max .user-avatar-large::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(251, 191, 36, 0.4) 60deg,
+    transparent 120deg,
+    rgba(245, 158, 11, 0.3) 180deg,
+    transparent 240deg,
+    rgba(251, 191, 36, 0.4) 300deg,
+    transparent 360deg
+  );
+  animation: rotateGlow 4s linear infinite;
+  z-index: -1;
+  filter: blur(6px);
+}
+
+@keyframes rotateGlow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.user-info-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 3px;
+}
+
+.user-email-small {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 0;
+}
+
+.user-subscription-badge {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+  padding-left: 8px;
+}
+
+.subscription-plan-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Free 套餐 - 简约灰色 */
+.subscription-plan-badge.free {
+  background: rgba(156, 163, 175, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #9ca3af;
+  border: 1px solid rgba(156, 163, 175, 0.2);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.subscription-plan-badge.free::before {
+  content: '○';
+  font-size: 8px;
+  opacity: 0.6;
+}
+
+/* Pro 套餐 - 淡金色优雅感 */
+.subscription-plan-badge.pro {
+  background: linear-gradient(135deg, 
+    rgba(217, 175, 107, 0.3) 0%, 
+    rgba(205, 164, 94, 0.25) 100%
+  );
+  backdrop-filter: blur(15px) saturate(140%);
+  -webkit-backdrop-filter: blur(15px) saturate(140%);
+  color: #e6c57f;
+  border: 1px solid rgba(217, 175, 107, 0.45);
+  box-shadow: 
+    0 2px 8px rgba(217, 175, 107, 0.3),
+    0 0 16px rgba(205, 164, 94, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  position: relative;
+}
+
+.subscription-plan-badge.pro::before {
+  content: '◆';
+  font-size: 9px;
+  opacity: 0.9;
+}
+
+/* Max 套餐 - 亮金色奢华感 */
+.subscription-plan-badge.max {
+  background: linear-gradient(135deg, 
+    rgba(251, 191, 36, 0.4) 0%, 
+    rgba(245, 158, 11, 0.35) 50%,
+    rgba(234, 88, 12, 0.3) 100%
+  );
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  color: #ffd666;
+  border: 1px solid rgba(251, 191, 36, 0.6);
+  box-shadow: 
+    0 2px 12px rgba(251, 191, 36, 0.45),
+    0 0 24px rgba(251, 191, 36, 0.25),
+    0 0 36px rgba(234, 88, 12, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  position: relative;
+  animation: premiumPulse 3s ease-in-out infinite;
+}
+
+.subscription-plan-badge.max::before {
+  content: '★';
+  font-size: 10px;
+  animation: rotateStar 4s linear infinite;
+  display: inline-block;
+  text-shadow: 0 0 8px rgba(255, 214, 102, 0.7);
+  filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.5));
+}
+
+.subscription-plan-badge.max::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 12px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(251, 191, 36, 0.25) 90deg,
+    transparent 180deg,
+    rgba(245, 158, 11, 0.2) 270deg,
+    transparent 360deg
+  );
+  animation: rotateGlowBadge 3s linear infinite;
+  z-index: -1;
+  filter: blur(4px);
+}
+
+/* 动画定义 */
+@keyframes rotateStar {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rotateGlowBadge {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes premiumPulse {
+  0%, 100% {
+    box-shadow: 
+      0 2px 12px rgba(251, 191, 36, 0.45),
+      0 0 24px rgba(251, 191, 36, 0.25),
+      0 0 36px rgba(234, 88, 12, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  }
+  50% {
+    box-shadow: 
+      0 3px 16px rgba(251, 191, 36, 0.55),
+      0 0 32px rgba(251, 191, 36, 0.35),
+      0 0 48px rgba(234, 88, 12, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  }
+}
+
+.user-menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0;
+}
+
+.user-menu-options {
+  padding: 6px;
+}
+
+.user-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: left;
+  font-weight: 400;
+}
+
+.user-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transform: translateX(2px);
+}
+
+.user-menu-item svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.user-menu-item.logout-item {
+  color: rgba(255, 99, 99, 0.95);
+}
+
+.user-menu-item.logout-item:hover {
+  background: linear-gradient(135deg, 
+    rgba(255, 99, 99, 0.2) 0%, 
+    rgba(255, 99, 99, 0.12) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 1px 3px rgba(255, 99, 99, 0.2),
+    0 0 0 1px rgba(255, 99, 99, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  color: rgba(255, 99, 99, 1);
+}
+

@@ -1,0 +1,658 @@
+/* Account Binding Cards */
+.account-bindings {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.03) 0%, 
+    rgba(255, 255, 255, 0.015) 100%
+  );
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 32px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.account-binding-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: none;
+}
+
+.account-binding-card:last-child {
+  border-bottom: none;
+}
+
+.account-binding-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* 已绑定状态 */
+.account-binding-card.bound {
+  background: rgba(16, 163, 127, 0.03);
+}
+
+.account-binding-card.bound:hover {
+  background: rgba(16, 163, 127, 0.06);
+}
+
+/* 未绑定状态 */
+.account-binding-card.unbound {
+  background: transparent;
+  opacity: 0.7;
+}
+
+.account-binding-card.unbound:hover {
+  background: rgba(255, 255, 255, 0.03);
+  opacity: 1;
+}
+
+.binding-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(16, 163, 127, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #10a37f;
+  box-shadow: 
+    0 4px 12px rgba(16, 163, 127, 0.1),
+    inset 0 1px 0 rgba(16, 163, 127, 0.1);
+  transition: all 0.3s ease;
+}
+
+.account-binding-card:hover .binding-icon {
+  box-shadow: 
+    0 6px 16px rgba(16, 163, 127, 0.15),
+    inset 0 1px 0 rgba(16, 163, 127, 0.15);
+}
+
+.binding-icon-wechat {
+  background: rgba(7, 193, 96, 0.08);
+  border-color: rgba(7, 193, 96, 0.2);
+  color: #07c160;
+  box-shadow: 
+    0 4px 12px rgba(7, 193, 96, 0.1),
+    inset 0 1px 0 rgba(7, 193, 96, 0.1);
+}
+
+.account-binding-card:hover .binding-icon-wechat {
+  box-shadow: 
+    0 6px 16px rgba(7, 193, 96, 0.15),
+    inset 0 1px 0 rgba(7, 193, 96, 0.15);
+}
+
+.binding-icon-github {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.account-binding-card:hover .binding-icon-github {
+  box-shadow: 
+    0 6px 16px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.binding-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.binding-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 4px;
+}
+
+.binding-value {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.binding-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+}
+
+.btn-action {
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 绑定按钮 - 毛玻璃绿色 */
+.btn-action-primary {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.15) 0%, 
+    rgba(16, 163, 127, 0.08) 100%
+  );
+  color: #10a37f;
+  border-color: rgba(16, 163, 127, 0.25);
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.1),
+    inset 0 1px 0 rgba(16, 163, 127, 0.1);
+}
+
+.btn-action-primary:hover {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.25) 0%, 
+    rgba(16, 163, 127, 0.12) 100%
+  );
+  border-color: rgba(16, 163, 127, 0.4);
+  box-shadow: 
+    0 4px 12px rgba(16, 163, 127, 0.2),
+    inset 0 1px 0 rgba(16, 163, 127, 0.15);
+  transform: translateY(-1px);
+}
+
+.btn-action-primary:active {
+  transform: translateY(0);
+  box-shadow: 
+    0 2px 6px rgba(16, 163, 127, 0.15),
+    inset 0 1px 0 rgba(16, 163, 127, 0.1);
+}
+
+/* 换绑按钮 - 毛玻璃灰色 */
+.btn-action-secondary {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 2px 6px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.btn-action-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  box-shadow: 
+    0 4px 10px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.btn-action-secondary:active {
+  transform: translateY(0);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 解绑按钮 - 毛玻璃红色 */
+.btn-action-danger {
+  background: rgba(239, 68, 68, 0.06);
+  color: rgba(239, 68, 68, 0.85);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  box-shadow: 
+    0 2px 6px rgba(239, 68, 68, 0.05),
+    inset 0 1px 0 rgba(239, 68, 68, 0.05);
+}
+
+.btn-action-danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  box-shadow: 
+    0 4px 10px rgba(239, 68, 68, 0.12),
+    inset 0 1px 0 rgba(239, 68, 68, 0.1);
+  transform: translateY(-1px);
+}
+
+.btn-action-danger:active {
+  transform: translateY(0);
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* Change Password Button */
+.password-change-section {
+  margin-top: 32px;
+  padding-top: 32px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-change-password {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 24px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  justify-content: center;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.btn-change-password:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.btn-change-password:active {
+  transform: translateY(0);
+}
+
+.btn-change-password svg {
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.btn-change-password:hover svg {
+  transform: scale(1.1);
+}
+
+/* ===== Invitation Section ===== */
+.section-description {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 24px 0;
+  line-height: 1.6;
+}
+
+.invitation-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+}
+
+.invitation-loading .spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: rgba(16, 163, 127, 0.6);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 12px;
+}
+
+.invitation-loading p {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  margin: 0;
+}
+
+.invitation-card {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.04) 0%, 
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 32px;
+  margin-bottom: 24px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: all 0.3s ease;
+}
+
+.invitation-card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Empty State */
+.invitation-empty {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.invitation-empty-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(16, 163, 127, 0.08);
+  border-radius: 50%;
+  color: #10a37f;
+}
+
+.invitation-empty h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 8px 0;
+}
+
+.invitation-empty p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 24px 0;
+}
+
+.btn-generate-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.2) 0%, rgba(16, 163, 127, 0.1) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  border-radius: 12px;
+  color: #10a37f;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 4px 16px rgba(16, 163, 127, 0.2),
+    inset 0 1px 0 rgba(16, 163, 127, 0.1);
+}
+
+.btn-generate-code:hover {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.3) 0%, rgba(16, 163, 127, 0.15) 100%);
+  border-color: rgba(16, 163, 127, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 24px rgba(16, 163, 127, 0.3),
+    inset 0 1px 0 rgba(16, 163, 127, 0.15);
+}
+
+/* Invitation Content */
+.invitation-content h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 20px 0;
+}
+
+.invitation-field {
+  margin-bottom: 16px;
+}
+
+.invitation-field:last-child {
+  margin-bottom: 0;
+}
+
+.invitation-field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
+}
+
+.invitation-input-group {
+  display: flex;
+  gap: 10px;
+}
+
+.invitation-code-input,
+.invitation-url-input {
+  flex: 1;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: white;
+  font-size: 14px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  outline: none;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.invitation-code-input:focus,
+.invitation-url-input:focus {
+  border-color: rgba(16, 163, 127, 0.4);
+}
+
+.btn-copy {
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.btn-copy:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.btn-copy.copied {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.08) 100%);
+  border-color: rgba(16, 163, 127, 0.3);
+  color: #10a37f;
+}
+
+/* Invitees Section */
+.invitees-section {
+  margin-top: 8px;
+}
+
+.invitees-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 16px 0;
+}
+
+.invitees-empty {
+  text-align: center;
+  padding: 40px 20px;
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+}
+
+.invitees-empty svg {
+  color: rgba(255, 255, 255, 0.2);
+  margin-bottom: 12px;
+}
+
+.invitees-empty p {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  margin: 0;
+}
+
+.invitees-list {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.03) 0%, 
+    rgba(255, 255, 255, 0.015) 100%
+  );
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.invitee-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.3s ease;
+}
+
+.invitee-item:last-child {
+  border-bottom: none;
+}
+
+.invitee-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.invitee-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.invitee-email {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+}
+
+.invitee-date {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.invitee-status {
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.invitee-status.registered {
+  background: rgba(16, 163, 127, 0.1);
+  color: #10a37f;
+  border: 1px solid rgba(16, 163, 127, 0.2);
+}
+
+.invitee-status.pending {
+  background: rgba(251, 191, 36, 0.1);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+/* Rewards Section */
+.rewards-section {
+  margin-top: 24px;
+}
+
+.rewards-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rewards-section h3 svg {
+  color: #fbbf24;
+}
+
+.rewards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reward-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.reward-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.reward-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reward-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+}
+
+.reward-desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.reward-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #10a37f;
+}
+

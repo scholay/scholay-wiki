@@ -1,0 +1,718 @@
+/* 主内容区 - 包含消息和论文 */
+.as-results-main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+  background: var(--background);
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s both;
+}
+
+/* 淡入向上动画 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 左侧消息容器 */
+.as-messages-container {
+  flex: 1 1 auto;
+  overflow: hidden;  /* 移除这一层的滚动条，让chat-messages处理滚动 */
+  background: var(--background);
+  display: flex;
+  flex-direction: column;
+  min-width: 420px;
+  position: relative; /* 为蒙层loading提供定位基准 */
+}
+
+/* 日间模式 - 消息容器背景 - 与顶部背景一致 */
+[data-theme="light"] .as-messages-container {
+  background: #f9fafb;
+}
+
+/* 移除as-messages-container的滚动条样式，因为滚动现在由chat-messages处理 */
+
+/* 移除as-messages-container的滚动条样式，因为滚动现在由chat-messages处理 */
+
+/* 右侧论文区域容器 */
+.as-papers-section {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--background);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* 论文统计信息栏 - 隐藏，使用 PaperList 组件自带的 header */
+.as-papers-header {
+  display: none;
+}
+
+/* 右侧论文列表包装器 - 简洁设计 */
+.as-papers-list-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  min-width: 320px;
+  padding: 8px 12px;
+}
+
+/* Auto-hide scrollbar for papers list */
+.as-papers-list-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.as-papers-list-wrapper:hover,
+.as-papers-list-wrapper:focus,
+.as-papers-list-wrapper:active {
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* Webkit scrollbar styling with auto-hide */
+.as-papers-list-wrapper::-webkit-scrollbar {
+  width: 5px;
+}
+
+.as-papers-list-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.as-papers-list-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.as-papers-list-wrapper:hover::-webkit-scrollbar-thumb,
+.as-papers-list-wrapper:focus::-webkit-scrollbar-thumb,
+.as-papers-list-wrapper:active::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.as-papers-list-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* 论文列表内容样式 - 简洁列表设计 */
+.as-papers-list-wrapper .paper-list-content {
+  padding: 0.5rem;
+}
+
+.as-papers-list-wrapper .papers-list {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.as-papers-list-wrapper .paper-card {
+  padding: 12px 6px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 0;
+  position: relative;
+  transition: all 0.2s ease;
+  min-height: auto;
+  cursor: pointer;
+  overflow: visible;
+}
+
+/* 日间模式论文卡片 */
+[data-theme="light"] .as-papers-list-wrapper .paper-card {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  transition: none; /* 移除过渡动画 */
+}
+
+.as-papers-list-wrapper .paper-card:last-child {
+  border-bottom: none;
+}
+
+.as-papers-list-wrapper .paper-card:hover {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+}
+
+/* 日间模式 - 移除 hover 背景效果和动画 */
+[data-theme="light"] .as-papers-list-wrapper .paper-card:hover {
+  background: transparent;
+  border-color: rgba(0, 0, 0, 0.08);
+  transform: none; /* 确保没有移动 */
+}
+
+.as-papers-list-wrapper .paper-card.highlighted {
+  background: rgba(16, 163, 127, 0.08);
+}
+
+[data-theme="light"] .as-papers-list-wrapper .paper-card.highlighted {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+/* 隐藏来源信息 */
+.as-papers-list-wrapper .paper-source {
+  display: none;
+}
+
+.as-papers-list-wrapper .paper-source-icon {
+  display: none;
+}
+
+/* 论文内容容器 */
+.as-papers-list-wrapper .paper-content {
+  width: 100%;
+}
+
+/* 第一行：序号 + 期刊 */
+.as-papers-list-wrapper .paper-first-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+/* 行内序号 */
+.as-papers-list-wrapper .paper-rank-inline {
+  flex-shrink: 0;
+}
+
+.as-papers-list-wrapper .rank-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  transition: all 0.2s;
+  font-variant-numeric: tabular-nums;
+  padding: 0 5px;
+}
+
+/* 日间模式 - 论文序号 */
+[data-theme="light"] .as-papers-list-wrapper .rank-number {
+  color: rgba(16, 163, 127, 0.85);
+  background: rgba(16, 163, 127, 0.1);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+}
+
+/* 移除序号的 hover 效果 */
+
+/* 期刊信息 - 带 Logo */
+.as-papers-list-wrapper .paper-venue-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.as-papers-list-wrapper .paper-venue-info:hover .venue-name {
+  color: var(--text-accent);
+}
+
+.as-papers-list-wrapper .venue-logo {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.as-papers-list-wrapper .venue-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.as-papers-list-wrapper .venue-logo svg {
+  width: 12px;
+  height: 12px;
+  color: var(--text-accent);
+}
+
+.as-papers-list-wrapper .venue-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(16, 163, 127, 0.9);
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+/* 日间模式期刊名称 - 保持主题色 */
+[data-theme="light"] .as-papers-list-wrapper .venue-name {
+  color: rgba(16, 163, 127, 0.85);
+}
+
+/* 论文标题样式 */
+.as-papers-list-wrapper .paper-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.as-papers-list-wrapper .paper-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+
+/* 日间模式论文标题 */
+[data-theme="light"] .as-papers-list-wrapper .paper-title {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+.as-papers-list-wrapper .paper-title:hover {
+  color: var(--text-accent);
+}
+
+.as-papers-list-wrapper .paper-card.highlighted .paper-title {
+  color: var(--text-accent);
+}
+
+/* 年份标签 - 隐藏 */
+.as-papers-list-wrapper .paper-year {
+  display: none;
+}
+
+/* 作者显示 - 简洁风格 */
+.as-papers-list-wrapper .paper-authors {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 8px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 日间模式作者信息 */
+[data-theme="light"] .as-papers-list-wrapper .paper-authors {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.as-papers-list-wrapper .author-name {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 日间模式 - 作者名称 */
+[data-theme="light"] .as-papers-list-wrapper .author-name {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.as-papers-list-wrapper .author-more {
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+}
+
+/* 日间模式 - 更多作者提示 */
+[data-theme="light"] .as-papers-list-wrapper .author-more {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+/* 隐藏作者标签行 */
+.as-papers-list-wrapper .paper-authors-row {
+  display: none;
+}
+
+.as-papers-list-wrapper .paper-author-tags {
+  display: none;
+}
+
+.as-papers-list-wrapper .author-tag {
+  display: none;
+}
+
+.as-papers-list-wrapper .paper-fields {
+  display: none;
+}
+
+/* 隐藏独立的期刊日期显示 */
+.as-papers-list-wrapper .paper-venue-date {
+  display: none;
+}
+
+.as-papers-list-wrapper .pub-date {
+  display: none;
+}
+
+/* 隐藏 TLDR 标签 */
+.as-papers-list-wrapper .paper-tldr {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.as-papers-list-wrapper .tldr-label {
+  display: none;
+}
+
+.as-papers-list-wrapper .tldr-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 日间模式TLDR文本 */
+[data-theme="light"] .as-papers-list-wrapper .tldr-text {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+/* Abstract 摘要 - 作为主要摘要显示 */
+.as-papers-list-wrapper .paper-abstract-section {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.as-papers-list-wrapper .abstract-label {
+  display: none;
+}
+
+.as-papers-list-wrapper .abstract-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* 展开/收起按钮 */
+.as-papers-list-wrapper .expand-btn {
+  display: none;
+}
+
+.as-papers-list-wrapper .paper-tldr-label {
+  display: none;
+}
+
+/* 摘要样式 - 两行截断 */
+.as-papers-list-wrapper .paper-abstract {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.6;
+  margin: 0 0 10px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 日间模式摘要 */
+[data-theme="light"] .as-papers-list-wrapper .paper-abstract {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.as-papers-list-wrapper .paper-expand {
+  display: none;
+}
+
+/* 底部元信息区域 - 简洁行内设计 */
+.as-papers-list-wrapper .paper-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 8px;
+}
+
+/* 日间模式元信息 */
+[data-theme="light"] .as-papers-list-wrapper .paper-meta {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+/* 元信息项 - 简洁风格 */
+.as-papers-list-wrapper .meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 400;
+}
+
+/* 日间模式元信息项 */
+[data-theme="light"] .as-papers-list-wrapper .meta-item {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.as-papers-list-wrapper .meta-item svg {
+  width: 13px;
+  height: 13px;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+/* 期刊/会议 */
+.as-papers-list-wrapper .meta-item.venue {
+  color: rgba(255, 255, 255, 0.55);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme="light"] .as-papers-list-wrapper .meta-item.venue {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.as-papers-list-wrapper .meta-item.venue svg {
+  color: var(--text-accent);
+  opacity: 0.6;
+}
+
+/* 引用数 */
+.as-papers-list-wrapper .meta-item.citations {
+  color: rgba(251, 191, 36, 0.9);
+}
+
+[data-theme="light"] .as-papers-list-wrapper .meta-item.citations {
+  color: rgba(245, 158, 11, 0.9);
+}
+
+.as-papers-list-wrapper .meta-item.citations svg {
+  color: rgba(251, 191, 36, 0.9);
+  opacity: 0.85;
+}
+
+[data-theme="light"] .as-papers-list-wrapper .meta-item.citations svg {
+  color: rgba(245, 158, 11, 0.9);
+}
+
+/* 被引用数 */
+.as-papers-list-wrapper .citation-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.as-papers-list-wrapper .citation-number {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(251, 191, 36, 0.9);
+}
+
+.as-papers-list-wrapper .citation-label {
+  font-size: 11px;
+  color: rgba(251, 191, 36, 0.65);
+}
+
+/* 日期 */
+.as-papers-list-wrapper .meta-item.date svg {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="light"] .as-papers-list-wrapper .meta-item.date svg {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+/* 竖线分割 - 隐藏，使用gap */
+.as-papers-list-wrapper .meta-divider {
+  display: none;
+}
+
+/* 隐藏 DOI 链接 */
+.as-papers-list-wrapper .paper-doi-link {
+  display: none;
+}
+
+/* 隐藏 PDF 链接 */
+.as-papers-list-wrapper a.meta-item.pdf-link {
+  display: none;
+}
+
+/* 隐藏底部操作按钮区域 */
+.as-papers-list-wrapper .paper-actions {
+  display: none;
+}
+
+/* 隐藏 Cite 按钮 */
+.as-papers-list-wrapper .paper-cite-btn {
+  display: none;
+}
+
+/* 隐藏合集按钮 */
+.as-papers-list-wrapper .paper-collection-btn {
+  display: none;
+}
+
+/* 底部输入容器 */
+.as-bottom-input-container {
+  padding: 12px 24px 20px;
+  background: var(--background);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+}
+
+/* 日间模式 - 底部输入容器 */
+[data-theme="light"] .as-bottom-input-container {
+  background: #f9fafb;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* 夜间模式 - 底部输入框 */
+.advanced-bottom-composer-wrapper {
+  width: 100%;
+  max-width: 48rem;
+  background: linear-gradient(135deg,
+    rgba(47, 47, 47, 0.95) 0%,
+    rgba(42, 42, 42, 0.95) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  padding: 8px 12px;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+}
+
+.advanced-bottom-composer-wrapper:focus-within {
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.2),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+  border-color: rgba(16, 163, 127, 0.2);
+  background: linear-gradient(135deg,
+    rgba(47, 47, 47, 1) 0%,
+    rgba(42, 42, 42, 1) 100%);
+}
+
+/* 日间模式 - 底部输入框 */
+[data-theme="light"] .advanced-bottom-composer-wrapper {
+  background: #ffffff;
+  border: 2px solid rgba(16, 163, 127, 0.45);
+  box-shadow: 
+    0 20px 70px rgba(16, 163, 127, 0.12),
+    0 10px 40px rgba(0, 0, 0, 0.06),
+    0 4px 12px rgba(0, 0, 0, 0.04);
+  backdrop-filter: none;
+}
+
+[data-theme="light"] .advanced-bottom-composer-wrapper:focus-within {
+  background: #ffffff;
+  border-color: var(--text-accent);
+  box-shadow: 
+    0 24px 80px rgba(16, 163, 127, 0.15),
+    0 12px 48px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(16, 163, 127, 0.15),
+    0 0 0 3px rgba(16, 163, 127, 0.15);
+}
+
+/* 搜索模式指示器 - 对话中使用 */
+.search-mode-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 18px;
+  background: rgba(16, 163, 127, 0.1);
+  color: var(--text-accent);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.search-mode-indicator svg {
+  width: 14px;
+  height: 14px;
+}
+
+.advanced-bottom-composer-wrapper .advanced-bottom-chat-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  outline: none;
+  padding: 8px 4px;
+  resize: none;
+  min-height: 24px;
+  max-height: 150px;
+  line-height: 1.5;
+  overflow-y: auto;
+  overflow-x: hidden;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.bottom-composer-wrapper .chat-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.bottom-composer-wrapper .btn-send {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 10px;
+  background: rgb(16, 163, 127);
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  padding: 0;
+  box-shadow: 0 2px 6px rgba(16, 163, 127, 0.25);
+}
+
+.bottom-composer-wrapper .btn-send:hover:not(:disabled) {
+  background: rgba(16, 163, 127, 0.9);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(16, 163, 127, 0.35);
+}
+
+.bottom-composer-wrapper .btn-send:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  transform: none;
+}
+
+.bottom-composer-wrapper .composer-input-area {
+  padding: 6px 8px;
+  min-height: 44px;
+}
+
+.bottom-composer-wrapper .composer-footer {
+  padding: 2px 8px 4px;
+  min-height: 36px;
+}
+

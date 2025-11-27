@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import api, { orderAPI, paymentAPI } from '../services/api';
-import './Settings.css';
+import './styles/settings/index.css';
 
 const Settings = () => {
   const navigate = useNavigate();

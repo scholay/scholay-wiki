@@ -209,3 +209,21 @@ type RecommendationsOptions struct {
 	PositivePaperIDs []string
 	NegativePaperIDs []string
 }
+
+// AutocompleteMatch represents a single autocomplete suggestion
+type AutocompleteMatch struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	AuthorsYear string `json:"authorsYear"`
+}
+
+// AutocompleteResponse represents paper autocomplete response
+type AutocompleteResponse struct {
+	Matches []AutocompleteMatch `json:"matches"`
+}
+
+// SearchSuggestionsResponse represents combined search suggestions
+type SearchSuggestionsResponse struct {
+	Papers  []AutocompleteMatch `json:"papers"`  // Paper title suggestions
+	Authors []Author            `json:"authors"` // Author suggestions
+}

@@ -1,0 +1,541 @@
+/* Responsive */
+/* Large screens - maximize reading width */
+@media (min-width: 1920px) {
+  .chat-container {
+    max-width: 64rem;
+  }
+}
+
+/* Medium-large screens */
+@media (min-width: 1440px) and (max-width: 1919px) {
+  .chat-container {
+    max-width: 60rem;
+  }
+}
+
+/* Medium screens - reduce width slightly */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .chat-container {
+    max-width: 52rem;
+  }
+}
+
+/* Tablet screens - full width with padding */
+@media (min-width: 769px) and (max-width: 1023px) {
+  .chat-container {
+    max-width: 48rem;
+    padding: 0 1rem;
+  }
+}
+
+/* Desktop/Mobile visibility helpers */
+.desktop-only {
+  display: flex;
+}
+
+.mobile-only {
+  display: none;
+}
+
+/* Mobile screens */
+@media (max-width: 768px) {
+  /* 桌面/移动端显示切换 */
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: flex !important;
+  }
+
+  .hero-title {
+    font-size: 2.5rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+
+  .section-title {
+    font-size: 2rem;
+  }
+
+  .floating-cards {
+    display: none;
+  }
+
+  .navbar-content {
+    padding: 1rem;
+  }
+
+  .main-container,
+  .main-container.has-sidebar,
+  .main-container.sidebar-collapsed-narrow,
+  .main-container.sidebar-collapsed {
+    margin-left: 0 !important;
+  }
+
+  .chat-container {
+    max-width: 100%;
+    padding: 0 0.75rem;
+  }
+
+  .chat-messages {
+    padding: 1.5rem 1rem;
+  }
+
+  /* 移动端欢迎标题 - 居中显示 */
+  .welcome-title {
+    font-size: 1.375rem;
+    margin-bottom: 0;
+    line-height: 1.4;
+  }
+
+  .welcome-screen {
+    position: static;
+    transform: none;
+    margin-top: 0;
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 52px - 180px);
+  }
+
+  /* 移动端输入框 - 固定在底部，带边距 */
+  .home .home-composer-wrapper,
+  .home-search .home-composer-wrapper {
+    position: fixed;
+    top: auto;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    transform: none;
+    width: auto;
+    max-width: calc(100% - 24px);
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-radius: 24px;
+    margin: 0;
+    z-index: 100;
+  }
+
+  /* 移动端使用与PC端相同的输入框颜色 */
+  [data-theme="dark"] .home .home-composer-wrapper,
+  [data-theme="dark"] .home-search .home-composer-wrapper {
+    background: rgba(47, 47, 47, 0.6);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      0 2px 8px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  [data-theme="light"] .home .home-composer-wrapper,
+  [data-theme="light"] .home-search .home-composer-wrapper {
+    background: #ffffff;
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 2px solid rgba(16, 163, 127, 0.45);
+    box-shadow: 
+      0 20px 70px rgba(16, 163, 127, 0.12),
+      0 10px 40px rgba(0, 0, 0, 0.06),
+      0 4px 12px rgba(0, 0, 0, 0.04);
+  }
+
+  /* 移动端输入区域 */
+  .home .home-composer-input-area,
+  .home-search .home-composer-input-area {
+    padding: 6px 8px;
+    min-height: 44px;
+    gap: 8px;
+  }
+
+  .home .home-chat-input,
+  .home-search .home-chat-input {
+    font-size: 16px !important;
+    padding: 8px 4px;
+    min-height: 24px;
+  }
+
+  /* 移动端 placeholder 单行显示 - 与输入文字大小一致 */
+  .home .home-chat-input::placeholder,
+  .home-search .home-chat-input::placeholder {
+    font-size: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    max-width: 100%;
+  }
+
+  /* placeholder 显示时限制高度 */
+  .home .home-chat-input:placeholder-shown,
+  .home-search .home-chat-input:placeholder-shown {
+    max-height: 40px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* 用户输入内容时恢复自动撑高 */
+  .home .home-chat-input:not(:placeholder-shown),
+  .home-search .home-chat-input:not(:placeholder-shown) {
+    max-height: none;
+    overflow: auto;
+    white-space: pre-wrap;
+  }
+
+  /* 移动端发送按钮 */
+  .home .btn-send,
+  .home-search .btn-send {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  /* 移动端底部工具栏 */
+  .home .home-composer-footer,
+  .home-search .home-composer-footer {
+    padding: 8px 4px 4px;
+    min-height: 40px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .home .home-composer-footer-left,
+  .home-search .home-composer-footer-left {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  /* 移动端搜索模式切换器 */
+  .home .home-search-mode-segmented,
+  .home-search .home-search-mode-segmented {
+    padding: 2px;
+    gap: 2px;
+    border-radius: 14px;
+    height: 32px;
+  }
+
+  .home .mode-segment,
+  .home-search .mode-segment {
+    padding: 0 10px;
+    min-width: auto;
+    font-size: 12px;
+    gap: 4px;
+    border-radius: 12px;
+    height: 28px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .home .mode-segment-icon svg,
+  .home-search .mode-segment-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .home .mode-segment-label,
+  .home-search .mode-segment-label {
+    font-size: 12px;
+  }
+
+  /* 移动端分隔线 */
+  .home .footer-divider,
+  .home-search .footer-divider {
+    height: 16px;
+  }
+
+  /* 移动端筛选按钮 - 高度32px */
+  .home .footer-btn.filter-btn,
+  .home-search .footer-btn.filter-btn {
+    padding: 0 12px;
+    border-radius: 14px;
+    gap: 5px;
+    height: 32px;
+    line-height: 1;
+  }
+
+  .home .footer-btn.filter-btn span,
+  .home-search .footer-btn.filter-btn span {
+    font-size: 12px;
+  }
+
+  .home .footer-btn.filter-btn .filter-icon-wrapper,
+  .home-search .footer-btn.filter-btn .filter-icon-wrapper {
+    width: 14px;
+    height: 14px;
+  }
+
+  .home .footer-btn.filter-btn .filter-icon,
+  .home .footer-btn.filter-btn .clear-icon,
+  .home-search .footer-btn.filter-btn .filter-icon,
+  .home-search .footer-btn.filter-btn .clear-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* 移动端导航栏 */
+  .top-navbar {
+    padding: 0 12px;
+    height: 52px;
+  }
+
+  .top-navbar .logo .logo-text {
+    font-size: 18px;
+  }
+
+  .auth-buttons {
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* 隐藏ICP备案 */
+  .icp-filing {
+    display: none;
+  }
+
+  .search-mode-selector {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .mode-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+}
+
+/* 移动端菜单按钮 - 一长一短横线 */
+.mobile-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+  color: var(--text-secondary);
+  margin-right: 8px;
+}
+
+.mobile-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.mobile-menu-btn:active {
+  transform: scale(0.95);
+}
+
+[data-theme="light"] .mobile-menu-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* 移动端帮助按钮 */
+.btn-mobile-help {
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+[data-theme="dark"] .btn-mobile-help {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .btn-mobile-help {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-tertiary);
+}
+
+.btn-mobile-help:hover {
+  transform: scale(1.05);
+}
+
+[data-theme="dark"] .btn-mobile-help:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .btn-mobile-help:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-secondary);
+}
+
+/* 移动端登录按钮 */
+.btn-login-mobile {
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  font-weight: 500;
+  border-radius: 20px !important;
+  color: white !important;
+  border: none !important;
+}
+
+[data-theme="dark"] .btn-login-mobile {
+  background: var(--primary-solid) !important;
+}
+
+[data-theme="light"] .btn-login-mobile {
+  background: var(--primary-solid) !important;
+}
+
+/* Small mobile screens (iPhone SE, etc.) */
+@media (max-width: 375px) {
+  .welcome-title {
+    font-size: 1.25rem;
+  }
+
+  .home .home-composer-wrapper,
+  .home-search .home-composer-wrapper {
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    max-width: calc(100% - 20px);
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+    border-radius: 20px;
+  }
+
+  .home .mode-segment,
+  .home-search .mode-segment {
+    padding: 5px 10px;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .home .mode-segment-icon svg,
+  .home-search .mode-segment-icon svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .home .footer-btn.filter-btn span,
+  .home-search .footer-btn.filter-btn span {
+    font-size: 11px;
+  }
+
+  .auth-buttons {
+    gap: 6px;
+  }
+
+  .btn-mobile-help {
+    width: 32px;
+    height: 32px;
+  }
+
+  .btn-login-mobile {
+    padding: 6px 14px !important;
+    font-size: 13px !important;
+  }
+
+  .top-navbar .logo .logo-text {
+    font-size: 16px;
+  }
+}
+
+/* Legacy Search Mode Selector - kept for compatibility */
+.search-mode-selector {
+  display: none;
+}
+
+/* AI Thinking Animation */
+.ai-thinking .thinking-dots {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+}
+
+.thinking-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  animation: thinkingBounce 1.4s infinite ease-in-out both;
+}
+
+.thinking-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.thinking-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes thinkingBounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Removed old chat-input-container styles */
+
+/* Smooth fade-in for messages - removed global animation to prevent reload flicker */
+.message {
+  /* No animation by default */
+}
+
+/* Only animate AI thinking and streaming messages */
+.ai-thinking,
+.message.message-assistant:has(.typing-cursor) {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Typing cursor animation */
+.typing-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+/* Model Selector Wrapper */
+.model-selector-wrapper {
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+.composer-footer-left .model-selector-wrapper {
+  display: flex;
+  align-items: center;
+}

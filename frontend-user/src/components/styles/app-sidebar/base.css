@@ -1,0 +1,151 @@
+.app-sidebar {
+  width: 100%;
+  max-width: 280px;
+  height: 100vh;
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: visible;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100;
+  transition: max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1), background 0.25s ease, border-color 0.25s ease;
+}
+
+[data-theme="dark"] .app-sidebar {
+  background: rgba(24, 24, 24, 0.6);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    2px 0 20px rgba(0, 0, 0, 0.3),
+    inset -1px 0 0 rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="light"] .app-sidebar {
+  background: rgba(255, 255, 255, 0.95);
+  border-right: 1px solid var(--border);
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.04);
+}
+
+.app-sidebar.collapsed {
+  max-width: 64px;
+}
+
+[data-theme="dark"] .app-sidebar.collapsed {
+  background: rgba(33, 33, 33, 0.7);
+}
+
+[data-theme="light"] .app-sidebar.collapsed {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+/* 顶部Logo区域 */
+.app-sidebar-header {
+  height: 56px;
+  padding: 0 10px 0 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  overflow: visible;
+}
+
+.app-sidebar.collapsed .app-sidebar-header {
+  padding: 0 10px;
+}
+
+/* 顶部Logo和按钮区域 */
+.sidebar-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 44px;
+  gap: 8px;
+}
+
+/* Logo - 固定位置，不参与动画 */
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+/* 确保Logo组件的SVG在收起状态下可见 */
+.sidebar-logo.collapsed-logo > div {
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-logo.collapsed-logo > div > svg {
+  display: block !important;
+  opacity: 1 !important;
+}
+
+/* 展开状态 - 原有的 hover 效果 */
+.app-sidebar:not(.collapsed) .sidebar-logo:hover {
+  opacity: 0.8;
+}
+
+/* 收起状态的Logo */
+.sidebar-logo.collapsed-logo svg {
+  color: rgba(236, 236, 241, 0.8);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+/* 收起状态的Logo hover效果 - 毛玻璃背景 */
+.app-sidebar.collapsed .sidebar-logo:hover {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  opacity: 1;
+}
+
+.sidebar-logo.collapsed-logo:hover svg {
+  color: rgb(236, 236, 241);
+}
+
+/* 收起按钮 - Glassmorphism */
+.sidebar-collapse-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: rgba(175, 175, 175, 0.8);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  opacity: 1;
+  overflow: hidden;
+}
+
+.sidebar-collapse-btn.hidden {
+  opacity: 0;
+  width: 0;
+  transition: opacity 0.15s ease, width 0.15s ease;
+}
+
+.sidebar-collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: rgba(255, 255, 255, 0.95);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+

@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate, useOutletContext, useLocation } from 'rea
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
 import { Menu, List, Table2 } from 'lucide-react';
-import { scholarAPI, publicScholarAPI } from '../services/api';
+import api, { scholarAPI, publicScholarAPI } from '../services/api';
 import PaperPreview from '../components/PaperPreview';
 import SearchFilters from '../components/SearchFilters';
 import PaperListSkeleton from '../components/PaperListSkeleton';
@@ -11,11 +11,12 @@ import CiteModal from '../components/CiteModal';
 import PaperTableView from '../components/PaperTableView';
 import TableColumnPanel from '../components/TableColumnPanel';
 import TableViewGuide from '../components/TableViewGuide';
+import SearchSuggestions from '../components/SearchSuggestions';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory, renameSearchHistory, migrateOldSearchHistory } from '../utils/searchHistory';
 import SEO from '../components/SEO';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
-import './SearchResultsPage.css';
+import './styles/search-results/index.css';
 
 // 懒加载 AuthModal
 const AuthModal = lazy(() => import('../components/AuthModal'));
@@ -135,9 +136,12 @@ const SearchResultsPage = () => {
   const resultsMainRef = useRef(null);
   const papersContainerRef = useRef(null);
   const tableViewBtnRef = useRef(null); // 表格视图按钮引用
+  const textareaRef = useRef(null); // 搜索输入框引用（用于搜索建议定位）
+  const emptyTextareaRef = useRef(null); // 空状态搜索输入框引用
   const [selectedHistoryId, setSelectedHistoryId] = useState(null); // 选中的搜索历史ID
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
   const [isSearchBarCollapsed, setIsSearchBarCollapsed] = useState(false); // 搜索框收缩状态
+  const [showSuggestions, setShowSuggestions] = useState(false); // 搜索建议下拉框
   // 检查是否需要返回表格视图（从登录后跳转回来）
   const returnedFromLogin = useRef(false);
   const [viewMode, setViewMode] = useState(() => {
@@ -152,6 +156,18 @@ const SearchResultsPage = () => {
   const [selectedDimensionKey, setSelectedDimensionKey] = useState(null); // 表格视图中选中的维度
   const [tableReloadTrigger, setTableReloadTrigger] = useState(null); // 触发表格重新加载
   const [showTableGuide, setShowTableGuide] = useState(false); // 表格视图引导弹窗
+
+  // 论文详情视图相关状态
+  const [detailPaper, setDetailPaper] = useState(null); // 选中的论文详情数据
+  const [detailPaperId, setDetailPaperId] = useState(null); // 选中的论文ID
+  const [detailLoading, setDetailLoading] = useState(false); // 论文详情加载状态
+  const [detailError, setDetailError] = useState(null); // 论文详情错误状态
+  const [detailActiveTab, setDetailActiveTab] = useState('citations'); // 详情页 Tab: 'citations' 或 'references'
+  const [showDetailCiteModal, setShowDetailCiteModal] = useState(false); // 详情页引用弹窗
+  const [detailCitationFormat, setDetailCitationFormat] = useState('bibtex'); // 引用格式
+  const [detailCopied, setDetailCopied] = useState(false); // 复制状态
+  const [detailCopiedDoi, setDetailCopiedDoi] = useState(false); // DOI复制状态
+  const [detailCopiedCorpusId, setDetailCopiedCorpusId] = useState(false); // CorpusId复制状态
 
   // 处理维度更新（编辑或新增）
   const handleDimensionsUpdated = useCallback((action, dimensionName) => {
@@ -449,6 +465,9 @@ const SearchResultsPage = () => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
 
+    // 关闭搜索建议
+    setShowSuggestions(false);
+
     // 重置分页
     setCurrentPage(1);
     
@@ -469,6 +488,193 @@ const SearchResultsPage = () => {
 
     // 执行搜索
     performSearch(searchQuery, filters, 1);
+  };
+
+  // 处理选择论文建议 - 切换到论文详情视图
+  const handleSelectPaper = async (paper) => {
+    setShowSuggestions(false);
+    // 保存当前搜索查询用于返回
+    setSearchQuery(paper.title);
+    // 切换到论文详情视图
+    setViewMode('paper');
+    setDetailPaperId(paper.id);
+    setDetailLoading(true);
+    setDetailError(null);
+    setDetailActiveTab('citations');
+    
+    // 更新URL参数，添加paperId
+    const params = new URLSearchParams(searchParams);
+    params.set('paperId', paper.id);
+    setSearchParams(params);
+    
+    try {
+      const response = await api.get(`/public/papers/${paper.id}`, {
+        params: {
+          fields: 'paperId,title,abstract,authors,year,citationCount,referenceCount,venue,publicationDate,publicationTypes,fieldsOfStudy,s2FieldsOfStudy,externalIds,url,openAccessPdf,influentialCitationCount,isOpenAccess,tldr,journal,citations.paperId,citations.externalIds,citations.url,citations.title,citations.abstract,citations.venue,citations.publicationVenue,citations.year,citations.referenceCount,citations.citationCount,citations.influentialCitationCount,citations.openAccessPdf,citations.s2FieldsOfStudy,citations.publicationTypes,citations.publicationDate,citations.journal,citations.citationStyles,citations.authors,references.paperId,references.externalIds,references.url,references.title,references.abstract,references.venue,references.publicationVenue,references.year,references.referenceCount,references.citationCount,references.influentialCitationCount,references.openAccessPdf,references.s2FieldsOfStudy,references.publicationTypes,references.publicationDate,references.journal,references.citationStyles,references.authors'
+        }
+      });
+      setDetailPaper(response.data.data);
+    } catch (err) {
+      console.error('Failed to fetch paper details:', err);
+      setDetailError(err.response?.data?.message || '加载论文详情失败');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  // 返回搜索结果列表
+  const handleBackToSearch = () => {
+    setViewMode('list');
+    setDetailPaper(null);
+    setDetailPaperId(null);
+    setDetailError(null);
+    // 从URL中移除paperId参数
+    const params = new URLSearchParams(searchParams);
+    params.delete('paperId');
+    setSearchParams(params);
+  };
+
+  // 生成引用格式
+  const generateDetailCitation = (format) => {
+    if (!detailPaper) return '';
+    const authors = detailPaper.authors || [];
+    const title = detailPaper.title || 'Untitled';
+    const year = detailPaper.year || 'n.d.';
+    const venue = detailPaper.venue || '';
+    const corpusId = detailPaper.paperId || '';
+    const journal = detailPaper.journal || {};
+    const volume = journal.volume || '';
+    const pages = journal.pages || '';
+
+    switch (format) {
+      case 'bibtex':
+        const firstAuthor = authors[0]?.name || 'Unknown';
+        const lastName = firstAuthor.split(' ').pop();
+        const stopWords = ['of', 'the', 'in', 'for', 'and', 'a', 'an', 'to', 'on'];
+        const titleWords = title.split(' ').filter(w => w.length > 2 && !stopWords.includes(w.toLowerCase()));
+        const firstTitleWord = titleWords[0]?.replace(/[^a-zA-Z]/g, '') || 'Paper';
+        const secondTitleWord = titleWords[1]?.replace(/[^a-zA-Z]/g, '') || '';
+        const secondWordInitials = secondTitleWord.slice(0, 2).toUpperCase();
+        const bibtexKey = `${lastName}${year}${firstTitleWord}${secondWordInitials}`;
+        let bibtex = `@article{${bibtexKey},\n  title={${title}},\n  author={${authors.map(a => a.name).join(' and ')}}`;
+        if (venue) bibtex += `,\n  journal={${venue}}`;
+        if (year) bibtex += `,\n  year={${year}}`;
+        if (volume) bibtex += `,\n  volume={${volume}}`;
+        if (pages) bibtex += `,\n  pages={${pages}}`;
+        bibtex += `,\n  url={https://api.semanticscholar.org/CorpusID:${corpusId}}\n}`;
+        return bibtex;
+      case 'mla':
+        let mlaAuthorStr = '';
+        if (authors.length > 0) {
+          const firstAuthorParts = authors[0].name.split(' ');
+          const firstAuthorFormatted = firstAuthorParts.length > 1
+            ? `${firstAuthorParts[firstAuthorParts.length - 1]}, ${firstAuthorParts.slice(0, -1).join(' ')}`
+            : authors[0].name;
+          if (authors.length === 1) mlaAuthorStr = firstAuthorFormatted;
+          else if (authors.length === 2) mlaAuthorStr = `${firstAuthorFormatted}, and ${authors[1].name}`;
+          else mlaAuthorStr = `${firstAuthorFormatted} et al.`;
+        } else mlaAuthorStr = 'Unknown';
+        let mla = `${mlaAuthorStr}. "${title}."`;
+        if (venue) mla += ` <i>${venue}</i>`;
+        if (volume) mla += ` ${volume}`;
+        if (year && pages) mla += ` (${year}): ${pages}`;
+        else if (year) mla += ` (${year})`;
+        else if (pages) mla += `: ${pages}`;
+        mla += '.';
+        return mla;
+      case 'apa':
+        let apaAuthorStr = '';
+        if (authors.length > 0) {
+          const apaFormatted = authors.map(a => {
+            const nameParts = a.name.split(' ');
+            if (nameParts.length > 1) {
+              const initials = nameParts.slice(0, -1).map(n => n[0] + '.').join(' ');
+              return `${nameParts[nameParts.length - 1]}, ${initials}`;
+            }
+            return a.name;
+          });
+          if (apaFormatted.length === 1) apaAuthorStr = apaFormatted[0];
+          else if (apaFormatted.length === 2) apaAuthorStr = `${apaFormatted[0]}, & ${apaFormatted[1]}`;
+          else apaAuthorStr = `${apaFormatted.slice(0, -1).join(', ')}, & ${apaFormatted[apaFormatted.length - 1]}`;
+        } else apaAuthorStr = 'Unknown';
+        let apa = `${apaAuthorStr} (${year}). ${title}.`;
+        if (venue && volume) apa += ` <i>${venue}, ${volume}</i>`;
+        else if (venue) apa += ` <i>${venue}</i>`;
+        else if (volume) apa += ` <i>${volume}</i>`;
+        if (pages) apa += `, ${pages}`;
+        apa += '.';
+        return apa;
+      case 'chicago':
+        let chicagoAuthorStr = '';
+        if (authors.length > 0) {
+          const chicagoFormatted = authors.map(a => {
+            const nameParts = a.name.split(' ');
+            if (nameParts.length > 1) return `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`;
+            return a.name;
+          });
+          if (chicagoFormatted.length === 1) chicagoAuthorStr = chicagoFormatted[0];
+          else if (chicagoFormatted.length === 2) chicagoAuthorStr = `${chicagoFormatted[0]}, and ${chicagoFormatted[1]}`;
+          else chicagoAuthorStr = `${chicagoFormatted.slice(0, -1).join(', ')}, and ${chicagoFormatted[chicagoFormatted.length - 1]}`;
+        } else chicagoAuthorStr = 'Unknown';
+        let chicago = `${chicagoAuthorStr}. "${title}."`;
+        if (venue) chicago += ` <i>${venue}</i>`;
+        if (volume) chicago += ` ${volume}`;
+        if (year && pages) chicago += ` (${year}): ${pages}`;
+        else if (year) chicago += ` (${year})`;
+        else if (pages) chicago += `: ${pages}`;
+        chicago += '.';
+        return chicago;
+      default:
+        return '';
+    }
+  };
+
+  // 复制引用
+  const copyDetailCitation = () => {
+    const citation = generateDetailCitation(detailCitationFormat);
+    const plainCitation = citation.replace(/<\/?i>/g, '');
+    navigator.clipboard.writeText(plainCitation);
+    setDetailCopied(true);
+    setTimeout(() => setDetailCopied(false), 2000);
+  };
+
+  // 复制DOI
+  const copyDetailDoi = (e) => {
+    e.stopPropagation();
+    if (detailPaper?.externalIds?.DOI) {
+      navigator.clipboard.writeText(detailPaper.externalIds.DOI);
+      setDetailCopiedDoi(true);
+      setTimeout(() => setDetailCopiedDoi(false), 2000);
+    }
+  };
+
+  // 复制CorpusId
+  const copyDetailCorpusId = (e) => {
+    e.stopPropagation();
+    if (detailPaper?.externalIds?.CorpusId) {
+      navigator.clipboard.writeText(detailPaper.externalIds.CorpusId.toString());
+      setDetailCopiedCorpusId(true);
+      setTimeout(() => setDetailCopiedCorpusId(false), 2000);
+    }
+  };
+
+  // 处理选择作者建议
+  const handleSelectAuthor = (author) => {
+    // 使用作者名字作为搜索查询
+    setSearchQuery(author.name);
+    setShowSuggestions(false);
+    // 重置分页和缓存
+    setCurrentPage(1);
+    setCachedTranslation({ query: '', translated: '', actual: '' });
+    setQueryInfo({
+      originalQuery: '',
+      translatedQuery: '',
+      actualQuery: '',
+      translationEnabled: false
+    });
+    // 更新URL并执行搜索
+    updateURL(author.name, filters, 1);
+    performSearch(author.name, filters, 1);
   };
 
   // 更新URL参数
@@ -677,8 +883,8 @@ const SearchResultsPage = () => {
   const startIndex = (currentPage - 1) * papersPerPage + 1;
   const endIndex = Math.min(currentPage * papersPerPage, total);
 
-  // 判断是否为空状态（没有查询参数）
-  const isEmptyState = !searchParams.get('query');
+  // 判断是否为空状态（没有查询参数且不是论文详情视图）
+  const isEmptyState = !searchParams.get('query') && viewMode !== 'paper';
 
   // 生成SEO数据
   const pageTitle = searchQuery
@@ -731,6 +937,7 @@ const SearchResultsPage = () => {
                 {/* 输入区域 */}
                 <div className="normal-search-composer-input-area">
                   <textarea
+                    ref={emptyTextareaRef}
                     className="normal-search-chat-input"
                     placeholder={searchExamples[currentExampleIndex]}
                     value={searchQuery}
@@ -739,15 +946,35 @@ const SearchResultsPage = () => {
                       setSearchQuery(e.target.value);
                       e.target.style.height = 'auto';
                       e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+                      // 显示搜索建议
+                      if (e.target.value.trim().length >= 2) {
+                        setShowSuggestions(true);
+                      } else {
+                        setShowSuggestions(false);
+                      }
+                    }}
+                    onFocus={() => {
+                      // 如果有输入内容则显示搜索建议
+                      if (searchQuery.trim().length >= 2) {
+                        setShowSuggestions(true);
+                      }
+                    }}
+                    onBlur={() => {
+                      // 延迟关闭，以便点击建议项时不会立即关闭
+                      setTimeout(() => setShowSuggestions(false), 200);
                     }}
                     onCompositionStart={() => setIsComposing(true)}
                     onCompositionEnd={() => setIsComposing(false)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
                         e.preventDefault();
+                        setShowSuggestions(false);
                         if (searchQuery.trim()) {
                           handleSearch(e);
                         }
+                      }
+                      if (e.key === 'Escape') {
+                        setShowSuggestions(false);
                       }
                     }}
                     rows={1}
@@ -758,6 +985,16 @@ const SearchResultsPage = () => {
                     </svg>
                   </button>
                 </div>
+
+                {/* 搜索建议下拉框 */}
+                <SearchSuggestions
+                  query={searchQuery}
+                  onSelectPaper={handleSelectPaper}
+                  onSelectAuthor={handleSelectAuthor}
+                  onClose={() => setShowSuggestions(false)}
+                  visible={showSuggestions}
+                  inputRef={emptyTextareaRef}
+                />
 
                 {/* 底部操作栏 */}
                 <div className="normal-search-composer-footer">
@@ -891,6 +1128,7 @@ const SearchResultsPage = () => {
                   {/* 输入区域 */}
                   <div className="results-composer-input-area">
                     <textarea
+                      ref={textareaRef}
                       className="results-chat-input"
                       placeholder={searchExamples[currentExampleIndex]}
                       value={searchQuery}
@@ -899,15 +1137,35 @@ const SearchResultsPage = () => {
                         setSearchQuery(e.target.value);
                         e.target.style.height = 'auto';
                         e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+                        // 显示搜索建议
+                        if (e.target.value.trim().length >= 2) {
+                          setShowSuggestions(true);
+                        } else {
+                          setShowSuggestions(false);
+                        }
+                      }}
+                      onFocus={() => {
+                        // 如果有输入内容则显示搜索建议
+                        if (searchQuery.trim().length >= 2) {
+                          setShowSuggestions(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        // 延迟关闭，以便点击建议项时不会立即关闭
+                        setTimeout(() => setShowSuggestions(false), 200);
                       }}
                       onCompositionStart={() => setIsComposing(true)}
                       onCompositionEnd={() => setIsComposing(false)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
                           e.preventDefault();
+                          setShowSuggestions(false);
                           if (searchQuery.trim()) {
                             handleSearch(e);
                           }
+                        }
+                        if (e.key === 'Escape') {
+                          setShowSuggestions(false);
                         }
                       }}
                       rows={1}
@@ -943,6 +1201,16 @@ const SearchResultsPage = () => {
                       </svg>
                     </button>
                   </div>
+
+                  {/* 搜索建议下拉框 */}
+                  <SearchSuggestions
+                    query={searchQuery}
+                    onSelectPaper={handleSelectPaper}
+                    onSelectAuthor={handleSelectAuthor}
+                    onClose={() => setShowSuggestions(false)}
+                    visible={showSuggestions}
+                    inputRef={textareaRef}
+                  />
                 </form>
               )}
 
@@ -1010,9 +1278,221 @@ const SearchResultsPage = () => {
 
       {/* 两栏布局 */}
       <div className="results-main" ref={resultsMainRef}>
-        {/* 论文列表区域 */}
+        {/* 论文列表/详情区域 */}
         <div className="papers-container" ref={papersContainerRef}>
-            {loading ? (
+            {viewMode === 'paper' ? (
+              /* 论文详情视图 */
+              <div className="epd-container">
+                {/* 返回按钮 */}
+                <button className="epd-back-btn" onClick={handleBackToSearch}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                  </svg>
+                  返回搜索结果
+                </button>
+
+                {detailLoading ? (
+                  <div className="epd-loading">
+                    <div className="epd-loading-spinner"></div>
+                    <p>加载论文详情中...</p>
+                  </div>
+                ) : detailError ? (
+                  <div className="epd-error">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    <h3>加载失败</h3>
+                    <p>{detailError}</p>
+                    <button className="epd-retry-btn" onClick={() => handleSelectPaper({ id: detailPaperId, title: '' })}>
+                      重试
+                    </button>
+                  </div>
+                ) : detailPaper ? (
+                  <div className="epd-content">
+                    {/* 论文头部信息 */}
+                    <div className="epd-header">
+                      {/* DOI 和 Corpus ID */}
+                      <div className="epd-meta-ids">
+                        {detailPaper.externalIds?.DOI && (
+                          <span className="epd-meta-id epd-copyable" onClick={copyDetailDoi}>
+                            <span className="epd-meta-text">DOI: {detailPaper.externalIds.DOI}</span>
+                            <button className={`epd-copy-btn ${detailCopiedDoi ? 'copied' : ''}`} title={detailCopiedDoi ? '已复制' : '复制'}>
+                              {detailCopiedDoi ? (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
+                              ) : (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                              )}
+                            </button>
+                          </span>
+                        )}
+                        {detailPaper.externalIds?.CorpusId && (
+                          <>
+                            {detailPaper.externalIds?.DOI && <span className="epd-meta-dot">•</span>}
+                            <span className="epd-meta-id epd-copyable" onClick={copyDetailCorpusId}>
+                              <span className="epd-meta-text">Corpus ID: {detailPaper.externalIds.CorpusId}</span>
+                              <button className={`epd-copy-btn ${detailCopiedCorpusId ? 'copied' : ''}`} title={detailCopiedCorpusId ? '已复制' : '复制'}>
+                                {detailCopiedCorpusId ? (
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
+                                ) : (
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                )}
+                              </button>
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* 标题 */}
+                      <h1 className="epd-title">{detailPaper.title}</h1>
+
+                      {/* 作者和出版信息 */}
+                      <div className="epd-pub-meta">
+                        {detailPaper.authors?.length > 0 && (
+                          <>
+                            {detailPaper.authors.map((author, idx) => (
+                              <React.Fragment key={idx}>
+                                <span className="epd-author">{author.name}</span>
+                                {idx < detailPaper.authors.length - 1 && <span className="epd-author-sep">, </span>}
+                              </React.Fragment>
+                            ))}
+                            {(detailPaper.venue || detailPaper.year || detailPaper.fieldsOfStudy?.length > 0) && <span className="epd-meta-dot"> · </span>}
+                          </>
+                        )}
+                        {(detailPaper.venue || detailPaper.year) && (
+                          <>
+                            <span className="epd-meta-text">Published in </span>
+                            {detailPaper.venue && <span className="epd-venue">{detailPaper.venue}</span>}
+                            {detailPaper.venue && detailPaper.year && <span> </span>}
+                            {detailPaper.year && <span className="epd-year">{detailPaper.year}</span>}
+                            {detailPaper.fieldsOfStudy?.length > 0 && <span className="epd-meta-dot"> · </span>}
+                          </>
+                        )}
+                        {detailPaper.fieldsOfStudy?.length > 0 && (
+                          <span className="epd-fields">{detailPaper.fieldsOfStudy.join(', ')}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* TLDR */}
+                    {detailPaper.tldr && (
+                      <div className="epd-tldr">
+                        <span className="epd-tldr-badge">TLDR</span>
+                        <p className="epd-tldr-text">{detailPaper.tldr.text}</p>
+                      </div>
+                    )}
+
+                    {/* Abstract */}
+                    {detailPaper.abstract && (
+                      <div className="epd-section">
+                        <h2 className="epd-section-title">Abstract</h2>
+                        <p className="epd-abstract">{detailPaper.abstract}</p>
+                      </div>
+                    )}
+
+                    {/* 操作按钮 */}
+                    <div className="epd-actions">
+                      <button className="epd-action-btn" onClick={() => setShowDetailCiteModal(true)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11M20 10v11M8 21V10M16 21V10"/>
+                        </svg>
+                        Cite
+                      </button>
+                      {detailPaper.externalIds?.DOI && (
+                        <a href={`https://doi.org/${detailPaper.externalIds.DOI}`} target="_blank" rel="noopener noreferrer" className="epd-action-btn">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
+                          </svg>
+                          View Publisher
+                        </a>
+                      )}
+                      {detailPaper.openAccessPdf?.url && (
+                        <a href={detailPaper.openAccessPdf.url} target="_blank" rel="noopener noreferrer" className="epd-action-btn epd-pdf-btn">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                          </svg>
+                          View PDF
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Citations & References Tabs */}
+                    <div className="epd-section epd-citations-refs">
+                      <div className="epd-tabs">
+                        <button className={`epd-tab ${detailActiveTab === 'citations' ? 'active' : ''}`} onClick={() => setDetailActiveTab('citations')}>
+                          Citations <span className="epd-tab-count">{detailPaper.citationCount || 0}</span>
+                        </button>
+                        <button className={`epd-tab ${detailActiveTab === 'references' ? 'active' : ''}`} onClick={() => setDetailActiveTab('references')}>
+                          References <span className="epd-tab-count">{detailPaper.referenceCount || 0}</span>
+                        </button>
+                      </div>
+
+                      <div className="epd-tab-content">
+                        {detailActiveTab === 'citations' && (
+                          <div className="epd-papers-list">
+                            {detailPaper.citations?.length > 0 ? (
+                              detailPaper.citations.map((citation, idx) => (
+                                <div key={citation.paperId || idx} className="epd-paper-item">
+                                  <h3 className="epd-paper-item-title">
+                                    <a href={`/paper/${citation.paperId}`} target="_blank" rel="noopener noreferrer">{citation.title || 'Untitled'}</a>
+                                  </h3>
+                                  <div className="epd-paper-item-meta">
+                                    {citation.authors?.slice(0, 5).map((a, i) => (
+                                      <React.Fragment key={i}>
+                                        <span className="epd-paper-item-author">{a.name}</span>
+                                        {i < Math.min(citation.authors.length - 1, 4) && <span>, </span>}
+                                      </React.Fragment>
+                                    ))}
+                                    {citation.authors?.length > 5 && <span> et al.</span>}
+                                    {citation.venue && <><span className="epd-meta-dot"> · </span><span>{citation.venue}</span></>}
+                                    {citation.year && <><span> </span><span>{citation.year}</span></>}
+                                  </div>
+                                  {citation.tldr && <p className="epd-paper-item-tldr"><span className="epd-tldr-label">TLDR</span> {citation.tldr.text}</p>}
+                                  {citation.abstract && <p className="epd-paper-item-abstract">{citation.abstract}</p>}
+                                </div>
+                              ))
+                            ) : (
+                              <p className="epd-empty-text">暂无引用信息</p>
+                            )}
+                          </div>
+                        )}
+
+                        {detailActiveTab === 'references' && (
+                          <div className="epd-papers-list">
+                            {detailPaper.references?.length > 0 ? (
+                              detailPaper.references.map((reference, idx) => (
+                                <div key={reference.paperId || idx} className="epd-paper-item">
+                                  <h3 className="epd-paper-item-title">
+                                    <a href={`/paper/${reference.paperId}`} target="_blank" rel="noopener noreferrer">{reference.title || 'Untitled'}</a>
+                                  </h3>
+                                  <div className="epd-paper-item-meta">
+                                    {reference.authors?.slice(0, 5).map((a, i) => (
+                                      <React.Fragment key={i}>
+                                        <span className="epd-paper-item-author">{a.name}</span>
+                                        {i < Math.min(reference.authors.length - 1, 4) && <span>, </span>}
+                                      </React.Fragment>
+                                    ))}
+                                    {reference.authors?.length > 5 && <span> et al.</span>}
+                                    {reference.venue && <><span className="epd-meta-dot"> · </span><span>{reference.venue}</span></>}
+                                    {reference.year && <><span> </span><span>{reference.year}</span></>}
+                                  </div>
+                                  {reference.tldr && <p className="epd-paper-item-tldr"><span className="epd-tldr-label">TLDR</span> {reference.tldr.text}</p>}
+                                  {reference.abstract && <p className="epd-paper-item-abstract">{reference.abstract}</p>}
+                                </div>
+                              ))
+                            ) : (
+                              <p className="epd-empty-text">暂无参考文献信息</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : loading ? (
               <PaperListSkeleton />
             ) : papers.length === 0 ? (
               <div className="empty-state">
@@ -1402,6 +1882,41 @@ const SearchResultsPage = () => {
           paper={citePaper}
           onClose={() => setCitePaper(null)}
         />
+      )}
+
+      {/* 论文详情页的引用弹窗 */}
+      {showDetailCiteModal && detailPaper && (
+        <div className="epd-cite-modal-overlay" onClick={() => setShowDetailCiteModal(false)}>
+          <div className="epd-cite-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="epd-cite-modal-header">
+              <h2>Cite Paper</h2>
+              <button className="epd-close-btn" onClick={() => setShowDetailCiteModal(false)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <div className="epd-cite-format-tabs">
+              <button className={detailCitationFormat === 'bibtex' ? 'active' : ''} onClick={() => setDetailCitationFormat('bibtex')}>BibTeX</button>
+              <button className={detailCitationFormat === 'mla' ? 'active' : ''} onClick={() => setDetailCitationFormat('mla')}>MLA</button>
+              <button className={detailCitationFormat === 'apa' ? 'active' : ''} onClick={() => setDetailCitationFormat('apa')}>APA</button>
+              <button className={detailCitationFormat === 'chicago' ? 'active' : ''} onClick={() => setDetailCitationFormat('chicago')}>Chicago</button>
+            </div>
+            <div className="epd-cite-content">
+              <pre className={detailCitationFormat === 'bibtex' ? 'bibtex' : ''} dangerouslySetInnerHTML={{ __html: generateDetailCitation(detailCitationFormat) }} />
+            </div>
+            <div className="epd-cite-modal-footer">
+              <button className={`epd-copy-cite-btn ${detailCopied ? 'copied' : ''}`} onClick={copyDetailCitation}>
+                {detailCopied ? (
+                  <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!</>
+                ) : (
+                  <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 表格视图引导弹窗 */}

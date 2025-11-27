@@ -500,3 +500,33 @@ func (c *Client) GetAuthorPapers(authorID string, fields []string, offset, limit
 
 	return &result, nil
 }
+
+// PaperAutocomplete returns paper title suggestions based on partial query
+// API: GET /paper/autocomplete?query=xxx
+func (c *Client) PaperAutocomplete(query string) (*AutocompleteResponse, error) {
+	if query == "" {
+		return nil, fmt.Errorf("query is required")
+	}
+
+	// Build query parameters
+	params := map[string]string{
+		"query": query,
+	}
+
+	// Build URL
+	urlStr := c.baseURL + "/paper/autocomplete" + buildQueryString(params)
+
+	// Perform request
+	resp, err := c.doRequest("GET", urlStr, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse response
+	var result AutocompleteResponse
+	if err := unmarshalResponse(resp, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}

@@ -1,0 +1,575 @@
+/* 侧边栏内容区域 */
+.app-sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 8px;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
+.app-sidebar-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.app-sidebar-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.app-sidebar-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.app-sidebar-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* 侧边栏收起状态下隐藏内容 */
+.app-sidebar.collapsed .app-sidebar-content {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s ease;
+}
+
+/* 侧边栏分区 */
+.sidebar-section {
+  margin-bottom: 24px;
+}
+
+.sidebar-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  padding: 0 8px;
+}
+
+/* 导航分区 */
+.navigation-section {
+  margin-bottom: 16px;
+  padding: 0 10px;
+  transition: none;
+  overflow: visible;
+}
+
+.navigation-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: visible;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px 0 13px;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-secondary);
+  font-size: 15px;
+  font-weight: 400;
+  text-align: left;
+  width: 100%;
+  position: relative;
+  overflow: visible;
+  min-height: 44px;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: var(--text-primary);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transform: translateX(2px);
+}
+
+.nav-item.active {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.25) 0%, 
+    rgba(16, 163, 127, 0.15) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: var(--text-accent);
+  font-weight: 500;
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.3),
+    0 0 0 1px rgba(16, 163, 127, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.15);
+}
+
+.nav-item svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: currentColor;
+  transition: none;
+}
+
+.nav-item span {
+  opacity: 1;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* 侧边栏收起时的导航项样式 */
+.app-sidebar.collapsed .navigation-section {
+  padding: 0 10px;
+}
+
+.app-sidebar.collapsed .nav-item {
+  padding: 0 0 0 13px;
+  gap: 0;
+  width: 44px;
+  height: 44px;
+  justify-content: flex-start;
+  align-items: center;
+  margin-left: 0;
+  transition: all 0.3s ease;
+}
+
+.app-sidebar.collapsed .nav-item span {
+  opacity: 0;
+  width: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, width 0.15s ease 0.15s;
+}
+
+/* 收起状态下导航项的hover效果 - 毛玻璃背景 */
+.app-sidebar.collapsed .nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transform: translateX(0);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* 收起状态下激活项也保持毛玻璃背景 */
+.app-sidebar.collapsed .nav-item.active {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.25) 0%, 
+    rgba(16, 163, 127, 0.15) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.3),
+    0 0 0 1px rgba(16, 163, 127, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.15);
+}
+
+.app-sidebar.collapsed .nav-item.active:hover {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.3) 0%, 
+    rgba(16, 163, 127, 0.2) 100%);
+}
+
+/* 历史记录分区 */
+.history-section {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0 10px;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
+/* 历史记录折叠按钮 */
+.history-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: none;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  width: 100%;
+  text-align: left;
+}
+
+.history-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  user-select: none;
+  flex: 0 0 auto;
+  text-align: left;
+}
+
+.toggle-icon {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  transition: transform 0.2s ease, opacity 0.15s ease;
+  transform: rotate(-90deg);
+  opacity: 0;
+}
+
+.history-toggle:hover .toggle-icon {
+  opacity: 1;
+}
+
+.toggle-icon.expanded {
+  transform: rotate(0deg);
+}
+
+/* 新建聊天/搜索按钮 - Glassmorphism */
+.btn-new-chat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  text-align: left;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.btn-new-chat:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.btn-new-chat svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+}
+
+.btn-new-chat span {
+  flex: 1;
+  white-space: nowrap;
+}
+
+/* 历史记录列表 */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.history-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.history-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.history-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.history-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.history-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+  width: calc(100% - 4px);
+  margin-bottom: 0px;
+}
+
+.history-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transform: translateX(2px);
+}
+
+.history-item.active {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.25) 0%, 
+    rgba(16, 163, 127, 0.15) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.3),
+    0 0 0 1px rgba(16, 163, 127, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.15);
+}
+
+.history-item.active .history-item-title {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* 当菜单打开时，保持该历史项的hover状态 */
+.history-item.menu-open {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.history-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.history-item-title {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+  transition: color 0.15s ease;
+}
+
+
+/* 历史项编辑输入框 */
+.history-item-edit-input {
+  width: 100%;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 400;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.history-item-edit-input:focus {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #10a37f;
+  box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.2);
+}
+
+.btn-history-menu {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: rgba(236, 236, 241, 0.5);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s ease;
+}
+
+.history-item:hover .btn-history-menu {
+  opacity: 1;
+}
+
+/* 当菜单打开时，三个点按钮也保持可见 */
+.history-item.menu-open .btn-history-menu {
+  opacity: 1;
+}
+
+.btn-history-menu:hover {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: rgba(236, 236, 241, 0.95);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.btn-history-menu svg {
+  font-size: 14px;
+}
+
+/* 历史记录菜单弹窗 */
+.history-menu-popup {
+  background: rgba(47, 47, 47, 0.9);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 6px;
+  min-width: 160px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: menuFadeIn 0.15s ease;
+}
+
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.history-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+}
+
+.history-menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transform: translateX(2px);
+}
+
+.history-menu-item svg {
+  flex-shrink: 0;
+  color: currentColor;
+}
+
+.history-menu-item span {
+  flex: 1;
+}
+
+.history-menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 4px 0;
+}
+
+.history-menu-item.delete-item {
+  color: rgba(255, 99, 99, 0.95);
+}
+
+.history-menu-item.delete-item:hover {
+  background: linear-gradient(135deg, 
+    rgba(255, 99, 99, 0.2) 0%, 
+    rgba(255, 99, 99, 0.12) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: rgba(255, 99, 99, 1);
+  box-shadow: 
+    0 1px 3px rgba(255, 99, 99, 0.2),
+    0 0 0 1px rgba(255, 99, 99, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* 加载状态 */
+.history-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+/* Tooltip 样式 - 在右侧显示 */
+.sidebar-tooltip {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: #FFFFFF;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10000;
+  box-shadow: 
+    0 6px 24px rgba(0, 0, 0, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.15);
+  animation: tooltipFadeIn 0.15s ease;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+/* 确保相对定位的父元素 */
+.sidebar-logo,
+.nav-item,
+.sidebar-user-info {
+  position: relative;
+}
+

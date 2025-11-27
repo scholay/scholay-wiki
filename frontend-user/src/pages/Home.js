@@ -7,11 +7,12 @@ import SearchFilters from '../components/SearchFilters';
 import ModelSelector from '../components/ModelSelector';
 import ThemeToggle from '../components/ThemeToggle';
 import MobileHelpModal from '../components/MobileHelpModal';
+import SearchSuggestions from '../components/SearchSuggestions';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import SEO from '../components/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
 import { HelpCircle } from 'lucide-react';
-import './Home.css';
+import './styles/home/index.css';
 
 // 懒加载 AuthModal - 只在需要时加载
 const AuthModal = lazy(() => import('../components/AuthModal'));
@@ -55,7 +56,9 @@ const Home = () => {
     venue: '',
   });
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false); // 搜索建议下拉框
   const textareaRef = useRef(null);
+  const composerRef = useRef(null); // 用于定位搜索建议下拉框
   const lastTypingDelayRef = useRef(90);
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
 
@@ -177,6 +180,26 @@ const Home = () => {
 
   const handleLoginSuccess = () => {
     setShowAuthModal(false);
+  };
+
+  // 处理选择论文建议
+  const handleSelectPaper = (paper) => {
+    // 使用论文标题作为搜索查询
+    setSearchQuery(paper.title);
+    setShowSuggestions(false);
+    // 直接跳转到搜索结果页面
+    const params = new URLSearchParams({ query: paper.title });
+    navigate(`/search-results?${params.toString()}`);
+  };
+
+  // 处理选择作者建议
+  const handleSelectAuthor = (author) => {
+    // 使用作者名字作为搜索查询
+    setSearchQuery(author.name);
+    setShowSuggestions(false);
+    // 直接跳转到搜索结果页面，搜索该作者的论文
+    const params = new URLSearchParams({ query: author.name });
+    navigate(`/search-results?${params.toString()}`);
   };
 
   const handleSearch = async (e) => {
@@ -330,7 +353,7 @@ const Home = () => {
               </a>
             </div>
 
-            <form onSubmit={handleSearch} className="home-composer-wrapper">
+            <form onSubmit={handleSearch} className="home-composer-wrapper" ref={composerRef}>
               {/* 输入区域 */}
               <div className="home-composer-input-area">
                     <textarea
@@ -344,10 +367,22 @@ const Home = () => {
                         // Auto-resize textarea
                         e.target.style.height = 'auto';
                         e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+                        // 学术检索模式下显示搜索建议
+                        if (searchMode === 'normal' && e.target.value.trim().length >= 2) {
+                          setShowSuggestions(true);
+                        } else {
+                          setShowSuggestions(false);
+                        }
                       }}
                       onFocus={() => {
-                        // 移除自动弹窗逻辑，让用户可以正常输入
-                        // 只在智能分析模式下提交时才检查登录
+                        // 学术检索模式下，如果有输入内容则显示搜索建议
+                        if (searchMode === 'normal' && searchQuery.trim().length >= 2) {
+                          setShowSuggestions(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        // 延迟关闭，以便点击建议项时不会立即关闭
+                        setTimeout(() => setShowSuggestions(false), 200);
                       }}
                       onCompositionStart={() => setIsComposing(true)}
                       onCompositionEnd={() => setIsComposing(false)}
@@ -356,9 +391,14 @@ const Home = () => {
                         // 但要避免在输入法输入过程中触发提交
                         if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
                           e.preventDefault();
+                          setShowSuggestions(false);
                           if (searchQuery.trim()) {
                             handleSearch(e);
                           }
+                        }
+                        // Escape 关闭搜索建议
+                        if (e.key === 'Escape') {
+                          setShowSuggestions(false);
                         }
                       }}
                       rows={1}
@@ -369,6 +409,19 @@ const Home = () => {
                       </svg>
                     </button>
                   </div>
+
+              {/* 搜索建议下拉框 - 仅在学术检索模式下显示，首页隐藏 loading */}
+              {searchMode === 'normal' && (
+                <SearchSuggestions
+                  query={searchQuery}
+                  onSelectPaper={handleSelectPaper}
+                  onSelectAuthor={handleSelectAuthor}
+                  onClose={() => setShowSuggestions(false)}
+                  visible={showSuggestions}
+                  inputRef={textareaRef}
+                  hideLoading={true}
+                />
+              )}
 
                   {/* 底部操作栏 */}
                   <div className="home-composer-footer">

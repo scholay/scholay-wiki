@@ -196,6 +196,17 @@ export const publicScholarAPI = {
   // Public analysis dimensions (获取系统默认分析维度 - 不需要登录)
   getSystemDimensions: () =>
     publicApi.get('/analysis/dimensions'),
+
+  // Public search suggestions (搜索建议 - 论文标题自动补全 + 作者搜索)
+  // 并行请求 paper autocomplete 和 author search API
+  getSearchSuggestions: (query, paperLimit = 5, authorLimit = 5) =>
+    publicApi.get('/search/suggestions', { 
+      params: { query, paperLimit, authorLimit } 
+    }),
+
+  // Public paper autocomplete (论文标题自动补全 - 不需要登录)
+  getPaperAutocomplete: (query) =>
+    publicApi.get('/papers/autocomplete', { params: { query } }),
 };
 
 // 分析维度API - 需要认证

@@ -413,3 +413,135 @@ func (m *Manager) GetRecommendations(opts RecommendationsOptions) (*Recommendati
 
 	return result.(*RecommendationsResponse), nil
 }
+
+// PaperAutocomplete returns paper title suggestions with key rotation and circuit breaker protection
+func (m *Manager) PaperAutocomplete(query string) (*AutocompleteResponse, error) {
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
+		client, err := m.GetClient()
+		if err != nil {
+			return nil, err
+		}
+
+		result, err := client.PaperAutocomplete(query)
+		if err != nil {
+			errStr := err.Error()
+
+			// If rate limited (429), try to fall back to free tier
+			if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
+				fmt.Printf("[Manager] API key rate limited for PaperAutocomplete, falling back to free tier\n")
+				freeClient := NewClient("")
+				result, freeErr := freeClient.PaperAutocomplete(query)
+				if freeErr != nil {
+					return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable")
+				}
+				return result, nil
+			}
+
+			// If error contains "403" or "Forbidden", try without API key
+			if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
+				fmt.Printf("[Manager] API key forbidden/error for PaperAutocomplete, falling back to free tier\n")
+				freeClient := NewClient("")
+				return freeClient.PaperAutocomplete(query)
+			}
+
+			return nil, err
+		}
+
+		return result, nil
+	})
+
+	if err != nil {
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			return nil, fmt.Errorf("Semantic Scholar service temporarily unavailable (circuit breaker open): %w", err)
+		}
+		return nil, err
+	}
+
+	return result.(*AutocompleteResponse), nil
+}
+
+// GetSearchSuggestions returns combined paper and author suggestions by querying both APIs in parallel
+func (m *Manager) GetSearchSuggestions(query string, paperLimit, authorLimit int) (*SearchSuggestionsResponse, error) {
+	if query == "" {
+		return nil, fmt.Errorf("query is required")
+	}
+
+	// Set default limits
+	if paperLimit <= 0 {
+		paperLimit = 5
+	}
+	if authorLimit <= 0 {
+		authorLimit = 5
+	}
+
+	// Create channels for parallel requests
+	type paperResult struct {
+		data *AutocompleteResponse
+		err  error
+	}
+	type authorResult struct {
+		data *AuthorSearchResponse
+		err  error
+	}
+
+	paperChan := make(chan paperResult, 1)
+	authorChan := make(chan authorResult, 1)
+
+	// Fetch paper autocomplete in parallel
+	go func() {
+		result, err := m.PaperAutocomplete(query)
+		paperChan <- paperResult{data: result, err: err}
+	}()
+
+	// Fetch author search in parallel
+	go func() {
+		opts := AuthorSearchOptions{
+			Query:  query,
+			Limit:  authorLimit,
+			Offset: 0,
+		}
+		result, err := m.SearchAuthors(opts)
+		authorChan <- authorResult{data: result, err: err}
+	}()
+
+	// Wait for both results
+	paperRes := <-paperChan
+	authorRes := <-authorChan
+
+	// Build response
+	response := &SearchSuggestionsResponse{
+		Papers:  []AutocompleteMatch{},
+		Authors: []Author{},
+	}
+
+	// Process paper results (even if there's an error, we continue with author results)
+	if paperRes.err == nil && paperRes.data != nil {
+		// Limit the number of paper suggestions
+		count := len(paperRes.data.Matches)
+		if count > paperLimit {
+			count = paperLimit
+		}
+		response.Papers = paperRes.data.Matches[:count]
+	} else if paperRes.err != nil {
+		fmt.Printf("[Manager] Paper autocomplete failed: %v\n", paperRes.err)
+	}
+
+	// Process author results
+	if authorRes.err == nil && authorRes.data != nil {
+		// Limit the number of author suggestions
+		count := len(authorRes.data.Data)
+		if count > authorLimit {
+			count = authorLimit
+		}
+		response.Authors = authorRes.data.Data[:count]
+	} else if authorRes.err != nil {
+		fmt.Printf("[Manager] Author search failed: %v\n", authorRes.err)
+	}
+
+	// If both failed, return an error
+	if paperRes.err != nil && authorRes.err != nil {
+		return nil, fmt.Errorf("both paper and author search failed: paper: %v, author: %v", paperRes.err, authorRes.err)
+	}
+
+	return response, nil
+}

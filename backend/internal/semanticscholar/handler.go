@@ -447,3 +447,63 @@ func parseIntQuery(c *gin.Context, key string, defaultValue int) int {
 	}
 	return defaultValue
 }
+
+// GetSearchSuggestions handles search suggestions requests (paper autocomplete + author search)
+// GET /api/v1/public/search/suggestions?query=xxx&paperLimit=5&authorLimit=5
+func (h *Handler) GetSearchSuggestions(c *gin.Context) {
+	query := c.Query("query")
+	if query == "" {
+		utils.Error(c, 4023, "Query parameter is required")
+		return
+	}
+
+	// Validate query length (max 100 characters as per Semantic Scholar API)
+	if len(query) > 100 {
+		query = query[:100]
+	}
+
+	// Parse optional limits
+	paperLimit := parseIntQuery(c, "paperLimit", 5)
+	authorLimit := parseIntQuery(c, "authorLimit", 5)
+
+	// Enforce reasonable limits
+	if paperLimit > 10 {
+		paperLimit = 10
+	}
+	if authorLimit > 10 {
+		authorLimit = 10
+	}
+
+	// Call manager to get combined suggestions
+	result, err := h.manager.GetSearchSuggestions(query, paperLimit, authorLimit)
+	if err != nil {
+		utils.Error(c, 4024, "Failed to get search suggestions: "+err.Error())
+		return
+	}
+
+	utils.Success(c, result)
+}
+
+// PaperAutocomplete handles paper autocomplete requests
+// GET /api/v1/public/papers/autocomplete?query=xxx
+func (h *Handler) PaperAutocomplete(c *gin.Context) {
+	query := c.Query("query")
+	if query == "" {
+		utils.Error(c, 4025, "Query parameter is required")
+		return
+	}
+
+	// Validate query length (max 100 characters as per Semantic Scholar API)
+	if len(query) > 100 {
+		query = query[:100]
+	}
+
+	// Call manager to get paper autocomplete
+	result, err := h.manager.PaperAutocomplete(query)
+	if err != nil {
+		utils.Error(c, 4026, "Failed to get paper autocomplete: "+err.Error())
+		return
+	}
+
+	utils.Success(c, result)
+}

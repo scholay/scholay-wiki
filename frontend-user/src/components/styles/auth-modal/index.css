@@ -1,0 +1,19 @@
+/* AuthModal 组件样式模块索引
+ * 
+ * 模块说明:
+ * - base.css: 基础布局、覆盖层、弹窗容器
+ * - form.css: 表单、输入框、按钮
+ * - policy.css: 政策弹窗、滚动条
+ * - email.css: 邮箱登录、验证码
+ * - social.css: 社交登录按钮（微信、GitHub）
+ * - animation.css: 动画效果
+ * - light-theme.css: 日间模式样式
+ */
+
+@import './base.css';
+@import './form.css';
+@import './policy.css';
+@import './email.css';
+@import './social.css';
+@import './animation.css';
+@import './light-theme.css';

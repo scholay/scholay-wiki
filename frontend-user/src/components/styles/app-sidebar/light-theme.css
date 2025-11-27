@@ -1,0 +1,398 @@
+/* ==================== 日间模式样式 ==================== */
+
+/* 用户菜单弹窗 - 只修改颜色 */
+[data-theme="light"] .user-menu-popup {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+[data-theme="light"] .user-menu-header {
+  background: var(--surface-light);
+  border-bottom: 1px solid var(--border);
+}
+
+[data-theme="light"] .user-menu-divider {
+  background: var(--border);
+}
+
+[data-theme="light"] .user-menu-item:hover {
+  background: var(--surface-hover);
+}
+
+[data-theme="light"] .user-menu-item.logout-item:hover {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--text-error);
+}
+
+/* 导航项 - 只修改颜色，保持原有结构 */
+[data-theme="light"] .nav-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .nav-item.active {
+  background: rgba(16, 163, 127, 0.08);
+  color: var(--text-accent);
+}
+
+/* 收起按钮和Logo - 只修改颜色 */
+[data-theme="light"] .sidebar-collapse-btn {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .sidebar-collapse-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .app-sidebar.collapsed .sidebar-logo:hover {
+  background: var(--surface-hover);
+}
+
+[data-theme="light"] .sidebar-logo.collapsed-logo svg {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .sidebar-logo.collapsed-logo:hover svg {
+  color: var(--text-primary);
+}
+
+/* Logo图片 - 日间模式反色 */
+[data-theme="light"] .sidebar-logo img {
+  filter: invert(1) brightness(0.3) sepia(1) saturate(10) hue-rotate(140deg);
+}
+
+/* 用户信息区域 - 只修改颜色 */
+[data-theme="light"] .sidebar-user-section.sidebar-footer {
+  border-top: 1px solid var(--border);
+}
+
+[data-theme="light"] .app-sidebar:not(.collapsed) .sidebar-user-info:hover,
+[data-theme="light"] .app-sidebar.collapsed .sidebar-user-info:hover {
+  background: var(--surface-hover);
+}
+
+/* 新建按钮 - 只修改颜色 */
+[data-theme="light"] .btn-new-chat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+[data-theme="light"] .btn-new-chat:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+}
+
+/* 历史项 - 只修改颜色，保持原有结构 */
+[data-theme="light"] .history-item:hover {
+  background: var(--surface-hover);
+}
+
+[data-theme="light"] .history-item.active {
+  background: rgba(16, 163, 127, 0.08);
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .history-item.active .history-item-title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .history-item.menu-open {
+  background: var(--surface-hover);
+}
+
+/* 历史项编辑输入框 */
+[data-theme="light"] .history-item-edit-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .history-item-edit-input:focus {
+  background: var(--surface);
+  border-color: var(--text-accent);
+  box-shadow: var(--glow);
+}
+
+/* 历史菜单按钮 - 只修改颜色 */
+[data-theme="light"] .btn-history-menu {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .btn-history-menu:hover {
+  background: var(--surface-light);
+  color: var(--text-primary);
+}
+
+/* 历史记录菜单弹窗 - 只修改颜色 */
+[data-theme="light"] .history-menu-popup {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+[data-theme="light"] .history-menu-item:hover {
+  background: var(--surface-hover);
+}
+
+[data-theme="light"] .history-menu-divider {
+  background: var(--border);
+}
+
+[data-theme="light"] .history-menu-item.delete-item:hover {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--text-error);
+}
+
+/* Tooltip */
+[data-theme="light"] .sidebar-tooltip {
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-md);
+}
+
+/* 删除确认弹窗 - 只修改颜色 */
+[data-theme="light"] .delete-confirm-overlay {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .delete-confirm-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+[data-theme="light"] .btn-cancel {
+  background: var(--surface-light);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .btn-cancel:hover {
+  background: var(--surface-hover);
+}
+
+/* 滚动条 */
+[data-theme="light"] .app-sidebar-content::-webkit-scrollbar-track,
+[data-theme="light"] .history-list::-webkit-scrollbar-track {
+  background: var(--surface-light);
+}
+
+[data-theme="light"] .app-sidebar-content::-webkit-scrollbar-thumb,
+[data-theme="light"] .history-list::-webkit-scrollbar-thumb {
+  background: var(--border-hover);
+}
+
+[data-theme="light"] .app-sidebar-content::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .history-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-quaternary);
+}
+
+/* 登录按钮样式 */
+.sidebar-login-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  margin: 4px 8px;
+  width: calc(100% - 16px);
+}
+
+.sidebar-login-btn:hover {
+  background: var(--surface-hover);
+}
+
+.sidebar-login-btn .login-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.sidebar-login-btn .login-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 折叠状态下的登录按钮 */
+.app-sidebar.collapsed .sidebar-login-btn {
+  padding: 12px;
+  justify-content: center;
+  margin: 4px;
+  width: calc(100% - 8px);
+}
+
+.app-sidebar.collapsed .sidebar-login-btn .login-text {
+  display: none;
+}
+
+/* 暗色主题下的登录按钮 */
+[data-theme="dark"] .sidebar-login-btn {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .sidebar-login-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* 亮色主题下的登录按钮 */
+[data-theme="light"] .sidebar-login-btn {
+  color: var(--text-primary);
+}
+
+/* 用户菜单底部操作区域 */
+.user-menu-bottom-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* 用户菜单中的主题切换器 */
+.user-menu-theme-toggle-wrapper {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* 退出按钮 */
+.user-menu-bottom-btn.logout-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.user-menu-bottom-btn.logout-btn:hover {
+  background: var(--surface-hover);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.user-menu-bottom-btn.logout-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* 日间模式 */
+[data-theme="light"] .user-menu-bottom-actions {
+  border-top-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .user-menu-bottom-btn.logout-btn {
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #6b7280;
+}
+
+[data-theme="light"] .user-menu-bottom-btn.logout-btn:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+[data-theme="light"] .sidebar-login-btn:hover {
+  background: var(--surface-hover);
+}
+
+/* ============================================
+   移动端用户菜单弹窗适配
+   ============================================ */
+@media (max-width: 768px) {
+  /* 移动端用户菜单 - 底部弹出样式 */
+  .user-menu-popup {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    margin: 0 !important;
+    max-height: 70vh;
+    overflow-y: auto;
+    animation: slideUpMobile 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes slideUpMobile {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* 移动端用户菜单头部 */
+  .user-menu-header {
+    padding: 20px 20px 16px;
+  }
+
+  /* 移动端头像稍大一点 */
+  .user-avatar-large {
+    width: 52px;
+    height: 52px;
+  }
+
+  .user-avatar-large span {
+    font-size: 20px;
+  }
+
+  /* 移动端用户信息 */
+  .user-info-section h4 {
+    font-size: 17px;
+  }
+
+  /* 移动端菜单选项 */
+  .user-menu-options {
+    padding: 8px 12px;
+  }
+
+  .user-menu-item {
+    padding: 14px 16px;
+    font-size: 15px;
+    border-radius: 12px;
+  }
+
+  .user-menu-item svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* 移动端底部操作区域 */
+  .user-menu-bottom-actions {
+    padding: 16px 20px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .user-menu-bottom-btn.logout-btn {
+    padding: 14px 20px;
+    font-size: 15px;
+    border-radius: 12px;
+  }
+}

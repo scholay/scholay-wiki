@@ -1,0 +1,126 @@
+/* ============================================
+   Auth Modal - Dark Theme with Accent Colors
+   ============================================ */
+
+.auth-modal-overlay {
+  --auth-primary: var(--text-accent);
+  --auth-primary-strong: #1ed79f;
+  --auth-primary-dark: #0d755a;
+  --auth-surface: rgba(20, 20, 20, 0.94);
+  --auth-border: rgba(255, 255, 255, 0.08);
+  --auth-text: var(--text-primary);
+  --auth-text-muted: var(--text-secondary);
+  --auth-shadow: 0 32px 80px rgba(0, 0, 0, 0.75);
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(12px, 3vw, 32px);
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.auth-modal-container {
+  position: relative;
+  width: min(460px, 100%);
+  max-height: min(640px, 90vh);
+  background: var(--auth-surface);
+  border: 1px solid var(--auth-border);
+  border-radius: 28px;
+  box-shadow: var(--auth-shadow);
+  animation: slideUp 0.3s ease-out;
+  overflow: hidden;
+}
+
+.auth-modal-body {
+  padding: 20px clamp(28px, 6vw, 36px) 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-height: inherit;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.auth-modal-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #b1b5bd;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.auth-modal-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-accent);
+  transform: rotate(90deg);
+}
+
+.auth-content {
+  padding: 0 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  text-align: center;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.auth-back {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #b1b5bd;
+  transition: all 0.2s;
+}
+
+.auth-back:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgb(16, 163, 127);
+  transform: translateX(-3px);
+}
+

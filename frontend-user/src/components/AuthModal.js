@@ -5,7 +5,7 @@ import TurnstileCaptcha from './TurnstileCaptcha';
 import { useToast } from './ToastContainer';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import './AuthModal.css';
+import './styles/auth-modal/index.css';
 
 const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const { login } = useAuth();

@@ -1,0 +1,247 @@
+/* ============================================
+   日间模式样式
+   ============================================ */
+
+[data-theme="light"] .empty-state {
+  background: transparent;
+}
+
+[data-theme="light"] .empty-state-icon {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+[data-theme="light"] .empty-state-icon svg {
+  color: rgba(99, 102, 241, 0.7);
+}
+
+/* ============================================
+   搜索结果页面日间模式颜色优化
+   ============================================ */
+
+/* AI翻译提示 */
+[data-theme="light"] .search-translation-hint {
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+[data-theme="light"] .search-translation-hint .hint-text {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .search-translation-hint .hint-query-original {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .search-translation-hint .hint-query-translated {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .search-translation-hint .hint-action-btn {
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .search-translation-hint .hint-action-btn:hover {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+/* 筛选标签 */
+[data-theme="light"] .filter-tag {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .filter-tag-year {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.1);
+}
+
+[data-theme="light"] .filter-tag-openAccess {
+  color: var(--text-accent);
+  background: rgba(16, 163, 127, 0.1);
+}
+
+[data-theme="light"] .filter-tag-field {
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.1);
+}
+
+[data-theme="light"] .filter-tag-pubType {
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.1);
+}
+
+[data-theme="light"] .filter-tag-venue {
+  color: #db2777;
+  background: rgba(219, 39, 119, 0.1);
+}
+
+/* 清除全部按钮 */
+[data-theme="light"] .clear-all-filters {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .clear-all-filters:hover {
+  color: var(--text-primary);
+}
+
+/* 结果信息 */
+[data-theme="light"] .results-info {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .results-info strong {
+  color: var(--text-primary);
+}
+
+/* 论文卡片中的作者标签 */
+[data-theme="light"] .author-tag {
+  background: #e8f4fd;
+  color: #1e40af;
+  font-weight: 500;
+  border: 1px solid rgba(30, 64, 175, 0.15);
+}
+
+[data-theme="light"] .author-tag.author-more {
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  font-weight: 400;
+}
+
+/* 研究领域 */
+[data-theme="light"] .search-result-paper-fields {
+  color: var(--text-tertiary);
+}
+
+/* 期刊/会议和日期 */
+[data-theme="light"] .search-result-paper-venue-date {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .search-result-venue-name {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .pub-date {
+  color: var(--text-tertiary);
+}
+
+/* TLDR标签和文字 */
+[data-theme="light"] .tldr-label {
+  color: #10a37f;
+  background: rgba(16, 163, 127, 0.12);
+  font-weight: 600;
+}
+
+[data-theme="light"] .tldr-text {
+  color: var(--text-secondary);
+}
+
+/* Abstract标签和文字 */
+[data-theme="light"] .abstract-label {
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.1);
+  font-weight: 600;
+}
+
+[data-theme="light"] .abstract-text {
+  color: var(--text-secondary);
+}
+
+/* 展开按钮 */
+[data-theme="light"] .expand-btn {
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .expand-btn:hover {
+  color: #0d8c6c;
+}
+
+/* 论文期刊链接 */
+[data-theme="light"] .search-result-paper-venue a {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .search-result-paper-venue a:hover {
+  color: var(--text-primary);
+}
+
+/* TLDR标签（重复定义） */
+[data-theme="light"] .search-result-paper-tldr-label {
+  color: var(--text-secondary);
+  background: var(--surface-hover);
+}
+
+/* 论文摘要文字 */
+[data-theme="light"] .search-result-paper-abstract {
+  color: var(--text-secondary);
+}
+
+/* 展开按钮（重复定义） */
+[data-theme="light"] .search-result-paper-expand {
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .search-result-paper-expand:hover {
+  color: #0d8c6c;
+}
+
+/* 元数据项 */
+[data-theme="light"] .search-result-paper-meta {
+  border-top: none;
+}
+
+[data-theme="light"] .meta-item {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .meta-item.citations {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .citation-number {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .citation-label {
+  color: var(--text-tertiary);
+}
+
+/* 竖线分隔符 */
+[data-theme="light"] .meta-divider {
+  background: var(--border);
+}
+
+/* DOI链接 */
+[data-theme="light"] .search-result-paper-doi-link {
+  background: rgba(16, 163, 127, 0.1);
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .search-result-paper-doi-link:hover {
+  background: rgba(16, 163, 127, 0.15);
+}
+
+/* PDF链接 */
+[data-theme="light"] a.meta-item.pdf-link {
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+}
+
+[data-theme="light"] a.meta-item.pdf-link:hover {
+  background: rgba(37, 99, 235, 0.15);
+}
+
+/* Cite按钮 */
+[data-theme="light"] .search-result-paper-cite-btn {
+  background: rgba(124, 58, 237, 0.1);
+  color: #7c3aed;
+}
+
+[data-theme="light"] .search-result-paper-cite-btn:hover {
+  background: rgba(124, 58, 237, 0.15);
+}
+

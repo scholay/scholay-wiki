@@ -1,0 +1,543 @@
+/* ===== 表格视图右侧列配置面板 ===== */
+.table-column-panel-wrapper {
+  flex-shrink: 0;
+  height: 100%;
+  background: var(--background);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+[data-theme="light"] .table-column-panel-wrapper {
+  border-left-color: rgba(0, 0, 0, 0.08);
+}
+
+/* ===== 内嵌论文详情视图 (epd-) ===== */
+.epd-container {
+  padding: 20px 28px;
+  max-width: 100%;
+}
+
+.epd-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #4A90D9;
+  font-size: 13px;
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+
+.epd-back-btn:hover {
+  background: rgba(74, 144, 217, 0.1);
+}
+
+[data-theme="light"] .epd-back-btn {
+  color: #1e40af;
+}
+
+.epd-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 20px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.epd-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #4A90D9;
+  border-radius: 50%;
+  animation: epd-spin 0.8s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes epd-spin {
+  to { transform: rotate(360deg); }
+}
+
+.epd-title {
+  font-size: 22px;
+  font-weight: 500;
+  color: #4A90D9;
+  margin: 0 0 12px 0;
+  line-height: 1.35;
+}
+
+[data-theme="light"] .epd-title {
+  color: #1e40af;
+  font-weight: 600;
+}
+
+.epd-meta-ids {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.epd-meta-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.epd-copyable { cursor: pointer; }
+.epd-copyable:hover { color: rgba(255, 255, 255, 0.7); }
+
+.epd-copy-btn {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.6;
+}
+
+.epd-meta-dot { color: rgba(255, 255, 255, 0.3); }
+
+.epd-pub-meta {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.epd-author { color: rgba(255, 255, 255, 0.8); }
+
+.epd-tldr {
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.epd-tldr-badge, .epd-tldr-label {
+  display: inline;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 5px;
+  border-radius: 2px;
+  margin-right: 6px;
+}
+
+.epd-tldr-text {
+  display: inline;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.epd-section { margin-bottom: 16px; }
+
+.epd-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.epd-abstract {
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.epd-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.epd-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.epd-action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.epd-pdf-btn {
+  background: rgba(74, 144, 217, 0.15);
+  border-color: rgba(74, 144, 217, 0.3);
+  color: #4A90D9;
+}
+
+.epd-tabs {
+  display: flex;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.epd-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.epd-tab:hover { color: rgba(255, 255, 255, 0.8); }
+
+.epd-tab.active {
+  color: #4A90D9;
+  border-bottom-color: #4A90D9;
+}
+
+.epd-tab-count {
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.epd-papers-list { display: flex; flex-direction: column; }
+
+.epd-paper-item {
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.epd-paper-item:last-child { border-bottom: none; }
+
+.epd-paper-item-title {
+  font-size: 15px;
+  font-weight: 500;
+  margin: 0 0 6px 0;
+}
+
+.epd-paper-item-title a {
+  color: #4A90D9;
+  text-decoration: none;
+}
+
+.epd-paper-item-title a:hover { text-decoration: underline; }
+
+.epd-paper-item-meta {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 6px;
+}
+
+.epd-paper-item-tldr, .epd-paper-item-abstract {
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0;
+}
+
+.epd-empty-text {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 40px;
+}
+
+.epd-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 20px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.epd-retry-btn {
+  margin-top: 16px;
+  padding: 8px 16px;
+  background: #4A90D9;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* 引用弹窗 */
+.epd-cite-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.epd-cite-modal {
+  background: #1e1e1e;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow: hidden;
+}
+
+.epd-cite-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.epd-cite-modal-header h2 {
+  margin: 0;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.epd-close-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+}
+
+.epd-cite-format-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.epd-cite-format-tabs button {
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.epd-cite-format-tabs button.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.epd-cite-content {
+  padding: 16px 20px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.epd-cite-content pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: monospace;
+}
+
+.epd-cite-modal-footer {
+  padding: 12px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.epd-copy-cite-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #4A90D9;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.epd-copy-cite-btn.copied {
+  background: #10a37f;
+}
+
+/* ===== 内嵌论文详情 - 日间模式 ===== */
+[data-theme="light"] .epd-back-btn:hover {
+  background: rgba(30, 64, 175, 0.08);
+}
+
+[data-theme="light"] .epd-loading {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .epd-loading-spinner {
+  border-color: rgba(0, 0, 0, 0.1);
+  border-top-color: #1e40af;
+}
+
+[data-theme="light"] .epd-meta-ids {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .epd-copyable:hover {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="light"] .epd-meta-dot {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .epd-pub-meta {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .epd-author {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .epd-tldr-badge,
+[data-theme="light"] .epd-tldr-label {
+  color: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .epd-tldr-text {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .epd-section-title {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="light"] .epd-abstract {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="light"] .epd-actions {
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .epd-action-btn {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="light"] .epd-action-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .epd-pdf-btn {
+  background: rgba(30, 64, 175, 0.08);
+  border-color: rgba(30, 64, 175, 0.2);
+  color: #1e40af;
+}
+
+[data-theme="light"] .epd-pdf-btn:hover {
+  background: rgba(30, 64, 175, 0.15);
+}
+
+[data-theme="light"] .epd-tabs {
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .epd-tab {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .epd-tab:hover {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .epd-tab.active {
+  color: #1e40af;
+  border-bottom-color: #1e40af;
+}
+
+[data-theme="light"] .epd-tab-count {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .epd-tab.active .epd-tab-count {
+  background: rgba(30, 64, 175, 0.12);
+}
+
+[data-theme="light"] .epd-paper-item {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .epd-paper-item-title a {
+  color: #1e40af;
+}
+
+[data-theme="light"] .epd-paper-item-title a:hover {
+  color: #2563eb;
+}
+
+[data-theme="light"] .epd-paper-item-meta {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="light"] .epd-paper-item-tldr,
+[data-theme="light"] .epd-paper-item-abstract {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+[data-theme="light"] .epd-empty-text {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .epd-error {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .epd-cite-modal {
+  background: #fff;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .epd-cite-modal-header {
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .epd-cite-modal-header h2 {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .epd-close-btn {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .epd-cite-format-tabs {
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .epd-cite-format-tabs button {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .epd-cite-format-tabs button.active {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .epd-cite-content pre {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .epd-cite-modal-footer {
+  border-top-color: rgba(0, 0, 0, 0.1);
+}

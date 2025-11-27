@@ -1,0 +1,419 @@
+.search-results-page {
+  height: 100vh;
+  display: flex;
+  background: var(--background);
+  position: relative;
+}
+
+/* 主内容区域 - 适应侧边栏 */
+.search-results-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left 0.3s ease;
+}
+
+.search-results-content.no-sidebar {
+  margin-left: 0;
+}
+
+.search-results-content.sidebar-expanded {
+  margin-left: 280px;
+}
+
+.search-results-content.sidebar-collapsed {
+  margin-left: 64px;
+}
+
+@media (max-width: 1024px) {
+  .search-results-content.sidebar-expanded {
+    margin-left: 240px;
+  }
+}
+
+@media (max-width: 768px) {
+  .search-results-content.sidebar-expanded,
+  .search-results-content.sidebar-collapsed {
+    margin-left: 0;
+  }
+}
+
+/* 顶部导航栏 - ChatGPT dark theme */
+.results-navbar {
+  background: transparent;
+  border-bottom: none;
+  box-shadow: none;
+  z-index: 10;
+}
+
+/* 日间模式导航栏 */
+[data-theme="light"] .results-navbar {
+  background: transparent;
+  border-bottom: none;
+  box-shadow: none;
+}
+
+.navbar-content {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  max-width: 1920px;
+  margin: 0 auto;
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.navbar-search-form {
+  flex: 1;
+  max-width: 720px;
+}
+
+.search-input-group {
+  display: flex;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  transition: all 0.15s ease;
+}
+
+.search-input-group:focus-within {
+  background: var(--surface-light);
+  border-color: var(--text-quaternary);
+  box-shadow: none;
+}
+
+.search-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.navbar-search-input {
+  flex: 1;
+  border: none;
+  background: none;
+  font-size: 15px;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.navbar-search-input::placeholder {
+  color: var(--text-quaternary);
+}
+
+.filter-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 400;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  margin-right: 8px;
+  position: relative;
+  width: 42px;
+  height: 34px;
+}
+
+.filter-toggle-btn .filter-icon,
+.filter-toggle-btn .clear-icon {
+  position: absolute;
+  transition: all 0.2s ease;
+}
+
+.filter-toggle-btn .clear-icon {
+  opacity: 0;
+  transform: scale(0.8);
+  pointer-events: none;
+}
+
+.filter-toggle-btn:hover {
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
+.filter-toggle-btn.active {
+  background: var(--surface-light);
+  color: var(--text-primary);
+}
+
+/* Has filters - bright text, no background */
+.filter-toggle-btn.has-filters {
+  background: transparent;
+  color: rgb(25, 195, 125);
+}
+
+/* When has filters and hovering - show subtle background and X icon */
+.filter-toggle-btn.has-filters:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: rgb(239, 68, 68);
+}
+
+.filter-toggle-btn.has-filters.hovering .filter-icon {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.filter-toggle-btn.has-filters.hovering .clear-icon {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.navbar-search-btn {
+  padding: 8px 20px;
+  background: rgb(25, 195, 125);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.navbar-search-btn:hover:not(:disabled) {
+  background: rgb(19, 171, 107);
+}
+
+.navbar-search-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.navbar-filters-container {
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* 主要内容区 - 三栏布局 */
+.results-main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  position: relative; /* 为绝对定位的resize-handle提供定位参考 */
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s both;
+  background: var(--background);
+}
+
+/* 三栏布局淡入向上动画 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.filter-sidebar-wrapper {
+  width: 280px;
+  max-width: 280px;
+  height: 100%;
+  display: flex;
+  position: relative;
+  transition: width 0.25s ease;
+  flex-shrink: 0;
+}
+
+.filter-sidebar-wrapper.collapsed {
+  width: 36px;
+  max-width: 36px;
+}
+
+.filter-sidebar-wrapper .filter-sidebar {
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.filter-sidebar-wrapper.collapsed .filter-sidebar {
+  transform: translateX(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.filter-sidebar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(25, 195, 125, 0.1);
+  color: rgb(25, 195, 125);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  border: 1px solid rgba(25, 195, 125, 0.2);
+}
+
+.filter-sidebar-toggle:hover {
+  background: rgba(25, 195, 125, 0.15);
+  border-color: rgba(25, 195, 125, 0.3);
+  color: rgb(25, 195, 125);
+}
+
+.filter-sidebar-toggle svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s ease;
+}
+
+.filter-sidebar-toggle.collapsed svg {
+  transform: rotate(180deg);
+}
+
+/* 论文列表容器 - 使用flex自适应 */
+.papers-container {
+  flex: 1 1 0; /* 自动填充剩余空间，但允许收缩 */
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  min-width: 420px; /* 最小宽度确保内容可读 */
+  max-width: 100%; /* 当有预览面板时自动收缩 */
+  width: 0; /* 配合 flex: 1 1 0 防止内容撑大 */
+}
+
+/* 日间模式论文容器背景 */
+[data-theme="light"] .papers-container {
+  background: var(--background);
+}
+
+/* Auto-hide scrollbar when not scrolling */
+.papers-container {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s ease;
+}
+
+.papers-container:hover,
+.papers-container:focus,
+.papers-container:active {
+  scrollbar-color: rgba(255, 255, 255, 0.15) rgba(255, 255, 255, 0.05);
+}
+
+/* Webkit scrollbar styling with auto-hide */
+.papers-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.papers-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.papers-container::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+.papers-container:hover::-webkit-scrollbar-thumb,
+.papers-container:focus::-webkit-scrollbar-thumb,
+.papers-container:active::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.papers-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.papers-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.papers-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.papers-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.papers-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* 日间模式滚动条 */
+[data-theme="light"] .papers-container:hover,
+[data-theme="light"] .papers-container:focus,
+[data-theme="light"] .papers-container:active {
+  scrollbar-color: rgba(0, 0, 0, 0.2) rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .papers-container::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .papers-container:hover::-webkit-scrollbar-thumb,
+[data-theme="light"] .papers-container:focus::-webkit-scrollbar-thumb,
+[data-theme="light"] .papers-container:active::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .papers-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* 加载和空状态 */
+.loading-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  padding: 60px 20px;
+  background: transparent;
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 40px;
+  background: transparent;
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+}
+

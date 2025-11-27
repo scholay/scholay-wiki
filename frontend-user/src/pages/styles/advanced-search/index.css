@@ -1,0 +1,21 @@
+/* AdvancedSearchPage 样式模块索引
+ * 
+ * 模块说明:
+ * - base.css: 基础布局、导航栏、Hero区域
+ * - layout.css: 主内容区域、搜索内容、空状态
+ * - controls.css: 搜索模式切换、问题历史下拉
+ * - results.css: 结果区域、论文列表容器
+ * - messages.css: 消息样式、AI消息、用户消息
+ * - markdown.css: Markdown渲染、代码块、表格
+ * - input.css: 输入框、筛选器按钮
+ * - responsive.css: 响应式/移动端样式
+ */
+
+@import './base.css';
+@import './layout.css';
+@import './controls.css';
+@import './results.css';
+@import './messages.css';
+@import './markdown.css';
+@import './input.css';
+@import './responsive.css';

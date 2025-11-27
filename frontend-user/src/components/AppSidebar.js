@@ -7,7 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useSidebar } from '../contexts/SidebarContext';
 import ThemeToggle from './ThemeToggle';
 import { Menu, X } from 'lucide-react';
-import './AppSidebar.css';
+import './styles/app-sidebar/index.css';
 
 const AppSidebar = ({
   user,

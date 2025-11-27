@@ -1,0 +1,232 @@
+/* 消息容器样式已简化，不再使用问答对容器 */
+
+/* Chat Messages - ChatGPT Style */
+.message {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+  padding: 0.5rem 0;
+}
+
+/* 隐藏头像 */
+.message-avatar {
+  display: none;
+}
+
+.message-content {
+  width: 100%;
+}
+
+/* 用户消息样式 - 更大更明显 */
+.message-user {
+}
+
+.message-user .message-content {
+  position: relative;
+  padding-left: 2.5rem;
+}
+
+/* 用户提问图标 - 柔和蓝色 */
+.message-user .message-content::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='rgba(96, 165, 250, 0.9)'%3E%3Cpath fill-rule='evenodd' d='M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z' clip-rule='evenodd'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  /* 与第一行文字基线对齐 */
+  margin-top: calc((1.5rem * 1.4 - 24px) / 2);
+}
+
+/* 日间模式 - 用户图标 */
+[data-theme="light"] .message-user .message-content::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='rgba(59, 130, 246, 0.85)'%3E%3Cpath fill-rule='evenodd' d='M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z' clip-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+/* AI 助手消息样式 */
+.message-assistant {
+}
+
+.message-assistant .message-content {
+  position: relative;
+  padding-left: 2.5rem;
+}
+
+/* AI回答图标 - 柔和紫色 */
+.message-assistant .message-content::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 24px;
+  height: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='rgba(167, 139, 250, 0.85)'%3E%3Cpath d='M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+/* 日间模式 - AI图标 */
+[data-theme="light"] .message-assistant .message-content::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='rgba(139, 92, 246, 0.8)'%3E%3Cpath d='M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253'/%3E%3C/svg%3E");
+}
+
+.message-user .message-text {
+  font-size: 1.5rem;
+  line-height: 1.4;
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.015em;
+  display: flex;
+  align-items: flex-start;
+  min-height: 24px;
+}
+
+/* 日间模式 - 用户消息文本 - 深黑色，高对比度 */
+[data-theme="light"] .message-user .message-text {
+  color: #000000 !important;
+  font-weight: 700;
+  text-shadow: none;
+}
+
+/* AI 回答样式 - 标准阅读体验 */
+.message-assistant .message-text {
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  color: rgba(209, 213, 219, 0.95);
+  margin-bottom: 0.5rem;
+}
+
+/* 日间模式 - AI助手消息文本 */
+[data-theme="light"] .message-assistant .message-text {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="light"] .message-assistant .message-markdown {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="light"] .message-assistant .message-markdown p {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="light"] .message-assistant .message-markdown h1,
+[data-theme="light"] .message-assistant .message-markdown h2,
+[data-theme="light"] .message-assistant .message-markdown h3 {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .message-assistant .message-markdown code {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .message-assistant .message-markdown pre {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .message-assistant .message-markdown pre code {
+  background: transparent;
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .message-assistant .message-markdown a {
+  color: #10a37f;
+}
+
+[data-theme="light"] .message-assistant .message-markdown blockquote {
+  border-left-color: rgba(0, 0, 0, 0.2);
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.message-assistant .message-markdown {
+  line-height: 1.75;
+}
+
+/* 消息之间的分隔 */
+.message + .message {
+  border-top: 1px solid rgba(148, 163, 184, 0.06);
+}
+
+/* 日间模式 - 消息分隔线 */
+[data-theme="light"] .message + .message {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* AI 思考中 - Skeleton Loading */
+.ai-thinking-skeleton {
+  padding: 0.5rem 0;
+  pointer-events: none;
+}
+
+.ai-thinking-skeleton .message-content {
+  padding-left: 2.5rem;
+}
+
+.skeleton-line {
+  height: 1.2em;
+  background: linear-gradient(
+    90deg,
+    rgba(167, 139, 250, 0.08) 0%,
+    rgba(167, 139, 250, 0.15) 50%,
+    rgba(167, 139, 250, 0.08) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+}
+
+/* 日间模式 - 骨架屏加载效果 */
+[data-theme="light"] .skeleton-line {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.06) 0%,
+    rgba(0, 0, 0, 0.12) 50%,
+    rgba(0, 0, 0, 0.06) 100%
+  );
+}
+
+.skeleton-line:last-child {
+  margin-bottom: 0;
+}
+
+/* 推荐问题 Skeleton Loading - 复用实际样式 */
+.suggested-question-btn.skeleton-loading {
+  pointer-events: none;
+  cursor: default;
+}
+
+.suggested-question-btn.skeleton-loading .question-text {
+  display: block;
+  height: 20px;
+  width: 70%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.02) 0%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* 日间模式 - 建议问题加载骨架屏 */
+[data-theme="light"] .suggested-question-btn.skeleton-loading .question-text {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.04) 0%,
+    rgba(0, 0, 0, 0.08) 50%,
+    rgba(0, 0, 0, 0.04) 100%
+  );
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+

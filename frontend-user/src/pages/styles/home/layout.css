@@ -1,0 +1,368 @@
+/* ============================================
+   Search Interface Styles (for authenticated users)
+   ============================================ */
+
+.home-search {
+  display: flex;
+  height: 100vh;
+  background: var(--background);
+  overflow: hidden;
+}
+
+.main-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left 0.3s ease;
+  margin-left: 0;
+  background: var(--background);
+}
+
+.main-container.has-sidebar {
+  margin-left: 280px;
+}
+
+.main-container.sidebar-collapsed-narrow {
+  margin-left: 64px;
+}
+
+.main-container.sidebar-collapsed {
+  margin-left: 0;
+}
+
+/* Top Navigation Bar */
+.top-navbar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.auth-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* 顶部导航栏中的主题切换器 */
+.navbar-right .toggle {
+  width: 80px !important;
+  height: 30px !important;
+  flex-shrink: 0;
+}
+
+.btn-auth {
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .btn-pricing {
+  background: transparent;
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+[data-theme="light"] .btn-pricing {
+  background: transparent;
+  color: #d97706;
+  border: 1px solid rgba(217, 119, 6, 0.3);
+}
+
+[data-theme="dark"] .btn-pricing:hover {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.5);
+}
+
+[data-theme="light"] .btn-pricing:hover {
+  background: rgba(217, 119, 6, 0.08);
+  border-color: rgba(217, 119, 6, 0.4);
+}
+
+.btn-login {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .btn-login {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="light"] .btn-login {
+  border: 1px solid var(--border);
+}
+
+[data-theme="dark"] .btn-login:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="light"] .btn-login:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-register {
+  color: white;
+  border: none;
+}
+
+[data-theme="dark"] .btn-register {
+  background: var(--primary-solid);
+  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.3);
+}
+
+[data-theme="light"] .btn-register {
+  background: var(--primary-solid);
+  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.2);
+}
+
+[data-theme="dark"] .btn-register:hover {
+  background: var(--primary-light);
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.5);
+  transform: translateY(-1px);
+}
+
+[data-theme="light"] .btn-register:hover {
+  background: var(--primary-dark);
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Search Content Area */
+.search-content {
+  flex: 1;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 56rem;
+  width: 100%;
+  padding: 0 1.5rem;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* Chat Messages */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem 2rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* When showing welcome screen, don't let messages take all space */
+.chat-messages:has(.welcome-screen) {
+  flex: 0 0 auto;
+}
+
+/* When there are messages, align to top */
+.chat-messages:not(:has(.welcome-screen)) {
+  justify-content: flex-start;
+}
+
+.chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Welcome Screen */
+.welcome-screen {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  max-width: 48rem;
+  text-align: center;
+  margin-top: -120px;
+}
+
+/* ICP Filing */
+.icp-filing {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 10;
+}
+
+.icp-filing a {
+  font-size: 0.875rem;
+  color: var(--text-quaternary);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.icp-filing a:hover {
+  color: var(--text-tertiary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.welcome-title {
+  font-size: 2.75rem;
+  font-weight: 400;
+  color: var(--text-primary);
+  margin: 0 0 6rem 0;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  min-height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Typewriter Cursor */
+.typewriter-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: rgb(16, 163, 127);
+  margin-left: 4px;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.typewriter-cursor.visible {
+  opacity: 1;
+}
+
+/* Chat Messages - ChatGPT Style */
+.message {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+  padding: 1.5rem 0;
+}
+
+/* 隐藏头像 */
+.message-avatar {
+  display: none;
+}
+
+.message-content {
+  width: 100%;
+}
+
+/* 用户消息样式 - 更大更明显 */
+.message-user .message-text {
+  font-size: 1.375rem;
+  line-height: 1.4;
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.015em;
+}
+
+/* AI 回答样式 - 标准阅读体验 */
+.message-assistant .message-text {
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+/* 消息之间的分隔 */
+.message + .message {
+  border-top: 1px solid rgba(148, 163, 184, 0.06);
+}
+
+.search-info {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border-left: 3px solid rgba(16, 163, 127, 0.5);
+  margin-top: 0.75rem;
+  transition: all 0.2s ease;
+  position: relative;
+  padding-right: 2.5rem;
+}
+
+.search-info:hover {
+  background: rgba(16, 163, 127, 0.08);
+  border-left-color: var(--primary-solid);
+  transform: translateX(2px);
+}
+
+.search-info::after {
+  content: '→';
+  position: absolute;
+  right: 1rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  color: var(--primary-solid);
+  font-weight: bold;
+}
+
+.search-info:hover::after {
+  opacity: 1;
+}
+
+.result-count {
+  color: var(--primary-solid);
+  font-weight: 500;
+}
+
+.result-loading {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.loading-dots::after {
+  content: '...';
+  animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%, 20% { content: ''; }
+  40% { content: '.'; }
+  60% { content: '..'; }
+  80%, 100% { content: '...'; }
+}
+
