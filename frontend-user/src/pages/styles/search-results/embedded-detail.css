@@ -769,6 +769,21 @@
   border-bottom-color: rgba(0, 0, 0, 0.08);
 }
 
+/* 论文详情页内的论文列表项左对齐 - 移除左内边距使其与 tabs 对齐 */
+.epd-citations-refs .search-result-paper-item {
+  padding-left: 0;
+  padding-right: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.epd-citations-refs .search-result-paper-item:last-child {
+  border-bottom: none;
+}
+
+[data-theme="light"] .epd-citations-refs .search-result-paper-item {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
 /* 相似论文区域内的 papers-list 样式调整 */
 .epd-similar-papers .papers-list {
   max-height: none;
