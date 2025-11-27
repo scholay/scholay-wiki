@@ -145,6 +145,11 @@ const SearchResultsPage = () => {
   // 检查是否需要返回表格视图（从登录后跳转回来）
   const returnedFromLogin = useRef(false);
   const [viewMode, setViewMode] = useState(() => {
+    // 检查URL中是否有paperId参数，如果有则显示论文详情视图
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('paperId')) {
+      return 'paper';
+    }
     const returnToTable = localStorage.getItem('returnToTableView');
     if (returnToTable === 'true') {
       localStorage.removeItem('returnToTableView');
@@ -152,7 +157,7 @@ const SearchResultsPage = () => {
       return 'table';
     }
     return 'list';
-  }); // 视图模式: 'list' 或 'table'
+  }); // 视图模式: 'list', 'table' 或 'paper'
   const [selectedDimensionKey, setSelectedDimensionKey] = useState(null); // 表格视图中选中的维度
   const [tableReloadTrigger, setTableReloadTrigger] = useState(null); // 触发表格重新加载
   const [showTableGuide, setShowTableGuide] = useState(false); // 表格视图引导弹窗
@@ -379,23 +384,73 @@ const SearchResultsPage = () => {
 
   // 不再需要认证检查 - 允许未登录用户访问
 
-  // 初始化时从URL参数加载并搜索
+  // 加载论文详情的函数
+  const loadPaperDetail = useCallback(async (paperId) => {
+    if (!paperId) return;
+    
+    console.log('[SearchResultsPage] Loading paper detail:', paperId);
+    setViewMode('paper');
+    setDetailPaperId(paperId);
+    setDetailLoading(true);
+    setDetailError(null);
+    setDetailPaper(null);
+    
+    try {
+      const response = await api.get(`/public/papers/${paperId}`, {
+        params: {
+          fields: 'paperId,title,abstract,authors,year,citationCount,referenceCount,venue,publicationDate,publicationTypes,fieldsOfStudy,s2FieldsOfStudy,externalIds,url,openAccessPdf,influentialCitationCount,isOpenAccess,tldr,journal,citations.paperId,citations.externalIds,citations.url,citations.title,citations.abstract,citations.venue,citations.publicationVenue,citations.year,citations.referenceCount,citations.citationCount,citations.influentialCitationCount,citations.openAccessPdf,citations.s2FieldsOfStudy,citations.publicationTypes,citations.publicationDate,citations.journal,citations.citationStyles,citations.authors,references.paperId,references.externalIds,references.url,references.title,references.abstract,references.venue,references.publicationVenue,references.year,references.referenceCount,references.citationCount,references.influentialCitationCount,references.openAccessPdf,references.s2FieldsOfStudy,references.publicationTypes,references.publicationDate,references.journal,references.citationStyles,references.authors'
+        }
+      });
+      console.log('[SearchResultsPage] Paper detail loaded:', response.data);
+      // API 返回格式是 {code: 0, message: 'success', data: {...}}，需要取 data.data
+      setDetailPaper(response.data.data);
+      setDetailLoading(false);
+    } catch (error) {
+      console.error('[SearchResultsPage] Failed to load paper details:', error);
+      setDetailError('加载论文详情失败');
+      setDetailLoading(false);
+    }
+  }, []);
+
+  // 监听 URL 中的 paperId 参数 - 页面加载或刷新时自动请求
+  useEffect(() => {
+    const paperId = searchParams.get('paperId');
+    const query = searchParams.get('query');
+    
+    console.log('[SearchResultsPage] URL params - paperId:', paperId, 'query:', query);
+    
+    if (paperId) {
+      // URL 中有 paperId，加载论文详情
+      loadPaperDetail(paperId);
+      // 如果有 query 参数，也设置搜索框的值
+      if (query) {
+        setSearchQuery(query);
+      }
+    }
+  }, []); // 只在组件挂载时执行一次
+
+  // 初始化时从URL参数加载搜索结果（不包含 paperId 的情况）
   useEffect(() => {
     const query = searchParams.get('query');
+    const paperId = searchParams.get('paperId');
+    
+    // 如果有 paperId，由上面的 useEffect 处理
+    if (paperId) return;
+    
     if (query) {
       setSearchQuery(query);
       performSearch(query, filters, currentPage);
+      
+      // 检查是否需要显示表格视图引导弹窗（每个用户只显示一次）
+      const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
+      if (!hasSeenTableGuide) {
+        // 延迟显示，等搜索结果加载后
+        setTimeout(() => {
+          setShowTableGuide(true);
+        }, 1500);
+      }
     }
-    
-    // 检查是否需要显示表格视图引导弹窗（每个用户只显示一次）
-    const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
-    if (!hasSeenTableGuide && query) {
-      // 延迟显示，等搜索结果加载后
-      setTimeout(() => {
-        setShowTableGuide(true);
-      }, 1500);
-    }
-  }, []);
+  }, []); // 只在组件挂载时执行一次
 
   useEffect(() => {
     const handleResize = () => {
@@ -495,11 +550,6 @@ const SearchResultsPage = () => {
     setShowSuggestions(false);
     // 保存当前搜索查询用于返回
     setSearchQuery(paper.title);
-    // 切换到论文详情视图
-    setViewMode('paper');
-    setDetailPaperId(paper.id);
-    setDetailLoading(true);
-    setDetailError(null);
     setDetailActiveTab('citations');
     
     // 更新URL参数，添加paperId
@@ -507,19 +557,8 @@ const SearchResultsPage = () => {
     params.set('paperId', paper.id);
     setSearchParams(params);
     
-    try {
-      const response = await api.get(`/public/papers/${paper.id}`, {
-        params: {
-          fields: 'paperId,title,abstract,authors,year,citationCount,referenceCount,venue,publicationDate,publicationTypes,fieldsOfStudy,s2FieldsOfStudy,externalIds,url,openAccessPdf,influentialCitationCount,isOpenAccess,tldr,journal,citations.paperId,citations.externalIds,citations.url,citations.title,citations.abstract,citations.venue,citations.publicationVenue,citations.year,citations.referenceCount,citations.citationCount,citations.influentialCitationCount,citations.openAccessPdf,citations.s2FieldsOfStudy,citations.publicationTypes,citations.publicationDate,citations.journal,citations.citationStyles,citations.authors,references.paperId,references.externalIds,references.url,references.title,references.abstract,references.venue,references.publicationVenue,references.year,references.referenceCount,references.citationCount,references.influentialCitationCount,references.openAccessPdf,references.s2FieldsOfStudy,references.publicationTypes,references.publicationDate,references.journal,references.citationStyles,references.authors'
-        }
-      });
-      setDetailPaper(response.data.data);
-    } catch (err) {
-      console.error('Failed to fetch paper details:', err);
-      setDetailError(err.response?.data?.message || '加载论文详情失败');
-    } finally {
-      setDetailLoading(false);
-    }
+    // 直接调用加载函数
+    loadPaperDetail(paper.id);
   };
 
   // 返回搜索结果列表
