@@ -67,6 +67,7 @@ const CiteModal = ({ paper, onClose }) => {
 
       case 'mla':
         // MLA: 第一作者 姓, 名，超过3人用 et al.
+        // MLA格式：期刊名斜体
         let mlaAuthorStr = '';
         if (authors.length > 0) {
           const firstAuthorParts = authors[0].name.split(' ');
@@ -87,7 +88,7 @@ const CiteModal = ({ paper, onClose }) => {
         }
 
         let mla = `${mlaAuthorStr}. "${title}."`;
-        if (venue) mla += ` ${venue}`;
+        if (venue) mla += ` <i>${venue}</i>`;
         if (volume) mla += ` ${volume}`;
         if (year && pages) mla += ` (${year}): ${pages}`;
         else if (year) mla += ` (${year})`;
@@ -97,6 +98,7 @@ const CiteModal = ({ paper, onClose }) => {
 
       case 'apa':
         // APA: 姓, 名首字母., 最后一个作者用 & 连接
+        // APA格式：期刊名和卷号斜体
         let apaAuthorStr = '';
         if (authors.length > 0) {
           const apaFormatted = authors.map(a => {
@@ -120,14 +122,16 @@ const CiteModal = ({ paper, onClose }) => {
         }
 
         let apa = `${apaAuthorStr} (${year}). ${title}.`;
-        if (venue) apa += ` ${venue}`;
+        if (venue && volume) apa += ` <i>${venue}, ${volume}</i>`;
+        else if (venue) apa += ` <i>${venue}</i>`;
+        else if (volume) apa += ` <i>${volume}</i>`;
         if (pages) apa += `, ${pages}`;
-        else if (volume) apa += `, ${volume}`;
         apa += '.';
         return apa;
 
       case 'chicago':
         // Chicago: 所有作者都是 姓, 名 格式，最后用 and 连接
+        // Chicago格式：期刊名斜体
         let chicagoAuthorStr = '';
         if (authors.length > 0) {
           const chicagoFormatted = authors.map(a => {
@@ -150,7 +154,7 @@ const CiteModal = ({ paper, onClose }) => {
         }
 
         let chicago = `${chicagoAuthorStr}. "${title}."`;
-        if (venue) chicago += ` ${venue}`;
+        if (venue) chicago += ` <i>${venue}</i>`;
         if (volume) chicago += ` ${volume}`;
         if (year && pages) chicago += ` (${year}): ${pages}`;
         else if (year) chicago += ` (${year})`;
@@ -163,8 +167,14 @@ const CiteModal = ({ paper, onClose }) => {
     }
   };
 
+  // 获取纯文本引用（去除HTML标签，用于复制）
+  const getPlainCitation = (format) => {
+    const citation = generateCitation(format);
+    return citation.replace(/<\/?i>/g, '');
+  };
+
   const copyCitation = () => {
-    const citation = generateCitation(citationFormat);
+    const citation = getPlainCitation(citationFormat);
     navigator.clipboard.writeText(citation);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -210,7 +220,10 @@ const CiteModal = ({ paper, onClose }) => {
 
         <div className="cite-content">
           <div className="cite-content-wrapper">
-            <pre className={citationFormat === 'bibtex' ? 'bibtex' : ''}>{generateCitation(citationFormat)}</pre>
+            <pre 
+              className={citationFormat === 'bibtex' ? 'bibtex' : ''}
+              dangerouslySetInnerHTML={{ __html: generateCitation(citationFormat) }}
+            />
             <button className={`cite-inline-copy ${copied ? 'copied' : ''}`} onClick={copyCitation}>
               {copied ? (
                 <>

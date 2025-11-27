@@ -214,6 +214,7 @@
 .pd-top-meta-info {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
   font-size: 13px;
@@ -222,6 +223,52 @@
 
 .pd-top-meta-item {
   color: #666;
+}
+
+.pd-top-meta-item.pd-copyable {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pd-top-meta-item .pd-meta-text {
+  color: inherit;
+}
+
+.pd-copy-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #999;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.pd-top-meta-item.pd-copyable:hover .pd-copy-icon-btn {
+  opacity: 1;
+}
+
+.pd-copy-icon-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #666;
+}
+
+.pd-copy-icon-btn.copied {
+  opacity: 1;
+  color: #10b981;
+}
+
+.pd-copy-icon-btn.copied:hover {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
 }
 
 .pd-paper-title {
@@ -956,17 +1003,35 @@
 .pd-cite-content pre {
   background: #f8f9fa;
   border: 1px solid #e1e4e8;
-  border-radius: 4px;
-  padding: 14px 16px;
+  border-radius: 6px;
+  padding: 16px 18px;
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.75;
   color: #24292e;
   white-space: pre-wrap;
   word-break: break-word;
   margin: 0;
-  font-family: 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
+  /* 默认使用学术衬线字体 */
+  font-family: 'Times New Roman', 'Georgia', 'Cambria', 'Palatino Linotype', serif;
   font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* BibTeX 格式使用等宽字体 */
+.pd-cite-content pre.bibtex {
+  font-family: 'Monaco', 'Menlo', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
   letter-spacing: 0;
+  overflow-x: auto;
+}
+
+/* 引用内容中的斜体样式 */
+.pd-cite-content pre em,
+.pd-cite-content pre i {
+  font-style: italic;
 }
 
 .pd-cite-modal-footer {

@@ -18,6 +18,8 @@ const PaperDetailPage = () => {
   const [showCiteModal, setShowCiteModal] = useState(false);
   const [citationFormat, setCitationFormat] = useState('bibtex'); // 'bibtex', 'mla', 'apa', 'chicago'
   const [copied, setCopied] = useState(false);
+  const [copiedDoi, setCopiedDoi] = useState(false);
+  const [copiedCorpusId, setCopiedCorpusId] = useState(false);
   
   // 搜索结果相关状态
   const [searchResults, setSearchResults] = useState([]);
@@ -125,8 +127,7 @@ const PaperDetailPage = () => {
     const title = paper.title || 'Untitled';
     const year = paper.year || 'n.d.';
     const venue = paper.venue || '';
-    const doi = paper.externalIds?.DOI || '';
-    const corpusId = paper.externalIds?.CorpusId || '';
+    const corpusId = paper.paperId || '';
 
     // 获取期刊信息
     const journal = paper.journal || {};
@@ -135,11 +136,9 @@ const PaperDetailPage = () => {
 
     switch (format) {
       case 'bibtex':
-        // 生成 BibTeX key: 第一作者姓氏 + 年份 + 标题首个实词 + 第二个实词首字母缩写
         const firstAuthor = authors[0]?.name || 'Unknown';
         const lastName = firstAuthor.split(' ').pop();
 
-        // 找到标题中的主要词汇（过滤掉介词、冠词等）
         const stopWords = ['of', 'the', 'in', 'for', 'and', 'a', 'an', 'to', 'on'];
         const titleWords = title.split(' ').filter(w =>
           w.length > 2 && !stopWords.includes(w.toLowerCase())
@@ -160,20 +159,29 @@ const PaperDetailPage = () => {
         return bibtex;
 
       case 'mla':
-        // MLA: 作者姓, 名. "标题." 期刊 卷号 (年份): 页码.
-        const mlaAuthors = authors.length > 0
-          ? authors.map((a, i) => {
-              const nameParts = a.name.split(' ');
-              if (i === 0 && nameParts.length > 1) {
-                // 第一作者: 姓, 名
-                return `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`;
-              }
-              return a.name;
-            }).join(', ')
-          : 'Unknown';
+        // MLA: 第一作者 姓, 名，超过3人用 et al.
+        // MLA格式：期刊名斜体
+        let mlaAuthorStr = '';
+        if (authors.length > 0) {
+          const firstAuthorParts = authors[0].name.split(' ');
+          const firstAuthorFormatted = firstAuthorParts.length > 1
+            ? `${firstAuthorParts[firstAuthorParts.length - 1]}, ${firstAuthorParts.slice(0, -1).join(' ')}`
+            : authors[0].name;
+          
+          if (authors.length === 1) {
+            mlaAuthorStr = firstAuthorFormatted;
+          } else if (authors.length === 2) {
+            mlaAuthorStr = `${firstAuthorFormatted}, and ${authors[1].name}`;
+          } else {
+            // 3人及以上使用 et al.
+            mlaAuthorStr = `${firstAuthorFormatted} et al.`;
+          }
+        } else {
+          mlaAuthorStr = 'Unknown';
+        }
 
-        let mla = `${mlaAuthors}. "${title}."`;
-        if (venue) mla += ` ${venue}`;
+        let mla = `${mlaAuthorStr}. "${title}."`;
+        if (venue) mla += ` <i>${venue}</i>`;
         if (volume) mla += ` ${volume}`;
         if (year && pages) mla += ` (${year}): ${pages}`;
         else if (year) mla += ` (${year})`;
@@ -182,39 +190,64 @@ const PaperDetailPage = () => {
         return mla;
 
       case 'apa':
-        // APA: 作者姓, 名首字母. (年份). 标题. 期刊, 卷号, 页码.
-        const apaAuthors = authors.length > 0
-          ? authors.map(a => {
-              const nameParts = a.name.split(' ');
-              if (nameParts.length > 1) {
-                const initials = nameParts.slice(0, -1).map(n => n[0] + '.').join(' ');
-                return `${nameParts[nameParts.length - 1]}, ${initials}`;
-              }
-              return a.name;
-            }).join(', ')
-          : 'Unknown';
+        // APA: 姓, 名首字母., 最后一个作者用 & 连接
+        // APA格式：期刊名和卷号斜体
+        let apaAuthorStr = '';
+        if (authors.length > 0) {
+          const apaFormatted = authors.map(a => {
+            const nameParts = a.name.split(' ');
+            if (nameParts.length > 1) {
+              const initials = nameParts.slice(0, -1).map(n => n[0] + '.').join(' ');
+              return `${nameParts[nameParts.length - 1]}, ${initials}`;
+            }
+            return a.name;
+          });
+          
+          if (apaFormatted.length === 1) {
+            apaAuthorStr = apaFormatted[0];
+          } else if (apaFormatted.length === 2) {
+            apaAuthorStr = `${apaFormatted[0]}, & ${apaFormatted[1]}`;
+          } else {
+            apaAuthorStr = `${apaFormatted.slice(0, -1).join(', ')}, & ${apaFormatted[apaFormatted.length - 1]}`;
+          }
+        } else {
+          apaAuthorStr = 'Unknown';
+        }
 
-        let apa = `${apaAuthors} (${year}). ${title}.`;
-        if (venue) apa += ` ${venue}`;
-        if (volume && pages) apa += `, ${volume}, ${pages}`;
-        else if (volume) apa += `, ${volume}`;
+        let apa = `${apaAuthorStr} (${year}). ${title}.`;
+        if (venue && volume) apa += ` <i>${venue}, ${volume}</i>`;
+        else if (venue) apa += ` <i>${venue}</i>`;
+        else if (volume) apa += ` <i>${volume}</i>`;
+        if (pages) apa += `, ${pages}`;
         apa += '.';
         return apa;
 
       case 'chicago':
-        // Chicago: 作者姓, 名. "标题." 期刊 卷号 (年份): 页码.
-        const chicagoAuthors = authors.length > 0
-          ? authors.map((a, i) => {
-              const nameParts = a.name.split(' ');
-              if (i === 0 && nameParts.length > 1) {
-                return `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`;
-              }
-              return a.name;
-            }).join(', ')
-          : 'Unknown';
+        // Chicago: 所有作者都是 姓, 名 格式，最后用 and 连接
+        // Chicago格式：期刊名斜体
+        let chicagoAuthorStr = '';
+        if (authors.length > 0) {
+          const chicagoFormatted = authors.map(a => {
+            const nameParts = a.name.split(' ');
+            if (nameParts.length > 1) {
+              // 所有作者都是：姓, 名
+              return `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`;
+            }
+            return a.name;
+          });
+          if (chicagoFormatted.length === 1) {
+            chicagoAuthorStr = chicagoFormatted[0];
+          } else if (chicagoFormatted.length === 2) {
+            chicagoAuthorStr = `${chicagoFormatted[0]}, and ${chicagoFormatted[1]}`;
+          } else {
+            chicagoAuthorStr = `${chicagoFormatted.slice(0, -1).join(', ')}, and ${chicagoFormatted[chicagoFormatted.length - 1]}`;
+          }
+        } else {
+          chicagoAuthorStr = 'Unknown';
+        }
 
-        let chicago = `${chicagoAuthors}. "${title}."`;
-        if (venue) chicago += ` ${venue}`;
+        let chicago = `${chicagoAuthorStr}. "${title}."`;
+        if (venue) chicago += ` <i>${venue}</i>`;
         if (volume) chicago += ` ${volume}`;
         if (year && pages) chicago += ` (${year}): ${pages}`;
         else if (year) chicago += ` (${year})`;
@@ -229,9 +262,31 @@ const PaperDetailPage = () => {
 
   const copyCitation = () => {
     const citation = generateCitation(citationFormat);
-    navigator.clipboard.writeText(citation);
+    // 去除 HTML 标签后复制
+    const plainCitation = citation.replace(/<\/?i>/g, '');
+    navigator.clipboard.writeText(plainCitation);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000); // 2秒后恢复
+  };
+
+  // 复制 DOI
+  const copyDoi = (e) => {
+    e.stopPropagation();
+    if (paper?.externalIds?.DOI) {
+      navigator.clipboard.writeText(paper.externalIds.DOI);
+      setCopiedDoi(true);
+      setTimeout(() => setCopiedDoi(false), 2000);
+    }
+  };
+
+  // 复制 Corpus ID
+  const copyCorpusId = (e) => {
+    e.stopPropagation();
+    if (paper?.externalIds?.CorpusId) {
+      navigator.clipboard.writeText(paper.externalIds.CorpusId.toString());
+      setCopiedCorpusId(true);
+      setTimeout(() => setCopiedCorpusId(false), 2000);
+    }
   };
 
   if (isLoading) {
@@ -477,15 +532,47 @@ const PaperDetailPage = () => {
             {/* DOI 和 Corpus ID (顶部显示) */}
             <div className="pd-top-meta-info">
               {paper.externalIds?.DOI && (
-                <span className="pd-top-meta-item">
-                  DOI: {paper.externalIds.DOI}
+                <span className="pd-top-meta-item pd-copyable">
+                  <span className="pd-meta-text">DOI: {paper.externalIds.DOI}</span>
+                  <button 
+                    className={`pd-copy-icon-btn ${copiedDoi ? 'copied' : ''}`}
+                    onClick={copyDoi}
+                    title={copiedDoi ? 'Copied!' : 'Copy DOI'}
+                  >
+                    {copiedDoi ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                    )}
+                  </button>
                 </span>
               )}
               {paper.externalIds?.CorpusId && (
                 <>
                   {paper.externalIds?.DOI && <span className="pd-meta-dot">•</span>}
-                  <span className="pd-top-meta-item">
-                    Corpus ID: {paper.externalIds.CorpusId}
+                  <span className="pd-top-meta-item pd-copyable">
+                    <span className="pd-meta-text">Corpus ID: {paper.externalIds.CorpusId}</span>
+                    <button 
+                      className={`pd-copy-icon-btn ${copiedCorpusId ? 'copied' : ''}`}
+                      onClick={copyCorpusId}
+                      title={copiedCorpusId ? 'Copied!' : 'Copy Corpus ID'}
+                    >
+                      {copiedCorpusId ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                      )}
+                    </button>
                   </span>
                 </>
               )}
@@ -890,7 +977,10 @@ const PaperDetailPage = () => {
             </div>
 
             <div className="pd-cite-content">
-              <pre>{generateCitation(citationFormat)}</pre>
+              <pre 
+                className={citationFormat === 'bibtex' ? 'bibtex' : ''}
+                dangerouslySetInnerHTML={{ __html: generateCitation(citationFormat) }}
+              />
             </div>
 
             <div className="pd-cite-modal-footer">
