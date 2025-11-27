@@ -15,8 +15,198 @@
 .epd-container {
   padding: 20px 28px;
   max-width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
+/* 顶部工具栏 */
+.epd-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+/* 搜索切换按钮 */
+.epd-search-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.epd-search-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.epd-search-toggle.active {
+  background: rgba(74, 144, 217, 0.15);
+  border-color: rgba(74, 144, 217, 0.3);
+  color: #4A90D9;
+}
+
+[data-theme="light"] .epd-search-toggle {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .epd-search-toggle:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .epd-search-toggle.active {
+  background: rgba(30, 64, 175, 0.1);
+  border-color: rgba(30, 64, 175, 0.3);
+  color: #1e40af;
+}
+
+/* 搜索框包装器 */
+.epd-search-wrapper {
+  margin-bottom: 20px;
+  animation: epd-search-slide-down 0.2s ease;
+}
+
+@keyframes epd-search-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.epd-search-form {
+  width: 100%;
+}
+
+.epd-search-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.epd-search-input-wrapper:focus-within {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(74, 144, 217, 0.4);
+}
+
+.epd-search-input-wrapper svg {
+  color: rgba(255, 255, 255, 0.4);
+  flex-shrink: 0;
+}
+
+.epd-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.epd-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.epd-search-submit {
+  padding: 8px 16px;
+  background: #4A90D9;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.epd-search-submit:hover:not(:disabled) {
+  background: #5BA3EC;
+}
+
+.epd-search-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.epd-search-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.epd-search-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 日间模式搜索框 */
+[data-theme="light"] .epd-search-input-wrapper {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .epd-search-input-wrapper:focus-within {
+  background: #fff;
+  border-color: rgba(30, 64, 175, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .epd-search-input-wrapper svg {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .epd-search-input {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .epd-search-input::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .epd-search-submit {
+  background: #1e40af;
+}
+
+[data-theme="light"] .epd-search-submit:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+[data-theme="light"] .epd-search-close {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .epd-search-close:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+/* 保留旧的返回按钮样式以防其他地方使用 */
 .epd-back-btn {
   display: inline-flex;
   align-items: center;
@@ -61,26 +251,187 @@
   to { transform: rotate(360deg); }
 }
 
-.epd-title {
-  font-size: 22px;
-  font-weight: 500;
+/* ===== 论文详情头部折叠样式 ===== */
+
+/* 折叠模式下，外层容器不滚动 */
+.papers-container:has(.epd-header-collapsed) {
+  overflow: hidden;
+}
+
+.epd-header {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.epd-header.collapsed {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 0;
+}
+
+[data-theme="light"] .epd-header.collapsed {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+.epd-header.collapsed .epd-meta-ids {
+  display: none;
+}
+
+.epd-header.collapsed .epd-title {
+  font-size: 16px;
+  margin: 0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.epd-header.collapsed .epd-pub-meta {
+  display: none;
+}
+
+.epd-header-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(74, 144, 217, 0.1);
+  border: 1px solid rgba(74, 144, 217, 0.2);
+  border-radius: 6px;
   color: #4A90D9;
-  margin: 0 0 12px 0;
-  line-height: 1.35;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.epd-header-toggle:hover {
+  background: rgba(74, 144, 217, 0.15);
+  border-color: rgba(74, 144, 217, 0.3);
+}
+
+[data-theme="light"] .epd-header-toggle {
+  background: rgba(30, 64, 175, 0.08);
+  border-color: rgba(30, 64, 175, 0.2);
+  color: #1e40af;
+}
+
+[data-theme="light"] .epd-header-toggle:hover {
+  background: rgba(30, 64, 175, 0.12);
+  border-color: rgba(30, 64, 175, 0.3);
+}
+
+/* 折叠时的整体内容布局 */
+.epd-content.epd-header-collapsed {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+/* 折叠模式下的 epd-container */
+.papers-container:has(.epd-header-collapsed) .epd-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0;
+}
+
+.epd-content.epd-header-collapsed .epd-section.epd-citations-refs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin-top: 12px;
+  min-height: 0; /* 重要：允许 flex 子元素收缩 */
+}
+
+.epd-content.epd-header-collapsed .epd-tabs {
+  flex-shrink: 0;
+}
+
+.epd-content.epd-header-collapsed .epd-tab-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.epd-content.epd-header-collapsed .epd-similar-papers {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.epd-content.epd-header-collapsed .epd-similar-papers .results-header {
+  flex-shrink: 0;
+}
+
+.epd-content.epd-header-collapsed .epd-similar-papers .papers-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: none;
+  min-height: 0;
+}
+
+.epd-content.epd-header-collapsed .epd-similar-papers .ptv-wrapper {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.epd-content.epd-header-collapsed .epd-similar-papers .ptv-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.epd-content.epd-header-collapsed .epd-similar-papers .ptv-table-wrapper {
+  flex: 1;
+  max-height: none;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* 分页组件在列表末尾 */
+.epd-content.epd-header-collapsed .epd-pagination {
+  padding: 16px 0;
+  margin-top: 8px;
+}
+
+.epd-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #4A90D9;
+  margin: 0 0 16px 0;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
 }
 
 [data-theme="light"] .epd-title {
   color: #1e40af;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .epd-meta-ids {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .epd-meta-id {
@@ -104,50 +455,77 @@
 .epd-meta-dot { color: rgba(255, 255, 255, 0.3); }
 
 .epd-pub-meta {
-  font-size: 13px;
+  font-size: 15px;
   color: rgba(255, 255, 255, 0.6);
-  line-height: 1.5;
-  margin-bottom: 12px;
+  line-height: 1.6;
+  margin-bottom: 16px;
 }
 
-.epd-author { color: rgba(255, 255, 255, 0.8); }
+.epd-author { 
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+}
 
+/* TLDR 区域 */
 .epd-tldr {
-  margin-bottom: 12px;
-  line-height: 1.5;
+  margin-bottom: 20px;
+  line-height: 1.7;
 }
 
 .epd-tldr-badge, .epd-tldr-label {
   display: inline;
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.1);
-  padding: 1px 5px;
-  border-radius: 2px;
-  margin-right: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-right: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+[data-theme="light"] .epd-tldr-badge,
+[data-theme="light"] .epd-tldr-label {
+  color: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .epd-tldr-text {
   display: inline;
-  font-size: 14px;
+  font-size: 15px;
   color: rgba(255, 255, 255, 0.8);
+  line-height: 1.7;
 }
 
-.epd-section { margin-bottom: 16px; }
+[data-theme="light"] .epd-tldr-text {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* Abstract 区域 */
+.epd-section { margin-bottom: 20px; }
 
 .epd-section-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.4);
   margin-bottom: 8px;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+[data-theme="light"] .epd-section-title {
+  color: rgba(0, 0, 0, 0.4);
 }
 
 .epd-abstract {
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 15px;
+  line-height: 1.75;
   color: rgba(255, 255, 255, 0.75);
+}
+
+[data-theme="light"] .epd-abstract {
+  color: rgba(0, 0, 0, 0.7);
 }
 
 .epd-actions {
@@ -157,6 +535,20 @@
   margin-bottom: 24px;
   padding-bottom: 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* 论文详情页操作按钮区域 - 复用搜索结果列表样式 */
+.epd-paper-meta {
+  margin-top: 16px;
+  margin-bottom: 24px;
+  padding: 12px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .epd-paper-meta {
+  border-top-color: rgba(0, 0, 0, 0.08);
+  border-bottom-color: rgba(0, 0, 0, 0.08);
 }
 
 .epd-action-btn {
@@ -185,19 +577,19 @@
 
 .epd-tabs {
   display: flex;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .epd-tab {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
+  gap: 5px;
+  padding: 8px 14px;
   background: none;
   border: none;
   color: rgba(255, 255, 255, 0.5);
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
@@ -256,6 +648,166 @@
   text-align: center;
   color: rgba(255, 255, 255, 0.4);
   padding: 40px;
+}
+
+/* 分页组件 */
+.epd-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px 0;
+  margin-top: 8px;
+}
+
+.epd-pagination-btn {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.epd-pagination-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.epd-pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.epd-pagination-pages {
+  display: flex;
+  gap: 4px;
+}
+
+.epd-pagination-page {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.epd-pagination-page:hover:not(:disabled):not(.active) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.epd-pagination-page.active {
+  background: rgba(74, 144, 217, 0.2);
+  border-color: rgba(74, 144, 217, 0.4);
+  color: #4A90D9;
+  font-weight: 500;
+}
+
+.epd-pagination-page:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 日间模式分页组件 */
+[data-theme="light"] .epd-pagination-btn {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="light"] .epd-pagination-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .epd-pagination-page {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .epd-pagination-page:hover:not(:disabled):not(.active) {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .epd-pagination-page.active {
+  background: rgba(30, 64, 175, 0.12);
+  border-color: rgba(30, 64, 175, 0.3);
+  color: #1e40af;
+}
+
+/* ===== 相似论文区域 ===== */
+.epd-similar-papers {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* 相似论文区域内的 results-header 样式调整 - 更紧凑 */
+.epd-similar-papers .results-header {
+  margin-bottom: 0;
+  padding: 6px 0;
+  border-bottom: none;
+  min-height: auto;
+}
+
+.epd-similar-papers .results-info {
+  font-size: 12px;
+}
+
+[data-theme="light"] .epd-similar-papers .results-header {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+/* 相似论文区域内的 papers-list 样式调整 */
+.epd-similar-papers .papers-list {
+  max-height: none;
+  overflow: visible;
+}
+
+/* 相似论文区域内的 ptv-container 样式调整 */
+.epd-similar-papers .ptv-container {
+  padding: 0;
+  margin-top: 12px;
+}
+
+.epd-similar-papers .ptv-table-wrapper {
+  max-height: 600px;
+}
+
+/* 相似论文表格视图容器 */
+.epd-similar-table {
+  margin-top: 12px;
+}
+
+.epd-similar-table .ptv-container {
+  padding: 0;
+  background: transparent;
+}
+
+/* 内联加载状态 */
+.epd-loading-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 20px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+}
+
+[data-theme="light"] .epd-loading-inline {
+  color: rgba(0, 0, 0, 0.5);
 }
 
 .epd-error {
@@ -404,16 +956,6 @@
 }
 
 [data-theme="light"] .epd-author {
-  color: rgba(0, 0, 0, 0.8);
-}
-
-[data-theme="light"] .epd-tldr-badge,
-[data-theme="light"] .epd-tldr-label {
-  color: rgba(0, 0, 0, 0.6);
-  background: rgba(0, 0, 0, 0.08);
-}
-
-[data-theme="light"] .epd-tldr-text {
   color: rgba(0, 0, 0, 0.8);
 }
 

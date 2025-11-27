@@ -10,7 +10,7 @@
   border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
   max-height: 400px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 9999;
   animation: slideDown 0.2s ease-out;
 }
 

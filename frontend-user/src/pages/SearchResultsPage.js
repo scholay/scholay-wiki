@@ -136,6 +136,7 @@ const SearchResultsPage = () => {
   const resultsMainRef = useRef(null);
   const papersContainerRef = useRef(null);
   const tableViewBtnRef = useRef(null); // 表格视图按钮引用
+  const similarPapersListRef = useRef(null); // 相似论文列表引用
   const textareaRef = useRef(null); // 搜索输入框引用（用于搜索建议定位）
   const emptyTextareaRef = useRef(null); // 空状态搜索输入框引用
   const [selectedHistoryId, setSelectedHistoryId] = useState(null); // 选中的搜索历史ID
@@ -163,16 +164,28 @@ const SearchResultsPage = () => {
   const [showTableGuide, setShowTableGuide] = useState(false); // 表格视图引导弹窗
 
   // 论文详情视图相关状态
+  const [showDetailSearch, setShowDetailSearch] = useState(false); // 论文详情页搜索框显示状态
   const [detailPaper, setDetailPaper] = useState(null); // 选中的论文详情数据
   const [detailPaperId, setDetailPaperId] = useState(null); // 选中的论文ID
   const [detailLoading, setDetailLoading] = useState(false); // 论文详情加载状态
   const [detailError, setDetailError] = useState(null); // 论文详情错误状态
-  const [detailActiveTab, setDetailActiveTab] = useState('citations'); // 详情页 Tab: 'citations' 或 'references'
-  const [showDetailCiteModal, setShowDetailCiteModal] = useState(false); // 详情页引用弹窗
-  const [detailCitationFormat, setDetailCitationFormat] = useState('bibtex'); // 引用格式
-  const [detailCopied, setDetailCopied] = useState(false); // 复制状态
+  const [detailActiveTab, setDetailActiveTab] = useState('citations'); // 详情页 Tab: 'citations', 'references' 或 'similar'
+  const [detailHeaderCollapsed, setDetailHeaderCollapsed] = useState(false); // 论文详情头部折叠状态
   const [detailCopiedDoi, setDetailCopiedDoi] = useState(false); // DOI复制状态
   const [detailCopiedCorpusId, setDetailCopiedCorpusId] = useState(false); // CorpusId复制状态
+  
+  // 引用/参考文献分页加载状态
+  const [citationsData, setCitationsData] = useState({ papers: [], currentPage: 1, total: 0, totalPages: 0 });
+  const [referencesData, setReferencesData] = useState({ papers: [], currentPage: 1, total: 0, totalPages: 0 });
+  const [citationsLoading, setCitationsLoading] = useState(false);
+  const [referencesLoading, setReferencesLoading] = useState(false);
+  const REFS_PER_PAGE = 10; // 每页显示的引用/参考文献数量
+  
+  // 相似论文状态
+  const [similarPapersData, setSimilarPapersData] = useState({ papers: [], currentPage: 1, total: 0, totalPages: 0 });
+  const [similarPapersLoading, setSimilarPapersLoading] = useState(false);
+  const [similarPapersViewMode, setSimilarPapersViewMode] = useState('list'); // 'list' 或 'table'
+  const [allSimilarPapers, setAllSimilarPapers] = useState([]); // 存储所有相似论文数据（用于分页）
 
   // 处理维度更新（编辑或新增）
   const handleDimensionsUpdated = useCallback((action, dimensionName) => {
@@ -423,8 +436,8 @@ const SearchResultsPage = () => {
       // URL 中有 paperId，加载论文详情
       loadPaperDetail(paperId);
       // 如果有 query 参数，也设置搜索框的值
-      if (query) {
-        setSearchQuery(query);
+    if (query) {
+      setSearchQuery(query);
       }
     }
   }, []); // 只在组件挂载时执行一次
@@ -440,15 +453,15 @@ const SearchResultsPage = () => {
     if (query) {
       setSearchQuery(query);
       performSearch(query, filters, currentPage);
-      
-      // 检查是否需要显示表格视图引导弹窗（每个用户只显示一次）
-      const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
+    
+    // 检查是否需要显示表格视图引导弹窗（每个用户只显示一次）
+    const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
       if (!hasSeenTableGuide) {
-        // 延迟显示，等搜索结果加载后
-        setTimeout(() => {
-          setShowTableGuide(true);
-        }, 1500);
-      }
+      // 延迟显示，等搜索结果加载后
+      setTimeout(() => {
+        setShowTableGuide(true);
+      }, 1500);
+    }
     }
   }, []); // 只在组件挂载时执行一次
 
@@ -515,6 +528,110 @@ const SearchResultsPage = () => {
     };
   }, [location.pathname, papers.length]); // 依赖于路径变化和论文数据变化
 
+  // 论文详情模式下：点击外部或滚动时收起搜索框，展开时自动聚焦
+  useEffect(() => {
+    if (viewMode !== 'paper') return;
+
+    // 展开时自动聚焦到输入框
+    if (showDetailSearch) {
+      setTimeout(() => {
+        const textarea = document.querySelector('.results-chat-input');
+        if (textarea) {
+          textarea.focus();
+        }
+      }, 100);
+    }
+
+    // 点击外部收起搜索框
+    const handleClickOutside = (e) => {
+      if (!showDetailSearch) return;
+      
+      const searchArea = document.querySelector('.search-results-centered-area');
+      const searchBtn = document.querySelector('.epd-navbar-search-btn');
+      
+      if (searchArea && !searchArea.contains(e.target) && 
+          searchBtn && !searchBtn.contains(e.target)) {
+        setShowDetailSearch(false);
+      }
+    };
+
+    // 滚动时收起搜索框
+    const handleScroll = () => {
+      if (showDetailSearch) {
+        setShowDetailSearch(false);
+      }
+    };
+
+    const container = papersContainerRef.current;
+
+    document.addEventListener('click', handleClickOutside);
+    if (container) {
+      container.addEventListener('scroll', handleScroll, { passive: true });
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      if (container) {
+        container.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [viewMode, showDetailSearch]);
+
+  // 论文详情加载后，自动加载引用文献（默认Tab）
+  useEffect(() => {
+    if (detailPaper && viewMode === 'paper') {
+      // 重置数据
+      setCitationsData({ papers: [], currentPage: 1, total: 0, totalPages: 0 });
+      setReferencesData({ papers: [], currentPage: 1, total: 0, totalPages: 0 });
+      setSimilarPapersData({ papers: [], currentPage: 1, total: 0, totalPages: 0 });
+      setAllSimilarPapers([]);
+      // 加载默认 Tab 的数据
+      if (detailActiveTab === 'citations') {
+        loadCitations(1);
+      } else if (detailActiveTab === 'references') {
+        loadReferences(1);
+      } else if (detailActiveTab === 'similar') {
+        loadSimilarPapers(1);
+      }
+    }
+  }, [detailPaper, viewMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 切换 Tab 时加载对应数据
+  useEffect(() => {
+    if (!detailPaper || viewMode !== 'paper') return;
+    
+    if (detailActiveTab === 'citations' && citationsData.papers.length === 0 && citationsData.total === 0) {
+      loadCitations(1);
+    } else if (detailActiveTab === 'references' && referencesData.papers.length === 0 && referencesData.total === 0) {
+      loadReferences(1);
+    } else if (detailActiveTab === 'similar' && allSimilarPapers.length === 0 && similarPapersData.total === 0) {
+      loadSimilarPapers(1);
+    }
+  }, [detailActiveTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 监听相似论文列表滚动和点击，自动收起展开的头部
+  useEffect(() => {
+    if (detailActiveTab !== 'similar' || detailHeaderCollapsed) return;
+    
+    const handleScrollOrClick = () => {
+      // 展开状态下，滚动或点击时自动收起
+      setDetailHeaderCollapsed(true);
+    };
+    
+    const listEl = similarPapersListRef.current;
+    if (listEl) {
+      listEl.addEventListener('scroll', handleScrollOrClick);
+      listEl.addEventListener('click', handleScrollOrClick);
+    }
+    
+    return () => {
+      if (listEl) {
+        listEl.removeEventListener('scroll', handleScrollOrClick);
+        listEl.removeEventListener('click', handleScrollOrClick);
+      }
+    };
+  }, [detailActiveTab, detailHeaderCollapsed]);
+
   // 处理搜索
   const handleSearch = (e) => {
     e.preventDefault();
@@ -573,110 +690,6 @@ const SearchResultsPage = () => {
     setSearchParams(params);
   };
 
-  // 生成引用格式
-  const generateDetailCitation = (format) => {
-    if (!detailPaper) return '';
-    const authors = detailPaper.authors || [];
-    const title = detailPaper.title || 'Untitled';
-    const year = detailPaper.year || 'n.d.';
-    const venue = detailPaper.venue || '';
-    const corpusId = detailPaper.paperId || '';
-    const journal = detailPaper.journal || {};
-    const volume = journal.volume || '';
-    const pages = journal.pages || '';
-
-    switch (format) {
-      case 'bibtex':
-        const firstAuthor = authors[0]?.name || 'Unknown';
-        const lastName = firstAuthor.split(' ').pop();
-        const stopWords = ['of', 'the', 'in', 'for', 'and', 'a', 'an', 'to', 'on'];
-        const titleWords = title.split(' ').filter(w => w.length > 2 && !stopWords.includes(w.toLowerCase()));
-        const firstTitleWord = titleWords[0]?.replace(/[^a-zA-Z]/g, '') || 'Paper';
-        const secondTitleWord = titleWords[1]?.replace(/[^a-zA-Z]/g, '') || '';
-        const secondWordInitials = secondTitleWord.slice(0, 2).toUpperCase();
-        const bibtexKey = `${lastName}${year}${firstTitleWord}${secondWordInitials}`;
-        let bibtex = `@article{${bibtexKey},\n  title={${title}},\n  author={${authors.map(a => a.name).join(' and ')}}`;
-        if (venue) bibtex += `,\n  journal={${venue}}`;
-        if (year) bibtex += `,\n  year={${year}}`;
-        if (volume) bibtex += `,\n  volume={${volume}}`;
-        if (pages) bibtex += `,\n  pages={${pages}}`;
-        bibtex += `,\n  url={https://api.semanticscholar.org/CorpusID:${corpusId}}\n}`;
-        return bibtex;
-      case 'mla':
-        let mlaAuthorStr = '';
-        if (authors.length > 0) {
-          const firstAuthorParts = authors[0].name.split(' ');
-          const firstAuthorFormatted = firstAuthorParts.length > 1
-            ? `${firstAuthorParts[firstAuthorParts.length - 1]}, ${firstAuthorParts.slice(0, -1).join(' ')}`
-            : authors[0].name;
-          if (authors.length === 1) mlaAuthorStr = firstAuthorFormatted;
-          else if (authors.length === 2) mlaAuthorStr = `${firstAuthorFormatted}, and ${authors[1].name}`;
-          else mlaAuthorStr = `${firstAuthorFormatted} et al.`;
-        } else mlaAuthorStr = 'Unknown';
-        let mla = `${mlaAuthorStr}. "${title}."`;
-        if (venue) mla += ` <i>${venue}</i>`;
-        if (volume) mla += ` ${volume}`;
-        if (year && pages) mla += ` (${year}): ${pages}`;
-        else if (year) mla += ` (${year})`;
-        else if (pages) mla += `: ${pages}`;
-        mla += '.';
-        return mla;
-      case 'apa':
-        let apaAuthorStr = '';
-        if (authors.length > 0) {
-          const apaFormatted = authors.map(a => {
-            const nameParts = a.name.split(' ');
-            if (nameParts.length > 1) {
-              const initials = nameParts.slice(0, -1).map(n => n[0] + '.').join(' ');
-              return `${nameParts[nameParts.length - 1]}, ${initials}`;
-            }
-            return a.name;
-          });
-          if (apaFormatted.length === 1) apaAuthorStr = apaFormatted[0];
-          else if (apaFormatted.length === 2) apaAuthorStr = `${apaFormatted[0]}, & ${apaFormatted[1]}`;
-          else apaAuthorStr = `${apaFormatted.slice(0, -1).join(', ')}, & ${apaFormatted[apaFormatted.length - 1]}`;
-        } else apaAuthorStr = 'Unknown';
-        let apa = `${apaAuthorStr} (${year}). ${title}.`;
-        if (venue && volume) apa += ` <i>${venue}, ${volume}</i>`;
-        else if (venue) apa += ` <i>${venue}</i>`;
-        else if (volume) apa += ` <i>${volume}</i>`;
-        if (pages) apa += `, ${pages}`;
-        apa += '.';
-        return apa;
-      case 'chicago':
-        let chicagoAuthorStr = '';
-        if (authors.length > 0) {
-          const chicagoFormatted = authors.map(a => {
-            const nameParts = a.name.split(' ');
-            if (nameParts.length > 1) return `${nameParts[nameParts.length - 1]}, ${nameParts.slice(0, -1).join(' ')}`;
-            return a.name;
-          });
-          if (chicagoFormatted.length === 1) chicagoAuthorStr = chicagoFormatted[0];
-          else if (chicagoFormatted.length === 2) chicagoAuthorStr = `${chicagoFormatted[0]}, and ${chicagoFormatted[1]}`;
-          else chicagoAuthorStr = `${chicagoFormatted.slice(0, -1).join(', ')}, and ${chicagoFormatted[chicagoFormatted.length - 1]}`;
-        } else chicagoAuthorStr = 'Unknown';
-        let chicago = `${chicagoAuthorStr}. "${title}."`;
-        if (venue) chicago += ` <i>${venue}</i>`;
-        if (volume) chicago += ` ${volume}`;
-        if (year && pages) chicago += ` (${year}): ${pages}`;
-        else if (year) chicago += ` (${year})`;
-        else if (pages) chicago += `: ${pages}`;
-        chicago += '.';
-        return chicago;
-      default:
-        return '';
-    }
-  };
-
-  // 复制引用
-  const copyDetailCitation = () => {
-    const citation = generateDetailCitation(detailCitationFormat);
-    const plainCitation = citation.replace(/<\/?i>/g, '');
-    navigator.clipboard.writeText(plainCitation);
-    setDetailCopied(true);
-    setTimeout(() => setDetailCopied(false), 2000);
-  };
-
   // 复制DOI
   const copyDetailDoi = (e) => {
     e.stopPropagation();
@@ -696,6 +709,170 @@ const SearchResultsPage = () => {
       setTimeout(() => setDetailCopiedCorpusId(false), 2000);
     }
   };
+
+  // 加载引用文献（分页）- 使用 batch API 获取详细信息
+  const loadCitations = useCallback(async (page = 1) => {
+    if (!detailPaper || citationsLoading) return;
+    
+    // 获取原始引用列表中的 paper IDs
+    const allCitations = detailPaper.citations || [];
+    if (allCitations.length === 0) return;
+    
+    const totalPages = Math.ceil(allCitations.length / REFS_PER_PAGE);
+    const startIndex = (page - 1) * REFS_PER_PAGE;
+    const endIndex = startIndex + REFS_PER_PAGE;
+    
+    // 获取当前页的 paper IDs
+    const pageIds = allCitations
+      .slice(startIndex, endIndex)
+      .map(c => c.paperId)
+      .filter(id => id);
+    
+    if (pageIds.length === 0) return;
+    
+    setCitationsLoading(true);
+    try {
+      const response = await scholarAPI.getPaperBatch(
+        pageIds,
+        ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
+      );
+      
+      const newPapers = response.data?.data || response.data || [];
+      
+      setCitationsData({
+        papers: newPapers,
+        currentPage: page,
+        total: allCitations.length,
+        totalPages: totalPages
+      });
+    } catch (error) {
+      console.error('Failed to load citations:', error);
+    } finally {
+      setCitationsLoading(false);
+    }
+  }, [detailPaper, citationsLoading, REFS_PER_PAGE]);
+
+  // 加载参考文献（分页）- 使用 batch API 获取详细信息
+  const loadReferences = useCallback(async (page = 1) => {
+    if (!detailPaper || referencesLoading) return;
+    
+    // 获取原始参考文献列表中的 paper IDs
+    const allReferences = detailPaper.references || [];
+    if (allReferences.length === 0) return;
+    
+    const totalPages = Math.ceil(allReferences.length / REFS_PER_PAGE);
+    const startIndex = (page - 1) * REFS_PER_PAGE;
+    const endIndex = startIndex + REFS_PER_PAGE;
+    
+    // 获取当前页的 paper IDs
+    const pageIds = allReferences
+      .slice(startIndex, endIndex)
+      .map(r => r.paperId)
+      .filter(id => id);
+    
+    if (pageIds.length === 0) return;
+    
+    setReferencesLoading(true);
+    try {
+      const response = await scholarAPI.getPaperBatch(
+        pageIds,
+        ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
+      );
+      
+      const newPapers = response.data?.data || response.data || [];
+      
+      setReferencesData({
+        papers: newPapers,
+        currentPage: page,
+        total: allReferences.length,
+        totalPages: totalPages
+      });
+    } catch (error) {
+      console.error('Failed to load references:', error);
+    } finally {
+      setReferencesLoading(false);
+    }
+  }, [detailPaper, referencesLoading, REFS_PER_PAGE]);
+
+  // 加载相似论文（分页）- 先获取推荐论文ID列表，再通过batch接口获取详细信息
+  // append 参数用于表格视图的累积加载模式
+  const loadSimilarPapers = useCallback(async (page = 1, append = false) => {
+    if (!detailPaper || similarPapersLoading) return;
+    
+    setSimilarPapersLoading(true);
+    try {
+      // 如果还没有加载过所有相似论文ID，先获取推荐列表
+      let allPaperIds = allSimilarPapers;
+      if (allPaperIds.length === 0) {
+        // 只获取论文ID（推荐接口默认只返回paperId和title）
+        const recResponse = await scholarAPI.getRecommendations(
+          detailPaper.paperId,
+          100 // 最多获取100篇推荐论文
+        );
+        
+        const recommendedPapers = recResponse.data?.data?.recommendedPapers || recResponse.data?.recommendedPapers || [];
+        // 提取论文ID列表
+        allPaperIds = recommendedPapers.map(p => p.paperId).filter(id => id);
+        setAllSimilarPapers(allPaperIds);
+      }
+      
+      if (allPaperIds.length === 0) {
+        setSimilarPapersData({
+          papers: [],
+          currentPage: 1,
+          total: 0,
+          totalPages: 0
+        });
+        return;
+      }
+      
+      // 分页获取当前页的论文ID
+      const totalPages = Math.ceil(allPaperIds.length / REFS_PER_PAGE);
+      const startIndex = (page - 1) * REFS_PER_PAGE;
+      const endIndex = startIndex + REFS_PER_PAGE;
+      const pageIds = allPaperIds.slice(startIndex, endIndex);
+      
+      // 通过batch接口获取详细信息
+      const batchResponse = await scholarAPI.getPaperBatch(
+        pageIds,
+        ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
+      );
+      
+      const pagePapers = batchResponse.data?.data || batchResponse.data || [];
+      
+      setSimilarPapersData(prev => {
+        // 如果是累积模式（表格视图的加载更多），追加到现有数据
+        if (append && prev.papers.length > 0) {
+          // 去重
+          const existingIds = new Set(prev.papers.map(p => p.paperId));
+          const newPapers = pagePapers.filter(p => !existingIds.has(p.paperId));
+          return {
+            papers: [...prev.papers, ...newPapers],
+            currentPage: page,
+            total: allPaperIds.length,
+            totalPages: totalPages
+          };
+        }
+        // 否则替换数据（列表视图的分页）
+        return {
+          papers: pagePapers,
+          currentPage: page,
+          total: allPaperIds.length,
+          totalPages: totalPages
+        };
+      });
+    } catch (error) {
+      console.error('Failed to load similar papers:', error);
+      setSimilarPapersData({
+        papers: [],
+        currentPage: 1,
+        total: 0,
+        totalPages: 0
+      });
+    } finally {
+      setSimilarPapersLoading(false);
+    }
+  }, [detailPaper, similarPapersLoading, allSimilarPapers, REFS_PER_PAGE]);
 
   // 处理选择作者建议
   const handleSelectAuthor = (author) => {
@@ -1132,10 +1309,27 @@ const SearchResultsPage = () => {
                 </button>
               )}
               <h1 className="page-title">学术检索</h1>
+              {/* 论文详情模式下显示搜索按钮 - 展开时隐藏 */}
+              {viewMode === 'paper' && (
+                <button 
+                  className={`epd-navbar-search-btn ${showDetailSearch ? 'hidden' : ''}`}
+                  onClick={() => setShowDetailSearch(true)}
+                  title="搜索论文"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                  </svg>
+                </button>
+              )}
             </nav>
 
-            {/* 居中搜索区域 */}
-            <div className={`search-results-centered-area ${isSearchBarCollapsed ? 'collapsed' : ''} ${viewMode === 'table' ? 'table-mode' : ''}`}>
+            {/* 居中搜索区域 - 论文详情模式下可通过按钮展开 */}
+            {(viewMode !== 'paper' || showDetailSearch) && (
+            <div 
+              className={`search-results-centered-area ${isSearchBarCollapsed ? 'collapsed' : ''} ${viewMode === 'table' ? 'table-mode' : ''} ${viewMode === 'paper' && showDetailSearch ? 'paper-mode-search' : ''}`}
+              onClick={(e) => e.stopPropagation()}
+            >
               {viewMode === 'table' ? (
                 // 表格模式下的简化搜索词展示
                 <div 
@@ -1314,6 +1508,7 @@ const SearchResultsPage = () => {
                 )}
               </div>
             </div>
+            )}
 
       {/* 两栏布局 */}
       <div className="results-main" ref={resultsMainRef}>
@@ -1322,14 +1517,6 @@ const SearchResultsPage = () => {
             {viewMode === 'paper' ? (
               /* 论文详情视图 */
               <div className="epd-container">
-                {/* 返回按钮 */}
-                <button className="epd-back-btn" onClick={handleBackToSearch}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M19 12H5M12 19l-7-7 7-7"/>
-                  </svg>
-                  返回搜索结果
-                </button>
-
                 {detailLoading ? (
                   <div className="epd-loading">
                     <div className="epd-loading-spinner"></div>
@@ -1349,9 +1536,9 @@ const SearchResultsPage = () => {
                     </button>
                   </div>
                 ) : detailPaper ? (
-                  <div className="epd-content">
-                    {/* 论文头部信息 */}
-                    <div className="epd-header">
+                  <div className={`epd-content ${detailHeaderCollapsed ? 'epd-header-collapsed' : ''}`}>
+                    {/* 论文头部信息 - 可折叠 */}
+                    <div className={`epd-header ${detailHeaderCollapsed ? 'collapsed' : ''}`}>
                       {/* DOI 和 Corpus ID */}
                       <div className="epd-meta-ids">
                         {detailPaper.externalIds?.DOI && (
@@ -1412,86 +1599,277 @@ const SearchResultsPage = () => {
                           <span className="epd-fields">{detailPaper.fieldsOfStudy.join(', ')}</span>
                         )}
                       </div>
+                      
+                      {/* 折叠状态下显示展开按钮 */}
+                      {detailHeaderCollapsed && (
+                        <button 
+                          className="epd-header-toggle"
+                          onClick={() => setDetailHeaderCollapsed(false)}
+                          title="展开详情"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="6 9 12 15 18 9"/>
+                          </svg>
+                          展开详情
+                        </button>
+                      )}
                     </div>
 
-                    {/* TLDR */}
-                    {detailPaper.tldr && (
+                    {/* TLDR - 折叠时隐藏 */}
+                    {!detailHeaderCollapsed && detailPaper.tldr && (
                       <div className="epd-tldr">
                         <span className="epd-tldr-badge">TLDR</span>
                         <p className="epd-tldr-text">{detailPaper.tldr.text}</p>
                       </div>
                     )}
 
-                    {/* Abstract */}
-                    {detailPaper.abstract && (
+                    {/* 摘要 - 折叠时隐藏 */}
+                    {!detailHeaderCollapsed && detailPaper.abstract && (
                       <div className="epd-section">
-                        <h2 className="epd-section-title">Abstract</h2>
+                        <h2 className="epd-section-title">摘要</h2>
                         <p className="epd-abstract">{detailPaper.abstract}</p>
                       </div>
                     )}
 
-                    {/* 操作按钮 */}
-                    <div className="epd-actions">
-                      <button className="epd-action-btn" onClick={() => setShowDetailCiteModal(true)}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    {/* 操作按钮 - 折叠时隐藏 */}
+                    {!detailHeaderCollapsed && (
+                    <div className="search-result-paper-meta epd-paper-meta">
+                      {/* 被引用数 */}
+                      {detailPaper.citationCount !== undefined && (
+                        <>
+                          <span className="citation-count">
+                            <span className="citation-number">{detailPaper.citationCount}</span>
+                            <span className="citation-label">被引</span>
+                          </span>
+                          <span className="meta-divider"></span>
+                        </>
+                      )}
+                      
+                      {/* DOI 链接 */}
+                      {detailPaper.externalIds?.DOI && (
+                        <a
+                          href={`https://doi.org/${detailPaper.externalIds.DOI}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="search-result-paper-doi-link"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
+                          </svg>
+                          DOI
+                        </a>
+                      )}
+                      
+                      {/* PDF 链接 */}
+                      {detailPaper.openAccessPdf?.url && (
+                        <a 
+                          href={detailPaper.openAccessPdf.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="meta-item pdf-link"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10 9 9 9 8 9"/>
+                          </svg>
+                          PDF
+                        </a>
+                      )}
+                      
+                      {/* Cite 按钮 */}
+                      <button
+                        className="search-result-paper-cite-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCitePaper(detailPaper);
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11M20 10v11M8 21V10M16 21V10"/>
                         </svg>
                         Cite
                       </button>
-                      {detailPaper.externalIds?.DOI && (
-                        <a href={`https://doi.org/${detailPaper.externalIds.DOI}`} target="_blank" rel="noopener noreferrer" className="epd-action-btn">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
-                          </svg>
-                          View Publisher
-                        </a>
-                      )}
-                      {detailPaper.openAccessPdf?.url && (
-                        <a href={detailPaper.openAccessPdf.url} target="_blank" rel="noopener noreferrer" className="epd-action-btn epd-pdf-btn">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                          </svg>
-                          View PDF
-                        </a>
-                      )}
                     </div>
+                    )}
 
-                    {/* Citations & References Tabs */}
+                    {/* 引用文献 & 参考文献 & 相似论文 Tabs */}
                     <div className="epd-section epd-citations-refs">
                       <div className="epd-tabs">
-                        <button className={`epd-tab ${detailActiveTab === 'citations' ? 'active' : ''}`} onClick={() => setDetailActiveTab('citations')}>
-                          Citations <span className="epd-tab-count">{detailPaper.citationCount || 0}</span>
+                        <button className={`epd-tab ${detailActiveTab === 'citations' ? 'active' : ''}`} onClick={() => { setDetailActiveTab('citations'); setDetailHeaderCollapsed(false); }}>
+                          引用文献 <span className="epd-tab-count">{detailPaper.citationCount || 0}</span>
                         </button>
-                        <button className={`epd-tab ${detailActiveTab === 'references' ? 'active' : ''}`} onClick={() => setDetailActiveTab('references')}>
-                          References <span className="epd-tab-count">{detailPaper.referenceCount || 0}</span>
+                        <button className={`epd-tab ${detailActiveTab === 'references' ? 'active' : ''}`} onClick={() => { setDetailActiveTab('references'); setDetailHeaderCollapsed(false); }}>
+                          参考文献 <span className="epd-tab-count">{detailPaper.referenceCount || 0}</span>
+                        </button>
+                        <button className={`epd-tab ${detailActiveTab === 'similar' ? 'active' : ''}`} onClick={() => { setDetailActiveTab('similar'); setDetailHeaderCollapsed(true); }}>
+                          相似论文 {similarPapersData.total > 0 && <span className="epd-tab-count">{similarPapersData.total}</span>}
                         </button>
                       </div>
 
                       <div className="epd-tab-content">
                         {detailActiveTab === 'citations' && (
                           <div className="epd-papers-list">
-                            {detailPaper.citations?.length > 0 ? (
-                              detailPaper.citations.map((citation, idx) => (
-                                <div key={citation.paperId || idx} className="epd-paper-item">
-                                  <h3 className="epd-paper-item-title">
-                                    <a href={`/paper/${citation.paperId}`} target="_blank" rel="noopener noreferrer">{citation.title || 'Untitled'}</a>
-                                  </h3>
-                                  <div className="epd-paper-item-meta">
-                                    {citation.authors?.slice(0, 5).map((a, i) => (
-                                      <React.Fragment key={i}>
-                                        <span className="epd-paper-item-author">{a.name}</span>
-                                        {i < Math.min(citation.authors.length - 1, 4) && <span>, </span>}
-                                      </React.Fragment>
-                                    ))}
-                                    {citation.authors?.length > 5 && <span> et al.</span>}
-                                    {citation.venue && <><span className="epd-meta-dot"> · </span><span>{citation.venue}</span></>}
-                                    {citation.year && <><span> </span><span>{citation.year}</span></>}
+                            {citationsData.papers.length > 0 ? (
+                              <>
+                                {citationsData.papers.map((paper, idx) => (
+                                  <div 
+                                    key={paper?.paperId || idx} 
+                                    className="search-result-paper-item"
+                                    onClick={() => paper?.paperId && handleSelectPaper({ id: paper.paperId, title: paper.title })}
+                                  >
+                                    <div className="search-result-paper-content">
+                                      <h3 className="search-result-paper-title">{paper?.title || 'Untitled'}</h3>
+                                      
+                                      {/* 作者列表 */}
+                                      {paper?.authors && paper.authors.length > 0 && (
+                                        <div className="search-result-paper-authors-row">
+                                          <div className="search-result-paper-author-tags">
+                                            {paper.authors.slice(0, 4).map((author, i) => (
+                                              <span key={i} className="author-tag">{author.name}</span>
+                                            ))}
+                                            {paper.authors.length > 4 && (
+                                              <span className="author-tag author-more">+{paper.authors.length - 4} authors</span>
+                                            )}
+                                          </div>
+                                          {/* 研究领域 */}
+                                          {paper.fieldsOfStudy && paper.fieldsOfStudy.length > 0 && (
+                                            <span className="search-result-paper-fields">
+                                              {paper.fieldsOfStudy.slice(0, 2).join(', ')}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* 期刊/会议 + 日期 */}
+                                      {(paper?.venue || paper?.publicationDate || paper?.year) && (
+                                        <p className="search-result-paper-venue-date">
+                                          {paper.venue && (
+                                            <span className="search-result-venue-name">{paper.venue}</span>
+                                          )}
+                                          {paper.venue && (paper.publicationDate || paper.year) && ' · '}
+                                          {paper.publicationDate ? (
+                                            <span className="pub-date">
+                                              {new Date(paper.publicationDate).toLocaleDateString('zh-CN', { 
+                                                year: 'numeric',
+                                                month: 'long', 
+                                                day: 'numeric'
+                                              })}
+                                            </span>
+                                          ) : paper.year && (
+                                            <span className="pub-date">{paper.year}年</span>
+                                          )}
+                                        </p>
+                                      )}
+
+                                      {/* TLDR 摘要 */}
+                                      {paper?.tldr?.text && (
+                                        <div className="paper-tldr">
+                                          <span className="tldr-label">TLDR</span>
+                                          <span className="tldr-text">
+                                            {paper.tldr.text.length > 300 
+                                              ? paper.tldr.text.substring(0, 300) + '...' 
+                                              : paper.tldr.text}
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {/* 完整摘要 */}
+                                      {paper?.abstract && (
+                                        <div className="paper-abstract-section">
+                                          <span className="abstract-label">Abstract</span>
+                                          <span className="abstract-text">
+                                            {paper.abstract.length > 300 
+                                              ? paper.abstract.substring(0, 300) + '...' 
+                                              : paper.abstract}
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {/* 底部元信息和操作 */}
+                                      <div className="search-result-paper-meta">
+                                        {paper?.citationCount !== undefined && (
+                                          <>
+                                            <span className="citation-count">
+                                              <span className="citation-number">{paper.citationCount}</span>
+                                              <span className="citation-label">被引</span>
+                                            </span>
+                                            <span className="meta-divider"></span>
+                                          </>
+                                        )}
+                                        {paper?.externalIds?.DOI && (
+                                          <a href={`https://doi.org/${paper.externalIds.DOI}`} target="_blank" rel="noopener noreferrer" className="search-result-paper-doi-link" onClick={(e) => e.stopPropagation()}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+                                            DOI
+                                          </a>
+                                        )}
+                                        {paper?.openAccessPdf?.url && (
+                                          <a href={paper.openAccessPdf.url} target="_blank" rel="noopener noreferrer" className="meta-item pdf-link" onClick={(e) => e.stopPropagation()}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                            PDF
+                                          </a>
+                                        )}
+                                        <button className="search-result-paper-cite-btn" onClick={(e) => { e.stopPropagation(); setCitePaper(paper); }}>
+                                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11M20 10v11M8 21V10M16 21V10"/></svg>
+                                          Cite
+                                        </button>
+                                      </div>
+                                    </div>
                                   </div>
-                                  {citation.tldr && <p className="epd-paper-item-tldr"><span className="epd-tldr-label">TLDR</span> {citation.tldr.text}</p>}
-                                  {citation.abstract && <p className="epd-paper-item-abstract">{citation.abstract}</p>}
-                                </div>
-                              ))
+                                ))}
+                                {/* 分页组件 */}
+                                {citationsData.totalPages > 1 && (
+                                  <div className="epd-pagination">
+                                    <button
+                                      className="epd-pagination-btn"
+                                      onClick={() => loadCitations(citationsData.currentPage - 1)}
+                                      disabled={citationsData.currentPage === 1 || citationsLoading}
+                                    >
+                                      上一页
+                                    </button>
+                                    <div className="epd-pagination-pages">
+                                      {Array.from({ length: Math.min(5, citationsData.totalPages) }, (_, i) => {
+                                        let pageNum;
+                                        if (citationsData.totalPages <= 5) {
+                                          pageNum = i + 1;
+                                        } else if (citationsData.currentPage <= 3) {
+                                          pageNum = i + 1;
+                                        } else if (citationsData.currentPage >= citationsData.totalPages - 2) {
+                                          pageNum = citationsData.totalPages - 4 + i;
+                                        } else {
+                                          pageNum = citationsData.currentPage - 2 + i;
+                                        }
+                                        return (
+                                          <button
+                                            key={pageNum}
+                                            className={`epd-pagination-page ${citationsData.currentPage === pageNum ? 'active' : ''}`}
+                                            onClick={() => loadCitations(pageNum)}
+                                            disabled={citationsLoading}
+                                          >
+                                            {pageNum}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                    <button
+                                      className="epd-pagination-btn"
+                                      onClick={() => loadCitations(citationsData.currentPage + 1)}
+                                      disabled={citationsData.currentPage === citationsData.totalPages || citationsLoading}
+                                    >
+                                      下一页
+                                    </button>
+                                  </div>
+                                )}
+                              </>
+                            ) : citationsLoading ? (
+                              <div className="epd-loading-inline">
+                                <div className="epd-loading-spinner"></div>
+                                <span>加载引用文献中...</span>
+                              </div>
                             ) : (
                               <p className="epd-empty-text">暂无引用信息</p>
                             )}
@@ -1500,29 +1878,383 @@ const SearchResultsPage = () => {
 
                         {detailActiveTab === 'references' && (
                           <div className="epd-papers-list">
-                            {detailPaper.references?.length > 0 ? (
-                              detailPaper.references.map((reference, idx) => (
-                                <div key={reference.paperId || idx} className="epd-paper-item">
-                                  <h3 className="epd-paper-item-title">
-                                    <a href={`/paper/${reference.paperId}`} target="_blank" rel="noopener noreferrer">{reference.title || 'Untitled'}</a>
-                                  </h3>
-                                  <div className="epd-paper-item-meta">
-                                    {reference.authors?.slice(0, 5).map((a, i) => (
-                                      <React.Fragment key={i}>
-                                        <span className="epd-paper-item-author">{a.name}</span>
-                                        {i < Math.min(reference.authors.length - 1, 4) && <span>, </span>}
-                                      </React.Fragment>
-                                    ))}
-                                    {reference.authors?.length > 5 && <span> et al.</span>}
-                                    {reference.venue && <><span className="epd-meta-dot"> · </span><span>{reference.venue}</span></>}
-                                    {reference.year && <><span> </span><span>{reference.year}</span></>}
+                            {referencesData.papers.length > 0 ? (
+                              <>
+                                {referencesData.papers.map((paper, idx) => (
+                                  <div 
+                                    key={paper?.paperId || idx} 
+                                    className="search-result-paper-item"
+                                    onClick={() => paper?.paperId && handleSelectPaper({ id: paper.paperId, title: paper.title })}
+                                  >
+                                    <div className="search-result-paper-content">
+                                      <h3 className="search-result-paper-title">{paper?.title || 'Untitled'}</h3>
+                                      
+                                      {/* 作者列表 */}
+                                      {paper?.authors && paper.authors.length > 0 && (
+                                        <div className="search-result-paper-authors-row">
+                                          <div className="search-result-paper-author-tags">
+                                            {paper.authors.slice(0, 4).map((author, i) => (
+                                              <span key={i} className="author-tag">{author.name}</span>
+                                            ))}
+                                            {paper.authors.length > 4 && (
+                                              <span className="author-tag author-more">+{paper.authors.length - 4} authors</span>
+                                            )}
+                                          </div>
+                                          {/* 研究领域 */}
+                                          {paper.fieldsOfStudy && paper.fieldsOfStudy.length > 0 && (
+                                            <span className="search-result-paper-fields">
+                                              {paper.fieldsOfStudy.slice(0, 2).join(', ')}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* 期刊/会议 + 日期 */}
+                                      {(paper?.venue || paper?.publicationDate || paper?.year) && (
+                                        <p className="search-result-paper-venue-date">
+                                          {paper.venue && (
+                                            <span className="search-result-venue-name">{paper.venue}</span>
+                                          )}
+                                          {paper.venue && (paper.publicationDate || paper.year) && ' · '}
+                                          {paper.publicationDate ? (
+                                            <span className="pub-date">
+                                              {new Date(paper.publicationDate).toLocaleDateString('zh-CN', { 
+                                                year: 'numeric',
+                                                month: 'long', 
+                                                day: 'numeric'
+                                              })}
+                                            </span>
+                                          ) : paper.year && (
+                                            <span className="pub-date">{paper.year}年</span>
+                                          )}
+                                        </p>
+                                      )}
+
+                                      {/* TLDR 摘要 */}
+                                      {paper?.tldr?.text && (
+                                        <div className="paper-tldr">
+                                          <span className="tldr-label">TLDR</span>
+                                          <span className="tldr-text">
+                                            {paper.tldr.text.length > 300 
+                                              ? paper.tldr.text.substring(0, 300) + '...' 
+                                              : paper.tldr.text}
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {/* 完整摘要 */}
+                                      {paper?.abstract && (
+                                        <div className="paper-abstract-section">
+                                          <span className="abstract-label">Abstract</span>
+                                          <span className="abstract-text">
+                                            {paper.abstract.length > 300 
+                                              ? paper.abstract.substring(0, 300) + '...' 
+                                              : paper.abstract}
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {/* 底部元信息和操作 */}
+                                      <div className="search-result-paper-meta">
+                                        {paper?.citationCount !== undefined && (
+                                          <>
+                                            <span className="citation-count">
+                                              <span className="citation-number">{paper.citationCount}</span>
+                                              <span className="citation-label">被引</span>
+                                            </span>
+                                            <span className="meta-divider"></span>
+                                          </>
+                                        )}
+                                        {paper?.externalIds?.DOI && (
+                                          <a href={`https://doi.org/${paper.externalIds.DOI}`} target="_blank" rel="noopener noreferrer" className="search-result-paper-doi-link" onClick={(e) => e.stopPropagation()}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+                                            DOI
+                                          </a>
+                                        )}
+                                        {paper?.openAccessPdf?.url && (
+                                          <a href={paper.openAccessPdf.url} target="_blank" rel="noopener noreferrer" className="meta-item pdf-link" onClick={(e) => e.stopPropagation()}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                            PDF
+                                          </a>
+                                        )}
+                                        <button className="search-result-paper-cite-btn" onClick={(e) => { e.stopPropagation(); setCitePaper(paper); }}>
+                                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11M20 10v11M8 21V10M16 21V10"/></svg>
+                                          Cite
+                                        </button>
+                                      </div>
+                                    </div>
                                   </div>
-                                  {reference.tldr && <p className="epd-paper-item-tldr"><span className="epd-tldr-label">TLDR</span> {reference.tldr.text}</p>}
-                                  {reference.abstract && <p className="epd-paper-item-abstract">{reference.abstract}</p>}
-                                </div>
-                              ))
+                                ))}
+                                {/* 分页组件 */}
+                                {referencesData.totalPages > 1 && (
+                                  <div className="epd-pagination">
+                                    <button
+                                      className="epd-pagination-btn"
+                                      onClick={() => loadReferences(referencesData.currentPage - 1)}
+                                      disabled={referencesData.currentPage === 1 || referencesLoading}
+                                    >
+                                      上一页
+                                    </button>
+                                    <div className="epd-pagination-pages">
+                                      {Array.from({ length: Math.min(5, referencesData.totalPages) }, (_, i) => {
+                                        let pageNum;
+                                        if (referencesData.totalPages <= 5) {
+                                          pageNum = i + 1;
+                                        } else if (referencesData.currentPage <= 3) {
+                                          pageNum = i + 1;
+                                        } else if (referencesData.currentPage >= referencesData.totalPages - 2) {
+                                          pageNum = referencesData.totalPages - 4 + i;
+                                        } else {
+                                          pageNum = referencesData.currentPage - 2 + i;
+                                        }
+                                        return (
+                                          <button
+                                            key={pageNum}
+                                            className={`epd-pagination-page ${referencesData.currentPage === pageNum ? 'active' : ''}`}
+                                            onClick={() => loadReferences(pageNum)}
+                                            disabled={referencesLoading}
+                                          >
+                                            {pageNum}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                    <button
+                                      className="epd-pagination-btn"
+                                      onClick={() => loadReferences(referencesData.currentPage + 1)}
+                                      disabled={referencesData.currentPage === referencesData.totalPages || referencesLoading}
+                                    >
+                                      下一页
+                                    </button>
+                                  </div>
+                                )}
+                              </>
+                            ) : referencesLoading ? (
+                              <div className="epd-loading-inline">
+                                <div className="epd-loading-spinner"></div>
+                                <span>加载参考文献中...</span>
+                              </div>
                             ) : (
                               <p className="epd-empty-text">暂无参考文献信息</p>
+                            )}
+                          </div>
+                        )}
+
+                        {detailActiveTab === 'similar' && (
+                          <div className="epd-similar-papers" ref={similarPapersListRef}>
+                            {/* 头部：统计信息 + 视图切换 */}
+                            <div className="results-header">
+                              <p className="results-info">
+                                {similarPapersData.total > 0 ? (
+                                  <>显示 <strong>{(similarPapersData.currentPage - 1) * REFS_PER_PAGE + 1}-{Math.min(similarPapersData.currentPage * REFS_PER_PAGE, similarPapersData.total)}</strong> / 共 <strong>{similarPapersData.total}</strong> 篇相似论文</>
+                                ) : (
+                                  '暂无相似论文'
+                                )}
+                              </p>
+                              <div className="srp-view-mode-switcher">
+                                <button 
+                                  className={`srp-view-mode-btn ${similarPapersViewMode === 'list' ? 'active' : ''}`}
+                                  onClick={() => setSimilarPapersViewMode('list')}
+                                  title="列表视图"
+                                >
+                                  <List size={18} />
+                                  <span>列表</span>
+                                </button>
+                                <button 
+                                  className={`srp-view-mode-btn ${similarPapersViewMode === 'table' ? 'active' : ''}`}
+                                  onClick={() => setSimilarPapersViewMode('table')}
+                                  title="表格视图"
+                                >
+                                  <Table2 size={18} />
+                                  <span>表格</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {similarPapersData.papers.length > 0 ? (
+                              <>
+                                {similarPapersViewMode === 'list' ? (
+                                  /* 列表视图 - 复用搜索结果列表样式 */
+                                  <div className="papers-list">
+                                    {similarPapersData.papers.map((paper, idx) => {
+                                      const itemIndex = (similarPapersData.currentPage - 1) * REFS_PER_PAGE + idx + 1;
+                                      return (
+                                        <div 
+                                          key={paper?.paperId || idx} 
+                                          className="search-result-paper-item"
+                                        >
+                                          <div className="search-result-paper-number">{itemIndex}</div>
+                                          <div className="search-result-paper-content">
+                                            <h3 
+                                              className="search-result-paper-title"
+                                              onClick={() => paper?.paperId && handleSelectPaper({ id: paper.paperId, title: paper.title })}
+                                            >
+                                              {paper?.title || 'Untitled'}
+                                            </h3>
+                                            
+                                            {/* 作者列表 */}
+                                            {paper?.authors && paper.authors.length > 0 && (
+                                              <div className="search-result-paper-authors-row">
+                                                <div className="search-result-paper-author-tags">
+                                                  {paper.authors.slice(0, 4).map((author, i) => (
+                                                    <span key={i} className="author-tag">{author.name}</span>
+                                                  ))}
+                                                  {paper.authors.length > 4 && (
+                                                    <span className="author-tag author-more">+{paper.authors.length - 4} authors</span>
+                                                  )}
+                                                </div>
+                                                {/* 研究领域 */}
+                                                {paper.fieldsOfStudy && paper.fieldsOfStudy.length > 0 && (
+                                                  <span className="search-result-paper-fields">
+                                                    {paper.fieldsOfStudy.slice(0, 2).join(', ')}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            )}
+
+                                            {/* 期刊/会议 + 日期 */}
+                                            {(paper?.venue || paper?.publicationDate || paper?.year) && (
+                                              <p className="search-result-paper-venue-date">
+                                                {paper.venue && (
+                                                  <span className="search-result-venue-name">{paper.venue}</span>
+                                                )}
+                                                {paper.venue && (paper.publicationDate || paper.year) && ' · '}
+                                                {paper.publicationDate ? (
+                                                  <span className="pub-date">
+                                                    {new Date(paper.publicationDate).toLocaleDateString('zh-CN', { 
+                                                      year: 'numeric',
+                                                      month: 'long', 
+                                                      day: 'numeric'
+                                                    })}
+                                                  </span>
+                                                ) : paper.year && (
+                                                  <span className="pub-date">{paper.year}年</span>
+                                                )}
+                                              </p>
+                                            )}
+
+                                            {/* TLDR 摘要 */}
+                                            {paper?.tldr?.text && (
+                                              <div className="paper-tldr">
+                                                <span className="tldr-label">TLDR</span>
+                                                <span className="tldr-text">
+                                                  {paper.tldr.text.length > 300 
+                                                    ? paper.tldr.text.substring(0, 300) + '...' 
+                                                    : paper.tldr.text}
+                                                </span>
+                                              </div>
+                                            )}
+
+                                            {/* 完整摘要 */}
+                                            {paper?.abstract && (
+                                              <div className="paper-abstract-section">
+                                                <span className="abstract-label">Abstract</span>
+                                                <span className="abstract-text">
+                                                  {paper.abstract.length > 300 
+                                                    ? paper.abstract.substring(0, 300) + '...' 
+                                                    : paper.abstract}
+                                                </span>
+                                              </div>
+                                            )}
+
+                                            {/* 底部元信息和操作 */}
+                                            <div className="search-result-paper-meta">
+                                              {paper?.citationCount !== undefined && (
+                                                <>
+                                                  <span className="citation-count">
+                                                    <span className="citation-number">{paper.citationCount}</span>
+                                                    <span className="citation-label">被引</span>
+                                                  </span>
+                                                  <span className="meta-divider"></span>
+                                                </>
+                                              )}
+                                              {paper?.externalIds?.DOI && (
+                                                <a href={`https://doi.org/${paper.externalIds.DOI}`} target="_blank" rel="noopener noreferrer" className="search-result-paper-doi-link" onClick={(e) => e.stopPropagation()}>
+                                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+                                                  DOI
+                                                </a>
+                                              )}
+                                              {paper?.openAccessPdf?.url && (
+                                                <a href={paper.openAccessPdf.url} target="_blank" rel="noopener noreferrer" className="meta-item pdf-link" onClick={(e) => e.stopPropagation()}>
+                                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                                  PDF
+                                                </a>
+                                              )}
+                                              <button className="search-result-paper-cite-btn" onClick={(e) => { e.stopPropagation(); setCitePaper(paper); }}>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11M20 10v11M8 21V10M16 21V10"/></svg>
+                                                Cite
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                    
+                                    {/* 分页组件 - 在列表末尾 */}
+                                    {similarPapersData.totalPages > 1 && (
+                                      <div className="epd-pagination">
+                                        <button
+                                          className="epd-pagination-btn"
+                                          onClick={() => loadSimilarPapers(similarPapersData.currentPage - 1)}
+                                          disabled={similarPapersData.currentPage === 1 || similarPapersLoading}
+                                        >
+                                          上一页
+                                        </button>
+                                        <div className="epd-pagination-pages">
+                                          {Array.from({ length: Math.min(5, similarPapersData.totalPages) }, (_, i) => {
+                                            let pageNum;
+                                            if (similarPapersData.totalPages <= 5) {
+                                              pageNum = i + 1;
+                                            } else if (similarPapersData.currentPage <= 3) {
+                                              pageNum = i + 1;
+                                            } else if (similarPapersData.currentPage >= similarPapersData.totalPages - 2) {
+                                              pageNum = similarPapersData.totalPages - 4 + i;
+                                            } else {
+                                              pageNum = similarPapersData.currentPage - 2 + i;
+                                            }
+                                            return (
+                                              <button
+                                                key={pageNum}
+                                                className={`epd-pagination-page ${similarPapersData.currentPage === pageNum ? 'active' : ''}`}
+                                                onClick={() => loadSimilarPapers(pageNum)}
+                                                disabled={similarPapersLoading}
+                                              >
+                                                {pageNum}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                        <button
+                                          className="epd-pagination-btn"
+                                          onClick={() => loadSimilarPapers(similarPapersData.currentPage + 1)}
+                                          disabled={similarPapersData.currentPage === similarPapersData.totalPages || similarPapersLoading}
+                                        >
+                                          下一页
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  /* 表格视图 - 使用 PaperTableView 组件 */
+                                  <div className="papers-list ptv-wrapper epd-similar-table">
+                                    <PaperTableView 
+                                      papers={similarPapersData.papers}
+                                      onPaperClick={(paper) => paper?.paperId && handleSelectPaper({ id: paper.paperId, title: paper.title })}
+                                      totalResults={similarPapersData.total}
+                                      onLoadMore={() => loadSimilarPapers(similarPapersData.currentPage + 1, true)}
+                                      hasMore={similarPapersData.currentPage < similarPapersData.totalPages}
+                                      loadingMore={similarPapersLoading}
+                                    />
+                                  </div>
+                                )}
+                              </>
+                            ) : similarPapersLoading ? (
+                              <div className="epd-loading-inline">
+                                <div className="epd-loading-spinner"></div>
+                                <span>加载相似论文中...</span>
+                              </div>
+                            ) : (
+                              <p className="epd-empty-text">暂无相似论文推荐</p>
                             )}
                           </div>
                         )}
@@ -1921,41 +2653,6 @@ const SearchResultsPage = () => {
           paper={citePaper}
           onClose={() => setCitePaper(null)}
         />
-      )}
-
-      {/* 论文详情页的引用弹窗 */}
-      {showDetailCiteModal && detailPaper && (
-        <div className="epd-cite-modal-overlay" onClick={() => setShowDetailCiteModal(false)}>
-          <div className="epd-cite-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="epd-cite-modal-header">
-              <h2>Cite Paper</h2>
-              <button className="epd-close-btn" onClick={() => setShowDetailCiteModal(false)}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"/>
-                  <line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-            </div>
-            <div className="epd-cite-format-tabs">
-              <button className={detailCitationFormat === 'bibtex' ? 'active' : ''} onClick={() => setDetailCitationFormat('bibtex')}>BibTeX</button>
-              <button className={detailCitationFormat === 'mla' ? 'active' : ''} onClick={() => setDetailCitationFormat('mla')}>MLA</button>
-              <button className={detailCitationFormat === 'apa' ? 'active' : ''} onClick={() => setDetailCitationFormat('apa')}>APA</button>
-              <button className={detailCitationFormat === 'chicago' ? 'active' : ''} onClick={() => setDetailCitationFormat('chicago')}>Chicago</button>
-            </div>
-            <div className="epd-cite-content">
-              <pre className={detailCitationFormat === 'bibtex' ? 'bibtex' : ''} dangerouslySetInnerHTML={{ __html: generateDetailCitation(detailCitationFormat) }} />
-            </div>
-            <div className="epd-cite-modal-footer">
-              <button className={`epd-copy-cite-btn ${detailCopied ? 'copied' : ''}`} onClick={copyDetailCitation}>
-                {detailCopied ? (
-                  <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!</>
-                ) : (
-                  <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy</>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* 表格视图引导弹窗 */}

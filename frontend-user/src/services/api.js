@@ -173,6 +173,16 @@ export const scholarAPI = {
   // Get paper references
   getReferences: (paperId, params) =>
     api.get(`/scholar/papers/${paperId}/references`, { params }),
+
+  // Batch get paper details
+  getPaperBatch: (paperIds, fields) =>
+    api.post('/scholar/papers/batch', { paperIds, fields }),
+
+  // Get paper recommendations (相似论文) - 只返回论文ID列表
+  getRecommendations: (paperId, limit = 100) => {
+    const params = { limit };
+    return api.get(`/scholar/recommendations/papers/${paperId}`, { params });
+  },
 };
 
 // 公共API - 不需要认证

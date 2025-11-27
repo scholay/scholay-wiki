@@ -29,7 +29,22 @@ const DEFAULT_COLUMNS = [
   { key: 'challengesLimitations', label: '挑战与局限' },
 ];
 
-const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults, selectedDimensionKey, onDimensionSelect, reloadTrigger }) => {
+const PaperTableView = ({ 
+  searchQuery, 
+  filters, 
+  onPaperClick, 
+  totalResults, 
+  selectedDimensionKey, 
+  onDimensionSelect, 
+  reloadTrigger,
+  // 新增：直接传入论文数据的模式
+  papers: providedPapers,
+  onLoadMore,
+  hasMore: providedHasMore,
+  loadingMore: providedLoadingMore,
+}) => {
+  // 判断是否使用传入的论文数据模式
+  const useProvidedPapers = !!providedPapers;
   // 获取用户认证状态
   const { isAuthenticated } = useAuth();
   
@@ -224,6 +239,17 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults, sele
 
   // 初始加载 - 当searchQuery、filters或reloadCounter变化时重新加载
   useEffect(() => {
+    // 如果使用传入的论文数据模式，不需要自己加载
+    if (useProvidedPapers) {
+      console.log('[PaperTableView] Using provided papers, count:', providedPapers?.length);
+      // 过滤出有摘要的论文
+      const papersWithAbs = (providedPapers || []).filter(p => p.abstract && p.abstract.trim().length > 0);
+      setPapersWithAbstract(papersWithAbs);
+      setInitialLoading(false);
+      setHasMoreFromBackend(providedHasMore !== undefined ? providedHasMore : false);
+      return;
+    }
+    
     console.log('[PaperTableView] useEffect triggered, searchQuery:', searchQuery, 'reloadCounter:', reloadCounter);
     
     if (!searchQuery) {
@@ -244,21 +270,38 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults, sele
     };
     
     loadInitial();
-  }, [searchQuery, filters, fetchPapers, reloadCounter]);
+  }, [searchQuery, filters, fetchPapers, reloadCounter, useProvidedPapers, providedPapers, providedHasMore]);
 
   // 当前显示的论文
-  const displayedPapers = papersWithAbstract.slice(0, displayCount);
+  const displayedPapers = useProvidedPapers 
+    ? papersWithAbstract  // 传入数据模式：显示所有有摘要的论文
+    : papersWithAbstract.slice(0, displayCount);
 
   // 是否可以显示更多（本地已有数据或后端还有数据）- 仅登录用户可用
-  const canLoadMore = isAuthenticated && (displayCount < papersWithAbstract.length || hasMoreFromBackend);
+  const canLoadMore = useProvidedPapers 
+    ? (providedHasMore && onLoadMore)  // 传入数据模式：由外部控制
+    : (isAuthenticated && (displayCount < papersWithAbstract.length || hasMoreFromBackend));
+
+  // 当前是否正在加载
+  const isLoadingMore = useProvidedPapers ? providedLoadingMore : loadingMore;
 
   // 剩余可加载数量提示
-  const remainingHint = displayCount < papersWithAbstract.length 
-    ? `还有 ${papersWithAbstract.length - displayCount} 篇已加载`
-    : hasMoreFromBackend ? '加载更多...' : '';
+  const remainingHint = useProvidedPapers 
+    ? (providedHasMore ? '加载更多...' : '')
+    : (displayCount < papersWithAbstract.length 
+        ? `还有 ${papersWithAbstract.length - displayCount} 篇已加载`
+        : hasMoreFromBackend ? '加载更多...' : '');
 
   // 加载更多论文
   const handleLoadMore = useCallback(async () => {
+    // 如果使用传入数据模式，调用外部的加载更多函数
+    if (useProvidedPapers) {
+      if (onLoadMore) {
+        onLoadMore();
+      }
+      return;
+    }
+    
     if (loadingMore) return;
     
     // 如果本地已有足够数据，直接显示更多
@@ -283,7 +326,7 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults, sele
       // 没有更多后端数据，显示所有已加载的
       setDisplayCount(papersWithAbstract.length);
     }
-  }, [loadingMore, displayCount, papersWithAbstract.length, hasMoreFromBackend, offset, fetchPapers, searchQuery, filters]);
+  }, [loadingMore, displayCount, papersWithAbstract.length, hasMoreFromBackend, offset, fetchPapers, searchQuery, filters, useProvidedPapers, onLoadMore]);
 
   // 分析单篇论文
   const analyzePaper = useCallback(async (paper) => {
@@ -637,15 +680,15 @@ const PaperTableView = ({ searchQuery, filters, onPaperClick, totalResults, sele
         </Suspense>
       )}
 
-      {/* 加载更多按钮 - 仅登录用户可见 */}
+      {/* 加载更多按钮 - 仅登录用户可见（或传入数据模式下由外部控制） */}
       {canLoadMore && (
         <div className="ptv-load-more">
           <button 
             className="ptv-load-more-btn"
             onClick={handleLoadMore}
-            disabled={loadingMore}
+            disabled={isLoadingMore}
           >
-            {loadingMore ? (
+            {isLoadingMore ? (
               <>
                 <div className="ptv-loading-spinner"></div>
                 <span>加载中...</span>

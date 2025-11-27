@@ -13,8 +13,55 @@
   padding: 12px 24px;
   display: flex;
   align-items: center;
+  gap: 12px;
   background: transparent;
   flex-shrink: 0;
+}
+
+/* 论文详情模式下标题栏的搜索按钮 */
+.epd-navbar-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-left: 8px;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.epd-navbar-search-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  transform: scale(1.05);
+}
+
+/* 搜索框展开时隐藏按钮 */
+.epd-navbar-search-btn.hidden {
+  opacity: 0;
+  transform: scale(0.8);
+  pointer-events: none;
+  width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+[data-theme="light"] .epd-navbar-search-btn {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .epd-navbar-search-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.8);
 }
 
 /* 居中搜索区域 - 改为左对齐 */
@@ -27,6 +74,44 @@
   background: transparent;
   flex-shrink: 0;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 论文详情模式下搜索区域的展开动画 */
+.search-results-centered-area.paper-mode-search {
+  animation: paperSearchExpand 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  padding-top: 0.5rem;
+  position: relative;
+  z-index: 1000;
+}
+
+.search-results-centered-area.paper-mode-search .results-composer-wrapper {
+  max-width: 800px;
+  margin: 0 auto 0 0;
+  position: relative;
+  z-index: 1001;
+}
+
+/* 确保搜索建议在论文详情模式下显示在最上层 */
+.search-results-centered-area.paper-mode-search .search-suggestions-dropdown {
+  z-index: 99999;
+  position: absolute;
+}
+
+@keyframes paperSearchExpand {
+  0% {
+    opacity: 0;
+    transform: translateY(-30px) scaleY(0.8);
+    max-height: 0;
+  }
+  50% {
+    opacity: 0.8;
+    max-height: 150px;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+    max-height: 200px;
+  }
 }
 
 /* 日间模式居中搜索区域 */
