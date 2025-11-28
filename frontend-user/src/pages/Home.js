@@ -185,10 +185,14 @@ const Home = () => {
   // 处理选择论文建议
   const handleSelectPaper = (paper) => {
     // 使用论文标题作为搜索查询
-    setSearchQuery(paper.title);
+    const title = paper.title || '';
+    const paperId = paper.id || '';
+    setSearchQuery(title);
     setShowSuggestions(false);
-    // 直接跳转到搜索结果页面
-    const params = new URLSearchParams({ query: paper.title });
+    // 跳转到搜索结果页面，并带上 paperId 以显示论文详情
+    const params = new URLSearchParams();
+    if (title) params.set('query', title);
+    if (paperId) params.set('paperId', paperId);
     navigate(`/search-results?${params.toString()}`);
   };
 

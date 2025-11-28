@@ -493,6 +493,8 @@ func main() {
 			publicAPI.GET("/papers/:paperId", scholarHandler.GetPaper)
 			// Public search endpoint - for anonymous access from home page
 			publicAPI.POST("/papers/search", scholarHandler.SearchPapers)
+			// Public paper batch endpoint - for anonymous access to get multiple papers
+			publicAPI.POST("/papers/batch", scholarHandler.GetPaperBatch)
 			// Public paper autocomplete endpoint - for search suggestions dropdown
 			publicAPI.GET("/papers/autocomplete", scholarHandler.PaperAutocomplete)
 			// Public search suggestions endpoint - combined paper + author suggestions
@@ -501,6 +503,8 @@ func main() {
 			publicAPI.POST("/papers/analyze", aiHandler.AnalyzePaper)
 			// Public analysis dimensions endpoint - get system default dimensions
 			publicAPI.GET("/analysis/dimensions", aiHandler.GetSystemDimensions)
+			// Public recommendations endpoint - for anonymous access to similar papers
+			publicAPI.GET("/recommendations/papers/:paperId", scholarHandler.GetRecommendationsForPaper)
 		}
 
 		// Analysis dimensions routes (protected - requires user authentication)

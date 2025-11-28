@@ -198,6 +198,14 @@ export const publicScholarAPI = {
   searchPapers: (params) =>
     publicApi.post('/papers/search', params),
   
+  // Public get paper details (获取论文详情 - 不需要登录)
+  getPaper: (paperId, fields) =>
+    publicApi.get(`/papers/${paperId}`, { 
+      params: { 
+        fields: fields || 'paperId,title,abstract,authors,year,citationCount,referenceCount,venue,publicationDate,publicationTypes,fieldsOfStudy,s2FieldsOfStudy,externalIds,url,openAccessPdf,influentialCitationCount,isOpenAccess,tldr,journal,citations.paperId,citations.externalIds,citations.url,citations.title,citations.abstract,citations.venue,citations.publicationVenue,citations.year,citations.referenceCount,citations.citationCount,citations.influentialCitationCount,citations.openAccessPdf,citations.s2FieldsOfStudy,citations.publicationTypes,citations.publicationDate,citations.journal,citations.citationStyles,citations.authors,references.paperId,references.externalIds,references.url,references.title,references.abstract,references.venue,references.publicationVenue,references.year,references.referenceCount,references.citationCount,references.influentialCitationCount,references.openAccessPdf,references.s2FieldsOfStudy,references.publicationTypes,references.publicationDate,references.journal,references.citationStyles,references.authors'
+      } 
+    }),
+
   // Public paper analysis (AI分析论文摘要 - 不需要登录)
   // paperId用于数据库缓存，优先从缓存获取
   analyzePaper: (paperId, title, abstract) =>
@@ -217,6 +225,16 @@ export const publicScholarAPI = {
   // Public paper autocomplete (论文标题自动补全 - 不需要登录)
   getPaperAutocomplete: (query) =>
     publicApi.get('/papers/autocomplete', { params: { query } }),
+
+  // Public batch get paper details (批量获取论文详情 - 不需要登录)
+  getPaperBatch: (paperIds, fields) =>
+    publicApi.post('/papers/batch', { paperIds, fields }),
+
+  // Public get paper recommendations (获取相似论文 - 不需要登录)
+  getRecommendations: (paperId, limit = 100) => {
+    const params = { limit };
+    return publicApi.get(`/recommendations/papers/${paperId}`, { params });
+  },
 };
 
 // 分析维度API - 需要认证

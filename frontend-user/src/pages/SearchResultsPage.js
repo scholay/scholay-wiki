@@ -3,10 +3,11 @@ import { useSearchParams, useNavigate, useOutletContext, useLocation } from 'rea
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
 import { Menu, List, Table2 } from 'lucide-react';
-import api, { scholarAPI, publicScholarAPI } from '../services/api';
+import { publicScholarAPI } from '../services/api';
 import PaperPreview from '../components/PaperPreview';
 import SearchFilters from '../components/SearchFilters';
 import PaperListSkeleton from '../components/PaperListSkeleton';
+import PaperDetailSkeleton from '../components/PaperDetailSkeleton';
 import CiteModal from '../components/CiteModal';
 import PaperTableView from '../components/PaperTableView';
 import TableColumnPanel from '../components/TableColumnPanel';
@@ -273,9 +274,8 @@ const SearchResultsPage = () => {
         params.venue = [currentFilters.venue];
       }
 
-      // 根据用户是否登录选择不同的API
-      const searchAPI = isAuthenticated ? scholarAPI : publicScholarAPI;
-      const response = await searchAPI.searchPapers(params);
+      // 使用公共API，支持未登录用户访问
+      const response = await publicScholarAPI.searchPapers(params);
 
       if (response.data.code === 0 && response.data.data) {
         const responseData = response.data.data;
@@ -423,11 +423,8 @@ const SearchResultsPage = () => {
     setDetailPaper(null);
     
     try {
-      const response = await api.get(`/public/papers/${paperId}`, {
-        params: {
-          fields: 'paperId,title,abstract,authors,year,citationCount,referenceCount,venue,publicationDate,publicationTypes,fieldsOfStudy,s2FieldsOfStudy,externalIds,url,openAccessPdf,influentialCitationCount,isOpenAccess,tldr,journal,citations.paperId,citations.externalIds,citations.url,citations.title,citations.abstract,citations.venue,citations.publicationVenue,citations.year,citations.referenceCount,citations.citationCount,citations.influentialCitationCount,citations.openAccessPdf,citations.s2FieldsOfStudy,citations.publicationTypes,citations.publicationDate,citations.journal,citations.citationStyles,citations.authors,references.paperId,references.externalIds,references.url,references.title,references.abstract,references.venue,references.publicationVenue,references.year,references.referenceCount,references.citationCount,references.influentialCitationCount,references.openAccessPdf,references.s2FieldsOfStudy,references.publicationTypes,references.publicationDate,references.journal,references.citationStyles,references.authors'
-        }
-      });
+      // 使用公共 API，支持未登录用户访问
+      const response = await publicScholarAPI.getPaper(paperId);
       console.log('[SearchResultsPage] Paper detail loaded:', response.data);
       // API 返回格式是 {code: 0, message: 'success', data: {...}}，需要取 data.data
       setDetailPaper(response.data.data);
@@ -746,7 +743,7 @@ const SearchResultsPage = () => {
     
     setCitationsLoading(true);
     try {
-      const response = await scholarAPI.getPaperBatch(
+      const response = await publicScholarAPI.getPaperBatch(
         pageIds,
         ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
       );
@@ -788,7 +785,7 @@ const SearchResultsPage = () => {
     
     setReferencesLoading(true);
     try {
-      const response = await scholarAPI.getPaperBatch(
+      const response = await publicScholarAPI.getPaperBatch(
         pageIds,
         ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
       );
@@ -819,7 +816,7 @@ const SearchResultsPage = () => {
       let allPaperIds = allSimilarPapers;
       if (allPaperIds.length === 0) {
         // 只获取论文ID（推荐接口默认只返回paperId和title）
-        const recResponse = await scholarAPI.getRecommendations(
+        const recResponse = await publicScholarAPI.getRecommendations(
           detailPaper.paperId,
           100 // 最多获取100篇推荐论文
         );
@@ -847,7 +844,7 @@ const SearchResultsPage = () => {
       const pageIds = allPaperIds.slice(startIndex, endIndex);
       
       // 通过batch接口获取详细信息
-      const batchResponse = await scholarAPI.getPaperBatch(
+      const batchResponse = await publicScholarAPI.getPaperBatch(
         pageIds,
         ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
       );
@@ -1532,10 +1529,7 @@ const SearchResultsPage = () => {
               /* 论文详情视图 */
               <div className="epd-container">
                 {detailLoading ? (
-                  <div className="epd-loading">
-                    <div className="epd-loading-spinner"></div>
-                    <p>加载论文详情中...</p>
-                  </div>
+                  <PaperDetailSkeleton />
                 ) : detailError ? (
                   <div className="epd-error">
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
