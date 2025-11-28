@@ -43,6 +43,8 @@
   margin-bottom: 2rem;
   animation: fadeInScale 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   view-transition-name: search-composer;
+  position: relative;
+  z-index: 100;
 }
 
 [data-theme="dark"] .normal-search-composer-wrapper {

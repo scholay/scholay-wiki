@@ -91,8 +91,8 @@
   z-index: 1001;
 }
 
-/* 确保搜索建议在论文详情模式下显示在最上层 */
-.search-results-centered-area.paper-mode-search .search-suggestions-dropdown {
+/* 确保搜索建议在所有模式下显示在最上层 */
+.search-results-centered-area .search-suggestions-dropdown {
   z-index: 99999;
   position: absolute;
 }
@@ -488,6 +488,8 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   margin-bottom: 0.5rem;
   animation: slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 100;
 }
 
 [data-theme="dark"] .results-composer-wrapper {

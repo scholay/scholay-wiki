@@ -410,7 +410,7 @@ const Home = () => {
                     </button>
                   </div>
 
-              {/* 搜索建议下拉框 - 仅在学术检索模式下显示，首页隐藏 loading */}
+              {/* 搜索建议下拉框 - 仅在学术检索模式下显示 */}
               {searchMode === 'normal' && (
                 <SearchSuggestions
                   query={searchQuery}
@@ -419,7 +419,6 @@ const Home = () => {
                   onClose={() => setShowSuggestions(false)}
                   visible={showSuggestions}
                   inputRef={textareaRef}
-                  hideLoading={true}
                 />
               )}
 

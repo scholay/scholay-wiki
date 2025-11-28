@@ -186,6 +186,8 @@ const SearchResultsPage = () => {
   const [similarPapersLoading, setSimilarPapersLoading] = useState(false);
   const [similarPapersViewMode, setSimilarPapersViewMode] = useState('list'); // 'list' 或 'table'
   const [allSimilarPapers, setAllSimilarPapers] = useState([]); // 存储所有相似论文数据（用于分页）
+  const [similarSelectedDimensionKey, setSimilarSelectedDimensionKey] = useState(null); // 相似论文表格视图选中的维度
+  const [similarTableReloadTrigger, setSimilarTableReloadTrigger] = useState(null); // 相似论文表格视图重新加载触发器
 
   // 处理维度更新（编辑或新增）
   const handleDimensionsUpdated = useCallback((action, dimensionName) => {
@@ -197,6 +199,18 @@ const SearchResultsPage = () => {
     });
     // 清除选中的维度
     setSelectedDimensionKey(null);
+  }, []);
+
+  // 处理相似论文维度更新（编辑或新增）
+  const handleSimilarDimensionsUpdated = useCallback((action, dimensionName) => {
+    // 设置重新加载触发器
+    setSimilarTableReloadTrigger({
+      action,
+      dimensionName,
+      timestamp: Date.now()
+    });
+    // 清除选中的维度
+    setSimilarSelectedDimensionKey(null);
   }, []);
 
   // 执行搜索
@@ -2244,6 +2258,9 @@ const SearchResultsPage = () => {
                                       onLoadMore={() => loadSimilarPapers(similarPapersData.currentPage + 1, true)}
                                       hasMore={similarPapersData.currentPage < similarPapersData.totalPages}
                                       loadingMore={similarPapersLoading}
+                                      selectedDimensionKey={similarSelectedDimensionKey}
+                                      onDimensionSelect={setSimilarSelectedDimensionKey}
+                                      reloadTrigger={similarTableReloadTrigger}
                                     />
                                   </div>
                                 )}
@@ -2596,6 +2613,18 @@ const SearchResultsPage = () => {
                 selectedDimensionKey={selectedDimensionKey}
                 onDimensionSelect={setSelectedDimensionKey}
                 onDimensionsUpdated={handleDimensionsUpdated}
+              />
+            </div>
+          ) : viewMode === 'paper' && detailActiveTab === 'similar' && similarPapersViewMode === 'table' ? (
+            // 论文详情视图 + 相似论文表格视图：显示列配置面板
+            <div 
+              className="preview-panel table-column-panel-wrapper"
+              style={{ width: previewWidth }}
+            >
+              <TableColumnPanel 
+                selectedDimensionKey={similarSelectedDimensionKey}
+                onDimensionSelect={setSimilarSelectedDimensionKey}
+                onDimensionsUpdated={handleSimilarDimensionsUpdated}
               />
             </div>
           ) : (

@@ -479,13 +479,14 @@ func (m *Manager) GetSearchSuggestions(query string, paperLimit, authorLimit int
 		data *AutocompleteResponse
 		err  error
 	}
-	type authorResult struct {
-		data *AuthorSearchResponse
-		err  error
-	}
+	// 暂时注释掉作者搜索
+	// type authorResult struct {
+	// 	data *AuthorSearchResponse
+	// 	err  error
+	// }
 
 	paperChan := make(chan paperResult, 1)
-	authorChan := make(chan authorResult, 1)
+	// authorChan := make(chan authorResult, 1)
 
 	// Fetch paper autocomplete in parallel
 	go func() {
@@ -493,20 +494,21 @@ func (m *Manager) GetSearchSuggestions(query string, paperLimit, authorLimit int
 		paperChan <- paperResult{data: result, err: err}
 	}()
 
+	// 暂时注释掉作者搜索
 	// Fetch author search in parallel
-	go func() {
-		opts := AuthorSearchOptions{
-			Query:  query,
-			Limit:  authorLimit,
-			Offset: 0,
-		}
-		result, err := m.SearchAuthors(opts)
-		authorChan <- authorResult{data: result, err: err}
-	}()
+	// go func() {
+	// 	opts := AuthorSearchOptions{
+	// 		Query:  query,
+	// 		Limit:  authorLimit,
+	// 		Offset: 0,
+	// 	}
+	// 	result, err := m.SearchAuthors(opts)
+	// 	authorChan <- authorResult{data: result, err: err}
+	// }()
 
 	// Wait for both results
 	paperRes := <-paperChan
-	authorRes := <-authorChan
+	// authorRes := <-authorChan
 
 	// Build response
 	response := &SearchSuggestionsResponse{
@@ -526,22 +528,24 @@ func (m *Manager) GetSearchSuggestions(query string, paperLimit, authorLimit int
 		fmt.Printf("[Manager] Paper autocomplete failed: %v\n", paperRes.err)
 	}
 
+	// 暂时注释掉作者搜索
 	// Process author results
-	if authorRes.err == nil && authorRes.data != nil {
-		// Limit the number of author suggestions
-		count := len(authorRes.data.Data)
-		if count > authorLimit {
-			count = authorLimit
-		}
-		response.Authors = authorRes.data.Data[:count]
-	} else if authorRes.err != nil {
-		fmt.Printf("[Manager] Author search failed: %v\n", authorRes.err)
-	}
+	// if authorRes.err == nil && authorRes.data != nil {
+	// 	// Limit the number of author suggestions
+	// 	count := len(authorRes.data.Data)
+	// 	if count > authorLimit {
+	// 		count = authorLimit
+	// 	}
+	// 	response.Authors = authorRes.data.Data[:count]
+	// } else if authorRes.err != nil {
+	// 	fmt.Printf("[Manager] Author search failed: %v\n", authorRes.err)
+	// }
 
+	// 暂时注释掉作者搜索
 	// If both failed, return an error
-	if paperRes.err != nil && authorRes.err != nil {
-		return nil, fmt.Errorf("both paper and author search failed: paper: %v, author: %v", paperRes.err, authorRes.err)
-	}
+	// if paperRes.err != nil && authorRes.err != nil {
+	// 	return nil, fmt.Errorf("both paper and author search failed: paper: %v, author: %v", paperRes.err, authorRes.err)
+	// }
 
 	return response, nil
 }
