@@ -785,6 +785,16 @@ const PaperDetailPage = () => {
               </svg>
               Cite
             </button>
+            <button
+              onClick={handleViewMoreSimilar}
+              className="pd-action-btn pd-similar-btn"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/>
+              </svg>
+              Similar Papers
+            </button>
             {paper.externalIds?.DOI && (
               <a
                 href={`https://doi.org/${paper.externalIds.DOI}`}
@@ -1068,6 +1078,16 @@ const PaperDetailPage = () => {
                 View PDF
               </a>
             )}
+            <button
+              onClick={handleViewMoreSimilar}
+              className="pd-sidebar-action-btn pd-similar-btn"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/>
+              </svg>
+              Similar Papers
+            </button>
           </div>
         </div>
       </div>
