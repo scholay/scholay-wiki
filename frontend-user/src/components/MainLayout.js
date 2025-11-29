@@ -1,4 +1,4 @@
-import React, { useState, lazy, Suspense } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
@@ -20,10 +20,26 @@ const MainLayout = () => {
   const location = useLocation();
   
   // 侧边栏折叠状态 - 从 localStorage 持久化
+  // 未登录用户默认收起侧边栏
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebarCollapsed');
-    return saved === 'true';
+    // 如果有保存的值，使用保存的值
+    if (saved !== null) {
+      return saved === 'true';
+    }
+    // 默认收起（未登录用户）
+    return true;
   });
+  
+  // 当用户登录状态变化时，如果没有保存过偏好，则根据登录状态设置默认值
+  useEffect(() => {
+    const saved = localStorage.getItem('sidebarCollapsed');
+    // 只有在没有保存过偏好时才自动设置
+    if (saved === null) {
+      // 未登录用户默认收起，已登录用户默认展开
+      setSidebarCollapsed(!isAuthenticated);
+    }
+  }, [isAuthenticated]);
   
   // 登录弹窗状态
   const [showAuthModal, setShowAuthModal] = useState(false);
