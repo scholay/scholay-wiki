@@ -144,7 +144,12 @@ const SearchResultsPage = () => {
   const emptyTextareaRef = useRef(null); // 空状态搜索输入框引用
   const [selectedHistoryId, setSelectedHistoryId] = useState(null); // 选中的搜索历史ID
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
-  const [isSearchBarCollapsed, setIsSearchBarCollapsed] = useState(false); // 搜索框收缩状态
+  const [isSearchBarCollapsed, setIsSearchBarCollapsed] = useState(false); // 搜索框滚动收缩状态
+  const [isInputSingleLine, setIsInputSingleLine] = useState(() => {
+    // 如果 URL 中有搜索查询，初始状态为单行显示
+    const urlParams = new URLSearchParams(window.location.search);
+    return !!urlParams.get('query');
+  }); // 输入框单行/多行显示状态
   const [showSuggestions, setShowSuggestions] = useState(false); // 搜索建议下拉框
   // 检查是否需要返回表格视图（从登录后跳转回来）
   const returnedFromLogin = useRef(false);
@@ -742,6 +747,13 @@ const SearchResultsPage = () => {
 
     // 关闭搜索建议
     setShowSuggestions(false);
+    
+    // 设置输入框为单行显示
+    setIsInputSingleLine(true);
+    // 重置 textarea 高度为单行
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
 
     // 重置分页
     setCurrentPage(1);
@@ -1465,7 +1477,7 @@ const SearchResultsPage = () => {
                   <div className="results-composer-input-area">
                     <textarea
                       ref={textareaRef}
-                      className="results-chat-input"
+                      className={`results-chat-input ${isInputSingleLine ? 'single-line' : ''}`}
                       placeholder={searchExamples[currentExampleIndex]}
                       value={searchQuery}
                       maxLength={1000}
@@ -1480,7 +1492,12 @@ const SearchResultsPage = () => {
                           setShowSuggestions(false);
                         }
                       }}
-                      onFocus={() => {
+                      onFocus={(e) => {
+                        // 展开输入框为多行
+                        setIsInputSingleLine(false);
+                        // 恢复 textarea 高度
+                        e.target.style.height = 'auto';
+                        e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
                         // 如果有输入内容则显示搜索建议
                         if (searchQuery.trim().length >= 2) {
                           setShowSuggestions(true);

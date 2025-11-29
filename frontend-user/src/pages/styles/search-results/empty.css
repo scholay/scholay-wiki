@@ -662,6 +662,33 @@
   box-shadow: var(--shadow-accent);
 }
 
+/* Light theme minimal filter button styles */
+[data-theme="light"] .filter-btn-minimal {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .filter-btn-minimal:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .filter-btn-minimal.panel-open {
+  background: rgba(16, 163, 127, 0.1);
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .filter-btn-minimal.panel-open:hover {
+  background: rgba(16, 163, 127, 0.18);
+}
+
+[data-theme="light"] .filter-btn-minimal.has-filters {
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .filter-btn-minimal.has-filters:hover {
+  background: rgba(16, 163, 127, 0.1);
+}
+
 .loading-state .spinner {
   width: 32px;
   height: 32px;

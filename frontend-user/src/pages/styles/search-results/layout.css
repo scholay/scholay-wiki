@@ -141,6 +141,17 @@
   min-height: 24px;
 }
 
+/* 输入框单行显示状态（搜索后或页面刷新时） */
+.results-chat-input.single-line {
+  max-height: 44px !important;
+  height: 44px !important;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  resize: none;
+  line-height: 28px;
+}
+
 .search-results-centered-area.collapsed .btn-send {
   width: 32px;
   height: 32px;
