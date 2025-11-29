@@ -97,8 +97,8 @@ export const adminAPI = {
   getUserStatistics: () =>
     api.get('/admin/users/stats'),
 
-  getUserList: (page = 1, pageSize = 20) =>
-    api.get('/admin/users', { params: { page, page_size: pageSize } }),
+  getUserList: (page = 1, pageSize = 20, sortBy = 'last_login_at', sortOrder = 'desc') =>
+    api.get('/admin/users', { params: { page, page_size: pageSize, sort_by: sortBy, sort_order: sortOrder } }),
 
   getOnlineUsers: () =>
     api.get('/admin/users/online'),

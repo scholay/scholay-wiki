@@ -212,7 +212,7 @@ func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitati
 }
 
 // LoginWithEmail logs in a user with email and password
-func (s *Service) LoginWithEmail(email, password string) (*User, string, error) {
+func (s *Service) LoginWithEmail(email, password, ip string) (*User, string, error) {
 	user, err := s.repo.FindByEmail(email)
 	if err != nil {
 		return nil, "", err
@@ -234,8 +234,8 @@ func (s *Service) LoginWithEmail(email, password string) (*User, string, error) 
 		return nil, "", errors.New("invalid email or password")
 	}
 
-	// Update last login time
-	_ = s.repo.UpdateLastLogin(user.ID)
+	// Update last login time and IP
+	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
 
 	// Generate JWT token
 	username := email
@@ -281,7 +281,7 @@ func (s *Service) ResetPassword(email, code, newPassword string) error {
 }
 
 // LoginWithEmailCode logs in a user with email and verification code
-func (s *Service) LoginWithEmailCode(email, code string) (*User, string, error) {
+func (s *Service) LoginWithEmailCode(email, code, ip string) (*User, string, error) {
 	// Verify the code
 	valid, err := cache.VerifyCode(context.Background(), email, code, "login")
 	if err != nil {
@@ -304,8 +304,8 @@ func (s *Service) LoginWithEmailCode(email, code string) (*User, string, error) 
 		return nil, "", errors.New("account is inactive or suspended")
 	}
 
-	// Update last login time
-	_ = s.repo.UpdateLastLogin(user.ID)
+	// Update last login time and IP
+	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
 
 	// Generate JWT token
 	username := email
@@ -497,6 +497,12 @@ func (s *Service) GetUserStatistics() (map[string]interface{}, error) {
 func (s *Service) GetUserList(page, pageSize int) ([]User, int64, error) {
 	offset := (page - 1) * pageSize
 	return s.repo.GetUserList(offset, pageSize)
+}
+
+// GetUserListWithSort returns a paginated list of users with sorting
+func (s *Service) GetUserListWithSort(page, pageSize int, sortBy, sortOrder string) ([]User, int64, error) {
+	offset := (page - 1) * pageSize
+	return s.repo.GetUserListWithSort(offset, pageSize, sortBy, sortOrder)
 }
 
 // GetOnlineUsers returns list of currently online users
@@ -1313,7 +1319,7 @@ func (s *Service) RegisterWithPhone(phone, password, code, invitationCode string
 }
 
 // LoginWithPhone handles login with phone and password
-func (s *Service) LoginWithPhone(phone, password string) (*User, string, error) {
+func (s *Service) LoginWithPhone(phone, password, ip string) (*User, string, error) {
 	// Find user by phone
 	user, err := s.repo.FindByPhone(phone)
 	if err != nil {
@@ -1338,12 +1344,8 @@ func (s *Service) LoginWithPhone(phone, password string) (*User, string, error) 
 		return nil, "", errors.New("invalid password")
 	}
 
-	// Update last login time
-	now := time.Now()
-	user.LastLoginAt = &now
-	if err := s.repo.Update(user); err != nil {
-		return nil, "", err
-	}
+	// Update last login time and IP
+	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
 
 	// Generate JWT token
 	token, err := utils.GenerateToken(user.ID, "", "user")
@@ -1385,7 +1387,7 @@ func (s *Service) ResetPasswordPhone(phone, code, newPassword string) error {
 }
 
 // LoginWithPhoneCode logs in a user with phone and verification code
-func (s *Service) LoginWithPhoneCode(phone, code string) (*User, string, error) {
+func (s *Service) LoginWithPhoneCode(phone, code, ip string) (*User, string, error) {
 	// Verify the code
 	valid, err := cache.VerifyCode(context.Background(), phone, code, "login")
 	if err != nil {
@@ -1409,12 +1411,8 @@ func (s *Service) LoginWithPhoneCode(phone, code string) (*User, string, error) 
 		return nil, "", errors.New("account is suspended")
 	}
 
-	// Update last login time
-	now := time.Now()
-	user.LastLoginAt = &now
-	if err := s.repo.Update(user); err != nil {
-		return nil, "", err
-	}
+	// Update last login time and IP
+	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
 
 	// Generate JWT token
 	token, err := utils.GenerateToken(user.ID, "", "user")
@@ -1882,7 +1880,7 @@ func (s *Service) UnbindGitHub(userID uint) error {
 }
 
 // LoginOrRegisterWithWeChat handles WeChat login or registration
-func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL string) (*User, string, bool, error) {
+func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL, ip string) (*User, string, bool, error) {
 	var authProvider *UserAuthProvider
 	var err error
 	
@@ -1920,12 +1918,8 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 			return nil, "", false, errors.New("account is suspended")
 		}
 
-		// Update last login time
-		now := time.Now()
-		user.LastLoginAt = &now
-		if err := s.repo.Update(user); err != nil {
-			return nil, "", false, err
-		}
+		// Update last login time and IP
+		_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
 		
 		// Update unionID if it's not set (migration for old records)
 		if authProvider.ProviderUnionID == nil && unionID != "" {

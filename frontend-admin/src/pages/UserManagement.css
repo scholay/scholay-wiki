@@ -74,13 +74,13 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  margin-top: 0.35rem;
 }
 
 .ip-address {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 0.8rem;
-  color: var(--text-primary);
-  font-weight: 500;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
 }
 
 .location-info {
@@ -90,6 +90,44 @@
   background: var(--gray-50);
   border-radius: var(--radius-sm);
   width: fit-content;
+}
+
+/* 登录信息单元格 */
+.login-info-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 相对时间样式 */
+.relative-time {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  cursor: default;
+}
+
+/* 可排序表头 */
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+}
+
+.sortable-header:hover {
+  background-color: var(--gray-50);
+}
+
+.sort-icon {
+  display: inline-block;
+  margin-left: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  opacity: 0.5;
+}
+
+.sort-icon.active {
+  color: var(--brand-600);
+  opacity: 1;
 }
 
 /* 设备信息样式 */

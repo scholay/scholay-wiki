@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `subscription_plan` VARCHAR(20) NOT NULL DEFAULT 'free' COMMENT 'free, pro, max',
   `subscription_expires_at` DATETIME COMMENT '订阅过期时间（免费用户为NULL）',
   `last_login_at` DATETIME,
+  `last_login_ip` VARCHAR(45) COMMENT '最后登录IP',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -52,7 +53,8 @@ CREATE TABLE IF NOT EXISTS `users` (
   UNIQUE INDEX `uk_phone` (`phone`),
   INDEX `idx_status` (`status`),
   INDEX `idx_subscription_plan` (`subscription_plan`),
-  INDEX `idx_location` (`location`)
+  INDEX `idx_location` (`location`),
+  INDEX `idx_last_login_at` (`last_login_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
 
 -- 用户认证提供者（OAuth、微信等）

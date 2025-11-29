@@ -22,6 +22,10 @@ const UserManagement = () => {
     pageSize: 20,
     total: 0,
   });
+  const [sortConfig, setSortConfig] = useState({
+    sortBy: 'last_login_at',
+    sortOrder: 'desc',
+  });
   const [activeView, setActiveView] = useState('list'); // 'list' or 'online'
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, userId: null, userEmail: '' });
   const [selectedUserId, setSelectedUserId] = useState(null);
@@ -29,7 +33,7 @@ const UserManagement = () => {
   useEffect(() => {
     loadUserStatistics();
     loadUserList();
-  }, [pagination.page]);
+  }, [pagination.page, sortConfig]);
 
   const loadUserStatistics = async () => {
     try {
@@ -51,7 +55,12 @@ const UserManagement = () => {
   const loadUserList = async () => {
     setLoading(true);
     try {
-      const response = await adminAPI.getUserList(pagination.page, pagination.pageSize);
+      const response = await adminAPI.getUserList(
+        pagination.page, 
+        pagination.pageSize,
+        sortConfig.sortBy,
+        sortConfig.sortOrder
+      );
       if (response.data.code === 0 && response.data.data) {
         setUsers(response.data.data.users || []);
         setPagination(prev => ({
@@ -122,10 +131,55 @@ const UserManagement = () => {
     setDeleteConfirm({ show: false, userId: null, userEmail: '' });
   };
 
+  // 格式化为相对时间
+  const formatRelativeTime = (dateString) => {
+    if (!dateString) return '从未登录';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    const diffMonths = Math.floor(diffDays / 30);
+    const diffYears = Math.floor(diffDays / 365);
+
+    if (diffSeconds < 60) return '刚刚';
+    if (diffMinutes < 60) return `${diffMinutes}分钟前`;
+    if (diffHours < 24) {
+      if (diffMinutes >= 30 && diffHours < 1) return '半小时前';
+      return `${diffHours}小时前`;
+    }
+    if (diffDays < 30) return `${diffDays}天前`;
+    if (diffMonths < 12) return `${diffMonths}个月前`;
+    return `${diffYears}年前`;
+  };
+
+  // 格式化为精确时间
   const formatDate = (dateString) => {
     if (!dateString) return '从未登录';
     const date = new Date(dateString);
     return date.toLocaleString('zh-CN');
+  };
+
+  // 处理排序点击
+  const handleSort = (field) => {
+    setSortConfig(prev => ({
+      sortBy: field,
+      sortOrder: prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc',
+    }));
+    // 重置到第一页
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  // 获取排序图标
+  const getSortIcon = (field) => {
+    if (sortConfig.sortBy !== field) {
+      return <span className="sort-icon">↕</span>;
+    }
+    return sortConfig.sortOrder === 'desc' 
+      ? <span className="sort-icon active">↓</span> 
+      : <span className="sort-icon active">↑</span>;
   };
 
   const getUserStatusLabel = (status) => {
@@ -390,8 +444,18 @@ const UserManagement = () => {
                       <th>会员套餐</th>
                       <th>套餐到期</th>
                       <th>状态</th>
-                      <th>最后登录</th>
-                      <th>注册时间</th>
+                      <th 
+                        className="sortable-header"
+                        onClick={() => handleSort('last_login_at')}
+                      >
+                        最后登录 {getSortIcon('last_login_at')}
+                      </th>
+                      <th 
+                        className="sortable-header"
+                        onClick={() => handleSort('created_at')}
+                      >
+                        注册时间 {getSortIcon('created_at')}
+                      </th>
                       <th>操作</th>
                     </tr>
                   </thead>
@@ -405,8 +469,32 @@ const UserManagement = () => {
                           <td>{renderSubscriptionPlan(user.subscription)}</td>
                           <td>{renderSubscriptionExpiry(user.subscription)}</td>
                           <td>{getUserStatusLabel(user.status)}</td>
-                          <td>{formatDate(user.last_login_at)}</td>
-                          <td>{formatDate(user.created_at)}</td>
+                          <td>
+                            <div className="login-info-cell">
+                              <div 
+                                className="relative-time" 
+                                title={formatDate(user.last_login_at)}
+                              >
+                                {formatRelativeTime(user.last_login_at)}
+                              </div>
+                              {user.last_login_ip && (
+                                <div className="ip-location-cell">
+                                  <div className="ip-address">{user.last_login_ip}</div>
+                                  {user.last_login_ip_info && (
+                                    <div className="location-info">{user.last_login_ip_info}</div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <div 
+                              className="relative-time" 
+                              title={formatDate(user.created_at)}
+                            >
+                              {formatRelativeTime(user.created_at)}
+                            </div>
+                          </td>
                           <td>
                             <button
                               className="action-btn view-btn"

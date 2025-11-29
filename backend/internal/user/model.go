@@ -17,6 +17,7 @@ type User struct {
 	EmailVerified bool       `gorm:"not null;default:false" json:"email_verified"`
 	PhoneVerified bool       `gorm:"not null;default:false" json:"phone_verified"`
 	LastLoginAt   *time.Time `json:"last_login_at"`
+	LastLoginIP   *string    `gorm:"size:45" json:"last_login_ip"` // 最后登录IP
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
 }

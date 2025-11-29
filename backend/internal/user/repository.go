@@ -82,6 +82,15 @@ func (r *Repository) UpdateLastLogin(id uint) error {
 	return r.db.Model(&User{}).Where("id = ?", id).Update("last_login_at", now).Error
 }
 
+// UpdateLastLoginWithIP updates the last login timestamp and IP
+func (r *Repository) UpdateLastLoginWithIP(id uint, ip string) error {
+	now := time.Now()
+	return r.db.Model(&User{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"last_login_at": now,
+		"last_login_ip": ip,
+	}).Error
+}
+
 // UpdatePassword updates the user's password
 func (r *Repository) UpdatePassword(id uint, passwordHash string) error {
 	return r.db.Model(&User{}).Where("id = ?", id).Update("password_hash", passwordHash).Error
@@ -160,6 +169,28 @@ func (r *Repository) GetUserList(offset, limit int) ([]User, int64, error) {
 
 	// Get paginated users
 	err := r.db.Order("created_at DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&users).Error
+
+	return users, total, err
+}
+
+// GetUserListWithSort returns a paginated list of users with sorting
+func (r *Repository) GetUserListWithSort(offset, limit int, sortBy, sortOrder string) ([]User, int64, error) {
+	var users []User
+	var total int64
+
+	// Get total count
+	if err := r.db.Model(&User{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Build order string
+	orderStr := fmt.Sprintf("%s %s", sortBy, sortOrder)
+
+	// Get paginated users with sorting
+	err := r.db.Order(orderStr).
 		Offset(offset).
 		Limit(limit).
 		Find(&users).Error

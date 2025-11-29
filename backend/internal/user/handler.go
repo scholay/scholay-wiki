@@ -256,7 +256,7 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.service.LoginWithEmail(req.Email, req.Password)
+	user, token, err := h.service.LoginWithEmail(req.Email, req.Password, ip)
 	if err != nil {
 		utils.Error(c, 2003, err.Error())
 		return
@@ -446,14 +446,14 @@ func (h *Handler) LoginWithPhone(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.service.LoginWithPhone(req.Phone, req.Password)
+	ip := c.ClientIP()
+	user, token, err := h.service.LoginWithPhone(req.Phone, req.Password, ip)
 	if err != nil {
 		utils.Error(c, 2023, err.Error())
 		return
 	}
 
 	// Create session for the user
-	ip := c.ClientIP()
 	userAgent := c.GetHeader("User-Agent")
 	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
 
@@ -604,6 +604,8 @@ func (h *Handler) GetUserStatistics(c *gin.Context) {
 func (h *Handler) GetUserList(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	sortBy := c.DefaultQuery("sort_by", "last_login_at")   // 排序字段: last_login_at, created_at
+	sortOrder := c.DefaultQuery("sort_order", "desc")       // 排序方向: asc, desc
 
 	if page < 1 {
 		page = 1
@@ -611,8 +613,17 @@ func (h *Handler) GetUserList(c *gin.Context) {
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
+	
+	// 验证排序字段
+	validSortFields := map[string]bool{"last_login_at": true, "created_at": true}
+	if !validSortFields[sortBy] {
+		sortBy = "last_login_at"
+	}
+	if sortOrder != "asc" && sortOrder != "desc" {
+		sortOrder = "desc"
+	}
 
-	users, total, err := h.service.GetUserList(page, pageSize)
+	users, total, err := h.service.GetUserListWithSort(page, pageSize, sortBy, sortOrder)
 	if err != nil {
 		utils.Error(c, 2008, "Failed to get user list")
 		return
@@ -643,11 +654,12 @@ func (h *Handler) GetUserList(c *gin.Context) {
 
 	type UserResponse struct {
 		User
-		WeChatOpenID  string            `json:"wechat_openid,omitempty"`
-		WeChatUnionID string            `json:"wechat_union_id,omitempty"`
-		WeChatName    string            `json:"wechat_name,omitempty"`
-		GithubLogin   string            `json:"github_login,omitempty"`
-		Subscription  *SubscriptionInfo `json:"subscription,omitempty"`
+		WeChatOpenID     string            `json:"wechat_openid,omitempty"`
+		WeChatUnionID    string            `json:"wechat_union_id,omitempty"`
+		WeChatName       string            `json:"wechat_name,omitempty"`
+		GithubLogin      string            `json:"github_login,omitempty"`
+		Subscription     *SubscriptionInfo `json:"subscription,omitempty"`
+		LastLoginIPInfo  string            `json:"last_login_ip_info,omitempty"`   // IP归属地信息
 	}
 
 	// Get subscriptions for all users
@@ -692,6 +704,12 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		// Add subscription info
 		if subInfo, ok := subscriptionMap[user.ID]; ok {
 			response.Subscription = subInfo
+		}
+
+		// Parse IP location
+		if user.LastLoginIP != nil && *user.LastLoginIP != "" {
+			location := utils.ParseIPLocation(*user.LastLoginIP)
+			response.LastLoginIPInfo = utils.GetLocationString(location)
 		}
 
 		// Find auth providers
@@ -971,7 +989,7 @@ func (h *Handler) LoginWithCode(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.service.LoginWithEmailCode(req.Email, req.Code)
+	user, token, err := h.service.LoginWithEmailCode(req.Email, req.Code, ip)
 	if err != nil {
 		utils.Error(c, 2016, err.Error())
 		return
@@ -1013,7 +1031,7 @@ func (h *Handler) LoginPhoneWithCode(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.service.LoginWithPhoneCode(req.Phone, req.Code)
+	user, token, err := h.service.LoginWithPhoneCode(req.Phone, req.Code, ip)
 	if err != nil {
 		utils.Error(c, 2017, err.Error())
 		return
@@ -1096,11 +1114,13 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 	}
 
 	// Login or register user
+	ip := c.ClientIP()
 	user, token, isNewUser, err := h.service.LoginOrRegisterWithWeChat(
 		openID,
 		unionID,
 		nickname,
 		headImgURL,
+		ip,
 	)
 	if err != nil {
 		utils.Error(c, 5003, "微信登录失败："+err.Error())
@@ -1108,7 +1128,6 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 	}
 
 	// Create session
-	ip := c.ClientIP()
 	userAgent := c.GetHeader("User-Agent")
 	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour)
 
