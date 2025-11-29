@@ -216,9 +216,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-top: 25vh; /* 黄金比例位置 (约38.2% - 输入框高度/2) */
   position: relative;
-  padding: 0 1.5rem;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
 }
 
 /* 空状态搜索框 - 毛玻璃效果 */

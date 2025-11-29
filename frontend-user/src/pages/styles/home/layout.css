@@ -207,16 +207,16 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* Welcome Screen */
+/* Welcome Screen - 黄金比例位置 */
 .welcome-screen {
   position: absolute;
-  top: 50%;
+  top: 38.2%;
   left: 50%;
   transform: translate(-50%, -50%);
   width: 100%;
   max-width: 48rem;
   text-align: center;
-  margin-top: -120px;
+  margin-top: -100px; /* 标题在输入框上方 */
 }
 
 /* Footer Links */

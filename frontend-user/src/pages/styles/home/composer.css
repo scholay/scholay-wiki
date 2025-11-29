@@ -1,8 +1,8 @@
-/* Composer Wrapper - ChatGPT Style - 直接居中 */
+/* Composer Wrapper - ChatGPT Style - 黄金比例位置 (38.2%) */
 .home .home-composer-wrapper,
 .home-search .home-composer-wrapper {
   position: absolute;
-  top: 50%;
+  top: 38.2%;
   left: 50%;
   transform: translate(-50%, -50%);
   width: calc(100% - 3rem);
