@@ -1220,9 +1220,9 @@ type GetAnalysisDimensionsResult struct {
 }
 
 func (s *Service) GetAnalysisDimensions(userID *uint) (*GetAnalysisDimensionsResult, error) {
-	// 1. 获取系统默认维度
+	// 1. 获取系统默认维度（user_id = -1 表示系统级）
 	var systemDimensions []AnalysisDimension
-	err := s.db.Where("user_id IS NULL AND is_active = ?", true).
+	err := s.db.Where("user_id = -1 AND is_active = ?", true).
 		Order("sort_order ASC").
 		Find(&systemDimensions).Error
 	if err != nil {
@@ -1302,10 +1302,10 @@ func (s *Service) GetAnalysisDimensions(userID *uint) (*GetAnalysisDimensionsRes
 	}, nil
 }
 
-// GetSystemDimensions 获取系统默认维度
+// GetSystemDimensions 获取系统默认维度（user_id = -1 表示系统级）
 func (s *Service) GetSystemDimensions() ([]AnalysisDimension, error) {
 	var dimensions []AnalysisDimension
-	err := s.db.Where("user_id IS NULL AND is_active = ?", true).
+	err := s.db.Where("user_id = -1 AND is_active = ?", true).
 		Order("sort_order ASC").
 		Find(&dimensions).Error
 	if err != nil {
@@ -1349,7 +1349,7 @@ func (s *Service) CreateUserDimension(userID uint, dimensionKey, name, descripti
 
 	// 不存在，创建新的
 	dimension := &AnalysisDimension{
-		UserID:       &userID,
+		UserID:       int64(userID),
 		DimensionKey: dimensionKey,
 		Name:         name,
 		Description:  description,
@@ -1427,7 +1427,7 @@ func (s *Service) CopySystemDimensionsToUser(userID uint) ([]AnalysisDimension, 
 	var userDimensions []AnalysisDimension
 	for _, sd := range systemDimensions {
 		ud := AnalysisDimension{
-			UserID:       &userID,
+			UserID:       int64(userID),
 			DimensionKey: sd.DimensionKey,
 			Name:         sd.Name,
 			Description:  sd.Description,
@@ -1447,8 +1447,8 @@ func (s *Service) CopySystemDimensionsToUser(userID uint) ([]AnalysisDimension, 
 // UpdateSystemDimension 更新系统默认维度（管理员接口）
 func (s *Service) UpdateSystemDimension(dimensionID uint, name, description string, sortOrder int, isActive bool) (*AnalysisDimension, error) {
 	var dimension AnalysisDimension
-	// 只能更新系统默认维度（user_id IS NULL）
-	if err := s.db.Where("id = ? AND user_id IS NULL", dimensionID).First(&dimension).Error; err != nil {
+	// 只能更新系统默认维度（user_id = -1）
+	if err := s.db.Where("id = ? AND user_id = -1", dimensionID).First(&dimension).Error; err != nil {
 		return nil, fmt.Errorf("system dimension not found: %w", err)
 	}
 

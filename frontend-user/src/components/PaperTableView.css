@@ -787,7 +787,8 @@
 .ptv-restricted-overlay {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-left: 24px;
   gap: 8px;
   padding: 16px 24px;
   color: rgba(255, 255, 255, 0.5);

@@ -16,17 +16,15 @@ const PAPERS_PER_FETCH = 50;
 // 未登录用户最多显示的论文数量
 const GUEST_MAX_PAPERS = 5;
 
-// 默认列定义（当无法从API获取维度时使用）
-const DEFAULT_COLUMNS = [
+// Loading期间的占位列（6个）
+const LOADING_COLUMNS = [
   { key: 'paper', label: '论文', sticky: true },
-  { key: 'studyType', label: '研究类型' },
-  { key: 'bigDataFocus', label: '大数据关注点' },
-  { key: 'dataCharacteristics', label: '数据特征' },
-  { key: 'technologies', label: '技术/平台' },
-  { key: 'useCases', label: '使用场景' },
-  { key: 'implementationContext', label: '实施背景' },
-  { key: 'keyFindings', label: '关键发现' },
-  { key: 'challengesLimitations', label: '挑战与局限' },
+  { key: 'loading1', label: '加载中...' },
+  { key: 'loading2', label: '加载中...' },
+  { key: 'loading3', label: '加载中...' },
+  { key: 'loading4', label: '加载中...' },
+  { key: 'loading5', label: '加载中...' },
+  { key: 'loading6', label: '加载中...' },
 ];
 
 const PaperTableView = ({ 
@@ -71,8 +69,10 @@ const PaperTableView = ({
   const [analysisResults, setAnalysisResults] = useState({});
   const [loadingPapers, setLoadingPapers] = useState({});
   const [expandedCells, setExpandedCells] = useState({});
-  // 动态列定义（从第一个分析结果中获取）
+  // 动态列定义（从API获取）
   const [dynamicColumns, setDynamicColumns] = useState(null);
+  // 列加载状态
+  const [columnsLoading, setColumnsLoading] = useState(true);
   const tableRef = useRef(null);
   const tableWrapperRef = useRef(null);
   const columnRefs = useRef({}); // 列头引用，用于滚动定位
@@ -121,6 +121,44 @@ const PaperTableView = ({
     // 重置分析结果和动态列
     setAnalysisResults({});
     setDynamicColumns(null);
+    setColumnsLoading(true);
+  }, [isAuthenticated]);
+
+  // 组件加载时从API获取分析维度列
+  useEffect(() => {
+    const loadDimensions = async () => {
+      setColumnsLoading(true);
+      try {
+        let response;
+        if (isAuthenticated) {
+          // 已登录用户：获取用户自定义维度或系统默认
+          response = await analysisDimensionAPI.getDimensions();
+        } else {
+          // 未登录用户：获取系统默认维度
+          response = await publicScholarAPI.getSystemDimensions();
+        }
+
+        if (response.data.code === 0 && response.data.data) {
+          const dims = response.data.data.dimensions || [];
+          if (dims.length > 0) {
+            const cols = [
+              { key: 'paper', label: '论文', sticky: true },
+              ...dims.map(dim => ({
+                key: dim.dimensionKey,
+                label: dim.name
+              }))
+            ];
+            setDynamicColumns(cols);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load dimensions:', err);
+      } finally {
+        setColumnsLoading(false);
+      }
+    };
+
+    loadDimensions();
   }, [isAuthenticated]);
 
   // 当选中维度变化时，自动滚动到对应列
@@ -361,18 +399,6 @@ const PaperTableView = ({
           ...prev,
           [paper.paperId]: result
         }));
-        
-        // 如果还没有动态列定义，从第一个分析结果中获取
-        if (!dynamicColumns && result.dimensions && result.dimensions.length > 0) {
-          const cols = [
-            { key: 'paper', label: '论文', sticky: true },
-            ...result.dimensions.map(dim => ({
-              key: dim.key,
-              label: dim.name
-            }))
-          ];
-          setDynamicColumns(cols);
-        }
       }
     } catch (error) {
       console.error('Failed to analyze paper:', paper.paperId, error);
@@ -384,7 +410,7 @@ const PaperTableView = ({
     } finally {
       setLoadingPapers(prev => ({ ...prev, [paper.paperId]: false }));
     }
-  }, [loadingPapers, analysisResults, dynamicColumns, isAuthenticated]);
+  }, [loadingPapers, analysisResults, isAuthenticated]);
 
   // 使用 Intersection Observer 实现懒加载
   useEffect(() => {
@@ -470,8 +496,8 @@ const PaperTableView = ({
     );
   };
 
-  // 表格列定义 - 优先使用动态列，否则使用默认列
-  const columns = dynamicColumns || DEFAULT_COLUMNS;
+  // 表格列定义 - 优先使用动态列，加载中时使用占位列
+  const columns = dynamicColumns || (columnsLoading ? LOADING_COLUMNS : LOADING_COLUMNS);
 
   // 打开登录弹窗
   const handleOpenAuthModal = () => {

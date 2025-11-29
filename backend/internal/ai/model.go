@@ -166,9 +166,10 @@ func (PaperAnalysis) TableName() string {
 
 // AnalysisDimension 分析维度定义表
 // 支持系统默认维度和用户自定义维度
+// user_id = -1 表示系统默认维度，user_id > 0 表示用户自定义维度
 type AnalysisDimension struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
-	UserID       *uint     `gorm:"index:idx_user_id" json:"userId"`                                    // NULL表示系统默认维度
+	UserID       int64     `gorm:"index:idx_user_id;default:-1" json:"userId"`                         // -1表示系统默认维度，>0表示用户自定义
 	DimensionKey string    `gorm:"type:varchar(50);not null;uniqueIndex:uk_user_dimension,priority:2" json:"dimensionKey"` // 维度标识符
 	Name         string    `gorm:"type:varchar(100);not null" json:"name"`                             // 维度名称
 	Description  string    `gorm:"type:text;not null" json:"description"`                              // 维度解释/分析指示
