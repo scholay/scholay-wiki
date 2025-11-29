@@ -487,8 +487,8 @@ const SearchResultsPage = () => {
       // URL 中有 paperId，加载论文详情
       loadPaperDetail(paperId);
       // 如果有 query 参数，也设置搜索框的值
-      if (query) {
-        setSearchQuery(query);
+    if (query) {
+      setSearchQuery(query);
       }
       
       // 检查是否需要显示相似论文引导弹窗（每个用户只显示一次）
@@ -538,7 +538,7 @@ const SearchResultsPage = () => {
 
   // 标记是否已经点击过表格按钮
   const hasClickedTableBtnRef = useRef(false);
-  
+
   // 初始化时从URL参数加载搜索结果（不包含 paperId 的情况）
   useEffect(() => {
     const query = searchParams.get('query');
@@ -552,21 +552,21 @@ const SearchResultsPage = () => {
       performSearch(query, filters, currentPage);
     }
   }, []); // 只在组件挂载时执行一次
-  
+    
   // 监听搜索结果加载完成，显示表格视图引导
   useEffect(() => {
     // 只有当不在加载中、有结果、且用户没点击过表格按钮时才显示引导
     if (!loading && papers.length > 0 && !hasClickedTableBtnRef.current) {
-      const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
+    const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
       if (!hasSeenTableGuide) {
         // 延迟一点显示，让用户先看到结果
         const timer = setTimeout(() => {
           if (!hasClickedTableBtnRef.current) {
-            setShowTableGuide(true);
+        setShowTableGuide(true);
           }
         }, 500);
         return () => clearTimeout(timer);
-      }
+    }
     }
   }, [loading, papers.length]); // 当 loading 状态或 papers 变化时检查
 
@@ -2216,22 +2216,22 @@ const SearchResultsPage = () => {
                           <div className="epd-similar-papers" ref={similarPapersListRef}>
                             {/* 头部：统计信息 + 视图切换 - 只有有数据且不在加载时才显示 */}
                             {!similarPapersLoading && similarPapersData.papers.length > 0 && (
-                              <div className="results-header">
-                                <p className="results-info">
+                            <div className="results-header">
+                              <p className="results-info">
                                   显示 <strong>{(similarPapersData.currentPage - 1) * REFS_PER_PAGE + 1}-{Math.min(similarPapersData.currentPage * REFS_PER_PAGE, similarPapersData.total)}</strong> / 共 <strong>{similarPapersData.total}</strong> 篇相似论文
-                                </p>
-                                <div className="srp-view-mode-switcher">
-                                  <button 
-                                    className={`srp-view-mode-btn ${similarPapersViewMode === 'list' ? 'active' : ''}`}
-                                    onClick={() => setSimilarPapersViewMode('list')}
-                                    title="列表视图"
-                                  >
-                                    <List size={18} />
-                                    <span>列表</span>
-                                  </button>
-                                  <button 
+                              </p>
+                              <div className="srp-view-mode-switcher">
+                                <button 
+                                  className={`srp-view-mode-btn ${similarPapersViewMode === 'list' ? 'active' : ''}`}
+                                  onClick={() => setSimilarPapersViewMode('list')}
+                                  title="列表视图"
+                                >
+                                  <List size={18} />
+                                  <span>列表</span>
+                                </button>
+                                <button 
                                     ref={similarTableBtnRef}
-                                    className={`srp-view-mode-btn ${similarPapersViewMode === 'table' ? 'active' : ''}`}
+                                  className={`srp-view-mode-btn ${similarPapersViewMode === 'table' ? 'active' : ''}`}
                                     onClick={() => {
                                       setSimilarPapersViewMode('table');
                                       // 用户主动点击表格按钮，标记为已点击和已看过引导
@@ -2239,13 +2239,13 @@ const SearchResultsPage = () => {
                                       localStorage.setItem('hasSeenTableViewGuide', 'true');
                                       setShowSimilarTableGuide(false);
                                     }}
-                                    title="表格视图"
-                                  >
-                                    <Table2 size={18} />
-                                    <span>表格</span>
-                                  </button>
-                                </div>
+                                  title="表格视图"
+                                >
+                                  <Table2 size={18} />
+                                  <span>表格</span>
+                                </button>
                               </div>
+                            </div>
                             )}
 
                             {similarPapersLoading ? (
@@ -2783,10 +2783,10 @@ const SearchResultsPage = () => {
                 isResizing={isResizingPreview}
               />
             ) : (
-              <div 
-                className="preview-panel table-column-panel-wrapper"
-                style={{ width: previewWidth }}
-              >
+            <div 
+              className="preview-panel table-column-panel-wrapper"
+              style={{ width: previewWidth }}
+            >
                 {/* 拖拽分隔条 */}
                 <div
                   className={`resize-handle ${isResizingPreview ? 'resizing' : ''}`}
@@ -2798,12 +2798,12 @@ const SearchResultsPage = () => {
                 >
                   <div className="resize-handle-line" />
                 </div>
-                <TableColumnPanel 
-                  selectedDimensionKey={selectedDimensionKey}
-                  onDimensionSelect={setSelectedDimensionKey}
-                  onDimensionsUpdated={handleDimensionsUpdated}
-                />
-              </div>
+              <TableColumnPanel 
+                selectedDimensionKey={selectedDimensionKey}
+                onDimensionSelect={setSelectedDimensionKey}
+                onDimensionsUpdated={handleDimensionsUpdated}
+              />
+            </div>
             )
           ) : viewMode === 'paper' && detailActiveTab === 'similar' && similarPapersViewMode === 'table' ? (
             // 论文详情视图 + 相似论文表格视图：有选中论文时显示预览，否则显示列配置面板
@@ -2817,10 +2817,10 @@ const SearchResultsPage = () => {
                 isResizing={isResizingPreview}
               />
             ) : (
-              <div 
-                className="preview-panel table-column-panel-wrapper"
-                style={{ width: previewWidth }}
-              >
+            <div 
+              className="preview-panel table-column-panel-wrapper"
+              style={{ width: previewWidth }}
+            >
                 {/* 拖拽分隔条 */}
                 <div
                   className={`resize-handle ${isResizingPreview ? 'resizing' : ''}`}
@@ -2832,12 +2832,12 @@ const SearchResultsPage = () => {
                 >
                   <div className="resize-handle-line" />
                 </div>
-                <TableColumnPanel 
-                  selectedDimensionKey={similarSelectedDimensionKey}
-                  onDimensionSelect={setSimilarSelectedDimensionKey}
-                  onDimensionsUpdated={handleSimilarDimensionsUpdated}
-                />
-              </div>
+              <TableColumnPanel 
+                selectedDimensionKey={similarSelectedDimensionKey}
+                onDimensionSelect={setSimilarSelectedDimensionKey}
+                onDimensionsUpdated={handleSimilarDimensionsUpdated}
+              />
+            </div>
             )
           ) : (
             // 列表视图或论文详情列表视图：显示论文预览

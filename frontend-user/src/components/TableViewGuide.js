@@ -51,8 +51,8 @@ const TableViewGuide = ({ onClose, onTryIt, onDismiss, targetRef }) => {
   useEffect(() => {
     // 计算箭头位置和弹窗位置（弹窗在按钮左侧，箭头从弹窗指向按钮）
     const calculatePositions = () => {
-      if (targetRef?.current) {
-        const rect = targetRef.current.getBoundingClientRect();
+    if (targetRef?.current) {
+      const rect = targetRef.current.getBoundingClientRect();
         const viewportHeight = window.innerHeight;
         const viewportWidth = window.innerWidth;
         
@@ -77,7 +77,7 @@ const TableViewGuide = ({ onClose, onTryIt, onDismiss, targetRef }) => {
         modalCenterY = Math.max(minY, Math.min(maxY, modalCenterY));
         
         // 箭头位置 - 箭头尖端靠近按钮
-        setArrowPosition({
+      setArrowPosition({
           top: buttonCenterY,
           left: buttonLeft - 8, // 箭头尖端距离按钮8px
         });
@@ -88,8 +88,8 @@ const TableViewGuide = ({ onClose, onTryIt, onDismiss, targetRef }) => {
           top: `${modalCenterY}px`,
           right: `${modalRightFromViewport}px`,
           transform: 'translateY(-50%)', // 只垂直居中
-        });
-      }
+      });
+    }
     };
     
     calculatePositions();

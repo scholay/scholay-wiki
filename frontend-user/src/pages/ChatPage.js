@@ -829,7 +829,7 @@ function ChatPage() {
   return (
     <div className="chat-page-wrapper chat-page">
       {/* Main Chat Area - Completely Rewritten */}
-      <div className={`main-container ${isAuthenticated ? (sidebarCollapsed ? 'sidebar-collapsed-narrow' : 'has-sidebar') : 'sidebar-collapsed'}`}>
+      <div className={`main-container ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
         <div className="search-content">
 
           {/* Loading State */}

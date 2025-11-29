@@ -19,16 +19,12 @@
   background: var(--background);
 }
 
-.chat-page-wrapper .main-container.has-sidebar {
+.chat-page-wrapper .main-container.sidebar-expanded {
   margin-left: 280px;
 }
 
-.chat-page-wrapper .main-container.sidebar-collapsed-narrow {
-  margin-left: 64px;
-}
-
 .chat-page-wrapper .main-container.sidebar-collapsed {
-  margin-left: 0;
+  margin-left: 64px;
 }
 
 /* Content Area - Only within chat page */
@@ -41,14 +37,16 @@
   overflow: hidden;
 }
 
-/* Welcome Container - Centered Layout for New Conversations */
+/* Welcome Container - 黄金比例位置布局 for New Conversations */
 .chat-page-wrapper .welcome-container {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 2rem 1rem;
+  justify-content: flex-start;
+  padding-top: 20vh; /* 黄金比例位置 */
+  padding-left: 1rem;
+  padding-right: 1rem;
   gap: 2rem;
 }
 
@@ -1195,8 +1193,7 @@
 @media (max-width: 768px) {
   /* 移动端侧边栏margin清除 */
   .chat-page-wrapper .main-container,
-  .chat-page-wrapper .main-container.has-sidebar,
-  .chat-page-wrapper .main-container.sidebar-collapsed-narrow,
+  .chat-page-wrapper .main-container.sidebar-expanded,
   .chat-page-wrapper .main-container.sidebar-collapsed {
     margin-left: 0 !important;
   }
