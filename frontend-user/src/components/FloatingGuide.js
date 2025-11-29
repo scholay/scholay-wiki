@@ -107,24 +107,36 @@ const FloatingGuide = () => {
                   <h3>智能学术检索功能</h3>
                   <ul className="feature-list">
                     <li>
-                      <span className="list-icon">🔍</span>
+                      <span className="list-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                        </svg>
+                      </span>
                       <div>
                         <strong>自然语言理解</strong>
-                        <p>使用日常语言描述您的研究需求，AI自动理解并转换为专业检索</p>
+                        <p>使用日常语言描述研究需求，AI自动转换为专业检索</p>
                       </div>
                     </li>
                     <li>
-                      <span className="list-icon">🎯</span>
+                      <span className="list-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      </span>
                       <div>
                         <strong>语义匹配技术</strong>
-                        <p>基于深度学习的语义理解，找到真正相关的文献，而非简单关键词匹配</p>
+                        <p>深度学习语义理解，找到真正相关的文献</p>
                       </div>
                     </li>
                     <li>
-                      <span className="list-icon">⚡</span>
+                      <span className="list-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                        </svg>
+                      </span>
                       <div>
                         <strong>实时检索结果</strong>
-                        <p>毫秒级响应速度，覆盖千万级学术文献数据库</p>
+                        <p>毫秒级响应，覆盖千万级学术文献数据库</p>
                       </div>
                     </li>
                   </ul>
@@ -134,24 +146,38 @@ const FloatingGuide = () => {
                   <h3>深度智能分析功能</h3>
                   <ul className="feature-list">
                     <li>
-                      <span className="list-icon">📊</span>
+                      <span className="list-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M18 20V10M12 20V4M6 20v-6"/>
+                        </svg>
+                      </span>
                       <div>
                         <strong>自动摘要生成</strong>
-                        <p>AI自动提取论文核心观点，生成结构化摘要，快速了解论文要点</p>
+                        <p>AI提取论文核心观点，快速了解要点</p>
                       </div>
                     </li>
                     <li>
-                      <span className="list-icon">🔗</span>
+                      <span className="list-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                          <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/>
+                        </svg>
+                      </span>
                       <div>
                         <strong>引用关系图谱</strong>
-                        <p>可视化展示论文引用网络，发现研究脉络和学术影响力</p>
+                        <p>可视化论文引用网络，发现研究脉络</p>
                       </div>
                     </li>
                     <li>
-                      <span className="list-icon">💡</span>
+                      <span className="list-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                        </svg>
+                      </span>
                       <div>
                         <strong>研究趋势洞察</strong>
-                        <p>分析领域研究热点和发展趋势，把握学术前沿动态</p>
+                        <p>分析领域热点，把握学术前沿动态</p>
                       </div>
                     </li>
                   </ul>

@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api, { publicScholarAPI } from '../services/api';
 import SEO from '../components/SEO';
 import FloatingGuide from '../components/FloatingGuide';
-import CTABanner from '../components/CTABanner';
 import { generateScholarlyArticleSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
 import './PaperDetailPage.css';
 
@@ -27,6 +26,13 @@ const PaperDetailPage = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
+
+  // 相似论文弹窗状态
+  const [showSimilarPopup, setShowSimilarPopup] = useState(false);
+  const [similarPapers, setSimilarPapers] = useState([]);
+  const [similarPapersLoading, setSimilarPapersLoading] = useState(false);
+  const [similarPapersLoaded, setSimilarPapersLoaded] = useState(false);
+  const isHoveringTitleRef = useRef(false); // 使用 ref 来跟踪 hover 状态，避免闭包问题
 
   // 构建 Semantic Scholar 的 URL
   const semanticScholarUrl = `https://www.semanticscholar.org/paper/${paperId}`;
@@ -117,6 +123,81 @@ const PaperDetailPage = () => {
 
   const handleSignUp = () => {
     navigate('/');
+  };
+
+  // 加载相似论文
+  const loadSimilarPapers = async () => {
+    if (similarPapersLoaded || similarPapersLoading || !paperId) return;
+    
+    setSimilarPapersLoading(true);
+    try {
+      // 获取推荐论文ID列表
+      const recResponse = await publicScholarAPI.getRecommendations(paperId, 10);
+      const recommendedPapers = recResponse.data?.data?.recommendedPapers || recResponse.data?.recommendedPapers || [];
+      
+      if (recommendedPapers.length === 0) {
+        setSimilarPapers([]);
+        setSimilarPapersLoaded(true);
+        setSimilarPapersLoading(false);
+        return;
+      }
+      
+      // 提取论文ID列表 - 只取第一个
+      const paperIds = recommendedPapers.map(p => p.paperId).filter(id => id).slice(0, 1);
+      
+      // 通过batch接口获取详细信息
+      const batchResponse = await publicScholarAPI.getPaperBatch(
+        paperIds,
+        ['paperId', 'title', 'authors', 'year', 'citationCount', 'venue']
+      );
+      
+      const papers = batchResponse.data?.data || batchResponse.data || [];
+      console.log('[Hover] Batch response papers:', papers.length, 'isHoveringTitleRef:', isHoveringTitleRef.current);
+      setSimilarPapers(papers);
+      setSimilarPapersLoaded(true);
+      // 数据加载完成后，如果鼠标仍在标题区域，显示弹窗
+      if (isHoveringTitleRef.current && papers.length > 0) {
+        console.log('[Hover] Setting showSimilarPopup to true');
+        setShowSimilarPopup(true);
+      }
+    } catch (err) {
+      console.error('Failed to load similar papers:', err);
+      setSimilarPapers([]);
+      setSimilarPapersLoaded(true);
+    } finally {
+      setSimilarPapersLoading(false);
+    }
+  };
+
+  // 处理标题hover
+  const handleTitleMouseEnter = () => {
+    console.log('[Hover] Mouse enter title, similarPapersLoaded:', similarPapersLoaded, 'similarPapersLoading:', similarPapersLoading, 'similarPapers:', similarPapers.length);
+    isHoveringTitleRef.current = true;
+    // 立即开始加载数据，但不显示弹窗
+    if (!similarPapersLoaded && !similarPapersLoading) {
+      console.log('[Hover] Starting to load similar papers...');
+      loadSimilarPapers();
+    } else if (similarPapersLoaded && similarPapers.length > 0) {
+      // 如果数据已加载完成且有数据，直接显示弹窗
+      console.log('[Hover] Data already loaded, showing popup');
+      setShowSimilarPopup(true);
+    }
+  };
+
+  const handleTitleMouseLeave = () => {
+    console.log('[Hover] Mouse leave title');
+    isHoveringTitleRef.current = false;
+    setShowSimilarPopup(false);
+  };
+
+  // 点击推荐论文 - 跳转到搜索结果页
+  const handleSimilarPaperClick = (similarPaperId) => {
+    navigate(`/search-results?query=&paperId=${similarPaperId}`);
+  };
+
+  // 查看更多相似论文
+  const handleViewMoreSimilar = () => {
+    navigate(`/search-results?query=&paperId=${paperId}`);
   };
 
   // 生成引用格式
@@ -343,9 +424,6 @@ const PaperDetailPage = () => {
       {/* 悬浮引导卡片 */}
       <FloatingGuide />
       
-      {/* 顶部CTA横幅 */}
-      <CTABanner />
-      
       <SEO
         title={pageTitle}
         description={pageDescription}
@@ -362,6 +440,21 @@ const PaperDetailPage = () => {
           <div className="pd-header-logo" onClick={handleLogoClick}>
             <img src="/logo.png" alt="Scholay" className="pd-logo-image" />
             <span className="pd-logo-text">Scholay</span>
+          </div>
+          <div 
+            className="pd-new-feature-tag"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (window.openFloatingGuide) {
+                window.openFloatingGuide();
+              }
+            }}
+          >
+            <span className="pd-new-badge">NEW</span>
+            <span className="pd-feature-text">AI Analysis</span>
+            <svg className="pd-feature-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
           </div>
         </div>
 
@@ -578,8 +671,53 @@ const PaperDetailPage = () => {
               )}
             </div>
 
-            {/* 标题 */}
-            <h1 className="pd-paper-title">{paper.title}</h1>
+            {/* 标题 - 带相似论文hover弹窗 */}
+            <div 
+              className="pd-title-wrapper"
+              onMouseEnter={handleTitleMouseEnter}
+              onMouseLeave={handleTitleMouseLeave}
+            >
+              <h1 className="pd-paper-title">{paper.title}</h1>
+              
+              {/* 相似论文弹窗 - 只在数据加载完成且有数据时显示 */}
+              {showSimilarPopup && similarPapers.length > 0 && (
+                <div className="pd-similar-popup">
+                  <div className="pd-similar-popup-header">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                      <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/>
+                    </svg>
+                    <span>Similar Paper</span>
+                  </div>
+                  <div className="pd-similar-popup-content">
+                    {/* 只显示第一个推荐论文 */}
+                    <div 
+                      className="pd-similar-item-single"
+                      onClick={() => handleSimilarPaperClick(similarPapers[0].paperId)}
+                    >
+                      <span className="pd-similar-title">{similarPapers[0].title}</span>
+                      <span className="pd-similar-meta">
+                        {similarPapers[0].authors?.[0]?.name && (
+                          <span>{similarPapers[0].authors[0].name}{similarPapers[0].authors.length > 1 ? ' et al.' : ''}</span>
+                        )}
+                        {similarPapers[0].year && <span> · {similarPapers[0].year}</span>}
+                        {similarPapers[0].citationCount !== undefined && <span> · {similarPapers[0].citationCount} citations</span>}
+                      </span>
+                    </div>
+                    {/* 查看更多按钮 */}
+                    <button 
+                      className="pd-similar-view-more"
+                      onClick={handleViewMoreSimilar}
+                    >
+                      <span>View more similar papers</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* 作者和出版信息 */}
             <div className="pd-publication-meta">

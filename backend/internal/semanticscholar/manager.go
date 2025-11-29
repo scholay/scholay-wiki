@@ -236,12 +236,44 @@ func (m *Manager) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, er
 
 // GetPaperBatch retrieves multiple papers using key rotation with circuit breaker protection
 func (m *Manager) GetPaperBatch(paperIDs []string, fields []string) ([]Paper, error) {
+	fmt.Printf("[Manager] GetPaperBatch called with %d paperIDs\n", len(paperIDs))
+	
 	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
 		client, err := m.GetClient()
 		if err != nil {
+			fmt.Printf("[Manager] GetPaperBatch - GetClient error: %v\n", err)
 			return nil, err
 		}
-		return client.GetPaperBatch(paperIDs, fields)
+		
+		// 打印 API key 信息（只打印长度，不打印实际值）
+		fmt.Printf("[Manager] GetPaperBatch - Client has API key: %v, length: %d\n", client.HasAPIKey(), client.GetAPIKeyLength())
+
+		papers, err := client.GetPaperBatch(paperIDs, fields)
+		if err != nil {
+			errStr := err.Error()
+
+			// If rate limited (429), try to fall back to free tier
+			if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
+				fmt.Printf("[Manager] API key rate limited for GetPaperBatch, falling back to free tier\n")
+				freeClient := NewClient("")
+				papers, freeErr := freeClient.GetPaperBatch(paperIDs, fields)
+				if freeErr != nil {
+					return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable. Please add more API keys or wait a moment")
+				}
+				return papers, nil
+			}
+
+			// If error contains "403" or "Forbidden" or "EOF", try without API key
+			if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
+				fmt.Printf("[Manager] API key forbidden/error for GetPaperBatch, falling back to free tier\n")
+				freeClient := NewClient("")
+				return freeClient.GetPaperBatch(paperIDs, fields)
+			}
+
+			return nil, err
+		}
+
+		return papers, nil
 	})
 
 	if err != nil {
@@ -261,7 +293,33 @@ func (m *Manager) GetPaperAuthors(paperID string, fields []string, offset, limit
 		if err != nil {
 			return nil, err
 		}
-		return client.GetPaperAuthors(paperID, fields, offset, limit)
+
+		authors, err := client.GetPaperAuthors(paperID, fields, offset, limit)
+		if err != nil {
+			errStr := err.Error()
+
+			// If rate limited (429), try to fall back to free tier
+			if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
+				fmt.Printf("[Manager] API key rate limited for GetPaperAuthors, falling back to free tier\n")
+				freeClient := NewClient("")
+				authors, freeErr := freeClient.GetPaperAuthors(paperID, fields, offset, limit)
+				if freeErr != nil {
+					return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable. Please add more API keys or wait a moment")
+				}
+				return authors, nil
+			}
+
+			// If error contains "403" or "Forbidden" or "EOF", try without API key
+			if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
+				fmt.Printf("[Manager] API key forbidden/error for GetPaperAuthors, falling back to free tier\n")
+				freeClient := NewClient("")
+				return freeClient.GetPaperAuthors(paperID, fields, offset, limit)
+			}
+
+			return nil, err
+		}
+
+		return authors, nil
 	})
 
 	if err != nil {
@@ -281,7 +339,33 @@ func (m *Manager) GetPaperCitations(paperID string, opts CitationsOptions) (*Cit
 		if err != nil {
 			return nil, err
 		}
-		return client.GetPaperCitations(paperID, opts)
+
+		citations, err := client.GetPaperCitations(paperID, opts)
+		if err != nil {
+			errStr := err.Error()
+
+			// If rate limited (429), try to fall back to free tier
+			if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
+				fmt.Printf("[Manager] API key rate limited for GetPaperCitations, falling back to free tier\n")
+				freeClient := NewClient("")
+				citations, freeErr := freeClient.GetPaperCitations(paperID, opts)
+				if freeErr != nil {
+					return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable. Please add more API keys or wait a moment")
+				}
+				return citations, nil
+			}
+
+			// If error contains "403" or "Forbidden" or "EOF", try without API key
+			if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
+				fmt.Printf("[Manager] API key forbidden/error for GetPaperCitations, falling back to free tier\n")
+				freeClient := NewClient("")
+				return freeClient.GetPaperCitations(paperID, opts)
+			}
+
+			return nil, err
+		}
+
+		return citations, nil
 	})
 
 	if err != nil {
@@ -301,7 +385,33 @@ func (m *Manager) GetPaperReferences(paperID string, opts CitationsOptions) (*Re
 		if err != nil {
 			return nil, err
 		}
-		return client.GetPaperReferences(paperID, opts)
+
+		references, err := client.GetPaperReferences(paperID, opts)
+		if err != nil {
+			errStr := err.Error()
+
+			// If rate limited (429), try to fall back to free tier
+			if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
+				fmt.Printf("[Manager] API key rate limited for GetPaperReferences, falling back to free tier\n")
+				freeClient := NewClient("")
+				references, freeErr := freeClient.GetPaperReferences(paperID, opts)
+				if freeErr != nil {
+					return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable. Please add more API keys or wait a moment")
+				}
+				return references, nil
+			}
+
+			// If error contains "403" or "Forbidden" or "EOF", try without API key
+			if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
+				fmt.Printf("[Manager] API key forbidden/error for GetPaperReferences, falling back to free tier\n")
+				freeClient := NewClient("")
+				return freeClient.GetPaperReferences(paperID, opts)
+			}
+
+			return nil, err
+		}
+
+		return references, nil
 	})
 
 	if err != nil {

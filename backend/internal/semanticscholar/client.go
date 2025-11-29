@@ -30,6 +30,16 @@ type Client struct {
 	recURL     string
 }
 
+// GetAPIKeyLength returns the length of the API key (for debugging)
+func (c *Client) GetAPIKeyLength() int {
+	return len(c.apiKey)
+}
+
+// HasAPIKey returns true if the client has an API key configured
+func (c *Client) HasAPIKey() bool {
+	return c.apiKey != ""
+}
+
 // NewClient creates a new Semantic Scholar API client
 func NewClient(apiKey string) *Client {
 	return NewClientWithBaseURL(apiKey, BaseURL)
