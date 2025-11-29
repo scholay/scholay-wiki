@@ -522,10 +522,53 @@
   font-size: 15px;
   line-height: 1.75;
   color: rgba(255, 255, 255, 0.75);
+  margin: 0;
+  /* 默认显示4行 */
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.epd-abstract.epd-abstract-expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
 }
 
 [data-theme="light"] .epd-abstract {
   color: rgba(0, 0, 0, 0.7);
+}
+
+/* 摘要展开/收起按钮 */
+.epd-abstract-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #10a37f;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.epd-abstract-toggle:hover {
+  color: #0d8a6a;
+}
+
+.epd-abstract-toggle svg {
+  transition: transform 0.2s ease;
+}
+
+[data-theme="light"] .epd-abstract-toggle {
+  color: #10a37f;
+}
+
+[data-theme="light"] .epd-abstract-toggle:hover {
+  color: #0d8a6a;
 }
 
 .epd-actions {
@@ -808,6 +851,69 @@
 .epd-similar-table .ptv-container {
   padding: 0;
   background: transparent;
+}
+
+/* ===== 相似论文 Tab 特殊样式 ===== */
+.epd-tab.epd-tab-similar {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%);
+  border-radius: 6px 6px 0 0;
+  margin-right: 4px;
+  position: relative;
+}
+
+.epd-tab.epd-tab-similar::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  background: #10b981;
+  border-radius: 50%;
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+.epd-tab.epd-tab-similar:hover {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(5, 150, 105, 0.25) 100%);
+}
+
+.epd-tab.epd-tab-similar.active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%);
+  color: #10b981;
+  border-bottom-color: #10b981;
+}
+
+.epd-tab.epd-tab-similar.active::before {
+  display: none;
+}
+
+.epd-tab-count-similar {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #10b981 !important;
+}
+
+[data-theme="light"] .epd-tab.epd-tab-similar {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
+}
+
+[data-theme="light"] .epd-tab.epd-tab-similar:hover {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(5, 150, 105, 0.18) 100%);
+}
+
+[data-theme="light"] .epd-tab.epd-tab-similar.active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.12) 100%);
+  color: #059669;
+  border-bottom-color: #059669;
+}
+
+[data-theme="light"] .epd-tab-count-similar {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #059669 !important;
 }
 
 /* 内联加载状态 */

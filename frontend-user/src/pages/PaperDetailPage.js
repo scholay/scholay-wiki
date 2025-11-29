@@ -677,7 +677,7 @@ const PaperDetailPage = () => {
               onMouseEnter={handleTitleMouseEnter}
               onMouseLeave={handleTitleMouseLeave}
             >
-              <h1 className="pd-paper-title">{paper.title}</h1>
+            <h1 className="pd-paper-title">{paper.title}</h1>
               
               {/* 相似论文弹窗 - 只在数据加载完成且有数据时显示 */}
               {showSimilarPopup && similarPapers.length > 0 && (

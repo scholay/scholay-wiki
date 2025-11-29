@@ -58,13 +58,12 @@
   }
 }
 
-/* 指向按钮的箭头指示器 */
+/* 指向按钮的箭头指示器 - 水平方向，从左向右指 */
 .tvg-pointer {
   position: fixed;
   z-index: 10003;
-  transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   opacity: 0;
   transition: opacity 0.3s ease 0.2s;
@@ -74,62 +73,65 @@
   opacity: 1;
 }
 
-.tvg-pointer-arrow {
-  width: 0;
-  height: 0;
-  border-left: 10px solid transparent;
-  border-right: 10px solid transparent;
-  border-bottom: 12px solid #10a37f;
-  animation: tvg-bounce 1.5s ease-in-out infinite;
-}
-
 .tvg-pointer-line {
-  width: 3px;
-  height: 60px;
-  background: linear-gradient(to bottom, #10a37f 0%, rgba(16, 163, 127, 0.3) 100%);
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(to right, rgba(16, 163, 127, 0.3) 0%, #10a37f 100%);
   border-radius: 2px;
 }
 
-@keyframes tvg-bounce {
+.tvg-pointer-arrow {
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 10px solid #10a37f;
+  animation: tvg-bounce-horizontal 1.5s ease-in-out infinite;
+}
+
+@keyframes tvg-bounce-horizontal {
   0%, 100% {
-    transform: translateY(0);
+    transform: translateX(0);
   }
   50% {
-    transform: translateY(-6px);
+    transform: translateX(4px);
   }
 }
 
 .tvg-modal {
-  position: relative;
-  width: 92%;
-  max-width: 800px;
+  width: 650px;
+  max-width: 85vw;
   background: #1a1a1a;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
   overflow: hidden;
-  transform: scale(0.9) translateY(30px);
-  transition: transform 0.25s ease;
+  opacity: 0;
+  transform: scale(0.95) translateX(20px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
   z-index: 10004;
+  /* 使用 right 定位，让 left 值表示右边缘 */
+  right: auto;
 }
 
 .tvg-overlay.tvg-visible .tvg-modal {
-  transform: scale(1) translateY(0);
+  opacity: 1;
+  transform: scale(1) translateX(0);
 }
 
 /* 关闭按钮 */
 .tvg-close-btn {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 32px;
-  height: 32px;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.05);
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
   transition: all 0.15s ease;
@@ -144,29 +146,29 @@
 /* 头部 */
 .tvg-header {
   text-align: center;
-  padding: 28px 24px 20px;
+  padding: 16px 24px 12px;
 }
 
 .tvg-badge {
   display: inline-block;
-  padding: 4px 12px;
+  padding: 3px 10px;
   background: rgba(16, 163, 127, 0.15);
   color: #10a37f;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   border-radius: 20px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .tvg-header h3 {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.95);
-  margin: 0 0 8px 0;
+  margin: 0 0 4px 0;
 }
 
 .tvg-header p {
-  font-size: 14px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.5);
   margin: 0;
 }
@@ -282,15 +284,15 @@
 .tvg-features {
   display: flex;
   justify-content: center;
-  gap: 24px;
-  padding: 18px 24px;
+  gap: 20px;
+  padding: 12px 24px;
 }
 
 .tvg-feature {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
+  gap: 5px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.6);
 }
 
@@ -303,7 +305,7 @@
   display: flex;
   justify-content: center;
   gap: 12px;
-  padding: 0 24px 24px;
+  padding: 0 24px 16px;
 }
 
 .tvg-btn-skip {

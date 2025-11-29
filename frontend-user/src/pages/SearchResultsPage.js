@@ -12,6 +12,7 @@ import CiteModal from '../components/CiteModal';
 import PaperTableView from '../components/PaperTableView';
 import TableColumnPanel from '../components/TableColumnPanel';
 import TableViewGuide from '../components/TableViewGuide';
+import SimilarPapersGuide from '../components/SimilarPapersGuide';
 import SearchSuggestions from '../components/SearchSuggestions';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory, renameSearchHistory, migrateOldSearchHistory } from '../utils/searchHistory';
@@ -138,6 +139,7 @@ const SearchResultsPage = () => {
   const papersContainerRef = useRef(null);
   const tableViewBtnRef = useRef(null); // 表格视图按钮引用
   const similarPapersListRef = useRef(null); // 相似论文列表引用
+  const similarPapersTabRef = useRef(null); // 相似论文 Tab 引用
   const textareaRef = useRef(null); // 搜索输入框引用（用于搜索建议定位）
   const emptyTextareaRef = useRef(null); // 空状态搜索输入框引用
   const [selectedHistoryId, setSelectedHistoryId] = useState(null); // 选中的搜索历史ID
@@ -174,6 +176,7 @@ const SearchResultsPage = () => {
   const [detailHeaderCollapsed, setDetailHeaderCollapsed] = useState(false); // 论文详情头部折叠状态
   const [detailCopiedDoi, setDetailCopiedDoi] = useState(false); // DOI复制状态
   const [detailCopiedCorpusId, setDetailCopiedCorpusId] = useState(false); // CorpusId复制状态
+  const [detailAbstractExpanded, setDetailAbstractExpanded] = useState(false); // 摘要展开状态
   
   // 引用/参考文献分页加载状态
   const [citationsData, setCitationsData] = useState({ papers: [], currentPage: 1, total: 0, totalPages: 0 });
@@ -189,6 +192,8 @@ const SearchResultsPage = () => {
   const [allSimilarPapers, setAllSimilarPapers] = useState([]); // 存储所有相似论文数据（用于分页）
   const [similarSelectedDimensionKey, setSimilarSelectedDimensionKey] = useState(null); // 相似论文表格视图选中的维度
   const [similarTableReloadTrigger, setSimilarTableReloadTrigger] = useState(null); // 相似论文表格视图重新加载触发器
+  const [showSimilarPapersGuide, setShowSimilarPapersGuide] = useState(false); // 相似论文新手引导
+  const hasClickedSimilarTabRef = useRef(false); // 标记用户是否已点击过相似论文标签
 
   // 处理维度更新（编辑或新增）
   const handleDimensionsUpdated = useCallback((action, dimensionName) => {
@@ -213,6 +218,18 @@ const SearchResultsPage = () => {
     // 清除选中的维度
     setSimilarSelectedDimensionKey(null);
   }, []);
+
+  // 处理相似论文 Tab 点击 - 用户主动点击说明已了解该功能，标记为已看过
+  const handleSimilarTabClick = useCallback(() => {
+    // 用户主动点击相似论文标签，说明已经知道这个功能了
+    // 标记为已点击，阻止后续引导显示
+    hasClickedSimilarTabRef.current = true;
+    // 标记为已看过，下次不再显示引导
+    localStorage.setItem('similarPapersGuideShown', 'true');
+    // 如果引导正在显示，关闭它
+    setShowSimilarPapersGuide(false);
+  }, []);
+
 
   // 执行搜索
   const performSearch = async (query, currentFilters, page = 1, saveToHistory = true, enableTranslation = true) => {
@@ -421,6 +438,7 @@ const SearchResultsPage = () => {
     setDetailLoading(true);
     setDetailError(null);
     setDetailPaper(null);
+    setDetailAbstractExpanded(false); // 重置摘要展开状态
     
     try {
       // 使用公共 API，支持未登录用户访问
@@ -447,12 +465,58 @@ const SearchResultsPage = () => {
       // URL 中有 paperId，加载论文详情
       loadPaperDetail(paperId);
       // 如果有 query 参数，也设置搜索框的值
-    if (query) {
-      setSearchQuery(query);
+      if (query) {
+        setSearchQuery(query);
+      }
+      
+      // 检查是否需要显示相似论文引导弹窗（每个用户只显示一次）
+      const hasSeenSimilarGuide = localStorage.getItem('similarPapersGuideShown');
+      if (!hasSeenSimilarGuide) {
+        // 延迟显示，等页面加载后，并确保标签按钮在可见范围内
+        setTimeout(() => {
+          // 检查用户是否已经点击过相似论文标签
+          if (hasClickedSimilarTabRef.current) return;
+          
+          // 检查相似论文标签按钮是否在可见范围内
+          if (similarPapersTabRef.current) {
+            const rect = similarPapersTabRef.current.getBoundingClientRect();
+            const isVisible = (
+              rect.top >= 0 &&
+              rect.left >= 0 &&
+              rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+              rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+            );
+            
+            if (!isVisible) {
+              // 如果不在可见范围内，先滚动到可见位置
+              similarPapersTabRef.current.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center',
+                inline: 'nearest'
+              });
+              // 等待滚动完成后再显示引导
+              setTimeout(() => {
+                // 再次检查用户是否点击过
+                if (!hasClickedSimilarTabRef.current) {
+                  setShowSimilarPapersGuide(true);
+                }
+              }, 500);
+            } else {
+              // 已经在可见范围内，直接显示引导
+              setShowSimilarPapersGuide(true);
+            }
+          } else {
+            // 如果 ref 还没准备好，直接显示引导
+            setShowSimilarPapersGuide(true);
+          }
+        }, 1500);
       }
     }
   }, []); // 只在组件挂载时执行一次
 
+  // 标记是否已经点击过表格按钮
+  const hasClickedTableBtnRef = useRef(false);
+  
   // 初始化时从URL参数加载搜索结果（不包含 paperId 的情况）
   useEffect(() => {
     const query = searchParams.get('query');
@@ -464,17 +528,25 @@ const SearchResultsPage = () => {
     if (query) {
       setSearchQuery(query);
       performSearch(query, filters, currentPage);
-    
-    // 检查是否需要显示表格视图引导弹窗（每个用户只显示一次）
-    const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
-      if (!hasSeenTableGuide) {
-      // 延迟显示，等搜索结果加载后
-      setTimeout(() => {
-        setShowTableGuide(true);
-      }, 1500);
-    }
     }
   }, []); // 只在组件挂载时执行一次
+  
+  // 监听搜索结果加载完成，显示表格视图引导
+  useEffect(() => {
+    // 只有当不在加载中、有结果、且用户没点击过表格按钮时才显示引导
+    if (!loading && papers.length > 0 && !hasClickedTableBtnRef.current) {
+      const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
+      if (!hasSeenTableGuide) {
+        // 延迟一点显示，让用户先看到结果
+        const timer = setTimeout(() => {
+          if (!hasClickedTableBtnRef.current) {
+            setShowTableGuide(true);
+          }
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [loading, papers.length]); // 当 loading 状态或 papers 变化时检查
 
   useEffect(() => {
     const handleResize = () => {
@@ -1631,11 +1703,35 @@ const SearchResultsPage = () => {
                       </div>
                     )}
 
-                    {/* 摘要 - 折叠时隐藏 */}
+                    {/* 摘要 - 折叠时隐藏，默认显示4行 */}
                     {!detailHeaderCollapsed && detailPaper.abstract && (
                       <div className="epd-section">
                         <h2 className="epd-section-title">摘要</h2>
-                        <p className="epd-abstract">{detailPaper.abstract}</p>
+                        <p className={`epd-abstract ${detailAbstractExpanded ? 'epd-abstract-expanded' : ''}`}>
+                          {detailPaper.abstract}
+                        </p>
+                        {detailPaper.abstract.length > 200 && (
+                          <button 
+                            className="epd-abstract-toggle"
+                            onClick={() => setDetailAbstractExpanded(!detailAbstractExpanded)}
+                          >
+                            {detailAbstractExpanded ? (
+                              <>
+                                收起
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="18 15 12 9 6 15"/>
+                                </svg>
+                              </>
+                            ) : (
+                              <>
+                                展开全文
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="6 9 12 15 18 9"/>
+                                </svg>
+                              </>
+                            )}
+                          </button>
+                        )}
                       </div>
                     )}
 
@@ -1714,8 +1810,16 @@ const SearchResultsPage = () => {
                         <button className={`epd-tab ${detailActiveTab === 'references' ? 'active' : ''}`} onClick={() => { setDetailActiveTab('references'); setDetailHeaderCollapsed(false); }}>
                           参考文献 <span className="epd-tab-count">{detailPaper.referenceCount || 0}</span>
                         </button>
-                        <button className={`epd-tab ${detailActiveTab === 'similar' ? 'active' : ''}`} onClick={() => { setDetailActiveTab('similar'); setDetailHeaderCollapsed(true); }}>
-                          相似论文 {similarPapersData.total > 0 && <span className="epd-tab-count">{similarPapersData.total}</span>}
+                        <button 
+                          ref={similarPapersTabRef}
+                          className={`epd-tab epd-tab-similar ${detailActiveTab === 'similar' ? 'active' : ''}`} 
+                          onClick={() => { setDetailActiveTab('similar'); setDetailHeaderCollapsed(true); handleSimilarTabClick(); }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '4px' }}>
+                            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                            <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/>
+                          </svg>
+                          相似论文 {similarPapersData.total > 0 && <span className="epd-tab-count epd-tab-count-similar">{similarPapersData.total}</span>}
                         </button>
                       </div>
 
@@ -2050,36 +2154,39 @@ const SearchResultsPage = () => {
 
                         {detailActiveTab === 'similar' && (
                           <div className="epd-similar-papers" ref={similarPapersListRef}>
-                            {/* 头部：统计信息 + 视图切换 */}
-                            <div className="results-header">
-                              <p className="results-info">
-                                {similarPapersData.total > 0 ? (
-                                  <>显示 <strong>{(similarPapersData.currentPage - 1) * REFS_PER_PAGE + 1}-{Math.min(similarPapersData.currentPage * REFS_PER_PAGE, similarPapersData.total)}</strong> / 共 <strong>{similarPapersData.total}</strong> 篇相似论文</>
-                                ) : (
-                                  '暂无相似论文'
-                                )}
-                              </p>
-                              <div className="srp-view-mode-switcher">
-                                <button 
-                                  className={`srp-view-mode-btn ${similarPapersViewMode === 'list' ? 'active' : ''}`}
-                                  onClick={() => setSimilarPapersViewMode('list')}
-                                  title="列表视图"
-                                >
-                                  <List size={18} />
-                                  <span>列表</span>
-                                </button>
-                                <button 
-                                  className={`srp-view-mode-btn ${similarPapersViewMode === 'table' ? 'active' : ''}`}
-                                  onClick={() => setSimilarPapersViewMode('table')}
-                                  title="表格视图"
-                                >
-                                  <Table2 size={18} />
-                                  <span>表格</span>
-                                </button>
+                            {/* 头部：统计信息 + 视图切换 - 只有有数据且不在加载时才显示 */}
+                            {!similarPapersLoading && similarPapersData.papers.length > 0 && (
+                              <div className="results-header">
+                                <p className="results-info">
+                                  显示 <strong>{(similarPapersData.currentPage - 1) * REFS_PER_PAGE + 1}-{Math.min(similarPapersData.currentPage * REFS_PER_PAGE, similarPapersData.total)}</strong> / 共 <strong>{similarPapersData.total}</strong> 篇相似论文
+                                </p>
+                                <div className="srp-view-mode-switcher">
+                                  <button 
+                                    className={`srp-view-mode-btn ${similarPapersViewMode === 'list' ? 'active' : ''}`}
+                                    onClick={() => setSimilarPapersViewMode('list')}
+                                    title="列表视图"
+                                  >
+                                    <List size={18} />
+                                    <span>列表</span>
+                                  </button>
+                                  <button 
+                                    className={`srp-view-mode-btn ${similarPapersViewMode === 'table' ? 'active' : ''}`}
+                                    onClick={() => setSimilarPapersViewMode('table')}
+                                    title="表格视图"
+                                  >
+                                    <Table2 size={18} />
+                                    <span>表格</span>
+                                  </button>
+                                </div>
                               </div>
-                            </div>
+                            )}
 
-                            {similarPapersData.papers.length > 0 ? (
+                            {similarPapersLoading ? (
+                              <div className="epd-loading">
+                                <div className="epd-loading-spinner"></div>
+                                <p>加载相似论文中...</p>
+                              </div>
+                            ) : similarPapersData.papers.length > 0 ? (
                               <>
                                 {similarPapersViewMode === 'list' ? (
                                   /* 列表视图 - 复用搜索结果列表样式 */
@@ -2259,11 +2366,6 @@ const SearchResultsPage = () => {
                                   </div>
                                 )}
                               </>
-                            ) : similarPapersLoading ? (
-                              <div className="epd-loading-inline">
-                                <div className="epd-loading-spinner"></div>
-                                <span>加载相似论文中...</span>
-                              </div>
                             ) : (
                               <p className="epd-empty-text">暂无相似论文推荐</p>
                             )}
@@ -2329,7 +2431,8 @@ const SearchResultsPage = () => {
                     className={`srp-view-mode-btn ${viewMode === 'table' ? 'active' : ''}`}
                     onClick={() => {
                       setViewMode('table');
-                      // 用户主动点击表格按钮，标记为已看过引导
+                      // 用户主动点击表格按钮，标记为已点击和已看过引导
+                      hasClickedTableBtnRef.current = true;
                       localStorage.setItem('hasSeenTableViewGuide', 'true');
                       setShowTableGuide(false);
                     }}
@@ -2682,14 +2785,43 @@ const SearchResultsPage = () => {
       {showTableGuide && (
         <TableViewGuide
           targetRef={tableViewBtnRef}
+          onDismiss={() => {
+            // X 按钮 - 只关闭，下次还会显示
+            setShowTableGuide(false);
+          }}
           onClose={() => {
+            // "稍后再说" - 关闭并记住
             setShowTableGuide(false);
             localStorage.setItem('hasSeenTableViewGuide', 'true');
           }}
           onTryIt={() => {
+            // "立即体验" - 关闭并记住，切换到表格视图
             setShowTableGuide(false);
             localStorage.setItem('hasSeenTableViewGuide', 'true');
             setViewMode('table');
+          }}
+        />
+      )}
+
+      {/* 相似论文引导弹窗 */}
+      {showSimilarPapersGuide && (
+        <SimilarPapersGuide
+          targetRef={similarPapersTabRef}
+          onDismiss={() => {
+            // X 按钮 - 只关闭，下次还会显示
+            setShowSimilarPapersGuide(false);
+          }}
+          onClose={() => {
+            // "稍后再说" - 关闭并记住
+            setShowSimilarPapersGuide(false);
+            localStorage.setItem('similarPapersGuideShown', 'true');
+          }}
+          onTryIt={() => {
+            // "立即体验" - 关闭并记住，切换到相似论文 Tab
+            setShowSimilarPapersGuide(false);
+            localStorage.setItem('similarPapersGuideShown', 'true');
+            setDetailActiveTab('similar');
+            setDetailHeaderCollapsed(true);
           }}
         />
       )}

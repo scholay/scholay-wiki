@@ -42,20 +42,60 @@ const mockData = [
   },
 ];
 
-const TableViewGuide = ({ onClose, onTryIt, targetRef }) => {
+const TableViewGuide = ({ onClose, onTryIt, onDismiss, targetRef }) => {
   const [visible, setVisible] = useState(false);
   const [typingRow, setTypingRow] = useState(-1);
   const [arrowPosition, setArrowPosition] = useState({ top: 0, left: 0 });
+  const [modalPosition, setModalPosition] = useState({ top: 'auto', right: 'auto', transform: 'translateY(-50%)' });
 
   useEffect(() => {
-    // 计算箭头位置（指向表格按钮）
-    if (targetRef?.current) {
-      const rect = targetRef.current.getBoundingClientRect();
-      setArrowPosition({
-        top: rect.bottom + 8,
-        left: rect.left + rect.width / 2,
-      });
-    }
+    // 计算箭头位置和弹窗位置（弹窗在按钮左侧，箭头从弹窗指向按钮）
+    const calculatePositions = () => {
+      if (targetRef?.current) {
+        const rect = targetRef.current.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+        
+        // 按钮中心点的垂直位置
+        const buttonCenterY = rect.top + rect.height / 2;
+        // 按钮左边缘
+        const buttonLeft = rect.left;
+        
+        // 箭头+线的总宽度 (线60px + 箭头10px)
+        const arrowTotalWidth = 70;
+        // 弹窗和箭头之间的间距
+        const gapToArrow = 8;
+        
+        // 弹窗右边缘位置 = 按钮左边 - 箭头宽度 - 间距
+        const modalRightX = buttonLeft - arrowTotalWidth - gapToArrow;
+        
+        // 弹窗垂直位置 - 与按钮中心对齐，但确保不超出视口
+        const modalHeight = 480;
+        let modalCenterY = buttonCenterY;
+        const minY = modalHeight / 2 + 20;
+        const maxY = viewportHeight - modalHeight / 2 - 20;
+        modalCenterY = Math.max(minY, Math.min(maxY, modalCenterY));
+        
+        // 箭头位置 - 箭头尖端靠近按钮
+        setArrowPosition({
+          top: buttonCenterY,
+          left: buttonLeft - 8, // 箭头尖端距离按钮8px
+        });
+        
+        // 弹窗位置 - 使用 right 定位，弹窗右边缘到视口右边的距离
+        const modalRightFromViewport = viewportWidth - modalRightX;
+        setModalPosition({
+          top: `${modalCenterY}px`,
+          right: `${modalRightFromViewport}px`,
+          transform: 'translateY(-50%)', // 只垂直居中
+        });
+      }
+    };
+    
+    calculatePositions();
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', calculatePositions);
     
     // 延迟显示动画
     setTimeout(() => setVisible(true), 100);
@@ -70,14 +110,31 @@ const TableViewGuide = ({ onClose, onTryIt, targetRef }) => {
       }
     }, 600);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('resize', calculatePositions);
+    };
   }, [targetRef]);
 
+  // X 按钮 - 只关闭弹窗，下次还会显示
+  const handleDismiss = () => {
+    setVisible(false);
+    setTimeout(() => {
+      if (onDismiss) {
+        onDismiss();
+      } else {
+        onClose();
+      }
+    }, 200);
+  };
+
+  // "稍后再说" 按钮 - 关闭并记住，下次不再显示
   const handleClose = () => {
     setVisible(false);
     setTimeout(onClose, 200);
   };
 
+  // "立即体验" 按钮
   const handleTryIt = () => {
     setVisible(false);
     setTimeout(() => {
@@ -103,10 +160,10 @@ const TableViewGuide = ({ onClose, onTryIt, targetRef }) => {
 
   return (
     <div className={`tvg-overlay ${visible ? 'tvg-visible' : ''}`}>
-      {/* 遮罩层 - 使用 clip-path 留出高亮区域 */}
+      {/* 遮罩层 - 使用 clip-path 留出高亮区域，点击蒙层关闭但下次还会显示 */}
       <div 
         className="tvg-mask"
-        onClick={handleClose}
+        onClick={handleDismiss}
         style={highlightRect ? {
           clipPath: `polygon(
             0% 0%, 
@@ -136,21 +193,35 @@ const TableViewGuide = ({ onClose, onTryIt, targetRef }) => {
         />
       )}
       
-      {/* 指向表格按钮的箭头 */}
+      {/* 指向表格按钮的箭头 - 水平方向，从左向右指 */}
       {arrowPosition.left > 0 && (
         <div 
           className={`tvg-pointer ${visible ? 'tvg-pointer-show' : ''}`}
-          style={{ top: arrowPosition.top + 6, left: arrowPosition.left }}
+          style={{ 
+            top: arrowPosition.top, 
+            left: arrowPosition.left,
+            transform: 'translate(-100%, -50%)', // 箭头尖端对齐到 left 位置
+          }}
         >
-          <div className="tvg-pointer-arrow" />
           <div className="tvg-pointer-line" />
+          <div className="tvg-pointer-arrow" />
         </div>
       )}
       
-      <div className="tvg-modal" onClick={e => e.stopPropagation()}>
-        {/* 关闭按钮 */}
-        <button className="tvg-close-btn" onClick={handleClose}>
-          <X size={20} />
+      <div 
+        className="tvg-modal" 
+        onClick={e => e.stopPropagation()}
+        style={{
+          position: 'fixed',
+          top: modalPosition.top,
+          right: modalPosition.right,
+          left: 'auto',
+          transform: modalPosition.transform,
+        }}
+      >
+        {/* 关闭按钮 - 点击后下次还会显示 */}
+        <button className="tvg-close-btn" onClick={handleDismiss}>
+          <X size={18} />
         </button>
 
         {/* 头部 */}
