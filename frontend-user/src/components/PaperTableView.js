@@ -87,6 +87,7 @@ const PaperTableView = ({
     // 重置状态
     setAnalysisResults({});
     setDynamicColumns(null);
+    setColumnsLoading(true); // 重置列加载状态，触发重新加载维度
     setPapersWithAbstract([]);
     setDisplayCount(PAPERS_PER_DISPLAY);
     setOffset(0);

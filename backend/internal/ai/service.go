@@ -1067,7 +1067,59 @@ func (s *Service) generateDimensionHash(dimensions []AnalysisDimension) string {
 }
 
 // buildAnalysisPrompt 动态构建分析提示词
+// 优先从数据库获取提示词模板，本地兜底
 func (s *Service) buildAnalysisPrompt(paperTitle, abstract string, dimensions []AnalysisDimension) string {
+	// 1. 构建维度列表字符串
+	dimensionList := s.buildDimensionListString(dimensions)
+	
+	// 2. 构建JSON输出格式字符串
+	jsonFormat := s.buildJSONFormatString(dimensions)
+	
+	// 3. 尝试从数据库获取提示词模板
+	renderedPrompt, template, err := s.GetAndRenderPrompt("dimensions_paper_analysis", map[string]string{
+		"paper_title":    paperTitle,
+		"abstract":       abstract,
+		"dimension_list": dimensionList,
+		"json_format":    jsonFormat,
+	})
+	
+	if err != nil || template == nil {
+		// 数据库获取失败，使用本地兜底提示词
+		fmt.Printf("[WARN] Failed to get prompt template 'dimensions_paper_analysis' from DB: %v, using fallback\n", err)
+		return s.buildAnalysisPromptFallback(paperTitle, abstract, dimensionList, jsonFormat)
+	}
+	
+	fmt.Printf("[INFO] Using prompt template from DB: '%s' (ID: %d)\n", template.Name, template.ID)
+	return renderedPrompt
+}
+
+// buildDimensionListString 构建维度列表字符串
+func (s *Service) buildDimensionListString(dimensions []AnalysisDimension) string {
+	var sb strings.Builder
+	for i, dim := range dimensions {
+		sb.WriteString(fmt.Sprintf("%d. %s（%s）\n", i+1, dim.Name, dim.DimensionKey))
+		sb.WriteString(fmt.Sprintf("分析指示：%s\n\n", dim.Description))
+	}
+	return sb.String()
+}
+
+// buildJSONFormatString 构建JSON输出格式字符串
+func (s *Service) buildJSONFormatString(dimensions []AnalysisDimension) string {
+	var sb strings.Builder
+	sb.WriteString("{\n")
+	for i, dim := range dimensions {
+		if i < len(dimensions)-1 {
+			sb.WriteString(fmt.Sprintf("  \"%s\": \"%s分析结果\",\n", dim.DimensionKey, dim.Name))
+		} else {
+			sb.WriteString(fmt.Sprintf("  \"%s\": \"%s分析结果\"\n", dim.DimensionKey, dim.Name))
+		}
+	}
+	sb.WriteString("}")
+	return sb.String()
+}
+
+// buildAnalysisPromptFallback 本地兜底提示词
+func (s *Service) buildAnalysisPromptFallback(paperTitle, abstract, dimensionList, jsonFormat string) string {
 	var sb strings.Builder
 	
 	sb.WriteString("请你阅读以下论文摘要，并严格根据摘要内容进行分析。\n\n")
@@ -1084,23 +1136,12 @@ func (s *Service) buildAnalysisPrompt(paperTitle, abstract string, dimensions []
 	sb.WriteString("6. 每一项结论都必须在摘要中找到明确对应的词句；若无法定位对应内容，必须回答：未提及。\n\n")
 	
 	sb.WriteString("【分析维度】\n")
-	for i, dim := range dimensions {
-		sb.WriteString(fmt.Sprintf("%d. %s（%s）\n", i+1, dim.Name, dim.DimensionKey))
-		sb.WriteString(fmt.Sprintf("分析指示：%s\n\n", dim.Description))
-	}
+	sb.WriteString(dimensionList)
 	
 	sb.WriteString("【输出格式】\n")
 	sb.WriteString("请严格使用以下JSON格式输出，不得增删字段：\n")
-	sb.WriteString("{\n")
-	for i, dim := range dimensions {
-		if i < len(dimensions)-1 {
-			sb.WriteString(fmt.Sprintf("  \"%s\": \"%s分析结果\",\n", dim.DimensionKey, dim.Name))
-		} else {
-			sb.WriteString(fmt.Sprintf("  \"%s\": \"%s分析结果\"\n", dim.DimensionKey, dim.Name))
-		}
-	}
-	sb.WriteString("}\n\n")
-	sb.WriteString("所有维度都必须输出，即使内容全部为\"未提及\"。")
+	sb.WriteString(jsonFormat)
+	sb.WriteString("\n\n所有维度都必须输出，即使内容全部为\"未提及\"。")
 	
 	return sb.String()
 }
