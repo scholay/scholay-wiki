@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { publicScholarAPI, analysisDimensionAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
 import './PaperTableView.css';
@@ -695,15 +696,16 @@ const PaperTableView = ({
         </div>
       )}
 
-      {/* 登录弹窗 */}
-      {showAuthModal && (
+      {/* 登录弹窗 - 使用 Portal 渲染到 body，确保相对于整个浏览器窗口定位 */}
+      {showAuthModal && createPortal(
         <Suspense fallback={null}>
           <AuthModal
             isOpen={showAuthModal}
             onClose={() => setShowAuthModal(false)}
             onLoginSuccess={handleLoginSuccess}
           />
-        </Suspense>
+        </Suspense>,
+        document.body
       )}
 
       {/* 加载更多按钮 - 仅登录用户可见（或传入数据模式下由外部控制） */}

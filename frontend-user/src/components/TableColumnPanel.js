@@ -156,8 +156,8 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
     try {
       let response;
       
-      // 判断是用户自定义维度还是系统维度
-      if (column.userId) {
+      // 判断是用户自定义维度还是系统维度（userId > 0 为用户自定义，-1 为系统默认）
+      if (column.userId && column.userId > 0) {
         // 用户自定义维度：直接更新
         response = await analysisDimensionAPI.updateDimension(
           column.id,
@@ -483,7 +483,7 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
                 <h4 className="tcp-detail-label">分析指示</h4>
                 <p className="tcp-detail-value tcp-detail-description">{column.description}</p>
               </div>
-              {column.userId && (
+              {column.userId && column.userId > 0 && (
                 <div className="tcp-detail-section">
                   <span className="tcp-custom-badge-large">自定义维度</span>
                 </div>
@@ -531,7 +531,7 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
         {dimensions.map((column) => (
           <div 
             key={column.dimensionKey} 
-            className={`tcp-list-item ${column.userId ? 'tcp-list-item-custom' : ''}`}
+            className={`tcp-list-item ${column.userId && column.userId > 0 ? 'tcp-list-item-custom' : ''}`}
             onClick={() => handleColumnClick(column.dimensionKey)}
           >
             <div className="tcp-item-icon">
@@ -542,7 +542,7 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
               </svg>
             </div>
             <span className="tcp-item-name">{column.name}</span>
-            {column.userId && (
+            {column.userId && column.userId > 0 && (
               <span className="tcp-item-custom-tag">自定义</span>
             )}
             <svg className="tcp-item-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
