@@ -2427,6 +2427,7 @@ const SearchResultsPage = () => {
                                       selectedDimensionKey={similarSelectedDimensionKey}
                                       onDimensionSelect={handleSimilarDimensionSelect}
                                       reloadTrigger={similarTableReloadTrigger}
+                                      hideLoadMore={!isAuthenticated}
                                     />
                                   </div>
                                 )}

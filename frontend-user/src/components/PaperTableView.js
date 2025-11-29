@@ -41,6 +41,8 @@ const PaperTableView = ({
   onLoadMore,
   hasMore: providedHasMore,
   loadingMore: providedLoadingMore,
+  // 是否隐藏加载更多按钮（用于相似论文未登录状态）
+  hideLoadMore = false,
 }) => {
   // 判断是否使用传入的论文数据模式
   const useProvidedPapers = !!providedPapers;
@@ -710,8 +712,8 @@ const PaperTableView = ({
         document.body
       )}
 
-      {/* 加载更多按钮 - 仅登录用户可见（或传入数据模式下由外部控制） */}
-      {canLoadMore && (
+      {/* 加载更多按钮 - 仅登录用户可见（或传入数据模式下由外部控制），可通过 hideLoadMore 隐藏 */}
+      {canLoadMore && !hideLoadMore && (
         <div className="ptv-load-more">
           <button 
             className="ptv-load-more-btn"

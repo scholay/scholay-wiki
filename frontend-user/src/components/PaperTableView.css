@@ -788,12 +788,15 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding-left: 24px;
   gap: 8px;
   padding: 16px 24px;
   color: rgba(255, 255, 255, 0.5);
   font-size: 13px;
   transition: all 0.2s ease;
+  /* 让文案在横向滚动时保持固定位置 */
+  position: sticky;
+  left: 340px; /* 固定列宽度 */
+  width: fit-content;
 }
 
 .ptv-restricted-merged:hover .ptv-restricted-overlay {
