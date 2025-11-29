@@ -5,10 +5,77 @@
   background: var(--background);
   border-left: 1px solid rgba(255, 255, 255, 0.06);
   overflow: hidden;
+  position: relative;
+}
+
+.table-column-panel-wrapper > .tcp-container {
+  height: 100%;
+  overflow: auto;
+}
+
+/* 列配置面板的拖拽分隔条 - 与 PaperPreview 保持一致 */
+.table-column-panel-wrapper > .resize-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  background: rgba(255, 255, 255, 0.04);
+  transition: background-color 0.2s ease;
+  z-index: 10;
+}
+
+.table-column-panel-wrapper > .resize-handle:hover {
+  background: rgba(16, 185, 129, 0.3);
+}
+
+.table-column-panel-wrapper > .resize-handle.resizing {
+  background: rgba(16, 185, 129, 0.5);
+}
+
+.table-column-panel-wrapper > .resize-handle .resize-handle-line {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 1px;
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+.table-column-panel-wrapper > .resize-handle:hover .resize-handle-line,
+.table-column-panel-wrapper > .resize-handle.resizing .resize-handle-line {
+  background: rgba(16, 185, 129, 0.8);
+  height: 48px;
 }
 
 [data-theme="light"] .table-column-panel-wrapper {
   border-left-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .table-column-panel-wrapper > .resize-handle {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .table-column-panel-wrapper > .resize-handle:hover {
+  background: rgba(16, 163, 127, 0.3);
+}
+
+[data-theme="light"] .table-column-panel-wrapper > .resize-handle.resizing {
+  background: rgba(16, 163, 127, 0.5);
+}
+
+[data-theme="light"] .table-column-panel-wrapper > .resize-handle .resize-handle-line {
+  background: var(--border);
+}
+
+[data-theme="light"] .table-column-panel-wrapper > .resize-handle:hover .resize-handle-line,
+[data-theme="light"] .table-column-panel-wrapper > .resize-handle.resizing .resize-handle-line {
+  background: var(--text-accent);
 }
 
 /* ===== 内嵌论文详情视图 (epd-) ===== */

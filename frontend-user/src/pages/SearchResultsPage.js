@@ -2381,7 +2381,7 @@ const SearchResultsPage = () => {
                                   <div className="papers-list ptv-wrapper epd-similar-table">
                                     <PaperTableView 
                                       papers={similarPapersData.papers}
-                                      onPaperClick={(paper) => paper?.paperId && handleSelectPaper({ id: paper.paperId, title: paper.title })}
+                                      onPaperClick={setSelectedPaper}
                                       totalResults={similarPapersData.total}
                                       onLoadMore={() => loadSimilarPapers(similarPapersData.currentPage + 1, true)}
                                       hasMore={similarPapersData.currentPage < similarPapersData.totalPages}
@@ -2447,7 +2447,11 @@ const SearchResultsPage = () => {
                 <div className="srp-view-mode-switcher">
                   <button
                     className={`srp-view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
-                    onClick={() => setViewMode('list')}
+                    onClick={() => {
+                      setViewMode('list');
+                      // 切换到列表视图时，清除表格视图中选中的论文预览
+                      setSelectedPaper(null);
+                    }}
                     title="列表视图"
                   >
                     <List size={18} />
@@ -2728,23 +2732,56 @@ const SearchResultsPage = () => {
         {/* 右侧预览区 - PC端始终显示 */}
         {!isCompactLayout && !isMobile && (
           viewMode === 'table' ? (
-            // 表格视图：显示列配置面板
-            <div 
-              className="preview-panel table-column-panel-wrapper"
-              style={{ width: previewWidth }}
-            >
-              <TableColumnPanel 
-                selectedDimensionKey={selectedDimensionKey}
-                onDimensionSelect={setSelectedDimensionKey}
-                onDimensionsUpdated={handleDimensionsUpdated}
+            // 表格视图：有选中论文时显示预览，否则显示列配置面板
+            selectedPaper ? (
+              <PaperPreview
+                paper={selectedPaper}
+                onClose={() => setSelectedPaper(null)}
+                width={previewWidth}
+                onResizeMouseDown={handlePreviewResizeMouseDown}
+                onResizeTouchStart={handlePreviewResizeTouchStart}
+                isResizing={isResizingPreview}
               />
-            </div>
+            ) : (
+              <div 
+                className="preview-panel table-column-panel-wrapper"
+                style={{ width: previewWidth }}
+              >
+                {/* 拖拽分隔条 */}
+                <div
+                  className={`resize-handle ${isResizingPreview ? 'resizing' : ''}`}
+                  onMouseDown={handlePreviewResizeMouseDown}
+                  onTouchStart={handlePreviewResizeTouchStart}
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="调整面板宽度"
+                >
+                  <div className="resize-handle-line" />
+                </div>
+                <TableColumnPanel 
+                  selectedDimensionKey={selectedDimensionKey}
+                  onDimensionSelect={setSelectedDimensionKey}
+                  onDimensionsUpdated={handleDimensionsUpdated}
+                />
+              </div>
+            )
           ) : viewMode === 'paper' && detailActiveTab === 'similar' && similarPapersViewMode === 'table' ? (
             // 论文详情视图 + 相似论文表格视图：显示列配置面板
             <div 
               className="preview-panel table-column-panel-wrapper"
               style={{ width: previewWidth }}
             >
+              {/* 拖拽分隔条 */}
+              <div
+                className={`resize-handle ${isResizingPreview ? 'resizing' : ''}`}
+                onMouseDown={handlePreviewResizeMouseDown}
+                onTouchStart={handlePreviewResizeTouchStart}
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="调整面板宽度"
+              >
+                <div className="resize-handle-line" />
+              </div>
               <TableColumnPanel 
                 selectedDimensionKey={similarSelectedDimensionKey}
                 onDimensionSelect={setSimilarSelectedDimensionKey}
