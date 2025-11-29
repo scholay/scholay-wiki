@@ -167,6 +167,32 @@ const SearchSuggestions = ({
     onClose?.();
   };
 
+  // 计算弹窗最大高度，确保不超出视口底部
+  const [maxHeight, setMaxHeight] = useState(400);
+
+  useEffect(() => {
+    if (visible && dropdownRef.current) {
+      const updateMaxHeight = () => {
+        const dropdown = dropdownRef.current;
+        if (dropdown) {
+          const rect = dropdown.getBoundingClientRect();
+          const viewportHeight = window.innerHeight;
+          // 计算弹窗顶部到视口底部的距离，留出20px的边距
+          const availableHeight = viewportHeight - rect.top - 20;
+          // 限制在100-500px之间
+          setMaxHeight(Math.max(100, Math.min(500, availableHeight)));
+        }
+      };
+      
+      // 初始计算
+      setTimeout(updateMaxHeight, 0);
+      
+      // 监听窗口大小变化
+      window.addEventListener('resize', updateMaxHeight);
+      return () => window.removeEventListener('resize', updateMaxHeight);
+    }
+  }, [visible, totalSuggestions]);
+
   // 不显示时返回null
   if (!visible) return null;
 
@@ -180,7 +206,7 @@ const SearchSuggestions = ({
   if (totalSuggestions === 0) return null;
 
   return (
-    <div className="search-suggestions-dropdown" ref={dropdownRef}>
+    <div className="search-suggestions-dropdown" ref={dropdownRef} style={{ maxHeight: `${maxHeight}px` }}>
       {error && (
         <div className="suggestions-error">
           {error}

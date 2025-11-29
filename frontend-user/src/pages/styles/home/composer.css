@@ -12,6 +12,37 @@
   border-radius: 28px;
   padding: 12px;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+}
+
+/* 首页搜索建议弹窗 - 特殊定位和样式 */
+.home .home-composer-wrapper .search-suggestions-dropdown,
+.home-search .home-composer-wrapper .search-suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 8px;
+  z-index: 10000;
+  max-height: calc(100vh - 60vh - 100px);
+  background: var(--bg-primary, #ffffff);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+}
+
+[data-theme="dark"] .home .home-composer-wrapper .search-suggestions-dropdown,
+[data-theme="dark"] .home-search .home-composer-wrapper .search-suggestions-dropdown {
+  background: rgba(32, 32, 32, 0.98);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .home .home-composer-wrapper .search-suggestions-dropdown,
+[data-theme="light"] .home-search .home-composer-wrapper .search-suggestions-dropdown {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
 }
 
 [data-theme="dark"] .home .home-composer-wrapper,
