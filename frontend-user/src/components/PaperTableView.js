@@ -127,6 +127,7 @@ const PaperTableView = ({
   }, [isAuthenticated]);
 
   // 组件加载时从API获取分析维度列
+  // 依赖 reloadCounter 以便在维度修改后重新加载
   useEffect(() => {
     const loadDimensions = async () => {
       setColumnsLoading(true);
@@ -161,7 +162,7 @@ const PaperTableView = ({
     };
 
     loadDimensions();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, reloadCounter]);
 
   // 当选中维度变化时，自动滚动到对应列
   useEffect(() => {
