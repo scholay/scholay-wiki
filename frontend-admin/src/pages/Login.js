@@ -142,10 +142,6 @@ const Login = () => {
             )}
           </button>
         </form>
-
-        <div className="login-footer">
-          <p className="hint">Default credentials: admin / adminadmin</p>
-        </div>
       </div>
     </div>
   );
