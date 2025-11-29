@@ -294,8 +294,8 @@
     align-items: center;
   }
 
-  /* 隐藏ICP备案 */
-  .icp-filing {
+  /* 隐藏底部链接 */
+  .home-footer-links {
     display: none;
   }
 

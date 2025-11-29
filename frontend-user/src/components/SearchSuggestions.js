@@ -190,74 +190,74 @@ const SearchSuggestions = ({
       {/* 可滚动的内容区域 */}
       <div className="suggestions-content">
         {suggestions.papers.length > 0 && (
-          <div className="suggestions-section">
-            <div className="suggestions-section-header">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
-                <polyline points="10 9 9 9 8 9"/>
-              </svg>
-              <span>论文匹配</span>
-            </div>
-            <div className="suggestions-list">
-              {suggestions.papers.map((paper, index) => (
-                <div
-                  key={paper.id}
-                  className={`suggestion-item paper-item ${selectedIndex === index ? 'selected' : ''}`}
-                  onClick={() => handlePaperClick(paper)}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                >
-                  <div className="suggestion-content">
-                    <div className="suggestion-title">{paper.title}</div>
-                    <div className="suggestion-meta">{paper.authorsYear}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+        <div className="suggestions-section">
+          <div className="suggestions-section-header">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            <span>论文匹配</span>
           </div>
-        )}
+          <div className="suggestions-list">
+            {suggestions.papers.map((paper, index) => (
+              <div
+                key={paper.id}
+                className={`suggestion-item paper-item ${selectedIndex === index ? 'selected' : ''}`}
+                onClick={() => handlePaperClick(paper)}
+                onMouseEnter={() => setSelectedIndex(index)}
+              >
+                <div className="suggestion-content">
+                  <div className="suggestion-title">{paper.title}</div>
+                  <div className="suggestion-meta">{paper.authorsYear}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
         {suggestions.authors.length > 0 && (
-          <div className="suggestions-section">
-            <div className="suggestions-section-header">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-              </svg>
-              <span>作者</span>
-            </div>
-            <div className="suggestions-list">
-              {suggestions.authors.map((author, index) => {
-                const actualIndex = suggestions.papers.length + index;
-                return (
-                  <div
-                    key={author.authorId}
-                    className={`suggestion-item author-item ${selectedIndex === actualIndex ? 'selected' : ''}`}
-                    onClick={() => handleAuthorClick(author)}
-                    onMouseEnter={() => setSelectedIndex(actualIndex)}
-                  >
-                    <div className="suggestion-content">
-                      <div className="suggestion-title">{author.name}</div>
-                      {(author.affiliations?.length > 0 || author.paperCount > 0) && (
-                        <div className="suggestion-meta">
-                          {author.affiliations?.[0] && <span>{author.affiliations[0]}</span>}
-                          {author.paperCount > 0 && (
-                            <span className="author-stats">
-                              {author.paperCount} 篇论文
-                              {author.citationCount > 0 && ` · ${author.citationCount} 次引用`}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+        <div className="suggestions-section">
+          <div className="suggestions-section-header">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+            <span>作者</span>
           </div>
-        )}
+          <div className="suggestions-list">
+            {suggestions.authors.map((author, index) => {
+              const actualIndex = suggestions.papers.length + index;
+              return (
+                <div
+                  key={author.authorId}
+                  className={`suggestion-item author-item ${selectedIndex === actualIndex ? 'selected' : ''}`}
+                  onClick={() => handleAuthorClick(author)}
+                  onMouseEnter={() => setSelectedIndex(actualIndex)}
+                >
+                  <div className="suggestion-content">
+                    <div className="suggestion-title">{author.name}</div>
+                    {(author.affiliations?.length > 0 || author.paperCount > 0) && (
+                      <div className="suggestion-meta">
+                        {author.affiliations?.[0] && <span>{author.affiliations[0]}</span>}
+                        {author.paperCount > 0 && (
+                          <span className="author-stats">
+                            {author.paperCount} 篇论文
+                            {author.citationCount > 0 && ` · ${author.citationCount} 次引用`}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       </div>
 
       {/* 固定在底部的提示 */}

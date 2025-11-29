@@ -219,28 +219,44 @@
   margin-top: -120px;
 }
 
-/* ICP Filing */
-.icp-filing {
+/* Footer Links */
+.home-footer-links {
   position: absolute;
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
   z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.icp-filing a {
+.footer-link-btn {
   font-size: 0.875rem;
   color: var(--text-quaternary);
   text-decoration: none;
   transition: all 0.2s ease;
   padding: 4px 8px;
   border-radius: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
 }
 
-.icp-filing a:hover {
+.footer-link-btn:hover {
   color: var(--text-tertiary);
   background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="light"] .footer-link-btn:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.footer-link-divider {
+  color: var(--text-quaternary);
+  font-size: 0.75rem;
 }
 
 .welcome-title {

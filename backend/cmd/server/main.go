@@ -9,6 +9,7 @@ import (
 	"time"
 	"scholar-backend/internal/admin"
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/feedback"
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/cleanup"
 	appconfig "scholar-backend/internal/common/config"
@@ -116,6 +117,11 @@ func main() {
 
 	// Initialize dashboard handler
 	dashboardHandler := admin.NewDashboardHandler(database.GetDB())
+
+	// Initialize feedback module
+	feedbackRepo := feedback.NewRepository(database.GetDB())
+	feedbackService := feedback.NewService(feedbackRepo, nil) // 暂时不传入邮件发送器
+	feedbackHandler := feedback.NewHandler(feedbackService, "./uploads")
 
 	// Initialize default admin user
 	if err := adminService.InitializeDefaultAdmin(cfg.Admin.InitialUsername, cfg.Admin.InitialPassword); err != nil {
@@ -363,6 +369,14 @@ func main() {
 			adminProtected.GET("/coupon-batches/:id", couponHandler.GetBatch)
 			adminProtected.POST("/coupon-batches/:id/execute", couponHandler.ExecuteBatch)
 			adminProtected.POST("/coupon-batches/:id/cancel", couponHandler.CancelBatch)
+
+			// Feedback management (Admin only)
+			adminProtected.GET("/feedbacks", feedbackHandler.ListFeedbacks)
+			adminProtected.GET("/feedbacks/stats", feedbackHandler.GetStats)
+			adminProtected.GET("/feedbacks/:id", feedbackHandler.GetFeedback)
+			adminProtected.PUT("/feedbacks/:id/status", feedbackHandler.UpdateStatus)
+			adminProtected.POST("/feedbacks/:id/reply", feedbackHandler.ReplyFeedback)
+			adminProtected.DELETE("/feedbacks/:id", feedbackHandler.DeleteFeedback)
 		}
 
 		// Payment callback routes (public, no auth required)
@@ -505,6 +519,11 @@ func main() {
 			publicAPI.GET("/analysis/dimensions", aiHandler.GetSystemDimensions)
 			// Public recommendations endpoint - for anonymous access to similar papers
 			publicAPI.GET("/recommendations/papers/:paperId", scholarHandler.GetRecommendationsForPaper)
+
+			// Public feedback endpoints
+			publicAPI.POST("/feedback", feedbackHandler.CreateFeedback)
+			publicAPI.POST("/feedback/upload", feedbackHandler.UploadAttachments)
+			publicAPI.GET("/feedback/attachment/:id", feedbackHandler.GetAttachment)
 		}
 
 		// Analysis dimensions routes (protected - requires user authentication)
@@ -562,6 +581,9 @@ func main() {
 		// Proxy endpoints (protected - requires user authentication)
 		proxyHandler.RegisterRoutes(api, middleware.UserAuthMiddleware())
 	}
+
+	// Serve uploaded files (feedback attachments)
+	router.Static("/uploads", "./uploads")
 
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {

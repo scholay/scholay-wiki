@@ -22,6 +22,8 @@ const Settings = lazy(() => import('./pages/Settings'));
 const WeChatCallback = lazy(() => import('./pages/WeChatCallback'));
 const GithubCallback = lazy(() => import('./pages/GithubCallback'));
 const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
+const FeedbackPage = lazy(() => import('./pages/FeedbackPage'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
 const AuthModal = lazy(() => import('./components/AuthModal'));
 
 function App() {
@@ -81,6 +83,10 @@ function App() {
 
                     {/* GitHub callback - PUBLIC route (must be accessible without login for OAuth flow) */}
                     <Route path="/github/callback" element={<GithubCallback />} />
+
+                    {/* 反馈和关于我们页面 - 公开访问 */}
+                    <Route path="/feedback" element={<FeedbackPage />} />
+                    <Route path="/about" element={<AboutPage />} />
 
                     {/* 404 redirect to home */}
                     <Route path="*" element={<Navigate to="/" replace />} />

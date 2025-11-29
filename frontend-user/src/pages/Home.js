@@ -346,15 +346,21 @@ const Home = () => {
               </h1>
             </div>
 
-            {/* 备案号 */}
-            <div className="icp-filing">
-              <a
-                href="https://beian.miit.gov.cn/"
-                target="_blank"
-                rel="noopener noreferrer"
+            {/* 底部链接 */}
+            <div className="home-footer-links">
+              <button 
+                className="footer-link-btn"
+                onClick={() => navigate('/feedback')}
               >
-                蜀ICP备2025145653号
-              </a>
+                反馈
+              </button>
+              <span className="footer-link-divider">|</span>
+              <button 
+                className="footer-link-btn"
+                onClick={() => navigate('/about')}
+              >
+                关于我们
+              </button>
             </div>
 
             <form onSubmit={handleSearch} className="home-composer-wrapper" ref={composerRef}>
@@ -548,6 +554,7 @@ const Home = () => {
         isOpen={showHelpModal}
         onClose={() => setShowHelpModal(false)}
       />
+
     </div>
   );
 };

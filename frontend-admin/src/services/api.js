@@ -310,6 +310,35 @@ export const adminAPI = {
 
   updateAnalysisDimension: (id, data) =>
     api.put(`/admin/analysis/dimensions/${id}`, data),
+
+  // Feedback management
+  getFeedbacks: (params = {}) => {
+    const queryParams = {
+      page: params.page || 1,
+      pageSize: params.pageSize || 20,
+    };
+    if (params.status) queryParams.status = params.status;
+    if (params.email) queryParams.email = params.email;
+    if (params.keyword) queryParams.keyword = params.keyword;
+    if (params.startDate) queryParams.startDate = params.startDate;
+    if (params.endDate) queryParams.endDate = params.endDate;
+    return api.get('/admin/feedbacks', { params: queryParams });
+  },
+
+  getFeedback: (id) =>
+    api.get(`/admin/feedbacks/${id}`),
+
+  getFeedbackStats: () =>
+    api.get('/admin/feedbacks/stats'),
+
+  updateFeedbackStatus: (id, status) =>
+    api.put(`/admin/feedbacks/${id}/status`, { status }),
+
+  replyFeedback: (id, replyContent) =>
+    api.post(`/admin/feedbacks/${id}/reply`, { replyContent }),
+
+  deleteFeedback: (id) =>
+    api.delete(`/admin/feedbacks/${id}`),
 };
 
 export default api;

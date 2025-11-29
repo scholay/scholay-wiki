@@ -174,8 +174,24 @@ CREATE TABLE IF NOT EXISTS `conversation_messages` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对话消息';
 
 -- Add follow_up_questions column if it doesn't exist (for existing databases)
-ALTER TABLE `conversation_messages`
-ADD COLUMN IF NOT EXISTS `follow_up_questions` TEXT COMMENT '延伸思考问题（仅最新一轮assistant消息保存）' AFTER `search_results_total`;
+-- Note: MySQL doesn't support ADD COLUMN IF NOT EXISTS, so we use a procedure
+DROP PROCEDURE IF EXISTS add_follow_up_questions_column;
+DELIMITER //
+CREATE PROCEDURE add_follow_up_questions_column()
+BEGIN
+    IF NOT EXISTS (
+        SELECT * FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'conversation_messages' 
+        AND COLUMN_NAME = 'follow_up_questions'
+    ) THEN
+        ALTER TABLE `conversation_messages` 
+        ADD COLUMN `follow_up_questions` TEXT COMMENT '延伸思考问题（仅最新一轮assistant消息保存）' AFTER `search_results_total`;
+    END IF;
+END //
+DELIMITER ;
+CALL add_follow_up_questions_column();
+DROP PROCEDURE IF EXISTS add_follow_up_questions_column;
 
 -- ============================================
 -- 订阅和配额表
@@ -1008,6 +1024,56 @@ INSERT IGNORE INTO `analysis_dimensions` (`user_id`, `dimension_key`, `name`, `d
 (NULL, 'implementationContext', '实施背景', '提取影响实施的背景因素，包括：- 组织环境（私营公司、政府、非政府组织、学术机构）- 资源限制或需求（资金、技术、人力）- 监管或政策考量 - 提及的文化或社会因素 - 实施时间表或持续时间 - 涉及的伙伴关系或合作', 6),
 (NULL, 'keyFindings', '关键发现', '提取主要成果、结果和见解，包括：- 主要发现或结论 - 量化结果（绩效指标、投资回报率、效率提升）- 定性影响（用户满意度、流程改进）- 已识别的成功因素或关键推动因素 - 经验教训或最佳实践 - 意外结果或见解', 7),
 (NULL, 'challengesLimitations', '挑战/局限性', '找出以下障碍、问题和局限性：- 技术挑战（可扩展性、集成性、性能问题）- 组织障碍（阻力、技能差距、治理）- 资源限制（成本、基础设施、专业知识）- 数据相关挑战（质量、隐私、访问、标准化）- 方法论局限性（如果是研究）- 未解决的问题或需要进一步研究的领域', 8);
+
+-- ============================================
+-- 反馈系统表
+-- ============================================
+
+-- 用户反馈表
+CREATE TABLE IF NOT EXISTS `feedbacks` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `email` VARCHAR(255) NOT NULL COMMENT '反馈者邮箱',
+  `content` TEXT NOT NULL COMMENT '反馈内容',
+  `attachments` TEXT COMMENT '附件列表（JSON格式，已废弃，改用feedback_attachments表）',
+  `user_id` BIGINT UNSIGNED COMMENT '用户ID（登录用户，匿名为NULL）',
+  `username` VARCHAR(100) COMMENT '用户名（登录用户）',
+  `ip` VARCHAR(45) COMMENT '反馈者IP',
+  `ip_location` VARCHAR(255) COMMENT 'IP归属地',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '状态: pending=待处理, processed=已处理, replied=已回复, closed=已关闭',
+  `reply_content` TEXT COMMENT '回复内容',
+  `replied_at` DATETIME COMMENT '回复时间',
+  `replied_by` VARCHAR(100) COMMENT '回复人',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_email` (`email`),
+  INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_status` (`status`),
+  INDEX `idx_created_at` (`created_at`),
+  INDEX `idx_status_created` (`status`, `created_at` DESC),
+  CONSTRAINT `fk_feedback_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户反馈表';
+
+-- 反馈附件表
+CREATE TABLE IF NOT EXISTS `feedback_attachments` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `upload_key` VARCHAR(36) NOT NULL COMMENT '上传批次key（UUID），用于关联未提交的附件',
+  `feedback_id` BIGINT UNSIGNED COMMENT '关联的反馈ID（提交后填充）',
+  `original_name` VARCHAR(255) NOT NULL COMMENT '原始文件名',
+  `file_data` LONGBLOB NOT NULL COMMENT '文件二进制数据',
+  `file_size` BIGINT UNSIGNED NOT NULL COMMENT '文件大小（字节）',
+  `file_type` VARCHAR(20) NOT NULL COMMENT '文件类型: image=图片, file=文件',
+  `mime_type` VARCHAR(100) NOT NULL COMMENT 'MIME类型',
+  `is_used` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否已被使用（关联到反馈）',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_upload_key` (`upload_key`),
+  INDEX `idx_feedback_id` (`feedback_id`),
+  INDEX `idx_is_used` (`is_used`),
+  INDEX `idx_created_at` (`created_at`),
+  CONSTRAINT `fk_attachment_feedback` FOREIGN KEY (`feedback_id`) REFERENCES `feedbacks` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='反馈附件表';
 
 -- 默认系统配置
 INSERT IGNORE INTO `system_configs` (`id`, `require_email_verification`) VALUES

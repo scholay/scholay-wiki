@@ -186,7 +186,7 @@ export const scholarAPI = {
 };
 
 // 公共API - 不需要认证
-const publicApi = axios.create({
+export const publicApi = axios.create({
   baseURL: `${API_URL}/api/v1/public`,
   headers: {
     'Content-Type': 'application/json',

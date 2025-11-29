@@ -17,6 +17,7 @@ const CouponManagement = lazy(() => import('./pages/CouponManagement'));
 const CouponBatchManagement = lazy(() => import('./pages/CouponBatchManagement'));
 const DistributedCoupons = lazy(() => import('./pages/DistributedCoupons'));
 const DefaultBusinessData = lazy(() => import('./pages/DefaultBusinessData'));
+const FeedbackManagement = lazy(() => import('./pages/FeedbackManagement'));
 
 // Loading component for Suspense fallback
 const LoadingFallback = () => (
@@ -60,6 +61,7 @@ function App() {
               <Route path="prompt-templates" element={<PromptTemplates />} />
               <Route path="subscription-plans" element={<SubscriptionPlans />} />
               <Route path="default-business-data" element={<DefaultBusinessData />} />
+              <Route path="feedbacks" element={<FeedbackManagement />} />
               <Route path="settings" element={<SystemSettings />} />
               {/* 保留旧路由以防万一，但重定向到设置页 */}
               <Route path="alipay-config" element={<Navigate to="/dashboard/settings?tab=alipay" replace />} />
