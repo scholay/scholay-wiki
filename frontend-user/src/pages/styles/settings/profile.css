@@ -566,3 +566,129 @@
   color: #ef4444;
 }
 
+/* ============================================
+   日间模式样式 - Profile
+   ============================================ */
+[data-theme="light"] .settings-content {
+  background: transparent;
+}
+
+[data-theme="light"] .settings-section h2 {
+  color: #1f2937;
+}
+
+[data-theme="light"] .settings-section h3 {
+  color: #1f2937;
+}
+
+[data-theme="light"] .profile-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .profile-card-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .profile-name {
+  color: #1f2937;
+}
+
+[data-theme="light"] .profile-id {
+  color: #6b7280;
+}
+
+[data-theme="light"] .profile-field {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .profile-field:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .profile-field-label {
+  color: #6b7280;
+}
+
+[data-theme="light"] .profile-field-value {
+  color: #374151;
+}
+
+[data-theme="light"] .empty-value {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .form-group label {
+  color: #374151;
+}
+
+[data-theme="light"] .form-group input,
+[data-theme="light"] .form-group textarea {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: #1f2937;
+}
+
+[data-theme="light"] .form-group input:hover,
+[data-theme="light"] .form-group textarea:hover {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .form-group input:focus,
+[data-theme="light"] .form-group textarea:focus {
+  background: #fff;
+  border-color: rgba(16, 163, 127, 0.5);
+  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
+}
+
+[data-theme="light"] .form-group input::placeholder,
+[data-theme="light"] .form-group textarea::placeholder {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .clear-btn {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .clear-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.06);
+  color: #4b5563;
+}
+
+[data-theme="light"] .btn-cancel-edit {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #4b5563;
+}
+
+[data-theme="light"] .btn-cancel-edit:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #1f2937;
+}
+
+[data-theme="light"] .account-info-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .info-row {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .info-label {
+  color: #6b7280;
+}
+
+[data-theme="light"] .info-value {
+  color: #1f2937;
+}
+
+[data-theme="light"] .coming-soon {
+  color: #9ca3af;
+}
+

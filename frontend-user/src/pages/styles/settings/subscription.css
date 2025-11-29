@@ -1050,3 +1050,223 @@
   }
 }
 
+/* ============================================
+   日间模式样式 - Subscription
+   ============================================ */
+[data-theme="light"] .subscription-loading {
+  color: #6b7280;
+}
+
+[data-theme="light"] .subscription-loading .spinner {
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top-color: #10a37f;
+}
+
+[data-theme="light"] .subscription-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .subscription-card:hover {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .subscription-card-header {
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .subscription-expiry {
+  color: #6b7280;
+}
+
+[data-theme="light"] .subscription-desc {
+  color: #4b5563;
+}
+
+[data-theme="light"] .subscription-compact {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.95) 0%, 
+    rgba(248, 250, 252, 0.98) 100%
+  );
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .subscription-compact:hover {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .subscription-compact-expiry {
+  color: #6b7280;
+}
+
+[data-theme="light"] .subscription-compact-hint {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .btn-upgrade-compact {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #374151;
+}
+
+[data-theme="light"] .btn-upgrade-compact:hover {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.12) 0%, rgba(16, 163, 127, 0.06) 100%);
+  border-color: rgba(16, 163, 127, 0.25);
+  color: #10a37f;
+}
+
+[data-theme="light"] .skeleton-badge,
+[data-theme="light"] .skeleton-text,
+[data-theme="light"] .skeleton-btn {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.04) 25%, rgba(0, 0, 0, 0.08) 50%, rgba(0, 0, 0, 0.04) 75%);
+  background-size: 200% 100%;
+}
+
+[data-theme="light"] .billing-section-header h3 {
+  color: #1f2937;
+}
+
+[data-theme="light"] .billing-list {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.95) 0%, 
+    rgba(248, 250, 252, 0.98) 100%
+  );
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .billing-item {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .billing-item:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .billing-plan-name {
+  color: #1f2937;
+}
+
+[data-theme="light"] .billing-cycle-tag {
+  background: rgba(0, 0, 0, 0.06);
+  color: #6b7280;
+}
+
+[data-theme="light"] .billing-original {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .billing-order-no {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .billing-time {
+  color: #6b7280;
+}
+
+[data-theme="light"] .current-subscription-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .current-subscription-card:hover {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .subscription-header h3 {
+  color: #1f2937;
+}
+
+[data-theme="light"] .expiry-date {
+  color: #6b7280;
+}
+
+[data-theme="light"] .subscription-description {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .subscription-description p {
+  color: #4b5563;
+}
+
+[data-theme="light"] .billing-cycle-toggle {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .billing-cycle-toggle button {
+  color: #6b7280;
+}
+
+[data-theme="light"] .subscription-plan-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .subscription-plan-card:hover {
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .subscription-plan-card .plan-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .subscription-plan-card .plan-header h4 {
+  color: #1f2937;
+}
+
+[data-theme="light"] .price-currency {
+  color: #4b5563;
+}
+
+[data-theme="light"] .price-amount {
+  color: #1f2937;
+}
+
+[data-theme="light"] .price-period {
+  color: #6b7280;
+}
+
+[data-theme="light"] .total-price {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .plan-feature {
+  color: #4b5563;
+}
+
+[data-theme="light"] .subscription-link {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .subscription-link p {
+  color: #6b7280;
+}
+
+[data-theme="light"] .feature-col h4 {
+  color: #374151;
+}
+
+[data-theme="light"] .feature-item-small {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .feature-item-small .feature-label {
+  color: #6b7280;
+}
+
+[data-theme="light"] .feature-item-small .feature-value {
+  color: #374151;
+}
+
+[data-theme="light"] .upgrade-section h3 {
+  color: #1f2937;
+}
+
+[data-theme="light"] .upgrade-desc {
+  color: #6b7280;
+}
+

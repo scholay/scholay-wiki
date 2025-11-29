@@ -256,3 +256,100 @@
   }
 }
 
+/* ============================================
+   日间模式样式 - Billing
+   ============================================ */
+[data-theme="light"] .billing-history-section h3 {
+  color: #1f2937;
+}
+
+[data-theme="light"] .billing-loading {
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .billing-loading .spinner {
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: #10a37f;
+}
+
+[data-theme="light"] .billing-table {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .billing-table thead {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .billing-table th {
+  color: #6b7280;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .billing-table tbody tr {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .billing-table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .billing-table td {
+  color: #374151;
+}
+
+[data-theme="light"] .billing-table td.order-no {
+  color: #6b7280;
+}
+
+[data-theme="light"] .billing-table .plan-name {
+  color: #1f2937;
+}
+
+[data-theme="light"] .billing-table .billing-cycle {
+  background: rgba(0, 0, 0, 0.06);
+  color: #6b7280;
+}
+
+[data-theme="light"] .billing-table .amount-details .original-amount {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .billing-table .amount-details .discount-badge {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+[data-theme="light"] .billing-table td.payment-time {
+  color: #6b7280;
+}
+
+[data-theme="light"] .pagination-btn {
+  background: rgba(255, 255, 255, 0.9);
+  color: #374151;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .pagination-btn:hover:not(:disabled) {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .pagination-info {
+  color: #6b7280;
+}
+
+[data-theme="light"] .empty-billing {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .empty-billing svg {
+  color: #d1d5db;
+}
+
+[data-theme="light"] .empty-billing p {
+  color: #6b7280;
+}
+

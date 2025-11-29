@@ -360,3 +360,90 @@
   filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.5));
 }
 
+/* ============================================
+   日间模式样式 - Base
+   ============================================ */
+[data-theme="light"] .settings-page {
+  background: #f8fafc;
+}
+
+[data-theme="light"] .settings-page::before {
+  background: 
+    radial-gradient(ellipse 80% 50% at 20% 40%, rgba(16, 163, 127, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 80% 20%, rgba(16, 163, 127, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 30% at 50% 80%, rgba(16, 163, 127, 0.02) 0%, transparent 50%);
+}
+
+[data-theme="light"] .settings-header {
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .settings-header-back-btn {
+  background: rgba(0, 0, 0, 0.04);
+  color: #4b5563;
+}
+
+[data-theme="light"] .settings-header-back-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #10a37f;
+}
+
+[data-theme="light"] .settings-header-logo span {
+  color: #1f2937;
+}
+
+[data-theme="light"] .settings-sidebar {
+  background: rgba(255, 255, 255, 0.6);
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .settings-title {
+  color: #1f2937;
+}
+
+[data-theme="light"] .settings-back-btn {
+  background: rgba(0, 0, 0, 0.04);
+  color: #4b5563;
+}
+
+[data-theme="light"] .settings-back-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #10a37f;
+}
+
+[data-theme="light"] .menu-section-title {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .menu-item {
+  color: #4b5563;
+  border: 1px solid transparent;
+}
+
+[data-theme="light"] .menu-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.06);
+  color: #1f2937;
+}
+
+[data-theme="light"] .menu-item.active {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.12) 0%, rgba(16, 163, 127, 0.06) 100%);
+  border-color: rgba(16, 163, 127, 0.25);
+  color: #10a37f;
+}
+
+[data-theme="light"] .logout-section {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .btn-logout {
+  color: #dc2626;
+}
+
+[data-theme="light"] .btn-logout:hover {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%);
+  border-color: rgba(220, 38, 38, 0.2);
+}
+

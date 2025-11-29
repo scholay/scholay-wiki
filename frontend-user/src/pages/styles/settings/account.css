@@ -656,3 +656,234 @@
   color: #10a37f;
 }
 
+/* ============================================
+   日间模式样式 - Account
+   ============================================ */
+[data-theme="light"] .account-bindings {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.95) 0%, 
+    rgba(248, 250, 252, 0.98) 100%
+  );
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .account-binding-card {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .account-binding-card:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .account-binding-card.bound {
+  background: rgba(16, 163, 127, 0.03);
+}
+
+[data-theme="light"] .account-binding-card.bound:hover {
+  background: rgba(16, 163, 127, 0.06);
+}
+
+[data-theme="light"] .account-binding-card.unbound:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .binding-icon {
+  background: rgba(16, 163, 127, 0.08);
+  border: 1px solid rgba(16, 163, 127, 0.15);
+}
+
+[data-theme="light"] .binding-icon-github {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #1f2937;
+}
+
+[data-theme="light"] .binding-label {
+  color: #1f2937;
+}
+
+[data-theme="light"] .binding-value {
+  color: #6b7280;
+}
+
+[data-theme="light"] .btn-action-secondary {
+  background: rgba(0, 0, 0, 0.04);
+  color: #4b5563;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .btn-action-secondary:hover {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #1f2937;
+}
+
+[data-theme="light"] .btn-action-danger {
+  background: rgba(239, 68, 68, 0.06);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+[data-theme="light"] .btn-action-danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+[data-theme="light"] .password-change-section {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .btn-change-password {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #374151;
+}
+
+[data-theme="light"] .btn-change-password:hover {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #1f2937;
+}
+
+[data-theme="light"] .section-description {
+  color: #6b7280;
+}
+
+[data-theme="light"] .invitation-loading {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .invitation-loading .spinner {
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: #10a37f;
+}
+
+[data-theme="light"] .invitation-loading p {
+  color: #6b7280;
+}
+
+[data-theme="light"] .invitation-card {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.95) 0%, 
+    rgba(248, 250, 252, 0.98) 100%
+  );
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .invitation-card:hover {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .invitation-empty-icon {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+[data-theme="light"] .invitation-empty h3 {
+  color: #1f2937;
+}
+
+[data-theme="light"] .invitation-empty p {
+  color: #6b7280;
+}
+
+[data-theme="light"] .invitation-content h3 {
+  color: #1f2937;
+}
+
+[data-theme="light"] .invitation-field label {
+  color: #4b5563;
+}
+
+[data-theme="light"] .invitation-code-input,
+[data-theme="light"] .invitation-url-input {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: #1f2937;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .invitation-code-input:focus,
+[data-theme="light"] .invitation-url-input:focus {
+  border-color: rgba(16, 163, 127, 0.4);
+}
+
+[data-theme="light"] .btn-copy {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #374151;
+}
+
+[data-theme="light"] .btn-copy:hover {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .btn-copy.copied {
+  background: rgba(16, 163, 127, 0.1);
+  border-color: rgba(16, 163, 127, 0.25);
+  color: #10a37f;
+}
+
+[data-theme="light"] .invitees-section h3 {
+  color: #1f2937;
+}
+
+[data-theme="light"] .invitees-empty {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .invitees-empty svg {
+  color: #d1d5db;
+}
+
+[data-theme="light"] .invitees-empty p {
+  color: #6b7280;
+}
+
+[data-theme="light"] .invitees-list {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.95) 0%, 
+    rgba(248, 250, 252, 0.98) 100%
+  );
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .invitee-item {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .invitee-item:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .invitee-email,
+[data-theme="light"] .invitee-name {
+  color: #1f2937;
+}
+
+[data-theme="light"] .invitee-date {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .reward-item {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .reward-item:hover {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .reward-name {
+  color: #1f2937;
+}
+
+[data-theme="light"] .reward-desc {
+  color: #6b7280;
+}
+
