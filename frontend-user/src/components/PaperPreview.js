@@ -75,7 +75,7 @@ const PaperPreview = ({ paper, onClose, width, onResizeMouseDown, onResizeTouchS
         <h2>{paper.title}</h2>
         {(activeTab === 'details' || !hasPDF) && (
           <Link 
-            to={`/paper/${paper.paperId}`} 
+            to={`/search-results?query=&paperId=${paper.paperId}`} 
             className="view-detail-link"
             target="_blank"
             rel="noopener noreferrer"

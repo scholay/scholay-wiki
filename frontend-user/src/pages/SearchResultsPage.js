@@ -193,7 +193,10 @@ const SearchResultsPage = () => {
   const [similarSelectedDimensionKey, setSimilarSelectedDimensionKey] = useState(null); // 相似论文表格视图选中的维度
   const [similarTableReloadTrigger, setSimilarTableReloadTrigger] = useState(null); // 相似论文表格视图重新加载触发器
   const [showSimilarPapersGuide, setShowSimilarPapersGuide] = useState(false); // 相似论文新手引导
+  const [showSimilarTableGuide, setShowSimilarTableGuide] = useState(false); // 相似论文表格视图引导
   const hasClickedSimilarTabRef = useRef(false); // 标记用户是否已点击过相似论文标签
+  const hasClickedSimilarTableBtnRef = useRef(false); // 标记用户是否已点击过相似论文表格按钮
+  const similarTableBtnRef = useRef(null); // 相似论文表格按钮的 ref
 
   // 处理维度更新（编辑或新增）
   const handleDimensionsUpdated = useCallback((action, dimensionName) => {
@@ -547,6 +550,23 @@ const SearchResultsPage = () => {
       }
     }
   }, [loading, papers.length]); // 当 loading 状态或 papers 变化时检查
+
+  // 监听相似论文加载完成，显示表格视图引导
+  useEffect(() => {
+    // 只有当切换到相似论文 tab、不在加载中、有结果、且用户没点击过表格按钮时才显示引导
+    if (detailActiveTab === 'similar' && !similarPapersLoading && similarPapersData.papers.length > 0 && !hasClickedSimilarTableBtnRef.current) {
+      const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
+      if (!hasSeenTableGuide) {
+        // 延迟一点显示，让用户先看到结果
+        const timer = setTimeout(() => {
+          if (!hasClickedSimilarTableBtnRef.current) {
+            setShowSimilarTableGuide(true);
+          }
+        }, 800);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [detailActiveTab, similarPapersLoading, similarPapersData.papers.length]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -2170,8 +2190,15 @@ const SearchResultsPage = () => {
                                     <span>列表</span>
                                   </button>
                                   <button 
+                                    ref={similarTableBtnRef}
                                     className={`srp-view-mode-btn ${similarPapersViewMode === 'table' ? 'active' : ''}`}
-                                    onClick={() => setSimilarPapersViewMode('table')}
+                                    onClick={() => {
+                                      setSimilarPapersViewMode('table');
+                                      // 用户主动点击表格按钮，标记为已点击和已看过引导
+                                      hasClickedSimilarTableBtnRef.current = true;
+                                      localStorage.setItem('hasSeenTableViewGuide', 'true');
+                                      setShowSimilarTableGuide(false);
+                                    }}
                                     title="表格视图"
                                   >
                                     <Table2 size={18} />
@@ -2822,6 +2849,29 @@ const SearchResultsPage = () => {
             localStorage.setItem('similarPapersGuideShown', 'true');
             setDetailActiveTab('similar');
             setDetailHeaderCollapsed(true);
+          }}
+        />
+      )}
+
+      {/* 相似论文表格视图引导弹窗 */}
+      {showSimilarTableGuide && (
+        <TableViewGuide
+          targetRef={similarTableBtnRef}
+          onDismiss={() => {
+            // X 按钮 - 只关闭，下次还会显示
+            setShowSimilarTableGuide(false);
+          }}
+          onClose={() => {
+            // "稍后再说" - 关闭并记住
+            setShowSimilarTableGuide(false);
+            localStorage.setItem('hasSeenTableViewGuide', 'true');
+          }}
+          onTryIt={() => {
+            // "立即体验" - 关闭并记住，切换到表格视图
+            setShowSimilarTableGuide(false);
+            localStorage.setItem('hasSeenTableViewGuide', 'true');
+            hasClickedSimilarTableBtnRef.current = true;
+            setSimilarPapersViewMode('table');
           }}
         />
       )}
