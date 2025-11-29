@@ -84,44 +84,96 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 10px 4px 4px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
+  padding: 6px 14px 6px 6px;
+  background: linear-gradient(135deg, #fefefe 0%, #f8fafc 100%);
+  border: 1px solid transparent;
+  border-radius: 24px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   margin-left: 16px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* 流动边框效果 */
+.pd-new-feature-tag::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  padding: 1px;
+  background: linear-gradient(
+    90deg,
+    #e0e7ff 0%,
+    #818cf8 20%,
+    #6366f1 35%,
+    #8b5cf6 50%,
+    #6366f1 65%,
+    #818cf8 80%,
+    #e0e7ff 100%
+  );
+  background-size: 200% 100%;
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: borderFlow 3s linear infinite;
+  opacity: 0.7;
+}
+
+@keyframes borderFlow {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .pd-new-feature-tag:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.pd-new-feature-tag:hover::before {
+  opacity: 1;
+  animation-duration: 2s;
 }
 
 .pd-new-feature-tag:hover .pd-feature-arrow {
-  transform: translateX(2px);
+  transform: translateX(3px);
+}
+
+.pd-new-feature-tag:hover .pd-new-badge {
+  animation: none;
+  transform: scale(1.05);
 }
 
 .pd-new-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 2px 6px;
+  padding: 3px 8px;
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.5px;
-  border-radius: 10px;
-  animation: badgePulse 2s ease-in-out infinite;
+  border-radius: 12px;
+  position: relative;
+  transition: transform 0.3s ease;
+  animation: badgeGlow 3s ease-in-out infinite;
 }
 
-@keyframes badgePulse {
+@keyframes badgeGlow {
   0%, 100% { 
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3);
   }
   50% { 
-    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
+    box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.15);
   }
 }
 
@@ -129,11 +181,34 @@
   font-size: 13px;
   font-weight: 500;
   color: #475569;
+  transition: color 0.3s ease;
+  position: relative;
+}
+
+.pd-new-feature-tag:hover .pd-feature-text {
+  color: #334155;
 }
 
 .pd-feature-arrow {
   color: #94a3b8;
-  transition: transform 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: arrowHint 2.5s ease-in-out infinite;
+}
+
+@keyframes arrowHint {
+  0%, 100% {
+    transform: translateX(0);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateX(2px);
+    opacity: 1;
+  }
+}
+
+.pd-new-feature-tag:hover .pd-feature-arrow {
+  animation: none;
+  opacity: 1;
 }
 
 /* 搜索框 */

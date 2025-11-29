@@ -44,6 +44,7 @@ func NewService(db *gorm.DB, accountService *thirdparty.Service) *Service {
 
 // TranslateToEnglish 将查询翻译成英文学术术语（实现 QueryTranslator 接口）
 // 使用Redis缓存避免重复翻译，缓存时间12小时
+// 如果查询本身已经是英文，返回空字符串（不需要翻译）
 func (s *Service) TranslateToEnglish(query string) (string, error) {
 	ctx := context.Background()
 	
@@ -51,12 +52,17 @@ func (s *Service) TranslateToEnglish(query string) (string, error) {
 	cacheKey := generateTranslationCacheKey(query)
 	
 	// 2. 尝试从Redis缓存获取
-	var cachedTranslation string
+	// 使用特殊标记区分"未缓存"和"缓存了空值"
 	translationCache := cache.NewQueryCache("translation", 12*time.Hour)
-	err := translationCache.Get(ctx, cacheKey, &cachedTranslation)
-	if err == nil && cachedTranslation != "" {
-		fmt.Printf("[Translation Cache] Hit for query: '%s' -> '%s'\n", query, cachedTranslation)
-		return cachedTranslation, nil
+	var cachedResult translationCacheResult
+	err := translationCache.Get(ctx, cacheKey, &cachedResult)
+	if err == nil && cachedResult.Cached {
+		if cachedResult.Translation == "" {
+			fmt.Printf("[Translation Cache] Hit for query: '%s' -> (empty, no translation needed)\n", query)
+		} else {
+			fmt.Printf("[Translation Cache] Hit for query: '%s' -> '%s'\n", query, cachedResult.Translation)
+		}
+		return cachedResult.Translation, nil
 	}
 	
 	fmt.Printf("[Translation Cache] Miss for query: '%s', calling AI...\n", query)
@@ -76,14 +82,14 @@ func (s *Service) TranslateToEnglish(query string) (string, error) {
 		translatePrompt = fmt.Sprintf(`你是一个专业的学术翻译助手。请将以下查询关键词翻译成准确的英文学术术语。
 
 要求：
-1. 只返回翻译后的英文，不要有任何额外说明
-2. 保持学术专业性
-3. 如果原文已经是英文，直接返回原文
-4. 如果是混合语言，只翻译非英文部分
+1. 如果查询已经是纯英文（包括英文单词、缩写、专有名词等），直接返回空内容，不要返回任何文字
+2. 如果查询包含非英文内容（如中文、日文等），将其翻译成准确的英文学术术语
+3. 只返回翻译后的英文，不要有任何额外说明
+4. 保持学术专业性
 
 查询：%s
 
-翻译：`, query)
+翻译（如果是英文则返回空）：`, query)
 	} else {
 		// 成功从数据库获取提示词模版
 		translatePrompt = renderedPrompt
@@ -110,15 +116,31 @@ func (s *Service) TranslateToEnglish(query string) (string, error) {
 	translatedText := strings.TrimSpace(response.Choices[0].Message.Content)
 	
 	// 4. 存入Redis缓存（异步，失败不影响返回）
+	// 使用结构体缓存，支持缓存空值
 	go func() {
-		if err := translationCache.Set(context.Background(), cacheKey, translatedText); err != nil {
+		cacheResult := translationCacheResult{
+			Cached:      true,
+			Translation: translatedText,
+		}
+		if err := translationCache.Set(context.Background(), cacheKey, cacheResult); err != nil {
 			fmt.Printf("[Translation Cache] Failed to cache translation: %v\n", err)
 		} else {
-			fmt.Printf("[Translation Cache] Cached: '%s' -> '%s'\n", query, translatedText)
+			if translatedText == "" {
+				fmt.Printf("[Translation Cache] Cached: '%s' -> (empty, no translation needed)\n", query)
+			} else {
+				fmt.Printf("[Translation Cache] Cached: '%s' -> '%s'\n", query, translatedText)
+			}
 		}
 	}()
 
 	return translatedText, nil
+}
+
+// translationCacheResult 翻译缓存结果结构体
+// 用于区分"未缓存"和"缓存了空值"的情况
+type translationCacheResult struct {
+	Cached      bool   `json:"cached"`      // 是否已缓存
+	Translation string `json:"translation"` // 翻译结果，空字符串表示不需要翻译
 }
 
 // generateTranslationCacheKey 生成翻译缓存的key

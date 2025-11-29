@@ -102,7 +102,11 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 			fmt.Printf("[WARN] Failed to translate query with AI: %v, using original query\n", err)
 		} else {
 			translatedQuery = strings.TrimSpace(translated)
-			fmt.Printf("[INFO] Query translation: '%s' -> '%s'\n", req.Query, translatedQuery)
+			if translatedQuery == "" {
+				fmt.Printf("[INFO] Query '%s' is already in English, no translation needed\n", req.Query)
+			} else {
+				fmt.Printf("[INFO] Query translation: '%s' -> '%s'\n", req.Query, translatedQuery)
+			}
 		}
 	}
 
