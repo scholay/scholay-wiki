@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useSearchParams, useNavigate, useOutletContext, useLocation } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
@@ -153,16 +153,53 @@ const SearchResultsPage = () => {
   const [showSuggestions, setShowSuggestions] = useState(false); // 搜索建议下拉框
   // 检查是否需要返回表格视图（从登录后跳转回来）
   const returnedFromLogin = useRef(false);
+  const returnedToSimilarTable = useRef(false); // 标记是否从相似论文表格视图登录返回
+  
+  // 在组件初始化时一次性读取所有 localStorage 值，避免重复读取和时序问题
+  // 使用立即执行函数确保只执行一次
+  const initState = useMemo(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasPaperId = !!urlParams.get('paperId');
+    const returnToTable = localStorage.getItem('returnToTableView') === 'true';
+    const returnToSimilarTableFlag = localStorage.getItem('returnToSimilarPapersTable') === 'true';
+    
+    // 清除 localStorage 标记
+    if (returnToTable) {
+      localStorage.removeItem('returnToTableView');
+    }
+    if (returnToSimilarTableFlag) {
+      localStorage.removeItem('returnToSimilarPapersTable');
+    }
+    
+    console.log('[SearchResultsPage] initState:', { hasPaperId, returnToTable, returnToSimilarTableFlag });
+    
+    return {
+      hasPaperId,
+      returnToTable,
+      returnToSimilarTable: returnToSimilarTableFlag,
+    };
+  }, []);
+  
+  // 设置 ref 标记（在渲染阶段之外）
+  useEffect(() => {
+    if (initState.returnToTable) {
+      returnedFromLogin.current = true;
+    }
+    if (initState.returnToSimilarTable) {
+      returnedToSimilarTable.current = true;
+    }
+  }, [initState]);
+  
   const [viewMode, setViewMode] = useState(() => {
     // 检查URL中是否有paperId参数，如果有则显示论文详情视图
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('paperId')) {
+    if (initState.hasPaperId) {
       return 'paper';
     }
-    const returnToTable = localStorage.getItem('returnToTableView');
-    if (returnToTable === 'true') {
-      localStorage.removeItem('returnToTableView');
-      returnedFromLogin.current = true; // 标记是从登录返回的
+    if (initState.returnToTable) {
+      // 如果是从相似论文表格视图登录返回，需要进入论文详情视图
+      if (initState.returnToSimilarTable) {
+        return 'paper'; // 进入论文详情视图
+      }
       return 'table';
     }
     return 'list';
@@ -177,8 +214,20 @@ const SearchResultsPage = () => {
   const [detailPaperId, setDetailPaperId] = useState(null); // 选中的论文ID
   const [detailLoading, setDetailLoading] = useState(false); // 论文详情加载状态
   const [detailError, setDetailError] = useState(null); // 论文详情错误状态
-  const [detailActiveTab, setDetailActiveTab] = useState('citations'); // 详情页 Tab: 'citations', 'references' 或 'similar'
-  const [detailHeaderCollapsed, setDetailHeaderCollapsed] = useState(false); // 论文详情头部折叠状态
+  const [detailActiveTab, setDetailActiveTab] = useState(() => {
+    // 如果是从相似论文表格视图登录返回，默认选中相似论文 tab
+    if (initState.returnToSimilarTable) {
+      return 'similar';
+    }
+    return 'citations';
+  }); // 详情页 Tab: 'citations', 'references' 或 'similar'
+  const [detailHeaderCollapsed, setDetailHeaderCollapsed] = useState(() => {
+    // 如果是从相似论文表格视图登录返回，默认收起头部（与点击相似论文 tab 行为一致）
+    if (initState.returnToSimilarTable) {
+      return true;
+    }
+    return false;
+  }); // 论文详情头部折叠状态
   const [detailCopiedDoi, setDetailCopiedDoi] = useState(false); // DOI复制状态
   const [detailCopiedCorpusId, setDetailCopiedCorpusId] = useState(false); // CorpusId复制状态
   const [detailAbstractExpanded, setDetailAbstractExpanded] = useState(false); // 摘要展开状态
@@ -193,7 +242,13 @@ const SearchResultsPage = () => {
   // 相似论文状态
   const [similarPapersData, setSimilarPapersData] = useState({ papers: [], currentPage: 1, total: 0, totalPages: 0 });
   const [similarPapersLoading, setSimilarPapersLoading] = useState(false);
-  const [similarPapersViewMode, setSimilarPapersViewMode] = useState('list'); // 'list' 或 'table'
+  const [similarPapersViewMode, setSimilarPapersViewMode] = useState(() => {
+    // 如果是从相似论文表格视图登录返回，默认使用表格视图
+    if (initState.returnToSimilarTable) {
+      return 'table';
+    }
+    return 'list';
+  }); // 'list' 或 'table'
   const [allSimilarPapers, setAllSimilarPapers] = useState([]); // 存储所有相似论文数据（用于分页）
   const [similarSelectedDimensionKey, setSimilarSelectedDimensionKey] = useState(null); // 相似论文表格视图选中的维度
   const [similarTableReloadTrigger, setSimilarTableReloadTrigger] = useState(null); // 相似论文表格视图重新加载触发器
@@ -2428,6 +2483,7 @@ const SearchResultsPage = () => {
                                       onDimensionSelect={handleSimilarDimensionSelect}
                                       reloadTrigger={similarTableReloadTrigger}
                                       hideLoadMore={!isAuthenticated}
+                                      isSimilarPapersTable={true}
                                     />
                                   </div>
                                 )}

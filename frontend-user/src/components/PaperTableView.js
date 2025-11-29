@@ -43,6 +43,8 @@ const PaperTableView = ({
   loadingMore: providedLoadingMore,
   // 是否隐藏加载更多按钮（用于相似论文未登录状态）
   hideLoadMore = false,
+  // 标识是否是相似论文表格视图（用于登录后恢复状态）
+  isSimilarPapersTable = false,
 }) => {
   // 判断是否使用传入的论文数据模式
   const useProvidedPapers = !!providedPapers;
@@ -514,6 +516,10 @@ const PaperTableView = ({
     setShowAuthModal(false);
     // 设置标记，让页面刷新后自动切换到表格视图
     localStorage.setItem('returnToTableView', 'true');
+    // 如果是相似论文表格视图，额外保存标记
+    if (isSimilarPapersTable) {
+      localStorage.setItem('returnToSimilarPapersTable', 'true');
+    }
     // 刷新页面以重新加载数据
     window.location.reload();
   };
