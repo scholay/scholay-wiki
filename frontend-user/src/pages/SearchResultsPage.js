@@ -203,6 +203,20 @@ const SearchResultsPage = () => {
   const hasClickedSimilarTableBtnRef = useRef(false); // 标记用户是否已点击过相似论文表格按钮
   const similarTableBtnRef = useRef(null); // 相似论文表格按钮的 ref
 
+  // 处理维度选择（表格列头点击）- 同时关闭预览
+  const handleDimensionSelect = useCallback((key) => {
+    setSelectedDimensionKey(key);
+    // 点击列头时关闭预览，显示列配置面板
+    setSelectedPaper(null);
+  }, []);
+
+  // 处理相似论文维度选择（表格列头点击）- 同时关闭预览
+  const handleSimilarDimensionSelect = useCallback((key) => {
+    setSimilarSelectedDimensionKey(key);
+    // 点击列头时关闭预览，显示列配置面板
+    setSelectedPaper(null);
+  }, []);
+
   // 处理维度更新（编辑或新增）
   const handleDimensionsUpdated = useCallback((action, dimensionName) => {
     // 设置重新加载触发器
@@ -829,6 +843,9 @@ const SearchResultsPage = () => {
   const loadCitations = useCallback(async (page = 1) => {
     if (!detailPaper || citationsLoading) return;
     
+    // 翻页时关闭右侧预览
+    setSelectedPaper(null);
+    
     // 获取原始引用列表中的 paper IDs
     const allCitations = detailPaper.citations || [];
     if (allCitations.length === 0) return;
@@ -870,6 +887,9 @@ const SearchResultsPage = () => {
   // 加载参考文献（分页）- 使用 batch API 获取详细信息
   const loadReferences = useCallback(async (page = 1) => {
     if (!detailPaper || referencesLoading) return;
+    
+    // 翻页时关闭右侧预览
+    setSelectedPaper(null);
     
     // 获取原始参考文献列表中的 paper IDs
     const allReferences = detailPaper.references || [];
@@ -913,6 +933,9 @@ const SearchResultsPage = () => {
   // append 参数用于表格视图的累积加载模式
   const loadSimilarPapers = useCallback(async (page = 1, append = false) => {
     if (!detailPaper || similarPapersLoading) return;
+    
+    // 翻页时关闭右侧预览
+    setSelectedPaper(null);
     
     setSimilarPapersLoading(true);
     try {
@@ -1841,16 +1864,16 @@ const SearchResultsPage = () => {
                     {/* 引用文献 & 参考文献 & 相似论文 Tabs */}
                     <div className="epd-section epd-citations-refs">
                       <div className="epd-tabs">
-                        <button className={`epd-tab ${detailActiveTab === 'citations' ? 'active' : ''}`} onClick={() => { setDetailActiveTab('citations'); setDetailHeaderCollapsed(false); }}>
+                        <button className={`epd-tab ${detailActiveTab === 'citations' ? 'active' : ''}`} onClick={() => { setDetailActiveTab('citations'); setDetailHeaderCollapsed(false); setSelectedPaper(null); }}>
                           引用文献 <span className="epd-tab-count">{detailPaper.citationCount || 0}</span>
                         </button>
-                        <button className={`epd-tab ${detailActiveTab === 'references' ? 'active' : ''}`} onClick={() => { setDetailActiveTab('references'); setDetailHeaderCollapsed(false); }}>
+                        <button className={`epd-tab ${detailActiveTab === 'references' ? 'active' : ''}`} onClick={() => { setDetailActiveTab('references'); setDetailHeaderCollapsed(false); setSelectedPaper(null); }}>
                           参考文献 <span className="epd-tab-count">{detailPaper.referenceCount || 0}</span>
                         </button>
                         <button 
                           ref={similarPapersTabRef}
                           className={`epd-tab epd-tab-similar ${detailActiveTab === 'similar' ? 'active' : ''}`} 
-                          onClick={() => { setDetailActiveTab('similar'); setDetailHeaderCollapsed(true); handleSimilarTabClick(); }}
+                          onClick={() => { setDetailActiveTab('similar'); setDetailHeaderCollapsed(true); handleSimilarTabClick(); setSelectedPaper(null); }}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '4px' }}>
                             <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -1868,8 +1891,8 @@ const SearchResultsPage = () => {
                                 {citationsData.papers.map((paper, idx) => (
                                   <div 
                                     key={paper?.paperId || idx} 
-                                    className="search-result-paper-item"
-                                    onClick={() => paper?.paperId && handleSelectPaper({ id: paper.paperId, title: paper.title })}
+                                    className={`search-result-paper-item ${selectedPaper?.paperId === paper?.paperId ? 'selected' : ''}`}
+                                    onClick={() => paper?.paperId && setSelectedPaper(paper)}
                                   >
                                     <div className="search-result-paper-content">
                                       <h3 className="search-result-paper-title">{paper?.title || 'Untitled'}</h3>
@@ -2032,8 +2055,8 @@ const SearchResultsPage = () => {
                                 {referencesData.papers.map((paper, idx) => (
                                   <div 
                                     key={paper?.paperId || idx} 
-                                    className="search-result-paper-item"
-                                    onClick={() => paper?.paperId && handleSelectPaper({ id: paper.paperId, title: paper.title })}
+                                    className={`search-result-paper-item ${selectedPaper?.paperId === paper?.paperId ? 'selected' : ''}`}
+                                    onClick={() => paper?.paperId && setSelectedPaper(paper)}
                                   >
                                     <div className="search-result-paper-content">
                                       <h3 className="search-result-paper-title">{paper?.title || 'Untitled'}</h3>
@@ -2240,14 +2263,12 @@ const SearchResultsPage = () => {
                                       return (
                                         <div 
                                           key={paper?.paperId || idx} 
-                                          className="search-result-paper-item"
+                                          className={`search-result-paper-item ${selectedPaper?.paperId === paper?.paperId ? 'selected' : ''}`}
+                                          onClick={() => paper?.paperId && setSelectedPaper(paper)}
                                         >
                                           <div className="search-result-paper-number">{itemIndex}</div>
                                           <div className="search-result-paper-content">
-                                            <h3 
-                                              className="search-result-paper-title"
-                                              onClick={() => paper?.paperId && handleSelectPaper({ id: paper.paperId, title: paper.title })}
-                                            >
+                                            <h3 className="search-result-paper-title">
                                               {paper?.title || 'Untitled'}
                                             </h3>
                                             
@@ -2404,7 +2425,7 @@ const SearchResultsPage = () => {
                                       hasMore={similarPapersData.currentPage < similarPapersData.totalPages}
                                       loadingMore={similarPapersLoading}
                                       selectedDimensionKey={similarSelectedDimensionKey}
-                                      onDimensionSelect={setSimilarSelectedDimensionKey}
+                                      onDimensionSelect={handleSimilarDimensionSelect}
                                       reloadTrigger={similarTableReloadTrigger}
                                     />
                                   </div>
@@ -2479,6 +2500,8 @@ const SearchResultsPage = () => {
                     className={`srp-view-mode-btn ${viewMode === 'table' ? 'active' : ''}`}
                     onClick={() => {
                       setViewMode('table');
+                      // 切换到表格视图时，关闭预览，默认显示列配置面板
+                      setSelectedPaper(null);
                       // 用户主动点击表格按钮，标记为已点击和已看过引导
                       hasClickedTableBtnRef.current = true;
                       localStorage.setItem('hasSeenTableViewGuide', 'true');
@@ -2676,7 +2699,7 @@ const SearchResultsPage = () => {
                     onPaperClick={setSelectedPaper}
                     totalResults={total}
                     selectedDimensionKey={selectedDimensionKey}
-                    onDimensionSelect={setSelectedDimensionKey}
+                    onDimensionSelect={handleDimensionSelect}
                     reloadTrigger={tableReloadTrigger}
                   />
                 </div>
@@ -2783,30 +2806,41 @@ const SearchResultsPage = () => {
               </div>
             )
           ) : viewMode === 'paper' && detailActiveTab === 'similar' && similarPapersViewMode === 'table' ? (
-            // 论文详情视图 + 相似论文表格视图：显示列配置面板
-            <div 
-              className="preview-panel table-column-panel-wrapper"
-              style={{ width: previewWidth }}
-            >
-              {/* 拖拽分隔条 */}
-              <div
-                className={`resize-handle ${isResizingPreview ? 'resizing' : ''}`}
-                onMouseDown={handlePreviewResizeMouseDown}
-                onTouchStart={handlePreviewResizeTouchStart}
-                role="separator"
-                aria-orientation="vertical"
-                aria-label="调整面板宽度"
-              >
-                <div className="resize-handle-line" />
-              </div>
-              <TableColumnPanel 
-                selectedDimensionKey={similarSelectedDimensionKey}
-                onDimensionSelect={setSimilarSelectedDimensionKey}
-                onDimensionsUpdated={handleSimilarDimensionsUpdated}
+            // 论文详情视图 + 相似论文表格视图：有选中论文时显示预览，否则显示列配置面板
+            selectedPaper ? (
+              <PaperPreview
+                paper={selectedPaper}
+                onClose={() => setSelectedPaper(null)}
+                width={previewWidth}
+                onResizeMouseDown={handlePreviewResizeMouseDown}
+                onResizeTouchStart={handlePreviewResizeTouchStart}
+                isResizing={isResizingPreview}
               />
-            </div>
+            ) : (
+              <div 
+                className="preview-panel table-column-panel-wrapper"
+                style={{ width: previewWidth }}
+              >
+                {/* 拖拽分隔条 */}
+                <div
+                  className={`resize-handle ${isResizingPreview ? 'resizing' : ''}`}
+                  onMouseDown={handlePreviewResizeMouseDown}
+                  onTouchStart={handlePreviewResizeTouchStart}
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="调整面板宽度"
+                >
+                  <div className="resize-handle-line" />
+                </div>
+                <TableColumnPanel 
+                  selectedDimensionKey={similarSelectedDimensionKey}
+                  onDimensionSelect={setSimilarSelectedDimensionKey}
+                  onDimensionsUpdated={handleSimilarDimensionsUpdated}
+                />
+              </div>
+            )
           ) : (
-            // 列表视图：显示论文预览
+            // 列表视图或论文详情列表视图：显示论文预览
             <PaperPreview
               paper={selectedPaper}
               onClose={() => setSelectedPaper(null)}
@@ -2880,6 +2914,8 @@ const SearchResultsPage = () => {
             setShowTableGuide(false);
             localStorage.setItem('hasSeenTableViewGuide', 'true');
             setViewMode('table');
+            // 切换到表格视图时，关闭预览，默认显示列配置面板
+            setSelectedPaper(null);
           }}
         />
       )}
