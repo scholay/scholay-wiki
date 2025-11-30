@@ -248,6 +248,111 @@
   gap: var(--space-3);
 }
 
+/* 按类型统计区域 */
+.type-stats-section {
+  margin-top: var(--space-2);
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-4) 0;
+}
+
+.type-stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-4);
+}
+
+.type-stat-card {
+  background: var(--surface-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+  transition: var(--transition);
+}
+
+.type-stat-card:hover {
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+
+.type-stat-card.type-stat-semantic_scholar {
+  border-top: 3px solid var(--brand-500);
+}
+
+.type-stat-card.type-stat-ai_model {
+  border-top: 3px solid var(--info-500);
+}
+
+.type-stat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.type-stat-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.type-stat-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-base);
+  color: var(--text-tertiary);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  text-transform: lowercase;
+}
+
+.type-stat-body {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.type-stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.type-stat-label {
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+}
+
+.type-stat-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.type-stat-unit {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.type-stat-time {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
 @media (max-width: 768px) {
   .third-party-accounts {
     gap: var(--space-4);
@@ -260,6 +365,10 @@
   }
 
   .stats-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .type-stats-cards {
     grid-template-columns: 1fr;
   }
 

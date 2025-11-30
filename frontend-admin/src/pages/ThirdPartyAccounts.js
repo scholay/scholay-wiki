@@ -195,6 +195,45 @@ const ThirdPartyAccounts = () => {
     return date.toLocaleString('zh-CN');
   };
 
+  // 格式化为相对时间（更友好的显示）
+  const formatRelativeTime = (dateString) => {
+    if (!dateString) return '从未使用';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    const diffWeeks = Math.floor(diffDays / 7);
+    const diffMonths = Math.floor(diffDays / 30);
+
+    if (diffSeconds < 30) {
+      return '刚刚';
+    } else if (diffSeconds < 60) {
+      return `${diffSeconds}秒前`;
+    } else if (diffMinutes < 60) {
+      return `${diffMinutes}分钟前`;
+    } else if (diffHours < 24) {
+      return `${diffHours}小时前`;
+    } else if (diffDays < 7) {
+      return `${diffDays}天前`;
+    } else if (diffWeeks < 4) {
+      return `${diffWeeks}周前`;
+    } else if (diffMonths < 12) {
+      return `${diffMonths}个月前`;
+    } else {
+      return date.toLocaleDateString('zh-CN');
+    }
+  };
+
+  // 格式化数字（添加千分位）
+  const formatNumber = (num) => {
+    if (num === undefined || num === null) return '0';
+    return num.toLocaleString('zh-CN');
+  };
+
   const getAccountTypeLabel = (type) => {
     switch (type) {
       case 'semantic_scholar':
@@ -238,24 +277,59 @@ const ThirdPartyAccounts = () => {
       </div>
 
       {stats && (
-        <div className="stats-cards">
-          <div className="stat-card">
-            <div className="stat-label">Semantic Scholar账号</div>
-            <div className="stat-value">{stats.semantic_scholar || 0}</div>
+        <>
+          {/* 总览统计 */}
+          <div className="stats-cards">
+            <div className="stat-card">
+              <div className="stat-label">总账号数</div>
+              <div className="stat-value">{stats.total || 0}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">启用账号</div>
+              <div className="stat-value">{stats.active_count || 0}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">总请求次数</div>
+              <div className="stat-value">{formatNumber(stats.total_usage || 0)}</div>
+            </div>
           </div>
-          <div className="stat-card">
-            <div className="stat-label">AI模型账号</div>
-            <div className="stat-value">{stats.ai_model || 0}</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">总账号数</div>
-            <div className="stat-value">{stats.total || 0}</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">启用账号</div>
-            <div className="stat-value">{stats.active || 0}</div>
-          </div>
-        </div>
+
+          {/* 按类型统计 */}
+          {stats.type_stats && stats.type_stats.length > 0 && (
+            <div className="type-stats-section">
+              <h3 className="section-title">按类型统计</h3>
+              <div className="type-stats-cards">
+                {stats.type_stats.map((typeStat) => (
+                  <div key={typeStat.type} className={`type-stat-card type-stat-${typeStat.type}`}>
+                    <div className="type-stat-header">
+                      <span className="type-stat-name">{typeStat.type_name}</span>
+                      <span className="type-stat-badge">{typeStat.type}</span>
+                    </div>
+                    <div className="type-stat-body">
+                      <div className="type-stat-item">
+                        <span className="type-stat-label">账号数</span>
+                        <span className="type-stat-value">
+                          {typeStat.active_count} / {typeStat.total_count}
+                          <span className="type-stat-unit">启用/总数</span>
+                        </span>
+                      </div>
+                      <div className="type-stat-item">
+                        <span className="type-stat-label">总请求次数</span>
+                        <span className="type-stat-value">{formatNumber(typeStat.total_usage)}</span>
+                      </div>
+                      <div className="type-stat-item">
+                        <span className="type-stat-label">最后使用</span>
+                        <span className="type-stat-value type-stat-time" title={formatDate(typeStat.last_used_at)}>
+                          {formatRelativeTime(typeStat.last_used_at)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <div className="filters">

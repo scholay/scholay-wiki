@@ -97,58 +97,116 @@ func (r *Repository) UpdateStatus(id uint, status int) error {
 		Update("status", status).Error
 }
 
+// TypeStats 按类型的统计信息
+type TypeStats struct {
+	Type        string     `json:"type"`
+	TypeName    string     `json:"type_name"`    // 类型名称（中文）
+	TotalCount  int64      `json:"total_count"`  // 该类型的账号总数
+	ActiveCount int64      `json:"active_count"` // 该类型的启用账号数
+	TotalUsage  uint64     `json:"total_usage"`  // 该类型的总请求次数
+	LastUsedAt  *time.Time `json:"last_used_at"` // 该类型的最后使用时间
+}
+
 // GetStats retrieves usage statistics
 func (r *Repository) GetStats() (map[string]interface{}, error) {
-	var stats struct {
-		Total                  int64
-		ActiveCount            int64
-		SemanticScholarCount   int64
-		AIModelCount           int64
-		TotalUsage             uint64
-	}
-
-	// Total count
-	if err := r.db.Model(&ThirdPartyAccount{}).Count(&stats.Total).Error; err != nil {
+	// 按类型统计（这是最准确的统计方式）
+	typeStats, err := r.GetStatsByType()
+	if err != nil {
 		return nil, err
 	}
 
-	// Active count
-	if err := r.db.Model(&ThirdPartyAccount{}).Where("status = ?", 1).Count(&stats.ActiveCount).Error; err != nil {
-		return nil, err
-	}
+	// 从类型统计中汇总
+	var total int64
+	var activeCount int64
+	var totalUsage uint64
+	var semanticScholarTotal int64
+	var semanticScholarActive int64
+	var aiModelTotal int64
+	var aiModelActive int64
 
-	// Semantic Scholar count
-	if err := r.db.Model(&ThirdPartyAccount{}).
-		Where("type = ? AND status = ?", AccountTypeSemanticScholar, 1).
-		Count(&stats.SemanticScholarCount).Error; err != nil {
-		return nil, err
-	}
+	for _, ts := range typeStats {
+		total += ts.TotalCount
+		activeCount += ts.ActiveCount
+		totalUsage += ts.TotalUsage
 
-	// AI Model count
-	if err := r.db.Model(&ThirdPartyAccount{}).
-		Where("type = ? AND status = ?", AccountTypeAIModel, 1).
-		Count(&stats.AIModelCount).Error; err != nil {
-		return nil, err
+		switch ts.Type {
+		case string(AccountTypeSemanticScholar):
+			semanticScholarTotal = ts.TotalCount
+			semanticScholarActive = ts.ActiveCount
+		case string(AccountTypeAIModel):
+			aiModelTotal = ts.TotalCount
+			aiModelActive = ts.ActiveCount
+		}
 	}
-
-	// Total usage
-	var result struct {
-		TotalUsage uint64
-	}
-	if err := r.db.Model(&ThirdPartyAccount{}).
-		Select("COALESCE(SUM(usage_count), 0) as total_usage").
-		Scan(&result).Error; err != nil {
-		return nil, err
-	}
-	stats.TotalUsage = result.TotalUsage
 
 	return map[string]interface{}{
-		"total":                    stats.Total,
-		"active_count":             stats.ActiveCount,
-		"semantic_scholar_count":   stats.SemanticScholarCount,
-		"ai_model_count":           stats.AIModelCount,
-		"total_usage":              stats.TotalUsage,
+		"total":                          total,
+		"active_count":                   activeCount,
+		"semantic_scholar_count":         semanticScholarActive, // 保持兼容：启用数
+		"semantic_scholar_total":         semanticScholarTotal,  // 新增：总数
+		"ai_model_count":                 aiModelActive,         // 保持兼容：启用数
+		"ai_model_total":                 aiModelTotal,          // 新增：总数
+		"total_usage":                    totalUsage,
+		"type_stats":                     typeStats,
 	}, nil
+}
+
+// GetStatsByType 按类型获取统计信息
+func (r *Repository) GetStatsByType() ([]TypeStats, error) {
+	types := []AccountType{AccountTypeSemanticScholar, AccountTypeAIModel}
+	typeNames := map[AccountType]string{
+		AccountTypeSemanticScholar: "Semantic Scholar",
+		AccountTypeAIModel:         "AI模型",
+	}
+	result := make([]TypeStats, 0, len(types))
+
+	for _, accountType := range types {
+		var typeStats TypeStats
+		typeStats.Type = string(accountType)
+		typeStats.TypeName = typeNames[accountType]
+
+		// 总账号数
+		if err := r.db.Model(&ThirdPartyAccount{}).
+			Where("type = ?", accountType).
+			Count(&typeStats.TotalCount).Error; err != nil {
+			return nil, err
+		}
+
+		// 启用账号数
+		if err := r.db.Model(&ThirdPartyAccount{}).
+			Where("type = ? AND status = ?", accountType, 1).
+			Count(&typeStats.ActiveCount).Error; err != nil {
+			return nil, err
+		}
+
+		// 总请求次数
+		var usageResult struct {
+			TotalUsage uint64
+		}
+		if err := r.db.Model(&ThirdPartyAccount{}).
+			Where("type = ?", accountType).
+			Select("COALESCE(SUM(usage_count), 0) as total_usage").
+			Scan(&usageResult).Error; err != nil {
+			return nil, err
+		}
+		typeStats.TotalUsage = usageResult.TotalUsage
+
+		// 最后使用时间（取所有该类型账号中最晚的时间）
+		var lastUsedResult struct {
+			LastUsedAt *time.Time
+		}
+		if err := r.db.Model(&ThirdPartyAccount{}).
+			Where("type = ? AND last_used_at IS NOT NULL", accountType).
+			Select("MAX(last_used_at) as last_used_at").
+			Scan(&lastUsedResult).Error; err != nil {
+			return nil, err
+		}
+		typeStats.LastUsedAt = lastUsedResult.LastUsedAt
+
+		result = append(result, typeStats)
+	}
+
+	return result, nil
 }
 
 // ValidateConfig validates the account configuration based on type
