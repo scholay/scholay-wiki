@@ -627,8 +627,14 @@ const SearchResultsPage = () => {
 
   // 监听相似论文加载完成，显示表格视图引导
   useEffect(() => {
-    // 只有当切换到相似论文 tab、不在加载中、有结果、且用户没点击过表格按钮时才显示引导
-    if (detailActiveTab === 'similar' && !similarPapersLoading && similarPapersData.papers.length > 0 && !hasClickedSimilarTableBtnRef.current) {
+    // 只有当：
+    // 1. 论文详情加载完成（detailLoading = false）
+    // 2. 切换到相似论文 tab
+    // 3. 相似论文不在加载中
+    // 4. 有相似论文结果
+    // 5. 用户没点击过表格按钮
+    // 才显示引导
+    if (!detailLoading && detailActiveTab === 'similar' && !similarPapersLoading && similarPapersData.papers.length > 0 && !hasClickedSimilarTableBtnRef.current) {
       const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
       if (!hasSeenTableGuide) {
         // 延迟一点显示，让用户先看到结果
@@ -640,7 +646,7 @@ const SearchResultsPage = () => {
         return () => clearTimeout(timer);
       }
     }
-  }, [detailActiveTab, similarPapersLoading, similarPapersData.papers.length]);
+  }, [detailLoading, detailActiveTab, similarPapersLoading, similarPapersData.papers.length]);
 
   useEffect(() => {
     const handleResize = () => {

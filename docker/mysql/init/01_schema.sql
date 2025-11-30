@@ -175,26 +175,6 @@ CREATE TABLE IF NOT EXISTS `conversation_messages` (
   FOREIGN KEY (`conversation_id`) REFERENCES `conversations`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对话消息';
 
--- Add follow_up_questions column if it doesn't exist (for existing databases)
--- Note: MySQL doesn't support ADD COLUMN IF NOT EXISTS, so we use a procedure
-DROP PROCEDURE IF EXISTS add_follow_up_questions_column;
-DELIMITER //
-CREATE PROCEDURE add_follow_up_questions_column()
-BEGIN
-    IF NOT EXISTS (
-        SELECT * FROM information_schema.COLUMNS 
-        WHERE TABLE_SCHEMA = DATABASE() 
-        AND TABLE_NAME = 'conversation_messages' 
-        AND COLUMN_NAME = 'follow_up_questions'
-    ) THEN
-        ALTER TABLE `conversation_messages` 
-        ADD COLUMN `follow_up_questions` TEXT COMMENT '延伸思考问题（仅最新一轮assistant消息保存）' AFTER `search_results_total`;
-    END IF;
-END //
-DELIMITER ;
-CALL add_follow_up_questions_column();
-DROP PROCEDURE IF EXISTS add_follow_up_questions_column;
-
 -- ============================================
 -- 订阅和配额表
 -- ============================================
