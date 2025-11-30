@@ -17,6 +17,9 @@ const generateDimensionKey = () => {
   return result;
 };
 
+// 维度数量限制
+const MAX_DIMENSIONS = 15;
+
 const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensionSelect, onDimensionsUpdated }) => {
   const { isAuthenticated } = useAuth();
   const [dimensions, setDimensions] = useState([]);
@@ -24,6 +27,9 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
   const [error, setError] = useState(null);
   const [expandedColumn, setExpandedColumn] = useState(null);
   const [isCustom, setIsCustom] = useState(false);
+  // 维度数量限制相关
+  const [maxDimensions, setMaxDimensions] = useState(MAX_DIMENSIONS);
+  const [customCount, setCustomCount] = useState(0); // 用户新增的自定义维度数量
   // 控制绿色提示的显示/隐藏，从 localStorage 读取初始值
   const [showHint, setShowHint] = useState(() => {
     const hidden = localStorage.getItem('hideTableColumnHint');
@@ -71,6 +77,13 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
         const dims = response.data.data.dimensions || [];
         setDimensions(dims);
         setIsCustom(response.data.data.isCustom || false);
+        // 设置维度数量限制信息
+        if (response.data.data.maxDimensions) {
+          setMaxDimensions(response.data.data.maxDimensions);
+        }
+        if (typeof response.data.data.customCount === 'number') {
+          setCustomCount(response.data.data.customCount);
+        }
         // 通知父组件维度已更新
         if (onDimensionsChange) {
           onDimensionsChange(dims);
@@ -199,10 +212,18 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
     }
   };
 
+  // 检查是否已达到维度数量上限
+  const isAtMaxDimensions = dimensions.length >= maxDimensions;
+
   // 添加自定义维度 - 进入添加模式
   const handleAddDimension = () => {
     if (!isAuthenticated) {
       alert('请先登录后再添加自定义维度');
+      return;
+    }
+    // 检查维度数量限制
+    if (isAtMaxDimensions) {
+      alert(`已达到维度数量上限（${maxDimensions}个），请删除部分自定义维度后再添加`);
       return;
     }
     setIsAdding(true);
@@ -555,13 +576,30 @@ const TableColumnPanel = ({ onDimensionsChange, selectedDimensionKey, onDimensio
       {/* 添加自定义维度按钮 / 登录引导 */}
       <div className="tcp-add-dimension">
         {isAuthenticated ? (
-          <button className="tcp-add-dimension-btn" onClick={handleAddDimension}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            <span>添加自定义维度</span>
-          </button>
+          <>
+            {/* 维度数量提示 */}
+            <div className="tcp-dimension-count">
+              <span className={`tcp-count-text ${isAtMaxDimensions ? 'tcp-count-max' : ''}`}>
+                {dimensions.length} / {maxDimensions} 个维度
+                {customCount > 0 && <span className="tcp-count-custom">（{customCount}个自定义）</span>}
+              </span>
+            </div>
+            <button 
+              className={`tcp-add-dimension-btn ${isAtMaxDimensions ? 'tcp-add-dimension-btn-disabled' : ''}`}
+              onClick={handleAddDimension}
+              disabled={isAtMaxDimensions}
+              title={isAtMaxDimensions ? `已达到维度数量上限（${maxDimensions}个）` : '添加自定义维度'}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              <span>{isAtMaxDimensions ? '已达上限' : '添加自定义维度'}</span>
+            </button>
+            {isAtMaxDimensions && (
+              <p className="tcp-max-hint">删除部分自定义维度后可继续添加</p>
+            )}
+          </>
         ) : (
           <div className="tcp-login-prompt">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

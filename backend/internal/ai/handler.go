@@ -208,10 +208,27 @@ func (h *Handler) GetAnalysisDimensions(c *gin.Context) {
 		return
 	}
 
+	// 计算用户新增的自定义维度数量（不包括对系统维度的修改）
+	customCount := 0
+	if userID != nil {
+		systemDimensions, _ := h.service.GetSystemDimensions()
+		systemKeySet := make(map[string]bool)
+		for _, sd := range systemDimensions {
+			systemKeySet[sd.DimensionKey] = true
+		}
+		for _, d := range result.Dimensions {
+			if d.UserID > 0 && !systemKeySet[d.DimensionKey] {
+				customCount++
+			}
+		}
+	}
+
 	utils.Success(c, gin.H{
-		"dimensions": result.Dimensions,
-		"total":      len(result.Dimensions),
-		"isCustom":   result.IsCustom, // 使用 Service 返回的实际标志
+		"dimensions":    result.Dimensions,
+		"total":         len(result.Dimensions),
+		"isCustom":      result.IsCustom,
+		"maxDimensions": MaxUserDimensions, // 最大维度数量
+		"customCount":   customCount,       // 用户新增的自定义维度数量
 	})
 }
 

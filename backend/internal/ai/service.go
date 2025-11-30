@@ -1457,15 +1457,19 @@ func (s *Service) GetUserDimensions(userID uint) ([]AnalysisDimension, error) {
 	return dimensions, nil
 }
 
+// 用户维度数量限制
+const MaxUserDimensions = 15
+
 // CreateUserDimension 创建或更新用户自定义维度
 // 如果用户已有该dimension_key的自定义，则更新；否则创建新的
+// 维度总数限制为15个（系统维度 + 用户新增的自定义维度）
 func (s *Service) CreateUserDimension(userID uint, dimensionKey, name, description string, sortOrder int) (*AnalysisDimension, error) {
 	// 检查用户是否已有该dimension_key的自定义
 	var existingDimension AnalysisDimension
 	err := s.db.Where("user_id = ? AND dimension_key = ?", userID, dimensionKey).First(&existingDimension).Error
 	
 	if err == nil {
-		// 已存在，更新
+		// 已存在，更新（修改系统维度或更新已有自定义维度，不计入数量限制）
 		existingDimension.Name = name
 		existingDimension.Description = description
 		existingDimension.SortOrder = sortOrder
@@ -1478,7 +1482,25 @@ func (s *Service) CreateUserDimension(userID uint, dimensionKey, name, descripti
 		return &existingDimension, nil
 	}
 
-	// 不存在，创建新的
+	// 不存在，需要创建新的
+	// 检查是否是修改系统维度（dimension_key已存在于系统维度中）
+	var systemDimension AnalysisDimension
+	isModifyingSystemDimension := s.db.Where("user_id = -1 AND dimension_key = ?", dimensionKey).First(&systemDimension).Error == nil
+
+	// 只有新增自定义维度（非修改系统维度）才需要检查数量限制
+	if !isModifyingSystemDimension {
+		// 计算用户当前的维度总数
+		currentCount, err := s.GetUserDimensionCount(userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check dimension count: %w", err)
+		}
+
+		if currentCount >= MaxUserDimensions {
+			return nil, fmt.Errorf("已达到维度数量上限（%d个），请删除部分自定义维度后再添加", MaxUserDimensions)
+		}
+	}
+
+	// 创建新的维度记录
 	dimension := &AnalysisDimension{
 		UserID:       int64(userID),
 		DimensionKey: dimensionKey,
@@ -1492,8 +1514,46 @@ func (s *Service) CreateUserDimension(userID uint, dimensionKey, name, descripti
 		return nil, fmt.Errorf("failed to create dimension: %w", err)
 	}
 
-	fmt.Printf("[INFO] Created user dimension: %s for user %d\n", dimensionKey, userID)
+	if isModifyingSystemDimension {
+		fmt.Printf("[INFO] Created user override for system dimension: %s for user %d\n", dimensionKey, userID)
+	} else {
+		fmt.Printf("[INFO] Created new user dimension: %s for user %d\n", dimensionKey, userID)
+	}
 	return dimension, nil
+}
+
+// GetUserDimensionCount 获取用户的维度总数
+// 计算逻辑：系统维度数量 + 用户新增的自定义维度数量（不包括用户对系统维度的修改）
+func (s *Service) GetUserDimensionCount(userID uint) (int, error) {
+	// 获取系统维度
+	systemDimensions, err := s.GetSystemDimensions()
+	if err != nil {
+		return 0, err
+	}
+	systemKeySet := make(map[string]bool)
+	for _, sd := range systemDimensions {
+		systemKeySet[sd.DimensionKey] = true
+	}
+
+	// 获取用户自定义维度
+	userDimensions, err := s.GetUserDimensions(userID)
+	if err != nil {
+		return 0, err
+	}
+
+	// 计算用户新增的维度数量（不在系统维度中的）
+	customCount := 0
+	for _, ud := range userDimensions {
+		if !systemKeySet[ud.DimensionKey] {
+			customCount++
+		}
+	}
+
+	// 总数 = 系统维度数量 + 用户新增的自定义维度数量
+	totalCount := len(systemDimensions) + customCount
+	fmt.Printf("[INFO] User %d dimension count: %d (system: %d, custom: %d)\n", 
+		userID, totalCount, len(systemDimensions), customCount)
+	return totalCount, nil
 }
 
 // UpdateUserDimension 更新用户自定义维度
