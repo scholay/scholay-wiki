@@ -82,6 +82,8 @@ const PaperTableView = ({
   const [columnsLoading, setColumnsLoading] = useState(true);
   // AI翻译后的搜索词（用于推荐搜索）
   const [translatedQuery, setTranslatedQuery] = useState(null);
+  // 搜索策略: combined, original, translated
+  const [searchStrategy, setSearchStrategy] = useState('');
   const tableRef = useRef(null);
   const tableWrapperRef = useRef(null);
   const columnRefs = useRef({}); // 列头引用，用于滚动定位
@@ -258,17 +260,23 @@ const PaperTableView = ({
         const newPapers = searchData.data || searchData.papers || [];
         console.log('[PaperTableView] Got papers:', newPapers.length, 'from searchData:', searchData);
         
-        // 保存AI翻译后的搜索词（用于推荐搜索）
+        // 保存AI翻译后的搜索词和搜索策略（用于推荐搜索）
         // 数据可能在不同层级：response.data.data.translatedQuery 或 searchData.translatedQuery
         const translated = response.data.data?.translatedQuery || searchData?.translatedQuery;
-        console.log('[PaperTableView] Looking for translatedQuery:', {
+        const strategy = response.data.data?.searchStrategy || searchData?.searchStrategy || '';
+        console.log('[PaperTableView] Looking for translatedQuery and searchStrategy:', {
           'response.data.data': response.data.data,
           'searchData': searchData,
-          'found': translated
+          'translatedQuery': translated,
+          'searchStrategy': strategy
         });
         if (translated && translated !== query) {
           setTranslatedQuery(translated);
           console.log('[PaperTableView] Set translated query:', translated);
+        }
+        if (strategy) {
+          setSearchStrategy(strategy);
+          console.log('[PaperTableView] Set search strategy:', strategy);
         }
         
         // 过滤出有摘要的论文
@@ -652,7 +660,12 @@ const PaperTableView = ({
   // 如果没有有摘要的论文
   if (papersWithAbstract.length === 0) {
     // 判断是否有可用的推荐搜索词
-    const hasRecommendedQuery = translatedQuery && translatedQuery !== searchQuery && onSearchWithQuery;
+    // 只有在搜索策略是 combined 时才显示推荐按钮
+    // 因为 original 策略已经在用原始词搜索，translated 策略已经在用翻译词搜索
+    const hasRecommendedQuery = translatedQuery && 
+                                 translatedQuery !== searchQuery && 
+                                 onSearchWithQuery && 
+                                 searchStrategy === 'combined';
     
     return (
       <div className="ptv-container">
@@ -671,7 +684,7 @@ const PaperTableView = ({
               <li>检查搜索词是否有拼写错误</li>
             </ul>
             
-            {/* 如果有AI翻译的搜索词，显示推荐搜索按钮 */}
+            {/* 如果有AI翻译的搜索词且搜索策略是combined，显示推荐搜索按钮 */}
             {hasRecommendedQuery && (
               <div className="ptv-recommended-search">
                 <p className="ptv-recommended-label">推荐使用AI优化后的搜索词：</p>

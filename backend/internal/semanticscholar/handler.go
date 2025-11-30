@@ -53,15 +53,20 @@ type SearchPapersRequest struct {
 
 // SearchPapersResponse 定义学术检索的响应结构
 type SearchPapersResponse struct {
-	Data              interface{} `json:"data"`               // 原始搜索结果
-	OriginalQuery     string      `json:"originalQuery"`     // 用户原始输入
-	TranslatedQuery   string      `json:"translatedQuery"`   // AI翻译后的查询
-	ActualQuery       string      `json:"actualQuery"`       // 实际使用的查询（组合后）
-	TranslationEnabled bool       `json:"translationEnabled"` // 是否启用了翻译
+	Data               interface{} `json:"data"`               // 原始搜索结果
+	OriginalQuery      string      `json:"originalQuery"`      // 用户原始输入
+	TranslatedQuery    string      `json:"translatedQuery"`    // AI翻译后的查询
+	ActualQuery        string      `json:"actualQuery"`        // 实际使用的查询（组合后）
+	TranslationEnabled bool        `json:"translationEnabled"` // 是否启用了翻译
+	SearchStrategy     string      `json:"searchStrategy"`     // 搜索策略: combined, original, translated
 }
 
 // SearchPapers handles paper search requests (学术检索)
 // POST /api/v1/scholar/papers/search
+// 搜索策略优化：
+// 1. 先用组合查询（原始词 + 翻译词）搜索
+// 2. 如果组合查询没有结果，用原始词搜索
+// 3. 如果原始词也没有结果，用翻译词搜索
 func (h *Handler) SearchPapers(c *gin.Context) {
 	var req SearchPapersRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -105,16 +110,9 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 			if translatedQuery == "" {
 				fmt.Printf("[INFO] Query '%s' is already in English, no translation needed\n", req.Query)
 			} else {
-			fmt.Printf("[INFO] Query translation: '%s' -> '%s'\n", req.Query, translatedQuery)
+				fmt.Printf("[INFO] Query translation: '%s' -> '%s'\n", req.Query, translatedQuery)
 			}
 		}
-	}
-
-	// 组合查询：原始查询 + 翻译后的查询（用空格连接）
-	finalQuery := req.Query
-	if translatedQuery != "" && translatedQuery != req.Query {
-		finalQuery = req.Query + " " + translatedQuery
-		fmt.Printf("[INFO] Final combined query: %s\n", finalQuery)
 	}
 
 	// 处理年份范围参数
@@ -129,9 +127,8 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 		}
 	}
 
-	// 构建搜索选项
-	opts := PaperSearchOptions{
-		Query:            finalQuery,
+	// 构建基础搜索选项
+	baseOpts := PaperSearchOptions{
 		Year:             year,
 		Offset:           req.Offset,
 		Limit:            req.Limit,
@@ -143,15 +140,81 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 	}
 
 	// 设置默认limit
-	if opts.Limit == 0 {
-		opts.Limit = 10
+	if baseOpts.Limit == 0 {
+		baseOpts.Limit = 10
 	}
 
-	// Call API with key rotation
-	result, err := h.manager.SearchPapers(opts)
-	if err != nil {
-		utils.Error(c, 4002, "Failed to search papers: "+err.Error())
-		return
+	// 智能搜索策略
+	var result *SearchResponse
+	var err error
+	var finalQuery string
+	var searchStrategy string
+
+	// 判断是否有翻译结果且与原始查询不同
+	hasTranslation := translatedQuery != "" && translatedQuery != req.Query
+
+	if hasTranslation {
+		// 策略1: 先用组合查询（原始词 + 翻译词）搜索
+		combinedQuery := req.Query + " " + translatedQuery
+		opts := baseOpts
+		opts.Query = combinedQuery
+		fmt.Printf("[INFO] Strategy 1: Trying combined query: %s\n", combinedQuery)
+		
+		result, err = h.manager.SearchPapers(opts)
+		if err != nil {
+			utils.Error(c, 4002, "Failed to search papers: "+err.Error())
+			return
+		}
+		
+		if result.Total > 0 {
+			finalQuery = combinedQuery
+			searchStrategy = "combined"
+			fmt.Printf("[INFO] Combined query successful, found %d results\n", result.Total)
+		} else {
+			// 策略2: 组合查询没有结果，用原始词搜索
+			opts.Query = req.Query
+			fmt.Printf("[INFO] Strategy 2: Combined query has no results, trying original query: %s\n", req.Query)
+			
+			result, err = h.manager.SearchPapers(opts)
+			if err != nil {
+				utils.Error(c, 4002, "Failed to search papers: "+err.Error())
+				return
+			}
+			
+			if result.Total > 0 {
+				finalQuery = req.Query
+				searchStrategy = "original"
+				fmt.Printf("[INFO] Original query successful, found %d results\n", result.Total)
+			} else {
+				// 策略3: 原始词也没有结果，用翻译词搜索
+				opts.Query = translatedQuery
+				fmt.Printf("[INFO] Strategy 3: Original query has no results, trying translated query: %s\n", translatedQuery)
+				
+				result, err = h.manager.SearchPapers(opts)
+				if err != nil {
+					utils.Error(c, 4002, "Failed to search papers: "+err.Error())
+					return
+				}
+				
+				finalQuery = translatedQuery
+				searchStrategy = "translated"
+				fmt.Printf("[INFO] Translated query result: %d results\n", result.Total)
+			}
+		}
+	} else {
+		// 没有翻译结果，直接用原始查询
+		opts := baseOpts
+		opts.Query = req.Query
+		fmt.Printf("[INFO] No translation available, using original query: %s\n", req.Query)
+		
+		result, err = h.manager.SearchPapers(opts)
+		if err != nil {
+			utils.Error(c, 4002, "Failed to search papers: "+err.Error())
+			return
+		}
+		
+		finalQuery = req.Query
+		searchStrategy = "original"
 	}
 
 	// 构建响应，包含查询信息
@@ -160,7 +223,8 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 		OriginalQuery:      req.Query,
 		TranslatedQuery:    translatedQuery,
 		ActualQuery:        finalQuery,
-		TranslationEnabled: enableTranslation && translatedQuery != "",
+		TranslationEnabled: enableTranslation && hasTranslation,
+		SearchStrategy:     searchStrategy,
 	}
 
 	utils.Success(c, response)

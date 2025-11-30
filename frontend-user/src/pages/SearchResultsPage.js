@@ -74,14 +74,16 @@ const SearchResultsPage = () => {
     originalQuery: '',
     translatedQuery: '',
     actualQuery: '',
-    translationEnabled: false
+    translationEnabled: false,
+    searchStrategy: '' // combined, original, translated
   });
   
   // 当前查询的翻译缓存（用于筛选和分页时复用，避免重复翻译）
   const [cachedTranslation, setCachedTranslation] = useState({
     query: '',           // 缓存的查询
     translated: '',      // 翻译结果
-    actual: ''           // 实际使用的查询
+    actual: '',          // 实际使用的查询
+    searchStrategy: ''   // 搜索策略: combined, original, translated
   });
   const [selectedPaper, setSelectedPaper] = useState(null);
   const [citePaper, setCitePaper] = useState(null);
@@ -386,14 +388,16 @@ const SearchResultsPage = () => {
             originalQuery: query,
             translatedQuery: cachedTranslation.translated,
             actualQuery: cachedTranslation.actual,
-            translationEnabled: true
+            translationEnabled: true,
+            searchStrategy: cachedTranslation.searchStrategy || 'combined'
           };
         } else {
           finalQueryInfo = {
             originalQuery: responseData.originalQuery || query,
             translatedQuery: responseData.translatedQuery || '',
             actualQuery: responseData.actualQuery || query,
-            translationEnabled: responseData.translationEnabled || false
+            translationEnabled: responseData.translationEnabled || false,
+            searchStrategy: responseData.searchStrategy || ''
           };
           
           // 如果是新的翻译结果，更新缓存
@@ -401,12 +405,14 @@ const SearchResultsPage = () => {
             setCachedTranslation({
               query: query,
               translated: responseData.translatedQuery,
-              actual: responseData.actualQuery
+              actual: responseData.actualQuery,
+              searchStrategy: responseData.searchStrategy || 'combined'
             });
             console.log('[Search] Cached new translation:', {
               query,
               translated: responseData.translatedQuery,
-              actual: responseData.actualQuery
+              actual: responseData.actualQuery,
+              searchStrategy: responseData.searchStrategy
             });
           }
         }
@@ -1693,26 +1699,47 @@ const SearchResultsPage = () => {
               )}
 
               {/* AI翻译提示 - 类似Google/百度搜索的提示（列表模式下显示） */}
-              {viewMode !== 'table' && queryInfo.translationEnabled && queryInfo.translatedQuery && (
+              {/* 只在 combined 或 translated 策略时显示，original 策略不需要提示 */}
+              {viewMode !== 'table' && queryInfo.translationEnabled && queryInfo.translatedQuery && 
+               queryInfo.searchStrategy !== 'original' && (
                 <div className="search-translation-hint">
-                  <span className="hint-text">
-                    已为你找到 "
-                    <span className="hint-query-original" title={queryInfo.originalQuery}>
-                      {queryInfo.originalQuery}
-                    </span>
-                    {' '}
-                    <span className="hint-query-translated" title={queryInfo.translatedQuery}>
-                      {queryInfo.translatedQuery}
-                    </span>
-                    " 的结果
-                  </span>
-                  <button
-                    className="hint-action-btn"
-                    onClick={() => performSearch(queryInfo.originalQuery, filters, 1, false, false)}
-                    title={`仅按 "${queryInfo.originalQuery}" 查找`}
-                  >
-                    仅按 "<span className="hint-btn-query" title={queryInfo.originalQuery}>{queryInfo.originalQuery}</span>" 查找
-                  </button>
+                  {/* 根据搜索策略显示不同的提示 */}
+                  {(queryInfo.searchStrategy === 'combined' || !queryInfo.searchStrategy) && (
+                    <>
+                      <span className="hint-text">
+                        已为你找到 "
+                        <span className="hint-query-original" title={queryInfo.originalQuery}>
+                          {queryInfo.originalQuery}
+                        </span>
+                        {' '}
+                        <span className="hint-query-translated" title={queryInfo.translatedQuery}>
+                          {queryInfo.translatedQuery}
+                        </span>
+                        " 的结果
+                      </span>
+                      <button
+                        className="hint-action-btn"
+                        onClick={() => performSearch(queryInfo.originalQuery, filters, 1, false, false)}
+                        title={`仅按 "${queryInfo.originalQuery}" 查找`}
+                      >
+                        仅按 "<span className="hint-btn-query" title={queryInfo.originalQuery}>{queryInfo.originalQuery}</span>" 查找
+                      </button>
+                    </>
+                  )}
+                  {queryInfo.searchStrategy === 'translated' && (
+                    <>
+                      <span className="hint-text">
+                        已为你找到 "
+                        <span className="hint-query-translated" title={queryInfo.translatedQuery}>
+                          {queryInfo.translatedQuery}
+                        </span>
+                        " 的结果
+                      </span>
+                      <span className="hint-fallback-notice">
+                        原始词 "<span className="hint-query-highlight">{queryInfo.originalQuery}</span>" 无结果，已使用翻译词搜索
+                      </span>
+                    </>
+                  )}
                 </div>
               )}
 

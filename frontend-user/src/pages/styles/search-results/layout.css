@@ -408,6 +408,30 @@
   font-weight: 500;
 }
 
+/* 搜索策略回退提示 */
+.search-translation-hint .hint-fallback-notice {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.search-translation-hint .hint-query-highlight {
+  color: #8ab4f8;
+  font-weight: 500;
+}
+
+[data-theme="light"] .search-translation-hint .hint-fallback-notice {
+  color: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .search-translation-hint .hint-query-highlight {
+  color: var(--text-accent);
+}
+
 /* 筛选条件标签栏 */
 .active-filters-bar {
   display: flex;
