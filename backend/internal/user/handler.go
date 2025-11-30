@@ -613,7 +613,7 @@ func (h *Handler) GetUserList(c *gin.Context) {
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	
+
 	// 验证排序字段
 	validSortFields := map[string]bool{"last_login_at": true, "created_at": true}
 	if !validSortFields[sortBy] {

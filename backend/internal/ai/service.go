@@ -45,18 +45,16 @@ func NewService(db *gorm.DB, accountService *thirdparty.Service) *Service {
 // AI 重试相关常量
 const AIMaxRetries = 5
 
-// isAIRetryableError 检查是否是可重试的 AI 错误（403/429）
+// isAIRetryableError 检查是否是可重试的 AI 错误
+// 只要是 API 错误（非 200 响应）都应该重试，切换到其他账号
 func isAIRetryableError(err error) bool {
 	if err == nil {
 		return false
 	}
 	errStr := err.Error()
-	return strings.Contains(errStr, "403") ||
-		strings.Contains(errStr, "Forbidden") ||
-		strings.Contains(errStr, "429") ||
-		strings.Contains(errStr, "Too Many Requests") ||
-		strings.Contains(errStr, "rate limit") ||
-		strings.Contains(errStr, "quota")
+	// 所有 "API error (status xxx)" 格式的错误都是非200响应，都应该重试
+	// 这包括 401/403/429/500/502/503 等所有非 200 错误
+	return strings.Contains(errStr, "API error (status")
 }
 
 // TranslateToEnglish 将查询翻译成英文学术术语（实现 QueryTranslator 接口）
@@ -404,8 +402,8 @@ func (s *Service) StreamChatCompletionWithLevel(messages []ChatMessage, writer i
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+config.APIKey)
 
-		// Send request using shared HTTP client for connection pooling with circuit breaker protection
-		client := GetHTTPClient()
+		// Send request using streaming HTTP client (no timeout) for long-running streaming requests
+		client := GetStreamingHTTPClient()
 
 		// Execute with circuit breaker protection
 		_, err = circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
@@ -516,10 +514,8 @@ func (s *Service) StreamChatCompletionAndCollectWithLevel(messages []ChatMessage
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+config.APIKey)
 
-		// Send request with circuit breaker protection
-		client := &http.Client{
-			Timeout: 5 * time.Minute,
-		}
+		// Send request with streaming HTTP client (no timeout) for long-running streaming requests
+		client := GetStreamingHTTPClient()
 
 		fmt.Printf("[DEBUG] Sending AI request, model: %s, url: %s, level: %s\n", reqBody.Model, url, modelLevel)
 
@@ -579,6 +575,9 @@ func (s *Service) StreamChatCompletionAndCollect(messages []ChatMessage, writer 
 // streamResponse reads SSE stream and writes to output
 func (s *Service) streamResponse(reader io.Reader, writer io.Writer) error {
 	scanner := bufio.NewScanner(reader)
+	// Increase buffer size to handle large SSE messages (1MB)
+	const maxScannerBuffer = 1024 * 1024
+	scanner.Buffer(make([]byte, maxScannerBuffer), maxScannerBuffer)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -640,6 +639,9 @@ func (s *Service) streamResponse(reader io.Reader, writer io.Writer) error {
 // streamResponseAndCollect reads SSE stream, writes to output, and collects full content
 func (s *Service) streamResponseAndCollect(reader io.Reader, writer io.Writer) (string, error) {
 	scanner := bufio.NewScanner(reader)
+	// Increase buffer size to handle large SSE messages (1MB)
+	const maxScannerBuffer = 1024 * 1024
+	scanner.Buffer(make([]byte, maxScannerBuffer), maxScannerBuffer)
 	var fullContent strings.Builder
 
 	for scanner.Scan() {

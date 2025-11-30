@@ -25,7 +25,7 @@ const MainLayout = () => {
     const saved = localStorage.getItem('sidebarCollapsed');
     // 如果有保存的值，使用保存的值
     if (saved !== null) {
-      return saved === 'true';
+    return saved === 'true';
     }
     // 默认收起（未登录用户）
     return true;
