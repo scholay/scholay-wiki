@@ -1037,82 +1037,213 @@ func (s *Service) ChangePassword(userID uint, currentPassword, newPassword strin
 	return s.repo.UpdatePassword(userID, hashedPassword)
 }
 
-// GetUserStatisticsChart returns user registration statistics for charts
+// GetUserStatisticsChart returns user registration statistics for charts (legacy, kept for compatibility)
 func (s *Service) GetUserStatisticsChart(days int) ([]map[string]interface{}, error) {
 	startDate := time.Now().AddDate(0, 0, -days+1)
-	// Set to beginning of day (00:00:00)
 	startDate = time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, startDate.Location())
+	endDate := time.Now()
+	return s.GetUserStatisticsChartWithGranularity(startDate, endDate, "day")
+}
 
-	// Generate result with all dates filled
-	result := make([]map[string]interface{}, 0, days)
-	currentDate := startDate
+// GetUserStatisticsChartWithGranularity returns user registration statistics with custom time range and granularity
+// granularity: hour, day, week, month
+func (s *Service) GetUserStatisticsChartWithGranularity(startTime, endTime time.Time, granularity string) ([]map[string]interface{}, error) {
+	result := make([]map[string]interface{}, 0)
+	loc := startTime.Location()
 
-	for i := 0; i < days; i++ {
-		dateStr := currentDate.Format("2006-01-02")
+	switch granularity {
+	case "hour":
+		// 按小时统计
+		currentTime := time.Date(startTime.Year(), startTime.Month(), startTime.Day(), startTime.Hour(), 0, 0, 0, loc)
+		for currentTime.Before(endTime) || currentTime.Equal(endTime) {
+			nextTime := currentTime.Add(time.Hour)
+			
+			var count int64
+			err := s.repo.GetDB().Model(&User{}).
+				Where("created_at >= ? AND created_at < ?", currentTime, nextTime).
+				Count(&count).Error
+			if err != nil {
+				count = 0
+			}
 
-		// Calculate new users for this date directly from users table
-		var newUsers int64
-		err := s.repo.GetDB().Model(&User{}).
-			Where("DATE(created_at) = ?", dateStr).
-			Count(&newUsers).Error
-		if err != nil {
-			newUsers = 0
+			result = append(result, map[string]interface{}{
+				"time":      currentTime.Format("2006-01-02 15:04"),
+				"label":     currentTime.Format("01-02 15:00"),
+				"new_users": count,
+			})
+			currentTime = nextTime
 		}
 
-		result = append(result, map[string]interface{}{
-			"date":      dateStr,
-			"new_users": newUsers,
-		})
+	case "day":
+		// 按天统计
+		currentDate := time.Date(startTime.Year(), startTime.Month(), startTime.Day(), 0, 0, 0, 0, loc)
+		endDate := time.Date(endTime.Year(), endTime.Month(), endTime.Day(), 0, 0, 0, 0, loc)
+		for currentDate.Before(endDate) || currentDate.Equal(endDate) {
+			nextDate := currentDate.AddDate(0, 0, 1)
+			
+			var count int64
+			err := s.repo.GetDB().Model(&User{}).
+				Where("created_at >= ? AND created_at < ?", currentDate, nextDate).
+				Count(&count).Error
+			if err != nil {
+				count = 0
+			}
 
-		// Move to next day
-		currentDate = currentDate.AddDate(0, 0, 1)
+			result = append(result, map[string]interface{}{
+				"time":      currentDate.Format("2006-01-02"),
+				"label":     currentDate.Format("01-02"),
+				"new_users": count,
+			})
+			currentDate = nextDate
+		}
+
+	case "week":
+		// 按周统计（从周一开始）
+		currentDate := startTime
+		// 调整到周一
+		weekday := int(currentDate.Weekday())
+		if weekday == 0 {
+			weekday = 7
+		}
+		currentDate = currentDate.AddDate(0, 0, -(weekday - 1))
+		currentDate = time.Date(currentDate.Year(), currentDate.Month(), currentDate.Day(), 0, 0, 0, 0, loc)
+
+		for currentDate.Before(endTime) {
+			nextWeek := currentDate.AddDate(0, 0, 7)
+			weekEnd := nextWeek
+			if weekEnd.After(endTime) {
+				weekEnd = endTime.AddDate(0, 0, 1)
+			}
+
+			var count int64
+			err := s.repo.GetDB().Model(&User{}).
+				Where("created_at >= ? AND created_at < ?", currentDate, weekEnd).
+				Count(&count).Error
+			if err != nil {
+				count = 0
+			}
+
+			result = append(result, map[string]interface{}{
+				"time":      currentDate.Format("2006-01-02"),
+				"label":     currentDate.Format("01-02") + "周",
+				"new_users": count,
+			})
+			currentDate = nextWeek
+		}
+
+	case "month":
+		// 按月统计
+		currentDate := time.Date(startTime.Year(), startTime.Month(), 1, 0, 0, 0, 0, loc)
+		endMonth := time.Date(endTime.Year(), endTime.Month(), 1, 0, 0, 0, 0, loc)
+
+		for currentDate.Before(endMonth) || currentDate.Equal(endMonth) {
+			nextMonth := currentDate.AddDate(0, 1, 0)
+			monthEnd := nextMonth
+			if monthEnd.After(endTime) {
+				monthEnd = endTime.AddDate(0, 0, 1)
+			}
+
+			var count int64
+			err := s.repo.GetDB().Model(&User{}).
+				Where("created_at >= ? AND created_at < ?", currentDate, monthEnd).
+				Count(&count).Error
+			if err != nil {
+				count = 0
+			}
+
+			result = append(result, map[string]interface{}{
+				"time":      currentDate.Format("2006-01"),
+				"label":     currentDate.Format("2006年01月"),
+				"new_users": count,
+			})
+			currentDate = nextMonth
+		}
+
+	default:
+		return nil, fmt.Errorf("invalid granularity: %s", granularity)
 	}
 
 	return result, nil
 }
 
-// GetOnlineUserChartData returns online user count snapshots for charts
+// GetOnlineUserChartData returns online user count snapshots for charts (legacy, kept for compatibility)
 func (s *Service) GetOnlineUserChartData(hours int) ([]map[string]interface{}, error) {
 	endTime := time.Now()
 	startTime := endTime.Add(-time.Duration(hours) * time.Hour)
-	// Round to nearest 5 minutes
-	startTime = startTime.Truncate(5 * time.Minute)
+	return s.GetOnlineUserChartDataWithGranularity(startTime, endTime, "5min")
+}
 
+// GetOnlineUserChartDataWithGranularity returns online user count snapshots with custom time range and granularity
+// granularity: 5min, hour
+func (s *Service) GetOnlineUserChartDataWithGranularity(startTime, endTime time.Time, granularity string) ([]map[string]interface{}, error) {
+	// Round start time based on granularity
+	loc := startTime.Location()
+	
+	var interval time.Duration
+	var timeFormat, labelFormat string
+	
+	switch granularity {
+	case "5min":
+		startTime = startTime.Truncate(5 * time.Minute)
+		interval = 5 * time.Minute
+		timeFormat = "2006-01-02 15:04"
+		labelFormat = "15:04"
+	case "hour":
+		startTime = time.Date(startTime.Year(), startTime.Month(), startTime.Day(), startTime.Hour(), 0, 0, 0, loc)
+		interval = time.Hour
+		timeFormat = "2006-01-02 15:00"
+		labelFormat = "01-02 15:00"
+	default:
+		return nil, fmt.Errorf("invalid granularity: %s", granularity)
+	}
+
+	// Get snapshots from database
 	snapshots, err := s.repo.GetOnlineUserSnapshots(startTime, endTime)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create a map for quick lookup of existing snapshots (rounded to 5-minute intervals)
-	snapshotsMap := make(map[string]int)
+	// Create a map for aggregating snapshots by interval
+	snapshotsMap := make(map[string][]int)
 	for _, snapshot := range snapshots {
-		// Round timestamp to nearest 5 minutes
-		roundedTime := snapshot.Timestamp.Truncate(5 * time.Minute)
-		key := roundedTime.Format("2006-01-02 15:04:05")
-		snapshotsMap[key] = snapshot.OnlineCount
+		var key string
+		switch granularity {
+		case "5min":
+			roundedTime := snapshot.Timestamp.Truncate(5 * time.Minute)
+			key = roundedTime.Format(timeFormat)
+		case "hour":
+			roundedTime := time.Date(snapshot.Timestamp.Year(), snapshot.Timestamp.Month(), snapshot.Timestamp.Day(), 
+				snapshot.Timestamp.Hour(), 0, 0, 0, loc)
+			key = roundedTime.Format(timeFormat)
+		}
+		snapshotsMap[key] = append(snapshotsMap[key], snapshot.OnlineCount)
 	}
 
-	// Generate result with all time points filled (every 5 minutes)
-	intervals := hours * 12 // 12 intervals of 5 minutes per hour
-	result := make([]map[string]interface{}, 0, intervals)
+	// Generate result with all time points filled
+	result := make([]map[string]interface{}, 0)
 	currentTime := startTime
 
-	for i := 0; i < intervals; i++ {
-		timeStr := currentTime.Format("2006-01-02 15:04:05")
+	for currentTime.Before(endTime) || currentTime.Equal(endTime) {
+		timeStr := currentTime.Format(timeFormat)
+		labelStr := currentTime.Format(labelFormat)
 
-		// Get online count for this time or use 0
+		// Get average online count for this interval
 		onlineCount := 0
-		if count, exists := snapshotsMap[timeStr]; exists {
-			onlineCount = count
+		if counts, exists := snapshotsMap[timeStr]; exists && len(counts) > 0 {
+			sum := 0
+			for _, c := range counts {
+				sum += c
+			}
+			onlineCount = sum / len(counts)
 		}
 
 		result = append(result, map[string]interface{}{
-			"timestamp":    timeStr,
+			"time":         timeStr,
+			"label":        labelStr,
 			"online_count": onlineCount,
 		})
 
-		// Move to next 5-minute interval
-		currentTime = currentTime.Add(5 * time.Minute)
+		currentTime = currentTime.Add(interval)
 	}
 
 	return result, nil

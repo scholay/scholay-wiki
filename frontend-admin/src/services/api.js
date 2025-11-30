@@ -106,11 +106,11 @@ export const adminAPI = {
   getUserDetail: (userId) =>
     api.get(`/admin/users/${userId}`),
 
-  getUserStatisticsChart: (days = 30) =>
-    api.get('/admin/statistics/users', { params: { days } }),
+  getUserStatisticsChart: (params = {}) =>
+    api.get('/admin/statistics/users', { params }),
 
-  getOnlineUserChart: (hours = 24) =>
-    api.get('/admin/statistics/online', { params: { hours } }),
+  getOnlineUserChart: (params = {}) =>
+    api.get('/admin/statistics/online', { params }),
 
   deleteUser: (userId) =>
     api.delete(`/admin/users/${userId}`),
