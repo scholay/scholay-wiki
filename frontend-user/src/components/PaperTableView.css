@@ -694,12 +694,127 @@
   font-size: 13px;
 }
 
+.ptv-empty-hint {
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+/* 空状态建议区域 */
+.ptv-empty-suggestions {
+  margin-top: 24px;
+  padding: 20px 24px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  text-align: left;
+  max-width: 450px;
+}
+
+.ptv-suggestion-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 12px 0;
+}
+
+.ptv-suggestion-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.8;
+}
+
+.ptv-suggestion-list li {
+  margin-bottom: 4px;
+}
+
+/* 推荐搜索词区域 */
+.ptv-recommended-search {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ptv-recommended-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 10px 0;
+}
+
+.ptv-recommended-query {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(16, 163, 127, 0.08);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  border-radius: 8px;
+}
+
+.ptv-query-text {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: #10a37f;
+  word-break: break-word;
+}
+
+.ptv-use-query-btn {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  background: #10a37f;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.ptv-use-query-btn:hover {
+  background: #0d8a6a;
+  transform: translateY(-1px);
+}
+
+.ptv-use-query-btn:active {
+  transform: translateY(0);
+}
+
 [data-theme="light"] .ptv-empty-state {
   color: rgba(0, 0, 0, 0.4);
 }
 
 [data-theme="light"] .ptv-empty-state p {
   color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .ptv-empty-suggestions {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .ptv-suggestion-title {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .ptv-suggestion-list {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .ptv-recommended-search {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .ptv-recommended-label {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .ptv-recommended-query {
+  background: rgba(16, 163, 127, 0.06);
+  border-color: rgba(16, 163, 127, 0.15);
 }
 
 /* ===== 加载更多按钮 - 简约风格 ===== */

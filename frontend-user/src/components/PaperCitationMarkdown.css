@@ -15,3 +15,24 @@
   color: rgba(100, 181, 246, 1);
   border-bottom-color: rgba(100, 181, 246, 0.8);
 }
+
+/* 论文引用角标样式 - 上标数字格式 【引用n】 */
+.paper-citation-badge {
+  cursor: pointer;
+  color: rgba(100, 181, 246, 0.9);
+  font-size: 0.75em;
+  font-weight: 500;
+  vertical-align: super;
+  line-height: 1;
+  padding: 0 2px;
+  margin: 0 1px;
+  transition: all 0.2s ease;
+  background-color: rgba(100, 181, 246, 0.1);
+  border-radius: 3px;
+}
+
+/* 悬浮时的样式 */
+.paper-citation-badge:hover {
+  color: rgba(100, 181, 246, 1);
+  background-color: rgba(100, 181, 246, 0.2);
+}

@@ -56,26 +56,43 @@ const PaperCitationMarkdown = ({ content, onCitationHover, onCitationLeave, onCi
 };
 
 /**
- * 预处理：将 【引用n：文本】 或 【引用n:文本】 转换为临时标记
- * 使用特殊标记 {{CITE:n:text}} 避免被 Markdown 解析器处理
+ * 预处理：将引用格式转换为临时标记
+ * 支持两种格式：
+ * 1. 【引用n：文本】 或 【引用n:文本】 -> {{CITE:n:text}}
+ * 2. 【引用n】 -> {{CITE:n}}
+ * 使用特殊标记避免被 Markdown 解析器处理
  */
 function preprocessCitations(content) {
   if (!content) return content;
 
-  // 匹配 【引用数字：内容】 或 【引用数字:内容】 格式
-  // 同时支持中文冒号（：）和英文冒号（:）
-  const citeRegex = /【引用(\d+)[：:]([^】]+)】/g;
+  // 先处理带内容的格式：【引用数字：内容】 或 【引用数字:内容】
+  const citeWithTextRegex = /【引用(\d+)[：:]([^】]+)】/g;
+  
+  // 再处理简单格式：【引用数字】（不带冒号和内容）
+  const citeSimpleRegex = /【引用(\d+)】/g;
 
-  const matches = content.match(citeRegex);
-  if (matches && matches.length > 0) {
-    logger.log('🔗 找到引用标记:', matches.length, '个', matches);
+  const matchesWithText = content.match(citeWithTextRegex);
+  const matchesSimple = content.match(citeSimpleRegex);
+  
+  if ((matchesWithText && matchesWithText.length > 0) || (matchesSimple && matchesSimple.length > 0)) {
+    logger.log('🔗 找到引用标记:', 
+      (matchesWithText?.length || 0) + (matchesSimple?.length || 0), '个',
+      { withText: matchesWithText, simple: matchesSimple });
   }
 
-  return content.replace(citeRegex, (match, paperNum, text) => {
-    // 使用特殊标记，格式：{{CITE:论文编号:引用文本}}
-    logger.log('📝 转换引用:', match, '->', `{{CITE:${paperNum}:${text}}}`);
+  // 先替换带内容的格式
+  let result = content.replace(citeWithTextRegex, (match, paperNum, text) => {
+    logger.log('📝 转换引用(带内容):', match, '->', `{{CITE:${paperNum}:${text}}}`);
     return `{{CITE:${paperNum}:${text}}}`;
   });
+
+  // 再替换简单格式
+  result = result.replace(citeSimpleRegex, (match, paperNum) => {
+    logger.log('📝 转换引用(简单):', match, '->', `{{CITE:${paperNum}}}`);
+    return `{{CITE:${paperNum}}}`;
+  });
+
+  return result;
 }
 
 /**
@@ -102,11 +119,16 @@ function processTextWithCitations(children, onCitationHover, onCitationLeave, on
 }
 
 /**
- * 处理单个文本字符串，识别并替换 {{CITE:n:text}} 格式的标记
+ * 处理单个文本字符串，识别并替换引用标记
+ * 支持两种格式：
+ * 1. {{CITE:n:text}} - 带内容的引用，显示引用文本
+ * 2. {{CITE:n}} - 简单引用，显示为上标数字角标
  */
 function processSingleText(text, onCitationHover, onCitationLeave, onCitationClick) {
-  // 正则表达式匹配 {{CITE:数字:文本}}
-  const citationRegex = /\{\{CITE:(\d+):([^}]+)\}\}/g;
+  // 正则表达式匹配两种格式：
+  // 1. {{CITE:数字:文本}} - 带内容
+  // 2. {{CITE:数字}} - 简单格式
+  const citationRegex = /\{\{CITE:(\d+)(?::([^}]+))?\}\}/g;
   const parts = [];
   let lastIndex = 0;
   let match;
@@ -117,23 +139,38 @@ function processSingleText(text, onCitationHover, onCitationLeave, onCitationCli
       parts.push(text.substring(lastIndex, match.index));
     }
 
-    // 提取论文编号和引用文本
+    // 提取论文编号和引用文本（可能为空）
     const paperNumber = parseInt(match[1]);
-    const citationText = match[2];
+    const citationText = match[2]; // 可能为 undefined
     const paperIndex = paperNumber - 1; // 转换为 0-based 索引
 
-    // 添加引用组件
-    parts.push(
-      <span
-        key={`citation-${match.index}`}
-        className="paper-citation-text"
-        onMouseEnter={() => onCitationHover && onCitationHover(paperIndex)}
-        onMouseLeave={() => onCitationLeave && onCitationLeave()}
-        onClick={() => onCitationClick && onCitationClick(paperIndex)}
-      >
-        {citationText}
-      </span>
-    );
+    if (citationText) {
+      // 带内容的引用：显示引用文本，带下划线样式
+      parts.push(
+        <span
+          key={`citation-${match.index}`}
+          className="paper-citation-text"
+          onMouseEnter={() => onCitationHover && onCitationHover(paperIndex)}
+          onMouseLeave={() => onCitationLeave && onCitationLeave()}
+          onClick={() => onCitationClick && onCitationClick(paperIndex)}
+        >
+          {citationText}
+        </span>
+      );
+    } else {
+      // 简单引用：显示为上标数字角标
+      parts.push(
+        <sup
+          key={`citation-${match.index}`}
+          className="paper-citation-badge"
+          onMouseEnter={() => onCitationHover && onCitationHover(paperIndex)}
+          onMouseLeave={() => onCitationLeave && onCitationLeave()}
+          onClick={() => onCitationClick && onCitationClick(paperIndex)}
+        >
+          [{paperNumber}]
+        </sup>
+      );
+    }
 
     lastIndex = match.index + match[0].length;
   }

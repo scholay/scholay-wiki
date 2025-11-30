@@ -57,6 +57,23 @@ func isAIRetryableError(err error) bool {
 	return strings.Contains(errStr, "API error (status")
 }
 
+// RetryableError 包装可重试的错误，用于告诉熔断器这不应该计入失败
+type RetryableError struct {
+	Err error
+}
+
+func (e *RetryableError) Error() string {
+	return e.Err.Error()
+}
+
+// wrapRetryableError 将可重试的错误包装，避免触发熔断器
+func wrapRetryableError(err error) error {
+	if isAIRetryableError(err) {
+		return &RetryableError{Err: err}
+	}
+	return err
+}
+
 // TranslateToEnglish 将查询翻译成英文学术术语（实现 QueryTranslator 接口）
 // 使用Redis缓存避免重复翻译，缓存时间12小时
 // 如果查询本身已经是英文，返回空字符串（不需要翻译）
@@ -263,6 +280,7 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 			ToolChoice:  toolChoice,
 			Stream:      false,
 			Temperature: 0.7,
+			MaxTokens:   4096, // 确保有足够的输出 token
 		}
 
 		jsonData, err := json.Marshal(reqBody)
@@ -873,9 +891,17 @@ func TruncateContextForLimit(messages []ChatMessage, maxChars int) []ChatMessage
 	return result
 }
 
+
+// 论文分析重试次数
+const AnalysisMaxRetries = 3
+
+// 分批请求时每批的维度数量
+const DimensionsPerBatch = 4
+
 // AnalyzePaperAbstract 分析论文摘要，提取结构化信息
 // 使用low级别模型进行分析，根据用户的分析维度动态生成提示词
 // 优先从数据库缓存获取，如果没有则调用AI分析并保存结果
+// 当JSON解析失败时，最多重试3次；如果仍然失败，则按维度分批请求
 // userID: 用户ID，用于获取用户自定义的分析维度（nil表示使用系统默认）
 func (s *Service) AnalyzePaperAbstract(paperId string, paperTitle string, abstract string, userID *uint) (*PaperAnalysisResult, error) {
 	if abstract == "" {
@@ -908,60 +934,17 @@ func (s *Service) AnalyzePaperAbstract(paperId string, paperTitle string, abstra
 		fmt.Printf("[INFO] No cached analysis found for paper: %s with dimension_hash: %s, calling AI...\n", paperId, dimensionHash)
 	}
 
-	// 3. 动态构建提示词
-	prompt := s.buildAnalysisPrompt(paperTitle, abstract, dimensions)
-
-	messages := []ChatMessage{
-		{
-			Role:    "user",
-			Content: prompt,
-		},
-	}
-
-	// 使用low级别模型调用AI
-	response, err := s.ChatCompletionWithTools(messages, nil, "", thirdparty.ModelLevelLow)
-	if err != nil {
-		return nil, fmt.Errorf("AI analysis failed: %w", err)
-	}
-
-	if len(response.Choices) == 0 {
-		return nil, fmt.Errorf("no response from AI")
-	}
-
-	content := strings.TrimSpace(response.Choices[0].Message.Content)
+	// 3. 首先尝试一次性分析所有维度（带重试）
+	resultMap, parseSuccess := s.analyzeWithRetry(paperTitle, abstract, dimensions, paperId)
 	
-	// 尝试从响应中提取JSON
-	// 可能包含```json ... ```标记
-	if strings.Contains(content, "```json") {
-		start := strings.Index(content, "```json") + 7
-		end := strings.LastIndex(content, "```")
-		if end > start {
-			content = strings.TrimSpace(content[start:end])
-		}
-	} else if strings.Contains(content, "```") {
-		start := strings.Index(content, "```") + 3
-		end := strings.LastIndex(content, "```")
-		if end > start {
-			content = strings.TrimSpace(content[start:end])
-		}
+	// 4. 如果一次性分析失败，尝试分批请求
+	if !parseSuccess {
+		fmt.Printf("[INFO] Full analysis failed, trying batch analysis for paper: %s\n", paperId)
+		resultMap, parseSuccess = s.analyzeInBatches(paperTitle, abstract, dimensions, paperId)
 	}
 
-	// 解析JSON响应为动态map
-	var resultMap map[string]string
-	if err := json.Unmarshal([]byte(content), &resultMap); err != nil {
-		// 如果JSON解析失败，返回错误
-		fmt.Printf("[WARN] Failed to parse AI analysis response as JSON: %v\n", err)
-		fmt.Printf("[DEBUG] Raw content: %s\n", content[:min(500, len(content))])
-		// 创建一个包含所有维度的失败结果
-		resultMap = make(map[string]string)
-		for _, dim := range dimensions {
-			resultMap[dim.DimensionKey] = "解析失败"
-		}
-	}
-
-	// 4. 保存分析结果到数据库（如果有paperId）
-	if paperId != "" {
-		// 将resultMap转为JSON存储
+	// 5. 只有解析成功才保存到数据库
+	if parseSuccess && paperId != "" {
 		analysisDataJSON, _ := json.Marshal(resultMap)
 		
 		paperAnalysis := PaperAnalysis{
@@ -971,18 +954,143 @@ func (s *Service) AnalyzePaperAbstract(paperId string, paperTitle string, abstra
 			AnalysisData:  string(analysisDataJSON),
 		}
 		
-		// 使用 upsert 逻辑：如果存在相同 paper_id + dimension_hash 则更新，否则创建
 		if err := s.db.Where("paper_id = ? AND dimension_hash = ?", paperId, dimensionHash).
 			Assign(paperAnalysis).FirstOrCreate(&paperAnalysis).Error; err != nil {
 			fmt.Printf("[WARN] Failed to save paper analysis to database: %v\n", err)
 		} else {
 			fmt.Printf("[INFO] Saved paper analysis to database for paper: %s (dimension_hash: %s)\n", paperId, dimensionHash)
 		}
+	} else if !parseSuccess {
+		fmt.Printf("[WARN] Analysis failed for paper: %s, not saving to database\n", paperId)
 	}
 
-	// 5. 转换为 PaperAnalysisResult 返回
+	// 6. 转换为 PaperAnalysisResult 返回
 	result := s.convertMapToResult(resultMap, dimensions)
 	return result, nil
+}
+
+// analyzeWithRetry 带重试的分析，返回结果map和是否解析成功
+func (s *Service) analyzeWithRetry(paperTitle, abstract string, dimensions []AnalysisDimension, paperId string) (map[string]string, bool) {
+	prompt := s.buildAnalysisPrompt(paperTitle, abstract, dimensions)
+	messages := []ChatMessage{
+		{
+			Role:    "user",
+			Content: prompt,
+		},
+	}
+
+	for attempt := 1; attempt <= AnalysisMaxRetries; attempt++ {
+		if attempt > 1 {
+			fmt.Printf("[Analysis Retry] Attempt %d/%d for paper: %s\n", attempt, AnalysisMaxRetries, paperId)
+		}
+		
+		response, err := s.ChatCompletionWithTools(messages, nil, "", thirdparty.ModelLevelLow)
+		if err != nil {
+			fmt.Printf("[ERROR] AI analysis failed on attempt %d: %v\n", attempt, err)
+			continue
+		}
+
+		if len(response.Choices) == 0 {
+			fmt.Printf("[ERROR] No response from AI on attempt %d\n", attempt)
+			continue
+		}
+
+		content := strings.TrimSpace(response.Choices[0].Message.Content)
+		content = s.extractJSONFromContent(content)
+
+		resultMap := make(map[string]string)
+		if err := json.Unmarshal([]byte(content), &resultMap); err != nil {
+			fmt.Printf("[WARN] Attempt %d: Failed to parse AI response as JSON: %v\n", attempt, err)
+			fmt.Printf("[DEBUG] Raw content length: %d\n", len(content))
+			if len(content) > 0 {
+				fmt.Printf("[DEBUG] Raw content (first 2000 chars): %s\n", content[:min(2000, len(content))])
+			}
+			continue
+		}
+
+		// 解析成功
+		if attempt > 1 {
+			fmt.Printf("[Analysis Retry] Successfully parsed on attempt %d for paper: %s\n", attempt, paperId)
+		}
+		return resultMap, true
+	}
+
+	// 所有重试都失败
+	fmt.Printf("[ERROR] All %d attempts failed for paper: %s\n", AnalysisMaxRetries, paperId)
+	return nil, false
+}
+
+// analyzeInBatches 分批分析维度，每批最多4个维度
+func (s *Service) analyzeInBatches(paperTitle, abstract string, dimensions []AnalysisDimension, paperId string) (map[string]string, bool) {
+	resultMap := make(map[string]string)
+	allSuccess := true
+	
+	// 将维度分成多个批次
+	for i := 0; i < len(dimensions); i += DimensionsPerBatch {
+		end := i + DimensionsPerBatch
+		if end > len(dimensions) {
+			end = len(dimensions)
+		}
+		
+		batchDimensions := dimensions[i:end]
+		batchNum := (i / DimensionsPerBatch) + 1
+		totalBatches := (len(dimensions) + DimensionsPerBatch - 1) / DimensionsPerBatch
+		
+		fmt.Printf("[Batch Analysis] Processing batch %d/%d (%d dimensions) for paper: %s\n", 
+			batchNum, totalBatches, len(batchDimensions), paperId)
+		
+		// 对每个批次进行分析（带重试）
+		batchResult, success := s.analyzeWithRetry(paperTitle, abstract, batchDimensions, paperId)
+		
+		if success {
+			// 合并结果
+			for k, v := range batchResult {
+				resultMap[k] = v
+			}
+		} else {
+			// 批次失败，标记对应维度为解析失败
+			allSuccess = false
+			for _, dim := range batchDimensions {
+				resultMap[dim.DimensionKey] = "解析失败"
+			}
+			fmt.Printf("[WARN] Batch %d failed for paper: %s\n", batchNum, paperId)
+		}
+	}
+	
+	if allSuccess {
+		fmt.Printf("[Batch Analysis] All batches completed successfully for paper: %s\n", paperId)
+	} else {
+		fmt.Printf("[WARN] Some batches failed for paper: %s\n", paperId)
+	}
+	
+	// 只要有部分成功就返回true（部分结果总比没有好）
+	hasAnySuccess := false
+	for _, v := range resultMap {
+		if v != "解析失败" {
+			hasAnySuccess = true
+			break
+		}
+	}
+	
+	return resultMap, hasAnySuccess
+}
+
+// extractJSONFromContent 从AI响应中提取JSON内容
+func (s *Service) extractJSONFromContent(content string) string {
+	if strings.Contains(content, "```json") {
+		start := strings.Index(content, "```json") + 7
+		end := strings.LastIndex(content, "```")
+		if end > start {
+			return strings.TrimSpace(content[start:end])
+		}
+	} else if strings.Contains(content, "```") {
+		start := strings.Index(content, "```") + 3
+		end := strings.LastIndex(content, "```")
+		if end > start {
+			return strings.TrimSpace(content[start:end])
+		}
+	}
+	return content
 }
 
 // PaperAnalysisResult 论文分析结果结构（动态维度）

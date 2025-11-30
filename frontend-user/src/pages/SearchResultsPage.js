@@ -1108,6 +1108,37 @@ const SearchResultsPage = () => {
     setSearchParams(params);
   };
 
+  // 处理使用推荐搜索词搜索（从表格视图空状态触发）
+  const handleSearchWithRecommendedQuery = (recommendedQuery) => {
+    if (!recommendedQuery || !recommendedQuery.trim()) return;
+    
+    console.log('[SearchResultsPage] Searching with recommended query:', recommendedQuery);
+    
+    // 更新搜索框内容
+    setSearchQuery(recommendedQuery);
+    
+    // 关闭搜索建议
+    setShowSuggestions(false);
+    
+    // 重置分页
+    setCurrentPage(1);
+    
+    // 清除翻译缓存
+    setCachedTranslation({ query: '', translated: '', actual: '' });
+    setQueryInfo({
+      originalQuery: '',
+      translatedQuery: '',
+      actualQuery: '',
+      translationEnabled: false
+    });
+    
+    // 更新URL参数
+    updateURL(recommendedQuery, filters, 1);
+    
+    // 执行搜索
+    performSearch(recommendedQuery, filters, 1);
+  };
+
   // 处理顶部筛选面板的筛选条件变化（不立即搜索，只更新状态）
   const handleTopFiltersChange = (newFilters) => {
     setFilters(newFilters);
@@ -2764,6 +2795,7 @@ const SearchResultsPage = () => {
                     selectedDimensionKey={selectedDimensionKey}
                     onDimensionSelect={handleDimensionSelect}
                     reloadTrigger={tableReloadTrigger}
+                    onSearchWithQuery={handleSearchWithRecommendedQuery}
                   />
                 </div>
               )}

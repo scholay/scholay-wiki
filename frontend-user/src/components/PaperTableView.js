@@ -45,6 +45,8 @@ const PaperTableView = ({
   hideLoadMore = false,
   // 标识是否是相似论文表格视图（用于登录后恢复状态）
   isSimilarPapersTable = false,
+  // 使用推荐搜索词搜索的回调
+  onSearchWithQuery,
 }) => {
   // 判断是否使用传入的论文数据模式
   const useProvidedPapers = !!providedPapers;
@@ -78,6 +80,8 @@ const PaperTableView = ({
   const [dynamicColumns, setDynamicColumns] = useState(null);
   // 列加载状态
   const [columnsLoading, setColumnsLoading] = useState(true);
+  // AI翻译后的搜索词（用于推荐搜索）
+  const [translatedQuery, setTranslatedQuery] = useState(null);
   const tableRef = useRef(null);
   const tableWrapperRef = useRef(null);
   const columnRefs = useRef({}); // 列头引用，用于滚动定位
@@ -203,10 +207,11 @@ const PaperTableView = ({
   };
 
   // 从后端加载论文数据
+  // 返回: { totalFetched: number, withAbstract: number, hasMore: boolean }
   const fetchPapers = useCallback(async (query, currentFilters, currentOffset, append = false) => {
     if (!query) {
       console.log('[PaperTableView] No query provided, skipping fetch');
-      return 0;
+      return { totalFetched: 0, withAbstract: 0, hasMore: false };
     }
     
     console.log('[PaperTableView] Fetching papers:', { query, currentOffset, append });
@@ -216,7 +221,7 @@ const PaperTableView = ({
         query: query,
         offset: currentOffset,
         limit: PAPERS_PER_FETCH,
-        enableTranslation: false,
+        enableTranslation: true, // 启用翻译以获取AI优化后的搜索词
         fields: ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
       };
 
@@ -253,6 +258,19 @@ const PaperTableView = ({
         const newPapers = searchData.data || searchData.papers || [];
         console.log('[PaperTableView] Got papers:', newPapers.length, 'from searchData:', searchData);
         
+        // 保存AI翻译后的搜索词（用于推荐搜索）
+        // 数据可能在不同层级：response.data.data.translatedQuery 或 searchData.translatedQuery
+        const translated = response.data.data?.translatedQuery || searchData?.translatedQuery;
+        console.log('[PaperTableView] Looking for translatedQuery:', {
+          'response.data.data': response.data.data,
+          'searchData': searchData,
+          'found': translated
+        });
+        if (translated && translated !== query) {
+          setTranslatedQuery(translated);
+          console.log('[PaperTableView] Set translated query:', translated);
+        }
+        
         // 过滤出有摘要的论文
         const newPapersWithAbstract = newPapers.filter(p => p.abstract && p.abstract.trim().length > 0);
         console.log('[PaperTableView] Papers with abstract:', newPapersWithAbstract.length);
@@ -271,18 +289,20 @@ const PaperTableView = ({
         // 判断是否还有更多数据
         const total = searchData.total || response.data.data.total || 0;
         console.log('[PaperTableView] Total papers:', total);
-        setHasMoreFromBackend(currentOffset + PAPERS_PER_FETCH < total);
+        const hasMore = currentOffset + PAPERS_PER_FETCH < total;
+        setHasMoreFromBackend(hasMore);
         
-        return newPapers.length;
+        return { totalFetched: newPapers.length, withAbstract: newPapersWithAbstract.length, hasMore };
       }
-      return 0;
+      return { totalFetched: 0, withAbstract: 0, hasMore: false };
     } catch (error) {
       console.error('[PaperTableView] Failed to fetch papers:', error);
-      return 0;
+      return { totalFetched: 0, withAbstract: 0, hasMore: false };
     }
   }, []);
 
   // 初始加载 - 当searchQuery、filters或reloadCounter变化时重新加载
+  // 自动继续加载直到有摘要的论文或没有更多数据
   useEffect(() => {
     // 如果使用传入的论文数据模式，不需要自己加载
     if (useProvidedPapers) {
@@ -310,7 +330,30 @@ const PaperTableView = ({
       setDisplayCount(PAPERS_PER_DISPLAY);
       setHasMoreFromBackend(true);
       
-      await fetchPapers(searchQuery, filters, 0, false);
+      // 自动加载直到有摘要的论文或没有更多数据
+      let currentOffset = 0;
+      let totalWithAbstract = 0;
+      let hasMore = true;
+      const maxAttempts = 10; // 最多尝试10次，避免无限循环
+      let attempts = 0;
+      
+      while (totalWithAbstract === 0 && hasMore && attempts < maxAttempts) {
+        console.log(`[PaperTableView] Auto-loading attempt ${attempts + 1}, offset: ${currentOffset}`);
+        const result = await fetchPapers(searchQuery, filters, currentOffset, currentOffset > 0);
+        totalWithAbstract = result.withAbstract;
+        hasMore = result.hasMore;
+        
+        if (totalWithAbstract === 0 && hasMore) {
+          currentOffset += PAPERS_PER_FETCH;
+          setOffset(currentOffset);
+        }
+        attempts++;
+      }
+      
+      if (attempts > 1) {
+        console.log(`[PaperTableView] Auto-loaded ${attempts} pages to find papers with abstract`);
+      }
+      
       setInitialLoading(false);
     };
     
@@ -338,6 +381,7 @@ const PaperTableView = ({
         : hasMoreFromBackend ? '加载更多...' : '');
 
   // 加载更多论文
+  // 自动继续加载直到有新的摘要论文或没有更多数据
   const handleLoadMore = useCallback(async () => {
     // 如果使用传入数据模式，调用外部的加载更多函数
     if (useProvidedPapers) {
@@ -358,12 +402,33 @@ const PaperTableView = ({
     // 需要从后端加载更多数据
     if (hasMoreFromBackend) {
       setLoadingMore(true);
-      const newOffset = offset + PAPERS_PER_FETCH;
-      const fetchedCount = await fetchPapers(searchQuery, filters, newOffset, true);
-      setOffset(newOffset);
+      
+      // 记录加载前的摘要论文数量
+      const previousCount = papersWithAbstract.length;
+      let currentOffset = offset;
+      let hasMore = true;
+      const maxAttempts = 10; // 最多尝试10次
+      let attempts = 0;
+      let newWithAbstract = 0;
+      
+      // 自动加载直到有新的摘要论文或没有更多数据
+      while (newWithAbstract === 0 && hasMore && attempts < maxAttempts) {
+        currentOffset += PAPERS_PER_FETCH;
+        console.log(`[PaperTableView] LoadMore attempt ${attempts + 1}, offset: ${currentOffset}`);
+        const result = await fetchPapers(searchQuery, filters, currentOffset, true);
+        newWithAbstract = result.withAbstract;
+        hasMore = result.hasMore;
+        attempts++;
+      }
+      
+      setOffset(currentOffset);
+      
+      if (attempts > 1) {
+        console.log(`[PaperTableView] LoadMore: loaded ${attempts} pages to find papers with abstract`);
+      }
       
       // 增加显示数量
-      if (fetchedCount > 0 || displayCount < papersWithAbstract.length) {
+      if (newWithAbstract > 0 || displayCount < papersWithAbstract.length) {
         setDisplayCount(prev => prev + PAPERS_PER_DISPLAY);
       }
       setLoadingMore(false);
@@ -373,21 +438,36 @@ const PaperTableView = ({
     }
   }, [loadingMore, displayCount, papersWithAbstract.length, hasMoreFromBackend, offset, fetchPapers, searchQuery, filters, useProvidedPapers, onLoadMore]);
 
+  // 使用 ref 来跟踪正在请求的论文，避免闭包问题导致的重复请求
+  const pendingRequestsRef = useRef(new Set());
+
   // 分析单篇论文
   const analyzePaper = useCallback(async (paper) => {
-    if (!paper.abstract || loadingPapers[paper.paperId] || analysisResults[paper.paperId]) {
+    // 检查是否有摘要
+    if (!paper.abstract) {
+      return;
+    }
+
+    // 使用 ref 检查是否正在请求，避免闭包问题
+    if (pendingRequestsRef.current.has(paper.paperId)) {
       return;
     }
 
     // 检查缓存（注意：如果用户登录状态变化，缓存可能不适用）
     if (analysisCache.has(paper.paperId)) {
-      setAnalysisResults(prev => ({
-        ...prev,
-        [paper.paperId]: analysisCache.get(paper.paperId)
-      }));
+      setAnalysisResults(prev => {
+        // 再次检查，避免重复设置
+        if (prev[paper.paperId]) return prev;
+        return {
+          ...prev,
+          [paper.paperId]: analysisCache.get(paper.paperId)
+        };
+      });
       return;
     }
 
+    // 标记为正在请求
+    pendingRequestsRef.current.add(paper.paperId);
     setLoadingPapers(prev => ({ ...prev, [paper.paperId]: true }));
 
     try {
@@ -406,6 +486,13 @@ const PaperTableView = ({
           ...prev,
           [paper.paperId]: result
         }));
+      } else {
+        // 请求成功但返回错误码，也标记为已处理，避免无限重试
+        console.warn('Analysis API returned error code:', response.data.code, response.data.message);
+        setAnalysisResults(prev => ({
+          ...prev,
+          [paper.paperId]: { error: true, message: response.data.message || '分析失败' }
+        }));
       }
     } catch (error) {
       console.error('Failed to analyze paper:', paper.paperId, error);
@@ -415,9 +502,17 @@ const PaperTableView = ({
         [paper.paperId]: { error: true }
       }));
     } finally {
+      // 清除正在请求标记
+      pendingRequestsRef.current.delete(paper.paperId);
       setLoadingPapers(prev => ({ ...prev, [paper.paperId]: false }));
     }
-  }, [loadingPapers, analysisResults, isAuthenticated]);
+  }, [isAuthenticated]); // 移除 loadingPapers 和 analysisResults 依赖，使用 ref 代替
+
+  // 使用 ref 存储最新的 analysisResults，避免 Observer 回调中的闭包问题
+  const analysisResultsRef = useRef(analysisResults);
+  useEffect(() => {
+    analysisResultsRef.current = analysisResults;
+  }, [analysisResults]);
 
   // 使用 Intersection Observer 实现懒加载
   useEffect(() => {
@@ -427,7 +522,11 @@ const PaperTableView = ({
           if (entry.isIntersecting) {
             const paperId = entry.target.dataset.paperId;
             const paper = displayedPapers.find(p => p.paperId === paperId);
-            if (paper && paper.abstract && !analysisResults[paperId] && !loadingPapers[paperId]) {
+            // 使用 ref 检查最新状态，避免闭包问题
+            const alreadyAnalyzed = analysisResultsRef.current[paperId];
+            const isPending = pendingRequestsRef.current.has(paperId);
+            
+            if (paper && paper.abstract && !alreadyAnalyzed && !isPending) {
               analyzePaper(paper);
             }
           }
@@ -452,7 +551,7 @@ const PaperTableView = ({
         observerRef.current.disconnect();
       }
     };
-  }, [displayedPapers, analyzePaper, analysisResults, loadingPapers]);
+  }, [displayedPapers, analyzePaper]); // 移除 analysisResults 和 loadingPapers 依赖
 
   // 切换单元格展开状态
   const toggleCellExpand = (paperId, column) => {
@@ -552,6 +651,9 @@ const PaperTableView = ({
 
   // 如果没有有摘要的论文
   if (papersWithAbstract.length === 0) {
+    // 判断是否有可用的推荐搜索词
+    const hasRecommendedQuery = translatedQuery && translatedQuery !== searchQuery && onSearchWithQuery;
+    
     return (
       <div className="ptv-container">
         <div className="ptv-empty-state">
@@ -559,7 +661,32 @@ const PaperTableView = ({
             <path d="M9 12h6M12 9v6M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <p>当前搜索结果中没有包含摘要的论文</p>
-          <span>表格视图需要论文摘要进行AI分析</span>
+          <span className="ptv-empty-hint">表格视图需要论文摘要进行AI分析，已自动检索了多页数据但未找到带摘要的论文</span>
+          
+          <div className="ptv-empty-suggestions">
+            <p className="ptv-suggestion-title">建议尝试以下方式：</p>
+            <ul className="ptv-suggestion-list">
+              <li>使用更精准的英文学术关键词进行搜索</li>
+              <li>尝试缩小搜索范围或添加筛选条件</li>
+              <li>检查搜索词是否有拼写错误</li>
+            </ul>
+            
+            {/* 如果有AI翻译的搜索词，显示推荐搜索按钮 */}
+            {hasRecommendedQuery && (
+              <div className="ptv-recommended-search">
+                <p className="ptv-recommended-label">推荐使用AI优化后的搜索词：</p>
+                <div className="ptv-recommended-query">
+                  <span className="ptv-query-text">{translatedQuery}</span>
+                  <button 
+                    className="ptv-use-query-btn"
+                    onClick={() => onSearchWithQuery(translatedQuery)}
+                  >
+                    使用此搜索词
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
