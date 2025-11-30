@@ -483,7 +483,6 @@ func main() {
 			userProtected.DELETE("/conversations/:id", conversationHandler.DeleteConversation)
 			userProtected.POST("/conversations/:id/messages", conversationHandler.AddMessage)
 			userProtected.PUT("/conversations/:id/title", conversationHandler.UpdateConversationTitle)
-			userProtected.GET("/conversations/:id/messages/:messageId/analysis", conversationHandler.StreamAnalysis)
 			userProtected.GET("/conversations/:id/messages/:messageId/advanced-search", conversationHandler.StreamAdvancedSearch)
 			userProtected.GET("/conversations/:id/messages/:messageId/follow-up-questions", conversationHandler.GetFollowUpQuestions)
 			userProtected.POST("/conversations/:id/continue", conversationHandler.StreamContinueConversation)

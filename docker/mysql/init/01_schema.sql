@@ -745,52 +745,6 @@ INSERT IGNORE INTO `subscription_plans` (`plan_code`, `plan_name`, `price_monthl
 SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 INSERT IGNORE INTO `prompt_templates` (`key`, `name`, `template`, `description`, `variables`, `is_active`) VALUES
-('paper_analysis', '论文分析总结提示词',
-'你是一位专业的学术研究助手。用户搜索了关键词：「{{query}}」,系统找到了相关的学术论文。请你对这些论文进行深入分析和总结。
-
-## 论文列表
-
-{{papers}}
-
-## 分析要求
-
-请按照以下结构输出分析报告(使用 Markdown 格式):
-
-### 1. 研究主题概述
-- 简要说明这批论文围绕的核心研究主题
-- 指出该领域的研究热点和趋势
-
-### 2. 重点论文解读
-- 选择引用量最高或最具代表性的 3-5 篇论文
-- 对每篇论文进行简要介绍,包括:
-  - 研究目标和方法
-  - 主要贡献和创新点
-  - 研究结果和结论
-
-### 3. 研究方法分析
-- 总结这些论文中常用的研究方法
-- 分析方法的优缺点
-- 指出方法论上的创新
-
-### 4. 研究发现与结论
-- 汇总主要研究发现
-- 总结共同的结论和观点
-- 指出存在争议或分歧的地方
-
-### 5. 未来研究方向
-- 基于现有研究,提出可能的研究方向
-- 指出研究空白和待解决的问题
-- 给出学习和研究建议
-
-### 6. 推荐阅读
-- 推荐 3-5 篇最值得深入阅读的论文
-- 说明推荐理由
-
-请确保分析客观、准确、有深度,帮助用户快速了解该研究领域的现状和发展趋势。',
-'用于分析搜索到的学术论文并生成结构化综述',
-'{"query": {"type": "string", "description": "Search query keyword", "example": "deep learning"}, "papers": {"type": "string", "description": "Formatted paper list with titles, authors, abstracts", "example": "1. Title: ..., Authors: ..."}}',
-1),
-
 ('advanced_search_mcp_system', '高级搜索MCP工具调用系统提示词',
 '你是一位专业的学术研究助手,专门帮助用户搜索和分析学术论文。
 
@@ -889,57 +843,6 @@ NULL,
 请用 Markdown 格式输出完整的分析报告。注意：不要包含延伸思考问题，只需要输出以上6个部分的分析。',
 '用于高级搜索功能中生成深度、全面的论文分析报告，包含6个分析维度（不含延伸问题）',
 '{"query": {"type": "string", "description": "User search query", "example": "Transformer in NLP"}, "papers": {"type": "string", "description": "Formatted paper list with number, title, authors, abstract, citations", "example": "1. Title: Attention Is All You Need, Authors: Vaswani et al., Year: 2017"}}',
-1),
-
-('continue_conversation_mcp_system', '继续对话MCP工具调用系统提示词',
-'你是一位专业的学术研究助手,专门帮助用户搜索和分析学术论文。
-
-**工具使用规则**:
-- 当用户提出新的研究问题或需要查找论文时,使用 search_papers 工具搜索相关论文
-- 将中文查询转换为合适的英文学术搜索关键词(Semantic Scholar主要收录英文论文)
-- 设置 limit 参数为 40,返回更多相关论文
-- 如果用户只是对已有论文提问或讨论,可以基于对话历史回答
-
-**搜索策略**:
-- 提取查询中的核心技术术语和概念
-- 优先使用英文学术关键词
-- 组合相关概念进行搜索以获得更精准的结果
-
-请用中文回答，使用 Markdown 格式。',
-'引导AI在继续对话时智能判断是否需要搜索新论文，并将中文查询转换为英文学术关键词',
-NULL,
-1),
-
-('continue_conversation_analysis_system', '继续对话分析系统提示词',
-'你是一位专业的学术研究助手，擅长分析和总结学术论文。',
-'用于继续对话中论文分析时定义AI的专业角色',
-NULL,
-1),
-
-('continue_conversation_analysis', '继续对话论文分析提示词',
-'用户问题：{{query}}
-
-新找到的论文：
-{{papers}}
-
-请作为资深学术研究专家，基于对话历史和新找到的论文，深入回答用户的问题。
-
-回答要求：
-1. 针对性：直接回答用户的具体问题，不要泛泛而谈
-2. 深度：提供深入的分析和见解，引用论文中的具体数据和结论
-3. 批判性：保持客观，既要指出研究的贡献，也要指出局限性
-4. 结构化：使用清晰的 Markdown 格式组织内容
-5. **引用规范（非常重要）**：当提到具体论文内容时，必须使用格式：【引用编号：引用的具体内容】
-
-   正确示例：
-   - 【引用1：该模型在BERT基准测试中取得了92.3%%的F1分数】显示了其优越性能。
-   - 实验结果表明，【引用2：处理速度提升了3倍，内存占用减少了50%%】。
-
-   **回答中至少使用5-10个引用标记**，确保有具体论文支撑。
-
-请用 Markdown 格式输出完整的回答。注意：不要包含延伸思考问题，只需要针对用户问题给出深入回答。',
-'用于继续对话功能中基于对话历史和新论文生成针对性回答（不含延伸问题）',
-'{"query": {"type": "string", "description": "User follow-up question", "example": "这些方法在实际应用中的性能如何？"}, "papers": {"type": "string", "description": "Formatted paper list with number, title, authors, abstract, citations", "example": "1. Title: BERT for NLP, Authors: Devlin et al., Year: 2019"}}',
 1),
 
 ('follow_up_questions_system', '延伸问题生成系统提示词',

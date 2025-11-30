@@ -2,7 +2,6 @@ package conversation
 
 import (
 	"fmt"
-	"io"
 	"strings"
 
 	"scholar-backend/internal/ai"
@@ -191,102 +190,4 @@ func (s *Service) UpdateConversationTitle(conversationID uint, userID uint, titl
 
 	conversation.Title = title
 	return s.repo.UpdateConversation(conversation)
-}
-
-// StreamAIAnalysis generates AI analysis for papers and streams the response
-func (s *Service) StreamAIAnalysis(query string, papers []map[string]interface{}, writer io.Writer) error {
-	// Get prompt template
-	template, err := s.aiService.GetPromptTemplate("paper_analysis")
-	if err != nil {
-		return fmt.Errorf("failed to get prompt template: %w", err)
-	}
-
-	// Format papers for prompt
-	papersText := ai.FormatPapersForPrompt(papers)
-
-	// Render prompt with variables
-	prompt := s.aiService.RenderPrompt(template.Template, map[string]string{
-		"query":  query,
-		"papers": papersText,
-	})
-
-	// Create messages for AI
-	messages := []ai.ChatMessage{
-		{
-			Role:    "system",
-			Content: "你是一位专业的学术研究助手，擅长分析和总结学术论文。请用 Markdown 格式输出。",
-		},
-		{
-			Role:    "user",
-			Content: prompt,
-		},
-	}
-
-	// Stream AI response
-	return s.aiService.StreamChatCompletion(messages, writer)
-}
-
-// StreamAIAnalysisAndSave streams AI analysis and saves it as assistant message
-// This uses normal-level AI chat (unlimited for all users)
-func (s *Service) StreamAIAnalysisAndSave(conversationID uint, query string, papers []map[string]interface{}, writer io.Writer, userID uint) (string, error) {
-	// Check quota for ai_chat_normal (should be unlimited for all, but check anyway)
-	hasQuota, err := s.subscriptionService.CheckQuota(userID, "ai_chat_normal")
-	if err != nil {
-		return "", fmt.Errorf("failed to check quota: %w", err)
-	}
-	if !hasQuota {
-		return "", fmt.Errorf("超出AI对话配额限制")
-	}
-
-	// Get prompt template
-	template, err := s.aiService.GetPromptTemplate("paper_analysis")
-	if err != nil {
-		return "", fmt.Errorf("failed to get prompt template: %w", err)
-	}
-
-	// Format papers for prompt
-	papersText := ai.FormatPapersForPrompt(papers)
-
-	// Render prompt with variables
-	prompt := s.aiService.RenderPrompt(template.Template, map[string]string{
-		"query":  query,
-		"papers": papersText,
-	})
-
-	// Create messages for AI
-	messages := []ai.ChatMessage{
-		{
-			Role:    "system",
-			Content: "你是一位专业的学术研究助手，擅长分析和总结学术论文。请用 Markdown 格式输出。",
-		},
-		{
-			Role:    "user",
-			Content: prompt,
-		},
-	}
-
-	// Stream AI response and collect full content (using normal model level)
-	fullContent, err := s.aiService.StreamChatCompletionAndCollect(messages, writer)
-	if err != nil {
-		return "", err
-	}
-
-	// Increment usage count
-	if err := s.subscriptionService.IncrementUsage(userID, "ai_chat_normal"); err != nil {
-		fmt.Printf("Warning: failed to increment usage: %v\n", err)
-	}
-
-	// Save assistant message to conversation
-	assistantMessage := &ConversationMessage{
-		ConversationID: conversationID,
-		Role:           MessageRoleAssistant,
-		Content:        fullContent,
-	}
-
-	if err := s.repo.CreateMessage(assistantMessage); err != nil {
-		// Log error but don't fail the request
-		fmt.Printf("Warning: failed to save assistant message: %v\n", err)
-	}
-
-	return fullContent, nil
 }

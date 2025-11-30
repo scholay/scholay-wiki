@@ -5,7 +5,8 @@ import './PaperCitationMarkdown.css';
 
 /**
  * 自定义 Markdown 组件，用于渲染带有论文引用的内容
- * 识别 【引用n：引用内容】 格式，并添加交互效果
+ * 识别 【引用n：引用内容】 或 【引用n:引用内容】 格式，并添加交互效果
+ * 同时支持中文冒号（：）和英文冒号（:）
  */
 const PaperCitationMarkdown = ({ content, onCitationHover, onCitationLeave, onCitationClick }) => {
   // 预处理内容：将 【引用n：文本】 转换为特殊的临时标记
@@ -55,15 +56,15 @@ const PaperCitationMarkdown = ({ content, onCitationHover, onCitationLeave, onCi
 };
 
 /**
- * 预处理：将 【引用n：文本】 转换为临时标记
+ * 预处理：将 【引用n：文本】 或 【引用n:文本】 转换为临时标记
  * 使用特殊标记 {{CITE:n:text}} 避免被 Markdown 解析器处理
  */
 function preprocessCitations(content) {
   if (!content) return content;
 
-  // 匹配 【引用数字：内容】 格式
-  // 使用更宽松的匹配来支持多种内容
-  const citeRegex = /【引用(\d+)：([^】]+)】/g;
+  // 匹配 【引用数字：内容】 或 【引用数字:内容】 格式
+  // 同时支持中文冒号（：）和英文冒号（:）
+  const citeRegex = /【引用(\d+)[：:]([^】]+)】/g;
 
   const matches = content.match(citeRegex);
   if (matches && matches.length > 0) {
