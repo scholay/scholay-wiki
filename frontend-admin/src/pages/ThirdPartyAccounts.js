@@ -22,6 +22,7 @@ const ThirdPartyAccounts = () => {
       model_high: '',
     },
     status: 1,
+    priority: 0,
   });
 
   useEffect(() => {
@@ -67,6 +68,7 @@ const ThirdPartyAccounts = () => {
         model_high: '',
       },
       status: 1,
+      priority: 0,
     });
     setShowModal(true);
   };
@@ -78,6 +80,7 @@ const ThirdPartyAccounts = () => {
       type: account.type,
       config: account.config || {},
       status: account.status,
+      priority: account.priority || 0,
     });
     setShowModal(true);
   };
@@ -162,6 +165,7 @@ const ThirdPartyAccounts = () => {
       type: formData.type,
       config,
       status: formData.status,
+      priority: formData.priority,
     };
 
     try {
@@ -286,6 +290,7 @@ const ThirdPartyAccounts = () => {
                 <th>ID</th>
                 <th>名称</th>
                 <th>类型</th>
+                <th>优先级</th>
                 <th>模型编码</th>
                 <th>状态</th>
                 <th>使用次数</th>
@@ -300,6 +305,11 @@ const ThirdPartyAccounts = () => {
                   <td>{account.id}</td>
                   <td>{account.name}</td>
                   <td>{getAccountTypeLabel(account.type)}</td>
+                  <td>
+                    <span className={`priority-badge priority-${account.priority || 0}`}>
+                      {account.priority || 0}
+                    </span>
+                  </td>
                   <td className="model-codes-cell">{account.type === 'ai_model' ? getModelCodesLabel(account.config) : '-'}</td>
                   <td>{getStatusLabel(account.status)}</td>
                   <td>{account.usage_count || 0}</td>
@@ -485,6 +495,20 @@ const ThirdPartyAccounts = () => {
                   </div>
                 </>
               )}
+
+              <div className="form-group">
+                <label>优先级</label>
+                <input
+                  type="number"
+                  value={formData.priority}
+                  onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
+                  min="0"
+                  placeholder="0"
+                />
+                <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                  数字越小优先级越高，相同优先级的账号会随机选择
+                </small>
+              </div>
 
               <div className="form-group">
                 <label>状态</label>

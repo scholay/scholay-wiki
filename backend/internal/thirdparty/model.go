@@ -48,6 +48,7 @@ type ThirdPartyAccount struct {
 	Type        AccountType   `gorm:"type:varchar(50);not null;index:idx_type_status" json:"type"`
 	Config      AccountConfig `gorm:"type:json;not null" json:"config"`
 	Status      int           `gorm:"default:1;index:idx_type_status" json:"status"` // 1=active, 0=inactive
+	Priority    int           `gorm:"default:0" json:"priority"`                     // 优先级，数字越小优先级越高
 	UsageCount  uint64        `gorm:"default:0" json:"usage_count"`
 	LastUsedAt  *time.Time    `json:"last_used_at,omitempty"`
 	CreatedAt   time.Time     `json:"created_at"`

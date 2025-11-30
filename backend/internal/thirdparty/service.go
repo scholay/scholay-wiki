@@ -30,16 +30,22 @@ func NewService(repo *Repository) *Service {
 
 // CreateAccount creates a new third-party account
 func (s *Service) CreateAccount(name string, accountType AccountType, config AccountConfig) (*ThirdPartyAccount, error) {
+	return s.CreateAccountWithPriority(name, accountType, config, 0)
+}
+
+// CreateAccountWithPriority creates a new third-party account with priority
+func (s *Service) CreateAccountWithPriority(name string, accountType AccountType, config AccountConfig, priority int) (*ThirdPartyAccount, error) {
 	// Validate configuration
 	if err := ValidateConfig(accountType, config); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
 	account := &ThirdPartyAccount{
-		Name:   name,
-		Type:   accountType,
-		Config: config,
-		Status: 1, // Active by default
+		Name:     name,
+		Type:     accountType,
+		Config:   config,
+		Status:   1, // Active by default
+		Priority: priority,
 	}
 
 	if err := s.repo.Create(account); err != nil {
@@ -75,6 +81,11 @@ func (s *Service) ListAccounts(accountType AccountType, activeOnly bool) ([]Thir
 
 // UpdateAccount updates an account
 func (s *Service) UpdateAccount(id uint, name string, config AccountConfig, status int) (*ThirdPartyAccount, error) {
+	return s.UpdateAccountWithPriority(id, name, config, status, -1)
+}
+
+// UpdateAccountWithPriority updates an account with priority
+func (s *Service) UpdateAccountWithPriority(id uint, name string, config AccountConfig, status int, priority int) (*ThirdPartyAccount, error) {
 	account, err := s.repo.GetByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account: %w", err)
@@ -97,6 +108,10 @@ func (s *Service) UpdateAccount(id uint, name string, config AccountConfig, stat
 
 	if status >= 0 {
 		account.Status = status
+	}
+
+	if priority >= 0 {
+		account.Priority = priority
 	}
 
 	if err := s.repo.Update(account); err != nil {
@@ -199,8 +214,48 @@ func (s *Service) GetRandomAIModelConfig() (*AIModelConfig, uint, error) {
 	return config, selected.ID, nil
 }
 
-// weightedRandomSelect selects an account with probability inversely proportional to usage_count
-func (s *Service) weightedRandomSelect(accounts []ThirdPartyAccount) *ThirdPartyAccount {
+// priorityRandomSelect selects an account based on priority
+// 1. First, find the highest priority (lowest number) among all accounts
+// 2. Filter accounts with the same highest priority
+// 3. Among those, randomly select one (weighted by inverse usage_count)
+func (s *Service) priorityRandomSelect(accounts []ThirdPartyAccount) *ThirdPartyAccount {
+	if len(accounts) == 0 {
+		return nil
+	}
+	if len(accounts) == 1 {
+		return &accounts[0]
+	}
+
+	// Find the highest priority (lowest number)
+	highestPriority := accounts[0].Priority
+	for _, account := range accounts {
+		if account.Priority < highestPriority {
+			highestPriority = account.Priority
+		}
+	}
+
+	// Filter accounts with the highest priority
+	var highPriorityAccounts []ThirdPartyAccount
+	for _, account := range accounts {
+		if account.Priority == highestPriority {
+			highPriorityAccounts = append(highPriorityAccounts, account)
+		}
+	}
+
+	// If only one account with highest priority, return it
+	if len(highPriorityAccounts) == 1 {
+		return &highPriorityAccounts[0]
+	}
+
+	// Among accounts with same priority, use weighted random selection based on usage_count
+	return s.weightedRandomSelectFromList(highPriorityAccounts)
+}
+
+// weightedRandomSelectFromList selects an account with probability inversely proportional to usage_count
+func (s *Service) weightedRandomSelectFromList(accounts []ThirdPartyAccount) *ThirdPartyAccount {
+	if len(accounts) == 0 {
+		return nil
+	}
 	if len(accounts) == 1 {
 		return &accounts[0]
 	}
@@ -230,6 +285,11 @@ func (s *Service) weightedRandomSelect(accounts []ThirdPartyAccount) *ThirdParty
 
 	// Fallback (should not reach here)
 	return &accounts[len(accounts)-1]
+}
+
+// weightedRandomSelect is kept for backwards compatibility, now uses priorityRandomSelect
+func (s *Service) weightedRandomSelect(accounts []ThirdPartyAccount) *ThirdPartyAccount {
+	return s.priorityRandomSelect(accounts)
 }
 
 // getActiveAccounts retrieves active accounts from cache or database
@@ -322,6 +382,12 @@ func (s *Service) GetActiveAccountsByType(accountType AccountType) ([]ThirdParty
 // GetRandomAIModelConfigByLevel gets a random AI model configuration and returns the model code for the specified level
 // Now each AI account can contain three model codes (low/mid/high), so we select an account and return the appropriate model code
 func (s *Service) GetRandomAIModelConfigByLevel(modelLevel ModelLevel) (*AIModelConfig, uint, error) {
+	return s.GetRandomAIModelConfigByLevelExcluding(modelLevel, nil)
+}
+
+// GetRandomAIModelConfigByLevelExcluding gets a random AI model configuration excluding specific account IDs
+// This is used for retry logic - when an account fails, we exclude it and try another one
+func (s *Service) GetRandomAIModelConfigByLevelExcluding(modelLevel ModelLevel, excludeIDs []uint) (*AIModelConfig, uint, error) {
 	// Get all active AI model accounts
 	accounts, err := s.getActiveAccounts(AccountTypeAIModel)
 	if err != nil {
@@ -332,9 +398,19 @@ func (s *Service) GetRandomAIModelConfigByLevel(modelLevel ModelLevel) (*AIModel
 		return nil, 0, fmt.Errorf("no active ai_model accounts found")
 	}
 
-	// Filter accounts that have the requested model level configured
+	// Build exclude map for O(1) lookup
+	excludeMap := make(map[uint]bool)
+	for _, id := range excludeIDs {
+		excludeMap[id] = true
+	}
+
+	// Filter accounts that have the requested model level configured and are not excluded
 	var validAccounts []ThirdPartyAccount
 	for _, account := range accounts {
+		// Skip excluded accounts
+		if excludeMap[account.ID] {
+			continue
+		}
 		modelCode, err := account.GetModelCodeByLevel(modelLevel)
 		if err == nil && modelCode != "" {
 			validAccounts = append(validAccounts, account)
@@ -342,11 +418,17 @@ func (s *Service) GetRandomAIModelConfigByLevel(modelLevel ModelLevel) (*AIModel
 	}
 
 	if len(validAccounts) == 0 {
+		if len(excludeIDs) > 0 {
+			return nil, 0, fmt.Errorf("no more ai_model accounts available for level %s (all tried)", modelLevel)
+		}
 		return nil, 0, fmt.Errorf("no active ai_model accounts found with %s model configured", modelLevel)
 	}
 
-	// Use weighted random selection
-	selected := s.weightedRandomSelect(validAccounts)
+	// Use priority-based random selection
+	selected := s.priorityRandomSelect(validAccounts)
+	if selected == nil {
+		return nil, 0, fmt.Errorf("failed to select AI model account")
+	}
 
 	// Increment usage count
 	if err := s.repo.IncrementUsage(selected.ID); err != nil {

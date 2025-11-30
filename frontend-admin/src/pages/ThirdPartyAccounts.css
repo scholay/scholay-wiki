@@ -115,6 +115,45 @@
   color: var(--danger-500);
 }
 
+/* 优先级徽章样式 */
+.priority-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 0.5rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.priority-badge.priority-0 {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border: 1px solid rgba(217, 119, 6, 0.3);
+}
+
+.priority-badge.priority-1 {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e40af;
+  border: 1px solid rgba(37, 99, 235, 0.3);
+}
+
+.priority-badge.priority-2 {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  color: #3730a3;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+/* 默认样式（优先级 >= 3） */
+.priority-badge:not(.priority-0):not(.priority-1):not(.priority-2) {
+  background: var(--surface-muted);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-subtle);
+}
+
 .model-codes-cell {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.75rem;

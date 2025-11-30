@@ -54,10 +54,11 @@ func (r *Repository) GetAll(accountType AccountType, activeOnly bool) ([]ThirdPa
 }
 
 // GetActiveByType retrieves all active accounts of a specific type
+// Sorted by priority (ascending, lower number = higher priority), then by usage_count (ascending)
 func (r *Repository) GetActiveByType(accountType AccountType) ([]ThirdPartyAccount, error) {
 	var accounts []ThirdPartyAccount
 	err := r.db.Where("type = ? AND status = ?", accountType, 1).
-		Order("usage_count ASC"). // Prioritize less-used accounts
+		Order("priority ASC, usage_count ASC"). // First by priority, then by usage count
 		Find(&accounts).Error
 	return accounts, err
 }

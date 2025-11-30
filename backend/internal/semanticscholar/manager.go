@@ -8,6 +8,9 @@ import (
 	"scholar-backend/internal/thirdparty"
 )
 
+// 最大重试次数
+const MaxRetries = 5
+
 // Manager manages Semantic Scholar API clients with key rotation
 type Manager struct {
 	accountService *thirdparty.Service
@@ -20,13 +23,78 @@ func NewManager(accountService *thirdparty.Service) *Manager {
 	}
 }
 
-// GetClient gets a client with a rotated API key
-func (m *Manager) GetClient() (*Client, error) {
+// isRetryableError 检查错误是否可重试（403 或 429）
+func isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "403") ||
+		strings.Contains(errStr, "Forbidden") ||
+		strings.Contains(errStr, "429") ||
+		strings.Contains(errStr, "Too Many Requests")
+}
+
+// executeWithRetry 执行带重试逻辑的操作
+// 当遇到 403 或 429 错误时，会随机获取另一个 API key 重试，最多重试 MaxRetries 次
+func (m *Manager) executeWithRetry(operation func(client *Client) (interface{}, error)) (interface{}, error) {
+	var lastErr error
+	usedAccountIDs := make(map[uint]bool) // 记录已使用过的账号ID，避免重复使用同一个失效的key
+
+	for attempt := 0; attempt <= MaxRetries; attempt++ {
+		// 获取客户端
+		client, accountID, err := m.getClientWithAccountID()
+		if err != nil {
+			// 如果获取客户端失败，记录错误并继续尝试
+			fmt.Printf("[Manager] Attempt %d: Failed to get client: %v\n", attempt+1, err)
+			lastErr = err
+			continue
+		}
+
+		// 检查是否已经使用过这个账号（如果是重试的话）
+		if attempt > 0 && usedAccountIDs[accountID] {
+			fmt.Printf("[Manager] Attempt %d: Account %d already tried, skipping\n", attempt+1, accountID)
+			// 直接继续尝试获取其他账号，不等待
+			continue
+		}
+
+		// 记录使用的账号
+		usedAccountIDs[accountID] = true
+
+		if attempt > 0 {
+			fmt.Printf("[Manager] Retry attempt %d/%d with account ID: %d\n", attempt, MaxRetries, accountID)
+		}
+
+		// 执行操作
+		result, err := operation(client)
+		if err == nil {
+			return result, nil
+		}
+
+		lastErr = err
+
+		// 检查是否是可重试的错误
+		if isRetryableError(err) {
+			fmt.Printf("[Manager] Attempt %d: Retryable error (403/429) with account %d: %v\n", attempt+1, accountID, err)
+			// 立即重试，不等待
+			continue
+		}
+
+		// 其他错误不重试
+		fmt.Printf("[Manager] Attempt %d: Non-retryable error: %v\n", attempt+1, err)
+		return nil, err
+	}
+
+	return nil, fmt.Errorf("all %d retry attempts failed, last error: %w", MaxRetries+1, lastErr)
+}
+
+// getClientWithAccountID 获取客户端并返回账号ID
+func (m *Manager) getClientWithAccountID() (*Client, uint, error) {
 	apiKey, accountID, err := m.accountService.GetRandomAPIKey(thirdparty.AccountTypeSemanticScholar)
 	if err != nil {
 		// Fallback to empty API key (free tier)
 		fmt.Printf("[Manager] Failed to get API key, using free tier: %v\n", err)
-		return NewClient(""), nil
+		return NewClient(""), 0, nil
 	}
 
 	fmt.Printf("[Manager] Got API key (length: %d) from account ID: %d\n", len(apiKey), accountID)
@@ -35,7 +103,7 @@ func (m *Manager) GetClient() (*Client, error) {
 	accounts, err := m.accountService.GetActiveAccountsByType(thirdparty.AccountTypeSemanticScholar)
 	if err != nil || len(accounts) == 0 {
 		fmt.Printf("[Manager] Failed to get accounts or no accounts found, using default base URL\n")
-		return NewClient(apiKey), nil
+		return NewClient(apiKey), accountID, nil
 	}
 
 	// Find the account that was used
@@ -55,7 +123,13 @@ func (m *Manager) GetClient() (*Client, error) {
 		fmt.Printf("[Manager] No custom base URL, using default\n")
 	}
 
-	return NewClientWithBaseURL(apiKey, baseURL), nil
+	return NewClientWithBaseURL(apiKey, baseURL), accountID, nil
+}
+
+// GetClient gets a client with a rotated API key
+func (m *Manager) GetClient() (*Client, error) {
+	client, _, err := m.getClientWithAccountID()
+	return client, err
 }
 
 // GetAPIKey gets an API key from the account service for external use (e.g., MCP)
@@ -90,42 +164,13 @@ func (m *Manager) GetAPIConfig() (apiKey string, baseURL string, accountID uint,
 	return apiKey, baseURL, accountID, nil
 }
 
-// SearchPapersBulk searches for papers using bulk endpoint with key rotation and circuit breaker protection
+// SearchPapersBulk searches for papers using bulk endpoint with key rotation, retry logic and circuit breaker protection
 func (m *Manager) SearchPapersBulk(opts BulkSearchOptions) (*SearchResponse, error) {
 	// Execute with circuit breaker protection
 	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		client, err := m.GetClient()
-		if err != nil {
-			return nil, err
-		}
-
-		// Try with API key first
-		result, err := client.SearchPapersBulk(opts)
-		if err != nil {
-			errStr := err.Error()
-
-			// If rate limited (429), try to fall back to free tier
-			if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
-				fmt.Printf("[Manager] API key rate limited, falling back to free tier\n")
-				freeClient := NewClient("")
-				result, freeErr := freeClient.SearchPapersBulk(opts)
-				if freeErr != nil {
-					// If free tier also fails, return the original rate limit error with helpful message
-					return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable. Please add more API keys or wait a moment")
-				}
-				return result, nil
-			}
-
-			// If error contains "403" or "Forbidden" or "EOF", try without API key
-			if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
-				fmt.Printf("[Manager] API key forbidden/error, falling back to free tier\n")
-				freeClient := NewClient("")
-				return freeClient.SearchPapersBulk(opts)
-			}
-			return nil, err
-		}
-
-		return result, nil
+		return m.executeWithRetry(func(client *Client) (interface{}, error) {
+			return client.SearchPapersBulk(opts)
+		})
 	})
 
 	if err != nil {
@@ -139,42 +184,13 @@ func (m *Manager) SearchPapersBulk(opts BulkSearchOptions) (*SearchResponse, err
 	return result.(*SearchResponse), nil
 }
 
-// SearchPapers searches for papers using key rotation with circuit breaker protection
+// SearchPapers searches for papers using key rotation, retry logic and circuit breaker protection
 func (m *Manager) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) {
 	// Execute with circuit breaker protection
 	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		client, err := m.GetClient()
-		if err != nil {
-			return nil, err
-		}
-
-		// Try with API key first
-		result, err := client.SearchPapers(opts)
-		if err != nil {
-			errStr := err.Error()
-
-			// If rate limited (429), try to fall back to free tier
-			if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
-				fmt.Printf("[Manager] API key rate limited, falling back to free tier\n")
-				freeClient := NewClient("")
-				result, freeErr := freeClient.SearchPapers(opts)
-				if freeErr != nil {
-					// If free tier also fails, return the original rate limit error with helpful message
-					return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable. Please add more API keys or wait a moment")
-				}
-				return result, nil
-			}
-
-			// If error contains "403" or "Forbidden" or "EOF", try without API key
-			if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
-				fmt.Printf("[Manager] API key forbidden/error, falling back to free tier\n")
-				freeClient := NewClient("")
-				return freeClient.SearchPapers(opts)
-			}
-			return nil, err
-		}
-
-		return result, nil
+		return m.executeWithRetry(func(client *Client) (interface{}, error) {
+			return client.SearchPapers(opts)
+		})
 	})
 
 	if err != nil {
@@ -188,40 +204,12 @@ func (m *Manager) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error)
 	return result.(*SearchResponse), nil
 }
 
-// GetPaper retrieves paper details using key rotation with circuit breaker protection
+// GetPaper retrieves paper details using key rotation, retry logic and circuit breaker protection
 func (m *Manager) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, error) {
 	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		client, err := m.GetClient()
-		if err != nil {
-			return nil, err
-		}
-
-		paper, err := client.GetPaper(paperID, opts)
-		if err != nil {
-			errStr := err.Error()
-
-			// If rate limited (429), try to fall back to free tier
-			if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
-				fmt.Printf("[Manager] API key rate limited for GetPaper, falling back to free tier\n")
-				freeClient := NewClient("")
-				paper, freeErr := freeClient.GetPaper(paperID, opts)
-				if freeErr != nil {
-					return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable. Please add more API keys or wait a moment")
-				}
-				return paper, nil
-			}
-
-			// If error contains "403" or "Forbidden", try without API key
-			if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
-				fmt.Printf("[Manager] API key forbidden/error for GetPaper, falling back to free tier\n")
-				freeClient := NewClient("")
-				return freeClient.GetPaper(paperID, opts)
-			}
-
-			return nil, err
-		}
-
-		return paper, nil
+		return m.executeWithRetry(func(client *Client) (interface{}, error) {
+			return client.GetPaper(paperID, opts)
+		})
 	})
 
 	if err != nil {
@@ -234,46 +222,15 @@ func (m *Manager) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, er
 	return result.(*Paper), nil
 }
 
-// GetPaperBatch retrieves multiple papers using key rotation with circuit breaker protection
+// GetPaperBatch retrieves multiple papers using key rotation, retry logic and circuit breaker protection
 func (m *Manager) GetPaperBatch(paperIDs []string, fields []string) ([]Paper, error) {
 	fmt.Printf("[Manager] GetPaperBatch called with %d paperIDs\n", len(paperIDs))
-	
+
 	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		client, err := m.GetClient()
-		if err != nil {
-			fmt.Printf("[Manager] GetPaperBatch - GetClient error: %v\n", err)
-			return nil, err
-		}
-		
-		// 打印 API key 信息（只打印长度，不打印实际值）
-		fmt.Printf("[Manager] GetPaperBatch - Client has API key: %v, length: %d\n", client.HasAPIKey(), client.GetAPIKeyLength())
-
-		papers, err := client.GetPaperBatch(paperIDs, fields)
-		if err != nil {
-			errStr := err.Error()
-
-			// If rate limited (429), try to fall back to free tier
-			if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
-				fmt.Printf("[Manager] API key rate limited for GetPaperBatch, falling back to free tier\n")
-				freeClient := NewClient("")
-				papers, freeErr := freeClient.GetPaperBatch(paperIDs, fields)
-				if freeErr != nil {
-					return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable. Please add more API keys or wait a moment")
-				}
-				return papers, nil
-			}
-
-			// If error contains "403" or "Forbidden" or "EOF", try without API key
-			if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
-				fmt.Printf("[Manager] API key forbidden/error for GetPaperBatch, falling back to free tier\n")
-				freeClient := NewClient("")
-				return freeClient.GetPaperBatch(paperIDs, fields)
-			}
-
-			return nil, err
-		}
-
-		return papers, nil
+		return m.executeWithRetry(func(client *Client) (interface{}, error) {
+			fmt.Printf("[Manager] GetPaperBatch - Client has API key: %v, length: %d\n", client.HasAPIKey(), client.GetAPIKeyLength())
+			return client.GetPaperBatch(paperIDs, fields)
+		})
 	})
 
 	if err != nil {
@@ -286,40 +243,12 @@ func (m *Manager) GetPaperBatch(paperIDs []string, fields []string) ([]Paper, er
 	return result.([]Paper), nil
 }
 
-// GetPaperAuthors retrieves paper authors using key rotation with circuit breaker protection
+// GetPaperAuthors retrieves paper authors using key rotation, retry logic and circuit breaker protection
 func (m *Manager) GetPaperAuthors(paperID string, fields []string, offset, limit int) (*AuthorSearchResponse, error) {
 	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		client, err := m.GetClient()
-		if err != nil {
-			return nil, err
-		}
-
-		authors, err := client.GetPaperAuthors(paperID, fields, offset, limit)
-		if err != nil {
-			errStr := err.Error()
-
-			// If rate limited (429), try to fall back to free tier
-			if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
-				fmt.Printf("[Manager] API key rate limited for GetPaperAuthors, falling back to free tier\n")
-				freeClient := NewClient("")
-				authors, freeErr := freeClient.GetPaperAuthors(paperID, fields, offset, limit)
-				if freeErr != nil {
-					return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable. Please add more API keys or wait a moment")
-				}
-				return authors, nil
-			}
-
-			// If error contains "403" or "Forbidden" or "EOF", try without API key
-			if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
-				fmt.Printf("[Manager] API key forbidden/error for GetPaperAuthors, falling back to free tier\n")
-				freeClient := NewClient("")
-				return freeClient.GetPaperAuthors(paperID, fields, offset, limit)
-			}
-
-			return nil, err
-		}
-
-		return authors, nil
+		return m.executeWithRetry(func(client *Client) (interface{}, error) {
+			return client.GetPaperAuthors(paperID, fields, offset, limit)
+		})
 	})
 
 	if err != nil {
@@ -332,40 +261,12 @@ func (m *Manager) GetPaperAuthors(paperID string, fields []string, offset, limit
 	return result.(*AuthorSearchResponse), nil
 }
 
-// GetPaperCitations retrieves paper citations using key rotation with circuit breaker protection
+// GetPaperCitations retrieves paper citations using key rotation, retry logic and circuit breaker protection
 func (m *Manager) GetPaperCitations(paperID string, opts CitationsOptions) (*CitationsResponse, error) {
 	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		client, err := m.GetClient()
-		if err != nil {
-			return nil, err
-		}
-
-		citations, err := client.GetPaperCitations(paperID, opts)
-		if err != nil {
-			errStr := err.Error()
-
-			// If rate limited (429), try to fall back to free tier
-			if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
-				fmt.Printf("[Manager] API key rate limited for GetPaperCitations, falling back to free tier\n")
-				freeClient := NewClient("")
-				citations, freeErr := freeClient.GetPaperCitations(paperID, opts)
-				if freeErr != nil {
-					return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable. Please add more API keys or wait a moment")
-				}
-				return citations, nil
-			}
-
-			// If error contains "403" or "Forbidden" or "EOF", try without API key
-			if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
-				fmt.Printf("[Manager] API key forbidden/error for GetPaperCitations, falling back to free tier\n")
-				freeClient := NewClient("")
-				return freeClient.GetPaperCitations(paperID, opts)
-			}
-
-			return nil, err
-		}
-
-		return citations, nil
+		return m.executeWithRetry(func(client *Client) (interface{}, error) {
+			return client.GetPaperCitations(paperID, opts)
+		})
 	})
 
 	if err != nil {
@@ -378,40 +279,12 @@ func (m *Manager) GetPaperCitations(paperID string, opts CitationsOptions) (*Cit
 	return result.(*CitationsResponse), nil
 }
 
-// GetPaperReferences retrieves paper references using key rotation with circuit breaker protection
+// GetPaperReferences retrieves paper references using key rotation, retry logic and circuit breaker protection
 func (m *Manager) GetPaperReferences(paperID string, opts CitationsOptions) (*ReferencesResponse, error) {
 	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		client, err := m.GetClient()
-		if err != nil {
-			return nil, err
-		}
-
-		references, err := client.GetPaperReferences(paperID, opts)
-		if err != nil {
-			errStr := err.Error()
-
-			// If rate limited (429), try to fall back to free tier
-			if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
-				fmt.Printf("[Manager] API key rate limited for GetPaperReferences, falling back to free tier\n")
-				freeClient := NewClient("")
-				references, freeErr := freeClient.GetPaperReferences(paperID, opts)
-				if freeErr != nil {
-					return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable. Please add more API keys or wait a moment")
-				}
-				return references, nil
-			}
-
-			// If error contains "403" or "Forbidden" or "EOF", try without API key
-			if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
-				fmt.Printf("[Manager] API key forbidden/error for GetPaperReferences, falling back to free tier\n")
-				freeClient := NewClient("")
-				return freeClient.GetPaperReferences(paperID, opts)
-			}
-
-			return nil, err
-		}
-
-		return references, nil
+		return m.executeWithRetry(func(client *Client) (interface{}, error) {
+			return client.GetPaperReferences(paperID, opts)
+		})
 	})
 
 	if err != nil {
@@ -424,14 +297,12 @@ func (m *Manager) GetPaperReferences(paperID string, opts CitationsOptions) (*Re
 	return result.(*ReferencesResponse), nil
 }
 
-// SearchAuthors searches for authors using key rotation with circuit breaker protection
+// SearchAuthors searches for authors using key rotation, retry logic and circuit breaker protection
 func (m *Manager) SearchAuthors(opts AuthorSearchOptions) (*AuthorSearchResponse, error) {
 	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		client, err := m.GetClient()
-		if err != nil {
-			return nil, err
-		}
-		return client.SearchAuthors(opts)
+		return m.executeWithRetry(func(client *Client) (interface{}, error) {
+			return client.SearchAuthors(opts)
+		})
 	})
 
 	if err != nil {
@@ -444,14 +315,12 @@ func (m *Manager) SearchAuthors(opts AuthorSearchOptions) (*AuthorSearchResponse
 	return result.(*AuthorSearchResponse), nil
 }
 
-// GetAuthor retrieves author details using key rotation with circuit breaker protection
+// GetAuthor retrieves author details using key rotation, retry logic and circuit breaker protection
 func (m *Manager) GetAuthor(authorID string, fields []string) (*Author, error) {
 	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		client, err := m.GetClient()
-		if err != nil {
-			return nil, err
-		}
-		return client.GetAuthor(authorID, fields)
+		return m.executeWithRetry(func(client *Client) (interface{}, error) {
+			return client.GetAuthor(authorID, fields)
+		})
 	})
 
 	if err != nil {
@@ -464,14 +333,12 @@ func (m *Manager) GetAuthor(authorID string, fields []string) (*Author, error) {
 	return result.(*Author), nil
 }
 
-// GetAuthorPapers retrieves author papers using key rotation with circuit breaker protection
+// GetAuthorPapers retrieves author papers using key rotation, retry logic and circuit breaker protection
 func (m *Manager) GetAuthorPapers(authorID string, fields []string, offset, limit int) (*SearchResponse, error) {
 	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		client, err := m.GetClient()
-		if err != nil {
-			return nil, err
-		}
-		return client.GetAuthorPapers(authorID, fields, offset, limit)
+		return m.executeWithRetry(func(client *Client) (interface{}, error) {
+			return client.GetAuthorPapers(authorID, fields, offset, limit)
+		})
 	})
 
 	if err != nil {
@@ -484,14 +351,12 @@ func (m *Manager) GetAuthorPapers(authorID string, fields []string, offset, limi
 	return result.(*SearchResponse), nil
 }
 
-// GetRecommendationsForPaper gets recommendations using key rotation with circuit breaker protection
+// GetRecommendationsForPaper gets recommendations using key rotation, retry logic and circuit breaker protection
 func (m *Manager) GetRecommendationsForPaper(paperID string, opts RecommendationsOptions) (*RecommendationsResponse, error) {
 	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		client, err := m.GetClient()
-		if err != nil {
-			return nil, err
-		}
-		return client.GetRecommendationsForPaper(paperID, opts)
+		return m.executeWithRetry(func(client *Client) (interface{}, error) {
+			return client.GetRecommendationsForPaper(paperID, opts)
+		})
 	})
 
 	if err != nil {
@@ -504,14 +369,12 @@ func (m *Manager) GetRecommendationsForPaper(paperID string, opts Recommendation
 	return result.(*RecommendationsResponse), nil
 }
 
-// GetRecommendations gets recommendations using key rotation with circuit breaker protection
+// GetRecommendations gets recommendations using key rotation, retry logic and circuit breaker protection
 func (m *Manager) GetRecommendations(opts RecommendationsOptions) (*RecommendationsResponse, error) {
 	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		client, err := m.GetClient()
-		if err != nil {
-			return nil, err
-		}
-		return client.GetRecommendations(opts)
+		return m.executeWithRetry(func(client *Client) (interface{}, error) {
+			return client.GetRecommendations(opts)
+		})
 	})
 
 	if err != nil {
@@ -524,40 +387,12 @@ func (m *Manager) GetRecommendations(opts RecommendationsOptions) (*Recommendati
 	return result.(*RecommendationsResponse), nil
 }
 
-// PaperAutocomplete returns paper title suggestions with key rotation and circuit breaker protection
+// PaperAutocomplete returns paper title suggestions with key rotation, retry logic and circuit breaker protection
 func (m *Manager) PaperAutocomplete(query string) (*AutocompleteResponse, error) {
 	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		client, err := m.GetClient()
-		if err != nil {
-			return nil, err
-		}
-
-		result, err := client.PaperAutocomplete(query)
-		if err != nil {
-			errStr := err.Error()
-
-			// If rate limited (429), try to fall back to free tier
-			if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") {
-				fmt.Printf("[Manager] API key rate limited for PaperAutocomplete, falling back to free tier\n")
-				freeClient := NewClient("")
-				result, freeErr := freeClient.PaperAutocomplete(query)
-				if freeErr != nil {
-					return nil, fmt.Errorf("API rate limit exceeded and free tier unavailable")
-				}
-				return result, nil
-			}
-
-			// If error contains "403" or "Forbidden", try without API key
-			if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "EOF") {
-				fmt.Printf("[Manager] API key forbidden/error for PaperAutocomplete, falling back to free tier\n")
-				freeClient := NewClient("")
-				return freeClient.PaperAutocomplete(query)
-			}
-
-			return nil, err
-		}
-
-		return result, nil
+		return m.executeWithRetry(func(client *Client) (interface{}, error) {
+			return client.PaperAutocomplete(query)
+		})
 	})
 
 	if err != nil {

@@ -652,12 +652,14 @@ CREATE TABLE IF NOT EXISTS `third_party_accounts` (
   `type` VARCHAR(50) NOT NULL COMMENT '账号类型: semantic_scholar, ai_model',
   `config` JSON NOT NULL COMMENT '配置详情',
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '1=启用, 0=停用',
+  `priority` INT NOT NULL DEFAULT 0 COMMENT '优先级，数字越小优先级越高',
   `usage_count` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '使用次数',
   `last_used_at` DATETIME COMMENT '最后使用时间',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   INDEX `idx_type_status` (`type`, `status`),
+  INDEX `idx_type_priority` (`type`, `status`, `priority`),
   INDEX `idx_last_used` (`last_used_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='第三方API账号配置';
 

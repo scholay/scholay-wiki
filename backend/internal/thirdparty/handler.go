@@ -19,16 +19,18 @@ func NewHandler(service *Service) *Handler {
 
 // CreateAccountRequest represents the request body for creating an account
 type CreateAccountRequest struct {
-	Name   string        `json:"name" binding:"required"`
-	Type   AccountType   `json:"type" binding:"required"`
-	Config AccountConfig `json:"config" binding:"required"`
+	Name     string        `json:"name" binding:"required"`
+	Type     AccountType   `json:"type" binding:"required"`
+	Config   AccountConfig `json:"config" binding:"required"`
+	Priority int           `json:"priority"` // 优先级，数字越小优先级越高
 }
 
 // UpdateAccountRequest represents the request body for updating an account
 type UpdateAccountRequest struct {
-	Name   string        `json:"name"`
-	Config AccountConfig `json:"config"`
-	Status *int          `json:"status"`
+	Name     string        `json:"name"`
+	Config   AccountConfig `json:"config"`
+	Status   *int          `json:"status"`
+	Priority *int          `json:"priority"` // 优先级，数字越小优先级越高
 }
 
 // CreateAccount handles POST /api/v1/admin/third-party-accounts
@@ -39,7 +41,7 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 		return
 	}
 
-	account, err := h.service.CreateAccount(req.Name, req.Type, req.Config)
+	account, err := h.service.CreateAccountWithPriority(req.Name, req.Type, req.Config, req.Priority)
 	if err != nil {
 		utils.Error(c, 6002, "Failed to create account: "+err.Error())
 		return
@@ -103,7 +105,12 @@ func (h *Handler) UpdateAccount(c *gin.Context) {
 		status = *req.Status
 	}
 
-	account, err := h.service.UpdateAccount(uint(id), req.Name, req.Config, status)
+	priority := -1
+	if req.Priority != nil {
+		priority = *req.Priority
+	}
+
+	account, err := h.service.UpdateAccountWithPriority(uint(id), req.Name, req.Config, status, priority)
 	if err != nil {
 		utils.Error(c, 6008, "Failed to update account: "+err.Error())
 		return

@@ -42,6 +42,23 @@ func NewService(db *gorm.DB, accountService *thirdparty.Service) *Service {
 	}
 }
 
+// AI 重试相关常量
+const AIMaxRetries = 5
+
+// isAIRetryableError 检查是否是可重试的 AI 错误（403/429）
+func isAIRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "403") ||
+		strings.Contains(errStr, "Forbidden") ||
+		strings.Contains(errStr, "429") ||
+		strings.Contains(errStr, "Too Many Requests") ||
+		strings.Contains(errStr, "rate limit") ||
+		strings.Contains(errStr, "quota")
+}
+
 // TranslateToEnglish 将查询翻译成英文学术术语（实现 QueryTranslator 接口）
 // 使用Redis缓存避免重复翻译，缓存时间12小时
 // 如果查询本身已经是英文，返回空字符串（不需要翻译）
@@ -212,421 +229,351 @@ func (s *Service) GetAndRenderPrompt(key string, variables map[string]string) (s
 }
 
 // ChatCompletionWithTools sends a chat completion request with tools (non-streaming)
+// Includes automatic retry logic with account switching on 403/429 errors
 func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, toolChoice string, modelLevel thirdparty.ModelLevel) (*ChatCompletionResponse, error) {
 	fmt.Printf("[DEBUG] ChatCompletionWithTools called, messages: %d, tools: %d, modelLevel: %s\n", len(messages), len(tools), modelLevel)
 
-	// Get AI model config by level
-	config, _, err := s.accountService.GetRandomAIModelConfigByLevel(modelLevel)
-	if err != nil {
-		fmt.Printf("[ERROR] Failed to get AI config: %v\n", err)
-		return nil, fmt.Errorf("no AI model account configured for level %s: %w", modelLevel, err)
-	}
-	fmt.Printf("[DEBUG] Got AI config, BaseURL: %s, ModelLow: %s\n", config.BaseURL, config.ModelLow)
+	var lastErr error
+	var excludeAccountIDs []uint
 
-	// ModelLow field contains the actual model code for the requested level
-	modelCode := config.ModelLow
-	if modelCode == "" {
-		modelCode = "gpt-3.5-turbo" // Final fallback
-	}
-
-	// Prepare request
-	reqBody := ChatCompletionRequest{
-		Model:       modelCode,
-		Messages:    messages,
-		Tools:       tools,
-		ToolChoice:  toolChoice,
-		Stream:      false,
-		Temperature: 0.7,
-	}
-
-	jsonData, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Debug: Print tool request details
-	fmt.Printf("[DEBUG] Tool call request body (first 500 chars): %s\n", string(jsonData[:min(500, len(jsonData))]))
-	if len(tools) > 0 {
-		fmt.Printf("[DEBUG] First tool: name=%s, description=%s\n", tools[0].Function.Name, tools[0].Function.Description)
-	}
-
-	// Create HTTP request
-	url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+config.APIKey)
-
-	// Send request using shared HTTP client for connection pooling with circuit breaker protection
-	client := GetHTTPClient()
-
-	fmt.Printf("[DEBUG] Sending tool call request to: %s, model: %s\n", url, modelCode)
-
-	// Execute with circuit breaker protection
-	resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
-		resp, err := client.Do(req)
+	for attempt := 0; attempt <= AIMaxRetries; attempt++ {
+		// Get AI model config by level, excluding previously failed accounts
+		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
 		if err != nil {
-			fmt.Printf("[ERROR] Tool call request failed: %v\n", err)
-			return nil, fmt.Errorf("failed to send request: %w", err)
-		}
-		defer resp.Body.Close()
-		fmt.Printf("[DEBUG] Tool call response status: %d\n", resp.StatusCode)
-
-		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			fmt.Printf("[ERROR] Tool call API error, status %d: %s\n", resp.StatusCode, string(body))
-			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+			fmt.Printf("[ERROR] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
+			lastErr = err
+			continue
 		}
 
-		// Parse response
-		var result ChatCompletionResponse
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			fmt.Printf("[ERROR] Failed to decode tool call response: %v\n", err)
-			return nil, fmt.Errorf("failed to decode response: %w", err)
+		if attempt > 0 {
+			fmt.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
+		} else {
+			fmt.Printf("[DEBUG] Got AI config, BaseURL: %s, Model: %s, AccountID: %d\n", config.BaseURL, config.ModelLow, accountID)
 		}
 
-		fmt.Printf("[DEBUG] Tool call completed successfully, got %d choices\n", len(result.Choices))
-		if len(result.Choices) > 0 {
-			fmt.Printf("[DEBUG] First choice has %d tool calls\n", len(result.Choices[0].Message.ToolCalls))
-			// Debug: Print the AI's response message
-			if result.Choices[0].Message.Content != "" {
-				fmt.Printf("[DEBUG] AI response content (no tool call): %s\n", result.Choices[0].Message.Content[:min(200, len(result.Choices[0].Message.Content))])
+		// ModelLow field contains the actual model code for the requested level
+		modelCode := config.ModelLow
+		if modelCode == "" {
+			modelCode = "gpt-3.5-turbo" // Final fallback
+		}
+
+		// Prepare request
+		reqBody := ChatCompletionRequest{
+			Model:       modelCode,
+			Messages:    messages,
+			Tools:       tools,
+			ToolChoice:  toolChoice,
+			Stream:      false,
+			Temperature: 0.7,
+		}
+
+		jsonData, err := json.Marshal(reqBody)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request: %w", err)
+		}
+
+		// Debug: Print tool request details
+		if attempt == 0 {
+			fmt.Printf("[DEBUG] Tool call request body (first 500 chars): %s\n", string(jsonData[:min(500, len(jsonData))]))
+			if len(tools) > 0 {
+				fmt.Printf("[DEBUG] First tool: name=%s, description=%s\n", tools[0].Function.Name, tools[0].Function.Description)
 			}
 		}
 
-		return &result, nil
-	})
-
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return nil, fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+		// Create HTTP request
+		url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
-		return nil, err
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+config.APIKey)
+
+		// Send request using shared HTTP client for connection pooling with circuit breaker protection
+		client := GetHTTPClient()
+
+		fmt.Printf("[DEBUG] Sending tool call request to: %s, model: %s\n", url, modelCode)
+
+		// Execute with circuit breaker protection
+		resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
+			resp, err := client.Do(req)
+			if err != nil {
+				fmt.Printf("[ERROR] Tool call request failed: %v\n", err)
+				return nil, fmt.Errorf("failed to send request: %w", err)
+			}
+			defer resp.Body.Close()
+			fmt.Printf("[DEBUG] Tool call response status: %d\n", resp.StatusCode)
+
+			if resp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(resp.Body)
+				fmt.Printf("[ERROR] Tool call API error, status %d: %s\n", resp.StatusCode, string(body))
+				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+			}
+
+			// Parse response
+			var result ChatCompletionResponse
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+				fmt.Printf("[ERROR] Failed to decode tool call response: %v\n", err)
+				return nil, fmt.Errorf("failed to decode response: %w", err)
+			}
+
+			fmt.Printf("[DEBUG] Tool call completed successfully, got %d choices\n", len(result.Choices))
+			if len(result.Choices) > 0 {
+				fmt.Printf("[DEBUG] First choice has %d tool calls\n", len(result.Choices[0].Message.ToolCalls))
+				// Debug: Print the AI's response message
+				if result.Choices[0].Message.Content != "" {
+					fmt.Printf("[DEBUG] AI response content (no tool call): %s\n", result.Choices[0].Message.Content[:min(200, len(result.Choices[0].Message.Content))])
+				}
+			}
+
+			return &result, nil
+		})
+
+		if err != nil {
+			lastErr = err
+
+			// Check if circuit breaker is open
+			if circuitbreaker.IsCircuitBreakerError(err) {
+				return nil, fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+			}
+
+			// Check if error is retryable (403/429)
+			if isAIRetryableError(err) {
+				fmt.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
+				excludeAccountIDs = append(excludeAccountIDs, accountID)
+				continue
+			}
+
+			// Non-retryable error, return immediately
+			fmt.Printf("[ERROR] Non-retryable AI error: %v\n", err)
+			return nil, err
+		}
+
+		// Success
+		return resultInterface.(*ChatCompletionResponse), nil
 	}
 
-	return resultInterface.(*ChatCompletionResponse), nil
+	return nil, fmt.Errorf("all %d AI retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
 }
 
 // StreamChatCompletionWithLevel sends a streaming chat completion request with a specific model level
+// Includes automatic retry logic with account switching on 403/429 errors
 func (s *Service) StreamChatCompletionWithLevel(messages []ChatMessage, writer io.Writer, modelLevel thirdparty.ModelLevel) error {
-	// Get AI model config by level
-	config, _, err := s.accountService.GetRandomAIModelConfigByLevel(modelLevel)
-	if err != nil {
-		return fmt.Errorf("no AI model account configured for level %s: %w", modelLevel, err)
-	}
+	var lastErr error
+	var excludeAccountIDs []uint
 
-	// Prepare request - ModelLow field contains the actual model code for this level
-	reqBody := ChatCompletionRequest{
-		Model:       config.ModelLow, // This now contains the model code for the requested level
-		Messages:    messages,
-		Stream:      true,
-		Temperature: 0.7,
-	}
-
-	// Set default model if not configured
-	if reqBody.Model == "" {
-		reqBody.Model = "gpt-3.5-turbo"
-	}
-
-	jsonData, err := json.Marshal(reqBody)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Create HTTP request
-	url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+config.APIKey)
-
-	// Send request using shared HTTP client for connection pooling with circuit breaker protection
-	client := GetHTTPClient()
-
-	// Execute with circuit breaker protection
-	_, err = circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
-		resp, err := client.Do(req)
+	for attempt := 0; attempt <= AIMaxRetries; attempt++ {
+		// Get AI model config by level, excluding previously failed accounts
+		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to send request: %w", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+			fmt.Printf("[AI Retry] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
+			lastErr = err
+			continue
 		}
 
-		// Stream response
-		return nil, s.streamResponse(resp.Body, writer)
-	})
-
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+		if attempt > 0 {
+			fmt.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
 		}
-		return err
+
+		// Prepare request - ModelLow field contains the actual model code for this level
+		modelCode := config.ModelLow
+		if modelCode == "" {
+			modelCode = "gpt-3.5-turbo"
+		}
+
+		reqBody := ChatCompletionRequest{
+			Model:       modelCode,
+			Messages:    messages,
+			Stream:      true,
+			Temperature: 0.7,
+		}
+
+		jsonData, err := json.Marshal(reqBody)
+		if err != nil {
+			return fmt.Errorf("failed to marshal request: %w", err)
+		}
+
+		// Create HTTP request
+		url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		if err != nil {
+			return fmt.Errorf("failed to create request: %w", err)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+config.APIKey)
+
+		// Send request using shared HTTP client for connection pooling with circuit breaker protection
+		client := GetHTTPClient()
+
+		// Execute with circuit breaker protection
+		_, err = circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
+			resp, err := client.Do(req)
+			if err != nil {
+				return nil, fmt.Errorf("failed to send request: %w", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(resp.Body)
+				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+			}
+
+			// Stream response
+			return nil, s.streamResponse(resp.Body, writer)
+		})
+
+		if err != nil {
+			lastErr = err
+
+			// Check if circuit breaker is open
+			if circuitbreaker.IsCircuitBreakerError(err) {
+				return fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+			}
+
+			// Check if error is retryable (403/429)
+			if isAIRetryableError(err) {
+				fmt.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
+				excludeAccountIDs = append(excludeAccountIDs, accountID)
+				continue
+			}
+
+			// Non-retryable error, return immediately
+			return err
+		}
+
+		// Success
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("all %d AI retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
 }
 
 // StreamChatCompletion sends a streaming chat completion request
+// Uses mid-level model by default, includes automatic retry logic with account switching
 func (s *Service) StreamChatCompletion(messages []ChatMessage, writer io.Writer) error {
-	// Get AI model config
-	apiKey, _, err := s.accountService.GetRandomAPIKey(thirdparty.AccountTypeAIModel)
-	if err != nil {
-		return fmt.Errorf("no AI model account configured: %w", err)
-	}
-
-	// Get AI model config details
-	accounts, err := s.accountService.GetActiveAccountsByType(thirdparty.AccountTypeAIModel)
-	if err != nil || len(accounts) == 0 {
-		return fmt.Errorf("no active AI model account found")
-	}
-
-	config, err := accounts[0].GetAIModelConfig()
-	if err != nil {
-		return fmt.Errorf("failed to parse AI model config: %w", err)
-	}
-
-	// Select model code: prefer ModelMid for general streaming, fallback to any available model
-	modelCode := config.ModelMid
-	if modelCode == "" {
-		modelCode = config.ModelLow
-	}
-	if modelCode == "" {
-		modelCode = config.ModelHigh
-	}
-	if modelCode == "" {
-		modelCode = "gpt-3.5-turbo" // Final fallback
-	}
-
-	// Prepare request
-	reqBody := ChatCompletionRequest{
-		Model:       modelCode,
-		Messages:    messages,
-		Stream:      true,
-		Temperature: 0.7,
-	}
-
-	jsonData, err := json.Marshal(reqBody)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Create HTTP request
-	url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	// Send request using shared HTTP client for connection pooling with circuit breaker protection
-	client := GetHTTPClient()
-
-	// Execute with circuit breaker protection
-	_, err = circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
-		resp, err := client.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("failed to send request: %w", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
-		}
-
-		// Stream response
-		return nil, s.streamResponse(resp.Body, writer)
-	})
-
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return err
-	}
-
-	return nil
+	// Use mid-level model by default for general streaming
+	return s.StreamChatCompletionWithLevel(messages, writer, thirdparty.ModelLevelMid)
 }
 
 // StreamChatCompletionAndCollectWithLevel streams chat completion with specific model level and collects full content
+// Includes automatic retry logic with account switching on 403/429 errors
 func (s *Service) StreamChatCompletionAndCollectWithLevel(messages []ChatMessage, writer io.Writer, modelLevel thirdparty.ModelLevel) (string, error) {
 	fmt.Printf("[DEBUG] StreamChatCompletionAndCollectWithLevel called, modelLevel: %s, messages count: %d\n", modelLevel, len(messages))
 
-	// Get AI model config by level
-	fmt.Printf("[DEBUG] Getting AI model config for level: %s\n", modelLevel)
-	config, _, err := s.accountService.GetRandomAIModelConfigByLevel(modelLevel)
-	if err != nil {
-		fmt.Printf("[ERROR] Failed to get AI model config: %v\n", err)
-		return "", fmt.Errorf("no AI model account configured for level %s: %w", modelLevel, err)
-	}
-	fmt.Printf("[DEBUG] Got AI model config, BaseURL: %s, ModelLow: %s\n", config.BaseURL, config.ModelLow)
+	var lastErr error
+	var excludeAccountIDs []uint
 
-	// Create request - ModelLow field contains the actual model code for this level
-	reqBody := ChatCompletionRequest{
-		Model:       config.ModelLow, // This now contains the model code for the requested level
-		Messages:    messages,
-		Stream:      true,
-		Temperature: 0.7,
-	}
-
-	// Use default model if not specified
-	if reqBody.Model == "" {
-		reqBody.Model = "gpt-3.5-turbo"
-	}
-	fmt.Printf("[DEBUG] Final model for request: %s\n", reqBody.Model)
-
-	jsonData, err := json.Marshal(reqBody)
-	if err != nil {
-		fmt.Printf("[ERROR] Failed to marshal request: %v\n", err)
-		return "", fmt.Errorf("failed to marshal request: %w", err)
-	}
-	fmt.Printf("[DEBUG] Request marshaled successfully, size: %d bytes\n", len(jsonData))
-
-	// Create HTTP request
-	url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
-	fmt.Printf("[DEBUG] Creating request to URL: %s\n", url)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		fmt.Printf("[ERROR] Failed to create HTTP request: %v\n", err)
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-	fmt.Printf("[DEBUG] HTTP request created successfully\n")
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+config.APIKey)
-
-	// Send request with circuit breaker protection
-	client := &http.Client{
-		Timeout: 5 * time.Minute,
-	}
-
-	fmt.Printf("[DEBUG] Sending AI request, model: %s, url: %s, level: %s\n", reqBody.Model, url, modelLevel)
-
-	// Execute with circuit breaker protection
-	resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
-		resp, err := client.Do(req)
+	for attempt := 0; attempt <= AIMaxRetries; attempt++ {
+		// Get AI model config by level, excluding previously failed accounts
+		fmt.Printf("[DEBUG] Getting AI model config for level: %s (attempt %d)\n", modelLevel, attempt+1)
+		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
 		if err != nil {
-			fmt.Printf("[ERROR] AI request failed: %v\n", err)
-			return nil, fmt.Errorf("failed to send request: %w", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			fmt.Printf("[ERROR] AI API returned status %d, model: %s, body: %s\n", resp.StatusCode, reqBody.Model, string(body))
-			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+			fmt.Printf("[ERROR] Attempt %d: Failed to get AI model config: %v\n", attempt+1, err)
+			lastErr = err
+			continue
 		}
 
-		fmt.Printf("[DEBUG] AI API call successful, model: %s, starting to stream response\n", reqBody.Model)
-		// Stream response and collect content
-		return s.streamResponseAndCollect(resp.Body, writer)
-	})
-
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return "", fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+		if attempt > 0 {
+			fmt.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
+		} else {
+			fmt.Printf("[DEBUG] Got AI model config, BaseURL: %s, Model: %s, AccountID: %d\n", config.BaseURL, config.ModelLow, accountID)
 		}
-		return "", err
+
+		// Create request - ModelLow field contains the actual model code for this level
+		modelCode := config.ModelLow
+		if modelCode == "" {
+			modelCode = "gpt-3.5-turbo"
+		}
+
+		reqBody := ChatCompletionRequest{
+			Model:       modelCode,
+			Messages:    messages,
+			Stream:      true,
+			Temperature: 0.7,
+		}
+
+		fmt.Printf("[DEBUG] Final model for request: %s\n", reqBody.Model)
+
+		jsonData, err := json.Marshal(reqBody)
+		if err != nil {
+			fmt.Printf("[ERROR] Failed to marshal request: %v\n", err)
+			return "", fmt.Errorf("failed to marshal request: %w", err)
+		}
+		fmt.Printf("[DEBUG] Request marshaled successfully, size: %d bytes\n", len(jsonData))
+
+		// Create HTTP request
+		url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
+		fmt.Printf("[DEBUG] Creating request to URL: %s\n", url)
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		if err != nil {
+			fmt.Printf("[ERROR] Failed to create HTTP request: %v\n", err)
+			return "", fmt.Errorf("failed to create request: %w", err)
+		}
+		fmt.Printf("[DEBUG] HTTP request created successfully\n")
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+config.APIKey)
+
+		// Send request with circuit breaker protection
+		client := &http.Client{
+			Timeout: 5 * time.Minute,
+		}
+
+		fmt.Printf("[DEBUG] Sending AI request, model: %s, url: %s, level: %s\n", reqBody.Model, url, modelLevel)
+
+		// Execute with circuit breaker protection
+		resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
+			resp, err := client.Do(req)
+			if err != nil {
+				fmt.Printf("[ERROR] AI request failed: %v\n", err)
+				return nil, fmt.Errorf("failed to send request: %w", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(resp.Body)
+				fmt.Printf("[ERROR] AI API returned status %d, model: %s, body: %s\n", resp.StatusCode, reqBody.Model, string(body))
+				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+			}
+
+			fmt.Printf("[DEBUG] AI API call successful, model: %s, starting to stream response\n", reqBody.Model)
+			// Stream response and collect content
+			return s.streamResponseAndCollect(resp.Body, writer)
+		})
+
+		if err != nil {
+			lastErr = err
+
+			// Check if circuit breaker is open
+			if circuitbreaker.IsCircuitBreakerError(err) {
+				return "", fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+			}
+
+			// Check if error is retryable (403/429)
+			if isAIRetryableError(err) {
+				fmt.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
+				excludeAccountIDs = append(excludeAccountIDs, accountID)
+				continue
+			}
+
+			// Non-retryable error, return immediately
+			return "", err
+		}
+
+		// Success
+		return resultInterface.(string), nil
 	}
 
-	return resultInterface.(string), nil
+	return "", fmt.Errorf("all %d AI retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
 }
 
 // StreamChatCompletionAndCollect streams chat completion and collects full content
+// Uses mid-level model by default, includes automatic retry logic with account switching
 func (s *Service) StreamChatCompletionAndCollect(messages []ChatMessage, writer io.Writer) (string, error) {
-	// Get AI model account
-	apiKey, _, err := s.accountService.GetRandomAPIKey(thirdparty.AccountTypeAIModel)
-	if err != nil {
-		return "", fmt.Errorf("failed to get AI model API key: %w", err)
-	}
-
-	// Get accounts to fetch configuration
-	accounts, err := s.accountService.GetActiveAccountsByType(thirdparty.AccountTypeAIModel)
-	if err != nil || len(accounts) == 0 {
-		return "", fmt.Errorf("no active AI model accounts found")
-	}
-
-	// Get configuration
-	config, err := accounts[0].GetAIModelConfig()
-	if err != nil {
-		return "", fmt.Errorf("failed to parse AI model config: %w", err)
-	}
-
-	// Select model code: prefer ModelMid for general streaming with collection, fallback to any available model
-	modelCode := config.ModelMid
-	if modelCode == "" {
-		modelCode = config.ModelLow
-	}
-	if modelCode == "" {
-		modelCode = config.ModelHigh
-	}
-	if modelCode == "" {
-		modelCode = "gpt-3.5-turbo" // Final fallback
-	}
-
-	// Create request
-	reqBody := ChatCompletionRequest{
-		Model:       modelCode,
-		Messages:    messages,
-		Stream:      true,
-		Temperature: 0.7,
-	}
-
-	jsonData, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Create HTTP request
-	url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	// Send request using shared HTTP client for connection pooling with circuit breaker protection
-	client := GetHTTPClient()
-
-	// Execute with circuit breaker protection
-	resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
-		resp, err := client.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("failed to send request: %w", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
-		}
-
-		// Stream response and collect content
-		return s.streamResponseAndCollect(resp.Body, writer)
-	})
-
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return "", fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
-		}
-		return "", err
-	}
-
-	return resultInterface.(string), nil
+	// Use mid-level model by default for general streaming with collection
+	return s.StreamChatCompletionAndCollectWithLevel(messages, writer, thirdparty.ModelLevelMid)
 }
 
 // streamResponse reads SSE stream and writes to output
@@ -1181,97 +1128,108 @@ func (s *Service) convertMapToResult(dataMap map[string]string, dimensions []Ana
 
 // ChatCompletionWithLevel calls AI model without streaming and returns the complete response
 // Used for non-streaming operations like generating follow-up questions
+// Includes automatic retry logic with account switching on 403/429 errors
 func (s *Service) ChatCompletionWithLevel(messages []ChatMessage, modelLevel thirdparty.ModelLevel) (string, error) {
 	fmt.Printf("[DEBUG] ChatCompletionWithLevel called, modelLevel: %s, messages count: %d\n", modelLevel, len(messages))
 
-	// Get AI model config by level
-	config, _, err := s.accountService.GetRandomAIModelConfigByLevel(modelLevel)
-	if err != nil {
-		return "", fmt.Errorf("no AI model account configured for level %s: %w", modelLevel, err)
-	}
+	var lastErr error
+	var excludeAccountIDs []uint
 
-	// Select model code based on level
-	modelCode := config.ModelLow
-	if modelLevel == thirdparty.ModelLevelMid {
-		modelCode = config.ModelMid
-	} else if modelLevel == thirdparty.ModelLevelHigh {
-		modelCode = config.ModelHigh
-	}
-
-	// Fallback logic
-	if modelCode == "" {
-		modelCode = config.ModelLow
-	}
-	if modelCode == "" {
-		modelCode = config.ModelMid
-	}
-	if modelCode == "" {
-		modelCode = config.ModelHigh
-	}
-	if modelCode == "" {
-		modelCode = "gpt-3.5-turbo" // Final fallback
-	}
-
-	// Prepare request (NO streaming)
-	reqBody := ChatCompletionRequest{
-		Model:       modelCode,
-		Messages:    messages,
-		Stream:      false, // Non-streaming
-		Temperature: 0.7,
-	}
-
-	jsonData, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Create HTTP request
-	url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+config.APIKey)
-
-	// Send request using shared HTTP client with circuit breaker protection
-	client := GetHTTPClient()
-
-	// Execute with circuit breaker protection
-	resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
-		resp, err := client.Do(req)
+	for attempt := 0; attempt <= AIMaxRetries; attempt++ {
+		// Get AI model config by level, excluding previously failed accounts
+		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to send request: %w", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+			fmt.Printf("[AI Retry] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
+			lastErr = err
+			continue
 		}
 
-		// Parse non-streaming response
-		var response ChatCompletionResponse
-		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-			return nil, fmt.Errorf("failed to decode response: %w", err)
+		if attempt > 0 {
+			fmt.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
 		}
 
-		if len(response.Choices) == 0 {
-			return nil, fmt.Errorf("no response choices returned")
+		// ModelLow field now contains the actual model code for the requested level
+		modelCode := config.ModelLow
+		if modelCode == "" {
+			modelCode = "gpt-3.5-turbo" // Final fallback
 		}
 
-		return response.Choices[0].Message.Content, nil
-	})
-
-	if err != nil {
-		if circuitbreaker.IsCircuitBreakerError(err) {
-			return "", fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+		// Prepare request (NO streaming)
+		reqBody := ChatCompletionRequest{
+			Model:       modelCode,
+			Messages:    messages,
+			Stream:      false, // Non-streaming
+			Temperature: 0.7,
 		}
-		return "", err
+
+		jsonData, err := json.Marshal(reqBody)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal request: %w", err)
+		}
+
+		// Create HTTP request
+		url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		if err != nil {
+			return "", fmt.Errorf("failed to create request: %w", err)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+config.APIKey)
+
+		// Send request using shared HTTP client with circuit breaker protection
+		client := GetHTTPClient()
+
+		// Execute with circuit breaker protection
+		resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
+			resp, err := client.Do(req)
+			if err != nil {
+				return nil, fmt.Errorf("failed to send request: %w", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(resp.Body)
+				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+			}
+
+			// Parse non-streaming response
+			var response ChatCompletionResponse
+			if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+				return nil, fmt.Errorf("failed to decode response: %w", err)
+			}
+
+			if len(response.Choices) == 0 {
+				return nil, fmt.Errorf("no response choices returned")
+			}
+
+			return response.Choices[0].Message.Content, nil
+		})
+
+		if err != nil {
+			lastErr = err
+
+			// Check if circuit breaker is open
+			if circuitbreaker.IsCircuitBreakerError(err) {
+				return "", fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+			}
+
+			// Check if error is retryable (403/429)
+			if isAIRetryableError(err) {
+				fmt.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
+				excludeAccountIDs = append(excludeAccountIDs, accountID)
+				continue
+			}
+
+			// Non-retryable error, return immediately
+			return "", err
+		}
+
+		// Success
+		return resultInterface.(string), nil
 	}
 
-	return resultInterface.(string), nil
+	return "", fmt.Errorf("all %d AI retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
 }
 
 // GetAnalysisDimensions 获取用户的分析维度
