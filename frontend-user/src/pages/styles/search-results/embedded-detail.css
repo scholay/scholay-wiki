@@ -1271,3 +1271,1303 @@
 [data-theme="light"] .epd-cite-modal-footer {
   border-top-color: rgba(0, 0, 0, 0.1);
 }
+
+/* ========================================
+   作者详情视图样式
+   ======================================== */
+
+.author-detail-container {
+  padding: 0;
+}
+
+.author-detail-content {
+  padding: 1.5rem;
+}
+
+/* 作者信息卡片 */
+.author-card {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: var(--bg-primary, #ffffff);
+  border-radius: 12px;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  margin-bottom: 1.5rem;
+}
+
+.author-avatar {
+  flex-shrink: 0;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-color, #3b82f6) 0%, #8b5cf6 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.author-avatar svg {
+  color: white;
+}
+
+.author-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.author-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary, rgba(255, 255, 255, 0.95));
+  margin: 0 0 0.5rem 0;
+}
+
+.author-affiliations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.affiliation-tag {
+  padding: 0.25rem 0.75rem;
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.05));
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  border-radius: 4px;
+  font-size: 0.8125rem;
+}
+
+.author-stats {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary, rgba(255, 255, 255, 0.95));
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--text-tertiary, rgba(255, 255, 255, 0.5));
+}
+
+.author-links {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.author-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.05));
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.author-link-btn:hover {
+  background: var(--primary-color, #3b82f6);
+  color: white;
+  border-color: var(--primary-color, #3b82f6);
+}
+
+.author-link-btn.back-btn {
+  margin-left: auto;
+}
+
+/* 作者论文列表 */
+.author-papers-section {
+  background: var(--bg-primary, #ffffff);
+  border-radius: 12px;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  padding: 1rem;
+}
+
+.author-papers-section .section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, rgba(255, 255, 255, 0.95));
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+}
+
+.author-papers-section .section-title svg {
+  color: var(--primary-color, #3b82f6);
+}
+
+.author-papers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.author-paper-item {
+  padding: 1rem;
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.03));
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.author-paper-item:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+  border-color: var(--primary-color, #3b82f6);
+}
+
+.author-paper-item .paper-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary, rgba(255, 255, 255, 0.95));
+  margin: 0 0 0.5rem 0;
+  line-height: 1.4;
+}
+
+.author-paper-item .paper-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+  margin-bottom: 0.5rem;
+}
+
+.author-paper-item .meta-dot {
+  margin: 0 0.25rem;
+  color: var(--text-tertiary, rgba(255, 255, 255, 0.4));
+}
+
+.author-paper-item .paper-venue {
+  color: var(--primary-color, #3b82f6);
+}
+
+.author-paper-item .paper-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.author-paper-item .paper-citations {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-tertiary, rgba(255, 255, 255, 0.5));
+}
+
+/* 加载更多按钮 */
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.load-more-btn {
+  padding: 0.5rem 1.5rem;
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.05));
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.load-more-btn:hover:not(:disabled) {
+  background: var(--primary-color, #3b82f6);
+  color: white;
+  border-color: var(--primary-color, #3b82f6);
+}
+
+.load-more-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Light theme 作者详情样式 */
+[data-theme="light"] .author-card {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .author-name {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .affiliation-tag {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .stat-value {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .stat-label {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .author-link-btn {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.7);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .author-papers-section {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .author-papers-section .section-title {
+  color: rgba(0, 0, 0, 0.9);
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .author-paper-item {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .author-paper-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .author-paper-item .paper-title {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .author-paper-item .paper-meta {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .author-paper-item .paper-citations {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .load-more-btn {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.7);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .author-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .author-stats {
+    justify-content: center;
+  }
+  
+  .author-links {
+    justify-content: center;
+  }
+  
+  .author-link-btn.back-btn {
+    margin-left: 0;
+  }
+}
+
+/* ========================================
+   作者详情页面 - 新布局样式
+   ======================================== */
+
+/* 作者详情页面容器 */
+.author-detail-page {
+  width: 100%;
+  min-height: calc(100vh - 120px);
+}
+
+/* 两栏布局 */
+.author-detail-layout {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+/* 左侧作者信息面板 */
+.author-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+}
+
+.author-profile-card {
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 12px;
+  padding: 1.5rem;
+  position: sticky;
+  top: 1rem;
+}
+
+.author-avatar-large {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #1a56db 0%, #7e3af2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.author-avatar-large svg {
+  color: white;
+}
+
+.author-name-large {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary, rgba(255, 255, 255, 0.95));
+  margin: 0 0 1rem 0;
+  line-height: 1.3;
+}
+
+/* 统计信息 - 垂直布局 */
+.author-stats-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  margin-bottom: 1rem;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-row .stat-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+}
+
+.stat-value-highlight {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-color, #3b82f6);
+}
+
+/* 机构信息 */
+.author-affiliations-section {
+  margin-bottom: 1rem;
+}
+
+.affiliation-item {
+  font-size: 0.8125rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.05));
+}
+
+.affiliation-item:last-child {
+  border-bottom: none;
+}
+
+/* 外部链接 */
+.author-external-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.external-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  text-decoration: none;
+  padding: 0.375rem 0;
+  transition: color 0.2s;
+}
+
+.external-link:hover {
+  color: var(--primary-color, #3b82f6);
+}
+
+/* 返回按钮 */
+.author-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.625rem;
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.05));
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.author-back-btn:hover {
+  background: var(--primary-color, #3b82f6);
+  color: white;
+  border-color: var(--primary-color, #3b82f6);
+}
+
+/* 右侧主内容区域 */
+.author-main-content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Tab 导航 */
+.author-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  margin-bottom: 1rem;
+}
+
+.author-tab {
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.author-tab:hover {
+  color: var(--text-primary, rgba(255, 255, 255, 0.95));
+}
+
+.author-tab.active {
+  color: var(--primary-color, #3b82f6);
+  border-bottom-color: var(--primary-color, #3b82f6);
+}
+
+/* 工具栏 */
+.author-papers-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.03));
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.toolbar-left .papers-count {
+  font-size: 0.875rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+}
+
+.view-mode-toggle {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--bg-primary, rgba(255, 255, 255, 0.05));
+  padding: 0.25rem;
+  border-radius: 6px;
+}
+
+.view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  color: var(--text-tertiary, rgba(255, 255, 255, 0.5));
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-btn:hover {
+  color: var(--text-primary, rgba(255, 255, 255, 0.95));
+}
+
+.view-btn.active {
+  background: var(--primary-color, #3b82f6);
+  color: white;
+}
+
+/* 论文卡片样式 */
+.author-paper-card {
+  padding: 1.25rem;
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.author-paper-card:hover {
+  border-color: var(--primary-color, #3b82f6);
+}
+
+.author-paper-card.selected {
+  border-color: var(--primary-color, #3b82f6);
+  background: var(--bg-hover, rgba(59, 130, 246, 0.05));
+}
+
+.paper-title-link {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-color, #3b82f6);
+  margin: 0 0 0.5rem 0;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.paper-title-link:hover {
+  text-decoration: underline;
+}
+
+.paper-authors-line {
+  font-size: 0.8125rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  margin-bottom: 0.375rem;
+}
+
+.paper-author {
+  cursor: pointer;
+}
+
+.paper-author:hover {
+  color: var(--primary-color, #3b82f6);
+}
+
+.paper-author.current-author {
+  font-weight: 600;
+  color: var(--text-primary, rgba(255, 255, 255, 0.95));
+}
+
+.paper-meta-line {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-tertiary, rgba(255, 255, 255, 0.5));
+  margin-bottom: 0.5rem;
+}
+
+.paper-fields {
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.05));
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+}
+
+.paper-abstract-preview {
+  font-size: 0.8125rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+  line-height: 1.5;
+  margin: 0.5rem 0;
+}
+
+.paper-actions-line {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.paper-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-tertiary, rgba(255, 255, 255, 0.5));
+  padding: 0.25rem 0.5rem;
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.05));
+  border-radius: 4px;
+}
+
+.paper-venue-tag {
+  font-size: 0.75rem;
+  color: var(--primary-color, #3b82f6);
+  background: rgba(59, 130, 246, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.paper-pdf-link {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  background: #ef4444;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+.paper-pdf-link:hover {
+  background: #dc2626;
+}
+
+/* 表格容器 */
+.author-papers-table-container {
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Light theme */
+[data-theme="light"] .author-profile-card {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .author-name-large {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .stat-row .stat-label {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .affiliation-item {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .external-link {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .author-back-btn {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.7);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .author-tabs {
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .author-tab {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .author-tab:hover {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .author-papers-toolbar {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .papers-count {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .author-paper-card {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .author-paper-card:hover {
+  border-color: var(--primary-color, #3b82f6);
+}
+
+[data-theme="light"] .paper-authors-line {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .paper-author.current-author {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .paper-abstract-preview {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+/* 响应式设计 */
+@media (max-width: 900px) {
+  .author-detail-layout {
+    flex-direction: column;
+  }
+  
+  .author-sidebar {
+    width: 100%;
+  }
+  
+  .author-profile-card {
+    position: static;
+  }
+}
+
+/* ========================================
+   作者详情页面 - 新布局 (顶部信息 + 下方论文)
+   ======================================== */
+
+.author-detail-page {
+  width: 100%;
+  padding: 0 1rem;
+}
+
+/* 顶部作者信息卡片 */
+.author-header-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 1.5rem 2rem;
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.author-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.author-avatar-box {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.author-avatar-box svg {
+  color: white;
+}
+
+.author-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.author-header-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary, #1a1a2e);
+  margin: 0;
+}
+
+.author-header-affiliation {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #666);
+  margin: 0;
+}
+
+/* 统计数据 */
+.author-header-stats {
+  display: flex;
+  gap: 2rem;
+}
+
+.author-stat-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.author-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-color, #667eea);
+}
+
+.author-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #888);
+  text-transform: uppercase;
+}
+
+/* 操作按钮 */
+.author-header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.author-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+  background: var(--bg-secondary, #f8f9fa);
+  color: var(--text-primary, #333);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.author-action-btn:hover {
+  background: var(--bg-hover, #e9ecef);
+  border-color: var(--accent-color, #667eea);
+  color: var(--accent-color, #667eea);
+}
+
+.author-action-btn.back {
+  background: var(--accent-color, #667eea);
+  color: white;
+  border-color: var(--accent-color, #667eea);
+}
+
+.author-action-btn.back:hover {
+  background: var(--accent-hover, #5a6fd6);
+}
+
+/* 新版作者信息卡片 - 简洁美观设计 */
+.author-profile-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  background: var(--bg-primary, #ffffff);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+}
+
+.author-profile-main {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.author-profile-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-color, #10a37f) 0%, #0d8a6a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.25);
+}
+
+.author-avatar-letter {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: white;
+}
+
+.author-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.author-profile-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.author-profile-affiliation {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary, #666);
+  margin: 0;
+}
+
+.author-profile-affiliation svg {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.author-profile-homepage {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--accent-color, #10a37f);
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+.author-profile-homepage:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.author-profile-homepage svg {
+  flex-shrink: 0;
+}
+
+/* 指标区域 */
+.author-profile-metrics {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.author-metric-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 1.25rem;
+}
+
+.author-metric-value {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--text-primary, #1a1a2e);
+  line-height: 1.2;
+}
+
+.author-metric-label {
+  font-size: 0.75rem;
+  color: var(--text-tertiary, #999);
+  margin-top: 0.125rem;
+}
+
+.author-metric-divider {
+  width: 1px;
+  height: 32px;
+  background: var(--border-color, rgba(0, 0, 0, 0.1));
+}
+
+/* 暗色主题适配 */
+[data-theme="dark"] .author-profile-card {
+  background: var(--bg-secondary, #1e1e2e);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .author-profile-avatar {
+  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.3);
+}
+
+[data-theme="dark"] .author-profile-name {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="dark"] .author-profile-affiliation {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .author-metric-value {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="dark"] .author-metric-label {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .author-metric-divider {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 响应式 - 新版作者卡片 */
+@media (max-width: 768px) {
+  .author-profile-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .author-profile-metrics {
+    width: 100%;
+    justify-content: space-around;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+  }
+
+  .author-metric-item {
+    padding: 0 0.75rem;
+  }
+
+  .author-metric-divider {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .author-profile-avatar {
+    width: 48px;
+    height: 48px;
+  }
+
+  .author-avatar-letter {
+    font-size: 1.25rem;
+  }
+
+  .author-profile-name {
+    font-size: 1.125rem;
+  }
+
+  .author-metric-value {
+    font-size: 1.125rem;
+  }
+}
+
+/* 论文列表头部 */
+.author-papers-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 0;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+}
+
+.author-papers-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.papers-total {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+.author-papers-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* 表格视图容器 */
+.author-papers-table-wrapper {
+  margin-top: 1rem;
+}
+
+/* 当前作者高亮 - 使用更柔和的绿色强调 */
+.author-tag.current-author {
+  background: rgba(16, 163, 127, 0.15) !important;
+  color: #10a37f !important;
+  border: 1px solid rgba(16, 163, 127, 0.3) !important;
+  font-weight: 600 !important;
+}
+
+[data-theme="light"] .author-tag.current-author {
+  background: rgba(16, 163, 127, 0.1) !important;
+  color: #059669 !important;
+  border: 1px solid rgba(16, 163, 127, 0.25) !important;
+}
+
+/* 加载更多按钮 */
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 0;
+}
+
+.load-more-btn {
+  padding: 0.75rem 2rem;
+  background: var(--bg-secondary, #f8f9fa);
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary, #333);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.load-more-btn:hover:not(:disabled) {
+  background: var(--accent-color, #667eea);
+  color: white;
+  border-color: var(--accent-color, #667eea);
+}
+
+.load-more-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 作者表格视图 - 无摘要提示 */
+.author-table-no-abstract-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 12px;
+  margin: 1rem 0;
+}
+
+.author-table-no-abstract-notice .notice-icon {
+  color: var(--text-tertiary, #999);
+  margin-bottom: 1rem;
+}
+
+.author-table-no-abstract-notice .notice-icon svg {
+  opacity: 0.6;
+}
+
+.author-table-no-abstract-notice .notice-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  margin: 0 0 0.5rem 0;
+}
+
+.author-table-no-abstract-notice .notice-desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #666);
+  margin: 0 0 1.5rem 0;
+  max-width: 400px;
+  line-height: 1.6;
+}
+
+.author-table-no-abstract-notice .notice-action-btn {
+  padding: 0.625rem 1.5rem;
+  background: var(--accent-color, #10a37f);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.author-table-no-abstract-notice .notice-action-btn:hover {
+  background: var(--accent-color-hover, #0d8a6a);
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .author-table-no-abstract-notice {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .author-table-no-abstract-notice .notice-title {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .author-table-no-abstract-notice .notice-desc {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 作者表格视图 - 加载状态 */
+.author-table-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  min-height: 300px;
+}
+
+.author-table-loading .loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color, rgba(0, 0, 0, 0.1));
+  border-top-color: var(--accent-color, #10a37f);
+  border-radius: 50%;
+  animation: author-table-spin 0.8s linear infinite;
+}
+
+@keyframes author-table-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.author-table-loading .loading-text {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #666);
+}
+
+[data-theme="dark"] .author-table-loading .loading-spinner {
+  border-color: rgba(255, 255, 255, 0.1);
+  border-top-color: var(--accent-color, #10a37f);
+}
+
+[data-theme="dark"] .author-table-loading .loading-text {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 响应式设计 */
+@media (max-width: 900px) {
+  .author-header-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .author-header-stats {
+    width: 100%;
+    justify-content: space-around;
+    padding: 1rem 0;
+    border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+    border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+  }
+
+  .author-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .author-action-btn {
+    flex: 1;
+    min-width: 120px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 600px) {
+  .author-avatar-box {
+    width: 56px;
+    height: 56px;
+  }
+
+  .author-avatar-box svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .author-header-name {
+    font-size: 1.25rem;
+  }
+
+  .author-stat-value {
+    font-size: 1.25rem;
+  }
+}

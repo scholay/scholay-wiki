@@ -162,6 +162,7 @@ const SearchResultsPage = () => {
   const initState = useMemo(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const hasPaperId = !!urlParams.get('paperId');
+    const hasAuthorId = !!urlParams.get('authorId');
     const returnToTable = localStorage.getItem('returnToTableView') === 'true';
     const returnToSimilarTableFlag = localStorage.getItem('returnToSimilarPapersTable') === 'true';
     
@@ -173,10 +174,11 @@ const SearchResultsPage = () => {
       localStorage.removeItem('returnToSimilarPapersTable');
     }
     
-    console.log('[SearchResultsPage] initState:', { hasPaperId, returnToTable, returnToSimilarTableFlag });
+    console.log('[SearchResultsPage] initState:', { hasPaperId, hasAuthorId, returnToTable, returnToSimilarTableFlag });
     
     return {
       hasPaperId,
+      hasAuthorId,
       returnToTable,
       returnToSimilarTable: returnToSimilarTableFlag,
     };
@@ -193,6 +195,10 @@ const SearchResultsPage = () => {
   }, [initState]);
   
   const [viewMode, setViewMode] = useState(() => {
+    // 检查URL中是否有authorId参数，如果有则显示作者详情视图
+    if (initState.hasAuthorId) {
+      return 'author';
+    }
     // 检查URL中是否有paperId参数，如果有则显示论文详情视图
     if (initState.hasPaperId) {
       return 'paper';
@@ -205,7 +211,7 @@ const SearchResultsPage = () => {
       return 'table';
     }
     return 'list';
-  }); // 视图模式: 'list', 'table' 或 'paper'
+  }); // 视图模式: 'list', 'table', 'paper' 或 'author'
   const [selectedDimensionKey, setSelectedDimensionKey] = useState(null); // 表格视图中选中的维度
   const [tableReloadTrigger, setTableReloadTrigger] = useState(null); // 触发表格重新加载
   const [showTableGuide, setShowTableGuide] = useState(false); // 表格视图引导弹窗
@@ -216,6 +222,22 @@ const SearchResultsPage = () => {
   const [detailPaperId, setDetailPaperId] = useState(null); // 选中的论文ID
   const [detailLoading, setDetailLoading] = useState(false); // 论文详情加载状态
   const [detailError, setDetailError] = useState(null); // 论文详情错误状态
+
+  // 作者详情视图相关状态
+  const [detailAuthor, setDetailAuthor] = useState(null); // 选中的作者详情数据
+  const [detailAuthorId, setDetailAuthorId] = useState(null); // 选中的作者ID
+  const [authorLoading, setAuthorLoading] = useState(false); // 作者详情加载状态
+  const [authorError, setAuthorError] = useState(null); // 作者详情错误状态
+  const [authorPapers, setAuthorPapers] = useState([]); // 作者论文列表
+  const [authorPapersLoading, setAuthorPapersLoading] = useState(false); // 作者论文加载状态
+  const [authorPapersPage, setAuthorPapersPage] = useState(1); // 作者论文当前页
+  const [authorPapersTotalPages, setAuthorPapersTotalPages] = useState(0); // 作者论文总页数
+  const [authorPapersTotal, setAuthorPapersTotal] = useState(0); // 作者论文总数
+  const [authorPapersPerPage] = useState(20); // 每页论文数
+  const [authorPapersViewMode, setAuthorPapersViewMode] = useState('list'); // 作者论文视图模式: 'list' 或 'table'
+  const [allAuthorPapers, setAllAuthorPapers] = useState([]); // 表格视图累积的所有论文（用于表格视图）
+  // authorSelectedPaper 已移除，统一使用 selectedPaper
+  const [authorActiveTab, setAuthorActiveTab] = useState('publications'); // 作者详情 Tab: 'publications', 'citingAuthors', 'coAuthors'
   const [detailActiveTab, setDetailActiveTab] = useState(() => {
     // 如果是从相似论文表格视图登录返回，默认选中相似论文 tab
     if (initState.returnToSimilarTable) {
@@ -537,19 +559,187 @@ const SearchResultsPage = () => {
     }
   }, []);
 
-  // 监听 URL 中的 paperId 参数 - 页面加载或刷新时自动请求
+  // 加载作者详情的函数
+  const loadAuthorDetail = useCallback(async (authorId, page = 1) => {
+    if (!authorId) return;
+    
+    console.log('[SearchResultsPage] Loading author detail:', authorId, 'page:', page);
+    setViewMode('author');
+    setDetailAuthorId(authorId);
+    setAuthorLoading(true);
+    setAuthorError(null);
+    if (page === 1) {
+      setDetailAuthor(null);
+      setAuthorPapers([]);
+    }
+    setAuthorPapersPage(page);
+    
+    const perPage = 20;
+    const offset = (page - 1) * perPage;
+    
+    try {
+      // Step 1: 并行加载作者详情和作者论文ID列表
+      const [authorResponse, papersIdsResponse] = await Promise.all([
+        page === 1 ? publicScholarAPI.getAuthor(authorId) : Promise.resolve(null),
+        publicScholarAPI.getAuthorPapers(authorId, offset, perPage, 'paperId') // 只获取 paperId
+      ]);
+      
+      if (page === 1 && authorResponse) {
+        console.log('[SearchResultsPage] Author detail loaded:', authorResponse.data);
+        if (authorResponse.data.code === 0 && authorResponse.data.data) {
+          setDetailAuthor(authorResponse.data.data);
+          // 计算总页数
+          const totalPapers = authorResponse.data.data.paperCount || 0;
+          const totalPages = Math.ceil(totalPapers / perPage);
+          console.log('[SearchResultsPage] Total papers:', totalPapers, 'Total pages:', totalPages);
+          setAuthorPapersTotal(totalPapers);
+          setAuthorPapersTotalPages(totalPages);
+        } else {
+          throw new Error('Failed to load author details');
+        }
+      }
+      
+      // Step 2: 用论文ID批量获取完整论文详情
+      if (papersIdsResponse.data.code === 0 && papersIdsResponse.data.data) {
+        const paperIds = (papersIdsResponse.data.data.data || []).map(p => p.paperId).filter(id => id);
+        console.log('[SearchResultsPage] Paper IDs:', paperIds);
+        
+        if (paperIds.length > 0) {
+          const batchResponse = await publicScholarAPI.getPaperBatch(
+            paperIds,
+            ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
+          );
+          
+          console.log('[SearchResultsPage] Batch response:', batchResponse.data);
+          if (batchResponse.data.code === 0 && batchResponse.data.data) {
+            const papersData = batchResponse.data.data || [];
+            console.log('[SearchResultsPage] Papers data length:', papersData.length);
+            console.log('[SearchResultsPage] First paper:', papersData[0]);
+            setAuthorPapers(papersData);
+          } else {
+            console.log('[SearchResultsPage] Batch response failed:', batchResponse.data);
+          }
+        } else {
+          setAuthorPapers([]);
+        }
+      }
+      
+      setAuthorLoading(false);
+    } catch (error) {
+      console.error('[SearchResultsPage] Failed to load author details:', error);
+      setAuthorError('加载作者详情失败');
+      setAuthorLoading(false);
+    }
+  }, []);
+
+  // 作者论文分页切换
+  const handleAuthorPapersPageChange = useCallback((newPage) => {
+    if (newPage < 1 || newPage > authorPapersTotalPages || newPage === authorPapersPage) return;
+    loadAuthorDetail(detailAuthorId, newPage);
+  }, [detailAuthorId, authorPapersTotalPages, authorPapersPage, loadAuthorDetail]);
+
+  // 作者论文表格视图 - 加载更多（累积加载，与相似论文逻辑一致）
+  const loadMoreAuthorPapersForTable = useCallback(async () => {
+    if (!detailAuthorId || authorPapersLoading) return;
+    
+    // 计算下一页
+    const currentLoadedPages = Math.ceil(allAuthorPapers.length / 20);
+    const nextPage = currentLoadedPages + 1;
+    const totalPages = authorPapersTotalPages;
+    
+    if (nextPage > totalPages) return;
+    
+    setAuthorPapersLoading(true);
+    const offset = (nextPage - 1) * 20;
+    
+    try {
+      // Step 1: 获取论文ID
+      const papersIdsResponse = await publicScholarAPI.getAuthorPapers(detailAuthorId, offset, 20, 'paperId');
+      
+      if (papersIdsResponse.data.code === 0 && papersIdsResponse.data.data) {
+        const paperIds = (papersIdsResponse.data.data.data || []).map(p => p.paperId).filter(id => id);
+        
+        if (paperIds.length > 0) {
+          // Step 2: 批量获取论文详情
+          const batchResponse = await publicScholarAPI.getPaperBatch(
+            paperIds,
+            ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
+          );
+          
+          if (batchResponse.data.code === 0 && batchResponse.data.data) {
+            const newPapers = batchResponse.data.data || [];
+            // 累积添加到所有论文列表
+            setAllAuthorPapers(prev => [...prev, ...newPapers]);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[SearchResultsPage] Failed to load more author papers for table:', error);
+    } finally {
+      setAuthorPapersLoading(false);
+    }
+  }, [detailAuthorId, authorPapersLoading, allAuthorPapers.length, authorPapersTotalPages]);
+
+  // 当切换到表格视图时，从第一页开始加载数据
+  const initAuthorTableFromFirstPage = useCallback(async () => {
+    if (!detailAuthorId || authorPapersLoading) return;
+    
+    setAuthorPapersLoading(true);
+    
+    try {
+      // 从第一页开始加载
+      const papersIdsResponse = await publicScholarAPI.getAuthorPapers(detailAuthorId, 0, 20, 'paperId');
+      
+      if (papersIdsResponse.data.code === 0 && papersIdsResponse.data.data) {
+        const paperIds = (papersIdsResponse.data.data.data || []).map(p => p.paperId).filter(id => id);
+        
+        if (paperIds.length > 0) {
+          const batchResponse = await publicScholarAPI.getPaperBatch(
+            paperIds,
+            ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
+          );
+          
+          if (batchResponse.data.code === 0 && batchResponse.data.data) {
+            const papers = batchResponse.data.data || [];
+            setAllAuthorPapers(papers);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[SearchResultsPage] Failed to init author table from first page:', error);
+    } finally {
+      setAuthorPapersLoading(false);
+    }
+  }, [detailAuthorId, authorPapersLoading]);
+
+  useEffect(() => {
+    if (viewMode === 'author' && authorPapersViewMode === 'table' && detailAuthorId && allAuthorPapers.length === 0 && !authorPapersLoading) {
+      // 从第一页开始加载表格数据
+      initAuthorTableFromFirstPage();
+    }
+  }, [viewMode, authorPapersViewMode, detailAuthorId, allAuthorPapers.length, authorPapersLoading, initAuthorTableFromFirstPage]);
+
+  // 监听 URL 中的 paperId 或 authorId 参数 - 页面加载或刷新时自动请求
   useEffect(() => {
     const paperId = searchParams.get('paperId');
+    const authorId = searchParams.get('authorId');
     const query = searchParams.get('query');
     
-    console.log('[SearchResultsPage] URL params - paperId:', paperId, 'query:', query);
+    console.log('[SearchResultsPage] URL params - paperId:', paperId, 'authorId:', authorId, 'query:', query);
     
-    if (paperId) {
+    if (authorId) {
+      // URL 中有 authorId，加载作者详情
+      loadAuthorDetail(authorId);
+      // 如果有 query 参数，也设置搜索框的值
+      if (query) {
+        setSearchQuery(query);
+      }
+    } else if (paperId) {
       // URL 中有 paperId，加载论文详情
       loadPaperDetail(paperId);
       // 如果有 query 参数，也设置搜索框的值
-    if (query) {
-      setSearchQuery(query);
+      if (query) {
+        setSearchQuery(query);
       }
       
       // 检查是否需要显示相似论文引导弹窗（每个用户只显示一次）
@@ -600,13 +790,14 @@ const SearchResultsPage = () => {
   // 标记是否已经点击过表格按钮
   const hasClickedTableBtnRef = useRef(false);
 
-  // 初始化时从URL参数加载搜索结果（不包含 paperId 的情况）
+  // 初始化时从URL参数加载搜索结果（不包含 paperId 或 authorId 的情况）
   useEffect(() => {
     const query = searchParams.get('query');
     const paperId = searchParams.get('paperId');
+    const authorId = searchParams.get('authorId');
     
-    // 如果有 paperId，由上面的 useEffect 处理
-    if (paperId) return;
+    // 如果有 paperId 或 authorId，由上面的 useEffect 处理
+    if (paperId || authorId) return;
     
     if (query) {
       setSearchQuery(query);
@@ -1082,20 +1273,15 @@ const SearchResultsPage = () => {
   // 处理选择作者建议
   const handleSelectAuthor = (author) => {
     // 使用作者名字作为搜索查询
-    setSearchQuery(author.name);
+    const name = author.name || '';
+    const authorId = author.authorId || '';
+    setSearchQuery(name);
     setShowSuggestions(false);
-    // 重置分页和缓存
-    setCurrentPage(1);
-    setCachedTranslation({ query: '', translated: '', actual: '' });
-    setQueryInfo({
-      originalQuery: '',
-      translatedQuery: '',
-      actualQuery: '',
-      translationEnabled: false
-    });
-    // 更新URL并执行搜索
-    updateURL(author.name, filters, 1);
-    performSearch(author.name, filters, 1);
+    // 跳转到搜索结果页面，并带上 authorId 以显示作者详情
+    const params = new URLSearchParams();
+    if (name) params.set('query', name);
+    if (authorId) params.set('authorId', authorId);
+    navigate(`/search-results?${params.toString()}`);
   };
 
   // 更新URL参数
@@ -1336,7 +1522,7 @@ const SearchResultsPage = () => {
   const endIndex = Math.min(currentPage * papersPerPage, total);
 
   // 判断是否为空状态（没有查询参数且不是论文详情视图）
-  const isEmptyState = !searchParams.get('query') && viewMode !== 'paper';
+  const isEmptyState = !searchParams.get('query') && viewMode !== 'paper' && viewMode !== 'author';
 
   // 生成SEO数据
   const pageTitle = searchQuery
@@ -1546,7 +1732,7 @@ const SearchResultsPage = () => {
               )}
               <h1 className="page-title">学术检索</h1>
               {/* 论文详情模式下显示搜索按钮 - 展开时隐藏 */}
-              {viewMode === 'paper' && (
+              {(viewMode === 'paper' || viewMode === 'author') && (
                 <button 
                   className={`epd-navbar-search-btn ${showDetailSearch ? 'hidden' : ''}`}
                   onClick={() => setShowDetailSearch(true)}
@@ -1561,9 +1747,9 @@ const SearchResultsPage = () => {
             </nav>
 
             {/* 居中搜索区域 - 论文详情模式下可通过按钮展开 */}
-            {(viewMode !== 'paper' || showDetailSearch) && (
+            {((viewMode !== 'paper' && viewMode !== 'author') || showDetailSearch) && (
             <div 
-              className={`search-results-centered-area ${isSearchBarCollapsed ? 'collapsed' : ''} ${viewMode === 'table' ? 'table-mode' : ''} ${viewMode === 'paper' && showDetailSearch ? 'paper-mode-search' : ''}`}
+              className={`search-results-centered-area ${isSearchBarCollapsed ? 'collapsed' : ''} ${viewMode === 'table' ? 'table-mode' : ''} ${(viewMode === 'paper' || viewMode === 'author') && showDetailSearch ? 'paper-mode-search' : ''}`}
               onClick={(e) => e.stopPropagation()}
             >
               {viewMode === 'table' ? (
@@ -1776,7 +1962,370 @@ const SearchResultsPage = () => {
       <div className="results-main" ref={resultsMainRef}>
         {/* 论文列表/详情区域 */}
         <div className="papers-container" ref={papersContainerRef}>
-            {viewMode === 'paper' ? (
+            {viewMode === 'author' ? (
+              /* 作者详情视图 - 顶部信息 + 下方论文列表 */
+              <div className="author-detail-page">
+                {authorLoading ? (
+                  <PaperDetailSkeleton />
+                ) : authorError ? (
+                  <div className="epd-error">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    <h3>加载失败</h3>
+                    <p>{authorError}</p>
+                    <button className="epd-retry-btn" onClick={() => loadAuthorDetail(detailAuthorId)}>
+                      重试
+                    </button>
+                  </div>
+                ) : detailAuthor ? (
+                  <>
+                    {/* 顶部作者信息卡片 - 简洁美观设计 */}
+                    <div className="author-profile-card">
+                      <div className="author-profile-main">
+                        <div className="author-profile-avatar">
+                          <span className="author-avatar-letter">{detailAuthor.name ? detailAuthor.name.charAt(0).toUpperCase() : 'A'}</span>
+                        </div>
+                        <div className="author-profile-info">
+                          <h1 className="author-profile-name">{detailAuthor.name}</h1>
+                          {detailAuthor.affiliations && detailAuthor.affiliations.length > 0 && (
+                            <p className="author-profile-affiliation">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                <circle cx="12" cy="10" r="3"/>
+                              </svg>
+                              {detailAuthor.affiliations[0]}
+                            </p>
+                          )}
+                          {detailAuthor.homepage && (
+                            <a href={detailAuthor.homepage} target="_blank" rel="noopener noreferrer" className="author-profile-homepage">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="2" y1="12" x2="22" y2="12"/>
+                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                              </svg>
+                              个人主页
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                      <div className="author-profile-metrics">
+                        <div className="author-metric-item">
+                          <span className="author-metric-value">{detailAuthor.paperCount || 0}</span>
+                          <span className="author-metric-label">发表论文</span>
+                        </div>
+                        <div className="author-metric-divider"></div>
+                        <div className="author-metric-item">
+                          <span className="author-metric-value">{detailAuthor.hIndex || 0}</span>
+                          <span className="author-metric-label">H 指数</span>
+                        </div>
+                        <div className="author-metric-divider"></div>
+                        <div className="author-metric-item">
+                          <span className="author-metric-value">{(detailAuthor.citationCount || 0).toLocaleString()}</span>
+                          <span className="author-metric-label">总被引</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 论文列表工具栏 - 复用 results-header 样式 */}
+                    <div className="results-header">
+                      <p className="results-info">
+                        {authorPapersViewMode === 'list' ? (
+                          // 列表视图：显示当前页范围
+                          <>显示 <strong>{(authorPapersPage - 1) * 20 + 1}-{Math.min(authorPapersPage * 20, authorPapersTotal || detailAuthor.paperCount || authorPapers.length)}</strong> / 共 <strong>{authorPapersTotal || detailAuthor.paperCount || authorPapers.length}</strong> 篇论文</>
+                        ) : (
+                          // 表格视图：显示总数和提示
+                          <>共 <strong>{authorPapersTotal || detailAuthor.paperCount || 0}</strong> 篇论文<span className="srp-results-info-hint">（仅显示有摘要的论文）</span></>
+                        )}
+                      </p>
+                      <div className="srp-view-mode-switcher">
+                        <button 
+                          className={`srp-view-mode-btn ${authorPapersViewMode === 'list' ? 'active' : ''}`}
+                          onClick={() => setAuthorPapersViewMode('list')}
+                          title="列表视图"
+                        >
+                          <List size={18} />
+                          <span>列表</span>
+                        </button>
+                        <button 
+                          className={`srp-view-mode-btn ${authorPapersViewMode === 'table' ? 'active' : ''}`}
+                          onClick={() => {
+                            setAuthorPapersViewMode('table');
+                            // 切换到表格视图时，关闭预览窗口（表格有自己的右侧列配置面板）
+                            setSelectedPaper(null);
+                            // 重置表格数据，从第一页开始加载
+                            setAllAuthorPapers([]);
+                          }}
+                          title="表格视图"
+                        >
+                          <Table2 size={18} />
+                          <span>表格</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 论文列表 - 完全复用学术检索的样式 */}
+                    {authorPapersViewMode === 'list' ? (
+                      <div className="papers-list">
+                        {authorPapers.map((paper, index) => (
+                          <div
+                            key={paper.paperId || index}
+                            className={`search-result-paper-item ${selectedPaper?.paperId === paper.paperId ? 'selected' : ''}`}
+                            onClick={() => setSelectedPaper(paper)}
+                          >
+                            <div className="search-result-paper-number">{index + 1}</div>
+                            <div className="search-result-paper-content">
+                              <h3 
+                                className="search-result-paper-title" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedPaper(paper);
+                                }}
+                              >
+                                {paper.title}
+                              </h3>
+
+                              {/* 作者列表 */}
+                              {paper.authors && paper.authors.length > 0 && (
+                                <div className="search-result-paper-authors-row">
+                                  <div className="search-result-paper-author-tags">
+                                    {paper.authors.slice(0, 4).map((author, idx) => (
+                                      <span 
+                                        key={idx} 
+                                        className={`author-tag ${author.authorId === detailAuthorId ? 'current-author' : ''}`}
+                                      >
+                                        {author.name}
+                                      </span>
+                                    ))}
+                                    {paper.authors.length > 4 && (
+                                      <span className="author-tag author-more">+{paper.authors.length - 4} authors</span>
+                                    )}
+                                  </div>
+                                  {/* 研究领域 */}
+                                  {paper.fieldsOfStudy && paper.fieldsOfStudy.length > 0 && (
+                                    <span className="search-result-paper-fields">
+                                      {paper.fieldsOfStudy.slice(0, 2).join(', ')}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* 期刊/会议 + 日期 */}
+                              {(paper.venue || paper.publicationDate || paper.year) && (
+                                <p className="search-result-paper-venue-date">
+                                  {paper.venue && (
+                                    <span className="search-result-venue-name">{paper.venue}</span>
+                                  )}
+                                  {paper.venue && (paper.publicationDate || paper.year) && ' · '}
+                                  {paper.publicationDate ? (
+                                    <span className="pub-date">
+                                      {new Date(paper.publicationDate).toLocaleDateString('zh-CN', { 
+                                        year: 'numeric',
+                                        month: 'long', 
+                                        day: 'numeric'
+                                      })}
+                                    </span>
+                                  ) : paper.year && (
+                                    <span className="pub-date">{paper.year}年</span>
+                                  )}
+                                </p>
+                              )}
+
+                              {/* TLDR 摘要 */}
+                              {paper.tldr && paper.tldr.text && (
+                                <div className={`paper-tldr ${expandedTldr[paper.paperId] ? 'expanded' : ''}`}>
+                                  <span className="tldr-label">TLDR</span>
+                                  <span className="tldr-text">
+                                    {expandedTldr[paper.paperId] 
+                                      ? paper.tldr.text 
+                                      : (paper.tldr.text.length > 300 
+                                          ? paper.tldr.text.substring(0, 300) + '...' 
+                                          : paper.tldr.text)
+                                    }
+                                  </span>
+                                  {paper.tldr.text.length > 300 && (
+                                    <button 
+                                      className="expand-btn"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleTldrExpand(paper.paperId);
+                                      }}
+                                    >
+                                      {expandedTldr[paper.paperId] ? '收起' : '展开'}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* 完整摘要 */}
+                              {paper.abstract && (
+                                <div className={`paper-abstract-section ${expandedAbstract[paper.paperId] ? 'expanded' : ''}`}>
+                                  <span className="abstract-label">Abstract</span>
+                                  <span className="abstract-text">
+                                    {expandedAbstract[paper.paperId] 
+                                      ? paper.abstract 
+                                      : (paper.abstract.length > 300 
+                                          ? paper.abstract.substring(0, 300) + '...' 
+                                          : paper.abstract)
+                                    }
+                                  </span>
+                                  {paper.abstract.length > 300 && (
+                                    <button 
+                                      className="expand-btn"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleAbstractExpand(paper.paperId);
+                                      }}
+                                    >
+                                      {expandedAbstract[paper.paperId] ? '收起' : '展开'}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* 底部元信息和操作 */}
+                              <div className="search-result-paper-meta">
+                                {/* 被引用数 */}
+                                {paper.citationCount !== undefined && (
+                                  <>
+                                    <span className="citation-count">
+                                      <span className="citation-number">{paper.citationCount}</span>
+                                      <span className="citation-label">被引</span>
+                                    </span>
+                                    <span className="meta-divider"></span>
+                                  </>
+                                )}
+                                
+                                {/* DOI 链接 */}
+                                {paper.externalIds?.DOI && (
+                                  <a
+                                    href={`https://doi.org/${paper.externalIds.DOI}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="search-result-paper-doi-link"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
+                                    </svg>
+                                    DOI
+                                  </a>
+                                )}
+                                
+                                {/* PDF 链接 */}
+                                {paper.openAccessPdf && paper.openAccessPdf.url && (
+                                  <a 
+                                    href={paper.openAccessPdf.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="meta-item pdf-link"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                      <polyline points="14 2 14 8 20 8"/>
+                                      <line x1="16" y1="13" x2="8" y2="13"/>
+                                      <line x1="16" y1="17" x2="8" y2="17"/>
+                                      <polyline points="10 9 9 9 8 9"/>
+                                    </svg>
+                                    PDF
+                                  </a>
+                                )}
+                                
+                                {/* Cite 按钮 */}
+                                <button
+                                  className="search-result-paper-cite-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCitePaper(paper);
+                                  }}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11M20 10v11M8 21V10M16 21V10"/>
+                                  </svg>
+                                  Cite
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {/* 分页器 */}
+                        {authorPapersTotalPages > 1 && (
+                          <div className="pagination">
+                            <button
+                              className="pagination-btn"
+                              onClick={() => handleAuthorPapersPageChange(authorPapersPage - 1)}
+                              disabled={authorPapersPage === 1 || authorLoading}
+                            >
+                              上一页
+                            </button>
+
+                            <div className="pagination-pages">
+                              {Array.from({ length: Math.min(5, authorPapersTotalPages) }, (_, i) => {
+                                let pageNum;
+                                if (authorPapersTotalPages <= 5) {
+                                  pageNum = i + 1;
+                                } else if (authorPapersPage <= 3) {
+                                  pageNum = i + 1;
+                                } else if (authorPapersPage >= authorPapersTotalPages - 2) {
+                                  pageNum = authorPapersTotalPages - 4 + i;
+                                } else {
+                                  pageNum = authorPapersPage - 2 + i;
+                                }
+
+                                return (
+                                  <button
+                                    key={pageNum}
+                                    className={`pagination-page ${authorPapersPage === pageNum ? 'active' : ''}`}
+                                    onClick={() => handleAuthorPapersPageChange(pageNum)}
+                                    disabled={authorLoading}
+                                  >
+                                    {pageNum}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            <button
+                              className="pagination-btn"
+                              onClick={() => handleAuthorPapersPageChange(authorPapersPage + 1)}
+                              disabled={authorPapersPage === authorPapersTotalPages || authorLoading}
+                            >
+                              下一页
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      
+                      /* 表格视图 - 使用 PaperTableView 组件，与相似论文逻辑一致 */
+                      <div className="papers-list ptv-wrapper author-papers-table">
+                        {authorPapersLoading && allAuthorPapers.length === 0 ? (
+                          /* 初始加载状态 */
+                          <div className="epd-loading">
+                            <div className="epd-loading-spinner"></div>
+                            <p>加载论文数据中...</p>
+                          </div>
+                        ) : (
+                          <PaperTableView 
+                            papers={allAuthorPapers}
+                            onPaperClick={setSelectedPaper}
+                            totalResults={authorPapersTotal || detailAuthor?.paperCount || 0}
+                            onLoadMore={loadMoreAuthorPapersForTable}
+                            hasMore={Math.ceil(allAuthorPapers.length / 20) < authorPapersTotalPages}
+                            loadingMore={authorPapersLoading}
+                            reloadTrigger={null}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </>
+                ) : null}
+              </div>
+            ) : viewMode === 'paper' ? (
               /* 论文详情视图 */
               <div className="epd-container">
                 {detailLoading ? (
@@ -2961,8 +3510,42 @@ const SearchResultsPage = () => {
               />
             </div>
             )
+          ) : viewMode === 'author' && authorPapersViewMode === 'table' ? (
+            // 作者视图表格模式：有选中论文时显示预览，否则显示列配置面板
+            selectedPaper ? (
+              <PaperPreview
+                paper={selectedPaper}
+                onClose={() => setSelectedPaper(null)}
+                width={previewWidth}
+                onResizeMouseDown={handlePreviewResizeMouseDown}
+                onResizeTouchStart={handlePreviewResizeTouchStart}
+                isResizing={isResizingPreview}
+              />
+            ) : (
+              <div 
+                className="preview-panel table-column-panel-wrapper"
+                style={{ width: previewWidth }}
+              >
+                {/* 拖拽分隔条 */}
+                <div
+                  className={`resize-handle ${isResizingPreview ? 'resizing' : ''}`}
+                  onMouseDown={handlePreviewResizeMouseDown}
+                  onTouchStart={handlePreviewResizeTouchStart}
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="调整面板宽度"
+                >
+                  <div className="resize-handle-line" />
+                </div>
+                <TableColumnPanel 
+                  selectedDimensionKey={selectedDimensionKey}
+                  onDimensionSelect={setSelectedDimensionKey}
+                  onDimensionsUpdated={handleDimensionsUpdated}
+                />
+              </div>
+            )
           ) : (
-            // 列表视图或论文详情列表视图：显示论文预览
+            // 列表视图、论文详情列表视图或作者视图列表模式：显示论文预览
             <PaperPreview
               paper={selectedPaper}
               onClose={() => setSelectedPaper(null)}

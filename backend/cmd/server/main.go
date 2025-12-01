@@ -519,6 +519,10 @@ func main() {
 			// Public recommendations endpoint - for anonymous access to similar papers
 			publicAPI.GET("/recommendations/papers/:paperId", scholarHandler.GetRecommendationsForPaper)
 
+			// Public author endpoints - for anonymous access from author detail page
+			publicAPI.GET("/authors/:authorId", scholarHandler.GetAuthor)
+			publicAPI.GET("/authors/:authorId/papers", scholarHandler.GetAuthorPapers)
+
 			// Public feedback endpoints
 			publicAPI.POST("/feedback", feedbackHandler.CreateFeedback)
 			publicAPI.POST("/feedback/upload", feedbackHandler.UploadAttachments)

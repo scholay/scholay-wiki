@@ -235,6 +235,24 @@ export const publicScholarAPI = {
     const params = { limit };
     return publicApi.get(`/recommendations/papers/${paperId}`, { params });
   },
+
+  // Public get author details (获取作者详情 - 不需要登录)
+  getAuthor: (authorId, fields) =>
+    publicApi.get(`/authors/${authorId}`, {
+      params: {
+        fields: fields || 'authorId,name,affiliations,paperCount,citationCount,hIndex,homepage,externalIds'
+      }
+    }),
+
+  // Public get author papers (获取作者论文列表 - 不需要登录)
+  getAuthorPapers: (authorId, offset = 0, limit = 100, fields) =>
+    publicApi.get(`/authors/${authorId}/papers`, {
+      params: {
+        offset,
+        limit,
+        fields: fields || 'paperId,title,abstract,authors,year,citationCount,referenceCount,venue,publicationDate,publicationTypes,fieldsOfStudy,s2FieldsOfStudy,externalIds,url,openAccessPdf,influentialCitationCount,isOpenAccess,journal'
+      }
+    }),
 };
 
 // 分析维度API - 需要认证

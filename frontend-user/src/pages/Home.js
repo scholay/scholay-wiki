@@ -199,10 +199,14 @@ const Home = () => {
   // 处理选择作者建议
   const handleSelectAuthor = (author) => {
     // 使用作者名字作为搜索查询
-    setSearchQuery(author.name);
+    const name = author.name || '';
+    const authorId = author.authorId || '';
+    setSearchQuery(name);
     setShowSuggestions(false);
-    // 直接跳转到搜索结果页面，搜索该作者的论文
-    const params = new URLSearchParams({ query: author.name });
+    // 跳转到搜索结果页面，并带上 authorId 以显示作者详情
+    const params = new URLSearchParams();
+    if (name) params.set('query', name);
+    if (authorId) params.set('authorId', authorId);
     navigate(`/search-results?${params.toString()}`);
   };
 
