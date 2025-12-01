@@ -455,6 +455,7 @@
   padding: 16px 20px;
   transition: all 0.3s ease;
   position: relative;
+  padding-right: 100px; /* 为右侧标签留出空间 */
 }
 
 .billing-item:last-child {
@@ -529,10 +530,12 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
-.billing-discount-tag {
+.billing-discount-tag,
+.billing-payment-tag {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
   padding: 4px 10px;
   background: rgba(16, 163, 127, 0.15);
   border: 1px solid rgba(16, 163, 127, 0.3);
@@ -540,6 +543,7 @@
   font-size: 11px;
   font-weight: 600;
   color: #10a37f;
+  white-space: nowrap;
 }
 
 /* Legacy support */

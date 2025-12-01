@@ -29,11 +29,29 @@ const UserManagement = () => {
   const [activeView, setActiveView] = useState('list'); // 'list' or 'online'
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, userId: null, userEmail: '' });
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [grantModal, setGrantModal] = useState({ show: false, user: null });
+  const [grantForm, setGrantForm] = useState({ planCode: '', billingCycle: 'monthly', reason: '' });
+  const [subscriptionPlans, setSubscriptionPlans] = useState([]);
+  const [grantLoading, setGrantLoading] = useState(false);
 
   useEffect(() => {
     loadUserStatistics();
     loadUserList();
+    loadSubscriptionPlans();
   }, [pagination.page, sortConfig]);
+
+  const loadSubscriptionPlans = async () => {
+    try {
+      const response = await adminAPI.getSubscriptionPlans();
+      if (response.data.code === 0 && response.data.data) {
+        // Filter out free plan
+        const paidPlans = response.data.data.filter(plan => plan.plan_code !== 'FREE');
+        setSubscriptionPlans(paidPlans);
+      }
+    } catch (err) {
+      console.error('Failed to load subscription plans:', err);
+    }
+  };
 
   const loadUserStatistics = async () => {
     try {
@@ -129,6 +147,46 @@ const UserManagement = () => {
 
   const handleDeleteCancel = () => {
     setDeleteConfirm({ show: false, userId: null, userEmail: '' });
+  };
+
+  // Grant subscription handlers
+  const handleGrantClick = (user) => {
+    setGrantModal({ show: true, user });
+    setGrantForm({ planCode: subscriptionPlans[0]?.plan_code || '', billingCycle: 'monthly', reason: '' });
+  };
+
+  const handleGrantCancel = () => {
+    setGrantModal({ show: false, user: null });
+    setGrantForm({ planCode: '', billingCycle: 'monthly', reason: '' });
+  };
+
+  const handleGrantConfirm = async () => {
+    if (!grantModal.user || !grantForm.planCode) {
+      showToast('请选择会员套餐', 'error');
+      return;
+    }
+
+    setGrantLoading(true);
+    try {
+      const response = await adminAPI.grantSubscription(
+        grantModal.user.id,
+        grantForm.planCode,
+        grantForm.billingCycle,
+        grantForm.reason
+      );
+      if (response.data.code === 0) {
+        showToast('会员套餐发放成功', 'success');
+        handleGrantCancel();
+        // Refresh the user list
+        loadUserList();
+      } else {
+        showToast(response.data.message || '发放失败', 'error');
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || '发放会员套餐失败', 'error');
+    } finally {
+      setGrantLoading(false);
+    }
   };
 
   // 格式化为相对时间
@@ -438,11 +496,10 @@ const UserManagement = () => {
                 <table className="user-table">
                   <thead>
                     <tr>
-                      <th>ID</th>
-                      <th>用户名</th>
+                      <th>用户</th>
                       <th>联系方式</th>
-                      <th>会员套餐</th>
-                      <th>套餐到期</th>
+                      <th>会员信息</th>
+                      <th>邀请者</th>
                       <th>状态</th>
                       <th 
                         className="sortable-header"
@@ -463,11 +520,29 @@ const UserManagement = () => {
                     {users.length > 0 ? (
                       users.map(user => (
                         <tr key={user.id}>
-                          <td>{user.id}</td>
-                          <td>{user.username || '-'}</td>
+                          <td>
+                            <div className="user-info-cell">
+                              <span className="user-id">#{user.id}</span>
+                              <span className="user-name">{user.username || '-'}</span>
+                            </div>
+                          </td>
                           <td className="contact-info-td">{renderContactInfo(user)}</td>
-                          <td>{renderSubscriptionPlan(user.subscription)}</td>
-                          <td>{renderSubscriptionExpiry(user.subscription)}</td>
+                          <td>
+                            <div className="subscription-info-cell">
+                              {renderSubscriptionPlan(user.subscription)}
+                              {renderSubscriptionExpiry(user.subscription)}
+                            </div>
+                          </td>
+                          <td>
+                            {user.invited_by ? (
+                              <div className="inviter-info-cell">
+                                <span className="inviter-id">#{user.invited_by.user_id}</span>
+                                <span className="inviter-name">{user.invited_by.username || '-'}</span>
+                              </div>
+                            ) : (
+                              <span className="no-inviter">-</span>
+                            )}
+                          </td>
                           <td>{getUserStatusLabel(user.status)}</td>
                           <td>
                             <div className="login-info-cell">
@@ -498,14 +573,33 @@ const UserManagement = () => {
                           <td>
                             <button
                               className="action-btn view-btn"
-                              onClick={() => setSelectedUserId(user.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setSelectedUserId(user.id);
+                              }}
                               title="查看详情"
                             >
                               查看
                             </button>
                             <button
+                              className="action-btn grant-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                handleGrantClick(user);
+                              }}
+                              title="发放会员"
+                            >
+                              发放会员
+                            </button>
+                            <button
                               className="action-btn delete-btn"
-                              onClick={() => handleDeleteClick(user)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                handleDeleteClick(user);
+                              }}
                               title="删除用户"
                             >
                               删除
@@ -515,7 +609,7 @@ const UserManagement = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="9" className="no-data">暂无用户数据</td>
+                        <td colSpan="8" className="no-data">暂无用户数据</td>
                       </tr>
                     )}
                   </tbody>
@@ -634,6 +728,95 @@ const UserManagement = () => {
           userId={selectedUserId}
           onClose={() => setSelectedUserId(null)}
         />
+      )}
+
+      {/* Grant Subscription Modal */}
+      {grantModal.show && (
+        <div className="modal-overlay" onClick={handleGrantCancel}>
+          <div className="modal-content grant-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>发放会员套餐</h3>
+            </div>
+            <div className="modal-body">
+              <p>为用户 <strong>{grantModal.user?.email || grantModal.user?.username || `ID: ${grantModal.user?.id}`}</strong> 发放会员套餐</p>
+              
+              <div className="form-group">
+                <label>选择套餐</label>
+                <select
+                  value={grantForm.planCode}
+                  onChange={(e) => setGrantForm({ ...grantForm, planCode: e.target.value })}
+                  className="form-select"
+                >
+                  <option value="">请选择套餐</option>
+                  {subscriptionPlans.map(plan => (
+                    <option key={plan.plan_code} value={plan.plan_code}>
+                      {plan.plan_name} - 月付 ¥{plan.current_price_monthly} / 年付 ¥{plan.current_price_yearly}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>计费周期</label>
+                <div className="radio-group">
+                  <label className="radio-label">
+                    <input
+                      type="radio"
+                      name="billingCycle"
+                      value="monthly"
+                      checked={grantForm.billingCycle === 'monthly'}
+                      onChange={(e) => setGrantForm({ ...grantForm, billingCycle: e.target.value })}
+                    />
+                    <span>月付（1个月）</span>
+                  </label>
+                  <label className="radio-label">
+                    <input
+                      type="radio"
+                      name="billingCycle"
+                      value="yearly"
+                      checked={grantForm.billingCycle === 'yearly'}
+                      onChange={(e) => setGrantForm({ ...grantForm, billingCycle: e.target.value })}
+                    />
+                    <span>年付（12个月）</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>发放原因（选填）</label>
+                <textarea
+                  value={grantForm.reason}
+                  onChange={(e) => setGrantForm({ ...grantForm, reason: e.target.value })}
+                  className="form-textarea"
+                  placeholder="例如：活动赠送、客服补偿、测试账号等"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grant-info-box">
+                <p className="info-title">📋 发放说明</p>
+                <ul>
+                  <li>系统将创建一笔订单记录，支付方式为"系统发放"</li>
+                  <li>订单金额显示为套餐原价，折扣为100%，实付金额为0</li>
+                  <li>用户会员状态将立即生效</li>
+                  <li>此操作会记录管理员ID和发放原因</li>
+                </ul>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="modal-btn cancel-btn" onClick={handleGrantCancel} disabled={grantLoading}>
+                取消
+              </button>
+              <button 
+                className="modal-btn confirm-btn primary-btn" 
+                onClick={handleGrantConfirm}
+                disabled={grantLoading || !grantForm.planCode}
+              >
+                {grantLoading ? '发放中...' : '确认发放'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

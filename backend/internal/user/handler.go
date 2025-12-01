@@ -654,6 +654,11 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		AutoRenew     bool       `json:"auto_renew"`
 	}
 
+	type InviterInfo struct {
+		UserID   uint    `json:"user_id"`
+		Username *string `json:"username"`
+	}
+
 	type UserResponse struct {
 		User
 		WeChatOpenID     string            `json:"wechat_openid,omitempty"`
@@ -662,6 +667,7 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		GithubLogin      string            `json:"github_login,omitempty"`
 		Subscription     *SubscriptionInfo `json:"subscription,omitempty"`
 		LastLoginIPInfo  string            `json:"last_login_ip_info,omitempty"`   // IP归属地信息
+		InvitedBy        *InviterInfo      `json:"invited_by,omitempty"`           // 邀请者信息
 	}
 
 	// Get subscriptions for all users
@@ -699,6 +705,29 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		}
 	}
 
+	// Get inviter info for all users
+	var inviterRelations []struct {
+		InviteeID uint    `gorm:"column:invitee_id"`
+		InviterID uint    `gorm:"column:inviter_id"`
+		Username  *string `gorm:"column:username"`
+	}
+	h.service.repo.GetDB().Table("invitation_relationships").
+		Select("invitation_relationships.invitee_id, invitation_relationships.inviter_id, users.username").
+		Joins("LEFT JOIN users ON users.id = invitation_relationships.inviter_id").
+		Where("invitation_relationships.invitee_id IN ?", userIDs).
+		Scan(&inviterRelations)
+
+	// Map inviters by invitee user ID
+	inviterMap := make(map[uint]*InviterInfo)
+	for _, rel := range inviterRelations {
+		if rel.InviterID > 0 {
+			inviterMap[rel.InviteeID] = &InviterInfo{
+				UserID:   rel.InviterID,
+				Username: rel.Username,
+			}
+		}
+	}
+
 	userResponses := make([]UserResponse, len(users))
 	for i, user := range users {
 		response := UserResponse{User: user}
@@ -706,6 +735,11 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		// Add subscription info
 		if subInfo, ok := subscriptionMap[user.ID]; ok {
 			response.Subscription = subInfo
+		}
+
+		// Add inviter info
+		if inviter, ok := inviterMap[user.ID]; ok {
+			response.InvitedBy = inviter
 		}
 
 		// Parse IP location

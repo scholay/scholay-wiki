@@ -484,3 +484,109 @@ func (s *Service) AdminListOrders(planCode, userEmail string, page, pageSize int
 	offset := (page - 1) * pageSize
 	return s.repo.AdminListOrders(planCode, userEmail, pageSize, offset)
 }
+
+// AdminGrantSubscriptionRequest represents the request for admin to grant subscription to a user
+type AdminGrantSubscriptionRequest struct {
+	UserID       uint   `json:"user_id"`                          // Set from URL parameter, not from JSON body
+	PlanCode     string `json:"plan_code" binding:"required"`
+	BillingCycle string `json:"billing_cycle" binding:"required"` // monthly or yearly
+	Reason       string `json:"reason"`                           // Optional reason for granting
+}
+
+// AdminGrantSubscription grants a subscription to a user by admin
+// This creates an order and payment record as if the user paid, but with system as payment method
+func (s *Service) AdminGrantSubscription(adminID uint, req AdminGrantSubscriptionRequest) (*Order, error) {
+	// Validate billing cycle
+	if req.BillingCycle != "monthly" && req.BillingCycle != "yearly" {
+		return nil, errors.New("invalid billing cycle")
+	}
+
+	// Get plan details
+	plan, err := s.subsService.GetPlanByCode(req.PlanCode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get plan: %w", err)
+	}
+
+	// Calculate original amount (for record keeping)
+	var originalAmount float64
+	if req.BillingCycle == "monthly" {
+		originalAmount = plan.CurrentPriceMonthly
+	} else {
+		originalAmount = plan.CurrentPriceYearly
+	}
+
+	// Generate order number with ADMIN prefix
+	orderNo := fmt.Sprintf("ADMIN%d%d", time.Now().Unix(), req.UserID)
+
+	// Create order with full discount (amount = original, discount = original, final = 0)
+	order := &Order{
+		UserID:         req.UserID,
+		OrderNo:        orderNo,
+		PlanCode:       plan.PlanCode,
+		PlanName:       plan.PlanName,
+		BillingCycle:   req.BillingCycle,
+		Amount:         originalAmount,    // Original price
+		CouponID:       nil,               // No coupon used
+		DiscountAmount: originalAmount,    // Full discount
+		FinalAmount:    0,                 // User pays nothing
+		Status:         "pending",         // Will be updated to paid
+		PaymentMethod:  "",                // Will be set to "system"
+	}
+
+	// Create order
+	if err := s.repo.CreateOrder(order); err != nil {
+		return nil, fmt.Errorf("failed to create order: %w", err)
+	}
+
+	// Prepare payment data with admin info and reason
+	paymentData := map[string]interface{}{
+		"admin_id":     adminID,
+		"grant_reason": req.Reason,
+		"grant_type":   "admin_grant",
+		"grant_time":   time.Now().Format(time.RFC3339),
+	}
+	paymentDataJSON, _ := json.Marshal(paymentData)
+
+	// Create payment transaction record
+	transaction := &PaymentTransaction{
+		OrderID:       order.ID,
+		TransactionNo: fmt.Sprintf("SYS%d%d", time.Now().Unix(), order.ID),
+		PaymentMethod: "system",
+		Amount:        0, // No actual payment
+		Status:        "success",
+		PaymentData:   string(paymentDataJSON),
+	}
+
+	if err := s.repo.CreatePaymentTransaction(transaction); err != nil {
+		return nil, fmt.Errorf("failed to create payment transaction: %w", err)
+	}
+
+	// Update order status to paid
+	if err := s.repo.UpdateOrderStatus(order.ID, "paid", "system"); err != nil {
+		return nil, fmt.Errorf("failed to update order status: %w", err)
+	}
+
+	// Calculate subscription duration
+	var duration int
+	if req.BillingCycle == "monthly" {
+		duration = 1
+	} else {
+		duration = 12
+	}
+
+	// Upgrade user subscription
+	if err := s.subsService.UpgradeSubscription(req.UserID, req.PlanCode, duration); err != nil {
+		return nil, fmt.Errorf("failed to upgrade subscription: %w", err)
+	}
+
+	// Refresh order to get updated data
+	updatedOrder, err := s.repo.GetOrderByID(order.ID)
+	if err != nil {
+		return order, nil // Return original order if refresh fails
+	}
+
+	fmt.Printf("✓ Admin %d granted %s subscription (%s) to user %d, order: %s\n",
+		adminID, req.PlanCode, req.BillingCycle, req.UserID, orderNo)
+
+	return updatedOrder, nil
+}

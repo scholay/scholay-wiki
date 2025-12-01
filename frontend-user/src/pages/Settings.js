@@ -1667,9 +1667,12 @@ const Settings = () => {
                       <span className="billing-order-no">订单号：{order.order_no}</span>
                       <span className="billing-time">{new Date(order.payment_time).toLocaleString('zh-CN')}</span>
                     </div>
-                    {order.discount_amount > 0 && (
-                      <div className="billing-discount-tag">
-                        已优惠 ¥{order.discount_amount.toFixed(2)}
+                    {order.payment_method && (
+                      <div className="billing-payment-tag">
+                        {order.payment_method === 'system' ? '系统发放' : 
+                         order.payment_method === 'alipay' ? '支付宝' :
+                         order.payment_method === 'wechat' ? '微信支付' :
+                         order.payment_method}
                       </div>
                     )}
                   </div>

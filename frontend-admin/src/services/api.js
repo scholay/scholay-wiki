@@ -115,6 +115,13 @@ export const adminAPI = {
   deleteUser: (userId) =>
     api.delete(`/admin/users/${userId}`),
 
+  grantSubscription: (userId, planCode, billingCycle, reason = '') =>
+    api.post(`/admin/users/${userId}/grant-subscription`, {
+      plan_code: planCode,
+      billing_cycle: billingCycle,
+      reason: reason,
+    }),
+
   // Third-party account management
   getThirdPartyAccounts: (type = '', activeOnly = false) =>
     api.get('/admin/third-party-accounts', { params: { type, active: activeOnly } }),

@@ -296,6 +296,7 @@ func main() {
 			adminProtected.GET("/users/online", userHandler.GetOnlineUsers)
 			adminProtected.GET("/users/:id", userHandler.GetUserDetail)
 			adminProtected.DELETE("/users/:id", userHandler.DeleteUser)
+			adminProtected.POST("/users/:id/grant-subscription", orderHandler.AdminGrantSubscription)
 			// Statistics charts
 			adminProtected.GET("/statistics/users", userHandler.GetUserStatisticsChart)
 			adminProtected.GET("/statistics/online", userHandler.GetOnlineUserChart)
