@@ -156,6 +156,9 @@ func main() {
 	// Inject config service into feedback service (for reply email sending)
 	feedbackService.SetConfigService(configService)
 
+	// Inject user repository into feedback service (for user info lookup)
+	feedbackService.SetUserRepository(&feedbackUserRepoAdapter{userRepo: userRepo})
+
 	// Inject coupon service into user service (for invitation handling)
 	userService.SetCouponService(couponService)
 
@@ -664,4 +667,41 @@ func main() {
 	time.Sleep(2 * time.Second)
 
 	log.Println("Server stopped")
+}
+
+// feedbackUserRepoAdapter adapts user.Repository to feedback.UserRepository interface
+type feedbackUserRepoAdapter struct {
+	userRepo *user.Repository
+}
+
+func (a *feedbackUserRepoAdapter) FindByID(id uint) (*feedback.UserInfo, error) {
+	u, err := a.userRepo.FindByID(id)
+	if err != nil || u == nil {
+		return nil, err
+	}
+	return &feedback.UserInfo{
+		ID:        u.ID,
+		Username:  u.Username,
+		Email:     u.Email,
+		Phone:     u.Phone,
+		AvatarURL: u.AvatarURL,
+	}, nil
+}
+
+func (a *feedbackUserRepoAdapter) FindByIDs(ids []uint) (map[uint]*feedback.UserInfo, error) {
+	users, err := a.userRepo.FindByIDs(ids)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uint]*feedback.UserInfo)
+	for id, u := range users {
+		result[id] = &feedback.UserInfo{
+			ID:        u.ID,
+			Username:  u.Username,
+			Email:     u.Email,
+			Phone:     u.Phone,
+			AvatarURL: u.AvatarURL,
+		}
+	}
+	return result, nil
 }

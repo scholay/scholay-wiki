@@ -14,10 +14,26 @@ type ConfigService interface {
 	GetActiveEmailConfig() (*model.EmailConfig, error)
 }
 
+// UserRepository 用户仓库接口（用于查询用户信息）
+type UserRepository interface {
+	FindByID(id uint) (*UserInfo, error)
+	FindByIDs(ids []uint) (map[uint]*UserInfo, error)
+}
+
+// UserInfo 用户信息（简化版，用于反馈显示）
+type UserInfo struct {
+	ID        uint    `json:"id"`
+	Username  *string `json:"username"`
+	Email     *string `json:"email"`
+	Phone     *string `json:"phone"`
+	AvatarURL *string `json:"avatar_url"`
+}
+
 // Service 反馈服务
 type Service struct {
 	repo          *Repository
 	configService ConfigService
+	userRepo      UserRepository
 }
 
 // NewService 创建反馈服务
@@ -30,6 +46,11 @@ func NewService(repo *Repository) *Service {
 // SetConfigService 设置配置服务（用于依赖注入）
 func (s *Service) SetConfigService(configService ConfigService) {
 	s.configService = configService
+}
+
+// SetUserRepository 设置用户仓库（用于依赖注入）
+func (s *Service) SetUserRepository(userRepo UserRepository) {
+	s.userRepo = userRepo
 }
 
 // CreateFeedback 创建反馈
@@ -85,6 +106,15 @@ func (s *Service) GetFeedback(id uint) (*Feedback, error) {
 		feedback.Attachments = string(data)
 	}
 
+	// 如果有 user_id，查询用户信息填充 username
+	if feedback.UserID != nil && s.userRepo != nil {
+		if userInfo, err := s.userRepo.FindByID(*feedback.UserID); err == nil && userInfo != nil {
+			if userInfo.Username != nil && *userInfo.Username != "" {
+				feedback.Username = *userInfo.Username
+			}
+		}
+	}
+
 	return feedback, nil
 }
 
@@ -102,12 +132,36 @@ func (s *Service) ListFeedbacks(req *FeedbackListRequest) (*FeedbackListResponse
 		return nil, err
 	}
 
-	// 为每个反馈填充附件信息到 Attachments 字段（JSON格式）
+	// 收集所有需要查询的 user_id
+	userIDs := make([]uint, 0)
+	for _, fb := range result.List {
+		if fb.UserID != nil {
+			userIDs = append(userIDs, *fb.UserID)
+		}
+	}
+
+	// 批量查询用户信息
+	var userMap map[uint]*UserInfo
+	if len(userIDs) > 0 && s.userRepo != nil {
+		userMap, _ = s.userRepo.FindByIDs(userIDs)
+	}
+
+	// 为每个反馈填充附件信息和用户信息
 	for i := range result.List {
+		// 填充附件
 		attachments, _ := s.GetAttachments(&result.List[i])
 		if len(attachments) > 0 {
 			data, _ := json.Marshal(attachments)
 			result.List[i].Attachments = string(data)
+		}
+
+		// 填充用户名（如果 username 为空但有 user_id）
+		if result.List[i].UserID != nil && userMap != nil {
+			if userInfo, ok := userMap[*result.List[i].UserID]; ok && userInfo != nil {
+				if userInfo.Username != nil && *userInfo.Username != "" {
+					result.List[i].Username = *userInfo.Username
+				}
+			}
 		}
 	}
 

@@ -53,6 +53,25 @@ func (r *Repository) FindByID(id uint) (*User, error) {
 	return &user, nil
 }
 
+// FindByIDs finds users by IDs and returns a map
+func (r *Repository) FindByIDs(ids []uint) (map[uint]*User, error) {
+	if len(ids) == 0 {
+		return make(map[uint]*User), nil
+	}
+
+	var users []User
+	err := r.db.Where("id IN ?", ids).Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[uint]*User)
+	for i := range users {
+		result[users[i].ID] = &users[i]
+	}
+	return result, nil
+}
+
 // FindByUsername finds a user by username
 func (r *Repository) FindByUsername(username string) (*User, error) {
 	var user User
