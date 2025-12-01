@@ -134,7 +134,9 @@ const WeChatCallback = () => {
           }
         } else {
           // Login mode
-          response = await userAPI.wechatCallback(code, state);
+          // 获取保存的邀请码（如果有）
+          const invitationCode = localStorage.getItem('oauth_invitation_code');
+          response = await userAPI.wechatCallback(code, state, invitationCode);
 
           if (response.data.code === 0 && response.data.data) {
             const { token, user } = response.data.data;
@@ -159,6 +161,7 @@ const WeChatCallback = () => {
             // Clean up
             localStorage.removeItem('wechat_oauth_state');
             localStorage.removeItem('wechat_return_url');
+            localStorage.removeItem('oauth_invitation_code'); // 清理邀请码
 
             // Update auth context (token first, then user data)
             login(token, user);
@@ -188,6 +191,7 @@ const WeChatCallback = () => {
         } else {
           localStorage.removeItem('wechat_oauth_state');
           localStorage.removeItem('wechat_return_url'); // Clean up return URL on error
+          localStorage.removeItem('oauth_invitation_code'); // 清理邀请码
           navigate('/');
         }
       }

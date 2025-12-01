@@ -88,6 +88,7 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 	code := c.Query("code")
 	// state parameter is validated by frontend
 	// state := c.Query("state")
+	invitationCode := c.Query("invitation_code") // 获取邀请码参数
 
 	if code == "" {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Authorization code is required")
@@ -120,8 +121,9 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 		return
 	}
 
-	// Find or create user
-	user, isNewUser, err := h.findOrCreateGithubUser(githubUser)
+	// Find or create user (with invitation code support)
+	ip := c.ClientIP()
+	user, isNewUser, err := h.findOrCreateGithubUser(githubUser, invitationCode, ip)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, fmt.Sprintf("Failed to process user: %v", err))
 		return
@@ -139,7 +141,6 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 	}
 
 	// Update last login time and IP
-	ip := c.ClientIP()
 	_ = h.userRepo.UpdateLastLoginWithIP(user.ID, ip)
 
 	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
@@ -287,7 +288,7 @@ func (h *Handler) getGithubUserEmail(accessToken string) (string, error) {
 }
 
 // findOrCreateGithubUser finds existing user or creates new one
-func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser) (*User, bool, error) {
+func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode string, ip string) (*User, bool, error) {
 	// Check if user already exists with this GitHub ID
 	providerUserID := fmt.Sprintf("%d", githubUser.ID)
 	authProvider, err := h.userRepo.FindAuthProvider("github", providerUserID)
@@ -340,6 +341,14 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser) (*User, bool, e
 
 		if err := h.userRepo.Create(user); err != nil {
 			return nil, false, err
+		}
+
+		// 处理邀请码 - 如果是新用户且有邀请码
+		if invitationCode != "" {
+			if err := h.service.ProcessInvitationForOAuth(user.ID, invitationCode, ip); err != nil {
+				// 邀请码处理失败不影响注册，只记录日志
+				fmt.Printf("Failed to process invitation code for GitHub user %d: %v\n", user.ID, err)
+			}
 		}
 		// Note: last login time and IP will be updated in GithubCallback after this function returns
 	}

@@ -1188,8 +1188,9 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 
 // WeChatCallbackRequest represents WeChat OAuth callback request
 type WeChatCallbackRequest struct {
-	Code  string `json:"code" binding:"required"`
-	State string `json:"state" binding:"required"`
+	Code           string `json:"code" binding:"required"`
+	State          string `json:"state" binding:"required"`
+	InvitationCode string `json:"invitation_code"` // 邀请码（可选）
 }
 
 // WeChatCallback handles WeChat OAuth callback for login/register
@@ -1236,6 +1237,7 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 		nickname,
 		headImgURL,
 		ip,
+		req.InvitationCode, // 传递邀请码
 	)
 	if err != nil {
 		utils.Error(c, 5003, "微信登录失败："+err.Error())

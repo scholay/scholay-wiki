@@ -80,8 +80,12 @@ export const userAPI = {
   getWeChatLoginURL: () =>
     api.get('/user/wechat/login-url'),
 
-  wechatCallback: (code, state) =>
-    api.post('/user/wechat/callback', { code, state }),
+  wechatCallback: (code, state, invitationCode = null) =>
+    api.post('/user/wechat/callback', { 
+      code, 
+      state,
+      ...(invitationCode && { invitation_code: invitationCode })
+    }),
 
   bindWeChatAccount: (code, state) =>
     api.post('/user/bind-wechat', { code, state }),
@@ -90,8 +94,13 @@ export const userAPI = {
   getGithubLoginURL: () =>
     api.get('/user/github/login-url'),
 
-  githubCallback: (code, state) =>
-    api.get(`/user/github/callback?code=${code}&state=${state}`),
+  githubCallback: (code, state, invitationCode = null) => {
+    let url = `/user/github/callback?code=${code}&state=${state}`;
+    if (invitationCode) {
+      url += `&invitation_code=${encodeURIComponent(invitationCode)}`;
+    }
+    return api.get(url);
+  },
 
   bindGitHubAccount: (code, state) =>
     api.post('/user/bind-github', { code, state }),

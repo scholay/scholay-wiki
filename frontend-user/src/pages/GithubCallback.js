@@ -119,7 +119,9 @@ const GithubCallback = () => {
           }
         } else {
           // Login mode
-          response = await userAPI.githubCallback(code, state);
+          // 获取保存的邀请码（如果有）
+          const invitationCode = localStorage.getItem('oauth_invitation_code');
+          response = await userAPI.githubCallback(code, state, invitationCode);
 
           if (response.data.code === 0 && response.data.data) {
             const { token, user } = response.data.data;
@@ -142,6 +144,7 @@ const GithubCallback = () => {
             // Clean up
             localStorage.removeItem('github_oauth_state');
             localStorage.removeItem('github_return_url');
+            localStorage.removeItem('oauth_invitation_code'); // 清理邀请码
 
             // Update auth context
             login(token, user);
@@ -172,6 +175,7 @@ const GithubCallback = () => {
         } else {
           localStorage.removeItem('github_oauth_state');
           localStorage.removeItem('github_return_url');
+          localStorage.removeItem('oauth_invitation_code'); // 清理邀请码
           navigate('/');
         }
       }

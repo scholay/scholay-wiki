@@ -2011,7 +2011,7 @@ func (s *Service) UnbindGitHub(userID uint) error {
 }
 
 // LoginOrRegisterWithWeChat handles WeChat login or registration
-func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL, ip string) (*User, string, bool, error) {
+func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL, ip, invitationCode string) (*User, string, bool, error) {
 	var authProvider *UserAuthProvider
 	var err error
 	
@@ -2084,6 +2084,14 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	// Update last login time and IP (registration counts as first login)
 	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
 
+	// 处理邀请码 - 如果是新用户且有邀请码
+	if invitationCode != "" {
+		if err := s.ProcessInvitationForOAuth(user.ID, invitationCode, ip); err != nil {
+			// 邀请码处理失败不影响注册，只记录日志
+			fmt.Printf("Failed to process invitation code for WeChat user %d: %v\n", user.ID, err)
+		}
+	}
+
 	// Create auth provider entry
 	// Save nickname and avatar in provider_data
 	providerDataJSON := fmt.Sprintf(`{"nickname":"%s","avatar_url":"%s"}`, nickname, avatarURL)
@@ -2112,6 +2120,17 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	}
 
 	return user, token, isNewUser, nil
+}
+
+// ProcessInvitationForOAuth processes invitation code for OAuth (WeChat/GitHub) registration
+// This is called after a new user is created via OAuth login
+func (s *Service) ProcessInvitationForOAuth(userID uint, invitationCode, ip string) error {
+	if invitationCode == "" || s.couponService == nil {
+		return nil
+	}
+
+	// Process invitation (same logic as email/phone registration)
+	return s.couponService.RegisterWithInvitation(invitationCode, uint64(userID))
 }
 
 // BindWeChat binds a WeChat account to an existing user

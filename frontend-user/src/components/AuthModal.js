@@ -772,6 +772,15 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
           localStorage.setItem('wechat_return_url', currentPath);
         }
 
+        // 保存邀请码（如果有）- 用于OAuth回调后处理新用户注册
+        const urlParams = new URLSearchParams(window.location.search);
+        const inviteParam = urlParams.get('invite');
+        if (inviteParam) {
+          localStorage.setItem('oauth_invitation_code', inviteParam);
+        } else {
+          localStorage.removeItem('oauth_invitation_code');
+        }
+
         // Redirect to WeChat OAuth page
         window.location.href = loginURL;
       } else {
@@ -800,6 +809,15 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         const currentPath = window.location.pathname + window.location.search;
         if (currentPath !== '/') {
           localStorage.setItem('github_return_url', currentPath);
+        }
+
+        // 保存邀请码（如果有）- 用于OAuth回调后处理新用户注册
+        const urlParams = new URLSearchParams(window.location.search);
+        const inviteParam = urlParams.get('invite');
+        if (inviteParam) {
+          localStorage.setItem('oauth_invitation_code', inviteParam);
+        } else {
+          localStorage.removeItem('oauth_invitation_code');
         }
 
         // Redirect to GitHub OAuth page
