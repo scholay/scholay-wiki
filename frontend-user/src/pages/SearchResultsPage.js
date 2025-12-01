@@ -741,51 +741,63 @@ const SearchResultsPage = () => {
       if (query) {
         setSearchQuery(query);
       }
-      
-      // 检查是否需要显示相似论文引导弹窗（每个用户只显示一次）
-      const hasSeenSimilarGuide = localStorage.getItem('similarPapersGuideShown');
-      if (!hasSeenSimilarGuide) {
-        // 延迟显示，等页面加载后，并确保标签按钮在可见范围内
-        setTimeout(() => {
-          // 检查用户是否已经点击过相似论文标签
-          if (hasClickedSimilarTabRef.current) return;
-          
-          // 检查相似论文标签按钮是否在可见范围内
-          if (similarPapersTabRef.current) {
-            const rect = similarPapersTabRef.current.getBoundingClientRect();
-            const isVisible = (
-              rect.top >= 0 &&
-              rect.left >= 0 &&
-              rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-              rect.right <= (window.innerWidth || document.documentElement.clientWidth)
-            );
-            
-            if (!isVisible) {
-              // 如果不在可见范围内，先滚动到可见位置
-              similarPapersTabRef.current.scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'center',
-                inline: 'nearest'
-              });
-              // 等待滚动完成后再显示引导
-              setTimeout(() => {
-                // 再次检查用户是否点击过
-                if (!hasClickedSimilarTabRef.current) {
-                  setShowSimilarPapersGuide(true);
-                }
-              }, 500);
-            } else {
-              // 已经在可见范围内，直接显示引导
-              setShowSimilarPapersGuide(true);
-            }
-          } else {
-            // 如果 ref 还没准备好，直接显示引导
-            setShowSimilarPapersGuide(true);
-          }
-        }, 1500);
-      }
+      // 注意：相似论文引导的显示逻辑移到单独的 useEffect 中，等待论文详情加载完成后再显示
     }
   }, []); // 只在组件挂载时执行一次
+
+  // 相似论文新手引导 - 等待论文详情加载完成后显示
+  useEffect(() => {
+    // 只有当论文详情加载完成且有选中的论文时才考虑显示引导
+    if (detailLoading || !selectedPaper) return;
+    
+    // 检查是否需要显示相似论文引导弹窗（每个用户只显示一次）
+    const hasSeenSimilarGuide = localStorage.getItem('similarPapersGuideShown');
+    if (hasSeenSimilarGuide) return;
+    
+    // 检查用户是否已经点击过相似论文标签
+    if (hasClickedSimilarTabRef.current) return;
+    
+    // 延迟显示，等待 DOM 渲染完成
+    const timer = setTimeout(() => {
+      // 再次检查用户是否点击过
+      if (hasClickedSimilarTabRef.current) return;
+      
+      // 检查相似论文标签按钮是否在可见范围内
+      if (similarPapersTabRef.current) {
+        const rect = similarPapersTabRef.current.getBoundingClientRect();
+        const isVisible = (
+          rect.top >= 0 &&
+          rect.left >= 0 &&
+          rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+          rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+        );
+        
+        if (!isVisible) {
+          // 如果不在可见范围内，先滚动到可见位置
+          similarPapersTabRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center',
+            inline: 'nearest'
+          });
+          // 等待滚动完成后再显示引导
+          setTimeout(() => {
+            // 再次检查用户是否点击过
+            if (!hasClickedSimilarTabRef.current) {
+              setShowSimilarPapersGuide(true);
+            }
+          }, 500);
+        } else {
+          // 已经在可见范围内，直接显示引导
+          setShowSimilarPapersGuide(true);
+        }
+      } else {
+        // 如果 ref 还没准备好，直接显示引导
+        setShowSimilarPapersGuide(true);
+      }
+    }, 800); // 等待 DOM 渲染
+    
+    return () => clearTimeout(timer);
+  }, [detailLoading, selectedPaper]); // 监听论文详情加载状态和选中的论文
 
   // 标记是否已经点击过表格按钮
   const hasClickedTableBtnRef = useRef(false);

@@ -63,6 +63,54 @@ const PaperDetailPage = () => {
     }
   }, [paperId]);
 
+  // 预加载相似论文数据（单独的 useEffect，在 paperId 变化时触发）
+  useEffect(() => {
+    const prefetchSimilarPapers = async () => {
+      console.log('[Prefetch] Starting to prefetch similar papers for paperId:', paperId);
+      setSimilarPapersLoading(true);
+      setSimilarPapersLoaded(false);
+      setSimilarPapers([]);
+      
+      try {
+        // 获取推荐论文列表
+        const recResponse = await publicScholarAPI.getRecommendations(paperId, 5);
+        const recommendedPapers = recResponse.data?.data?.recommendedPapers || recResponse.data?.recommendedPapers || [];
+        
+        if (recommendedPapers.length === 0) {
+          console.log('[Prefetch] No recommended papers found');
+          setSimilarPapers([]);
+          setSimilarPapersLoaded(true);
+          setSimilarPapersLoading(false);
+          return;
+        }
+        
+        // 提取论文ID列表 - 只取第一个
+        const paperIds = recommendedPapers.map(p => p.paperId).filter(id => id).slice(0, 1);
+        
+        // 通过batch接口获取详细信息
+        const batchResponse = await publicScholarAPI.getPaperBatch(
+          paperIds,
+          ['paperId', 'title', 'authors', 'year', 'citationCount', 'venue']
+        );
+        
+        const papers = batchResponse.data?.data || batchResponse.data || [];
+        console.log('[Prefetch] Similar papers loaded:', papers.length);
+        setSimilarPapers(papers);
+        setSimilarPapersLoaded(true);
+      } catch (err) {
+        console.error('[Prefetch] Failed to prefetch similar papers:', err);
+        setSimilarPapers([]);
+        setSimilarPapersLoaded(true);
+      } finally {
+        setSimilarPapersLoading(false);
+      }
+    };
+
+    if (paperId) {
+      prefetchSimilarPapers();
+    }
+  }, [paperId]);
+
   const handleLogoClick = () => {
     navigate('/');
   };
@@ -125,63 +173,12 @@ const PaperDetailPage = () => {
     navigate('/');
   };
 
-  // 加载相似论文
-  const loadSimilarPapers = async () => {
-    if (similarPapersLoaded || similarPapersLoading || !paperId) return;
-    
-    setSimilarPapersLoading(true);
-    try {
-      // 获取推荐论文ID列表
-      const recResponse = await publicScholarAPI.getRecommendations(paperId, 10);
-      const recommendedPapers = recResponse.data?.data?.recommendedPapers || recResponse.data?.recommendedPapers || [];
-      
-      if (recommendedPapers.length === 0) {
-        setSimilarPapers([]);
-        setSimilarPapersLoaded(true);
-        setSimilarPapersLoading(false);
-        return;
-      }
-      
-      // 提取论文ID列表 - 只取第一个
-      const paperIds = recommendedPapers.map(p => p.paperId).filter(id => id).slice(0, 1);
-      
-      // 通过batch接口获取详细信息
-      const batchResponse = await publicScholarAPI.getPaperBatch(
-        paperIds,
-        ['paperId', 'title', 'authors', 'year', 'citationCount', 'venue']
-      );
-      
-      const papers = batchResponse.data?.data || batchResponse.data || [];
-      console.log('[Hover] Batch response papers:', papers.length, 'isHoveringTitleRef:', isHoveringTitleRef.current);
-      setSimilarPapers(papers);
-      setSimilarPapersLoaded(true);
-      // 数据加载完成后，如果鼠标仍在标题区域，显示弹窗
-      if (isHoveringTitleRef.current && papers.length > 0) {
-        console.log('[Hover] Setting showSimilarPopup to true');
-        setShowSimilarPopup(true);
-      }
-    } catch (err) {
-      console.error('Failed to load similar papers:', err);
-      setSimilarPapers([]);
-      setSimilarPapersLoaded(true);
-    } finally {
-      setSimilarPapersLoading(false);
-    }
-  };
-
   // 处理标题hover
   const handleTitleMouseEnter = () => {
     console.log('[Hover] Mouse enter title, similarPapersLoaded:', similarPapersLoaded, 'similarPapersLoading:', similarPapersLoading, 'similarPapers:', similarPapers.length);
     isHoveringTitleRef.current = true;
-    // 立即开始加载数据，但不显示弹窗
-    if (!similarPapersLoaded && !similarPapersLoading) {
-      console.log('[Hover] Starting to load similar papers...');
-      loadSimilarPapers();
-    } else if (similarPapersLoaded && similarPapers.length > 0) {
-      // 如果数据已加载完成且有数据，直接显示弹窗
-      console.log('[Hover] Data already loaded, showing popup');
-      setShowSimilarPopup(true);
-    }
+    // 立即显示弹窗（数据通常已预加载完成，如果还在加载则显示loading状态）
+    setShowSimilarPopup(true);
   };
 
   const handleTitleMouseLeave = () => {
@@ -679,8 +676,8 @@ const PaperDetailPage = () => {
             >
             <h1 className="pd-paper-title">{paper.title}</h1>
               
-              {/* 相似论文弹窗 - 只在数据加载完成且有数据时显示 */}
-              {showSimilarPopup && similarPapers.length > 0 && (
+              {/* 相似论文弹窗 - hover后立即显示，内部处理loading状态 */}
+              {showSimilarPopup && (
                 <div className="pd-similar-popup">
                   <div className="pd-similar-popup-header">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -690,30 +687,47 @@ const PaperDetailPage = () => {
                     <span>Similar Paper</span>
                   </div>
                   <div className="pd-similar-popup-content">
-                    {/* 只显示第一个推荐论文 */}
-                    <div 
-                      className="pd-similar-item-single"
-                      onClick={() => handleSimilarPaperClick(similarPapers[0].paperId)}
-                    >
-                      <span className="pd-similar-title">{similarPapers[0].title}</span>
-                      <span className="pd-similar-meta">
-                        {similarPapers[0].authors?.[0]?.name && (
-                          <span>{similarPapers[0].authors[0].name}{similarPapers[0].authors.length > 1 ? ' et al.' : ''}</span>
-                        )}
-                        {similarPapers[0].year && <span> · {similarPapers[0].year}</span>}
-                        {similarPapers[0].citationCount !== undefined && <span> · {similarPapers[0].citationCount} citations</span>}
-                      </span>
-                    </div>
-                    {/* 查看更多按钮 */}
-                    <button 
-                      className="pd-similar-view-more"
-                      onClick={handleViewMoreSimilar}
-                    >
-                      <span>View more similar papers</span>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                      </svg>
-                    </button>
+                    {/* Loading 状态 */}
+                    {similarPapersLoading && (
+                      <div className="pd-similar-loading">
+                        <div className="pd-similar-loading-spinner"></div>
+                        <span>Loading similar papers...</span>
+                      </div>
+                    )}
+                    {/* 无数据状态 */}
+                    {!similarPapersLoading && similarPapersLoaded && similarPapers.length === 0 && (
+                      <div className="pd-similar-empty">
+                        <span>No similar papers found</span>
+                      </div>
+                    )}
+                    {/* 有数据时显示第一个推荐论文 */}
+                    {!similarPapersLoading && similarPapers.length > 0 && (
+                      <>
+                        <div 
+                          className="pd-similar-item-single"
+                          onClick={() => handleSimilarPaperClick(similarPapers[0].paperId)}
+                        >
+                          <span className="pd-similar-title">{similarPapers[0].title}</span>
+                          <span className="pd-similar-meta">
+                            {similarPapers[0].authors?.[0]?.name && (
+                              <span>{similarPapers[0].authors[0].name}{similarPapers[0].authors.length > 1 ? ' et al.' : ''}</span>
+                            )}
+                            {similarPapers[0].year && <span> · {similarPapers[0].year}</span>}
+                            {similarPapers[0].citationCount !== undefined && <span> · {similarPapers[0].citationCount} citations</span>}
+                          </span>
+                        </div>
+                        {/* 查看更多按钮 */}
+                        <button 
+                          className="pd-similar-view-more"
+                          onClick={handleViewMoreSimilar}
+                        >
+                          <span>View more similar papers</span>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                          </svg>
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}

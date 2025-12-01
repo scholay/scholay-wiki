@@ -470,6 +470,42 @@
   overflow-y: auto;
 }
 
+/* Loading 状态 */
+.pd-similar-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 16px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.pd-similar-loading-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #1857b6;
+  border-radius: 50%;
+  animation: pd-spinner-rotate 0.8s linear infinite;
+}
+
+@keyframes pd-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 空状态 */
+.pd-similar-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  color: #9ca3af;
+  font-size: 13px;
+}
+
 /* 单个推荐论文项 */
 .pd-similar-item-single {
   padding: 12px 16px;
