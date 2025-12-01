@@ -197,6 +197,15 @@ const PaperDetailPage = () => {
     navigate(`/search-results?query=&paperId=${paperId}`);
   };
 
+  // 点击作者 - 跳转到作者页面
+  const handleAuthorClick = (authorId, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (authorId) {
+      navigate(`/search-results?query=&authorId=${authorId}`);
+    }
+  };
+
   // 生成引用格式
   const generateCitation = (format) => {
     if (!paper) return '';
@@ -740,7 +749,17 @@ const PaperDetailPage = () => {
                 <>
                   {paper.authors.map((author, index) => (
                     <React.Fragment key={index}>
-                      <span className="pd-author-name">{author.name}</span>
+                      {author.authorId ? (
+                        <span 
+                          className="pd-author-name pd-author-clickable"
+                          onClick={(e) => handleAuthorClick(author.authorId, e)}
+                          title={`查看 ${author.name} 的论文`}
+                        >
+                          {author.name}
+                        </span>
+                      ) : (
+                        <span className="pd-author-name">{author.name}</span>
+                      )}
                       {index < paper.authors.length - 1 && <span className="pd-author-separator">, </span>}
                     </React.Fragment>
                   ))}

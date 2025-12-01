@@ -595,12 +595,16 @@
 .pd-author-name {
   color: #1857b6;
   font-weight: 500;
-  cursor: pointer;
   text-decoration: none;
   transition: color 0.2s;
 }
 
-.pd-author-name:hover {
+/* 可点击的作者名 */
+.pd-author-name.pd-author-clickable {
+  cursor: pointer;
+}
+
+.pd-author-name.pd-author-clickable:hover {
   color: #1443a0;
   text-decoration: underline;
 }

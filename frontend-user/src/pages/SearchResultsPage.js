@@ -296,6 +296,20 @@ const SearchResultsPage = () => {
     setSelectedPaper(null);
   }, []);
 
+  // 处理表格中论文点击 - 同时清除列选中状态
+  const handleTablePaperClick = useCallback((paper) => {
+    setSelectedPaper(paper);
+    // 点击论文时清除列选中状态，右侧显示论文详情
+    setSelectedDimensionKey(null);
+  }, []);
+
+  // 处理相似论文表格中论文点击 - 同时清除列选中状态
+  const handleSimilarTablePaperClick = useCallback((paper) => {
+    setSelectedPaper(paper);
+    // 点击论文时清除列选中状态，右侧显示论文详情
+    setSimilarSelectedDimensionKey(null);
+  }, []);
+
   // 处理维度更新（编辑或新增）
   const handleDimensionsUpdated = useCallback((action, dimensionName) => {
     // 设置重新加载触发器
@@ -719,13 +733,13 @@ const SearchResultsPage = () => {
     }
   }, [viewMode, authorPapersViewMode, detailAuthorId, allAuthorPapers.length, authorPapersLoading, initAuthorTableFromFirstPage]);
 
-  // 监听 URL 中的 paperId 或 authorId 参数 - 页面加载或刷新时自动请求
+  // 监听 URL 中的 paperId 或 authorId 参数变化
   useEffect(() => {
     const paperId = searchParams.get('paperId');
     const authorId = searchParams.get('authorId');
     const query = searchParams.get('query');
     
-    console.log('[SearchResultsPage] URL params - paperId:', paperId, 'authorId:', authorId, 'query:', query);
+    console.log('[SearchResultsPage] URL params changed - paperId:', paperId, 'authorId:', authorId, 'query:', query);
     
     if (authorId) {
       // URL 中有 authorId，加载作者详情
@@ -743,7 +757,7 @@ const SearchResultsPage = () => {
       }
       // 注意：相似论文引导的显示逻辑移到单独的 useEffect 中，等待论文详情加载完成后再显示
     }
-  }, []); // 只在组件挂载时执行一次
+  }, [searchParams]); // 监听 URL 参数变化
 
   // 相似论文新手引导 - 等待论文详情加载完成后显示
   useEffect(() => {
@@ -2055,7 +2069,12 @@ const SearchResultsPage = () => {
                       <div className="srp-view-mode-switcher">
                         <button 
                           className={`srp-view-mode-btn ${authorPapersViewMode === 'list' ? 'active' : ''}`}
-                          onClick={() => setAuthorPapersViewMode('list')}
+                          onClick={() => {
+                            setAuthorPapersViewMode('list');
+                            // 切换到列表视图时，关闭右侧面板（清除选中的论文和列）
+                            setSelectedPaper(null);
+                            setSelectedDimensionKey(null);
+                          }}
                           title="列表视图"
                         >
                           <List size={18} />
@@ -2324,12 +2343,14 @@ const SearchResultsPage = () => {
                         ) : (
                           <PaperTableView 
                             papers={allAuthorPapers}
-                            onPaperClick={setSelectedPaper}
+                            onPaperClick={handleTablePaperClick}
                             totalResults={authorPapersTotal || detailAuthor?.paperCount || 0}
                             onLoadMore={loadMoreAuthorPapersForTable}
                             hasMore={Math.ceil(allAuthorPapers.length / 20) < authorPapersTotalPages}
                             loadingMore={authorPapersLoading}
                             reloadTrigger={null}
+                            selectedDimensionKey={selectedDimensionKey}
+                            onDimensionSelect={handleDimensionSelect}
                           />
                         )}
                       </div>
@@ -2903,7 +2924,12 @@ const SearchResultsPage = () => {
                               <div className="srp-view-mode-switcher">
                                 <button 
                                   className={`srp-view-mode-btn ${similarPapersViewMode === 'list' ? 'active' : ''}`}
-                                  onClick={() => setSimilarPapersViewMode('list')}
+                                  onClick={() => {
+                                    setSimilarPapersViewMode('list');
+                                    // 切换到列表视图时，关闭右侧面板（清除选中的论文和列）
+                                    setSelectedPaper(null);
+                                    setSimilarSelectedDimensionKey(null);
+                                  }}
                                   title="列表视图"
                                 >
                                   <List size={18} />
@@ -2914,6 +2940,8 @@ const SearchResultsPage = () => {
                                   className={`srp-view-mode-btn ${similarPapersViewMode === 'table' ? 'active' : ''}`}
                                     onClick={() => {
                                       setSimilarPapersViewMode('table');
+                                      // 切换到表格视图时，关闭预览，默认显示列配置面板
+                                      setSelectedPaper(null);
                                       // 用户主动点击表格按钮，标记为已点击和已看过引导
                                       hasClickedSimilarTableBtnRef.current = true;
                                       localStorage.setItem('hasSeenTableViewGuide', 'true');
@@ -3099,7 +3127,7 @@ const SearchResultsPage = () => {
                                   <div className="papers-list ptv-wrapper epd-similar-table">
                                     <PaperTableView 
                                       papers={similarPapersData.papers}
-                                      onPaperClick={setSelectedPaper}
+                                      onPaperClick={handleSimilarTablePaperClick}
                                       totalResults={similarPapersData.total}
                                       onLoadMore={() => loadSimilarPapers(similarPapersData.currentPage + 1, true)}
                                       hasMore={similarPapersData.currentPage < similarPapersData.totalPages}
@@ -3169,8 +3197,9 @@ const SearchResultsPage = () => {
                     className={`srp-view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
                     onClick={() => {
                       setViewMode('list');
-                      // 切换到列表视图时，清除表格视图中选中的论文预览
+                      // 切换到列表视图时，关闭右侧面板（清除选中的论文和列）
                       setSelectedPaper(null);
+                      setSelectedDimensionKey(null);
                     }}
                     title="列表视图"
                   >
@@ -3378,7 +3407,7 @@ const SearchResultsPage = () => {
                   <PaperTableView 
                     searchQuery={queryInfo.actualQuery || searchQuery}
                     filters={filters}
-                    onPaperClick={setSelectedPaper}
+                    onPaperClick={handleTablePaperClick}
                     totalResults={total}
                     selectedDimensionKey={selectedDimensionKey}
                     onDimensionSelect={handleDimensionSelect}
