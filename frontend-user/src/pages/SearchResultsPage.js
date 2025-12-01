@@ -281,6 +281,11 @@ const SearchResultsPage = () => {
   const hasClickedSimilarTabRef = useRef(false); // 标记用户是否已点击过相似论文标签
   const hasClickedSimilarTableBtnRef = useRef(false); // 标记用户是否已点击过相似论文表格按钮
   const similarTableBtnRef = useRef(null); // 相似论文表格按钮的 ref
+  
+  // 作者页面表格引导相关
+  const [showAuthorTableGuide, setShowAuthorTableGuide] = useState(false); // 作者页面表格视图引导
+  const hasClickedAuthorTableBtnRef = useRef(false); // 标记用户是否已点击过作者页面表格按钮
+  const authorTableBtnRef = useRef(null); // 作者页面表格按钮的 ref
 
   // 处理维度选择（表格列头点击）- 同时关闭预览
   const handleDimensionSelect = useCallback((key) => {
@@ -870,6 +875,30 @@ const SearchResultsPage = () => {
       }
     }
   }, [detailLoading, detailActiveTab, similarPapersLoading, similarPapersData.papers.length]);
+
+  // 监听作者页面数据加载完成，显示表格视图引导
+  useEffect(() => {
+    // 只有当：
+    // 1. 是作者视图模式
+    // 2. 作者详情加载完成（authorLoading = false）
+    // 3. 作者数据存在（有 detailAuthor）
+    // 4. 作者论文加载完成（authorPapersLoading = false）
+    // 5. 有作者论文结果
+    // 6. 用户没点击过作者表格按钮
+    // 才显示引导
+    if (viewMode === 'author' && !authorLoading && detailAuthor && !authorPapersLoading && authorPapers.length > 0 && !hasClickedAuthorTableBtnRef.current) {
+      const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
+      if (!hasSeenTableGuide) {
+        // 页面数据加载完成后，延迟800ms显示引导
+        const timer = setTimeout(() => {
+          if (!hasClickedAuthorTableBtnRef.current) {
+            setShowAuthorTableGuide(true);
+          }
+        }, 800);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [viewMode, authorLoading, detailAuthor, authorPapersLoading, authorPapers.length]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -2081,8 +2110,11 @@ const SearchResultsPage = () => {
                           <span>列表</span>
                         </button>
                         <button 
+                          ref={authorTableBtnRef}
                           className={`srp-view-mode-btn ${authorPapersViewMode === 'table' ? 'active' : ''}`}
                           onClick={() => {
+                            hasClickedAuthorTableBtnRef.current = true;
+                            setShowAuthorTableGuide(false);
                             setAuthorPapersViewMode('table');
                             // 切换到表格视图时，关闭预览窗口（表格有自己的右侧列配置面板）
                             setSelectedPaper(null);
@@ -3708,6 +3740,33 @@ const SearchResultsPage = () => {
             localStorage.setItem('hasSeenTableViewGuide', 'true');
             hasClickedSimilarTableBtnRef.current = true;
             setSimilarPapersViewMode('table');
+          }}
+        />
+      )}
+
+      {/* 作者页面表格视图引导弹窗 */}
+      {showAuthorTableGuide && (
+        <TableViewGuide
+          targetRef={authorTableBtnRef}
+          onDismiss={() => {
+            // X 按钮 - 只关闭，下次还会显示
+            setShowAuthorTableGuide(false);
+          }}
+          onClose={() => {
+            // "稍后再说" - 关闭并记住
+            setShowAuthorTableGuide(false);
+            localStorage.setItem('hasSeenTableViewGuide', 'true');
+          }}
+          onTryIt={() => {
+            // "立即体验" - 关闭并记住，切换到表格视图
+            setShowAuthorTableGuide(false);
+            localStorage.setItem('hasSeenTableViewGuide', 'true');
+            hasClickedAuthorTableBtnRef.current = true;
+            setAuthorPapersViewMode('table');
+            // 切换到表格视图时，关闭预览窗口
+            setSelectedPaper(null);
+            // 重置表格数据，从第一页开始加载
+            setAllAuthorPapers([]);
           }}
         />
       )}
