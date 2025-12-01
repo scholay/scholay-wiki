@@ -5,26 +5,31 @@ import (
 	"fmt"
 	"time"
 
+	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 )
 
-// Service 反馈服务
-type Service struct {
-	repo        *Repository
-	emailSender EmailSender
+// ConfigService 配置服务接口（用于获取邮件配置）
+type ConfigService interface {
+	GetActiveEmailConfig() (*model.EmailConfig, error)
 }
 
-// EmailSender 邮件发送接口
-type EmailSender interface {
-	SendEmail(to, subject, body string) error
+// Service 反馈服务
+type Service struct {
+	repo          *Repository
+	configService ConfigService
 }
 
 // NewService 创建反馈服务
-func NewService(repo *Repository, emailSender EmailSender) *Service {
+func NewService(repo *Repository) *Service {
 	return &Service{
-		repo:        repo,
-		emailSender: emailSender,
+		repo: repo,
 	}
+}
+
+// SetConfigService 设置配置服务（用于依赖注入）
+func (s *Service) SetConfigService(configService ConfigService) {
+	s.configService = configService
 }
 
 // CreateFeedback 创建反馈
@@ -138,13 +143,41 @@ func (s *Service) ReplyFeedback(id uint, replyContent, repliedBy string) error {
 	}
 
 	// 发送回复邮件
-	if s.emailSender != nil {
-		subject := "您的反馈已收到回复 - Scholar"
-		body := s.buildReplyEmailBody(feedback, replyContent)
-		if err := s.emailSender.SendEmail(feedback.Email, subject, body); err != nil {
-			// 记录错误但不影响主流程
-			fmt.Printf("Failed to send reply email to %s: %v\n", feedback.Email, err)
+	fmt.Printf("[Feedback Reply] Starting email send process for feedback #%d to %s\n", id, feedback.Email)
+	
+	if s.configService != nil {
+		fmt.Printf("[Feedback Reply] ConfigService is available, getting email config...\n")
+		emailConfig, err := s.configService.GetActiveEmailConfig()
+		if err != nil {
+			fmt.Printf("[Feedback Reply] Error getting email config: %v\n", err)
+		} else if emailConfig == nil {
+			fmt.Printf("[Feedback Reply] Email config is nil (not configured)\n")
+		} else {
+			fmt.Printf("[Feedback Reply] Email config loaded: host=%s, port=%d, from=%s\n", 
+				emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.FromEmail)
+			
+			subject := "您的反馈已收到回复 - Scholay"
+			body := s.buildReplyEmailBody(feedback, replyContent)
+
+			config := utils.EmailConfig{
+				SMTPHost:     emailConfig.SMTPHost,
+				SMTPPort:     emailConfig.SMTPPort,
+				SMTPUser:     emailConfig.SMTPUser,
+				SMTPPassword: emailConfig.SMTPPassword,
+				FromEmail:    emailConfig.FromEmail,
+				FromName:     emailConfig.FromName,
+			}
+
+			fmt.Printf("[Feedback Reply] Sending email to %s...\n", feedback.Email)
+			if err := utils.SendEmailWithTLS(config, []string{feedback.Email}, subject, body); err != nil {
+				// 记录错误但不影响主流程
+				fmt.Printf("[Feedback Reply] ✗ Failed to send reply email to %s: %v\n", feedback.Email, err)
+			} else {
+				fmt.Printf("[Feedback Reply] ✓ Reply email sent successfully to %s for feedback #%d\n", feedback.Email, id)
+			}
 		}
+	} else {
+		fmt.Printf("[Feedback Reply] ✗ ConfigService not set, skipping reply email for feedback #%d\n", id)
 	}
 
 	return nil
@@ -190,7 +223,7 @@ func (s *Service) buildReplyEmailBody(feedback *Feedback, replyContent string) s
             
             <div class="footer">
                 <p>此邮件由系统自动发送，请勿直接回复。</p>
-                <p>© Scholar - 智能学术检索平台</p>
+                <p>© Scholay - 智能学术检索平台</p>
             </div>
         </div>
     </div>

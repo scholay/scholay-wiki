@@ -120,7 +120,7 @@ func main() {
 
 	// Initialize feedback module
 	feedbackRepo := feedback.NewRepository(database.GetDB())
-	feedbackService := feedback.NewService(feedbackRepo, nil) // 暂时不传入邮件发送器
+	feedbackService := feedback.NewService(feedbackRepo)
 	feedbackHandler := feedback.NewHandler(feedbackService, "./uploads")
 
 	// Initialize default admin user
@@ -152,6 +152,9 @@ func main() {
 
 	// Inject config service into user service (for email sending)
 	userService.SetConfigService(configService)
+
+	// Inject config service into feedback service (for reply email sending)
+	feedbackService.SetConfigService(configService)
 
 	// Inject coupon service into user service (for invitation handling)
 	userService.SetCouponService(couponService)

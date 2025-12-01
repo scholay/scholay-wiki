@@ -353,19 +353,19 @@ func (s *Service) SendVerificationCode(email, purpose string) error {
 			}
 
 			// Generate 3-letter reference code to avoid email deduplication
-			// Format: "Scholar 注册验证码 [Ref: ABC]" - professional and unambiguous
+			// Format: "Scholay 注册验证码 [Ref: ABC]" - professional and unambiguous
 			refCode := fmt.Sprintf("%c%c%c",
 				'A'+rand.Intn(26),
 				'A'+rand.Intn(26),
 				'A'+rand.Intn(26))
-			subject := fmt.Sprintf("Scholar %s [Ref: %s]", purposeText, refCode)
+			subject := fmt.Sprintf("Scholay %s [Ref: %s]", purposeText, refCode)
 
 			// Add timestamp to body to avoid content deduplication
 			currentTime := time.Now().Format("2006-01-02 15:04:05")
 			body := fmt.Sprintf(`
 			<html>
 			<body style="font-family: Arial, sans-serif; padding: 20px;">
-				<h2 style="color: #2563eb;">Scholar %s</h2>
+				<h2 style="color: #2563eb;">Scholay %s</h2>
 				<p>您的验证码是：</p>
 				<div style="background: #f1f5f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
 					<h1 style="color: #1e293b; letter-spacing: 8px; text-align: center; margin: 0;">%s</h1>
@@ -1312,7 +1312,7 @@ func (s *Service) SendPhoneVerificationCode(phone, purpose string) error {
 				case "min", "minute", "minutes":
 					params[varName] = "5" // Default to 5 minutes (matching Redis expiry)
 				case "product":
-					params["product"] = "Scholar"
+					params["product"] = "Scholay"
 				default:
 					// For unknown variables, use a placeholder
 					params[varName] = "测试值"

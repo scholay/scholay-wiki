@@ -208,7 +208,7 @@ func (h *Handler) TestEmailConfig(c *gin.Context) {
 	}
 
 	// Prepare email content
-	subject := "Scholar 邮箱配置测试"
+	subject := "Scholay 邮箱配置测试"
 	body := fmt.Sprintf(`
 	<html>
 	<body style="font-family: Arial, sans-serif; padding: 20px;">
@@ -491,7 +491,7 @@ func (h *Handler) TestSMSConfig(c *gin.Context) {
 		case "min", "minute", "minutes":
 			testParams[varName] = "5"
 		case "product":
-			testParams["product"] = "Scholar"
+			testParams["product"] = "Scholay"
 		default:
 			// For unknown variables, use a placeholder
 			testParams[varName] = "测试值"
