@@ -97,12 +97,12 @@ func (s *Service) generateRandomUsername() (string, error) {
 
 // RegisterWithEmail registers a new user with email and password
 // Enhanced with transaction support for concurrency safety
-func (s *Service) RegisterWithEmail(email, password, code string) (*User, string, error) {
-	return s.RegisterWithEmailAndInvitation(email, password, code, "")
+func (s *Service) RegisterWithEmail(email, password, code, ip string) (*User, string, error) {
+	return s.RegisterWithEmailAndInvitation(email, password, code, "", ip)
 }
 
 // RegisterWithEmailAndInvitation registers a new user with email, password and optional invitation code
-func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitationCode string) (*User, string, error) {
+func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitationCode, ip string) (*User, string, error) {
 	// Verify the email code using Redis (only if code is provided)
 	if code != "" {
 		valid, err := cache.VerifyCode(context.Background(), email, code, "register")
@@ -164,8 +164,8 @@ func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitati
 			return err
 		}
 
-		// Update last login time (registration counts as first login)
-		_ = txRepo.UpdateLastLogin(user.ID)
+		// Update last login time and IP (registration counts as first login)
+		_ = txRepo.UpdateLastLoginWithIP(user.ID, ip)
 
 		// Create auth provider record
 		authProvider := &UserAuthProvider{
@@ -991,9 +991,9 @@ func (s *Service) CreateSession(userID uint, token, ip, userAgent string, expire
 	return s.repo.CreateSession(session)
 }
 
-// UpdateSessionActivity updates the last activity time of a session
-func (s *Service) UpdateSessionActivity(token string) error {
-	return s.repo.UpdateSessionActivity(token)
+// UpdateSessionActivity updates the last activity time of a session and user's last login IP
+func (s *Service) UpdateSessionActivity(token, ip string) error {
+	return s.repo.UpdateSessionActivity(token, ip)
 }
 
 // CleanupExpiredSessions deletes expired sessions
@@ -1348,7 +1348,7 @@ func (s *Service) SendPhoneVerificationCode(phone, purpose string) error {
 
 // RegisterWithPhone registers a new user with phone and password
 // Enhanced with transaction support for concurrency safety
-func (s *Service) RegisterWithPhone(phone, password, code, invitationCode string) (*User, string, error) {
+func (s *Service) RegisterWithPhone(phone, password, code, invitationCode, ip string) (*User, string, error) {
 	// Verify the phone code using Redis
 	valid, err := cache.VerifyCode(context.Background(), phone, code, "register")
 	if err != nil {
@@ -1408,8 +1408,8 @@ func (s *Service) RegisterWithPhone(phone, password, code, invitationCode string
 			return err
 		}
 
-		// Update last login time (registration counts as first login)
-		_ = txRepo.UpdateLastLogin(user.ID)
+		// Update last login time and IP (registration counts as first login)
+		_ = txRepo.UpdateLastLoginWithIP(user.ID, ip)
 
 		// Create auth provider entry
 		authProvider := &UserAuthProvider{
@@ -2081,8 +2081,8 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 		return nil, "", false, err
 	}
 
-	// Update last login time (registration counts as first login)
-	_ = s.repo.UpdateLastLogin(user.ID)
+	// Update last login time and IP (registration counts as first login)
+	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
 
 	// Create auth provider entry
 	// Save nickname and avatar in provider_data

@@ -214,7 +214,7 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.service.RegisterWithEmailAndInvitation(req.Email, req.Password, req.Code, req.InvitationCode)
+	user, token, err := h.service.RegisterWithEmailAndInvitation(req.Email, req.Password, req.Code, req.InvitationCode, ip)
 	if err != nil {
 		utils.Error(c, 2002, err.Error())
 		return
@@ -421,14 +421,16 @@ func (h *Handler) RegisterWithPhone(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.service.RegisterWithPhone(req.Phone, req.Password, req.Code, req.InvitationCode)
+	// Get client IP
+	ip := c.ClientIP()
+
+	user, token, err := h.service.RegisterWithPhone(req.Phone, req.Password, req.Code, req.InvitationCode, ip)
 	if err != nil {
 		utils.Error(c, 2022, err.Error())
 		return
 	}
 
 	// Create session for the new user
-	ip := c.ClientIP()
 	userAgent := c.GetHeader("User-Agent")
 	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
 
@@ -847,8 +849,11 @@ func (h *Handler) Heartbeat(c *gin.Context) {
 		token = token[7:]
 	}
 
-	// Update session activity
-	err := h.service.UpdateSessionActivity(token)
+	// Get client IP
+	ip := c.ClientIP()
+
+	// Update session activity and user's last login IP
+	err := h.service.UpdateSessionActivity(token, ip)
 	if err != nil {
 		utils.Error(c, 2011, "Failed to update session activity")
 		return

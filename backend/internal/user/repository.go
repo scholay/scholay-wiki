@@ -218,8 +218,8 @@ func (r *Repository) CreateSession(session *model.UserSession) error {
 	return r.db.Create(session).Error
 }
 
-// UpdateSessionActivity updates the last activity time of a session and user's last login time
-func (r *Repository) UpdateSessionActivity(token string) error {
+// UpdateSessionActivity updates the last activity time of a session and user's last login time and IP
+func (r *Repository) UpdateSessionActivity(token, ip string) error {
 	// Get session to find user_id
 	var session model.UserSession
 	if err := r.db.Where("token = ?", token).First(&session).Error; err != nil {
@@ -228,17 +228,23 @@ func (r *Repository) UpdateSessionActivity(token string) error {
 
 	// Use transaction to update both session and user
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		// Update session last_activity
+		// Update session last_activity and IP
 		if err := tx.Model(&model.UserSession{}).
 			Where("token = ?", token).
-			Update("last_activity", time.Now()).Error; err != nil {
+			Updates(map[string]interface{}{
+				"last_activity": time.Now(),
+				"ip":            ip,
+			}).Error; err != nil {
 			return err
 		}
 
-		// Update user's last_login_at
+		// Update user's last_login_at and last_login_ip
 		if err := tx.Model(&User{}).
 			Where("id = ?", session.UserID).
-			Update("last_login_at", time.Now()).Error; err != nil {
+			Updates(map[string]interface{}{
+				"last_login_at": time.Now(),
+				"last_login_ip": ip,
+			}).Error; err != nil {
 			return err
 		}
 

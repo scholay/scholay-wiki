@@ -138,10 +138,9 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 		return
 	}
 
-	// Update last login time
-	now := time.Now()
-	user.LastLoginAt = &now
-	h.userRepo.Update(user)
+	// Update last login time and IP
+	ip := c.ClientIP()
+	_ = h.userRepo.UpdateLastLoginWithIP(user.ID, ip)
 
 	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
 		"token":       token,
@@ -342,13 +341,9 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser) (*User, bool, e
 		if err := h.userRepo.Create(user); err != nil {
 			return nil, false, err
 		}
-
-		// Update last login time (registration counts as first login)
-		_ = h.userRepo.UpdateLastLogin(user.ID)
-	} else {
-		// Existing user logging in - update last login time
-		_ = h.userRepo.UpdateLastLogin(user.ID)
+		// Note: last login time and IP will be updated in GithubCallback after this function returns
 	}
+	// Note: last login time and IP will be updated in GithubCallback after this function returns
 
 	// Create auth provider link
 	providerDataJSON := fmt.Sprintf(`{"login":"%s","name":"%s","avatar_url":"%s"}`,
