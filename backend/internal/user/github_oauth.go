@@ -350,6 +350,13 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode 
 				fmt.Printf("Failed to process invitation code for GitHub user %d: %v\n", user.ID, err)
 			}
 		}
+
+		// 发放注册自动折扣券给新用户
+		if h.service.GetCouponService() != nil {
+			go func(uid uint) {
+				_ = h.service.GetCouponService().DistributeRegisterCoupons(uint64(uid))
+			}(user.ID)
+		}
 		// Note: last login time and IP will be updated in GithubCallback after this function returns
 	}
 	// Note: last login time and IP will be updated in GithubCallback after this function returns

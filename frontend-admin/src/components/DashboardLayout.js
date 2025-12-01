@@ -149,7 +149,7 @@ const DashboardLayout = () => {
                   onClick={() => { navigate('/dashboard/coupons'); setMobileMenuOpen(false); }}
                   className={`submenu-item ${isActive('/dashboard/coupons') ? 'active' : ''}`}
                 >
-                  创建模版
+                  创建折扣券
                 </a>
                 <a
                   onClick={() => { navigate('/dashboard/coupon-batches'); setMobileMenuOpen(false); }}

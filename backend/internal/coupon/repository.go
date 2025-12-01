@@ -1,7 +1,6 @@
 package coupon
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -92,12 +91,21 @@ func (r *Repository) GetAutoDistributionTemplates(distributionType DistributionT
 // DeleteTemplate 删除模板（软删除）
 func (r *Repository) DeleteTemplate(id uint64) error {
 	// 检查是否有用户已经领取了该模板的券
-	var count int64
-	if err := r.db.Model(&UserCoupon{}).Where("template_id = ?", id).Count(&count).Error; err != nil {
+	var userCouponCount int64
+	if err := r.db.Model(&UserCoupon{}).Where("template_id = ?", id).Count(&userCouponCount).Error; err != nil {
 		return err
 	}
-	if count > 0 {
-		return errors.New("cannot delete template: coupons already distributed")
+	if userCouponCount > 0 {
+		return fmt.Errorf("无法删除：该折扣券已发放给 %d 位用户，请先暂停该折扣券", userCouponCount)
+	}
+
+	// 检查是否有批次发放记录关联
+	var batchCount int64
+	if err := r.db.Model(&CouponBatch{}).Where("template_id = ?", id).Count(&batchCount).Error; err != nil {
+		return err
+	}
+	if batchCount > 0 {
+		return fmt.Errorf("无法删除：该折扣券有 %d 个批次发放记录，请先删除相关批次", batchCount)
 	}
 
 	return r.db.Delete(&CouponTemplate{}, id).Error

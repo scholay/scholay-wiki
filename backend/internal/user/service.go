@@ -25,6 +25,7 @@ type ConfigService interface {
 // CouponService interface for coupon operations
 type CouponService interface {
 	RegisterWithInvitation(invitationCode string, inviteeID uint64) error
+	DistributeRegisterCoupons(userID uint64) error
 }
 
 // Service handles business logic for user operations
@@ -51,6 +52,11 @@ func (s *Service) SetConfigService(configService ConfigService) {
 // SetCouponService sets the coupon service (for dependency injection)
 func (s *Service) SetCouponService(couponService CouponService) {
 	s.couponService = couponService
+}
+
+// GetCouponService returns the coupon service
+func (s *Service) GetCouponService() CouponService {
+	return s.couponService
 }
 
 // GetSystemConfig gets the system configuration
@@ -205,6 +211,13 @@ func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitati
 		// Process invitation in background to not block registration
 		go func() {
 			_ = s.couponService.RegisterWithInvitation(invitationCode, uint64(user.ID))
+		}()
+	}
+
+	// Distribute register coupons to new user (auto_register type)
+	if s.couponService != nil {
+		go func() {
+			_ = s.couponService.DistributeRegisterCoupons(uint64(user.ID))
 		}()
 	}
 
@@ -1446,6 +1459,13 @@ func (s *Service) RegisterWithPhone(phone, password, code, invitationCode, ip st
 		}()
 	}
 
+	// Distribute register coupons to new user (auto_register type)
+	if s.couponService != nil {
+		go func() {
+			_ = s.couponService.DistributeRegisterCoupons(uint64(user.ID))
+		}()
+	}
+
 	return user, token, nil
 }
 
@@ -2090,6 +2110,13 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 			// 邀请码处理失败不影响注册，只记录日志
 			fmt.Printf("Failed to process invitation code for WeChat user %d: %v\n", user.ID, err)
 		}
+	}
+
+	// 发放注册自动折扣券给新用户
+	if s.couponService != nil {
+		go func() {
+			_ = s.couponService.DistributeRegisterCoupons(uint64(user.ID))
+		}()
 	}
 
 	// Create auth provider entry

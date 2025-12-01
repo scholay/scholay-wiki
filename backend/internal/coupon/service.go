@@ -571,6 +571,58 @@ func (s *Service) GetInvitationStatistics(userID uint64) (*UserInvitation, []*In
 	return invitation, relationships, nil
 }
 
+// DistributeRegisterCoupons 为新注册用户发放注册自动折扣券
+func (s *Service) DistributeRegisterCoupons(userID uint64) error {
+	// 获取所有注册自动发放的活跃模板
+	templates, err := s.repo.GetAutoDistributionTemplates(DistributionTypeAutoRegister)
+	if err != nil {
+		return err
+	}
+
+	if len(templates) == 0 {
+		return nil // 没有配置注册自动发放的折扣券
+	}
+
+	now := time.Now()
+
+	for _, template := range templates {
+		// 检查用户是否已领取过该模板的券
+		count, err := s.repo.CountUserCouponUsage(userID, template.ID)
+		if err != nil {
+			continue // 跳过错误，继续处理其他模板
+		}
+		if int(count) >= template.MaxUsagePerUser {
+			continue // 已达到领取限制
+		}
+
+		// 计算过期时间
+		validUntil := CalculateExpiry(template)
+
+		// 创建用户折扣券
+		coupon := &UserCoupon{
+			UserID:            userID,
+			TemplateID:        template.ID,
+			CouponCode:        GenerateCouponCode(template.Code),
+			SourceType:        SourceTypeRegister,
+			SourceDetail:      JSONMap{"auto_distribute": true, "distribute_type": "register"},
+			ValidFrom:         now,
+			ValidUntil:        validUntil,
+			Status:            CouponStatusUnused,
+			DiscountType:      string(template.Type),
+			DiscountValue:     template.DiscountValue,
+			MinPurchaseAmount: template.MinPurchaseAmount,
+		}
+
+		if err := s.repo.CreateUserCoupon(coupon); err != nil {
+			// 记录错误但继续处理
+			fmt.Printf("Failed to distribute register coupon (template %d) to user %d: %v\n", template.ID, userID, err)
+			continue
+		}
+	}
+
+	return nil
+}
+
 // OnUserFirstPurchase 用户首次购买时的处理
 func (s *Service) OnUserFirstPurchase(userID uint64, orderID uint64) error {
 	// 获取邀请关系
