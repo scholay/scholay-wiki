@@ -571,39 +571,41 @@ const UserManagement = () => {
                             </div>
                           </td>
                           <td>
-                            <button
-                              className="action-btn view-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                setSelectedUserId(user.id);
-                              }}
-                              title="查看详情"
-                            >
-                              查看
-                            </button>
-                            <button
-                              className="action-btn grant-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                handleGrantClick(user);
-                              }}
-                              title="发放会员"
-                            >
-                              发放会员
-                            </button>
-                            <button
-                              className="action-btn delete-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                handleDeleteClick(user);
-                              }}
-                              title="删除用户"
-                            >
-                              删除
-                            </button>
+                            <div className="action-buttons">
+                              <button
+                                className="action-btn view-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  setSelectedUserId(user.id);
+                                }}
+                                title="查看详情"
+                              >
+                                详情
+                              </button>
+                              <button
+                                className="action-btn grant-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  handleGrantClick(user);
+                                }}
+                                title="发放会员"
+                              >
+                                发放
+                              </button>
+                              <button
+                                className="action-btn delete-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  handleDeleteClick(user);
+                                }}
+                                title="删除用户"
+                              >
+                                删除
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))

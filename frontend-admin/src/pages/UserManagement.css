@@ -7,51 +7,72 @@
 /* 用户信息单元格（ID + 用户名） */
 .user-info-cell {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 10px;
 }
 
 .user-info-cell .user-id {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-tertiary);
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  background: var(--gray-100);
+  padding: 2px 6px;
+  border-radius: 4px;
+  min-width: 36px;
+  text-align: center;
 }
 
 .user-info-cell .user-name {
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 会员信息单元格（套餐 + 到期时间） */
 .subscription-info-cell {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  min-width: 100px;
 }
 
 /* 邀请者信息单元格 */
 .inviter-info-cell {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(99, 102, 241, 0.04));
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.1);
 }
 
 .inviter-info-cell .inviter-id {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
+  font-size: 0.68rem;
+  color: var(--brand-500);
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 2px 5px;
+  border-radius: 4px;
 }
 
 .inviter-info-cell .inviter-name {
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-size: 0.8rem;
+  font-weight: 600;
   color: var(--brand-600);
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .no-inviter {
-  color: var(--text-tertiary);
-  font-size: 0.85rem;
+  color: var(--text-quaternary);
+  font-size: 0.8rem;
 }
 
 .charts-section {
@@ -66,37 +87,39 @@
 
 /* 联系方式列样式 */
 .user-table .contact-info-td {
-  max-width: 300px;
+  max-width: 220px;
 }
 
 .contact-info-cell {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  max-width: 300px;
+  gap: 4px;
+  max-width: 220px;
 }
 
 .contact-info-detail {
+  display: flex;
+  align-items: center;
   font-size: 0.75rem;
   color: var(--text-secondary);
-  word-break: break-all;
+  padding: 3px 0;
 }
 
 .contact-info-detail .info-label {
   font-weight: 500;
   color: var(--text-tertiary);
-  margin-right: 0.3rem;
+  margin-right: 4px;
+  font-size: 0.7rem;
+  min-width: 32px;
 }
 
 .contact-info-divider {
-  height: 1px;
-  background-color: var(--border-subtle);
-  margin: 0.2rem 0;
+  display: none;
 }
 
 .empty-contact {
-  color: var(--text-tertiary);
-  font-size: 0.85rem;
+  color: var(--text-quaternary);
+  font-size: 0.8rem;
 }
 
 .user-table .wechat-openid,
@@ -123,36 +146,42 @@
 .ip-location-cell {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  margin-top: 0.35rem;
+  gap: 3px;
+  margin-top: 4px;
 }
 
 .ip-address {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
+  font-size: 0.68rem;
+  color: var(--text-quaternary);
 }
 
 .location-info {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--text-tertiary);
-  padding: 0.15rem 0.5rem;
+  padding: 2px 6px;
   background: var(--gray-50);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   width: fit-content;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 登录信息单元格 */
 .login-info-cell {
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 /* 相对时间样式 */
 .relative-time {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--text-primary);
   cursor: default;
+  font-weight: 500;
 }
 
 /* 可排序表头 */
@@ -187,18 +216,25 @@
   max-width: 280px;
 }
 
+/* 操作按钮容器 */
+.action-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
 .action-btn {
-  padding: 0.4rem 0.85rem;
-  border-radius: var(--radius-pill);
-  font-size: 0.82rem;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
   font-weight: 500;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: var(--transition);
-  margin-right: 0.35rem;
+  transition: all 0.15s ease;
   position: relative;
   z-index: 1;
   user-select: none;
+  white-space: nowrap;
 }
 
 .action-btn:last-child {
@@ -207,33 +243,38 @@
 
 .view-btn {
   background: var(--brand-50);
-  border-color: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.2);
   color: var(--brand-600);
 }
 
 .view-btn:hover {
-  border-color: var(--brand-400);
+  background: var(--brand-100);
+  border-color: var(--brand-300);
+  transform: translateY(-1px);
 }
 
 .delete-btn {
-  background: var(--danger-50);
-  border-color: rgba(220, 38, 38, 0.25);
-  color: var(--danger-500);
+  background: transparent;
+  border-color: rgba(220, 38, 38, 0.2);
+  color: var(--danger-400);
 }
 
 .delete-btn:hover {
-  border-color: rgba(220, 38, 38, 0.45);
+  background: var(--danger-50);
+  border-color: rgba(220, 38, 38, 0.4);
+  color: var(--danger-500);
 }
 
 .grant-btn {
   background: var(--success-50);
-  border-color: rgba(34, 197, 94, 0.25);
+  border-color: rgba(34, 197, 94, 0.2);
   color: var(--success-600);
 }
 
 .grant-btn:hover {
-  border-color: rgba(34, 197, 94, 0.45);
   background: var(--success-100);
+  border-color: rgba(34, 197, 94, 0.4);
+  transform: translateY(-1px);
 }
 
 .warning-text {
@@ -256,129 +297,128 @@
 .plan-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.35rem 0.75rem;
-  border-radius: var(--radius-pill);
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  min-width: 48px;
 }
 
 .plan-badge.plan-free {
   background: var(--gray-100);
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
+  font-weight: 500;
 }
 
 .plan-badge.plan-pro {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(99, 102, 241, 0.2));
-  color: var(--brand-700);
-  border: 1px solid var(--brand-200);
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  color: white;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
 }
 
 .plan-badge.plan-max {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(236, 72, 153, 0.2));
-  color: var(--purple-700);
-  border: 1px solid var(--purple-200);
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  color: white;
+  box-shadow: 0 2px 6px rgba(168, 85, 247, 0.3);
 }
 
 /* Subscription Expiry */
 .subscription-expiry {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.85rem;
+  gap: 2px;
+  font-size: 0.78rem;
 }
 
 .expiry-date {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 4px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
 }
 
 .expiry-icon {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 .expiry-days {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
 }
 
 .expiry-auto-renew {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: var(--success-600);
   background: var(--success-50);
-  padding: 0.15rem 0.4rem;
-  border-radius: var(--radius-pill);
+  padding: 2px 6px;
+  border-radius: 4px;
   display: inline-block;
   width: fit-content;
+  margin-top: 2px;
 }
 
 /* Expiry Warning Levels */
 .expiry-normal .expiry-date {
-  color: var(--text-primary);
+  color: var(--text-secondary);
 }
 
 .expiry-soon .expiry-date {
-  color: var(--text-primary);
+  color: var(--text-secondary);
 }
 
 .expiry-soon .expiry-days {
   color: var(--warning-600);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .expiry-warning .expiry-date {
-  color: var(--warning-700);
+  color: var(--warning-600);
   font-weight: 600;
 }
 
 .expiry-warning .expiry-days {
-  color: var(--warning-600);
+  color: white;
+  background: var(--warning-500);
+  padding: 2px 6px;
+  border-radius: 4px;
   font-weight: 600;
-  background: var(--warning-50);
-  padding: 0.15rem 0.4rem;
-  border-radius: var(--radius-pill);
-  display: inline-block;
-  width: fit-content;
 }
 
 .expiry-critical .expiry-date {
-  color: var(--danger-700);
-  font-weight: 700;
+  color: var(--danger-600);
+  font-weight: 600;
 }
 
 .expiry-critical .expiry-days {
-  color: var(--danger-700);
-  background: var(--danger-50);
-  padding: 0.15rem 0.4rem;
-  border-radius: var(--radius-pill);
-  font-weight: 700;
-  display: inline-block;
-  width: fit-content;
+  color: white;
+  background: var(--danger-500);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
 }
 
 .expiry-expired .expiry-date {
-  color: var(--danger-700);
-  font-weight: 700;
+  color: var(--text-quaternary);
   text-decoration: line-through;
 }
 
 .expiry-expired .expiry-days {
-  color: var(--danger-700);
-  background: var(--danger-100);
-  padding: 0.15rem 0.4rem;
-  border-radius: var(--radius-pill);
-  font-weight: 700;
-  display: inline-block;
-  width: fit-content;
+  color: white;
+  background: var(--gray-400);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
 }
 
 .expiry-none {
-  color: var(--text-tertiary);
-  font-size: 0.85rem;
+  color: var(--text-quaternary);
+  font-size: 0.75rem;
 }
 
 @media (max-width: 1024px) {
@@ -511,6 +551,77 @@
   cursor: not-allowed;
 }
 
+/* 用户表格整体优化 */
+.user-table-container {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-base);
+}
+
+.user-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.user-table thead {
+  background: linear-gradient(180deg, var(--gray-50) 0%, var(--surface-base) 100%);
+}
+
+.user-table thead th {
+  padding: 14px 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.user-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.user-table tbody tr:hover {
+  background: var(--gray-50);
+}
+
+.user-table tbody td {
+  padding: 14px 16px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.user-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* 状态徽章优化 */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.status-badge.status-active {
+  background: var(--success-50);
+  color: var(--success-600);
+}
+
+.status-badge.status-inactive {
+  background: var(--gray-100);
+  color: var(--text-tertiary);
+}
+
+.status-badge.status-suspended {
+  background: var(--danger-50);
+  color: var(--danger-500);
+}
+
 @media (max-width: 768px) {
   .user-management-container {
     gap: var(--space-4);
@@ -521,7 +632,7 @@
   }
 
   .user-table {
-    min-width: 1000px;
+    min-width: 1100px;
   }
 
   .grant-modal .radio-group {
