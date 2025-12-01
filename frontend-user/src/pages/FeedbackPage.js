@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, File, Image, Trash2, Loader2, CheckCircle, ArrowLeft } from 'lucide-react';
-import { publicApi } from '../services/api';
+import api, { publicApi } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
 import './styles/FeedbackPage.css';
 
@@ -138,11 +138,16 @@ const FeedbackPage = () => {
     setError('');
 
     try {
-      const response = await publicApi.post('/feedback', {
+      const feedbackData = {
         email: email.trim(),
         content: content.trim(),
         attachmentsKey: uploadKey, // 使用上传时返回的key关联附件
-      });
+      };
+
+      // 如果用户已登录，使用带认证的API，以便后端关联用户信息
+      const response = isAuthenticated 
+        ? await api.post('/user/feedback', feedbackData)
+        : await publicApi.post('/feedback', feedbackData);
 
       if (response.data.code === 0) {
         setSubmitted(true);

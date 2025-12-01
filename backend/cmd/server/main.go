@@ -476,6 +476,9 @@ func main() {
 			userProtected.GET("/invitation/my", couponHandler.GetMyInvitation)
 			userProtected.GET("/invitation/statistics", couponHandler.GetInvitationStatistics)
 
+			// Feedback routes (User) - 已登录用户提交反馈会关联用户信息
+			userProtected.POST("/feedback", feedbackHandler.CreateFeedbackWithUser)
+
 			// Conversation routes (legacy)
 			userProtected.GET("/conversations", conversationHandler.GetUserConversations)
 			userProtected.POST("/conversations", conversationHandler.CreateConversation)

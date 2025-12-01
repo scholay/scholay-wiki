@@ -115,10 +115,36 @@ func (h *Handler) CreateFeedback(c *gin.Context) {
 		return
 	}
 
-	// 获取用户信息（如果已登录）
+	// 公共接口不获取用户信息，匿名反馈
 	var userID *uint
 	var username string
-	if uid, exists := c.Get("userID"); exists {
+
+	// 获取IP
+	ip := c.ClientIP()
+
+	// 使用attachmentsKey从数据库获取附件
+	feedback, err := h.service.CreateFeedbackWithAttachments(&req.Email, &req.Content, userID, username, ip, req.AttachmentsKey)
+	if err != nil {
+		utils.Error(c, 5001, "创建反馈失败: "+err.Error())
+		return
+	}
+
+	utils.Success(c, feedback)
+}
+
+// CreateFeedbackWithUser 创建反馈（已登录用户，会关联用户信息）
+// POST /api/v1/user/feedback
+func (h *Handler) CreateFeedbackWithUser(c *gin.Context) {
+	var req CreateFeedbackRequestWithKey
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Error(c, 4001, "参数错误: "+err.Error())
+		return
+	}
+
+	// 从认证中间件获取用户信息
+	var userID *uint
+	var username string
+	if uid, exists := c.Get("user_id"); exists {
 		id := uid.(uint)
 		userID = &id
 	}
