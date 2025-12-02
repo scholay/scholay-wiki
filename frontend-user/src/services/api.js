@@ -378,4 +378,89 @@ export const paymentAPI = {
     }),
 };
 
+// AI审稿人 API
+export const peerReviewAPI = {
+  // ========== 草稿管理 API ==========
+  
+  // 获取草稿（每个用户只有一个草稿）
+  getDraft: () =>
+    api.get('/user/peer-review/draft'),
+
+  // 保存草稿
+  saveDraft: (data) =>
+    api.put('/user/peer-review/draft', data),
+
+  // 提交草稿开始审稿
+  submitDraft: (targetVenue = '', modelLevel = 'mid') =>
+    api.post('/user/peer-review/draft/submit', { target_venue: targetVenue, model_level: modelLevel }),
+
+  // ========== 任务管理 API ==========
+  
+  // 创建审稿任务（保留兼容）
+  createTask: (data) =>
+    api.post('/user/peer-review/tasks', data),
+
+  // 获取任务列表（不包含草稿）
+  getTaskList: (page = 1, pageSize = 10, status = '') =>
+    api.get('/user/peer-review/tasks', { params: { page, page_size: pageSize, status } }),
+
+  // 获取任务详情
+  getTaskDetail: (taskId) =>
+    api.get(`/user/peer-review/tasks/${taskId}`),
+
+  // 获取任务进度
+  getTaskProgress: (taskId) =>
+    api.get(`/user/peer-review/tasks/${taskId}/progress`),
+
+  // 监听任务进度（SSE）
+  watchTaskProgress: (taskId) => {
+    const token = localStorage.getItem('user_token');
+    return new EventSource(`${API_URL}/api/v1/user/peer-review/tasks/${taskId}/watch?token=${token}`);
+  },
+
+  // 删除任务
+  deleteTask: (taskId) =>
+    api.delete(`/user/peer-review/tasks/${taskId}`),
+
+  // 启动草稿任务（保留兼容）
+  startTask: (taskId, targetVenue = '', modelLevel = 'mid') =>
+    api.post(`/user/peer-review/tasks/${taskId}/start`, { target_venue: targetVenue, model_level: modelLevel }),
+
+  // 上传文件（解析文件并保存到草稿）
+  uploadFile: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/user/peer-review/upload', formData, {
+      headers: { 'Content-Type': null },
+    });
+  },
+
+  // ========== 兼容旧接口 ==========
+  
+  // 执行审稿（流式输出，同步方式）
+  runPeerReview: (manuscriptText, targetVenue, modelLevel = 'mid') => {
+    const token = localStorage.getItem('user_token');
+    return fetch(`${API_URL}/api/v1/user/peer-review/run`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        manuscript_text: manuscriptText,
+        target_venue: targetVenue,
+        model_level: modelLevel,
+      }),
+    });
+  },
+
+  // 获取审稿历史
+  getReviewHistory: () =>
+    api.get('/user/peer-review/history'),
+
+  // 获取审稿详情
+  getReviewDetail: (id) =>
+    api.get(`/user/peer-review/${id}`),
+};
+
 export default api;

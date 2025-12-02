@@ -70,7 +70,8 @@ const MainLayout = () => {
   const shouldRenderSidebar = isAuthenticated || 
     location.pathname === '/search-results' || 
     location.pathname === '/advanced-search' || 
-    location.pathname === '/chat';
+    location.pathname === '/chat' ||
+    location.pathname === '/peer-review';
 
   return (
     <>
@@ -113,4 +114,5 @@ const MainLayout = () => {
 };
 
 export default MainLayout;
+
 

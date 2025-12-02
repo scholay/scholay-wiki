@@ -457,6 +457,27 @@ const AppSidebar = ({
             </svg>
             <span>AI 对话</span>
           </button>
+
+          <button
+            ref={(el) => (navItemRefs.current['peer-review'] = el)}
+            className={`nav-item ${location.pathname === '/peer-review' ? 'active' : ''}`}
+            onClick={() => handleNavClick('/peer-review')}
+            onMouseEnter={() => {
+              if (collapsed && !isMobile) {
+                handleMouseEnter('peer-review', navItemRefs.current['peer-review']);
+              }
+            }}
+            onMouseLeave={handleMouseLeave}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            <span>AI 审稿人</span>
+          </button>
         </div>
       </div>
 
@@ -751,6 +772,7 @@ const AppSidebar = ({
           {hoveredItem === 'normal-search' && '学术检索'}
           {hoveredItem === 'advanced-search' && '智能分析'}
           {hoveredItem === 'chat' && 'AI 对话'}
+          {hoveredItem === 'peer-review' && 'AI 审稿人'}
           {hoveredItem === 'user' && (user?.username || user?.email?.split('@')[0] || '用户')}
         </div>,
         document.body
@@ -810,6 +832,28 @@ const AppSidebar = ({
             </h3>
             <p className="delete-confirm-message">
               {historyType === 'conversation'
+                ? '确定要删除这个对话吗？此操作将永久删除该对话及其所有消息，无法恢复。'
+                : '确定要删除这条搜索记录吗？此操作将永久删除该记录，无法恢复。'}
+            </p>
+            <div className="delete-confirm-actions">
+              <button className="btn-cancel" onClick={handleCancelDelete}>
+                取消
+              </button>
+              <button className="btn-confirm-delete" onClick={handleConfirmDelete}>
+                删除
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+    </>
+  );
+};
+
+export default AppSidebar;
+
                 ? '确定要删除这个对话吗？此操作将永久删除该对话及其所有消息，无法恢复。'
                 : '确定要删除这条搜索记录吗？此操作将永久删除该记录，无法恢复。'}
             </p>

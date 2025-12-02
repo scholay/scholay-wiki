@@ -22,6 +22,7 @@ import (
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/order"
 	"scholar-backend/internal/payment"
+	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/proxy"
 	"scholar-backend/internal/semanticscholar"
 	"scholar-backend/internal/subscription"
@@ -200,6 +201,11 @@ func main() {
 	scholarHandler := semanticscholar.NewHandler(scholarManager, aiService) // 传入aiService用于查询翻译
 	mcpHandler := mcp.NewHandler(scholarManager) // MCP uses manager for dynamic API key access
 	aiHandler := ai.NewHandler(aiService)
+
+	// Initialize Peer Review module
+	mcpServer := mcp.NewMCPServer(scholarManager)
+	peerReviewService := peerreview.NewService(database.GetDB(), aiService, mcpServer, thirdPartyService)
+	peerReviewHandler := peerreview.NewHandler(peerReviewService)
 
 	// Initialize Subscription module
 	subscriptionService := subscription.NewService(database.GetDB())
@@ -507,6 +513,33 @@ func main() {
 			userProtected.POST("/conversations/messages/:messageId/edit", chatHandler.EditMessage)
 			userProtected.GET("/conversations/messages/:messageId/siblings", chatHandler.GetSiblingMessages)
 			userProtected.GET("/conversations/messages/:messageId/branch", chatHandler.GetBranchChain)
+
+			// Peer Review routes (AI审稿人) - 新版任务管理API
+			peerReviewGroup := userProtected.Group("/peer-review")
+			{
+				// 草稿管理（每个用户一个草稿）
+				peerReviewGroup.GET("/draft", peerReviewHandler.GetDraft)       // 获取草稿
+				peerReviewGroup.PUT("/draft", peerReviewHandler.SaveDraft)      // 保存草稿
+				peerReviewGroup.POST("/draft/submit", peerReviewHandler.SubmitDraft) // 提交草稿开始审稿
+				
+				// 任务管理
+				peerReviewGroup.POST("/tasks", peerReviewHandler.CreateTask)
+				peerReviewGroup.GET("/tasks", peerReviewHandler.GetTaskList)
+				peerReviewGroup.GET("/tasks/:id", peerReviewHandler.GetTaskDetail)
+				peerReviewGroup.GET("/tasks/:id/progress", peerReviewHandler.GetTaskProgress)
+				peerReviewGroup.GET("/tasks/:id/watch", peerReviewHandler.WatchTaskProgress)
+				peerReviewGroup.DELETE("/tasks/:id", peerReviewHandler.DeleteTask)
+				peerReviewGroup.POST("/tasks/:id/start", peerReviewHandler.StartTask) // 启动草稿任务
+				
+				// 文件上传（解析文件并保存到草稿）
+				peerReviewGroup.POST("/upload", peerReviewHandler.UploadFile)
+				
+				// 兼容旧接口
+				peerReviewGroup.POST("/run", peerReviewHandler.RunPeerReview)
+				peerReviewGroup.GET("/history", peerReviewHandler.GetReviewHistory)
+			}
+			// 兼容旧接口路由
+			userProtected.GET("/peer-review/:id", peerReviewHandler.GetReviewDetail)
 		}
 
 		// Public API routes (no authentication required)

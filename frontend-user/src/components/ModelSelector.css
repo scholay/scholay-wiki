@@ -176,6 +176,13 @@
   transform: translateY(8px) scale(0.96);
 }
 
+/* 右对齐下拉菜单 */
+.model-selector-dropdown.align-right {
+  left: auto;
+  right: 0;
+  transform-origin: bottom right;
+}
+
 @keyframes popupFadeIn {
   0% {
     opacity: 0;
@@ -937,6 +944,13 @@
 [data-theme="light"] .model-option-badge {
   background: #fef3c7;
   color: #92400e;
+}
+
+[data-theme="light"] .model-option-quota {
+  color: #10a37f;
+  font-weight: 600;
+}
+
 }
 
 [data-theme="light"] .model-option-quota {

@@ -11,8 +11,9 @@ import './ModelSelector.css';
  * @param {string} mode - 使用场景 ('advanced-search' 或 'ai-chat')，默认 'advanced-search'
  * @param {boolean} compact - 是否使用紧凑模式
  * @param {boolean} showOnly - 是否只显示，不可交互
+ * @param {string} dropdownAlign - 下拉菜单对齐方式 ('left' 或 'right')，默认 'left'
  */
-const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscription: userSubscriptionProp, mode = 'advanced-search', compact = false, showOnly = false, isAuthenticated = true }) => {
+const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscription: userSubscriptionProp, mode = 'advanced-search', compact = false, showOnly = false, isAuthenticated = true, dropdownAlign = 'left' }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [quota, setQuota] = useState(null);
   const [usage, setUsage] = useState(null);
@@ -332,7 +333,7 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
         </button>
 
         {showDropdown && (
-          <div className="model-selector-dropdown">
+          <div className={`model-selector-dropdown ${dropdownAlign === 'right' ? 'align-right' : ''}`}>
             <div className="dropdown-header">选择模型</div>
             {models.map((model) => {
               const available = isModelAvailable(model);
@@ -440,3 +441,4 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
 };
 
 export default ModelSelector;
+
