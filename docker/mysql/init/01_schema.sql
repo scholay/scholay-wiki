@@ -972,6 +972,7 @@ CREATE TABLE IF NOT EXISTS `peer_review_tasks` (
   `input_type` VARCHAR(20) NOT NULL DEFAULT 'text' COMMENT '输入类型: text=文本, file=文件',
   `manuscript_text` LONGTEXT COMMENT '稿件文本内容',
   `file_id` BIGINT UNSIGNED COMMENT '关联的文件ID',
+  `file_name` VARCHAR(500) COMMENT '上传的文件名',
   `manuscript_hash` VARCHAR(64) COMMENT '内容哈希，用于缓存',
   `title` VARCHAR(500) COMMENT '稿件标题（从内容中提取）',
   `target_venue` VARCHAR(255) COMMENT '目标期刊/会议',
@@ -1212,3 +1213,16 @@ CREATE TABLE IF NOT EXISTS `feedback_attachments` (
 -- 默认系统配置
 INSERT IGNORE INTO `system_configs` (`id`, `require_email_verification`) VALUES
 (1, TRUE);
+-- ============================================
+-- 数据库迁移：为 peer_review_tasks 添加 file_name 字段
+-- ============================================
+SET @exist := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+               WHERE TABLE_SCHEMA = DATABASE() 
+               AND TABLE_NAME = 'peer_review_tasks' 
+               AND COLUMN_NAME = 'file_name');
+SET @sql := IF(@exist = 0, 
+    'ALTER TABLE `peer_review_tasks` ADD COLUMN `file_name` VARCHAR(500) COMMENT ''上传的文件名'' AFTER `file_id`', 
+    'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

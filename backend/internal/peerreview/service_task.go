@@ -74,10 +74,14 @@ func (s *Service) SaveDraft(userID uint, req *SaveDraftRequest) (*DraftResponse,
 	draft.ManuscriptText = req.ManuscriptText
 	draft.TargetVenue = req.TargetVenue
 	draft.ModelLevel = req.ModelLevel
+	draft.FileName = req.FileName
 	
 	// 如果有内容，提取标题
 	if len(req.ManuscriptText) > 0 {
 		draft.Title = extractTitle(req.ManuscriptText)
+	} else {
+		// 清空时也清空标题
+		draft.Title = ""
 	}
 
 	// 保存
@@ -195,6 +199,7 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, fileName string, fileExt 
 	// 更新草稿内容
 	draft.InputType = InputTypeFile
 	draft.ManuscriptText = extractedText
+	draft.FileName = fileName // 保存原始文件名
 	draft.Title = strings.TrimSuffix(fileName, fileExt)
 	if len(draft.Title) > 100 {
 		draft.Title = truncateString(draft.Title, 100)
@@ -238,7 +243,7 @@ func (s *Service) buildDraftResponse(draft *PeerReviewTask) *DraftResponse {
 		ManuscriptText: draft.ManuscriptText,
 		TargetVenue:    draft.TargetVenue,
 		ModelLevel:     draft.ModelLevel,
-		FileName:       draft.Title, // 如果是文件上传，Title 存储的是文件名
+		FileName:       draft.FileName,
 		ContentPreview: preview,
 	}
 }

@@ -197,164 +197,6 @@
   color: #ef4444;
 }
 
-/* ========== 输入工具栏 ========== */
-.prv-input-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-/* ========== 输入方式切换 - 毛玻璃立体按钮 ========== */
-.prv-input-tabs {
-  display: flex;
-  gap: 8px;
-}
-
-.prv-input-tab {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-.prv-input-tab span {
-  font-size: 13px;
-}
-
-.prv-input-tab:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: var(--text-primary);
-  transform: translateY(-1px);
-  box-shadow: 
-    0 4px 12px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-
-[data-theme="light"] .prv-input-tab {
-  background: rgba(255, 255, 255, 0.7);
-  border-color: rgba(0, 0, 0, 0.08);
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-[data-theme="light"] .prv-input-tab:hover {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(0, 0, 0, 0.12);
-  box-shadow: 
-    0 4px 12px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 1);
-}
-
-.prv-input-tab.active {
-  background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 0.9) 0%, 
-    rgba(16, 163, 127, 0.75) 100%);
-  border-color: rgba(16, 163, 127, 0.6);
-  color: #fff;
-  box-shadow: 
-    0 4px 16px rgba(16, 163, 127, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-.prv-input-tab.active:hover {
-  background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 1) 0%, 
-    rgba(16, 163, 127, 0.85) 100%);
-  transform: translateY(-1px);
-  box-shadow: 
-    0 6px 20px rgba(16, 163, 127, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
-}
-
-[data-theme="light"] .prv-input-tab.active {
-  background: linear-gradient(135deg, 
-    var(--text-accent) 0%, 
-    #0d8c6d 100%);
-  border-color: var(--text-accent);
-}
-
-.prv-input-tab svg {
-  flex-shrink: 0;
-  opacity: 0.9;
-}
-
-.prv-input-tab.active svg {
-  opacity: 1;
-}
-
-/* ========== 目标期刊输入 - 毛玻璃风格 ========== */
-.prv-venue-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 14px;
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  transition: all 0.2s;
-}
-
-.prv-venue-label {
-  flex-shrink: 0;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.prv-venue-wrapper:focus-within {
-  border-color: rgba(16, 163, 127, 0.4);
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
-}
-
-.prv-venue-wrapper:focus-within .prv-venue-label {
-  color: var(--text-accent);
-}
-
-[data-theme="light"] .prv-venue-wrapper {
-  background: rgba(255, 255, 255, 0.6);
-  border-color: rgba(0, 0, 0, 0.08);
-}
-
-[data-theme="light"] .prv-venue-wrapper:focus-within {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(16, 163, 127, 0.4);
-}
-
-.prv-venue-input {
-  width: 140px;
-  padding: 2px 0;
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-}
-
-.prv-venue-input::placeholder {
-  color: var(--text-quaternary);
-  font-style: italic;
-}
 
 /* ========== 输入框 - 毛玻璃效果 ========== */
 .prv-input-area {
@@ -373,6 +215,7 @@
 
 /* 输入框容器 - 毛玻璃效果 */
 .prv-composer-wrapper {
+  position: relative;
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
   border-radius: 24px;
@@ -412,6 +255,103 @@
     0 0 0 3px rgba(16, 163, 127, 0.1);
 }
 
+/* 拖拽状态 */
+.prv-composer-wrapper.prv-dragging {
+  border-color: var(--text-accent);
+  background: rgba(16, 163, 127, 0.05);
+}
+
+/* 拖拽遮罩 */
+.prv-drag-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(16, 163, 127, 0.1);
+  backdrop-filter: blur(4px);
+  border-radius: 22px;
+  z-index: 10;
+  color: var(--text-accent);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.prv-drag-overlay svg {
+  color: var(--text-accent);
+}
+
+/* 上传中遮罩 */
+.prv-upload-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  border-radius: 22px;
+  z-index: 10;
+  color: #fff;
+  font-size: 14px;
+}
+
+[data-theme="light"] .prv-upload-overlay {
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
+}
+
+/* 文件信息条 */
+.prv-file-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: rgba(16, 163, 127, 0.1);
+  border-radius: 10px;
+}
+
+.prv-file-bar-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-accent);
+  font-size: 13px;
+}
+
+.prv-file-bar-name {
+  font-weight: 500;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prv-file-bar-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.prv-file-bar-remove:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
 .prv-textarea {
   width: 100%;
   height: 200px;
@@ -449,6 +389,40 @@
 
 .prv-textarea::-webkit-scrollbar-thumb:hover {
   background: rgba(128, 128, 128, 0.5);
+}
+
+/* 文件上传后的只读状态 */
+.prv-textarea.prv-textarea-readonly {
+  background: rgba(128, 128, 128, 0.05);
+  color: var(--text-secondary);
+  cursor: default;
+}
+
+[data-theme="light"] .prv-textarea.prv-textarea-readonly {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* 字符计数 */
+.prv-char-count {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 4px 16px 8px;
+  font-size: 12px;
+  color: var(--text-quaternary);
+}
+
+.prv-char-count .prv-char-separator {
+  margin: 0 2px;
+}
+
+.prv-char-count .prv-char-max {
+  color: var(--text-quaternary);
+}
+
+.prv-char-count .prv-char-warning {
+  color: #f59e0b;
+  font-weight: 500;
 }
 
 /* ========== 文件上传区域 ========== */
@@ -630,14 +604,99 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px 8px;
-  gap: 16px;
+  gap: 12px;
 }
 
 .prv-composer-footer-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* 通用 footer 按钮样式 */
+.prv-footer-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.prv-footer-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+
+.prv-footer-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+[data-theme="light"] .prv-footer-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* ========== 目标期刊输入 - Footer 中的样式 ========== */
+.prv-venue-section {
   flex: 1;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.prv-venue-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  transition: all 0.2s;
+  max-width: 320px;
+  width: 100%;
+}
+
+.prv-venue-toggle svg {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  transition: color 0.2s;
+}
+
+.prv-venue-toggle:focus-within {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(16, 163, 127, 0.3);
+}
+
+.prv-venue-toggle:focus-within svg {
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .prv-venue-toggle:focus-within {
+  background: rgba(16, 163, 127, 0.05);
+}
+
+.prv-venue-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 0;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+
+.prv-venue-input::placeholder {
+  color: var(--text-quaternary);
 }
 
 /* 模型选择器在 footer 中的样式 - 毛玻璃风格 */
@@ -684,7 +743,6 @@
     0 4px 12px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 1);
 }
-
 
 /* ========== 提交按钮 - 毛玻璃立体风格 ========== */
 .prv-submit-btn {

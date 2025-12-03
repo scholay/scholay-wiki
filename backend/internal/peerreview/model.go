@@ -25,6 +25,7 @@ type PeerReviewTask struct {
 	ManuscriptText    string     `json:"manuscript_text" gorm:"type:longtext"`    // 稿件文本
 	ManuscriptHash    string     `json:"manuscript_hash" gorm:"index"`            // 稿件哈希（用于去重）
 	FileID            *uint      `json:"file_id"`                                 // 关联的文件ID（指针类型允许为空）
+	FileName          string     `json:"file_name"`                               // 上传的文件名
 	Title             string     `json:"title"`                                   // 稿件标题
 	TargetVenue       string     `json:"target_venue"`                            // 目标期刊/会议
 	ModelLevel        string     `json:"model_level"`                             // 模型级别

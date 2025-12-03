@@ -48,7 +48,7 @@ export default function PeerReviewPage() {
   const [inputType, setInputType] = useState('text');
   const [manuscriptText, setManuscriptText] = useState('');
   const [targetVenue, setTargetVenue] = useState('');
-  const [modelLevel, setModelLevel] = useState('mid');
+  const [modelLevel, setModelLevel] = useState('low'); // 默认普通模式
   const [fileName, setFileName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -95,7 +95,7 @@ export default function PeerReviewPage() {
         setInputType(draft.input_type || 'text');
         setManuscriptText(draft.manuscript_text || '');
         setTargetVenue(draft.target_venue || '');
-        setModelLevel(draft.model_level || 'mid');
+        setModelLevel(draft.model_level || 'low');
         setFileName(draft.file_name || '');
       }
     } catch (error) {
@@ -220,7 +220,7 @@ export default function PeerReviewPage() {
         if (data.draft_id) {
           setDraftId(data.draft_id);
         }
-        showMessage('success', '上传成功', '文件已解析，可以开始审稿');
+        // 上传成功不弹窗，直接显示在输入框中
       } else {
         showMessage('error', '上传失败', response.data?.message || '文件上传失败');
       }
@@ -310,7 +310,7 @@ export default function PeerReviewPage() {
         // 刷新列表
         loadTasks();
         
-        showMessage('success', '提交成功', '审稿任务已创建，正在处理中');
+        // 提交成功不弹窗，直接跳转到详情页
       } else {
         showMessage('error', '提交失败', response.data?.message || '提交审稿失败');
       }
@@ -523,7 +523,19 @@ export default function PeerReviewPage() {
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                onRemoveFile={() => { setFileName(''); setManuscriptText(''); setInputType('text'); }}
+                onRemoveFile={() => { 
+                  setFileName(''); 
+                  setManuscriptText(''); 
+                  setInputType('text');
+                  // 同步清空后端草稿中的文件信息
+                  saveDraftToServer({
+                    input_type: 'text',
+                    manuscript_text: '',
+                    target_venue: targetVenue,
+                    model_level: modelLevel,
+                    file_name: '',
+                  });
+                }}
                 onSubmit={handleSubmitDraft}
                 onClearDraft={clearDraft}
               />
@@ -607,150 +619,135 @@ function CreateSection({
         </div>
       </div>
 
-      {/* 输入方式切换和目标期刊 */}
-      <div className="prv-input-toolbar">
-        <div className="prv-input-tabs">
-          <button 
-            className={`prv-input-tab ${inputType === 'text' ? 'active' : ''}`}
-            onClick={() => setInputType('text')}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
-            </svg>
-            <span>粘贴文本</span>
-          </button>
-          <button 
-            className={`prv-input-tab ${inputType === 'file' ? 'active' : ''}`}
-            onClick={() => setInputType('file')}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+
+      {/* 输入区域 - 毛玻璃效果，支持粘贴文本和拖拽上传 */}
+      <div 
+        className={`prv-composer-wrapper ${isDragging ? 'prv-dragging' : ''}`}
+        onDragEnter={onDragEnter}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+      >
+        {/* 拖拽上传遮罩 */}
+        {isDragging && (
+          <div className="prv-drag-overlay">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="17 8 12 3 7 8"/>
               <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
-            <span>上传文件</span>
-          </button>
-        </div>
-        
-        {/* 目标期刊输入 - 右侧 */}
-        <div className="prv-venue-wrapper">
-          <span className="prv-venue-label">目标期刊</span>
-          <input
-            type="text"
-            className="prv-venue-input"
-            placeholder="如: Nature, Science, Cell"
-            value={targetVenue}
-            onChange={(e) => setTargetVenue(e.target.value)}
-          />
-        </div>
-      </div>
+            <p>松开鼠标上传文件</p>
+          </div>
+        )}
 
-      {/* 输入区域 - 毛玻璃效果 */}
-      <div className="prv-composer-wrapper">
+        {/* 上传中遮罩 */}
+        {uploading && (
+          <div className="prv-upload-overlay">
+            <div className="prv-spinner"></div>
+            <p>正在解析文件...</p>
+          </div>
+        )}
+
         <div className="prv-input-area">
           {draftLoading ? (
             <div className="prv-draft-loading">
               <div className="prv-spinner-small"></div>
               <span>加载草稿中...</span>
             </div>
-          ) : inputType === 'text' ? (
-            <textarea
-              className="prv-textarea"
-              placeholder="请粘贴您的稿件内容（论文全文、摘要或研究计划）..."
-              value={manuscriptText}
-              onChange={(e) => setManuscriptText(e.target.value)}
-              maxLength={50000}
-            />
           ) : (
-          <>
-            {!fileName ? (
-              <div 
-                className={`prv-upload-area ${isDragging ? 'prv-dragging' : ''}`}
-                onClick={() => !uploading && fileInputRef.current?.click()}
-                onDragEnter={onDragEnter}
-                onDragOver={onDragOver}
-                onDragLeave={onDragLeave}
-                onDrop={onDrop}
-              >
-                {uploading ? (
-                  <div className="prv-upload-loading">
-                    <div className="prv-spinner"></div>
-                    <p>正在上传并解析文件...</p>
-                  </div>
-                ) : isDragging ? (
-                  <div className="prv-upload-drop-hint">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="17 8 12 3 7 8"/>
-                      <line x1="12" y1="3" x2="12" y2="15"/>
+            <>
+              {/* 已上传文件信息条 */}
+              {fileName && (
+                <div className="prv-file-bar">
+                  <div className="prv-file-bar-info">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
                     </svg>
-                    <p>松开鼠标上传文件</p>
+                    <span className="prv-file-bar-name">{fileName}</span>
                   </div>
-                ) : (
-                  <div className="prv-upload-default">
-                    <div className="prv-upload-icon">
-                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
-                      </svg>
-                    </div>
-                    <p className="prv-upload-title">拖拽文件到此处，或点击选择</p>
-                    <span className="prv-upload-hint">支持 .txt, .doc, .docx, .rtf, .odt, .pdf 文件</span>
-                  </div>
-                )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".txt,.doc,.docx,.rtf,.odt,.pdf"
-                  onChange={onFileSelect}
-                  style={{ display: 'none' }}
-                />
-              </div>
-            ) : (
-              <div className="prv-uploaded-file">
-                <div className="prv-file-info">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                  </svg>
-                  <div className="prv-file-details">
-                    <span className="prv-file-name">{fileName}</span>
-                    <span className="prv-file-size">{manuscriptText.length} 字符</span>
-                  </div>
-                  <button className="prv-file-remove" onClick={onRemoveFile}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <button className="prv-file-bar-remove" onClick={onRemoveFile}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <line x1="18" y1="6" x2="6" y2="18"/>
                       <line x1="6" y1="6" x2="18" y2="18"/>
                     </svg>
                   </button>
                 </div>
-                {manuscriptText && (
-                  <div className="prv-file-preview">
-                    <span className="prv-preview-label">内容预览：</span>
-                    <p className="prv-preview-text">{truncateString(manuscriptText, 500)}</p>
-                  </div>
-                )}
+              )}
+              
+              {/* 文本输入区域 */}
+              <textarea
+                className={`prv-textarea ${fileName ? 'prv-textarea-readonly' : ''}`}
+                placeholder="粘贴稿件内容，或拖拽文件到此处上传..."
+                value={manuscriptText}
+                onChange={(e) => !fileName && setManuscriptText(e.target.value)}
+                readOnly={!!fileName}
+                maxLength={50000}
+              />
+              
+              {/* 字符计数 */}
+              <div className="prv-char-count">
+                <span className={manuscriptText.length > 45000 ? 'prv-char-warning' : ''}>
+                  {manuscriptText.length.toLocaleString()}
+                </span>
+                <span className="prv-char-separator">/</span>
+                <span className="prv-char-max">50,000</span>
               </div>
-            )}
-          </>
-        )}
+              
+              {/* 隐藏的文件输入 */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.doc,.docx,.rtf,.odt,.pdf"
+                onChange={onFileSelect}
+                style={{ display: 'none' }}
+              />
+            </>
+          )}
         </div>
 
-        {/* Composer Footer - 模型选择和提交按钮 */}
+        {/* Composer Footer */}
         <div className="prv-composer-footer">
+          {/* 左侧：模型选择和上传 */}
           <div className="prv-composer-footer-left">
             <ModelSelector 
               value={modelLevel} 
               onChange={setModelLevel}
               compact={true}
             />
+            
+            <button 
+              className="prv-footer-btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              title="上传文件"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </button>
+          </div>
+
+          {/* 中间：目标期刊 - 可展开的输入 */}
+          <div className="prv-venue-section">
+            <div className="prv-venue-toggle">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+              </svg>
+              <input
+                type="text"
+                className="prv-venue-input"
+                placeholder="投稿期刊（可选，让审稿更有针对性）"
+                value={targetVenue}
+                onChange={(e) => setTargetVenue(e.target.value)}
+              />
+            </div>
           </div>
           
-          {/* 提交按钮 */}
+          {/* 右侧：提交按钮 */}
           <button 
             className="prv-submit-btn" 
             onClick={onSubmit}

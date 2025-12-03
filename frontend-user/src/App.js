@@ -115,12 +115,3 @@ function App() {
 }
 
 export default App;
-
-        </AuthProvider>
-      </ToastProvider>
-    </ThemeProvider>
-    </HelmetProvider>
-  );
-}
-
-export default App;

@@ -853,25 +853,3 @@ const AppSidebar = ({
 };
 
 export default AppSidebar;
-
-                ? '确定要删除这个对话吗？此操作将永久删除该对话及其所有消息，无法恢复。'
-                : '确定要删除这条搜索记录吗？此操作将永久删除该记录，无法恢复。'}
-            </p>
-            <div className="delete-confirm-actions">
-              <button className="btn-cancel" onClick={handleCancelDelete}>
-                取消
-              </button>
-              <button className="btn-confirm-delete" onClick={handleConfirmDelete}>
-                删除
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-    </div>
-    </>
-  );
-};
-
-export default AppSidebar;
