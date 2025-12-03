@@ -46,6 +46,15 @@ func generateManuscriptHash(text string, venue string) string {
 	return hex.EncodeToString(hash[:])
 }
 
+// truncateByRune 按字符数（而非字节数）截取字符串，避免截断 UTF-8 字符
+func truncateByRune(s string, maxChars int) string {
+	runes := []rune(s)
+	if len(runes) <= maxChars {
+		return s
+	}
+	return string(runes[:maxChars])
+}
+
 // RunPeerReview 执行审稿流程（流式输出）
 func (s *Service) RunPeerReview(userID uint, req *PeerReviewRequest, writer io.Writer) error {
 	manuscriptHash := generateManuscriptHash(req.ManuscriptText, req.TargetVenue)
@@ -143,7 +152,7 @@ func (s *Service) extractBasicInfo(manuscriptText, targetVenue, modelLevel strin
   "keywords": ["关键词1", "关键词2", "关键词3"]
 }
 
-只返回JSON，不要有其他文字。`, manuscriptText[:min(8000, len(manuscriptText))], targetVenue)
+只返回JSON，不要有其他文字。`, truncateByRune(manuscriptText, 50000), targetVenue)
 
 	messages := []ai.ChatMessage{
 		{Role: "user", Content: prompt},
@@ -638,17 +647,17 @@ func (s *Service) generateStrictReview(
 
 请基于以上所有信息，生成一份专业的审稿报告。报告**必须**优先并聚焦于指出问题。
 
-## 审稿报告 (Peer Review Report)
+**注意：直接从正文内容开始，不要输出"审稿报告"这样的大标题。**
 
-### I. 综合评估与推荐 (Overall Assessment & Recommendation)
+## 综合评估与推荐
 
-#### 1. 核心贡献
+### 核心贡献
 （简要总结你理解的论文核心贡献）
 
-#### 2. 针对 [%s] 的契合度评估
-（基于该目标的标准，严格评估稿件的契合度、新颖性和影响力。必须对照上述相似论文进行新颖性判断。）
+### 契合度评估
+（基于 [%s] 的标准，严格评估稿件的契合度、新颖性和影响力。必须对照上述相似论文进行新颖性判断。）
 
-#### 3. 推荐意见
+### 推荐意见
 - **Accept** (接受)
 - **Minor Revision** (小修后接受)
 - **Major Revision** (大修后重审)
@@ -657,19 +666,19 @@ func (s *Service) generateStrictReview(
 **本稿推荐**：[给出具体推荐]
 **推荐理由**：[详细说明]
 
-### II. 必须解决的核心问题 (Critical Issues Requiring Mandatory Revision)
+## 必须解决的核心问题
 
 （**这是评审报告的核心。** 必须严格、清晰、具体地列出所有阻碍稿件达到目标期刊标准的重大缺陷。每一条都必须是可操作的、实质性的批评。）
 
-#### 问题1：[问题标题]
+### 问题1：[问题标题]
 - **严重程度**：Critical / Major
 - **问题描述**：（清晰阐述问题，引用相关文献 [Rx] 作为依据）
 - **修改建议**：（具体、可执行的修改方案）
 
-#### 问题2：[问题标题]
+### 问题2：[问题标题]
 ...
 
-### III. 其他改进建议 (Other Suggestions for Improvement)
+## 其他改进建议
 
 （指出那些次要的、但同样需要修改以提升稿件质量的问题。）
 
@@ -677,7 +686,7 @@ func (s *Service) generateStrictReview(
 2. [建议2]
 3. [建议3]`,
 		targetVenue,
-		manuscriptText[:min(6000, len(manuscriptText))],
+		truncateByRune(manuscriptText, 50000),
 		string(metaJSON),
 		summary.FieldState,
 		closestPapersInfo,

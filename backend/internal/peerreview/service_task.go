@@ -440,12 +440,8 @@ func (s *Service) GetTaskDetail(userID uint, taskID uint) (*TaskDetailResponse, 
 		CompletedAt:   task.CompletedAt,
 	}
 
-	// 只在详情中返回稿件内容
-	if len(task.ManuscriptText) > 10000 {
-		response.ManuscriptText = task.ManuscriptText[:10000] + "...(内容已截断)"
-	} else {
-		response.ManuscriptText = task.ManuscriptText
-	}
+	// 返回完整的稿件内容（不截断）
+	response.ManuscriptText = task.ManuscriptText
 
 	// 获取文件名 - 优先使用任务表中的 FileName 字段
 	if task.FileName != "" {
@@ -654,8 +650,18 @@ func (s *Service) StartDraftTask(userID uint, taskID uint, targetVenue string, m
 	return nil
 }
 
-// runTaskPipeline 异步执行审稿任务
+// runTaskPipeline 异步执行审稿任务（带异常恢复）
+// 注意：不使用固定超时，因为大模型流式传输可能较慢
 func (s *Service) runTaskPipeline(taskID uint, userID uint, modelLevel string) {
+	// 异常恢复：捕获 panic，防止整个服务崩溃
+	defer func() {
+		if r := recover(); r != nil {
+			errMsg := fmt.Sprintf("任务处理发生异常: %v", r)
+			fmt.Printf("[PeerReview] Task %d panic recovered: %v\n", taskID, r)
+			s.updateTaskFailed(taskID, errMsg)
+		}
+	}()
+
 	// 获取任务
 	var task PeerReviewTask
 	if err := s.db.First(&task, taskID).Error; err != nil {
@@ -673,7 +679,7 @@ func (s *Service) runTaskPipeline(taskID uint, userID uint, modelLevel string) {
 		ModelLevel:     modelLevel,
 	}
 
-	// 使用一个 buffer 来收集输出
+	// 直接执行，不使用固定超时（大模型流式传输可能较慢）
 	var buf bytes.Buffer
 	err := s.RunPeerReview(userID, req, &buf)
 	if err != nil {
@@ -682,13 +688,12 @@ func (s *Service) runTaskPipeline(taskID uint, userID uint, modelLevel string) {
 	}
 
 	// 解析输出结果并更新任务
-	// 这里简化处理，实际应该解析 SSE 事件
 	now := time.Now()
 	s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]interface{}{
-		"status":        TaskStatusCompleted,
-		"progress":      100,
+		"status":         TaskStatusCompleted,
+		"progress":       100,
 		"progress_stage": "已完成",
-		"completed_at":  &now,
+		"completed_at":   &now,
 	})
 }
 
@@ -1254,8 +1259,17 @@ func extractTitle(content string) string {
 
 // ========== 异步任务处理 ==========
 
-// processTaskAsync 异步处理审稿任务
+// processTaskAsync 异步处理审稿任务（带超时和异常恢复）
 func (s *Service) processTaskAsync(taskID uint) {
+	// 异常恢复：捕获 panic，防止整个服务崩溃
+	defer func() {
+		if r := recover(); r != nil {
+			errMsg := fmt.Sprintf("任务处理发生异常: %v", r)
+			fmt.Printf("[PeerReview] Task %d panic recovered: %v\n", taskID, r)
+			s.updateTaskFailed(taskID, errMsg)
+		}
+	}()
+
 	// 获取任务
 	var task PeerReviewTask
 	if err := s.db.Where("id = ?", taskID).First(&task).Error; err != nil {
@@ -1271,9 +1285,10 @@ func (s *Service) processTaskAsync(taskID uint) {
 	// 创建一个用于收集审稿内容的 buffer
 	var reviewBuffer strings.Builder
 
-	// 执行审稿流程
+	// 直接执行任务（不使用 goroutine + select 超时）
+	// 因为大模型流式传输可能很慢，使用固定超时容易误判
+	// 改为在 runTaskReview 内部各阶段进行超时控制
 	err := s.runTaskReview(&task, &reviewBuffer)
-	
 	if err != nil {
 		s.updateTaskFailed(taskID, err.Error())
 		return

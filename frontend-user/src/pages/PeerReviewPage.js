@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { peerReviewAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
@@ -26,6 +27,164 @@ const STATUS_MAP = {
   completed: { label: '已完成', color: 'green' },
   failed: { label: '失败', color: 'red' },
 };
+
+// 右侧抽屉组件
+function RightDrawer({ isOpen, onClose, title, icon, children }) {
+  if (!isOpen) return null;
+  
+  return ReactDOM.createPortal(
+    <div className="prvr-drawer-overlay" onClick={onClose}>
+      <div 
+        className={`prvr-drawer ${isOpen ? 'open' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="prvr-drawer-header">
+          <div className="prvr-drawer-title">
+            {icon}
+            <span>{title}</span>
+          </div>
+          <button className="prvr-drawer-close" onClick={onClose}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div className="prvr-drawer-body">
+          {children}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// 内容预览卡片组件（带弹窗）
+function PreviewCard({ preview, fullText }) {
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupStyle, setPopupStyle] = useState({});
+  const btnRef = useRef(null);
+  const hideTimeoutRef = useRef(null);
+
+  const calculatePosition = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      // 弹窗宽度和高度
+      const popupWidth = 500;
+      const popupMaxHeight = Math.min(500, viewportHeight - 100);
+      
+      // 计算位置：在按钮右侧，顶部对齐
+      let left = rect.right + 16;
+      let top = Math.max(60, rect.top - 100);
+      
+      // 如果右侧空间不够，放在左侧
+      if (left + popupWidth > viewportWidth - 20) {
+        left = rect.left - popupWidth - 16;
+      }
+      
+      // 确保不超出底部
+      if (top + popupMaxHeight > viewportHeight - 20) {
+        top = viewportHeight - popupMaxHeight - 20;
+      }
+      
+      setPopupStyle({
+        position: 'fixed',
+        top: `${top}px`,
+        left: `${left}px`,
+        width: `${popupWidth}px`,
+        maxHeight: `${popupMaxHeight}px`,
+        zIndex: 99999,
+      });
+    }
+  };
+
+  const handleMouseEnter = () => {
+    // 清除隐藏定时器
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+    calculatePosition();
+    setShowPopup(true);
+  };
+
+  const handleMouseLeave = () => {
+    // 延迟隐藏，给用户时间移动到弹窗上
+    hideTimeoutRef.current = setTimeout(() => {
+      setShowPopup(false);
+    }, 150);
+  };
+
+  const handlePopupMouseEnter = () => {
+    // 鼠标进入弹窗，取消隐藏
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+  };
+
+  const handlePopupMouseLeave = () => {
+    // 鼠标离开弹窗，延迟隐藏
+    hideTimeoutRef.current = setTimeout(() => {
+      setShowPopup(false);
+    }, 100);
+  };
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <div className="prvr-card prvr-preview-card">
+      <div className="prvr-card-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        内容预览
+      </div>
+      <div className="prvr-preview">
+        {preview}
+      </div>
+      {fullText && fullText.length > 100 && (
+        <div className="prvr-preview-more">
+          <span 
+            ref={btnRef}
+            className="prvr-preview-more-btn"
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            查看全部
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M7 17l9.2-9.2M17 17V7H7"/>
+            </svg>
+          </span>
+          {showPopup && ReactDOM.createPortal(
+            <div 
+              className="prvr-preview-popup-portal"
+              style={popupStyle}
+              onMouseEnter={handlePopupMouseEnter}
+              onMouseLeave={handlePopupMouseLeave}
+            >
+              <div className="prvr-preview-popup-content">
+                {fullText}
+              </div>
+            </div>,
+            document.body
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // 视图模式
 const VIEW_MODE = {
@@ -1182,6 +1341,119 @@ function CreateTaskView({
 // 任务详情视图 - 左右分栏布局
 function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
   const [activeSection, setActiveSection] = useState('report'); // 当前激活的模块
+  const [displayProgress, setDisplayProgress] = useState(0); // 显示的进度值（用于平滑动画）
+  const [showReport, setShowReport] = useState(false); // 控制是否显示报告（等待进度条完成）
+  const [activeDrawer, setActiveDrawer] = useState(null); // 当前打开的抽屉: 'analysis' | 'papers' | 'gaps' | null
+  const progressIntervalRef = useRef(null);
+  
+  // 平滑进度条动画
+  useEffect(() => {
+    const targetProgress = task?.progress || 0;
+    const isCompleted = task?.status === 'completed';
+    const isFailed = task?.status === 'failed';
+    
+    // 清除之前的定时器
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+    }
+    
+    // 如果任务失败，停止动画
+    if (isFailed) {
+      return;
+    }
+    
+    // 如果任务完成，先平滑到100%，然后再显示报告
+    if (isCompleted) {
+      // 如果当前进度已经是100%，直接显示报告
+      if (displayProgress >= 99.5) {
+        setDisplayProgress(100);
+        setTimeout(() => setShowReport(true), 300);
+        return;
+      }
+      
+      // 平滑过渡到100%
+      progressIntervalRef.current = setInterval(() => {
+        setDisplayProgress(prev => {
+          const diff = 100 - prev;
+          if (diff <= 0.5) {
+            clearInterval(progressIntervalRef.current);
+            // 到达100%后延迟显示报告
+            setTimeout(() => setShowReport(true), 500);
+            return 100;
+          }
+          // 快速但平滑地到达100%
+          const increment = Math.max(1, diff * 0.15);
+          return Math.min(prev + increment, 100);
+        });
+      }, 50);
+      return;
+    }
+    
+    // 处理中：计算实际目标值，最后阶段卡在99%
+    const actualTarget = targetProgress >= 90 ? Math.min(targetProgress, 99) : targetProgress;
+    
+    // 如果目标进度大于当前显示进度，启动平滑动画
+    if (actualTarget > displayProgress) {
+      progressIntervalRef.current = setInterval(() => {
+        setDisplayProgress(prev => {
+          const diff = actualTarget - prev;
+          if (diff <= 0) {
+            clearInterval(progressIntervalRef.current);
+            return actualTarget;
+          }
+          
+          // 根据不同阶段使用不同的增速
+          let increment;
+          if (prev < 25) {
+            // 第一阶段：较慢
+            increment = Math.max(0.3, diff * 0.08);
+          } else if (prev < 55) {
+            // 第二阶段：中等
+            increment = Math.max(0.25, diff * 0.06);
+          } else if (prev < 90) {
+            // 第三阶段：较慢
+            increment = Math.max(0.2, diff * 0.05);
+          } else {
+            // 最后阶段：非常慢，逐渐接近99%
+            increment = Math.max(0.1, diff * 0.03);
+          }
+          
+          const next = prev + increment;
+          
+          // 如果接近目标，直接到达
+          if (diff < 0.5) {
+            clearInterval(progressIntervalRef.current);
+            return actualTarget;
+          }
+          
+          return Math.min(next, actualTarget);
+        });
+      }, 150);
+    } else if (targetProgress < displayProgress && targetProgress < 10) {
+      // 如果目标进度小于当前且很小（可能是新任务），直接设置
+      setDisplayProgress(targetProgress);
+    }
+    
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+    };
+  }, [task?.progress, task?.status]);
+  
+  // 任务变化时重置进度和报告显示状态
+  useEffect(() => {
+    if (task?.id) {
+      // 如果是新任务，重置状态
+      setDisplayProgress(task.progress || 0);
+      // 如果任务已完成且有报告内容，直接显示报告
+      if (task.status === 'completed' && task.review_content) {
+        setShowReport(true);
+      } else {
+        setShowReport(false);
+      }
+    }
+  }, [task?.id]);
 
   // 只有在完全没有任务数据时才显示全屏 loading
   if (!task && loading) {
@@ -1241,7 +1513,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
 
   // 获取模型名称
   const getModelName = (level) => {
-    const models = { low: '普通模式', mid: '进阶模式', high: '高级模式' };
+    const models = { low: '普通模型', mid: '进阶模型', high: '高级模型' };
     return models[level] || level;
   };
 
@@ -1353,7 +1625,9 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                   <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
                 </svg>
               </span>
-              <span className="prvr-info-text">{getModelName(task.model_level)}</span>
+              <span className="prvr-info-text">
+                <span className="prvr-info-label">AI 模型:</span> {getModelName(task.model_level)}
+              </span>
             </div>
           </div>
           
@@ -1378,18 +1652,10 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
         </div>
 
         {/* 内容预览卡片 */}
-        <div className="prvr-card">
-          <div className="prvr-card-title">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
-            内容预览
-          </div>
-          <div className="prvr-preview">
-            {getManuscriptPreview()}
-          </div>
-        </div>
+        <PreviewCard 
+          preview={getManuscriptPreview()} 
+          fullText={task.manuscript_text} 
+        />
       </aside>
 
       {/* 右侧主内容 - 审稿报告 */}
@@ -1406,10 +1672,53 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
             </div>
             <h2>审稿报告</h2>
           </div>
+          
+          {/* 辅助信息按钮 - 放在头部 */}
+          {isCompleted && showReport && (
+            <div className="prvr-header-buttons">
+              {task.manuscript_meta && (
+                <button 
+                  className={`prvr-header-btn ${activeDrawer === 'analysis' ? 'active' : ''}`}
+                  onClick={() => setActiveDrawer(activeDrawer === 'analysis' ? null : 'analysis')}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                  稿件分析
+                </button>
+              )}
+              {task.literature_summary?.closest_papers?.length > 0 && (
+                <button 
+                  className={`prvr-header-btn ${activeDrawer === 'papers' ? 'active' : ''}`}
+                  onClick={() => setActiveDrawer(activeDrawer === 'papers' ? null : 'papers')}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                  </svg>
+                  相似论文
+                </button>
+              )}
+              {(task.literature_summary?.typical_gaps?.length > 0 || task.gap_literature?.length > 0) && (
+                <button 
+                  className={`prvr-header-btn ${activeDrawer === 'gaps' ? 'active' : ''}`}
+                  onClick={() => setActiveDrawer(activeDrawer === 'gaps' ? null : 'gaps')}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  研究空白
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* 处理中状态 - 更友好的展示 */}
-        {isProcessing && (
+        {/* 处理中状态 - 更友好的展示（包括等待进度条完成的过渡期） */}
+        {(isProcessing || (isCompleted && !showReport)) && (
           <div className="prvr-processing-container">
             {/* 进度卡片 */}
             <div className="prvr-processing-card">
@@ -1431,10 +1740,11 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
               
               <div className="prvr-progress-section">
                 <div className="prvr-progress-bar">
-                  <div className="prvr-progress-fill" style={{ width: `${task.progress || 0}%` }}></div>
+                  <div className="prvr-progress-fill" style={{ width: `${displayProgress}%` }}></div>
+                  <div className="prvr-progress-glow" style={{ left: `${displayProgress}%` }}></div>
                 </div>
                 <div className="prvr-progress-meta">
-                  <span className="prvr-progress-percent">{task.progress || 0}%</span>
+                  <span className="prvr-progress-percent">{Math.round(displayProgress)}%</span>
                   <span className="prvr-progress-time">预计 2-5 分钟</span>
                 </div>
               </div>
@@ -1442,7 +1752,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
             
             {/* 处理步骤提示 */}
             <div className="prvr-steps-hint">
-              <div className={`prvr-step ${(task.progress || 0) >= 10 ? 'active' : ''} ${(task.progress || 0) >= 20 ? 'done' : ''}`}>
+              <div className={`prvr-step ${displayProgress >= 5 ? 'active' : ''} ${displayProgress >= 25 ? 'done' : ''}`}>
                 <div className="prvr-step-icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -1451,7 +1761,10 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                 </div>
                 <span>解析稿件</span>
               </div>
-              <div className={`prvr-step ${(task.progress || 0) >= 30 ? 'active' : ''} ${(task.progress || 0) >= 50 ? 'done' : ''}`}>
+              <div className="prvr-step-line">
+                <div className="prvr-step-line-fill" style={{ width: displayProgress >= 25 ? '100%' : displayProgress >= 5 ? `${(displayProgress - 5) * 5}%` : '0%' }}></div>
+              </div>
+              <div className={`prvr-step ${displayProgress >= 25 ? 'active' : ''} ${displayProgress >= 55 ? 'done' : ''}`}>
                 <div className="prvr-step-icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="11" cy="11" r="8"/>
@@ -1460,7 +1773,10 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                 </div>
                 <span>检索文献</span>
               </div>
-              <div className={`prvr-step ${(task.progress || 0) >= 60 ? 'active' : ''} ${(task.progress || 0) >= 80 ? 'done' : ''}`}>
+              <div className="prvr-step-line">
+                <div className="prvr-step-line-fill" style={{ width: displayProgress >= 55 ? '100%' : displayProgress >= 25 ? `${(displayProgress - 25) * 3.33}%` : '0%' }}></div>
+              </div>
+              <div className={`prvr-step ${displayProgress >= 55 ? 'active' : ''} ${displayProgress >= 90 ? 'done' : ''}`}>
                 <div className="prvr-step-icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M12 20h9"/>
@@ -1469,7 +1785,10 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                 </div>
                 <span>生成报告</span>
               </div>
-              <div className={`prvr-step ${(task.progress || 0) >= 95 ? 'active' : ''} ${(task.progress || 0) >= 100 ? 'done' : ''}`}>
+              <div className="prvr-step-line">
+                <div className="prvr-step-line-fill" style={{ width: displayProgress >= 90 ? '100%' : displayProgress >= 55 ? `${(displayProgress - 55) * 2.86}%` : '0%' }}></div>
+              </div>
+              <div className={`prvr-step ${displayProgress >= 90 ? 'active' : ''} ${displayProgress >= 100 ? 'done' : ''}`}>
                 <div className="prvr-step-icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polyline points="20 6 9 17 4 12"/>
@@ -1499,205 +1818,128 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
           </div>
         )}
 
-        {/* 已完成 - 显示审稿报告 */}
-        {isCompleted && (
-          <>
-          {/* 模块1: 稿件分析 */}
-          {task.manuscript_meta && (
-            <div className="prvr-section">
-              <div className="prvr-section-header">
-                <div className="prvr-section-icon analysis">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                    <line x1="16" y1="13" x2="8" y2="13"/>
-                    <line x1="16" y1="17" x2="8" y2="17"/>
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="prvr-section-title">稿件分析</h3>
-                  <p className="prvr-section-desc">论文基本信息与研究概述</p>
-                </div>
-              </div>
-              <div className="prvr-section-body">
-                <div className="prvr-analysis-grid">
-                  <div className="prvr-analysis-item">
-                    <span className="prvr-analysis-label">论文标题</span>
-                    <span className="prvr-analysis-value">{task.manuscript_meta.title}</span>
-                  </div>
-                  <div className="prvr-analysis-item">
-                    <span className="prvr-analysis-label">研究领域</span>
-                    <span className="prvr-analysis-value">{task.manuscript_meta.field}</span>
-                  </div>
-                  <div className="prvr-analysis-item full-width">
-                    <span className="prvr-analysis-label">研究主题</span>
-                    <span className="prvr-analysis-value">{task.manuscript_meta.main_topic}</span>
-                  </div>
-                  {task.manuscript_meta.main_methods?.length > 0 && (
-                    <div className="prvr-analysis-item full-width">
-                      <span className="prvr-analysis-label">研究方法</span>
-                      <div className="prvr-analysis-tags">
-                        {task.manuscript_meta.main_methods.map((method, idx) => (
-                          <span key={idx} className="prvr-analysis-tag">{method}</span>
-                        ))}
-                      </div>
+        {/* 已完成 - 显示审稿报告（等待进度条动画完成后显示） */}
+        {isCompleted && showReport && (
+          <div className="prvr-report-layout">
+            {/* 左侧：审稿报告正文 */}
+            <div className="prvr-report-left">
+              {task.review_content && (
+                <div className="prvr-report-content">
+                  {task.recommendation && (
+                    <div className="prvr-report-recommendation">
+                      <span className={`prvr-recommendation-badge ${task.recommendation.toLowerCase().replace(/\s+/g, '-')}`}>
+                        {task.recommendation}
+                      </span>
                     </div>
                   )}
-                  {task.manuscript_meta.keywords?.length > 0 && (
-                    <div className="prvr-analysis-item full-width">
-                      <span className="prvr-analysis-label">关键词</span>
-                      <div className="prvr-analysis-tags">
-                        {task.manuscript_meta.keywords.map((keyword, idx) => (
-                          <span key={idx} className="prvr-analysis-tag">{keyword}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {task.manuscript_meta.claimed_novelty?.length > 0 && (
-                    <div className="prvr-analysis-item full-width">
-                      <span className="prvr-analysis-label">声称的创新点</span>
-                      <ul className="prvr-analysis-list">
-                        {task.manuscript_meta.claimed_novelty.map((item, idx) => (
-                          <li key={idx}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  <div className="prvr-review-report">
+                    <MarkdownRenderer content={task.review_content} />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
-          )}
 
-          {/* 模块2: 相似论文 */}
-          {task.literature_summary?.closest_papers?.length > 0 && (
-            <div className="prvr-section">
-              <div className="prvr-section-header">
-                <div className="prvr-section-icon papers">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="prvr-section-title">相似论文</h3>
-                  <p className="prvr-section-desc">与您研究相关的已发表文献</p>
-                </div>
-              </div>
-              <div className="prvr-section-body">
-                {task.literature_summary.field_state && (
-                  <p style={{ marginBottom: '16px', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.7' }}>
-                    {task.literature_summary.field_state}
-                  </p>
-                )}
-                <div className="prvr-papers-list">
-                  {task.literature_summary.closest_papers.map((paper, idx) => (
-                    <div key={idx} className="prvr-paper-card">
-                      <div className="prvr-paper-index">{idx + 1}</div>
-                      <div className="prvr-paper-content">
-                        <h4 className="prvr-paper-title">{paper.title}</h4>
-                        <div className="prvr-paper-meta">
-                          <span>{paper.year}</span>
+            {/* 右侧：辅助信息面板 */}
+            {activeDrawer && (
+              <div className="prvr-report-right">
+                <div className="prvr-panel">
+                  <div className="prvr-panel-header">
+                    <span className="prvr-panel-title">
+                      {activeDrawer === 'analysis' && '稿件分析'}
+                      {activeDrawer === 'papers' && `相似论文 (${task.literature_summary?.closest_papers?.length || 0}篇)`}
+                      {activeDrawer === 'gaps' && '研究空白'}
+                    </span>
+                    <button className="prvr-panel-close" onClick={() => setActiveDrawer(null)}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="prvr-panel-body">
+                    {/* 稿件分析内容 */}
+                    {activeDrawer === 'analysis' && task.manuscript_meta && (
+                      <div className="prvr-panel-content">
+                        <div className="prvr-panel-item">
+                          <span className="prvr-panel-label">论文标题</span>
+                          <span className="prvr-panel-value">{task.manuscript_meta.title}</span>
                         </div>
-                        <p className="prvr-paper-reason">{paper.reason}</p>
+                        <div className="prvr-panel-item">
+                          <span className="prvr-panel-label">研究领域</span>
+                          <span className="prvr-panel-value">{task.manuscript_meta.field}</span>
+                        </div>
+                        <div className="prvr-panel-item">
+                          <span className="prvr-panel-label">研究主题</span>
+                          <span className="prvr-panel-value">{task.manuscript_meta.main_topic}</span>
+                        </div>
+                        {task.manuscript_meta.keywords?.length > 0 && (
+                          <div className="prvr-panel-item">
+                            <span className="prvr-panel-label">关键词</span>
+                            <div className="prvr-panel-tags">
+                              {task.manuscript_meta.keywords.map((keyword, idx) => (
+                                <span key={idx} className="prvr-panel-tag">{keyword}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {task.manuscript_meta.claimed_novelty?.length > 0 && (
+                          <div className="prvr-panel-item">
+                            <span className="prvr-panel-label">创新点</span>
+                            <ul className="prvr-panel-list">
+                              {task.manuscript_meta.claimed_novelty.map((item, idx) => (
+                                <li key={idx}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+                    )}
 
-          {/* 模块3: 研究空白 */}
-          {(task.literature_summary?.typical_gaps?.length > 0 || task.gap_literature?.length > 0) && (
-            <div className="prvr-section">
-              <div className="prvr-section-header">
-                <div className="prvr-section-icon gaps">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                    <line x1="12" y1="17" x2="12.01" y2="17"/>
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="prvr-section-title">研究空白</h3>
-                  <p className="prvr-section-desc">该领域尚待探索的研究方向</p>
-                </div>
-              </div>
-              <div className="prvr-section-body">
-                <div className="prvr-gap-list">
-                  {task.gap_literature?.map((item, gapIdx) => (
-                    <div key={gapIdx} className="prvr-gap-card">
-                      <div className="prvr-gap-header">
-                        <span className="prvr-gap-number">{gapIdx + 1}</span>
-                        <span className="prvr-gap-text">{item.gap}</span>
-                      </div>
-                      {item.papers?.length > 0 && (
-                        <div className="prvr-gap-papers">
-                          {item.papers.map((paper, paperIdx) => (
-                            <div key={paperIdx} className="prvr-gap-paper">
-                              <span className="prvr-gap-paper-title">
-                                {paper.url ? (
-                                  <a href={paper.url} target="_blank" rel="noopener noreferrer">
-                                    {paper.title}
-                                  </a>
-                                ) : (
-                                  paper.title
-                                )}
-                              </span>
-                              <span className="prvr-gap-paper-info">
-                                <span>{paper.year}</span>
-                                {paper.citationCount !== undefined && (
-                                  <span>引用 {paper.citationCount}</span>
-                                )}
-                              </span>
+                    {/* 相似论文内容 */}
+                    {activeDrawer === 'papers' && task.literature_summary && (
+                      <div className="prvr-panel-content">
+                        {task.literature_summary.field_state && (
+                          <p className="prvr-panel-desc">{task.literature_summary.field_state}</p>
+                        )}
+                        <div className="prvr-panel-papers">
+                          {task.literature_summary.closest_papers?.map((paper, idx) => (
+                            <div key={idx} className="prvr-panel-paper">
+                              <span className="prvr-panel-paper-num">{idx + 1}</span>
+                              <div className="prvr-panel-paper-info">
+                                <span className="prvr-panel-paper-title">{paper.title}</span>
+                                <span className="prvr-panel-paper-year">{paper.year}</span>
+                              </div>
                             </div>
                           ))}
                         </div>
-                      )}
-                    </div>
-                  )) || task.literature_summary?.typical_gaps?.map((gap, idx) => (
-                    <div key={idx} className="prvr-gap-card">
-                      <div className="prvr-gap-header">
-                        <span className="prvr-gap-number">{idx + 1}</span>
-                        <span className="prvr-gap-text">{gap}</span>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+                    )}
 
-          {/* 模块4: 审稿报告 */}
-          {task.review_content && (
-            <div className="prvr-section">
-              <div className="prvr-section-header">
-                <div className="prvr-section-icon report">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                    <path d="M12 18l-2.4-1.2L7 18v-4l2.6 1.3L12 14l2.4 1.3L17 14v4l-2.6-1.2L12 18z"/>
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="prvr-section-title">审稿报告</h3>
-                  <p className="prvr-section-desc">详细的审稿意见与改进建议</p>
-                </div>
-                {task.recommendation && (
-                  <div className={`prvr-recommendation ${task.recommendation.toLowerCase().replace(/\s+/g, '-')}`} style={{ marginLeft: 'auto' }}>
-                    {task.recommendation}
+                    {/* 研究空白内容 */}
+                    {activeDrawer === 'gaps' && (
+                      <div className="prvr-panel-content">
+                        <div className="prvr-panel-gaps">
+                          {task.gap_literature?.map((item, gapIdx) => (
+                            <div key={gapIdx} className="prvr-panel-gap">
+                              <span className="prvr-panel-gap-num">{gapIdx + 1}</span>
+                              <span className="prvr-panel-gap-text">{item.gap}</span>
+                            </div>
+                          )) || task.literature_summary?.typical_gaps?.map((gap, idx) => (
+                            <div key={idx} className="prvr-panel-gap">
+                              <span className="prvr-panel-gap-num">{idx + 1}</span>
+                              <span className="prvr-panel-gap-text">{gap}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="prvr-section-body">
-                <div className="prvr-review-report">
-                  <MarkdownRenderer content={task.review_content} />
                 </div>
               </div>
-            </div>
-          )}
-        </>
-      )}
+            )}
+
+          </div>
+        )}
       </main>
     </div>
   );
