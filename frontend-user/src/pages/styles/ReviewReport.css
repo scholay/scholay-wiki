@@ -1,0 +1,780 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ */
+
+/* 审稿报告页面样式 - 完全独立的容器命名 prvr- */
+
+/* ========== 页面容器 ========== */
+.prvr-page {
+  display: flex;
+  flex-direction: row;
+  gap: 24px;
+  padding: 1rem 24px 3rem;
+  width: 100%;
+  min-height: calc(100vh - 60px);
+}
+
+/* ========== 加载状态 ========== */
+.prvr-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 400px;
+}
+
+.prvr-loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.prvr-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--border);
+  border-top-color: var(--text-accent);
+  border-radius: 50%;
+  animation: prvr-spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes prvr-spin {
+  to { transform: rotate(360deg); }
+}
+
+.prvr-loading-content h3 {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.prvr-loading-content p {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+/* ========== 左侧边栏 ========== */
+.prvr-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.prvr-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+[data-theme="dark"] .prvr-card {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.prvr-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.prvr-card-title svg {
+  color: var(--text-accent);
+}
+
+/* ========== 信息项 ========== */
+.prvr-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.prvr-info-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.prvr-info-item:first-child {
+  padding-top: 0;
+}
+
+.prvr-info-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.prvr-info-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+/* ========== 稿件预览 ========== */
+.prvr-preview {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-height: 120px;
+  overflow: hidden;
+  position: relative;
+}
+
+.prvr-preview::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(transparent, var(--surface));
+}
+
+[data-theme="dark"] .prvr-preview::after {
+  background: linear-gradient(transparent, rgba(30, 30, 30, 1));
+}
+
+/* ========== 状态标签 ========== */
+.prvr-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.prvr-status-pending,
+.prvr-status-processing {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.prvr-status-completed {
+  background: rgba(16, 163, 127, 0.1);
+  color: var(--text-accent);
+}
+
+.prvr-status-failed {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.prvr-spin {
+  animation: prvr-spin 1s linear infinite;
+}
+
+/* ========== 右侧主内容 ========== */
+.prvr-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ========== 报告头部 ========== */
+.prvr-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.prvr-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.prvr-title h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.prvr-title-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(16, 163, 127, 0.1);
+  color: var(--text-accent);
+}
+
+/* ========== 处理中状态 ========== */
+.prvr-processing-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.prvr-processing-animation {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin-bottom: 24px;
+}
+
+.prvr-processing-ring {
+  position: absolute;
+  inset: 0;
+  border: 3px solid var(--border);
+  border-top-color: var(--text-accent);
+  border-radius: 50%;
+  animation: prvr-spin 1s linear infinite;
+}
+
+.prvr-processing-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-accent);
+}
+
+.prvr-processing-status h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.prvr-processing-status p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 24px;
+}
+
+/* ========== 进度条 ========== */
+.prvr-progress-bar-wrapper {
+  width: 100%;
+  max-width: 400px;
+}
+
+.prvr-progress-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.prvr-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--text-accent), #34d399);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.prvr-progress-text {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ========== 错误状态 ========== */
+.prvr-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.prvr-error-icon {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-radius: 16px;
+  margin-bottom: 16px;
+}
+
+.prvr-error h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.prvr-error p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 20px;
+}
+
+/* ========== 按钮 ========== */
+.prvr-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.prvr-btn-secondary {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.prvr-btn-secondary:hover {
+  background: rgba(128, 128, 128, 0.1);
+}
+
+/* ========== 报告模块卡片 ========== */
+.prvr-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+[data-theme="dark"] .prvr-section {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.prvr-section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: rgba(128, 128, 128, 0.03);
+  border-bottom: 1px solid var(--border);
+}
+
+.prvr-section-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.prvr-section-icon.analysis {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+}
+
+.prvr-section-icon.papers {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.prvr-section-icon.gaps {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.prvr-section-icon.report {
+  background: rgba(16, 163, 127, 0.1);
+  color: var(--text-accent);
+}
+
+.prvr-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.prvr-section-desc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 2px 0 0;
+}
+
+.prvr-section-body {
+  padding: 20px;
+}
+
+/* ========== 稿件分析模块 ========== */
+.prvr-analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.prvr-analysis-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.prvr-analysis-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.prvr-analysis-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.prvr-analysis-value {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.prvr-analysis-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.prvr-analysis-tag {
+  display: inline-flex;
+  padding: 4px 10px;
+  background: rgba(128, 128, 128, 0.1);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.prvr-analysis-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.prvr-analysis-list li {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 4px;
+}
+
+/* ========== 相似论文模块 ========== */
+.prvr-papers-intro {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+
+.prvr-papers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.prvr-paper-card {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  background: rgba(128, 128, 128, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.prvr-paper-card:hover {
+  border-color: var(--text-accent);
+  background: rgba(16, 163, 127, 0.03);
+}
+
+.prvr-paper-index {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.prvr-paper-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.prvr-paper-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+  line-height: 1.4;
+}
+
+.prvr-paper-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.prvr-paper-reason {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ========== 研究空白模块 ========== */
+.prvr-gap-intro {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+
+.prvr-gap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.prvr-gap-card {
+  padding: 16px;
+  background: rgba(245, 158, 11, 0.03);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 10px;
+}
+
+.prvr-gap-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.prvr-gap-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.prvr-gap-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.prvr-gap-papers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 34px;
+}
+
+.prvr-gap-paper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.prvr-gap-paper-title {
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prvr-gap-paper-title a {
+  color: var(--text-accent);
+  text-decoration: none;
+}
+
+.prvr-gap-paper-title a:hover {
+  text-decoration: underline;
+}
+
+.prvr-gap-paper-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+/* ========== 审稿报告模块 ========== */
+.prvr-review-report {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-primary);
+}
+
+.prvr-review-report h1,
+.prvr-review-report h2,
+.prvr-review-report h3,
+.prvr-review-report h4 {
+  color: var(--text-primary);
+  margin-top: 24px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.prvr-review-report h1 { font-size: 20px; }
+.prvr-review-report h2 { font-size: 18px; }
+.prvr-review-report h3 { font-size: 16px; }
+.prvr-review-report h4 { font-size: 15px; }
+
+.prvr-review-report p {
+  margin-bottom: 12px;
+}
+
+.prvr-review-report ul,
+.prvr-review-report ol {
+  margin-bottom: 12px;
+  padding-left: 24px;
+}
+
+.prvr-review-report li {
+  margin-bottom: 6px;
+}
+
+.prvr-review-report strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.prvr-review-report blockquote {
+  margin: 16px 0;
+  padding: 12px 16px;
+  background: rgba(128, 128, 128, 0.05);
+  border-left: 3px solid var(--text-accent);
+  border-radius: 0 8px 8px 0;
+}
+
+/* ========== 响应式布局 ========== */
+@media (max-width: 900px) {
+  .prvr-page {
+    flex-direction: column;
+  }
+
+  .prvr-sidebar {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 12px;
+  }
+
+  .prvr-card {
+    min-width: 200px;
+    flex-shrink: 0;
+  }
+
+  .prvr-analysis-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .prvr-page {
+    padding: 1rem 16px 2rem;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 600px) {
+  .prvr-section-body {
+    padding: 16px;
+  }
+
+  .prvr-paper-card {
+    flex-direction: column;
+  }
+
+  .prvr-gap-papers {
+    padding-left: 0;
+  }
+}
+
+/* ========== 推荐意见徽章 ========== */
+.prvr-recommendation {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.prvr-recommendation.accept {
+  background: rgba(16, 163, 127, 0.1);
+  color: var(--text-accent);
+}
+
+.prvr-recommendation.minor-revision {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.prvr-recommendation.major-revision {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.prvr-recommendation.reject {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}

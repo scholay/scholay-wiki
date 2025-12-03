@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { peerReviewAPI } from '../services/api';
@@ -7,6 +16,7 @@ import ModelSelector from '../components/ModelSelector';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import MessageModal from '../components/MessageModal';
 import './styles/PeerReviewPage.css';
+import './styles/ReviewReport.css';
 
 // 任务状态映射
 const STATUS_MAP = {
@@ -826,7 +836,7 @@ function CreateSection({
             >
               {submitting ? (
                 <>
-                  <div className="prv-btn-spinner"></div>
+                  <div className="prvr-btn-spinner"></div>
                   审稿中...
                 </>
               ) : (
@@ -1107,17 +1117,17 @@ function CreateTaskView({
 
         {/* 提交按钮 */}
         <div className="prv-form-actions">
-          <button className="prv-btn prv-btn-secondary" onClick={onCancel}>
+          <button className="prvr-btn prvr-btn-secondary" onClick={onCancel}>
             取消
           </button>
           <button 
-            className="prv-btn prv-btn-primary" 
+            className="prvr-btn prvr-btn-primary" 
             onClick={onSubmit}
             disabled={creating || (inputType === 'text' && !manuscriptText.trim()) || (inputType === 'file' && !uploadedFile)}
           >
             {creating ? (
               <>
-                <div className="prv-btn-spinner"></div>
+                <div className="prvr-btn-spinner"></div>
                 创建中...
               </>
             ) : (
@@ -1136,279 +1146,397 @@ function CreateTaskView({
   );
 }
 
-// 任务详情视图
+// 任务详情视图 - 左右分栏布局
 function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
-  const [targetVenue, setTargetVenue] = useState(task?.target_venue || '');
-  const [modelLevel, setModelLevel] = useState(task?.model_level || 'mid');
-  const [starting, setStarting] = useState(false);
-
-  useEffect(() => {
-    if (task) {
-      setTargetVenue(task.target_venue || '');
-      setModelLevel(task.model_level || 'mid');
-    }
-  }, [task]);
+  const [activeSection, setActiveSection] = useState('report'); // 当前激活的模块
 
   if (loading || !task) {
     return (
-      <div className="prv-loading">
-        <div className="prv-spinner"></div>
-        <p>加载中...</p>
+      <div className="prvr-page">
+        <div className="prvr-loading">
+          <div className="prvr-loading-content">
+            <div className="prvr-spinner"></div>
+            <h3>正在加载审稿报告...</h3>
+            <p>请稍候</p>
+          </div>
+        </div>
       </div>
     );
   }
 
-  const isDraft = task.status === 'draft';
   const isProcessing = task.status === 'pending' || task.status === 'processing';
   const isCompleted = task.status === 'completed';
   const isFailed = task.status === 'failed';
 
-  const handleStart = async () => {
-    setStarting(true);
-    try {
-      await onStartTask(task.id, targetVenue, modelLevel);
-    } finally {
-      setStarting(false);
-    }
+  // 解析稿件内容获取预览
+  const getManuscriptPreview = () => {
+    if (!task.manuscript_text) return '暂无内容';
+    return task.manuscript_text.length > 300 
+      ? task.manuscript_text.substring(0, 300) + '...' 
+      : task.manuscript_text;
+  };
+
+  // 格式化日期
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // 获取模型名称
+  const getModelName = (level) => {
+    const models = { low: '普通模式', mid: '进阶模式', high: '高级模式' };
+    return models[level] || level;
   };
 
   return (
-    <div className="prv-detail-view">
-      {/* 任务头部 */}
-      <div className="prv-detail-header">
-        <div className="prv-detail-title-row">
-          <h2 className="prv-detail-title">{task.title || '未命名稿件'}</h2>
-          <span className={`prv-task-status prv-status-${task.status}`}>
-            {STATUS_MAP[task.status]?.label || task.status}
-          </span>
-        </div>
-        
-        <div className="prv-detail-meta">
-          {task.target_venue && !isDraft && <span>目标期刊: {task.target_venue}</span>}
-          <span>创建时间: {new Date(task.created_at).toLocaleString('zh-CN')}</span>
-          {task.completed_at && <span>完成时间: {new Date(task.completed_at).toLocaleString('zh-CN')}</span>}
-        </div>
-      </div>
-
-      {/* 草稿状态 - 显示编辑表单 */}
-      {isDraft && (
-        <div className="prv-draft-card">
-          <h3>稿件预览</h3>
-          <div className="prv-manuscript-preview">
-            {truncateString(task.manuscript_text, 500)}
-          </div>
-          
-          <div className="prv-draft-form">
-            <div className="prv-form-group">
-              <label>目标期刊/会议（可选）</label>
-              <input
-                type="text"
-                className="prv-input"
-                placeholder="例如：Nature, Science, NeurIPS..."
-                value={targetVenue}
-                onChange={(e) => setTargetVenue(e.target.value)}
-              />
-            </div>
-            
-            <div className="prv-form-group">
-              <label>AI 模型</label>
-              <ModelSelector
-                value={modelLevel}
-                onChange={setModelLevel}
-                dropdownAlign="left"
-              />
-            </div>
-          </div>
-
-          <div className="prv-draft-actions">
-            <button 
-              className="prv-btn prv-btn-primary" 
-              onClick={handleStart}
-              disabled={starting}
-            >
-              {starting ? (
-                <>
-                  <div className="prv-btn-spinner"></div>
-                  启动中...
-                </>
-              ) : (
-                <>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polygon points="5 3 19 12 5 21 5 3"/>
-                  </svg>
-                  开始审稿
-                </>
-              )}
-            </button>
-            <button className="prv-btn prv-btn-secondary" onClick={onDelete}>
-              删除草稿
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 处理进度 */}
-      {isProcessing && (
-        <div className="prv-progress-card">
-          <h3>处理进度</h3>
-          <div className="prv-progress-container">
-            <div className="prv-progress-bar-large">
-              <div className="prv-progress-fill" style={{ width: `${task.progress}%` }}></div>
-            </div>
-            <div className="prv-progress-info">
-              <span className="prv-progress-percent">{task.progress}%</span>
-              <span className="prv-progress-stage">{task.progress_stage || '处理中...'}</span>
-            </div>
-          </div>
-          <p className="prv-progress-hint">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <div className="prvr-page">
+      {/* 左侧边栏 - 稿件信息 */}
+      <aside className="prvr-sidebar">
+        {/* 状态卡片 */}
+        <div className="prvr-card">
+          <div className="prvr-card-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
+              <path d="M12 6v6l4 2"/>
             </svg>
-            审稿过程可能需要几分钟，您可以离开此页面，稍后回来查看结果
-          </p>
+            任务状态
+          </div>
+          <div className={`prvr-status prvr-status-${task.status}`}>
+            {isProcessing && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="prvr-spin">
+                <path d="M21 12a9 9 0 11-6.219-8.56"/>
+              </svg>
+            )}
+            {isCompleted && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            )}
+            {isFailed && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+            )}
+            {STATUS_MAP[task.status]?.label || task.status}
+          </div>
         </div>
-      )}
 
-      {/* 错误信息 */}
-      {isFailed && (
-        <div className="prv-error-card">
-          <h3>处理失败</h3>
-          <p className="prv-error-message">{task.error_message || '未知错误'}</p>
-          <button className="prv-btn prv-btn-secondary" onClick={onDelete}>
-            删除任务
-          </button>
-        </div>
-      )}
-
-      {/* 审稿结果 */}
-      {isCompleted && (
-        <div className="prv-result-cards">
-          {/* 推荐意见 */}
-          {task.recommendation && (
-            <div className="prv-result-card prv-recommendation-card">
-              <h3>审稿推荐</h3>
-              <div className={`prv-recommendation-badge prv-rec-${task.recommendation.toLowerCase().replace(' ', '-')}`}>
-                {task.recommendation}
-              </div>
+        {/* 稿件信息卡片 */}
+        <div className="prvr-card">
+          <div className="prvr-card-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            稿件信息
+          </div>
+          <div className="prvr-info-item">
+            <span className="prvr-info-label">标题</span>
+            <span className="prvr-info-value">{task.title || '未命名稿件'}</span>
+          </div>
+          {task.target_venue && (
+            <div className="prvr-info-item">
+              <span className="prvr-info-label">目标期刊</span>
+              <span className="prvr-info-value">{task.target_venue}</span>
             </div>
           )}
+          <div className="prvr-info-item">
+            <span className="prvr-info-label">AI 模型</span>
+            <span className="prvr-info-value">{getModelName(task.model_level)}</span>
+          </div>
+          <div className="prvr-info-item">
+            <span className="prvr-info-label">创建时间</span>
+            <span className="prvr-info-value">{formatDate(task.created_at)}</span>
+          </div>
+          {task.completed_at && (
+            <div className="prvr-info-item">
+              <span className="prvr-info-label">完成时间</span>
+              <span className="prvr-info-value">{formatDate(task.completed_at)}</span>
+            </div>
+          )}
+        </div>
 
-          {/* 稿件元信息 */}
+        {/* 稿件预览卡片 */}
+        <div className="prvr-card">
+          <div className="prvr-card-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            稿件预览
+          </div>
+          <div className="prvr-preview">
+            {getManuscriptPreview()}
+          </div>
+        </div>
+      </aside>
+
+      {/* 右侧主内容 - 审稿报告 */}
+      <main className="prvr-main">
+        {/* 报告头部 */}
+        <div className="prvr-header">
+          <div className="prvr-title">
+            <div className="prvr-title-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <path d="M12 18l-2.4-1.2L7 18v-4l2.6 1.3L12 14l2.4 1.3L17 14v4l-2.6-1.2L12 18z"/>
+              </svg>
+            </div>
+            <h2>审稿报告</h2>
+          </div>
+        </div>
+
+        {/* 处理中状态 */}
+        {isProcessing && (
+          <div className="prvr-processing-status">
+            <div className="prvr-processing-animation">
+              <div className="prvr-processing-ring"></div>
+              <div className="prvr-processing-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+              </div>
+            </div>
+            <h3>正在生成审稿报告...</h3>
+            <p>{task.progress_stage || '请稍候，AI 正在分析您的论文'}</p>
+            <div className="prvr-progress-bar-wrapper">
+              <div className="prvr-progress-bar">
+                <div className="prvr-progress-fill" style={{ width: `${task.progress || 0}%` }}></div>
+              </div>
+              <div className="prvr-progress-text">
+                <span>{task.progress || 0}%</span>
+                <span>预计需要 2-5 分钟</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 错误状态 */}
+        {isFailed && (
+          <div className="prvr-error">
+            <div className="prvr-error-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+            </div>
+            <h3>审稿失败</h3>
+            <p>{task.error_message || '处理过程中发生错误，请重试'}</p>
+            <button className="prvr-btn prvr-btn-secondary" onClick={onDelete}>
+              删除任务
+            </button>
+          </div>
+        )}
+
+        {/* 已完成 - 显示审稿报告 */}
+        {isCompleted && (
+          <>
+          {/* 模块1: 稿件分析 */}
           {task.manuscript_meta && (
-            <div className="prv-result-card">
-              <h3>稿件分析</h3>
-              <div className="prv-meta-content">
-                <p><strong>标题：</strong>{task.manuscript_meta.title}</p>
-                <p><strong>领域：</strong>{task.manuscript_meta.field}</p>
-                <p><strong>研究主题：</strong>{task.manuscript_meta.main_topic}</p>
-                {task.manuscript_meta.main_methods?.length > 0 && (
-                  <p><strong>研究方法：</strong>{task.manuscript_meta.main_methods.join(', ')}</p>
-                )}
-                {task.manuscript_meta.keywords?.length > 0 && (
-                  <p><strong>关键词：</strong>{task.manuscript_meta.keywords.join(', ')}</p>
-                )}
-                {task.manuscript_meta.claimed_novelty?.length > 0 && (
-                  <div>
-                    <strong>声称的创新点：</strong>
-                    <ul>
-                      {task.manuscript_meta.claimed_novelty.map((item, idx) => (
-                        <li key={idx}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+            <div className="prvr-section">
+              <div className="prvr-section-header">
+                <div className="prvr-section-icon analysis">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="prvr-section-title">稿件分析</h3>
+                  <p className="prvr-section-desc">论文基本信息与研究概述</p>
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* 文献总结 */}
-          {task.literature_summary && (
-            <div className="prv-result-card">
-              <h3>文献前沿分析</h3>
-              <div className="prv-literature-content">
-                <p>{task.literature_summary.field_state}</p>
-                
-                {task.literature_summary.closest_papers?.length > 0 && (
-                  <div className="prv-closest-papers">
-                    <h4>相似论文</h4>
-                    <ul>
-                      {task.literature_summary.closest_papers.map((paper, idx) => (
-                        <li key={idx}>
-                          <strong>{paper.title}</strong> ({paper.year})
-                          <br/>
-                          <span className="prv-paper-reason">{paper.reason}</span>
-                        </li>
-                      ))}
-                    </ul>
+              <div className="prvr-section-body">
+                <div className="prvr-analysis-grid">
+                  <div className="prvr-analysis-item">
+                    <span className="prvr-analysis-label">论文标题</span>
+                    <span className="prvr-analysis-value">{task.manuscript_meta.title}</span>
                   </div>
-                )}
-
-                {task.literature_summary.typical_gaps?.length > 0 && (
-                  <div className="prv-gaps">
-                    <h4>研究空白</h4>
-                    <ul>
-                      {task.literature_summary.typical_gaps.map((gap, idx) => (
-                        <li key={idx}>{gap}</li>
-                      ))}
-                    </ul>
+                  <div className="prvr-analysis-item">
+                    <span className="prvr-analysis-label">研究领域</span>
+                    <span className="prvr-analysis-value">{task.manuscript_meta.field}</span>
                   </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* 研究空白相关文献 */}
-          {task.gap_literature?.length > 0 && (
-            <div className="prv-result-card">
-              <h3>研究空白相关文献</h3>
-              <div className="prv-gap-literature-content">
-                {task.gap_literature.map((item, gapIdx) => (
-                  <div key={gapIdx} className="prv-gap-section">
-                    <h4 className="prv-gap-title">
-                      <span className="prv-gap-label">空白 {gapIdx + 1}:</span>
-                      {item.gap}
-                    </h4>
-                    <div className="prv-gap-papers">
-                      {item.papers?.map((paper, paperIdx) => (
-                        <div key={paperIdx} className="prv-gap-paper-item">
-                          <div className="prv-gap-paper-title">
-                            {paper.url ? (
-                              <a href={paper.url} target="_blank" rel="noopener noreferrer">
-                                {paper.title}
-                              </a>
-                            ) : (
-                              paper.title
-                            )}
-                          </div>
-                          <div className="prv-gap-paper-meta">
-                            <span className="prv-gap-paper-year">{paper.year}</span>
-                            {paper.citationCount !== undefined && (
-                              <span className="prv-gap-paper-citations">
-                                引用: {paper.citationCount}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                  <div className="prvr-analysis-item full-width">
+                    <span className="prvr-analysis-label">研究主题</span>
+                    <span className="prvr-analysis-value">{task.manuscript_meta.main_topic}</span>
+                  </div>
+                  {task.manuscript_meta.main_methods?.length > 0 && (
+                    <div className="prvr-analysis-item full-width">
+                      <span className="prvr-analysis-label">研究方法</span>
+                      <div className="prvr-analysis-tags">
+                        {task.manuscript_meta.main_methods.map((method, idx) => (
+                          <span key={idx} className="prvr-analysis-tag">{method}</span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )}
+                  {task.manuscript_meta.keywords?.length > 0 && (
+                    <div className="prvr-analysis-item full-width">
+                      <span className="prvr-analysis-label">关键词</span>
+                      <div className="prvr-analysis-tags">
+                        {task.manuscript_meta.keywords.map((keyword, idx) => (
+                          <span key={idx} className="prvr-analysis-tag">{keyword}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {task.manuscript_meta.claimed_novelty?.length > 0 && (
+                    <div className="prvr-analysis-item full-width">
+                      <span className="prvr-analysis-label">声称的创新点</span>
+                      <ul className="prvr-analysis-list">
+                        {task.manuscript_meta.claimed_novelty.map((item, idx) => (
+                          <li key={idx}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
 
-          {/* 审稿报告 */}
-          {task.review_content && (
-            <div className="prv-result-card prv-review-card">
-              <h3>审稿报告</h3>
-              <div className="prv-review-content">
-                <MarkdownRenderer content={task.review_content} />
+          {/* 模块2: 相似论文 */}
+          {task.literature_summary?.closest_papers?.length > 0 && (
+            <div className="prvr-section">
+              <div className="prvr-section-header">
+                <div className="prvr-section-icon papers">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="prvr-section-title">相似论文</h3>
+                  <p className="prvr-section-desc">与您研究相关的已发表文献</p>
+                </div>
+              </div>
+              <div className="prvr-section-body">
+                {task.literature_summary.field_state && (
+                  <p style={{ marginBottom: '16px', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.7' }}>
+                    {task.literature_summary.field_state}
+                  </p>
+                )}
+                <div className="prvr-papers-list">
+                  {task.literature_summary.closest_papers.map((paper, idx) => (
+                    <div key={idx} className="prvr-paper-card">
+                      <div className="prvr-paper-index">{idx + 1}</div>
+                      <div className="prvr-paper-content">
+                        <h4 className="prvr-paper-title">{paper.title}</h4>
+                        <div className="prvr-paper-meta">
+                          <span>{paper.year}</span>
+                        </div>
+                        <p className="prvr-paper-reason">{paper.reason}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
-        </div>
+
+          {/* 模块3: 研究空白 */}
+          {(task.literature_summary?.typical_gaps?.length > 0 || task.gap_literature?.length > 0) && (
+            <div className="prvr-section">
+              <div className="prvr-section-header">
+                <div className="prvr-section-icon gaps">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="prvr-section-title">研究空白</h3>
+                  <p className="prvr-section-desc">该领域尚待探索的研究方向</p>
+                </div>
+              </div>
+              <div className="prvr-section-body">
+                <div className="prvr-gap-list">
+                  {task.gap_literature?.map((item, gapIdx) => (
+                    <div key={gapIdx} className="prvr-gap-card">
+                      <div className="prvr-gap-header">
+                        <span className="prvr-gap-number">{gapIdx + 1}</span>
+                        <span className="prvr-gap-text">{item.gap}</span>
+                      </div>
+                      {item.papers?.length > 0 && (
+                        <div className="prvr-gap-papers">
+                          {item.papers.map((paper, paperIdx) => (
+                            <div key={paperIdx} className="prvr-gap-paper">
+                              <span className="prvr-gap-paper-title">
+                                {paper.url ? (
+                                  <a href={paper.url} target="_blank" rel="noopener noreferrer">
+                                    {paper.title}
+                                  </a>
+                                ) : (
+                                  paper.title
+                                )}
+                              </span>
+                              <span className="prvr-gap-paper-info">
+                                <span>{paper.year}</span>
+                                {paper.citationCount !== undefined && (
+                                  <span>引用 {paper.citationCount}</span>
+                                )}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )) || task.literature_summary?.typical_gaps?.map((gap, idx) => (
+                    <div key={idx} className="prvr-gap-card">
+                      <div className="prvr-gap-header">
+                        <span className="prvr-gap-number">{idx + 1}</span>
+                        <span className="prvr-gap-text">{gap}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 模块4: 审稿报告 */}
+          {task.review_content && (
+            <div className="prvr-section">
+              <div className="prvr-section-header">
+                <div className="prvr-section-icon report">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <path d="M12 18l-2.4-1.2L7 18v-4l2.6 1.3L12 14l2.4 1.3L17 14v4l-2.6-1.2L12 18z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="prvr-section-title">审稿报告</h3>
+                  <p className="prvr-section-desc">详细的审稿意见与改进建议</p>
+                </div>
+                {task.recommendation && (
+                  <div className={`prvr-recommendation ${task.recommendation.toLowerCase().replace(/\s+/g, '-')}`} style={{ marginLeft: 'auto' }}>
+                    {task.recommendation}
+                  </div>
+                )}
+              </div>
+              <div className="prvr-section-body">
+                <div className="prvr-review-report">
+                  <MarkdownRenderer content={task.review_content} />
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
+      </main>
     </div>
   );
 }

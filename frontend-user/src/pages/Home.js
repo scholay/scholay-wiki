@@ -1,3 +1,12 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ */
+
 import React, { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
@@ -261,7 +270,7 @@ const Home = () => {
     },
     {
       question: 'Scholay的数据来源是什么？',
-      answer: 'Scholay基于Semantic Scholar学术图谱API，提供来自计算机科学、生物医学等多个领域的数百万篇学术论文数据。'
+      answer: 'Scholay基于Semantic Scholay学术图谱API，提供来自计算机科学、生物医学等多个领域的数百万篇学术论文数据。'
     }
   ];
 
