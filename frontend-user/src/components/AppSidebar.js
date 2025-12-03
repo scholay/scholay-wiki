@@ -441,42 +441,22 @@ const AppSidebar = ({
             <span>智能分析</span>
           </button>
 
+          {/* 文献助手 - 点击进入选择页面 */}
           <button
-            ref={(el) => (navItemRefs.current['chat'] = el)}
-            className={`nav-item ${location.pathname === '/chat' ? 'active' : ''}`}
-            onClick={() => handleNavClick('/chat')}
+            ref={(el) => (navItemRefs.current['assistant'] = el)}
+            className={`nav-item ${(location.pathname === '/assistant' || location.pathname === '/chat' || location.pathname === '/peer-review') ? 'active' : ''}`}
+            onClick={() => handleNavClick('/assistant')}
             onMouseEnter={() => {
               if (collapsed && !isMobile) {
-                handleMouseEnter('chat', navItemRefs.current['chat']);
+                handleMouseEnter('assistant', navItemRefs.current['assistant']);
               }
             }}
             onMouseLeave={handleMouseLeave}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
             </svg>
-            <span>AI 对话</span>
-          </button>
-
-          <button
-            ref={(el) => (navItemRefs.current['peer-review'] = el)}
-            className={`nav-item ${location.pathname === '/peer-review' ? 'active' : ''}`}
-            onClick={() => handleNavClick('/peer-review')}
-            onMouseEnter={() => {
-              if (collapsed && !isMobile) {
-                handleMouseEnter('peer-review', navItemRefs.current['peer-review']);
-              }
-            }}
-            onMouseLeave={handleMouseLeave}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
-              <polyline points="10 9 9 9 8 9"/>
-            </svg>
-            <span>AI 审稿人</span>
+            <span>文献助手</span>
           </button>
         </div>
       </div>
@@ -771,8 +751,7 @@ const AppSidebar = ({
           {hoveredItem === 'logo' && '展开侧边栏'}
           {hoveredItem === 'normal-search' && '学术检索'}
           {hoveredItem === 'advanced-search' && '智能分析'}
-          {hoveredItem === 'chat' && 'AI 对话'}
-          {hoveredItem === 'peer-review' && 'AI 审稿人'}
+          {hoveredItem === 'assistant' && '文献助手'}
           {hoveredItem === 'user' && (user?.username || user?.email?.split('@')[0] || '用户')}
         </div>,
         document.body

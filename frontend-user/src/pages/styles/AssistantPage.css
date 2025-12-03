@@ -1,0 +1,315 @@
+/* 文献助手页面样式 - 卡片式横向布局 */
+/* 布局结构与 AI 对话页面一致 */
+
+/* ========== 页面包装器 ========== */
+.ast-page-wrapper {
+  display: flex;
+  height: 100vh;
+  background: var(--background);
+  overflow: hidden;
+}
+
+/* ========== 主容器 ========== */
+.ast-main-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left 0.3s ease;
+  margin-left: 0;
+  background: var(--background);
+}
+
+/* 侧边栏展开时挤压内容 */
+.ast-page-wrapper.ast-sidebar-expanded .ast-main-container {
+  margin-left: 280px;
+}
+
+.ast-page-wrapper.ast-sidebar-collapsed .ast-main-container {
+  margin-left: 64px;
+}
+
+/* ========== 内容区域 ========== */
+.ast-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: var(--background);
+  overflow: hidden;
+}
+
+/* ========== 布局容器 ========== */
+.ast-layout {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+  position: relative;
+  overflow-y: auto;
+}
+
+/* ========== 顶部导航 ========== */
+.ast-navbar {
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.ast-navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+.ast-navbar-left svg {
+  opacity: 0.8;
+}
+
+.ast-navbar-title {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.ast-mobile-menu-btn {
+  display: none;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.ast-mobile-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .ast-mobile-menu-btn:hover {
+  background: var(--surface-hover);
+}
+
+/* ========== 主内容区 ========== */
+.ast-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 24px 60px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* 页面标题 */
+.ast-header {
+  margin-bottom: 48px;
+}
+
+.ast-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.ast-subtitle {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* 工具卡片网格 - 横向布局 */
+.ast-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+/* 工具卡片 */
+.ast-tool-card {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ast-tool-card:hover {
+  border-color: var(--text-accent);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(16, 163, 127, 0.12);
+}
+
+[data-theme="dark"] .ast-tool-card {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .ast-tool-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .ast-tool-card {
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .ast-tool-card:hover {
+  box-shadow: 0 16px 40px rgba(16, 163, 127, 0.15);
+}
+
+/* 卡片图标 */
+.ast-tool-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  margin-bottom: 16px;
+  transition: transform 0.2s;
+}
+
+.ast-tool-card:hover .ast-tool-icon {
+  transform: scale(1.05);
+}
+
+/* 卡片标题 */
+.ast-tool-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+/* 卡片描述 */
+.ast-tool-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+  flex: 1;
+}
+
+/* ========== 响应式布局 ========== */
+@media (max-width: 1024px) {
+  .ast-main {
+    padding: 24px 24px 48px;
+  }
+
+  .ast-tools-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  /* 移动端不需要侧边栏挤压 */
+  .ast-page-wrapper.ast-sidebar-expanded .ast-main-container,
+  .ast-page-wrapper.ast-sidebar-collapsed .ast-main-container {
+    margin-left: 0;
+  }
+
+  .ast-mobile-menu-btn {
+    display: flex;
+  }
+
+  .ast-navbar {
+    padding: 12px 16px;
+  }
+
+  .ast-main {
+    padding: 16px 16px 40px;
+  }
+
+  .ast-header {
+    margin-bottom: 32px;
+  }
+
+  .ast-title {
+    font-size: 26px;
+  }
+
+  .ast-tools-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .ast-tool-card {
+    padding: 20px;
+  }
+
+  .ast-tool-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+
+  .ast-tool-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .ast-tool-title {
+    font-size: 15px;
+  }
+
+  .ast-tool-desc {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ast-main {
+    padding: 12px 16px 32px;
+  }
+
+  .ast-title {
+    font-size: 22px;
+  }
+
+  .ast-subtitle {
+    font-size: 14px;
+  }
+
+  .ast-tools-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .ast-tool-card {
+    padding: 16px;
+  }
+
+  .ast-tool-icon {
+    width: 44px;
+    height: 44px;
+    margin-bottom: 10px;
+  }
+
+  .ast-tool-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .ast-tool-title {
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  .ast-tool-desc {
+    font-size: 11px;
+    line-height: 1.4;
+  }
+}

@@ -18,6 +18,7 @@ const AdvancedSearchPage = lazy(() => import('./pages/AdvancedSearchPage'));
 const PaperDetailPage = lazy(() => import('./pages/PaperDetailPage'));
 const ChatPage = lazy(() => import('./pages/ChatPage'));
 const PeerReviewPage = lazy(() => import('./pages/PeerReviewPage'));
+const AssistantPage = lazy(() => import('./pages/AssistantPage'));
 const Pricing = lazy(() => import('./pages/Pricing'));
 const Settings = lazy(() => import('./pages/Settings'));
 const WeChatCallback = lazy(() => import('./pages/WeChatCallback'));
@@ -60,6 +61,8 @@ function App() {
                       
                       {/* 智能分析页面 - 允许未登录访问 */}
                       <Route path="/advanced-search" element={<AdvancedSearchPage />} />
+                      {/* 文献助手页面 - 允许未登录访问 */}
+                      <Route path="/assistant" element={<AssistantPage />} />
                       {/* AI对话页面 - 允许未登录访问 */}
                       <Route path="/chat" element={<ChatPage />} />
                       {/* AI审稿人页面 - 允许未登录访问 */}

@@ -573,3 +573,62 @@
   position: relative;
 }
 
+
+/* ========== 文献助手菜单组样式 ========== */
+.nav-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-group-header {
+  position: relative;
+}
+
+.nav-group-header .nav-group-arrow {
+  margin-left: auto;
+  transition: transform 0.2s ease;
+  opacity: 0.5;
+}
+
+.nav-group-header .nav-group-arrow.expanded {
+  transform: rotate(180deg);
+}
+
+.nav-group-header:hover .nav-group-arrow {
+  opacity: 0.8;
+}
+
+/* 子菜单容器 */
+.nav-group-children {
+  display: flex;
+  flex-direction: column;
+  padding-left: 12px;
+  margin-top: 2px;
+  overflow: hidden;
+}
+
+/* 子菜单项 */
+.nav-child-item {
+  padding-left: 20px !important;
+  font-size: 13px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+}
+
+.nav-child-item svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.nav-child-item span {
+  font-size: 13px;
+}
+
+/* 收起状态下隐藏子菜单和箭头 */
+.app-sidebar.collapsed .nav-group-children {
+  display: none;
+}
+
+.app-sidebar.collapsed .nav-group-arrow {
+  display: none;
+}

@@ -1,35 +1,70 @@
 /* AI审稿人页面样式 - 所有类名使用 prv- 前缀 (peer-review-viewer) */
 /* 使用全局 CSS 变量，与背景融合的设计风格 */
+/* 布局结构与 AI 对话页面一致 */
 
-/* ========== 页面布局 ========== */
-.prv-page {
-  min-height: 100vh;
+/* ========== 页面包装器 ========== */
+.prv-page-wrapper {
+  display: flex;
+  height: 100vh;
   background: var(--background);
-  color: var(--text-primary);
+  overflow: hidden;
+}
+
+/* ========== 主容器 ========== */
+.prv-main-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   transition: margin-left 0.3s ease;
-}
-
-.prv-page.prv-sidebar-expanded {
   margin-left: 0;
+  background: var(--background);
 }
 
-.prv-container {
-  max-width: 56rem;
-  margin: 0 auto;
-  padding: 0 1.5rem 3rem;
+/* 侧边栏展开时挤压内容 */
+.prv-page-wrapper.prv-sidebar-expanded .prv-main-container {
+  margin-left: 280px;
+}
+
+.prv-page-wrapper.prv-sidebar-collapsed .prv-main-container {
+  margin-left: 64px;
+}
+
+/* ========== 内容区域 ========== */
+.prv-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: var(--background);
+  overflow: hidden;
+}
+
+/* ========== 布局容器 ========== */
+.prv-layout {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+  position: relative;
+  overflow-y: auto;
 }
 
 /* ========== 顶部导航 ========== */
 .prv-navbar {
-  height: 56px;
+  padding: 12px 24px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0;
+  justify-content: flex-start;
+  gap: 16px;
   background: transparent;
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  flex-shrink: 0;
+}
+
+.prv-navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .prv-mobile-menu-btn {
@@ -75,17 +110,51 @@
   background: var(--surface-hover);
 }
 
-.prv-page-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.prv-nav-actions {
+/* ========== 面包屑导航 ========== */
+.prv-breadcrumb {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+}
+
+.prv-breadcrumb-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.prv-breadcrumb-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .prv-breadcrumb-link:hover {
+  background: var(--surface-hover);
+  color: var(--text-accent);
+}
+
+.prv-breadcrumb-link svg {
+  opacity: 0.7;
+}
+
+.prv-breadcrumb-separator {
+  color: var(--text-muted);
+  font-size: 14px;
+  user-select: none;
+}
+
+.prv-breadcrumb-current {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
 }
 
 /* ========== 未登录提示 ========== */
@@ -137,10 +206,14 @@
 
 /* ========== 主内容区 ========== */
 .prv-main {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 2.5rem;
-  padding-top: 1rem;
+  padding: 1rem 24px 3rem;
+  max-width: 56rem;
+  margin: 0 auto;
+  width: 100%;
 }
 
 /* ========== 创建任务区域 ========== */
@@ -152,9 +225,15 @@
 
 .prv-section-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.prv-section-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .prv-section-title {
@@ -169,6 +248,13 @@
 
 .prv-section-title svg {
   color: var(--text-accent);
+}
+
+.prv-section-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+  padding-left: 30px;
 }
 
 /* 头部右侧区域 */
@@ -352,11 +438,17 @@
   color: #ef4444;
 }
 
+.prv-textarea-wrapper {
+  position: relative;
+  width: 100%;
+  min-height: 260px;
+}
+
 .prv-textarea {
   width: 100%;
-  height: 200px;
+  height: 260px;
   max-height: 400px;
-  padding: 12px 16px;
+  padding: 16px 20px;
   background: transparent;
   border: none;
   border-radius: 16px;
@@ -371,6 +463,128 @@
 
 .prv-textarea::placeholder {
   color: var(--text-quaternary);
+}
+
+/* 空状态引导提示 */
+.prv-empty-guide {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  pointer-events: none;
+  user-select: none;
+  width: 100%;
+  max-width: 500px;
+}
+
+/* 两种方式的容器 */
+.prv-guide-methods {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  width: 100%;
+}
+
+/* 单个方式 */
+.prv-guide-method {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 160px;
+}
+
+/* 方式图标 */
+.prv-method-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  transition: transform 0.2s;
+}
+
+.prv-method-icon.prv-method-text {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+}
+
+.prv-method-icon.prv-method-file {
+  background: rgba(16, 163, 127, 0.1);
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .prv-method-icon.prv-method-text {
+  background: rgba(99, 102, 241, 0.12);
+}
+
+[data-theme="light"] .prv-method-icon.prv-method-file {
+  background: rgba(16, 163, 127, 0.12);
+}
+
+/* 方式标题 */
+.prv-method-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* 方式描述 */
+.prv-method-desc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0;
+  text-align: center;
+}
+
+/* 分隔线 */
+.prv-guide-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.prv-guide-divider span {
+  font-size: 13px;
+  color: var(--text-quaternary);
+  background: var(--background);
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+/* 支持格式 */
+.prv-guide-formats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-quaternary);
+}
+
+.prv-format-tag {
+  padding: 3px 10px;
+  background: rgba(128, 128, 128, 0.08);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .prv-format-tag {
+  background: rgba(0, 0, 0, 0.04);
 }
 
 /* 自定义滚动条样式 */
@@ -406,10 +620,9 @@
 .prv-char-count {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding: 4px 16px 8px;
   font-size: 12px;
   color: var(--text-quaternary);
+  white-space: nowrap;
 }
 
 .prv-char-count .prv-char-separator {
@@ -611,6 +824,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
+}
+
+.prv-composer-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   flex-shrink: 0;
 }
 
@@ -1460,20 +1680,22 @@
 
 /* ========== 响应式布局 ========== */
 @media (max-width: 768px) {
-  .prv-container {
-    padding: 0 1rem 2rem;
+  /* 移动端不需要侧边栏挤压 */
+  .prv-page-wrapper.prv-sidebar-expanded .prv-main-container,
+  .prv-page-wrapper.prv-sidebar-collapsed .prv-main-container {
+    margin-left: 0;
   }
 
   .prv-navbar {
-    height: 48px;
+    padding: 12px 16px;
+  }
+
+  .prv-main {
+    padding: 1rem 16px 2rem;
   }
 
   .prv-mobile-menu-btn {
     display: flex;
-  }
-
-  .prv-page-title {
-    font-size: 16px;
   }
 
   .prv-section-header {

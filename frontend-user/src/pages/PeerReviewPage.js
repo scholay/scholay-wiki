@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { peerReviewAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
+import { useSidebar } from '../contexts/SidebarContext';
 import ModelSelector from '../components/ModelSelector';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import MessageModal from '../components/MessageModal';
@@ -30,8 +31,15 @@ const truncateString = (str, maxLen) => {
 };
 
 export default function PeerReviewPage() {
+  const navigate = useNavigate();
   const { sidebarCollapsed, openMobileSidebar, isMobile } = useOutletContext() || {};
   const { user, openLoginModal } = useAuth();
+  const { resetSidebarConfig } = useSidebar();
+
+  // 进入页面时清空侧边栏历史记录
+  useEffect(() => {
+    resetSidebarConfig();
+  }, [resetSidebarConfig]);
 
   // 视图状态
   const [viewMode, setViewMode] = useState(VIEW_MODE.HOME);
@@ -450,18 +458,20 @@ export default function PeerReviewPage() {
   // 未登录提示
   if (!user) {
     return (
-      <div className={`prv-page ${!sidebarCollapsed ? 'prv-sidebar-expanded' : ''}`}>
-        <div className="prv-container">
-          <div className="prv-login-prompt">
-            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"/>
-              <path d="M12 8V12M12 16H12.01"/>
-            </svg>
-            <h2>请先登录</h2>
-            <p>AI 审稿人功能需要登录后才能使用</p>
-            <button className="prv-login-btn" onClick={openLoginModal}>
-              立即登录
-            </button>
+      <div className={`prv-page-wrapper ${sidebarCollapsed ? 'prv-sidebar-collapsed' : 'prv-sidebar-expanded'}`}>
+        <div className="prv-main-container">
+          <div className="prv-content">
+            <div className="prv-login-prompt">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"/>
+                <path d="M12 8V12M12 16H12.01"/>
+              </svg>
+              <h2>请先登录</h2>
+              <p>AI 审稿人功能需要登录后才能使用</p>
+              <button className="prv-login-btn" onClick={openLoginModal}>
+                立即登录
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -469,37 +479,47 @@ export default function PeerReviewPage() {
   }
 
   return (
-    <div className={`prv-page ${!sidebarCollapsed ? 'prv-sidebar-expanded' : ''}`}>
-      <div className="prv-container">
-        {/* 顶部导航 */}
-        <nav className="prv-navbar">
-          {isMobile && (
-            <button className="prv-mobile-menu-btn" onClick={openMobileSidebar}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="4" y1="8" x2="20" y2="8" />
-                <line x1="4" y1="16" x2="14" y2="16" />
-              </svg>
-            </button>
-          )}
-          
-          {viewMode === VIEW_MODE.DETAIL && (
-            <button className="prv-back-btn" onClick={backToHome}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M19 12H5M12 19l-7-7 7-7"/>
-              </svg>
-              返回
-            </button>
-          )}
-          
-          <h1 className="prv-page-title">AI 审稿人</h1>
-          
-          <div className="prv-nav-actions">
-            {/* 导航栏右侧预留空间 */}
-          </div>
-        </nav>
+    <div className={`prv-page-wrapper ${sidebarCollapsed ? 'prv-sidebar-collapsed' : 'prv-sidebar-expanded'}`}>
+      <div className="prv-main-container">
+        <div className="prv-content">
+          <div className="prv-layout">
+            {/* 顶部导航 */}
+            <nav className="prv-navbar">
+              {isMobile && (
+                <button className="prv-mobile-menu-btn" onClick={openMobileSidebar}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="4" y1="8" x2="20" y2="8" />
+                    <line x1="4" y1="16" x2="14" y2="16" />
+                  </svg>
+                </button>
+              )}
+              
+              <div className="prv-navbar-left">
+                {/* 面包屑导航 */}
+                <div className="prv-breadcrumb">
+                  <button className="prv-breadcrumb-link" onClick={() => navigate('/assistant')}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                    </svg>
+                    文献助手
+                  </button>
+                  <span className="prv-breadcrumb-separator">/</span>
+                  <span className="prv-breadcrumb-current">AI 审稿</span>
+                </div>
+                
+                {viewMode === VIEW_MODE.DETAIL && (
+                  <button className="prv-back-btn" onClick={backToHome}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    返回列表
+                  </button>
+                )}
+              </div>
+            </nav>
 
-        {/* 主内容区 */}
-        <div className="prv-main">
+            {/* 主内容区 */}
+            <div className="prv-main">
           {viewMode === VIEW_MODE.HOME && (
             <>
               {/* 上半部分：创建任务区域 */}
@@ -562,6 +582,8 @@ export default function PeerReviewPage() {
               onStartTask={handleStartTask}
             />
           )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -597,15 +619,17 @@ function CreateSection({
   return (
     <div className="prv-create-section">
       <div className="prv-section-header">
-        <h2 className="prv-section-title">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
-            <rect x="9" y="3" width="6" height="4" rx="1"/>
-            <path d="M9 12h6"/>
-            <path d="M9 16h6"/>
-          </svg>
-          AI 快速审稿
-        </h2>
+        <div className="prv-section-intro">
+          <h2 className="prv-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <path d="M12 18l-2.4-1.2L7 18v-4l2.6 1.3L12 14l2.4 1.3L17 14v4l-2.6-1.2L12 18z"/>
+            </svg>
+            AI 审稿
+          </h2>
+          <p className="prv-section-desc">上传论文，获取专业审稿意见</p>
+        </div>
         <div className="prv-header-right">
           {hasContent && (
             <button className="prv-clear-btn" onClick={onClearDraft}>
@@ -676,22 +700,60 @@ function CreateSection({
               )}
               
               {/* 文本输入区域 */}
-              <textarea
-                className={`prv-textarea ${fileName ? 'prv-textarea-readonly' : ''}`}
-                placeholder="粘贴稿件内容，或拖拽文件到此处上传..."
-                value={manuscriptText}
-                onChange={(e) => !fileName && setManuscriptText(e.target.value)}
-                readOnly={!!fileName}
-                maxLength={50000}
-              />
-              
-              {/* 字符计数 */}
-              <div className="prv-char-count">
-                <span className={manuscriptText.length > 45000 ? 'prv-char-warning' : ''}>
-                  {manuscriptText.length.toLocaleString()}
-                </span>
-                <span className="prv-char-separator">/</span>
-                <span className="prv-char-max">50,000</span>
+              <div className="prv-textarea-wrapper">
+                <textarea
+                  className={`prv-textarea ${fileName ? 'prv-textarea-readonly' : ''}`}
+                  placeholder=""
+                  value={manuscriptText}
+                  onChange={(e) => !fileName && setManuscriptText(e.target.value)}
+                  readOnly={!!fileName}
+                  maxLength={50000}
+                />
+                
+                {/* 空状态引导提示 */}
+                {!manuscriptText && !fileName && (
+                  <div className="prv-empty-guide">
+                    <div className="prv-guide-methods">
+                      {/* 文字输入方式 */}
+                      <div className="prv-guide-method">
+                        <div className="prv-method-icon prv-method-text">
+                          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                          </svg>
+                        </div>
+                        <p className="prv-method-title">直接输入</p>
+                        <p className="prv-method-desc">粘贴或输入论文内容</p>
+                      </div>
+                      
+                      <div className="prv-guide-divider">
+                        <span>或</span>
+                      </div>
+                      
+                      {/* 文件上传方式 */}
+                      <div className="prv-guide-method">
+                        <div className="prv-method-icon prv-method-file">
+                          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                          </svg>
+                        </div>
+                        <p className="prv-method-title">上传文件</p>
+                        <p className="prv-method-desc">拖拽文件到此处</p>
+                      </div>
+                    </div>
+                    
+                    <div className="prv-guide-formats">
+                      <span>支持格式：</span>
+                      <span className="prv-format-tag">TXT</span>
+                      <span className="prv-format-tag">DOC</span>
+                      <span className="prv-format-tag">DOCX</span>
+                      <span className="prv-format-tag">PDF</span>
+                      <span className="prv-format-tag">RTF</span>
+                      <span className="prv-format-tag">ODT</span>
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* 隐藏的文件输入 */}
@@ -747,27 +809,37 @@ function CreateSection({
             </div>
           </div>
           
-          {/* 右侧：提交按钮 */}
-          <button 
-            className="prv-submit-btn" 
-            onClick={onSubmit}
-            disabled={submitting || !hasContent || draftLoading}
-          >
-            {submitting ? (
-              <>
-                <div className="prv-btn-spinner"></div>
-                审稿中...
-              </>
-            ) : (
-              <>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="22" y1="2" x2="11" y2="13"/>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
-                开始审稿
-              </>
-            )}
-          </button>
+          {/* 右侧：字符计数 + 提交按钮 */}
+          <div className="prv-composer-footer-right">
+            <div className="prv-char-count">
+              <span className={manuscriptText.length > 45000 ? 'prv-char-warning' : ''}>
+                {manuscriptText.length.toLocaleString()}
+              </span>
+              <span className="prv-char-separator">/</span>
+              <span className="prv-char-max">50,000</span>
+            </div>
+            
+            <button 
+              className="prv-submit-btn" 
+              onClick={onSubmit}
+              disabled={submitting || !hasContent || draftLoading}
+            >
+              {submitting ? (
+                <>
+                  <div className="prv-btn-spinner"></div>
+                  审稿中...
+                </>
+              ) : (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="22" y1="2" x2="11" y2="13"/>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                  </svg>
+                  开始审稿
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

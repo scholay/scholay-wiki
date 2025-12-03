@@ -958,6 +958,53 @@
   gap: 12px;
 }
 
+/* 面包屑导航 */
+.chat-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-breadcrumb-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.chat-breadcrumb-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .chat-breadcrumb-link:hover {
+  background: var(--surface-hover);
+  color: var(--text-accent);
+}
+
+.chat-breadcrumb-link svg {
+  opacity: 0.7;
+}
+
+.chat-breadcrumb-separator {
+  color: var(--text-muted);
+  font-size: 14px;
+  user-select: none;
+}
+
+.chat-breadcrumb-current {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
 /* Lightweight Model Selector - ChatGPT style */
 .model-selector-simple {
   position: relative;
