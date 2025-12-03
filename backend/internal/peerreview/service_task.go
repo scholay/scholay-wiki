@@ -144,6 +144,11 @@ func (s *Service) SubmitDraft(userID uint, req *SubmitDraftRequest) (*PeerReview
 	draft.Status = TaskStatusPending
 	draft.Progress = 0
 	draft.ProgressStage = "等待处理"
+	
+	// 更新创建时间为当前时间（提交审稿的时间才是真正的任务开始时间）
+	now := time.Now()
+	draft.CreatedAt = now
+	draft.StartedAt = &now
 
 	if err := s.db.Save(&draft).Error; err != nil {
 		return nil, fmt.Errorf("提交草稿失败: %w", err)
@@ -180,6 +185,44 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, fileName string, fileExt 
 		return nil, fmt.Errorf("文件内容太少或无法识别")
 	}
 
+	// 验证提取内容长度（最大5万字符）
+	const maxManuscriptLength = 50000
+	if len(extractedText) > maxManuscriptLength {
+		return nil, fmt.Errorf("文件内容超出长度限制，最多支持%d个字符，当前文件包含%d个字符", maxManuscriptLength, len(extractedText))
+	}
+
+	// 保存原始文件到磁盘
+	uploadDir := "./uploads/peer-review"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return nil, fmt.Errorf("创建上传目录失败: %w", err)
+	}
+
+	// 生成唯一文件名
+	uniqueFileName := fmt.Sprintf("%d_%d_%s", userID, time.Now().UnixNano(), fileName)
+	filePath := filepath.Join(uploadDir, uniqueFileName)
+	
+	// 写入文件
+	if err := os.WriteFile(filePath, content, 0644); err != nil {
+		return nil, fmt.Errorf("保存文件失败: %w", err)
+	}
+
+	// 创建文件记录
+	file := PeerReviewFile{
+		UserID:        userID,
+		FileName:      fileName,
+		FileType:      strings.TrimPrefix(fileExt, "."),
+		FileSize:      int64(len(content)),
+		FilePath:      filePath,
+		ExtractedText: extractedText,
+		Status:        "processed",
+		CreatedAt:     time.Now(),
+	}
+	if err := s.db.Create(&file).Error; err != nil {
+		// 如果数据库保存失败，删除已保存的文件
+		os.Remove(filePath)
+		return nil, fmt.Errorf("保存文件记录失败: %w", err)
+	}
+
 	// 获取或创建草稿
 	var draft PeerReviewTask
 	err = s.db.Where("user_id = ? AND status = ?", userID, TaskStatusDraft).First(&draft).Error
@@ -197,16 +240,20 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, fileName string, fileExt 
 		return nil, err
 	}
 
-	// 验证提取内容长度（最大5万字符）
-	const maxManuscriptLength = 50000
-	if len(extractedText) > maxManuscriptLength {
-		return nil, fmt.Errorf("文件内容超出长度限制，最多支持%d个字符，当前文件包含%d个字符", maxManuscriptLength, len(extractedText))
+	// 如果之前有关联的文件，删除旧文件
+	if draft.FileID != nil {
+		var oldFile PeerReviewFile
+		if err := s.db.First(&oldFile, *draft.FileID).Error; err == nil {
+			os.Remove(oldFile.FilePath)
+			s.db.Delete(&oldFile)
+		}
 	}
 
 	// 更新草稿内容
 	draft.InputType = InputTypeFile
 	draft.ManuscriptText = extractedText
-	draft.FileName = fileName // 保存原始文件名
+	draft.FileName = fileName
+	draft.FileID = &file.ID
 	draft.Title = strings.TrimSuffix(fileName, fileExt)
 	if len(draft.Title) > 100 {
 		draft.Title = truncateString(draft.Title, 100)
@@ -228,6 +275,7 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, fileName string, fileExt 
 
 	return &UploadFileResponse{
 		DraftID:        draft.ID,
+		FileID:         file.ID,
 		FileName:       fileName,
 		FileSize:       int64(len(content)),
 		ExtractedText:  extractedText,
@@ -383,6 +431,7 @@ func (s *Service) GetTaskDetail(userID uint, taskID uint) (*TaskDetailResponse, 
 		Progress:      task.Progress,
 		ProgressStage: task.ProgressStage,
 		ModelLevel:    task.ModelLevel,
+		FileID:        task.FileID,
 		ReviewContent: task.ReviewContent,
 		Recommendation: task.Recommendation,
 		ErrorMessage:  task.ErrorMessage,
@@ -398,8 +447,11 @@ func (s *Service) GetTaskDetail(userID uint, taskID uint) (*TaskDetailResponse, 
 		response.ManuscriptText = task.ManuscriptText
 	}
 
-	// 获取文件名
-	if task.FileID != nil {
+	// 获取文件名 - 优先使用任务表中的 FileName 字段
+	if task.FileName != "" {
+		response.FileName = task.FileName
+	} else if task.FileID != nil {
+		// 兼容旧数据：从 PeerReviewFile 表获取
 		var file PeerReviewFile
 		if err := s.db.Where("id = ?", *task.FileID).First(&file).Error; err == nil {
 			response.FileName = file.FileName
@@ -526,6 +578,21 @@ func (s *Service) CountDraftTasks(userID uint) (int64, error) {
 // 为了兼容性保留，内部调用新方法
 func (s *Service) UploadFile(userID uint, fileName string, fileExt string, content []byte) (*UploadFileResponse, error) {
 	return s.ParseFileAndSaveToDraft(userID, fileName, fileExt, content)
+}
+
+// GetFileForDownload 获取文件用于下载
+func (s *Service) GetFileForDownload(userID uint, fileID uint) (*PeerReviewFile, string, error) {
+	var file PeerReviewFile
+	if err := s.db.Where("id = ? AND user_id = ?", fileID, userID).First(&file).Error; err != nil {
+		return nil, "", fmt.Errorf("文件不存在或无权访问")
+	}
+
+	// 检查文件是否存在
+	if _, err := os.Stat(file.FilePath); os.IsNotExist(err) {
+		return nil, "", fmt.Errorf("文件已被删除")
+	}
+
+	return &file, file.FilePath, nil
 }
 
 // DeleteTask 删除任务（包括关联的文件）

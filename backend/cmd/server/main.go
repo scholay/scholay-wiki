@@ -541,6 +541,9 @@ func main() {
 				// 文件上传（解析文件并保存到草稿）
 				peerReviewGroup.POST("/upload", peerReviewHandler.UploadFile)
 				
+				// 文件下载
+				peerReviewGroup.GET("/files/:id/download", peerReviewHandler.DownloadFile)
+				
 				// 兼容旧接口
 				peerReviewGroup.POST("/run", peerReviewHandler.RunPeerReview)
 				peerReviewGroup.GET("/history", peerReviewHandler.GetReviewHistory)

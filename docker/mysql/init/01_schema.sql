@@ -1021,8 +1021,9 @@ CREATE TABLE IF NOT EXISTS `peer_review_files` (
   `file_name` VARCHAR(255) NOT NULL COMMENT '原始文件名',
   `file_type` VARCHAR(50) COMMENT '文件类型: docx, doc, txt, pdf',
   `file_size` BIGINT COMMENT '文件大小（字节）',
-  `file_path` VARCHAR(500) COMMENT '存储路径（可选）',
+  `file_path` VARCHAR(500) COMMENT '存储路径',
   `extracted_text` LONGTEXT COMMENT '提取的文本内容',
+  `status` VARCHAR(50) DEFAULT 'pending' COMMENT '状态: pending, processed, failed',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   
   PRIMARY KEY (`id`),

@@ -434,3 +434,33 @@ func (h *Handler) GetReviewDetail(c *gin.Context) {
 
 	utils.Success(c, response)
 }
+
+// DownloadFile 下载原始文件
+// GET /api/v1/user/peer-review/files/:id/download
+func (h *Handler) DownloadFile(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Error(c, 4001, "请先登录")
+		return
+	}
+
+	fileID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		utils.Error(c, 4005, "无效的文件ID")
+		return
+	}
+
+	file, filePath, err := h.service.GetFileForDownload(userID.(uint), uint(fileID))
+	if err != nil {
+		utils.Error(c, 5003, "获取文件失败: "+err.Error())
+		return
+	}
+
+	// 设置下载响应头
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Transfer-Encoding", "binary")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", file.FileName))
+	c.Header("Content-Type", "application/octet-stream")
+	
+	c.File(filePath)
+}

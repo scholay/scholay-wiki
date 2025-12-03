@@ -378,26 +378,103 @@
   color: var(--text-accent);
 }
 
-/* 上传中遮罩 */
+/* 上传中遮罩 - 更明显的加载状态 */
 .prv-upload-overlay {
   position: absolute;
   inset: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
   border-radius: 22px;
-  z-index: 10;
-  color: #fff;
-  font-size: 14px;
+  z-index: 20;
 }
 
-[data-theme="light"] .prv-upload-overlay {
-  background: rgba(255, 255, 255, 0.8);
+[data-theme="dark"] .prv-upload-overlay {
+  background: rgba(30, 30, 30, 0.95);
+}
+
+.prv-upload-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 30px;
+}
+
+.prv-upload-icon-wrapper {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.prv-upload-icon-wrapper svg {
+  color: var(--text-accent);
+  z-index: 2;
+}
+
+.prv-upload-pulse {
+  animation: prv-upload-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes prv-upload-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+.prv-upload-ring {
+  position: absolute;
+  inset: 0;
+  border: 3px solid rgba(16, 163, 127, 0.2);
+  border-top-color: var(--text-accent);
+  border-radius: 50%;
+  animation: prv-spin 1s linear infinite;
+}
+
+.prv-upload-progress h4 {
+  font-size: 16px;
+  font-weight: 600;
   color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.prv-upload-progress p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 16px;
+}
+
+.prv-upload-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.prv-upload-dots span {
+  width: 8px;
+  height: 8px;
+  background: var(--text-accent);
+  border-radius: 50%;
+  animation: prv-dot-bounce 1.4s ease-in-out infinite;
+}
+
+.prv-upload-dots span:nth-child(1) { animation-delay: 0s; }
+.prv-upload-dots span:nth-child(2) { animation-delay: 0.2s; }
+.prv-upload-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes prv-dot-bounce {
+  0%, 80%, 100% { 
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  40% { 
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* 文件信息条 */

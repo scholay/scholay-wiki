@@ -1,0 +1,1519 @@
+================================================================================
+                    Scholay学术 V1.0 源代码（前30页）
+================================================================================
+
+软件名称：Scholay学术
+版本号：V1.0
+著作权人：成都恩特罐罐文化科技有限公司
+统一社会信用代码：91510100MAEEHRNE26
+
+Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+All Rights Reserved.
+
+说明：本文档为软件著作权登记用源代码，包含前30页内容。
+      每页50行，共计1500行。
+
+================================================================================
+                              源 代 码 正 文
+================================================================================
+
+     1	// ============================================================================
+     2	// Scholay学术 V1.0
+     3	// Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+     4	// 统一社会信用代码: 91510100MAEEHRNE26
+     5	// All Rights Reserved.
+     6	// ============================================================================
+     7	
+     8	
+     9	// ========== 文件: backend/cmd/server/main.go ==========
+    10	// ============================================================================
+    11	// Scholay学术 V1.0
+    12	// Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+    13	// 统一社会信用代码: 91510100MAEEHRNE26
+    14	// All Rights Reserved.
+    15	// ============================================================================
+    16	
+    17	package main
+    18	
+    19	import (
+    20		"context"
+    21		"log"
+    22		"os"
+    23		"os/signal"
+    24		"syscall"
+    25		"time"
+    26		"scholar-backend/internal/admin"
+    27		"scholar-backend/internal/ai"
+    28		"scholar-backend/internal/feedback"
+    29		"scholar-backend/internal/common/cache"
+    30		"scholar-backend/internal/common/cleanup"
+    31		appconfig "scholar-backend/internal/common/config"
+    32		"scholar-backend/internal/common/database"
+    33		"scholar-backend/internal/common/middleware"
+    34		"scholar-backend/internal/common/telemetry"
+    35		"scholar-backend/internal/config"
+    36		"scholar-backend/internal/conversation"
+    37		"scholar-backend/internal/coupon"
+    38		"scholar-backend/internal/mcp"
+    39		"scholar-backend/internal/order"
+    40		"scholar-backend/internal/payment"
+    41		"scholar-backend/internal/peerreview"
+    42		"scholar-backend/internal/proxy"
+    43		"scholar-backend/internal/semanticscholar"
+    44		"scholar-backend/internal/subscription"
+    45		"scholar-backend/internal/thirdparty"
+    46		"scholar-backend/internal/user"
+    47		"scholar-backend/internal/wechat"
+    48		"scholar-backend/internal/wechatofficial"
+    49	
+    50		"github.com/gin-gonic/gin"
+    51		"go.opentelemetry.io/otel/attribute"
+    52	)
+    53	
+    54	func main() {
+    55		// Load configuration
+    56		cfg := appconfig.Load()
+    57	
+    58		// Initialize OpenTelemetry with SigNoz
+    59		ctx := context.Background()
+    60		if cfg.SigNoz.EnableTracing || cfg.SigNoz.EnableLogging {
+    61			telemetryCfg := &telemetry.Config{
+    62				Endpoint:      cfg.SigNoz.Endpoint,
+    63				ServiceName:   cfg.SigNoz.ServiceName,
+    64				Environment:   cfg.SigNoz.Environment,
+    65				EnableTracing: cfg.SigNoz.EnableTracing,
+    66				EnableLogging: cfg.SigNoz.EnableLogging,
+    67				EnableMetrics: cfg.SigNoz.EnableMetrics,
+    68				SamplingRate:  cfg.SigNoz.SamplingRate,
+    69			}
+    70			
+    71			// Set global endpoint for logger
+    72			telemetry.SetGlobalEndpoint(telemetryCfg.Endpoint)
+    73			
+    74			telemetryShutdown, err := telemetry.Initialize(ctx, telemetryCfg)
+    75			if err != nil {
+    76				log.Printf("Warning: Failed to initialize telemetry: %v", err)
+    77			} else {
+    78				log.Printf("✓ Telemetry initialized (SigNoz endpoint: %s)", telemetryCfg.Endpoint)
+    79				log.Printf("  - Service: %s", telemetryCfg.ServiceName)
+    80				log.Printf("  - Environment: %s", telemetryCfg.Environment)
+    81				log.Printf("  - Tracing: %v, Logging: %v", telemetryCfg.EnableTracing, telemetryCfg.EnableLogging)
+    82				log.Printf("  - Sampling Rate: %.1f%%", telemetryCfg.SamplingRate*100)
+    83				
+    84				defer func() {
+    85					shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    86					defer cancel()
+    87					if err := telemetryShutdown(shutdownCtx); err != nil {
+    88						log.Printf("Error shutting down telemetry: %v", err)
+    89					}
+    90				}()
+    91			}
+    92		} else {
+    93			log.Println("✓ Telemetry disabled by configuration")
+    94		}
+    95	
+    96		// Create logger for main (only if telemetry is enabled)
+    97		var logger *telemetry.Logger
+    98		if cfg.SigNoz.EnableLogging {
+    99			logger = telemetry.NewLogger("main")
+   100			logger.Info(ctx, "Starting Scholar Backend Service",
+   101				attribute.String("version", "1.0.0"),
+   102				attribute.String("environment", cfg.SigNoz.Environment),
+   103			)
+   104		}
+   105	
+   106		// Initialize Redis
+   107		if err := cache.InitRedis(cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.Password, cfg.Redis.DB); err != nil {
+   108			if logger != nil {
+   109				logger.Fatal(ctx, "Failed to initialize Redis", err)
+   110			}
+   111			log.Fatalf("Failed to initialize Redis: %v", err)
+   112		}
+   113		if logger != nil {
+   114			logger.Info(ctx, "Redis initialized successfully")
+   115		}
+   116		log.Println("✓ Redis initialized successfully")
+   117	
+   118		// Initialize cache worker pool (prevents goroutine accumulation from async cache writes)
+   119		cache.InitWorkerPool(10, 100) // 10 workers, queue size 100
+   120	
+   121		// Initialize database
+   122		if err := database.Initialize(cfg); err != nil {
+   123			log.Fatalf("Failed to initialize database: %v", err)
+   124		}
+   125	
+   126		// Initialize cleanup service
+   127		cleanupService := cleanup.NewCleanupService(database.GetDB())
+   128		cleanupService.Start()
+   129	
+   130		// Initialize admin module
+   131		adminRepo := admin.NewRepository(database.GetDB())
+   132		adminService := admin.NewService(adminRepo)
+   133		adminHandler := admin.NewHandler(adminService)
+   134	
+   135		// Initialize dashboard handler
+   136		dashboardHandler := admin.NewDashboardHandler(database.GetDB())
+   137	
+   138		// Initialize feedback module
+   139		feedbackRepo := feedback.NewRepository(database.GetDB())
+   140		feedbackService := feedback.NewService(feedbackRepo)
+   141		feedbackHandler := feedback.NewHandler(feedbackService, "./uploads")
+   142	
+   143		// Initialize default admin user
+   144		if err := adminService.InitializeDefaultAdmin(cfg.Admin.InitialUsername, cfg.Admin.InitialPassword); err != nil {
+   145			log.Printf("Warning: Failed to initialize default admin: %v", err)
+   146		} else {
+   147			log.Printf("Default admin user initialized (username: %s)", cfg.Admin.InitialUsername)
+   148		}
+   149	
+   150		// Initialize user module
+   151		userRepo := user.NewRepository(database.GetDB())
+   152		userService := user.NewService(userRepo)
+   153		userHandler := user.NewHandler(userService, database.GetDB())
+   154	
+   155		// Initialize config module
+   156		configRepo := config.NewRepository(database.GetDB())
+   157		configService := config.NewService(configRepo)
+   158		configHandler := config.NewHandler(configService)
+   159	
+   160		// Initialize coupon module
+   161		baseURL := "http://localhost:" + cfg.Server.Port // TODO: Configure from env
+   162		redisClient := cache.GetRedis()
+   163		couponService := coupon.NewService(database.GetDB(), userRepo, redisClient, baseURL)
+   164		couponHandler := coupon.NewHandler(couponService)
+   165	
+   166		// Start coupon scheduler for automated tasks
+   167		couponScheduler := coupon.NewScheduler(couponService)
+   168		couponScheduler.Start()
+   169	
+   170		// Inject config service into user service (for email sending)
+   171		userService.SetConfigService(configService)
+   172	
+   173		// Inject config service into feedback service (for reply email sending)
+   174		feedbackService.SetConfigService(configService)
+   175	
+   176		// Inject user repository into feedback service (for user info lookup)
+   177		feedbackService.SetUserRepository(&feedbackUserRepoAdapter{userRepo: userRepo})
+   178	
+   179		// Inject coupon service into user service (for invitation handling)
+   180		userService.SetCouponService(couponService)
+   181	
+   182		// Initialize default privacy policy
+   183		if err := configService.InitializeDefaultPrivacyPolicy(); err != nil {
+   184			log.Printf("Warning: Failed to initialize default privacy policy: %v", err)
+   185		} else {
+   186			log.Printf("Default privacy policy initialized")
+   187		}
+   188	
+   189		// Initialize default terms of service
+   190		if err := configService.InitializeDefaultTermsOfService(); err != nil {
+   191			log.Printf("Warning: Failed to initialize default terms of service: %v", err)
+   192		} else {
+   193			log.Printf("Default terms of service initialized")
+   194		}
+   195	
+   196		// Initialize default system config
+   197		if err := configService.InitializeDefaultSystemConfig(); err != nil {
+   198			log.Printf("Warning: Failed to initialize default system config: %v", err)
+   199		} else {
+   200			log.Printf("Default system config initialized")
+   201		}
+   202	
+   203		// Initialize Third-party Account Management
+   204		thirdPartyRepo := thirdparty.NewRepository(database.GetDB())
+   205		thirdPartyService := thirdparty.NewService(thirdPartyRepo)
+   206		thirdPartyHandler := thirdparty.NewHandler(thirdPartyService)
+   207	
+   208		// Start cache refresh task (every 5 minutes)
+   209		thirdPartyService.StartCacheRefreshTask(5 * time.Minute)
+   210		log.Printf("Third-party account service initialized with cache refresh")
+   211	
+   212		// Initialize AI service (需要在scholar handler之前初始化)
+   213		aiService := ai.NewService(database.GetDB(), thirdPartyService)
+   214		
+   215		// Initialize Semantic Scholar module with key rotation
+   216		scholarManager := semanticscholar.NewManager(thirdPartyService)
+   217		scholarHandler := semanticscholar.NewHandler(scholarManager, aiService) // 传入aiService用于查询翻译
+   218		mcpHandler := mcp.NewHandler(scholarManager) // MCP uses manager for dynamic API key access
+   219		aiHandler := ai.NewHandler(aiService)
+   220	
+   221		// Initialize Peer Review module
+   222		mcpServer := mcp.NewMCPServer(scholarManager)
+   223		peerReviewService := peerreview.NewService(database.GetDB(), aiService, mcpServer, thirdPartyService)
+   224		peerReviewHandler := peerreview.NewHandler(peerReviewService)
+   225	
+   226		// Initialize Subscription module
+   227		subscriptionService := subscription.NewService(database.GetDB())
+   228		subscriptionHandler := subscription.NewHandler(database.GetDB())
+   229	
+   230		// Initialize Conversation module
+   231		conversationRepo := conversation.NewRepository(database.GetDB())
+   232		conversationService := conversation.NewService(conversationRepo, scholarManager, aiService, subscriptionService)
+   233		conversationHandler := conversation.NewHandler(conversationService)
+   234		chatHandler := conversation.NewChatHandler(conversationRepo, aiService, conversationService, subscriptionService)
+   235	
+   236		// Initialize Proxy module
+   237		proxyHandler := proxy.NewHandler()
+   238	
+   239		// Initialize Order module
+   240		orderService := order.NewService(database.GetDB())
+   241		orderHandler := order.NewHandlerWithService(orderService)
+   242	
+   243		// Initialize Payment module
+   244		alipayHandler := payment.NewAlipayHandler(database.GetDB())
+   245		wechatPayRepo := payment.NewWeChatPayRepository(database.GetDB())
+   246		wechatPayService := payment.NewWeChatPayService(wechatPayRepo)
+   247		wechatPayHandler := payment.NewWeChatPayHandler(wechatPayService, orderService)
+   248	
+   249		// Initialize WeChat module
+   250		wechatService := wechat.NewService(database.GetDB())
+   251		wechatHandler := wechat.NewHandler(database.GetDB())
+   252	
+   253		// Create adapter and inject into user handler
+   254		wechatAdapter := wechat.NewServiceAdapter(wechatService)
+   255		userHandler.SetWeChatService(wechatAdapter)
+   256	
+   257		// Initialize WeChat Official Account module
+   258		wechatOfficialService := wechatofficial.NewService(database.GetDB(), aiService)
+   259		wechatOfficialHandler := wechatofficial.NewHandler(wechatOfficialService)
+   260	
+   261		// Setup Gin router
+   262		router := gin.Default()
+   263	
+   264		// Apply global middleware
+   265		router.Use(middleware.CORSMiddleware())
+   266		
+   267		// Add telemetry middleware only if enabled
+   268		if cfg.SigNoz.EnableTracing {
+   269			// Add OpenTelemetry middleware for distributed tracing
+   270			router.Use(middleware.OpenTelemetryGinMiddleware(cfg.SigNoz.ServiceName))
+   271		}
+   272		
+   273		if cfg.SigNoz.EnableLogging {
+   274			// Add comprehensive telemetry middleware for logging
+   275			router.Use(middleware.TelemetryMiddleware())
+   276		}
+   277	
+   278		// Add rate limiting middleware (100 requests per second per IP)
+   279		// This prevents DoS attacks and ensures fair resource allocation
+   280		router.Use(middleware.RateLimitMiddleware(100, 1*time.Second))
+   281	
+   282		// Add adaptive timeout middleware
+   283		// Automatically adjusts timeout based on endpoint type
+   284		router.Use(middleware.APITimeoutMiddleware())
+   285	
+   286		// API routes
+   287		api := router.Group("/api/v1")
+   288		{
+   289			// Config routes (public)
+   290			configHandler.RegisterRoutes(api)
+   291	
+   292			// Admin routes
+   293			adminHandler.RegisterRoutes(api)
+   294	
+   295			// Admin protected routes
+   296			adminProtected := api.Group("/admin")
+   297			adminProtected.Use(middleware.AdminAuthMiddleware())
+   298			{
+   299				adminProtected.GET("/profile", adminHandler.GetProfile)
+   300				adminProtected.PUT("/password", adminHandler.UpdatePassword)
+   301			adminProtected.POST("/verify-password", adminHandler.VerifyPassword)
+   302				// Dashboard statistics
+   303				adminProtected.GET("/dashboard/statistics", dashboardHandler.GetDashboardStatistics)
+   304				// Configuration management
+   305				// System configuration
+   306				adminProtected.PUT("/privacy-policy", configHandler.UpdatePrivacyPolicy)
+   307				adminProtected.PUT("/terms-of-service", configHandler.UpdateTermsOfService)
+   308				adminProtected.GET("/email-config", configHandler.GetEmailConfig)
+   309				adminProtected.PUT("/email-config", configHandler.UpdateEmailConfig)
+   310				adminProtected.POST("/email-config/test", configHandler.TestEmailConfig)
+   311				adminProtected.GET("/sms-config", configHandler.GetSMSConfig)
+   312				adminProtected.PUT("/sms-config", configHandler.UpdateSMSConfig)
+   313				adminProtected.POST("/sms-config/test", configHandler.TestSMSConfig)
+   314				adminProtected.PUT("/system-config", configHandler.UpdateSystemConfig)
+   315				// GitHub OAuth configuration
+   316				adminProtected.GET("/github-config", configHandler.GetGithubOAuthConfig)
+   317				adminProtected.PUT("/github-config", configHandler.UpdateGithubOAuthConfig)
+   318				// User management
+   319				adminProtected.GET("/users/stats", userHandler.GetUserStatistics)
+   320				adminProtected.GET("/users", userHandler.GetUserList)
+   321				adminProtected.GET("/users/online", userHandler.GetOnlineUsers)
+   322				adminProtected.GET("/users/:id", userHandler.GetUserDetail)
+   323				adminProtected.DELETE("/users/:id", userHandler.DeleteUser)
+   324				adminProtected.POST("/users/:id/grant-subscription", orderHandler.AdminGrantSubscription)
+   325				// Statistics charts
+   326				adminProtected.GET("/statistics/users", userHandler.GetUserStatisticsChart)
+   327				adminProtected.GET("/statistics/online", userHandler.GetOnlineUserChart)
+   328				// Third-party account management
+   329				adminProtected.GET("/third-party-accounts", thirdPartyHandler.ListAccounts)
+   330				adminProtected.POST("/third-party-accounts", thirdPartyHandler.CreateAccount)
+   331				adminProtected.GET("/third-party-accounts/stats", thirdPartyHandler.GetStats)
+   332				adminProtected.POST("/third-party-accounts/refresh-cache", thirdPartyHandler.RefreshCache)
+   333				adminProtected.GET("/third-party-accounts/:id", thirdPartyHandler.GetAccount)
+   334				adminProtected.PUT("/third-party-accounts/:id", thirdPartyHandler.UpdateAccount)
+   335				adminProtected.DELETE("/third-party-accounts/:id", thirdPartyHandler.DeleteAccount)
+   336				adminProtected.POST("/third-party-accounts/:id/test", thirdPartyHandler.TestAccount)
+   337				// Prompt template management
+   338				adminProtected.GET("/prompt-templates", aiHandler.ListPromptTemplates)
+   339				adminProtected.POST("/prompt-templates", aiHandler.CreatePromptTemplate)
+   340				adminProtected.GET("/prompt-templates/:id", aiHandler.GetPromptTemplate)
+   341				adminProtected.PUT("/prompt-templates/:id", aiHandler.UpdatePromptTemplate)
+   342				adminProtected.DELETE("/prompt-templates/:id", aiHandler.DeletePromptTemplate)
+   343				// Analysis dimensions management (Admin only)
+   344				adminProtected.GET("/analysis/dimensions", aiHandler.AdminGetSystemDimensions)
+   345				adminProtected.PUT("/analysis/dimensions/:id", aiHandler.AdminUpdateSystemDimension)
+   346				// Subscription plan management
+   347				adminProtected.PUT("/subscription-plans/:id", subscriptionHandler.UpdatePlan)
+   348	
+   349				// Order management (Admin only)
+   350				adminProtected.GET("/orders/statistics", orderHandler.GetOrderStatistics)
+   351				adminProtected.GET("/orders", orderHandler.AdminListOrders)
+   352	
+   353				// Alipay payment configuration (Admin only)
+   354				adminProtected.GET("/payment/alipay/config", alipayHandler.GetActiveConfig)
+   355				adminProtected.GET("/payment/alipay/configs", alipayHandler.ListConfigs)
+   356				adminProtected.POST("/payment/alipay/config", alipayHandler.CreateConfig)
+   357				adminProtected.PUT("/payment/alipay/config/:id", alipayHandler.UpdateConfig)
+   358				adminProtected.DELETE("/payment/alipay/config/:id", alipayHandler.DeleteConfig)
+   359				adminProtected.POST("/payment/alipay/config/:id/activate", alipayHandler.SetActiveConfig)
+   360	
+   361				// WeChat Pay configuration (Admin only)
+   362				adminProtected.GET("/payment/wechat/config", wechatPayHandler.GetActiveConfig)
+   363				adminProtected.GET("/payment/wechat/configs", wechatPayHandler.GetAllConfigs)
+   364				adminProtected.POST("/payment/wechat/config", wechatPayHandler.CreateConfig)
+   365				adminProtected.PUT("/payment/wechat/config/:id", wechatPayHandler.UpdateConfig)
+   366				adminProtected.DELETE("/payment/wechat/config/:id", wechatPayHandler.DeleteConfig)
+   367				adminProtected.POST("/payment/wechat/config/:id/activate", wechatPayHandler.ActivateConfig)
+   368	
+   369				// WeChat OAuth configuration (Admin only)
+   370				adminProtected.GET("/wechat/config", wechatHandler.GetActiveConfig)
+   371				adminProtected.GET("/wechat/configs", wechatHandler.ListConfigs)
+   372				adminProtected.POST("/wechat/config", wechatHandler.CreateConfig)
+   373				adminProtected.PUT("/wechat/config/:id", wechatHandler.UpdateConfig)
+   374				adminProtected.DELETE("/wechat/config/:id", wechatHandler.DeleteConfig)
+   375				adminProtected.POST("/wechat/config/:id/activate", wechatHandler.SetActiveConfig)
+   376	
+   377				// WeChat Official Account configuration (Admin only)
+   378				adminProtected.GET("/wechat-official/config", wechatOfficialHandler.GetConfig)
+   379				adminProtected.PUT("/wechat-official/config", wechatOfficialHandler.UpdateConfig)
+   380	
+   381				// Coupon management (Admin only)
+   382				adminProtected.POST("/coupon-templates", couponHandler.CreateTemplate)
+   383				adminProtected.GET("/coupon-templates", couponHandler.ListTemplates)
+   384				adminProtected.GET("/coupon-templates/:id", couponHandler.GetTemplate)
+   385				adminProtected.PUT("/coupon-templates/:id", couponHandler.UpdateTemplate)
+   386				adminProtected.DELETE("/coupon-templates/:id", couponHandler.DeleteTemplate)
+   387				adminProtected.POST("/coupon-templates/:id/activate", couponHandler.ActivateTemplate)
+   388				adminProtected.POST("/coupon-templates/:id/pause", couponHandler.PauseTemplate)
+   389	
+   390				// Coupon distribution (Admin only)
+   391				adminProtected.POST("/coupons/distribute", couponHandler.DistributeCoupons)
+   392				adminProtected.GET("/coupons/distributed", couponHandler.AdminListAllDistributedCoupons)
+   393				adminProtected.GET("/coupons/statistics", couponHandler.GetStatistics)
+   394	
+   395				// Batch distribution (Admin only)
+   396				adminProtected.POST("/coupon-batches", couponHandler.CreateBatch)
+   397				adminProtected.GET("/coupon-batches", couponHandler.ListBatches)
+   398				adminProtected.GET("/coupon-batches/:id", couponHandler.GetBatch)
+   399				adminProtected.POST("/coupon-batches/:id/execute", couponHandler.ExecuteBatch)
+   400				adminProtected.POST("/coupon-batches/:id/cancel", couponHandler.CancelBatch)
+   401	
+   402				// Feedback management (Admin only)
+   403				adminProtected.GET("/feedbacks", feedbackHandler.ListFeedbacks)
+   404				adminProtected.GET("/feedbacks/stats", feedbackHandler.GetStats)
+   405				adminProtected.GET("/feedbacks/:id", feedbackHandler.GetFeedback)
+   406				adminProtected.PUT("/feedbacks/:id/status", feedbackHandler.UpdateStatus)
+   407				adminProtected.POST("/feedbacks/:id/reply", feedbackHandler.ReplyFeedback)
+   408				adminProtected.DELETE("/feedbacks/:id", feedbackHandler.DeleteFeedback)
+   409			}
+   410	
+   411			// Payment callback routes (public, no auth required)
+   412			api.POST("/payment/alipay/notify", alipayHandler.HandleCallback)
+   413			api.POST("/payment/wechat/notify", wechatPayHandler.HandleNotify)
+   414	
+   415			// WeChat Official Account webhook (public, no auth required)
+   416			wechatOfficialWebhook := api.Group("/wechat-official")
+   417			{
+   418				wechatOfficialWebhook.GET("/webhook", wechatOfficialHandler.HandleVerification)
+   419				wechatOfficialWebhook.POST("/webhook", wechatOfficialHandler.HandleMessage)
+   420			}
+   421	
+   422			// User routes
+   423			userHandler.RegisterRoutes(api)
+   424	
+   425			// Public subscription routes (no auth required)
+   426			subscriptionPublic := api.Group("/user/subscription")
+   427			{
+   428				subscriptionPublic.GET("/plans", subscriptionHandler.GetPlans)
+   429				subscriptionPublic.GET("/plans/:code", subscriptionHandler.GetPlanByCode)
+   430			}
+   431	
+   432			// Public WeChat routes (no auth required)
+   433			wechatPublic := api.Group("/user/wechat")
+   434			{
+   435				wechatPublic.GET("/login-url", wechatHandler.GetLoginURL)
+   436				wechatPublic.POST("/callback", userHandler.WeChatCallback)
+   437			}
+   438	
+   439			// Public GitHub OAuth routes (no auth required)
+   440			githubPublic := api.Group("/user/github")
+   441			{
+   442				githubPublic.GET("/login-url", userHandler.GetGithubLoginURL)
+   443				githubPublic.GET("/callback", userHandler.GithubCallback)
+   444			}
+   445	
+   446			// User protected routes
+   447			userProtected := api.Group("/user")
+   448			userProtected.Use(middleware.UserAuthMiddleware())
+   449			{
+   450				userProtected.GET("/profile", userHandler.GetProfile)
+   451				userProtected.PUT("/profile", userHandler.UpdateProfile)
+   452				userProtected.POST("/logout", userHandler.Logout)
+   453				userProtected.POST("/change-password", userHandler.ChangePassword)
+   454				userProtected.POST("/heartbeat", userHandler.Heartbeat)
+   455	
+   456				// Account availability check routes (protected)
+   457				userProtected.POST("/check-email-availability", userHandler.CheckEmailAvailability)
+   458				userProtected.POST("/check-phone-availability", userHandler.CheckPhoneAvailability)
+   459	
+   460				// Account binding routes (protected)
+   461				userProtected.POST("/bind-phone", userHandler.BindPhone)
+   462				userProtected.POST("/bind-email", userHandler.BindEmail)
+   463				userProtected.POST("/bind-wechat", userHandler.BindWeChatAccount)
+   464				userProtected.POST("/bind-github", userHandler.BindGitHubAccount)
+   465				userProtected.POST("/bind-email-with-password", userHandler.BindEmailWithPassword)
+   466				userProtected.POST("/bind-phone-with-password", userHandler.BindPhoneWithPassword)
+   467	
+   468				// Account unbinding routes (protected)
+   469				userProtected.POST("/unbind-phone", userHandler.UnbindPhone)
+   470				userProtected.POST("/unbind-email", userHandler.UnbindEmail)
+   471				userProtected.POST("/unbind-wechat", userHandler.UnbindWeChat)
+   472				userProtected.POST("/unbind-github", userHandler.UnbindGitHub)
+   473	
+   474				// Subscription routes (protected)
+   475				userProtected.GET("/subscription/my", subscriptionHandler.GetMySubscription)
+   476				userProtected.GET("/subscription/usage", subscriptionHandler.GetMyUsageQuota)
+   477				userProtected.POST("/subscription/upgrade", subscriptionHandler.UpgradeSubscription)
+   478				userProtected.POST("/subscription/renew", subscriptionHandler.RenewSubscription)
+   479				userProtected.GET("/subscription/check-quota", subscriptionHandler.CheckQuota)
+   480	
+   481				// Order routes
+   482				userProtected.POST("/orders/create", orderHandler.CreateOrder)
+   483				userProtected.GET("/orders/my", orderHandler.GetMyOrders)
+   484				userProtected.GET("/orders/:order_no", orderHandler.GetOrderDetail)
+   485				userProtected.POST("/orders/pay", orderHandler.ProcessPayment)
+   486				userProtected.POST("/orders/cancel", orderHandler.CancelOrder)
+   487				userProtected.GET("/orders/billing-history", orderHandler.GetBillingHistory)
+   488	
+   489				// Payment routes (Alipay)
+   490				userProtected.POST("/payment/alipay/create", alipayHandler.CreatePayment)
+   491				userProtected.POST("/payment/simulate", alipayHandler.SimulatePayment)
+   492	
+   493				// Payment routes (WeChat Pay)
+   494				userProtected.POST("/payment/wechat/create", wechatPayHandler.CreatePayment)
+   495	
+   496				// Coupon routes (User)
+   497				userProtected.GET("/coupons", couponHandler.GetMyCoupons)
+   498				userProtected.GET("/coupons/available", couponHandler.GetAvailableCoupons)
+   499				userProtected.POST("/coupons/claim", couponHandler.ClaimCoupon)
+   500				userProtected.POST("/coupons/apply", couponHandler.ApplyCoupon)
+   501				userProtected.GET("/coupons/calculate-discount", couponHandler.CalculateDiscount)
+   502	
+   503				// Invitation routes (User)
+   504				userProtected.POST("/invitation/generate", couponHandler.GenerateInvitation)
+   505				userProtected.GET("/invitation/my", couponHandler.GetMyInvitation)
+   506				userProtected.GET("/invitation/statistics", couponHandler.GetInvitationStatistics)
+   507	
+   508				// Feedback routes (User) - 已登录用户提交反馈会关联用户信息
+   509				userProtected.POST("/feedback", feedbackHandler.CreateFeedbackWithUser)
+   510	
+   511				// Conversation routes (legacy)
+   512				userProtected.GET("/conversations", conversationHandler.GetUserConversations)
+   513				userProtected.POST("/conversations", conversationHandler.CreateConversation)
+   514				userProtected.GET("/conversations/:id", conversationHandler.GetConversation)
+   515				userProtected.DELETE("/conversations/:id", conversationHandler.DeleteConversation)
+   516				userProtected.POST("/conversations/:id/messages", conversationHandler.AddMessage)
+   517				userProtected.PUT("/conversations/:id/title", conversationHandler.UpdateConversationTitle)
+   518				userProtected.GET("/conversations/:id/messages/:messageId/advanced-search", conversationHandler.StreamAdvancedSearch)
+   519				userProtected.GET("/conversations/:id/messages/:messageId/follow-up-questions", conversationHandler.GetFollowUpQuestions)
+   520				userProtected.POST("/conversations/:id/continue", conversationHandler.StreamContinueConversation)
+   521	
+   522				// Enhanced chat routes (LibreChat-style with message chains)
+   523				userProtected.POST("/conversations/chat/new", chatHandler.CreateConversationAndChat)
+   524				userProtected.POST("/conversations/:id/chat/stream", chatHandler.StreamChatMessage)
+   525				userProtected.POST("/conversations/:id/chat", chatHandler.QuickChat)
+   526				userProtected.GET("/conversations/:id/tree", chatHandler.GetMessageTree)
+   527				userProtected.GET("/conversations/:id/history", chatHandler.GetConversationHistory)
+   528				userProtected.POST("/conversations/messages/:messageId/regenerate", chatHandler.RegenerateMessage)
+   529				userProtected.POST("/conversations/messages/:messageId/edit", chatHandler.EditMessage)
+   530				userProtected.GET("/conversations/messages/:messageId/siblings", chatHandler.GetSiblingMessages)
+   531				userProtected.GET("/conversations/messages/:messageId/branch", chatHandler.GetBranchChain)
+   532	
+   533				// Peer Review routes (AI审稿人) - 新版任务管理API
+   534				peerReviewGroup := userProtected.Group("/peer-review")
+   535				{
+   536					// 草稿管理（每个用户一个草稿）
+   537					peerReviewGroup.GET("/draft", peerReviewHandler.GetDraft)       // 获取草稿
+   538					peerReviewGroup.PUT("/draft", peerReviewHandler.SaveDraft)      // 保存草稿
+   539					peerReviewGroup.POST("/draft/submit", peerReviewHandler.SubmitDraft) // 提交草稿开始审稿
+   540					
+   541					// 任务管理
+   542					peerReviewGroup.POST("/tasks", peerReviewHandler.CreateTask)
+   543					peerReviewGroup.GET("/tasks", peerReviewHandler.GetTaskList)
+   544					peerReviewGroup.GET("/tasks/:id", peerReviewHandler.GetTaskDetail)
+   545					peerReviewGroup.GET("/tasks/:id/progress", peerReviewHandler.GetTaskProgress)
+   546					peerReviewGroup.GET("/tasks/:id/watch", peerReviewHandler.WatchTaskProgress)
+   547					peerReviewGroup.DELETE("/tasks/:id", peerReviewHandler.DeleteTask)
+   548					peerReviewGroup.POST("/tasks/:id/start", peerReviewHandler.StartTask) // 启动草稿任务
+   549					
+   550					// 文件上传（解析文件并保存到草稿）
+   551					peerReviewGroup.POST("/upload", peerReviewHandler.UploadFile)
+   552					
+   553					// 兼容旧接口
+   554					peerReviewGroup.POST("/run", peerReviewHandler.RunPeerReview)
+   555					peerReviewGroup.GET("/history", peerReviewHandler.GetReviewHistory)
+   556				}
+   557				// 兼容旧接口路由
+   558				userProtected.GET("/peer-review/:id", peerReviewHandler.GetReviewDetail)
+   559			}
+   560	
+   561			// Public API routes (no authentication required)
+   562			publicAPI := api.Group("/public")
+   563			{
+   564				// Public paper detail endpoint - for anonymous access from paper detail page
+   565				publicAPI.GET("/papers/:paperId", scholarHandler.GetPaper)
+   566				// Public search endpoint - for anonymous access from home page
+   567				publicAPI.POST("/papers/search", scholarHandler.SearchPapers)
+   568				// Public paper batch endpoint - for anonymous access to get multiple papers
+   569				publicAPI.POST("/papers/batch", scholarHandler.GetPaperBatch)
+   570				// Public paper autocomplete endpoint - for search suggestions dropdown
+   571				publicAPI.GET("/papers/autocomplete", scholarHandler.PaperAutocomplete)
+   572				// Public search suggestions endpoint - combined paper + author suggestions
+   573				publicAPI.GET("/search/suggestions", scholarHandler.GetSearchSuggestions)
+   574				// Public paper analysis endpoint - AI-powered abstract analysis
+   575				publicAPI.POST("/papers/analyze", aiHandler.AnalyzePaper)
+   576				// Public analysis dimensions endpoint - get system default dimensions
+   577				publicAPI.GET("/analysis/dimensions", aiHandler.GetSystemDimensions)
+   578				// Public recommendations endpoint - for anonymous access to similar papers
+   579				publicAPI.GET("/recommendations/papers/:paperId", scholarHandler.GetRecommendationsForPaper)
+   580	
+   581				// Public author endpoints - for anonymous access from author detail page
+   582				publicAPI.GET("/authors/:authorId", scholarHandler.GetAuthor)
+   583				publicAPI.GET("/authors/:authorId/papers", scholarHandler.GetAuthorPapers)
+   584	
+   585				// Public feedback endpoints
+   586				publicAPI.POST("/feedback", feedbackHandler.CreateFeedback)
+   587				publicAPI.POST("/feedback/upload", feedbackHandler.UploadAttachments)
+   588				publicAPI.GET("/feedback/attachment/:id", feedbackHandler.GetAttachment)
+   589			}
+   590	
+   591			// Analysis dimensions routes (protected - requires user authentication)
+   592			analysisGroup := api.Group("/analysis")
+   593			analysisGroup.Use(middleware.UserAuthMiddleware())
+   594			{
+   595				// Analyze paper with user's custom dimensions
+   596				analysisGroup.POST("/paper", aiHandler.AnalyzePaper)
+   597				// Get user's dimensions (custom or system default)
+   598				analysisGroup.GET("/dimensions", aiHandler.GetAnalysisDimensions)
+   599				// Create custom dimension
+   600				analysisGroup.POST("/dimensions", aiHandler.CreateUserDimension)
+   601				// Update custom dimension
+   602				analysisGroup.PUT("/dimensions/:id", aiHandler.UpdateUserDimension)
+   603				// Delete custom dimension
+   604				analysisGroup.DELETE("/dimensions/:id", aiHandler.DeleteUserDimension)
+   605				// Reset single dimension to default
+   606				analysisGroup.DELETE("/dimensions/reset/:dimensionKey", aiHandler.ResetUserDimension)
+   607				// Reset all dimensions to default
+   608				analysisGroup.DELETE("/dimensions/reset-all", aiHandler.ResetAllUserDimensions)
+   609				// Copy system dimensions to user (deprecated, kept for compatibility)
+   610				analysisGroup.POST("/dimensions/copy-from-system", aiHandler.CopySystemDimensionsToUser)
+   611			}
+   612	
+   613			// Semantic Scholar API routes (protected - requires user authentication)
+   614			scholar := api.Group("/scholar")
+   615			scholar.Use(middleware.UserAuthMiddleware())
+   616			{
+   617				// Paper endpoints
+   618				scholar.POST("/papers/search", scholarHandler.SearchPapers) // 学术检索（改为POST）
+   619				scholar.GET("/papers/:paperId", scholarHandler.GetPaper)
+   620				scholar.POST("/papers/batch", scholarHandler.GetPaperBatch)
+   621				scholar.GET("/papers/:paperId/citations", scholarHandler.GetPaperCitations)
+   622				scholar.GET("/papers/:paperId/references", scholarHandler.GetPaperReferences)
+   623				scholar.GET("/papers/:paperId/authors", scholarHandler.GetPaperAuthors)
+   624	
+   625				// Author endpoints
+   626				scholar.GET("/authors/search", scholarHandler.SearchAuthors)
+   627				scholar.GET("/authors/:authorId", scholarHandler.GetAuthor)
+   628				scholar.GET("/authors/:authorId/papers", scholarHandler.GetAuthorPapers)
+   629	
+   630				// Recommendations endpoints
+   631				scholar.GET("/recommendations/papers/:paperId", scholarHandler.GetRecommendationsForPaper)
+   632				scholar.POST("/recommendations/papers", scholarHandler.GetRecommendations)
+   633			}
+   634	
+   635			// MCP endpoints (protected - requires user authentication)
+   636			mcpGroup := api.Group("/mcp")
+   637			mcpGroup.Use(middleware.UserAuthMiddleware())
+   638			{
+   639				mcpGroup.GET("/tools", mcpHandler.ListTools)
+   640				mcpGroup.POST("/call", mcpHandler.CallTool)
+   641			}
+   642	
+   643			// Proxy endpoints (protected - requires user authentication)
+   644			proxyHandler.RegisterRoutes(api, middleware.UserAuthMiddleware())
+   645		}
+   646	
+   647		// Serve uploaded files (feedback attachments)
+   648		router.Static("/uploads", "./uploads")
+   649	
+   650		// Health check endpoint
+   651		router.GET("/health", func(c *gin.Context) {
+   652			c.JSON(200, gin.H{
+   653				"status": "ok",
+   654				"service": "scholar-backend",
+   655			})
+   656		})
+   657	
+   658		// Create context for graceful shutdown
+   659		ctx, cancel := context.WithCancel(context.Background())
+   660		defer cancel()
+   661	
+   662		// Start database connection pool monitoring
+   663		database.StartConnectionPoolMonitoring(ctx, 5*time.Minute)
+   664	
+   665		// Start background tasks
+   666		// Record online user snapshots every 5 minutes
+   667		go func() {
+   668			ticker := time.NewTicker(5 * time.Minute)
+   669			defer ticker.Stop()
+   670	
+   671			log.Println("Online user snapshot task started")
+   672	
+   673			// Record initial snapshot
+   674			if err := userService.RecordOnlineUserSnapshot(); err != nil {
+   675				log.Printf("Failed to record initial online user snapshot: %v", err)
+   676			}
+   677	
+   678			for {
+   679				select {
+   680				case <-ticker.C:
+   681					if err := userService.RecordOnlineUserSnapshot(); err != nil {
+   682						log.Printf("Failed to record online user snapshot: %v", err)
+   683					}
+   684				case <-ctx.Done():
+   685					log.Println("Online user snapshot task stopped")
+   686					return
+   687				}
+   688			}
+   689		}()
+   690	
+   691		// Setup graceful shutdown
+   692		quit := make(chan os.Signal, 1)
+   693		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+   694	
+   695		// Start server in a goroutine
+   696		addr := ":" + cfg.Server.Port
+   697		log.Printf("Server starting on %s", addr)
+   698	
+   699		go func() {
+   700			if err := router.Run(addr); err != nil {
+   701				log.Fatalf("Failed to start server: %v", err)
+   702			}
+   703		}()
+   704	
+   705		// Wait for interrupt signal
+   706		<-quit
+   707		log.Println("Shutting down server...")
+   708	
+   709		// Cancel context to stop background tasks
+   710		cancel()
+   711	
+   712		// Shutdown cache worker pool gracefully
+   713		cache.ShutdownGlobalPool()
+   714	
+   715		// Give background tasks time to cleanup
+   716		time.Sleep(2 * time.Second)
+   717	
+   718		log.Println("Server stopped")
+   719	}
+   720	
+   721	// feedbackUserRepoAdapter adapts user.Repository to feedback.UserRepository interface
+   722	type feedbackUserRepoAdapter struct {
+   723		userRepo *user.Repository
+   724	}
+   725	
+   726	func (a *feedbackUserRepoAdapter) FindByID(id uint) (*feedback.UserInfo, error) {
+   727		u, err := a.userRepo.FindByID(id)
+   728		if err != nil || u == nil {
+   729			return nil, err
+   730		}
+   731		return &feedback.UserInfo{
+   732			ID:        u.ID,
+   733			Username:  u.Username,
+   734			Email:     u.Email,
+   735			Phone:     u.Phone,
+   736			AvatarURL: u.AvatarURL,
+   737		}, nil
+   738	}
+   739	
+   740	func (a *feedbackUserRepoAdapter) FindByIDs(ids []uint) (map[uint]*feedback.UserInfo, error) {
+   741		users, err := a.userRepo.FindByIDs(ids)
+   742		if err != nil {
+   743			return nil, err
+   744		}
+   745		result := make(map[uint]*feedback.UserInfo)
+   746		for id, u := range users {
+   747			result[id] = &feedback.UserInfo{
+   748				ID:        u.ID,
+   749				Username:  u.Username,
+   750				Email:     u.Email,
+   751				Phone:     u.Phone,
+   752				AvatarURL: u.AvatarURL,
+   753			}
+   754		}
+   755		return result, nil
+   756	}
+   757	
+   758	// ========== 文件: backend/internal/admin/dashboard_handler.go ==========
+   759	// ============================================================================
+   760	// Scholay学术 V1.0
+   761	// Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+   762	// 统一社会信用代码: 91510100MAEEHRNE26
+   763	// All Rights Reserved.
+   764	// ============================================================================
+   765	
+   766	package admin
+   767	
+   768	import (
+   769		"net/http"
+   770		"scholar-backend/internal/common/utils"
+   771		"time"
+   772	
+   773		"github.com/gin-gonic/gin"
+   774		"gorm.io/gorm"
+   775	)
+   776	
+   777	// DashboardHandler handles dashboard statistics requests
+   778	type DashboardHandler struct {
+   779		db *gorm.DB
+   780	}
+   781	
+   782	// NewDashboardHandler creates a new dashboard handler
+   783	func NewDashboardHandler(db *gorm.DB) *DashboardHandler {
+   784		return &DashboardHandler{db: db}
+   785	}
+   786	
+   787	// DashboardStatistics represents overall dashboard statistics
+   788	type DashboardStatistics struct {
+   789		// 用户统计
+   790		TotalUsers       int64               `json:"total_users"`        // 总用户数
+   791		ActiveUsers30d   int64               `json:"active_users_30d"`   // 30天活跃用户
+   792		NewUsersToday    int64               `json:"new_users_today"`    // 今日新增
+   793		NewUsers7d       int64               `json:"new_users_7d"`       // 7天新增
+   794		NewUsers30d      int64               `json:"new_users_30d"`      // 30天新增
+   795		OnlineUsers      int64               `json:"online_users"`       // 当前在线用户
+   796	
+   797		// 订单统计
+   798		TotalOrders      int64               `json:"total_orders"`       // 总订单数
+   799		PendingOrders    int64               `json:"pending_orders"`     // 待支付订单
+   800		PaidOrders       int64               `json:"paid_orders"`        // 已支付订单
+   801		TotalRevenue     float64             `json:"total_revenue"`      // 总收入
+   802		RevenueToday     float64             `json:"revenue_today"`      // 今日收入
+   803		Revenue7d        float64             `json:"revenue_7d"`         // 7天收入
+   804		Revenue30d       float64             `json:"revenue_30d"`        // 30天收入
+   805	
+   806		// 订阅统计
+   807		ActiveSubscriptions int64            `json:"active_subscriptions"` // 活跃订阅数
+   808		FreeUsers           int64            `json:"free_users"`           // 免费用户
+   809		PaidUsers           int64            `json:"paid_users"`           // 付费用户
+   810	
+   811		// 优惠券统计
+   812		TotalCoupons        int64            `json:"total_coupons"`        // 总优惠券数
+   813		UsedCoupons         int64            `json:"used_coupons"`         // 已使用
+   814		UnusedCoupons       int64            `json:"unused_coupons"`       // 未使用
+   815		ExpiredCoupons      int64            `json:"expired_coupons"`      // 已过期
+   816	
+   817		// 会话统计
+   818		TotalConversations  int64            `json:"total_conversations"`  // 总对话数
+   819		ConversationsToday  int64            `json:"conversations_today"`  // 今日对话
+   820		TotalMessages       int64            `json:"total_messages"`       // 总消息数
+   821	
+   822		// 系统统计
+   823		ThirdPartyAccounts  int64            `json:"third_party_accounts"` // 第三方账号数
+   824		PromptTemplates     int64            `json:"prompt_templates"`     // 提示词模板数
+   825	
+   826		// 趋势数据 (用于图表)
+   827		UserGrowthChart     []ChartDataPoint `json:"user_growth_chart"`    // 用户增长趋势
+   828		OrderTrendChart     []ChartDataPoint `json:"order_trend_chart"`    // 订单趋势
+   829		RevenueTrendChart   []ChartDataPoint `json:"revenue_trend_chart"`  // 收入趋势
+   830	}
+   831	
+   832	// ChartDataPoint represents a point in time-series chart
+   833	type ChartDataPoint struct {
+   834		Date  string  `json:"date"`  // YYYY-MM-DD format
+   835		Value float64 `json:"value"` // 数值
+   836	}
+   837	
+   838	// GetDashboardStatistics handles GET /api/v1/admin/dashboard/statistics
+   839	func (h *DashboardHandler) GetDashboardStatistics(c *gin.Context) {
+   840		stats := &DashboardStatistics{}
+   841		now := time.Now()
+   842		today := now.Format("2006-01-02")
+   843		date7dAgo := now.AddDate(0, 0, -7).Format("2006-01-02")
+   844		date30dAgo := now.AddDate(0, 0, -30).Format("2006-01-02")
+   845	
+   846		// ============================================
+   847		// 用户统计
+   848		// ============================================
+   849	
+   850		// 总用户数
+   851		h.db.Table("users").Count(&stats.TotalUsers)
+   852	
+   853		// 今日新增用户
+   854		h.db.Table("users").
+   855			Where("DATE(created_at) = ?", today).
+   856			Count(&stats.NewUsersToday)
+   857	
+   858		// 7天新增用户
+   859		h.db.Table("users").
+   860			Where("DATE(created_at) >= ?", date7dAgo).
+   861			Count(&stats.NewUsers7d)
+   862	
+   863		// 30天新增用户
+   864		h.db.Table("users").
+   865			Where("DATE(created_at) >= ?", date30dAgo).
+   866			Count(&stats.NewUsers30d)
+   867	
+   868		// 30天活跃用户 (有登录记录)
+   869		h.db.Table("user_sessions").
+   870			Where("last_active_at >= ?", time.Now().AddDate(0, 0, -30)).
+   871			Distinct("user_id").
+   872			Count(&stats.ActiveUsers30d)
+   873	
+   874		// 当前在线用户 (5分钟内活跃)
+   875		h.db.Table("user_sessions").
+   876			Where("last_active_at >= ?", time.Now().Add(-5*time.Minute)).
+   877			Count(&stats.OnlineUsers)
+   878	
+   879		// ============================================
+   880		// 订单统计
+   881		// ============================================
+   882	
+   883		// 总订单数
+   884		h.db.Table("orders").Count(&stats.TotalOrders)
+   885	
+   886		// 待支付订单
+   887		h.db.Table("orders").
+   888			Where("status = ?", "pending").
+   889			Count(&stats.PendingOrders)
+   890	
+   891		// 已支付订单
+   892		h.db.Table("orders").
+   893			Where("status = ?", "paid").
+   894			Count(&stats.PaidOrders)
+   895	
+   896		// 总收入
+   897		h.db.Table("orders").
+   898			Where("status = ?", "paid").
+   899			Select("COALESCE(SUM(final_amount), 0)").
+   900			Scan(&stats.TotalRevenue)
+   901	
+   902		// 今日收入
+   903		h.db.Table("orders").
+   904			Where("status = ? AND DATE(paid_at) = ?", "paid", today).
+   905			Select("COALESCE(SUM(final_amount), 0)").
+   906			Scan(&stats.RevenueToday)
+   907	
+   908		// 7天收入
+   909		h.db.Table("orders").
+   910			Where("status = ? AND DATE(paid_at) >= ?", "paid", date7dAgo).
+   911			Select("COALESCE(SUM(final_amount), 0)").
+   912			Scan(&stats.Revenue7d)
+   913	
+   914		// 30天收入
+   915		h.db.Table("orders").
+   916			Where("status = ? AND DATE(paid_at) >= ?", "paid", date30dAgo).
+   917			Select("COALESCE(SUM(final_amount), 0)").
+   918			Scan(&stats.Revenue30d)
+   919	
+   920		// ============================================
+   921		// 订阅统计
+   922		// ============================================
+   923	
+   924		// 活跃订阅数 (未过期)
+   925		h.db.Table("user_subscriptions").
+   926			Where("status = ? AND (expired_at IS NULL OR expired_at > ?)", "active", now).
+   927			Count(&stats.ActiveSubscriptions)
+   928	
+   929		// 免费用户 (订阅计划为免费)
+   930		h.db.Table("user_subscriptions").
+   931			Joins("JOIN subscription_plans ON user_subscriptions.plan_id = subscription_plans.id").
+   932			Where("subscription_plans.price = 0 AND user_subscriptions.status = ?", "active").
+   933			Count(&stats.FreeUsers)
+   934	
+   935		// 付费用户
+   936		h.db.Table("user_subscriptions").
+   937			Joins("JOIN subscription_plans ON user_subscriptions.plan_id = subscription_plans.id").
+   938			Where("subscription_plans.price > 0 AND user_subscriptions.status = ?", "active").
+   939			Count(&stats.PaidUsers)
+   940	
+   941		// ============================================
+   942		// 优惠券统计
+   943		// ============================================
+   944	
+   945		// 总优惠券数
+   946		h.db.Table("user_coupons").Count(&stats.TotalCoupons)
+   947	
+   948		// 已使用优惠券
+   949		h.db.Table("user_coupons").
+   950			Where("status = ?", "used").
+   951			Count(&stats.UsedCoupons)
+   952	
+   953		// 未使用优惠券
+   954		h.db.Table("user_coupons").
+   955			Where("status = ?", "unused").
+   956			Count(&stats.UnusedCoupons)
+   957	
+   958		// 已过期优惠券
+   959		h.db.Table("user_coupons").
+   960			Where("status = ?", "expired").
+   961			Count(&stats.ExpiredCoupons)
+   962	
+   963		// ============================================
+   964		// 会话统计
+   965		// ============================================
+   966	
+   967		// 总对话数
+   968		h.db.Table("conversations").Count(&stats.TotalConversations)
+   969	
+   970		// 今日对话数
+   971		h.db.Table("conversations").
+   972			Where("DATE(created_at) = ?", today).
+   973			Count(&stats.ConversationsToday)
+   974	
+   975		// 总消息数
+   976		h.db.Table("conversation_messages").Count(&stats.TotalMessages)
+   977	
+   978		// ============================================
+   979		// 系统统计
+   980		// ============================================
+   981	
+   982		// 第三方账号数
+   983		h.db.Table("third_party_accounts").Count(&stats.ThirdPartyAccounts)
+   984	
+   985		// 提示词模板数
+   986		h.db.Table("prompt_templates").Count(&stats.PromptTemplates)
+   987	
+   988		// ============================================
+   989		// 趋势图表数据
+   990		// ============================================
+   991	
+   992		// 用户增长趋势 (最近30天)
+   993		stats.UserGrowthChart = h.getUserGrowthChart(30)
+   994	
+   995		// 订单趋势 (最近30天)
+   996		stats.OrderTrendChart = h.getOrderTrendChart(30)
+   997	
+   998		// 收入趋势 (最近30天)
+   999		stats.RevenueTrendChart = h.getRevenueTrendChart(30)
+  1000	
+  1001		utils.SuccessResponse(c, http.StatusOK, "Dashboard statistics retrieved successfully", stats)
+  1002	}
+  1003	
+  1004	// getUserGrowthChart 获取用户增长趋势图表数据
+  1005	func (h *DashboardHandler) getUserGrowthChart(days int) []ChartDataPoint {
+  1006		var results []struct {
+  1007			Date  string
+  1008			Count int64
+  1009		}
+  1010	
+  1011		h.db.Table("users").
+  1012			Select("DATE(created_at) as date, COUNT(*) as count").
+  1013			Where("created_at >= ?", time.Now().AddDate(0, 0, -days)).
+  1014			Group("DATE(created_at)").
+  1015			Order("date ASC").
+  1016			Scan(&results)
+  1017	
+  1018		chart := make([]ChartDataPoint, 0, len(results))
+  1019		for _, r := range results {
+  1020			chart = append(chart, ChartDataPoint{
+  1021				Date:  r.Date,
+  1022				Value: float64(r.Count),
+  1023			})
+  1024		}
+  1025	
+  1026		return chart
+  1027	}
+  1028	
+  1029	// getOrderTrendChart 获取订单趋势图表数据
+  1030	func (h *DashboardHandler) getOrderTrendChart(days int) []ChartDataPoint {
+  1031		var results []struct {
+  1032			Date  string
+  1033			Count int64
+  1034		}
+  1035	
+  1036		h.db.Table("orders").
+  1037			Select("DATE(created_at) as date, COUNT(*) as count").
+  1038			Where("created_at >= ? AND status = ?", time.Now().AddDate(0, 0, -days), "paid").
+  1039			Group("DATE(created_at)").
+  1040			Order("date ASC").
+  1041			Scan(&results)
+  1042	
+  1043		chart := make([]ChartDataPoint, 0, len(results))
+  1044		for _, r := range results {
+  1045			chart = append(chart, ChartDataPoint{
+  1046				Date:  r.Date,
+  1047				Value: float64(r.Count),
+  1048			})
+  1049		}
+  1050	
+  1051		return chart
+  1052	}
+  1053	
+  1054	// getRevenueTrendChart 获取收入趋势图表数据
+  1055	func (h *DashboardHandler) getRevenueTrendChart(days int) []ChartDataPoint {
+  1056		var results []struct {
+  1057			Date   string
+  1058			Amount float64
+  1059		}
+  1060	
+  1061		h.db.Table("orders").
+  1062			Select("DATE(paid_at) as date, COALESCE(SUM(final_amount), 0) as amount").
+  1063			Where("paid_at >= ? AND status = ?", time.Now().AddDate(0, 0, -days), "paid").
+  1064			Group("DATE(paid_at)").
+  1065			Order("date ASC").
+  1066			Scan(&results)
+  1067	
+  1068		chart := make([]ChartDataPoint, 0, len(results))
+  1069		for _, r := range results {
+  1070			chart = append(chart, ChartDataPoint{
+  1071				Date:  r.Date,
+  1072				Value: r.Amount,
+  1073			})
+  1074		}
+  1075	
+  1076		return chart
+  1077	}
+  1078	
+  1079	// ========== 文件: backend/internal/admin/handler.go ==========
+  1080	// ============================================================================
+  1081	// Scholay学术 V1.0
+  1082	// Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+  1083	// 统一社会信用代码: 91510100MAEEHRNE26
+  1084	// All Rights Reserved.
+  1085	// ============================================================================
+  1086	
+  1087	package admin
+  1088	
+  1089	import (
+  1090		"scholar-backend/internal/common/utils"
+  1091	
+  1092		"github.com/gin-gonic/gin"
+  1093	)
+  1094	
+  1095	// Handler handles HTTP requests for admin operations
+  1096	type Handler struct {
+  1097		service *Service
+  1098	}
+  1099	
+  1100	// NewHandler creates a new admin handler
+  1101	func NewHandler(service *Service) *Handler {
+  1102		return &Handler{service: service}
+  1103	}
+  1104	
+  1105	// LoginRequest represents a login request
+  1106	type LoginRequest struct {
+  1107		Username string `json:"username" binding:"required"`
+  1108		Password string `json:"password" binding:"required"`
+  1109	}
+  1110	
+  1111	// LoginResponse represents a login response
+  1112	type LoginResponse struct {
+  1113		Token string     `json:"token"`
+  1114		Admin *AdminUser `json:"admin"`
+  1115	}
+  1116	
+  1117	// UpdatePasswordRequest represents an update password request
+  1118	type UpdatePasswordRequest struct {
+  1119		OldPassword string `json:"old_password" binding:"required"`
+  1120		NewPassword string `json:"new_password" binding:"required,min=8"`
+  1121	}
+  1122	
+  1123	// VerifyPasswordRequest represents a verify password request
+  1124	type VerifyPasswordRequest struct {
+  1125		Password string `json:"password" binding:"required"`
+  1126	}
+  1127	
+  1128	// Login handles admin login
+  1129	func (h *Handler) Login(c *gin.Context) {
+  1130		var req LoginRequest
+  1131		if err := c.ShouldBindJSON(&req); err != nil {
+  1132			utils.BadRequest(c, "Invalid request: "+err.Error())
+  1133			return
+  1134		}
+  1135	
+  1136		admin, token, err := h.service.Login(req.Username, req.Password)
+  1137		if err != nil {
+  1138			utils.Error(c, 1001, err.Error())
+  1139			return
+  1140		}
+  1141	
+  1142		utils.Success(c, LoginResponse{
+  1143			Token: token,
+  1144			Admin: admin,
+  1145		})
+  1146	}
+  1147	
+  1148	// GetProfile handles getting admin profile
+  1149	func (h *Handler) GetProfile(c *gin.Context) {
+  1150		userID, exists := c.Get("user_id")
+  1151		if !exists {
+  1152			utils.Unauthorized(c, "User not authenticated")
+  1153			return
+  1154		}
+  1155	
+  1156		admin, err := h.service.GetProfile(userID.(uint))
+  1157		if err != nil {
+  1158			utils.Error(c, 1002, "Failed to get profile")
+  1159			return
+  1160		}
+  1161	
+  1162		if admin == nil {
+  1163			utils.Error(c, 1003, "Admin not found")
+  1164			return
+  1165		}
+  1166	
+  1167		utils.Success(c, admin)
+  1168	}
+  1169	
+  1170	// UpdatePassword handles updating admin password
+  1171	func (h *Handler) UpdatePassword(c *gin.Context) {
+  1172		userID, exists := c.Get("user_id")
+  1173		if !exists {
+  1174			utils.Unauthorized(c, "User not authenticated")
+  1175			return
+  1176		}
+  1177	
+  1178		var req UpdatePasswordRequest
+  1179		if err := c.ShouldBindJSON(&req); err != nil {
+  1180			utils.BadRequest(c, "Invalid request: "+err.Error())
+  1181			return
+  1182		}
+  1183	
+  1184		err := h.service.UpdatePassword(userID.(uint), req.OldPassword, req.NewPassword)
+  1185		if err != nil {
+  1186			utils.Error(c, 1004, err.Error())
+  1187			return
+  1188		}
+  1189	
+  1190		utils.SuccessWithMessage(c, "Password updated successfully", nil)
+  1191	}
+  1192	
+  1193	// VerifyPassword handles verifying admin password (for sensitive operations)
+  1194	func (h *Handler) VerifyPassword(c *gin.Context) {
+  1195		userID, exists := c.Get("user_id")
+  1196		if !exists {
+  1197			utils.Unauthorized(c, "User not authenticated")
+  1198			return
+  1199		}
+  1200	
+  1201		var req VerifyPasswordRequest
+  1202		if err := c.ShouldBindJSON(&req); err != nil {
+  1203			utils.BadRequest(c, "Invalid request: "+err.Error())
+  1204			return
+  1205		}
+  1206	
+  1207		valid, err := h.service.VerifyPassword(userID.(uint), req.Password)
+  1208		if err != nil {
+  1209			utils.Error(c, 1005, err.Error())
+  1210			return
+  1211		}
+  1212	
+  1213		if !valid {
+  1214			utils.Error(c, 1006, "Invalid password")
+  1215			return
+  1216		}
+  1217	
+  1218		utils.SuccessWithMessage(c, "Password verified successfully", nil)
+  1219	}
+  1220	
+  1221	// RegisterRoutes registers admin routes
+  1222	func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
+  1223		admin := router.Group("/admin")
+  1224		{
+  1225			admin.POST("/login", h.Login)
+  1226			// Protected routes (require authentication)
+  1227			// These will be added in the main server setup with middleware
+  1228		}
+  1229	}
+  1230	
+  1231	// ========== 文件: backend/internal/admin/model.go ==========
+  1232	// ============================================================================
+  1233	// Scholay学术 V1.0
+  1234	// Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+  1235	// 统一社会信用代码: 91510100MAEEHRNE26
+  1236	// All Rights Reserved.
+  1237	// ============================================================================
+  1238	
+  1239	package admin
+  1240	
+  1241	import (
+  1242		"time"
+  1243	)
+  1244	
+  1245	// AdminUser represents an admin user in the system
+  1246	type AdminUser struct {
+  1247		ID          uint       `gorm:"primaryKey" json:"id"`
+  1248		Username    string     `gorm:"unique;not null;size:50" json:"username"`
+  1249		PasswordHash string    `gorm:"not null;size:255" json:"-"`
+  1250		Email       *string    `gorm:"size:100" json:"email"`
+  1251		Status      int8       `gorm:"not null;default:1" json:"status"` // 1=active, 0=inactive
+  1252		LastLoginAt *time.Time `json:"last_login_at"`
+  1253		CreatedAt   time.Time  `json:"created_at"`
+  1254		UpdatedAt   time.Time  `json:"updated_at"`
+  1255	}
+  1256	
+  1257	// TableName specifies the table name for AdminUser
+  1258	func (AdminUser) TableName() string {
+  1259		return "admin_users"
+  1260	}
+  1261	
+  1262	// ========== 文件: backend/internal/admin/repository.go ==========
+  1263	// ============================================================================
+  1264	// Scholay学术 V1.0
+  1265	// Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+  1266	// 统一社会信用代码: 91510100MAEEHRNE26
+  1267	// All Rights Reserved.
+  1268	// ============================================================================
+  1269	
+  1270	package admin
+  1271	
+  1272	import (
+  1273		"errors"
+  1274		"time"
+  1275	
+  1276		"gorm.io/gorm"
+  1277	)
+  1278	
+  1279	// Repository handles database operations for admin users
+  1280	type Repository struct {
+  1281		db *gorm.DB
+  1282	}
+  1283	
+  1284	// NewRepository creates a new admin repository
+  1285	func NewRepository(db *gorm.DB) *Repository {
+  1286		return &Repository{db: db}
+  1287	}
+  1288	
+  1289	// FindByUsername finds an admin user by username
+  1290	func (r *Repository) FindByUsername(username string) (*AdminUser, error) {
+  1291		var admin AdminUser
+  1292		err := r.db.Where("username = ?", username).First(&admin).Error
+  1293		if err != nil {
+  1294			if errors.Is(err, gorm.ErrRecordNotFound) {
+  1295				return nil, nil
+  1296			}
+  1297			return nil, err
+  1298		}
+  1299		return &admin, nil
+  1300	}
+  1301	
+  1302	// FindByID finds an admin user by ID
+  1303	func (r *Repository) FindByID(id uint) (*AdminUser, error) {
+  1304		var admin AdminUser
+  1305		err := r.db.First(&admin, id).Error
+  1306		if err != nil {
+  1307			if errors.Is(err, gorm.ErrRecordNotFound) {
+  1308				return nil, nil
+  1309			}
+  1310			return nil, err
+  1311		}
+  1312		return &admin, nil
+  1313	}
+  1314	
+  1315	// Create creates a new admin user
+  1316	func (r *Repository) Create(admin *AdminUser) error {
+  1317		return r.db.Create(admin).Error
+  1318	}
+  1319	
+  1320	// Update updates an admin user
+  1321	func (r *Repository) Update(admin *AdminUser) error {
+  1322		return r.db.Save(admin).Error
+  1323	}
+  1324	
+  1325	// UpdatePassword updates an admin user's password
+  1326	func (r *Repository) UpdatePassword(id uint, passwordHash string) error {
+  1327		return r.db.Model(&AdminUser{}).Where("id = ?", id).Update("password_hash", passwordHash).Error
+  1328	}
+  1329	
+  1330	// UpdateLastLogin updates the last login timestamp
+  1331	func (r *Repository) UpdateLastLogin(id uint) error {
+  1332		now := time.Now()
+  1333		return r.db.Model(&AdminUser{}).Where("id = ?", id).Update("last_login_at", now).Error
+  1334	}
+  1335	
+  1336	// ========== 文件: backend/internal/admin/service.go ==========
+  1337	// ============================================================================
+  1338	// Scholay学术 V1.0
+  1339	// Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+  1340	// 统一社会信用代码: 91510100MAEEHRNE26
+  1341	// All Rights Reserved.
+  1342	// ============================================================================
+  1343	
+  1344	package admin
+  1345	
+  1346	import (
+  1347		"errors"
+  1348		"scholar-backend/internal/common/utils"
+  1349	)
+  1350	
+  1351	// Service handles business logic for admin operations
+  1352	type Service struct {
+  1353		repo *Repository
+  1354	}
+  1355	
+  1356	// NewService creates a new admin service
+  1357	func NewService(repo *Repository) *Service {
+  1358		return &Service{repo: repo}
+  1359	}
+  1360	
+  1361	// Login authenticates an admin user
+  1362	func (s *Service) Login(username, password string) (*AdminUser, string, error) {
+  1363		admin, err := s.repo.FindByUsername(username)
+  1364		if err != nil {
+  1365			return nil, "", err
+  1366		}
+  1367	
+  1368		if admin == nil {
+  1369			return nil, "", errors.New("invalid username or password")
+  1370		}
+  1371	
+  1372		if admin.Status != 1 {
+  1373			return nil, "", errors.New("account is inactive")
+  1374		}
+  1375	
+  1376		if !utils.CheckPassword(password, admin.PasswordHash) {
+  1377			return nil, "", errors.New("invalid username or password")
+  1378		}
+  1379	
+  1380		// Generate JWT token
+  1381		token, err := utils.GenerateToken(admin.ID, admin.Username, "admin")
+  1382		if err != nil {
+  1383			return nil, "", err
+  1384		}
+  1385	
+  1386		// Update last login time
+  1387		_ = s.repo.UpdateLastLogin(admin.ID)
+  1388	
+  1389		return admin, token, nil
+  1390	}
+  1391	
+  1392	// UpdatePassword updates an admin user's password
+  1393	func (s *Service) UpdatePassword(id uint, oldPassword, newPassword string) error {
+  1394		admin, err := s.repo.FindByID(id)
+  1395		if err != nil {
+  1396			return err
+  1397		}
+  1398	
+  1399		if admin == nil {
+  1400			return errors.New("admin user not found")
+  1401		}
+  1402	
+  1403		if !utils.CheckPassword(oldPassword, admin.PasswordHash) {
+  1404			return errors.New("invalid old password")
+  1405		}
+  1406	
+  1407		hashedPassword, err := utils.HashPassword(newPassword)
+  1408		if err != nil {
+  1409			return err
+  1410		}
+  1411	
+  1412		return s.repo.UpdatePassword(id, hashedPassword)
+  1413	}
+  1414	
+  1415	// VerifyPassword verifies an admin user's password (for sensitive operations)
+  1416	func (s *Service) VerifyPassword(id uint, password string) (bool, error) {
+  1417		admin, err := s.repo.FindByID(id)
+  1418		if err != nil {
+  1419			return false, err
+  1420		}
+  1421	
+  1422		if admin == nil {
+  1423			return false, errors.New("admin user not found")
+  1424		}
+  1425	
+  1426		return utils.CheckPassword(password, admin.PasswordHash), nil
+  1427	}
+  1428	
+  1429	// GetProfile gets an admin user's profile
+  1430	func (s *Service) GetProfile(id uint) (*AdminUser, error) {
+  1431		return s.repo.FindByID(id)
+  1432	}
+  1433	
+  1434	// InitializeDefaultAdmin creates the default admin user if not exists
+  1435	func (s *Service) InitializeDefaultAdmin(username, password string) error {
+  1436		existing, err := s.repo.FindByUsername(username)
+  1437		if err != nil {
+  1438			return err
+  1439		}
+  1440	
+  1441		if existing != nil {
+  1442			// Default admin already exists
+  1443			return nil
+  1444		}
+  1445	
+  1446		hashedPassword, err := utils.HashPassword(password)
+  1447		if err != nil {
+  1448			return err
+  1449		}
+  1450	
+  1451		admin := &AdminUser{
+  1452			Username:     username,
+  1453			PasswordHash: hashedPassword,
+  1454			Status:       1,
+  1455		}
+  1456	
+  1457		return s.repo.Create(admin)
+  1458	}
+  1459	
+  1460	// ========== 文件: backend/internal/ai/handler.go ==========
+  1461	// ============================================================================
+  1462	// Scholay学术 V1.0
+  1463	// Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+  1464	// 统一社会信用代码: 91510100MAEEHRNE26
+  1465	// All Rights Reserved.
+  1466	// ============================================================================
+  1467	
+  1468	package ai
+  1469	
+  1470	import (
+  1471		"scholar-backend/internal/common/utils"
+  1472		"strconv"
+  1473	
+  1474		"github.com/gin-gonic/gin"
+  1475	)
+  1476	
+  1477	type Handler struct {
+  1478		service *Service
+  1479	}
+  1480	
+  1481	func NewHandler(service *Service) *Handler {
+  1482		return &Handler{
+  1483			service: service,
+  1484		}
+  1485	}
+  1486	
+  1487	// ListPromptTemplates lists all prompt templates
+  1488	func (h *Handler) ListPromptTemplates(c *gin.Context) {
+  1489		templates, err := h.service.ListPromptTemplates()
+  1490		if err != nil {
+  1491			utils.Error(c, 500, "Failed to list templates: "+err.Error())
+  1492			return
+  1493		}
+  1494	
+  1495		utils.Success(c, gin.H{
+  1496			"templates": templates,
+  1497			"total":     len(templates),
+  1498		})
+  1499	}
+  1500	

@@ -318,17 +318,36 @@ export default function PeerReviewPage() {
       if (response.data?.code === 0) {
         const taskId = response.data.data.task_id;
         
+        // 立即构建初始任务对象，让页面能快速显示
+        const initialTask = {
+          id: taskId,
+          status: 'pending',
+          progress: 0,
+          progress_stage: '等待处理',
+          input_type: fileName ? 'file' : 'text',
+          file_name: fileName || '',
+          manuscript_text: manuscriptText,
+          target_venue: targetVenue,
+          model_level: modelLevel,
+          created_at: new Date().toISOString(),
+        };
+        
         // 清空本地草稿状态
         clearDraft();
         
-        // 跳转到详情页
+        // 先设置初始任务数据，让左侧信息立即显示
+        setTaskDetail(initialTask);
         setSelectedTaskId(taskId);
         setViewMode(VIEW_MODE.DETAIL);
+        
+        // 启动轮询获取进度
+        startPolling(taskId);
         
         // 刷新列表
         loadTasks();
         
-        // 提交成功不弹窗，直接跳转到详情页
+        // 异步加载完整任务详情（不显示 loading）
+        setTimeout(() => loadTaskDetail(taskId, false), 500);
       } else {
         showMessage('error', '提交失败', response.data?.message || '提交审稿失败');
       }
@@ -364,8 +383,11 @@ export default function PeerReviewPage() {
   };
 
   // 加载任务详情
-  const loadTaskDetail = async (taskId) => {
-    setDetailLoading(true);
+  const loadTaskDetail = async (taskId, isInitialLoad = true) => {
+    // 只在首次加载且没有任务数据时显示 loading
+    if (isInitialLoad && !taskDetail) {
+      setDetailLoading(true);
+    }
     try {
       const response = await peerReviewAPI.getTaskDetail(taskId);
       if (response.data?.code === 0) {
@@ -400,10 +422,10 @@ export default function PeerReviewPage() {
             progress_stage: progress.progress_stage,
           }));
 
-          // 如果完成或失败，停止轮询并重新加载详情
+          // 如果完成或失败，停止轮询并重新加载详情（不显示 loading）
           if (progress.status === 'completed' || progress.status === 'failed') {
             stopPolling();
-            loadTaskDetail(taskId);
+            loadTaskDetail(taskId, false);
           }
         }
       } catch (error) {
@@ -673,11 +695,23 @@ function CreateSection({
           </div>
         )}
 
-        {/* 上传中遮罩 */}
+        {/* 上传中遮罩 - 更明显的加载状态 */}
         {uploading && (
           <div className="prv-upload-overlay">
-            <div className="prv-spinner"></div>
-            <p>正在解析文件...</p>
+            <div className="prv-upload-progress">
+              <div className="prv-upload-icon-wrapper">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="prv-upload-pulse">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <div className="prv-upload-ring"></div>
+              </div>
+              <h4>正在解析文件</h4>
+              <p>请稍候，正在提取文本内容...</p>
+              <div className="prv-upload-dots">
+                <span></span><span></span><span></span>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1149,7 +1183,8 @@ function CreateTaskView({
 function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
   const [activeSection, setActiveSection] = useState('report'); // 当前激活的模块
 
-  if (loading || !task) {
+  // 只有在完全没有任务数据时才显示全屏 loading
+  if (!task && loading) {
     return (
       <div className="prvr-page">
         <div className="prvr-loading">
@@ -1157,6 +1192,23 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
             <div className="prvr-spinner"></div>
             <h3>正在加载审稿报告...</h3>
             <p>请稍候</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 如果没有任务数据且不在加载中，显示错误
+  if (!task) {
+    return (
+      <div className="prvr-page">
+        <div className="prvr-loading">
+          <div className="prvr-loading-content">
+            <h3>未找到任务</h3>
+            <p>任务可能已被删除</p>
+            <button className="prvr-btn prvr-btn-secondary" onClick={onBack}>
+              返回列表
+            </button>
           </div>
         </div>
       </div>
@@ -1226,49 +1278,113 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
           </div>
         </div>
 
-        {/* 稿件信息卡片 */}
-        <div className="prvr-card">
+        {/* 提交信息卡片 - 重新设计 */}
+        <div className="prvr-card prvr-submit-card">
           <div className="prvr-card-title">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
             </svg>
-            稿件信息
+            提交信息
           </div>
-          <div className="prvr-info-item">
-            <span className="prvr-info-label">标题</span>
-            <span className="prvr-info-value">{task.title || '未命名稿件'}</span>
+          
+          {/* 文件/文本来源区块 */}
+          <div className="prvr-source-block">
+            {task.input_type === 'file' && task.file_name ? (
+              <>
+                <div className="prvr-source-icon file">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                </div>
+                <div className="prvr-source-info">
+                  <span className="prvr-source-type">文件上传</span>
+                  <span className="prvr-source-name" title={task.file_name}>{task.file_name}</span>
+                </div>
+                {task.file_id && (
+                  <button 
+                    className="prvr-download-btn"
+                    onClick={() => window.open(`/api/v1/user/peer-review/files/${task.file_id}/download`, '_blank')}
+                    title="下载原文件"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="prvr-source-icon text">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                  </svg>
+                </div>
+                <div className="prvr-source-info">
+                  <span className="prvr-source-type">文本粘贴</span>
+                  <span className="prvr-source-name">{task.manuscript_text?.length?.toLocaleString() || 0} 字</span>
+                </div>
+              </>
+            )}
           </div>
-          {task.target_venue && (
-            <div className="prvr-info-item">
-              <span className="prvr-info-label">目标期刊</span>
-              <span className="prvr-info-value">{task.target_venue}</span>
+          
+          {/* 信息网格 */}
+          <div className="prvr-info-grid">
+            {task.target_venue && (
+              <div className="prvr-info-cell">
+                <span className="prvr-info-icon">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                  </svg>
+                </span>
+                <span className="prvr-info-text">{task.target_venue}</span>
+              </div>
+            )}
+            <div className="prvr-info-cell">
+              <span className="prvr-info-icon">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                </svg>
+              </span>
+              <span className="prvr-info-text">{getModelName(task.model_level)}</span>
             </div>
-          )}
-          <div className="prvr-info-item">
-            <span className="prvr-info-label">AI 模型</span>
-            <span className="prvr-info-value">{getModelName(task.model_level)}</span>
           </div>
-          <div className="prvr-info-item">
-            <span className="prvr-info-label">创建时间</span>
-            <span className="prvr-info-value">{formatDate(task.created_at)}</span>
-          </div>
-          {task.completed_at && (
-            <div className="prvr-info-item">
-              <span className="prvr-info-label">完成时间</span>
-              <span className="prvr-info-value">{formatDate(task.completed_at)}</span>
+          
+          {/* 时间信息 */}
+          <div className="prvr-time-info">
+            <div className="prvr-time-row">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 6v6l4 2"/>
+              </svg>
+              <span>提交于 {formatDate(task.created_at)}</span>
             </div>
-          )}
+            {task.completed_at && (
+              <div className="prvr-time-row completed">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                <span>完成于 {formatDate(task.completed_at)}</span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* 稿件预览卡片 */}
+        {/* 内容预览卡片 */}
         <div className="prvr-card">
           <div className="prvr-card-title">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
               <circle cx="12" cy="12" r="3"/>
             </svg>
-            稿件预览
+            内容预览
           </div>
           <div className="prvr-preview">
             {getManuscriptPreview()}
@@ -1292,27 +1408,74 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
           </div>
         </div>
 
-        {/* 处理中状态 */}
+        {/* 处理中状态 - 更友好的展示 */}
         {isProcessing && (
-          <div className="prvr-processing-status">
-            <div className="prvr-processing-animation">
-              <div className="prvr-processing-ring"></div>
-              <div className="prvr-processing-icon">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                </svg>
+          <div className="prvr-processing-container">
+            {/* 进度卡片 */}
+            <div className="prvr-processing-card">
+              <div className="prvr-processing-header">
+                <div className="prvr-processing-animation">
+                  <div className="prvr-processing-ring"></div>
+                  <div className="prvr-processing-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                  </div>
+                </div>
+                <div className="prvr-processing-info">
+                  <h3>正在生成审稿报告</h3>
+                  <p className="prvr-processing-stage">{task.progress_stage || 'AI 正在分析您的论文...'}</p>
+                </div>
+              </div>
+              
+              <div className="prvr-progress-section">
+                <div className="prvr-progress-bar">
+                  <div className="prvr-progress-fill" style={{ width: `${task.progress || 0}%` }}></div>
+                </div>
+                <div className="prvr-progress-meta">
+                  <span className="prvr-progress-percent">{task.progress || 0}%</span>
+                  <span className="prvr-progress-time">预计 2-5 分钟</span>
+                </div>
               </div>
             </div>
-            <h3>正在生成审稿报告...</h3>
-            <p>{task.progress_stage || '请稍候，AI 正在分析您的论文'}</p>
-            <div className="prvr-progress-bar-wrapper">
-              <div className="prvr-progress-bar">
-                <div className="prvr-progress-fill" style={{ width: `${task.progress || 0}%` }}></div>
+            
+            {/* 处理步骤提示 */}
+            <div className="prvr-steps-hint">
+              <div className={`prvr-step ${(task.progress || 0) >= 10 ? 'active' : ''} ${(task.progress || 0) >= 20 ? 'done' : ''}`}>
+                <div className="prvr-step-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                </div>
+                <span>解析稿件</span>
               </div>
-              <div className="prvr-progress-text">
-                <span>{task.progress || 0}%</span>
-                <span>预计需要 2-5 分钟</span>
+              <div className={`prvr-step ${(task.progress || 0) >= 30 ? 'active' : ''} ${(task.progress || 0) >= 50 ? 'done' : ''}`}>
+                <div className="prvr-step-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                  </svg>
+                </div>
+                <span>检索文献</span>
+              </div>
+              <div className={`prvr-step ${(task.progress || 0) >= 60 ? 'active' : ''} ${(task.progress || 0) >= 80 ? 'done' : ''}`}>
+                <div className="prvr-step-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                  </svg>
+                </div>
+                <span>生成报告</span>
+              </div>
+              <div className={`prvr-step ${(task.progress || 0) >= 95 ? 'active' : ''} ${(task.progress || 0) >= 100 ? 'done' : ''}`}>
+                <div className="prvr-step-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <span>完成</span>
               </div>
             </div>
           </div>

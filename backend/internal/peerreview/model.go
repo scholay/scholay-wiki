@@ -158,6 +158,7 @@ type TaskDetailResponse struct {
 	Progress          int                `json:"progress"`
 	ProgressStage     string             `json:"progress_stage"`
 	ManuscriptText    string             `json:"manuscript_text,omitempty"`
+	FileID            *uint              `json:"file_id,omitempty"`
 	FileName          string             `json:"file_name,omitempty"`
 	ManuscriptMeta    *ManuscriptMeta    `json:"manuscript_meta,omitempty"`
 	LiteratureSummary *LiteratureSummary `json:"literature_summary,omitempty"`
@@ -181,6 +182,7 @@ type TaskProgressResponse struct {
 // UploadFileResponse 文件上传响应（解析文件并保存到草稿）
 type UploadFileResponse struct {
 	DraftID        uint   `json:"draft_id"`        // 草稿任务ID
+	FileID         uint   `json:"file_id"`         // 文件记录ID
 	FileName       string `json:"file_name"`       // 文件名
 	FileSize       int64  `json:"file_size"`       // 文件大小
 	ExtractedText  string `json:"extracted_text"`  // 提取的完整文本
