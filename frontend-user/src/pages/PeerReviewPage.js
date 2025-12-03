@@ -528,71 +528,70 @@ export default function PeerReviewPage() {
               </div>
             </nav>
 
-            {/* 主内容区 */}
-            <div className="prv-main">
-          {viewMode === VIEW_MODE.HOME && (
-            <>
-              {/* 上半部分：创建任务区域 */}
-              <CreateSection
-                inputType={inputType}
-                setInputType={setInputType}
-                manuscriptText={manuscriptText}
-                setManuscriptText={setManuscriptText}
-                targetVenue={targetVenue}
-                setTargetVenue={setTargetVenue}
-                fileName={fileName}
-                uploading={uploading}
-                submitting={submitting}
-                isDragging={isDragging}
-                draftLoading={draftLoading}
-                modelLevel={modelLevel}
-                setModelLevel={setModelLevel}
-                fileInputRef={fileInputRef}
-                onFileSelect={handleFileSelect}
-                onDragEnter={handleDragEnter}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onRemoveFile={() => { 
-                  setFileName(''); 
-                  setManuscriptText(''); 
-                  setInputType('text');
-                  // 同步清空后端草稿中的文件信息
-                  saveDraftToServer({
-                    input_type: 'text',
-                    manuscript_text: '',
-                    target_venue: targetVenue,
-                    model_level: modelLevel,
-                    file_name: '',
-                  });
-                }}
-                onSubmit={handleSubmitDraft}
-                onClearDraft={clearDraft}
-              />
+            {/* 主内容区 - 仅用于首页 */}
+            {viewMode === VIEW_MODE.HOME && (
+              <div className="prv-main">
+                {/* 上半部分：创建任务区域 */}
+                <CreateSection
+                  inputType={inputType}
+                  setInputType={setInputType}
+                  manuscriptText={manuscriptText}
+                  setManuscriptText={setManuscriptText}
+                  targetVenue={targetVenue}
+                  setTargetVenue={setTargetVenue}
+                  fileName={fileName}
+                  uploading={uploading}
+                  submitting={submitting}
+                  isDragging={isDragging}
+                  draftLoading={draftLoading}
+                  modelLevel={modelLevel}
+                  setModelLevel={setModelLevel}
+                  fileInputRef={fileInputRef}
+                  onFileSelect={handleFileSelect}
+                  onDragEnter={handleDragEnter}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onRemoveFile={() => { 
+                    setFileName(''); 
+                    setManuscriptText(''); 
+                    setInputType('text');
+                    // 同步清空后端草稿中的文件信息
+                    saveDraftToServer({
+                      input_type: 'text',
+                      manuscript_text: '',
+                      target_venue: targetVenue,
+                      model_level: modelLevel,
+                      file_name: '',
+                    });
+                  }}
+                  onSubmit={handleSubmitDraft}
+                  onClearDraft={clearDraft}
+                />
 
-              {/* 下半部分：历史任务列表 */}
-              <HistorySection
-                tasks={tasks}
-                loading={loading}
-                totalTasks={totalTasks}
-                currentPage={currentPage}
-                onPageChange={setCurrentPage}
-                onViewDetail={viewTaskDetail}
-                onDelete={handleDeleteTask}
-              />
-            </>
-          )}
+                {/* 下半部分：历史任务列表 */}
+                <HistorySection
+                  tasks={tasks}
+                  loading={loading}
+                  totalTasks={totalTasks}
+                  currentPage={currentPage}
+                  onPageChange={setCurrentPage}
+                  onViewDetail={viewTaskDetail}
+                  onDelete={handleDeleteTask}
+                />
+              </div>
+            )}
 
-          {viewMode === VIEW_MODE.DETAIL && (
-            <TaskDetailView
-              task={taskDetail}
-              loading={detailLoading}
-              onBack={backToHome}
-              onDelete={() => handleDeleteTask(selectedTaskId)}
-              onStartTask={handleStartTask}
-            />
-          )}
-            </div>
+            {/* 详情视图 - 独立布局，不在 prv-main 内 */}
+            {viewMode === VIEW_MODE.DETAIL && (
+              <TaskDetailView
+                task={taskDetail}
+                loading={detailLoading}
+                onBack={backToHome}
+                onDelete={() => handleDeleteTask(selectedTaskId)}
+                onStartTask={handleStartTask}
+              />
+            )}
           </div>
         </div>
       </div>
