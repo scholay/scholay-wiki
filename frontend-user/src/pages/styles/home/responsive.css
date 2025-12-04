@@ -101,14 +101,13 @@
   }
 
   .welcome-screen {
-    position: static;
-    transform: none;
-    margin-top: 0;
-    padding: 0 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    margin-bottom: 1rem;
+  }
+  
+  .chat-container {
+    padding-top: 0;
     min-height: calc(100vh - 52px - 180px);
+    justify-content: center;
   }
 
   /* 移动端输入框 - 固定在底部，带边距 */
@@ -305,6 +304,11 @@
 
   /* 隐藏底部链接 */
   .home-footer-links {
+    display: none;
+  }
+
+  /* 移动端文献助手快捷入口 - 隐藏 */
+  .home-assistant-shortcuts {
     display: none;
   }
 

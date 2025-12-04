@@ -7,13 +7,9 @@
  * ============================================================================
  */
 
-/* Composer Wrapper - ChatGPT Style - 黄金比例位置 (38.2%) */
+/* Composer Wrapper - ChatGPT Style */
 .home .home-composer-wrapper,
 .home-search .home-composer-wrapper {
-  position: absolute;
-  top: 38.2%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   width: calc(100% - 3rem);
   max-width: 48rem;
   backdrop-filter: blur(40px);
@@ -94,7 +90,6 @@
     0 12px 48px rgba(0, 0, 0, 0.08),
     0 4px 16px rgba(16, 163, 127, 0.15),
     0 0 0 3px rgba(16, 163, 127, 0.15);
-  transform: translate(-50%, -50%) scale(1.01);
 }
 
 /* Composer Input Area */

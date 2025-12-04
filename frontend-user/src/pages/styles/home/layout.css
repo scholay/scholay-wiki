@@ -172,9 +172,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
   max-width: 56rem;
   width: 100%;
   padding: 0 1.5rem;
+  padding-top: 18vh; /* 调整到更靠上的位置 */
   margin: 0 auto;
   position: relative;
 }
@@ -216,16 +218,12 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* Welcome Screen - 黄金比例位置 */
+/* Welcome Screen - 在输入框上方 */
 .welcome-screen {
-  position: absolute;
-  top: 38.2%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   width: 100%;
   max-width: 48rem;
   text-align: center;
-  margin-top: -100px; /* 标题在输入框上方 */
+  margin-bottom: 2rem;
 }
 
 /* Footer Links */
@@ -272,7 +270,7 @@
   font-size: 2.75rem;
   font-weight: 400;
   color: var(--text-primary);
-  margin: 0 0 6rem 0;
+  margin: 0;
   letter-spacing: -0.02em;
   line-height: 1.2;
   min-height: 4rem;
@@ -389,5 +387,99 @@
   40% { content: '.'; }
   60% { content: '..'; }
   80%, 100% { content: '...'; }
+}
+
+/* ============================================
+   文献助手快捷入口 - 在输入框下方
+   ============================================ */
+.home-assistant-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-start; /* 左对齐 */
+  width: calc(100% - 3rem);
+  max-width: 48rem;
+  margin-top: 40px; /* 与输入框的间距 */
+}
+
+.home-shortcut-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 180px;
+}
+
+[data-theme="dark"] .home-shortcut-card {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="light"] .home-shortcut-card {
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.home-shortcut-card:hover {
+  border-color: var(--text-accent);
+  transform: translateY(-2px);
+}
+
+[data-theme="dark"] .home-shortcut-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .home-shortcut-card:hover {
+  box-shadow: 0 8px 24px rgba(16, 163, 127, 0.12);
+}
+
+.home-shortcut-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.home-shortcut-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-shortcut-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 2px;
+}
+
+.home-shortcut-desc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-shortcut-arrow {
+  color: var(--text-quaternary);
+  flex-shrink: 0;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: all 0.2s;
+}
+
+.home-shortcut-card:hover .home-shortcut-arrow {
+  opacity: 1;
+  transform: translateX(0);
+  color: var(--text-accent);
 }
 

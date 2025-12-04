@@ -547,6 +547,47 @@ const Home = () => {
                 onToggle={() => setShowFilters(!showFilters)}
               />
             )}
+
+            {/* 文献助手快捷入口 - 在输入框下方 */}
+            <div className="home-assistant-shortcuts">
+              <div 
+                className="home-shortcut-card"
+                onClick={() => navigate('/chat')}
+              >
+                <div className="home-shortcut-icon" style={{ background: 'linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.08) 100%)', color: '#10A37F' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                </div>
+                <div className="home-shortcut-content">
+                  <h4 className="home-shortcut-title">AI 对话</h4>
+                  <p className="home-shortcut-desc">与 AI 进行学术对话</p>
+                </div>
+                <svg className="home-shortcut-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 18l6-6-6-6"/>
+                </svg>
+              </div>
+
+              <div 
+                className="home-shortcut-card"
+                onClick={() => navigate('/peer-review')}
+              >
+                <div className="home-shortcut-icon" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0.08) 100%)', color: '#6366f1' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <path d="M12 18l-2.4-1.2L7 18v-4l2.6 1.3L12 14l2.4 1.3L17 14v4l-2.6-1.2L12 18z"/>
+                  </svg>
+                </div>
+                <div className="home-shortcut-content">
+                  <h4 className="home-shortcut-title">AI 审稿</h4>
+                  <p className="home-shortcut-desc">获取专业审稿意见</p>
+                </div>
+                <svg className="home-shortcut-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 18l6-6-6-6"/>
+                </svg>
+              </div>
+            </div>
           </div>
         </div>
       </div>
