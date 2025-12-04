@@ -1,0 +1,415 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ */
+
+/* 签到日历卡片 */
+.checkin-calendar-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 16px;
+  margin-top: 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+  max-width: 360px;
+}
+
+[data-theme="dark"] .checkin-calendar-card {
+  background: rgba(30, 30, 46, 0.8);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* 头部 */
+.checkin-calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] .checkin-calendar-header {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.checkin-calendar-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.checkin-calendar-title svg {
+  width: 16px;
+  height: 16px;
+  color: #10b981;
+}
+
+[data-theme="dark"] .checkin-calendar-title {
+  color: #fff;
+}
+
+/* 迷你统计 */
+.checkin-stats-mini {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.checkin-stats-mini .stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.checkin-stats-mini .stat-value {
+  font-size: 15px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.checkin-stats-mini .stat-label {
+  font-size: 10px;
+  color: #999;
+}
+
+[data-theme="dark"] .checkin-stats-mini .stat-label {
+  color: #888;
+}
+
+.checkin-stats-mini .stat-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .checkin-stats-mini .stat-divider {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 月份导航 */
+.checkin-calendar-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.checkin-calendar-nav .nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(0, 0, 0, 0.04);
+  color: #666;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.checkin-calendar-nav .nav-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.checkin-calendar-nav .nav-btn:hover:not(.disabled) {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.checkin-calendar-nav .nav-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+[data-theme="dark"] .checkin-calendar-nav .nav-btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: #aaa;
+}
+
+[data-theme="dark"] .checkin-calendar-nav .nav-btn:hover:not(.disabled) {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.checkin-calendar-nav .nav-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+[data-theme="dark"] .checkin-calendar-nav .nav-title {
+  color: #fff;
+}
+
+/* 日历主体 */
+.checkin-calendar-body {
+  min-height: 160px;
+}
+
+.calendar-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 160px;
+}
+
+.calendar-loading .loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(16, 185, 129, 0.2);
+  border-top-color: #10b981;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 星期行 */
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.calendar-weekdays .weekday {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: #999;
+  padding: 4px 0;
+}
+
+[data-theme="dark"] .calendar-weekdays .weekday {
+  color: #666;
+}
+
+/* 日期网格 */
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  position: relative;
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.calendar-day.empty {
+  background: transparent;
+}
+
+.calendar-day .day-number {
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+  z-index: 1;
+  line-height: 1;
+}
+
+[data-theme="dark"] .calendar-day .day-number {
+  color: #ddd;
+}
+
+/* 今天 */
+.calendar-day.today {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(52, 211, 153, 0.1) 100%);
+}
+
+.calendar-day.today .day-number {
+  color: #10b981;
+  font-weight: 700;
+}
+
+[data-theme="dark"] .calendar-day.today {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(52, 211, 153, 0.15) 100%);
+}
+
+[data-theme="dark"] .calendar-day.today .day-number {
+  color: #34d399;
+}
+
+/* 已签到 */
+.calendar-day.checked {
+  background: linear-gradient(135deg, #fff5f5 0%, #fff8f0 100%);
+  position: relative;
+}
+
+.calendar-day.checked .day-number {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .calendar-day.checked {
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.15) 0%, rgba(255, 167, 38, 0.12) 100%);
+}
+
+[data-theme="dark"] .calendar-day.checked .day-number {
+  color: #ff8a8a;
+}
+
+/* 今天且已签到 */
+.calendar-day.today.checked {
+  background: linear-gradient(135deg, #e8fff5 0%, #f0fff8 100%);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+}
+
+.calendar-day.today.checked .day-number {
+  color: #10b981;
+}
+
+[data-theme="dark"] .calendar-day.today.checked {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(52, 211, 153, 0.15) 100%);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4);
+}
+
+/* 签到标记 */
+.calendar-day .check-indicator {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(255, 107, 107, 0.4);
+}
+
+.calendar-day .check-indicator svg {
+  width: 8px;
+  height: 8px;
+  color: white;
+}
+
+/* 今天已签到的标记用绿色 */
+.calendar-day.today.checked .check-indicator {
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.4);
+}
+
+/* 未来日期 */
+.calendar-day.future .day-number {
+  color: #d0d0d0;
+}
+
+[data-theme="dark"] .calendar-day.future .day-number {
+  color: #444;
+}
+
+/* 过去未签到的日期 - 轻微灰色 */
+.calendar-day:not(.checked):not(.today):not(.future):not(.empty) {
+  opacity: 0.7;
+}
+
+/* 底部签到按钮 */
+.checkin-calendar-footer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] .checkin-calendar-footer {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.checkin-btn {
+  width: 100%;
+  height: 38px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%);
+  color: white;
+  box-shadow: 0 4px 16px rgba(255, 107, 107, 0.3);
+}
+
+.checkin-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.checkin-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+}
+
+.checkin-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.checkin-btn.checked {
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+  cursor: default;
+}
+
+.checkin-btn:disabled {
+  opacity: 0.9;
+}
+
+.checkin-btn .btn-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .checkin-calendar-card {
+    padding: 14px;
+    margin-top: 16px;
+    border-radius: 12px;
+    max-width: 100%;
+  }
+
+  .checkin-calendar-header {
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .calendar-day .day-number {
+    font-size: 11px;
+  }
+
+  .calendar-day .check-indicator {
+    width: 8px;
+    height: 8px;
+  }
+}
+

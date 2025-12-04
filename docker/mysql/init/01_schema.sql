@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS `user_sessions` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id` BIGINT UNSIGNED NOT NULL,
   `token` VARCHAR(500) NOT NULL,
+  `device_type` VARCHAR(20) NOT NULL DEFAULT 'pc' COMMENT '设备类型: pc, mobile',
   `ip` VARCHAR(45),
   `user_agent` VARCHAR(500),
   `last_activity` DATETIME NOT NULL,
@@ -99,6 +100,7 @@ CREATE TABLE IF NOT EXISTS `user_sessions` (
   PRIMARY KEY (`id`),
   INDEX `idx_user_id` (`user_id`),
   INDEX `idx_token` (`token`(64)),  -- Optimized: index only first 64 chars to reduce storage overhead
+  INDEX `idx_device_type` (`user_id`, `device_type`),  -- For single sign-on per device type
   -- Removed redundant single-column indexes that are covered by composite indexes
   INDEX `idx_active_sessions` (`last_activity`, `expires_at`),
   INDEX `idx_user_activity` (`user_id`, `last_activity` DESC),
@@ -1032,205 +1034,102 @@ CREATE TABLE IF NOT EXISTS `peer_review_files` (
   CONSTRAINT `fk_peer_review_file_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI审稿文件表';
 
--- 为审稿任务表添加文件外键
-ALTER TABLE `peer_review_tasks` 
-ADD CONSTRAINT `fk_peer_review_task_file` FOREIGN KEY (`file_id`) REFERENCES `peer_review_files` (`id`) ON DELETE SET NULL;
-
--- ============================================
--- 反馈系统表
--- ============================================
-
--- 用户反馈表
-CREATE TABLE IF NOT EXISTS `feedbacks` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `email` VARCHAR(255) NOT NULL COMMENT '反馈者邮箱',
-  `content` TEXT NOT NULL COMMENT '反馈内容',
-  `attachments` TEXT COMMENT '附件列表（JSON格式，已废弃，改用feedback_attachments表）',
-  `user_id` BIGINT UNSIGNED COMMENT '用户ID（登录用户，匿名为NULL）',
-  `username` VARCHAR(100) COMMENT '用户名（登录用户）',
-  `ip` VARCHAR(45) COMMENT '反馈者IP',
-  `ip_location` VARCHAR(255) COMMENT 'IP归属地',
-  `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '状态: pending=待处理, processed=已处理, replied=已回复, closed=已关闭',
-  `reply_content` TEXT COMMENT '回复内容',
-  `replied_at` DATETIME COMMENT '回复时间',
-  `replied_by` VARCHAR(100) COMMENT '回复人',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  INDEX `idx_email` (`email`),
-  INDEX `idx_user_id` (`user_id`),
-  INDEX `idx_status` (`status`),
-  INDEX `idx_created_at` (`created_at`),
-  INDEX `idx_status_created` (`status`, `created_at` DESC),
-  CONSTRAINT `fk_feedback_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户反馈表';
-
--- 反馈附件表
-CREATE TABLE IF NOT EXISTS `feedback_attachments` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `upload_key` VARCHAR(36) NOT NULL COMMENT '上传批次key（UUID），用于关联未提交的附件',
-  `feedback_id` BIGINT UNSIGNED COMMENT '关联的反馈ID（提交后填充）',
-  `original_name` VARCHAR(255) NOT NULL COMMENT '原始文件名',
-  `file_data` LONGBLOB NOT NULL COMMENT '文件二进制数据',
-  `file_size` BIGINT UNSIGNED NOT NULL COMMENT '文件大小（字节）',
-  `file_type` VARCHAR(20) NOT NULL COMMENT '文件类型: image=图片, file=文件',
-  `mime_type` VARCHAR(100) NOT NULL COMMENT 'MIME类型',
-  `is_used` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否已被使用（关联到反馈）',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  INDEX `idx_upload_key` (`upload_key`),
-  INDEX `idx_feedback_id` (`feedback_id`),
-  INDEX `idx_is_used` (`is_used`),
-  INDEX `idx_created_at` (`created_at`),
-  CONSTRAINT `fk_attachment_feedback` FOREIGN KEY (`feedback_id`) REFERENCES `feedbacks` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='反馈附件表';
-
--- 默认系统配置
-INSERT IGNORE INTO `system_configs` (`id`, `require_email_verification`) VALUES
-(1, TRUE);
-  `extracted_text` LONGTEXT COMMENT '提取的文本内容',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  
-  PRIMARY KEY (`id`),
-  INDEX `idx_user_id` (`user_id`),
-  INDEX `idx_created_at` (`created_at`),
-  CONSTRAINT `fk_peer_review_file_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI审稿文件表';
-
--- 为审稿任务表添加文件外键
-ALTER TABLE `peer_review_tasks` 
-ADD CONSTRAINT `fk_peer_review_task_file` FOREIGN KEY (`file_id`) REFERENCES `peer_review_files` (`id`) ON DELETE SET NULL;
-
--- ============================================
--- 反馈系统表
--- ============================================
-
--- 用户反馈表
-CREATE TABLE IF NOT EXISTS `feedbacks` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `email` VARCHAR(255) NOT NULL COMMENT '反馈者邮箱',
-  `content` TEXT NOT NULL COMMENT '反馈内容',
-  `attachments` TEXT COMMENT '附件列表（JSON格式，已废弃，改用feedback_attachments表）',
-  `user_id` BIGINT UNSIGNED COMMENT '用户ID（登录用户，匿名为NULL）',
-  `username` VARCHAR(100) COMMENT '用户名（登录用户）',
-  `ip` VARCHAR(45) COMMENT '反馈者IP',
-  `ip_location` VARCHAR(255) COMMENT 'IP归属地',
-  `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '状态: pending=待处理, processed=已处理, replied=已回复, closed=已关闭',
-  `reply_content` TEXT COMMENT '回复内容',
-  `replied_at` DATETIME COMMENT '回复时间',
-  `replied_by` VARCHAR(100) COMMENT '回复人',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  INDEX `idx_email` (`email`),
-  INDEX `idx_user_id` (`user_id`),
-  INDEX `idx_status` (`status`),
-  INDEX `idx_created_at` (`created_at`),
-  INDEX `idx_status_created` (`status`, `created_at` DESC),
-  CONSTRAINT `fk_feedback_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户反馈表';
-
--- 反馈附件表
-CREATE TABLE IF NOT EXISTS `feedback_attachments` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `upload_key` VARCHAR(36) NOT NULL COMMENT '上传批次key（UUID），用于关联未提交的附件',
-  `feedback_id` BIGINT UNSIGNED COMMENT '关联的反馈ID（提交后填充）',
-  `original_name` VARCHAR(255) NOT NULL COMMENT '原始文件名',
-  `file_data` LONGBLOB NOT NULL COMMENT '文件二进制数据',
-  `file_size` BIGINT UNSIGNED NOT NULL COMMENT '文件大小（字节）',
-  `file_type` VARCHAR(20) NOT NULL COMMENT '文件类型: image=图片, file=文件',
-  `mime_type` VARCHAR(100) NOT NULL COMMENT 'MIME类型',
-  `is_used` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否已被使用（关联到反馈）',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  INDEX `idx_upload_key` (`upload_key`),
-  INDEX `idx_feedback_id` (`feedback_id`),
-  INDEX `idx_is_used` (`is_used`),
-  INDEX `idx_created_at` (`created_at`),
-  CONSTRAINT `fk_attachment_feedback` FOREIGN KEY (`feedback_id`) REFERENCES `feedbacks` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='反馈附件表';
-
--- 默认系统配置
-INSERT IGNORE INTO `system_configs` (`id`, `require_email_verification`) VALUES
-(1, TRUE);
-  `extracted_text` LONGTEXT COMMENT '提取的文本内容',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  
-  PRIMARY KEY (`id`),
-  INDEX `idx_user_id` (`user_id`),
-  INDEX `idx_created_at` (`created_at`),
-  CONSTRAINT `fk_peer_review_file_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI审稿文件表';
-
--- 为审稿任务表添加文件外键
-ALTER TABLE `peer_review_tasks` 
-ADD CONSTRAINT `fk_peer_review_task_file` FOREIGN KEY (`file_id`) REFERENCES `peer_review_files` (`id`) ON DELETE SET NULL;
-
--- ============================================
--- 反馈系统表
--- ============================================
-
--- 用户反馈表
-CREATE TABLE IF NOT EXISTS `feedbacks` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `email` VARCHAR(255) NOT NULL COMMENT '反馈者邮箱',
-  `content` TEXT NOT NULL COMMENT '反馈内容',
-  `attachments` TEXT COMMENT '附件列表（JSON格式，已废弃，改用feedback_attachments表）',
-  `user_id` BIGINT UNSIGNED COMMENT '用户ID（登录用户，匿名为NULL）',
-  `username` VARCHAR(100) COMMENT '用户名（登录用户）',
-  `ip` VARCHAR(45) COMMENT '反馈者IP',
-  `ip_location` VARCHAR(255) COMMENT 'IP归属地',
-  `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '状态: pending=待处理, processed=已处理, replied=已回复, closed=已关闭',
-  `reply_content` TEXT COMMENT '回复内容',
-  `replied_at` DATETIME COMMENT '回复时间',
-  `replied_by` VARCHAR(100) COMMENT '回复人',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  INDEX `idx_email` (`email`),
-  INDEX `idx_user_id` (`user_id`),
-  INDEX `idx_status` (`status`),
-  INDEX `idx_created_at` (`created_at`),
-  INDEX `idx_status_created` (`status`, `created_at` DESC),
-  CONSTRAINT `fk_feedback_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户反馈表';
-
--- 反馈附件表
-CREATE TABLE IF NOT EXISTS `feedback_attachments` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `upload_key` VARCHAR(36) NOT NULL COMMENT '上传批次key（UUID），用于关联未提交的附件',
-  `feedback_id` BIGINT UNSIGNED COMMENT '关联的反馈ID（提交后填充）',
-  `original_name` VARCHAR(255) NOT NULL COMMENT '原始文件名',
-  `file_data` LONGBLOB NOT NULL COMMENT '文件二进制数据',
-  `file_size` BIGINT UNSIGNED NOT NULL COMMENT '文件大小（字节）',
-  `file_type` VARCHAR(20) NOT NULL COMMENT '文件类型: image=图片, file=文件',
-  `mime_type` VARCHAR(100) NOT NULL COMMENT 'MIME类型',
-  `is_used` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否已被使用（关联到反馈）',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  INDEX `idx_upload_key` (`upload_key`),
-  INDEX `idx_feedback_id` (`feedback_id`),
-  INDEX `idx_is_used` (`is_used`),
-  INDEX `idx_created_at` (`created_at`),
-  CONSTRAINT `fk_attachment_feedback` FOREIGN KEY (`feedback_id`) REFERENCES `feedbacks` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='反馈附件表';
-
--- 默认系统配置
-INSERT IGNORE INTO `system_configs` (`id`, `require_email_verification`) VALUES
-(1, TRUE);
--- ============================================
--- 数据库迁移：为 peer_review_tasks 添加 file_name 字段
--- ============================================
-SET @exist := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
-               WHERE TABLE_SCHEMA = DATABASE() 
-               AND TABLE_NAME = 'peer_review_tasks' 
-               AND COLUMN_NAME = 'file_name');
-SET @sql := IF(@exist = 0, 
-    'ALTER TABLE `peer_review_tasks` ADD COLUMN `file_name` VARCHAR(500) COMMENT ''上传的文件名'' AFTER `file_id`', 
+-- 为审稿任务表添加文件外键（条件执行，避免重复）
+SET @fk_exists := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
+                   WHERE CONSTRAINT_SCHEMA = DATABASE() 
+                   AND TABLE_NAME = 'peer_review_tasks' 
+                   AND CONSTRAINT_NAME = 'fk_peer_review_task_file');
+SET @fk_sql := IF(@fk_exists = 0, 
+    'ALTER TABLE `peer_review_tasks` ADD CONSTRAINT `fk_peer_review_task_file` FOREIGN KEY (`file_id`) REFERENCES `peer_review_files` (`id`) ON DELETE SET NULL', 
     'SELECT 1');
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
+PREPARE fk_stmt FROM @fk_sql;
+EXECUTE fk_stmt;
+DEALLOCATE PREPARE fk_stmt;
+
+-- ============================================
+-- 反馈系统表
+-- ============================================
+
+-- 用户反馈表
+CREATE TABLE IF NOT EXISTS `feedbacks` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `email` VARCHAR(255) NOT NULL COMMENT '反馈者邮箱',
+  `content` TEXT NOT NULL COMMENT '反馈内容',
+  `attachments` TEXT COMMENT '附件列表（JSON格式，已废弃，改用feedback_attachments表）',
+  `user_id` BIGINT UNSIGNED COMMENT '用户ID（登录用户，匿名为NULL）',
+  `username` VARCHAR(100) COMMENT '用户名（登录用户）',
+  `ip` VARCHAR(45) COMMENT '反馈者IP',
+  `ip_location` VARCHAR(255) COMMENT 'IP归属地',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '状态: pending=待处理, processed=已处理, replied=已回复, closed=已关闭',
+  `reply_content` TEXT COMMENT '回复内容',
+  `replied_at` DATETIME COMMENT '回复时间',
+  `replied_by` VARCHAR(100) COMMENT '回复人',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_email` (`email`),
+  INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_status` (`status`),
+  INDEX `idx_created_at` (`created_at`),
+  INDEX `idx_status_created` (`status`, `created_at` DESC),
+  CONSTRAINT `fk_feedback_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户反馈表';
+
+-- 反馈附件表
+CREATE TABLE IF NOT EXISTS `feedback_attachments` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `upload_key` VARCHAR(36) NOT NULL COMMENT '上传批次key（UUID），用于关联未提交的附件',
+  `feedback_id` BIGINT UNSIGNED COMMENT '关联的反馈ID（提交后填充）',
+  `original_name` VARCHAR(255) NOT NULL COMMENT '原始文件名',
+  `file_data` LONGBLOB NOT NULL COMMENT '文件二进制数据',
+  `file_size` BIGINT UNSIGNED NOT NULL COMMENT '文件大小（字节）',
+  `file_type` VARCHAR(20) NOT NULL COMMENT '文件类型: image=图片, file=文件',
+  `mime_type` VARCHAR(100) NOT NULL COMMENT 'MIME类型',
+  `is_used` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否已被使用（关联到反馈）',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_upload_key` (`upload_key`),
+  INDEX `idx_feedback_id` (`feedback_id`),
+  INDEX `idx_is_used` (`is_used`),
+  INDEX `idx_created_at` (`created_at`),
+  CONSTRAINT `fk_attachment_feedback` FOREIGN KEY (`feedback_id`) REFERENCES `feedbacks` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='反馈附件表';
+
+-- 默认系统配置
+INSERT IGNORE INTO `system_configs` (`id`, `require_email_verification`) VALUES
+(1, TRUE);
+
+-- ============================================
+-- 用户签到系统表
+-- ============================================
+
+-- 用户签到记录表
+CREATE TABLE IF NOT EXISTS `user_checkins` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+  `checkin_date` DATE NOT NULL COMMENT '签到日期',
+  `consecutive_days` INT NOT NULL DEFAULT 1 COMMENT '连续签到天数',
+  `reward_points` INT NOT NULL DEFAULT 0 COMMENT '获得的积分奖励',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_user_date` (`user_id`, `checkin_date`),
+  INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_checkin_date` (`checkin_date`),
+  CONSTRAINT `fk_checkin_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户签到记录表';
+
+-- 用户签到统计表
+CREATE TABLE IF NOT EXISTS `user_checkin_stats` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+  `total_checkins` INT NOT NULL DEFAULT 0 COMMENT '总签到天数',
+  `current_streak` INT NOT NULL DEFAULT 0 COMMENT '当前连续签到天数',
+  `longest_streak` INT NOT NULL DEFAULT 0 COMMENT '最长连续签到天数',
+  `total_reward_points` INT NOT NULL DEFAULT 0 COMMENT '累计获得积分',
+  `last_checkin_date` DATE COMMENT '最后签到日期',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_user_id` (`user_id`),
+  CONSTRAINT `fk_checkin_stats_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户签到统计表';

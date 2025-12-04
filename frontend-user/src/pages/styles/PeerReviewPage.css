@@ -1482,7 +1482,7 @@
 .prv-task-item-info {
   flex: 1;
   min-width: 0;
-}
+  }
 
 .prv-task-item-title {
   font-size: 14px;
@@ -1492,12 +1492,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
+  }
 
 .prv-task-item-time {
   font-size: 12px;
   color: var(--text-muted);
-}
+  }
 
 .prv-task-item-right {
   display: flex;

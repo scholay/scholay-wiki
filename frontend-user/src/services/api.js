@@ -35,26 +35,130 @@ api.interceptors.request.use(
   }
 );
 
+// Token 刷新状态
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 // Response interceptor to handle errors
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    // 处理 401 (未授权) 和 403 (禁止访问) 错误
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      // Unauthorized/Forbidden - clear token and state
+  (response) => {
+    // 检查响应体中的业务错误码
+    // 2019 = 被其他设备登录踢出
+    if (response.data?.code === 2019) {
+      localStorage.removeItem('user_token');
+      localStorage.removeItem('user_data');
+      window.dispatchEvent(new CustomEvent('auth:expired', {
+        detail: { 
+          message: response.data?.message || '您的账号已在其他设备登录',
+          reason: 'kicked'
+        }
+      }));
+      if (window.location.pathname !== '/') {
+        window.location.href = '/';
+      }
+      return Promise.reject(new Error(response.data?.message || '您的账号已在其他设备登录'));
+    }
+    return response;
+  },
+  async (error) => {
+    const originalRequest = error.config;
+
+    // 处理 401 (未授权) 错误 - 尝试刷新 Token
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      // 如果是刷新 Token 的请求失败，直接登出
+      if (originalRequest.url === '/user/refresh-token') {
+        localStorage.removeItem('user_token');
+        localStorage.removeItem('user_data');
+        window.dispatchEvent(new CustomEvent('auth:expired', {
+          detail: { message: '登录已失效，请重新登录' }
+        }));
+        if (window.location.pathname !== '/') {
+          window.location.href = '/';
+        }
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        // 如果正在刷新，将请求加入队列
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers['Authorization'] = 'Bearer ' + token;
+          return api(originalRequest);
+        }).catch(err => {
+          return Promise.reject(err);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const response = await api.post('/user/refresh-token');
+        if (response.data.code === 0 && response.data.data?.token) {
+          const newToken = response.data.data.token;
+          localStorage.setItem('user_token', newToken);
+          api.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
+          processQueue(null, newToken);
+          originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
+          return api(originalRequest);
+        }
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        // 刷新失败，清除 Token 并登出
+        localStorage.removeItem('user_token');
+        localStorage.removeItem('user_data');
+        
+        // 根据错误码区分不同的情况
+        const errorCode = refreshError.response?.data?.code;
+        const errorMessage = refreshError.response?.data?.message;
+        let message = '登录已失效，请重新登录';
+        let reason = 'expired'; // 默认原因：过期
+        
+        if (errorCode === 2019) {
+          // 被其他设备登录踢出
+          message = errorMessage || '您的账号已在其他设备登录';
+          reason = 'kicked';
+        } else if (errorCode === 2016) {
+          // 会话超过30天
+          message = '登录已过期，请重新登录';
+          reason = 'session_expired';
+        }
+        
+        window.dispatchEvent(new CustomEvent('auth:expired', {
+          detail: { message, reason }
+        }));
+        if (window.location.pathname !== '/') {
+          window.location.href = '/';
+        }
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    // 处理 403 (禁止访问) 错误
+    if (error.response?.status === 403) {
       localStorage.removeItem('user_token');
       localStorage.removeItem('user_data');
 
-      // Show notification to user
-      const message = error.response?.data?.message ||
-        (error.response?.status === 403 ? '访问被拒绝，请重新登录' : '登录已失效，请重新登录');
+      const message = error.response?.data?.message || '访问被拒绝，请重新登录';
 
-      // Dispatch custom event with message
       window.dispatchEvent(new CustomEvent('auth:expired', {
         detail: { message }
       }));
 
-      // Redirect to home page immediately if not already there
       if (window.location.pathname !== '/') {
         window.location.href = '/';
       }
@@ -78,6 +182,14 @@ export const userAPI = {
 
   heartbeat: () =>
     api.post('/user/heartbeat'),
+
+  // Token 刷新接口
+  refreshToken: () =>
+    api.post('/user/refresh-token'),
+
+  // 获取 Token 信息（过期时间等）
+  getTokenInfo: () =>
+    api.get('/user/token-info'),
 
   getProfile: () =>
     api.get('/user/profile'),
@@ -385,6 +497,22 @@ export const paymentAPI = {
       order_no: orderNo,
       amount,
     }),
+};
+
+// AI审稿人 API
+// 签到 API
+export const checkinAPI = {
+  // 执行签到
+  checkin: () =>
+    api.post('/user/checkin'),
+
+  // 获取签到状态
+  getStatus: () =>
+    api.get('/user/checkin/status'),
+
+  // 获取签到历史（按月）
+  getHistory: (year, month) =>
+    api.get('/user/checkin/history', { params: { year, month } }),
 };
 
 // AI审稿人 API

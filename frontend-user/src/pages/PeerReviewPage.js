@@ -1107,8 +1107,8 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
                       </svg>
                     )}
                     {STATUS_MAP[task.status]?.label || task.status}
-                  </span>
-                </div>
+                    </span>
+                  </div>
 
                 {/* 中部：任务信息标签 */}
                 <div className="prv-task-card-meta">

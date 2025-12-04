@@ -16,6 +16,7 @@ import (
 	"time"
 	"scholar-backend/internal/admin"
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/checkin"
 	"scholar-backend/internal/feedback"
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/cleanup"
@@ -117,6 +118,10 @@ func main() {
 	// Initialize cleanup service
 	cleanupService := cleanup.NewCleanupService(database.GetDB())
 	cleanupService.Start()
+
+	// Initialize session validator for single sign-on (with Redis cache)
+	sessionValidator := middleware.NewCachedSessionValidator(database.GetDB())
+	middleware.SetSessionValidator(sessionValidator)
 
 	// Initialize admin module
 	adminRepo := admin.NewRepository(database.GetDB())
@@ -248,6 +253,11 @@ func main() {
 	// Initialize WeChat Official Account module
 	wechatOfficialService := wechatofficial.NewService(database.GetDB(), aiService)
 	wechatOfficialHandler := wechatofficial.NewHandler(wechatOfficialService)
+
+	// Initialize Check-in module
+	checkinRepo := checkin.NewRepository(database.GetDB())
+	checkinService := checkin.NewService(checkinRepo)
+	checkinHandler := checkin.NewHandler(checkinService)
 
 	// Setup Gin router
 	router := gin.Default()
@@ -498,6 +508,9 @@ func main() {
 
 			// Feedback routes (User) - 已登录用户提交反馈会关联用户信息
 			userProtected.POST("/feedback", feedbackHandler.CreateFeedbackWithUser)
+
+			// Check-in routes (User) - 用户签到功能
+			checkinHandler.RegisterRoutes(userProtected)
 
 			// Conversation routes (legacy)
 			userProtected.GET("/conversations", conversationHandler.GetUserConversations)

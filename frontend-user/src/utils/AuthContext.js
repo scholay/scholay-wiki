@@ -20,15 +20,23 @@ const HEARTBEAT_CONFIG = {
   INACTIVE_TIMEOUT: 300000,    // 不活跃超时时间：5分钟无操作停止心跳
 };
 
+// Token 刷新配置
+const TOKEN_REFRESH_CONFIG = {
+  CHECK_INTERVAL: 300000,      // 每5分钟检查一次 Token 状态
+  REFRESH_THRESHOLD: 7200,     // Token 过期前 2 小时（7200秒）开始刷新
+};
+
 // 需要监听的用户活动事件
+// 注意：
+// - 移除了 mousemove，因为它会非常频繁触发，即使鼠标微小抖动也会触发
+// - 移除了 focus，因为窗口获得焦点时会触发，即使用户没有真正操作页面内容
+// 只保留真正的用户交互事件
 const USER_ACTIVITY_EVENTS = [
   'mousedown',
-  'mousemove', 
   'keydown',
   'scroll',
   'touchstart',
   'click',
-  'focus',
 ];
 
 export const AuthProvider = ({ children }) => {
@@ -42,8 +50,93 @@ export const AuthProvider = ({ children }) => {
   const isIdleRef = useRef(false);
   const activityCheckIntervalRef = useRef(null);
   
+  // Token 刷新相关的 refs
+  const tokenRefreshIntervalRef = useRef(null);
+  const isRefreshingTokenRef = useRef(false);
+  
   // 使用 ref 存储函数引用，避免循环依赖
   const startHeartbeatRef = useRef(null);
+
+  // Token 刷新函数
+  const refreshToken = useCallback(async () => {
+    const token = localStorage.getItem('user_token');
+    if (!token || isRefreshingTokenRef.current) {
+      return false;
+    }
+
+    isRefreshingTokenRef.current = true;
+    try {
+      const response = await userAPI.refreshToken();
+      if (response.data.code === 0 && response.data.data?.token) {
+        const newToken = response.data.data.token;
+        localStorage.setItem('user_token', newToken);
+        console.log('[Token] Token refreshed successfully');
+        return true;
+      }
+    } catch (error) {
+      // 如果是 2016 错误码（会话过期），需要重新登录
+      if (error.response?.data?.code === 2016) {
+        console.log('[Token] Session expired, need to re-login');
+        // 触发登出
+        window.dispatchEvent(new CustomEvent('auth:expired', {
+          detail: { message: '登录已过期，请重新登录' }
+        }));
+      } else if (error.response?.status !== 401) {
+        console.error('[Token] Refresh error:', error);
+      }
+      return false;
+    } finally {
+      isRefreshingTokenRef.current = false;
+    }
+    return false;
+  }, []);
+
+  // 检查并刷新 Token
+  const checkAndRefreshToken = useCallback(async () => {
+    const token = localStorage.getItem('user_token');
+    if (!token) return;
+
+    try {
+      const response = await userAPI.getTokenInfo();
+      if (response.data.code === 0 && response.data.data) {
+        const { remaining_seconds, should_refresh, can_refresh } = response.data.data;
+        
+        // 如果需要刷新且可以刷新
+        if (should_refresh && can_refresh) {
+          console.log(`[Token] Token expires in ${remaining_seconds}s, refreshing...`);
+          await refreshToken();
+        } else if (!can_refresh) {
+          console.log('[Token] Session cannot be refreshed (30 days limit reached)');
+        }
+      }
+    } catch (error) {
+      // 忽略错误，让其他机制处理
+      if (error.response?.status !== 401) {
+        console.error('[Token] Check token info error:', error);
+      }
+    }
+  }, [refreshToken]);
+
+  // 启动 Token 刷新检查
+  const startTokenRefresh = useCallback(() => {
+    if (tokenRefreshIntervalRef.current) {
+      clearInterval(tokenRefreshIntervalRef.current);
+    }
+
+    // 立即检查一次
+    checkAndRefreshToken();
+
+    // 每分钟检查一次
+    tokenRefreshIntervalRef.current = setInterval(checkAndRefreshToken, TOKEN_REFRESH_CONFIG.CHECK_INTERVAL);
+  }, [checkAndRefreshToken]);
+
+  // 停止 Token 刷新检查
+  const stopTokenRefresh = useCallback(() => {
+    if (tokenRefreshIntervalRef.current) {
+      clearInterval(tokenRefreshIntervalRef.current);
+      tokenRefreshIntervalRef.current = null;
+    }
+  }, []);
 
   // Heartbeat function to keep session alive
   const sendHeartbeat = useCallback(async () => {
@@ -109,32 +202,47 @@ export const AuthProvider = ({ children }) => {
   const updateLastActivity = useCallback(() => {
     lastActivityRef.current = Date.now();
     
+    const token = localStorage.getItem('user_token');
+    if (!token) return;
+    
+    // 如果心跳已经完全停止（5分钟无操作后），需要重新启动
+    if (!heartbeatIntervalRef.current) {
+      // 使用 startHeartbeatRef 重新启动完整的心跳机制
+      if (startHeartbeatRef.current) {
+        startHeartbeatRef.current();
+      }
+      return;
+    }
+    
     // 如果之前是空闲状态，现在变为活跃
     if (isIdleRef.current) {
       isIdleRef.current = false;
       // 立即发送一次心跳，然后重新设置活跃间隔
-      const token = localStorage.getItem('user_token');
-      if (token) {
-        sendHeartbeat();
-        restartHeartbeatWithInterval(HEARTBEAT_CONFIG.ACTIVE_INTERVAL);
-      }
+      sendHeartbeat();
+      restartHeartbeatWithInterval(HEARTBEAT_CONFIG.ACTIVE_INTERVAL);
     }
   }, [sendHeartbeat, restartHeartbeatWithInterval]);
 
   // Handle page visibility change
+  // 当用户离开当前页面（切换标签页/最小化窗口）时，立即停止心跳
+  // 当用户回到页面时，重新启动心跳
   const handleVisibilityChange = useCallback(() => {
+    const token = localStorage.getItem('user_token');
+    if (!token) return;
+
     if (document.visibilityState === 'visible') {
-      // Page became visible, update activity
+      // 页面变为可见，重新启动心跳
       lastActivityRef.current = Date.now();
-      const token = localStorage.getItem('user_token');
-      if (token && !heartbeatIntervalRef.current) {
-        // Restart heartbeat if it was stopped - 使用 ref 引用
+      if (!heartbeatIntervalRef.current) {
         if (startHeartbeatRef.current) {
           startHeartbeatRef.current();
         }
       }
+    } else {
+      // 页面变为隐藏（用户切换到其他标签页/窗口），立即停止心跳
+      stopHeartbeat();
     }
-  }, []);
+  }, [stopHeartbeat]);
 
   // Start heartbeat with activity detection
   const startHeartbeat = useCallback(() => {
@@ -166,7 +274,10 @@ export const AuthProvider = ({ children }) => {
 
     // Also listen for visibility change
     document.addEventListener('visibilitychange', handleVisibilityChange);
-  }, [sendHeartbeat, checkActivityStatus, updateLastActivity, handleVisibilityChange]);
+
+    // 同时启动 Token 刷新检查
+    startTokenRefresh();
+  }, [sendHeartbeat, checkActivityStatus, updateLastActivity, handleVisibilityChange, startTokenRefresh]);
 
   // 更新 ref
   useEffect(() => {
@@ -176,27 +287,29 @@ export const AuthProvider = ({ children }) => {
   // 完整的 stopHeartbeat（包含清理事件监听器）
   const fullStopHeartbeat = useCallback(() => {
     stopHeartbeat();
+    stopTokenRefresh();
     
     // Remove activity event listeners
     USER_ACTIVITY_EVENTS.forEach(event => {
       window.removeEventListener(event, updateLastActivity);
     });
     document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [stopHeartbeat, updateLastActivity, handleVisibilityChange]);
+  }, [stopHeartbeat, stopTokenRefresh, updateLastActivity, handleVisibilityChange]);
 
   useEffect(() => {
     const initializeAuth = async () => {
-    // Check for existing token on mount
-    const token = localStorage.getItem('user_token');
-    const userData = localStorage.getItem('user_data');
+      // Check for existing token on mount
+      const token = localStorage.getItem('user_token');
+      const userData = localStorage.getItem('user_data');
 
-    if (token && userData && userData !== 'undefined') {
-      try {
-        setIsAuthenticated(true);
-        setUser(JSON.parse(userData));
-        startHeartbeat(); // Start heartbeat for existing session
+      if (token && userData && userData !== 'undefined') {
+        try {
+          // 先设置本地缓存的用户数据，让页面能快速显示
+          setIsAuthenticated(true);
+          setUser(JSON.parse(userData));
           
           // 立即获取最新的用户信息和订阅信息
+          // 如果 Token 已过期，API 拦截器会自动尝试刷新
           try {
             const [profileResponse, subscriptionResponse] = await Promise.all([
               userAPI.getProfile(),
@@ -216,17 +329,28 @@ export const AuthProvider = ({ children }) => {
               
               localStorage.setItem('user_data', JSON.stringify(freshUserData));
               setUser(freshUserData);
+              
+              // 验证成功后启动心跳（Token 可能已被刷新）
+              startHeartbeat();
             }
           } catch (error) {
+            // 如果获取用户信息失败（包括 Token 刷新失败），
+            // API 拦截器会处理登出逻辑
             console.error('Failed to refresh user data on init:', error);
+            // 如果不是 401 错误，可能是网络问题，仍然保持登录状态
+            if (error.response?.status !== 401) {
+              startHeartbeat();
+            }
           }
-      } catch (error) {
-        // Clear invalid data
-        localStorage.removeItem('user_token');
-        localStorage.removeItem('user_data');
+        } catch (error) {
+          // Clear invalid data
+          localStorage.removeItem('user_token');
+          localStorage.removeItem('user_data');
+          setIsAuthenticated(false);
+          setUser(null);
+        }
       }
-    }
-    setLoading(false);
+      setLoading(false);
     };
 
     initializeAuth();
@@ -238,9 +362,16 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(false);
       setUser(null);
 
-      // 静默处理，不显示 alert 弹窗
-      // API 拦截器已经处理了重定向到首页
-      console.log('Auth expired:', event.detail?.message || '登录已失效');
+      const message = event.detail?.message || '登录已失效';
+      const reason = event.detail?.reason || 'expired';
+      
+      console.log('Auth expired:', message, 'reason:', reason);
+      
+      // 如果是被踢出，显示提示信息
+      if (reason === 'kicked') {
+        // 使用 sessionStorage 存储消息，在首页显示
+        sessionStorage.setItem('auth_kicked_message', message);
+      }
     };
 
     window.addEventListener('auth:expired', handleAuthExpired);

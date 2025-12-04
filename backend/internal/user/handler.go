@@ -13,6 +13,7 @@ import (
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/config"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -229,7 +230,7 @@ func (h *Handler) Register(c *gin.Context) {
 
 	// Create session for the new user
 	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
+	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
 	utils.Success(c, AuthResponse{
 		Token: token,
@@ -270,8 +271,10 @@ func (h *Handler) Login(c *gin.Context) {
 	}
 
 	// Create session for the user
+	// Session expires in 30 days, but token expires in 2 hours
+	// Client should refresh token before it expires
 	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
+	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
 	utils.Success(c, AuthResponse{
 		Token: token,
@@ -439,7 +442,7 @@ func (h *Handler) RegisterWithPhone(c *gin.Context) {
 
 	// Create session for the new user
 	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
+	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
 	utils.Success(c, AuthResponse{
 		Token: token,
@@ -464,7 +467,7 @@ func (h *Handler) LoginWithPhone(c *gin.Context) {
 
 	// Create session for the user
 	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
+	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
 	utils.Success(c, AuthResponse{
 		Token: token,
@@ -845,6 +848,72 @@ func (h *Handler) Logout(c *gin.Context) {
 	utils.SuccessWithMessage(c, "Logged out successfully", nil)
 }
 
+// RefreshToken handles token refresh
+// This endpoint allows refreshing a token before it expires
+// The session must be within 30 days of creation
+func (h *Handler) RefreshToken(c *gin.Context) {
+	// Get token from Authorization header
+	authHeader := c.GetHeader("Authorization")
+	var token string
+	if authHeader != "" {
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) == 2 && parts[0] == "Bearer" {
+			token = parts[1]
+		}
+	}
+
+	if token == "" {
+		utils.BadRequest(c, "Token is required")
+		return
+	}
+
+	newToken, err := h.service.RefreshToken(token)
+	if err != nil {
+		if err.Error() == "session expired, please login again" {
+			// 会话超过30天，需要重新登录
+			utils.Error(c, 2016, err.Error())
+			return
+		}
+		if err.Error() == "session not found" {
+			// 会话不存在，可能是被其他设备登录踢出
+			utils.Error(c, 2019, "您的账号已在其他设备登录")
+			return
+		}
+		utils.Error(c, 2017, "Failed to refresh token: "+err.Error())
+		return
+	}
+
+	utils.Success(c, map[string]interface{}{
+		"token": newToken,
+	})
+}
+
+// GetTokenInfo returns token expiry information
+func (h *Handler) GetTokenInfo(c *gin.Context) {
+	// Get token from Authorization header
+	authHeader := c.GetHeader("Authorization")
+	var token string
+	if authHeader != "" {
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) == 2 && parts[0] == "Bearer" {
+			token = parts[1]
+		}
+	}
+
+	if token == "" {
+		utils.BadRequest(c, "Token is required")
+		return
+	}
+
+	info, err := h.service.GetTokenInfo(token)
+	if err != nil {
+		utils.Error(c, 2018, "Failed to get token info: "+err.Error())
+		return
+	}
+
+	utils.Success(c, info)
+}
+
 // ChangePassword handles user password change
 func (h *Handler) ChangePassword(c *gin.Context) {
 	userID, exists := c.Get("user_id")
@@ -1153,7 +1222,7 @@ func (h *Handler) LoginWithCode(c *gin.Context) {
 
 	// Create session for the user
 	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
+	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
 	utils.Success(c, AuthResponse{
 		Token: token,
@@ -1195,7 +1264,7 @@ func (h *Handler) LoginPhoneWithCode(c *gin.Context) {
 
 	// Create session for the user
 	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour) // 7 days
+	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
 	utils.Success(c, AuthResponse{
 		Token: token,
@@ -1222,6 +1291,10 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 		user.POST("/login-phone", h.LoginWithPhone)
 		user.POST("/login-phone-with-code", h.LoginPhoneWithCode)
 		user.POST("/reset-password-phone", h.ResetPasswordPhone)
+
+		// Token management (public endpoints for refresh)
+		user.POST("/refresh-token", h.RefreshToken)
+		user.GET("/token-info", h.GetTokenInfo)
 
 		// Protected routes will be added in the main server setup with middleware
 	}
@@ -1285,9 +1358,9 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 		return
 	}
 
-	// Create session
+	// Create session (30 days session, token expires in 2 hours)
 	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 24*7*time.Hour)
+	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour)
 
 	utils.Success(c, gin.H{
 		"token":       token,

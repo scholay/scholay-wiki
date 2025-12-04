@@ -17,6 +17,7 @@ import ModelSelector from '../components/ModelSelector';
 import ThemeToggle from '../components/ThemeToggle';
 import MobileHelpModal from '../components/MobileHelpModal';
 import SearchSuggestions from '../components/SearchSuggestions';
+import MessageModal from '../components/MessageModal';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import SEO from '../components/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
@@ -53,6 +54,7 @@ const Home = () => {
   
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [kickedMessage, setKickedMessage] = useState(null); // 被踢出提示
   const [searchMode, setSearchMode] = useState('normal'); // 'normal' or 'advanced'
   const [showFilters, setShowFilters] = useState(false); // 显示筛选条件
   const [modelLevel, setModelLevel] = useState('low'); // 'low', 'mid', 'high' - 默认普通模型
@@ -128,6 +130,15 @@ const Home = () => {
   useEffect(() => {
     setCurrentExampleIndex(0);
   }, [searchMode]);
+
+  // 检查是否有被踢出的消息
+  useEffect(() => {
+    const message = sessionStorage.getItem('auth_kicked_message');
+    if (message) {
+      setKickedMessage(message);
+      sessionStorage.removeItem('auth_kicked_message');
+    }
+  }, []);
 
   useEffect(() => {
     const phrases = [
@@ -607,6 +618,16 @@ const Home = () => {
       <MobileHelpModal
         isOpen={showHelpModal}
         onClose={() => setShowHelpModal(false)}
+      />
+
+      {/* 被踢出登录提示 */}
+      <MessageModal
+        isOpen={!!kickedMessage}
+        onClose={() => setKickedMessage(null)}
+        type="warning"
+        title="登录已失效"
+        message={kickedMessage}
+        confirmText="知道了"
       />
 
     </div>

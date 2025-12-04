@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"math/rand"
 	"scholar-backend/internal/common/cache"
+	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 	"time"
@@ -271,6 +272,7 @@ func (s *Service) LoginWithEmail(email, password, ip string) (*User, string, err
 }
 
 // ResetPassword resets user password with email verification code
+// Also invalidates all existing sessions to force re-login
 func (s *Service) ResetPassword(email, code, newPassword string) error {
 	// Verify the code
 	valid, err := cache.VerifyCode(context.Background(), email, code, "reset_password")
@@ -297,7 +299,12 @@ func (s *Service) ResetPassword(email, code, newPassword string) error {
 	}
 
 	// Update password
-	return s.repo.UpdatePassword(user.ID, hashedPassword)
+	if err := s.repo.UpdatePassword(user.ID, hashedPassword); err != nil {
+		return err
+	}
+
+	// Invalidate all existing sessions for this user (force re-login on all devices)
+	return s.repo.DeleteUserSessions(user.ID)
 }
 
 // LoginWithEmailCode logs in a user with email and verification code
@@ -999,10 +1006,29 @@ func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
 }
 
 // CreateSession creates a new user session
+// CreateSession creates a new session for a user
+// Implements single sign-on per device type: PC and mobile are separate
+// When a user logs in on a new device, other sessions of the same device type are invalidated
 func (s *Service) CreateSession(userID uint, token, ip, userAgent string, expiresIn time.Duration) error {
+	// 解析设备类型
+	deviceType := utils.ParseDeviceType(userAgent)
+
+	// 使旧会话的 Redis 缓存失效（在删除数据库记录之前）
+	if validator := middleware.GetSessionValidator(); validator != nil {
+		validator.InvalidateUserSessions(userID)
+	}
+
+	// 单点登录：删除同一用户同一设备类型的其他会话
+	// PC端只能有一个会话，移动端只能有一个会话，但PC和移动端可以同时存在
+	if err := s.repo.DeleteUserSessionsByDeviceType(userID, deviceType); err != nil {
+		// 删除失败不影响创建新会话，只记录日志
+		fmt.Printf("Warning: failed to delete old sessions for user %d device %s: %v\n", userID, deviceType, err)
+	}
+
 	session := &model.UserSession{
 		UserID:       userID,
 		Token:        token,
+		DeviceType:   deviceType,
 		IP:           ip,
 		UserAgent:    userAgent,
 		LastActivity: time.Now(),
@@ -1027,6 +1053,7 @@ func (s *Service) Logout(userID uint) error {
 }
 
 // ChangePassword changes user password with current password verification
+// Also invalidates all existing sessions to force re-login
 func (s *Service) ChangePassword(userID uint, currentPassword, newPassword string) error {
 	// Get user by ID
 	user, err := s.repo.FindByID(userID)
@@ -1054,7 +1081,86 @@ func (s *Service) ChangePassword(userID uint, currentPassword, newPassword strin
 	}
 
 	// Update password
-	return s.repo.UpdatePassword(userID, hashedPassword)
+	if err := s.repo.UpdatePassword(userID, hashedPassword); err != nil {
+		return err
+	}
+
+	// Invalidate all existing sessions for this user (force re-login on all devices)
+	return s.repo.DeleteUserSessions(userID)
+}
+
+// RefreshToken refreshes a token if the session is still valid and within 30-day limit
+func (s *Service) RefreshToken(oldToken string) (string, error) {
+	// Parse the old token (even if expired)
+	claims, err := utils.ParseTokenIgnoreExpiry(oldToken)
+	if err != nil {
+		return "", errors.New("invalid token")
+	}
+
+	// Get the session from database
+	session, err := s.repo.GetUserSession(oldToken)
+	if err != nil {
+		return "", fmt.Errorf("failed to get session: %w", err)
+	}
+	if session == nil {
+		return "", errors.New("session not found")
+	}
+
+	// Check if session can be refreshed (within 30 days of creation)
+	if !session.CanRefresh() {
+		return "", errors.New("session expired, please login again")
+	}
+
+	// Get user info
+	user, err := s.repo.FindByID(claims.UserID)
+	if err != nil || user == nil {
+		return "", errors.New("user not found")
+	}
+
+	// Generate new token
+	username := ""
+	if user.Username != nil {
+		username = *user.Username
+	}
+	newToken, err := utils.GenerateTokenWithSession(user.ID, username, claims.Type, fmt.Sprintf("%d", session.ID))
+	if err != nil {
+		return "", fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	// Calculate new expiry time (min of token expiry or session max expiry)
+	newExpiry := time.Now().Add(utils.TokenExpiration)
+	maxExpiry := session.GetMaxExpiryTime()
+	if newExpiry.After(maxExpiry) {
+		newExpiry = maxExpiry
+	}
+
+	// Update session with new token
+	if err := s.repo.UpdateSessionToken(session.ID, newToken, newExpiry); err != nil {
+		return "", fmt.Errorf("failed to update session: %w", err)
+	}
+
+	return newToken, nil
+}
+
+// GetTokenInfo returns token expiry info for the client
+func (s *Service) GetTokenInfo(token string) (map[string]interface{}, error) {
+	claims, err := utils.ParseToken(token)
+	if err != nil {
+		return nil, err
+	}
+
+	session, err := s.repo.GetUserSession(token)
+	if err != nil || session == nil {
+		return nil, errors.New("session not found")
+	}
+
+	return map[string]interface{}{
+		"expires_at":         claims.ExpiresAt.Time,
+		"remaining_seconds":  int(utils.GetTokenRemainingTime(claims).Seconds()),
+		"should_refresh":     utils.ShouldRefreshToken(claims),
+		"session_max_expiry": session.GetMaxExpiryTime(),
+		"can_refresh":        session.CanRefresh(),
+	}, nil
 }
 
 // GetUserStatisticsChart returns user registration statistics for charts (legacy, kept for compatibility)
@@ -1515,6 +1621,8 @@ func (s *Service) LoginWithPhone(phone, password, ip string) (*User, string, err
 }
 
 // ResetPasswordPhone resets user password with phone verification code
+// ResetPasswordPhone resets user password with phone verification code
+// Also invalidates all existing sessions to force re-login
 func (s *Service) ResetPasswordPhone(phone, code, newPassword string) error {
 	// Verify the code
 	valid, err := cache.VerifyCode(context.Background(), phone, code, "reset_password")
@@ -1541,7 +1649,12 @@ func (s *Service) ResetPasswordPhone(phone, code, newPassword string) error {
 	}
 
 	// Update password
-	return s.repo.UpdatePassword(user.ID, hashedPassword)
+	if err := s.repo.UpdatePassword(user.ID, hashedPassword); err != nil {
+		return err
+	}
+
+	// Invalidate all existing sessions for this user (force re-login on all devices)
+	return s.repo.DeleteUserSessions(user.ID)
 }
 
 // LoginWithPhoneCode logs in a user with phone and verification code

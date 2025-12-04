@@ -290,6 +290,22 @@ func (r *Repository) DeleteUserSessions(userID uint) error {
 		Delete(&model.UserSession{}).Error
 }
 
+// DeleteUserSessionsByDeviceType deletes all sessions for a user with specific device type
+// This is used for single sign-on: when user logs in on a new device,
+// kick out other sessions of the same device type
+func (r *Repository) DeleteUserSessionsByDeviceType(userID uint, deviceType string) error {
+	return r.db.Where("user_id = ? AND device_type = ?", userID, deviceType).
+		Delete(&model.UserSession{}).Error
+}
+
+// GetUserSessionsByDeviceType gets all sessions for a user with specific device type
+func (r *Repository) GetUserSessionsByDeviceType(userID uint, deviceType string) ([]model.UserSession, error) {
+	var sessions []model.UserSession
+	err := r.db.Where("user_id = ? AND device_type = ?", userID, deviceType).
+		Find(&sessions).Error
+	return sessions, err
+}
+
 // GetUserSession finds a session by token
 func (r *Repository) GetUserSession(token string) (*model.UserSession, error) {
 	var session model.UserSession
@@ -301,6 +317,30 @@ func (r *Repository) GetUserSession(token string) (*model.UserSession, error) {
 		return nil, err
 	}
 	return &session, nil
+}
+
+// GetSessionByID finds a session by ID
+func (r *Repository) GetSessionByID(id uint) (*model.UserSession, error) {
+	var session model.UserSession
+	err := r.db.Where("id = ?", id).First(&session).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &session, nil
+}
+
+// UpdateSessionToken updates the token and expiry for a session
+func (r *Repository) UpdateSessionToken(sessionID uint, newToken string, newExpiry time.Time) error {
+	return r.db.Model(&model.UserSession{}).
+		Where("id = ?", sessionID).
+		Updates(map[string]interface{}{
+			"token":         newToken,
+			"expires_at":    newExpiry,
+			"last_activity": time.Now(),
+		}).Error
 }
 
 // GetOnlineUsers returns list of currently online users with their session info

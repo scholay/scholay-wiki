@@ -17,6 +17,7 @@ import { SidebarProvider } from './contexts/SidebarContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './components/MainLayout';
+import CheckinFloat from './components/CheckinFloat';
 
 // 首页立即加载(最常访问)
 import Home from './pages/Home';
@@ -115,6 +116,9 @@ function App() {
                       onLoginSuccess={() => setShowAuthModal(false)}
                     />
                   )}
+
+                  {/* 签到悬浮球 - 登录状态下且今日未签到时显示 */}
+                  <CheckinFloat />
                 </Suspense>
               </Router>
             </SidebarProvider>
