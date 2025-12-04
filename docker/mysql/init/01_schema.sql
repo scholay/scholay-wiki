@@ -971,39 +971,46 @@ INSERT IGNORE INTO `analysis_dimensions` (`user_id`, `dimension_key`, `name`, `d
 若摘要未提供相关信息，请输出 “未提及”。', 8);
 
 -- ============================================
--- AI审稿人系统表
+-- AI审稿人系统表（三审制 + 多文件支持）
 -- ============================================
 
 -- 审稿任务表（主表）
+-- 一个任务包含：主稿件 + 附件（最多5个） + 3个独立审稿结果 + 1个综合结果
 CREATE TABLE IF NOT EXISTS `peer_review_tasks` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
-  `input_type` VARCHAR(20) NOT NULL DEFAULT 'text' COMMENT '输入类型: text=文本, file=文件',
-  `manuscript_text` LONGTEXT COMMENT '稿件文本内容',
-  `file_id` BIGINT UNSIGNED COMMENT '关联的文件ID',
-  `file_name` VARCHAR(500) COMMENT '上传的文件名',
-  `manuscript_hash` VARCHAR(64) COMMENT '内容哈希，用于缓存',
-  `title` VARCHAR(500) COMMENT '稿件标题（从内容中提取）',
+  
+  -- 主稿件信息
+  `input_type` VARCHAR(20) NOT NULL DEFAULT 'text' COMMENT '主稿件输入类型: text=文本输入, file=文件上传',
+  `manuscript_text` LONGTEXT COMMENT '主稿件文本内容（文本输入或从文件提取）',
+  `manuscript_file_id` BIGINT UNSIGNED COMMENT '主稿件文件ID（文件上传时）',
+  
+  -- 任务配置
+  `title` VARCHAR(500) COMMENT '稿件标题（从内容中提取或用户指定）',
   `target_venue` VARCHAR(255) COMMENT '目标期刊/会议',
   `model_level` VARCHAR(20) DEFAULT 'mid' COMMENT '模型级别: low, mid, high',
+  `content_hash` VARCHAR(64) COMMENT '内容哈希，用于缓存和去重',
   
   -- 任务状态
-  `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '状态: pending=等待处理, processing=处理中, completed=已完成, failed=失败',
-  `progress` INT NOT NULL DEFAULT 0 COMMENT '进度百分比 0-100',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'draft' COMMENT '状态: draft=草稿, pending=等待处理, processing=处理中, completed=已完成, failed=失败',
+  `progress` INT NOT NULL DEFAULT 0 COMMENT '总体进度百分比 0-100',
   `progress_stage` VARCHAR(100) COMMENT '当前阶段描述',
   `error_message` TEXT COMMENT '错误信息',
   
-  -- 处理结果（JSON存储）
-  `manuscript_meta` TEXT COMMENT '稿件元信息 JSON',
-  `literature_context` TEXT COMMENT '文献上下文 JSON',
+  -- 预处理结果（共享给三个审稿人）
+  `manuscript_meta` TEXT COMMENT '稿件元信息 JSON（标题、摘要、关键词等）',
+  `literature_context` TEXT COMMENT '检索到的相关文献 JSON',
   `literature_summary` TEXT COMMENT '文献总结 JSON',
-  `gap_literature` TEXT COMMENT '研究空白相关文献 JSON',
-  `review_content` LONGTEXT COMMENT 'Markdown格式的审稿报告',
-  `recommendation` VARCHAR(50) COMMENT '最终推荐: Accept, Minor Revision, Major Revision, Reject',
+  
+  -- 综合审稿结果（三审汇总）
+  `final_recommendation` VARCHAR(50) COMMENT '最终推荐: Accept, Minor Revision, Major Revision, Reject',
+  `final_review_content` LONGTEXT COMMENT '综合审稿报告 Markdown',
+  `consensus_score` DECIMAL(3,2) COMMENT '三审一致性评分 0-1',
   
   -- 时间戳
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `submitted_at` DATETIME COMMENT '提交审稿时间',
   `started_at` DATETIME COMMENT '开始处理时间',
   `completed_at` DATETIME COMMENT '完成时间',
   
@@ -1012,39 +1019,81 @@ CREATE TABLE IF NOT EXISTS `peer_review_tasks` (
   INDEX `idx_status` (`status`),
   INDEX `idx_user_status` (`user_id`, `status`),
   INDEX `idx_user_created` (`user_id`, `created_at` DESC),
-  INDEX `idx_manuscript_hash` (`manuscript_hash`),
-  CONSTRAINT `fk_peer_review_task_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  INDEX `idx_content_hash` (`content_hash`),
+  CONSTRAINT `fk_pr_task_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI审稿任务表';
 
--- 审稿文件表（存储上传的文件）
+-- 审稿文件表（存储主稿件和附件文件）
 CREATE TABLE IF NOT EXISTS `peer_review_files` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `task_id` BIGINT UNSIGNED COMMENT '关联的任务ID（草稿阶段可为空）',
   `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+  
+  -- 文件类型
+  `file_role` VARCHAR(20) NOT NULL DEFAULT 'manuscript' COMMENT '文件角色: manuscript=主稿件, attachment=附件',
+  `sort_order` INT NOT NULL DEFAULT 0 COMMENT '排序顺序（附件用）',
+  
+  -- 文件信息
   `file_name` VARCHAR(255) NOT NULL COMMENT '原始文件名',
-  `file_type` VARCHAR(50) COMMENT '文件类型: docx, doc, txt, pdf',
-  `file_size` BIGINT COMMENT '文件大小（字节）',
+  `file_ext` VARCHAR(20) NOT NULL COMMENT '文件扩展名（不含点）',
+  `file_size` BIGINT NOT NULL DEFAULT 0 COMMENT '文件大小（字节）',
   `file_path` VARCHAR(500) COMMENT '存储路径',
-  `extracted_text` LONGTEXT COMMENT '提取的文本内容',
-  `status` VARCHAR(50) DEFAULT 'pending' COMMENT '状态: pending, processed, failed',
+  `mime_type` VARCHAR(100) COMMENT 'MIME类型',
+  
+  -- 内容处理
+  `process_mode` VARCHAR(20) NOT NULL DEFAULT 'extract' COMMENT '处理模式: extract=提取文本, direct=直接传递给AI',
+  `extracted_text` LONGTEXT COMMENT '提取的文本内容（extract模式）',
+  `process_status` VARCHAR(20) DEFAULT 'pending' COMMENT '处理状态: pending, processed, failed',
+  `process_error` VARCHAR(500) COMMENT '处理错误信息',
+  
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   
   PRIMARY KEY (`id`),
+  INDEX `idx_task_id` (`task_id`),
   INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_file_role` (`task_id`, `file_role`),
   INDEX `idx_created_at` (`created_at`),
-  CONSTRAINT `fk_peer_review_file_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_pr_file_task` FOREIGN KEY (`task_id`) REFERENCES `peer_review_tasks` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_pr_file_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI审稿文件表';
 
--- 为审稿任务表添加文件外键（条件执行，避免重复）
-SET @fk_exists := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
-                   WHERE CONSTRAINT_SCHEMA = DATABASE() 
-                   AND TABLE_NAME = 'peer_review_tasks' 
-                   AND CONSTRAINT_NAME = 'fk_peer_review_task_file');
-SET @fk_sql := IF(@fk_exists = 0, 
-    'ALTER TABLE `peer_review_tasks` ADD CONSTRAINT `fk_peer_review_task_file` FOREIGN KEY (`file_id`) REFERENCES `peer_review_files` (`id`) ON DELETE SET NULL', 
-    'SELECT 1');
-PREPARE fk_stmt FROM @fk_sql;
-EXECUTE fk_stmt;
-DEALLOCATE PREPARE fk_stmt;
+-- 添加主稿件文件外键
+ALTER TABLE `peer_review_tasks` 
+  ADD CONSTRAINT `fk_pr_task_manuscript` FOREIGN KEY (`manuscript_file_id`) 
+  REFERENCES `peer_review_files` (`id`) ON DELETE SET NULL;
+
+-- 独立审稿结果表（每个任务3条记录，对应3个审稿人）
+CREATE TABLE IF NOT EXISTS `peer_review_results` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `task_id` BIGINT UNSIGNED NOT NULL COMMENT '关联的任务ID',
+  `reviewer_index` TINYINT NOT NULL COMMENT '审稿人编号: 1, 2, 3',
+  
+  -- 审稿状态
+  `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '状态: pending, processing, completed, failed',
+  `progress` INT NOT NULL DEFAULT 0 COMMENT '进度百分比 0-100',
+  `error_message` TEXT COMMENT '错误信息',
+  
+  -- 审稿结果
+  `recommendation` VARCHAR(50) COMMENT '推荐意见: Accept, Minor Revision, Major Revision, Reject',
+  `confidence_score` DECIMAL(3,2) COMMENT '置信度评分 0-1',
+  `review_content` LONGTEXT COMMENT '审稿报告 Markdown',
+  
+  -- 评分维度（JSON存储详细评分）
+  `dimension_scores` TEXT COMMENT '各维度评分 JSON: {originality, methodology, clarity, significance}',
+  
+  -- 时间戳
+  `started_at` DATETIME COMMENT '开始时间',
+  `completed_at` DATETIME COMMENT '完成时间',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_task_reviewer` (`task_id`, `reviewer_index`),
+  INDEX `idx_task_id` (`task_id`),
+  INDEX `idx_status` (`status`),
+  CONSTRAINT `fk_pr_result_task` FOREIGN KEY (`task_id`) REFERENCES `peer_review_tasks` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI审稿独立结果表（三审制）';
 
 -- ============================================
 -- 反馈系统表
@@ -1133,3 +1182,4 @@ CREATE TABLE IF NOT EXISTS `user_checkin_stats` (
   UNIQUE INDEX `uk_user_id` (`user_id`),
   CONSTRAINT `fk_checkin_stats_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户签到统计表';
+

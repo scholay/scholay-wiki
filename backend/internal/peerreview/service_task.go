@@ -10,12 +10,16 @@ package peerreview
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -49,8 +53,34 @@ func (s *Service) GetOrCreateDraft(userID uint) (*DraftResponse, error) {
 		return nil, err
 	}
 
+	// 加载关联的文件
+	s.loadTaskFiles(&draft)
+
 	// 构建响应
 	return s.buildDraftResponse(&draft), nil
+}
+
+// loadTaskFiles 加载任务关联的文件
+func (s *Service) loadTaskFiles(task *PeerReviewTask) {
+	// 加载主稿件文件
+	if task.ManuscriptFileID != nil {
+		var file PeerReviewFile
+		if err := s.db.First(&file, *task.ManuscriptFileID).Error; err == nil {
+			task.ManuscriptFile = &file
+		}
+	}
+
+	// 加载附件
+	var attachments []PeerReviewFile
+	s.db.Where("task_id = ? AND file_role = ?", task.ID, FileRoleAttachment).
+		Order("sort_order ASC").
+		Find(&attachments)
+	task.Attachments = attachments
+
+	// 加载审稿结果
+	var reviews []PeerReviewResult
+	s.db.Where("task_id = ?", task.ID).Order("reviewer_index ASC").Find(&reviews)
+	task.Reviews = reviews
 }
 
 // SaveDraft 保存草稿
@@ -81,7 +111,6 @@ func (s *Service) SaveDraft(userID uint, req *SaveDraftRequest) (*DraftResponse,
 	draft.ManuscriptText = req.ManuscriptText
 	draft.TargetVenue = req.TargetVenue
 	draft.ModelLevel = req.ModelLevel
-	draft.FileName = req.FileName
 	
 	// 如果有内容，提取标题
 	if len(req.ManuscriptText) > 0 {
@@ -102,10 +131,13 @@ func (s *Service) SaveDraft(userID uint, req *SaveDraftRequest) (*DraftResponse,
 		}
 	}
 
+	// 加载关联文件
+	s.loadTaskFiles(&draft)
+
 	return s.buildDraftResponse(&draft), nil
 }
 
-// SubmitDraft 提交草稿开始审稿
+// SubmitDraft 提交草稿开始审稿（三审制）
 func (s *Service) SubmitDraft(userID uint, req *SubmitDraftRequest) (*PeerReviewTask, error) {
 	var draft PeerReviewTask
 	
@@ -118,11 +150,28 @@ func (s *Service) SubmitDraft(userID uint, req *SubmitDraftRequest) (*PeerReview
 		return nil, err
 	}
 
+	// 加载关联文件
+	s.loadTaskFiles(&draft)
+
 	// 验证草稿内容
-	if len(draft.ManuscriptText) < 100 {
-		return nil, fmt.Errorf("稿件内容太短，请提供更完整的内容（至少100字）")
+	hasManuscriptFile := draft.ManuscriptFileID != nil
+	hasManuscriptText := len(draft.ManuscriptText) >= 100
+
+	if !hasManuscriptFile && !hasManuscriptText {
+		return nil, fmt.Errorf("请上传稿件文件或输入稿件内容（至少100字）")
 	}
-	
+
+	// 如果有主稿件文件，验证文件存在
+	if hasManuscriptFile {
+		var file PeerReviewFile
+		if err := s.db.First(&file, *draft.ManuscriptFileID).Error; err != nil {
+			return nil, fmt.Errorf("稿件文件记录不存在，请重新上传")
+		}
+		if _, err := os.Stat(file.FilePath); os.IsNotExist(err) {
+			return nil, fmt.Errorf("稿件文件已丢失，请重新上传")
+		}
+	}
+
 	// 验证字符长度限制（最大5万字符）
 	const maxManuscriptLength = 50000
 	if len(draft.ManuscriptText) > maxManuscriptLength {
@@ -138,57 +187,124 @@ func (s *Service) SubmitDraft(userID uint, req *SubmitDraftRequest) (*PeerReview
 	}
 
 	// 生成内容哈希
-	draft.ManuscriptHash = generateManuscriptHash(draft.ManuscriptText, draft.TargetVenue)
+	hashInput := draft.ManuscriptText
+	if hasManuscriptFile {
+		var file PeerReviewFile
+		s.db.First(&file, *draft.ManuscriptFileID)
+		hashInput = fmt.Sprintf("FILE:%s:%d:%s", file.FileName, file.FileSize, draft.ManuscriptText)
+	}
+	draft.ContentHash = generateManuscriptHash(hashInput, draft.TargetVenue)
 
 	// 更新状态为待处理
+	now := time.Now()
 	draft.Status = TaskStatusPending
 	draft.Progress = 0
 	draft.ProgressStage = "等待处理"
-	
-	// 更新创建时间为当前时间（提交审稿的时间才是真正的任务开始时间）
-	now := time.Now()
-	draft.CreatedAt = now
+	draft.SubmittedAt = &now
 	draft.StartedAt = &now
 
 	if err := s.db.Save(&draft).Error; err != nil {
 		return nil, fmt.Errorf("提交草稿失败: %w", err)
 	}
 
-	// 启动异步处理
-	go s.processTaskAsync(draft.ID)
+	// 创建三个审稿结果记录
+	for i := 1; i <= ReviewerCount; i++ {
+		result := PeerReviewResult{
+			TaskID:        draft.ID,
+			ReviewerIndex: i,
+			Status:        TaskStatusPending,
+			Progress:      0,
+		}
+		s.db.Create(&result)
+	}
+
+	// 启动异步处理（三审并行）
+	go s.processTaskAsyncWithThreeReviewers(draft.ID)
 
 	return &draft, nil
 }
 
 // ParseFileAndSaveToDraft 解析文件并保存到草稿
+// 文件类型处理策略：
+// - 文本格式（txt, rtf, odt, xml, html）：提取文本内容保存，使用文本与大模型对话
+// - 复杂格式（pdf, doc, docx）：直接保存文件，后续审稿时直接将文件传递给大模型
 func (s *Service) ParseFileAndSaveToDraft(userID uint, fileName string, fileExt string, content []byte) (*UploadFileResponse, error) {
-	// 提取文本内容
+	// 判断文件处理策略
+	// 文本格式：提取文本
+	// 复杂格式：直接使用文件
+	textExtractableTypes := map[string]bool{
+		".txt":  true,
+		".rtf":  true,
+		".odt":  true,
+		".xml":  true,
+		".html": true,
+		".htm":  true,
+	}
+	
+	useFileInput := !textExtractableTypes[fileExt] // pdf, doc, docx 等直接使用文件
+	
 	var extractedText string
 	var err error
 
-	switch fileExt {
-	case ".txt":
-		extractedText, err = extractTextFromTXT(content)
-	case ".doc", ".docx", ".rtf", ".odt":
-		extractedText, err = extractTextFromWord(content, fileExt)
-	case ".pdf":
-		extractedText, err = extractTextFromPDF(content)
-	default:
-		return nil, fmt.Errorf("不支持的文件类型: %s", fileExt)
-	}
+	if useFileInput {
+		// 复杂格式文件（pdf, doc, docx）：不提取文本，直接保存文件
+		// 验证文件大小（最大10MB，与上传限制一致）
+		const maxFileSize = 10 * 1024 * 1024
+		if len(content) > maxFileSize {
+			return nil, fmt.Errorf("文件大小超出限制，最大支持10MB")
+		}
+		
+		// 验证PDF文件头（如果是PDF）
+		if fileExt == ".pdf" {
+			if len(content) < 4 || string(content[:4]) != "%PDF" {
+				return nil, fmt.Errorf("无效的PDF文件格式")
+			}
+		}
+		
+		// 验证Word文件头（如果是doc/docx）
+		if fileExt == ".doc" || fileExt == ".docx" {
+			// docx 是 ZIP 格式，以 PK 开头
+			// doc 是 OLE 格式，以 D0 CF 11 E0 开头
+			if len(content) < 4 {
+				return nil, fmt.Errorf("无效的Word文件格式")
+			}
+			isZip := content[0] == 0x50 && content[1] == 0x4B  // PK (docx)
+			isOLE := content[0] == 0xD0 && content[1] == 0xCF  // OLE (doc)
+			if !isZip && !isOLE {
+				return nil, fmt.Errorf("无效的Word文件格式")
+			}
+		}
+		
+		// 不提取文本
+		extractedText = ""
+	} else {
+		// 文本格式（txt, rtf, odt, xml, html）：提取文本内容
+		switch fileExt {
+		case ".txt":
+			extractedText, err = extractTextFromTXT(content)
+		case ".rtf", ".odt":
+			extractedText, err = extractTextFromWord(content, fileExt)
+		case ".xml":
+			extractedText, err = extractTextFromXML(content)
+		case ".html", ".htm":
+			extractedText, err = extractTextFromHTML(content)
+		default:
+			return nil, fmt.Errorf("不支持的文件类型: %s", fileExt)
+		}
 
-	if err != nil {
-		return nil, fmt.Errorf("提取文本失败: %w", err)
-	}
+		if err != nil {
+			return nil, fmt.Errorf("提取文本失败: %w", err)
+		}
 
-	if len(extractedText) < 50 {
-		return nil, fmt.Errorf("文件内容太少或无法识别")
-	}
+		if len(extractedText) < 50 {
+			return nil, fmt.Errorf("文件内容太少或无法识别")
+		}
 
-	// 验证提取内容长度（最大5万字符）
-	const maxManuscriptLength = 50000
-	if len(extractedText) > maxManuscriptLength {
-		return nil, fmt.Errorf("文件内容超出长度限制，最多支持%d个字符，当前文件包含%d个字符", maxManuscriptLength, len(extractedText))
+		// 验证提取内容长度（最大5万字符）
+		const maxManuscriptLength = 50000
+		if len(extractedText) > maxManuscriptLength {
+			return nil, fmt.Errorf("文件内容超出长度限制，最多支持%d个字符，当前文件包含%d个字符", maxManuscriptLength, len(extractedText))
+		}
 	}
 
 	// 保存原始文件到磁盘
@@ -206,16 +322,22 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, fileName string, fileExt 
 		return nil, fmt.Errorf("保存文件失败: %w", err)
 	}
 
+	// 确定处理模式
+	extWithoutDot := strings.TrimPrefix(fileExt, ".")
+	processMode := GetProcessMode(extWithoutDot)
+
 	// 创建文件记录
 	file := PeerReviewFile{
 		UserID:        userID,
 		FileName:      fileName,
-		FileType:      strings.TrimPrefix(fileExt, "."),
+		FileExt:       extWithoutDot,
 		FileSize:      int64(len(content)),
 		FilePath:      filePath,
+		MimeType:      GetMimeType(extWithoutDot),
+		ProcessMode:   processMode,
 		ExtractedText: extractedText,
-		Status:        "processed",
-		CreatedAt:     time.Now(),
+		ProcessStatus: "processed",
+		FileRole:      FileRoleManuscript,
 	}
 	if err := s.db.Create(&file).Error; err != nil {
 		// 如果数据库保存失败，删除已保存的文件
@@ -240,10 +362,10 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, fileName string, fileExt 
 		return nil, err
 	}
 
-	// 如果之前有关联的文件，删除旧文件
-	if draft.FileID != nil {
+	// 如果之前有关联的主稿件文件，删除旧文件
+	if draft.ManuscriptFileID != nil {
 		var oldFile PeerReviewFile
-		if err := s.db.First(&oldFile, *draft.FileID).Error; err == nil {
+		if err := s.db.First(&oldFile, *draft.ManuscriptFileID).Error; err == nil {
 			os.Remove(oldFile.FilePath)
 			s.db.Delete(&oldFile)
 		}
@@ -252,8 +374,7 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, fileName string, fileExt 
 	// 更新草稿内容
 	draft.InputType = InputTypeFile
 	draft.ManuscriptText = extractedText
-	draft.FileName = fileName
-	draft.FileID = &file.ID
+	draft.ManuscriptFileID = &file.ID
 	draft.Title = strings.TrimSuffix(fileName, fileExt)
 	if len(draft.Title) > 100 {
 		draft.Title = truncateString(draft.Title, 100)
@@ -271,14 +392,19 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, fileName string, fileExt 
 	}
 
 	// 构建预览
-	preview := truncateString(extractedText, 500)
+	var preview string
+	if processMode == ProcessModeDirect {
+		preview = fmt.Sprintf("[%s] %.2f MB - 将直接传递给AI", fileName, float64(len(content))/(1024*1024))
+	} else {
+		preview = truncateString(extractedText, 500)
+	}
 
 	return &UploadFileResponse{
-		DraftID:        draft.ID,
 		FileID:         file.ID,
 		FileName:       fileName,
+		FileExt:        extWithoutDot,
 		FileSize:       int64(len(content)),
-		ExtractedText:  extractedText,
+		ProcessMode:    processMode,
 		ContentPreview: preview,
 	}, nil
 }
@@ -292,15 +418,43 @@ func (s *Service) buildDraftResponse(draft *PeerReviewTask) *DraftResponse {
 		preview = draft.ManuscriptText
 	}
 
-	return &DraftResponse{
+	resp := &DraftResponse{
 		ID:             draft.ID,
 		InputType:      draft.InputType,
 		ManuscriptText: draft.ManuscriptText,
 		TargetVenue:    draft.TargetVenue,
 		ModelLevel:     draft.ModelLevel,
-		FileName:       draft.FileName,
 		ContentPreview: preview,
 	}
+
+	// 添加主稿件文件信息
+	if draft.ManuscriptFile != nil {
+		resp.ManuscriptFile = &FileInfo{
+			ID:            draft.ManuscriptFile.ID,
+			FileName:      draft.ManuscriptFile.FileName,
+			FileExt:       draft.ManuscriptFile.FileExt,
+			FileSize:      draft.ManuscriptFile.FileSize,
+			ProcessMode:   draft.ManuscriptFile.ProcessMode,
+			ProcessStatus: draft.ManuscriptFile.ProcessStatus,
+		}
+	}
+
+	// 添加附件信息
+	if len(draft.Attachments) > 0 {
+		resp.Attachments = make([]FileInfo, len(draft.Attachments))
+		for i, att := range draft.Attachments {
+			resp.Attachments[i] = FileInfo{
+				ID:            att.ID,
+				FileName:      att.FileName,
+				FileExt:       att.FileExt,
+				FileSize:      att.FileSize,
+				ProcessMode:   att.ProcessMode,
+				ProcessStatus: att.ProcessStatus,
+			}
+		}
+	}
+
+	return resp
 }
 
 // ========== 任务管理方法 ==========
@@ -325,7 +479,7 @@ func (s *Service) CreateTask(userID uint, req *CreateTaskRequest) (*PeerReviewTa
 	}
 
 	// 生成内容哈希
-	manuscriptHash := generateManuscriptHash(manuscriptText, req.TargetVenue)
+	contentHash := generateManuscriptHash(manuscriptText, req.TargetVenue)
 
 	// 提取标题（简单方式：取前100字符或第一行）
 	title := extractTitle(manuscriptText)
@@ -335,7 +489,7 @@ func (s *Service) CreateTask(userID uint, req *CreateTaskRequest) (*PeerReviewTa
 		UserID:         userID,
 		InputType:      req.InputType,
 		ManuscriptText: manuscriptText,
-		ManuscriptHash: manuscriptHash,
+		ContentHash:    contentHash,
 		Title:          title,
 		TargetVenue:    req.TargetVenue,
 		ModelLevel:     req.ModelLevel,
@@ -345,7 +499,7 @@ func (s *Service) CreateTask(userID uint, req *CreateTaskRequest) (*PeerReviewTa
 	}
 
 	if req.InputType == InputTypeFile {
-		task.FileID = &req.FileID
+		task.ManuscriptFileID = &req.FileID
 	}
 
 	if err := s.db.Create(task).Error; err != nil {
@@ -383,18 +537,23 @@ func (s *Service) GetTaskList(userID uint, page, pageSize int, status string) (*
 	// 转换为摘要
 	summaries := make([]TaskSummary, len(tasks))
 	for i, t := range tasks {
+		// 统计附件数量
+		var attachmentCount int64
+		s.db.Model(&PeerReviewFile{}).Where("task_id = ? AND file_role = ?", t.ID, FileRoleAttachment).Count(&attachmentCount)
+		
 		summaries[i] = TaskSummary{
-			ID:             t.ID,
-			Title:          t.Title,
-			TargetVenue:    t.TargetVenue,
-			InputType:      t.InputType,
-			Status:         t.Status,
-			Progress:       t.Progress,
-			ProgressStage:  t.ProgressStage,
-			Recommendation: t.Recommendation,
-			ModelLevel:     t.ModelLevel,
-			CreatedAt:      t.CreatedAt,
-			CompletedAt:    t.CompletedAt,
+			ID:                  t.ID,
+			Title:               t.Title,
+			TargetVenue:         t.TargetVenue,
+			InputType:           t.InputType,
+			Status:              t.Status,
+			Progress:            t.Progress,
+			ProgressStage:       t.ProgressStage,
+			FinalRecommendation: t.FinalRecommendation,
+			ModelLevel:          t.ModelLevel,
+			AttachmentCount:     int(attachmentCount),
+			CreatedAt:           t.CreatedAt,
+			CompletedAt:         t.CompletedAt,
 		}
 	}
 
@@ -422,35 +581,65 @@ func (s *Service) GetTaskDetail(userID uint, taskID uint) (*TaskDetailResponse, 
 		return nil, err
 	}
 
+	// 加载关联数据
+	s.loadTaskFiles(&task)
+
 	response := &TaskDetailResponse{
-		ID:            task.ID,
-		Title:         task.Title,
-		InputType:     task.InputType,
-		TargetVenue:   task.TargetVenue,
-		Status:        task.Status,
-		Progress:      task.Progress,
-		ProgressStage: task.ProgressStage,
-		ModelLevel:    task.ModelLevel,
-		FileID:        task.FileID,
-		ReviewContent: task.ReviewContent,
-		Recommendation: task.Recommendation,
-		ErrorMessage:  task.ErrorMessage,
-		CreatedAt:     task.CreatedAt,
-		UpdatedAt:     task.UpdatedAt,
-		CompletedAt:   task.CompletedAt,
+		ID:                  task.ID,
+		Title:               task.Title,
+		InputType:           task.InputType,
+		TargetVenue:         task.TargetVenue,
+		Status:              task.Status,
+		Progress:            task.Progress,
+		ProgressStage:       task.ProgressStage,
+		ModelLevel:          task.ModelLevel,
+		ErrorMessage:        task.ErrorMessage,
+		ManuscriptText:      task.ManuscriptText,
+		FinalRecommendation: task.FinalRecommendation,
+		FinalReviewContent:  task.FinalReviewContent,
+		ConsensusScore:      task.ConsensusScore,
+		CreatedAt:           task.CreatedAt,
+		UpdatedAt:           task.UpdatedAt,
+		SubmittedAt:         task.SubmittedAt,
+		CompletedAt:         task.CompletedAt,
 	}
 
-	// 返回完整的稿件内容（不截断）
-	response.ManuscriptText = task.ManuscriptText
+	// 添加主稿件文件信息
+	if task.ManuscriptFile != nil {
+		response.ManuscriptFile = &FileInfo{
+			ID:       task.ManuscriptFile.ID,
+			FileName: task.ManuscriptFile.FileName,
+			FileExt:  task.ManuscriptFile.FileExt,
+			FileSize: task.ManuscriptFile.FileSize,
+		}
+	}
 
-	// 获取文件名 - 优先使用任务表中的 FileName 字段
-	if task.FileName != "" {
-		response.FileName = task.FileName
-	} else if task.FileID != nil {
-		// 兼容旧数据：从 PeerReviewFile 表获取
-		var file PeerReviewFile
-		if err := s.db.Where("id = ?", *task.FileID).First(&file).Error; err == nil {
-			response.FileName = file.FileName
+	// 添加附件信息
+	if len(task.Attachments) > 0 {
+		response.Attachments = make([]FileInfo, len(task.Attachments))
+		for i, att := range task.Attachments {
+			response.Attachments[i] = FileInfo{
+				ID:       att.ID,
+				FileName: att.FileName,
+				FileExt:  att.FileExt,
+				FileSize: att.FileSize,
+			}
+		}
+	}
+
+	// 添加三审结果
+	if len(task.Reviews) > 0 {
+		response.Reviews = make([]ReviewResultInfo, len(task.Reviews))
+		for i, r := range task.Reviews {
+			response.Reviews[i] = ReviewResultInfo{
+				ReviewerIndex:   r.ReviewerIndex,
+				Status:          r.Status,
+				Progress:        r.Progress,
+				Recommendation:  r.Recommendation,
+				ConfidenceScore: r.ConfidenceScore,
+				ReviewContent:   r.ReviewContent,
+				CompletedAt:     r.CompletedAt,
+			}
 		}
 	}
 
@@ -467,14 +656,6 @@ func (s *Service) GetTaskDetail(userID uint, taskID uint) (*TaskDetailResponse, 
 		var summary LiteratureSummary
 		if err := json.Unmarshal([]byte(task.LiteratureSummary), &summary); err == nil {
 			response.LiteratureSummary = &summary
-		}
-	}
-
-	// 解析研究空白文献
-	if task.GapLiterature != "" {
-		var gaps []GapLiterature
-		if err := json.Unmarshal([]byte(task.GapLiterature), &gaps); err == nil {
-			response.GapLiterature = gaps
 		}
 	}
 
@@ -579,8 +760,18 @@ func (s *Service) UploadFile(userID uint, fileName string, fileExt string, conte
 // GetFileForDownload 获取文件用于下载
 func (s *Service) GetFileForDownload(userID uint, fileID uint) (*PeerReviewFile, string, error) {
 	var file PeerReviewFile
-	if err := s.db.Where("id = ? AND user_id = ?", fileID, userID).First(&file).Error; err != nil {
-		return nil, "", fmt.Errorf("文件不存在或无权访问")
+	if err := s.db.First(&file, fileID).Error; err != nil {
+		return nil, "", fmt.Errorf("文件不存在")
+	}
+	
+	// 验证用户权限：文件必须属于用户的任务
+	if file.TaskID != nil {
+		var task PeerReviewTask
+		if err := s.db.Where("id = ? AND user_id = ?", *file.TaskID, userID).First(&task).Error; err != nil {
+			return nil, "", fmt.Errorf("无权访问此文件")
+		}
+	} else if file.UserID != userID {
+		return nil, "", fmt.Errorf("无权访问此文件")
 	}
 
 	// 检查文件是否存在
@@ -604,12 +795,25 @@ func (s *Service) DeleteTask(userID uint, taskID uint) error {
 	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// 如果有关联文件，一起删除
-		if task.FileID != nil {
-			if err := tx.Delete(&PeerReviewFile{}, *task.FileID).Error; err != nil {
-				return fmt.Errorf("删除关联文件失败: %w", err)
+		// 删除关联的文件记录和磁盘文件
+		var files []PeerReviewFile
+		tx.Where("task_id = ?", task.ID).Find(&files)
+		for _, f := range files {
+			os.Remove(f.FilePath)
+		}
+		tx.Where("task_id = ?", task.ID).Delete(&PeerReviewFile{})
+
+		// 删除主稿件文件
+		if task.ManuscriptFileID != nil {
+			var mf PeerReviewFile
+			if tx.First(&mf, *task.ManuscriptFileID).Error == nil {
+				os.Remove(mf.FilePath)
+				tx.Delete(&mf)
 			}
 		}
+
+		// 删除审稿结果
+		tx.Where("task_id = ?", task.ID).Delete(&PeerReviewResult{})
 
 		// 删除任务
 		if err := tx.Delete(&task).Error; err != nil {
@@ -1218,6 +1422,187 @@ func extractVisibleText(content []byte) string {
 	return strings.TrimSpace(text)
 }
 
+// extractTextFromXML 从XML文件提取文本（去除标签）
+func extractTextFromXML(content []byte) (string, error) {
+	text := string(content)
+	
+	// 移除 XML 声明
+	xmlDeclPattern := regexp.MustCompile(`<\?xml[^?]*\?>`)
+	text = xmlDeclPattern.ReplaceAllString(text, "")
+	
+	// 移除 CDATA 标记但保留内容
+	cdataPattern := regexp.MustCompile(`<!\[CDATA\[(.*?)\]\]>`)
+	text = cdataPattern.ReplaceAllString(text, "$1")
+	
+	// 移除注释
+	commentPattern := regexp.MustCompile(`<!--[\s\S]*?-->`)
+	text = commentPattern.ReplaceAllString(text, "")
+	
+	// 移除所有 XML 标签
+	tagPattern := regexp.MustCompile(`<[^>]+>`)
+	text = tagPattern.ReplaceAllString(text, " ")
+	
+	// 解码常见的 XML 实体
+	text = decodeXMLEntities(text)
+	
+	// 清理多余空白
+	text = cleanupWhitespace(text)
+	
+	return text, nil
+}
+
+// extractTextFromHTML 从HTML文件提取文本（去除标签和脚本）
+func extractTextFromHTML(content []byte) (string, error) {
+	text := string(content)
+	
+	// 移除 DOCTYPE 声明
+	doctypePattern := regexp.MustCompile(`<!DOCTYPE[^>]*>`)
+	text = doctypePattern.ReplaceAllString(text, "")
+	
+	// 移除 script 标签及其内容
+	scriptPattern := regexp.MustCompile(`(?i)<script[^>]*>[\s\S]*?</script>`)
+	text = scriptPattern.ReplaceAllString(text, "")
+	
+	// 移除 style 标签及其内容
+	stylePattern := regexp.MustCompile(`(?i)<style[^>]*>[\s\S]*?</style>`)
+	text = stylePattern.ReplaceAllString(text, "")
+	
+	// 移除 noscript 标签及其内容
+	noscriptPattern := regexp.MustCompile(`(?i)<noscript[^>]*>[\s\S]*?</noscript>`)
+	text = noscriptPattern.ReplaceAllString(text, "")
+	
+	// 移除注释
+	commentPattern := regexp.MustCompile(`<!--[\s\S]*?-->`)
+	text = commentPattern.ReplaceAllString(text, "")
+	
+	// 将块级元素替换为换行（保持段落结构）
+	blockTags := []string{"p", "div", "br", "h1", "h2", "h3", "h4", "h5", "h6", 
+		"li", "tr", "td", "th", "article", "section", "header", "footer", "aside", "nav"}
+	for _, tag := range blockTags {
+		// 处理开始标签
+		openPattern := regexp.MustCompile(`(?i)<` + tag + `[^>]*>`)
+		text = openPattern.ReplaceAllString(text, "\n")
+		// 处理结束标签
+		closePattern := regexp.MustCompile(`(?i)</` + tag + `>`)
+		text = closePattern.ReplaceAllString(text, "\n")
+	}
+	
+	// 移除所有剩余的 HTML 标签
+	tagPattern := regexp.MustCompile(`<[^>]+>`)
+	text = tagPattern.ReplaceAllString(text, " ")
+	
+	// 解码 HTML 实体
+	text = decodeHTMLEntities(text)
+	
+	// 清理多余空白
+	text = cleanupWhitespace(text)
+	
+	return text, nil
+}
+
+// decodeXMLEntities 解码 XML 实体
+func decodeXMLEntities(text string) string {
+	replacements := map[string]string{
+		"&lt;":   "<",
+		"&gt;":   ">",
+		"&amp;":  "&",
+		"&apos;": "'",
+		"&quot;": "\"",
+	}
+	for entity, char := range replacements {
+		text = strings.ReplaceAll(text, entity, char)
+	}
+	
+	// 解码数字实体 &#xxx; 和 &#xXXX;
+	numEntityPattern := regexp.MustCompile(`&#(\d+);`)
+	text = numEntityPattern.ReplaceAllStringFunc(text, func(match string) string {
+		numStr := match[2 : len(match)-1]
+		if num, err := strconv.Atoi(numStr); err == nil && num < 65536 {
+			return string(rune(num))
+		}
+		return match
+	})
+	
+	hexEntityPattern := regexp.MustCompile(`(?i)&#x([0-9a-f]+);`)
+	text = hexEntityPattern.ReplaceAllStringFunc(text, func(match string) string {
+		hexStr := match[3 : len(match)-1]
+		if num, err := strconv.ParseInt(hexStr, 16, 32); err == nil && num < 65536 {
+			return string(rune(num))
+		}
+		return match
+	})
+	
+	return text
+}
+
+// decodeHTMLEntities 解码 HTML 实体
+func decodeHTMLEntities(text string) string {
+	// 首先处理 XML 基本实体
+	text = decodeXMLEntities(text)
+	
+	// 常见 HTML 实体
+	htmlEntities := map[string]string{
+		"&nbsp;":   " ",
+		"&ensp;":   " ",
+		"&emsp;":   " ",
+		"&thinsp;": " ",
+		"&ndash;":  "\u2013", // –
+		"&mdash;":  "\u2014", // —
+		"&lsquo;":  "\u2018", // '
+		"&rsquo;":  "\u2019", // '
+		"&ldquo;":  "\u201C", // "
+		"&rdquo;":  "\u201D", // "
+		"&bull;":   "\u2022", // •
+		"&hellip;": "\u2026", // …
+		"&copy;":   "\u00A9", // ©
+		"&reg;":    "\u00AE", // ®
+		"&trade;":  "\u2122", // ™
+		"&deg;":    "\u00B0", // °
+		"&plusmn;": "\u00B1", // ±
+		"&times;":  "\u00D7", // ×
+		"&divide;": "\u00F7", // ÷
+		"&frac12;": "\u00BD", // ½
+		"&frac14;": "\u00BC", // ¼
+		"&frac34;": "\u00BE", // ¾
+		"&euro;":   "\u20AC", // €
+		"&pound;":  "\u00A3", // £
+		"&yen;":    "\u00A5", // ¥
+		"&cent;":   "\u00A2", // ¢
+		"&alpha;":  "\u03B1", // α
+		"&beta;":   "\u03B2", // β
+		"&gamma;":  "\u03B3", // γ
+		"&delta;":  "\u03B4", // δ
+		"&pi;":     "\u03C0", // π
+		"&sigma;":  "\u03C3", // σ
+		"&omega;":  "\u03C9", // ω
+	}
+	for entity, char := range htmlEntities {
+		text = strings.ReplaceAll(text, entity, char)
+	}
+	
+	return text
+}
+
+// cleanupWhitespace 清理多余的空白字符
+func cleanupWhitespace(text string) string {
+	// 将多个空格替换为单个空格
+	spacePattern := regexp.MustCompile(`[ \t]+`)
+	text = spacePattern.ReplaceAllString(text, " ")
+	
+	// 将多个换行替换为最多两个换行
+	newlinePattern := regexp.MustCompile(`\n{3,}`)
+	text = newlinePattern.ReplaceAllString(text, "\n\n")
+	
+	// 移除行首行尾空格
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimSpace(line)
+	}
+	text = strings.Join(lines, "\n")
+	
+	return strings.TrimSpace(text)
+}
+
 // extractTextFromPDF 从PDF文件提取文本
 func extractTextFromPDF(content []byte) (string, error) {
 	// PDF 文本提取比较复杂，这里提供简化实现
@@ -1297,19 +1682,255 @@ func (s *Service) processTaskAsync(taskID uint) {
 	// 保存审稿结果
 	completedAt := time.Now()
 	s.db.Model(&task).Updates(map[string]interface{}{
+		"status":               TaskStatusCompleted,
+		"progress":             100,
+		"progress_stage":       "审稿完成",
+		"final_review_content": reviewBuffer.String(),
+		"completed_at":         completedAt,
+	})
+}
+
+// processTaskAsyncWithThreeReviewers 三审并行处理任务
+func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
+	defer func() {
+		if r := recover(); r != nil {
+			errMsg := fmt.Sprintf("任务处理发生异常: %v", r)
+			s.updateTaskFailed(taskID, errMsg)
+		}
+	}()
+
+	var task PeerReviewTask
+	if err := s.db.First(&task, taskID).Error; err != nil {
+		return
+	}
+
+	// 更新状态为处理中
+	now := time.Now()
+	s.updateTaskProgress(taskID, TaskStatusProcessing, 5, "开始处理")
+	s.db.Model(&task).Update("started_at", now)
+
+	// 加载关联文件
+	s.loadTaskFiles(&task)
+
+	// 1. 预处理阶段（共享）：提取元信息、检索文献 (5%-50%)
+	meta, literatureSummary, refs, err := s.preprocessTask(&task)
+	if err != nil {
+		s.updateTaskFailed(taskID, err.Error())
+		return
+	}
+
+	// 2. 三审并行阶段 (50%-90%)
+	s.updateTaskProgress(taskID, TaskStatusProcessing, 50, "三位审稿人并行审稿中...")
+
+	var wg sync.WaitGroup
+	reviewResults := make([]*strings.Builder, ReviewerCount)
+
+	for i := 0; i < ReviewerCount; i++ {
+		reviewResults[i] = &strings.Builder{}
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			s.runSingleReview(&task, idx+1, meta, literatureSummary, refs, reviewResults[idx])
+		}(i)
+	}
+
+	wg.Wait()
+
+	// 3. 汇总阶段 (90%-100%)
+	s.updateTaskProgress(taskID, TaskStatusProcessing, 90, "汇总审稿结果...")
+	s.summarizeReviews(taskID, reviewResults)
+
+	// 完成
+	completedAt := time.Now()
+	s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]interface{}{
 		"status":         TaskStatusCompleted,
 		"progress":       100,
 		"progress_stage": "审稿完成",
-		"review_content": reviewBuffer.String(),
 		"completed_at":   completedAt,
+	})
+}
+
+// preprocessTask 预处理任务（提取元信息、检索文献）
+func (s *Service) preprocessTask(task *PeerReviewTask) (*ManuscriptMeta, *LiteratureSummary, []ReferenceForReviewer, error) {
+	modelLevel := task.ModelLevel
+
+	// 1. 提取稿件元信息 (10%)
+	s.updateTaskProgress(task.ID, TaskStatusProcessing, 10, "正在分析稿件结构...")
+	
+	var meta *ManuscriptMeta
+	var err error
+	
+	// 根据是否有主稿件文件且为直传模式，选择不同的处理方式
+	if task.ManuscriptFile != nil && task.ManuscriptFile.ProcessMode == ProcessModeDirect {
+		// 文件直传模式：读取文件并传递给AI
+		fileContent, readErr := os.ReadFile(task.ManuscriptFile.FilePath)
+		if readErr != nil {
+			return nil, nil, nil, fmt.Errorf("读取文件失败: %w", readErr)
+		}
+		fileBase64 := base64.StdEncoding.EncodeToString(fileContent)
+		mimeType := task.ManuscriptFile.MimeType
+		if mimeType == "" {
+			mimeType = GetMimeType(task.ManuscriptFile.FileExt)
+		}
+		meta, err = s.extractBasicInfoFromFile(fileBase64, task.ManuscriptFile.FileName, mimeType, task.TargetVenue, modelLevel)
+	} else {
+		// 文本模式
+		manuscriptText := task.ManuscriptText
+		if manuscriptText == "" && task.ManuscriptFile != nil && task.ManuscriptFile.ExtractedText != "" {
+			manuscriptText = task.ManuscriptFile.ExtractedText
+		}
+		if len(manuscriptText) < 100 {
+			return nil, nil, nil, fmt.Errorf("稿件内容太短，请提供更完整的内容")
+		}
+		meta, err = s.extractBasicInfo(manuscriptText, task.TargetVenue, modelLevel)
+	}
+	
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("稿件分析失败: %w", err)
+	}
+
+	metaJSON, _ := json.Marshal(meta)
+	s.db.Model(task).Updates(map[string]interface{}{
+		"manuscript_meta": string(metaJSON),
+		"title":           meta.Title,
+	})
+
+	// 2. 构建搜索查询 (15%)
+	s.updateTaskProgress(task.ID, TaskStatusProcessing, 15, "正在构建文献检索策略...")
+	searchQueries := s.buildSemanticSearchQueries(meta)
+
+	// 3. 检索文献 (25%)
+	s.updateTaskProgress(task.ID, TaskStatusProcessing, 25, "正在检索相关文献...")
+	rawResults, err := s.callSemanticScholarSearch(searchQueries)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("文献检索失败: %w", err)
+	}
+
+	// 4. 整理文献 (35%)
+	s.updateTaskProgress(task.ID, TaskStatusProcessing, 35, "正在整理文献数据...")
+	literatureContext := s.normalizeAndSelectPapers(rawResults)
+	ctxJSON, _ := json.Marshal(literatureContext)
+	s.db.Model(task).Update("literature_context", string(ctxJSON))
+
+	// 5. 总结文献 (45%)
+	s.updateTaskProgress(task.ID, TaskStatusProcessing, 45, "正在生成文献总结...")
+	literatureSummary, err := s.summarizeLiterature(literatureContext, meta, modelLevel)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("文献总结失败: %w", err)
+	}
+	summaryJSON, _ := json.Marshal(literatureSummary)
+	s.db.Model(task).Update("literature_summary", string(summaryJSON))
+
+	refs := s.buildReferenceList(literatureContext.AllPapers)
+
+	return meta, literatureSummary, refs, nil
+}
+
+// runSingleReview 执行单个审稿人的审稿
+func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta *ManuscriptMeta, summary *LiteratureSummary, refs []ReferenceForReviewer, writer *strings.Builder) {
+	// 更新审稿人状态
+	s.db.Model(&PeerReviewResult{}).Where("task_id = ? AND reviewer_index = ?", task.ID, reviewerIndex).
+		Updates(map[string]interface{}{"status": TaskStatusProcessing, "progress": 10})
+
+	var err error
+	
+	// 根据是否有主稿件文件且为直传模式，选择不同的处理方式
+	if task.ManuscriptFile != nil && task.ManuscriptFile.ProcessMode == ProcessModeDirect {
+		// 文件直传模式
+		fileContent, _ := os.ReadFile(task.ManuscriptFile.FilePath)
+		fileBase64 := base64.StdEncoding.EncodeToString(fileContent)
+		mimeType := task.ManuscriptFile.MimeType
+		if mimeType == "" {
+			mimeType = GetMimeType(task.ManuscriptFile.FileExt)
+		}
+		err = s.generateReviewForTaskWithFile(fileBase64, task.ManuscriptFile.FileName, mimeType,
+			task.TargetVenue, meta, summary, refs, task.ModelLevel, writer, task.ID)
+	} else {
+		// 文本模式
+		manuscriptText := task.ManuscriptText
+		if manuscriptText == "" && task.ManuscriptFile != nil && task.ManuscriptFile.ExtractedText != "" {
+			manuscriptText = task.ManuscriptFile.ExtractedText
+		}
+		err = s.generateReviewForTask(manuscriptText, task.TargetVenue, meta, summary, refs, task.ModelLevel, writer, task.ID)
+	}
+
+	now := time.Now()
+	if err != nil {
+		s.db.Model(&PeerReviewResult{}).Where("task_id = ? AND reviewer_index = ?", task.ID, reviewerIndex).
+			Updates(map[string]interface{}{
+				"status":        TaskStatusFailed,
+				"error_message": err.Error(),
+				"completed_at":  now,
+			})
+		return
+	}
+
+	// 保存结果
+	recommendation := extractRecommendation(writer.String())
+	s.db.Model(&PeerReviewResult{}).Where("task_id = ? AND reviewer_index = ?", task.ID, reviewerIndex).
+		Updates(map[string]interface{}{
+			"status":         TaskStatusCompleted,
+			"progress":       100,
+			"recommendation": recommendation,
+			"review_content": writer.String(),
+			"completed_at":   now,
+		})
+}
+
+// summarizeReviews 汇总三审结果
+func (s *Service) summarizeReviews(taskID uint, reviewResults []*strings.Builder) {
+	var results []PeerReviewResult
+	s.db.Where("task_id = ?", taskID).Find(&results)
+
+	// 统计推荐意见
+	recommendations := make(map[string]int)
+	var allContent strings.Builder
+	completedCount := 0
+
+	for i, r := range results {
+		if r.Status == TaskStatusCompleted {
+			completedCount++
+			recommendations[r.Recommendation]++
+			allContent.WriteString(fmt.Sprintf("\n\n## 审稿人 %d 意见\n\n", i+1))
+			allContent.WriteString(r.ReviewContent)
+		}
+	}
+
+	// 确定最终推荐
+	finalRec := "Pending Review"
+	maxCount := 0
+	for rec, count := range recommendations {
+		if count > maxCount {
+			maxCount = count
+			finalRec = rec
+		}
+	}
+
+	// 计算一致性分数
+	consensusScore := float64(maxCount) / float64(ReviewerCount)
+
+	// 更新任务
+	s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]interface{}{
+		"final_recommendation": finalRec,
+		"final_review_content": allContent.String(),
+		"consensus_score":      consensusScore,
 	})
 }
 
 // runTaskReview 执行审稿流程（内部方法）
 func (s *Service) runTaskReview(task *PeerReviewTask, reviewWriter *strings.Builder) error {
-	manuscriptText := task.ManuscriptText
 	targetVenue := task.TargetVenue
 	modelLevel := task.ModelLevel
+
+	// 加载关联文件
+	s.loadTaskFiles(task)
+
+	// 根据是否有主稿件文件且为直传模式，选择不同的处理流程
+	if task.ManuscriptFile != nil && task.ManuscriptFile.ProcessMode == ProcessModeDirect {
+		return s.runTaskReviewWithFile(task, reviewWriter)
+	}
+
+	manuscriptText := task.ManuscriptText
 
 	// 1. 提取稿件元信息 (10%)
 	s.updateTaskProgress(task.ID, TaskStatusProcessing, 10, "正在分析稿件结构...")
@@ -1376,7 +1997,104 @@ func (s *Service) runTaskReview(task *PeerReviewTask, reviewWriter *strings.Buil
 	// 7. 提取推荐意见 (98%)
 	s.updateTaskProgress(task.ID, TaskStatusProcessing, 98, "正在整理审稿结果...")
 	recommendation := extractRecommendation(reviewWriter.String())
-	s.db.Model(task).Update("recommendation", recommendation)
+	s.db.Model(task).Update("final_recommendation", recommendation)
+
+	return nil
+}
+
+// runTaskReviewWithFile 执行文件直传模式的审稿流程（PDF、Word等）
+func (s *Service) runTaskReviewWithFile(task *PeerReviewTask, reviewWriter *strings.Builder) error {
+	targetVenue := task.TargetVenue
+	modelLevel := task.ModelLevel
+
+	// 获取主稿件文件
+	if task.ManuscriptFile == nil {
+		return fmt.Errorf("主稿件文件为空")
+	}
+
+	file := task.ManuscriptFile
+
+	// 读取文件内容
+	fileContent, err := os.ReadFile(file.FilePath)
+	if err != nil {
+		return fmt.Errorf("读取文件失败: %w", err)
+	}
+
+	// 转换为Base64
+	fileBase64 := base64.StdEncoding.EncodeToString(fileContent)
+	
+	// 使用文件的MIME类型
+	mimeType := file.MimeType
+	if mimeType == "" {
+		mimeType = GetMimeType(file.FileExt)
+	}
+
+	// 1. 提取稿件元信息 (10%) - 使用文件直传模式
+	s.updateTaskProgress(task.ID, TaskStatusProcessing, 10, "正在分析稿件结构...")
+	meta, err := s.extractBasicInfoFromFile(fileBase64, file.FileName, mimeType, targetVenue, modelLevel)
+	if err != nil {
+		return fmt.Errorf("稿件分析失败: %w", err)
+	}
+	
+	// 保存元信息和标题
+	metaJSON, _ := json.Marshal(meta)
+	s.db.Model(task).Updates(map[string]interface{}{
+		"manuscript_meta": string(metaJSON),
+		"title":           meta.Title,
+	})
+
+	// 2. 构建搜索查询 (15%)
+	s.updateTaskProgress(task.ID, TaskStatusProcessing, 15, "正在构建文献检索策略...")
+	searchQueries := s.buildSemanticSearchQueries(meta)
+
+	// 3. 调用MCP搜索文献 (35%)
+	s.updateTaskProgress(task.ID, TaskStatusProcessing, 25, "正在检索相关文献...")
+	rawResults, err := s.callSemanticScholarSearch(searchQueries)
+	if err != nil {
+		return fmt.Errorf("文献检索失败: %w", err)
+	}
+
+	// 4. 整理文献 (40%)
+	s.updateTaskProgress(task.ID, TaskStatusProcessing, 40, "正在整理文献数据...")
+	literatureContext := s.normalizeAndSelectPapers(rawResults)
+	
+	ctxJSON, _ := json.Marshal(literatureContext)
+	s.db.Model(task).Update("literature_context", string(ctxJSON))
+
+	// 5. 总结文献 (55%)
+	s.updateTaskProgress(task.ID, TaskStatusProcessing, 50, "正在生成文献总结...")
+	literatureSummary, err := s.summarizeLiterature(literatureContext, meta, modelLevel)
+	if err != nil {
+		return fmt.Errorf("文献总结失败: %w", err)
+	}
+	
+	summaryJSON, _ := json.Marshal(literatureSummary)
+	s.db.Model(task).Update("literature_summary", string(summaryJSON))
+
+	// 5.5 检索研究空白相关文献 (60%)
+	if len(literatureSummary.TypicalGaps) > 0 {
+		s.updateTaskProgress(task.ID, TaskStatusProcessing, 60, "正在检索研究空白相关文献...")
+		gapLiteratures := s.searchGapLiterature(literatureSummary.TypicalGaps, meta.Field)
+		if len(gapLiteratures) > 0 {
+			gapJSON, _ := json.Marshal(gapLiteratures)
+			s.db.Model(task).Update("gap_literature", string(gapJSON))
+		}
+	}
+
+	// 6. 生成审稿报告 (65%-95%) - 使用文件多模态输入
+	s.updateTaskProgress(task.ID, TaskStatusProcessing, 65, "正在生成审稿报告...")
+	refs := s.buildReferenceList(literatureContext.AllPapers)
+	
+	// 使用文件版本的报告生成
+	err = s.generateReviewForTaskWithFile(fileBase64, file.FileName, mimeType, targetVenue, meta, literatureSummary, refs, modelLevel, reviewWriter, task.ID)
+	if err != nil {
+		return fmt.Errorf("审稿报告生成失败: %w", err)
+	}
+
+	// 7. 提取推荐意见 (98%)
+	s.updateTaskProgress(task.ID, TaskStatusProcessing, 98, "正在整理审稿结果...")
+	recommendation := extractRecommendation(reviewWriter.String())
+	s.db.Model(task).Update("final_recommendation", recommendation)
 
 	return nil
 }
@@ -1459,6 +2177,156 @@ func (s *Service) generateReviewForTask(
 	}
 
 	return nil
+}
+
+// generateReviewForTaskWithFile 为任务生成审稿报告（文件输入，非流式，但更新进度）
+func (s *Service) generateReviewForTaskWithFile(
+	fileBase64 string,
+	fileName string,
+	mimeType string,
+	targetVenue string,
+	meta *ManuscriptMeta,
+	summary *LiteratureSummary,
+	refs []ReferenceForReviewer,
+	modelLevel string,
+	writer *strings.Builder,
+	taskID uint,
+) error {
+	// 构建参考文献字符串
+	refsStr := s.formatRefsForPrompt(refs)
+	metaJSON, _ := json.Marshal(meta)
+
+	closestPapersInfo := ""
+	if len(summary.ClosestPapers) > 0 {
+		var sb strings.Builder
+		for i, p := range summary.ClosestPapers {
+			sb.WriteString(fmt.Sprintf("%d. %s (%d) - 相似原因: %s\n", i+1, p.Title, p.Year, p.Reason))
+		}
+		closestPapersInfo = sb.String()
+	}
+
+	gapsInfo := ""
+	if len(summary.TypicalGaps) > 0 {
+		gapsInfo = "- " + strings.Join(summary.TypicalGaps, "\n- ")
+	}
+
+	systemPrompt := getReviewSystemPrompt()
+	userPromptText := fmt.Sprintf(getReviewUserPromptTemplateForFile(),
+		targetVenue,
+		fileName,
+		string(metaJSON),
+		summary.FieldState,
+		closestPapersInfo,
+		gapsInfo,
+		refsStr,
+		targetVenue)
+
+	// 构建多模态消息，使用 FileInputMeta 作为中间格式
+	// AI service 会根据实际使用的模型自动转换为对应格式
+	contentParts := []interface{}{
+		ai.FileInputMeta{
+			Type:     "file_input_meta",
+			MimeType: mimeType,
+			Data:     fileBase64,
+		},
+		ai.TextContent{
+			Type: "text",
+			Text: userPromptText,
+		},
+	}
+
+	messages := []ai.ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: contentParts},
+	}
+
+	level := getModelLevel(modelLevel)
+	
+	// 最大续写轮数
+	const maxContinuations = 5
+
+	for round := 0; round < maxContinuations; round++ {
+		progress := 70 + round*5
+		if progress > 90 {
+			progress = 90
+		}
+		s.updateTaskProgress(taskID, TaskStatusProcessing, progress, fmt.Sprintf("正在生成审稿报告（第 %d 轮）...", round+1))
+
+		response, err := s.aiService.ChatCompletionWithTools(messages, nil, "", level)
+		if err != nil {
+			return err
+		}
+
+		if len(response.Choices) == 0 {
+			return fmt.Errorf("no response from AI")
+		}
+
+		content := response.Choices[0].Message.Content
+		writer.WriteString(content)
+
+		// 检查是否需要继续
+		if !s.needsContinuation(writer.String()) {
+			break
+		}
+
+		messages = append(messages, ai.ChatMessage{Role: "assistant", Content: content})
+		messages = append(messages, ai.ChatMessage{Role: "user", Content: "请继续完成审稿报告，从上次中断的地方继续。"})
+	}
+
+	return nil
+}
+
+// getReviewUserPromptTemplateForFile 获取文件版本的用户提示词模板（PDF、Word等）
+func getReviewUserPromptTemplateForFile() string {
+	return `## 投稿目标
+**目标期刊/会议**：%s
+
+## 待审稿件
+请仔细阅读附件中的论文文件（%s）。
+
+## 系统预分析信息
+
+### 稿件结构化理解
+%s
+
+### 领域前沿状态
+%s
+
+### 与稿件最相似的已发表论文
+%s
+
+### 当前领域研究空白
+%s
+
+### 可引用的参考文献列表
+%s
+
+---
+
+请生成一份专业的审稿报告，包含：
+1. 综合评估与推荐（契合度评估、推荐意见）
+2. 必须解决的核心问题（Critical/Major级别问题）
+3. 其他改进建议
+
+**本稿推荐**需明确给出：Accept / Minor Revision / Major Revision / Reject
+
+目标期刊：%s`
+}
+
+// getMimeType 根据文件类型获取MIME类型
+func getMimeType(fileType string) string {
+	mimeTypes := map[string]string{
+		"pdf":  "application/pdf",
+		"doc":  "application/msword",
+		"docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+		"txt":  "text/plain",
+		"rtf":  "application/rtf",
+		"odt":  "application/vnd.oasis.opendocument.text",
+	}
+	if mime, ok := mimeTypes[fileType]; ok {
+		return mime
+	}
+	return "application/octet-stream"
 }
 
 // Message 简化的消息类型（内部使用）

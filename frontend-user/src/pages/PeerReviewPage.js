@@ -227,6 +227,7 @@ export default function PeerReviewPage() {
   const [targetVenue, setTargetVenue] = useState('');
   const [modelLevel, setModelLevel] = useState('low'); // 默认普通模式
   const [fileName, setFileName] = useState('');
+  const [useFileInput, setUseFileInput] = useState(false); // 是否直接使用文件（不提取文本，如PDF、Word等）
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -273,7 +274,14 @@ export default function PeerReviewPage() {
         setManuscriptText(draft.manuscript_text || '');
         setTargetVenue(draft.target_venue || '');
         setModelLevel(draft.model_level || 'low');
-        setFileName(draft.file_name || '');
+        // 新结构：从 manuscript_file 获取文件信息
+        if (draft.manuscript_file) {
+          setFileName(draft.manuscript_file.file_name || '');
+          setUseFileInput(draft.manuscript_file.process_mode === 'direct');
+        } else {
+          setFileName('');
+          setUseFileInput(false);
+        }
       }
     } catch (error) {
       console.error('加载草稿失败:', error);
@@ -361,10 +369,10 @@ export default function PeerReviewPage() {
     if (!file) return null;
 
     // 检查文件类型
-    const allowedTypes = ['.txt', '.doc', '.docx', '.rtf', '.odt', '.pdf'];
+    const allowedTypes = ['.txt', '.doc', '.docx', '.rtf', '.odt', '.pdf', '.xml', '.html', '.htm'];
     const ext = '.' + file.name.split('.').pop().toLowerCase();
     if (!allowedTypes.includes(ext)) {
-      showMessage('warning', '文件类型不支持', '请上传 txt、doc、docx、rtf、odt 或 pdf 文件');
+      showMessage('warning', '文件类型不支持', '请上传 txt、doc、docx、rtf、odt、pdf、xml 或 html 文件');
       return null;
     }
 
@@ -392,11 +400,19 @@ export default function PeerReviewPage() {
         const data = response.data.data;
         // 文件上传后，后端会自动保存到草稿，更新本地状态
         setInputType('file');
-        setManuscriptText(data.extracted_text || '');
         setFileName(data.file_name || file.name);
-        if (data.draft_id) {
-          setDraftId(data.draft_id);
+        // 新结构：process_mode 为 'direct' 表示直接传AI
+        const isDirect = data.process_mode === 'direct';
+        setUseFileInput(isDirect);
+        
+        // 文件直传模式（PDF、Word等）不提取文本，使用预览信息
+        if (isDirect) {
+          setManuscriptText(data.content_preview || '');
+        } else {
+          // 重新加载草稿以获取提取的文本
+          await loadDraft();
         }
+        
         // 上传成功不弹窗，直接显示在输入框中
       } else {
         showMessage('error', '上传失败', response.data?.message || '文件上传失败');
@@ -460,14 +476,19 @@ export default function PeerReviewPage() {
       return;
     }
 
-    // 验证输入
-    if (!manuscriptText.trim()) {
-      showMessage('warning', '请输入内容', '请输入或上传稿件内容后再开始审稿');
-      return;
-    }
+    // 验证输入（文件直传模式跳过文本长度验证）
+    if (!useFileInput) {
+      if (!manuscriptText.trim()) {
+        showMessage('warning', '请输入内容', '请输入或上传稿件内容后再开始审稿');
+        return;
+      }
 
-    if (manuscriptText.trim().length < 100) {
-      showMessage('warning', '内容太短', '稿件内容至少需要100个字符');
+      if (manuscriptText.trim().length < 100) {
+        showMessage('warning', '内容太短', '稿件内容至少需要100个字符');
+        return;
+      }
+    } else if (!fileName) {
+      showMessage('warning', '请上传文件', '请上传稿件文件后再开始审稿');
       return;
     }
 
@@ -524,6 +545,7 @@ export default function PeerReviewPage() {
     setTargetVenue('');
     setFileName('');
     setInputType('text');
+    setUseFileInput(false);
     // 同时保存空草稿到后端
     saveDraftToServer({
       input_type: 'text',
@@ -721,6 +743,7 @@ export default function PeerReviewPage() {
                   targetVenue={targetVenue}
                   setTargetVenue={setTargetVenue}
                   fileName={fileName}
+                  useFileInput={useFileInput}
                   uploading={uploading}
                   submitting={submitting}
                   isDragging={isDragging}
@@ -737,6 +760,7 @@ export default function PeerReviewPage() {
                     setFileName(''); 
                     setManuscriptText(''); 
                     setInputType('text');
+                    setUseFileInput(false);
                     // 同步清空后端草稿中的文件信息
                     saveDraftToServer({
                       input_type: 'text',
@@ -798,13 +822,16 @@ function CreateSection({
   manuscriptText, setManuscriptText,
   targetVenue, setTargetVenue,
   fileName,
+  useFileInput,
   uploading, submitting, isDragging, draftLoading,
   modelLevel, setModelLevel,
   fileInputRef,
   onFileSelect, onDragEnter, onDragOver, onDragLeave, onDrop,
   onRemoveFile, onSubmit, onClearDraft
 }) {
-  const hasContent = manuscriptText.trim().length > 0;
+  // PDF文件也算有内容
+  // 文件直传模式（PDF、Word等）也算有内容
+  const hasContent = manuscriptText.trim().length > 0 || (fileName && useFileInput);
 
   return (
     <div className="prv-create-section">
@@ -865,8 +892,8 @@ function CreateSection({
                 </svg>
                 <div className="prv-upload-ring"></div>
               </div>
-              <h4>正在解析文件</h4>
-              <p>请稍候，正在提取文本内容...</p>
+              <h4>正在上传文件</h4>
+              <p>请稍候...</p>
               <div className="prv-upload-dots">
                 <span></span><span></span><span></span>
               </div>
@@ -903,14 +930,31 @@ function CreateSection({
               
               {/* 文本输入区域 */}
               <div className="prv-textarea-wrapper">
-                <textarea
-                  className={`prv-textarea ${fileName ? 'prv-textarea-readonly' : ''}`}
-                  placeholder=""
-                  value={manuscriptText}
-                  onChange={(e) => !fileName && setManuscriptText(e.target.value)}
-                  readOnly={!!fileName}
-                  maxLength={50000}
-                />
+                {/* PDF文件显示特殊提示 */}
+                {useFileInput && fileName ? (
+                  <div className="prv-pdf-preview">
+                    <div className="prv-pdf-icon">
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <path d="M9 15h6"/>
+                        <path d="M9 11h6"/>
+                      </svg>
+                    </div>
+                    <h4>文件已上传</h4>
+                    <p className="prv-pdf-filename">{fileName}</p>
+                    <p className="prv-pdf-hint">文件将直接传递给AI进行分析</p>
+                  </div>
+                ) : (
+                  <textarea
+                    className={`prv-textarea ${fileName ? 'prv-textarea-readonly' : ''}`}
+                    placeholder=""
+                    value={manuscriptText}
+                    onChange={(e) => !fileName && setManuscriptText(e.target.value)}
+                    readOnly={!!fileName}
+                    maxLength={50000}
+                  />
+                )}
                 
                 {/* 空状态引导提示 */}
                 {!manuscriptText && !fileName && (
@@ -953,6 +997,8 @@ function CreateSection({
                       <span className="prv-format-tag">PDF</span>
                       <span className="prv-format-tag">RTF</span>
                       <span className="prv-format-tag">ODT</span>
+                      <span className="prv-format-tag">XML</span>
+                      <span className="prv-format-tag">HTML</span>
                     </div>
                   </div>
                 )}
@@ -962,7 +1008,7 @@ function CreateSection({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".txt,.doc,.docx,.rtf,.odt,.pdf"
+                accept=".txt,.doc,.docx,.rtf,.odt,.pdf,.xml,.html,.htm"
                 onChange={onFileSelect}
                 style={{ display: 'none' }}
               />
@@ -1326,7 +1372,7 @@ function CreateTaskView({
                       </svg>
                     </div>
                     <p className="prv-upload-title">拖拽文件到此处，或点击选择</p>
-                    <span className="prv-upload-hint">支持 .txt, .doc, .docx, .rtf, .odt, .pdf 文件，最大 10MB</span>
+                    <span className="prv-upload-hint">支持 .txt, .doc, .docx, .rtf, .odt, .pdf, .xml, .html 文件，最大 10MB</span>
                     <button type="button" className="prv-upload-btn">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -1339,7 +1385,7 @@ function CreateTaskView({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".txt,.doc,.docx,.rtf,.odt,.pdf"
+                  accept=".txt,.doc,.docx,.rtf,.odt,.pdf,.xml,.html,.htm"
                   onChange={onFileSelect}
                   style={{ display: 'none' }}
                 />
@@ -1913,18 +1959,60 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
           <div className="prvr-report-layout">
             {/* 左侧：审稿报告正文 */}
             <div className="prvr-report-left">
-              {task.review_content && (
+              {(task.final_review_content || task.review_content) && (
                 <div className="prvr-report-content">
-                  {task.recommendation && (
+                  {/* 三审一致性分数 */}
+                  {task.consensus_score > 0 && (
+                    <div className="prvr-consensus-score">
+                      <span className="prvr-consensus-label">三审一致性：</span>
+                      <span className={`prvr-consensus-value ${task.consensus_score >= 0.67 ? 'high' : task.consensus_score >= 0.34 ? 'medium' : 'low'}`}>
+                        {Math.round(task.consensus_score * 100)}%
+                      </span>
+                    </div>
+                  )}
+                  {(task.final_recommendation || task.recommendation) && (
                     <div className="prvr-report-recommendation">
-                      <span className={`prvr-recommendation-badge ${task.recommendation.toLowerCase().replace(/\s+/g, '-')}`}>
-                        {task.recommendation}
+                      <span className={`prvr-recommendation-badge ${(task.final_recommendation || task.recommendation).toLowerCase().replace(/\s+/g, '-')}`}>
+                        {task.final_recommendation || task.recommendation}
                       </span>
                     </div>
                   )}
                   <div className="prvr-review-report">
-                    <MarkdownRenderer content={task.review_content} />
+                    <MarkdownRenderer content={task.final_review_content || task.review_content} />
                   </div>
+                  
+                  {/* 三审独立结果（可折叠） */}
+                  {task.reviews && task.reviews.length > 0 && (
+                    <div className="prvr-three-reviews">
+                      <details>
+                        <summary className="prvr-reviews-summary">
+                          查看三位审稿人独立意见 ({task.reviews.filter(r => r.status === 'completed').length}/3)
+                        </summary>
+                        <div className="prvr-reviews-list">
+                          {task.reviews.map((review, idx) => (
+                            <div key={idx} className={`prvr-review-item ${review.status}`}>
+                              <div className="prvr-review-header">
+                                <span className="prvr-reviewer-name">审稿人 {review.reviewer_index}</span>
+                                {review.recommendation && (
+                                  <span className={`prvr-mini-badge ${review.recommendation.toLowerCase().replace(/\s+/g, '-')}`}>
+                                    {review.recommendation}
+                                  </span>
+                                )}
+                                <span className={`prvr-review-status ${review.status}`}>
+                                  {review.status === 'completed' ? '已完成' : review.status === 'processing' ? '审稿中' : review.status === 'failed' ? '失败' : '等待中'}
+                                </span>
+                              </div>
+                              {review.review_content && (
+                                <div className="prvr-review-content-preview">
+                                  <MarkdownRenderer content={review.review_content.substring(0, 500) + (review.review_content.length > 500 ? '...' : '')} />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

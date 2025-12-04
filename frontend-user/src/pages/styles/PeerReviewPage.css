@@ -2131,3 +2131,67 @@
     font-size: 12px;
   }
 }
+
+/* ========== PDF 预览样式 ========== */
+.prv-pdf-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  min-height: 300px;
+  text-align: center;
+  background: linear-gradient(135deg, 
+    rgba(var(--primary-rgb), 0.03) 0%, 
+    rgba(var(--primary-rgb), 0.08) 100%);
+  border-radius: 12px;
+  border: 2px dashed rgba(var(--primary-rgb), 0.2);
+}
+
+.prv-pdf-icon {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, 
+    rgba(var(--primary-rgb), 0.1) 0%, 
+    rgba(var(--primary-rgb), 0.2) 100%);
+  border-radius: 20px;
+  margin-bottom: 20px;
+  color: var(--primary);
+}
+
+.prv-pdf-icon svg {
+  width: 40px;
+  height: 40px;
+}
+
+.prv-pdf-preview h4 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.prv-pdf-filename {
+  font-size: 14px;
+  color: var(--primary);
+  font-weight: 500;
+  margin: 0 0 12px 0;
+  padding: 6px 16px;
+  background: rgba(var(--primary-rgb), 0.1);
+  border-radius: 20px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prv-pdf-hint {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: 0;
+  max-width: 280px;
+  line-height: 1.5;
+}

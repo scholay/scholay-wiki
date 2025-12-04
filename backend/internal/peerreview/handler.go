@@ -309,9 +309,12 @@ func (h *Handler) UploadFile(c *gin.Context) {
 		".rtf":  true,
 		".odt":  true,
 		".pdf":  true,
+		".xml":  true,
+		".html": true,
+		".htm":  true,
 	}
 	if !allowedExts[ext] {
-		utils.Error(c, 4008, "不支持的文件类型，请上传 txt、doc、docx、rtf、odt 或 pdf 文件")
+		utils.Error(c, 4008, "不支持的文件类型，请上传 txt、doc、docx、rtf、odt、pdf、xml 或 html 文件")
 		return
 	}
 

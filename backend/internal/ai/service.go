@@ -279,10 +279,13 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 			modelCode = "gpt-3.5-turbo" // Final fallback
 		}
 
+		// 根据模型类型转换消息格式（Claude vs OpenAI）
+		convertedMessages := ConvertMessagesForModel(messages, modelCode)
+
 		// Prepare request
 		reqBody := ChatCompletionRequest{
 			Model:       modelCode,
-			Messages:    messages,
+			Messages:    convertedMessages,
 			Tools:       tools,
 			ToolChoice:  toolChoice,
 			Stream:      false,

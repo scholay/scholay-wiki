@@ -131,7 +131,7 @@ func sendEvent(writer io.Writer, eventType string, data interface{}) {
 	}
 }
 
-// extractBasicInfo 提取稿件基本信息
+// extractBasicInfo 提取稿件基本信息（文本输入）
 func (s *Service) extractBasicInfo(manuscriptText, targetVenue, modelLevel string) (*ManuscriptMeta, error) {
 	prompt := fmt.Sprintf(`你是一位资深的学术编辑，请仔细阅读以下稿件内容，提取关键信息。
 
@@ -156,6 +156,66 @@ func (s *Service) extractBasicInfo(manuscriptText, targetVenue, modelLevel strin
 
 	messages := []ai.ChatMessage{
 		{Role: "user", Content: prompt},
+	}
+
+	level := getModelLevel(modelLevel)
+	response, err := s.aiService.ChatCompletionWithTools(messages, nil, "", level)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(response.Choices) == 0 {
+		return nil, fmt.Errorf("no response from AI")
+	}
+
+	content := strings.TrimSpace(response.Choices[0].Message.Content)
+	content = extractJSON(content)
+
+	var meta ManuscriptMeta
+	if err := json.Unmarshal([]byte(content), &meta); err != nil {
+		return nil, fmt.Errorf("failed to parse meta: %w", err)
+	}
+
+	return &meta, nil
+}
+
+// extractBasicInfoFromFile 从文件提取稿件基本信息（多模态输入，支持PDF、Word等）
+func (s *Service) extractBasicInfoFromFile(fileBase64 string, fileName string, mimeType string, targetVenue, modelLevel string) (*ManuscriptMeta, error) {
+	prompt := fmt.Sprintf(`你是一位资深的学术编辑，请仔细阅读附件中的论文文件，提取关键信息。
+
+文件名：%s
+目标期刊/会议：%s
+
+请提取以下信息并以JSON格式返回：
+{
+  "title": "论文标题（如果能识别）",
+  "abstract": "摘要（如果能识别，否则用前200字概括）",
+  "field": "研究领域（如 psychology, machine learning, medicine 等）",
+  "main_topic": "一句话描述研究主题",
+  "main_methods": ["研究方法1", "研究方法2"],
+  "key_variables": ["关键变量1", "关键变量2"],
+  "claimed_novelty": ["创新点1", "创新点2"],
+  "keywords": ["关键词1", "关键词2", "关键词3"]
+}
+
+只返回JSON，不要有其他文字。`, fileName, targetVenue)
+
+	// 构建多模态消息，使用 FileInputMeta 作为中间格式
+	// AI service 会根据实际使用的模型自动转换为对应格式
+	contentParts := []interface{}{
+		ai.FileInputMeta{
+			Type:     "file_input_meta",
+			MimeType: mimeType,
+			Data:     fileBase64,
+		},
+		ai.TextContent{
+			Type: "text",
+			Text: prompt,
+		},
+	}
+
+	messages := []ai.ChatMessage{
+		{Role: "user", Content: contentParts},
 	}
 
 	level := getModelLevel(modelLevel)
@@ -746,6 +806,212 @@ func (s *Service) generateStrictReview(
 	return nil
 }
 
+// generateStrictReviewWithPDF 生成严格审稿报告（PDF文件输入，流式输出，支持多轮续写）
+func (s *Service) generateStrictReviewWithPDF(
+	pdfBase64 string,
+	fileName string,
+	targetVenue string,
+	meta *ManuscriptMeta,
+	summary *LiteratureSummary,
+	refs []ReferenceForReviewer,
+	modelLevel string,
+	writer io.Writer,
+) error {
+	// 构建参考文献字符串
+	refsStr := s.formatRefsForPrompt(refs)
+
+	// 构建元信息字符串
+	metaJSON, _ := json.Marshal(meta)
+
+	// 构建相似论文信息
+	closestPapersInfo := ""
+	if len(summary.ClosestPapers) > 0 {
+		var sb strings.Builder
+		for i, p := range summary.ClosestPapers {
+			sb.WriteString(fmt.Sprintf("%d. %s (%d) - 相似原因: %s\n", i+1, p.Title, p.Year, p.Reason))
+		}
+		closestPapersInfo = sb.String()
+	}
+
+	// 构建研究空白信息
+	gapsInfo := ""
+	if len(summary.TypicalGaps) > 0 {
+		gapsInfo = strings.Join(summary.TypicalGaps, "\n- ")
+		gapsInfo = "- " + gapsInfo
+	}
+
+	// 最大续写轮数，防止无限循环
+	const maxContinuations = 5
+
+	systemPrompt := `## 角色：严苛、精准且富有洞察的学术审稿人
+
+你是一位以"严苛、精准、富有洞察力"而闻名的资深学术审稿专家。你坚守最高的学术标准，你的首要任务是**严格审查（Strict Scrutiny）**，以确保只有最高质量的研究得以推进。你擅长一针见血地指出研究中的**核心缺陷**和**逻辑漏洞**，同时你的反馈必须是**具体、清晰且可执行的**。
+
+## 核心知识与能力：
+
+1. **前沿洞察**：你深刻理解并实时追踪本学科的前沿理论、最新方法和行业动态。
+2. **理论基石**：你对领域的经典理论与核心范式有系统性、批判性的认知，能迅速判断其应用的恰当性。
+3. **逻辑审查**：你能精准识别研究设计、论证推导和数据解释中的逻辑断点、不一致或潜在偏见。
+4. **标准感知**：你熟悉不同层次的学术期刊和会议的审稿标准、偏好和"门槛"。
+
+## 审稿核心检查点：
+
+* **原创性与贡献**：研究是否提出了清晰且有价值的新见解？贡献是增量性的还是突破性的？
+* **研究问题**：问题是否清晰界定？其学术价值和现实意义是否重大？
+* **文献综述**：文献回顾是否全面、深入、具有批判性？是否准确识别了研究缺口？
+* **方法论严谨性**：研究设计是否科学？方法是否为回答研究问题的最优选？样本选择、数据处理是否透明、可复现？
+* **数据分析与结果**：分析方法是否恰当？结果呈现是否清晰准确？有无过度解读？
+* **讨论与结论**：讨论是否深入阐释了结果意义？结论是否完全基于研究证据？是否诚实指出了研究局限？
+* **逻辑与表达**：全文论证逻辑是否一致严密？学术语言是否精准专业？
+
+## 重要约束：
+
+1. **引用文献时必须使用 [R1], [R2] 等编号**，只能引用提供的参考文献列表中的文献
+2. **不得虚构任何文献或作者**
+3. **所有关于"新颖性"和"是否重复已有工作"的判断，必须对照提供的相似论文和参考文献**
+4. **批评必须具体、可操作，明确指出如何修改**
+5. **使用Markdown格式输出**`
+
+	userPromptText := fmt.Sprintf(`## 投稿目标
+**目标期刊/会议**：%s
+
+## 待审稿件
+请仔细阅读附件中的PDF论文文件（%s）。
+
+## 系统预分析信息
+
+### 稿件结构化理解
+%s
+
+### 领域前沿状态
+%s
+
+### 与稿件最相似的已发表论文（新颖性核查）
+%s
+
+### 当前领域研究空白
+%s
+
+### 可引用的参考文献列表（请严格只引用这些，使用 [R1], [R2] 等编号）
+%s
+
+---
+
+请基于以上所有信息和附件中的PDF论文，生成一份专业的审稿报告。报告**必须**优先并聚焦于指出问题。
+
+**注意：直接从正文内容开始，不要输出"审稿报告"这样的大标题。**
+
+## 综合评估与推荐
+
+### 核心贡献
+（简要总结你理解的论文核心贡献）
+
+### 契合度评估
+（基于 [%s] 的标准，严格评估稿件的契合度、新颖性和影响力。必须对照上述相似论文进行新颖性判断。）
+
+### 推荐意见
+- **Accept** (接受)
+- **Minor Revision** (小修后接受)
+- **Major Revision** (大修后重审)
+- **Reject** (拒稿，需提出建设性的转投建议或根本性重做方向)
+
+**本稿推荐**：[给出具体推荐]
+**推荐理由**：[详细说明]
+
+## 必须解决的核心问题
+
+（**这是评审报告的核心。** 必须严格、清晰、具体地列出所有阻碍稿件达到目标期刊标准的重大缺陷。每一条都必须是可操作的、实质性的批评。）
+
+### 问题1：[问题标题]
+- **严重程度**：Critical / Major
+- **问题描述**：（清晰阐述问题，引用相关文献 [Rx] 作为依据）
+- **修改建议**：（具体、可执行的修改方案）
+
+### 问题2：[问题标题]
+...
+
+## 其他改进建议
+
+（指出那些次要的、但同样需要修改以提升稿件质量的问题。）
+
+1. [建议1]
+2. [建议2]
+3. [建议3]`,
+		targetVenue,
+		fileName,
+		string(metaJSON),
+		summary.FieldState,
+		closestPapersInfo,
+		gapsInfo,
+		refsStr,
+		targetVenue)
+
+	// 构建多模态消息，包含PDF文件
+	contentParts := []interface{}{
+		ai.TextContent{
+			Type: "text",
+			Text: userPromptText,
+		},
+		ai.FileContent{
+			Type: "file",
+			File: ai.FileContentData{
+				URL: "data:application/pdf;base64," + pdfBase64,
+			},
+		},
+	}
+
+	messages := []ai.ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: contentParts},
+	}
+
+	level := getModelLevel(modelLevel)
+
+	// 使用流式输出，支持多轮续写
+	var accumulatedContent strings.Builder
+	streamWriter := &reviewStreamWriter{
+		writer:      writer,
+		accumulator: &accumulatedContent,
+	}
+
+	for round := 0; round < maxContinuations; round++ {
+		// 重置本轮累积内容
+		roundContent := strings.Builder{}
+		streamWriter.roundAccumulator = &roundContent
+
+		// 流式输出
+		err := s.aiService.StreamChatCompletionWithLevel(messages, streamWriter, level)
+		if err != nil {
+			return err
+		}
+
+		// 获取本轮生成的内容
+		roundText := roundContent.String()
+		accumulatedContent.WriteString(roundText)
+
+		// 检查是否需要继续生成
+		if !s.needsContinuation(accumulatedContent.String()) {
+			// 输出完整，结束
+			break
+		}
+
+		// 需要续写，添加 assistant 消息和续写提示
+		messages = append(messages, ai.ChatMessage{
+			Role:    "assistant",
+			Content: roundText,
+		})
+		messages = append(messages, ai.ChatMessage{
+			Role:    "user",
+			Content: "请继续完成审稿报告，从上次中断的地方继续。",
+		})
+
+		// 发送续写状态提示
+		sendEvent(writer, "status", fmt.Sprintf("内容较长，正在续写（第 %d 轮）...", round+2))
+	}
+
+	return nil
+}
+
 // needsContinuation 检查审稿报告是否需要续写
 func (s *Service) needsContinuation(content string) bool {
 	// 检查是否包含完整的报告结构
@@ -900,7 +1166,7 @@ func (s *Service) saveReviewRecord(
 		UserID:            userID,
 		InputType:         InputTypeText,
 		ManuscriptText:    req.ManuscriptText,
-		ManuscriptHash:    manuscriptHash,
+		ContentHash:       manuscriptHash,
 		Title:             meta.Title,
 		TargetVenue:       req.TargetVenue,
 		ModelLevel:        req.ModelLevel,

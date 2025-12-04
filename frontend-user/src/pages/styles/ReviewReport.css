@@ -2231,6 +2231,164 @@
   background: rgba(16, 163, 127, 0.15);
 }
 
+/* ========== 三审一致性分数 ========== */
+.prvr-consensus-score {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: rgba(128, 128, 128, 0.05);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.prvr-consensus-label {
+  color: var(--text-secondary);
+}
+
+.prvr-consensus-value {
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.prvr-consensus-value.high {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.prvr-consensus-value.medium {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.prvr-consensus-value.low {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* ========== 三审独立结果 ========== */
+.prvr-three-reviews {
+  margin-top: 24px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+.prvr-reviews-summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  background: rgba(128, 128, 128, 0.05);
+  border-radius: 8px;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prvr-reviews-summary::-webkit-details-marker {
+  display: none;
+}
+
+.prvr-reviews-summary::before {
+  content: '▶';
+  font-size: 10px;
+  transition: transform 0.2s ease;
+}
+
+details[open] .prvr-reviews-summary::before {
+  transform: rotate(90deg);
+}
+
+.prvr-reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.prvr-review-item {
+  padding: 16px;
+  background: rgba(128, 128, 128, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.prvr-review-item.failed {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.03);
+}
+
+.prvr-review-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.prvr-reviewer-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.prvr-mini-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.prvr-mini-badge.accept {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.prvr-mini-badge.minor-revision {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.prvr-mini-badge.major-revision {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.prvr-mini-badge.reject {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.prvr-review-status {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.prvr-review-status.completed {
+  color: #10b981;
+}
+
+.prvr-review-status.processing {
+  color: #3b82f6;
+}
+
+.prvr-review-status.failed {
+  color: #ef4444;
+}
+
+.prvr-review-content-preview {
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
 /* 响应式 */
 @media (max-width: 600px) {
   .prvr-aux-buttons {
@@ -2242,5 +2400,9 @@
   .prvr-drawer {
     width: 100%;
     max-width: 100%;
+  }
+  
+  .prvr-review-header {
+    flex-wrap: wrap;
   }
 }
