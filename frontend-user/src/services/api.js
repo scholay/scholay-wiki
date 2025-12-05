@@ -587,6 +587,14 @@ export const peerReviewAPI = {
   deleteAttachment: (attachmentId) =>
     api.delete(`/user/peer-review/attachments/${attachmentId}`),
 
+  // 删除主稿件文件
+  deleteManuscript: () =>
+    api.delete('/user/peer-review/manuscript'),
+
+  // 清空草稿（删除主稿件和所有附件）
+  clearDraft: () =>
+    api.delete('/user/peer-review/draft'),
+
   // ========== 兼容旧接口 ==========
   
   // 执行审稿（流式输出，同步方式）

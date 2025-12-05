@@ -482,6 +482,93 @@ func (s *Service) AddAttachmentToDraft(userID uint, fileName string, fileExt str
 	}, nil
 }
 
+// DeleteManuscriptFromDraft 从草稿删除主稿件文件
+func (s *Service) DeleteManuscriptFromDraft(userID uint) error {
+	// 查找用户的草稿任务
+	var draft PeerReviewTask
+	err := s.db.Where("user_id = ? AND status = ?", userID, TaskStatusDraft).First(&draft).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil // 没有草稿，直接返回成功
+		}
+		return err
+	}
+
+	// 如果没有关联的主稿件文件，直接返回
+	if draft.ManuscriptFileID == nil {
+		return nil
+	}
+
+	// 查找并删除主稿件文件
+	var file PeerReviewFile
+	if err := s.db.First(&file, *draft.ManuscriptFileID).Error; err == nil {
+		// 删除磁盘文件
+		if file.FilePath != "" {
+			os.Remove(file.FilePath)
+		}
+		// 删除数据库记录
+		s.db.Delete(&file)
+	}
+
+	// 更新草稿，清除文件关联
+	draft.ManuscriptFileID = nil
+	draft.InputType = InputTypeText
+	draft.ManuscriptText = ""
+	draft.Title = ""
+	if err := s.db.Save(&draft).Error; err != nil {
+		return fmt.Errorf("更新草稿失败: %w", err)
+	}
+
+	return nil
+}
+
+// ClearDraft 清空草稿（删除主稿件和所有附件）
+func (s *Service) ClearDraft(userID uint) error {
+	// 查找用户的草稿任务
+	var draft PeerReviewTask
+	err := s.db.Where("user_id = ? AND status = ?", userID, TaskStatusDraft).First(&draft).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil // 没有草稿，直接返回成功
+		}
+		return err
+	}
+
+	// 删除主稿件文件
+	if draft.ManuscriptFileID != nil {
+		var file PeerReviewFile
+		if err := s.db.First(&file, *draft.ManuscriptFileID).Error; err == nil {
+			if file.FilePath != "" {
+				os.Remove(file.FilePath)
+			}
+			s.db.Delete(&file)
+		}
+	}
+
+	// 删除所有附件
+	var attachments []PeerReviewFile
+	s.db.Where("task_id = ? AND file_role = ?", draft.ID, FileRoleAttachment).Find(&attachments)
+	for _, att := range attachments {
+		if att.FilePath != "" {
+			os.Remove(att.FilePath)
+		}
+		s.db.Delete(&att)
+	}
+
+	// 重置草稿内容
+	draft.ManuscriptFileID = nil
+	draft.InputType = InputTypeText
+	draft.ManuscriptText = ""
+	draft.Title = ""
+	draft.TargetVenue = ""
+	// 保留 model_level，不重置
+	if err := s.db.Save(&draft).Error; err != nil {
+		return fmt.Errorf("重置草稿失败: %w", err)
+	}
+
+	return nil
+}
+
 // DeleteAttachmentFromDraft 从草稿删除附件
 func (s *Service) DeleteAttachmentFromDraft(userID uint, attachmentID uint) error {
 	// 查找附件

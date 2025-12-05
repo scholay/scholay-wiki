@@ -290,7 +290,7 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 			ToolChoice:  toolChoice,
 			Stream:      false,
 			Temperature: 0.7,
-			MaxTokens:   4096, // 确保有足够的输出 token
+			MaxTokens:   8192, // 增加输出 token 限制，避免被截断
 		}
 
 		jsonData, err := json.Marshal(reqBody)

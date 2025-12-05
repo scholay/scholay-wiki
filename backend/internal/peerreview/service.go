@@ -300,19 +300,115 @@ func getModelLevel(level string) thirdparty.ModelLevel {
 }
 
 func extractJSON(content string) string {
+	// 先尝试提取 markdown 代码块中的 JSON
 	if strings.Contains(content, "```json") {
 		start := strings.Index(content, "```json") + 7
 		end := strings.LastIndex(content, "```")
 		if end > start {
-			return strings.TrimSpace(content[start:end])
+			content = strings.TrimSpace(content[start:end])
 		}
 	} else if strings.Contains(content, "```") {
 		start := strings.Index(content, "```") + 3
 		end := strings.LastIndex(content, "```")
 		if end > start {
-			return strings.TrimSpace(content[start:end])
+			content = strings.TrimSpace(content[start:end])
 		}
 	}
+
+	// 尝试找到 JSON 对象的边界
+	content = strings.TrimSpace(content)
+	if !strings.HasPrefix(content, "{") {
+		// 尝试找到第一个 {
+		idx := strings.Index(content, "{")
+		if idx >= 0 {
+			content = content[idx:]
+		}
+	}
+
+	// 尝试修复被截断的 JSON
+	content = tryFixTruncatedJSON(content)
+
+	return content
+}
+
+// tryFixTruncatedJSON 尝试修复被截断的 JSON
+func tryFixTruncatedJSON(content string) string {
+	// 如果 JSON 已经有效，直接返回
+	var test interface{}
+	if json.Unmarshal([]byte(content), &test) == nil {
+		return content
+	}
+
+	// 统计未闭合的括号
+	openBraces := 0
+	openBrackets := 0
+	inString := false
+	escaped := false
+
+	for i := 0; i < len(content); i++ {
+		c := content[i]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if c == '\\' && inString {
+			escaped = true
+			continue
+		}
+		if c == '"' {
+			inString = !inString
+			continue
+		}
+		if inString {
+			continue
+		}
+		switch c {
+		case '{':
+			openBraces++
+		case '}':
+			openBraces--
+		case '[':
+			openBrackets++
+		case ']':
+			openBrackets--
+		}
+	}
+
+	// 如果在字符串中被截断，先关闭字符串
+	if inString {
+		content += `"`
+	}
+
+	// 尝试清理最后一个不完整的键值对
+	// 找到最后一个逗号或冒号之后的内容
+	lastComma := strings.LastIndex(content, ",")
+	lastColon := strings.LastIndex(content, ":")
+
+	// 如果冒号在逗号之后，说明可能有一个不完整的键值对
+	if lastColon > lastComma && lastColon > 0 {
+		// 检查冒号后面的内容是否是不完整的值
+		afterColon := strings.TrimSpace(content[lastColon+1:])
+		// 如果冒号后面是不完整的内容（不是有效的 JSON 值）
+		if afterColon == "" || afterColon == `"` || afterColon == `"...` ||
+			(strings.HasPrefix(afterColon, `"`) && !strings.HasSuffix(afterColon, `"`) && !strings.Contains(afterColon[1:], `"`)) {
+			// 回退到最后一个逗号
+			if lastComma > 0 {
+				content = content[:lastComma]
+			}
+		}
+	}
+
+	// 清理尾部的逗号
+	content = strings.TrimRight(content, ", \t\n\r")
+
+	// 补充缺失的闭合括号
+	for i := 0; i < openBrackets; i++ {
+		content += "]"
+	}
+	for i := 0; i < openBraces; i++ {
+		content += "}"
+	}
+
 	return content
 }
 
@@ -517,24 +613,72 @@ func (s *Service) summarizeLiterature(ctx *LiteratureContext, meta *ManuscriptMe
 	}
 
 	level := getModelLevel(modelLevel)
-	response, err := s.aiService.ChatCompletionWithTools(messages, nil, "", level)
+
+	// 调用 AI 并支持续写
+	content, err := s.callAIWithContinuation(messages, level, 3)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(response.Choices) == 0 {
-		return nil, fmt.Errorf("no response from AI")
-	}
-
-	content := strings.TrimSpace(response.Choices[0].Message.Content)
 	content = extractJSON(content)
 
 	var summary LiteratureSummary
 	if err := json.Unmarshal([]byte(content), &summary); err != nil {
+		// 记录原始内容便于调试
+		fmt.Printf("[PeerReview] Failed to parse summary JSON, content (first 500 chars): %s\n", content[:min(500, len(content))])
+		fmt.Printf("[PeerReview] JSON parse error: %v\n", err)
 		return nil, fmt.Errorf("failed to parse summary: %w", err)
 	}
 
 	return &summary, nil
+}
+
+// callAIWithContinuation 调用 AI 并支持自动续写被截断的响应
+func (s *Service) callAIWithContinuation(messages []ai.ChatMessage, level thirdparty.ModelLevel, maxContinuations int) (string, error) {
+	var fullContent strings.Builder
+
+	currentMessages := make([]ai.ChatMessage, len(messages))
+	copy(currentMessages, messages)
+
+	for i := 0; i <= maxContinuations; i++ {
+		response, err := s.aiService.ChatCompletionWithTools(currentMessages, nil, "", level)
+		if err != nil {
+			return "", err
+		}
+
+		if len(response.Choices) == 0 {
+			return "", fmt.Errorf("no response from AI")
+		}
+
+		content := response.Choices[0].Message.Content
+		finishReason := response.Choices[0].FinishReason
+
+		fullContent.WriteString(content)
+
+		fmt.Printf("[PeerReview] AI response chunk %d, length: %d, finish_reason: %s\n", i+1, len(content), finishReason)
+
+		// 如果正常结束（不是因为长度被截断），直接返回
+		if finishReason != "length" {
+			break
+		}
+
+		// 如果是因为长度被截断，需要续写
+		if i < maxContinuations {
+			fmt.Printf("[PeerReview] Response truncated, requesting continuation...\n")
+
+			// 构建续写请求：把当前的部分响应加入对话，让 AI 继续
+			currentMessages = append(currentMessages, ai.ChatMessage{
+				Role:    "assistant",
+				Content: content,
+			})
+			currentMessages = append(currentMessages, ai.ChatMessage{
+				Role:    "user",
+				Content: "请继续，从你上次停止的地方继续输出，不要重复已输出的内容。",
+			})
+		}
+	}
+
+	return fullContent.String(), nil
 }
 
 // compactPapersForLLM 压缩论文列表供LLM使用

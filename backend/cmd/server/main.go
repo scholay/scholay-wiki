@@ -540,6 +540,7 @@ func main() {
 				// 草稿管理（每个用户一个草稿）
 				peerReviewGroup.GET("/draft", peerReviewHandler.GetDraft)       // 获取草稿
 				peerReviewGroup.PUT("/draft", peerReviewHandler.SaveDraft)      // 保存草稿
+				peerReviewGroup.DELETE("/draft", peerReviewHandler.ClearDraft)  // 清空草稿（删除主稿件和附件）
 				peerReviewGroup.POST("/draft/submit", peerReviewHandler.SubmitDraft) // 提交草稿开始审稿
 				
 				// 任务管理
@@ -557,6 +558,9 @@ func main() {
 				// 附件管理（最多5个附件）
 				peerReviewGroup.POST("/attachments", peerReviewHandler.UploadAttachment)
 				peerReviewGroup.DELETE("/attachments/:id", peerReviewHandler.DeleteAttachment)
+
+				// 主稿件管理
+				peerReviewGroup.DELETE("/manuscript", peerReviewHandler.DeleteManuscript) // 删除主稿件
 
 				// 文件下载
 				peerReviewGroup.GET("/files/:id/download", peerReviewHandler.DownloadFile)

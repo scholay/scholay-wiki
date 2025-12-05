@@ -530,6 +530,19 @@
   min-height: 260px;
 }
 
+/* 当有文件条时，减小 textarea-wrapper 的高度以保持整体高度一致 */
+.prv-file-bar + .prv-textarea-wrapper {
+  min-height: 212px; /* 260px - 文件条高度(40px) - 间距(8px) */
+}
+
+.prv-file-bar + .prv-textarea-wrapper .prv-pdf-preview {
+  height: 212px; /* 同步减小 PDF 预览高度 */
+}
+
+.prv-file-bar + .prv-textarea-wrapper .prv-textarea {
+  height: 212px; /* 同步减小 textarea 高度 */
+}
+
 .prv-textarea {
   width: 100%;
   height: 260px;
@@ -971,6 +984,30 @@
 
 [data-theme="light"] .prv-footer-btn:hover:not(:disabled) {
   background: rgba(0, 0, 0, 0.05);
+}
+
+/* 简洁按钮样式 - 文件和附件 */
+.prv-simple-btn {
+  width: auto !important;
+  padding: 0 10px !important;
+  gap: 5px;
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-tertiary) !important;
+}
+
+.prv-simple-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05) !important;
+  color: var(--text-secondary) !important;
+}
+
+.prv-simple-btn-label {
+  font-size: 13px;
+  font-weight: 400;
+}
+
+[data-theme="dark"] .prv-simple-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 
 /* ========== 目标期刊输入 - Footer 中的样式 ========== */
@@ -2285,72 +2322,479 @@
   animation: spin 0.8s linear infinite;
 }
 
-/* 附件区域 */
-.prv-attachments-section {
-  margin-top: 12px;
-  padding: 12px 16px;
-  background: var(--surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+/* ========== 新版附件区域 - 毛玻璃质感 ========== */
+.prv-attachments-zone {
+  position: relative;
+  margin-top: 16px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
-.prv-attachments-header {
+[data-theme="dark"] .prv-attachments-zone {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.01) 100%
+  );
+  border: 1.5px dashed rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .prv-attachments-zone {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.7) 0%,
+    rgba(255, 255, 255, 0.4) 100%
+  );
+  border: 1.5px dashed rgba(16, 163, 127, 0.2);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.prv-attachments-zone:hover {
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .prv-attachments-zone:hover {
+  border-color: rgba(16, 163, 127, 0.4);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 163, 127, 0.08) 0%,
+    rgba(16, 163, 127, 0.03) 100%
+  );
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 4px 16px rgba(16, 163, 127, 0.1),
+    0 0 0 1px rgba(16, 163, 127, 0.1);
+}
+
+[data-theme="light"] .prv-attachments-zone:hover {
+  border-color: rgba(16, 163, 127, 0.35);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 163, 127, 0.06) 0%,
+    rgba(255, 255, 255, 0.6) 100%
+  );
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 4px 16px rgba(16, 163, 127, 0.08);
+}
+
+.prv-attachments-zone.prv-attachments-dragging {
+  transform: translateY(-2px);
+  border-style: solid;
+}
+
+[data-theme="dark"] .prv-attachments-zone.prv-attachments-dragging {
+  border-color: var(--text-accent);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 163, 127, 0.15) 0%,
+    rgba(16, 163, 127, 0.08) 100%
+  );
+  box-shadow: 
+    inset 0 1px 0 rgba(16, 163, 127, 0.2),
+    0 8px 24px rgba(16, 163, 127, 0.15),
+    0 0 0 2px rgba(16, 163, 127, 0.2);
+}
+
+[data-theme="light"] .prv-attachments-zone.prv-attachments-dragging {
+  border-color: var(--text-accent);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 163, 127, 0.1) 0%,
+    rgba(16, 163, 127, 0.05) 100%
+  );
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 8px 24px rgba(16, 163, 127, 0.12),
+    0 0 0 2px rgba(16, 163, 127, 0.15);
+}
+
+.prv-attachments-zone.has-attachments {
+  border-style: solid;
+}
+
+[data-theme="dark"] .prv-attachments-zone.has-attachments {
+  border-color: rgba(16, 163, 127, 0.3);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 163, 127, 0.08) 0%,
+    rgba(16, 163, 127, 0.03) 100%
+  );
+  box-shadow: 
+    inset 0 1px 0 rgba(16, 163, 127, 0.1),
+    0 2px 12px rgba(16, 163, 127, 0.08);
+}
+
+[data-theme="light"] .prv-attachments-zone.has-attachments {
+  border-color: rgba(16, 163, 127, 0.25);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 163, 127, 0.05) 0%,
+    rgba(255, 255, 255, 0.6) 100%
+  );
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 2px 12px rgba(16, 163, 127, 0.06);
+}
+
+/* 拖拽遮罩 - 毛玻璃效果 */
+.prv-attachments-drag-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 14px;
+  color: var(--text-accent);
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: prv-attachments-pulse 1.5s ease-in-out infinite;
+}
+
+[data-theme="dark"] .prv-attachments-drag-overlay {
+  background: linear-gradient(
+    135deg,
+    rgba(16, 163, 127, 0.2) 0%,
+    rgba(16, 163, 127, 0.1) 100%
+  );
+  box-shadow: inset 0 0 20px rgba(16, 163, 127, 0.1);
+}
+
+[data-theme="light"] .prv-attachments-drag-overlay {
+  background: linear-gradient(
+    135deg,
+    rgba(16, 163, 127, 0.15) 0%,
+    rgba(16, 163, 127, 0.08) 100%
+  );
+  box-shadow: inset 0 0 20px rgba(16, 163, 127, 0.08);
+}
+
+.prv-attachments-drag-overlay svg {
+  animation: prv-bounce-gentle 1s ease-in-out infinite;
+}
+
+@keyframes prv-attachments-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+@keyframes prv-bounce-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+/* 附件内容区 */
+.prv-attachments-content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+/* 左侧添加按钮区 */
+.prv-attachments-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* 添加按钮 - 带渐变和强调色 */
+.prv-attachments-add-btn {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-secondary);
-  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
 }
 
-.prv-attachments-header svg {
+[data-theme="dark"] .prv-attachments-add-btn {
+  color: var(--text-accent);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 163, 127, 0.12) 0%,
+    rgba(16, 163, 127, 0.06) 100%
+  );
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .prv-attachments-add-btn {
+  color: var(--text-accent);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 163, 127, 0.1) 0%,
+    rgba(16, 163, 127, 0.05) 100%
+  );
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 1px 3px rgba(16, 163, 127, 0.08);
+}
+
+.prv-attachments-add-btn svg {
+  color: var(--text-accent);
+}
+
+.prv-attachments-add-btn:disabled {
+  opacity: 0.5;
+}
+
+/* 附件计数标签 */
+.prv-attachments-count {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 12px;
+  margin-left: 2px;
+}
+
+[data-theme="dark"] .prv-attachments-count {
+  color: var(--text-accent);
+  background: rgba(16, 163, 127, 0.2);
+}
+
+[data-theme="light"] .prv-attachments-count {
+  color: var(--text-accent);
+  background: rgba(16, 163, 127, 0.15);
+}
+
+/* 提示文字 */
+.prv-attachments-hint {
+  font-size: 12px;
   color: var(--text-tertiary);
+  transition: color 0.2s;
+}
+
+.prv-attachments-zone:hover .prv-attachments-hint {
+  color: var(--text-secondary);
 }
 
 /* 附件列表 */
 .prv-attachments-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
+  flex: 1;
 }
 
-/* 单个附件项 */
-.prv-attachment-item {
+/* 附件标签（chip 样式） - 毛玻璃质感 */
+.prv-attachment-chip {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  background: var(--background);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  max-width: 220px;
-  transition: all 0.2s ease;
+  padding: 6px 10px 6px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: auto;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
-.prv-attachment-item:hover {
-  border-color: var(--border);
-  background: var(--surface-hover);
+[data-theme="dark"] .prv-attachment-chip {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
-/* 附件图标 */
-.prv-attachment-icon {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+[data-theme="light"] .prv-attachment-chip {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(255, 255, 255, 0.6) 100%
+  );
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  color: var(--text-primary);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.prv-attachment-chip:hover {
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .prv-attachment-chip:hover {
+  border-color: rgba(16, 163, 127, 0.3);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 163, 127, 0.12) 0%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 4px 12px rgba(16, 163, 127, 0.1);
+}
+
+[data-theme="light"] .prv-attachment-chip:hover {
+  border-color: rgba(16, 163, 127, 0.25);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 163, 127, 0.06) 0%,
+    rgba(255, 255, 255, 0.9) 100%
+  );
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 4px 12px rgba(16, 163, 127, 0.08);
+}
+
+/* 附件图标容器 */
+.prv-attachment-chip-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(var(--primary-rgb), 0.08);
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
   border-radius: 6px;
+  transition: all 0.2s;
 }
 
-.prv-attachment-icon svg {
-  width: 16px;
-  height: 16px;
+[data-theme="dark"] .prv-attachment-chip-icon {
+  background: rgba(255, 255, 255, 0.06);
 }
 
-/* 附件信息 */
+[data-theme="light"] .prv-attachment-chip-icon {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.prv-attachment-chip-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 文件名 */
+.prv-attachment-chip-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+/* 删除按钮 */
+.prv-attachment-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-left: 2px;
+  pointer-events: auto;
+  opacity: 0.6;
+}
+
+[data-theme="dark"] .prv-attachment-chip-remove {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .prv-attachment-chip-remove {
+  color: var(--text-quaternary);
+}
+
+.prv-attachment-chip:hover .prv-attachment-chip-remove {
+  opacity: 1;
+}
+
+.prv-attachment-chip-remove:hover {
+  transform: scale(1.1);
+}
+
+[data-theme="dark"] .prv-attachment-chip-remove:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+[data-theme="light"] .prv-attachment-chip-remove:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* 附件上传中状态 */
+.prv-attachment-chip.uploading {
+  pointer-events: none;
+}
+
+[data-theme="dark"] .prv-attachment-chip.uploading {
+  background: linear-gradient(
+    135deg,
+    rgba(16, 163, 127, 0.15) 0%,
+    rgba(16, 163, 127, 0.08) 100%
+  );
+  border-color: rgba(16, 163, 127, 0.25);
+  animation: prv-chip-pulse 1.5s ease-in-out infinite;
+}
+
+[data-theme="light"] .prv-attachment-chip.uploading {
+  background: linear-gradient(
+    135deg,
+    rgba(16, 163, 127, 0.12) 0%,
+    rgba(16, 163, 127, 0.06) 100%
+  );
+  border-color: rgba(16, 163, 127, 0.2);
+  animation: prv-chip-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes prv-chip-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* 附件内的小型 spinner */
+.prv-chip-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(16, 163, 127, 0.2);
+  border-top-color: var(--text-accent);
+  border-radius: 50%;
+  animation: prv-spin 0.8s linear infinite;
+}
+
+/* 上传中状态文字 */
+.prv-attachment-chip-status {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-accent);
+  white-space: nowrap;
+  margin-left: 2px;
+}
+
+/* 旧版附件样式保留兼容 */
 .prv-attachment-info {
   flex: 1;
   min-width: 0;
@@ -2400,37 +2844,60 @@
   color: #ef4444;
 }
 
-/* 移动端适配 */
+/* 附件区域移动端适配 */
 @media (max-width: 768px) {
-  .prv-attachments-section {
-    padding: 10px 12px;
-    margin-top: 10px;
+  .prv-attachments-zone {
+    padding: 12px 14px;
+    margin-top: 12px;
+    border-radius: 14px;
+  }
+
+  .prv-attachments-content {
+    gap: 10px;
+  }
+
+  .prv-attachments-left {
+    gap: 8px;
+  }
+
+  .prv-attachments-add-btn {
+    padding: 6px 10px;
+    font-size: 12px;
   }
 
   .prv-attachments-list {
+    gap: 8px;
+  }
+
+  .prv-attachment-chip {
+    padding: 5px 8px 5px 6px;
     gap: 6px;
+    border-radius: 8px;
   }
 
-  .prv-attachment-item {
-    padding: 6px 10px;
-    max-width: 180px;
+  .prv-attachment-chip-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
   }
 
-  .prv-attachment-icon {
-    width: 24px;
-    height: 24px;
+  .prv-attachment-chip-icon svg {
+    width: 12px;
+    height: 12px;
   }
 
-  .prv-attachment-icon svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  .prv-attachment-name {
+  .prv-attachment-chip-name {
     max-width: 100px;
+    font-size: 11px;
   }
 
-  .prv-attachment-remove {
+  .prv-attachment-chip-remove {
+    width: 18px;
+    height: 18px;
     opacity: 1;
+  }
+
+  .prv-attachments-hint {
+    font-size: 11px;
   }
 }

@@ -2425,11 +2425,20 @@ details[open] .prvr-reviews-summary::before {
   padding: 8px 10px;
   background: rgba(128, 128, 128, 0.04);
   border-radius: 6px;
-  transition: background 0.2s ease;
+  transition: all 0.2s ease;
+}
+
+.prvr-attachment-item.clickable {
+  cursor: pointer;
 }
 
 .prvr-attachment-item:hover {
   background: rgba(128, 128, 128, 0.08);
+}
+
+.prvr-attachment-item.clickable:hover {
+  background: rgba(16, 163, 127, 0.08);
+  border-color: rgba(16, 163, 127, 0.2);
 }
 
 .prvr-attachment-item svg {
@@ -2447,12 +2456,30 @@ details[open] .prvr-reviews-summary::before {
   min-width: 0;
 }
 
+/* 下载图标 - 默认隐藏 */
+.prvr-attachment-download {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  color: var(--text-accent);
+}
+
+.prvr-attachment-item.clickable:hover .prvr-attachment-download {
+  opacity: 1;
+}
+
 [data-theme="dark"] .prvr-attachment-item {
   background: rgba(255, 255, 255, 0.03);
 }
 
 [data-theme="dark"] .prvr-attachment-item:hover {
   background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .prvr-attachment-item.clickable:hover {
+  background: rgba(16, 163, 127, 0.1);
 }
 
 /* 响应式 */

@@ -294,9 +294,11 @@ func (h *Handler) UploadFile(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// 检查文件大小（限制 10MB）
-	if header.Size > 10*1024*1024 {
-		utils.Error(c, 4007, "文件大小不能超过 10MB")
+	// 检查文件大小（主稿件限制 5MB）
+	maxSize := int64(5 * 1024 * 1024)
+	if header.Size > maxSize {
+		sizeMB := float64(header.Size) / 1024 / 1024
+		utils.Error(c, 4007, fmt.Sprintf("文件大小不能超过 5MB，当前文件 %.1fMB", sizeMB))
 		return
 	}
 
@@ -351,9 +353,11 @@ func (h *Handler) UploadAttachment(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// 检查文件大小（限制 10MB）
-	if header.Size > 10*1024*1024 {
-		utils.Error(c, 4007, "文件大小不能超过 10MB")
+	// 检查文件大小（附件限制 5MB）
+	maxSize := int64(5 * 1024 * 1024)
+	if header.Size > maxSize {
+		sizeMB := float64(header.Size) / 1024 / 1024
+		utils.Error(c, 4007, fmt.Sprintf("附件大小不能超过 5MB，当前文件 %.1fMB", sizeMB))
 		return
 	}
 
@@ -402,6 +406,40 @@ func (h *Handler) DeleteAttachment(c *gin.Context) {
 	}
 
 	utils.Success(c, gin.H{"message": "附件已删除"})
+}
+
+// DeleteManuscript 从草稿删除主稿件文件
+// DELETE /api/v1/user/peer-review/manuscript
+func (h *Handler) DeleteManuscript(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Error(c, 4001, "请先登录")
+		return
+	}
+
+	if err := h.service.DeleteManuscriptFromDraft(userID.(uint)); err != nil {
+		utils.Error(c, 5005, err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{"message": "主稿件已删除"})
+}
+
+// ClearDraft 清空草稿（删除主稿件和所有附件）
+// DELETE /api/v1/user/peer-review/draft
+func (h *Handler) ClearDraft(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Error(c, 4001, "请先登录")
+		return
+	}
+
+	if err := h.service.ClearDraft(userID.(uint)); err != nil {
+		utils.Error(c, 5005, err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{"message": "草稿已清空"})
 }
 
 // ========== SSE 流式接口（实时查看进度） ==========
