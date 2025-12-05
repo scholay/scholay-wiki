@@ -553,7 +553,11 @@ func main() {
 				
 				// 文件上传（解析文件并保存到草稿）
 				peerReviewGroup.POST("/upload", peerReviewHandler.UploadFile)
-				
+
+				// 附件管理（最多5个附件）
+				peerReviewGroup.POST("/attachments", peerReviewHandler.UploadAttachment)
+				peerReviewGroup.DELETE("/attachments/:id", peerReviewHandler.DeleteAttachment)
+
 				// 文件下载
 				peerReviewGroup.GET("/files/:id/download", peerReviewHandler.DownloadFile)
 				

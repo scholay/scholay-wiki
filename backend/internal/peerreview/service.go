@@ -28,6 +28,7 @@ type Service struct {
 	aiService      *ai.Service
 	mcpServer      *mcp.MCPServer
 	accountService *thirdparty.Service
+	uploadPath     string // 文件上传路径
 }
 
 // NewService 创建审稿服务
@@ -37,6 +38,7 @@ func NewService(db *gorm.DB, aiService *ai.Service, mcpServer *mcp.MCPServer, ac
 		aiService:      aiService,
 		mcpServer:      mcpServer,
 		accountService: accountService,
+		uploadPath:     "/app/uploads", // 默认上传路径
 	}
 }
 

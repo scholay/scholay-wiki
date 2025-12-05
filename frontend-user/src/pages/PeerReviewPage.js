@@ -228,7 +228,9 @@ export default function PeerReviewPage() {
   const [modelLevel, setModelLevel] = useState('mid'); // 默认进阶模式（AI审稿只支持进阶和高级）
   const [fileName, setFileName] = useState('');
   const [useFileInput, setUseFileInput] = useState(false); // 是否直接使用文件（不提取文本，如PDF、Word等）
+  const [attachments, setAttachments] = useState([]); // 附件列表
   const [uploading, setUploading] = useState(false);
+  const [attachmentUploading, setAttachmentUploading] = useState(false); // 附件上传中
   const [submitting, setSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [draftLoading, setDraftLoading] = useState(false);
@@ -243,6 +245,7 @@ export default function PeerReviewPage() {
   // 轮询和防抖相关
   const pollingRef = useRef(null);
   const fileInputRef = useRef(null);
+  const attachmentInputRef = useRef(null); // 附件上传
   const saveDraftTimeoutRef = useRef(null);
 
   // 显示弹窗
@@ -284,6 +287,8 @@ export default function PeerReviewPage() {
           setFileName('');
           setUseFileInput(false);
         }
+        // 加载附件列表
+        setAttachments(draft.attachments || []);
       }
     } catch (error) {
       console.error('加载草稿失败:', error);
@@ -464,10 +469,96 @@ export default function PeerReviewPage() {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    
+
     const file = validateFile(e.dataTransfer.files[0]);
     if (file) {
       await uploadFile(file);
+    }
+  };
+
+  // 验证附件文件
+  const validateAttachmentFile = (file) => {
+    if (!file) return null;
+
+    // 附件支持更多文件类型
+    const allowedTypes = [
+      '.txt', '.doc', '.docx', '.rtf', '.odt', '.pdf', '.xml', '.html', '.htm',
+      '.xlsx', '.xls', '.csv', '.epub',
+      '.py', '.js', '.ts', '.go', '.java', '.c', '.cpp', '.h', '.rs', '.rb', '.php',
+      '.sql', '.json', '.yaml', '.yml', '.md', '.r'
+    ];
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    if (!allowedTypes.includes(ext)) {
+      showMessage('warning', '文件类型不支持', '附件支持文档、表格、代码等多种格式');
+      return null;
+    }
+
+    // 检查文件大小
+    if (file.size > 10 * 1024 * 1024) {
+      showMessage('warning', '文件过大', '附件大小不能超过 10MB');
+      return null;
+    }
+
+    return file;
+  };
+
+  // 上传附件
+  const handleAttachmentUpload = async (e) => {
+    if (!user) {
+      showMessage('warning', '请先登录', '上传附件需要登录');
+      openLoginModal();
+      return;
+    }
+
+    const file = validateAttachmentFile(e.target.files[0]);
+    if (!file) {
+      if (attachmentInputRef.current) {
+        attachmentInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // 检查附件数量
+    if (attachments.length >= 5) {
+      showMessage('warning', '附件数量已达上限', '最多只能上传5个附件');
+      if (attachmentInputRef.current) {
+        attachmentInputRef.current.value = '';
+      }
+      return;
+    }
+
+    setAttachmentUploading(true);
+    try {
+      const response = await peerReviewAPI.uploadAttachment(file);
+      if (response.data?.code === 0) {
+        const newAttachment = response.data.data;
+        setAttachments(prev => [...prev, newAttachment]);
+      } else {
+        showMessage('error', '上传失败', response.data?.message || '附件上传失败');
+      }
+    } catch (error) {
+      console.error('附件上传失败:', error);
+      showMessage('error', '上传失败', error.response?.data?.message || error.message);
+    } finally {
+      setAttachmentUploading(false);
+      if (attachmentInputRef.current) {
+        attachmentInputRef.current.value = '';
+      }
+    }
+  };
+
+  // 删除附件
+  const handleDeleteAttachment = async (attachmentId) => {
+    try {
+      const response = await peerReviewAPI.deleteAttachment(attachmentId);
+      if (response.data?.code === 0) {
+        setAttachments(prev => prev.filter(a => a.id !== attachmentId));
+      } else {
+        showMessage('error', '删除失败', response.data?.message || '附件删除失败');
+      }
+    } catch (error) {
+      console.error('删除附件失败:', error);
+      showMessage('error', '删除失败', error.response?.data?.message || error.message);
     }
   };
 
@@ -548,6 +639,7 @@ export default function PeerReviewPage() {
     setFileName('');
     setInputType('text');
     setUseFileInput(false);
+    setAttachments([]); // 清空附件
     // 同时保存空草稿到后端
     saveDraftToServer({
       input_type: 'text',
@@ -746,6 +838,8 @@ export default function PeerReviewPage() {
                   setTargetVenue={setTargetVenue}
                   fileName={fileName}
                   useFileInput={useFileInput}
+                  attachments={attachments}
+                  attachmentUploading={attachmentUploading}
                   uploading={uploading}
                   submitting={submitting}
                   isDragging={isDragging}
@@ -753,14 +847,17 @@ export default function PeerReviewPage() {
                   modelLevel={modelLevel}
                   setModelLevel={setModelLevel}
                   fileInputRef={fileInputRef}
+                  attachmentInputRef={attachmentInputRef}
                   onFileSelect={handleFileSelect}
+                  onAttachmentUpload={handleAttachmentUpload}
+                  onDeleteAttachment={handleDeleteAttachment}
                   onDragEnter={handleDragEnter}
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  onRemoveFile={() => { 
-                    setFileName(''); 
-                    setManuscriptText(''); 
+                  onRemoveFile={() => {
+                    setFileName('');
+                    setManuscriptText('');
                     setInputType('text');
                     setUseFileInput(false);
                     // 同步清空后端草稿中的文件信息
@@ -825,10 +922,14 @@ function CreateSection({
   targetVenue, setTargetVenue,
   fileName,
   useFileInput,
+  attachments,
+  attachmentUploading,
   uploading, submitting, isDragging, draftLoading,
   modelLevel, setModelLevel,
   fileInputRef,
-  onFileSelect, onDragEnter, onDragOver, onDragLeave, onDrop,
+  attachmentInputRef,
+  onFileSelect, onAttachmentUpload, onDeleteAttachment,
+  onDragEnter, onDragOver, onDragLeave, onDrop,
   onRemoveFile, onSubmit, onClearDraft
 }) {
   // PDF文件也算有内容
@@ -1002,6 +1103,13 @@ function CreateSection({
                       <span className="prv-format-tag">XML</span>
                       <span className="prv-format-tag">HTML</span>
                     </div>
+                    
+                    <div className="prv-guide-tip">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                      </svg>
+                      <span>支持添加最多 5 个附件（图表、数据等补充材料）</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1022,18 +1130,18 @@ function CreateSection({
         <div className="prv-composer-footer">
           {/* 左侧：模型选择和上传 */}
           <div className="prv-composer-footer-left">
-            <ModelSelector 
-              value={modelLevel} 
+            <ModelSelector
+              value={modelLevel}
               onChange={setModelLevel}
               compact={true}
               allowedModels={['mid', 'high']}
             />
-            
-            <button 
+
+            <button
               className="prv-footer-btn"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              title="上传文件"
+              title="上传主稿件"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -1041,6 +1149,39 @@ function CreateSection({
                 <line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
             </button>
+
+            {/* 附件上传按钮 - 更明显的展示 */}
+            <button
+              className={`prv-footer-btn prv-attachment-btn ${attachments.length > 0 ? 'has-attachments' : ''}`}
+              onClick={() => attachmentInputRef.current?.click()}
+              disabled={attachmentUploading || attachments.length >= 5}
+              title={attachments.length >= 5 ? '附件数量已达上限(最多5个)' : `添加附件 (${attachments.length}/5)`}
+            >
+              {attachmentUploading ? (
+                <div className="prv-btn-spinner-small"></div>
+              ) : (
+                <>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                  </svg>
+                  <span className="prv-attachment-label">附件</span>
+                  {attachments.length > 0 ? (
+                    <span className="prv-attachment-count">{attachments.length}/5</span>
+                  ) : (
+                    <span className="prv-attachment-count prv-attachment-count-empty">0/5</span>
+                  )}
+                </>
+              )}
+            </button>
+
+            {/* 隐藏的附件上传 input */}
+            <input
+              ref={attachmentInputRef}
+              type="file"
+              accept=".txt,.doc,.docx,.rtf,.odt,.pdf,.xml,.html,.htm,.xlsx,.xls,.csv,.epub,.py,.js,.ts,.go,.java,.c,.cpp,.h,.rs,.rb,.php,.sql,.json,.yaml,.yml,.md,.r"
+              onChange={onAttachmentUpload}
+              style={{ display: 'none' }}
+            />
           </div>
 
           {/* 中间：目标期刊 - 可展开的输入 */}
@@ -1093,8 +1234,115 @@ function CreateSection({
           </div>
         </div>
       </div>
+
+      {/* 附件列表区域 */}
+      {attachments.length > 0 && (
+        <div className="prv-attachments-section">
+          <div className="prv-attachments-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+            <span>附件 ({attachments.length}/5)</span>
+          </div>
+          <div className="prv-attachments-list">
+            {attachments.map((attachment) => (
+              <div key={attachment.id} className="prv-attachment-item">
+                <div className="prv-attachment-icon">
+                  {getFileIcon(attachment.file_ext)}
+                </div>
+                <div className="prv-attachment-info">
+                  <span className="prv-attachment-name" title={attachment.file_name}>
+                    {attachment.file_name}
+                  </span>
+                  <span className="prv-attachment-size">
+                    {formatFileSize(attachment.file_size)}
+                  </span>
+                </div>
+                <button
+                  className="prv-attachment-remove"
+                  onClick={() => onDeleteAttachment(attachment.id)}
+                  title="删除附件"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+// 获取文件图标
+function getFileIcon(ext) {
+  const extLower = (ext || '').toLowerCase();
+  // PDF
+  if (extLower === 'pdf') {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" strokeWidth="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <path d="M10 12h4M10 16h4M10 8h1"/>
+      </svg>
+    );
+  }
+  // Word文档
+  if (['doc', 'docx', 'rtf', 'odt'].includes(extLower)) {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2980b9" strokeWidth="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="8" y1="13" x2="16" y2="13"/>
+        <line x1="8" y1="17" x2="16" y2="17"/>
+        <line x1="8" y1="9" x2="10" y2="9"/>
+      </svg>
+    );
+  }
+  // Excel表格
+  if (['xlsx', 'xls', 'csv'].includes(extLower)) {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#27ae60" strokeWidth="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <rect x="8" y="12" width="8" height="6" rx="1"/>
+      </svg>
+    );
+  }
+  // 代码文件
+  if (['py', 'js', 'ts', 'go', 'java', 'c', 'cpp', 'h', 'rs', 'rb', 'php', 'sql', 'json', 'yaml', 'yml', 'r'].includes(extLower)) {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9b59b6" strokeWidth="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <polyline points="10 12 8 14 10 16"/>
+        <polyline points="14 12 16 14 14 16"/>
+      </svg>
+    );
+  }
+  // 默认文件图标
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+    </svg>
+  );
+}
+
+// 格式化文件大小
+function formatFileSize(bytes) {
+  if (!bytes) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let i = 0;
+  let size = bytes;
+  while (size >= 1024 && i < units.length - 1) {
+    size /= 1024;
+    i++;
+  }
+  return `${size.toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
 // 历史任务区域（下半部分）
@@ -1789,6 +2037,28 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
               </div>
             )}
           </div>
+          
+          {/* 附件信息 */}
+          {task.attachments && task.attachments.length > 0 && (
+            <div className="prvr-attachments-section">
+              <div className="prvr-attachments-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                </svg>
+                <span>附件 ({task.attachments.length})</span>
+              </div>
+              <div className="prvr-attachments-list">
+                {task.attachments.map((att, idx) => (
+                  <div key={att.id || idx} className="prvr-attachment-item">
+                    {getFileIcon(att.file_ext)}
+                    <span className="prvr-attachment-name" title={att.file_name}>
+                      {att.file_name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 内容预览卡片 */}

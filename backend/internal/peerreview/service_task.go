@@ -1967,15 +1967,14 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 	
 	// 根据是否有主稿件文件且为直传模式，选择不同的处理方式
 	if task.ManuscriptFile != nil && task.ManuscriptFile.ProcessMode == ProcessModeDirect {
-		// 文件直传模式
-		fileContent, _ := os.ReadFile(task.ManuscriptFile.FilePath)
-		fileBase64 := base64.StdEncoding.EncodeToString(fileContent)
-		mimeType := task.ManuscriptFile.MimeType
-		if mimeType == "" {
-			mimeType = GetMimeType(task.ManuscriptFile.FileExt)
+		// 文件直传模式：收集主稿件和所有附件
+		files := s.collectFilesForAI(task)
+		if len(files) == 0 {
+			err = fmt.Errorf("无法读取稿件文件")
+		} else {
+			err = s.generateReviewForTaskWithFile(files,
+				task.TargetVenue, meta, summary, refs, task.ModelLevel, writer, task.ID)
 		}
-		err = s.generateReviewForTaskWithFile(fileBase64, task.ManuscriptFile.FileName, mimeType,
-			task.TargetVenue, meta, summary, refs, task.ModelLevel, writer, task.ID)
 	} else {
 		// 文本模式
 		manuscriptText := task.ManuscriptText
@@ -2006,6 +2005,53 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 			"review_content": writer.String(),
 			"completed_at":   now,
 		})
+}
+
+// collectFilesForAI 收集所有需要传递给 AI 的文件（主稿件 + 附件）
+func (s *Service) collectFilesForAI(task *PeerReviewTask) []FileForAI {
+	var files []FileForAI
+	
+	// 1. 添加主稿件
+	if task.ManuscriptFile != nil {
+		fileContent, err := os.ReadFile(task.ManuscriptFile.FilePath)
+		if err != nil {
+			return nil
+		}
+		mimeType := task.ManuscriptFile.MimeType
+		if mimeType == "" {
+			mimeType = GetMimeType(task.ManuscriptFile.FileExt)
+		}
+		files = append(files, FileForAI{
+			FileName: task.ManuscriptFile.FileName,
+			MimeType: mimeType,
+			Data:     base64.StdEncoding.EncodeToString(fileContent),
+			Role:     FileRoleManuscript,
+		})
+	}
+	
+	// 2. 添加附件（按排序顺序）
+	for _, att := range task.Attachments {
+		// 只处理直传模式的附件（PDF、图片等）
+		if att.ProcessMode != ProcessModeDirect {
+			continue
+		}
+		fileContent, err := os.ReadFile(att.FilePath)
+		if err != nil {
+			continue // 跳过读取失败的附件
+		}
+		mimeType := att.MimeType
+		if mimeType == "" {
+			mimeType = GetMimeType(att.FileExt)
+		}
+		files = append(files, FileForAI{
+			FileName: att.FileName,
+			MimeType: mimeType,
+			Data:     base64.StdEncoding.EncodeToString(fileContent),
+			Role:     FileRoleAttachment,
+		})
+	}
+	
+	return files
 }
 
 // summarizeReviews 汇总三审结果
@@ -2216,8 +2262,16 @@ func (s *Service) runTaskReviewWithFile(task *PeerReviewTask, reviewWriter *stri
 	s.updateTaskProgress(task.ID, TaskStatusProcessing, 65, "正在生成审稿报告...")
 	refs := s.buildReferenceList(literatureContext.AllPapers)
 	
-	// 使用文件版本的报告生成
-	err = s.generateReviewForTaskWithFile(fileBase64, file.FileName, mimeType, targetVenue, meta, literatureSummary, refs, modelLevel, reviewWriter, task.ID)
+	// 使用文件版本的报告生成 - 构建文件列表
+	filesForAI := []FileForAI{
+		{
+			FileName: file.FileName,
+			MimeType: mimeType,
+			Data:     fileBase64,
+			Role:     FileRoleManuscript,
+		},
+	}
+	err = s.generateReviewForTaskWithFile(filesForAI, targetVenue, meta, literatureSummary, refs, modelLevel, reviewWriter, task.ID)
 	if err != nil {
 		return fmt.Errorf("审稿报告生成失败: %w", err)
 	}
@@ -2311,10 +2365,16 @@ func (s *Service) generateReviewForTask(
 }
 
 // generateReviewForTaskWithFile 为任务生成审稿报告（文件输入，非流式，但更新进度）
+// FileForAI 用于传递给 AI 的文件信息
+type FileForAI struct {
+	FileName string
+	MimeType string
+	Data     string // base64 编码
+	Role     string // manuscript 或 attachment
+}
+
 func (s *Service) generateReviewForTaskWithFile(
-	fileBase64 string,
-	fileName string,
-	mimeType string,
+	files []FileForAI, // 支持多文件：主稿件 + 附件
 	targetVenue string,
 	meta *ManuscriptMeta,
 	summary *LiteratureSummary,
@@ -2341,10 +2401,28 @@ func (s *Service) generateReviewForTaskWithFile(
 		gapsInfo = "- " + strings.Join(summary.TypicalGaps, "\n- ")
 	}
 
+	// 构建文件列表描述
+	var mainFileName string
+	var attachmentNames []string
+	for _, f := range files {
+		if f.Role == FileRoleManuscript {
+			mainFileName = f.FileName
+		} else {
+			attachmentNames = append(attachmentNames, f.FileName)
+		}
+	}
+
+	attachmentInfo := ""
+	if len(attachmentNames) > 0 {
+		attachmentInfo = fmt.Sprintf("\n\n**附件文件（%d个）**：%s\n请同时参考这些附件材料（如补充数据、图表、代码等）进行综合评审。",
+			len(attachmentNames), strings.Join(attachmentNames, "、"))
+	}
+
 	systemPrompt := getReviewSystemPrompt()
 	userPromptText := fmt.Sprintf(getReviewUserPromptTemplateForFile(),
 		targetVenue,
-		fileName,
+		mainFileName,
+		attachmentInfo,
 		string(metaJSON),
 		summary.FieldState,
 		closestPapersInfo,
@@ -2354,17 +2432,22 @@ func (s *Service) generateReviewForTaskWithFile(
 
 	// 构建多模态消息，使用 FileInputMeta 作为中间格式
 	// AI service 会根据实际使用的模型自动转换为对应格式
-	contentParts := []interface{}{
-		ai.FileInputMeta{
+	contentParts := make([]interface{}, 0, len(files)+1)
+	
+	// 先添加所有文件（主稿件在前，附件在后）
+	for _, f := range files {
+		contentParts = append(contentParts, ai.FileInputMeta{
 			Type:     "file_input_meta",
-			MimeType: mimeType,
-			Data:     fileBase64,
-		},
-		ai.TextContent{
-			Type: "text",
-			Text: userPromptText,
-		},
+			MimeType: f.MimeType,
+			Data:     f.Data,
+		})
 	}
+	
+	// 最后添加文本提示
+	contentParts = append(contentParts, ai.TextContent{
+		Type: "text",
+		Text: userPromptText,
+	})
 
 	messages := []ai.ChatMessage{
 		{Role: "system", Content: systemPrompt},
@@ -2413,7 +2496,7 @@ func getReviewUserPromptTemplateForFile() string {
 **目标期刊/会议**：%s
 
 ## 待审稿件
-请仔细阅读附件中的论文文件（%s）。
+**主稿件**：%s%s
 
 ## 系统预分析信息
 
@@ -2442,22 +2525,6 @@ func getReviewUserPromptTemplateForFile() string {
 **本稿推荐**需明确给出：Accept / Minor Revision / Major Revision / Reject
 
 目标期刊：%s`
-}
-
-// getMimeType 根据文件类型获取MIME类型
-func getMimeType(fileType string) string {
-	mimeTypes := map[string]string{
-		"pdf":  "application/pdf",
-		"doc":  "application/msword",
-		"docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-		"txt":  "text/plain",
-		"rtf":  "application/rtf",
-		"odt":  "application/vnd.oasis.opendocument.text",
-	}
-	if mime, ok := mimeTypes[fileType]; ok {
-		return mime
-	}
-	return "application/octet-stream"
 }
 
 // Message 简化的消息类型（内部使用）

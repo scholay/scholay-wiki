@@ -2389,6 +2389,72 @@ details[open] .prvr-reviews-summary::before {
   overflow-y: auto;
 }
 
+/* ========== 任务详情附件区域 ========== */
+.prvr-attachments-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.prvr-attachments-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+.prvr-attachments-title svg {
+  color: var(--text-accent);
+}
+
+.prvr-attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.prvr-attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(128, 128, 128, 0.04);
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+
+.prvr-attachment-item:hover {
+  background: rgba(128, 128, 128, 0.08);
+}
+
+.prvr-attachment-item svg {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.prvr-attachment-name {
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+[data-theme="dark"] .prvr-attachment-item {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .prvr-attachment-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
 /* 响应式 */
 @media (max-width: 600px) {
   .prvr-aux-buttons {

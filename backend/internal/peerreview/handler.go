@@ -335,6 +335,75 @@ func (h *Handler) UploadFile(c *gin.Context) {
 	utils.Success(c, response)
 }
 
+// UploadAttachment 上传附件到草稿
+// POST /api/v1/user/peer-review/attachments
+func (h *Handler) UploadAttachment(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Error(c, 4001, "请先登录")
+		return
+	}
+
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		utils.Error(c, 4006, "请选择要上传的文件")
+		return
+	}
+	defer file.Close()
+
+	// 检查文件大小（限制 10MB）
+	if header.Size > 10*1024*1024 {
+		utils.Error(c, 4007, "文件大小不能超过 10MB")
+		return
+	}
+
+	// 附件支持更多文件类型
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	if !IsAllowedFileType(strings.TrimPrefix(ext, ".")) {
+		utils.Error(c, 4008, "不支持的文件类型")
+		return
+	}
+
+	// 读取文件内容
+	content, err := io.ReadAll(file)
+	if err != nil {
+		utils.Error(c, 5006, "读取文件失败: "+err.Error())
+		return
+	}
+
+	// 添加附件到草稿
+	response, err := h.service.AddAttachmentToDraft(userID.(uint), header.Filename, ext, content)
+	if err != nil {
+		utils.Error(c, 5007, err.Error())
+		return
+	}
+
+	utils.Success(c, response)
+}
+
+// DeleteAttachment 从草稿删除附件
+// DELETE /api/v1/user/peer-review/attachments/:id
+func (h *Handler) DeleteAttachment(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Error(c, 4001, "请先登录")
+		return
+	}
+
+	attachmentID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		utils.Error(c, 4005, "无效的附件ID")
+		return
+	}
+
+	if err := h.service.DeleteAttachmentFromDraft(userID.(uint), uint(attachmentID)); err != nil {
+		utils.Error(c, 5005, err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{"message": "附件已删除"})
+}
+
 // ========== SSE 流式接口（实时查看进度） ==========
 
 // WatchTaskProgress SSE 流式监听任务进度
@@ -438,7 +507,7 @@ func (h *Handler) GetReviewDetail(c *gin.Context) {
 	utils.Success(c, response)
 }
 
-// DownloadFile 下载原始文件
+// DownloadFile 下载文件
 // GET /api/v1/user/peer-review/files/:id/download
 func (h *Handler) DownloadFile(c *gin.Context) {
 	userID, exists := c.Get("user_id")
@@ -455,15 +524,12 @@ func (h *Handler) DownloadFile(c *gin.Context) {
 
 	file, filePath, err := h.service.GetFileForDownload(userID.(uint), uint(fileID))
 	if err != nil {
-		utils.Error(c, 5003, "获取文件失败: "+err.Error())
+		utils.Error(c, 5008, err.Error())
 		return
 	}
 
 	// 设置下载响应头
-	c.Header("Content-Description", "File Transfer")
-	c.Header("Content-Transfer-Encoding", "binary")
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", file.FileName))
 	c.Header("Content-Type", "application/octet-stream")
-	
 	c.File(filePath)
 }

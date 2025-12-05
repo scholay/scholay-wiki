@@ -673,6 +673,29 @@
   background: rgba(0, 0, 0, 0.04);
 }
 
+/* 附件提示 */
+.prv-guide-tip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 16px;
+  background: rgba(16, 163, 127, 0.06);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-accent);
+}
+
+.prv-guide-tip svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+[data-theme="light"] .prv-guide-tip {
+  background: rgba(16, 163, 127, 0.08);
+}
+
 /* 自定义滚动条样式 */
 .prv-textarea::-webkit-scrollbar {
   width: 6px;
@@ -2195,4 +2218,219 @@
   margin: 0;
   max-width: 280px;
   line-height: 1.4;
+}
+
+/* ========== 附件管理样式 ========== */
+
+/* 附件按钮 - 更明显的样式 */
+.prv-attachment-btn {
+  position: relative;
+  width: auto !important;
+  padding: 0 12px !important;
+  gap: 6px;
+  background: rgba(16, 163, 127, 0.08) !important;
+  border: 1px solid rgba(16, 163, 127, 0.15) !important;
+  color: var(--text-accent) !important;
+  transition: all 0.2s ease;
+}
+
+.prv-attachment-btn:hover:not(:disabled) {
+  background: rgba(16, 163, 127, 0.15) !important;
+  border-color: rgba(16, 163, 127, 0.3) !important;
+}
+
+.prv-attachment-btn.has-attachments {
+  background: rgba(16, 163, 127, 0.12) !important;
+  border-color: rgba(16, 163, 127, 0.25) !important;
+}
+
+.prv-attachment-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.prv-attachment-count {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  background: rgba(16, 163, 127, 0.2);
+  border-radius: 10px;
+  min-width: auto;
+}
+
+.prv-attachment-count-empty {
+  opacity: 0.6;
+}
+
+[data-theme="light"] .prv-attachment-btn {
+  background: rgba(16, 163, 127, 0.06) !important;
+  border-color: rgba(16, 163, 127, 0.2) !important;
+}
+
+[data-theme="light"] .prv-attachment-btn:hover:not(:disabled) {
+  background: rgba(16, 163, 127, 0.12) !important;
+}
+
+[data-theme="light"] .prv-attachment-count {
+  background: rgba(16, 163, 127, 0.15);
+}
+
+/* 小型按钮加载动画 */
+.prv-btn-spinner-small {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(var(--primary-rgb), 0.2);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* 附件区域 */
+.prv-attachments-section {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+.prv-attachments-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.prv-attachments-header svg {
+  color: var(--text-tertiary);
+}
+
+/* 附件列表 */
+.prv-attachments-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* 单个附件项 */
+.prv-attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--background);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  max-width: 220px;
+  transition: all 0.2s ease;
+}
+
+.prv-attachment-item:hover {
+  border-color: var(--border);
+  background: var(--surface-hover);
+}
+
+/* 附件图标 */
+.prv-attachment-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--primary-rgb), 0.08);
+  border-radius: 6px;
+}
+
+.prv-attachment-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 附件信息 */
+.prv-attachment-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.prv-attachment-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+
+.prv-attachment-size {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* 附件删除按钮 */
+.prv-attachment-remove {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  opacity: 0;
+}
+
+.prv-attachment-item:hover .prv-attachment-remove {
+  opacity: 1;
+}
+
+.prv-attachment-remove:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .prv-attachments-section {
+    padding: 10px 12px;
+    margin-top: 10px;
+  }
+
+  .prv-attachments-list {
+    gap: 6px;
+  }
+
+  .prv-attachment-item {
+    padding: 6px 10px;
+    max-width: 180px;
+  }
+
+  .prv-attachment-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .prv-attachment-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .prv-attachment-name {
+    max-width: 100px;
+  }
+
+  .prv-attachment-remove {
+    opacity: 1;
+  }
 }

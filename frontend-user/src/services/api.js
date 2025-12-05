@@ -572,6 +572,21 @@ export const peerReviewAPI = {
     });
   },
 
+  // ========== 附件管理 API（最多5个附件）==========
+
+  // 上传附件到草稿
+  uploadAttachment: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/user/peer-review/attachments', formData, {
+      headers: { 'Content-Type': null },
+    });
+  },
+
+  // 从草稿删除附件
+  deleteAttachment: (attachmentId) =>
+    api.delete(`/user/peer-review/attachments/${attachmentId}`),
+
   // ========== 兼容旧接口 ==========
   
   // 执行审稿（流式输出，同步方式）
