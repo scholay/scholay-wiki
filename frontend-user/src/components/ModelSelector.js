@@ -21,8 +21,9 @@ import './ModelSelector.css';
  * @param {boolean} compact - 是否使用紧凑模式
  * @param {boolean} showOnly - 是否只显示，不可交互
  * @param {string} dropdownAlign - 下拉菜单对齐方式 ('left' 或 'right')，默认 'left'
+ * @param {array} allowedModels - 允许显示的模型列表，例如 ['mid', 'high']，默认全部显示
  */
-const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscription: userSubscriptionProp, mode = 'advanced-search', compact = false, showOnly = false, isAuthenticated = true, dropdownAlign = 'left' }) => {
+const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscription: userSubscriptionProp, mode = 'advanced-search', compact = false, showOnly = false, isAuthenticated = true, dropdownAlign = 'left', allowedModels = null }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [quota, setQuota] = useState(null);
   const [usage, setUsage] = useState(null);
@@ -81,7 +82,7 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
   );
 
   // 模型配置
-  const models = [
+  const allModels = [
     {
       value: 'low',
       label: '普通模型',
@@ -104,6 +105,11 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
       featureTypes: ['advanced_search_high', 'ai_chat_high']
     }
   ];
+
+  // 根据 allowedModels 过滤可显示的模型
+  const models = allowedModels 
+    ? allModels.filter(m => allowedModels.includes(m.value))
+    : allModels;
 
   // 获取配额和使用情况
   useEffect(() => {

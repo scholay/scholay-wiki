@@ -409,6 +409,137 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, fileName string, fileExt 
 	}, nil
 }
 
+// AddAttachmentToDraft 添加附件到草稿
+func (s *Service) AddAttachmentToDraft(userID uint, fileName string, fileExt string, content []byte) (*FileInfo, error) {
+	// 获取或创建草稿
+	draft, err := s.GetOrCreateDraft(userID)
+	if err != nil {
+		return nil, fmt.Errorf("获取草稿失败: %w", err)
+	}
+
+	// 检查附件数量限制
+	var attachmentCount int64
+	s.db.Model(&PeerReviewFile{}).Where("task_id = ? AND file_role = ?", draft.ID, FileRoleAttachment).Count(&attachmentCount)
+	if attachmentCount >= MaxAttachments {
+		return nil, fmt.Errorf("附件数量已达上限（最多%d个）", MaxAttachments)
+	}
+
+	// 保存附件文件到磁盘
+	uploadDir := filepath.Join(s.uploadPath, "peer-review-attachments", fmt.Sprintf("user_%d", userID))
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return nil, fmt.Errorf("创建目录失败: %w", err)
+	}
+
+	// 生成唯一文件名
+	uniqueFileName := fmt.Sprintf("%d_%s", time.Now().UnixNano(), fileName)
+	filePath := filepath.Join(uploadDir, uniqueFileName)
+
+	// 写入文件
+	if err := os.WriteFile(filePath, content, 0644); err != nil {
+		return nil, fmt.Errorf("保存文件失败: %w", err)
+	}
+
+	// 判断处理模式
+	extWithoutDot := strings.TrimPrefix(fileExt, ".")
+	processMode := ProcessModeDirect // 附件默认直接传递
+
+	// 获取当前最大排序号
+	var maxSortOrder int
+	s.db.Model(&PeerReviewFile{}).Where("task_id = ? AND file_role = ?", draft.ID, FileRoleAttachment).
+		Select("COALESCE(MAX(sort_order), 0)").Scan(&maxSortOrder)
+
+	// 获取 MIME 类型
+	mimeType := getMimeType(fileExt)
+
+	// 创建附件记录
+	attachment := &PeerReviewFile{
+		TaskID:        &draft.ID,
+		UserID:        userID,
+		FileRole:      FileRoleAttachment,
+		SortOrder:     maxSortOrder + 1,
+		FileName:      fileName,
+		FileExt:       extWithoutDot,
+		FileSize:      int64(len(content)),
+		FilePath:      filePath,
+		MimeType:      mimeType,
+		ProcessMode:   processMode,
+		ProcessStatus: "processed",
+	}
+
+	if err := s.db.Create(attachment).Error; err != nil {
+		// 删除已保存的文件
+		os.Remove(filePath)
+		return nil, fmt.Errorf("保存附件记录失败: %w", err)
+	}
+
+	return &FileInfo{
+		ID:            attachment.ID,
+		FileName:      attachment.FileName,
+		FileExt:       attachment.FileExt,
+		FileSize:      attachment.FileSize,
+		ProcessMode:   attachment.ProcessMode,
+		ProcessStatus: attachment.ProcessStatus,
+	}, nil
+}
+
+// DeleteAttachmentFromDraft 从草稿删除附件
+func (s *Service) DeleteAttachmentFromDraft(userID uint, attachmentID uint) error {
+	// 查找附件
+	var attachment PeerReviewFile
+	err := s.db.Where("id = ? AND user_id = ? AND file_role = ?", attachmentID, userID, FileRoleAttachment).First(&attachment).Error
+	if err != nil {
+		return fmt.Errorf("附件不存在")
+	}
+
+	// 检查附件是否属于草稿状态的任务
+	if attachment.TaskID != nil {
+		var task PeerReviewTask
+		if err := s.db.First(&task, *attachment.TaskID).Error; err == nil {
+			if task.Status != TaskStatusDraft {
+				return fmt.Errorf("只能删除草稿中的附件")
+			}
+		}
+	}
+
+	// 删除文件
+	if attachment.FilePath != "" {
+		os.Remove(attachment.FilePath)
+	}
+
+	// 删除数据库记录
+	if err := s.db.Delete(&attachment).Error; err != nil {
+		return fmt.Errorf("删除附件失败: %w", err)
+	}
+
+	return nil
+}
+
+// getMimeType 根据文件扩展名获取 MIME 类型
+func getMimeType(fileExt string) string {
+	mimeTypes := map[string]string{
+		".txt":  "text/plain",
+		".doc":  "application/msword",
+		".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+		".pdf":  "application/pdf",
+		".rtf":  "application/rtf",
+		".odt":  "application/vnd.oasis.opendocument.text",
+		".xml":  "application/xml",
+		".html": "text/html",
+		".htm":  "text/html",
+		".xls":  "application/vnd.ms-excel",
+		".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		".csv":  "text/csv",
+		".png":  "image/png",
+		".jpg":  "image/jpeg",
+		".jpeg": "image/jpeg",
+		".gif":  "image/gif",
+	}
+	if mime, ok := mimeTypes[fileExt]; ok {
+		return mime
+	}
+	return "application/octet-stream"
+}
+
 // buildDraftResponse 构建草稿响应
 func (s *Service) buildDraftResponse(draft *PeerReviewTask) *DraftResponse {
 	preview := ""

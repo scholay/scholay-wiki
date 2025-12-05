@@ -225,7 +225,7 @@ export default function PeerReviewPage() {
   const [inputType, setInputType] = useState('text');
   const [manuscriptText, setManuscriptText] = useState('');
   const [targetVenue, setTargetVenue] = useState('');
-  const [modelLevel, setModelLevel] = useState('low'); // 默认普通模式
+  const [modelLevel, setModelLevel] = useState('mid'); // 默认进阶模式（AI审稿只支持进阶和高级）
   const [fileName, setFileName] = useState('');
   const [useFileInput, setUseFileInput] = useState(false); // 是否直接使用文件（不提取文本，如PDF、Word等）
   const [uploading, setUploading] = useState(false);
@@ -273,7 +273,9 @@ export default function PeerReviewPage() {
         setInputType(draft.input_type || 'text');
         setManuscriptText(draft.manuscript_text || '');
         setTargetVenue(draft.target_venue || '');
-        setModelLevel(draft.model_level || 'low');
+        // AI审稿只支持进阶和高级模型，如果是 low 则转换为 mid
+        const level = draft.model_level || 'mid';
+        setModelLevel(level === 'low' ? 'mid' : level);
         // 新结构：从 manuscript_file 获取文件信息
         if (draft.manuscript_file) {
           setFileName(draft.manuscript_file.file_name || '');
@@ -1024,6 +1026,7 @@ function CreateSection({
               value={modelLevel} 
               onChange={setModelLevel}
               compact={true}
+              allowedModels={['mid', 'high']}
             />
             
             <button 
@@ -1439,6 +1442,7 @@ function CreateTaskView({
               value={modelLevel}
               onChange={setModelLevel}
               dropdownAlign="left"
+              allowedModels={['mid', 'high']}
             />
           </div>
         </div>
