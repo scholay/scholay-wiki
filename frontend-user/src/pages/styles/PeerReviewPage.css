@@ -2098,17 +2098,6 @@
     gap: 10px;
 }
 
-  .prv-input-tabs {
-    width: 100%;
-}
-
-  .prv-input-tab {
-  flex: 1;
-    justify-content: center;
-    padding: 8px 12px;
-    font-size: 13px;
-}
-
   .prv-textarea {
     min-height: 140px;
 }
@@ -2171,10 +2160,6 @@
 
   .prv-section-title {
     font-size: 15px;
-}
-
-  .prv-input-tab span {
-    display: none;
 }
 
   .prv-upload-icon {

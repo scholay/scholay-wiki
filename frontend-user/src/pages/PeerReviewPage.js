@@ -17,113 +17,19 @@ import ModelSelector from '../components/ModelSelector';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import MessageModal from '../components/MessageModal';
 import ReviewRadarChart from '../components/ReviewRadarChart';
+import { 
+  STATUS_MAP, 
+  VIEW_MODE,
+  ALLOWED_FILE_TYPES,
+  ALLOWED_ATTACHMENT_TYPES,
+  MAX_FILE_SIZE,
+  MAX_ATTACHMENTS,
+  MAX_CHAR_COUNT
+} from '../utils/peer-review/constants';
+import { parseReviewJSON, getRecommendationClass, getConfidenceLabel } from '../utils/peer-review/parseUtils';
+import { getFileIcon } from '../utils/peer-review/fileUtils';
 import './styles/PeerReviewPage.css';
 import './styles/ReviewReport.css';
-
-// ========== JSON 解析工具函数 ==========
-
-/**
- * 从审稿报告内容中提取 JSON 数据
- * 处理 markdown 代码块包裹和各种边界情况
- */
-const parseReviewJSON = (content) => {
-  if (!content || typeof content !== 'string') return null;
-  
-  try {
-    let text = content.trim();
-    
-    // 移除 markdown 代码块标记
-    if (text.startsWith('```json')) {
-      text = text.slice(7);
-    } else if (text.startsWith('```')) {
-      text = text.slice(3);
-    }
-    if (text.endsWith('```')) {
-      text = text.slice(0, -3);
-    }
-    text = text.trim();
-    
-    // 找到 JSON 对象边界
-    const startIdx = text.indexOf('{');
-    const endIdx = text.lastIndexOf('}');
-    
-    if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-      const jsonStr = text.slice(startIdx, endIdx + 1);
-      return JSON.parse(jsonStr);
-    }
-    
-    return null;
-  } catch (e) {
-    console.warn('Failed to parse review JSON:', e);
-    return null;
-  }
-};
-
-/**
- * 获取推荐意见的样式类名
- */
-const getRecommendationClass = (recommendation) => {
-  if (!recommendation) return '';
-  const lower = recommendation.toLowerCase().replace(/\s+/g, '-');
-  if (lower.includes('accept') && !lower.includes('revision')) return 'accept';
-  if (lower.includes('minor')) return 'minor-revision';
-  if (lower.includes('major')) return 'major-revision';
-  if (lower.includes('reject')) return 'reject';
-  return lower;
-};
-
-/**
- * 获取置信度标签
- */
-const getConfidenceLabel = (confidence) => {
-  if (!confidence) return null;
-  const lower = confidence.toLowerCase();
-  if (lower.includes('high') || lower.includes('高')) return { label: '高置信度', level: 'high' };
-  if (lower.includes('medium') || lower.includes('中')) return { label: '中置信度', level: 'medium' };
-  if (lower.includes('low') || lower.includes('低')) return { label: '低置信度', level: 'low' };
-  return { label: confidence, level: 'medium' };
-};
-
-// 任务状态映射
-const STATUS_MAP = {
-  draft: { label: '草稿', color: 'gray' },
-  pending: { label: '等待处理', color: 'orange' },
-  processing: { label: '处理中', color: 'blue' },
-  completed: { label: '已完成', color: 'green' },
-  failed: { label: '失败', color: 'red' },
-};
-
-// 右侧抽屉组件（保留以备后用）
-// eslint-disable-next-line no-unused-vars
-function RightDrawer({ isOpen, onClose, title, icon, children }) {
-  if (!isOpen) return null;
-  
-  return ReactDOM.createPortal(
-    <div className="prvr-drawer-overlay" onClick={onClose}>
-      <div 
-        className={`prvr-drawer ${isOpen ? 'open' : ''}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="prvr-drawer-header">
-          <div className="prvr-drawer-title">
-            {icon}
-            <span>{title}</span>
-          </div>
-          <button className="prvr-drawer-close" onClick={onClose}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
-        <div className="prvr-drawer-body">
-          {children}
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
 
 // 内容预览卡片组件（带弹窗）
 function PreviewCard({ preview, fullText }) {
@@ -252,20 +158,6 @@ function PreviewCard({ preview, fullText }) {
   );
 }
 
-// 视图模式
-const VIEW_MODE = {
-  HOME: 'home',       // 主页（创建+列表）
-  DETAIL: 'detail',   // 任务详情
-};
-
-// 截取字符串（按字符数，不截断中文）（保留以备后用）
-// eslint-disable-next-line no-unused-vars
-const truncateString = (str, maxLen) => {
-  if (!str) return '';
-  if (str.length <= maxLen) return str;
-  return str.slice(0, maxLen) + '...';
-};
-
 export default function PeerReviewPage() {
   const navigate = useNavigate();
   const { sidebarCollapsed, openMobileSidebar, isMobile } = useOutletContext() || {};
@@ -288,7 +180,6 @@ export default function PeerReviewPage() {
   const [loading, setLoading] = useState(false);
 
   // 草稿状态（从后端加载）
-  // eslint-disable-next-line no-unused-vars
   const [draftId, setDraftId] = useState(null);
   const [inputType, setInputType] = useState('text');
   const [manuscriptText, setManuscriptText] = useState('');
@@ -446,16 +337,14 @@ export default function PeerReviewPage() {
     if (!file) return null;
 
     // 检查文件类型
-    const allowedTypes = ['.txt', '.doc', '.docx', '.rtf', '.odt', '.pdf', '.xml', '.html', '.htm'];
     const ext = '.' + file.name.split('.').pop().toLowerCase();
-    if (!allowedTypes.includes(ext)) {
+    if (!ALLOWED_FILE_TYPES.includes(ext)) {
       showMessage('warning', '文件类型不支持', '请上传 txt、doc、docx、rtf、odt、pdf、xml 或 html 文件');
       return null;
     }
 
-    // 检查文件大小（限制 5MB）
-    const maxSize = 5 * 1024 * 1024;
-    if (file.size > maxSize) {
+    // 检查文件大小
+    if (file.size > MAX_FILE_SIZE) {
       const sizeMB = (file.size / 1024 / 1024).toFixed(1);
       showMessage('warning', '文件过大', `文件大小不能超过 5MB，当前文件 ${sizeMB}MB`);
       return null;
@@ -566,22 +455,15 @@ export default function PeerReviewPage() {
   const validateAttachmentFile = (file) => {
     if (!file) return null;
 
-    // 附件支持更多文件类型
-    const allowedTypes = [
-      '.txt', '.doc', '.docx', '.rtf', '.odt', '.pdf', '.xml', '.html', '.htm',
-      '.xlsx', '.xls', '.csv', '.epub',
-      '.py', '.js', '.ts', '.go', '.java', '.c', '.cpp', '.h', '.rs', '.rb', '.php',
-      '.sql', '.json', '.yaml', '.yml', '.md', '.r'
-    ];
+    // 检查文件类型
     const ext = '.' + file.name.split('.').pop().toLowerCase();
-    if (!allowedTypes.includes(ext)) {
+    if (!ALLOWED_ATTACHMENT_TYPES.includes(ext)) {
       showMessage('warning', '文件类型不支持', '附件支持文档、表格、代码等多种格式');
       return null;
     }
 
-    // 检查文件大小（限制 5MB）
-    const maxSize = 5 * 1024 * 1024;
-    if (file.size > maxSize) {
+    // 检查文件大小
+    if (file.size > MAX_FILE_SIZE) {
       const sizeMB = (file.size / 1024 / 1024).toFixed(1);
       showMessage('warning', '文件过大', `附件大小不能超过 5MB，当前文件 ${sizeMB}MB`);
       return null;
@@ -608,8 +490,8 @@ export default function PeerReviewPage() {
 
     // 检查已上传成功的附件数量（排除正在上传的）
     const uploadedCount = attachments.filter(a => !a.uploading).length;
-    if (uploadedCount >= 5) {
-      showMessage('warning', '附件数量已达上限', '最多只能上传5个附件');
+    if (uploadedCount >= MAX_ATTACHMENTS) {
+      showMessage('warning', '附件数量已达上限', `最多只能上传${MAX_ATTACHMENTS}个附件`);
       if (attachmentInputRef.current) {
         attachmentInputRef.current.value = '';
       }
@@ -1470,75 +1352,6 @@ function CreateSection({
   );
 }
 
-// 获取文件图标
-function getFileIcon(ext) {
-  const extLower = (ext || '').toLowerCase();
-  // PDF
-  if (extLower === 'pdf') {
-    return (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" strokeWidth="2">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <path d="M10 12h4M10 16h4M10 8h1"/>
-      </svg>
-    );
-  }
-  // Word文档
-  if (['doc', 'docx', 'rtf', 'odt'].includes(extLower)) {
-    return (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2980b9" strokeWidth="2">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <line x1="8" y1="13" x2="16" y2="13"/>
-        <line x1="8" y1="17" x2="16" y2="17"/>
-        <line x1="8" y1="9" x2="10" y2="9"/>
-      </svg>
-    );
-  }
-  // Excel表格
-  if (['xlsx', 'xls', 'csv'].includes(extLower)) {
-    return (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#27ae60" strokeWidth="2">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <rect x="8" y="12" width="8" height="6" rx="1"/>
-      </svg>
-    );
-  }
-  // 代码文件
-  if (['py', 'js', 'ts', 'go', 'java', 'c', 'cpp', 'h', 'rs', 'rb', 'php', 'sql', 'json', 'yaml', 'yml', 'r'].includes(extLower)) {
-    return (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9b59b6" strokeWidth="2">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <polyline points="10 12 8 14 10 16"/>
-        <polyline points="14 12 16 14 14 16"/>
-      </svg>
-    );
-  }
-  // 默认文件图标
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-      <polyline points="14 2 14 8 20 8"/>
-    </svg>
-  );
-}
-
-// 格式化文件大小（保留以备后用）
-// eslint-disable-next-line no-unused-vars
-function formatFileSize(bytes) {
-  if (!bytes) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let i = 0;
-  let size = bytes;
-  while (size >= 1024 && i < units.length - 1) {
-    size /= 1024;
-    i++;
-  }
-  return `${size.toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
-}
-
 // 历史任务区域（下半部分）
 function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange, onViewDetail, onDelete }) {
   const pageSize = 10;
@@ -1716,215 +1529,8 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
   );
 }
 
-// 创建任务视图（保留以备后用）
-// eslint-disable-next-line no-unused-vars
-function CreateTaskView({
-  inputType, setInputType,
-  manuscriptText, setManuscriptText,
-  targetVenue, setTargetVenue,
-  modelLevel, setModelLevel,
-  uploadedFile, filePreview,
-  uploading, creating, isDragging,
-  fileInputRef,
-  onFileSelect, onDragEnter, onDragOver, onDragLeave, onDrop, onRemoveFile,
-  onSubmit, onCancel
-}) {
-  return (
-    <div className="prv-create-view">
-      <div className="prv-create-card">
-        <h2 className="prv-create-title">创建审稿任务</h2>
-        
-        {/* 输入类型选择 */}
-        <div className="prv-form-group">
-          <label className="prv-form-label">输入方式</label>
-          <div className="prv-input-type-tabs">
-            <button 
-              className={`prv-tab ${inputType === 'text' ? 'active' : ''}`}
-              onClick={() => setInputType('text')}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
-              </svg>
-              直接输入文本
-            </button>
-            <button 
-              className={`prv-tab ${inputType === 'file' ? 'active' : ''}`}
-              onClick={() => setInputType('file')}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-              上传文件
-            </button>
-          </div>
-        </div>
-
-        {/* 文本输入 */}
-        {inputType === 'text' && (
-          <div className="prv-form-group">
-            <label className="prv-form-label">稿件内容 *</label>
-            <textarea
-              className="prv-textarea"
-              placeholder="请粘贴您的论文稿件内容（摘要或全文）..."
-              value={manuscriptText}
-              onChange={(e) => setManuscriptText(e.target.value)}
-              rows={15}
-            />
-            <span className="prv-char-count">{manuscriptText.length} 字符</span>
-          </div>
-        )}
-
-        {/* 文件上传 */}
-        {inputType === 'file' && (
-          <div className="prv-form-group">
-            <label className="prv-form-label">上传文件 *</label>
-            
-            {!uploadedFile ? (
-              <div 
-                className={`prv-upload-area ${isDragging ? 'prv-dragging' : ''}`}
-                onClick={() => !uploading && fileInputRef.current?.click()}
-                onDragEnter={onDragEnter}
-                onDragOver={onDragOver}
-                onDragLeave={onDragLeave}
-                onDrop={onDrop}
-              >
-                {uploading ? (
-                  <div className="prv-upload-loading">
-                    <div className="prv-spinner"></div>
-                    <p>正在上传并解析文件...</p>
-                    <span className="prv-upload-hint">请稍候，正在提取文本内容</span>
-                  </div>
-                ) : isDragging ? (
-                  <div className="prv-upload-drop-hint">
-                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="17 8 12 3 7 8"/>
-                      <line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>
-                    <p>松开鼠标上传文件</p>
-                  </div>
-                ) : (
-                  <div className="prv-upload-default">
-                    <div className="prv-upload-icon">
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
-                      </svg>
-                    </div>
-                    <p className="prv-upload-title">拖拽文件到此处，或点击选择</p>
-                    <span className="prv-upload-hint">支持 .txt, .doc, .docx, .rtf, .odt, .pdf, .xml, .html 文件，最大 10MB</span>
-                    <button type="button" className="prv-upload-btn">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                      </svg>
-                      选择文件
-                    </button>
-                  </div>
-                )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".txt,.doc,.docx,.rtf,.odt,.pdf,.xml,.html,.htm"
-                  onChange={onFileSelect}
-                  style={{ display: 'none' }}
-                />
-              </div>
-            ) : (
-              <div className="prv-uploaded-file">
-                <div className="prv-file-info">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                  </svg>
-                  <div>
-                    <p className="prv-file-name">{uploadedFile.file_name}</p>
-                    <span className="prv-file-size">{(uploadedFile.file_size / 1024).toFixed(1)} KB</span>
-                  </div>
-                  <button className="prv-remove-file" onClick={onRemoveFile}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="18" y1="6" x2="6" y2="18"/>
-                      <line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                  </button>
-                </div>
-                {filePreview && (
-                  <div className="prv-file-preview">
-                    <p className="prv-preview-label">内容预览：</p>
-                    <p className="prv-preview-text">{filePreview}</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 目标期刊 */}
-        <div className="prv-form-group">
-          <label className="prv-form-label">目标期刊/会议（可选）</label>
-          <input
-            type="text"
-            className="prv-input"
-            placeholder="例如：Nature, Science, NeurIPS..."
-            value={targetVenue}
-            onChange={(e) => setTargetVenue(e.target.value)}
-          />
-        </div>
-
-        {/* 模型选择 */}
-        <div className="prv-form-group">
-          <label className="prv-form-label">AI 模型</label>
-          <div className="prv-model-selector-wrapper">
-            <ModelSelector
-              value={modelLevel}
-              onChange={setModelLevel}
-              dropdownAlign="left"
-              allowedModels={['mid', 'high']}
-            />
-          </div>
-        </div>
-
-        {/* 提交按钮 */}
-        <div className="prv-form-actions">
-          <button className="prvr-btn prvr-btn-secondary" onClick={onCancel}>
-            取消
-          </button>
-          <button 
-            className="prvr-btn prvr-btn-primary" 
-            onClick={onSubmit}
-            disabled={creating || (inputType === 'text' && !manuscriptText.trim()) || (inputType === 'file' && !uploadedFile)}
-          >
-            {creating ? (
-              <>
-                <div className="prvr-btn-spinner"></div>
-                创建中...
-              </>
-            ) : (
-              <>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                  <polyline points="22 4 12 14.01 9 11.01"/>
-                </svg>
-                开始审稿
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // 任务详情视图 - 左右分栏布局
 function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
-  // eslint-disable-next-line no-unused-vars
-  const [activeSection, setActiveSection] = useState('report'); // 当前激活的模块
   const [displayProgress, setDisplayProgress] = useState(0); // 显示的进度值（用于平滑动画）
   const [showReport, setShowReport] = useState(false); // 控制是否显示报告（等待进度条完成）
   const [activeDrawer, setActiveDrawer] = useState(null); // 当前打开的抽屉: 'analysis' | 'papers' | 'gaps' | 'reviewer' | null
