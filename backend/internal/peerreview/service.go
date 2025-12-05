@@ -12,8 +12,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
+	"strconv"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -55,82 +56,6 @@ func truncateByRune(s string, maxChars int) string {
 		return s
 	}
 	return string(runes[:maxChars])
-}
-
-// RunPeerReview 执行审稿流程（流式输出）
-func (s *Service) RunPeerReview(userID uint, req *PeerReviewRequest, writer io.Writer) error {
-	manuscriptHash := generateManuscriptHash(req.ManuscriptText, req.TargetVenue)
-
-	// 1. 提取稿件元信息
-	sendEvent(writer, "status", "正在分析稿件结构...")
-	meta, err := s.extractBasicInfo(req.ManuscriptText, req.TargetVenue, req.ModelLevel)
-	if err != nil {
-		sendEvent(writer, "error", fmt.Sprintf("稿件分析失败: %v", err))
-		return err
-	}
-	sendEvent(writer, "meta", meta)
-
-	// 2. 构建搜索查询
-	sendEvent(writer, "status", "正在构建文献检索策略...")
-	searchQueries := s.buildSemanticSearchQueries(meta)
-
-	// 3. 调用MCP搜索文献
-	sendEvent(writer, "status", "正在检索相关文献...")
-	rawResults, err := s.callSemanticScholarSearch(searchQueries)
-	if err != nil {
-		sendEvent(writer, "error", fmt.Sprintf("文献检索失败: %v", err))
-		return err
-	}
-
-	// 4. 整理文献结果
-	literatureContext := s.normalizeAndSelectPapers(rawResults)
-	sendEvent(writer, "literature", literatureContext)
-
-	// 5. 总结文献环境
-	sendEvent(writer, "status", "正在分析文献前沿...")
-	literatureSummary, err := s.summarizeLiterature(literatureContext, meta, req.ModelLevel)
-	if err != nil {
-		sendEvent(writer, "error", fmt.Sprintf("文献总结失败: %v", err))
-		return err
-	}
-	sendEvent(writer, "summary", literatureSummary)
-
-	// 5.5 针对研究空白检索相关文献
-	if len(literatureSummary.TypicalGaps) > 0 {
-		sendEvent(writer, "status", "正在检索研究空白相关文献...")
-		gapLiteratures := s.searchGapLiterature(literatureSummary.TypicalGaps, meta.Field)
-		if len(gapLiteratures) > 0 {
-			sendEvent(writer, "gap_literature", gapLiteratures)
-		}
-	}
-
-	// 6. 生成审稿报告（流式）
-	sendEvent(writer, "status", "正在生成审稿报告...")
-	refs := s.buildReferenceList(literatureContext.AllPapers)
-	err = s.generateStrictReview(req.ManuscriptText, req.TargetVenue, meta, literatureSummary, refs, req.ModelLevel, writer)
-	if err != nil {
-		sendEvent(writer, "error", fmt.Sprintf("审稿报告生成失败: %v", err))
-		return err
-	}
-
-	// 7. 保存审稿记录
-	s.saveReviewRecord(userID, manuscriptHash, req, meta, literatureContext, literatureSummary)
-
-	sendEvent(writer, "done", "审稿完成")
-	return nil
-}
-
-// sendEvent 发送SSE事件
-func sendEvent(writer io.Writer, eventType string, data interface{}) {
-	event := StreamEvent{
-		Type: eventType,
-		Data: data,
-	}
-	jsonData, _ := json.Marshal(event)
-	fmt.Fprintf(writer, "data: %s\n\n", string(jsonData))
-	if flusher, ok := writer.(interface{ Flush() }); ok {
-		flusher.Flush()
-	}
 }
 
 // extractBasicInfo 提取稿件基本信息（文本输入）
@@ -242,10 +167,12 @@ func (s *Service) extractBasicInfoFromFile(fileBase64 string, fileName string, m
 }
 
 // buildSemanticSearchQueries 构建语义搜索查询
+// 每个查询检索50篇，后续通过AI筛选
 func (s *Service) buildSemanticSearchQueries(meta *ManuscriptMeta) []SearchQuery {
 	queries := []SearchQuery{}
+	field := meta.Field // 获取领域信息，用于动态调整引用阈值
 
-	// 主题查询
+	// 主题查询：main_topic + field + key_variables
 	if meta.MainTopic != "" {
 		topicQuery := meta.MainTopic
 		if meta.Field != "" {
@@ -254,28 +181,28 @@ func (s *Service) buildSemanticSearchQueries(meta *ManuscriptMeta) []SearchQuery
 		if len(meta.KeyVariables) > 0 {
 			topicQuery += " " + strings.Join(meta.KeyVariables[:min(2, len(meta.KeyVariables))], " ")
 		}
-		queries = append(queries, SearchQuery{ID: "topic", Query: topicQuery, TopK: 15})
+		queries = append(queries, SearchQuery{ID: "topic", Query: topicQuery, TopK: 50, Field: field})
 	}
 
-	// 方法查询
+	// 方法查询：main_methods + field
 	if len(meta.MainMethods) > 0 {
 		methodQuery := strings.Join(meta.MainMethods, " ")
 		if meta.Field != "" {
 			methodQuery += " " + meta.Field
 		}
-		queries = append(queries, SearchQuery{ID: "method", Query: methodQuery, TopK: 10})
+		queries = append(queries, SearchQuery{ID: "method", Query: methodQuery, TopK: 50, Field: field})
 	}
 
-	// 创新点查询
+	// 创新点查询：claimed_novelty
 	if len(meta.ClaimedNovelty) > 0 {
 		noveltyQuery := strings.Join(meta.ClaimedNovelty, " ")
-		queries = append(queries, SearchQuery{ID: "novelty", Query: noveltyQuery, TopK: 10})
+		queries = append(queries, SearchQuery{ID: "novelty", Query: noveltyQuery, TopK: 50, Field: field})
 	}
 
-	// 关键词查询
+	// 关键词查询：keywords（OR 连接）
 	if len(meta.Keywords) > 0 {
 		keywordQuery := strings.Join(meta.Keywords, " | ")
-		queries = append(queries, SearchQuery{ID: "keywords", Query: keywordQuery, TopK: 10})
+		queries = append(queries, SearchQuery{ID: "keywords", Query: keywordQuery, TopK: 50, Field: field})
 	}
 
 	return queries
@@ -412,44 +339,346 @@ func tryFixTruncatedJSON(content string) string {
 	return content
 }
 
-// callSemanticScholarSearch 调用MCP搜索文献
-func (s *Service) callSemanticScholarSearch(queries []SearchQuery) (map[string][]map[string]interface{}, error) {
+// getQueryTypeLabel 获取查询类型的中文标签
+func getQueryTypeLabel(queryID string) string {
+	labels := map[string]string{
+		"topic":    "主题",
+		"method":   "方法",
+		"novelty":  "创新点",
+		"keywords": "关键词",
+	}
+	if label, ok := labels[queryID]; ok {
+		return label
+	}
+	return queryID
+}
+
+// getMinCitationsByField 根据学术领域动态调整引用计数阈值
+// 不同领域的引用模式差异很大：
+// - 计算机科学/AI：引用快速积累，阈值可较高
+// - 医学/生命科学：引用周期较长但总量大，中等阈值
+// - 工程/物理：中等引用速度
+// - 人文社科：引用积累慢，阈值应较低
+// - 数学/理论：引用少但质量高，阈值应低
+func getMinCitationsByField(field string) int {
+	field = strings.ToLower(strings.TrimSpace(field))
+
+	// 高引用领域（快速积累）
+	highCitationFields := []string{
+		"computer science", "artificial intelligence", "machine learning",
+		"deep learning", "natural language processing", "computer vision",
+		"data science", "information retrieval", "计算机", "人工智能", "机器学习",
+	}
+	for _, f := range highCitationFields {
+		if strings.Contains(field, f) {
+			return 10
+		}
+	}
+
+	// 中高引用领域
+	mediumHighFields := []string{
+		"medicine", "biology", "biomedical", "neuroscience", "genetics",
+		"medical", "clinical", "health", "医学", "生物", "神经科学",
+	}
+	for _, f := range mediumHighFields {
+		if strings.Contains(field, f) {
+			return 8
+		}
+	}
+
+	// 中等引用领域
+	mediumFields := []string{
+		"physics", "chemistry", "engineering", "materials", "energy",
+		"environmental", "物理", "化学", "工程", "材料",
+	}
+	for _, f := range mediumFields {
+		if strings.Contains(field, f) {
+			return 5
+		}
+	}
+
+	// 低引用领域（积累慢）
+	lowCitationFields := []string{
+		"mathematics", "philosophy", "history", "literature", "linguistics",
+		"sociology", "psychology", "economics", "law", "art",
+		"数学", "哲学", "历史", "文学", "语言学", "社会学", "心理学", "经济学", "法学",
+	}
+	for _, f := range lowCitationFields {
+		if strings.Contains(field, f) {
+			return 2
+		}
+	}
+
+	// 默认阈值
+	return 3
+}
+
+// searchSingleQuery 执行单个查询
+func (s *Service) searchSingleQuery(q SearchQuery) ([]map[string]interface{}, error) {
+	// 动态计算年份范围：当前年份-5 到 当前年份
+	currentYear := time.Now().Year()
+	yearFrom := strconv.Itoa(currentYear - 5)
+	yearTo := strconv.Itoa(currentYear)
+
+	// 根据领域动态调整引用计数阈值
+	minCitations := getMinCitationsByField(q.Field)
+
+	args := map[string]interface{}{
+		"keywords":      strings.Split(q.Query, " "),
+		"year_from":     yearFrom,
+		"year_to":       yearTo,
+		"min_citations": minCitations,
+		"sort_by":       "citationCount:desc",
+		"limit":         q.TopK,
+	}
+
+	toolReq := mcp.ToolRequest{
+		Name:      "search_papers_advanced",
+		Arguments: args,
+	}
+
+	resp, err := s.mcpServer.CallTool(toolReq)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(resp.Content) > 0 {
+		if textContent, ok := resp.Content[0]["text"].(string); ok {
+			var searchResult struct {
+				Data  []map[string]interface{} `json:"data"`
+				Total int                      `json:"total"`
+			}
+			if err := json.Unmarshal([]byte(textContent), &searchResult); err == nil {
+				return searchResult.Data, nil
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+// filterPapersWithAbstract 过滤掉没有摘要的论文
+func (s *Service) filterPapersWithAbstract(papers []map[string]interface{}) []map[string]interface{} {
+	filtered := make([]map[string]interface{}, 0)
+	for _, p := range papers {
+		abstract, ok := p["abstract"].(string)
+		if ok && strings.TrimSpace(abstract) != "" && len(abstract) > 50 {
+			filtered = append(filtered, p)
+		}
+	}
+	return filtered
+}
+
+// filterPapersWithAI 使用AI筛选论文
+// 输入：有摘要的论文列表（最多50篇）
+// 输出：AI认为与研究高度相关的论文（通常10-20篇）
+func (s *Service) filterPapersWithAI(papers []map[string]interface{}, query SearchQuery, meta *ManuscriptMeta, modelLevel string) ([]map[string]interface{}, error) {
+	// 构建论文列表字符串
+	papersInfo := s.formatPapersForAIFilter(papers)
+
+	// 根据查询类型构建筛选提示
+	filterContext := s.buildFilterContext(query, meta)
+
+	prompt := fmt.Sprintf(`你是一位严谨的学术文献筛选专家。请帮助筛选与目标研究高度相关的论文。
+
+## 目标研究信息
+- 标题：%s
+- 领域：%s
+- 研究主题：%s
+- 主要方法：%s
+- 关键变量：%s
+- 声称的创新点：%s
+
+## 筛选任务
+%s
+
+## 候选论文列表（共%d篇）
+%s
+
+## 筛选要求
+1. 仔细阅读每篇论文的标题和摘要
+2. 评估其与目标研究的相关性（主题相关、方法相关、理论相关等）
+3. 选出最相关的10-20篇论文（质量优先，宁缺毋滥）
+4. 排除明显不相关、质量低下或摘要内容空泛的论文
+
+## 输出格式
+请返回JSON数组，包含选中论文的序号（从1开始）：
+{
+  "selected_indices": [1, 3, 5, 7, ...],
+  "filter_reason": "简述筛选策略和排除的主要原因"
+}
+
+只返回JSON，不要有其他文字。`,
+		meta.Title,
+		meta.Field,
+		meta.MainTopic,
+		strings.Join(meta.MainMethods, ", "),
+		strings.Join(meta.KeyVariables, ", "),
+		strings.Join(meta.ClaimedNovelty, ", "),
+		filterContext,
+		len(papers),
+		papersInfo)
+
+	messages := []ai.ChatMessage{
+		{Role: "user", Content: prompt},
+	}
+
+	level := getModelLevel(modelLevel)
+	response, err := s.aiService.ChatCompletionWithTools(messages, nil, "", level)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(response.Choices) == 0 {
+		return nil, fmt.Errorf("no response from AI")
+	}
+
+	content := strings.TrimSpace(response.Choices[0].Message.Content)
+	content = extractJSON(content)
+
+	// 解析AI返回的结果
+	var filterResult struct {
+		SelectedIndices []int  `json:"selected_indices"`
+		FilterReason    string `json:"filter_reason"`
+	}
+
+	if err := json.Unmarshal([]byte(content), &filterResult); err != nil {
+		fmt.Printf("[PeerReview] Failed to parse AI filter result: %v, content: %s\n", err, content[:min(200, len(content))])
+		return nil, err
+	}
+
+	fmt.Printf("[PeerReview] AI filter reason: %s\n", filterResult.FilterReason)
+
+	// 根据选中的索引提取论文
+	selectedPapers := make([]map[string]interface{}, 0)
+	for _, idx := range filterResult.SelectedIndices {
+		if idx >= 1 && idx <= len(papers) {
+			selectedPapers = append(selectedPapers, papers[idx-1])
+		}
+	}
+
+	return selectedPapers, nil
+}
+
+// formatPapersForAIFilter 格式化论文列表供AI筛选
+func (s *Service) formatPapersForAIFilter(papers []map[string]interface{}) string {
+	var sb strings.Builder
+
+	for i, p := range papers {
+		title, _ := p["title"].(string)
+		year := 0
+		if y, ok := p["year"].(float64); ok {
+			year = int(y)
+		}
+		abstract, _ := p["abstract"].(string)
+		// 限制摘要长度，避免提示词过长
+		if len(abstract) > 400 {
+			abstract = abstract[:400] + "..."
+		}
+		citations := 0
+		if c, ok := p["citationCount"].(float64); ok {
+			citations = int(c)
+		}
+		venue, _ := p["venue"].(string)
+
+		sb.WriteString(fmt.Sprintf("### 论文 %d\n", i+1))
+		sb.WriteString(fmt.Sprintf("- 标题: %s\n", title))
+		sb.WriteString(fmt.Sprintf("- 年份: %d | 引用数: %d", year, citations))
+		if venue != "" {
+			sb.WriteString(fmt.Sprintf(" | 发表于: %s", venue))
+		}
+		sb.WriteString("\n")
+		sb.WriteString(fmt.Sprintf("- 摘要: %s\n\n", abstract))
+	}
+
+	return sb.String()
+}
+
+// buildFilterContext 根据查询类型构建筛选上下文
+func (s *Service) buildFilterContext(query SearchQuery, meta *ManuscriptMeta) string {
+	switch query.ID {
+	case "topic":
+		return fmt.Sprintf(`当前任务是筛选【主题相关】的论文。
+查询条件：%s
+请选出与目标研究主题高度相关的论文，包括：
+- 研究相同或相近主题的论文
+- 涉及相同关键变量的论文
+- 在同一领域内探讨相似问题的论文`, query.Query)
+
+	case "method":
+		return fmt.Sprintf(`当前任务是筛选【方法相关】的论文。
+查询条件：%s
+请选出使用相似研究方法的论文，包括：
+- 使用相同或相近实验设计的论文
+- 采用类似数据分析方法的论文
+- 方法论上可作为参考的论文`, query.Query)
+
+	case "novelty":
+		return fmt.Sprintf(`当前任务是筛选【创新点相关】的论文。
+查询条件：%s
+请选出与目标研究创新点相关的论文，包括：
+- 声称有类似创新的论文（用于对比新颖性）
+- 提出相关改进或突破的论文
+- 可能与目标创新点存在重叠的论文`, query.Query)
+
+	case "keywords":
+		return fmt.Sprintf(`当前任务是筛选【关键词相关】的论文。
+查询条件：%s
+请选出涵盖关键概念的论文，包括：
+- 使用相同关键术语的论文
+- 探讨相关理论框架的论文
+- 在相关子领域有贡献的论文`, query.Query)
+
+	default:
+		return fmt.Sprintf(`查询条件：%s
+请选出与目标研究最相关的论文。`, query.Query)
+	}
+}
+
+// callSemanticScholarSearchWithAIFilterNoWriter 调用MCP搜索文献并进行AI筛选（无 writer 版本，用于后台任务）
+func (s *Service) callSemanticScholarSearchWithAIFilterNoWriter(queries []SearchQuery, meta *ManuscriptMeta, modelLevel string, progressCallback func(string)) (map[string][]map[string]interface{}, error) {
 	results := make(map[string][]map[string]interface{})
 
 	for _, q := range queries {
-		// 使用 search_papers_advanced 工具
-		args := map[string]interface{}{
-			"keywords":      strings.Split(q.Query, " "),
-			"year_from":     "2019",
-			"year_to":       "2024",
-			"min_citations": 5,
-			"sort_by":       "citationCount:desc",
-			"limit":         q.TopK,
+		if progressCallback != nil {
+			progressCallback(fmt.Sprintf("正在检索%s相关文献...", getQueryTypeLabel(q.ID)))
 		}
 
-		toolReq := mcp.ToolRequest{
-			Name:      "search_papers_advanced",
-			Arguments: args,
-		}
-
-		resp, err := s.mcpServer.CallTool(toolReq)
+		// 1. 调用MCP检索
+		rawPapers, err := s.searchSingleQuery(q)
 		if err != nil {
 			fmt.Printf("[PeerReview] Search failed for %s: %v\n", q.ID, err)
 			continue
 		}
 
-		// 解析结果
-		if len(resp.Content) > 0 {
-			if textContent, ok := resp.Content[0]["text"].(string); ok {
-				var searchResult struct {
-					Data  []map[string]interface{} `json:"data"`
-					Total int                      `json:"total"`
-				}
-				if err := json.Unmarshal([]byte(textContent), &searchResult); err == nil {
-					results[q.ID] = searchResult.Data
-				}
-			}
+		fmt.Printf("[PeerReview] Query '%s' returned %d papers\n", q.ID, len(rawPapers))
+
+		if len(rawPapers) == 0 {
+			continue
 		}
+
+		// 2. 过滤掉没有摘要的论文
+		papersWithAbstract := s.filterPapersWithAbstract(rawPapers)
+		fmt.Printf("[PeerReview] After filtering papers without abstract: %d papers\n", len(papersWithAbstract))
+
+		if len(papersWithAbstract) == 0 {
+			results[q.ID] = topN(rawPapers, 10)
+			continue
+		}
+
+		// 3. AI二次筛选
+		if progressCallback != nil {
+			progressCallback(fmt.Sprintf("AI正在分析%s相关性...", getQueryTypeLabel(q.ID)))
+		}
+		filteredPapers, err := s.filterPapersWithAI(papersWithAbstract, q, meta, modelLevel)
+		if err != nil {
+			fmt.Printf("[PeerReview] AI filter failed for %s: %v, using raw results\n", q.ID, err)
+			results[q.ID] = topN(papersWithAbstract, 15)
+			continue
+		}
+
+		fmt.Printf("[PeerReview] After AI filtering: %d papers selected\n", len(filteredPapers))
+		results[q.ID] = filteredPapers
 	}
 
 	return results, nil
@@ -484,15 +713,12 @@ func (s *Service) normalizeAndSelectPapers(resultsByID map[string][]map[string]i
 		allPapers = append(allPapers, p)
 	}
 
-	// 按引用数排序（简单实现）
-	// TODO: 更复杂的排序逻辑
-
 	return &LiteratureContext{
 		AllPapers: allPapers,
-		ByTopic:   topN(resultsByID["topic"], 8),
-		ByMethod:  topN(resultsByID["method"], 8),
-		ByNovelty: topN(resultsByID["novelty"], 8),
-		ByTheory:  topN(resultsByID["keywords"], 8),
+		ByTopic:   topN(resultsByID["topic"], 15),   // 增加每类保留数量
+		ByMethod:  topN(resultsByID["method"], 15),
+		ByNovelty: topN(resultsByID["novelty"], 15),
+		ByTheory:  topN(resultsByID["keywords"], 15),
 	}
 }
 
@@ -501,68 +727,6 @@ func topN(papers []map[string]interface{}, n int) []map[string]interface{} {
 		return papers
 	}
 	return papers[:n]
-}
-
-// searchGapLiterature 针对研究空白检索相关文献
-func (s *Service) searchGapLiterature(gaps []string, field string) []GapLiterature {
-	var results []GapLiterature
-
-	// 限制最多检索3个研究空白
-	maxGaps := min(len(gaps), 3)
-
-	for i := 0; i < maxGaps; i++ {
-		gap := gaps[i]
-
-		// 构建查询：研究空白 + 领域
-		query := gap
-		if field != "" {
-			query = gap + " " + field
-		}
-
-		// 使用 search_papers_advanced 工具
-		args := map[string]interface{}{
-			"keywords":      strings.Split(query, " "),
-			"year_from":     "2020", // 最近几年的研究
-			"year_to":       "2024",
-			"min_citations": 3,
-			"sort_by":       "citationCount:desc",
-			"limit":         5, // 每个空白找5篇
-		}
-
-		toolReq := mcp.ToolRequest{
-			Name:      "search_papers_advanced",
-			Arguments: args,
-		}
-
-		resp, err := s.mcpServer.CallTool(toolReq)
-		if err != nil {
-			fmt.Printf("[PeerReview] Gap literature search failed for '%s': %v\n", gap, err)
-			continue
-		}
-
-		// 解析结果
-		var papers []map[string]interface{}
-		if len(resp.Content) > 0 {
-			if textContent, ok := resp.Content[0]["text"].(string); ok {
-				var searchResult struct {
-					Data  []map[string]interface{} `json:"data"`
-					Total int                      `json:"total"`
-				}
-				if err := json.Unmarshal([]byte(textContent), &searchResult); err == nil {
-					papers = searchResult.Data
-				}
-			}
-		}
-
-		if len(papers) > 0 {
-			results = append(results, GapLiterature{
-				Gap:    gap,
-				Papers: papers,
-			})
-		}
-	}
-
-	return results
 }
 
 // summarizeLiterature 总结文献环境
@@ -636,6 +800,7 @@ func (s *Service) summarizeLiterature(ctx *LiteratureContext, meta *ManuscriptMe
 // callAIWithContinuation 调用 AI 并支持自动续写被截断的响应
 func (s *Service) callAIWithContinuation(messages []ai.ChatMessage, level thirdparty.ModelLevel, maxContinuations int) (string, error) {
 	var fullContent strings.Builder
+	var previousContent string // 用于检测重复
 
 	currentMessages := make([]ai.ChatMessage, len(messages))
 	copy(currentMessages, messages)
@@ -653,7 +818,13 @@ func (s *Service) callAIWithContinuation(messages []ai.ChatMessage, level thirdp
 		content := response.Choices[0].Message.Content
 		finishReason := response.Choices[0].FinishReason
 
+		// 续写时检测并去除重复内容
+		if i > 0 && previousContent != "" {
+			content = removeOverlappingContent(previousContent, content)
+		}
+
 		fullContent.WriteString(content)
+		previousContent = content // 保存当前内容用于下一轮去重
 
 		fmt.Printf("[PeerReview] AI response chunk %d, length: %d, finish_reason: %s\n", i+1, len(content), finishReason)
 
@@ -679,6 +850,181 @@ func (s *Service) callAIWithContinuation(messages []ai.ChatMessage, level thirdp
 	}
 
 	return fullContent.String(), nil
+}
+
+// callAIWithContinuationMultimodal 调用 AI 并支持自动续写被截断的响应（多模态版本）
+// 用于处理包含文件（如PDF）的多模态消息
+func (s *Service) callAIWithContinuationMultimodal(messages []ai.ChatMessage, level thirdparty.ModelLevel, maxContinuations int) (string, error) {
+	var fullContent strings.Builder
+	var previousContent string // 用于检测重复
+
+	currentMessages := make([]ai.ChatMessage, len(messages))
+	copy(currentMessages, messages)
+
+	for i := 0; i <= maxContinuations; i++ {
+		response, err := s.aiService.ChatCompletionWithTools(currentMessages, nil, "", level)
+		if err != nil {
+			return "", err
+		}
+
+		if len(response.Choices) == 0 {
+			return "", fmt.Errorf("no response from AI")
+		}
+
+		content := response.Choices[0].Message.Content
+		finishReason := response.Choices[0].FinishReason
+
+		// 续写时检测并去除重复内容
+		if i > 0 && previousContent != "" {
+			content = removeOverlappingContent(previousContent, content)
+		}
+
+		fullContent.WriteString(content)
+		previousContent = content // 保存当前内容用于下一轮去重
+
+		fmt.Printf("[PeerReview] Multimodal AI response chunk %d, length: %d, finish_reason: %s\n", i+1, len(content), finishReason)
+
+		// 如果正常结束（不是因为长度被截断），直接返回
+		if finishReason != "length" {
+			break
+		}
+
+		// 如果是因为长度被截断，需要续写
+		if i < maxContinuations {
+			fmt.Printf("[PeerReview] Multimodal response truncated, requesting continuation...\n")
+
+			// 构建续写请求：把当前的部分响应加入对话，让 AI 继续
+			// 注意：续写请求不再包含文件，只需要文本
+			currentMessages = append(currentMessages, ai.ChatMessage{
+				Role:    "assistant",
+				Content: content,
+			})
+			currentMessages = append(currentMessages, ai.ChatMessage{
+				Role:    "user",
+				Content: "请继续，从你上次停止的地方继续输出，不要重复已输出的内容。",
+			})
+		}
+	}
+
+	return fullContent.String(), nil
+}
+
+// removeOverlappingContent 检测并去除续写内容中与前一段重复的部分
+// 使用多种策略检测重复：
+// 1. 查找最长公共子串（从末尾开始匹配）
+// 2. 检测常见的重复模式（如重复的 JSON key）
+func removeOverlappingContent(previous, current string) string {
+	if len(previous) == 0 || len(current) == 0 {
+		return current
+	}
+
+	// 策略1：查找 previous 末尾与 current 开头的重叠部分
+	// 取 previous 的最后 500 个字符进行匹配（避免全文扫描）
+	maxCheckLen := 500
+	if len(previous) < maxCheckLen {
+		maxCheckLen = len(previous)
+	}
+	previousTail := previous[len(previous)-maxCheckLen:]
+
+	// 从长到短尝试匹配
+	minOverlapLen := 20 // 最小重叠长度，避免误判
+	for overlapLen := len(previousTail); overlapLen >= minOverlapLen; overlapLen-- {
+		// 检查 previous 末尾的 overlapLen 个字符是否等于 current 开头的 overlapLen 个字符
+		if overlapLen <= len(current) {
+			suffix := previousTail[len(previousTail)-overlapLen:]
+			prefix := current[:overlapLen]
+			if suffix == prefix {
+				// 找到重叠部分，去除 current 开头的重复内容
+				fmt.Printf("[PeerReview] Detected overlap of %d chars, removing duplicate\n", overlapLen)
+				return current[overlapLen:]
+			}
+		}
+	}
+
+	// 策略2：检测 JSON 格式的重复（如重复的字段名）
+	// 这是一个启发式方法，检测 current 是否以之前出现过的 JSON key 开头
+	if strings.Contains(previous, `"`) && strings.HasPrefix(strings.TrimSpace(current), `"`) {
+		// 可能是 JSON 续写，检测是否重复了字段
+		current = removeRepeatedJSONKeys(previous, current)
+	}
+
+	return current
+}
+
+// removeRepeatedJSONKeys 检测并移除重复的 JSON key
+func removeRepeatedJSONKeys(previous, current string) string {
+	// 提取 current 开头的 JSON key（如果有的话）
+	trimmedCurrent := strings.TrimSpace(current)
+	if !strings.HasPrefix(trimmedCurrent, `"`) {
+		return current
+	}
+
+	// 找到第一个 key 的结束位置
+	endQuote := strings.Index(trimmedCurrent[1:], `"`)
+	if endQuote == -1 {
+		return current
+	}
+
+	firstKey := trimmedCurrent[:endQuote+2] // 包含两个引号
+
+	// 检查这个 key 是否在 previous 中已经出现过
+	if strings.Contains(previous, firstKey) {
+		// 找到 current 中这个 key 对应的值结束位置
+		// 简化处理：找到下一个同级别的 key 或者对象结束
+		colonIdx := strings.Index(trimmedCurrent, ":")
+		if colonIdx == -1 {
+			return current
+		}
+
+		// 跳过值部分，找到下一个 key
+		valueStart := colonIdx + 1
+		depth := 0
+		inString := false
+		escaped := false
+
+		for i := valueStart; i < len(trimmedCurrent); i++ {
+			c := trimmedCurrent[i]
+
+			if escaped {
+				escaped = false
+				continue
+			}
+
+			if c == '\\' && inString {
+				escaped = true
+				continue
+			}
+
+			if c == '"' {
+				inString = !inString
+				continue
+			}
+
+			if inString {
+				continue
+			}
+
+			if c == '{' || c == '[' {
+				depth++
+			} else if c == '}' || c == ']' {
+				depth--
+				if depth < 0 {
+					// 到达对象结束，返回剩余部分
+					return trimmedCurrent[i:]
+				}
+			} else if c == ',' && depth == 0 {
+				// 找到下一个元素，检查是否是新的 key
+				remaining := strings.TrimSpace(trimmedCurrent[i+1:])
+				if strings.HasPrefix(remaining, `"`) && !strings.Contains(previous, remaining[:strings.Index(remaining[1:], `"`)+2]) {
+					// 下一个 key 在 previous 中不存在，返回从这里开始
+					fmt.Printf("[PeerReview] Removed repeated JSON key: %s\n", firstKey)
+					return trimmedCurrent[i:]
+				}
+			}
+		}
+	}
+
+	return current
 }
 
 // compactPapersForLLM 压缩论文列表供LLM使用
@@ -762,529 +1108,6 @@ func (s *Service) buildReferenceList(papers []map[string]interface{}) []Referenc
 	return refs
 }
 
-// generateStrictReview 生成严格审稿报告（流式输出，支持多轮续写）
-func (s *Service) generateStrictReview(
-	manuscriptText, targetVenue string,
-	meta *ManuscriptMeta,
-	summary *LiteratureSummary,
-	refs []ReferenceForReviewer,
-	modelLevel string,
-	writer io.Writer,
-) error {
-	// 构建参考文献字符串
-	refsStr := s.formatRefsForPrompt(refs)
-
-	// 构建元信息字符串
-	metaJSON, _ := json.Marshal(meta)
-
-	// 构建相似论文信息
-	closestPapersInfo := ""
-	if len(summary.ClosestPapers) > 0 {
-		var sb strings.Builder
-		for i, p := range summary.ClosestPapers {
-			sb.WriteString(fmt.Sprintf("%d. %s (%d) - 相似原因: %s\n", i+1, p.Title, p.Year, p.Reason))
-		}
-		closestPapersInfo = sb.String()
-	}
-
-	// 构建研究空白信息
-	gapsInfo := ""
-	if len(summary.TypicalGaps) > 0 {
-		gapsInfo = strings.Join(summary.TypicalGaps, "\n- ")
-		gapsInfo = "- " + gapsInfo
-	}
-
-	// 最大续写轮数，防止无限循环
-	const maxContinuations = 5
-
-	systemPrompt := `## 角色：严苛、精准且富有洞察的学术审稿人
-
-你是一位以"严苛、精准、富有洞察力"而闻名的资深学术审稿专家。你坚守最高的学术标准，你的首要任务是**严格审查（Strict Scrutiny）**，以确保只有最高质量的研究得以推进。你擅长一针见血地指出研究中的**核心缺陷**和**逻辑漏洞**，同时你的反馈必须是**具体、清晰且可执行的**。
-
-## 核心知识与能力：
-
-1. **前沿洞察**：你深刻理解并实时追踪本学科的前沿理论、最新方法和行业动态。
-2. **理论基石**：你对领域的经典理论与核心范式有系统性、批判性的认知，能迅速判断其应用的恰当性。
-3. **逻辑审查**：你能精准识别研究设计、论证推导和数据解释中的逻辑断点、不一致或潜在偏见。
-4. **标准感知**：你熟悉不同层次的学术期刊和会议的审稿标准、偏好和"门槛"。
-
-## 审稿核心检查点：
-
-* **原创性与贡献**：研究是否提出了清晰且有价值的新见解？贡献是增量性的还是突破性的？
-* **研究问题**：问题是否清晰界定？其学术价值和现实意义是否重大？
-* **文献综述**：文献回顾是否全面、深入、具有批判性？是否准确识别了研究缺口？
-* **方法论严谨性**：研究设计是否科学？方法是否为回答研究问题的最优选？样本选择、数据处理是否透明、可复现？
-* **数据分析与结果**：分析方法是否恰当？结果呈现是否清晰准确？有无过度解读？
-* **讨论与结论**：讨论是否深入阐释了结果意义？结论是否完全基于研究证据？是否诚实指出了研究局限？
-* **逻辑与表达**：全文论证逻辑是否一致严密？学术语言是否精准专业？
-
-## 重要约束：
-
-1. **引用文献时必须使用 [R1], [R2] 等编号**，只能引用提供的参考文献列表中的文献
-2. **不得虚构任何文献或作者**
-3. **所有关于"新颖性"和"是否重复已有工作"的判断，必须对照提供的相似论文和参考文献**
-4. **批评必须具体、可操作，明确指出如何修改**
-5. **使用Markdown格式输出**`
-
-	userPrompt := fmt.Sprintf(`## 投稿目标
-**目标期刊/会议**：%s
-
-## 待审稿件内容
-%s
-
-## 系统预分析信息
-
-### 稿件结构化理解
-%s
-
-### 领域前沿状态
-%s
-
-### 与稿件最相似的已发表论文（新颖性核查）
-%s
-
-### 当前领域研究空白
-%s
-
-### 可引用的参考文献列表（请严格只引用这些，使用 [R1], [R2] 等编号）
-%s
-
----
-
-请基于以上所有信息，生成一份专业的审稿报告。报告**必须**优先并聚焦于指出问题。
-
-**注意：直接从正文内容开始，不要输出"审稿报告"这样的大标题。**
-
-## 综合评估与推荐
-
-### 核心贡献
-（简要总结你理解的论文核心贡献）
-
-### 契合度评估
-（基于 [%s] 的标准，严格评估稿件的契合度、新颖性和影响力。必须对照上述相似论文进行新颖性判断。）
-
-### 推荐意见
-- **Accept** (接受)
-- **Minor Revision** (小修后接受)
-- **Major Revision** (大修后重审)
-- **Reject** (拒稿，需提出建设性的转投建议或根本性重做方向)
-
-**本稿推荐**：[给出具体推荐]
-**推荐理由**：[详细说明]
-
-## 必须解决的核心问题
-
-（**这是评审报告的核心。** 必须严格、清晰、具体地列出所有阻碍稿件达到目标期刊标准的重大缺陷。每一条都必须是可操作的、实质性的批评。）
-
-### 问题1：[问题标题]
-- **严重程度**：Critical / Major
-- **问题描述**：（清晰阐述问题，引用相关文献 [Rx] 作为依据）
-- **修改建议**：（具体、可执行的修改方案）
-
-### 问题2：[问题标题]
-...
-
-## 其他改进建议
-
-（指出那些次要的、但同样需要修改以提升稿件质量的问题。）
-
-1. [建议1]
-2. [建议2]
-3. [建议3]`,
-		targetVenue,
-		truncateByRune(manuscriptText, 50000),
-		string(metaJSON),
-		summary.FieldState,
-		closestPapersInfo,
-		gapsInfo,
-		refsStr,
-		targetVenue)
-
-	messages := []ai.ChatMessage{
-		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: userPrompt},
-	}
-
-	level := getModelLevel(modelLevel)
-
-	// 使用流式输出，支持多轮续写
-	var accumulatedContent strings.Builder
-	streamWriter := &reviewStreamWriter{
-		writer:      writer,
-		accumulator: &accumulatedContent,
-	}
-
-	for round := 0; round < maxContinuations; round++ {
-		// 重置本轮累积内容
-		roundContent := strings.Builder{}
-		streamWriter.roundAccumulator = &roundContent
-
-		// 流式输出
-		err := s.aiService.StreamChatCompletionWithLevel(messages, streamWriter, level)
-		if err != nil {
-			return err
-		}
-
-		// 获取本轮生成的内容
-		roundText := roundContent.String()
-		accumulatedContent.WriteString(roundText)
-
-		// 检查是否需要继续生成
-		if !s.needsContinuation(accumulatedContent.String()) {
-			// 输出完整，结束
-			break
-		}
-
-		// 需要续写，添加 assistant 消息和续写提示
-		messages = append(messages, ai.ChatMessage{
-			Role:    "assistant",
-			Content: roundText,
-		})
-		messages = append(messages, ai.ChatMessage{
-			Role:    "user",
-			Content: "请继续完成审稿报告，从上次中断的地方继续。",
-		})
-
-		// 发送续写状态提示
-		sendEvent(writer, "status", fmt.Sprintf("内容较长，正在续写（第 %d 轮）...", round+2))
-	}
-
-	return nil
-}
-
-// generateStrictReviewWithPDF 生成严格审稿报告（PDF文件输入，流式输出，支持多轮续写）
-func (s *Service) generateStrictReviewWithPDF(
-	pdfBase64 string,
-	fileName string,
-	targetVenue string,
-	meta *ManuscriptMeta,
-	summary *LiteratureSummary,
-	refs []ReferenceForReviewer,
-	modelLevel string,
-	writer io.Writer,
-) error {
-	// 构建参考文献字符串
-	refsStr := s.formatRefsForPrompt(refs)
-
-	// 构建元信息字符串
-	metaJSON, _ := json.Marshal(meta)
-
-	// 构建相似论文信息
-	closestPapersInfo := ""
-	if len(summary.ClosestPapers) > 0 {
-		var sb strings.Builder
-		for i, p := range summary.ClosestPapers {
-			sb.WriteString(fmt.Sprintf("%d. %s (%d) - 相似原因: %s\n", i+1, p.Title, p.Year, p.Reason))
-		}
-		closestPapersInfo = sb.String()
-	}
-
-	// 构建研究空白信息
-	gapsInfo := ""
-	if len(summary.TypicalGaps) > 0 {
-		gapsInfo = strings.Join(summary.TypicalGaps, "\n- ")
-		gapsInfo = "- " + gapsInfo
-	}
-
-	// 最大续写轮数，防止无限循环
-	const maxContinuations = 5
-
-	systemPrompt := `## 角色：严苛、精准且富有洞察的学术审稿人
-
-你是一位以"严苛、精准、富有洞察力"而闻名的资深学术审稿专家。你坚守最高的学术标准，你的首要任务是**严格审查（Strict Scrutiny）**，以确保只有最高质量的研究得以推进。你擅长一针见血地指出研究中的**核心缺陷**和**逻辑漏洞**，同时你的反馈必须是**具体、清晰且可执行的**。
-
-## 核心知识与能力：
-
-1. **前沿洞察**：你深刻理解并实时追踪本学科的前沿理论、最新方法和行业动态。
-2. **理论基石**：你对领域的经典理论与核心范式有系统性、批判性的认知，能迅速判断其应用的恰当性。
-3. **逻辑审查**：你能精准识别研究设计、论证推导和数据解释中的逻辑断点、不一致或潜在偏见。
-4. **标准感知**：你熟悉不同层次的学术期刊和会议的审稿标准、偏好和"门槛"。
-
-## 审稿核心检查点：
-
-* **原创性与贡献**：研究是否提出了清晰且有价值的新见解？贡献是增量性的还是突破性的？
-* **研究问题**：问题是否清晰界定？其学术价值和现实意义是否重大？
-* **文献综述**：文献回顾是否全面、深入、具有批判性？是否准确识别了研究缺口？
-* **方法论严谨性**：研究设计是否科学？方法是否为回答研究问题的最优选？样本选择、数据处理是否透明、可复现？
-* **数据分析与结果**：分析方法是否恰当？结果呈现是否清晰准确？有无过度解读？
-* **讨论与结论**：讨论是否深入阐释了结果意义？结论是否完全基于研究证据？是否诚实指出了研究局限？
-* **逻辑与表达**：全文论证逻辑是否一致严密？学术语言是否精准专业？
-
-## 重要约束：
-
-1. **引用文献时必须使用 [R1], [R2] 等编号**，只能引用提供的参考文献列表中的文献
-2. **不得虚构任何文献或作者**
-3. **所有关于"新颖性"和"是否重复已有工作"的判断，必须对照提供的相似论文和参考文献**
-4. **批评必须具体、可操作，明确指出如何修改**
-5. **使用Markdown格式输出**`
-
-	userPromptText := fmt.Sprintf(`## 投稿目标
-**目标期刊/会议**：%s
-
-## 待审稿件
-请仔细阅读附件中的PDF论文文件（%s）。
-
-## 系统预分析信息
-
-### 稿件结构化理解
-%s
-
-### 领域前沿状态
-%s
-
-### 与稿件最相似的已发表论文（新颖性核查）
-%s
-
-### 当前领域研究空白
-%s
-
-### 可引用的参考文献列表（请严格只引用这些，使用 [R1], [R2] 等编号）
-%s
-
----
-
-请基于以上所有信息和附件中的PDF论文，生成一份专业的审稿报告。报告**必须**优先并聚焦于指出问题。
-
-**注意：直接从正文内容开始，不要输出"审稿报告"这样的大标题。**
-
-## 综合评估与推荐
-
-### 核心贡献
-（简要总结你理解的论文核心贡献）
-
-### 契合度评估
-（基于 [%s] 的标准，严格评估稿件的契合度、新颖性和影响力。必须对照上述相似论文进行新颖性判断。）
-
-### 推荐意见
-- **Accept** (接受)
-- **Minor Revision** (小修后接受)
-- **Major Revision** (大修后重审)
-- **Reject** (拒稿，需提出建设性的转投建议或根本性重做方向)
-
-**本稿推荐**：[给出具体推荐]
-**推荐理由**：[详细说明]
-
-## 必须解决的核心问题
-
-（**这是评审报告的核心。** 必须严格、清晰、具体地列出所有阻碍稿件达到目标期刊标准的重大缺陷。每一条都必须是可操作的、实质性的批评。）
-
-### 问题1：[问题标题]
-- **严重程度**：Critical / Major
-- **问题描述**：（清晰阐述问题，引用相关文献 [Rx] 作为依据）
-- **修改建议**：（具体、可执行的修改方案）
-
-### 问题2：[问题标题]
-...
-
-## 其他改进建议
-
-（指出那些次要的、但同样需要修改以提升稿件质量的问题。）
-
-1. [建议1]
-2. [建议2]
-3. [建议3]`,
-		targetVenue,
-		fileName,
-		string(metaJSON),
-		summary.FieldState,
-		closestPapersInfo,
-		gapsInfo,
-		refsStr,
-		targetVenue)
-
-	// 构建多模态消息，包含PDF文件
-	contentParts := []interface{}{
-		ai.TextContent{
-			Type: "text",
-			Text: userPromptText,
-		},
-		ai.FileContent{
-			Type: "file",
-			File: ai.FileContentData{
-				URL: "data:application/pdf;base64," + pdfBase64,
-			},
-		},
-	}
-
-	messages := []ai.ChatMessage{
-		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: contentParts},
-	}
-
-	level := getModelLevel(modelLevel)
-
-	// 使用流式输出，支持多轮续写
-	var accumulatedContent strings.Builder
-	streamWriter := &reviewStreamWriter{
-		writer:      writer,
-		accumulator: &accumulatedContent,
-	}
-
-	for round := 0; round < maxContinuations; round++ {
-		// 重置本轮累积内容
-		roundContent := strings.Builder{}
-		streamWriter.roundAccumulator = &roundContent
-
-		// 流式输出
-		err := s.aiService.StreamChatCompletionWithLevel(messages, streamWriter, level)
-		if err != nil {
-			return err
-		}
-
-		// 获取本轮生成的内容
-		roundText := roundContent.String()
-		accumulatedContent.WriteString(roundText)
-
-		// 检查是否需要继续生成
-		if !s.needsContinuation(accumulatedContent.String()) {
-			// 输出完整，结束
-			break
-		}
-
-		// 需要续写，添加 assistant 消息和续写提示
-		messages = append(messages, ai.ChatMessage{
-			Role:    "assistant",
-			Content: roundText,
-		})
-		messages = append(messages, ai.ChatMessage{
-			Role:    "user",
-			Content: "请继续完成审稿报告，从上次中断的地方继续。",
-		})
-
-		// 发送续写状态提示
-		sendEvent(writer, "status", fmt.Sprintf("内容较长，正在续写（第 %d 轮）...", round+2))
-	}
-
-	return nil
-}
-
-// needsContinuation 检查审稿报告是否需要续写
-func (s *Service) needsContinuation(content string) bool {
-	// 检查是否包含完整的报告结构
-	// 审稿报告应该包含这些部分：
-	// - I. 综合评估与推荐
-	// - II. 必须解决的核心问题
-	// - III. 其他改进建议
-
-	hasSection1 := strings.Contains(content, "综合评估") || strings.Contains(content, "Overall Assessment")
-	hasSection2 := strings.Contains(content, "核心问题") || strings.Contains(content, "Critical Issues")
-	hasSection3 := strings.Contains(content, "其他改进建议") || strings.Contains(content, "Other Suggestions")
-
-	// 如果三个部分都有了，检查是否有明显的截断标志
-	if hasSection1 && hasSection2 && hasSection3 {
-		// 检查是否以不完整的句子结尾（常见的截断标志）
-		trimmed := strings.TrimSpace(content)
-		if len(trimmed) == 0 {
-			return false
-		}
-
-		// 获取最后几个字符（考虑 UTF-8 编码）
-		runes := []rune(trimmed)
-		if len(runes) == 0 {
-			return false
-		}
-		lastRune := runes[len(runes)-1]
-
-		// 如果以标点符号结尾，认为是完整的
-		completionMarkers := []rune{'.', '。', '!', '！', '?', '？', ':', '：', '\n'}
-		for _, marker := range completionMarkers {
-			if lastRune == marker {
-				return false
-			}
-		}
-
-		// 检查是否以 markdown 列表项或标题结尾（可能不完整）
-		lines := strings.Split(trimmed, "\n")
-		lastLine := strings.TrimSpace(lines[len(lines)-1])
-
-		// 如果最后一行很短且以数字或破折号开头，可能是未完成的列表
-		if len(lastLine) < 20 && (strings.HasPrefix(lastLine, "-") || strings.HasPrefix(lastLine, "#") ||
-			(len(lastLine) > 0 && lastLine[0] >= '0' && lastLine[0] <= '9')) {
-			return true
-		}
-
-		return false
-	}
-
-	// 如果缺少任何一个主要部分，需要续写
-	// 但如果内容太短，可能是刚开始，也需要续写
-	if len(content) < 500 {
-		return true
-	}
-
-	return !hasSection3 // 如果缺少第三部分，需要续写
-}
-
-// reviewStreamWriter 审稿流式输出包装器
-type reviewStreamWriter struct {
-	writer           io.Writer
-	accumulator      *strings.Builder // 累积所有轮次的内容
-	roundAccumulator *strings.Builder // 累积当前轮次的内容
-}
-
-func (w *reviewStreamWriter) Write(p []byte) (n int, err error) {
-	// p 是 AI 服务返回的 SSE 格式数据: "data: {...}\n\n"
-	// 我们需要解析它，提取 content，然后重新包装为 review_chunk 事件
-
-	line := string(p)
-
-	// 跳过空行
-	if strings.TrimSpace(line) == "" {
-		return len(p), nil
-	}
-
-	// 检查是否是 SSE data 行
-	if !strings.HasPrefix(line, "data: ") {
-		return len(p), nil
-	}
-
-	data := strings.TrimPrefix(line, "data: ")
-	data = strings.TrimSuffix(data, "\n\n")
-	data = strings.TrimSpace(data)
-
-	// 跳过 [DONE] 标记
-	if data == "[DONE]" {
-		return len(p), nil
-	}
-
-	// 解析 JSON chunk
-	var chunk struct {
-		Choices []struct {
-			Delta struct {
-				Content string `json:"content"`
-			} `json:"delta"`
-		} `json:"choices"`
-	}
-
-	if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-		// 解析失败，跳过
-		return len(p), nil
-	}
-
-	// 提取内容
-	if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-		content := chunk.Choices[0].Delta.Content
-
-		// 累积当前轮次的内容
-		if w.roundAccumulator != nil {
-			w.roundAccumulator.WriteString(content)
-		}
-
-		// 包装为 review_chunk 事件
-		event := StreamEvent{
-			Type: "review_chunk",
-			Data: content,
-		}
-		jsonData, _ := json.Marshal(event)
-		fmt.Fprintf(w.writer, "data: %s\n\n", string(jsonData))
-		if flusher, ok := w.writer.(interface{ Flush() }); ok {
-			flusher.Flush()
-		}
-	}
-
-	return len(p), nil
-}
-
 // formatRefsForPrompt 格式化参考文献供提示词使用
 func (s *Service) formatRefsForPrompt(refs []ReferenceForReviewer) string {
 	var sb strings.Builder
@@ -1293,40 +1116,4 @@ func (s *Service) formatRefsForPrompt(refs []ReferenceForReviewer) string {
 	}
 	return sb.String()
 }
-
-// saveReviewRecord 保存审稿记录（使用新的任务表）
-func (s *Service) saveReviewRecord(
-	userID uint,
-	manuscriptHash string,
-	req *PeerReviewRequest,
-	meta *ManuscriptMeta,
-	ctx *LiteratureContext,
-	summary *LiteratureSummary,
-) {
-	metaJSON, _ := json.Marshal(meta)
-	ctxJSON, _ := json.Marshal(ctx)
-	summaryJSON, _ := json.Marshal(summary)
-
-	// 使用新的任务表保存记录
-	task := &PeerReviewTask{
-		UserID:            userID,
-		InputType:         InputTypeText,
-		ManuscriptText:    req.ManuscriptText,
-		ContentHash:       manuscriptHash,
-		Title:             meta.Title,
-		TargetVenue:       req.TargetVenue,
-		ModelLevel:        req.ModelLevel,
-		Status:            TaskStatusCompleted,
-		Progress:          100,
-		ProgressStage:     "审稿完成",
-		ManuscriptMeta:    string(metaJSON),
-		LiteratureContext: string(ctxJSON),
-		LiteratureSummary: string(summaryJSON),
-	}
-
-	if err := s.db.Create(task).Error; err != nil {
-		fmt.Printf("[PeerReview] Failed to save review record: %v\n", err)
-	}
-}
-
 

@@ -339,6 +339,7 @@ type SearchQuery struct {
 	ID    string `json:"id"`
 	Query string `json:"query"`
 	TopK  int    `json:"top_k"`
+	Field string `json:"field,omitempty"` // 领域信息，用于动态调整引用阈值
 }
 
 // LiteratureContext 文献上下文
@@ -388,6 +389,86 @@ type DimensionScores struct {
 	Clarity      float64 `json:"clarity"`      // 清晰度 0-10
 	Significance float64 `json:"significance"` // 重要性 0-10
 	Overall      float64 `json:"overall"`      // 总体评分 0-10
+}
+
+// FilteredPaper AI筛选后的论文
+type FilteredPaper struct {
+	PaperID       string `json:"paper_id"`
+	Title         string `json:"title"`
+	Year          int    `json:"year"`
+	Authors       string `json:"authors"`
+	Abstract      string `json:"abstract"`
+	CitationCount int    `json:"citation_count"`
+	Venue         string `json:"venue"`
+	URL           string `json:"url"`
+	RelevanceScore float64 `json:"relevance_score"` // 相关性评分 0-1
+	RelevanceReason string `json:"relevance_reason"` // 相关性原因
+}
+
+// AIFilterResult AI筛选结果
+type AIFilterResult struct {
+	QueryType       string          `json:"query_type"`        // topic, method, novelty, keywords
+	OriginalCount   int             `json:"original_count"`    // 原始论文数量
+	FilteredCount   int             `json:"filtered_count"`    // 筛选后数量
+	FilteredPapers  []FilteredPaper `json:"filtered_papers"`   // 筛选后的论文
+	FilterReason    string          `json:"filter_reason"`     // 筛选策略说明
+}
+
+// ========== 结构化审稿报告 JSON 格式 ==========
+
+// ReviewReportJSON 结构化审稿报告（JSON格式）
+type ReviewReportJSON struct {
+	OverallAssessment   OverallAssessment   `json:"overall_assessment"`
+	CriticalIssues      []CriticalIssue     `json:"critical_issues"`
+	OtherSuggestions    []OtherSuggestion   `json:"other_suggestions"`
+	ExtendedReviewItems ExtendedReviewItems `json:"extended_review_items"`
+}
+
+// OverallAssessment 综合评估
+type OverallAssessment struct {
+	CoreContribution  string            `json:"core_contribution"`       // 核心贡献总结
+	FitForTargetVenue FitForTargetVenue `json:"fit_for_target_venue"`    // 期刊契合度评估
+	Recommendation    string            `json:"recommendation"`          // Accept | Minor Revision | Major Revision | Reject
+	RejectAdvice      string            `json:"reject_advice,omitempty"` // 拒稿建议（Reject时必填）
+}
+
+// FitForTargetVenue 期刊契合度评估
+type FitForTargetVenue struct {
+	VenueName     string `json:"venue_name"`     // 目标期刊/会议名称
+	FitEvaluation string `json:"fit_evaluation"` // 契合度评价
+}
+
+// CriticalIssue 关键问题
+type CriticalIssue struct {
+	IssueTitle       string   `json:"issue_title"`       // 问题标题
+	IssueDescription string   `json:"issue_description"` // 问题描述
+	RequiredActions  string   `json:"required_actions"`  // 必需的补救措施
+	AffectedSections []string `json:"affected_sections"` // 受影响的章节
+}
+
+// OtherSuggestion 其他建议
+type OtherSuggestion struct {
+	SuggestionTitle       string `json:"suggestion_title"`       // 建议标题
+	SuggestionDescription string `json:"suggestion_description"` // 建议描述
+	SuggestionLocation    string `json:"suggestion_location"`    // 建议位置
+	SuggestionRationale   string `json:"suggestion_rationale"`   // 建议理由
+}
+
+// ExtendedReviewItems 扩展审稿项目
+type ExtendedReviewItems struct {
+	NoveltyEvaluation       string          `json:"novelty_evaluation"`        // 新颖性评价
+	TechnicalSoundness      string          `json:"technical_soundness"`       // 技术严谨性
+	ClarityAndPresentation  string          `json:"clarity_and_presentation"`  // 清晰度与表达
+	Reproducibility         Reproducibility `json:"reproducibility"`           // 可复现性
+	EthicalConsiderations   string          `json:"ethical_considerations"`    // 伦理考量
+	ImpactAndSignificance   string          `json:"impact_and_significance"`   // 影响力与重要性
+	RecommendForImprovement string          `json:"recommend_for_improvement"` // 改进建议
+}
+
+// Reproducibility 可复现性评估
+type Reproducibility struct {
+	DataAvailability string `json:"data_availability"` // 数据可用性
+	CodeAvailability string `json:"code_availability"` // 代码可用性
 }
 
 // ========== 文件处理相关 ==========

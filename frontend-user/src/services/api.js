@@ -594,33 +594,6 @@ export const peerReviewAPI = {
   // 清空草稿（删除主稿件和所有附件）
   clearDraft: () =>
     api.delete('/user/peer-review/draft'),
-
-  // ========== 兼容旧接口 ==========
-  
-  // 执行审稿（流式输出，同步方式）
-  runPeerReview: (manuscriptText, targetVenue, modelLevel = 'mid') => {
-    const token = localStorage.getItem('user_token');
-    return fetch(`${API_URL}/api/v1/user/peer-review/run`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        manuscript_text: manuscriptText,
-        target_venue: targetVenue,
-        model_level: modelLevel,
-      }),
-    });
-  },
-
-  // 获取审稿历史
-  getReviewHistory: () =>
-    api.get('/user/peer-review/history'),
-
-  // 获取审稿详情
-  getReviewDetail: (id) =>
-    api.get(`/user/peer-review/${id}`),
 };
 
 export default api;

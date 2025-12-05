@@ -564,13 +564,7 @@ func main() {
 
 				// 文件下载
 				peerReviewGroup.GET("/files/:id/download", peerReviewHandler.DownloadFile)
-				
-				// 兼容旧接口
-				peerReviewGroup.POST("/run", peerReviewHandler.RunPeerReview)
-				peerReviewGroup.GET("/history", peerReviewHandler.GetReviewHistory)
 			}
-			// 兼容旧接口路由
-			userProtected.GET("/peer-review/:id", peerReviewHandler.GetReviewDetail)
 		}
 
 		// Public API routes (no authentication required)
