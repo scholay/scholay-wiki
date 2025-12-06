@@ -67,7 +67,7 @@ func (s *Service) extractBasicInfo(manuscriptText, targetVenue, modelLevel strin
 
 目标期刊/会议：%s
 
-请提取以下信息并以JSON格式返回：
+请提取以下信息并以JSON格式返回（输出必须控制在3000字符以内）：
 {
   "title": "论文标题（如果能识别）",
   "abstract": "摘要（如果能识别，否则用前200字概括）",
@@ -113,7 +113,7 @@ func (s *Service) extractBasicInfoFromFile(fileBase64 string, fileName string, m
 文件名：%s
 目标期刊/会议：%s
 
-请提取以下信息并以JSON格式返回：
+请提取以下信息并以JSON格式返回（输出必须控制在3000字符以内）：
 {
   "title": "论文标题（如果能识别）",
   "abstract": "摘要（如果能识别，否则用前200字概括）",
@@ -502,10 +502,10 @@ func (s *Service) filterPapersWithAI(papers []map[string]interface{}, query Sear
 4. 排除明显不相关、质量低下或摘要内容空泛的论文
 
 ## 输出格式
-请返回JSON数组，包含选中论文的序号（从1开始）：
+请返回JSON数组，包含选中论文的序号（从1开始），输出必须控制在2000字符以内：
 {
   "selected_indices": [1, 3, 5, 7, ...],
-  "filter_reason": "简述筛选策略和排除的主要原因"
+  "filter_reason": "简述筛选策略和排除的主要原因（100字以内）"
 }
 
 只返回JSON，不要有其他文字。`,
@@ -753,14 +753,14 @@ func (s *Service) summarizeLiterature(ctx *LiteratureContext, meta *ManuscriptMe
 3. 指出目前文献中尚存的典型 research gap（如果有）；
 4. 为后续审稿人评估"新颖性"和"文献是否充分"提供一个简短小结。
 
-输出结构为 JSON：
+输出结构为 JSON（输出必须控制在4000字符以内，请精简表达）：
 {
-  "field_state": "对该主题近期研究的概览",
+  "field_state": "对该主题近期研究的概览（200字以内）",
   "closest_papers": [
-    { "title": "论文标题", "year": 2023, "reason": "相似原因" }
+    { "title": "论文标题", "year": 2023, "reason": "相似原因（50字以内）" }
   ],
-  "typical_gaps": ["gap1", "gap2"],
-  "notes_for_reviewer": "给审稿人的备注"
+  "typical_gaps": ["gap1（50字以内）", "gap2"],
+  "notes_for_reviewer": "给审稿人的备注（200字以内）"
 }
 
 只返回JSON，不要有其他文字。`,

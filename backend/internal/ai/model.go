@@ -111,12 +111,69 @@ type FileInputMeta struct {
 	Type     string `json:"type"`      // "file_input_meta" 内部标记类型
 	MimeType string `json:"mime_type"` // MIME类型
 	Data     string `json:"data"`      // base64编码的文件内容
+	FileName string `json:"file_name"` // 文件名（用于GPT模型）
 }
 
 // IsClaudeModel 判断是否是 Claude 模型
 func IsClaudeModel(modelName string) bool {
 	modelLower := strings.ToLower(modelName)
 	return strings.Contains(modelLower, "claude")
+}
+
+// IsGPTSupportedMimeType 判断 GPT 模型是否支持该 MIME 类型直接传递
+// GPT 模型只支持 PDF 和图片直接传递，其他文档格式需要提取文本
+func IsGPTSupportedMimeType(mimeType string) bool {
+	// 图片格式支持
+	if strings.HasPrefix(mimeType, "image/") {
+		return true
+	}
+	// PDF 格式支持
+	if mimeType == "application/pdf" {
+		return true
+	}
+	// 其他格式（Word、Excel等）不支持直接传递
+	return false
+}
+
+// getFileExtFromMimeType 根据 MIME 类型获取文件扩展名
+func getFileExtFromMimeType(mimeType string) string {
+	switch mimeType {
+	case "application/pdf":
+		return ".pdf"
+	case "application/msword":
+		return ".doc"
+	case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+		return ".docx"
+	case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+		return ".xlsx"
+	case "application/vnd.ms-excel":
+		return ".xls"
+	case "text/plain":
+		return ".txt"
+	case "application/rtf":
+		return ".rtf"
+	case "application/vnd.oasis.opendocument.text":
+		return ".odt"
+	default:
+		// 从 MIME 类型推断扩展名
+		if strings.HasPrefix(mimeType, "image/") {
+			return "." + strings.TrimPrefix(mimeType, "image/")
+		}
+		return ""
+	}
+}
+
+// fileCounter 用于生成唯一文件名的计数器
+var fileCounter int
+
+// getDefaultFileName 根据 MIME 类型生成唯一的默认文件名（仅在 FileName 为空时使用）
+func getDefaultFileName(mimeType string) string {
+	fileCounter++
+	ext := getFileExtFromMimeType(mimeType)
+	if ext == "" {
+		return fmt.Sprintf("document_%d", fileCounter)
+	}
+	return fmt.Sprintf("document_%d%s", fileCounter, ext)
 }
 
 // ConvertMessagesForModel 根据模型类型转换消息格式
@@ -139,19 +196,26 @@ func ConvertMessagesForModel(messages []ChatMessage, modelName string) []ChatMes
 						// 转换文件内容
 						mimeType, _ := partMap["mime_type"].(string)
 						data, _ := partMap["data"].(string)
+						fileName, _ := partMap["file_name"].(string)
+						if fileName == "" {
+							fileName = getDefaultFileName(mimeType)
+						}
 						
-						if isClaude {
-							// Claude 格式
-							newContent = append(newContent, DocumentContent{
-								Type: "document",
-								Source: DocumentSourceData{
-									Type:      "base64",
-									MediaType: mimeType,
-									Data:      data,
-								},
-							})
-						} else {
-							// OpenAI/GPT 格式 - 使用 image_url 格式传递
+					if isClaude {
+						// Claude 格式
+						newContent = append(newContent, DocumentContent{
+							Type: "document",
+							Source: DocumentSourceData{
+								Type:      "base64",
+								MediaType: mimeType,
+								Data:      data,
+							},
+						})
+					} else {
+						// OpenAI/GPT 格式 - 根据文件类型选择不同格式
+						// 注意：OpenAI 的 file 格式只支持 PDF，不支持 Word 等其他文档格式
+						if strings.HasPrefix(mimeType, "image/") {
+							// 图片使用 image_url 格式
 							newContent = append(newContent, map[string]interface{}{
 								"type": "image_url",
 								"image_url": map[string]interface{}{
@@ -159,13 +223,31 @@ func ConvertMessagesForModel(messages []ChatMessage, modelName string) []ChatMes
 									"detail": "high",
 								},
 							})
+						} else if mimeType == "application/pdf" {
+							// 只有 PDF 可以使用 file 格式
+							newContent = append(newContent, map[string]interface{}{
+								"type": "file",
+								"file": map[string]interface{}{
+									"file_data": fmt.Sprintf("data:%s;base64,%s", mimeType, data),
+									"filename":  fileName,
+								},
+							})
+						} else {
+							// 其他文档格式（Word、Excel等）GPT不支持直接传递
+							// 跳过这些文件，让上层逻辑改用文本模式处理
+							fmt.Printf("[AI Warning] GPT model does not support file type: %s, skipping file\n", mimeType)
 						}
+					}
 						continue
 					}
 				}
 				
 				// 检查是否是 FileInputMeta 结构体
 				if fileMeta, ok := part.(FileInputMeta); ok {
+					fileName := fileMeta.FileName
+					if fileName == "" {
+						fileName = getDefaultFileName(fileMeta.MimeType)
+					}
 					if isClaude {
 						newContent = append(newContent, DocumentContent{
 							Type: "document",
@@ -176,13 +258,31 @@ func ConvertMessagesForModel(messages []ChatMessage, modelName string) []ChatMes
 							},
 						})
 					} else {
-						newContent = append(newContent, map[string]interface{}{
-							"type": "image_url",
-							"image_url": map[string]interface{}{
-								"url":    fmt.Sprintf("data:%s;base64,%s", fileMeta.MimeType, fileMeta.Data),
-								"detail": "high",
-							},
-						})
+						// OpenAI/GPT 格式 - 根据文件类型选择不同格式
+						// 注意：OpenAI 的 file 格式只支持 PDF，不支持 Word 等其他文档格式
+						if strings.HasPrefix(fileMeta.MimeType, "image/") {
+							// 图片使用 image_url 格式
+							newContent = append(newContent, map[string]interface{}{
+								"type": "image_url",
+								"image_url": map[string]interface{}{
+									"url":    fmt.Sprintf("data:%s;base64,%s", fileMeta.MimeType, fileMeta.Data),
+									"detail": "high",
+								},
+							})
+						} else if fileMeta.MimeType == "application/pdf" {
+							// 只有 PDF 可以使用 file 格式
+							newContent = append(newContent, map[string]interface{}{
+								"type": "file",
+								"file": map[string]interface{}{
+									"file_data": fmt.Sprintf("data:%s;base64,%s", fileMeta.MimeType, fileMeta.Data),
+									"filename":  fileName,
+								},
+							})
+						} else {
+							// 其他文档格式（Word、Excel等）GPT不支持直接传递
+							// 跳过这些文件，让上层逻辑改用文本模式处理
+							fmt.Printf("[AI Warning] GPT model does not support file type: %s, skipping file\n", fileMeta.MimeType)
+						}
 					}
 					continue
 				}

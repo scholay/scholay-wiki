@@ -316,8 +316,9 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+config.APIKey)
 
-		// Send request using shared HTTP client for connection pooling with circuit breaker protection
-		client := GetHTTPClient()
+		// Send request using long-running HTTP client for AI tasks that may take a while
+		// (e.g., peer review with PDF processing)
+		client := GetLongRunningHTTPClient()
 
 		fmt.Printf("[DEBUG] Sending tool call request to: %s, model: %s\n", url, modelCode)
 
@@ -1297,8 +1298,8 @@ func (s *Service) ChatCompletionWithLevel(messages []ChatMessage, modelLevel thi
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+config.APIKey)
 
-		// Send request using shared HTTP client with circuit breaker protection
-		client := GetHTTPClient()
+		// Send request using long-running HTTP client for AI tasks
+		client := GetLongRunningHTTPClient()
 
 		// Execute with circuit breaker protection
 		resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {

@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	// sharedTransport is the shared transport with connection pooling
+	// sharedTransport is the shared transport with connection pooling for normal requests
 	sharedTransport = &http.Transport{
 		// Connection pool settings
 		MaxIdleConns:          100,              // Maximum idle connections across all hosts
@@ -27,6 +27,20 @@ var (
 		ResponseHeaderTimeout: 60 * time.Second, // Wait for response headers (not body)
 	}
 
+	// longRunningTransport is for long-running requests like peer review with PDF processing
+	// Uses a longer ResponseHeaderTimeout to accommodate AI processing time
+	longRunningTransport = &http.Transport{
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   10,
+		MaxConnsPerHost:       50,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		DisableKeepAlives:     false,
+		DisableCompression:    false,
+		ResponseHeaderTimeout: 10 * time.Minute, // 10 minutes for long-running AI tasks
+	}
+
 	// defaultHTTPClient is a singleton HTTP client with connection pooling enabled
 	// This client is shared across all AI service requests to reuse TCP connections
 	// and avoid the overhead of establishing new connections for each request.
@@ -36,12 +50,19 @@ var (
 		Transport: sharedTransport,
 	}
 
+	// longRunningHTTPClient is for long-running requests like peer review
+	// Uses longer timeouts for AI tasks that process large documents
+	longRunningHTTPClient = &http.Client{
+		Timeout:   10 * time.Minute, // 10 minutes total timeout
+		Transport: longRunningTransport,
+	}
+
 	// streamingHTTPClient is for streaming requests that may take longer
 	// No overall timeout since streaming responses can take a long time
-	// The ResponseHeaderTimeout in transport ensures we don't wait forever for the initial response
+	// Uses longRunningTransport for longer ResponseHeaderTimeout
 	streamingHTTPClient = &http.Client{
 		Timeout:   0, // No timeout for streaming - response can take as long as needed
-		Transport: sharedTransport,
+		Transport: longRunningTransport,
 	}
 )
 
@@ -50,6 +71,13 @@ var (
 // external API calls to maximize performance.
 func GetHTTPClient() *http.Client {
 	return defaultHTTPClient
+}
+
+// GetLongRunningHTTPClient returns a HTTP client optimized for long-running requests.
+// This client has longer timeouts suitable for AI tasks that process large documents
+// like peer review with PDF files.
+func GetLongRunningHTTPClient() *http.Client {
+	return longRunningHTTPClient
 }
 
 // GetStreamingHTTPClient returns a HTTP client optimized for streaming requests.

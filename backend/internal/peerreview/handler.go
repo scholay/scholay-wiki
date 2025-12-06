@@ -96,11 +96,43 @@ func (h *Handler) SubmitDraft(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, gin.H{
-		"task_id": task.ID,
-		"status":  task.Status,
-		"message": "审稿任务已创建，正在处理中",
-	})
+	// 构建完整的响应数据，便于前端立即显示
+	response := gin.H{
+		"task_id":         task.ID,
+		"status":          task.Status,
+		"message":         "审稿任务已创建，正在处理中",
+		"input_type":      task.InputType,
+		"manuscript_text": task.ManuscriptText,
+		"target_venue":    task.TargetVenue,
+		"model_level":     task.ModelLevel,
+		"created_at":      task.SubmittedAt, // 使用提交时间作为创建时间显示
+	}
+
+	// 添加主稿件文件信息
+	if task.ManuscriptFile != nil {
+		response["manuscript_file"] = gin.H{
+			"id":        task.ManuscriptFile.ID,
+			"file_name": task.ManuscriptFile.FileName,
+			"file_ext":  task.ManuscriptFile.FileExt,
+			"file_size": task.ManuscriptFile.FileSize,
+		}
+	}
+
+	// 添加附件信息
+	if len(task.Attachments) > 0 {
+		attachments := make([]gin.H, len(task.Attachments))
+		for i, att := range task.Attachments {
+			attachments[i] = gin.H{
+				"id":        att.ID,
+				"file_name": att.FileName,
+				"file_ext":  att.FileExt,
+				"file_size": att.FileSize,
+			}
+		}
+		response["attachments"] = attachments
+	}
+
+	utils.Success(c, response)
 }
 
 // ========== 任务管理 API ==========

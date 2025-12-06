@@ -474,22 +474,24 @@ type Reproducibility struct {
 // ========== 文件处理相关 ==========
 
 // 支持的文件类型及其处理模式
+// PDF 和图片：直接传递文件给 AI（支持视觉内容）
+// Word/RTF/ODT/XML/HTML 等文档：上传时提取文本，以文本模式传给 AI（最大 50000 字符）
 var FileProcessModes = map[string]string{
-	// 提取文本的文件类型
-	"txt":  ProcessModeExtract,
+	// 直接传递给AI的文件类型（仅 PDF 和图片）
+	"pdf": ProcessModeDirect,
+	// 需要提取文本的文档格式
+	"doc":  ProcessModeExtract, // Word 文档
+	"docx": ProcessModeExtract, // Word 文档
 	"rtf":  ProcessModeExtract,
 	"odt":  ProcessModeExtract,
 	"xml":  ProcessModeExtract,
 	"html": ProcessModeExtract,
 	"htm":  ProcessModeExtract,
-	// 直接传递给AI的文件类型
-	"pdf":  ProcessModeDirect,
-	"doc":  ProcessModeDirect,
-	"docx": ProcessModeDirect,
-	// 附件支持的额外类型（都直接传递）
-	"xlsx": ProcessModeDirect,
+	"txt":  ProcessModeExtract,
+	// 附件支持的额外类型
+	"xlsx": ProcessModeDirect, // Excel 作为附件直传
 	"xls":  ProcessModeDirect,
-	"csv":  ProcessModeExtract, // CSV可以提取文本
+	"csv":  ProcessModeExtract, // CSV 可以提取文本
 	"epub": ProcessModeDirect,
 	// 代码文件（提取文本）
 	"py":   ProcessModeExtract,

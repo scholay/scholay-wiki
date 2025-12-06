@@ -587,20 +587,27 @@ export default function PeerReviewPage() {
     try {
       const response = await peerReviewAPI.submitDraft(targetVenue, modelLevel);
       if (response.data?.code === 0) {
-        const taskId = response.data.data.task_id;
+        const taskData = response.data.data;
+        const taskId = taskData.task_id;
         
         // 立即构建初始任务对象，让页面能快速显示
+        // 使用后端返回的数据，确保时间等字段准确（由后端生成）
         const initialTask = {
           id: taskId,
           status: 'pending',
           progress: 0,
           progress_stage: '等待处理',
-          input_type: fileName ? 'file' : 'text',
-          file_name: fileName || '',
-          manuscript_text: manuscriptText,
-          target_venue: targetVenue,
-          model_level: modelLevel,
-          created_at: new Date().toISOString(),
+          input_type: taskData.input_type || (fileName ? 'file' : 'text'),
+          manuscript_text: taskData.manuscript_text || manuscriptText,
+          target_venue: taskData.target_venue || targetVenue,
+          model_level: taskData.model_level || modelLevel,
+          // 后端返回的 created_at 实际是 submitted_at（提交时间）
+          submitted_at: taskData.created_at,
+          created_at: taskData.created_at,
+          // 使用后端返回的文件信息
+          manuscript_file: taskData.manuscript_file || (fileName ? { file_name: fileName } : null),
+          // 使用后端返回的附件列表
+          attachments: taskData.attachments || attachments,
         };
         
         // 清空本地草稿状态
@@ -673,6 +680,8 @@ export default function PeerReviewPage() {
 
   // 查看任务详情
   const viewTaskDetail = async (taskId) => {
+    // 先清空旧的任务详情，避免显示上一次的数据
+    setTaskDetail(null);
     setSelectedTaskId(taskId);
     setViewMode(VIEW_MODE.DETAIL);
     await loadTaskDetail(taskId);
@@ -1844,7 +1853,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                 <circle cx="12" cy="12" r="10"/>
                 <path d="M12 6v6l4 2"/>
               </svg>
-              <span>提交于 {formatDate(task.created_at)}</span>
+              <span>提交于 {formatDate(task.submitted_at || task.created_at)}</span>
             </div>
             {task.completed_at && (
               <div className="prvr-time-row completed">
@@ -1928,31 +1937,6 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                     <polyline points="14 2 14 8 20 8"/>
                   </svg>
                   稿件分析
-                </button>
-              )}
-              {task.literature_summary?.closest_papers?.length > 0 && (
-                <button 
-                  className={`prvr-header-btn ${activeDrawer === 'papers' ? 'active' : ''}`}
-                  onClick={() => setActiveDrawer(activeDrawer === 'papers' ? null : 'papers')}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-                  </svg>
-                  相似论文
-                </button>
-              )}
-              {(task.literature_summary?.typical_gaps?.length > 0 || task.gap_literature?.length > 0) && (
-                <button 
-                  className={`prvr-header-btn ${activeDrawer === 'gaps' ? 'active' : ''}`}
-                  onClick={() => setActiveDrawer(activeDrawer === 'gaps' ? null : 'gaps')}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                    <line x1="12" y1="17" x2="12.01" y2="17"/>
-                  </svg>
-                  研究空白
                 </button>
               )}
             </div>
@@ -2066,6 +2050,92 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
           </div>
         )}
 
+        {/* 任务完成但没有最终汇总报告（可能部分审稿人完成） */}
+        {isCompleted && !task.final_review_content && !task.review_content && (
+          <div className="prvr-partial-result">
+            {/* 提示信息 */}
+            <div className="prvr-partial-notice">
+              <div className="prvr-partial-notice-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M12 8v4"/>
+                  <path d="M12 16h.01"/>
+                </svg>
+              </div>
+              <div className="prvr-partial-notice-content">
+                <h4>
+                  {task.reviews?.every(r => r.status === 'failed') 
+                    ? '审稿未能完成'
+                    : '综合报告生成失败'}
+                </h4>
+                <p>
+                  {task.reviews?.every(r => r.status === 'failed') 
+                    ? '三位审稿人均审稿失败，请重新提交或联系客服'
+                    : task.reviews?.some(r => r.status === 'completed' && r.review_content)
+                      ? '部分审稿人已完成，您可以查看已完成的审稿意见'
+                      : '审稿报告生成失败，请重新提交或联系客服'}
+                </p>
+              </div>
+              <button className="prvr-btn prvr-btn-secondary prvr-btn-small" onClick={onDelete}>
+                删除任务
+              </button>
+            </div>
+
+            {/* 如果有部分审稿人完成，展示他们的独立意见 */}
+            {task.reviews && task.reviews.some(r => r.status === 'completed' || r.review_content) && (
+              <div className="prvr-report-content">
+                <section className="prvr-report-section prvr-section-reviewers">
+                  <h3 className="prvr-section-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    三位审稿人意见 ({task.reviews.filter(r => r.status === 'completed').length}/3 完成)
+                  </h3>
+                  <div className="prvr-section-content">
+                    <div className="prvr-reviewers-grid">
+                      {task.reviews.map((review, idx) => (
+                        <div 
+                          key={idx} 
+                          className={`prvr-reviewer-card ${review.status} ${(review.status === 'completed' || review.review_content) ? 'clickable' : ''}`}
+                          onClick={() => {
+                            if (review.status === 'completed' || review.review_content) {
+                              setSelectedReviewer(review);
+                              setActiveDrawer('reviewer');
+                            }
+                          }}
+                        >
+                          <div className="prvr-reviewer-avatar">
+                            {['A', 'B', 'C'][review.reviewer_index - 1] || review.reviewer_index}
+                          </div>
+                          <div className="prvr-reviewer-info">
+                            <span className="prvr-reviewer-name">审稿人 {['A', 'B', 'C'][review.reviewer_index - 1] || review.reviewer_index}</span>
+                            <span className={`prvr-reviewer-status ${review.status}`}>
+                              {review.status === 'completed' ? '已完成' : review.status === 'processing' ? '审稿中' : review.status === 'failed' ? '失败' : '等待中'}
+                            </span>
+                          </div>
+                          {review.recommendation && (
+                            <span className={`prvr-mini-badge ${getRecommendationClass(review.recommendation)}`}>
+                              {review.recommendation}
+                            </span>
+                          )}
+                          {(review.status === 'completed' || review.review_content) && (
+                            <svg className="prvr-reviewer-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 已完成 - 显示审稿报告（等待进度条动画完成后显示） */}
         {isCompleted && showReport && (
           <div className="prvr-report-layout">
@@ -2131,19 +2201,23 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                                 <div key={idx} className="prvr-issue-card prvr-issue-critical">
                                   <div className="prvr-issue-header">
                                     <span className="prvr-issue-number">{idx + 1}</span>
-                                    <span className="prvr-issue-title">{issue.issue || issue.title || issue}</span>
+                                    <span className="prvr-issue-title">
+                                      {issue.issue_title || issue.issue || issue.title || (typeof issue === 'string' ? issue : '问题 ' + (idx + 1))}
+                                    </span>
                                   </div>
-                                  {(issue.description || issue.detail) && (
-                                    <p className="prvr-issue-description">{issue.description || issue.detail}</p>
+                                  {(issue.issue_description || issue.description || issue.detail) && (
+                                    <p className="prvr-issue-description">{issue.issue_description || issue.description || issue.detail}</p>
                                   )}
-                                  {issue.location && (
+                                  {(issue.affected_sections || issue.location) && (
                                     <div className="prvr-issue-meta">
-                                      <span className="prvr-issue-location">位置: {issue.location}</span>
+                                      <span className="prvr-issue-location">
+                                        位置: {Array.isArray(issue.affected_sections) ? issue.affected_sections.join(', ') : (issue.affected_sections || issue.location)}
+                                      </span>
                                     </div>
                                   )}
-                                  {issue.suggestion && (
+                                  {(issue.required_actions || issue.suggestion) && (
                                     <div className="prvr-issue-suggestion">
-                                      <strong>建议：</strong>{issue.suggestion}
+                                      <strong>建议：</strong>{issue.required_actions || issue.suggestion}
                                     </div>
                                   )}
                                 </div>
@@ -2169,9 +2243,17 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                                 <div key={idx} className="prvr-suggestion-card">
                                   <span className="prvr-suggestion-number">{idx + 1}</span>
                                   <div className="prvr-suggestion-content">
-                                    <span className="prvr-suggestion-title">{suggestion.suggestion || suggestion.title || suggestion}</span>
-                                    {suggestion.description && (
-                                      <p className="prvr-suggestion-description">{suggestion.description}</p>
+                                    <span className="prvr-suggestion-title">
+                                      {suggestion.suggestion_title || suggestion.suggestion || suggestion.title || (typeof suggestion === 'string' ? suggestion : '建议 ' + (idx + 1))}
+                                    </span>
+                                    {(suggestion.suggestion_description || suggestion.description) && (
+                                      <p className="prvr-suggestion-description">{suggestion.suggestion_description || suggestion.description}</p>
+                                    )}
+                                    {(suggestion.suggestion_location) && (
+                                      <p className="prvr-suggestion-location">位置: {suggestion.suggestion_location}</p>
+                                    )}
+                                    {(suggestion.suggestion_rationale) && (
+                                      <p className="prvr-suggestion-rationale">理由: {suggestion.suggestion_rationale}</p>
                                     )}
                                   </div>
                                 </div>
@@ -2336,8 +2418,6 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                   <div className="prvr-panel-header">
                     <span className="prvr-panel-title">
                       {activeDrawer === 'analysis' && '稿件分析'}
-                      {activeDrawer === 'papers' && `相似论文 (${task.literature_summary?.closest_papers?.length || 0}篇)`}
-                      {activeDrawer === 'gaps' && '研究空白'}
                       {activeDrawer === 'reviewer' && selectedReviewer && `审稿人 ${['A', 'B', 'C'][selectedReviewer.reviewer_index - 1] || selectedReviewer.reviewer_index} 的意见`}
                     </span>
                     <button className="prvr-panel-close" onClick={() => { setActiveDrawer(null); setSelectedReviewer(null); }}>
@@ -2386,44 +2466,6 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                       </div>
                     )}
 
-                    {/* 相似论文内容 */}
-                    {activeDrawer === 'papers' && task.literature_summary && (
-                      <div className="prvr-panel-content">
-                        {task.literature_summary.field_state && (
-                          <p className="prvr-panel-desc">{task.literature_summary.field_state}</p>
-                        )}
-                        <div className="prvr-panel-papers">
-                          {task.literature_summary.closest_papers?.map((paper, idx) => (
-                            <div key={idx} className="prvr-panel-paper">
-                              <span className="prvr-panel-paper-num">{idx + 1}</span>
-                              <div className="prvr-panel-paper-info">
-                                <span className="prvr-panel-paper-title">{paper.title}</span>
-                                <span className="prvr-panel-paper-year">{paper.year}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 研究空白内容 */}
-                    {activeDrawer === 'gaps' && (
-                      <div className="prvr-panel-content">
-                        <div className="prvr-panel-gaps">
-                          {task.gap_literature?.map((item, gapIdx) => (
-                            <div key={gapIdx} className="prvr-panel-gap">
-                              <span className="prvr-panel-gap-num">{gapIdx + 1}</span>
-                              <span className="prvr-panel-gap-text">{item.gap}</span>
-                            </div>
-                          )) || task.literature_summary?.typical_gaps?.map((gap, idx) => (
-                            <div key={idx} className="prvr-panel-gap">
-                              <span className="prvr-panel-gap-num">{idx + 1}</span>
-                              <span className="prvr-panel-gap-text">{gap}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
 
                     {/* 审稿人详情面板 */}
                     {activeDrawer === 'reviewer' && selectedReviewer && (
@@ -2459,7 +2501,9 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                                       {reviewerReport.critical_issues.map((issue, idx) => (
                                         <div key={idx} className="prvr-panel-issue">
                                           <span className="prvr-panel-issue-num">{idx + 1}</span>
-                                          <span className="prvr-panel-issue-text">{issue.issue || issue.title || issue}</span>
+                                          <span className="prvr-panel-issue-text">
+                                            {issue.issue_title || issue.issue || issue.title || (typeof issue === 'string' ? issue : '问题 ' + (idx + 1))}
+                                          </span>
                                         </div>
                                       ))}
                                     </div>
@@ -2474,7 +2518,9 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                                       {reviewerReport.other_suggestions.map((sug, idx) => (
                                         <div key={idx} className="prvr-panel-suggestion">
                                           <span className="prvr-panel-suggestion-num">{idx + 1}</span>
-                                          <span className="prvr-panel-suggestion-text">{sug.suggestion || sug.title || sug}</span>
+                                          <span className="prvr-panel-suggestion-text">
+                                            {sug.suggestion_title || sug.suggestion || sug.title || (typeof sug === 'string' ? sug : '建议 ' + (idx + 1))}
+                                          </span>
                                         </div>
                                       ))}
                                     </div>
