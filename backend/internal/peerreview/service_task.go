@@ -394,6 +394,9 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, fileName string, fileExt 
 }
 
 // AddAttachmentToDraft 添加附件到草稿
+// 附件处理策略：
+// - PDF/图片：直接传递文件给 AI
+// - Word/RTF/ODT/XML/HTML/TXT：提取文字，超过 50000 字符自动截取
 func (s *Service) AddAttachmentToDraft(userID uint, fileName string, fileExt string, content []byte) (*FileInfo, error) {
 	// 获取或创建草稿
 	draft, err := s.GetOrCreateDraft(userID)
@@ -406,6 +409,42 @@ func (s *Service) AddAttachmentToDraft(userID uint, fileName string, fileExt str
 	s.db.Model(&PeerReviewFile{}).Where("task_id = ? AND file_role = ?", draft.ID, FileRoleAttachment).Count(&attachmentCount)
 	if attachmentCount >= MaxAttachments {
 		return nil, fmt.Errorf("附件数量已达上限（最多%d个）", MaxAttachments)
+	}
+
+	// 判断处理模式：只有 PDF 和图片直接传递，其他格式提取文本
+	extWithoutDot := strings.TrimPrefix(fileExt, ".")
+	processMode := GetProcessMode(extWithoutDot)
+	
+	var extractedText string
+	
+	// 对于非直传模式的附件，提取文本内容
+	if processMode == ProcessModeExtract {
+		switch fileExt {
+		case ".txt":
+			extractedText, err = extractTextFromTXT(content)
+		case ".doc", ".docx", ".rtf", ".odt":
+			extractedText, err = extractTextFromWord(content, fileExt)
+		case ".xml":
+			extractedText, err = extractTextFromXML(content)
+		case ".html", ".htm":
+			extractedText, err = extractTextFromHTML(content)
+		case ".csv":
+			extractedText = string(content) // CSV 直接作为文本
+		default:
+			// 代码文件等直接作为文本
+			extractedText = string(content)
+		}
+		
+		if err != nil {
+			return nil, fmt.Errorf("提取附件文本失败: %w", err)
+		}
+		
+		// 附件文本超过 50000 字符时自动截取（不报错）
+		const maxAttachmentLength = 50000
+		if len(extractedText) > maxAttachmentLength {
+			extractedText = extractedText[:maxAttachmentLength]
+			fmt.Printf("[PeerReview] Attachment text truncated to %d chars: %s\n", maxAttachmentLength, fileName)
+		}
 	}
 
 	// 保存附件文件到磁盘
@@ -422,10 +461,6 @@ func (s *Service) AddAttachmentToDraft(userID uint, fileName string, fileExt str
 	if err := os.WriteFile(filePath, content, 0644); err != nil {
 		return nil, fmt.Errorf("保存文件失败: %w", err)
 	}
-
-	// 判断处理模式
-	extWithoutDot := strings.TrimPrefix(fileExt, ".")
-	processMode := ProcessModeDirect // 附件默认直接传递
 
 	// 获取当前最大排序号
 	var maxSortOrder int
@@ -447,6 +482,7 @@ func (s *Service) AddAttachmentToDraft(userID uint, fileName string, fileExt str
 		FilePath:      filePath,
 		MimeType:      mimeType,
 		ProcessMode:   processMode,
+		ExtractedText: extractedText, // 存储提取的文本
 		ProcessStatus: "processed",
 	}
 
@@ -1084,55 +1120,6 @@ func (s *Service) getFileByID(fileID uint, userID uint) (*PeerReviewFile, error)
 		return nil, err
 	}
 	return &file, nil
-}
-
-// extractTextFromFile 从文件中提取文本内容
-// 用于当 GPT 模型不支持直传某些文件格式时，提取文本以文本模式处理
-func (s *Service) extractTextFromFile(file *PeerReviewFile) (string, error) {
-	if file == nil {
-		return "", fmt.Errorf("文件为空")
-	}
-
-	// 如果已有提取的文本，直接返回
-	if file.ExtractedText != "" {
-		return file.ExtractedText, nil
-	}
-
-	// 读取文件内容
-	content, err := os.ReadFile(file.FilePath)
-	if err != nil {
-		return "", fmt.Errorf("读取文件失败: %w", err)
-	}
-
-	fileExt := "." + file.FileExt
-	var extractedText string
-
-	switch fileExt {
-	case ".txt":
-		extractedText, err = extractTextFromTXT(content)
-	case ".doc", ".docx", ".rtf", ".odt":
-		extractedText, err = extractTextFromWord(content, fileExt)
-	case ".xml":
-		extractedText, err = extractTextFromXML(content)
-	case ".html", ".htm":
-		extractedText, err = extractTextFromHTML(content)
-	case ".pdf":
-		// PDF 文件理论上应该能直传，但如果需要提取文本
-		extractedText, err = extractTextFromPDF(content)
-	default:
-		return "", fmt.Errorf("不支持的文件格式: %s", fileExt)
-	}
-
-	if err != nil {
-		return "", fmt.Errorf("提取文本失败: %w", err)
-	}
-
-	// 更新数据库中的提取文本（可选，避免重复提取）
-	if extractedText != "" {
-		s.db.Model(file).Update("extracted_text", extractedText)
-	}
-
-	return extractedText, nil
 }
 
 // extractTextFromTXT 从TXT文件提取文本
@@ -2085,11 +2072,23 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 
 	var err error
 
+	// 收集文本模式附件的内容（Word/RTF/ODT 等格式提取的文本）
+	attachmentTexts := s.collectAttachmentTexts(task)
+	if len(attachmentTexts) > 0 {
+		fmt.Printf("[PeerReview] Collected %d text attachments: taskID=%d, reviewerIndex=%d\n", len(attachmentTexts), task.ID, reviewerIndex)
+	}
+
+	// 收集 PDF 附件（无论主稿件是什么模式，PDF 附件都需要以文件形式传递）
+	pdfAttachments := s.collectPDFAttachments(task)
+	if len(pdfAttachments) > 0 {
+		fmt.Printf("[PeerReview] Collected %d PDF attachments: taskID=%d, reviewerIndex=%d\n", len(pdfAttachments), task.ID, reviewerIndex)
+	}
+
 	// 根据处理模式选择不同的处理方式
-	// ProcessModeDirect (仅 PDF)：直接传递文件给 AI（支持视觉内容）
+	// ProcessModeDirect (仅 PDF 主稿件)：直接传递文件给 AI（支持视觉内容）
 	// ProcessModeExtract (Word/RTF/ODT/XML/HTML/TXT 等)：使用上传时提取的文本
 	if task.ManuscriptFile != nil && task.ManuscriptFile.ProcessMode == ProcessModeDirect {
-		// PDF 文件直传模式：收集主稿件和所有附件
+		// PDF 主稿件直传模式：收集主稿件和 PDF 附件
 		fmt.Printf("[PeerReview] Using PDF direct mode: taskID=%d, reviewerIndex=%d, fileName=%s\n", 
 			task.ID, reviewerIndex, task.ManuscriptFile.FileName)
 		files := s.collectFilesForAI(task)
@@ -2098,19 +2097,30 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 			fmt.Printf("[PeerReview] ERROR: Failed to collect files: taskID=%d, reviewerIndex=%d\n", task.ID, reviewerIndex)
 		} else {
 			fmt.Printf("[PeerReview] Collected %d files for AI: taskID=%d, reviewerIndex=%d\n", len(files), task.ID, reviewerIndex)
-			err = s.generateReviewForTaskWithFile(files,
+			err = s.generateReviewForTaskWithFile(files, attachmentTexts,
 				task.TargetVenue, meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
 		}
 	} else {
-		// 文本模式：使用上传时提取的文本或用户直接输入的文本
-		fmt.Printf("[PeerReview] Using text mode: taskID=%d, reviewerIndex=%d\n", task.ID, reviewerIndex)
+		// 主稿件是文本模式
 		manuscriptText := task.ManuscriptText
 		// 如果有主稿件文件，使用其提取的文本（Word/RTF/ODT/XML/HTML/TXT 在上传时已提取）
 		if task.ManuscriptFile != nil && task.ManuscriptFile.ExtractedText != "" {
 			manuscriptText = task.ManuscriptFile.ExtractedText
 		}
-		fmt.Printf("[PeerReview] Text length: %d chars, taskID=%d, reviewerIndex=%d\n", len(manuscriptText), task.ID, reviewerIndex)
-		err = s.generateReviewForTask(manuscriptText, task.TargetVenue, meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
+		
+		// 如果有 PDF 附件，需要使用混合模式（文本主稿件 + PDF 附件文件）
+		if len(pdfAttachments) > 0 {
+			fmt.Printf("[PeerReview] Using hybrid mode (text + PDF attachments): taskID=%d, reviewerIndex=%d\n", task.ID, reviewerIndex)
+			fmt.Printf("[PeerReview] Text length: %d chars, PDF attachments: %d, taskID=%d, reviewerIndex=%d\n", 
+				len(manuscriptText), len(pdfAttachments), task.ID, reviewerIndex)
+			err = s.generateReviewForTaskHybrid(manuscriptText, pdfAttachments, attachmentTexts,
+				task.TargetVenue, meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
+		} else {
+			// 纯文本模式
+			fmt.Printf("[PeerReview] Using text mode: taskID=%d, reviewerIndex=%d\n", task.ID, reviewerIndex)
+			fmt.Printf("[PeerReview] Text length: %d chars, taskID=%d, reviewerIndex=%d\n", len(manuscriptText), task.ID, reviewerIndex)
+			err = s.generateReviewForTask(manuscriptText, attachmentTexts, task.TargetVenue, meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
+		}
 	}
 
 	now := time.Now()
@@ -2169,11 +2179,12 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 }
 
 // collectFilesForAI 收集所有需要传递给 AI 的文件（主稿件 + 附件）
+// 只收集直传模式的文件（PDF、图片等），文本模式的附件通过 collectAttachmentTexts 获取
 func (s *Service) collectFilesForAI(task *PeerReviewTask) []FileForAI {
 	var files []FileForAI
 	
-	// 1. 添加主稿件
-	if task.ManuscriptFile != nil {
+	// 1. 添加主稿件（仅 PDF 直传模式）
+	if task.ManuscriptFile != nil && task.ManuscriptFile.ProcessMode == ProcessModeDirect {
 		fileContent, err := os.ReadFile(task.ManuscriptFile.FilePath)
 		if err != nil {
 			return nil
@@ -2190,9 +2201,59 @@ func (s *Service) collectFilesForAI(task *PeerReviewTask) []FileForAI {
 		})
 	}
 	
-	// 2. 添加附件（按排序顺序）
+	// 2. 添加附件（按排序顺序，只收集直传模式：PDF、图片等）
 	for _, att := range task.Attachments {
-		// 只处理直传模式的附件（PDF、图片等）
+		if att.ProcessMode != ProcessModeDirect {
+			continue // 文本模式的附件通过 collectAttachmentTexts 处理
+		}
+		fileContent, err := os.ReadFile(att.FilePath)
+		if err != nil {
+			continue // 跳过读取失败的附件
+		}
+		mimeType := att.MimeType
+		if mimeType == "" {
+			mimeType = GetMimeType(att.FileExt)
+		}
+		files = append(files, FileForAI{
+			FileName: att.FileName,
+			MimeType: mimeType,
+			Data:     base64.StdEncoding.EncodeToString(fileContent),
+			Role:     FileRoleAttachment,
+		})
+	}
+	
+	return files
+}
+
+// collectAttachmentTexts 收集所有文本模式附件的内容
+// 返回格式：[{文件名: 内容}, ...]
+func (s *Service) collectAttachmentTexts(task *PeerReviewTask) []map[string]string {
+	var attachmentTexts []map[string]string
+	
+	for _, att := range task.Attachments {
+		// 只处理文本模式的附件
+		if att.ProcessMode != ProcessModeExtract {
+			continue
+		}
+		// 使用上传时提取的文本
+		if att.ExtractedText != "" {
+			attachmentTexts = append(attachmentTexts, map[string]string{
+				"name":    att.FileName,
+				"content": att.ExtractedText,
+			})
+		}
+	}
+	
+	return attachmentTexts
+}
+
+// collectPDFAttachments 收集所有 PDF 附件（直传模式）
+// 用于在文本主稿件模式下，仍然传递 PDF 附件给 AI
+func (s *Service) collectPDFAttachments(task *PeerReviewTask) []FileForAI {
+	var files []FileForAI
+	
+	for _, att := range task.Attachments {
+		// 只收集直传模式的附件（PDF 等）
 		if att.ProcessMode != ProcessModeDirect {
 			continue
 		}
@@ -2508,8 +2569,11 @@ func getMetaReviewUserPrompt() string {
 
 // generateReviewForTask 为任务生成审稿报告（非流式，但更新进度）
 // reviewerIndex: 审稿人索引 (1-3)，用于选择差异化的审稿视角
+// attachmentTexts: 文本模式附件的内容列表
 func (s *Service) generateReviewForTask(
-	manuscriptText, targetVenue string,
+	manuscriptText string,
+	attachmentTexts []map[string]string,
+	targetVenue string,
 	meta *ManuscriptMeta,
 	summary *LiteratureSummary,
 	refs []ReferenceForReviewer,
@@ -2543,10 +2607,23 @@ func (s *Service) generateReviewForTask(
 		truncatedText = truncatedText[:maxManuscriptLength]
 	}
 
+	// 构建附件文本内容
+	attachmentTextContent := ""
+	if len(attachmentTexts) > 0 {
+		var sb strings.Builder
+		sb.WriteString("\n\n【附件内容】\n")
+		for i, att := range attachmentTexts {
+			sb.WriteString(fmt.Sprintf("\n--- 附件 %d: %s ---\n", i+1, att["name"]))
+			sb.WriteString(att["content"])
+			sb.WriteString("\n")
+		}
+		attachmentTextContent = sb.String()
+	}
+
 	systemPrompt := getReviewSystemPrompt(reviewerIndex)
 	userPrompt := fmt.Sprintf(getReviewUserPromptTemplate(),
 		targetVenue,
-		truncatedText,
+		truncatedText + attachmentTextContent, // 将附件文本追加到主稿件后面
 		string(metaJSON),
 		summary.FieldState,
 		closestPapersInfo,
@@ -2609,6 +2686,193 @@ func (s *Service) generateReviewForTask(
 			// 最后一次尝试，即使JSON不完整也接受
 			writer.WriteString(content)
 			fmt.Printf("[PeerReview] Using incomplete JSON after %d attempts: taskID=%d, reviewerIndex=%d\n", 
+				maxRetries, taskID, reviewerIndex)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("failed to generate valid review after %d attempts", maxRetries)
+}
+
+// generateReviewForTaskHybrid 为任务生成审稿报告（混合模式：文本主稿件 + PDF 附件）
+// 用于主稿件是 Word 等文本格式，但有 PDF 附件需要传递的情况
+func (s *Service) generateReviewForTaskHybrid(
+	manuscriptText string,
+	pdfAttachments []FileForAI, // PDF 附件文件
+	attachmentTexts []map[string]string, // 文本模式附件的内容
+	targetVenue string,
+	meta *ManuscriptMeta,
+	summary *LiteratureSummary,
+	refs []ReferenceForReviewer,
+	modelLevel string,
+	writer *strings.Builder,
+	taskID uint,
+	reviewerIndex int,
+) error {
+	// 构建参考文献字符串
+	refsStr := s.formatRefsForPrompt(refs)
+	metaJSON, _ := json.Marshal(meta)
+
+	closestPapersInfo := ""
+	if len(summary.ClosestPapers) > 0 {
+		var sb strings.Builder
+		for i, p := range summary.ClosestPapers {
+			sb.WriteString(fmt.Sprintf("%d. %s (%d) - 相似原因: %s\n", i+1, p.Title, p.Year, p.Reason))
+		}
+		closestPapersInfo = sb.String()
+	}
+
+	gapsInfo := ""
+	if len(summary.TypicalGaps) > 0 {
+		gapsInfo = "- " + strings.Join(summary.TypicalGaps, "\n- ")
+	}
+
+	// 文字模式：主稿件最多 50000 字符
+	const maxManuscriptLength = 50000
+	truncatedText := manuscriptText
+	if len(truncatedText) > maxManuscriptLength {
+		truncatedText = truncatedText[:maxManuscriptLength]
+	}
+
+	// 构建 PDF 附件名列表
+	var pdfAttachmentNames []string
+	for _, f := range pdfAttachments {
+		pdfAttachmentNames = append(pdfAttachmentNames, f.FileName)
+	}
+
+	// 构建附件提示信息
+	attachmentInfo := ""
+	if len(pdfAttachmentNames) > 0 {
+		attachmentInfo = buildAttachmentPrompt(pdfAttachmentNames)
+	}
+
+	// 添加文本模式附件的内容
+	textAttachmentContent := ""
+	if len(attachmentTexts) > 0 {
+		var sb strings.Builder
+		sb.WriteString("\n\n【文本附件内容】\n")
+		for i, att := range attachmentTexts {
+			sb.WriteString(fmt.Sprintf("\n--- 附件 %d: %s ---\n", i+1, att["name"]))
+			sb.WriteString(att["content"])
+			sb.WriteString("\n")
+		}
+		textAttachmentContent = sb.String()
+	}
+
+	systemPrompt := getReviewSystemPrompt(reviewerIndex)
+	
+	// 使用混合模式的提示词模板（类似文件模式，但主稿件是文本）
+	userPromptText := fmt.Sprintf(`你正在对一份投稿到 **%s** 的学术论文进行同行评审。
+
+**【主稿件内容】**
+以下是论文的文本内容：
+
+%s
+
+%s
+%s
+
+**【预处理信息】**
+稿件元信息：
+%s
+
+**【文献前沿】**
+%s
+
+最相似的已发表论文：
+%s
+
+该领域常见 Gap：
+%s
+
+**【参考文献列表】**（来自 Semantic Scholar）
+%s
+
+请根据以上内容，结合论文全文和所有附件内容，作为一名 **%s** 领域的审稿专家，给出详细的审稿意见。`,
+		targetVenue,
+		truncatedText,
+		attachmentInfo,
+		textAttachmentContent,
+		string(metaJSON),
+		summary.FieldState,
+		closestPapersInfo,
+		gapsInfo,
+		refsStr,
+		targetVenue)
+
+	// 构建多模态消息
+	contentParts := make([]interface{}, 0, len(pdfAttachments)+1)
+	
+	// 先添加 PDF 附件文件
+	for _, f := range pdfAttachments {
+		contentParts = append(contentParts, ai.FileInputMeta{
+			Type:     "file_input_meta",
+			MimeType: f.MimeType,
+			Data:     f.Data,
+			FileName: f.FileName,
+		})
+	}
+	
+	// 最后添加文本提示
+	contentParts = append(contentParts, ai.TextContent{
+		Type: "text",
+		Text: userPromptText,
+	})
+
+	messages := []ai.ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: contentParts},
+	}
+
+	level := getModelLevel(modelLevel)
+	
+	// 最多重试3次
+	const maxRetries = 3
+	
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, fmt.Sprintf("正在生成审稿报告（第%d次）...", attempt))
+
+		fmt.Printf("[PeerReview] Calling AI for hybrid review: taskID=%d, reviewerIndex=%d, attempt=%d/%d, level=%s, textLength=%d, pdfCount=%d\n", 
+			taskID, reviewerIndex, attempt, maxRetries, level, len(truncatedText), len(pdfAttachments))
+
+		response, err := s.aiService.ChatCompletionWithTools(messages, nil, "", level)
+		if err != nil {
+			fmt.Printf("[PeerReview] AI hybrid call failed: taskID=%d, reviewerIndex=%d, attempt=%d, error=%v\n", 
+				taskID, reviewerIndex, attempt, err)
+			if attempt == maxRetries {
+				return err
+			}
+			continue
+		}
+
+		if len(response.Choices) == 0 {
+			fmt.Printf("[PeerReview] AI returned empty choices (hybrid mode): taskID=%d, reviewerIndex=%d, attempt=%d\n", 
+				taskID, reviewerIndex, attempt)
+			if attempt == maxRetries {
+				return fmt.Errorf("no response from AI after %d attempts", maxRetries)
+			}
+			continue
+		}
+
+		content := response.Choices[0].Message.Content
+		fmt.Printf("[PeerReview] AI hybrid response received: taskID=%d, reviewerIndex=%d, attempt=%d, contentLength=%d\n", 
+			taskID, reviewerIndex, attempt, len(content))
+		
+		// 检查JSON是否完整
+		if s.isValidReviewJSON(content) {
+			writer.WriteString(content)
+			fmt.Printf("[PeerReview] Hybrid review complete: taskID=%d, reviewerIndex=%d, totalLength=%d\n", 
+				taskID, reviewerIndex, writer.Len())
+			return nil
+		}
+		
+		// JSON不完整，记录日志并重试
+		fmt.Printf("[PeerReview] Invalid JSON response (hybrid), will retry: taskID=%d, reviewerIndex=%d, attempt=%d\n", 
+			taskID, reviewerIndex, attempt)
+		
+		if attempt == maxRetries {
+			writer.WriteString(content)
+			fmt.Printf("[PeerReview] Using incomplete JSON after %d attempts (hybrid): taskID=%d, reviewerIndex=%d\n", 
 				maxRetries, taskID, reviewerIndex)
 			return nil
 		}
@@ -2744,8 +3008,10 @@ type FileForAI struct {
 }
 
 // reviewerIndex: 审稿人索引 (1-3)，用于选择差异化的审稿视角
+// attachmentTexts: 文本模式附件的内容列表（Word/RTF/ODT 等格式提取的文本）
 func (s *Service) generateReviewForTaskWithFile(
-	files []FileForAI, // 支持多文件：主稿件 + 附件
+	files []FileForAI, // 支持多文件：主稿件 + PDF 附件
+	attachmentTexts []map[string]string, // 文本模式附件的内容
 	targetVenue string,
 	meta *ManuscriptMeta,
 	summary *LiteratureSummary,
@@ -2773,7 +3039,7 @@ func (s *Service) generateReviewForTaskWithFile(
 		gapsInfo = "- " + strings.Join(summary.TypicalGaps, "\n- ")
 	}
 
-	// 构建文件列表描述
+	// 构建文件列表描述（PDF 文件）
 	var mainFileName string
 	var attachmentNames []string
 	for _, f := range files {
@@ -2784,16 +3050,30 @@ func (s *Service) generateReviewForTaskWithFile(
 		}
 	}
 
+	// 构建附件提示信息（包括 PDF 附件名和文本附件内容）
 	attachmentInfo := ""
 	if len(attachmentNames) > 0 {
 		attachmentInfo = buildAttachmentPrompt(attachmentNames)
+	}
+
+	// 添加文本模式附件的内容到提示词中
+	textAttachmentContent := ""
+	if len(attachmentTexts) > 0 {
+		var sb strings.Builder
+		sb.WriteString("\n\n【文本附件内容】\n")
+		for i, att := range attachmentTexts {
+			sb.WriteString(fmt.Sprintf("\n--- 附件 %d: %s ---\n", i+1, att["name"]))
+			sb.WriteString(att["content"])
+			sb.WriteString("\n")
+		}
+		textAttachmentContent = sb.String()
 	}
 
 	systemPrompt := getReviewSystemPrompt(reviewerIndex)
 	userPromptText := fmt.Sprintf(getReviewUserPromptTemplateForFile(),
 		targetVenue,
 		mainFileName,
-		attachmentInfo,
+		attachmentInfo + textAttachmentContent, // 包含 PDF 附件名和文本附件内容
 		string(metaJSON),
 		summary.FieldState,
 		closestPapersInfo,
