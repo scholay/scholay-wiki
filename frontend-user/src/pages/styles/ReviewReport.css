@@ -700,6 +700,98 @@
   color: #ef4444;
 }
 
+/* ===== 导出按钮下拉菜单 ===== */
+.prvr-export-dropdown {
+  position: relative;
+  margin-left: 8px;
+}
+
+.prvr-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.prvr-export-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--text-accent);
+  color: var(--text-accent);
+}
+
+.prvr-export-btn svg {
+  flex-shrink: 0;
+}
+
+.prvr-export-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 160px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: all 0.2s ease;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.prvr-export-dropdown:hover .prvr-export-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.prvr-export-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: left;
+}
+
+.prvr-export-item:hover {
+  background: rgba(16, 163, 127, 0.08);
+  color: var(--text-accent);
+}
+
+.prvr-export-item svg {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.prvr-export-item:hover svg {
+  color: var(--text-accent);
+}
+
+/* 暗色模式 */
+[data-theme="dark"] .prvr-export-menu {
+  background: #1f2937;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
 /* ===== 返回主报告按钮 ===== */
 .prvr-back-to-main {
   display: inline-flex;
