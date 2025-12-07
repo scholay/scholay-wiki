@@ -99,7 +99,7 @@
   color: var(--text-accent);
 }
 
-/* ========== 稿件分析卡片 ========== */
+/* ========== 稿件分析卡片 - 简洁风格 ========== */
 .prvr-analysis-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -111,32 +111,81 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
+/* 卡片标题 */
+.prvr-analysis-card .prvr-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-accent);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.prvr-analysis-card .prvr-card-title svg {
+  width: 16px;
+  height: 16px;
+}
+
 .prvr-analysis-content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .prvr-analysis-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
+/* 标签样式 */
 .prvr-analysis-label {
   font-size: 11px;
   font-weight: 500;
   color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
 }
 
+/* 值样式 */
 .prvr-analysis-value {
   font-size: 13px;
   color: var(--text-primary);
   line-height: 1.5;
 }
 
+/* 论文标题 - 稍大一点 */
+.prvr-analysis-item.prvr-analysis-title .prvr-analysis-value {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* 研究领域样式 */
+.prvr-analysis-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.prvr-analysis-field svg {
+  width: 14px;
+  height: 14px;
+  color: var(--text-accent);
+}
+
+/* 研究主题样式 */
+.prvr-analysis-topic {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* 关键词标签 */
 .prvr-analysis-tags {
   display: flex;
   flex-wrap: wrap;
@@ -148,7 +197,7 @@
   padding: 4px 10px;
   background: rgba(16, 163, 127, 0.1);
   color: var(--text-accent);
-  border-radius: 12px;
+  border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
 }
@@ -157,20 +206,34 @@
   background: rgba(16, 163, 127, 0.15);
 }
 
+/* 创新点列表 */
 .prvr-analysis-list {
+  list-style: none;
+  padding: 0;
   margin: 0;
-  padding-left: 16px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .prvr-analysis-list li {
-  margin-bottom: 4px;
+  position: relative;
+  padding-left: 20px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 
-.prvr-analysis-list li:last-child {
-  margin-bottom: 0;
+.prvr-analysis-list li::before {
+  content: '•';
+  position: absolute;
+  left: 6px;
+  color: var(--text-accent);
+  font-weight: bold;
+}
+
+[data-theme="dark"] .prvr-analysis-tag {
+  background: rgba(16, 163, 127, 0.15);
 }
 
 /* ========== 信息项 ========== */
@@ -440,71 +503,95 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-left: 16px;
 }
 
-.prvr-header-recommendation {
+/* ===== 审稿意见徽章 - 简洁专业版 ===== */
+.prvr-verdict-badge {
   display: inline-flex;
   align-items: center;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.02em;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
 }
 
-.prvr-header-recommendation.accept {
-  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.08) 100%);
+/* Accept - 接受 */
+.prvr-verdict-badge.accept {
+  background: rgba(16, 163, 127, 0.12);
   color: #10a37f;
-  border: 1px solid rgba(16, 163, 127, 0.3);
+  border-color: rgba(16, 163, 127, 0.25);
 }
 
-.prvr-header-recommendation.minor {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%);
+/* Minor Revision - 小修 */
+.prvr-verdict-badge.minor,
+.prvr-verdict-badge.minor-revision {
+  background: rgba(59, 130, 246, 0.12);
   color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-color: rgba(59, 130, 246, 0.25);
 }
 
-.prvr-header-recommendation.major {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.08) 100%);
-  color: #f59e0b;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+/* Major Revision - 大修 */
+.prvr-verdict-badge.major,
+.prvr-verdict-badge.major-revision {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+  border-color: rgba(245, 158, 11, 0.25);
 }
 
-.prvr-header-recommendation.reject {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.08) 100%);
+/* Reject - 拒稿 */
+.prvr-verdict-badge.reject {
+  background: rgba(239, 68, 68, 0.12);
   color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.25);
 }
 
-.prvr-header-consensus {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: var(--surface);
-  border-radius: 20px;
-  border: 1px solid var(--border);
+/* Pending - 待定 */
+.prvr-verdict-badge.pending {
+  background: rgba(107, 114, 128, 0.12);
+  color: #6b7280;
+  border-color: rgba(107, 114, 128, 0.25);
 }
 
-.prvr-header-consensus-label {
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-.prvr-header-consensus-value {
-  font-size: 13px;
+.prvr-verdict-text {
   font-weight: 600;
 }
 
-.prvr-header-consensus-value.high {
+/* ===== 三审一致性徽章 - 简洁版 ===== */
+.prvr-consensus-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: all 0.2s ease;
+}
+
+.prvr-consensus-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.prvr-consensus-value {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.prvr-consensus-badge.high .prvr-consensus-value {
   color: #10a37f;
 }
 
-.prvr-header-consensus-value.medium {
+.prvr-consensus-badge.medium .prvr-consensus-value {
   color: #f59e0b;
 }
 
-.prvr-header-consensus-value.low {
+.prvr-consensus-badge.low .prvr-consensus-value {
   color: #ef4444;
 }
 

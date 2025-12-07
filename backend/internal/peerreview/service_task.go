@@ -2667,7 +2667,7 @@ func (s *Service) generateReviewForTask(
 	const maxRetries = 3
 	
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, fmt.Sprintf("正在生成审稿报告（第%d次）...", attempt))
+		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, "正在生成审稿报告...")
 
 		fmt.Printf("[PeerReview] Calling AI for text review: taskID=%d, reviewerIndex=%d, attempt=%d/%d, level=%s, textLength=%d\n", 
 			taskID, reviewerIndex, attempt, maxRetries, level, len(truncatedText))
@@ -2855,7 +2855,7 @@ func (s *Service) generateReviewForTaskHybrid(
 	const maxRetries = 3
 	
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, fmt.Sprintf("正在生成审稿报告（第%d次）...", attempt))
+		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, "正在生成审稿报告...")
 
 		fmt.Printf("[PeerReview] Calling AI for hybrid review: taskID=%d, reviewerIndex=%d, attempt=%d/%d, level=%s, textLength=%d, pdfCount=%d\n", 
 			taskID, reviewerIndex, attempt, maxRetries, level, len(truncatedText), len(pdfAttachments))
@@ -3137,7 +3137,7 @@ func (s *Service) generateReviewForTaskWithFile(
 	const maxRetries = 3
 	
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, fmt.Sprintf("正在生成审稿报告（第%d次）...", attempt))
+		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, "正在生成审稿报告...")
 
 		fmt.Printf("[PeerReview] Calling AI for review: taskID=%d, reviewerIndex=%d, attempt=%d/%d, level=%s, fileCount=%d\n", 
 			taskID, reviewerIndex, attempt, maxRetries, level, len(files))
