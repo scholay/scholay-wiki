@@ -1588,6 +1588,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
   const [showReport, setShowReport] = useState(false); // 控制是否显示报告（等待进度条完成）
   const [activeDrawer, setActiveDrawer] = useState(null); // 当前打开的抽屉: 'analysis' | 'papers' | 'gaps' | 'reviewer' | null
   const [selectedReviewer, setSelectedReviewer] = useState(null); // 当前选中的审稿人
+  const [activeReviewTab, setActiveReviewTab] = useState('main'); // 当前选中的审稿Tab: 'main' | 'A' | 'B' | 'C'
   const progressIntervalRef = useRef(null);
   
   // 解析最终审稿报告 JSON
@@ -2024,7 +2025,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
               <h2>审稿报告</h2>
             </div>
             
-            {/* 推荐意见和三审一致性 - 放在标题旁边 */}
+            {/* 推荐意见、三审一致性和审稿人Tab */}
             {isCompleted && showReport && (
               <div className="prvr-header-badges">
                 {(task.final_recommendation || task.recommendation) && (
@@ -2036,6 +2037,34 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                   <div className={`prvr-consensus-badge ${task.consensus_score >= 0.67 ? 'high' : task.consensus_score >= 0.34 ? 'medium' : 'low'}`}>
                     <span className="prvr-consensus-label">三审一致性</span>
                     <span className="prvr-consensus-value">{Math.round(task.consensus_score * 100)}%</span>
+                  </div>
+                )}
+                
+                {/* 审稿人Tab切换 */}
+                {task.reviews && task.reviews.length > 0 && (
+                  <div className="prvr-reviewer-tabs">
+                    {task.reviews.map((review, idx) => {
+                      const reviewerLabel = ['A', 'B', 'C'][review.reviewer_index - 1] || review.reviewer_index;
+                      const isActive = activeReviewTab === reviewerLabel;
+                      const isCompleted = review.status === 'completed';
+                      return (
+                        <button
+                          key={idx}
+                          className={`prvr-reviewer-tab ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : 'pending'}`}
+                          onClick={() => isCompleted && setActiveReviewTab(reviewerLabel)}
+                          disabled={!isCompleted}
+                          title={isCompleted ? `查看审稿人 ${reviewerLabel} 的意见` : '审稿中...'}
+                        >
+                          <span className="prvr-tab-avatar">{reviewerLabel}</span>
+                          <span className="prvr-tab-label">审稿人 {reviewerLabel}</span>
+                          {review.recommendation && (
+                            <span className={`prvr-tab-badge ${getRecommendationClass(review.recommendation)}`}>
+                              {review.recommendation}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -2238,10 +2267,21 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
 
         {/* 已完成 - 显示审稿报告（等待进度条动画完成后显示） */}
         {isCompleted && showReport && (
-          <div className="prvr-report-layout">
-            {/* 左侧：审稿报告正文 */}
-            <div className="prvr-report-left">
-              {(task.final_review_content || task.review_content) && (
+          <div className="prvr-report-layout prvr-report-single-column">
+            {/* 审稿报告正文 - 单列布局 */}
+            <div className="prvr-report-main">
+              {/* 返回主报告按钮 - 仅在查看单个审稿人时显示 */}
+              {activeReviewTab !== 'main' && (
+                <button className="prvr-back-to-main" onClick={() => setActiveReviewTab('main')}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="15 18 9 12 15 6"/>
+                  </svg>
+                  返回主报告
+                </button>
+              )}
+              
+              {/* 主报告内容 */}
+              {activeReviewTab === 'main' && (task.final_review_content || task.review_content) && (
                 <div className="prvr-report-content">
                   {/* 结构化报告内容 */}
                   {parsedReport ? (
@@ -2434,165 +2474,149 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                       <MarkdownRenderer content={task.final_review_content || task.review_content} />
                     </div>
                   )}
-                  
-                  {/* 三审独立结果 - 卡片点击打开侧边面板 */}
-                  {task.reviews && task.reviews.length > 0 && (
-                    <section className="prvr-report-section prvr-section-reviewers">
-                      <h3 className="prvr-section-title">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                          <circle cx="9" cy="7" r="4"/>
-                          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                        </svg>
-                        三位审稿人独立意见 ({task.reviews.filter(r => r.status === 'completed').length}/3)
-                      </h3>
-                      <div className="prvr-section-content">
-                        <div className="prvr-reviewers-grid">
-                          {task.reviews.map((review, idx) => (
-                            <div 
-                              key={idx} 
-                              className={`prvr-reviewer-card ${review.status} ${review.status === 'completed' ? 'clickable' : ''}`}
-                              onClick={() => {
-                                if (review.status === 'completed') {
-                                  setSelectedReviewer(review);
-                                  setActiveDrawer('reviewer');
-                                }
-                              }}
-                            >
-                              <div className="prvr-reviewer-avatar">
-                                {['A', 'B', 'C'][review.reviewer_index - 1] || review.reviewer_index}
-                              </div>
-                              <div className="prvr-reviewer-info">
-                                <span className="prvr-reviewer-name">审稿人 {['A', 'B', 'C'][review.reviewer_index - 1] || review.reviewer_index}</span>
-                                <span className={`prvr-reviewer-status ${review.status}`}>
-                                  {review.status === 'completed' ? '已完成' : review.status === 'processing' ? '审稿中' : review.status === 'failed' ? '失败' : '等待中'}
-                                </span>
-                              </div>
-                              {review.recommendation && (
-                                <span className={`prvr-mini-badge ${getRecommendationClass(review.recommendation)}`}>
-                                  {review.recommendation}
-                                </span>
-                              )}
-                              {review.status === 'completed' && (
-                                <svg className="prvr-reviewer-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <polyline points="9 18 15 12 9 6"/>
-                                </svg>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </section>
-                  )}
                 </div>
               )}
-            </div>
-
-            {/* 右侧：辅助信息面板（仅审稿人详情） */}
-            {activeDrawer === 'reviewer' && selectedReviewer && (
-              <div className="prvr-report-right">
-                <div className="prvr-panel">
-                  <div className="prvr-panel-header">
-                    <span className="prvr-panel-title">
-                      {`审稿人 ${['A', 'B', 'C'][selectedReviewer.reviewer_index - 1] || selectedReviewer.reviewer_index} 的意见`}
-                    </span>
-                    <button className="prvr-panel-close" onClick={() => { setActiveDrawer(null); setSelectedReviewer(null); }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="18" y1="6" x2="6" y2="18"/>
-                        <line x1="6" y1="6" x2="18" y2="18"/>
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="prvr-panel-body">
-                    <div className="prvr-panel-content prvr-reviewer-detail">
-                        {/* 推荐意见 */}
-                        {selectedReviewer.recommendation && (
-                          <div className="prvr-reviewer-recommendation">
-                            <span className={`prvr-recommendation-badge ${getRecommendationClass(selectedReviewer.recommendation)}`}>
-                              {selectedReviewer.recommendation}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {/* 解析审稿人的 JSON 报告 */}
-                        {(() => {
-                          const reviewerReport = parseReviewerReport(selectedReviewer.review_content);
-                          if (reviewerReport) {
-                            return (
-                              <div className="prvr-reviewer-structured">
-                                {/* 总体评估 */}
-                                {reviewerReport.overall_assessment?.summary && (
-                                  <div className="prvr-panel-item">
-                                    <span className="prvr-panel-label">总体评估</span>
-                                    <p className="prvr-panel-value">{reviewerReport.overall_assessment.summary}</p>
-                                  </div>
-                                )}
-                                
-                                {/* 关键问题 */}
-                                {reviewerReport.critical_issues?.length > 0 && (
-                                  <div className="prvr-panel-item">
-                                    <span className="prvr-panel-label">关键问题 ({reviewerReport.critical_issues.length})</span>
-                                    <div className="prvr-panel-issues">
-                                      {reviewerReport.critical_issues.map((issue, idx) => (
-                                        <div key={idx} className="prvr-panel-issue">
-                                          <span className="prvr-panel-issue-num">{idx + 1}</span>
-                                          <span className="prvr-panel-issue-text">
-                                            {issue.issue_title || issue.issue || issue.title || (typeof issue === 'string' ? issue : '问题 ' + (idx + 1))}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                                
-                                {/* 改进建议 */}
-                                {reviewerReport.other_suggestions?.length > 0 && (
-                                  <div className="prvr-panel-item">
-                                    <span className="prvr-panel-label">改进建议 ({reviewerReport.other_suggestions.length})</span>
-                                    <div className="prvr-panel-suggestions">
-                                      {reviewerReport.other_suggestions.map((sug, idx) => (
-                                        <div key={idx} className="prvr-panel-suggestion">
-                                          <span className="prvr-panel-suggestion-num">{idx + 1}</span>
-                                          <span className="prvr-panel-suggestion-text">
-                                            {sug.suggestion_title || sug.suggestion || sug.title || (typeof sug === 'string' ? sug : '建议 ' + (idx + 1))}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* 雷达图 */}
-                                {reviewerReport.extended_review_items && (
-                                  <div className="prvr-panel-item">
-                                    <span className="prvr-panel-label">评分维度</span>
-                                    <ReviewRadarChart 
-                                      extendedItems={reviewerReport.extended_review_items} 
-                                      compact={true}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          } else {
-                            // 降级：显示原始内容
-                            return (
-                              <div className="prvr-panel-item">
-                                <span className="prvr-panel-label">审稿意见</span>
-                                <div className="prvr-panel-markdown">
-                                  <MarkdownRenderer content={selectedReviewer.review_content} />
-                                </div>
-                              </div>
-                            );
-                          }
-                        })()}
+              
+              {/* 单个审稿人的内容 - 当选择了某个审稿人Tab时显示 */}
+              {activeReviewTab !== 'main' && task.reviews && (() => {
+                const selectedReview = task.reviews.find(r => 
+                  ['A', 'B', 'C'][r.reviewer_index - 1] === activeReviewTab
+                );
+                if (!selectedReview) return null;
+                
+                const reviewerReport = parseReviewerReport(selectedReview.review_content);
+                
+                return (
+                  <div className="prvr-report-content prvr-reviewer-report">
+                    {/* 审稿人标题 */}
+                    <div className="prvr-reviewer-header">
+                      <div className="prvr-reviewer-title">
+                        <span className="prvr-reviewer-avatar-large">{activeReviewTab}</span>
+                        <h3>审稿人 {activeReviewTab} 的审稿意见</h3>
+                      </div>
+                      {selectedReview.recommendation && (
+                        <div className={`prvr-verdict-badge ${getRecommendationClass(selectedReview.recommendation)}`}>
+                          <span className="prvr-verdict-text">{selectedReview.recommendation}</span>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </div>
-              </div>
-            )}
+                    
+                    {reviewerReport ? (
+                      <div className="prvr-structured-report">
+                        {/* 总体评估 */}
+                        {reviewerReport.overall_assessment?.summary && (
+                          <section className="prvr-report-section">
+                            <h3 className="prvr-section-title">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                              </svg>
+                              总体评估
+                            </h3>
+                            <div className="prvr-section-content">
+                              <p className="prvr-summary-text">{reviewerReport.overall_assessment.summary}</p>
+                            </div>
+                          </section>
+                        )}
 
+                        {/* 关键问题 */}
+                        {reviewerReport.critical_issues?.length > 0 && (
+                          <section className="prvr-report-section prvr-section-critical">
+                            <h3 className="prvr-section-title">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                              </svg>
+                              关键问题 ({reviewerReport.critical_issues.length})
+                            </h3>
+                            <div className="prvr-section-content">
+                              <div className="prvr-issues-list">
+                                {reviewerReport.critical_issues.map((issue, idx) => (
+                                  <div key={idx} className="prvr-issue-card prvr-issue-critical">
+                                    <div className="prvr-issue-header">
+                                      <span className="prvr-issue-number">{idx + 1}</span>
+                                      <span className="prvr-issue-title">
+                                        {issue.issue_title || issue.issue || issue.title || (typeof issue === 'string' ? issue : '问题 ' + (idx + 1))}
+                                      </span>
+                                    </div>
+                                    {(issue.issue_description || issue.description || issue.detail) && (
+                                      <p className="prvr-issue-description">{issue.issue_description || issue.description || issue.detail}</p>
+                                    )}
+                                    {(issue.affected_sections || issue.location) && (
+                                      <div className="prvr-issue-meta">
+                                        <span className="prvr-issue-location">
+                                          位置: {Array.isArray(issue.affected_sections) ? issue.affected_sections.join(', ') : (issue.affected_sections || issue.location)}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {(issue.required_actions || issue.suggestion) && (
+                                      <div className="prvr-issue-suggestion">
+                                        <strong>建议：</strong>{issue.required_actions || issue.suggestion}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </section>
+                        )}
+
+                        {/* 改进建议 */}
+                        {reviewerReport.other_suggestions?.length > 0 && (
+                          <section className="prvr-report-section prvr-section-suggestions">
+                            <h3 className="prvr-section-title">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M12 20h9"/>
+                                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                              </svg>
+                              改进建议 ({reviewerReport.other_suggestions.length})
+                            </h3>
+                            <div className="prvr-section-content">
+                              <div className="prvr-suggestions-list">
+                                {reviewerReport.other_suggestions.map((suggestion, idx) => (
+                                  <div key={idx} className="prvr-suggestion-card">
+                                    <span className="prvr-suggestion-number">{idx + 1}</span>
+                                    <div className="prvr-suggestion-content">
+                                      <span className="prvr-suggestion-title">
+                                        {suggestion.suggestion_title || suggestion.suggestion || suggestion.title || (typeof suggestion === 'string' ? suggestion : '建议 ' + (idx + 1))}
+                                      </span>
+                                      {(suggestion.suggestion_description || suggestion.description) && (
+                                        <p className="prvr-suggestion-description">{suggestion.suggestion_description || suggestion.description}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </section>
+                        )}
+
+                        {/* 评分雷达图 */}
+                        {reviewerReport.extended_review_items && (
+                          <section className="prvr-report-section prvr-section-scores">
+                            <h3 className="prvr-section-title">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                              </svg>
+                              评分维度
+                            </h3>
+                            <div className="prvr-section-content">
+                              <ReviewRadarChart extendedItems={reviewerReport.extended_review_items} />
+                            </div>
+                          </section>
+                        )}
+                      </div>
+                    ) : (
+                      /* 降级：无法解析 JSON 时显示原始 Markdown */
+                      <div className="prvr-review-report prvr-fallback-report">
+                        <MarkdownRenderer content={selectedReview.review_content} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         )}
       </main>
