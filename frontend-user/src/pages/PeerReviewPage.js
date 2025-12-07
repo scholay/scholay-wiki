@@ -2286,9 +2286,26 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                   {/* 结构化报告内容 */}
                   {parsedReport ? (
                     <div className="prvr-structured-report">
-                      {/* 总体评估 */}
+                      {/* 1. 评分维度 - 顶部展示 */}
+                      {parsedReport.extended_review_items && (
+                        <section className="prvr-report-section prvr-section-scores-top">
+                          <div className="prvr-scores-header">
+                            <h3 className="prvr-section-title">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                              </svg>
+                              评分维度
+                            </h3>
+                          </div>
+                          <div className="prvr-scores-content">
+                            <ReviewRadarChart extendedItems={parsedReport.extended_review_items} />
+                          </div>
+                        </section>
+                      )}
+
+                      {/* 2. 总体评估 */}
                       {parsedReport.overall_assessment?.summary && (
-                        <section className="prvr-report-section">
+                        <section className="prvr-report-section prvr-section-summary">
                           <h3 className="prvr-section-title">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -2302,7 +2319,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                         </section>
                       )}
 
-                      {/* 关键问题 */}
+                      {/* 3. 关键问题 */}
                       {parsedReport.critical_issues?.length > 0 && (
                         <section className="prvr-report-section prvr-section-critical">
                           <h3 className="prvr-section-title">
@@ -2345,7 +2362,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                         </section>
                       )}
 
-                      {/* 改进建议 */}
+                      {/* 3.5 改进建议 */}
                       {parsedReport.other_suggestions?.length > 0 && (
                         <section className="prvr-report-section prvr-section-suggestions">
                           <h3 className="prvr-section-title">
@@ -2381,22 +2398,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                         </section>
                       )}
 
-                      {/* 评分雷达图 */}
-                      {parsedReport.extended_review_items && (
-                        <section className="prvr-report-section prvr-section-scores">
-                          <h3 className="prvr-section-title">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                            </svg>
-                            评分维度
-                          </h3>
-                          <div className="prvr-section-content">
-                            <ReviewRadarChart extendedItems={parsedReport.extended_review_items} />
-                          </div>
-                        </section>
-                      )}
-
-                      {/* 详细评审 */}
+                      {/* 4. 详细评审 - 最后展示 */}
                       {parsedReport.extended_review_items && (
                         <section className="prvr-report-section prvr-section-extended">
                           <h3 className="prvr-section-title">
@@ -2503,9 +2505,26 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                     
                     {reviewerReport ? (
                       <div className="prvr-structured-report">
-                        {/* 总体评估 */}
+                        {/* 1. 评分维度 - 顶部展示 */}
+                        {reviewerReport.extended_review_items && (
+                          <section className="prvr-report-section prvr-section-scores-top">
+                            <div className="prvr-scores-header">
+                              <h3 className="prvr-section-title">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                                </svg>
+                                评分维度
+                              </h3>
+                            </div>
+                            <div className="prvr-scores-content">
+                              <ReviewRadarChart extendedItems={reviewerReport.extended_review_items} />
+                            </div>
+                          </section>
+                        )}
+
+                        {/* 2. 总体评估 */}
                         {reviewerReport.overall_assessment?.summary && (
-                          <section className="prvr-report-section">
+                          <section className="prvr-report-section prvr-section-summary">
                             <h3 className="prvr-section-title">
                               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -2562,7 +2581,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                           </section>
                         )}
 
-                        {/* 改进建议 */}
+                        {/* 3.5 改进建议 */}
                         {reviewerReport.other_suggestions?.length > 0 && (
                           <section className="prvr-report-section prvr-section-suggestions">
                             <h3 className="prvr-section-title">
@@ -2584,6 +2603,12 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                                       {(suggestion.suggestion_description || suggestion.description) && (
                                         <p className="prvr-suggestion-description">{suggestion.suggestion_description || suggestion.description}</p>
                                       )}
+                                      {(suggestion.suggestion_location) && (
+                                        <p className="prvr-suggestion-location">位置: {suggestion.suggestion_location}</p>
+                                      )}
+                                      {(suggestion.suggestion_rationale) && (
+                                        <p className="prvr-suggestion-rationale">理由: {suggestion.suggestion_rationale}</p>
+                                      )}
                                     </div>
                                   </div>
                                 ))}
@@ -2592,17 +2617,74 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                           </section>
                         )}
 
-                        {/* 评分雷达图 */}
+                        {/* 4. 详细评审 */}
                         {reviewerReport.extended_review_items && (
-                          <section className="prvr-report-section prvr-section-scores">
+                          <section className="prvr-report-section prvr-section-extended">
                             <h3 className="prvr-section-title">
                               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
                               </svg>
-                              评分维度
+                              详细评审
                             </h3>
                             <div className="prvr-section-content">
-                              <ReviewRadarChart extendedItems={reviewerReport.extended_review_items} />
+                              <div className="prvr-extended-items">
+                                {reviewerReport.extended_review_items.novelty_evaluation && (
+                                  <div className="prvr-extended-item">
+                                    <h4>新颖性评价</h4>
+                                    <p>{reviewerReport.extended_review_items.novelty_evaluation}</p>
+                                  </div>
+                                )}
+                                {reviewerReport.extended_review_items.technical_soundness && (
+                                  <div className="prvr-extended-item">
+                                    <h4>技术严谨性</h4>
+                                    <p>{reviewerReport.extended_review_items.technical_soundness}</p>
+                                  </div>
+                                )}
+                                {reviewerReport.extended_review_items.clarity_and_presentation && (
+                                  <div className="prvr-extended-item">
+                                    <h4>清晰度与呈现</h4>
+                                    <p>{reviewerReport.extended_review_items.clarity_and_presentation}</p>
+                                  </div>
+                                )}
+                                {reviewerReport.extended_review_items.reproducibility && (
+                                  <div className="prvr-extended-item">
+                                    <h4>可复现性</h4>
+                                    {typeof reviewerReport.extended_review_items.reproducibility === 'object' ? (
+                                      <div className="prvr-reproducibility-detail">
+                                        {reviewerReport.extended_review_items.reproducibility.data_availability && (
+                                          <p><strong>数据可用性：</strong>{reviewerReport.extended_review_items.reproducibility.data_availability}</p>
+                                        )}
+                                        {reviewerReport.extended_review_items.reproducibility.code_availability && (
+                                          <p><strong>代码可用性：</strong>{reviewerReport.extended_review_items.reproducibility.code_availability}</p>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <p>{reviewerReport.extended_review_items.reproducibility}</p>
+                                    )}
+                                  </div>
+                                )}
+                                {reviewerReport.extended_review_items.ethical_considerations && (
+                                  <div className="prvr-extended-item">
+                                    <h4>伦理考量</h4>
+                                    <p>{reviewerReport.extended_review_items.ethical_considerations}</p>
+                                  </div>
+                                )}
+                                {reviewerReport.extended_review_items.impact_and_significance && (
+                                  <div className="prvr-extended-item">
+                                    <h4>影响力与重要性</h4>
+                                    <p>{reviewerReport.extended_review_items.impact_and_significance}</p>
+                                  </div>
+                                )}
+                                {reviewerReport.extended_review_items.recommend_for_improvement && (
+                                  <div className="prvr-extended-item">
+                                    <h4>改进建议</h4>
+                                    <p>{reviewerReport.extended_review_items.recommend_for_improvement}</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </section>
                         )}

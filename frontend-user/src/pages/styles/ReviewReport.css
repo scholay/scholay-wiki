@@ -2049,22 +2049,50 @@
   line-height: 1.7;
 }
 
+/* ===== 总体评估区域 ===== */
+.prvr-section-summary {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.prvr-section-summary .prvr-section-title {
+  color: var(--text-primary);
+  padding: 12px 16px;
+  background: rgba(128, 128, 128, 0.06);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.prvr-section-summary .prvr-section-content {
+  padding: 20px;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
 /* 总结文本 */
 .prvr-summary-text {
   font-size: 14px;
   color: var(--text-secondary);
   line-height: 1.8;
   margin: 0;
+  margin: 0;
 }
 
-/* 关键问题区域 */
+/* ===== 关键问题区域 - 重新设计 ===== */
 .prvr-section-critical {
-  border-color: rgba(239, 68, 68, 0.2);
-  background: rgba(239, 68, 68, 0.02);
+  background: transparent;
+  border: none;
+  padding: 0;
 }
 
 .prvr-section-critical .prvr-section-title {
   color: #ef4444;
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: 10px;
+  margin-bottom: 16px;
 }
 
 .prvr-section-critical .prvr-section-title svg {
@@ -2074,38 +2102,46 @@
 .prvr-issues-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .prvr-issue-card {
-  padding: 16px;
+  padding: 0;
   background: var(--surface);
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid var(--border);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.prvr-issue-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .prvr-issue-card.prvr-issue-critical {
-  border-left: 3px solid #ef4444;
+  border-left: 4px solid #ef4444;
 }
 
 .prvr-issue-header {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 10px;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(239, 68, 68, 0.04);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.1);
 }
 
 .prvr-issue-number {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  background: #ef4444;
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
-  border-radius: 50%;
-  font-size: 12px;
-  font-weight: 600;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
   flex-shrink: 0;
 }
 
@@ -2114,39 +2150,60 @@
   font-weight: 600;
   color: var(--text-primary);
   line-height: 1.4;
+  flex: 1;
 }
 
 .prvr-issue-description {
   font-size: 13px;
   color: var(--text-secondary);
-  line-height: 1.6;
-  margin: 0 0 10px 32px;
+  line-height: 1.7;
+  margin: 0;
+  padding: 14px 16px;
 }
 
 .prvr-issue-meta {
-  margin-left: 32px;
+  padding: 0 16px 12px;
   font-size: 12px;
   color: var(--text-tertiary);
 }
 
+.prvr-issue-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(128, 128, 128, 0.08);
+  border-radius: 4px;
+}
+
 .prvr-issue-suggestion {
-  margin: 10px 0 0 32px;
-  padding: 10px 12px;
+  margin: 0;
+  padding: 14px 16px;
   background: rgba(16, 163, 127, 0.06);
-  border-radius: 6px;
+  border-top: 1px dashed rgba(16, 163, 127, 0.2);
   font-size: 13px;
   color: var(--text-primary);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .prvr-issue-suggestion strong {
   color: var(--text-accent);
+  font-weight: 600;
 }
 
-/* 改进建议区域 */
+/* ===== 改进建议区域 - 重新设计 ===== */
 .prvr-section-suggestions {
-  border-color: rgba(16, 163, 127, 0.2);
-  background: rgba(16, 163, 127, 0.02);
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.prvr-section-suggestions .prvr-section-title {
+  color: var(--text-accent);
+  padding: 12px 16px;
+  background: rgba(16, 163, 127, 0.08);
+  border-radius: 10px;
+  margin-bottom: 16px;
 }
 
 .prvr-section-suggestions .prvr-section-title svg {
@@ -2156,30 +2213,35 @@
 .prvr-suggestions-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .prvr-suggestion-card {
   display: flex;
-  gap: 12px;
-  padding: 14px;
+  gap: 14px;
+  padding: 16px;
   background: var(--surface);
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid var(--border);
-  border-left: 3px solid var(--text-accent);
+  border-left: 4px solid var(--text-accent);
+  transition: box-shadow 0.2s ease;
+}
+
+.prvr-suggestion-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .prvr-suggestion-number {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  background: var(--text-accent);
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, var(--text-accent) 0%, #0d8a6a 100%);
   color: white;
-  border-radius: 50%;
-  font-size: 12px;
-  font-weight: 600;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
   flex-shrink: 0;
 }
 
@@ -2190,34 +2252,71 @@
 
 .prvr-suggestion-title {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
-  line-height: 1.4;
+  line-height: 1.5;
+  margin-bottom: 6px;
 }
 
 .prvr-suggestion-description {
   font-size: 13px;
   color: var(--text-secondary);
-  margin-top: 6px;
-  line-height: 1.5;
+  margin: 0;
+  line-height: 1.6;
 }
 
 .prvr-suggestion-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
   color: var(--text-tertiary);
-  margin-top: 4px;
-  line-height: 1.4;
+  margin-top: 8px;
+  padding: 4px 10px;
+  background: rgba(128, 128, 128, 0.08);
+  border-radius: 4px;
 }
 
 .prvr-suggestion-rationale {
   font-size: 12px;
-  color: var(--text-tertiary);
-  margin-top: 4px;
-  line-height: 1.4;
-  font-style: italic;
+  color: var(--text-accent);
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(16, 163, 127, 0.06);
+  border-radius: 6px;
+  line-height: 1.5;
 }
 
-/* 评分维度区域 */
+/* ===== 评分维度区域 - 顶部展示 ===== */
+.prvr-section-scores-top {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.04) 0%, rgba(59, 130, 246, 0.04) 100%);
+  border: 1px solid rgba(16, 163, 127, 0.15);
+  border-radius: 16px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.prvr-scores-header {
+  padding: 16px 20px;
+  background: rgba(16, 163, 127, 0.06);
+  border-bottom: 1px solid rgba(16, 163, 127, 0.1);
+}
+
+.prvr-scores-header .prvr-section-title {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.prvr-scores-header .prvr-section-title svg {
+  color: #f59e0b;
+}
+
+.prvr-scores-content {
+  padding: 20px;
+}
+
+/* 旧的评分区域样式（保留兼容） */
 .prvr-section-scores {
   border-color: rgba(59, 130, 246, 0.2);
   background: rgba(59, 130, 246, 0.02);
@@ -2227,54 +2326,88 @@
   color: #f59e0b;
 }
 
-/* 详细评审区域 */
+/* ===== 详细评审区域 - 重新设计 ===== */
+.prvr-section-extended {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.prvr-section-extended .prvr-section-title {
+  color: #6366f1;
+  padding: 12px 16px;
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
 .prvr-section-extended .prvr-section-title svg {
   color: #6366f1;
 }
 
 .prvr-extended-items {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 16px;
 }
 
 .prvr-extended-item {
-  padding: 14px;
+  padding: 0;
   background: var(--surface);
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid var(--border);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.prvr-extended-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .prvr-extended-item h4 {
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 8px;
+  color: #6366f1;
+  margin: 0;
+  padding: 12px 16px;
+  background: rgba(99, 102, 241, 0.06);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.1);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .prvr-extended-item h4::before {
   content: '';
   width: 4px;
-  height: 4px;
-  background: var(--text-accent);
-  border-radius: 50%;
+  height: 14px;
+  background: #6366f1;
+  border-radius: 2px;
 }
 
 .prvr-extended-item p {
   font-size: 13px;
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: 1.7;
   margin: 0;
+  padding: 14px 16px;
+}
+
+.prvr-reproducibility-detail {
+  padding: 14px 16px;
 }
 
 .prvr-reproducibility-detail p {
+  padding: 0;
   margin-bottom: 8px;
 }
 
 .prvr-reproducibility-detail p:last-child {
   margin-bottom: 0;
+}
+
+.prvr-reproducibility-detail strong {
+  color: var(--text-primary);
 }
 
 .prvr-reproducibility-detail strong {
