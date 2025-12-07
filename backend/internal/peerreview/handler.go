@@ -186,7 +186,8 @@ func (h *Handler) GetTaskList(c *gin.Context) {
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-	status := c.Query("status") // 可选筛选
+	status := c.Query("status")   // 可选筛选
+	search := c.Query("search")   // 搜索关键词
 
 	if page < 1 {
 		page = 1
@@ -195,7 +196,7 @@ func (h *Handler) GetTaskList(c *gin.Context) {
 		pageSize = 10
 	}
 
-	response, err := h.service.GetTaskList(userID.(uint), page, pageSize, status)
+	response, err := h.service.GetTaskList(userID.(uint), page, pageSize, status, search)
 	if err != nil {
 		utils.Error(c, 5002, "获取任务列表失败: "+err.Error())
 		return

@@ -234,9 +234,88 @@
 
 .prv-section-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   margin-bottom: 1rem;
+  gap: 16px;
+}
+
+/* 搜索框 */
+.prv-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  min-width: 200px;
+  max-width: 280px;
+}
+
+.prv-search-box:focus-within {
+  border-color: var(--text-accent);
+  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
+}
+
+.prv-search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.prv-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  min-width: 0;
+}
+
+.prv-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.prv-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.prv-search-clear:hover {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+/* 空状态 */
+.prv-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.prv-empty-state svg {
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.prv-empty-state p {
+  margin: 0;
+  font-size: 14px;
 }
 
 .prv-section-intro {
@@ -1229,6 +1308,7 @@
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   background: var(--surface);
   border: 1px solid var(--border);
+  position: relative;
 }
 
 [data-theme="dark"] .prv-task-card {
@@ -1495,6 +1575,110 @@
 .prv-task-card-delete:hover {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
+}
+
+/* ========== 盖章样式 ========== */
+.prv-task-stamp {
+  position: absolute;
+  top: 50%;
+  right: 120px;
+  transform: translateY(-50%) rotate(-12deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: 3px;
+  border: 2.5px solid;
+  opacity: 0.75;
+  transition: all 0.25s ease;
+  z-index: 10;
+  /* 立体悬浮效果 */
+  box-shadow: 
+    2px 2px 0 rgba(0, 0, 0, 0.1),
+    4px 4px 8px rgba(0, 0, 0, 0.08);
+}
+
+.prv-task-card:hover .prv-task-stamp {
+  opacity: 0.9;
+  transform: translateY(-50%) rotate(-12deg) scale(1.02);
+  box-shadow: 
+    3px 3px 0 rgba(0, 0, 0, 0.12),
+    6px 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.prv-stamp-text {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+/* Accept - 绿色 */
+.prv-stamp-accept {
+  border-color: #10a37f;
+  background: rgba(255, 255, 255, 0.95);
+}
+.prv-stamp-accept .prv-stamp-text {
+  color: #10a37f;
+}
+
+/* Minor Revision - 蓝色 */
+.prv-stamp-minor {
+  border-color: #3b82f6;
+  background: rgba(255, 255, 255, 0.95);
+}
+.prv-stamp-minor .prv-stamp-text {
+  color: #3b82f6;
+}
+
+/* Major Revision - 橙色 */
+.prv-stamp-major {
+  border-color: #f59e0b;
+  background: rgba(255, 255, 255, 0.95);
+}
+.prv-stamp-major .prv-stamp-text {
+  color: #f59e0b;
+}
+
+/* Reject - 红色 */
+.prv-stamp-reject {
+  border-color: #ef4444;
+  background: rgba(255, 255, 255, 0.95);
+}
+.prv-stamp-reject .prv-stamp-text {
+  color: #ef4444;
+}
+
+/* Pending - 灰色 */
+.prv-stamp-pending {
+  border-color: #9ca3af;
+  background: rgba(255, 255, 255, 0.95);
+}
+.prv-stamp-pending .prv-stamp-text {
+  color: #9ca3af;
+}
+
+/* 深色模式盖章调整 */
+[data-theme="dark"] .prv-task-stamp {
+  box-shadow: 
+    2px 2px 0 rgba(0, 0, 0, 0.3),
+    4px 4px 8px rgba(0, 0, 0, 0.2);
+}
+[data-theme="dark"] .prv-stamp-accept {
+  background: rgba(30, 30, 30, 0.95);
+}
+[data-theme="dark"] .prv-stamp-minor {
+  background: rgba(30, 30, 30, 0.95);
+}
+[data-theme="dark"] .prv-stamp-major {
+  background: rgba(30, 30, 30, 0.95);
+}
+[data-theme="dark"] .prv-stamp-reject {
+  background: rgba(30, 30, 30, 0.95);
+}
+[data-theme="dark"] .prv-stamp-pending {
+  background: rgba(30, 30, 30, 0.95);
 }
 
 /* 保留旧样式兼容性 */

@@ -751,7 +751,7 @@ func (s *Service) CreateTask(userID uint, req *CreateTaskRequest) (*PeerReviewTa
 }
 
 // GetTaskList 获取任务列表（排除草稿状态）
-func (s *Service) GetTaskList(userID uint, page, pageSize int, status string) (*TaskListResponse, error) {
+func (s *Service) GetTaskList(userID uint, page, pageSize int, status string, search string) (*TaskListResponse, error) {
 	var tasks []PeerReviewTask
 	var total int64
 
@@ -759,6 +759,30 @@ func (s *Service) GetTaskList(userID uint, page, pageSize int, status string) (*
 	query := s.db.Model(&PeerReviewTask{}).Where("user_id = ? AND status != ?", userID, TaskStatusDraft)
 	if status != "" {
 		query = query.Where("status = ?", status)
+	}
+
+	// 搜索逻辑：匹配标题、稿件文本
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		// 先获取匹配附件文件名的任务ID
+		var matchingTaskIDs []uint
+		s.db.Model(&PeerReviewFile{}).
+			Select("DISTINCT task_id").
+			Where("file_name LIKE ?", searchPattern).
+			Pluck("task_id", &matchingTaskIDs)
+
+		// 组合搜索条件：标题、稿件文本、或者附件匹配的任务
+		if len(matchingTaskIDs) > 0 {
+			query = query.Where(
+				"title LIKE ? OR manuscript_text LIKE ? OR id IN ?",
+				searchPattern, searchPattern, matchingTaskIDs,
+			)
+		} else {
+			query = query.Where(
+				"title LIKE ? OR manuscript_text LIKE ?",
+				searchPattern, searchPattern,
+			)
+		}
 	}
 
 	// 统计总数

@@ -538,8 +538,8 @@ export const peerReviewAPI = {
     api.post('/user/peer-review/tasks', data),
 
   // 获取任务列表（不包含草稿）
-  getTaskList: (page = 1, pageSize = 10, status = '') =>
-    api.get('/user/peer-review/tasks', { params: { page, page_size: pageSize, status } }),
+  getTaskList: (page = 1, pageSize = 10, status = '', search = '') =>
+    api.get('/user/peer-review/tasks', { params: { page, page_size: pageSize, status, search } }),
 
   // 获取任务详情
   getTaskDetail: (taskId) =>

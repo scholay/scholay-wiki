@@ -179,6 +179,7 @@ export default function PeerReviewPage() {
   const [totalTasks, setTotalTasks] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const searchKeywordRef = useRef(''); // 使用 ref 避免重渲染
 
   // 草稿状态（从后端加载）
   const [draftId, setDraftId] = useState(null);
@@ -302,7 +303,7 @@ export default function PeerReviewPage() {
   // 分页变化时重新加载任务列表
   useEffect(() => {
     if (!user) return;
-    loadTasks();
+    loadTasks(searchKeywordRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
@@ -316,12 +317,12 @@ export default function PeerReviewPage() {
   }, []);
 
   // 加载任务列表
-  const loadTasks = async () => {
+  const loadTasks = async (search = searchKeywordRef.current, page = currentPage) => {
     if (!user) return;
     
     setLoading(true);
     try {
-      const response = await peerReviewAPI.getTaskList(currentPage, 10);
+      const response = await peerReviewAPI.getTaskList(page, 10, '', search);
       if (response.data?.code === 0) {
         setTasks(response.data.data.tasks || []);
         setTotalTasks(response.data.data.total || 0);
@@ -331,6 +332,13 @@ export default function PeerReviewPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 处理搜索（不触发父组件重渲染）
+  const handleSearch = (keyword) => {
+    searchKeywordRef.current = keyword;
+    setCurrentPage(1); // 搜索时重置到第一页
+    loadTasks(keyword, 1); // 直接加载，不依赖 state 变化
   };
 
   // 验证文件
@@ -897,6 +905,7 @@ export default function PeerReviewPage() {
                   totalTasks={totalTasks}
                   currentPage={currentPage}
                   onPageChange={setCurrentPage}
+                  onSearch={handleSearch}
                   onViewDetail={viewTaskDetail}
                   onDelete={handleDeleteTask}
                 />
@@ -1368,9 +1377,11 @@ function CreateSection({
 }
 
 // 历史任务区域（下半部分）
-function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange, onViewDetail, onDelete }) {
+function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange, onSearch, onViewDetail, onDelete }) {
   const pageSize = 10;
   const totalPages = Math.ceil(totalTasks / pageSize);
+  const [localSearch, setLocalSearch] = useState('');
+  const searchTimeoutRef = useRef(null);
 
   // 获取模型名称
   const getModelName = (level) => {
@@ -1382,19 +1393,45 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
   const getRecommendationInfo = (recommendation) => {
     if (!recommendation) return null;
     const map = {
-      'Accept': { label: '接受', className: 'accept' },
-      'Minor Revision': { label: '小修', className: 'minor' },
-      'Major Revision': { label: '大修', className: 'major' },
-      'Reject': { label: '拒稿', className: 'reject' },
-      'Pending Review': { label: '待定', className: 'pending' },
+      'Accept': { label: 'Accept', className: 'accept' },
+      'Minor Revision': { label: 'Minor Revision', className: 'minor' },
+      'Major Revision': { label: 'Major Revision', className: 'major' },
+      'Reject': { label: 'Reject', className: 'reject' },
+      'Pending Review': { label: 'Pending', className: 'pending' },
     };
     return map[recommendation] || { label: recommendation, className: 'pending' };
   };
 
-  // 如果没有历史任务且不在加载中，直接返回 null 不渲染
-  if (!loading && tasks.length === 0) {
-    return null;
-  }
+  // 处理搜索输入（防抖）
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setLocalSearch(value);
+    
+    // 清除之前的定时器
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // 设置新的定时器，500ms 后触发搜索
+    searchTimeoutRef.current = setTimeout(() => {
+      onSearch(value);
+    }, 500);
+  };
+
+  // 清除搜索
+  const handleClearSearch = () => {
+    setLocalSearch('');
+    onSearch('');
+  };
+
+  // 组件卸载时清除定时器
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="prv-history-section">
@@ -1407,12 +1444,44 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
           历史任务
           {totalTasks > 0 && <span className="prv-task-count">({totalTasks})</span>}
         </h2>
+        
+        {/* 搜索框 */}
+        <div className="prv-search-box">
+          <svg className="prv-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input
+            type="text"
+            className="prv-search-input"
+            placeholder="搜索标题、文件名..."
+            value={localSearch}
+            onChange={handleSearchChange}
+          />
+          {localSearch && (
+            <button className="prv-search-clear" onClick={handleClearSearch}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (
         <div className="prv-loading-inline">
           <div className="prv-spinner-small"></div>
           <span>加载中...</span>
+        </div>
+      ) : tasks.length === 0 ? (
+        <div className="prv-empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="9" y1="15" x2="15" y2="15"/>
+          </svg>
+          <p>{localSearch ? `未找到与"${localSearch}"相关的任务` : '暂无历史任务'}</p>
         </div>
       ) : (
         <>
@@ -1421,6 +1490,13 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
               const recommendationInfo = getRecommendationInfo(task.final_recommendation);
               return (
               <div key={task.id} className={`prv-task-card prv-task-card-${task.status}`} onClick={() => onViewDetail(task.id)}>
+                {/* 盖章 - 绝对定位浮在卡片上 */}
+                {task.status === 'completed' && recommendationInfo && (
+                  <div className={`prv-task-stamp prv-stamp-${recommendationInfo.className}`}>
+                    <span className="prv-stamp-text">{recommendationInfo.label}</span>
+                  </div>
+                )}
+                
                 {/* 顶部：标题和状态 */}
                 <div className="prv-task-card-header">
                   <h4 className="prv-task-card-title">{task.title || '未命名稿件'}</h4>
@@ -1446,29 +1522,6 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
 
                 {/* 中部：任务信息标签 */}
                 <div className="prv-task-card-meta">
-                  {/* 推荐意见标签 - 只在已完成且有推荐意见时显示 */}
-                  {task.status === 'completed' && recommendationInfo && (
-                    <span className={`prv-task-meta-tag prv-meta-recommendation prv-recommendation-${recommendationInfo.className}`}>
-                      {recommendationInfo.className === 'accept' && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                      )}
-                      {(recommendationInfo.className === 'minor' || recommendationInfo.className === 'major') && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                        </svg>
-                      )}
-                      {recommendationInfo.className === 'reject' && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                        </svg>
-                      )}
-                      {recommendationInfo.label}
-                    </span>
-                  )}
-
                   {/* 输入类型标签 - 文件显示类型，文字显示文字输入 */}
                   {task.input_type === 'file' ? (
                     <span className="prv-task-meta-tag prv-meta-file">
