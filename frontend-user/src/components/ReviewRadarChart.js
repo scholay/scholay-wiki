@@ -277,3 +277,4 @@ export default function ReviewRadarChart({ extendedItems, dimensionScores, compa
 // 导出工具函数供其他组件使用
 export { extractScores, extractScoreFromText, DIMENSIONS };
 
+

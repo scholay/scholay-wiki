@@ -1188,25 +1188,28 @@ function CreateSection({
               allowedModels={['mid', 'high']}
             />
 
-            <button
-              className="prv-footer-btn prv-simple-btn"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              title={fileName ? `已上传: ${fileName}` : '上传文件'}
-            >
-              {uploading ? (
-                <div className="prv-btn-spinner-small"></div>
-              ) : (
-                <>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="17 8 12 3 7 8"/>
-                    <line x1="12" y1="3" x2="12" y2="15"/>
-                  </svg>
-                  <span className="prv-simple-btn-label">文件</span>
-                </>
-              )}
-            </button>
+            {/* 主稿件已上传时隐藏上传按钮 */}
+            {!fileName && (
+              <button
+                className="prv-footer-btn prv-simple-btn"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                title="上传文件"
+              >
+                {uploading ? (
+                  <div className="prv-btn-spinner-small"></div>
+                ) : (
+                  <>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <span className="prv-simple-btn-label">文件</span>
+                  </>
+                )}
+              </button>
+            )}
 
           </div>
 
@@ -1229,8 +1232,10 @@ function CreateSection({
           
           {/* 右侧：字符计数 + 提交按钮 */}
           <div className="prv-composer-footer-right">
-            {/* 仅在文本输入模式下显示字符计数 */}
-            {!useFileInput && !fileName && (
+            {/* 显示字符计数：文本输入模式 或 文本类文件（提取了文字）模式下显示 */}
+            {/* useFileInput=true 表示直传AI的文件（仅PDF），此时隐藏字符计数 */}
+            {/* Word/TXT等文件会提取文本，useFileInput=false，显示字符计数 */}
+            {!useFileInput && (
               <div className="prv-char-count">
                 <span className={manuscriptText.length > 45000 ? 'prv-char-warning' : ''}>
                   {manuscriptText.length.toLocaleString()}
@@ -1372,6 +1377,19 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
     return models[level] || level || '普通';
   };
 
+  // 获取推荐意见的显示文本和样式类
+  const getRecommendationInfo = (recommendation) => {
+    if (!recommendation) return null;
+    const map = {
+      'Accept': { label: '接受', className: 'accept' },
+      'Minor Revision': { label: '小修', className: 'minor' },
+      'Major Revision': { label: '大修', className: 'major' },
+      'Reject': { label: '拒稿', className: 'reject' },
+      'Pending Review': { label: '待定', className: 'pending' },
+    };
+    return map[recommendation] || { label: recommendation, className: 'pending' };
+  };
+
   // 如果没有历史任务且不在加载中，直接返回 null 不渲染
   if (!loading && tasks.length === 0) {
     return null;
@@ -1398,7 +1416,9 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
       ) : (
         <>
           <div className="prv-task-list-compact">
-            {tasks.map(task => (
+            {tasks.map(task => {
+              const recommendationInfo = getRecommendationInfo(task.final_recommendation);
+              return (
               <div key={task.id} className={`prv-task-card prv-task-card-${task.status}`} onClick={() => onViewDetail(task.id)}>
                 {/* 顶部：标题和状态 */}
                 <div className="prv-task-card-header">
@@ -1425,14 +1445,37 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
 
                 {/* 中部：任务信息标签 */}
                 <div className="prv-task-card-meta">
-                  {/* 输入类型标签 - 文件和文字使用不同的样式类 */}
+                  {/* 推荐意见标签 - 只在已完成且有推荐意见时显示 */}
+                  {task.status === 'completed' && recommendationInfo && (
+                    <span className={`prv-task-meta-tag prv-meta-recommendation prv-recommendation-${recommendationInfo.className}`}>
+                      {recommendationInfo.className === 'accept' && (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      )}
+                      {(recommendationInfo.className === 'minor' || recommendationInfo.className === 'major') && (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                      )}
+                      {recommendationInfo.className === 'reject' && (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                      )}
+                      {recommendationInfo.label}
+                    </span>
+                  )}
+
+                  {/* 输入类型标签 - 文件显示类型，文字显示文字输入 */}
                   {task.input_type === 'file' ? (
                     <span className="prv-task-meta-tag prv-meta-file">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                         <polyline points="14 2 14 8 20 8"/>
                       </svg>
-                      <span className="prv-meta-label" title={task.file_name}>{task.file_name || '文件上传'}</span>
+                      <span className="prv-meta-label">{task.file_ext ? task.file_ext.toUpperCase() : '文件'}</span>
                     </span>
                   ) : (
                     <span className="prv-task-meta-tag prv-meta-text">
@@ -1510,7 +1553,8 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
                   )}
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
 
           {totalPages > 1 && (

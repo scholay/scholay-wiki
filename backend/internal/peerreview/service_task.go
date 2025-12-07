@@ -784,6 +784,28 @@ func (s *Service) GetTaskList(userID uint, page, pageSize int, status string) (*
 		if t.SubmittedAt != nil {
 			displayTime = *t.SubmittedAt
 		}
+		
+		// 获取主稿件文件信息
+		var fileName, fileExt string
+		if t.ManuscriptFileID != nil {
+			var file PeerReviewFile
+			if err := s.db.First(&file, *t.ManuscriptFileID).Error; err == nil {
+				fileName = file.FileName
+				fileExt = file.FileExt
+			}
+		}
+		
+		// 获取稿件文本的前100个字符（用于标题展示）
+		manuscriptTextPreview := ""
+		if t.ManuscriptText != "" {
+			runes := []rune(t.ManuscriptText)
+			if len(runes) > 100 {
+				manuscriptTextPreview = string(runes[:100])
+			} else {
+				manuscriptTextPreview = t.ManuscriptText
+			}
+		}
+		
 		summaries[i] = TaskSummary{
 			ID:                  t.ID,
 			Title:               t.Title,
@@ -797,6 +819,9 @@ func (s *Service) GetTaskList(userID uint, page, pageSize int, status string) (*
 			AttachmentCount:     int(attachmentCount),
 			CreatedAt:           displayTime, // 使用提交时间
 			CompletedAt:         t.CompletedAt,
+			FileName:            fileName,
+			FileExt:             fileExt,
+			ManuscriptText:      manuscriptTextPreview,
 		}
 	}
 

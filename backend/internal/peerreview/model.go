@@ -246,6 +246,10 @@ type TaskSummary struct {
 	AttachmentCount     int        `json:"attachment_count"`
 	CreatedAt           time.Time  `json:"created_at"`
 	CompletedAt         *time.Time `json:"completed_at"`
+	// 新增字段：用于前端展示标题和文件类型
+	FileName       string `json:"file_name,omitempty"`        // 主稿件文件名
+	FileExt        string `json:"file_ext,omitempty"`         // 文件扩展名（如 pdf, docx）
+	ManuscriptText string `json:"manuscript_text,omitempty"`  // 稿件文本（仅返回前100字符用于标题展示）
 }
 
 // TaskDetailResponse 任务详情响应
