@@ -1951,40 +1951,95 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
             fullText={task.manuscript_text} 
           />
         )}
+
+        {/* 稿件分析卡片 - 在左侧栏展示 */}
+        {isCompleted && showReport && task.manuscript_meta && (
+          <div className="prvr-card prvr-analysis-card">
+            <div className="prvr-card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+              </svg>
+              稿件分析
+            </div>
+            <div className="prvr-analysis-content">
+              {task.manuscript_meta.title && (
+                <div className="prvr-analysis-item">
+                  <span className="prvr-analysis-label">论文标题</span>
+                  <span className="prvr-analysis-value">{task.manuscript_meta.title}</span>
+                </div>
+              )}
+              {task.manuscript_meta.field && (
+                <div className="prvr-analysis-item">
+                  <span className="prvr-analysis-label">研究领域</span>
+                  <span className="prvr-analysis-value">{task.manuscript_meta.field}</span>
+                </div>
+              )}
+              {task.manuscript_meta.main_topic && (
+                <div className="prvr-analysis-item">
+                  <span className="prvr-analysis-label">研究主题</span>
+                  <span className="prvr-analysis-value">{task.manuscript_meta.main_topic}</span>
+                </div>
+              )}
+              {task.manuscript_meta.keywords?.length > 0 && (
+                <div className="prvr-analysis-item">
+                  <span className="prvr-analysis-label">关键词</span>
+                  <div className="prvr-analysis-tags">
+                    {task.manuscript_meta.keywords.map((keyword, idx) => (
+                      <span key={idx} className="prvr-analysis-tag">{keyword}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {task.manuscript_meta.claimed_novelty?.length > 0 && (
+                <div className="prvr-analysis-item">
+                  <span className="prvr-analysis-label">创新点</span>
+                  <ul className="prvr-analysis-list">
+                    {task.manuscript_meta.claimed_novelty.map((item, idx) => (
+                      <li key={idx}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </aside>
 
       {/* 右侧主内容 - 审稿报告 */}
       <main className="prvr-main">
         {/* 报告头部 */}
         <div className="prvr-header">
-          <div className="prvr-title">
-            <div className="prvr-title-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <path d="M12 18l-2.4-1.2L7 18v-4l2.6 1.3L12 14l2.4 1.3L17 14v4l-2.6-1.2L12 18z"/>
-              </svg>
+          <div className="prvr-header-left">
+            <div className="prvr-title">
+              <div className="prvr-title-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <path d="M12 18l-2.4-1.2L7 18v-4l2.6 1.3L12 14l2.4 1.3L17 14v4l-2.6-1.2L12 18z"/>
+                </svg>
+              </div>
+              <h2>审稿报告</h2>
             </div>
-            <h2>审稿报告</h2>
+            
+            {/* 推荐意见和三审一致性 - 放在标题旁边 */}
+            {isCompleted && showReport && (
+              <div className="prvr-header-badges">
+                {(task.final_recommendation || task.recommendation) && (
+                  <span className={`prvr-header-recommendation ${getRecommendationClass(task.final_recommendation || task.recommendation)}`}>
+                    {task.final_recommendation || task.recommendation}
+                  </span>
+                )}
+                {task.consensus_score > 0 && (
+                  <div className="prvr-header-consensus">
+                    <span className="prvr-header-consensus-label">三审一致性</span>
+                    <span className={`prvr-header-consensus-value ${task.consensus_score >= 0.67 ? 'high' : task.consensus_score >= 0.34 ? 'medium' : 'low'}`}>
+                      {Math.round(task.consensus_score * 100)}%
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          
-          {/* 辅助信息按钮 - 放在头部 */}
-          {isCompleted && showReport && (
-            <div className="prvr-header-buttons">
-              {task.manuscript_meta && (
-                <button 
-                  className={`prvr-header-btn ${activeDrawer === 'analysis' ? 'active' : ''}`}
-                  onClick={() => setActiveDrawer(activeDrawer === 'analysis' ? null : 'analysis')}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                  </svg>
-                  稿件分析
-                </button>
-              )}
-            </div>
-          )}
         </div>
 
         {/* 处理中状态 - 更友好的展示（包括等待进度条完成的过渡期） */}
@@ -2187,28 +2242,6 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
             <div className="prvr-report-left">
               {(task.final_review_content || task.review_content) && (
                 <div className="prvr-report-content">
-                  {/* 头部：推荐意见 + 一致性分数 */}
-                  <div className="prvr-report-header-info">
-                    {(task.final_recommendation || task.recommendation || parsedReport?.overall_assessment?.recommendation) && (
-                      <span className={`prvr-recommendation-badge ${getRecommendationClass(task.final_recommendation || task.recommendation || parsedReport?.overall_assessment?.recommendation)}`}>
-                        {task.final_recommendation || task.recommendation || parsedReport?.overall_assessment?.recommendation}
-                      </span>
-                    )}
-                    {task.consensus_score > 0 && (
-                      <div className="prvr-consensus-score">
-                        <span className="prvr-consensus-label">三审一致性：</span>
-                        <span className={`prvr-consensus-value ${task.consensus_score >= 0.67 ? 'high' : task.consensus_score >= 0.34 ? 'medium' : 'low'}`}>
-                          {Math.round(task.consensus_score * 100)}%
-                        </span>
-                      </div>
-                    )}
-                    {parsedReport?.overall_assessment?.confidence && (
-                      <span className={`prvr-confidence-badge prvr-confidence-${getConfidenceLabel(parsedReport.overall_assessment.confidence)?.level}`}>
-                        {getConfidenceLabel(parsedReport.overall_assessment.confidence)?.label}
-                      </span>
-                    )}
-                  </div>
-
                   {/* 结构化报告内容 */}
                   {parsedReport ? (
                     <div className="prvr-structured-report">
@@ -2455,14 +2488,13 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
               )}
             </div>
 
-            {/* 右侧：辅助信息面板 */}
-            {activeDrawer && (
+            {/* 右侧：辅助信息面板（仅审稿人详情） */}
+            {activeDrawer === 'reviewer' && selectedReviewer && (
               <div className="prvr-report-right">
                 <div className="prvr-panel">
                   <div className="prvr-panel-header">
                     <span className="prvr-panel-title">
-                      {activeDrawer === 'analysis' && '稿件分析'}
-                      {activeDrawer === 'reviewer' && selectedReviewer && `审稿人 ${['A', 'B', 'C'][selectedReviewer.reviewer_index - 1] || selectedReviewer.reviewer_index} 的意见`}
+                      {`审稿人 ${['A', 'B', 'C'][selectedReviewer.reviewer_index - 1] || selectedReviewer.reviewer_index} 的意见`}
                     </span>
                     <button className="prvr-panel-close" onClick={() => { setActiveDrawer(null); setSelectedReviewer(null); }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2472,48 +2504,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                     </button>
                   </div>
                   <div className="prvr-panel-body">
-                    {/* 稿件分析内容 */}
-                    {activeDrawer === 'analysis' && task.manuscript_meta && (
-                      <div className="prvr-panel-content">
-                        <div className="prvr-panel-item">
-                          <span className="prvr-panel-label">论文标题</span>
-                          <span className="prvr-panel-value">{task.manuscript_meta.title}</span>
-                        </div>
-                        <div className="prvr-panel-item">
-                          <span className="prvr-panel-label">研究领域</span>
-                          <span className="prvr-panel-value">{task.manuscript_meta.field}</span>
-                        </div>
-                        <div className="prvr-panel-item">
-                          <span className="prvr-panel-label">研究主题</span>
-                          <span className="prvr-panel-value">{task.manuscript_meta.main_topic}</span>
-                        </div>
-                        {task.manuscript_meta.keywords?.length > 0 && (
-                          <div className="prvr-panel-item">
-                            <span className="prvr-panel-label">关键词</span>
-                            <div className="prvr-panel-tags">
-                              {task.manuscript_meta.keywords.map((keyword, idx) => (
-                                <span key={idx} className="prvr-panel-tag">{keyword}</span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {task.manuscript_meta.claimed_novelty?.length > 0 && (
-                          <div className="prvr-panel-item">
-                            <span className="prvr-panel-label">创新点</span>
-                            <ul className="prvr-panel-list">
-                              {task.manuscript_meta.claimed_novelty.map((item, idx) => (
-                                <li key={idx}>{item}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-
-                    {/* 审稿人详情面板 */}
-                    {activeDrawer === 'reviewer' && selectedReviewer && (
-                      <div className="prvr-panel-content prvr-reviewer-detail">
+                    <div className="prvr-panel-content prvr-reviewer-detail">
                         {/* 推荐意见 */}
                         {selectedReviewer.recommendation && (
                           <div className="prvr-reviewer-recommendation">
@@ -2595,8 +2586,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                             );
                           }
                         })()}
-                      </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               </div>

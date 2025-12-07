@@ -99,6 +99,80 @@
   color: var(--text-accent);
 }
 
+/* ========== 稿件分析卡片 ========== */
+.prvr-analysis-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+[data-theme="dark"] .prvr-analysis-card {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.prvr-analysis-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.prvr-analysis-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.prvr-analysis-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.prvr-analysis-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.prvr-analysis-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.prvr-analysis-tag {
+  display: inline-flex;
+  padding: 4px 10px;
+  background: rgba(16, 163, 127, 0.1);
+  color: var(--text-accent);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+[data-theme="dark"] .prvr-analysis-tag {
+  background: rgba(16, 163, 127, 0.15);
+}
+
+.prvr-analysis-list {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.prvr-analysis-list li {
+  margin-bottom: 4px;
+}
+
+.prvr-analysis-list li:last-child {
+  margin-bottom: 0;
+}
+
 /* ========== 信息项 ========== */
 .prvr-info-item {
   display: flex;
@@ -326,6 +400,15 @@
   justify-content: space-between;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.prvr-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .prvr-title {
@@ -350,6 +433,79 @@
   border-radius: 10px;
   background: rgba(16, 163, 127, 0.1);
   color: var(--text-accent);
+}
+
+/* 头部推荐意见和一致性标签 */
+.prvr-header-badges {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.prvr-header-recommendation {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.prvr-header-recommendation.accept {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.08) 100%);
+  color: #10a37f;
+  border: 1px solid rgba(16, 163, 127, 0.3);
+}
+
+.prvr-header-recommendation.minor {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.prvr-header-recommendation.major {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.08) 100%);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.prvr-header-recommendation.reject {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.08) 100%);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.prvr-header-consensus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+
+.prvr-header-consensus-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.prvr-header-consensus-value {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.prvr-header-consensus-value.high {
+  color: #10a37f;
+}
+
+.prvr-header-consensus-value.medium {
+  color: #f59e0b;
+}
+
+.prvr-header-consensus-value.low {
+  color: #ef4444;
 }
 
 /* ========== 处理中状态 ========== */
