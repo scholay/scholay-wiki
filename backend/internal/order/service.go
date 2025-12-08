@@ -20,12 +20,18 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// MembershipGiftService 会员赠送服务接口
+type MembershipGiftService interface {
+	GiftOnActivation(userID uint, planCode string) (any, error)
+}
+
 // Service handles business logic for orders
 type Service struct {
-	repo        *Repository
-	subsService *subscription.Service
-	couponRepo  *coupon.Repository
-	db          *gorm.DB
+	repo               *Repository
+	subsService        *subscription.Service
+	couponRepo         *coupon.Repository
+	db                 *gorm.DB
+	membershipGiftSvc  MembershipGiftService
 }
 
 // NewService creates a new order service
@@ -36,6 +42,29 @@ func NewService(db *gorm.DB) *Service {
 		couponRepo:  coupon.NewRepository(db),
 		db:          db,
 	}
+}
+
+// SetMembershipGiftService 设置会员赠送服务
+func (s *Service) SetMembershipGiftService(svc MembershipGiftService) {
+	s.membershipGiftSvc = svc
+}
+
+// giftMembershipReward 赠送会员奖励
+func (s *Service) giftMembershipReward(userID uint, planCode string) {
+	if s.membershipGiftSvc == nil {
+		return
+	}
+	if planCode != "pro" && planCode != "max" {
+		return
+	}
+	go func() {
+		result, err := s.membershipGiftSvc.GiftOnActivation(userID, planCode)
+		if err != nil {
+			fmt.Printf("⚠ Warning: Failed to gift membership reward to user %d: %v\n", userID, err)
+		} else {
+			fmt.Printf("✓ Membership reward gifted to user %d for plan %s: %+v\n", userID, planCode, result)
+		}
+	}()
 }
 
 // CreateOrderRequest represents the request to create an order
@@ -272,6 +301,9 @@ func (s *Service) ProcessPayment(userID uint, req ProcessPaymentRequest) error {
 		return fmt.Errorf("failed to upgrade subscription: %w", err)
 	}
 
+	// Gift membership reward (金币/钻石)
+	s.giftMembershipReward(userID, order.PlanCode)
+
 	return nil
 }
 
@@ -372,6 +404,9 @@ func (s *Service) ProcessAlipayCallback(orderNo, transactionNo string, amount fl
 		return fmt.Errorf("failed to upgrade subscription: %w", err)
 	}
 
+	// Gift membership reward (金币/钻石)
+	s.giftMembershipReward(order.UserID, order.PlanCode)
+
 	// Mark coupon as used if order has a coupon
 	if order.CouponID != nil && *order.CouponID > 0 {
 		if err := s.couponRepo.UseCoupon(*order.CouponID, uint64(order.ID)); err != nil {
@@ -443,6 +478,9 @@ func (s *Service) ProcessWeChatPayCallback(orderNo, transactionNo string, amount
 	if err := s.subsService.UpgradeSubscription(order.UserID, order.PlanCode, duration); err != nil {
 		return fmt.Errorf("failed to upgrade subscription: %w", err)
 	}
+
+	// Gift membership reward (金币/钻石)
+	s.giftMembershipReward(order.UserID, order.PlanCode)
 
 	// Mark coupon as used if order has a coupon
 	if order.CouponID != nil && *order.CouponID > 0 {
@@ -585,6 +623,9 @@ func (s *Service) AdminGrantSubscription(adminID uint, req AdminGrantSubscriptio
 	if err := s.subsService.UpgradeSubscription(req.UserID, req.PlanCode, duration); err != nil {
 		return nil, fmt.Errorf("failed to upgrade subscription: %w", err)
 	}
+
+	// Gift membership reward (金币/钻石)
+	s.giftMembershipReward(req.UserID, req.PlanCode)
 
 	// Refresh order to get updated data
 	updatedOrder, err := s.repo.GetOrderByID(order.ID)

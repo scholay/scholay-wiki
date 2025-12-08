@@ -272,8 +272,49 @@ func main() {
 	}
 	// Inject currency service into user service (for register gift)
 	userService.SetCurrencyService(currencyService)
+	// Inject currency service into checkin service (for checkin gold reward)
+	checkinService.SetCurrencyService(currencyService)
+	// Inject currency service into coupon service (for invite diamond reward)
+	couponService.SetCurrencyService(currencyService)
 	// 将 currencyMiddleware 暴露给其他模块使用（如需要扣费的接口）
 	_ = currencyMiddleware // 后续使用
+
+	// Initialize Membership Gift Scheduler (会员月度赠送/清空调度器)
+	membershipGiftScheduler := currency.NewMembershipGiftScheduler(currencyService, func(planCodes []string) ([]currency.MemberSubscription, error) {
+		subs, err := subscriptionService.GetActiveSubscriptionsByPlanCodes(planCodes)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]currency.MemberSubscription, len(subs))
+		for i, sub := range subs {
+			result[i] = currency.MemberSubscription{
+				UserID:   sub.UserID,
+				PlanCode: sub.PlanCode,
+			}
+		}
+		return result, nil
+	})
+	// 设置过期会员获取函数（用于清空金币）
+	membershipGiftScheduler.SetExpiredMemberGetter(func(graceDays int) ([]currency.ExpiredMember, error) {
+		members, err := subscriptionService.GetExpiredMembersWithGracePeriod(graceDays)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]currency.ExpiredMember, len(members))
+		for i, m := range members {
+			result[i] = currency.ExpiredMember{
+				UserID:    m.UserID,
+				PlanCode:  m.PlanCode,
+				ExpiredAt: m.ExpiredAt,
+			}
+		}
+		return result, nil
+	})
+	membershipGiftScheduler.Start()
+	defer membershipGiftScheduler.Stop()
+
+	// Inject membership gift service into order service (for activation gift)
+	orderService.SetMembershipGiftService(membershipGiftScheduler)
 
 	// Setup Gin router
 	router := gin.Default()
@@ -487,6 +528,10 @@ func main() {
 			userProtected.GET("/wallet/check", currencyHandler.CheckBalance)
 			userProtected.GET("/wallet/transactions", currencyHandler.ListTransactions)
 			userProtected.GET("/wallet/transactions/:transaction_no", currencyHandler.GetTransaction)
+			userProtected.GET("/wallet/recharge-info", currencyHandler.GetRechargeInfo)
+			userProtected.GET("/wallet/exchange-info", currencyHandler.GetExchangeInfo)
+			userProtected.GET("/wallet/exchange/preview", currencyHandler.PreviewExchange)
+			userProtected.POST("/wallet/exchange", currencyHandler.ExchangeDiamondToGold)
 
 			// Account availability check routes (protected)
 			userProtected.POST("/check-email-availability", userHandler.CheckEmailAvailability)

@@ -596,4 +596,45 @@ export const peerReviewAPI = {
     api.delete('/user/peer-review/draft'),
 };
 
+// Wallet API - 钱包相关
+export const walletAPI = {
+  // 获取钱包余额
+  getWallet: () => api.get('/user/wallet'),
+
+  // 获取交易流水
+  getTransactions: (params = {}) => {
+    const queryParams = {
+      page: params.page || 1,
+      page_size: params.pageSize || 20,
+    };
+    if (params.currencyType) queryParams.currency_type = params.currencyType;
+    if (params.transactionType) queryParams.transaction_type = params.transactionType;
+    if (params.startTime) queryParams.start_time = params.startTime;
+    if (params.endTime) queryParams.end_time = params.endTime;
+    return api.get('/user/wallet/transactions', { params: queryParams });
+  },
+
+  // 获取交易详情
+  getTransactionDetail: (transactionNo) =>
+    api.get(`/user/wallet/transactions/${transactionNo}`),
+
+  // 检查余额是否充足
+  checkBalance: (currencyType, amount) =>
+    api.post('/user/wallet/check-balance', { currency_type: currencyType, amount }),
+
+  // 获取充值信息（钻石单价等）
+  getRechargeInfo: () => api.get('/user/wallet/recharge-info'),
+
+  // 获取兑换信息（兑换比例等）
+  getExchangeInfo: () => api.get('/user/wallet/exchange-info'),
+
+  // 预览兑换结果
+  previewExchange: (diamondAmount) =>
+    api.get('/user/wallet/exchange/preview', { params: { diamond_amount: diamondAmount } }),
+
+  // 执行钻石兑换金币
+  exchangeDiamondToGold: (diamondAmount) =>
+    api.post('/user/wallet/exchange', { diamond_amount: diamondAmount }),
+};
+
 export default api;

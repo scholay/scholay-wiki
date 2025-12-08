@@ -39,7 +39,7 @@ type CouponService interface {
 // CurrencyService interface for currency operations
 type CurrencyService interface {
 	GetCurrencyConfigAmount(configKey string) (int64, error)
-	GiftGold(ctx context.Context, userID uint, amount int64, bizType, bizID, desc string) error
+	GiftGold(ctx context.Context, userID uint, amount int64, bizType, bizID, desc string) (any, error)
 	EnsureWalletExists(userID uint) error
 }
 
@@ -100,7 +100,7 @@ func (s *Service) GiftRegisterGold(userID uint) {
 
 	// 赠送金币
 	ctx := context.Background()
-	err = s.currencyService.GiftGold(ctx, userID, amount, "register_gift", fmt.Sprintf("user_%d", userID), "新用户注册赠送")
+	_, err = s.currencyService.GiftGold(ctx, userID, amount, "register_gift", fmt.Sprintf("user_%d", userID), "新用户注册赠送")
 	if err != nil {
 		fmt.Printf("Failed to gift register gold to user %d: %v\n", userID, err)
 	}

@@ -11,7 +11,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useToast } from '../components/ToastContainer';
-import api, { orderAPI, paymentAPI } from '../services/api';
+import api, { orderAPI, paymentAPI, walletAPI } from '../services/api';
 import CheckinCalendar from '../components/CheckinCalendar';
 import './styles/settings/index.css';
 
@@ -74,6 +74,22 @@ const Settings = () => {
   const [billingPage, setBillingPage] = useState(1);
   const [billingTotal, setBillingTotal] = useState(0);
   const [billingLoading, setBillingLoading] = useState(false);
+
+  // Wallet state - 钱包状态
+  const [wallet, setWallet] = useState(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [transactions, setTransactions] = useState([]);
+  const [transactionPage, setTransactionPage] = useState(1);
+  const [transactionTotal, setTransactionTotal] = useState(0);
+  const [transactionLoading, setTransactionLoading] = useState(false);
+  const [transactionFilter, setTransactionFilter] = useState('all'); // all, gold, diamond
+
+  // Exchange state - 兑换状态
+  const [exchangeRate, setExchangeRate] = useState(100); // 1钻石=100金币
+  const [exchangeAmount, setExchangeAmount] = useState('');
+  const [exchangeLoading, setExchangeLoading] = useState(false);
+  const [showExchangeModal, setShowExchangeModal] = useState(false);
+  const [rechargeInfo, setRechargeInfo] = useState(null);
 
   // Invitation state
   const [invitation, setInvitation] = useState(null);
@@ -141,6 +157,9 @@ const Settings = () => {
     if (activeTab === 'subscription') {
       fetchSubscriptionData();
       fetchBillingHistory(1);
+      fetchWalletData();
+      fetchTransactions(1);
+      fetchExchangeInfo();
     } else if (activeTab === 'invitation') {
       fetchInvitationData();
     }
@@ -224,6 +243,104 @@ const Settings = () => {
       showError('获取历史账单失败');
     } finally {
       setBillingLoading(false);
+    }
+  };
+
+  // 获取钱包数据
+  const fetchWalletData = async () => {
+    try {
+      setWalletLoading(true);
+      const response = await walletAPI.getWallet();
+      if (response.data.code === 0) {
+        setWallet(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch wallet:', error);
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
+  // 获取交易流水
+  const fetchTransactions = async (page = 1, filter = transactionFilter) => {
+    try {
+      setTransactionLoading(true);
+      const params = { page, pageSize: 10 };
+      if (filter !== 'all') {
+        params.currencyType = filter;
+      }
+      const response = await walletAPI.getTransactions(params);
+      if (response.data.code === 0) {
+        setTransactions(response.data.data.transactions || []);
+        setTransactionTotal(response.data.data.total || 0);
+        setTransactionPage(page);
+      }
+    } catch (error) {
+      console.error('Failed to fetch transactions:', error);
+    } finally {
+      setTransactionLoading(false);
+    }
+  };
+
+  // 切换交易类型筛选
+  const handleTransactionFilterChange = (filter) => {
+    setTransactionFilter(filter);
+    fetchTransactions(1, filter);
+  };
+
+  // 获取兑换和充值信息
+  const fetchExchangeInfo = async () => {
+    try {
+      const [exchangeRes, rechargeRes] = await Promise.all([
+        walletAPI.getExchangeInfo(),
+        walletAPI.getRechargeInfo()
+      ]);
+      if (exchangeRes.data.code === 0) {
+        setExchangeRate(exchangeRes.data.data.diamond_to_gold_rate || 100);
+      }
+      if (rechargeRes.data.code === 0) {
+        setRechargeInfo(rechargeRes.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch exchange info:', error);
+    }
+  };
+
+  // 执行钻石兑换金币
+  const handleExchange = async () => {
+    const amount = parseInt(exchangeAmount, 10);
+    if (!amount || amount <= 0) {
+      showError('请输入有效的兑换数量');
+      return;
+    }
+    if (amount > (wallet?.diamond || 0)) {
+      showError('钻石余额不足');
+      return;
+    }
+
+    try {
+      setExchangeLoading(true);
+      const response = await walletAPI.exchangeDiamondToGold(amount);
+      if (response.data.code === 0) {
+        const { gold_received, current_gold, current_diamond } = response.data.data;
+        setWallet(prev => ({
+          ...prev,
+          gold: current_gold,
+          diamond: current_diamond
+        }));
+        showSuccess(`兑换成功！获得 ${gold_received} 金币`);
+        setShowExchangeModal(false);
+        setExchangeAmount('');
+        // 刷新交易记录
+        fetchTransactions(1, transactionFilter);
+      } else {
+        showError(response.data.message || '兑换失败');
+      }
+    } catch (error) {
+      console.error('Exchange failed:', error);
+      showError(error.response?.data?.message || '兑换失败，请稍后重试');
+    } finally {
+      setExchangeLoading(false);
     }
   };
 
@@ -1578,6 +1695,33 @@ const Settings = () => {
   };
 
   const renderSubscriptionTab = () => {
+    // 获取交易类型标签
+    const getTransactionTypeLabel = (type) => {
+      const labels = {
+        recharge: '充值',
+        deduct: '消费',
+        refund: '退款',
+        reward: '奖励',
+        gift: '赠送'
+      };
+      return labels[type] || type;
+    };
+
+    // 获取业务类型标签
+    const getBizTypeLabel = (bizType) => {
+      const labels = {
+        register_gift: '注册赠送',
+        daily_checkin: '每日签到',
+        invite_reward: '邀请奖励',
+        peer_review: 'AI审稿',
+        ai_chat: 'AI对话',
+        paper_analysis: '论文分析',
+        admin_recharge: '管理员充值',
+        admin_deduct: '管理员扣除'
+      };
+      return labels[bizType] || bizType;
+    };
+
     return (
       <div className="settings-section subscription-section">
         <h2>管理订阅</h2>
@@ -1631,6 +1775,252 @@ const Settings = () => {
               </button>
             </div>
           ) : null}
+        </div>
+
+        {/* Wallet Balance Section - 钱包余额 */}
+        <div className="wallet-section">
+          <div className="wallet-section-header">
+            <h3>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                <line x1="1" y1="10" x2="23" y2="10"/>
+              </svg>
+              我的钱包
+            </h3>
+            <div className="wallet-actions">
+              <button 
+                className="wallet-action-btn exchange"
+                onClick={() => setShowExchangeModal(true)}
+                disabled={!wallet?.diamond}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="17 1 21 5 17 9"/>
+                  <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+                  <polyline points="7 23 3 19 7 15"/>
+                  <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+                </svg>
+                兑换金币
+              </button>
+              <button 
+                className="wallet-action-btn recharge"
+                onClick={() => navigate('/pricing?tab=recharge')}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                充值钻石
+              </button>
+            </div>
+          </div>
+          
+          {walletLoading ? (
+            <div className="wallet-loading">
+              <div className="spinner"></div>
+            </div>
+          ) : (
+            <div className="wallet-balance-cards">
+              <div className="wallet-balance-card gold">
+                <div className="balance-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="12" r="10"/>
+                    <text x="12" y="16" textAnchor="middle" fill="#fff" fontSize="10" fontWeight="bold">¥</text>
+                  </svg>
+                </div>
+                <div className="balance-info">
+                  <span className="balance-label">金币</span>
+                  <span className="balance-value">{wallet?.gold || 0}</span>
+                </div>
+              </div>
+              <div className="wallet-balance-card diamond">
+                <div className="balance-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="12,2 22,9 12,22 2,9"/>
+                  </svg>
+                </div>
+                <div className="balance-info">
+                  <span className="balance-label">钻石</span>
+                  <span className="balance-value">{wallet?.diamond || 0}</span>
+                </div>
+                <div className="balance-hint">
+                  1钻石 = {exchangeRate}金币
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Exchange Modal - 兑换弹窗 */}
+        {showExchangeModal && (
+          <div className="modal-overlay" onClick={() => setShowExchangeModal(false)}>
+            <div className="exchange-modal" onClick={e => e.stopPropagation()}>
+              <div className="exchange-modal-header">
+                <h3>钻石兑换金币</h3>
+                <button className="modal-close" onClick={() => setShowExchangeModal(false)}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+              <div className="exchange-modal-body">
+                <div className="exchange-rate-info">
+                  <span className="rate-label">兑换比例</span>
+                  <span className="rate-value">1 钻石 = {exchangeRate} 金币</span>
+                </div>
+                <div className="exchange-balance">
+                  <span>当前钻石余额: <strong>{wallet?.diamond || 0}</strong></span>
+                </div>
+                <div className="exchange-input-group">
+                  <label>兑换数量</label>
+                  <div className="exchange-input-wrapper">
+                    <input
+                      type="number"
+                      min="1"
+                      max={wallet?.diamond || 0}
+                      value={exchangeAmount}
+                      onChange={e => setExchangeAmount(e.target.value)}
+                      placeholder="输入钻石数量"
+                    />
+                    <button 
+                      className="exchange-max-btn"
+                      onClick={() => setExchangeAmount(String(wallet?.diamond || 0))}
+                    >
+                      全部
+                    </button>
+                  </div>
+                </div>
+                {exchangeAmount && parseInt(exchangeAmount, 10) > 0 && (
+                  <div className="exchange-preview">
+                    <span className="preview-label">预计获得</span>
+                    <span className="preview-value">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="#f59e0b">
+                        <circle cx="12" cy="12" r="10"/>
+                      </svg>
+                      {parseInt(exchangeAmount, 10) * exchangeRate} 金币
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="exchange-modal-footer">
+                <button 
+                  className="btn-cancel"
+                  onClick={() => setShowExchangeModal(false)}
+                >
+                  取消
+                </button>
+                <button 
+                  className="btn-confirm"
+                  onClick={handleExchange}
+                  disabled={exchangeLoading || !exchangeAmount || parseInt(exchangeAmount, 10) <= 0 || parseInt(exchangeAmount, 10) > (wallet?.diamond || 0)}
+                >
+                  {exchangeLoading ? '兑换中...' : '确认兑换'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Transaction History - 交易流水 */}
+        <div className="transaction-section">
+          <div className="transaction-section-header">
+            <h3>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+              交易流水
+            </h3>
+            <div className="transaction-filters">
+              <button 
+                className={`filter-btn ${transactionFilter === 'all' ? 'active' : ''}`}
+                onClick={() => handleTransactionFilterChange('all')}
+              >
+                全部
+              </button>
+              <button 
+                className={`filter-btn ${transactionFilter === 'gold' ? 'active' : ''}`}
+                onClick={() => handleTransactionFilterChange('gold')}
+              >
+                金币
+              </button>
+              <button 
+                className={`filter-btn ${transactionFilter === 'diamond' ? 'active' : ''}`}
+                onClick={() => handleTransactionFilterChange('diamond')}
+              >
+                钻石
+              </button>
+            </div>
+          </div>
+
+          {transactionLoading ? (
+            <div className="transaction-loading">
+              <div className="spinner"></div>
+              <p>加载中...</p>
+            </div>
+          ) : transactions.length > 0 ? (
+            <>
+              <div className="transaction-list">
+                {transactions.map((tx) => (
+                  <div key={tx.id} className={`transaction-item ${tx.amount >= 0 ? 'income' : 'expense'}`}>
+                    <div className="transaction-item-left">
+                      <div className={`transaction-type-icon ${tx.currency_type}`}>
+                        {tx.currency_type === 'gold' ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="12" cy="12" r="10"/>
+                          </svg>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="12,2 22,9 12,22 2,9"/>
+                          </svg>
+                        )}
+                      </div>
+                      <div className="transaction-info">
+                        <span className="transaction-title">{getBizTypeLabel(tx.biz_type)}</span>
+                        <span className="transaction-desc">{tx.description || getTransactionTypeLabel(tx.transaction_type)}</span>
+                        <span className="transaction-time">{new Date(tx.created_at).toLocaleString('zh-CN')}</span>
+                      </div>
+                    </div>
+                    <div className="transaction-item-right">
+                      <span className={`transaction-amount ${tx.amount >= 0 ? 'positive' : 'negative'}`}>
+                        {tx.amount >= 0 ? '+' : ''}{tx.amount}
+                      </span>
+                      <span className="transaction-balance">余额: {tx.after_balance}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {transactionTotal > 10 && (
+                <div className="pagination">
+                  <button
+                    className="pagination-btn"
+                    disabled={transactionPage === 1}
+                    onClick={() => fetchTransactions(transactionPage - 1)}
+                  >
+                    上一页
+                  </button>
+                  <span className="pagination-info">
+                    第 {transactionPage} 页，共 {Math.ceil(transactionTotal / 10)} 页
+                  </span>
+                  <button
+                    className="pagination-btn"
+                    disabled={transactionPage >= Math.ceil(transactionTotal / 10)}
+                    onClick={() => fetchTransactions(transactionPage + 1)}
+                  >
+                    下一页
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="empty-transaction">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+              <p>暂无交易记录</p>
+            </div>
+          )}
         </div>
 
         {/* Billing History */}

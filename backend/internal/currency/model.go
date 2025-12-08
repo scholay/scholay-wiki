@@ -1,7 +1,18 @@
 package currency
 
 import (
+	"errors"
 	"time"
+)
+
+// ========== 错误定义 ==========
+
+var (
+	ErrInsufficientBalance = errors.New("余额不足")
+	ErrInvalidAmount       = errors.New("无效的金额")
+	ErrWalletNotFound      = errors.New("钱包不存在")
+	ErrTransactionNotFound = errors.New("交易记录不存在")
+	ErrConfigNotFound      = errors.New("配置不存在")
 )
 
 // ========== 货币类型 ==========
@@ -18,12 +29,13 @@ const (
 type TransactionType string
 
 const (
-	TxTypeRecharge   TransactionType = "recharge"   // 充值
-	TxTypeDeduct     TransactionType = "deduct"     // 扣费
-	TxTypeRefund     TransactionType = "refund"     // 退款
-	TxTypeGift       TransactionType = "gift"       // 赠送
-	TxTypeReward     TransactionType = "reward"     // 奖励
-	TxTypeTransferIn TransactionType = "transfer_in"  // 转入
+	TxTypeRecharge    TransactionType = "recharge"     // 充值
+	TxTypeDeduct      TransactionType = "deduct"       // 扣费
+	TxTypeRefund      TransactionType = "refund"       // 退款
+	TxTypeGift        TransactionType = "gift"         // 赠送
+	TxTypeReward      TransactionType = "reward"       // 奖励
+	TxTypeExchange    TransactionType = "exchange"     // 兑换
+	TxTypeTransferIn  TransactionType = "transfer_in"  // 转入
 	TxTypeTransferOut TransactionType = "transfer_out" // 转出
 )
 
@@ -102,12 +114,36 @@ func (DeductConfig) TableName() string {
 
 // ConfigKey 配置键常量
 const (
-	ConfigKeyRegisterGift     = "register_gift_gold"      // 注册赠送金币数量
-	ConfigKeyDailyCheckin     = "daily_checkin_gold"      // 每日签到金币
-	ConfigKeyInviteReward     = "invite_reward_gold"      // 邀请奖励金币
-	ConfigKeyPeerReviewCost   = "peer_review_cost"        // AI审稿消耗
-	ConfigKeyAIChatCost       = "ai_chat_cost"            // AI对话消耗
-	ConfigKeyPaperAnalysisCost = "paper_analysis_cost"    // 论文分析消耗
+	// 注册奖励
+	ConfigKeyRegisterGift = "register_gift_gold" // 注册赠送金币数量
+
+	// 签到奖励
+	ConfigKeyDailyCheckin   = "daily_checkin_gold"   // 每日签到金币（基础）
+	ConfigKeyCheckin3Days   = "checkin_3days_gold"   // 连续签到3天奖励
+	ConfigKeyCheckin7Days   = "checkin_7days_gold"   // 连续签到7天奖励
+	ConfigKeyCheckin15Days  = "checkin_15days_gold"  // 连续签到15天奖励
+	ConfigKeyCheckinAfter15 = "checkin_after15_gold" // 连续签到15天之后每天奖励
+
+	// 邀请奖励
+	ConfigKeyInviteRewardDiamond      = "invite_reward_diamond"       // 每次邀请奖励钻石
+	ConfigKeyInviteMilestoneInterval  = "invite_milestone_interval"   // 邀请里程碑间隔（每N个）
+	ConfigKeyInviteMilestoneDiamond   = "invite_milestone_diamond"    // 邀请里程碑额外奖励钻石
+
+	// 充值配置
+	ConfigKeyDiamondPrice = "diamond_price" // 钻石单价（分/个）
+
+	// 兑换配置
+	ConfigKeyDiamondToGoldRate = "diamond_to_gold_rate" // 钻石兑换金币比例（1钻石=N金币）
+
+	// 会员月度赠送配置
+	ConfigKeyProMonthlyGold     = "pro_monthly_gold"     // Pro会员每月赠送金币
+	ConfigKeyMaxMonthlyGold     = "max_monthly_gold"     // Max会员每月赠送金币
+	ConfigKeyMaxMonthlyDiamond  = "max_monthly_diamond"  // Max会员每月赠送钻石
+
+	// 消耗配置
+	ConfigKeyPeerReviewCost    = "peer_review_cost"    // AI审稿消耗
+	ConfigKeyAIChatCost        = "ai_chat_cost"        // AI对话消耗
+	ConfigKeyPaperAnalysisCost = "paper_analysis_cost" // 论文分析消耗
 )
 
 // CurrencyConfig 货币配置表

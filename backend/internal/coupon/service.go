@@ -8,8 +8,10 @@
 package coupon
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"scholar-backend/internal/user"
@@ -18,11 +20,18 @@ import (
 	"gorm.io/gorm"
 )
 
+// CurrencyService 货币服务接口
+type CurrencyService interface {
+	GetCurrencyConfigAmount(configKey string) (int64, error)
+	GiftDiamond(ctx context.Context, userID uint, amount int64, bizType, bizID, desc string) (any, error)
+}
+
 type Service struct {
-	repo       *Repository
-	userRepo   *user.Repository
-	cache      *redis.Client
-	baseURL    string // 用于生成邀请链接
+	repo            *Repository
+	userRepo        *user.Repository
+	cache           *redis.Client
+	baseURL         string // 用于生成邀请链接
+	currencyService CurrencyService
 }
 
 func NewService(db *gorm.DB, userRepo *user.Repository, cache *redis.Client, baseURL string) *Service {
@@ -32,6 +41,11 @@ func NewService(db *gorm.DB, userRepo *user.Repository, cache *redis.Client, bas
 		cache:    cache,
 		baseURL:  baseURL,
 	}
+}
+
+// SetCurrencyService 设置货币服务（用于依赖注入）
+func (s *Service) SetCurrencyService(cs CurrencyService) {
+	s.currencyService = cs
 }
 
 // ============================================
@@ -494,7 +508,7 @@ func (s *Service) RegisterWithInvitation(invitationCode string, inviteeID uint64
 	}
 
 	// 使用事务处理
-	return s.repo.Transaction(func(txRepo *Repository) error {
+	err = s.repo.Transaction(func(txRepo *Repository) error {
 		// 创建邀请关系
 		relationship := &InvitationRelationship{
 			InviterID:      invitation.UserID,
@@ -561,6 +575,67 @@ func (s *Service) RegisterWithInvitation(invitationCode string, inviteeID uint64
 
 		return nil
 	})
+
+	if err != nil {
+		return err
+	}
+
+	// 异步发放邀请钻石奖励给邀请人
+	go s.giftInviteDiamond(invitation.UserID, invitation.SuccessfulInvites+1)
+
+	return nil
+}
+
+// giftInviteDiamond 发放邀请钻石奖励
+// inviteCount: 当前是第几个成功邀请（包含本次）
+func (s *Service) giftInviteDiamond(inviterID uint64, inviteCount int) {
+	if s.currencyService == nil {
+		log.Printf("Warning: Currency service not set, cannot gift invite diamond to user %d", inviterID)
+		return
+	}
+
+	ctx := context.Background()
+
+	// 获取配置
+	baseReward, err := s.currencyService.GetCurrencyConfigAmount("invite_reward_diamond")
+	if err != nil || baseReward <= 0 {
+		baseReward = 1 // 默认每次邀请奖励1钻石
+	}
+
+	milestoneInterval, err := s.currencyService.GetCurrencyConfigAmount("invite_milestone_interval")
+	if err != nil || milestoneInterval <= 0 {
+		milestoneInterval = 5 // 默认每5个触发里程碑
+	}
+
+	milestoneReward, err := s.currencyService.GetCurrencyConfigAmount("invite_milestone_diamond")
+	if err != nil || milestoneReward <= 0 {
+		milestoneReward = 10 // 默认里程碑奖励10钻石
+	}
+
+	// 计算本次奖励
+	totalReward := baseReward
+	isMilestone := inviteCount > 0 && inviteCount%int(milestoneInterval) == 0
+
+	if isMilestone {
+		totalReward += milestoneReward
+	}
+
+	// 发放钻石奖励
+	bizID := fmt.Sprintf("invite_%d_%d", inviterID, inviteCount)
+	var desc string
+	if isMilestone {
+		desc = fmt.Sprintf("邀请奖励（第%d位用户，里程碑奖励）", inviteCount)
+	} else {
+		desc = fmt.Sprintf("邀请奖励（第%d位用户）", inviteCount)
+	}
+
+	_, err = s.currencyService.GiftDiamond(ctx, uint(inviterID), totalReward, "invite_reward", bizID, desc)
+	if err != nil {
+		log.Printf("Failed to gift invite diamond to user %d: %v", inviterID, err)
+	} else {
+		log.Printf("Successfully gifted %d diamond to user %d for invite (count: %d, milestone: %v)", 
+			totalReward, inviterID, inviteCount, isMilestone)
+	}
 }
 
 // GetInvitationStatistics 获取邀请统计

@@ -9,6 +9,7 @@ package subscription
 
 import (
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -149,6 +150,63 @@ func (r *Repository) IncrementUsage(userID uint, date string, usageType string) 
 		Update(columnName, gorm.Expr(columnName+" + ?", 1))
 
 	return result.Error
+}
+
+// GetActiveSubscriptionsByPlanCodes 获取指定计划代码的所有活跃订阅
+func (r *Repository) GetActiveSubscriptionsByPlanCodes(planCodes []string) ([]UserSubscription, error) {
+	var subscriptions []UserSubscription
+	err := r.db.Where("plan_code IN ? AND status = ?", planCodes, "active").Find(&subscriptions).Error
+	return subscriptions, err
+}
+
+// GetAllActiveSubscriptions 获取所有活跃订阅
+func (r *Repository) GetAllActiveSubscriptions() ([]UserSubscription, error) {
+	var subscriptions []UserSubscription
+	err := r.db.Where("status = ?", "active").Find(&subscriptions).Error
+	return subscriptions, err
+}
+
+// GetExpiredMembersWithGracePeriod 获取过期超过宽限期且还有金币的会员
+// graceDays: 宽限期天数
+// 返回：过期时间超过 graceDays 天的用户（原来是 pro/max 会员，现在已过期或取消，且还有金币）
+func (r *Repository) GetExpiredMembersWithGracePeriod(graceDays int) ([]ExpiredMemberInfo, error) {
+	// 计算宽限期截止时间（当前时间减去宽限期天数）
+	graceDeadline := time.Now().AddDate(0, 0, -graceDays)
+
+	var results []ExpiredMemberInfo
+
+	// 查询已过期或已取消的 pro/max 订阅
+	// 条件：
+	// 1. plan_code 是 pro 或 max
+	// 2. status 是 expired 或 cancelled
+	// 3. end_date 不为空且在宽限期截止时间之前
+	// 4. 用户当前没有活跃的 pro/max 订阅
+	// 5. 用户钱包中还有金币（gold > 0）
+	err := r.db.Raw(`
+		SELECT DISTINCT us.user_id, us.plan_code, us.end_date as expired_at
+		FROM user_subscriptions us
+		INNER JOIN wallets w ON w.user_id = us.user_id AND w.gold > 0
+		WHERE us.plan_code IN ('pro', 'max')
+		  AND us.status IN ('expired', 'cancelled')
+		  AND us.end_date IS NOT NULL
+		  AND us.end_date < ?
+		  AND NOT EXISTS (
+			SELECT 1 FROM user_subscriptions active_sub
+			WHERE active_sub.user_id = us.user_id
+			  AND active_sub.plan_code IN ('pro', 'max')
+			  AND active_sub.status = 'active'
+		  )
+		ORDER BY us.end_date ASC
+	`, graceDeadline).Scan(&results).Error
+
+	return results, err
+}
+
+// ExpiredMemberInfo 过期会员信息
+type ExpiredMemberInfo struct {
+	UserID    uint      `gorm:"column:user_id"`
+	PlanCode  string    `gorm:"column:plan_code"`
+	ExpiredAt time.Time `gorm:"column:expired_at"`
 }
 
 // CheckAndIncrementQuota atomically checks if user has quota and increments if available

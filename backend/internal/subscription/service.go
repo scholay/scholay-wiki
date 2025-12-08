@@ -322,6 +322,64 @@ func (s *Service) UpgradeSubscription(userID uint, newPlanCode string, duration 
 	return s.repo.CreateSubscription(newSub)
 }
 
+// GetActiveSubscriptionsByPlanCodes 获取指定计划的所有活跃订阅
+func (s *Service) GetActiveSubscriptionsByPlanCodes(planCodes []string) ([]UserSubscription, error) {
+	return s.repo.GetActiveSubscriptionsByPlanCodes(planCodes)
+}
+
+// SubscriptionInfoForCurrency 用于货币系统的订阅信息
+type SubscriptionInfoForCurrency struct {
+	UserID   uint
+	PlanCode string
+}
+
+// GetActiveSubscriptionsByPlanCodesForCurrency 获取指定计划的所有活跃订阅（用于货币系统）
+func (s *Service) GetActiveSubscriptionsByPlanCodesForCurrency(planCodes []string) ([]SubscriptionInfoForCurrency, error) {
+	subs, err := s.repo.GetActiveSubscriptionsByPlanCodes(planCodes)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]SubscriptionInfoForCurrency, len(subs))
+	for i, sub := range subs {
+		result[i] = SubscriptionInfoForCurrency{
+			UserID:   sub.UserID,
+			PlanCode: sub.PlanCode,
+		}
+	}
+	return result, nil
+}
+
+// ExpiredMemberForCurrency 过期会员信息（用于货币系统）
+type ExpiredMemberForCurrency struct {
+	UserID    uint
+	PlanCode  string
+	ExpiredAt time.Time
+}
+
+// GetExpiredMembersWithGracePeriod 获取过期超过宽限期的会员（用于货币系统）
+func (s *Service) GetExpiredMembersWithGracePeriod(graceDays int) ([]ExpiredMemberForCurrency, error) {
+	members, err := s.repo.GetExpiredMembersWithGracePeriod(graceDays)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]ExpiredMemberForCurrency, len(members))
+	for i, m := range members {
+		result[i] = ExpiredMemberForCurrency{
+			UserID:    m.UserID,
+			PlanCode:  m.PlanCode,
+			ExpiredAt: m.ExpiredAt,
+		}
+	}
+	return result, nil
+}
+
+// GetAllActiveSubscriptions 获取所有活跃订阅
+func (s *Service) GetAllActiveSubscriptions() ([]UserSubscription, error) {
+	return s.repo.GetAllActiveSubscriptions()
+}
+
 // UpdatePlan updates a subscription plan
 func (s *Service) UpdatePlan(planID uint, planName string, priceMonthly, currentPriceMonthly, priceYearly, currentPriceYearly float64, yearlyDiscountEnabled bool, yearlyDiscountPercent float64, features PlanFeatures) error {
 	// Get the plan

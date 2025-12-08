@@ -12,11 +12,8 @@ import (
 )
 
 var (
-	ErrWalletNotFound      = errors.New("钱包不存在")
-	ErrInsufficientBalance = errors.New("余额不足")
-	ErrTransactionNotFound = errors.New("交易记录不存在")
-	ErrConcurrentUpdate    = errors.New("并发更新冲突，请重试")
-	ErrLockAcquireFailed   = errors.New("获取锁失败，请稍后重试")
+	ErrConcurrentUpdate  = errors.New("并发更新冲突，请重试")
+	ErrLockAcquireFailed = errors.New("获取锁失败，请稍后重试")
 )
 
 // Repository 货币仓储层
@@ -302,10 +299,26 @@ func (r *Repository) UpdateCurrencyConfigAmount(configKey string, amount int64) 
 // InitDefaultConfigs 初始化默认配置
 func (r *Repository) InitDefaultConfigs() error {
 	defaults := []CurrencyConfig{
-		// 奖励类配置
+		// 奖励类配置 - 注册
 		{ConfigKey: ConfigKeyRegisterGift, ConfigName: "注册赠送金币", CurrencyType: CurrencyGold, Amount: 300, Category: "reward", Description: "新用户注册时赠送的金币数量", Enabled: true},
-		{ConfigKey: ConfigKeyDailyCheckin, ConfigName: "每日签到金币", CurrencyType: CurrencyGold, Amount: 10, Category: "reward", Description: "用户每日签到获得的金币数量", Enabled: true},
-		{ConfigKey: ConfigKeyInviteReward, ConfigName: "邀请奖励金币", CurrencyType: CurrencyGold, Amount: 50, Category: "reward", Description: "成功邀请新用户获得的金币奖励", Enabled: true},
+		// 奖励类配置 - 签到
+		{ConfigKey: ConfigKeyDailyCheckin, ConfigName: "每日签到金币", CurrencyType: CurrencyGold, Amount: 10, Category: "reward", Description: "用户每日签到获得的基础金币数量", Enabled: true},
+		{ConfigKey: ConfigKeyCheckin3Days, ConfigName: "连续签到3天奖励", CurrencyType: CurrencyGold, Amount: 50, Category: "reward", Description: "连续签到3天时第3天获得的金币奖励", Enabled: true},
+		{ConfigKey: ConfigKeyCheckin7Days, ConfigName: "连续签到7天奖励", CurrencyType: CurrencyGold, Amount: 150, Category: "reward", Description: "连续签到7天时第7天获得的金币奖励", Enabled: true},
+		{ConfigKey: ConfigKeyCheckin15Days, ConfigName: "连续签到15天奖励", CurrencyType: CurrencyGold, Amount: 350, Category: "reward", Description: "连续签到15天时第15天获得的金币奖励", Enabled: true},
+		{ConfigKey: ConfigKeyCheckinAfter15, ConfigName: "连续签到15天后每日奖励", CurrencyType: CurrencyGold, Amount: 30, Category: "reward", Description: "连续签到超过15天后每天获得的金币奖励", Enabled: true},
+		// 奖励类配置 - 邀请
+		{ConfigKey: ConfigKeyInviteRewardDiamond, ConfigName: "邀请奖励钻石", CurrencyType: CurrencyDiamond, Amount: 1, Category: "reward", Description: "每成功邀请1个新用户获得的钻石奖励", Enabled: true},
+		{ConfigKey: ConfigKeyInviteMilestoneInterval, ConfigName: "邀请里程碑间隔", CurrencyType: CurrencyDiamond, Amount: 5, Category: "reward", Description: "每邀请N个用户触发里程碑奖励（如5表示第5、10、15...个）", Enabled: true},
+		{ConfigKey: ConfigKeyInviteMilestoneDiamond, ConfigName: "邀请里程碑奖励钻石", CurrencyType: CurrencyDiamond, Amount: 10, Category: "reward", Description: "达到邀请里程碑时额外获得的钻石奖励", Enabled: true},
+		// 充值配置
+		{ConfigKey: ConfigKeyDiamondPrice, ConfigName: "钻石单价", CurrencyType: CurrencyDiamond, Amount: 100, Category: "recharge", Description: "钻石单价，单位为分（100=1元/个钻石）", Enabled: true},
+		// 兑换配置
+		{ConfigKey: ConfigKeyDiamondToGoldRate, ConfigName: "钻石兑换金币比例", CurrencyType: CurrencyGold, Amount: 100, Category: "exchange", Description: "1个钻石可兑换的金币数量", Enabled: true},
+		// 会员月度赠送配置
+		{ConfigKey: ConfigKeyProMonthlyGold, ConfigName: "Pro会员每月赠送金币", CurrencyType: CurrencyGold, Amount: 5000, Category: "membership", Description: "Pro会员每月1日自动赠送的金币数量", Enabled: true},
+		{ConfigKey: ConfigKeyMaxMonthlyGold, ConfigName: "Max会员每月赠送金币", CurrencyType: CurrencyGold, Amount: 10000, Category: "membership", Description: "Max会员每月1日自动赠送的金币数量", Enabled: true},
+		{ConfigKey: ConfigKeyMaxMonthlyDiamond, ConfigName: "Max会员每月赠送钻石", CurrencyType: CurrencyDiamond, Amount: 6, Category: "membership", Description: "Max会员每月1日自动赠送的钻石数量", Enabled: true},
 		// 消耗类配置
 		{ConfigKey: ConfigKeyPeerReviewCost, ConfigName: "AI审稿消耗", CurrencyType: CurrencyGold, Amount: 0, Category: "cost", Description: "使用AI审稿功能消耗的金币（0表示免费）", Enabled: true},
 		{ConfigKey: ConfigKeyAIChatCost, ConfigName: "AI对话消耗", CurrencyType: CurrencyGold, Amount: 0, Category: "cost", Description: "AI对话每次消耗的金币（0表示免费）", Enabled: true},
