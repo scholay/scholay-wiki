@@ -601,8 +601,8 @@ const OrderConfirmation = () => {
                   )}
                 </div>
 
-                {/* 暂时注释掉手动支付 */}
-                {/* {isDevMode && (
+                {/* 手动支付 - 开发测试用 */}
+                {isDevMode && (
                   <div
                     className={`payment-method-item ${selectedPaymentMethod === 'simulate' ? 'selected' : ''}`}
                     onClick={() => setSelectedPaymentMethod('simulate')}
@@ -629,7 +629,7 @@ const OrderConfirmation = () => {
                       <div className="payment-check">✓</div>
                     )}
                   </div>
-                )} */}
+                )}
 
                 {/* 暂时注释掉微信支付 */}
                 {/* <div
