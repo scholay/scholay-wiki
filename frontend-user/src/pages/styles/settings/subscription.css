@@ -1533,6 +1533,24 @@
   padding: 24px;
 }
 
+.exchange-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 10px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #fbbf24;
+}
+
+.exchange-notice svg {
+  flex-shrink: 0;
+  stroke: #fbbf24;
+}
+
 .exchange-rate-info {
   display: flex;
   justify-content: space-between;

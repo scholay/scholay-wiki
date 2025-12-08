@@ -90,7 +90,10 @@ const CurrencyConfig = () => {
   const getCategoryLabel = (category) => {
     const labels = {
       reward: '奖励配置',
-      cost: '消耗配置'
+      cost: '消耗配置',
+      recharge: '充值配置',
+      exchange: '兑换配置',
+      membership: '会员配置'
     };
     return labels[category] || category;
   };
@@ -102,6 +105,37 @@ const CurrencyConfig = () => {
       diamond: '钻石'
     };
     return labels[type] || type;
+  };
+
+  // 获取金额显示单位（特殊处理某些配置）
+  const getAmountUnit = (config) => {
+    // 钻石单价的单位是"分"，不是钻石
+    if (config.config_key === 'diamond_price') {
+      return '分';
+    }
+    return config.currency_type === 'gold' ? '金币' : '钻石';
+  };
+
+  // 格式化金额显示（特殊处理某些配置）
+  const formatAmountDisplay = (config) => {
+    if (config.config_key === 'diamond_price') {
+      const yuan = (config.amount / 100).toFixed(2);
+      return (
+        <span className="amount-value price-value">
+          {config.amount}
+          <span className="currency-unit">分</span>
+          <span className="price-hint">（{yuan}元/个钻石）</span>
+        </span>
+      );
+    }
+    return (
+      <span className="amount-value">
+        {config.amount}
+        <span className="currency-unit">
+          {config.currency_type === 'gold' ? '金币' : '钻石'}
+        </span>
+      </span>
+    );
   };
 
   // 按分类分组配置
@@ -171,20 +205,21 @@ const CurrencyConfig = () => {
                         </td>
                         <td className="config-amount">
                           {editingConfig === config.config_key ? (
-                            <input
-                              type="number"
-                              value={editForm.amount}
-                              onChange={(e) => setEditForm({ ...editForm, amount: parseInt(e.target.value) || 0 })}
-                              className="edit-input amount-input"
-                              min="0"
-                            />
+                            <div className="edit-amount-wrapper">
+                              <input
+                                type="number"
+                                value={editForm.amount}
+                                onChange={(e) => setEditForm({ ...editForm, amount: parseInt(e.target.value) || 0 })}
+                                className="edit-input amount-input"
+                                min="0"
+                              />
+                              <span className="edit-unit">{getAmountUnit(config)}</span>
+                              {config.config_key === 'diamond_price' && editForm.amount > 0 && (
+                                <span className="edit-price-hint">= {(editForm.amount / 100).toFixed(2)}元/个</span>
+                              )}
+                            </div>
                           ) : (
-                            <span className="amount-value">
-                              {config.amount}
-                              <span className="currency-unit">
-                                {config.currency_type === 'gold' ? '金币' : '钻石'}
-                              </span>
-                            </span>
+                            formatAmountDisplay(config)
                           )}
                         </td>
                         <td className="config-desc">

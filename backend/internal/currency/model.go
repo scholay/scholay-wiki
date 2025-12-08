@@ -125,9 +125,8 @@ const (
 	ConfigKeyCheckinAfter15 = "checkin_after15_gold" // 连续签到15天之后每天奖励
 
 	// 邀请奖励
-	ConfigKeyInviteRewardDiamond      = "invite_reward_diamond"       // 每次邀请奖励钻石
-	ConfigKeyInviteMilestoneInterval  = "invite_milestone_interval"   // 邀请里程碑间隔（每N个）
-	ConfigKeyInviteMilestoneDiamond   = "invite_milestone_diamond"    // 邀请里程碑额外奖励钻石
+	ConfigKeyInviteRewardDiamond    = "invite_reward_diamond"    // 每次邀请奖励钻石
+	ConfigKeyInviteMilestoneDiamond = "invite_milestone_diamond" // 邀请里程碑额外奖励钻石（每5个触发）
 
 	// 充值配置
 	ConfigKeyDiamondPrice = "diamond_price" // 钻石单价（分/个）

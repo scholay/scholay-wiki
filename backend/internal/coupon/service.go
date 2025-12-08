@@ -602,10 +602,8 @@ func (s *Service) giftInviteDiamond(inviterID uint64, inviteCount int) {
 		baseReward = 1 // 默认每次邀请奖励1钻石
 	}
 
-	milestoneInterval, err := s.currencyService.GetCurrencyConfigAmount("invite_milestone_interval")
-	if err != nil || milestoneInterval <= 0 {
-		milestoneInterval = 5 // 默认每5个触发里程碑
-	}
+	// 里程碑间隔固定为5（第5、10、15...个触发）
+	const milestoneInterval = 5
 
 	milestoneReward, err := s.currencyService.GetCurrencyConfigAmount("invite_milestone_diamond")
 	if err != nil || milestoneReward <= 0 {

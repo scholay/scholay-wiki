@@ -1809,7 +1809,7 @@ const Settings = () => {
                   <line x1="12" y1="5" x2="12" y2="19"/>
                   <line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
-                充值钻石
+                充值钻石 (1元/个)
               </button>
             </div>
           </div>
@@ -1843,7 +1843,7 @@ const Settings = () => {
                   <span className="balance-value">{wallet?.diamond || 0}</span>
                 </div>
                 <div className="balance-hint">
-                  1钻石 = {exchangeRate}金币
+                  1元 = 1钻石 = {exchangeRate}金币
                 </div>
               </div>
             </div>
@@ -1864,6 +1864,14 @@ const Settings = () => {
                 </button>
               </div>
               <div className="exchange-modal-body">
+                <div className="exchange-notice">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                  </svg>
+                  <span>钻石可兑换金币，但金币无法兑换钻石</span>
+                </div>
                 <div className="exchange-rate-info">
                   <span className="rate-label">兑换比例</span>
                   <span className="rate-value">1 钻石 = {exchangeRate} 金币</span>

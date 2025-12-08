@@ -309,10 +309,9 @@ func (r *Repository) InitDefaultConfigs() error {
 		{ConfigKey: ConfigKeyCheckinAfter15, ConfigName: "连续签到15天后每日奖励", CurrencyType: CurrencyGold, Amount: 30, Category: "reward", Description: "连续签到超过15天后每天获得的金币奖励", Enabled: true},
 		// 奖励类配置 - 邀请
 		{ConfigKey: ConfigKeyInviteRewardDiamond, ConfigName: "邀请奖励钻石", CurrencyType: CurrencyDiamond, Amount: 1, Category: "reward", Description: "每成功邀请1个新用户获得的钻石奖励", Enabled: true},
-		{ConfigKey: ConfigKeyInviteMilestoneInterval, ConfigName: "邀请里程碑间隔", CurrencyType: CurrencyDiamond, Amount: 5, Category: "reward", Description: "每邀请N个用户触发里程碑奖励（如5表示第5、10、15...个）", Enabled: true},
-		{ConfigKey: ConfigKeyInviteMilestoneDiamond, ConfigName: "邀请里程碑奖励钻石", CurrencyType: CurrencyDiamond, Amount: 10, Category: "reward", Description: "达到邀请里程碑时额外获得的钻石奖励", Enabled: true},
+		{ConfigKey: ConfigKeyInviteMilestoneDiamond, ConfigName: "邀请里程碑奖励钻石", CurrencyType: CurrencyDiamond, Amount: 10, Category: "reward", Description: "每邀请满5个用户额外获得的钻石奖励（第5、10、15...个时触发）", Enabled: true},
 		// 充值配置
-		{ConfigKey: ConfigKeyDiamondPrice, ConfigName: "钻石单价", CurrencyType: CurrencyDiamond, Amount: 100, Category: "recharge", Description: "钻石单价，单位为分（100=1元/个钻石）", Enabled: true},
+		{ConfigKey: ConfigKeyDiamondPrice, ConfigName: "钻石单价(分)", CurrencyType: CurrencyDiamond, Amount: 100, Category: "recharge", Description: "每个钻石的人民币价格，单位为分。当前100分=1元，即1元购买1个钻石", Enabled: true},
 		// 兑换配置
 		{ConfigKey: ConfigKeyDiamondToGoldRate, ConfigName: "钻石兑换金币比例", CurrencyType: CurrencyGold, Amount: 100, Category: "exchange", Description: "1个钻石可兑换的金币数量", Enabled: true},
 		// 会员月度赠送配置

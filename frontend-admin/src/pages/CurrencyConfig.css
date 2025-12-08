@@ -122,6 +122,21 @@
   color: #991b1b;
 }
 
+.category-badge.recharge {
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  color: #92400e;
+}
+
+.category-badge.exchange {
+  background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+  color: #4338ca;
+}
+
+.category-badge.membership {
+  background: linear-gradient(135deg, #fce7f3, #fbcfe8);
+  color: #9d174d;
+}
+
 .category-badge.other {
   background: #f1f5f9;
   color: #475569;
@@ -212,6 +227,46 @@
   color: #94a3b8;
   margin-left: 4px;
   font-weight: 400;
+}
+
+/* Price special display */
+.price-value {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.price-hint {
+  font-size: 12px;
+  color: #10b981;
+  font-weight: 500;
+  background: #ecfdf5;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-left: 4px;
+}
+
+/* Edit amount wrapper */
+.edit-amount-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.edit-unit {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.edit-price-hint {
+  font-size: 12px;
+  color: #10b981;
+  font-weight: 500;
+  background: #ecfdf5;
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
 /* Status Badge */
