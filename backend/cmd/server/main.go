@@ -17,6 +17,7 @@ import (
 	"scholar-backend/internal/admin"
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/checkin"
+	"scholar-backend/internal/currency"
 	"scholar-backend/internal/feedback"
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/cleanup"
@@ -259,6 +260,21 @@ func main() {
 	checkinService := checkin.NewService(checkinRepo)
 	checkinHandler := checkin.NewHandler(checkinService)
 
+	// Initialize Currency module (货币系统)
+	currencyRepo := currency.NewRepository(database.GetDB(), cache.GetRedis())
+	currencyService := currency.NewService(currencyRepo)
+	currencyHandler := currency.NewHandler(currencyService)
+	currencyAdminHandler := currency.NewAdminHandler(currencyService)
+	currencyMiddleware := currency.NewDeductMiddleware(currencyService)
+	// 初始化默认货币配置
+	if err := currencyService.InitDefaultConfigs(); err != nil {
+		log.Printf("Warning: Failed to init currency configs: %v", err)
+	}
+	// Inject currency service into user service (for register gift)
+	userService.SetCurrencyService(currencyService)
+	// 将 currencyMiddleware 暴露给其他模块使用（如需要扣费的接口）
+	_ = currencyMiddleware // 后续使用
+
 	// Setup Gin router
 	router := gin.Default()
 
@@ -407,6 +423,18 @@ func main() {
 			adminProtected.PUT("/feedbacks/:id/status", feedbackHandler.UpdateStatus)
 			adminProtected.POST("/feedbacks/:id/reply", feedbackHandler.ReplyFeedback)
 			adminProtected.DELETE("/feedbacks/:id", feedbackHandler.DeleteFeedback)
+
+			// Currency management (Admin only) - 货币系统管理
+			adminProtected.POST("/currency/recharge", currencyAdminHandler.AdminRecharge)
+			adminProtected.POST("/currency/deduct", currencyAdminHandler.AdminDeduct)
+			adminProtected.GET("/currency/wallet/:user_id", currencyAdminHandler.GetUserWallet)
+			adminProtected.GET("/currency/deduct-configs", currencyAdminHandler.ListDeductConfigs)
+			adminProtected.POST("/currency/deduct-configs", currencyAdminHandler.SaveDeductConfig)
+			// 货币配置管理
+			adminProtected.GET("/currency/configs", currencyAdminHandler.ListCurrencyConfigs)
+			adminProtected.GET("/currency/configs/:key", currencyAdminHandler.GetCurrencyConfig)
+			adminProtected.PUT("/currency/configs/:key", currencyAdminHandler.UpdateCurrencyConfig)
+			adminProtected.POST("/currency/configs/init", currencyAdminHandler.InitDefaultConfigs)
 		}
 
 		// Payment callback routes (public, no auth required)
@@ -453,6 +481,12 @@ func main() {
 			userProtected.POST("/logout", userHandler.Logout)
 			userProtected.POST("/change-password", userHandler.ChangePassword)
 			userProtected.POST("/heartbeat", userHandler.Heartbeat)
+
+			// Wallet routes (钱包)
+			userProtected.GET("/wallet", currencyHandler.GetWallet)
+			userProtected.GET("/wallet/check", currencyHandler.CheckBalance)
+			userProtected.GET("/wallet/transactions", currencyHandler.ListTransactions)
+			userProtected.GET("/wallet/transactions/:transaction_no", currencyHandler.GetTransaction)
 
 			// Account availability check routes (protected)
 			userProtected.POST("/check-email-availability", userHandler.CheckEmailAvailability)

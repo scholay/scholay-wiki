@@ -223,6 +223,16 @@ const DashboardLayout = () => {
             反馈管理
           </a>
           <a
+            onClick={() => { navigate('/dashboard/currency-config'); setMobileMenuOpen(false); }}
+            className={`nav-item ${isActive('/dashboard/currency-config') ? 'active' : ''}`}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-1h2v1zm0-2H9V5h2v6z"/>
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"/>
+            </svg>
+            货币配置
+          </a>
+          <a
             onClick={() => { navigate('/dashboard/settings'); setMobileMenuOpen(false); }}
             className={`nav-item ${isActive('/dashboard/settings') ? 'active' : ''}`}
           >

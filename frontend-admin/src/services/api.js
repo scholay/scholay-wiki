@@ -355,6 +355,32 @@ export const adminAPI = {
 
   deleteFeedback: (id) =>
     api.delete(`/admin/feedbacks/${id}`),
+
+  // Currency configuration management
+  getCurrencyConfigs: (category = '') => {
+    const params = {};
+    if (category) params.category = category;
+    return api.get('/admin/currency/configs', { params });
+  },
+
+  getCurrencyConfig: (key) =>
+    api.get(`/admin/currency/configs/${key}`),
+
+  updateCurrencyConfig: (key, data) =>
+    api.put(`/admin/currency/configs/${key}`, data),
+
+  initCurrencyConfigs: () =>
+    api.post('/admin/currency/configs/init'),
+
+  // Currency wallet management
+  getUserWallet: (userId) =>
+    api.get(`/admin/currency/wallet/${userId}`),
+
+  rechargeUser: (data) =>
+    api.post('/admin/currency/recharge', data),
+
+  deductUser: (data) =>
+    api.post('/admin/currency/deduct', data),
 };
 
 export default api;

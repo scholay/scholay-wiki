@@ -1058,10 +1058,17 @@ CREATE TABLE IF NOT EXISTS `peer_review_files` (
   CONSTRAINT `fk_pr_file_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI审稿文件表';
 
--- 添加主稿件文件外键
-ALTER TABLE `peer_review_tasks` 
-  ADD CONSTRAINT `fk_pr_task_manuscript` FOREIGN KEY (`manuscript_file_id`) 
-  REFERENCES `peer_review_files` (`id`) ON DELETE SET NULL;
+-- 添加主稿件文件外键（如果不存在）
+SET @fk_exists = (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS 
+  WHERE CONSTRAINT_SCHEMA = DATABASE() 
+  AND TABLE_NAME = 'peer_review_tasks' 
+  AND CONSTRAINT_NAME = 'fk_pr_task_manuscript');
+SET @sql = IF(@fk_exists = 0, 
+  'ALTER TABLE `peer_review_tasks` ADD CONSTRAINT `fk_pr_task_manuscript` FOREIGN KEY (`manuscript_file_id`) REFERENCES `peer_review_files` (`id`) ON DELETE SET NULL',
+  'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- 独立审稿结果表（每个任务3条记录，对应3个审稿人）
 CREATE TABLE IF NOT EXISTS `peer_review_results` (
@@ -1183,3 +1190,79 @@ CREATE TABLE IF NOT EXISTS `user_checkin_stats` (
   CONSTRAINT `fk_checkin_stats_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户签到统计表';
 
+
+-- ============================================
+-- 货币系统表
+-- ============================================
+
+-- 用户钱包表
+CREATE TABLE IF NOT EXISTS `wallets` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+  `gold` BIGINT NOT NULL DEFAULT 0 COMMENT '金币余额',
+  `diamond` BIGINT NOT NULL DEFAULT 0 COMMENT '钻石余额',
+  `version` BIGINT NOT NULL DEFAULT 0 COMMENT '乐观锁版本号',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_user_id` (`user_id`),
+  CONSTRAINT `fk_wallet_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户钱包表';
+
+-- 货币交易流水表
+CREATE TABLE IF NOT EXISTS `currency_transactions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `transaction_no` VARCHAR(64) NOT NULL COMMENT '交易流水号',
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+  `currency_type` VARCHAR(20) NOT NULL COMMENT '货币类型: gold=金币, diamond=钻石',
+  `transaction_type` VARCHAR(20) NOT NULL COMMENT '交易类型: recharge=充值, deduct=扣费, refund=退款, gift=赠送, reward=奖励',
+  `amount` BIGINT NOT NULL COMMENT '交易金额（正数）',
+  `balance_before` BIGINT NOT NULL COMMENT '交易前余额',
+  `balance_after` BIGINT NOT NULL COMMENT '交易后余额',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '交易状态: pending=待处理, success=成功, failed=失败, cancelled=已取消',
+  `biz_type` VARCHAR(50) COMMENT '业务类型（如：peer_review, ai_chat）',
+  `biz_id` VARCHAR(100) COMMENT '业务ID',
+  `description` VARCHAR(500) COMMENT '交易描述',
+  `extra` TEXT COMMENT '扩展信息（JSON）',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_transaction_no` (`transaction_no`),
+  INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_currency_type` (`currency_type`),
+  INDEX `idx_transaction_type` (`transaction_type`),
+  INDEX `idx_biz_type` (`biz_type`),
+  INDEX `idx_created_at` (`created_at`),
+  CONSTRAINT `fk_transaction_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='货币交易流水表';
+
+-- 扣费配置表
+CREATE TABLE IF NOT EXISTS `currency_deduct_configs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `biz_type` VARCHAR(50) NOT NULL COMMENT '业务类型',
+  `currency_type` VARCHAR(20) NOT NULL COMMENT '货币类型: gold=金币, diamond=钻石',
+  `amount` BIGINT NOT NULL COMMENT '扣费金额',
+  `description` VARCHAR(200) COMMENT '描述',
+  `enabled` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '是否启用',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_biz_type` (`biz_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='扣费配置表';
+
+-- 货币系统配置表
+CREATE TABLE IF NOT EXISTS `currency_configs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `config_key` VARCHAR(50) NOT NULL COMMENT '配置键',
+  `config_name` VARCHAR(100) NOT NULL COMMENT '配置名称（中文）',
+  `currency_type` VARCHAR(20) NOT NULL COMMENT '货币类型: gold=金币, diamond=钻石',
+  `amount` BIGINT NOT NULL DEFAULT 0 COMMENT '金额',
+  `description` VARCHAR(500) COMMENT '描述说明',
+  `category` VARCHAR(50) COMMENT '分类：reward=奖励, cost=消耗',
+  `enabled` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '是否启用',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_config_key` (`config_key`),
+  INDEX `idx_category` (`category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='货币系统配置表';

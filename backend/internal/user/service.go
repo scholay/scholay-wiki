@@ -36,11 +36,19 @@ type CouponService interface {
 	DistributeRegisterCoupons(userID uint64) error
 }
 
+// CurrencyService interface for currency operations
+type CurrencyService interface {
+	GetCurrencyConfigAmount(configKey string) (int64, error)
+	GiftGold(ctx context.Context, userID uint, amount int64, bizType, bizID, desc string) error
+	EnsureWalletExists(userID uint) error
+}
+
 // Service handles business logic for user operations
 type Service struct {
-	repo          *Repository
-	configService ConfigService
-	couponService CouponService
+	repo            *Repository
+	configService   ConfigService
+	couponService   CouponService
+	currencyService CurrencyService
 }
 
 // NewService creates a new user service
@@ -65,6 +73,37 @@ func (s *Service) SetCouponService(couponService CouponService) {
 // GetCouponService returns the coupon service
 func (s *Service) GetCouponService() CouponService {
 	return s.couponService
+}
+
+// SetCurrencyService sets the currency service (for dependency injection)
+func (s *Service) SetCurrencyService(currencyService CurrencyService) {
+	s.currencyService = currencyService
+}
+
+// GiftRegisterGold 赠送注册金币
+func (s *Service) GiftRegisterGold(userID uint) {
+	if s.currencyService == nil {
+		return
+	}
+
+	// 获取注册赠送金币配置
+	amount, err := s.currencyService.GetCurrencyConfigAmount("register_gift_gold")
+	if err != nil || amount <= 0 {
+		return
+	}
+
+	// 确保钱包存在
+	if err := s.currencyService.EnsureWalletExists(userID); err != nil {
+		fmt.Printf("Failed to ensure wallet for user %d: %v\n", userID, err)
+		return
+	}
+
+	// 赠送金币
+	ctx := context.Background()
+	err = s.currencyService.GiftGold(ctx, userID, amount, "register_gift", fmt.Sprintf("user_%d", userID), "新用户注册赠送")
+	if err != nil {
+		fmt.Printf("Failed to gift register gold to user %d: %v\n", userID, err)
+	}
 }
 
 // GetSystemConfig gets the system configuration
@@ -228,6 +267,9 @@ func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitati
 			_ = s.couponService.DistributeRegisterCoupons(uint64(user.ID))
 		}()
 	}
+
+	// 赠送注册金币给新用户
+	go s.GiftRegisterGold(user.ID)
 
 	return user, token, nil
 }
@@ -1579,6 +1621,9 @@ func (s *Service) RegisterWithPhone(phone, password, code, invitationCode, ip st
 		}()
 	}
 
+	// 赠送注册金币给新用户
+	go s.GiftRegisterGold(user.ID)
+
 	return user, token, nil
 }
 
@@ -2238,6 +2283,9 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 			_ = s.couponService.DistributeRegisterCoupons(uint64(user.ID))
 		}()
 	}
+
+	// 赠送注册金币给新用户
+	go s.GiftRegisterGold(user.ID)
 
 	// Create auth provider entry
 	// Save nickname and avatar in provider_data
