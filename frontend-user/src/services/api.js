@@ -612,6 +612,7 @@ export const walletAPI = {
     };
     if (params.currencyType) queryParams.currency_type = params.currencyType;
     if (params.transactionType) queryParams.transaction_type = params.transactionType;
+    if (params.bizType) queryParams.biz_type = params.bizType;
     if (params.startTime) queryParams.start_time = params.startTime;
     if (params.endTime) queryParams.end_time = params.endTime;
     return api.get('/user/wallet/transactions', { params: queryParams });

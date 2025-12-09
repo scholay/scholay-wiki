@@ -83,6 +83,10 @@ const Settings = () => {
   const [transactionTotal, setTransactionTotal] = useState(0);
   const [transactionLoading, setTransactionLoading] = useState(false);
   const [transactionFilter, setTransactionFilter] = useState('all'); // all, gold, diamond
+  const [transactionBizFilter, setTransactionBizFilter] = useState('all'); // all, daily_checkin, register_gift, etc.
+  const [transactionDateRange, setTransactionDateRange] = useState({ start: '', end: '' });
+  const [transactionStats, setTransactionStats] = useState({ totalIncome: 0, totalExpense: 0 });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Exchange state - 兑换状态
   const [exchangeRate, setExchangeRate] = useState(100); // 1钻石=100金币
@@ -262,18 +266,45 @@ const Settings = () => {
   };
 
   // 获取交易流水
-  const fetchTransactions = async (page = 1, filter = transactionFilter) => {
+  const fetchTransactions = async (page = 1, filters = {}) => {
     try {
       setTransactionLoading(true);
+      const currencyType = filters.currencyType ?? transactionFilter;
+      const bizType = filters.bizType ?? transactionBizFilter;
+      const dateRange = filters.dateRange ?? transactionDateRange;
+      
       const params = { page, pageSize: 10 };
-      if (filter !== 'all') {
-        params.currencyType = filter;
+      if (currencyType !== 'all') {
+        params.currencyType = currencyType;
       }
+      if (bizType !== 'all') {
+        params.bizType = bizType; // 使用 biz_type 筛选业务类型
+      }
+      if (dateRange.start) {
+        params.startTime = dateRange.start + ' 00:00:00';
+      }
+      if (dateRange.end) {
+        params.endTime = dateRange.end + ' 23:59:59';
+      }
+      
       const response = await walletAPI.getTransactions(params);
       if (response.data.code === 0) {
-        setTransactions(response.data.data.transactions || []);
+        const txList = response.data.data.transactions || [];
+        setTransactions(txList);
         setTransactionTotal(response.data.data.total || 0);
         setTransactionPage(page);
+        
+        // 计算统计数据
+        let totalIncome = 0;
+        let totalExpense = 0;
+        txList.forEach(tx => {
+          if (tx.amount >= 0) {
+            totalIncome += tx.amount;
+          } else {
+            totalExpense += Math.abs(tx.amount);
+          }
+        });
+        setTransactionStats({ totalIncome, totalExpense });
       }
     } catch (error) {
       console.error('Failed to fetch transactions:', error);
@@ -282,10 +313,31 @@ const Settings = () => {
     }
   };
 
-  // 切换交易类型筛选
+  // 切换货币类型筛选
   const handleTransactionFilterChange = (filter) => {
     setTransactionFilter(filter);
-    fetchTransactions(1, filter);
+    fetchTransactions(1, { currencyType: filter });
+  };
+
+  // 切换业务类型筛选
+  const handleBizFilterChange = (bizType) => {
+    setTransactionBizFilter(bizType);
+    fetchTransactions(1, { bizType });
+  };
+
+  // 切换时间范围筛选
+  const handleDateRangeChange = (field, value) => {
+    const newRange = { ...transactionDateRange, [field]: value };
+    setTransactionDateRange(newRange);
+    fetchTransactions(1, { dateRange: newRange });
+  };
+
+  // 清除筛选条件
+  const handleClearFilters = () => {
+    setTransactionFilter('all');
+    setTransactionBizFilter('all');
+    setTransactionDateRange({ start: '', end: '' });
+    fetchTransactions(1, { currencyType: 'all', bizType: 'all', dateRange: { start: '', end: '' } });
   };
 
   // 获取兑换和充值信息
@@ -1713,13 +1765,20 @@ const Settings = () => {
         register_gift: '注册赠送',
         daily_checkin: '每日签到',
         invite_reward: '邀请奖励',
+        invite_milestone: '邀请里程碑奖励',
+        membership_gift: '会员赠送',
+        diamond_exchange: '钻石兑换金币',
+        diamond_to_gold: '钻石兑换金币',
+        diamond_recharge: '钻石充值',
         peer_review: 'AI审稿',
         ai_chat: 'AI对话',
         paper_analysis: '论文分析',
         admin_recharge: '管理员充值',
-        admin_deduct: '管理员扣除'
+        admin_deduct: '管理员扣除',
+        expired_clear: '过期清空',
+        refund: '退款'
       };
-      return labels[bizType] || bizType;
+      return labels[bizType] || bizType || '其他';
     };
 
     return (
@@ -1938,27 +1997,104 @@ const Settings = () => {
               </svg>
               交易流水
             </h3>
-            <div className="transaction-filters">
+            <div className="transaction-header-actions">
+              <div className="transaction-filters">
+                <button 
+                  className={`filter-btn ${transactionFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => handleTransactionFilterChange('all')}
+                >
+                  全部
+                </button>
+                <button 
+                  className={`filter-btn ${transactionFilter === 'gold' ? 'active' : ''}`}
+                  onClick={() => handleTransactionFilterChange('gold')}
+                >
+                  金币
+                </button>
+                <button 
+                  className={`filter-btn ${transactionFilter === 'diamond' ? 'active' : ''}`}
+                  onClick={() => handleTransactionFilterChange('diamond')}
+                >
+                  钻石
+                </button>
+              </div>
               <button 
-                className={`filter-btn ${transactionFilter === 'all' ? 'active' : ''}`}
-                onClick={() => handleTransactionFilterChange('all')}
+                className={`filter-toggle-btn ${showAdvancedFilters ? 'active' : ''}`}
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
               >
-                全部
-              </button>
-              <button 
-                className={`filter-btn ${transactionFilter === 'gold' ? 'active' : ''}`}
-                onClick={() => handleTransactionFilterChange('gold')}
-              >
-                金币
-              </button>
-              <button 
-                className={`filter-btn ${transactionFilter === 'diamond' ? 'active' : ''}`}
-                onClick={() => handleTransactionFilterChange('diamond')}
-              >
-                钻石
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                </svg>
+                筛选
               </button>
             </div>
           </div>
+
+          {/* 高级筛选面板 */}
+          {showAdvancedFilters && (
+            <div className="transaction-advanced-filters">
+              <div className="filter-row">
+                <div className="filter-group">
+                  <label>业务类型</label>
+                  <select 
+                    value={transactionBizFilter}
+                    onChange={(e) => handleBizFilterChange(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="all">全部类型</option>
+                    <option value="daily_checkin">每日签到</option>
+                    <option value="register_gift">注册赠送</option>
+                    <option value="invite_reward">邀请奖励</option>
+                    <option value="membership_gift">会员赠送</option>
+                    <option value="diamond_exchange">钻石兑换</option>
+                    <option value="peer_review">AI审稿</option>
+                    <option value="ai_chat">AI对话</option>
+                    <option value="paper_analysis">论文分析</option>
+                    <option value="admin_recharge">管理员充值</option>
+                    <option value="admin_deduct">管理员扣除</option>
+                  </select>
+                </div>
+                <div className="filter-group">
+                  <label>开始日期</label>
+                  <input 
+                    type="date" 
+                    value={transactionDateRange.start}
+                    onChange={(e) => handleDateRangeChange('start', e.target.value)}
+                    className="filter-date"
+                  />
+                </div>
+                <div className="filter-group">
+                  <label>结束日期</label>
+                  <input 
+                    type="date" 
+                    value={transactionDateRange.end}
+                    onChange={(e) => handleDateRangeChange('end', e.target.value)}
+                    className="filter-date"
+                  />
+                </div>
+                <button className="filter-clear-btn" onClick={handleClearFilters}>
+                  清除筛选
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 统计信息 */}
+          {transactions.length > 0 && (
+            <div className="transaction-stats">
+              <div className="stat-item income">
+                <span className="stat-label">本页收入</span>
+                <span className="stat-value">+{transactionStats.totalIncome}</span>
+              </div>
+              <div className="stat-item expense">
+                <span className="stat-label">本页支出</span>
+                <span className="stat-value">-{transactionStats.totalExpense}</span>
+              </div>
+              <div className="stat-item total">
+                <span className="stat-label">共 {transactionTotal} 条记录</span>
+              </div>
+            </div>
+          )}
 
           {transactionLoading ? (
             <div className="transaction-loading">
@@ -1992,7 +2128,10 @@ const Settings = () => {
                       <span className={`transaction-amount ${tx.amount >= 0 ? 'positive' : 'negative'}`}>
                         {tx.amount >= 0 ? '+' : ''}{tx.amount}
                       </span>
-                      <span className="transaction-balance">余额: {tx.after_balance}</span>
+                      <span className="transaction-balance">
+                        余额: <strong>{tx.balance_after}</strong>
+                        {tx.currency_type === 'gold' ? ' 金币' : ' 钻石'}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -2027,6 +2166,11 @@ const Settings = () => {
                 <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
               </svg>
               <p>暂无交易记录</p>
+              {(transactionFilter !== 'all' || transactionBizFilter !== 'all' || transactionDateRange.start || transactionDateRange.end) && (
+                <button className="btn-clear-filter" onClick={handleClearFilters}>
+                  清除筛选条件
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -1740,9 +1740,199 @@
   opacity: 0.7;
 }
 
+.transaction-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .transaction-filters {
   display: flex;
   gap: 8px;
+}
+
+.filter-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.filter-toggle-btn.active {
+  background: rgba(16, 163, 127, 0.15);
+  border-color: rgba(16, 163, 127, 0.3);
+  color: #10a37f;
+}
+
+/* 高级筛选面板 */
+.transaction-advanced-filters {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.filter-group label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 500;
+}
+
+.filter-select,
+.filter-date {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  font-size: 13px;
+  outline: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.filter-select:hover,
+.filter-date:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.filter-select:focus,
+.filter-date:focus {
+  border-color: rgba(16, 163, 127, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.filter-select option {
+  background: #1a1a1a;
+  color: white;
+}
+
+.filter-date::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.6;
+}
+
+.filter-clear-btn {
+  padding: 8px 16px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+/* 统计信息 */
+.transaction-stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.stat-item.income {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.stat-item.income .stat-value {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.stat-item.expense {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.stat-item.expense .stat-value {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.stat-item.total {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stat-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.stat-value {
+  color: white;
+}
+
+.btn-clear-filter {
+  margin-top: 12px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-clear-filter:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
 }
 
 .filter-btn {
@@ -1887,8 +2077,13 @@
 }
 
 .transaction-balance {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.transaction-balance strong {
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
 }
 
 .empty-transaction {
@@ -2107,6 +2302,102 @@
   color: #9ca3af;
 }
 
+[data-theme="light"] .transaction-balance strong {
+  color: #374151;
+}
+
+[data-theme="light"] .filter-toggle-btn {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #6b7280;
+}
+
+[data-theme="light"] .filter-toggle-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #374151;
+}
+
+[data-theme="light"] .filter-toggle-btn.active {
+  background: rgba(16, 163, 127, 0.12);
+  border-color: rgba(16, 163, 127, 0.25);
+  color: #10a37f;
+}
+
+[data-theme="light"] .transaction-advanced-filters {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .filter-group label {
+  color: #6b7280;
+}
+
+[data-theme="light"] .filter-select,
+[data-theme="light"] .filter-date {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #1f2937;
+}
+
+[data-theme="light"] .filter-select:hover,
+[data-theme="light"] .filter-date:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .filter-select:focus,
+[data-theme="light"] .filter-date:focus {
+  border-color: rgba(16, 163, 127, 0.4);
+}
+
+[data-theme="light"] .filter-select option {
+  background: white;
+  color: #1f2937;
+}
+
+[data-theme="light"] .filter-date::-webkit-calendar-picker-indicator {
+  filter: none;
+  opacity: 0.6;
+}
+
+[data-theme="light"] .filter-clear-btn {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+[data-theme="light"] .stat-item.income {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+[data-theme="light"] .stat-item.expense {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+[data-theme="light"] .stat-item.total {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .stat-label {
+  color: #6b7280;
+}
+
+[data-theme="light"] .stat-value {
+  color: #1f2937;
+}
+
+[data-theme="light"] .btn-clear-filter {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #6b7280;
+}
+
+[data-theme="light"] .btn-clear-filter:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #374151;
+}
+
 [data-theme="light"] .empty-transaction {
   background: linear-gradient(135deg, 
     rgba(255, 255, 255, 0.95) 0%, 
@@ -2127,6 +2418,45 @@
   .transaction-section-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .transaction-header-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .transaction-filters {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .filter-row {
+    flex-direction: column;
+  }
+
+  .filter-group {
+    width: 100%;
+  }
+
+  .filter-select,
+  .filter-date {
+    width: 100%;
+  }
+
+  .filter-clear-btn {
+    width: 100%;
+  }
+
+  .transaction-stats {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .stat-item {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .transaction-item {

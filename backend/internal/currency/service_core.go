@@ -72,17 +72,13 @@ func (s *Service) doTransaction(
 	}
 
 	// 6. 创建交易记录
-	amount := delta
-	if amount < 0 {
-		amount = -amount // 存储正数金额
-	}
-
+	// 保留 delta 的正负号，正数表示收入，负数表示支出
 	transaction := &Transaction{
 		TransactionNo:   generateTransactionNo(),
 		UserID:          userID,
 		CurrencyType:    currencyType,
 		TransactionType: txType,
-		Amount:          amount,
+		Amount:          delta, // 保留正负号：正数=收入，负数=支出
 		BalanceBefore:   balanceBefore,
 		BalanceAfter:    balanceAfter,
 		Status:          TxStatusPending,
