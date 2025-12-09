@@ -113,6 +113,9 @@ api.interceptors.response.use(
           processQueue(null, newToken);
           originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
           return api(originalRequest);
+        } else {
+          // 刷新 Token 业务失败（code !== 0），也需要登出
+          throw new Error(response.data.message || '刷新登录状态失败');
         }
       } catch (refreshError) {
         processQueue(refreshError, null);
@@ -122,7 +125,7 @@ api.interceptors.response.use(
         
         // 根据错误码区分不同的情况
         const errorCode = refreshError.response?.data?.code;
-        const errorMessage = refreshError.response?.data?.message;
+        const errorMessage = refreshError.response?.data?.message || refreshError.message;
         let message = '登录已失效，请重新登录';
         let reason = 'expired'; // 默认原因：过期
         

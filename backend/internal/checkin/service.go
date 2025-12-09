@@ -38,20 +38,31 @@ func (s *Service) SetCurrencyService(cs CurrencyService) {
 	s.currencyService = cs
 }
 
-// GetTodayDateString returns today's date in YYYY-MM-DD format
+// getLocalLocation 获取本地时区（Asia/Shanghai）
+func getLocalLocation() *time.Location {
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		// 如果加载失败，使用本地时区
+		return time.Local
+	}
+	return loc
+}
+
+// GetTodayDateString returns today's date in YYYY-MM-DD format (using Asia/Shanghai timezone)
 func GetTodayDateString() string {
-	return time.Now().Format("2006-01-02")
+	return time.Now().In(getLocalLocation()).Format("2006-01-02")
 }
 
-// GetTodayTime returns today's date as time.Time (at midnight)
+// GetTodayTime returns today's date as time.Time (at midnight, using Asia/Shanghai timezone)
 func GetTodayTime() time.Time {
-	now := time.Now()
-	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	loc := getLocalLocation()
+	now := time.Now().In(loc)
+	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 }
 
-// GetYesterdayDateString returns yesterday's date in YYYY-MM-DD format
+// GetYesterdayDateString returns yesterday's date in YYYY-MM-DD format (using Asia/Shanghai timezone)
 func GetYesterdayDateString() string {
-	return time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	return time.Now().In(getLocalLocation()).AddDate(0, 0, -1).Format("2006-01-02")
 }
 
 // Checkin performs daily check-in for a user

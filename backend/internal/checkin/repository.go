@@ -26,7 +26,8 @@ func NewRepository(db *gorm.DB) *Repository {
 // GetTodayCheckin gets today's check-in record for a user
 func (r *Repository) GetTodayCheckin(userID uint, today string) (*UserCheckin, error) {
 	var checkin UserCheckin
-	err := r.db.Where("user_id = ? AND checkin_date = ?", userID, today).First(&checkin).Error
+	// 使用 DATE() 函数确保日期比较正确
+	err := r.db.Where("user_id = ? AND DATE(checkin_date) = ?", userID, today).First(&checkin).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -80,7 +81,8 @@ func (r *Repository) UpdateUserStats(stats *UserCheckinStats) error {
 // GetCheckinHistory gets user's check-in history
 func (r *Repository) GetCheckinHistory(userID uint, startDate, endDate string) ([]UserCheckin, error) {
 	var checkins []UserCheckin
-	err := r.db.Where("user_id = ? AND checkin_date BETWEEN ? AND ?", userID, startDate, endDate).
+	// 使用 DATE() 函数确保日期比较正确
+	err := r.db.Where("user_id = ? AND DATE(checkin_date) BETWEEN ? AND ?", userID, startDate, endDate).
 		Order("checkin_date DESC").
 		Find(&checkins).Error
 	return checkins, err
@@ -89,11 +91,16 @@ func (r *Repository) GetCheckinHistory(userID uint, startDate, endDate string) (
 // GetCheckinCountInMonth gets the number of check-ins in a specific month
 func (r *Repository) GetCheckinCountInMonth(userID uint, year int, month int) (int64, error) {
 	var count int64
-	startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
+	// 使用 Asia/Shanghai 时区
+	loc, _ := time.LoadLocation("Asia/Shanghai")
+	if loc == nil {
+		loc = time.Local
+	}
+	startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, loc)
 	endDate := startDate.AddDate(0, 1, 0).Add(-time.Second)
 	
 	err := r.db.Model(&UserCheckin{}).
-		Where("user_id = ? AND checkin_date BETWEEN ? AND ?", userID, startDate.Format("2006-01-02"), endDate.Format("2006-01-02")).
+		Where("user_id = ? AND DATE(checkin_date) BETWEEN ? AND ?", userID, startDate.Format("2006-01-02"), endDate.Format("2006-01-02")).
 		Count(&count).Error
 	return count, err
 }

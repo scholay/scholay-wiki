@@ -20,6 +20,7 @@ const DashboardLayout = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [couponMenuOpen, setCouponMenuOpen] = useState(false);
+  const [businessDataMenuOpen, setBusinessDataMenuOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
     newPassword: '',
@@ -184,35 +185,56 @@ const DashboardLayout = () => {
             </svg>
             第三方账号
           </a>
-          <a
-            onClick={() => { navigate('/dashboard/prompt-templates'); setMobileMenuOpen(false); }}
-            className={`nav-item ${isActive('/dashboard/prompt-templates') ? 'active' : ''}`}
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"/>
-              <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"/>
-            </svg>
-            提示词模板
-          </a>
-          <a
-            onClick={() => { navigate('/dashboard/subscription-plans'); setMobileMenuOpen(false); }}
-            className={`nav-item ${isActive('/dashboard/subscription-plans') ? 'active' : ''}`}
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/>
-              <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd"/>
-            </svg>
-            套餐管理
-          </a>
-          <a
-            onClick={() => { navigate('/dashboard/default-business-data'); setMobileMenuOpen(false); }}
-            className={`nav-item ${isActive('/dashboard/default-business-data') ? 'active' : ''}`}
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"/>
-            </svg>
-            默认业务数据
-          </a>
+          {/* 业务数据 - 子菜单 */}
+          <div className="nav-group">
+            <a
+              onClick={() => setBusinessDataMenuOpen(!businessDataMenuOpen)}
+              className={`nav-item ${(isActive('/dashboard/default-business-data') || isActive('/dashboard/prompt-templates') || isActive('/dashboard/currency-config') || isActive('/dashboard/subscription-plans')) ? 'active' : ''}`}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"/>
+              </svg>
+              <span>业务数据</span>
+              <svg
+                className={`submenu-arrow ${businessDataMenuOpen ? 'open' : ''}`}
+                width="16"
+                height="16"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+              </svg>
+            </a>
+            {businessDataMenuOpen && (
+              <div className="submenu">
+                <a
+                  onClick={() => { navigate('/dashboard/subscription-plans'); setMobileMenuOpen(false); }}
+                  className={`submenu-item ${isActive('/dashboard/subscription-plans') ? 'active' : ''}`}
+                >
+                  套餐管理
+                </a>
+                <a
+                  onClick={() => { navigate('/dashboard/default-business-data'); setMobileMenuOpen(false); }}
+                  className={`submenu-item ${isActive('/dashboard/default-business-data') ? 'active' : ''}`}
+                >
+                  分析维度
+                </a>
+                <a
+                  onClick={() => { navigate('/dashboard/prompt-templates'); setMobileMenuOpen(false); }}
+                  className={`submenu-item ${isActive('/dashboard/prompt-templates') ? 'active' : ''}`}
+                >
+                  提示词模板
+                </a>
+                <a
+                  onClick={() => { navigate('/dashboard/currency-config'); setMobileMenuOpen(false); }}
+                  className={`submenu-item ${isActive('/dashboard/currency-config') ? 'active' : ''}`}
+                >
+                  货币配置
+                </a>
+              </div>
+            )}
+          </div>
+
           <a
             onClick={() => { navigate('/dashboard/feedbacks'); setMobileMenuOpen(false); }}
             className={`nav-item ${isActive('/dashboard/feedbacks') ? 'active' : ''}`}
@@ -221,16 +243,6 @@ const DashboardLayout = () => {
               <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd"/>
             </svg>
             反馈管理
-          </a>
-          <a
-            onClick={() => { navigate('/dashboard/currency-config'); setMobileMenuOpen(false); }}
-            className={`nav-item ${isActive('/dashboard/currency-config') ? 'active' : ''}`}
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-1h2v1zm0-2H9V5h2v6z"/>
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"/>
-            </svg>
-            货币配置
           </a>
           <a
             onClick={() => { navigate('/dashboard/settings'); setMobileMenuOpen(false); }}

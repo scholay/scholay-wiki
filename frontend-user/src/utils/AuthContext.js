@@ -332,13 +332,27 @@ export const AuthProvider = ({ children }) => {
               
               // 验证成功后启动心跳（Token 可能已被刷新）
               startHeartbeat();
+            } else {
+              // API 返回成功但业务失败，清除登录状态
+              console.log('Profile API returned error, clearing auth state');
+              localStorage.removeItem('user_token');
+              localStorage.removeItem('user_data');
+              setIsAuthenticated(false);
+              setUser(null);
             }
           } catch (error) {
             // 如果获取用户信息失败（包括 Token 刷新失败），
             // API 拦截器会处理登出逻辑
             console.error('Failed to refresh user data on init:', error);
-            // 如果不是 401 错误，可能是网络问题，仍然保持登录状态
-            if (error.response?.status !== 401) {
+            // 如果是 401 错误，清除登录状态（API 拦截器可能已经处理，但这里确保状态一致）
+            if (error.response?.status === 401) {
+              console.log('Auth failed (401), clearing auth state');
+              localStorage.removeItem('user_token');
+              localStorage.removeItem('user_data');
+              setIsAuthenticated(false);
+              setUser(null);
+            } else {
+              // 其他错误（如网络问题），仍然保持登录状态
               startHeartbeat();
             }
           }
