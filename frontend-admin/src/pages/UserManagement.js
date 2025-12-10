@@ -294,33 +294,33 @@ const UserManagement = () => {
   // 获取排序图标
   const getSortIcon = (field) => {
     if (sortConfig.sortBy !== field) {
-      return <span className="sort-icon">↕</span>;
+      return <span className="um-sort-icon">↕</span>;
     }
     return sortConfig.sortOrder === 'desc' 
-      ? <span className="sort-icon active">↓</span> 
-      : <span className="sort-icon active">↑</span>;
+      ? <span className="um-sort-icon active">↓</span> 
+      : <span className="um-sort-icon active">↑</span>;
   };
 
   const getUserStatusLabel = (status) => {
     switch (status) {
       case 1:
-        return <span className="status-badge status-active">正常</span>;
+        return <span className="um-status-badge um-status-active">正常</span>;
       case 0:
-        return <span className="status-badge status-inactive">未激活</span>;
+        return <span className="um-status-badge um-status-inactive">未激活</span>;
       case 2:
-        return <span className="status-badge status-suspended">已封禁</span>;
+        return <span className="um-status-badge um-status-suspended">已封禁</span>;
       default:
-        return <span className="status-badge">未知</span>;
+        return <span className="um-status-badge">未知</span>;
     }
   };
 
   // 渲染联系方式列（包含邮箱、手机号、微信、GitHub）
   const renderSubscriptionPlan = (subscription) => {
     if (!subscription) {
-      return <span className="plan-badge plan-free">免费</span>;
+      return <span className="um-plan-badge um-plan-free">免费</span>;
     }
 
-    const planClass = `plan-badge plan-${subscription.plan_code}`;
+    const planClass = `um-plan-badge um-plan-${subscription.plan_code.toLowerCase()}`;
     return (
       <span className={planClass}>
         {subscription.plan_name || subscription.plan_code}
@@ -330,39 +330,39 @@ const UserManagement = () => {
 
   const renderSubscriptionExpiry = (subscription) => {
     if (!subscription || !subscription.end_date) {
-      return <span className="expiry-none">-</span>;
+      return <span className="um-expiry-none">-</span>;
     }
 
     const endDate = new Date(subscription.end_date);
     const remainingDays = subscription.remaining_days;
 
-    let expiryClass = 'expiry-normal';
+    let expiryClass = 'um-expiry-normal';
     let warningIcon = null;
 
     if (remainingDays <= 0) {
-      expiryClass = 'expiry-expired';
+      expiryClass = 'um-expiry-expired';
       warningIcon = '❌';
     } else if (remainingDays <= 3) {
-      expiryClass = 'expiry-critical';
+      expiryClass = 'um-expiry-critical';
       warningIcon = '🔴';
     } else if (remainingDays <= 7) {
-      expiryClass = 'expiry-warning';
+      expiryClass = 'um-expiry-warning';
       warningIcon = '⚠️';
     } else if (remainingDays <= 30) {
-      expiryClass = 'expiry-soon';
+      expiryClass = 'um-expiry-soon';
     }
 
     return (
-      <div className={`subscription-expiry ${expiryClass}`}>
-        <div className="expiry-date">
-          {warningIcon && <span className="expiry-icon">{warningIcon}</span>}
+      <div className={`um-subscription-expiry ${expiryClass}`}>
+        <div className="um-expiry-date">
+          {warningIcon && <span className="um-expiry-icon">{warningIcon}</span>}
           {endDate.toLocaleDateString('zh-CN')}
         </div>
-        <div className="expiry-days">
+        <div className="um-expiry-days">
           剩余 {remainingDays} 天
         </div>
         {subscription.auto_renew && (
-          <div className="expiry-auto-renew">自动续费</div>
+          <div className="um-expiry-auto-renew">自动续费</div>
         )}
       </div>
     );
@@ -373,55 +373,55 @@ const UserManagement = () => {
 
     if (user.email) {
       contactInfo.push(
-        <div key="email" className="contact-info-detail">
-          <span className="info-label">邮箱:</span> {user.email}
+        <div key="email" className="um-contact-info-detail">
+          <span className="um-info-label">邮箱:</span> {user.email}
         </div>
       );
     }
     if (user.phone) {
       contactInfo.push(
-        <div key="phone" className="contact-info-detail">
-          <span className="info-label">手机:</span> {user.phone}
+        <div key="phone" className="um-contact-info-detail">
+          <span className="um-info-label">手机:</span> {user.phone}
         </div>
       );
     }
     if (user.wechat_name) {
       contactInfo.push(
-        <div key="wechat_name" className="contact-info-detail">
-          <span className="info-label">微信:</span> {user.wechat_name}
+        <div key="wechat_name" className="um-contact-info-detail">
+          <span className="um-info-label">微信:</span> {user.wechat_name}
         </div>
       );
     } else if (user.wechat_openid) {
       contactInfo.push(
-        <div key="wechat_openid" className="contact-info-detail">
-          <span className="info-label">微信:</span> 微信用户
+        <div key="wechat_openid" className="um-contact-info-detail">
+          <span className="um-info-label">微信:</span> 微信用户
         </div>
       );
     }
     if (user.wechat_union_id) {
       contactInfo.push(
-        <div key="wechat_union_id" className="contact-info-detail">
-          <span className="info-label">UnionID:</span> {user.wechat_union_id}
+        <div key="wechat_union_id" className="um-contact-info-detail">
+          <span className="um-info-label">UnionID:</span> {user.wechat_union_id}
         </div>
       );
     }
     if (user.github_login) {
       contactInfo.push(
-        <div key="github_login" className="contact-info-detail">
-          <span className="info-label">GitHub:</span> {user.github_login}
+        <div key="github_login" className="um-contact-info-detail">
+          <span className="um-info-label">GitHub:</span> {user.github_login}
         </div>
       );
     }
 
     if (contactInfo.length === 0) {
-      return <span className="empty-contact">-</span>;
+      return <span className="um-empty-contact">-</span>;
     }
 
     return (
-      <div className="contact-info-cell">
+      <div className="um-contact-info-cell">
         {contactInfo.map((info, index) => (
           <React.Fragment key={index}>
-            {index > 0 && <div className="contact-info-divider"></div>}
+            {index > 0 && <div className="um-contact-info-divider"></div>}
             {info}
           </React.Fragment>
         ))}
@@ -432,7 +432,7 @@ const UserManagement = () => {
   const totalPages = Math.ceil(pagination.total / pagination.pageSize);
 
   return (
-    <div className="user-management-container">
+    <div className="um-container">
       <div className="page-header">
         <h1>用户管理</h1>
         <p>查看和管理注册用户</p>
@@ -511,7 +511,7 @@ const UserManagement = () => {
       </div>
 
       {/* Charts Section */}
-      <div className="charts-section">
+      <div className="um-charts-section">
         <div className="chart-card">
           <div className="chart-header">
             <h3>用户注册趋势</h3>
@@ -544,7 +544,7 @@ const UserManagement = () => {
       </div>
 
       {/* User List */}
-      <div className="user-table-container">
+      <div className="um-table-container">
         {loading ? (
           <div className="loading-container">
             <span className="spinner"></span>
@@ -554,7 +554,7 @@ const UserManagement = () => {
           <>
             {activeView === 'list' && (
               <>
-                <table className="user-table">
+                <table className="um-table">
                   <thead>
                     <tr>
                       <th>用户</th>
@@ -563,13 +563,13 @@ const UserManagement = () => {
                       <th>邀请者</th>
                       <th>状态</th>
                       <th 
-                        className="sortable-header"
+                        className="um-sortable-header"
                         onClick={() => handleSort('last_login_at')}
                       >
                         最后登录 {getSortIcon('last_login_at')}
                       </th>
                       <th 
-                        className="sortable-header"
+                        className="um-sortable-header"
                         onClick={() => handleSort('created_at')}
                       >
                         注册时间 {getSortIcon('created_at')}
@@ -582,42 +582,42 @@ const UserManagement = () => {
                       users.map(user => (
                         <tr key={user.id}>
                           <td>
-                            <div className="user-info-cell">
-                              <span className="user-id">#{user.id}</span>
-                              <span className="user-name">{user.username || '-'}</span>
+                            <div className="um-user-info-cell">
+                              <span className="um-user-id">#{user.id}</span>
+                              <span className="um-user-name">{user.username || '-'}</span>
                             </div>
                           </td>
-                          <td className="contact-info-td">{renderContactInfo(user)}</td>
+                          <td className="um-contact-info-td">{renderContactInfo(user)}</td>
                           <td>
-                            <div className="subscription-info-cell">
+                            <div className="um-subscription-info-cell">
                               {renderSubscriptionPlan(user.subscription)}
                               {renderSubscriptionExpiry(user.subscription)}
                             </div>
                           </td>
                           <td>
                             {user.invited_by ? (
-                              <div className="inviter-info-cell">
-                                <span className="inviter-id">#{user.invited_by.user_id}</span>
-                                <span className="inviter-name">{user.invited_by.username || '-'}</span>
+                              <div className="um-inviter-info-cell">
+                                <span className="um-inviter-id">#{user.invited_by.user_id}</span>
+                                <span className="um-inviter-name">{user.invited_by.username || '-'}</span>
                               </div>
                             ) : (
-                              <span className="no-inviter">-</span>
+                              <span className="um-no-inviter">-</span>
                             )}
                           </td>
                           <td>{getUserStatusLabel(user.status)}</td>
                           <td>
-                            <div className="login-info-cell">
+                            <div className="um-login-info-cell">
                               <div 
-                                className="relative-time" 
+                                className="um-relative-time" 
                                 title={formatDate(user.last_login_at)}
                               >
                                 {formatRelativeTime(user.last_login_at)}
                               </div>
                               {user.last_login_ip && (
-                                <div className="ip-location-cell">
-                                  <div className="ip-address">{user.last_login_ip}</div>
+                                <div className="um-ip-location-cell">
+                                  <div className="um-ip-address">{user.last_login_ip}</div>
                                   {user.last_login_ip_info && (
-                                    <div className="location-info">{user.last_login_ip_info}</div>
+                                    <div className="um-location-info">{user.last_login_ip_info}</div>
                                   )}
                                 </div>
                               )}
@@ -625,16 +625,16 @@ const UserManagement = () => {
                           </td>
                           <td>
                             <div 
-                              className="relative-time" 
+                              className="um-relative-time" 
                               title={formatDate(user.created_at)}
                             >
                               {formatRelativeTime(user.created_at)}
                             </div>
                           </td>
                           <td>
-                            <div className="action-buttons">
+                            <div className="um-action-buttons">
                               <button
-                                className="action-btn view-btn"
+                                className="um-action-btn um-view-btn"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   e.preventDefault();
@@ -645,7 +645,7 @@ const UserManagement = () => {
                                 详情
                               </button>
                               <button
-                                className="action-btn grant-btn"
+                                className="um-action-btn um-grant-btn"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   e.preventDefault();
@@ -656,7 +656,7 @@ const UserManagement = () => {
                                 会员
                               </button>
                               <button
-                                className="action-btn currency-btn"
+                                className="um-action-btn um-currency-btn"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   e.preventDefault();
@@ -667,7 +667,7 @@ const UserManagement = () => {
                                 货币
                               </button>
                               <button
-                                className="action-btn delete-btn"
+                                className="um-action-btn um-delete-btn"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   e.preventDefault();
@@ -715,7 +715,7 @@ const UserManagement = () => {
             )}
 
             {activeView === 'online' && (
-              <table className="user-table">
+              <table className="um-table">
                 <thead>
                   <tr>
                     <th>ID</th>
@@ -735,15 +735,15 @@ const UserManagement = () => {
                         <td>{user.username || '-'}</td>
                         <td>{formatDate(user.last_activity)}</td>
                         <td>
-                          <div className="ip-location-cell">
-                            <div className="ip-address">{user.ip || '-'}</div>
+                          <div className="um-ip-location-cell">
+                            <div className="um-ip-address">{user.ip || '-'}</div>
                             {user.location && (
-                              <div className="location-info">{user.location}</div>
+                              <div className="um-location-info">{user.location}</div>
                             )}
                           </div>
                         </td>
                         <td>
-                          <div className="device-info-cell">
+                          <div className="um-device-info-cell">
                             {user.device || '-'}
                           </div>
                         </td>
@@ -770,10 +770,10 @@ const UserManagement = () => {
             </div>
             <div className="modal-body">
               <p>您确定要删除用户 <strong>{deleteConfirm.userEmail}</strong> 吗？</p>
-              <p className="warning-text">
+              <p className="um-warning-text">
                 ⚠️ 此操作将删除该用户的所有数据（除统计数据外），包括：
               </p>
-              <ul className="delete-list">
+              <ul className="um-delete-list">
                 <li>用户账号信息</li>
                 <li>登录认证信息</li>
                 <li>会话记录</li>
@@ -782,7 +782,7 @@ const UserManagement = () => {
                 <li>订单和支付记录</li>
                 <li>使用配额记录</li>
               </ul>
-              <p className="warning-text">此操作<strong>不可撤销</strong>！</p>
+              <p className="um-warning-text">此操作<strong>不可撤销</strong>！</p>
             </div>
             <div className="modal-footer">
               <button className="modal-btn cancel-btn" onClick={handleDeleteCancel}>
@@ -807,19 +807,19 @@ const UserManagement = () => {
       {/* Grant Subscription Modal */}
       {grantModal.show && (
         <div className="modal-overlay" onClick={handleGrantCancel}>
-          <div className="modal-content grant-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content um-grant-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>发放会员套餐</h3>
             </div>
             <div className="modal-body">
               <p>为用户 <strong>{grantModal.user?.email || grantModal.user?.username || `ID: ${grantModal.user?.id}`}</strong> 发放会员套餐</p>
               
-              <div className="form-group">
+              <div className="um-form-group">
                 <label>选择套餐</label>
                 <select
                   value={grantForm.planCode}
                   onChange={(e) => setGrantForm({ ...grantForm, planCode: e.target.value })}
-                  className="form-select"
+                  className="um-form-select"
                 >
                   <option value="">请选择套餐</option>
                   {subscriptionPlans.map(plan => (
@@ -830,10 +830,10 @@ const UserManagement = () => {
                 </select>
               </div>
 
-              <div className="form-group">
+              <div className="um-form-group">
                 <label>计费周期</label>
-                <div className="radio-group">
-                  <label className="radio-label">
+                <div className="um-radio-group">
+                  <label className="um-radio-label">
                     <input
                       type="radio"
                       name="billingCycle"
@@ -843,7 +843,7 @@ const UserManagement = () => {
                     />
                     <span>月付（1个月）</span>
                   </label>
-                  <label className="radio-label">
+                  <label className="um-radio-label">
                     <input
                       type="radio"
                       name="billingCycle"
@@ -856,19 +856,19 @@ const UserManagement = () => {
                 </div>
               </div>
 
-              <div className="form-group">
+              <div className="um-form-group">
                 <label>发放原因（选填）</label>
                 <textarea
                   value={grantForm.reason}
                   onChange={(e) => setGrantForm({ ...grantForm, reason: e.target.value })}
-                  className="form-textarea"
+                  className="um-form-textarea"
                   placeholder="例如：活动赠送、客服补偿、测试账号等"
                   rows={3}
                 />
               </div>
 
-              <div className="grant-info-box">
-                <p className="info-title">📋 发放说明</p>
+              <div className="um-grant-info-box">
+                <p className="um-info-title">📋 发放说明</p>
                 <ul>
                   <li>系统将创建一笔订单记录，支付方式为"系统发放"</li>
                   <li>订单金额显示为套餐原价，折扣为100%，实付金额为0</li>
@@ -882,7 +882,7 @@ const UserManagement = () => {
                 取消
               </button>
               <button 
-                className="modal-btn confirm-btn primary-btn" 
+                className="modal-btn confirm-btn um-primary-btn" 
                 onClick={handleGrantConfirm}
                 disabled={grantLoading || !grantForm.planCode}
               >
@@ -896,60 +896,60 @@ const UserManagement = () => {
       {/* Currency Grant Modal - 发放货币弹窗 */}
       {currencyModal.show && (
         <div className="modal-overlay" onClick={handleCurrencyCancel}>
-          <div className="modal-content currency-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content um-currency-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>发放金币/钻石</h3>
             </div>
             <div className="modal-body">
               <p>为用户 <strong>{currencyModal.user?.email || currencyModal.user?.username || `ID: ${currencyModal.user?.id}`}</strong> 发放货币</p>
               
-              <div className="form-group">
+              <div className="um-form-group">
                 <label>货币类型</label>
-                <div className="currency-type-selector">
+                <div className="um-currency-type-selector">
                   <button
                     type="button"
-                    className={`currency-type-btn gold ${currencyForm.currencyType === 'gold' ? 'active' : ''}`}
+                    className={`um-currency-type-btn gold ${currencyForm.currencyType === 'gold' ? 'active' : ''}`}
                     onClick={() => setCurrencyForm({ ...currencyForm, currencyType: 'gold' })}
                   >
-                    <span className="currency-icon">🪙</span>
+                    <span className="um-currency-icon">🪙</span>
                     <span>金币</span>
                   </button>
                   <button
                     type="button"
-                    className={`currency-type-btn diamond ${currencyForm.currencyType === 'diamond' ? 'active' : ''}`}
+                    className={`um-currency-type-btn diamond ${currencyForm.currencyType === 'diamond' ? 'active' : ''}`}
                     onClick={() => setCurrencyForm({ ...currencyForm, currencyType: 'diamond' })}
                   >
-                    <span className="currency-icon">💎</span>
+                    <span className="um-currency-icon">💎</span>
                     <span>钻石</span>
                   </button>
                 </div>
               </div>
 
-              <div className="form-group">
+              <div className="um-form-group">
                 <label>发放数量</label>
                 <input
                   type="number"
                   min="1"
                   value={currencyForm.amount}
                   onChange={(e) => setCurrencyForm({ ...currencyForm, amount: e.target.value })}
-                  className="form-input"
+                  className="um-form-input"
                   placeholder={`输入${currencyForm.currencyType === 'gold' ? '金币' : '钻石'}数量`}
                 />
               </div>
 
-              <div className="form-group">
+              <div className="um-form-group">
                 <label>发放说明（选填）</label>
                 <textarea
                   value={currencyForm.description}
                   onChange={(e) => setCurrencyForm({ ...currencyForm, description: e.target.value })}
-                  className="form-textarea"
+                  className="um-form-textarea"
                   placeholder="例如：活动赠送、客服补偿、测试账号等"
                   rows={3}
                 />
               </div>
 
-              <div className="grant-info-box">
-                <p className="info-title">📋 发放说明</p>
+              <div className="um-grant-info-box">
+                <p className="um-info-title">📋 发放说明</p>
                 <ul>
                   <li>发放类型为"系统赠送"，将记录在用户的交易流水中</li>
                   <li>发放后用户余额将立即增加</li>
@@ -962,7 +962,7 @@ const UserManagement = () => {
                 取消
               </button>
               <button 
-                className="modal-btn confirm-btn primary-btn" 
+                className="modal-btn confirm-btn um-primary-btn" 
                 onClick={handleCurrencyConfirm}
                 disabled={currencyLoading || !currencyForm.amount || parseInt(currencyForm.amount, 10) <= 0}
               >
