@@ -1772,7 +1772,7 @@ const Settings = () => {
         diamond_recharge: '钻石充值',
         peer_review: 'AI审稿',
         ai_chat: 'AI对话',
-        paper_analysis: '论文分析',
+        paper_analysis: '多维度分析',
         admin_recharge: '管理员充值',
         admin_deduct: '管理员扣除',
         expired_clear: '过期清空',
@@ -2049,7 +2049,7 @@ const Settings = () => {
                     <option value="diamond_exchange">钻石兑换</option>
                     <option value="peer_review">AI审稿</option>
                     <option value="ai_chat">AI对话</option>
-                    <option value="paper_analysis">论文分析</option>
+                    <option value="paper_analysis">多维度分析</option>
                     <option value="admin_recharge">管理员充值</option>
                     <option value="admin_deduct">管理员扣除</option>
                   </select>

@@ -513,11 +513,26 @@ const PaperTableView = ({
       }
     } catch (error) {
       console.error('Failed to analyze paper:', paper.paperId, error);
-      // 设置错误状态
-      setAnalysisResults(prev => ({
-        ...prev,
-        [paper.paperId]: { error: true }
-      }));
+      // 检查是否是余额不足错误 (HTTP 402)
+      if (error.response?.status === 402 || error.response?.data?.code === 4020) {
+        const data = error.response?.data?.data || {};
+        setAnalysisResults(prev => ({
+          ...prev,
+          [paper.paperId]: { 
+            error: true, 
+            insufficientBalance: true,
+            balance: data.balance,
+            required: data.required,
+            message: '金币不足，请充值后重试'
+          }
+        }));
+      } else {
+        // 设置其他错误状态
+        setAnalysisResults(prev => ({
+          ...prev,
+          [paper.paperId]: { error: true }
+        }));
+      }
     } finally {
       // 清除正在请求标记
       pendingRequestsRef.current.delete(paper.paperId);
@@ -592,6 +607,24 @@ const PaperTableView = ({
       );
     }
 
+    // 检查是否是余额不足错误
+    if (content && typeof content === 'object' && content.insufficientBalance) {
+      return (
+        <div className="ptv-cell-error ptv-insufficient-balance">
+          <span className="ptv-error-text">金币不足</span>
+        </div>
+      );
+    }
+
+    // 检查是否是其他错误
+    if (content && typeof content === 'object' && content.error) {
+      return (
+        <div className="ptv-cell-error">
+          <span className="ptv-error-text">{content.message || '分析失败'}</span>
+        </div>
+      );
+    }
+
     if (!content || content === '未提及' || content === '解析失败') {
       return <span className="ptv-cell-empty">{content || '未提及'}</span>;
     }
@@ -643,6 +676,14 @@ const PaperTableView = ({
   // 获取分析数据中的某个维度值
   const getAnalysisValue = (analysis, key) => {
     if (!analysis) return null;
+    // 检查是否是余额不足错误
+    if (analysis.insufficientBalance) {
+      return { insufficientBalance: true, message: analysis.message };
+    }
+    // 检查是否是其他错误
+    if (analysis.error) {
+      return { error: true, message: analysis.message || '分析失败' };
+    }
     // 新的动态格式：从 data 字段获取
     if (analysis.data && analysis.data[key] !== undefined) {
       return analysis.data[key];

@@ -407,6 +407,27 @@
   font-size: 11px;
 }
 
+/* 错误状态样式 */
+.ptv-cell-error {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: rgba(255, 100, 100, 0.8);
+  font-size: 11px;
+}
+
+.ptv-cell-error.ptv-insufficient-balance {
+  color: #f59e0b;
+}
+
+.ptv-cell-error .ptv-error-icon {
+  font-size: 12px;
+}
+
+.ptv-cell-error .ptv-error-text {
+  font-size: 11px;
+}
+
 .ptv-expand-btn {
   background: rgba(74, 144, 217, 0.08);
   border: none;
@@ -565,6 +586,14 @@
 
 [data-theme="light"] .ptv-cell-empty {
   color: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .ptv-cell-error {
+  color: #dc2626;
+}
+
+[data-theme="light"] .ptv-cell-error.ptv-insufficient-balance {
+  color: #d97706;
 }
 
 [data-theme="light"] .ptv-expand-btn {

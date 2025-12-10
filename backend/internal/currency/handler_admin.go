@@ -229,14 +229,3 @@ func (h *AdminHandler) UpdateCurrencyConfig(c *gin.Context) {
 	utils.Success(c, config)
 }
 
-// InitDefaultConfigs 初始化默认配置
-// POST /api/v1/admin/currency/configs/init
-func (h *AdminHandler) InitDefaultConfigs(c *gin.Context) {
-	if err := h.service.InitDefaultConfigs(); err != nil {
-		utils.Error(c, 5001, "初始化配置失败: "+err.Error())
-		return
-	}
-
-	utils.Success(c, gin.H{"message": "初始化成功"})
-}
-

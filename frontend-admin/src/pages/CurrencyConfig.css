@@ -30,6 +30,51 @@
   margin: 0 0 16px 0;
 }
 
+/* Tab Buttons */
+.config-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0;
+}
+
+.tab-btn {
+  padding: 12px 24px;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tab-btn:hover {
+  color: #6366f1;
+}
+
+.tab-btn.active {
+  color: #6366f1;
+  border-bottom-color: #6366f1;
+}
+
+.section-desc {
+  padding: 0 20px 16px;
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  background: #f8fafc;
+}
+
+.category-badge.deduct {
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  color: #b45309;
+}
+
 .init-btn {
   background: linear-gradient(135deg, #6366f1, #8b5cf6);
   color: white;

@@ -96,11 +96,6 @@ func (s *Service) UpdateCurrencyConfigAmount(configKey string, amount int64) err
 	return s.repo.UpdateCurrencyConfigAmount(configKey, amount)
 }
 
-// InitDefaultConfigs 初始化默认配置
-func (s *Service) InitDefaultConfigs() error {
-	return s.repo.InitDefaultConfigs()
-}
-
 // EnsureWalletExists 确保钱包存在
 func (s *Service) EnsureWalletExists(userID uint) error {
 	return s.repo.EnsureWalletExists(userID)

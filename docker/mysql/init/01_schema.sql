@@ -1264,3 +1264,35 @@ CREATE TABLE IF NOT EXISTS `currency_configs` (
   UNIQUE INDEX `uk_config_key` (`config_key`),
   INDEX `idx_category` (`category`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='货币系统配置表';
+
+-- ============================================
+-- 货币系统默认配置数据
+-- ============================================
+
+-- 扣费配置默认数据
+INSERT IGNORE INTO `currency_deduct_configs` (`biz_type`, `currency_type`, `amount`, `description`, `enabled`) VALUES
+('paper_analysis', 'gold', 2, '多维度分析', TRUE),
+('peer_review', 'gold', 0, 'AI审稿', TRUE),
+('ai_chat', 'gold', 0, 'AI对话', TRUE);
+
+-- 货币系统配置默认数据
+INSERT IGNORE INTO `currency_configs` (`config_key`, `config_name`, `currency_type`, `amount`, `description`, `category`, `enabled`) VALUES
+-- 奖励类配置 - 注册
+('register_gift_gold', '注册赠送金币', 'gold', 300, '新用户注册时赠送的金币数量', 'reward', TRUE),
+-- 奖励类配置 - 签到
+('daily_checkin_gold', '每日签到金币', 'gold', 10, '用户每日签到获得的基础金币数量', 'reward', TRUE),
+('checkin_3days_gold', '连续签到3天奖励', 'gold', 50, '连续签到3天时第3天获得的金币奖励', 'reward', TRUE),
+('checkin_7days_gold', '连续签到7天奖励', 'gold', 150, '连续签到7天时第7天获得的金币奖励', 'reward', TRUE),
+('checkin_15days_gold', '连续签到15天奖励', 'gold', 350, '连续签到15天时第15天获得的金币奖励', 'reward', TRUE),
+('checkin_after15_gold', '连续签到15天后每日奖励', 'gold', 30, '连续签到超过15天后每天获得的金币奖励', 'reward', TRUE),
+-- 奖励类配置 - 邀请
+('invite_reward_diamond', '邀请奖励钻石', 'diamond', 1, '每成功邀请1个新用户获得的钻石奖励', 'reward', TRUE),
+('invite_milestone_diamond', '邀请里程碑奖励钻石', 'diamond', 10, '每邀请满5个用户额外获得的钻石奖励（第5、10、15...个时触发）', 'reward', TRUE),
+-- 充值配置
+('diamond_price', '钻石单价(分)', 'diamond', 100, '每个钻石的人民币价格，单位为分。当前100分=1元，即1元购买1个钻石', 'recharge', TRUE),
+-- 兑换配置
+('diamond_to_gold_rate', '钻石兑换金币比例', 'gold', 100, '1个钻石可兑换的金币数量', 'exchange', TRUE),
+-- 会员月度赠送配置
+('pro_monthly_gold', 'Pro会员每月赠送金币', 'gold', 5000, 'Pro会员每月1日自动赠送的金币数量', 'membership', TRUE),
+('max_monthly_gold', 'Max会员每月赠送金币', 'gold', 10000, 'Max会员每月1日自动赠送的金币数量', 'membership', TRUE),
+('max_monthly_diamond', 'Max会员每月赠送钻石', 'diamond', 6, 'Max会员每月1日自动赠送的钻石数量', 'membership', TRUE);

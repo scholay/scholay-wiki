@@ -138,11 +138,6 @@ const (
 	ConfigKeyProMonthlyGold     = "pro_monthly_gold"     // Pro会员每月赠送金币
 	ConfigKeyMaxMonthlyGold     = "max_monthly_gold"     // Max会员每月赠送金币
 	ConfigKeyMaxMonthlyDiamond  = "max_monthly_diamond"  // Max会员每月赠送钻石
-
-	// 消耗配置
-	ConfigKeyPeerReviewCost    = "peer_review_cost"    // AI审稿消耗
-	ConfigKeyAIChatCost        = "ai_chat_cost"        // AI对话消耗
-	ConfigKeyPaperAnalysisCost = "paper_analysis_cost" // 论文分析消耗
 )
 
 // CurrencyConfig 货币配置表

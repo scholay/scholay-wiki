@@ -266,18 +266,12 @@ func main() {
 	currencyHandler := currency.NewHandler(currencyService)
 	currencyAdminHandler := currency.NewAdminHandler(currencyService)
 	currencyMiddleware := currency.NewDeductMiddleware(currencyService)
-	// 初始化默认货币配置
-	if err := currencyService.InitDefaultConfigs(); err != nil {
-		log.Printf("Warning: Failed to init currency configs: %v", err)
-	}
 	// Inject currency service into user service (for register gift)
 	userService.SetCurrencyService(currencyService)
 	// Inject currency service into checkin service (for checkin gold reward)
 	checkinService.SetCurrencyService(currencyService)
 	// Inject currency service into coupon service (for invite diamond reward)
 	couponService.SetCurrencyService(currencyService)
-	// 将 currencyMiddleware 暴露给其他模块使用（如需要扣费的接口）
-	_ = currencyMiddleware // 后续使用
 
 	// Initialize Membership Gift Scheduler (会员月度赠送/清空调度器)
 	membershipGiftScheduler := currency.NewMembershipGiftScheduler(currencyService, func(planCodes []string) ([]currency.MemberSubscription, error) {
@@ -475,7 +469,6 @@ func main() {
 			adminProtected.GET("/currency/configs", currencyAdminHandler.ListCurrencyConfigs)
 			adminProtected.GET("/currency/configs/:key", currencyAdminHandler.GetCurrencyConfig)
 			adminProtected.PUT("/currency/configs/:key", currencyAdminHandler.UpdateCurrencyConfig)
-			adminProtected.POST("/currency/configs/init", currencyAdminHandler.InitDefaultConfigs)
 		}
 
 		// Payment callback routes (public, no auth required)
@@ -680,8 +673,8 @@ func main() {
 		analysisGroup := api.Group("/analysis")
 		analysisGroup.Use(middleware.UserAuthMiddleware())
 		{
-			// Analyze paper with user's custom dimensions
-			analysisGroup.POST("/paper", aiHandler.AnalyzePaper)
+			// Analyze paper with user's custom dimensions (需扣费)
+			analysisGroup.POST("/paper", currencyMiddleware.Deduct("paper_analysis"), aiHandler.AnalyzePaper)
 			// Get user's dimensions (custom or system default)
 			analysisGroup.GET("/dimensions", aiHandler.GetAnalysisDimensions)
 			// Create custom dimension

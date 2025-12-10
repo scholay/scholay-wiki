@@ -296,65 +296,44 @@ func (r *Repository) UpdateCurrencyConfigAmount(configKey string, amount int64) 
 		Update("amount", amount).Error
 }
 
-// InitDefaultConfigs 初始化默认配置
-func (r *Repository) InitDefaultConfigs() error {
-	defaults := []CurrencyConfig{
-		// 奖励类配置 - 注册
-		{ConfigKey: ConfigKeyRegisterGift, ConfigName: "注册赠送金币", CurrencyType: CurrencyGold, Amount: 300, Category: "reward", Description: "新用户注册时赠送的金币数量", Enabled: true},
-		// 奖励类配置 - 签到
-		{ConfigKey: ConfigKeyDailyCheckin, ConfigName: "每日签到金币", CurrencyType: CurrencyGold, Amount: 10, Category: "reward", Description: "用户每日签到获得的基础金币数量", Enabled: true},
-		{ConfigKey: ConfigKeyCheckin3Days, ConfigName: "连续签到3天奖励", CurrencyType: CurrencyGold, Amount: 50, Category: "reward", Description: "连续签到3天时第3天获得的金币奖励", Enabled: true},
-		{ConfigKey: ConfigKeyCheckin7Days, ConfigName: "连续签到7天奖励", CurrencyType: CurrencyGold, Amount: 150, Category: "reward", Description: "连续签到7天时第7天获得的金币奖励", Enabled: true},
-		{ConfigKey: ConfigKeyCheckin15Days, ConfigName: "连续签到15天奖励", CurrencyType: CurrencyGold, Amount: 350, Category: "reward", Description: "连续签到15天时第15天获得的金币奖励", Enabled: true},
-		{ConfigKey: ConfigKeyCheckinAfter15, ConfigName: "连续签到15天后每日奖励", CurrencyType: CurrencyGold, Amount: 30, Category: "reward", Description: "连续签到超过15天后每天获得的金币奖励", Enabled: true},
-		// 奖励类配置 - 邀请
-		{ConfigKey: ConfigKeyInviteRewardDiamond, ConfigName: "邀请奖励钻石", CurrencyType: CurrencyDiamond, Amount: 1, Category: "reward", Description: "每成功邀请1个新用户获得的钻石奖励", Enabled: true},
-		{ConfigKey: ConfigKeyInviteMilestoneDiamond, ConfigName: "邀请里程碑奖励钻石", CurrencyType: CurrencyDiamond, Amount: 10, Category: "reward", Description: "每邀请满5个用户额外获得的钻石奖励（第5、10、15...个时触发）", Enabled: true},
-		// 充值配置
-		{ConfigKey: ConfigKeyDiamondPrice, ConfigName: "钻石单价(分)", CurrencyType: CurrencyDiamond, Amount: 100, Category: "recharge", Description: "每个钻石的人民币价格，单位为分。当前100分=1元，即1元购买1个钻石", Enabled: true},
-		// 兑换配置
-		{ConfigKey: ConfigKeyDiamondToGoldRate, ConfigName: "钻石兑换金币比例", CurrencyType: CurrencyGold, Amount: 100, Category: "exchange", Description: "1个钻石可兑换的金币数量", Enabled: true},
-		// 会员月度赠送配置
-		{ConfigKey: ConfigKeyProMonthlyGold, ConfigName: "Pro会员每月赠送金币", CurrencyType: CurrencyGold, Amount: 5000, Category: "membership", Description: "Pro会员每月1日自动赠送的金币数量", Enabled: true},
-		{ConfigKey: ConfigKeyMaxMonthlyGold, ConfigName: "Max会员每月赠送金币", CurrencyType: CurrencyGold, Amount: 10000, Category: "membership", Description: "Max会员每月1日自动赠送的金币数量", Enabled: true},
-		{ConfigKey: ConfigKeyMaxMonthlyDiamond, ConfigName: "Max会员每月赠送钻石", CurrencyType: CurrencyDiamond, Amount: 6, Category: "membership", Description: "Max会员每月1日自动赠送的钻石数量", Enabled: true},
-		// 消耗类配置
-		{ConfigKey: ConfigKeyPeerReviewCost, ConfigName: "AI审稿消耗", CurrencyType: CurrencyGold, Amount: 0, Category: "cost", Description: "使用AI审稿功能消耗的金币（0表示免费）", Enabled: true},
-		{ConfigKey: ConfigKeyAIChatCost, ConfigName: "AI对话消耗", CurrencyType: CurrencyGold, Amount: 0, Category: "cost", Description: "AI对话每次消耗的金币（0表示免费）", Enabled: true},
-		{ConfigKey: ConfigKeyPaperAnalysisCost, ConfigName: "论文分析消耗", CurrencyType: CurrencyGold, Amount: 0, Category: "cost", Description: "论文分析功能消耗的金币（0表示免费）", Enabled: true},
-	}
-
-	for _, cfg := range defaults {
-		var existing CurrencyConfig
-		err := r.db.Where("config_key = ?", cfg.ConfigKey).First(&existing).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			if err := r.db.Create(&cfg).Error; err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
 
 // ========== 分布式锁操作 ==========
 
 const (
-	lockPrefix     = "currency:lock:"
-	lockExpiration = 10 * time.Second
+	lockPrefix       = "currency:lock:"
+	lockExpiration   = 10 * time.Second
+	lockRetryCount   = 10              // 最大重试次数
+	lockRetryDelay   = 100 * time.Millisecond // 重试间隔
 )
 
-// AcquireLock 获取分布式锁
+// AcquireLock 获取分布式锁（带重试机制）
 func (r *Repository) AcquireLock(ctx context.Context, userID uint) (bool, error) {
 	if r.redis == nil {
 		return true, nil // 没有 Redis 时跳过分布式锁
 	}
 
 	key := fmt.Sprintf("%s%d", lockPrefix, userID)
-	success, err := r.redis.SetNX(ctx, key, "1", lockExpiration).Result()
-	if err != nil {
-		return false, err
+	
+	// 重试获取锁
+	for i := 0; i < lockRetryCount; i++ {
+		success, err := r.redis.SetNX(ctx, key, "1", lockExpiration).Result()
+		if err != nil {
+			return false, err
+		}
+		if success {
+			return true, nil
+		}
+		
+		// 检查 context 是否已取消
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case <-time.After(lockRetryDelay):
+			// 等待后重试
+		}
 	}
-	return success, nil
+	
+	return false, nil // 重试次数用完仍未获取到锁
 }
 
 // ReleaseLock 释放分布式锁

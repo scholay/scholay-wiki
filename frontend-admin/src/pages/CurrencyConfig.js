@@ -14,11 +14,15 @@ import './CurrencyConfig.css';
 
 const CurrencyConfig = () => {
   const [configs, setConfigs] = useState([]);
+  const [deductConfigs, setDeductConfigs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
   const [editForm, setEditForm] = useState({ amount: 0, description: '', enabled: true });
+  const [editingDeduct, setEditingDeduct] = useState(null);
+  const [deductForm, setDeductForm] = useState({ amount: 0, description: '', enabled: true });
+  const [activeTab, setActiveTab] = useState('currency'); // 'currency' or 'deduct'
 
-  // 加载配置
+  // 加载货币配置
   const loadConfigs = async () => {
     setLoading(true);
     try {
@@ -35,24 +39,27 @@ const CurrencyConfig = () => {
     }
   };
 
-  useEffect(() => {
-    loadConfigs();
-  }, []);
-
-  // 初始化默认配置
-  const handleInitConfigs = async () => {
+  // 加载扣费配置
+  const loadDeductConfigs = async () => {
+    setLoading(true);
     try {
-      const response = await adminAPI.initCurrencyConfigs();
+      const response = await adminAPI.getDeductConfigs();
       if (response.data?.code === 0) {
-        showToast('初始化成功', 'success');
-        loadConfigs();
+        setDeductConfigs(response.data.data || []);
       } else {
-        showToast(response.data?.message || '初始化失败', 'error');
+        showToast(response.data?.message || '加载扣费配置失败', 'error');
       }
     } catch (error) {
-      showToast('初始化失败: ' + (error.response?.data?.message || error.message), 'error');
+      showToast('加载扣费配置失败: ' + (error.response?.data?.message || error.message), 'error');
+    } finally {
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadConfigs();
+    loadDeductConfigs();
+  }, []);
 
   // 开始编辑
   const handleEdit = (config) => {
@@ -86,16 +93,61 @@ const CurrencyConfig = () => {
     }
   };
 
+  // 开始编辑扣费配置
+  const handleEditDeduct = (config) => {
+    setEditingDeduct(config.biz_type);
+    setDeductForm({
+      amount: config.amount,
+      description: config.description,
+      enabled: config.enabled
+    });
+  };
+
+  // 取消编辑扣费配置
+  const handleCancelDeduct = () => {
+    setEditingDeduct(null);
+    setDeductForm({ amount: 0, description: '', enabled: true });
+  };
+
+  // 保存扣费配置
+  const handleSaveDeduct = async (bizType) => {
+    try {
+      const response = await adminAPI.updateDeductConfig({
+        biz_type: bizType,
+        currency_type: 'gold',
+        ...deductForm
+      });
+      if (response.data?.code === 0) {
+        showToast('保存成功', 'success');
+        setEditingDeduct(null);
+        loadDeductConfigs();
+      } else {
+        showToast(response.data?.message || '保存失败', 'error');
+      }
+    } catch (error) {
+      showToast('保存失败: ' + (error.response?.data?.message || error.message), 'error');
+    }
+  };
+
   // 获取分类标签
   const getCategoryLabel = (category) => {
     const labels = {
       reward: '奖励配置',
-      cost: '消耗配置',
       recharge: '充值配置',
       exchange: '兑换配置',
       membership: '会员配置'
     };
     return labels[category] || category;
+  };
+
+  // 获取扣费配置名称
+  const getDeductConfigName = (bizType) => {
+    const names = {
+      paper_analysis: '多维度分析',
+      peer_review: 'AI审稿',
+      ai_chat: 'AI对话'
+    };
+    return names[bizType] || bizType;
   };
 
   // 获取货币类型标签
@@ -155,8 +207,21 @@ const CurrencyConfig = () => {
         <p className="page-description">
           管理系统中的金币和钻石配置，包括注册赠送、签到奖励、功能消耗等
         </p>
-        <button className="init-btn" onClick={handleInitConfigs}>
-          初始化默认配置
+      </div>
+
+      {/* Tab 切换 */}
+      <div className="config-tabs">
+        <button
+          className={`tab-btn ${activeTab === 'currency' ? 'active' : ''}`}
+          onClick={() => setActiveTab('currency')}
+        >
+          货币配置
+        </button>
+        <button
+          className={`tab-btn ${activeTab === 'deduct' ? 'active' : ''}`}
+          onClick={() => setActiveTab('deduct')}
+        >
+          扣费配置
         </button>
       </div>
 
@@ -165,69 +230,187 @@ const CurrencyConfig = () => {
           <div className="loading-spinner"></div>
           <p>加载中...</p>
         </div>
-      ) : configs.length === 0 ? (
-        <div className="empty-state">
-          <p>暂无配置，请点击"初始化默认配置"按钮创建</p>
-        </div>
+      ) : activeTab === 'currency' ? (
+        // 货币配置 Tab
+        configs.length === 0 ? (
+          <div className="empty-state">
+            <p>暂无配置数据</p>
+          </div>
+        ) : (
+          <div className="config-sections">
+            {Object.entries(groupedConfigs).map(([category, categoryConfigs]) => (
+              <div key={category} className="config-section">
+                <h2 className="section-title">
+                  <span className={`category-badge ${category}`}>
+                    {getCategoryLabel(category)}
+                  </span>
+                </h2>
+                <div className="config-table-wrapper">
+                  <table className="config-table">
+                    <thead>
+                      <tr>
+                        <th>配置名称</th>
+                        <th>配置键</th>
+                        <th>货币类型</th>
+                        <th>金额</th>
+                        <th>描述</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {categoryConfigs.map((config) => (
+                        <tr key={config.id} className={!config.enabled ? 'disabled-row' : ''}>
+                          <td className="config-name">{config.config_name}</td>
+                          <td className="config-key">
+                            <code>{config.config_key}</code>
+                          </td>
+                          <td>
+                            <span className={`currency-badge ${config.currency_type}`}>
+                              {getCurrencyLabel(config.currency_type)}
+                            </span>
+                          </td>
+                          <td className="config-amount">
+                            {editingConfig === config.config_key ? (
+                              <div className="edit-amount-wrapper">
+                                <input
+                                  type="number"
+                                  value={editForm.amount}
+                                  onChange={(e) => setEditForm({ ...editForm, amount: parseInt(e.target.value) || 0 })}
+                                  className="edit-input amount-input"
+                                  min="0"
+                                />
+                                <span className="edit-unit">{getAmountUnit(config)}</span>
+                                {config.config_key === 'diamond_price' && editForm.amount > 0 && (
+                                  <span className="edit-price-hint">= {(editForm.amount / 100).toFixed(2)}元/个</span>
+                                )}
+                              </div>
+                            ) : (
+                              formatAmountDisplay(config)
+                            )}
+                          </td>
+                          <td className="config-desc">
+                            {editingConfig === config.config_key ? (
+                              <input
+                                type="text"
+                                value={editForm.description}
+                                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                                className="edit-input desc-input"
+                                placeholder="配置描述"
+                              />
+                            ) : (
+                              config.description || '-'
+                            )}
+                          </td>
+                          <td>
+                            {editingConfig === config.config_key ? (
+                              <label className="toggle-switch">
+                                <input
+                                  type="checkbox"
+                                  checked={editForm.enabled}
+                                  onChange={(e) => setEditForm({ ...editForm, enabled: e.target.checked })}
+                                />
+                                <span className="toggle-slider"></span>
+                              </label>
+                            ) : (
+                              <span className={`status-badge ${config.enabled ? 'enabled' : 'disabled'}`}>
+                                {config.enabled ? '启用' : '禁用'}
+                              </span>
+                            )}
+                          </td>
+                          <td className="actions">
+                            {editingConfig === config.config_key ? (
+                              <>
+                                <button 
+                                  className="save-btn"
+                                  onClick={() => handleSave(config.config_key)}
+                                >
+                                  保存
+                                </button>
+                                <button 
+                                  className="cancel-btn"
+                                  onClick={handleCancel}
+                                >
+                                  取消
+                                </button>
+                              </>
+                            ) : (
+                              <button 
+                                className="edit-btn"
+                                onClick={() => handleEdit(config)}
+                              >
+                                编辑
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
       ) : (
-        <div className="config-sections">
-          {Object.entries(groupedConfigs).map(([category, categoryConfigs]) => (
-            <div key={category} className="config-section">
+        // 扣费配置 Tab
+        deductConfigs.length === 0 ? (
+          <div className="empty-state">
+            <p>暂无扣费配置数据</p>
+          </div>
+        ) : (
+          <div className="config-sections">
+            <div className="config-section">
               <h2 className="section-title">
-                <span className={`category-badge ${category}`}>
-                  {getCategoryLabel(category)}
+                <span className="category-badge deduct">
+                  功能扣费配置
                 </span>
               </h2>
+              <p className="section-desc">配置各功能使用时的金币扣费数量，设为0表示免费使用</p>
               <div className="config-table-wrapper">
                 <table className="config-table">
                   <thead>
                     <tr>
-                      <th>配置名称</th>
+                      <th>功能名称</th>
                       <th>配置键</th>
-                      <th>货币类型</th>
-                      <th>金额</th>
+                      <th>扣费金币</th>
                       <th>描述</th>
                       <th>状态</th>
                       <th>操作</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {categoryConfigs.map((config) => (
+                    {deductConfigs.map((config) => (
                       <tr key={config.id} className={!config.enabled ? 'disabled-row' : ''}>
-                        <td className="config-name">{config.config_name}</td>
+                        <td className="config-name">{getDeductConfigName(config.biz_type)}</td>
                         <td className="config-key">
-                          <code>{config.config_key}</code>
-                        </td>
-                        <td>
-                          <span className={`currency-badge ${config.currency_type}`}>
-                            {getCurrencyLabel(config.currency_type)}
-                          </span>
+                          <code>{config.biz_type}</code>
                         </td>
                         <td className="config-amount">
-                          {editingConfig === config.config_key ? (
+                          {editingDeduct === config.biz_type ? (
                             <div className="edit-amount-wrapper">
                               <input
                                 type="number"
-                                value={editForm.amount}
-                                onChange={(e) => setEditForm({ ...editForm, amount: parseInt(e.target.value) || 0 })}
+                                value={deductForm.amount}
+                                onChange={(e) => setDeductForm({ ...deductForm, amount: parseInt(e.target.value) || 0 })}
                                 className="edit-input amount-input"
                                 min="0"
                               />
-                              <span className="edit-unit">{getAmountUnit(config)}</span>
-                              {config.config_key === 'diamond_price' && editForm.amount > 0 && (
-                                <span className="edit-price-hint">= {(editForm.amount / 100).toFixed(2)}元/个</span>
-                              )}
+                              <span className="edit-unit">金币</span>
                             </div>
                           ) : (
-                            formatAmountDisplay(config)
+                            <span className="amount-value">
+                              {config.amount}
+                              <span className="currency-unit">金币</span>
+                            </span>
                           )}
                         </td>
                         <td className="config-desc">
-                          {editingConfig === config.config_key ? (
+                          {editingDeduct === config.biz_type ? (
                             <input
                               type="text"
-                              value={editForm.description}
-                              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                              value={deductForm.description}
+                              onChange={(e) => setDeductForm({ ...deductForm, description: e.target.value })}
                               className="edit-input desc-input"
                               placeholder="配置描述"
                             />
@@ -236,12 +419,12 @@ const CurrencyConfig = () => {
                           )}
                         </td>
                         <td>
-                          {editingConfig === config.config_key ? (
+                          {editingDeduct === config.biz_type ? (
                             <label className="toggle-switch">
                               <input
                                 type="checkbox"
-                                checked={editForm.enabled}
-                                onChange={(e) => setEditForm({ ...editForm, enabled: e.target.checked })}
+                                checked={deductForm.enabled}
+                                onChange={(e) => setDeductForm({ ...deductForm, enabled: e.target.checked })}
                               />
                               <span className="toggle-slider"></span>
                             </label>
@@ -252,17 +435,17 @@ const CurrencyConfig = () => {
                           )}
                         </td>
                         <td className="actions">
-                          {editingConfig === config.config_key ? (
+                          {editingDeduct === config.biz_type ? (
                             <>
                               <button 
                                 className="save-btn"
-                                onClick={() => handleSave(config.config_key)}
+                                onClick={() => handleSaveDeduct(config.biz_type)}
                               >
                                 保存
                               </button>
                               <button 
                                 className="cancel-btn"
-                                onClick={handleCancel}
+                                onClick={handleCancelDeduct}
                               >
                                 取消
                               </button>
@@ -270,7 +453,7 @@ const CurrencyConfig = () => {
                           ) : (
                             <button 
                               className="edit-btn"
-                              onClick={() => handleEdit(config)}
+                              onClick={() => handleEditDeduct(config)}
                             >
                               编辑
                             </button>
@@ -282,8 +465,8 @@ const CurrencyConfig = () => {
                 </table>
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        )
       )}
 
       <div className="config-tips">

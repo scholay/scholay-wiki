@@ -369,8 +369,12 @@ export const adminAPI = {
   updateCurrencyConfig: (key, data) =>
     api.put(`/admin/currency/configs/${key}`, data),
 
-  initCurrencyConfigs: () =>
-    api.post('/admin/currency/configs/init'),
+  // Deduct configuration management (扣费配置)
+  getDeductConfigs: () =>
+    api.get('/admin/currency/deduct-configs'),
+
+  updateDeductConfig: (data) =>
+    api.post('/admin/currency/deduct-configs', data),
 
   // Currency wallet management
   getUserWallet: (userId) =>
