@@ -286,6 +286,18 @@
   transform: translateY(-1px);
 }
 
+.currency-btn {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.08));
+  border-color: rgba(251, 191, 36, 0.25);
+  color: #d97706;
+}
+
+.currency-btn:hover {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.18), rgba(245, 158, 11, 0.12));
+  border-color: rgba(251, 191, 36, 0.4);
+  transform: translateY(-1px);
+}
+
 .warning-text {
   color: var(--danger-500);
   font-weight: 600;
@@ -648,4 +660,81 @@
     flex-direction: column;
     gap: 0.75rem;
   }
+}
+
+/* ========== 发放货币弹窗样式 ========== */
+.currency-modal {
+  max-width: 480px;
+}
+
+.currency-type-selector {
+  display: flex;
+  gap: 12px;
+}
+
+.currency-type-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 12px;
+  border-radius: 12px;
+  border: 2px solid var(--gray-200);
+  background: var(--gray-50);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.currency-type-btn:hover {
+  border-color: var(--gray-300);
+  background: var(--gray-100);
+}
+
+.currency-type-btn.gold.active {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(245, 158, 11, 0.06));
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.15);
+}
+
+.currency-type-btn.diamond.active {
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(99, 102, 241, 0.06));
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.currency-type-btn .currency-icon {
+  font-size: 1.75rem;
+}
+
+.currency-type-btn span:last-child {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.currency-type-btn.active span:last-child {
+  color: var(--text-primary);
+}
+
+.currency-modal .form-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.currency-modal .form-input:focus {
+  outline: none;
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.currency-modal .form-input::placeholder {
+  color: var(--text-quaternary);
 }

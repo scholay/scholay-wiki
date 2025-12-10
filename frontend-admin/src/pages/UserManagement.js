@@ -43,6 +43,15 @@ const UserManagement = () => {
   const [subscriptionPlans, setSubscriptionPlans] = useState([]);
   const [grantLoading, setGrantLoading] = useState(false);
 
+  // 发放货币弹窗状态
+  const [currencyModal, setCurrencyModal] = useState({ show: false, user: null });
+  const [currencyForm, setCurrencyForm] = useState({ 
+    currencyType: 'gold', 
+    amount: '', 
+    description: '' 
+  });
+  const [currencyLoading, setCurrencyLoading] = useState(false);
+
   useEffect(() => {
     loadUserStatistics();
     loadUserList();
@@ -195,6 +204,49 @@ const UserManagement = () => {
       showToast(err.response?.data?.message || '发放会员套餐失败', 'error');
     } finally {
       setGrantLoading(false);
+    }
+  };
+
+  // 发放货币处理函数
+  const handleCurrencyClick = (user) => {
+    setCurrencyModal({ show: true, user });
+    setCurrencyForm({ currencyType: 'gold', amount: '', description: '' });
+  };
+
+  const handleCurrencyCancel = () => {
+    setCurrencyModal({ show: false, user: null });
+    setCurrencyForm({ currencyType: 'gold', amount: '', description: '' });
+  };
+
+  const handleCurrencyConfirm = async () => {
+    if (!currencyModal.user) return;
+    
+    const amount = parseInt(currencyForm.amount, 10);
+    if (!amount || amount <= 0) {
+      showToast('请输入有效的发放数量', 'error');
+      return;
+    }
+
+    setCurrencyLoading(true);
+    try {
+      const response = await adminAPI.rechargeUser({
+        user_id: currencyModal.user.id,
+        currency_type: currencyForm.currencyType,
+        amount: amount,
+        description: currencyForm.description || `系统赠送${currencyForm.currencyType === 'gold' ? '金币' : '钻石'}`
+      });
+      
+      if (response.data.code === 0) {
+        showToast(`成功发放 ${amount} ${currencyForm.currencyType === 'gold' ? '金币' : '钻石'}`, 'success');
+        handleCurrencyCancel();
+        loadUserList();
+      } else {
+        showToast(response.data.message || '发放失败', 'error');
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || '发放货币失败', 'error');
+    } finally {
+      setCurrencyLoading(false);
     }
   };
 
@@ -601,7 +653,18 @@ const UserManagement = () => {
                                 }}
                                 title="发放会员"
                               >
-                                发放
+                                会员
+                              </button>
+                              <button
+                                className="action-btn currency-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  handleCurrencyClick(user);
+                                }}
+                                title="发放金币/钻石"
+                              >
+                                货币
                               </button>
                               <button
                                 className="action-btn delete-btn"
@@ -824,6 +887,86 @@ const UserManagement = () => {
                 disabled={grantLoading || !grantForm.planCode}
               >
                 {grantLoading ? '发放中...' : '确认发放'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Currency Grant Modal - 发放货币弹窗 */}
+      {currencyModal.show && (
+        <div className="modal-overlay" onClick={handleCurrencyCancel}>
+          <div className="modal-content currency-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>发放金币/钻石</h3>
+            </div>
+            <div className="modal-body">
+              <p>为用户 <strong>{currencyModal.user?.email || currencyModal.user?.username || `ID: ${currencyModal.user?.id}`}</strong> 发放货币</p>
+              
+              <div className="form-group">
+                <label>货币类型</label>
+                <div className="currency-type-selector">
+                  <button
+                    type="button"
+                    className={`currency-type-btn gold ${currencyForm.currencyType === 'gold' ? 'active' : ''}`}
+                    onClick={() => setCurrencyForm({ ...currencyForm, currencyType: 'gold' })}
+                  >
+                    <span className="currency-icon">🪙</span>
+                    <span>金币</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`currency-type-btn diamond ${currencyForm.currencyType === 'diamond' ? 'active' : ''}`}
+                    onClick={() => setCurrencyForm({ ...currencyForm, currencyType: 'diamond' })}
+                  >
+                    <span className="currency-icon">💎</span>
+                    <span>钻石</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>发放数量</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={currencyForm.amount}
+                  onChange={(e) => setCurrencyForm({ ...currencyForm, amount: e.target.value })}
+                  className="form-input"
+                  placeholder={`输入${currencyForm.currencyType === 'gold' ? '金币' : '钻石'}数量`}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>发放说明（选填）</label>
+                <textarea
+                  value={currencyForm.description}
+                  onChange={(e) => setCurrencyForm({ ...currencyForm, description: e.target.value })}
+                  className="form-textarea"
+                  placeholder="例如：活动赠送、客服补偿、测试账号等"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grant-info-box">
+                <p className="info-title">📋 发放说明</p>
+                <ul>
+                  <li>发放类型为"系统赠送"，将记录在用户的交易流水中</li>
+                  <li>发放后用户余额将立即增加</li>
+                  <li>此操作会记录管理员信息和发放原因</li>
+                </ul>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="modal-btn cancel-btn" onClick={handleCurrencyCancel} disabled={currencyLoading}>
+                取消
+              </button>
+              <button 
+                className="modal-btn confirm-btn primary-btn" 
+                onClick={handleCurrencyConfirm}
+                disabled={currencyLoading || !currencyForm.amount || parseInt(currencyForm.amount, 10) <= 0}
+              >
+                {currencyLoading ? '发放中...' : '确认发放'}
               </button>
             </div>
           </div>
