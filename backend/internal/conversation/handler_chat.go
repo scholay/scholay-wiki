@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/currency"
 	"strconv"
 	"time"
 
@@ -22,8 +23,9 @@ import (
 
 // ChatHandler handles chat-related HTTP requests
 type ChatHandler struct {
-	chatService *ChatService
-	service     *Service
+	chatService     *ChatService
+	service         *Service
+	currencyService *currency.Service
 }
 
 // NewChatHandler creates a new chat handler
@@ -38,6 +40,59 @@ func NewChatHandler(repo *Repository, aiService *ai.Service, service *Service, s
 		chatService: chatService,
 		service:     service,
 	}
+}
+
+// SetCurrencyService sets the currency service for deduction
+func (h *ChatHandler) SetCurrencyService(currencyService *currency.Service) {
+	h.currencyService = currencyService
+}
+
+// deductForChat handles currency deduction for AI chat based on model level
+func (h *ChatHandler) deductForChat(userID uint, modelLevel string) error {
+	if h.currencyService == nil {
+		return nil // No currency service configured, skip deduction
+	}
+
+	// Determine biz_type based on model level
+	bizType := "ai_chat_low"
+	switch modelLevel {
+	case "mid":
+		bizType = "ai_chat_mid"
+	case "high":
+		bizType = "ai_chat_high"
+	}
+
+	// Get deduct config
+	config, err := h.currencyService.GetDeductConfig(bizType)
+	if err != nil {
+		return err
+	}
+
+	// No config or amount is 0, skip deduction
+	if config == nil || config.Amount == 0 {
+		return nil
+	}
+
+	// Check balance
+	checkResult, err := h.currencyService.CheckBalance(userID, config.CurrencyType, config.Amount)
+	if err != nil {
+		return err
+	}
+
+	if !checkResult.Sufficient {
+		return currency.ErrInsufficientBalance
+	}
+
+	// Execute deduction
+	ctx := context.Background()
+	_, err = h.currencyService.Deduct(ctx, userID, &currency.DeductRequest{
+		CurrencyType: config.CurrencyType,
+		Amount:       config.Amount,
+		BizType:      bizType,
+		Description:  config.Description,
+	})
+
+	return err
 }
 
 // StreamChatMessage handles streaming chat requests
@@ -60,6 +115,20 @@ func (h *ChatHandler) StreamChatMessage(c *gin.Context) {
 	}
 
 	req.ConversationID = uint(conversationID)
+
+	// Deduct currency before processing
+	modelLevel := req.ModelLevel
+	if modelLevel == "" {
+		modelLevel = "low"
+	}
+	if err := h.deductForChat(userID, modelLevel); err != nil {
+		if err == currency.ErrInsufficientBalance {
+			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "金币不足"})
+		} else {
+			utils.ErrorResponse(c, http.StatusInternalServerError, "扣费失败: "+err.Error())
+		}
+		return
+	}
 
 	// Set headers for Server-Sent Events
 	c.Header("Content-Type", "text/event-stream")
@@ -212,6 +281,20 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+		return
+	}
+
+	// Deduct currency before processing
+	modelLevel := req.ModelLevel
+	if modelLevel == "" {
+		modelLevel = "low"
+	}
+	if err := h.deductForChat(userID, modelLevel); err != nil {
+		if err == currency.ErrInsufficientBalance {
+			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "金币不足"})
+		} else {
+			utils.ErrorResponse(c, http.StatusInternalServerError, "扣费失败: "+err.Error())
+		}
 		return
 	}
 

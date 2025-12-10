@@ -1272,8 +1272,15 @@ CREATE TABLE IF NOT EXISTS `currency_configs` (
 -- 扣费配置默认数据
 INSERT IGNORE INTO `currency_deduct_configs` (`biz_type`, `currency_type`, `amount`, `description`, `enabled`) VALUES
 ('paper_analysis', 'gold', 2, '多维度分析', TRUE),
-('peer_review', 'gold', 0, 'AI审稿', TRUE),
-('ai_chat', 'gold', 0, 'AI对话', TRUE);
+('peer_review', 'gold', 500, 'AI审稿', TRUE),
+-- AI对话（按模型级别扣费）
+('ai_chat_low', 'gold', 1, 'AI对话-普通模型', TRUE),
+('ai_chat_mid', 'gold', 3, 'AI对话-进阶模型', TRUE),
+('ai_chat_high', 'gold', 5, 'AI对话-高级模型', TRUE),
+-- 智能分析（按模型级别扣费）
+('smart_analysis_low', 'gold', 20, '智能分析-普通模型', TRUE),
+('smart_analysis_mid', 'gold', 50, '智能分析-进阶模型', TRUE),
+('smart_analysis_high', 'gold', 100, '智能分析-高级模型', TRUE);
 
 -- 货币系统配置默认数据
 INSERT IGNORE INTO `currency_configs` (`config_key`, `config_name`, `currency_type`, `amount`, `description`, `category`, `enabled`) VALUES

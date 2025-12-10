@@ -1771,8 +1771,15 @@ const Settings = () => {
         diamond_to_gold: '钻石兑换金币',
         diamond_recharge: '钻石充值',
         peer_review: 'AI审稿',
-        ai_chat: 'AI对话',
+        // AI对话（按模型级别）
+        ai_chat_low: 'AI对话-普通模型',
+        ai_chat_mid: 'AI对话-进阶模型',
+        ai_chat_high: 'AI对话-高级模型',
         paper_analysis: '多维度分析',
+        // 智能分析（按模型级别）
+        smart_analysis_low: '智能分析-普通模型',
+        smart_analysis_mid: '智能分析-进阶模型',
+        smart_analysis_high: '智能分析-高级模型',
         admin_recharge: '管理员充值',
         admin_deduct: '管理员扣除',
         expired_clear: '过期清空',
@@ -2048,8 +2055,13 @@ const Settings = () => {
                     <option value="membership_gift">会员赠送</option>
                     <option value="diamond_exchange">钻石兑换</option>
                     <option value="peer_review">AI审稿</option>
-                    <option value="ai_chat">AI对话</option>
+                    <option value="ai_chat_low">AI对话-普通</option>
+                    <option value="ai_chat_mid">AI对话-进阶</option>
+                    <option value="ai_chat_high">AI对话-高级</option>
                     <option value="paper_analysis">多维度分析</option>
+                    <option value="smart_analysis_low">智能分析-普通</option>
+                    <option value="smart_analysis_mid">智能分析-进阶</option>
+                    <option value="smart_analysis_high">智能分析-高级</option>
                     <option value="admin_recharge">管理员充值</option>
                     <option value="admin_deduct">管理员扣除</option>
                   </select>

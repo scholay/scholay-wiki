@@ -272,6 +272,10 @@ func main() {
 	checkinService.SetCurrencyService(currencyService)
 	// Inject currency service into coupon service (for invite diamond reward)
 	couponService.SetCurrencyService(currencyService)
+	// Inject currency service into chat handler (for AI chat deduction)
+	chatHandler.SetCurrencyService(currencyService)
+	// Inject currency service into conversation handler (for smart analysis deduction)
+	conversationHandler.SetCurrencyService(currencyService)
 
 	// Initialize Membership Gift Scheduler (会员月度赠送/清空调度器)
 	membershipGiftScheduler := currency.NewMembershipGiftScheduler(currencyService, func(planCodes []string) ([]currency.MemberSubscription, error) {

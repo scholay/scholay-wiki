@@ -8,9 +8,11 @@
 package conversation
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/currency"
 	"scholar-backend/internal/thirdparty"
 	"strconv"
 
@@ -18,11 +20,65 @@ import (
 )
 
 type Handler struct {
-	service *Service
+	service         *Service
+	currencyService *currency.Service
 }
 
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
+}
+
+// SetCurrencyService sets the currency service for deduction
+func (h *Handler) SetCurrencyService(currencyService *currency.Service) {
+	h.currencyService = currencyService
+}
+
+// deductForSmartAnalysis handles currency deduction for smart analysis based on model level
+func (h *Handler) deductForSmartAnalysis(userID uint, modelLevel string) error {
+	if h.currencyService == nil {
+		return nil // No currency service configured, skip deduction
+	}
+
+	// Determine biz_type based on model level
+	bizType := "smart_analysis_low"
+	switch modelLevel {
+	case "mid":
+		bizType = "smart_analysis_mid"
+	case "high":
+		bizType = "smart_analysis_high"
+	}
+
+	// Get deduct config
+	config, err := h.currencyService.GetDeductConfig(bizType)
+	if err != nil {
+		return err
+	}
+
+	// No config or amount is 0, skip deduction
+	if config == nil || config.Amount == 0 {
+		return nil
+	}
+
+	// Check balance
+	checkResult, err := h.currencyService.CheckBalance(userID, config.CurrencyType, config.Amount)
+	if err != nil {
+		return err
+	}
+
+	if !checkResult.Sufficient {
+		return currency.ErrInsufficientBalance
+	}
+
+	// Execute deduction
+	ctx := context.Background()
+	_, err = h.currencyService.Deduct(ctx, userID, &currency.DeductRequest{
+		CurrencyType: config.CurrencyType,
+		Amount:       config.Amount,
+		BizType:      bizType,
+		Description:  config.Description,
+	})
+
+	return err
 }
 
 // CreateConversation creates a new conversation
@@ -261,6 +317,16 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 		return
 	}
 
+	// Deduct currency before processing
+	if err := h.deductForSmartAnalysis(userID.(uint), modelLevel); err != nil {
+		if err == currency.ErrInsufficientBalance {
+			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "金币不足"})
+		} else {
+			utils.Error(c, 500, "扣费失败: "+err.Error())
+		}
+		return
+	}
+
 	// Set headers for SSE
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
@@ -332,6 +398,16 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 	// Verify the conversation exists
 	if conversation == nil {
 		utils.Error(c, 404, "Conversation not found")
+		return
+	}
+
+	// Deduct currency before processing
+	if err := h.deductForSmartAnalysis(userID.(uint), modelLevel); err != nil {
+		if err == currency.ErrInsufficientBalance {
+			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "金币不足"})
+		} else {
+			utils.Error(c, 500, "扣费失败: "+err.Error())
+		}
 		return
 	}
 

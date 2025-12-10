@@ -145,7 +145,14 @@ const CurrencyConfig = () => {
     const names = {
       paper_analysis: '多维度分析',
       peer_review: 'AI审稿',
-      ai_chat: 'AI对话'
+      // AI对话（按模型级别）
+      ai_chat_low: 'AI对话-普通模型',
+      ai_chat_mid: 'AI对话-进阶模型',
+      ai_chat_high: 'AI对话-高级模型',
+      // 智能分析（按模型级别）
+      smart_analysis_low: '智能分析-普通模型',
+      smart_analysis_mid: '智能分析-进阶模型',
+      smart_analysis_high: '智能分析-高级模型'
     };
     return names[bizType] || bizType;
   };
