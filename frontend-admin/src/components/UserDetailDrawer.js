@@ -70,11 +70,11 @@ const UserDetailDrawer = ({ userId, onClose }) => {
   if (!userId) return null;
 
   return (
-    <div className="drawer-overlay" onClick={onClose}>
-      <div className="drawer-container" onClick={(e) => e.stopPropagation()}>
-        <div className="drawer-header">
+    <div className="ud-drawer-overlay" onClick={onClose}>
+      <div className="ud-drawer-container" onClick={(e) => e.stopPropagation()}>
+        <div className="ud-drawer-header">
           <h2>用户详情</h2>
-          <button className="drawer-close" onClick={onClose}>
+          <button className="ud-drawer-close" onClick={onClose}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -82,9 +82,9 @@ const UserDetailDrawer = ({ userId, onClose }) => {
           </button>
         </div>
 
-        <div className="drawer-content">
+        <div className="ud-drawer-content">
           {loading ? (
-            <div className="drawer-loading">
+            <div className="ud-drawer-loading">
               <div className="spinner"></div>
               <p>加载中...</p>
             </div>

@@ -58,6 +58,27 @@ func (r *Repository) GetWallet(userID uint) (*Wallet, error) {
 	return &wallet, nil
 }
 
+// GetWalletsByUserIDs 批量获取用户钱包
+func (r *Repository) GetWalletsByUserIDs(userIDs []uint) (map[uint]*Wallet, error) {
+	if len(userIDs) == 0 {
+		return make(map[uint]*Wallet), nil
+	}
+
+	var wallets []Wallet
+	err := r.db.Where("user_id IN ?", userIDs).Find(&wallets).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// 构建 map
+	result := make(map[uint]*Wallet)
+	for i := range wallets {
+		result[wallets[i].UserID] = &wallets[i]
+	}
+
+	return result, nil
+}
+
 // GetWalletForUpdate 获取钱包（带行锁，用于更新）
 func (r *Repository) GetWalletForUpdate(tx *gorm.DB, userID uint) (*Wallet, error) {
 	var wallet Wallet

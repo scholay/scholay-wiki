@@ -31,6 +31,23 @@ func (s *Service) GetWallet(userID uint) (*WalletResponse, error) {
 	}, nil
 }
 
+// GetWalletsByUserIDs 批量获取用户钱包
+func (s *Service) GetWalletsByUserIDs(userIDs []uint) (map[uint]*WalletResponse, error) {
+	wallets, err := s.repo.GetWalletsByUserIDs(userIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[uint]*WalletResponse)
+	for userID, wallet := range wallets {
+		result[userID] = &WalletResponse{
+			Gold:    wallet.Gold,
+			Diamond: wallet.Diamond,
+		}
+	}
+	return result, nil
+}
+
 // CheckBalance 检查余额是否充足
 func (s *Service) CheckBalance(userID uint, currencyType CurrencyType, amount int64) (*BalanceCheckResult, error) {
 	wallet, err := s.repo.GetWallet(userID)

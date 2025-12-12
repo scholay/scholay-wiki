@@ -7,38 +7,38 @@
  * ============================================================================
  */
 
-.drawer-overlay {
+.ud-drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(6px);
-  z-index: 1000;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(8px);
+  z-index: 9000;
   display: flex;
   justify-content: flex-end;
-  animation: drawer-fade 0.2s ease;
+  animation: ud-drawer-fade 0.2s ease;
 }
 
-@keyframes drawer-fade {
+@keyframes ud-drawer-fade {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-.drawer-container {
+.ud-drawer-container {
   width: min(600px, 100vw);
   background: var(--surface-base);
   border-left: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   box-shadow: -12px 0 24px rgba(15, 23, 42, 0.18);
-  animation: drawer-slide 0.3s ease;
+  animation: ud-drawer-slide 0.3s ease;
 }
 
-@keyframes drawer-slide {
+@keyframes ud-drawer-slide {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
 }
 
-.drawer-header {
+.ud-drawer-header {
   padding: var(--space-5);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
@@ -47,14 +47,14 @@
   background: rgba(255, 255, 255, 0.95);
 }
 
-.drawer-header h2 {
+.ud-drawer-header h2 {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--text-primary);
 }
 
-.drawer-close {
+.ud-drawer-close {
   border: none;
   background: transparent;
   color: var(--text-tertiary);
@@ -67,20 +67,20 @@
   transition: var(--transition);
 }
 
-.drawer-close:hover {
+.ud-drawer-close:hover {
   background: var(--gray-50);
   color: var(--text-primary);
 }
 
-.drawer-content {
+.ud-drawer-content {
   flex: 1;
   overflow-y: auto;
   padding: var(--space-5);
   background: var(--surface-muted);
 }
 
-.drawer-loading,
-.drawer-error {
+.ud-drawer-loading,
+.ud-drawer-error {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -90,7 +90,7 @@
   gap: var(--space-3);
 }
 
-.drawer-loading .spinner {
+.ud-drawer-loading .spinner {
   width: 42px;
   height: 42px;
   border-radius: 50%;
@@ -547,7 +547,7 @@
 }
 
 @media (max-width: 768px) {
-  .drawer-container {
+  .ud-drawer-container {
     width: 100%;
   }
 

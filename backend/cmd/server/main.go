@@ -276,6 +276,8 @@ func main() {
 	chatHandler.SetCurrencyService(currencyService)
 	// Inject currency service into conversation handler (for smart analysis deduction)
 	conversationHandler.SetCurrencyService(currencyService)
+	// Inject currency service into user handler (for user list wallet info)
+	userHandler.SetCurrencyService(currencyService)
 
 	// Initialize Membership Gift Scheduler (会员月度赠送/清空调度器)
 	membershipGiftScheduler := currency.NewMembershipGiftScheduler(currencyService, func(planCodes []string) ([]currency.MemberSubscription, error) {

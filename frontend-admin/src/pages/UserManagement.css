@@ -11,6 +11,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+  margin: var(--space-6);
 }
 
 /* 用户信息单元格（ID + 用户名） */
@@ -41,12 +42,39 @@
   white-space: nowrap;
 }
 
-/* 会员信息单元格（套餐 + 到期时间） */
+/* 会员信息单元格（套餐 + 到期时间 + 钱包） */
 .um-subscription-info-cell {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   min-width: 100px;
+}
+
+/* 钱包信息样式 */
+.um-wallet-info {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.um-wallet-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.um-wallet-gold {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.1));
+  color: #b45309;
+}
+
+.um-wallet-diamond {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(99, 102, 241, 0.1));
+  color: #1d4ed8;
 }
 
 /* 邀请者信息单元格 */
@@ -96,6 +124,7 @@
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-subtle);
   padding: var(--space-4);
+  box-shadow: var(--shadow-xs);
 }
 
 /* 联系方式列样式 */
@@ -578,11 +607,12 @@
 
 /* 用户表格整体优化 */
 .um-table-container {
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   overflow-x: auto;
   border: 1px solid var(--border-subtle);
   background: var(--surface-base);
+  box-shadow: var(--shadow-xs);
 }
 
 .um-table {
@@ -650,10 +680,6 @@
 }
 
 @media (max-width: 768px) {
-  .um-container {
-    gap: var(--space-4);
-  }
-
   .um-charts-section .chart-card {
     min-height: auto;
   }

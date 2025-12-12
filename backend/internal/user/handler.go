@@ -12,6 +12,7 @@ import (
 	"scholar-backend/internal/common/turnstile"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/config"
+	"scholar-backend/internal/currency"
 	"strconv"
 	"strings"
 	"time"
@@ -28,10 +29,11 @@ type WeChatService interface {
 
 // Handler handles HTTP requests for user operations
 type Handler struct {
-	service        *Service
-	wechatService  WeChatService
-	userRepo       *Repository
-	configRepo     *config.Repository
+	service         *Service
+	wechatService   WeChatService
+	userRepo        *Repository
+	configRepo      *config.Repository
+	currencyService *currency.Service
 }
 
 // NewHandler creates a new user handler
@@ -47,6 +49,11 @@ func NewHandler(service *Service, db *gorm.DB) *Handler {
 // SetWeChatService sets the WeChat service
 func (h *Handler) SetWeChatService(wechatService WeChatService) {
 	h.wechatService = wechatService
+}
+
+// SetCurrencyService sets the currency service
+func (h *Handler) SetCurrencyService(currencyService *currency.Service) {
+	h.currencyService = currencyService
 }
 
 // CheckEmailRequest represents a check email request
@@ -669,6 +676,11 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		Username *string `json:"username"`
 	}
 
+	type WalletInfo struct {
+		Gold    int64 `json:"gold"`
+		Diamond int64 `json:"diamond"`
+	}
+
 	type UserResponse struct {
 		User
 		WeChatOpenID     string            `json:"wechat_openid,omitempty"`
@@ -676,6 +688,7 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		WeChatName       string            `json:"wechat_name,omitempty"`
 		GithubLogin      string            `json:"github_login,omitempty"`
 		Subscription     *SubscriptionInfo `json:"subscription,omitempty"`
+		Wallet           *WalletInfo       `json:"wallet,omitempty"`              // 钱包信息
 		LastLoginIPInfo  string            `json:"last_login_ip_info,omitempty"`   // IP归属地信息
 		InvitedBy        *InviterInfo      `json:"invited_by,omitempty"`           // 邀请者信息
 	}
@@ -738,6 +751,20 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		}
 	}
 
+	// Get wallet info for all users
+	walletMap := make(map[uint]*WalletInfo)
+	if h.currencyService != nil {
+		wallets, err := h.currencyService.GetWalletsByUserIDs(userIDs)
+		if err == nil {
+			for userID, wallet := range wallets {
+				walletMap[userID] = &WalletInfo{
+					Gold:    wallet.Gold,
+					Diamond: wallet.Diamond,
+				}
+			}
+		}
+	}
+
 	userResponses := make([]UserResponse, len(users))
 	for i, user := range users {
 		response := UserResponse{User: user}
@@ -745,6 +772,11 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		// Add subscription info
 		if subInfo, ok := subscriptionMap[user.ID]; ok {
 			response.Subscription = subInfo
+		}
+
+		// Add wallet info
+		if wallet, ok := walletMap[user.ID]; ok {
+			response.Wallet = wallet
 		}
 
 		// Add inviter info

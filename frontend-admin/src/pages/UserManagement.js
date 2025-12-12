@@ -368,6 +368,24 @@ const UserManagement = () => {
     );
   };
 
+  // 渲染钱包信息
+  const renderWalletInfo = (wallet) => {
+    if (!wallet) {
+      return (
+        <div className="um-wallet-info">
+          <span className="um-wallet-item um-wallet-gold">🪙 0</span>
+          <span className="um-wallet-item um-wallet-diamond">💎 0</span>
+        </div>
+      );
+    }
+    return (
+      <div className="um-wallet-info">
+        <span className="um-wallet-item um-wallet-gold">🪙 {wallet.gold}</span>
+        <span className="um-wallet-item um-wallet-diamond">💎 {wallet.diamond}</span>
+      </div>
+    );
+  };
+
   const renderContactInfo = (user) => {
     const contactInfo = [];
 
@@ -592,6 +610,7 @@ const UserManagement = () => {
                             <div className="um-subscription-info-cell">
                               {renderSubscriptionPlan(user.subscription)}
                               {renderSubscriptionExpiry(user.subscription)}
+                              {renderWalletInfo(user.wallet)}
                             </div>
                           </td>
                           <td>
