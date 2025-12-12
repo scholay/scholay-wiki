@@ -55,6 +55,7 @@ type SearchPapersRequest struct {
 	Venue             []string `json:"venue"`
 	FieldsOfStudy     []string `json:"fieldsOfStudy"`
 	OpenAccessPdf     string   `json:"openAccessPdf"`
+	MinCitationCount  int      `json:"minCitationCount"`            // 最小引用次数筛选
 	EnableTranslation *bool    `json:"enableTranslation,omitempty"` // 是否启用AI翻译，nil表示默认true，false表示禁用
 }
 
@@ -144,6 +145,7 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 		Venue:            req.Venue,
 		FieldsOfStudy:    req.FieldsOfStudy,
 		OpenAccessPDF:    req.OpenAccessPdf,
+		MinCitationCount: req.MinCitationCount,
 	}
 
 	// 设置默认limit

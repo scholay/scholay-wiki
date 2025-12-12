@@ -514,7 +514,7 @@
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 }
 
-/* 复选框项 - 毛玻璃效果 */
+/* 复选框项 - 优化性能，移除 backdrop-filter */
 .checkbox-item {
   display: flex;
   align-items: center;
@@ -522,23 +522,18 @@
   cursor: pointer;
   padding: 11px 13px;
   border-radius: 10px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  background: rgba(255, 255, 255, 0.02);
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   position: relative;
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
+  /* 移除 backdrop-filter 以提升滚动性能 */
+  will-change: background, border-color;
 }
 
 .checkbox-item:hover {
-  background: rgba(16, 163, 127, 0.08);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(16, 163, 127, 0.12);
   border-color: rgba(16, 163, 127, 0.35);
-  transform: translateX(2px);
-  box-shadow: 
-    0 2px 8px rgba(16, 163, 127, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.15);
 }
 
 .checkbox-item input[type="checkbox"] {
@@ -574,6 +569,58 @@
 .checkbox-item input[type="checkbox"]:checked + span {
   color: var(--filters-accent);
   font-weight: 600;
+}
+
+/* Citation Options - 引用次数筛选 */
+.citation-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.citation-option-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--filters-muted, var(--text-secondary));
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.citation-option-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--filters-text, var(--text-primary));
+}
+
+.citation-option-btn.active {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.25), rgba(16, 163, 127, 0.15));
+  border-color: rgba(16, 163, 127, 0.4);
+  color: var(--text-accent);
+  font-weight: 600;
+  box-shadow: 0 0 0 1px rgba(16, 163, 127, 0.2);
+}
+
+/* Light theme for citation options */
+[data-theme="light"] .citation-option-btn {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.02);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .citation-option-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .citation-option-btn.active {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15), rgba(16, 163, 127, 0.08));
+  border-color: rgba(16, 163, 127, 0.4);
+  color: var(--text-accent);
 }
 
 /* Open Access Switch Container */

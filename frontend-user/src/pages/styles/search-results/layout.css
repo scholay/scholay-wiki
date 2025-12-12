@@ -509,6 +509,47 @@
   background: rgba(236, 72, 153, 0.08);
 }
 
+.filter-tag-minCitationCount {
+  color: rgba(252, 211, 77, 0.9);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+/* 日间模式筛选标签颜色 */
+[data-theme="light"] .filter-tag {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .filter-tag-year {
+  color: #2563eb;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+[data-theme="light"] .filter-tag-openAccess {
+  color: #059669;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+[data-theme="light"] .filter-tag-field {
+  color: #7c3aed;
+  background: rgba(139, 92, 246, 0.12);
+}
+
+[data-theme="light"] .filter-tag-pubType {
+  color: #d97706;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+[data-theme="light"] .filter-tag-venue {
+  color: #db2777;
+  background: rgba(236, 72, 153, 0.12);
+}
+
+[data-theme="light"] .filter-tag-minCitationCount {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.15);
+}
+
 .filter-tag-remove {
   display: flex;
   align-items: center;

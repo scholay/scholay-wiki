@@ -72,6 +72,7 @@ const SearchResultsPage = () => {
     fieldsOfStudy: searchParams.get('fieldsOfStudy')?.split(',').filter(Boolean) || [],
     openAccessPdf: searchParams.get('openAccessPdf') || '',
     venue: searchParams.get('venue') || '',
+    minCitationCount: searchParams.get('minCitationCount') || '',
   });
 
   const [papers, setPapers] = useState([]);
@@ -420,6 +421,10 @@ const SearchResultsPage = () => {
         params.venue = [currentFilters.venue];
       }
 
+      if (currentFilters.minCitationCount) {
+        params.minCitationCount = parseInt(currentFilters.minCitationCount, 10);
+      }
+
       // 使用公共API，支持未登录用户访问
       const response = await publicScholarAPI.searchPapers(params);
 
@@ -525,6 +530,7 @@ const SearchResultsPage = () => {
         fieldsOfStudy: [],
         openAccessPdf: '',
         venue: '',
+        minCitationCount: '',
       });
       setCurrentPage(1);
       updateURL(history.query, history.filters, 1);
@@ -1359,6 +1365,7 @@ const SearchResultsPage = () => {
     if (currentFilters.fieldsOfStudy.length > 0) params.set('fieldsOfStudy', currentFilters.fieldsOfStudy.join(','));
     if (currentFilters.openAccessPdf) params.set('openAccessPdf', currentFilters.openAccessPdf);
     if (currentFilters.venue) params.set('venue', currentFilters.venue);
+    if (currentFilters.minCitationCount) params.set('minCitationCount', currentFilters.minCitationCount);
     if (page > 1) params.set('page', page);
 
     setSearchParams(params);
@@ -1420,7 +1427,8 @@ const SearchResultsPage = () => {
            filters.publicationTypes.length > 0 ||
            filters.fieldsOfStudy.length > 0 ||
            filters.openAccessPdf ||
-           filters.venue;
+           filters.venue ||
+           filters.minCitationCount;
   };
 
   // 获取当前筛选标签列表
@@ -1437,6 +1445,10 @@ const SearchResultsPage = () => {
     
     if (filters.openAccessPdf) {
       tags.push({ key: 'openAccess', label: '开放获取', type: 'openAccess' });
+    }
+
+    if (filters.minCitationCount) {
+      tags.push({ key: 'minCitationCount', label: `引用≥${filters.minCitationCount}`, type: 'minCitationCount' });
     }
     
     filters.fieldsOfStudy.forEach(field => {
@@ -1463,6 +1475,8 @@ const SearchResultsPage = () => {
       newFilters.yearTo = '';
     } else if (tagType === 'openAccess') {
       newFilters.openAccessPdf = '';
+    } else if (tagType === 'minCitationCount') {
+      newFilters.minCitationCount = '';
     } else if (tagType === 'field') {
       const fieldName = tagKey.replace('field-', '');
       newFilters.fieldsOfStudy = newFilters.fieldsOfStudy.filter(f => f !== fieldName);
@@ -1492,6 +1506,7 @@ const SearchResultsPage = () => {
       fieldsOfStudy: [],
       openAccessPdf: '',
       venue: '',
+      minCitationCount: '',
     };
     setFilters(newFilters);
     
@@ -1742,7 +1757,8 @@ const SearchResultsPage = () => {
                                        filters.publicationTypes.length > 0 ||
                                        filters.fieldsOfStudy.length > 0 ||
                                        filters.openAccessPdf ||
-                                       filters.venue;
+                                       filters.venue ||
+                                       filters.minCitationCount;
 
                       return (
                         <button
@@ -1902,7 +1918,8 @@ const SearchResultsPage = () => {
                                        filters.publicationTypes.length > 0 ||
                                        filters.fieldsOfStudy.length > 0 ||
                                        filters.openAccessPdf ||
-                                       filters.venue;
+                                       filters.venue ||
+                                       filters.minCitationCount;
 
                       return (
                         <button

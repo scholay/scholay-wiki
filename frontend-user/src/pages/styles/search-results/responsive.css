@@ -85,6 +85,11 @@
   background: rgba(219, 39, 119, 0.1);
 }
 
+[data-theme="light"] .filter-tag-minCitationCount {
+  color: #b45309;
+  background: rgba(180, 83, 9, 0.12);
+}
+
 /* 清除全部按钮 */
 [data-theme="light"] .clear-all-filters {
   color: var(--text-tertiary);

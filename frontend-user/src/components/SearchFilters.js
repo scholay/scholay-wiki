@@ -102,6 +102,10 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
     onFiltersChange({ ...filters, venue: e.target.value });
   };
 
+  const handleMinCitationChange = (value) => {
+    onFiltersChange({ ...filters, minCitationCount: value });
+  };
+
   const handleClearFilters = () => {
     onFiltersChange({
       yearFrom: '',
@@ -110,6 +114,7 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
       fieldsOfStudy: [],
       openAccessPdf: '',
       venue: '',
+      minCitationCount: '',
     });
   };
 
@@ -117,8 +122,18 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
     return filters.yearFrom || filters.yearTo ||
            (filters.publicationTypes && filters.publicationTypes.length > 0) ||
            (filters.fieldsOfStudy && filters.fieldsOfStudy.length > 0) ||
-           filters.openAccessPdf || filters.venue;
+           filters.openAccessPdf || filters.venue || filters.minCitationCount;
   };
+
+  // 最小引用次数选项
+  const citationOptions = [
+    { value: '', label: '不限' },
+    { value: '10', label: '≥ 10' },
+    { value: '50', label: '≥ 50' },
+    { value: '100', label: '≥ 100' },
+    { value: '500', label: '≥ 500' },
+    { value: '1000', label: '≥ 1000' },
+  ];
 
   return (
     <div className={`filters-container ${isExpanded ? 'expanded' : ''}`}>
@@ -147,6 +162,23 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
             yearTo={filters.yearTo ? parseInt(filters.yearTo) : undefined}
             onChange={handleYearChange}
           />
+        </div>
+
+        {/* Min Citation Count */}
+        <div className="filter-group">
+          <label className="filter-label">最小引用次数</label>
+          <div className="citation-options">
+            {citationOptions.map(option => (
+              <button
+                key={option.value}
+                type="button"
+                className={`citation-option-btn ${(filters.minCitationCount || '') === option.value ? 'active' : ''}`}
+                onClick={() => handleMinCitationChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Open Access - Toggle Switch */}

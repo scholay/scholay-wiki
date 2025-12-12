@@ -146,6 +146,9 @@ func (c *Client) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) 
 	if len(opts.Fields) > 0 {
 		cacheParams["fields"] = opts.Fields
 	}
+	if opts.MinCitationCount > 0 {
+		cacheParams["minCitationCount"] = opts.MinCitationCount
+	}
 
 	// Try to get from cache
 	var cachedResult SearchResponse
@@ -182,6 +185,9 @@ func (c *Client) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) 
 	}
 	if len(opts.Fields) > 0 {
 		params["fields"] = joinStrings(opts.Fields, ",")
+	}
+	if opts.MinCitationCount > 0 {
+		params["minCitationCount"] = strconv.Itoa(opts.MinCitationCount)
 	}
 
 	// Set default limit if not specified

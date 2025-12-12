@@ -164,15 +164,16 @@ type BatchPaperRequest struct {
 
 // PaperSearchOptions contains options for paper search
 type PaperSearchOptions struct {
-	Query          string
-	Year           string   // e.g., "2020" or "2019-2021"
+	Query            string
+	Year             string   // e.g., "2020" or "2019-2021"
 	PublicationTypes []string // e.g., "JournalArticle", "Conference"
-	OpenAccessPDF  string   // "" or "true"
-	Venue          []string
-	FieldsOfStudy  []string
-	Fields         []string // Fields to return
-	Offset         int
-	Limit          int
+	OpenAccessPDF    string   // "" or "true"
+	Venue            []string
+	FieldsOfStudy    []string
+	Fields           []string // Fields to return
+	Offset           int
+	Limit            int
+	MinCitationCount int      // Minimum citation count filter
 }
 
 // BulkSearchOptions contains options for bulk paper search
