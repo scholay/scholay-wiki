@@ -111,14 +111,14 @@ func (h *Handler) GetTransaction(c *gin.Context) {
 	utils.Success(c, transaction)
 }
 
-// GetRechargeInfo 获取充值信息（钻石单价等）
+// GetRechargeInfo 获取充值信息（恩特币单价等）
 // GET /api/v1/user/wallet/recharge-info
 func (h *Handler) GetRechargeInfo(c *gin.Context) {
 	diamondPrice, _ := h.service.GetDiamondPrice()
 
 	utils.Success(c, gin.H{
-		"diamond_price":       diamondPrice,                          // 钻石单价（分）
-		"diamond_price_yuan":  float64(diamondPrice) / 100.0,         // 钻石单价（元）
+		"diamond_price":       diamondPrice,                          // 恩特币单价（分）
+		"diamond_price_yuan":  float64(diamondPrice) / 100.0,         // 恩特币单价（元）
 		"min_recharge_amount": 1,                                     // 最小充值数量
 		"max_recharge_amount": 10000,                                 // 最大充值数量
 	})
@@ -130,16 +130,16 @@ func (h *Handler) GetExchangeInfo(c *gin.Context) {
 	rate, _ := h.service.GetExchangeRate()
 
 	utils.Success(c, gin.H{
-		"diamond_to_gold_rate": rate, // 1钻石=N经费
+		"diamond_to_gold_rate": rate, // 1恩特币=N经费
 	})
 }
 
 // ExchangeRequest 兑换请求
 type ExchangeRequest struct {
-	DiamondAmount int64 `json:"diamond_amount" binding:"required,min=1"` // 要兑换的钻石数量
+	DiamondAmount int64 `json:"diamond_amount" binding:"required,min=1"` // 要兑换的恩特币数量
 }
 
-// ExchangeDiamondToGold 钻石兑换经费
+// ExchangeDiamondToGold 恩特币兑换经费
 // POST /api/v1/user/wallet/exchange
 func (h *Handler) ExchangeDiamondToGold(c *gin.Context) {
 	userID, exists := c.Get("user_id")
@@ -162,7 +162,7 @@ func (h *Handler) ExchangeDiamondToGold(c *gin.Context) {
 	goldAmount, diamondTx, goldTx, err := h.service.ExchangeDiamondToGold(context.Background(), userID.(uint), req.DiamondAmount)
 	if err != nil {
 		if err == ErrInsufficientBalance {
-			utils.Error(c, 4002, "钻石余额不足")
+			utils.Error(c, 4002, "恩特币余额不足")
 		} else {
 			utils.Error(c, 5001, "兑换失败: "+err.Error())
 		}

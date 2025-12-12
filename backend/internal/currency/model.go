@@ -21,7 +21,7 @@ type CurrencyType string
 
 const (
 	CurrencyGold    CurrencyType = "gold"    // 经费
-	CurrencyDiamond CurrencyType = "diamond" // 钻石
+	CurrencyDiamond CurrencyType = "diamond" // 恩特币
 )
 
 // ========== 交易类型 ==========
@@ -57,7 +57,7 @@ type Wallet struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	UserID    uint      `gorm:"uniqueIndex;not null" json:"user_id"`
 	Gold      int64     `gorm:"default:0;not null" json:"gold"`          // 经费余额
-	Diamond   int64     `gorm:"default:0;not null" json:"diamond"`       // 钻石余额
+	Diamond   int64     `gorm:"default:0;not null" json:"diamond"`       // 恩特币余额
 	Version   int64     `gorm:"default:0;not null" json:"-"`             // 乐观锁版本号
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -125,19 +125,19 @@ const (
 	ConfigKeyCheckinAfter15 = "checkin_after15_gold" // 连续签到15天之后每天奖励
 
 	// 邀请奖励
-	ConfigKeyInviteRewardDiamond    = "invite_reward_diamond"    // 每次邀请奖励钻石
-	ConfigKeyInviteMilestoneDiamond = "invite_milestone_diamond" // 邀请里程碑额外奖励钻石（每5个触发）
+	ConfigKeyInviteRewardDiamond    = "invite_reward_diamond"    // 每次邀请奖励恩特币
+	ConfigKeyInviteMilestoneDiamond = "invite_milestone_diamond" // 邀请里程碑额外奖励恩特币（每5个触发）
 
 	// 充值配置
-	ConfigKeyDiamondPrice = "diamond_price" // 钻石单价（分/个）
+	ConfigKeyDiamondPrice = "diamond_price" // 恩特币单价（分/个）
 
 	// 兑换配置
-	ConfigKeyDiamondToGoldRate = "diamond_to_gold_rate" // 钻石兑换经费比例（1钻石=N经费）
+	ConfigKeyDiamondToGoldRate = "diamond_to_gold_rate" // 恩特币兑换经费比例（1恩特币=N经费）
 
 	// 会员月度赠送配置
 	ConfigKeyProMonthlyGold     = "pro_monthly_gold"     // Pro会员每月赠送经费
 	ConfigKeyMaxMonthlyGold     = "max_monthly_gold"     // Max会员每月赠送经费
-	ConfigKeyMaxMonthlyDiamond  = "max_monthly_diamond"  // Max会员每月赠送钻石
+	ConfigKeyMaxMonthlyDiamond  = "max_monthly_diamond"  // Max会员每月赠送恩特币
 )
 
 // CurrencyConfig 货币配置表

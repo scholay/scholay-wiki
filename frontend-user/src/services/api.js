@@ -626,7 +626,7 @@ export const walletAPI = {
   checkBalance: (currencyType, amount) =>
     api.post('/user/wallet/check-balance', { currency_type: currencyType, amount }),
 
-  // 获取充值信息（钻石单价等）
+  // 获取充值信息（恩特币单价等）
   getRechargeInfo: () => api.get('/user/wallet/recharge-info'),
 
   // 获取兑换信息（兑换比例等）
@@ -636,7 +636,7 @@ export const walletAPI = {
   previewExchange: (diamondAmount) =>
     api.get('/user/wallet/exchange/preview', { params: { diamond_amount: diamondAmount } }),
 
-  // 执行钻石兑换经费
+  // 执行恩特币兑换经费
   exchangeDiamondToGold: (diamondAmount) =>
     api.post('/user/wallet/exchange', { diamond_amount: diamondAmount }),
 };

@@ -89,7 +89,7 @@ const Settings = () => {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Exchange state - 兑换状态
-  const [exchangeRate, setExchangeRate] = useState(100); // 1钻石=100经费
+  const [exchangeRate, setExchangeRate] = useState(100); // 1恩特币=100经费
   const [exchangeAmount, setExchangeAmount] = useState('');
   const [exchangeLoading, setExchangeLoading] = useState(false);
   const [showExchangeModal, setShowExchangeModal] = useState(false);
@@ -358,7 +358,7 @@ const Settings = () => {
     }
   };
 
-  // 执行钻石兑换经费
+  // 执行恩特币兑换经费
   const handleExchange = async () => {
     const amount = parseInt(exchangeAmount, 10);
     if (!amount || amount <= 0) {
@@ -366,7 +366,7 @@ const Settings = () => {
       return;
     }
     if (amount > (wallet?.diamond || 0)) {
-      showError('钻石余额不足');
+      showError('恩特币余额不足');
       return;
     }
 
@@ -1767,9 +1767,9 @@ const Settings = () => {
         invite_reward: '邀请奖励',
         invite_milestone: '邀请里程碑奖励',
         membership_gift: '会员赠送',
-        diamond_exchange: '钻石兑换经费',
-        diamond_to_gold: '钻石兑换经费',
-        diamond_recharge: '钻石充值',
+        diamond_exchange: '恩特币兑换经费',
+        diamond_to_gold: '恩特币兑换经费',
+        diamond_recharge: '恩特币充值',
         peer_review: 'AI审稿',
         // AI对话（按模型级别）
         ai_chat_low: 'AI对话-普通模型',
@@ -1875,7 +1875,7 @@ const Settings = () => {
                   <line x1="12" y1="5" x2="12" y2="19"/>
                   <line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
-                充值钻石 (1元/个)
+                充值恩特币 (1元/个)
               </button>
             </div>
           </div>
@@ -1905,11 +1905,11 @@ const Settings = () => {
                   </svg>
                 </div>
                 <div className="balance-info">
-                  <span className="balance-label">钻石</span>
+                  <span className="balance-label">恩特币</span>
                   <span className="balance-value">{wallet?.diamond || 0}</span>
                 </div>
                 <div className="balance-hint">
-                  1元 = 1钻石 = {exchangeRate}经费
+                  1元 = 1恩特币 = {exchangeRate}经费
                 </div>
               </div>
             </div>
@@ -1921,7 +1921,7 @@ const Settings = () => {
           <div className="modal-overlay" onClick={() => setShowExchangeModal(false)}>
             <div className="exchange-modal" onClick={e => e.stopPropagation()}>
               <div className="exchange-modal-header">
-                <h3>钻石兑换经费</h3>
+                <h3>恩特币兑换经费</h3>
                 <button className="modal-close" onClick={() => setShowExchangeModal(false)}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="18" y1="6" x2="6" y2="18"/>
@@ -1936,14 +1936,14 @@ const Settings = () => {
                     <line x1="12" y1="16" x2="12" y2="12"/>
                     <line x1="12" y1="8" x2="12.01" y2="8"/>
                   </svg>
-                  <span>钻石可兑换经费，但经费无法兑换钻石</span>
+                  <span>恩特币可兑换经费，但经费无法兑换恩特币</span>
                 </div>
                 <div className="exchange-rate-info">
                   <span className="rate-label">兑换比例</span>
-                  <span className="rate-value">1 钻石 = {exchangeRate} 经费</span>
+                  <span className="rate-value">1 恩特币 = {exchangeRate} 经费</span>
                 </div>
                 <div className="exchange-balance">
-                  <span>当前钻石余额: <strong>{wallet?.diamond || 0}</strong></span>
+                  <span>当前恩特币余额: <strong>{wallet?.diamond || 0}</strong></span>
                 </div>
                 <div className="exchange-input-group">
                   <label>兑换数量</label>
@@ -1954,7 +1954,7 @@ const Settings = () => {
                       max={wallet?.diamond || 0}
                       value={exchangeAmount}
                       onChange={e => setExchangeAmount(e.target.value)}
-                      placeholder="输入钻石数量"
+                      placeholder="输入恩特币数量"
                     />
                     <button 
                       className="exchange-max-btn"
@@ -2022,7 +2022,7 @@ const Settings = () => {
                   className={`filter-btn ${transactionFilter === 'diamond' ? 'active' : ''}`}
                   onClick={() => handleTransactionFilterChange('diamond')}
                 >
-                  钻石
+                  恩特币
                 </button>
               </div>
               <button 
@@ -2053,7 +2053,7 @@ const Settings = () => {
                     <option value="register_gift">注册赠送</option>
                     <option value="invite_reward">邀请奖励</option>
                     <option value="membership_gift">会员赠送</option>
-                    <option value="diamond_exchange">钻石兑换</option>
+                    <option value="diamond_exchange">恩特币兑换</option>
                     <option value="peer_review">AI审稿</option>
                     <option value="ai_chat_low">AI对话-普通</option>
                     <option value="ai_chat_mid">AI对话-进阶</option>
@@ -2142,7 +2142,7 @@ const Settings = () => {
                       </span>
                       <span className="transaction-balance">
                         余额: <strong>{tx.balance_after}</strong>
-                        {tx.currency_type === 'gold' ? ' 经费' : ' 钻石'}
+                        {tx.currency_type === 'gold' ? ' 经费' : ' 恩特币'}
                       </span>
                     </div>
                   </div>

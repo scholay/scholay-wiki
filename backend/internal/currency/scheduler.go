@@ -112,7 +112,7 @@ func (s *MembershipGiftScheduler) checkMonthlyTasks() {
 	now := time.Now()
 	day := now.Day()
 
-	// 每月1日：赠送会员经费/钻石
+	// 每月1日：赠送会员经费/恩特币
 	if day == 1 {
 		s.checkAndGift()
 	}

@@ -233,11 +233,11 @@ const UserManagement = () => {
         user_id: currencyModal.user.id,
         currency_type: currencyForm.currencyType,
         amount: amount,
-        description: currencyForm.description || `系统赠送${currencyForm.currencyType === 'gold' ? '经费' : '钻石'}`
+        description: currencyForm.description || `系统赠送${currencyForm.currencyType === 'gold' ? '经费' : '恩特币'}`
       });
       
       if (response.data.code === 0) {
-        showToast(`成功发放 ${amount} ${currencyForm.currencyType === 'gold' ? '经费' : '钻石'}`, 'success');
+        showToast(`成功发放 ${amount} ${currencyForm.currencyType === 'gold' ? '经费' : '恩特币'}`, 'success');
         handleCurrencyCancel();
         loadUserList();
       } else {
@@ -681,7 +681,7 @@ const UserManagement = () => {
                                   e.preventDefault();
                                   handleCurrencyClick(user);
                                 }}
-                                title="发放经费/钻石"
+                                title="发放经费/恩特币"
                               >
                                 货币
                               </button>
@@ -917,7 +917,7 @@ const UserManagement = () => {
         <div className="modal-overlay" onClick={handleCurrencyCancel}>
           <div className="modal-content um-currency-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>发放经费/钻石</h3>
+              <h3>发放经费/恩特币</h3>
             </div>
             <div className="modal-body">
               <p>为用户 <strong>{currencyModal.user?.email || currencyModal.user?.username || `ID: ${currencyModal.user?.id}`}</strong> 发放货币</p>
@@ -939,7 +939,7 @@ const UserManagement = () => {
                     onClick={() => setCurrencyForm({ ...currencyForm, currencyType: 'diamond' })}
                   >
                     <span className="um-currency-icon">💎</span>
-                    <span>钻石</span>
+                    <span>恩特币</span>
                   </button>
                 </div>
               </div>
@@ -952,7 +952,7 @@ const UserManagement = () => {
                   value={currencyForm.amount}
                   onChange={(e) => setCurrencyForm({ ...currencyForm, amount: e.target.value })}
                   className="um-form-input"
-                  placeholder={`输入${currencyForm.currencyType === 'gold' ? '经费' : '钻石'}数量`}
+                  placeholder={`输入${currencyForm.currencyType === 'gold' ? '经费' : '恩特币'}数量`}
                 />
               </div>
 

@@ -580,13 +580,13 @@ func (s *Service) RegisterWithInvitation(invitationCode string, inviteeID uint64
 		return err
 	}
 
-	// 异步发放邀请钻石奖励给邀请人
+	// 异步发放邀请恩特币奖励给邀请人
 	go s.giftInviteDiamond(invitation.UserID, invitation.SuccessfulInvites+1)
 
 	return nil
 }
 
-// giftInviteDiamond 发放邀请钻石奖励
+// giftInviteDiamond 发放邀请恩特币奖励
 // inviteCount: 当前是第几个成功邀请（包含本次）
 func (s *Service) giftInviteDiamond(inviterID uint64, inviteCount int) {
 	if s.currencyService == nil {
@@ -599,7 +599,7 @@ func (s *Service) giftInviteDiamond(inviterID uint64, inviteCount int) {
 	// 获取配置
 	baseReward, err := s.currencyService.GetCurrencyConfigAmount("invite_reward_diamond")
 	if err != nil || baseReward <= 0 {
-		baseReward = 1 // 默认每次邀请奖励1钻石
+		baseReward = 1 // 默认每次邀请奖励1恩特币
 	}
 
 	// 里程碑间隔固定为5（第5、10、15...个触发）
@@ -607,7 +607,7 @@ func (s *Service) giftInviteDiamond(inviterID uint64, inviteCount int) {
 
 	milestoneReward, err := s.currencyService.GetCurrencyConfigAmount("invite_milestone_diamond")
 	if err != nil || milestoneReward <= 0 {
-		milestoneReward = 10 // 默认里程碑奖励10钻石
+		milestoneReward = 10 // 默认里程碑奖励10恩特币
 	}
 
 	// 计算本次奖励
@@ -618,7 +618,7 @@ func (s *Service) giftInviteDiamond(inviterID uint64, inviteCount int) {
 		totalReward += milestoneReward
 	}
 
-	// 发放钻石奖励
+	// 发放恩特币奖励
 	bizID := fmt.Sprintf("invite_%d_%d", inviterID, inviteCount)
 	var desc string
 	if isMilestone {

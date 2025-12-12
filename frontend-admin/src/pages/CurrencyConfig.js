@@ -161,18 +161,18 @@ const CurrencyConfig = () => {
   const getCurrencyLabel = (type) => {
     const labels = {
       gold: '经费',
-      diamond: '钻石'
+      diamond: '恩特币'
     };
     return labels[type] || type;
   };
 
   // 获取金额显示单位（特殊处理某些配置）
   const getAmountUnit = (config) => {
-    // 钻石单价的单位是"分"，不是钻石
+    // 恩特币单价的单位是"分"，不是恩特币
     if (config.config_key === 'diamond_price') {
       return '分';
     }
-    return config.currency_type === 'gold' ? '经费' : '钻石';
+    return config.currency_type === 'gold' ? '经费' : '恩特币';
   };
 
   // 格式化金额显示（特殊处理某些配置）
@@ -183,7 +183,7 @@ const CurrencyConfig = () => {
         <span className="amount-value price-value">
           {config.amount}
           <span className="currency-unit">分</span>
-          <span className="price-hint">（{yuan}元/个钻石）</span>
+          <span className="price-hint">（{yuan}元/个恩特币）</span>
         </span>
       );
     }
@@ -191,7 +191,7 @@ const CurrencyConfig = () => {
       <span className="amount-value">
         {config.amount}
         <span className="currency-unit">
-          {config.currency_type === 'gold' ? '经费' : '钻石'}
+          {config.currency_type === 'gold' ? '经费' : '恩特币'}
         </span>
       </span>
     );
@@ -212,7 +212,7 @@ const CurrencyConfig = () => {
       <div className="page-header">
         <h1>货币配置管理</h1>
         <p className="page-description">
-          管理系统中的经费和钻石配置，包括注册赠送、签到奖励、功能消耗等
+          管理系统中的经费和恩特币配置，包括注册赠送、签到奖励、功能消耗等
         </p>
       </div>
 
@@ -482,7 +482,7 @@ const CurrencyConfig = () => {
           <li><strong>注册赠送经费</strong>：新用户注册时自动赠送的经费数量</li>
           <li><strong>每日签到经费</strong>：用户每日签到获得的经费数量</li>
           <li><strong>邀请奖励经费</strong>：成功邀请新用户注册后获得的经费奖励</li>
-          <li><strong>功能消耗</strong>：使用各项功能时消耗的经费/钻石数量，设为0表示免费</li>
+          <li><strong>功能消耗</strong>：使用各项功能时消耗的经费/恩特币数量，设为0表示免费</li>
           <li><strong>禁用配置</strong>：禁用后该配置不会生效（如禁用注册赠送则新用户不会获得经费）</li>
         </ul>
       </div>

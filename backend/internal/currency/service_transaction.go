@@ -18,7 +18,7 @@ func (s *Service) RechargeGold(ctx context.Context, userID uint, amount int64, b
 	return s.doTransaction(ctx, userID, CurrencyGold, amount, TxTypeRecharge, bizType, bizID, desc)
 }
 
-// RechargeDiamond 充值钻石
+// RechargeDiamond 充值恩特币
 func (s *Service) RechargeDiamond(ctx context.Context, userID uint, amount int64, bizType, bizID, desc string) (*Transaction, error) {
 	return s.doTransaction(ctx, userID, CurrencyDiamond, amount, TxTypeRecharge, bizType, bizID, desc)
 }
@@ -35,7 +35,7 @@ func (s *Service) DeductGold(ctx context.Context, userID uint, amount int64, biz
 	return s.doTransaction(ctx, userID, CurrencyGold, -amount, TxTypeDeduct, bizType, bizID, desc)
 }
 
-// DeductDiamond 扣除钻石
+// DeductDiamond 扣除恩特币
 func (s *Service) DeductDiamond(ctx context.Context, userID uint, amount int64, bizType, bizID, desc string) (*Transaction, error) {
 	return s.doTransaction(ctx, userID, CurrencyDiamond, -amount, TxTypeDeduct, bizType, bizID, desc)
 }
@@ -57,7 +57,7 @@ func (s *Service) GiftGold(ctx context.Context, userID uint, amount int64, bizTy
 	return s.doTransaction(ctx, userID, CurrencyGold, amount, TxTypeGift, bizType, bizID, desc)
 }
 
-// GiftDiamond 赠送钻石（返回交易记录，用于外部模块调用）
+// GiftDiamond 赠送恩特币（返回交易记录，用于外部模块调用）
 func (s *Service) GiftDiamond(ctx context.Context, userID uint, amount int64, bizType, bizID, desc string) (any, error) {
 	return s.doTransaction(ctx, userID, CurrencyDiamond, amount, TxTypeGift, bizType, bizID, desc)
 }
@@ -69,9 +69,9 @@ func (s *Service) Reward(ctx context.Context, userID uint, currencyType Currency
 
 // ========== 兑换操作 ==========
 
-// ExchangeDiamondToGold 钻石兑换经费
-// diamondAmount: 要兑换的钻石数量
-// 返回: 兑换获得的经费数量, 钻石扣除交易, 经费增加交易, 错误
+// ExchangeDiamondToGold 恩特币兑换经费
+// diamondAmount: 要兑换的恩特币数量
+// 返回: 兑换获得的经费数量, 恩特币扣除交易, 经费增加交易, 错误
 func (s *Service) ExchangeDiamondToGold(ctx context.Context, userID uint, diamondAmount int64) (int64, *Transaction, *Transaction, error) {
 	if diamondAmount <= 0 {
 		return 0, nil, nil, ErrInvalidAmount
@@ -80,13 +80,13 @@ func (s *Service) ExchangeDiamondToGold(ctx context.Context, userID uint, diamon
 	// 获取兑换比例配置
 	rate, err := s.GetCurrencyConfigAmount(ConfigKeyDiamondToGoldRate)
 	if err != nil || rate <= 0 {
-		rate = 100 // 默认1钻石=100经费
+		rate = 100 // 默认1恩特币=100经费
 	}
 
 	// 计算可获得的经费数量
 	goldAmount := diamondAmount * rate
 
-	// 检查钻石余额
+	// 检查恩特币余额
 	wallet, err := s.GetWallet(userID)
 	if err != nil {
 		return 0, nil, nil, err
@@ -95,19 +95,19 @@ func (s *Service) ExchangeDiamondToGold(ctx context.Context, userID uint, diamon
 		return 0, nil, nil, ErrInsufficientBalance
 	}
 
-	// 执行兑换：扣除钻石
+	// 执行兑换：扣除恩特币
 	bizID := generateBizID("exchange", userID)
 	diamondTx, err := s.doTransaction(ctx, userID, CurrencyDiamond, -diamondAmount, TxTypeExchange,
-		"diamond_to_gold", bizID, "钻石兑换经费")
+		"diamond_to_gold", bizID, "恩特币兑换经费")
 	if err != nil {
 		return 0, nil, nil, err
 	}
 
 	// 执行兑换：增加经费
 	goldTx, err := s.doTransaction(ctx, userID, CurrencyGold, goldAmount, TxTypeExchange,
-		"diamond_to_gold", bizID, "钻石兑换经费")
+		"diamond_to_gold", bizID, "恩特币兑换经费")
 	if err != nil {
-		// 回滚钻石扣除（理论上不应该发生）
+		// 回滚恩特币扣除（理论上不应该发生）
 		_, _ = s.doTransaction(ctx, userID, CurrencyDiamond, diamondAmount, TxTypeRefund,
 			"exchange_rollback", bizID, "兑换失败回滚")
 		return 0, nil, nil, err
@@ -116,20 +116,20 @@ func (s *Service) ExchangeDiamondToGold(ctx context.Context, userID uint, diamon
 	return goldAmount, diamondTx, goldTx, nil
 }
 
-// GetExchangeRate 获取钻石兑换经费的比例
+// GetExchangeRate 获取恩特币兑换经费的比例
 func (s *Service) GetExchangeRate() (int64, error) {
 	rate, err := s.GetCurrencyConfigAmount(ConfigKeyDiamondToGoldRate)
 	if err != nil || rate <= 0 {
-		return 100, nil // 默认1钻石=100经费
+		return 100, nil // 默认1恩特币=100经费
 	}
 	return rate, nil
 }
 
-// GetDiamondPrice 获取钻石单价（分）
+// GetDiamondPrice 获取恩特币单价（分）
 func (s *Service) GetDiamondPrice() (int64, error) {
 	price, err := s.GetCurrencyConfigAmount(ConfigKeyDiamondPrice)
 	if err != nil || price <= 0 {
-		return 100, nil // 默认100分=1元/个钻石
+		return 100, nil // 默认100分=1元/个恩特币
 	}
 	return price, nil
 }
@@ -161,7 +161,7 @@ func (s *Service) GetMembershipGiftConfig(planCode string, isHalf bool) (*Member
 			goldAmount = 5000 // 默认值
 		}
 		result.GoldAmount = goldAmount
-		result.DiamondAmount = 0 // Pro不赠送钻石
+		result.DiamondAmount = 0 // Pro不赠送恩特币
 
 	case "max":
 		goldAmount, err := s.GetCurrencyConfigAmount(ConfigKeyMaxMonthlyGold)
@@ -215,9 +215,9 @@ func (s *Service) GiftMembershipReward(ctx context.Context, userID uint, planCod
 		}
 	}
 
-	// 赠送钻石（仅Max会员）
+	// 赠送恩特币（仅Max会员）
 	if config.DiamondAmount > 0 {
-		desc := fmt.Sprintf("%s会员%s钻石奖励", planCode, month)
+		desc := fmt.Sprintf("%s会员%s恩特币奖励", planCode, month)
 		if isHalf {
 			desc += "（半额）"
 		}
