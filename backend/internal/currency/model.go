@@ -20,7 +20,7 @@ var (
 type CurrencyType string
 
 const (
-	CurrencyGold    CurrencyType = "gold"    // 金币
+	CurrencyGold    CurrencyType = "gold"    // 经费
 	CurrencyDiamond CurrencyType = "diamond" // 钻石
 )
 
@@ -56,7 +56,7 @@ const (
 type Wallet struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	UserID    uint      `gorm:"uniqueIndex;not null" json:"user_id"`
-	Gold      int64     `gorm:"default:0;not null" json:"gold"`          // 金币余额
+	Gold      int64     `gorm:"default:0;not null" json:"gold"`          // 经费余额
 	Diamond   int64     `gorm:"default:0;not null" json:"diamond"`       // 钻石余额
 	Version   int64     `gorm:"default:0;not null" json:"-"`             // 乐观锁版本号
 	CreatedAt time.Time `json:"created_at"`
@@ -115,10 +115,10 @@ func (DeductConfig) TableName() string {
 // ConfigKey 配置键常量
 const (
 	// 注册奖励
-	ConfigKeyRegisterGift = "register_gift_gold" // 注册赠送金币数量
+	ConfigKeyRegisterGift = "register_gift_gold" // 注册赠送经费数量
 
 	// 签到奖励
-	ConfigKeyDailyCheckin   = "daily_checkin_gold"   // 每日签到金币（基础）
+	ConfigKeyDailyCheckin   = "daily_checkin_gold"   // 每日签到经费（基础）
 	ConfigKeyCheckin3Days   = "checkin_3days_gold"   // 连续签到3天奖励
 	ConfigKeyCheckin7Days   = "checkin_7days_gold"   // 连续签到7天奖励
 	ConfigKeyCheckin15Days  = "checkin_15days_gold"  // 连续签到15天奖励
@@ -132,11 +132,11 @@ const (
 	ConfigKeyDiamondPrice = "diamond_price" // 钻石单价（分/个）
 
 	// 兑换配置
-	ConfigKeyDiamondToGoldRate = "diamond_to_gold_rate" // 钻石兑换金币比例（1钻石=N金币）
+	ConfigKeyDiamondToGoldRate = "diamond_to_gold_rate" // 钻石兑换经费比例（1钻石=N经费）
 
 	// 会员月度赠送配置
-	ConfigKeyProMonthlyGold     = "pro_monthly_gold"     // Pro会员每月赠送金币
-	ConfigKeyMaxMonthlyGold     = "max_monthly_gold"     // Max会员每月赠送金币
+	ConfigKeyProMonthlyGold     = "pro_monthly_gold"     // Pro会员每月赠送经费
+	ConfigKeyMaxMonthlyGold     = "max_monthly_gold"     // Max会员每月赠送经费
 	ConfigKeyMaxMonthlyDiamond  = "max_monthly_diamond"  // Max会员每月赠送钻石
 )
 

@@ -301,7 +301,7 @@ func (s *Service) ProcessPayment(userID uint, req ProcessPaymentRequest) error {
 		return fmt.Errorf("failed to upgrade subscription: %w", err)
 	}
 
-	// Gift membership reward (金币/钻石)
+	// Gift membership reward (经费/钻石)
 	s.giftMembershipReward(userID, order.PlanCode)
 
 	return nil
@@ -404,7 +404,7 @@ func (s *Service) ProcessAlipayCallback(orderNo, transactionNo string, amount fl
 		return fmt.Errorf("failed to upgrade subscription: %w", err)
 	}
 
-	// Gift membership reward (金币/钻石)
+	// Gift membership reward (经费/钻石)
 	s.giftMembershipReward(order.UserID, order.PlanCode)
 
 	// Mark coupon as used if order has a coupon
@@ -479,7 +479,7 @@ func (s *Service) ProcessWeChatPayCallback(orderNo, transactionNo string, amount
 		return fmt.Errorf("failed to upgrade subscription: %w", err)
 	}
 
-	// Gift membership reward (金币/钻石)
+	// Gift membership reward (经费/钻石)
 	s.giftMembershipReward(order.UserID, order.PlanCode)
 
 	// Mark coupon as used if order has a coupon
@@ -624,7 +624,7 @@ func (s *Service) AdminGrantSubscription(adminID uint, req AdminGrantSubscriptio
 		return nil, fmt.Errorf("failed to upgrade subscription: %w", err)
 	}
 
-	// Gift membership reward (金币/钻石)
+	// Gift membership reward (经费/钻石)
 	s.giftMembershipReward(req.UserID, req.PlanCode)
 
 	// Refresh order to get updated data

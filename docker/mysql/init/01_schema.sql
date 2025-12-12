@@ -1197,7 +1197,7 @@ CREATE TABLE IF NOT EXISTS `user_checkin_stats` (
 CREATE TABLE IF NOT EXISTS `wallets` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
-  `gold` BIGINT NOT NULL DEFAULT 0 COMMENT '金币余额',
+  `gold` BIGINT NOT NULL DEFAULT 0 COMMENT '经费余额',
   `diamond` BIGINT NOT NULL DEFAULT 0 COMMENT '钻石余额',
   `version` BIGINT NOT NULL DEFAULT 0 COMMENT '乐观锁版本号',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1212,7 +1212,7 @@ CREATE TABLE IF NOT EXISTS `currency_transactions` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `transaction_no` VARCHAR(64) NOT NULL COMMENT '交易流水号',
   `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
-  `currency_type` VARCHAR(20) NOT NULL COMMENT '货币类型: gold=金币, diamond=钻石',
+  `currency_type` VARCHAR(20) NOT NULL COMMENT '货币类型: gold=经费, diamond=钻石',
   `transaction_type` VARCHAR(20) NOT NULL COMMENT '交易类型: recharge=充值, deduct=扣费, refund=退款, gift=赠送, reward=奖励',
   `amount` BIGINT NOT NULL COMMENT '交易金额（正数）',
   `balance_before` BIGINT NOT NULL COMMENT '交易前余额',
@@ -1238,7 +1238,7 @@ CREATE TABLE IF NOT EXISTS `currency_transactions` (
 CREATE TABLE IF NOT EXISTS `currency_deduct_configs` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `biz_type` VARCHAR(50) NOT NULL COMMENT '业务类型',
-  `currency_type` VARCHAR(20) NOT NULL COMMENT '货币类型: gold=金币, diamond=钻石',
+  `currency_type` VARCHAR(20) NOT NULL COMMENT '货币类型: gold=经费, diamond=钻石',
   `amount` BIGINT NOT NULL COMMENT '扣费金额',
   `description` VARCHAR(200) COMMENT '描述',
   `enabled` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '是否启用',
@@ -1253,7 +1253,7 @@ CREATE TABLE IF NOT EXISTS `currency_configs` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `config_key` VARCHAR(50) NOT NULL COMMENT '配置键',
   `config_name` VARCHAR(100) NOT NULL COMMENT '配置名称（中文）',
-  `currency_type` VARCHAR(20) NOT NULL COMMENT '货币类型: gold=金币, diamond=钻石',
+  `currency_type` VARCHAR(20) NOT NULL COMMENT '货币类型: gold=经费, diamond=钻石',
   `amount` BIGINT NOT NULL DEFAULT 0 COMMENT '金额',
   `description` VARCHAR(500) COMMENT '描述说明',
   `category` VARCHAR(50) COMMENT '分类：reward=奖励, cost=消耗',
@@ -1285,21 +1285,21 @@ INSERT IGNORE INTO `currency_deduct_configs` (`biz_type`, `currency_type`, `amou
 -- 货币系统配置默认数据
 INSERT IGNORE INTO `currency_configs` (`config_key`, `config_name`, `currency_type`, `amount`, `description`, `category`, `enabled`) VALUES
 -- 奖励类配置 - 注册
-('register_gift_gold', '注册赠送金币', 'gold', 300, '新用户注册时赠送的金币数量', 'reward', TRUE),
+('register_gift_gold', '注册赠送经费', 'gold', 300, '新用户注册时赠送的经费数量', 'reward', TRUE),
 -- 奖励类配置 - 签到
-('daily_checkin_gold', '每日签到金币', 'gold', 10, '用户每日签到获得的基础金币数量', 'reward', TRUE),
-('checkin_3days_gold', '连续签到3天奖励', 'gold', 50, '连续签到3天时第3天获得的金币奖励', 'reward', TRUE),
-('checkin_7days_gold', '连续签到7天奖励', 'gold', 150, '连续签到7天时第7天获得的金币奖励', 'reward', TRUE),
-('checkin_15days_gold', '连续签到15天奖励', 'gold', 350, '连续签到15天时第15天获得的金币奖励', 'reward', TRUE),
-('checkin_after15_gold', '连续签到15天后每日奖励', 'gold', 30, '连续签到超过15天后每天获得的金币奖励', 'reward', TRUE),
+('daily_checkin_gold', '每日签到经费', 'gold', 10, '用户每日签到获得的基础经费数量', 'reward', TRUE),
+('checkin_3days_gold', '连续签到3天奖励', 'gold', 50, '连续签到3天时第3天获得的经费奖励', 'reward', TRUE),
+('checkin_7days_gold', '连续签到7天奖励', 'gold', 150, '连续签到7天时第7天获得的经费奖励', 'reward', TRUE),
+('checkin_15days_gold', '连续签到15天奖励', 'gold', 350, '连续签到15天时第15天获得的经费奖励', 'reward', TRUE),
+('checkin_after15_gold', '连续签到15天后每日奖励', 'gold', 30, '连续签到超过15天后每天获得的经费奖励', 'reward', TRUE),
 -- 奖励类配置 - 邀请
 ('invite_reward_diamond', '邀请奖励钻石', 'diamond', 1, '每成功邀请1个新用户获得的钻石奖励', 'reward', TRUE),
 ('invite_milestone_diamond', '邀请里程碑奖励钻石', 'diamond', 10, '每邀请满5个用户额外获得的钻石奖励（第5、10、15...个时触发）', 'reward', TRUE),
 -- 充值配置
 ('diamond_price', '钻石单价(分)', 'diamond', 100, '每个钻石的人民币价格，单位为分。当前100分=1元，即1元购买1个钻石', 'recharge', TRUE),
 -- 兑换配置
-('diamond_to_gold_rate', '钻石兑换金币比例', 'gold', 100, '1个钻石可兑换的金币数量', 'exchange', TRUE),
+('diamond_to_gold_rate', '钻石兑换经费比例', 'gold', 100, '1个钻石可兑换的经费数量', 'exchange', TRUE),
 -- 会员月度赠送配置
-('pro_monthly_gold', 'Pro会员每月赠送金币', 'gold', 5000, 'Pro会员每月1日自动赠送的金币数量', 'membership', TRUE),
-('max_monthly_gold', 'Max会员每月赠送金币', 'gold', 10000, 'Max会员每月1日自动赠送的金币数量', 'membership', TRUE),
+('pro_monthly_gold', 'Pro会员每月赠送经费', 'gold', 5000, 'Pro会员每月1日自动赠送的经费数量', 'membership', TRUE),
+('max_monthly_gold', 'Max会员每月赠送经费', 'gold', 10000, 'Max会员每月1日自动赠送的经费数量', 'membership', TRUE),
 ('max_monthly_diamond', 'Max会员每月赠送钻石', 'diamond', 6, 'Max会员每月1日自动赠送的钻石数量', 'membership', TRUE);

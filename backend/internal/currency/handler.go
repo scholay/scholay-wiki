@@ -130,7 +130,7 @@ func (h *Handler) GetExchangeInfo(c *gin.Context) {
 	rate, _ := h.service.GetExchangeRate()
 
 	utils.Success(c, gin.H{
-		"diamond_to_gold_rate": rate, // 1钻石=N金币
+		"diamond_to_gold_rate": rate, // 1钻石=N经费
 	})
 }
 
@@ -139,7 +139,7 @@ type ExchangeRequest struct {
 	DiamondAmount int64 `json:"diamond_amount" binding:"required,min=1"` // 要兑换的钻石数量
 }
 
-// ExchangeDiamondToGold 钻石兑换金币
+// ExchangeDiamondToGold 钻石兑换经费
 // POST /api/v1/user/wallet/exchange
 func (h *Handler) ExchangeDiamondToGold(c *gin.Context) {
 	userID, exists := c.Get("user_id")

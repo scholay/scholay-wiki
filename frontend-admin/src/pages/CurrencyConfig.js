@@ -160,7 +160,7 @@ const CurrencyConfig = () => {
   // 获取货币类型标签
   const getCurrencyLabel = (type) => {
     const labels = {
-      gold: '金币',
+      gold: '经费',
       diamond: '钻石'
     };
     return labels[type] || type;
@@ -172,7 +172,7 @@ const CurrencyConfig = () => {
     if (config.config_key === 'diamond_price') {
       return '分';
     }
-    return config.currency_type === 'gold' ? '金币' : '钻石';
+    return config.currency_type === 'gold' ? '经费' : '钻石';
   };
 
   // 格式化金额显示（特殊处理某些配置）
@@ -191,7 +191,7 @@ const CurrencyConfig = () => {
       <span className="amount-value">
         {config.amount}
         <span className="currency-unit">
-          {config.currency_type === 'gold' ? '金币' : '钻石'}
+          {config.currency_type === 'gold' ? '经费' : '钻石'}
         </span>
       </span>
     );
@@ -212,7 +212,7 @@ const CurrencyConfig = () => {
       <div className="page-header">
         <h1>货币配置管理</h1>
         <p className="page-description">
-          管理系统中的金币和钻石配置，包括注册赠送、签到奖励、功能消耗等
+          管理系统中的经费和钻石配置，包括注册赠送、签到奖励、功能消耗等
         </p>
       </div>
 
@@ -373,14 +373,14 @@ const CurrencyConfig = () => {
                   功能扣费配置
                 </span>
               </h2>
-              <p className="section-desc">配置各功能使用时的金币扣费数量，设为0表示免费使用</p>
+              <p className="section-desc">配置各功能使用时的经费扣费数量，设为0表示免费使用</p>
               <div className="config-table-wrapper">
                 <table className="config-table">
                   <thead>
                     <tr>
                       <th>功能名称</th>
                       <th>配置键</th>
-                      <th>扣费金币</th>
+                      <th>扣费经费</th>
                       <th>描述</th>
                       <th>状态</th>
                       <th>操作</th>
@@ -403,12 +403,12 @@ const CurrencyConfig = () => {
                                 className="edit-input amount-input"
                                 min="0"
                               />
-                              <span className="edit-unit">金币</span>
+                              <span className="edit-unit">经费</span>
                             </div>
                           ) : (
                             <span className="amount-value">
                               {config.amount}
-                              <span className="currency-unit">金币</span>
+                              <span className="currency-unit">经费</span>
                             </span>
                           )}
                         </td>
@@ -479,11 +479,11 @@ const CurrencyConfig = () => {
       <div className="config-tips">
         <h3>配置说明</h3>
         <ul>
-          <li><strong>注册赠送金币</strong>：新用户注册时自动赠送的金币数量</li>
-          <li><strong>每日签到金币</strong>：用户每日签到获得的金币数量</li>
-          <li><strong>邀请奖励金币</strong>：成功邀请新用户注册后获得的金币奖励</li>
-          <li><strong>功能消耗</strong>：使用各项功能时消耗的金币/钻石数量，设为0表示免费</li>
-          <li><strong>禁用配置</strong>：禁用后该配置不会生效（如禁用注册赠送则新用户不会获得金币）</li>
+          <li><strong>注册赠送经费</strong>：新用户注册时自动赠送的经费数量</li>
+          <li><strong>每日签到经费</strong>：用户每日签到获得的经费数量</li>
+          <li><strong>邀请奖励经费</strong>：成功邀请新用户注册后获得的经费奖励</li>
+          <li><strong>功能消耗</strong>：使用各项功能时消耗的经费/钻石数量，设为0表示免费</li>
+          <li><strong>禁用配置</strong>：禁用后该配置不会生效（如禁用注册赠送则新用户不会获得经费）</li>
         </ul>
       </div>
     </div>

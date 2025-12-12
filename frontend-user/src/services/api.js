@@ -636,7 +636,7 @@ export const walletAPI = {
   previewExchange: (diamondAmount) =>
     api.get('/user/wallet/exchange/preview', { params: { diamond_amount: diamondAmount } }),
 
-  // 执行钻石兑换金币
+  // 执行钻石兑换经费
   exchangeDiamondToGold: (diamondAmount) =>
     api.post('/user/wallet/exchange', { diamond_amount: diamondAmount }),
 };

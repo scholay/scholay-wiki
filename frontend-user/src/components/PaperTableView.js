@@ -523,7 +523,7 @@ const PaperTableView = ({
             insufficientBalance: true,
             balance: data.balance,
             required: data.required,
-            message: '金币不足，请充值后重试'
+            message: '经费不足，请充值后重试'
           }
         }));
       } else {
@@ -611,7 +611,7 @@ const PaperTableView = ({
     if (content && typeof content === 'object' && content.insufficientBalance) {
       return (
         <div className="ptv-cell-error ptv-insufficient-balance">
-          <span className="ptv-error-text">金币不足</span>
+          <span className="ptv-error-text">经费不足</span>
         </div>
       );
     }

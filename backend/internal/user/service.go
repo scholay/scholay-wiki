@@ -80,13 +80,13 @@ func (s *Service) SetCurrencyService(currencyService CurrencyService) {
 	s.currencyService = currencyService
 }
 
-// GiftRegisterGold 赠送注册金币
+// GiftRegisterGold 赠送注册经费
 func (s *Service) GiftRegisterGold(userID uint) {
 	if s.currencyService == nil {
 		return
 	}
 
-	// 获取注册赠送金币配置
+	// 获取注册赠送经费配置
 	amount, err := s.currencyService.GetCurrencyConfigAmount("register_gift_gold")
 	if err != nil || amount <= 0 {
 		return
@@ -98,7 +98,7 @@ func (s *Service) GiftRegisterGold(userID uint) {
 		return
 	}
 
-	// 赠送金币
+	// 赠送经费
 	ctx := context.Background()
 	_, err = s.currencyService.GiftGold(ctx, userID, amount, "register_gift", fmt.Sprintf("user_%d", userID), "新用户注册赠送")
 	if err != nil {
@@ -268,7 +268,7 @@ func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitati
 		}()
 	}
 
-	// 赠送注册金币给新用户
+	// 赠送注册经费给新用户
 	go s.GiftRegisterGold(user.ID)
 
 	return user, token, nil
@@ -1621,7 +1621,7 @@ func (s *Service) RegisterWithPhone(phone, password, code, invitationCode, ip st
 		}()
 	}
 
-	// 赠送注册金币给新用户
+	// 赠送注册经费给新用户
 	go s.GiftRegisterGold(user.ID)
 
 	return user, token, nil
@@ -2284,7 +2284,7 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 		}()
 	}
 
-	// 赠送注册金币给新用户
+	// 赠送注册经费给新用户
 	go s.GiftRegisterGold(user.ID)
 
 	// Create auth provider entry

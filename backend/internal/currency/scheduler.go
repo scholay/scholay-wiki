@@ -112,12 +112,12 @@ func (s *MembershipGiftScheduler) checkMonthlyTasks() {
 	now := time.Now()
 	day := now.Day()
 
-	// 每月1日：赠送会员金币/钻石
+	// 每月1日：赠送会员经费/钻石
 	if day == 1 {
 		s.checkAndGift()
 	}
 
-	// 每天检查：清空过期超过宽限期的会员金币
+	// 每天检查：清空过期超过宽限期的会员经费
 	s.checkAndClearExpired()
 }
 
@@ -140,7 +140,7 @@ func (s *MembershipGiftScheduler) checkAndGift() {
 	s.executeMonthlyGift(currentMonth)
 }
 
-// checkAndClearExpired 检查并清空过期会员金币（每天执行）
+// checkAndClearExpired 检查并清空过期会员经费（每天执行）
 func (s *MembershipGiftScheduler) checkAndClearExpired() {
 	today := time.Now().Format("2006-01-02")
 	log.Printf("Checking expired membership gold clear for %s (grace period: %d days)", today, GracePeriodDays)
@@ -179,7 +179,7 @@ func (s *MembershipGiftScheduler) executeMonthlyGift(month string) {
 	log.Printf("Monthly membership gift completed for %s: success=%d, failed=%d", month, successCount, failCount)
 }
 
-// executeExpiredClear 执行过期会员金币清空
+// executeExpiredClear 执行过期会员经费清空
 func (s *MembershipGiftScheduler) executeExpiredClear(month string) {
 	if s.getExpiredMembers == nil {
 		log.Println("Warning: expired member getter not set, skipping gold clear")
@@ -204,7 +204,7 @@ func (s *MembershipGiftScheduler) executeExpiredClear(month string) {
 	totalCleared := int64(0)
 
 	for _, member := range expiredMembers {
-		// 获取用户当前金币余额
+		// 获取用户当前经费余额
 		wallet, err := s.currencyService.GetWallet(member.UserID)
 		if err != nil {
 			log.Printf("Failed to get wallet for user %d: %v", member.UserID, err)
@@ -212,14 +212,14 @@ func (s *MembershipGiftScheduler) executeExpiredClear(month string) {
 			continue
 		}
 
-		// 如果没有金币，跳过
+		// 如果没有经费，跳过
 		if wallet.Gold <= 0 {
 			continue
 		}
 
-		// 清空金币（扣除全部金币）
+		// 清空经费（扣除全部经费）
 		bizID := generateBizID("membership_expired_clear", member.UserID)
-		desc := "会员过期金币清空"
+		desc := "会员过期经费清空"
 		_, err = s.currencyService.doTransaction(ctx, member.UserID, CurrencyGold, -wallet.Gold, TxTypeDeduct,
 			"membership_expired", bizID, desc)
 		if err != nil {

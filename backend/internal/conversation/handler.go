@@ -320,7 +320,7 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 	// Deduct currency before processing
 	if err := h.deductForSmartAnalysis(userID.(uint), modelLevel); err != nil {
 		if err == currency.ErrInsufficientBalance {
-			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "金币不足"})
+			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "经费不足"})
 		} else {
 			utils.Error(c, 500, "扣费失败: "+err.Error())
 		}
@@ -404,7 +404,7 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 	// Deduct currency before processing
 	if err := h.deductForSmartAnalysis(userID.(uint), modelLevel); err != nil {
 		if err == currency.ErrInsufficientBalance {
-			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "金币不足"})
+			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "经费不足"})
 		} else {
 			utils.Error(c, 500, "扣费失败: "+err.Error())
 		}

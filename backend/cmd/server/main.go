@@ -294,7 +294,7 @@ func main() {
 		}
 		return result, nil
 	})
-	// 设置过期会员获取函数（用于清空金币）
+	// 设置过期会员获取函数（用于清空经费）
 	membershipGiftScheduler.SetExpiredMemberGetter(func(graceDays int) ([]currency.ExpiredMember, error) {
 		members, err := subscriptionService.GetExpiredMembersWithGracePeriod(graceDays)
 		if err != nil {

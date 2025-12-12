@@ -150,7 +150,7 @@ func (s *Service) Checkin(userID uint) (*CheckinResponse, error) {
 		}
 	}
 
-	// 发放签到金币奖励（异步，不阻塞签到流程）
+	// 发放签到经费奖励（异步，不阻塞签到流程）
 	if goldReward > 0 && s.currencyService != nil {
 		go func() {
 			ctx := context.Background()
@@ -176,7 +176,7 @@ func (s *Service) Checkin(userID uint) (*CheckinResponse, error) {
 	}, nil
 }
 
-// getCheckinGoldReward 根据连续签到天数获取金币奖励
+// getCheckinGoldReward 根据连续签到天数获取经费奖励
 func (s *Service) getCheckinGoldReward(consecutiveDays int) int64 {
 	if s.currencyService == nil {
 		// 如果没有配置货币服务，使用默认值
@@ -207,7 +207,7 @@ func (s *Service) getCheckinGoldReward(consecutiveDays int) int64 {
 	return amount
 }
 
-// getDefaultCheckinGold 获取默认签到金币（配置不可用时的降级）
+// getDefaultCheckinGold 获取默认签到经费（配置不可用时的降级）
 func getDefaultCheckinGold(consecutiveDays int) int64 {
 	switch consecutiveDays {
 	case 3:

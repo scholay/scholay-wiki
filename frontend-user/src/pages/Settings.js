@@ -89,7 +89,7 @@ const Settings = () => {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Exchange state - 兑换状态
-  const [exchangeRate, setExchangeRate] = useState(100); // 1钻石=100金币
+  const [exchangeRate, setExchangeRate] = useState(100); // 1钻石=100经费
   const [exchangeAmount, setExchangeAmount] = useState('');
   const [exchangeLoading, setExchangeLoading] = useState(false);
   const [showExchangeModal, setShowExchangeModal] = useState(false);
@@ -358,7 +358,7 @@ const Settings = () => {
     }
   };
 
-  // 执行钻石兑换金币
+  // 执行钻石兑换经费
   const handleExchange = async () => {
     const amount = parseInt(exchangeAmount, 10);
     if (!amount || amount <= 0) {
@@ -380,7 +380,7 @@ const Settings = () => {
           gold: current_gold,
           diamond: current_diamond
         }));
-        showSuccess(`兑换成功！获得 ${gold_received} 金币`);
+        showSuccess(`兑换成功！获得 ${gold_received} 经费`);
         setShowExchangeModal(false);
         setExchangeAmount('');
         // 刷新交易记录
@@ -1767,8 +1767,8 @@ const Settings = () => {
         invite_reward: '邀请奖励',
         invite_milestone: '邀请里程碑奖励',
         membership_gift: '会员赠送',
-        diamond_exchange: '钻石兑换金币',
-        diamond_to_gold: '钻石兑换金币',
+        diamond_exchange: '钻石兑换经费',
+        diamond_to_gold: '钻石兑换经费',
         diamond_recharge: '钻石充值',
         peer_review: 'AI审稿',
         // AI对话（按模型级别）
@@ -1865,7 +1865,7 @@ const Settings = () => {
                   <polyline points="7 23 3 19 7 15"/>
                   <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
                 </svg>
-                兑换金币
+                兑换经费
               </button>
               <button 
                 className="wallet-action-btn recharge"
@@ -1894,7 +1894,7 @@ const Settings = () => {
                   </svg>
                 </div>
                 <div className="balance-info">
-                  <span className="balance-label">金币</span>
+                  <span className="balance-label">经费</span>
                   <span className="balance-value">{wallet?.gold || 0}</span>
                 </div>
               </div>
@@ -1909,7 +1909,7 @@ const Settings = () => {
                   <span className="balance-value">{wallet?.diamond || 0}</span>
                 </div>
                 <div className="balance-hint">
-                  1元 = 1钻石 = {exchangeRate}金币
+                  1元 = 1钻石 = {exchangeRate}经费
                 </div>
               </div>
             </div>
@@ -1921,7 +1921,7 @@ const Settings = () => {
           <div className="modal-overlay" onClick={() => setShowExchangeModal(false)}>
             <div className="exchange-modal" onClick={e => e.stopPropagation()}>
               <div className="exchange-modal-header">
-                <h3>钻石兑换金币</h3>
+                <h3>钻石兑换经费</h3>
                 <button className="modal-close" onClick={() => setShowExchangeModal(false)}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="18" y1="6" x2="6" y2="18"/>
@@ -1936,11 +1936,11 @@ const Settings = () => {
                     <line x1="12" y1="16" x2="12" y2="12"/>
                     <line x1="12" y1="8" x2="12.01" y2="8"/>
                   </svg>
-                  <span>钻石可兑换金币，但金币无法兑换钻石</span>
+                  <span>钻石可兑换经费，但经费无法兑换钻石</span>
                 </div>
                 <div className="exchange-rate-info">
                   <span className="rate-label">兑换比例</span>
-                  <span className="rate-value">1 钻石 = {exchangeRate} 金币</span>
+                  <span className="rate-value">1 钻石 = {exchangeRate} 经费</span>
                 </div>
                 <div className="exchange-balance">
                   <span>当前钻石余额: <strong>{wallet?.diamond || 0}</strong></span>
@@ -1971,7 +1971,7 @@ const Settings = () => {
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="#f59e0b">
                         <circle cx="12" cy="12" r="10"/>
                       </svg>
-                      {parseInt(exchangeAmount, 10) * exchangeRate} 金币
+                      {parseInt(exchangeAmount, 10) * exchangeRate} 经费
                     </span>
                   </div>
                 )}
@@ -2016,7 +2016,7 @@ const Settings = () => {
                   className={`filter-btn ${transactionFilter === 'gold' ? 'active' : ''}`}
                   onClick={() => handleTransactionFilterChange('gold')}
                 >
-                  金币
+                  经费
                 </button>
                 <button 
                   className={`filter-btn ${transactionFilter === 'diamond' ? 'active' : ''}`}
@@ -2142,7 +2142,7 @@ const Settings = () => {
                       </span>
                       <span className="transaction-balance">
                         余额: <strong>{tx.balance_after}</strong>
-                        {tx.currency_type === 'gold' ? ' 金币' : ' 钻石'}
+                        {tx.currency_type === 'gold' ? ' 经费' : ' 钻石'}
                       </span>
                     </div>
                   </div>

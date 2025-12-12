@@ -123,7 +123,7 @@ func (h *ChatHandler) StreamChatMessage(c *gin.Context) {
 	}
 	if err := h.deductForChat(userID, modelLevel); err != nil {
 		if err == currency.ErrInsufficientBalance {
-			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "金币不足"})
+			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "经费不足"})
 		} else {
 			utils.ErrorResponse(c, http.StatusInternalServerError, "扣费失败: "+err.Error())
 		}
@@ -291,7 +291,7 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 	}
 	if err := h.deductForChat(userID, modelLevel); err != nil {
 		if err == currency.ErrInsufficientBalance {
-			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "金币不足"})
+			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "经费不足"})
 		} else {
 			utils.ErrorResponse(c, http.StatusInternalServerError, "扣费失败: "+err.Error())
 		}

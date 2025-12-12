@@ -52,7 +52,7 @@ type CheckinResponse struct {
 	Message         string `json:"message"`
 	CheckinDate     string `json:"checkin_date"`
 	ConsecutiveDays int    `json:"consecutive_days"` // 当前连续签到天数
-	GoldReward      int64  `json:"gold_reward"`      // 本次获得的金币
+	GoldReward      int64  `json:"gold_reward"`      // 本次获得的经费
 	TotalCheckins   int    `json:"total_checkins"`   // 总签到天数
 	LongestStreak   int    `json:"longest_streak"`   // 最长连续签到天数
 }

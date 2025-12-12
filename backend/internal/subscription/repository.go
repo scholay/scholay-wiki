@@ -166,9 +166,9 @@ func (r *Repository) GetAllActiveSubscriptions() ([]UserSubscription, error) {
 	return subscriptions, err
 }
 
-// GetExpiredMembersWithGracePeriod 获取过期超过宽限期且还有金币的会员
+// GetExpiredMembersWithGracePeriod 获取过期超过宽限期且还有经费的会员
 // graceDays: 宽限期天数
-// 返回：过期时间超过 graceDays 天的用户（原来是 pro/max 会员，现在已过期或取消，且还有金币）
+// 返回：过期时间超过 graceDays 天的用户（原来是 pro/max 会员，现在已过期或取消，且还有经费）
 func (r *Repository) GetExpiredMembersWithGracePeriod(graceDays int) ([]ExpiredMemberInfo, error) {
 	// 计算宽限期截止时间（当前时间减去宽限期天数）
 	graceDeadline := time.Now().AddDate(0, 0, -graceDays)
@@ -181,7 +181,7 @@ func (r *Repository) GetExpiredMembersWithGracePeriod(graceDays int) ([]ExpiredM
 	// 2. status 是 expired 或 cancelled
 	// 3. end_date 不为空且在宽限期截止时间之前
 	// 4. 用户当前没有活跃的 pro/max 订阅
-	// 5. 用户钱包中还有金币（gold > 0）
+	// 5. 用户钱包中还有经费（gold > 0）
 	err := r.db.Raw(`
 		SELECT DISTINCT us.user_id, us.plan_code, us.end_date as expired_at
 		FROM user_subscriptions us
