@@ -123,6 +123,10 @@ func (s *MCPServer) ListTools() []Tool {
 						"description": "Number of results to return (max 100)",
 						"default":     50,
 					},
+					"token": map[string]interface{}{
+						"type":        "string",
+						"description": "Pagination token for fetching next page of results",
+					},
 				},
 				"required": []string{"keywords"},
 			},
@@ -361,9 +365,10 @@ func (s *MCPServer) handleSearchPapersAdvanced(args map[string]interface{}) (*To
 	minCitations := getIntArg(args, "min_citations", 10)
 	sortBy := getStringArg(args, "sort_by", "citationCount:desc")
 	limit := getIntArg(args, "limit", 50)
+	token := getStringArg(args, "token", "") // 分页token
 
-	fmt.Printf("[MCP DEBUG] Parameters: yearFrom=%s, yearTo=%s, minCitations=%d, sortBy=%s, limit=%d\n",
-		yearFrom, yearTo, minCitations, sortBy, limit)
+	fmt.Printf("[MCP DEBUG] Parameters: yearFrom=%s, yearTo=%s, minCitations=%d, sortBy=%s, limit=%d, token=%s\n",
+		yearFrom, yearTo, minCitations, sortBy, limit, token)
 
 	// Get optional fields of study
 	var fieldsOfStudy []string
@@ -399,6 +404,7 @@ func (s *MCPServer) handleSearchPapersAdvanced(args map[string]interface{}) (*To
 		Sort:             sortBy,
 		FieldsOfStudy:    fieldsOfStudy,
 		Fields:           defaultFields,
+		Token:            token, // 传递分页token
 	}
 
 	// Use manager which will handle API key rotation
@@ -411,6 +417,7 @@ func (s *MCPServer) handleSearchPapersAdvanced(args map[string]interface{}) (*To
 	responseData := map[string]interface{}{
 		"data":  result.Data,
 		"total": result.Total,
+		"token": result.Token, // 返回下一页token
 		"search_params": map[string]interface{}{
 			"keywords":      keywordStrings,
 			"query":         query,

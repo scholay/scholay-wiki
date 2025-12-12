@@ -149,7 +149,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		toolCallResponse = nil
 	}
 
-	// Step 7: 执行工具调用并收集结果（与智能分析相同）
+	// Step 7: 执行工具调用并收集结果（使用增强的论文筛选逻辑）
 	var allPapers []map[string]interface{}
 	var totalCount int
 
@@ -168,22 +168,19 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 					continue
 				}
 
-				// Call MCP tool
-				toolRequest := mcp.ToolRequest{
-					Name:      toolCall.Function.Name,
-					Arguments: args,
-				}
-
-				papers, total, err := s.executeMCPToolCall(mcpServer, toolRequest)
+				// 使用增强的论文筛选逻辑（分页获取、过滤无摘要、AI相关性筛选）
+				filterResult, err := s.SearchAndFilterPapers(mcpServer, args, userQuery, DefaultPaperFilterConfig)
 				if err != nil {
-					fmt.Printf("[ERROR] MCP tool call failed: %v\n", err)
-					// Don't send technical error to frontend, will handle at the end
+					fmt.Printf("[ERROR] Paper search and filter failed: %v\n", err)
 					continue
 				}
 
-				allPapers = append(allPapers, papers...)
-				if total > totalCount {
-					totalCount = total
+				fmt.Printf("[DEBUG] Paper filter result: %d papers after filtering (from %d total, %d pages used)\n",
+					len(filterResult.Papers), filterResult.TotalFound, filterResult.PagesUsed)
+
+				allPapers = append(allPapers, filterResult.Papers...)
+				if filterResult.TotalFound > totalCount {
+					totalCount = filterResult.TotalFound
 				}
 			}
 		}
@@ -219,6 +216,8 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 			
 			return fmt.Errorf("search failed: %w", err)
 		}
+		// 对直接搜索结果也进行摘要过滤
+		papers = FilterPapersWithAbstract(papers)
 		allPapers = papers
 		totalCount = total
 	}

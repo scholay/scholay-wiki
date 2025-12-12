@@ -127,6 +127,7 @@ type SearchResponse struct {
 	Total  int     `json:"total"`
 	Offset int     `json:"offset"`
 	Next   int     `json:"next,omitempty"`
+	Token  string  `json:"token,omitempty"` // 用于bulk search分页
 	Data   []Paper `json:"data"`
 }
 
