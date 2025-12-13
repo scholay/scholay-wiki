@@ -672,4 +672,19 @@ export const walletAPI = {
   getBizDisplayInfos: () => api.get('/user/wallet/biz-display-infos'),
 };
 
+// Fund API - 会员基金相关
+export const fundAPI = {
+  // 获取基金列表（公开）
+  getFunds: () => api.get('/public/funds'),
+
+  // 获取当前月份基金（公开）
+  getCurrentFund: () => api.get('/public/funds/current'),
+
+  // 获取基金详情（公开）
+  getFundDetail: (id) => api.get(`/public/funds/${id}`),
+
+  // 获取我的基金领取记录（需登录）
+  getMyDistributions: () => api.get('/user/funds/distributions'),
+};
+
 export default api;

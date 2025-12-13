@@ -1227,6 +1227,49 @@ CREATE TABLE IF NOT EXISTS `currency_transactions` (
   CONSTRAINT `fk_transaction_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='货币交易流水表';
 
+-- 会员基金表（每月基金配置）
+CREATE TABLE IF NOT EXISTS `membership_funds` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `fund_month` VARCHAR(7) NOT NULL COMMENT '基金月份（格式：YYYY-MM）',
+  `fund_name` VARCHAR(100) NOT NULL COMMENT '基金名称（如：星辰基金）',
+  `fund_slogan` VARCHAR(200) COMMENT '基金口号/副标题',
+  `fund_description` TEXT COMMENT '基金详细介绍',
+  `cover_image` VARCHAR(500) COMMENT '基金封面图片URL',
+  `theme_color` VARCHAR(20) DEFAULT '#6366f1' COMMENT '主题色（十六进制）',
+  `pro_gold_amount` BIGINT NOT NULL DEFAULT 5000 COMMENT 'Pro会员本月赠送经费',
+  `max_gold_amount` BIGINT NOT NULL DEFAULT 10000 COMMENT 'Max会员本月赠送经费',
+  `max_diamond_amount` BIGINT NOT NULL DEFAULT 6 COMMENT 'Max会员本月赠送恩特币',
+  `total_distributed_gold` BIGINT NOT NULL DEFAULT 0 COMMENT '已发放经费总额',
+  `total_distributed_diamond` BIGINT NOT NULL DEFAULT 0 COMMENT '已发放恩特币总额',
+  `beneficiary_count` INT NOT NULL DEFAULT 0 COMMENT '受益用户数',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'active' COMMENT '状态: pending=待生效, active=生效中, completed=已结束',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_fund_month` (`fund_month`),
+  INDEX `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='会员基金表';
+
+-- 会员基金发放记录表
+CREATE TABLE IF NOT EXISTS `membership_fund_distributions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `fund_id` BIGINT UNSIGNED NOT NULL COMMENT '基金ID',
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+  `membership_type` VARCHAR(20) NOT NULL COMMENT '会员类型: pro, max',
+  `gold_amount` BIGINT NOT NULL DEFAULT 0 COMMENT '发放经费数量',
+  `diamond_amount` BIGINT NOT NULL DEFAULT 0 COMMENT '发放恩特币数量',
+  `transaction_no` VARCHAR(64) COMMENT '关联的交易流水号',
+  `distributed_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发放时间',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_fund_id` (`fund_id`),
+  INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_distributed_at` (`distributed_at`),
+  UNIQUE INDEX `uk_fund_user` (`fund_id`, `user_id`),
+  CONSTRAINT `fk_distribution_fund` FOREIGN KEY (`fund_id`) REFERENCES `membership_funds` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_distribution_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='会员基金发放记录表';
+
 -- 扣费配置表
 CREATE TABLE IF NOT EXISTS `currency_deduct_configs` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -1300,3 +1343,20 @@ INSERT IGNORE INTO `currency_configs` (`config_key`, `config_name`, `currency_ty
 ('pro_monthly_gold', 'Pro会员每月赠送经费', 'gold', 5000, '会员福利', 'Pro会员月度赠送', 'Pro会员每月1日自动赠送的经费数量', 'membership', TRUE),
 ('max_monthly_gold', 'Max会员每月赠送经费', 'gold', 10000, '会员福利', 'Max会员月度赠送经费', 'Max会员每月1日自动赠送的经费数量', 'membership', TRUE),
 ('max_monthly_diamond', 'Max会员每月赠送恩特币', 'diamond', 6, '会员福利', 'Max会员月度赠送恩特币', 'Max会员每月1日自动赠送的恩特币数量', 'membership', TRUE);
+
+-- ============================================
+-- 会员基金默认数据
+-- ============================================
+
+-- 2024年基金（示例历史数据）
+INSERT IGNORE INTO `membership_funds` (`fund_month`, `fund_name`, `fund_slogan`, `fund_description`, `theme_color`, `pro_gold_amount`, `max_gold_amount`, `max_diamond_amount`, `status`) VALUES
+('2024-12', '冬至基金', '冬至阳生，学术常青', '冬至是一年中最重要的节气之一，象征着阳气初生、万物复苏的开始。Scholay冬至基金致力于在这个特殊时刻，为每一位会员送上温暖的科研支持，助力学术之路常青不衰。', '#3b82f6', 5000, 10000, 6, 'completed');
+
+-- 2025年基金
+INSERT IGNORE INTO `membership_funds` (`fund_month`, `fund_name`, `fund_slogan`, `fund_description`, `theme_color`, `pro_gold_amount`, `max_gold_amount`, `max_diamond_amount`, `status`) VALUES
+('2025-01', '新春基金', '新年新气象，科研新征程', 'Scholay新春基金开启2025年的科研新篇章。在新的一年里，愿每一位学者都能收获丰硕的研究成果，在学术道路上勇攀高峰。', '#ef4444', 5000, 10000, 6, 'active'),
+('2025-02', '元宵基金', '月圆人团圆，学术共繁荣', '元宵佳节，Scholay与您共庆团圆。元宵基金寓意着学术界的团结与繁荣，愿每一位科研工作者都能在交流中碰撞出智慧的火花。', '#f59e0b', 5000, 10000, 6, 'pending'),
+('2025-03', '惊蛰基金', '春雷始鸣，万物复苏', '惊蛰时节，春雷唤醒沉睡的大地。Scholay惊蛰基金象征着科研创新的觉醒，激励学者们在新的季节里迸发创造力。', '#22c55e', 5000, 10000, 6, 'pending'),
+('2025-04', '清明基金', '清明时节，学海无涯', '清明时节，天清气明。Scholay清明基金倡导清晰的学术思维和明确的研究方向，助力学者们在学海中扬帆远航。', '#06b6d4', 5000, 10000, 6, 'pending'),
+('2025-05', '立夏基金', '夏日炎炎，学术热情', '立夏时节，万物繁茂。Scholay立夏基金以夏日的热情激励每一位科研工作者，在知识的田野里辛勤耕耘、硕果累累。', '#8b5cf6', 5000, 10000, 6, 'pending'),
+('2025-06', '仲夏基金', '盛夏时光，学术盛宴', '仲夏之际，阳光正好。Scholay仲夏基金为学者们带来一场学术盛宴，在这个充满活力的季节里，共同探索知识的无限可能。', '#ec4899', 5000, 10000, 6, 'pending');

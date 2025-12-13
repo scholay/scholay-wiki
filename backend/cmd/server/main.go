@@ -19,6 +19,7 @@ import (
 	"scholar-backend/internal/checkin"
 	"scholar-backend/internal/currency"
 	"scholar-backend/internal/feedback"
+	"scholar-backend/internal/fund"
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/cleanup"
 	appconfig "scholar-backend/internal/common/config"
@@ -266,6 +267,13 @@ func main() {
 	currencyHandler := currency.NewHandler(currencyService)
 	currencyAdminHandler := currency.NewAdminHandler(currencyService)
 	currencyMiddleware := currency.NewDeductMiddleware(currencyService)
+
+	// Initialize Fund module (会员基金)
+	fundRepo := fund.NewRepository(database.GetDB())
+	fundService := fund.NewService(fundRepo)
+	fundHandler := fund.NewHandler(fundService)
+	fundAdminHandler := fund.NewAdminHandler(fundService)
+
 	// Inject currency service into user service (for register gift)
 	userService.SetCurrencyService(currencyService)
 	// Inject currency service into checkin service (for checkin gold reward)
@@ -475,6 +483,14 @@ func main() {
 			adminProtected.GET("/currency/configs", currencyAdminHandler.ListCurrencyConfigs)
 			adminProtected.GET("/currency/configs/:key", currencyAdminHandler.GetCurrencyConfig)
 			adminProtected.PUT("/currency/configs/:key", currencyAdminHandler.UpdateCurrencyConfig)
+
+			// Fund management (Admin only) - 会员基金管理
+			adminProtected.GET("/funds", fundAdminHandler.ListFunds)
+			adminProtected.GET("/funds/stats", fundAdminHandler.GetStats)
+			adminProtected.GET("/funds/:id", fundAdminHandler.GetFund)
+			adminProtected.POST("/funds", fundAdminHandler.CreateFund)
+			adminProtected.PUT("/funds/:id", fundAdminHandler.UpdateFund)
+			adminProtected.DELETE("/funds/:id", fundAdminHandler.DeleteFund)
 		}
 
 		// Payment callback routes (public, no auth required)
@@ -532,6 +548,9 @@ func main() {
 			userProtected.GET("/wallet/exchange/preview", currencyHandler.PreviewExchange)
 			userProtected.POST("/wallet/exchange", currencyHandler.ExchangeDiamondToGold)
 			userProtected.GET("/wallet/biz-display-infos", currencyHandler.GetBizDisplayInfos)
+
+			// Fund routes (会员基金)
+			userProtected.GET("/funds/distributions", fundHandler.GetMyDistributions)
 
 			// Account availability check routes (protected)
 			userProtected.POST("/check-email-availability", userHandler.CheckEmailAvailability)
@@ -649,6 +668,11 @@ func main() {
 		// Public API routes (no authentication required)
 		publicAPI := api.Group("/public")
 		{
+			// Public fund routes (会员基金 - 公开访问)
+			publicAPI.GET("/funds", fundHandler.ListFunds)
+			publicAPI.GET("/funds/current", fundHandler.GetCurrentFund)
+			publicAPI.GET("/funds/:id", fundHandler.GetFundDetail)
+
 			// Public paper detail endpoint - for anonymous access from paper detail page
 			publicAPI.GET("/papers/:paperId", scholarHandler.GetPaper)
 			// Public search endpoint - for anonymous access from home page

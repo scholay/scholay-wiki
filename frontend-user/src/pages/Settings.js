@@ -1942,6 +1942,23 @@ const Settings = () => {
               </div>
             </div>
           )}
+
+          {/* 会员基金入口 */}
+          <div 
+            className="fund-center-entry"
+            onClick={() => navigate('/fund-center')}
+          >
+            <div className="fund-entry-left">
+              <div className="fund-entry-icon">🏛️</div>
+              <div className="fund-entry-info">
+                <span className="fund-entry-title">会员基金中心</span>
+                <span className="fund-entry-desc">查看历史基金与领取记录</span>
+              </div>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </div>
         </div>
 
         {/* Exchange Modal - 兑换弹窗 */}

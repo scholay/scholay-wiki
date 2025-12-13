@@ -2479,3 +2479,108 @@
   }
 }
 
+/* ============================================
+   会员基金入口
+   ============================================ */
+.fund-center-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  margin-top: 16px;
+  background: linear-gradient(135deg, 
+    rgba(99, 102, 241, 0.1) 0%, 
+    rgba(139, 92, 246, 0.1) 100%
+  );
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.fund-center-entry:hover {
+  background: linear-gradient(135deg, 
+    rgba(99, 102, 241, 0.15) 0%, 
+    rgba(139, 92, 246, 0.15) 100%
+  );
+  border-color: rgba(99, 102, 241, 0.3);
+  transform: translateX(4px);
+}
+
+.fund-entry-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.fund-entry-icon {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+.fund-entry-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fund-entry-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.fund-entry-desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.fund-center-entry svg {
+  color: rgba(255, 255, 255, 0.5);
+  transition: all 0.2s;
+}
+
+.fund-center-entry:hover svg {
+  color: rgba(255, 255, 255, 0.8);
+  transform: translateX(2px);
+}
+
+/* Light theme */
+[data-theme="light"] .fund-center-entry {
+  background: linear-gradient(135deg, 
+    rgba(99, 102, 241, 0.08) 0%, 
+    rgba(139, 92, 246, 0.08) 100%
+  );
+  border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+[data-theme="light"] .fund-center-entry:hover {
+  background: linear-gradient(135deg, 
+    rgba(99, 102, 241, 0.12) 0%, 
+    rgba(139, 92, 246, 0.12) 100%
+  );
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+[data-theme="light"] .fund-entry-title {
+  color: #1a1a2e;
+}
+
+[data-theme="light"] .fund-entry-desc {
+  color: #64748b;
+}
+
+[data-theme="light"] .fund-center-entry svg {
+  color: #94a3b8;
+}
+
+[data-theme="light"] .fund-center-entry:hover svg {
+  color: #6366f1;
+}
+

@@ -376,6 +376,25 @@ export const adminAPI = {
   updateDeductConfig: (data) =>
     api.post('/admin/currency/deduct-configs', data),
 
+  // Fund management (会员基金)
+  getFunds: (params = {}) =>
+    api.get('/admin/funds', { params }),
+
+  getFundStats: () =>
+    api.get('/admin/funds/stats'),
+
+  getFund: (id) =>
+    api.get(`/admin/funds/${id}`),
+
+  createFund: (data) =>
+    api.post('/admin/funds', data),
+
+  updateFund: (id, data) =>
+    api.put(`/admin/funds/${id}`, data),
+
+  deleteFund: (id) =>
+    api.delete(`/admin/funds/${id}`),
+
   // Currency wallet management
   getUserWallet: (userId) =>
     api.get(`/admin/currency/wallet/${userId}`),

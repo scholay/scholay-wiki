@@ -31,6 +31,7 @@ const PeerReviewPage = lazy(() => import('./pages/PeerReviewPage'));
 const AssistantPage = lazy(() => import('./pages/AssistantPage'));
 const Pricing = lazy(() => import('./pages/Pricing'));
 const Settings = lazy(() => import('./pages/Settings'));
+const FundCenter = lazy(() => import('./pages/FundCenter'));
 const WeChatCallback = lazy(() => import('./pages/WeChatCallback'));
 const GithubCallback = lazy(() => import('./pages/GithubCallback'));
 const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
@@ -87,6 +88,7 @@ function App() {
                         <Settings />
                       </ProtectedRoute>
                     } />
+                    <Route path="/fund-center" element={<FundCenter />} />
                     <Route path="/paper/:paperId" element={<PaperDetailPage />} />
                     <Route path="/order-confirmation" element={
                       <ProtectedRoute>

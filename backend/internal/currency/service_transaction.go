@@ -143,41 +143,74 @@ func generateBizID(prefix string, userID uint) string {
 
 // MembershipGiftResult 会员赠送结果
 type MembershipGiftResult struct {
-	GoldAmount    int64 `json:"gold_amount"`
-	DiamondAmount int64 `json:"diamond_amount"`
-	IsHalf        bool  `json:"is_half"` // 是否为半额赠送
+	GoldAmount    int64  `json:"gold_amount"`
+	DiamondAmount int64  `json:"diamond_amount"`
+	IsHalf        bool   `json:"is_half"`    // 是否为半额赠送
+	FundID        uint   `json:"fund_id"`    // 基金ID（如果使用基金配置）
+	FundName      string `json:"fund_name"`  // 基金名称
+	UseFund       bool   `json:"use_fund"`   // 是否使用基金配置
 }
 
-// GetMembershipGiftConfig 获取会员赠送配置
+// GetMembershipGiftConfigForMonth 获取指定月份的会员赠送配置
+// 优先使用基金配置，如果没有基金则使用默认配置
 // planCode: "pro" 或 "max"
+// month: 月份，格式如 "2025-01"
 // isHalf: 是否半额赠送（15日后开通）
-func (s *Service) GetMembershipGiftConfig(planCode string, isHalf bool) (*MembershipGiftResult, error) {
+func (s *Service) GetMembershipGiftConfigForMonth(planCode, month string, isHalf bool) (*MembershipGiftResult, error) {
 	result := &MembershipGiftResult{IsHalf: isHalf}
 
-	switch planCode {
-	case "pro":
-		goldAmount, err := s.GetCurrencyConfigAmount(ConfigKeyProMonthlyGold)
-		if err != nil || goldAmount <= 0 {
-			goldAmount = 5000 // 默认值
-		}
-		result.GoldAmount = goldAmount
-		result.DiamondAmount = 0 // Pro不赠送恩特币
+	// 1. 先尝试获取该月份的基金配置
+	fund, err := s.repo.GetFundByMonth(month)
+	if err != nil {
+		// 获取基金失败，记录日志但不影响流程，继续使用默认配置
+		fmt.Printf("Warning: failed to get fund for month %s: %v\n", month, err)
+	}
 
-	case "max":
-		goldAmount, err := s.GetCurrencyConfigAmount(ConfigKeyMaxMonthlyGold)
-		if err != nil || goldAmount <= 0 {
-			goldAmount = 10000 // 默认值
-		}
-		result.GoldAmount = goldAmount
+	if fund != nil {
+		// 使用基金配置
+		result.UseFund = true
+		result.FundID = fund.ID
+		result.FundName = fund.FundName
 
-		diamondAmount, err := s.GetCurrencyConfigAmount(ConfigKeyMaxMonthlyDiamond)
-		if err != nil || diamondAmount <= 0 {
-			diamondAmount = 6 // 默认值
+		switch planCode {
+		case "pro":
+			result.GoldAmount = fund.ProGoldAmount
+			result.DiamondAmount = 0 // Pro不赠送恩特币
+		case "max":
+			result.GoldAmount = fund.MaxGoldAmount
+			result.DiamondAmount = fund.MaxDiamondAmount
+		default:
+			return nil, fmt.Errorf("unsupported plan code: %s", planCode)
 		}
-		result.DiamondAmount = diamondAmount
+	} else {
+		// 2. 没有基金配置，使用默认配置
+		result.UseFund = false
 
-	default:
-		return nil, fmt.Errorf("unsupported plan code: %s", planCode)
+		switch planCode {
+		case "pro":
+			goldAmount, err := s.GetCurrencyConfigAmount(ConfigKeyProMonthlyGold)
+			if err != nil || goldAmount <= 0 {
+				goldAmount = 5000 // 默认值
+			}
+			result.GoldAmount = goldAmount
+			result.DiamondAmount = 0 // Pro不赠送恩特币
+
+		case "max":
+			goldAmount, err := s.GetCurrencyConfigAmount(ConfigKeyMaxMonthlyGold)
+			if err != nil || goldAmount <= 0 {
+				goldAmount = 10000 // 默认值
+			}
+			result.GoldAmount = goldAmount
+
+			diamondAmount, err := s.GetCurrencyConfigAmount(ConfigKeyMaxMonthlyDiamond)
+			if err != nil || diamondAmount <= 0 {
+				diamondAmount = 6 // 默认值
+			}
+			result.DiamondAmount = diamondAmount
+
+		default:
+			return nil, fmt.Errorf("unsupported plan code: %s", planCode)
+		}
 	}
 
 	// 如果是半额赠送
@@ -189,42 +222,91 @@ func (s *Service) GetMembershipGiftConfig(planCode string, isHalf bool) (*Member
 	return result, nil
 }
 
+// GetMembershipGiftConfig 获取会员赠送配置（使用当前月份）
+// 保留此方法以兼容旧代码
+func (s *Service) GetMembershipGiftConfig(planCode string, isHalf bool) (*MembershipGiftResult, error) {
+	currentMonth := time.Now().Format("2006-01")
+	return s.GetMembershipGiftConfigForMonth(planCode, currentMonth, isHalf)
+}
+
 // GiftMembershipReward 赠送会员奖励
 // planCode: "pro" 或 "max"
 // isHalf: 是否半额赠送（15日后开通）
 // bizType: 业务类型，如 "membership_monthly" 或 "membership_activate"
 // month: 赠送月份，格式如 "2025-01"
 func (s *Service) GiftMembershipReward(ctx context.Context, userID uint, planCode string, isHalf bool, bizType, month string) (*MembershipGiftResult, error) {
-	config, err := s.GetMembershipGiftConfig(planCode, isHalf)
+	// 获取该月份的配置（优先基金，其次默认）
+	config, err := s.GetMembershipGiftConfigForMonth(planCode, month, isHalf)
 	if err != nil {
 		return nil, err
 	}
 
+	// 如果使用基金配置，检查用户是否已领取
+	if config.UseFund && config.FundID > 0 {
+		received, err := s.repo.HasUserReceivedFund(config.FundID, userID)
+		if err != nil {
+			return nil, fmt.Errorf("check fund distribution failed: %w", err)
+		}
+		if received {
+			// 用户已领取过该基金，跳过
+			return config, nil
+		}
+	}
+
 	bizID := fmt.Sprintf("%s_%d_%s", bizType, userID, month)
+	var goldTxNo, diamondTxNo string
+
+	// 构建描述信息
+	var goldDesc, diamondDesc string
+	if config.UseFund && config.FundName != "" {
+		// 使用基金名称
+		goldDesc = fmt.Sprintf("%s（%s会员）", config.FundName, planCode)
+		diamondDesc = fmt.Sprintf("%s（%s会员）", config.FundName, planCode)
+	} else {
+		// 使用默认描述
+		goldDesc = fmt.Sprintf("%s会员%s经费奖励", planCode, month)
+		diamondDesc = fmt.Sprintf("%s会员%s恩特币奖励", planCode, month)
+	}
+	if isHalf {
+		goldDesc += "（半额）"
+		diamondDesc += "（半额）"
+	}
 
 	// 赠送经费
 	if config.GoldAmount > 0 {
-		desc := fmt.Sprintf("%s会员%s经费奖励", planCode, month)
-		if isHalf {
-			desc += "（半额）"
-		}
-		_, err := s.doTransaction(ctx, userID, CurrencyGold, config.GoldAmount, TxTypeGift,
-			bizType, bizID+"_gold", desc)
+		tx, err := s.doTransaction(ctx, userID, CurrencyGold, config.GoldAmount, TxTypeGift,
+			bizType, bizID+"_gold", goldDesc)
 		if err != nil {
 			return nil, fmt.Errorf("gift gold failed: %w", err)
 		}
+		goldTxNo = tx.TransactionNo
 	}
 
 	// 赠送恩特币（仅Max会员）
 	if config.DiamondAmount > 0 {
-		desc := fmt.Sprintf("%s会员%s恩特币奖励", planCode, month)
-		if isHalf {
-			desc += "（半额）"
-		}
-		_, err := s.doTransaction(ctx, userID, CurrencyDiamond, config.DiamondAmount, TxTypeGift,
-			bizType, bizID+"_diamond", desc)
+		tx, err := s.doTransaction(ctx, userID, CurrencyDiamond, config.DiamondAmount, TxTypeGift,
+			bizType, bizID+"_diamond", diamondDesc)
 		if err != nil {
 			return nil, fmt.Errorf("gift diamond failed: %w", err)
+		}
+		diamondTxNo = tx.TransactionNo
+	}
+
+	// 如果使用基金配置，记录发放并更新统计
+	if config.UseFund && config.FundID > 0 {
+		// 记录发放
+		txNo := goldTxNo
+		if txNo == "" {
+			txNo = diamondTxNo
+		}
+		if err := s.repo.RecordFundDistribution(config.FundID, userID, planCode, config.GoldAmount, config.DiamondAmount, txNo); err != nil {
+			// 记录失败不影响主流程，只打印警告
+			fmt.Printf("Warning: failed to record fund distribution for user %d, fund %d: %v\n", userID, config.FundID, err)
+		}
+
+		// 更新基金统计
+		if err := s.repo.IncrementFundStats(config.FundID, config.GoldAmount, config.DiamondAmount); err != nil {
+			fmt.Printf("Warning: failed to update fund stats for fund %d: %v\n", config.FundID, err)
 		}
 	}
 

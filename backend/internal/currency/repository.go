@@ -434,3 +434,60 @@ func (r *Repository) GetDB() *gorm.DB {
 	return r.db
 }
 
+// ========== 基金相关 ==========
+
+// FundConfig 基金配置（简化版，避免循环依赖）
+type FundConfig struct {
+	ID               uint   `gorm:"primaryKey"`
+	FundMonth        string `gorm:"column:fund_month"`
+	FundName         string `gorm:"column:fund_name"`
+	ProGoldAmount    int64  `gorm:"column:pro_gold_amount"`
+	MaxGoldAmount    int64  `gorm:"column:max_gold_amount"`
+	MaxDiamondAmount int64  `gorm:"column:max_diamond_amount"`
+	Status           string `gorm:"column:status"`
+}
+
+func (FundConfig) TableName() string {
+	return "membership_funds"
+}
+
+// GetFundByMonth 根据月份获取基金配置
+func (r *Repository) GetFundByMonth(month string) (*FundConfig, error) {
+	var fund FundConfig
+	err := r.db.Where("fund_month = ? AND status IN ?", month, []string{"active", "completed"}).First(&fund).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &fund, nil
+}
+
+// IncrementFundStats 增加基金统计数据
+func (r *Repository) IncrementFundStats(fundID uint, goldAmount, diamondAmount int64) error {
+	return r.db.Table("membership_funds").Where("id = ?", fundID).Updates(map[string]interface{}{
+		"total_distributed_gold":    gorm.Expr("total_distributed_gold + ?", goldAmount),
+		"total_distributed_diamond": gorm.Expr("total_distributed_diamond + ?", diamondAmount),
+		"beneficiary_count":         gorm.Expr("beneficiary_count + 1"),
+	}).Error
+}
+
+// RecordFundDistribution 记录基金发放
+func (r *Repository) RecordFundDistribution(fundID, userID uint, membershipType string, goldAmount, diamondAmount int64, transactionNo string) error {
+	return r.db.Exec(`
+		INSERT INTO membership_fund_distributions 
+		(fund_id, user_id, membership_type, gold_amount, diamond_amount, transaction_no, distributed_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+	`, fundID, userID, membershipType, goldAmount, diamondAmount, transactionNo).Error
+}
+
+// HasUserReceivedFund 检查用户是否已领取某基金
+func (r *Repository) HasUserReceivedFund(fundID, userID uint) (bool, error) {
+	var count int64
+	err := r.db.Table("membership_fund_distributions").
+		Where("fund_id = ? AND user_id = ?", fundID, userID).
+		Count(&count).Error
+	return count > 0, err
+}
+

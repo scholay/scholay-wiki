@@ -15,12 +15,21 @@ import './CurrencyConfig.css';
 const CurrencyConfig = () => {
   const [configs, setConfigs] = useState([]);
   const [deductConfigs, setDeductConfigs] = useState([]);
+  const [funds, setFunds] = useState([]);
+  const [fundStats, setFundStats] = useState({ total_distributed_gold: 0, total_distributed_diamond: 0, total_beneficiaries: 0 });
   const [loading, setLoading] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
   const [editForm, setEditForm] = useState({ amount: 0, display_name: '', display_remark: '', description: '', enabled: true });
   const [editingDeduct, setEditingDeduct] = useState(null);
   const [deductForm, setDeductForm] = useState({ amount: 0, display_name: '', display_remark: '', description: '', enabled: true });
-  const [activeTab, setActiveTab] = useState('currency'); // 'currency' or 'deduct'
+  const [editingFund, setEditingFund] = useState(null);
+  const [fundForm, setFundForm] = useState({
+    fund_month: '', fund_name: '', fund_slogan: '', fund_description: '',
+    theme_color: '#6366f1', pro_gold_amount: 5000, max_gold_amount: 10000,
+    max_diamond_amount: 6, status: 'pending'
+  });
+  const [showFundModal, setShowFundModal] = useState(false);
+  const [activeTab, setActiveTab] = useState('currency'); // 'currency', 'deduct', or 'fund'
 
   // 加载货币配置
   const loadConfigs = async () => {
@@ -56,9 +65,31 @@ const CurrencyConfig = () => {
     }
   };
 
+  // 加载基金配置
+  const loadFunds = async () => {
+    setLoading(true);
+    try {
+      const [fundsRes, statsRes] = await Promise.all([
+        adminAPI.getFunds(),
+        adminAPI.getFundStats()
+      ]);
+      if (fundsRes.data?.code === 0) {
+        setFunds(fundsRes.data.data?.funds || []);
+      }
+      if (statsRes.data?.code === 0) {
+        setFundStats(statsRes.data.data || {});
+      }
+    } catch (error) {
+      showToast('加载基金配置失败: ' + (error.response?.data?.message || error.message), 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadConfigs();
     loadDeductConfigs();
+    loadFunds();
   }, []);
 
   // 开始编辑
@@ -131,6 +162,104 @@ const CurrencyConfig = () => {
     } catch (error) {
       showToast('保存失败: ' + (error.response?.data?.message || error.message), 'error');
     }
+  };
+
+  // ========== 基金管理 ==========
+
+  // 打开新建基金弹窗
+  const handleCreateFund = () => {
+    const now = new Date();
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const monthStr = nextMonth.toISOString().slice(0, 7);
+    setFundForm({
+      fund_month: monthStr,
+      fund_name: '',
+      fund_slogan: '',
+      fund_description: '',
+      theme_color: '#6366f1',
+      pro_gold_amount: 5000,
+      max_gold_amount: 10000,
+      max_diamond_amount: 6,
+      status: 'pending'
+    });
+    setEditingFund(null);
+    setShowFundModal(true);
+  };
+
+  // 打开编辑基金弹窗
+  const handleEditFund = (fund) => {
+    setFundForm({
+      fund_month: fund.fund_month,
+      fund_name: fund.fund_name,
+      fund_slogan: fund.fund_slogan || '',
+      fund_description: fund.fund_description || '',
+      theme_color: fund.theme_color || '#6366f1',
+      pro_gold_amount: fund.pro_gold_amount,
+      max_gold_amount: fund.max_gold_amount,
+      max_diamond_amount: fund.max_diamond_amount,
+      status: fund.status
+    });
+    setEditingFund(fund.id);
+    setShowFundModal(true);
+  };
+
+  // 关闭基金弹窗
+  const handleCloseFundModal = () => {
+    setShowFundModal(false);
+    setEditingFund(null);
+  };
+
+  // 保存基金
+  const handleSaveFund = async () => {
+    if (!fundForm.fund_month || !fundForm.fund_name) {
+      showToast('请填写基金月份和名称', 'error');
+      return;
+    }
+    try {
+      let response;
+      if (editingFund) {
+        response = await adminAPI.updateFund(editingFund, fundForm);
+      } else {
+        response = await adminAPI.createFund(fundForm);
+      }
+      if (response.data?.code === 0) {
+        showToast(editingFund ? '更新成功' : '创建成功', 'success');
+        handleCloseFundModal();
+        loadFunds();
+      } else {
+        showToast(response.data?.message || '保存失败', 'error');
+      }
+    } catch (error) {
+      showToast('保存失败: ' + (error.response?.data?.message || error.message), 'error');
+    }
+  };
+
+  // 删除基金
+  const handleDeleteFund = async (id) => {
+    if (!window.confirm('确定要删除这个基金吗？已有用户领取的基金无法删除。')) {
+      return;
+    }
+    try {
+      const response = await adminAPI.deleteFund(id);
+      if (response.data?.code === 0) {
+        showToast('删除成功', 'success');
+        loadFunds();
+      } else {
+        showToast(response.data?.message || '删除失败', 'error');
+      }
+    } catch (error) {
+      showToast('删除失败: ' + (error.response?.data?.message || error.message), 'error');
+    }
+  };
+
+  // 获取基金状态标签
+  const getFundStatusLabel = (status) => {
+    const labels = {
+      pending: '待生效',
+      active: '生效中',
+      completed: '已结束'
+    };
+    return labels[status] || status;
   };
 
   // 获取分类标签
@@ -233,6 +362,12 @@ const CurrencyConfig = () => {
           onClick={() => setActiveTab('deduct')}
         >
           扣费配置
+        </button>
+        <button
+          className={`tab-btn ${activeTab === 'fund' ? 'active' : ''}`}
+          onClick={() => setActiveTab('fund')}
+        >
+          会员基金
         </button>
       </div>
 
@@ -391,7 +526,7 @@ const CurrencyConfig = () => {
             ))}
           </div>
         )
-      ) : (
+      ) : activeTab === 'deduct' ? (
         // 扣费配置 Tab
         deductConfigs.length === 0 ? (
           <div className="empty-state">
@@ -534,6 +669,217 @@ const CurrencyConfig = () => {
             </div>
           </div>
         )
+      ) : activeTab === 'fund' ? (
+        // 会员基金 Tab
+        <div className="fund-section">
+          {/* 统计概览 */}
+          <div className="fund-stats-overview">
+            <div className="stat-card">
+              <div className="stat-icon gold">💰</div>
+              <div className="stat-info">
+                <span className="stat-value">{fundStats.total_distributed_gold?.toLocaleString() || 0}</span>
+                <span className="stat-label">已发放经费</span>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon diamond">💎</div>
+              <div className="stat-info">
+                <span className="stat-value">{fundStats.total_distributed_diamond?.toLocaleString() || 0}</span>
+                <span className="stat-label">已发放恩特币</span>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon users">👥</div>
+              <div className="stat-info">
+                <span className="stat-value">{fundStats.total_beneficiaries?.toLocaleString() || 0}</span>
+                <span className="stat-label">受益用户数</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 基金列表 */}
+          <div className="config-section">
+            <div className="section-header">
+              <h2 className="section-title">
+                <span className="category-badge fund">会员基金配置</span>
+              </h2>
+              <button className="create-btn" onClick={handleCreateFund}>
+                + 新建基金
+              </button>
+            </div>
+            <p className="section-desc">
+              配置每月会员基金的名称、口号、描述等信息。会员每月领取的经费将以基金名义发放，增强用户归属感。
+            </p>
+
+            {funds.length === 0 ? (
+              <div className="empty-state">
+                <p>暂无基金配置</p>
+                <button className="create-btn" onClick={handleCreateFund}>创建第一个基金</button>
+              </div>
+            ) : (
+              <div className="fund-grid">
+                {funds.map((fund) => (
+                  <div 
+                    key={fund.id} 
+                    className={`fund-card ${fund.status}`}
+                    style={{ '--theme-color': fund.theme_color }}
+                  >
+                    <div className="fund-card-header">
+                      <span className="fund-month">{fund.fund_month}</span>
+                      <span className={`fund-status ${fund.status}`}>
+                        {getFundStatusLabel(fund.status)}
+                      </span>
+                    </div>
+                    <h3 className="fund-name">{fund.fund_name}</h3>
+                    {fund.fund_slogan && (
+                      <p className="fund-slogan">{fund.fund_slogan}</p>
+                    )}
+                    <div className="fund-amounts">
+                      <div className="amount-item">
+                        <span className="amount-label">Pro会员</span>
+                        <span className="amount-value">{fund.pro_gold_amount} 经费</span>
+                      </div>
+                      <div className="amount-item">
+                        <span className="amount-label">Max会员</span>
+                        <span className="amount-value">{fund.max_gold_amount} 经费 + {fund.max_diamond_amount} 恩特币</span>
+                      </div>
+                    </div>
+                    <div className="fund-stats">
+                      <span>已发放: {fund.total_distributed_gold} 经费</span>
+                      <span>受益: {fund.beneficiary_count} 人</span>
+                    </div>
+                    <div className="fund-actions">
+                      <button className="edit-btn" onClick={() => handleEditFund(fund)}>
+                        编辑
+                      </button>
+                      {fund.beneficiary_count === 0 && (
+                        <button className="delete-btn" onClick={() => handleDeleteFund(fund.id)}>
+                          删除
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {/* 基金编辑弹窗 */}
+      {showFundModal && (
+        <div className="modal-overlay" onClick={handleCloseFundModal}>
+          <div className="fund-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{editingFund ? '编辑基金' : '新建基金'}</h3>
+              <button className="close-btn" onClick={handleCloseFundModal}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-row">
+                <div className="form-group">
+                  <label>基金月份 *</label>
+                  <input
+                    type="month"
+                    value={fundForm.fund_month}
+                    onChange={(e) => setFundForm({ ...fundForm, fund_month: e.target.value })}
+                    disabled={!!editingFund}
+                    className="form-input"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>主题色</label>
+                  <div className="color-input-wrapper">
+                    <input
+                      type="color"
+                      value={fundForm.theme_color}
+                      onChange={(e) => setFundForm({ ...fundForm, theme_color: e.target.value })}
+                      className="color-input"
+                    />
+                    <span className="color-value">{fundForm.theme_color}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="form-group">
+                <label>基金名称 *</label>
+                <input
+                  type="text"
+                  value={fundForm.fund_name}
+                  onChange={(e) => setFundForm({ ...fundForm, fund_name: e.target.value })}
+                  placeholder="如：新春基金、惊蛰基金"
+                  className="form-input"
+                />
+              </div>
+              <div className="form-group">
+                <label>基金口号</label>
+                <input
+                  type="text"
+                  value={fundForm.fund_slogan}
+                  onChange={(e) => setFundForm({ ...fundForm, fund_slogan: e.target.value })}
+                  placeholder="如：新年新气象，科研新征程"
+                  className="form-input"
+                />
+              </div>
+              <div className="form-group">
+                <label>基金介绍</label>
+                <textarea
+                  value={fundForm.fund_description}
+                  onChange={(e) => setFundForm({ ...fundForm, fund_description: e.target.value })}
+                  placeholder="详细介绍基金的意义和用途..."
+                  className="form-textarea"
+                  rows={4}
+                />
+              </div>
+              <div className="form-row three-cols">
+                <div className="form-group">
+                  <label>Pro会员经费</label>
+                  <input
+                    type="number"
+                    value={fundForm.pro_gold_amount}
+                    onChange={(e) => setFundForm({ ...fundForm, pro_gold_amount: parseInt(e.target.value) || 0 })}
+                    className="form-input"
+                    min="0"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Max会员经费</label>
+                  <input
+                    type="number"
+                    value={fundForm.max_gold_amount}
+                    onChange={(e) => setFundForm({ ...fundForm, max_gold_amount: parseInt(e.target.value) || 0 })}
+                    className="form-input"
+                    min="0"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Max会员恩特币</label>
+                  <input
+                    type="number"
+                    value={fundForm.max_diamond_amount}
+                    onChange={(e) => setFundForm({ ...fundForm, max_diamond_amount: parseInt(e.target.value) || 0 })}
+                    className="form-input"
+                    min="0"
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>状态</label>
+                <select
+                  value={fundForm.status}
+                  onChange={(e) => setFundForm({ ...fundForm, status: e.target.value })}
+                  className="form-select"
+                >
+                  <option value="pending">待生效</option>
+                  <option value="active">生效中</option>
+                  <option value="completed">已结束</option>
+                </select>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="cancel-btn" onClick={handleCloseFundModal}>取消</button>
+              <button className="save-btn" onClick={handleSaveFund}>保存</button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="config-tips">
