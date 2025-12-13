@@ -12,12 +12,13 @@
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: 14px;
+  border-radius: 16px;
   border: 1px solid rgba(0, 0, 0, 0.06);
-  padding: 16px;
+  padding: 20px;
   margin-top: 20px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
-  max-width: 360px;
+  max-width: 420px;
+  width: 100%;
 }
 
 [data-theme="dark"] .checkin-calendar-card {
@@ -206,7 +207,7 @@
 .calendar-days {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 3px;
+  gap: 4px;
 }
 
 .calendar-day {
@@ -215,10 +216,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 10px;
   position: relative;
   transition: all 0.2s ease;
   cursor: default;
+  min-height: 48px;
+  padding: 4px 2px;
 }
 
 .calendar-day.empty {
@@ -226,8 +229,8 @@
 }
 
 .calendar-day .day-number {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: #555;
   z-index: 1;
   line-height: 1;
@@ -289,13 +292,104 @@
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4);
 }
 
+/* 经费奖励显示 - 放在日期下方 */
+.calendar-day .gold-reward {
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+/* 已签到的经费 - 橙红色渐变 */
+.calendar-day .gold-reward.checked-gold {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.15);
+}
+
+[data-theme="dark"] .calendar-day .gold-reward.checked-gold {
+  color: #ff8a8a;
+  background: rgba(255, 107, 107, 0.25);
+}
+
+/* 未来预计经费 - 淡灰色 */
+.calendar-day .gold-reward.future-gold {
+  color: #999;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] .calendar-day .gold-reward.future-gold {
+  color: #777;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 今天未签到的预计经费 - 绿色高亮 */
+.calendar-day .gold-reward.today-gold {
+  color: #059669;
+  background: rgba(16, 185, 129, 0.15);
+  font-weight: 700;
+}
+
+[data-theme="dark"] .calendar-day .gold-reward.today-gold {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.2);
+}
+
+/* 里程碑日期的经费 - 金色高亮 */
+.calendar-day .gold-reward.milestone-gold {
+  color: #d97706;
+  background: rgba(245, 158, 11, 0.18);
+  font-weight: 700;
+}
+
+[data-theme="dark"] .calendar-day .gold-reward.milestone-gold {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.25);
+}
+
+/* 基础奖励提升后的经费 - 紫色高亮（第16天及之后） */
+.calendar-day .gold-reward.after-upgrade-gold {
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.15);
+  font-weight: 700;
+}
+
+[data-theme="dark"] .calendar-day .gold-reward.after-upgrade-gold {
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.25);
+}
+
+/* 里程碑日期样式 */
+.calendar-day.milestone.future {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(251, 191, 36, 0.06) 100%);
+  border: 1px dashed rgba(245, 158, 11, 0.4);
+}
+
+[data-theme="dark"] .calendar-day.milestone.future {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(251, 191, 36, 0.1) 100%);
+  border-color: rgba(251, 191, 36, 0.5);
+}
+
+/* 基础奖励提升后的日期样式 - 紫色（第16天及之后） */
+.calendar-day.after-upgrade.future {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.06) 0%, rgba(167, 139, 250, 0.04) 100%);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+[data-theme="dark"] .calendar-day.after-upgrade.future {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.12) 0%, rgba(167, 139, 250, 0.08) 100%);
+  border-color: rgba(167, 139, 250, 0.3);
+}
+
 /* 签到标记 */
 .calendar-day .check-indicator {
   position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 12px;
-  height: 12px;
+  bottom: 3px;
+  right: 3px;
+  width: 14px;
+  height: 14px;
   background: linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%);
   border-radius: 50%;
   display: flex;
@@ -305,8 +399,8 @@
 }
 
 .calendar-day .check-indicator svg {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   color: white;
 }
 
@@ -392,9 +486,9 @@
 /* 响应式 */
 @media (max-width: 768px) {
   .checkin-calendar-card {
-    padding: 14px;
+    padding: 16px;
     margin-top: 16px;
-    border-radius: 12px;
+    border-radius: 14px;
     max-width: 100%;
   }
 
@@ -403,11 +497,27 @@
     gap: 8px;
   }
 
+  .calendar-day {
+    min-height: 42px;
+  }
+
   .calendar-day .day-number {
-    font-size: 11px;
+    font-size: 12px;
+  }
+
+  .calendar-day .gold-reward {
+    font-size: 8px;
+    padding: 1px 3px;
   }
 
   .calendar-day .check-indicator {
+    width: 12px;
+    height: 12px;
+    bottom: 2px;
+    right: 2px;
+  }
+
+  .calendar-day .check-indicator svg {
     width: 8px;
     height: 8px;
   }

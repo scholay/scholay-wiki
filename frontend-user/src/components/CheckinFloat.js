@@ -28,6 +28,8 @@ const CheckinFloat = () => {
   const [loading, setLoading] = useState(false);
   const [checkinStatus, setCheckinStatus] = useState(null);
   const [checkinHistory, setCheckinHistory] = useState([]);
+  const [checkinDetails, setCheckinDetails] = useState([]); // 签到详情（包含经费）
+  const [futureRewards, setFutureRewards] = useState([]); // 未来签到预计奖励
   const [modalType, setModalType] = useState('auto'); // 'auto' | 'float'
   const floatBallRef = useRef(null);
   const [floatBallPos, setFloatBallPos] = useState({ x: 0, y: 0 });
@@ -42,6 +44,18 @@ const CheckinFloat = () => {
     const daysInMonth = lastDay.getDate();
     const startDayOfWeek = firstDay.getDay();
 
+    // 创建签到详情的映射表
+    const checkinDetailMap = {};
+    checkinDetails.forEach(detail => {
+      checkinDetailMap[detail.date] = detail.gold_reward;
+    });
+    
+    // 创建未来奖励的映射表
+    const futureRewardMap = {};
+    futureRewards.forEach(reward => {
+      futureRewardMap[reward.date] = reward;
+    });
+
     const days = [];
     for (let i = 0; i < startDayOfWeek; i++) {
       days.push({ day: null });
@@ -52,10 +66,25 @@ const CheckinFloat = () => {
       const isCheckedIn = checkinHistory.includes(dateStr);
       const isPast = day < today.getDate();
       const isFuture = day > today.getDate();
-      days.push({ day, isToday, isCheckedIn, isPast, isFuture, dateStr });
+      
+      // 获取已签到日期的经费数量
+      const goldReward = checkinDetailMap[dateStr] || 0;
+      
+      // 获取未来日期的预计经费
+      const futureReward = futureRewardMap[dateStr];
+      const expectedGold = futureReward?.expected_gold || 0;
+      const isMilestone = futureReward?.is_milestone || false;
+      const milestoneMessage = futureReward?.milestone_message || '';
+      const isAfterUpgrade = futureReward?.is_after_upgrade || false;
+      const baseUpgradeMsg = futureReward?.base_upgrade_msg || '';
+      
+      days.push({ 
+        day, isToday, isCheckedIn, isPast, isFuture, dateStr,
+        goldReward, expectedGold, isMilestone, milestoneMessage, isAfterUpgrade, baseUpgradeMsg
+      });
     }
     return { year, month, days, monthName: today.toLocaleDateString('zh-CN', { month: 'long' }) };
-  }, [checkinHistory]);
+  }, [checkinHistory, checkinDetails, futureRewards]);
 
   const checkFirstVisitToday = useCallback(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -84,6 +113,8 @@ const CheckinFloat = () => {
         if (historyResponse.data.code === 0) {
           const historyData = historyResponse.data.data;
           setCheckinHistory(historyData.checkin_dates || []);
+          setCheckinDetails(historyData.checkin_details || []);
+          setFutureRewards(historyData.future_rewards || []);
           // 更新统计数据（从历史API获取最新的）
           if (historyData.consecutive_days !== undefined || historyData.total_days !== undefined) {
             setCheckinStatus(prev => ({
@@ -280,11 +311,28 @@ const CheckinFloat = () => {
                       {calendarData.days.map((item, i) => (
                         <div 
                           key={i} 
-                          className={`checkin-day ${!item.day ? 'empty' : ''} ${item.isToday ? 'today' : ''} ${item.isCheckedIn ? 'checked' : ''} ${item.isFuture ? 'future' : ''}`}
+                          className={`checkin-day ${!item.day ? 'empty' : ''} ${item.isToday ? 'today' : ''} ${item.isCheckedIn ? 'checked' : ''} ${item.isFuture ? 'future' : ''} ${item.isMilestone ? 'milestone' : ''} ${item.isAfterUpgrade ? 'after-upgrade' : ''}`}
+                          title={item.isMilestone ? item.milestoneMessage : (item.isAfterUpgrade ? item.baseUpgradeMsg : '')}
                         >
                           {item.day && (
                             <>
-                              <span>{item.day}</span>
+                              <span className="day-num">{item.day}</span>
+                              {/* 已签到日期显示获得的经费 */}
+                              {item.isCheckedIn && item.goldReward > 0 && (
+                                <span className="gold-reward checked-gold">+{item.goldReward}</span>
+                              )}
+                              {/* 今天未签到显示预计经费 */}
+                              {item.isToday && !item.isCheckedIn && item.expectedGold > 0 && (
+                                <span className={`gold-reward today-gold ${item.isMilestone ? 'milestone-gold' : ''} ${item.isAfterUpgrade ? 'after-upgrade-gold' : ''}`}>
+                                  +{item.expectedGold}
+                                </span>
+                              )}
+                              {/* 未来日期显示预计经费 */}
+                              {item.isFuture && !item.isToday && item.expectedGold > 0 && (
+                                <span className={`gold-reward future-gold ${item.isMilestone ? 'milestone-gold' : ''} ${item.isAfterUpgrade ? 'after-upgrade-gold' : ''}`}>
+                                  +{item.expectedGold}
+                                </span>
+                              )}
                               {item.isCheckedIn && (
                                 <div className="check-mark">
                                   <svg viewBox="0 0 24 24" fill="none">

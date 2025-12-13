@@ -86,6 +86,21 @@ func (h *Handler) GetStatus(c *gin.Context) {
 	})
 }
 
+// CheckinDateInfo 签到日期信息（包含经费奖励）
+type CheckinDateInfo struct {
+	Date       string `json:"date"`
+	GoldReward int64  `json:"gold_reward"`
+}
+
+// FutureDateInfo 未来签到日期预计奖励
+type FutureDateInfo struct {
+	Date             string `json:"date"`
+	ConsecutiveDay   int    `json:"consecutive_day"`
+	ExpectedGold     int64  `json:"expected_gold"`
+	IsMilestone      bool   `json:"is_milestone"`
+	MilestoneMessage string `json:"milestone_message,omitempty"`
+}
+
 // GetHistory handles get check-in history request
 // GET /api/v1/user/checkin/history?year=2025&month=12
 func (h *Handler) GetHistory(c *gin.Context) {
@@ -128,10 +143,18 @@ func (h *Handler) GetHistory(c *gin.Context) {
 		return
 	}
 
-	// Convert to date list for calendar display (ensure YYYY-MM-DD format)
+	// Convert to date list with gold rewards for calendar display
 	checkinDates := make([]string, 0, len(history))
+	checkinDetails := make([]CheckinDateInfo, 0, len(history))
 	for _, checkin := range history {
-		checkinDates = append(checkinDates, checkin.GetCheckinDateString())
+		dateStr := checkin.GetCheckinDateString()
+		checkinDates = append(checkinDates, dateStr)
+		// 根据连续签到天数计算当天获得的经费
+		goldReward := h.service.GetCheckinGoldRewardPublic(checkin.ConsecutiveDays)
+		checkinDetails = append(checkinDetails, CheckinDateInfo{
+			Date:       dateStr,
+			GoldReward: goldReward,
+		})
 	}
 
 	// Get user stats for consecutive and total days
@@ -143,6 +166,16 @@ func (h *Handler) GetHistory(c *gin.Context) {
 		totalDays = status.TotalCheckins
 	}
 
+	// 计算到当月最后一天的预计签到奖励
+	// 计算当月剩余天数
+	now := time.Now()
+	lastDayOfMonth := time.Date(year, time.Month(month+1), 0, 0, 0, 0, 0, time.Local)
+	daysUntilEndOfMonth := int(lastDayOfMonth.Sub(now).Hours()/24) + 1 // +1 包括今天
+	if daysUntilEndOfMonth < 1 {
+		daysUntilEndOfMonth = 1
+	}
+	futureRewards := h.service.GetFutureCheckinRewards(consecutiveDays, daysUntilEndOfMonth)
+
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,
 		"message": "success",
@@ -150,6 +183,8 @@ func (h *Handler) GetHistory(c *gin.Context) {
 			"year":             year,
 			"month":            month,
 			"checkin_dates":    checkinDates,
+			"checkin_details":  checkinDetails,
+			"future_rewards":   futureRewards,
 			"total_count":      len(checkinDates),
 			"consecutive_days": consecutiveDays,
 			"total_days":       totalDays,

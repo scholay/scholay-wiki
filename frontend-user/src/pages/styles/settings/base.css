@@ -88,12 +88,12 @@
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .settings-header-logo img {
-  width: 18px;
-  height: 18px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
 }
 
@@ -401,6 +401,11 @@
 
 [data-theme="light"] .settings-header-logo span {
   color: #1f2937;
+}
+
+/* Logo图片 - 日间模式反色，与侧边栏保持一致 */
+[data-theme="light"] .settings-header-logo img {
+  filter: invert(1) brightness(0.3) sepia(1) saturate(10) hue-rotate(140deg);
 }
 
 [data-theme="light"] .settings-sidebar {

@@ -280,3 +280,79 @@ func (s *Service) GetCheckinHistory(userID uint, startDate, endDate string) ([]U
 func (s *Service) GetMonthlyCheckins(userID uint, year, month int) (int64, error) {
 	return s.repo.GetCheckinCountInMonth(userID, year, month)
 }
+
+// GetCheckinGoldRewardPublic 公开方法：根据连续签到天数获取经费奖励
+func (s *Service) GetCheckinGoldRewardPublic(consecutiveDays int) int64 {
+	return s.getCheckinGoldReward(consecutiveDays)
+}
+
+// FutureRewardInfo 未来签到奖励信息
+type FutureRewardInfo struct {
+	Date             string `json:"date"`
+	ConsecutiveDay   int    `json:"consecutive_day"`
+	ExpectedGold     int64  `json:"expected_gold"`
+	IsMilestone      bool   `json:"is_milestone"`
+	MilestoneMessage string `json:"milestone_message,omitempty"`
+	IsBaseUpgrade    bool   `json:"is_base_upgrade"`     // 是否为基础奖励提升日（第16天）
+	IsAfterUpgrade   bool   `json:"is_after_upgrade"`    // 是否为基础奖励提升后的日期（第16天及之后）
+	BaseUpgradeMsg   string `json:"base_upgrade_msg,omitempty"` // 基础奖励提升提示
+}
+
+// GetFutureCheckinRewards 获取未来N天连续签到的预计奖励（包括今天）
+func (s *Service) GetFutureCheckinRewards(currentStreak int, days int) []FutureRewardInfo {
+	loc := getLocalLocation()
+	today := time.Now().In(loc)
+	
+	// 获取基础奖励和15天后奖励的配置值
+	baseGold := s.getCheckinGoldReward(1)      // 基础每日奖励
+	after15Gold := s.getCheckinGoldReward(16)  // 15天后每日奖励
+	
+	rewards := make([]FutureRewardInfo, 0, days+1)
+	
+	// 从今天开始（i=0表示今天）
+	for i := 0; i <= days; i++ {
+		futureDate := today.AddDate(0, 0, i)
+		// 今天签到后连续天数+1，未来每天再+1
+		consecutiveDay := currentStreak + 1 + i
+		expectedGold := s.getCheckinGoldReward(consecutiveDay)
+		
+		// 判断是否为里程碑日期
+		isMilestone := false
+		milestoneMsg := ""
+		switch consecutiveDay {
+		case 3:
+			isMilestone = true
+			milestoneMsg = "连续签到3天奖励"
+		case 7:
+			isMilestone = true
+			milestoneMsg = "连续签到7天奖励"
+		case 15:
+			isMilestone = true
+			milestoneMsg = "连续签到15天奖励"
+		}
+		
+		// 判断是否为基础奖励提升日（第16天，从基础奖励升级到15天后奖励）
+		isBaseUpgrade := consecutiveDay == 16
+		// 判断是否为基础奖励提升后的日期（第16天及之后）
+		isAfterUpgrade := consecutiveDay >= 16
+		baseUpgradeMsg := ""
+		if isBaseUpgrade {
+			baseUpgradeMsg = fmt.Sprintf("基础奖励提升：%d → %d 经费/天", baseGold, after15Gold)
+		} else if isAfterUpgrade {
+			baseUpgradeMsg = fmt.Sprintf("每日基础奖励：%d 经费", after15Gold)
+		}
+		
+		rewards = append(rewards, FutureRewardInfo{
+			Date:             futureDate.Format("2006-01-02"),
+			ConsecutiveDay:   consecutiveDay,
+			ExpectedGold:     expectedGold,
+			IsMilestone:      isMilestone,
+			MilestoneMessage: milestoneMsg,
+			IsBaseUpgrade:    isBaseUpgrade,
+			IsAfterUpgrade:   isAfterUpgrade,
+			BaseUpgradeMsg:   baseUpgradeMsg,
+		})
+	}
+	
+	return rewards
+}

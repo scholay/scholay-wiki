@@ -417,12 +417,13 @@
   position: fixed;
   right: 24px;
   bottom: 100px;
+  width: 420px;
+  max-width: calc(100vw - 48px);
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 24px;
   padding: 24px 20px;
-  width: 320px;
   border: 1px solid rgba(255, 107, 107, 0.15);
   box-shadow: 
     0 20px 60px rgba(0, 0, 0, 0.12),
@@ -552,8 +553,8 @@
 .checkin-calendar {
   margin-bottom: 16px;
   background: rgba(255, 107, 107, 0.03);
-  border-radius: 16px;
-  padding: 14px;
+  border-radius: 14px;
+  padding: 16px;
   border: 1px solid rgba(255, 107, 107, 0.1);
 }
 
@@ -587,18 +588,23 @@
 }
 
 .checkin-day {
-  aspect-ratio: 1;
+  width: 100%;
+  height: 44px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border-radius: 8px;
+  padding: 3px 0;
   position: relative;
   font-size: 13px;
   font-weight: 500;
   color: #666;
   background: rgba(255, 255, 255, 0.5);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   cursor: default;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 [data-theme="dark"] .checkin-day {
@@ -615,20 +621,12 @@
   background: var(--gift-gradient);
   color: white;
   font-weight: 700;
-  font-size: 14px;
-  box-shadow: 0 4px 15px var(--gift-shadow);
-  animation: today-gift-pulse 2s ease-in-out infinite;
+  box-shadow: 0 2px 8px var(--gift-shadow);
 }
 
-@keyframes today-gift-pulse {
-  0%, 100% { 
-    transform: scale(1);
-    box-shadow: 0 4px 15px var(--gift-shadow);
-  }
-  50% { 
-    transform: scale(1.08);
-    box-shadow: 0 6px 20px var(--gift-shadow);
-  }
+.checkin-day.today:not(.checked) .day-num,
+.checkin-day.today:not(.checked) .gold-reward {
+  color: white;
 }
 
 /* 已签到 - 金色礼物 */
@@ -636,21 +634,21 @@
   background: linear-gradient(135deg, #feca57 0%, #ff9f43 100%);
   color: white;
   font-weight: 600;
-  box-shadow: 0 3px 12px rgba(254, 202, 87, 0.4);
+  box-shadow: 0 2px 8px rgba(254, 202, 87, 0.4);
 }
 
-.checkin-day.checked:hover {
-  transform: scale(1.1);
-  box-shadow: 0 5px 16px rgba(254, 202, 87, 0.5);
+.checkin-day.checked .day-num,
+.checkin-day.checked .gold-reward {
+  color: white;
 }
 
 /* 签到勾选标记 - 星星 */
 .checkin-day .check-mark {
   position: absolute;
-  right: -3px;
-  bottom: -3px;
-  width: 16px;
-  height: 16px;
+  right: -2px;
+  bottom: -2px;
+  width: 14px;
+  height: 14px;
   background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
   border-radius: 50%;
   display: flex;
@@ -658,7 +656,6 @@
   justify-content: center;
   box-shadow: 0 2px 6px rgba(255, 107, 107, 0.4);
   border: 2px solid white;
-  font-size: 8px;
 }
 
 [data-theme="dark"] .checkin-day .check-mark {
@@ -679,6 +676,91 @@
 
 [data-theme="dark"] .checkin-day.future {
   color: #555;
+}
+
+/* 日期数字 */
+.checkin-day .day-num {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* 经费奖励显示 */
+.checkin-day .gold-reward {
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+/* 已签到的经费 - 白色（在金色背景上） */
+.checkin-day .gold-reward.checked-gold {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 今天未签到的预计经费 - 白色（在渐变背景上） */
+.checkin-day .gold-reward.today-gold {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 未来预计经费 - 灰色 */
+.checkin-day .gold-reward.future-gold {
+  color: #999;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .checkin-day .gold-reward.future-gold {
+  color: #777;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* 里程碑日期的经费 - 金色高亮 */
+.checkin-day .gold-reward.milestone-gold {
+  color: #d97706;
+  background: rgba(245, 158, 11, 0.15);
+  font-weight: 700;
+}
+
+[data-theme="dark"] .checkin-day .gold-reward.milestone-gold {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.2);
+}
+
+/* 基础奖励提升后的经费 - 紫色高亮（第16天及之后） */
+.checkin-day .gold-reward.after-upgrade-gold {
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.12);
+  font-weight: 700;
+}
+
+[data-theme="dark"] .checkin-day .gold-reward.after-upgrade-gold {
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.2);
+}
+
+/* 里程碑日期样式 */
+.checkin-day.milestone.future {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px dashed rgba(245, 158, 11, 0.35);
+}
+
+[data-theme="dark"] .checkin-day.milestone.future {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+/* 基础奖励提升后的日期样式 - 紫色（第16天及之后） */
+.checkin-day.after-upgrade.future {
+  background: rgba(124, 58, 237, 0.05);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+[data-theme="dark"] .checkin-day.after-upgrade.future {
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(167, 139, 250, 0.25);
 }
 
 /* 统计 - 礼物风格 */
