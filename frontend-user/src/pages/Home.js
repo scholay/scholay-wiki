@@ -357,7 +357,7 @@ const Home = () => {
         </nav>
 
         <div className="search-content">
-          <div className="chat-container">
+          <div className="home-chat-container">
             <div className="welcome-screen">
               <h1 className="welcome-title">
                 {displayedText}

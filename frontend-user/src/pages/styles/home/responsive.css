@@ -10,28 +10,28 @@
 /* Responsive */
 /* Large screens - maximize reading width */
 @media (min-width: 1920px) {
-  .chat-container {
+  .home-chat-container {
     max-width: 64rem;
   }
 }
 
 /* Medium-large screens */
 @media (min-width: 1440px) and (max-width: 1919px) {
-  .chat-container {
+  .home-chat-container {
     max-width: 60rem;
   }
 }
 
 /* Medium screens - reduce width slightly */
 @media (min-width: 1024px) and (max-width: 1439px) {
-  .chat-container {
+  .home-chat-container {
     max-width: 52rem;
   }
 }
 
 /* Tablet screens - full width with padding */
 @media (min-width: 769px) and (max-width: 1023px) {
-  .chat-container {
+  .home-chat-container {
     max-width: 48rem;
     padding: 0 1rem;
   }
@@ -84,7 +84,7 @@
     margin-left: 0 !important;
   }
 
-  .chat-container {
+  .home-chat-container {
     max-width: 100%;
     padding: 0 0.75rem;
   }
@@ -104,7 +104,7 @@
     margin-bottom: 1rem;
   }
   
-  .chat-container {
+  .home-chat-container {
     padding-top: 0;
     min-height: calc(100vh - 52px - 180px);
     justify-content: center;
