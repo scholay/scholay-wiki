@@ -95,6 +95,9 @@ const Settings = () => {
   const [showExchangeModal, setShowExchangeModal] = useState(false);
   const [rechargeInfo, setRechargeInfo] = useState(null);
 
+  // 业务显示信息（用于交易流水动态展示）
+  const [bizDisplayInfos, setBizDisplayInfos] = useState({});
+
   // Invitation state
   const [invitation, setInvitation] = useState(null);
   const [invitees, setInvitees] = useState([]);
@@ -164,6 +167,7 @@ const Settings = () => {
       fetchWalletData();
       fetchTransactions(1);
       fetchExchangeInfo();
+      fetchBizDisplayInfos(); // 获取业务显示信息
     } else if (activeTab === 'invitation') {
       fetchInvitationData();
     }
@@ -355,6 +359,18 @@ const Settings = () => {
       }
     } catch (error) {
       console.error('Failed to fetch exchange info:', error);
+    }
+  };
+
+  // 获取业务显示信息
+  const fetchBizDisplayInfos = async () => {
+    try {
+      const response = await walletAPI.getBizDisplayInfos();
+      if (response.data.code === 0) {
+        setBizDisplayInfos(response.data.data || {});
+      }
+    } catch (error) {
+      console.error('Failed to fetch biz display infos:', error);
     }
   };
 
@@ -1759,8 +1775,13 @@ const Settings = () => {
       return labels[type] || type;
     };
 
-    // 获取业务类型标签
+    // 获取业务类型标签（优先使用动态配置）
     const getBizTypeLabel = (bizType) => {
+      // 先从动态配置中获取
+      if (bizDisplayInfos[bizType]?.display_name) {
+        return bizDisplayInfos[bizType].display_name;
+      }
+      // 降级使用静态映射
       const labels = {
         register_gift: '注册赠送',
         daily_checkin: '每日签到',
@@ -1771,21 +1792,28 @@ const Settings = () => {
         diamond_to_gold: '恩特币兑换经费',
         diamond_recharge: '恩特币充值',
         peer_review: 'AI审稿',
-        // AI对话（按模型级别）
-        ai_chat_low: 'AI对话-普通模型',
-        ai_chat_mid: 'AI对话-进阶模型',
-        ai_chat_high: 'AI对话-高级模型',
+        ai_chat_low: 'AI对话',
+        ai_chat_mid: 'AI对话',
+        ai_chat_high: 'AI对话',
         paper_analysis: '多维度分析',
-        // 智能分析（按模型级别）
-        smart_analysis_low: '智能分析-普通模型',
-        smart_analysis_mid: '智能分析-进阶模型',
-        smart_analysis_high: '智能分析-高级模型',
+        smart_analysis_low: '智能分析',
+        smart_analysis_mid: '智能分析',
+        smart_analysis_high: '智能分析',
         admin_recharge: '管理员充值',
         admin_deduct: '管理员扣除',
         expired_clear: '过期清空',
         refund: '退款'
       };
       return labels[bizType] || bizType || '其他';
+    };
+
+    // 获取业务类型备注（用于交易描述）
+    const getBizTypeRemark = (bizType) => {
+      // 先从动态配置中获取
+      if (bizDisplayInfos[bizType]?.display_remark) {
+        return bizDisplayInfos[bizType].display_remark;
+      }
+      return null;
     };
 
     return (
@@ -2132,7 +2160,7 @@ const Settings = () => {
                       </div>
                       <div className="transaction-info">
                         <span className="transaction-title">{getBizTypeLabel(tx.biz_type)}</span>
-                        <span className="transaction-desc">{tx.description || getTransactionTypeLabel(tx.transaction_type)}</span>
+                        <span className="transaction-desc">{getBizTypeRemark(tx.biz_type) || tx.description || getTransactionTypeLabel(tx.transaction_type)}</span>
                         <span className="transaction-time">{new Date(tx.created_at).toLocaleString('zh-CN')}</span>
                       </div>
                     </div>

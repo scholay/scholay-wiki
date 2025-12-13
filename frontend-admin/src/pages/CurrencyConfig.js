@@ -17,9 +17,9 @@ const CurrencyConfig = () => {
   const [deductConfigs, setDeductConfigs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
-  const [editForm, setEditForm] = useState({ amount: 0, description: '', enabled: true });
+  const [editForm, setEditForm] = useState({ amount: 0, display_name: '', display_remark: '', description: '', enabled: true });
   const [editingDeduct, setEditingDeduct] = useState(null);
-  const [deductForm, setDeductForm] = useState({ amount: 0, description: '', enabled: true });
+  const [deductForm, setDeductForm] = useState({ amount: 0, display_name: '', display_remark: '', description: '', enabled: true });
   const [activeTab, setActiveTab] = useState('currency'); // 'currency' or 'deduct'
 
   // 加载货币配置
@@ -66,7 +66,9 @@ const CurrencyConfig = () => {
     setEditingConfig(config.config_key);
     setEditForm({
       amount: config.amount,
-      description: config.description,
+      display_name: config.display_name || '',
+      display_remark: config.display_remark || '',
+      description: config.description || '',
       enabled: config.enabled
     });
   };
@@ -74,7 +76,7 @@ const CurrencyConfig = () => {
   // 取消编辑
   const handleCancel = () => {
     setEditingConfig(null);
-    setEditForm({ amount: 0, description: '', enabled: true });
+    setEditForm({ amount: 0, display_name: '', display_remark: '', description: '', enabled: true });
   };
 
   // 保存配置
@@ -98,7 +100,9 @@ const CurrencyConfig = () => {
     setEditingDeduct(config.biz_type);
     setDeductForm({
       amount: config.amount,
-      description: config.description,
+      display_name: config.display_name || '',
+      display_remark: config.display_remark || '',
+      description: config.description || '',
       enabled: config.enabled
     });
   };
@@ -106,7 +110,7 @@ const CurrencyConfig = () => {
   // 取消编辑扣费配置
   const handleCancelDeduct = () => {
     setEditingDeduct(null);
-    setDeductForm({ amount: 0, description: '', enabled: true });
+    setDeductForm({ amount: 0, display_name: '', display_remark: '', description: '', enabled: true });
   };
 
   // 保存扣费配置
@@ -260,7 +264,9 @@ const CurrencyConfig = () => {
                         <th>配置键</th>
                         <th>货币类型</th>
                         <th>金额</th>
-                        <th>描述</th>
+                        <th>流水标题 <span className="th-hint">（交易流水显示）</span></th>
+                        <th>流水备注 <span className="th-hint">（交易流水显示）</span></th>
+                        <th>后台描述</th>
                         <th>状态</th>
                         <th>操作</th>
                       </tr>
@@ -296,6 +302,32 @@ const CurrencyConfig = () => {
                               formatAmountDisplay(config)
                             )}
                           </td>
+                          <td className="config-display-name">
+                            {editingConfig === config.config_key ? (
+                              <input
+                                type="text"
+                                value={editForm.display_name}
+                                onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })}
+                                className="edit-input"
+                                placeholder="流水标题"
+                              />
+                            ) : (
+                              config.display_name || '-'
+                            )}
+                          </td>
+                          <td className="config-display-remark">
+                            {editingConfig === config.config_key ? (
+                              <input
+                                type="text"
+                                value={editForm.display_remark}
+                                onChange={(e) => setEditForm({ ...editForm, display_remark: e.target.value })}
+                                className="edit-input"
+                                placeholder="流水备注"
+                              />
+                            ) : (
+                              config.display_remark || '-'
+                            )}
+                          </td>
                           <td className="config-desc">
                             {editingConfig === config.config_key ? (
                               <input
@@ -303,7 +335,7 @@ const CurrencyConfig = () => {
                                 value={editForm.description}
                                 onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                                 className="edit-input desc-input"
-                                placeholder="配置描述"
+                                placeholder="后台描述"
                               />
                             ) : (
                               config.description || '-'
@@ -373,7 +405,7 @@ const CurrencyConfig = () => {
                   功能扣费配置
                 </span>
               </h2>
-              <p className="section-desc">配置各功能使用时的经费扣费数量，设为0表示免费使用</p>
+              <p className="section-desc">配置各功能使用时的经费扣费数量，设为0表示免费使用。<strong>流水标题</strong>和<strong>流水备注</strong>会显示在用户的交易流水中。</p>
               <div className="config-table-wrapper">
                 <table className="config-table">
                   <thead>
@@ -381,7 +413,9 @@ const CurrencyConfig = () => {
                       <th>功能名称</th>
                       <th>配置键</th>
                       <th>扣费经费</th>
-                      <th>描述</th>
+                      <th>流水标题 <span className="th-hint">（交易流水显示）</span></th>
+                      <th>流水备注 <span className="th-hint">（交易流水显示）</span></th>
+                      <th>后台描述</th>
                       <th>状态</th>
                       <th>操作</th>
                     </tr>
@@ -412,6 +446,32 @@ const CurrencyConfig = () => {
                             </span>
                           )}
                         </td>
+                        <td className="config-display-name">
+                          {editingDeduct === config.biz_type ? (
+                            <input
+                              type="text"
+                              value={deductForm.display_name}
+                              onChange={(e) => setDeductForm({ ...deductForm, display_name: e.target.value })}
+                              className="edit-input"
+                              placeholder="流水标题"
+                            />
+                          ) : (
+                            config.display_name || '-'
+                          )}
+                        </td>
+                        <td className="config-display-remark">
+                          {editingDeduct === config.biz_type ? (
+                            <input
+                              type="text"
+                              value={deductForm.display_remark}
+                              onChange={(e) => setDeductForm({ ...deductForm, display_remark: e.target.value })}
+                              className="edit-input"
+                              placeholder="流水备注"
+                            />
+                          ) : (
+                            config.display_remark || '-'
+                          )}
+                        </td>
                         <td className="config-desc">
                           {editingDeduct === config.biz_type ? (
                             <input
@@ -419,7 +479,7 @@ const CurrencyConfig = () => {
                               value={deductForm.description}
                               onChange={(e) => setDeductForm({ ...deductForm, description: e.target.value })}
                               className="edit-input desc-input"
-                              placeholder="配置描述"
+                              placeholder="后台描述"
                             />
                           ) : (
                             config.description || '-'
@@ -478,13 +538,43 @@ const CurrencyConfig = () => {
 
       <div className="config-tips">
         <h3>配置说明</h3>
-        <ul>
-          <li><strong>注册赠送经费</strong>：新用户注册时自动赠送的经费数量</li>
-          <li><strong>每日签到经费</strong>：用户每日签到获得的经费数量</li>
-          <li><strong>邀请奖励经费</strong>：成功邀请新用户注册后获得的经费奖励</li>
-          <li><strong>功能消耗</strong>：使用各项功能时消耗的经费/恩特币数量，设为0表示免费</li>
-          <li><strong>禁用配置</strong>：禁用后该配置不会生效（如禁用注册赠送则新用户不会获得经费）</li>
-        </ul>
+        <div className="tips-section">
+          <h4>📋 交易流水显示说明</h4>
+          <p className="tips-highlight">用户在"交易流水"中看到的内容由以下字段决定：</p>
+          <ul>
+            <li><strong>流水标题 (display_name)</strong>：显示在交易流水列表的标题位置</li>
+            <li><strong>流水备注 (display_remark)</strong>：显示在交易流水列表的描述位置</li>
+          </ul>
+        </div>
+        <div className="tips-section">
+          <h4>💰 货币配置</h4>
+          <ul>
+            <li><strong>配置名称</strong>：后台管理显示用，帮助管理员理解配置用途</li>
+            <li><strong>金额</strong>：实际赠送/扣费的数量</li>
+            <li><strong>流水标题</strong>：交易流水中显示的标题（如"每日签到"）</li>
+            <li><strong>流水备注</strong>：交易流水中显示的备注（如"签到奖励"）</li>
+            <li><strong>后台描述</strong>：仅在后台显示，用于管理员参考</li>
+          </ul>
+        </div>
+        <div className="tips-section">
+          <h4>⚡ 扣费配置</h4>
+          <ul>
+            <li><strong>功能名称</strong>：对应功能的显示名称</li>
+            <li><strong>配置键(biz_type)</strong>：系统内部标识，用于匹配扣费逻辑</li>
+            <li><strong>扣费经费</strong>：使用该功能时扣除的经费数量，设为0表示免费</li>
+            <li><strong>流水标题</strong>：交易流水中显示的标题（如"AI对话"）</li>
+            <li><strong>流水备注</strong>：交易流水中显示的备注（如"普通模型对话"）</li>
+            <li><strong>后台描述</strong>：仅在后台显示，用于管理员参考</li>
+          </ul>
+        </div>
+        <div className="tips-section">
+          <h4>⚠️ 注意事项</h4>
+          <ul>
+            <li>禁用配置后，该配置不会生效（如禁用注册赠送则新用户不会获得经费）</li>
+            <li>修改金额后立即生效，会影响后续的交易</li>
+            <li>修改流水标题/备注后，新产生的交易会使用新内容，历史交易不受影响</li>
+          </ul>
+        </div>
       </div>
     </div>
   );

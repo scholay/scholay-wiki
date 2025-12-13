@@ -453,17 +453,47 @@
 /* Config Tips */
 .config-tips {
   margin-top: 32px;
-  padding: 20px;
+  padding: 24px;
   background: #f8fafc;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
 }
 
 .config-tips h3 {
-  margin: 0 0 12px 0;
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.config-tips .tips-section {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.config-tips .tips-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.config-tips .tips-section h4 {
+  margin: 0 0 10px 0;
   font-size: 14px;
   font-weight: 600;
   color: #475569;
+}
+
+.config-tips .tips-highlight {
+  margin: 0 0 10px 0;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
+  border-radius: 8px;
+  border-left: 3px solid #6366f1;
+  font-size: 13px;
+  color: #4f46e5;
+  font-weight: 500;
 }
 
 .config-tips ul {
@@ -479,6 +509,26 @@
 
 .config-tips li strong {
   color: #475569;
+}
+
+/* Table header hints */
+.config-table th .th-hint {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* Section description */
+.section-desc {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0 0 16px 0;
+}
+
+.section-desc strong {
+  color: #6366f1;
 }
 
 /* Responsive */

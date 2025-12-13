@@ -236,3 +236,15 @@ func parseInt64(s string) (int64, error) {
 	return n, nil
 }
 
+// GetBizDisplayInfos 获取所有业务类型的显示信息
+// GET /api/v1/user/wallet/biz-display-infos
+func (h *Handler) GetBizDisplayInfos(c *gin.Context) {
+	infos, err := h.service.GetAllBizDisplayInfos()
+	if err != nil {
+		utils.Error(c, 5001, "获取业务显示信息失败: "+err.Error())
+		return
+	}
+
+	utils.Success(c, infos)
+}
+

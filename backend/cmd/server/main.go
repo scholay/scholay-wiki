@@ -531,6 +531,7 @@ func main() {
 			userProtected.GET("/wallet/exchange-info", currencyHandler.GetExchangeInfo)
 			userProtected.GET("/wallet/exchange/preview", currencyHandler.PreviewExchange)
 			userProtected.POST("/wallet/exchange", currencyHandler.ExchangeDiamondToGold)
+			userProtected.GET("/wallet/biz-display-infos", currencyHandler.GetBizDisplayInfos)
 
 			// Account availability check routes (protected)
 			userProtected.POST("/check-email-availability", userHandler.CheckEmailAvailability)

@@ -317,6 +317,61 @@ func (r *Repository) UpdateCurrencyConfigAmount(configKey string, amount int64) 
 		Update("amount", amount).Error
 }
 
+// ========== 配置显示信息查询 ==========
+
+// BizDisplayInfo 业务显示信息
+type BizDisplayInfo struct {
+	BizType       string `json:"biz_type"`
+	DisplayName   string `json:"display_name"`
+	DisplayRemark string `json:"display_remark"`
+}
+
+// GetAllBizDisplayInfos 获取所有业务类型的显示信息（合并扣费配置和货币配置）
+func (r *Repository) GetAllBizDisplayInfos() (map[string]*BizDisplayInfo, error) {
+	result := make(map[string]*BizDisplayInfo)
+
+	// 从扣费配置表获取
+	var deductConfigs []DeductConfig
+	if err := r.db.Find(&deductConfigs).Error; err != nil {
+		return nil, err
+	}
+	for _, c := range deductConfigs {
+		result[c.BizType] = &BizDisplayInfo{
+			BizType:       c.BizType,
+			DisplayName:   c.DisplayName,
+			DisplayRemark: c.DisplayRemark,
+		}
+	}
+
+	// 从货币配置表获取（使用 config_key 的前缀作为 biz_type）
+	// 例如 register_gift_gold -> register_gift
+	var currencyConfigs []CurrencyConfig
+	if err := r.db.Find(&currencyConfigs).Error; err != nil {
+		return nil, err
+	}
+	for _, c := range currencyConfigs {
+		// 提取 biz_type（去掉 _gold 或 _diamond 后缀）
+		bizType := c.ConfigKey
+		if len(bizType) > 5 && bizType[len(bizType)-5:] == "_gold" {
+			bizType = bizType[:len(bizType)-5]
+		} else if len(bizType) > 8 && bizType[len(bizType)-8:] == "_diamond" {
+			bizType = bizType[:len(bizType)-8]
+		}
+		result[bizType] = &BizDisplayInfo{
+			BizType:       bizType,
+			DisplayName:   c.DisplayName,
+			DisplayRemark: c.DisplayRemark,
+		}
+		// 同时也用完整的 config_key 作为 key
+		result[c.ConfigKey] = &BizDisplayInfo{
+			BizType:       c.ConfigKey,
+			DisplayName:   c.DisplayName,
+			DisplayRemark: c.DisplayRemark,
+		}
+	}
+
+	return result, nil
+}
 
 // ========== 分布式锁操作 ==========
 

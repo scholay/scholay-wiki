@@ -189,9 +189,11 @@ func (h *AdminHandler) UpdateCurrencyConfig(c *gin.Context) {
 	}
 
 	var req struct {
-		Amount      *int64  `json:"amount"`
-		Description *string `json:"description"`
-		Enabled     *bool   `json:"enabled"`
+		Amount        *int64  `json:"amount"`
+		DisplayName   *string `json:"display_name"`
+		DisplayRemark *string `json:"display_remark"`
+		Description   *string `json:"description"`
+		Enabled       *bool   `json:"enabled"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -213,6 +215,12 @@ func (h *AdminHandler) UpdateCurrencyConfig(c *gin.Context) {
 	// 更新字段
 	if req.Amount != nil {
 		config.Amount = *req.Amount
+	}
+	if req.DisplayName != nil {
+		config.DisplayName = *req.DisplayName
+	}
+	if req.DisplayRemark != nil {
+		config.DisplayRemark = *req.DisplayRemark
 	}
 	if req.Description != nil {
 		config.Description = *req.Description

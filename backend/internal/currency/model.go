@@ -96,14 +96,16 @@ func (Transaction) TableName() string {
 
 // DeductConfig 扣费配置
 type DeductConfig struct {
-	ID           uint         `gorm:"primaryKey" json:"id"`
-	BizType      string       `gorm:"uniqueIndex;size:50;not null" json:"biz_type"` // 业务类型
-	CurrencyType CurrencyType `gorm:"size:20;not null" json:"currency_type"`        // 货币类型
-	Amount       int64        `gorm:"not null" json:"amount"`                       // 扣费金额
-	Description  string       `gorm:"size:200" json:"description"`                  // 描述
-	Enabled      bool         `gorm:"default:true" json:"enabled"`                  // 是否启用
-	CreatedAt    time.Time    `json:"created_at"`
-	UpdatedAt    time.Time    `json:"updated_at"`
+	ID            uint         `gorm:"primaryKey" json:"id"`
+	BizType       string       `gorm:"uniqueIndex;size:50;not null" json:"biz_type"` // 业务类型
+	CurrencyType  CurrencyType `gorm:"size:20;not null" json:"currency_type"`        // 货币类型
+	Amount        int64        `gorm:"not null" json:"amount"`                       // 扣费金额
+	DisplayName   string       `gorm:"size:100" json:"display_name"`                 // 显示名称（交易流水标题）
+	DisplayRemark string       `gorm:"size:200" json:"display_remark"`               // 显示备注（交易流水描述）
+	Description   string       `gorm:"size:200" json:"description"`                  // 后台管理描述
+	Enabled       bool         `gorm:"default:true" json:"enabled"`                  // 是否启用
+	CreatedAt     time.Time    `json:"created_at"`
+	UpdatedAt     time.Time    `json:"updated_at"`
 }
 
 func (DeductConfig) TableName() string {
@@ -142,16 +144,18 @@ const (
 
 // CurrencyConfig 货币配置表
 type CurrencyConfig struct {
-	ID           uint         `gorm:"primaryKey" json:"id"`
-	ConfigKey    string       `gorm:"uniqueIndex;size:50;not null" json:"config_key"`  // 配置键
-	ConfigName   string       `gorm:"size:100;not null" json:"config_name"`            // 配置名称（中文）
-	CurrencyType CurrencyType `gorm:"size:20;not null" json:"currency_type"`           // 货币类型
-	Amount       int64        `gorm:"not null;default:0" json:"amount"`                // 金额
-	Description  string       `gorm:"size:500" json:"description"`                     // 描述说明
-	Category     string       `gorm:"size:50;index" json:"category"`                   // 分类：reward=奖励, cost=消耗
-	Enabled      bool         `gorm:"default:true" json:"enabled"`                     // 是否启用
-	CreatedAt    time.Time    `json:"created_at"`
-	UpdatedAt    time.Time    `json:"updated_at"`
+	ID            uint         `gorm:"primaryKey" json:"id"`
+	ConfigKey     string       `gorm:"uniqueIndex;size:50;not null" json:"config_key"`  // 配置键
+	ConfigName    string       `gorm:"size:100;not null" json:"config_name"`            // 配置名称（后台管理用）
+	CurrencyType  CurrencyType `gorm:"size:20;not null" json:"currency_type"`           // 货币类型
+	Amount        int64        `gorm:"not null;default:0" json:"amount"`                // 金额
+	DisplayName   string       `gorm:"size:100" json:"display_name"`                    // 显示名称（交易流水标题）
+	DisplayRemark string       `gorm:"size:200" json:"display_remark"`                  // 显示备注（交易流水描述）
+	Description   string       `gorm:"size:500" json:"description"`                     // 后台管理描述说明
+	Category      string       `gorm:"size:50;index" json:"category"`                   // 分类：reward=奖励, cost=消耗
+	Enabled       bool         `gorm:"default:true" json:"enabled"`                     // 是否启用
+	CreatedAt     time.Time    `json:"created_at"`
+	UpdatedAt     time.Time    `json:"updated_at"`
 }
 
 func (CurrencyConfig) TableName() string {

@@ -667,6 +667,9 @@ export const walletAPI = {
   // 执行恩特币兑换经费
   exchangeDiamondToGold: (diamondAmount) =>
     api.post('/user/wallet/exchange', { diamond_amount: diamondAmount }),
+
+  // 获取所有业务类型的显示信息（用于交易流水动态展示）
+  getBizDisplayInfos: () => api.get('/user/wallet/biz-display-infos'),
 };
 
 export default api;

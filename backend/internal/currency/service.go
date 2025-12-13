@@ -113,6 +113,11 @@ func (s *Service) UpdateCurrencyConfigAmount(configKey string, amount int64) err
 	return s.repo.UpdateCurrencyConfigAmount(configKey, amount)
 }
 
+// GetAllBizDisplayInfos 获取所有业务类型的显示信息
+func (s *Service) GetAllBizDisplayInfos() (map[string]*BizDisplayInfo, error) {
+	return s.repo.GetAllBizDisplayInfos()
+}
+
 // EnsureWalletExists 确保钱包存在
 func (s *Service) EnsureWalletExists(userID uint) error {
 	return s.repo.EnsureWalletExists(userID)

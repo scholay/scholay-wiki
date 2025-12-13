@@ -1233,7 +1233,9 @@ CREATE TABLE IF NOT EXISTS `currency_deduct_configs` (
   `biz_type` VARCHAR(50) NOT NULL COMMENT '业务类型',
   `currency_type` VARCHAR(20) NOT NULL COMMENT '货币类型: gold=经费, diamond=恩特币',
   `amount` BIGINT NOT NULL COMMENT '扣费金额',
-  `description` VARCHAR(200) COMMENT '描述',
+  `display_name` VARCHAR(100) COMMENT '显示名称（交易流水标题）',
+  `display_remark` VARCHAR(200) COMMENT '显示备注（交易流水描述）',
+  `description` VARCHAR(200) COMMENT '后台管理描述',
   `enabled` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '是否启用',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -1245,10 +1247,12 @@ CREATE TABLE IF NOT EXISTS `currency_deduct_configs` (
 CREATE TABLE IF NOT EXISTS `currency_configs` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `config_key` VARCHAR(50) NOT NULL COMMENT '配置键',
-  `config_name` VARCHAR(100) NOT NULL COMMENT '配置名称（中文）',
+  `config_name` VARCHAR(100) NOT NULL COMMENT '配置名称（后台管理用）',
   `currency_type` VARCHAR(20) NOT NULL COMMENT '货币类型: gold=经费, diamond=恩特币',
   `amount` BIGINT NOT NULL DEFAULT 0 COMMENT '金额',
-  `description` VARCHAR(500) COMMENT '描述说明',
+  `display_name` VARCHAR(100) COMMENT '显示名称（交易流水标题）',
+  `display_remark` VARCHAR(200) COMMENT '显示备注（交易流水描述）',
+  `description` VARCHAR(500) COMMENT '后台管理描述说明',
   `category` VARCHAR(50) COMMENT '分类：reward=奖励, cost=消耗',
   `enabled` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '是否启用',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1263,36 +1267,36 @@ CREATE TABLE IF NOT EXISTS `currency_configs` (
 -- ============================================
 
 -- 扣费配置默认数据
-INSERT IGNORE INTO `currency_deduct_configs` (`biz_type`, `currency_type`, `amount`, `description`, `enabled`) VALUES
-('paper_analysis', 'gold', 2, '多维度分析', TRUE),
-('peer_review', 'gold', 500, 'AI审稿', TRUE),
+INSERT IGNORE INTO `currency_deduct_configs` (`biz_type`, `currency_type`, `amount`, `display_name`, `display_remark`, `description`, `enabled`) VALUES
+('paper_analysis', 'gold', 2, '多维度分析', '论文多维度智能分析', '多维度分析功能扣费', TRUE),
+('peer_review', 'gold', 500, 'AI审稿', 'AI智能审稿服务', 'AI审稿功能扣费', TRUE),
 -- AI对话（按模型级别扣费）
-('ai_chat_low', 'gold', 1, 'AI对话-普通模型', TRUE),
-('ai_chat_mid', 'gold', 3, 'AI对话-进阶模型', TRUE),
-('ai_chat_high', 'gold', 5, 'AI对话-高级模型', TRUE),
+('ai_chat_low', 'gold', 1, 'AI对话', '普通模型对话', 'AI对话-普通模型扣费', TRUE),
+('ai_chat_mid', 'gold', 3, 'AI对话', '进阶模型对话', 'AI对话-进阶模型扣费', TRUE),
+('ai_chat_high', 'gold', 5, 'AI对话', '高级模型对话', 'AI对话-高级模型扣费', TRUE),
 -- 智能分析（按模型级别扣费）
-('smart_analysis_low', 'gold', 20, '智能分析-普通模型', TRUE),
-('smart_analysis_mid', 'gold', 50, '智能分析-进阶模型', TRUE),
-('smart_analysis_high', 'gold', 100, '智能分析-高级模型', TRUE);
+('smart_analysis_low', 'gold', 20, '智能分析', '普通模型分析', '智能分析-普通模型扣费', TRUE),
+('smart_analysis_mid', 'gold', 50, '智能分析', '进阶模型分析', '智能分析-进阶模型扣费', TRUE),
+('smart_analysis_high', 'gold', 100, '智能分析', '高级模型分析', '智能分析-高级模型扣费', TRUE);
 
 -- 货币系统配置默认数据
-INSERT IGNORE INTO `currency_configs` (`config_key`, `config_name`, `currency_type`, `amount`, `description`, `category`, `enabled`) VALUES
+INSERT IGNORE INTO `currency_configs` (`config_key`, `config_name`, `currency_type`, `amount`, `display_name`, `display_remark`, `description`, `category`, `enabled`) VALUES
 -- 奖励类配置 - 注册
-('register_gift_gold', '注册赠送经费', 'gold', 300, '新用户注册时赠送的经费数量', 'reward', TRUE),
+('register_gift_gold', '注册赠送经费', 'gold', 300, '注册赠送', '新用户注册赠送', '新用户注册时赠送的经费数量', 'reward', TRUE),
 -- 奖励类配置 - 签到
-('daily_checkin_gold', '每日签到经费', 'gold', 10, '用户每日签到获得的基础经费数量', 'reward', TRUE),
-('checkin_3days_gold', '连续签到3天奖励', 'gold', 50, '连续签到3天时第3天获得的经费奖励', 'reward', TRUE),
-('checkin_7days_gold', '连续签到7天奖励', 'gold', 150, '连续签到7天时第7天获得的经费奖励', 'reward', TRUE),
-('checkin_15days_gold', '连续签到15天奖励', 'gold', 350, '连续签到15天时第15天获得的经费奖励', 'reward', TRUE),
-('checkin_after15_gold', '连续签到15天后每日奖励', 'gold', 30, '连续签到超过15天后每天获得的经费奖励', 'reward', TRUE),
+('daily_checkin_gold', '每日签到经费', 'gold', 10, '每日签到', '签到奖励', '用户每日签到获得的基础经费数量', 'reward', TRUE),
+('checkin_3days_gold', '连续签到3天奖励', 'gold', 50, '每日签到', '连续签到3天奖励', '连续签到3天时第3天获得的经费奖励', 'reward', TRUE),
+('checkin_7days_gold', '连续签到7天奖励', 'gold', 150, '每日签到', '连续签到7天奖励', '连续签到7天时第7天获得的经费奖励', 'reward', TRUE),
+('checkin_15days_gold', '连续签到15天奖励', 'gold', 350, '每日签到', '连续签到15天奖励', '连续签到15天时第15天获得的经费奖励', 'reward', TRUE),
+('checkin_after15_gold', '连续签到15天后每日奖励', 'gold', 30, '每日签到', '连续签到15天后每日奖励', '连续签到超过15天后每天获得的经费奖励', 'reward', TRUE),
 -- 奖励类配置 - 邀请
-('invite_reward_diamond', '邀请奖励恩特币', 'diamond', 1, '每成功邀请1个新用户获得的恩特币奖励', 'reward', TRUE),
-('invite_milestone_diamond', '邀请里程碑奖励恩特币', 'diamond', 10, '每邀请满5个用户额外获得的恩特币奖励（第5、10、15...个时触发）', 'reward', TRUE),
+('invite_reward_diamond', '邀请奖励恩特币', 'diamond', 1, '邀请奖励', '成功邀请好友奖励', '每成功邀请1个新用户获得的恩特币奖励', 'reward', TRUE),
+('invite_milestone_diamond', '邀请里程碑奖励恩特币', 'diamond', 10, '邀请奖励', '每邀请满5人额外奖励', '每邀请满5个用户额外获得的恩特币奖励（第5、10、15...个时触发）', 'reward', TRUE),
 -- 充值配置
-('diamond_price', '恩特币单价(分)', 'diamond', 100, '每个恩特币的人民币价格，单位为分。当前100分=1元，即1元购买1个恩特币', 'recharge', TRUE),
+('diamond_price', '恩特币单价(分)', 'diamond', 100, '充值', '恩特币充值', '每个恩特币的人民币价格，单位为分。当前100分=1元，即1元购买1个恩特币', 'recharge', TRUE),
 -- 兑换配置
-('diamond_to_gold_rate', '恩特币兑换经费比例', 'gold', 100, '1个恩特币可兑换的经费数量', 'exchange', TRUE),
+('diamond_to_gold_rate', '恩特币兑换经费比例', 'gold', 100, '恩特币兑换', '恩特币兑换经费', '1个恩特币可兑换的经费数量', 'exchange', TRUE),
 -- 会员月度赠送配置
-('pro_monthly_gold', 'Pro会员每月赠送经费', 'gold', 5000, 'Pro会员每月1日自动赠送的经费数量', 'membership', TRUE),
-('max_monthly_gold', 'Max会员每月赠送经费', 'gold', 10000, 'Max会员每月1日自动赠送的经费数量', 'membership', TRUE),
-('max_monthly_diamond', 'Max会员每月赠送恩特币', 'diamond', 6, 'Max会员每月1日自动赠送的恩特币数量', 'membership', TRUE);
+('pro_monthly_gold', 'Pro会员每月赠送经费', 'gold', 5000, '会员福利', 'Pro会员月度赠送', 'Pro会员每月1日自动赠送的经费数量', 'membership', TRUE),
+('max_monthly_gold', 'Max会员每月赠送经费', 'gold', 10000, '会员福利', 'Max会员月度赠送经费', 'Max会员每月1日自动赠送的经费数量', 'membership', TRUE),
+('max_monthly_diamond', 'Max会员每月赠送恩特币', 'diamond', 6, '会员福利', 'Max会员月度赠送恩特币', 'Max会员每月1日自动赠送的恩特币数量', 'membership', TRUE);
