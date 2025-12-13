@@ -19,28 +19,10 @@ import (
 )
 
 // AdvancedSearchAndAnalyze 执行基于AI的智能分析（使用MCP工具）并流式返回结果
-// 检查配额并根据用户订阅使用相应的模型级别
+// 根据用户订阅使用相应的模型级别
 // 支持对话上下文以便进行后续分析
+// 注意：配额检查已废弃，现在使用货币系统进行扣费控制
 func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, writer io.Writer, userID uint, modelLevel thirdparty.ModelLevel) error {
-	// Determine feature type based on model level
-	var featureType string
-	switch modelLevel {
-	case thirdparty.ModelLevelLow:
-		featureType = "advanced_search_low"
-	case thirdparty.ModelLevelMid:
-		featureType = "advanced_search_mid"
-	case thirdparty.ModelLevelHigh:
-		featureType = "advanced_search_high"
-	default:
-		return fmt.Errorf("invalid model level: %s", modelLevel)
-	}
-
-	// Increment usage (quota check already done in handler before SSE started)
-	// Use atomic increment to ensure thread safety
-	if err := s.subscriptionService.IncrementUsage(userID, featureType); err != nil {
-		return fmt.Errorf("failed to increment usage: %w", err)
-	}
-
 	// Get the user message (it should already exist, created by AddMessage)
 	// We need to find the latest user message with this query
 	var userMessage *ConversationMessage

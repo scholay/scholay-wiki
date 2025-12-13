@@ -50,6 +50,23 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
+// 允许未登录访问的页面路径白名单（401/403 错误时不自动重定向）
+const AUTH_WHITELIST_PATHS = [
+  '/',
+  '/search-results',
+  '/advanced-search',
+  '/chat',
+  '/peer-review',
+  '/assistant',
+  '/pricing',
+];
+
+// 检查当前页面是否在白名单中
+const isInAuthWhitelist = () => {
+  const currentPath = window.location.pathname;
+  return AUTH_WHITELIST_PATHS.some(path => currentPath === path || currentPath.startsWith(path + '/'));
+};
+
 // Response interceptor to handle errors
 api.interceptors.response.use(
   (response) => {
@@ -64,7 +81,8 @@ api.interceptors.response.use(
           reason: 'kicked'
         }
       }));
-      if (window.location.pathname !== '/') {
+      // 白名单页面不自动重定向
+      if (!isInAuthWhitelist()) {
         window.location.href = '/';
       }
       return Promise.reject(new Error(response.data?.message || '您的账号已在其他设备登录'));
@@ -76,6 +94,12 @@ api.interceptors.response.use(
 
     // 处理 401 (未授权) 错误 - 尝试刷新 Token
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // 如果当前页面在白名单中，且没有 token，直接返回错误，不尝试刷新
+      const token = localStorage.getItem('user_token');
+      if (!token && isInAuthWhitelist()) {
+        return Promise.reject(error);
+      }
+
       // 如果是刷新 Token 的请求失败，直接登出
       if (originalRequest.url === '/user/refresh-token') {
         localStorage.removeItem('user_token');
@@ -83,7 +107,8 @@ api.interceptors.response.use(
         window.dispatchEvent(new CustomEvent('auth:expired', {
           detail: { message: '登录已失效，请重新登录' }
         }));
-        if (window.location.pathname !== '/') {
+        // 白名单页面不自动重定向
+        if (!isInAuthWhitelist()) {
           window.location.href = '/';
         }
         return Promise.reject(error);
@@ -142,7 +167,8 @@ api.interceptors.response.use(
         window.dispatchEvent(new CustomEvent('auth:expired', {
           detail: { message, reason }
         }));
-        if (window.location.pathname !== '/') {
+        // 白名单页面不自动重定向
+        if (!isInAuthWhitelist()) {
           window.location.href = '/';
         }
         return Promise.reject(refreshError);
@@ -162,7 +188,8 @@ api.interceptors.response.use(
         detail: { message }
       }));
 
-      if (window.location.pathname !== '/') {
+      // 白名单页面不自动重定向
+      if (!isInAuthWhitelist()) {
         window.location.href = '/';
       }
     }
@@ -449,6 +476,7 @@ export const subscriptionAPI = {
     api.get('/user/subscription/my'),
 
   // Check if user has quota for a feature
+  // Deprecated: 配额检查已废弃，现在使用货币系统进行扣费控制。此方法始终返回 has_quota: true
   checkQuota: (featureType) =>
     api.get('/user/subscription/check-quota', { params: { feature_type: featureType } }),
 };

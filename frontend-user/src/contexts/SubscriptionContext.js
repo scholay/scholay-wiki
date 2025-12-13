@@ -5,6 +5,9 @@
  * 统一社会信用代码: 91510100MAEEHRNE26
  * All Rights Reserved.
  * ============================================================================
+ * 
+ * 注意：配额系统（usage/quota）已废弃，现在使用货币系统（经费）进行扣费控制
+ * usageData、quotaData 及相关方法保留用于向后兼容，但不再执行实际功能
  */
 
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
@@ -17,6 +20,7 @@ const CACHE_TTL = 5 * 60 * 1000;
 
 export const SubscriptionProvider = ({ children }) => {
   const [subscriptionData, setSubscriptionData] = useState(null);
+  // Deprecated: 配额统计已废弃
   const [usageData, setUsageData] = useState(null);
   const [quotaData, setQuotaData] = useState(null);
   const [loading, setLoading] = useState(false);

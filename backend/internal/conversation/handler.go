@@ -292,32 +292,7 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 		return
 	}
 
-	// Check quota BEFORE setting SSE headers to return proper HTTP error
-	var featureType string
-	switch modelLevel {
-	case "low":
-		featureType = "advanced_search_low"
-	case "mid":
-		featureType = "advanced_search_mid"
-	case "high":
-		featureType = "advanced_search_high"
-	default:
-		featureType = "advanced_search_mid"
-	}
-
-	// Perform quota check before SSE stream starts
-	// Use the conversation service's subscription service to check quota
-	hasQuota, err := h.service.subscriptionService.CheckQuota(userID.(uint), featureType)
-	if err != nil {
-		utils.Error(c, 500, fmt.Sprintf("Failed to check quota: %s", err.Error()))
-		return
-	}
-	if !hasQuota {
-		utils.Error(c, 403, "配额不足，请升级订阅")
-		return
-	}
-
-	// Deduct currency before processing
+	// Deduct currency before processing (quota check removed - now using currency system)
 	if err := h.deductForSmartAnalysis(userID.(uint), modelLevel); err != nil {
 		if err == currency.ErrInsufficientBalance {
 			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "经费不足"})

@@ -716,39 +716,32 @@ SET foreign_key_checks = 1;
 -- 详见 backend/internal/admin/service.go InitializeDefaultAdmin()
 
 -- 默认订阅计划
+-- 注意：功能次数限制已废弃，现在使用货币系统（经费）进行扣费控制
+-- features JSON 中的 limit 字段已废弃，保留用于向后兼容
 INSERT IGNORE INTO `subscription_plans` (`plan_code`, `plan_name`, `price_monthly`, `current_price_monthly`, `price_yearly`, `current_price_yearly`, `yearly_discount_enabled`, `yearly_discount_percent`, `features`, `is_active`, `sort_order`) VALUES
 ('free', 'FREE', 0.00, 0.00, 0.00, 0.00, 0, 0.00, '{
-  "normal_search": {"limit": -1, "description": "无限制"},
-  "advanced_search_low": {"limit": 5, "period": "day", "description": "5/天"},
-  "advanced_search_mid": {"limit": 3, "period": "day", "description": "3/天"},
-  "advanced_search_high": {"limit": 2, "period": "day", "description": "2/天"},
-  "ai_chat_normal": {"limit": -1, "description": "无限制"},
-  "ai_chat_mid": {"limit": 50, "period": "day", "description": "50/天"},
-  "ai_chat_high": {"limit": 10, "period": "day", "description": "10/天"},
+  "normal_search": {"description": "无限制"},
+  "advanced_search": {"description": "按经费扣费"},
+  "ai_chat": {"description": "按经费扣费"},
   "advanced_search_data": {"enabled": true, "description": "无限制"},
   "ai_history_data": {"enabled": true, "description": "无限制"}
 }', 1, 1),
 ('pro', 'PRO', 88.00, 88.00, 880.00, 880.00, 0, 0.00, '{
-  "normal_search": {"limit": -1, "description": "无限制"},
-  "advanced_search_low": {"limit": -1, "description": "无限制"},
-  "advanced_search_mid": {"limit": -1, "description": "无限制"},
-  "advanced_search_high": {"limit": -1, "description": "无限制"},
-  "ai_chat_normal": {"limit": -1, "description": "无限制"},
-  "ai_chat_mid": {"limit": -1, "description": "无限制"},
-  "ai_chat_high": {"limit": -1, "description": "无限制"},
+  "normal_search": {"description": "无限制"},
+  "advanced_search": {"description": "按经费扣费"},
+  "ai_chat": {"description": "按经费扣费"},
   "advanced_search_data": {"enabled": true, "description": "无限制"},
-  "ai_history_data": {"enabled": true, "description": "无限制"}
+  "ai_history_data": {"enabled": true, "description": "无限制"},
+  "monthly_gold": {"amount": 2000, "description": "每月赠送2000经费"}
 }', 1, 2),
 ('max', 'MAX', 199.00, 199.00, 1990.00, 1990.00, 0, 0.00, '{
-  "normal_search": {"limit": -1, "description": "无限制"},
-  "advanced_search_low": {"limit": -1, "description": "无限制"},
-  "advanced_search_mid": {"limit": -1, "description": "无限制"},
-  "advanced_search_high": {"limit": -1, "description": "无限制"},
-  "ai_chat_normal": {"limit": -1, "description": "无限制"},
-  "ai_chat_mid": {"limit": -1, "description": "无限制"},
-  "ai_chat_high": {"limit": -1, "description": "无限制"},
+  "normal_search": {"description": "无限制"},
+  "advanced_search": {"description": "按经费扣费"},
+  "ai_chat": {"description": "按经费扣费"},
   "advanced_search_data": {"enabled": true, "description": "无限制"},
-  "ai_history_data": {"enabled": true, "description": "无限制"}
+  "ai_history_data": {"enabled": true, "description": "无限制"},
+  "monthly_gold": {"amount": 5000, "description": "每月赠送5000经费"},
+  "monthly_diamond": {"amount": 6, "description": "每月赠送6恩特币"}
 }', 1, 3);
 
 -- 默认提示词模板

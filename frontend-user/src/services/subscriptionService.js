@@ -19,11 +19,13 @@ export const getMySubscription = () => {
 };
 
 // 获取订阅使用情况
+// Deprecated: 配额统计已废弃，现在使用货币系统进行扣费控制
 export const getUsage = () => {
   return api.get('/user/subscription/usage');
 };
 
 // 获取订阅配额信息
+// Deprecated: 配额信息已废弃，现在使用货币系统进行扣费控制
 export const getQuota = () => {
   return api.get('/user/subscription/quota');
 };
@@ -34,6 +36,7 @@ export const getPlans = () => {
 };
 
 // 检查配额
+// Deprecated: 配额检查已废弃，现在使用货币系统进行扣费控制。此方法始终返回 has_quota: true
 export const checkQuota = () => {
   return api.get('/user/subscription/check-quota');
 };

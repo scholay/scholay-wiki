@@ -23,15 +23,11 @@ import (
 )
 
 // ChatService handles chat-style conversations with message chains
+// 注意：配额检查已废弃，现在使用货币系统进行扣费控制
 type ChatService struct {
-	repo               *Repository
-	aiService          *ai.Service
-	tokenCounter       *TokenCounter
-	subscriptionRepo   interface {
-		CheckQuota(userID uint, featureType string) (bool, error)
-		IncrementUsage(userID uint, featureType string) error
-		CheckAndIncrementQuota(userID uint, featureType string) error
-	}
+	repo         *Repository
+	aiService    *ai.Service
+	tokenCounter *TokenCounter
 }
 
 // NewChatService creates a new chat service
@@ -43,15 +39,6 @@ func NewChatService(repo *Repository, aiService *ai.Service) *ChatService {
 		aiService:    aiService,
 		tokenCounter: NewTokenCounter(4000),
 	}
-}
-
-// SetSubscriptionService sets the subscription service for quota checking
-func (s *ChatService) SetSubscriptionService(subscriptionService interface {
-	CheckQuota(userID uint, featureType string) (bool, error)
-	IncrementUsage(userID uint, featureType string) error
-	CheckAndIncrementQuota(userID uint, featureType string) error
-}) {
-	s.subscriptionRepo = subscriptionService
 }
 
 // ChatRequest represents a streaming chat request
@@ -72,34 +59,8 @@ type ChatResponse struct {
 }
 
 // StreamChat handles a chat request with streaming response
+// 注意：配额检查已废弃，现在使用货币系统进行扣费控制（在 handler 层处理）
 func (s *ChatService) StreamChat(ctx context.Context, userID uint, req ChatRequest, writer io.Writer) error {
-	// 0. Atomically check and increment quota before processing
-	if s.subscriptionRepo != nil {
-		// Determine feature type based on model level
-		modelLevel := req.ModelLevel
-		if modelLevel == "" {
-			modelLevel = "low"
-		}
-
-		var featureType string
-		switch modelLevel {
-		case "low":
-			featureType = "ai_chat_normal"
-		case "mid":
-			featureType = "ai_chat_mid"
-		case "high":
-			featureType = "ai_chat_high"
-		default:
-			featureType = "ai_chat_normal"
-		}
-
-		// Atomically check and increment quota to prevent race conditions
-		if err := s.subscriptionRepo.CheckAndIncrementQuota(userID, featureType); err != nil {
-			log.Printf("Quota check failed: %v", err)
-			return fmt.Errorf("配额不足：%s", err.Error())
-		}
-	}
-
 	// 1. Verify conversation ownership and update model level
 	conversation, err := s.repo.GetConversationByID(req.ConversationID, userID)
 	if err != nil {

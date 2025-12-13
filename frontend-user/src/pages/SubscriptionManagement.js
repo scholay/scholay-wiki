@@ -18,7 +18,7 @@ const SubscriptionManagement = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuth();
   const [subscription, setSubscription] = useState(null);
-  const [usage, setUsage] = useState(null);
+  // usage 配额统计已废弃，现在使用货币系统
   const [plans, setPlans] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,18 +52,15 @@ const SubscriptionManagement = () => {
   const fetchAllData = async () => {
     try {
       setLoading(true);
-      const [subRes, usageRes, plansRes, ordersRes] = await Promise.all([
+      // usage 配额统计已废弃，现在使用货币系统
+      const [subRes, plansRes, ordersRes] = await Promise.all([
         api.get('/user/subscription/my'),
-        api.get('/user/subscription/usage'),
         api.get('/user/subscription/plans'),
         api.get('/user/orders/my')
       ]);
 
       if (subRes.data.code === 0) {
         setSubscription(subRes.data.data);
-      }
-      if (usageRes.data.code === 0) {
-        setUsage(usageRes.data);
       }
       if (plansRes.data.code === 0) {
         setPlans(plansRes.data.data);
@@ -100,17 +97,7 @@ const SubscriptionManagement = () => {
     return (plan.price_yearly / 12).toFixed(2);
   };
 
-  const getUsagePercentage = (used, limit) => {
-    if (limit === -1) return 0;
-    return Math.min((used / limit) * 100, 100);
-  };
-
-  const formatUsageText = (used, limitInfo) => {
-    if (limitInfo.limit === -1) {
-      return `今日已使用 ${used} 次`;
-    }
-    return `${used} / ${limitInfo.limit}`;
-  };
+  // 配额相关的辅助函数已废弃
 
   const formatOrderStatus = (status) => {
     const statusMap = {
@@ -265,32 +252,8 @@ const SubscriptionManagement = () => {
                   </div>
                 </div>
 
-                {/* Quick Usage Stats */}
-                {usage && usage.usage && usage.limits && (
-                  <div className="quick-usage">
-                    <div className="usage-stat">
-                      <div className="stat-icon">🔍</div>
-                      <div className="stat-info">
-                        <div className="stat-label">学术检索</div>
-                        <div className="stat-value">{formatUsageText(usage.usage.normal_search, usage.limits.normal_search)}</div>
-                      </div>
-                    </div>
-                    <div className="usage-stat">
-                      <div className="stat-icon">⚡</div>
-                      <div className="stat-info">
-                        <div className="stat-label">智能分析</div>
-                        <div className="stat-value">{formatUsageText(usage.usage.advanced_search_high, usage.limits.advanced_search_high)}</div>
-                      </div>
-                    </div>
-                    <div className="usage-stat">
-                      <div className="stat-icon">🤖</div>
-                      <div className="stat-info">
-                        <div className="stat-label">AI对话</div>
-                        <div className="stat-value">{formatUsageText(usage.usage.ai_chat_high, usage.limits.ai_chat_high)}</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* 配额统计已废弃，现在使用货币系统（经费）进行扣费控制 */}
+                {/* 用户可以在"设置"页面查看经费余额 */}
               </div>
 
               {subscription.plan_code !== 'free' && (
@@ -333,101 +296,7 @@ const SubscriptionManagement = () => {
             </div>
           </div>
 
-          {/* Detailed Usage Section */}
-          {usage && usage.usage && usage.limits && (
-            <div className="usage-details-section">
-              <div className="section-header">
-                <h2>今日使用详情</h2>
-                <p>统计日期: {usage.quota_date || '今日'}</p>
-              </div>
-
-              <div className="usage-grid">
-                <div className="usage-category">
-                  <h3>搜索功能</h3>
-                  <div className="usage-items">
-                    {[
-                      { label: '学术检索', key: 'normal_search', color: '#3b82f6' },
-                      { label: '智能分析 - 低模', key: 'advanced_search_low', color: '#8b5cf6' },
-                      { label: '智能分析 - 中模', key: 'advanced_search_mid', color: '#ec4899' },
-                      { label: '智能分析 - 高模', key: 'advanced_search_high', color: '#f59e0b' }
-                    ].map(item => {
-                      const used = usage.usage[item.key];
-                      const limit = usage.limits[item.key];
-                      const percentage = getUsagePercentage(used, limit.limit);
-                      const isUnlimited = limit.limit === -1;
-
-                      return (
-                        <div key={item.key} className="usage-item">
-                          <div className="usage-label">
-                            <span>{item.label}</span>
-                            <span className="usage-count">{formatUsageText(used, limit)}</span>
-                          </div>
-                          <div className="usage-bar-container">
-                            <div
-                              className="usage-bar"
-                              style={{
-                                width: `${isUnlimited ? 100 : percentage}%`,
-                                background: isUnlimited
-                                  ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 0.1) 100%)'
-                                  : `linear-gradient(90deg, ${item.color} 0%, ${item.color}80 100%)`
-                              }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="usage-category">
-                  <h3>AI对话</h3>
-                  <div className="usage-items">
-                    {[
-                      { label: '普通模型', key: 'ai_chat_normal', color: '#10b981' },
-                      { label: '中级模型', key: 'ai_chat_mid', color: '#06b6d4' },
-                      { label: '高级模型', key: 'ai_chat_high', color: '#6366f1' }
-                    ].map(item => {
-                      const used = usage.usage[item.key];
-                      const limit = usage.limits[item.key];
-                      const percentage = getUsagePercentage(used, limit.limit);
-                      const isUnlimited = limit.limit === -1;
-
-                      return (
-                        <div key={item.key} className="usage-item">
-                          <div className="usage-label">
-                            <span>{item.label}</span>
-                            <span className="usage-count">{formatUsageText(used, limit)}</span>
-                          </div>
-                          <div className="usage-bar-container">
-                            <div
-                              className="usage-bar"
-                              style={{
-                                width: `${isUnlimited ? 100 : percentage}%`,
-                                background: isUnlimited
-                                  ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 0.1) 100%)'
-                                  : `linear-gradient(90deg, ${item.color} 0%, ${item.color}80 100%)`
-                              }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {subscription && subscription.plan_code === 'free' && (
-                <div className="upgrade-tip">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="16" x2="12" y2="12"/>
-                    <line x1="12" y1="8" x2="12.01" y2="8"/>
-                  </svg>
-                  <p>升级到 PRO 或 MAX 方案，享受无限制使用高级功能！</p>
-                </div>
-              )}
-            </div>
-          )}
+          {/* 配额统计已废弃，现在使用货币系统（经费）进行扣费控制 */}
 
           {/* Billing History */}
           <div className="billing-section">
@@ -530,42 +399,40 @@ const SubscriptionManagement = () => {
               </div>
 
               <div className="table-section">
-                <div className="section-title">AI 模型</div>
+                <div className="section-title">AI 功能（按经费扣费）</div>
                 <div className="table-row">
-                  <div className="cell">智能分析 - 低级模型</div>
-                  <div className="cell">5/天</div>
-                  <div className="cell"><span className="unlimited">无限制</span></div>
-                  <div className="cell"><span className="unlimited">无限制</span></div>
+                  <div className="cell">智能分析</div>
+                  <div className="cell"><span className="check">✓</span></div>
+                  <div className="cell"><span className="check">✓</span></div>
+                  <div className="cell"><span className="check">✓</span></div>
                 </div>
                 <div className="table-row">
-                  <div className="cell">智能分析 - 中级模型</div>
-                  <div className="cell">3/天</div>
-                  <div className="cell"><span className="unlimited">无限制</span></div>
-                  <div className="cell"><span className="unlimited">无限制</span></div>
+                  <div className="cell">AI 聊天</div>
+                  <div className="cell"><span className="check">✓</span></div>
+                  <div className="cell"><span className="check">✓</span></div>
+                  <div className="cell"><span className="check">✓</span></div>
                 </div>
                 <div className="table-row">
-                  <div className="cell">智能分析 - 高级模型</div>
-                  <div className="cell">2/天</div>
-                  <div className="cell"><span className="unlimited">无限制</span></div>
-                  <div className="cell"><span className="unlimited">无限制</span></div>
+                  <div className="cell">AI 审稿</div>
+                  <div className="cell"><span className="check">✓</span></div>
+                  <div className="cell"><span className="check">✓</span></div>
+                  <div className="cell"><span className="check">✓</span></div>
+                </div>
+              </div>
+
+              <div className="table-section">
+                <div className="section-title">会员福利</div>
+                <div className="table-row">
+                  <div className="cell">每月赠送经费</div>
+                  <div className="cell">-</div>
+                  <div className="cell">2000</div>
+                  <div className="cell">5000</div>
                 </div>
                 <div className="table-row">
-                  <div className="cell">AI 聊天 - 普通模型</div>
-                  <div className="cell"><span className="unlimited">无限制</span></div>
-                  <div className="cell"><span className="unlimited">无限制</span></div>
-                  <div className="cell"><span className="unlimited">无限制</span></div>
-                </div>
-                <div className="table-row">
-                  <div className="cell">AI 聊天 - 中级模型</div>
-                  <div className="cell">50/天</div>
-                  <div className="cell"><span className="unlimited">无限制</span></div>
-                  <div className="cell"><span className="unlimited">无限制</span></div>
-                </div>
-                <div className="table-row">
-                  <div className="cell">AI 聊天 - 高级模型</div>
-                  <div className="cell">10/天</div>
-                  <div className="cell"><span className="unlimited">无限制</span></div>
-                  <div className="cell"><span className="unlimited">无限制</span></div>
+                  <div className="cell">每月赠送恩特币</div>
+                  <div className="cell">-</div>
+                  <div className="cell">-</div>
+                  <div className="cell">6</div>
                 </div>
               </div>
             </div>

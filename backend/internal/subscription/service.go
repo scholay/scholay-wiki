@@ -157,129 +157,24 @@ func (s *Service) GetUserUsageQuota(userID uint) (map[string]interface{}, error)
 }
 
 // CheckQuota checks if user has remaining quota for a specific feature
+// Deprecated: 配额检查已废弃，现在使用货币系统进行扣费控制。此方法始终返回 true
 func (s *Service) CheckQuota(userID uint, featureType string) (bool, error) {
-	today := time.Now().Format("2006-01-02")
-	quota, err := s.repo.GetTodayUsageQuota(userID, today)
-	if err != nil {
-		return false, err
-	}
-
-	// Get user's subscription plan
-	subscription, err := s.repo.GetUserActiveSubscription(userID)
-	planCode := "free"
-	if err == nil && subscription != nil {
-		planCode = subscription.PlanCode
-	}
-
-	plan, err := s.repo.GetPlanByCode(planCode)
-	if err != nil {
-		return false, err
-	}
-
-	var features PlanFeatures
-	if err := json.Unmarshal([]byte(plan.Features), &features); err != nil {
-		return false, err
-	}
-
-	// Check if quota is exceeded
-	switch featureType {
-	case "normal_search":
-		if features.NormalSearch.Limit == -1 {
-			return true, nil
-		}
-		return quota.NormalSearchCount < features.NormalSearch.Limit, nil
-	case "advanced_search_low":
-		if features.AdvancedSearchLow.Limit == -1 {
-			return true, nil
-		}
-		return quota.AdvancedSearchLowCount < features.AdvancedSearchLow.Limit, nil
-	case "advanced_search_mid":
-		if features.AdvancedSearchMid.Limit == -1 {
-			return true, nil
-		}
-		return quota.AdvancedSearchMidCount < features.AdvancedSearchMid.Limit, nil
-	case "advanced_search_high":
-		if features.AdvancedSearchHigh.Limit == -1 {
-			return true, nil
-		}
-		return quota.AdvancedSearchHighCount < features.AdvancedSearchHigh.Limit, nil
-	case "ai_chat_normal":
-		if features.AIChatNormal.Limit == -1 {
-			return true, nil
-		}
-		return quota.AIChatNormalCount < features.AIChatNormal.Limit, nil
-	case "ai_chat_mid":
-		if features.AIChatMid.Limit == -1 {
-			return true, nil
-		}
-		return quota.AIChatMidCount < features.AIChatMid.Limit, nil
-	case "ai_chat_high":
-		if features.AIChatHigh.Limit == -1 {
-			return true, nil
-		}
-		return quota.AIChatHighCount < features.AIChatHigh.Limit, nil
-	}
-
-	return false, errors.New("invalid feature type")
+	// 配额检查已废弃，始终返回 true
+	return true, nil
 }
 
 // IncrementUsage increments usage count for a specific feature
+// Deprecated: 配额统计已废弃，现在使用货币系统进行扣费控制。此方法不再执行任何操作
 func (s *Service) IncrementUsage(userID uint, featureType string) error {
-	today := time.Now().Format("2006-01-02")
-	return s.repo.IncrementUsage(userID, today, featureType)
+	// 配额统计已废弃，不再执行任何操作
+	return nil
 }
 
 // CheckAndIncrementQuota atomically checks quota and increments usage in a single transaction
-// This prevents race conditions where multiple concurrent requests might exceed the quota
+// Deprecated: 配额检查已废弃，现在使用货币系统进行扣费控制。此方法不再执行任何操作
 func (s *Service) CheckAndIncrementQuota(userID uint, featureType string) error {
-	today := time.Now().Format("2006-01-02")
-
-	// Get user's subscription plan
-	subscription, err := s.repo.GetUserActiveSubscription(userID)
-	planCode := "FREE"
-	if err == nil && subscription != nil {
-		planCode = subscription.PlanCode
-	}
-
-	plan, err := s.repo.GetPlanByCode(planCode)
-	if err != nil {
-		return fmt.Errorf("failed to get plan: %w", err)
-	}
-
-	var features PlanFeatures
-	if err := json.Unmarshal([]byte(plan.Features), &features); err != nil {
-		return fmt.Errorf("failed to parse plan features: %w", err)
-	}
-
-	// Get the limit for this feature
-	var limit int
-	switch featureType {
-	case "normal_search":
-		limit = features.NormalSearch.Limit
-	case "advanced_search_low":
-		limit = features.AdvancedSearchLow.Limit
-	case "advanced_search_mid":
-		limit = features.AdvancedSearchMid.Limit
-	case "advanced_search_high":
-		limit = features.AdvancedSearchHigh.Limit
-	case "ai_chat_normal":
-		limit = features.AIChatNormal.Limit
-	case "ai_chat_mid":
-		limit = features.AIChatMid.Limit
-	case "ai_chat_high":
-		limit = features.AIChatHigh.Limit
-	default:
-		return fmt.Errorf("invalid feature type: %s", featureType)
-	}
-
-	// -1 means unlimited
-	if limit == -1 {
-		// Still increment for statistics
-		return s.repo.IncrementUsage(userID, today, featureType)
-	}
-
-	// Use transaction to atomically check and increment
-	return s.repo.CheckAndIncrementQuota(userID, today, featureType, limit)
+	// 配额检查已废弃，不再执行任何操作
+	return nil
 }
 
 // UpgradeSubscription upgrades or downgrades a user's subscription

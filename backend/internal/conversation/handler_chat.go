@@ -29,13 +29,9 @@ type ChatHandler struct {
 }
 
 // NewChatHandler creates a new chat handler
-func NewChatHandler(repo *Repository, aiService *ai.Service, service *Service, subscriptionService interface {
-	CheckQuota(userID uint, featureType string) (bool, error)
-	IncrementUsage(userID uint, featureType string) error
-	CheckAndIncrementQuota(userID uint, featureType string) error
-}) *ChatHandler {
+// 注意：配额检查已废弃，subscriptionService 参数保留用于向后兼容但不再使用
+func NewChatHandler(repo *Repository, aiService *ai.Service, service *Service, subscriptionService interface{}) *ChatHandler {
 	chatService := NewChatService(repo, aiService)
-	chatService.SetSubscriptionService(subscriptionService)
 	return &ChatHandler{
 		chatService: chatService,
 		service:     service,

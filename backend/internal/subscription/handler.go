@@ -183,55 +183,20 @@ func (h *Handler) RenewSubscription(c *gin.Context) {
 }
 
 // CheckQuota handles GET /api/v1/user/subscription/check-quota
-// Checks if user has remaining quota for a feature
+// Deprecated: 配额检查已废弃，现在使用货币系统进行扣费控制。此接口始终返回 has_quota: true
 func (h *Handler) CheckQuota(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
-	featureType := c.Query("feature_type")
-	if featureType == "" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "feature_type is required")
-		return
-	}
-
-	hasQuota, err := h.service.CheckQuota(userID.(uint), featureType)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to check quota")
-		return
-	}
-
+	// 配额检查已废弃，始终返回 true
 	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
-		"has_quota": hasQuota,
+		"has_quota": true,
 	})
 }
 
 // IncrementUsage handles POST /api/v1/user/subscription/increment-usage
-// Increments usage count for a feature (internal use)
+// Deprecated: 配额统计已废弃，现在使用货币系统进行扣费控制。此接口不再执行任何操作
 func (h *Handler) IncrementUsage(c *gin.Context) {
-	userIDStr := c.PostForm("user_id")
-	featureType := c.PostForm("feature_type")
-
-	if userIDStr == "" || featureType == "" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "user_id and feature_type are required")
-		return
-	}
-
-	userID, err := strconv.ParseUint(userIDStr, 10, 32)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid user_id")
-		return
-	}
-
-	if err := h.service.IncrementUsage(uint(userID), featureType); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to increment usage")
-		return
-	}
-
+	// 配额统计已废弃，不再执行任何操作
 	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
-		"message": "Usage incremented successfully",
+		"message": "Usage incremented successfully (deprecated)",
 	})
 }
 

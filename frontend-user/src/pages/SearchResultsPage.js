@@ -1664,15 +1664,9 @@ const SearchResultsPage = () => {
                   <ThemeToggle />
                   <button
                     onClick={() => setShowAuthModal(true)}
-                    className="btn-auth btn-login"
+                    className="btn-auth btn-login-register"
                   >
-                    登录
-                  </button>
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    className="btn-auth btn-register"
-                  >
-                    免费注册
+                    登录 / 注册
                   </button>
                 </div>
               )}
@@ -1866,15 +1860,9 @@ const SearchResultsPage = () => {
                   <ThemeToggle />
                   <button
                     onClick={() => setShowAuthModal(true)}
-                    className="btn-auth btn-login"
+                    className="btn-auth btn-login-register"
                   >
-                    登录
-                  </button>
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    className="btn-auth btn-register"
-                  >
-                    免费注册
+                    登录 / 注册
                   </button>
                 </div>
               )}

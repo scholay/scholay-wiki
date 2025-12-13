@@ -332,15 +332,9 @@ const Home = () => {
                 </div>
                 <button
                   onClick={() => setShowAuthModal(true)}
-                  className="btn-auth btn-login desktop-only"
+                  className="btn-auth btn-login-register desktop-only"
                 >
-                  登录
-                </button>
-                <button
-                  onClick={() => setShowAuthModal(true)}
-                  className="btn-auth btn-register desktop-only"
-                >
-                  免费注册
+                  登录 / 注册
                 </button>
 
                 {/* 移动端显示的按钮 */}

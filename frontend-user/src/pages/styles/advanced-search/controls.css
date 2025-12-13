@@ -252,55 +252,12 @@
   transform: translateY(-1px);
 }
 
-/* 登录按钮 - 液态玻璃效果 */
-.as-navbar-auth-buttons .btn-login {
-  color: var(--text-primary);
-}
-
-[data-theme="dark"] .as-navbar-auth-buttons .btn-login {
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-[data-theme="light"] .as-navbar-auth-buttons .btn-login {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-[data-theme="dark"] .as-navbar-auth-buttons .btn-login:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  transform: translateY(-1px);
-}
-
-[data-theme="light"] .as-navbar-auth-buttons .btn-login:hover {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(0, 0, 0, 0.12);
-  box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 1);
-  transform: translateY(-1px);
-}
-
-/* 注册按钮 - 液态玻璃效果 + 主色调 */
-.as-navbar-auth-buttons .btn-register {
+/* 登录/注册合并按钮 - 液态玻璃效果 + 主色调 */
+.as-navbar-auth-buttons .btn-login-register {
   color: white;
 }
 
-[data-theme="dark"] .as-navbar-auth-buttons .btn-register {
+[data-theme="dark"] .as-navbar-auth-buttons .btn-login-register {
   background: linear-gradient(135deg, rgba(16, 163, 127, 0.9) 0%, rgba(16, 163, 127, 0.7) 100%);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -310,7 +267,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
-[data-theme="light"] .as-navbar-auth-buttons .btn-register {
+[data-theme="light"] .as-navbar-auth-buttons .btn-login-register {
   background: linear-gradient(135deg, rgba(16, 163, 127, 0.95) 0%, rgba(16, 163, 127, 0.85) 100%);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -320,7 +277,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-[data-theme="dark"] .as-navbar-auth-buttons .btn-register:hover {
+[data-theme="dark"] .as-navbar-auth-buttons .btn-login-register:hover {
   background: linear-gradient(135deg, rgba(16, 163, 127, 1) 0%, rgba(16, 163, 127, 0.85) 100%);
   border-color: rgba(16, 163, 127, 0.5);
   box-shadow: 
@@ -329,7 +286,7 @@
   transform: translateY(-2px);
 }
 
-[data-theme="light"] .as-navbar-auth-buttons .btn-register:hover {
+[data-theme="light"] .as-navbar-auth-buttons .btn-login-register:hover {
   background: linear-gradient(135deg, rgba(16, 163, 127, 1) 0%, rgba(16, 163, 127, 0.9) 100%);
   border-color: rgba(16, 163, 127, 0.4);
   box-shadow: 

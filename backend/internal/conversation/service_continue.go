@@ -20,27 +20,8 @@ import (
 
 // ContinueConversation 继续对话并使用之前消息的上下文
 // 现在使用与智能分析相同的逻辑：始终执行MCP搜索并结合历史查询
+// 注意：配额检查已废弃，现在使用货币系统进行扣费控制
 func (s *Service) ContinueConversation(conversationID uint, userQuery string, writer io.Writer, userID uint, modelLevel thirdparty.ModelLevel) error {
-	// Determine feature type based on model level
-	var featureType string
-	switch modelLevel {
-	case thirdparty.ModelLevelLow:
-		featureType = "advanced_search_low"
-	case thirdparty.ModelLevelMid:
-		featureType = "advanced_search_mid"
-	case thirdparty.ModelLevelHigh:
-		featureType = "advanced_search_high"
-	default:
-		return fmt.Errorf("invalid model level: %s", modelLevel)
-	}
-
-	// Atomically check and increment quota at the beginning
-	// This ensures quota is enforced even before the API call starts
-	if err := s.subscriptionService.IncrementUsage(userID, featureType); err != nil {
-		// Return user-friendly error message
-		return fmt.Errorf("配额不足：%s", err.Error())
-	}
-
 	// Get the user message (it should already exist, created by frontend)
 	// We need to find the latest user message with this query
 	messages, err := s.repo.GetConversationMessages(conversationID)

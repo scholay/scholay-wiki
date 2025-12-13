@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import ReactDOM, { flushSync } from 'react-dom';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { peerReviewAPI } from '../services/api';
@@ -31,6 +31,9 @@ import { getFileIcon } from '../utils/peer-review/fileUtils';
 import { exportToWord, exportToPDF, exportToPPT } from '../utils/peer-review/exportUtils';
 import './styles/PeerReviewPage.css';
 import './styles/ReviewReport.css';
+
+// 懒加载 AuthModal - 只在需要时加载
+const AuthModal = lazy(() => import('../components/AuthModal'));
 
 // 内容预览卡片组件（带弹窗）
 function PreviewCard({ preview, fullText }) {
@@ -162,8 +165,14 @@ function PreviewCard({ preview, fullText }) {
 export default function PeerReviewPage() {
   const navigate = useNavigate();
   const { sidebarCollapsed, openMobileSidebar, isMobile } = useOutletContext() || {};
-  const { user, openLoginModal } = useAuth();
+  const { user } = useAuth();
   const { resetSidebarConfig } = useSidebar();
+  
+  // 登录弹窗状态
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  
+  // 打开登录弹窗
+  const openLoginModal = () => setShowAuthModal(true);
 
   // 进入页面时清空侧边栏历史记录
   useEffect(() => {
@@ -801,28 +810,26 @@ export default function PeerReviewPage() {
     }
   };
 
-  // 未登录提示
-  if (!user) {
-    return (
-      <div className={`prv-page-wrapper ${sidebarCollapsed ? 'prv-sidebar-collapsed' : 'prv-sidebar-expanded'}`}>
-        <div className="prv-main-container">
-          <div className="prv-content">
-            <div className="prv-login-prompt">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"/>
-                <path d="M12 8V12M12 16H12.01"/>
-              </svg>
-              <h2>请先登录</h2>
-              <p>AI 审稿人功能需要登录后才能使用</p>
-              <button className="prv-login-btn" onClick={openLoginModal}>
-                立即登录
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // 检查登录状态的辅助函数
+  const requireLogin = (action) => {
+    if (!user) {
+      openLoginModal();
+      return false;
+    }
+    return true;
+  };
+
+  // 处理文本输入（未登录时弹出登录弹窗）
+  const handleTextInput = (e) => {
+    if (!requireLogin('输入文本')) return;
+    setManuscriptText(e.target.value);
+  };
+
+  // 处理目标期刊输入（未登录时弹出登录弹窗）
+  const handleVenueInput = (e) => {
+    if (!requireLogin('输入期刊')) return;
+    setTargetVenue(e.target.value);
+  };
 
   return (
     <div className={`prv-page-wrapper ${sidebarCollapsed ? 'prv-sidebar-collapsed' : 'prv-sidebar-expanded'}`}>
@@ -872,9 +879,9 @@ export default function PeerReviewPage() {
                   inputType={inputType}
                   setInputType={setInputType}
                   manuscriptText={manuscriptText}
-                  setManuscriptText={setManuscriptText}
+                  onTextInput={handleTextInput}
                   targetVenue={targetVenue}
-                  setTargetVenue={setTargetVenue}
+                  onVenueInput={handleVenueInput}
                   fileName={fileName}
                   useFileInput={useFileInput}
                   attachments={attachments}
@@ -896,19 +903,23 @@ export default function PeerReviewPage() {
                   onRemoveFile={removeManuscriptFile}
                   onSubmit={handleSubmitDraft}
                   onClearDraft={clearDraft}
+                  isLoggedIn={!!user}
+                  onRequireLogin={openLoginModal}
                 />
 
-                {/* 下半部分：历史任务列表 */}
-                <HistorySection
-                  tasks={tasks}
-                  loading={loading}
-                  totalTasks={totalTasks}
-                  currentPage={currentPage}
-                  onPageChange={setCurrentPage}
-                  onSearch={handleSearch}
-                  onViewDetail={viewTaskDetail}
-                  onDelete={handleDeleteTask}
-                />
+                {/* 下半部分：历史任务列表 - 仅登录用户显示 */}
+                {user && (
+                  <HistorySection
+                    tasks={tasks}
+                    loading={loading}
+                    totalTasks={totalTasks}
+                    currentPage={currentPage}
+                    onPageChange={setCurrentPage}
+                    onSearch={handleSearch}
+                    onViewDetail={viewTaskDetail}
+                    onDelete={handleDeleteTask}
+                  />
+                )}
               </div>
             )}
 
@@ -935,6 +946,17 @@ export default function PeerReviewPage() {
         message={modal.message}
         onConfirm={modal.onConfirm}
       />
+
+      {/* 登录注册弹窗 - 只在需要时加载 */}
+      {showAuthModal && (
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+            onLoginSuccess={() => setShowAuthModal(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
@@ -944,8 +966,8 @@ export default function PeerReviewPage() {
 // 创建任务区域（上半部分）
 function CreateSection({
   inputType, setInputType,
-  manuscriptText, setManuscriptText,
-  targetVenue, setTargetVenue,
+  manuscriptText, onTextInput,
+  targetVenue, onVenueInput,
   fileName,
   useFileInput,
   attachments,
@@ -955,7 +977,8 @@ function CreateSection({
   attachmentInputRef,
   onFileSelect, onAttachmentUpload, onDeleteAttachment,
   onDragEnter, onDragOver, onDragLeave, onDrop,
-  onRemoveFile, onSubmit, onClearDraft
+  onRemoveFile, onSubmit, onClearDraft,
+  isLoggedIn, onRequireLogin
 }) {
   // PDF文件也算有内容
   // 文件直传模式（PDF、Word等）也算有内容
@@ -1114,7 +1137,8 @@ function CreateSection({
                     className={`prv-textarea ${fileName ? 'prv-textarea-readonly' : ''}`}
                     placeholder=""
                     value={manuscriptText}
-                    onChange={(e) => !fileName && setManuscriptText(e.target.value)}
+                    onChange={(e) => !fileName && onTextInput(e)}
+                    onFocus={() => !isLoggedIn && onRequireLogin()}
                     readOnly={!!fileName}
                     maxLength={50000}
                   />
@@ -1202,7 +1226,13 @@ function CreateSection({
             {!fileName && (
               <button
                 className="prv-footer-btn prv-simple-btn"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    onRequireLogin();
+                    return;
+                  }
+                  fileInputRef.current?.click();
+                }}
                 disabled={uploading}
                 title="上传文件"
               >
@@ -1235,7 +1265,8 @@ function CreateSection({
                 className="prv-venue-input"
                 placeholder="投稿期刊（可选，让审稿更有针对性）"
                 value={targetVenue}
-                onChange={(e) => setTargetVenue(e.target.value)}
+                onChange={onVenueInput}
+                onFocus={() => !isLoggedIn && onRequireLogin()}
               />
             </div>
           </div>
@@ -1290,6 +1321,11 @@ function CreateSection({
           // 如果点击的是删除按钮或正在上传的附件，不触发上传
           if (e.target.closest('.prv-attachment-chip-remove')) return;
           if (e.target.closest('.prv-attachment-chip.uploading')) return;
+          // 未登录时弹出登录弹窗
+          if (!isLoggedIn) {
+            onRequireLogin();
+            return;
+          }
           // 计算非上传中的附件数量
           const uploadedCount = attachments.filter(a => !a.uploading).length;
           if (uploadedCount < 5) {
