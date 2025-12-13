@@ -7,16 +7,20 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { checkinAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
 import './CheckinFloat.css';
+
+// 懒加载 AuthModal
+const AuthModal = lazy(() => import('./AuthModal'));
 
 const FIRST_VISIT_KEY = 'checkin_first_visit_today';
 const CHECKIN_MODAL_SHOWN_KEY = 'checkin_modal_shown_today';
 
 const CheckinFloat = () => {
   const { isAuthenticated } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false); // 登录弹窗状态
   const [hasCheckedIn, setHasCheckedIn] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showFloatBall, setShowFloatBall] = useState(false);
@@ -140,6 +144,12 @@ const CheckinFloat = () => {
   };
 
   const handleFloatClick = () => {
+    // 未登录时弹出登录弹窗
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+    
     if (!hasCheckedIn && floatBallRef.current) {
       const rect = floatBallRef.current.getBoundingClientRect();
       // 记录悬浮球的位置（右下角）
@@ -158,13 +168,15 @@ const CheckinFloat = () => {
     if (isAuthenticated) {
       fetchCheckinStatus();
     } else {
-      setShowFloatBall(false);
+      // 未登录时也显示悬浮球，引导用户登录
+      setShowFloatBall(true);
       setShowModal(false);
-      setHasCheckedIn(true);
+      setHasCheckedIn(false); // 设为 false 以显示悬浮球
     }
   }, [isAuthenticated, fetchCheckinStatus]);
 
-  if (!isAuthenticated || (hasCheckedIn && !showModal)) {
+  // 未登录时只显示悬浮球，已登录且已签到时不显示
+  if (isAuthenticated && hasCheckedIn && !showModal) {
     return null;
   }
 
@@ -327,6 +339,20 @@ const CheckinFloat = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* 登录注册弹窗 - 未登录时点击悬浮球触发 */}
+      {showAuthModal && (
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+            onLoginSuccess={() => {
+              setShowAuthModal(false);
+              // 登录成功后会自动触发 fetchCheckinStatus
+            }}
+          />
+        </Suspense>
       )}
     </>
   );

@@ -70,13 +70,11 @@ const Home = () => {
   const [showSuggestions, setShowSuggestions] = useState(false); // 搜索建议下拉框
   const textareaRef = useRef(null);
   const composerRef = useRef(null); // 用于定位搜索建议下拉框
-  const lastTypingDelayRef = useRef(90);
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
 
   // Typewriter effect for welcome title
-  const [displayedText, setDisplayedText] = useState('');
-  const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
-  const [isDeleting, setIsDeleting] = useState(false);
+  // 静态标语
+  const sloganText = '科研者的瑞士军刀';
 
   // Placeholder examples carousel
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
@@ -139,64 +137,6 @@ const Home = () => {
       sessionStorage.removeItem('auth_kicked_message');
     }
   }, []);
-
-  useEffect(() => {
-    const phrases = [
-      '探索学术世界,从这里开始',
-      '发现前沿研究,开启智慧之旅',
-      '用AI连接知识,让学术触手可及',
-      '搜索论文,理解文献,推动创新'
-    ];
-
-    const currentPhrase = phrases[currentPhraseIndex];
-    const pauseAfterComplete = 30000; // 30s 展示间隔
-    const pauseAfterDelete = 500;
-
-    if (!isDeleting && displayedText === currentPhrase) {
-      // Finished typing, pause then start deleting
-      const timeout = setTimeout(() => {
-        setIsDeleting(true);
-      }, pauseAfterComplete);
-      return () => clearTimeout(timeout);
-    }
-
-    if (isDeleting && displayedText === '') {
-      // Finished deleting, move to next phrase
-      setIsDeleting(false);
-      setCurrentPhraseIndex((prev) => (prev + 1) % phrases.length);
-      const timeout = setTimeout(() => {
-      }, pauseAfterDelete);
-      return () => clearTimeout(timeout);
-    }
-
-    const phraseLength = currentPhrase.length || 1;
-    const rawProgress = displayedText.length / phraseLength;
-    const directionalProgress = isDeleting ? 1 - rawProgress : rawProgress;
-    const clampedProgress = Math.min(1, Math.max(0, directionalProgress));
-    const wave = Math.sin(Math.PI * clampedProgress);
-    const config = isDeleting
-      ? { base: 60, variance: 18, min: 28 }
-      : { base: 115, variance: 35, min: 60 };
-    const targetDelay = Math.max(
-      config.min,
-      config.base - wave * config.variance
-    );
-    const smoothDelay = lastTypingDelayRef.current * 0.4 + targetDelay * 0.6;
-    lastTypingDelayRef.current = smoothDelay;
-
-    // Type or delete character
-    const timeout = setTimeout(() => {
-      setDisplayedText(prev => {
-        if (isDeleting) {
-          return currentPhrase.substring(0, prev.length - 1);
-        } else {
-          return currentPhrase.substring(0, prev.length + 1);
-        }
-      });
-    }, smoothDelay);
-
-    return () => clearTimeout(timeout);
-  }, [displayedText, isDeleting, currentPhraseIndex]);
 
   const handleLoginSuccess = () => {
     setShowAuthModal(false);
@@ -360,7 +300,7 @@ const Home = () => {
           <div className="home-chat-container">
             <div className="welcome-screen">
               <h1 className="welcome-title">
-                {displayedText}
+                {sloganText}
               </h1>
             </div>
 
