@@ -27,6 +27,7 @@ import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons'
 import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory, renameSearchHistory, migrateOldSearchHistory } from '../utils/searchHistory';
 import SEO from '../components/SEO';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
+import ThemeToggle from '../components/ThemeToggle';
 import './styles/search-results/index.css';
 
 // 懒加载 AuthModal
@@ -40,6 +41,9 @@ const SearchResultsPage = () => {
   const { updateSidebarConfig, isMobile, openMobileSidebar } = useSidebar();
   const outletContext = useOutletContext();
   const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
+
+  // 登录弹窗状态
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // 搜索历史状态
   const [searchHistory, setSearchHistory] = useState([]);
@@ -1647,6 +1651,31 @@ const SearchResultsPage = () => {
                 </button>
               )}
               <h1 className="empty-page-title">学术检索</h1>
+              
+              {/* 未登录状态下显示登录按钮 */}
+              {!isAuthenticated && !isMobile && (
+                <div className="navbar-auth-buttons">
+                  <button
+                    onClick={() => navigate('/pricing')}
+                    className="btn-auth btn-pricing"
+                  >
+                    价格方案
+                  </button>
+                  <ThemeToggle />
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="btn-auth btn-login"
+                  >
+                    登录
+                  </button>
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="btn-auth btn-register"
+                  >
+                    免费注册
+                  </button>
+                </div>
+              )}
             </nav>
 
             <div className="empty-search-content">
@@ -1823,6 +1852,31 @@ const SearchResultsPage = () => {
                     <path d="M21 21l-4.35-4.35"/>
                   </svg>
                 </button>
+              )}
+              
+              {/* 未登录状态下显示登录按钮 */}
+              {!isAuthenticated && !isMobile && (
+                <div className="navbar-auth-buttons">
+                  <button
+                    onClick={() => navigate('/pricing')}
+                    className="btn-auth btn-pricing"
+                  >
+                    价格方案
+                  </button>
+                  <ThemeToggle />
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="btn-auth btn-login"
+                  >
+                    登录
+                  </button>
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="btn-auth btn-register"
+                  >
+                    免费注册
+                  </button>
+                </div>
               )}
             </nav>
 
@@ -3795,6 +3849,17 @@ const SearchResultsPage = () => {
             setAllAuthorPapers([]);
           }}
         />
+      )}
+
+      {/* 登录弹窗 */}
+      {showAuthModal && (
+        <Suspense fallback={<div>Loading...</div>}>
+          <AuthModal 
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+            onLoginSuccess={() => setShowAuthModal(false)}
+          />
+        </Suspense>
       )}
     </div>
   );

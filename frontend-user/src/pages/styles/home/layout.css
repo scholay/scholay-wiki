@@ -76,88 +76,144 @@
   flex-shrink: 0;
 }
 
+/* ========== 液态玻璃按钮样式 ========== */
 .btn-auth {
   padding: 0.5rem 1.25rem;
-  border-radius: 8px;
+  border-radius: 12px;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
-  border: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
+  position: relative;
+  overflow: hidden;
 }
 
+/* 价格方案按钮 - 液态玻璃效果 */
 [data-theme="dark"] .btn-pricing {
-  background: transparent;
+  background: rgba(251, 191, 36, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 [data-theme="light"] .btn-pricing {
-  background: transparent;
-  color: #d97706;
-  border: 1px solid rgba(217, 119, 6, 0.3);
+  background: rgba(217, 119, 6, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #b45309;
+  border: 1px solid rgba(217, 119, 6, 0.15);
+  box-shadow: 
+    0 2px 8px rgba(217, 119, 6, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 [data-theme="dark"] .btn-pricing:hover {
-  background: rgba(251, 191, 36, 0.1);
-  border-color: rgba(251, 191, 36, 0.5);
+  background: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.4);
+  box-shadow: 
+    0 4px 16px rgba(251, 191, 36, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
 }
 
 [data-theme="light"] .btn-pricing:hover {
-  background: rgba(217, 119, 6, 0.08);
-  border-color: rgba(217, 119, 6, 0.4);
+  background: rgba(217, 119, 6, 0.12);
+  border-color: rgba(217, 119, 6, 0.3);
+  box-shadow: 
+    0 4px 16px rgba(217, 119, 6, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transform: translateY(-1px);
 }
 
+/* 登录按钮 - 液态玻璃效果 */
 .btn-login {
-  background: transparent;
   color: var(--text-primary);
 }
 
 [data-theme="dark"] .btn-login {
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 [data-theme="light"] .btn-login {
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 [data-theme="dark"] .btn-login:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
 }
 
 [data-theme="light"] .btn-login:hover {
-  background: var(--surface-hover);
-  border-color: var(--border-hover);
-  box-shadow: var(--shadow-sm);
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  transform: translateY(-1px);
 }
 
+/* 注册按钮 - 液态玻璃效果 + 主色调 */
 .btn-register {
   color: white;
-  border: none;
 }
 
 [data-theme="dark"] .btn-register {
-  background: var(--primary-solid);
-  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.3);
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.9) 0%, rgba(16, 163, 127, 0.7) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  box-shadow: 
+    0 2px 12px rgba(16, 163, 127, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 [data-theme="light"] .btn-register {
-  background: var(--primary-solid);
-  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.2);
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.95) 0%, rgba(16, 163, 127, 0.85) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  box-shadow: 
+    0 2px 12px rgba(16, 163, 127, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 [data-theme="dark"] .btn-register:hover {
-  background: var(--primary-light);
-  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.5);
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(16, 163, 127, 1) 0%, rgba(16, 163, 127, 0.85) 100%);
+  border-color: rgba(16, 163, 127, 0.5);
+  box-shadow: 
+    0 6px 20px rgba(16, 163, 127, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
 }
 
 [data-theme="light"] .btn-register:hover {
-  background: var(--primary-dark);
-  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(16, 163, 127, 1) 0%, rgba(16, 163, 127, 0.9) 100%);
+  border-color: rgba(16, 163, 127, 0.4);
+  box-shadow: 
+    0 6px 20px rgba(16, 163, 127, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
 }
 
 /* Search Content Area */

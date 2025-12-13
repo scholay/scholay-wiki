@@ -7,16 +7,24 @@
  * ============================================================================
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
+import ThemeToggle from '../components/ThemeToggle';
 import './styles/AssistantPage.css';
+
+const AuthModal = lazy(() => import('../components/AuthModal'));
 
 function AssistantPage() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const { resetSidebarConfig, isMobile, openMobileSidebar } = useSidebar();
   const outletContext = useOutletContext();
   const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
+  
+  // 登录弹窗状态
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // 进入页面时清空侧边栏历史记录
   useEffect(() => {
@@ -82,6 +90,31 @@ function AssistantPage() {
                 </svg>
                 <span className="ast-navbar-title">文献助手</span>
               </div>
+              
+              {/* 未登录状态下显示登录按钮 */}
+              {!isAuthenticated && !isMobile && (
+                <div className="ast-navbar-right">
+                  <button
+                    onClick={() => navigate('/pricing')}
+                    className="ast-btn-pricing"
+                  >
+                    价格方案
+                  </button>
+                  <ThemeToggle />
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="ast-btn-login"
+                  >
+                    登录
+                  </button>
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="ast-btn-register"
+                  >
+                    免费注册
+                  </button>
+                </div>
+              )}
             </nav>
 
             {/* 主内容区 */}
@@ -118,6 +151,17 @@ function AssistantPage() {
           </div>
         </div>
       </div>
+      
+      {/* 登录弹窗 */}
+      {showAuthModal && (
+        <Suspense fallback={<div>Loading...</div>}>
+          <AuthModal 
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+            onLoginSuccess={() => setShowAuthModal(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

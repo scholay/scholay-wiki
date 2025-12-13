@@ -77,10 +77,12 @@ const MainLayout = () => {
   // 判断是否应该渲染侧边栏组件
   // 登录状态或特定页面时渲染侧边栏
   const shouldRenderSidebar = isAuthenticated || 
+    location.pathname === '/' ||
     location.pathname === '/search-results' || 
     location.pathname === '/advanced-search' || 
     location.pathname === '/chat' ||
-    location.pathname === '/peer-review';
+    location.pathname === '/peer-review' ||
+    location.pathname === '/assistant';
 
   return (
     <>

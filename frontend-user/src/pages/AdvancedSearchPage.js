@@ -18,6 +18,7 @@ import PaperCitationMarkdown from '../components/PaperCitationMarkdown';
 import ModelSelector from '../components/ModelSelector';
 import QuotaModal from '../components/QuotaModal';
 import { AdvancedSearchIcon, NormalSearchIcon } from '../components/SearchIcons';
+import ThemeToggle from '../components/ThemeToggle';
 import api, { conversationAPI, subscriptionAPI } from '../services/api';
 import './styles/advanced-search/index.css';
 
@@ -1542,6 +1543,31 @@ const AdvancedSearchPage = () => {
                 </button>
               )}
               <h1 className="as-empty-page-title">智能分析</h1>
+              
+              {/* 未登录状态下显示登录按钮 */}
+              {!isAuthenticated && !isMobile && (
+                <div className="as-navbar-auth-buttons">
+                  <button
+                    onClick={() => navigate('/pricing')}
+                    className="btn-auth btn-pricing"
+                  >
+                    价格方案
+                  </button>
+                  <ThemeToggle />
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="btn-auth btn-login"
+                  >
+                    登录
+                  </button>
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="btn-auth btn-register"
+                  >
+                    免费注册
+                  </button>
+                </div>
+              )}
             </nav>
 
             <div className="as-empty-search-content">
@@ -1751,6 +1777,31 @@ const AdvancedSearchPage = () => {
                   />
                 </div>
               </div>
+              
+              {/* 未登录状态下显示登录按钮 */}
+              {!isAuthenticated && !isMobile && (
+                <div className="as-navbar-auth-buttons">
+                  <button
+                    onClick={() => navigate('/pricing')}
+                    className="btn-auth btn-pricing"
+                  >
+                    价格方案
+                  </button>
+                  <ThemeToggle />
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="btn-auth btn-login"
+                  >
+                    登录
+                  </button>
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="btn-auth btn-register"
+                  >
+                    免费注册
+                  </button>
+                </div>
+              )}
             </nav>
 
             {/* 主内容区 */}

@@ -27,6 +27,161 @@
   flex-shrink: 0;
 }
 
+/* 导航栏右侧登录按钮区域 */
+.navbar-auth-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+/* 导航栏中的主题切换器 */
+.navbar-auth-buttons .toggle {
+  width: 80px !important;
+  height: 30px !important;
+  flex-shrink: 0;
+}
+
+/* ========== 液态玻璃按钮样式 ========== */
+.navbar-auth-buttons .btn-auth {
+  padding: 0.5rem 1.25rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 价格方案按钮 - 液态玻璃效果 */
+[data-theme="dark"] .navbar-auth-buttons .btn-pricing {
+  background: rgba(251, 191, 36, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] .navbar-auth-buttons .btn-pricing {
+  background: rgba(217, 119, 6, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #b45309;
+  border: 1px solid rgba(217, 119, 6, 0.15);
+  box-shadow: 
+    0 2px 8px rgba(217, 119, 6, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .navbar-auth-buttons .btn-pricing:hover {
+  background: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.4);
+  box-shadow: 
+    0 4px 16px rgba(251, 191, 36, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+[data-theme="light"] .navbar-auth-buttons .btn-pricing:hover {
+  background: rgba(217, 119, 6, 0.12);
+  border-color: rgba(217, 119, 6, 0.3);
+  box-shadow: 
+    0 4px 16px rgba(217, 119, 6, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transform: translateY(-1px);
+}
+
+/* 登录按钮 - 液态玻璃效果 */
+.navbar-auth-buttons .btn-login {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .navbar-auth-buttons .btn-login {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] .navbar-auth-buttons .btn-login {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .navbar-auth-buttons .btn-login:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+[data-theme="light"] .navbar-auth-buttons .btn-login:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  transform: translateY(-1px);
+}
+
+/* 注册按钮 - 液态玻璃效果 + 主色调 */
+.navbar-auth-buttons .btn-register {
+  color: white;
+}
+
+[data-theme="dark"] .navbar-auth-buttons .btn-register {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.9) 0%, rgba(16, 163, 127, 0.7) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  box-shadow: 
+    0 2px 12px rgba(16, 163, 127, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="light"] .navbar-auth-buttons .btn-register {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.95) 0%, rgba(16, 163, 127, 0.85) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  box-shadow: 
+    0 2px 12px rgba(16, 163, 127, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .navbar-auth-buttons .btn-register:hover {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 1) 0%, rgba(16, 163, 127, 0.85) 100%);
+  border-color: rgba(16, 163, 127, 0.5);
+  box-shadow: 
+    0 6px 20px rgba(16, 163, 127, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+[data-theme="light"] .navbar-auth-buttons .btn-register:hover {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 1) 0%, rgba(16, 163, 127, 0.9) 100%);
+  border-color: rgba(16, 163, 127, 0.4);
+  box-shadow: 
+    0 6px 20px rgba(16, 163, 127, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
 /* 论文详情模式下标题栏的搜索按钮 */
 .epd-navbar-search-btn {
   display: flex;

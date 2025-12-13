@@ -296,11 +296,11 @@ const Home = () => {
         structuredData={generateFAQSchema(faqData)}
       />
       
-      <div className={`main-container ${isAuthenticated ? (sidebarCollapsed ? 'sidebar-collapsed-narrow' : 'has-sidebar') : 'sidebar-collapsed'}`}>
+      <div className={`main-container ${sidebarCollapsed ? 'sidebar-collapsed-narrow' : 'has-sidebar'}`}>
         <nav className="top-navbar">
           <div className="navbar-left">
-            {/* 移动端菜单按钮 - 登录状态下显示 */}
-            {isMobile && isAuthenticated && (
+            {/* 移动端菜单按钮 */}
+            {isMobile && (
               <button 
                 className="mobile-menu-btn"
                 onClick={openMobileSidebar}
