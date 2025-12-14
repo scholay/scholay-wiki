@@ -52,6 +52,30 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, "success", order)
 }
 
+// CreateRechargeOrder handles POST /api/v1/user/orders/recharge
+// Creates a new recharge order for diamond
+func (h *Handler) CreateRechargeOrder(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var req CreateRechargeOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+		return
+	}
+
+	order, err := h.service.CreateRechargeOrder(userID.(uint), req)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to create recharge order: "+err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "success", order)
+}
+
 // GetMyOrders handles GET /api/v1/user/orders/my
 // Returns current user's orders
 func (h *Handler) GetMyOrders(c *gin.Context) {

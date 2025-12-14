@@ -286,6 +286,8 @@ func main() {
 	conversationHandler.SetCurrencyService(currencyService)
 	// Inject currency service into user handler (for user list wallet info)
 	userHandler.SetCurrencyService(currencyService)
+	// Inject currency service into order service (for recharge order)
+	orderService.SetCurrencyService(currencyService)
 
 	// Initialize Membership Gift Scheduler (会员月度赠送/清空调度器)
 	membershipGiftScheduler := currency.NewMembershipGiftScheduler(currencyService, func(planCodes []string) ([]currency.MemberSubscription, error) {
@@ -581,6 +583,7 @@ func main() {
 
 			// Order routes
 			userProtected.POST("/orders/create", orderHandler.CreateOrder)
+			userProtected.POST("/orders/recharge", orderHandler.CreateRechargeOrder) // 恩特币充值订单
 			userProtected.GET("/orders/my", orderHandler.GetMyOrders)
 			userProtected.GET("/orders/:order_no", orderHandler.GetOrderDetail)
 			userProtected.POST("/orders/pay", orderHandler.ProcessPayment)

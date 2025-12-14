@@ -257,14 +257,17 @@ CREATE TABLE IF NOT EXISTS `usage_quotas` (
 -- 订单和支付表
 -- ============================================
 
--- 订单表
+-- 订单表（支持会员订阅和恩特币充值）
 CREATE TABLE IF NOT EXISTS `orders` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id` BIGINT UNSIGNED NOT NULL,
   `order_no` VARCHAR(64) NOT NULL COMMENT '订单号',
-  `plan_code` VARCHAR(20) NOT NULL COMMENT '订阅计划代码',
-  `plan_name` VARCHAR(50) NOT NULL COMMENT '下单时的计划名称',
-  `billing_cycle` VARCHAR(20) NOT NULL COMMENT 'monthly或yearly',
+  `order_type` VARCHAR(20) NOT NULL DEFAULT 'subscription' COMMENT '订单类型: subscription(会员订阅), recharge(恩特币充值)',
+  `plan_code` VARCHAR(20) COMMENT '订阅计划代码（会员订阅用）',
+  `plan_name` VARCHAR(50) COMMENT '下单时的计划名称（会员订阅用）',
+  `billing_cycle` VARCHAR(20) COMMENT 'monthly或yearly（会员订阅用）',
+  `diamond_amount` BIGINT NOT NULL DEFAULT 0 COMMENT '恩特币数量（充值用）',
+  `bonus_amount` BIGINT NOT NULL DEFAULT 0 COMMENT '赠送数量（充值用）',
   `amount` DECIMAL(10,2) NOT NULL COMMENT '订单原价（折扣前）',
   `coupon_id` BIGINT UNSIGNED COMMENT '使用的折扣券ID',
   `discount_amount` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '折扣金额',
@@ -277,13 +280,14 @@ CREATE TABLE IF NOT EXISTS `orders` (
   PRIMARY KEY (`id`),
   UNIQUE INDEX `uk_order_no` (`order_no`),
   INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_order_type` (`order_type`),
   INDEX `idx_coupon_id` (`coupon_id`),
   INDEX `idx_status` (`status`),
   INDEX `idx_created_at` (`created_at`),
   INDEX `idx_user_created` (`user_id`, `created_at` DESC),
   INDEX `idx_status_created` (`status`, `created_at` DESC),
   CONSTRAINT `fk_orders_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订阅订单';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单表（会员订阅/恩特币充值）';
 
 -- 支付交易表
 CREATE TABLE IF NOT EXISTS `payment_transactions` (

@@ -8,12 +8,14 @@
 package order
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"scholar-backend/internal/coupon"
+	"scholar-backend/internal/currency"
 	"scholar-backend/internal/subscription"
 
 	"gorm.io/gorm"
@@ -22,10 +24,11 @@ import (
 
 // Service handles business logic for orders
 type Service struct {
-	repo        *Repository
-	subsService *subscription.Service
-	couponRepo  *coupon.Repository
-	db          *gorm.DB
+	repo            *Repository
+	subsService     *subscription.Service
+	couponRepo      *coupon.Repository
+	db              *gorm.DB
+	currencyService *currency.Service
 }
 
 // NewService creates a new order service
@@ -37,6 +40,11 @@ func NewService(db *gorm.DB, subsService *subscription.Service) *Service {
 		couponRepo:  coupon.NewRepository(db),
 		db:          db,
 	}
+}
+
+// SetCurrencyService 设置货币服务（用于充值订单发放恩特币）
+func (s *Service) SetCurrencyService(currencyService *currency.Service) {
+	s.currencyService = currencyService
 }
 
 // CreateOrderRequest represents the request to create an order
@@ -168,6 +176,43 @@ func (s *Service) CreateOrder(userID uint, req CreateOrderRequest) (*Order, erro
 	return order, nil
 }
 
+// CreateRechargeOrderRequest 创建充值订单请求
+type CreateRechargeOrderRequest struct {
+	DiamondAmount int64 `json:"diamond_amount" binding:"required,min=1"`
+	BonusAmount   int64 `json:"bonus_amount"`
+}
+
+// CreateRechargeOrder 创建恩特币充值订单
+func (s *Service) CreateRechargeOrder(userID uint, req CreateRechargeOrderRequest) (*Order, error) {
+	// 获取恩特币单价（分）
+	diamondPrice := int64(100) // 默认 1 元/个
+	// TODO: 从配置中获取价格
+
+	// 计算金额（元）
+	amount := float64(req.DiamondAmount*diamondPrice) / 100.0
+
+	// 生成订单号
+	orderNo := fmt.Sprintf("RCH%d%d", time.Now().Unix(), userID)
+
+	// 创建订单
+	order := &Order{
+		UserID:        userID,
+		OrderNo:       orderNo,
+		OrderType:     OrderTypeRecharge,
+		DiamondAmount: req.DiamondAmount,
+		BonusAmount:   req.BonusAmount,
+		Amount:        amount,
+		FinalAmount:   amount,
+		Status:        "pending",
+	}
+
+	if err := s.repo.CreateOrder(order); err != nil {
+		return nil, fmt.Errorf("failed to create recharge order: %w", err)
+	}
+
+	return order, nil
+}
+
 // GetUserOrders retrieves orders for a user
 func (s *Service) GetUserOrders(userID uint, page, pageSize int) ([]Order, int64, error) {
 	if page < 1 {
@@ -260,21 +305,43 @@ func (s *Service) ProcessPayment(userID uint, req ProcessPaymentRequest) error {
 		return fmt.Errorf("failed to update order status: %w", err)
 	}
 
-	// Calculate subscription duration
-	var duration int
-	if order.BillingCycle == "monthly" {
-		duration = 1
+	// 根据订单类型处理不同的业务逻辑
+	if order.OrderType == OrderTypeRecharge {
+		// 恩特币充值订单：发放恩特币
+		if err := s.processRechargeOrder(order); err != nil {
+			return fmt.Errorf("failed to process recharge: %w", err)
+		}
 	} else {
-		duration = 12
-	}
-
-	// Upgrade user subscription
-	// 注意：会员奖励发放现在由 subscription.Service 的 ActivationCallback 自动处理
-	if err := s.subsService.UpgradeSubscription(userID, order.PlanCode, duration); err != nil {
-		return fmt.Errorf("failed to upgrade subscription: %w", err)
+		// 会员订阅订单：升级会员
+		var duration int
+		if order.BillingCycle == "monthly" {
+			duration = 1
+		} else {
+			duration = 12
+		}
+		// 注意：会员奖励发放现在由 subscription.Service 的 ActivationCallback 自动处理
+		if err := s.subsService.UpgradeSubscription(userID, order.PlanCode, duration); err != nil {
+			return fmt.Errorf("failed to upgrade subscription: %w", err)
+		}
 	}
 
 	return nil
+}
+
+// processRechargeOrder 处理充值订单，发放恩特币
+func (s *Service) processRechargeOrder(order *Order) error {
+	if s.currencyService == nil {
+		return errors.New("currency service not initialized")
+	}
+
+	ctx := context.Background()
+	totalDiamond := order.DiamondAmount + order.BonusAmount
+	bizID := fmt.Sprintf("recharge_%s", order.OrderNo)
+
+	// 使用 diamond_price 作为 biz_type，与货币配置表对应
+	// description 留空，前端会根据 biz_type 从配置表获取 display_name 和 display_remark 来展示
+	_, err := s.currencyService.RechargeDiamond(ctx, order.UserID, totalDiamond, "diamond_price", bizID, "")
+	return err
 }
 
 // CancelOrder cancels an order and unreserves the coupon if applicable
@@ -361,19 +428,24 @@ func (s *Service) ProcessAlipayCallback(orderNo, transactionNo string, amount fl
 		return fmt.Errorf("failed to update order status: %w", err)
 	}
 
-	// Calculate subscription duration
-	var duration int
-	if order.BillingCycle == "monthly" {
-		duration = 1
+	// 根据订单类型处理不同的业务逻辑
+	if order.OrderType == OrderTypeRecharge {
+		// 恩特币充值订单：发放恩特币
+		if err := s.processRechargeOrder(order); err != nil {
+			return fmt.Errorf("failed to process recharge: %w", err)
+		}
 	} else {
-		duration = 12
-	}
-
-	// Upgrade user subscription
-	// 注意：会员奖励发放现在由 subscription.Service 的 ActivationCallback 自动处理
-	// 无需在此处调用 giftMembershipReward
-	if err := s.subsService.UpgradeSubscription(order.UserID, order.PlanCode, duration); err != nil {
-		return fmt.Errorf("failed to upgrade subscription: %w", err)
+		// 会员订阅订单：升级会员
+		var duration int
+		if order.BillingCycle == "monthly" {
+			duration = 1
+		} else {
+			duration = 12
+		}
+		// 注意：会员奖励发放现在由 subscription.Service 的 ActivationCallback 自动处理
+		if err := s.subsService.UpgradeSubscription(order.UserID, order.PlanCode, duration); err != nil {
+			return fmt.Errorf("failed to upgrade subscription: %w", err)
+		}
 	}
 
 	// Mark coupon as used if order has a coupon
@@ -435,18 +507,24 @@ func (s *Service) ProcessWeChatPayCallback(orderNo, transactionNo string, amount
 		return fmt.Errorf("failed to update order status: %w", err)
 	}
 
-	// Calculate subscription duration
-	var duration int
-	if order.BillingCycle == "monthly" {
-		duration = 1
+	// 根据订单类型处理不同的业务逻辑
+	if order.OrderType == OrderTypeRecharge {
+		// 恩特币充值订单：发放恩特币
+		if err := s.processRechargeOrder(order); err != nil {
+			return fmt.Errorf("failed to process recharge: %w", err)
+		}
 	} else {
-		duration = 12
-	}
-
-	// Upgrade user subscription
-	// 注意：会员奖励发放现在由 subscription.Service 的 ActivationCallback 自动处理
-	if err := s.subsService.UpgradeSubscription(order.UserID, order.PlanCode, duration); err != nil {
-		return fmt.Errorf("failed to upgrade subscription: %w", err)
+		// 会员订阅订单：升级会员
+		var duration int
+		if order.BillingCycle == "monthly" {
+			duration = 1
+		} else {
+			duration = 12
+		}
+		// 注意：会员奖励发放现在由 subscription.Service 的 ActivationCallback 自动处理
+		if err := s.subsService.UpgradeSubscription(order.UserID, order.PlanCode, duration); err != nil {
+			return fmt.Errorf("failed to upgrade subscription: %w", err)
+		}
 	}
 
 	// Mark coupon as used if order has a coupon

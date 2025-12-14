@@ -9,19 +9,28 @@ package order
 
 import "time"
 
-// Order represents a subscription order
+// OrderType 订单类型
+const (
+	OrderTypeSubscription = "subscription" // 会员订阅
+	OrderTypeRecharge     = "recharge"     // 恩特币充值
+)
+
+// Order represents an order (subscription or recharge)
 type Order struct {
 	ID             uint       `gorm:"primaryKey" json:"id"`
 	UserID         uint       `gorm:"not null;index" json:"user_id"`
 	OrderNo        string     `gorm:"uniqueIndex;size:64;not null" json:"order_no"`
-	PlanCode       string     `gorm:"size:20;not null" json:"plan_code"`
-	PlanName       string     `gorm:"size:50;not null" json:"plan_name"`
-	BillingCycle   string     `gorm:"size:20;not null" json:"billing_cycle"` // monthly or yearly
-	Amount         float64    `gorm:"type:decimal(10,2);not null" json:"amount"` // Original amount before discount
-	CouponID       *uint64    `gorm:"index" json:"coupon_id"` // Which coupon was applied (nullable)
-	DiscountAmount float64    `gorm:"type:decimal(10,2);default:0" json:"discount_amount"` // Amount discounted
-	FinalAmount    float64    `gorm:"type:decimal(10,2);not null" json:"final_amount"` // Final amount after discount (what user pays)
-	Status         string     `gorm:"size:20;not null;default:'pending'" json:"status"` // pending, paid, cancelled, refunded
+	OrderType      string     `gorm:"size:20;not null;default:'subscription'" json:"order_type"` // subscription, recharge
+	PlanCode       string     `gorm:"size:20" json:"plan_code"`                                  // 会员订阅时的套餐代码
+	PlanName       string     `gorm:"size:50" json:"plan_name"`                                  // 会员订阅时的套餐名称
+	BillingCycle   string     `gorm:"size:20" json:"billing_cycle"`                              // monthly or yearly (会员订阅用)
+	DiamondAmount  int64      `gorm:"default:0" json:"diamond_amount"`                           // 恩特币数量（充值用）
+	BonusAmount    int64      `gorm:"default:0" json:"bonus_amount"`                             // 赠送数量（充值用）
+	Amount         float64    `gorm:"type:decimal(10,2);not null" json:"amount"`                 // Original amount before discount
+	CouponID       *uint64    `gorm:"index" json:"coupon_id"`                                    // Which coupon was applied (nullable)
+	DiscountAmount float64    `gorm:"type:decimal(10,2);default:0" json:"discount_amount"`       // Amount discounted
+	FinalAmount    float64    `gorm:"type:decimal(10,2);not null" json:"final_amount"`           // Final amount after discount (what user pays)
+	Status         string     `gorm:"size:20;not null;default:'pending'" json:"status"`          // pending, paid, cancelled, refunded
 	PaymentMethod  string     `gorm:"size:50" json:"payment_method"`
 	PaymentTime    *time.Time `json:"payment_time"`
 	CreatedAt      time.Time  `json:"created_at"`

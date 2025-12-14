@@ -42,6 +42,14 @@ const OrderConfirmation = () => {
     const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     setIsDevMode(isDev);
 
+    // Check if this is a recharge order
+    const { rechargeAmount, rechargebonus } = location.state || {};
+    if (rechargeAmount) {
+      // Recharge flow: create preview order for diamond recharge
+      createRechargePreview(rechargeAmount, rechargebonus || 0);
+      return;
+    }
+
     // Check if we have plan details (new flow - order not created yet)
     const { planCode, billingCycle } = location.state || {};
 
@@ -63,6 +71,28 @@ const OrderConfirmation = () => {
     showError('订单信息不存在,请重新下单');
     navigate('/pricing');
   }, [location.state, location.search]);
+
+  // 创建充值预览订单
+  const createRechargePreview = async (diamondAmount, bonusAmount) => {
+    // 获取恩特币单价（默认1元/个）
+    const pricePerDiamond = 1;
+    const amount = diamondAmount * pricePerDiamond;
+
+    const previewOrder = {
+      order_type: 'recharge',
+      diamond_amount: diamondAmount,
+      bonus_amount: bonusAmount,
+      amount: amount,
+      final_amount: amount,
+      discount_amount: 0,
+      status: 'preview',
+      order_no: null,
+      created_at: new Date().toISOString(),
+    };
+
+    setOrder(previewOrder);
+    setLoading(false);
+  };
 
   // 获取可用折扣券
   const fetchAvailableCoupons = async (orderNo) => {
@@ -272,12 +302,24 @@ const OrderConfirmation = () => {
     let actualOrder = order;
     if (order.status === 'preview') {
       try {
-        console.log('[Order Creation] Creating order with coupon:', selectedCoupon?.id);
-        const createOrderResponse = await orderAPI.createOrder(
-          order.plan_code,
-          order.billing_cycle,
-          selectedCoupon?.id // Pass coupon_id if selected
-        );
+        let createOrderResponse;
+        
+        if (order.order_type === 'recharge') {
+          // 创建充值订单
+          console.log('[Order Creation] Creating recharge order:', order.diamond_amount);
+          createOrderResponse = await orderAPI.createRechargeOrder(
+            order.diamond_amount,
+            order.bonus_amount
+          );
+        } else {
+          // 创建会员订阅订单
+          console.log('[Order Creation] Creating subscription order with coupon:', selectedCoupon?.id);
+          createOrderResponse = await orderAPI.createOrder(
+            order.plan_code,
+            order.billing_cycle,
+            selectedCoupon?.id // Pass coupon_id if selected
+          );
+        }
 
         if (createOrderResponse.data.code !== 0 || !createOrderResponse.data.data) {
           showError('创建订单失败：' + (createOrderResponse.data.message || '未知错误'));
@@ -298,6 +340,15 @@ const OrderConfirmation = () => {
     try {
       // Use the final_amount from the order (backend has already calculated discount)
       const finalAmount = actualOrder.final_amount;
+      
+      // 根据订单类型生成支付标题
+      const isRecharge = actualOrder.order_type === 'recharge';
+      const subject = isRecharge
+        ? `恩特币充值 ${actualOrder.diamond_amount}个`
+        : `Scholar ${actualOrder.plan_name} ${actualOrder.billing_cycle === 'monthly' ? '月付' : '年付'}订阅`;
+      const description = isRecharge
+        ? `充值${actualOrder.diamond_amount}恩特币${actualOrder.bonus_amount > 0 ? `（含赠送${actualOrder.bonus_amount}）` : ''}`
+        : `订单号: ${actualOrder.order_no}`;
 
       if (selectedPaymentMethod === 'simulate') {
         // Simulate payment for development
@@ -318,8 +369,6 @@ const OrderConfirmation = () => {
         // Create Alipay payment
         // Return to order confirmation page with order number so user can see payment result
         const returnURL = `${window.location.origin}/order-confirmation?orderNo=${actualOrder.order_no}`;
-        const subject = `Scholar ${actualOrder.plan_name} ${actualOrder.billing_cycle === 'monthly' ? '月付' : '年付'}订阅`;
-        const description = `订单号: ${actualOrder.order_no}`;
 
         const paymentResponse = await paymentAPI.createAlipayPayment(
           actualOrder.order_no,
@@ -491,8 +540,19 @@ const OrderConfirmation = () => {
         {order.status === 'paid' && (
           <div className="payment-success-message">
             <div className="success-icon">✓</div>
-            <h2>恭喜您,订阅已激活!</h2>
-            <p>您的 {order.plan_name} 订阅已成功激活,现在可以享受所有功能。</p>
+            {order.order_type === 'recharge' ? (
+              <>
+                <h2>充值成功!</h2>
+                <p>您已成功充值 {order.diamond_amount + order.bonus_amount} 恩特币
+                  {order.bonus_amount > 0 && `（含赠送${order.bonus_amount}个）`}
+                </p>
+              </>
+            ) : (
+              <>
+                <h2>恭喜您,订阅已激活!</h2>
+                <p>您的 {order.plan_name} 订阅已成功激活,现在可以享受所有功能。</p>
+              </>
+            )}
             <p className="redirect-hint">即将跳转到订阅管理页面...</p>
           </div>
         )}
@@ -524,13 +584,27 @@ const OrderConfirmation = () => {
               )}
             </div>
 
-            {/* Plan Info */}
-            <div className="plan-info">
-              <div className="plan-name">{order.plan_name || 'PRO'}</div>
-              <div className="plan-cycle">
-                {order.billing_cycle === 'monthly' ? '按月付费' : '按年付费'}
+            {/* Plan Info / Recharge Info */}
+            {order.order_type === 'recharge' ? (
+              <div className="plan-info">
+                <div className="plan-name">恩特币充值</div>
+                <div className="plan-cycle">
+                  充值 {order.diamond_amount} 个
+                  {order.bonus_amount > 0 && (
+                    <span style={{color: '#10a37f', marginLeft: '8px'}}>
+                      +赠送{order.bonus_amount}个
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="plan-info">
+                <div className="plan-name">{order.plan_name || 'PRO'}</div>
+                <div className="plan-cycle">
+                  {order.billing_cycle === 'monthly' ? '按月付费' : '按年付费'}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Column - Payment */}
@@ -539,37 +613,41 @@ const OrderConfirmation = () => {
             <div className="amount-summary">
               <h3>支付金额</h3>
               <div className="amount-row">
-                <span className="amount-label">套餐价格</span>
+                <span className="amount-label">
+                  {order.order_type === 'recharge' ? '充值金额' : '套餐价格'}
+                </span>
                 <span className="amount-value">¥{order.amount.toFixed(2)}</span>
               </div>
 
-              {/* 折扣券选择 */}
-              <div className="coupon-selection">
-                {selectedCoupon ? (
-                  <div className="selected-coupon">
-                    <div className="coupon-info">
-                      <span className="coupon-name">{selectedCoupon.template?.name || '优惠券'}</span>
-                      <span className="coupon-discount">-¥{discountPreview?.discount_amount?.toFixed(2)}</span>
+              {/* 折扣券选择（仅会员订阅订单显示） */}
+              {order.order_type !== 'recharge' && (
+                <div className="coupon-selection">
+                  {selectedCoupon ? (
+                    <div className="selected-coupon">
+                      <div className="coupon-info">
+                        <span className="coupon-name">{selectedCoupon.template?.name || '优惠券'}</span>
+                        <span className="coupon-discount">-¥{discountPreview?.discount_amount?.toFixed(2)}</span>
+                      </div>
+                      <button className="btn-remove-coupon" onClick={handleRemoveCoupon}>×</button>
                     </div>
-                    <button className="btn-remove-coupon" onClick={handleRemoveCoupon}>×</button>
-                  </div>
-                ) : (
-                  <button
-                    className="btn-select-coupon"
-                    onClick={() => setShowCouponModal(true)}
-                    disabled={availableCoupons.length === 0}
-                  >
-                    {availableCoupons.length > 0 ? (
-                      <>
-                        <span>🎟️ 使用折扣券</span>
-                        <span className="coupon-count">{availableCoupons.length}张可用</span>
-                      </>
-                    ) : (
-                      <span>暂无可用折扣券</span>
-                    )}
-                  </button>
-                )}
-              </div>
+                  ) : (
+                    <button
+                      className="btn-select-coupon"
+                      onClick={() => setShowCouponModal(true)}
+                      disabled={availableCoupons.length === 0}
+                    >
+                      {availableCoupons.length > 0 ? (
+                        <>
+                          <span>🎟️ 使用折扣券</span>
+                          <span className="coupon-count">{availableCoupons.length}张可用</span>
+                        </>
+                      ) : (
+                        <span>暂无可用折扣券</span>
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
 
               <div className="amount-divider"></div>
               <div className="amount-row total">

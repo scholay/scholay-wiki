@@ -490,6 +490,13 @@ export const orderAPI = {
       coupon_id: couponId // Optional coupon_id parameter
     }),
 
+  // Create a recharge order for diamond
+  createRechargeOrder: (diamondAmount, bonusAmount = 0) =>
+    api.post('/user/orders/recharge', {
+      diamond_amount: diamondAmount,
+      bonus_amount: bonusAmount
+    }),
+
   // Get user's orders with pagination
   getMyOrders: (page = 1, pageSize = 20) =>
     api.get('/user/orders/my', { params: { page, page_size: pageSize } }),
