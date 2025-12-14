@@ -35,6 +35,456 @@
   max-width: 100%;
 }
 
+/* ========== AM - 液态玻璃卡片 ========== */
+.am-card {
+  border-radius: 20px;
+  margin-bottom: 20px;
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+  position: relative;
+}
+
+.am-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* FREE - 灰色调 */
+.am-card.free {
+  background: linear-gradient(
+    135deg,
+    rgba(148, 163, 184, 0.12) 0%,
+    rgba(100, 116, 139, 0.08) 50%,
+    rgba(71, 85, 105, 0.1) 100%
+  );
+}
+
+/* PRO - 淡金色/古铜色 */
+.am-card.pro {
+  background: linear-gradient(
+    135deg,
+    rgba(217, 175, 107, 0.12) 0%,
+    rgba(205, 164, 94, 0.08) 50%,
+    rgba(217, 175, 107, 0.1) 100%
+  );
+}
+
+.am-card.pro::before {
+  background: linear-gradient(
+    135deg,
+    rgba(217, 175, 107, 0.25) 0%,
+    rgba(217, 175, 107, 0.08) 50%,
+    rgba(217, 175, 107, 0.18) 100%
+  );
+}
+
+/* MAX - 亮金色 */
+.am-card.max {
+  background: linear-gradient(
+    135deg,
+    rgba(251, 191, 36, 0.15) 0%,
+    rgba(245, 158, 11, 0.1) 35%,
+    rgba(234, 88, 12, 0.08) 70%,
+    rgba(251, 191, 36, 0.12) 100%
+  );
+}
+
+.am-card.max::before {
+  background: linear-gradient(
+    135deg,
+    rgba(251, 191, 36, 0.35) 0%,
+    rgba(251, 191, 36, 0.12) 50%,
+    rgba(251, 191, 36, 0.25) 100%
+  );
+}
+
+/* 通用行 */
+.am-row {
+  display: flex;
+  align-items: center;
+  padding: 14px 18px;
+  position: relative;
+}
+
+/* 会员行 */
+.am-member-row {
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.am-member-row::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 18px;
+  right: 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+}
+
+.am-member-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.am-badge {
+  padding: 5px 12px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-right: 12px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.am-badge.free {
+  background: rgba(148, 163, 184, 0.2);
+  color: rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* PRO 徽章 - 淡金色/古铜色 */
+.am-badge.pro {
+  background: linear-gradient(135deg, rgba(217, 175, 107, 0.9), rgba(205, 164, 94, 0.9));
+  color: #3d2e1a;
+  box-shadow: 0 2px 8px rgba(217, 175, 107, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* MAX 徽章 - 亮金色 */
+.am-badge.max {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 1), rgba(245, 158, 11, 1));
+  color: #422006;
+  box-shadow: 0 2px 12px rgba(251, 191, 36, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.am-text {
+  flex: 1;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.am-action {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.am-card.free .am-action {
+  color: #d9af6b;
+}
+
+.am-card.pro .am-action {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.am-card.max .am-action {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* 余额行 */
+.am-balance-row {
+  padding: 16px 18px;
+  gap: 0;
+}
+
+.am-bal {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.am-bal-sep {
+  width: 1px;
+  height: 32px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  margin: 0 20px;
+}
+
+.am-bal-icon {
+  font-size: 20px;
+}
+
+.am-bal-num {
+  flex: 1;
+  font-size: 20px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.am-btn {
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.am-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.25);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.am-btn.primary {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(124, 58, 237, 0.95));
+  border: none;
+  color: white;
+  box-shadow: 
+    0 4px 12px rgba(139, 92, 246, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.am-btn.primary:hover {
+  box-shadow: 
+    0 6px 16px rgba(139, 92, 246, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.am-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 基金行 */
+.am-fund-row {
+  cursor: pointer;
+  padding: 12px 18px;
+  transition: background 0.2s ease;
+}
+
+.am-fund-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 18px;
+  right: 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+}
+
+.am-fund-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.am-fund-icon {
+  font-size: 16px;
+  margin-right: 10px;
+}
+
+.am-fund-row svg {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+
+/* ========== AM - 流水与账单 Tab ========== */
+.am-records-section {
+  margin-bottom: 16px;
+}
+
+.am-records-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.am-records-tab {
+  flex: 1;
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.am-records-tab:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.am-records-tab.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* ========== AM - Light Theme ========== */
+[data-theme="light"] .am-card {
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .am-card::before {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.4) 100%
+  );
+}
+
+[data-theme="light"] .am-card.free {
+  background: linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 0.9) 0%,
+    rgba(241, 245, 249, 0.85) 50%,
+    rgba(226, 232, 240, 0.9) 100%
+  );
+}
+
+/* PRO - 淡金色 Light */
+[data-theme="light"] .am-card.pro {
+  background: linear-gradient(
+    135deg,
+    rgba(254, 249, 239, 0.95) 0%,
+    rgba(253, 244, 227, 0.9) 50%,
+    rgba(251, 236, 209, 0.95) 100%
+  );
+}
+
+/* MAX - 亮金色 Light */
+[data-theme="light"] .am-card.max {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 251, 235, 0.95) 0%,
+    rgba(254, 243, 199, 0.9) 50%,
+    rgba(253, 230, 138, 0.95) 100%
+  );
+}
+
+[data-theme="light"] .am-member-row::after {
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.06), transparent);
+}
+
+[data-theme="light"] .am-member-row:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .am-badge.free {
+  background: rgba(100, 116, 139, 0.15);
+  color: #475569;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="light"] .am-text {
+  color: #64748b;
+}
+
+[data-theme="light"] .am-action {
+  color: #6366f1;
+}
+
+[data-theme="light"] .am-bal-sep {
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.08), transparent);
+}
+
+[data-theme="light"] .am-bal-num {
+  color: #1e293b;
+}
+
+[data-theme="light"] .am-btn {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #374151;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .am-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .am-card.free .am-action {
+  color: #b8860b;
+}
+
+[data-theme="light"] .am-card.pro .am-action,
+[data-theme="light"] .am-card.max .am-action {
+  color: #92400e;
+}
+
+[data-theme="light"] .am-fund-row::before {
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.06), transparent);
+}
+
+[data-theme="light"] .am-fund-row:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .am-fund-row svg {
+  color: #94a3b8;
+}
+
+[data-theme="light"] .am-records-tabs {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .am-records-tab {
+  color: #6b7280;
+}
+
+[data-theme="light"] .am-records-tab:hover {
+  color: #374151;
+}
+
+[data-theme="light"] .am-records-tab.active {
+  background: white;
+  color: #1f2937;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* ========== AM - Responsive ========== */
+@media (max-width: 480px) {
+  .am-balance-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .am-bal-sep {
+    display: none;
+  }
+
+  .am-bal {
+    width: 100%;
+  }
+}
+
 .subscription-loading {
   display: flex;
   flex-direction: column;
@@ -371,6 +821,218 @@
 
 .btn-upgrade-compact:hover svg {
   transform: translateX(3px);
+}
+
+/* Subscription Balance Area - 余额显示区域 */
+.subscription-balance-area {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.balance-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.balance-icon-mini {
+  font-size: 16px;
+}
+
+.balance-label-mini {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.balance-value-mini {
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.balance-item.gold .balance-value-mini {
+  color: #fbbf24;
+}
+
+.balance-item.diamond .balance-value-mini {
+  color: #60a5fa;
+}
+
+.balance-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.subscription-compact-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Quick Actions - 快捷操作 */
+.subscription-quick-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.quick-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.quick-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.quick-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.quick-action-btn.exchange {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+.quick-action-btn.exchange:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.quick-action-btn.recharge {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.1));
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.quick-action-btn.recharge:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.15));
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.quick-action-btn.fund {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.1));
+  border-color: rgba(251, 191, 36, 0.2);
+}
+
+.quick-action-btn.fund:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.15));
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.quick-action-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.quick-action-btn .action-icon {
+  font-size: 16px;
+}
+
+/* Light theme */
+[data-theme="light"] .subscription-balance-area {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .balance-label-mini {
+  color: #6b7280;
+}
+
+[data-theme="light"] .balance-value-mini {
+  color: #1f2937;
+}
+
+[data-theme="light"] .balance-item.gold .balance-value-mini {
+  color: #d97706;
+}
+
+[data-theme="light"] .balance-item.diamond .balance-value-mini {
+  color: #2563eb;
+}
+
+[data-theme="light"] .balance-divider {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .quick-action-btn {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #374151;
+}
+
+[data-theme="light"] .quick-action-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .quick-action-btn.exchange {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
+  border-color: rgba(99, 102, 241, 0.15);
+}
+
+[data-theme="light"] .quick-action-btn.exchange:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(139, 92, 246, 0.12));
+}
+
+[data-theme="light"] .quick-action-btn.recharge {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(16, 185, 129, 0.08));
+  border-color: rgba(34, 197, 94, 0.15);
+}
+
+[data-theme="light"] .quick-action-btn.recharge:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(16, 185, 129, 0.12));
+}
+
+[data-theme="light"] .quick-action-btn.fund {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(245, 158, 11, 0.08));
+  border-color: rgba(251, 191, 36, 0.15);
+}
+
+[data-theme="light"] .quick-action-btn.fund:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(245, 158, 11, 0.12));
+}
+
+/* Responsive - 移动端适配 */
+@media (max-width: 768px) {
+  .subscription-compact-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .subscription-balance-area {
+    justify-content: center;
+  }
+
+  .subscription-compact-actions {
+    justify-content: center;
+  }
+
+  .subscription-quick-actions {
+    flex-direction: column;
+  }
 }
 
 /* Subscription Skeleton Loading */

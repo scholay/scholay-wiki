@@ -223,7 +223,7 @@ func main() {
 
 	// Initialize Subscription module
 	subscriptionService := subscription.NewService(database.GetDB())
-	subscriptionHandler := subscription.NewHandler(database.GetDB())
+	subscriptionHandler := subscription.NewHandler(subscriptionService)
 
 	// Initialize Conversation module
 	conversationRepo := conversation.NewRepository(database.GetDB())
@@ -235,11 +235,11 @@ func main() {
 	proxyHandler := proxy.NewHandler()
 
 	// Initialize Order module
-	orderService := order.NewService(database.GetDB())
-	orderHandler := order.NewHandlerWithService(orderService)
+	orderService := order.NewService(database.GetDB(), subscriptionService)
+	orderHandler := order.NewHandler(orderService)
 
 	// Initialize Payment module
-	alipayHandler := payment.NewAlipayHandler(database.GetDB())
+	alipayHandler := payment.NewAlipayHandler(database.GetDB(), orderService)
 	wechatPayRepo := payment.NewWeChatPayRepository(database.GetDB())
 	wechatPayService := payment.NewWeChatPayService(wechatPayRepo)
 	wechatPayHandler := payment.NewWeChatPayHandler(wechatPayService, orderService)
@@ -318,11 +318,13 @@ func main() {
 		}
 		return result, nil
 	})
+	// 设置会员激活回调 - 当用户开通会员时自动发放奖励
+	// 这是解耦支付方式和奖励发放的关键：无论通过何种支付方式开通会员，
+	// 只要调用 UpgradeSubscription，就会自动触发奖励发放
+	subscriptionService.SetActivationCallback(membershipGiftScheduler.OnSubscriptionActivated)
+	
 	membershipGiftScheduler.Start()
 	defer membershipGiftScheduler.Stop()
-
-	// Inject membership gift service into order service (for activation gift)
-	orderService.SetMembershipGiftService(membershipGiftScheduler)
 
 	// Setup Gin router
 	router := gin.Default()

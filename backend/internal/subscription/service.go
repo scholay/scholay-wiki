@@ -16,9 +16,16 @@ import (
 	"gorm.io/gorm"
 )
 
+// ActivationCallback 会员激活回调函数类型
+// userID: 用户ID
+// planCode: 套餐代码 (pro/max)
+// isNewActivation: 是否是新开通（true=新开通，false=续费）
+type ActivationCallback func(userID uint, planCode string, isNewActivation bool)
+
 // Service handles subscription business logic
 type Service struct {
-	repo *Repository
+	repo               *Repository
+	activationCallback ActivationCallback // 会员激活时的回调
 }
 
 // NewService creates a new subscription service
@@ -26,6 +33,12 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{
 		repo: NewRepository(db),
 	}
+}
+
+// SetActivationCallback 设置会员激活回调
+// 当用户开通会员时会调用此回调，用于发放奖励等操作
+func (s *Service) SetActivationCallback(callback ActivationCallback) {
+	s.activationCallback = callback
 }
 
 // GetAllPlans retrieves all active subscription plans with parsed features
@@ -188,21 +201,56 @@ func (s *Service) UpgradeSubscription(userID uint, newPlanCode string, duration 
 		return errors.New("invalid plan code")
 	}
 
-	// Cancel existing active subscription if exists
+	// 检查是否是新开通（在创建新订阅之前检查）
+	isNewActivation := false
+	if newPlanCode == "pro" || newPlanCode == "max" {
+		hadPrevious, err := s.repo.HasPreviousPaidSubscription(userID)
+		if err != nil {
+			fmt.Printf("Warning: failed to check previous subscription for user %d: %v\n", userID, err)
+		} else {
+			isNewActivation = !hadPrevious
+		}
+	}
+
+	// 获取现有活跃订阅
 	existingSub, err := s.repo.GetUserActiveSubscription(userID)
+	
+	// 判断是否是续费（同一套餐且未过期）
+	isRenewal := false
+	var baseEndDate time.Time
 	if err == nil && existingSub != nil {
+		if existingSub.PlanCode == newPlanCode && existingSub.EndDate != nil && existingSub.EndDate.After(time.Now()) {
+			// 同一套餐且未过期，是续费
+			isRenewal = true
+			baseEndDate = *existingSub.EndDate
+		}
+		// 取消现有订阅
 		existingSub.Status = "cancelled"
 		if err := s.repo.UpdateSubscription(existingSub); err != nil {
 			return err
 		}
 	}
 
-	// Create new subscription
-	startDate := time.Now()
+	// 计算新订阅的开始时间和结束时间
+	var startDate time.Time
 	var endDate *time.Time
-	if duration > 0 {
-		end := startDate.AddDate(0, duration, 0)
-		endDate = &end
+	
+	if isRenewal {
+		// 续费：在原有到期时间基础上延长
+		startDate = time.Now()
+		if duration > 0 {
+			end := baseEndDate.AddDate(0, duration, 0)
+			endDate = &end
+		}
+		fmt.Printf("Renewal: user %d, plan %s, extending from %v by %d months to %v\n", 
+			userID, newPlanCode, baseEndDate, duration, endDate)
+	} else {
+		// 新开通或升级/降级：从当前时间开始
+		startDate = time.Now()
+		if duration > 0 {
+			end := startDate.AddDate(0, duration, 0)
+			endDate = &end
+		}
 	}
 
 	newSub := &UserSubscription{
@@ -214,12 +262,35 @@ func (s *Service) UpgradeSubscription(userID uint, newPlanCode string, duration 
 		AutoRenew: false,
 	}
 
-	return s.repo.CreateSubscription(newSub)
+	if err := s.repo.CreateSubscription(newSub); err != nil {
+		return err
+	}
+
+	// 调用激活回调（异步执行，不影响主流程）
+	// 注意：续费时也调用回调，但 isNewActivation 为 false，回调内部会判断是否发放奖励
+	if s.activationCallback != nil && (newPlanCode == "pro" || newPlanCode == "max") {
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Warning: activation callback panicked for user %d: %v\n", userID, r)
+				}
+			}()
+			s.activationCallback(userID, newPlanCode, isNewActivation)
+		}()
+	}
+
+	return nil
 }
 
 // GetActiveSubscriptionsByPlanCodes 获取指定计划的所有活跃订阅
 func (s *Service) GetActiveSubscriptionsByPlanCodes(planCodes []string) ([]UserSubscription, error) {
 	return s.repo.GetActiveSubscriptionsByPlanCodes(planCodes)
+}
+
+// HasPreviousPaidSubscription 检查用户是否有过付费会员记录
+// 用于判断是新开通还是续费
+func (s *Service) HasPreviousPaidSubscription(userID uint) (bool, error) {
+	return s.repo.HasPreviousPaidSubscription(userID)
 }
 
 // SubscriptionInfoForCurrency 用于货币系统的订阅信息

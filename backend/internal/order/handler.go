@@ -14,7 +14,6 @@ import (
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // Handler handles HTTP requests for orders
@@ -22,15 +21,8 @@ type Handler struct {
 	service *Service
 }
 
-// NewHandler creates a new order handler
-func NewHandler(db *gorm.DB) *Handler {
-	return &Handler{
-		service: NewService(db),
-	}
-}
-
-// NewHandlerWithService creates a new order handler with an existing service
-func NewHandlerWithService(service *Service) *Handler {
+// NewHandler creates a new order handler with an existing service
+func NewHandler(service *Service) *Handler {
 	return &Handler{
 		service: service,
 	}

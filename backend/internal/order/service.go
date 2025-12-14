@@ -20,51 +20,23 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// MembershipGiftService 会员赠送服务接口
-type MembershipGiftService interface {
-	GiftOnActivation(userID uint, planCode string) (any, error)
-}
-
 // Service handles business logic for orders
 type Service struct {
-	repo               *Repository
-	subsService        *subscription.Service
-	couponRepo         *coupon.Repository
-	db                 *gorm.DB
-	membershipGiftSvc  MembershipGiftService
+	repo        *Repository
+	subsService *subscription.Service
+	couponRepo  *coupon.Repository
+	db          *gorm.DB
 }
 
 // NewService creates a new order service
-func NewService(db *gorm.DB) *Service {
+// subsService: 必须传入外部创建的 subscription.Service 实例，以确保回调正确触发
+func NewService(db *gorm.DB, subsService *subscription.Service) *Service {
 	return &Service{
 		repo:        NewRepository(db),
-		subsService: subscription.NewService(db),
+		subsService: subsService,
 		couponRepo:  coupon.NewRepository(db),
 		db:          db,
 	}
-}
-
-// SetMembershipGiftService 设置会员赠送服务
-func (s *Service) SetMembershipGiftService(svc MembershipGiftService) {
-	s.membershipGiftSvc = svc
-}
-
-// giftMembershipReward 赠送会员奖励
-func (s *Service) giftMembershipReward(userID uint, planCode string) {
-	if s.membershipGiftSvc == nil {
-		return
-	}
-	if planCode != "pro" && planCode != "max" {
-		return
-	}
-	go func() {
-		result, err := s.membershipGiftSvc.GiftOnActivation(userID, planCode)
-		if err != nil {
-			fmt.Printf("⚠ Warning: Failed to gift membership reward to user %d: %v\n", userID, err)
-		} else {
-			fmt.Printf("✓ Membership reward gifted to user %d for plan %s: %+v\n", userID, planCode, result)
-		}
-	}()
 }
 
 // CreateOrderRequest represents the request to create an order
@@ -297,12 +269,10 @@ func (s *Service) ProcessPayment(userID uint, req ProcessPaymentRequest) error {
 	}
 
 	// Upgrade user subscription
+	// 注意：会员奖励发放现在由 subscription.Service 的 ActivationCallback 自动处理
 	if err := s.subsService.UpgradeSubscription(userID, order.PlanCode, duration); err != nil {
 		return fmt.Errorf("failed to upgrade subscription: %w", err)
 	}
-
-	// Gift membership reward (经费/恩特币)
-	s.giftMembershipReward(userID, order.PlanCode)
 
 	return nil
 }
@@ -400,12 +370,11 @@ func (s *Service) ProcessAlipayCallback(orderNo, transactionNo string, amount fl
 	}
 
 	// Upgrade user subscription
+	// 注意：会员奖励发放现在由 subscription.Service 的 ActivationCallback 自动处理
+	// 无需在此处调用 giftMembershipReward
 	if err := s.subsService.UpgradeSubscription(order.UserID, order.PlanCode, duration); err != nil {
 		return fmt.Errorf("failed to upgrade subscription: %w", err)
 	}
-
-	// Gift membership reward (经费/恩特币)
-	s.giftMembershipReward(order.UserID, order.PlanCode)
 
 	// Mark coupon as used if order has a coupon
 	if order.CouponID != nil && *order.CouponID > 0 {
@@ -475,12 +444,10 @@ func (s *Service) ProcessWeChatPayCallback(orderNo, transactionNo string, amount
 	}
 
 	// Upgrade user subscription
+	// 注意：会员奖励发放现在由 subscription.Service 的 ActivationCallback 自动处理
 	if err := s.subsService.UpgradeSubscription(order.UserID, order.PlanCode, duration); err != nil {
 		return fmt.Errorf("failed to upgrade subscription: %w", err)
 	}
-
-	// Gift membership reward (经费/恩特币)
-	s.giftMembershipReward(order.UserID, order.PlanCode)
 
 	// Mark coupon as used if order has a coupon
 	if order.CouponID != nil && *order.CouponID > 0 {
@@ -620,12 +587,10 @@ func (s *Service) AdminGrantSubscription(adminID uint, req AdminGrantSubscriptio
 	}
 
 	// Upgrade user subscription
+	// 注意：会员奖励发放现在由 subscription.Service 的 ActivationCallback 自动处理
 	if err := s.subsService.UpgradeSubscription(req.UserID, req.PlanCode, duration); err != nil {
 		return nil, fmt.Errorf("failed to upgrade subscription: %w", err)
 	}
-
-	// Gift membership reward (经费/恩特币)
-	s.giftMembershipReward(req.UserID, req.PlanCode)
 
 	// Refresh order to get updated data
 	updatedOrder, err := s.repo.GetOrderByID(order.ID)

@@ -14,7 +14,6 @@ import (
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // Handler handles HTTP requests for subscription
@@ -22,10 +21,10 @@ type Handler struct {
 	service *Service
 }
 
-// NewHandler creates a new subscription handler
-func NewHandler(db *gorm.DB) *Handler {
+// NewHandler creates a new subscription handler with an existing service
+func NewHandler(service *Service) *Handler {
 	return &Handler{
-		service: NewService(db),
+		service: service,
 	}
 }
 

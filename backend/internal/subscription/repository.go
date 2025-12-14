@@ -78,6 +78,21 @@ func (r *Repository) GetUserSubscriptionHistory(userID uint) ([]UserSubscription
 	return subscriptions, err
 }
 
+// HasPreviousPaidSubscription 检查用户是否有过付费会员记录（pro 或 max）
+// 用于判断是新开通还是续费
+// 注意：由于在调用此方法时，新订阅记录可能已经创建，所以检查是否有超过1条记录
+func (r *Repository) HasPreviousPaidSubscription(userID uint) (bool, error) {
+	var count int64
+	err := r.db.Model(&UserSubscription{}).
+		Where("user_id = ? AND plan_code IN (?, ?)", userID, "pro", "max").
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	// 如果有超过1条记录，说明之前已经开通过（当前这次是续费）
+	return count > 1, nil
+}
+
 // CreateSubscription creates a new subscription record
 func (r *Repository) CreateSubscription(subscription *UserSubscription) error {
 	return r.db.Create(subscription).Error

@@ -441,6 +441,7 @@ type FundConfig struct {
 	ID               uint   `gorm:"primaryKey"`
 	FundMonth        string `gorm:"column:fund_month"`
 	FundName         string `gorm:"column:fund_name"`
+	FundSlogan       string `gorm:"column:fund_slogan"`       // 基金口号/标语
 	ProGoldAmount    int64  `gorm:"column:pro_gold_amount"`
 	MaxGoldAmount    int64  `gorm:"column:max_gold_amount"`
 	MaxDiamondAmount int64  `gorm:"column:max_diamond_amount"`
@@ -488,6 +489,30 @@ func (r *Repository) HasUserReceivedFund(fundID, userID uint) (bool, error) {
 	err := r.db.Table("membership_fund_distributions").
 		Where("fund_id = ? AND user_id = ?", fundID, userID).
 		Count(&count).Error
+	return count > 0, err
+}
+
+// HasUserReceivedMonthlyGift 检查用户当月是否已领取过会员赠送
+// 通过查询交易记录中的 biz_type 来判断
+// 会员赠送的 biz_type 格式为：pro_monthly_gold, max_monthly_gold, max_monthly_diamond, fund_{id}_gold, fund_{id}_diamond
+func (r *Repository) HasUserReceivedMonthlyGift(userID uint, month string) (bool, error) {
+	// 计算当月的起止时间
+	startTime, err := time.Parse("2006-01", month)
+	if err != nil {
+		return false, fmt.Errorf("invalid month format: %w", err)
+	}
+	endTime := startTime.AddDate(0, 1, 0)
+
+	var count int64
+	err = r.db.Model(&Transaction{}).
+		Where("user_id = ?", userID).
+		Where("created_at >= ? AND created_at < ?", startTime, endTime).
+		Where("transaction_type = ?", TxTypeGift).
+		Where("biz_type IN (?) OR biz_type LIKE ?",
+			[]string{"pro_monthly_gold", "max_monthly_gold", "max_monthly_diamond"},
+			"fund_%").
+		Count(&count).Error
+	
 	return count > 0, err
 }
 

@@ -274,6 +274,76 @@
   color: #aaa;
 }
 
+/* 今日经费预览 */
+.checkin-reward-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.15));
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 14px;
+  position: relative;
+}
+
+.checkin-reward-preview.milestone {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(139, 92, 246, 0.15));
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.checkin-reward-preview .reward-icon {
+  font-size: 24px;
+}
+
+.checkin-reward-preview .reward-amount {
+  font-size: 32px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.checkin-reward-preview.milestone .reward-amount {
+  background: linear-gradient(135deg, #a855f7, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.checkin-reward-preview .reward-label {
+  font-size: 14px;
+  color: #92400e;
+  font-weight: 500;
+}
+
+.checkin-reward-preview.milestone .reward-label {
+  color: #7c3aed;
+}
+
+[data-theme="dark"] .checkin-reward-preview .reward-label {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .checkin-reward-preview.milestone .reward-label {
+  color: #c4b5fd;
+}
+
+.checkin-reward-preview .milestone-tag {
+  position: absolute;
+  top: -8px;
+  right: 12px;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #a855f7, #8b5cf6);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.3);
+}
+
 .checkin-simple-btn {
   width: 100%;
   padding: 16px;

@@ -27,10 +27,10 @@ type AlipayHandler struct {
 }
 
 // NewAlipayHandler creates a new Alipay handler
-func NewAlipayHandler(db *gorm.DB) *AlipayHandler {
+func NewAlipayHandler(db *gorm.DB, orderService *order.Service) *AlipayHandler {
 	return &AlipayHandler{
 		alipayService: NewAlipayService(db),
-		orderService:  order.NewService(db),
+		orderService:  orderService,
 	}
 }
 

@@ -29,13 +29,13 @@ type ExpiredMember struct {
 
 // MembershipGiftScheduler 会员赠送定时任务调度器
 type MembershipGiftScheduler struct {
-	currencyService     *Service
-	getSubscriptions    SubscriptionGetter
-	getExpiredMembers   ExpiredMemberGetter
-	stopCh              chan struct{}
-	wg                  sync.WaitGroup
-	lastGiftMonth       string // 记录上次赠送的月份，防止重复赠送
-	mu                  sync.Mutex
+	currencyService   *Service
+	getSubscriptions  SubscriptionGetter
+	getExpiredMembers ExpiredMemberGetter
+	stopCh            chan struct{}
+	wg                sync.WaitGroup
+	lastGiftMonth     string // 记录上次赠送的月份，防止重复赠送
+	mu                sync.Mutex
 }
 
 const (
@@ -238,12 +238,19 @@ func (s *MembershipGiftScheduler) executeExpiredClear(month string) {
 		month, successCount, totalCleared, failCount)
 }
 
-// GiftOnActivation 开通会员时的即时赠送
-// 根据开通日期决定是否半额赠送
-// 返回 any 类型以兼容 order.MembershipGiftService 接口
-func (s *MembershipGiftScheduler) GiftOnActivation(userID uint, planCode string) (any, error) {
+// OnSubscriptionActivated 会员激活回调
+// 这是推荐的方式，由 subscription.Service 在会员激活时调用
+// userID: 用户ID
+// planCode: 套餐代码 (pro/max)
+// isNewActivation: 是否是新开通（true=新开通发放奖励，false=续费不发放）
+func (s *MembershipGiftScheduler) OnSubscriptionActivated(userID uint, planCode string, isNewActivation bool) {
 	if planCode != "pro" && planCode != "max" {
-		return nil, nil // 非付费会员不赠送
+		return // 非付费会员不赠送
+	}
+
+	if !isNewActivation {
+		log.Printf("User %d is renewing subscription, skip activation gift", userID)
+		return // 续费不赠送
 	}
 
 	ctx := context.Background()
@@ -251,6 +258,11 @@ func (s *MembershipGiftScheduler) GiftOnActivation(userID uint, planCode string)
 	month := now.Format("2006-01")
 	isHalf := now.Day() > 15
 
-	return s.currencyService.GiftMembershipReward(ctx, userID, planCode, isHalf, "membership_activate", month)
+	log.Printf("Gifting activation reward to new member user %d, plan %s, month %s, isHalf %v", userID, planCode, month, isHalf)
+	result, err := s.currencyService.GiftMembershipReward(ctx, userID, planCode, isHalf, "membership_activate", month)
+	if err != nil {
+		log.Printf("Warning: Failed to gift membership reward to user %d: %v", userID, err)
+	} else {
+		log.Printf("Membership reward gifted to user %d for plan %s: %+v", userID, planCode, result)
+	}
 }
-
