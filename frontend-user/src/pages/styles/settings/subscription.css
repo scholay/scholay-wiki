@@ -303,40 +303,333 @@
 }
 
 
-/* ========== AM - 流水与账单 Tab ========== */
-.am-records-section {
-  margin-bottom: 16px;
+/* ========== AM - 流水与账单（左右分栏） ========== */
+.am-records-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
-.am-records-tabs {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
+.am-records-column {
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 10px;
+  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+  max-height: 400px;
 }
 
-.am-records-tab {
-  flex: 1;
-  padding: 10px 20px;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
+.am-column-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.am-column-header svg {
+  width: 16px;
+  height: 16px;
+  opacity: 0.6;
+}
+
+.am-column-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.am-column-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.am-column-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.am-column-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px;
+}
+
+.am-column-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.am-column-empty svg {
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+
+.am-column-empty p {
+  font-size: 13px;
+  margin: 0;
+}
+
+/* 列数量标记 */
+.am-column-count {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* ===== 交易流水列表（新样式） ===== */
+.am-transaction-list {
+  padding: 0;
+}
+
+.am-tx-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s;
+}
+
+.am-tx-row:last-child {
+  border-bottom: none;
+}
+
+.am-tx-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.am-tx-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.am-tx-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.am-tx-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.am-tx-name {
+  font-size: 13px;
   font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.am-tx-remark {
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.am-tx-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.am-tx-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.am-tx-value {
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+}
+
+.am-tx-value.plus {
+  color: #10b981;
+}
+
+.am-tx-value.minus {
+  color: #f87171;
+}
+
+.am-tx-balance {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+}
+
+/* ===== 账单列表（新样式） ===== */
+.am-billing-list {
+  padding: 0;
+}
+
+.am-bill-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s;
+}
+
+.am-bill-row:last-child {
+  border-bottom: none;
+}
+
+.am-bill-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.am-bill-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.am-bill-icon-wrap {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.am-bill-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.am-bill-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.am-bill-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.am-bill-sep {
+  opacity: 0.5;
+}
+
+.am-bill-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.am-bill-price {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+}
+
+.am-bill-status {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.am-bill-status.paid {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+
+.am-bill-status.pending {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+}
+
+.am-bill-status.cancelled {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+}
+
+/* 分页 */
+.am-column-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.am-column-pagination button {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
 }
 
-.am-records-tab:hover {
-  color: rgba(255, 255, 255, 0.7);
+.am-column-pagination button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
 }
 
-.am-records-tab.active {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.95);
+.am-column-pagination button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.am-column-pagination span {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .am-records-split {
+    grid-template-columns: 1fr;
+  }
+  
+  .am-records-column {
+    max-height: 350px;
+  }
 }
 
 /* ========== AM - Light Theme ========== */
@@ -450,23 +743,78 @@
   color: #94a3b8;
 }
 
-[data-theme="light"] .am-records-tabs {
+/* 左右分栏 Light Theme */
+[data-theme="light"] .am-records-column {
   background: rgba(0, 0, 0, 0.02);
-  border-color: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.06);
 }
 
-[data-theme="light"] .am-records-tab {
-  color: #6b7280;
-}
-
-[data-theme="light"] .am-records-tab:hover {
+[data-theme="light"] .am-column-header {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.06);
   color: #374151;
 }
 
-[data-theme="light"] .am-records-tab.active {
-  background: white;
+[data-theme="light"] .am-column-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .am-column-empty {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .am-column-count {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .am-tx-row:hover,
+[data-theme="light"] .am-bill-row:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .am-tx-row,
+[data-theme="light"] .am-bill-row {
+  border-color: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .am-tx-name,
+[data-theme="light"] .am-bill-title {
   color: #1f2937;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .am-tx-remark {
+  color: #6b7280;
+}
+
+[data-theme="light"] .am-tx-meta,
+[data-theme="light"] .am-bill-meta {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .am-tx-balance {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .am-bill-price {
+  color: #374151;
+}
+
+[data-theme="light"] .am-column-pagination {
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .am-column-pagination button {
+  background: rgba(0, 0, 0, 0.04);
+  color: #6b7280;
+}
+
+[data-theme="light"] .am-column-pagination button:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+  color: #1f2937;
+}
+
+[data-theme="light"] .am-column-pagination span {
+  color: #6b7280;
 }
 
 /* ========== AM - Responsive ========== */
@@ -2892,16 +3240,20 @@
   align-items: center;
   justify-content: center;
   border-radius: 10px;
+  flex-shrink: 0;
 }
 
 .transaction-type-icon.gold {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
 }
 
 .transaction-type-icon.diamond {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.transaction-type-icon img {
+  width: 24px;
+  height: 24px;
 }
 
 .transaction-info {
