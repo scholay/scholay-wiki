@@ -11,6 +11,7 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import { trackPDFPreview, EntryPoint } from '../utils/usageTracker';
 import './PDFViewer.css';
 
 // 为 PDF.js 指定静态 worker 文件
@@ -48,6 +49,11 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
     setScale(1.0);
     setIsUnmounted(false);
     hasAutoOpenedRef.current = false; // 重置自动打开标记
+    
+    // 记录PDF预览使用统计
+    if (pdfUrl) {
+      trackPDFPreview(pdfUrl, EntryPoint.PAPER_DETAIL_PAGE);
+    }
   }, [pdfUrl]);
 
   // 切换自动打开设置

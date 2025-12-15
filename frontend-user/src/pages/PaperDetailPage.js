@@ -13,6 +13,7 @@ import api, { publicScholarAPI } from '../services/api';
 import SEO from '../components/SEO';
 import FloatingGuide from '../components/FloatingGuide';
 import { generateScholarlyArticleSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
+import { trackPaperDetail, trackPaperDimension, trackSimilarPapers } from '../utils/usageTracker';
 import './PaperDetailPage.css';
 
 const PaperDetailPage = () => {
@@ -69,6 +70,8 @@ const PaperDetailPage = () => {
 
     if (paperId) {
       fetchPaperDetails();
+      // 记录论文详情查看
+      trackPaperDetail(paperId);
     }
   }, [paperId]);
 

@@ -29,6 +29,7 @@ import {
 import { parseReviewJSON, getRecommendationClass, getConfidenceLabel } from '../utils/peer-review/parseUtils';
 import { getFileIcon } from '../utils/peer-review/fileUtils';
 import { exportToWord, exportToPDF, exportToPPT } from '../utils/peer-review/exportUtils';
+import { trackAIPeerReview } from '../utils/usageTracker';
 import './styles/PeerReviewPage.css';
 import './styles/ReviewReport.css';
 
@@ -600,6 +601,9 @@ export default function PeerReviewPage() {
       showMessage('warning', '请上传文件', '请上传稿件文件后再开始审稿');
       return;
     }
+
+    // 记录AI审稿使用
+    trackAIPeerReview();
 
     setSubmitting(true);
     try {

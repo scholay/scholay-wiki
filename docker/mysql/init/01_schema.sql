@@ -1364,3 +1364,72 @@ INSERT IGNORE INTO `membership_funds` (`fund_month`, `fund_name`, `fund_slogan`,
 ('2025-04', '清明基金', '清明时节，学海无涯', '清明时节，天清气明。Scholay清明基金倡导清晰的学术思维和明确的研究方向，助力学者们在学海中扬帆远航。', '#06b6d4', 5000, 10000, 6, 'pending'),
 ('2025-05', '立夏基金', '夏日炎炎，学术热情', '立夏时节，万物繁茂。Scholay立夏基金以夏日的热情激励每一位科研工作者，在知识的田野里辛勤耕耘、硕果累累。', '#8b5cf6', 5000, 10000, 6, 'pending'),
 ('2025-06', '仲夏基金', '盛夏时光，学术盛宴', '仲夏之际，阳光正好。Scholay仲夏基金为学者们带来一场学术盛宴，在这个充满活力的季节里，共同探索知识的无限可能。', '#ec4899', 5000, 10000, 6, 'pending');
+
+-- ============================================
+-- 功能使用统计表
+-- ============================================
+
+-- 用户访问统计表
+CREATE TABLE IF NOT EXISTS `usage_logs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED COMMENT '用户ID，未登录时为NULL',
+  `session_id` VARCHAR(64) COMMENT '会话ID，用于追踪未登录用户',
+  `feature_code` VARCHAR(50) NOT NULL COMMENT '功能代码，如: academic_search, smart_analysis, ai_chat',
+  `feature_name` VARCHAR(100) NOT NULL COMMENT '功能名称，如: 学术检索, 智能分析, AI对话',
+  `action` VARCHAR(50) NOT NULL COMMENT '操作类型，如: search, submit, view',
+  `entry_point` VARCHAR(100) COMMENT '入口位置，如: home_page, search_page, result_page',
+  `request_path` VARCHAR(255) COMMENT '请求的API路径',
+  `referer_path` VARCHAR(255) COMMENT '来源页面路径',
+  `ip_address` VARCHAR(45) COMMENT 'IP地址（支持IPv6）',
+  `user_agent` VARCHAR(500) COMMENT '浏览器User-Agent',
+  `device_type` VARCHAR(20) COMMENT '设备类型: desktop, mobile, tablet',
+  `browser` VARCHAR(50) COMMENT '浏览器名称',
+  `os` VARCHAR(50) COMMENT '操作系统',
+  `extra_data` JSON COMMENT '额外数据，如搜索关键词等',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_session_id` (`session_id`),
+  INDEX `idx_feature_code` (`feature_code`),
+  INDEX `idx_action` (`action`),
+  INDEX `idx_entry_point` (`entry_point`),
+  INDEX `idx_ip_address` (`ip_address`),
+  INDEX `idx_created_at` (`created_at`),
+  INDEX `idx_feature_created` (`feature_code`, `created_at`),
+  INDEX `idx_user_feature` (`user_id`, `feature_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='功能使用统计日志';
+
+-- 功能代码配置表（用于展示和统计）
+CREATE TABLE IF NOT EXISTS `feature_configs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `feature_code` VARCHAR(50) NOT NULL COMMENT '功能代码',
+  `feature_name` VARCHAR(100) NOT NULL COMMENT '功能名称',
+  `feature_group` VARCHAR(50) COMMENT '功能分组，如: search, analysis, ai',
+  `description` VARCHAR(255) COMMENT '功能描述',
+  `enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用统计',
+  `sort_order` INT NOT NULL DEFAULT 0 COMMENT '排序顺序',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_feature_code` (`feature_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='功能配置表';
+
+-- 初始化功能配置
+INSERT IGNORE INTO `feature_configs` (`feature_code`, `feature_name`, `feature_group`, `description`, `sort_order`) VALUES
+-- 检索类
+('academic_search', '学术检索', 'search', '学术论文检索功能', 1),
+('paper_detail', '论文详情', 'search', '查看论文详情页', 2),
+('similar_papers', '相似论文', 'search', '获取相似论文推荐', 3),
+-- 分析类
+('smart_analysis', '智能分析', 'analysis', '智能分析/高级检索功能', 10),
+('paper_dimension', '论文多维分析', 'analysis', '论文多维度分析功能', 11),
+-- AI类
+('ai_chat', 'AI对话', 'ai', 'AI智能对话功能', 20),
+('ai_peer_review', 'AI审稿', 'ai', 'AI审稿功能', 21),
+('ai_assistant', '文献助手', 'ai', 'AI文献助手功能', 22),
+-- 用户类
+('user_login', '用户登录', 'user', '用户登录操作', 30),
+('user_register', '用户注册', 'user', '用户注册操作', 31),
+('user_checkin', '每日签到', 'user', '用户签到功能', 32),
+-- 工具类
+('pdf_preview', 'PDF预览', 'tool', 'PDF文档预览功能', 40);

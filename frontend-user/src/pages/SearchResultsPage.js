@@ -28,6 +28,7 @@ import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory, renam
 import SEO from '../components/SEO';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
 import ThemeToggle from '../components/ThemeToggle';
+import { trackAcademicSearch, EntryPoint } from '../utils/usageTracker';
 import './styles/search-results/index.css';
 
 // 懒加载 AuthModal
@@ -1115,6 +1116,9 @@ const SearchResultsPage = () => {
         translationEnabled: false
       });
     }
+
+    // 记录使用统计
+    trackAcademicSearch(EntryPoint.RESULT_PAGE, searchQuery);
 
     // 更新URL参数
     updateURL(searchQuery, filters, 1);

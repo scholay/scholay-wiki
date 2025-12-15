@@ -1,0 +1,408 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ */
+
+.ul-container {
+  padding: 24px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.ul-header {
+  margin-bottom: 24px;
+}
+
+.ul-header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 8px 0;
+}
+
+.ul-header p {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+/* 统计摘要 */
+.ul-summary {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ul-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.ul-summary-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.ul-summary-toggle,
+.ul-summary-expand {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #666;
+  background: #f5f5f5;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ul-summary-toggle:hover,
+.ul-summary-expand:hover {
+  background: #e5e5e5;
+  color: #333;
+}
+
+.ul-summary-expand {
+  margin-bottom: 20px;
+}
+
+.ul-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.ul-summary-card {
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+}
+
+.ul-summary-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #3b82f6;
+  margin-bottom: 4px;
+}
+
+.ul-summary-label {
+  font-size: 13px;
+  color: #666;
+}
+
+/* 功能使用分布 */
+.ul-feature-stats {
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.ul-feature-stats h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 12px 0;
+}
+
+.ul-feature-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ul-feature-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ul-feature-bar-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 120px;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: #333;
+}
+
+.ul-feature-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ul-feature-bar-wrapper {
+  flex: 1;
+  height: 20px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ul-feature-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.ul-feature-count {
+  width: 60px;
+  text-align: right;
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
+/* 筛选区域 */
+.ul-filters {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ul-filters-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.ul-filters-row:last-child {
+  margin-bottom: 0;
+}
+
+.ul-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 150px;
+}
+
+.ul-filter-group.ul-filter-keyword {
+  flex: 1;
+  min-width: 200px;
+}
+
+.ul-filter-group label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #666;
+}
+
+.ul-filter-group select,
+.ul-filter-group input {
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  transition: border-color 0.2s;
+}
+
+.ul-filter-group select:focus,
+.ul-filter-group input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.ul-reset-btn {
+  align-self: flex-end;
+  padding: 8px 16px;
+  font-size: 14px;
+  color: #666;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ul-reset-btn:hover {
+  background: #e5e5e5;
+  color: #333;
+}
+
+/* 表格容器 */
+.ul-table-container {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ul-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.ul-table thead {
+  background: #f8f9fa;
+}
+
+.ul-table th {
+  padding: 14px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  white-space: nowrap;
+}
+
+.ul-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #333;
+}
+
+.ul-table tbody tr:hover {
+  background: #f8f9ff;
+}
+
+.ul-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ul-time {
+  white-space: nowrap;
+  font-size: 13px;
+  color: #666;
+}
+
+.ul-feature-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 4px;
+  border: 1px solid;
+}
+
+.ul-entry,
+.ul-ip,
+.ul-referer {
+  font-size: 13px;
+  color: #666;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ul-user {
+  font-weight: 500;
+}
+
+.ul-device {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ul-device-type {
+  font-size: 12px;
+  color: #666;
+}
+
+.ul-browser {
+  font-size: 11px;
+  color: #999;
+}
+
+.ul-loading,
+.ul-empty {
+  text-align: center;
+  padding: 40px 16px !important;
+  color: #999;
+}
+
+/* 分页 */
+.ul-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  padding: 16px 20px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ul-pagination-info {
+  font-size: 14px;
+  color: #666;
+}
+
+.ul-pagination-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.ul-pagination-buttons button {
+  padding: 8px 16px;
+  font-size: 14px;
+  color: #333;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ul-pagination-buttons button:hover:not(:disabled) {
+  background: #e5e5e5;
+}
+
+.ul-pagination-buttons button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 响应式 */
+@media (max-width: 1200px) {
+  .ul-summary-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .ul-container {
+    padding: 16px;
+  }
+  
+  .ul-summary-cards {
+    grid-template-columns: 1fr;
+  }
+  
+  .ul-filters-row {
+    flex-direction: column;
+  }
+  
+  .ul-filter-group {
+    min-width: 100%;
+  }
+  
+  .ul-table-container {
+    overflow-x: auto;
+  }
+  
+  .ul-pagination {
+    flex-direction: column;
+    gap: 12px;
+  }
+}

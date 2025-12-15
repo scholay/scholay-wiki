@@ -17,6 +17,7 @@ import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
 import { Menu } from 'lucide-react';
 import api, { subscriptionAPI } from '../services/api';
+import { trackAIChat, EntryPoint } from '../utils/usageTracker';
 import './ChatPageNew.css';
 import 'highlight.js/styles/github-dark.css';
 
@@ -582,6 +583,8 @@ function ChatPage() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (inputMessage.trim() && !isStreaming) {
+      // 记录AI对话使用
+      trackAIChat(EntryPoint.CHAT_PAGE);
       sendMessage(inputMessage);
       setInputMessage('');
       if (textareaRef.current) {

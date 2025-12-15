@@ -11,6 +11,7 @@ import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 
 import { createPortal } from 'react-dom';
 import { publicScholarAPI, analysisDimensionAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
+import { trackPaperDimension, EntryPoint } from '../utils/usageTracker';
 import './PaperTableView.css';
 
 // 懒加载 AuthModal
@@ -488,6 +489,9 @@ const PaperTableView = ({
     setLoadingPapers(prev => ({ ...prev, [paper.paperId]: true }));
 
     try {
+      // 记录多维分析使用统计
+      trackPaperDimension(paper.paperId);
+
       // 根据登录状态选择API：
       // - 已登录：使用带认证的API，获取用户自定义维度的分析结果
       // - 未登录：使用公共API，获取系统默认维度的分析结果

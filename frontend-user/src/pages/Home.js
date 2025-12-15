@@ -22,6 +22,7 @@ import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons'
 import SEO from '../components/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
 import { HelpCircle } from 'lucide-react';
+import { trackAcademicSearch, trackSmartAnalysis, EntryPoint } from '../utils/usageTracker';
 import './styles/home/index.css';
 
 // 懒加载 AuthModal - 只在需要时加载
@@ -178,6 +179,9 @@ const Home = () => {
 
     // 学术检索模式：允许未登录用户使用
     if (searchMode === 'normal') {
+      // 记录使用统计
+      trackAcademicSearch(EntryPoint.HOME_PAGE, userMessage);
+
       const params = new URLSearchParams({ query: userMessage });
 
       // 添加筛选条件到URL参数
@@ -199,6 +203,9 @@ const Home = () => {
         setShowAuthModal(true);
         return;
       }
+
+      // 记录使用统计
+      trackSmartAnalysis(EntryPoint.HOME_PAGE, userMessage);
 
       const params = new URLSearchParams({
         query: userMessage,

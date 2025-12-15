@@ -14,6 +14,7 @@ import TurnstileCaptcha from './TurnstileCaptcha';
 import { useToast } from './ToastContainer';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { trackUserLogin, trackUserRegister } from '../utils/usageTracker';
 import './styles/auth-modal/index.css';
 
 const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
@@ -265,6 +266,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       const data = await response.json();
 
       if (data.code === 0) {
+        trackUserLogin(); // 记录登录统计
         login(data.data.token, data.data.user);
         if (onLoginSuccess) onLoginSuccess(data.data.user);
         handleClose();
@@ -341,6 +343,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       const data = await response.json();
 
       if (data.code === 0) {
+        trackUserRegister(); // 记录注册统计
         login(data.data.token, data.data.user);
         if (onLoginSuccess) onLoginSuccess(data.data.user);
         handleClose();
@@ -460,6 +463,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       const data = await response.json();
 
       if (data.code === 0) {
+        trackUserLogin(); // 记录登录统计
         login(data.data.token, data.data.user);
         if (onLoginSuccess) onLoginSuccess(data.data.user);
         handleClose();
@@ -535,6 +539,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       const data = await response.json();
 
       if (data.code === 0) {
+        trackUserRegister(); // 记录注册统计
         login(data.data.token, data.data.user);
         if (onLoginSuccess) onLoginSuccess(data.data.user);
         handleClose();
@@ -680,6 +685,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       const data = await response.json();
 
       if (data.code === 0) {
+        trackUserLogin(); // 记录登录统计
         login(data.data.token, data.data.user);
         if (onLoginSuccess) onLoginSuccess(data.data.user);
         handleClose();
@@ -733,6 +739,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       const data = await response.json();
 
       if (data.code === 0) {
+        trackUserLogin(); // 记录登录统计
         login(data.data.token, data.data.user);
         if (onLoginSuccess) onLoginSuccess(data.data.user);
         handleClose();

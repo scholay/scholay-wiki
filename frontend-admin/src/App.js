@@ -28,6 +28,7 @@ const DistributedCoupons = lazy(() => import('./pages/DistributedCoupons'));
 const DefaultBusinessData = lazy(() => import('./pages/DefaultBusinessData'));
 const FeedbackManagement = lazy(() => import('./pages/FeedbackManagement'));
 const CurrencyConfig = lazy(() => import('./pages/CurrencyConfig'));
+const UsageLogs = lazy(() => import('./pages/UsageLogs'));
 
 // Loading component for Suspense fallback
 const LoadingFallback = () => (
@@ -73,6 +74,7 @@ function App() {
               <Route path="default-business-data" element={<DefaultBusinessData />} />
               <Route path="feedbacks" element={<FeedbackManagement />} />
               <Route path="currency-config" element={<CurrencyConfig />} />
+              <Route path="usage-logs" element={<UsageLogs />} />
               <Route path="settings" element={<SystemSettings />} />
               {/* 保留旧路由以防万一，但重定向到设置页 */}
               <Route path="alipay-config" element={<Navigate to="/dashboard/settings?tab=alipay" replace />} />

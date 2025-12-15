@@ -10,6 +10,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { checkinAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
+import { trackUserCheckin } from '../utils/usageTracker';
 import './CheckinFloat.css';
 
 // 懒加载 AuthModal
@@ -149,6 +150,7 @@ const CheckinFloat = () => {
     try {
       const response = await checkinAPI.checkin();
       if (response.data.code === 0) {
+        trackUserCheckin(); // 记录签到统计
         const result = response.data.data;
         setCheckinResult(result);
         setHasCheckedIn(true);

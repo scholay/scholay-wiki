@@ -12,6 +12,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
 import ThemeToggle from '../components/ThemeToggle';
+import { trackAIAssistant, EntryPoint } from '../utils/usageTracker';
 import './styles/AssistantPage.css';
 
 const AuthModal = lazy(() => import('../components/AuthModal'));

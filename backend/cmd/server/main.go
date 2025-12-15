@@ -38,6 +38,7 @@ import (
 	"scholar-backend/internal/subscription"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/user"
+	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/wechat"
 	"scholar-backend/internal/wechatofficial"
 
@@ -274,6 +275,12 @@ func main() {
 	fundHandler := fund.NewHandler(fundService)
 	fundAdminHandler := fund.NewAdminHandler(fundService)
 
+	// Initialize UsageLog module (功能使用统计)
+	usageLogRepo := usagelog.NewRepository(database.GetDB())
+	usageLogService := usagelog.NewService(usageLogRepo)
+	usageLogHandler := usagelog.NewHandler(usageLogService)
+	usageLogAdminHandler := usagelog.NewAdminHandler(usageLogService)
+
 	// Inject currency service into user service (for register gift)
 	userService.SetCurrencyService(currencyService)
 	// Inject currency service into checkin service (for checkin gold reward)
@@ -495,6 +502,12 @@ func main() {
 			adminProtected.POST("/funds", fundAdminHandler.CreateFund)
 			adminProtected.PUT("/funds/:id", fundAdminHandler.UpdateFund)
 			adminProtected.DELETE("/funds/:id", fundAdminHandler.DeleteFund)
+
+			// Usage logs admin routes (功能使用统计)
+			adminProtected.GET("/usage-logs", usageLogAdminHandler.List)
+			adminProtected.GET("/usage-logs/summary", usageLogAdminHandler.GetStatsSummary)
+			adminProtected.GET("/usage-logs/filter-options", usageLogAdminHandler.GetFilterOptions)
+			adminProtected.GET("/usage-logs/features", usageLogAdminHandler.GetFeatureConfigs)
 		}
 
 		// Payment callback routes (public, no auth required)
@@ -703,6 +716,9 @@ func main() {
 			publicAPI.POST("/feedback", feedbackHandler.CreateFeedback)
 			publicAPI.POST("/feedback/upload", feedbackHandler.UploadAttachments)
 			publicAPI.GET("/feedback/attachment/:id", feedbackHandler.GetAttachment)
+
+			// Usage log endpoint - for tracking feature usage from frontend
+			publicAPI.POST("/usage-log", usageLogHandler.Log)
 		}
 
 		// Analysis dimensions routes (protected - requires user authentication)

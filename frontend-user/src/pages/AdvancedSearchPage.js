@@ -19,6 +19,7 @@ import ModelSelector from '../components/ModelSelector';
 import { AdvancedSearchIcon, NormalSearchIcon } from '../components/SearchIcons';
 import ThemeToggle from '../components/ThemeToggle';
 import api, { conversationAPI, subscriptionAPI } from '../services/api';
+import { trackSmartAnalysis, EntryPoint } from '../utils/usageTracker';
 import './styles/advanced-search/index.css';
 
 // 懒加载 AuthModal
@@ -899,6 +900,9 @@ const AdvancedSearchPage = () => {
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
+
+    // 记录使用统计
+    trackSmartAnalysis(EntryPoint.ADVANCED_SEARCH_PAGE, searchQuery);
 
     // 立即滚动到底部并启用自动滚动
     setAutoScroll(true);
