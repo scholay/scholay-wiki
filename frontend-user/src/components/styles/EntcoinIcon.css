@@ -1,0 +1,38 @@
+.entcoin-icon {
+  display: inline-block;
+  vertical-align: middle;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* 不同尺寸的微调 */
+.entcoin-icon-xs {
+  width: 12px;
+  height: 12px;
+}
+
+.entcoin-icon-sm {
+  width: 16px;
+  height: 16px;
+}
+
+.entcoin-icon-md {
+  width: 20px;
+  height: 20px;
+}
+
+.entcoin-icon-lg {
+  width: 24px;
+  height: 24px;
+}
+
+.entcoin-icon-xl {
+  width: 32px;
+  height: 32px;
+}
+
+.entcoin-icon-xxl {
+  width: 48px;
+  height: 48px;
+}
+

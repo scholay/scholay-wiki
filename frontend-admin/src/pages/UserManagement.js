@@ -13,6 +13,8 @@ import { showToast } from '../components/Toast';
 import UserStatisticsChart from '../components/UserStatisticsChart';
 import OnlineUserChart from '../components/OnlineUserChart';
 import UserDetailDrawer from '../components/UserDetailDrawer';
+import EntcoinIcon from '../components/EntcoinIcon';
+import GoldIcon from '../components/GoldIcon';
 import './UserManagement.css';
 
 const UserManagement = () => {
@@ -373,15 +375,15 @@ const UserManagement = () => {
     if (!wallet) {
       return (
         <div className="um-wallet-info">
-          <span className="um-wallet-item um-wallet-gold">🪙 0</span>
-          <span className="um-wallet-item um-wallet-diamond">💎 0</span>
+          <span className="um-wallet-item um-wallet-gold"><GoldIcon size="sm" /> 0</span>
+          <span className="um-wallet-item um-wallet-diamond"><EntcoinIcon size="sm" /> 0</span>
         </div>
       );
     }
     return (
       <div className="um-wallet-info">
-        <span className="um-wallet-item um-wallet-gold">🪙 {wallet.gold}</span>
-        <span className="um-wallet-item um-wallet-diamond">💎 {wallet.diamond}</span>
+        <span className="um-wallet-item um-wallet-gold"><GoldIcon size="sm" /> {wallet.gold}</span>
+        <span className="um-wallet-item um-wallet-diamond"><EntcoinIcon size="sm" /> {wallet.diamond}</span>
       </div>
     );
   };
@@ -930,7 +932,7 @@ const UserManagement = () => {
                     className={`um-currency-type-btn gold ${currencyForm.currencyType === 'gold' ? 'active' : ''}`}
                     onClick={() => setCurrencyForm({ ...currencyForm, currencyType: 'gold' })}
                   >
-                    <span className="um-currency-icon">🪙</span>
+                    <span className="um-currency-icon"><GoldIcon size="lg" /></span>
                     <span>经费</span>
                   </button>
                   <button
@@ -938,7 +940,7 @@ const UserManagement = () => {
                     className={`um-currency-type-btn diamond ${currencyForm.currencyType === 'diamond' ? 'active' : ''}`}
                     onClick={() => setCurrencyForm({ ...currencyForm, currencyType: 'diamond' })}
                   >
-                    <span className="um-currency-icon">💎</span>
+                    <span className="um-currency-icon"><EntcoinIcon size="lg" /></span>
                     <span>恩特币</span>
                   </button>
                 </div>

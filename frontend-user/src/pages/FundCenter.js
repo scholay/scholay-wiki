@@ -11,6 +11,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { fundAPI } from '../services/api';
+import EntcoinIcon from '../components/EntcoinIcon';
 import './styles/FundCenter.css';
 
 const FundCenter = () => {
@@ -158,7 +159,7 @@ const FundCenter = () => {
                     <span className="benefit-value">{currentFund.pro_gold_amount} 经费</span>
                   </div>
                   <div className="benefit-item highlight">
-                    <span className="benefit-icon">💎</span>
+                    <span className="benefit-icon"><EntcoinIcon size="md" /></span>
                     <span className="benefit-label">Max会员</span>
                     <span className="benefit-value">
                       {currentFund.max_gold_amount} 经费 + {currentFund.max_diamond_amount} 恩特币

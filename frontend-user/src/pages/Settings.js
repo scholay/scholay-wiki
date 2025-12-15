@@ -13,6 +13,8 @@ import { useAuth } from '../utils/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import api, { orderAPI, paymentAPI, walletAPI } from '../services/api';
 import CheckinCalendar from '../components/CheckinCalendar';
+import EntcoinIcon from '../components/EntcoinIcon';
+import GoldIcon from '../components/GoldIcon';
 import './styles/settings/index.css';
 
 const Settings = () => {
@@ -1849,13 +1851,13 @@ const Settings = () => {
           {/* 余额行 - 并排 */}
           <div className="am-row am-balance-row">
             <div className="am-bal">
-              <span className="am-bal-icon">💎</span>
+              <span className="am-bal-icon"><EntcoinIcon size="lg" /></span>
               <span className="am-bal-num">{walletLoading ? '-' : (wallet?.diamond || 0)}</span>
               <button className="am-btn primary" onClick={() => setShowRechargeModal(true)}>充值</button>
             </div>
             <div className="am-bal-sep"></div>
             <div className="am-bal">
-              <span className="am-bal-icon">💰</span>
+              <span className="am-bal-icon"><GoldIcon size="lg" /></span>
               <span className="am-bal-num">{walletLoading ? '-' : (wallet?.gold || 0)}</span>
               <button className="am-btn" onClick={() => setShowExchangeModal(true)} disabled={!wallet?.diamond}>兑换</button>
             </div>
@@ -2011,7 +2013,7 @@ const Settings = () => {
                       }}
                     >
                       <div className="recharge-option-main">
-                        <span className="recharge-option-icon">💎</span>
+                        <span className="recharge-option-icon"><EntcoinIcon size="lg" /></span>
                         <span className="recharge-option-amount">{option.amount}</span>
                       </div>
                       {option.bonus > 0 && (
@@ -2028,7 +2030,7 @@ const Settings = () => {
                 <div className="recharge-custom">
                   <label>自定义数量</label>
                   <div className="recharge-custom-input">
-                    <span className="recharge-custom-icon">💎</span>
+                    <span className="recharge-custom-icon"><EntcoinIcon size="md" /></span>
                     <input
                       type="text"
                       placeholder="输入充值数量"

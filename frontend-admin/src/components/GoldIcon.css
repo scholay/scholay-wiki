@@ -1,0 +1,38 @@
+.gold-icon {
+  display: inline-block;
+  vertical-align: middle;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* 不同尺寸的微调 */
+.gold-icon-xs {
+  width: 12px;
+  height: 12px;
+}
+
+.gold-icon-sm {
+  width: 16px;
+  height: 16px;
+}
+
+.gold-icon-md {
+  width: 20px;
+  height: 20px;
+}
+
+.gold-icon-lg {
+  width: 24px;
+  height: 24px;
+}
+
+.gold-icon-xl {
+  width: 32px;
+  height: 32px;
+}
+
+.gold-icon-xxl {
+  width: 48px;
+  height: 48px;
+}
+

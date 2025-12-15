@@ -10,6 +10,8 @@
 import React, { useState, useEffect } from 'react';
 import { adminAPI } from '../services/api';
 import { showToast } from '../components/Toast';
+import EntcoinIcon from '../components/EntcoinIcon';
+import GoldIcon from '../components/GoldIcon';
 import './CurrencyConfig.css';
 
 const CurrencyConfig = () => {
@@ -675,14 +677,14 @@ const CurrencyConfig = () => {
           {/* 统计概览 */}
           <div className="fund-stats-overview">
             <div className="stat-card">
-              <div className="stat-icon gold">💰</div>
+              <div className="stat-icon gold"><GoldIcon size="xl" /></div>
               <div className="stat-info">
                 <span className="stat-value">{fundStats.total_distributed_gold?.toLocaleString() || 0}</span>
                 <span className="stat-label">已发放经费</span>
               </div>
             </div>
             <div className="stat-card">
-              <div className="stat-icon diamond">💎</div>
+              <div className="stat-icon diamond"><EntcoinIcon size="xl" /></div>
               <div className="stat-info">
                 <span className="stat-value">{fundStats.total_distributed_diamond?.toLocaleString() || 0}</span>
                 <span className="stat-label">已发放恩特币</span>
@@ -893,7 +895,7 @@ const CurrencyConfig = () => {
           </ul>
         </div>
         <div className="tips-section">
-          <h4>💰 货币配置</h4>
+          <h4><GoldIcon size="md" /> 货币配置</h4>
           <ul>
             <li><strong>配置名称</strong>：后台管理显示用，帮助管理员理解配置用途</li>
             <li><strong>金额</strong>：实际赠送/扣费的数量</li>

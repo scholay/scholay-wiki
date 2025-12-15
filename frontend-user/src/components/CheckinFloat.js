@@ -11,6 +11,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspens
 import { checkinAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
 import { trackUserCheckin } from '../utils/usageTracker';
+import GoldIcon from './GoldIcon';
 import './CheckinFloat.css';
 
 // 懒加载 AuthModal
@@ -271,7 +272,7 @@ const CheckinFloat = () => {
                       
                       {/* 今日经费预览 */}
                       <div className={`checkin-reward-preview ${isMilestone ? 'milestone' : ''}`}>
-                        <span className="reward-icon">💰</span>
+                        <span className="reward-icon"><GoldIcon size="lg" /></span>
                         <span className="reward-amount">+{todayGold}</span>
                         <span className="reward-label">经费</span>
                         {isMilestone && (
