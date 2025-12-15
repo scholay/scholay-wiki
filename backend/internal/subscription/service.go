@@ -324,6 +324,7 @@ type ExpiredMemberForCurrency struct {
 }
 
 // GetExpiredMembersWithGracePeriod 获取过期超过宽限期的会员（用于货币系统）
+// 已废弃：使用 GetNonMembersWithGold 替代
 func (s *Service) GetExpiredMembersWithGracePeriod(graceDays int) ([]ExpiredMemberForCurrency, error) {
 	members, err := s.repo.GetExpiredMembersWithGracePeriod(graceDays)
 	if err != nil {
@@ -336,6 +337,32 @@ func (s *Service) GetExpiredMembersWithGracePeriod(graceDays int) ([]ExpiredMemb
 			UserID:    m.UserID,
 			PlanCode:  m.PlanCode,
 			ExpiredAt: m.ExpiredAt,
+		}
+	}
+	return result, nil
+}
+
+// NonMemberForCurrency 非会员用户信息（用于货币系统）
+type NonMemberForCurrency struct {
+	UserID              uint
+	Gold                int64
+	LastSubscriptionEnd *time.Time // 最后一次订阅结束时间，可能为空（从未开通过）
+}
+
+// GetNonMembersWithGold 获取所有非会员用户（有经费但没有活跃pro/max订阅）
+// 用于月度清空非会员经费
+func (s *Service) GetNonMembersWithGold() ([]NonMemberForCurrency, error) {
+	members, err := s.repo.GetNonMembersWithGold()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]NonMemberForCurrency, len(members))
+	for i, m := range members {
+		result[i] = NonMemberForCurrency{
+			UserID:              m.UserID,
+			Gold:                m.Gold,
+			LastSubscriptionEnd: m.LastSubscriptionEnd,
 		}
 	}
 	return result, nil

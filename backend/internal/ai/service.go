@@ -909,29 +909,42 @@ const AnalysisMaxRetries = 3
 // 分批请求时每批的维度数量
 const DimensionsPerBatch = 4
 
+// AnalysisContext 分析上下文，用于扣费去重
+type AnalysisContext struct {
+	DimensionHash string // 维度配置哈希
+	FromCache     bool   // 是否来自缓存
+}
+
 // AnalyzePaperAbstract 分析论文摘要，提取结构化信息
 // 使用low级别模型进行分析，根据用户的分析维度动态生成提示词
 // 优先从数据库缓存获取，如果没有则调用AI分析并保存结果
 // 当JSON解析失败时，最多重试3次；如果仍然失败，则按维度分批请求
 // userID: 用户ID，用于获取用户自定义的分析维度（nil表示使用系统默认）
-func (s *Service) AnalyzePaperAbstract(paperId string, paperTitle string, abstract string, userID *uint) (*PaperAnalysisResult, error) {
+// 返回: 分析结果, 分析上下文（用于扣费去重）, 错误
+func (s *Service) AnalyzePaperAbstract(paperId string, paperTitle string, abstract string, userID *uint) (*PaperAnalysisResult, *AnalysisContext, error) {
 	if abstract == "" {
-		return nil, fmt.Errorf("abstract is required for analysis")
+		return nil, nil, fmt.Errorf("abstract is required for analysis")
 	}
 
 	// 1. 获取用户的分析维度
 	dimensionResult, err := s.GetAnalysisDimensions(userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get analysis dimensions: %w", err)
+		return nil, nil, fmt.Errorf("failed to get analysis dimensions: %w", err)
 	}
 
 	dimensions := dimensionResult.Dimensions
 	if len(dimensions) == 0 {
-		return nil, fmt.Errorf("no active analysis dimensions found")
+		return nil, nil, fmt.Errorf("no active analysis dimensions found")
 	}
 
 	// 生成维度的哈希值，用于缓存key
 	dimensionHash := s.generateDimensionHash(dimensions)
+	
+	// 创建分析上下文
+	analysisCtx := &AnalysisContext{
+		DimensionHash: dimensionHash,
+		FromCache:     false,
+	}
 
 	// 2. 检查数据库缓存（需要匹配维度哈希）
 	if paperId != "" {
@@ -939,7 +952,8 @@ func (s *Service) AnalyzePaperAbstract(paperId string, paperTitle string, abstra
 		if err := s.db.Where("paper_id = ? AND dimension_hash = ?", paperId, dimensionHash).First(&cachedAnalysis).Error; err == nil {
 			// 找到匹配的缓存，直接返回
 			fmt.Printf("[INFO] Found cached analysis for paper: %s (dimension_hash: %s)\n", paperId, dimensionHash)
-			return s.convertCachedAnalysisToResult(cachedAnalysis, dimensions), nil
+			analysisCtx.FromCache = true
+			return s.convertCachedAnalysisToResult(cachedAnalysis, dimensions), analysisCtx, nil
 		}
 		// 没找到匹配的缓存，继续调用AI分析
 		fmt.Printf("[INFO] No cached analysis found for paper: %s with dimension_hash: %s, calling AI...\n", paperId, dimensionHash)
@@ -977,7 +991,7 @@ func (s *Service) AnalyzePaperAbstract(paperId string, paperTitle string, abstra
 
 	// 6. 转换为 PaperAnalysisResult 返回
 	result := s.convertMapToResult(resultMap, dimensions)
-	return result, nil
+	return result, analysisCtx, nil
 }
 
 // analyzeWithRetry 带重试的分析，返回结果map和是否解析成功

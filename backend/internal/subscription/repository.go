@@ -184,6 +184,7 @@ func (r *Repository) GetAllActiveSubscriptions() ([]UserSubscription, error) {
 // GetExpiredMembersWithGracePeriod 获取过期超过宽限期且还有经费的会员
 // graceDays: 宽限期天数
 // 返回：过期时间超过 graceDays 天的用户（原来是 pro/max 会员，现在已过期或取消，且还有经费）
+// 已废弃：使用 GetNonMembersWithGold 替代
 func (r *Repository) GetExpiredMembersWithGracePeriod(graceDays int) ([]ExpiredMemberInfo, error) {
 	// 计算宽限期截止时间（当前时间减去宽限期天数）
 	graceDeadline := time.Now().AddDate(0, 0, -graceDays)
@@ -217,11 +218,49 @@ func (r *Repository) GetExpiredMembersWithGracePeriod(graceDays int) ([]ExpiredM
 	return results, err
 }
 
+// GetNonMembersWithGold 获取所有非会员用户（有经费但没有活跃pro/max订阅）
+// 返回：当前没有活跃 pro/max 订阅且钱包中有经费（gold > 0）的用户
+// 包括：从未开通过会员的用户、会员已过期的用户
+func (r *Repository) GetNonMembersWithGold() ([]NonMemberInfo, error) {
+	var results []NonMemberInfo
+
+	// 查询所有有经费但没有活跃 pro/max 订阅的用户
+	// 条件：
+	// 1. 用户钱包中有经费（gold > 0）
+	// 2. 用户当前没有活跃的 pro/max 订阅
+	err := r.db.Raw(`
+		SELECT w.user_id, w.gold,
+		       COALESCE(
+		           (SELECT MAX(us.end_date) FROM user_subscriptions us 
+		            WHERE us.user_id = w.user_id AND us.plan_code IN ('pro', 'max')),
+		           NULL
+		       ) as last_subscription_end
+		FROM wallets w
+		WHERE w.gold > 0
+		  AND NOT EXISTS (
+			SELECT 1 FROM user_subscriptions active_sub
+			WHERE active_sub.user_id = w.user_id
+			  AND active_sub.plan_code IN ('pro', 'max')
+			  AND active_sub.status = 'active'
+		  )
+		ORDER BY w.user_id ASC
+	`).Scan(&results).Error
+
+	return results, err
+}
+
 // ExpiredMemberInfo 过期会员信息
 type ExpiredMemberInfo struct {
 	UserID    uint      `gorm:"column:user_id"`
 	PlanCode  string    `gorm:"column:plan_code"`
 	ExpiredAt time.Time `gorm:"column:expired_at"`
+}
+
+// NonMemberInfo 非会员用户信息
+type NonMemberInfo struct {
+	UserID              uint       `gorm:"column:user_id"`
+	Gold                int64      `gorm:"column:gold"`
+	LastSubscriptionEnd *time.Time `gorm:"column:last_subscription_end"` // 最后一次订阅结束时间，可能为空（从未开通过）
 }
 
 // CheckAndIncrementQuota atomically checks if user has quota and increments if available

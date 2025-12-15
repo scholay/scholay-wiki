@@ -162,6 +162,7 @@ type AnalyzePaperRequest struct {
 // POST /api/v1/public/papers/analyze (公共接口，使用系统默认维度)
 // POST /api/v1/analysis/paper (需登录，使用用户自定义维度)
 // 优先从数据库缓存获取，如果没有则调用AI分析并保存结果
+// 扣费逻辑：同一篇论文 + 同一维度配置 只扣一次费
 func (h *Handler) AnalyzePaper(c *gin.Context) {
 	var req AnalyzePaperRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -188,10 +189,22 @@ func (h *Handler) AnalyzePaper(c *gin.Context) {
 		}
 	}
 
-	result, err := h.service.AnalyzePaperAbstract(req.PaperID, req.Title, req.Abstract, userID)
+	result, analysisCtx, err := h.service.AnalyzePaperAbstract(req.PaperID, req.Title, req.Abstract, userID)
 	if err != nil {
 		utils.Error(c, 500, "Failed to analyze paper: "+err.Error())
 		return
+	}
+
+	// 设置扣费相关的上下文信息
+	// bizID = paperId_dimensionHash，用于去重扣费
+	if req.PaperID != "" && analysisCtx != nil {
+		bizID := req.PaperID + "_" + analysisCtx.DimensionHash
+		c.Set("deduct_biz_id", bizID)
+		
+		// 如果结果来自缓存，说明之前已经分析过（已扣费），跳过本次扣费
+		if analysisCtx.FromCache {
+			c.Set("skip_deduct", true)
+		}
 	}
 
 	utils.Success(c, result)

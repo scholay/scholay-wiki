@@ -298,8 +298,12 @@ func main() {
 	// Inject currency service into peer review service (for review completion deduction)
 	peerReviewService.SetCurrencyService(currencyService)
 
-	// Initialize Membership Gift Scheduler (会员月度赠送/清空调度器)
-	membershipGiftScheduler := currency.NewMembershipGiftScheduler(currencyService, func(planCodes []string) ([]currency.MemberSubscription, error) {
+	// Initialize Membership Gift Service (会员经费业务服务)
+	// 负责处理会员经费/恩特币的发放和清空逻辑，与定时任务调度器解耦
+	membershipGiftService := currency.NewMembershipGiftService(currencyService)
+	
+	// 设置订阅获取函数（用于月度发放）
+	membershipGiftService.SetSubscriptionGetter(func(planCodes []string) ([]currency.MemberSubscription, error) {
 		subs, err := subscriptionService.GetActiveSubscriptionsByPlanCodes(planCodes)
 		if err != nil {
 			return nil, err
@@ -313,29 +317,37 @@ func main() {
 		}
 		return result, nil
 	})
-	// 设置过期会员获取函数（用于清空经费）
-	membershipGiftScheduler.SetExpiredMemberGetter(func(graceDays int) ([]currency.ExpiredMember, error) {
-		members, err := subscriptionService.GetExpiredMembersWithGracePeriod(graceDays)
+	
+	// 设置非会员用户获取函数（用于清空经费）
+	// 获取所有当前没有活跃 pro/max 订阅且有经费的用户
+	membershipGiftService.SetNonMemberGetter(func() ([]currency.NonMember, error) {
+		members, err := subscriptionService.GetNonMembersWithGold()
 		if err != nil {
 			return nil, err
 		}
-		result := make([]currency.ExpiredMember, len(members))
+		result := make([]currency.NonMember, len(members))
 		for i, m := range members {
-			result[i] = currency.ExpiredMember{
-				UserID:    m.UserID,
-				PlanCode:  m.PlanCode,
-				ExpiredAt: m.ExpiredAt,
+			result[i] = currency.NonMember{
+				UserID:              m.UserID,
+				Gold:                m.Gold,
+				LastSubscriptionEnd: m.LastSubscriptionEnd,
 			}
 		}
 		return result, nil
 	})
+	
 	// 设置会员激活回调 - 当用户开通会员时自动发放奖励
 	// 这是解耦支付方式和奖励发放的关键：无论通过何种支付方式开通会员，
 	// 只要调用 UpgradeSubscription，就会自动触发奖励发放
-	subscriptionService.SetActivationCallback(membershipGiftScheduler.OnSubscriptionActivated)
+	subscriptionService.SetActivationCallback(membershipGiftService.OnSubscriptionActivated)
 	
-	membershipGiftScheduler.Start()
-	defer membershipGiftScheduler.Stop()
+	// Initialize Cron Scheduler (定时任务调度器)
+	// 使用 robfig/cron 库实现稳定的定时任务调度
+	cronScheduler := currency.NewCronScheduler(membershipGiftService)
+	if err := cronScheduler.Start(); err != nil {
+		log.Fatalf("Failed to start cron scheduler: %v", err)
+	}
+	defer cronScheduler.Stop()
 
 	// Setup Gin router
 	router := gin.Default()
@@ -727,8 +739,9 @@ func main() {
 		analysisGroup := api.Group("/analysis")
 		analysisGroup.Use(middleware.UserAuthMiddleware())
 		{
-			// Analyze paper with user's custom dimensions (需扣费)
-			analysisGroup.POST("/paper", currencyMiddleware.Deduct("paper_analysis"), aiHandler.AnalyzePaper)
+			// Analyze paper with user's custom dimensions (需扣费，同一篇论文+同一维度配置只扣一次)
+			// handler 会设置 deduct_biz_id = paperId + "_" + dimensionHash
+			analysisGroup.POST("/paper", currencyMiddleware.DeductAfterWithDynamicBizID("paper_analysis"), aiHandler.AnalyzePaper)
 			// Get user's dimensions (custom or system default)
 			analysisGroup.GET("/dimensions", aiHandler.GetAnalysisDimensions)
 			// Create custom dimension

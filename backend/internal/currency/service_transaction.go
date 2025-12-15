@@ -130,11 +130,18 @@ func (s *Service) Reward(ctx context.Context, userID uint, currencyType Currency
 	return s.doTransaction(ctx, userID, currencyType, amount, TxTypeReward, bizType, bizID, desc)
 }
 
+// HasDeducted 检查用户是否已经为指定业务扣过费
+// 用于去重扣费场景，如多维分析（同一篇论文只扣一次费）
+func (s *Service) HasDeducted(userID uint, bizType, bizID string) (bool, error) {
+	return s.repo.HasDeducted(userID, bizType, bizID)
+}
+
 // ========== 兑换操作 ==========
 
 // ExchangeDiamondToGold 恩特币兑换经费
 // diamondAmount: 要兑换的恩特币数量
 // 返回: 兑换获得的经费数量, 恩特币扣除交易, 经费增加交易, 错误
+// 使用原子事务保证兑换操作的一致性
 func (s *Service) ExchangeDiamondToGold(ctx context.Context, userID uint, diamondAmount int64) (int64, *Transaction, *Transaction, error) {
 	if diamondAmount <= 0 {
 		return 0, nil, nil, ErrInvalidAmount
@@ -149,31 +156,39 @@ func (s *Service) ExchangeDiamondToGold(ctx context.Context, userID uint, diamon
 	// 计算可获得的经费数量
 	goldAmount := diamondAmount * rate
 
-	// 检查恩特币余额
-	wallet, err := s.GetWallet(userID)
-	if err != nil {
-		return 0, nil, nil, err
-	}
-	if wallet.Diamond < diamondAmount {
-		return 0, nil, nil, ErrInsufficientBalance
-	}
-
-	// 执行兑换：扣除恩特币
+	// 使用原子事务执行兑换
 	bizID := generateBizID("exchange", userID)
-	diamondTx, err := s.doTransaction(ctx, userID, CurrencyDiamond, -diamondAmount, TxTypeExchange,
-		"diamond_to_gold", bizID, "恩特币兑换经费")
+	items := []TransactionItem{
+		{
+			CurrencyType: CurrencyDiamond,
+			Delta:        -diamondAmount,
+			TxType:       TxTypeExchange,
+			BizType:      "diamond_to_gold",
+			BizID:        bizID,
+			Description:  "恩特币兑换经费",
+		},
+		{
+			CurrencyType: CurrencyGold,
+			Delta:        goldAmount,
+			TxType:       TxTypeExchange,
+			BizType:      "diamond_to_gold",
+			BizID:        bizID,
+			Description:  "恩特币兑换经费",
+		},
+	}
+
+	transactions, err := s.doMultiTransaction(ctx, userID, items)
 	if err != nil {
 		return 0, nil, nil, err
 	}
 
-	// 执行兑换：增加经费
-	goldTx, err := s.doTransaction(ctx, userID, CurrencyGold, goldAmount, TxTypeExchange,
-		"diamond_to_gold", bizID, "恩特币兑换经费")
-	if err != nil {
-		// 回滚恩特币扣除（理论上不应该发生）
-		_, _ = s.doTransaction(ctx, userID, CurrencyDiamond, diamondAmount, TxTypeRefund,
-			"exchange_rollback", bizID, "兑换失败回滚")
-		return 0, nil, nil, err
+	var diamondTx, goldTx *Transaction
+	for _, tx := range transactions {
+		if tx.CurrencyType == CurrencyDiamond {
+			diamondTx = tx
+		} else if tx.CurrencyType == CurrencyGold {
+			goldTx = tx
+		}
 	}
 
 	return goldAmount, diamondTx, goldTx, nil
@@ -370,7 +385,6 @@ func (s *Service) GiftMembershipReward(ctx context.Context, userID uint, planCod
 	}
 
 	bizID := fmt.Sprintf("%s_%d_%s", bizType, userID, month)
-	var goldTxNo, diamondTxNo string
 
 	// 使用配置中的展示信息作为交易描述
 	// 如果是半额赠送，在描述后添加标记
@@ -404,24 +418,48 @@ func (s *Service) GiftMembershipReward(ctx context.Context, userID uint, planCod
 		}
 	}
 
+	// 构建交易项列表，使用原子事务
+	items := make([]TransactionItem, 0, 2)
+	
 	// 赠送经费
 	if config.GoldAmount > 0 {
-		tx, err := s.doTransaction(ctx, userID, CurrencyGold, config.GoldAmount, TxTypeGift,
-			goldBizType, bizID+"_gold", goldDesc)
-		if err != nil {
-			return nil, fmt.Errorf("gift gold failed: %w", err)
-		}
-		goldTxNo = tx.TransactionNo
+		items = append(items, TransactionItem{
+			CurrencyType: CurrencyGold,
+			Delta:        config.GoldAmount,
+			TxType:       TxTypeGift,
+			BizType:      goldBizType,
+			BizID:        bizID + "_gold",
+			Description:  goldDesc,
+		})
 	}
 
 	// 赠送恩特币（仅Max会员）
 	if config.DiamondAmount > 0 {
-		tx, err := s.doTransaction(ctx, userID, CurrencyDiamond, config.DiamondAmount, TxTypeGift,
-			diamondBizType, bizID+"_diamond", diamondDesc)
+		items = append(items, TransactionItem{
+			CurrencyType: CurrencyDiamond,
+			Delta:        config.DiamondAmount,
+			TxType:       TxTypeGift,
+			BizType:      diamondBizType,
+			BizID:        bizID + "_diamond",
+			Description:  diamondDesc,
+		})
+	}
+
+	// 使用原子事务执行所有赠送
+	var goldTxNo, diamondTxNo string
+	if len(items) > 0 {
+		transactions, err := s.doMultiTransaction(ctx, userID, items)
 		if err != nil {
-			return nil, fmt.Errorf("gift diamond failed: %w", err)
+			return nil, fmt.Errorf("gift membership reward failed: %w", err)
 		}
-		diamondTxNo = tx.TransactionNo
+		
+		for _, tx := range transactions {
+			if tx.CurrencyType == CurrencyGold {
+				goldTxNo = tx.TransactionNo
+			} else if tx.CurrencyType == CurrencyDiamond {
+				diamondTxNo = tx.TransactionNo
+			}
+		}
 	}
 
 	// 如果使用基金配置，记录发放并更新统计

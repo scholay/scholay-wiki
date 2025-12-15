@@ -177,6 +177,19 @@ func (r *Repository) GetTransaction(transactionNo string) (*Transaction, error) 
 	return &transaction, nil
 }
 
+// HasDeducted 检查用户是否已经为指定业务扣过费
+// 用于去重扣费场景，如多维分析（同一篇论文只扣一次费）
+func (r *Repository) HasDeducted(userID uint, bizType, bizID string) (bool, error) {
+	var count int64
+	err := r.db.Model(&Transaction{}).
+		Where("user_id = ? AND biz_type = ? AND biz_id = ? AND status = ?", userID, bizType, bizID, TxStatusSuccess).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // ListTransactions 查询交易流水列表
 func (r *Repository) ListTransactions(userID uint, req *TransactionListRequest) (*TransactionListResponse, error) {
 	query := r.db.Model(&Transaction{}).Where("user_id = ?", userID)
