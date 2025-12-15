@@ -295,6 +295,8 @@ func main() {
 	userHandler.SetCurrencyService(currencyService)
 	// Inject currency service into order service (for recharge order)
 	orderService.SetCurrencyService(currencyService)
+	// Inject currency service into peer review service (for review completion deduction)
+	peerReviewService.SetCurrencyService(currencyService)
 
 	// Initialize Membership Gift Scheduler (会员月度赠送/清空调度器)
 	membershipGiftScheduler := currency.NewMembershipGiftScheduler(currencyService, func(planCodes []string) ([]currency.MemberSubscription, error) {

@@ -33,52 +33,49 @@ func (h *Handler) SetCurrencyService(currencyService *currency.Service) {
 	h.currencyService = currencyService
 }
 
-// deductForSmartAnalysis handles currency deduction for smart analysis based on model level
-func (h *Handler) deductForSmartAnalysis(userID uint, modelLevel string) error {
-	if h.currencyService == nil {
-		return nil // No currency service configured, skip deduction
-	}
-
-	// Determine biz_type based on model level
-	bizType := "smart_analysis_low"
+// getBizTypeForSmartAnalysis 根据模型级别获取业务类型
+func (h *Handler) getBizTypeForSmartAnalysis(modelLevel string) string {
 	switch modelLevel {
 	case "mid":
-		bizType = "smart_analysis_mid"
+		return "smart_analysis_mid"
 	case "high":
-		bizType = "smart_analysis_high"
+		return "smart_analysis_high"
+	default:
+		return "smart_analysis_low"
 	}
+}
 
-	// Get deduct config
-	config, err := h.currencyService.GetDeductConfig(bizType)
-	if err != nil {
-		return err
-	}
-
-	// No config or amount is 0, skip deduction
-	if config == nil || config.Amount == 0 {
+// checkBalanceForSmartAnalysis 检查余额是否充足（不扣费）
+func (h *Handler) checkBalanceForSmartAnalysis(userID uint, modelLevel string) error {
+	if h.currencyService == nil {
 		return nil
 	}
 
-	// Check balance
-	checkResult, err := h.currencyService.CheckBalance(userID, config.CurrencyType, config.Amount)
+	bizType := h.getBizTypeForSmartAnalysis(modelLevel)
+	checkResult, err := h.currencyService.CheckBalanceByBizType(userID, bizType)
 	if err != nil {
 		return err
 	}
-
 	if !checkResult.Sufficient {
 		return currency.ErrInsufficientBalance
 	}
+	return nil
+}
 
-	// Execute deduction
+// deductForSmartAnalysisAfterSuccess 成功后扣费
+func (h *Handler) deductForSmartAnalysisAfterSuccess(userID uint, modelLevel string) {
+	if h.currencyService == nil {
+		return
+	}
+
+	bizType := h.getBizTypeForSmartAnalysis(modelLevel)
 	ctx := context.Background()
-	_, err = h.currencyService.Deduct(ctx, userID, &currency.DeductRequest{
-		CurrencyType: config.CurrencyType,
-		Amount:       config.Amount,
-		BizType:      bizType,
-		Description:  config.Description,
-	})
-
-	return err
+	_, err := h.currencyService.DeductByBizType(ctx, userID, bizType, "")
+	if err != nil {
+		fmt.Printf("[Smart Analysis] Deduct failed after success: userID=%d, bizType=%s, err=%v\n", userID, bizType, err)
+	} else {
+		fmt.Printf("[Smart Analysis] Deduct success: userID=%d, bizType=%s\n", userID, bizType)
+	}
 }
 
 // CreateConversation creates a new conversation
@@ -292,12 +289,12 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 		return
 	}
 
-	// Deduct currency before processing (quota check removed - now using currency system)
-	if err := h.deductForSmartAnalysis(userID.(uint), modelLevel); err != nil {
+	// 1. 先检查余额（不扣费）
+	if err := h.checkBalanceForSmartAnalysis(userID.(uint), modelLevel); err != nil {
 		if err == currency.ErrInsufficientBalance {
 			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "经费不足"})
 		} else {
-			utils.Error(c, 500, "扣费失败: "+err.Error())
+			utils.Error(c, 500, "检查余额失败: "+err.Error())
 		}
 		return
 	}
@@ -308,7 +305,7 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 
-	// 执行智能分析并流式返回结果（使用指定的模型级别）
+	// 2. 执行智能分析并流式返回结果（使用指定的模型级别）
 	err = h.service.AdvancedSearchAndAnalyze(
 		uint(conversationID),
 		targetMessage.SearchQuery,
@@ -317,11 +314,14 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 		thirdparty.ModelLevel(modelLevel),
 	)
 	if err != nil {
-		// Error handling for streaming - write error as SSE
+		// Error handling for streaming - write error as SSE, do not deduct
 		c.Writer.Write([]byte(fmt.Sprintf("data: [ERROR] %s\n\n", err.Error())))
 		c.Writer.(http.Flusher).Flush()
 		return
 	}
+
+	// 3. 成功后扣费
+	h.deductForSmartAnalysisAfterSuccess(userID.(uint), modelLevel)
 
 	// Send done signal
 	c.Writer.Write([]byte("data: [DONE]\n\n"))
@@ -376,12 +376,12 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 		return
 	}
 
-	// Deduct currency before processing
-	if err := h.deductForSmartAnalysis(userID.(uint), modelLevel); err != nil {
+	// 1. 先检查余额（不扣费）
+	if err := h.checkBalanceForSmartAnalysis(userID.(uint), modelLevel); err != nil {
 		if err == currency.ErrInsufficientBalance {
 			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "经费不足"})
 		} else {
-			utils.Error(c, 500, "扣费失败: "+err.Error())
+			utils.Error(c, 500, "检查余额失败: "+err.Error())
 		}
 		return
 	}
@@ -392,7 +392,7 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 
-	// Continue the conversation with specified model level
+	// 2. Continue the conversation with specified model level
 	err = h.service.ContinueConversation(
 		uint(conversationID),
 		req.Query,
@@ -401,11 +401,14 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 		thirdparty.ModelLevel(modelLevel),
 	)
 	if err != nil {
-		// Error handling for streaming - write error as SSE
+		// Error handling for streaming - write error as SSE, do not deduct
 		c.Writer.Write([]byte(fmt.Sprintf("data: [ERROR] %s\n\n", err.Error())))
 		c.Writer.(http.Flusher).Flush()
 		return
 	}
+
+	// 3. 成功后扣费
+	h.deductForSmartAnalysisAfterSuccess(userID.(uint), modelLevel)
 
 	// Send done signal
 	c.Writer.Write([]byte("data: [DONE]\n\n"))

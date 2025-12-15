@@ -2,13 +2,14 @@ package currency
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
 // DeductMiddleware 扣费中间件
-// 用法: router.POST("/api", currencyMiddleware.Deduct("peer_review"), handler)
+// 用法: router.POST("/api", currencyMiddleware.DeductAfterSuccess("peer_review"), handler)
 type DeductMiddleware struct {
 	service *Service
 }
@@ -18,7 +19,8 @@ func NewDeductMiddleware(service *Service) *DeductMiddleware {
 	return &DeductMiddleware{service: service}
 }
 
-// Deduct 创建扣费中间件（根据业务类型自动扣费）
+// Deduct 创建扣费中间件（先检查余额，成功响应后再扣费）
+// 扣费时机：handler 执行完成且响应状态码为 2xx 时才扣费
 func (m *DeductMiddleware) Deduct(bizType string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. 获取用户ID
@@ -37,13 +39,13 @@ func (m *DeductMiddleware) Deduct(bizType string) gin.HandlerFunc {
 			return
 		}
 
-		// 3. 没有配置或金额为0，跳过扣费
+		// 3. 没有配置或金额为0，跳过扣费检查
 		if config == nil || config.Amount == 0 {
 			c.Next()
 			return
 		}
 
-		// 4. 检查余额
+		// 4. 检查余额（先检查，不扣费）
 		checkResult, err := m.service.CheckBalance(userID.(uint), config.CurrencyType, config.Amount)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 5002, "message": "检查余额失败"})
@@ -66,36 +68,42 @@ func (m *DeductMiddleware) Deduct(bizType string) gin.HandlerFunc {
 			return
 		}
 
-		// 5. 执行扣费
-		ctx := context.Background()
-		bizID := c.GetString("biz_id") // 可选，从上下文获取业务ID
-		transaction, err := m.service.Deduct(ctx, userID.(uint), &DeductRequest{
-			CurrencyType: config.CurrencyType,
-			Amount:       config.Amount,
-			BizType:      bizType,
-			BizID:        bizID,
-			Description:  config.Description,
-		})
+		// 5. 将扣费信息存入上下文，供后续扣费使用
+		c.Set("deduct_user_id", userID.(uint))
+		c.Set("deduct_config", config)
+		c.Set("deduct_biz_type", bizType)
 
-		if err != nil {
-			if err == ErrInsufficientBalance {
-				c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "余额不足"})
-			} else {
-				c.JSON(http.StatusInternalServerError, gin.H{"code": 5003, "message": "扣费失败: " + err.Error()})
-			}
-			c.Abort()
-			return
-		}
-
-		// 6. 将交易信息存入上下文（供后续使用或退款）
-		c.Set("currency_transaction", transaction)
-		c.Set("currency_transaction_no", transaction.TransactionNo)
-
+		// 6. 执行 handler
 		c.Next()
+
+		// 7. 检查响应状态，只有成功时才扣费
+		if c.Writer.Status() >= 200 && c.Writer.Status() < 300 {
+			// 检查是否已经被标记为跳过扣费（某些情况下handler可能需要跳过）
+			if skipDeduct, exists := c.Get("skip_deduct"); exists && skipDeduct.(bool) {
+				return
+			}
+
+			ctx := context.Background()
+			bizID := c.GetString("biz_id")
+			transaction, err := m.service.Deduct(ctx, userID.(uint), &DeductRequest{
+				CurrencyType: config.CurrencyType,
+				Amount:       config.Amount,
+				BizType:      bizType,
+				BizID:        bizID,
+				Description:  config.Description,
+			})
+
+			if err != nil {
+				// 扣费失败只记录日志，不影响已成功的响应
+				fmt.Printf("[Currency] Deduct failed after success: userID=%d, bizType=%s, err=%v\n", userID.(uint), bizType, err)
+			} else {
+				fmt.Printf("[Currency] Deduct success: userID=%d, bizType=%s, amount=%d, txNo=%s\n", userID.(uint), bizType, config.Amount, transaction.TransactionNo)
+			}
+		}
 	}
 }
 
-// DeductByModelLevel 根据模型级别动态扣费
+// DeductByModelLevel 根据模型级别动态扣费（先检查余额，成功响应后再扣费）
 // bizTypePrefix 是业务类型前缀，如 "ai_chat" 或 "smart_analysis"
 // 会根据请求中的 model_level 参数拼接成完整的 bizType，如 "ai_chat_low", "ai_chat_mid", "ai_chat_high"
 // 支持从 query 参数、JSON body 或 context 中获取 model_level
@@ -139,13 +147,13 @@ func (m *DeductMiddleware) DeductByModelLevel(bizTypePrefix string) gin.HandlerF
 			return
 		}
 
-		// 5. 没有配置或金额为0，跳过扣费
+		// 5. 没有配置或金额为0，跳过扣费检查
 		if config == nil || config.Amount == 0 {
 			c.Next()
 			return
 		}
 
-		// 6. 检查余额
+		// 6. 检查余额（先检查，不扣费）
 		checkResult, err := m.service.CheckBalance(userID.(uint), config.CurrencyType, config.Amount)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 5002, "message": "检查余额失败"})
@@ -168,32 +176,38 @@ func (m *DeductMiddleware) DeductByModelLevel(bizTypePrefix string) gin.HandlerF
 			return
 		}
 
-		// 7. 执行扣费
-		ctx := context.Background()
-		bizID := c.GetString("biz_id")
-		transaction, err := m.service.Deduct(ctx, userID.(uint), &DeductRequest{
-			CurrencyType: config.CurrencyType,
-			Amount:       config.Amount,
-			BizType:      bizType,
-			BizID:        bizID,
-			Description:  config.Description,
-		})
+		// 7. 将扣费信息存入上下文，供后续扣费使用
+		c.Set("deduct_user_id", userID.(uint))
+		c.Set("deduct_config", config)
+		c.Set("deduct_biz_type", bizType)
 
-		if err != nil {
-			if err == ErrInsufficientBalance {
-				c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "余额不足"})
-			} else {
-				c.JSON(http.StatusInternalServerError, gin.H{"code": 5003, "message": "扣费失败: " + err.Error()})
-			}
-			c.Abort()
-			return
-		}
-
-		// 8. 将交易信息存入上下文
-		c.Set("currency_transaction", transaction)
-		c.Set("currency_transaction_no", transaction.TransactionNo)
-
+		// 8. 执行 handler
 		c.Next()
+
+		// 9. 检查响应状态，只有成功时才扣费
+		if c.Writer.Status() >= 200 && c.Writer.Status() < 300 {
+			// 检查是否已经被标记为跳过扣费
+			if skipDeduct, exists := c.Get("skip_deduct"); exists && skipDeduct.(bool) {
+				return
+			}
+
+			ctx := context.Background()
+			bizID := c.GetString("biz_id")
+			transaction, err := m.service.Deduct(ctx, userID.(uint), &DeductRequest{
+				CurrencyType: config.CurrencyType,
+				Amount:       config.Amount,
+				BizType:      bizType,
+				BizID:        bizID,
+				Description:  config.Description,
+			})
+
+			if err != nil {
+				// 扣费失败只记录日志，不影响已成功的响应
+				fmt.Printf("[Currency] DeductByModelLevel failed after success: userID=%d, bizType=%s, err=%v\n", userID.(uint), bizType, err)
+			} else {
+				fmt.Printf("[Currency] DeductByModelLevel success: userID=%d, bizType=%s, amount=%d, txNo=%s\n", userID.(uint), bizType, config.Amount, transaction.TransactionNo)
+			}
+		}
 	}
 }
 

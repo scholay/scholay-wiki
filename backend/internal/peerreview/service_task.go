@@ -2015,6 +2015,9 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 	s.updateTaskProgress(taskID, TaskStatusProcessing, 90, "汇总审稿结果...")
 	s.summarizeReviews(taskID, reviewResults)
 
+	// 4. 扣费（审稿完成后扣费）
+	s.deductForCompletedReview(taskID, task.UserID, task.ModelLevel)
+
 	// 完成
 	completedAt := time.Now()
 	s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]interface{}{
@@ -2024,6 +2027,35 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 		"completed_at":   completedAt,
 	})
 	fmt.Printf("[PeerReview] Task completed: taskID=%d\n", taskID)
+}
+
+// getBizTypeForPeerReview 根据模型级别获取业务类型
+func (s *Service) getBizTypeForPeerReview(modelLevel string) string {
+	if modelLevel == "high" {
+		return "peer_review_high"
+	}
+	return "peer_review_mid" // AI审稿只有 mid 和 high 两个级别，默认 mid
+}
+
+// deductForCompletedReview 审稿完成后扣费（使用统一扣费方法）
+func (s *Service) deductForCompletedReview(taskID uint, userID uint, modelLevel string) {
+	if s.currencyService == nil {
+		fmt.Printf("[PeerReview] Currency service not configured, skipping deduction: taskID=%d\n", taskID)
+		return
+	}
+
+	bizType := s.getBizTypeForPeerReview(modelLevel)
+	bizID := fmt.Sprintf("peer_review_%d", taskID)
+	ctx := context.Background()
+
+	// 使用统一的扣费方法
+	_, err := s.currencyService.DeductByBizType(ctx, userID, bizType, bizID)
+	if err != nil {
+		// 扣费失败只记录日志，不影响审稿结果
+		fmt.Printf("[PeerReview] Failed to deduct for task %d: %v\n", taskID, err)
+	} else {
+		fmt.Printf("[PeerReview] Successfully deducted for task %d, bizType=%s\n", taskID, bizType)
+	}
 }
 
 // preprocessTask 预处理任务（提取元信息、检索文献）

@@ -43,52 +43,49 @@ func (h *ChatHandler) SetCurrencyService(currencyService *currency.Service) {
 	h.currencyService = currencyService
 }
 
-// deductForChat handles currency deduction for AI chat based on model level
-func (h *ChatHandler) deductForChat(userID uint, modelLevel string) error {
-	if h.currencyService == nil {
-		return nil // No currency service configured, skip deduction
-	}
-
-	// Determine biz_type based on model level
-	bizType := "ai_chat_low"
+// getBizTypeForChat 根据模型级别获取业务类型
+func (h *ChatHandler) getBizTypeForChat(modelLevel string) string {
 	switch modelLevel {
 	case "mid":
-		bizType = "ai_chat_mid"
+		return "ai_chat_mid"
 	case "high":
-		bizType = "ai_chat_high"
+		return "ai_chat_high"
+	default:
+		return "ai_chat_low"
 	}
+}
 
-	// Get deduct config
-	config, err := h.currencyService.GetDeductConfig(bizType)
-	if err != nil {
-		return err
-	}
-
-	// No config or amount is 0, skip deduction
-	if config == nil || config.Amount == 0 {
+// checkBalanceForChat 检查余额是否充足（不扣费）
+func (h *ChatHandler) checkBalanceForChat(userID uint, modelLevel string) error {
+	if h.currencyService == nil {
 		return nil
 	}
 
-	// Check balance
-	checkResult, err := h.currencyService.CheckBalance(userID, config.CurrencyType, config.Amount)
+	bizType := h.getBizTypeForChat(modelLevel)
+	checkResult, err := h.currencyService.CheckBalanceByBizType(userID, bizType)
 	if err != nil {
 		return err
 	}
-
 	if !checkResult.Sufficient {
 		return currency.ErrInsufficientBalance
 	}
+	return nil
+}
 
-	// Execute deduction
+// deductForChatAfterSuccess 成功后扣费
+func (h *ChatHandler) deductForChatAfterSuccess(userID uint, modelLevel string) {
+	if h.currencyService == nil {
+		return
+	}
+
+	bizType := h.getBizTypeForChat(modelLevel)
 	ctx := context.Background()
-	_, err = h.currencyService.Deduct(ctx, userID, &currency.DeductRequest{
-		CurrencyType: config.CurrencyType,
-		Amount:       config.Amount,
-		BizType:      bizType,
-		Description:  config.Description,
-	})
-
-	return err
+	_, err := h.currencyService.DeductByBizType(ctx, userID, bizType, "")
+	if err != nil {
+		log.Printf("[AI Chat] Deduct failed after success: userID=%d, bizType=%s, err=%v", userID, bizType, err)
+	} else {
+		log.Printf("[AI Chat] Deduct success: userID=%d, bizType=%s", userID, bizType)
+	}
 }
 
 // StreamChatMessage handles streaming chat requests
@@ -112,16 +109,16 @@ func (h *ChatHandler) StreamChatMessage(c *gin.Context) {
 
 	req.ConversationID = uint(conversationID)
 
-	// Deduct currency before processing
+	// 1. 先检查余额（不扣费）
 	modelLevel := req.ModelLevel
 	if modelLevel == "" {
 		modelLevel = "low"
 	}
-	if err := h.deductForChat(userID, modelLevel); err != nil {
+	if err := h.checkBalanceForChat(userID, modelLevel); err != nil {
 		if err == currency.ErrInsufficientBalance {
 			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "经费不足"})
 		} else {
-			utils.ErrorResponse(c, http.StatusInternalServerError, "扣费失败: "+err.Error())
+			utils.ErrorResponse(c, http.StatusInternalServerError, "检查余额失败: "+err.Error())
 		}
 		return
 	}
@@ -136,12 +133,15 @@ func (h *ChatHandler) StreamChatMessage(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
 	defer cancel()
 
-	// Stream the chat
+	// 2. 执行流式对话
 	if err := h.chatService.StreamChat(ctx, userID, req, c.Writer); err != nil {
 		log.Printf("Stream chat error: %v", err)
-		// Error already sent via SSE
+		// Error already sent via SSE, do not deduct
 		return
 	}
+
+	// 3. 成功后扣费
+	h.deductForChatAfterSuccess(userID, modelLevel)
 
 	c.Status(http.StatusOK)
 }
@@ -280,16 +280,16 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 		return
 	}
 
-	// Deduct currency before processing
+	// 1. 先检查余额（不扣费）
 	modelLevel := req.ModelLevel
 	if modelLevel == "" {
 		modelLevel = "low"
 	}
-	if err := h.deductForChat(userID, modelLevel); err != nil {
+	if err := h.checkBalanceForChat(userID, modelLevel); err != nil {
 		if err == currency.ErrInsufficientBalance {
 			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "经费不足"})
 		} else {
-			utils.ErrorResponse(c, http.StatusInternalServerError, "扣费失败: "+err.Error())
+			utils.ErrorResponse(c, http.StatusInternalServerError, "检查余额失败: "+err.Error())
 		}
 		return
 	}
@@ -322,7 +322,7 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 		},
 	})
 
-	// Start chat
+	// 2. Start chat
 	chatReq := ChatRequest{
 		ConversationID:  conversation.ID,
 		Content:         req.Content,
@@ -335,8 +335,12 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 
 	if err := h.chatService.StreamChat(ctx, userID, chatReq, c.Writer); err != nil {
 		log.Printf("Stream chat error: %v", err)
+		// Error occurred, do not deduct
 		return
 	}
+
+	// 3. 成功后扣费
+	h.deductForChatAfterSuccess(userID, modelLevel)
 
 	c.Status(http.StatusOK)
 }

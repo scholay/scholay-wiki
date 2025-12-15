@@ -40,6 +40,69 @@ func (s *Service) DeductDiamond(ctx context.Context, userID uint, amount int64, 
 	return s.doTransaction(ctx, userID, CurrencyDiamond, -amount, TxTypeDeduct, bizType, bizID, desc)
 }
 
+// DeductByBizType 根据业务类型自动扣费（统一扣费入口）
+// 自动从配置表获取扣费金额和货币类型
+// 返回: 交易记录, 错误
+func (s *Service) DeductByBizType(ctx context.Context, userID uint, bizType, bizID string) (*Transaction, error) {
+	// 获取扣费配置
+	config, err := s.GetDeductConfig(bizType)
+	if err != nil {
+		return nil, err
+	}
+	if config == nil {
+		return nil, nil // 没有配置，不扣费
+	}
+	if !config.Enabled || config.Amount == 0 {
+		return nil, nil // 未启用或金额为0，不扣费
+	}
+
+	// 执行扣费
+	return s.doTransaction(ctx, userID, config.CurrencyType, -config.Amount, TxTypeDeduct, bizType, bizID, config.Description)
+}
+
+// CheckAndDeductByBizType 检查余额并扣费（统一扣费入口）
+// 先检查余额是否充足，然后执行扣费
+// 返回: 交易记录, 错误（ErrInsufficientBalance 表示余额不足）
+func (s *Service) CheckAndDeductByBizType(ctx context.Context, userID uint, bizType, bizID string) (*Transaction, error) {
+	// 获取扣费配置
+	config, err := s.GetDeductConfig(bizType)
+	if err != nil {
+		return nil, err
+	}
+	if config == nil {
+		return nil, nil // 没有配置，不扣费
+	}
+	if !config.Enabled || config.Amount == 0 {
+		return nil, nil // 未启用或金额为0，不扣费
+	}
+
+	// 检查余额
+	checkResult, err := s.CheckBalance(userID, config.CurrencyType, config.Amount)
+	if err != nil {
+		return nil, err
+	}
+	if !checkResult.Sufficient {
+		return nil, ErrInsufficientBalance
+	}
+
+	// 执行扣费
+	return s.doTransaction(ctx, userID, config.CurrencyType, -config.Amount, TxTypeDeduct, bizType, bizID, config.Description)
+}
+
+// CheckBalanceByBizType 根据业务类型检查余额（仅检查，不扣费）
+// 返回: 检查结果, 错误
+func (s *Service) CheckBalanceByBizType(userID uint, bizType string) (*BalanceCheckResult, error) {
+	config, err := s.GetDeductConfig(bizType)
+	if err != nil {
+		return nil, err
+	}
+	if config == nil || !config.Enabled || config.Amount == 0 {
+		// 没有配置或未启用，视为余额充足
+		return &BalanceCheckResult{Sufficient: true}, nil
+	}
+	return s.CheckBalance(userID, config.CurrencyType, config.Amount)
+}
+
 // ========== 其他操作 ==========
 
 // Refund 退款
