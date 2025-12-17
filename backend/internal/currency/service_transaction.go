@@ -267,11 +267,11 @@ func (s *Service) GetMembershipGiftConfigForMonth(planCode, month string, isHalf
 			return nil, fmt.Errorf("unsupported plan code: %s", planCode)
 		}
 
-		// 使用基金的名称和标语作为交易展示
+		// 使用基金的名称作为交易展示（标题和描述都使用基金名称）
 		result.GoldDisplayTitle = fund.FundName
-		result.GoldDisplayDesc = fund.FundSlogan
+		result.GoldDisplayDesc = fund.FundName + " - 经费发放"
 		result.DiamondDisplayTitle = fund.FundName
-		result.DiamondDisplayDesc = fund.FundSlogan
+		result.DiamondDisplayDesc = fund.FundName + " - 恩特币发放"
 	} else {
 		// 2. 没有基金配置，使用默认配置
 		result.UseFund = false

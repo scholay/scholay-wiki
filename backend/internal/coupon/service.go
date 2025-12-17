@@ -999,35 +999,12 @@ func (s *Service) GetStatistics() (*CouponStatistics, error) {
 	return s.repo.GetStatistics()
 }
 
-// ExpireOutdatedCoupons 过期折扣券（定时任务调用）
-func (s *Service) ExpireOutdatedCoupons() (int64, error) {
-	return s.repo.ExpireCoupons()
+// GetAutoDistributionTemplates 获取自动发放模板
+// 用于注册自动发放和邀请自动发放
+func (s *Service) GetAutoDistributionTemplates(distributionType DistributionType) ([]*CouponTemplate, error) {
+	return s.repo.GetAutoDistributionTemplates(distributionType)
 }
 
-// GetAutoDistributionTemplates 获取自动发放模板（支持monthly等类型）
-func (s *Service) GetAutoDistributionTemplates(distributionType string) ([]*CouponTemplate, error) {
-	// 处理月度发放类型
-	if distributionType == "monthly" {
-		var templates []*CouponTemplate
-		err := s.repo.db.Where("status = ? AND (description LIKE ? OR code LIKE ?)",
-			TemplateStatusActive, "%月度%", "%MONTHLY%").
-			Find(&templates).Error
-		return templates, err
-	}
-
-	// 其他类型使用原有逻辑
-	return s.repo.GetAutoDistributionTemplates(DistributionType(distributionType))
-}
-
-// GetScheduledBatches 获取待执行的定时批次
-func (s *Service) GetScheduledBatches() ([]*CouponBatch, error) {
-	var batches []*CouponBatch
-	now := time.Now()
-	err := s.repo.db.Where("status = ? AND scheduled_at IS NOT NULL AND scheduled_at <= ?", "draft", now).
-		Preload("Template").
-		Find(&batches).Error
-	return batches, err
-}
 
 // MarkCouponAsUsed marks a coupon as used (called when payment succeeds)
 func (s *Service) MarkCouponAsUsed(couponID uint64, orderID uint, usedAt time.Time) error {

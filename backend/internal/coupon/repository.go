@@ -234,15 +234,6 @@ func (r *Repository) UseCoupon(couponID uint64, orderID uint64) error {
 		}).Error
 }
 
-// ExpireCoupons 过期折扣券
-func (r *Repository) ExpireCoupons() (int64, error) {
-	now := time.Now()
-	result := r.db.Model(&UserCoupon{}).
-		Where("status = ? AND valid_until < ?", CouponStatusUnused, now).
-		Update("status", CouponStatusExpired)
-	return result.RowsAffected, result.Error
-}
-
 // CountUserCouponUsage 统计用户使用某模板的次数
 func (r *Repository) CountUserCouponUsage(userID uint64, templateID uint64) (int64, error) {
 	var count int64

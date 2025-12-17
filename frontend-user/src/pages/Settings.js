@@ -1903,11 +1903,13 @@ const Settings = () => {
                           </div>
                           <div className="am-tx-detail">
                             <span className="am-tx-name">
-                              {tx.biz_type?.startsWith('fund_') ? (tx.description || '基金赠送') : getBizTypeLabel(tx.biz_type)}
+                              {tx.biz_type?.startsWith('fund_') 
+                                ? (tx.description?.split(' - ')[0] || '基金赠送') 
+                                : getBizTypeLabel(tx.biz_type)}
                             </span>
                             <span className="am-tx-remark">
                               {tx.biz_type?.startsWith('fund_') 
-                                ? getTransactionTypeLabel(tx.transaction_type)
+                                ? (tx.description || '会员福利发放')
                                 : (getBizTypeRemark(tx.biz_type) || tx.description || getTransactionTypeLabel(tx.transaction_type))}
                             </span>
                             <span className="am-tx-meta">

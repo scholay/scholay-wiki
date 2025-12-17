@@ -162,10 +162,6 @@ func main() {
 	couponService := coupon.NewService(database.GetDB(), userRepo, redisClient, baseURL)
 	couponHandler := coupon.NewHandler(couponService)
 
-	// Start coupon scheduler for automated tasks
-	couponScheduler := coupon.NewScheduler(couponService)
-	couponScheduler.Start()
-
 	// Inject config service into user service (for email sending)
 	userService.SetConfigService(configService)
 

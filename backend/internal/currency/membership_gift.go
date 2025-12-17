@@ -217,13 +217,6 @@ func (s *MembershipGiftService) ClearNonMembersGold() {
 		successCount, totalCleared, failCount)
 }
 
-// ClearExpiredMembersGold 清空过期会员的经费（已废弃，保留兼容）
-// 使用 ClearNonMembersGold 替代
-func (s *MembershipGiftService) ClearExpiredMembersGold() {
-	log.Println("[MembershipGift] ClearExpiredMembersGold is deprecated, use ClearNonMembersGold instead")
-	s.ClearNonMembersGold()
-}
-
 // GiftOnActivation 会员激活时发放经费（新开通会员时调用）
 // userID: 用户ID
 // planCode: 套餐代码 (pro/max)

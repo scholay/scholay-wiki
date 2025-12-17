@@ -35,13 +35,6 @@ func NewHandler(manager *Manager, translator QueryTranslator) *Handler {
 	}
 }
 
-// NewHandlerWithAPIKey creates a new handler with a fixed API key (legacy)
-func NewHandlerWithAPIKey(apiKey string) *Handler {
-	return &Handler{
-		manager: &Manager{}, // Empty manager, will use direct client
-	}
-}
-
 // SearchPapersRequest 定义学术检索的POST请求结构
 type SearchPapersRequest struct {
 	Query             string   `json:"query" binding:"required"`
