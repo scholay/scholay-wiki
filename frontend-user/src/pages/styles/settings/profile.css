@@ -10,8 +10,9 @@
 /* Right Content */
 .settings-content {
   flex: 1;
-  padding: 80px 48px 40px 48px; /* 增加顶部padding为fixed header留出空间 */
+  padding: 32px 48px 40px 48px;
   overflow-y: auto;
+  height: 100%;
 }
 
 .settings-section {

@@ -13,7 +13,8 @@
 /* Main Page Wrapper */
 .chat-page-wrapper {
   display: flex;
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   background: var(--background);
   overflow: hidden;
 }

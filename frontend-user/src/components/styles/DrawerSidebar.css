@@ -1,0 +1,753 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ * DrawerSidebar - 悬浮抽屉式侧边栏样式
+ * 样式与原有 AppSidebar 保持一致
+ */
+
+/* ========== 遮罩层 ========== */
+.drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+  animation: drawerOverlayFadeIn 0.2s ease;
+}
+
+@keyframes drawerOverlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ========== 侧边栏主体 - 与 AppSidebar 一致的毛玻璃效果 ========== */
+.drawer-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 280px;
+  height: 100vh;
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  z-index: 10001;
+  display: flex;
+  flex-direction: column;
+  animation: drawerSlideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+[data-theme="dark"] .drawer-sidebar {
+  background: rgba(24, 24, 24, 0.6);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    2px 0 20px rgba(0, 0, 0, 0.3),
+    inset -1px 0 0 rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="light"] .drawer-sidebar {
+  background: rgba(255, 255, 255, 0.95);
+  border-right: 1px solid var(--border);
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.04);
+}
+
+@keyframes drawerSlideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+/* ========== 顶部区域 - 与 AppSidebar 一致 ========== */
+.drawer-header {
+  height: 56px;
+  padding: 0 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: visible;
+}
+
+.drawer-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.drawer-logo:hover {
+  opacity: 0.8;
+}
+
+.drawer-logo img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+
+.drawer-logo span {
+  font-size: 18px;
+  font-weight: 600;
+  margin-left: 10px;
+  color: #ffffff;
+}
+
+[data-theme="light"] .drawer-logo span {
+  color: var(--primary-solid, #10a37f);
+}
+
+/* 关闭按钮 - 毛玻璃效果 */
+.drawer-close-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: rgba(175, 175, 175, 0.8);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.drawer-close-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: rgba(255, 255, 255, 0.95);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* ========== 导航区域 - 与 AppSidebar 一致 ========== */
+.drawer-nav-section {
+  margin-bottom: 16px;
+  padding: 12px 10px;
+  transition: none;
+  overflow: visible;
+}
+
+.drawer-nav-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: visible;
+}
+
+.drawer-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px 0 13px;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-secondary);
+  font-size: 15px;
+  font-weight: 400;
+  text-align: left;
+  width: 100%;
+  position: relative;
+  overflow: visible;
+  min-height: 44px;
+}
+
+.drawer-nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: var(--text-primary);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transform: translateX(2px);
+}
+
+.drawer-nav-item.active {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.25) 0%, 
+    rgba(16, 163, 127, 0.15) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: var(--text-accent);
+  font-weight: 500;
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.3),
+    0 0 0 1px rgba(16, 163, 127, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.15);
+}
+
+.drawer-nav-item svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: currentColor;
+  transition: none;
+}
+
+.drawer-nav-item span {
+  opacity: 1;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ========== 历史记录区域 - 与 AppSidebar 一致 ========== */
+.drawer-history-section {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0 10px;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* 历史记录折叠按钮 */
+.drawer-history-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: none;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  width: 100%;
+  text-align: left;
+}
+
+.drawer-history-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  user-select: none;
+  flex: 0 0 auto;
+  text-align: left;
+}
+
+.drawer-toggle-icon {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  transition: transform 0.2s ease, opacity 0.15s ease;
+  transform: rotate(-90deg);
+  opacity: 0;
+}
+
+.drawer-history-toggle:hover .drawer-toggle-icon {
+  opacity: 1;
+}
+
+.drawer-toggle-icon.expanded {
+  transform: rotate(0deg);
+}
+
+/* 历史记录列表 */
+.drawer-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.drawer-history-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.drawer-history-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.drawer-history-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.drawer-history-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.drawer-history-loading,
+.drawer-history-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+/* 历史记录项 */
+.drawer-history-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+  width: calc(100% - 4px);
+  margin-bottom: 0px;
+}
+
+.drawer-history-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transform: translateX(2px);
+}
+
+.drawer-history-item.active {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.25) 0%, 
+    rgba(16, 163, 127, 0.15) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.3),
+    0 0 0 1px rgba(16, 163, 127, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.15);
+}
+
+.drawer-history-item.active .drawer-history-item-title {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* 当菜单打开时，保持该历史项的hover状态 */
+.drawer-history-item.menu-open {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.drawer-history-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.drawer-history-item-title {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+  transition: color 0.15s ease;
+}
+
+/* 历史项编辑输入框 */
+.drawer-history-edit-input {
+  width: 100%;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 400;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.drawer-history-edit-input:focus {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #10a37f;
+  box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.2);
+}
+
+/* 历史项菜单按钮 */
+.drawer-history-menu-btn {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: rgba(236, 236, 241, 0.5);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s ease;
+}
+
+.drawer-history-item:hover .drawer-history-menu-btn {
+  opacity: 1;
+}
+
+/* 当菜单打开时，三个点按钮也保持可见 */
+.drawer-history-item.menu-open .drawer-history-menu-btn {
+  opacity: 1;
+}
+
+.drawer-history-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: rgba(236, 236, 241, 0.95);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.drawer-history-menu-btn svg {
+  font-size: 14px;
+}
+
+/* ========== 历史菜单弹窗 - 与 AppSidebar 一致 ========== */
+.drawer-history-menu-popup {
+  background: rgba(47, 47, 47, 0.9);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 6px;
+  min-width: 160px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: menuFadeIn 0.15s ease;
+}
+
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.drawer-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+}
+
+.drawer-menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transform: translateX(2px);
+}
+
+.drawer-menu-item svg {
+  flex-shrink: 0;
+  color: currentColor;
+}
+
+.drawer-menu-item span {
+  flex: 1;
+}
+
+.drawer-menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 4px 0;
+}
+
+.drawer-menu-item.delete-item {
+  color: rgba(255, 99, 99, 0.95);
+}
+
+.drawer-menu-item.delete-item:hover {
+  background: linear-gradient(135deg, 
+    rgba(255, 99, 99, 0.2) 0%, 
+    rgba(255, 99, 99, 0.12) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: rgba(255, 99, 99, 1);
+  box-shadow: 
+    0 1px 3px rgba(255, 99, 99, 0.2),
+    0 0 0 1px rgba(255, 99, 99, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* ========== 删除确认弹窗 - 毛玻璃效果 ========== */
+.drawer-delete-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 10003;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: drawerOverlayFadeIn 0.2s ease;
+}
+
+.drawer-delete-dialog {
+  width: 90%;
+  max-width: 360px;
+  background: rgba(47, 47, 47, 0.9);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 
+    0 12px 48px rgba(0, 0, 0, 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: menuFadeIn 0.2s ease;
+}
+
+.drawer-delete-icon {
+  color: #f59e0b;
+  margin-bottom: 16px;
+}
+
+.drawer-delete-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary, #ffffff);
+  margin: 0 0 12px 0;
+}
+
+.drawer-delete-message {
+  font-size: 14px;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  line-height: 1.5;
+  margin: 0 0 24px 0;
+}
+
+.drawer-delete-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.drawer-btn-cancel,
+.drawer-btn-confirm {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.drawer-btn-cancel {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--text-primary, #ffffff);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.drawer-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.drawer-btn-confirm {
+  background: linear-gradient(135deg, 
+    rgba(255, 99, 99, 0.9) 0%, 
+    rgba(255, 99, 99, 0.7) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #ffffff;
+  border: 1px solid rgba(255, 99, 99, 0.3);
+  box-shadow: 
+    0 2px 12px rgba(255, 99, 99, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.drawer-btn-confirm:hover {
+  background: linear-gradient(135deg, 
+    rgba(255, 99, 99, 1) 0%, 
+    rgba(255, 99, 99, 0.85) 100%);
+  box-shadow: 
+    0 6px 20px rgba(255, 99, 99, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+/* ========== 亮色主题 ========== */
+[data-theme="light"] .drawer-close-btn {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .drawer-close-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .drawer-nav-item {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .drawer-nav-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+
+[data-theme="light"] .drawer-nav-item.active {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.15) 0%, 
+    rgba(16, 163, 127, 0.08) 100%);
+  color: var(--primary-solid);
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.15),
+    0 0 0 1px rgba(16, 163, 127, 0.2);
+}
+
+[data-theme="light"] .drawer-history-toggle {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .drawer-history-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+  box-shadow: none;
+}
+
+[data-theme="light"] .drawer-history-item.active {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.15) 0%, 
+    rgba(16, 163, 127, 0.08) 100%);
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.15),
+    0 0 0 1px rgba(16, 163, 127, 0.2);
+}
+
+[data-theme="light"] .drawer-history-item-title {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .drawer-history-item.active .drawer-history-item-title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .drawer-history-edit-input {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .drawer-history-edit-input:focus {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: var(--primary-solid);
+}
+
+[data-theme="light"] .drawer-history-menu-btn {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .drawer-history-menu-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+
+[data-theme="light"] .drawer-history-menu-popup {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .drawer-menu-item {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .drawer-menu-item:hover {
+  background: rgba(0, 0, 0, 0.06);
+  box-shadow: none;
+}
+
+[data-theme="light"] .drawer-menu-divider {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .drawer-delete-dialog {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .drawer-delete-title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .drawer-delete-message {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .drawer-btn-cancel {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .drawer-btn-cancel:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* ========== 响应式 ========== */
+@media (max-width: 480px) {
+  .drawer-sidebar {
+    width: 100%;
+    max-width: 320px;
+  }
+}

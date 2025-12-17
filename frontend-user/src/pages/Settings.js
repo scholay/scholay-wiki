@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import api, { orderAPI, paymentAPI, walletAPI } from '../services/api';
@@ -22,6 +22,8 @@ const Settings = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user, logout, refreshUser } = useAuth();
   const { showSuccess, showError, showInfo } = useToast();
+  const outletContext = useOutletContext();
+  const onOpenDrawer = outletContext?.onOpenDrawer;
 
   const [activeTab, setActiveTab] = useState('profile'); // profile, account, subscription, invitation
   const [loading, setLoading] = useState(false);
@@ -2282,22 +2284,6 @@ const Settings = () => {
 
   return (
     <div className="settings-page">
-      {/* Header with Logo - fixed at top, full width */}
-      <div className="settings-header">
-        <div className="settings-header-content">
-          <div
-            onClick={() => navigate('/')}
-            className="settings-header-logo"
-          >
-            <img
-              src="/logo.png"
-              alt="Scholay"
-            />
-            <span>Scholay</span>
-          </div>
-        </div>
-      </div>
-
       <div className="settings-container">
         <div className="settings-layout">
           {/* Left Sidebar */}

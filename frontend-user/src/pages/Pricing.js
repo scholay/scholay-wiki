@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../components/ToastContainer';
 import AuthModal from '../components/AuthModal';
@@ -77,6 +77,8 @@ const getPlanBadge = (planCode) => PLAN_BADGES[planCode];
 const Pricing = () => {
   const navigate = useNavigate();
   const { showError } = useToast();
+  const outletContext = useOutletContext();
+  const onOpenDrawer = outletContext?.onOpenDrawer;
   const [plans, setPlans] = useState([]);
   const [currentPlan, setCurrentPlan] = useState(null);
   const [loading, setLoading] = useState(true);

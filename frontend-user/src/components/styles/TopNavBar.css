@@ -1,0 +1,1348 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ * TopNavBar - 顶部导航栏样式
+ */
+
+/* ========== 顶部导航栏基础样式 ========== */
+.top-nav-bar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  background: transparent;
+  flex-shrink: 0; /* 防止被压缩 */
+  z-index: 100;
+}
+
+/* ========== 左侧区域 ========== */
+.top-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-nav-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.top-nav-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #ffffff);
+}
+
+.top-nav-menu-btn:active {
+  transform: scale(0.95);
+}
+
+/* Logo 使用首页原有样式 */
+.top-nav-bar .logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.top-nav-bar .logo .logo-img {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+}
+
+.top-nav-bar .logo .logo-text {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+}
+
+[data-theme="dark"] .top-nav-bar .logo .logo-text {
+  color: #ffffff !important;
+  background: none !important;
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+}
+
+[data-theme="light"] .top-nav-bar .logo .logo-text {
+  color: var(--primary-solid) !important;
+  background: none !important;
+  -webkit-text-fill-color: var(--primary-solid) !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+}
+
+/* ========== 首页图标按钮 ========== */
+.top-nav-home-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  margin-left: 4px;
+}
+
+.top-nav-home-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .top-nav-home-btn {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .top-nav-home-btn:hover {
+  color: #1a1a1a;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* ========== 主导航菜单 ========== */
+.top-nav-menu {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.nav-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.nav-menu-item svg {
+  flex-shrink: 0;
+}
+
+.nav-menu-item:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nav-menu-item.active {
+  color: #ffffff;
+  background: rgba(16, 163, 127, 0.2);
+}
+
+/* 亮色主题导航菜单 */
+[data-theme="light"] .nav-menu-item {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .nav-menu-item:hover {
+  color: #1a1a1a;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .nav-menu-item.active {
+  color: var(--primary-solid, #10a37f);
+  background: rgba(16, 163, 127, 0.1);
+}
+
+/* 移动端隐藏导航菜单和首页图标 */
+@media (max-width: 768px) {
+  .top-nav-menu {
+    display: none;
+  }
+  
+  .top-nav-home-btn {
+    display: none;
+  }
+}
+
+/* ========== 中间占位区域 ========== */
+.top-nav-center {
+  flex: 1;
+}
+
+/* ========== 右侧区域 ========== */
+.top-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 未登录状态下的按钮组 - 使用首页原有样式 auth-buttons */
+.top-nav-bar .auth-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 液态玻璃按钮基础样式 */
+.top-nav-bar .btn-auth {
+  padding: 0.5rem 1.25rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 价格方案按钮 - 液态玻璃效果 */
+[data-theme="dark"] .top-nav-bar .btn-pricing {
+  background: rgba(251, 191, 36, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] .top-nav-bar .btn-pricing {
+  background: rgba(217, 119, 6, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #b45309;
+  border: 1px solid rgba(217, 119, 6, 0.15);
+  box-shadow: 
+    0 2px 8px rgba(217, 119, 6, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .top-nav-bar .btn-pricing:hover {
+  background: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.4);
+  box-shadow: 
+    0 4px 16px rgba(251, 191, 36, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+[data-theme="light"] .top-nav-bar .btn-pricing:hover {
+  background: rgba(217, 119, 6, 0.12);
+  border-color: rgba(217, 119, 6, 0.3);
+  box-shadow: 
+    0 4px 16px rgba(217, 119, 6, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transform: translateY(-1px);
+}
+
+/* 登录/注册合并按钮 - 液态玻璃效果 + 主色调 */
+.top-nav-bar .btn-login-register {
+  color: white;
+}
+
+[data-theme="dark"] .top-nav-bar .btn-login-register {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.9) 0%, rgba(16, 163, 127, 0.7) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  box-shadow: 
+    0 2px 12px rgba(16, 163, 127, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="light"] .top-nav-bar .btn-login-register {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.95) 0%, rgba(16, 163, 127, 0.85) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  box-shadow: 
+    0 2px 12px rgba(16, 163, 127, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .top-nav-bar .btn-login-register:hover {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 1) 0%, rgba(16, 163, 127, 0.85) 100%);
+  border-color: rgba(16, 163, 127, 0.5);
+  box-shadow: 
+    0 6px 20px rgba(16, 163, 127, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+[data-theme="light"] .top-nav-bar .btn-login-register:hover {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 1) 0%, rgba(16, 163, 127, 0.9) 100%);
+  border-color: rgba(16, 163, 127, 0.4);
+  box-shadow: 
+    0 6px 20px rgba(16, 163, 127, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+/* 移动端登录按钮 */
+.top-nav-bar .btn-login-mobile {
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  font-weight: 500;
+  border-radius: 20px !important;
+  color: white !important;
+  border: none !important;
+}
+
+[data-theme="dark"] .top-nav-bar .btn-login-mobile {
+  background: var(--primary-solid) !important;
+}
+
+[data-theme="light"] .top-nav-bar .btn-login-mobile {
+  background: var(--primary-solid) !important;
+}
+
+/* 桌面端/移动端显示控制 */
+.top-nav-bar .desktop-only {
+  display: flex;
+  align-items: center;
+}
+
+.top-nav-bar .mobile-only {
+  display: none;
+}
+
+/* 用户头像 */
+.top-nav-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 12px 4px 4px;
+  border-radius: 20px;
+  transition: all 0.2s ease;
+}
+
+.top-nav-user:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .top-nav-user:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.top-nav-username {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme="light"] .top-nav-username {
+  color: #1a1a1a;
+}
+
+.top-nav-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-solid) 0%, var(--primary-dark, #0d8a6a) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  border: 2px solid rgba(16, 163, 127, 0.3);
+}
+
+.top-nav-user:hover .top-nav-avatar {
+  transform: scale(1.05);
+  box-shadow: 0 2px 12px rgba(16, 163, 127, 0.4);
+  border-color: rgba(16, 163, 127, 0.5);
+}
+
+/* ========== 用户菜单弹窗 - 新设计 ========== */
+.top-nav-user-menu {
+  width: 300px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  animation: menuSlideDown 0.2s ease;
+}
+
+@keyframes menuSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 用户信息卡片 */
+.um-user-card {
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.08) 0%, rgba(16, 163, 127, 0.02) 100%);
+  border-bottom: 1px solid rgba(16, 163, 127, 0.1);
+}
+
+.um-user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.um-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-solid, #10a37f) 0%, var(--primary-dark, #0d8a6a) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.um-user-detail {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.um-username {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.um-plan-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.um-plan-badge.free {
+  background: #f0f0f0;
+  color: #999999;
+}
+
+.um-plan-badge.pro {
+  background: linear-gradient(135deg, #d9af6b 0%, #cda45e 100%);
+  color: #ffffff;
+}
+
+.um-plan-badge.max {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: #1a1a1a;
+}
+
+/* 钱包余额 - 紧凑型 */
+.um-wallet {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  padding: 10px 16px;
+}
+
+.um-wallet-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  justify-content: center;
+}
+
+.um-wallet-divider {
+  width: 1px;
+  height: 20px;
+  background: #e0e0e0;
+  margin: 0 16px;
+}
+
+.um-wallet-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* 签到区域 */
+.um-checkin-section {
+  padding: 16px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.um-checkin-section:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.um-checkin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.um-checkin-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.um-checkin-streak {
+  font-size: 12px;
+  color: #10a37f;
+  font-weight: 500;
+}
+
+/* 签到日历格子 */
+.um-checkin-days {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+/* 使用与签到悬浮球相同的日历格子样式 */
+.um-checkin-days .checkin-day {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #f5f5f5;
+  color: #666;
+  position: relative;
+  overflow: hidden;
+}
+
+[data-theme="dark"] .um-checkin-days .checkin-day {
+  color: #aaa;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* 今日 - 礼物高亮 */
+.um-checkin-days .checkin-day.today:not(.checked) {
+  background: linear-gradient(135deg, #ff9a56 0%, #ff6b6b 100%);
+  color: white;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4);
+}
+
+/* 已签到 - 金色礼物 */
+.um-checkin-days .checkin-day.checked {
+  background: linear-gradient(135deg, #feca57 0%, #ff9f43 100%);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(254, 202, 87, 0.4);
+}
+
+/* 签到勾选标记 */
+.um-checkin-days .checkin-day .check-mark {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+}
+
+[data-theme="dark"] .um-checkin-days .checkin-day .check-mark {
+  border-color: rgba(40, 40, 40, 0.95);
+}
+
+.um-checkin-days .checkin-day .check-mark svg {
+  width: 8px;
+  height: 8px;
+  color: white;
+}
+
+/* 未来日期 */
+.um-checkin-days .checkin-day.future {
+  color: #ddd;
+  background: transparent;
+}
+
+[data-theme="dark"] .um-checkin-days .checkin-day.future {
+  color: #555;
+}
+
+/* 过去未签到日期 */
+.um-checkin-days .checkin-day.past {
+  color: #ccc;
+  background: rgba(0, 0, 0, 0.03);
+  opacity: 0.6;
+}
+
+[data-theme="dark"] .um-checkin-days .checkin-day.past {
+  color: #666;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* 过去未签到的经费 - 灰色 */
+.um-checkin-days .checkin-day .gold-reward.past-gold {
+  color: #bbb;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .um-checkin-days .checkin-day .gold-reward.past-gold {
+  color: #555;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* 日期数字 */
+.um-checkin-days .checkin-day .day-num {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* 经费奖励显示 */
+.um-checkin-days .checkin-day .gold-reward {
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 1px 3px;
+  border-radius: 4px;
+  margin-top: 2px;
+}
+
+/* 已签到的经费 - 白色（在金色背景上） */
+.um-checkin-days .checkin-day .gold-reward.checked-gold {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 今天未签到的预计经费 - 白色（在渐变背景上） */
+.um-checkin-days .checkin-day .gold-reward.today-gold {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 未来预计经费 - 灰色 */
+.um-checkin-days .checkin-day .gold-reward.future-gold {
+  color: #999;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .um-checkin-days .checkin-day .gold-reward.future-gold {
+  color: #777;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* 里程碑日期的经费 - 金色高亮 */
+.um-checkin-days .checkin-day .gold-reward.milestone-gold {
+  color: #d97706;
+  background: rgba(245, 158, 11, 0.15);
+  font-weight: 700;
+}
+
+[data-theme="dark"] .um-checkin-days .checkin-day .gold-reward.milestone-gold {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.2);
+}
+
+/* 里程碑日期样式 */
+.um-checkin-days .checkin-day.milestone.future {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px dashed rgba(245, 158, 11, 0.35);
+}
+
+[data-theme="dark"] .um-checkin-days .checkin-day.milestone.future {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+
+
+/* 底部操作区域 */
+.um-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.um-theme-toggle {
+  flex: 1;
+}
+
+.um-settings-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: #666666;
+  font-size: 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.um-settings-btn:hover {
+  background: rgba(16, 163, 127, 0.08);
+  color: #10a37f;
+}
+
+.um-settings-btn svg {
+  flex-shrink: 0;
+}
+
+.um-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: #999999;
+  font-size: 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.um-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+}
+
+.um-logout-btn svg {
+  flex-shrink: 0;
+}
+
+/* ========== 深色主题用户菜单 ========== */
+[data-theme="dark"] .top-nav-user-menu {
+  background: rgba(40, 40, 40, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .um-username {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .um-user-card {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.05) 100%);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .um-wallet {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .um-wallet-divider {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .um-wallet-value {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .um-checkin-section:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .um-checkin-title {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .um-content {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .um-row {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .um-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .um-balance-value {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .um-plan-badge.free {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .um-footer {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .um-settings-btn {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .um-settings-btn:hover {
+  background: rgba(16, 163, 127, 0.15);
+  color: #10a37f;
+}
+
+[data-theme="dark"] .um-logout-btn {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .um-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* ========== 亮色主题 ========== */
+[data-theme="light"] .top-nav-bar {
+  background: transparent;
+}
+
+[data-theme="light"] .top-nav-menu-btn {
+  color: var(--text-secondary, #666666);
+}
+
+[data-theme="light"] .top-nav-menu-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary, #1a1a1a);
+}
+
+[data-theme="light"] .top-nav-user-menu {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .top-nav-user-menu .user-menu-header {
+  background: #f8f8f8;
+}
+
+[data-theme="light"] .top-nav-user-menu .user-name {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .top-nav-user-menu .user-email-small {
+  color: #666666;
+}
+
+[data-theme="light"] .top-nav-user-menu .user-menu-item {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .top-nav-user-menu .user-menu-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .top-nav-user-menu .user-menu-item svg {
+  color: #666666;
+}
+
+[data-theme="light"] .top-nav-user-menu .user-menu-divider {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .top-nav-user-menu .user-menu-bottom-btn {
+  color: #666666;
+}
+
+[data-theme="light"] .top-nav-user-menu .user-menu-bottom-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1a1a1a;
+}
+
+/* ========== 响应式 ========== */
+@media (max-width: 768px) {
+  .top-nav-bar {
+    padding: 0 12px;
+    height: 52px;
+  }
+
+  .top-nav-bar .logo .logo-text {
+    font-size: 18px;
+  }
+
+  .top-nav-center {
+    padding: 0 8px;
+  }
+
+  /* 移动端隐藏桌面端按钮，显示移动端按钮 */
+  .top-nav-bar .desktop-only {
+    display: none !important;
+  }
+
+  .top-nav-bar .mobile-only {
+    display: flex !important;
+  }
+
+  .top-nav-bar .auth-buttons {
+    gap: 8px;
+  }
+
+  .top-nav-avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
+  }
+
+  .top-nav-user {
+    padding: 4px;
+  }
+
+  .top-nav-username {
+    display: none;
+  }
+
+  .top-nav-user-menu {
+    width: calc(100vw - 24px);
+    max-width: 320px;
+  }
+}
+
+/* Small mobile screens (iPhone SE, etc.) */
+@media (max-width: 375px) {
+  .top-nav-bar .btn-login-mobile {
+    padding: 6px 14px !important;
+    font-size: 13px !important;
+  }
+
+  .top-nav-bar .logo .logo-text {
+    font-size: 16px;
+  }
+}
+
+/* ========== 签到日历弹窗 ========== */
+.um-checkin-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  animation: overlayFadeIn 0.2s ease;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.um-checkin-modal {
+  width: 90%;
+  max-width: 400px;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px;
+  position: relative;
+  animation: modalSlideUp 0.25s ease;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.um-checkin-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: #f5f5f5;
+  border-radius: 50%;
+  color: #666666;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.um-checkin-close:hover {
+  background: #e5e5e5;
+  color: #333333;
+}
+
+.um-checkin-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.um-checkin-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 4px 0;
+}
+
+.um-checkin-header p {
+  font-size: 14px;
+  color: #999999;
+  margin: 0;
+}
+
+/* 日历网格 */
+.um-checkin-calendar {
+  margin-bottom: 20px;
+}
+
+.um-calendar-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.um-calendar-week span {
+  text-align: center;
+  font-size: 12px;
+  color: #999999;
+  padding: 8px 0;
+}
+
+.um-calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.um-cal-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  position: relative;
+  font-size: 14px;
+  color: #666666;
+  background: #f8f8f8;
+}
+
+.um-cal-day.empty {
+  background: transparent;
+}
+
+.um-cal-day .day-num {
+  font-weight: 500;
+  line-height: 1;
+}
+
+.um-cal-day .gold-reward {
+  font-size: 10px;
+  margin-top: 2px;
+  color: #999999;
+}
+
+.um-cal-day .gold-reward.today-gold {
+  color: #ff6b6b;
+}
+
+.um-cal-day .gold-reward.milestone-gold {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+/* 今天 */
+.um-cal-day.today {
+  background: linear-gradient(135deg, #ff9a56 0%, #ff6b6b 100%);
+  color: #ffffff;
+  border: 2px solid transparent;
+}
+
+.um-cal-day.today .gold-reward {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 已签到 */
+.um-cal-day.checked {
+  background: linear-gradient(135deg, #ff9a56 0%, #ff6b6b 100%);
+  color: #ffffff;
+}
+
+.um-cal-day.checked .gold-reward {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.um-cal-day .check-mark {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.um-cal-day .check-mark svg {
+  width: 10px;
+  height: 10px;
+  color: #ffffff;
+}
+
+/* 未来 */
+.um-cal-day.future {
+  background: #f5f5f5;
+  color: #cccccc;
+  border: 1px dashed #e0e0e0;
+}
+
+.um-cal-day.future .gold-reward {
+  color: #cccccc;
+}
+
+/* 里程碑 */
+.um-cal-day.milestone {
+  border: 2px dashed #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.um-cal-day.milestone .gold-reward {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+/* 统计区域 */
+.um-checkin-stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.um-stat-box {
+  flex: 1;
+  background: linear-gradient(135deg, rgba(255, 154, 86, 0.1) 0%, rgba(255, 107, 107, 0.1) 100%);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.um-stat-box .num {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  color: #ff6b6b;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.um-stat-box .label {
+  font-size: 12px;
+  color: #999999;
+}
+
+/* 签到按钮 */
+.um-checkin-btn {
+  width: 100%;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ff9a56 0%, #ff6b6b 100%);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.um-checkin-btn:hover:not(.disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
+}
+
+.um-checkin-btn.loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.um-checkin-btn.disabled {
+  background: #e0e0e0;
+  color: #999999;
+  cursor: not-allowed;
+}
+
+/* 签到成功 */
+.um-checkin-success {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.um-checkin-success .success-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.um-checkin-success .success-icon svg {
+  width: 32px;
+  height: 32px;
+  color: #ffffff;
+}
+
+.um-checkin-success h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 16px 0;
+}
+
+.um-checkin-success .success-stats {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 16px;
+}
+
+.um-checkin-success .success-stats div {
+  font-size: 14px;
+  color: #666666;
+}
+
+.um-checkin-success .success-stats span {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  color: #10a37f;
+  margin-bottom: 4px;
+}
+
+.um-checkin-success .success-tip {
+  font-size: 14px;
+  color: #999999;
+  margin: 0;
+}
+
+/* 深色主题签到弹窗 */
+[data-theme="dark"] .um-checkin-modal {
+  background: rgba(40, 40, 40, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+[data-theme="dark"] .um-checkin-close {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .um-checkin-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .um-checkin-header h2 {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .um-checkin-header p {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .um-calendar-week span {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .um-cal-day {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .um-cal-day.empty {
+  background: transparent;
+}
+
+[data-theme="dark"] .um-cal-day .gold-reward {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .um-cal-day.future {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .um-stat-box {
+  background: rgba(255, 154, 86, 0.15);
+}
+
+[data-theme="dark"] .um-stat-box .label {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .um-checkin-success h2 {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .um-checkin-success .success-stats div {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .um-checkin-success .success-tip {
+  color: rgba(255, 255, 255, 0.5);
+}
+

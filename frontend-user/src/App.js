@@ -64,7 +64,7 @@ function App() {
               <Router>
                 <Suspense fallback={null}>
                   <Routes>
-                    {/* 使用 MainLayout 包裹需要侧边栏的路由 */}
+                    {/* 所有页面都使用 MainLayout 包裹，显示通用顶部栏 */}
                     <Route element={<MainLayout />}>
                       {/* 公开路由 - 无需登录即可访问 */}
                       <Route path="/" element={<Home />} />
@@ -78,33 +78,43 @@ function App() {
                       <Route path="/chat" element={<ChatPage />} />
                       {/* AI审稿人页面 - 允许未登录访问 */}
                       <Route path="/peer-review" element={<PeerReviewPage />} />
+
+                      {/* 定价页面 */}
+                      <Route path="/pricing" element={<Pricing />} />
+                      
+                      {/* 设置页面 - 需要登录 */}
+                      <Route path="/settings" element={
+                        <ProtectedRoute>
+                          <Settings />
+                        </ProtectedRoute>
+                      } />
+                      
+                      {/* 基金中心 */}
+                      <Route path="/fund-center" element={<FundCenter />} />
+                      
+                      {/* 论文详情 */}
+                      <Route path="/paper/:paperId" element={<PaperDetailPage />} />
+                      
+                      {/* 订单确认 - 需要登录 */}
+                      <Route path="/order-confirmation" element={
+                        <ProtectedRoute>
+                          <OrderConfirmation />
+                        </ProtectedRoute>
+                      } />
+
+                      {/* 反馈和关于我们页面 - 公开访问 */}
+                      <Route path="/feedback" element={<FeedbackPage />} />
+                      <Route path="/about" element={<AboutPage />} />
                     </Route>
 
-                    {/* 不需要侧边栏的路由 */}
+                    {/* 不使用 MainLayout 的路由（OAuth回调等） */}
                     <Route path="/search" element={<Navigate to="/" replace />} />
-                    <Route path="/pricing" element={<Pricing />} />
-                    <Route path="/settings" element={
-                      <ProtectedRoute>
-                        <Settings />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/fund-center" element={<FundCenter />} />
-                    <Route path="/paper/:paperId" element={<PaperDetailPage />} />
-                    <Route path="/order-confirmation" element={
-                      <ProtectedRoute>
-                        <OrderConfirmation />
-                      </ProtectedRoute>
-                    } />
                     
                     {/* WeChat callback - PUBLIC route (must be accessible without login for OAuth flow) */}
                     <Route path="/wechat/callback" element={<WeChatCallback />} />
 
                     {/* GitHub callback - PUBLIC route (must be accessible without login for OAuth flow) */}
                     <Route path="/github/callback" element={<GithubCallback />} />
-
-                    {/* 反馈和关于我们页面 - 公开访问 */}
-                    <Route path="/feedback" element={<FeedbackPage />} />
-                    <Route path="/about" element={<AboutPage />} />
 
                     {/* 404 redirect to home */}
                     <Route path="*" element={<Navigate to="/" replace />} />

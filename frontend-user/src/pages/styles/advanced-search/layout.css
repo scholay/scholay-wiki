@@ -13,7 +13,8 @@
 
 /* 高级搜索页面样式 */
 .advanced-search-page {
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   display: flex;
   background: var(--background);
   position: relative;

@@ -8,7 +8,9 @@
  */
 
 .feedback-page {
-  min-height: 100vh;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   background: linear-gradient(180deg, #0f1419 0%, #15202b 100%);
   padding: 40px 20px;
 }

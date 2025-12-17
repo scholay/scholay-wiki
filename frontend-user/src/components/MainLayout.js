@@ -5,61 +5,51 @@
  * 统一社会信用代码: 91510100MAEEHRNE26
  * All Rights Reserved.
  * ============================================================================
+ * 
+ * MainLayout - 主布局组件
+ * 
+ * 布局结构：
+ * ┌─────────────────────────────────────────┐
+ * │  TopNavBar (通用顶部栏)                   │
+ * ├─────────────────────────────────────────┤
+ * │                                         │
+ * │  Content (正文区域，由子路由渲染)          │
+ * │                                         │
+ * └─────────────────────────────────────────┘
+ * 
+ * - 顶部栏和正文区域使用 flex 布局，顶部栏固定高度，正文占据剩余空间
+ * - 抽屉式侧边栏通过 Portal 渲染，不影响主布局
+ * - 某些页面可以选择不显示通用顶部栏（通过 hideTopNav 参数）
  */
 
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
-import AppSidebar from './AppSidebar';
+import TopNavBar from './TopNavBar';
+import DrawerSidebar from './DrawerSidebar';
+import './styles/MainLayout.css';
 
 // 懒加载 AuthModal
 const AuthModal = lazy(() => import('./AuthModal'));
 
-/**
- * MainLayout - 主布局组件
- * 包含持久化的侧边栏，内容区域通过 Outlet 渲染子路由
- * 这样在路由切换时侧边栏不会重新挂载，避免闪烁
- * 
- * 各个页面通过 useSidebar hook 来控制侧边栏的行为
- */
 const MainLayout = () => {
   const { user, isAuthenticated, logout } = useAuth();
-  const { sidebarConfig, isMobile } = useSidebar();
+  const { sidebarConfig } = useSidebar();
   const location = useLocation();
   
-  // 侧边栏折叠状态 - 从 localStorage 持久化
-  // 未登录用户默认收起侧边栏
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    const saved = localStorage.getItem('sidebarCollapsed');
-    // 如果有保存的值，使用保存的值
-    if (saved !== null) {
-    return saved === 'true';
-    }
-    // 默认收起（未登录用户）
-    return true;
-  });
-  
-  // 当用户登录状态变化时，如果没有保存过偏好，则根据登录状态设置默认值
-  useEffect(() => {
-    const saved = localStorage.getItem('sidebarCollapsed');
-    // 只有在没有保存过偏好时才自动设置
-    if (saved === null) {
-      // 未登录用户默认收起，已登录用户默认展开
-      setSidebarCollapsed(!isAuthenticated);
-    }
-  }, [isAuthenticated]);
+  // 抽屉侧边栏打开状态
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   
   // 登录弹窗状态
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // 保存侧边栏状态到 localStorage
-  const handleToggleSidebar = () => {
-    setSidebarCollapsed(prev => {
-      const newState = !prev;
-      localStorage.setItem('sidebarCollapsed', newState);
-      return newState;
-    });
+  const handleOpenDrawer = () => {
+    setIsDrawerOpen(true);
+  };
+
+  const handleCloseDrawer = () => {
+    setIsDrawerOpen(false);
   };
 
   const handleLogout = () => {
@@ -74,41 +64,85 @@ const MainLayout = () => {
     setShowAuthModal(false);
   };
 
-  // 判断是否应该渲染侧边栏组件
-  // 登录状态或特定页面时渲染侧边栏
-  const shouldRenderSidebar = isAuthenticated || 
-    location.pathname === '/' ||
-    location.pathname === '/search-results' || 
-    location.pathname === '/advanced-search' || 
-    location.pathname === '/chat' ||
-    location.pathname === '/peer-review' ||
-    location.pathname === '/assistant';
+  // 根据当前路径生成面包屑
+  const getBreadcrumbs = () => {
+    const path = location.pathname;
+    const breadcrumbs = [{ label: '首页', path: '/' }];
+    
+    if (path === '/search-results') {
+      breadcrumbs.push({ label: '学术检索' });
+    } else if (path === '/advanced-search') {
+      breadcrumbs.push({ label: '智能分析' });
+    } else if (path === '/assistant') {
+      breadcrumbs.push({ label: '文献助手' });
+    } else if (path === '/chat') {
+      breadcrumbs.push({ label: '文献助手', path: '/assistant' });
+      breadcrumbs.push({ label: 'AI 对话' });
+    } else if (path === '/peer-review') {
+      breadcrumbs.push({ label: '文献助手', path: '/assistant' });
+      breadcrumbs.push({ label: '同行评审' });
+    } else if (path === '/settings') {
+      breadcrumbs.push({ label: '设置' });
+    } else if (path.startsWith('/paper/')) {
+      breadcrumbs.push({ label: '论文详情' });
+    } else if (path === '/pricing') {
+      breadcrumbs.push({ label: '订阅方案' });
+    } else if (path === '/fund-center') {
+      breadcrumbs.push({ label: '基金中心' });
+    } else if (path === '/feedback') {
+      breadcrumbs.push({ label: '意见反馈' });
+    } else if (path === '/about') {
+      breadcrumbs.push({ label: '关于我们' });
+    }
+    
+    // 首页不显示面包屑
+    if (path === '/') {
+      return [];
+    }
+    
+    return breadcrumbs;
+  };
+
+  // 所有页面都显示通用顶部栏
+  const showTopNav = true;
 
   return (
-    <>
-      {/* 持久化的侧边栏 */}
-      {shouldRenderSidebar && (
-        <AppSidebar
+    <div className="main-layout">
+      {/* 顶部导航栏 - 固定高度 */}
+      {showTopNav && (
+        <TopNavBar
           user={user}
-          onLogout={handleLogout}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={handleToggleSidebar}
-          showHistory={sidebarConfig.showHistory}
-          historyType={sidebarConfig.historyType}
-          historyItems={sidebarConfig.historyItems}
-          currentItemId={sidebarConfig.currentItemId}
-          onSelectItem={sidebarConfig.onSelectItem}
-          onDeleteItem={sidebarConfig.onDeleteItem}
-          onRenameItem={sidebarConfig.onRenameItem}
-          onNewItem={sidebarConfig.onNewItem}
-          historyLoading={sidebarConfig.historyLoading}
           isAuthenticated={isAuthenticated}
+          onMenuClick={handleOpenDrawer}
           onShowLogin={handleShowLogin}
+          onLogout={handleLogout}
+          breadcrumbs={getBreadcrumbs()}
         />
       )}
-      
-      {/* 子路由内容 - 通过 context 传递 sidebarCollapsed 状态 */}
-      <Outlet context={{ sidebarCollapsed: shouldRenderSidebar ? sidebarCollapsed : false, isAuthenticated }} />
+
+      {/* 正文区域 - 占据剩余空间 */}
+      <div className={`main-layout-content ${showTopNav ? 'with-top-nav' : ''}`}>
+        <Outlet context={{ 
+          isAuthenticated,
+          onShowLogin: handleShowLogin,
+          showTopNav: showTopNav,
+          onOpenDrawer: handleOpenDrawer
+        }} />
+      </div>
+
+      {/* 抽屉式侧边栏 - 通过 Portal 渲染 */}
+      <DrawerSidebar
+        isOpen={isDrawerOpen}
+        onClose={handleCloseDrawer}
+        showHistory={sidebarConfig.showHistory}
+        historyType={sidebarConfig.historyType}
+        historyItems={sidebarConfig.historyItems}
+        currentItemId={sidebarConfig.currentItemId}
+        onSelectItem={sidebarConfig.onSelectItem}
+        onDeleteItem={sidebarConfig.onDeleteItem}
+        onRenameItem={sidebarConfig.onRenameItem}
+        historyLoading={sidebarConfig.historyLoading}
+      />
       
       {/* 登录弹窗 */}
       {showAuthModal && (
@@ -120,10 +154,8 @@ const MainLayout = () => {
           />
         </Suspense>
       )}
-    </>
+    </div>
   );
 };
 
 export default MainLayout;
-
-

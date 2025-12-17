@@ -13,7 +13,8 @@
 
 .home-search {
   display: flex;
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   background: var(--background);
   overflow: hidden;
 }
@@ -27,19 +28,9 @@
   background: var(--background);
 }
 
-.main-container.has-sidebar {
-  margin-left: 280px;
-}
+/* 侧边栏相关样式已移除，现在使用悬浮抽屉式侧边栏 */
 
-.main-container.sidebar-collapsed-narrow {
-  margin-left: 64px;
-}
-
-.main-container.sidebar-collapsed {
-  margin-left: 0;
-}
-
-/* Top Navigation Bar */
+/* Top Navigation Bar - 页面内导航 */
 .top-navbar {
   height: 56px;
   display: flex;

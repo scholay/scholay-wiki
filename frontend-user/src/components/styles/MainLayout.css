@@ -1,0 +1,30 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ */
+
+/* ========== 主布局容器 ========== */
+.main-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--background);
+}
+
+/* ========== 正文区域 ========== */
+.main-layout-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* 重要：允许 flex 子元素收缩 */
+}
+
+/* 当有顶部栏时，正文区域需要适应 */
+.main-layout-content.with-top-nav {
+  /* 顶部栏是 flex 布局的一部分，不需要额外处理 */
+}
+

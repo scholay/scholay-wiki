@@ -77,10 +77,7 @@
     padding: 1rem;
   }
 
-  .main-container,
-  .main-container.has-sidebar,
-  .main-container.sidebar-collapsed-narrow,
-  .main-container.sidebar-collapsed {
+  .main-container {
     margin-left: 0 !important;
   }
 
@@ -325,8 +322,8 @@
   }
 }
 
-/* 移动端菜单按钮 - 一长一短横线 */
-.mobile-menu-btn {
+/* 菜单按钮 - 一长一短横线 */
+.menu-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -341,16 +338,16 @@
   margin-right: 8px;
 }
 
-.mobile-menu-btn:hover {
+.menu-btn:hover {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
 }
 
-.mobile-menu-btn:active {
+.menu-btn:active {
   transform: scale(0.95);
 }
 
-[data-theme="light"] .mobile-menu-btn:hover {
+[data-theme="light"] .menu-btn:hover {
   background: rgba(0, 0, 0, 0.05);
 }
 

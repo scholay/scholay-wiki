@@ -8,10 +8,37 @@
  */
 
 .pricing-page {
-  min-height: 100vh;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   background: radial-gradient(120% 120% at 50% -10%, rgba(16, 163, 127, 0.18) 0%, #04110c 48%, #010302 100%);
   color: #f5fffb;
   font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* 菜单按钮 */
+.pricing-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.pricing-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.pricing-menu-btn:active {
+  transform: scale(0.95);
 }
 
 .pricing-nav {
@@ -19,6 +46,7 @@
   top: 16px;
   z-index: 30;
   display: flex;
+  align-items: center;
   justify-content: space-between;
   align-items: center;
   max-width: 1200px;

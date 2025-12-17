@@ -9,9 +9,13 @@
 
 .settings-page {
   display: flex;
-  min-height: 100vh;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
   background: #212121;
   position: relative;
+  overflow: hidden;
 }
 
 /* 背景装饰 */
@@ -30,100 +34,13 @@
   z-index: 0;
 }
 
-/* Settings Header */
-.settings-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  z-index: 1000;
-  background: rgba(33, 33, 33, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 16px 24px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
-}
-
-.settings-header-content {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.settings-header-back-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.8);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.settings-header-back-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #10a37f;
-  transform: translateX(-2px);
-}
-
-.settings-header-back-btn:active {
-  transform: translateX(-4px);
-}
-
-.settings-header-back-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-.settings-header-logo {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.settings-header-logo img {
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
-}
-
-.settings-header-logo span {
-  font-size: 16px;
-  font-weight: 600;
-  color: white;
-  letter-spacing: 0.5px;
-}
-
 .settings-container {
   flex: 1;
   display: flex;
-  transition: margin-left 0.3s ease;
-  margin-left: 0;
+  overflow: hidden;
   background: transparent;
   position: relative;
   z-index: 1;
-}
-
-.settings-container.has-sidebar {
-  margin-left: 280px;
-}
-
-.settings-container.sidebar-collapsed-narrow {
-  margin-left: 64px;
-}
-
-.settings-container.sidebar-collapsed {
-  margin-left: 0;
 }
 
 .settings-layout {
@@ -131,17 +48,21 @@
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* Left Sidebar */
 .settings-sidebar {
   width: 280px;
-  padding: 80px 24px 40px 24px;
+  padding: 32px 24px 40px 24px;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.02);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  overflow-y: auto;
+  height: 100%;
 }
 
 /* Brand Section */
@@ -381,31 +302,6 @@
     radial-gradient(ellipse 80% 50% at 20% 40%, rgba(16, 163, 127, 0.06) 0%, transparent 50%),
     radial-gradient(ellipse 60% 40% at 80% 20%, rgba(16, 163, 127, 0.04) 0%, transparent 50%),
     radial-gradient(ellipse 50% 30% at 50% 80%, rgba(16, 163, 127, 0.02) 0%, transparent 50%);
-}
-
-[data-theme="light"] .settings-header {
-  background: rgba(255, 255, 255, 0.9);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-}
-
-[data-theme="light"] .settings-header-back-btn {
-  background: rgba(0, 0, 0, 0.04);
-  color: #4b5563;
-}
-
-[data-theme="light"] .settings-header-back-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: #10a37f;
-}
-
-[data-theme="light"] .settings-header-logo span {
-  color: #1f2937;
-}
-
-/* Logo图片 - 日间模式反色，与侧边栏保持一致 */
-[data-theme="light"] .settings-header-logo img {
-  filter: invert(1) brightness(0.3) sepia(1) saturate(10) hue-rotate(140deg);
 }
 
 [data-theme="light"] .settings-sidebar {

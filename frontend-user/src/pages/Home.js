@@ -8,50 +8,27 @@
  */
 
 import React, { useState, useRef, useEffect, lazy, Suspense } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
-import { useSidebar } from '../contexts/SidebarContext';
 import { useTheme } from '../contexts/ThemeContext';
 import SearchFilters from '../components/SearchFilters';
 import ModelSelector from '../components/ModelSelector';
-import ThemeToggle from '../components/ThemeToggle';
 import MobileHelpModal from '../components/MobileHelpModal';
 import SearchSuggestions from '../components/SearchSuggestions';
 import MessageModal from '../components/MessageModal';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import SEO from '../components/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
-import { HelpCircle } from 'lucide-react';
 import { trackAcademicSearch, trackSmartAnalysis, EntryPoint } from '../utils/usageTracker';
 import './styles/home/index.css';
 
 // 懒加载 AuthModal - 只在需要时加载
 const AuthModal = lazy(() => import('../components/AuthModal'));
 
-// 检测是否为移动端
-const useIsMobile = () => {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  return isMobile;
-};
-
 const Home = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const { resetSidebarConfig, isMobile, openMobileSidebar } = useSidebar();
   const { theme } = useTheme();
-  const outletContext = useOutletContext();
-  const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
   
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -109,11 +86,6 @@ const Home = () => {
       '示例：我想研究脑机接口技术在神经康复中的临床应用'                   // 神经科学+工程
     ]
   };
-
-  // 重置侧边栏配置（Home 页面不需要历史记录）
-  useEffect(() => {
-    resetSidebarConfig();
-  }, [resetSidebarConfig]);
 
   // 搜索示例轮播效果
   useEffect(() => {
@@ -243,66 +215,7 @@ const Home = () => {
         structuredData={generateFAQSchema(faqData)}
       />
       
-      <div className={`main-container ${sidebarCollapsed ? 'sidebar-collapsed-narrow' : 'has-sidebar'}`}>
-        <nav className="top-navbar">
-          <div className="navbar-left">
-            {/* 移动端菜单按钮 */}
-            {isMobile && (
-              <button 
-                className="mobile-menu-btn"
-                onClick={openMobileSidebar}
-                aria-label="打开菜单"
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="4" y1="8" x2="20" y2="8" />
-                  <line x1="4" y1="16" x2="14" y2="16" />
-                </svg>
-              </button>
-            )}
-            <div className="logo">
-              <span className="logo-text">Scholay</span>
-            </div>
-          </div>
-
-          <div className="navbar-right">
-            {!isAuthenticated && (
-              <div className="auth-buttons">
-                {/* 桌面端显示的按钮 */}
-                <button
-                  onClick={() => navigate('/pricing')}
-                  className="btn-auth btn-pricing desktop-only"
-                >
-                  价格方案
-                </button>
-                <div className="desktop-only">
-                <ThemeToggle />
-                </div>
-                <button
-                  onClick={() => setShowAuthModal(true)}
-                  className="btn-auth btn-login-register desktop-only"
-                >
-                  登录 / 注册
-                </button>
-
-                {/* 移动端显示的按钮 */}
-                <button
-                  onClick={() => setShowHelpModal(true)}
-                  className="btn-mobile-help mobile-only"
-                  aria-label="帮助与设置"
-                >
-                  <HelpCircle size={20} strokeWidth={2} />
-                </button>
-                <button
-                  onClick={() => setShowAuthModal(true)}
-                  className="btn-auth btn-login-mobile mobile-only"
-                >
-                  登录
-                </button>
-              </div>
-            )}
-          </div>
-        </nav>
-
+      <div className="main-container">
         <div className="search-content">
           <div className="home-chat-container">
             <div className="welcome-screen">

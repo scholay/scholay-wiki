@@ -11,7 +11,9 @@
 
 /* 学术字体定义 */
 .pd-page {
-  min-height: 100vh;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   background: #fff;
   /* 学术风格字体栈 - 优先使用衬线字体 */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
