@@ -5,127 +5,630 @@
  * 统一社会信用代码: 91510100MAEEHRNE26
  * All Rights Reserved.
  * ============================================================================
+ * 统一提示系统样式 - Toast + Confirm（液态玻璃效果）
  */
 
-/* Toast Container */
+/* ========== Toast 轻提示 ========== */
+
+/* Toast 容器 - 顶部中间 */
 .toast-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 10001;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 12px;
   pointer-events: none;
 }
 
-/* Toast */
+/* Toast 单项 - 液态玻璃效果 */
 .toast {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  pointer-events: auto;
+  animation: toast-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   min-width: 300px;
   max-width: 500px;
-  padding: 16px 20px;
-  background: #212121;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  pointer-events: auto;
-  animation: slideInRight 0.3s ease-out;
+  position: relative;
+  overflow: hidden;
 }
 
-@keyframes slideInRight {
-  from {
+/* 深色主题 Toast - 液态玻璃 */
+[data-theme="dark"] .toast {
+  background: rgba(30, 30, 40, 0.75);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* 亮色主题 Toast - 液态玻璃 */
+[data-theme="light"] .toast {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.02);
+}
+
+/* Toast 内部光泽效果 */
+.toast::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 100%);
+  border-radius: 16px 16px 0 0;
+  pointer-events: none;
+}
+
+[data-theme="light"] .toast::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, transparent 100%);
+}
+
+@keyframes toast-in {
+  0% {
     opacity: 0;
-    transform: translateX(100px);
+    transform: translateY(-30px) scale(0.9);
+    filter: blur(4px);
   }
-  to {
+  60% {
+    transform: translateY(4px) scale(1.02);
+  }
+  100% {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0) scale(1);
+    filter: blur(0);
   }
 }
 
+.toast.toast-closing {
+  animation: toast-out 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes toast-out {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+    filter: blur(4px);
+  }
+}
+
+/* Toast 图标容器 */
 .toast-icon {
-  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  position: relative;
 }
 
+/* 成功类 - success */
+.toast-success .toast-icon {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.2) 0%, rgba(16, 163, 127, 0.1) 100%);
+  color: #10a37f;
+  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.2);
+}
+
+/* 提醒类 - info */
+.toast-info .toast-icon {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
+  color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+/* 警告类 - warning */
+.toast-warning .toast-icon {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(245, 158, 11, 0.1) 100%);
+  color: #f59e0b;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+}
+
+/* 报错类 - error */
+.toast-error .toast-icon {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.1) 100%);
+  color: #ef4444;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+}
+
+/* Toast 消息文本 */
 .toast-message {
   flex: 1;
-  color: var(--text-primary);
-  font-size: 0.9375rem;
+  font-size: 14px;
+  font-weight: 500;
   line-height: 1.5;
-  word-break: break-word;
+  position: relative;
+  z-index: 1;
 }
 
+[data-theme="dark"] .toast-message {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="light"] .toast-message {
+  color: #1a1a1a;
+}
+
+/* Toast 关闭按钮 - 液态玻璃效果 */
 .toast-close {
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
   cursor: pointer;
-  color: #9ca3af;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
-.toast-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
+[data-theme="dark"] .toast-close {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
 }
 
-/* Toast Types */
-.toast-success {
-  border-left: 3px solid #10b981;
+[data-theme="dark"] .toast-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
 }
 
-.toast-success .toast-icon {
-  color: #10b981;
+[data-theme="light"] .toast-close {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(0, 0, 0, 0.4);
 }
 
-.toast-error {
-  border-left: 3px solid #ef4444;
+[data-theme="light"] .toast-close:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.6);
 }
 
-.toast-error .toast-icon {
-  color: #ef4444;
+.toast-close:active {
+  transform: scale(0.92);
 }
 
-.toast-warning {
-  border-left: 3px solid #f59e0b;
+/* ========== Confirm 强制确认弹窗 ========== */
+
+/* 遮罩层 - 毛玻璃效果 */
+.confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99998;
+  animation: overlay-in 0.3s ease;
 }
 
-.toast-warning .toast-icon {
-  color: #f59e0b;
+[data-theme="dark"] .confirm-overlay {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
 }
 
-.toast-info {
-  border-left: 3px solid #3b82f6;
+[data-theme="light"] .confirm-overlay {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
 }
 
-.toast-info .toast-icon {
+.confirm-overlay.closing {
+  animation: overlay-out 0.2s ease forwards;
+}
+
+@keyframes overlay-in {
+  from { 
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to { 
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+@keyframes overlay-out {
+  from { 
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+  to { 
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+}
+
+/* 弹窗主体 - 液态玻璃效果 */
+.confirm-modal {
+  border-radius: 24px;
+  padding: 36px;
+  width: 420px;
+  max-width: calc(100vw - 48px);
+  text-align: center;
+  animation: modal-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 深色主题 - 液态玻璃 */
+[data-theme="dark"] .confirm-modal {
+  background: rgba(30, 30, 40, 0.8);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 24px 80px rgba(0, 0, 0, 0.5),
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* 亮色主题 - 液态玻璃 */
+[data-theme="light"] .confirm-modal {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 
+    0 24px 80px rgba(0, 0, 0, 0.12),
+    0 8px 32px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.03);
+}
+
+/* 弹窗内部光泽效果 */
+.confirm-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
+  border-radius: 24px 24px 0 0;
+  pointer-events: none;
+}
+
+[data-theme="light"] .confirm-modal::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, transparent 100%);
+}
+
+.confirm-modal.closing {
+  animation: modal-out 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes modal-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(-30px);
+    filter: blur(8px);
+  }
+  60% {
+    transform: scale(1.02) translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes modal-out {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+    filter: blur(8px);
+  }
+}
+
+/* 图标容器 - 液态玻璃效果 */
+.confirm-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.confirm-icon-info {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(59, 130, 246, 0.1) 100%);
   color: #3b82f6;
+  box-shadow: 
+    0 8px 24px rgba(59, 130, 246, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-/* Responsive */
-@media (max-width: 640px) {
+.confirm-icon-success {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.25) 0%, rgba(16, 163, 127, 0.1) 100%);
+  color: #10a37f;
+  box-shadow: 
+    0 8px 24px rgba(16, 163, 127, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.confirm-icon-warning {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(245, 158, 11, 0.1) 100%);
+  color: #f59e0b;
+  box-shadow: 
+    0 8px 24px rgba(245, 158, 11, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.confirm-icon-error {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(239, 68, 68, 0.1) 100%);
+  color: #ef4444;
+  box-shadow: 
+    0 8px 24px rgba(239, 68, 68, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* 标题 */
+.confirm-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="dark"] .confirm-title {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="light"] .confirm-title {
+  color: #1a1a1a;
+}
+
+/* 消息内容 */
+.confirm-message {
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0 0 32px 0;
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="dark"] .confirm-message {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .confirm-message {
+  color: #666;
+}
+
+/* 按钮区域 */
+.confirm-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+/* 按钮基础样式 */
+.confirm-btn {
+  flex: 1;
+  max-width: 160px;
+  padding: 14px 28px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 取消按钮 - 液态玻璃效果 */
+.confirm-btn-cancel {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .confirm-btn-cancel {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .confirm-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="light"] .confirm-btn-cancel {
+  background: rgba(0, 0, 0, 0.05);
+  color: #666;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .confirm-btn-cancel:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #333;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+/* 确认按钮 - 基础 */
+.confirm-btn-primary {
+  color: #ffffff;
+  border: none;
+}
+
+.confirm-btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
+  border-radius: 12px 12px 0 0;
+  pointer-events: none;
+}
+
+.confirm-btn-primary:active {
+  transform: scale(0.97);
+}
+
+/* 确认按钮 - info */
+.confirm-btn-info {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 
+    0 4px 16px rgba(59, 130, 246, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.confirm-btn-info:hover {
+  box-shadow: 
+    0 8px 24px rgba(59, 130, 246, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+/* 确认按钮 - success */
+.confirm-btn-success {
+  background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+  box-shadow: 
+    0 4px 16px rgba(16, 163, 127, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.confirm-btn-success:hover {
+  box-shadow: 
+    0 8px 24px rgba(16, 163, 127, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+/* 确认按钮 - warning */
+.confirm-btn-warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: 
+    0 4px 16px rgba(245, 158, 11, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.confirm-btn-warning:hover {
+  box-shadow: 
+    0 8px 24px rgba(245, 158, 11, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+/* 确认按钮 - error */
+.confirm-btn-error {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 
+    0 4px 16px rgba(239, 68, 68, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.confirm-btn-error:hover {
+  box-shadow: 
+    0 8px 24px rgba(239, 68, 68, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 480px) {
   .toast-container {
-    top: 10px;
-    right: 10px;
-    left: 10px;
+    top: 16px;
+    left: 16px;
+    right: 16px;
+    transform: none;
   }
 
   .toast {
     min-width: auto;
-    max-width: 100%;
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 14px;
+  }
+
+  .toast-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .toast-message {
+    font-size: 13px;
+  }
+
+  .confirm-modal {
+    padding: 28px 24px;
+    border-radius: 20px;
+  }
+
+  .confirm-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+  }
+
+  .confirm-icon svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .confirm-title {
+    font-size: 18px;
+  }
+
+  .confirm-message {
+    font-size: 14px;
+    margin-bottom: 28px;
+  }
+
+  .confirm-buttons {
+    flex-direction: column-reverse;
+    gap: 10px;
+  }
+
+  .confirm-btn {
+    max-width: none;
+    padding: 14px 24px;
+    border-radius: 10px;
   }
 }

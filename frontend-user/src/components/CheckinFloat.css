@@ -177,7 +177,142 @@
   }
 }
 
-/* ========== 简洁弹窗（自动弹出）- 礼物风格 ========== */
+/* ========== 自动签到弹窗 - 新设计 ========== */
+.checkin-auto-modal {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 24px 20px;
+  width: 420px;
+  max-width: calc(100vw - 48px);
+  text-align: center;
+  box-shadow: 
+    0 24px 80px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+  animation: auto-modal-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+[data-theme="dark"] .checkin-auto-modal {
+  background: rgba(30, 30, 46, 0.98);
+}
+
+@keyframes auto-modal-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 右上角帮助链接 */
+.checkin-auto-help {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-size: 12px;
+  color: #999;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.checkin-auto-help:hover {
+  color: #10a37f;
+}
+
+[data-theme="dark"] .checkin-auto-help {
+  color: #777;
+}
+
+[data-theme="dark"] .checkin-auto-help:hover {
+  color: #10a37f;
+}
+
+/* 礼物图标 */
+.checkin-auto-icon {
+  width: 72px;
+  height: 72px;
+  margin: 8px auto 16px;
+  background: linear-gradient(135deg, #ff9a56 0%, #ff6b6b 100%);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 32px rgba(255, 107, 107, 0.3);
+}
+
+.checkin-auto-icon svg {
+  width: 36px;
+  height: 36px;
+  color: white;
+}
+
+/* 标题 */
+.checkin-auto-title {
+  font-size: 20px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ff9a56 0%, #ff6b6b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 0 6px 0;
+}
+
+/* 日期 */
+.checkin-auto-date {
+  font-size: 13px;
+  color: #888;
+  margin: 0 0 16px 0;
+}
+
+[data-theme="dark"] .checkin-auto-date {
+  color: #aaa;
+}
+
+/* 奖励展示 */
+.checkin-auto-reward {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.1) 0%, rgba(16, 163, 127, 0.05) 100%);
+  border-radius: 16px;
+  padding: 16px 24px;
+  margin-bottom: 12px;
+}
+
+.checkin-auto-reward-amount {
+  font-size: 28px;
+  font-weight: 700;
+  color: #10a37f;
+}
+
+[data-theme="dark"] .checkin-auto-reward {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.2) 0%, rgba(16, 163, 127, 0.1) 100%);
+}
+
+/* 关闭倒计时 */
+.checkin-auto-countdown {
+  font-size: 13px;
+  color: #999;
+  margin: 0 0 16px 0;
+  cursor: pointer;
+}
+
+.checkin-auto-countdown:hover {
+  color: #666;
+}
+
+[data-theme="dark"] .checkin-auto-countdown {
+  color: #777;
+}
+
+
+/* ========== 简洁弹窗（悬浮球点击）- 礼物风格 ========== */
 .checkin-simple-modal {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
@@ -1096,6 +1231,27 @@
   .checkin-simple-modal {
     width: 280px;
     padding: 32px 28px;
+  }
+
+  .checkin-auto-modal {
+    width: calc(100vw - 32px);
+    max-width: 320px;
+    padding: 20px 16px;
+  }
+
+  .checkin-auto-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+  }
+
+  .checkin-auto-icon svg {
+    width: 30px;
+    height: 30px;
+  }
+
+  .checkin-auto-title {
+    font-size: 18px;
   }
 
   .checkin-simple-icon {

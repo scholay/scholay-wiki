@@ -17,11 +17,8 @@ import './CheckinFloat.css';
 // 懒加载 AuthModal
 const AuthModal = lazy(() => import('./AuthModal'));
 
-const FIRST_VISIT_KEY = 'checkin_first_visit_today';
-const CHECKIN_MODAL_SHOWN_KEY = 'checkin_modal_shown_today';
-
 const CheckinFloat = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false); // 登录弹窗状态
   const [hasCheckedIn, setHasCheckedIn] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -33,8 +30,10 @@ const CheckinFloat = () => {
   const [checkinDetails, setCheckinDetails] = useState([]); // 签到详情（包含经费）
   const [futureRewards, setFutureRewards] = useState([]); // 未来签到预计奖励
   const [modalType, setModalType] = useState('auto'); // 'auto' | 'float'
+  const [autoCloseCountdown, setAutoCloseCountdown] = useState(5); // 自动关闭倒计时
   const floatBallRef = useRef(null);
   const [floatBallPos, setFloatBallPos] = useState({ x: 0, y: 0 });
+  const countdownTimerRef = useRef(null);
 
   // 获取当前月份的日历数据
   const calendarData = useMemo(() => {
@@ -88,17 +87,78 @@ const CheckinFloat = () => {
     return { year, month, days, monthName: today.toLocaleDateString('zh-CN', { month: 'long' }) };
   }, [checkinHistory, checkinDetails, futureRewards]);
 
+  // 获取用户专属的存储 key
+  const getStorageKey = useCallback((baseKey) => {
+    const userId = user?.id || 'guest';
+    return `${baseKey}_${userId}`;
+  }, [user?.id]);
+
   const checkFirstVisitToday = useCallback(() => {
     const today = new Date().toISOString().split('T')[0];
-    const lastVisit = sessionStorage.getItem(FIRST_VISIT_KEY);
-    const modalShown = sessionStorage.getItem(CHECKIN_MODAL_SHOWN_KEY);
+    const firstVisitKey = getStorageKey('checkin_first_visit_today');
+    const modalShownKey = getStorageKey('checkin_modal_shown_today');
+    
+    const lastVisit = sessionStorage.getItem(firstVisitKey);
+    const modalShown = sessionStorage.getItem(modalShownKey);
+    console.log('[CheckinFloat] checkFirstVisitToday:', { today, lastVisit, modalShown, userId: user?.id });
+    
     if (lastVisit !== today) {
-      sessionStorage.setItem(FIRST_VISIT_KEY, today);
-      sessionStorage.removeItem(CHECKIN_MODAL_SHOWN_KEY);
+      sessionStorage.setItem(firstVisitKey, today);
+      sessionStorage.removeItem(modalShownKey);
+      console.log('[CheckinFloat] New day for user, should show modal');
       return true;
     }
-    return modalShown !== 'true';
+    const shouldShow = modalShown !== 'true';
+    console.log('[CheckinFloat] Same day, shouldShow:', shouldShow);
+    return shouldShow;
+  }, [getStorageKey, user?.id]);
+
+  // 开始自动关闭倒计时
+  const startAutoCloseCountdown = useCallback(() => {
+    setAutoCloseCountdown(5);
+    countdownTimerRef.current = setInterval(() => {
+      setAutoCloseCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownTimerRef.current);
+          setShowModal(false);
+          setShowFloatBall(false);
+          setCheckinResult(null);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   }, []);
+
+  // 清理倒计时
+  useEffect(() => {
+    return () => {
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+      }
+    };
+  }, []);
+
+  // 自动签到（用于自动弹窗时直接签到）
+  const autoCheckin = useCallback(async () => {
+    try {
+      const response = await checkinAPI.checkin();
+      if (response.data.code === 0) {
+        trackUserCheckin();
+        const result = response.data.data;
+        setCheckinResult(result);
+        setHasCheckedIn(true);
+        const today = new Date().toISOString().split('T')[0];
+        setCheckinHistory(prev => [...prev, today]);
+        // 更新签到详情
+        setCheckinDetails(prev => [...prev, { date: today, gold_reward: result.gold_reward || 10 }]);
+        // 开始自动关闭倒计时
+        startAutoCloseCountdown();
+      }
+    } catch (error) {
+      console.error('自动签到失败:', error);
+    }
+  }, [startAutoCloseCountdown]);
 
   const fetchCheckinStatus = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -127,23 +187,34 @@ const CheckinFloat = () => {
           }
         }
 
+        console.log('[CheckinFloat] Status:', { has_checked_in: status.has_checked_in });
         if (!status.has_checked_in) {
           setShowFloatBall(true);
-          if (checkFirstVisitToday()) {
-            setTimeout(() => {
+          const shouldShowModal = checkFirstVisitToday();
+          console.log('[CheckinFloat] Should show modal:', shouldShowModal);
+          if (shouldShowModal) {
+            // 自动弹窗并自动签到
+            console.log('[CheckinFloat] Will show auto checkin modal in 1s');
+            setTimeout(async () => {
+              console.log('[CheckinFloat] Showing modal and auto checkin');
               setModalType('auto');
               setShowModal(true);
-              sessionStorage.setItem(CHECKIN_MODAL_SHOWN_KEY, 'true');
+              // 使用用户专属的 key
+              const modalShownKey = getStorageKey('checkin_modal_shown_today');
+              sessionStorage.setItem(modalShownKey, 'true');
+              // 自动执行签到
+              await autoCheckin();
             }, 1000);
           }
         } else {
+          console.log('[CheckinFloat] Already checked in today');
           setShowFloatBall(false);
         }
       }
     } catch (error) {
       console.error('获取签到状态失败:', error);
     }
-  }, [isAuthenticated, checkFirstVisitToday]);
+  }, [isAuthenticated, checkFirstVisitToday, autoCheckin, getStorageKey]);
 
   const handleCheckin = async () => {
     if (loading || hasCheckedIn) return;
@@ -243,67 +314,93 @@ const CheckinFloat = () => {
           onClick={handleCloseModal}
         >
           {modalType === 'auto' ? (
-            /* 自动弹窗 - 简洁版 */
-            <div className="checkin-simple-modal" onClick={e => e.stopPropagation()}>
-              {!checkinResult ? (
-                (() => {
-                  // 获取今日预计经费
-                  const todayStr = new Date().toISOString().split('T')[0];
-                  const todayReward = futureRewards.find(r => r.date === todayStr);
-                  const todayGold = todayReward?.expected_gold || 10; // 默认10
-                  const isMilestone = todayReward?.is_milestone || false;
-                  const milestoneMsg = todayReward?.milestone_message || '';
-                  
-                  return (
-                    <>
-                      <div className="checkin-simple-header">
-                        <div className="checkin-simple-icon">
-                          <svg viewBox="0 0 24 24" fill="none">
-                            <path d="M20 12V22H4V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M22 7H2V12H22V7Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M12 22V7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M12 7H7.5C6.83696 7 6.20107 6.73661 5.73223 6.26777C5.26339 5.79893 5 5.16304 5 4.5C5 3.83696 5.26339 3.20107 5.73223 2.73223C6.20107 2.26339 6.83696 2 7.5 2C11 2 12 7 12 7Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M12 7H16.5C17.163 7 17.7989 6.73661 18.2678 6.26777C18.7366 5.79893 19 5.16304 19 4.5C19 3.83696 18.7366 3.20107 18.2678 2.73223C17.7989 2.26339 17.163 2 16.5 2C13 2 12 7 12 7Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </div>
-                        <h3>领取今日礼物</h3>
-                        <p>{new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}</p>
-                      </div>
-                      
-                      {/* 今日经费预览 */}
-                      <div className={`checkin-reward-preview ${isMilestone ? 'milestone' : ''}`}>
-                        <span className="reward-icon"><GoldIcon size="lg" /></span>
-                        <span className="reward-amount">+{todayGold}</span>
-                        <span className="reward-label">经费</span>
-                        {isMilestone && (
-                          <span className="milestone-tag">{milestoneMsg || '里程碑奖励'}</span>
-                        )}
-                      </div>
-                      
-                      <button 
-                        className={`checkin-simple-btn ${loading ? 'loading' : ''}`}
-                        onClick={handleCheckin}
-                        disabled={loading}
-                      >
-                        {loading ? '领取中...' : '立即领取'}
-                      </button>
-                      <button className="checkin-simple-skip" onClick={handleCloseModal}>
-                        稍后再说
-                      </button>
-                    </>
-                  );
-                })()
-              ) : (
-                <div className="checkin-simple-success">
-                  <div className="checkin-success-check">
-                    <svg viewBox="0 0 24 24" fill="none">
-                      <path d="M9 12L11 14L15 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </div>
-                  <h3>领取成功</h3>
-                  <p>已连续签到 {checkinResult.consecutive_days} 天</p>
+            /* 自动弹窗 - 签到成功展示 */
+            <div className="checkin-auto-modal" onClick={e => e.stopPropagation()}>
+              {/* 右上角经费说明链接 */}
+              <a href="/pricing" className="checkin-auto-help">经费能干什么？</a>
+              
+              {/* 礼物图标 */}
+              <div className="checkin-auto-icon">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M20 12V22H4V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M22 7H2V12H22V7Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M12 22V7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M12 7H7.5C6.83696 7 6.20107 6.73661 5.73223 6.26777C5.26339 5.79893 5 5.16304 5 4.5C5 3.83696 5.26339 3.20107 5.73223 2.73223C6.20107 2.26339 6.83696 2 7.5 2C11 2 12 7 12 7Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M12 7H16.5C17.163 7 17.7989 6.73661 18.2678 6.26777C18.7366 5.79893 19 5.16304 19 4.5C19 3.83696 18.7366 3.20107 18.2678 2.73223C17.7989 2.26339 17.163 2 16.5 2C13 2 12 7 12 7Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              
+              {/* 标题 - 根据是否连续签到显示不同文案 */}
+              <h3 className="checkin-auto-title">
+                {checkinResult ? (
+                  checkinResult.consecutive_days > 1 
+                    ? '每日连续上线奖励到账' 
+                    : '每日上线奖励到账'
+                ) : '正在领取奖励...'}
+              </h3>
+              
+              {/* 日期 */}
+              <p className="checkin-auto-date">
+                {new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}
+              </p>
+              
+              {/* 奖励展示 */}
+              {checkinResult && (
+                <div className="checkin-auto-reward">
+                  <GoldIcon size="lg" />
+                  <span className="checkin-auto-reward-amount">+{checkinResult.gold_reward || 10}</span>
                 </div>
               )}
+              
+              {/* 关闭倒计时 */}
+              <p className="checkin-auto-countdown">
+                知道了，关闭（{autoCloseCountdown}s）
+              </p>
+              
+              {/* 签到日历 - 使用与 checkin-full-modal 相同的样式 */}
+              <div className="checkin-calendar">
+                <div className="checkin-calendar-week">
+                  {weekDays.map(d => <span key={d}>{d}</span>)}
+                </div>
+                <div className="checkin-calendar-days">
+                  {calendarData.days.map((item, i) => (
+                    <div 
+                      key={i} 
+                      className={`checkin-day ${!item.day ? 'empty' : ''} ${item.isToday ? 'today' : ''} ${item.isCheckedIn ? 'checked' : ''} ${item.isFuture ? 'future' : ''} ${item.isMilestone ? 'milestone' : ''} ${item.isAfterUpgrade ? 'after-upgrade' : ''}`}
+                      title={item.isMilestone ? item.milestoneMessage : (item.isAfterUpgrade ? item.baseUpgradeMsg : '')}
+                    >
+                      {item.day && (
+                        <>
+                          <span className="day-num">{item.day}</span>
+                          {/* 已签到日期显示获得的经费 */}
+                          {item.isCheckedIn && item.goldReward > 0 && (
+                            <span className="gold-reward checked-gold">+{item.goldReward}</span>
+                          )}
+                          {/* 今天未签到显示预计经费 */}
+                          {item.isToday && !item.isCheckedIn && item.expectedGold > 0 && (
+                            <span className={`gold-reward today-gold ${item.isMilestone ? 'milestone-gold' : ''} ${item.isAfterUpgrade ? 'after-upgrade-gold' : ''}`}>
+                              +{item.expectedGold}
+                            </span>
+                          )}
+                          {/* 未来日期显示预计经费 */}
+                          {item.isFuture && !item.isToday && item.expectedGold > 0 && (
+                            <span className={`gold-reward future-gold ${item.isMilestone ? 'milestone-gold' : ''} ${item.isAfterUpgrade ? 'after-upgrade-gold' : ''}`}>
+                              +{item.expectedGold}
+                            </span>
+                          )}
+                          {item.isCheckedIn && (
+                            <div className="check-mark">
+                              <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M9 12L11 14L15 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           ) : (
             /* 悬浮球点击 - 从悬浮球位置展开 */
