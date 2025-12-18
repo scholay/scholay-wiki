@@ -163,6 +163,7 @@ const SearchResultsPage = () => {
   const [citePaper, setCitePaper] = useState(null);
   const [expandedTldr, setExpandedTldr] = useState({}); // TLDR 展开状态
   const [expandedAbstract, setExpandedAbstract] = useState({}); // 摘要展开状态
+  const [showAbstractMode, setShowAbstractMode] = useState({}); // 显示模式：'tldr' 或 'abstract'
   const [currentPage, setCurrentPage] = useState(1);
   
   // 切换 TLDR 展开/折叠
@@ -182,7 +183,7 @@ const SearchResultsPage = () => {
   };
   const [papersPerPage, setPapersPerPage] = useState(() => {
     const saved = localStorage.getItem('papersPerPage');
-    return saved ? parseInt(saved, 10) : 50; // 默认50条/页
+    return saved ? parseInt(saved, 10) : 20; // 默认20条/页
   });
 
   const PREVIEW_MIN_WIDTH = 320;
@@ -607,7 +608,9 @@ const SearchResultsPage = () => {
 
   // 为论文分析所有维度（一次请求返回所有维度结果）
   const analyzePaper = useCallback(async (paper) => {
-    if (!paper.abstract) return;
+    // 优先使用 abstract，如果没有则使用 TLDR
+    const abstractText = paper.abstract || paper.tldr?.text;
+    if (!abstractText) return;
 
     // 标记为正在分析
     setAnalyzingPapers(prev => ({
@@ -617,8 +620,8 @@ const SearchResultsPage = () => {
 
     try {
       const response = isAuthenticated
-        ? await analysisDimensionAPI.analyzePaper(paper.paperId, paper.title, paper.abstract)
-        : await publicScholarAPI.analyzePaper(paper.paperId, paper.title, paper.abstract);
+        ? await analysisDimensionAPI.analyzePaper(paper.paperId, paper.title, abstractText)
+        : await publicScholarAPI.analyzePaper(paper.paperId, paper.title, abstractText);
 
       if (response.data.code === 0 && response.data.data) {
         // 接口返回格式: { data: { data: { key: value }, dimensions: [...] } }
@@ -667,9 +670,9 @@ const SearchResultsPage = () => {
   useEffect(() => {
     if (selectedDimensions.length === 0) return;
 
-    // 找出需要分析的论文（有摘要、没有结果、不在分析中）
+    // 找出需要分析的论文（有摘要或TLDR、没有结果、不在分析中）
     const papersToAnalyze = papers.filter(paper => 
-      paper.abstract && 
+      (paper.abstract || paper.tldr?.text) && 
       !analysisResults[paper.paperId] && 
       !analyzingPapers[paper.paperId]
     );
@@ -2294,71 +2297,75 @@ const SearchResultsPage = () => {
                                     <span className="search-result-venue-name">{paper.venue}</span>
                                   )}
                                   {paper.venue && (paper.publicationDate || paper.year) && ' · '}
-                                  {paper.publicationDate ? (
-                                    <span className="pub-date">
-                                      {new Date(paper.publicationDate).toLocaleDateString('zh-CN', { 
-                                        year: 'numeric',
-                                        month: 'long', 
-                                        day: 'numeric'
-                                      })}
+                                  {(paper.publicationDate || paper.year) && (
+                                    <span className="pub-date pub-year">
+                                      {paper.publicationDate 
+                                        ? new Date(paper.publicationDate).getFullYear() 
+                                        : paper.year}年
                                     </span>
-                                  ) : paper.year && (
-                                    <span className="pub-date">{paper.year}年</span>
                                   )}
                                 </p>
                               )}
 
-                              {/* TLDR 摘要 */}
-                              {paper.tldr && paper.tldr.text && (
-                                <div className={`paper-tldr ${expandedTldr[paper.paperId] ? 'expanded' : ''}`}>
-                                  <span className="tldr-label">TLDR</span>
-                                  <span className="tldr-text">
-                                    {expandedTldr[paper.paperId] 
-                                      ? paper.tldr.text 
-                                      : (paper.tldr.text.length > 300 
-                                          ? paper.tldr.text.substring(0, 300) + '...' 
-                                          : paper.tldr.text)
-                                    }
-                                  </span>
-                                  {paper.tldr.text.length > 300 && (
-                                    <button 
-                                      className="expand-btn"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleTldrExpand(paper.paperId);
-                                      }}
-                                    >
-                                      {expandedTldr[paper.paperId] ? '收起' : '展开'}
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* 完整摘要 */}
-                              {paper.abstract && (
-                                <div className={`paper-abstract-section ${expandedAbstract[paper.paperId] ? 'expanded' : ''}`}>
-                                  <span className="abstract-label">Abstract</span>
-                                  <span className="abstract-text">
-                                    {expandedAbstract[paper.paperId] 
-                                      ? paper.abstract 
-                                      : (paper.abstract.length > 300 
-                                          ? paper.abstract.substring(0, 300) + '...' 
-                                          : paper.abstract)
-                                    }
-                                  </span>
-                                  {paper.abstract.length > 300 && (
-                                    <button 
-                                      className="expand-btn"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleAbstractExpand(paper.paperId);
-                                      }}
-                                    >
-                                      {expandedAbstract[paper.paperId] ? '收起' : '展开'}
-                                    </button>
-                                  )}
-                                </div>
-                              )}
+                              {/* TLDR / 摘要 - 优先显示TLDR，可切换 */}
+                              {(paper.tldr?.text || paper.abstract) && (() => {
+                                const hasTldr = paper.tldr?.text;
+                                const hasAbstract = paper.abstract;
+                                // 默认显示 TLDR，如果没有 TLDR 则显示 Abstract
+                                const currentMode = showAbstractMode[paper.paperId] || (hasTldr ? 'tldr' : 'abstract');
+                                const showTldr = currentMode === 'tldr' && hasTldr;
+                                const showAbstract = currentMode === 'abstract' && hasAbstract;
+                                const content = showTldr ? paper.tldr.text : (showAbstract ? paper.abstract : '');
+                                const isExpanded = showTldr ? expandedTldr[paper.paperId] : expandedAbstract[paper.paperId];
+                                
+                                return (
+                                  <div className="paper-summary-section">
+                                    <div className="paper-summary-header">
+                                      <span className={`summary-label ${showTldr ? 'tldr' : 'abstract'}`}>
+                                        {showTldr ? 'TLDR' : 'Abstract'}
+                                      </span>
+                                      {/* 切换按钮 - 只有两者都有时才显示 */}
+                                      {hasTldr && hasAbstract && (
+                                        <button 
+                                          className="summary-toggle-btn"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowAbstractMode(prev => ({
+                                              ...prev,
+                                              [paper.paperId]: currentMode === 'tldr' ? 'abstract' : 'tldr'
+                                            }));
+                                          }}
+                                        >
+                                          {showTldr ? '显示摘要' : '显示TLDR'}
+                                        </button>
+                                      )}
+                                    </div>
+                                    <span className="summary-text">
+                                      {isExpanded 
+                                        ? content 
+                                        : (content.length > 300 
+                                            ? content.substring(0, 300) + '...' 
+                                            : content)
+                                      }
+                                    </span>
+                                    {content.length > 300 && (
+                                      <button 
+                                        className="expand-btn"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (showTldr) {
+                                            toggleTldrExpand(paper.paperId);
+                                          } else {
+                                            toggleAbstractExpand(paper.paperId);
+                                          }
+                                        }}
+                                      >
+                                        {isExpanded ? '收起' : '展开'}
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })()}
 
                               {/* 底部元信息和操作 */}
                               <div className="search-result-paper-meta">
@@ -2744,16 +2751,12 @@ const SearchResultsPage = () => {
                                             <span className="search-result-venue-name">{paper.venue}</span>
                                           )}
                                           {paper.venue && (paper.publicationDate || paper.year) && ' · '}
-                                          {paper.publicationDate ? (
-                                            <span className="pub-date">
-                                              {new Date(paper.publicationDate).toLocaleDateString('zh-CN', { 
-                                                year: 'numeric',
-                                                month: 'long', 
-                                                day: 'numeric'
-                                              })}
+                                          {(paper.publicationDate || paper.year) && (
+                                            <span className="pub-date pub-year">
+                                              {paper.publicationDate 
+                                                ? new Date(paper.publicationDate).getFullYear() 
+                                                : paper.year}年
                                             </span>
-                                          ) : paper.year && (
-                                            <span className="pub-date">{paper.year}年</span>
                                           )}
                                         </p>
                                       )}
@@ -2908,16 +2911,12 @@ const SearchResultsPage = () => {
                                             <span className="search-result-venue-name">{paper.venue}</span>
                                           )}
                                           {paper.venue && (paper.publicationDate || paper.year) && ' · '}
-                                          {paper.publicationDate ? (
-                                            <span className="pub-date">
-                                              {new Date(paper.publicationDate).toLocaleDateString('zh-CN', { 
-                                                year: 'numeric',
-                                                month: 'long', 
-                                                day: 'numeric'
-                                              })}
+                                          {(paper.publicationDate || paper.year) && (
+                                            <span className="pub-date pub-year">
+                                              {paper.publicationDate 
+                                                ? new Date(paper.publicationDate).getFullYear() 
+                                                : paper.year}年
                                             </span>
-                                          ) : paper.year && (
-                                            <span className="pub-date">{paper.year}年</span>
                                           )}
                                         </p>
                                       )}
@@ -3093,16 +3092,12 @@ const SearchResultsPage = () => {
                                                   <span className="search-result-venue-name">{paper.venue}</span>
                                                 )}
                                                 {paper.venue && (paper.publicationDate || paper.year) && ' · '}
-                                                {paper.publicationDate ? (
-                                                  <span className="pub-date">
-                                                    {new Date(paper.publicationDate).toLocaleDateString('zh-CN', { 
-                                                      year: 'numeric',
-                                                      month: 'long', 
-                                                      day: 'numeric'
-                                                    })}
+                                                {(paper.publicationDate || paper.year) && (
+                                                  <span className="pub-date pub-year">
+                                                    {paper.publicationDate 
+                                                      ? new Date(paper.publicationDate).getFullYear() 
+                                                      : paper.year}年
                                                   </span>
-                                                ) : paper.year && (
-                                                  <span className="pub-date">{paper.year}年</span>
                                                 )}
                                               </p>
                                             )}
@@ -3382,57 +3377,63 @@ const SearchResultsPage = () => {
                         </p>
                       )}
 
-                      {/* TLDR 摘要 */}
-                      {paper.tldr && paper.tldr.text && (
-                        <div className={`paper-tldr ${expandedTldr[paper.paperId] ? 'expanded' : ''}`}>
-                          <span className="tldr-label">TLDR</span>
-                          <span className="tldr-text">
-                            {expandedTldr[paper.paperId] 
-                              ? paper.tldr.text 
-                              : (paper.tldr.text.length > 300 
-                                  ? paper.tldr.text.substring(0, 300) + '...' 
-                                  : paper.tldr.text)
-                            }
-                          </span>
-                          {paper.tldr.text.length > 300 && (
-                            <button 
-                              className="expand-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleTldrExpand(paper.paperId);
-                              }}
-                            >
-                              {expandedTldr[paper.paperId] ? '收起' : '展开'}
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      {/* 完整摘要 */}
-                      {paper.abstract && (
-                        <div className={`paper-abstract-section ${expandedAbstract[paper.paperId] ? 'expanded' : ''}`}>
-                          <span className="abstract-label">Abstract</span>
-                          <span className="abstract-text">
-                            {expandedAbstract[paper.paperId] 
-                              ? paper.abstract 
-                              : (paper.abstract.length > 300 
-                                  ? paper.abstract.substring(0, 300) + '...' 
-                                  : paper.abstract)
-                            }
-                          </span>
-                          {paper.abstract.length > 300 && (
-                            <button 
-                              className="expand-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleAbstractExpand(paper.paperId);
-                              }}
-                            >
-                              {expandedAbstract[paper.paperId] ? '收起' : '展开'}
-                            </button>
-                          )}
-                        </div>
-                      )}
+                      {/* TLDR / 摘要 - 优先显示TLDR，可切换 */}
+                      {(paper.tldr?.text || paper.abstract) && (() => {
+                        const hasTldr = paper.tldr?.text;
+                        const hasAbstract = paper.abstract;
+                        const currentMode = showAbstractMode[paper.paperId] || (hasTldr ? 'tldr' : 'abstract');
+                        const showTldr = currentMode === 'tldr' && hasTldr;
+                        const showAbstract = currentMode === 'abstract' && hasAbstract;
+                        const content = showTldr ? paper.tldr.text : (showAbstract ? paper.abstract : '');
+                        const isExpanded = showTldr ? expandedTldr[paper.paperId] : expandedAbstract[paper.paperId];
+                        
+                        return (
+                          <div className="paper-summary-section">
+                            <div className="paper-summary-header">
+                              <span className={`summary-label ${showTldr ? 'tldr' : 'abstract'}`}>
+                                {showTldr ? 'TLDR' : 'Abstract'}
+                              </span>
+                              {hasTldr && hasAbstract && (
+                                <button 
+                                  className="summary-toggle-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowAbstractMode(prev => ({
+                                      ...prev,
+                                      [paper.paperId]: currentMode === 'tldr' ? 'abstract' : 'tldr'
+                                    }));
+                                  }}
+                                >
+                                  {showTldr ? '显示摘要' : '显示TLDR'}
+                                </button>
+                              )}
+                            </div>
+                            <span className="summary-text">
+                              {isExpanded 
+                                ? content 
+                                : (content.length > 300 
+                                    ? content.substring(0, 300) + '...' 
+                                    : content)
+                              }
+                            </span>
+                            {content.length > 300 && (
+                              <button 
+                                className="expand-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (showTldr) {
+                                    toggleTldrExpand(paper.paperId);
+                                  } else {
+                                    toggleAbstractExpand(paper.paperId);
+                                  }
+                                }}
+                              >
+                                {isExpanded ? '收起' : '展开'}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* 底部元信息和操作 */}
                       <div className="search-result-paper-meta">
@@ -3547,6 +3548,7 @@ const SearchResultsPage = () => {
                       value={papersPerPage}
                       onChange={(e) => handlePageSizeChange(parseInt(e.target.value, 10))}
                     >
+                      <option value={20}>20</option>
                       <option value={50}>50</option>
                       <option value={100}>100</option>
                       <option value={200}>200</option>
