@@ -691,146 +691,7 @@ const SearchResultsPage = () => {
     setShowPaperDrawer(false);
   }, []);
 
-  // 左右列表滚动同步（纵向）+ 表头和列表横向滚动同步
-  useEffect(() => {
-    const papersContainer = papersContainerRef.current;
-    const analysisResultsList = analysisResultsRef.current;
-    const analysisHeader = analysisHeaderRef.current;
-    
-    if (!papersContainer || !analysisResultsList) return;
-    
-    let isSyncingVertical = false;
-    let isSyncingHorizontal = false;
-    
-    // 纵向滚动同步（左侧论文列表 <-> 右侧分析列表）
-    const syncVerticalScroll = (source, target) => {
-      if (isSyncingVertical) return;
-      isSyncingVertical = true;
-      target.scrollTop = source.scrollTop;
-      requestAnimationFrame(() => {
-        isSyncingVertical = false;
-      });
-    };
-    
-    // 横向滚动同步（表头 <-> 列表）
-    const syncHorizontalScroll = (source, target) => {
-      if (isSyncingHorizontal || !target) return;
-      isSyncingHorizontal = true;
-      target.scrollLeft = source.scrollLeft;
-      requestAnimationFrame(() => {
-        isSyncingHorizontal = false;
-      });
-    };
-    
-    const handlePapersScroll = () => syncVerticalScroll(papersContainer, analysisResultsList);
-    const handleAnalysisScroll = () => {
-      syncVerticalScroll(analysisResultsList, papersContainer);
-      // 同步横向滚动到表头
-      if (analysisHeader) {
-        syncHorizontalScroll(analysisResultsList, analysisHeader);
-      }
-    };
-    const handleHeaderScroll = () => {
-      if (analysisHeader) {
-        syncHorizontalScroll(analysisHeader, analysisResultsList);
-      }
-    };
-    
-    papersContainer.addEventListener('scroll', handlePapersScroll);
-    analysisResultsList.addEventListener('scroll', handleAnalysisScroll);
-    if (analysisHeader) {
-      analysisHeader.addEventListener('scroll', handleHeaderScroll);
-    }
-    
-    return () => {
-      papersContainer.removeEventListener('scroll', handlePapersScroll);
-      analysisResultsList.removeEventListener('scroll', handleAnalysisScroll);
-      if (analysisHeader) {
-        analysisHeader.removeEventListener('scroll', handleHeaderScroll);
-      }
-    };
-  }, [selectedDimensions.length]); // 当维度选择变化时重新绑定
-
-  // 同步左右两侧每行高度
-  useEffect(() => {
-    if (selectedDimensions.length === 0) return;
-    
-    const syncRowHeights = () => {
-      const paperItems = document.querySelectorAll('.papers-list .search-result-paper-item');
-      const analysisRows = document.querySelectorAll('.analysis-results-list .analysis-result-row');
-      
-      if (paperItems.length === 0 || analysisRows.length === 0) return;
-      if (paperItems.length !== analysisRows.length) return;
-      
-      // 先重置所有高度
-      paperItems.forEach((paperItem) => {
-        paperItem.style.height = 'auto';
-        paperItem.style.minHeight = '';
-      });
-      analysisRows.forEach((analysisRow) => {
-        analysisRow.style.height = 'auto';
-        analysisRow.style.minHeight = '';
-      });
-      
-      // 强制重排
-      void document.body.offsetHeight;
-      
-      // 然后同步高度
-      paperItems.forEach((paperItem, index) => {
-        const analysisRow = analysisRows[index];
-        if (!analysisRow) return;
-        
-        // 获取实际高度
-        const paperHeight = paperItem.getBoundingClientRect().height;
-        const analysisHeight = analysisRow.getBoundingClientRect().height;
-        const maxHeight = Math.max(paperHeight, analysisHeight);
-        
-        // 设置相同高度
-        paperItem.style.height = `${maxHeight}px`;
-        analysisRow.style.height = `${maxHeight}px`;
-      });
-    };
-    
-    // 初始同步 - 多次尝试确保内容加载完成
-    const timer1 = setTimeout(syncRowHeights, 50);
-    const timer2 = setTimeout(syncRowHeights, 200);
-    const timer3 = setTimeout(syncRowHeights, 500);
-    
-    // 监听窗口大小变化
-    window.addEventListener('resize', syncRowHeights);
-    
-    // 使用 MutationObserver 监听内容变化
-    const observer = new MutationObserver(() => {
-      requestAnimationFrame(syncRowHeights);
-    });
-    
-    const analysisResultsList = analysisResultsRef.current;
-    if (analysisResultsList) {
-      observer.observe(analysisResultsList, { 
-        childList: true, 
-        subtree: true,
-        characterData: true 
-      });
-    }
-    
-    // 监听论文列表变化
-    const papersList = document.querySelector('.papers-list');
-    if (papersList) {
-      observer.observe(papersList, {
-        childList: true,
-        subtree: true,
-        characterData: true
-      });
-    }
-    
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
-      window.removeEventListener('resize', syncRowHeights);
-      observer.disconnect();
-    };
-  }, [selectedDimensions.length, papers.length, Object.keys(analysisResults).length]);
+  // 表头已集成到表格内部，不再需要滚动同步逻辑
 
   // 不再需要认证检查 - 允许未登录用户访问
 
@@ -2084,57 +1945,7 @@ const SearchResultsPage = () => {
                 </div>
               )}
             </div>
-            {/* 搜索结果提示 - 包含翻译信息和结果数量（独立一行） */}
-            {viewMode === 'list' && papers.length > 0 && (
-              <div className="search-translation-hint">
-                {queryInfo.translationEnabled && queryInfo.translatedQuery && 
-                 queryInfo.searchStrategy !== 'original' && 
-                 queryInfo.originalQuery !== queryInfo.translatedQuery ? (
-                  <>
-                    {(queryInfo.searchStrategy === 'combined' || !queryInfo.searchStrategy) && (
-                      <>
-                        <span className="hint-text">
-                          共找到 <strong>{total.toLocaleString()}</strong> 个 "
-                          <span className="hint-query-original" title={queryInfo.originalQuery}>
-                            {queryInfo.originalQuery}
-                          </span>
-                          {' '}
-                          <span className="hint-query-translated" title={queryInfo.translatedQuery}>
-                            {queryInfo.translatedQuery}
-                          </span>
-                          " 的结果
-                        </span>
-                        <button
-                          className="hint-action-btn"
-                          onClick={() => performSearch(queryInfo.originalQuery, filters, 1, false, false)}
-                          title={`仅按 "${queryInfo.originalQuery}" 查找`}
-                        >
-                          仅按 "<span className="hint-btn-query" title={queryInfo.originalQuery}>{queryInfo.originalQuery}</span>" 查找
-                        </button>
-                      </>
-                    )}
-                    {queryInfo.searchStrategy === 'translated' && (
-                      <>
-                        <span className="hint-text">
-                          共找到 <strong>{total.toLocaleString()}</strong> 个 "
-                          <span className="hint-query-translated" title={queryInfo.translatedQuery}>
-                            {queryInfo.translatedQuery}
-                          </span>
-                          " 的结果
-                        </span>
-                        <span className="hint-fallback-notice">
-                          原始词 "<span className="hint-query-highlight">{queryInfo.originalQuery}</span>" 无结果，已使用翻译词搜索
-                        </span>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <span className="hint-text">
-                    共找到 <strong>{total.toLocaleString()}</strong> 个结果
-                  </span>
-                )}
-              </div>
-            )}
+            {/* 搜索结果提示行已移至表格第一列列头 */}
             </>
             )}
 
@@ -3442,15 +3253,87 @@ const SearchResultsPage = () => {
               </div>
             ) : (
             <>
-              <div className="papers-list">
-                {papers.map((paper, index) => (
-                  <div
-                    key={paper.paperId}
-                    className={`search-result-paper-item ${selectedPaper?.paperId === paper.paperId ? 'selected' : ''}`}
-                    data-paper-index={index}
-                  >
-                    <div className="search-result-paper-number">{startIndex + index}</div>
-                    <div className="search-result-paper-content">
+              {/* 统一表格结构 - 论文列表作为第一列，分析结果作为后续列 */}
+              <div className={`unified-results-table ${selectedDimensions.length > 0 ? 'has-analysis' : ''}`}>
+                {/* 表格表头行 - 第一列是搜索结果提示，后面是分析维度列头 */}
+                <div className="unified-table-header">
+                  {/* 第一列：搜索结果提示 */}
+                  <div className="unified-header-info">
+                    {queryInfo.translationEnabled && queryInfo.translatedQuery && 
+                     queryInfo.searchStrategy !== 'original' && 
+                     queryInfo.originalQuery !== queryInfo.translatedQuery ? (
+                      <>
+                        {(queryInfo.searchStrategy === 'combined' || !queryInfo.searchStrategy) && (
+                          <>
+                            <span className="hint-text">
+                              共找到 <strong>{total.toLocaleString()}</strong> 个 "
+                              <span className="hint-query-original" title={queryInfo.originalQuery}>
+                                {queryInfo.originalQuery}
+                              </span>
+                              {' '}
+                              <span className="hint-query-translated" title={queryInfo.translatedQuery}>
+                                {queryInfo.translatedQuery}
+                              </span>
+                              " 的结果
+                            </span>
+                            <button
+                              className="hint-action-btn"
+                              onClick={() => performSearch(queryInfo.originalQuery, filters, 1, false, false)}
+                              title={`仅按 "${queryInfo.originalQuery}" 查找`}
+                            >
+                              仅按 "<span className="hint-btn-query" title={queryInfo.originalQuery}>{queryInfo.originalQuery}</span>" 查找
+                            </button>
+                          </>
+                        )}
+                        {queryInfo.searchStrategy === 'translated' && (
+                          <>
+                            <span className="hint-text">
+                              共找到 <strong>{total.toLocaleString()}</strong> 个 "
+                              <span className="hint-query-translated" title={queryInfo.translatedQuery}>
+                                {queryInfo.translatedQuery}
+                              </span>
+                              " 的结果
+                            </span>
+                            <span className="hint-fallback-notice">
+                              原始词 "<span className="hint-query-highlight">{queryInfo.originalQuery}</span>" 无结果，已使用翻译词搜索
+                            </span>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <span className="hint-text">
+                        共找到 <strong>{total.toLocaleString()}</strong> 个结果
+                      </span>
+                    )}
+                  </div>
+                  {/* 分析维度列头 */}
+                  {selectedDimensions.length > 0 && (
+                    <div className="unified-header-dims">
+                      {selectedDimensions.map(dim => (
+                        <div key={getDimensionKey(dim)} className="unified-header-dim">
+                          {dim.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* 表格内容区域 */}
+                <div className="unified-table-body">
+                  {papers.map((paper, index) => {
+                    const paperResults = analysisResults[paper.paperId];
+                    const isAnalyzing = analyzingPapers[paper.paperId];
+                    const hasError = paperResults?._error;
+                    
+                    return (
+                      <div
+                        key={paper.paperId}
+                        className={`unified-table-row ${selectedPaper?.paperId === paper.paperId ? 'selected' : ''}`}
+                        data-paper-index={index}
+                      >
+                        {/* 论文信息列 - 第一列 */}
+                        <div className="unified-cell-paper">
+                          <div className="search-result-paper-number">{startIndex + index}</div>
+                          <div className="search-result-paper-content">
                       <h3 
                         className="search-result-paper-title" 
                         onClick={() => handlePaperClick(paper)}
@@ -3616,8 +3499,42 @@ const SearchResultsPage = () => {
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                  
+                  {/* 分析结果列 - 只在有选中维度时显示 */}
+                  {selectedDimensions.length > 0 && (
+                    <div className="unified-cell-analysis">
+                      {selectedDimensions.map(dim => {
+                        const dimKey = getDimensionKey(dim);
+                        const result = paperResults?.[dimKey];
+                        const resultText = typeof result === 'string' ? result : (result ? JSON.stringify(result) : '');
+                        
+                        return (
+                          <div key={dimKey} className="unified-analysis-cell">
+                            {isAnalyzing ? (
+                              <div className="analysis-cell-loading">
+                                <div className="analysis-cell-spinner"></div>
+                              </div>
+                            ) : !paper.abstract ? (
+                              <span className="analysis-cell-na">无摘要</span>
+                            ) : hasError ? (
+                              <span className="analysis-cell-error" title={paperResults._message}>分析失败</span>
+                            ) : result ? (
+                              <AnalysisCellText text={resultText} />
+                            ) : paperResults ? (
+                              <span className="analysis-cell-na">-</span>
+                            ) : (
+                              <span className="analysis-cell-pending">等待分析...</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
               {/* 分页器 */}
               {totalPages > 1 && (
@@ -3683,69 +3600,6 @@ const SearchResultsPage = () => {
             )}
         </div>
 
-        {/* 右侧分析结果区域 - 选中维度时显示，与左侧论文列表对齐 */}
-        {!isCompactLayout && !isMobile && selectedDimensions.length > 0 && viewMode === 'list' && (
-          <div className="analysis-results-panel">
-            {/* 横向滚动容器 */}
-            <div className="analysis-panel-scroll-container">
-              {/* 内容容器 - 宽度由内容决定 */}
-              <div className="analysis-panel-content">
-                {/* 表头区域 */}
-                <div className="analysis-results-header" ref={analysisHeaderRef}>
-                  {selectedDimensions.map(dim => (
-                    <div key={getDimensionKey(dim)} className="analysis-dim-header">
-                      {dim.name}
-                    </div>
-                  ))}
-                </div>
-                
-                {/* 分析结果列表 - 纵向滚动与左侧同步 */}
-                <div className="analysis-results-list" ref={analysisResultsRef}>
-                  {papers.map((paper, index) => {
-                    const paperResults = analysisResults[paper.paperId];
-                    const isAnalyzing = analyzingPapers[paper.paperId];
-                    const hasError = paperResults?._error;
-                    
-                    return (
-                      <div 
-                        key={paper.paperId}
-                        className={`analysis-result-row ${selectedPaper?.paperId === paper.paperId ? 'selected' : ''}`}
-                        data-paper-index={index}
-                      >
-                        {selectedDimensions.map(dim => {
-                          const dimKey = getDimensionKey(dim);
-                          // 使用 key 或 dimensionKey 获取结果
-                          const result = paperResults?.[dimKey];
-                          const resultText = typeof result === 'string' ? result : (result ? JSON.stringify(result) : '');
-                          
-                          return (
-                            <div key={dimKey} className="analysis-result-cell">
-                              {isAnalyzing ? (
-                                <div className="analysis-cell-loading">
-                                  <div className="analysis-cell-spinner"></div>
-                                </div>
-                              ) : !paper.abstract ? (
-                                <span className="analysis-cell-na">无摘要</span>
-                              ) : hasError ? (
-                                <span className="analysis-cell-error" title={paperResults._message}>分析失败</span>
-                              ) : result ? (
-                                <AnalysisCellText text={resultText} />
-                              ) : paperResults ? (
-                                <span className="analysis-cell-na">-</span>
-                              ) : (
-                                <span className="analysis-cell-pending">等待分析...</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* 右侧预览面板 - 仅在论文详情或作者视图时显示（非抽屉模式） */}
         {!isCompactLayout && !isMobile && (viewMode === 'paper' || viewMode === 'author') && (

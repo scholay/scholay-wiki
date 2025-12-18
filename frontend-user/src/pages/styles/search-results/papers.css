@@ -1443,3 +1443,292 @@ a.meta-item.pdf-link:hover {
   }
 }
 
+/* ========== 统一表格结构 - 论文列表 + 分析结果合并 ========== */
+.unified-results-table {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 没有分析时，表格宽度50vw */
+.unified-results-table:not(.has-analysis) {
+  width: 50vw;
+}
+
+/* 有分析时，表格宽度由内容撑开，超出容器时产生滚动条 */
+.unified-results-table.has-analysis {
+  /* 总宽度 = 论文列(50vw) + 分析列(每列180px * N) */
+  width: max-content;
+}
+
+
+/* 统一表格表头 - 固定在表格顶部 */
+.unified-table-header {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--background);
+  min-height: 38px;
+  /* 不需要底部边框，第一列和论文之间不需要表格线 */
+}
+
+/* 表头第一列 - 搜索结果提示 */
+.unified-header-info {
+  flex: 0 0 50vw;
+  width: 50vw;
+  min-width: 50vw;
+  max-width: 50vw;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 28px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  box-sizing: border-box;
+  position: sticky;
+  left: 0;
+  background: var(--background);
+  z-index: 2;
+  border-right: 1px solid rgba(255, 255, 255, 0.1); /* 第一列右边框 */
+}
+
+[data-theme="light"] .unified-header-info {
+  color: rgba(0, 0, 0, 0.6);
+  background: var(--background);
+  border-right-color: rgba(0, 0, 0, 0.1);
+}
+
+.unified-header-info .hint-text {
+  color: rgba(255, 255, 255, 0.6);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme="light"] .unified-header-info .hint-text {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.unified-header-info .hint-text strong {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+}
+
+[data-theme="light"] .unified-header-info .hint-text strong {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.unified-header-info .hint-query-original,
+.unified-header-info .hint-query-translated {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+[data-theme="light"] .unified-header-info .hint-query-original,
+[data-theme="light"] .unified-header-info .hint-query-translated {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.unified-header-info .hint-action-btn {
+  background: transparent;
+  border: none;
+  color: #8ab4f8;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.unified-header-info .hint-action-btn:hover {
+  background: rgba(138, 180, 248, 0.1);
+  text-decoration: underline;
+}
+
+[data-theme="light"] .unified-header-info .hint-action-btn {
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .unified-header-info .hint-action-btn:hover {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+.unified-header-info .hint-btn-query {
+  font-weight: 500;
+}
+
+.unified-header-info .hint-fallback-notice {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+[data-theme="light"] .unified-header-info .hint-fallback-notice {
+  color: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.unified-header-info .hint-query-highlight {
+  color: #8ab4f8;
+  font-weight: 500;
+}
+
+[data-theme="light"] .unified-header-info .hint-query-highlight {
+  color: var(--text-accent);
+}
+
+/* 表头分析维度列容器 */
+.unified-header-dims {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08); /* 分析维度列头下边框 */
+}
+
+[data-theme="light"] .unified-header-dims {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+/* 表头 - 每个维度列 */
+.unified-header-dim {
+  flex: 0 0 180px;
+  width: 180px;
+  min-width: 180px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #10a37f;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  border-right: 1px solid rgba(255, 255, 255, 0.06); /* 改为右边框 */
+}
+
+[data-theme="light"] .unified-header-dim {
+  color: #059669;
+  border-right-color: rgba(0, 0, 0, 0.06);
+}
+
+/* 统一表格内容区域 */
+.unified-table-body {
+  flex: 1;
+}
+
+/* 统一表格行 */
+.unified-table-row {
+  display: flex;
+  transition: background 0.15s ease;
+  width: max-content; /* 宽度由内容决定 */
+  min-width: 100%;
+}
+
+/* 移除鼠标悬停行的特殊效果 */
+.unified-table-row:hover {
+  background: transparent;
+}
+
+.unified-table-row:hover .unified-cell-paper {
+  background: var(--background);
+}
+
+.unified-table-row.selected {
+  background: rgba(16, 163, 127, 0.08);
+}
+
+.unified-table-row.selected .unified-cell-paper {
+  background: rgba(16, 163, 127, 0.08);
+}
+
+/* 论文信息单元格 - 第一列，固定50vw宽度，横向滚动时固定 */
+.unified-cell-paper {
+  flex: 0 0 50vw;
+  width: 50vw;
+  min-width: 50vw;
+  max-width: 50vw;
+  display: flex;
+  padding: 20px 28px;
+  gap: 16px;
+  box-sizing: border-box;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--background);
+}
+
+/* 有分析时，论文列右边加竖线 */
+.unified-results-table.has-analysis .unified-cell-paper {
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .unified-results-table.has-analysis .unified-cell-paper {
+  border-right-color: rgba(0, 0, 0, 0.1);
+}
+
+/* 没有分析时，论文列保持50vw宽度，不需要 sticky */
+.unified-results-table:not(.has-analysis) .unified-cell-paper {
+  flex: 0 0 50vw;
+  width: 50vw;
+  min-width: 50vw;
+  max-width: 50vw;
+  position: static;
+}
+
+/* 分析结果列容器 */
+.unified-cell-analysis {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06); /* 分析列之间的横线 */
+}
+
+[data-theme="light"] .unified-cell-analysis {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+/* 每个分析维度单元格 */
+.unified-analysis-cell {
+  flex: 0 0 180px;
+  width: 180px;
+  min-width: 180px;
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.75);
+  display: flex;
+  align-items: flex-start;
+  border-right: 1px solid rgba(255, 255, 255, 0.06); /* 改为右边框 */
+  box-sizing: border-box;
+}
+
+/* 日间模式 - 统一表格 */
+
+/* 日间模式的列头颜色已在上方定义 */
+
+[data-theme="light"] .unified-cell-paper {
+  background: var(--background);
+}
+
+[data-theme="light"] .unified-table-row:hover .unified-cell-paper {
+  background: var(--background);
+}
+
+[data-theme="light"] .unified-table-row.selected .unified-cell-paper {
+  background: rgba(16, 163, 127, 0.06);
+}
+
+[data-theme="light"] .unified-table-row:hover {
+  background: transparent;
+}
+
+[data-theme="light"] .unified-table-row.selected {
+  background: rgba(16, 163, 127, 0.06);
+}
+
+[data-theme="light"] .unified-analysis-cell {
+  color: rgba(0, 0, 0, 0.7);
+  border-right-color: rgba(0, 0, 0, 0.06);
+}
+

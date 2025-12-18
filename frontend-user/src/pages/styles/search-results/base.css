@@ -106,25 +106,18 @@
   color: rgba(0, 0, 0, 0.7);
 }
 
-/* 论文列表区域 - 筛选侧边栏 + 论文列表 + 分析面板 */
+/* 论文列表区域 - 筛选侧边栏 + 论文列表 */
 .results-main {
   flex: 1;
   display: flex;
   padding-left: 24px; /* 左边距 */
-  overflow: hidden;
+  overflow: hidden; /* 防止整体溢出 */
   min-width: 0; /* 允许 flex 子项收缩 */
 }
 
 /* 当有分析面板时 */
 .results-main.has-analysis {
-  overflow: hidden;
-}
-
-/* 分析面板 - 占据剩余空间，内部可滚动 */
-.results-main.has-analysis .analysis-results-panel {
-  flex: 1;
-  min-width: 0; /* 关键：允许 flex 子项收缩到小于内容宽度 */
-  max-width: calc(100vw - 24px - 160px - 720px - 20px); /* 视口宽度 - 左边距 - 筛选栏宽度 - 论文列表宽度 - 边距 */
+  /* 保持 overflow: hidden，让 papers-container 处理滚动 */
 }
 
 /* 响应式 */
@@ -414,16 +407,14 @@
   transform: rotate(180deg);
 }
 
-/* 论文列表容器 - 始终固定720px宽度 */
+/* 论文列表容器 - 有最大宽度限制，内容超出时横向滚动 */
 .papers-container {
-  flex: 0 0 720px;
-  width: 720px;
-  max-width: 720px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  flex: 1;
+  min-width: 0; /* 关键：允许 flex 子项收缩到小于内容宽度 */
+  max-width: calc(100vw - 160px - 48px); /* 视口宽度 - 筛选栏宽度 - 左右边距 */
+  overflow-x: auto; /* 横向滚动 */
+  overflow-y: auto; /* 纵向滚动 */
   background: transparent;
-  display: flex;
-  flex-direction: column;
 }
 
 /* 日间模式论文容器背景 */
