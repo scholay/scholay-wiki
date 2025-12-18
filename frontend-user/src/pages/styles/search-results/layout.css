@@ -10,11 +10,13 @@
 /* 结果页面布局 */
 .results-layout {
   width: 100%;
-  height: 100vh;
+  height: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
   background: var(--background);
   position: relative;
+  overflow: hidden;
 }
 
 /* 结果页面顶部导航栏 */
@@ -185,16 +187,15 @@
   color: rgba(0, 0, 0, 0.8);
 }
 
-/* 居中搜索区域 - 改为左对齐 */
+/* 搜索区域 */
 .search-results-centered-area {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 1rem 1.5rem 0.5rem;
   position: relative;
   background: transparent;
   flex-shrink: 0;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex: 1;
 }
 
 /* 论文详情模式下搜索区域的展开动画 */

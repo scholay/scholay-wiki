@@ -24,7 +24,6 @@ import Home from './pages/Home';
 
 // 其他页面使用懒加载 - 大幅减少初始bundle大小
 const SearchResultsPage = lazy(() => import('./pages/SearchResultsPage'));
-const AdvancedSearchPage = lazy(() => import('./pages/AdvancedSearchPage'));
 const PaperDetailPage = lazy(() => import('./pages/PaperDetailPage'));
 const ChatPage = lazy(() => import('./pages/ChatPage'));
 const PeerReviewPage = lazy(() => import('./pages/PeerReviewPage'));
@@ -70,8 +69,8 @@ function App() {
                       <Route path="/" element={<Home />} />
                       <Route path="/search-results" element={<SearchResultsPage />} />
                       
-                      {/* 智能分析页面 - 允许未登录访问 */}
-                      <Route path="/advanced-search" element={<AdvancedSearchPage />} />
+                      {/* 兼容旧链接：智能分析页面重定向到搜索结果页（AI模式） */}
+                      <Route path="/advanced-search" element={<Navigate to="/search-results?mode=ai" replace />} />
                       {/* 文献助手页面 - 允许未登录访问 */}
                       <Route path="/assistant" element={<AssistantPage />} />
                       {/* AI对话页面 - 允许未登录访问 */}

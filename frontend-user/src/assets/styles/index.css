@@ -107,6 +107,9 @@ html {
   background: var(--background);
   overflow-x: hidden;
   overflow-y: auto;
+  /* 禁用滚动回弹效果 */
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
 }
 
 body {
@@ -123,8 +126,9 @@ body {
   line-height: 1.6;
   overflow-x: hidden;
   overflow-y: auto;
-  /* Better touch scrolling on iOS */
-  -webkit-overflow-scrolling: touch;
+  /* 禁用滚动回弹效果 */
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
 }
 
 /* Animated Background */

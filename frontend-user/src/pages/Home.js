@@ -20,6 +20,7 @@ import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons'
 import SEO from '../components/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
 import { trackAcademicSearch, trackSmartAnalysis, EntryPoint } from '../utils/usageTracker';
+import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation } from '../utils/searchStorage';
 import './styles/home/index.css';
 
 // 懒加载 AuthModal - 只在需要时加载
@@ -123,10 +124,8 @@ const Home = () => {
     setSearchQuery(title);
     setShowSuggestions(false);
     // 跳转到搜索结果页面，并带上 paperId 以显示论文详情
-    const params = new URLSearchParams();
-    if (title) params.set('query', title);
-    if (paperId) params.set('paperId', paperId);
-    navigate(`/search-results?${params.toString()}`);
+    const targetUrl = preparePaperNavigation(paperId, title);
+    navigate(targetUrl);
   };
 
   // 处理选择作者建议
@@ -137,10 +136,8 @@ const Home = () => {
     setSearchQuery(name);
     setShowSuggestions(false);
     // 跳转到搜索结果页面，并带上 authorId 以显示作者详情
-    const params = new URLSearchParams();
-    if (name) params.set('query', name);
-    if (authorId) params.set('authorId', authorId);
-    navigate(`/search-results?${params.toString()}`);
+    const targetUrl = prepareAuthorNavigation(authorId, name);
+    navigate(targetUrl);
   };
 
   const handleSearch = async (e) => {
@@ -154,17 +151,14 @@ const Home = () => {
       // 记录使用统计
       trackAcademicSearch(EntryPoint.HOME_PAGE, userMessage);
 
-      const params = new URLSearchParams({ query: userMessage });
+      // 使用 sessionStorage 存储搜索参数
+      const targetUrl = prepareSearchNavigation({
+        query: userMessage,
+        filters: filters,
+        mode: 'normal'
+      });
 
-      // 添加筛选条件到URL参数
-      if (filters.yearFrom) params.set('yearFrom', filters.yearFrom);
-      if (filters.yearTo) params.set('yearTo', filters.yearTo);
-      if (filters.publicationTypes.length > 0) params.set('publicationTypes', filters.publicationTypes.join(','));
-      if (filters.fieldsOfStudy.length > 0) params.set('fieldsOfStudy', filters.fieldsOfStudy.join(','));
-      if (filters.openAccessPdf) params.set('openAccessPdf', filters.openAccessPdf);
-      if (filters.venue) params.set('venue', filters.venue);
-
-      navigate(`/search-results?${params.toString()}`);
+      navigate(targetUrl);
       return;
     }
 
@@ -179,11 +173,14 @@ const Home = () => {
       // 记录使用统计
       trackSmartAnalysis(EntryPoint.HOME_PAGE, userMessage);
 
-      const params = new URLSearchParams({
+      // 使用 sessionStorage 存储搜索参数
+      const targetUrl = prepareSearchNavigation({
         query: userMessage,
-        modelLevel: modelLevel  // 传递模型级别
+        mode: 'ai',
+        modelLevel: modelLevel
       });
-      navigate(`/advanced-search?${params.toString()}`);
+
+      navigate(targetUrl);
       return;
     }
   };

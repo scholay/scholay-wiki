@@ -14,6 +14,7 @@ import SEO from '../components/SEO';
 import FloatingGuide from '../components/FloatingGuide';
 import { generateScholarlyArticleSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
 import { trackPaperDetail, trackPaperDimension, trackSimilarPapers } from '../utils/usageTracker';
+import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation } from '../utils/searchStorage';
 import './PaperDetailPage.css';
 
 const PaperDetailPage = () => {
@@ -171,7 +172,8 @@ const PaperDetailPage = () => {
   // 跳转到学术检索页面进行完整搜索
   const goToHomeSearch = () => {
     if (searchQuery.trim()) {
-      navigate(`/search-results?query=${encodeURIComponent(searchQuery.trim())}`);
+      const targetUrl = prepareSearchNavigation({ query: searchQuery.trim(), mode: 'normal' });
+      navigate(targetUrl);
     } else {
       navigate('/search-results');
     }
@@ -201,12 +203,14 @@ const PaperDetailPage = () => {
 
   // 点击推荐论文 - 跳转到搜索结果页
   const handleSimilarPaperClick = (similarPaperId) => {
-    navigate(`/search-results?query=&paperId=${similarPaperId}`);
+    const targetUrl = preparePaperNavigation(similarPaperId);
+    navigate(targetUrl);
   };
 
   // 查看更多相似论文
   const handleViewMoreSimilar = () => {
-    navigate(`/search-results?query=&paperId=${paperId}`);
+    const targetUrl = preparePaperNavigation(paperId);
+    navigate(targetUrl);
   };
 
   // 点击作者 - 跳转到作者页面
@@ -214,7 +218,8 @@ const PaperDetailPage = () => {
     e.preventDefault();
     e.stopPropagation();
     if (authorId) {
-      navigate(`/search-results?query=&authorId=${authorId}`);
+      const targetUrl = prepareAuthorNavigation(authorId);
+      navigate(targetUrl);
     }
   };
 

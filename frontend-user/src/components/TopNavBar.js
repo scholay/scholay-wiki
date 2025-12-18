@@ -17,12 +17,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Menu, Home, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import ThemeToggle from './ThemeToggle';
 import GoldIcon from './GoldIcon';
 import EntcoinIcon from './EntcoinIcon';
-import { NormalSearchIcon, AdvancedSearchIcon } from './SearchIcons';
+import { NormalSearchIcon } from './SearchIcons';
 import api, { walletAPI, checkinAPI } from '../services/api';
 import './styles/TopNavBar.css';
 
@@ -277,26 +277,14 @@ const TopNavBar = ({
             </button>
           )}
           
-          {/* 首页图标 */}
-          <Link to="/" className="top-nav-home-btn" title="首页">
-            <Home size={20} />
-          </Link>
-
           {/* 主导航菜单 */}
           <nav className="top-nav-menu">
             <Link 
-              to="/search-results?query=" 
-              className={`nav-menu-item ${location.pathname === '/search-results' ? 'active' : ''}`}
+              to="/" 
+              className={`nav-menu-item ${location.pathname === '/' || location.pathname === '/search-results' ? 'active' : ''}`}
             >
               <NormalSearchIcon size={18} />
-              <span>学术检索</span>
-            </Link>
-            <Link 
-              to="/advanced-search" 
-              className={`nav-menu-item ${location.pathname === '/advanced-search' ? 'active' : ''}`}
-            >
-              <AdvancedSearchIcon size={18} />
-              <span>智能分析</span>
+              <span>搜索</span>
             </Link>
             <Link 
               to="/assistant" 

@@ -333,7 +333,7 @@ const AppSidebar = ({
 
   // 判断当前页面
   const isSearchPage = location.pathname === '/search-results';
-  const isAdvancedSearchPage = location.pathname === '/advanced-search';
+  const isAdvancedSearchPage = location.pathname === '/search-results' && location.search.includes('mode=ai');
 
   // 处理导航点击（移动端自动关闭侧边栏）
   const handleNavClick = (path) => {
@@ -423,7 +423,7 @@ const AppSidebar = ({
           <button
             ref={(el) => (navItemRefs.current['normal-search'] = el)}
             className={`nav-item ${isSearchPage ? 'active' : ''}`}
-            onClick={() => handleNavClick('/search-results?query=')}
+            onClick={() => handleNavClick('/search-results')}
             onMouseEnter={() => {
               if (collapsed && !isMobile) {
                 handleMouseEnter('normal-search', navItemRefs.current['normal-search']);
@@ -438,7 +438,7 @@ const AppSidebar = ({
           <button
             ref={(el) => (navItemRefs.current['advanced-search'] = el)}
             className={`nav-item ${isAdvancedSearchPage ? 'active' : ''}`}
-            onClick={() => handleNavClick('/advanced-search')}
+            onClick={() => handleNavClick('/search-results?mode=ai')}
             onMouseEnter={() => {
               if (collapsed && !isMobile) {
                 handleMouseEnter('advanced-search', navItemRefs.current['advanced-search']);

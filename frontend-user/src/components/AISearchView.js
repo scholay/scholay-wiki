@@ -5,25 +5,26 @@
  * 统一社会信用代码: 91510100MAEEHRNE26
  * All Rights Reserved.
  * ============================================================================
+ * 
+ * AISearchView - 智能分析视图组件
+ * 嵌入到 SearchResultsPage 中，通过 mode=ai 参数激活
  */
 
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
-import { useSidebar } from '../contexts/SidebarContext';
-import { Menu } from 'lucide-react';
 import logger from '../utils/logger';
-import PaperList from '../components/PaperList';
-import PaperCitationMarkdown from '../components/PaperCitationMarkdown';
-import ModelSelector from '../components/ModelSelector';
-import { AdvancedSearchIcon, NormalSearchIcon } from '../components/SearchIcons';
-import ThemeToggle from '../components/ThemeToggle';
+import PaperList from './PaperList';
+import PaperCitationMarkdown from './PaperCitationMarkdown';
+import ModelSelector from './ModelSelector';
+import { AdvancedSearchIcon, NormalSearchIcon } from './SearchIcons';
 import api, { conversationAPI, subscriptionAPI } from '../services/api';
 import { trackSmartAnalysis, EntryPoint } from '../utils/usageTracker';
-import './styles/advanced-search/index.css';
+import { getSearchQuery, getAIModelLevel, getAIConversationId, setAIConversationId } from '../utils/searchStorage';
+import '../pages/styles/advanced-search/index.css';
 
 // 懒加载 AuthModal
-const AuthModal = lazy(() => import('../components/AuthModal'));
+const AuthModal = lazy(() => import('./AuthModal'));
 
 // 辅助函数：根据parent_message_id组织消息，确保问答对正确匹配
 // 对于有parent_message_id的新消息，使用严格的父子关系
@@ -90,22 +91,26 @@ const organizeMessagesByParentId = (messages) => {
   return organized;
 };
 
-const AdvancedSearchPage = () => {
+/**
+ * AISearchView 组件
+ * @param {Object} props
+ * @param {string} props.initialQuery - 初始搜索查询（从 sessionStorage 或 props 传入）
+ * @param {string} props.initialModelLevel - 初始模型级别
+ * @param {Function} props.onSwitchToNormal - 切换到普通搜索模式的回调
+ */
+const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchToNormal }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user, loading: authLoading } = useAuth();
-  const { updateSidebarConfig, isMobile, openMobileSidebar } = useSidebar();
-  const outletContext = useOutletContext();
-  const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
 
   // Conversation state
-  const [currentConversationId, setCurrentConversationId] = useState(null);
+  const [currentConversationId, setCurrentConversationId] = useState(() => getAIConversationId());
   const [conversations, setConversations] = useState([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
   const [messages, setMessages] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => initialQuery || getSearchQuery());
   const [loading, setLoading] = useState(false);
-  const [modelLevel, setModelLevel] = useState('low'); // 'low', 'mid', 'high' - 当前对话使用的模型级别，默认普通模型
+  const [modelLevel, setModelLevel] = useState(() => initialModelLevel || getAIModelLevel() || 'low'); // 'low', 'mid', 'high' - 当前对话使用的模型级别，默认普通模型
   const [quota, setQuota] = useState(null); // 用户配额信息
   const [usage, setUsage] = useState(null); // 用户使用情况
   const [papers, setPapers] = useState([]);
@@ -267,15 +272,15 @@ const AdvancedSearchPage = () => {
     return remaining;
   };
 
-  // 从URL参数读取对话ID或初始查询（仅执行一次）
+  // 从 sessionStorage 或 URL 参数读取对话ID或初始查询（仅执行一次）
   useEffect(() => {
-    const urlConversationId = searchParams.get('conversation');
-    const query = searchParams.get('query');
-    const urlModelLevel = searchParams.get('modelLevel');
+    const urlConversationId = searchParams.get('conversationId');
+    const storedQuery = getSearchQuery();
+    const storedModelLevel = getAIModelLevel();
 
-    // 如果URL中有模型级别参数，设置模型级别
-    if (urlModelLevel && ['low', 'mid', 'high'].includes(urlModelLevel)) {
-      setModelLevel(urlModelLevel);
+    // 如果有存储的模型级别，设置模型级别
+    if (storedModelLevel && ['low', 'mid', 'high'].includes(storedModelLevel)) {
+      setModelLevel(storedModelLevel);
     }
 
     if (urlConversationId && isAuthenticated && !currentConversationId && conversations.length > 0) {
@@ -284,30 +289,38 @@ const AdvancedSearchPage = () => {
       if (conversation) {
         handleSelectConversation(urlConversationId);
       }
-    } else if (query && isAuthenticated && messages.length === 0 && !urlConversationId) {
-      // 立即清除URL参数
-      setSearchParams({});
+    } else if (storedQuery && isAuthenticated && messages.length === 0 && !urlConversationId) {
       // 执行搜索
-      setSearchQuery(query);
+      setSearchQuery(storedQuery);
       setTimeout(() => {
-        handleInitialSearch(query);
+        handleInitialSearch(storedQuery);
       }, 100);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, isAuthenticated, conversations]);
+  }, [isAuthenticated, conversations]);
 
-  // 当对话ID变化时，更新URL参数
+  // 当对话ID变化时，更新 sessionStorage 和 URL 参数
   useEffect(() => {
     if (currentConversationId) {
+      setAIConversationId(currentConversationId);
       const currentUrl = new URLSearchParams(window.location.search);
-      const urlConvId = currentUrl.get('conversation');
+      const urlConvId = currentUrl.get('conversationId');
       if (urlConvId !== String(currentConversationId)) {
-        setSearchParams({ conversation: String(currentConversationId) });
+        setSearchParams(prev => {
+          const newParams = new URLSearchParams(prev);
+          newParams.set('conversationId', String(currentConversationId));
+          return newParams;
+        });
       }
     } else {
+      setAIConversationId(null);
       const currentUrl = new URLSearchParams(window.location.search);
-      if (currentUrl.get('conversation')) {
-        setSearchParams({});
+      if (currentUrl.get('conversationId')) {
+        setSearchParams(prev => {
+          const newParams = new URLSearchParams(prev);
+          newParams.delete('conversationId');
+          return newParams;
+        });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -656,22 +669,7 @@ const AdvancedSearchPage = () => {
     };
   }, []);
 
-  // 更新侧边栏配置 - 只在登录状态下更新
-  useEffect(() => {
-    if (isAuthenticated) {
-      updateSidebarConfig({
-        showHistory: true,
-        historyType: 'conversation',
-        historyItems: conversations,
-        currentItemId: currentConversationId,
-        onSelectItem: handleSelectConversation,
-        onDeleteItem: handleDeleteConversation,
-        onRenameItem: handleRenameConversation,
-        onNewItem: handleNewConversation,
-        historyLoading: conversationsLoading,
-      });
-    }
-  }, [conversations, currentConversationId, conversationsLoading, updateSidebarConfig, isAuthenticated]);
+  // 侧边栏配置已移除 - AISearchView 现在是嵌入式组件，不再管理侧边栏
 
   const handleNewConversation = () => {
     if (eventSourceRef.current) {
@@ -1485,46 +1483,14 @@ const AdvancedSearchPage = () => {
 
   // Main advanced search interface
   return (
-    <div className="advanced-search-page">
-      <div className={`advanced-search-content ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
+    <div className="advanced-search-page ai-search-view-embedded">
+      <div className="advanced-search-content">
         {messages.length === 0 ? (
           /* 空状态：参考学术检索的布局 */
           <div className="as-empty-search-layout">
-            <nav className="as-empty-navbar">
-              {/* 移动端菜单按钮 */}
-              {isMobile && (
-                <button 
-                  className="mobile-menu-btn"
-                  onClick={openMobileSidebar}
-                  aria-label="打开菜单"
-                >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <line x1="4" y1="8" x2="20" y2="8" />
-                    <line x1="4" y1="16" x2="14" y2="16" />
-                  </svg>
-                </button>
-              )}
+            <div className="as-empty-header">
               <h1 className="as-empty-page-title">智能分析</h1>
-              
-              {/* 未登录状态下显示登录按钮 */}
-              {!isAuthenticated && !isMobile && (
-                <div className="as-navbar-auth-buttons">
-                  <button
-                    onClick={() => navigate('/pricing')}
-                    className="btn-auth btn-pricing"
-                  >
-                    价格方案
-                  </button>
-                  <ThemeToggle />
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    className="btn-auth btn-login-register"
-                  >
-                    登录 / 注册
-                  </button>
-                </div>
-              )}
-            </nav>
+            </div>
 
             <div className="as-empty-search-content">
               <form onSubmit={handleSearch} className="advanced-search-composer-wrapper">
@@ -1574,11 +1540,9 @@ const AdvancedSearchPage = () => {
                         type="button"
                         className="mode-segment"
                         onClick={() => {
-                          // 使用 View Transitions API 实现平滑过渡
-                          if (document.startViewTransition) {
-                            document.startViewTransition(() => {
-                              navigate('/search-results');
-                            });
+                          // 切换到普通搜索模式
+                          if (onSwitchToNormal) {
+                            onSwitchToNormal();
                           } else {
                             navigate('/search-results');
                           }
@@ -1621,20 +1585,7 @@ const AdvancedSearchPage = () => {
           /* 有消息时：显示结果布局 */
           <div className="as-results-layout">
             {/* 顶部标题栏 */}
-            <nav className="as-results-navbar">
-              {/* 移动端菜单按钮 */}
-              {isMobile && (
-                <button 
-                  className="mobile-menu-btn"
-                  onClick={openMobileSidebar}
-                  aria-label="打开菜单"
-                >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <line x1="4" y1="8" x2="20" y2="8" />
-                    <line x1="4" y1="16" x2="14" y2="16" />
-                  </svg>
-                </button>
-              )}
+            <div className="as-results-navbar">
               <div className="as-navbar-title-group">
                 <h1 className="as-page-title">智能分析</h1>
                 
@@ -1733,26 +1684,7 @@ const AdvancedSearchPage = () => {
                   />
                 </div>
               </div>
-              
-              {/* 未登录状态下显示登录按钮 */}
-              {!isAuthenticated && !isMobile && (
-                <div className="as-navbar-auth-buttons">
-                  <button
-                    onClick={() => navigate('/pricing')}
-                    className="btn-auth btn-pricing"
-                  >
-                    价格方案
-                  </button>
-                  <ThemeToggle />
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    className="btn-auth btn-login-register"
-                  >
-                    登录 / 注册
-                  </button>
-                </div>
-              )}
-            </nav>
+            </div>
 
             {/* 主内容区 */}
             <div className="as-results-main">
@@ -2007,4 +1939,4 @@ const AdvancedSearchPage = () => {
   );
 };
 
-export default AdvancedSearchPage;
+export default AISearchView;

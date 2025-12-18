@@ -14,7 +14,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { NormalSearchIcon, AdvancedSearchIcon } from './SearchIcons';
+import { NormalSearchIcon } from './SearchIcons';
 import { X } from 'lucide-react';
 import './styles/DrawerSidebar.css';
 
@@ -94,8 +94,7 @@ const DrawerSidebar = ({
   }, [isOpen, onClose]);
 
   // 判断当前页面
-  const isSearchPage = location.pathname === '/search-results';
-  const isAdvancedSearchPage = location.pathname === '/advanced-search';
+  const isSearchPage = location.pathname === '/' || location.pathname === '/search-results';
   const isAssistantPage = location.pathname === '/assistant' || location.pathname === '/chat' || location.pathname === '/peer-review';
 
   // 处理导航点击并关闭侧边栏
@@ -220,18 +219,10 @@ const DrawerSidebar = ({
           <div className="drawer-nav-items">
             <button
               className={`drawer-nav-item ${isSearchPage ? 'active' : ''}`}
-              onClick={() => handleNavClick('/search-results?query=')}
+              onClick={() => handleNavClick('/')}
             >
               <NormalSearchIcon size={20} />
-              <span>学术检索</span>
-            </button>
-
-            <button
-              className={`drawer-nav-item ${isAdvancedSearchPage ? 'active' : ''}`}
-              onClick={() => handleNavClick('/advanced-search')}
-            >
-              <AdvancedSearchIcon size={20} />
-              <span>智能分析</span>
+              <span>搜索</span>
             </button>
 
             <button

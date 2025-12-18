@@ -24,30 +24,29 @@ import TableViewGuide from '../components/TableViewGuide';
 import SimilarPapersGuide from '../components/SimilarPapersGuide';
 import SearchSuggestions from '../components/SearchSuggestions';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
-import { getFormattedSearchHistory, addSearchHistory, deleteSearchHistory, renameSearchHistory, migrateOldSearchHistory } from '../utils/searchHistory';
 import SEO from '../components/SEO';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
-import ThemeToggle from '../components/ThemeToggle';
+// ThemeToggle 已移至 TopNavBar
 import { trackAcademicSearch, EntryPoint } from '../utils/usageTracker';
+import { getSearchQuery, setSearchQuery as saveSearchQuery, getSearchFilters, setSearchFilters as saveSearchFilters, getSearchMode, setSearchMode as saveSearchMode, getAIModelLevel } from '../utils/searchStorage';
 import './styles/search-results/index.css';
 
-// 懒加载 AuthModal
+// 懒加载 AuthModal 和 AISearchView
 const AuthModal = lazy(() => import('../components/AuthModal'));
+const AISearchView = lazy(() => import('../components/AISearchView'));
 
 const SearchResultsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, user } = useAuth();
-  const { updateSidebarConfig, isMobile, openMobileSidebar } = useSidebar();
+  const { isMobile, openMobileSidebar } = useSidebar();
   const outletContext = useOutletContext();
   const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
 
   // 登录弹窗状态
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // 搜索历史状态
-  const [searchHistory, setSearchHistory] = useState([]);
 
   // Placeholder examples carousel - 轮播提示
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
@@ -67,17 +66,34 @@ const SearchResultsPage = () => {
     '示例：社交媒体对青少年心理健康的影响'                              // 社会学+心理学
   ];
 
-  // 从URL参数初始化状态
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('query') || '');
+  // 检查是否为 AI 搜索模式
+  const isAIMode = searchParams.get('mode') === 'ai';
+  
+  // 从 sessionStorage 或 URL 参数初始化状态
+  const [searchQuery, setSearchQuery] = useState(() => {
+    // 优先从 sessionStorage 读取
+    const storedQuery = getSearchQuery();
+    if (storedQuery) return storedQuery;
+    // 兼容旧的 URL 参数方式
+    return searchParams.get('query') || '';
+  });
   const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState({
-    yearFrom: searchParams.get('yearFrom') || '',
-    yearTo: searchParams.get('yearTo') || '',
-    publicationTypes: searchParams.get('publicationTypes')?.split(',').filter(Boolean) || [],
-    fieldsOfStudy: searchParams.get('fieldsOfStudy')?.split(',').filter(Boolean) || [],
-    openAccessPdf: searchParams.get('openAccessPdf') || '',
-    venue: searchParams.get('venue') || '',
-    minCitationCount: searchParams.get('minCitationCount') || '',
+  const [filters, setFilters] = useState(() => {
+    // 优先从 sessionStorage 读取
+    const storedFilters = getSearchFilters();
+    if (storedFilters && Object.keys(storedFilters).some(k => storedFilters[k] && (Array.isArray(storedFilters[k]) ? storedFilters[k].length > 0 : storedFilters[k] !== ''))) {
+      return storedFilters;
+    }
+    // 兼容旧的 URL 参数方式
+    return {
+      yearFrom: searchParams.get('yearFrom') || '',
+      yearTo: searchParams.get('yearTo') || '',
+      publicationTypes: searchParams.get('publicationTypes')?.split(',').filter(Boolean) || [],
+      fieldsOfStudy: searchParams.get('fieldsOfStudy')?.split(',').filter(Boolean) || [],
+      openAccessPdf: searchParams.get('openAccessPdf') || '',
+      venue: searchParams.get('venue') || '',
+      minCitationCount: searchParams.get('minCitationCount') || '',
+    };
   });
 
   const [papers, setPapers] = useState([]);
@@ -158,10 +174,7 @@ const SearchResultsPage = () => {
   const similarPapersListRef = useRef(null); // 相似论文列表引用
   const similarPapersTabRef = useRef(null); // 相似论文 Tab 引用
   const textareaRef = useRef(null); // 搜索输入框引用（用于搜索建议定位）
-  const emptyTextareaRef = useRef(null); // 空状态搜索输入框引用
-  const [selectedHistoryId, setSelectedHistoryId] = useState(null); // 选中的搜索历史ID
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
-  const [isSearchBarCollapsed, setIsSearchBarCollapsed] = useState(false); // 搜索框滚动收缩状态
   const [isInputSingleLine, setIsInputSingleLine] = useState(() => {
     // 如果 URL 中有搜索查询，初始状态为单行显示
     const urlParams = new URLSearchParams(window.location.search);
@@ -367,7 +380,7 @@ const SearchResultsPage = () => {
 
 
   // 执行搜索
-  const performSearch = async (query, currentFilters, page = 1, saveToHistory = true, enableTranslation = true) => {
+  const performSearch = async (query, currentFilters, page = 1, isNewSearch = true, enableTranslation = true) => {
     if (!query.trim()) return;
 
     // 搜索时自动切换回列表视图（除非是从登录返回的）
@@ -389,7 +402,7 @@ const SearchResultsPage = () => {
         cachedTranslation.query === query && 
         cachedTranslation.translated && 
         enableTranslation &&
-        (page > 1 || saveToHistory === false); // 分页或筛选时复用
+        (page > 1 || !isNewSearch); // 分页或筛选时复用
       
       const params = {
         query: query,
@@ -480,15 +493,6 @@ const SearchResultsPage = () => {
         // 保存查询信息用于展示
         setQueryInfo(finalQueryInfo);
 
-        // 只有在saveToHistory为true且用户已登录时才添加到搜索历史
-        if (saveToHistory && isAuthenticated && user?.id) {
-          const historyItem = addSearchHistory(query, currentFilters, resultsTotal, user.id);
-          loadSearchHistory();
-          // 自动选中刚添加的历史记录
-          if (historyItem && historyItem.id) {
-            setSelectedHistoryId(historyItem.id);
-          }
-        }
       }
     } catch (error) {
       console.error('搜索失败:', error);
@@ -496,20 +500,6 @@ const SearchResultsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // 加载搜索历史 (当用户切换时重新加载)
-  useEffect(() => {
-    // 首次加载时尝试迁移旧的搜索历史
-    if (user?.id) {
-      migrateOldSearchHistory(user.id);
-    }
-    loadSearchHistory();
-  }, [user?.id]);
-
-  const loadSearchHistory = () => {
-    const history = getFormattedSearchHistory(user?.id);
-    setSearchHistory(history);
   };
 
   // 搜索示例轮播效果
@@ -520,55 +510,6 @@ const SearchResultsPage = () => {
 
     return () => clearInterval(interval);
   }, [searchExamples.length]);
-
-  const handleSelectSearchHistory = (itemId) => {
-    const history = searchHistory.find(h => h.id === itemId);
-    if (history) {
-      setSelectedHistoryId(itemId); // 设置选中的历史记录ID
-      // 搜索框始终显示真正的搜索词（query），而不是重命名后的displayName
-      // 这样用户可以看到实际搜索的内容，也方便继续修改
-      setSearchQuery(history.query);
-      setFilters(history.filters || {
-        yearFrom: '',
-        yearTo: '',
-        publicationTypes: [],
-        fieldsOfStudy: [],
-        openAccessPdf: '',
-        venue: '',
-        minCitationCount: '',
-      });
-      setCurrentPage(1);
-      updateURL(history.query, history.filters, 1);
-      performSearch(history.query, history.filters, 1, false); // 从历史记录搜索,不保存到历史记录
-    }
-  };
-
-  const handleDeleteSearchHistory = (itemId) => {
-    deleteSearchHistory(itemId, user?.id);
-    loadSearchHistory();
-  };
-
-  const handleRenameSearchHistory = (itemId, newTitle) => {
-    renameSearchHistory(itemId, newTitle, user?.id);
-    loadSearchHistory();
-  };
-
-  // 更新侧边栏配置 - 只在用户登录时
-  useEffect(() => {
-    if (isAuthenticated) {
-      updateSidebarConfig({
-        showHistory: true,
-        historyType: 'search',
-        historyItems: searchHistory,
-        currentItemId: selectedHistoryId,
-        onSelectItem: handleSelectSearchHistory,
-        onDeleteItem: handleDeleteSearchHistory,
-        onRenameItem: handleRenameSearchHistory,
-        onNewItem: null,
-        historyLoading: false,
-      });
-    }
-  }, [searchHistory, selectedHistoryId, updateSidebarConfig, isAuthenticated]);
 
   // 不再需要认证检查 - 允许未登录用户访问
 
@@ -841,18 +782,17 @@ const SearchResultsPage = () => {
   // 标记是否已经点击过表格按钮
   const hasClickedTableBtnRef = useRef(false);
 
-  // 初始化时从URL参数加载搜索结果（不包含 paperId 或 authorId 的情况）
+  // 初始化时从 sessionStorage 加载搜索结果（不包含 paperId 或 authorId 的情况）
   useEffect(() => {
-    const query = searchParams.get('query');
     const paperId = searchParams.get('paperId');
     const authorId = searchParams.get('authorId');
     
     // 如果有 paperId 或 authorId，由上面的 useEffect 处理
     if (paperId || authorId) return;
     
-    if (query) {
-      setSearchQuery(query);
-      performSearch(query, filters, currentPage);
+    // 从 sessionStorage 读取查询（在组件初始化时已经设置了 searchQuery）
+    if (searchQuery) {
+      performSearch(searchQuery, filters, currentPage);
     }
   }, []); // 只在组件挂载时执行一次
     
@@ -932,56 +872,6 @@ const SearchResultsPage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, [clampPreviewWidth]);
 
-  // 监听论文列表滚动，控制搜索框收缩
-  useEffect(() => {
-    let scrollHandler = null;
-    let retryCount = 0;
-    const maxRetries = 10;
-    
-    const setupScrollListener = () => {
-      const container = papersContainerRef.current;
-      
-      if (!container) {
-        // 如果容器还不存在，重试
-        if (retryCount < maxRetries) {
-          retryCount++;
-          setTimeout(setupScrollListener, 200);
-        }
-        return;
-      }
-
-      const scrollThreshold = 50; // 滚动多少像素后触发收缩
-
-      scrollHandler = () => {
-        const scrollTop = container.scrollTop;
-        
-        // 向下滚动超过阈值时收缩
-        if (scrollTop > scrollThreshold) {
-          setIsSearchBarCollapsed(true);
-        }
-        // 滚动回顶部时展开
-        else if (scrollTop <= 10) {
-          setIsSearchBarCollapsed(false);
-        }
-      };
-
-      // 初始化时检查滚动位置
-      scrollHandler();
-
-      // 添加滚动监听器
-      container.addEventListener('scroll', scrollHandler, { passive: true });
-    };
-
-    // 开始设置监听器
-    setupScrollListener();
-
-    // 清理函数
-    return () => {
-      if (scrollHandler && papersContainerRef.current) {
-        papersContainerRef.current.removeEventListener('scroll', scrollHandler);
-      }
-    };
-  }, [location.pathname, papers.length]); // 依赖于路径变化和论文数据变化
 
   // 论文详情模式下：点击外部或滚动时收起搜索框，展开时自动聚焦
   useEffect(() => {
@@ -1354,26 +1244,22 @@ const SearchResultsPage = () => {
     const name = author.name || '';
     const authorId = author.authorId || '';
     setSearchQuery(name);
+    saveSearchQuery(name);
     setShowSuggestions(false);
     // 跳转到搜索结果页面，并带上 authorId 以显示作者详情
     const params = new URLSearchParams();
-    if (name) params.set('query', name);
     if (authorId) params.set('authorId', authorId);
-    navigate(`/search-results?${params.toString()}`);
+    setSearchParams(params);
   };
 
-  // 更新URL参数
+  // 更新 sessionStorage 和 URL 参数
   const updateURL = (query, currentFilters, page) => {
+    // 保存到 sessionStorage
+    saveSearchQuery(query);
+    saveSearchFilters(currentFilters);
+    
+    // URL 只保留必要的参数（不包含 query）
     const params = new URLSearchParams();
-    params.set('query', query);
-
-    if (currentFilters.yearFrom) params.set('yearFrom', currentFilters.yearFrom);
-    if (currentFilters.yearTo) params.set('yearTo', currentFilters.yearTo);
-    if (currentFilters.publicationTypes.length > 0) params.set('publicationTypes', currentFilters.publicationTypes.join(','));
-    if (currentFilters.fieldsOfStudy.length > 0) params.set('fieldsOfStudy', currentFilters.fieldsOfStudy.join(','));
-    if (currentFilters.openAccessPdf) params.set('openAccessPdf', currentFilters.openAccessPdf);
-    if (currentFilters.venue) params.set('venue', currentFilters.venue);
-    if (currentFilters.minCitationCount) params.set('minCitationCount', currentFilters.minCitationCount);
     if (page > 1) params.set('page', page);
 
     setSearchParams(params);
@@ -1608,8 +1494,6 @@ const SearchResultsPage = () => {
   const startIndex = (currentPage - 1) * papersPerPage + 1;
   const endIndex = Math.min(currentPage * papersPerPage, total);
 
-  // 判断是否为空状态（没有查询参数且不是论文详情视图）
-  const isEmptyState = !searchParams.get('query') && viewMode !== 'paper' && viewMode !== 'author';
 
   // 生成SEO数据
   const pageTitle = searchQuery
@@ -1622,8 +1506,44 @@ const SearchResultsPage = () => {
 
   const breadcrumbData = [
     { name: '首页', url: '/' },
-    { name: '搜索结果', url: `/search-results?query=${encodeURIComponent(searchQuery)}` }
+    { name: '搜索结果', url: `/search-results` }
   ];
+
+  // 切换到普通搜索模式
+  const handleSwitchToNormal = useCallback(() => {
+    saveSearchMode('normal');
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      newParams.delete('mode');
+      return newParams;
+    });
+  }, [setSearchParams]);
+
+  // 如果是 AI 模式，渲染 AISearchView
+  if (isAIMode) {
+    return (
+      <div className="search-results-page ai-mode">
+        <Suspense fallback={<div className="loading-placeholder">加载中...</div>}>
+          <AISearchView
+            initialQuery={searchQuery}
+            initialModelLevel={getAIModelLevel()}
+            onSwitchToNormal={handleSwitchToNormal}
+          />
+        </Suspense>
+
+        {/* 登录弹窗 */}
+        {showAuthModal && (
+          <Suspense fallback={null}>
+            <AuthModal
+              isOpen={showAuthModal}
+              onClose={() => setShowAuthModal(false)}
+              onSuccess={() => setShowAuthModal(false)}
+            />
+          </Suspense>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="search-results-page">
@@ -1631,254 +1551,28 @@ const SearchResultsPage = () => {
         title={pageTitle}
         description={pageDescription}
         keywords={`${searchQuery},学术搜索,论文检索,文献查找,${filters.fieldsOfStudy.join(',')}`}
-        canonical={`/search-results?query=${encodeURIComponent(searchQuery)}`}
+        canonical={`/search-results`}
         structuredData={papers.length > 0 ? generateSearchResultsSchema(searchQuery, papers) : generateBreadcrumbSchema(breadcrumbData)}
       />
 
       {/* 主内容区域 */}
-      <div className={`search-results-content ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
-        {isEmptyState ? (
-          // 空状态：类似首页的简洁布局
-          <div className="empty-search-layout">
-            <nav className="empty-navbar">
-              {/* 移动端菜单按钮 */}
-              {isMobile && (
-                <button 
-                  className="mobile-menu-btn"
-                  onClick={openMobileSidebar}
-                  aria-label="打开菜单"
-                >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <line x1="4" y1="8" x2="20" y2="8" />
-                    <line x1="4" y1="16" x2="14" y2="16" />
-                  </svg>
-                </button>
-              )}
-              <h1 className="empty-page-title">学术检索</h1>
-              
-              {/* 未登录状态下显示登录按钮 */}
-              {!isAuthenticated && !isMobile && (
-                <div className="navbar-auth-buttons">
-                  <button
-                    onClick={() => navigate('/pricing')}
-                    className="btn-auth btn-pricing"
-                  >
-                    价格方案
-                  </button>
-                  <ThemeToggle />
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    className="btn-auth btn-login-register"
-                  >
-                    登录 / 注册
-                  </button>
-                </div>
-              )}
-            </nav>
-
-            <div className="empty-search-content">
-              <form onSubmit={handleSearch} className="normal-search-composer-wrapper">
-                {/* 输入区域 */}
-                <div className="normal-search-composer-input-area">
-                  <textarea
-                    ref={emptyTextareaRef}
-                    className="normal-search-chat-input"
-                    placeholder={searchExamples[currentExampleIndex]}
-                    value={searchQuery}
-                    maxLength={1000}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      e.target.style.height = 'auto';
-                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
-                      // 显示搜索建议
-                      if (e.target.value.trim().length >= 2) {
-                        setShowSuggestions(true);
-                      } else {
-                        setShowSuggestions(false);
-                      }
-                    }}
-                    onFocus={() => {
-                      // 如果有输入内容则显示搜索建议
-                      if (searchQuery.trim().length >= 2) {
-                        setShowSuggestions(true);
-                      }
-                    }}
-                    onBlur={() => {
-                      // 延迟关闭，以便点击建议项时不会立即关闭
-                      setTimeout(() => setShowSuggestions(false), 200);
-                    }}
-                    onCompositionStart={() => setIsComposing(true)}
-                    onCompositionEnd={() => setIsComposing(false)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
-                        e.preventDefault();
-                        setShowSuggestions(false);
-                        if (searchQuery.trim()) {
-                          handleSearch(e);
-                        }
-                      }
-                      if (e.key === 'Escape') {
-                        setShowSuggestions(false);
-                      }
-                    }}
-                    rows={1}
-                  />
-                  <button type="submit" className="btn-send" disabled={!searchQuery.trim()}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                  </button>
-                </div>
-
-                {/* 搜索建议下拉框 */}
-                <SearchSuggestions
-                  query={searchQuery}
-                  onSelectPaper={handleSelectPaper}
-                  onSelectAuthor={handleSelectAuthor}
-                  onClose={() => setShowSuggestions(false)}
-                  visible={showSuggestions}
-                  inputRef={emptyTextareaRef}
-                />
-
-                {/* 底部操作栏 */}
-                <div className="normal-search-composer-footer">
-                  <div className="normal-search-composer-footer-left">
-                    {/* 搜索模式切换 - 分段控制器设计 */}
-                    <div className="normal-search-mode-segmented">
-                      <button
-                        type="button"
-                        className="mode-segment active"
-                      >
-                        <span className="mode-segment-icon">
-                          <NormalSearchIcon size={16} />
-                        </span>
-                        <span className="mode-segment-label">学术检索</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="mode-segment"
-                        onClick={() => {
-                          // 使用 View Transitions API 实现平滑过渡
-                          if (document.startViewTransition) {
-                            document.startViewTransition(() => {
-                              navigate('/advanced-search');
-                            });
-                          } else {
-                            navigate('/advanced-search');
-                          }
-                        }}
-                      >
-                        <span className="mode-segment-icon">
-                          <AdvancedSearchIcon size={16} />
-                        </span>
-                      </button>
-                    </div>
-
-                    {/* 分隔线 */}
-                    <div className="footer-divider"></div>
-
-                    {/* 筛选按钮 */}
-                    {(() => {
-                      const hasFilters = filters.yearFrom ||
-                                       filters.yearTo ||
-                                       filters.publicationTypes.length > 0 ||
-                                       filters.fieldsOfStudy.length > 0 ||
-                                       filters.openAccessPdf ||
-                                       filters.venue ||
-                                       filters.minCitationCount;
-
-                      return (
-                        <button
-                          type="button"
-                          className={`footer-btn filter-btn ${showFilters ? 'panel-open' : ''} ${hasFilters ? 'has-filters' : ''}`}
-                          onClick={() => setShowFilters(!showFilters)}
-                          title={hasFilters ? "点击打开筛选" : "筛选条件"}
-                        >
-                          <div className="filter-icon-wrapper">
-                            <svg className="filter-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M2.5 3.75C2.5 3.19772 2.94772 2.75 3.5 2.75H16.5C17.0523 2.75 17.5 3.19772 17.5 3.75V5.25C17.5 5.51522 17.3946 5.76957 17.2071 5.95711L11.75 11.4142V16.25C11.75 16.6297 11.5085 16.9705 11.1522 17.1094L8.65217 18.1094C8.15522 18.3078 7.58333 17.9469 7.58333 17.4167V11.4142L2.79289 5.95711C2.60536 5.76957 2.5 5.51522 2.5 5.25V3.75Z"/>
-                            </svg>
-                            <svg className="clear-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M13.5355 5.46447C13.9261 5.85499 13.9261 6.48816 13.5355 6.87868L11.4142 9L13.5355 11.1213C13.9261 11.5118 13.9261 12.145 13.5355 12.5355C13.145 12.9261 12.5118 12.9261 12.1213 12.5355L10 10.4142L7.87868 12.5355C7.48816 12.9261 6.85499 12.9261 6.46447 12.5355C6.07394 12.145 6.07394 11.5118 6.46447 11.1213L8.58579 9L6.46447 6.87868C6.07394 6.48816 6.07394 5.85499 6.46447 5.46447C6.85499 5.07394 7.48816 5.07394 7.87868 5.46447L10 7.58579L12.1213 5.46447C12.5118 5.07394 13.145 5.07394 13.5355 5.46447Z"/>
-                            </svg>
-                          </div>
-                          <span>筛选</span>
-                        </button>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </form>
-
-              {/* 筛选条件面板 */}
-              <SearchFilters
-                filters={filters}
-                onFiltersChange={handleTopFiltersChange}
-                isExpanded={showFilters}
-                onToggle={() => handleTopFiltersToggle(false)}
-              />
-            </div>
-          </div>
-        ) : (
-          // 有搜索结果时的布局
+      <div className="search-results-content">
+          {/* 搜索结果布局 */}
           <div className="results-layout">
-            {/* 顶部标题栏 */}
-            <nav className="results-navbar">
-              {/* 移动端菜单按钮 */}
-              {isMobile && (
-                <button 
-                  className="mobile-menu-btn"
-                  onClick={openMobileSidebar}
-                  aria-label="打开菜单"
-                >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <line x1="4" y1="8" x2="20" y2="8" />
-                    <line x1="4" y1="16" x2="14" y2="16" />
-                  </svg>
-                </button>
-              )}
-              <h1 className="page-title">学术检索</h1>
-              {/* 论文详情模式下显示搜索按钮 - 展开时隐藏 */}
-              {(viewMode === 'paper' || viewMode === 'author') && (
-                <button 
-                  className={`epd-navbar-search-btn ${showDetailSearch ? 'hidden' : ''}`}
-                  onClick={() => setShowDetailSearch(true)}
-                  title="搜索论文"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="11" cy="11" r="8"/>
-                    <path d="M21 21l-4.35-4.35"/>
-                  </svg>
-                </button>
-              )}
-              
-              {/* 未登录状态下显示登录按钮 */}
-              {!isAuthenticated && !isMobile && (
-                <div className="navbar-auth-buttons">
-                  <button
-                    onClick={() => navigate('/pricing')}
-                    className="btn-auth btn-pricing"
-                  >
-                    价格方案
-                  </button>
-                  <ThemeToggle />
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    className="btn-auth btn-login-register"
-                  >
-                    登录 / 注册
-                  </button>
-                </div>
-              )}
-            </nav>
-
-            {/* 居中搜索区域 - 论文详情模式下可通过按钮展开 */}
+            {/* 顶部搜索栏 - 类似 Google 布局 */}
             {((viewMode !== 'paper' && viewMode !== 'author') || showDetailSearch) && (
-            <div 
-              className={`search-results-centered-area ${isSearchBarCollapsed ? 'collapsed' : ''} ${viewMode === 'table' ? 'table-mode' : ''} ${(viewMode === 'paper' || viewMode === 'author') && showDetailSearch ? 'paper-mode-search' : ''}`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {viewMode === 'table' ? (
+            <div className="results-search-header">
+              {/* 左侧 Logo 文案 */}
+              <div className="results-logo" onClick={() => navigate('/')}>
+                <span className="results-logo-text">Scholay</span>
+              </div>
+              
+              {/* 右侧搜索区域 */}
+              <div 
+                className={`search-results-centered-area ${viewMode === 'table' ? 'table-mode' : ''} ${(viewMode === 'paper' || viewMode === 'author') && showDetailSearch ? 'paper-mode-search' : ''}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {viewMode === 'table' ? (
                 // 表格模式下的简化搜索词展示
                 <div 
                   className="srp-table-search-display"
@@ -2082,6 +1776,7 @@ const SearchResultsPage = () => {
                   </>
                 )}
               </div>
+            </div>
             </div>
             )}
 
@@ -3274,7 +2969,14 @@ const SearchResultsPage = () => {
                 <div className="empty-state-actions">
                   <button 
                     className="empty-state-button primary"
-                    onClick={() => navigate(`/advanced-search?query=${encodeURIComponent(searchQuery)}`)}
+                    onClick={() => {
+                      saveSearchMode('ai');
+                      setSearchParams(prev => {
+                        const newParams = new URLSearchParams(prev);
+                        newParams.set('mode', 'ai');
+                        return newParams;
+                      });
+                    }}
                   >
                     使用智能分析
                   </button>
@@ -3703,7 +3405,6 @@ const SearchResultsPage = () => {
         )}
       </div>
     </div>
-        )}
       </div>
 
       {/* 移动端底部弹窗预览 */}

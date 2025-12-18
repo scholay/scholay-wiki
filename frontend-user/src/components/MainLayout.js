@@ -70,9 +70,12 @@ const MainLayout = () => {
     const breadcrumbs = [{ label: '首页', path: '/' }];
     
     if (path === '/search-results') {
-      breadcrumbs.push({ label: '学术检索' });
-    } else if (path === '/advanced-search') {
-      breadcrumbs.push({ label: '智能分析' });
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.get('mode') === 'ai') {
+        breadcrumbs.push({ label: '智能分析' });
+      } else {
+        breadcrumbs.push({ label: '学术检索' });
+      }
     } else if (path === '/assistant') {
       breadcrumbs.push({ label: '文献助手' });
     } else if (path === '/chat') {
