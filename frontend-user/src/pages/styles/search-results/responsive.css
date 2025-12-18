@@ -31,7 +31,6 @@
 /* AI翻译提示 */
 [data-theme="light"] .search-translation-hint {
   color: var(--text-secondary);
-  border-bottom: 1px solid var(--border);
 }
 
 [data-theme="light"] .search-translation-hint .hint-text {

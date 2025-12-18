@@ -18,6 +18,7 @@
  * - table.css: 表格视图
  * - mobile.css: 移动端弹窗
  * - embedded-detail.css: 内嵌论文详情视图
+ * - filter-sidebar.css: 左侧筛选侧边栏
  */
 
 @import './base.css';
@@ -28,3 +29,4 @@
 @import './table.css';
 @import './mobile.css';
 @import './embedded-detail.css';
+@import './filter-sidebar.css';

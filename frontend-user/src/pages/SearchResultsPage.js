@@ -11,16 +11,13 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspens
 import { useSearchParams, useNavigate, useOutletContext, useLocation } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
-import { Menu, List, Table2 } from 'lucide-react';
-import { publicScholarAPI } from '../services/api';
+import { Menu, ChevronDown, Sparkles, X } from 'lucide-react';
+import { publicScholarAPI, analysisDimensionAPI } from '../services/api';
 import PaperPreview from '../components/PaperPreview';
 import SearchFilters from '../components/SearchFilters';
 import PaperListSkeleton from '../components/PaperListSkeleton';
 import PaperDetailSkeleton from '../components/PaperDetailSkeleton';
 import CiteModal from '../components/CiteModal';
-import PaperTableView from '../components/PaperTableView';
-import TableColumnPanel from '../components/TableColumnPanel';
-import TableViewGuide from '../components/TableViewGuide';
 import SimilarPapersGuide from '../components/SimilarPapersGuide';
 import SearchSuggestions from '../components/SearchSuggestions';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
@@ -34,6 +31,52 @@ import './styles/search-results/index.css';
 // 懒加载 AuthModal 和 AISearchView
 const AuthModal = lazy(() => import('../components/AuthModal'));
 const AISearchView = lazy(() => import('../components/AISearchView'));
+
+// 分析结果文本组件 - 检测是否被截断，只有截断时才显示 hover 气泡
+const AnalysisCellText = ({ text }) => {
+  const textRef = useRef(null);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  useEffect(() => {
+    const checkTruncation = () => {
+      const el = textRef.current;
+      if (el) {
+        // 检查是否被截断：scrollHeight > clientHeight 或 scrollWidth > clientWidth
+        const truncated = el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth;
+        setIsTruncated(truncated);
+      }
+    };
+    
+    checkTruncation();
+    // 延迟再检查一次，确保渲染完成
+    const timer = setTimeout(checkTruncation, 100);
+    window.addEventListener('resize', checkTruncation);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', checkTruncation);
+    };
+  }, [text]);
+
+  return (
+    <div className="analysis-cell-text-wrapper">
+      <p 
+        ref={textRef}
+        className={`analysis-cell-text ${isTruncated ? 'truncated' : ''}`}
+        onMouseEnter={() => isTruncated && setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+      >
+        {text}
+      </p>
+      {isTruncated && showTooltip && (
+        <div className="analysis-cell-tooltip">
+          {text}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const SearchResultsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -168,8 +211,23 @@ const SearchResultsPage = () => {
   const [isResizingPreview, setIsResizingPreview] = useState(false);
   const [isCompactLayout, setIsCompactLayout] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 1024 : false));
 
+  // 分析维度相关状态
+  const [dimensions, setDimensions] = useState([]);
+  const [selectedDimensions, setSelectedDimensions] = useState([]); // 支持多选
+  const [showDimensionDropdown, setShowDimensionDropdown] = useState(false);
+  const [analysisResults, setAnalysisResults] = useState({}); // { paperId: { dimensionKey: result } }
+  const [analyzingPapers, setAnalyzingPapers] = useState({}); // { paperId: Set<dimensionKey> } 正在分析的维度
+  const [showCustomYearRange, setShowCustomYearRange] = useState(false); // 显示自定义年份范围输入
+  const [customYearFrom, setCustomYearFrom] = useState(''); // 自定义起始年份
+  const [customYearTo, setCustomYearTo] = useState(''); // 自定义结束年份
+  const [showAllFields, setShowAllFields] = useState(false); // 显示所有研究领域
+  const dimensionDropdownRef = useRef(null);
+  const [showPaperDrawer, setShowPaperDrawer] = useState(false); // 论文预览抽屉
+
   const resultsMainRef = useRef(null);
   const papersContainerRef = useRef(null);
+  const analysisResultsRef = useRef(null); // 右侧分析结果列表引用
+  const analysisHeaderRef = useRef(null); // 右侧分析结果表头引用
   const tableViewBtnRef = useRef(null); // 表格视图按钮引用
   const similarPapersListRef = useRef(null); // 相似论文列表引用
   const similarPapersTabRef = useRef(null); // 相似论文 Tab 引用
@@ -315,33 +373,6 @@ const SearchResultsPage = () => {
   const hasClickedAuthorTableBtnRef = useRef(false); // 标记用户是否已点击过作者页面表格按钮
   const authorTableBtnRef = useRef(null); // 作者页面表格按钮的 ref
 
-  // 处理维度选择（表格列头点击）- 同时关闭预览
-  const handleDimensionSelect = useCallback((key) => {
-    setSelectedDimensionKey(key);
-    // 点击列头时关闭预览，显示列配置面板
-    setSelectedPaper(null);
-  }, []);
-
-  // 处理相似论文维度选择（表格列头点击）- 同时关闭预览
-  const handleSimilarDimensionSelect = useCallback((key) => {
-    setSimilarSelectedDimensionKey(key);
-    // 点击列头时关闭预览，显示列配置面板
-    setSelectedPaper(null);
-  }, []);
-
-  // 处理表格中论文点击 - 同时清除列选中状态
-  const handleTablePaperClick = useCallback((paper) => {
-    setSelectedPaper(paper);
-    // 点击论文时清除列选中状态，右侧显示论文详情
-    setSelectedDimensionKey(null);
-  }, []);
-
-  // 处理相似论文表格中论文点击 - 同时清除列选中状态
-  const handleSimilarTablePaperClick = useCallback((paper) => {
-    setSelectedPaper(paper);
-    // 点击论文时清除列选中状态，右侧显示论文详情
-    setSimilarSelectedDimensionKey(null);
-  }, []);
 
   // 处理维度更新（编辑或新增）
   const handleDimensionsUpdated = useCallback((action, dimensionName) => {
@@ -510,6 +541,296 @@ const SearchResultsPage = () => {
 
     return () => clearInterval(interval);
   }, [searchExamples.length]);
+
+  // 加载分析维度
+  useEffect(() => {
+    const loadDimensions = async () => {
+      try {
+        let response;
+        if (isAuthenticated) {
+          response = await analysisDimensionAPI.getDimensions();
+        } else {
+          response = await publicScholarAPI.getSystemDimensions();
+        }
+
+        if (response.data.code === 0 && response.data.data) {
+          const dims = response.data.data.dimensions || [];
+          setDimensions(dims);
+        }
+      } catch (err) {
+        console.error('Failed to load dimensions:', err);
+      }
+    };
+    loadDimensions();
+  }, [isAuthenticated]);
+
+  // 点击外部关闭维度下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dimensionDropdownRef.current && !dimensionDropdownRef.current.contains(event.target)) {
+        setShowDimensionDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // 切换维度选择（多选）
+  // 注意：维度数据可能使用 dimensionKey 或 key 作为字段名
+  const getDimensionKey = useCallback((dim) => dim.dimensionKey || dim.key, []);
+  
+  const handleDimensionToggle = useCallback((dimension) => {
+    const dimKey = getDimensionKey(dimension);
+    setSelectedDimensions(prev => {
+      const isSelected = prev.some(d => getDimensionKey(d) === dimKey);
+      if (isSelected) {
+        return prev.filter(d => getDimensionKey(d) !== dimKey);
+      } else {
+        return [...prev, dimension];
+      }
+    });
+  }, [getDimensionKey]);
+
+  // 全选/取消全选维度
+  const handleSelectAllDimensions = useCallback(() => {
+    if (selectedDimensions.length === dimensions.length) {
+      setSelectedDimensions([]);
+    } else {
+      setSelectedDimensions([...dimensions]);
+    }
+  }, [dimensions, selectedDimensions.length]);
+
+  // 清除所有选中的维度
+  const handleClearDimensions = useCallback(() => {
+    setSelectedDimensions([]);
+  }, []);
+
+  // 为论文分析所有维度（一次请求返回所有维度结果）
+  const analyzePaper = useCallback(async (paper) => {
+    if (!paper.abstract) return;
+
+    // 标记为正在分析
+    setAnalyzingPapers(prev => ({
+      ...prev,
+      [paper.paperId]: true
+    }));
+
+    try {
+      const response = isAuthenticated
+        ? await analysisDimensionAPI.analyzePaper(paper.paperId, paper.title, paper.abstract)
+        : await publicScholarAPI.analyzePaper(paper.paperId, paper.title, paper.abstract);
+
+      if (response.data.code === 0 && response.data.data) {
+        // 接口返回格式: { data: { data: { key: value }, dimensions: [...] } }
+        // 提取 data.data 作为维度键值对
+        const responseData = response.data.data;
+        const dimensionData = responseData.data || responseData;
+        
+        // 保存所有维度的分析结果
+        setAnalysisResults(prev => ({
+          ...prev,
+          [paper.paperId]: dimensionData
+        }));
+      } else {
+        // API 返回错误
+        setAnalysisResults(prev => ({
+          ...prev,
+          [paper.paperId]: { _error: true, _message: response.data.message || '分析失败' }
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to analyze paper:', paper.paperId, error);
+      setAnalysisResults(prev => ({
+        ...prev,
+        [paper.paperId]: { _error: true, _message: error.response?.data?.message || '分析失败' }
+      }));
+    } finally {
+      setAnalyzingPapers(prev => ({
+        ...prev,
+        [paper.paperId]: false
+      }));
+    }
+  }, [isAuthenticated]);
+
+  // 并发控制：每次最多并发5个请求
+  const analyzeWithConcurrency = useCallback(async (papersToAnalyze) => {
+    const CONCURRENCY_LIMIT = 5;
+    
+    for (let i = 0; i < papersToAnalyze.length; i += CONCURRENCY_LIMIT) {
+      const batch = papersToAnalyze.slice(i, i + CONCURRENCY_LIMIT);
+      // 并发执行这一批
+      await Promise.all(batch.map(paper => analyzePaper(paper)));
+    }
+  }, [analyzePaper]);
+
+  // 当选中维度变化时，为当前页面论文执行分析
+  useEffect(() => {
+    if (selectedDimensions.length === 0) return;
+
+    // 找出需要分析的论文（有摘要、没有结果、不在分析中）
+    const papersToAnalyze = papers.filter(paper => 
+      paper.abstract && 
+      !analysisResults[paper.paperId] && 
+      !analyzingPapers[paper.paperId]
+    );
+
+    if (papersToAnalyze.length > 0) {
+      // 使用并发控制进行分析
+      analyzeWithConcurrency(papersToAnalyze);
+    }
+  }, [selectedDimensions.length, papers, analyzeWithConcurrency]); // 移除 analysisResults 和 analyzingPapers 避免循环
+
+  // 点击论文显示抽屉预览
+  const handlePaperClick = useCallback((paper) => {
+    setSelectedPaper(paper);
+    setShowPaperDrawer(true);
+  }, []);
+
+  // 关闭论文预览抽屉
+  const handleClosePaperDrawer = useCallback(() => {
+    setShowPaperDrawer(false);
+  }, []);
+
+  // 左右列表滚动同步（纵向）+ 表头和列表横向滚动同步
+  useEffect(() => {
+    const papersContainer = papersContainerRef.current;
+    const analysisResultsList = analysisResultsRef.current;
+    const analysisHeader = analysisHeaderRef.current;
+    
+    if (!papersContainer || !analysisResultsList) return;
+    
+    let isSyncingVertical = false;
+    let isSyncingHorizontal = false;
+    
+    // 纵向滚动同步（左侧论文列表 <-> 右侧分析列表）
+    const syncVerticalScroll = (source, target) => {
+      if (isSyncingVertical) return;
+      isSyncingVertical = true;
+      target.scrollTop = source.scrollTop;
+      requestAnimationFrame(() => {
+        isSyncingVertical = false;
+      });
+    };
+    
+    // 横向滚动同步（表头 <-> 列表）
+    const syncHorizontalScroll = (source, target) => {
+      if (isSyncingHorizontal || !target) return;
+      isSyncingHorizontal = true;
+      target.scrollLeft = source.scrollLeft;
+      requestAnimationFrame(() => {
+        isSyncingHorizontal = false;
+      });
+    };
+    
+    const handlePapersScroll = () => syncVerticalScroll(papersContainer, analysisResultsList);
+    const handleAnalysisScroll = () => {
+      syncVerticalScroll(analysisResultsList, papersContainer);
+      // 同步横向滚动到表头
+      if (analysisHeader) {
+        syncHorizontalScroll(analysisResultsList, analysisHeader);
+      }
+    };
+    const handleHeaderScroll = () => {
+      if (analysisHeader) {
+        syncHorizontalScroll(analysisHeader, analysisResultsList);
+      }
+    };
+    
+    papersContainer.addEventListener('scroll', handlePapersScroll);
+    analysisResultsList.addEventListener('scroll', handleAnalysisScroll);
+    if (analysisHeader) {
+      analysisHeader.addEventListener('scroll', handleHeaderScroll);
+    }
+    
+    return () => {
+      papersContainer.removeEventListener('scroll', handlePapersScroll);
+      analysisResultsList.removeEventListener('scroll', handleAnalysisScroll);
+      if (analysisHeader) {
+        analysisHeader.removeEventListener('scroll', handleHeaderScroll);
+      }
+    };
+  }, [selectedDimensions.length]); // 当维度选择变化时重新绑定
+
+  // 同步左右两侧每行高度
+  useEffect(() => {
+    if (selectedDimensions.length === 0) return;
+    
+    const syncRowHeights = () => {
+      const paperItems = document.querySelectorAll('.papers-list .search-result-paper-item');
+      const analysisRows = document.querySelectorAll('.analysis-results-list .analysis-result-row');
+      
+      if (paperItems.length === 0 || analysisRows.length === 0) return;
+      if (paperItems.length !== analysisRows.length) return;
+      
+      // 先重置所有高度
+      paperItems.forEach((paperItem) => {
+        paperItem.style.height = 'auto';
+        paperItem.style.minHeight = '';
+      });
+      analysisRows.forEach((analysisRow) => {
+        analysisRow.style.height = 'auto';
+        analysisRow.style.minHeight = '';
+      });
+      
+      // 强制重排
+      void document.body.offsetHeight;
+      
+      // 然后同步高度
+      paperItems.forEach((paperItem, index) => {
+        const analysisRow = analysisRows[index];
+        if (!analysisRow) return;
+        
+        // 获取实际高度
+        const paperHeight = paperItem.getBoundingClientRect().height;
+        const analysisHeight = analysisRow.getBoundingClientRect().height;
+        const maxHeight = Math.max(paperHeight, analysisHeight);
+        
+        // 设置相同高度
+        paperItem.style.height = `${maxHeight}px`;
+        analysisRow.style.height = `${maxHeight}px`;
+      });
+    };
+    
+    // 初始同步 - 多次尝试确保内容加载完成
+    const timer1 = setTimeout(syncRowHeights, 50);
+    const timer2 = setTimeout(syncRowHeights, 200);
+    const timer3 = setTimeout(syncRowHeights, 500);
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', syncRowHeights);
+    
+    // 使用 MutationObserver 监听内容变化
+    const observer = new MutationObserver(() => {
+      requestAnimationFrame(syncRowHeights);
+    });
+    
+    const analysisResultsList = analysisResultsRef.current;
+    if (analysisResultsList) {
+      observer.observe(analysisResultsList, { 
+        childList: true, 
+        subtree: true,
+        characterData: true 
+      });
+    }
+    
+    // 监听论文列表变化
+    const papersList = document.querySelector('.papers-list');
+    if (papersList) {
+      observer.observe(papersList, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+    }
+    
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+      window.removeEventListener('resize', syncRowHeights);
+      observer.disconnect();
+    };
+  }, [selectedDimensions.length, papers.length, Object.keys(analysisResults).length]);
 
   // 不再需要认证检查 - 允许未登录用户访问
 
@@ -1391,6 +1712,19 @@ const SearchResultsPage = () => {
     }
   };
 
+  // 应用筛选条件并触发搜索
+  const applyFilters = (newFilters) => {
+    setFilters(newFilters);
+    saveSearchFilters(newFilters);
+    
+    // 如果已经执行过搜索，自动重新搜索
+    if (searchQuery.trim()) {
+      setCurrentPage(1);
+      updateURL(searchQuery, newFilters, 1);
+      performSearch(searchQuery, newFilters, 1);
+    }
+  };
+
   // 清除所有筛选条件
   const clearAllFilters = () => {
     const newFilters = {
@@ -1561,6 +1895,7 @@ const SearchResultsPage = () => {
           <div className="results-layout">
             {/* 顶部搜索栏 - 类似 Google 布局 */}
             {((viewMode !== 'paper' && viewMode !== 'author') || showDetailSearch) && (
+            <>
             <div className="results-search-header">
               {/* 左侧 Logo 文案 */}
               <div className="results-logo" onClick={() => navigate('/')}>
@@ -1651,31 +1986,6 @@ const SearchResultsPage = () => {
                       rows={1}
                     />
 
-                    {/* 筛选按钮 - 放在发送按钮左侧 */}
-                    {(() => {
-                      const hasFilters = filters.yearFrom ||
-                                       filters.yearTo ||
-                                       filters.publicationTypes.length > 0 ||
-                                       filters.fieldsOfStudy.length > 0 ||
-                                       filters.openAccessPdf ||
-                                       filters.venue ||
-                                       filters.minCitationCount;
-
-                      return (
-                        <button
-                          type="button"
-                          className={`filter-btn-minimal ${showFilters ? 'panel-open' : ''} ${hasFilters ? 'has-filters' : ''}`}
-                          onClick={() => setShowFilters(!showFilters)}
-                          title={hasFilters ? "已设置筛选条件" : "筛选条件"}
-                        >
-                          <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M2.5 3.75C2.5 3.19772 2.94772 2.75 3.5 2.75H16.5C17.0523 2.75 17.5 3.19772 17.5 3.75V5.25C17.5 5.51522 17.3946 5.76957 17.2071 5.95711L11.75 11.4142V16.25C11.75 16.6297 11.5085 16.9705 11.1522 17.1094L8.65217 18.1094C8.15522 18.3078 7.58333 17.9469 7.58333 17.4167V11.4142L2.79289 5.95711C2.60536 5.76957 2.5 5.51522 2.5 5.25V3.75Z"/>
-                            </svg>
-                          {hasFilters && <span className="filter-dot"></span>}
-                        </button>
-                      );
-                    })()}
-
                     <button type="submit" className="btn-send" disabled={!searchQuery.trim() || loading}>
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -1695,93 +2005,356 @@ const SearchResultsPage = () => {
                 </form>
               )}
 
-              {/* 筛选条件面板（列表模式下显示） */}
-              {viewMode !== 'table' && (
-                <SearchFilters
-                  filters={filters}
-                  onFiltersChange={handleTopFiltersChange}
-                  isExpanded={showFilters}
-                  onToggle={() => handleTopFiltersToggle(true)}
-                />
-              )}
-
-              {/* AI翻译提示 - 类似Google/百度搜索的提示（列表模式下显示） */}
-              {/* 只在 combined 或 translated 策略时显示，original 策略不需要提示 */}
-              {viewMode !== 'table' && queryInfo.translationEnabled && queryInfo.translatedQuery && 
-               queryInfo.searchStrategy !== 'original' && (
-                <div className="search-translation-hint">
-                  {/* 根据搜索策略显示不同的提示 */}
-                  {(queryInfo.searchStrategy === 'combined' || !queryInfo.searchStrategy) && (
-                    <>
-                      <span className="hint-text">
-                        已为你找到 "
-                        <span className="hint-query-original" title={queryInfo.originalQuery}>
-                          {queryInfo.originalQuery}
-                        </span>
-                        {' '}
-                        <span className="hint-query-translated" title={queryInfo.translatedQuery}>
-                          {queryInfo.translatedQuery}
-                        </span>
-                        " 的结果
+              </div>
+              
+              {/* 右侧 AI 分析按钮区域 */}
+              {viewMode === 'list' && papers.length > 0 && (
+                <div className="search-header-right" ref={dimensionDropdownRef}>
+                  {selectedDimensions.length > 0 ? (
+                    <div className="dimension-active">
+                      <span className="dimension-active-label">
+                        <Sparkles size={14} />
+                        <span>{selectedDimensions.length} 个维度</span>
                       </span>
-                      <button
-                        className="hint-action-btn"
-                        onClick={() => performSearch(queryInfo.originalQuery, filters, 1, false, false)}
-                        title={`仅按 "${queryInfo.originalQuery}" 查找`}
+                      <button 
+                        className="dimension-edit-btn"
+                        onClick={() => setShowDimensionDropdown(!showDimensionDropdown)}
+                        title="编辑维度"
                       >
-                        仅按 "<span className="hint-btn-query" title={queryInfo.originalQuery}>{queryInfo.originalQuery}</span>" 查找
+                        <ChevronDown size={14} className={showDimensionDropdown ? 'rotate' : ''} />
                       </button>
-                    </>
+                      <button 
+                        className="dimension-clear-btn"
+                        onClick={handleClearDimensions}
+                        title="清除所有"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      className="dimension-select-btn"
+                      onClick={() => setShowDimensionDropdown(!showDimensionDropdown)}
+                    >
+                      <Sparkles size={14} />
+                      <span>AI 分析</span>
+                      <ChevronDown size={14} className={showDimensionDropdown ? 'rotate' : ''} />
+                    </button>
                   )}
-                  {queryInfo.searchStrategy === 'translated' && (
-                    <>
-                      <span className="hint-text">
-                        已为你找到 "
-                        <span className="hint-query-translated" title={queryInfo.translatedQuery}>
-                          {queryInfo.translatedQuery}
-                        </span>
-                        " 的结果
-                      </span>
-                      <span className="hint-fallback-notice">
-                        原始词 "<span className="hint-query-highlight">{queryInfo.originalQuery}</span>" 无结果，已使用翻译词搜索
-                      </span>
-                    </>
+                  
+                  {showDimensionDropdown && (
+                    <div className="dimension-dropdown">
+                      <div className="dimension-dropdown-header">
+                        <span>选择分析维度</span>
+                        <button 
+                          className="dimension-select-all-btn"
+                          onClick={handleSelectAllDimensions}
+                        >
+                          {selectedDimensions.length === dimensions.length ? '取消全选' : '全选'}
+                        </button>
+                      </div>
+                      <div className="dimension-dropdown-list">
+                        {dimensions.map((dim) => {
+                          const dimKey = getDimensionKey(dim);
+                          const isSelected = selectedDimensions.some(d => getDimensionKey(d) === dimKey);
+                          return (
+                            <button
+                              key={dimKey}
+                              className={`dimension-dropdown-item ${isSelected ? 'selected' : ''}`}
+                              onClick={() => handleDimensionToggle(dim)}
+                              title={dim.description}
+                            >
+                              <div className="dimension-item-checkbox">
+                                {isSelected && (
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                  </svg>
+                                )}
+                              </div>
+                              <div className="dimension-item-content">
+                                <span className="dimension-item-name">{dim.name}</span>
+                                <span className="dimension-item-desc">{dim.description}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
-
-              {/* 当前筛选条件标签 - 始终保留空间（表格模式下隐藏） */}
-              <div className={`active-filters-bar ${hasActiveFilters() ? 'has-filters' : 'empty'} ${viewMode === 'table' ? 'hidden' : ''}`}>
-                {hasActiveFilters() && (
+            </div>
+            {/* 搜索结果提示 - 包含翻译信息和结果数量（独立一行） */}
+            {viewMode === 'list' && papers.length > 0 && (
+              <div className="search-translation-hint">
+                {queryInfo.translationEnabled && queryInfo.translatedQuery && 
+                 queryInfo.searchStrategy !== 'original' && 
+                 queryInfo.originalQuery !== queryInfo.translatedQuery ? (
                   <>
-                    <div className="filter-tags">
-                      {getFilterTags().map(tag => (
-                        <span key={tag.key} className={`filter-tag filter-tag-${tag.type}`}>
-                          {tag.label}
-                          <button 
-                            className="filter-tag-remove"
-                            onClick={() => removeFilter(tag.key, tag.type)}
-                            aria-label={`移除筛选: ${tag.label}`}
-                          >
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                              <path d="M9.35355 3.35355C9.54882 3.15829 9.54882 2.84171 9.35355 2.64645C9.15829 2.45118 8.84171 2.45118 8.64645 2.64645L6 5.29289L3.35355 2.64645C3.15829 2.45118 2.84171 2.45118 2.64645 2.64645C2.45118 2.84171 2.45118 3.15829 2.64645 3.35355L5.29289 6L2.64645 8.64645C2.45118 8.84171 2.45118 9.15829 2.64645 9.35355C2.84171 9.54882 3.15829 9.54882 3.35355 9.35355L6 6.70711L8.64645 9.35355C8.84171 9.54882 9.15829 9.54882 9.35355 9.35355C9.54882 9.15829 9.54882 8.84171 9.35355 8.64645L6.70711 6L9.35355 3.35355Z"/>
-                            </svg>
-                          </button>
+                    {(queryInfo.searchStrategy === 'combined' || !queryInfo.searchStrategy) && (
+                      <>
+                        <span className="hint-text">
+                          共找到 <strong>{total.toLocaleString()}</strong> 个 "
+                          <span className="hint-query-original" title={queryInfo.originalQuery}>
+                            {queryInfo.originalQuery}
+                          </span>
+                          {' '}
+                          <span className="hint-query-translated" title={queryInfo.translatedQuery}>
+                            {queryInfo.translatedQuery}
+                          </span>
+                          " 的结果
                         </span>
-                      ))}
-          </div>
-                    <button className="clear-all-filters" onClick={clearAllFilters}>
-                      清除全部
-                    </button>
+                        <button
+                          className="hint-action-btn"
+                          onClick={() => performSearch(queryInfo.originalQuery, filters, 1, false, false)}
+                          title={`仅按 "${queryInfo.originalQuery}" 查找`}
+                        >
+                          仅按 "<span className="hint-btn-query" title={queryInfo.originalQuery}>{queryInfo.originalQuery}</span>" 查找
+                        </button>
+                      </>
+                    )}
+                    {queryInfo.searchStrategy === 'translated' && (
+                      <>
+                        <span className="hint-text">
+                          共找到 <strong>{total.toLocaleString()}</strong> 个 "
+                          <span className="hint-query-translated" title={queryInfo.translatedQuery}>
+                            {queryInfo.translatedQuery}
+                          </span>
+                          " 的结果
+                        </span>
+                        <span className="hint-fallback-notice">
+                          原始词 "<span className="hint-query-highlight">{queryInfo.originalQuery}</span>" 无结果，已使用翻译词搜索
+                        </span>
+                      </>
+                    )}
                   </>
+                ) : (
+                  <span className="hint-text">
+                    共找到 <strong>{total.toLocaleString()}</strong> 个结果
+                  </span>
                 )}
               </div>
-            </div>
-            </div>
+            )}
+            </>
             )}
 
-      {/* 两栏布局 */}
-      <div className="results-main" ref={resultsMainRef}>
+      {/* 三栏布局：筛选侧边栏 + 论文列表 + 分析面板 */}
+      <div className={`results-main ${selectedDimensions.length > 0 ? 'has-analysis' : ''}`} ref={resultsMainRef}>
+        {/* 左侧筛选侧边栏 - Google Scholar 风格 */}
+        {viewMode === 'list' && (
+          <div className="filter-sidebar">
+            {/* 时间筛选 - 今年/去年/四年前至今/自定义 */}
+            {(() => {
+              const currentYear = new Date().getFullYear();
+              const yearOptions = [
+                { value: '', label: '时间不限' },
+                { value: String(currentYear), label: `${currentYear}年至今` },
+                { value: String(currentYear - 1), label: `${currentYear - 1}年至今` },
+                { value: String(currentYear - 4), label: `${currentYear - 4}年至今` },
+              ];
+              
+              // 如果有自定义年份范围已应用，显示范围
+              const customYearDisplay = (filters.yearFrom || filters.yearTo) && 
+                !yearOptions.slice(1).some(opt => opt.value === filters.yearFrom && !filters.yearTo);
+              
+              return (
+                <div className="filter-group">
+                  <div className="filter-options">
+                    {yearOptions.map((opt) => (
+                      <button 
+                        key={opt.value || 'unlimited'}
+                        className={`filter-option ${
+                          opt.value === '' 
+                            ? (!filters.yearFrom && !filters.yearTo ? 'active' : '')
+                            : (filters.yearFrom === opt.value && !filters.yearTo && !showCustomYearRange ? 'active' : '')
+                        }`}
+                        onClick={() => {
+                          setShowCustomYearRange(false);
+                          setCustomYearFrom('');
+                          setCustomYearTo('');
+                          applyFilters({ ...filters, yearFrom: opt.value, yearTo: '' });
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                    
+                    {/* 自定义范围按钮 - 显示已选范围或"自定义范围..." */}
+                    <button 
+                      className={`filter-option ${showCustomYearRange || customYearDisplay ? 'active' : ''}`}
+                      onClick={() => {
+                        if (customYearDisplay && !showCustomYearRange) {
+                          setCustomYearFrom(filters.yearFrom || '');
+                          setCustomYearTo(filters.yearTo || '');
+                        }
+                        setShowCustomYearRange(!showCustomYearRange);
+                      }}
+                    >
+                      {customYearDisplay && !showCustomYearRange
+                        ? `${filters.yearFrom || ''}-${filters.yearTo || ''}`
+                        : '自定义范围...'}
+                    </button>
+                  </div>
+                  
+                  {/* 自定义年份范围输入 */}
+                  {showCustomYearRange && (
+                    <div className="filter-year-range">
+                      <input 
+                        type="number"
+                        className="filter-year-input"
+                        placeholder="起始"
+                        value={customYearFrom}
+                        onChange={(e) => setCustomYearFrom(e.target.value)}
+                        min="1900"
+                        max={currentYear}
+                      />
+                      <span className="filter-year-separator">-</span>
+                      <input 
+                        type="number"
+                        className="filter-year-input"
+                        placeholder="结束"
+                        value={customYearTo}
+                        onChange={(e) => setCustomYearTo(e.target.value)}
+                        min="1900"
+                        max={currentYear}
+                      />
+                      <button 
+                        className="filter-year-apply"
+                        onClick={() => {
+                          if (customYearFrom || customYearTo) {
+                            applyFilters({ 
+                              ...filters, 
+                              yearFrom: customYearFrom, 
+                              yearTo: customYearTo 
+                            });
+                            setShowCustomYearRange(false);
+                          }
+                        }}
+                      >
+                        确定
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            <div className="filter-divider" />
+
+            {/* 开放获取 */}
+            <div className="filter-group">
+              <div className="filter-options">
+                <button 
+                  className={`filter-option ${!filters.openAccessPdf ? 'active' : ''}`}
+                  onClick={() => applyFilters({ ...filters, openAccessPdf: '' })}
+                >
+                  全部
+                </button>
+                <button 
+                  className={`filter-option ${filters.openAccessPdf === 'true' ? 'active' : ''}`}
+                  onClick={() => applyFilters({ ...filters, openAccessPdf: 'true' })}
+                >
+                  开放获取
+                </button>
+              </div>
+            </div>
+
+            <div className="filter-divider" />
+
+            {/* 引用次数筛选 */}
+            <div className="filter-group">
+              <div className="filter-options">
+                <button 
+                  className={`filter-option ${!filters.minCitationCount ? 'active' : ''}`}
+                  onClick={() => applyFilters({ ...filters, minCitationCount: '' })}
+                >
+                  引用次数不限
+                </button>
+                <button 
+                  className={`filter-option ${filters.minCitationCount === '10' ? 'active' : ''}`}
+                  onClick={() => applyFilters({ ...filters, minCitationCount: '10' })}
+                >
+                  ≥10
+                </button>
+                <button 
+                  className={`filter-option ${filters.minCitationCount === '50' ? 'active' : ''}`}
+                  onClick={() => applyFilters({ ...filters, minCitationCount: '50' })}
+                >
+                  ≥50
+                </button>
+                <button 
+                  className={`filter-option ${filters.minCitationCount === '100' ? 'active' : ''}`}
+                  onClick={() => applyFilters({ ...filters, minCitationCount: '100' })}
+                >
+                  ≥100
+                </button>
+                <button 
+                  className={`filter-option ${filters.minCitationCount === '500' ? 'active' : ''}`}
+                  onClick={() => applyFilters({ ...filters, minCitationCount: '500' })}
+                >
+                  ≥500
+                </button>
+              </div>
+            </div>
+
+            <div className="filter-divider" />
+
+            {/* 研究领域 - 多选，默认显示6个 */}
+            <div className="filter-group">
+              <div className="filter-group-title">
+                研究领域
+              </div>
+              <div className="filter-field-list">
+                {[
+                  { key: 'Computer Science', label: '计算机科学' },
+                  { key: 'Medicine', label: '医学' },
+                  { key: 'Biology', label: '生物学' },
+                  { key: 'Chemistry', label: '化学' },
+                  { key: 'Physics', label: '物理学' },
+                  { key: 'Mathematics', label: '数学' },
+                  { key: 'Engineering', label: '工程学' },
+                  { key: 'Materials Science', label: '材料科学' },
+                  { key: 'Economics', label: '经济学' },
+                  { key: 'Psychology', label: '心理学' },
+                  { key: 'Sociology', label: '社会学' },
+                  { key: 'Political Science', label: '政治学' },
+                  { key: 'Business', label: '商业' },
+                  { key: 'Environmental Science', label: '环境科学' },
+                  { key: 'Geography', label: '地理学' },
+                  { key: 'History', label: '历史学' },
+                  { key: 'Philosophy', label: '哲学' },
+                  { key: 'Art', label: '艺术' },
+                ].slice(0, showAllFields ? 18 : 6).map(field => (
+                  <label 
+                    key={field.key}
+                    className={`filter-field-item ${filters.fieldsOfStudy?.includes(field.key) ? 'selected' : ''}`}
+                  >
+                    <input 
+                      type="checkbox"
+                      className="filter-field-checkbox"
+                      checked={filters.fieldsOfStudy?.includes(field.key) || false}
+                      onChange={() => {
+                        const currentFields = filters.fieldsOfStudy || [];
+                        const newFields = currentFields.includes(field.key)
+                          ? currentFields.filter(f => f !== field.key)
+                          : [...currentFields, field.key];
+                        applyFilters({ ...filters, fieldsOfStudy: newFields });
+                      }}
+                    />
+                    <span>{field.label}</span>
+                  </label>
+                ))}
+              </div>
+              <button 
+                className="filter-show-more"
+                onClick={() => setShowAllFields(!showAllFields)}
+              >
+                {showAllFields ? '收起' : '展开更多 (12)'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* 论文列表/详情区域 */}
         <div className="papers-container" ref={papersContainerRef}>
             {viewMode === 'author' ? (
@@ -1854,51 +2427,12 @@ const SearchResultsPage = () => {
                     {/* 论文列表工具栏 - 复用 results-header 样式 */}
                     <div className="results-header">
                       <p className="results-info">
-                        {authorPapersViewMode === 'list' ? (
-                          // 列表视图：显示当前页范围
-                          <>显示 <strong>{(authorPapersPage - 1) * 20 + 1}-{Math.min(authorPapersPage * 20, authorPapersTotal || detailAuthor.paperCount || authorPapers.length)}</strong> / 共 <strong>{authorPapersTotal || detailAuthor.paperCount || authorPapers.length}</strong> 篇论文</>
-                        ) : (
-                          // 表格视图：显示总数和提示
-                          <>共 <strong>{authorPapersTotal || detailAuthor.paperCount || 0}</strong> 篇论文<span className="srp-results-info-hint">（仅显示有摘要的论文）</span></>
-                        )}
+                        显示 <strong>{(authorPapersPage - 1) * 20 + 1}-{Math.min(authorPapersPage * 20, authorPapersTotal || detailAuthor.paperCount || authorPapers.length)}</strong> / 共 <strong>{authorPapersTotal || detailAuthor.paperCount || authorPapers.length}</strong> 篇论文
                       </p>
-                      <div className="srp-view-mode-switcher">
-                        <button 
-                          className={`srp-view-mode-btn ${authorPapersViewMode === 'list' ? 'active' : ''}`}
-                          onClick={() => {
-                            setAuthorPapersViewMode('list');
-                            // 切换到列表视图时，关闭右侧面板（清除选中的论文和列）
-                            setSelectedPaper(null);
-                            setSelectedDimensionKey(null);
-                          }}
-                          title="列表视图"
-                        >
-                          <List size={18} />
-                          <span>列表</span>
-                        </button>
-                        <button 
-                          ref={authorTableBtnRef}
-                          className={`srp-view-mode-btn ${authorPapersViewMode === 'table' ? 'active' : ''}`}
-                          onClick={() => {
-                            hasClickedAuthorTableBtnRef.current = true;
-                            setShowAuthorTableGuide(false);
-                            setAuthorPapersViewMode('table');
-                            // 切换到表格视图时，关闭预览窗口（表格有自己的右侧列配置面板）
-                            setSelectedPaper(null);
-                            // 重置表格数据，从第一页开始加载
-                            setAllAuthorPapers([]);
-                          }}
-                          title="表格视图"
-                        >
-                          <Table2 size={18} />
-                          <span>表格</span>
-                        </button>
-                      </div>
                     </div>
 
                     {/* 论文列表 - 完全复用学术检索的样式 */}
-                    {authorPapersViewMode === 'list' ? (
-                      <div className="papers-list">
+                    <div className="papers-list">
                         {authorPapers.map((paper, index) => (
                           <div
                             key={paper.paperId || index}
@@ -2129,31 +2663,6 @@ const SearchResultsPage = () => {
                           </div>
                         )}
                       </div>
-                    ) : (
-                      
-                      /* 表格视图 - 使用 PaperTableView 组件，与相似论文逻辑一致 */
-                      <div className="papers-list ptv-wrapper author-papers-table">
-                        {authorPapersLoading && allAuthorPapers.length === 0 ? (
-                          /* 初始加载状态 */
-                          <div className="epd-loading">
-                            <div className="epd-loading-spinner"></div>
-                            <p>加载论文数据中...</p>
-                          </div>
-                        ) : (
-                          <PaperTableView 
-                            papers={allAuthorPapers}
-                            onPaperClick={handleTablePaperClick}
-                            totalResults={authorPapersTotal || detailAuthor?.paperCount || 0}
-                            onLoadMore={loadMoreAuthorPapersForTable}
-                            hasMore={Math.ceil(allAuthorPapers.length / 20) < authorPapersTotalPages}
-                            loadingMore={authorPapersLoading}
-                            reloadTrigger={null}
-                            selectedDimensionKey={selectedDimensionKey}
-                            onDimensionSelect={handleDimensionSelect}
-                          />
-                        )}
-                      </div>
-                    )}
                   </>
                 ) : null}
               </div>
@@ -2714,44 +3223,12 @@ const SearchResultsPage = () => {
 
                         {detailActiveTab === 'similar' && (
                           <div className="epd-similar-papers" ref={similarPapersListRef}>
-                            {/* 头部：统计信息 + 视图切换 - 只有有数据且不在加载时才显示 */}
+                            {/* 头部：统计信息 - 只有有数据且不在加载时才显示 */}
                             {!similarPapersLoading && similarPapersData.papers.length > 0 && (
                             <div className="results-header">
                               <p className="results-info">
                                   显示 <strong>{(similarPapersData.currentPage - 1) * REFS_PER_PAGE + 1}-{Math.min(similarPapersData.currentPage * REFS_PER_PAGE, similarPapersData.total)}</strong> / 共 <strong>{similarPapersData.total}</strong> 篇相似论文
                               </p>
-                              <div className="srp-view-mode-switcher">
-                                <button 
-                                  className={`srp-view-mode-btn ${similarPapersViewMode === 'list' ? 'active' : ''}`}
-                                  onClick={() => {
-                                    setSimilarPapersViewMode('list');
-                                    // 切换到列表视图时，关闭右侧面板（清除选中的论文和列）
-                                    setSelectedPaper(null);
-                                    setSimilarSelectedDimensionKey(null);
-                                  }}
-                                  title="列表视图"
-                                >
-                                  <List size={18} />
-                                  <span>列表</span>
-                                </button>
-                                <button 
-                                    ref={similarTableBtnRef}
-                                  className={`srp-view-mode-btn ${similarPapersViewMode === 'table' ? 'active' : ''}`}
-                                    onClick={() => {
-                                      setSimilarPapersViewMode('table');
-                                      // 切换到表格视图时，关闭预览，默认显示列配置面板
-                                      setSelectedPaper(null);
-                                      // 用户主动点击表格按钮，标记为已点击和已看过引导
-                                      hasClickedSimilarTableBtnRef.current = true;
-                                      localStorage.setItem('hasSeenTableViewGuide', 'true');
-                                      setShowSimilarTableGuide(false);
-                                    }}
-                                  title="表格视图"
-                                >
-                                  <Table2 size={18} />
-                                  <span>表格</span>
-                                </button>
-                              </div>
                             </div>
                             )}
 
@@ -2762,8 +3239,7 @@ const SearchResultsPage = () => {
                               </div>
                             ) : similarPapersData.papers.length > 0 ? (
                               <>
-                                {similarPapersViewMode === 'list' ? (
-                                  /* 列表视图 - 复用搜索结果列表样式 */
+                                  {/* 列表视图 - 复用搜索结果列表样式 */}
                                   <div className="papers-list">
                                     {similarPapersData.papers.map((paper, idx) => {
                                       const itemIndex = (similarPapersData.currentPage - 1) * REFS_PER_PAGE + idx + 1;
@@ -2921,24 +3397,6 @@ const SearchResultsPage = () => {
                                       </div>
                                     )}
                                   </div>
-                                ) : (
-                                  /* 表格视图 - 使用 PaperTableView 组件 */
-                                  <div className="papers-list ptv-wrapper epd-similar-table">
-                                    <PaperTableView 
-                                      papers={similarPapersData.papers}
-                                      onPaperClick={handleSimilarTablePaperClick}
-                                      totalResults={similarPapersData.total}
-                                      onLoadMore={() => loadSimilarPapers(similarPapersData.currentPage + 1, true)}
-                                      hasMore={similarPapersData.currentPage < similarPapersData.totalPages}
-                                      loadingMore={similarPapersLoading}
-                                      selectedDimensionKey={similarSelectedDimensionKey}
-                                      onDimensionSelect={handleSimilarDimensionSelect}
-                                      reloadTrigger={similarTableReloadTrigger}
-                                      hideLoadMore={!isAuthenticated}
-                                      isSimilarPapersTable={true}
-                                    />
-                                  </div>
-                                )}
                               </>
                             ) : (
                               <p className="epd-empty-text">暂无相似论文推荐</p>
@@ -2984,66 +3442,18 @@ const SearchResultsPage = () => {
               </div>
             ) : (
             <>
-              <div className="results-header">
-                {/* 列表视图显示分页统计，表格视图显示总数 */}
-                {viewMode === 'list' ? (
-                  <p className="results-info">
-                    显示 <strong>{startIndex}-{endIndex}</strong> / 共 <strong>{total.toLocaleString()}</strong> 篇论文
-                  </p>
-                ) : (
-                  <p className="results-info">
-                    共 <strong>{total.toLocaleString()}</strong> 篇论文
-                    <span className="srp-results-info-hint">（仅显示有摘要的论文）</span>
-                  </p>
-                )}
-                
-                {/* 视图切换按钮 */}
-                <div className="srp-view-mode-switcher">
-                  <button
-                    className={`srp-view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
-                    onClick={() => {
-                      setViewMode('list');
-                      // 切换到列表视图时，关闭右侧面板（清除选中的论文和列）
-                      setSelectedPaper(null);
-                      setSelectedDimensionKey(null);
-                    }}
-                    title="列表视图"
-                  >
-                    <List size={18} />
-                    <span>列表</span>
-                  </button>
-                  <button
-                    ref={tableViewBtnRef}
-                    className={`srp-view-mode-btn ${viewMode === 'table' ? 'active' : ''}`}
-                    onClick={() => {
-                      setViewMode('table');
-                      // 切换到表格视图时，关闭预览，默认显示列配置面板
-                      setSelectedPaper(null);
-                      // 用户主动点击表格按钮，标记为已点击和已看过引导
-                      hasClickedTableBtnRef.current = true;
-                      localStorage.setItem('hasSeenTableViewGuide', 'true');
-                      setShowTableGuide(false);
-                    }}
-                    title="表格视图 (AI分析)"
-                  >
-                    <Table2 size={18} />
-                    <span>表格</span>
-                  </button>
-                </div>
-              </div>
-
-              {viewMode === 'list' ? (
               <div className="papers-list">
                 {papers.map((paper, index) => (
                   <div
                     key={paper.paperId}
                     className={`search-result-paper-item ${selectedPaper?.paperId === paper.paperId ? 'selected' : ''}`}
+                    data-paper-index={index}
                   >
                     <div className="search-result-paper-number">{startIndex + index}</div>
                     <div className="search-result-paper-content">
                       <h3 
                         className="search-result-paper-title" 
-                        onClick={() => setSelectedPaper(paper)}
+                        onClick={() => handlePaperClick(paper)}
                       >
                         {paper.title}
                       </h3>
@@ -3208,23 +3618,9 @@ const SearchResultsPage = () => {
                   </div>
                 ))}
               </div>
-              ) : (
-                <div className="papers-list ptv-wrapper">
-                  <PaperTableView 
-                    searchQuery={queryInfo.actualQuery || searchQuery}
-                    filters={filters}
-                    onPaperClick={handleTablePaperClick}
-                    totalResults={total}
-                    selectedDimensionKey={selectedDimensionKey}
-                    onDimensionSelect={handleDimensionSelect}
-                    reloadTrigger={tableReloadTrigger}
-                    onSearchWithQuery={handleSearchWithRecommendedQuery}
-                  />
-                </div>
-              )}
 
-              {/* 分页器（表格模式下隐藏） */}
-              {viewMode === 'list' && totalPages > 1 && (
+              {/* 分页器 */}
+              {totalPages > 1 && (
                 <div className="pagination">
                   {/* 每页数量选择器 - 移到最左侧 */}
                   <div className="page-size-selector">
@@ -3287,125 +3683,105 @@ const SearchResultsPage = () => {
             )}
         </div>
 
-        {/* 右侧预览区 - PC端始终显示 */}
-        {!isCompactLayout && !isMobile && (
-          viewMode === 'table' ? (
-            // 表格视图：有选中论文时显示预览，否则显示列配置面板
-            selectedPaper ? (
-              <PaperPreview
-                paper={selectedPaper}
-                onClose={() => setSelectedPaper(null)}
-                width={previewWidth}
-                onResizeMouseDown={handlePreviewResizeMouseDown}
-                onResizeTouchStart={handlePreviewResizeTouchStart}
-                isResizing={isResizingPreview}
-              />
-            ) : (
-            <div 
-              className="preview-panel table-column-panel-wrapper"
-              style={{ width: previewWidth }}
-            >
-                {/* 拖拽分隔条 */}
-                <div
-                  className={`resize-handle ${isResizingPreview ? 'resizing' : ''}`}
-                  onMouseDown={handlePreviewResizeMouseDown}
-                  onTouchStart={handlePreviewResizeTouchStart}
-                  role="separator"
-                  aria-orientation="vertical"
-                  aria-label="调整面板宽度"
-                >
-                  <div className="resize-handle-line" />
+        {/* 右侧分析结果区域 - 选中维度时显示，与左侧论文列表对齐 */}
+        {!isCompactLayout && !isMobile && selectedDimensions.length > 0 && viewMode === 'list' && (
+          <div className="analysis-results-panel">
+            {/* 横向滚动容器 */}
+            <div className="analysis-panel-scroll-container">
+              {/* 内容容器 - 宽度由内容决定 */}
+              <div className="analysis-panel-content">
+                {/* 表头区域 */}
+                <div className="analysis-results-header" ref={analysisHeaderRef}>
+                  {selectedDimensions.map(dim => (
+                    <div key={getDimensionKey(dim)} className="analysis-dim-header">
+                      {dim.name}
+                    </div>
+                  ))}
                 </div>
-              <TableColumnPanel 
-                selectedDimensionKey={selectedDimensionKey}
-                onDimensionSelect={setSelectedDimensionKey}
-                onDimensionsUpdated={handleDimensionsUpdated}
-              />
-            </div>
-            )
-          ) : viewMode === 'paper' && detailActiveTab === 'similar' && similarPapersViewMode === 'table' ? (
-            // 论文详情视图 + 相似论文表格视图：有选中论文时显示预览，否则显示列配置面板
-            selectedPaper ? (
-              <PaperPreview
-                paper={selectedPaper}
-                onClose={() => setSelectedPaper(null)}
-                width={previewWidth}
-                onResizeMouseDown={handlePreviewResizeMouseDown}
-                onResizeTouchStart={handlePreviewResizeTouchStart}
-                isResizing={isResizingPreview}
-              />
-            ) : (
-            <div 
-              className="preview-panel table-column-panel-wrapper"
-              style={{ width: previewWidth }}
-            >
-                {/* 拖拽分隔条 */}
-                <div
-                  className={`resize-handle ${isResizingPreview ? 'resizing' : ''}`}
-                  onMouseDown={handlePreviewResizeMouseDown}
-                  onTouchStart={handlePreviewResizeTouchStart}
-                  role="separator"
-                  aria-orientation="vertical"
-                  aria-label="调整面板宽度"
-                >
-                  <div className="resize-handle-line" />
+                
+                {/* 分析结果列表 - 纵向滚动与左侧同步 */}
+                <div className="analysis-results-list" ref={analysisResultsRef}>
+                  {papers.map((paper, index) => {
+                    const paperResults = analysisResults[paper.paperId];
+                    const isAnalyzing = analyzingPapers[paper.paperId];
+                    const hasError = paperResults?._error;
+                    
+                    return (
+                      <div 
+                        key={paper.paperId}
+                        className={`analysis-result-row ${selectedPaper?.paperId === paper.paperId ? 'selected' : ''}`}
+                        data-paper-index={index}
+                      >
+                        {selectedDimensions.map(dim => {
+                          const dimKey = getDimensionKey(dim);
+                          // 使用 key 或 dimensionKey 获取结果
+                          const result = paperResults?.[dimKey];
+                          const resultText = typeof result === 'string' ? result : (result ? JSON.stringify(result) : '');
+                          
+                          return (
+                            <div key={dimKey} className="analysis-result-cell">
+                              {isAnalyzing ? (
+                                <div className="analysis-cell-loading">
+                                  <div className="analysis-cell-spinner"></div>
+                                </div>
+                              ) : !paper.abstract ? (
+                                <span className="analysis-cell-na">无摘要</span>
+                              ) : hasError ? (
+                                <span className="analysis-cell-error" title={paperResults._message}>分析失败</span>
+                              ) : result ? (
+                                <AnalysisCellText text={resultText} />
+                              ) : paperResults ? (
+                                <span className="analysis-cell-na">-</span>
+                              ) : (
+                                <span className="analysis-cell-pending">等待分析...</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
                 </div>
-              <TableColumnPanel 
-                selectedDimensionKey={similarSelectedDimensionKey}
-                onDimensionSelect={setSimilarSelectedDimensionKey}
-                onDimensionsUpdated={handleSimilarDimensionsUpdated}
-              />
-            </div>
-            )
-          ) : viewMode === 'author' && authorPapersViewMode === 'table' ? (
-            // 作者视图表格模式：有选中论文时显示预览，否则显示列配置面板
-            selectedPaper ? (
-              <PaperPreview
-                paper={selectedPaper}
-                onClose={() => setSelectedPaper(null)}
-                width={previewWidth}
-                onResizeMouseDown={handlePreviewResizeMouseDown}
-                onResizeTouchStart={handlePreviewResizeTouchStart}
-                isResizing={isResizingPreview}
-              />
-            ) : (
-              <div 
-                className="preview-panel table-column-panel-wrapper"
-                style={{ width: previewWidth }}
-              >
-                {/* 拖拽分隔条 */}
-                <div
-                  className={`resize-handle ${isResizingPreview ? 'resizing' : ''}`}
-                  onMouseDown={handlePreviewResizeMouseDown}
-                  onTouchStart={handlePreviewResizeTouchStart}
-                  role="separator"
-                  aria-orientation="vertical"
-                  aria-label="调整面板宽度"
-                >
-                  <div className="resize-handle-line" />
-                </div>
-                <TableColumnPanel 
-                  selectedDimensionKey={selectedDimensionKey}
-                  onDimensionSelect={setSelectedDimensionKey}
-                  onDimensionsUpdated={handleDimensionsUpdated}
-                />
               </div>
-            )
-          ) : (
-            // 列表视图、论文详情列表视图或作者视图列表模式：显示论文预览
-            <PaperPreview
-              paper={selectedPaper}
-              onClose={() => setSelectedPaper(null)}
-              width={previewWidth}
-              onResizeMouseDown={handlePreviewResizeMouseDown}
-              onResizeTouchStart={handlePreviewResizeTouchStart}
-              isResizing={isResizingPreview}
-            />
-          )
+            </div>
+          </div>
+        )}
+
+        {/* 右侧预览面板 - 仅在论文详情或作者视图时显示（非抽屉模式） */}
+        {!isCompactLayout && !isMobile && (viewMode === 'paper' || viewMode === 'author') && (
+          <PaperPreview
+            paper={selectedPaper}
+            onClose={() => setSelectedPaper(null)}
+            width={previewWidth}
+            onResizeMouseDown={handlePreviewResizeMouseDown}
+            onResizeTouchStart={handlePreviewResizeTouchStart}
+            isResizing={isResizingPreview}
+          />
         )}
       </div>
     </div>
       </div>
+
+      {/* 论文预览抽屉 - 列表视图时使用 */}
+      {showPaperDrawer && selectedPaper && viewMode === 'list' && (
+        <div className="paper-drawer-overlay" onClick={handleClosePaperDrawer}>
+          <div className="paper-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="paper-drawer-header">
+              <h3 className="paper-drawer-title">论文详情</h3>
+              <button className="paper-drawer-close" onClick={handleClosePaperDrawer}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="paper-drawer-content">
+              <PaperPreview
+                paper={selectedPaper}
+                onClose={handleClosePaperDrawer}
+                isDrawerMode={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 移动端底部弹窗预览 */}
       {isMobile && selectedPaper && (
@@ -3447,30 +3823,6 @@ const SearchResultsPage = () => {
         />
       )}
 
-      {/* 表格视图引导弹窗 */}
-      {showTableGuide && (
-        <TableViewGuide
-          targetRef={tableViewBtnRef}
-          onDismiss={() => {
-            // X 按钮 - 只关闭，下次还会显示
-            setShowTableGuide(false);
-          }}
-          onClose={() => {
-            // "稍后再说" - 关闭并记住
-            setShowTableGuide(false);
-            localStorage.setItem('hasSeenTableViewGuide', 'true');
-          }}
-          onTryIt={() => {
-            // "立即体验" - 关闭并记住，切换到表格视图
-            setShowTableGuide(false);
-            localStorage.setItem('hasSeenTableViewGuide', 'true');
-            setViewMode('table');
-            // 切换到表格视图时，关闭预览，默认显示列配置面板
-            setSelectedPaper(null);
-          }}
-        />
-      )}
-
       {/* 相似论文引导弹窗 */}
       {showSimilarPapersGuide && (
         <SimilarPapersGuide
@@ -3490,56 +3842,6 @@ const SearchResultsPage = () => {
             localStorage.setItem('similarPapersGuideShown', 'true');
             setDetailActiveTab('similar');
             setDetailHeaderCollapsed(true);
-          }}
-        />
-      )}
-
-      {/* 相似论文表格视图引导弹窗 */}
-      {showSimilarTableGuide && (
-        <TableViewGuide
-          targetRef={similarTableBtnRef}
-          onDismiss={() => {
-            // X 按钮 - 只关闭，下次还会显示
-            setShowSimilarTableGuide(false);
-          }}
-          onClose={() => {
-            // "稍后再说" - 关闭并记住
-            setShowSimilarTableGuide(false);
-            localStorage.setItem('hasSeenTableViewGuide', 'true');
-          }}
-          onTryIt={() => {
-            // "立即体验" - 关闭并记住，切换到表格视图
-            setShowSimilarTableGuide(false);
-            localStorage.setItem('hasSeenTableViewGuide', 'true');
-            hasClickedSimilarTableBtnRef.current = true;
-            setSimilarPapersViewMode('table');
-          }}
-        />
-      )}
-
-      {/* 作者页面表格视图引导弹窗 */}
-      {showAuthorTableGuide && (
-        <TableViewGuide
-          targetRef={authorTableBtnRef}
-          onDismiss={() => {
-            // X 按钮 - 只关闭，下次还会显示
-            setShowAuthorTableGuide(false);
-          }}
-          onClose={() => {
-            // "稍后再说" - 关闭并记住
-            setShowAuthorTableGuide(false);
-            localStorage.setItem('hasSeenTableViewGuide', 'true');
-          }}
-          onTryIt={() => {
-            // "立即体验" - 关闭并记住，切换到表格视图
-            setShowAuthorTableGuide(false);
-            localStorage.setItem('hasSeenTableViewGuide', 'true');
-            hasClickedAuthorTableBtnRef.current = true;
-            setAuthorPapersViewMode('table');
-            // 切换到表格视图时，关闭预览窗口
-            setSelectedPaper(null);
-            // 重置表格数据，从第一页开始加载
-            setAllAuthorPapers([]);
           }}
         />
       )}

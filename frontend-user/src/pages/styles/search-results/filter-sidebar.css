@@ -1,0 +1,363 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ */
+
+/* ========== 左侧筛选侧边栏 - Google Scholar 风格 ========== */
+.filter-sidebar {
+  width: 160px;
+  flex-shrink: 0;
+  padding: 0 16px 16px 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
+}
+
+/* 隐藏滚动条但保持滚动功能 */
+.filter-sidebar::-webkit-scrollbar {
+  width: 0;
+  display: none;
+}
+
+.filter-sidebar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* 筛选分组 */
+.filter-group {
+  margin-bottom: 20px;
+}
+
+/* 分组标题 */
+.filter-group-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+[data-theme="light"] .filter-group-title {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+/* 筛选选项列表 */
+.filter-options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 单个筛选选项 */
+.filter-option {
+  display: block;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+  padding: 3px 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  background: none;
+  border: none;
+  text-align: left;
+  width: 100%;
+  line-height: 1.4;
+}
+
+.filter-option:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.filter-option.active {
+  color: #10a37f;
+  font-weight: 600;
+}
+
+[data-theme="light"] .filter-option {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+[data-theme="light"] .filter-option:hover {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .filter-option.active {
+  color: #10a37f;
+  font-weight: 600;
+}
+
+/* 分隔线 */
+.filter-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 16px 0;
+}
+
+[data-theme="light"] .filter-divider {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* ========== 自定义年份范围输入 ========== */
+.filter-year-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-year-input {
+  width: 52px;
+  padding: 4px 6px;
+  font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+}
+
+.filter-year-input:focus {
+  outline: none;
+  border-color: #10a37f;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.filter-year-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 11px;
+}
+
+/* 隐藏数字输入框的上下箭头 */
+.filter-year-input::-webkit-outer-spin-button,
+.filter-year-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.filter-year-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+[data-theme="light"] .filter-year-input {
+  border-color: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.03);
+  color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .filter-year-input:focus {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .filter-year-input::placeholder {
+  color: rgba(0, 0, 0, 0.35);
+}
+
+.filter-year-separator {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+}
+
+[data-theme="light"] .filter-year-separator {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.filter-year-apply {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: #10a37f;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.filter-year-apply:hover {
+  background: #0d8a6a;
+}
+
+/* ========== 复选框筛选项 ========== */
+.filter-checkbox-group {
+  margin-bottom: 20px;
+}
+
+.filter-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  cursor: pointer;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+  transition: color 0.15s ease;
+}
+
+.filter-checkbox-item:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.filter-checkbox-item.checked {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .filter-checkbox-item {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+[data-theme="light"] .filter-checkbox-item:hover {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .filter-checkbox-item.checked {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+/* 自定义复选框样式 */
+.filter-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.filter-checkbox:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.filter-checkbox:checked {
+  background: #10a37f;
+  border-color: #10a37f;
+}
+
+.filter-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 0px;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+[data-theme="light"] .filter-checkbox {
+  border-color: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .filter-checkbox:hover {
+  border-color: rgba(0, 0, 0, 0.4);
+}
+
+/* ========== 多选领域筛选 ========== */
+.filter-field-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.filter-field-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  cursor: pointer;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+  transition: color 0.15s ease;
+}
+
+.filter-field-item:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.filter-field-item.selected {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .filter-field-item {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+[data-theme="light"] .filter-field-item:hover {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .filter-field-item.selected {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+.filter-field-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.filter-field-checkbox:checked {
+  background: #10a37f;
+  border-color: #10a37f;
+}
+
+.filter-field-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0px;
+  width: 4px;
+  height: 6px;
+  border: solid white;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+[data-theme="light"] .filter-field-checkbox {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+/* ========== 展开更多按钮 ========== */
+.filter-show-more {
+  display: block;
+  margin-top: 8px;
+  padding: 0;
+  font-size: 12px;
+  color: #10a37f;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  text-align: left;
+}
+
+.filter-show-more:hover {
+  color: #0d8a6a;
+  text-decoration: underline;
+}
+
+/* 响应式 - 暂时禁用 */
+/* @media (max-width: 768px) {
+  .filter-sidebar {
+    display: none;
+  }
+} */

@@ -26,18 +26,19 @@
 .results-search-header {
   display: flex;
   align-items: flex-start;
-  gap: 24px;
+  gap: 16px;
   padding: 16px 24px;
   flex-shrink: 0;
 }
 
-/* 左侧 Logo 文案 */
+/* 左侧 Logo 文案 - 与筛选侧边栏宽度对齐 */
 .results-logo {
   display: flex;
   align-items: center;
+  justify-content: center; /* 水平居中 */
   cursor: pointer;
   flex-shrink: 0;
-  width: 100px;
+  width: 160px; /* 与筛选侧边栏宽度一致 */
   padding-top: 8px;
   transition: opacity 0.2s ease;
 }
@@ -64,9 +65,66 @@
   margin-bottom: 0;
 }
 
-/* 论文列表区域 - 与搜索框左边对齐 */
+/* 搜索框右侧 AI 分析按钮区域 */
+.search-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-top: 8px;
+  position: relative;
+}
+
+/* 搜索结果信息栏 - 显示数量 */
+.search-results-info-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 24px 8px 184px; /* 左边距对齐论文列表 */
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.results-count-text {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.results-count-text strong {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+[data-theme="light"] .search-results-info-bar {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .results-count-text {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .results-count-text strong {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* 论文列表区域 - 筛选侧边栏 + 论文列表 + 分析面板 */
 .results-main {
-  margin-left: 148px; /* Logo 宽度(100px) + gap(24px) + padding(24px) */
+  flex: 1;
+  display: flex;
+  padding-left: 24px; /* 左边距 */
+  overflow: hidden;
+  min-width: 0; /* 允许 flex 子项收缩 */
+}
+
+/* 当有分析面板时 */
+.results-main.has-analysis {
+  overflow: hidden;
+}
+
+/* 分析面板 - 占据剩余空间，内部可滚动 */
+.results-main.has-analysis .analysis-results-panel {
+  flex: 1;
+  min-width: 0; /* 关键：允许 flex 子项收缩到小于内容宽度 */
+  max-width: calc(100vw - 24px - 160px - 720px - 20px); /* 视口宽度 - 左边距 - 筛选栏宽度 - 论文列表宽度 - 边距 */
 }
 
 /* 响应式 */
@@ -92,8 +150,8 @@
   }
 
   .results-main {
-    margin-left: 0;
-    padding: 0 16px;
+    padding-left: 16px;
+    padding-right: 16px;
   }
 }
 
@@ -356,17 +414,16 @@
   transform: rotate(180deg);
 }
 
-/* 论文列表容器 - 使用flex自适应 */
+/* 论文列表容器 - 始终固定720px宽度 */
 .papers-container {
-  flex: 1 1 0; /* 自动填充剩余空间，但允许收缩 */
+  flex: 0 0 720px;
+  width: 720px;
+  max-width: 720px;
   overflow-y: auto;
   overflow-x: hidden;
   background: transparent;
   display: flex;
   flex-direction: column;
-  min-width: 420px; /* 最小宽度确保内容可读 */
-  max-width: 100%; /* 当有预览面板时自动收缩 */
-  width: 0; /* 配合 flex: 1 1 0 防止内容撑大 */
 }
 
 /* 日间模式论文容器背景 */
