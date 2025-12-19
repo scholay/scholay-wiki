@@ -24,6 +24,7 @@ import GoldIcon from './GoldIcon';
 import EntcoinIcon from './EntcoinIcon';
 import { NormalSearchIcon } from './SearchIcons';
 import api, { walletAPI, checkinAPI } from '../services/api';
+import logger from '../utils/logger';
 import './styles/TopNavBar.css';
 
 const TopNavBar = ({
@@ -39,8 +40,7 @@ const TopNavBar = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  // eslint-disable-next-line no-unused-vars
-  const { theme } = useTheme(); // 保留供将来主题相关功能使用
+  useTheme(); // 确保主题 context 可用
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [subscription, setSubscription] = useState(null);
   const [wallet, setWallet] = useState(null);
@@ -89,7 +89,7 @@ const TopNavBar = ({
           setHasCheckedInToday(data.checkin_dates?.includes(todayStr) || false);
         }
       } catch (error) {
-        console.error('Failed to fetch user data:', error);
+        logger.error('Failed to fetch user data:', error);
       }
     };
 
@@ -174,7 +174,7 @@ const TopNavBar = ({
         }, 2500);
       }
     } catch (error) {
-      console.error('签到失败:', error);
+      logger.error('签到失败:', error);
     } finally {
       setCheckingIn(false);
     }
@@ -225,18 +225,6 @@ const TopNavBar = ({
     const displayName = user.username || user.email;
     if (!displayName) return '?';
     return displayName.charAt(0).toUpperCase();
-  };
-
-  // 获取用户显示标识（完整）- 保留供将来使用
-  // eslint-disable-next-line no-unused-vars
-  const getUserIdentifier = () => {
-    if (!user) return '未登录';
-    if (user.email) return user.email;
-    if (user.phone) return user.phone;
-    if (user.wechat_name) return `微信: ${user.wechat_name}`;
-    if (user.github_login) return `GitHub: ${user.github_login}`;
-    if (user.username) return user.username;
-    return '用户';
   };
 
   // 获取用户显示名（简短，用于顶部导航）

@@ -74,7 +74,7 @@ const WeChatCallback = () => {
       const state = searchParams.get('state');
 
       if (!code || !state) {
-        console.error('Invalid WeChat callback parameters');
+        logger.error('Invalid WeChat callback parameters');
         navigate('/');
         return;
       }
@@ -92,11 +92,11 @@ const WeChatCallback = () => {
       logger.log('WeChat callback - All localStorage keys:', Object.keys(localStorage));
 
       if (state !== savedState) {
-        console.error('State mismatch!');
-        console.error('  Expected (from localStorage):', savedState);
-        console.error('  Received (from URL):', state);
-        console.error('  Storage key used:', stateKey);
-        console.error('  All localStorage:', JSON.stringify({
+        logger.error('State mismatch!');
+        logger.error('  Expected (from localStorage):', savedState);
+        logger.error('  Received (from URL):', state);
+        logger.error('  Storage key used:', stateKey);
+        logger.error('  All localStorage:', JSON.stringify({
           wechat_oauth_state: localStorage.getItem('wechat_oauth_state'),
           wechat_bind_state: localStorage.getItem('wechat_bind_state'),
           wechat_bind_mode: localStorage.getItem('wechat_bind_mode'),
@@ -182,7 +182,7 @@ const WeChatCallback = () => {
           }
         }
       } catch (error) {
-        console.error('WeChat callback error:', error);
+        logger.error('WeChat callback error:', error);
         const errorMessage = error.response?.data?.message || error.message || (bindMode === 'bind' ? '微信绑定失败' : '微信登录失败');
 
         // Clean up on error

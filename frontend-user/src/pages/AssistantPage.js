@@ -12,8 +12,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
 import ThemeToggle from '../components/ThemeToggle';
-// eslint-disable-next-line no-unused-vars
-import { trackAIAssistant, EntryPoint } from '../utils/usageTracker'; // 保留供将来追踪使用
+// usageTracker 导入保留供将来追踪使用
 import './styles/AssistantPage.css';
 
 const AuthModal = lazy(() => import('../components/AuthModal'));

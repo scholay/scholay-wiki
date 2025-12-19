@@ -16,6 +16,7 @@ import api, { orderAPI, paymentAPI, walletAPI } from '../services/api'; // payme
 import CheckinCalendar from '../components/CheckinCalendar';
 import EntcoinIcon from '../components/EntcoinIcon';
 import GoldIcon from '../components/GoldIcon';
+import logger from '../utils/logger';
 import './styles/settings/index.css';
 
 const Settings = () => {
@@ -241,7 +242,7 @@ const Settings = () => {
         });
       }
     } catch (error) {
-      console.error('Failed to fetch user profile:', error);
+      logger.error('Failed to fetch user profile:', error);
     }
   };
 
@@ -255,7 +256,7 @@ const Settings = () => {
         setCurrentSubscription(subResponse.data.data);
       }
     } catch (error) {
-      console.error('Failed to fetch subscription data:', error);
+      logger.error('Failed to fetch subscription data:', error);
     } finally {
       setSubscriptionLoading(false);
     }
@@ -271,7 +272,7 @@ const Settings = () => {
         setBillingPage(page);
       }
     } catch (error) {
-      console.error('Failed to fetch billing history:', error);
+      logger.error('Failed to fetch billing history:', error);
       showError('获取历史账单失败');
     } finally {
       setBillingLoading(false);
@@ -287,7 +288,7 @@ const Settings = () => {
         setWallet(response.data.data);
       }
     } catch (error) {
-      console.error('Failed to fetch wallet:', error);
+      logger.error('Failed to fetch wallet:', error);
     } finally {
       setWalletLoading(false);
     }
@@ -335,7 +336,7 @@ const Settings = () => {
         setTransactionStats({ totalIncome, totalExpense });
       }
     } catch (error) {
-      console.error('Failed to fetch transactions:', error);
+      logger.error('Failed to fetch transactions:', error);
     } finally {
       setTransactionLoading(false);
     }
@@ -386,7 +387,7 @@ const Settings = () => {
         setRechargeInfo(rechargeRes.data.data);
       }
     } catch (error) {
-      console.error('Failed to fetch exchange info:', error);
+      logger.error('Failed to fetch exchange info:', error);
     }
   };
 
@@ -398,7 +399,7 @@ const Settings = () => {
         setBizDisplayInfos(response.data.data || {});
       }
     } catch (error) {
-      console.error('Failed to fetch biz display infos:', error);
+      logger.error('Failed to fetch biz display infos:', error);
     }
   };
 
@@ -433,7 +434,7 @@ const Settings = () => {
         showError(response.data.message || '兑换失败');
       }
     } catch (error) {
-      console.error('Exchange failed:', error);
+      logger.error('Exchange failed:', error);
       showError(error.response?.data?.message || '兑换失败，请稍后重试');
     } finally {
       setExchangeLoading(false);
@@ -463,7 +464,7 @@ const Settings = () => {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch invitation data:', error);
+      logger.error('Failed to fetch invitation data:', error);
     } finally {
       setInvitationLoading(false);
     }
@@ -538,7 +539,7 @@ const Settings = () => {
       }
     } catch (error) {
       showError('保存失败，请稍后重试');
-      console.error('Failed to update profile:', error);
+      logger.error('Failed to update profile:', error);
     } finally {
       setLoading(false);
     }
@@ -577,7 +578,7 @@ const Settings = () => {
       }
     } catch (error) {
       showError('密码修改失败,请稍后重试');
-      console.error('Failed to change password:', error);
+      logger.error('Failed to change password:', error);
     } finally {
       setLoading(false);
     }
@@ -609,7 +610,7 @@ const Settings = () => {
       }
     } catch (error) {
       showError('发送验证码失败,请稍后重试');
-      console.error('Failed to send phone code:', error);
+      logger.error('Failed to send phone code:', error);
     } finally {
       setLoading(false);
     }
@@ -641,7 +642,7 @@ const Settings = () => {
       }
     } catch (error) {
       showError('发送验证码失败,请稍后重试');
-      console.error('Failed to send email code:', error);
+      logger.error('Failed to send email code:', error);
     } finally {
       setLoading(false);
     }
@@ -679,7 +680,7 @@ const Settings = () => {
       }
     } catch (error) {
       showError('绑定失败,请稍后重试');
-      console.error('Failed to bind phone:', error);
+      logger.error('Failed to bind phone:', error);
     } finally {
       setLoading(false);
     }
@@ -717,7 +718,7 @@ const Settings = () => {
       }
     } catch (error) {
       showError('绑定失败,请稍后重试');
-      console.error('Failed to bind email:', error);
+      logger.error('Failed to bind email:', error);
     } finally {
       setLoading(false);
     }
@@ -748,7 +749,7 @@ const Settings = () => {
         showError('获取微信登录链接失败');
       }
     } catch (err) {
-      console.error('WeChat binding error:', err);
+      logger.error('WeChat binding error:', err);
       showError('微信绑定失败,请稍后重试');
     }
   };
@@ -776,7 +777,7 @@ const Settings = () => {
         showError('获取 GitHub 登录链接失败');
       }
     } catch (err) {
-      console.error('GitHub binding error:', err);
+      logger.error('GitHub binding error:', err);
       showError('GitHub 绑定失败,请稍后重试');
     }
   };
@@ -896,7 +897,7 @@ const Settings = () => {
       }
     } catch (error) {
       showError('检查失败,请稍后重试');
-      console.error('Failed to check availability:', error);
+      logger.error('Failed to check availability:', error);
     } finally {
       setLoading(false);
     }
@@ -942,7 +943,7 @@ const Settings = () => {
       }
     } catch (error) {
       showError('发送验证码失败,请稍后重试');
-      console.error('Failed to send code:', error);
+      logger.error('Failed to send code:', error);
     } finally {
       setLoading(false);
     }
@@ -1070,7 +1071,7 @@ const Settings = () => {
       }
     } catch (error) {
       showError('操作失败,请稍后重试');
-      console.error('Modal submit error:', error);
+      logger.error('Modal submit error:', error);
     } finally {
       setLoading(false);
     }

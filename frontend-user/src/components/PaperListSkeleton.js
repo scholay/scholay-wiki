@@ -7,10 +7,10 @@
  * ============================================================================
  */
 
-import React from 'react';
+import React, { memo } from 'react';
 import './PaperListSkeleton.css';
 
-const PaperListSkeleton = () => {
+const PaperListSkeleton = memo(() => {
   // Create an array of 10 skeleton items
   const skeletonItems = Array(10).fill(null);
 
@@ -40,6 +40,8 @@ const PaperListSkeleton = () => {
       ))}
     </div>
   );
-};
+});
+
+PaperListSkeleton.displayName = 'PaperListSkeleton';
 
 export default PaperListSkeleton;

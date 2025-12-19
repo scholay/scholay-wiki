@@ -41,16 +41,6 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
     }
   }, [isExpanded]);
 
-  // 保留供将来使用的出版类型列表
-  // eslint-disable-next-line no-unused-vars
-  const publicationTypes = [
-    { value: 'JournalArticle', label: 'Journal Article' },
-    { value: 'Conference', label: 'Conference' },
-    { value: 'Book', label: 'Book' },
-    { value: 'BookSection', label: 'Book Section' },
-    { value: 'Dataset', label: 'Dataset' },
-  ];
-
   const fieldsOfStudy = [
     { value: 'Computer Science', label: '计算机科学' },
     { value: 'Medicine', label: '医学' },
@@ -76,16 +66,6 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
     onFiltersChange({ ...filters, yearFrom: String(yearFrom), yearTo: String(yearTo) });
   };
 
-  // 保留供将来使用
-  // eslint-disable-next-line no-unused-vars
-  const handlePublicationTypeToggle = (type) => {
-    const current = filters.publicationTypes || [];
-    const updated = current.includes(type)
-      ? current.filter(t => t !== type)
-      : [...current, type];
-    onFiltersChange({ ...filters, publicationTypes: updated });
-  };
-
   const handleFieldOfStudyToggle = (field) => {
     const current = filters.fieldsOfStudy || [];
     const updated = current.includes(field)
@@ -100,12 +80,6 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
 
   const handleOpenAccessToggle = () => {
     onFiltersChange({ ...filters, openAccessPdf: filters.openAccessPdf ? '' : 'true' });
-  };
-
-  // 保留供将来使用
-  // eslint-disable-next-line no-unused-vars
-  const handleVenueChange = (e) => {
-    onFiltersChange({ ...filters, venue: e.target.value });
   };
 
   const handleMinCitationChange = (value) => {

@@ -7,10 +7,10 @@
  * ============================================================================
  */
 
-import React from 'react';
+import React, { memo } from 'react';
 import './PaperDetailSkeleton.css';
 
-const PaperDetailSkeleton = () => {
+const PaperDetailSkeleton = memo(() => {
   return (
     <div className="paper-detail-skeleton">
       {/* DOI 和 Corpus ID */}
@@ -75,7 +75,8 @@ const PaperDetailSkeleton = () => {
       </div>
     </div>
   );
-};
+});
+
+PaperDetailSkeleton.displayName = 'PaperDetailSkeleton';
 
 export default PaperDetailSkeleton;
-

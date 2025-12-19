@@ -12,6 +12,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import * as subscriptionAPI from '../services/subscriptionService';
+import logger from '../utils/logger';
 
 const SubscriptionContext = createContext();
 
@@ -75,7 +76,7 @@ export const SubscriptionProvider = ({ children }) => {
     } catch (err) {
       const errorMsg = err.response?.data?.message || err.message || '获取订阅信息失败';
       setError(errorMsg);
-      console.error('Failed to fetch subscription:', err);
+      logger.error('Failed to fetch subscription:', err);
       return null;
     } finally {
       setLoading(false);
@@ -118,7 +119,7 @@ export const SubscriptionProvider = ({ children }) => {
     } catch (err) {
       const errorMsg = err.response?.data?.message || err.message || '获取使用情况失败';
       setError(errorMsg);
-      console.error('Failed to fetch usage:', err);
+      logger.error('Failed to fetch usage:', err);
       return null;
     } finally {
       setLoading(false);
@@ -161,7 +162,7 @@ export const SubscriptionProvider = ({ children }) => {
     } catch (err) {
       const errorMsg = err.response?.data?.message || err.message || '获取配额信息失败';
       setError(errorMsg);
-      console.error('Failed to fetch quota:', err);
+      logger.error('Failed to fetch quota:', err);
       return null;
     } finally {
       setLoading(false);

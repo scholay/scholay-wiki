@@ -12,6 +12,7 @@ import { checkinAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
 import { trackUserCheckin } from '../utils/usageTracker';
 import GoldIcon from './GoldIcon';
+import logger from '../utils/logger';
 import './CheckinFloat.css';
 
 // 懒加载 AuthModal
@@ -100,16 +101,16 @@ const CheckinFloat = () => {
     
     const lastVisit = sessionStorage.getItem(firstVisitKey);
     const modalShown = sessionStorage.getItem(modalShownKey);
-    console.log('[CheckinFloat] checkFirstVisitToday:', { today, lastVisit, modalShown, userId: user?.id });
+    logger.log('[CheckinFloat] checkFirstVisitToday:', { today, lastVisit, modalShown, userId: user?.id });
     
     if (lastVisit !== today) {
       sessionStorage.setItem(firstVisitKey, today);
       sessionStorage.removeItem(modalShownKey);
-      console.log('[CheckinFloat] New day for user, should show modal');
+      logger.log('[CheckinFloat] New day for user, should show modal');
       return true;
     }
     const shouldShow = modalShown !== 'true';
-    console.log('[CheckinFloat] Same day, shouldShow:', shouldShow);
+    logger.log('[CheckinFloat] Same day, shouldShow:', shouldShow);
     return shouldShow;
   }, [getStorageKey, user?.id]);
 
@@ -156,7 +157,7 @@ const CheckinFloat = () => {
         startAutoCloseCountdown();
       }
     } catch (error) {
-      console.error('自动签到失败:', error);
+      logger.error('自动签到失败:', error);
     }
   }, [startAutoCloseCountdown]);
 
@@ -187,16 +188,16 @@ const CheckinFloat = () => {
           }
         }
 
-        console.log('[CheckinFloat] Status:', { has_checked_in: status.has_checked_in });
+        logger.log('[CheckinFloat] Status:', { has_checked_in: status.has_checked_in });
         if (!status.has_checked_in) {
           setShowFloatBall(true);
           const shouldShowModal = checkFirstVisitToday();
-          console.log('[CheckinFloat] Should show modal:', shouldShowModal);
+          logger.log('[CheckinFloat] Should show modal:', shouldShowModal);
           if (shouldShowModal) {
             // 自动弹窗并自动签到
-            console.log('[CheckinFloat] Will show auto checkin modal in 1s');
+            logger.log('[CheckinFloat] Will show auto checkin modal in 1s');
             setTimeout(async () => {
-              console.log('[CheckinFloat] Showing modal and auto checkin');
+              logger.log('[CheckinFloat] Showing modal and auto checkin');
               setModalType('auto');
               setShowModal(true);
               // 使用用户专属的 key
@@ -207,12 +208,12 @@ const CheckinFloat = () => {
             }, 1000);
           }
         } else {
-          console.log('[CheckinFloat] Already checked in today');
+          logger.log('[CheckinFloat] Already checked in today');
           setShowFloatBall(false);
         }
       }
     } catch (error) {
-      console.error('获取签到状态失败:', error);
+      logger.error('获取签到状态失败:', error);
     }
   }, [isAuthenticated, checkFirstVisitToday, autoCheckin, getStorageKey]);
 
@@ -237,7 +238,7 @@ const CheckinFloat = () => {
         setHasCheckedIn(true);
       }
     } catch (error) {
-      console.error('签到失败:', error);
+      logger.error('签到失败:', error);
     } finally {
       setLoading(false);
     }

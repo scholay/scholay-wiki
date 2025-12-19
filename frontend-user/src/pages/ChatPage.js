@@ -17,6 +17,7 @@ import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
 import api, { subscriptionAPI } from '../services/api';
 import { trackAIChat, EntryPoint } from '../utils/usageTracker';
+import logger from '../utils/logger';
 import './ChatPageNew.css';
 import 'highlight.js/styles/github-dark.css';
 
@@ -137,7 +138,7 @@ function ChatPage() {
           setUsage(usageData);
         }
       } catch (error) {
-        console.error('Failed to fetch AI Chat quota/usage:', error);
+        logger.error('Failed to fetch AI Chat quota/usage:', error);
       }
     };
 
@@ -246,7 +247,7 @@ function ChatPage() {
         setConversations(convs);
       }
     } catch (error) {
-      console.error('Failed to load chat conversations:', error);
+      logger.error('Failed to load chat conversations:', error);
     }
   };
 
@@ -276,10 +277,10 @@ function ChatPage() {
           }
         });
       } else {
-        console.error('Failed to load conversation: invalid response code', response.data);
+        logger.error('Failed to load conversation: invalid response code', response.data);
       }
     } catch (error) {
-      console.error('Failed to load conversation:', error);
+      logger.error('Failed to load conversation:', error);
     } finally {
       setLoading(false);
     }
@@ -328,7 +329,7 @@ function ChatPage() {
       await loadConversations();
     } catch (error) {
       if (error.name !== 'AbortError') {
-        console.error('Failed to create conversation:', error);
+        logger.error('Failed to create conversation:', error);
       }
     } finally {
       setIsStreaming(false);
@@ -408,7 +409,7 @@ function ChatPage() {
       await handleStreamResponse(response);
     } catch (error) {
       if (error.name !== 'AbortError') {
-        console.error('Failed to send message:', error);
+        logger.error('Failed to send message:', error);
       }
     } finally {
       setIsStreaming(false);
@@ -540,7 +541,7 @@ function ChatPage() {
                 parentMessageId = null;  // Reset for next message
                 messageEndReceived = true;
               } else if (data.type === 'error') {
-                console.error('Stream error:', data.error);
+                logger.error('Stream error:', data.error);
               }
             } catch (e) {
               // Skip invalid JSON lines
@@ -550,7 +551,7 @@ function ChatPage() {
       }
     } catch (error) {
       if (error.name !== 'AbortError') {
-        console.error('Stream error:', error);
+        logger.error('Stream error:', error);
         throw error;
       }
     } finally {
@@ -634,7 +635,7 @@ function ChatPage() {
       await handleStreamResponse(response);
     } catch (error) {
       if (error.name !== 'AbortError') {
-        console.error('Failed to regenerate message:', error);
+        logger.error('Failed to regenerate message:', error);
       }
     } finally {
       setIsStreaming(false);
@@ -698,7 +699,7 @@ function ChatPage() {
       await handleStreamResponse(response);
     } catch (error) {
       if (error.name !== 'AbortError') {
-        console.error('Failed to edit message:', error);
+        logger.error('Failed to edit message:', error);
       }
     } finally {
       setIsStreaming(false);
@@ -728,7 +729,7 @@ function ChatPage() {
         }));
       }
     } catch (error) {
-      console.error('Failed to load siblings:', error);
+      logger.error('Failed to load siblings:', error);
     }
   };
 
@@ -752,7 +753,7 @@ function ChatPage() {
       });
 
       if (!response.ok) {
-        console.error('Failed to load branch chain');
+        logger.error('Failed to load branch chain');
         return;
       }
 
@@ -760,7 +761,7 @@ function ChatPage() {
       const branchChain = result.data;
 
       if (!branchChain || branchChain.length === 0) {
-        console.error('Empty branch chain returned');
+        logger.error('Empty branch chain returned');
         return;
       }
 
@@ -779,7 +780,7 @@ function ChatPage() {
         await loadSiblings(msg.message_id);
       }
     } catch (error) {
-      console.error('Failed to load branch chain:', error);
+      logger.error('Failed to load branch chain:', error);
     }
   };
 
@@ -792,7 +793,7 @@ function ChatPage() {
         setMessages([]);
       }
     } catch (error) {
-      console.error('Failed to delete conversation:', error);
+      logger.error('Failed to delete conversation:', error);
     }
   };
 
@@ -806,7 +807,7 @@ function ChatPage() {
         )
       );
     } catch (error) {
-      console.error('Failed to rename conversation:', error);
+      logger.error('Failed to rename conversation:', error);
     }
   };
 

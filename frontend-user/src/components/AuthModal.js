@@ -15,6 +15,7 @@ import { useToast } from './ToastContainer';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { trackUserLogin, trackUserRegister } from '../utils/usageTracker';
+import logger from '../utils/logger';
 import './styles/auth-modal/index.css';
 
 const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
@@ -51,8 +52,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const [enableTurnstile, setEnableTurnstile] = useState(false);
   const [enableGithubOAuth, setEnableGithubOAuth] = useState(false);
   const [invitationCode, setInvitationCode] = useState('');
-  // eslint-disable-next-line no-unused-vars
-  const [inviterInfo, setInviterInfo] = useState(null); // 保留供将来显示邀请人信息
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
 
   // 读取URL中的邀请码参数
@@ -150,7 +149,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     setAgreedToPolicy(false);
     setPasswordError('');
     setInvitationCode('');
-    setInviterInfo(null);
     setUseCodeLogin(false);
   };
 
@@ -656,61 +654,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     }
   };
 
-  // 邮箱验证码登录（保留供将来使用）
-  // eslint-disable-next-line no-unused-vars
-  const handleLoginWithCode = async () => {
-    if (!code) {
-      showError('请输入验证码');
-      return;
-    }
-
-    // Only check Turnstile token if Turnstile is enabled
-    if (enableTurnstile && !turnstileToken) {
-      showError('请完成人机验证');
-      return;
-    }
-
-    if (!agreedToPolicy) {
-      showError('请阅读并同意使用条款和隐私政策');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const response = await fetch('/api/v1/user/login-with-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code, turnstile_token: turnstileToken }),
-      });
-
-      const data = await response.json();
-
-      if (data.code === 0) {
-        trackUserLogin(); // 记录登录统计
-        login(data.data.token, data.data.user);
-        if (onLoginSuccess) onLoginSuccess(data.data.user);
-        handleClose();
-      } else {
-        showError(data.message || '登录失败');
-        setCode('');
-        setTurnstileToken('');
-        if (emailCaptchaRef.current) {
-          emailCaptchaRef.current.reset();
-        }
-      }
-    } catch (err) {
-      showError('网络错误，请稍后重试');
-      setCode('');
-      setTurnstileToken('');
-      if (emailCaptchaRef.current) {
-        emailCaptchaRef.current.reset();
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // 手机号验证码登录
   const handleLoginPhoneWithCode = async () => {
     if (!code) {
@@ -805,7 +748,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         showError(response.data.message || '获取微信登录链接失败');
       }
     } catch (err) {
-      console.error('WeChat login error:', err);
+      logger.error('WeChat login error:', err);
       showError('微信登录失败,请稍后重试');
     }
   };
@@ -844,7 +787,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         showError(response.data.message || '获取 GitHub 登录链接失败');
       }
     } catch (err) {
-      console.error('GitHub login error:', err);
+      logger.error('GitHub login error:', err);
       showError('GitHub 登录失败，请稍后重试');
     }
   };

@@ -27,6 +27,7 @@ import SEO from '../components/SEO';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
 import { trackAcademicSearch, EntryPoint } from '../utils/usageTracker';
 import { getSearchQuery, setSearchQuery as saveSearchQuery, getSearchFilters, setSearchFilters as saveSearchFilters, setSearchMode as saveSearchMode, getAIModelLevel } from '../utils/searchStorage';
+import logger from '../utils/logger';
 import './styles/search-results/index.css';
 
 // 懒加载 AuthModal 和 AISearchView
@@ -39,8 +40,8 @@ const SearchResultsPage = () => {
   const { isAuthenticated } = useAuth();
   const { isMobile } = useSidebar();
   const outletContext = useOutletContext();
-  // eslint-disable-next-line no-unused-vars
-  const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
+  // outletContext 保留用于未来扩展
+  void outletContext;
 
   // 登录弹窗状态
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -210,7 +211,7 @@ const SearchResultsPage = () => {
       localStorage.removeItem('returnToSimilarPapersTable');
     }
     
-    console.log('[SearchResultsPage] initState:', { hasPaperId, hasAuthorId, returnToTable, returnToSimilarTableFlag });
+    logger.log('[SearchResultsPage] initState:', { hasPaperId, hasAuthorId, returnToTable, returnToSimilarTableFlag });
     
     return {
       hasPaperId,
@@ -248,12 +249,6 @@ const SearchResultsPage = () => {
     }
     return 'list';
   }); // 视图模式: 'list', 'table', 'paper' 或 'author'
-  // eslint-disable-next-line no-unused-vars
-  const [selectedDimensionKey, setSelectedDimensionKey] = useState(null); // 表格视图中选中的维度
-  // eslint-disable-next-line no-unused-vars
-  const [tableReloadTrigger, setTableReloadTrigger] = useState(null); // 触发表格重新加载
-  // eslint-disable-next-line no-unused-vars
-  const [showTableGuide, setShowTableGuide] = useState(false); // 表格视图引导弹窗
 
   // 论文详情视图相关状态
   const [showDetailSearch, setShowDetailSearch] = useState(false); // 论文详情页搜索框显示状态
@@ -272,12 +267,9 @@ const SearchResultsPage = () => {
   const [authorPapersPage, setAuthorPapersPage] = useState(1); // 作者论文当前页
   const [authorPapersTotalPages, setAuthorPapersTotalPages] = useState(0); // 作者论文总页数
   const [authorPapersTotal, setAuthorPapersTotal] = useState(0); // 作者论文总数
-  // eslint-disable-next-line no-unused-vars
   const [authorPapersViewMode, setAuthorPapersViewMode] = useState('list'); // 作者论文视图模式: 'list' 或 'table'
+  void setAuthorPapersViewMode; // setter 预留供将来使用
   const [allAuthorPapers, setAllAuthorPapers] = useState([]); // 表格视图累积的所有论文（用于表格视图）
-  // authorSelectedPaper 已移除，统一使用 selectedPaper
-  // eslint-disable-next-line no-unused-vars
-  const [authorActiveTab, setAuthorActiveTab] = useState('publications'); // 作者详情 Tab: 'publications', 'citingAuthors', 'coAuthors'
   const [detailActiveTab, setDetailActiveTab] = useState(() => {
     // 如果是从相似论文表格视图登录返回，默认选中相似论文 tab
     if (initState.returnToSimilarTable) {
@@ -306,56 +298,13 @@ const SearchResultsPage = () => {
   // 相似论文状态
   const [similarPapersData, setSimilarPapersData] = useState({ papers: [], currentPage: 1, total: 0, totalPages: 0 });
   const [similarPapersLoading, setSimilarPapersLoading] = useState(false);
-  // eslint-disable-next-line no-unused-vars
-  const [similarPapersViewMode, setSimilarPapersViewMode] = useState(() => {
-    // 如果是从相似论文表格视图登录返回，默认使用表格视图
-    if (initState.returnToSimilarTable) {
-      return 'table';
-    }
-    return 'list';
-  }); // 'list' 或 'table'
   const [allSimilarPapers, setAllSimilarPapers] = useState([]); // 存储所有相似论文数据（用于分页）
-  // eslint-disable-next-line no-unused-vars
-  const [similarSelectedDimensionKey, setSimilarSelectedDimensionKey] = useState(null); // 相似论文表格视图选中的维度
-  // eslint-disable-next-line no-unused-vars
-  const [similarTableReloadTrigger, setSimilarTableReloadTrigger] = useState(null); // 相似论文表格视图重新加载触发器
   const [showSimilarPapersGuide, setShowSimilarPapersGuide] = useState(false); // 相似论文新手引导
-  // eslint-disable-next-line no-unused-vars
-  const [showSimilarTableGuide, setShowSimilarTableGuide] = useState(false); // 相似论文表格视图引导
   const hasClickedSimilarTabRef = useRef(false); // 标记用户是否已点击过相似论文标签
   const hasClickedSimilarTableBtnRef = useRef(false); // 标记用户是否已点击过相似论文表格按钮
   
   // 作者页面表格引导相关
-  // eslint-disable-next-line no-unused-vars
-  const [showAuthorTableGuide, setShowAuthorTableGuide] = useState(false); // 作者页面表格视图引导
   const hasClickedAuthorTableBtnRef = useRef(false); // 标记用户是否已点击过作者页面表格按钮
-
-
-  // 处理维度更新（编辑或新增）- 预留功能
-  // eslint-disable-next-line no-unused-vars
-  const handleDimensionsUpdated = useCallback((action, dimensionName) => {
-    // 设置重新加载触发器
-    setTableReloadTrigger({
-      action,
-      dimensionName,
-      timestamp: Date.now()
-    });
-    // 清除选中的维度
-    setSelectedDimensionKey(null);
-  }, []);
-
-  // 处理相似论文维度更新（编辑或新增）- 预留功能
-  // eslint-disable-next-line no-unused-vars
-  const handleSimilarDimensionsUpdated = useCallback((action, dimensionName) => {
-    // 设置重新加载触发器
-    setSimilarTableReloadTrigger({
-      action,
-      dimensionName,
-      timestamp: Date.now()
-    });
-    // 清除选中的维度
-    setSimilarSelectedDimensionKey(null);
-  }, []);
 
   // 处理相似论文 Tab 点击 - 用户主动点击说明已了解该功能，标记为已看过
   const handleSimilarTabClick = useCallback(() => {
@@ -404,7 +353,7 @@ const SearchResultsPage = () => {
       };
       
       if (canReuseTranslation) {
-        console.log('[Search] Reusing cached translation:', cachedTranslation);
+        logger.log('[Search] Reusing cached translation:', cachedTranslation);
       }
 
       // 添加筛选条件
@@ -471,7 +420,7 @@ const SearchResultsPage = () => {
               actual: responseData.actualQuery,
               searchStrategy: responseData.searchStrategy || 'combined'
             });
-            console.log('[Search] Cached new translation:', {
+            logger.log('[Search] Cached new translation:', {
               query,
               translated: responseData.translatedQuery,
               actual: responseData.actualQuery,
@@ -485,7 +434,7 @@ const SearchResultsPage = () => {
 
       }
     } catch (error) {
-      console.error('搜索失败:', error);
+      logger.error('搜索失败:', error);
       alert('搜索失败: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
@@ -517,7 +466,7 @@ const SearchResultsPage = () => {
           setDimensions(dims);
         }
       } catch (err) {
-        console.error('Failed to load dimensions:', err);
+        logger.error('Failed to load dimensions:', err);
       }
     };
     loadDimensions();
@@ -600,7 +549,7 @@ const SearchResultsPage = () => {
         }));
       }
     } catch (error) {
-      console.error('Failed to analyze paper:', paper.paperId, error);
+      logger.error('Failed to analyze paper:', paper.paperId, error);
       setAnalysisResults(prev => ({
         ...prev,
         [paper.paperId]: { _error: true, _message: error.response?.data?.message || '分析失败' }
@@ -661,7 +610,7 @@ const SearchResultsPage = () => {
   const loadPaperDetail = useCallback(async (paperId) => {
     if (!paperId) return;
     
-    console.log('[SearchResultsPage] Loading paper detail:', paperId);
+    logger.log('[SearchResultsPage] Loading paper detail:', paperId);
     setViewMode('paper');
     setDetailPaperId(paperId);
     setDetailLoading(true);
@@ -672,12 +621,12 @@ const SearchResultsPage = () => {
     try {
       // 使用公共 API，支持未登录用户访问
       const response = await publicScholarAPI.getPaper(paperId);
-      console.log('[SearchResultsPage] Paper detail loaded:', response.data);
+      logger.log('[SearchResultsPage] Paper detail loaded:', response.data);
       // API 返回格式是 {code: 0, message: 'success', data: {...}}，需要取 data.data
       setDetailPaper(response.data.data);
       setDetailLoading(false);
     } catch (error) {
-      console.error('[SearchResultsPage] Failed to load paper details:', error);
+      logger.error('[SearchResultsPage] Failed to load paper details:', error);
       setDetailError('加载论文详情失败');
       setDetailLoading(false);
     }
@@ -687,7 +636,7 @@ const SearchResultsPage = () => {
   const loadAuthorDetail = useCallback(async (authorId, page = 1) => {
     if (!authorId) return;
     
-    console.log('[SearchResultsPage] Loading author detail:', authorId, 'page:', page);
+    logger.log('[SearchResultsPage] Loading author detail:', authorId, 'page:', page);
     setViewMode('author');
     setDetailAuthorId(authorId);
     setAuthorLoading(true);
@@ -709,13 +658,13 @@ const SearchResultsPage = () => {
       ]);
       
       if (page === 1 && authorResponse) {
-        console.log('[SearchResultsPage] Author detail loaded:', authorResponse.data);
+        logger.log('[SearchResultsPage] Author detail loaded:', authorResponse.data);
         if (authorResponse.data.code === 0 && authorResponse.data.data) {
           setDetailAuthor(authorResponse.data.data);
           // 计算总页数
           const totalPapers = authorResponse.data.data.paperCount || 0;
           const totalPages = Math.ceil(totalPapers / perPage);
-          console.log('[SearchResultsPage] Total papers:', totalPapers, 'Total pages:', totalPages);
+          logger.log('[SearchResultsPage] Total papers:', totalPapers, 'Total pages:', totalPages);
           setAuthorPapersTotal(totalPapers);
           setAuthorPapersTotalPages(totalPages);
         } else {
@@ -726,7 +675,7 @@ const SearchResultsPage = () => {
       // Step 2: 用论文ID批量获取完整论文详情
       if (papersIdsResponse.data.code === 0 && papersIdsResponse.data.data) {
         const paperIds = (papersIdsResponse.data.data.data || []).map(p => p.paperId).filter(id => id);
-        console.log('[SearchResultsPage] Paper IDs:', paperIds);
+        logger.log('[SearchResultsPage] Paper IDs:', paperIds);
         
         if (paperIds.length > 0) {
           const batchResponse = await publicScholarAPI.getPaperBatch(
@@ -734,14 +683,14 @@ const SearchResultsPage = () => {
             ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
           );
           
-          console.log('[SearchResultsPage] Batch response:', batchResponse.data);
+          logger.log('[SearchResultsPage] Batch response:', batchResponse.data);
           if (batchResponse.data.code === 0 && batchResponse.data.data) {
             const papersData = batchResponse.data.data || [];
-            console.log('[SearchResultsPage] Papers data length:', papersData.length);
-            console.log('[SearchResultsPage] First paper:', papersData[0]);
+            logger.log('[SearchResultsPage] Papers data length:', papersData.length);
+            logger.log('[SearchResultsPage] First paper:', papersData[0]);
             setAuthorPapers(papersData);
           } else {
-            console.log('[SearchResultsPage] Batch response failed:', batchResponse.data);
+            logger.log('[SearchResultsPage] Batch response failed:', batchResponse.data);
           }
         } else {
           setAuthorPapers([]);
@@ -750,7 +699,7 @@ const SearchResultsPage = () => {
       
       setAuthorLoading(false);
     } catch (error) {
-      console.error('[SearchResultsPage] Failed to load author details:', error);
+      logger.error('[SearchResultsPage] Failed to load author details:', error);
       setAuthorError('加载作者详情失败');
       setAuthorLoading(false);
     }
@@ -761,49 +710,6 @@ const SearchResultsPage = () => {
     if (newPage < 1 || newPage > authorPapersTotalPages || newPage === authorPapersPage) return;
     loadAuthorDetail(detailAuthorId, newPage);
   }, [detailAuthorId, authorPapersTotalPages, authorPapersPage, loadAuthorDetail]);
-
-  // 作者论文表格视图 - 加载更多（累积加载，与相似论文逻辑一致）- 预留功能
-  // eslint-disable-next-line no-unused-vars
-  const loadMoreAuthorPapersForTable = useCallback(async () => {
-    if (!detailAuthorId || authorPapersLoading) return;
-    
-    // 计算下一页
-    const currentLoadedPages = Math.ceil(allAuthorPapers.length / 20);
-    const nextPage = currentLoadedPages + 1;
-    const totalPages = authorPapersTotalPages;
-    
-    if (nextPage > totalPages) return;
-    
-    setAuthorPapersLoading(true);
-    const offset = (nextPage - 1) * 20;
-    
-    try {
-      // Step 1: 获取论文ID
-      const papersIdsResponse = await publicScholarAPI.getAuthorPapers(detailAuthorId, offset, 20, 'paperId');
-      
-      if (papersIdsResponse.data.code === 0 && papersIdsResponse.data.data) {
-        const paperIds = (papersIdsResponse.data.data.data || []).map(p => p.paperId).filter(id => id);
-        
-        if (paperIds.length > 0) {
-          // Step 2: 批量获取论文详情
-          const batchResponse = await publicScholarAPI.getPaperBatch(
-            paperIds,
-            ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
-          );
-          
-          if (batchResponse.data.code === 0 && batchResponse.data.data) {
-            const newPapers = batchResponse.data.data || [];
-            // 累积添加到所有论文列表
-            setAllAuthorPapers(prev => [...prev, ...newPapers]);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('[SearchResultsPage] Failed to load more author papers for table:', error);
-    } finally {
-      setAuthorPapersLoading(false);
-    }
-  }, [detailAuthorId, authorPapersLoading, allAuthorPapers.length, authorPapersTotalPages]);
 
   // 当切换到表格视图时，从第一页开始加载数据
   const initAuthorTableFromFirstPage = useCallback(async () => {
@@ -831,7 +737,7 @@ const SearchResultsPage = () => {
         }
       }
     } catch (error) {
-      console.error('[SearchResultsPage] Failed to init author table from first page:', error);
+      logger.error('[SearchResultsPage] Failed to init author table from first page:', error);
     } finally {
       setAuthorPapersLoading(false);
     }
@@ -850,7 +756,7 @@ const SearchResultsPage = () => {
     const authorId = searchParams.get('authorId');
     const query = searchParams.get('query');
     
-    console.log('[SearchResultsPage] URL params changed - paperId:', paperId, 'authorId:', authorId, 'query:', query);
+    logger.log('[SearchResultsPage] URL params changed - paperId:', paperId, 'authorId:', authorId, 'query:', query);
     
     if (authorId) {
       // URL 中有 authorId，加载作者详情
@@ -943,69 +849,7 @@ const SearchResultsPage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 只在组件挂载时执行一次，故意省略依赖
     
-  // 监听搜索结果加载完成，显示表格视图引导
-  useEffect(() => {
-    // 只有当不在加载中、有结果、且用户没点击过表格按钮时才显示引导
-    if (!loading && papers.length > 0 && !hasClickedTableBtnRef.current) {
-    const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
-      if (!hasSeenTableGuide) {
-        // 延迟一点显示，让用户先看到结果
-        const timer = setTimeout(() => {
-          if (!hasClickedTableBtnRef.current) {
-        setShowTableGuide(true);
-          }
-        }, 500);
-        return () => clearTimeout(timer);
-    }
-    }
-  }, [loading, papers.length]); // 当 loading 状态或 papers 变化时检查
-
-  // 监听相似论文加载完成，显示表格视图引导
-  useEffect(() => {
-    // 只有当：
-    // 1. 论文详情加载完成（detailLoading = false）
-    // 2. 切换到相似论文 tab
-    // 3. 相似论文不在加载中
-    // 4. 有相似论文结果
-    // 5. 用户没点击过表格按钮
-    // 才显示引导
-    if (!detailLoading && detailActiveTab === 'similar' && !similarPapersLoading && similarPapersData.papers.length > 0 && !hasClickedSimilarTableBtnRef.current) {
-      const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
-      if (!hasSeenTableGuide) {
-        // 延迟一点显示，让用户先看到结果
-        const timer = setTimeout(() => {
-          if (!hasClickedSimilarTableBtnRef.current) {
-            setShowSimilarTableGuide(true);
-          }
-        }, 800);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [detailLoading, detailActiveTab, similarPapersLoading, similarPapersData.papers.length]);
-
-  // 监听作者页面数据加载完成，显示表格视图引导
-  useEffect(() => {
-    // 只有当：
-    // 1. 是作者视图模式
-    // 2. 作者详情加载完成（authorLoading = false）
-    // 3. 作者数据存在（有 detailAuthor）
-    // 4. 作者论文加载完成（authorPapersLoading = false）
-    // 5. 有作者论文结果
-    // 6. 用户没点击过作者表格按钮
-    // 才显示引导
-    if (viewMode === 'author' && !authorLoading && detailAuthor && !authorPapersLoading && authorPapers.length > 0 && !hasClickedAuthorTableBtnRef.current) {
-      const hasSeenTableGuide = localStorage.getItem('hasSeenTableViewGuide');
-      if (!hasSeenTableGuide) {
-        // 页面数据加载完成后，延迟800ms显示引导
-        const timer = setTimeout(() => {
-          if (!hasClickedAuthorTableBtnRef.current) {
-            setShowAuthorTableGuide(true);
-          }
-        }, 800);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [viewMode, authorLoading, detailAuthor, authorPapersLoading, authorPapers.length]);
+  // 表格视图引导功能已移除（相关状态变量已清理）
 
   useEffect(() => {
     const handleResize = () => {
@@ -1180,19 +1024,6 @@ const SearchResultsPage = () => {
     loadPaperDetail(paper.id);
   };
 
-  // 返回搜索结果列表 - 预留功能
-  // eslint-disable-next-line no-unused-vars
-  const handleBackToSearch = () => {
-    setViewMode('list');
-    setDetailPaper(null);
-    setDetailPaperId(null);
-    setDetailError(null);
-    // 从URL中移除paperId参数
-    const params = new URLSearchParams(searchParams);
-    params.delete('paperId');
-    setSearchParams(params);
-  };
-
   // 复制DOI
   const copyDetailDoi = (e) => {
     e.stopPropagation();
@@ -1252,7 +1083,7 @@ const SearchResultsPage = () => {
         totalPages: totalPages
       });
     } catch (error) {
-      console.error('Failed to load citations:', error);
+      logger.error('Failed to load citations:', error);
     } finally {
       setCitationsLoading(false);
     }
@@ -1297,7 +1128,7 @@ const SearchResultsPage = () => {
         totalPages: totalPages
       });
     } catch (error) {
-      console.error('Failed to load references:', error);
+      logger.error('Failed to load references:', error);
     } finally {
       setReferencesLoading(false);
     }
@@ -1374,7 +1205,7 @@ const SearchResultsPage = () => {
         };
       });
     } catch (error) {
-      console.error('Failed to load similar papers:', error);
+      logger.error('Failed to load similar papers:', error);
       setSimilarPapersData({
         papers: [],
         currentPage: 1,
@@ -1413,164 +1244,10 @@ const SearchResultsPage = () => {
     setSearchParams(params);
   };
 
-  // 处理使用推荐搜索词搜索（从表格视图空状态触发）- 预留功能
-  // eslint-disable-next-line no-unused-vars
-  const handleSearchWithRecommendedQuery = (recommendedQuery) => {
-    if (!recommendedQuery || !recommendedQuery.trim()) return;
-    
-    console.log('[SearchResultsPage] Searching with recommended query:', recommendedQuery);
-    
-    // 更新搜索框内容
-    setSearchQuery(recommendedQuery);
-    
-    // 关闭搜索建议
-    setShowSuggestions(false);
-    
-    // 重置分页
-    setCurrentPage(1);
-    
-    // 清除翻译缓存
-    setCachedTranslation({ query: '', translated: '', actual: '' });
-    setQueryInfo({
-      originalQuery: '',
-      translatedQuery: '',
-      actualQuery: '',
-      translationEnabled: false
-    });
-    
-    // 更新URL参数
-    updateURL(recommendedQuery, filters, 1);
-    
-    // 执行搜索
-    performSearch(recommendedQuery, filters, 1);
-  };
-
-  // 处理顶部筛选面板的筛选条件变化（不立即搜索，只更新状态）- 预留功能
-  // eslint-disable-next-line no-unused-vars
-  const handleTopFiltersChange = (newFilters) => {
-    setFilters(newFilters);
-  };
-
-  // 处理顶部筛选面板关闭（只在有结果页面关闭时触发搜索）- 预留功能
-  // eslint-disable-next-line no-unused-vars
-  const handleTopFiltersToggle = (shouldSearchOnClose = false) => {
-    if (showFilters && shouldSearchOnClose) {
-      // 面板正在关闭，且明确要求搜索时才触发
-      if (searchQuery.trim()) {
-        setCurrentPage(1);
-        updateURL(searchQuery, filters, 1);
-        performSearch(searchQuery, filters, 1);
-      }
-    }
-    setShowFilters(!showFilters);
-  };
-
-  // 检查是否有筛选条件 - 预留功能
-  // eslint-disable-next-line no-unused-vars
-  const hasActiveFilters = () => {
-    return filters.yearFrom ||
-           filters.yearTo ||
-           filters.publicationTypes.length > 0 ||
-           filters.fieldsOfStudy.length > 0 ||
-           filters.openAccessPdf ||
-           filters.venue ||
-           filters.minCitationCount;
-  };
-
-  // 获取当前筛选标签列表 - 预留功能
-  // eslint-disable-next-line no-unused-vars
-  const getFilterTags = () => {
-    const tags = [];
-    
-    if (filters.yearFrom && filters.yearTo) {
-      tags.push({ key: 'year', label: `${filters.yearFrom}-${filters.yearTo}`, type: 'year' });
-    } else if (filters.yearFrom) {
-      tags.push({ key: 'yearFrom', label: `${filters.yearFrom}年起`, type: 'year' });
-    } else if (filters.yearTo) {
-      tags.push({ key: 'yearTo', label: `至${filters.yearTo}年`, type: 'year' });
-    }
-    
-    if (filters.openAccessPdf) {
-      tags.push({ key: 'openAccess', label: '开放获取', type: 'openAccess' });
-    }
-
-    if (filters.minCitationCount) {
-      tags.push({ key: 'minCitationCount', label: `引用≥${filters.minCitationCount}`, type: 'minCitationCount' });
-    }
-    
-    filters.fieldsOfStudy.forEach(field => {
-      tags.push({ key: `field-${field}`, label: field, type: 'field' });
-    });
-    
-    filters.publicationTypes.forEach(type => {
-      tags.push({ key: `type-${type}`, label: type, type: 'pubType' });
-    });
-    
-    if (filters.venue) {
-      tags.push({ key: 'venue', label: filters.venue, type: 'venue' });
-    }
-    
-    return tags;
-  };
-
-  // 移除单个筛选条件 - 预留功能
-  // eslint-disable-next-line no-unused-vars
-  const removeFilter = (tagKey, tagType) => {
-    const newFilters = { ...filters };
-    
-    if (tagType === 'year') {
-      newFilters.yearFrom = '';
-      newFilters.yearTo = '';
-    } else if (tagType === 'openAccess') {
-      newFilters.openAccessPdf = '';
-    } else if (tagType === 'minCitationCount') {
-      newFilters.minCitationCount = '';
-    } else if (tagType === 'field') {
-      const fieldName = tagKey.replace('field-', '');
-      newFilters.fieldsOfStudy = newFilters.fieldsOfStudy.filter(f => f !== fieldName);
-    } else if (tagType === 'pubType') {
-      const typeName = tagKey.replace('type-', '');
-      newFilters.publicationTypes = newFilters.publicationTypes.filter(t => t !== typeName);
-    } else if (tagType === 'venue') {
-      newFilters.venue = '';
-    }
-    
-    setFilters(newFilters);
-    
-    // 如果已经执行过搜索，自动重新搜索
-    if (searchQuery.trim()) {
-    setCurrentPage(1);
-    updateURL(searchQuery, newFilters, 1);
-    performSearch(searchQuery, newFilters, 1);
-    }
-  };
-
   // 应用筛选条件并触发搜索
   const applyFilters = (newFilters) => {
     setFilters(newFilters);
     saveSearchFilters(newFilters);
-    
-    // 如果已经执行过搜索，自动重新搜索
-    if (searchQuery.trim()) {
-      setCurrentPage(1);
-      updateURL(searchQuery, newFilters, 1);
-      performSearch(searchQuery, newFilters, 1);
-    }
-  };
-
-  // 清除所有筛选条件 - 预留功能
-  // eslint-disable-next-line no-unused-vars
-  const clearAllFilters = () => {
-    const newFilters = {
-      yearFrom: '',
-      yearTo: '',
-      publicationTypes: [],
-      fieldsOfStudy: [],
-      openAccessPdf: '',
-      venue: '',
-      minCitationCount: '',
-    };
-    setFilters(newFilters);
     
     // 如果已经执行过搜索，自动重新搜索
     if (searchQuery.trim()) {
@@ -1657,7 +1334,6 @@ const SearchResultsPage = () => {
 
   // 计算分页信息
   const totalPages = Math.ceil(total / papersPerPage);
-  // eslint-disable-next-line no-unused-vars
   const startIndex = (currentPage - 1) * papersPerPage + 1;
 
 

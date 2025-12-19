@@ -29,8 +29,7 @@ const AuthModal = lazy(() => import('../components/AuthModal'));
 const Home = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  // eslint-disable-next-line no-unused-vars
-  const { theme } = useTheme(); // 保留供将来主题相关功能使用
+  useTheme(); // 确保主题 context 可用
   
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);

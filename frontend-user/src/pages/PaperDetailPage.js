@@ -13,9 +13,9 @@ import api, { publicScholarAPI } from '../services/api';
 import SEO from '../components/SEO';
 import FloatingGuide from '../components/FloatingGuide';
 import { generateScholarlyArticleSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
-// eslint-disable-next-line no-unused-vars
-import { trackPaperDetail, trackPaperDimension, trackSimilarPapers } from '../utils/usageTracker'; // 保留供将来追踪使用
+import { trackPaperDetail } from '../utils/usageTracker';
 import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation } from '../utils/searchStorage';
+import logger from '../utils/logger';
 import './PaperDetailPage.css';
 
 const PaperDetailPage = () => {
@@ -63,7 +63,7 @@ const PaperDetailPage = () => {
         setPaper(response.data.data);
         setError(null);
       } catch (err) {
-        console.error('Failed to fetch paper details:', err);
+        logger.error('Failed to fetch paper details:', err);
         setError(err.response?.data?.message || 'Failed to load paper details');
       } finally {
         setIsLoading(false);
@@ -80,7 +80,7 @@ const PaperDetailPage = () => {
   // 预加载相似论文数据（单独的 useEffect，在 paperId 变化时触发）
   useEffect(() => {
     const prefetchSimilarPapers = async () => {
-      console.log('[Prefetch] Starting to prefetch similar papers for paperId:', paperId);
+      logger.log('[Prefetch] Starting to prefetch similar papers for paperId:', paperId);
       setSimilarPapersLoading(true);
       setSimilarPapersLoaded(false);
       setSimilarPapers([]);
@@ -91,7 +91,7 @@ const PaperDetailPage = () => {
         const recommendedPapers = recResponse.data?.data?.recommendedPapers || recResponse.data?.recommendedPapers || [];
         
         if (recommendedPapers.length === 0) {
-          console.log('[Prefetch] No recommended papers found');
+          logger.log('[Prefetch] No recommended papers found');
           setSimilarPapers([]);
           setSimilarPapersLoaded(true);
           setSimilarPapersLoading(false);
@@ -108,11 +108,11 @@ const PaperDetailPage = () => {
         );
         
         const papers = batchResponse.data?.data || batchResponse.data || [];
-        console.log('[Prefetch] Similar papers loaded:', papers.length);
+        logger.log('[Prefetch] Similar papers loaded:', papers.length);
         setSimilarPapers(papers);
         setSimilarPapersLoaded(true);
       } catch (err) {
-        console.error('[Prefetch] Failed to prefetch similar papers:', err);
+        logger.error('[Prefetch] Failed to prefetch similar papers:', err);
         setSimilarPapers([]);
         setSimilarPapersLoaded(true);
       } finally {
@@ -154,7 +154,7 @@ const PaperDetailPage = () => {
         setSearchTotal(0);
       }
     } catch (err) {
-      console.error('Search failed:', err);
+      logger.error('Search failed:', err);
       setSearchError('搜索失败，请稍后重试');
       setSearchResults([]);
       setSearchTotal(0);
@@ -190,14 +190,14 @@ const PaperDetailPage = () => {
 
   // 处理标题hover
   const handleTitleMouseEnter = () => {
-    console.log('[Hover] Mouse enter title, similarPapersLoaded:', similarPapersLoaded, 'similarPapersLoading:', similarPapersLoading, 'similarPapers:', similarPapers.length);
+    logger.log('[Hover] Mouse enter title, similarPapersLoaded:', similarPapersLoaded, 'similarPapersLoading:', similarPapersLoading, 'similarPapers:', similarPapers.length);
     isHoveringTitleRef.current = true;
     // 立即显示弹窗（数据通常已预加载完成，如果还在加载则显示loading状态）
     setShowSimilarPopup(true);
   };
 
   const handleTitleMouseLeave = () => {
-    console.log('[Hover] Mouse leave title');
+    logger.log('[Hover] Mouse leave title');
     isHoveringTitleRef.current = false;
     setShowSimilarPopup(false);
   };

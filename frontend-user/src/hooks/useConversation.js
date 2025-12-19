@@ -13,6 +13,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { conversationAPI } from '../services/api';
 import { organizeMessagesByParentId } from '../utils/messageUtils';
+import logger from '../utils/logger';
 
 /**
  * 对话管理 Hook
@@ -49,7 +50,7 @@ const useConversation = (options = {}) => {
         setConversations(response.data.data || []);
       }
     } catch (error) {
-      console.error('Failed to fetch conversations:', error);
+      logger.error('Failed to fetch conversations:', error);
       onError?.('加载对话列表失败');
     } finally {
       setConversationsLoading(false);
@@ -92,7 +93,7 @@ const useConversation = (options = {}) => {
         return conv;
       }
     } catch (error) {
-      console.error('Failed to load conversation:', error);
+      logger.error('Failed to load conversation:', error);
       onError?.('加载对话失败');
     } finally {
       setLoading(false);
@@ -133,7 +134,7 @@ const useConversation = (options = {}) => {
       }
       return true;
     } catch (error) {
-      console.error('Failed to delete conversation:', error);
+      logger.error('Failed to delete conversation:', error);
       onError?.('删除对话失败');
       return false;
     }
@@ -148,7 +149,7 @@ const useConversation = (options = {}) => {
       );
       return true;
     } catch (error) {
-      console.error('Failed to rename conversation:', error);
+      logger.error('Failed to rename conversation:', error);
       onError?.('重命名对话失败');
       return false;
     }

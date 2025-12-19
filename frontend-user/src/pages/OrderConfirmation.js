@@ -11,6 +11,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api, { orderAPI, paymentAPI } from '../services/api';
 import { useToast } from '../components/ToastContainer';
+import logger from '../utils/logger';
 import './OrderConfirmation.css';
 
 const OrderConfirmation = () => {
@@ -110,7 +111,7 @@ const OrderConfirmation = () => {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch available coupons:', error);
+      logger.error('Failed to fetch available coupons:', error);
     }
   };
 
@@ -126,7 +127,7 @@ const OrderConfirmation = () => {
 
     if (orderNoFromURL && !isPolling) {
       setIsPolling(true);
-      console.log('[Payment Polling] Starting payment status polling...');
+      logger.log('[Payment Polling] Starting payment status polling...');
     }
 
     if (!isPolling) {
@@ -135,14 +136,14 @@ const OrderConfirmation = () => {
 
     // Maximum polling duration: 60 seconds (30 attempts × 2 seconds)
     if (pollingCount >= 30) {
-      console.log('[Payment Polling] Polling timeout, stopping');
+      logger.log('[Payment Polling] Polling timeout, stopping');
       setIsPolling(false);
       return;
     }
 
     // Poll every 2 seconds
     const pollTimer = setTimeout(() => {
-      console.log(`[Payment Polling] Checking order status (attempt ${pollingCount + 1}/30)...`);
+      logger.log(`[Payment Polling] Checking order status (attempt ${pollingCount + 1}/30)...`);
       fetchOrderDetails(order.order_no, true);
       setPollingCount(prev => prev + 1);
     }, 2000);
@@ -184,7 +185,7 @@ const OrderConfirmation = () => {
       setLoading(false);
     } catch (error) {
       showError('获取套餐信息失败,请重试');
-      console.error('Failed to fetch plan details:', error);
+      logger.error('Failed to fetch plan details:', error);
       setLoading(false);
       navigate('/pricing');
     }
@@ -198,27 +199,27 @@ const OrderConfirmation = () => {
         const previousStatus = order?.status;
         setOrder(newOrder);
 
-        console.log(`[Order Status] Current: ${newOrder.status}, Previous: ${previousStatus}, IsPolling: ${isPollingRequest}`);
+        logger.log(`[Order Status] Current: ${newOrder.status}, Previous: ${previousStatus}, IsPolling: ${isPollingRequest}`);
 
         // If polling and order status changed to paid, stop polling and show success
         if (isPollingRequest && newOrder.status === 'paid') {
-          console.log('[Payment Polling] Payment confirmed! Status changed to paid');
+          logger.log('[Payment Polling] Payment confirmed! Status changed to paid');
           setIsPolling(false);
           setPollingCount(0);
 
           // Show a brief success message before redirecting
-          console.log('[Payment Polling] Redirecting to subscription page in 2 seconds...');
+          logger.log('[Payment Polling] Redirecting to subscription page in 2 seconds...');
           setTimeout(() => {
-            console.log('[Payment Polling] Executing redirect now');
+            logger.log('[Payment Polling] Executing redirect now');
             navigate('/settings?tab=subscription');
           }, 2000);
         }
 
         // Also handle case where user refreshes a paid order page - auto redirect
         if (!isPollingRequest && newOrder.status === 'paid' && !previousStatus) {
-          console.log('[Order] Detected paid order on initial load, redirecting in 3 seconds...');
+          logger.log('[Order] Detected paid order on initial load, redirecting in 3 seconds...');
           setTimeout(() => {
-            console.log('[Order] Executing redirect for paid order');
+            logger.log('[Order] Executing redirect for paid order');
             navigate('/settings?tab=subscription');
           }, 3000);
         }
@@ -231,10 +232,10 @@ const OrderConfirmation = () => {
     } catch (error) {
       if (!isPollingRequest) {
         showError('获取订单详情失败,请重试');
-        console.error('Failed to fetch order details:', error);
+        logger.error('Failed to fetch order details:', error);
         navigate('/settings');
       } else {
-        console.error('[Payment Polling] Failed to fetch order status:', error);
+        logger.error('[Payment Polling] Failed to fetch order status:', error);
       }
     } finally {
       if (!isPollingRequest) {
@@ -308,14 +309,14 @@ const OrderConfirmation = () => {
         
         if (order.order_type === 'recharge') {
           // 创建充值订单
-          console.log('[Order Creation] Creating recharge order:', order.diamond_amount);
+          logger.log('[Order Creation] Creating recharge order:', order.diamond_amount);
           createOrderResponse = await orderAPI.createRechargeOrder(
             order.diamond_amount,
             order.bonus_amount
           );
         } else {
           // 创建会员订阅订单
-          console.log('[Order Creation] Creating subscription order with coupon:', selectedCoupon?.id);
+          logger.log('[Order Creation] Creating subscription order with coupon:', selectedCoupon?.id);
           createOrderResponse = await orderAPI.createOrder(
             order.plan_code,
             order.billing_cycle,
@@ -331,7 +332,7 @@ const OrderConfirmation = () => {
 
         actualOrder = createOrderResponse.data.data;
         setOrder(actualOrder);
-        console.log('[Order Creation] Order created successfully:', actualOrder.order_no);
+        logger.log('[Order Creation] Order created successfully:', actualOrder.order_no);
       } catch (error) {
         showError('创建订单失败：' + (error.response?.data?.message || error.message));
         setPaymentLoading(false);
@@ -362,7 +363,7 @@ const OrderConfirmation = () => {
         if (response.data.code === 0) {
           // Payment simulated successfully, start polling
           setIsPolling(true);
-          console.log('[Simulate Payment] Payment simulated, starting polling...');
+          logger.log('[Simulate Payment] Payment simulated, starting polling...');
         } else {
           showError('模拟支付失败：' + (response.data.message || '未知错误'));
           setPaymentLoading(false);
@@ -408,7 +409,7 @@ const OrderConfirmation = () => {
       }
     } catch (error) {
       showError('支付失败,请稍后重试');
-      console.error('Payment failed:', error);
+      logger.error('Payment failed:', error);
       setPaymentLoading(false);
     }
   };
@@ -421,7 +422,7 @@ const OrderConfirmation = () => {
 
     const pollingInterval = setInterval(async () => {
       attempts++;
-      console.log(`[WeChat Pay Polling] Checking payment status (attempt ${attempts}/${maxAttempts})...`);
+      logger.log(`[WeChat Pay Polling] Checking payment status (attempt ${attempts}/${maxAttempts})...`);
 
       try {
         const response = await orderAPI.getOrderDetail(orderNo);
@@ -429,14 +430,14 @@ const OrderConfirmation = () => {
           const orderData = response.data.data;
 
           if (orderData.status === 'paid') {
-            console.log('[WeChat Pay Polling] Payment successful!');
+            logger.log('[WeChat Pay Polling] Payment successful!');
             clearInterval(pollingInterval);
             setWechatPaymentPolling(false);
             setShowWeChatQRModal(false);
             setOrder(orderData);
             // Will trigger the success UI update through order state change
           } else if (orderData.status === 'cancelled' || orderData.status === 'failed') {
-            console.log(`[WeChat Pay Polling] Payment ${orderData.status}`);
+            logger.log(`[WeChat Pay Polling] Payment ${orderData.status}`);
             clearInterval(pollingInterval);
             setWechatPaymentPolling(false);
             setShowWeChatQRModal(false);
@@ -444,12 +445,12 @@ const OrderConfirmation = () => {
           }
         }
       } catch (error) {
-        console.error('[WeChat Pay Polling] Error checking payment status:', error);
+        logger.error('[WeChat Pay Polling] Error checking payment status:', error);
       }
 
       // Stop polling after max attempts
       if (attempts >= maxAttempts) {
-        console.log('[WeChat Pay Polling] Polling timeout, stopping');
+        logger.log('[WeChat Pay Polling] Polling timeout, stopping');
         clearInterval(pollingInterval);
         setWechatPaymentPolling(false);
         showError('支付超时,请检查支付状态或重试');

@@ -67,7 +67,7 @@ const GithubCallback = () => {
       const state = searchParams.get('state');
 
       if (!code || !state) {
-        console.error('Invalid GitHub callback parameters');
+        logger.error('Invalid GitHub callback parameters');
         navigate('/');
         return;
       }
@@ -84,10 +84,10 @@ const GithubCallback = () => {
       logger.log('GitHub callback - Saved state:', savedState);
 
       if (state !== savedState) {
-        console.error('State mismatch!');
-        console.error('  Expected (from localStorage):', savedState);
-        console.error('  Received (from URL):', state);
-        console.error('  Storage key used:', stateKey);
+        logger.error('State mismatch!');
+        logger.error('  Expected (from localStorage):', savedState);
+        logger.error('  Received (from URL):', state);
+        logger.error('  Storage key used:', stateKey);
 
         // Redirect with error state
         if (bindMode === 'bind') {
@@ -165,7 +165,7 @@ const GithubCallback = () => {
           }
         }
       } catch (error) {
-        console.error('GitHub callback error:', error);
+        logger.error('GitHub callback error:', error);
         const errorMessage = error.response?.data?.message || error.message || (bindMode === 'bind' ? 'GitHub 绑定失败' : 'GitHub 登录失败');
 
         // Clean up on error

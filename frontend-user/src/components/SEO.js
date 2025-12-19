@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-import React from 'react';
+import React, { memo } from 'react';
 import { Helmet } from 'react-helmet-async';
 
 /**
@@ -21,7 +21,7 @@ import { Helmet } from 'react-helmet-async';
  * @param {string} ogImage - 社交分享图片
  * @param {Object} structuredData - 结构化数据（JSON-LD）
  */
-const SEO = ({
+const SEO = memo(({
   title = 'Scholay - AI驱动的学术搜索平台',
   description = 'Scholay是一个创新的学术搜索平台，提供AI驱动的文献检索、智能论文分析、引用图谱可视化等功能。',
   keywords,
@@ -74,6 +74,8 @@ const SEO = ({
       )}
     </Helmet>
   );
-};
+});
+
+SEO.displayName = 'SEO';
 
 export default SEO;

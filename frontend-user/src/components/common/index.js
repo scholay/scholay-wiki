@@ -69,3 +69,6 @@ export { default as PaperDetailTabs } from '../PaperDetailTabs';
 export { default as SearchForm } from '../SearchForm';
 export { default as DimensionSelector } from '../DimensionSelector';
 
+// AI 对话相关组件
+export { default as QASection } from '../QASection';
+export { default as ChatInputArea } from '../ChatInputArea';

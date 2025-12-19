@@ -9,6 +9,7 @@
 
 import React, { forwardRef, useImperativeHandle, useRef, useState, useEffect } from 'react';
 import { Turnstile } from '@marsidev/react-turnstile';
+import logger from '../utils/logger';
 import './TurnstileCaptcha.css';
 
 /**
@@ -38,7 +39,7 @@ const TurnstileCaptcha = forwardRef(({ onSuccess, onFail, onExpire, theme = 'dar
           setConfig(data.data);
         }
       } catch (err) {
-        console.error('[Turnstile] Failed to load system config:', err);
+        logger.error('[Turnstile] Failed to load system config:', err);
         // Use fallback config if fetch fails
         setConfig({
           enable_turnstile: false,
@@ -63,7 +64,7 @@ const TurnstileCaptcha = forwardRef(({ onSuccess, onFail, onExpire, theme = 'dar
   // If Turnstile is disabled, call onSuccess immediately with empty token
   useEffect(() => {
     if (!loading && config && !config.enable_turnstile) {
-      console.log('[Turnstile] Turnstile is disabled, auto-succeeding');
+      logger.log('[Turnstile] Turnstile is disabled, auto-succeeding');
       if (onSuccess) onSuccess('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,15 +84,15 @@ const TurnstileCaptcha = forwardRef(({ onSuccess, onFail, onExpire, theme = 'dar
         ref={turnstileRef}
         siteKey={siteKey}
         onSuccess={(token) => {
-          console.log('[Turnstile] Verification successful');
+          logger.log('[Turnstile] Verification successful');
           if (onSuccess) onSuccess(token);
         }}
         onError={() => {
-          console.error('[Turnstile] Verification error');
+          logger.error('[Turnstile] Verification error');
           if (onFail) onFail();
         }}
         onExpire={() => {
-          console.log('[Turnstile] Token expired');
+          logger.log('[Turnstile] Token expired');
           if (onExpire) onExpire();
         }}
         options={{

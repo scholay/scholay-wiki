@@ -12,4 +12,7 @@
 export { default as ProfileTab } from './ProfileTab';
 export { default as WalletSection } from './WalletSection';
 export { default as TransactionList } from './TransactionList';
-
+export { default as AccountTab } from './AccountTab';
+export { default as InvitationTab } from './InvitationTab';
+export { default as SubscriptionTab } from './SubscriptionTab';
+export { default as AccountBindingModal } from './AccountBindingModal';

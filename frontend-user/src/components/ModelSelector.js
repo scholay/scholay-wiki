@@ -27,40 +27,10 @@ const ModelSelector = memo(({ value = 'low', onChange, disabled = false, userSub
   const [showDropdown, setShowDropdown] = useState(false);
   const [quota, setQuota] = useState(null);
   const [usage, setUsage] = useState(null);
-  // userSubscription 用于判断用户订阅等级
-  // eslint-disable-next-line no-unused-vars
-  const [userSubscription, setUserSubscription] = useState(userSubscriptionProp);
   const containerRef = useRef(null);
 
-  // 获取订阅信息
-  useEffect(() => {
-    const fetchSubscription = async () => {
-      // 未登录时不获取
-      if (!isAuthenticated) {
-        return;
-      }
-
-      // 如果已经通过 prop 传入了订阅信息，优先使用
-      if (userSubscriptionProp) {
-        setUserSubscription(userSubscriptionProp);
-        console.log('[ModelSelector] Using subscription from props:', userSubscriptionProp);
-        return;
-      }
-
-      // 否则自己获取订阅信息
-      try {
-        const response = await subscriptionAPI.getMySubscription();
-        if (response.data.code === 0 && response.data.data) {
-          setUserSubscription(response.data.data);
-          console.log('[ModelSelector] Fetched subscription:', response.data.data);
-        }
-      } catch (error) {
-        console.error('[ModelSelector] Failed to fetch subscription:', error);
-      }
-    };
-
-    fetchSubscription();
-  }, [isAuthenticated, userSubscriptionProp]);
+  // 订阅信息从 props 获取，不再单独获取
+  // userSubscriptionProp 可用于将来扩展订阅相关功能
 
   // SVG图标组件
   const LowIcon = () => (

@@ -177,7 +177,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     const container = qaSnapContainerRef.current;
     if (!container) return;
     
-    console.log('[DEBUG-SCROLL] scrollToBottom 被调用, behavior:', behavior, 'scrollHeight:', container.scrollHeight);
+    logger.log('[DEBUG-SCROLL] scrollToBottom 被调用, behavior:', behavior, 'scrollHeight:', container.scrollHeight);
     lastScrollTimeRef.current = Date.now();
     container.scrollTo({
       top: container.scrollHeight,
@@ -213,7 +213,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       
       // 检测是否滚动到顶部，触发加载更多
       if (scrollTop < 100 && messagePagination.hasMore && !messagePagination.isLoadingMore && !isStreaming) {
-        console.log('[DEBUG-SCROLL] 滚动到顶部，触发加载更多');
+        logger.log('[DEBUG-SCROLL] 滚动到顶部，触发加载更多');
         loadMoreMessages();
       }
     }
@@ -243,7 +243,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
   // 流式传输时自动滚动到底部
   useEffect(() => {
     if (isStreaming && autoScroll && streamingContent) {
-      console.log('[DEBUG-SCROLL] 流式传输中滚动到底部');
+      logger.log('[DEBUG-SCROLL] 流式传输中滚动到底部');
       scrollToBottom('auto'); // 使用 'auto' 避免 smooth 滚动的延迟
     }
   }, [streamingContent, isStreaming, autoScroll]);
@@ -256,7 +256,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       // 检查是否是用户刚发送了新问题（而不是 AI 回复完成）
       const lastMessage = messages[messages.length - 1];
       if (lastMessage?.role === 'user') {
-        console.log('[DEBUG-SCROLL] 用户发送新问题，触发滚动');
+        logger.log('[DEBUG-SCROLL] 用户发送新问题，触发滚动');
         setTimeout(() => scrollToBottom('smooth'), 50);
       }
     }
@@ -265,7 +265,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
 
   // 流式传输状态变化时的处理
   useEffect(() => {
-    console.log('[DEBUG-SCROLL] isStreaming 变化:', isStreaming);
+    logger.log('[DEBUG-SCROLL] isStreaming 变化:', isStreaming);
     if (isStreaming) {
       // 开始流式传输时：重置自动滚动，禁用 scroll-snap
       setAutoScroll(true);
@@ -282,7 +282,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     if (wasLoading && !isLoadingSuggestedQuestions && !isStreaming) {
       // 推荐问题刚加载完成，滚动到底部
       setTimeout(() => {
-        console.log('[DEBUG-SCROLL] 推荐问题加载完成，滚动到底部');
+        logger.log('[DEBUG-SCROLL] 推荐问题加载完成，滚动到底部');
         scrollToBottom('smooth');
       }, 100);
     }
@@ -290,11 +290,11 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
 
   // 流式传输结束且推荐问题加载完成后，延迟恢复 scroll-snap
   useEffect(() => {
-    console.log('[DEBUG-SCROLL] 检查恢复 scroll-snap: isStreaming=', isStreaming, 'isLoadingSuggestedQuestions=', isLoadingSuggestedQuestions);
+    logger.log('[DEBUG-SCROLL] 检查恢复 scroll-snap: isStreaming=', isStreaming, 'isLoadingSuggestedQuestions=', isLoadingSuggestedQuestions);
     if (!isStreaming && !isLoadingSuggestedQuestions) {
       // 延迟恢复 scroll-snap，给 DOM 足够时间稳定
       const timer = setTimeout(() => {
-        console.log('[DEBUG-SCROLL] 恢复 scroll-snap');
+        logger.log('[DEBUG-SCROLL] 恢复 scroll-snap');
         setDisableSnapTemporarily(false);
       }, 800); // 延迟 800ms 恢复 scroll-snap
       return () => clearTimeout(timer);
@@ -345,7 +345,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
           setUsage(usageData);
         }
       } catch (error) {
-        console.error('Failed to fetch quota/usage:', error);
+        logger.error('Failed to fetch quota/usage:', error);
       }
     };
 
@@ -362,41 +362,10 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         setConversations(response.data.data.conversations || []);
       }
     } catch (error) {
-      console.error('Failed to load search conversations:', error);
+      logger.error('Failed to load search conversations:', error);
     } finally {
       setConversationsLoading(false);
     }
-  };
-
-  // 获取当前模型的剩余次数（保留供将来使用）
-  // eslint-disable-next-line no-unused-vars
-  const getRemainingCount = () => {
-    if (!quota || !usage) return null;
-
-    // 映射配额和使用情况字段
-    const quotaFieldMap = {
-      'low': 'advancedSearchLowQuota',
-      'mid': 'advancedSearchMidQuota',
-      'high': 'advancedSearchHighQuota'
-    };
-
-    const usageFieldMap = {
-      'low': 'advancedSearchLowCount',
-      'mid': 'advancedSearchMidCount',
-      'high': 'advancedSearchHighCount'
-    };
-
-    const quotaField = quotaFieldMap[modelLevel];
-    const usageField = usageFieldMap[modelLevel];
-
-    const quotaValue = quota[quotaField];
-    const usageValue = usage[usageField] || 0;
-
-    // -1 表示无限制
-    if (quotaValue === -1) return null; // 无限制时不显示提示
-
-    const remaining = Math.max(0, quotaValue - usageValue);
-    return remaining;
   };
 
   // 从 sessionStorage 或 URL 参数读取对话ID或初始查询（仅执行一次）
@@ -421,7 +390,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         }
       } else {
         // 对话不存在，重定向到首页
-        console.log(`Conversation ${urlConversationId} not found, redirecting to home`);
+        logger.log(`Conversation ${urlConversationId} not found, redirecting to home`);
         navigate('/');
       }
     } else if (storedQuery && isAuthenticated && messages.length === 0 && !urlConversationId && !currentConversationId) {
@@ -433,7 +402,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       }, 100);
     } else if (!urlConversationId && !storedQuery && isAuthenticated && !authLoading) {
       // 没有 conversationId 也没有存储的查询，重定向到首页
-      console.log('No conversationId and no stored query, redirecting to home');
+      logger.log('No conversationId and no stored query, redirecting to home');
       navigate('/');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -494,7 +463,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       }
     } catch (error) {
       // 延伸问题加载失败不影响主流程，只记录日志
-      console.error('Failed to load follow-up questions:', error);
+      logger.error('Failed to load follow-up questions:', error);
       logger.log('Failed to load follow-up questions, but search completed successfully');
     } finally {
       if (showLoading) {
@@ -552,7 +521,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
   useEffect(() => {
     // 计算问答对数量
     const qaCount = Math.ceil(messages.filter(m => m.role === 'user').length);
-    console.log('[DEBUG-SCROLL] messages.length effect 触发, qaCount:', qaCount, 'messages.length:', messages.length, 'prevCount:', prevMessageCountRef.current);
+    logger.log('[DEBUG-SCROLL] messages.length effect 触发, qaCount:', qaCount, 'messages.length:', messages.length, 'prevCount:', prevMessageCountRef.current);
     if (qaCount > 0) {
       // 自动展开最新的问答卡片
       setExpandedQAIndex(qaCount - 1);
@@ -564,7 +533,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       // 注意：不再在这里触发 scrollIntoView，因为它会把 section 滚动到顶部
       // 滚动逻辑统一由 scrollToBottom 处理
       if (isNewMessage) {
-        console.log('[DEBUG-SCROLL] 新增消息，由 scrollToBottom 处理滚动');
+        logger.log('[DEBUG-SCROLL] 新增消息，由 scrollToBottom 处理滚动');
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -626,27 +595,8 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         handleNewConversation();
       }
     } catch (error) {
-      console.error('Failed to delete conversation:', error);
+      logger.error('Failed to delete conversation:', error);
       alert('删除失败');
-    }
-  };
-
-  // 重命名对话（保留供将来使用）
-  // eslint-disable-next-line no-unused-vars
-  const handleRenameConversation = async (conversationId, newTitle) => {
-    logger.log('handleRenameConversation called:', { conversationId, newTitle });
-    try {
-      const response = await api.put(`/user/conversations/${conversationId}/title`, { title: newTitle });
-      logger.log('Rename API response:', response.data);
-      setConversations(prevConversations =>
-        prevConversations.map(conv =>
-          conv.id === conversationId ? { ...conv, title: newTitle } : conv
-        )
-      );
-      logger.log('Local conversations updated');
-    } catch (error) {
-      console.error('Failed to rename conversation:', error);
-      console.error('Error details:', error.response?.data);
     }
   };
 
@@ -753,7 +703,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                 setPapersTotal(sets[0].total);
               }
             } catch (err) {
-              console.error('Failed to fetch paper details for history:', err);
+              logger.error('Failed to fetch paper details for history:', err);
             }
           } else {
             // 旧格式：直接使用 search_results
@@ -790,7 +740,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         }
       }
     } catch (error) {
-      console.error('Failed to load conversation:', error);
+      logger.error('Failed to load conversation:', error);
       if (isInitialLoad) {
         alert('加载对话失败');
       }
@@ -802,7 +752,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         // 使用 requestAnimationFrame 确保 DOM 已更新
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            console.log('[DEBUG-SCROLL] 历史对话加载完成，滚动到底部');
+            logger.log('[DEBUG-SCROLL] 历史对话加载完成，滚动到底部');
             scrollToBottom('auto');
           });
         });
@@ -814,7 +764,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
             const newScrollHeight = qaSnapContainerRef.current.scrollHeight;
             const scrollDiff = newScrollHeight - prevScrollHeightRef.current;
             qaSnapContainerRef.current.scrollTop = scrollDiff;
-            console.log('[DEBUG-SCROLL] 加载更多完成，调整滚动位置:', scrollDiff);
+            logger.log('[DEBUG-SCROLL] 加载更多完成，调整滚动位置:', scrollDiff);
           }
         }, 100);
       }
@@ -827,7 +777,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       return;
     }
     const nextPage = messagePagination.page + 1;
-    console.log('[DEBUG-SCROLL] 加载更多历史消息, page:', nextPage);
+    logger.log('[DEBUG-SCROLL] 加载更多历史消息, page:', nextPage);
     await handleSelectConversation(currentConversationId, nextPage, messagePagination.pageSize);
   };
 
@@ -916,7 +866,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         throw new Error(response.data.message || 'Failed to send message');
       }
     } catch (error) {
-      console.error('Search failed:', error);
+      logger.error('Search failed:', error);
       // Remove temp message on error
       setMessages(prev => prev.filter(msg => msg.id !== tempUserMessage.id));
       alert('搜索失败: ' + (error.response?.data?.message || error.message));
@@ -944,7 +894,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
 
     const token = localStorage.getItem('user_token');
     if (!token) {
-      console.error('No auth token found');
+      logger.error('No auth token found');
       return;
     }
 
@@ -1051,7 +1001,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
 
       if (event.data.startsWith('[ERROR]')) {
         const errorMsg = event.data.substring(7).trim(); // Remove '[ERROR]' prefix
-        console.error('Advanced search error:', errorMsg);
+        logger.error('Advanced search error:', errorMsg);
         eventSource.close();
 
         // Clear all loading states
@@ -1126,7 +1076,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                 setLoading(false);
               }
             }).catch(err => {
-              console.error('Failed to fetch paper details:', err);
+              logger.error('Failed to fetch paper details:', err);
               setLoading(false);
             });
           } else {
@@ -1160,7 +1110,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
             setLoading(false);
           }
         } catch (err) {
-          console.error('Failed to parse papers data:', err);
+          logger.error('Failed to parse papers data:', err);
         }
         return;
       }
@@ -1169,12 +1119,12 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         // Handle follow-up questions (non-streaming, all at once)
         try {
           const followUpQuestions = event.data.substring(21); // Remove '[FOLLOW_UP_QUESTIONS]' prefix
-          console.log('Received follow-up questions:', followUpQuestions);
+          logger.log('Received follow-up questions:', followUpQuestions);
 
           // Extract questions from the content - 结果通过 updateLastAssistantMessage 更新到消息中
           extractSuggestedQuestions(followUpQuestions);
         } catch (err) {
-          console.error('Failed to parse follow-up questions:', err);
+          logger.error('Failed to parse follow-up questions:', err);
         }
         return;
       }
@@ -1195,12 +1145,12 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
           }
         }
       } catch (err) {
-        console.error('Failed to parse SSE data:', err);
+        logger.error('Failed to parse SSE data:', err);
       }
     };
 
     eventSource.onerror = (err) => {
-      console.error('SSE error:', err);
+      logger.error('SSE error:', err);
       eventSource.close();
       setIsStreaming(false);
       setShowAIThinking(false);
@@ -1212,268 +1162,6 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       
       // 注意：配额检查已废弃，错误可能是余额不足，由后端返回具体错误信息
     };
-  };
-
-  // 继续对话 - 用于智能分析后的追问（保留供将来使用）
-  // eslint-disable-next-line no-unused-vars
-  const startContinueConversation = async (conversationId, query) => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
-
-    const token = localStorage.getItem('user_token');
-    if (!token) {
-      console.error('No auth token found');
-      return;
-    }
-
-    setIsStreaming(true);
-    setStreamingContent('');
-    streamingContentRef.current = '';
-    setLoading(true);
-    setShowAIThinking(true); // 显示 AI 思考状态
-
-    // 清空当前论文列表，显示 loading skeleton
-    setPapers([]);
-    setPapersTotal(0);
-
-    // 添加新的论文集合占位符，用于新的搜索
-    setPaperSets(prevSets => [
-      {
-        title: '追问搜索',
-        papers: [],
-        total: 0,
-        query: query,
-        isLoading: true // 标记正在加载
-      },
-      ...prevSets
-    ]);
-
-    try {
-      // 调用继续对话 API
-      const response = await fetch(
-        `/api/v1/user/conversations/${conversationId}/continue`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            query,
-            model_level: modelLevel  // 传递模型级别
-          })
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to continue conversation');
-      }
-
-      // 创建 EventSource 来接收流式响应
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      const readStream = async () => {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.substring(6);
-
-              if (data.startsWith('[DONE]')) {
-                // 先清空流式内容和停止状态，避免重复显示
-                const finalContent = streamingContentRef.current;
-
-                setStreamingContent('');
-                streamingContentRef.current = '';
-                setIsStreaming(false);
-
-                // 将流式内容添加到消息列表（不包含延伸问题）
-                if (finalContent) {
-                  setMessages(prev => {
-                    const lastMessage = prev[prev.length - 1];
-                    if (!lastMessage || lastMessage.role !== 'assistant' || !lastMessage.content) {
-                      return [...prev, {
-                        id: 'assistant-' + Date.now(),
-                        role: 'assistant',
-                        content: finalContent,
-                        created_at: new Date().toISOString()
-                      }];
-                    }
-                    return prev;
-                  });
-                }
-
-                setLoading(false);
-                return;
-              }
-
-              if (data.startsWith('[ERROR]')) {
-                const errorMsg = data.substring(8).trim(); // Remove '[ERROR] ' prefix
-                console.error('Continue conversation error:', errorMsg);
-                setIsStreaming(false);
-                setLoading(false);
-                setShowAIThinking(false);
-                
-                // Remove loading placeholder from paper sets
-                setPaperSets(prevSets => prevSets.filter(set => !set.isLoading));
-                
-                // Add error message as assistant message (backend already provides friendly message)
-                setMessages(prev => [...prev, {
-                  id: 'error-' + Date.now(),
-                  role: 'assistant',
-                  content: errorMsg,
-                  created_at: new Date().toISOString()
-                }]);
-                
-                return;
-              }
-
-              if (data.startsWith('[PAPERS]')) {
-                try {
-                  const papersData = JSON.parse(data.substring(8));
-                  const paperIds = papersData.paperIds || papersData.papers || [];
-                  const newTotal = papersData.total || 0;
-
-                  // 检查是新格式（只有IDs）还是旧格式（完整论文数据）
-                  const isNewFormat = Array.isArray(paperIds) && paperIds.length > 0 && typeof paperIds[0] === 'string';
-
-                  if (isNewFormat) {
-                    // 新格式：只有IDs，需要批量获取论文详情
-                    logger.log(`Continue: Received ${paperIds.length} paper IDs, fetching details...`);
-                    
-                    // 使用和学术检索一致的字段
-                    publicScholarAPI.getPaperBatch(paperIds, PAPER_FIELDS).then(response => {
-                      if (response.data.code === 0 && response.data.data) {
-                        const newPapers = response.data.data || [];
-                        
-                        setPapers(newPapers);
-                        setPapersTotal(newTotal);
-                        setLoading(false);
-
-                        setPaperSets(prevSets => {
-                          const newSets = [...prevSets];
-                          if (newSets.length > 0 && newSets[0].isLoading) {
-                            newSets[0] = {
-                              title: '追问搜索',
-                              papers: newPapers,
-                              total: newTotal,
-                              query: query,
-                              isLoading: false
-                            };
-                          } else {
-                            newSets.unshift({
-                              title: '追问搜索',
-                              papers: newPapers,
-                              total: newTotal,
-                              query: query,
-                              isLoading: false
-                            });
-                          }
-                          return newSets;
-                        });
-                      }
-                    }).catch(err => {
-                      console.error('Failed to fetch paper details:', err);
-                      setLoading(false);
-                    });
-                  } else {
-                    // 旧格式：完整论文数据（向后兼容）
-                    const newPapers = paperIds;
-                    setPapers(newPapers);
-                    setPapersTotal(newTotal);
-                    setLoading(false);
-
-                    setPaperSets(prevSets => {
-                      const newSets = [...prevSets];
-                      if (newSets.length > 0 && newSets[0].isLoading) {
-                        newSets[0] = {
-                          title: '追问搜索',
-                          papers: newPapers,
-                          total: newTotal,
-                          query: query,
-                          isLoading: false
-                        };
-                      } else {
-                        newSets.unshift({
-                          title: '追问搜索',
-                          papers: newPapers,
-                          total: newTotal,
-                          query: query,
-                          isLoading: false
-                        });
-                      }
-                      return newSets;
-                    });
-                  }
-                } catch (err) {
-                  console.error('Failed to parse papers data:', err);
-                }
-                continue;
-              }
-
-              if (data.startsWith('[FOLLOW_UP_QUESTIONS]')) {
-                // Handle follow-up questions (non-streaming, all at once)
-                try {
-                  const followUpQuestions = data.substring(21); // Remove '[FOLLOW_UP_QUESTIONS]' prefix
-                  console.log('Received follow-up questions for continue conversation:', followUpQuestions);
-
-                  // Extract questions from the content - 结果通过 updateLastAssistantMessage 更新到消息中
-                  extractSuggestedQuestions(followUpQuestions);
-                } catch (err) {
-                  console.error('Failed to parse follow-up questions:', err);
-                }
-                continue;
-              }
-
-              // 解析流式内容
-              try {
-                const jsonData = JSON.parse(data);
-                if (jsonData.choices && jsonData.choices[0] && jsonData.choices[0].delta) {
-                  const delta = jsonData.choices[0].delta;
-                  if (delta.content) {
-                    // 收到第一个内容片段时，关闭 AI 思考动画
-                    if (streamingContentRef.current === '') {
-                      setShowAIThinking(false);
-                    }
-                    streamingContentRef.current += delta.content;
-                    setStreamingContent(prev => prev + delta.content);
-                  }
-                }
-              } catch (err) {
-                // 可能不是 JSON，忽略
-              }
-            }
-          }
-        }
-      };
-
-      readStream();
-    } catch (error) {
-      console.error('Continue conversation failed:', error);
-      setIsStreaming(false);
-      setLoading(false);
-      setShowAIThinking(false); // 关闭 AI 思考状态
-      alert('继续对话失败: ' + error.message);
-    }
-  };
-
-  // 处理点击论文信息，切换到对应的 tab（保留供将来使用）
-  // eslint-disable-next-line no-unused-vars
-  const handlePaperInfoClick = (searchQueryParam) => {
-    if (!paperSets || paperSets.length === 0) return;
-
-    // 查找匹配的 tab
-    const tabIndex = paperSets.findIndex(set => set.query === searchQueryParam);
-    if (tabIndex !== -1) {
-      setActiveTab(tabIndex);
-    }
   };
 
   // 处理引文hover - 立即响应，无延迟

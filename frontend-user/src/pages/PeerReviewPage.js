@@ -23,15 +23,13 @@ import {
   ALLOWED_FILE_TYPES,
   ALLOWED_ATTACHMENT_TYPES,
   MAX_FILE_SIZE,
-  MAX_ATTACHMENTS,
-  // eslint-disable-next-line no-unused-vars
-  MAX_CHAR_COUNT // 保留供将来字符计数功能使用
+  MAX_ATTACHMENTS
 } from '../utils/peer-review/constants';
-// eslint-disable-next-line no-unused-vars
-import { parseReviewJSON, getRecommendationClass, getConfidenceLabel } from '../utils/peer-review/parseUtils'; // getConfidenceLabel 保留供将来使用
+import { parseReviewJSON, getRecommendationClass } from '../utils/peer-review/parseUtils';
 import { getFileIcon } from '../utils/peer-review/fileUtils';
 import { exportToWord, exportToPDF, exportToPPT } from '../utils/peer-review/exportUtils';
 import { trackAIPeerReview } from '../utils/usageTracker';
+import logger from '../utils/logger';
 import './styles/PeerReviewPage.css';
 import './styles/ReviewReport.css';
 
@@ -194,8 +192,6 @@ export default function PeerReviewPage() {
   const searchKeywordRef = useRef(''); // 使用 ref 避免重渲染
 
   // 草稿状态（从后端加载）
-  // eslint-disable-next-line no-unused-vars
-  const [draftId, setDraftId] = useState(null); // 保留供将来草稿功能使用
   const [inputType, setInputType] = useState('text');
   const [manuscriptText, setManuscriptText] = useState('');
   const [targetVenue, setTargetVenue] = useState('');
@@ -245,7 +241,7 @@ export default function PeerReviewPage() {
       const response = await peerReviewAPI.getDraft();
       if (response.data?.code === 0) {
         const draft = response.data.data;
-        setDraftId(draft.id);
+        // draftId 状态已移除，draft.id 仅用于内部逻辑
         setInputType(draft.input_type || 'text');
         setManuscriptText(draft.manuscript_text || '');
         setTargetVenue(draft.target_venue || '');
@@ -264,7 +260,7 @@ export default function PeerReviewPage() {
         setAttachments(draft.attachments || []);
       }
     } catch (error) {
-      console.error('加载草稿失败:', error);
+      logger.error('加载草稿失败:', error);
     } finally {
       setDraftLoading(false);
     }
@@ -277,7 +273,7 @@ export default function PeerReviewPage() {
     try {
       await peerReviewAPI.saveDraft(data);
     } catch (error) {
-      console.error('保存草稿失败:', error);
+      logger.error('保存草稿失败:', error);
     }
   };
 
@@ -341,7 +337,7 @@ export default function PeerReviewPage() {
         setTotalTasks(response.data.data.total || 0);
       }
     } catch (error) {
-      console.error('加载任务列表失败:', error);
+      logger.error('加载任务列表失败:', error);
     } finally {
       setLoading(false);
     }
@@ -417,7 +413,7 @@ export default function PeerReviewPage() {
           }
         })
         .catch(error => {
-          console.error('文件上传失败:', error);
+          logger.error('文件上传失败:', error);
           // 上传失败，清空文件状态
           setFileName('');
           setInputType('text');
@@ -559,7 +555,7 @@ export default function PeerReviewPage() {
           }
         })
         .catch(error => {
-          console.error('附件上传失败:', error);
+          logger.error('附件上传失败:', error);
           // 上传失败，移除临时附件
           setAttachments(prev => prev.filter(att => att.id !== tempId));
           showMessage('error', '上传失败', error.response?.data?.message || error.message);
@@ -577,7 +573,7 @@ export default function PeerReviewPage() {
         showMessage('error', '删除失败', response.data?.message || '附件删除失败');
       }
     } catch (error) {
-      console.error('删除附件失败:', error);
+      logger.error('删除附件失败:', error);
       showMessage('error', '删除失败', error.response?.data?.message || error.message);
     }
   };
@@ -655,7 +651,7 @@ export default function PeerReviewPage() {
         showMessage('error', '提交失败', response.data?.message || '提交审稿失败');
       }
     } catch (error) {
-      console.error('提交审稿失败:', error);
+      logger.error('提交审稿失败:', error);
       showMessage('error', '提交失败', error.response?.data?.message || error.message);
     } finally {
       setSubmitting(false);
@@ -679,7 +675,7 @@ export default function PeerReviewPage() {
         showMessage('error', '清空失败', response.data?.message || '清空草稿失败');
       }
     } catch (error) {
-      console.error('清空草稿失败:', error);
+      logger.error('清空草稿失败:', error);
       showMessage('error', '清空失败', error.response?.data?.message || error.message);
     }
   };
@@ -698,7 +694,7 @@ export default function PeerReviewPage() {
         showMessage('error', '删除失败', response.data?.message || '删除主稿件失败');
       }
     } catch (error) {
-      console.error('删除主稿件失败:', error);
+      logger.error('删除主稿件失败:', error);
       showMessage('error', '删除失败', error.response?.data?.message || error.message);
     }
   };
@@ -731,7 +727,7 @@ export default function PeerReviewPage() {
         }
       }
     } catch (error) {
-      console.error('加载任务详情失败:', error);
+      logger.error('加载任务详情失败:', error);
     } finally {
       setDetailLoading(false);
     }
@@ -759,7 +755,7 @@ export default function PeerReviewPage() {
           }
         }
       } catch (error) {
-        console.error('轮询失败:', error);
+        logger.error('轮询失败:', error);
       }
     }, 2000);
   };
@@ -785,7 +781,7 @@ export default function PeerReviewPage() {
           }
         }
       } catch (error) {
-        console.error('删除任务失败:', error);
+        logger.error('删除任务失败:', error);
         showMessage('error', '删除失败', error.response?.data?.message || error.message);
       }
     });
@@ -812,7 +808,7 @@ export default function PeerReviewPage() {
         showMessage('error', '启动失败', response.data?.message || '启动任务失败');
       }
     } catch (error) {
-      console.error('启动任务失败:', error);
+      logger.error('启动任务失败:', error);
       showMessage('error', '启动失败', error.response?.data?.message || error.message);
     }
   };
@@ -1683,10 +1679,6 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
 function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
   const [displayProgress, setDisplayProgress] = useState(0); // 显示的进度值（用于平滑动画）
   const [showReport, setShowReport] = useState(false); // 控制是否显示报告（等待进度条完成）
-  // eslint-disable-next-line no-unused-vars
-  const [activeDrawer, setActiveDrawer] = useState(null); // 当前打开的抽屉: 'analysis' | 'papers' | 'gaps' | 'reviewer' | null - 保留供将来使用
-  // eslint-disable-next-line no-unused-vars
-  const [selectedReviewer, setSelectedReviewer] = useState(null); // 当前选中的审稿人 - 保留供将来使用
   const [activeReviewTab, setActiveReviewTab] = useState('main'); // 当前选中的审稿Tab: 'main' | 'A' | 'B' | 'C'
   const progressIntervalRef = useRef(null);
   
@@ -2376,10 +2368,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                           key={idx} 
                           className={`prvr-reviewer-card ${review.status} ${(review.status === 'completed' || review.review_content) ? 'clickable' : ''}`}
                           onClick={() => {
-                            if (review.status === 'completed' || review.review_content) {
-                              setSelectedReviewer(review);
-                              setActiveDrawer('reviewer');
-                            }
+                            // 点击评审者卡片功能已简化，相关状态已移除
                           }}
                         >
                           <div className="prvr-reviewer-avatar">

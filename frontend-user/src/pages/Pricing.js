@@ -12,6 +12,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../components/ToastContainer';
 import AuthModal from '../components/AuthModal';
+import logger from '../utils/logger';
 import './Pricing.css';
 
 const PLAN_DISPLAY_ORDER = ['free', 'pro', 'max'];
@@ -78,8 +79,8 @@ const Pricing = () => {
   const navigate = useNavigate();
   const { showError } = useToast();
   const outletContext = useOutletContext();
-  // eslint-disable-next-line no-unused-vars
-  const onOpenDrawer = outletContext?.onOpenDrawer; // 保留供将来使用
+  // outletContext 保留供将来使用
+  void outletContext;
   const [plans, setPlans] = useState([]);
   const [currentPlan, setCurrentPlan] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -100,7 +101,7 @@ const Pricing = () => {
         setPlans(response.data.data);
       }
     } catch (error) {
-      console.error('Failed to fetch plans:', error);
+      logger.error('Failed to fetch plans:', error);
       showError('获取套餐列表失败，请稍后重试');
     } finally {
       setLoading(false);
@@ -119,7 +120,7 @@ const Pricing = () => {
         setCurrentPlan(response.data.data);
       }
     } catch (error) {
-      console.error('Failed to fetch current subscription:', error);
+      logger.error('Failed to fetch current subscription:', error);
       showError('获取当前订阅信息失败，请稍后重试');
     }
   }, [showError]);

@@ -9,6 +9,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { userAPI, subscriptionAPI } from '../services/api';
+import logger from './logger';
 
 const AuthContext = createContext(null);
 
@@ -70,19 +71,19 @@ export const AuthProvider = ({ children }) => {
       if (response.data.code === 0 && response.data.data?.token) {
         const newToken = response.data.data.token;
         localStorage.setItem('user_token', newToken);
-        console.log('[Token] Token refreshed successfully');
+        logger.log('[Token] Token refreshed successfully');
         return true;
       }
     } catch (error) {
       // 如果是 2016 错误码（会话过期），需要重新登录
       if (error.response?.data?.code === 2016) {
-        console.log('[Token] Session expired, need to re-login');
+        logger.log('[Token] Session expired, need to re-login');
         // 触发登出
         window.dispatchEvent(new CustomEvent('auth:expired', {
           detail: { message: '登录已过期，请重新登录' }
         }));
       } else if (error.response?.status !== 401) {
-        console.error('[Token] Refresh error:', error);
+        logger.error('[Token] Refresh error:', error);
       }
       return false;
     } finally {
@@ -103,16 +104,16 @@ export const AuthProvider = ({ children }) => {
         
         // 如果需要刷新且可以刷新
         if (should_refresh && can_refresh) {
-          console.log(`[Token] Token expires in ${remaining_seconds}s, refreshing...`);
+          logger.log(`[Token] Token expires in ${remaining_seconds}s, refreshing...`);
           await refreshToken();
         } else if (!can_refresh) {
-          console.log('[Token] Session cannot be refreshed (30 days limit reached)');
+          logger.log('[Token] Session cannot be refreshed (30 days limit reached)');
         }
       }
     } catch (error) {
       // 忽略错误，让其他机制处理
       if (error.response?.status !== 401) {
-        console.error('[Token] Check token info error:', error);
+        logger.error('[Token] Check token info error:', error);
       }
     }
   }, [refreshToken]);
@@ -152,7 +153,7 @@ export const AuthProvider = ({ children }) => {
       // If 401, axios interceptor will handle it (clear token, redirect, etc.)
       // For other errors, just log
       if (error.response?.status !== 401) {
-        console.error('Heartbeat error:', error);
+        logger.error('Heartbeat error:', error);
       }
       return false;
     }
@@ -314,7 +315,7 @@ export const AuthProvider = ({ children }) => {
             const [profileResponse, subscriptionResponse] = await Promise.all([
               userAPI.getProfile(),
               subscriptionAPI.getMySubscription().catch(err => {
-                console.error('Failed to fetch subscription:', err);
+                logger.error('Failed to fetch subscription:', err);
                 return null;
               })
             ]);
@@ -334,7 +335,7 @@ export const AuthProvider = ({ children }) => {
               startHeartbeat();
             } else {
               // API 返回成功但业务失败，清除登录状态
-              console.log('Profile API returned error, clearing auth state');
+              logger.log('Profile API returned error, clearing auth state');
               localStorage.removeItem('user_token');
               localStorage.removeItem('user_data');
               setIsAuthenticated(false);
@@ -343,10 +344,10 @@ export const AuthProvider = ({ children }) => {
           } catch (error) {
             // 如果获取用户信息失败（包括 Token 刷新失败），
             // API 拦截器会处理登出逻辑
-            console.error('Failed to refresh user data on init:', error);
+            logger.error('Failed to refresh user data on init:', error);
             // 如果是 401 错误，清除登录状态（API 拦截器可能已经处理，但这里确保状态一致）
             if (error.response?.status === 401) {
-              console.log('Auth failed (401), clearing auth state');
+              logger.log('Auth failed (401), clearing auth state');
               localStorage.removeItem('user_token');
               localStorage.removeItem('user_data');
               setIsAuthenticated(false);
@@ -379,7 +380,7 @@ export const AuthProvider = ({ children }) => {
       const message = event.detail?.message || '登录已失效';
       const reason = event.detail?.reason || 'expired';
       
-      console.log('Auth expired:', message, 'reason:', reason);
+      logger.log('Auth expired:', message, 'reason:', reason);
       
       // 如果是被踢出，显示提示信息
       if (reason === 'kicked') {
@@ -414,7 +415,7 @@ export const AuthProvider = ({ children }) => {
         setUser(updatedUserData);
       }
     } catch (error) {
-      console.error('Failed to fetch subscription after login:', error);
+      logger.error('Failed to fetch subscription after login:', error);
     }
   };
 
@@ -426,7 +427,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await userAPI.logout();
     } catch (error) {
-      console.error('Logout API call failed:', error);
+      logger.error('Logout API call failed:', error);
     }
 
     // Clear local storage and state
@@ -449,7 +450,7 @@ export const AuthProvider = ({ children }) => {
       const [profileResponse, subscriptionResponse] = await Promise.all([
         userAPI.getProfile(),
         subscriptionAPI.getMySubscription().catch(err => {
-          console.error('Failed to fetch subscription:', err);
+          logger.error('Failed to fetch subscription:', err);
           return null;
         })
       ]);
@@ -466,7 +467,7 @@ export const AuthProvider = ({ children }) => {
         return userData;
       }
     } catch (error) {
-      console.error('Failed to refresh user data:', error);
+      logger.error('Failed to refresh user data:', error);
     }
     return null;
   };

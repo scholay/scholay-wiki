@@ -19,4 +19,8 @@ export { default as useIntersectionObserver } from './useIntersectionObserver';
 export { default as useVirtualList } from './useVirtualList';
 export { default as useImagePreload, preloadImages } from './useImagePreload';
 export { useDebounce, useDebouncedCallback } from './useDebounce';
-
+export { default as useSearch } from './useSearch';
+export { default as usePeerReview } from './usePeerReview';
+export { default as useAuthForm } from './useAuthForm';
+export { default as useChat } from './useChat';
+export { default as usePaperDetail } from './usePaperDetail';
