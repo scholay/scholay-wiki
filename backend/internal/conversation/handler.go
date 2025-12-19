@@ -134,7 +134,11 @@ func (h *Handler) GetUserConversations(c *gin.Context) {
 	utils.Success(c, result)
 }
 
-// GetConversation gets a conversation with all its messages
+// GetConversation gets a conversation with its messages (supports pagination)
+// Query params:
+// - page: page number (1-based, default: 1)
+// - page_size: messages per page (default: 20, max: 100)
+// If no pagination params provided, returns all messages (backward compatible)
 func (h *Handler) GetConversation(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -148,7 +152,37 @@ func (h *Handler) GetConversation(c *gin.Context) {
 		return
 	}
 
-	conversation, err := h.service.GetConversationWithMessages(uint(conversationID), userID.(uint))
+	// Check if pagination is requested
+	pageStr := c.Query("page")
+	pageSizeStr := c.Query("page_size")
+
+	// If no pagination params, return all messages (backward compatible)
+	if pageStr == "" && pageSizeStr == "" {
+		conversation, err := h.service.GetConversationWithMessages(uint(conversationID), userID.(uint))
+		if err != nil {
+			utils.Error(c, 500, "Failed to get conversation: "+err.Error())
+			return
+		}
+		utils.Success(c, conversation)
+		return
+	}
+
+	// Parse pagination params
+	page := 1
+	pageSize := 20
+
+	if pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+	if pageSizeStr != "" {
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 && ps <= 100 {
+			pageSize = ps
+		}
+	}
+
+	conversation, err := h.service.GetConversationWithMessagesPaginated(uint(conversationID), userID.(uint), page, pageSize)
 	if err != nil {
 		utils.Error(c, 500, "Failed to get conversation: "+err.Error())
 		return

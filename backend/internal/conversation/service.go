@@ -78,6 +78,45 @@ func (s *Service) GetConversationWithMessages(conversationID uint, userID uint) 
 	return s.repo.GetConversationWithMessages(conversationID, userID)
 }
 
+// GetConversationWithMessagesPaginated gets a conversation with paginated messages
+// Messages are returned in DESC order (newest first) for pagination
+// Frontend should reverse the order when displaying
+func (s *Service) GetConversationWithMessagesPaginated(conversationID uint, userID uint, page, pageSize int) (*ConversationWithMessagesPaginated, error) {
+	// Get conversation
+	conversation, err := s.repo.GetConversationByID(conversationID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate pagination params
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	// Get paginated messages
+	messages, total, err := s.repo.GetConversationMessagesPaginated(conversationID, page, pageSize)
+	if err != nil {
+		return nil, err
+	}
+
+	// Reverse messages to ASC order (oldest first) for display
+	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+		messages[i], messages[j] = messages[j], messages[i]
+	}
+
+	return &ConversationWithMessagesPaginated{
+		Conversation: *conversation,
+		Messages:     messages,
+		Total:        total,
+		Page:         page,
+		PageSize:     pageSize,
+		HasMore:      int64(page*pageSize) < total,
+	}, nil
+}
+
 // DeleteConversation deletes a conversation
 func (s *Service) DeleteConversation(conversationID uint, userID uint) error {
 	return s.repo.DeleteConversation(conversationID, userID)

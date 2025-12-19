@@ -146,6 +146,23 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
   const isLoadingHistoryRef = useRef(false); // 标记是否正在加载历史对话
   const papersContainerRef = useRef(null); // 论文列表容器
   const qaSnapContainerRef = useRef(null); // 问答滚动容器
+  
+  // 自动滚动相关
+  const [autoScroll, setAutoScroll] = useState(true); // 是否自动滚动到底部
+  const [disableSnapTemporarily, setDisableSnapTemporarily] = useState(false); // 临时禁用 scroll-snap
+  const lastScrollTimeRef = useRef(Date.now()); // 上次程序滚动的时间
+  const isUserScrollingRef = useRef(false); // 用户是否正在手动滚动
+  const prevIsLoadingSuggestedRef = useRef(false); // 上一次推荐问题加载状态
+  
+  // 分页相关状态
+  const [messagePagination, setMessagePagination] = useState({
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    hasMore: false,
+    isLoadingMore: false,
+  });
+  const prevScrollHeightRef = useRef(0); // 加载更多前的滚动高度，用于保持滚动位置
 
   // 论文详情字段 - 和学术检索保持一致
   const PAPER_FIELDS = ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds'];
@@ -219,6 +236,144 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     }
     setManualTabSwitch(true); // 标记为手动切换
   };
+
+  // 滚动到底部函数
+  const scrollToBottom = (behavior = 'smooth') => {
+    const container = qaSnapContainerRef.current;
+    if (!container) return;
+    
+    console.log('[DEBUG-SCROLL] scrollToBottom 被调用, behavior:', behavior, 'scrollHeight:', container.scrollHeight);
+    lastScrollTimeRef.current = Date.now();
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior
+    });
+  };
+
+  // 检查是否在底部（或接近底部）
+  const isAtBottom = () => {
+    const container = qaSnapContainerRef.current;
+    if (!container) return true;
+    
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    // 距离底部 100px 以内认为是在底部
+    return scrollHeight - scrollTop - clientHeight < 100;
+  };
+
+  // 处理滚动事件 - 检测用户手动滚动
+  const handleQAContainerScroll = (e) => {
+    const container = e.currentTarget;
+    const sections = container.querySelectorAll('.qa-section');
+    const containerScrollTop = container.scrollTop;
+    const containerHeight = container.clientHeight;
+    
+    // 检测是否是用户手动滚动（而非程序触发）
+    const now = Date.now();
+    const isProgrammaticScroll = now - lastScrollTimeRef.current < 100;
+    
+    if (!isProgrammaticScroll) {
+      // 用户手动滚动
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const atBottom = scrollHeight - scrollTop - clientHeight < 100;
+      
+      if (atBottom) {
+        // 用户滚动到底部，恢复自动滚动
+        if (!autoScroll) {
+          setAutoScroll(true);
+        }
+      } else if (isStreaming && autoScroll) {
+        // 流式传输中用户向上滚动，暂停自动滚动
+        setAutoScroll(false);
+      }
+      
+      // 检测是否滚动到顶部，触发加载更多
+      if (scrollTop < 100 && messagePagination.hasMore && !messagePagination.isLoadingMore && !isStreaming) {
+        console.log('[DEBUG-SCROLL] 滚动到顶部，触发加载更多');
+        loadMoreMessages();
+      }
+    }
+    
+    // 原有的 section 切换逻辑
+    let closestIndex = 0;
+    let closestDistance = Infinity;
+    
+    sections.forEach((section, index) => {
+      const sectionTop = section.offsetTop;
+      const sectionMiddle = sectionTop + section.clientHeight / 2;
+      const viewMiddle = containerScrollTop + containerHeight / 2;
+      const distance = Math.abs(sectionMiddle - viewMiddle);
+      
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = index;
+      }
+    });
+    
+    // 更新当前问答索引（同步左侧论文列表）
+    if (closestIndex !== expandedQAIndex && !isStreaming) {
+      handleQAToggle(closestIndex);
+    }
+  };
+
+  // 流式传输时自动滚动到底部
+  useEffect(() => {
+    if (isStreaming && autoScroll && streamingContent) {
+      console.log('[DEBUG-SCROLL] 流式传输中滚动到底部');
+      scrollToBottom('auto'); // 使用 'auto' 避免 smooth 滚动的延迟
+    }
+  }, [streamingContent, isStreaming, autoScroll]);
+
+  // 新消息时自动滚动到底部（仅在用户发送新问题时，不在流式传输结束时）
+  useEffect(() => {
+    // 只有在开始新问题时滚动（用户消息增加），不在 AI 回复结束时滚动
+    const userMessageCount = messages.filter(m => m.role === 'user').length;
+    if (userMessageCount > 0 && autoScroll && !isStreaming) {
+      // 检查是否是用户刚发送了新问题（而不是 AI 回复完成）
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage?.role === 'user') {
+        console.log('[DEBUG-SCROLL] 用户发送新问题，触发滚动');
+        setTimeout(() => scrollToBottom('smooth'), 50);
+      }
+    }
+  }, [messages.length, isStreaming]);
+
+  // 流式传输状态变化时的处理
+  useEffect(() => {
+    console.log('[DEBUG-SCROLL] isStreaming 变化:', isStreaming);
+    if (isStreaming) {
+      // 开始流式传输时：重置自动滚动，禁用 scroll-snap
+      setAutoScroll(true);
+      setDisableSnapTemporarily(true);
+    }
+  }, [isStreaming]);
+
+  // 推荐问题加载完成后，滚动到底部显示推荐问题
+  useEffect(() => {
+    // 检测从 loading 变为 loaded（true -> false）
+    const wasLoading = prevIsLoadingSuggestedRef.current;
+    prevIsLoadingSuggestedRef.current = isLoadingSuggestedQuestions;
+    
+    if (wasLoading && !isLoadingSuggestedQuestions && !isStreaming) {
+      // 推荐问题刚加载完成，滚动到底部
+      setTimeout(() => {
+        console.log('[DEBUG-SCROLL] 推荐问题加载完成，滚动到底部');
+        scrollToBottom('smooth');
+      }, 100);
+    }
+  }, [isLoadingSuggestedQuestions, isStreaming]);
+
+  // 流式传输结束且推荐问题加载完成后，延迟恢复 scroll-snap
+  useEffect(() => {
+    console.log('[DEBUG-SCROLL] 检查恢复 scroll-snap: isStreaming=', isStreaming, 'isLoadingSuggestedQuestions=', isLoadingSuggestedQuestions);
+    if (!isStreaming && !isLoadingSuggestedQuestions) {
+      // 延迟恢复 scroll-snap，给 DOM 足够时间稳定
+      const timer = setTimeout(() => {
+        console.log('[DEBUG-SCROLL] 恢复 scroll-snap');
+        setDisableSnapTemporarily(false);
+      }, 800); // 延迟 800ms 恢复 scroll-snap
+      return () => clearTimeout(timer);
+    }
+  }, [isStreaming, isLoadingSuggestedQuestions]);
 
   // 移除自动跳转逻辑，允许未登录用户访问页面
 
@@ -462,24 +617,27 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
 
   // react-scroll-to-bottom 自动处理滚动，不需要手动控制
 
-  // 当消息列表变化时，自动展开最新的问答卡片并滚动到最新
+  // 记录上一次的消息数量，用于判断是新增消息还是更新消息
+  const prevMessageCountRef = useRef(0);
+
+  // 当消息列表变化时，自动展开最新的问答卡片
   useEffect(() => {
     // 计算问答对数量
     const qaCount = Math.ceil(messages.filter(m => m.role === 'user').length);
+    console.log('[DEBUG-SCROLL] messages.length effect 触发, qaCount:', qaCount, 'messages.length:', messages.length, 'prevCount:', prevMessageCountRef.current);
     if (qaCount > 0) {
       // 自动展开最新的问答卡片
       setExpandedQAIndex(qaCount - 1);
       
-      // 滚动到最新的问答 section
-      setTimeout(() => {
-        if (qaSnapContainerRef.current) {
-          const sections = qaSnapContainerRef.current.querySelectorAll('.qa-section');
-          const lastSection = sections[sections.length - 1];
-          if (lastSection) {
-            lastSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }
-      }, 100);
+      // 记录消息数量变化
+      const isNewMessage = messages.length > prevMessageCountRef.current;
+      prevMessageCountRef.current = messages.length;
+      
+      // 注意：不再在这里触发 scrollIntoView，因为它会把 section 滚动到顶部
+      // 滚动逻辑统一由 scrollToBottom 处理
+      if (isNewMessage) {
+        console.log('[DEBUG-SCROLL] 新增消息，由 scrollToBottom 处理滚动');
+      }
     }
   }, [messages.length]);
 
@@ -568,23 +726,51 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     }
   };
 
-  const handleSelectConversation = async (conversationId) => {
-    setLoading(true);
-    setSearchQuery(''); // 清空搜索输入框
-    setStreamingContent(''); // 切换对话时清空流式内容
-    setPaperSets([]); // 清空论文集合
-    isLoadingHistoryRef.current = true; // 标记正在加载历史对话
-    // react-scroll-to-bottom 会自动处理滚动
+  const handleSelectConversation = async (conversationId, page = 1, pageSize = 20) => {
+    const isInitialLoad = page === 1;
+    
+    if (isInitialLoad) {
+      setLoading(true);
+      setSearchQuery(''); // 清空搜索输入框
+      setStreamingContent(''); // 切换对话时清空流式内容
+      setPaperSets([]); // 清空论文集合
+      isLoadingHistoryRef.current = true; // 标记正在加载历史对话
+    } else {
+      // 加载更多时，记录当前滚动高度
+      if (qaSnapContainerRef.current) {
+        prevScrollHeightRef.current = qaSnapContainerRef.current.scrollHeight;
+      }
+      setMessagePagination(prev => ({ ...prev, isLoadingMore: true }));
+    }
 
     try {
-      const response = await conversationAPI.getConversation(conversationId);
+      const response = await conversationAPI.getConversation(conversationId, page, pageSize);
       if (response.data.code === 0 && response.data.data) {
         const conv = response.data.data;
-        setCurrentConversationId(conv.id);
+        
+        if (isInitialLoad) {
+          setCurrentConversationId(conv.id);
+        }
+        
+        // 更新分页状态
+        setMessagePagination({
+          page: conv.page || page,
+          pageSize: conv.page_size || pageSize,
+          total: conv.total || 0,
+          hasMore: conv.has_more || false,
+          isLoadingMore: false,
+        });
         
         // 重新组织消息顺序，使用parent_message_id建立问答对
         const organizedMessages = organizeMessagesByParentId(conv.messages || []);
-        setMessages(organizedMessages);
+        
+        if (isInitialLoad) {
+          // 初始加载：替换消息
+          setMessages(organizedMessages);
+        } else {
+          // 加载更多：将历史消息添加到前面
+          setMessages(prev => [...organizedMessages, ...prev]);
+        }
 
         // 查找所有有论文结果的消息，构建 paperSets
         // 支持新格式 (search_paper_ids) 和旧格式 (search_results)
@@ -681,10 +867,44 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       }
     } catch (error) {
       console.error('Failed to load conversation:', error);
-      alert('加载对话失败');
+      if (isInitialLoad) {
+        alert('加载对话失败');
+      }
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+        isLoadingHistoryRef.current = false; // 标记加载完成
+        // 初始加载完成后，滚动到底部显示最新消息
+        // 使用 requestAnimationFrame 确保 DOM 已更新
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            console.log('[DEBUG-SCROLL] 历史对话加载完成，滚动到底部');
+            scrollToBottom('auto');
+          });
+        });
+      } else {
+        setMessagePagination(prev => ({ ...prev, isLoadingMore: false }));
+        // 加载更多后，保持滚动位置
+        setTimeout(() => {
+          if (qaSnapContainerRef.current && prevScrollHeightRef.current) {
+            const newScrollHeight = qaSnapContainerRef.current.scrollHeight;
+            const scrollDiff = newScrollHeight - prevScrollHeightRef.current;
+            qaSnapContainerRef.current.scrollTop = scrollDiff;
+            console.log('[DEBUG-SCROLL] 加载更多完成，调整滚动位置:', scrollDiff);
+          }
+        }, 100);
+      }
     }
+  };
+  
+  // 加载更多历史消息
+  const loadMoreMessages = async () => {
+    if (!currentConversationId || messagePagination.isLoadingMore || !messagePagination.hasMore) {
+      return;
+    }
+    const nextPage = messagePagination.page + 1;
+    console.log('[DEBUG-SCROLL] 加载更多历史消息, page:', nextPage);
+    await handleSelectConversation(currentConversationId, nextPage, messagePagination.pageSize);
   };
 
   const handleInitialSearch = async (query) => {
@@ -1486,37 +1706,19 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
 
                 {/* 问答滚动容器 - 使用 scroll-snap 实现丝滑切换 */}
                 <div 
-                  className="qa-snap-container"
+                  className={`qa-snap-container ${isStreaming || disableSnapTemporarily ? 'streaming' : ''}`}
                   ref={qaSnapContainerRef}
-                  onScroll={(e) => {
-                    const container = e.currentTarget;
-                    const sections = container.querySelectorAll('.qa-section');
-                    const containerScrollTop = container.scrollTop;
-                    const containerHeight = container.clientHeight;
-                    
-                    // 找到当前最可见的 section（中点在可视区域内的）
-                    let closestIndex = 0;
-                    let closestDistance = Infinity;
-                    
-                    sections.forEach((section, index) => {
-                      const sectionTop = section.offsetTop;
-                      const sectionMiddle = sectionTop + section.clientHeight / 2;
-                      const viewMiddle = containerScrollTop + containerHeight / 2;
-                      const distance = Math.abs(sectionMiddle - viewMiddle);
-                      
-                      if (distance < closestDistance) {
-                        closestDistance = distance;
-                        closestIndex = index;
-                      }
-                    });
-                    
-                    // 更新当前问答索引（同步左侧论文列表）
-                    if (closestIndex !== expandedQAIndex && !isStreaming) {
-                      handleQAToggle(closestIndex);
-                    }
-                  }}
+                  onScroll={handleQAContainerScroll}
                 >
-                  {qaList.length === 0 ? (
+                  {/* 加载历史对话时显示 loading */}
+                  {loading && qaList.length === 0 && currentConversationId ? (
+                    <div className="qa-section">
+                      <div className="qa-loading-state">
+                        <div className="qa-loading-spinner"></div>
+                        <p>加载对话中...</p>
+                      </div>
+                    </div>
+                  ) : qaList.length === 0 ? (
                     <div className="qa-section">
                       <div className="qa-empty-state">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -1526,7 +1728,26 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                       </div>
                     </div>
                   ) : (
-                    qaList.map((qa, index) => (
+                    <>
+                      {/* 加载更多历史消息指示器 */}
+                      {messagePagination.hasMore && (
+                        <div className="qa-load-more-indicator">
+                          {messagePagination.isLoadingMore ? (
+                            <div className="qa-loading-more">
+                              <div className="loading-spinner-small"></div>
+                              <span>加载历史消息...</span>
+                            </div>
+                          ) : (
+                            <button 
+                              className="qa-load-more-btn"
+                              onClick={loadMoreMessages}
+                            >
+                              ↑ 加载更早的消息
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {qaList.map((qa, index) => (
                       <div 
                         key={qa.messageId || index} 
                         className={`qa-section ${index === expandedQAIndex ? 'active' : ''}`}
@@ -1621,7 +1842,8 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                           )}
                         </div>
                       </div>
-                    ))
+                    ))}
+                    </>
                   )}
                   {/* 底部占位元素 - 防止最后一个 section 回弹 */}
                   <div className="qa-bottom-spacer"></div>

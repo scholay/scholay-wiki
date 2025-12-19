@@ -16,7 +16,6 @@
   overflow-x: hidden;
   /* scroll-snap: proximity 只在接近吸附点时吸附，避免强制回弹 */
   scroll-snap-type: y proximity;
-  scroll-behavior: smooth;
   /* 彻底禁用橡皮筋弹性效果 */
   overscroll-behavior: contain;
   overscroll-behavior-y: contain;
@@ -24,6 +23,17 @@
   /* 隐藏滚动条但保持功能 */
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+/* 流式传输时禁用 scroll-snap，避免内容变化时自动吸附 */
+.qa-snap-container.streaming {
+  scroll-snap-type: none !important;
+}
+
+/* 流式传输时子元素也不吸附 */
+.qa-snap-container.streaming .qa-section {
+  scroll-snap-align: none !important;
+  scroll-snap-stop: normal !important;
 }
 
 .qa-snap-container::-webkit-scrollbar {
@@ -333,4 +343,78 @@
   .qa-suggested-btn {
     padding: 8px 12px;
   }
+}
+
+/* 加载更多历史消息指示器 */
+.qa-load-more-indicator {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+  margin-bottom: 8px;
+}
+
+.qa-loading-more {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary, #666);
+  font-size: 14px;
+}
+
+.loading-spinner-small {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-top-color: var(--primary-color, #4a90d9);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.qa-load-more-btn {
+  background: transparent;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 20px;
+  padding: 8px 20px;
+  color: var(--text-secondary, #666);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.qa-load-more-btn:hover {
+  background: var(--bg-hover, #f5f5f5);
+  border-color: var(--primary-color, #4a90d9);
+  color: var(--primary-color, #4a90d9);
+}
+
+/* 加载对话中状态 */
+.qa-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 300px;
+  color: var(--text-secondary, #666);
+  gap: 16px;
+}
+
+.qa-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color, #e0e0e0);
+  border-top-color: var(--primary-color, #4a90d9);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.qa-loading-state p {
+  font-size: 14px;
+  margin: 0;
 }

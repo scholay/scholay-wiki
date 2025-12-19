@@ -152,6 +152,16 @@ type ConversationWithMessages struct {
 	Messages []ConversationMessage `json:"messages"`
 }
 
+// ConversationWithMessagesPaginated represents a conversation with paginated messages
+type ConversationWithMessagesPaginated struct {
+	Conversation
+	Messages []ConversationMessage `json:"messages"`
+	Total    int64                 `json:"total"`    // Total message count
+	Page     int                   `json:"page"`     // Current page (1-based)
+	PageSize int                   `json:"page_size"`
+	HasMore  bool                  `json:"has_more"` // Whether there are more messages to load
+}
+
 // ConversationListResponse represents a list of conversations
 type ConversationListResponse struct {
 	Conversations []Conversation `json:"conversations"`

@@ -92,6 +92,41 @@ func (r *Repository) GetConversationMessages(conversationID uint) ([]Conversatio
 	return messages, nil
 }
 
+// GetConversationMessagesPaginated gets messages with pagination (newest first)
+// Returns messages in DESC order (newest first), total count, and error
+// page starts from 1, pageSize is the number of messages per page
+func (r *Repository) GetConversationMessagesPaginated(conversationID uint, page, pageSize int) ([]ConversationMessage, int64, error) {
+	var messages []ConversationMessage
+	var total int64
+
+	// Get total count
+	if err := r.db.Model(&ConversationMessage{}).Where("conversation_id = ?", conversationID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Calculate offset
+	offset := (page - 1) * pageSize
+
+	// Get messages ordered by created_at DESC (newest first)
+	err := r.db.Where("conversation_id = ?", conversationID).
+		Order("created_at DESC").
+		Offset(offset).
+		Limit(pageSize).
+		Find(&messages).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return messages, total, nil
+}
+
+// GetConversationMessagesCount gets the total count of messages for a conversation
+func (r *Repository) GetConversationMessagesCount(conversationID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&ConversationMessage{}).Where("conversation_id = ?", conversationID).Count(&count).Error
+	return count, err
+}
+
 // GetConversationWithMessages gets a conversation with all its messages
 func (r *Repository) GetConversationWithMessages(id uint, userID uint) (*ConversationWithMessages, error) {
 	// Get conversation

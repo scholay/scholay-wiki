@@ -277,9 +277,14 @@ export const conversationAPI = {
   createConversation: (title, conversationType = 'search') =>
     api.post('/user/conversations', { title, conversation_type: conversationType }),
 
-  // Get a conversation with all messages
-  getConversation: (id) =>
-    api.get(`/user/conversations/${id}`),
+  // Get a conversation with messages (supports pagination)
+  // If page/pageSize not provided, returns all messages (backward compatible)
+  getConversation: (id, page = null, pageSize = null) => {
+    const params = {};
+    if (page !== null) params.page = page;
+    if (pageSize !== null) params.page_size = pageSize;
+    return api.get(`/user/conversations/${id}`, { params });
+  },
 
   // Delete a conversation
   deleteConversation: (id) =>
