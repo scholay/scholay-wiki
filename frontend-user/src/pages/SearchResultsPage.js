@@ -8,24 +8,21 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
-import { useSearchParams, useNavigate, useOutletContext, useLocation } from 'react-router-dom';
+import { useSearchParams, useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
-import { Menu, ChevronDown, Sparkles, X } from 'lucide-react';
+import { ChevronDown, Sparkles, X } from 'lucide-react';
 import { publicScholarAPI, analysisDimensionAPI } from '../services/api';
 import PaperPreview from '../components/PaperPreview';
-import SearchFilters from '../components/SearchFilters';
 import PaperListSkeleton from '../components/PaperListSkeleton';
 import PaperDetailSkeleton from '../components/PaperDetailSkeleton';
 import CiteModal from '../components/CiteModal';
 import SimilarPapersGuide from '../components/SimilarPapersGuide';
 import SearchSuggestions from '../components/SearchSuggestions';
-import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import SEO from '../components/SEO';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
-// ThemeToggle 已移至 TopNavBar
 import { trackAcademicSearch, EntryPoint } from '../utils/usageTracker';
-import { getSearchQuery, setSearchQuery as saveSearchQuery, getSearchFilters, setSearchFilters as saveSearchFilters, getSearchMode, setSearchMode as saveSearchMode, getAIModelLevel } from '../utils/searchStorage';
+import { getSearchQuery, setSearchQuery as saveSearchQuery, getSearchFilters, setSearchFilters as saveSearchFilters, setSearchMode as saveSearchMode, getAIModelLevel } from '../utils/searchStorage';
 import './styles/search-results/index.css';
 
 // 懒加载 AuthModal 和 AISearchView
@@ -81,10 +78,10 @@ const AnalysisCellText = ({ text }) => {
 const SearchResultsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const location = useLocation();
-  const { isAuthenticated, user } = useAuth();
-  const { isMobile, openMobileSidebar } = useSidebar();
+  const { isAuthenticated } = useAuth();
+  const { isMobile } = useSidebar();
   const outletContext = useOutletContext();
+  // eslint-disable-next-line no-unused-vars
   const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
 
   // 登录弹窗状态
@@ -227,9 +224,6 @@ const SearchResultsPage = () => {
 
   const resultsMainRef = useRef(null);
   const papersContainerRef = useRef(null);
-  const analysisResultsRef = useRef(null); // 右侧分析结果列表引用
-  const analysisHeaderRef = useRef(null); // 右侧分析结果表头引用
-  const tableViewBtnRef = useRef(null); // 表格视图按钮引用
   const similarPapersListRef = useRef(null); // 相似论文列表引用
   const similarPapersTabRef = useRef(null); // 相似论文 Tab 引用
   const textareaRef = useRef(null); // 搜索输入框引用（用于搜索建议定位）
@@ -299,8 +293,11 @@ const SearchResultsPage = () => {
     }
     return 'list';
   }); // 视图模式: 'list', 'table', 'paper' 或 'author'
+  // eslint-disable-next-line no-unused-vars
   const [selectedDimensionKey, setSelectedDimensionKey] = useState(null); // 表格视图中选中的维度
+  // eslint-disable-next-line no-unused-vars
   const [tableReloadTrigger, setTableReloadTrigger] = useState(null); // 触发表格重新加载
+  // eslint-disable-next-line no-unused-vars
   const [showTableGuide, setShowTableGuide] = useState(false); // 表格视图引导弹窗
 
   // 论文详情视图相关状态
@@ -320,10 +317,11 @@ const SearchResultsPage = () => {
   const [authorPapersPage, setAuthorPapersPage] = useState(1); // 作者论文当前页
   const [authorPapersTotalPages, setAuthorPapersTotalPages] = useState(0); // 作者论文总页数
   const [authorPapersTotal, setAuthorPapersTotal] = useState(0); // 作者论文总数
-  const [authorPapersPerPage] = useState(20); // 每页论文数
+  // eslint-disable-next-line no-unused-vars
   const [authorPapersViewMode, setAuthorPapersViewMode] = useState('list'); // 作者论文视图模式: 'list' 或 'table'
   const [allAuthorPapers, setAllAuthorPapers] = useState([]); // 表格视图累积的所有论文（用于表格视图）
   // authorSelectedPaper 已移除，统一使用 selectedPaper
+  // eslint-disable-next-line no-unused-vars
   const [authorActiveTab, setAuthorActiveTab] = useState('publications'); // 作者详情 Tab: 'publications', 'citingAuthors', 'coAuthors'
   const [detailActiveTab, setDetailActiveTab] = useState(() => {
     // 如果是从相似论文表格视图登录返回，默认选中相似论文 tab
@@ -353,6 +351,7 @@ const SearchResultsPage = () => {
   // 相似论文状态
   const [similarPapersData, setSimilarPapersData] = useState({ papers: [], currentPage: 1, total: 0, totalPages: 0 });
   const [similarPapersLoading, setSimilarPapersLoading] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [similarPapersViewMode, setSimilarPapersViewMode] = useState(() => {
     // 如果是从相似论文表格视图登录返回，默认使用表格视图
     if (initState.returnToSimilarTable) {
@@ -361,21 +360,24 @@ const SearchResultsPage = () => {
     return 'list';
   }); // 'list' 或 'table'
   const [allSimilarPapers, setAllSimilarPapers] = useState([]); // 存储所有相似论文数据（用于分页）
+  // eslint-disable-next-line no-unused-vars
   const [similarSelectedDimensionKey, setSimilarSelectedDimensionKey] = useState(null); // 相似论文表格视图选中的维度
+  // eslint-disable-next-line no-unused-vars
   const [similarTableReloadTrigger, setSimilarTableReloadTrigger] = useState(null); // 相似论文表格视图重新加载触发器
   const [showSimilarPapersGuide, setShowSimilarPapersGuide] = useState(false); // 相似论文新手引导
+  // eslint-disable-next-line no-unused-vars
   const [showSimilarTableGuide, setShowSimilarTableGuide] = useState(false); // 相似论文表格视图引导
   const hasClickedSimilarTabRef = useRef(false); // 标记用户是否已点击过相似论文标签
   const hasClickedSimilarTableBtnRef = useRef(false); // 标记用户是否已点击过相似论文表格按钮
-  const similarTableBtnRef = useRef(null); // 相似论文表格按钮的 ref
   
   // 作者页面表格引导相关
+  // eslint-disable-next-line no-unused-vars
   const [showAuthorTableGuide, setShowAuthorTableGuide] = useState(false); // 作者页面表格视图引导
   const hasClickedAuthorTableBtnRef = useRef(false); // 标记用户是否已点击过作者页面表格按钮
-  const authorTableBtnRef = useRef(null); // 作者页面表格按钮的 ref
 
 
-  // 处理维度更新（编辑或新增）
+  // 处理维度更新（编辑或新增）- 预留功能
+  // eslint-disable-next-line no-unused-vars
   const handleDimensionsUpdated = useCallback((action, dimensionName) => {
     // 设置重新加载触发器
     setTableReloadTrigger({
@@ -387,7 +389,8 @@ const SearchResultsPage = () => {
     setSelectedDimensionKey(null);
   }, []);
 
-  // 处理相似论文维度更新（编辑或新增）
+  // 处理相似论文维度更新（编辑或新增）- 预留功能
+  // eslint-disable-next-line no-unused-vars
   const handleSimilarDimensionsUpdated = useCallback((action, dimensionName) => {
     // 设置重新加载触发器
     setSimilarTableReloadTrigger({
@@ -681,6 +684,7 @@ const SearchResultsPage = () => {
       // 使用并发控制进行分析
       analyzeWithConcurrency(papersToAnalyze);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDimensions.length, papers, analyzeWithConcurrency]); // 移除 analysisResults 和 analyzingPapers 避免循环
 
   // 点击论文显示抽屉预览
@@ -803,7 +807,8 @@ const SearchResultsPage = () => {
     loadAuthorDetail(detailAuthorId, newPage);
   }, [detailAuthorId, authorPapersTotalPages, authorPapersPage, loadAuthorDetail]);
 
-  // 作者论文表格视图 - 加载更多（累积加载，与相似论文逻辑一致）
+  // 作者论文表格视图 - 加载更多（累积加载，与相似论文逻辑一致）- 预留功能
+  // eslint-disable-next-line no-unused-vars
   const loadMoreAuthorPapersForTable = useCallback(async () => {
     if (!detailAuthorId || authorPapersLoading) return;
     
@@ -908,7 +913,8 @@ const SearchResultsPage = () => {
       }
       // 注意：相似论文引导的显示逻辑移到单独的 useEffect 中，等待论文详情加载完成后再显示
     }
-  }, [searchParams]); // 监听 URL 参数变化
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]); // 监听 URL 参数变化，其他依赖故意省略避免循环
 
   // 相似论文新手引导 - 等待论文详情加载完成后显示
   useEffect(() => {
@@ -979,7 +985,8 @@ const SearchResultsPage = () => {
     if (searchQuery) {
       performSearch(searchQuery, filters, currentPage);
     }
-  }, []); // 只在组件挂载时执行一次
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 只在组件挂载时执行一次，故意省略依赖
     
   // 监听搜索结果加载完成，显示表格视图引导
   useEffect(() => {
@@ -1218,7 +1225,8 @@ const SearchResultsPage = () => {
     loadPaperDetail(paper.id);
   };
 
-  // 返回搜索结果列表
+  // 返回搜索结果列表 - 预留功能
+  // eslint-disable-next-line no-unused-vars
   const handleBackToSearch = () => {
     setViewMode('list');
     setDetailPaper(null);
@@ -1450,7 +1458,8 @@ const SearchResultsPage = () => {
     setSearchParams(params);
   };
 
-  // 处理使用推荐搜索词搜索（从表格视图空状态触发）
+  // 处理使用推荐搜索词搜索（从表格视图空状态触发）- 预留功能
+  // eslint-disable-next-line no-unused-vars
   const handleSearchWithRecommendedQuery = (recommendedQuery) => {
     if (!recommendedQuery || !recommendedQuery.trim()) return;
     
@@ -1481,12 +1490,14 @@ const SearchResultsPage = () => {
     performSearch(recommendedQuery, filters, 1);
   };
 
-  // 处理顶部筛选面板的筛选条件变化（不立即搜索，只更新状态）
+  // 处理顶部筛选面板的筛选条件变化（不立即搜索，只更新状态）- 预留功能
+  // eslint-disable-next-line no-unused-vars
   const handleTopFiltersChange = (newFilters) => {
     setFilters(newFilters);
   };
 
-  // 处理顶部筛选面板关闭（只在有结果页面关闭时触发搜索）
+  // 处理顶部筛选面板关闭（只在有结果页面关闭时触发搜索）- 预留功能
+  // eslint-disable-next-line no-unused-vars
   const handleTopFiltersToggle = (shouldSearchOnClose = false) => {
     if (showFilters && shouldSearchOnClose) {
       // 面板正在关闭，且明确要求搜索时才触发
@@ -1499,7 +1510,8 @@ const SearchResultsPage = () => {
     setShowFilters(!showFilters);
   };
 
-  // 检查是否有筛选条件
+  // 检查是否有筛选条件 - 预留功能
+  // eslint-disable-next-line no-unused-vars
   const hasActiveFilters = () => {
     return filters.yearFrom ||
            filters.yearTo ||
@@ -1510,7 +1522,8 @@ const SearchResultsPage = () => {
            filters.minCitationCount;
   };
 
-  // 获取当前筛选标签列表
+  // 获取当前筛选标签列表 - 预留功能
+  // eslint-disable-next-line no-unused-vars
   const getFilterTags = () => {
     const tags = [];
     
@@ -1545,7 +1558,8 @@ const SearchResultsPage = () => {
     return tags;
   };
 
-  // 移除单个筛选条件
+  // 移除单个筛选条件 - 预留功能
+  // eslint-disable-next-line no-unused-vars
   const removeFilter = (tagKey, tagType) => {
     const newFilters = { ...filters };
     
@@ -1589,7 +1603,8 @@ const SearchResultsPage = () => {
     }
   };
 
-  // 清除所有筛选条件
+  // 清除所有筛选条件 - 预留功能
+  // eslint-disable-next-line no-unused-vars
   const clearAllFilters = () => {
     const newFilters = {
       yearFrom: '',
@@ -1629,7 +1644,6 @@ const SearchResultsPage = () => {
   const startPreviewResize = (startClientX) => {
     setIsResizingPreview(true);
     const startWidth = previewWidth;
-    let currentWidth = startWidth;
 
     const updateWidth = (clientX) => {
       if (typeof clientX !== 'number' || Number.isNaN(clientX)) {
@@ -1638,7 +1652,6 @@ const SearchResultsPage = () => {
       const diff = startClientX - clientX;
       const rawWidth = startWidth + diff;
       const clampedWidth = clampPreviewWidth(rawWidth);
-      currentWidth = clampedWidth;
       setPreviewWidth(clampedWidth);
     };
 
@@ -1689,8 +1702,8 @@ const SearchResultsPage = () => {
 
   // 计算分页信息
   const totalPages = Math.ceil(total / papersPerPage);
+  // eslint-disable-next-line no-unused-vars
   const startIndex = (currentPage - 1) * papersPerPage + 1;
-  const endIndex = Math.min(currentPage * papersPerPage, total);
 
 
   // 生成SEO数据
