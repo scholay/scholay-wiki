@@ -156,6 +156,15 @@ func (r *Repository) UpdateMessageSearchResultsByID(messageID uint, papers []map
 	}).Error
 }
 
+// UpdateMessageSearchPaperIDs updates only the paper IDs for a specific message
+// This is used for optimized storage - only IDs are saved, frontend fetches details
+func (r *Repository) UpdateMessageSearchPaperIDs(messageID uint, paperIDs []string, total int) error {
+	return r.db.Model(&ConversationMessage{}).Where("id = ?", messageID).Updates(map[string]interface{}{
+		"search_paper_ids":     SearchPaperIDs(paperIDs),
+		"search_results_total": total,
+	}).Error
+}
+
 // GetMessageByMessageID gets a message by its UUID message_id
 func (r *Repository) GetMessageByMessageID(messageID string) (*ConversationMessage, error) {
 	var message ConversationMessage

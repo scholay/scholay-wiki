@@ -202,15 +202,23 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		displayPapers = displayPapers[:maxPapersToShow]
 	}
 
-	// Step 6: Update user message with search results
-	if err := s.repo.UpdateMessageSearchResultsByID(userMessage.ID, displayPapers, totalCount); err != nil {
-		fmt.Printf("Warning: failed to update user message with search results: %v\n", err)
+	// Step 6: Extract paper IDs and update user message
+	paperIDs := make([]string, 0, len(displayPapers))
+	for _, paper := range displayPapers {
+		if paperID, ok := paper["paperId"].(string); ok && paperID != "" {
+			paperIDs = append(paperIDs, paperID)
+		}
 	}
 
-	// Send papers to frontend (only top 50)
+	// Save only paper IDs to database (optimized storage)
+	if err := s.repo.UpdateMessageSearchPaperIDs(userMessage.ID, paperIDs, totalCount); err != nil {
+		fmt.Printf("Warning: failed to update user message with paper IDs: %v\n", err)
+	}
+
+	// Send only paper IDs to frontend (frontend will fetch details via batch API)
 	papersData := map[string]interface{}{
-		"papers": displayPapers,
-		"total":  totalCount,  // Still show the real total count
+		"paperIds": paperIDs,
+		"total":    totalCount, // Still show the real total count
 	}
 	papersJSON, _ := json.Marshal(papersData)
 	fmt.Fprintf(writer, "data: [PAPERS]%s\n\n", string(papersJSON))

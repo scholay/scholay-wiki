@@ -153,9 +153,11 @@ export const prepareSearchNavigation = ({ query, filters, mode = 'normal', model
   // 存储模式
   setSearchMode(mode);
   
-  // 如果是 AI 模式，存储模型级别
+  // 如果是 AI 模式，存储模型级别并清除旧的对话ID（因为是新搜索）
   if (mode === 'ai') {
     setAIModelLevel(modelLevel);
+    // 清除旧的对话ID，确保新搜索会创建新对话
+    setAIConversationId(null);
   }
   
   // 返回目标 URL（不包含 query 参数）

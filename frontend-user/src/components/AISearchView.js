@@ -15,10 +15,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import logger from '../utils/logger';
 import PaperList from './PaperList';
+import PaperTableView from './PaperTableView';
+import AIPaperList from './AIPaperList';
 import PaperCitationMarkdown from './PaperCitationMarkdown';
-import ModelSelector from './ModelSelector';
-import { AdvancedSearchIcon, NormalSearchIcon } from './SearchIcons';
-import api, { conversationAPI, subscriptionAPI } from '../services/api';
+import AIHistoryDropdown from './AIHistoryDropdown';
+import api, { conversationAPI, subscriptionAPI, publicScholarAPI } from '../services/api';
 import { trackSmartAnalysis, EntryPoint } from '../utils/usageTracker';
 import { getSearchQuery, getAIModelLevel, getAIConversationId, setAIConversationId } from '../utils/searchStorage';
 import '../pages/styles/advanced-search/index.css';
@@ -104,7 +105,15 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
   const { isAuthenticated, user, loading: authLoading } = useAuth();
 
   // Conversation state
-  const [currentConversationId, setCurrentConversationId] = useState(() => getAIConversationId());
+  // 优先从 URL 获取 conversationId，其次从 sessionStorage
+  const [currentConversationId, setCurrentConversationId] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlConvId = urlParams.get('conversationId');
+    if (urlConvId) {
+      return parseInt(urlConvId);
+    }
+    return getAIConversationId();
+  });
   const [conversations, setConversations] = useState([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -123,40 +132,27 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
   const [isStreaming, setIsStreaming] = useState(false);
   const [hasAdvancedSearch, setHasAdvancedSearch] = useState(false); // 标记是否进行过智能分析
   const [showAIThinking, setShowAIThinking] = useState(false); // AI 思考中状态
-  const [paperListWidth, setPaperListWidth] = useState(() => {
-    // 从 localStorage 读取用户偏好，默认 420px
-    const saved = localStorage.getItem('paperListWidth');
-    return saved ? parseInt(saved) : 420;
-  });
-  const [isResizing, setIsResizing] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true); // 是否自动滚动
   const [userScrolling, setUserScrolling] = useState(false); // 用户是否正在手动滚动
   const lastScrollTime = useRef(Date.now());
   const [highlightedPaperIndex, setHighlightedPaperIndex] = useState(null); // 高亮的论文索引
   const [scrollToPaperIndex, setScrollToPaperIndex] = useState(null); // 需要滚动到的论文索引
   const [suggestedQuestions, setSuggestedQuestions] = useState([]); // AI 推荐的后续问题
-  const [currentExampleIndex, setCurrentExampleIndex] = useState(0); // 搜索示例轮播索引
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
   const [showQuestionHistory, setShowQuestionHistory] = useState(false); // 显示问题历史下拉
   const [isLoadingSuggestedQuestions, setIsLoadingSuggestedQuestions] = useState(false); // 推荐问题加载状态
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // 当前选中的问题索引
   const [isScrollingToQuestion, setIsScrollingToQuestion] = useState(false); // 是否正在滚动到指定问题
   const [manualTabSwitch, setManualTabSwitch] = useState(false); // 是否手动切换了 tab（点击引文）
+  const [viewMode, setViewMode] = useState('list'); // 视图模式: 'list' 或 'table'
+  const [selectedDimensionKey, setSelectedDimensionKey] = useState(null); // 表格视图选中的维度
+  const [tableReloadTrigger, setTableReloadTrigger] = useState(null); // 表格重新加载触发器
   
-  // 搜索示例数据 - 覆盖多个学科领域
-  const searchExamples = [
-    '用自然语言描述研究需求，AI 智能解析并搜索...',                      // 说明文字
-    '示例：帮我找一些关于肿瘤免疫治疗最新突破的高引用论文',              // 医学
-    '示例：我想了解拓扑量子计算在容错量子计算中的应用研究',              // 物理+计算机
-    '示例：寻找关于可持续城市发展和智慧城市建设的综述文章',              // 城市规划+工程
-    '示例：推荐一些讨论人工智能在金融风险预测中的机器学习方法',          // 金融+AI
-    '示例：我需要了解石墨烯在光电器件中的最新应用进展',                  // 材料+物理
-    '示例：帮我找关于神经退行性疾病发病机制的前沿研究',                  // 神经科学+医学
-    '示例：想看看生物降解塑料材料的环境友好型设计研究',                  // 环境+化学
-    '示例：寻找探讨社会不平等对教育机会影响的实证研究',                  // 社会学+教育
-    '示例：推荐一些关于合成生物学在生物制造中的应用论文',                // 生物+工程
-    '示例：我想研究脑机接口技术在神经康复中的临床应用'                   // 神经科学+工程
-  ];
+  // 论文展示相关状态 - 和学术检索一样
+  const [expandedAbstract, setExpandedAbstract] = useState({}); // 展开的摘要
+  const [expandedTldr, setExpandedTldr] = useState({}); // 展开的TLDR
+  const [showAbstractMode, setShowAbstractMode] = useState({}); // 显示模式: 'tldr' 或 'abstract'
+  const [selectedPaper, setSelectedPaper] = useState(null); // 选中的论文
 
   const messagesEndRef = useRef(null);
   const chatMessagesRef = useRef(null);
@@ -166,6 +162,20 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
   const streamingContentRef = useRef('');
   const userScrolledRef = useRef(false); // 标记用户是否手动滚动过
   const isLoadingHistoryRef = useRef(false); // 标记是否正在加载历史对话
+  const papersContainerRef = useRef(null); // 论文列表容器
+
+  // 论文详情字段 - 和学术检索保持一致
+  const PAPER_FIELDS = ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds'];
+
+  // 展开/收起摘要
+  const toggleAbstractExpand = (paperId) => {
+    setExpandedAbstract(prev => ({ ...prev, [paperId]: !prev[paperId] }));
+  };
+
+  // 展开/收起TLDR
+  const toggleTldrExpand = (paperId) => {
+    setExpandedTldr(prev => ({ ...prev, [paperId]: !prev[paperId] }));
+  };
 
   // 移除自动跳转逻辑，允许未登录用户访问页面
 
@@ -218,15 +228,6 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       fetchQuotaAndUsage();
     }
   }, [isAuthenticated, user]);
-
-  // 搜索示例轮播效果
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentExampleIndex((prevIndex) => (prevIndex + 1) % searchExamples.length);
-    }, 3000); // 每3秒切换一次
-
-    return () => clearInterval(interval);
-  }, [searchExamples.length]);
 
   const loadConversations = async () => {
     setConversationsLoading(true);
@@ -283,21 +284,34 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       setModelLevel(storedModelLevel);
     }
 
-    if (urlConversationId && isAuthenticated && !currentConversationId && conversations.length > 0) {
-      // 恢复对话 - 确保对话列表已加载
+    // 如果 URL 有 conversationId 且已登录且对话列表已加载
+    if (urlConversationId && isAuthenticated && conversations.length > 0) {
+      // 检查这个对话是否存在
       const conversation = conversations.find(c => c.id === parseInt(urlConversationId));
       if (conversation) {
-        handleSelectConversation(urlConversationId);
+        // 如果当前没有加载这个对话的消息，则加载
+        if (messages.length === 0 || currentConversationId !== parseInt(urlConversationId)) {
+          handleSelectConversation(urlConversationId);
+        }
+      } else {
+        // 对话不存在，重定向到首页
+        console.log(`Conversation ${urlConversationId} not found, redirecting to home`);
+        navigate('/');
       }
-    } else if (storedQuery && isAuthenticated && messages.length === 0 && !urlConversationId) {
-      // 执行搜索
+    } else if (storedQuery && isAuthenticated && messages.length === 0 && !urlConversationId && !currentConversationId) {
+      // 有存储的查询且没有对话ID，执行搜索（从首页跳转过来的情况）
       setSearchQuery(storedQuery);
+      setLoading(true); // 显示 loading 状态
       setTimeout(() => {
         handleInitialSearch(storedQuery);
       }, 100);
+    } else if (!urlConversationId && !storedQuery && isAuthenticated && !authLoading) {
+      // 没有 conversationId 也没有存储的查询，重定向到首页
+      console.log('No conversationId and no stored query, redirecting to home');
+      navigate('/');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, conversations]);
+  }, [isAuthenticated, conversations, authLoading]);
 
   // 当对话ID变化时，更新 sessionStorage 和 URL 参数
   useEffect(() => {
@@ -676,6 +690,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       eventSourceRef.current.close();
     }
     setCurrentConversationId(null);
+    setAIConversationId(null); // 清除 sessionStorage 中的对话ID
     setMessages([]);
     setPapers([]);
     setPapersTotal(0);
@@ -684,6 +699,12 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     setStreamingContent('');
     setIsStreaming(false);
     setHasAdvancedSearch(false); // 重置智能分析标志
+    // 清除 URL 中的 conversationId
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      newParams.delete('conversationId');
+      return newParams;
+    });
   };
 
   const handleDeleteConversation = async (conversationId) => {
@@ -737,22 +758,76 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         setMessages(organizedMessages);
 
         // 查找所有有论文结果的消息，构建 paperSets
+        // 支持新格式 (search_paper_ids) 和旧格式 (search_results)
         const messagesWithPapers = organizedMessages.filter(
-          m => m.role === 'user' && m.search_results && m.search_results.length > 0
+          m => m.role === 'user' && (
+            (m.search_paper_ids && m.search_paper_ids.length > 0) ||
+            (m.search_results && m.search_results.length > 0)
+          )
         );
 
         if (messagesWithPapers.length > 0) {
-          // 按时间顺序（最新的在前），不需要 reverse，因为 messages 本身就是按时间顺序的
-          const sets = messagesWithPapers.map((msg, index) => ({
-            title: index === messagesWithPapers.length - 1 ? '最新搜索' : `搜索 ${index + 1}`,
-            papers: msg.search_results,
-            total: msg.search_results_total || msg.search_results.length,
-            query: msg.search_query
-          }));
-          // 倒序，让最新的在数组第一个位置
-          setPaperSets(sets.reverse());
-          setPapers(sets[0].papers);
-          setPapersTotal(sets[0].total);
+          // 检查是否需要批量获取论文详情（新格式）
+          const messagesNeedingFetch = messagesWithPapers.filter(
+            m => m.search_paper_ids && m.search_paper_ids.length > 0 && (!m.search_results || m.search_results.length === 0)
+          );
+
+          if (messagesNeedingFetch.length > 0) {
+            // 新格式：需要批量获取论文详情
+            logger.log(`History: ${messagesNeedingFetch.length} messages need paper details fetch`);
+            
+            // 收集所有需要获取的论文ID
+            const allPaperIds = [...new Set(messagesNeedingFetch.flatMap(m => m.search_paper_ids))];
+            
+            // 批量获取论文详情 - 使用和学术检索一致的字段
+            try {
+              const response = await publicScholarAPI.getPaperBatch(allPaperIds, PAPER_FIELDS);
+              if (response.data.code === 0 && response.data.data) {
+                const papersMap = {};
+                (response.data.data || []).forEach(paper => {
+                  if (paper.paperId) {
+                    papersMap[paper.paperId] = paper;
+                  }
+                });
+
+                // 构建 paperSets
+                const sets = messagesWithPapers.map((msg, index) => {
+                  let papers = [];
+                  if (msg.search_paper_ids && msg.search_paper_ids.length > 0) {
+                    // 新格式：从获取的详情中匹配
+                    papers = msg.search_paper_ids.map(id => papersMap[id]).filter(Boolean);
+                  } else if (msg.search_results && msg.search_results.length > 0) {
+                    // 旧格式：直接使用
+                    papers = msg.search_results;
+                  }
+                  
+                  return {
+                    title: index === messagesWithPapers.length - 1 ? '最新搜索' : `搜索 ${index + 1}`,
+                    papers: papers,
+                    total: msg.search_results_total || papers.length,
+                    query: msg.search_query
+                  };
+                });
+
+                setPaperSets(sets.reverse());
+                setPapers(sets[0].papers);
+                setPapersTotal(sets[0].total);
+              }
+            } catch (err) {
+              console.error('Failed to fetch paper details for history:', err);
+            }
+          } else {
+            // 旧格式：直接使用 search_results
+            const sets = messagesWithPapers.map((msg, index) => ({
+              title: index === messagesWithPapers.length - 1 ? '最新搜索' : `搜索 ${index + 1}`,
+              papers: msg.search_results,
+              total: msg.search_results_total || msg.search_results.length,
+              query: msg.search_query
+            }));
+            setPaperSets(sets.reverse());
+            setPapers(sets[0].papers);
+            setPapersTotal(sets[0].total);
+          }
 
           // 检查是否有 assistant 消息，判断是否进行过智能分析
           const hasAssistantMessages = organizedMessages.some(m => m.role === 'assistant');
@@ -1059,43 +1134,89 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       }
 
       if (event.data.startsWith('[PAPERS]')) {
-        // Handle papers data
+        // Handle papers data - now receives only paper IDs
         try {
           const papersData = JSON.parse(event.data.substring(8));
-          const newPapers = papersData.papers || [];
+          const paperIds = papersData.paperIds || papersData.papers || []; // 兼容新旧格式
           const newTotal = papersData.total || 0;
 
-          setPapers(newPapers);
-          setPapersTotal(newTotal);
+          // 检查是新格式（只有IDs）还是旧格式（完整论文数据）
+          const isNewFormat = Array.isArray(paperIds) && paperIds.length > 0 && typeof paperIds[0] === 'string';
 
-          // 更新第一个占位符（索引0）为真实的论文数据
-          setPaperSets(prevSets => {
-            const newSets = [...prevSets];
-            if (newSets.length > 0 && newSets[0].isLoading) {
-              // 更新第一个占位符
-              newSets[0] = {
-                title: '最新搜索',
-                papers: newPapers,
-                total: newTotal,
-                query: query,
-                isLoading: false
-              };
-            } else {
-              // 如果没有占位符，添加新的
-              newSets.unshift({
-                title: '最新搜索',
-                papers: newPapers,
-                total: newTotal,
-                query: query,
-                isLoading: false
-              });
-            }
-            return newSets;
-          });
+          if (isNewFormat) {
+            // 新格式：只有IDs，需要批量获取论文详情
+            logger.log(`Received ${paperIds.length} paper IDs, fetching details...`);
+            
+            // 异步获取论文详情 - 使用和学术检索一致的字段
+            publicScholarAPI.getPaperBatch(paperIds, PAPER_FIELDS).then(response => {
+              if (response.data.code === 0 && response.data.data) {
+                const newPapers = response.data.data || [];
+                logger.log(`Fetched ${newPapers.length} paper details`);
+                
+                setPapers(newPapers);
+                setPapersTotal(newTotal);
 
-          setHasAdvancedSearch(true); // 标记已进行智能分析
-          // 收到论文数据后立即停止 loading，让 PaperList 显示论文
-          setLoading(false);
+                // 更新第一个占位符（索引0）为真实的论文数据
+                setPaperSets(prevSets => {
+                  const newSets = [...prevSets];
+                  if (newSets.length > 0 && newSets[0].isLoading) {
+                    newSets[0] = {
+                      title: '最新搜索',
+                      papers: newPapers,
+                      total: newTotal,
+                      query: query,
+                      isLoading: false
+                    };
+                  } else {
+                    newSets.unshift({
+                      title: '最新搜索',
+                      papers: newPapers,
+                      total: newTotal,
+                      query: query,
+                      isLoading: false
+                    });
+                  }
+                  return newSets;
+                });
+
+                setHasAdvancedSearch(true);
+                setLoading(false);
+              }
+            }).catch(err => {
+              console.error('Failed to fetch paper details:', err);
+              setLoading(false);
+            });
+          } else {
+            // 旧格式：完整论文数据（向后兼容）
+            const newPapers = paperIds;
+            setPapers(newPapers);
+            setPapersTotal(newTotal);
+
+            setPaperSets(prevSets => {
+              const newSets = [...prevSets];
+              if (newSets.length > 0 && newSets[0].isLoading) {
+                newSets[0] = {
+                  title: '最新搜索',
+                  papers: newPapers,
+                  total: newTotal,
+                  query: query,
+                  isLoading: false
+                };
+              } else {
+                newSets.unshift({
+                  title: '最新搜索',
+                  papers: newPapers,
+                  total: newTotal,
+                  query: query,
+                  isLoading: false
+                });
+              }
+              return newSets;
+            });
+
+            setHasAdvancedSearch(true);
+            setLoading(false);
+          }
         } catch (err) {
           console.error('Failed to parse papers data:', err);
         }
@@ -1277,37 +1398,80 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
               if (data.startsWith('[PAPERS]')) {
                 try {
                   const papersData = JSON.parse(data.substring(8));
-                  const newPapers = papersData.papers || [];
+                  const paperIds = papersData.paperIds || papersData.papers || [];
                   const newTotal = papersData.total || 0;
 
-                  setPapers(newPapers);
-                  setPapersTotal(newTotal);
-                  setLoading(false);
+                  // 检查是新格式（只有IDs）还是旧格式（完整论文数据）
+                  const isNewFormat = Array.isArray(paperIds) && paperIds.length > 0 && typeof paperIds[0] === 'string';
 
-                  // 更新第一个占位符（索引0）为真实的论文数据
-                  setPaperSets(prevSets => {
-                    const newSets = [...prevSets];
-                    if (newSets.length > 0 && newSets[0].isLoading) {
-                      // 更新第一个占位符
-                      newSets[0] = {
-                        title: '追问搜索',
-                        papers: newPapers,
-                        total: newTotal,
-                        query: query,
-                        isLoading: false
-                      };
-                    } else {
-                      // 如果没有占位符，添加新的
-                      newSets.unshift({
-                        title: '追问搜索',
-                        papers: newPapers,
-                        total: newTotal,
-                        query: query,
-                        isLoading: false
-                      });
-                    }
-                    return newSets;
-                  });
+                  if (isNewFormat) {
+                    // 新格式：只有IDs，需要批量获取论文详情
+                    logger.log(`Continue: Received ${paperIds.length} paper IDs, fetching details...`);
+                    
+                    // 使用和学术检索一致的字段
+                    publicScholarAPI.getPaperBatch(paperIds, PAPER_FIELDS).then(response => {
+                      if (response.data.code === 0 && response.data.data) {
+                        const newPapers = response.data.data || [];
+                        
+                        setPapers(newPapers);
+                        setPapersTotal(newTotal);
+                        setLoading(false);
+
+                        setPaperSets(prevSets => {
+                          const newSets = [...prevSets];
+                          if (newSets.length > 0 && newSets[0].isLoading) {
+                            newSets[0] = {
+                              title: '追问搜索',
+                              papers: newPapers,
+                              total: newTotal,
+                              query: query,
+                              isLoading: false
+                            };
+                          } else {
+                            newSets.unshift({
+                              title: '追问搜索',
+                              papers: newPapers,
+                              total: newTotal,
+                              query: query,
+                              isLoading: false
+                            });
+                          }
+                          return newSets;
+                        });
+                      }
+                    }).catch(err => {
+                      console.error('Failed to fetch paper details:', err);
+                      setLoading(false);
+                    });
+                  } else {
+                    // 旧格式：完整论文数据（向后兼容）
+                    const newPapers = paperIds;
+                    setPapers(newPapers);
+                    setPapersTotal(newTotal);
+                    setLoading(false);
+
+                    setPaperSets(prevSets => {
+                      const newSets = [...prevSets];
+                      if (newSets.length > 0 && newSets[0].isLoading) {
+                        newSets[0] = {
+                          title: '追问搜索',
+                          papers: newPapers,
+                          total: newTotal,
+                          query: query,
+                          isLoading: false
+                        };
+                      } else {
+                        newSets.unshift({
+                          title: '追问搜索',
+                          papers: newPapers,
+                          total: newTotal,
+                          query: query,
+                          isLoading: false
+                        });
+                      }
+                      return newSets;
+                    });
+                  }
                 } catch (err) {
                   console.error('Failed to parse papers data:', err);
                 }
@@ -1443,257 +1607,89 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     };
   }, [highlightedPaperIndex]);
 
-  // 处理分割线拖动
-  const handleMouseDown = (e) => {
-    e.preventDefault();
-    setIsResizing(true);
-
-    const startX = e.clientX;
-    const startWidth = paperListWidth;
-    const windowWidth = window.innerWidth;
-
-    // 计算最小和最大宽度
-    const MIN_WIDTH = 320; // 最小 320px
-    const MAX_WIDTH = Math.floor(windowWidth * 0.5); // 最大屏幕宽度的 50%
-
-    let currentWidth = startWidth; // 记录当前宽度
-
-    const handleMouseMove = (e) => {
-      const diff = startX - e.clientX; // 向左拖动为正值
-      const newWidth = Math.min(Math.max(startWidth + diff, MIN_WIDTH), MAX_WIDTH);
-      currentWidth = newWidth; // 更新当前宽度
-      setPaperListWidth(newWidth);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-      // 保存最新的宽度到 localStorage
-      localStorage.setItem('paperListWidth', currentWidth.toString());
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  };
-
   // Main advanced search interface
   return (
     <div className="advanced-search-page ai-search-view-embedded">
       <div className="advanced-search-content">
-        {messages.length === 0 ? (
-          /* 空状态：参考学术检索的布局 */
-          <div className="as-empty-search-layout">
-            <div className="as-empty-header">
-              <h1 className="as-empty-page-title">智能分析</h1>
-            </div>
-
-            <div className="as-empty-search-content">
-              <form onSubmit={handleSearch} className="advanced-search-composer-wrapper">
-                {/* 输入区域 */}
-                <div className="advanced-search-composer-input-area">
-                  <textarea
-                    ref={textareaRef}
-                    className="advanced-search-chat-input"
-                    placeholder={searchExamples[currentExampleIndex]}
-                    value={searchQuery}
-                    maxLength={1000}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      e.target.style.height = 'auto';
-                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
-                    }}
-                    onCompositionStart={() => setIsComposing(true)}
-                    onCompositionEnd={() => setIsComposing(false)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
-                        e.preventDefault();
-                        if (!loading && searchQuery.trim()) {
-                          handleSearch(e);
-                        }
-                      }
-                    }}
-                    disabled={loading}
-                    rows={1}
-                  />
-                  <button type="submit" className="btn-send" disabled={loading || !searchQuery.trim()}>
-                    {loading ? (
-                      <div className="spinner-small"></div>
-                    ) : (
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                      </svg>
-                    )}
-                  </button>
+        {/* 结果布局 - 复用学术检索样式 */}
+          <div className="as-results-layout search-results-page">
+            {/* 顶部导航栏 - 简化版 */}
+            <div className="results-layout">
+              <div className="results-search-header ai-results-header">
+                {/* 左侧 Logo */}
+                <div className="results-logo" onClick={() => navigate('/')}>
+                  <span className="results-logo-text">Scholay</span>
                 </div>
-
-                {/* 底部操作栏 */}
-                <div className="advanced-search-composer-footer">
-                  <div className="advanced-search-composer-footer-left">
-                    {/* 搜索模式切换 - 分段控制器设计 */}
-                    <div className="advanced-search-mode-segmented">
-                      <button
-                        type="button"
-                        className="mode-segment"
-                        onClick={() => {
-                          // 切换到普通搜索模式
-                          if (onSwitchToNormal) {
-                            onSwitchToNormal();
-                          } else {
-                            navigate('/search-results');
-                          }
-                        }}
-                      >
-                        <span className="mode-segment-icon">
-                          <NormalSearchIcon size={16} />
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        className="mode-segment active"
-                      >
-                        <span className="mode-segment-icon">
-                          <AdvancedSearchIcon size={16} />
-                        </span>
-                        <span className="mode-segment-label">智能分析</span>
-                      </button>
-                    </div>
-
-                    {/* 分隔线 */}
-                    <div className="footer-divider"></div>
-
-                    {/* 模型选择器 */}
-                    <div className="model-selector-wrapper">
-                      <ModelSelector
-                        value={modelLevel}
-                        onChange={setModelLevel}
-                        disabled={loading}
-                        userSubscription={user?.subscription}
-                        isAuthenticated={isAuthenticated}
-                      />
-                    </div>
+                
+                {/* 中间区域 - 显示当前分析状态 */}
+                <div className="ai-header-center">
+                  <div className="ai-analysis-indicator">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                    </svg>
+                    <span className="ai-indicator-text">智能分析</span>
+                    {papersTotal > 0 && (
+                      <span className="ai-papers-count">已找到 {papersTotal} 篇相关论文</span>
+                    )}
                   </div>
                 </div>
-              </form>
-            </div>
-          </div>
-        ) : (
-          /* 有消息时：显示结果布局 */
-          <div className="as-results-layout">
-            {/* 顶部标题栏 */}
-            <div className="as-results-navbar">
-              <div className="as-navbar-title-group">
-                <h1 className="as-page-title">智能分析</h1>
                 
-                {/* 问题记录下拉组件 - 紧跟标题 */}
-                <div className="as-question-history-dropdown">
-                  <button 
-                    className={`as-question-dropdown-btn ${showQuestionHistory ? 'open' : ''}`}
-                    onClick={() => setShowQuestionHistory(!showQuestionHistory)}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    <span className="as-question-count">
-                      问题 {currentQuestionIndex + 1}/{messages.filter(m => m.role === 'user').length}
-                    </span>
-                  </button>
-                  
-                  {showQuestionHistory && (
-                    <>
-                      <div className="as-dropdown-overlay" onClick={() => setShowQuestionHistory(false)} />
-                      <div className="as-question-dropdown-menu">
-                        <div className="as-dropdown-header">对话历史</div>
-                        <div className="as-question-list">
-                          {messages.filter(m => m.role === 'user').map((msg, index) => (
-                            <div 
-                              key={msg.id || index} 
-                              className="as-question-item"
-                              onClick={() => {
-                                // 设置正在滚动标志
-                                setIsScrollingToQuestion(true);
-                                
-                                // 更新当前选中的问题索引
-                                setCurrentQuestionIndex(index);
-                                
-                                // 找到所有用户消息
-                                const userMessages = messages.filter(m => m.role === 'user');
-                                const targetMessage = userMessages[index];
-                                
-                                if (targetMessage) {
-                                  // 找到这个消息在完整消息列表中的索引
-                                  const fullIndex = messages.indexOf(targetMessage);
-                                  
-                                  if (fullIndex !== -1) {
-                                    const messageElement = document.getElementById(`message-${fullIndex}`);
-                                    const container = chatMessagesRef.current;
-                                    
-                                    if (messageElement && container) {
-                                      // 获取元素相对于容器的位置
-                                      const messageTop = messageElement.offsetTop;
-                                      
-                                      // 直接滚动到该位置，让问题显示在容器顶部
-                                      container.scrollTo({
-                                        top: messageTop - 20, // 留20px的顶部边距
-                                        behavior: 'smooth'
-                                      });
-                                      
-                                      // 滚动动画完成后，清除标志
-                                      setTimeout(() => {
-                                        setIsScrollingToQuestion(false);
-                                      }, 800); // 滚动动画大约需要800ms
-                                    }
-                                  }
-                                }
-                                setShowQuestionHistory(false);
-                              }}
-                            >
-                              <span className="as-question-number">{index + 1}</span>
-                              <span className="as-question-text">{msg.content}</span>
-                            </div>
-                          ))}
-                          {messages.filter(m => m.role === 'user').length === 0 && (
-                            <div className="as-question-empty">暂无提问记录</div>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-                
-                <button className="new-conversation-btn as-new-btn-spacing" onClick={handleNewConversation} title="新建对话">
-                  <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M2.6687 11.333V8.66699C2.6687 7.74455 2.66841 7.01205 2.71655 6.42285C2.76533 5.82612 2.86699 5.31731 3.10425 4.85156L3.25854 4.57617C3.64272 3.94975 4.19392 3.43995 4.85229 3.10449L5.02905 3.02149C5.44666 2.84233 5.90133 2.75849 6.42358 2.71582C7.01272 2.66769 7.74445 2.66797 8.66675 2.66797H9.16675C9.53393 2.66797 9.83165 2.96586 9.83179 3.33301C9.83179 3.70028 9.53402 3.99805 9.16675 3.99805H8.66675C7.7226 3.99805 7.05438 3.99834 6.53198 4.04102C6.14611 4.07254 5.87277 4.12568 5.65601 4.20313L5.45581 4.28906C5.01645 4.51293 4.64872 4.85345 4.39233 5.27149L4.28979 5.45508C4.16388 5.7022 4.08381 6.01663 4.04175 6.53125C3.99906 7.05373 3.99878 7.7226 3.99878 8.66699V11.333C3.99878 12.2774 3.99906 12.9463 4.04175 13.4688C4.08381 13.9833 4.16389 14.2978 4.28979 14.5449L4.39233 14.7285C4.64871 15.1465 5.01648 15.4871 5.45581 15.7109L5.65601 15.7969C5.87276 15.8743 6.14614 15.9265 6.53198 15.958C7.05439 16.0007 7.72256 16.002 8.66675 16.002H11.3337C12.2779 16.002 12.9461 16.0007 13.4685 15.958C13.9829 15.916 14.2976 15.8367 14.5447 15.7109L14.7292 15.6074C15.147 15.3511 15.4879 14.9841 15.7117 14.5449L15.7976 14.3447C15.8751 14.128 15.9272 13.8546 15.9587 13.4688C16.0014 12.9463 16.0017 12.2774 16.0017 11.333V10.833C16.0018 10.466 16.2997 10.1681 16.6667 10.168C17.0339 10.168 17.3316 10.4659 17.3318 10.833V11.333C17.3318 12.2555 17.3331 12.9879 17.2849 13.5771C17.2422 14.0993 17.1584 14.5541 16.9792 14.9717L16.8962 15.1484C16.5609 15.8066 16.0507 16.3571 15.4246 16.7412L15.1492 16.8955C14.6833 17.1329 14.1739 17.2354 13.5769 17.2842C12.9878 17.3323 12.256 17.332 11.3337 17.332H8.66675C7.74446 17.332 7.01271 17.3323 6.42358 17.2842C5.90135 17.2415 5.44665 17.1577 5.02905 16.9785L4.85229 16.8955C4.19396 16.5601 3.64271 16.0502 3.25854 15.4238L3.10425 15.1484C2.86697 14.6827 2.76534 14.1739 2.71655 13.5771C2.66841 12.9879 2.6687 12.2555 2.6687 11.333ZM13.4646 3.11328C14.4201 2.334 15.8288 2.38969 16.7195 3.28027L16.8865 3.46485C17.6141 4.35685 17.6143 5.64423 16.8865 6.53613L16.7195 6.7207L11.6726 11.7686C11.1373 12.3039 10.4624 12.6746 9.72827 12.8408L9.41089 12.8994L7.59351 13.1582C7.38637 13.1877 7.17701 13.1187 7.02905 12.9707C6.88112 12.8227 6.81199 12.6134 6.84155 12.4063L7.10132 10.5898L7.15991 10.2715C7.3262 9.53749 7.69692 8.86241 8.23218 8.32715L13.2791 3.28027L13.4646 3.11328ZM15.7791 4.2207C15.3753 3.81702 14.7366 3.79124 14.3035 4.14453L14.2195 4.2207L9.17261 9.26856C8.81541 9.62578 8.56774 10.0756 8.45679 10.5654L8.41772 10.7773L8.28296 11.7158L9.22241 11.582L9.43433 11.543C9.92426 11.432 10.3749 11.1844 10.7322 10.8271L15.7791 5.78027L15.8552 5.69629C16.185 5.29194 16.1852 4.708 15.8552 4.30371L15.7791 4.2207Z"/>
-                  </svg>
-                </button>
-                
-                {/* 模型标识 */}
-                <div className="as-model-indicator">
-                  <ModelSelector
-                    value={modelLevel}
-                    onChange={() => {}}
-                    disabled={true}
-                    userSubscription={user?.subscription}
-                    isAuthenticated={isAuthenticated}
-                    compact={true}
-                    showOnly={true} // 只显示，不可交互
-                  />
+                {/* 右侧空白区域 - 保持布局平衡 */}
+                <div className="search-header-right">
+                  {/* 操作按钮移到右侧对话面板 */}
                 </div>
               </div>
-            </div>
 
-            {/* 主内容区 */}
-            <div className="as-results-main">
-              {/* 左侧消息区域 */}
-              <div className="as-messages-container">
-                <div className="chat-messages" ref={chatMessagesRef}>
-                <>
-                  {/* 简单的消息列表 */}
-                  {messages.map((message, msgIndex) => (
+              {/* 主内容区 - 两栏布局：论文列表 + AI对话 */}
+              <div className="results-main ai-results-main">
+                {/* 左侧：论文列表容器 - 复用学术检索样式 */}
+                <div className="papers-container" ref={papersContainerRef}>
+                  <AIPaperList
+                    papers={papers}
+                    loading={loading}
+                    total={papersTotal}
+                    highlightedPaperIndex={highlightedPaperIndex}
+                    scrollToPaperIndex={scrollToPaperIndex}
+                    onScrollComplete={() => setScrollToPaperIndex(null)}
+                    onPaperClick={(paper, index) => {
+                      setSelectedPaper(paper);
+                      setHighlightedPaperIndex(null);
+                    }}
+                  />
+                </div>
+
+              {/* 右侧：AI对话区域 */}
+              <div className="ai-chat-panel">
+                {/* 对话面板顶部操作栏 */}
+                <div className="ai-chat-header">
+                  <div className="ai-chat-header-left">
+                    <span className="ai-chat-title">AI 对话</span>
+                  </div>
+                  <div className="ai-chat-header-right">
+                    {/* 历史记录下拉框 */}
+                    <AIHistoryDropdown
+                      conversations={conversations}
+                      currentConversationId={currentConversationId}
+                      onSelectConversation={handleSelectConversation}
+                      onDeleteConversation={handleDeleteConversation}
+                      onNewConversation={handleNewConversation}
+                      loading={conversationsLoading}
+                    />
+                    
+                    {/* 新建对话按钮 */}
+                    <button className="ai-new-conversation-btn" onClick={handleNewConversation} title="新建对话">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="ai-chat-container">
+                  <div className="chat-messages" ref={chatMessagesRef}>
+                  <>
+                    {/* 简单的消息列表 */}
+                    {messages.map((message, msgIndex) => (
                     <div 
                       key={message.id || msgIndex} 
                       className={`message message-${message.role}`}
@@ -1874,49 +1870,10 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                   </form>
                 </div>
               </div>
-
-              {/* 右侧论文列表 */}
-              {(papers.length > 0 || loading || paperSets.length > 0) && (
-                <>
-                  {/* 可拖动的分割线 */}
-                  <div
-                    className={`resize-handle ${isResizing ? 'resizing' : ''}`}
-                    onMouseDown={handleMouseDown}
-                  >
-                    <div className="resize-handle-line" />
-                  </div>
-
-                  {/* 论文区域 - 使用动态宽度 */}
-                  <div className="as-papers-section" style={{ width: `${paperListWidth}px`, flexShrink: 0 }}>
-                    {/* 论文统计信息栏 */}
-                    {papers.length > 0 && !loading && (
-                      <div className="as-papers-header">
-                        <div className="as-papers-stats">
-                          共找到 <strong>{papersTotal || papers.length}</strong> 篇论文
-                        </div>
-                      </div>
-                    )}
-                    {/* 论文列表 */}
-                    <div className="as-papers-list-wrapper">
-                      <PaperList
-                        papers={papers}
-                        loading={loading}
-                        total={papersTotal}
-                        paperSets={paperSets.length > 0 ? paperSets : null}
-                        activeTab={activeTab}
-                        setActiveTab={setActiveTab}
-                        highlightedPaperIndex={highlightedPaperIndex}
-                        scrollToPaperIndex={scrollToPaperIndex}
-                        onScrollComplete={() => setScrollToPaperIndex(null)}
-                        onPaperClick={() => setHighlightedPaperIndex(null)}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
+              </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* 登录弹窗 */}

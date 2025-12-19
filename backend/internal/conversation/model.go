@@ -70,6 +70,32 @@ func (s SearchResults) Value() (driver.Value, error) {
 	return json.Marshal(s)
 }
 
+// SearchPaperIDs represents a list of paper IDs stored as JSON
+type SearchPaperIDs []string
+
+// Scan implements sql.Scanner interface
+func (s *SearchPaperIDs) Scan(value interface{}) error {
+	if value == nil {
+		*s = nil
+		return nil
+	}
+
+	bytes, ok := value.([]byte)
+	if !ok {
+		return nil
+	}
+
+	return json.Unmarshal(bytes, s)
+}
+
+// Value implements driver.Valuer interface
+func (s SearchPaperIDs) Value() (driver.Value, error) {
+	if s == nil {
+		return nil, nil
+	}
+	return json.Marshal(s)
+}
+
 // ConversationMessage represents a message in a conversation with chain support
 type ConversationMessage struct {
 	ID                  uint          `gorm:"primaryKey" json:"id"`
@@ -79,8 +105,9 @@ type ConversationMessage struct {
 	Role                MessageRole   `gorm:"type:varchar(20);not null" json:"role"`
 	Content             string        `gorm:"type:text;not null" json:"content"`
 	SearchQuery         string        `gorm:"type:varchar(500)" json:"search_query,omitempty"`
-	SearchResults       SearchResults `gorm:"type:json" json:"search_results,omitempty"`
-	SearchResultsTotal  int           `gorm:"default:0" json:"search_results_total,omitempty"`
+	SearchResults       SearchResults  `gorm:"type:json" json:"search_results,omitempty"`
+	SearchResultsTotal  int            `gorm:"default:0" json:"search_results_total,omitempty"`
+	SearchPaperIDs      SearchPaperIDs `gorm:"type:json" json:"search_paper_ids,omitempty"`
 	FollowUpQuestions   string        `gorm:"type:text" json:"follow_up_questions,omitempty"` // Only saved for latest assistant message
 	TokenCount          int           `gorm:"default:0" json:"token_count,omitempty"`
 	Model               string        `gorm:"type:varchar(50)" json:"model,omitempty"`

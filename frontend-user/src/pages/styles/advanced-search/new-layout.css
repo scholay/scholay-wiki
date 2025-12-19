@@ -1,0 +1,305 @@
+/* 智能分析新布局样式 - 完全复用学术检索布局 */
+
+/* 主布局容器 - 复用 search-results-page 样式 */
+.as-results-layout.search-results-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.as-results-layout .results-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 主内容区 - 两栏布局 */
+.as-results-layout .results-main.ai-results-main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 论文列表容器 - 复用学术检索的 papers-container 样式 */
+.as-results-layout .papers-container {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  background: transparent;
+}
+
+/* 顶部导航栏 - 智能分析模式 */
+.ai-results-header .ai-header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.ai-analysis-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(16, 163, 127, 0.1);
+  border-radius: 20px;
+  color: var(--primary-color, #10a37f);
+}
+
+.ai-analysis-indicator svg {
+  flex-shrink: 0;
+}
+
+.ai-indicator-text {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ai-papers-count {
+  font-size: 13px;
+  color: var(--text-secondary, #999);
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border-color, rgba(255, 255, 255, 0.2));
+}
+
+/* AI 对话面板 */
+.ai-chat-panel {
+  display: flex;
+  flex-direction: column;
+  width: 420px;
+  min-width: 350px;
+  flex-shrink: 0;
+  background: var(--background-secondary, #1a1a1a);
+  border-left: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+}
+
+/* 对话面板顶部操作栏 */
+.ai-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  background: var(--background-secondary, #1a1a1a);
+  flex-shrink: 0;
+}
+
+.ai-chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-chat-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+}
+
+.ai-chat-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-chat-panel .ai-chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ai-chat-panel .chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.ai-chat-panel .as-bottom-input-container {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  background: var(--background-secondary, #1a1a1a);
+}
+
+/* 新建对话按钮 - 在对话面板头部使用 */
+.ai-chat-header .ai-new-conversation-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  background: var(--primary-color, #10a37f);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ai-chat-header .ai-new-conversation-btn:hover {
+  background: var(--primary-hover, #0d8c6d);
+}
+
+.ai-chat-header .ai-new-conversation-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 通用新建对话按钮样式（保留用于其他地方） */
+.ai-new-conversation-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: var(--primary-color, #10a37f);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.ai-new-conversation-btn:hover {
+  background: var(--primary-hover, #0d8c6d);
+}
+
+.ai-new-conversation-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Skeleton 加载动画 */
+.unified-table-row .skeleton-text {
+  background: linear-gradient(90deg, 
+    var(--skeleton-bg, rgba(255,255,255,0.05)) 25%, 
+    var(--skeleton-shine, rgba(255,255,255,0.1)) 50%, 
+    var(--skeleton-bg, rgba(255,255,255,0.05)) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* 高亮论文 */
+.unified-table-row.highlighted {
+  background: rgba(16, 163, 127, 0.1);
+  border-left: 3px solid var(--primary-color, #10a37f);
+}
+
+/* 消息样式优化 */
+.ai-chat-panel .message {
+  margin-bottom: 16px;
+}
+
+.ai-chat-panel .message-avatar {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.ai-chat-panel .message-content {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* 输入框样式 */
+.ai-chat-panel .advanced-bottom-composer-wrapper {
+  background: var(--background-tertiary, #2a2a2a);
+  border-radius: 12px;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+}
+
+.ai-chat-panel .advanced-bottom-chat-input {
+  font-size: 14px;
+  padding: 10px 14px;
+}
+
+/* 响应式 */
+@media (max-width: 1024px) {
+  .as-results-layout .results-main.ai-results-main {
+    flex-direction: column;
+  }
+  
+  .as-results-layout .papers-container {
+    min-width: 100%;
+    max-height: 50%;
+  }
+  
+  .ai-chat-panel {
+    min-width: 100%;
+    max-width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  }
+}
+
+/* 浅色主题 - 顶部导航栏 */
+[data-theme="light"] .ai-analysis-indicator {
+  background: rgba(5, 150, 105, 0.1);
+  color: #059669;
+}
+
+[data-theme="light"] .ai-papers-count {
+  color: #666;
+  border-left-color: #e0e0e0;
+}
+
+/* 浅色主题 - 对话面板头部 */
+[data-theme="light"] .ai-chat-header {
+  background: #f8f9fa;
+  border-bottom-color: #e0e0e0;
+}
+
+[data-theme="light"] .ai-chat-title {
+  color: #333;
+}
+
+[data-theme="light"] .ai-chat-panel {
+  background: #f8f9fa;
+  border-left-color: #e0e0e0;
+}
+
+[data-theme="light"] .ai-chat-panel .as-bottom-input-container {
+  background: #f8f9fa;
+  border-top-color: #e0e0e0;
+}
+
+[data-theme="light"] .ai-chat-panel .advanced-bottom-composer-wrapper {
+  background: #fff;
+  border-color: #e0e0e0;
+}
+
+[data-theme="light"] .ai-new-conversation-btn {
+  background: #059669;
+}
+
+[data-theme="light"] .ai-new-conversation-btn:hover {
+  background: #047857;
+}
+
+[data-theme="light"] .unified-table-row .skeleton-text {
+  background: linear-gradient(90deg, 
+    #f0f0f0 25%, 
+    #e8e8e8 50%, 
+    #f0f0f0 75%
+  );
+  background-size: 200% 100%;
+}
+
+[data-theme="light"] .unified-table-row.highlighted {
+  background: rgba(5, 150, 105, 0.1);
+  border-left-color: #059669;
+}

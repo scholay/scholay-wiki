@@ -1,0 +1,295 @@
+/* AI 历史记录下拉框样式 */
+
+.ai-history-dropdown {
+  position: relative;
+  display: inline-block;
+  z-index: 100;
+}
+
+.ai-history-dropdown-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--background-tertiary, #2a2a2a);
+  color: var(--text-primary, #fff);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  max-width: 240px;
+}
+
+.ai-history-dropdown-btn:hover {
+  background: var(--background-hover, #333);
+  border-color: var(--border-color-hover, rgba(255, 255, 255, 0.2));
+}
+
+.ai-history-dropdown-btn.open {
+  background: var(--background-hover, #333);
+  border-color: var(--primary-color, #10a37f);
+}
+
+.ai-history-dropdown-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ai-history-btn-text {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.ai-history-arrow {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.ai-history-arrow.open {
+  transform: rotate(180deg);
+}
+
+/* 遮罩层 */
+.ai-dropdown-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 99;
+}
+
+/* 下拉菜单 */
+.ai-history-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  max-height: 400px;
+  background: var(--background-secondary, #1a1a1a);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  z-index: 100;
+  animation: dropdownFadeIn 0.15s ease;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 下拉框头部 */
+.ai-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary, #888);
+}
+
+.ai-dropdown-new-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--primary-color, #10a37f);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.ai-dropdown-new-btn:hover {
+  background: var(--primary-hover, #0d8c6d);
+}
+
+/* 历史列表 */
+.ai-history-list {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.ai-history-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-secondary, #888);
+  font-size: 14px;
+}
+
+/* 历史项 */
+.ai-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ai-history-item:hover {
+  background: var(--background-tertiary, #2a2a2a);
+}
+
+.ai-history-item.active {
+  background: rgba(16, 163, 127, 0.15);
+}
+
+.ai-history-item-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-history-item-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #fff);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-history-item.active .ai-history-item-title {
+  color: var(--primary-color, #10a37f);
+}
+
+.ai-history-item-time {
+  font-size: 12px;
+  color: var(--text-secondary, #888);
+}
+
+/* 删除按钮 */
+.ai-history-item-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #888);
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.ai-history-item:hover .ai-history-item-delete {
+  opacity: 1;
+}
+
+.ai-history-item-delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* 滚动条样式 */
+.ai-history-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ai-history-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ai-history-list::-webkit-scrollbar-thumb {
+  background: var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 3px;
+}
+
+.ai-history-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary, #888);
+}
+
+/* 浅色主题 */
+[data-theme="light"] .ai-history-dropdown-btn {
+  background: #f0f0f0;
+  color: #1a1a1a;
+  border-color: #e0e0e0;
+}
+
+[data-theme="light"] .ai-history-dropdown-btn:hover {
+  background: #e8e8e8;
+  border-color: #d0d0d0;
+}
+
+[data-theme="light"] .ai-history-dropdown-btn.open {
+  border-color: #059669;
+}
+
+[data-theme="light"] .ai-history-dropdown-menu {
+  background: #fff;
+  border-color: #e0e0e0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .ai-dropdown-header {
+  border-bottom-color: #e0e0e0;
+  color: #666;
+}
+
+[data-theme="light"] .ai-dropdown-new-btn {
+  background: #059669;
+}
+
+[data-theme="light"] .ai-dropdown-new-btn:hover {
+  background: #047857;
+}
+
+[data-theme="light"] .ai-history-item:hover {
+  background: #f5f5f5;
+}
+
+[data-theme="light"] .ai-history-item.active {
+  background: rgba(5, 150, 105, 0.1);
+}
+
+[data-theme="light"] .ai-history-item-title {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .ai-history-item.active .ai-history-item-title {
+  color: #059669;
+}
+
+[data-theme="light"] .ai-history-item-time {
+  color: #888;
+}
+
+[data-theme="light"] .ai-history-item-delete {
+  color: #888;
+}
+
+[data-theme="light"] .ai-history-list::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+}
+
+[data-theme="light"] .ai-history-list::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
