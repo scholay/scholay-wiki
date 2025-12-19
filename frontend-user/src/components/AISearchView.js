@@ -10,15 +10,15 @@
  * 嵌入到 SearchResultsPage 中，通过 mode=ai 参数激活
  */
 
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+// ScrollToBottom 已被 scroll-snap 替代
 import { useAuth } from '../utils/AuthContext';
 import logger from '../utils/logger';
-import PaperList from './PaperList';
-import PaperTableView from './PaperTableView';
 import AIPaperList from './AIPaperList';
 import PaperCitationMarkdown from './PaperCitationMarkdown';
 import AIHistoryDropdown from './AIHistoryDropdown';
+import './QACard.css'; // 对话区域样式
 import api, { conversationAPI, subscriptionAPI, publicScholarAPI } from '../services/api';
 import { trackSmartAnalysis, EntryPoint } from '../utils/usageTracker';
 import { getSearchQuery, getAIModelLevel, getAIConversationId, setAIConversationId } from '../utils/searchStorage';
@@ -130,51 +130,94 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
   const [activeTab, setActiveTab] = useState(0); // 当前激活的 tab
   const [streamingContent, setStreamingContent] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [hasAdvancedSearch, setHasAdvancedSearch] = useState(false); // 标记是否进行过智能分析
   const [showAIThinking, setShowAIThinking] = useState(false); // AI 思考中状态
-  const [autoScroll, setAutoScroll] = useState(true); // 是否自动滚动
-  const [userScrolling, setUserScrolling] = useState(false); // 用户是否正在手动滚动
-  const lastScrollTime = useRef(Date.now());
+  const [expandedQAIndex, setExpandedQAIndex] = useState(null); // 当前展开的问答卡片索引
   const [highlightedPaperIndex, setHighlightedPaperIndex] = useState(null); // 高亮的论文索引
   const [scrollToPaperIndex, setScrollToPaperIndex] = useState(null); // 需要滚动到的论文索引
-  const [suggestedQuestions, setSuggestedQuestions] = useState([]); // AI 推荐的后续问题
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
-  const [showQuestionHistory, setShowQuestionHistory] = useState(false); // 显示问题历史下拉
   const [isLoadingSuggestedQuestions, setIsLoadingSuggestedQuestions] = useState(false); // 推荐问题加载状态
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // 当前选中的问题索引
-  const [isScrollingToQuestion, setIsScrollingToQuestion] = useState(false); // 是否正在滚动到指定问题
   const [manualTabSwitch, setManualTabSwitch] = useState(false); // 是否手动切换了 tab（点击引文）
-  const [viewMode, setViewMode] = useState('list'); // 视图模式: 'list' 或 'table'
-  const [selectedDimensionKey, setSelectedDimensionKey] = useState(null); // 表格视图选中的维度
-  const [tableReloadTrigger, setTableReloadTrigger] = useState(null); // 表格重新加载触发器
   
-  // 论文展示相关状态 - 和学术检索一样
-  const [expandedAbstract, setExpandedAbstract] = useState({}); // 展开的摘要
-  const [expandedTldr, setExpandedTldr] = useState({}); // 展开的TLDR
-  const [showAbstractMode, setShowAbstractMode] = useState({}); // 显示模式: 'tldr' 或 'abstract'
-  const [selectedPaper, setSelectedPaper] = useState(null); // 选中的论文
+  // 论文展示相关状态 - 由 AIPaperList 组件内部管理
 
-  const messagesEndRef = useRef(null);
-  const chatMessagesRef = useRef(null);
   const eventSourceRef = useRef(null);
   const textareaRef = useRef(null);
-  const prevMessagesLengthRef = useRef(0);
   const streamingContentRef = useRef('');
-  const userScrolledRef = useRef(false); // 标记用户是否手动滚动过
   const isLoadingHistoryRef = useRef(false); // 标记是否正在加载历史对话
   const papersContainerRef = useRef(null); // 论文列表容器
+  const qaSnapContainerRef = useRef(null); // 问答滚动容器
 
   // 论文详情字段 - 和学术检索保持一致
   const PAPER_FIELDS = ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds'];
 
-  // 展开/收起摘要
-  const toggleAbstractExpand = (paperId) => {
-    setExpandedAbstract(prev => ({ ...prev, [paperId]: !prev[paperId] }));
+  // 将 messages 转换为问答对列表
+  const qaList = useMemo(() => {
+    const list = [];
+    let currentQA = null;
+    
+    messages.forEach((msg, index) => {
+      if (msg.role === 'user') {
+        // 开始新的问答对
+        if (currentQA) {
+          list.push(currentQA);
+        }
+        currentQA = {
+          question: msg.content,
+          answer: '',
+          suggestedQuestions: undefined,
+          messageId: msg.id || msg.message_id,
+          userMsgIndex: index,
+        };
+      } else if (msg.role === 'assistant' && currentQA) {
+        // 添加回答到当前问答对
+        currentQA.answer = msg.content;
+        currentQA.suggestedQuestions = msg.suggestedQuestions;
+        currentQA.assistantMsgIndex = index;
+        currentQA.assistantMsgId = msg.id || msg.message_id;
+      }
+    });
+    
+    // 添加最后一个问答对
+    if (currentQA) {
+      list.push(currentQA);
+    }
+    
+    return list;
+  }, [messages]);
+
+  // 计算每个问答对对应的论文数量
+  const getQAPaperCount = (qaIndex) => {
+    if (!paperSets || paperSets.length === 0) return 0;
+    // paperSets 是倒序的（最新在索引0），qaList 是正序的（最老在索引0）
+    const paperSetIndex = paperSets.length - 1 - qaIndex;
+    if (paperSetIndex >= 0 && paperSetIndex < paperSets.length) {
+      const paperSet = paperSets[paperSetIndex];
+      return paperSet?.papers?.length || 0;
+    }
+    return 0;
   };
 
-  // 展开/收起TLDR
-  const toggleTldrExpand = (paperId) => {
-    setExpandedTldr(prev => ({ ...prev, [paperId]: !prev[paperId] }));
+  // 处理问答切换 - 同时切换论文列表
+  const handleQAToggle = (qaIndex) => {
+    if (expandedQAIndex === qaIndex) {
+      // 点击已展开的问答，不做任何操作
+      return;
+    }
+    setExpandedQAIndex(qaIndex);
+    
+    // 同步切换左侧论文列表
+    // paperSets 是倒序的（最新在索引0），qaIndex 是正序的（最老在索引0）
+    const paperSetIndex = paperSets.length - 1 - qaIndex;
+    if (paperSetIndex >= 0 && paperSetIndex < paperSets.length) {
+      setActiveTab(paperSetIndex);
+      // 同步更新论文显示
+      const paperSet = paperSets[paperSetIndex];
+      if (paperSet?.papers) {
+        setPapers(paperSet.papers);
+        setPapersTotal(paperSet.total || paperSet.papers.length);
+      }
+    }
+    setManualTabSwitch(true); // 标记为手动切换
   };
 
   // 移除自动跳转逻辑，允许未登录用户访问页面
@@ -363,14 +406,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
           ));
 
           logger.log(`Loaded ${questions.length} follow-up questions`);
-
-          // 延伸问题加载后，确保滚动到底部显示出来
-          setTimeout(() => {
-            if (autoScroll) {
-              // 滚动到底部，确保延伸问题完全可见
-              scrollToBottom(0);
-            }
-          }, 150);
+          // react-scroll-to-bottom 会自动处理滚动
         }
       }
     } catch (error) {
@@ -417,262 +453,58 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       return;
     }
 
-    // 立即滚动到底部并启用自动滚动
-    setAutoScroll(true);
-    setTimeout(() => scrollToBottom(), 100);
+    // react-scroll-to-bottom 会自动处理滚动
 
     // 使用现有的 handleInitialSearch 函数触发新搜索
     // 这会自动处理配额检查、创建消息、启动流式搜索等所有逻辑
     await handleInitialSearch(question);
   };
 
-  // 渲染推荐问题组件
-  const renderSuggestedQuestions = (questions) => {
-    if (!questions || questions.length === 0) return null;
+  // react-scroll-to-bottom 自动处理滚动，不需要手动控制
 
-    return (
-      <div className="suggested-questions-inline">
-        <div className="suggested-questions-header">
-          <span className="suggested-questions-title">你可以继续提问</span>
-        </div>
-        <div className="suggested-questions-list">
-          {questions.map((question, index) => (
-            <button
-              key={index}
-              className="suggested-question-btn"
-              onClick={() => handleFollowUpQuestionClick(question)}
-              disabled={loading}
-            >
-              <span className="question-text">{question}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  const scrollToBottom = (extraHeight = 0) => {
-    // 如果用户正在手动滚动或已禁用自动滚动，不执行自动滚动
-    if (userScrolling || !autoScroll) return;
-    
-    const container = chatMessagesRef.current;
-    if (container) {
-      lastScrollTime.current = Date.now(); // 记录程序滚动时间
-      const targetScroll = container.scrollHeight + extraHeight;
-      container.scrollTo({
-        top: targetScroll,
-        behavior: 'smooth'
-      });
-    }
-  };
-
-  const scrollToTop = () => {
-    if (chatMessagesRef.current) {
-      chatMessagesRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  // 检查是否滚动到底部
-  const isAtBottom = () => {
-    if (!chatMessagesRef.current) return true;
-    const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.current;
-    // 允许 50px 的误差范围
-    return scrollHeight - scrollTop - clientHeight < 50;
-  };
-
-  // 处理滚动事件
-  const handleScroll = () => {
-    if (!chatMessagesRef.current) return;
-
-    const now = Date.now();
-    const timeSinceLastScroll = now - lastScrollTime.current;
-    
-    // 如果距离上次程序滚动时间很短，说明是程序触发的滚动
-    // 使用 200ms 阈值，给 smooth 滚动动画留足时间
-    if (timeSinceLastScroll < 200) {
-      return;
-    }
-
-    // 用户手动滚动，恢复自动切换 tab
-    setUserScrolling(true);
-    setManualTabSwitch(false); // 用户滚动时，取消手动切换标志，恢复自动切换
-    
-    const atBottom = isAtBottom();
-
-    // 如果用户滚动到底部，重新启用自动滚动
-    if (atBottom) {
-      setAutoScroll(true);
-      userScrolledRef.current = false;
-      setUserScrolling(false);
-    } else if (isStreaming || messages.length > 0) {
-      // 如果用户在流式传输或有消息时向上滚动，禁用自动滚动
-      setAutoScroll(false);
-      userScrolledRef.current = true;
-    }
-    
-    // 更新当前可见的问题索引
-    updateVisibleQuestionIndex();
-  };
-  
-  // 根据滚动位置更新当前问题索引
-  const updateVisibleQuestionIndex = () => {
-    // 如果正在滚动到指定问题，不更新索引
-    if (isScrollingToQuestion) return;
-    
-    // 如果正在流式传输，不更新索引（避免流式渲染时索引跳动）
-    if (isStreaming) return;
-    
-    const container = chatMessagesRef.current;
-    if (!container) return;
-    
-    const scrollTop = container.scrollTop;
-    const containerTop = container.getBoundingClientRect().top;
-    
-    // 找到所有用户消息
-    const userMessages = messages.filter(m => m.role === 'user');
-    
-    // 找到当前可见的问题
-    for (let i = userMessages.length - 1; i >= 0; i--) {
-      const fullIndex = messages.indexOf(userMessages[i]);
-      const messageElement = document.getElementById(`message-${fullIndex}`);
-      
-      if (messageElement) {
-        const messageRect = messageElement.getBoundingClientRect();
-        const messageTop = messageRect.top - containerTop;
-        
-        // 如果消息在视口中或在视口上方，则认为是当前问题
-        if (messageTop <= 100) { // 100px的阈值
-          setCurrentQuestionIndex(i);
-          break;
-        }
-      }
-    }
-  };
-
-  // 监听滚动事件
+  // 当消息列表变化时，自动展开最新的问答卡片并滚动到最新
   useEffect(() => {
-    const chatMessages = chatMessagesRef.current;
-    if (chatMessages) {
-      // 监听滚轮事件，立即检测用户滚动意图
-      const handleWheel = (e) => {
-        // 用户使用滚轮，立即禁用自动滚动
-        if (isStreaming) {
-          setAutoScroll(false);
-          setUserScrolling(true);
-          userScrolledRef.current = true;
-        }
-      };
+    // 计算问答对数量
+    const qaCount = Math.ceil(messages.filter(m => m.role === 'user').length);
+    if (qaCount > 0) {
+      // 自动展开最新的问答卡片
+      setExpandedQAIndex(qaCount - 1);
       
-      chatMessages.addEventListener('scroll', handleScroll);
-      chatMessages.addEventListener('wheel', handleWheel, { passive: true });
-      
-      return () => {
-        chatMessages.removeEventListener('scroll', handleScroll);
-        chatMessages.removeEventListener('wheel', handleWheel);
-      };
-    }
-  }, [isStreaming, messages.length, isScrollingToQuestion]); // 添加 isScrollingToQuestion 依赖
-
-  // 自动滚动逻辑
-  useEffect(() => {
-    // 如果正在加载历史对话，滚动到顶部
-    if (isLoadingHistoryRef.current && messages.length > 0) {
+      // 滚动到最新的问答 section
       setTimeout(() => {
-        scrollToTop();
-        isLoadingHistoryRef.current = false;
-      }, 100); // 给DOM渲染留一点时间
-      return;
+        if (qaSnapContainerRef.current) {
+          const sections = qaSnapContainerRef.current.querySelectorAll('.qa-section');
+          const lastSection = sections[sections.length - 1];
+          if (lastSection) {
+            lastSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      }, 100);
     }
+  }, [messages.length]);
 
-    // 只在以下情况自动滚动到底部：
-    // 1. autoScroll 为 true
-    // 2. 消息数量增加或正在流式传输
-    // 3. 不是加载历史对话
-    if (autoScroll && (messages.length > prevMessagesLengthRef.current || isStreaming) && !isLoadingHistoryRef.current) {
-      scrollToBottom();
-    }
-    prevMessagesLengthRef.current = messages.length;
-  }, [messages, isStreaming, autoScroll]);
-
-  // 当流式内容更新时也自动滚动（如果启用了自动滚动）
-  useEffect(() => {
-    if (autoScroll && isStreaming && streamingContent && !userScrolling) {
-      // 立即滚动，不需要延迟
-      scrollToBottom();
-    }
-  }, [streamingContent]); // 只依赖streamingContent，避免过多触发
-  
   // 当消息列表变化时，仅在特定情况下更新索引
   useEffect(() => {
     // 如果正在加载历史对话，不自动更新
     if (isLoadingHistoryRef.current) return;
     
-    // 如果消息列表为空，重置索引
-    if (messages.length === 0) {
-      setCurrentQuestionIndex(0);
-    }
-    // 注意：新增消息时的索引更新已经在 handleInitialSearch 中处理
+    // 问答卡片的展开状态会在 messages.length 变化时自动更新
   }, [messages.length]);
 
-  // 自动切换论文tab - 根据当前可见的消息
+  // 当展开的卡片变化时，自动切换论文 tab
   useEffect(() => {
-    if (!chatMessagesRef.current || paperSets.length <= 1) return;
-
-    const handleTabSwitch = () => {
-      // 如果是手动切换的 tab，不执行自动切换
-      if (manualTabSwitch) return;
-      
-      const container = chatMessagesRef.current;
-      if (!container) return;
-
-      const containerRect = container.getBoundingClientRect();
-      const containerMiddle = containerRect.top + containerRect.height / 2;
-
-      // 找出所有 assistant 消息
-      const assistantMessages = Array.from(container.querySelectorAll('.message-assistant'));
-
-      // 找到最接近视口中心的 assistant 消息
-      let closestMessageIndex = -1;
-      let closestDistance = Infinity;
-
-      assistantMessages.forEach((msgElement, idx) => {
-        const msgRect = msgElement.getBoundingClientRect();
-        const msgMiddle = msgRect.top + msgRect.height / 2;
-        const distance = Math.abs(msgMiddle - containerMiddle);
-
-        // 检查消息是否在视口内
-        const isVisible = msgRect.bottom > containerRect.top && msgRect.top < containerRect.bottom;
-
-        if (isVisible && distance < closestDistance) {
-          closestDistance = distance;
-          closestMessageIndex = idx;
-        }
-      });
-
-      // 如果找到了可见的 assistant 消息
-      if (closestMessageIndex >= 0 && closestMessageIndex < paperSets.length) {
-        // paperSets 是倒序的（最新在索引0），assistantMessages 是正序的（最老在索引0）
-        // 需要反转索引：第一条消息（索引0）对应最后一个 paperSet（索引 length-1）
-        const tabIndex = paperSets.length - 1 - closestMessageIndex;
-        if (activeTab !== tabIndex) {
-          setActiveTab(tabIndex);
-        }
-      }
-    };
-
-    // 添加滚动监听
-    const container = chatMessagesRef.current;
-    container.addEventListener('scroll', handleTabSwitch);
-
-    // 初始调用一次
-    handleTabSwitch();
-
-    return () => {
-      if (container) {
-        container.removeEventListener('scroll', handleTabSwitch);
-      }
-    };
-  }, [paperSets, activeTab, setActiveTab, manualTabSwitch]);
+    if (expandedQAIndex === null || paperSets.length === 0) return;
+    
+    // 如果是手动切换的 tab，不执行自动切换
+    if (manualTabSwitch) return;
+    
+    // paperSets 是倒序的（最新在索引0），expandedQAIndex 是正序的（最老在索引0）
+    // 需要反转索引
+    const tabIndex = paperSets.length - 1 - expandedQAIndex;
+    if (tabIndex >= 0 && tabIndex < paperSets.length && activeTab !== tabIndex) {
+      setActiveTab(tabIndex);
+    }
+  }, [expandedQAIndex, paperSets.length, manualTabSwitch]);
 
   // Clean up event source on unmount
   useEffect(() => {
@@ -698,7 +530,6 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     setSearchQuery('');
     setStreamingContent('');
     setIsStreaming(false);
-    setHasAdvancedSearch(false); // 重置智能分析标志
     // 清除 URL 中的 conversationId
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev);
@@ -742,10 +573,8 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     setSearchQuery(''); // 清空搜索输入框
     setStreamingContent(''); // 切换对话时清空流式内容
     setPaperSets([]); // 清空论文集合
-    setHasAdvancedSearch(false); // 重置智能分析标志
     isLoadingHistoryRef.current = true; // 标记正在加载历史对话
-    setCurrentQuestionIndex(0); // 加载历史对话时，默认显示第一个问题
-    setAutoScroll(false); // 加载历史对话时禁用自动滚动
+    // react-scroll-to-bottom 会自动处理滚动
 
     try {
       const response = await conversationAPI.getConversation(conversationId);
@@ -829,10 +658,6 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
             setPapersTotal(sets[0].total);
           }
 
-          // 检查是否有 assistant 消息，判断是否进行过智能分析
-          const hasAssistantMessages = organizedMessages.some(m => m.role === 'assistant');
-          setHasAdvancedSearch(hasAssistantMessages);
-
           // 对于历史对话中的 assistant 消息，只加载已有的推荐问题，不再异步获取
           const assistantMessages = organizedMessages.filter(m => m.role === 'assistant');
           assistantMessages.forEach((assistantMsg) => {
@@ -903,16 +728,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     streamingContentRef.current = '';
     setIsStreaming(false);
     
-    // 立即更新当前问题索引到最新的问题（索引从0开始，所以当前数量就是新问题的索引）
-    setCurrentQuestionIndex(currentUserMessageCount);
-
-    // 继续提问时，简单地滚动到底部
-    if (!isFirstMessage) {
-      // 延迟执行，确保DOM已更新
-      setTimeout(() => {
-        scrollToBottom();
-      }, 100);
-    }
+    // react-scroll-to-bottom 会自动处理滚动
 
     // 每次搜索都清空旧的论文列表，确保显示 skeleton loading
     setPapers([]);
@@ -977,10 +793,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     // 记录使用统计
     trackSmartAnalysis(EntryPoint.ADVANCED_SEARCH_PAGE, searchQuery);
 
-    // 立即滚动到底部并启用自动滚动
-    setAutoScroll(true);
-    setTimeout(() => scrollToBottom(), 100);
-
+    // react-scroll-to-bottom 会自动处理滚动
     await handleInitialSearch(searchQuery);
   };
 
@@ -1002,10 +815,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     streamingContentRef.current = '';
     setShowAIThinking(true);
     
-    // 开始流式传输时，确保自动滚动到底部
-    if (autoScroll) {
-      setTimeout(() => scrollToBottom(), 100);
-    }
+    // react-scroll-to-bottom 会自动处理滚动
 
     // 添加新的论文集合占位符
     setPaperSets(prevSets => [
@@ -1082,13 +892,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                 created_at: new Date().toISOString()
               };
 
-              // 流式输出结束后，滚动并预留延伸问题的空间
-              setTimeout(() => {
-                if (autoScroll) {
-                  // 滚动到底部，并额外预留150px空间给延伸问题
-                  scrollToBottom(300);
-                }
-              }, 200);
+              // react-scroll-to-bottom 会自动处理滚动
 
               // 异步加载延伸问题
               fetchFollowUpQuestions(convId, messageId, newMessage);
@@ -1179,7 +983,6 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                   return newSets;
                 });
 
-                setHasAdvancedSearch(true);
                 setLoading(false);
               }
             }).catch(err => {
@@ -1214,7 +1017,6 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
               return newSets;
             });
 
-            setHasAdvancedSearch(true);
             setLoading(false);
           }
         } catch (err) {
@@ -1231,9 +1033,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
 
           // Extract questions from the content
           const questions = extractSuggestedQuestions(followUpQuestions);
-          if (questions.length > 0) {
-            setSuggestedQuestions(questions);
-          }
+          // questions 已经通过 updateLastAssistantMessage 更新到消息中
         } catch (err) {
           console.error('Failed to parse follow-up questions:', err);
         }
@@ -1486,9 +1286,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
 
                   // Extract questions from the content
                   const questions = extractSuggestedQuestions(followUpQuestions);
-                  if (questions.length > 0) {
-                    setSuggestedQuestions(questions);
-                  }
+                  // questions 已经通过 updateLastAssistantMessage 更新到消息中
                 } catch (err) {
                   console.error('Failed to parse follow-up questions:', err);
                 }
@@ -1652,7 +1450,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                     scrollToPaperIndex={scrollToPaperIndex}
                     onScrollComplete={() => setScrollToPaperIndex(null)}
                     onPaperClick={(paper, index) => {
-                      setSelectedPaper(paper);
+                      // 可以在这里添加论文点击逻辑
                       setHighlightedPaperIndex(null);
                     }}
                   />
@@ -1685,146 +1483,151 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                   </div>
                 </div>
 
-                <div className="ai-chat-container">
-                  <div className="chat-messages" ref={chatMessagesRef}>
-                  <>
-                    {/* 简单的消息列表 */}
-                    {messages.map((message, msgIndex) => (
-                    <div 
-                      key={message.id || msgIndex} 
-                      className={`message message-${message.role}`}
-                      id={`message-${msgIndex}`}
-                    >
-                      <div className="message-avatar">
-                        {message.role === 'user' ? (
-                          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/>
-                          </svg>
-                        ) : (
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                          </svg>
-                        )}
+
+                {/* 问答滚动容器 - 使用 scroll-snap 实现丝滑切换 */}
+                <div 
+                  className="qa-snap-container"
+                  ref={qaSnapContainerRef}
+                  onScroll={(e) => {
+                    const container = e.currentTarget;
+                    const sections = container.querySelectorAll('.qa-section');
+                    const containerScrollTop = container.scrollTop;
+                    const containerHeight = container.clientHeight;
+                    
+                    // 找到当前最可见的 section（中点在可视区域内的）
+                    let closestIndex = 0;
+                    let closestDistance = Infinity;
+                    
+                    sections.forEach((section, index) => {
+                      const sectionTop = section.offsetTop;
+                      const sectionMiddle = sectionTop + section.clientHeight / 2;
+                      const viewMiddle = containerScrollTop + containerHeight / 2;
+                      const distance = Math.abs(sectionMiddle - viewMiddle);
+                      
+                      if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestIndex = index;
+                      }
+                    });
+                    
+                    // 更新当前问答索引（同步左侧论文列表）
+                    if (closestIndex !== expandedQAIndex && !isStreaming) {
+                      handleQAToggle(closestIndex);
+                    }
+                  }}
+                >
+                  {qaList.length === 0 ? (
+                    <div className="qa-section">
+                      <div className="qa-empty-state">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        <p>输入问题开始智能分析</p>
                       </div>
-                      <div className="message-content">
-                        {message.role === 'user' ? (
-                          <div className="message-text">{message.content}</div>
-                        ) : (
-                          <>
-                            <div className="message-markdown">
+                    </div>
+                  ) : (
+                    qaList.map((qa, index) => (
+                      <div 
+                        key={qa.messageId || index} 
+                        className={`qa-section ${index === expandedQAIndex ? 'active' : ''}`}
+                      >
+                        {/* 问题卡片 - 悬浮效果 */}
+                        <div className="qa-question-wrapper">
+                          <div className={`qa-current-question ${index > 0 ? 'has-prev' : ''}`}>
+                            <div className="qa-question-text">{qa.question}</div>
+                            {getQAPaperCount(index) > 0 && (
+                              <div className="qa-question-meta">
+                                <span className="qa-paper-badge">
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                  </svg>
+                                  {getQAPaperCount(index)} 篇相关论文
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* 回答内容区域 */}
+                        <div className="qa-answer-area">
+                          {index === qaList.length - 1 && showAIThinking ? (
+                            <div className="qa-thinking-skeleton">
+                              <div className="skeleton-line" style={{width: '90%'}}></div>
+                              <div className="skeleton-line" style={{width: '95%'}}></div>
+                              <div className="skeleton-line" style={{width: '80%'}}></div>
+                              <div className="skeleton-line" style={{width: '85%'}}></div>
+                            </div>
+                          ) : (
+                            <div className="qa-answer-content">
                               <PaperCitationMarkdown
-                                content={message.content}
-                                onCitationHover={(paperIndex) => handleCitationHover(paperIndex, message.id)}
+                                content={
+                                  index === qaList.length - 1 && isStreaming
+                                    ? streamingContent
+                                    : qa.answer || ''
+                                }
+                                onCitationHover={(paperIndex) => handleCitationHover(paperIndex, qa.assistantMsgId)}
                                 onCitationLeave={handleCitationLeave}
                                 onCitationClick={(paperIndex) => {
-                                  // 找到这条消息对应的论文集合
-                                  if (paperSets && paperSets.length > 0) {
-                                    // 找到所有 assistant 消息
-                                    const assistantMessages = messages.filter(m => m.role === 'assistant');
-                                    // 找到当前消息在 assistant 消息中的索引
-                                    const assistantIndex = assistantMessages.findIndex(m => m.id === message.id);
-                                    
-                                    if (assistantIndex !== -1) {
-                                      // paperSets 是倒序的（最新在索引0），assistantMessages 是正序的（最老在索引0）
-                                      // 需要反转索引：第一条消息（索引0）对应最后一个 paperSet（索引 length-1）
-                                      const tabIndex = paperSets.length - 1 - assistantIndex;
-                                      
-                                      // 切换到对应的 tab，并标记为手动切换
-                                      if (tabIndex >= 0 && tabIndex < paperSets.length) {
-                                        setActiveTab(tabIndex);
-                                        setManualTabSwitch(true); // 标记为手动切换，禁用自动切换
-                                      }
-                                    }
+                                  const tabIndex = paperSets.length - 1 - index;
+                                  if (tabIndex >= 0 && tabIndex < paperSets.length) {
+                                    setActiveTab(tabIndex);
+                                    setManualTabSwitch(true);
                                   }
-                                  
-                                  // 设置需要滚动到的论文索引
                                   setScrollToPaperIndex(paperIndex);
                                 }}
                               />
                             </div>
-                            {/* 在最后一个助手消息后显示延伸问题 */}
-                            {/* 只有当消息有suggestedQuestions属性时才显示（新消息或有follow_up_questions的历史消息） */}
-                            {msgIndex === messages.length - 1 && 
-                             message.role === 'assistant' && 
-                             'suggestedQuestions' in message && (
-                              <div className="suggested-questions-inline">
-                                <div className="suggested-questions-header">
-                                  <span className="suggested-questions-title">你可以继续提问</span>
-                                </div>
-                                <div className="suggested-questions-list">
-                                  {/* 如果正在加载或者问题列表为空，显示skeleton */}
-                                  {(isLoadingSuggestedQuestions || !message.suggestedQuestions || message.suggestedQuestions.length === 0) ? (
-                                    <>
-                                      <div className="suggested-question-btn skeleton-loading">
-                                        <span className="question-text"></span>
-                                      </div>
-                                      <div className="suggested-question-btn skeleton-loading">
-                                        <span className="question-text"></span>
-                                      </div>
-                                      <div className="suggested-question-btn skeleton-loading">
-                                        <span className="question-text"></span>
-                                      </div>
-                                    </>
-                                  ) : (
-                                    /* 如果已加载完成，显示实际问题 */
-                                    message.suggestedQuestions.map((question, index) => (
-                                      <button
-                                        key={index}
-                                        className="suggested-question-btn"
-                                        onClick={() => handleFollowUpQuestionClick(question)}
-                                        disabled={loading}
-                                      >
-                                        <span className="question-text">{question}</span>
-                                      </button>
-                                    ))
-                                  )}
-                                </div>
+                          )}
+                          
+                          {/* 延伸问题 - 只在最新问答时显示 */}
+                          {index === qaList.length - 1 && 
+                           !isStreaming && 
+                           !showAIThinking && 
+                           qa.suggestedQuestions !== undefined && (
+                            <div className="qa-suggested">
+                              <div className="qa-suggested-header">
+                                <span className="qa-suggested-title">你可以继续提问</span>
                               </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* AI思考动画 */}
-                  {showAIThinking && (
-                    <div className="message message-assistant ai-thinking-skeleton">
-                      <div className="message-content">
-                        <div className="skeleton-line" style={{width: '90%'}}></div>
-                        <div className="skeleton-line" style={{width: '95%'}}></div>
-                        <div className="skeleton-line" style={{width: '80%'}}></div>
-                        <div className="skeleton-line" style={{width: '85%'}}></div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* 流式传输内容 */}
-                  {isStreaming && streamingContent && !showAIThinking && (
-                    <div className="message message-assistant">
-                      <div className="message-avatar">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                        </svg>
-                      </div>
-                      <div className="message-content">
-                        <div className="message-markdown">
-                          <PaperCitationMarkdown
-                            content={streamingContent}
-                            onCitationHover={handleCitationHover}
-                            onCitationLeave={handleCitationLeave}
-                            onCitationClick={(index) => {
-                              setScrollToPaperIndex(index);
-                            }}
-                          />
+                              <div className="qa-suggested-list">
+                                {(isLoadingSuggestedQuestions || 
+                                  !qa.suggestedQuestions || 
+                                  qa.suggestedQuestions.length === 0) ? (
+                                  <>
+                                    <div className="qa-suggested-btn skeleton-loading">
+                                      <span className="question-text"></span>
+                                    </div>
+                                    <div className="qa-suggested-btn skeleton-loading">
+                                      <span className="question-text"></span>
+                                    </div>
+                                    <div className="qa-suggested-btn skeleton-loading">
+                                      <span className="question-text"></span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  qa.suggestedQuestions.map((q, i) => (
+                                    <button
+                                      key={i}
+                                      className="qa-suggested-btn"
+                                      onClick={() => handleFollowUpQuestionClick(q)}
+                                      disabled={loading}
+                                    >
+                                      <span className="question-text">{q}</span>
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
+                    ))
                   )}
-
-                  <div ref={messagesEndRef} />
-                </>
+                  {/* 底部占位元素 - 防止最后一个 section 回弹 */}
+                  <div className="qa-bottom-spacer"></div>
                 </div>
+
+
 
                 {/* 底部输入框 */}
                 <div className="as-bottom-input-container">
@@ -1869,7 +1672,6 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                     {/* 底部操作栏 */}
                   </form>
                 </div>
-              </div>
               </div>
             </div>
           </div>

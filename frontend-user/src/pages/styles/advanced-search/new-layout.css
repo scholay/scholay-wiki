@@ -76,6 +76,9 @@
   flex-shrink: 0;
   background: var(--background-secondary, #1a1a1a);
   border-left: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  /* 禁用弹性滚动 */
+  overscroll-behavior: none;
+  overflow: hidden;
 }
 
 /* 对话面板顶部操作栏 */
@@ -114,9 +117,17 @@
   overflow: hidden;
 }
 
-.ai-chat-panel .chat-messages {
+/* react-scroll-to-bottom 容器 */
+.ai-chat-panel .chat-messages-scroll-container {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
+}
+
+.ai-chat-panel .chat-messages-scroll-container > div {
+  height: 100%;
+}
+
+.ai-chat-panel .chat-messages-inner {
   padding: 16px;
 }
 
@@ -199,21 +210,7 @@
   border-left: 3px solid var(--primary-color, #10a37f);
 }
 
-/* 消息样式优化 */
-.ai-chat-panel .message {
-  margin-bottom: 16px;
-}
-
-.ai-chat-panel .message-avatar {
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-}
-
-.ai-chat-panel .message-content {
-  font-size: 14px;
-  line-height: 1.6;
-}
+/* 消息样式已移至 QACard.css */
 
 /* 输入框样式 */
 .ai-chat-panel .advanced-bottom-composer-wrapper {
