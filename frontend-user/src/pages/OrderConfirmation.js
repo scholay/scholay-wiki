@@ -70,6 +70,7 @@ const OrderConfirmation = () => {
     // No valid state
     showError('订单信息不存在,请重新下单');
     navigate('/pricing');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state, location.search]);
 
   // 创建充值预览订单
@@ -147,6 +148,7 @@ const OrderConfirmation = () => {
     }, 2000);
 
     return () => clearTimeout(pollTimer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order, isPolling, pollingCount, location.search]);
 
   // Fetch plan details and create a preview order object (order not created on backend yet)

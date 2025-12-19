@@ -51,7 +51,8 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const [enableTurnstile, setEnableTurnstile] = useState(false);
   const [enableGithubOAuth, setEnableGithubOAuth] = useState(false);
   const [invitationCode, setInvitationCode] = useState('');
-  const [inviterInfo, setInviterInfo] = useState(null);
+  // eslint-disable-next-line no-unused-vars
+  const [inviterInfo, setInviterInfo] = useState(null); // 保留供将来显示邀请人信息
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
 
   // 读取URL中的邀请码参数
@@ -655,7 +656,8 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     }
   };
 
-  // 邮箱验证码登录
+  // 邮箱验证码登录（保留供将来使用）
+  // eslint-disable-next-line no-unused-vars
   const handleLoginWithCode = async () => {
     if (!code) {
       showError('请输入验证码');

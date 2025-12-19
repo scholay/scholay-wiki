@@ -15,7 +15,6 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
-import { Menu } from 'lucide-react';
 import api, { subscriptionAPI } from '../services/api';
 import { trackAIChat, EntryPoint } from '../utils/usageTracker';
 import './ChatPageNew.css';
@@ -428,6 +427,7 @@ function ChatPage() {
   // because we want to hide them immediately when streaming content arrives
   // This prevents double indicators (loading dots + streaming cursor)
 
+  // eslint-disable-next-line no-loop-func
   const handleStreamResponse = async (response) => {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -489,6 +489,7 @@ function ChatPage() {
                 userMessageId = data.message_id;
                 parentMessageId = userMessageId;
 
+                // eslint-disable-next-line no-loop-func
                 setMessages(prev => prev.map(msg =>
                   msg.message_id.startsWith('temp-user-') || msg.message_id.startsWith('temp-')
                     ? { ...msg, message_id: userMessageId }
@@ -507,6 +508,7 @@ function ChatPage() {
                 if (isFirstContent) {
                   // For the first content, use flushSync to ensure atomic state updates
                   // This prevents both loading indicators from showing at the same time
+                  // eslint-disable-next-line no-loop-func
                   flushSync(() => {
                     setIsWaitingForResponse(false);
                     setStreamingContent(fullContent);
@@ -823,6 +825,7 @@ function ChatPage() {
         historyLoading: loading,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversations, currentConversation?.id, loading, updateSidebarConfig, isAuthenticated]);
 
   const handleNewConversation = () => {

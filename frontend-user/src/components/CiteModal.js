@@ -42,7 +42,6 @@ const CiteModal = ({ paper, onClose }) => {
     const title = paper.title || 'Untitled';
     const year = paper.year || 'n.d.';
     const venue = paper.venue || '';
-    const doi = paper.externalIds?.DOI || '';
     const corpusId = paper.paperId || '';
 
     // 获取期刊信息

@@ -18,6 +18,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './components/MainLayout';
 import CheckinFloat from './components/CheckinFloat';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // 首页立即加载(最常访问)
 import Home from './pages/Home';
@@ -54,6 +55,7 @@ function App() {
   }, []);
 
   return (
+    <ErrorBoundary showDetails={process.env.NODE_ENV === 'development'}>
     <HelmetProvider>
       <ThemeProvider>
       <ToastProvider>
@@ -138,6 +140,7 @@ function App() {
       </ToastProvider>
     </ThemeProvider>
     </HelmetProvider>
+    </ErrorBoundary>
   );
 }
 

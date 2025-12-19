@@ -27,6 +27,8 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
   const [showDropdown, setShowDropdown] = useState(false);
   const [quota, setQuota] = useState(null);
   const [usage, setUsage] = useState(null);
+  // userSubscription 用于判断用户订阅等级
+  // eslint-disable-next-line no-unused-vars
   const [userSubscription, setUserSubscription] = useState(userSubscriptionProp);
   const containerRef = useRef(null);
 

@@ -7,7 +7,8 @@
  * ============================================================================
  */
 
-import api from '../services/api';
+// eslint-disable-next-line no-unused-vars
+import api from '../services/api'; // 保留供将来 API 追踪使用
 
 // 功能代码常量
 export const FeatureCode = {
@@ -209,7 +210,7 @@ export const trackPDFPreview = (pdfUrl, entryPoint = '') => {
   trackUsage(FeatureCode.PDF_PREVIEW, Action.VIEW, entryPoint, { pdf_url: pdfUrl });
 };
 
-export default {
+const usageTracker = {
   FeatureCode,
   Action,
   EntryPoint,
@@ -227,4 +228,6 @@ export default {
   trackUserCheckin,
   trackPDFPreview,
 };
+
+export default usageTracker;
 

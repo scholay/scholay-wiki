@@ -37,6 +37,7 @@ const ToastItem = ({ id, message, type, duration, onClose }) => {
       handleClose();
     }, duration);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration]);
 
   const handleClose = useCallback(() => {

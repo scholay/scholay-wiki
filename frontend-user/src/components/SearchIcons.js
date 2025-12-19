@@ -199,7 +199,7 @@ export const AdvancedSearchIconAlt2 = ({ size = 20, className = '' }) => (
   </svg>
 );
 
-export default {
+const SearchIcons = {
   NormalSearchIcon,
   AdvancedSearchIcon,
   NormalSearchIconAlt1,
@@ -207,3 +207,5 @@ export default {
   NormalSearchIconAlt2,
   AdvancedSearchIconAlt2
 };
+
+export default SearchIcons;

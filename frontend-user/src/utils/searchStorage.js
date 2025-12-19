@@ -190,7 +190,7 @@ export const prepareAuthorNavigation = (authorId, query = '') => {
   return `/search-results?authorId=${authorId}`;
 };
 
-export default {
+const searchStorage = {
   setSearchQuery,
   getSearchQuery,
   setSearchFilters,
@@ -207,5 +207,7 @@ export default {
   preparePaperNavigation,
   prepareAuthorNavigation,
 };
+
+export default searchStorage;
 
 

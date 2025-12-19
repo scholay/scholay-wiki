@@ -66,7 +66,8 @@ const AIPaperList = ({
               <div className="unified-cell-paper">
                 <div className="search-result-paper-number skeleton-text" style={{width: '20px', height: '20px'}}></div>
                 <div className="search-result-paper-content">
-                  <h3 className="search-result-paper-title skeleton-text" style={{width: '80%', height: '22px'}}></h3>
+                  {/* eslint-disable-next-line jsx-a11y/heading-has-content */}
+                  <h3 className="search-result-paper-title skeleton-text" style={{width: '80%', height: '22px'}} aria-label="加载中"></h3>
                   <div className="search-result-paper-authors-row" style={{marginTop: '8px'}}>
                     <div className="skeleton-text" style={{width: '200px', height: '24px'}}></div>
                   </div>

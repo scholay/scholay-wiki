@@ -20,6 +20,7 @@ import CiteModal from '../components/CiteModal';
 import SimilarPapersGuide from '../components/SimilarPapersGuide';
 import SearchSuggestions from '../components/SearchSuggestions';
 import SimplePaperItem from '../components/SimplePaperItem';
+import AnalysisCellText from '../components/AnalysisCellText';
 import SEO from '../components/SEO';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
 import { trackAcademicSearch, EntryPoint } from '../utils/usageTracker';
@@ -29,52 +30,6 @@ import './styles/search-results/index.css';
 // 懒加载 AuthModal 和 AISearchView
 const AuthModal = lazy(() => import('../components/AuthModal'));
 const AISearchView = lazy(() => import('../components/AISearchView'));
-
-// 分析结果文本组件 - 检测是否被截断，只有截断时才显示 hover 气泡
-const AnalysisCellText = ({ text }) => {
-  const textRef = useRef(null);
-  const [isTruncated, setIsTruncated] = useState(false);
-  const [showTooltip, setShowTooltip] = useState(false);
-
-  useEffect(() => {
-    const checkTruncation = () => {
-      const el = textRef.current;
-      if (el) {
-        // 检查是否被截断：scrollHeight > clientHeight 或 scrollWidth > clientWidth
-        const truncated = el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth;
-        setIsTruncated(truncated);
-      }
-    };
-    
-    checkTruncation();
-    // 延迟再检查一次，确保渲染完成
-    const timer = setTimeout(checkTruncation, 100);
-    window.addEventListener('resize', checkTruncation);
-    
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', checkTruncation);
-    };
-  }, [text]);
-
-  return (
-    <div className="analysis-cell-text-wrapper">
-      <p 
-        ref={textRef}
-        className={`analysis-cell-text ${isTruncated ? 'truncated' : ''}`}
-        onMouseEnter={() => isTruncated && setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
-      >
-        {text}
-      </p>
-      {isTruncated && showTooltip && (
-        <div className="analysis-cell-tooltip">
-          {text}
-        </div>
-      )}
-    </div>
-  );
-};
 
 const SearchResultsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();

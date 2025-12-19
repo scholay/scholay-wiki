@@ -32,7 +32,6 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
     return saved === 'true';
   });
   const contentRef = useRef(null);
-  const documentRef = useRef(null);
   const hasAutoOpenedRef = useRef(false); // 防止重复打开
 
   // 使用外部预览服务，使用 useMemo 确保只在 pdfUrl 变化时重新计算

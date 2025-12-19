@@ -39,7 +39,8 @@ const TopNavBar = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { theme } = useTheme();
+  // eslint-disable-next-line no-unused-vars
+  const { theme } = useTheme(); // 保留供将来主题相关功能使用
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [subscription, setSubscription] = useState(null);
   const [wallet, setWallet] = useState(null);
@@ -226,7 +227,8 @@ const TopNavBar = ({
     return displayName.charAt(0).toUpperCase();
   };
 
-  // 获取用户显示标识（完整）
+  // 获取用户显示标识（完整）- 保留供将来使用
+  // eslint-disable-next-line no-unused-vars
   const getUserIdentifier = () => {
     if (!user) return '未登录';
     if (user.email) return user.email;

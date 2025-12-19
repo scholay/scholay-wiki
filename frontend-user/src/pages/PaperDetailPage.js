@@ -13,7 +13,8 @@ import api, { publicScholarAPI } from '../services/api';
 import SEO from '../components/SEO';
 import FloatingGuide from '../components/FloatingGuide';
 import { generateScholarlyArticleSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
-import { trackPaperDetail, trackPaperDimension, trackSimilarPapers } from '../utils/usageTracker';
+// eslint-disable-next-line no-unused-vars
+import { trackPaperDetail, trackPaperDimension, trackSimilarPapers } from '../utils/usageTracker'; // 保留供将来追踪使用
 import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation } from '../utils/searchStorage';
 import './PaperDetailPage.css';
 

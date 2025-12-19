@@ -29,7 +29,8 @@ const AuthModal = lazy(() => import('../components/AuthModal'));
 const Home = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const { theme } = useTheme();
+  // eslint-disable-next-line no-unused-vars
+  const { theme } = useTheme(); // 保留供将来主题相关功能使用
   
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -96,6 +97,7 @@ const Home = () => {
     }, 3000); // 每3秒切换一次
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchMode]); // 当searchMode变化时重新开始轮播
 
   // 当切换搜索模式时，重置示例索引

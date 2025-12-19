@@ -52,7 +52,6 @@ const SimilarPapersGuide = ({ onClose, onTryIt, onDismiss, targetRef }) => {
       if (targetRef?.current) {
         const rect = targetRef.current.getBoundingClientRect();
         const viewportHeight = window.innerHeight;
-        const viewportWidth = window.innerWidth;
         
         // 标签中心点位置
         const tabCenterY = rect.top + rect.height / 2;
@@ -111,8 +110,6 @@ const SimilarPapersGuide = ({ onClose, onTryIt, onDismiss, targetRef }) => {
       clearInterval(timer);
       window.removeEventListener('resize', calculatePositions);
     };
-
-    return () => clearInterval(timer);
   }, [targetRef]);
 
   // 计算高亮区域

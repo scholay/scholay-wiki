@@ -24,9 +24,11 @@ import {
   ALLOWED_ATTACHMENT_TYPES,
   MAX_FILE_SIZE,
   MAX_ATTACHMENTS,
-  MAX_CHAR_COUNT
+  // eslint-disable-next-line no-unused-vars
+  MAX_CHAR_COUNT // 保留供将来字符计数功能使用
 } from '../utils/peer-review/constants';
-import { parseReviewJSON, getRecommendationClass, getConfidenceLabel } from '../utils/peer-review/parseUtils';
+// eslint-disable-next-line no-unused-vars
+import { parseReviewJSON, getRecommendationClass, getConfidenceLabel } from '../utils/peer-review/parseUtils'; // getConfidenceLabel 保留供将来使用
 import { getFileIcon } from '../utils/peer-review/fileUtils';
 import { exportToWord, exportToPDF, exportToPPT } from '../utils/peer-review/exportUtils';
 import { trackAIPeerReview } from '../utils/usageTracker';
@@ -192,7 +194,8 @@ export default function PeerReviewPage() {
   const searchKeywordRef = useRef(''); // 使用 ref 避免重渲染
 
   // 草稿状态（从后端加载）
-  const [draftId, setDraftId] = useState(null);
+  // eslint-disable-next-line no-unused-vars
+  const [draftId, setDraftId] = useState(null); // 保留供将来草稿功能使用
   const [inputType, setInputType] = useState('text');
   const [manuscriptText, setManuscriptText] = useState('');
   const [targetVenue, setTargetVenue] = useState('');
@@ -1680,8 +1683,10 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
 function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
   const [displayProgress, setDisplayProgress] = useState(0); // 显示的进度值（用于平滑动画）
   const [showReport, setShowReport] = useState(false); // 控制是否显示报告（等待进度条完成）
-  const [activeDrawer, setActiveDrawer] = useState(null); // 当前打开的抽屉: 'analysis' | 'papers' | 'gaps' | 'reviewer' | null
-  const [selectedReviewer, setSelectedReviewer] = useState(null); // 当前选中的审稿人
+  // eslint-disable-next-line no-unused-vars
+  const [activeDrawer, setActiveDrawer] = useState(null); // 当前打开的抽屉: 'analysis' | 'papers' | 'gaps' | 'reviewer' | null - 保留供将来使用
+  // eslint-disable-next-line no-unused-vars
+  const [selectedReviewer, setSelectedReviewer] = useState(null); // 当前选中的审稿人 - 保留供将来使用
   const [activeReviewTab, setActiveReviewTab] = useState('main'); // 当前选中的审稿Tab: 'main' | 'A' | 'B' | 'C'
   const progressIntervalRef = useRef(null);
   

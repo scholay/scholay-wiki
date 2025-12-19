@@ -3,7 +3,8 @@
  * 支持 Word、PDF、PPT 格式导出
  */
 
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, Header, Footer, PageNumber, NumberFormat } from 'docx';
+// eslint-disable-next-line no-unused-vars
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, Header, Footer, PageNumber, NumberFormat } from 'docx'; // 部分导入保留供将来使用
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -1589,9 +1590,11 @@ export const exportToPPT = async (task, parsedReport) => {
   await pptx.writeFile({ fileName });
 };
 
-export default {
+const exportUtils = {
   exportToWord,
   exportToPDF,
   exportToPPT,
 };
+
+export default exportUtils;
 

@@ -41,6 +41,8 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
     }
   }, [isExpanded]);
 
+  // 保留供将来使用的出版类型列表
+  // eslint-disable-next-line no-unused-vars
   const publicationTypes = [
     { value: 'JournalArticle', label: 'Journal Article' },
     { value: 'Conference', label: 'Conference' },
@@ -74,6 +76,8 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
     onFiltersChange({ ...filters, yearFrom: String(yearFrom), yearTo: String(yearTo) });
   };
 
+  // 保留供将来使用
+  // eslint-disable-next-line no-unused-vars
   const handlePublicationTypeToggle = (type) => {
     const current = filters.publicationTypes || [];
     const updated = current.includes(type)
@@ -98,6 +102,8 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
     onFiltersChange({ ...filters, openAccessPdf: filters.openAccessPdf ? '' : 'true' });
   };
 
+  // 保留供将来使用
+  // eslint-disable-next-line no-unused-vars
   const handleVenueChange = (e) => {
     onFiltersChange({ ...filters, venue: e.target.value });
   };

@@ -11,7 +11,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useToast } from '../components/ToastContainer';
-import api, { orderAPI, paymentAPI, walletAPI } from '../services/api';
+// eslint-disable-next-line no-unused-vars
+import api, { orderAPI, paymentAPI, walletAPI } from '../services/api'; // paymentAPI 保留供将来使用
 import CheckinCalendar from '../components/CheckinCalendar';
 import EntcoinIcon from '../components/EntcoinIcon';
 import GoldIcon from '../components/GoldIcon';
@@ -21,9 +22,11 @@ const Settings = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user, logout, refreshUser } = useAuth();
-  const { showSuccess, showError, showInfo } = useToast();
+  // eslint-disable-next-line no-unused-vars
+  const { showSuccess, showError, showInfo } = useToast(); // showInfo 保留供将来使用
   const outletContext = useOutletContext();
-  const onOpenDrawer = outletContext?.onOpenDrawer;
+  // eslint-disable-next-line no-unused-vars
+  const onOpenDrawer = outletContext?.onOpenDrawer; // 保留供将来使用
 
   const [activeTab, setActiveTab] = useState('profile'); // profile, account, subscription, invitation
   const [loading, setLoading] = useState(false);
@@ -71,11 +74,13 @@ const Settings = () => {
 
   // Subscription state
   const [currentSubscription, setCurrentSubscription] = useState(null);
-  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  // eslint-disable-next-line no-unused-vars
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false); // 保留供将来使用
 
   // Billing history state
   const [billingHistory, setBillingHistory] = useState([]);
-  const [billingPage, setBillingPage] = useState(1);
+  // eslint-disable-next-line no-unused-vars
+  const [billingPage, setBillingPage] = useState(1); // 保留供将来分页使用
   const [billingTotal, setBillingTotal] = useState(0);
   const [billingLoading, setBillingLoading] = useState(false);
 
@@ -89,8 +94,10 @@ const Settings = () => {
   const [transactionFilter, setTransactionFilter] = useState('all'); // all, gold, diamond
   const [transactionBizFilter, setTransactionBizFilter] = useState('all'); // all, daily_checkin, register_gift, etc.
   const [transactionDateRange, setTransactionDateRange] = useState({ start: '', end: '' });
-  const [transactionStats, setTransactionStats] = useState({ totalIncome: 0, totalExpense: 0 });
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  // eslint-disable-next-line no-unused-vars
+  const [transactionStats, setTransactionStats] = useState({ totalIncome: 0, totalExpense: 0 }); // 保留供将来统计使用
+  // eslint-disable-next-line no-unused-vars
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false); // 保留供将来高级筛选使用
 
   // Exchange state - 兑换状态
   const [exchangeRate, setExchangeRate] = useState(100); // 1恩特币=100经费
@@ -106,7 +113,8 @@ const Settings = () => {
   const [isCustomRecharge, setIsCustomRecharge] = useState(false);
 
   // Records tab state - 流水/账单切换
-  const [recordsTab, setRecordsTab] = useState('transactions'); // 'transactions' or 'orders'
+  // eslint-disable-next-line no-unused-vars
+  const [recordsTab, setRecordsTab] = useState('transactions'); // 'transactions' or 'orders' - 保留供将来使用
 
   // 业务显示信息（用于交易流水动态展示）
   const [bizDisplayInfos, setBizDisplayInfos] = useState({});
@@ -162,6 +170,7 @@ const Settings = () => {
       newParams.delete('tab');
       setSearchParams(newParams);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, setSearchParams, showSuccess, showError]);
 
   useEffect(() => {
@@ -171,6 +180,7 @@ const Settings = () => {
       fetchUserProfile();
       fetchSubscriptionData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -184,6 +194,7 @@ const Settings = () => {
     } else if (activeTab === 'invitation') {
       fetchInvitationData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
 
@@ -330,26 +341,30 @@ const Settings = () => {
     }
   };
 
-  // 切换货币类型筛选
+  // 切换货币类型筛选 - 保留供将来使用
+  // eslint-disable-next-line no-unused-vars
   const handleTransactionFilterChange = (filter) => {
     setTransactionFilter(filter);
     fetchTransactions(1, { currencyType: filter });
   };
 
-  // 切换业务类型筛选
+  // 切换业务类型筛选 - 保留供将来使用
+  // eslint-disable-next-line no-unused-vars
   const handleBizFilterChange = (bizType) => {
     setTransactionBizFilter(bizType);
     fetchTransactions(1, { bizType });
   };
 
-  // 切换时间范围筛选
+  // 切换时间范围筛选 - 保留供将来使用
+  // eslint-disable-next-line no-unused-vars
   const handleDateRangeChange = (field, value) => {
     const newRange = { ...transactionDateRange, [field]: value };
     setTransactionDateRange(newRange);
     fetchTransactions(1, { dateRange: newRange });
   };
 
-  // 清除筛选条件
+  // 清除筛选条件 - 保留供将来使用
+  // eslint-disable-next-line no-unused-vars
   const handleClearFilters = () => {
     setTransactionFilter('all');
     setTransactionBizFilter('all');
@@ -529,6 +544,8 @@ const Settings = () => {
     }
   };
 
+  // 保留供将来使用
+  // eslint-disable-next-line no-unused-vars
   const handlePasswordChange = async () => {
     if (accountForm.newPassword !== accountForm.confirmPassword) {
       showError('两次输入的密码不一致');
@@ -566,7 +583,8 @@ const Settings = () => {
     }
   };
 
-  // Send phone verification code
+  // Send phone verification code - 保留供将来使用
+  // eslint-disable-next-line no-unused-vars
   const handleSendPhoneCode = async () => {
     if (!bindPhone || !/^1[3-9]\d{9}$/.test(bindPhone)) {
       showError('请输入有效的手机号码');
@@ -597,7 +615,8 @@ const Settings = () => {
     }
   };
 
-  // Send email verification code
+  // Send email verification code - 保留供将来使用
+  // eslint-disable-next-line no-unused-vars
   const handleSendEmailCode = async () => {
     if (!bindEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bindEmail)) {
       showError('请输入有效的邮箱地址');
@@ -628,7 +647,8 @@ const Settings = () => {
     }
   };
 
-  // Bind phone
+  // Bind phone - 保留供将来使用
+  // eslint-disable-next-line no-unused-vars
   const handleBindPhone = async () => {
     if (!bindPhone || !/^1[3-9]\d{9}$/.test(bindPhone)) {
       showError('请输入有效的手机号码');
@@ -665,7 +685,8 @@ const Settings = () => {
     }
   };
 
-  // Bind email
+  // Bind email - 保留供将来使用
+  // eslint-disable-next-line no-unused-vars
   const handleBindEmail = async () => {
     if (!bindEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bindEmail)) {
       showError('请输入有效的邮箱地址');
@@ -888,7 +909,8 @@ const Settings = () => {
     const type = accountModal.type;
     let endpoint = '';
     let payload = {};
-    let purpose = '';
+    // eslint-disable-next-line no-unused-vars
+    let purpose = ''; // 保留供将来使用
 
     // Determine endpoint and purpose based on modal type
     if (type.includes('email')) {

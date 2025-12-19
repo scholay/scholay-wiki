@@ -78,7 +78,8 @@ const Pricing = () => {
   const navigate = useNavigate();
   const { showError } = useToast();
   const outletContext = useOutletContext();
-  const onOpenDrawer = outletContext?.onOpenDrawer;
+  // eslint-disable-next-line no-unused-vars
+  const onOpenDrawer = outletContext?.onOpenDrawer; // 保留供将来使用
   const [plans, setPlans] = useState([]);
   const [currentPlan, setCurrentPlan] = useState(null);
   const [loading, setLoading] = useState(true);

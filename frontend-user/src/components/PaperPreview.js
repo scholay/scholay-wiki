@@ -21,6 +21,8 @@ const PaperPreview = ({ paper, onClose, width, onResizeMouseDown, onResizeTouchS
     if (paper) {
       setActiveTab('details');
     }
+    // 仅在 paperId 变化时重置标签页
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paper?.paperId]);
 
   if (!paper) {

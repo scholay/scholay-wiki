@@ -286,7 +286,6 @@ const CheckinFloat = () => {
   }
 
   const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
-  const todayDate = new Date().getDate();
 
   return (
     <>

@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './YearHistogram.css';
 
 const YearHistogram = ({ yearFrom, yearTo, onChange }) => {
@@ -90,14 +90,14 @@ const YearHistogram = ({ yearFrom, yearTo, onChange }) => {
   const maxValue = Math.max(...HISTOGRAM_DATA.map(d => d.docCount));
 
   // Convert year to slider position (0-100%)
-  const yearToPercent = (year) => {
+  const yearToPercent = useCallback((year) => {
     return ((year - startYear) / totalYears) * 100;
-  };
+  }, [startYear, totalYears]);
 
   // Convert slider position to year
-  const percentToYear = (percent) => {
+  const percentToYear = useCallback((percent) => {
     return Math.round(startYear + (percent / 100) * totalYears);
-  };
+  }, [startYear, totalYears]);
 
   // Handle slider drag
   const handleMouseDown = (handle) => (e) => {

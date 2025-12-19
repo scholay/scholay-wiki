@@ -46,7 +46,7 @@ export const renewSubscription = (planId) => {
   return api.post('/user/subscription/renew', { plan_id: planId });
 };
 
-export default {
+const subscriptionService = {
   getMySubscription,
   getUsage,
   getQuota,
@@ -54,3 +54,5 @@ export default {
   checkQuota,
   renewSubscription
 };
+
+export default subscriptionService;

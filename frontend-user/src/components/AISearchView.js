@@ -151,7 +151,6 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
   const [autoScroll, setAutoScroll] = useState(true); // 是否自动滚动到底部
   const [disableSnapTemporarily, setDisableSnapTemporarily] = useState(false); // 临时禁用 scroll-snap
   const lastScrollTimeRef = useRef(Date.now()); // 上次程序滚动的时间
-  const isUserScrollingRef = useRef(false); // 用户是否正在手动滚动
   const prevIsLoadingSuggestedRef = useRef(false); // 上一次推荐问题加载状态
   
   // 分页相关状态
@@ -250,16 +249,6 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     });
   };
 
-  // 检查是否在底部（或接近底部）
-  const isAtBottom = () => {
-    const container = qaSnapContainerRef.current;
-    if (!container) return true;
-    
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    // 距离底部 100px 以内认为是在底部
-    return scrollHeight - scrollTop - clientHeight < 100;
-  };
-
   // 处理滚动事件 - 检测用户手动滚动
   const handleQAContainerScroll = (e) => {
     const container = e.currentTarget;
@@ -335,6 +324,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         setTimeout(() => scrollToBottom('smooth'), 50);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, isStreaming]);
 
   // 流式传输状态变化时的处理
@@ -389,6 +379,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     if (currentConversationId && isAuthenticated) {
       loadConversations();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentConversationId]);
 
   // 获取配额和使用情况
@@ -441,7 +432,8 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     }
   };
 
-  // 获取当前模型的剩余次数
+  // 获取当前模型的剩余次数（保留供将来使用）
+  // eslint-disable-next-line no-unused-vars
   const getRemainingCount = () => {
     if (!quota || !usage) return null;
 
@@ -639,14 +631,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         console.log('[DEBUG-SCROLL] 新增消息，由 scrollToBottom 处理滚动');
       }
     }
-  }, [messages.length]);
-
-  // 当消息列表变化时，仅在特定情况下更新索引
-  useEffect(() => {
-    // 如果正在加载历史对话，不自动更新
-    if (isLoadingHistoryRef.current) return;
-    
-    // 问答卡片的展开状态会在 messages.length 变化时自动更新
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length]);
 
   // 当展开的卡片变化时，自动切换论文 tab
@@ -662,6 +647,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     if (tabIndex >= 0 && tabIndex < paperSets.length && activeTab !== tabIndex) {
       setActiveTab(tabIndex);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expandedQAIndex, paperSets.length, manualTabSwitch]);
 
   // Clean up event source on unmount
@@ -709,6 +695,8 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     }
   };
 
+  // 重命名对话（保留供将来使用）
+  // eslint-disable-next-line no-unused-vars
   const handleRenameConversation = async (conversationId, newTitle) => {
     logger.log('handleRenameConversation called:', { conversationId, newTitle });
     try {
@@ -917,7 +905,6 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     }
 
     const userMessage = query.trim();
-    const isFirstMessage = messages.length === 0;
 
     setSearchQuery('');
 
@@ -936,9 +923,6 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       created_at: new Date().toISOString()
     };
 
-    // 先计算新的索引（当前用户消息数量）
-    const currentUserMessageCount = messages.filter(m => m.role === 'user').length;
-    
     setMessages(prev => [...prev, tempUserMessage]);
     setLoading(true);
     setShowAIThinking(true); // 显示 AI 思考状态
@@ -1251,9 +1235,8 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
           const followUpQuestions = event.data.substring(21); // Remove '[FOLLOW_UP_QUESTIONS]' prefix
           console.log('Received follow-up questions:', followUpQuestions);
 
-          // Extract questions from the content
-          const questions = extractSuggestedQuestions(followUpQuestions);
-          // questions 已经通过 updateLastAssistantMessage 更新到消息中
+          // Extract questions from the content - 结果通过 updateLastAssistantMessage 更新到消息中
+          extractSuggestedQuestions(followUpQuestions);
         } catch (err) {
           console.error('Failed to parse follow-up questions:', err);
         }
@@ -1295,7 +1278,8 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     };
   };
 
-  // 继续对话 - 用于智能分析后的追问
+  // 继续对话 - 用于智能分析后的追问（保留供将来使用）
+  // eslint-disable-next-line no-unused-vars
   const startContinueConversation = async (conversationId, query) => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -1504,9 +1488,8 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                   const followUpQuestions = data.substring(21); // Remove '[FOLLOW_UP_QUESTIONS]' prefix
                   console.log('Received follow-up questions for continue conversation:', followUpQuestions);
 
-                  // Extract questions from the content
-                  const questions = extractSuggestedQuestions(followUpQuestions);
-                  // questions 已经通过 updateLastAssistantMessage 更新到消息中
+                  // Extract questions from the content - 结果通过 updateLastAssistantMessage 更新到消息中
+                  extractSuggestedQuestions(followUpQuestions);
                 } catch (err) {
                   console.error('Failed to parse follow-up questions:', err);
                 }
@@ -1545,12 +1528,13 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     }
   };
 
-  // 处理点击论文信息，切换到对应的 tab
-  const handlePaperInfoClick = (searchQuery) => {
+  // 处理点击论文信息，切换到对应的 tab（保留供将来使用）
+  // eslint-disable-next-line no-unused-vars
+  const handlePaperInfoClick = (searchQueryParam) => {
     if (!paperSets || paperSets.length === 0) return;
 
     // 查找匹配的 tab
-    const tabIndex = paperSets.findIndex(set => set.query === searchQuery);
+    const tabIndex = paperSets.findIndex(set => set.query === searchQueryParam);
     if (tabIndex !== -1) {
       setActiveTab(tabIndex);
     }
