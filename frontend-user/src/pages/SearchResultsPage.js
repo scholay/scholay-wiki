@@ -2301,7 +2301,7 @@ const SearchResultsPage = () => {
                                     <span className="pub-date pub-year">
                                       {paper.publicationDate 
                                         ? new Date(paper.publicationDate).getFullYear() 
-                                        : paper.year}年
+                                        : paper.year}
                                     </span>
                                   )}
                                 </p>
@@ -2341,14 +2341,13 @@ const SearchResultsPage = () => {
                                       )}
                                     </div>
                                     <span className="summary-text">
-                                      {isExpanded 
+                                      {/* 缓冲区逻辑：如果折叠后只剩10个字符以内，直接全部展示 */}
+                                      {isExpanded || content.length <= 120
                                         ? content 
-                                        : (content.length > 300 
-                                            ? content.substring(0, 300) + '...' 
-                                            : content)
+                                        : content.substring(0, 100) + '...'
                                       }
                                     </span>
-                                    {content.length > 300 && (
+                                    {content.length > 120 && (
                                       <button 
                                         className="expand-btn"
                                         onClick={(e) => {
@@ -2755,7 +2754,7 @@ const SearchResultsPage = () => {
                                             <span className="pub-date pub-year">
                                               {paper.publicationDate 
                                                 ? new Date(paper.publicationDate).getFullYear() 
-                                                : paper.year}年
+                                                : paper.year}
                                             </span>
                                           )}
                                         </p>
@@ -2766,8 +2765,8 @@ const SearchResultsPage = () => {
                                         <div className="paper-tldr">
                                           <span className="tldr-label">TLDR</span>
                                           <span className="tldr-text">
-                                            {paper.tldr.text.length > 300 
-                                              ? paper.tldr.text.substring(0, 300) + '...' 
+                                            {paper.tldr.text.length > 120 
+                                              ? paper.tldr.text.substring(0, 100) + '...' 
                                               : paper.tldr.text}
                                           </span>
                                         </div>
@@ -2778,8 +2777,8 @@ const SearchResultsPage = () => {
                                         <div className="paper-abstract-section">
                                           <span className="abstract-label">Abstract</span>
                                           <span className="abstract-text">
-                                            {paper.abstract.length > 300 
-                                              ? paper.abstract.substring(0, 300) + '...' 
+                                            {paper.abstract.length > 120 
+                                              ? paper.abstract.substring(0, 100) + '...' 
                                               : paper.abstract}
                                           </span>
                                         </div>
@@ -2915,7 +2914,7 @@ const SearchResultsPage = () => {
                                             <span className="pub-date pub-year">
                                               {paper.publicationDate 
                                                 ? new Date(paper.publicationDate).getFullYear() 
-                                                : paper.year}年
+                                                : paper.year}
                                             </span>
                                           )}
                                         </p>
@@ -2926,8 +2925,8 @@ const SearchResultsPage = () => {
                                         <div className="paper-tldr">
                                           <span className="tldr-label">TLDR</span>
                                           <span className="tldr-text">
-                                            {paper.tldr.text.length > 300 
-                                              ? paper.tldr.text.substring(0, 300) + '...' 
+                                            {paper.tldr.text.length > 120 
+                                              ? paper.tldr.text.substring(0, 100) + '...' 
                                               : paper.tldr.text}
                                           </span>
                                         </div>
@@ -2938,8 +2937,8 @@ const SearchResultsPage = () => {
                                         <div className="paper-abstract-section">
                                           <span className="abstract-label">Abstract</span>
                                           <span className="abstract-text">
-                                            {paper.abstract.length > 300 
-                                              ? paper.abstract.substring(0, 300) + '...' 
+                                            {paper.abstract.length > 120 
+                                              ? paper.abstract.substring(0, 100) + '...' 
                                               : paper.abstract}
                                           </span>
                                         </div>
@@ -3096,7 +3095,7 @@ const SearchResultsPage = () => {
                                                   <span className="pub-date pub-year">
                                                     {paper.publicationDate 
                                                       ? new Date(paper.publicationDate).getFullYear() 
-                                                      : paper.year}年
+                                                      : paper.year}
                                                   </span>
                                                 )}
                                               </p>
@@ -3107,8 +3106,8 @@ const SearchResultsPage = () => {
                                               <div className="paper-tldr">
                                                 <span className="tldr-label">TLDR</span>
                                                 <span className="tldr-text">
-                                                  {paper.tldr.text.length > 300 
-                                                    ? paper.tldr.text.substring(0, 300) + '...' 
+                                                  {paper.tldr.text.length > 120 
+                                                    ? paper.tldr.text.substring(0, 100) + '...' 
                                                     : paper.tldr.text}
                                                 </span>
                                               </div>
@@ -3119,8 +3118,8 @@ const SearchResultsPage = () => {
                                               <div className="paper-abstract-section">
                                                 <span className="abstract-label">Abstract</span>
                                                 <span className="abstract-text">
-                                                  {paper.abstract.length > 300 
-                                                    ? paper.abstract.substring(0, 300) + '...' 
+                                                  {paper.abstract.length > 120 
+                                                    ? paper.abstract.substring(0, 100) + '...' 
                                                     : paper.abstract}
                                                 </span>
                                               </div>
@@ -3363,16 +3362,12 @@ const SearchResultsPage = () => {
                             <span className="search-result-venue-name">{paper.venue}</span>
                           )}
                           {paper.venue && (paper.publicationDate || paper.year) && ' · '}
-                          {paper.publicationDate ? (
-                            <span className="pub-date">
-                              {new Date(paper.publicationDate).toLocaleDateString('zh-CN', { 
-                                year: 'numeric',
-                                month: 'long', 
-                                day: 'numeric'
-                              })}
+                          {(paper.publicationDate || paper.year) && (
+                            <span className="pub-date pub-year">
+                              {paper.publicationDate 
+                                ? new Date(paper.publicationDate).getFullYear() 
+                                : paper.year}
                             </span>
-                          ) : paper.year && (
-                            <span className="pub-date">{paper.year}年</span>
                           )}
                         </p>
                       )}
@@ -3409,14 +3404,13 @@ const SearchResultsPage = () => {
                               )}
                             </div>
                             <span className="summary-text">
-                              {isExpanded 
+                              {/* 缓冲区逻辑：如果折叠后只剩10个字符以内，直接全部展示 */}
+                              {isExpanded || content.length <= 120
                                 ? content 
-                                : (content.length > 300 
-                                    ? content.substring(0, 300) + '...' 
-                                    : content)
+                                : content.substring(0, 100) + '...'
                               }
                             </span>
-                            {content.length > 300 && (
+                            {content.length > 120 && (
                               <button 
                                 className="expand-btn"
                                 onClick={(e) => {
@@ -3515,7 +3509,7 @@ const SearchResultsPage = () => {
                               <div className="analysis-cell-loading">
                                 <div className="analysis-cell-spinner"></div>
                               </div>
-                            ) : !paper.abstract ? (
+                            ) : (!paper.abstract && !paper.tldr?.text) ? (
                               <span className="analysis-cell-na">无摘要</span>
                             ) : hasError ? (
                               <span className="analysis-cell-error" title={paperResults._message}>分析失败</span>

@@ -73,7 +73,10 @@ const DimensionAnalysisPanel = ({
   // 分析选中的论文
   const analyzeSelectedPaper = async () => {
     if (!selectedPaper || !selectedDimension) return;
-    if (!selectedPaper.abstract) {
+    
+    // 优先使用 abstract，如果没有则使用 TLDR
+    const abstractText = selectedPaper.abstract || selectedPaper.tldr?.text;
+    if (!abstractText) {
       setAnalysisError('该论文没有摘要，无法进行分析');
       return;
     }
@@ -96,8 +99,8 @@ const DimensionAnalysisPanel = ({
 
       // 调用分析 API
       const response = isAuthenticated
-        ? await analysisDimensionAPI.analyzePaper(selectedPaper.paperId, selectedPaper.title, selectedPaper.abstract)
-        : await publicScholarAPI.analyzePaper(selectedPaper.paperId, selectedPaper.title, selectedPaper.abstract);
+        ? await analysisDimensionAPI.analyzePaper(selectedPaper.paperId, selectedPaper.title, abstractText)
+        : await publicScholarAPI.analyzePaper(selectedPaper.paperId, selectedPaper.title, abstractText);
 
       if (response.data.code === 0 && response.data.data) {
         const result = response.data.data;

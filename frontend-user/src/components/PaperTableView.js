@@ -461,8 +461,9 @@ const PaperTableView = ({
 
   // 分析单篇论文
   const analyzePaper = useCallback(async (paper) => {
-    // 检查是否有摘要
-    if (!paper.abstract) {
+    // 优先使用 abstract，如果没有则使用 TLDR
+    const abstractText = paper.abstract || paper.tldr?.text;
+    if (!abstractText) {
       return;
     }
 
@@ -496,8 +497,8 @@ const PaperTableView = ({
       // - 已登录：使用带认证的API，获取用户自定义维度的分析结果
       // - 未登录：使用公共API，获取系统默认维度的分析结果
       const response = isAuthenticated
-        ? await analysisDimensionAPI.analyzePaper(paper.paperId, paper.title, paper.abstract)
-        : await publicScholarAPI.analyzePaper(paper.paperId, paper.title, paper.abstract);
+        ? await analysisDimensionAPI.analyzePaper(paper.paperId, paper.title, abstractText)
+        : await publicScholarAPI.analyzePaper(paper.paperId, paper.title, abstractText);
       
       if (response.data.code === 0 && response.data.data) {
         const result = response.data.data;
