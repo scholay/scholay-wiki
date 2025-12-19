@@ -21,6 +21,8 @@ import SimilarPapersGuide from '../components/SimilarPapersGuide';
 import SearchSuggestions from '../components/SearchSuggestions';
 import SimplePaperItem from '../components/SimplePaperItem';
 import AnalysisCellText from '../components/AnalysisCellText';
+import FilterSidebar from '../components/FilterSidebar';
+import Pagination from '../components/Pagination';
 import SEO from '../components/SEO';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
 import { trackAcademicSearch, EntryPoint } from '../utils/usageTracker';
@@ -171,10 +173,7 @@ const SearchResultsPage = () => {
   const [showDimensionDropdown, setShowDimensionDropdown] = useState(false);
   const [analysisResults, setAnalysisResults] = useState({}); // { paperId: { dimensionKey: result } }
   const [analyzingPapers, setAnalyzingPapers] = useState({}); // { paperId: Set<dimensionKey> } 正在分析的维度
-  const [showCustomYearRange, setShowCustomYearRange] = useState(false); // 显示自定义年份范围输入
-  const [customYearFrom, setCustomYearFrom] = useState(''); // 自定义起始年份
-  const [customYearTo, setCustomYearTo] = useState(''); // 自定义结束年份
-  const [showAllFields, setShowAllFields] = useState(false); // 显示所有研究领域
+  // showCustomYearRange, customYearFrom, customYearTo, showAllFields 已移至 FilterSidebar 组件
   const dimensionDropdownRef = useRef(null);
   const [showPaperDrawer, setShowPaperDrawer] = useState(false); // 论文预览抽屉
 
@@ -1925,217 +1924,7 @@ const SearchResultsPage = () => {
       <div className={`results-main ${selectedDimensions.length > 0 ? 'has-analysis' : ''}`} ref={resultsMainRef}>
         {/* 左侧筛选侧边栏 - Google Scholar 风格 */}
         {viewMode === 'list' && (
-          <div className="filter-sidebar">
-            {/* 时间筛选 - 今年/去年/四年前至今/自定义 */}
-            {(() => {
-              const currentYear = new Date().getFullYear();
-              const yearOptions = [
-                { value: '', label: '时间不限' },
-                { value: String(currentYear), label: `${currentYear}年至今` },
-                { value: String(currentYear - 1), label: `${currentYear - 1}年至今` },
-                { value: String(currentYear - 4), label: `${currentYear - 4}年至今` },
-              ];
-              
-              // 如果有自定义年份范围已应用，显示范围
-              const customYearDisplay = (filters.yearFrom || filters.yearTo) && 
-                !yearOptions.slice(1).some(opt => opt.value === filters.yearFrom && !filters.yearTo);
-              
-              return (
-                <div className="filter-group">
-                  <div className="filter-options">
-                    {yearOptions.map((opt) => (
-                      <button 
-                        key={opt.value || 'unlimited'}
-                        className={`filter-option ${
-                          opt.value === '' 
-                            ? (!filters.yearFrom && !filters.yearTo ? 'active' : '')
-                            : (filters.yearFrom === opt.value && !filters.yearTo && !showCustomYearRange ? 'active' : '')
-                        }`}
-                        onClick={() => {
-                          setShowCustomYearRange(false);
-                          setCustomYearFrom('');
-                          setCustomYearTo('');
-                          applyFilters({ ...filters, yearFrom: opt.value, yearTo: '' });
-                        }}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                    
-                    {/* 自定义范围按钮 - 显示已选范围或"自定义范围..." */}
-                    <button 
-                      className={`filter-option ${showCustomYearRange || customYearDisplay ? 'active' : ''}`}
-                      onClick={() => {
-                        if (customYearDisplay && !showCustomYearRange) {
-                          setCustomYearFrom(filters.yearFrom || '');
-                          setCustomYearTo(filters.yearTo || '');
-                        }
-                        setShowCustomYearRange(!showCustomYearRange);
-                      }}
-                    >
-                      {customYearDisplay && !showCustomYearRange
-                        ? `${filters.yearFrom || ''}-${filters.yearTo || ''}`
-                        : '自定义范围...'}
-                    </button>
-                  </div>
-                  
-                  {/* 自定义年份范围输入 */}
-                  {showCustomYearRange && (
-                    <div className="filter-year-range">
-                      <input 
-                        type="number"
-                        className="filter-year-input"
-                        placeholder="起始"
-                        value={customYearFrom}
-                        onChange={(e) => setCustomYearFrom(e.target.value)}
-                        min="1900"
-                        max={currentYear}
-                      />
-                      <span className="filter-year-separator">-</span>
-                      <input 
-                        type="number"
-                        className="filter-year-input"
-                        placeholder="结束"
-                        value={customYearTo}
-                        onChange={(e) => setCustomYearTo(e.target.value)}
-                        min="1900"
-                        max={currentYear}
-                      />
-                      <button 
-                        className="filter-year-apply"
-                        onClick={() => {
-                          if (customYearFrom || customYearTo) {
-                            applyFilters({ 
-                              ...filters, 
-                              yearFrom: customYearFrom, 
-                              yearTo: customYearTo 
-                            });
-                            setShowCustomYearRange(false);
-                          }
-                        }}
-                      >
-                        确定
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            <div className="filter-divider" />
-
-            {/* 开放获取 */}
-            <div className="filter-group">
-              <div className="filter-options">
-                <button 
-                  className={`filter-option ${!filters.openAccessPdf ? 'active' : ''}`}
-                  onClick={() => applyFilters({ ...filters, openAccessPdf: '' })}
-                >
-                  全部
-                </button>
-                <button 
-                  className={`filter-option ${filters.openAccessPdf === 'true' ? 'active' : ''}`}
-                  onClick={() => applyFilters({ ...filters, openAccessPdf: 'true' })}
-                >
-                  开放获取
-                </button>
-              </div>
-            </div>
-
-            <div className="filter-divider" />
-
-            {/* 引用次数筛选 */}
-            <div className="filter-group">
-              <div className="filter-options">
-                <button 
-                  className={`filter-option ${!filters.minCitationCount ? 'active' : ''}`}
-                  onClick={() => applyFilters({ ...filters, minCitationCount: '' })}
-                >
-                  引用次数不限
-                </button>
-                <button 
-                  className={`filter-option ${filters.minCitationCount === '10' ? 'active' : ''}`}
-                  onClick={() => applyFilters({ ...filters, minCitationCount: '10' })}
-                >
-                  ≥10
-                </button>
-                <button 
-                  className={`filter-option ${filters.minCitationCount === '50' ? 'active' : ''}`}
-                  onClick={() => applyFilters({ ...filters, minCitationCount: '50' })}
-                >
-                  ≥50
-                </button>
-                <button 
-                  className={`filter-option ${filters.minCitationCount === '100' ? 'active' : ''}`}
-                  onClick={() => applyFilters({ ...filters, minCitationCount: '100' })}
-                >
-                  ≥100
-                </button>
-                <button 
-                  className={`filter-option ${filters.minCitationCount === '500' ? 'active' : ''}`}
-                  onClick={() => applyFilters({ ...filters, minCitationCount: '500' })}
-                >
-                  ≥500
-                </button>
-              </div>
-            </div>
-
-            <div className="filter-divider" />
-
-            {/* 研究领域 - 多选，默认显示6个 */}
-            <div className="filter-group">
-              <div className="filter-group-title">
-                研究领域
-              </div>
-              <div className="filter-field-list">
-                {[
-                  { key: 'Computer Science', label: '计算机科学' },
-                  { key: 'Medicine', label: '医学' },
-                  { key: 'Biology', label: '生物学' },
-                  { key: 'Chemistry', label: '化学' },
-                  { key: 'Physics', label: '物理学' },
-                  { key: 'Mathematics', label: '数学' },
-                  { key: 'Engineering', label: '工程学' },
-                  { key: 'Materials Science', label: '材料科学' },
-                  { key: 'Economics', label: '经济学' },
-                  { key: 'Psychology', label: '心理学' },
-                  { key: 'Sociology', label: '社会学' },
-                  { key: 'Political Science', label: '政治学' },
-                  { key: 'Business', label: '商业' },
-                  { key: 'Environmental Science', label: '环境科学' },
-                  { key: 'Geography', label: '地理学' },
-                  { key: 'History', label: '历史学' },
-                  { key: 'Philosophy', label: '哲学' },
-                  { key: 'Art', label: '艺术' },
-                ].slice(0, showAllFields ? 18 : 6).map(field => (
-                  <label 
-                    key={field.key}
-                    className={`filter-field-item ${filters.fieldsOfStudy?.includes(field.key) ? 'selected' : ''}`}
-                  >
-                    <input 
-                      type="checkbox"
-                      className="filter-field-checkbox"
-                      checked={filters.fieldsOfStudy?.includes(field.key) || false}
-                      onChange={() => {
-                        const currentFields = filters.fieldsOfStudy || [];
-                        const newFields = currentFields.includes(field.key)
-                          ? currentFields.filter(f => f !== field.key)
-                          : [...currentFields, field.key];
-                        applyFilters({ ...filters, fieldsOfStudy: newFields });
-                      }}
-                    />
-                    <span>{field.label}</span>
-                  </label>
-                ))}
-              </div>
-              <button 
-                className="filter-show-more"
-                onClick={() => setShowAllFields(!showAllFields)}
-              >
-                {showAllFields ? '收起' : '展开更多 (12)'}
-              </button>
-            </div>
-          </div>
+          <FilterSidebar filters={filters} onApplyFilters={applyFilters} />
         )}
 
         {/* 论文列表/详情区域 */}
@@ -2403,51 +2192,12 @@ const SearchResultsPage = () => {
                         ))}
                         
                         {/* 分页器 */}
-                        {authorPapersTotalPages > 1 && (
-                          <div className="pagination">
-                            <button
-                              className="pagination-btn"
-                              onClick={() => handleAuthorPapersPageChange(authorPapersPage - 1)}
-                              disabled={authorPapersPage === 1 || authorLoading}
-                            >
-                              上一页
-                            </button>
-
-                            <div className="pagination-pages">
-                              {Array.from({ length: Math.min(5, authorPapersTotalPages) }, (_, i) => {
-                                let pageNum;
-                                if (authorPapersTotalPages <= 5) {
-                                  pageNum = i + 1;
-                                } else if (authorPapersPage <= 3) {
-                                  pageNum = i + 1;
-                                } else if (authorPapersPage >= authorPapersTotalPages - 2) {
-                                  pageNum = authorPapersTotalPages - 4 + i;
-                                } else {
-                                  pageNum = authorPapersPage - 2 + i;
-                                }
-
-                                return (
-                                  <button
-                                    key={pageNum}
-                                    className={`pagination-page ${authorPapersPage === pageNum ? 'active' : ''}`}
-                                    onClick={() => handleAuthorPapersPageChange(pageNum)}
-                                    disabled={authorLoading}
-                                  >
-                                    {pageNum}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            <button
-                              className="pagination-btn"
-                              onClick={() => handleAuthorPapersPageChange(authorPapersPage + 1)}
-                              disabled={authorPapersPage === authorPapersTotalPages || authorLoading}
-                            >
-                              下一页
-                            </button>
-                          </div>
-                        )}
+                        <Pagination
+                          currentPage={authorPapersPage}
+                          totalPages={authorPapersTotalPages}
+                          onPageChange={handleAuthorPapersPageChange}
+                          showPageSize={false}
+                        />
                       </div>
                   </>
                 ) : null}
@@ -3319,66 +3069,13 @@ const SearchResultsPage = () => {
         </div>
 
               {/* 分页器 */}
-              {totalPages > 1 && (
-                <div className="pagination">
-                  {/* 每页数量选择器 - 移到最左侧 */}
-                  <div className="page-size-selector">
-                    <span className="page-size-label">每页</span>
-                    <select
-                      className="page-size-select"
-                      value={papersPerPage}
-                      onChange={(e) => handlePageSizeChange(parseInt(e.target.value, 10))}
-                    >
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
-                      <option value={100}>100</option>
-                      <option value={200}>200</option>
-                    </select>
-                    <span className="page-size-label">条</span>
-                  </div>
-
-                  <button
-                    className="pagination-btn"
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    上一页
-                  </button>
-
-                  <div className="pagination-pages">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-
-                      return (
-                        <button
-                          key={pageNum}
-                          className={`pagination-page ${currentPage === pageNum ? 'active' : ''}`}
-                          onClick={() => handlePageChange(pageNum)}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <button
-                    className="pagination-btn"
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    下一页
-                  </button>
-                </div>
-                )}
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={papersPerPage}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
               </>
             )}
         </div>

@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { subscriptionAPI } from '../services/api';
 import './ModelSelector.css';
 
@@ -23,7 +23,7 @@ import './ModelSelector.css';
  * @param {string} dropdownAlign - 下拉菜单对齐方式 ('left' 或 'right')，默认 'left'
  * @param {array} allowedModels - 允许显示的模型列表，例如 ['mid', 'high']，默认全部显示
  */
-const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscription: userSubscriptionProp, mode = 'advanced-search', compact = false, showOnly = false, isAuthenticated = true, dropdownAlign = 'left', allowedModels = null }) => {
+const ModelSelector = memo(({ value = 'low', onChange, disabled = false, userSubscription: userSubscriptionProp, mode = 'advanced-search', compact = false, showOnly = false, isAuthenticated = true, dropdownAlign = 'left', allowedModels = null }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [quota, setQuota] = useState(null);
   const [usage, setUsage] = useState(null);
@@ -318,11 +318,12 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
     return null;
   };
 
-  const handleModelSelect = (model) => {
+  const handleModelSelect = useCallback((model) => {
     if (!isModelAvailable(model)) return;
     onChange(model.value);
     setShowDropdown(false);
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onChange, quota, usage, isAuthenticated, mode]);
 
   return (
     <div ref={containerRef} className={`model-selector ${compact ? 'compact' : ''} ${showOnly ? 'show-only' : ''}`}>
@@ -455,7 +456,9 @@ const ModelSelector = ({ value = 'low', onChange, disabled = false, userSubscrip
         )}
       </div>
   );
-};
+});
+
+ModelSelector.displayName = 'ModelSelector';
 
 export default ModelSelector;
 

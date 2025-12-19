@@ -10,9 +10,9 @@
  * 检测是否被截断，只有截断时才显示 hover 气泡
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 
-const AnalysisCellText = ({ text }) => {
+const AnalysisCellText = memo(({ text }) => {
   const textRef = useRef(null);
   const [isTruncated, setIsTruncated] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
@@ -55,7 +55,9 @@ const AnalysisCellText = ({ text }) => {
       )}
     </div>
   );
-};
+});
+
+AnalysisCellText.displayName = 'AnalysisCellText';
 
 export default AnalysisCellText;
 

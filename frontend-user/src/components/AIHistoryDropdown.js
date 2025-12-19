@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, memo, useCallback, useMemo } from 'react';
 import './AIHistoryDropdown.css';
 
-const AIHistoryDropdown = ({
+const AIHistoryDropdown = memo(({
   conversations,
   currentConversationId,
   onSelectConversation,
@@ -26,17 +26,17 @@ const AIHistoryDropdown = ({
     };
   }, []);
 
-  // 获取当前会话标题
-  const getCurrentTitle = () => {
+  // 获取当前会话标题 - 使用 useMemo 缓存
+  const currentTitle = useMemo(() => {
     if (!currentConversationId || !conversations || conversations.length === 0) {
       return '新对话';
     }
     const current = conversations.find(c => c.id === currentConversationId);
     return current?.title || '新对话';
-  };
+  }, [currentConversationId, conversations]);
 
-  // 格式化时间
-  const formatTime = (dateString) => {
+  // 格式化时间 - 使用 useCallback 缓存
+  const formatTime = useCallback((dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
     const now = new Date();
@@ -48,7 +48,19 @@ const AIHistoryDropdown = ({
     if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`;
     
     return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
-  };
+  }, []);
+
+  // 处理新建对话
+  const handleNewConversation = useCallback(() => {
+    onNewConversation();
+    setShowDropdown(false);
+  }, [onNewConversation]);
+
+  // 处理选择对话
+  const handleSelectConversation = useCallback((convId) => {
+    onSelectConversation(convId);
+    setShowDropdown(false);
+  }, [onSelectConversation]);
 
   return (
     <div className="ai-history-dropdown" ref={dropdownRef}>
@@ -61,7 +73,7 @@ const AIHistoryDropdown = ({
           <circle cx="12" cy="12" r="10"/>
           <polyline points="12,6 12,12 16,14"/>
         </svg>
-        <span className="ai-history-btn-text">{getCurrentTitle()}</span>
+        <span className="ai-history-btn-text">{currentTitle}</span>
         <svg 
           className={`ai-history-arrow ${showDropdown ? 'open' : ''}`}
           width="12" 
@@ -83,10 +95,7 @@ const AIHistoryDropdown = ({
               <span>历史对话</span>
               <button 
                 className="ai-dropdown-new-btn"
-                onClick={() => {
-                  onNewConversation();
-                  setShowDropdown(false);
-                }}
+                onClick={handleNewConversation}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round"/>
@@ -103,10 +112,7 @@ const AIHistoryDropdown = ({
                   <div 
                     key={conv.id} 
                     className={`ai-history-item ${conv.id === currentConversationId ? 'active' : ''}`}
-                    onClick={() => {
-                      onSelectConversation(conv.id);
-                      setShowDropdown(false);
-                    }}
+                    onClick={() => handleSelectConversation(conv.id)}
                   >
                     <div className="ai-history-item-content">
                       <span className="ai-history-item-title">{conv.title || '未命名对话'}</span>
@@ -135,6 +141,8 @@ const AIHistoryDropdown = ({
       )}
     </div>
   );
-};
+});
+
+AIHistoryDropdown.displayName = 'AIHistoryDropdown';
 
 export default AIHistoryDropdown;

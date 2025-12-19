@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import entcoinSmall from '../assets/images/entcoin-56.png';
 import entcoinLarge from '../assets/images/entcoin-256.png';
 import './styles/EntcoinIcon.css';
@@ -8,7 +8,7 @@ import './styles/EntcoinIcon.css';
  * @param {string} size - 尺寸: 'xs' (12px), 'sm' (16px), 'md' (20px), 'lg' (24px), 'xl' (32px), 'xxl' (48px)
  * @param {string} className - 额外的CSS类名
  */
-const EntcoinIcon = ({ size = 'md', className = '' }) => {
+const EntcoinIcon = memo(({ size = 'md', className = '' }) => {
   const sizeMap = {
     xs: 12,
     sm: 16,
@@ -30,7 +30,9 @@ const EntcoinIcon = ({ size = 'md', className = '' }) => {
       style={{ width: pixelSize, height: pixelSize }}
     />
   );
-};
+});
+
+EntcoinIcon.displayName = 'EntcoinIcon';
 
 export default EntcoinIcon;
 
