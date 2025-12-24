@@ -11,7 +11,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspens
 import { useSearchParams, useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
-import { ChevronDown, Sparkles, X } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 import { publicScholarAPI, analysisDimensionAPI } from '../services/api';
 import PaperPreview from '../components/PaperPreview';
 import PaperListSkeleton from '../components/PaperListSkeleton';
@@ -174,6 +174,12 @@ const SearchResultsPage = () => {
   const [showDimensionDropdown, setShowDimensionDropdown] = useState(false);
   const [analysisResults, setAnalysisResults] = useState({}); // { paperId: { dimensionKey: result } }
   const [analyzingPapers, setAnalyzingPapers] = useState({}); // { paperId: Set<dimensionKey> } 正在分析的维度
+  const [floatPanelExpanded, setFloatPanelExpanded] = useState(false); // 悬浮面板展开状态
+  const [floatPanelView, setFloatPanelView] = useState('list'); // 'list' | 'detail' | 'edit' - 面板视图状态
+  const [viewingDimension, setViewingDimension] = useState(null); // 当前查看详情的维度
+  const [editingDimension, setEditingDimension] = useState(null); // 编辑中的维度，null 表示新增
+  const [editForm, setEditForm] = useState({ name: '', description: '' }); // 编辑表单
+  const [isSavingDimension, setIsSavingDimension] = useState(false); // 保存中状态
   // showCustomYearRange, customYearFrom, customYearTo, showAllFields 已移至 FilterSidebar 组件
   const dimensionDropdownRef = useRef(null);
   const [showPaperDrawer, setShowPaperDrawer] = useState(false); // 论文预览抽屉
@@ -512,6 +518,121 @@ const SearchResultsPage = () => {
   const handleClearDimensions = useCallback(() => {
     setSelectedDimensions([]);
   }, []);
+
+  // 打开编辑视图（新增或编辑）
+  const handleOpenEditView = useCallback((dimension = null) => {
+    setEditingDimension(dimension);
+    setEditForm({
+      name: dimension?.name || '',
+      description: dimension?.description || ''
+    });
+    setFloatPanelView('edit');
+  }, []);
+
+  // 关闭编辑视图
+  const handleCloseEditView = useCallback(() => {
+    setFloatPanelView('list');
+    setEditingDimension(null);
+    setEditForm({ name: '', description: '' });
+  }, []);
+
+  // 生成 dimensionKey
+  const generateDimensionKey = useCallback((name) => {
+    // 使用时间戳 + 随机数生成唯一 key
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 8);
+    return `custom_${timestamp}_${random}`;
+  }, []);
+
+  // 刷新维度列表
+  const refreshDimensions = useCallback(async () => {
+    try {
+      const response = isAuthenticated
+        ? await analysisDimensionAPI.getDimensions()
+        : await publicScholarAPI.getSystemDimensions();
+      
+      if (response.data.code === 0) {
+        setDimensions(response.data.data.dimensions || []);
+      }
+    } catch (error) {
+      console.error('刷新维度列表失败:', error);
+    }
+  }, [isAuthenticated]);
+
+  // 保存维度（新增或修改）
+  const handleSaveDimension = useCallback(async () => {
+    if (!editForm.name.trim() || !editForm.description.trim()) {
+      return;
+    }
+
+    setIsSavingDimension(true);
+    try {
+      // 确定 dimensionKey
+      let dimensionKey;
+      if (editingDimension) {
+        // 编辑模式：使用原有的 dimensionKey
+        dimensionKey = getDimensionKey(editingDimension);
+      } else {
+        // 新增模式：生成新的 key
+        dimensionKey = generateDimensionKey(editForm.name);
+      }
+
+      // 调用 API 创建/更新维度
+      const response = await analysisDimensionAPI.createDimension(
+        dimensionKey,
+        editForm.name.trim(),
+        editForm.description.trim()
+      );
+
+      if (response.data.code === 0) {
+        // 刷新维度列表
+        await refreshDimensions();
+        // 关闭编辑视图
+        handleCloseEditView();
+      } else {
+        console.error('保存维度失败:', response.data.message);
+        alert(response.data.message || '保存失败');
+      }
+    } catch (error) {
+      console.error('保存维度失败:', error);
+      alert('保存失败，请稍后重试');
+    } finally {
+      setIsSavingDimension(false);
+    }
+  }, [editForm, editingDimension, getDimensionKey, generateDimensionKey, refreshDimensions, handleCloseEditView]);
+
+  // 删除维度
+  const handleDeleteDimension = useCallback(async (dimension) => {
+    if (!dimension || dimension.userId <= 0) {
+      return; // 只能删除自定义维度
+    }
+
+    if (!window.confirm(`确定要删除维度「${dimension.name}」吗？`)) {
+      return;
+    }
+
+    try {
+      const response = await analysisDimensionAPI.deleteDimension(dimension.id);
+      if (response.data.code === 0) {
+        // 从选中列表中移除
+        setSelectedDimensions(prev => 
+          prev.filter(d => getDimensionKey(d) !== getDimensionKey(dimension))
+        );
+        // 刷新维度列表
+        await refreshDimensions();
+        // 如果在详情视图，返回列表
+        if (floatPanelView === 'detail') {
+          setFloatPanelView('list');
+          setViewingDimension(null);
+        }
+      } else {
+        alert(response.data.message || '删除失败');
+      }
+    } catch (error) {
+      console.error('删除维度失败:', error);
+      alert('删除失败，请稍后重试');
+    }
+  }, [getDimensionKey, refreshDimensions, floatPanelView]);
 
   // 为论文分析所有维度（一次请求返回所有维度结果）
   const analyzePaper = useCallback(async (paper) => {
@@ -1514,83 +1635,6 @@ const SearchResultsPage = () => {
               )}
 
               </div>
-              
-              {/* 右侧 AI 分析按钮区域 */}
-              {viewMode === 'list' && papers.length > 0 && (
-                <div className="search-header-right" ref={dimensionDropdownRef}>
-                  {selectedDimensions.length > 0 ? (
-                    <div className="dimension-active">
-                      <span className="dimension-active-label">
-                        <Sparkles size={14} />
-                        <span>{selectedDimensions.length} 个维度</span>
-                      </span>
-                      <button 
-                        className="dimension-edit-btn"
-                        onClick={() => setShowDimensionDropdown(!showDimensionDropdown)}
-                        title="编辑维度"
-                      >
-                        <ChevronDown size={14} className={showDimensionDropdown ? 'rotate' : ''} />
-                      </button>
-                      <button 
-                        className="dimension-clear-btn"
-                        onClick={handleClearDimensions}
-                        title="清除所有"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    <button 
-                      className="dimension-select-btn"
-                      onClick={() => setShowDimensionDropdown(!showDimensionDropdown)}
-                    >
-                      <Sparkles size={14} />
-                      <span>AI 分析</span>
-                      <ChevronDown size={14} className={showDimensionDropdown ? 'rotate' : ''} />
-                    </button>
-                  )}
-                  
-                  {showDimensionDropdown && (
-                    <div className="dimension-dropdown">
-                      <div className="dimension-dropdown-header">
-                        <span>选择分析维度</span>
-                        <button 
-                          className="dimension-select-all-btn"
-                          onClick={handleSelectAllDimensions}
-                        >
-                          {selectedDimensions.length === dimensions.length ? '取消全选' : '全选'}
-                        </button>
-                      </div>
-                      <div className="dimension-dropdown-list">
-                        {dimensions.map((dim) => {
-                          const dimKey = getDimensionKey(dim);
-                          const isSelected = selectedDimensions.some(d => getDimensionKey(d) === dimKey);
-                          return (
-                            <button
-                              key={dimKey}
-                              className={`dimension-dropdown-item ${isSelected ? 'selected' : ''}`}
-                              onClick={() => handleDimensionToggle(dim)}
-                              title={dim.description}
-                            >
-                              <div className="dimension-item-checkbox">
-                                {isSelected && (
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                                    <polyline points="20 6 9 17 4 12"/>
-                                  </svg>
-                                )}
-                              </div>
-                              <div className="dimension-item-content">
-                                <span className="dimension-item-name">{dim.name}</span>
-                                <span className="dimension-item-desc">{dim.description}</span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
             {/* 搜索结果提示行已移至表格第一列列头 */}
             </>
@@ -2513,12 +2557,23 @@ const SearchResultsPage = () => {
                       </span>
                     )}
                   </div>
-                  {/* 分析维度列头 */}
+                  {/* 分析维度列头 - 只在有选中维度时显示 */}
                   {selectedDimensions.length > 0 && (
                     <div className="unified-header-dims">
+                      {/* 已选维度列头 */}
                       {selectedDimensions.map(dim => (
                         <div key={getDimensionKey(dim)} className="unified-header-dim">
-                          {dim.name}
+                          <span className="dim-header-name">{dim.name}</span>
+                          <button 
+                            className="dim-header-remove-btn"
+                            onClick={() => handleDimensionToggle(dim)}
+                            title={`移除 ${dim.name} 维度`}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <line x1="18" y1="6" x2="6" y2="18"/>
+                              <line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -2752,6 +2807,224 @@ const SearchResultsPage = () => {
                 onPageChange={handlePageChange}
                 onPageSizeChange={handlePageSizeChange}
               />
+              
+              {/* 右侧悬浮面板 - AI 分析维度入口 */}
+              {papers.length > 0 && (
+                <div className={`dimension-float-panel ${selectedDimensions.length > 0 ? 'collapsed' : ''} ${floatPanelExpanded ? 'expanded' : ''}`}>
+                  {/* 收起状态的侧边标签 */}
+                  <div 
+                    className="dimension-float-collapsed-tab"
+                    onMouseEnter={() => setFloatPanelExpanded(true)}
+                    onMouseLeave={() => setFloatPanelExpanded(false)}
+                  >
+                    <span>AI维度分析</span>
+                  </div>
+                  {/* 展开状态的完整内容 */}
+                  <div 
+                    className="dimension-float-content"
+                    onMouseEnter={() => setFloatPanelExpanded(true)}
+                    onMouseLeave={() => setFloatPanelExpanded(false)}
+                  >
+                    {floatPanelView === 'list' && (
+                      <>
+                        {/* 列表视图 */}
+                        <div className="dimension-float-header">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                            <path d="M2 17l10 5 10-5"/>
+                            <path d="M2 12l10 5 10-5"/>
+                          </svg>
+                          <span>AI 多维度分析</span>
+                        </div>
+                        <p className="dimension-float-desc">
+                          点击维度标签，AI 将从不同角度分析论文
+                        </p>
+                        <div className="dimension-float-tags">
+                          {dimensions.map(dim => {
+                            const isSelected = selectedDimensions.some(s => getDimensionKey(s) === getDimensionKey(dim));
+                            const isCustom = dim.userId > 0; // userId > 0 表示自定义维度
+                            return (
+                              <div key={getDimensionKey(dim)} className={`dimension-tag-row ${isCustom ? 'custom' : ''}`}>
+                                <button
+                                  className={`dimension-tag-btn ${isSelected ? 'selected' : ''} ${isCustom ? 'custom' : ''}`}
+                                  onClick={() => handleDimensionToggle(dim)}
+                                  title={isSelected ? `点击移除 ${dim.name}` : dim.description}
+                                >
+                                  {isSelected && (
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                      <polyline points="20 6 9 17 4 12"/>
+                                    </svg>
+                                  )}
+                                  <span className="dimension-tag-name">{dim.name}</span>
+                                </button>
+                                <div className="dimension-tag-actions">
+                                  <button
+                                    className="dimension-tag-action-btn"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setViewingDimension(dim);
+                                      setFloatPanelView('detail');
+                                    }}
+                                    title="查看维度详情"
+                                  >
+                                    详情
+                                  </button>
+                                  <button
+                                    className="dimension-tag-action-btn"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenEditView(dim);
+                                    }}
+                                    title={isCustom ? "编辑维度" : "自定义此维度"}
+                                  >
+                                    修改
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* 底部统计和新增按钮 */}
+                        <div className="dimension-float-footer">
+                          <div className="dimension-float-stats">
+                            已选 {selectedDimensions.length} / 共 {dimensions.length} 个
+                            {dimensions.filter(d => d.userId > 0).length > 0 && (
+                              <span className="custom-count">（自定义 {dimensions.filter(d => d.userId > 0).length} 个）</span>
+                            )}
+                          </div>
+                          <button 
+                            className="dimension-add-btn"
+                            onClick={() => handleOpenEditView(null)}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <line x1="12" y1="5" x2="12" y2="19"/>
+                              <line x1="5" y1="12" x2="19" y2="12"/>
+                            </svg>
+                            新增
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {floatPanelView === 'detail' && (
+                      <>
+                        {/* 详情视图 */}
+                        <div className="dimension-detail-header">
+                          <button 
+                            className="dimension-detail-back"
+                            onClick={() => {
+                              setFloatPanelView('list');
+                              setViewingDimension(null);
+                            }}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="15 18 9 12 15 6"/>
+                            </svg>
+                            返回
+                          </button>
+                          <div className="dimension-detail-title-wrapper">
+                            <span className="dimension-detail-title">{viewingDimension?.name}</span>
+                            {viewingDimension?.userId > 0 ? (
+                              <span className="custom-badge small">自定义</span>
+                            ) : (
+                              <span className="system-badge small">系统</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="dimension-detail-content">
+                          <div className="dimension-detail-section">
+                            <h4 className="dimension-detail-label">分析指令</h4>
+                            <p className="dimension-detail-prompt">{viewingDimension?.description}</p>
+                          </div>
+                        </div>
+                        <div className="dimension-detail-actions">
+                          <button 
+                            className="dimension-action-btn edit"
+                            onClick={() => handleOpenEditView(viewingDimension)}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                            {viewingDimension?.userId > 0 ? '编辑' : '自定义'}
+                          </button>
+                          {viewingDimension?.userId > 0 && (
+                            <button 
+                              className="dimension-action-btn delete"
+                              onClick={() => handleDeleteDimension(viewingDimension)}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                              </svg>
+                              删除
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
+
+                    {floatPanelView === 'edit' && (
+                      <>
+                        {/* 编辑/新增视图 */}
+                        <div className="dimension-detail-header">
+                          <button 
+                            className="dimension-detail-back"
+                            onClick={handleCloseEditView}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="15 18 9 12 15 6"/>
+                            </svg>
+                            返回
+                          </button>
+                          <span className="dimension-detail-title">
+                            {editingDimension ? '编辑维度' : '新增维度'}
+                          </span>
+                        </div>
+                        <div className="dimension-edit-form">
+                          <div className="dimension-form-group">
+                            <label className="dimension-form-label">维度名称</label>
+                            <input
+                              type="text"
+                              className="dimension-form-input"
+                              placeholder="输入维度名称..."
+                              value={editForm.name}
+                              onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                              maxLength={50}
+                            />
+                          </div>
+                          <div className="dimension-form-group">
+                            <label className="dimension-form-label">分析指令</label>
+                            <textarea
+                              className="dimension-form-textarea"
+                              placeholder="输入 AI 分析时使用的指令..."
+                              value={editForm.description}
+                              onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                              rows={5}
+                            />
+                          </div>
+                        </div>
+                        <div className="dimension-edit-actions">
+                          <button 
+                            className="dimension-action-btn cancel"
+                            onClick={handleCloseEditView}
+                            disabled={isSavingDimension}
+                          >
+                            取消
+                          </button>
+                          <button 
+                            className="dimension-action-btn save"
+                            onClick={handleSaveDimension}
+                            disabled={isSavingDimension || !editForm.name.trim() || !editForm.description.trim()}
+                          >
+                            {isSavingDimension ? '保存中...' : '保存'}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
               </>
             )}
         </div>

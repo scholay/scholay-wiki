@@ -422,3 +422,116 @@
   color: #b45309;
 }
 
+/* ==================== 维度悬浮面板移动端响应式 ==================== */
+@media (max-width: 1200px) {
+  /* 中等屏幕 - 缩小悬浮面板 */
+  .dimension-float-content {
+    width: 180px;
+    padding: 16px;
+    margin-right: 16px;
+  }
+
+  .dimension-float-header {
+    font-size: 13px;
+  }
+
+  .dimension-float-desc {
+    font-size: 11px;
+    margin-bottom: 12px;
+  }
+
+  .dimension-tag-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  /* 移动端 - 悬浮面板改为底部固定栏 */
+  .dimension-float-panel {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    transform: none;
+  }
+
+  .dimension-float-collapsed-tab {
+    display: none;
+  }
+
+  .dimension-float-content {
+    width: 100%;
+    margin-right: 0;
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    border-radius: 16px 16px 0 0;
+    animation: floatPanelSlideUp 0.3s ease;
+  }
+
+  /* 收起状态在移动端也展开 */
+  .dimension-float-panel.collapsed .dimension-float-content {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+
+  @keyframes floatPanelSlideUp {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .dimension-float-header {
+    font-size: 14px;
+  }
+
+  .dimension-float-desc {
+    font-size: 12px;
+  }
+
+  .dimension-float-tags {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .dimension-tag-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    flex: 0 0 auto;
+  }
+
+  .dimension-tag-btn:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* 超小屏幕 - 进一步优化 */
+@media (max-width: 480px) {
+  .dimension-float-content {
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .dimension-float-header {
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+
+  .dimension-float-desc {
+    font-size: 11px;
+    margin-bottom: 10px;
+  }
+
+  .dimension-tag-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+}
+

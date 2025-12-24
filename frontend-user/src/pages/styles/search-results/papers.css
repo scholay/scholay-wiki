@@ -1725,19 +1725,63 @@ a.meta-item.pdf-link:hover {
   flex: 0 0 180px;
   width: 180px;
   min-width: 180px;
-  padding: 8px 16px;
+  padding: 8px 12px;
   font-size: 13px;
   font-weight: 600;
   color: #10a37f;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   box-sizing: border-box;
   border-right: 1px solid rgba(255, 255, 255, 0.06); /* 改为右边框 */
+}
+
+.unified-header-dim .dim-header-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unified-header-dim .dim-header-remove-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.unified-header-dim:hover .dim-header-remove-btn {
+  opacity: 1;
+}
+
+.unified-header-dim .dim-header-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
 }
 
 [data-theme="light"] .unified-header-dim {
   color: #059669;
   border-right-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .unified-header-dim .dim-header-remove-btn {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .unified-header-dim .dim-header-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
 }
 
 /* 统一表格内容区域 */
@@ -1857,5 +1901,847 @@ a.meta-item.pdf-link:hover {
 [data-theme="light"] .unified-analysis-cell {
   color: rgba(0, 0, 0, 0.7);
   border-right-color: rgba(0, 0, 0, 0.06);
+}
+
+/* ========== 右侧悬浮面板 - AI 分析维度入口 ========== */
+.dimension-float-panel {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 50;
+}
+
+/* 收起状态的侧边标签 */
+.dimension-float-collapsed-tab {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  padding: 20px 10px;
+  background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  border-radius: 8px 0 0 8px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s ease;
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.2);
+}
+
+.dimension-float-collapsed-tab:hover {
+  padding: 20px 12px;
+  background: linear-gradient(135deg, #12b88c 0%, #10a37f 100%);
+  box-shadow: -4px 0 20px rgba(16, 163, 127, 0.3);
+}
+
+/* 展开状态的完整内容 */
+.dimension-float-content {
+  width: 300px;
+  max-height: 70vh;
+  padding: 20px;
+  margin-right: 24px;
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: floatPanelFadeIn 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes floatPanelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 收起状态 - 当有选中维度时 */
+.dimension-float-panel.collapsed .dimension-float-collapsed-tab {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dimension-float-panel.collapsed .dimension-float-content {
+  opacity: 0;
+  transform: translateX(100%);
+  pointer-events: none;
+}
+
+/* 收起状态 + JS 控制展开 */
+.dimension-float-panel.collapsed.expanded .dimension-float-collapsed-tab {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dimension-float-panel.collapsed.expanded .dimension-float-content {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.dimension-float-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #10a37f;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dimension-float-header svg {
+  flex-shrink: 0;
+}
+
+.dimension-float-desc {
+  margin: 0 0 16px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.dimension-float-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  margin-right: -4px;
+}
+
+/* 自定义滚动条样式 */
+.dimension-float-tags::-webkit-scrollbar {
+  width: 4px;
+}
+
+.dimension-float-tags::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dimension-float-tags::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.dimension-float-tags::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="light"] .dimension-float-tags::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .dimension-float-tags::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.dimension-tag-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: rgba(16, 163, 127, 0.1);
+  border: 1px solid rgba(16, 163, 127, 0.25);
+  border-radius: 10px;
+  color: #10a37f;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.dimension-tag-btn:hover:not(:disabled) {
+  background: rgba(16, 163, 127, 0.2);
+  border-color: rgba(16, 163, 127, 0.4);
+  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.2);
+}
+
+.dimension-tag-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* 已选择的维度 - 显示已选中状态，可点击取消 */
+.dimension-tag-btn.selected {
+  background: rgba(16, 163, 127, 0.15);
+  border-color: rgba(16, 163, 127, 0.4);
+  color: rgba(16, 163, 127, 0.9);
+  cursor: pointer;
+}
+
+.dimension-tag-btn.selected svg {
+  color: rgba(16, 163, 127, 0.9);
+  margin-right: 2px;
+}
+
+.dimension-tag-btn.selected:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+.dimension-tag-btn.selected:hover svg {
+  color: #ef4444;
+}
+
+/* 自定义维度样式 - 紫色边框区分 */
+.dimension-tag-btn.custom {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.3);
+  color: #a78bfa;
+}
+
+.dimension-tag-btn.custom:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2);
+}
+
+.dimension-tag-btn.custom.selected {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.5);
+  color: #a78bfa;
+}
+
+.dimension-tag-btn.custom.selected svg {
+  color: #a78bfa;
+}
+
+.dimension-tag-btn.custom.selected:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+.dimension-tag-btn.custom.selected:hover svg {
+  color: #ef4444;
+}
+
+/* 日间模式 - 自定义维度 */
+[data-theme="light"] .dimension-tag-btn.custom {
+  background: rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.25);
+  color: #7c3aed;
+}
+
+[data-theme="light"] .dimension-tag-btn.custom:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.15);
+}
+
+[data-theme="light"] .dimension-tag-btn.custom.selected {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.35);
+  color: #7c3aed;
+}
+
+[data-theme="light"] .dimension-tag-btn.custom.selected svg {
+  color: #7c3aed;
+}
+
+[data-theme="light"] .dimension-tag-btn.custom.selected:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #dc2626;
+}
+
+[data-theme="light"] .dimension-tag-btn.custom.selected:hover svg {
+  color: #dc2626;
+}
+
+/* 日间模式 - 悬浮面板 */
+[data-theme="light"] .dimension-float-collapsed-tab {
+  background: rgba(16, 163, 127, 0.95);
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .dimension-float-content {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .dimension-float-header {
+  color: #059669;
+}
+
+[data-theme="light"] .dimension-float-desc {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .dimension-tag-btn {
+  background: rgba(16, 163, 127, 0.08);
+  border-color: rgba(16, 163, 127, 0.2);
+  color: #059669;
+}
+
+[data-theme="light"] .dimension-tag-btn:hover:not(:disabled) {
+  background: rgba(16, 163, 127, 0.15);
+  border-color: rgba(16, 163, 127, 0.35);
+  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.15);
+}
+
+/* 日间模式 - 已选择 */
+[data-theme="light"] .dimension-tag-btn.selected {
+  background: rgba(16, 163, 127, 0.1);
+  border-color: rgba(16, 163, 127, 0.3);
+  color: #059669;
+}
+
+[data-theme="light"] .dimension-tag-btn.selected svg {
+  color: #059669;
+}
+
+[data-theme="light"] .dimension-tag-btn.selected:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #dc2626;
+}
+
+[data-theme="light"] .dimension-tag-btn.selected:hover svg {
+  color: #dc2626;
+}
+
+/* ========== 维度标签行布局 ========== */
+.dimension-tag-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  position: relative;
+}
+
+.dimension-tag-row .dimension-tag-btn {
+  flex: 1;
+  border-radius: 10px;
+  justify-content: flex-start;
+  transition: all 0.2s ease, border-radius 0.15s ease;
+}
+
+.dimension-tag-row:hover .dimension-tag-btn {
+  border-radius: 10px 0 0 10px;
+}
+
+.dimension-tag-row .dimension-tag-btn .dimension-tag-name {
+  flex: 1;
+  text-align: left;
+}
+
+/* 操作按钮容器 - hover 时显示 */
+.dimension-tag-actions {
+  display: flex;
+  align-items: stretch;
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.dimension-tag-row:hover .dimension-tag-actions {
+  opacity: 1;
+  max-width: 120px;
+}
+
+/* 操作按钮通用样式 */
+.dimension-tag-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(16, 163, 127, 0.25);
+  border-left: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.dimension-tag-action-btn:last-child {
+  border-radius: 0 10px 10px 0;
+}
+
+.dimension-tag-action-btn:hover {
+  background: rgba(16, 163, 127, 0.15);
+  color: #10a37f;
+}
+
+/* 自定义维度的操作按钮 */
+.dimension-tag-row.custom .dimension-tag-action-btn {
+  border-color: rgba(139, 92, 246, 0.25);
+}
+
+.dimension-tag-row.custom .dimension-tag-action-btn:hover {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+}
+
+/* 日间模式 */
+[data-theme="light"] .dimension-tag-action-btn {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(16, 163, 127, 0.2);
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .dimension-tag-action-btn:hover {
+  background: rgba(16, 163, 127, 0.1);
+  color: #059669;
+}
+
+[data-theme="light"] .dimension-tag-row.custom .dimension-tag-action-btn {
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+[data-theme="light"] .dimension-tag-row.custom .dimension-tag-action-btn:hover {
+  background: rgba(139, 92, 246, 0.1);
+  color: #7c3aed;
+}
+
+/* ========== 底部区域 ========== */
+.dimension-float-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dimension-float-stats {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+}
+
+.dimension-float-stats .custom-count {
+  color: rgba(139, 92, 246, 0.7);
+}
+
+/* 新增维度按钮 */
+.dimension-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid rgba(16, 163, 127, 0.35);
+  border-radius: 6px;
+  color: #10a37f;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.dimension-add-btn:hover {
+  background: rgba(16, 163, 127, 0.1);
+  border-color: rgba(16, 163, 127, 0.5);
+}
+
+.dimension-add-btn svg {
+  flex-shrink: 0;
+}
+
+[data-theme="light"] .dimension-float-footer {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .dimension-float-stats {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .dimension-float-stats .custom-count {
+  color: rgba(139, 92, 246, 0.8);
+}
+
+[data-theme="light"] .dimension-add-btn {
+  border-color: rgba(16, 163, 127, 0.3);
+  color: #059669;
+}
+
+[data-theme="light"] .dimension-add-btn:hover {
+  background: rgba(16, 163, 127, 0.08);
+  border-color: rgba(16, 163, 127, 0.45);
+}
+
+/* ========== 详情视图 ========== */
+.dimension-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dimension-detail-back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dimension-detail-back:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.dimension-detail-title-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.dimension-detail-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #10a37f;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.dimension-detail-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.dimension-detail-section {
+  margin-bottom: 16px;
+}
+
+.dimension-detail-label {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dimension-detail-prompt {
+  margin: 0;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dimension-detail-badge {
+  margin-top: 12px;
+}
+
+.custom-badge,
+.system-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+}
+
+.custom-badge.small,
+.system-badge.small {
+  padding: 2px 8px;
+  font-size: 10px;
+}
+
+.custom-badge {
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #a78bfa;
+}
+
+.system-badge {
+  background: rgba(16, 163, 127, 0.15);
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  color: #10a37f;
+}
+
+.dimension-detail-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dimension-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dimension-action-btn.edit {
+  color: #10a37f;
+  border-color: rgba(16, 163, 127, 0.3);
+}
+
+.dimension-action-btn.edit:hover {
+  background: rgba(16, 163, 127, 0.1);
+  border-color: rgba(16, 163, 127, 0.5);
+}
+
+.dimension-action-btn.delete {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.dimension-action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* ========== 编辑表单样式 ========== */
+.dimension-edit-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.dimension-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dimension-form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dimension-form-input,
+.dimension-form-textarea {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.dimension-form-input::placeholder,
+.dimension-form-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.dimension-form-input:focus,
+.dimension-form-textarea:focus {
+  outline: none;
+  border-color: rgba(16, 163, 127, 0.5);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dimension-form-textarea {
+  resize: vertical;
+  min-height: 100px;
+  line-height: 1.5;
+}
+
+.dimension-edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dimension-action-btn.cancel {
+  color: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.dimension-action-btn.cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.dimension-action-btn.save {
+  color: white;
+  background: #10a37f;
+  border-color: #10a37f;
+}
+
+.dimension-action-btn.save:hover:not(:disabled) {
+  background: #0d8a6a;
+  border-color: #0d8a6a;
+}
+
+.dimension-action-btn.save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 日间模式 - 编辑表单 */
+[data-theme="light"] .dimension-form-label {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] .dimension-form-input,
+[data-theme="light"] .dimension-form-textarea {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] .dimension-form-input::placeholder,
+[data-theme="light"] .dimension-form-textarea::placeholder {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .dimension-form-input:focus,
+[data-theme="light"] .dimension-form-textarea:focus {
+  border-color: rgba(16, 163, 127, 0.5);
+  background: rgba(0, 0, 0, 0.01);
+}
+
+[data-theme="light"] .dimension-edit-actions {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .dimension-action-btn.cancel {
+  color: rgba(0, 0, 0, 0.5);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .dimension-action-btn.cancel:hover {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.25);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .dimension-action-btn.save {
+  background: #059669;
+  border-color: #059669;
+}
+
+[data-theme="light"] .dimension-action-btn.save:hover:not(:disabled) {
+  background: #047857;
+  border-color: #047857;
+}
+
+/* 日间模式 - 详情视图 */
+[data-theme="light"] .dimension-detail-header {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .dimension-detail-back {
+  border-color: rgba(0, 0, 0, 0.15);
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .dimension-detail-back:hover {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.25);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .dimension-detail-title {
+  color: #059669;
+}
+
+[data-theme="light"] .dimension-detail-label {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] .dimension-detail-prompt {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="light"] .custom-badge {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.25);
+  color: #7c3aed;
+}
+
+[data-theme="light"] .system-badge {
+  background: rgba(16, 163, 127, 0.1);
+  border-color: rgba(16, 163, 127, 0.25);
+  color: #059669;
+}
+
+[data-theme="light"] .dimension-detail-actions {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .dimension-action-btn {
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .dimension-action-btn.edit {
+  color: #059669;
+  border-color: rgba(16, 163, 127, 0.25);
+}
+
+[data-theme="light"] .dimension-action-btn.edit:hover {
+  background: rgba(16, 163, 127, 0.08);
+  border-color: rgba(16, 163, 127, 0.4);
+}
+
+[data-theme="light"] .dimension-action-btn.delete {
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+[data-theme="light"] .dimension-action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.4);
 }
 
