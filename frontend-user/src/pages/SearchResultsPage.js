@@ -721,6 +721,7 @@ const SearchResultsPage = () => {
   // 关闭论文预览抽屉
   const handleClosePaperDrawer = useCallback(() => {
     setShowPaperDrawer(false);
+    setSelectedPaper(null); // 同时取消论文选中状态
   }, []);
 
   // 表头已集成到表格内部，不再需要滚动同步逻辑
