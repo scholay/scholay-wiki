@@ -1461,104 +1461,15 @@ a.meta-item.pdf-link:hover {
   to { opacity: 1; }
 }
 
-.paper-drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 50%;
-  max-width: 600px;
-  min-width: 400px;
-  background: var(--background);
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.3);
-  display: flex;
-  flex-direction: column;
-  animation: slideInRight 0.3s ease;
-  z-index: 1001;
-}
-
-@keyframes slideInRight {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
-}
-
-.paper-drawer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.paper-drawer-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.paper-drawer-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  background: rgba(255, 255, 255, 0.06);
-  border: none;
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.paper-drawer-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.paper-drawer-content {
-  flex: 1;
-  overflow: auto;
-}
-
 /* 日间模式抽屉 */
 [data-theme="light"] .paper-drawer-overlay {
   background: rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="light"] .paper-drawer {
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
-}
-
-[data-theme="light"] .paper-drawer-header {
-  border-bottom-color: rgba(0, 0, 0, 0.06);
-}
-
-[data-theme="light"] .paper-drawer-title {
-  color: rgba(0, 0, 0, 0.85);
-}
-
-[data-theme="light"] .paper-drawer-close {
-  background: rgba(0, 0, 0, 0.04);
-  color: rgba(0, 0, 0, 0.5);
-}
-
-[data-theme="light"] .paper-drawer-close:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: rgba(0, 0, 0, 0.8);
 }
 
 /* 响应式 */
 @media (max-width: 1024px) {
   .analysis-table-panel {
     display: none;
-  }
-  
-  .paper-drawer {
-    width: 80%;
-    max-width: none;
-    min-width: 300px;
   }
 }
 

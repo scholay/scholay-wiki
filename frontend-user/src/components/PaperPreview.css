@@ -26,6 +26,37 @@
   background: transparent;
 }
 
+/* 抽屉模式 - 右侧滑入 */
+.paper-preview.drawer-mode {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 50%;
+  max-width: 600px;
+  min-width: 400px;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.3);
+  animation: slideInRight 0.3s ease;
+  z-index: 1001;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+[data-theme="light"] .paper-preview.drawer-mode {
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
+}
+
+@media (max-width: 1024px) {
+  .paper-preview.drawer-mode {
+    width: 80%;
+    max-width: none;
+    min-width: 300px;
+  }
+}
+
 /* 拖拽分隔条 */
 .paper-preview .resize-handle {
   position: absolute;

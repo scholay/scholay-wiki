@@ -3048,21 +3048,12 @@ const SearchResultsPage = () => {
       {/* 论文预览抽屉 - 列表视图时使用 */}
       {showPaperDrawer && selectedPaper && viewMode === 'list' && (
         <div className="paper-drawer-overlay" onClick={handleClosePaperDrawer}>
-          <div className="paper-drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="paper-drawer-header">
-              <h3 className="paper-drawer-title">论文详情</h3>
-              <button className="paper-drawer-close" onClick={handleClosePaperDrawer}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="paper-drawer-content">
-              <PaperPreview
-                paper={selectedPaper}
-                onClose={handleClosePaperDrawer}
-                isDrawerMode={true}
-              />
-            </div>
-          </div>
+          <PaperPreview
+            paper={selectedPaper}
+            onClose={handleClosePaperDrawer}
+            isDrawerMode={true}
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
 

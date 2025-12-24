@@ -12,9 +12,9 @@ import { Link } from 'react-router-dom';
 import PDFViewer from './PDFViewer';
 import './PaperPreview.css';
 
-const PaperPreview = ({ paper, onClose, width, onResizeMouseDown, onResizeTouchStart, isResizing, isMobileModal = false }) => {
+const PaperPreview = ({ paper, onClose, width, onResizeMouseDown, onResizeTouchStart, isResizing, isMobileModal = false, isDrawerMode = false, onClick }) => {
   const [activeTab, setActiveTab] = useState('details'); // 'details' or 'pdf'，默认展示详情
-  const containerStyle = width && !isMobileModal ? { width: typeof width === 'number' ? `${width}px` : width } : undefined;
+  const containerStyle = width && !isMobileModal && !isDrawerMode ? { width: typeof width === 'number' ? `${width}px` : width } : undefined;
 
   // 当切换论文时，重置为详情 tab
   useEffect(() => {
@@ -35,9 +35,13 @@ const PaperPreview = ({ paper, onClose, width, onResizeMouseDown, onResizeTouchS
   const hasPDF = paper.openAccessPdf && paper.openAccessPdf.url;
 
   return (
-    <div className={`paper-preview ${isMobileModal ? 'mobile-modal' : ''}`} style={containerStyle}>
-      {/* 拖拽分隔条 - 移动端弹窗模式下隐藏 */}
-      {!isMobileModal && (
+    <div 
+      className={`paper-preview ${isMobileModal ? 'mobile-modal' : ''} ${isDrawerMode ? 'drawer-mode' : ''}`} 
+      style={containerStyle}
+      onClick={onClick}
+    >
+      {/* 拖拽分隔条 - 移动端弹窗模式和抽屉模式下隐藏 */}
+      {!isMobileModal && !isDrawerMode && (
         <div
           className={`resize-handle ${isResizing ? 'resizing' : ''}`}
           onMouseDown={onResizeMouseDown}
