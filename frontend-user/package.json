@@ -10,6 +10,7 @@
     "axios": "^1.6.2",
     "docx": "^8.5.0",
     "file-saver": "^2.0.5",
+    "framer-motion": "^12.23.26",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",
     "lucide-react": "^0.554.0",

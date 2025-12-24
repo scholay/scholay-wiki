@@ -1,0 +1,372 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ * 
+ * 学术检索 -> 智能分析 过渡动画样式
+ * 
+ * 动画效果：
+ * 1. 顶部搜索框展开变形为右侧AI对话面板
+ * 2. 搜索词文字突出显示，作为第一个问题
+ * 3. 左侧论文列表区域淡入
+ */
+
+/* ========== 过渡遮罩层 ========== */
+.search-transition-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9998;
+  pointer-events: none;
+}
+
+[data-theme="light"] .search-transition-overlay {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* ========== 切换按钮容器 ========== */
+.ai-switch-button-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 4px;
+}
+
+/* 搜索框内分隔线 */
+.search-box-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+  opacity: 0.5;
+}
+
+[data-theme="light"] .search-box-divider {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* ========== 智能分析切换按钮 ========== */
+.switch-to-ai-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 暗色主题 */
+[data-theme="dark"] .switch-to-ai-btn {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.08) 100%);
+  color: rgba(16, 163, 127, 0.95);
+  border: 1px solid rgba(16, 163, 127, 0.25);
+  animation: ai-btn-glow-dark 2.5s ease-in-out infinite;
+}
+
+[data-theme="dark"] .switch-to-ai-btn:hover {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.25) 0%, rgba(16, 163, 127, 0.15) 100%);
+  border-color: rgba(16, 163, 127, 0.4);
+  transform: translateY(-1px);
+  animation: none;
+  box-shadow: 0 4px 16px rgba(16, 163, 127, 0.3);
+}
+
+/* 亮色主题 */
+[data-theme="light"] .switch-to-ai-btn {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.12) 0%, rgba(16, 163, 127, 0.06) 100%);
+  color: rgba(16, 163, 127, 1);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  animation: ai-btn-glow-light 2.5s ease-in-out infinite;
+}
+
+[data-theme="light"] .switch-to-ai-btn:hover {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.2) 0%, rgba(16, 163, 127, 0.1) 100%);
+  border-color: rgba(16, 163, 127, 0.35);
+  transform: translateY(-1px);
+  animation: none;
+  box-shadow: 0 4px 16px rgba(16, 163, 127, 0.2);
+}
+
+/* 禁用状态 */
+.switch-to-ai-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  animation: none;
+}
+
+/* 呼吸光晕动画 - 暗色 */
+@keyframes ai-btn-glow-dark {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(16, 163, 127, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(16, 163, 127, 0.4), 0 2px 12px rgba(16, 163, 127, 0.15);
+  }
+}
+
+/* 呼吸光晕动画 - 亮色 */
+@keyframes ai-btn-glow-light {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(16, 163, 127, 0.15), 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(16, 163, 127, 0.3), 0 2px 12px rgba(16, 163, 127, 0.1);
+  }
+}
+
+/* 按钮图标 */
+.switch-to-ai-btn svg {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.switch-to-ai-btn:hover svg {
+  transform: scale(1.1);
+}
+
+/* 按钮文字 */
+.switch-to-ai-btn span {
+  line-height: 1;
+}
+
+/* ========== 微动画：按钮点击波纹效果 ========== */
+.switch-to-ai-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(16, 163, 127, 0.3);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.4s ease, height 0.4s ease, opacity 0.4s ease;
+  opacity: 0;
+}
+
+.switch-to-ai-btn:active::after {
+  width: 200%;
+  height: 200%;
+  opacity: 1;
+  transition: none;
+}
+
+/* ========== 过渡动画期间的页面内容 ========== */
+.search-results-page.transitioning-to-ai .results-main,
+.search-results-page.transitioning-to-ai .filter-sidebar {
+  opacity: 0.3;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+/* ========== 搜索框展开动画 ========== */
+@keyframes search-box-expand {
+  0% {
+    transform: scale(1);
+    border-radius: 24px;
+  }
+  40% {
+    transform: scale(1.02);
+    border-radius: 20px;
+  }
+  100% {
+    transform: scale(1);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(16, 163, 127, 0.25);
+  }
+}
+
+.search-results-page.transitioning-to-ai .results-composer-wrapper {
+  animation: search-box-expand 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  position: relative;
+  z-index: 9999;
+  background: var(--surface);
+  border: 2px solid rgba(16, 163, 127, 0.5);
+}
+
+/* 过渡时搜索词文字高亮效果 */
+.search-results-page.transitioning-to-ai .results-chat-input {
+  color: var(--primary-solid);
+  font-weight: 500;
+  animation: text-highlight 0.5s ease;
+}
+
+@keyframes text-highlight {
+  0% {
+    color: var(--text-primary);
+  }
+  50% {
+    color: var(--primary-solid);
+    text-shadow: 0 0 10px rgba(16, 163, 127, 0.3);
+  }
+  100% {
+    color: var(--primary-solid);
+  }
+}
+
+/* ========== AI模式入场动画（仅从学术检索切换时触发） ========== */
+
+/* AI对话面板入场 - 延迟淡入，等过渡容器开始淡出后再出现 */
+@keyframes ai-panel-fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.search-results-page.ai-mode.from-academic-search .ai-chat-panel {
+  /* 延迟 100ms 后开始淡入，与过渡容器淡出重叠 */
+  animation: ai-panel-fade-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.1s both;
+}
+
+/* 论文列表入场 - 从左侧滑入 */
+@keyframes papers-slide-in {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.search-results-page.ai-mode.from-academic-search .papers-container {
+  animation: papers-slide-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.1s both;
+}
+
+/* 第一个问题卡片特殊动画 - 突出显示来自搜索词 */
+@keyframes first-question-highlight {
+  0% {
+    background: linear-gradient(135deg, rgba(16, 163, 127, 0.2) 0%, rgba(16, 163, 127, 0.1) 100%);
+    transform: scale(1.02);
+    box-shadow: 0 4px 24px rgba(16, 163, 127, 0.3), inset 0 0 0 2px rgba(16, 163, 127, 0.3);
+    border-radius: 16px;
+  }
+  50% {
+    background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.05) 100%);
+    transform: scale(1.01);
+    box-shadow: 0 2px 16px rgba(16, 163, 127, 0.2), inset 0 0 0 1px rgba(16, 163, 127, 0.2);
+  }
+  100% {
+    background: transparent;
+    transform: scale(1);
+    box-shadow: none;
+    border-radius: 12px;
+  }
+}
+
+.search-results-page.ai-mode.from-academic-search .qa-section:first-child .qa-current-question {
+  animation: first-question-highlight 2s cubic-bezier(0.4, 0, 0.2, 1) 0.4s both;
+}
+
+/* 第一个问题的文字闪烁效果 */
+@keyframes question-text-glow {
+  0% {
+    color: var(--primary-solid);
+    text-shadow: 0 0 8px rgba(16, 163, 127, 0.5);
+  }
+  50% {
+    color: var(--primary-solid);
+    text-shadow: 0 0 12px rgba(16, 163, 127, 0.6);
+  }
+  100% {
+    color: var(--text-primary);
+    text-shadow: none;
+  }
+}
+
+.search-results-page.ai-mode.from-academic-search .qa-section:first-child .qa-question-text {
+  animation: question-text-glow 2s cubic-bezier(0.4, 0, 0.2, 1) 0.5s both;
+}
+
+/* 底部输入框入场动画 */
+@keyframes bottom-input-slide-up {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.search-results-page.ai-mode.from-academic-search .as-bottom-input-container {
+  animation: bottom-input-slide-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.2s both;
+}
+
+/* 搜索头部入场动画 */
+@keyframes header-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.search-results-page.ai-mode.from-academic-search .ai-search-header,
+.search-results-page.ai-mode.from-academic-search .search-header-left {
+  animation: header-fade-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* 来源标签 - 显示"来自学术检索" */
+.from-search-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.08) 100%);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  border-radius: 12px;
+  font-size: 11px;
+  color: var(--primary-solid);
+  margin-left: 8px;
+  animation: badge-fade-out 2s ease 1.5s forwards;
+}
+
+@keyframes badge-fade-out {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* ========== 响应式调整 ========== */
+@media (max-width: 768px) {
+  .switch-to-ai-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  
+  .switch-to-ai-btn span {
+    display: none;
+  }
+  
+  .switch-to-ai-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+}

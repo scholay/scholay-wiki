@@ -19,7 +19,7 @@ import AIPaperList from './AIPaperList';
 import PaperCitationMarkdown from './PaperCitationMarkdown';
 import AIHistoryDropdown from './AIHistoryDropdown';
 import './QACard.css'; // 对话区域样式
-import api, { conversationAPI, subscriptionAPI, publicScholarAPI } from '../services/api';
+import { conversationAPI, subscriptionAPI, publicScholarAPI } from '../services/api';
 import { trackSmartAnalysis, EntryPoint } from '../utils/usageTracker';
 import { getSearchQuery, getAIModelLevel, getAIConversationId, setAIConversationId, clearSearchQuery } from '../utils/searchStorage';
 import { organizeMessagesByParentId } from '../utils/messageUtils';
@@ -34,8 +34,10 @@ const AuthModal = lazy(() => import('./AuthModal'));
  * @param {string} props.initialQuery - 初始搜索查询（从 sessionStorage 或 props 传入）
  * @param {string} props.initialModelLevel - 初始模型级别
  * @param {Function} props.onSwitchToNormal - 切换到普通搜索模式的回调
+ * @param {boolean} props.autoTriggerSearch - 是否自动触发搜索（从学术检索切换过来时为 true）
+ * @param {boolean} props.fromAcademicSearch - 是否从学术检索切换过来（用于显示过渡动画）
  */
-const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchToNormal }) => {
+const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchToNormal, autoTriggerSearch = false, fromAcademicSearch = false }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user, loading: authLoading } = useAuth();
@@ -1389,7 +1391,19 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                         {/* 问题卡片 - 悬浮效果 */}
                         <div className="qa-question-wrapper">
                           <div className={`qa-current-question ${index > 0 ? 'has-prev' : ''}`}>
-                            <div className="qa-question-text">{qa.question}</div>
+                            <div className="qa-question-text">
+                              {qa.question}
+                              {/* 第一个问题显示"来自学术检索"标签 */}
+                              {index === 0 && fromAcademicSearch && (
+                                <span className="from-search-badge">
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="11" cy="11" r="8"/>
+                                    <path d="M21 21l-4.35-4.35"/>
+                                  </svg>
+                                  来自学术检索
+                                </span>
+                              )}
+                            </div>
                             {getQAPaperCount(index) > 0 && (
                               <div className="qa-question-meta">
                                 <span className="qa-paper-badge">

@@ -11,7 +11,6 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspens
 import { useSearchParams, useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
-import { ChevronDown, X } from 'lucide-react';
 import { publicScholarAPI, analysisDimensionAPI } from '../services/api';
 import PaperPreview from '../components/PaperPreview';
 import PaperListSkeleton from '../components/PaperListSkeleton';
@@ -24,9 +23,10 @@ import AnalysisCellText from '../components/AnalysisCellText';
 import FilterSidebar from '../components/FilterSidebar';
 import Pagination from '../components/Pagination';
 import SEO from '../components/SEO';
+import SearchToAITransition from '../components/SearchToAITransition';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
 import { trackAcademicSearch, EntryPoint } from '../utils/usageTracker';
-import { getSearchQuery, setSearchQuery as saveSearchQuery, getSearchFilters, setSearchFilters as saveSearchFilters, setSearchMode as saveSearchMode, getAIModelLevel } from '../utils/searchStorage';
+import { getSearchQuery, setSearchQuery as saveSearchQuery, getSearchFilters, setSearchFilters as saveSearchFilters, setSearchMode as saveSearchMode, getAIModelLevel, setAIConversationId } from '../utils/searchStorage';
 import logger from '../utils/logger';
 import './styles/search-results/index.css';
 
@@ -46,6 +46,13 @@ const SearchResultsPage = () => {
   // 登录弹窗状态
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  // 过渡到AI模式的状态
+  const [isTransitioningToAI, setIsTransitioningToAI] = useState(false);
+  // 标记是否刚从学术检索切换到AI模式（用于显示过渡动画）
+  const [justSwitchedToAI, setJustSwitchedToAI] = useState(false);
+  // 搜索框的位置信息（用于过渡动画）
+  const [searchBoxRect, setSearchBoxRect] = useState(null);
+  const searchFormRef = useRef(null);
 
   // Placeholder examples carousel - 轮播提示
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
@@ -1483,15 +1490,72 @@ const SearchResultsPage = () => {
     });
   }, [setSearchParams]);
 
+  // 切换到AI智能分析模式（带动画过渡）
+  const handleSwitchToAI = useCallback(() => {
+    console.log('[SearchResultsPage] handleSwitchToAI called, searchQuery:', searchQuery);
+    if (!searchQuery.trim()) return;
+    
+    // 获取搜索框的位置信息
+    if (searchFormRef.current) {
+      const rect = searchFormRef.current.getBoundingClientRect();
+      console.log('[SearchResultsPage] searchFormRef rect:', rect);
+      setSearchBoxRect({
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+      });
+    } else {
+      console.log('[SearchResultsPage] searchFormRef.current is null');
+    }
+    
+    // 开始过渡动画
+    console.log('[SearchResultsPage] Setting isTransitioningToAI to true');
+    setIsTransitioningToAI(true);
+    
+    // 保存搜索词和模式
+    saveSearchQuery(searchQuery);
+    saveSearchMode('ai');
+    // 清除旧的对话ID，确保新搜索会创建新对话
+    setAIConversationId(null);
+  }, [searchQuery]);
+
+  // 过渡动画完成后的回调
+  const handleTransitionComplete = useCallback(() => {
+    console.log('[SearchResultsPage] handleTransitionComplete called');
+    
+    // 关闭过渡动画
+    setIsTransitioningToAI(false);
+    setSearchBoxRect(null);
+    
+    // 标记从学术检索切换过来，触发 AI 面板的入场动画
+    setJustSwitchedToAI(true);
+    
+    // 切换到 AI 模式
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      newParams.set('mode', 'ai');
+      return newParams;
+    });
+    
+    // 3秒后清除标记
+    setTimeout(() => {
+      console.log('[SearchResultsPage] Clearing justSwitchedToAI flag');
+      setJustSwitchedToAI(false);
+    }, 3000);
+  }, [setSearchParams]);
+
   // 如果是 AI 模式，渲染 AISearchView
   if (isAIMode) {
+    console.log('[SearchResultsPage] Rendering AI mode, justSwitchedToAI:', justSwitchedToAI);
     return (
-      <div className="search-results-page ai-mode">
+      <div className={`search-results-page ai-mode ${justSwitchedToAI ? 'from-academic-search' : ''}`}>
         <Suspense fallback={<div className="loading-placeholder">加载中...</div>}>
           <AISearchView
             initialQuery={searchQuery}
             initialModelLevel={getAIModelLevel()}
             onSwitchToNormal={handleSwitchToNormal}
+            fromAcademicSearch={justSwitchedToAI}
           />
         </Suspense>
 
@@ -1510,14 +1574,20 @@ const SearchResultsPage = () => {
   }
 
   return (
-    <div className="search-results-page">
-      <SEO
-        title={pageTitle}
-        description={pageDescription}
-        keywords={`${searchQuery},学术搜索,论文检索,文献查找,${filters.fieldsOfStudy.join(',')}`}
-        canonical={`/search-results`}
-        structuredData={papers.length > 0 ? generateSearchResultsSchema(searchQuery, papers) : generateBreadcrumbSchema(breadcrumbData)}
-      />
+    <>
+      <div className={`search-results-page ${isTransitioningToAI ? 'transitioning-to-ai' : ''}`}>
+        <SEO
+          title={pageTitle}
+          description={pageDescription}
+          keywords={`${searchQuery},学术搜索,论文检索,文献查找,${filters.fieldsOfStudy.join(',')}`}
+          canonical={`/search-results`}
+          structuredData={papers.length > 0 ? generateSearchResultsSchema(searchQuery, papers) : generateBreadcrumbSchema(breadcrumbData)}
+        />
+
+        {/* 过渡遮罩层 */}
+        {isTransitioningToAI && (
+          <div className="search-transition-overlay" />
+        )}
 
       {/* 主内容区域 */}
       <div className="search-results-content">
@@ -1564,7 +1634,7 @@ const SearchResultsPage = () => {
                 </div>
               ) : (
                 // 列表模式下的完整搜索表单
-                <form onSubmit={handleSearch} className="results-composer-wrapper">
+                <form ref={searchFormRef} onSubmit={handleSearch} className="results-composer-wrapper">
                   {/* 输入区域 */}
                   <div className="results-composer-input-area">
                     <textarea
@@ -1614,24 +1684,46 @@ const SearchResultsPage = () => {
                         }
                       }}
                       rows={1}
+                      disabled={isTransitioningToAI}
                     />
 
-                    <button type="submit" className="btn-send" disabled={!searchQuery.trim() || loading}>
+                    <button type="submit" className="btn-send" disabled={!searchQuery.trim() || loading || isTransitioningToAI}>
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M5 12h14M12 5l7 7-7 7"/>
                       </svg>
                     </button>
+                    
+                    {/* 智能分析切换按钮 */}
+                    {searchQuery.trim() && papers.length > 0 && !isTransitioningToAI && (
+                      <div className="ai-switch-button-container">
+                        <div className="search-box-divider"></div>
+                        <button 
+                          type="button"
+                          className="switch-to-ai-btn"
+                          onClick={handleSwitchToAI}
+                          disabled={isTransitioningToAI}
+                          title="使用当前搜索词进行智能分析"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                          </svg>
+                          <span>智能分析</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* 搜索建议下拉框 */}
-                  <SearchSuggestions
-                    query={searchQuery}
-                    onSelectPaper={handleSelectPaper}
-                    onSelectAuthor={handleSelectAuthor}
-                    onClose={() => setShowSuggestions(false)}
-                    visible={showSuggestions}
-                    inputRef={textareaRef}
-                  />
+                  {!isTransitioningToAI && (
+                    <SearchSuggestions
+                      query={searchQuery}
+                      onSelectPaper={handleSelectPaper}
+                      onSelectAuthor={handleSelectAuthor}
+                      onClose={() => setShowSuggestions(false)}
+                      visible={showSuggestions}
+                      inputRef={textareaRef}
+                    />
+                  )}
                 </form>
               )}
 
@@ -3131,7 +3223,16 @@ const SearchResultsPage = () => {
           />
         </Suspense>
       )}
+
+      {/* 学术检索到智能分析的过渡动画 */}
+      <SearchToAITransition
+        isActive={isTransitioningToAI}
+        searchQuery={searchQuery}
+        sourceRect={searchBoxRect}
+        onComplete={handleTransitionComplete}
+      />
     </div>
+    </>
   );
 };
 
