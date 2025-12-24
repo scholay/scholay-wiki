@@ -635,6 +635,9 @@ func main() {
 			// Feedback routes (User) - 已登录用户提交反馈会关联用户信息
 			userProtected.POST("/feedback", feedbackHandler.CreateFeedbackWithUser)
 
+			// Task history routes (User) - 任务历史（智能分析+AI审稿）
+			userProtected.GET("/task-history", userHandler.GetTaskHistory)
+
 			// Check-in routes (User) - 用户签到功能
 			checkinHandler.RegisterRoutes(userProtected)
 

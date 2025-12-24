@@ -1605,3 +1605,100 @@ func (h *Handler) CheckPhoneAvailability(c *gin.Context) {
 		"phone":     req.Phone,
 	})
 }
+
+// TaskHistoryItem represents a unified task history item
+type TaskHistoryItem struct {
+	ID        uint      `json:"id"`
+	Type      string    `json:"type"`       // "smart_analysis" | "peer_review"
+	Title     string    `json:"title"`
+	Status    string    `json:"status"`     // 任务状态
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// GetTaskHistory gets unified task history for the current user
+// GET /api/v1/user/task-history?limit=15
+func (h *Handler) GetTaskHistory(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "15"))
+	if limit < 1 || limit > 50 {
+		limit = 15
+	}
+
+	// Query conversations (type=search) - 智能分析
+	var conversations []struct {
+		ID        uint      `gorm:"column:id"`
+		Title     string    `gorm:"column:title"`
+		UpdatedAt time.Time `gorm:"column:updated_at"`
+	}
+	h.userRepo.GetDB().Table("conversations").
+		Select("id, title, updated_at").
+		Where("user_id = ? AND conversation_type = ?", userID.(uint), "search").
+		Order("updated_at DESC").
+		Limit(limit).
+		Scan(&conversations)
+
+	// Query peer_review_tasks (non-draft) - AI审稿
+	var peerReviewTasks []struct {
+		ID        uint      `gorm:"column:id"`
+		Title     string    `gorm:"column:title"`
+		Status    string    `gorm:"column:status"`
+		UpdatedAt time.Time `gorm:"column:updated_at"`
+	}
+	h.userRepo.GetDB().Table("peer_review_tasks").
+		Select("id, title, status, updated_at").
+		Where("user_id = ? AND status != ?", userID.(uint), "draft").
+		Order("updated_at DESC").
+		Limit(limit).
+		Scan(&peerReviewTasks)
+
+	// Merge and sort by updated_at DESC
+	items := make([]TaskHistoryItem, 0, len(conversations)+len(peerReviewTasks))
+
+	for _, conv := range conversations {
+		items = append(items, TaskHistoryItem{
+			ID:        conv.ID,
+			Type:      "smart_analysis",
+			Title:     conv.Title,
+			Status:    "completed", // conversations are always "completed"
+			UpdatedAt: conv.UpdatedAt,
+		})
+	}
+
+	for _, task := range peerReviewTasks {
+		title := task.Title
+		if title == "" {
+			title = "AI审稿任务"
+		}
+		items = append(items, TaskHistoryItem{
+			ID:        task.ID,
+			Type:      "peer_review",
+			Title:     title,
+			Status:    task.Status,
+			UpdatedAt: task.UpdatedAt,
+		})
+	}
+
+	// Sort by updated_at DESC
+	for i := 0; i < len(items)-1; i++ {
+		for j := i + 1; j < len(items); j++ {
+			if items[j].UpdatedAt.After(items[i].UpdatedAt) {
+				items[i], items[j] = items[j], items[i]
+			}
+		}
+	}
+
+	// Limit to requested count
+	if len(items) > limit {
+		items = items[:limit]
+	}
+
+	utils.Success(c, gin.H{
+		"items": items,
+		"total": len(items),
+	})
+}

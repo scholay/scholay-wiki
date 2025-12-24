@@ -27,6 +27,11 @@
   .home-chat-container {
     max-width: 52rem;
   }
+
+  /* 任务历史 - 一行两个卡片 */
+  .home-timeline-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* Tablet screens - full width with padding */
@@ -34,6 +39,11 @@
   .home-chat-container {
     max-width: 48rem;
     padding: 0 1rem;
+  }
+
+  /* 任务历史 - 一行两个卡片 */
+  .home-timeline-cards {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -299,13 +309,18 @@
     align-items: center;
   }
 
-  /* 隐藏底部链接 */
-  .home-footer-links {
+  /* 移动端右下角链接 - 隐藏 */
+  .home-footer-fixed {
     display: none;
   }
 
   /* 移动端文献助手快捷入口 - 隐藏 */
   .home-assistant-shortcuts {
+    display: none;
+  }
+
+  /* 移动端任务历史 - 隐藏 */
+  .home-task-history {
     display: none;
   }
 

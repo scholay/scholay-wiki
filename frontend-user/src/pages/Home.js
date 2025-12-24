@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-import React, { useState, useRef, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useRef, useEffect, lazy, Suspense, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -21,6 +21,7 @@ import SEO from '../components/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
 import { trackAcademicSearch, trackSmartAnalysis, EntryPoint } from '../utils/usageTracker';
 import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation } from '../utils/searchStorage';
+import { userAPI } from '../services/api';
 import './styles/home/index.css';
 
 // 懒加载 AuthModal - 只在需要时加载
@@ -50,6 +51,10 @@ const Home = () => {
   const textareaRef = useRef(null);
   const composerRef = useRef(null); // 用于定位搜索建议下拉框
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
+  
+  // 任务历史状态
+  const [taskHistory, setTaskHistory] = useState([]);
+  const [taskHistoryLoading, setTaskHistoryLoading] = useState(false);
 
   // Typewriter effect for welcome title
   // 静态标语
@@ -113,8 +118,104 @@ const Home = () => {
     }
   }, []);
 
+  // 加载任务历史（仅登录用户）- 增加到15条以支持时间线展示
+  const loadTaskHistory = useCallback(async () => {
+    if (!isAuthenticated) {
+      setTaskHistory([]);
+      return;
+    }
+    
+    setTaskHistoryLoading(true);
+    try {
+      const response = await userAPI.getTaskHistory(15);
+      if (response.data?.code === 0 && response.data?.data?.items) {
+        setTaskHistory(response.data.data.items);
+      }
+    } catch (error) {
+      console.error('Failed to load task history:', error);
+      setTaskHistory([]);
+    } finally {
+      setTaskHistoryLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    loadTaskHistory();
+  }, [loadTaskHistory]);
+
   const handleLoginSuccess = () => {
     setShowAuthModal(false);
+    // 登录成功后重新加载任务历史
+    loadTaskHistory();
+  };
+
+  // 点击任务历史项
+  const handleTaskHistoryClick = (item) => {
+    if (item.type === 'smart_analysis') {
+      // 跳转到智能分析页面
+      navigate(`/search-results?mode=ai&conversationId=${item.id}`);
+    } else if (item.type === 'peer_review') {
+      // 跳转到AI审稿页面
+      navigate(`/peer-review?taskId=${item.id}`);
+    }
+  };
+
+  // 格式化时间（用于卡片内显示）
+  const formatTime = (timeStr) => {
+    const date = new Date(timeStr);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 1) return '刚刚';
+    if (diffMins < 60) return `${diffMins}分钟前`;
+    if (diffHours < 24) return `${diffHours}小时前`;
+    if (diffDays < 7) return `${diffDays}天前`;
+    
+    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+  };
+
+  // 获取时间线分组标签
+  const getTimelineLabel = (timeStr) => {
+    const date = new Date(timeStr);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+    const taskDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+    if (taskDate.getTime() === today.getTime()) return '今天';
+    if (taskDate.getTime() === yesterday.getTime()) return '昨天';
+    
+    const diffDays = Math.floor((today.getTime() - taskDate.getTime()) / (24 * 60 * 60 * 1000));
+    if (diffDays < 7) return `${diffDays}天前`;
+    
+    return date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
+  };
+
+  // 将任务按时间线分组
+  const groupTasksByTimeline = (tasks) => {
+    const groups = {};
+    tasks.forEach(task => {
+      const label = getTimelineLabel(task.updated_at);
+      if (!groups[label]) {
+        groups[label] = [];
+      }
+      groups[label].push(task);
+    });
+    return groups;
+  };
+
+  // 获取任务状态标签
+  const getStatusLabel = (status) => {
+    const statusMap = {
+      'completed': { text: '已完成', className: 'status-completed' },
+      'processing': { text: '进行中', className: 'status-processing' },
+      'pending': { text: '等待中', className: 'status-pending' },
+      'failed': { text: '失败', className: 'status-failed' },
+    };
+    return statusMap[status] || { text: status, className: '' };
   };
 
   // 处理选择论文建议
@@ -220,23 +321,6 @@ const Home = () => {
               <h1 className="welcome-title">
                 {sloganText}
               </h1>
-            </div>
-
-            {/* 底部链接 */}
-            <div className="home-footer-links">
-              <button 
-                className="footer-link-btn"
-                onClick={() => navigate('/feedback')}
-              >
-                反馈
-              </button>
-              <span className="footer-link-divider">|</span>
-              <button 
-                className="footer-link-btn"
-                onClick={() => navigate('/about')}
-              >
-                关于我们
-              </button>
             </div>
 
             <form onSubmit={handleSearch} className="home-composer-wrapper" ref={composerRef}>
@@ -452,6 +536,74 @@ const Home = () => {
               </div>
             </div>
           </div>
+
+          {/* 任务历史区域 - 时间线布局，仅登录用户显示 */}
+          {isAuthenticated && taskHistory.length > 0 && (
+            <div className="home-task-history">
+              <div className="home-task-history-header">
+                <h3 className="home-task-history-title">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  最近任务
+                </h3>
+              </div>
+              {taskHistoryLoading ? (
+                <div className="home-task-history-loading">加载中...</div>
+              ) : (
+                <div className="home-task-timeline">
+                  {Object.entries(groupTasksByTimeline(taskHistory)).map(([timeLabel, tasks]) => (
+                    <div key={timeLabel} className="home-timeline-group">
+                      <div className="home-timeline-label">
+                        <span className="home-timeline-dot"></span>
+                        <span className="home-timeline-text">{timeLabel}</span>
+                      </div>
+                      <div className="home-timeline-cards">
+                        {tasks.map((item) => {
+                          const statusInfo = getStatusLabel(item.status);
+                          return (
+                            <div
+                              key={`${item.type}-${item.id}`}
+                              className="home-task-card"
+                              onClick={() => handleTaskHistoryClick(item)}
+                            >
+                              <div className="home-task-card-header">
+                                <div className={`home-task-card-icon ${item.type === 'smart_analysis' ? 'icon-analysis' : 'icon-review'}`}>
+                                  {item.type === 'smart_analysis' ? (
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                      <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                                    </svg>
+                                  ) : (
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                      <polyline points="14 2 14 8 20 8"/>
+                                      <line x1="16" y1="13" x2="8" y2="13"/>
+                                      <line x1="16" y1="17" x2="8" y2="17"/>
+                                    </svg>
+                                  )}
+                                </div>
+                                <div className={`home-task-card-status ${statusInfo.className}`}>
+                                  {statusInfo.text}
+                                </div>
+                              </div>
+                              <div className="home-task-card-title">{item.title}</div>
+                              <div className="home-task-card-footer">
+                                <span className="home-task-card-type">
+                                  {item.type === 'smart_analysis' ? '智能分析' : 'AI审稿'}
+                                </span>
+                                <span className="home-task-card-time">{formatTime(item.updated_at)}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -481,6 +633,23 @@ const Home = () => {
         message={kickedMessage}
         confirmText="知道了"
       />
+
+      {/* 右下角固定链接 */}
+      <div className="home-footer-fixed">
+        <button 
+          className="footer-link-btn"
+          onClick={() => navigate('/feedback')}
+        >
+          反馈
+        </button>
+        <span className="footer-link-divider">|</span>
+        <button 
+          className="footer-link-btn"
+          onClick={() => navigate('/about')}
+        >
+          关于我们
+        </button>
+      </div>
 
     </div>
   );
