@@ -300,29 +300,6 @@
   line-height: 1.35;
 }
 
-.model-option-badge {
-  display: inline-block;
-  margin-top: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  font-size: 11px;
-  font-weight: 600;
-  color: #fbbf24;
-  background: rgba(251, 191, 36, 0.12);
-  border-radius: 4px;
-  border: 1px solid rgba(251, 191, 36, 0.25);
-}
-
-.model-option-quota {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  margin-top: 0.25rem;
-  font-weight: 400;
-}
-
-.model-option-quota.unlimited {
-  color: var(--text-accent);
-  font-weight: 500;
-}
 
 /* 响应式 - 平板 */
 @media (max-width: 768px) {
@@ -585,41 +562,6 @@
     flex-shrink: 0;
   }
 
-  /* 徽章和配额 */
-  .model-selector-dropdown .model-option-badge {
-    font-size: 11px;
-    padding: 3px 8px;
-    border-radius: 6px;
-    margin-top: 6px;
-  }
-
-  .model-selector-dropdown .model-option-quota {
-    font-size: 12px;
-    margin-top: 4px;
-    padding: 4px 10px;
-    border-radius: 6px;
-    display: inline-block;
-  }
-
-  [data-theme="dark"] .model-selector-dropdown .model-option-quota {
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.6);
-  }
-
-  [data-theme="light"] .model-selector-dropdown .model-option-quota {
-    background: rgba(0, 0, 0, 0.04);
-    color: rgba(0, 0, 0, 0.5);
-  }
-
-  /* 禁用状态样式 */
-  .model-selector-dropdown .model-option:disabled {
-    opacity: 0.5;
-  }
-
-  .model-selector-dropdown .model-option:disabled .model-option-quota {
-    background: rgba(251, 191, 36, 0.1);
-    color: #fbbf24;
-  }
 }
 
 /* 小屏手机 */
@@ -750,13 +692,6 @@
   color: rgba(16, 163, 127, 0.9);
 }
 
-[data-theme="dark"] .model-option-quota {
-  color: rgba(255, 255, 255, 0.5);
-}
-
-[data-theme="dark"] .model-option-quota.unlimited {
-  color: rgba(16, 163, 127, 0.8);
-}
 
 /* 紧凑模式 - 暗色主题 */
 [data-theme="dark"] .model-selector-btn.compact {
@@ -785,11 +720,6 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
-[data-theme="dark"] .model-option-badge {
-  background: rgba(251, 191, 36, 0.1);
-  border-color: rgba(251, 191, 36, 0.2);
-  color: rgba(251, 191, 36, 0.9);
-}
 
 /* ============================================
    日间模式样式
@@ -949,18 +879,3 @@
   color: #10a37f;
 }
 
-/* 徽章和配额 - 日间模式 */
-[data-theme="light"] .model-option-badge {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-[data-theme="light"] .model-option-quota {
-  color: #10a37f;
-  font-weight: 600;
-}
-
-[data-theme="light"] .model-option-quota {
-  color: #10a37f;
-  font-weight: 600;
-}

@@ -8,7 +8,6 @@
  */
 
 import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
-import { subscriptionAPI } from '../services/api';
 import './ModelSelector.css';
 
 /**
@@ -16,21 +15,14 @@ import './ModelSelector.css';
  * @param {string} value - 当前选中的模型级别 ('low', 'mid', 'high')
  * @param {function} onChange - 模型变更回调
  * @param {boolean} disabled - 是否禁用
- * @param {object} userSubscription - 用户订阅信息
- * @param {string} mode - 使用场景 ('advanced-search' 或 'ai-chat')，默认 'advanced-search'
  * @param {boolean} compact - 是否使用紧凑模式
  * @param {boolean} showOnly - 是否只显示，不可交互
  * @param {string} dropdownAlign - 下拉菜单对齐方式 ('left' 或 'right')，默认 'left'
  * @param {array} allowedModels - 允许显示的模型列表，例如 ['mid', 'high']，默认全部显示
  */
-const ModelSelector = memo(({ value = 'low', onChange, disabled = false, userSubscription: userSubscriptionProp, mode = 'advanced-search', compact = false, showOnly = false, isAuthenticated = true, dropdownAlign = 'left', allowedModels = null }) => {
+const ModelSelector = memo(({ value = 'low', onChange, disabled = false, compact = false, showOnly = false, dropdownAlign = 'left', allowedModels = null }) => {
   const [showDropdown, setShowDropdown] = useState(false);
-  const [quota, setQuota] = useState(null);
-  const [usage, setUsage] = useState(null);
   const containerRef = useRef(null);
-
-  // 订阅信息从 props 获取，不再单独获取
-  // userSubscriptionProp 可用于将来扩展订阅相关功能
 
   // SVG图标组件
   const LowIcon = () => (
@@ -59,22 +51,19 @@ const ModelSelector = memo(({ value = 'low', onChange, disabled = false, userSub
       value: 'low',
       label: '普通模型',
       description: '快速响应，适合基础搜索',
-      icon: <LowIcon />,
-      featureTypes: ['advanced_search_low', 'ai_chat_normal']
+      icon: <LowIcon />
     },
     {
       value: 'mid',
       label: '进阶模型',
       description: '平衡性能，适合大多数场景',
-      icon: <MidIcon />,
-      featureTypes: ['advanced_search_mid', 'ai_chat_mid']
+      icon: <MidIcon />
     },
     {
       value: 'high',
       label: '高级模型',
       description: '最高质量，深度分析',
-      icon: <HighIcon />,
-      featureTypes: ['advanced_search_high', 'ai_chat_high']
+      icon: <HighIcon />
     }
   ];
 
@@ -82,53 +71,6 @@ const ModelSelector = memo(({ value = 'low', onChange, disabled = false, userSub
   const models = allowedModels 
     ? allModels.filter(m => allowedModels.includes(m.value))
     : allModels;
-
-  // 获取配额和使用情况
-  useEffect(() => {
-    const fetchQuotaAndUsage = async () => {
-      // 未登录时不获取配额
-      if (!isAuthenticated) {
-        return;
-      }
-      
-      try {
-        const response = await subscriptionAPI.getUsage();
-
-        if (response.data.code === 0) {
-          const data = response.data.data;
-          // 后端返回的数据包含 usage 和 limits
-          // 将 limits 映射为 quota 格式
-          const quotaData = {
-            advancedSearchLowQuota: data.limits?.advanced_search_low?.limit ?? -1,
-            advancedSearchMidQuota: data.limits?.advanced_search_mid?.limit ?? -1,
-            advancedSearchHighQuota: data.limits?.advanced_search_high?.limit ?? -1,
-            aiChatNormalQuota: data.limits?.ai_chat_normal?.limit ?? -1,
-            aiChatMidQuota: data.limits?.ai_chat_mid?.limit ?? -1,
-            aiChatHighQuota: data.limits?.ai_chat_high?.limit ?? -1,
-          };
-
-          // 将 usage 映射为前端格式
-          const usageData = {
-            advancedSearchLowCount: data.usage?.advanced_search_low ?? 0,
-            advancedSearchMidCount: data.usage?.advanced_search_mid ?? 0,
-            advancedSearchHighCount: data.usage?.advanced_search_high ?? 0,
-            aiChatNormalCount: data.usage?.ai_chat_normal ?? 0,
-            aiChatMidCount: data.usage?.ai_chat_mid ?? 0,
-            aiChatHighCount: data.usage?.ai_chat_high ?? 0,
-          };
-
-          setQuota(quotaData);
-          setUsage(usageData);
-        }
-      } catch (error) {
-        console.error('Failed to fetch quota/usage:', error);
-      }
-    };
-
-    // 只在组件挂载时获取一次配额信息
-    fetchQuotaAndUsage();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]);
 
   // 点击外部关闭下拉菜单
   useEffect(() => {
@@ -153,147 +95,10 @@ const ModelSelector = memo(({ value = 'low', onChange, disabled = false, userSub
   // 获取当前选中的模型（默认第一个，即普通模型）
   const selectedModel = models.find(m => m.value === value) || models[0];
 
-  // 检查模型是否可用
-  const isModelAvailable = (model) => {
-    // 未登录用户只能使用普通模型
-    if (!isAuthenticated) {
-      return model.value === 'low';
-    }
-    
-    // 如果没有 quota 数据，还在加载中，默认只允许普通模型
-    if (!quota) {
-      return model.value === 'low';
-    }
-
-    // 根据 mode 和 model.value 确定对应的 feature type
-    const featurePrefix = mode === 'ai-chat' ? 'ai_chat_' : 'advanced_search_';
-    const feature = model.featureTypes.find(ft => ft.startsWith(featurePrefix));
-    
-    if (!feature) {
-      return false;
-    }
-
-    // 提取级别名称（low, mid, high 或 normal）
-    const levelName = feature.replace(featurePrefix, '');
-    
-    // 映射配额字段名
-    const quotaFieldMap = {
-      // Advanced Search
-      'low': 'advancedSearchLowQuota',
-      'mid': 'advancedSearchMidQuota',
-      'high': 'advancedSearchHighQuota',
-      // AI Chat
-      'normal': 'aiChatNormalQuota',
-    };
-
-    const usageFieldMap = {
-      // Advanced Search
-      'low': 'advancedSearchLowCount',
-      'mid': 'advancedSearchMidCount',
-      'high': 'advancedSearchHighCount',
-      // AI Chat
-      'normal': 'aiChatNormalCount',
-    };
-
-    // AI Chat 的 mid 和 high
-    if (mode === 'ai-chat') {
-      if (levelName === 'mid') {
-        quotaFieldMap['mid'] = 'aiChatMidQuota';
-        usageFieldMap['mid'] = 'aiChatMidCount';
-      } else if (levelName === 'high') {
-        quotaFieldMap['high'] = 'aiChatHighQuota';
-        usageFieldMap['high'] = 'aiChatHighCount';
-      }
-    }
-
-    const quotaField = quotaFieldMap[levelName];
-    const usageField = usageFieldMap[levelName];
-    
-    if (!quotaField || !usageField) {
-      return false;
-    }
-
-    const limitValue = quota[quotaField];
-    const usageValue = usage ? usage[usageField] || 0 : 0;
-
-    // limit === 0 表示没有权限
-    if (limitValue === 0) {
-      return false;
-    }
-
-    // limit === -1 表示无限制
-    if (limitValue === -1) {
-    return true;
-    }
-
-    // limit > 0 表示有配额限制，检查是否还有剩余
-    return usageValue < limitValue;
-  };
-
-  // 获取模型的剩余次数
-  const getRemainingCount = (model) => {
-    if (!quota || !usage) return null;
-
-    // 根据 mode 选择对应的 feature type
-    const featurePrefix = mode === 'ai-chat' ? 'ai_chat_' : 'advanced_search_';
-    const feature = model.featureTypes.find(ft => ft.startsWith(featurePrefix));
-
-    if (feature) {
-      // 提取级别名称（low, mid, high 或 normal）
-      const levelName = feature.replace(featurePrefix, '');
-
-      // 映射配额字段名
-      const quotaFieldMap = {
-        // Advanced Search
-        'low': 'advancedSearchLowQuota',
-        'mid': 'advancedSearchMidQuota',
-        'high': 'advancedSearchHighQuota',
-        // AI Chat
-        'normal': 'aiChatNormalQuota',
-      };
-
-      const usageFieldMap = {
-        // Advanced Search
-        'low': 'advancedSearchLowCount',
-        'mid': 'advancedSearchMidCount',
-        'high': 'advancedSearchHighCount',
-        // AI Chat
-        'normal': 'aiChatNormalCount',
-      };
-
-      // AI Chat 的 mid 和 high
-      if (mode === 'ai-chat') {
-        if (levelName === 'mid') {
-          quotaFieldMap['mid'] = 'aiChatMidQuota';
-          usageFieldMap['mid'] = 'aiChatMidCount';
-        } else if (levelName === 'high') {
-          quotaFieldMap['high'] = 'aiChatHighQuota';
-          usageFieldMap['high'] = 'aiChatHighCount';
-        }
-      }
-
-      const quotaField = quotaFieldMap[levelName];
-      const usageField = usageFieldMap[levelName];
-
-      const quotaValue = quota[quotaField];
-      const usageValue = usage[usageField] || 0;
-
-      // -1 表示无限制
-      if (quotaValue === -1) return '无限制';
-
-      const remaining = Math.max(0, quotaValue - usageValue);
-      return remaining;
-    }
-
-    return null;
-  };
-
   const handleModelSelect = useCallback((model) => {
-    if (!isModelAvailable(model)) return;
     onChange(model.value);
     setShowDropdown(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onChange, quota, usage, isAuthenticated, mode]);
+  }, [onChange]);
 
   return (
     <div ref={containerRef} className={`model-selector ${compact ? 'compact' : ''} ${showOnly ? 'show-only' : ''}`}>
@@ -324,17 +129,14 @@ const ModelSelector = memo(({ value = 'low', onChange, disabled = false, userSub
           <div className={`model-selector-dropdown ${dropdownAlign === 'right' ? 'align-right' : ''}`}>
             <div className="dropdown-header">选择模型</div>
             {models.map((model) => {
-              const available = isModelAvailable(model);
-              const remaining = getRemainingCount(model);
               const isSelected = model.value === value;
 
               return (
                 <button
                   key={model.value}
                   type="button"
-                  className={`model-option ${isSelected ? 'selected' : ''} ${!available ? 'disabled' : ''}`}
+                  className={`model-option ${isSelected ? 'selected' : ''}`}
                   onClick={() => handleModelSelect(model)}
-                  disabled={!available}
                 >
                   <div className="model-option-icon-wrapper">
                     {model.icon}
@@ -349,75 +151,6 @@ const ModelSelector = memo(({ value = 'low', onChange, disabled = false, userSub
                       )}
                     </div>
                     <div className="model-option-desc">{model.description}</div>
-                    {!available && (
-                      <div className="model-option-badge">
-                      {(() => {
-                        // 未登录
-                        if (!isAuthenticated) {
-                          return '需要登录';
-                        }
-                        
-                        // 已登录但没有配额数据
-                        if (!quota) {
-                          return '加载中...';
-                        }
-
-                        // 根据 feature type 检查具体原因
-                        const featurePrefix = mode === 'ai-chat' ? 'ai_chat_' : 'advanced_search_';
-                        const feature = model.featureTypes.find(ft => ft.startsWith(featurePrefix));
-                        
-                        if (feature) {
-                          const levelName = feature.replace(featurePrefix, '');
-                          const quotaFieldMap = {
-                            'low': 'advancedSearchLowQuota',
-                            'mid': 'advancedSearchMidQuota',
-                            'high': 'advancedSearchHighQuota',
-                            'normal': 'aiChatNormalQuota',
-                          };
-
-                          if (mode === 'ai-chat') {
-                            if (levelName === 'mid') quotaFieldMap['mid'] = 'aiChatMidQuota';
-                            if (levelName === 'high') quotaFieldMap['high'] = 'aiChatHighQuota';
-                          }
-
-                          const quotaField = quotaFieldMap[levelName];
-                          const limitValue = quota[quotaField];
-
-                          // limit === 0 表示没有权限
-                          if (limitValue === 0) {
-                            return '需要升级订阅';
-                          }
-
-                          // limit > 0 但已用完
-                          const usageFieldMap = {
-                            'low': 'advancedSearchLowCount',
-                            'mid': 'advancedSearchMidCount',
-                            'high': 'advancedSearchHighCount',
-                            'normal': 'aiChatNormalCount',
-                          };
-
-                          if (mode === 'ai-chat') {
-                            if (levelName === 'mid') usageFieldMap['mid'] = 'aiChatMidCount';
-                            if (levelName === 'high') usageFieldMap['high'] = 'aiChatHighCount';
-                          }
-
-                          const usageField = usageFieldMap[levelName];
-                          const usageValue = usage ? usage[usageField] || 0 : 0;
-
-                          if (limitValue > 0 && usageValue >= limitValue) {
-                            return '今日配额已用完';
-                          }
-                        }
-
-                        return '需要升级订阅';
-                      })()}
-                      </div>
-                    )}
-                    {available && isAuthenticated && remaining !== null && remaining !== '无限制' && (
-                      <div className="model-option-quota">
-                        剩余 {remaining} 次
-                      </div>
-                    )}
                   </div>
                 </button>
               );

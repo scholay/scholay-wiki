@@ -300,3 +300,86 @@
   background: rgba(5, 150, 105, 0.1);
   border-left-color: #059669;
 }
+
+/* ============================================
+   论文列表蒙层 Loading
+   ============================================ */
+
+.ai-papers-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 10;
+  animation: overlay-fade-in 0.2s ease;
+}
+
+@keyframes overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.ai-papers-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(16, 163, 127, 0.2);
+  border-top-color: #10a37f;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ai-papers-loading-text {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* 浅色主题 - 蒙层 */
+[data-theme="light"] .ai-papers-loading-overlay {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+[data-theme="light"] .ai-papers-loading-spinner {
+  border-color: rgba(5, 150, 105, 0.2);
+  border-top-color: #059669;
+}
+
+[data-theme="light"] .ai-papers-loading-text {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* ============================================
+   顶部对话标题样式
+   ============================================ */
+
+.ai-conversation-title {
+  font-weight: 600;
+  font-size: 15px;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme="light"] .ai-conversation-title {
+  color: #059669;
+}

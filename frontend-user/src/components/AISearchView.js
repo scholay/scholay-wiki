@@ -21,7 +21,7 @@ import AIHistoryDropdown from './AIHistoryDropdown';
 import './QACard.css'; // 对话区域样式
 import api, { conversationAPI, subscriptionAPI, publicScholarAPI } from '../services/api';
 import { trackSmartAnalysis, EntryPoint } from '../utils/usageTracker';
-import { getSearchQuery, getAIModelLevel, getAIConversationId, setAIConversationId } from '../utils/searchStorage';
+import { getSearchQuery, getAIModelLevel, getAIConversationId, setAIConversationId, clearSearchQuery } from '../utils/searchStorage';
 import { organizeMessagesByParentId } from '../utils/messageUtils';
 import '../pages/styles/advanced-search/index.css';
 
@@ -136,6 +136,15 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     
     return list;
   }, [messages]);
+
+  // 获取当前对话标题
+  const currentConversationTitle = useMemo(() => {
+    if (!currentConversationId || !conversations || conversations.length === 0) {
+      return null;
+    }
+    const conv = conversations.find(c => c.id === currentConversationId);
+    return conv?.title || null;
+  }, [currentConversationId, conversations]);
 
   // 计算每个问答对对应的论文数量
   const getQAPaperCount = (qaIndex) => {
@@ -397,11 +406,13 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       // 有存储的查询且没有对话ID，执行搜索（从首页跳转过来的情况）
       setSearchQuery(storedQuery);
       setLoading(true); // 显示 loading 状态
+      // 立即清除存储的查询，防止 useEffect 重复触发时再次执行搜索
+      clearSearchQuery();
       setTimeout(() => {
         handleInitialSearch(storedQuery);
       }, 100);
-    } else if (!urlConversationId && !storedQuery && isAuthenticated && !authLoading) {
-      // 没有 conversationId 也没有存储的查询，重定向到首页
+    } else if (!urlConversationId && !storedQuery && isAuthenticated && !authLoading && !loading && !currentConversationId) {
+      // 没有 conversationId 也没有存储的查询，且不在加载中，重定向到首页
       logger.log('No conversationId and no stored query, redirecting to home');
       navigate('/');
     }
@@ -837,8 +848,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         if (createResponse.data.code === 0 && createResponse.data.data) {
           conversationId = createResponse.data.data.id;
           setCurrentConversationId(conversationId);
-          // 刷新对话列表，确保新对话显示在侧边栏
-          loadConversations();
+          // useEffect 会在 currentConversationId 变化时自动刷新对话列表
         } else {
           throw new Error('Failed to create conversation');
         }
@@ -996,6 +1006,9 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         // 最后关闭其他loading状态
         setLoading(false);
         setShowAIThinking(false);
+        
+        // 刷新对话列表以获取最新标题
+        loadConversations();
         return;
       }
 
@@ -1247,13 +1260,26 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                   <span className="results-logo-text">Scholay</span>
                 </div>
                 
-                {/* 中间区域 - 显示当前分析状态 */}
+                {/* 中间区域 - 显示对话标题或默认状态 */}
                 <div className="ai-header-center">
                   <div className="ai-analysis-indicator">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                    </svg>
-                    <span className="ai-indicator-text">智能分析</span>
+                    {currentConversationTitle ? (
+                      <>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                        </svg>
+                        <span className="ai-conversation-title" title={currentConversationTitle}>
+                          {currentConversationTitle}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                        </svg>
+                        <span className="ai-indicator-text">智能分析</span>
+                      </>
+                    )}
                     {papersTotal > 0 && (
                       <span className="ai-papers-count">已找到 {papersTotal} 篇相关论文</span>
                     )}

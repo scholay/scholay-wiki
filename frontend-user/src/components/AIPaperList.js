@@ -105,7 +105,15 @@ const AIPaperList = ({
   }
 
   return (
-    <div className="unified-results-table">
+    <div className="unified-results-table" style={{ position: 'relative' }}>
+      {/* 蒙层 Loading - 当正在加载且已有论文时显示 */}
+      {loading && papers && papers.length > 0 && (
+        <div className="ai-papers-loading-overlay">
+          <div className="ai-papers-loading-spinner"></div>
+          <span className="ai-papers-loading-text">搜索中...</span>
+        </div>
+      )}
+
       {/* 表格表头 */}
       <div className="unified-table-header">
         <div className="unified-header-info">
