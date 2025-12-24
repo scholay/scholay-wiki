@@ -118,7 +118,7 @@ const Home = () => {
     }
   }, []);
 
-  // 加载任务历史（仅登录用户）- 增加到15条以支持时间线展示
+  // 加载任务历史（仅登录用户）- 按天分组，最近3天，每天最多20条
   const loadTaskHistory = useCallback(async () => {
     if (!isAuthenticated) {
       setTaskHistory([]);
@@ -127,9 +127,10 @@ const Home = () => {
     
     setTaskHistoryLoading(true);
     try {
-      const response = await userAPI.getTaskHistory(15);
-      if (response.data?.code === 0 && response.data?.data?.items) {
-        setTaskHistory(response.data.data.items);
+      const response = await userAPI.getTaskHistory(3, 20);
+      if (response.data?.code === 0 && response.data?.data?.groups) {
+        // 后端已经按天分组返回
+        setTaskHistory(response.data.data.groups);
       }
     } catch (error) {
       console.error('Failed to load task history:', error);
@@ -177,34 +178,15 @@ const Home = () => {
     return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
   };
 
-  // 获取时间线分组标签
-  const getTimelineLabel = (timeStr) => {
-    const date = new Date(timeStr);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-    const taskDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-    if (taskDate.getTime() === today.getTime()) return '今天';
-    if (taskDate.getTime() === yesterday.getTime()) return '昨天';
-    
-    const diffDays = Math.floor((today.getTime() - taskDate.getTime()) / (24 * 60 * 60 * 1000));
-    if (diffDays < 7) return `${diffDays}天前`;
-    
-    return date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
-  };
-
-  // 将任务按时间线分组
-  const groupTasksByTimeline = (tasks) => {
-    const groups = {};
-    tasks.forEach(task => {
-      const label = getTimelineLabel(task.updated_at);
-      if (!groups[label]) {
-        groups[label] = [];
-      }
-      groups[label].push(task);
-    });
-    return groups;
+  // 展开状态管理
+  const [expandedDays, setExpandedDays] = useState({});
+  
+  // 切换某天的展开状态
+  const toggleDayExpanded = (dayLabel) => {
+    setExpandedDays(prev => ({
+      ...prev,
+      [dayLabel]: !prev[dayLabel]
+    }));
   };
 
   // 获取任务状态标签
@@ -537,7 +519,7 @@ const Home = () => {
             </div>
           </div>
 
-          {/* 任务历史区域 - 时间线布局，仅登录用户显示 */}
+          {/* 任务历史区域 - 按天分组，仅登录用户显示 */}
           {isAuthenticated && taskHistory.length > 0 && (
             <div className="home-task-history">
               <div className="home-task-history-header">
@@ -553,53 +535,91 @@ const Home = () => {
                 <div className="home-task-history-loading">加载中...</div>
               ) : (
                 <div className="home-task-timeline">
-                  {Object.entries(groupTasksByTimeline(taskHistory)).map(([timeLabel, tasks]) => (
-                    <div key={timeLabel} className="home-timeline-group">
-                      <div className="home-timeline-label">
-                        <span className="home-timeline-dot"></span>
-                        <span className="home-timeline-text">{timeLabel}</span>
-                      </div>
-                      <div className="home-timeline-cards">
-                        {tasks.map((item) => {
-                          const statusInfo = getStatusLabel(item.status);
-                          return (
-                            <div
-                              key={`${item.type}-${item.id}`}
-                              className="home-task-card"
-                              onClick={() => handleTaskHistoryClick(item)}
-                            >
-                              <div className="home-task-card-header">
-                                <div className={`home-task-card-icon ${item.type === 'smart_analysis' ? 'icon-analysis' : 'icon-review'}`}>
-                                  {item.type === 'smart_analysis' ? (
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                      <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                                    </svg>
-                                  ) : (
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                      <polyline points="14 2 14 8 20 8"/>
-                                      <line x1="16" y1="13" x2="8" y2="13"/>
-                                      <line x1="16" y1="17" x2="8" y2="17"/>
-                                    </svg>
-                                  )}
+                  {taskHistory.map((dayGroup) => {
+                    const { date: dayLabel, tasks, total } = dayGroup;
+                    const isExpanded = expandedDays[dayLabel];
+                    const maxVisible = 6; // 每行3个，两行共6个
+                    const hasMore = tasks.length > maxVisible;
+                    // 如果有更多任务且未展开，只显示5个，第6个位置留给展开按钮
+                    const visibleTasks = isExpanded ? tasks : tasks.slice(0, hasMore ? maxVisible - 1 : maxVisible);
+                    
+                    return (
+                      <div key={dayLabel} className="home-timeline-day">
+                        <div className="home-timeline-day-header">
+                          <span className="home-timeline-dot"></span>
+                          <span className="home-timeline-day-label">{dayLabel}</span>
+                          <span className="home-timeline-day-count">({total})</span>
+                        </div>
+                        <div className="home-timeline-cards-wrapper">
+                          <div className={`home-timeline-cards ${isExpanded ? 'expanded' : ''}`}>
+                            {visibleTasks.map((item) => {
+                              const statusInfo = getStatusLabel(item.status);
+                              return (
+                                <div
+                                  key={`${item.type}-${item.id}`}
+                                  className="home-task-card"
+                                  onClick={() => handleTaskHistoryClick(item)}
+                                >
+                                  <div className="home-task-card-header">
+                                    <div className={`home-task-card-icon ${item.type === 'smart_analysis' ? 'icon-analysis' : 'icon-review'}`}>
+                                      {item.type === 'smart_analysis' ? (
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                          <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                                        </svg>
+                                      ) : (
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                          <polyline points="14 2 14 8 20 8"/>
+                                          <line x1="16" y1="13" x2="8" y2="13"/>
+                                          <line x1="16" y1="17" x2="8" y2="17"/>
+                                        </svg>
+                                      )}
+                                    </div>
+                                    <div className={`home-task-card-status ${statusInfo.className}`}>
+                                      {statusInfo.text}
+                                    </div>
+                                  </div>
+                                  <div className="home-task-card-title">{item.title}</div>
+                                  <div className="home-task-card-footer">
+                                    <span className="home-task-card-type">
+                                      {item.type === 'smart_analysis' ? '智能分析' : 'AI审稿'}
+                                    </span>
+                                    <span className="home-task-card-time">{formatTime(item.updated_at)}</span>
+                                  </div>
                                 </div>
-                                <div className={`home-task-card-status ${statusInfo.className}`}>
-                                  {statusInfo.text}
-                                </div>
-                              </div>
-                              <div className="home-task-card-title">{item.title}</div>
-                              <div className="home-task-card-footer">
-                                <span className="home-task-card-type">
-                                  {item.type === 'smart_analysis' ? '智能分析' : 'AI审稿'}
-                                </span>
-                                <span className="home-task-card-time">{formatTime(item.updated_at)}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
+                              );
+                            })}
+                            {/* 展开/收起按钮放在第6个位置（第二排最后） */}
+                            {hasMore && (
+                              <button 
+                                className="home-timeline-more-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleDayExpanded(dayLabel);
+                                }}
+                              >
+                                {isExpanded ? (
+                                  <>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M18 15l-6-6-6 6"/>
+                                    </svg>
+                                    <span>收起</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="more-count">+{tasks.length - (maxVisible - 1)}</span>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M6 9l6 6 6-6"/>
+                                    </svg>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

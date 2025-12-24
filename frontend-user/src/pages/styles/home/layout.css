@@ -551,19 +551,23 @@
   font-size: 13px;
 }
 
-/* 时间线容器 - 可滚动 */
+/* 时间线容器 - 可滚动，滚动条默认隐藏 */
 .home-task-timeline {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   padding-bottom: 80px; /* 底部留出空间给固定按钮 */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
 }
 
 .home-task-timeline::-webkit-scrollbar {
   width: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .home-task-timeline::-webkit-scrollbar-track {
@@ -571,26 +575,47 @@
 }
 
 .home-task-timeline::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.2);
+  background: transparent;
   border-radius: 3px;
+  transition: background 0.3s ease;
 }
 
-.home-task-timeline::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.4);
+/* 滚动时显示滚动条 */
+.home-task-timeline:hover::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.3);
 }
 
-/* 时间线分组 */
-.home-timeline-group {
+.home-task-timeline:hover::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.5);
+}
+
+/* 按天分组 */
+.home-timeline-day {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-/* 时间线标签 */
-.home-timeline-label {
+/* 天标题行 - 粘性定位 */
+.home-timeline-day-header {
   display: flex;
   align-items: center;
   gap: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--background);
+  padding: 12px 0;
+  margin: 0 -4px;
+  padding-left: 4px;
+}
+
+[data-theme="dark"] .home-timeline-day-header {
+  background: var(--background);
+}
+
+[data-theme="light"] .home-timeline-day-header {
+  background: var(--background);
 }
 
 .home-timeline-dot {
@@ -599,55 +624,85 @@
   border-radius: 50%;
   background: var(--text-accent);
   flex-shrink: 0;
-  position: relative;
 }
 
-.home-timeline-dot::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 100%;
-  transform: translateX(-50%);
-  width: 2px;
-  height: calc(100% + 8px);
-  background: var(--border);
-}
-
-.home-timeline-group:last-child .home-timeline-dot::after {
-  display: none;
-}
-
-.home-timeline-text {
-  font-size: 13px;
+.home-timeline-day-label {
+  font-size: 14px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
-/* 卡片网格 - 一行三个 */
-.home-timeline-cards {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+.home-timeline-day-count {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+/* 卡片容器 */
+.home-timeline-cards-wrapper {
   margin-left: 20px;
   padding-left: 16px;
   border-left: 2px solid var(--border);
 }
 
-.home-timeline-group:last-child .home-timeline-cards {
-  border-left-color: transparent;
+/* 卡片网格 - 一行3个，最多两行 */
+.home-timeline-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+/* 更多按钮 - 作为网格内的一个元素 */
+.home-timeline-more-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 100px;
+  padding: 12px;
+  background: var(--surface);
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.home-timeline-more-btn:hover {
+  border-color: var(--text-accent);
+  color: var(--text-accent);
+  background: rgba(16, 163, 127, 0.05);
+}
+
+.home-timeline-more-btn .more-count {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-accent);
+}
+
+[data-theme="dark"] .home-timeline-more-btn {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="light"] .home-timeline-more-btn {
+  background: rgba(0, 0, 0, 0.01);
 }
 
 /* 任务卡片 */
 .home-task-card {
   display: flex;
   flex-direction: column;
-  padding: 14px;
+  padding: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  min-height: 120px;
+  transition: all 0.2s ease;
+  min-height: 100px;
 }
 
 [data-theme="dark"] .home-task-card {
@@ -656,21 +711,21 @@
 
 [data-theme="light"] .home-task-card {
   background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .home-task-card:hover {
   border-color: var(--text-accent);
-  transform: translateY(-3px);
+  transform: translateY(-2px);
 }
 
 [data-theme="dark"] .home-task-card:hover {
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
 [data-theme="light"] .home-task-card:hover {
-  box-shadow: 0 8px 24px rgba(16, 163, 127, 0.12);
+  box-shadow: 0 6px 20px rgba(16, 163, 127, 0.1);
 }
 
 /* 卡片头部 */
@@ -678,16 +733,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .home-task-card-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   flex-shrink: 0;
 }
 
@@ -730,7 +785,7 @@
 
 /* 卡片标题 */
 .home-task-card-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
   line-height: 1.4;
@@ -740,7 +795,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 /* 卡片底部 */

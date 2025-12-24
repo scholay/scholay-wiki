@@ -262,9 +262,9 @@ export const userAPI = {
   bindPhoneWithPassword: (phone, password, code) =>
     api.post('/user/bind-phone-with-password', { phone, password, code }),
 
-  // 获取任务历史（智能分析 + AI审稿）
-  getTaskHistory: (limit = 5) =>
-    api.get('/user/task-history', { params: { limit } }),
+  // 获取任务历史（智能分析 + AI审稿），按天分组
+  getTaskHistory: (days = 3, limitPerDay = 20) =>
+    api.get('/user/task-history', { params: { days, limit_per_day: limitPerDay } }),
 };
 
 export const conversationAPI = {

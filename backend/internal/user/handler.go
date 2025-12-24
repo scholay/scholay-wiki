@@ -1615,8 +1615,15 @@ type TaskHistoryItem struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// GetTaskHistory gets unified task history for the current user
-// GET /api/v1/user/task-history?limit=15
+// TaskHistoryDayGroup represents tasks grouped by day
+type TaskHistoryDayGroup struct {
+	Date   string            `json:"date"`   // 日期标签: "今天", "昨天", "2天前" 等
+	Tasks  []TaskHistoryItem `json:"tasks"`  // 该天的任务列表
+	Total  int               `json:"total"`  // 该天任务总数
+}
+
+// GetTaskHistory gets unified task history for the current user, grouped by day
+// GET /api/v1/user/task-history?days=3&limit_per_day=20
 func (h *Handler) GetTaskHistory(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -1624,10 +1631,20 @@ func (h *Handler) GetTaskHistory(c *gin.Context) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "15"))
-	if limit < 1 || limit > 50 {
-		limit = 15
+	// 获取参数：最近几天，每天最多多少条
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "3"))
+	if days < 1 || days > 7 {
+		days = 3
 	}
+	limitPerDay, _ := strconv.Atoi(c.DefaultQuery("limit_per_day", "20"))
+	if limitPerDay < 1 || limitPerDay > 50 {
+		limitPerDay = 20
+	}
+
+	// 计算时间范围：最近N天
+	now := time.Now()
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	startDate := startOfToday.AddDate(0, 0, -(days - 1)) // 包含今天
 
 	// Query conversations (type=search) - 智能分析
 	var conversations []struct {
@@ -1637,9 +1654,8 @@ func (h *Handler) GetTaskHistory(c *gin.Context) {
 	}
 	h.userRepo.GetDB().Table("conversations").
 		Select("id, title, updated_at").
-		Where("user_id = ? AND conversation_type = ?", userID.(uint), "search").
+		Where("user_id = ? AND conversation_type = ? AND updated_at >= ?", userID.(uint), "search", startDate).
 		Order("updated_at DESC").
-		Limit(limit).
 		Scan(&conversations)
 
 	// Query peer_review_tasks (non-draft) - AI审稿
@@ -1651,20 +1667,19 @@ func (h *Handler) GetTaskHistory(c *gin.Context) {
 	}
 	h.userRepo.GetDB().Table("peer_review_tasks").
 		Select("id, title, status, updated_at").
-		Where("user_id = ? AND status != ?", userID.(uint), "draft").
+		Where("user_id = ? AND status != ? AND updated_at >= ?", userID.(uint), "draft", startDate).
 		Order("updated_at DESC").
-		Limit(limit).
 		Scan(&peerReviewTasks)
 
-	// Merge and sort by updated_at DESC
-	items := make([]TaskHistoryItem, 0, len(conversations)+len(peerReviewTasks))
+	// 合并所有任务
+	allItems := make([]TaskHistoryItem, 0, len(conversations)+len(peerReviewTasks))
 
 	for _, conv := range conversations {
-		items = append(items, TaskHistoryItem{
+		allItems = append(allItems, TaskHistoryItem{
 			ID:        conv.ID,
 			Type:      "smart_analysis",
 			Title:     conv.Title,
-			Status:    "completed", // conversations are always "completed"
+			Status:    "completed",
 			UpdatedAt: conv.UpdatedAt,
 		})
 	}
@@ -1674,7 +1689,7 @@ func (h *Handler) GetTaskHistory(c *gin.Context) {
 		if title == "" {
 			title = "AI审稿任务"
 		}
-		items = append(items, TaskHistoryItem{
+		allItems = append(allItems, TaskHistoryItem{
 			ID:        task.ID,
 			Type:      "peer_review",
 			Title:     title,
@@ -1683,22 +1698,68 @@ func (h *Handler) GetTaskHistory(c *gin.Context) {
 		})
 	}
 
-	// Sort by updated_at DESC
-	for i := 0; i < len(items)-1; i++ {
-		for j := i + 1; j < len(items); j++ {
-			if items[j].UpdatedAt.After(items[i].UpdatedAt) {
-				items[i], items[j] = items[j], items[i]
-			}
+	// 按天分组
+	dayGroups := make(map[string][]TaskHistoryItem)
+	dayOrder := make([]string, 0, days) // 保持天的顺序
+
+	for _, item := range allItems {
+		itemDate := time.Date(item.UpdatedAt.Year(), item.UpdatedAt.Month(), item.UpdatedAt.Day(), 0, 0, 0, 0, now.Location())
+		diffDays := int(startOfToday.Sub(itemDate).Hours() / 24)
+
+		var dateLabel string
+		switch diffDays {
+		case 0:
+			dateLabel = "今天"
+		case 1:
+			dateLabel = "昨天"
+		default:
+			dateLabel = strconv.Itoa(diffDays) + "天前"
 		}
+
+		if _, exists := dayGroups[dateLabel]; !exists {
+			dayOrder = append(dayOrder, dateLabel)
+		}
+		dayGroups[dateLabel] = append(dayGroups[dateLabel], item)
 	}
 
-	// Limit to requested count
-	if len(items) > limit {
-		items = items[:limit]
+	// 对每天的任务按时间排序，并限制数量
+	result := make([]TaskHistoryDayGroup, 0, len(dayOrder))
+	
+	// 按照 今天 -> 昨天 -> N天前 的顺序排序
+	sortedDays := []string{"今天", "昨天"}
+	for i := 2; i < days; i++ {
+		sortedDays = append(sortedDays, strconv.Itoa(i)+"天前")
+	}
+
+	for _, dateLabel := range sortedDays {
+		tasks, exists := dayGroups[dateLabel]
+		if !exists || len(tasks) == 0 {
+			continue
+		}
+
+		// 对该天的任务按时间倒序排序
+		for i := 0; i < len(tasks)-1; i++ {
+			for j := i + 1; j < len(tasks); j++ {
+				if tasks[j].UpdatedAt.After(tasks[i].UpdatedAt) {
+					tasks[i], tasks[j] = tasks[j], tasks[i]
+				}
+			}
+		}
+
+		totalCount := len(tasks)
+		// 限制每天的任务数量
+		if len(tasks) > limitPerDay {
+			tasks = tasks[:limitPerDay]
+		}
+
+		result = append(result, TaskHistoryDayGroup{
+			Date:  dateLabel,
+			Tasks: tasks,
+			Total: totalCount,
+		})
 	}
 
 	utils.Success(c, gin.H{
-		"items": items,
-		"total": len(items),
+		"groups": result,
 	})
 }
