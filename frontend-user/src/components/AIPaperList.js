@@ -335,6 +335,19 @@ const AIPaperList = ({
                   const result = paperResults?.[dimKey];
                   const resultText = typeof result === 'string' ? result : (result ? JSON.stringify(result) : '');
                   
+                  // 调试日志
+                  if (index === 0) {
+                    console.log('[AIPaperList] Rendering analysis cell:', {
+                      paperId: paper.paperId,
+                      dimKey,
+                      dim,
+                      paperResults,
+                      result,
+                      resultText,
+                      allKeys: paperResults ? Object.keys(paperResults) : []
+                    });
+                  }
+                  
                   return (
                     <div key={dimKey} className="unified-analysis-cell">
                       {isAnalyzing ? (

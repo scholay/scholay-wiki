@@ -15,19 +15,21 @@
   overflow: hidden;
 }
 
-/* 主内容区 - 两栏布局 */
+/* 主内容区 - 两栏布局，宽度固定为100% */
 .as-results-layout .results-main.ai-results-main {
   flex: 1;
   display: flex;
   min-height: 0;
-  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden; /* 防止子元素撑大 */
 }
 
-/* 论文列表容器 - 填满剩余空间 */
+/* 论文列表容器 - 自动填充剩余空间，内容溢出时滚动 */
 .as-results-layout .papers-container {
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
+  flex: 1; /* 填充剩余空间 */
+  min-width: 0; /* 关键：允许 flex 子元素收缩到小于内容宽度 */
+  overflow-x: auto; /* 表格超出时横向滚动 */
   overflow-y: auto;
   background: transparent;
   position: relative; /* 为悬浮面板提供定位上下文 */
@@ -85,12 +87,16 @@
   min-width: 100%;
 }
 
-/* AI 模式下有分析时，论文列也使用 40vw（与学术检索一致） */
+/* AI 模式下有分析时，论文列固定40vw，并且 sticky 固定在左侧 */
 .as-results-layout .unified-results-table.has-analysis .unified-cell-paper {
   flex: 0 0 40vw;
   width: 40vw;
   min-width: 40vw;
   max-width: 40vw;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--background);
 }
 
 .as-results-layout .unified-results-table.has-analysis .unified-header-info {
@@ -98,6 +104,10 @@
   width: 40vw;
   min-width: 40vw;
   max-width: 40vw;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--background);
 }
 
 /* 顶部导航栏 - 智能分析模式 */
@@ -135,11 +145,12 @@
   border-left: 1px solid var(--border-color, rgba(255, 255, 255, 0.2));
 }
 
-/* AI 对话面板 - 固定宽度，不被挤压 */
+/* AI 对话面板 - 固定宽度，绝不被挤压 */
 .ai-chat-panel {
   display: flex;
   flex-direction: column;
   flex: 0 0 420px; /* 固定宽度，不伸缩 */
+  flex-shrink: 0 !important; /* 强制不收缩 */
   width: 420px;
   min-width: 420px;
   max-width: 420px;

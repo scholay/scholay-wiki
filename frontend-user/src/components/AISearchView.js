@@ -394,20 +394,19 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
 
   // ========== 维度分析相关函数 ==========
   
-  // 获取维度的唯一标识
+  // 获取维度的唯一标识（与学术检索页面保持一致）
   const getDimensionKey = (dim) => {
-    return dim.key || dim.name;
+    return dim.dimensionKey || dim.key || dim.name;
   };
 
-  // 加载维度列表
+  // 加载维度列表（智能分析页面需要登录，始终使用带 JWT 验证的接口）
   const loadDimensions = async () => {
+    if (!isAuthenticated) {
+      logger.warn('User not authenticated, skipping dimension load');
+      return;
+    }
     try {
-      let response;
-      if (isAuthenticated) {
-        response = await analysisDimensionAPI.getDimensions();
-      } else {
-        response = await publicScholarAPI.getDimensions();
-      }
+      const response = await analysisDimensionAPI.getDimensions();
       if (response.data.code === 0 && response.data.data) {
         const dims = response.data.data.dimensions || [];
         setDimensions(dims);
@@ -419,16 +418,16 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
 
   // 加载维度列表
   useEffect(() => {
-    loadDimensions();
+    if (isAuthenticated) {
+      loadDimensions();
+    }
   }, [isAuthenticated]);
 
-  // 刷新维度列表
+  // 刷新维度列表（始终使用带 JWT 验证的接口）
   const refreshDimensions = async () => {
+    if (!isAuthenticated) return;
     try {
-      const response = isAuthenticated
-        ? await analysisDimensionAPI.getDimensions()
-        : await publicScholarAPI.getDimensions();
-      
+      const response = await analysisDimensionAPI.getDimensions();
       if (response.data.code === 0) {
         setDimensions(response.data.data.dimensions || []);
       }
@@ -450,10 +449,16 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     });
   };
 
-  // 为论文分析所有维度
+  // 为论文分析所有维度（智能分析页面始终使用带 JWT 验证的接口）
   const analyzePaper = async (paper) => {
     const abstractText = paper.abstract || paper.tldr?.text;
     if (!abstractText) return;
+
+    // 智能分析页面需要登录，未登录时不执行分析
+    if (!isAuthenticated) {
+      logger.warn('User not authenticated, skipping paper analysis');
+      return;
+    }
 
     setAnalyzingPapers(prev => ({
       ...prev,
@@ -461,13 +466,21 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     }));
 
     try {
-      const response = isAuthenticated
-        ? await analysisDimensionAPI.analyzePaper(paper.paperId, paper.title, abstractText)
-        : await publicScholarAPI.analyzePaper(paper.paperId, paper.title, abstractText);
+      // 始终使用带 JWT 验证的接口
+      const response = await analysisDimensionAPI.analyzePaper(paper.paperId, paper.title, abstractText);
 
       if (response.data.code === 0 && response.data.data) {
+        // 接口返回格式: { data: { data: { key: value }, dimensions: [...] } }
+        // 提取 data.data 作为维度键值对
         const responseData = response.data.data;
         const dimensionData = responseData.data || responseData;
+        
+        console.log('[AISearchView] analyzePaper response:', {
+          paperId: paper.paperId,
+          responseData,
+          dimensionData,
+          keys: Object.keys(dimensionData)
+        });
         
         setAnalysisResults(prev => ({
           ...prev,
@@ -1480,54 +1493,52 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     };
   }, [highlightedPaperIndex]);
 
-  // Main advanced search interface
+  // Main advanced search interface - 简化容器嵌套
   return (
-    <div className="advanced-search-page ai-search-view-embedded">
-      <div className="advanced-search-content">
-        {/* 结果布局 - 复用学术检索样式 */}
-          <div className="as-results-layout search-results-page">
-            {/* 顶部导航栏 - 简化版 */}
-            <div className="results-layout">
-              <div className="results-search-header ai-results-header">
-                {/* 左侧 Logo */}
-                <div className="results-logo" onClick={() => navigate('/')}>
-                  <span className="results-logo-text">Scholay</span>
-                </div>
-                
-                {/* 中间区域 - 显示对话标题或默认状态 */}
-                <div className="ai-header-center">
-                  <div className="ai-analysis-indicator">
-                    {currentConversationTitle ? (
-                      <>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                        </svg>
-                        <span className="ai-conversation-title" title={currentConversationTitle}>
-                          {currentConversationTitle}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                        </svg>
-                        <span className="ai-indicator-text">智能分析</span>
-                      </>
-                    )}
-                    {papersTotal > 0 && (
-                      <span className="ai-papers-count">已找到 {papersTotal} 篇相关论文</span>
-                    )}
-                  </div>
-                </div>
-                
-                {/* 右侧空白区域 - 保持布局平衡 */}
-                <div className="search-header-right">
-                  {/* 操作按钮移到右侧对话面板 */}
-                </div>
-              </div>
+    <div className="as-results-layout search-results-page ai-search-view-embedded">
+      {/* 顶部导航栏 + 主内容区 */}
+      <div className="results-layout">
+        {/* 顶部导航栏 */}
+        <div className="results-search-header ai-results-header">
+          {/* 左侧 Logo */}
+          <div className="results-logo" onClick={() => navigate('/')}>
+            <span className="results-logo-text">Scholay</span>
+          </div>
+          
+          {/* 中间区域 - 显示对话标题或默认状态 */}
+          <div className="ai-header-center">
+            <div className="ai-analysis-indicator">
+              {currentConversationTitle ? (
+                <>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                  </svg>
+                  <span className="ai-conversation-title" title={currentConversationTitle}>
+                    {currentConversationTitle}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                  </svg>
+                  <span className="ai-indicator-text">智能分析</span>
+                </>
+              )}
+              {papersTotal > 0 && (
+                <span className="ai-papers-count">已找到 {papersTotal} 篇相关论文</span>
+              )}
+            </div>
+          </div>
+          
+          {/* 右侧空白区域 - 保持布局平衡 */}
+          <div className="search-header-right">
+            {/* 操作按钮移到右侧对话面板 */}
+          </div>
+        </div>
 
-              {/* 主内容区 - 两栏布局：论文列表 + AI对话 */}
-              <div className="results-main ai-results-main">
+        {/* 主内容区 - 两栏布局：论文列表 + AI对话 */}
+        <div className="results-main ai-results-main">
                 {/* 左侧：论文列表容器 - 复用学术检索样式 */}
                 <div className={`papers-container ${selectedDimensions.length > 0 ? 'has-analysis' : ''}`} ref={papersContainerRef}>
                   <AIPaperList
@@ -2006,9 +2017,6 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
       {/* 登录弹窗 */}
       {showAuthModal && (
         <Suspense fallback={null}>
