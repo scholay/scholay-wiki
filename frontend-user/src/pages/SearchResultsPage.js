@@ -1492,25 +1492,20 @@ const SearchResultsPage = () => {
 
   // 切换到AI智能分析模式（带动画过渡）
   const handleSwitchToAI = useCallback(() => {
-    console.log('[SearchResultsPage] handleSwitchToAI called, searchQuery:', searchQuery);
     if (!searchQuery.trim()) return;
     
     // 获取搜索框的位置信息
     if (searchFormRef.current) {
       const rect = searchFormRef.current.getBoundingClientRect();
-      console.log('[SearchResultsPage] searchFormRef rect:', rect);
       setSearchBoxRect({
         left: rect.left,
         top: rect.top,
         width: rect.width,
         height: rect.height,
       });
-    } else {
-      console.log('[SearchResultsPage] searchFormRef.current is null');
     }
     
     // 开始过渡动画
-    console.log('[SearchResultsPage] Setting isTransitioningToAI to true');
     setIsTransitioningToAI(true);
     
     // 保存搜索词和模式
@@ -1522,8 +1517,6 @@ const SearchResultsPage = () => {
 
   // 过渡动画完成后的回调
   const handleTransitionComplete = useCallback(() => {
-    console.log('[SearchResultsPage] handleTransitionComplete called');
-    
     // 关闭过渡动画
     setIsTransitioningToAI(false);
     setSearchBoxRect(null);
@@ -1540,14 +1533,12 @@ const SearchResultsPage = () => {
     
     // 3秒后清除标记
     setTimeout(() => {
-      console.log('[SearchResultsPage] Clearing justSwitchedToAI flag');
       setJustSwitchedToAI(false);
     }, 3000);
   }, [setSearchParams]);
 
   // 如果是 AI 模式，渲染 AISearchView
   if (isAIMode) {
-    console.log('[SearchResultsPage] Rendering AI mode, justSwitchedToAI:', justSwitchedToAI);
     return (
       <div className={`search-results-page ai-mode ${justSwitchedToAI ? 'from-academic-search' : ''}`}>
         <Suspense fallback={<div className="loading-placeholder">加载中...</div>}>
@@ -2904,18 +2895,16 @@ const SearchResultsPage = () => {
               {/* 右侧悬浮面板 - AI 分析维度入口 */}
               {papers.length > 0 && (
                 <div className={`dimension-float-panel ${selectedDimensions.length > 0 ? 'collapsed' : ''} ${floatPanelExpanded ? 'expanded' : ''}`}>
-                  {/* 收起状态的侧边标签 */}
+                  {/* 收起状态的侧边标签 - hover 时展开面板 */}
                   <div 
                     className="dimension-float-collapsed-tab"
                     onMouseEnter={() => setFloatPanelExpanded(true)}
-                    onMouseLeave={() => setFloatPanelExpanded(false)}
                   >
                     <span>AI维度分析</span>
                   </div>
-                  {/* 展开状态的完整内容 */}
+                  {/* 展开状态的完整内容 - 鼠标离开时收起 */}
                   <div 
                     className="dimension-float-content"
-                    onMouseEnter={() => setFloatPanelExpanded(true)}
                     onMouseLeave={() => setFloatPanelExpanded(false)}
                   >
                     {floatPanelView === 'list' && (

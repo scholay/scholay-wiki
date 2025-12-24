@@ -11,6 +11,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import AnalysisCellText from './AnalysisCellText';
 
 const AIPaperList = ({ 
   papers, 
@@ -19,7 +20,13 @@ const AIPaperList = ({
   highlightedPaperIndex,
   scrollToPaperIndex,
   onScrollComplete,
-  onPaperClick
+  onPaperClick,
+  // 维度分析相关 props
+  selectedDimensions = [],
+  analysisResults = {},
+  analyzingPapers = {},
+  getDimensionKey = (dim) => dim.key || dim.name,
+  onDimensionRemove
 }) => {
   // 展开/收起状态
   const [expandedAbstract, setExpandedAbstract] = useState({});
@@ -105,7 +112,7 @@ const AIPaperList = ({
   }
 
   return (
-    <div className="unified-results-table" style={{ position: 'relative' }}>
+    <div className={`unified-results-table ${selectedDimensions.length > 0 ? 'has-analysis' : ''}`} style={{ position: 'relative' }}>
       {/* 蒙层 Loading - 当正在加载且已有论文时显示 */}
       {loading && papers && papers.length > 0 && (
         <div className="ai-papers-loading-overlay">
@@ -121,11 +128,38 @@ const AIPaperList = ({
             共找到 <strong>{(total || papers.length).toLocaleString()}</strong> 个结果
           </span>
         </div>
+        {/* 分析维度列头 - 只在有选中维度时显示 */}
+        {selectedDimensions.length > 0 && (
+          <div className="unified-header-dims">
+            {selectedDimensions.map(dim => (
+              <div key={getDimensionKey(dim)} className="unified-header-dim">
+                <span className="dim-header-name">{dim.name}</span>
+                {onDimensionRemove && (
+                  <button 
+                    className="dim-header-remove-btn"
+                    onClick={() => onDimensionRemove(dim)}
+                    title={`移除 ${dim.name} 维度`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/>
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 表格内容 */}
       <div className="unified-table-body">
-        {papers.map((paper, index) => (
+        {papers.map((paper, index) => {
+          const paperResults = analysisResults[paper.paperId];
+          const isAnalyzing = analyzingPapers[paper.paperId];
+          const hasError = paperResults?._error;
+          
+          return (
           <div
             key={paper.paperId || index}
             ref={(el) => paperRefs.current[index] = el}
@@ -292,8 +326,40 @@ const AIPaperList = ({
                 </div>
               </div>
             </div>
+            
+            {/* 分析结果列 - 只在有选中维度时显示 */}
+            {selectedDimensions.length > 0 && (
+              <div className="unified-cell-analysis">
+                {selectedDimensions.map(dim => {
+                  const dimKey = getDimensionKey(dim);
+                  const result = paperResults?.[dimKey];
+                  const resultText = typeof result === 'string' ? result : (result ? JSON.stringify(result) : '');
+                  
+                  return (
+                    <div key={dimKey} className="unified-analysis-cell">
+                      {isAnalyzing ? (
+                        <div className="analysis-cell-loading">
+                          <div className="analysis-cell-spinner"></div>
+                        </div>
+                      ) : (!paper.abstract && !paper.tldr?.text) ? (
+                        <span className="analysis-cell-na">无摘要</span>
+                      ) : hasError ? (
+                        <span className="analysis-cell-error" title={paperResults._message}>分析失败</span>
+                      ) : result ? (
+                        <AnalysisCellText text={resultText} />
+                      ) : paperResults ? (
+                        <span className="analysis-cell-na">-</span>
+                      ) : (
+                        <span className="analysis-cell-pending">等待分析...</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        ))}
+        );
+        })}
       </div>
     </div>
   );

@@ -19,11 +19,13 @@ import AIPaperList from './AIPaperList';
 import PaperCitationMarkdown from './PaperCitationMarkdown';
 import AIHistoryDropdown from './AIHistoryDropdown';
 import './QACard.css'; // 对话区域样式
-import { conversationAPI, subscriptionAPI, publicScholarAPI } from '../services/api';
+import { conversationAPI, subscriptionAPI, publicScholarAPI, analysisDimensionAPI } from '../services/api';
+import AnalysisCellText from './AnalysisCellText';
 import { trackSmartAnalysis, EntryPoint } from '../utils/usageTracker';
 import { getSearchQuery, getAIModelLevel, getAIConversationId, setAIConversationId, clearSearchQuery } from '../utils/searchStorage';
 import { organizeMessagesByParentId } from '../utils/messageUtils';
-import '../pages/styles/advanced-search/index.css';
+import '../pages/styles/search-results/papers.css'; // 导入维度面板样式（先导入）
+import '../pages/styles/advanced-search/index.css'; // AI 模式布局样式（后导入，覆盖定位）
 
 // 懒加载 AuthModal
 const AuthModal = lazy(() => import('./AuthModal'));
@@ -77,6 +79,17 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
   const [manualTabSwitch, setManualTabSwitch] = useState(false); // 是否手动切换了 tab（点击引文）
   
   // 论文展示相关状态 - 由 AIPaperList 组件内部管理
+
+  // 分析维度相关状态
+  const [dimensions, setDimensions] = useState([]); // 可用维度列表
+  const [selectedDimensions, setSelectedDimensions] = useState([]); // 已选中的维度
+  const [analysisResults, setAnalysisResults] = useState({}); // { paperId: { dimensionKey: result } }
+  const [analyzingPapers, setAnalyzingPapers] = useState({}); // { paperId: boolean } 正在分析的论文
+  const [floatPanelExpanded, setFloatPanelExpanded] = useState(false); // 悬浮面板展开状态
+  const [floatPanelView, setFloatPanelView] = useState('list'); // 'list' | 'detail' | 'create' | 'edit'
+  const [editingDimension, setEditingDimension] = useState(null); // 正在编辑的维度
+  const [viewingDimension, setViewingDimension] = useState(null); // 正在查看的维度
+  const [editForm, setEditForm] = useState({ name: '', description: '' }); // 编辑表单
 
   const eventSourceRef = useRef(null);
   const textareaRef = useRef(null);
@@ -378,6 +391,225 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       setConversationsLoading(false);
     }
   };
+
+  // ========== 维度分析相关函数 ==========
+  
+  // 获取维度的唯一标识
+  const getDimensionKey = (dim) => {
+    return dim.key || dim.name;
+  };
+
+  // 加载维度列表
+  const loadDimensions = async () => {
+    try {
+      let response;
+      if (isAuthenticated) {
+        response = await analysisDimensionAPI.getDimensions();
+      } else {
+        response = await publicScholarAPI.getDimensions();
+      }
+      if (response.data.code === 0 && response.data.data) {
+        const dims = response.data.data.dimensions || [];
+        setDimensions(dims);
+      }
+    } catch (err) {
+      logger.error('Failed to load dimensions:', err);
+    }
+  };
+
+  // 加载维度列表
+  useEffect(() => {
+    loadDimensions();
+  }, [isAuthenticated]);
+
+  // 刷新维度列表
+  const refreshDimensions = async () => {
+    try {
+      const response = isAuthenticated
+        ? await analysisDimensionAPI.getDimensions()
+        : await publicScholarAPI.getDimensions();
+      
+      if (response.data.code === 0) {
+        setDimensions(response.data.data.dimensions || []);
+      }
+    } catch (error) {
+      console.error('刷新维度列表失败:', error);
+    }
+  };
+
+  // 切换维度选中状态
+  const handleDimensionToggle = (dim) => {
+    const dimKey = getDimensionKey(dim);
+    setSelectedDimensions(prev => {
+      const isSelected = prev.some(d => getDimensionKey(d) === dimKey);
+      if (isSelected) {
+        return prev.filter(d => getDimensionKey(d) !== dimKey);
+      } else {
+        return [...prev, dim];
+      }
+    });
+  };
+
+  // 为论文分析所有维度
+  const analyzePaper = async (paper) => {
+    const abstractText = paper.abstract || paper.tldr?.text;
+    if (!abstractText) return;
+
+    setAnalyzingPapers(prev => ({
+      ...prev,
+      [paper.paperId]: true
+    }));
+
+    try {
+      const response = isAuthenticated
+        ? await analysisDimensionAPI.analyzePaper(paper.paperId, paper.title, abstractText)
+        : await publicScholarAPI.analyzePaper(paper.paperId, paper.title, abstractText);
+
+      if (response.data.code === 0 && response.data.data) {
+        const responseData = response.data.data;
+        const dimensionData = responseData.data || responseData;
+        
+        setAnalysisResults(prev => ({
+          ...prev,
+          [paper.paperId]: dimensionData
+        }));
+      } else {
+        setAnalysisResults(prev => ({
+          ...prev,
+          [paper.paperId]: { _error: true, _message: response.data.message || '分析失败' }
+        }));
+      }
+    } catch (error) {
+      logger.error('Failed to analyze paper:', paper.paperId, error);
+      setAnalysisResults(prev => ({
+        ...prev,
+        [paper.paperId]: { _error: true, _message: error.response?.data?.message || '分析失败' }
+      }));
+    } finally {
+      setAnalyzingPapers(prev => ({
+        ...prev,
+        [paper.paperId]: false
+      }));
+    }
+  };
+
+  // 并发控制分析
+  const analyzeWithConcurrency = async (papersToAnalyze, maxConcurrent = 5) => {
+    const queue = [...papersToAnalyze];
+    const inProgress = new Set();
+
+    const processNext = async () => {
+      if (queue.length === 0) return;
+      
+      const paper = queue.shift();
+      inProgress.add(paper.paperId);
+      
+      try {
+        await analyzePaper(paper);
+      } finally {
+        inProgress.delete(paper.paperId);
+        if (queue.length > 0) {
+          await processNext();
+        }
+      }
+    };
+
+    const initialBatch = [];
+    for (let i = 0; i < Math.min(maxConcurrent, queue.length); i++) {
+      initialBatch.push(processNext());
+    }
+    
+    await Promise.all(initialBatch);
+  };
+
+  // 当选中维度变化时，为当前论文执行分析
+  useEffect(() => {
+    if (selectedDimensions.length === 0) return;
+
+    const papersToAnalyze = papers.filter(paper => 
+      (paper.abstract || paper.tldr?.text) && 
+      !analysisResults[paper.paperId] && 
+      !analyzingPapers[paper.paperId]
+    );
+
+    if (papersToAnalyze.length > 0) {
+      analyzeWithConcurrency(papersToAnalyze);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDimensions.length, papers]);
+
+  // 创建/编辑维度
+  const handleSaveDimension = async () => {
+    if (!editForm.name.trim()) {
+      alert('请输入维度名称');
+      return;
+    }
+
+    const dimensionKey = editingDimension 
+      ? getDimensionKey(editingDimension)
+      : editForm.name.trim().toLowerCase().replace(/\s+/g, '_');
+
+    try {
+      const response = await analysisDimensionAPI.createDimension(
+        dimensionKey,
+        editForm.name.trim(),
+        editForm.description.trim()
+      );
+
+      if (response.data.code === 0) {
+        await refreshDimensions();
+        setFloatPanelView('list');
+        setEditingDimension(null);
+        setEditForm({ name: '', description: '' });
+      } else {
+        alert(response.data.message || '保存失败');
+      }
+    } catch (error) {
+      console.error('保存维度失败:', error);
+      alert('保存失败，请稍后重试');
+    }
+  };
+
+  // 删除维度
+  const handleDeleteDimension = async (dimension) => {
+    if (!window.confirm(`确定要删除维度「${dimension.name}」吗？`)) {
+      return;
+    }
+
+    try {
+      const response = await analysisDimensionAPI.deleteDimension(getDimensionKey(dimension));
+      if (response.data.code === 0) {
+        setSelectedDimensions(prev => prev.filter(d => getDimensionKey(d) !== getDimensionKey(dimension)));
+        await refreshDimensions();
+        if (floatPanelView === 'edit' && editingDimension && getDimensionKey(editingDimension) === getDimensionKey(dimension)) {
+          setFloatPanelView('list');
+          setEditingDimension(null);
+        }
+      } else {
+        alert(response.data.message || '删除失败');
+      }
+    } catch (error) {
+      console.error('删除维度失败:', error);
+      alert('删除失败，请稍后重试');
+    }
+  };
+
+  // 打开编辑视图（新建或编辑）
+  const handleOpenEditView = (dimension) => {
+    if (dimension) {
+      // 编辑现有维度
+      setEditingDimension(dimension);
+      setEditForm({ name: dimension.name, description: dimension.description || '' });
+    } else {
+      // 新建维度
+      setEditingDimension(null);
+      setEditForm({ name: '', description: '' });
+    }
+    setFloatPanelView(dimension?.userId > 0 ? 'edit' : 'create');
+    setViewingDimension(null);
+  };
+
+  // ========== 维度分析相关函数结束 ==========
 
   // 从 sessionStorage 或 URL 参数读取对话ID或初始查询（仅执行一次）
   useEffect(() => {
@@ -1297,7 +1529,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
               {/* 主内容区 - 两栏布局：论文列表 + AI对话 */}
               <div className="results-main ai-results-main">
                 {/* 左侧：论文列表容器 - 复用学术检索样式 */}
-                <div className="papers-container" ref={papersContainerRef}>
+                <div className={`papers-container ${selectedDimensions.length > 0 ? 'has-analysis' : ''}`} ref={papersContainerRef}>
                   <AIPaperList
                     papers={papers}
                     loading={loading}
@@ -1309,7 +1541,236 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                       // 可以在这里添加论文点击逻辑
                       setHighlightedPaperIndex(null);
                     }}
+                    // 维度分析相关 props
+                    selectedDimensions={selectedDimensions}
+                    analysisResults={analysisResults}
+                    analyzingPapers={analyzingPapers}
+                    getDimensionKey={getDimensionKey}
+                    onDimensionRemove={handleDimensionToggle}
                   />
+                  
+                  {/* 右侧悬浮面板 - AI 分析维度入口 */}
+                  {papers.length > 0 && (
+                    <div className={`dimension-float-panel ${selectedDimensions.length > 0 ? 'collapsed' : ''} ${floatPanelExpanded ? 'expanded' : ''}`}>
+                      {/* 收起状态的侧边标签 - hover 时展开面板 */}
+                      <div 
+                        className="dimension-float-collapsed-tab"
+                        onMouseEnter={() => setFloatPanelExpanded(true)}
+                      >
+                        <span>AI维度分析</span>
+                      </div>
+                      {/* 展开状态的完整内容 - 鼠标离开时收起 */}
+                      <div 
+                        className="dimension-float-content"
+                        onMouseLeave={() => setFloatPanelExpanded(false)}
+                      >
+                        {floatPanelView === 'list' && (
+                          <>
+                            {/* 列表视图 - 与学术检索页面保持一致 */}
+                            <div className="dimension-float-header">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                                <path d="M2 17l10 5 10-5"/>
+                                <path d="M2 12l10 5 10-5"/>
+                              </svg>
+                              <span>AI 多维度分析</span>
+                            </div>
+                            <p className="dimension-float-desc">
+                              点击维度标签，AI 将从不同角度分析论文
+                            </p>
+                            <div className="dimension-float-tags">
+                              {dimensions.map(dim => {
+                                const isSelected = selectedDimensions.some(s => getDimensionKey(s) === getDimensionKey(dim));
+                                const isCustom = dim.userId > 0;
+                                return (
+                                  <div key={getDimensionKey(dim)} className={`dimension-tag-row ${isCustom ? 'custom' : ''}`}>
+                                    <button
+                                      className={`dimension-tag-btn ${isSelected ? 'selected' : ''} ${isCustom ? 'custom' : ''}`}
+                                      onClick={() => handleDimensionToggle(dim)}
+                                      title={isSelected ? `点击移除 ${dim.name}` : dim.description}
+                                    >
+                                      {isSelected && (
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                          <polyline points="20 6 9 17 4 12"/>
+                                        </svg>
+                                      )}
+                                      <span className="dimension-tag-name">{dim.name}</span>
+                                    </button>
+                                    <div className="dimension-tag-actions">
+                                      <button
+                                        className="dimension-tag-action-btn"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setViewingDimension(dim);
+                                          setFloatPanelView('detail');
+                                        }}
+                                        title="查看维度详情"
+                                      >
+                                        详情
+                                      </button>
+                                      <button
+                                        className="dimension-tag-action-btn"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenEditView(dim);
+                                        }}
+                                        title={isCustom ? "编辑维度" : "自定义此维度"}
+                                      >
+                                        修改
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {/* 底部统计和新增按钮 */}
+                            <div className="dimension-float-footer">
+                              <div className="dimension-float-stats">
+                                已选 {selectedDimensions.length} / 共 {dimensions.length} 个
+                                {dimensions.filter(d => d.userId > 0).length > 0 && (
+                                  <span className="custom-count">（自定义 {dimensions.filter(d => d.userId > 0).length} 个）</span>
+                                )}
+                              </div>
+                              <button 
+                                className="dimension-add-btn"
+                                onClick={() => handleOpenEditView(null)}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <line x1="12" y1="5" x2="12" y2="19"/>
+                                  <line x1="5" y1="12" x2="19" y2="12"/>
+                                </svg>
+                                新增
+                              </button>
+                            </div>
+                          </>
+                        )}
+
+                        {floatPanelView === 'detail' && viewingDimension && (
+                          <>
+                            {/* 详情视图 */}
+                            <div className="dimension-detail-header">
+                              <button 
+                                className="dimension-detail-back"
+                                onClick={() => {
+                                  setFloatPanelView('list');
+                                  setViewingDimension(null);
+                                }}
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="15 18 9 12 15 6"/>
+                                </svg>
+                                返回
+                              </button>
+                              <div className="dimension-detail-title-wrapper">
+                                <span className="dimension-detail-title">{viewingDimension?.name}</span>
+                                {viewingDimension?.userId > 0 ? (
+                                  <span className="custom-badge small">自定义</span>
+                                ) : (
+                                  <span className="system-badge small">系统</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="dimension-detail-content">
+                              <div className="dimension-detail-section">
+                                <div className="dimension-detail-label">分析提示词</div>
+                                <div className="dimension-detail-value">
+                                  {viewingDimension?.description || '使用默认分析逻辑'}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="dimension-detail-actions">
+                              <button 
+                                className="dimension-action-btn edit"
+                                onClick={() => handleOpenEditView(viewingDimension)}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                </svg>
+                                {viewingDimension?.userId > 0 ? '编辑' : '自定义'}
+                              </button>
+                              {viewingDimension?.userId > 0 && (
+                                <button 
+                                  className="dimension-action-btn delete"
+                                  onClick={() => handleDeleteDimension(viewingDimension)}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                  </svg>
+                                  删除
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
+                        
+                        {(floatPanelView === 'create' || floatPanelView === 'edit') && (
+                          <>
+                            {/* 编辑/新增视图 - 与学术检索页面保持一致 */}
+                            <div className="dimension-detail-header">
+                              <button 
+                                className="dimension-detail-back"
+                                onClick={() => {
+                                  setFloatPanelView('list');
+                                  setEditingDimension(null);
+                                }}
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="15 18 9 12 15 6"/>
+                                </svg>
+                                返回
+                              </button>
+                              <span className="dimension-detail-title">
+                                {editingDimension ? '编辑维度' : '新增维度'}
+                              </span>
+                            </div>
+                            <div className="dimension-edit-form">
+                              <div className="dimension-form-group">
+                                <label className="dimension-form-label">维度名称</label>
+                                <input
+                                  type="text"
+                                  className="dimension-form-input"
+                                  placeholder="输入维度名称..."
+                                  value={editForm.name}
+                                  onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                                  maxLength={50}
+                                />
+                              </div>
+                              <div className="dimension-form-group">
+                                <label className="dimension-form-label">分析指令</label>
+                                <textarea
+                                  className="dimension-form-textarea"
+                                  placeholder="输入 AI 分析时使用的指令..."
+                                  value={editForm.description}
+                                  onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                                  rows={5}
+                                />
+                              </div>
+                            </div>
+                            <div className="dimension-edit-actions">
+                              <button 
+                                className="dimension-action-btn cancel"
+                                onClick={() => {
+                                  setFloatPanelView('list');
+                                  setEditingDimension(null);
+                                }}
+                              >
+                                取消
+                              </button>
+                              <button 
+                                className="dimension-action-btn save"
+                                onClick={handleSaveDimension}
+                                disabled={!editForm.name.trim() || !editForm.description.trim()}
+                              >
+                                保存
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
               {/* 右侧：AI对话区域 */}

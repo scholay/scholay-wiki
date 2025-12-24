@@ -23,13 +23,81 @@
   overflow: hidden;
 }
 
-/* 论文列表容器 - 复用学术检索的 papers-container 样式 */
+/* 论文列表容器 - 填满剩余空间 */
 .as-results-layout .papers-container {
   flex: 1;
   min-width: 0;
   overflow-x: auto;
   overflow-y: auto;
   background: transparent;
+  position: relative; /* 为悬浮面板提供定位上下文 */
+}
+
+/* 智能分析模式下的悬浮面板 - 固定定位，不随表格滚动 */
+.as-results-layout .papers-container .dimension-float-panel {
+  position: fixed;
+  top: 50%;
+  /* 右侧距离 = AI面板宽度(420px)，让面板容器贴着AI面板左边 */
+  right: 420px;
+  transform: translateY(-50%);
+  z-index: 50;
+}
+
+/* 智能分析模式下，悬浮面板内容需要与AI面板有间距 */
+.as-results-layout .papers-container .dimension-float-content {
+  margin-right: 16px; /* 与AI面板的间距 */
+}
+
+/* ========== AI 模式下的表格宽度调整 ========== */
+/* 
+ * 智能分析页面的论文列宽度逻辑与学术检索保持一致：
+ * - 学术检索页面：论文列宽度 = 40vw
+ * - 智能分析页面：由于右侧有 420px 的 AI 对话面板，
+ *   论文列宽度 = 40vw（与学术检索保持一致的视口比例）
+ */
+
+/* AI 模式下，没有分析时表格宽度 100% */
+.as-results-layout .unified-results-table:not(.has-analysis) {
+  width: 100%;
+}
+
+/* AI 模式下，没有分析时论文列使用 40vw（与学术检索一致） */
+.as-results-layout .unified-results-table:not(.has-analysis) .unified-cell-paper {
+  flex: 0 0 40vw;
+  width: 40vw;
+  min-width: 40vw;
+  max-width: 40vw;
+  position: static;
+}
+
+/* AI 模式下，没有分析时列头使用 40vw（与学术检索一致） */
+.as-results-layout .unified-results-table:not(.has-analysis) .unified-header-info {
+  flex: 0 0 40vw;
+  width: 40vw;
+  min-width: 40vw;
+  max-width: 40vw;
+  position: static;
+}
+
+/* AI 模式下有分析时，表格宽度由内容撑开 */
+.as-results-layout .unified-results-table.has-analysis {
+  width: max-content;
+  min-width: 100%;
+}
+
+/* AI 模式下有分析时，论文列也使用 40vw（与学术检索一致） */
+.as-results-layout .unified-results-table.has-analysis .unified-cell-paper {
+  flex: 0 0 40vw;
+  width: 40vw;
+  min-width: 40vw;
+  max-width: 40vw;
+}
+
+.as-results-layout .unified-results-table.has-analysis .unified-header-info {
+  flex: 0 0 40vw;
+  width: 40vw;
+  min-width: 40vw;
+  max-width: 40vw;
 }
 
 /* 顶部导航栏 - 智能分析模式 */
@@ -67,13 +135,14 @@
   border-left: 1px solid var(--border-color, rgba(255, 255, 255, 0.2));
 }
 
-/* AI 对话面板 */
+/* AI 对话面板 - 固定宽度，不被挤压 */
 .ai-chat-panel {
   display: flex;
   flex-direction: column;
+  flex: 0 0 420px; /* 固定宽度，不伸缩 */
   width: 420px;
-  min-width: 350px;
-  flex-shrink: 0;
+  min-width: 420px;
+  max-width: 420px;
   background: var(--background-secondary, #1a1a1a);
   border-left: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   /* 禁用弹性滚动 */
@@ -231,15 +300,55 @@
   }
   
   .as-results-layout .papers-container {
+    flex: 1;
+    width: 100%;
+    max-width: 100%;
     min-width: 100%;
     max-height: 50%;
   }
   
   .ai-chat-panel {
+    flex: 1;
+    width: 100%;
     min-width: 100%;
     max-width: 100%;
     border-left: none;
     border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  }
+  
+  /* 移动端表格宽度调整 - 使用 60vw */
+  .as-results-layout .unified-results-table:not(.has-analysis) .unified-cell-paper,
+  .as-results-layout .unified-results-table:not(.has-analysis) .unified-header-info {
+    flex: 0 0 60vw;
+    width: 60vw;
+    min-width: 60vw;
+    max-width: 60vw;
+  }
+  
+  .as-results-layout .unified-results-table.has-analysis .unified-cell-paper,
+  .as-results-layout .unified-results-table.has-analysis .unified-header-info {
+    flex: 0 0 60vw;
+    width: 60vw;
+    min-width: 60vw;
+    max-width: 60vw;
+  }
+  
+  /* 移动端悬浮面板改为底部固定 */
+  .as-results-layout .papers-container .dimension-float-panel {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+  }
+  
+  .as-results-layout .papers-container .dimension-float-content {
+    margin-right: 0;
+  }
+  
+  .as-results-layout .papers-container .dimension-float-collapsed-tab {
+    margin-right: 0;
+    transform: none;
   }
 }
 

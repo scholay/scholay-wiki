@@ -38,10 +38,7 @@ const SearchToAITransition = ({
 
   // 当 isActive 变为 true 时，开始动画
   useEffect(() => {
-    console.log('[SearchToAITransition] Effect - isActive:', isActive, 'sourceRect:', !!sourceRect);
-    
     if (isActive && sourceRect) {
-      console.log('[SearchToAITransition] Starting animation');
       hasCalledComplete.current = false;
       
       // 下一帧开始展开动画
@@ -51,7 +48,6 @@ const SearchToAITransition = ({
       
       // 动画完成后触发回调
       const timer = setTimeout(() => {
-        console.log('[SearchToAITransition] Animation complete, calling onComplete');
         if (!hasCalledComplete.current) {
           hasCalledComplete.current = true;
           onComplete?.();
@@ -63,8 +59,6 @@ const SearchToAITransition = ({
       setIsExpanded(false);
     }
   }, [isActive, sourceRect, onComplete]);
-
-  console.log('[SearchToAITransition] Render - isActive:', isActive, 'isExpanded:', isExpanded);
 
   // 不显示时返回 null
   if (!isActive || !sourceRect) {
