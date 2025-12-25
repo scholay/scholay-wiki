@@ -60,8 +60,8 @@ const SubscriptionTab = memo(({
       invite_reward: '邀请奖励',
       diamond_exchange: '恩特币兑换经费',
       diamond_recharge: '恩特币充值',
-      peer_review: 'AI审稿',
-      ai_chat_low: 'AI对话',
+      peer_review: '智能审稿',
+      ai_chat_low: 'AI聊天',
       smart_analysis_low: '智能分析',
     };
     return labels[bizType] || bizType || '其他';

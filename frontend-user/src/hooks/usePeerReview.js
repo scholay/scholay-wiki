@@ -6,7 +6,7 @@
  * All Rights Reserved.
  * ============================================================================
  * 
- * usePeerReview - AI审稿功能 Hook
+ * usePeerReview - 智能审稿功能 Hook
  * 管理审稿任务的创建、查询、删除等操作
  */
 
@@ -23,7 +23,7 @@ const STATUS_MAP = {
 };
 
 /**
- * AI审稿功能 Hook
+ * 智能审稿功能 Hook
  * @param {Object} options - 配置选项
  * @param {number} options.pageSize - 每页任务数量
  * @param {number} options.pollingInterval - 轮询间隔（毫秒）

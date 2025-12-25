@@ -99,7 +99,7 @@ export const getAIModelLevel = () => {
 };
 
 /**
- * 设置 AI 对话 ID
+ * 设置 AI 聊天 ID
  */
 export const setAIConversationId = (id) => {
   if (id) {
@@ -110,7 +110,7 @@ export const setAIConversationId = (id) => {
 };
 
 /**
- * 获取 AI 对话 ID
+ * 获取 AI 聊天 ID
  */
 export const getAIConversationId = () => {
   return sessionStorage.getItem(STORAGE_KEYS.AI_CONVERSATION_ID) || null;

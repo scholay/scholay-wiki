@@ -1537,7 +1537,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
           </div>
         </div>
 
-        {/* 主内容区 - 两栏布局：论文列表 + AI对话 */}
+        {/* 主内容区 - 两栏布局：论文列表 + AI聊天 */}
         <div className="results-main ai-results-main">
                 {/* 左侧：论文列表容器 - 复用学术检索样式 */}
                 <div className={`papers-container ${selectedDimensions.length > 0 ? 'has-analysis' : ''}`} ref={papersContainerRef}>
@@ -1784,12 +1784,12 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                   )}
                 </div>
 
-              {/* 右侧：AI对话区域 */}
+              {/* 右侧：AI聊天区域 */}
               <div className="ai-chat-panel">
                 {/* 对话面板顶部操作栏 */}
                 <div className="ai-chat-header">
                   <div className="ai-chat-header-left">
-                    <span className="ai-chat-title">AI 对话</span>
+                    <span className="ai-chat-title">AI 聊天</span>
                   </div>
                   <div className="ai-chat-header-right">
                     {/* 历史记录下拉框 */}

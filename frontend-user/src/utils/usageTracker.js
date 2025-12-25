@@ -39,9 +39,9 @@ const FeatureNames = {
   [FeatureCode.SIMILAR_PAPERS]: '相似论文',
   [FeatureCode.SMART_ANALYSIS]: '智能分析',
   [FeatureCode.PAPER_DIMENSION]: '论文多维分析',
-  [FeatureCode.AI_CHAT]: 'AI对话',
-  [FeatureCode.AI_PEER_REVIEW]: 'AI审稿',
-  [FeatureCode.AI_ASSISTANT]: '文献助手',
+  [FeatureCode.AI_CHAT]: 'AI聊天',
+  [FeatureCode.AI_PEER_REVIEW]: '智能审稿',
+  [FeatureCode.AI_ASSISTANT]: '精品AI工具',
   [FeatureCode.USER_LOGIN]: '用户登录',
   [FeatureCode.USER_REGISTER]: '用户注册',
   [FeatureCode.USER_CHECKIN]: '每日签到',
@@ -159,21 +159,21 @@ export const trackPaperDimension = (paperId) => {
 };
 
 /**
- * 便捷方法：记录AI对话
+ * 便捷方法：记录AI聊天
  */
 export const trackAIChat = (entryPoint) => {
   trackUsage(FeatureCode.AI_CHAT, Action.SUBMIT, entryPoint);
 };
 
 /**
- * 便捷方法：记录AI审稿
+ * 便捷方法：记录智能审稿
  */
 export const trackAIPeerReview = () => {
   trackUsage(FeatureCode.AI_PEER_REVIEW, Action.SUBMIT, EntryPoint.PEER_REVIEW_PAGE);
 };
 
 /**
- * 便捷方法：记录文献助手
+ * 便捷方法：记录精品AI工具
  */
 export const trackAIAssistant = () => {
   trackUsage(FeatureCode.AI_ASSISTANT, Action.SUBMIT, EntryPoint.ASSISTANT_PAGE);

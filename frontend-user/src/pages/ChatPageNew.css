@@ -1299,7 +1299,7 @@
     justify-content: flex-start;
   }
 
-  /* 移动端隐藏右侧空白区域 - 仅限AI对话页面 */
+  /* 移动端隐藏右侧空白区域 - 仅限AI聊天页面 */
   .chat-page-wrapper.chat-page .navbar-right-group {
     display: none;
   }

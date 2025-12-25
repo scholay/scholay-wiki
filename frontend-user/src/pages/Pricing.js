@@ -434,7 +434,7 @@ const Pricing = () => {
               max: maxPlan.features?.advanced_search_data?.enabled
             },
             {
-              name: 'AI 对话历史数据',
+              name: 'AI 聊天历史数据',
               free: freePlan.features?.ai_history_data?.enabled,
               pro: proPlan.features?.ai_history_data?.enabled,
               max: maxPlan.features?.ai_history_data?.enabled

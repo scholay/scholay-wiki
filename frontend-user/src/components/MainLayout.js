@@ -77,12 +77,12 @@ const MainLayout = () => {
         breadcrumbs.push({ label: '学术检索' });
       }
     } else if (path === '/assistant') {
-      breadcrumbs.push({ label: '文献助手' });
+      breadcrumbs.push({ label: '精品AI工具' });
     } else if (path === '/chat') {
-      breadcrumbs.push({ label: '文献助手', path: '/assistant' });
-      breadcrumbs.push({ label: 'AI 对话' });
+      breadcrumbs.push({ label: '精品AI工具', path: '/assistant' });
+      breadcrumbs.push({ label: 'AI 聊天' });
     } else if (path === '/peer-review') {
-      breadcrumbs.push({ label: '文献助手', path: '/assistant' });
+      breadcrumbs.push({ label: '精品AI工具', path: '/assistant' });
       breadcrumbs.push({ label: '同行评审' });
     } else if (path === '/settings') {
       breadcrumbs.push({ label: '设置' });

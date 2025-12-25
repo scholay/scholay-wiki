@@ -74,11 +74,11 @@ function App() {
                       
                       {/* 兼容旧链接：智能分析页面重定向到搜索结果页（AI模式） */}
                       <Route path="/advanced-search" element={<Navigate to="/search-results?mode=ai" replace />} />
-                      {/* 文献助手页面 - 允许未登录访问 */}
+                      {/* 精品AI工具页面 - 允许未登录访问 */}
                       <Route path="/assistant" element={<AssistantPage />} />
-                      {/* AI对话页面 - 允许未登录访问 */}
+                      {/* AI聊天页面 - 允许未登录访问 */}
                       <Route path="/chat" element={<ChatPage />} />
-                      {/* AI审稿人页面 - 允许未登录访问 */}
+                      {/* 智能审稿页面 - 允许未登录访问 */}
                       <Route path="/peer-review" element={<PeerReviewPage />} />
 
                       {/* 定价页面 */}

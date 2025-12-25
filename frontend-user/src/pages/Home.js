@@ -156,7 +156,7 @@ const Home = () => {
       // 跳转到智能分析页面
       navigate(`/search-results?mode=ai&conversationId=${item.id}`);
     } else if (item.type === 'peer_review') {
-      // 跳转到AI审稿页面
+      // 跳转到智能审稿页面
       navigate(`/peer-review?taskId=${item.id}`);
     }
   };
@@ -477,7 +477,7 @@ const Home = () => {
               />
             )}
 
-            {/* 文献助手快捷入口 - 在输入框下方 */}
+            {/* 精品AI工具快捷入口 - 在输入框下方 */}
             <div className="home-assistant-shortcuts">
               <div 
                 className="home-shortcut-card"
@@ -489,7 +489,7 @@ const Home = () => {
                   </svg>
                 </div>
                 <div className="home-shortcut-content">
-                  <h4 className="home-shortcut-title">AI 对话</h4>
+                  <h4 className="home-shortcut-title">AI 聊天</h4>
                   <p className="home-shortcut-desc">与 AI 进行学术对话</p>
                 </div>
                 <svg className="home-shortcut-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -509,7 +509,7 @@ const Home = () => {
                   </svg>
                 </div>
                 <div className="home-shortcut-content">
-                  <h4 className="home-shortcut-title">AI 审稿</h4>
+                  <h4 className="home-shortcut-title">智能审稿</h4>
                   <p className="home-shortcut-desc">获取专业审稿意见</p>
                 </div>
                 <svg className="home-shortcut-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -582,7 +582,7 @@ const Home = () => {
                                   <div className="home-task-card-title">{item.title}</div>
                                   <div className="home-task-card-footer">
                                     <span className="home-task-card-type">
-                                      {item.type === 'smart_analysis' ? '智能分析' : 'AI审稿'}
+                                      {item.type === 'smart_analysis' ? '智能分析' : '智能审稿'}
                                     </span>
                                     <span className="home-task-card-time">{formatTime(item.updated_at)}</span>
                                   </div>

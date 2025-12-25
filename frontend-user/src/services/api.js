@@ -262,7 +262,7 @@ export const userAPI = {
   bindPhoneWithPassword: (phone, password, code) =>
     api.post('/user/bind-phone-with-password', { phone, password, code }),
 
-  // 获取任务历史（智能分析 + AI审稿），按天分组
+  // 获取任务历史（智能分析 + 智能审稿），按天分组
   getTaskHistory: (days = 3, limitPerDay = 20) =>
     api.get('/user/task-history', { params: { days, limit_per_day: limitPerDay } }),
 };
@@ -546,7 +546,7 @@ export const paymentAPI = {
     }),
 };
 
-// AI审稿人 API
+// 智能审稿人 API
 // 签到 API
 export const checkinAPI = {
   // 执行签到
@@ -562,7 +562,7 @@ export const checkinAPI = {
     api.get('/user/checkin/history', { params: { year, month } }),
 };
 
-// AI审稿人 API
+// 智能审稿人 API
 export const peerReviewAPI = {
   // ========== 草稿管理 API ==========
   

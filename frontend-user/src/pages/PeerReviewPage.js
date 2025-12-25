@@ -9,7 +9,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import ReactDOM, { flushSync } from 'react-dom';
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { peerReviewAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
@@ -165,7 +165,6 @@ function PreviewCard({ preview, fullText }) {
 
 export default function PeerReviewPage() {
   const navigate = useNavigate();
-  const { sidebarCollapsed, openMobileSidebar, isMobile } = useOutletContext() || {};
   const { user } = useAuth();
   const { resetSidebarConfig } = useSidebar();
   
@@ -195,7 +194,7 @@ export default function PeerReviewPage() {
   const [inputType, setInputType] = useState('text');
   const [manuscriptText, setManuscriptText] = useState('');
   const [targetVenue, setTargetVenue] = useState('');
-  const [modelLevel, setModelLevel] = useState('mid'); // 默认进阶模式（AI审稿只支持进阶和高级）
+  const [modelLevel, setModelLevel] = useState('mid'); // 默认进阶模式（智能审稿只支持进阶和高级）
   const [fileName, setFileName] = useState('');
   const [useFileInput, setUseFileInput] = useState(false); // 是否直接使用文件（不提取文本，如PDF、Word等）
   const [attachments, setAttachments] = useState([]); // 附件列表（每个附件项自己管理 uploading 状态）
@@ -245,7 +244,7 @@ export default function PeerReviewPage() {
         setInputType(draft.input_type || 'text');
         setManuscriptText(draft.manuscript_text || '');
         setTargetVenue(draft.target_venue || '');
-        // AI审稿只支持进阶和高级模型，如果是 low 则转换为 mid
+        // 智能审稿只支持进阶和高级模型，如果是 low 则转换为 mid
         const level = draft.model_level || 'mid';
         setModelLevel(level === 'low' ? 'mid' : level);
         // 新结构：从 manuscript_file 获取文件信息
@@ -601,7 +600,7 @@ export default function PeerReviewPage() {
       return;
     }
 
-    // 记录AI审稿使用
+    // 记录智能审稿使用
     trackAIPeerReview();
 
     setSubmitting(true);
@@ -835,48 +834,22 @@ export default function PeerReviewPage() {
   };
 
   return (
-    <div className={`prv-page-wrapper ${sidebarCollapsed ? 'prv-sidebar-collapsed' : 'prv-sidebar-expanded'}`}>
-      <div className="prv-main-container">
-        <div className="prv-content">
-          <div className="prv-layout">
-            {/* 顶部导航 */}
-            <nav className="prv-navbar">
-              {isMobile && (
-                <button className="prv-mobile-menu-btn" onClick={openMobileSidebar}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="4" y1="8" x2="20" y2="8" />
-                    <line x1="4" y1="16" x2="14" y2="16" />
-                  </svg>
-                </button>
-              )}
-              
-              <div className="prv-navbar-left">
-                {/* 面包屑导航 */}
-                <div className="prv-breadcrumb">
-                  <button className="prv-breadcrumb-link" onClick={() => navigate('/assistant')}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-                    </svg>
-                    文献助手
-                  </button>
-                  <span className="prv-breadcrumb-separator">/</span>
-                  <span className="prv-breadcrumb-current">AI 审稿</span>
-                </div>
-                
-                {viewMode === VIEW_MODE.DETAIL && (
-                  <button className="prv-back-btn" onClick={backToHome}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M19 12H5M12 19l-7-7 7-7"/>
-                    </svg>
-                    返回列表
-                  </button>
-                )}
-              </div>
-            </nav>
+    <div className="prv-page">
+      {/* 详情视图时显示返回按钮 */}
+      {viewMode === VIEW_MODE.DETAIL && (
+        <div className="prv-detail-header">
+          <button className="prv-back-btn" onClick={backToHome}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            返回列表
+          </button>
+        </div>
+      )}
 
-            {/* 主内容区 - 仅用于首页 */}
-            {viewMode === VIEW_MODE.HOME && (
-              <div className="prv-main">
+      {/* 主内容区 - 仅用于首页 */}
+      {viewMode === VIEW_MODE.HOME && (
+        <div className="prv-main">
                 {/* 上半部分：创建任务区域 */}
                 <CreateSection
                   inputType={inputType}
@@ -923,22 +896,19 @@ export default function PeerReviewPage() {
                     onDelete={handleDeleteTask}
                   />
                 )}
-              </div>
-            )}
-
-            {/* 详情视图 - 独立布局，不在 prv-main 内 */}
-            {viewMode === VIEW_MODE.DETAIL && (
-              <TaskDetailView
-                task={taskDetail}
-                loading={detailLoading}
-                onBack={backToHome}
-                onDelete={() => handleDeleteTask(selectedTaskId)}
-                onStartTask={handleStartTask}
-              />
-            )}
           </div>
-        </div>
-      </div>
+        )}
+
+        {/* 详情视图 - 独立布局 */}
+        {viewMode === VIEW_MODE.DETAIL && (
+          <TaskDetailView
+            task={taskDetail}
+            loading={detailLoading}
+            onBack={backToHome}
+            onDelete={() => handleDeleteTask(selectedTaskId)}
+            onStartTask={handleStartTask}
+          />
+        )}
 
       {/* 消息弹窗 */}
       <MessageModal
@@ -1033,7 +1003,7 @@ function CreateSection({
               <polyline points="14 2 14 8 20 8"/>
               <path d="M12 18l-2.4-1.2L7 18v-4l2.6 1.3L12 14l2.4 1.3L17 14v4l-2.6-1.2L12 18z"/>
             </svg>
-            AI 审稿
+            智能审稿
           </h2>
           <p className="prv-section-desc">上传论文，获取专业审稿意见</p>
         </div>

@@ -24,7 +24,7 @@ const TRANSACTION_TYPE_MAP = {
   consume: { label: '消费', color: 'red' },
   refund: { label: '退款', color: 'green' },
   subscription: { label: '订阅', color: 'red' },
-  ai_chat: { label: 'AI 对话', color: 'red' },
+  ai_chat: { label: 'AI 聊天', color: 'red' },
   ai_analysis: { label: 'AI 分析', color: 'red' },
   peer_review: { label: '同行评审', color: 'red' },
 };

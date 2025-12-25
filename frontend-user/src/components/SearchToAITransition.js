@@ -9,7 +9,7 @@
  * SearchToAITransition - 学术检索到智能分析的过渡动画组件
  * 
  * 动画效果：
- * 1. 搜索框展开变形为 AI 对话面板
+ * 1. 搜索框展开变形为 AI 聊天面板
  * 2. 搜索词文字突出显示，作为第一个问题
  * 3. 背景模糊遮罩
  */
@@ -123,7 +123,7 @@ const SearchToAITransition = ({
               animate={{ opacity: isExpanded ? 1 : 0, y: isExpanded ? 0 : -10 }}
               transition={{ delay: isExpanded ? 0.15 : 0, duration: 0.25 }}
             >
-              <span className="transition-title">AI 对话</span>
+              <span className="transition-title">AI 聊天</span>
               <span className="transition-badge">正在分析...</span>
             </motion.div>
 

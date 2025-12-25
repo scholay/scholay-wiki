@@ -586,7 +586,7 @@ function ChatPage() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (inputMessage.trim() && !isStreaming) {
-      // 记录AI对话使用
+      // 记录AI聊天使用
       trackAIChat(EntryPoint.CHAT_PAGE);
       sendMessage(inputMessage);
       setInputMessage('');
@@ -875,10 +875,10 @@ function ChatPage() {
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
                       </svg>
-                      文献助手
+                      精品AI工具
                     </button>
                     <span className="chat-breadcrumb-separator">/</span>
-                    <span className="chat-breadcrumb-current">AI 对话</span>
+                    <span className="chat-breadcrumb-current">AI 聊天</span>
                   </div>
                   {/* Lightweight Model Selector with quota display */}
                   <div className="model-selector-simple">
@@ -975,7 +975,7 @@ function ChatPage() {
               </nav>
               <div className="welcome-container">
                 <h1 className="welcome-title">
-                  {getGreeting()}, 开始你的AI对话
+                  {getGreeting()}, 开始你的AI聊天
                 </h1>
                 <form onSubmit={handleSubmit} className="welcome-composer">
                   <div className="composer-input-area">
@@ -1038,10 +1038,10 @@ function ChatPage() {
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
                       </svg>
-                      文献助手
+                      精品AI工具
                     </button>
                     <span className="chat-breadcrumb-separator">/</span>
-                    <span className="chat-breadcrumb-current">AI 对话</span>
+                    <span className="chat-breadcrumb-current">AI 聊天</span>
                   </div>
                   {/* Lightweight Model Selector with quota display */}
                   <div className="model-selector-simple">
