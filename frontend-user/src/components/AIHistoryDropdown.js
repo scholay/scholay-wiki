@@ -8,6 +8,7 @@ const AIHistoryDropdown = memo(({
   onDeleteConversation,
   onNewConversation,
   loading,
+  iconOnly = false,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
@@ -63,28 +64,33 @@ const AIHistoryDropdown = memo(({
   }, [onSelectConversation]);
 
   return (
-    <div className="ai-history-dropdown" ref={dropdownRef}>
+    <div className={`ai-history-dropdown ${iconOnly ? 'icon-only' : ''}`} ref={dropdownRef}>
       <button 
-        className={`ai-history-dropdown-btn ${showDropdown ? 'open' : ''}`}
+        className={`ai-history-dropdown-btn ${showDropdown ? 'open' : ''} ${iconOnly ? 'icon-only-btn' : ''}`}
         onClick={() => setShowDropdown(!showDropdown)}
         disabled={loading}
+        title="历史对话"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg width={iconOnly ? "18" : "16"} height={iconOnly ? "18" : "16"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="10"/>
           <polyline points="12,6 12,12 16,14"/>
         </svg>
-        <span className="ai-history-btn-text">{currentTitle}</span>
-        <svg 
-          className={`ai-history-arrow ${showDropdown ? 'open' : ''}`}
-          width="12" 
-          height="12" 
-          viewBox="0 0 24 24" 
-          fill="none" 
-          stroke="currentColor" 
-          strokeWidth="2"
-        >
-          <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
+        {!iconOnly && (
+          <>
+            <span className="ai-history-btn-text">{currentTitle}</span>
+            <svg 
+              className={`ai-history-arrow ${showDropdown ? 'open' : ''}`}
+              width="12" 
+              height="12" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2"
+            >
+              <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </>
+        )}
       </button>
       
       {showDropdown && (

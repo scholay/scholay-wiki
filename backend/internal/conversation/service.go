@@ -14,6 +14,7 @@ import (
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/semanticscholar"
 	"scholar-backend/internal/subscription"
+	"scholar-backend/internal/thirdparty"
 )
 
 type Service struct {
@@ -236,4 +237,109 @@ func (s *Service) UpdateConversationTitle(conversationID uint, userID uint, titl
 
 	conversation.Title = title
 	return s.repo.UpdateConversation(conversation)
+}
+
+// GenerateTitleWithAI generates a conversation title using AI based on conversation history
+// Uses low-level model for cost efficiency
+func (s *Service) GenerateTitleWithAI(conversationID uint) (string, error) {
+	// Get all messages for this conversation
+	messages, err := s.repo.GetConversationMessages(conversationID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get conversation messages: %w", err)
+	}
+
+	if len(messages) == 0 {
+		return "", fmt.Errorf("no messages found in conversation")
+	}
+
+	// Build user questions list for the prompt
+	var userQuestions []string
+	for _, msg := range messages {
+		if msg.Role == MessageRoleUser {
+			// Use SearchQuery if available, otherwise use Content
+			question := msg.SearchQuery
+			if question == "" {
+				question = msg.Content
+			}
+			if question != "" {
+				userQuestions = append(userQuestions, question)
+			}
+		}
+	}
+
+	if len(userQuestions) == 0 {
+		return "", fmt.Errorf("no user questions found in conversation")
+	}
+
+	fmt.Printf("[TITLE-DEBUG] Found %d user questions for conversation %d:\n", len(userQuestions), conversationID)
+	for i, q := range userQuestions {
+		fmt.Printf("[TITLE-DEBUG]   Question %d: %s\n", i+1, q)
+	}
+
+	// Build the prompt - emphasize the latest question
+	systemPrompt := `你是一个对话标题生成助手。根据用户的问题历史，生成一个简洁、准确的标题。
+
+重要规则：
+1. 标题必须反映【最新问题】的主题，而不是最早的问题
+2. 如果最新问题是对之前话题的延续或追问，标题应该体现这种关联
+3. 如果最新问题是一个全新的话题，标题应该完全基于新话题
+4. 标题长度不超过15个字符
+5. 使用用户的语言（中文/英文）
+6. 不要使用标点符号
+7. 只输出标题文本，不要有其他任何内容
+
+示例：
+- 如果最新问题是"心理学的分析"，标题应该是"心理学研究分析"
+- 如果最新问题是"和大数据之间的关系"，而之前在讨论心理学，标题应该是"心理学与大数据"`
+
+	// Format questions with numbers, emphasizing the latest one
+	var formattedQuestions []string
+	for i, q := range userQuestions {
+		if i == len(userQuestions)-1 {
+			formattedQuestions = append(formattedQuestions, fmt.Sprintf("【最新问题】%s", q))
+		} else {
+			formattedQuestions = append(formattedQuestions, fmt.Sprintf("问题%d: %s", i+1, q))
+		}
+	}
+	userMessage := fmt.Sprintf("用户问题历史（按时间顺序）：\n%s", strings.Join(formattedQuestions, "\n"))
+
+	// Call AI to generate title
+	aiMessages := []ai.ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: userMessage},
+	}
+
+	response, err := s.aiService.ChatCompletionWithLevel(aiMessages, thirdparty.ModelLevelLow)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate title with AI: %w", err)
+	}
+
+	// Clean up the response
+	title := strings.TrimSpace(response)
+	
+	// Ensure title is not too long (max 20 characters for Chinese, ~30 for English)
+	titleRunes := []rune(title)
+	if len(titleRunes) > 25 {
+		title = string(titleRunes[:22]) + "..."
+	}
+
+	return title, nil
+}
+
+// UpdateConversationTitleWithAI generates a new title using AI and updates the conversation
+func (s *Service) UpdateConversationTitleWithAI(conversationID uint) (string, error) {
+	// Generate new title using AI
+	newTitle, err := s.GenerateTitleWithAI(conversationID)
+	if err != nil {
+		return "", err
+	}
+
+	// Update the conversation title in database
+	err = s.repo.db.Model(&Conversation{}).Where("id = ?", conversationID).Update("title", newTitle).Error
+	if err != nil {
+		return "", fmt.Errorf("failed to update conversation title: %w", err)
+	}
+
+	fmt.Printf("[TITLE-DEBUG] Generated and updated title for conversation %d: %s\n", conversationID, newTitle)
+	return newTitle, nil
 }

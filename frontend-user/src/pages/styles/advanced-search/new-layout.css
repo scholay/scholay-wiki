@@ -111,38 +111,73 @@
 }
 
 /* 顶部导航栏 - 智能分析模式 */
-.ai-results-header .ai-header-center {
-  flex: 1;
+.ai-results-header {
   display: flex;
-  justify-content: center;
-  align-items: center;
+  align-items: center; /* 垂直居中 */
+  height: 56px;
+  padding: 0 24px;
 }
 
-.ai-analysis-indicator {
+/* Logo 垂直居中 */
+.ai-results-header .results-logo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: rgba(16, 163, 127, 0.1);
-  border-radius: 20px;
-  color: var(--primary-color, #10a37f);
+  height: 100%;
+  padding-top: 0; /* 移除原有的 padding-top */
 }
 
-.ai-analysis-indicator svg {
-  flex-shrink: 0;
+/* 标题区域 - 紧邻Logo */
+.ai-header-title-area {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding-left: 20px;
+  border-left: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+  margin-left: 20px;
 }
 
-.ai-indicator-text {
+/* 对话标题 - 简洁醒目风格 */
+.ai-conversation-title {
+  font-size: 16px;
   font-weight: 600;
-  font-size: 14px;
+  color: var(--text-primary, #e5e5e5);
+  margin: 0;
+  padding: 0;
+  line-height: 1.4;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* 平滑过渡效果 */
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-.ai-papers-count {
-  font-size: 13px;
+/* 默认标题（无对话时）- 稍浅的颜色 */
+.ai-conversation-title.ai-title-default {
   color: var(--text-secondary, #999);
-  margin-left: 8px;
-  padding-left: 8px;
-  border-left: 1px solid var(--border-color, rgba(255, 255, 255, 0.2));
+  font-weight: 500;
+}
+
+/* 暗色主题适配 - 默认 */
+.ai-conversation-title {
+  color: var(--text-primary, #e5e5e5);
+}
+
+.ai-header-title-area {
+  border-left-color: var(--border-color, rgba(255, 255, 255, 0.15));
+}
+
+/* 亮色主题适配 */
+[data-theme="light"] .ai-conversation-title {
+  color: var(--text-primary, #333);
+}
+
+[data-theme="light"] .ai-conversation-title.ai-title-default {
+  color: var(--text-secondary, #666);
+}
+
+[data-theme="light"] .ai-header-title-area {
+  border-left-color: var(--border-color, rgba(0, 0, 0, 0.1));
 }
 
 /* AI 聊天面板 - 固定宽度，绝不被挤压 */
@@ -172,6 +207,15 @@
   flex-shrink: 0;
 }
 
+/* 紧凑版头部 */
+.ai-chat-header.ai-chat-header-compact {
+  padding: 6px 8px;
+  justify-content: flex-end;
+  gap: 4px;
+  border-bottom: none;
+  background: transparent;
+}
+
 .ai-chat-header-left {
   display: flex;
   align-items: center;
@@ -188,6 +232,31 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* 紧凑头部的图标按钮 */
+.ai-header-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #888);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ai-header-icon-btn:hover {
+  background: var(--background-tertiary, #2a2a2a);
+  color: var(--text-primary, #fff);
+}
+
+.ai-header-icon-btn:active {
+  transform: scale(0.95);
 }
 
 .ai-chat-panel .ai-chat-container {
@@ -212,12 +281,86 @@
 }
 
 .ai-chat-panel .as-bottom-input-container {
-  padding: 12px 16px;
-  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  padding: 8px;
+  border-top: none;
   background: var(--background-secondary, #1a1a1a);
 }
 
-/* 新建对话按钮 - 在对话面板头部使用 */
+/* 右侧面板 - 紧凑输入框样式 */
+.ai-chat-panel .advanced-bottom-composer-wrapper {
+  background: var(--background-tertiary, #252525);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  padding: 0;
+  box-shadow: none;
+  max-width: 100%;
+}
+
+.ai-chat-panel .advanced-bottom-composer-wrapper:focus-within {
+  border-color: rgba(16, 163, 127, 0.5);
+  box-shadow: none;
+  background: var(--background-tertiary, #252525);
+}
+
+.ai-chat-panel .advanced-bottom-composer-input-area {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 6px 8px;
+  min-height: 40px;
+}
+
+.ai-chat-panel .advanced-bottom-chat-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, #e5e5e5);
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 6px 4px;
+  resize: none;
+  min-height: 28px;
+  max-height: 100px;
+  outline: none;
+}
+
+.ai-chat-panel .advanced-bottom-chat-input::placeholder {
+  color: var(--text-tertiary, #666);
+  font-size: 14px;
+}
+
+.ai-chat-panel .btn-send {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: var(--primary-color, #10a37f);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.ai-chat-panel .btn-send:hover:not(:disabled) {
+  background: #0d8a6a;
+}
+
+.ai-chat-panel .btn-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: var(--text-tertiary, #666);
+}
+
+.ai-chat-panel .btn-send svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 新建对话按钮 - 在对话面板头部使用（保留兼容旧版） */
 .ai-chat-header .ai-new-conversation-btn {
   display: flex;
   align-items: center;
@@ -240,6 +383,20 @@
 .ai-chat-header .ai-new-conversation-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* 紧凑头部的浅色主题 */
+[data-theme="light"] .ai-header-icon-btn {
+  color: #666;
+}
+
+[data-theme="light"] .ai-header-icon-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+[data-theme="light"] .ai-history-dropdown-btn.icon-only-btn:hover {
+  background: #f0f0f0;
 }
 
 /* 通用新建对话按钮样式（保留用于其他地方） */
@@ -391,12 +548,24 @@
 
 [data-theme="light"] .ai-chat-panel .as-bottom-input-container {
   background: #f8f9fa;
-  border-top-color: #e0e0e0;
 }
 
 [data-theme="light"] .ai-chat-panel .advanced-bottom-composer-wrapper {
   background: #fff;
   border-color: #e0e0e0;
+}
+
+[data-theme="light"] .ai-chat-panel .advanced-bottom-composer-wrapper:focus-within {
+  border-color: var(--primary-color, #10a37f);
+  background: #fff;
+}
+
+[data-theme="light"] .ai-chat-panel .advanced-bottom-chat-input {
+  color: var(--text-primary, #333);
+}
+
+[data-theme="light"] .ai-chat-panel .advanced-bottom-chat-input::placeholder {
+  color: var(--text-tertiary, #999);
 }
 
 [data-theme="light"] .ai-new-conversation-btn {
@@ -487,19 +656,4 @@
   color: rgba(0, 0, 0, 0.7);
 }
 
-/* ============================================
-   顶部对话标题样式
-   ============================================ */
-
-.ai-conversation-title {
-  font-weight: 600;
-  font-size: 15px;
-  max-width: 400px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-[data-theme="light"] .ai-conversation-title {
-  color: #059669;
-}
+/* 顶部对话标题样式已移至上方统一定义 */

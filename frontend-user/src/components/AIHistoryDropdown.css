@@ -37,6 +37,24 @@
   cursor: not-allowed;
 }
 
+/* 仅图标模式 */
+.ai-history-dropdown-btn.icon-only-btn {
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  justify-content: center;
+  background: transparent;
+  border: none;
+}
+
+.ai-history-dropdown-btn.icon-only-btn:hover {
+  background: var(--background-tertiary, #2a2a2a);
+}
+
+.ai-history-dropdown-btn.icon-only-btn.open {
+  background: var(--background-tertiary, #2a2a2a);
+}
+
 .ai-history-btn-text {
   flex: 1;
   text-align: left;

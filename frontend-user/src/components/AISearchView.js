@@ -1163,7 +1163,6 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     setStreamingContent('');
     streamingContentRef.current = '';
     setShowAIThinking(true);
-    
     // react-scroll-to-bottom 会自动处理滚动
 
     // 添加新的论文集合占位符
@@ -1377,6 +1376,23 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         return;
       }
 
+      if (event.data.startsWith('[TITLE]')) {
+        // Handle title update event
+        try {
+          const titleData = JSON.parse(event.data.substring(7));
+          const newTitle = titleData.title;
+          logger.log('Received title update:', newTitle);
+          
+          // Update conversations list with new title
+          setConversations(prev => prev.map(c => 
+            c.id === convId ? { ...c, title: newTitle } : c
+          ));
+        } catch (err) {
+          logger.error('Failed to parse title data:', err);
+        }
+        return;
+      }
+
       if (event.data.startsWith('[FOLLOW_UP_QUESTIONS]')) {
         // Handle follow-up questions (non-streaming, all at once)
         try {
@@ -1502,40 +1518,18 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       <div className="results-layout">
         {/* 顶部导航栏 */}
         <div className="results-search-header ai-results-header">
-          {/* 左侧 Logo */}
+          {/* 左侧 Logo - 垂直居中 */}
           <div className="results-logo" onClick={() => navigate('/')}>
             <span className="results-logo-text">Scholay</span>
           </div>
           
-          {/* 中间区域 - 显示对话标题或默认状态 */}
-          <div className="ai-header-center">
-            <div className="ai-analysis-indicator">
-              {currentConversationTitle ? (
-                <>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                  </svg>
-                  <span className="ai-conversation-title" title={currentConversationTitle}>
-                    {currentConversationTitle}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                  </svg>
-                  <span className="ai-indicator-text">智能分析</span>
-                </>
-              )}
-              {papersTotal > 0 && (
-                <span className="ai-papers-count">已找到 {papersTotal} 篇相关论文</span>
-              )}
-            </div>
-          </div>
-          
-          {/* 右侧空白区域 - 保持布局平衡 */}
-          <div className="search-header-right">
-            {/* 操作按钮移到右侧对话面板 */}
+          {/* 标题区域 - 紧邻Logo，垂直居中 */}
+          <div className="ai-header-title-area">
+            {currentConversationTitle ? (
+              <h1 className="ai-conversation-title">{currentConversationTitle}</h1>
+            ) : (
+              <h1 className="ai-conversation-title ai-title-default">智能分析</h1>
+            )}
           </div>
         </div>
 
@@ -1789,29 +1783,25 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
 
               {/* 右侧：AI聊天区域 */}
               <div className="ai-chat-panel">
-                {/* 对话面板顶部操作栏 */}
-                <div className="ai-chat-header">
-                  <div className="ai-chat-header-left">
-                    <span className="ai-chat-title">AI 聊天</span>
-                  </div>
-                  <div className="ai-chat-header-right">
-                    {/* 历史记录下拉框 */}
-                    <AIHistoryDropdown
-                      conversations={conversations}
-                      currentConversationId={currentConversationId}
-                      onSelectConversation={handleSelectConversation}
-                      onDeleteConversation={handleDeleteConversation}
-                      onNewConversation={handleNewConversation}
-                      loading={conversationsLoading}
-                    />
-                    
-                    {/* 新建对话按钮 */}
-                    <button className="ai-new-conversation-btn" onClick={handleNewConversation} title="新建对话">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </button>
-                  </div>
+                {/* 对话面板顶部操作栏 - 紧凑版 */}
+                <div className="ai-chat-header ai-chat-header-compact">
+                  {/* 新建对话按钮 */}
+                  <button className="ai-header-icon-btn" onClick={handleNewConversation} title="新建对话">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                  
+                  {/* 历史记录按钮 */}
+                  <AIHistoryDropdown
+                    conversations={conversations}
+                    currentConversationId={currentConversationId}
+                    onSelectConversation={handleSelectConversation}
+                    onDeleteConversation={handleDeleteConversation}
+                    onNewConversation={handleNewConversation}
+                    loading={conversationsLoading}
+                    iconOnly={true}
+                  />
                 </div>
 
 

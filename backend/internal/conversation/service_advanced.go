@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -386,7 +387,31 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		fmt.Printf("Warning: failed to save assistant message: %v\n", err)
 	}
 
+	// Step 9: Generate and send new title using AI
+	newTitle, err := s.UpdateConversationTitleWithAI(conversationID)
+	if err != nil {
+		fmt.Printf("[WARN] Failed to generate title with AI: %v\n", err)
+	} else {
+		// Send title update event via SSE
+		titleData := fmt.Sprintf(`[TITLE]{"title":"%s"}`, escapeJSONString(newTitle))
+		fmt.Fprintf(writer, "data: %s\n\n", titleData)
+		if flusher, ok := writer.(interface{ Flush() }); ok {
+			flusher.Flush()
+		}
+		fmt.Printf("[TITLE-DEBUG] Sent title event: %s\n", newTitle)
+	}
+
 	return nil
+}
+
+// escapeJSONString escapes special characters in a string for JSON
+func escapeJSONString(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	s = strings.ReplaceAll(s, "\n", `\n`)
+	s = strings.ReplaceAll(s, "\r", `\r`)
+	s = strings.ReplaceAll(s, "\t", `\t`)
+	return s
 }
 
 // generateFollowUpQuestions generates follow-up questions based on the analysis
