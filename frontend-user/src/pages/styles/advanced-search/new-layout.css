@@ -126,21 +126,19 @@
   padding-top: 0; /* 移除原有的 padding-top */
 }
 
-/* 标题区域 - 紧邻Logo */
+/* 标题区域 - 紧邻Logo，无分隔线 */
 .ai-header-title-area {
   display: flex;
   align-items: center;
   height: 100%;
-  padding-left: 20px;
-  border-left: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
-  margin-left: 20px;
+  margin-left: 16px;
 }
 
-/* 对话标题 - 简洁醒目风格 */
+/* 对话标题 - 简洁风格 */
 .ai-conversation-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary, #e5e5e5);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-secondary, #999);
   margin: 0;
   padding: 0;
   line-height: 1.4;
@@ -159,25 +157,9 @@
 }
 
 /* 暗色主题适配 - 默认 */
-.ai-conversation-title {
-  color: var(--text-primary, #e5e5e5);
-}
-
-.ai-header-title-area {
-  border-left-color: var(--border-color, rgba(255, 255, 255, 0.15));
-}
-
 /* 亮色主题适配 */
 [data-theme="light"] .ai-conversation-title {
-  color: var(--text-primary, #333);
-}
-
-[data-theme="light"] .ai-conversation-title.ai-title-default {
   color: var(--text-secondary, #666);
-}
-
-[data-theme="light"] .ai-header-title-area {
-  border-left-color: var(--border-color, rgba(0, 0, 0, 0.1));
 }
 
 /* AI 聊天面板 - 固定宽度，绝不被挤压 */
@@ -190,11 +172,13 @@
   min-width: 420px;
   max-width: 420px;
   background: var(--background-secondary, #1a1a1a);
-  border-left: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-left: none; /* 移除原有边框，使用伪元素替代 */
+  position: relative;
   /* 禁用弹性滚动 */
   overscroll-behavior: none;
   overflow: hidden;
 }
+
 
 /* 对话面板顶部操作栏 */
 .ai-chat-header {
@@ -543,7 +527,6 @@
 
 [data-theme="light"] .ai-chat-panel {
   background: #f8f9fa;
-  border-left-color: #e0e0e0;
 }
 
 [data-theme="light"] .ai-chat-panel .as-bottom-input-container {

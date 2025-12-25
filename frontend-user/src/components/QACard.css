@@ -23,6 +23,8 @@
   /* 隐藏滚动条但保持功能 */
   scrollbar-width: none;
   -ms-overflow-style: none;
+  /* 左边框 - 与左侧论文区域分隔 */
+  border-left: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
 }
 
 /* 流式传输时禁用 scroll-snap，避免内容变化时自动吸附 */
@@ -258,6 +260,10 @@
 }
 
 /* ============ 浅色主题 ============ */
+[data-theme="light"] .qa-snap-container {
+  border-left-color: #e0e0e0;
+}
+
 [data-theme="light"] .qa-question-wrapper {
   background: #f8f9fa;
 }

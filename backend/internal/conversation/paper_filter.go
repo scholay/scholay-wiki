@@ -34,12 +34,12 @@ type PaperFilterConfig struct {
 
 // DefaultPaperFilterConfig 默认筛选配置
 var DefaultPaperFilterConfig = PaperFilterConfig{
-	MinPapersRequired:    30,   // 最少需要30篇论文（有摘要的）
-	MaxPagesPerSearch:    20,   // 最多翻20页
-	PapersPerPage:        100,  // 每页100篇（API返回最多1000篇）
-	MinRelevantPapers:    10,   // 最少10篇相关论文
-	MaxTotalPapers:       1000, // 最大获取1000篇论文（降低以减少耗时）
-	TargetRelevantPapers: 100,  // 目标筛选出100篇相关论文（与maxPapersToShow一致）
+	MinPapersRequired:    30,  // 最少需要30篇论文（有摘要的）
+	MaxPagesPerSearch:    20,  // 最多翻20页
+	PapersPerPage:        100, // 每页100篇（API返回最多1000篇）
+	MinRelevantPapers:    10,  // 最少10篇相关论文
+	MaxTotalPapers:       800, // 最大获取800篇论文（降低以减少耗时）
+	TargetRelevantPapers: 100, // 目标筛选出100篇相关论文（与maxPapersToShow一致）
 }
 
 // PaperFilterResult 论文筛选结果
@@ -68,8 +68,8 @@ func (s *Service) FilterRelevantPapers(papers []map[string]interface{}, userQuer
 		return papers, nil
 	}
 
-	// 每批最多处理100篇论文（100篇是最优平衡点，200篇会导致AI单次调用过慢）
-	const batchSize = 100
+	// 每批最多处理80篇论文（减少批次大小，让更多批次可以并行）
+	const batchSize = 80
 	
 	// 如果论文数量超过 batchSize，分批处理
 	if len(papers) > batchSize {
@@ -122,8 +122,8 @@ func (s *Service) filterPapersInBatches(papers []map[string]interface{}, userQue
 	
 	resultChan := make(chan batchResult, totalBatches)
 	
-	// 限制并发数，避免过多 AI 请求（提高到8以加快评分速度）
-	const maxConcurrency = 8
+	// 限制并发数，避免过多 AI 请求（提高到10以加快评分速度）
+	const maxConcurrency = 10
 	semaphore := make(chan struct{}, maxConcurrency)
 	
 	var wg sync.WaitGroup
@@ -654,7 +654,7 @@ func (s *Service) SearchAndFilterPapersRelevance(
 	fmt.Printf("[PARALLEL-DEBUG] ========== Relevance通道开始 ==========\n")
 	fmt.Printf("[PARALLEL-DEBUG] Relevance通道: 用户查询: %s\n", userQuery)
 	
-	const maxBatchFetch = 400 // 最多批量获取400篇
+	const maxBatchFetch = 300 // 最多批量获取300篇（降低以减少耗时）
 	fmt.Printf("[PARALLEL-DEBUG] Relevance通道: 批量获取最多 %d 篇，然后统一AI筛选\n", maxBatchFetch)
 
 	var allPapersWithAbstract []map[string]interface{}

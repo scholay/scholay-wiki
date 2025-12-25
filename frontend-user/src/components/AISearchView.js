@@ -175,8 +175,8 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     return 0;
   };
 
-  // 处理问答切换 - 同时切换论文列表
-  const handleQAToggle = (qaIndex) => {
+  // 处理问答切换 - 同时切换论文列表（支持懒加载）
+  const handleQAToggle = async (qaIndex) => {
     if (expandedQAIndex === qaIndex) {
       // 点击已展开的问答，不做任何操作
       return;
@@ -188,9 +188,41 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     const paperSetIndex = paperSets.length - 1 - qaIndex;
     if (paperSetIndex >= 0 && paperSetIndex < paperSets.length) {
       setActiveTab(paperSetIndex);
-      // 同步更新论文显示
       const paperSet = paperSets[paperSetIndex];
-      if (paperSet?.papers) {
+      
+      // 检查是否需要懒加载
+      if (!paperSet.isLoaded && paperSet.paperIds && paperSet.paperIds.length > 0 && !paperSet.isLoading) {
+        // 需要懒加载：设置加载状态
+        logger.log(`Lazy loading papers for QA ${qaIndex} (${paperSet.paperIds.length} papers)`);
+        setPapers([]); // 清空当前论文
+        setPapersTotal(paperSet.total);
+        
+        // 标记为正在加载
+        setPaperSets(prev => prev.map((set, idx) => 
+          idx === paperSetIndex ? { ...set, isLoading: true } : set
+        ));
+        
+        try {
+          const response = await publicScholarAPI.getPaperBatch(paperSet.paperIds, PAPER_FIELDS);
+          if (response.data.code === 0 && response.data.data) {
+            const loadedPapers = response.data.data || [];
+            setPapers(loadedPapers);
+            setPapersTotal(paperSet.total || loadedPapers.length);
+            // 更新 paperSets 中的数据，标记为已加载
+            setPaperSets(prev => prev.map((set, idx) => 
+              idx === paperSetIndex ? { ...set, papers: loadedPapers, isLoaded: true, isLoading: false } : set
+            ));
+            logger.log(`Lazy loaded ${loadedPapers.length} papers for QA ${qaIndex}`);
+          }
+        } catch (err) {
+          logger.error(`Failed to lazy load papers for QA ${qaIndex}:`, err);
+          // 加载失败，重置加载状态
+          setPaperSets(prev => prev.map((set, idx) => 
+            idx === paperSetIndex ? { ...set, isLoading: false } : set
+          ));
+        }
+      } else if (paperSet?.papers) {
+        // 已加载：直接显示
         setPapers(paperSet.papers);
         setPapersTotal(paperSet.total || paperSet.papers.length);
       }
@@ -329,17 +361,28 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
 
   // 移除自动跳转逻辑，允许未登录用户访问页面
 
-  // 加载对话历史
+  // 防止重复加载的 ref
+  const hasLoadedConversationsRef = useRef(false);
+  const hasLoadedDimensionsRef = useRef(false);
+  const hasInitializedFromURLRef = useRef(false); // 防止 URL 参数重复初始化
+
+  // 加载对话历史（只在首次认证成功时加载）
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !hasLoadedConversationsRef.current) {
+      hasLoadedConversationsRef.current = true;
       loadConversations();
     }
   }, [isAuthenticated]);
 
-  // 当创建新对话时刷新对话列表
+  // 当创建新对话时刷新对话列表（不是首次加载时）
   useEffect(() => {
-    if (currentConversationId && isAuthenticated) {
-      loadConversations();
+    // 只有在已经加载过对话列表后，新建对话时才刷新
+    if (currentConversationId && isAuthenticated && hasLoadedConversationsRef.current) {
+      // 检查新对话是否已在列表中，不在才刷新
+      const existsInList = conversations.some(c => c.id === currentConversationId);
+      if (!existsInList) {
+        loadConversations();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentConversationId]);
@@ -418,9 +461,10 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     }
   };
 
-  // 加载维度列表
+  // 加载维度列表（只在首次认证成功时加载）
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !hasLoadedDimensionsRef.current) {
+      hasLoadedDimensionsRef.current = true;
       loadDimensions();
     }
   }, [isAuthenticated]);
@@ -628,6 +672,11 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
 
   // 从 sessionStorage 或 URL 参数读取对话ID或初始查询（仅执行一次）
   useEffect(() => {
+    // 防止重复初始化
+    if (hasInitializedFromURLRef.current) {
+      return;
+    }
+
     const urlConversationId = searchParams.get('conversationId');
     const storedQuery = getSearchQuery();
     const storedModelLevel = getAIModelLevel();
@@ -644,15 +693,18 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       if (conversation) {
         // 如果当前没有加载这个对话的消息，则加载
         if (messages.length === 0 || currentConversationId !== parseInt(urlConversationId)) {
+          hasInitializedFromURLRef.current = true; // 标记已初始化
           handleSelectConversation(urlConversationId);
         }
       } else {
         // 对话不存在，重定向到首页
+        hasInitializedFromURLRef.current = true; // 标记已初始化
         logger.log(`Conversation ${urlConversationId} not found, redirecting to home`);
         navigate('/');
       }
     } else if (storedQuery && isAuthenticated && messages.length === 0 && !urlConversationId && !currentConversationId) {
       // 有存储的查询且没有对话ID，执行搜索（从首页跳转过来的情况）
+      hasInitializedFromURLRef.current = true; // 标记已初始化
       setSearchQuery(storedQuery);
       setLoading(true); // 显示 loading 状态
       // 立即清除存储的查询，防止 useEffect 重复触发时再次执行搜索
@@ -662,6 +714,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       }, 100);
     } else if (!urlConversationId && !storedQuery && isAuthenticated && !authLoading && !loading && !currentConversationId) {
       // 没有 conversationId 也没有存储的查询，且不在加载中，重定向到首页
+      hasInitializedFromURLRef.current = true; // 标记已初始化
       logger.log('No conversationId and no stored query, redirecting to home');
       navigate('/');
     }
@@ -906,7 +959,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
           setMessages(prev => [...organizedMessages, ...prev]);
         }
 
-        // 查找所有有论文结果的消息，构建 paperSets
+        // 查找所有有论文结果的消息，构建 paperSets（懒加载模式）
         // 支持新格式 (search_paper_ids) 和旧格式 (search_results)
         const messagesWithPapers = organizedMessages.filter(
           m => m.role === 'user' && (
@@ -916,66 +969,60 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         );
 
         if (messagesWithPapers.length > 0) {
-          // 检查是否需要批量获取论文详情（新格式）
-          const messagesNeedingFetch = messagesWithPapers.filter(
-            m => m.search_paper_ids && m.search_paper_ids.length > 0 && (!m.search_results || m.search_results.length === 0)
-          );
+          // 构建 paperSets 元数据（不立即获取论文详情）
+          const sets = messagesWithPapers.map((msg, index) => {
+            const hasNewFormat = msg.search_paper_ids && msg.search_paper_ids.length > 0;
+            const hasOldFormat = msg.search_results && msg.search_results.length > 0;
+            
+            return {
+              title: index === messagesWithPapers.length - 1 ? '最新搜索' : `搜索 ${index + 1}`,
+              papers: hasOldFormat ? msg.search_results : [], // 旧格式直接有数据，新格式为空
+              paperIds: hasNewFormat ? msg.search_paper_ids : [], // 新格式存储IDs用于懒加载
+              total: msg.search_results_total || (hasOldFormat ? msg.search_results.length : msg.search_paper_ids?.length || 0),
+              query: msg.search_query,
+              isLoaded: hasOldFormat, // 旧格式已加载，新格式需要懒加载
+              isLoading: false
+            };
+          });
 
-          if (messagesNeedingFetch.length > 0) {
-            // 新格式：需要批量获取论文详情
-            logger.log(`History: ${messagesNeedingFetch.length} messages need paper details fetch`);
+          const reversedSets = sets.reverse();
+          
+          // 只加载最新一个问答的论文（索引0是最新的）
+          const latestSet = reversedSets[0];
+          if (latestSet.isLoaded) {
+            // 旧格式：直接使用
+            setPaperSets(reversedSets);
+            setPapers(latestSet.papers);
+            setPapersTotal(latestSet.total);
+          } else if (latestSet.paperIds && latestSet.paperIds.length > 0) {
+            // 新格式：只加载最新问答的论文
+            // 先标记为正在加载，防止重复请求
+            reversedSets[0] = { ...reversedSets[0], isLoading: true };
+            setPaperSets(reversedSets);
             
-            // 收集所有需要获取的论文ID
-            const allPaperIds = [...new Set(messagesNeedingFetch.flatMap(m => m.search_paper_ids))];
-            
-            // 批量获取论文详情 - 使用和学术检索一致的字段
+            logger.log(`History: Loading papers for latest QA (${latestSet.paperIds.length} papers)`);
             try {
-              const response = await publicScholarAPI.getPaperBatch(allPaperIds, PAPER_FIELDS);
+              const response = await publicScholarAPI.getPaperBatch(latestSet.paperIds, PAPER_FIELDS);
               if (response.data.code === 0 && response.data.data) {
-                const papersMap = {};
-                (response.data.data || []).forEach(paper => {
-                  if (paper.paperId) {
-                    papersMap[paper.paperId] = paper;
-                  }
-                });
-
-                // 构建 paperSets
-                const sets = messagesWithPapers.map((msg, index) => {
-                  let papers = [];
-                  if (msg.search_paper_ids && msg.search_paper_ids.length > 0) {
-                    // 新格式：从获取的详情中匹配
-                    papers = msg.search_paper_ids.map(id => papersMap[id]).filter(Boolean);
-                  } else if (msg.search_results && msg.search_results.length > 0) {
-                    // 旧格式：直接使用
-                    papers = msg.search_results;
-                  }
-                  
-                  return {
-                    title: index === messagesWithPapers.length - 1 ? '最新搜索' : `搜索 ${index + 1}`,
-                    papers: papers,
-                    total: msg.search_results_total || papers.length,
-                    query: msg.search_query
-                  };
-                });
-
-                setPaperSets(sets.reverse());
-                setPapers(sets[0].papers);
-                setPapersTotal(sets[0].total);
+                const loadedPapers = response.data.data || [];
+                setPapers(loadedPapers);
+                setPapersTotal(latestSet.total);
+                // 更新 paperSets 中的数据，标记为已加载
+                setPaperSets(prev => prev.map((set, idx) => 
+                  idx === 0 ? { ...set, papers: loadedPapers, isLoaded: true, isLoading: false } : set
+                ));
               }
             } catch (err) {
-              logger.error('Failed to fetch paper details for history:', err);
+              logger.error('Failed to fetch paper details for latest QA:', err);
+              // 加载失败，重置加载状态
+              setPaperSets(prev => prev.map((set, idx) => 
+                idx === 0 ? { ...set, isLoading: false } : set
+              ));
             }
           } else {
-            // 旧格式：直接使用 search_results
-            const sets = messagesWithPapers.map((msg, index) => ({
-              title: index === messagesWithPapers.length - 1 ? '最新搜索' : `搜索 ${index + 1}`,
-              papers: msg.search_results,
-              total: msg.search_results_total || msg.search_results.length,
-              query: msg.search_query
-            }));
-            setPaperSets(sets.reverse());
-            setPapers(sets[0].papers);
-            setPapersTotal(sets[0].total);
+            setPaperSets(reversedSets);
+            setPapers([]);
+            setPapersTotal(0);
           }
 
           // 对于历史对话中的 assistant 消息，只加载已有的推荐问题，不再异步获取
@@ -1869,17 +1916,6 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                                 </span>
                               )}
                             </div>
-                            {getQAPaperCount(index) > 0 && (
-                              <div className="qa-question-meta">
-                                <span className="qa-paper-badge">
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                    <polyline points="14 2 14 8 20 8"/>
-                                  </svg>
-                                  {getQAPaperCount(index)} 篇相关论文
-                                </span>
-                              </div>
-                            )}
                           </div>
                         </div>
                         
