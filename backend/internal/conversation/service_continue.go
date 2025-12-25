@@ -203,8 +203,8 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		totalCount = total
 	}
 
-	// Limit papers to top 50 for frontend display and AI analysis
-	const maxPapersToShow = 50
+	// Limit papers to top 100 for frontend display and AI analysis
+	const maxPapersToShow = 100
 	displayPapers := allPapers
 	if len(displayPapers) > maxPapersToShow {
 		fmt.Printf("[DEBUG] Limiting papers from %d to %d for display and analysis\n", len(allPapers), maxPapersToShow)
@@ -220,9 +220,10 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	}
 
 	// Send only paper IDs to frontend (frontend will fetch details via batch API)
+	// total 返回实际筛选后的数量，而不是 API 查找的总数
 	papersData := map[string]interface{}{
 		"paperIds": paperIDs,
-		"total":    totalCount, // Still show the real total count
+		"total":    len(paperIDs), // 返回实际筛选后的数量
 	}
 	papersJSON, _ := json.Marshal(papersData)
 	fmt.Fprintf(writer, "data: [PAPERS]%s\n\n", string(papersJSON))
@@ -231,7 +232,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	}
 
 	// Save only paper IDs to database (optimized storage)
-	if err := s.repo.UpdateMessageSearchPaperIDs(userMessage.ID, paperIDs, totalCount); err != nil {
+	if err := s.repo.UpdateMessageSearchPaperIDs(userMessage.ID, paperIDs, len(paperIDs)); err != nil {
 		fmt.Printf("Warning: failed to update user message with paper IDs: %v\n", err)
 	}
 

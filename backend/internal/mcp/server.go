@@ -132,6 +132,45 @@ func (s *MCPServer) ListTools() []Tool {
 			},
 		},
 		{
+			Name:        "search_papers_relevance",
+			Description: "Search papers by semantic relevance using natural language query. Best for finding conceptually related papers that may not have high citations yet.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"query": map[string]interface{}{
+						"type":        "string",
+						"description": "Natural language search query in English academic terms (e.g., 'mitigating hallucination in large language models')",
+					},
+					"year_from": map[string]interface{}{
+						"type":        "string",
+						"description": "Start year (e.g., '2020')",
+						"default":     "2020",
+					},
+					"year_to": map[string]interface{}{
+						"type":        "string",
+						"description": "End year (e.g., '2024')",
+						"default":     "2024",
+					},
+					"fields_of_study": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]string{"type": "string"},
+						"description": "Fields of study filter (e.g., ['Computer Science', 'Medicine'])",
+					},
+					"limit": map[string]interface{}{
+						"type":        "number",
+						"description": "Number of results to return (max 100)",
+						"default":     50,
+					},
+					"offset": map[string]interface{}{
+						"type":        "number",
+						"description": "Pagination offset",
+						"default":     0,
+					},
+				},
+				"required": []string{"query"},
+			},
+		},
+		{
 			Name:        "get_paper",
 			Description: "Get detailed information about a specific paper",
 			InputSchema: map[string]interface{}{
@@ -294,6 +333,8 @@ func (s *MCPServer) CallTool(req ToolRequest) (*ToolResponse, error) {
 		return s.handleSearchPapers(req.Arguments)
 	case "search_papers_advanced":
 		return s.handleSearchPapersAdvanced(req.Arguments)
+	case "search_papers_relevance":
+		return s.handleSearchPapersRelevance(req.Arguments)
 	case "get_paper":
 		return s.handleGetPaper(req.Arguments)
 	case "get_paper_citations":
@@ -427,6 +468,84 @@ func (s *MCPServer) handleSearchPapersAdvanced(args map[string]interface{}) (*To
 			"limit":         limit,
 		},
 	}
+
+	return createJSONResponse(responseData)
+}
+
+// handleSearchPapersRelevance handles the search_papers_relevance tool call
+// Uses /paper/search API which returns results sorted by relevance
+func (s *MCPServer) handleSearchPapersRelevance(args map[string]interface{}) (*ToolResponse, error) {
+	query, ok := args["query"].(string)
+	if !ok || query == "" {
+		return nil, fmt.Errorf("query is required")
+	}
+
+	fmt.Printf("[PARALLEL-DEBUG] ============ search_papers_relevance called ============\n")
+	fmt.Printf("[PARALLEL-DEBUG] Query: %s\n", query)
+
+	// Get parameters with defaults
+	yearFrom := getStringArg(args, "year_from", "2020")
+	yearTo := getStringArg(args, "year_to", "2024")
+	limit := getIntArg(args, "limit", 50)
+	offset := getIntArg(args, "offset", 0)
+
+	// Build year range
+	yearRange := fmt.Sprintf("%s-%s", yearFrom, yearTo)
+
+	fmt.Printf("[PARALLEL-DEBUG] Parameters: yearFrom=%s, yearTo=%s, limit=%d, offset=%d\n",
+		yearFrom, yearTo, limit, offset)
+	fmt.Printf("[PARALLEL-DEBUG] Year range: %s\n", yearRange)
+
+	// Get optional fields of study
+	var fieldsOfStudy []string
+	if fields, ok := args["fields_of_study"].([]interface{}); ok {
+		fieldsOfStudy = interfaceSliceToStringSlice(fields)
+		fmt.Printf("[PARALLEL-DEBUG] Fields of study: %v\n", fieldsOfStudy)
+	}
+
+	// Default fields to return - includes tldr which is supported by /paper/search
+	defaultFields := []string{
+		"paperId", "title", "abstract", "year", "authors",
+		"citationCount", "venue", "publicationDate", "url",
+		"referenceCount", "fieldsOfStudy", "externalIds", "tldr",
+		"openAccessPdf", "journal",
+	}
+
+	// Use regular search API (sorted by relevance)
+	opts := semanticscholar.PaperSearchOptions{
+		Query:         query,
+		Year:          yearRange,
+		Limit:         limit,
+		Offset:        offset,
+		Fields:        defaultFields,
+		FieldsOfStudy: fieldsOfStudy,
+	}
+
+	fmt.Printf("[PARALLEL-DEBUG] Calling SearchPapers with opts: %+v\n", opts)
+
+	// Use manager which will handle API key rotation
+	result, err := s.manager.SearchPapers(opts)
+	if err != nil {
+		fmt.Printf("[PARALLEL-DEBUG] SearchPapers error: %v\n", err)
+		return nil, err
+	}
+
+	fmt.Printf("[PARALLEL-DEBUG] SearchPapers returned %d papers, total: %d\n", len(result.Data), result.Total)
+
+	// Add search parameters to response for transparency
+	responseData := map[string]interface{}{
+		"data":   result.Data,
+		"total":  result.Total,
+		"offset": result.Offset,
+		"search_params": map[string]interface{}{
+			"query":      query,
+			"year_range": yearRange,
+			"limit":      limit,
+			"offset":     offset,
+		},
+	}
+
+	fmt.Printf("[PARALLEL-DEBUG] ============ search_papers_relevance completed ============\n")
 
 	return createJSONResponse(responseData)
 }

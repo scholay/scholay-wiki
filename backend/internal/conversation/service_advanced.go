@@ -11,12 +11,53 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sync"
+	"time"
 
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/semanticscholar"
 	"scholar-backend/internal/thirdparty"
 )
+
+// getParallelSearchSystemPrompt 生成并行搜索系统提示词（动态计算年份）
+func getParallelSearchSystemPrompt() string {
+	currentYear := time.Now().Year()
+	yearFrom := currentYear - 5
+	
+	return fmt.Sprintf(`你是一名专业学术研究助手。你需要同时调用两个搜索工具来获取全面的论文结果：
+
+1. search_papers_advanced: 用于获取高引用的经典论文（使用 bulk API，按引用数排序）
+   - keywords: 英文学术关键词列表（3-5个关键词，每个关键词应该是独立的学术术语）
+   - year_from: "%d"（最近5年起始）
+   - year_to: "%d"（当前年份）
+   - min_citations: 5（使用较低阈值以获取更多论文）
+   - sort_by: "citationCount:desc"
+   - fields_of_study: 若用户明确指定领域则填写
+
+2. search_papers_relevance: 用于获取语义相关的最新论文（使用 search API，按相关性排序）
+   - query: 英文关键词组合（用空格分隔，如 "hallucination mitigation large language models"，不要用完整句子）
+   - year_from: "%d"（最近5年起始）
+   - year_to: "%d"（当前年份）
+   - fields_of_study: 若用户明确指定领域则填写
+
+关键词生成规则：
+- 无论用户使用什么语言，关键词必须是标准英文学术术语
+- 关键词应该覆盖：核心概念、研究方法、应用领域
+- 避免使用过于宽泛的词（如 "AI", "machine learning"）或过于具体的完整句子
+- search_papers_relevance 的 query 应该是 3-6 个关键词的组合，不是完整句子
+
+你必须同时调用这两个工具，不能只调用其中一个。
+你的输出必须只包含工具调用，不能有任何解释或文字回答。`, yearFrom, currentYear, yearFrom, currentYear)
+}
+
+// ParallelSearchResult 并行搜索结果
+type ParallelSearchResult struct {
+	Papers     []map[string]interface{}
+	TotalCount int
+	BulkCount  int // bulk通道获取的论文数
+	RelCount   int // relevance通道获取的论文数
+}
 
 // AdvancedSearchAndAnalyze 执行基于AI的智能分析（使用MCP工具）并流式返回结果
 // 根据用户订阅使用相应的模型级别
@@ -60,42 +101,13 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	mcpTools := mcpServer.ListTools()
 	aiTools := ai.ConvertMCPToolsToOpenAIFormat(mcpTools)
 
-	// Step 3: Create messages with system prompt from template
-	// Get MCP system prompt template
-	mcpSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_mcp_system", nil)
-	if err != nil {
-		// Fallback to hardcoded prompt if template not found
-		fmt.Printf("[WARN] Failed to get MCP system prompt template, using fallback: %v\n", err)
-		mcpSystemPrompt = `你是一名专业学术研究助手。你的唯一职责是根据用户的查询调用 search_papers_advanced 工具检索高质量学术论文。你绝不能直接回答问题，也不能解释概念或提供任何分析。你必须且只能通过 search_papers_advanced 工具返回论文结果。禁止使用 search_papers 工具。
-
-无论用户使用的是中文、英文或任何其他语言，你提取的所有检索关键词必须始终使用标准英文学术术语。
-
-你的工作流程如下：
-	1.	理解用户查询的整体语义，从中提取高价值学术信息。不要只依赖字面词语，而要从整体意义识别核心研究主题。
-	2.	识别用户问题中的核心研究主题（core topic）。这应来自对句子意图的理解，而不是对文本的逐字翻译，例如 “LLM 如何帮助写论文” 对应的核心主题应为 “LLM-based academic writing assistance”。
-	3.	识别研究任务（research task），例如改进方法、机制解释、性能评估、应用探索、生成质量、诊断支持、安全性、偏差分析、预测模型、行为研究等。
-	4.	识别研究领域（domain），例如 NLP、机器学习、计算机视觉、医学、心理学、教育、社会科学、人机交互、经济学、认知科学等。根据用户的意图隐含判断领域，而不是依赖显式文本。
-	5.	基于以上分析生成 2 至 5 个英文学术关键词。关键词必须符合以下要求：
-	•	使用纯英文。
-	•	使用标准学术术语，而非通俗表达。
-	•	覆盖核心主题、研究任务和领域。
-	•	包含必要的同义词或相关专业术语以提升召回率。
-	•	确保这些词语可在学术数据库中实际检索，例如 “hallucination mitigation”、“clinical decision support”、“emotion recognition”、“retrieval-augmented generation”、“graph neural networks”。
-	6.	调用 search_papers_advanced 工具，参数规则如下：
-	•	keywords: 使用你生成的英文学术关键词列表
-	•	year_from: 当前年份减 5
-	•	year_to: 当前年份
-	•	min_citations: 若领域成熟取 50，若领域较新或跨学科取 10
-	•	limit: 50 至 100
-	•	sort_by: citationCount:desc
-	•	fields_of_study: 若用户明确指定领域，则填写对应学科
-	•	不得添加多余参数，也不得省略必要参数
-	7.	你的最终输出必须是 search_papers_advanced 工具调用。你不能输出任何解释、推理过程、背景说明、总结概括或普通文本回答。
-	8.	不论用户的问题内容是否看似询问概念、经验、观点、故事、偏见、推理或与学术无关，你都必须将其视为学术检索行为，并调用 search_papers_advanced 工具返回论文。
-	9.	无论用户的输入使用哪种语言，你提取的学术关键词必须全部是英文。绝不允许出现中文关键词、混合语言关键词或用户原文中未翻译的名词。
-
-请严格遵守以上全部规则。`
-	}
+	// Step 3: Create messages with system prompt
+	// 使用动态生成的并行搜索系统提示词（年份根据当前时间计算）
+	fmt.Printf("[PARALLEL-DEBUG] ========== 智能分析开始 ==========\n")
+	fmt.Printf("[PARALLEL-DEBUG] 用户查询: %s\n", query)
+	currentYear := time.Now().Year()
+	fmt.Printf("[PARALLEL-DEBUG] 使用并行搜索系统提示词，年份范围: %d-%d\n", currentYear-5, currentYear)
+	mcpSystemPrompt := getParallelSearchSystemPrompt()
 
 	systemMessage := ai.ChatMessage{
 		Role:    "system",
@@ -121,47 +133,47 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		toolCallResponse = nil
 	}
 
-	// Step 5: Execute tool calls and collect results with enhanced filtering
+	// Step 5: Execute tool calls and collect results with enhanced filtering (并行搜索)
 	var allPapers []map[string]interface{}
-	var totalCount int
 
 	if toolCallResponse != nil && len(toolCallResponse.Choices) > 0 && len(toolCallResponse.Choices[0].Message.ToolCalls) > 0 {
-		fmt.Printf("[DEBUG] Found %d tool calls\n", len(toolCallResponse.Choices[0].Message.ToolCalls))
+		fmt.Printf("[PARALLEL-DEBUG] 发现 %d 个工具调用\n", len(toolCallResponse.Choices[0].Message.ToolCalls))
+		
+		// 收集两种搜索的参数
+		var bulkArgs, relevanceArgs map[string]interface{}
+		
 		for _, toolCall := range toolCallResponse.Choices[0].Message.ToolCalls {
-			fmt.Printf("[DEBUG] Tool call name: %s\n", toolCall.Function.Name)
-			fmt.Printf("[DEBUG] Tool call arguments: %s\n", toolCall.Function.Arguments)
+			fmt.Printf("[PARALLEL-DEBUG] 工具调用: %s\n", toolCall.Function.Name)
+			fmt.Printf("[PARALLEL-DEBUG] 工具参数: %s\n", toolCall.Function.Arguments)
 
-			// Support both search_papers and search_papers_advanced
-			if toolCall.Function.Name == "search_papers" || toolCall.Function.Name == "search_papers_advanced" {
-				// Parse tool arguments
-				var args map[string]interface{}
-				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
-					fmt.Printf("[ERROR] Failed to parse tool arguments: %v\n", err)
-					continue
-				}
+			var args map[string]interface{}
+			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
+				fmt.Printf("[PARALLEL-DEBUG] 解析工具参数失败: %v\n", err)
+				continue
+			}
 
-				// 使用增强的论文筛选逻辑（分页获取、过滤无摘要、AI相关性筛选）
-				filterResult, err := s.SearchAndFilterPapers(mcpServer, args, query, DefaultPaperFilterConfig)
-				if err != nil {
-					fmt.Printf("[ERROR] Paper search and filter failed: %v\n", err)
-					continue
-				}
-
-				fmt.Printf("[DEBUG] Paper filter result: %d papers after filtering (from %d total, %d pages used)\n",
-					len(filterResult.Papers), filterResult.TotalFound, filterResult.PagesUsed)
-
-				allPapers = append(allPapers, filterResult.Papers...)
-				if filterResult.TotalFound > totalCount {
-					totalCount = filterResult.TotalFound
-				}
+			switch toolCall.Function.Name {
+			case "search_papers_advanced", "search_papers":
+				bulkArgs = args
+				fmt.Printf("[PARALLEL-DEBUG] 收集到 bulk 通道参数\n")
+			case "search_papers_relevance":
+				relevanceArgs = args
+				fmt.Printf("[PARALLEL-DEBUG] 收集到 relevance 通道参数\n")
 			}
 		}
+
+		// 执行并行搜索
+		parallelResult := s.parallelSearchPapers(mcpServer, query, bulkArgs, relevanceArgs)
+		allPapers = parallelResult.Papers
+		
+		fmt.Printf("[PARALLEL-DEBUG] 并行搜索完成: bulk=%d篇, relevance=%d篇, 合并去重后=%d篇\n",
+			parallelResult.BulkCount, parallelResult.RelCount, len(allPapers))
 	}
 
 	// If no papers found, try a simple direct search
 	if len(allPapers) == 0 {
 		fmt.Printf("[DEBUG] No papers from tool calls, doing direct search\n")
-		papers, total, err := s.mcpSearch(query, mcpServer)
+		papers, _, err := s.mcpSearch(query, mcpServer)
 		if err != nil {
 			fmt.Printf("[ERROR] Direct search failed: %v\n", err)
 			// Send friendly error message
@@ -191,11 +203,10 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		// 对直接搜索结果也进行摘要过滤
 		papers = FilterPapersWithAbstract(papers)
 		allPapers = papers
-		totalCount = total
 	}
 
-	// Limit papers to top 50 for frontend display and AI analysis
-	const maxPapersToShow = 50
+	// Limit papers to top 100 for frontend display and AI analysis
+	const maxPapersToShow = 100
 	displayPapers := allPapers
 	if len(displayPapers) > maxPapersToShow {
 		fmt.Printf("[DEBUG] Limiting papers from %d to %d for display and analysis\n", len(allPapers), maxPapersToShow)
@@ -211,14 +222,16 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	}
 
 	// Save only paper IDs to database (optimized storage)
-	if err := s.repo.UpdateMessageSearchPaperIDs(userMessage.ID, paperIDs, totalCount); err != nil {
+	// 保存实际筛选后的数量
+	if err := s.repo.UpdateMessageSearchPaperIDs(userMessage.ID, paperIDs, len(paperIDs)); err != nil {
 		fmt.Printf("Warning: failed to update user message with paper IDs: %v\n", err)
 	}
 
 	// Send only paper IDs to frontend (frontend will fetch details via batch API)
+	// total 返回实际筛选后的数量，而不是 API 查找的总数
 	papersData := map[string]interface{}{
 		"paperIds": paperIDs,
-		"total":    totalCount, // Still show the real total count
+		"total":    len(paperIDs), // 返回实际筛选后的数量
 	}
 	papersJSON, _ := json.Marshal(papersData)
 	fmt.Fprintf(writer, "data: [PAPERS]%s\n\n", string(papersJSON))
@@ -610,4 +623,114 @@ func (s *Service) GetFollowUpQuestions(conversationID uint, messageID uint, user
 	}
 
 	return followUpQuestions, nil
+}
+
+// parallelSearchPapers 并行执行两种搜索策略
+func (s *Service) parallelSearchPapers(
+	mcpServer *mcp.MCPServer,
+	userQuery string,
+	bulkArgs map[string]interface{},
+	relevanceArgs map[string]interface{},
+) *ParallelSearchResult {
+	fmt.Printf("[PARALLEL-DEBUG] ========== 并行搜索开始 ==========\n")
+	fmt.Printf("[PARALLEL-DEBUG] bulk 参数: %+v\n", bulkArgs)
+	fmt.Printf("[PARALLEL-DEBUG] relevance 参数: %+v\n", relevanceArgs)
+
+	var wg sync.WaitGroup
+	var bulkResult, relevanceResult *PaperFilterResult
+	var bulkErr, relevanceErr error
+
+	// 通道1: search_papers_advanced (bulk API) - 高引用论文
+	if bulkArgs != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fmt.Printf("[PARALLEL-DEBUG] 通道1 (bulk) 开始执行...\n")
+			bulkResult, bulkErr = s.SearchAndFilterPapers(mcpServer, bulkArgs, userQuery, DefaultPaperFilterConfig)
+			if bulkErr != nil {
+				fmt.Printf("[PARALLEL-DEBUG] 通道1 (bulk) 错误: %v\n", bulkErr)
+			} else {
+				fmt.Printf("[PARALLEL-DEBUG] 通道1 (bulk) 完成: %d 篇论文\n", len(bulkResult.Papers))
+			}
+		}()
+	}
+
+	// 通道2: search_papers_relevance (search API) - 语义相关论文
+	if relevanceArgs != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fmt.Printf("[PARALLEL-DEBUG] 通道2 (relevance) 开始执行...\n")
+			relevanceResult, relevanceErr = s.SearchAndFilterPapersRelevance(mcpServer, relevanceArgs, userQuery, DefaultPaperFilterConfig)
+			if relevanceErr != nil {
+				fmt.Printf("[PARALLEL-DEBUG] 通道2 (relevance) 错误: %v\n", relevanceErr)
+			} else {
+				fmt.Printf("[PARALLEL-DEBUG] 通道2 (relevance) 完成: %d 篇论文\n", len(relevanceResult.Papers))
+			}
+		}()
+	}
+
+	// 等待两个通道完成
+	wg.Wait()
+	fmt.Printf("[PARALLEL-DEBUG] 两个通道都已完成\n")
+
+	// 合并结果并去重
+	return s.mergeAndDeduplicatePapers(bulkResult, relevanceResult, bulkErr, relevanceErr)
+}
+
+// mergeAndDeduplicatePapers 合并并按 paperId 去重，最多返回 100 篇
+func (s *Service) mergeAndDeduplicatePapers(
+	bulkResult, relevanceResult *PaperFilterResult,
+	bulkErr, relevanceErr error,
+) *ParallelSearchResult {
+	fmt.Printf("[PARALLEL-DEBUG] ========== 合并去重开始 ==========\n")
+
+	const maxMergedPapers = 100 // 合并后最多返回100篇
+
+	seen := make(map[string]bool)
+	var merged []map[string]interface{}
+	bulkCount := 0
+	relCount := 0
+
+	// 优先保留 bulk 结果（高引用论文）
+	if bulkErr == nil && bulkResult != nil {
+		fmt.Printf("[PARALLEL-DEBUG] 处理 bulk 结果: %d 篇论文\n", len(bulkResult.Papers))
+		for _, paper := range bulkResult.Papers {
+			if len(merged) >= maxMergedPapers {
+				break
+			}
+			if id, ok := paper["paperId"].(string); ok && id != "" && !seen[id] {
+				seen[id] = true
+				merged = append(merged, paper)
+				bulkCount++
+			}
+		}
+	}
+
+	// 补充 relevance 结果（语义相关论文）
+	if relevanceErr == nil && relevanceResult != nil {
+		fmt.Printf("[PARALLEL-DEBUG] 处理 relevance 结果: %d 篇论文\n", len(relevanceResult.Papers))
+		for _, paper := range relevanceResult.Papers {
+			if len(merged) >= maxMergedPapers {
+				break
+			}
+			if id, ok := paper["paperId"].(string); ok && id != "" && !seen[id] {
+				seen[id] = true
+				merged = append(merged, paper)
+				relCount++
+			}
+		}
+	}
+
+	fmt.Printf("[PARALLEL-DEBUG] 合并完成: bulk贡献=%d篇, relevance贡献=%d篇, 总计=%d篇 (最大%d篇)\n",
+		bulkCount, relCount, len(merged), maxMergedPapers)
+	fmt.Printf("[PARALLEL-DEBUG] ========== 合并去重完成 ==========\n")
+
+	// TotalCount 返回实际合并后的数量，而不是 API 查找的总数
+	return &ParallelSearchResult{
+		Papers:     merged,
+		TotalCount: len(merged), // 返回实际合并后的数量
+		BulkCount:  bulkCount,
+		RelCount:   relCount,
+	}
 }
