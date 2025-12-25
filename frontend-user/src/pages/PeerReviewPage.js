@@ -13,7 +13,6 @@ import { useNavigate } from 'react-router-dom';
 import { peerReviewAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
-import ModelSelector from '../components/ModelSelector';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import MessageModal from '../components/MessageModal';
 import ReviewRadarChart from '../components/ReviewRadarChart';
@@ -28,6 +27,7 @@ import {
 import { parseReviewJSON, getRecommendationClass } from '../utils/peer-review/parseUtils';
 import { getFileIcon } from '../utils/peer-review/fileUtils';
 import { exportToWord, exportToPDF, exportToPPT } from '../utils/peer-review/exportUtils';
+import PeerReviewCreateSection from '../components/PeerReviewCreateSection';
 import { trackAIPeerReview } from '../utils/usageTracker';
 import logger from '../utils/logger';
 import './styles/PeerReviewPage.css';
@@ -199,6 +199,7 @@ export default function PeerReviewPage() {
   const [useFileInput, setUseFileInput] = useState(false); // 是否直接使用文件（不提取文本，如PDF、Word等）
   const [attachments, setAttachments] = useState([]); // 附件列表（每个附件项自己管理 uploading 状态）
   const [uploading, setUploading] = useState(false); // 主稿件上传中
+  const [uploadProgress, setUploadProgress] = useState(0); // 上传进度 0-100
   const [submitting, setSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [draftLoading, setDraftLoading] = useState(false);
@@ -381,14 +382,30 @@ export default function PeerReviewPage() {
     // 使用 flushSync 强制同步更新 UI，确保 loading 状态立即显示
     flushSync(() => {
       setUploading(true);
+      setUploadProgress(0);
       setInputType('file');
       setFileName(file.name);
     });
+
+    // 模拟进度：渐进式增长到90%
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 90) {
+          return prev;
+        }
+        // 越接近90%增长越慢
+        const increment = Math.max(1, Math.floor((90 - prev) / 10));
+        return Math.min(90, prev + increment);
+      });
+    }, 200);
 
     // 使用 setTimeout 确保 UI 更新后再发起请求
     setTimeout(() => {
       peerReviewAPI.uploadFile(file)
         .then(response => {
+          clearInterval(progressInterval);
+          setUploadProgress(100);
+          
           if (response.data?.code === 0) {
             const data = response.data.data;
             // 更新为服务器返回的文件名
@@ -412,6 +429,7 @@ export default function PeerReviewPage() {
           }
         })
         .catch(error => {
+          clearInterval(progressInterval);
           logger.error('文件上传失败:', error);
           // 上传失败，清空文件状态
           setFileName('');
@@ -419,7 +437,11 @@ export default function PeerReviewPage() {
           showMessage('error', '上传失败', error.response?.data?.message || error.message);
         })
         .finally(() => {
-          setUploading(false);
+          // 延迟重置，让用户看到100%
+          setTimeout(() => {
+            setUploading(false);
+            setUploadProgress(0);
+          }, 300);
         });
     }, 0);
   };
@@ -851,9 +873,7 @@ export default function PeerReviewPage() {
       {viewMode === VIEW_MODE.HOME && (
         <div className="prv-main">
                 {/* 上半部分：创建任务区域 */}
-                <CreateSection
-                  inputType={inputType}
-                  setInputType={setInputType}
+                <PeerReviewCreateSection
                   manuscriptText={manuscriptText}
                   onTextInput={handleTextInput}
                   targetVenue={targetVenue}
@@ -862,6 +882,7 @@ export default function PeerReviewPage() {
                   useFileInput={useFileInput}
                   attachments={attachments}
                   uploading={uploading}
+                  uploadProgress={uploadProgress}
                   submitting={submitting}
                   isDragging={isDragging}
                   draftLoading={draftLoading}
@@ -936,454 +957,8 @@ export default function PeerReviewPage() {
 
 // ========== 子组件 ==========
 
-// 创建任务区域（上半部分）
-function CreateSection({
-  inputType, setInputType,
-  manuscriptText, onTextInput,
-  targetVenue, onVenueInput,
-  fileName,
-  useFileInput,
-  attachments,
-  uploading, submitting, isDragging, draftLoading,
-  modelLevel, setModelLevel,
-  fileInputRef,
-  attachmentInputRef,
-  onFileSelect, onAttachmentUpload, onDeleteAttachment,
-  onDragEnter, onDragOver, onDragLeave, onDrop,
-  onRemoveFile, onSubmit, onClearDraft,
-  isLoggedIn, onRequireLogin
-}) {
-  // PDF文件也算有内容
-  // 文件直传模式（PDF、Word等）也算有内容
-  const hasContent = manuscriptText.trim().length > 0 || (fileName && useFileInput);
+// CreateSection 已移至 components/PeerReviewCreateSection.js
 
-  // 附件拖拽状态
-  const [attachmentDragging, setAttachmentDragging] = useState(false);
-
-  // 附件拖拽处理
-  const handleAttachmentDragEnter = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setAttachmentDragging(true);
-  };
-
-  const handleAttachmentDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setAttachmentDragging(true);
-  };
-
-  const handleAttachmentDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.currentTarget.contains(e.relatedTarget)) return;
-    setAttachmentDragging(false);
-  };
-
-  const handleAttachmentDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setAttachmentDragging(false);
-
-    const file = e.dataTransfer.files[0];
-    if (file && attachments.length < 5) {
-      // 创建一个模拟的 event 对象传给 onAttachmentUpload
-      const fakeEvent = { target: { files: [file] } };
-      onAttachmentUpload(fakeEvent);
-    }
-  };
-
-  return (
-    <div className="prv-create-section">
-      <div className="prv-section-header">
-        <div className="prv-section-intro">
-          <h2 className="prv-section-title">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <path d="M12 18l-2.4-1.2L7 18v-4l2.6 1.3L12 14l2.4 1.3L17 14v4l-2.6-1.2L12 18z"/>
-            </svg>
-            智能审稿
-          </h2>
-          <p className="prv-section-desc">上传论文，获取专业审稿意见</p>
-        </div>
-        <div className="prv-header-right">
-          {hasContent && (
-            <button className="prv-clear-btn" onClick={onClearDraft}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-              清空
-            </button>
-          )}
-        </div>
-      </div>
-
-
-      {/* 输入区域 - 毛玻璃效果，支持粘贴文本和拖拽上传 */}
-      <div 
-        className={`prv-composer-wrapper ${isDragging ? 'prv-dragging' : ''}`}
-        onDragEnter={onDragEnter}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-      >
-        {/* 拖拽上传遮罩 */}
-        {isDragging && (
-          <div className="prv-drag-overlay">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="17 8 12 3 7 8"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-            <p>松开鼠标上传文件</p>
-          </div>
-        )}
-
-        {/* 上传中遮罩 - 更明显的加载状态 */}
-        {uploading && (
-          <div className="prv-upload-overlay">
-            <div className="prv-upload-progress">
-              <div className="prv-upload-icon-wrapper">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="prv-upload-pulse">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                </svg>
-                <div className="prv-upload-ring"></div>
-              </div>
-              <h4>正在上传文件</h4>
-              <p>请稍候...</p>
-              <div className="prv-upload-dots">
-                <span></span><span></span><span></span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="prv-input-area">
-          {draftLoading ? (
-            <div className="prv-draft-loading">
-              <div className="prv-spinner-small"></div>
-              <span>加载草稿中...</span>
-            </div>
-          ) : (
-            <>
-              {/* 已上传文件信息条 */}
-              {fileName && (
-                <div className="prv-file-bar">
-                  <div className="prv-file-bar-info">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                      <polyline points="14 2 14 8 20 8"/>
-                    </svg>
-                    <span className="prv-file-bar-name">{fileName}</span>
-                  </div>
-                  <button className="prv-file-bar-remove" onClick={onRemoveFile}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="18" y1="6" x2="6" y2="18"/>
-                      <line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                  </button>
-                </div>
-              )}
-              
-              {/* 文本输入区域 */}
-              <div className="prv-textarea-wrapper">
-                {/* PDF文件显示特殊提示 */}
-                {useFileInput && fileName ? (
-                  <div className="prv-pdf-preview">
-                    <div className="prv-pdf-icon">
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <path d="M9 15h6"/>
-                        <path d="M9 11h6"/>
-                      </svg>
-                    </div>
-                    <h4>文件已上传</h4>
-                    <p className="prv-pdf-filename">{fileName}</p>
-                    <p className="prv-pdf-hint">文件将直接传递给AI进行分析</p>
-                  </div>
-                ) : (
-                  <textarea
-                    className={`prv-textarea ${fileName ? 'prv-textarea-readonly' : ''}`}
-                    placeholder=""
-                    value={manuscriptText}
-                    onChange={(e) => !fileName && onTextInput(e)}
-                    onFocus={() => !isLoggedIn && onRequireLogin()}
-                    readOnly={!!fileName}
-                    maxLength={50000}
-                  />
-                )}
-                
-                {/* 空状态引导提示 */}
-                {!manuscriptText && !fileName && (
-                  <div className="prv-empty-guide">
-                    <div className="prv-guide-methods">
-                      {/* 文字输入方式 */}
-                      <div className="prv-guide-method">
-                        <div className="prv-method-icon prv-method-text">
-                          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-                          </svg>
-                        </div>
-                        <p className="prv-method-title">直接输入</p>
-                        <p className="prv-method-desc">粘贴或输入论文内容</p>
-                      </div>
-                      
-                      <div className="prv-guide-divider">
-                        <span>或</span>
-                      </div>
-                      
-                      {/* 文件上传方式 */}
-                      <div className="prv-guide-method">
-                        <div className="prv-method-icon prv-method-file">
-                          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="17 8 12 3 7 8"/>
-                            <line x1="12" y1="3" x2="12" y2="15"/>
-                          </svg>
-                        </div>
-                        <p className="prv-method-title">上传文件</p>
-                        <p className="prv-method-desc">拖拽文件到此处</p>
-                      </div>
-                    </div>
-                    
-                    <div className="prv-guide-formats">
-                      <span>支持格式：</span>
-                      <span className="prv-format-tag">TXT</span>
-                      <span className="prv-format-tag">DOC</span>
-                      <span className="prv-format-tag">DOCX</span>
-                      <span className="prv-format-tag">PDF</span>
-                      <span className="prv-format-tag">RTF</span>
-                      <span className="prv-format-tag">ODT</span>
-                      <span className="prv-format-tag">XML</span>
-                      <span className="prv-format-tag">HTML</span>
-                    </div>
-                    
-                    <div className="prv-guide-tip">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                      </svg>
-                      <span>支持添加最多 5 个附件（图表、数据等补充材料）</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* 隐藏的文件输入 */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".txt,.doc,.docx,.rtf,.odt,.pdf,.xml,.html,.htm"
-                onChange={onFileSelect}
-                style={{ display: 'none' }}
-              />
-            </>
-          )}
-        </div>
-
-        {/* Composer Footer */}
-        <div className="prv-composer-footer">
-          {/* 左侧：模型选择和上传 */}
-          <div className="prv-composer-footer-left">
-            <ModelSelector
-              value={modelLevel}
-              onChange={setModelLevel}
-              compact={true}
-              allowedModels={['mid', 'high']}
-            />
-
-            {/* 主稿件已上传时隐藏上传按钮 */}
-            {!fileName && (
-              <button
-                className="prv-footer-btn prv-simple-btn"
-                onClick={() => {
-                  if (!isLoggedIn) {
-                    onRequireLogin();
-                    return;
-                  }
-                  fileInputRef.current?.click();
-                }}
-                disabled={uploading}
-                title="上传文件"
-              >
-                {uploading ? (
-                  <div className="prv-btn-spinner-small"></div>
-                ) : (
-                  <>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="17 8 12 3 7 8"/>
-                      <line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>
-                    <span className="prv-simple-btn-label">文件</span>
-                  </>
-                )}
-              </button>
-            )}
-
-          </div>
-
-          {/* 中间：目标期刊 - 可展开的输入 */}
-          <div className="prv-venue-section">
-            <div className="prv-venue-toggle">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-              </svg>
-              <input
-                type="text"
-                className="prv-venue-input"
-                placeholder="投稿期刊（可选，让审稿更有针对性）"
-                value={targetVenue}
-                onChange={onVenueInput}
-                onFocus={() => !isLoggedIn && onRequireLogin()}
-              />
-            </div>
-          </div>
-          
-          {/* 右侧：字符计数 + 提交按钮 */}
-          <div className="prv-composer-footer-right">
-            {/* 显示字符计数：文本输入模式 或 文本类文件（提取了文字）模式下显示 */}
-            {/* useFileInput=true 表示直传AI的文件（仅PDF），此时隐藏字符计数 */}
-            {/* Word/TXT等文件会提取文本，useFileInput=false，显示字符计数 */}
-            {!useFileInput && (
-              <div className="prv-char-count">
-                <span className={manuscriptText.length > 45000 ? 'prv-char-warning' : ''}>
-                  {manuscriptText.length.toLocaleString()}
-                </span>
-                <span className="prv-char-separator">/</span>
-                <span className="prv-char-max">50,000</span>
-              </div>
-            )}
-            
-            <button 
-              className="prv-submit-btn" 
-              onClick={onSubmit}
-              disabled={submitting || !hasContent || draftLoading}
-            >
-              {submitting ? (
-                <>
-                  <div className="prvr-btn-spinner"></div>
-                  审稿中...
-                </>
-              ) : (
-                <>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="22" y1="2" x2="11" y2="13"/>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                  </svg>
-                  开始审稿
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 附件区域 - 支持拖拽和点击上传 */}
-      <div
-        className={`prv-attachments-zone ${attachmentDragging ? 'prv-attachments-dragging' : ''} ${attachments.length > 0 ? 'has-attachments' : ''}`}
-        onDragEnter={handleAttachmentDragEnter}
-        onDragOver={handleAttachmentDragOver}
-        onDragLeave={handleAttachmentDragLeave}
-        onDrop={handleAttachmentDrop}
-        onClick={(e) => {
-          // 如果点击的是删除按钮或正在上传的附件，不触发上传
-          if (e.target.closest('.prv-attachment-chip-remove')) return;
-          if (e.target.closest('.prv-attachment-chip.uploading')) return;
-          // 未登录时弹出登录弹窗
-          if (!isLoggedIn) {
-            onRequireLogin();
-            return;
-          }
-          // 计算非上传中的附件数量
-          const uploadedCount = attachments.filter(a => !a.uploading).length;
-          if (uploadedCount < 5) {
-            attachmentInputRef.current?.click();
-          }
-        }}
-      >
-        {/* 拖拽提示遮罩 */}
-        {attachmentDragging && (
-          <div className="prv-attachments-drag-overlay">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-            </svg>
-            <span>松开添加附件</span>
-          </div>
-        )}
-
-        <div className="prv-attachments-content">
-          {/* 左侧：图标和提示 */}
-          <div className="prv-attachments-left">
-            <div className="prv-attachments-add-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-              </svg>
-              <span>附件</span>
-              <span className="prv-attachments-count">{attachments.filter(a => !a.uploading).length}/5</span>
-            </div>
-            {attachments.length === 0 && (
-              <span className="prv-attachments-hint">拖拽或点击添加补充材料</span>
-            )}
-          </div>
-
-          {/* 右侧：附件列表 */}
-          {attachments.length > 0 && (
-            <div className="prv-attachments-list">
-              {attachments.map((attachment) => (
-                <div 
-                  key={attachment.id} 
-                  className={`prv-attachment-chip ${attachment.uploading ? 'uploading' : ''}`}
-                >
-                  <span className="prv-attachment-chip-icon">
-                    {attachment.uploading ? (
-                      <div className="prv-chip-spinner"></div>
-                    ) : (
-                      getFileIcon(attachment.file_ext)
-                    )}
-                  </span>
-                  <span className="prv-attachment-chip-name" title={attachment.file_name}>
-                    {attachment.file_name.length > 15
-                      ? attachment.file_name.slice(0, 12) + '...' + attachment.file_name.slice(-5)
-                      : attachment.file_name
-                    }
-                  </span>
-                  {attachment.uploading ? (
-                    <span className="prv-attachment-chip-status">上传中</span>
-                  ) : (
-                    <button
-                      className="prv-attachment-chip-remove"
-                      onClick={() => onDeleteAttachment(attachment.id)}
-                      title="删除"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="18" y1="6" x2="6" y2="18"/>
-                        <line x1="6" y1="6" x2="18" y2="18"/>
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* 隐藏的附件上传 input */}
-        <input
-          ref={attachmentInputRef}
-          type="file"
-          accept=".txt,.doc,.docx,.rtf,.odt,.pdf,.xml,.html,.htm,.xlsx,.xls,.csv,.epub,.py,.js,.ts,.go,.java,.c,.cpp,.h,.rs,.rb,.php,.sql,.json,.yaml,.yml,.md,.r"
-          onChange={onAttachmentUpload}
-          style={{ display: 'none' }}
-        />
-      </div>
-    </div>
-  );
-}
 
 // 历史任务区域（下半部分）
 function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange, onSearch, onViewDetail, onDelete }) {

@@ -265,6 +265,355 @@
   margin-bottom: 0;
 }
 
+/* ========== 左右分栏输入区域 ========== */
+.prv-input-split {
+  display: flex;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+}
+
+/* 有内容时，左侧占满整个区域 */
+.prv-input-split.has-content {
+  gap: 0;
+}
+
+.prv-input-split.has-content .prv-input-left {
+  flex: 1;
+  background: transparent;
+}
+
+/* 分割线 */
+.prv-input-divider {
+  width: 1px;
+  background: rgba(128, 128, 128, 0.2);
+  margin: 20px 0;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .prv-input-divider {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 左侧文本输入区域 */
+.prv-input-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border-radius: 16px;
+  background: transparent;
+  transition: all 0.2s;
+}
+
+.prv-input-left.prv-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.prv-input-left-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.prv-input-left-header svg {
+  color: var(--text-quaternary);
+}
+
+.prv-split-textarea {
+  flex: 1;
+  width: 100%;
+  min-height: 180px;
+  padding: 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.7;
+  resize: none;
+  font-family: inherit;
+  outline: none;
+}
+
+.prv-split-textarea::placeholder {
+  color: var(--text-quaternary);
+}
+
+/* 只读状态的 textarea */
+.prv-split-textarea.prv-readonly {
+  cursor: default;
+  color: var(--text-secondary);
+  background: rgba(128, 128, 128, 0.03);
+}
+
+/* 文件预览区域 - 保持固定高度 */
+.prv-file-preview-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(128, 128, 128, 0.12);
+  border-radius: 12px;
+}
+
+.prv-file-preview-area .prv-split-textarea {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* 文件直传占位区域（PDF等） */
+.prv-file-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  border: 1px solid rgba(128, 128, 128, 0.12);
+  border-radius: 12px;
+  background: rgba(128, 128, 128, 0.02);
+}
+
+.prv-file-placeholder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+.prv-file-placeholder-content svg {
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.prv-file-placeholder-content p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.prv-input-left-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-quaternary);
+}
+
+.prv-input-left-footer .prv-char-warning {
+  color: #f59e0b;
+}
+
+/* 左侧粘贴图例 - 直接作为背景 */
+.prv-paste-guide-img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: auto;
+  height: auto;
+  max-width: 90%;
+  max-height: 90%;
+  opacity: 1;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  user-select: none;
+}
+
+.prv-input-left:hover .prv-paste-guide-img {
+  opacity: 1;
+}
+
+/* 左侧有内容时隐藏图例 */
+.prv-split-textarea.has-content ~ .prv-paste-guide-img {
+  display: none;
+}
+
+.prv-input-left {
+  position: relative;
+}
+
+/* 字符计数 - 整个输入区域右下角 */
+/* 输入框底部栏 */
+.prv-input-bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 8px 12px;
+  flex-shrink: 0;
+}
+
+.prv-input-char-count {
+  font-size: 13px;
+  color: var(--text-quaternary);
+}
+
+.prv-input-char-count .prv-char-warning {
+  color: #f59e0b;
+}
+
+/* 底部栏中的提交按钮 */
+.prv-input-bottom-bar .prv-submit-btn {
+  padding: 8px 20px;
+  font-size: 14px;
+}
+
+/* 右侧文件上传区域 */
+/* 右侧文件上传区域 - 无边框，SVG自带边框 */
+.prv-input-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+}
+
+.prv-input-right:hover {
+  /* 移除背景高亮，改为通过SVG filter实现 */
+}
+
+[data-theme="dark"] .prv-input-right:hover {
+  /* 移除背景高亮，改为通过SVG filter实现 */
+}
+
+.prv-input-right-dragging {
+  /* 拖拽效果由SVG自身处理 */
+}
+
+.prv-input-right-uploaded {
+  cursor: default;
+}
+
+/* 右侧上传图例 - 直接作为内容 */
+.prv-upload-guide-img {
+  width: auto;
+  height: auto;
+  max-width: 95%;
+  max-height: 95%;
+  opacity: 1;
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+  user-select: none;
+}
+
+.prv-input-right:hover .prv-upload-guide-img {
+  /* 使用filter让SVG整体变亮/高亮 */
+  filter: brightness(0.7) sepia(1) hue-rotate(100deg) saturate(2);
+  transform: scale(1.02);
+}
+
+/* 文件拖拽中状态 */
+.prv-file-dragging {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: var(--text-accent);
+}
+
+.prv-file-dragging svg {
+  margin-bottom: 12px;
+  animation: prv-bounce 0.6s ease infinite;
+}
+
+@keyframes prv-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.prv-file-dragging p {
+  font-size: 15px;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* 文件已上传状态 */
+.prv-file-uploaded {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.prv-file-uploaded-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 12px;
+  background: rgba(16, 163, 127, 0.1);
+  border-radius: 12px;
+  color: var(--text-accent);
+}
+
+.prv-file-uploaded-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prv-file-uploaded-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  margin-bottom: 16px;
+  background: rgba(16, 163, 127, 0.1);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-accent);
+}
+
+.prv-file-uploaded-remove {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.prv-file-uploaded-remove:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* 暗色主题适配 */
+[data-theme="dark"] .prv-input-left {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* 暗色主题 - 右侧无边框 */
+[data-theme="dark"] .prv-input-right {
+  background: transparent;
+}
+
 .prv-draft-loading {
   display: flex;
   align-items: center;
@@ -278,10 +627,13 @@
 /* 输入框容器 - 毛玻璃效果 */
 .prv-composer-wrapper {
   position: relative;
+  display: flex;
+  flex-direction: column;
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
   border-radius: 24px;
   padding: 12px;
+  height: 300px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -404,10 +756,37 @@
 }
 
 .prv-upload-progress h4 {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-primary);
-  margin: 0 0 8px;
+  margin: 0 0 16px;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 上传进度条 */
+.prv-upload-progress-bar {
+  width: 280px;
+  height: 6px;
+  background: rgba(128, 128, 128, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.prv-upload-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10a37f, #1a7f64);
+  border-radius: 3px;
+  transition: width 0.2s ease-out;
+}
+
+.prv-upload-progress-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
 }
 
 .prv-upload-progress p {
@@ -450,9 +829,11 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  margin-bottom: 8px;
-  background: rgba(16, 163, 127, 0.1);
+  margin: 0 0 8px 0;
+  background: rgba(16, 163, 127, 0.08);
   border-radius: 10px;
+  border: 1px solid rgba(16, 163, 127, 0.15);
+  flex-shrink: 0;
 }
 
 .prv-file-bar-info {
