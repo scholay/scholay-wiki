@@ -21,6 +21,7 @@ const AIPaperList = ({
   scrollToPaperIndex,
   onScrollComplete,
   onPaperClick,
+  onCite, // 引用按钮回调
   // 维度分析相关 props
   selectedDimensions = [],
   analysisResults = {},
@@ -322,6 +323,23 @@ const AIPaperList = ({
                       </svg>
                       PDF
                     </a>
+                  )}
+                  
+                  {/* 引用按钮 */}
+                  {onCite && (
+                    <button
+                      className="search-result-paper-cite-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCite(paper);
+                      }}
+                      title="引用"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11M20 10v11M8 21V10M16 21V10"/>
+                      </svg>
+                      Cite
+                    </button>
                   )}
                 </div>
               </div>

@@ -18,6 +18,7 @@ import logger from '../utils/logger';
 import AIPaperList from './AIPaperList';
 import PaperCitationMarkdown from './PaperCitationMarkdown';
 import AIHistoryDropdown from './AIHistoryDropdown';
+import CiteModal from './CiteModal';
 import './QACard.css'; // 对话区域样式
 import { conversationAPI, subscriptionAPI, publicScholarAPI, analysisDimensionAPI } from '../services/api';
 import AnalysisCellText from './AnalysisCellText';
@@ -77,6 +78,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
   const [isLoadingSuggestedQuestions, setIsLoadingSuggestedQuestions] = useState(false); // 推荐问题加载状态
   const [manualTabSwitch, setManualTabSwitch] = useState(false); // 是否手动切换了 tab（点击引文）
+  const [citePaper, setCitePaper] = useState(null); // 引用弹窗的论文
   
   // 论文展示相关状态 - 由 AIPaperList 组件内部管理
 
@@ -1552,6 +1554,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                       // 可以在这里添加论文点击逻辑
                       setHighlightedPaperIndex(null);
                     }}
+                    onCite={(paper) => setCitePaper(paper)}
                     // 维度分析相关 props
                     selectedDimensions={selectedDimensions}
                     analysisResults={analysisResults}
@@ -2032,6 +2035,14 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
             }}
           />
         </Suspense>
+      )}
+      
+      {/* 引用弹窗 */}
+      {citePaper && (
+        <CiteModal
+          paper={citePaper}
+          onClose={() => setCitePaper(null)}
+        />
       )}
     </div>
   );
