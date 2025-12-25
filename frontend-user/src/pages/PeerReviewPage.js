@@ -28,6 +28,7 @@ import { parseReviewJSON, getRecommendationClass } from '../utils/peer-review/pa
 import { getFileIcon } from '../utils/peer-review/fileUtils';
 import { exportToWord, exportToPDF, exportToPPT } from '../utils/peer-review/exportUtils';
 import PeerReviewCreateSection from '../components/PeerReviewCreateSection';
+import ReviewStepsProgress from '../components/ReviewStepsProgress';
 import { trackAIPeerReview } from '../utils/usageTracker';
 import logger from '../utils/logger';
 import './styles/PeerReviewPage.css';
@@ -35,6 +36,22 @@ import './styles/ReviewReport.css';
 
 // 懒加载 AuthModal - 只在需要时加载
 const AuthModal = lazy(() => import('../components/AuthModal'));
+
+// 审稿人名称映射
+const REVIEWER_NAMES = {
+  1: { name: '审稿人 Alpha', short: 'α', label: 'Alpha' },
+  2: { name: '审稿人 Beta', short: 'β', label: 'Beta' },
+  3: { name: '审稿人 Gamma', short: 'γ', label: 'Gamma' },
+};
+
+// 获取审稿人信息的辅助函数
+const getReviewerInfo = (reviewerIndex) => {
+  return REVIEWER_NAMES[reviewerIndex] || { 
+    name: `审稿人 ${reviewerIndex}`, 
+    short: String(reviewerIndex), 
+    label: String(reviewerIndex) 
+  };
+};
 
 // 内容预览卡片组件（带弹窗）
 function PreviewCard({ preview, fullText }) {
@@ -193,8 +210,7 @@ export default function PeerReviewPage() {
   // 草稿状态（从后端加载）
   const [inputType, setInputType] = useState('text');
   const [manuscriptText, setManuscriptText] = useState('');
-  const [targetVenue, setTargetVenue] = useState('');
-  const [modelLevel, setModelLevel] = useState('mid'); // 默认进阶模式（智能审稿只支持进阶和高级）
+  // targetVenue 和 modelLevel 已废弃，后端使用固定配置
   const [fileName, setFileName] = useState('');
   const [useFileInput, setUseFileInput] = useState(false); // 是否直接使用文件（不提取文本，如PDF、Word等）
   const [attachments, setAttachments] = useState([]); // 附件列表（每个附件项自己管理 uploading 状态）
@@ -207,12 +223,17 @@ export default function PeerReviewPage() {
   // 任务详情状态
   const [taskDetail, setTaskDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  
+  // 步骤详情状态（三位审稿人的详细步骤）
+  const [taskSteps, setTaskSteps] = useState({});
+  const [stepsLoading, setStepsLoading] = useState(false);
 
   // 弹窗状态
   const [modal, setModal] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null });
 
   // 轮询和防抖相关
   const pollingRef = useRef(null);
+  const stepsPollingRef = useRef(null); // 步骤轮询
   const fileInputRef = useRef(null);
   const attachmentInputRef = useRef(null); // 附件上传
   const saveDraftTimeoutRef = useRef(null);
@@ -244,10 +265,7 @@ export default function PeerReviewPage() {
         // draftId 状态已移除，draft.id 仅用于内部逻辑
         setInputType(draft.input_type || 'text');
         setManuscriptText(draft.manuscript_text || '');
-        setTargetVenue(draft.target_venue || '');
-        // 智能审稿只支持进阶和高级模型，如果是 low 则转换为 mid
-        const level = draft.model_level || 'mid';
-        setModelLevel(level === 'low' ? 'mid' : level);
+        // targetVenue 和 modelLevel 已废弃，不再从草稿加载
         // 新结构：从 manuscript_file 获取文件信息
         if (draft.manuscript_file) {
           setFileName(draft.manuscript_file.file_name || '');
@@ -294,12 +312,10 @@ export default function PeerReviewPage() {
     debouncedSaveDraft({
       input_type: inputType,
       manuscript_text: manuscriptText,
-      target_venue: targetVenue,
-      model_level: modelLevel,
       file_name: fileName,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputType, manuscriptText, targetVenue, modelLevel, fileName, user, draftLoading]);
+  }, [inputType, manuscriptText, fileName, user, draftLoading]);
 
   // 初始加载：获取草稿和任务列表
   useEffect(() => {
@@ -321,6 +337,9 @@ export default function PeerReviewPage() {
     return () => {
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
+      }
+      if (stepsPollingRef.current) {
+        clearInterval(stepsPollingRef.current);
       }
     };
   }, []);
@@ -627,7 +646,8 @@ export default function PeerReviewPage() {
 
     setSubmitting(true);
     try {
-      const response = await peerReviewAPI.submitDraft(targetVenue, modelLevel);
+      // targetVenue 和 modelLevel 已废弃，后端使用固定配置
+      const response = await peerReviewAPI.submitDraft('', 'mid');
       if (response.data?.code === 0) {
         const taskData = response.data.data;
         const taskId = taskData.task_id;
@@ -641,8 +661,7 @@ export default function PeerReviewPage() {
           progress_stage: '等待处理',
           input_type: taskData.input_type || (fileName ? 'file' : 'text'),
           manuscript_text: taskData.manuscript_text || manuscriptText,
-          target_venue: taskData.target_venue || targetVenue,
-          model_level: taskData.model_level || modelLevel,
+          // target_venue 和 model_level 已废弃
           // 后端返回的 created_at 实际是 submitted_at（提交时间）
           submitted_at: taskData.created_at,
           created_at: taskData.created_at,
@@ -687,7 +706,6 @@ export default function PeerReviewPage() {
       if (response.data?.code === 0) {
         // 清空本地状态
         setManuscriptText('');
-        setTargetVenue('');
         setFileName('');
         setInputType('text');
         setUseFileInput(false);
@@ -754,9 +772,30 @@ export default function PeerReviewPage() {
     }
   };
 
-  // 启动轮询
+  // 获取任务步骤详情
+  const loadTaskSteps = async (taskId) => {
+    if (!taskId) return;
+    
+    setStepsLoading(true);
+    try {
+      const response = await peerReviewAPI.getTaskSteps(taskId);
+      if (response.data?.code === 0) {
+        // 后端返回完整的 TaskStepsResponse
+        const stepsResponse = response.data.data;
+        setTaskSteps(stepsResponse || {});
+      }
+    } catch (error) {
+      logger.error('获取任务步骤失败:', error);
+    } finally {
+      setStepsLoading(false);
+    }
+  };
+
+  // 启动轮询（同时轮询进度和步骤）
   const startPolling = (taskId) => {
     stopPolling();
+    
+    // 进度轮询
     pollingRef.current = setInterval(async () => {
       try {
         const response = await peerReviewAPI.getTaskProgress(taskId);
@@ -773,12 +812,30 @@ export default function PeerReviewPage() {
           if (progress.status === 'completed' || progress.status === 'failed') {
             stopPolling();
             loadTaskDetail(taskId, false);
+            loadTaskSteps(taskId); // 最后获取一次步骤详情
           }
         }
       } catch (error) {
         logger.error('轮询失败:', error);
       }
     }, 2000);
+    
+    // 步骤详情轮询（间隔稍长）
+    stepsPollingRef.current = setInterval(async () => {
+      try {
+        const response = await peerReviewAPI.getTaskSteps(taskId);
+        if (response.data?.code === 0) {
+          // 后端返回完整的 TaskStepsResponse
+          const stepsResponse = response.data.data;
+          setTaskSteps(stepsResponse || {});
+        }
+      } catch (error) {
+        logger.error('步骤轮询失败:', error);
+      }
+    }, 3000);
+    
+    // 立即获取一次步骤详情
+    loadTaskSteps(taskId);
   };
 
   // 停止轮询
@@ -786,6 +843,10 @@ export default function PeerReviewPage() {
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
+    }
+    if (stepsPollingRef.current) {
+      clearInterval(stepsPollingRef.current);
+      stepsPollingRef.current = null;
     }
   };
 
@@ -849,11 +910,7 @@ export default function PeerReviewPage() {
     setManuscriptText(e.target.value);
   };
 
-  // 处理目标期刊输入（未登录时弹出登录弹窗）
-  const handleVenueInput = (e) => {
-    if (!requireLogin('输入期刊')) return;
-    setTargetVenue(e.target.value);
-  };
+  // handleVenueInput 已废弃，投稿期刊功能已移除
 
   return (
     <div className="prv-page">
@@ -876,8 +933,6 @@ export default function PeerReviewPage() {
                 <PeerReviewCreateSection
                   manuscriptText={manuscriptText}
                   onTextInput={handleTextInput}
-                  targetVenue={targetVenue}
-                  onVenueInput={handleVenueInput}
                   fileName={fileName}
                   useFileInput={useFileInput}
                   attachments={attachments}
@@ -886,8 +941,6 @@ export default function PeerReviewPage() {
                   submitting={submitting}
                   isDragging={isDragging}
                   draftLoading={draftLoading}
-                  modelLevel={modelLevel}
-                  setModelLevel={setModelLevel}
                   fileInputRef={fileInputRef}
                   attachmentInputRef={attachmentInputRef}
                   onFileSelect={handleFileSelect}
@@ -928,6 +981,8 @@ export default function PeerReviewPage() {
             onBack={backToHome}
             onDelete={() => handleDeleteTask(selectedTaskId)}
             onStartTask={handleStartTask}
+            taskSteps={taskSteps}
+            stepsLoading={stepsLoading}
           />
         )}
 
@@ -966,12 +1021,6 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
   const totalPages = Math.ceil(totalTasks / pageSize);
   const [localSearch, setLocalSearch] = useState('');
   const searchTimeoutRef = useRef(null);
-
-  // 获取模型名称
-  const getModelName = (level) => {
-    const models = { low: '普通', mid: '进阶', high: '高级' };
-    return models[level] || level || '普通';
-  };
 
   // 获取推荐意见的显示文本和样式类
   const getRecommendationInfo = (recommendation) => {
@@ -1125,41 +1174,16 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
                     </span>
                   )}
 
-                  {/* 模型标签 - 使用与模型选择器一致的图标 */}
-                  <span className={`prv-task-meta-tag prv-meta-model prv-meta-model-${task.model_level || 'low'}`}>
-                    {/* 普通模型 - 闪电图标 */}
-                    {(!task.model_level || task.model_level === 'low') && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-                      </svg>
-                    )}
-                    {/* 进阶模型 - 同心圆图标 */}
-                    {task.model_level === 'mid' && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"/>
-                        <circle cx="12" cy="12" r="6"/>
-                        <circle cx="12" cy="12" r="2"/>
-                      </svg>
-                    )}
-                    {/* 高级模型 - 星星图标 */}
-                    {task.model_level === 'high' && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                      </svg>
-                    )}
-                    {getModelName(task.model_level)}
+                  {/* 模型标签已废弃，使用三模型审稿 */}
+                  <span className="prv-task-meta-tag prv-meta-model prv-meta-model-multi">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    三模型审稿
                   </span>
-
-                  {/* 目标期刊 */}
-                  {task.target_venue && (
-                    <span className="prv-task-meta-tag prv-meta-venue">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-                      </svg>
-                      <span className="prv-meta-label" title={task.target_venue}>{task.target_venue}</span>
-                    </span>
-                  )}
                 </div>
 
                 {/* 底部：时间和操作 */}
@@ -1221,10 +1245,10 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
 }
 
 // 任务详情视图 - 左右分栏布局
-function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
+function TaskDetailView({ task, loading, onBack, onDelete, onStartTask, taskSteps, stepsLoading }) {
   const [displayProgress, setDisplayProgress] = useState(0); // 显示的进度值（用于平滑动画）
   const [showReport, setShowReport] = useState(false); // 控制是否显示报告（等待进度条完成）
-  const [activeReviewTab, setActiveReviewTab] = useState('main'); // 当前选中的审稿Tab: 'main' | 'A' | 'B' | 'C'
+  const [activeReviewTab, setActiveReviewTab] = useState('main'); // 当前选中的审稿Tab: 'main' | 'Alpha' | 'Beta' | 'Gamma'
   const progressIntervalRef = useRef(null);
   
   // 解析最终审稿报告 JSON
@@ -1405,11 +1429,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
     });
   };
 
-  // 获取模型名称
-  const getModelName = (level) => {
-    const models = { low: '普通模型', mid: '进阶模型', high: '高级模型' };
-    return models[level] || level;
-  };
+  // getModelName 已废弃，使用三模型审稿
 
   return (
     <div className="prvr-page">
@@ -1501,28 +1521,19 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
             )}
           </div>
           
-          {/* 信息网格 */}
+          {/* 信息网格 - 目标期刊和模型选择已废弃 */}
           <div className="prvr-info-grid">
-            {task.target_venue && (
-              <div className="prvr-info-cell">
-                <span className="prvr-info-icon">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-                  </svg>
-                </span>
-                <span className="prvr-info-text">{task.target_venue}</span>
-              </div>
-            )}
             <div className="prvr-info-cell">
               <span className="prvr-info-icon">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="3"/>
-                  <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
               </span>
               <span className="prvr-info-text">
-                <span className="prvr-info-label">AI 模型:</span> {getModelName(task.model_level)}
+                <span className="prvr-info-label">审稿模式:</span> 三模型并行审稿
               </span>
             </div>
           </div>
@@ -1680,19 +1691,19 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                 {task.reviews && task.reviews.length > 0 && (
                   <div className="prvr-reviewer-tabs">
                     {task.reviews.map((review, idx) => {
-                      const reviewerLabel = ['A', 'B', 'C'][review.reviewer_index - 1] || review.reviewer_index;
-                      const isActive = activeReviewTab === reviewerLabel;
+                      const reviewerInfo = getReviewerInfo(review.reviewer_index);
+                      const isActive = activeReviewTab === reviewerInfo.label;
                       const isCompleted = review.status === 'completed';
                       return (
                         <button
                           key={idx}
                           className={`prvr-reviewer-tab ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : 'pending'}`}
-                          onClick={() => isCompleted && setActiveReviewTab(reviewerLabel)}
+                          onClick={() => isCompleted && setActiveReviewTab(reviewerInfo.label)}
                           disabled={!isCompleted}
-                          title={isCompleted ? `查看审稿人 ${reviewerLabel} 的意见` : '审稿中...'}
+                          title={isCompleted ? `查看${reviewerInfo.name}的意见` : '审稿中...'}
                         >
-                          <span className="prvr-tab-avatar">{reviewerLabel}</span>
-                          <span className="prvr-tab-label">审稿人 {reviewerLabel}</span>
+                          <span className="prvr-tab-avatar">{reviewerInfo.short}</span>
+                          <span className="prvr-tab-label">{reviewerInfo.name}</span>
                           {review.recommendation && (
                             <span className={`prvr-tab-badge ${getRecommendationClass(review.recommendation)}`}>
                               {review.recommendation}
@@ -1755,92 +1766,10 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
           </div>
         </div>
 
-        {/* 处理中状态 - 更友好的展示（包括等待进度条完成的过渡期） */}
+        {/* 处理中状态 - 详细步骤进度展示 */}
         {(isProcessing || (isCompleted && !showReport)) && (
           <div className="prvr-processing-container">
-            {/* 进度卡片 */}
-            <div className="prvr-processing-card">
-              <div className="prvr-processing-header">
-                <div className="prvr-processing-animation">
-                  <div className="prvr-processing-ring"></div>
-                  <div className="prvr-processing-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                      <polyline points="14 2 14 8 20 8"/>
-                    </svg>
-                  </div>
-                </div>
-                <div className="prvr-processing-info">
-                  <h3>正在生成审稿报告</h3>
-                  <p className="prvr-processing-stage">{task.progress_stage || 'AI 正在分析您的论文...'}</p>
-                </div>
-              </div>
-              
-              <div className="prvr-progress-section">
-                <div className="prvr-progress-bar">
-                  <div className="prvr-progress-fill" style={{ width: `${displayProgress}%` }}></div>
-                  <div className="prvr-progress-glow" style={{ left: `${displayProgress}%` }}></div>
-                </div>
-                <div className="prvr-progress-meta">
-                  <span className="prvr-progress-percent">{Math.round(displayProgress)}%</span>
-                  <span className="prvr-progress-time">预计 2-5 分钟</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* 处理步骤提示 - 匹配后端阶段 */}
-            <div className="prvr-steps-hint">
-              {/* 解析稿件 5%-25% */}
-              <div className={`prvr-step ${displayProgress >= 5 ? 'active' : ''} ${displayProgress >= 25 ? 'done' : ''}`}>
-                <div className="prvr-step-icon">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                  </svg>
-                </div>
-                <span>解析稿件</span>
-              </div>
-              <div className="prvr-step-line">
-                <div className="prvr-step-line-fill" style={{ width: displayProgress >= 25 ? '100%' : displayProgress >= 5 ? `${(displayProgress - 5) * 5}%` : '0%' }}></div>
-              </div>
-              {/* 检索文献 25%-50% */}
-              <div className={`prvr-step ${displayProgress >= 25 ? 'active' : ''} ${displayProgress >= 50 ? 'done' : ''}`}>
-                <div className="prvr-step-icon">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="11" cy="11" r="8"/>
-                    <path d="M21 21l-4.35-4.35"/>
-                  </svg>
-                </div>
-                <span>检索文献</span>
-              </div>
-              <div className="prvr-step-line">
-                <div className="prvr-step-line-fill" style={{ width: displayProgress >= 50 ? '100%' : displayProgress >= 25 ? `${(displayProgress - 25) * 4}%` : '0%' }}></div>
-              </div>
-              {/* 三审并行 50%-90% */}
-              <div className={`prvr-step ${displayProgress >= 50 ? 'active' : ''} ${displayProgress >= 90 ? 'done' : ''}`}>
-                <div className="prvr-step-icon">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                  </svg>
-                </div>
-                <span>三审并行</span>
-              </div>
-              <div className="prvr-step-line">
-                <div className="prvr-step-line-fill" style={{ width: displayProgress >= 90 ? '100%' : displayProgress >= 50 ? `${(displayProgress - 50) * 2.5}%` : '0%' }}></div>
-              </div>
-              {/* 汇总完成 90%-100% */}
-              <div className={`prvr-step ${displayProgress >= 90 ? 'active' : ''} ${displayProgress >= 100 ? 'done' : ''}`}>
-                <div className="prvr-step-icon">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                </div>
-                <span>汇总完成</span>
-              </div>
-            </div>
+            <ReviewStepsProgress stepsData={taskSteps} loading={stepsLoading} />
           </div>
         )}
 
@@ -1908,7 +1837,9 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                   </h3>
                   <div className="prvr-section-content">
                     <div className="prvr-reviewers-grid">
-                      {task.reviews.map((review, idx) => (
+                      {task.reviews.map((review, idx) => {
+                        const reviewerInfo = getReviewerInfo(review.reviewer_index);
+                        return (
                         <div 
                           key={idx} 
                           className={`prvr-reviewer-card ${review.status} ${(review.status === 'completed' || review.review_content) ? 'clickable' : ''}`}
@@ -1917,10 +1848,10 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                           }}
                         >
                           <div className="prvr-reviewer-avatar">
-                            {['A', 'B', 'C'][review.reviewer_index - 1] || review.reviewer_index}
+                            {reviewerInfo.short}
                           </div>
                           <div className="prvr-reviewer-info">
-                            <span className="prvr-reviewer-name">审稿人 {['A', 'B', 'C'][review.reviewer_index - 1] || review.reviewer_index}</span>
+                            <span className="prvr-reviewer-name">{reviewerInfo.name}</span>
                             <span className={`prvr-reviewer-status ${review.status}`}>
                               {review.status === 'completed' ? '已完成' : review.status === 'processing' ? '审稿中' : review.status === 'failed' ? '失败' : '等待中'}
                             </span>
@@ -1936,7 +1867,8 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
                             </svg>
                           )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </section>
@@ -2162,19 +2094,20 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask }) {
               {/* 单个审稿人的内容 - 当选择了某个审稿人Tab时显示 */}
               {activeReviewTab !== 'main' && task.reviews && (() => {
                 const selectedReview = task.reviews.find(r => 
-                  ['A', 'B', 'C'][r.reviewer_index - 1] === activeReviewTab
+                  getReviewerInfo(r.reviewer_index).label === activeReviewTab
                 );
                 if (!selectedReview) return null;
                 
                 const reviewerReport = parseReviewerReport(selectedReview.review_content);
+                const selectedReviewerInfo = getReviewerInfo(selectedReview.reviewer_index);
                 
                 return (
                   <div className="prvr-report-content prvr-reviewer-report">
                     {/* 审稿人标题 */}
                     <div className="prvr-reviewer-header">
                       <div className="prvr-reviewer-title">
-                        <span className="prvr-reviewer-avatar-large">{activeReviewTab}</span>
-                        <h3>审稿人 {activeReviewTab} 的审稿意见</h3>
+                        <span className="prvr-reviewer-avatar-large">{selectedReviewerInfo.short}</span>
+                        <h3>{selectedReviewerInfo.name}的审稿意见</h3>
                             </div>
                       {selectedReview.recommendation && (
                         <div className={`prvr-verdict-badge ${getRecommendationClass(selectedReview.recommendation)}`}>

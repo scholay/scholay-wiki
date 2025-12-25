@@ -596,6 +596,10 @@ export const peerReviewAPI = {
   getTaskProgress: (taskId) =>
     api.get(`/user/peer-review/tasks/${taskId}/progress`),
 
+  // 获取任务步骤详情（三位审稿人的详细步骤）
+  getTaskSteps: (taskId) =>
+    api.get(`/user/peer-review/tasks/${taskId}/steps`),
+
   // 监听任务进度（SSE）
   watchTaskProgress: (taskId) => {
     const token = localStorage.getItem('user_token');

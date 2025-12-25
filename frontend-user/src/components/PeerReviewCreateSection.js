@@ -4,18 +4,15 @@
  */
 
 import React, { useState } from 'react';
-import ModelSelector from './ModelSelector';
 import { getFileIcon } from '../utils/peer-review/fileUtils';
 import pasteTextGuide from '../assets/images/paste-text-guide.svg';
 import uploadFileGuide from '../assets/images/upload-file-guide.svg';
 
 export default function PeerReviewCreateSection({
   manuscriptText, onTextInput,
-  targetVenue, onVenueInput,
   fileName, useFileInput,
   attachments,
   uploading, uploadProgress, submitting, isDragging, draftLoading,
-  modelLevel, setModelLevel,
   fileInputRef, attachmentInputRef,
   onFileSelect, onAttachmentUpload, onDeleteAttachment,
   onDragEnter, onDragOver, onDragLeave, onDrop,
@@ -70,17 +67,6 @@ export default function PeerReviewCreateSection({
           </h2>
           <p className="prv-section-desc">上传论文，获取专业审稿意见</p>
         </div>
-        <div className="prv-header-right">
-          {hasContent && (
-            <button className="prv-clear-btn" onClick={onClearDraft}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-              清空
-            </button>
-          )}
-        </div>
       </div>
 
       {/* 输入区域 - 左右分栏 */}
@@ -100,6 +86,7 @@ export default function PeerReviewCreateSection({
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onRemoveFile={onRemoveFile}
+        onClearDraft={onClearDraft}
         hasContent={hasContent}
         submitting={submitting}
         onSubmit={onSubmit}
@@ -107,15 +94,7 @@ export default function PeerReviewCreateSection({
         onRequireLogin={onRequireLogin}
       />
 
-      {/* 底部工具栏 */}
-      <ComposerFooter
-        modelLevel={modelLevel}
-        setModelLevel={setModelLevel}
-        targetVenue={targetVenue}
-        onVenueInput={onVenueInput}
-        isLoggedIn={isLoggedIn}
-        onRequireLogin={onRequireLogin}
-      />
+      {/* 底部工具栏已移除（模型选择和投稿期刊） */}
 
       {/* 附件区域 */}
       <AttachmentsZone
@@ -142,9 +121,32 @@ function InputSplitArea({
   uploading, uploadProgress, isDragging, draftLoading,
   fileInputRef, onFileSelect,
   onDragEnter, onDragOver, onDragLeave, onDrop,
-  onRemoveFile, hasContent, submitting, onSubmit,
+  onRemoveFile, onClearDraft, hasContent, submitting, onSubmit,
   isLoggedIn, onRequireLogin
 }) {
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const textareaRef = React.useRef(null);
+
+  // 切换到文件上传模式
+  const handleSwitchToFile = () => {
+    if (!isLoggedIn) {
+      onRequireLogin();
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  // 切换到文本输入模式
+  const handleSwitchToText = () => {
+    // 先删除文件
+    onRemoveFile();
+    // 然后聚焦到输入框
+    setIsInputFocused(true);
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 100);
+  };
+  
   return (
     <div 
       className={`prv-composer-wrapper ${isDragging ? 'prv-dragging' : ''}`}
@@ -206,7 +208,7 @@ function InputSplitArea({
             </div>
           )}
 
-          <div className={`prv-input-split ${manuscriptText.trim().length > 0 || fileName ? 'has-content' : ''}`}>
+          <div className={`prv-input-split ${manuscriptText.trim().length > 0 || fileName || isInputFocused ? 'has-content' : ''}`}>
             {/* 有文件时 */}
             {fileName ? (
               useFileInput ? (
@@ -235,20 +237,24 @@ function InputSplitArea({
               <>
                 {/* 左侧：文本输入区域 */}
                 <LeftTextArea
+                  ref={textareaRef}
                   manuscriptText={manuscriptText}
                   onTextInput={onTextInput}
                   fileName={fileName}
                   isLoggedIn={isLoggedIn}
                   onRequireLogin={onRequireLogin}
+                  isFocused={isInputFocused}
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => setIsInputFocused(false)}
                 />
 
-                {/* 分割线 - 只在空状态显示 */}
-                {!manuscriptText.trim() && (
+                {/* 分割线 - 只在空状态且未聚焦时显示 */}
+                {!manuscriptText.trim() && !isInputFocused && (
                   <div className="prv-input-divider"></div>
                 )}
 
-                {/* 右侧：文件上传区域 - 只在空状态显示 */}
-                {!manuscriptText.trim() && (
+                {/* 右侧：文件上传区域 - 只在空状态且未聚焦时显示 */}
+                {!manuscriptText.trim() && !isInputFocused && (
                   <RightFileArea
                     fileName={fileName}
                     useFileInput={useFileInput}
@@ -263,38 +269,80 @@ function InputSplitArea({
               </>
             )}
           </div>
-          {/* 底部栏：字符计数 + 提交按钮 */}
+          {/* 底部栏：切换按钮 + 字符计数 + 提交按钮 */}
           <div className="prv-input-bottom-bar">
-            {/* 字符计数 - 只在非直传模式且有输入内容时显示 */}
-            {!useFileInput && manuscriptText.length > 0 && (
-              <div className="prv-input-char-count">
-                <span className={manuscriptText.length > 45000 ? 'prv-char-warning' : ''}>
-                  {manuscriptText.length.toLocaleString()}
-                </span>
-                <span> / 50,000</span>
-              </div>
-            )}
-            {/* 提交按钮 */}
-            <button 
-              className="prv-submit-btn" 
-              onClick={onSubmit}
-              disabled={submitting || !hasContent || draftLoading}
-            >
-              {submitting ? (
-                <>
-                  <div className="prvr-btn-spinner"></div>
-                  审稿中...
-                </>
-              ) : (
-                <>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="22" y1="2" x2="11" y2="13"/>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                  </svg>
-                  开始审稿
-                </>
+            {/* 左侧：切换模式按钮 */}
+            <div className="prv-input-bottom-left">
+              {/* 有文本内容时显示"改用文件上传" */}
+              {manuscriptText.trim().length > 0 && !fileName && (
+                <button 
+                  className="prv-switch-mode-btn"
+                  onClick={handleSwitchToFile}
+                  type="button"
+                >
+                  改用文件上传
+                </button>
               )}
-            </button>
+              {/* 有文件时显示"改用文本输入" */}
+              {fileName && (
+                <button 
+                  className="prv-switch-mode-btn"
+                  onClick={handleSwitchToText}
+                  type="button"
+                >
+                  改用文本输入
+                </button>
+              )}
+            </div>
+            
+            {/* 右侧：清空按钮 + 字符计数 + 提交按钮 */}
+            <div className="prv-input-bottom-right">
+              {/* 清空按钮 - 只在文本输入模式且有内容时显示 */}
+              {!fileName && manuscriptText.trim().length > 0 && (
+                <button 
+                  className="prv-clear-text-btn"
+                  onClick={onClearDraft}
+                  type="button"
+                  title="清空文本"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                  清空
+                </button>
+              )}
+              {/* 字符计数 - 只在非直传模式且有输入内容时显示 */}
+              {!useFileInput && manuscriptText.length > 0 && (
+                <div className="prv-input-char-count">
+                  <span className={manuscriptText.length > 45000 ? 'prv-char-warning' : ''}>
+                    {manuscriptText.length.toLocaleString()}
+                  </span>
+                  <span> / 50,000</span>
+                </div>
+              )}
+              {/* 提交按钮 */}
+              <button 
+                className="prv-submit-btn" 
+                onClick={onSubmit}
+                disabled={submitting || !hasContent || draftLoading}
+              >
+                {submitting ? (
+                  <>
+                    <div className="prvr-btn-spinner"></div>
+                    审稿中...
+                  </>
+                ) : (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="22" y1="2" x2="11" y2="13"/>
+                      <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                    开始审稿
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </>
       )}
@@ -312,30 +360,49 @@ function InputSplitArea({
 }
 
 // 左侧文本输入区域
-function LeftTextArea({ manuscriptText, onTextInput, fileName, isLoggedIn, onRequireLogin }) {
+const LeftTextArea = React.forwardRef(({ manuscriptText, onTextInput, fileName, isLoggedIn, onRequireLogin, isFocused, onFocus, onBlur }, ref) => {
   const isDisabled = !!fileName;
   const hasText = manuscriptText.trim().length > 0;
   
+  const handleFocus = () => {
+    if (!isLoggedIn) {
+      onRequireLogin();
+      return;
+    }
+    onFocus?.();
+  };
+
+  const handleBlur = () => {
+    onBlur?.();
+  };
+
+  // 聚焦时显示提示文本作为 placeholder
+  const placeholderText = isFocused 
+    ? '请在此处粘贴文章中的全部信息，图表、数据集等材料可通过下方「附件」上传以提高审稿准确性；姓名等敏感信息可省略'
+    : '';
+  
   return (
     <div className={`prv-input-left ${isDisabled ? 'prv-disabled' : ''}`}>
-      {/* 空状态图例 - 直接使用SVG */}
-      {!hasText && !isDisabled && (
+      {/* 空状态图例 - 只在未聚焦且无内容时显示 */}
+      {!hasText && !isDisabled && !isFocused && (
         <img src={pasteTextGuide} alt="" className="prv-paste-guide-img" />
       )}
       
       {/* 文本输入框 */}
       <textarea
-        className={`prv-split-textarea ${hasText ? 'has-content' : ''}`}
-        placeholder=""
+        ref={ref}
+        className={`prv-split-textarea ${hasText ? 'has-content' : ''} ${isFocused ? 'is-focused' : ''}`}
+        placeholder={placeholderText}
         value={manuscriptText}
         onChange={(e) => !isDisabled && onTextInput(e)}
-        onFocus={() => !isLoggedIn && onRequireLogin()}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         readOnly={isDisabled}
         maxLength={50000}
       />
     </div>
   );
-}
+});
 
 // 右侧文件上传区域
 function RightFileArea({
@@ -403,44 +470,7 @@ function RightFileArea({
   );
 }
 
-// 底部工具栏
-function ComposerFooter({
-  modelLevel, setModelLevel,
-  targetVenue, onVenueInput,
-  isLoggedIn, onRequireLogin
-}) {
-  return (
-    <div className="prv-composer-footer">
-      {/* 左侧：模型选择 */}
-      <div className="prv-composer-footer-left">
-        <ModelSelector
-          value={modelLevel}
-          onChange={setModelLevel}
-          compact={true}
-          allowedModels={['mid', 'high']}
-        />
-      </div>
-
-      {/* 右侧：目标期刊 */}
-      <div className="prv-venue-section">
-        <div className="prv-venue-toggle">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-          </svg>
-          <input
-            type="text"
-            className="prv-venue-input"
-            placeholder="投稿期刊（可选）"
-            value={targetVenue}
-            onChange={onVenueInput}
-            onFocus={() => !isLoggedIn && onRequireLogin()}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
+// 底部工具栏已移除（模型选择和投稿期刊功能已废弃）
 
 // 附件区域
 function AttachmentsZone({
@@ -534,7 +564,7 @@ function AttachmentsZone({
       <input
         ref={attachmentInputRef}
         type="file"
-        accept=".txt,.doc,.docx,.rtf,.odt,.pdf,.xml,.html,.htm,.xlsx,.xls,.csv,.epub,.py,.js,.ts,.go,.java,.c,.cpp,.h,.rs,.rb,.php,.sql,.json,.yaml,.yml,.md,.r"
+        accept=".txt,.doc,.docx,.rtf,.odt,.pdf,.xml,.html,.htm,.xlsx,.xls,.csv,.epub,.py,.js,.ts,.go,.java,.c,.cpp,.h,.rs,.rb,.php,.sql,.json,.yaml,.yml,.md,.r,.jpg,.jpeg,.png,.gif,.webp"
         onChange={onAttachmentUpload}
         style={{ display: 'none' }}
       />

@@ -384,6 +384,100 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 	return nil, fmt.Errorf("all %d AI retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
 }
 
+// ChatCompletionWithModel sends a chat completion request with a specific model (non-streaming)
+// This method directly uses the provided baseURL, apiKey and modelName without account selection
+func (s *Service) ChatCompletionWithModel(messages []ChatMessage, tools []Tool, toolChoice string, baseURL, apiKey, modelName string) (*ChatCompletionResponse, error) {
+	fmt.Printf("[DEBUG] ChatCompletionWithModel called, messages: %d, tools: %d, model: %s\n", len(messages), len(tools), modelName)
+
+	// 根据模型类型转换消息格式（Claude vs OpenAI）
+	convertedMessages := ConvertMessagesForModel(messages, modelName)
+
+	// Prepare request
+	reqBody := ChatCompletionRequest{
+		Model:       modelName,
+		Messages:    convertedMessages,
+		Tools:       tools,
+		ToolChoice:  toolChoice,
+		Stream:      false,
+		Temperature: 0.7,
+		MaxTokens:   8192,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Debug: Print tool request details
+	fmt.Printf("[DEBUG] Tool call request body (first 500 chars): %s\n", string(jsonData[:min(500, len(jsonData))]))
+	if len(tools) > 0 {
+		fmt.Printf("[DEBUG] First tool: name=%s, description=%s\n", tools[0].Function.Name, tools[0].Function.Description)
+	}
+
+	// Create HTTP request
+	url := strings.TrimSuffix(baseURL, "/") + "/v1/chat/completions"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	// Send request using long-running HTTP client
+	client := GetLongRunningHTTPClient()
+
+	fmt.Printf("[DEBUG] Sending tool call request to: %s, model: %s\n", url, modelName)
+
+	// Execute with circuit breaker protection
+	resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Printf("[ERROR] Tool call request failed: %v\n", err)
+			return nil, fmt.Errorf("failed to send request: %w", err)
+		}
+		defer resp.Body.Close()
+		fmt.Printf("[DEBUG] Tool call response status: %d\n", resp.StatusCode)
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			fmt.Printf("[ERROR] Tool call API error, status %d: %s\n", resp.StatusCode, string(body))
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		}
+
+		// Parse response
+		var result ChatCompletionResponse
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			fmt.Printf("[ERROR] Failed to decode tool call response: %v\n", err)
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		fmt.Printf("[DEBUG] Tool call completed successfully, got %d choices\n", len(result.Choices))
+		if len(result.Choices) > 0 {
+			fmt.Printf("[DEBUG] First choice has %d tool calls\n", len(result.Choices[0].Message.ToolCalls))
+			if result.Choices[0].Message.Content != "" {
+				contentPreview := result.Choices[0].Message.Content
+				if len(contentPreview) > 200 {
+					contentPreview = contentPreview[:200]
+				}
+				fmt.Printf("[DEBUG] AI response content (no tool call): %s\n", contentPreview)
+			}
+		}
+
+		return &result, nil
+	})
+
+	if err != nil {
+		// Check if circuit breaker is open
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			return nil, fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+		}
+		return nil, err
+	}
+
+	return resultInterface.(*ChatCompletionResponse), nil
+}
+
 // StreamChatCompletionWithLevel sends a streaming chat completion request with a specific model level
 // Includes automatic retry logic with account switching on 403/429 errors
 func (s *Service) StreamChatCompletionWithLevel(messages []ChatMessage, writer io.Writer, modelLevel thirdparty.ModelLevel) error {

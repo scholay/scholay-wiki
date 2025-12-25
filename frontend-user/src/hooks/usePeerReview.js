@@ -40,6 +40,10 @@ export function usePeerReview({ pageSize = 10, pollingInterval = 5000 } = {}) {
   const [taskDetail, setTaskDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   
+  // 任务步骤详情（三位审稿人）
+  const [taskSteps, setTaskSteps] = useState([]);
+  const [stepsLoading, setStepsLoading] = useState(false);
+  
   // 提交状态
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
@@ -92,6 +96,29 @@ export function usePeerReview({ pageSize = 10, pollingInterval = 5000 } = {}) {
       return null;
     } finally {
       setDetailLoading(false);
+    }
+  }, []);
+  
+  /**
+   * 获取任务步骤详情（三位审稿人的详细步骤）
+   */
+  const fetchTaskSteps = useCallback(async (taskId) => {
+    if (!taskId) return null;
+    
+    setStepsLoading(true);
+    try {
+      const response = await peerReviewAPI.getTaskSteps(taskId);
+      
+      if (response.data.code === 0 && response.data.data) {
+        setTaskSteps(response.data.data);
+        return response.data.data;
+      }
+      return null;
+    } catch (error) {
+      logger.error('[usePeerReview] Failed to fetch task steps:', error);
+      return null;
+    } finally {
+      setStepsLoading(false);
     }
   }, []);
   
@@ -182,8 +209,13 @@ export function usePeerReview({ pageSize = 10, pollingInterval = 5000 } = {}) {
   
   /**
    * 开始轮询任务状态
+   * @param {number} taskId - 任务ID
+   * @param {Object} options - 轮询选项
+   * @param {boolean} options.includeSteps - 是否同时轮询步骤详情
    */
-  const startPolling = useCallback((taskId) => {
+  const startPolling = useCallback((taskId, options = {}) => {
+    const { includeSteps = false } = options;
+    
     // 停止之前的轮询
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -196,8 +228,17 @@ export function usePeerReview({ pageSize = 10, pollingInterval = 5000 } = {}) {
       
       const task = await fetchTaskDetail(taskId);
       
+      // 如果需要同时轮询步骤详情
+      if (includeSteps && task && (task.status === 'processing' || task.status === 'pending')) {
+        await fetchTaskSteps(taskId);
+      }
+      
       // 如果任务完成或失败，停止轮询
       if (task && (task.status === 'completed' || task.status === 'failed')) {
+        // 最后获取一次步骤详情
+        if (includeSteps) {
+          await fetchTaskSteps(taskId);
+        }
         stopPolling();
       }
     };
@@ -206,7 +247,7 @@ export function usePeerReview({ pageSize = 10, pollingInterval = 5000 } = {}) {
     
     // 立即执行一次
     poll();
-  }, [fetchTaskDetail, pollingInterval]);
+  }, [fetchTaskDetail, fetchTaskSteps, pollingInterval]);
   
   /**
    * 停止轮询
@@ -236,6 +277,8 @@ export function usePeerReview({ pageSize = 10, pollingInterval = 5000 } = {}) {
     loading,
     taskDetail,
     detailLoading,
+    taskSteps,
+    stepsLoading,
     submitting,
     submitError,
     
@@ -246,12 +289,14 @@ export function usePeerReview({ pageSize = 10, pollingInterval = 5000 } = {}) {
     // 方法
     fetchTasks,
     fetchTaskDetail,
+    fetchTaskSteps,
     createTask,
     deleteTask,
     startPolling,
     stopPolling,
     setCurrentPage,
     setTaskDetail,
+    setTaskSteps,
     
     // 常量
     STATUS_MAP

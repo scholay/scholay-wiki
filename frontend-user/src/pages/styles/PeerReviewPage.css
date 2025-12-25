@@ -271,15 +271,17 @@
   gap: 0;
   flex: 1;
   min-height: 0;
+  /* 不使用过渡动画，避免宽度变化时的滑动效果 */
 }
 
-/* 有内容时，左侧占满整个区域 */
+/* 有内容/聚焦时，左侧占满整个区域 */
 .prv-input-split.has-content {
   gap: 0;
 }
 
 .prv-input-split.has-content .prv-input-left {
-  flex: 1;
+  flex: 1 1 100%;
+  width: 100%;
   background: transparent;
 }
 
@@ -289,6 +291,17 @@
   background: rgba(128, 128, 128, 0.2);
   margin: 20px 0;
   flex-shrink: 0;
+  animation: prvFadeIn 0.3s ease-out;
+}
+
+/* 淡入动画 */
+@keyframes prvFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 [data-theme="dark"] .prv-input-divider {
@@ -297,13 +310,15 @@
 
 /* 左侧文本输入区域 */
 .prv-input-left {
-  flex: 1;
+  flex: 0 0 50%;
+  width: 50%;
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  padding: 0;
   border-radius: 16px;
   background: transparent;
-  transition: all 0.2s;
+  transition: background 0.2s;
+  box-sizing: border-box;
 }
 
 .prv-input-left.prv-disabled {
@@ -426,6 +441,7 @@
   transition: opacity 0.2s;
   pointer-events: none;
   user-select: none;
+  animation: prvFadeIn 0.3s ease-out;
 }
 
 .prv-input-left:hover .prv-paste-guide-img {
@@ -441,14 +457,75 @@
   position: relative;
 }
 
+/* 聚焦时 textarea 的 placeholder 样式 - hint 灰色文本 */
+.prv-split-textarea.is-focused::placeholder {
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
 /* 字符计数 - 整个输入区域右下角 */
 /* 输入框底部栏 */
 .prv-input-bottom-bar {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 16px;
   padding: 8px 12px;
+  flex-shrink: 0;
+}
+
+.prv-input-bottom-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prv-input-bottom-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* 切换模式按钮 */
+.prv-switch-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.2s;
+  text-decoration: underline;
+}
+
+.prv-switch-mode-btn:hover {
+  color: var(--text-accent);
+}
+
+/* 清空文本按钮 */
+.prv-clear-text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.prv-clear-text-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.prv-clear-text-btn svg {
   flex-shrink: 0;
 }
 
@@ -470,7 +547,8 @@
 /* 右侧文件上传区域 */
 /* 右侧文件上传区域 - 无边框，SVG自带边框 */
 .prv-input-right {
-  flex: 1;
+  flex: 0 0 50%;
+  width: 50%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -479,8 +557,10 @@
   border: none;
   border-radius: 16px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s;
   background: transparent;
+  box-sizing: border-box;
+  animation: prvFadeIn 0.3s ease-out;
 }
 
 .prv-input-right:hover {
@@ -633,8 +713,10 @@
   -webkit-backdrop-filter: blur(40px);
   border-radius: 24px;
   padding: 12px;
-  height: 300px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  height: 360px;
+  transition: background 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 [data-theme="dark"] .prv-composer-wrapper {

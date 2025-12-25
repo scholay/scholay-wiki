@@ -18,6 +18,22 @@ const BRAND = {
   website: 'scholar.ai',
 };
 
+// 审稿人名称映射
+const REVIEWER_NAMES = {
+  1: { name: '审稿人 Alpha', short: 'α', label: 'Alpha' },
+  2: { name: '审稿人 Beta', short: 'β', label: 'Beta' },
+  3: { name: '审稿人 Gamma', short: 'γ', label: 'Gamma' },
+};
+
+// 获取审稿人信息
+const getReviewerInfo = (reviewerIndex) => {
+  return REVIEWER_NAMES[reviewerIndex] || { 
+    name: `审稿人 ${reviewerIndex}`, 
+    short: String(reviewerIndex), 
+    label: String(reviewerIndex) 
+  };
+};
+
 // 获取推荐意见的中文名称
 const getRecommendationText = (recommendation) => {
   if (!recommendation) return '待定';
@@ -304,7 +320,7 @@ export const exportToWord = async (task, parsedReport) => {
     task.reviews.forEach((review, reviewIdx) => {
       if (review.status !== 'completed') return;
       
-      const reviewerLabel = ['A', 'B', 'C'][review.reviewer_index - 1] || review.reviewer_index;
+      const reviewerInfo = getReviewerInfo(review.reviewer_index);
       const reviewerReport = parseReviewerReport(review.review_content);
       
       // 审稿人标题
@@ -312,7 +328,7 @@ export const exportToWord = async (task, parsedReport) => {
       children.push(
         new Paragraph({
           children: [
-            new TextRun({ text: `审稿人 ${reviewerLabel}`, bold: true, size: 28 }),
+            new TextRun({ text: reviewerInfo.name, bold: true, size: 28 }),
             review.recommendation ? new TextRun({ text: `  [${review.recommendation}]`, color: '10a37f' }) : null,
           ].filter(Boolean),
           spacing: { after: 200 },
@@ -688,15 +704,15 @@ export const exportToPDF = async (task, parsedReport) => {
     task.reviews.forEach((review) => {
       if (review.status !== 'completed') return;
       
-      const reviewerLabel = ['A', 'B', 'C'][review.reviewer_index - 1] || review.reviewer_index;
+      const reviewerInfo = getReviewerInfo(review.reviewer_index);
       const reviewerReport = parseReviewerReport(review.review_content);
       
       html += `
         <div style="margin-bottom: 30px; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
           <div style="display: flex; align-items: center; margin-bottom: 15px;">
-            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #10a37f, #0d8a6a); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px;">${reviewerLabel}</div>
+            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #10a37f, #0d8a6a); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px;">${reviewerInfo.short}</div>
             <div style="margin-left: 12px;">
-              <div style="font-size: 16px; font-weight: 600; color: #1f2937;">审稿人 ${reviewerLabel}</div>
+              <div style="font-size: 16px; font-weight: 600; color: #1f2937;">${reviewerInfo.name}</div>
               ${review.recommendation ? `<div style="display: inline-block; margin-top: 4px; padding: 2px 10px; background: ${getRecBgColor(review.recommendation)}; color: white; border-radius: 4px; font-size: 12px;">${review.recommendation}</div>` : ''}
             </div>
           </div>
@@ -1315,7 +1331,7 @@ export const exportToPPT = async (task, parsedReport) => {
     task.reviews.forEach((review, reviewIdx) => {
       if (review.status !== 'completed') return;
       
-      const reviewerLabel = ['A', 'B', 'C'][review.reviewer_index - 1] || review.reviewer_index;
+      const reviewerInfo = getReviewerInfo(review.reviewer_index);
       const reviewerReport = parseReviewerReport(review.review_content);
       
       // 审稿人概览页
@@ -1337,14 +1353,14 @@ export const exportToPPT = async (task, parsedReport) => {
         x: 0.3, y: 0.15, w: 0.5, h: 0.5,
         fill: { color: colors.primary },
       });
-      slide.addText(reviewerLabel, {
+      slide.addText(reviewerInfo.short, {
         x: 0.3, y: 0.15, w: 0.5, h: 0.5,
         fontSize: 14, bold: true, color: colors.white,
         align: 'center', valign: 'middle',
       });
       
       // 审稿人标题
-      slide.addText(`审稿人 ${reviewerLabel}`, {
+      slide.addText(reviewerInfo.name, {
         x: 0.9, y: 0.15, w: 4, h: 0.3,
         fontSize: 16, bold: true, color: colors.dark,
       });
@@ -1418,7 +1434,7 @@ export const exportToPPT = async (task, parsedReport) => {
             x: 0, y: 0, w: 0.08, h: 0.5,
             fill: { color: colors.danger },
           });
-          slide.addText(`审稿人 ${reviewerLabel} · 关键问题`, {
+          slide.addText(`${reviewerInfo.name} · 关键问题`, {
             x: 0.3, y: 0.15, w: 9.4, h: 0.4,
             fontSize: 14, bold: true, color: colors.danger,
           });
@@ -1432,7 +1448,7 @@ export const exportToPPT = async (task, parsedReport) => {
                 x: 0, y: 0, w: 0.08, h: 0.5,
                 fill: { color: colors.danger },
               });
-              slide.addText(`审稿人 ${reviewerLabel} · 关键问题 (续)`, {
+              slide.addText(`${reviewerInfo.name} · 关键问题 (续)`, {
                 x: 0.3, y: 0.15, w: 9.4, h: 0.4,
                 fontSize: 14, bold: true, color: colors.danger,
               });
@@ -1481,7 +1497,7 @@ export const exportToPPT = async (task, parsedReport) => {
             x: 0, y: 0, w: 0.08, h: 0.5,
             fill: { color: colors.primary },
           });
-          slide.addText(`审稿人 ${reviewerLabel} · 改进建议`, {
+          slide.addText(`${reviewerInfo.name} · 改进建议`, {
             x: 0.3, y: 0.15, w: 9.4, h: 0.4,
             fontSize: 14, bold: true, color: colors.primary,
           });
@@ -1495,7 +1511,7 @@ export const exportToPPT = async (task, parsedReport) => {
                 x: 0, y: 0, w: 0.08, h: 0.5,
                 fill: { color: colors.primary },
               });
-              slide.addText(`审稿人 ${reviewerLabel} · 改进建议 (续)`, {
+              slide.addText(`${reviewerInfo.name} · 改进建议 (续)`, {
                 x: 0.3, y: 0.15, w: 9.4, h: 0.4,
                 fontSize: 14, bold: true, color: colors.primary,
               });

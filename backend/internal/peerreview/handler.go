@@ -103,7 +103,7 @@ func (h *Handler) SubmitDraft(c *gin.Context) {
 		"message":         "审稿任务已创建，正在处理中",
 		"input_type":      task.InputType,
 		"manuscript_text": task.ManuscriptText,
-		"target_venue":    task.TargetVenue,
+		"target_venue":    "", // 已废弃，保持兼容
 		"model_level":     task.ModelLevel,
 		"created_at":      task.SubmittedAt, // 使用提交时间作为创建时间显示
 	}
@@ -253,6 +253,30 @@ func (h *Handler) GetTaskProgress(c *gin.Context) {
 	utils.Success(c, progress)
 }
 
+// GetTaskSteps 获取任务步骤详情（用于轮询展示每步进度）
+// GET /api/v1/user/peer-review/tasks/:id/steps
+func (h *Handler) GetTaskSteps(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Error(c, 4001, "请先登录")
+		return
+	}
+
+	taskID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		utils.Error(c, 4005, "无效的任务ID")
+		return
+	}
+
+	steps, err := h.service.GetTaskSteps(userID.(uint), uint(taskID))
+	if err != nil {
+		utils.Error(c, 5004, "获取任务步骤失败: "+err.Error())
+		return
+	}
+
+	utils.Success(c, steps)
+}
+
 // DeleteTask 删除任务
 // DELETE /api/v1/user/peer-review/tasks/:id
 func (h *Handler) DeleteTask(c *gin.Context) {
@@ -301,7 +325,7 @@ func (h *Handler) StartTask(c *gin.Context) {
 		req.ModelLevel = "mid"
 	}
 
-	if err := h.service.StartDraftTask(userID.(uint), uint(taskID), req.TargetVenue, req.ModelLevel); err != nil {
+	if err := h.service.StartDraftTask(userID.(uint), uint(taskID), "", req.ModelLevel); err != nil {
 		utils.Error(c, 5006, err.Error())
 		return
 	}

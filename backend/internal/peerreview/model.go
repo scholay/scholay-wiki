@@ -44,6 +44,21 @@ const MaxAttachments = 5
 // 审稿人数量（三审制）
 const ReviewerCount = 3
 
+// 虚拟审稿人名称（希腊字母风格）
+var ReviewerNames = map[int]string{
+	1: "审稿人 Alpha",
+	2: "审稿人 Beta",
+	3: "审稿人 Gamma",
+}
+
+// GetReviewerName 获取审稿人名称
+func GetReviewerName(index int) string {
+	if name, ok := ReviewerNames[index]; ok {
+		return name
+	}
+	return "审稿人"
+}
+
 // ========== 数据库模型 ==========
 
 // PeerReviewTask 审稿任务主表
@@ -133,6 +148,9 @@ type PeerReviewResult struct {
 	Progress     int    `json:"progress"`      // 进度 0-100
 	ErrorMessage string `json:"error_message"` // 错误信息
 
+	// 审稿模型信息
+	ModelName string `json:"model_name" gorm:"size:100"` // 使用的AI模型名称
+
 	// 审稿结果
 	Recommendation  string  `json:"recommendation"`   // Accept, Minor Revision, Major Revision, Reject
 	ConfidenceScore float64 `json:"confidence_score"` // 置信度 0-1
@@ -140,6 +158,9 @@ type PeerReviewResult struct {
 
 	// 评分维度
 	DimensionScores string `json:"dimension_scores" gorm:"type:text"` // 各维度评分 JSON
+
+	// 步骤详情
+	StepsDetail string `json:"steps_detail" gorm:"type:longtext"` // 步骤详情 JSON
 
 	// 时间戳
 	StartedAt   *time.Time `json:"started_at"`
@@ -291,12 +312,15 @@ type TaskDetailResponse struct {
 // ReviewResultInfo 审稿结果信息（用于响应）
 type ReviewResultInfo struct {
 	ReviewerIndex   int                    `json:"reviewer_index"`
+	ReviewerName    string                 `json:"reviewer_name"`              // 审稿人名称（如 审稿人 Alpha）
+	ModelName       string                 `json:"model_name,omitempty"`       // 使用的模型名称
 	Status          string                 `json:"status"`
 	Progress        int                    `json:"progress"`
 	Recommendation  string                 `json:"recommendation,omitempty"`
 	ConfidenceScore float64                `json:"confidence_score,omitempty"`
 	ReviewContent   string                 `json:"review_content,omitempty"`
 	DimensionScores map[string]interface{} `json:"dimension_scores,omitempty"`
+	StepsDetail     []StepInfo             `json:"steps_detail,omitempty"`     // 步骤详情
 	CompletedAt     *time.Time             `json:"completed_at,omitempty"`
 }
 
@@ -312,11 +336,74 @@ type TaskProgressResponse struct {
 // ReviewProgressInfo 单个审稿人进度
 type ReviewProgressInfo struct {
 	ReviewerIndex int    `json:"reviewer_index"`
+	ReviewerName  string `json:"reviewer_name"` // 审稿人名称
 	Status        string `json:"status"`
 	Progress      int    `json:"progress"`
 }
 
+// TaskStepsResponse 任务步骤详情响应（用于轮询）
+type TaskStepsResponse struct {
+	TaskID        uint                 `json:"task_id"`
+	Status        string               `json:"status"`
+	Progress      int                  `json:"progress"`
+	ProgressStage string               `json:"progress_stage"`
+	// 预处理步骤
+	PreprocessSteps []StepInfo `json:"preprocess_steps,omitempty"`
+	// 各审稿人步骤
+	ReviewerSteps []ReviewerStepsInfo `json:"reviewer_steps,omitempty"`
+	// 汇总步骤
+	SummarizeStep *StepInfo `json:"summarize_step,omitempty"`
+}
+
+// ReviewerStepsInfo 单个审稿人的步骤信息
+type ReviewerStepsInfo struct {
+	ReviewerIndex int        `json:"reviewer_index"`
+	ReviewerName  string     `json:"reviewer_name"`
+	ModelName     string     `json:"model_name,omitempty"`
+	Status        string     `json:"status"`
+	Progress      int        `json:"progress"`
+	Steps         []StepInfo `json:"steps,omitempty"`
+}
+
 // ========== 内部数据结构 ==========
+
+// StepInfo 步骤信息结构（用于记录每步的执行情况）
+type StepInfo struct {
+	StepName  string      `json:"step_name"`            // 步骤名称
+	StepIndex int         `json:"step_index"`           // 步骤索引
+	Status    string      `json:"status"`               // pending, processing, completed, failed
+	StartTime *time.Time  `json:"start_time,omitempty"` // 开始时间
+	EndTime   *time.Time  `json:"end_time,omitempty"`   // 结束时间
+	Duration  int64       `json:"duration_ms"`          // 耗时（毫秒）
+	Result    interface{} `json:"result,omitempty"`     // 步骤结果（可选）
+	ErrorMsg  string      `json:"error_msg,omitempty"`  // 错误信息
+}
+
+// StepStatus 步骤状态常量
+const (
+	StepStatusPending    = "pending"
+	StepStatusProcessing = "processing"
+	StepStatusCompleted  = "completed"
+	StepStatusFailed     = "failed"
+)
+
+// ReviewerModelConfig 审稿人模型配置（用于指定每个审稿人使用的具体模型）
+type ReviewerModelConfig struct {
+	BaseURL   string // API 基础地址
+	APIKey    string // API 密钥
+	ModelName string // 模型名称
+}
+
+// 预处理步骤名称常量
+const (
+	StepNameManuscriptAnalysis = "稿件分析"
+	StepNameBuildSearchQuery   = "构建检索策略"
+	StepNameLiteratureSearch   = "文献检索"
+	StepNameAIFilter           = "AI筛选"
+	StepNameLiteratureSummary  = "文献总结"
+	StepNameReview             = "审稿"
+	StepNameSummarize          = "汇总审稿结果"
+)
 
 // StreamEvent SSE 事件
 type StreamEvent struct {
@@ -481,8 +568,13 @@ type Reproducibility struct {
 // PDF 和图片：直接传递文件给 AI（支持视觉内容）
 // Word/RTF/ODT/XML/HTML 等文档：上传时提取文本，以文本模式传给 AI（最大 50000 字符）
 var FileProcessModes = map[string]string{
-	// 直接传递给AI的文件类型（仅 PDF 和图片）
-	"pdf": ProcessModeDirect,
+	// 直接传递给AI的文件类型（PDF 和图片）
+	"pdf":  ProcessModeDirect,
+	"jpg":  ProcessModeDirect, // 图片格式
+	"jpeg": ProcessModeDirect,
+	"png":  ProcessModeDirect,
+	"gif":  ProcessModeDirect,
+	"webp": ProcessModeDirect,
 	// 需要提取文本的文档格式
 	"doc":  ProcessModeExtract, // Word 文档
 	"docx": ProcessModeExtract, // Word 文档
@@ -547,6 +639,13 @@ func GetMimeType(fileExt string) string {
 		"xls":  "application/vnd.ms-excel",
 		"csv":  "text/csv",
 		"epub": "application/epub+zip",
+		// 图片格式
+		"jpg":  "image/jpeg",
+		"jpeg": "image/jpeg",
+		"png":  "image/png",
+		"gif":  "image/gif",
+		"webp": "image/webp",
+		// 代码文件
 		"py":   "text/x-python",
 		"js":   "text/javascript",
 		"ts":   "text/typescript",
@@ -569,4 +668,16 @@ func GetMimeType(fileExt string) string {
 		return mime
 	}
 	return "application/octet-stream"
+}
+
+// IsImageFile 检查是否为图片文件
+func IsImageFile(fileExt string) bool {
+	imageExts := map[string]bool{
+		"jpg":  true,
+		"jpeg": true,
+		"png":  true,
+		"gif":  true,
+		"webp": true,
+	}
+	return imageExts[fileExt]
 }

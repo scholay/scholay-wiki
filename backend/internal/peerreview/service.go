@@ -51,8 +51,8 @@ func (s *Service) SetCurrencyService(cs *currency.Service) {
 }
 
 // generateManuscriptHash 生成稿件哈希
-func generateManuscriptHash(text string, venue string) string {
-	hash := md5.Sum([]byte(text + venue))
+func generateManuscriptHash(text string) string {
+	hash := md5.Sum([]byte(text))
 	return hex.EncodeToString(hash[:])
 }
 
@@ -66,13 +66,11 @@ func truncateByRune(s string, maxChars int) string {
 }
 
 // extractBasicInfo 提取稿件基本信息（文本输入）
-func (s *Service) extractBasicInfo(manuscriptText, targetVenue, modelLevel string) (*ManuscriptMeta, error) {
+func (s *Service) extractBasicInfo(manuscriptText, modelLevel string) (*ManuscriptMeta, error) {
 	prompt := fmt.Sprintf(`你是一位资深的学术编辑，请仔细阅读以下稿件内容，提取关键信息。
 
 稿件内容：
 %s
-
-目标期刊/会议：%s
 
 请提取以下信息并以JSON格式返回（输出必须控制在3000字符以内）：
 {
@@ -86,7 +84,7 @@ func (s *Service) extractBasicInfo(manuscriptText, targetVenue, modelLevel strin
   "keywords": ["关键词1", "关键词2", "关键词3"]
 }
 
-只返回JSON，不要有其他文字。`, truncateByRune(manuscriptText, 50000), targetVenue)
+只返回JSON，不要有其他文字。`, truncateByRune(manuscriptText, 50000))
 
 	messages := []ai.ChatMessage{
 		{Role: "user", Content: prompt},
@@ -114,11 +112,10 @@ func (s *Service) extractBasicInfo(manuscriptText, targetVenue, modelLevel strin
 }
 
 // extractBasicInfoFromFile 从文件提取稿件基本信息（多模态输入，支持PDF、Word等）
-func (s *Service) extractBasicInfoFromFile(fileBase64 string, fileName string, mimeType string, targetVenue, modelLevel string) (*ManuscriptMeta, error) {
+func (s *Service) extractBasicInfoFromFile(fileBase64 string, fileName string, mimeType string, modelLevel string) (*ManuscriptMeta, error) {
 	prompt := fmt.Sprintf(`你是一位资深的学术编辑，请仔细阅读附件中的论文文件，提取关键信息。
 
 文件名：%s
-目标期刊/会议：%s
 
 请提取以下信息并以JSON格式返回（输出必须控制在3000字符以内）：
 {
@@ -132,7 +129,7 @@ func (s *Service) extractBasicInfoFromFile(fileBase64 string, fileName string, m
   "keywords": ["关键词1", "关键词2", "关键词3"]
 }
 
-只返回JSON，不要有其他文字。`, fileName, targetVenue)
+只返回JSON，不要有其他文字。`, fileName)
 
 	// 构建多模态消息，使用 FileInputMeta 作为中间格式
 	// AI service 会根据实际使用的模型自动转换为对应格式

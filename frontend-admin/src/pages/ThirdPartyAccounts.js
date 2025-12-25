@@ -29,6 +29,9 @@ const ThirdPartyAccounts = () => {
       model_low: '',
       model_mid: '',
       model_high: '',
+      peer_review_model_1: '',
+      peer_review_model_2: '',
+      peer_review_model_3: '',
     },
     status: 1,
     priority: 0,
@@ -75,6 +78,9 @@ const ThirdPartyAccounts = () => {
         model_low: '',
         model_mid: '',
         model_high: '',
+        peer_review_model_1: '',
+        peer_review_model_2: '',
+        peer_review_model_3: '',
       },
       status: 1,
       priority: 0,
@@ -166,6 +172,16 @@ const ThirdPartyAccounts = () => {
       }
       if (formData.config.model_high) {
         config.model_high = formData.config.model_high;
+      }
+      // Add peer review model codes if provided
+      if (formData.config.peer_review_model_1) {
+        config.peer_review_model_1 = formData.config.peer_review_model_1;
+      }
+      if (formData.config.peer_review_model_2) {
+        config.peer_review_model_2 = formData.config.peer_review_model_2;
+      }
+      if (formData.config.peer_review_model_3) {
+        config.peer_review_model_3 = formData.config.peer_review_model_3;
       }
     }
 
@@ -268,7 +284,18 @@ const ThirdPartyAccounts = () => {
     if (config.model_low) models.push(`Low: ${config.model_low}`);
     if (config.model_mid) models.push(`Mid: ${config.model_mid}`);
     if (config.model_high) models.push(`High: ${config.model_high}`);
-    return models.length > 0 ? models.join(' / ') : '-';
+    
+    // 审稿模型
+    const prModels = [];
+    if (config.peer_review_model_1) prModels.push(`α: ${config.peer_review_model_1}`);
+    if (config.peer_review_model_2) prModels.push(`β: ${config.peer_review_model_2}`);
+    if (config.peer_review_model_3) prModels.push(`γ: ${config.peer_review_model_3}`);
+    
+    let result = models.length > 0 ? models.join(' / ') : '';
+    if (prModels.length > 0) {
+      result += (result ? ' | 审稿: ' : '审稿: ') + prModels.join(', ');
+    }
+    return result || '-';
   };
 
   return (
@@ -573,6 +600,68 @@ const ThirdPartyAccounts = () => {
                       />
                       <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
                         用于最高质量的任务和专业分析
+                      </small>
+                    </div>
+                  </div>
+
+                  <div className="model-codes-section" style={{ marginTop: '1.5rem' }}>
+                    <h4>🔬 智能审稿专用模型</h4>
+                    <small style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '1rem', display: 'block' }}>
+                      为智能审稿功能配置三个不同的模型，分别对应三位虚拟审稿人（Alpha、Beta、Gamma）。
+                      如果不配置，将回退使用上面的高/中/低级模型。
+                    </small>
+
+                    <div className="form-group">
+                      <label>审稿人 Alpha 模型</label>
+                      <input
+                        type="text"
+                        value={formData.config.peer_review_model_1 || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            config: { ...formData.config, peer_review_model_1: e.target.value },
+                          })
+                        }
+                        placeholder="例如: gpt-4-turbo, claude-3-opus"
+                      />
+                      <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                        审稿人 Alpha（α）使用的模型
+                      </small>
+                    </div>
+
+                    <div className="form-group">
+                      <label>审稿人 Beta 模型</label>
+                      <input
+                        type="text"
+                        value={formData.config.peer_review_model_2 || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            config: { ...formData.config, peer_review_model_2: e.target.value },
+                          })
+                        }
+                        placeholder="例如: gemini-1.5-pro, deepseek-chat"
+                      />
+                      <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                        审稿人 Beta（β）使用的模型
+                      </small>
+                    </div>
+
+                    <div className="form-group">
+                      <label>审稿人 Gamma 模型</label>
+                      <input
+                        type="text"
+                        value={formData.config.peer_review_model_3 || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            config: { ...formData.config, peer_review_model_3: e.target.value },
+                          })
+                        }
+                        placeholder="例如: qwen-max, glm-4"
+                      />
+                      <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                        审稿人 Gamma（γ）使用的模型
                       </small>
                     </div>
                   </div>

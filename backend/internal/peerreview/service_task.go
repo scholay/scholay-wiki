@@ -110,7 +110,6 @@ func (s *Service) SaveDraft(userID uint, req *SaveDraftRequest) (*DraftResponse,
 	// 更新草稿内容
 	draft.InputType = req.InputType
 	draft.ManuscriptText = req.ManuscriptText
-	draft.TargetVenue = req.TargetVenue
 	draft.ModelLevel = req.ModelLevel
 	
 	// 如果有内容，提取标题
@@ -179,10 +178,7 @@ func (s *Service) SubmitDraft(userID uint, req *SubmitDraftRequest) (*PeerReview
 		return nil, fmt.Errorf("稿件内容超出长度限制，最多支持%d个字符", maxManuscriptLength)
 	}
 
-	// 更新目标期刊和模型级别
-	if req.TargetVenue != "" {
-		draft.TargetVenue = req.TargetVenue
-	}
+	// 更新模型级别（target_venue 已废弃）
 	if req.ModelLevel != "" {
 		draft.ModelLevel = req.ModelLevel
 	}
@@ -194,7 +190,7 @@ func (s *Service) SubmitDraft(userID uint, req *SubmitDraftRequest) (*PeerReview
 		s.db.First(&file, *draft.ManuscriptFileID)
 		hashInput = fmt.Sprintf("FILE:%s:%d:%s", file.FileName, file.FileSize, draft.ManuscriptText)
 	}
-	draft.ContentHash = generateManuscriptHash(hashInput, draft.TargetVenue)
+	draft.ContentHash = generateManuscriptHash(hashInput)
 
 	// 更新状态为待处理
 	now := time.Now()
@@ -580,7 +576,7 @@ func (s *Service) ClearDraft(userID uint) error {
 	draft.InputType = InputTypeText
 	draft.ManuscriptText = ""
 	draft.Title = ""
-	draft.TargetVenue = ""
+	// target_venue 已废弃，不再使用
 	// 保留 model_level，不重置
 	if err := s.db.Save(&draft).Error; err != nil {
 		return fmt.Errorf("重置草稿失败: %w", err)
@@ -660,7 +656,7 @@ func (s *Service) buildDraftResponse(draft *PeerReviewTask) *DraftResponse {
 		ID:             draft.ID,
 		InputType:      draft.InputType,
 		ManuscriptText: draft.ManuscriptText,
-		TargetVenue:    draft.TargetVenue,
+		TargetVenue:    "", // 已废弃，保持兼容
 		ModelLevel:     draft.ModelLevel,
 		ContentPreview: preview,
 	}
@@ -717,19 +713,19 @@ func (s *Service) CreateTask(userID uint, req *CreateTaskRequest) (*PeerReviewTa
 	}
 
 	// 生成内容哈希
-	contentHash := generateManuscriptHash(manuscriptText, req.TargetVenue)
+	contentHash := generateManuscriptHash(manuscriptText)
 
 	// 提取标题（简单方式：取前100字符或第一行）
 	title := extractTitle(manuscriptText)
 
-	// 创建任务
+	// 创建任务（target_venue 已废弃）
 	task := &PeerReviewTask{
 		UserID:         userID,
 		InputType:      req.InputType,
 		ManuscriptText: manuscriptText,
 		ContentHash:    contentHash,
 		Title:          title,
-		TargetVenue:    req.TargetVenue,
+		TargetVenue:    "", // 已废弃
 		ModelLevel:     req.ModelLevel,
 		Status:         TaskStatusPending,
 		Progress:       0,
@@ -833,7 +829,7 @@ func (s *Service) GetTaskList(userID uint, page, pageSize int, status string, se
 		summaries[i] = TaskSummary{
 			ID:                  t.ID,
 			Title:               t.Title,
-			TargetVenue:         t.TargetVenue,
+			TargetVenue:         "", // 已废弃
 			InputType:           t.InputType,
 			Status:              t.Status,
 			Progress:            t.Progress,
@@ -880,7 +876,7 @@ func (s *Service) GetTaskDetail(userID uint, taskID uint) (*TaskDetailResponse, 
 		ID:                  task.ID,
 		Title:               task.Title,
 		InputType:           task.InputType,
-		TargetVenue:         task.TargetVenue,
+		TargetVenue:         "", // 已废弃
 		Status:              task.Status,
 		Progress:            task.Progress,
 		ProgressStage:       task.ProgressStage,
@@ -973,6 +969,204 @@ func (s *Service) GetTaskProgress(userID uint, taskID uint) (map[string]interfac
 		"error_message":  task.ErrorMessage,
 		"completed_at":   task.CompletedAt,
 	}, nil
+}
+
+// GetTaskSteps 获取任务步骤详情（用于前端展示每步进度）
+func (s *Service) GetTaskSteps(userID uint, taskID uint) (*TaskStepsResponse, error) {
+	var task PeerReviewTask
+	if err := s.db.Where("id = ? AND user_id = ?", taskID, userID).First(&task).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("任务不存在")
+		}
+		return nil, err
+	}
+
+	// 获取各审稿人结果
+	var reviews []PeerReviewResult
+	s.db.Where("task_id = ?", taskID).Order("reviewer_index ASC").Find(&reviews)
+
+	// 构建响应
+	response := &TaskStepsResponse{
+		TaskID:        task.ID,
+		Status:        task.Status,
+		Progress:      task.Progress,
+		ProgressStage: task.ProgressStage,
+	}
+
+	// 构建预处理步骤信息
+	response.PreprocessSteps = s.buildPreprocessSteps(&task)
+
+	// 构建各审稿人步骤信息
+	for _, review := range reviews {
+		reviewerSteps := ReviewerStepsInfo{
+			ReviewerIndex: review.ReviewerIndex,
+			ReviewerName:  GetReviewerName(review.ReviewerIndex),
+			ModelName:     review.ModelName,
+			Status:        review.Status,
+			Progress:      review.Progress,
+		}
+
+		// 解析步骤详情 JSON
+		if review.StepsDetail != "" {
+			var steps []StepInfo
+			if err := json.Unmarshal([]byte(review.StepsDetail), &steps); err == nil {
+				reviewerSteps.Steps = steps
+			}
+		}
+
+		response.ReviewerSteps = append(response.ReviewerSteps, reviewerSteps)
+	}
+
+	// 构建汇总步骤信息
+	response.SummarizeStep = s.buildSummarizeStep(&task)
+
+	return response, nil
+}
+
+// buildSummarizeStep 构建汇总步骤信息
+func (s *Service) buildSummarizeStep(task *PeerReviewTask) *StepInfo {
+	step := &StepInfo{
+		StepName:  StepNameSummarize,
+		StepIndex: 1,
+		Status:    StepStatusPending,
+	}
+
+	// 判断汇总状态
+	if task.Status == TaskStatusCompleted && task.FinalReviewContent != "" {
+		step.Status = StepStatusCompleted
+		// 可以添加一些汇总结果信息
+		if task.FinalRecommendation != "" {
+			step.Result = map[string]interface{}{
+				"recommendation": task.FinalRecommendation,
+			}
+		}
+	} else if task.Status == TaskStatusFailed {
+		step.Status = StepStatusFailed
+		if task.ErrorMessage != "" {
+			step.ErrorMsg = task.ErrorMessage
+		}
+	} else if task.Progress >= 90 {
+		// 三审完成后进入汇总阶段
+		step.Status = StepStatusProcessing
+	}
+
+	return step
+}
+
+// buildPreprocessSteps 构建预处理步骤信息
+func (s *Service) buildPreprocessSteps(task *PeerReviewTask) []StepInfo {
+	steps := []StepInfo{}
+	
+	// 步骤1: 稿件分析
+	manuscriptStep := StepInfo{
+		StepName:  StepNameManuscriptAnalysis,
+		StepIndex: 1,
+		Status:    StepStatusPending,
+	}
+	
+	// 如果有稿件元信息，说明稿件分析已完成
+	if task.ManuscriptMeta != "" {
+		manuscriptStep.Status = StepStatusCompleted
+		// 解析元信息作为结果
+		var meta ManuscriptMeta
+		if err := json.Unmarshal([]byte(task.ManuscriptMeta), &meta); err == nil {
+			manuscriptStep.Result = map[string]interface{}{
+				"title":      meta.Title,
+				"field":      meta.Field,
+				"main_topic": meta.MainTopic,
+				"keywords":   meta.Keywords,
+			}
+		}
+	} else if task.Progress >= 10 && task.Progress < 15 {
+		manuscriptStep.Status = StepStatusProcessing
+	}
+	steps = append(steps, manuscriptStep)
+	
+	// 步骤2: 构建检索策略
+	searchQueryStep := StepInfo{
+		StepName:  StepNameBuildSearchQuery,
+		StepIndex: 2,
+		Status:    StepStatusPending,
+	}
+	if task.Progress >= 15 {
+		searchQueryStep.Status = StepStatusCompleted
+	} else if task.Progress >= 10 && task.ManuscriptMeta != "" {
+		searchQueryStep.Status = StepStatusProcessing
+	}
+	steps = append(steps, searchQueryStep)
+	
+	// 步骤3: 文献检索
+	literatureSearchStep := StepInfo{
+		StepName:  StepNameLiteratureSearch,
+		StepIndex: 3,
+		Status:    StepStatusPending,
+	}
+	
+	// 如果有文献上下文，说明检索已完成
+	if task.LiteratureContext != "" {
+		literatureSearchStep.Status = StepStatusCompleted
+		// 解析文献数量作为结果
+		var litCtx LiteratureContext
+		if err := json.Unmarshal([]byte(task.LiteratureContext), &litCtx); err == nil {
+			// 统计所有分类的论文总数（去重后）
+			totalPapers := len(litCtx.AllPapers)
+			// 如果 AllPapers 为空，尝试从分类中统计
+			if totalPapers == 0 {
+				paperSet := make(map[string]bool)
+				for _, p := range litCtx.ByTopic {
+					if id, ok := p["paperId"].(string); ok && id != "" {
+						paperSet[id] = true
+					}
+				}
+				for _, p := range litCtx.ByMethod {
+					if id, ok := p["paperId"].(string); ok && id != "" {
+						paperSet[id] = true
+					}
+				}
+				for _, p := range litCtx.ByNovelty {
+					if id, ok := p["paperId"].(string); ok && id != "" {
+						paperSet[id] = true
+					}
+				}
+				for _, p := range litCtx.ByTheory {
+					if id, ok := p["paperId"].(string); ok && id != "" {
+						paperSet[id] = true
+					}
+				}
+				totalPapers = len(paperSet)
+			}
+			literatureSearchStep.Result = map[string]interface{}{
+				"total_papers": totalPapers,
+			}
+		}
+	} else if task.Progress >= 25 && task.Progress < 35 {
+		literatureSearchStep.Status = StepStatusProcessing
+	}
+	steps = append(steps, literatureSearchStep)
+	
+	// 步骤4: 文献总结
+	literatureSummaryStep := StepInfo{
+		StepName:  StepNameLiteratureSummary,
+		StepIndex: 4,
+		Status:    StepStatusPending,
+	}
+	
+	// 如果有文献总结，说明总结已完成
+	if task.LiteratureSummary != "" {
+		literatureSummaryStep.Status = StepStatusCompleted
+		// 解析文献总结作为结果
+		var summary LiteratureSummary
+		if err := json.Unmarshal([]byte(task.LiteratureSummary), &summary); err == nil {
+			literatureSummaryStep.Result = map[string]interface{}{
+				"closest_papers": len(summary.ClosestPapers),
+			}
+		}
+	} else if task.Progress >= 45 && task.Progress < 50 {
+		literatureSummaryStep.Status = StepStatusProcessing
+	}
+	steps = append(steps, literatureSummaryStep)
+	
+	return steps
 }
 
 // WatchTaskProgress SSE监听任务进度
@@ -1117,7 +1311,8 @@ func (s *Service) DeleteTask(userID uint, taskID uint) error {
 }
 
 // StartDraftTask 启动草稿任务（开始审稿流程）
-func (s *Service) StartDraftTask(userID uint, taskID uint, targetVenue string, modelLevel string) error {
+// target_venue 参数已废弃，保留参数签名以兼容旧接口
+func (s *Service) StartDraftTask(userID uint, taskID uint, _ string, modelLevel string) error {
 	var task PeerReviewTask
 	if err := s.db.Where("id = ? AND user_id = ?", taskID, userID).First(&task).Error; err != nil {
 		return fmt.Errorf("任务不存在")
@@ -1127,10 +1322,9 @@ func (s *Service) StartDraftTask(userID uint, taskID uint, targetVenue string, m
 		return fmt.Errorf("只能启动草稿状态的任务")
 	}
 
-	// 更新任务状态为待处理
+	// 更新任务状态为待处理（target_venue 已废弃）
 	updates := map[string]interface{}{
 		"status":        TaskStatusPending,
-		"target_venue":  targetVenue,
 		"model_level":   modelLevel,
 		"progress":      0,
 		"progress_stage": "等待处理",
@@ -1919,6 +2113,19 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 	s.updateTaskProgress(taskID, TaskStatusProcessing, 5, "开始处理")
 	s.db.Model(&task).Update("started_at", now)
 
+	// 获取三个审稿模型配置
+	prModelConfig, _, err := s.accountService.GetPeerReviewModels()
+	if err != nil {
+		fmt.Printf("[PeerReview] ERROR: Failed to get peer review models: taskID=%d, error=%v\n", taskID, err)
+		s.updateTaskFailed(taskID, fmt.Sprintf("获取审稿模型配置失败: %v", err))
+		return
+	}
+	
+	// 构建每个审稿人的模型配置
+	reviewerModels := []string{prModelConfig.Model1, prModelConfig.Model2, prModelConfig.Model3}
+	fmt.Printf("[PeerReview] Using three models for review: taskID=%d, models=[%s, %s, %s]\n", 
+		taskID, reviewerModels[0], reviewerModels[1], reviewerModels[2])
+
 	// 加载关联文件
 	s.loadTaskFiles(&task)
 	
@@ -1965,7 +2172,13 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 			// 使用 channel 来监控审稿完成
 			done := make(chan struct{})
 			go func() {
-				s.runSingleReview(&task, idx+1, meta, literatureSummary, refs, reviewResults[idx])
+				// 传递模型配置给审稿函数
+				modelConfig := &ReviewerModelConfig{
+					BaseURL:   prModelConfig.BaseURL,
+					APIKey:    prModelConfig.APIKey,
+					ModelName: reviewerModels[idx],
+				}
+				s.runSingleReviewWithModel(&task, idx+1, meta, literatureSummary, refs, reviewResults[idx], modelConfig)
 				close(done)
 			}()
 
@@ -1975,7 +2188,7 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 				// 正常完成
 			case <-ctx.Done():
 				// 超时处理
-				reviewErrors[idx] = fmt.Errorf("审稿人 %d 审稿超时（超过 %v）", idx+1, reviewerTimeout)
+				reviewErrors[idx] = fmt.Errorf("%s 审稿超时（超过 %v）", ReviewerNames[idx+1], reviewerTimeout)
 				// 更新该审稿人状态为超时
 				s.db.Model(&PeerReviewResult{}).Where("task_id = ? AND reviewer_index = ?", task.ID, idx+1).
 					Updates(map[string]interface{}{
@@ -2083,7 +2296,7 @@ func (s *Service) preprocessTask(task *PeerReviewTask) (*ManuscriptMeta, *Litera
 		if mimeType == "" {
 			mimeType = GetMimeType(task.ManuscriptFile.FileExt)
 		}
-		meta, err = s.extractBasicInfoFromFile(fileBase64, task.ManuscriptFile.FileName, mimeType, task.TargetVenue, modelLevel)
+		meta, err = s.extractBasicInfoFromFile(fileBase64, task.ManuscriptFile.FileName, mimeType, modelLevel)
 	} else {
 		// 文本模式：使用上传时提取的文本或用户直接输入的文本
 		manuscriptText := task.ManuscriptText
@@ -2095,7 +2308,7 @@ func (s *Service) preprocessTask(task *PeerReviewTask) (*ManuscriptMeta, *Litera
 		if len(manuscriptText) < 100 {
 			return nil, nil, nil, fmt.Errorf("稿件内容太短，请提供更完整的内容")
 		}
-		meta, err = s.extractBasicInfo(manuscriptText, task.TargetVenue, modelLevel)
+		meta, err = s.extractBasicInfo(manuscriptText, modelLevel)
 	}
 	
 	if err != nil {
@@ -2179,7 +2392,7 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 		} else {
 			fmt.Printf("[PeerReview] Collected %d files for AI: taskID=%d, reviewerIndex=%d\n", len(files), task.ID, reviewerIndex)
 			err = s.generateReviewForTaskWithFile(files, attachmentTexts,
-				task.TargetVenue, meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
+				meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
 		}
 	} else {
 		// 主稿件是文本模式
@@ -2195,12 +2408,12 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 			fmt.Printf("[PeerReview] Text length: %d chars, PDF attachments: %d, taskID=%d, reviewerIndex=%d\n", 
 				len(manuscriptText), len(pdfAttachments), task.ID, reviewerIndex)
 			err = s.generateReviewForTaskHybrid(manuscriptText, pdfAttachments, attachmentTexts,
-				task.TargetVenue, meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
+				meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
 		} else {
 			// 纯文本模式
 			fmt.Printf("[PeerReview] Using text mode: taskID=%d, reviewerIndex=%d\n", task.ID, reviewerIndex)
 			fmt.Printf("[PeerReview] Text length: %d chars, taskID=%d, reviewerIndex=%d\n", len(manuscriptText), task.ID, reviewerIndex)
-			err = s.generateReviewForTask(manuscriptText, attachmentTexts, task.TargetVenue, meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
+			err = s.generateReviewForTask(manuscriptText, attachmentTexts, meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
 		}
 	}
 
@@ -2256,6 +2469,151 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 			"review_content":   rawContent,
 			"dimension_scores": dimensionScoresJSON,
 			"completed_at":     now,
+		})
+}
+
+// runSingleReviewWithModel 单个审稿人的审稿流程（使用指定模型，记录步骤详情）
+func (s *Service) runSingleReviewWithModel(task *PeerReviewTask, reviewerIndex int, meta *ManuscriptMeta, summary *LiteratureSummary, refs []ReferenceForReviewer, writer *strings.Builder, modelConfig *ReviewerModelConfig) {
+	reviewerName := ReviewerNames[reviewerIndex]
+	fmt.Printf("[PeerReview] runSingleReviewWithModel started: taskID=%d, reviewer=%s, model=%s\n", 
+		task.ID, reviewerName, modelConfig.ModelName)
+	
+	// 初始化步骤记录
+	stepStartTime := time.Now()
+	
+	// 记录开始步骤
+	currentStep := StepInfo{
+		StepName:  StepNameReview,
+		StepIndex: 1,
+		Status:    StepStatusProcessing,
+		StartTime: &stepStartTime,
+	}
+	
+	// 将当前步骤保存到数据库（让前端能够实时看到）
+	steps := []StepInfo{currentStep}
+	stepsJSON, _ := json.Marshal(steps)
+	
+	// 更新审稿人状态和模型名称，同时保存步骤信息
+	s.db.Model(&PeerReviewResult{}).Where("task_id = ? AND reviewer_index = ?", task.ID, reviewerIndex).
+		Updates(map[string]interface{}{
+			"status":       TaskStatusProcessing, 
+			"progress":     10,
+			"model_name":   modelConfig.ModelName,
+			"steps_detail": string(stepsJSON),
+		})
+
+	var err error
+
+	// 收集文本模式附件的内容（Word/RTF/ODT 等格式提取的文本）
+	attachmentTexts := s.collectAttachmentTexts(task)
+	if len(attachmentTexts) > 0 {
+		fmt.Printf("[PeerReview] Collected %d text attachments: taskID=%d, reviewer=%s\n", len(attachmentTexts), task.ID, reviewerName)
+	}
+
+	// 收集 PDF 附件（无论主稿件是什么模式，PDF 附件都需要以文件形式传递）
+	pdfAttachments := s.collectPDFAttachments(task)
+	if len(pdfAttachments) > 0 {
+		fmt.Printf("[PeerReview] Collected %d PDF attachments: taskID=%d, reviewer=%s\n", len(pdfAttachments), task.ID, reviewerName)
+	}
+
+	// 根据处理模式选择不同的处理方式
+	if task.ManuscriptFile != nil && task.ManuscriptFile.ProcessMode == ProcessModeDirect {
+		// PDF 主稿件直传模式
+		fmt.Printf("[PeerReview] Using PDF direct mode: taskID=%d, reviewer=%s, fileName=%s\n", 
+			task.ID, reviewerName, task.ManuscriptFile.FileName)
+		files := s.collectFilesForAI(task)
+		if len(files) == 0 {
+			err = fmt.Errorf("无法读取稿件文件")
+			fmt.Printf("[PeerReview] ERROR: Failed to collect files: taskID=%d, reviewer=%s\n", task.ID, reviewerName)
+		} else {
+			fmt.Printf("[PeerReview] Collected %d files for AI: taskID=%d, reviewer=%s\n", len(files), task.ID, reviewerName)
+			err = s.generateReviewForTaskWithFileAndModel(files, attachmentTexts,
+				meta, summary, refs, writer, task.ID, reviewerIndex, modelConfig)
+		}
+	} else {
+		// 主稿件是文本模式
+		manuscriptText := task.ManuscriptText
+		if task.ManuscriptFile != nil && task.ManuscriptFile.ExtractedText != "" {
+			manuscriptText = task.ManuscriptFile.ExtractedText
+		}
+		
+		// 如果有 PDF 附件，需要使用混合模式
+		if len(pdfAttachments) > 0 {
+			fmt.Printf("[PeerReview] Using hybrid mode (text + PDF attachments): taskID=%d, reviewer=%s\n", task.ID, reviewerName)
+			err = s.generateReviewForTaskHybridWithModel(manuscriptText, pdfAttachments, attachmentTexts,
+				meta, summary, refs, writer, task.ID, reviewerIndex, modelConfig)
+		} else {
+			// 纯文本模式
+			fmt.Printf("[PeerReview] Using text mode: taskID=%d, reviewer=%s, textLength=%d\n", task.ID, reviewerName, len(manuscriptText))
+			err = s.generateReviewForTaskWithModel(manuscriptText, attachmentTexts, meta, summary, refs, writer, task.ID, reviewerIndex, modelConfig)
+		}
+	}
+
+	now := time.Now()
+	currentStep.EndTime = &now
+	currentStep.Duration = now.Sub(stepStartTime).Milliseconds()
+	
+	if err != nil {
+		currentStep.Status = StepStatusFailed
+		currentStep.ErrorMsg = err.Error()
+		fmt.Printf("[PeerReview] ERROR in runSingleReviewWithModel: taskID=%d, reviewer=%s, error=%v\n", task.ID, reviewerName, err)
+		
+		// 更新步骤状态
+		steps[0] = currentStep
+		stepsJSON, _ = json.Marshal(steps)
+		
+		s.db.Model(&PeerReviewResult{}).Where("task_id = ? AND reviewer_index = ?", task.ID, reviewerIndex).
+			Updates(map[string]interface{}{
+				"status":        TaskStatusFailed,
+				"error_message": err.Error(),
+				"completed_at":  now,
+				"steps_detail":  string(stepsJSON),
+			})
+		return
+	}
+	
+	currentStep.Status = StepStatusCompleted
+	fmt.Printf("[PeerReview] runSingleReviewWithModel completed: taskID=%d, reviewer=%s, duration=%dms, contentLength=%d\n", 
+		task.ID, reviewerName, currentStep.Duration, writer.Len())
+
+	// 解析 JSON 响应
+	rawContent := writer.String()
+	reviewReport, parseErr := parseReviewJSON(rawContent)
+
+	// 提取推荐意见
+	var recommendation string
+	var dimensionScoresJSON string
+
+	if parseErr == nil && reviewReport != nil {
+		recommendation = normalizeRecommendation(reviewReport.OverallAssessment.Recommendation)
+		dimensionScores := DimensionScores{
+			Originality:  0,
+			Methodology:  0,
+			Clarity:      0,
+			Significance: 0,
+			Overall:      0,
+		}
+		scoresBytes, _ := json.Marshal(dimensionScores)
+		dimensionScoresJSON = string(scoresBytes)
+	} else {
+		fmt.Printf("[PeerReview] Failed to parse review JSON for task %d reviewer %s: %v\n", task.ID, reviewerName, parseErr)
+		recommendation = extractRecommendation(rawContent)
+	}
+
+	// 更新步骤状态
+	steps[0] = currentStep
+	stepsJSON, _ = json.Marshal(steps)
+
+	// 保存结果
+	s.db.Model(&PeerReviewResult{}).Where("task_id = ? AND reviewer_index = ?", task.ID, reviewerIndex).
+		Updates(map[string]interface{}{
+			"status":           TaskStatusCompleted,
+			"progress":         100,
+			"recommendation":   recommendation,
+			"review_content":   rawContent,
+			"dimension_scores": dimensionScoresJSON,
+			"completed_at":     now,
+			"steps_detail":     string(stepsJSON),
 		})
 }
 
@@ -2410,7 +2768,7 @@ func (s *Service) summarizeReviews(taskID uint, reviewResults []*strings.Builder
 	consensusScore := float64(maxCount) / float64(ReviewerCount)
 
 	// 使用 AI 进行 Meta-Review 汇总
-	metaReviewContent, err := s.generateMetaReview(reviewContents, task.TargetVenue, task.ModelLevel)
+	metaReviewContent, err := s.generateMetaReview(reviewContents, task.ModelLevel)
 	if err != nil {
 		fmt.Printf("[PeerReview] Failed to generate meta-review: %v\n", err)
 		// 回退到简单拼接方式
@@ -2452,7 +2810,7 @@ func (s *Service) summarizeReviews(taskID uint, reviewResults []*strings.Builder
 }
 
 // generateMetaReview 使用 AI 生成 Meta-Review 汇总报告
-func (s *Service) generateMetaReview(reviewContents []string, targetVenue, modelLevel string) (string, error) {
+func (s *Service) generateMetaReview(reviewContents []string, modelLevel string) (string, error) {
 	// 构建三审意见输入
 	var reviewerInputs strings.Builder
 	reviewerInputs.WriteString("{\n")
@@ -2472,7 +2830,7 @@ func (s *Service) generateMetaReview(reviewContents []string, targetVenue, model
 	reviewerInputs.WriteString("\n}")
 
 	systemPrompt := getMetaReviewSystemPrompt()
-	userPrompt := fmt.Sprintf(getMetaReviewUserPrompt(), targetVenue, reviewerInputs.String())
+	userPrompt := fmt.Sprintf(getMetaReviewUserPrompt(), reviewerInputs.String())
 
 	messages := []ai.ChatMessage{
 		{Role: "system", Content: systemPrompt},
@@ -2585,16 +2943,14 @@ func getMetaReviewUserPrompt() string {
 【输入格式】
 ===========================================
 
-目标期刊/会议：%s
-
 三位审稿人的审稿意见如下：
 
 %s
 
 其中：
-- reviewer_A 为模型 A 的审稿 JSON 输出  
-- reviewer_B 为模型 B 的审稿 JSON 输出  
-- reviewer_C 为模型 C 的审稿 JSON 输出  
+- reviewer_A（审稿人 Alpha）的审稿 JSON 输出  
+- reviewer_B（审稿人 Beta）的审稿 JSON 输出  
+- reviewer_C（审稿人 Gamma）的审稿 JSON 输出  
 
 三份内容都遵循审稿 JSON 模板结构。
 
@@ -2607,10 +2963,6 @@ func getMetaReviewUserPrompt() string {
 {
   "overall_assessment": {
     "core_contribution": "（综合三位审稿人意见，总结论文核心贡献）",
-    "fit_for_target_venue": {
-      "venue_name": "（目标期刊/会议名称）",
-      "fit_evaluation": "（综合评估论文与目标期刊的契合度）"
-    },
     "recommendation": "Accept | Minor Revision | Major Revision | Reject",
     "reject_advice": "（若为 Reject 必填：综合建议。若非 Reject 则留空。）"
   },
@@ -2654,7 +3006,6 @@ func getMetaReviewUserPrompt() string {
 func (s *Service) generateReviewForTask(
 	manuscriptText string,
 	attachmentTexts []map[string]string,
-	targetVenue string,
 	meta *ManuscriptMeta,
 	summary *LiteratureSummary,
 	refs []ReferenceForReviewer,
@@ -2703,14 +3054,12 @@ func (s *Service) generateReviewForTask(
 
 	systemPrompt := getReviewSystemPrompt(reviewerIndex)
 	userPrompt := fmt.Sprintf(getReviewUserPromptTemplate(),
-		targetVenue,
 		truncatedText + attachmentTextContent, // 将附件文本追加到主稿件后面
 		string(metaJSON),
 		summary.FieldState,
 		closestPapersInfo,
 		gapsInfo,
-		refsStr,
-		targetVenue)
+		refsStr)
 
 	messages := []Message{
 		{Role: "system", Content: systemPrompt},
@@ -2775,13 +3124,134 @@ func (s *Service) generateReviewForTask(
 	return fmt.Errorf("failed to generate valid review after %d attempts", maxRetries)
 }
 
+// generateReviewForTaskWithModel 使用指定模型生成审稿报告（文本模式）
+func (s *Service) generateReviewForTaskWithModel(
+	manuscriptText string,
+	attachmentTexts []map[string]string,
+	meta *ManuscriptMeta,
+	summary *LiteratureSummary,
+	refs []ReferenceForReviewer,
+	writer *strings.Builder,
+	taskID uint,
+	reviewerIndex int,
+	modelConfig *ReviewerModelConfig,
+) error {
+	reviewerName := ReviewerNames[reviewerIndex]
+	
+	// 构建参考文献字符串
+	refsStr := s.formatRefsForPrompt(refs)
+	metaJSON, _ := json.Marshal(meta)
+
+	closestPapersInfo := ""
+	if len(summary.ClosestPapers) > 0 {
+		var sb strings.Builder
+		for i, p := range summary.ClosestPapers {
+			sb.WriteString(fmt.Sprintf("%d. %s (%d) - 相似原因: %s\n", i+1, p.Title, p.Year, p.Reason))
+		}
+		closestPapersInfo = sb.String()
+	}
+
+	gapsInfo := ""
+	if len(summary.TypicalGaps) > 0 {
+		gapsInfo = "- " + strings.Join(summary.TypicalGaps, "\n- ")
+	}
+
+	// 文字模式：主稿件最多 50000 字符
+	const maxManuscriptLength = 50000
+	truncatedText := manuscriptText
+	if len(truncatedText) > maxManuscriptLength {
+		truncatedText = truncatedText[:maxManuscriptLength]
+	}
+
+	// 构建附件文本内容
+	attachmentTextContent := ""
+	if len(attachmentTexts) > 0 {
+		var sb strings.Builder
+		sb.WriteString("\n\n【附件内容】\n")
+		for i, att := range attachmentTexts {
+			sb.WriteString(fmt.Sprintf("\n--- 附件 %d: %s ---\n", i+1, att["name"]))
+			sb.WriteString(att["content"])
+			sb.WriteString("\n")
+		}
+		attachmentTextContent = sb.String()
+	}
+
+	systemPrompt := getReviewSystemPrompt(reviewerIndex)
+	userPrompt := fmt.Sprintf(getReviewUserPromptTemplate(),
+		truncatedText + attachmentTextContent,
+		string(metaJSON),
+		summary.FieldState,
+		closestPapersInfo,
+		gapsInfo,
+		refsStr)
+
+	messages := []ai.ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: userPrompt},
+	}
+
+	// 最多重试3次
+	const maxRetries = 3
+	
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, fmt.Sprintf("%s 正在生成审稿报告...", reviewerName))
+
+		fmt.Printf("[PeerReview] Calling AI for text review with model: taskID=%d, reviewer=%s, attempt=%d/%d, model=%s, textLength=%d\n", 
+			taskID, reviewerName, attempt, maxRetries, modelConfig.ModelName, len(truncatedText))
+
+		response, err := s.aiService.ChatCompletionWithModel(messages, nil, "", modelConfig.BaseURL, modelConfig.APIKey, modelConfig.ModelName)
+		if err != nil {
+			fmt.Printf("[PeerReview] AI text call failed: taskID=%d, reviewer=%s, attempt=%d, error=%v\n", 
+				taskID, reviewerName, attempt, err)
+			if attempt == maxRetries {
+				return err
+			}
+			continue
+		}
+
+		if len(response.Choices) == 0 {
+			fmt.Printf("[PeerReview] AI returned empty choices (text mode): taskID=%d, reviewer=%s, attempt=%d\n", 
+				taskID, reviewerName, attempt)
+			if attempt == maxRetries {
+				return fmt.Errorf("no response from AI after %d attempts", maxRetries)
+			}
+			continue
+		}
+
+		content := response.Choices[0].Message.Content
+		fmt.Printf("[PeerReview] AI text response received: taskID=%d, reviewer=%s, attempt=%d, contentLength=%d\n", 
+			taskID, reviewerName, attempt, len(content))
+		
+		// 检查JSON是否完整
+		if s.isValidReviewJSON(content) {
+			writer.WriteString(content)
+			fmt.Printf("[PeerReview] Text review complete: taskID=%d, reviewer=%s, totalLength=%d\n", 
+				taskID, reviewerName, writer.Len())
+			return nil
+		}
+		
+		// JSON不完整，记录日志并重试
+		fmt.Printf("[PeerReview] Invalid JSON response, will retry: taskID=%d, reviewer=%s, attempt=%d\n", 
+			taskID, reviewerName, attempt)
+		
+		if attempt == maxRetries {
+			// 最后一次尝试，即使JSON不完整也接受
+			writer.WriteString(content)
+			fmt.Printf("[PeerReview] Using incomplete JSON after %d attempts: taskID=%d, reviewer=%s\n", 
+				maxRetries, taskID, reviewerName)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("failed to generate valid review after %d attempts", maxRetries)
+}
+
 // generateReviewForTaskHybrid 为任务生成审稿报告（混合模式：文本主稿件 + PDF 附件）
 // 用于主稿件是 Word 等文本格式，但有 PDF 附件需要传递的情况
 func (s *Service) generateReviewForTaskHybrid(
 	manuscriptText string,
 	pdfAttachments []FileForAI, // PDF 附件文件
 	attachmentTexts []map[string]string, // 文本模式附件的内容
-	targetVenue string,
 	meta *ManuscriptMeta,
 	summary *LiteratureSummary,
 	refs []ReferenceForReviewer,
@@ -2843,7 +3313,7 @@ func (s *Service) generateReviewForTaskHybrid(
 	systemPrompt := getReviewSystemPrompt(reviewerIndex)
 	
 	// 使用混合模式的提示词模板（类似文件模式，但主稿件是文本）
-	userPromptText := fmt.Sprintf(`你正在对一份投稿到 **%s** 的学术论文进行同行评审。
+	userPromptText := fmt.Sprintf(`你正在对一份学术论文进行同行评审。
 
 **【主稿件内容】**
 以下是论文的文本内容：
@@ -2869,8 +3339,7 @@ func (s *Service) generateReviewForTaskHybrid(
 **【参考文献列表】**（来自 Semantic Scholar）
 %s
 
-请根据以上内容，结合论文全文和所有附件内容，作为一名 **%s** 领域的审稿专家，给出详细的审稿意见。`,
-		targetVenue,
+请根据以上内容，结合论文全文和所有附件内容，作为一名学术审稿专家，给出详细的审稿意见。`,
 		truncatedText,
 		attachmentInfo,
 		textAttachmentContent,
@@ -2878,8 +3347,7 @@ func (s *Service) generateReviewForTaskHybrid(
 		summary.FieldState,
 		closestPapersInfo,
 		gapsInfo,
-		refsStr,
-		targetVenue)
+		refsStr)
 
 	// 构建多模态消息
 	contentParts := make([]interface{}, 0, len(pdfAttachments)+1)
@@ -2955,6 +3423,153 @@ func (s *Service) generateReviewForTaskHybrid(
 			writer.WriteString(content)
 			fmt.Printf("[PeerReview] Using incomplete JSON after %d attempts (hybrid): taskID=%d, reviewerIndex=%d\n", 
 				maxRetries, taskID, reviewerIndex)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("failed to generate valid review after %d attempts", maxRetries)
+}
+
+// generateReviewForTaskHybridWithModel 使用指定模型生成审稿报告（混合模式：文本主稿件 + PDF 附件）
+func (s *Service) generateReviewForTaskHybridWithModel(
+	manuscriptText string,
+	pdfAttachments []FileForAI,
+	attachmentTexts []map[string]string,
+	meta *ManuscriptMeta,
+	summary *LiteratureSummary,
+	refs []ReferenceForReviewer,
+	writer *strings.Builder,
+	taskID uint,
+	reviewerIndex int,
+	modelConfig *ReviewerModelConfig,
+) error {
+	reviewerName := ReviewerNames[reviewerIndex]
+	
+	// 构建参考文献字符串
+	refsStr := s.formatRefsForPrompt(refs)
+	metaJSON, _ := json.Marshal(meta)
+
+	closestPapersInfo := ""
+	if len(summary.ClosestPapers) > 0 {
+		var sb strings.Builder
+		for i, p := range summary.ClosestPapers {
+			sb.WriteString(fmt.Sprintf("%d. %s (%d) - 相似原因: %s\n", i+1, p.Title, p.Year, p.Reason))
+		}
+		closestPapersInfo = sb.String()
+	}
+
+	gapsInfo := ""
+	if len(summary.TypicalGaps) > 0 {
+		gapsInfo = "- " + strings.Join(summary.TypicalGaps, "\n- ")
+	}
+
+	// 文字模式：主稿件最多 50000 字符
+	const maxManuscriptLength = 50000
+	truncatedText := manuscriptText
+	if len(truncatedText) > maxManuscriptLength {
+		truncatedText = truncatedText[:maxManuscriptLength]
+	}
+
+	// 构建附件文本内容
+	attachmentTextContent := ""
+	if len(attachmentTexts) > 0 {
+		var sb strings.Builder
+		sb.WriteString("\n\n【附件内容】\n")
+		for i, att := range attachmentTexts {
+			sb.WriteString(fmt.Sprintf("\n--- 附件 %d: %s ---\n", i+1, att["name"]))
+			sb.WriteString(att["content"])
+			sb.WriteString("\n")
+		}
+		attachmentTextContent = sb.String()
+	}
+
+	// 收集附件文件名用于构建智能提示
+	var attachmentNames []string
+	for _, f := range pdfAttachments {
+		attachmentNames = append(attachmentNames, f.FileName)
+	}
+	attachmentPrompt := buildAttachmentPrompt(attachmentNames)
+
+	systemPrompt := getReviewSystemPrompt(reviewerIndex)
+	userPromptText := fmt.Sprintf(getReviewUserPromptTemplateForFile(),
+		string(metaJSON),
+		summary.FieldState,
+		closestPapersInfo,
+		gapsInfo,
+		refsStr) + attachmentTextContent + attachmentPrompt
+
+	// 构建多模态消息
+	contentParts := []interface{}{}
+	
+	// 添加 PDF 附件
+	for _, f := range pdfAttachments {
+		contentParts = append(contentParts, ai.FileInputMeta{
+			Type:     "file_input_meta",
+			MimeType: f.MimeType,
+			Data:     f.Data,
+			FileName: f.FileName,
+		})
+	}
+	
+	// 添加文本内容
+	contentParts = append(contentParts, ai.TextContent{
+		Type: "text",
+		Text: "【主稿件内容】\n" + truncatedText + "\n\n" + userPromptText,
+	})
+
+	messages := []ai.ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: contentParts},
+	}
+
+	// 最多重试3次
+	const maxRetries = 3
+	
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, fmt.Sprintf("%s 正在生成审稿报告...", reviewerName))
+
+		fmt.Printf("[PeerReview] Calling AI for hybrid review with model: taskID=%d, reviewer=%s, attempt=%d/%d, model=%s, textLength=%d, pdfCount=%d\n", 
+			taskID, reviewerName, attempt, maxRetries, modelConfig.ModelName, len(truncatedText), len(pdfAttachments))
+
+		response, err := s.aiService.ChatCompletionWithModel(messages, nil, "", modelConfig.BaseURL, modelConfig.APIKey, modelConfig.ModelName)
+		if err != nil {
+			fmt.Printf("[PeerReview] AI hybrid call failed: taskID=%d, reviewer=%s, attempt=%d, error=%v\n", 
+				taskID, reviewerName, attempt, err)
+			if attempt == maxRetries {
+				return err
+			}
+			continue
+		}
+
+		if len(response.Choices) == 0 {
+			fmt.Printf("[PeerReview] AI returned empty choices (hybrid mode): taskID=%d, reviewer=%s, attempt=%d\n", 
+				taskID, reviewerName, attempt)
+			if attempt == maxRetries {
+				return fmt.Errorf("no response from AI after %d attempts", maxRetries)
+			}
+			continue
+		}
+
+		content := response.Choices[0].Message.Content
+		fmt.Printf("[PeerReview] AI hybrid response received: taskID=%d, reviewer=%s, attempt=%d, contentLength=%d\n", 
+			taskID, reviewerName, attempt, len(content))
+		
+		// 检查JSON是否完整
+		if s.isValidReviewJSON(content) {
+			writer.WriteString(content)
+			fmt.Printf("[PeerReview] Hybrid review complete: taskID=%d, reviewer=%s, totalLength=%d\n", 
+				taskID, reviewerName, writer.Len())
+			return nil
+		}
+		
+		// JSON不完整，记录日志并重试
+		fmt.Printf("[PeerReview] Invalid JSON response (hybrid), will retry: taskID=%d, reviewer=%s, attempt=%d\n", 
+			taskID, reviewerName, attempt)
+		
+		if attempt == maxRetries {
+			writer.WriteString(content)
+			fmt.Printf("[PeerReview] Using incomplete JSON after %d attempts (hybrid): taskID=%d, reviewer=%s\n", 
+				maxRetries, taskID, reviewerName)
 			return nil
 		}
 	}
@@ -3093,7 +3708,6 @@ type FileForAI struct {
 func (s *Service) generateReviewForTaskWithFile(
 	files []FileForAI, // 支持多文件：主稿件 + PDF 附件
 	attachmentTexts []map[string]string, // 文本模式附件的内容
-	targetVenue string,
 	meta *ManuscriptMeta,
 	summary *LiteratureSummary,
 	refs []ReferenceForReviewer,
@@ -3152,15 +3766,13 @@ func (s *Service) generateReviewForTaskWithFile(
 
 	systemPrompt := getReviewSystemPrompt(reviewerIndex)
 	userPromptText := fmt.Sprintf(getReviewUserPromptTemplateForFile(),
-		targetVenue,
 		mainFileName,
 		attachmentInfo + textAttachmentContent, // 包含 PDF 附件名和文本附件内容
 		string(metaJSON),
 		summary.FieldState,
 		closestPapersInfo,
 		gapsInfo,
-		refsStr,
-		targetVenue)
+		refsStr)
 
 	// 构建多模态消息，使用 FileInputMeta 作为中间格式
 	// AI service 会根据实际使用的模型自动转换为对应格式
@@ -3245,12 +3857,160 @@ func (s *Service) generateReviewForTaskWithFile(
 	return fmt.Errorf("failed to generate valid review after %d attempts", maxRetries)
 }
 
+// generateReviewForTaskWithFileAndModel 使用指定模型生成审稿报告（文件输入模式）
+func (s *Service) generateReviewForTaskWithFileAndModel(
+	files []FileForAI,
+	attachmentTexts []map[string]string,
+	meta *ManuscriptMeta,
+	summary *LiteratureSummary,
+	refs []ReferenceForReviewer,
+	writer *strings.Builder,
+	taskID uint,
+	reviewerIndex int,
+	modelConfig *ReviewerModelConfig,
+) error {
+	reviewerName := ReviewerNames[reviewerIndex]
+	
+	// 构建参考文献字符串
+	refsStr := s.formatRefsForPrompt(refs)
+	metaJSON, _ := json.Marshal(meta)
+
+	closestPapersInfo := ""
+	if len(summary.ClosestPapers) > 0 {
+		var sb strings.Builder
+		for i, p := range summary.ClosestPapers {
+			sb.WriteString(fmt.Sprintf("%d. %s (%d) - 相似原因: %s\n", i+1, p.Title, p.Year, p.Reason))
+		}
+		closestPapersInfo = sb.String()
+	}
+
+	gapsInfo := ""
+	if len(summary.TypicalGaps) > 0 {
+		gapsInfo = "- " + strings.Join(summary.TypicalGaps, "\n- ")
+	}
+
+	// 构建文件列表描述
+	var mainFileName string
+	var attachmentNames []string
+	for _, f := range files {
+		if f.Role == FileRoleManuscript {
+			mainFileName = f.FileName
+		} else {
+			attachmentNames = append(attachmentNames, f.FileName)
+		}
+	}
+
+	// 构建附件提示信息
+	attachmentInfo := ""
+	if len(attachmentNames) > 0 {
+		attachmentInfo = buildAttachmentPrompt(attachmentNames)
+	}
+
+	// 添加文本模式附件的内容到提示词中
+	textAttachmentContent := ""
+	if len(attachmentTexts) > 0 {
+		var sb strings.Builder
+		sb.WriteString("\n\n【文本附件内容】\n")
+		for i, att := range attachmentTexts {
+			sb.WriteString(fmt.Sprintf("\n--- 附件 %d: %s ---\n", i+1, att["name"]))
+			sb.WriteString(att["content"])
+			sb.WriteString("\n")
+		}
+		textAttachmentContent = sb.String()
+	}
+
+	systemPrompt := getReviewSystemPrompt(reviewerIndex)
+	userPromptText := fmt.Sprintf(getReviewUserPromptTemplateForFile(),
+		mainFileName,
+		attachmentInfo + textAttachmentContent,
+		string(metaJSON),
+		summary.FieldState,
+		closestPapersInfo,
+		gapsInfo,
+		refsStr)
+
+	// 构建多模态消息
+	contentParts := make([]interface{}, 0, len(files)+1)
+	
+	// 先添加所有文件
+	for _, f := range files {
+		contentParts = append(contentParts, ai.FileInputMeta{
+			Type:     "file_input_meta",
+			MimeType: f.MimeType,
+			Data:     f.Data,
+			FileName: f.FileName,
+		})
+	}
+	
+	// 最后添加文本提示
+	contentParts = append(contentParts, ai.TextContent{
+		Type: "text",
+		Text: userPromptText,
+	})
+
+	messages := []ai.ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: contentParts},
+	}
+
+	// 最多重试3次
+	const maxRetries = 3
+	
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, fmt.Sprintf("%s 正在生成审稿报告...", reviewerName))
+
+		fmt.Printf("[PeerReview] Calling AI for file review with model: taskID=%d, reviewer=%s, attempt=%d/%d, model=%s, fileCount=%d\n", 
+			taskID, reviewerName, attempt, maxRetries, modelConfig.ModelName, len(files))
+
+		response, err := s.aiService.ChatCompletionWithModel(messages, nil, "", modelConfig.BaseURL, modelConfig.APIKey, modelConfig.ModelName)
+		if err != nil {
+			fmt.Printf("[PeerReview] AI call failed: taskID=%d, reviewer=%s, attempt=%d, error=%v\n", 
+				taskID, reviewerName, attempt, err)
+			if attempt == maxRetries {
+				return err
+			}
+			continue
+		}
+
+		if len(response.Choices) == 0 {
+			fmt.Printf("[PeerReview] AI returned empty choices: taskID=%d, reviewer=%s, attempt=%d\n", 
+				taskID, reviewerName, attempt)
+			if attempt == maxRetries {
+				return fmt.Errorf("no response from AI after %d attempts", maxRetries)
+			}
+			continue
+		}
+
+		content := response.Choices[0].Message.Content
+		fmt.Printf("[PeerReview] AI response received: taskID=%d, reviewer=%s, attempt=%d, contentLength=%d\n", 
+			taskID, reviewerName, attempt, len(content))
+		
+		// 检查JSON是否完整
+		if s.isValidReviewJSON(content) {
+			writer.WriteString(content)
+			fmt.Printf("[PeerReview] File review complete: taskID=%d, reviewer=%s, totalLength=%d\n", 
+				taskID, reviewerName, writer.Len())
+			return nil
+		}
+		
+		// JSON不完整，记录日志并重试
+		fmt.Printf("[PeerReview] Invalid JSON response, will retry: taskID=%d, reviewer=%s, attempt=%d\n", 
+			taskID, reviewerName, attempt)
+		
+		if attempt == maxRetries {
+			writer.WriteString(content)
+			fmt.Printf("[PeerReview] Using incomplete JSON after %d attempts: taskID=%d, reviewer=%s\n", 
+				maxRetries, taskID, reviewerName)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("failed to generate valid review after %d attempts", maxRetries)
+}
+
 // getReviewUserPromptTemplateForFile 获取文件版本的用户提示词模板（PDF、Word等）
 func getReviewUserPromptTemplateForFile() string {
-	return `## 投稿目标
-**目标期刊/会议**：%s
-
-## 待审稿件
+	return `## 待审稿件
 **主稿件**：%s%s
 
 请仔细阅读附件中的论文文件进行审稿。
@@ -3281,10 +4041,6 @@ func getReviewUserPromptTemplateForFile() string {
 {
   "overall_assessment": {
     "core_contribution": "（简要总结你理解的论文核心贡献。要求：高度凝练、客观、避免套话。）",
-    "fit_for_target_venue": {
-      "venue_name": "%s",
-      "fit_evaluation": "（评估论文投稿到该 venue 的契合度：研究方向是否匹配？新颖性是否达到门槛？潜在影响力是否足够？必须对照上述相似论文进行新颖性判断。）"
-    },
     "recommendation": "Accept | Minor Revision | Major Revision | Reject",
     "reject_advice": "（若为 Reject 必填：请给出清晰、建设性的转投建议或重做方向。若非 Reject 则留空。）"
   },
@@ -3808,10 +4564,7 @@ func getReviewSystemPrompt(reviewerIndex int) string {
 
 // getReviewUserPromptTemplate 获取用户提示词模板
 func getReviewUserPromptTemplate() string {
-	return `## 投稿目标
-**目标期刊/会议**：%s
-
-## 待审稿件内容
+	return `## 待审稿件内容
 %s
 
 ## 系统预分析信息
@@ -3842,10 +4595,6 @@ func getReviewUserPromptTemplate() string {
 {
   "overall_assessment": {
     "core_contribution": "（50-100字，高度凝练的核心贡献总结）",
-    "fit_for_target_venue": {
-      "venue_name": "%s",
-      "fit_evaluation": "（50-80字，评估与目标期刊的契合度）"
-    },
     "recommendation": "Accept | Minor Revision | Major Revision | Reject",
     "reject_advice": "（若 Reject 必填转投建议，否则留空）"
   },

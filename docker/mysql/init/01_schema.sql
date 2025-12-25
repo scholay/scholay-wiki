@@ -1079,6 +1079,9 @@ CREATE TABLE IF NOT EXISTS `peer_review_results` (
   `progress` INT NOT NULL DEFAULT 0 COMMENT '进度百分比 0-100',
   `error_message` TEXT COMMENT '错误信息',
   
+  -- 审稿模型信息
+  `model_name` VARCHAR(100) DEFAULT '' COMMENT '使用的AI模型名称',
+  
   -- 审稿结果
   `recommendation` VARCHAR(50) COMMENT '推荐意见: Accept, Minor Revision, Major Revision, Reject',
   `confidence_score` DECIMAL(3,2) COMMENT '置信度评分 0-1',
@@ -1086,6 +1089,9 @@ CREATE TABLE IF NOT EXISTS `peer_review_results` (
   
   -- 评分维度（JSON存储详细评分）
   `dimension_scores` TEXT COMMENT '各维度评分 JSON: {originality, methodology, clarity, significance}',
+  
+  -- 步骤详情（JSON存储每步的名称、耗时、结果等）
+  `steps_detail` LONGTEXT COMMENT '步骤详情JSON',
   
   -- 时间戳
   `started_at` DATETIME COMMENT '开始时间',

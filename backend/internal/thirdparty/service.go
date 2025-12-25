@@ -506,3 +506,99 @@ func (s *Service) GetRandomAPIKeyByLevel(modelLevel ModelLevel) (string, uint, e
 
 	return config.APIKey, selected.ID, nil
 }
+
+// PeerReviewModelConfig 审稿模型配置（包含三个审稿人使用的模型）
+type PeerReviewModelConfig struct {
+	BaseURL string // API 基础地址
+	APIKey  string // API 密钥
+	Model1  string // 审稿人 Alpha 使用的模型
+	Model2  string // 审稿人 Beta 使用的模型
+	Model3  string // 审稿人 Gamma 使用的模型
+}
+
+// GetPeerReviewModels 获取审稿专用的三个模型配置
+// 返回配置了 peer_review_model_1/2/3 的账号，如果未配置则回退到 model_high
+func (s *Service) GetPeerReviewModels() (*PeerReviewModelConfig, uint, error) {
+	// Get all active AI model accounts
+	accounts, err := s.getActiveAccounts(AccountTypeAIModel)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get active AI model accounts: %w", err)
+	}
+
+	if len(accounts) == 0 {
+		return nil, 0, fmt.Errorf("no active ai_model accounts found")
+	}
+
+	// 查找配置了审稿模型的账号
+	var validAccounts []ThirdPartyAccount
+	for _, account := range accounts {
+		config, err := account.GetAIModelConfig()
+		if err != nil {
+			continue
+		}
+		// 检查是否配置了审稿模型（至少配置一个）
+		if config.PeerReviewModel1 != "" || config.PeerReviewModel2 != "" || config.PeerReviewModel3 != "" {
+			validAccounts = append(validAccounts, account)
+		}
+	}
+
+	// 如果没有配置审稿专用模型，回退到使用 model_high 的账号
+	if len(validAccounts) == 0 {
+		for _, account := range accounts {
+			config, err := account.GetAIModelConfig()
+			if err == nil && config.ModelHigh != "" {
+				validAccounts = append(validAccounts, account)
+			}
+		}
+	}
+
+	if len(validAccounts) == 0 {
+		return nil, 0, fmt.Errorf("no ai_model accounts found with peer review models or high model configured")
+	}
+
+	// Use priority-based random selection
+	selected := s.priorityRandomSelect(validAccounts)
+	if selected == nil {
+		return nil, 0, fmt.Errorf("failed to select AI model account for peer review")
+	}
+
+	// Increment usage count
+	if err := s.repo.IncrementUsage(selected.ID); err != nil {
+		fmt.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
+	}
+
+	config, err := selected.GetAIModelConfig()
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	// 构建审稿模型配置，如果专用模型未配置则回退到 model_high
+	fallbackModel := config.ModelHigh
+	if fallbackModel == "" {
+		fallbackModel = config.ModelMid
+	}
+	if fallbackModel == "" {
+		fallbackModel = config.ModelLow
+	}
+
+	prConfig := &PeerReviewModelConfig{
+		BaseURL: config.BaseURL,
+		APIKey:  config.APIKey,
+		Model1:  config.PeerReviewModel1,
+		Model2:  config.PeerReviewModel2,
+		Model3:  config.PeerReviewModel3,
+	}
+
+	// 回退逻辑：未配置的模型使用 fallbackModel
+	if prConfig.Model1 == "" {
+		prConfig.Model1 = fallbackModel
+	}
+	if prConfig.Model2 == "" {
+		prConfig.Model2 = fallbackModel
+	}
+	if prConfig.Model3 == "" {
+		prConfig.Model3 = fallbackModel
+	}
+
+	return prConfig, selected.ID, nil
+}

@@ -81,6 +81,11 @@ type AIModelConfig struct {
 	ModelLow string `json:"model_low,omitempty"`  // Model code for low-level tasks
 	ModelMid string `json:"model_mid,omitempty"`  // Model code for mid-level tasks
 	ModelHigh string `json:"model_high,omitempty"` // Model code for high-level tasks
+	
+	// 审稿专用模型配置（三审三模型）
+	PeerReviewModel1 string `json:"peer_review_model_1,omitempty"` // 审稿人 Alpha 使用的模型
+	PeerReviewModel2 string `json:"peer_review_model_2,omitempty"` // 审稿人 Beta 使用的模型
+	PeerReviewModel3 string `json:"peer_review_model_3,omitempty"` // 审稿人 Gamma 使用的模型
 }
 
 // GetSemanticScholarConfig extracts Semantic Scholar config

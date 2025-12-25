@@ -677,6 +677,7 @@ func main() {
 				peerReviewGroup.GET("/tasks", peerReviewHandler.GetTaskList)
 				peerReviewGroup.GET("/tasks/:id", peerReviewHandler.GetTaskDetail)
 				peerReviewGroup.GET("/tasks/:id/progress", peerReviewHandler.GetTaskProgress)
+				peerReviewGroup.GET("/tasks/:id/steps", peerReviewHandler.GetTaskSteps)
 				peerReviewGroup.GET("/tasks/:id/watch", peerReviewHandler.WatchTaskProgress)
 				peerReviewGroup.DELETE("/tasks/:id", peerReviewHandler.DeleteTask)
 				peerReviewGroup.POST("/tasks/:id/start", peerReviewHandler.StartTask) // 启动草稿任务

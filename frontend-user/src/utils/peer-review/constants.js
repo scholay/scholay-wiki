@@ -30,7 +30,9 @@ export const ALLOWED_ATTACHMENT_TYPES = [
   '.txt', '.doc', '.docx', '.rtf', '.odt', '.pdf', '.xml', '.html', '.htm',
   '.xlsx', '.xls', '.csv', '.epub',
   '.py', '.js', '.ts', '.go', '.java', '.c', '.cpp', '.h', '.rs', '.rb', '.php',
-  '.sql', '.json', '.yaml', '.yml', '.md', '.r'
+  '.sql', '.json', '.yaml', '.yml', '.md', '.r',
+  // 图片格式
+  '.jpg', '.jpeg', '.png', '.gif', '.webp'
 ];
 
 // 最大文件大小 (5MB)
