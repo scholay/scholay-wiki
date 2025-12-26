@@ -20,6 +20,7 @@ import (
 	"scholar-backend/internal/currency"
 	"scholar-backend/internal/feedback"
 	"scholar-backend/internal/fund"
+	"scholar-backend/internal/message"
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/cleanup"
 	appconfig "scholar-backend/internal/common/config"
@@ -277,6 +278,9 @@ func main() {
 	usageLogHandler := usagelog.NewHandler(usageLogService)
 	usageLogAdminHandler := usagelog.NewAdminHandler(usageLogService)
 
+	// Initialize Message module (站内信)
+	messageHandler := message.NewHandler(database.GetDB())
+
 	// Inject currency service into user service (for register gift)
 	userService.SetCurrencyService(currencyService)
 	// Inject currency service into checkin service (for checkin gold reward)
@@ -518,6 +522,19 @@ func main() {
 			adminProtected.GET("/usage-logs/summary", usageLogAdminHandler.GetStatsSummary)
 			adminProtected.GET("/usage-logs/filter-options", usageLogAdminHandler.GetFilterOptions)
 			adminProtected.GET("/usage-logs/features", usageLogAdminHandler.GetFeatureConfigs)
+
+			// Message management (站内信管理)
+			adminProtected.POST("/messages", messageHandler.AdminCreateMessage)
+			adminProtected.GET("/messages", messageHandler.AdminGetMessages)
+			adminProtected.GET("/messages/stats", messageHandler.AdminGetMessageStats)
+			adminProtected.GET("/messages/:id", messageHandler.AdminGetMessage)
+			adminProtected.POST("/messages/:id/send", messageHandler.AdminSendMessage)
+			// Message template management
+			adminProtected.POST("/message-templates", messageHandler.AdminCreateTemplate)
+			adminProtected.GET("/message-templates", messageHandler.AdminGetTemplates)
+			adminProtected.GET("/message-templates/:id", messageHandler.AdminGetTemplate)
+			adminProtected.PUT("/message-templates/:id", messageHandler.AdminUpdateTemplate)
+			adminProtected.DELETE("/message-templates/:id", messageHandler.AdminDeleteTemplate)
 		}
 
 		// Payment callback routes (public, no auth required)
@@ -640,6 +657,14 @@ func main() {
 
 			// Check-in routes (User) - 用户签到功能
 			checkinHandler.RegisterRoutes(userProtected)
+
+			// Message routes (User) - 站内信
+			userProtected.GET("/messages", messageHandler.GetMessages)
+			userProtected.GET("/messages/unread-count", messageHandler.GetUnreadCount)
+			userProtected.GET("/messages/:id", messageHandler.GetMessage)
+			userProtected.PUT("/messages/:id/read", messageHandler.MarkAsRead)
+			userProtected.PUT("/messages/read-all", messageHandler.MarkAllAsRead)
+			userProtected.DELETE("/messages/:id", messageHandler.DeleteMessage)
 
 			// Conversation routes (legacy)
 			userProtected.GET("/conversations", conversationHandler.GetUserConversations)

@@ -702,4 +702,33 @@ export const fundAPI = {
   getMyDistributions: () => api.get('/user/funds/distributions'),
 };
 
+// Message API - 站内信相关
+export const messageAPI = {
+  // 获取消息列表
+  getMessages: (params = {}) => {
+    const queryParams = {
+      page: params.page || 1,
+      page_size: params.pageSize || 20,
+    };
+    if (params.category) queryParams.category = params.category;
+    if (params.isRead !== undefined) queryParams.is_read = params.isRead;
+    return api.get('/user/messages', { params: queryParams });
+  },
+
+  // 获取未读消息数量
+  getUnreadCount: () => api.get('/user/messages/unread-count'),
+
+  // 获取消息详情
+  getMessage: (id) => api.get(`/user/messages/${id}`),
+
+  // 标记消息已读
+  markAsRead: (id) => api.put(`/user/messages/${id}/read`),
+
+  // 标记所有消息已读
+  markAllAsRead: () => api.put('/user/messages/read-all'),
+
+  // 删除消息
+  deleteMessage: (id) => api.delete(`/user/messages/${id}`),
+};
+
 export default api;

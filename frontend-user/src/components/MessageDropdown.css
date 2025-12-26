@@ -1,0 +1,756 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ * 
+ * MessageDropdown - 站内信组件样式
+ * 使用项目统一的主题变量
+ */
+
+/* ========================================
+   菜单入口样式（头像弹窗中）
+   ======================================== */
+.um-message-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: var(--transition);
+  border-bottom: 1px solid var(--border);
+}
+
+.um-message-entry:hover {
+  background: var(--surface-light, rgba(255, 255, 255, 0.05));
+}
+
+.um-message-entry-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.um-message-entry-left svg {
+  color: var(--text-secondary);
+}
+
+.um-entry-badge {
+  background: var(--error);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.um-message-entry-arrow {
+  color: var(--text-tertiary);
+}
+
+/* ========================================
+   消息中心大弹窗
+   ======================================== */
+.msg-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+
+.msg-modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 600px;
+  height: 75vh;
+  max-height: 650px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+/* 弹窗头部 */
+.msg-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.msg-modal-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.msg-modal-header h2 svg {
+  color: var(--primary-solid);
+}
+
+.msg-close-btn {
+  background: none;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  border-radius: 8px;
+  transition: var(--transition);
+}
+
+.msg-close-btn:hover {
+  background: var(--surface-light, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary);
+}
+
+/* 工具栏 */
+.msg-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.msg-filters {
+  display: flex;
+  gap: 8px;
+}
+
+.msg-filter-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.msg-filter-btn:hover {
+  border-color: var(--primary-solid);
+  color: var(--primary-solid);
+}
+
+.msg-filter-btn.active {
+  background: var(--primary-solid);
+  border-color: var(--primary-solid);
+  color: white;
+}
+
+.msg-mark-all-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  background: none;
+  border: none;
+  color: var(--primary-solid);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: var(--transition);
+}
+
+.msg-mark-all-btn:hover {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+.msg-mark-all-btn:disabled {
+  color: var(--text-quaternary);
+  cursor: not-allowed;
+}
+
+/* 消息列表容器 */
+.msg-list-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.msg-list-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.msg-list-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.msg-list-container::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.msg-list-container::-webkit-scrollbar-thumb:hover {
+  background: var(--text-quaternary);
+}
+
+/* 消息列表 */
+.msg-list {
+  padding: 8px 0;
+}
+
+/* 消息项 */
+.msg-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 20px;
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+  border-bottom: 1px solid var(--border);
+}
+
+.msg-item:last-child {
+  border-bottom: none;
+}
+
+.msg-item:hover {
+  background: var(--surface-light, rgba(255, 255, 255, 0.05));
+}
+
+.msg-item.unread {
+  background: rgba(16, 163, 127, 0.08);
+}
+
+.msg-item.unread:hover {
+  background: rgba(16, 163, 127, 0.12);
+}
+
+/* 消息图标 */
+.msg-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.msg-icon.system {
+  background: rgba(16, 163, 127, 0.15);
+  color: var(--primary-solid);
+}
+
+.msg-icon.promotion {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+}
+
+.msg-icon.transaction {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+}
+
+/* 消息内容 */
+.msg-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.msg-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.msg-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 380px;
+}
+
+.msg-item.unread .msg-title {
+  font-weight: 600;
+}
+
+.msg-time {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.msg-preview {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 未读指示器 */
+.msg-unread-dot {
+  position: absolute;
+  top: 18px;
+  left: 10px;
+  width: 6px;
+  height: 6px;
+  background: var(--primary-solid);
+  border-radius: 50%;
+}
+
+/* 删除按钮 */
+.msg-delete-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-quaternary);
+  border-radius: 4px;
+  opacity: 0;
+  transition: var(--transition);
+}
+
+.msg-item:hover .msg-delete-btn {
+  opacity: 1;
+}
+
+.msg-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error);
+}
+
+/* 分页 */
+.msg-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.msg-page-info {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.msg-page-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.msg-page-btns button {
+  padding: 6px 12px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.msg-page-btns button:hover:not(:disabled) {
+  border-color: var(--primary-solid);
+  color: var(--primary-solid);
+}
+
+.msg-page-btns button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.msg-page-num {
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 0 8px;
+}
+
+/* 空状态 */
+.msg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: var(--text-tertiary);
+}
+
+.msg-empty svg {
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+
+.msg-empty p {
+  font-size: 14px;
+  margin: 0;
+}
+
+/* 加载状态 */
+.msg-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+}
+
+.msg-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary-solid);
+  border-radius: 50%;
+  animation: msg-spin 0.8s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes msg-spin {
+  to { transform: rotate(360deg); }
+}
+
+.msg-loading p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ========================================
+   消息详情视图
+   ======================================== */
+.msg-detail-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.msg-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.msg-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 6px 10px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: var(--transition);
+}
+
+.msg-back-btn:hover {
+  background: var(--surface-light, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary);
+}
+
+.msg-detail-content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.msg-detail-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+.msg-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.msg-category-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.msg-category-tag.system {
+  background: rgba(16, 163, 127, 0.15);
+  color: var(--primary-solid);
+}
+
+.msg-category-tag.promotion {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+}
+
+.msg-category-tag.transaction {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+}
+
+.msg-detail-time {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.msg-detail-body {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+.msg-detail-body p {
+  margin: 0 0 16px;
+}
+
+.msg-detail-body p:last-child {
+  margin-bottom: 0;
+}
+
+.msg-detail-body strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.msg-detail-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 24px;
+  padding: 12px 20px;
+  background: var(--primary-solid);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.msg-detail-link:hover {
+  background: var(--primary-dark);
+  box-shadow: var(--shadow-accent);
+}
+
+/* ========================================
+   头像红点
+   ======================================== */
+.top-nav-user {
+  position: relative;
+}
+
+.um-avatar-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 16px;
+  height: 16px;
+  background: var(--error);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 2px solid var(--surface);
+  box-sizing: border-box;
+}
+
+.um-avatar-badge.dot {
+  min-width: 10px;
+  width: 10px;
+  height: 10px;
+  padding: 0;
+}
+
+/* ========================================
+   日间主题适配
+   ======================================== */
+[data-theme="light"] .msg-modal {
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+[data-theme="light"] .msg-modal-header {
+  background: var(--surface);
+}
+
+[data-theme="light"] .msg-toolbar {
+  background: var(--bg-secondary);
+}
+
+/* 日间模式筛选按钮 */
+[data-theme="light"] .msg-filter-btn {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+
+[data-theme="light"] .msg-filter-btn:hover {
+  border-color: var(--primary-solid);
+  color: var(--primary-solid);
+}
+
+[data-theme="light"] .msg-filter-btn.active {
+  background: var(--primary-solid);
+  border-color: var(--primary-solid);
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .msg-item:hover {
+  background: var(--surface-hover, #f8fafb);
+}
+
+[data-theme="light"] .msg-item.unread {
+  background: rgba(16, 163, 127, 0.06);
+}
+
+[data-theme="light"] .msg-item.unread:hover {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+[data-theme="light"] .msg-pagination {
+  background: var(--bg-secondary);
+}
+
+[data-theme="light"] .msg-page-btns button {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .msg-page-btns button:hover:not(:disabled) {
+  border-color: var(--primary-solid);
+  color: var(--primary-solid);
+}
+
+[data-theme="light"] .um-message-entry:hover {
+  background: var(--surface-hover, #f8fafb);
+}
+
+/* 日间模式关闭按钮 */
+[data-theme="light"] .msg-close-btn {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .msg-close-btn:hover {
+  background: var(--surface-hover, #f5f7fa);
+  color: var(--text-primary);
+}
+
+/* 日间模式返回按钮 */
+[data-theme="light"] .msg-back-btn {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .msg-back-btn:hover {
+  background: var(--surface-hover, #f5f7fa);
+  color: var(--text-primary);
+}
+
+/* 日间模式空状态 */
+[data-theme="light"] .msg-empty {
+  color: var(--text-tertiary);
+}
+
+/* 日间模式加载状态 */
+[data-theme="light"] .msg-loading p {
+  color: var(--text-secondary);
+}
+
+/* 日间模式消息内容 */
+[data-theme="light"] .msg-title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .msg-preview {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .msg-time {
+  color: var(--text-tertiary);
+}
+
+/* 日间模式消息详情 */
+[data-theme="light"] .msg-detail-title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .msg-detail-body {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .msg-detail-time {
+  color: var(--text-tertiary);
+}
+
+/* ========================================
+   响应式适配
+   ======================================== */
+@media (max-width: 640px) {
+  .msg-modal {
+    max-width: 100%;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  
+  .msg-modal-header {
+    padding: 16px;
+  }
+  
+  .msg-toolbar {
+    padding: 10px 16px;
+  }
+  
+  .msg-item {
+    padding: 12px 16px;
+  }
+  
+  .msg-detail-content {
+    padding: 16px;
+  }
+  
+  .msg-title {
+    max-width: 200px;
+  }
+}
+

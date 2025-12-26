@@ -21,6 +21,7 @@ const DashboardLayout = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [couponMenuOpen, setCouponMenuOpen] = useState(false);
   const [businessDataMenuOpen, setBusinessDataMenuOpen] = useState(false);
+  const [messageMenuOpen, setMessageMenuOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
     newPassword: '',
@@ -235,6 +236,44 @@ const DashboardLayout = () => {
             )}
           </div>
 
+          {/* 站内信管理 - 子菜单 */}
+          <div className="nav-group">
+            <a
+              onClick={() => setMessageMenuOpen(!messageMenuOpen)}
+              className={`nav-item ${(isActive('/dashboard/messages') || isActive('/dashboard/message-templates')) ? 'active' : ''}`}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+              </svg>
+              <span>站内信管理</span>
+              <svg
+                className={`submenu-arrow ${messageMenuOpen ? 'open' : ''}`}
+                width="16"
+                height="16"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+              </svg>
+            </a>
+            {messageMenuOpen && (
+              <div className="submenu">
+                <a
+                  onClick={() => { navigate('/dashboard/messages'); setMobileMenuOpen(false); }}
+                  className={`submenu-item ${isActive('/dashboard/messages') ? 'active' : ''}`}
+                >
+                  发送消息
+                </a>
+                <a
+                  onClick={() => { navigate('/dashboard/message-templates'); setMobileMenuOpen(false); }}
+                  className={`submenu-item ${isActive('/dashboard/message-templates') ? 'active' : ''}`}
+                >
+                  消息模板
+                </a>
+              </div>
+            )}
+          </div>
           <a
             onClick={() => { navigate('/dashboard/feedbacks'); setMobileMenuOpen(false); }}
             className={`nav-item ${isActive('/dashboard/feedbacks') ? 'active' : ''}`}

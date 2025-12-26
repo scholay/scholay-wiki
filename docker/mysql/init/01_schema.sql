@@ -1442,3 +1442,73 @@ INSERT IGNORE INTO `feature_configs` (`feature_code`, `feature_name`, `feature_g
 ('user_checkin', '每日签到', 'user', '用户签到功能', 32),
 -- 工具类
 ('pdf_preview', 'PDF预览', 'tool', 'PDF文档预览功能', 40);
+
+-- ============================================
+-- 站内信系统表
+-- ============================================
+
+-- 消息模板表（管理员预设常用消息模板）
+CREATE TABLE IF NOT EXISTS `message_templates` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `code` VARCHAR(50) NOT NULL COMMENT '模板代码（唯一）',
+  `name` VARCHAR(100) NOT NULL COMMENT '模板名称',
+  `title` VARCHAR(200) NOT NULL COMMENT '消息标题模板',
+  `content` TEXT NOT NULL COMMENT '消息内容模板（Markdown）',
+  `category` VARCHAR(50) NOT NULL DEFAULT 'system' COMMENT '分类：system=系统通知, promotion=营销推广, transaction=交易通知',
+  `variables` JSON COMMENT '模板变量定义，如 {"username": "用户名", "amount": "金额"}',
+  `is_active` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '是否启用',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_code` (`code`),
+  INDEX `idx_category` (`category`),
+  INDEX `idx_is_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='站内信消息模板表';
+
+-- 站内信主表（存储消息主体内容）
+CREATE TABLE IF NOT EXISTS `messages` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `title` VARCHAR(200) NOT NULL COMMENT '消息标题',
+  `content` TEXT NOT NULL COMMENT '消息内容（Markdown）',
+  `category` VARCHAR(50) NOT NULL DEFAULT 'system' COMMENT '分类：system=系统通知, promotion=营销推广, transaction=交易通知',
+  `send_type` VARCHAR(20) NOT NULL DEFAULT 'all' COMMENT '发送类型：all=全站广播, batch=批量用户, single=单个用户, by_plan=按会员等级',
+  `target_plans` JSON COMMENT '目标会员等级（by_plan时使用），如 ["pro", "max"]',
+  `target_user_ids` JSON COMMENT '目标用户ID列表（batch/single时使用）',
+  `link_url` VARCHAR(500) COMMENT '跳转链接（可选）',
+  `link_text` VARCHAR(100) COMMENT '链接文字（可选）',
+  `sender_id` BIGINT UNSIGNED COMMENT '发送人ID（管理员）',
+  `sender_name` VARCHAR(100) COMMENT '发送人名称',
+  `send_at` DATETIME COMMENT '发送时间',
+  `expire_at` DATETIME COMMENT '过期时间（可选，过期后不再展示）',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'draft' COMMENT '状态：draft=草稿, sent=已发送, cancelled=已取消',
+  `recipient_count` INT NOT NULL DEFAULT 0 COMMENT '接收人数',
+  `read_count` INT NOT NULL DEFAULT 0 COMMENT '已读人数',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_category` (`category`),
+  INDEX `idx_send_type` (`send_type`),
+  INDEX `idx_status` (`status`),
+  INDEX `idx_send_at` (`send_at`),
+  INDEX `idx_expire_at` (`expire_at`),
+  INDEX `idx_sender_id` (`sender_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='站内信主表';
+
+-- 用户消息状态表（记录每个用户的消息接收和阅读状态）
+CREATE TABLE IF NOT EXISTS `user_messages` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+  `message_id` BIGINT UNSIGNED NOT NULL COMMENT '消息ID',
+  `is_read` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否已读',
+  `read_at` DATETIME COMMENT '阅读时间',
+  `is_deleted` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否删除（软删除）',
+  `deleted_at` DATETIME COMMENT '删除时间',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_user_message` (`user_id`, `message_id`),
+  INDEX `idx_user_unread` (`user_id`, `is_read`, `is_deleted`),
+  INDEX `idx_user_created` (`user_id`, `created_at` DESC),
+  INDEX `idx_message_id` (`message_id`),
+  CONSTRAINT `fk_user_messages_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_user_messages_message` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户消息状态表';

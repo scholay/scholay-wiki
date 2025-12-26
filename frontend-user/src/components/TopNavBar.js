@@ -14,7 +14,7 @@
  * 3. 右侧：未登录显示登录按钮，已登录显示用户头像
  */
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
@@ -23,9 +23,11 @@ import ThemeToggle from './ThemeToggle';
 import GoldIcon from './GoldIcon';
 import EntcoinIcon from './EntcoinIcon';
 import { NormalSearchIcon } from './SearchIcons';
-import api, { walletAPI, checkinAPI } from '../services/api';
+import MessageDropdown from './MessageDropdown';
+import api, { walletAPI, checkinAPI, messageAPI } from '../services/api';
 import logger from '../utils/logger';
 import './styles/TopNavBar.css';
+import './MessageDropdown.css';
 
 const TopNavBar = ({
   user,
@@ -53,11 +55,25 @@ const TopNavBar = ({
   const [checkingIn, setCheckingIn] = useState(false);
   const [showCheckinModal, setShowCheckinModal] = useState(false);
   const [checkinResult, setCheckinResult] = useState(null);
+  // 站内信相关状态
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const userMenuRef = useRef(null);
   const avatarRef = useRef(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
 
-  // 获取订阅信息、钱包余额、邀请统计、签到信息
+  // 获取未读消息数量
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const response = await messageAPI.getUnreadCount();
+      if (response.data.code === 0) {
+        setUnreadMessageCount(response.data.data.count || 0);
+      }
+    } catch (error) {
+      logger.error('Failed to fetch unread message count:', error);
+    }
+  }, []);
+
+  // 获取订阅信息、钱包余额、邀请统计、签到信息、未读消息
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -88,6 +104,9 @@ const TopNavBar = ({
           });
           setHasCheckedInToday(data.checkin_dates?.includes(todayStr) || false);
         }
+
+        // 获取未读消息数量
+        await fetchUnreadCount();
       } catch (error) {
         logger.error('Failed to fetch user data:', error);
       }
@@ -95,8 +114,11 @@ const TopNavBar = ({
 
     if (user) {
       fetchUserData();
+      // 每60秒刷新未读消息数量
+      const interval = setInterval(fetchUnreadCount, 60000);
+      return () => clearInterval(interval);
     }
-  }, [user]);
+  }, [user, fetchUnreadCount]);
 
   // 日历数据
   const calendarData = useMemo(() => {
@@ -183,11 +205,18 @@ const TopNavBar = ({
   // 点击外部关闭用户菜单
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // 检查是否点击了消息弹窗（通过 Portal 渲染在 body 上）
+      const messageModal = document.querySelector('.msg-modal-overlay');
+      const checkinModal = document.querySelector('.um-checkin-overlay');
+      
       if (showUserMenu &&
           userMenuRef.current &&
           !userMenuRef.current.contains(event.target) &&
           avatarRef.current &&
-          !avatarRef.current.contains(event.target)) {
+          !avatarRef.current.contains(event.target) &&
+          // 排除消息弹窗和签到弹窗的点击
+          (!messageModal || !messageModal.contains(event.target)) &&
+          (!checkinModal || !checkinModal.contains(event.target))) {
         setShowUserMenu(false);
       }
     };
@@ -303,6 +332,12 @@ const TopNavBar = ({
             >
               <div className="top-nav-avatar">
                 {getUserInitial()}
+                {/* 未读消息红点 */}
+                {unreadMessageCount > 0 && (
+                  <span className={`um-avatar-badge ${unreadMessageCount > 99 ? '' : unreadMessageCount > 9 ? '' : 'dot'}`}>
+                    {unreadMessageCount > 99 ? '99+' : unreadMessageCount > 9 ? unreadMessageCount : ''}
+                  </span>
+                )}
               </div>
               <span className="top-nav-username">{getUserDisplayName()}</span>
             </div>
@@ -434,6 +469,18 @@ const TopNavBar = ({
               })()}
             </div>
           </div>
+
+          {/* 消息通知入口 */}
+          <MessageDropdown 
+            unreadCount={unreadMessageCount}
+            onUnreadCountChange={(countOrFn) => {
+              if (typeof countOrFn === 'function') {
+                setUnreadMessageCount(countOrFn);
+              } else {
+                setUnreadMessageCount(countOrFn);
+              }
+            }}
+          />
 
           {/* 底部操作区域 */}
           <div className="um-footer">

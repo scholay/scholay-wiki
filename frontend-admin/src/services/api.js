@@ -404,6 +404,54 @@ export const adminAPI = {
 
   deductUser: (data) =>
     api.post('/admin/currency/deduct', data),
+
+  // Message management (站内信管理)
+  getMessages: (params = {}) => {
+    const queryParams = {
+      page: params.page || 1,
+      page_size: params.pageSize || 20,
+    };
+    if (params.category) queryParams.category = params.category;
+    if (params.status) queryParams.status = params.status;
+    if (params.keyword) queryParams.keyword = params.keyword;
+    return api.get('/admin/messages', { params: queryParams });
+  },
+
+  getMessage: (id) =>
+    api.get(`/admin/messages/${id}`),
+
+  createMessage: (data) =>
+    api.post('/admin/messages', data),
+
+  sendMessage: (id) =>
+    api.post(`/admin/messages/${id}/send`),
+
+  getMessageStats: () =>
+    api.get('/admin/messages/stats'),
+
+  // Message template management (消息模板管理)
+  getMessageTemplates: (params = {}) => {
+    const queryParams = {
+      page: params.page || 1,
+      page_size: params.pageSize || 20,
+    };
+    if (params.category) queryParams.category = params.category;
+    if (params.isActive !== undefined) queryParams.is_active = params.isActive;
+    if (params.keyword) queryParams.keyword = params.keyword;
+    return api.get('/admin/message-templates', { params: queryParams });
+  },
+
+  getMessageTemplate: (id) =>
+    api.get(`/admin/message-templates/${id}`),
+
+  createMessageTemplate: (data) =>
+    api.post('/admin/message-templates', data),
+
+  updateMessageTemplate: (id, data) =>
+    api.put(`/admin/message-templates/${id}`, data),
+
+  deleteMessageTemplate: (id) =>
+    api.delete(`/admin/message-templates/${id}`),
 };
 
 export default api;
