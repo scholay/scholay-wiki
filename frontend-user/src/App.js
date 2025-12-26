@@ -123,11 +123,13 @@ function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  // 监听自定义事件，用于普通注册后立即显示欢迎弹窗
+  // 监听自定义事件，用于普通注册后
+  // 注册成功后不立即显示弹窗，等待签到完成后由 show:welcome_checkin_modal 事件触发
   useEffect(() => {
     const handleShowWelcomeModal = () => {
-      // 普通注册时，只有欢迎数据，延迟一下等待签到结果
-      setTimeout(checkPendingWelcomeCheckinModal, 100);
+      // 注册成功后，不立即显示弹窗
+      // 等待 CheckinFloat 完成签到后触发 show:welcome_checkin_modal 事件
+      console.log('[App] show:welcome_modal received, waiting for checkin to complete...');
     };
 
     window.addEventListener('show:welcome_modal', handleShowWelcomeModal);
@@ -136,9 +138,10 @@ function App() {
     };
   }, []);
 
-  // 监听合并弹窗事件（签到完成后触发）
+  // 监听合并弹窗事件（签到完成后触发，此时欢迎数据和签到数据都已准备好）
   useEffect(() => {
     const handleShowWelcomeCheckinModal = () => {
+      console.log('[App] show:welcome_checkin_modal received, showing combined modal');
       checkPendingWelcomeCheckinModal();
     };
 

@@ -52,9 +52,6 @@ const TopNavBar = ({
   const [futureRewards, setFutureRewards] = useState([]);
   const [checkinStats, setCheckinStats] = useState({ consecutiveDays: 0, totalDays: 0 });
   const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
-  const [checkingIn, setCheckingIn] = useState(false);
-  const [showCheckinModal, setShowCheckinModal] = useState(false);
-  const [checkinResult, setCheckinResult] = useState(null);
   // 站内信相关状态
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const userMenuRef = useRef(null);
@@ -120,87 +117,6 @@ const TopNavBar = ({
     }
   }, [user, fetchUnreadCount]);
 
-  // 日历数据
-  const calendarData = useMemo(() => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startDayOfWeek = firstDay.getDay();
-
-    // 创建签到详情的映射表
-    const checkinDetailMap = {};
-    checkinDetails.forEach(detail => {
-      checkinDetailMap[detail.date] = detail.gold_reward;
-    });
-    
-    // 创建未来奖励的映射表
-    const futureRewardMap = {};
-    futureRewards.forEach(reward => {
-      futureRewardMap[reward.date] = reward;
-    });
-
-    const days = [];
-    for (let i = 0; i < startDayOfWeek; i++) {
-      days.push({ day: null });
-    }
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const isToday = day === today.getDate();
-      const isCheckedIn = checkinHistory.includes(dateStr);
-      const isPast = day < today.getDate();
-      const isFuture = day > today.getDate();
-      
-      const goldReward = checkinDetailMap[dateStr] || 0;
-      const futureReward = futureRewardMap[dateStr];
-      const expectedGold = futureReward?.expected_gold || (isFuture || isToday ? 10 : 0);
-      const isMilestone = futureReward?.is_milestone || false;
-      
-      days.push({ 
-        day, isToday, isCheckedIn, isPast, isFuture, dateStr,
-        goldReward, expectedGold, isMilestone
-      });
-    }
-    return { year, month, days, monthName: today.toLocaleDateString('zh-CN', { month: 'long' }) };
-  }, [checkinHistory, checkinDetails, futureRewards]);
-
-  // 签到处理
-  const handleCheckin = async () => {
-    if (hasCheckedInToday || checkingIn) return;
-    
-    try {
-      setCheckingIn(true);
-      const response = await checkinAPI.checkin();
-      if (response.data.code === 0) {
-        const result = response.data.data;
-        setCheckinResult(result);
-        setHasCheckedInToday(true);
-        const today = new Date().toISOString().split('T')[0];
-        setCheckinHistory(prev => [...prev, today]);
-        setCheckinStats(prev => ({
-          ...prev,
-          consecutiveDays: result.consecutive_days || prev.consecutiveDays + 1,
-          totalDays: result.total_checkins || prev.totalDays + 1
-        }));
-        // 刷新钱包余额
-        const walletResponse = await walletAPI.getWallet();
-        if (walletResponse.data.code === 0) {
-          setWallet(walletResponse.data.data);
-        }
-        // 2.5秒后关闭弹窗
-        setTimeout(() => {
-          setShowCheckinModal(false);
-          setCheckinResult(null);
-        }, 2500);
-      }
-    } catch (error) {
-      logger.error('签到失败:', error);
-    } finally {
-      setCheckingIn(false);
-    }
-  };
 
   // 点击外部关闭用户菜单
   useEffect(() => {
@@ -412,24 +328,32 @@ const TopNavBar = ({
             </div>
           </div>
 
-          {/* 签到区域 */}
-          <div className="um-checkin-section" onClick={() => setShowCheckinModal(true)}>
+          {/* 签到区域 - 显示本周，点击跳转到设置页面 */}
+          <div className="um-checkin-section" onClick={() => { setShowUserMenu(false); navigate('/settings?tab=profile'); }}>
             <div className="um-checkin-header">
               <span className="um-checkin-title">签到</span>
               <span className="um-checkin-streak">连续{checkinStats.consecutiveDays}天</span>
             </div>
+            <div className="um-checkin-week-header">
+              {['日', '一', '二', '三', '四', '五', '六'].map(d => <span key={d}>{d}</span>)}
+            </div>
             <div className="um-checkin-days">
               {(() => {
                 const today = new Date();
+                const dayOfWeek = today.getDay(); // 0=周日
+                const weekStart = new Date(today);
+                weekStart.setDate(today.getDate() - dayOfWeek);
+                
                 const days = [];
-                for (let i = -2; i <= 2; i++) {
-                  const date = new Date(today);
-                  date.setDate(today.getDate() + i);
+                for (let i = 0; i < 7; i++) {
+                  const date = new Date(weekStart);
+                  date.setDate(weekStart.getDate() + i);
                   const dayNum = date.getDate();
                   const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-                  const isToday = i === 0;
-                  const isPast = i < 0;
-                  const isFuture = i > 0;
+                  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                  const isToday = dateStr === todayStr;
+                  const isPast = date < today && !isToday;
+                  const isFuture = date > today;
                   const isChecked = checkinHistory.includes(dateStr);
                   const checkinDetail = checkinDetails.find(d => d.date === dateStr);
                   const goldReward = checkinDetail?.gold_reward || 0;
@@ -522,99 +446,6 @@ const TopNavBar = ({
         document.body
       )}
 
-      {/* 签到日历弹窗 */}
-      {showCheckinModal && ReactDOM.createPortal(
-        <div className="um-checkin-overlay" onClick={() => { setShowCheckinModal(false); setCheckinResult(null); }}>
-          <div className="um-checkin-modal" onClick={e => e.stopPropagation()}>
-            <button className="um-checkin-close" onClick={() => { setShowCheckinModal(false); setCheckinResult(null); }}>
-              <X size={20} />
-            </button>
-
-            {!checkinResult ? (
-              <>
-                <div className="um-checkin-header">
-                  <h2>每日签到</h2>
-                  <p>{calendarData.year}年{calendarData.monthName}</p>
-                </div>
-
-                <div className="um-checkin-calendar">
-                  <div className="um-calendar-week">
-                    {['日', '一', '二', '三', '四', '五', '六'].map(d => <span key={d}>{d}</span>)}
-                  </div>
-                  <div className="um-calendar-days">
-                    {calendarData.days.map((item, i) => (
-                      <div 
-                        key={i} 
-                        className={`um-cal-day ${!item.day ? 'empty' : ''} ${item.isToday ? 'today' : ''} ${item.isCheckedIn ? 'checked' : ''} ${item.isFuture ? 'future' : ''} ${item.isMilestone ? 'milestone' : ''}`}
-                      >
-                        {item.day && (
-                          <>
-                            <span className="day-num">{item.day}</span>
-                            {item.isCheckedIn && item.goldReward > 0 && (
-                              <span className="gold-reward">+{item.goldReward}</span>
-                            )}
-                            {item.isToday && !item.isCheckedIn && item.expectedGold > 0 && (
-                              <span className={`gold-reward today-gold ${item.isMilestone ? 'milestone-gold' : ''}`}>
-                                +{item.expectedGold}
-                              </span>
-                            )}
-                            {item.isFuture && item.expectedGold > 0 && (
-                              <span className={`gold-reward future-gold ${item.isMilestone ? 'milestone-gold' : ''}`}>
-                                +{item.expectedGold}
-                              </span>
-                            )}
-                            {item.isCheckedIn && (
-                              <div className="check-mark">
-                                <svg viewBox="0 0 24 24" fill="none">
-                                  <path d="M9 12L11 14L15 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="um-checkin-stats">
-                  <div className="um-stat-box">
-                    <span className="num">{checkinStats.consecutiveDays}</span>
-                    <span className="label">连续签到</span>
-                  </div>
-                  <div className="um-stat-box">
-                    <span className="num">{checkinStats.totalDays}</span>
-                    <span className="label">累计签到</span>
-                  </div>
-                </div>
-
-                <button 
-                  className={`um-checkin-btn ${checkingIn ? 'loading' : ''} ${hasCheckedInToday ? 'disabled' : ''}`}
-                  onClick={handleCheckin}
-                  disabled={checkingIn || hasCheckedInToday}
-                >
-                  {hasCheckedInToday ? '今日已签到' : (checkingIn ? '领取中...' : '立即领取')}
-                </button>
-              </>
-            ) : (
-              <div className="um-checkin-success">
-                <div className="success-icon">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path d="M9 12L11 14L15 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <h2>签到成功！</h2>
-                <div className="success-stats">
-                  <div><span>{checkinResult.consecutive_days}</span>连续</div>
-                  <div><span>{checkinResult.total_checkins}</span>累计</div>
-                </div>
-                <p className="success-tip">明天继续加油 ✨</p>
-              </div>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
     </>
   );
 };

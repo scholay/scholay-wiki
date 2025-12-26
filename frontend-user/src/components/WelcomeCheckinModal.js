@@ -15,7 +15,7 @@
 import React, { useState, useCallback, memo, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Gift, HelpCircle, Calendar } from 'lucide-react';
+import { Gift, HelpCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import GoldIcon from './GoldIcon';
 import './styles/WelcomeCheckinModal.css';
 
@@ -41,23 +41,43 @@ const WelcomeCheckinModal = memo(({
   const navigate = useNavigate();
   const [isClosing, setIsClosing] = useState(false);
   
-  // 确定有哪些标签页
+  // 确定有哪些页面
   const hasWelcome = welcomeGiftAmount > 0;
   const hasCheckin = checkinResult !== null;
   
-  // 默认显示第一个可用的标签（欢迎优先）
-  const [activeTab, setActiveTab] = useState(hasWelcome ? 'welcome' : 'checkin');
+  // 构建页面列表（注册礼包在首位）
+  const pages = useMemo(() => {
+    const list = [];
+    if (hasWelcome) list.push('welcome');
+    if (hasCheckin) list.push('checkin');
+    return list;
+  }, [hasWelcome, hasCheckin]);
+  
+  // 当前页面索引（默认显示第一页，即注册礼包）
+  const [currentIndex, setCurrentIndex] = useState(0);
+  
+  // 切换到上一页
+  const goToPrev = useCallback(() => {
+    setCurrentIndex(prev => (prev > 0 ? prev - 1 : pages.length - 1));
+  }, [pages.length]);
+  
+  // 切换到下一页
+  const goToNext = useCallback(() => {
+    setCurrentIndex(prev => (prev < pages.length - 1 ? prev + 1 : 0));
+  }, [pages.length]);
+  
+  // 当前显示的页面类型
+  const currentPage = pages[currentIndex];
 
-  // 获取当前月份的日历数据
-  const calendarData = useMemo(() => {
+  // 获取本周的日历数据（周日到周六）
+  const weekData = useMemo(() => {
     const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startDayOfWeek = firstDay.getDay();
-
+    const dayOfWeek = today.getDay(); // 0=周日, 1=周一, ..., 6=周六
+    
+    // 计算本周周日的日期
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - dayOfWeek);
+    
     // 创建签到详情的映射表
     const checkinDetailMap = {};
     checkinDetails.forEach(detail => {
@@ -71,33 +91,31 @@ const WelcomeCheckinModal = memo(({
     });
 
     const days = [];
-    for (let i = 0; i < startDayOfWeek; i++) {
-      days.push({ day: null });
-    }
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const isToday = day === today.getDate();
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + i);
+      const day = date.getDate();
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const isToday = dateStr === todayStr;
       const isCheckedIn = checkinHistory.includes(dateStr);
-      const isPast = day < today.getDate();
-      const isFuture = day > today.getDate();
+      const isPast = date < today && !isToday;
+      const isFuture = date > today;
       
       // 获取已签到日期的经费数量
       const goldReward = checkinDetailMap[dateStr] || 0;
       
       // 获取未来日期的预计经费
       const futureReward = futureRewardMap[dateStr];
-      const expectedGold = futureReward?.expected_gold || 0;
+      const expectedGold = futureReward?.expected_gold || 10;
       const isMilestone = futureReward?.is_milestone || false;
-      const milestoneMessage = futureReward?.milestone_message || '';
-      const isAfterUpgrade = futureReward?.is_after_upgrade || false;
-      const baseUpgradeMsg = futureReward?.base_upgrade_msg || '';
       
       days.push({ 
         day, isToday, isCheckedIn, isPast, isFuture, dateStr,
-        goldReward, expectedGold, isMilestone, milestoneMessage, isAfterUpgrade, baseUpgradeMsg
+        goldReward, expectedGold, isMilestone, weekDay: i
       });
     }
-    return { year, month, days, monthName: today.toLocaleDateString('zh-CN', { month: 'long' }) };
+    return { days };
   }, [checkinHistory, checkinDetails, futureRewards]);
 
   const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
@@ -127,34 +145,24 @@ const WelcomeCheckinModal = memo(({
   return ReactDOM.createPortal(
     <div 
       className={`welcome-checkin-overlay ${isClosing ? 'closing' : ''}`}
-      onClick={handleClose}
     >
+      {/* 左右箭头 - 放在弹窗外面，只有多个页面时才显示 */}
+      {pages.length > 1 && (
+        <>
+          <button className="carousel-arrow carousel-arrow-left" onClick={goToPrev}>
+            <ChevronLeft size={24} />
+          </button>
+          <button className="carousel-arrow carousel-arrow-right" onClick={goToNext}>
+            <ChevronRight size={24} />
+          </button>
+        </>
+      )}
+      
       <div 
         className={`welcome-checkin-modal ${isClosing ? 'closing' : ''}`}
-        onClick={(e) => e.stopPropagation()}
       >
-        {/* 标签切换 - 只有同时有两种内容时才显示 */}
-        {hasWelcome && hasCheckin && (
-          <div className="welcome-checkin-tabs">
-            <button 
-              className={`tab-btn ${activeTab === 'welcome' ? 'active' : ''}`}
-              onClick={() => setActiveTab('welcome')}
-            >
-              <Gift size={16} />
-              <span>注册礼包</span>
-            </button>
-            <button 
-              className={`tab-btn ${activeTab === 'checkin' ? 'active' : ''}`}
-              onClick={() => setActiveTab('checkin')}
-            >
-              <Calendar size={16} />
-              <span>每日签到</span>
-            </button>
-          </div>
-        )}
-
         {/* 欢迎内容 */}
-        {activeTab === 'welcome' && hasWelcome && (
+        {currentPage === 'welcome' && hasWelcome && (
           <div className="tab-content welcome-content">
             {/* 礼物图标 */}
             <div className="welcome-checkin-icon welcome-icon-style">
@@ -186,7 +194,7 @@ const WelcomeCheckinModal = memo(({
         )}
 
         {/* 签到内容 */}
-        {activeTab === 'checkin' && hasCheckin && (
+        {currentPage === 'checkin' && hasCheckin && (
           <div className="tab-content checkin-content">
             {/* 礼物图标 */}
             <div className="welcome-checkin-icon checkin-icon-style">
@@ -217,45 +225,45 @@ const WelcomeCheckinModal = memo(({
               <span className="checkin-reward-amount">+{checkinResult.gold_reward || 10}</span>
             </div>
             
-            {/* 签到日历 */}
-            <div className="checkin-calendar-mini">
-              <div className="checkin-calendar-week">
+            {/* 本周签到日历 */}
+            <div className="checkin-week-view">
+              <div className="checkin-week-header">
                 {weekDays.map(d => <span key={d}>{d}</span>)}
               </div>
-              <div className="checkin-calendar-days">
-                {calendarData.days.map((item, i) => (
+              <div className="checkin-week-days">
+                {weekData.days.map((item, i) => (
                   <div 
                     key={i} 
-                    className={`checkin-day ${!item.day ? 'empty' : ''} ${item.isToday ? 'today' : ''} ${item.isCheckedIn ? 'checked' : ''} ${item.isFuture ? 'future' : ''} ${item.isMilestone ? 'milestone' : ''} ${item.isAfterUpgrade ? 'after-upgrade' : ''}`}
-                    title={item.isMilestone ? item.milestoneMessage : (item.isAfterUpgrade ? item.baseUpgradeMsg : '')}
+                    className={`checkin-week-day ${item.isToday ? 'today' : ''} ${item.isCheckedIn ? 'checked' : ''} ${item.isFuture ? 'future' : ''} ${item.isPast && !item.isCheckedIn ? 'past-missed' : ''} ${item.isMilestone ? 'milestone' : ''}`}
                   >
-                    {item.day && (
-                      <>
-                        <span className="day-num">{item.day}</span>
-                        {/* 已签到日期显示获得的经费 */}
-                        {item.isCheckedIn && item.goldReward > 0 && (
-                          <span className="gold-reward checked-gold">+{item.goldReward}</span>
-                        )}
-                        {/* 今天未签到显示预计经费 */}
-                        {item.isToday && !item.isCheckedIn && item.expectedGold > 0 && (
-                          <span className={`gold-reward today-gold ${item.isMilestone ? 'milestone-gold' : ''} ${item.isAfterUpgrade ? 'after-upgrade-gold' : ''}`}>
-                            +{item.expectedGold}
-                          </span>
-                        )}
-                        {/* 未来日期显示预计经费 */}
-                        {item.isFuture && !item.isToday && item.expectedGold > 0 && (
-                          <span className={`gold-reward future-gold ${item.isMilestone ? 'milestone-gold' : ''} ${item.isAfterUpgrade ? 'after-upgrade-gold' : ''}`}>
-                            +{item.expectedGold}
-                          </span>
-                        )}
-                        {item.isCheckedIn && (
-                          <div className="check-mark">
-                            <svg viewBox="0 0 24 24" fill="none">
-                              <path d="M9 12L11 14L15 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </div>
-                        )}
-                      </>
+                    <span className="day-num">{item.day}</span>
+                    {/* 已签到显示经费 */}
+                    {item.isCheckedIn && item.goldReward > 0 && (
+                      <span className="gold-reward checked-gold">+{item.goldReward}</span>
+                    )}
+                    {/* 今天未签到显示预计经费 */}
+                    {item.isToday && !item.isCheckedIn && (
+                      <span className={`gold-reward today-gold ${item.isMilestone ? 'milestone-gold' : ''}`}>
+                        +{item.expectedGold}
+                      </span>
+                    )}
+                    {/* 未来日期显示预计经费 */}
+                    {item.isFuture && !item.isToday && (
+                      <span className={`gold-reward future-gold ${item.isMilestone ? 'milestone-gold' : ''}`}>
+                        +{item.expectedGold}
+                      </span>
+                    )}
+                    {/* 过去未签到显示错过 */}
+                    {item.isPast && !item.isCheckedIn && (
+                      <span className="gold-reward past-gold">+10</span>
+                    )}
+                    {/* 签到勾选标记 */}
+                    {item.isCheckedIn && (
+                      <div className="check-mark">
+                        <svg viewBox="0 0 24 24" fill="none">
+                          <path d="M9 12L11 14L15 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -264,12 +272,25 @@ const WelcomeCheckinModal = memo(({
           </div>
         )}
 
+        {/* 底部小圆点指示器 - 只有多个页面时才显示 */}
+        {pages.length > 1 && (
+          <div className="carousel-dots">
+            {pages.map((_, index) => (
+              <button
+                key={index}
+                className={`carousel-dot ${index === currentIndex ? 'active' : ''}`}
+                onClick={() => setCurrentIndex(index)}
+              />
+            ))}
+          </div>
+        )}
+
         {/* 确认按钮 */}
         <button 
           className="welcome-checkin-confirm-btn"
           onClick={handleClose}
         >
-          {hasWelcome && hasCheckin ? '知道了' : (hasWelcome ? '开始使用' : '知道了')}
+          {pages.length > 1 ? '知道了' : (hasWelcome ? '开始使用' : '知道了')}
         </button>
       </div>
     </div>,

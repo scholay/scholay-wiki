@@ -128,17 +128,12 @@ const CheckinFloat = () => {
       if (response.data.code === 0) {
         trackUserCheckin();
         const result = response.data.data;
-        setCheckinResult(result);
-        setHasCheckedIn(true);
         const today = new Date().toISOString().split('T')[0];
-        setCheckinHistory(prev => [...prev, today]);
-        // 更新签到详情
-        setCheckinDetails(prev => [...prev, { date: today, gold_reward: result.gold_reward || 10 }]);
-        // 触发事件通知App层显示合并弹窗（如果有欢迎弹窗待显示）
-        // 或者直接在当前弹窗显示签到结果
+        
+        // 检查是否有待显示的欢迎弹窗
         const pendingWelcomeModal = localStorage.getItem('pending_welcome_modal');
         if (pendingWelcomeModal) {
-          // 有欢迎弹窗，触发合并弹窗显示
+          // 有欢迎弹窗，保存签到数据并触发合并弹窗显示
           const currentData = checkinDataRef.current;
           localStorage.setItem('pending_checkin_result', JSON.stringify({
             ...result,
@@ -147,13 +142,18 @@ const CheckinFloat = () => {
             futureRewards: currentData.futureRewards,
             timestamp: Date.now()
           }));
-          // 关闭当前弹窗，由App层的合并弹窗来显示
-          setShowModal(false);
+          // 更新状态但不显示弹窗
+          setHasCheckedIn(true);
           setShowFloatBall(false);
-          // 触发事件
+          // 触发合并弹窗事件
           window.dispatchEvent(new CustomEvent('show:welcome_checkin_modal'));
+        } else {
+          // 没有欢迎弹窗，正常显示签到结果
+          setCheckinResult(result);
+          setHasCheckedIn(true);
+          setCheckinHistory(prev => [...prev, today]);
+          setCheckinDetails(prev => [...prev, { date: today, gold_reward: result.gold_reward || 10 }]);
         }
-        // 如果没有欢迎弹窗，签到结果会在当前弹窗中显示（手动关闭）
       }
     } catch (error) {
       logger.error('自动签到失败:', error);
@@ -197,21 +197,32 @@ const CheckinFloat = () => {
             const pendingWelcomeModal = localStorage.getItem('pending_welcome_modal');
             const hasWelcomeModal = !!pendingWelcomeModal;
             
-            // 如果有欢迎弹窗，延迟更长时间再显示签到弹窗
-            const delay = hasWelcomeModal ? 3000 : 1000;
-            
-            // 自动弹窗并自动签到
-            logger.log('[CheckinFloat] Will show auto checkin modal in', delay, 'ms, hasWelcomeModal:', hasWelcomeModal);
-            setTimeout(async () => {
-              logger.log('[CheckinFloat] Showing modal and auto checkin');
-              setModalType('auto');
-              setShowModal(true);
-              // 使用用户专属的 key
-              const modalShownKey = getStorageKey('checkin_modal_shown_today');
-              sessionStorage.setItem(modalShownKey, 'true');
-              // 自动执行签到
-              await autoCheckin();
-            }, delay);
+            if (hasWelcomeModal) {
+              // 有欢迎弹窗，不显示 CheckinFloat 的弹窗
+              // 直接执行签到，然后触发合并弹窗
+              logger.log('[CheckinFloat] Has welcome modal, will trigger combined modal');
+              setTimeout(async () => {
+                // 使用用户专属的 key
+                const modalShownKey = getStorageKey('checkin_modal_shown_today');
+                sessionStorage.setItem(modalShownKey, 'true');
+                // 执行签到并触发合并弹窗
+                await autoCheckin();
+              }, 500);
+            } else {
+              // 没有欢迎弹窗，显示 CheckinFloat 自己的签到弹窗
+              const delay = 1000;
+              logger.log('[CheckinFloat] Will show auto checkin modal in', delay, 'ms');
+              setTimeout(async () => {
+                logger.log('[CheckinFloat] Showing modal and auto checkin');
+                setModalType('auto');
+                setShowModal(true);
+                // 使用用户专属的 key
+                const modalShownKey = getStorageKey('checkin_modal_shown_today');
+                sessionStorage.setItem(modalShownKey, 'true');
+                // 自动执行签到
+                await autoCheckin();
+              }, delay);
+            }
           }
         } else {
           logger.log('[CheckinFloat] Already checked in today');

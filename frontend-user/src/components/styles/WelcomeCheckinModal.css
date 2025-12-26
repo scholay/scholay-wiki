@@ -525,3 +525,262 @@
     border-radius: 12px;
   }
 }
+
+/* ========== 轮播箭头（放在弹窗外面） ========== */
+.carousel-arrow {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 100000;
+}
+
+.carousel-arrow-left {
+  left: calc(50% - 260px);
+}
+
+.carousel-arrow-right {
+  right: calc(50% - 260px);
+}
+
+[data-theme="dark"] .carousel-arrow {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .carousel-arrow:hover {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+[data-theme="light"] .carousel-arrow {
+  background: rgba(255, 255, 255, 0.9);
+  color: rgba(0, 0, 0, 0.6);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .carousel-arrow:hover {
+  background: #fff;
+  color: rgba(0, 0, 0, 0.9);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.carousel-arrow:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+/* ========== 小圆点指示器 ========== */
+.carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.carousel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+[data-theme="dark"] .carousel-dot {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .carousel-dot.active {
+  background: #10a37f;
+  width: 20px;
+  border-radius: 4px;
+}
+
+[data-theme="dark"] .carousel-dot:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="light"] .carousel-dot {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .carousel-dot.active {
+  background: #10a37f;
+  width: 20px;
+  border-radius: 4px;
+}
+
+[data-theme="light"] .carousel-dot:hover:not(.active) {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* 移动端适配 - 箭头靠近弹窗边缘 */
+@media (max-width: 540px) {
+  .carousel-arrow-left {
+    left: 12px;
+  }
+
+  .carousel-arrow-right {
+    right: 12px;
+  }
+
+  .carousel-arrow {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* ========== 本周签到视图 ========== */
+.checkin-week-view {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 12px;
+}
+
+[data-theme="dark"] .checkin-week-view {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="light"] .checkin-week-view {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.checkin-week-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.checkin-week-header span {
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  padding: 4px 0;
+}
+
+[data-theme="dark"] .checkin-week-header span {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="light"] .checkin-week-header span {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.checkin-week-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.checkin-week-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  position: relative;
+  font-size: 13px;
+  transition: all 0.2s;
+  min-height: 48px;
+}
+
+.checkin-week-day .day-num {
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+[data-theme="dark"] .checkin-week-day .day-num {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="light"] .checkin-week-day .day-num {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.checkin-week-day.today {
+  border: 2px solid #10a37f;
+}
+
+[data-theme="dark"] .checkin-week-day.today {
+  background: rgba(16, 163, 127, 0.15);
+}
+
+[data-theme="light"] .checkin-week-day.today {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+.checkin-week-day.checked {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.25) 0%, rgba(16, 163, 127, 0.1) 100%);
+}
+
+.checkin-week-day.checked .day-num {
+  color: #10a37f;
+}
+
+.checkin-week-day.past-missed {
+  opacity: 0.5;
+}
+
+.checkin-week-day.future .day-num {
+  opacity: 0.6;
+}
+
+.checkin-week-day .check-mark {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  background: #10a37f;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.checkin-week-day .check-mark svg {
+  width: 10px;
+  height: 10px;
+  color: white;
+}
+
+.checkin-week-day .gold-reward {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.checkin-week-day .gold-reward.checked-gold {
+  color: #10a37f;
+}
+
+.checkin-week-day .gold-reward.today-gold {
+  color: #f59e0b;
+}
+
+.checkin-week-day .gold-reward.future-gold {
+  color: #f59e0b;
+  opacity: 0.6;
+}
+
+.checkin-week-day .gold-reward.past-gold {
+  color: #999;
+  text-decoration: line-through;
+}
+
+.checkin-week-day .gold-reward.milestone-gold {
+  color: #ff6b6b;
+}
