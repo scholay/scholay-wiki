@@ -194,8 +194,15 @@ const CheckinFloat = () => {
           const shouldShowModal = checkFirstVisitToday();
           logger.log('[CheckinFloat] Should show modal:', shouldShowModal);
           if (shouldShowModal) {
+            // 检查是否有待显示的欢迎弹窗（新用户注册后）
+            const pendingWelcomeModal = localStorage.getItem('pending_welcome_modal');
+            const hasWelcomeModal = !!pendingWelcomeModal;
+            
+            // 如果有欢迎弹窗，延迟更长时间再显示签到弹窗
+            const delay = hasWelcomeModal ? 3000 : 1000;
+            
             // 自动弹窗并自动签到
-            logger.log('[CheckinFloat] Will show auto checkin modal in 1s');
+            logger.log('[CheckinFloat] Will show auto checkin modal in', delay, 'ms, hasWelcomeModal:', hasWelcomeModal);
             setTimeout(async () => {
               logger.log('[CheckinFloat] Showing modal and auto checkin');
               setModalType('auto');
@@ -205,7 +212,7 @@ const CheckinFloat = () => {
               sessionStorage.setItem(modalShownKey, 'true');
               // 自动执行签到
               await autoCheckin();
-            }, 1000);
+            }, delay);
           }
         } else {
           logger.log('[CheckinFloat] Already checked in today');

@@ -20,6 +20,7 @@ import MainLayout from './components/MainLayout';
 import CheckinFloat from './components/CheckinFloat';
 import ErrorBoundary from './components/ErrorBoundary';
 import NetworkStatusBar from './components/NetworkStatusBar';
+import WelcomeModal from './components/WelcomeModal';
 
 // 首页立即加载(最常访问)
 import Home from './pages/Home';
@@ -42,6 +43,10 @@ const AuthModal = lazy(() => import('./components/AuthModal'));
 
 function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
+  
+  // OAuth注册后的欢迎弹窗状态
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [welcomeGiftAmount, setWelcomeGiftAmount] = useState(0);
 
   useEffect(() => {
     // Listen for auth:required event from API interceptor
@@ -52,6 +57,47 @@ function App() {
     window.addEventListener('auth:required', handleAuthRequired);
     return () => {
       window.removeEventListener('auth:required', handleAuthRequired);
+    };
+  }, []);
+
+  // 检查并显示待处理的欢迎弹窗
+  const checkPendingWelcomeModal = () => {
+    const pendingData = localStorage.getItem('pending_welcome_modal');
+    console.log('[App] checkPendingWelcomeModal, pendingData:', pendingData);
+    if (pendingData) {
+      try {
+        const { giftAmount, timestamp } = JSON.parse(pendingData);
+        console.log('[App] Parsed welcome modal data:', { giftAmount, timestamp, age: Date.now() - timestamp });
+        // 只在5分钟内有效，防止过期数据
+        if (Date.now() - timestamp < 5 * 60 * 1000 && giftAmount > 0) {
+          console.log('[App] Showing welcome modal with gift:', giftAmount);
+          setWelcomeGiftAmount(giftAmount);
+          setShowWelcomeModal(true);
+        }
+      } catch (e) {
+        console.error('[App] Failed to parse welcome modal data:', e);
+      }
+      // 无论如何都清理localStorage
+      localStorage.removeItem('pending_welcome_modal');
+    }
+  };
+
+  // 检查是否有待显示的欢迎弹窗（OAuth注册后 或 页面刷新后）
+  useEffect(() => {
+    // 延迟执行，确保页面已经加载完成
+    const timer = setTimeout(checkPendingWelcomeModal, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // 监听自定义事件，用于普通注册后立即显示欢迎弹窗
+  useEffect(() => {
+    const handleShowWelcomeModal = () => {
+      checkPendingWelcomeModal();
+    };
+
+    window.addEventListener('show:welcome_modal', handleShowWelcomeModal);
+    return () => {
+      window.removeEventListener('show:welcome_modal', handleShowWelcomeModal);
     };
   }, []);
 
@@ -136,6 +182,13 @@ function App() {
                   
                   {/* 网络状态提示栏 */}
                   <NetworkStatusBar />
+                  
+                  {/* OAuth注册后的欢迎弹窗 */}
+                  <WelcomeModal
+                    isOpen={showWelcomeModal}
+                    onClose={() => setShowWelcomeModal(false)}
+                    giftAmount={welcomeGiftAmount}
+                  />
                 </Suspense>
               </Router>
             </SidebarProvider>

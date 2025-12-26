@@ -343,8 +343,22 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
       if (data.code === 0) {
         trackUserRegister(); // 记录注册统计
+        logger.log('[AuthModal] Registration success, register_gift_gold:', data.data.register_gift_gold);
         login(data.data.token, data.data.user);
         if (onLoginSuccess) onLoginSuccess(data.data.user);
+        
+        // 如果有注册赠送经费，保存到localStorage供App层显示欢迎弹窗
+        if (data.data.register_gift_gold && data.data.register_gift_gold > 0) {
+          logger.log('[AuthModal] Saving welcome modal data to localStorage');
+          localStorage.setItem('pending_welcome_modal', JSON.stringify({
+            giftAmount: data.data.register_gift_gold,
+            timestamp: Date.now()
+          }));
+          // 触发自定义事件通知App层显示欢迎弹窗
+          logger.log('[AuthModal] Dispatching show:welcome_modal event');
+          window.dispatchEvent(new CustomEvent('show:welcome_modal'));
+        }
+        
         handleClose();
       } else {
         showError(data.message || '注册失败');
@@ -541,6 +555,17 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         trackUserRegister(); // 记录注册统计
         login(data.data.token, data.data.user);
         if (onLoginSuccess) onLoginSuccess(data.data.user);
+        
+        // 如果有注册赠送经费，保存到localStorage供App层显示欢迎弹窗
+        if (data.data.register_gift_gold && data.data.register_gift_gold > 0) {
+          localStorage.setItem('pending_welcome_modal', JSON.stringify({
+            giftAmount: data.data.register_gift_gold,
+            timestamp: Date.now()
+          }));
+          // 触发自定义事件通知App层显示欢迎弹窗
+          window.dispatchEvent(new CustomEvent('show:welcome_modal'));
+        }
+        
         handleClose();
       } else {
         showError(data.message || '注册失败');

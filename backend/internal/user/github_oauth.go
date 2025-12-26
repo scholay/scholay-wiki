@@ -150,11 +150,18 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 	// Update last login time and IP
 	_ = h.userRepo.UpdateLastLoginWithIP(user.ID, ip)
 
-	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
+	response := gin.H{
 		"token":       token,
 		"user":        user,
 		"is_new_user": isNewUser,
-	})
+	}
+
+	// 如果是新用户，返回注册赠送经费金额
+	if isNewUser {
+		response["register_gift_gold"] = h.service.GetRegisterGiftAmount()
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "success", response)
 }
 
 // exchangeGithubCode exchanges authorization code for access token

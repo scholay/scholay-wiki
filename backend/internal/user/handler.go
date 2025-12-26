@@ -137,8 +137,9 @@ type LoginRequest struct {
 
 // AuthResponse represents an authentication response
 type AuthResponse struct {
-	Token string `json:"token"`
-	User  *User  `json:"user"`
+	Token            string `json:"token"`
+	User             *User  `json:"user"`
+	RegisterGiftGold int64  `json:"register_gift_gold,omitempty"` // 注册赠送经费金额（仅注册时返回）
 }
 
 // UpdateProfileRequest represents an update profile request
@@ -239,9 +240,13 @@ func (h *Handler) Register(c *gin.Context) {
 	userAgent := c.GetHeader("User-Agent")
 	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
+	// 获取注册赠送经费金额
+	registerGiftGold := h.service.GetRegisterGiftAmount()
+
 	utils.Success(c, AuthResponse{
-		Token: token,
-		User:  user,
+		Token:            token,
+		User:             user,
+		RegisterGiftGold: registerGiftGold,
 	})
 }
 
@@ -451,9 +456,13 @@ func (h *Handler) RegisterWithPhone(c *gin.Context) {
 	userAgent := c.GetHeader("User-Agent")
 	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
+	// 获取注册赠送经费金额
+	registerGiftGold := h.service.GetRegisterGiftAmount()
+
 	utils.Success(c, AuthResponse{
-		Token: token,
-		User:  user,
+		Token:            token,
+		User:             user,
+		RegisterGiftGold: registerGiftGold,
 	})
 }
 
@@ -1394,11 +1403,18 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 	userAgent := c.GetHeader("User-Agent")
 	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour)
 
-	utils.Success(c, gin.H{
+	response := gin.H{
 		"token":       token,
 		"user":        user,
 		"is_new_user": isNewUser,
-	})
+	}
+
+	// 如果是新用户，返回注册赠送经费金额
+	if isNewUser {
+		response["register_gift_gold"] = h.service.GetRegisterGiftAmount()
+	}
+
+	utils.Success(c, response)
 }
 
 // BindWeChatRequest represents WeChat binding request

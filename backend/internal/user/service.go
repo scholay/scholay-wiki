@@ -80,6 +80,19 @@ func (s *Service) SetCurrencyService(currencyService CurrencyService) {
 	s.currencyService = currencyService
 }
 
+// GetRegisterGiftAmount 获取注册赠送经费金额配置
+func (s *Service) GetRegisterGiftAmount() int64 {
+	if s.currencyService == nil {
+		return 0
+	}
+
+	amount, err := s.currencyService.GetCurrencyConfigAmount("register_gift_gold")
+	if err != nil || amount <= 0 {
+		return 0
+	}
+	return amount
+}
+
 // GiftRegisterGold 赠送注册经费
 func (s *Service) GiftRegisterGold(userID uint) {
 	if s.currencyService == nil {

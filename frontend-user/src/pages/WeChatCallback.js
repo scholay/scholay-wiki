@@ -148,11 +148,19 @@ const WeChatCallback = () => {
           response = await userAPI.wechatCallback(code, state, invitationCode);
 
           if (response.data.code === 0 && response.data.data) {
-            const { token, user } = response.data.data;
+            const { token, user, is_new_user, register_gift_gold } = response.data.data;
 
             // Save token and user data
             localStorage.setItem('user_token', token);
             localStorage.setItem('user_data', JSON.stringify(user));
+
+            // 如果是新用户且有注册赠送经费，保存到localStorage供后续显示欢迎弹窗
+            if (is_new_user && register_gift_gold && register_gift_gold > 0) {
+              localStorage.setItem('pending_welcome_modal', JSON.stringify({
+                giftAmount: register_gift_gold,
+                timestamp: Date.now()
+              }));
+            }
 
             // Check for return URL and validate against whitelist
             const returnURL = localStorage.getItem('wechat_return_url');
