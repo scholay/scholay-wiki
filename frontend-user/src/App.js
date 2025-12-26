@@ -21,6 +21,7 @@ import CheckinFloat from './components/CheckinFloat';
 import ErrorBoundary from './components/ErrorBoundary';
 import NetworkStatusBar from './components/NetworkStatusBar';
 import WelcomeCheckinModal from './components/WelcomeCheckinModal';
+import NotificationToast from './components/NotificationToast';
 
 // 首页立即加载(最常访问)
 import Home from './pages/Home';
@@ -232,6 +233,9 @@ function App() {
                   
                   {/* 网络状态提示栏 */}
                   <NetworkStatusBar />
+                  
+                  {/* 站内信实时通知 */}
+                  <NotificationToast />
                   
                   {/* OAuth注册后的欢迎+签到合并弹窗 */}
                   <WelcomeCheckinModal

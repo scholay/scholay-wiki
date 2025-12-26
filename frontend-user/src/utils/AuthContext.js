@@ -9,6 +9,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { userAPI, subscriptionAPI } from '../services/api';
+import wsClient from '../services/websocket';
 import logger from './logger';
 
 const AuthContext = createContext(null);
@@ -278,6 +279,12 @@ export const AuthProvider = ({ children }) => {
 
     // 同时启动 Token 刷新检查
     startTokenRefresh();
+
+    // 建立 WebSocket 连接（用于实时消息推送）
+    const token = localStorage.getItem('user_token');
+    if (token) {
+      wsClient.connect(token);
+    }
   }, [sendHeartbeat, checkActivityStatus, updateLastActivity, handleVisibilityChange, startTokenRefresh]);
 
   // 更新 ref
@@ -295,6 +302,9 @@ export const AuthProvider = ({ children }) => {
       window.removeEventListener(event, updateLastActivity);
     });
     document.removeEventListener('visibilitychange', handleVisibilityChange);
+
+    // 断开 WebSocket 连接
+    wsClient.disconnect();
   }, [stopHeartbeat, stopTokenRefresh, updateLastActivity, handleVisibilityChange]);
 
   useEffect(() => {

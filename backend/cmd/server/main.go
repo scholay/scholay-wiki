@@ -42,6 +42,7 @@ import (
 	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/wechat"
 	"scholar-backend/internal/wechatofficial"
+	"scholar-backend/internal/websocket"
 
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel/attribute"
@@ -281,12 +282,21 @@ func main() {
 	// Initialize Message module (站内信)
 	messageHandler := message.NewHandler(database.GetDB())
 
+	// Initialize WebSocket module (实时消息推送)
+	wsHub := websocket.NewHub()
+	wsHandler := websocket.NewHandler(wsHub, cfg.JWT.Secret)
+
+	// Inject WebSocket hub into message service for real-time notifications
+	messageHandler.SetWebSocketHub(wsHub)
+
 	// Inject currency service into user service (for register gift)
 	userService.SetCurrencyService(currencyService)
 	// Inject currency service into checkin service (for checkin gold reward)
 	checkinService.SetCurrencyService(currencyService)
 	// Inject currency service into coupon service (for invite diamond reward)
 	couponService.SetCurrencyService(currencyService)
+	// Inject message service into coupon service (for invite notification)
+	couponService.SetMessageService(messageHandler.GetAdapter())
 	// Inject currency service into chat handler (for AI chat deduction)
 	chatHandler.SetCurrencyService(currencyService)
 	// Inject currency service into conversation handler (for smart analysis deduction)
@@ -377,6 +387,9 @@ func main() {
 	// API routes
 	api := router.Group("/api/v1")
 	{
+		// WebSocket endpoint (认证通过 URL 参数)
+		api.GET("/ws", wsHandler.HandleWebSocket)
+
 		// Config routes (public)
 		configHandler.RegisterRoutes(api)
 
@@ -882,6 +895,11 @@ func main() {
 
 	// Shutdown cache worker pool gracefully
 	cache.ShutdownGlobalPool()
+
+	// Close WebSocket hub
+	if err := wsHub.Close(); err != nil {
+		log.Printf("Error closing WebSocket hub: %v", err)
+	}
 
 	// Give background tasks time to cleanup
 	time.Sleep(2 * time.Second)

@@ -1315,3 +1315,244 @@
   }
 }
 
+
+/* ========== 断签提醒 ========== */
+.checkin-streak-broken {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+[data-theme="dark"] .checkin-streak-broken {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+[data-theme="light"] .checkin-streak-broken {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.streak-broken-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.streak-broken-icon svg {
+  width: 100%;
+  height: 100%;
+  color: #ef4444;
+}
+
+.streak-broken-text {
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0;
+  color: #ef4444;
+}
+
+/* ========== 连续签到奖励提醒 ========== */
+.checkin-milestone-hint {
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+[data-theme="dark"] .checkin-milestone-hint {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.1) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+[data-theme="light"] .checkin-milestone-hint {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.15);
+}
+
+.milestone-hint-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.milestone-hint-text .hint-highlight {
+  font-weight: 600;
+  color: #d97706;
+}
+
+[data-theme="dark"] .milestone-hint-text .hint-highlight {
+  color: #fbbf24;
+}
+
+.milestone-hint-text .hint-arrow {
+  color: #666;
+}
+
+[data-theme="dark"] .milestone-hint-text .hint-arrow {
+  color: #999;
+}
+
+.milestone-hint-text .hint-reward {
+  font-weight: 700;
+  color: #10a37f;
+}
+
+/* 已达成15天的样式 */
+.milestone-hint-text.milestone-achieved .hint-highlight {
+  color: #10a37f;
+}
+
+[data-theme="dark"] .milestone-hint-text.milestone-achieved .hint-highlight {
+  color: #10a37f;
+}
+
+/* ========== 本周签到视图（自动弹窗专用，cf- 前缀避免冲突） ========== */
+.cf-week-view {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 12px;
+}
+
+[data-theme="dark"] .cf-week-view {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="light"] .cf-week-view {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.cf-week-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.cf-week-header span {
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  padding: 4px 0;
+}
+
+[data-theme="dark"] .cf-week-header span {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="light"] .cf-week-header span {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.cf-week-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.cf-week-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  position: relative;
+  transition: all 0.2s;
+  min-height: 48px;
+}
+
+.cf-day-num {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+[data-theme="dark"] .cf-day-num {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="light"] .cf-day-num {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.cf-week-day.today {
+  border: 2px solid #10a37f;
+}
+
+[data-theme="dark"] .cf-week-day.today {
+  background: rgba(16, 163, 127, 0.15);
+}
+
+[data-theme="light"] .cf-week-day.today {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+.cf-week-day.checked {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.25) 0%, rgba(16, 163, 127, 0.1) 100%);
+}
+
+.cf-week-day.checked .cf-day-num {
+  color: #10a37f;
+}
+
+.cf-week-day.past-missed {
+  opacity: 0.5;
+}
+
+.cf-week-day.future .cf-day-num {
+  opacity: 0.6;
+}
+
+.cf-check-mark {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  background: #10a37f;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cf-check-mark svg {
+  width: 10px;
+  height: 10px;
+  color: white;
+}
+
+.cf-gold {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.cf-gold.checked {
+  color: #10a37f;
+}
+
+.cf-gold.today {
+  color: #f59e0b;
+}
+
+.cf-gold.future {
+  color: #f59e0b;
+  opacity: 0.6;
+}
+
+.cf-gold.past {
+  color: #999;
+  text-decoration: line-through;
+}
+
+.cf-gold.milestone {
+  color: #ff6b6b;
+}

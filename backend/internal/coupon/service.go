@@ -26,12 +26,18 @@ type CurrencyService interface {
 	GiftDiamond(ctx context.Context, userID uint, amount int64, bizType, bizID, desc string) (any, error)
 }
 
+// MessageService 消息服务接口（用于发送站内信）
+type MessageService interface {
+	SendToUser(userID uint, title, content string, category string, linkURL, linkText string) error
+}
+
 type Service struct {
 	repo            *Repository
 	userRepo        *user.Repository
 	cache           *redis.Client
 	baseURL         string // 用于生成邀请链接
 	currencyService CurrencyService
+	messageService  MessageService
 }
 
 func NewService(db *gorm.DB, userRepo *user.Repository, cache *redis.Client, baseURL string) *Service {
@@ -46,6 +52,11 @@ func NewService(db *gorm.DB, userRepo *user.Repository, cache *redis.Client, bas
 // SetCurrencyService 设置货币服务（用于依赖注入）
 func (s *Service) SetCurrencyService(cs CurrencyService) {
 	s.currencyService = cs
+}
+
+// SetMessageService 设置消息服务（用于发送站内信通知）
+func (s *Service) SetMessageService(ms MessageService) {
+	s.messageService = ms
 }
 
 // ============================================
@@ -583,7 +594,66 @@ func (s *Service) RegisterWithInvitation(invitationCode string, inviteeID uint64
 	// 异步发放邀请恩特币奖励给邀请人
 	go s.giftInviteDiamond(invitation.UserID, invitation.SuccessfulInvites+1)
 
+	// 异步发送站内信通知给被邀请人
+	go s.sendInviteeCouponNotification(inviteeID)
+
 	return nil
+}
+
+// sendInviteeCouponNotification 发送邀请奖励站内信给被邀请人
+func (s *Service) sendInviteeCouponNotification(inviteeID uint64) {
+	if s.messageService == nil {
+		log.Printf("[Coupon] Message service not set, cannot send notification to invitee %d", inviteeID)
+		return
+	}
+
+	// 获取被邀请人的折扣券信息
+	coupons, _, err := s.repo.ListUserCoupons(inviteeID, nil, 0, 10)
+	if err != nil {
+		log.Printf("[Coupon] Failed to get invitee coupons: %v", err)
+		return
+	}
+
+	// 查找邀请来源的折扣券
+	var inviteCoupon *UserCoupon
+	for _, c := range coupons {
+		if c.SourceType == SourceTypeInvite {
+			inviteCoupon = c
+			break
+		}
+	}
+
+	if inviteCoupon == nil {
+		log.Printf("[Coupon] No invite coupon found for invitee %d", inviteeID)
+		return
+	}
+
+	// 构建通知内容
+	title := "邀请奖励到账"
+	var content string
+	
+	// 根据折扣类型构建内容
+	switch inviteCoupon.DiscountType {
+	case string(DiscountTypePercentage):
+		content = fmt.Sprintf("恭喜您获得邀请专属折扣券！\n\n优惠内容：%d%% 折扣\n有效期至：%s\n\n快去使用吧！",
+			int(inviteCoupon.DiscountValue),
+			inviteCoupon.ValidUntil.Format("2006-01-02"))
+	case string(DiscountTypeFixed):
+		content = fmt.Sprintf("恭喜您获得邀请专属折扣券！\n\n优惠内容：减免 %.2f 元\n有效期至：%s\n\n快去使用吧！",
+			inviteCoupon.DiscountValue,
+			inviteCoupon.ValidUntil.Format("2006-01-02"))
+	default:
+		content = fmt.Sprintf("恭喜您获得邀请专属折扣券！\n\n有效期至：%s\n\n快去使用吧！",
+			inviteCoupon.ValidUntil.Format("2006-01-02"))
+	}
+
+	// 发送站内信（category = promotion）
+	err = s.messageService.SendToUser(uint(inviteeID), title, content, "promotion", "/pricing", "查看会员方案")
+	if err != nil {
+		log.Printf("[Coupon] Failed to send invite notification to user %d: %v", inviteeID, err)
+	} else {
+		log.Printf("[Coupon] Sent invite notification to user %d", inviteeID)
+	}
 }
 
 // giftInviteDiamond 发放邀请恩特币奖励

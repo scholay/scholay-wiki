@@ -224,6 +224,54 @@ const WelcomeCheckinModal = memo(({
               <GoldIcon size="lg" />
               <span className="checkin-reward-amount">+{checkinResult.gold_reward || 10}</span>
             </div>
+
+            {/* 断签提醒 - 当连续天数为1且之前有签到记录时显示 */}
+            {checkinResult.consecutive_days === 1 && checkinResult.total_checkins > 1 && (
+              <div className="checkin-streak-broken">
+                <div className="streak-broken-icon">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M12 8v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <circle cx="12" cy="16" r="1" fill="currentColor"/>
+                  </svg>
+                </div>
+                <p className="streak-broken-text">连续签到已中断，重新开始累计</p>
+              </div>
+            )}
+
+            {/* 连续签到奖励提醒 - 显示下一个里程碑 */}
+            {checkinResult.consecutive_days >= 1 && (
+              <div className="checkin-milestone-hint">
+                {checkinResult.consecutive_days < 3 && (
+                  <p className="milestone-hint-text">
+                    <span className="hint-highlight">连续签到3天</span>
+                    <span className="hint-arrow">可额外获得</span>
+                    <span className="hint-reward">+50经费</span>
+                  </p>
+                )}
+                {checkinResult.consecutive_days >= 3 && checkinResult.consecutive_days < 7 && (
+                  <p className="milestone-hint-text">
+                    <span className="hint-highlight">连续签到7天</span>
+                    <span className="hint-arrow">可额外获得</span>
+                    <span className="hint-reward">+150经费</span>
+                  </p>
+                )}
+                {checkinResult.consecutive_days >= 7 && checkinResult.consecutive_days < 15 && (
+                  <p className="milestone-hint-text">
+                    <span className="hint-highlight">连续签到15天</span>
+                    <span className="hint-arrow">可额外获得</span>
+                    <span className="hint-reward">+350经费</span>
+                  </p>
+                )}
+                {checkinResult.consecutive_days >= 15 && (
+                  <p className="milestone-hint-text milestone-achieved">
+                    <span className="hint-highlight">已达成15天连续签到</span>
+                    <span className="hint-arrow">每日可获得</span>
+                    <span className="hint-reward">+30经费</span>
+                  </p>
+                )}
+              </div>
+            )}
             
             {/* 本周签到日历 */}
             <div className="checkin-week-view">

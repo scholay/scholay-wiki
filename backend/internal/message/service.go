@@ -10,15 +10,23 @@ package message
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"gorm.io/gorm"
 )
 
+// WebSocketHub WebSocket 推送接口
+type WebSocketHub interface {
+	SendNotification(userID uint, msgID uint, title, content, category, linkURL, linkText string) error
+	SendUnreadCount(userID uint, count int) error
+}
+
 // Service 消息服务
 type Service struct {
-	repo *Repository
+	repo  *Repository
+	wsHub WebSocketHub
 }
 
 // NewService 创建消息服务实例
@@ -26,6 +34,11 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{
 		repo: NewRepository(db),
 	}
+}
+
+// SetWebSocketHub 设置 WebSocket Hub（用于实时推送）
+func (s *Service) SetWebSocketHub(hub WebSocketHub) {
+	s.wsHub = hub
 }
 
 // ========== 消息模板服务 ==========
@@ -309,7 +322,24 @@ func (s *Service) SendMessage(messageID uint) error {
 	message.SendAt = &now
 	message.RecipientCount = len(userIDs)
 
-	return s.repo.UpdateMessage(message)
+	if err := s.repo.UpdateMessage(message); err != nil {
+		return err
+	}
+
+	// 通过 WebSocket 实时推送通知给所有目标用户
+	linkURL := ""
+	linkText := ""
+	if message.LinkURL != nil {
+		linkURL = *message.LinkURL
+	}
+	if message.LinkText != nil {
+		linkText = *message.LinkText
+	}
+	for _, uid := range userIDs {
+		s.pushNotification(uid, message.ID, message.Title, message.Content, string(message.Category), linkURL, linkText)
+	}
+
+	return nil
 }
 
 // GetMessage 获取消息详情（管理端）
@@ -573,7 +603,36 @@ func (s *Service) SendToUser(userID uint, title, content string, category Messag
 		IsRead:    false,
 	}}
 
-	return s.repo.CreateUserMessages(userMessage)
+	if err := s.repo.CreateUserMessages(userMessage); err != nil {
+		return err
+	}
+
+	// 通过 WebSocket 实时推送通知
+	s.pushNotification(userID, message.ID, title, content, string(category), linkURL, linkText)
+
+	return nil
+}
+
+// pushNotification 通过 WebSocket 推送通知（异步，不阻塞主流程）
+func (s *Service) pushNotification(userID uint, msgID uint, title, content, category, linkURL, linkText string) {
+	if s.wsHub == nil {
+		return
+	}
+
+	go func() {
+		// 推送新消息通知
+		if err := s.wsHub.SendNotification(userID, msgID, title, content, category, linkURL, linkText); err != nil {
+			fmt.Printf("[Message] Failed to push notification to user %d: %v\n", userID, err)
+		}
+
+		// 推送未读数量更新
+		count, err := s.repo.GetUnreadCount(userID)
+		if err == nil {
+			if err := s.wsHub.SendUnreadCount(userID, int(count)); err != nil {
+				fmt.Printf("[Message] Failed to push unread count to user %d: %v\n", userID, err)
+			}
+		}
+	}()
 }
 
 // SendFromTemplate 使用模板发送消息给用户
@@ -590,5 +649,19 @@ func (s *Service) SendFromTemplate(userID uint, templateCode string, variables m
 	}
 
 	return s.SendToUser(userID, title, content, category, linkURL, linkText)
+}
+
+// SendToUserWithCategory 发送消息给用户（使用字符串类型的分类，供外部模块调用）
+func (s *Service) SendToUserWithCategory(userID uint, title, content string, category string, linkURL, linkText string) error {
+	// 转换字符串为 MessageCategory
+	msgCategory := MessageCategory(category)
+	// 验证分类是否有效
+	switch msgCategory {
+	case CategorySystem, CategoryPromotion, CategoryTransaction:
+		// 有效分类
+	default:
+		msgCategory = CategorySystem // 默认使用系统分类
+	}
+	return s.SendToUser(userID, title, content, msgCategory, linkURL, linkText)
 }
 

@@ -29,6 +29,36 @@ func NewHandler(db *gorm.DB) *Handler {
 	}
 }
 
+// SetWebSocketHub 设置 WebSocket Hub（用于实时推送）
+func (h *Handler) SetWebSocketHub(hub WebSocketHub) {
+	h.service.SetWebSocketHub(hub)
+}
+
+// GetService 获取消息服务（供其他模块调用）
+func (h *Handler) GetService() *Service {
+	return h.service
+}
+
+// MessageServiceAdapter 消息服务适配器（实现外部模块需要的接口）
+type MessageServiceAdapter struct {
+	service *Service
+}
+
+// NewMessageServiceAdapter 创建消息服务适配器
+func NewMessageServiceAdapter(service *Service) *MessageServiceAdapter {
+	return &MessageServiceAdapter{service: service}
+}
+
+// SendToUser 发送消息给用户（实现 coupon.MessageService 接口）
+func (a *MessageServiceAdapter) SendToUser(userID uint, title, content string, category string, linkURL, linkText string) error {
+	return a.service.SendToUserWithCategory(userID, title, content, category, linkURL, linkText)
+}
+
+// GetAdapter 获取消息服务适配器
+func (h *Handler) GetAdapter() *MessageServiceAdapter {
+	return NewMessageServiceAdapter(h.service)
+}
+
 // ========== 用户端 API ==========
 
 // GetMessages 获取用户消息列表

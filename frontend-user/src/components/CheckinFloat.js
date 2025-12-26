@@ -34,7 +34,51 @@ const CheckinFloat = () => {
   const floatBallRef = useRef(null);
   const [floatBallPos, setFloatBallPos] = useState({ x: 0, y: 0 });
 
-  // 获取当前月份的日历数据
+  // 获取本周的日历数据（周日到周六）- 用于自动签到弹窗
+  const weekData = useMemo(() => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - dayOfWeek);
+
+    // 创建签到详情的映射表
+    const checkinDetailMap = {};
+    checkinDetails.forEach(detail => {
+      checkinDetailMap[detail.date] = detail.gold_reward;
+    });
+    
+    // 创建未来奖励的映射表
+    const futureRewardMap = {};
+    futureRewards.forEach(reward => {
+      futureRewardMap[reward.date] = reward;
+    });
+
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + i);
+      const day = date.getDate();
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const isToday = dateStr === todayStr;
+      const isCheckedIn = checkinHistory.includes(dateStr);
+      const isPast = date < today && !isToday;
+      const isFuture = date > today;
+      
+      const goldReward = checkinDetailMap[dateStr] || 0;
+      const futureReward = futureRewardMap[dateStr];
+      const expectedGold = futureReward?.expected_gold || 10;
+      const isMilestone = futureReward?.is_milestone || false;
+      
+      days.push({ 
+        day, isToday, isCheckedIn, isPast, isFuture, dateStr,
+        goldReward, expectedGold, isMilestone
+      });
+    }
+    return { days };
+  }, [checkinHistory, checkinDetails, futureRewards]);
+
+  // 获取当前月份的日历数据 - 用于悬浮球点击的完整弹窗
   const calendarData = useMemo(() => {
     const today = new Date();
     const year = today.getFullYear();
@@ -372,56 +416,104 @@ const CheckinFloat = () => {
                   <span className="checkin-auto-reward-amount">+{checkinResult.gold_reward || 10}</span>
                 </div>
               )}
+
+              {/* 断签提醒 - 当连续天数为1且之前有签到记录时显示 */}
+              {checkinResult && checkinResult.consecutive_days === 1 && checkinResult.total_checkins > 1 && (
+                <div className="checkin-streak-broken">
+                  <div className="streak-broken-icon">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                      <path d="M12 8v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      <circle cx="12" cy="16" r="1" fill="currentColor"/>
+                    </svg>
+                  </div>
+                  <p className="streak-broken-text">连续签到已中断，重新开始累计</p>
+                </div>
+              )}
+
+              {/* 连续签到奖励提醒 - 显示下一个里程碑 */}
+              {checkinResult && checkinResult.consecutive_days >= 1 && (
+                <div className="checkin-milestone-hint">
+                  {checkinResult.consecutive_days < 3 && (
+                    <p className="milestone-hint-text">
+                      <span className="hint-highlight">连续签到3天</span>
+                      <span className="hint-arrow">可额外获得</span>
+                      <span className="hint-reward">+50经费</span>
+                    </p>
+                  )}
+                  {checkinResult.consecutive_days >= 3 && checkinResult.consecutive_days < 7 && (
+                    <p className="milestone-hint-text">
+                      <span className="hint-highlight">连续签到7天</span>
+                      <span className="hint-arrow">可额外获得</span>
+                      <span className="hint-reward">+150经费</span>
+                    </p>
+                  )}
+                  {checkinResult.consecutive_days >= 7 && checkinResult.consecutive_days < 15 && (
+                    <p className="milestone-hint-text">
+                      <span className="hint-highlight">连续签到15天</span>
+                      <span className="hint-arrow">可额外获得</span>
+                      <span className="hint-reward">+350经费</span>
+                    </p>
+                  )}
+                  {checkinResult.consecutive_days >= 15 && (
+                    <p className="milestone-hint-text milestone-achieved">
+                      <span className="hint-highlight">已达成15天连续签到</span>
+                      <span className="hint-arrow">每日可获得</span>
+                      <span className="hint-reward">+30经费</span>
+                    </p>
+                  )}
+                </div>
+              )}
               
-              {/* 关闭按钮 */}
-              <button className="checkin-auto-close-btn" onClick={handleCloseModal}>
-                知道了
-              </button>
-              
-              {/* 签到日历 - 使用与 checkin-full-modal 相同的样式 */}
-              <div className="checkin-calendar">
-                <div className="checkin-calendar-week">
+              {/* 本周签到日历 */}
+              <div className="cf-week-view">
+                <div className="cf-week-header">
                   {weekDays.map(d => <span key={d}>{d}</span>)}
                 </div>
-                <div className="checkin-calendar-days">
-                  {calendarData.days.map((item, i) => (
+                <div className="cf-week-days">
+                  {weekData.days.map((item, i) => (
                     <div 
                       key={i} 
-                      className={`checkin-day ${!item.day ? 'empty' : ''} ${item.isToday ? 'today' : ''} ${item.isCheckedIn ? 'checked' : ''} ${item.isFuture ? 'future' : ''} ${item.isMilestone ? 'milestone' : ''} ${item.isAfterUpgrade ? 'after-upgrade' : ''}`}
-                      title={item.isMilestone ? item.milestoneMessage : (item.isAfterUpgrade ? item.baseUpgradeMsg : '')}
+                      className={`cf-week-day ${item.isToday ? 'today' : ''} ${item.isCheckedIn ? 'checked' : ''} ${item.isFuture ? 'future' : ''} ${item.isPast && !item.isCheckedIn ? 'past-missed' : ''} ${item.isMilestone ? 'milestone' : ''}`}
                     >
-                      {item.day && (
-                        <>
-                          <span className="day-num">{item.day}</span>
-                          {/* 已签到日期显示获得的经费 */}
-                          {item.isCheckedIn && item.goldReward > 0 && (
-                            <span className="gold-reward checked-gold">+{item.goldReward}</span>
-                          )}
-                          {/* 今天未签到显示预计经费 */}
-                          {item.isToday && !item.isCheckedIn && item.expectedGold > 0 && (
-                            <span className={`gold-reward today-gold ${item.isMilestone ? 'milestone-gold' : ''} ${item.isAfterUpgrade ? 'after-upgrade-gold' : ''}`}>
-                              +{item.expectedGold}
-                            </span>
-                          )}
-                          {/* 未来日期显示预计经费 */}
-                          {item.isFuture && !item.isToday && item.expectedGold > 0 && (
-                            <span className={`gold-reward future-gold ${item.isMilestone ? 'milestone-gold' : ''} ${item.isAfterUpgrade ? 'after-upgrade-gold' : ''}`}>
-                              +{item.expectedGold}
-                            </span>
-                          )}
-                          {item.isCheckedIn && (
-                            <div className="check-mark">
-                              <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M9 12L11 14L15 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            </div>
-                          )}
-                        </>
+                      <span className="cf-day-num">{item.day}</span>
+                      {/* 已签到显示经费 */}
+                      {item.isCheckedIn && item.goldReward > 0 && (
+                        <span className="cf-gold checked">+{item.goldReward}</span>
+                      )}
+                      {/* 今天未签到显示预计经费 */}
+                      {item.isToday && !item.isCheckedIn && (
+                        <span className={`cf-gold today ${item.isMilestone ? 'milestone' : ''}`}>
+                          +{item.expectedGold}
+                        </span>
+                      )}
+                      {/* 未来日期显示预计经费 */}
+                      {item.isFuture && !item.isToday && (
+                        <span className={`cf-gold future ${item.isMilestone ? 'milestone' : ''}`}>
+                          +{item.expectedGold}
+                        </span>
+                      )}
+                      {/* 过去未签到显示错过 */}
+                      {item.isPast && !item.isCheckedIn && (
+                        <span className="cf-gold past">+10</span>
+                      )}
+                      {/* 签到勾选标记 */}
+                      {item.isCheckedIn && (
+                        <div className="cf-check-mark">
+                          <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M9 12L11 14L15 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </div>
                       )}
                     </div>
                   ))}
                 </div>
               </div>
+              
+              {/* 关闭按钮 */}
+              <button className="checkin-auto-close-btn" onClick={handleCloseModal}>
+                知道了
+              </button>
             </div>
           ) : (
             /* 悬浮球点击 - 从悬浮球位置展开 */
