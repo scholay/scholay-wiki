@@ -501,6 +501,12 @@ const SearchResultsPage = () => {
   const getDimensionKey = useCallback((dim) => dim.dimensionKey || dim.key, []);
   
   const handleDimensionToggle = useCallback((dimension) => {
+    // 未登录时，选择维度需要先登录
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+    
     const dimKey = getDimensionKey(dimension);
     setSelectedDimensions(prev => {
       const isSelected = prev.some(d => getDimensionKey(d) === dimKey);
@@ -510,16 +516,22 @@ const SearchResultsPage = () => {
         return [...prev, dimension];
       }
     });
-  }, [getDimensionKey]);
+  }, [getDimensionKey, isAuthenticated]);
 
   // 全选/取消全选维度
   const handleSelectAllDimensions = useCallback(() => {
+    // 未登录时，需要先登录
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+    
     if (selectedDimensions.length === dimensions.length) {
       setSelectedDimensions([]);
     } else {
       setSelectedDimensions([...dimensions]);
     }
-  }, [dimensions, selectedDimensions.length]);
+  }, [dimensions, selectedDimensions.length, isAuthenticated]);
 
   // 清除所有选中的维度
   const handleClearDimensions = useCallback(() => {
@@ -642,7 +654,11 @@ const SearchResultsPage = () => {
   }, [getDimensionKey, refreshDimensions, floatPanelView]);
 
   // 为论文分析所有维度（一次请求返回所有维度结果）
+  // 注意：此功能需要登录，未登录用户在选择维度时会被拦截并弹出登录框
   const analyzePaper = useCallback(async (paper) => {
+    // 未登录不执行分析
+    if (!isAuthenticated) return;
+    
     // 优先使用 abstract，如果没有则使用 TLDR
     const abstractText = paper.abstract || paper.tldr?.text;
     if (!abstractText) return;
@@ -654,9 +670,7 @@ const SearchResultsPage = () => {
     }));
 
     try {
-      const response = isAuthenticated
-        ? await analysisDimensionAPI.analyzePaper(paper.paperId, paper.title, abstractText)
-        : await publicScholarAPI.analyzePaper(paper.paperId, paper.title, abstractText);
+      const response = await analysisDimensionAPI.analyzePaper(paper.paperId, paper.title, abstractText);
 
       if (response.data.code === 0 && response.data.data) {
         // 接口返回格式: { data: { data: { key: value }, dimensions: [...] } }
@@ -1494,6 +1508,12 @@ const SearchResultsPage = () => {
   const handleSwitchToAI = useCallback(() => {
     if (!searchQuery.trim()) return;
     
+    // 未登录时，需要先登录才能使用智能分析
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+    
     // 获取搜索框的位置信息
     if (searchFormRef.current) {
       const rect = searchFormRef.current.getBoundingClientRect();
@@ -1513,7 +1533,7 @@ const SearchResultsPage = () => {
     saveSearchMode('ai');
     // 清除旧的对话ID，确保新搜索会创建新对话
     setAIConversationId(null);
-  }, [searchQuery]);
+  }, [searchQuery, isAuthenticated]);
 
   // 过渡动画完成后的回调
   const handleTransitionComplete = useCallback(() => {
@@ -2574,6 +2594,11 @@ const SearchResultsPage = () => {
                   <button 
                     className="empty-state-button primary"
                     onClick={() => {
+                      // 未登录时，需要先登录才能使用智能分析
+                      if (!isAuthenticated) {
+                        setShowAuthModal(true);
+                        return;
+                      }
                       saveSearchMode('ai');
                       setSearchParams(prev => {
                         const newParams = new URLSearchParams(prev);

@@ -715,9 +715,7 @@ func main() {
 			publicAPI.GET("/papers/autocomplete", scholarHandler.PaperAutocomplete)
 			// Public search suggestions endpoint - combined paper + author suggestions
 			publicAPI.GET("/search/suggestions", scholarHandler.GetSearchSuggestions)
-			// Public paper analysis endpoint - AI-powered abstract analysis
-			publicAPI.POST("/papers/analyze", aiHandler.AnalyzePaper)
-			// Public analysis dimensions endpoint - get system default dimensions
+			// Public analysis dimensions endpoint - get system default dimensions (for display only)
 			publicAPI.GET("/analysis/dimensions", aiHandler.GetSystemDimensions)
 			// Public recommendations endpoint - for anonymous access to similar papers
 			publicAPI.GET("/recommendations/papers/:paperId", scholarHandler.GetRecommendationsForPaper)

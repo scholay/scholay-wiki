@@ -375,21 +375,16 @@ export const publicScholarAPI = {
       } 
     }),
 
-  // Public paper analysis (AI分析论文摘要 - 不需要登录)
-  // paperId用于数据库缓存，优先从缓存获取
-  analyzePaper: (paperId, title, abstract) =>
-    publicApi.post('/papers/analyze', { paperId, title, abstract }),
-
-  // Public analysis dimensions (获取系统默认分析维度 - 不需要登录)
-  getSystemDimensions: () =>
-    publicApi.get('/analysis/dimensions'),
-
   // Public search suggestions (搜索建议 - 论文标题自动补全 + 作者搜索)
   // 并行请求 paper autocomplete 和 author search API
   getSearchSuggestions: (query, paperLimit = 5, authorLimit = 5) =>
     publicApi.get('/search/suggestions', { 
       params: { query, paperLimit, authorLimit } 
     }),
+
+  // Public analysis dimensions (获取系统默认分析维度 - 仅用于展示，实际分析需要登录)
+  getSystemDimensions: () =>
+    publicApi.get('/analysis/dimensions'),
 
   // Public paper autocomplete (论文标题自动补全 - 不需要登录)
   getPaperAutocomplete: (query) =>
