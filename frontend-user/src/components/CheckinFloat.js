@@ -31,10 +31,8 @@ const CheckinFloat = () => {
   const [checkinDetails, setCheckinDetails] = useState([]); // 签到详情（包含经费）
   const [futureRewards, setFutureRewards] = useState([]); // 未来签到预计奖励
   const [modalType, setModalType] = useState('auto'); // 'auto' | 'float'
-  const [autoCloseCountdown, setAutoCloseCountdown] = useState(5); // 自动关闭倒计时
   const floatBallRef = useRef(null);
   const [floatBallPos, setFloatBallPos] = useState({ x: 0, y: 0 });
-  const countdownTimerRef = useRef(null);
 
   // 获取当前月份的日历数据
   const calendarData = useMemo(() => {
@@ -114,31 +112,14 @@ const CheckinFloat = () => {
     return shouldShow;
   }, [getStorageKey, user?.id]);
 
-  // 开始自动关闭倒计时
-  const startAutoCloseCountdown = useCallback(() => {
-    setAutoCloseCountdown(5);
-    countdownTimerRef.current = setInterval(() => {
-      setAutoCloseCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(countdownTimerRef.current);
-          setShowModal(false);
-          setShowFloatBall(false);
-          setCheckinResult(null);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, []);
 
-  // 清理倒计时
+  // 使用 ref 来存储最新的签到数据，避免依赖循环
+  const checkinDataRef = useRef({ checkinHistory: [], checkinDetails: [], futureRewards: [] });
+  
+  // 同步更新 ref
   useEffect(() => {
-    return () => {
-      if (countdownTimerRef.current) {
-        clearInterval(countdownTimerRef.current);
-      }
-    };
-  }, []);
+    checkinDataRef.current = { checkinHistory, checkinDetails, futureRewards };
+  }, [checkinHistory, checkinDetails, futureRewards]);
 
   // 自动签到（用于自动弹窗时直接签到）
   const autoCheckin = useCallback(async () => {
@@ -153,13 +134,31 @@ const CheckinFloat = () => {
         setCheckinHistory(prev => [...prev, today]);
         // 更新签到详情
         setCheckinDetails(prev => [...prev, { date: today, gold_reward: result.gold_reward || 10 }]);
-        // 开始自动关闭倒计时
-        startAutoCloseCountdown();
+        // 触发事件通知App层显示合并弹窗（如果有欢迎弹窗待显示）
+        // 或者直接在当前弹窗显示签到结果
+        const pendingWelcomeModal = localStorage.getItem('pending_welcome_modal');
+        if (pendingWelcomeModal) {
+          // 有欢迎弹窗，触发合并弹窗显示
+          const currentData = checkinDataRef.current;
+          localStorage.setItem('pending_checkin_result', JSON.stringify({
+            ...result,
+            checkinHistory: [...currentData.checkinHistory, today],
+            checkinDetails: [...currentData.checkinDetails, { date: today, gold_reward: result.gold_reward || 10 }],
+            futureRewards: currentData.futureRewards,
+            timestamp: Date.now()
+          }));
+          // 关闭当前弹窗，由App层的合并弹窗来显示
+          setShowModal(false);
+          setShowFloatBall(false);
+          // 触发事件
+          window.dispatchEvent(new CustomEvent('show:welcome_checkin_modal'));
+        }
+        // 如果没有欢迎弹窗，签到结果会在当前弹窗中显示（手动关闭）
       }
     } catch (error) {
       logger.error('自动签到失败:', error);
     }
-  }, [startAutoCloseCountdown]);
+  }, []); // 移除依赖，使用 ref 获取最新数据
 
   const fetchCheckinStatus = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -277,16 +276,20 @@ const CheckinFloat = () => {
     }
   };
 
+  // 使用 ref 存储 fetchCheckinStatus，避免 useEffect 依赖变化导致重复执行
+  const fetchCheckinStatusRef = useRef(fetchCheckinStatus);
+  fetchCheckinStatusRef.current = fetchCheckinStatus;
+
   useEffect(() => {
     if (isAuthenticated) {
-      fetchCheckinStatus();
+      fetchCheckinStatusRef.current();
     } else {
       // 未登录时也显示悬浮球，引导用户登录
       setShowFloatBall(true);
       setShowModal(false);
       setHasCheckedIn(false); // 设为 false 以显示悬浮球
     }
-  }, [isAuthenticated, fetchCheckinStatus]);
+  }, [isAuthenticated]); // 只依赖 isAuthenticated
 
   // 未登录时只显示悬浮球，已登录且已签到时不显示
   if (isAuthenticated && hasCheckedIn && !showModal) {
@@ -359,10 +362,10 @@ const CheckinFloat = () => {
                 </div>
               )}
               
-              {/* 关闭倒计时 */}
-              <p className="checkin-auto-countdown">
-                知道了，关闭（{autoCloseCountdown}s）
-              </p>
+              {/* 关闭按钮 */}
+              <button className="checkin-auto-close-btn" onClick={handleCloseModal}>
+                知道了
+              </button>
               
               {/* 签到日历 - 使用与 checkin-full-modal 相同的样式 */}
               <div className="checkin-calendar">

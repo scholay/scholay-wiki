@@ -295,20 +295,31 @@
   background: linear-gradient(135deg, rgba(16, 163, 127, 0.2) 0%, rgba(16, 163, 127, 0.1) 100%);
 }
 
-/* 关闭倒计时 */
-.checkin-auto-countdown {
-  font-size: 13px;
-  color: #999;
+/* 关闭按钮 */
+.checkin-auto-close-btn {
+  font-size: 14px;
+  color: #666;
   margin: 0 0 16px 0;
   cursor: pointer;
+  background: none;
+  border: none;
+  padding: 8px 24px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
-.checkin-auto-countdown:hover {
-  color: #666;
+.checkin-auto-close-btn:hover {
+  color: #333;
+  background: rgba(0, 0, 0, 0.05);
 }
 
-[data-theme="dark"] .checkin-auto-countdown {
-  color: #777;
+[data-theme="dark"] .checkin-auto-close-btn {
+  color: #aaa;
+}
+
+[data-theme="dark"] .checkin-auto-close-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 

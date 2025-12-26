@@ -1,0 +1,527 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ * 
+ * WelcomeCheckinModal 样式 - 注册欢迎+签到合并弹窗
+ */
+
+/* ========== 遮罩层 ========== */
+.welcome-checkin-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  animation: wc-overlay-in 0.3s ease;
+}
+
+[data-theme="dark"] .welcome-checkin-overlay {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+}
+
+[data-theme="light"] .welcome-checkin-overlay {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+}
+
+.welcome-checkin-overlay.closing {
+  animation: wc-overlay-out 0.2s ease forwards;
+}
+
+@keyframes wc-overlay-in {
+  from { opacity: 0; backdrop-filter: blur(0); }
+  to { opacity: 1; backdrop-filter: blur(8px); }
+}
+
+@keyframes wc-overlay-out {
+  from { opacity: 1; backdrop-filter: blur(8px); }
+  to { opacity: 0; backdrop-filter: blur(0); }
+}
+
+/* ========== 弹窗主体 ========== */
+.welcome-checkin-modal {
+  border-radius: 24px;
+  padding: 24px;
+  width: 420px;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  text-align: center;
+  animation: wc-modal-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+[data-theme="dark"] .welcome-checkin-modal {
+  background: rgba(30, 30, 40, 0.92);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5), 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .welcome-checkin-modal {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.12), 0 8px 32px rgba(0, 0, 0, 0.06);
+}
+
+.welcome-checkin-modal.closing {
+  animation: wc-modal-out 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes wc-modal-in {
+  0% { opacity: 0; transform: scale(0.85) translateY(-30px); }
+  60% { transform: scale(1.02) translateY(4px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes wc-modal-out {
+  0% { opacity: 1; transform: scale(1) translateY(0); }
+  100% { opacity: 0; transform: scale(0.9) translateY(-20px); }
+}
+
+/* ========== 标签切换 ========== */
+.welcome-checkin-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 4px;
+  border-radius: 12px;
+}
+
+[data-theme="dark"] .welcome-checkin-tabs {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] .welcome-checkin-tabs {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.welcome-checkin-tabs .tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .welcome-checkin-tabs .tab-btn {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .welcome-checkin-tabs .tab-btn:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .welcome-checkin-tabs .tab-btn.active {
+  background: rgba(16, 163, 127, 0.2);
+  color: #10a37f;
+}
+
+[data-theme="light"] .welcome-checkin-tabs .tab-btn {
+  background: transparent;
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .welcome-checkin-tabs .tab-btn:hover {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .welcome-checkin-tabs .tab-btn.active {
+  background: rgba(16, 163, 127, 0.15);
+  color: #10a37f;
+}
+
+/* ========== 内容区域 ========== */
+.tab-content {
+  animation: tab-fade-in 0.3s ease;
+}
+
+@keyframes tab-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========== 图标 ========== */
+.welcome-checkin-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+
+.welcome-icon-style {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.25) 0%, rgba(16, 163, 127, 0.1) 100%);
+  color: #10a37f;
+  box-shadow: 0 8px 24px rgba(16, 163, 127, 0.25);
+}
+
+.checkin-icon-style {
+  background: linear-gradient(135deg, #ff9a56 0%, #ff6b6b 100%);
+  color: white;
+  box-shadow: 0 12px 32px rgba(255, 107, 107, 0.3);
+}
+
+.checkin-icon-style svg {
+  width: 36px;
+  height: 36px;
+}
+
+/* ========== 标题 ========== */
+.welcome-checkin-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+}
+
+[data-theme="dark"] .welcome-checkin-title {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="light"] .welcome-checkin-title {
+  color: #1a1a1a;
+}
+
+.welcome-checkin-title.checkin-title {
+  background: linear-gradient(135deg, #ff9a56 0%, #ff6b6b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 6px;
+}
+
+/* ========== 日期 ========== */
+.checkin-date {
+  font-size: 13px;
+  margin: 0 0 16px 0;
+}
+
+[data-theme="dark"] .checkin-date {
+  color: #aaa;
+}
+
+[data-theme="light"] .checkin-date {
+  color: #888;
+}
+
+/* ========== 经费展示 ========== */
+.welcome-checkin-gift {
+  margin-bottom: 16px;
+}
+
+.welcome-checkin-gift-amount {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.welcome-checkin-gift-amount .amount-value {
+  font-size: 42px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+
+.welcome-checkin-gift-amount .amount-unit {
+  font-size: 16px;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+[data-theme="dark"] .welcome-checkin-gift-amount .amount-unit {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="light"] .welcome-checkin-gift-amount .amount-unit {
+  color: #666;
+}
+
+.welcome-checkin-gift-text {
+  font-size: 14px;
+  margin: 0;
+}
+
+[data-theme="dark"] .welcome-checkin-gift-text {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .welcome-checkin-gift-text {
+  color: #666;
+}
+
+/* ========== 签到奖励展示 ========== */
+.checkin-reward {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 16px;
+  padding: 14px 24px;
+  margin-bottom: 16px;
+}
+
+[data-theme="dark"] .checkin-reward {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.2) 0%, rgba(16, 163, 127, 0.1) 100%);
+}
+
+[data-theme="light"] .checkin-reward {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.1) 0%, rgba(16, 163, 127, 0.05) 100%);
+}
+
+.checkin-reward-amount {
+  font-size: 28px;
+  font-weight: 700;
+  color: #10a37f;
+}
+
+/* ========== 帮助链接按钮 ========== */
+.welcome-checkin-help-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  margin-bottom: 20px;
+}
+
+[data-theme="dark"] .welcome-checkin-help-btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .welcome-checkin-help-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .welcome-checkin-help-btn {
+  background: rgba(0, 0, 0, 0.04);
+  color: #666;
+}
+
+[data-theme="light"] .welcome-checkin-help-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #333;
+}
+
+/* ========== 确认按钮 ========== */
+.welcome-checkin-confirm-btn {
+  width: 100%;
+  padding: 14px 32px;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(16, 163, 127, 0.35);
+}
+
+.welcome-checkin-confirm-btn:hover {
+  box-shadow: 0 8px 24px rgba(16, 163, 127, 0.45);
+  transform: translateY(-2px);
+}
+
+.welcome-checkin-confirm-btn:active {
+  transform: scale(0.98) translateY(0);
+}
+
+/* ========== 签到日历 ========== */
+.checkin-calendar-mini {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 12px;
+}
+
+[data-theme="dark"] .checkin-calendar-mini {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="light"] .checkin-calendar-mini {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.checkin-calendar-mini .checkin-calendar-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.checkin-calendar-mini .checkin-calendar-week span {
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  padding: 4px 0;
+}
+
+[data-theme="dark"] .checkin-calendar-mini .checkin-calendar-week span {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="light"] .checkin-calendar-mini .checkin-calendar-week span {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.checkin-calendar-mini .checkin-calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.checkin-calendar-mini .checkin-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  position: relative;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.checkin-calendar-mini .checkin-day.empty {
+  background: transparent;
+}
+
+.checkin-calendar-mini .checkin-day .day-num {
+  font-weight: 500;
+  line-height: 1;
+}
+
+[data-theme="dark"] .checkin-calendar-mini .checkin-day .day-num {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .checkin-calendar-mini .checkin-day .day-num {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.checkin-calendar-mini .checkin-day.today {
+  border: 2px solid #10a37f;
+}
+
+[data-theme="dark"] .checkin-calendar-mini .checkin-day.today {
+  background: rgba(16, 163, 127, 0.15);
+}
+
+[data-theme="light"] .checkin-calendar-mini .checkin-day.today {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+.checkin-calendar-mini .checkin-day.checked {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.3) 0%, rgba(16, 163, 127, 0.15) 100%);
+}
+
+.checkin-calendar-mini .checkin-day.checked .day-num {
+  color: #10a37f;
+}
+
+.checkin-calendar-mini .checkin-day .check-mark {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  background: #10a37f;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.checkin-calendar-mini .checkin-day .check-mark svg {
+  width: 8px;
+  height: 8px;
+  color: white;
+}
+
+.checkin-calendar-mini .checkin-day .gold-reward {
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.checkin-calendar-mini .checkin-day .gold-reward.checked-gold {
+  color: #10a37f;
+}
+
+.checkin-calendar-mini .checkin-day .gold-reward.today-gold,
+.checkin-calendar-mini .checkin-day .gold-reward.future-gold {
+  color: #f59e0b;
+  opacity: 0.7;
+}
+
+.checkin-calendar-mini .checkin-day .gold-reward.milestone-gold {
+  color: #ff6b6b;
+}
+
+.checkin-calendar-mini .checkin-day.future .day-num {
+  opacity: 0.5;
+}
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 480px) {
+  .welcome-checkin-modal {
+    padding: 20px;
+    border-radius: 20px;
+    width: calc(100vw - 32px);
+  }
+
+  .welcome-checkin-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+  }
+
+  .welcome-checkin-title {
+    font-size: 18px;
+  }
+
+  .welcome-checkin-gift-amount .amount-value {
+    font-size: 36px;
+  }
+
+  .welcome-checkin-confirm-btn {
+    padding: 12px 24px;
+    border-radius: 12px;
+  }
+}
