@@ -140,6 +140,9 @@ const (
 	ConfigKeyProMonthlyGold     = "pro_monthly_gold"     // Pro会员每月赠送经费
 	ConfigKeyMaxMonthlyGold     = "max_monthly_gold"     // Max会员每月赠送经费
 	ConfigKeyMaxMonthlyDiamond  = "max_monthly_diamond"  // Max会员每月赠送恩特币
+
+	// 会员过期宽限期配置
+	ConfigKeyMembershipGraceDays = "membership_grace_days" // 会员过期宽限期天数（默认7天）
 )
 
 // CurrencyConfig 货币配置表

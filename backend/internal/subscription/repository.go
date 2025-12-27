@@ -263,6 +263,99 @@ type NonMemberInfo struct {
 	LastSubscriptionEnd *time.Time `gorm:"column:last_subscription_end"` // 最后一次订阅结束时间，可能为空（从未开通过）
 }
 
+// MembersInGracePeriodInfo 宽限期内的会员信息
+type MembersInGracePeriodInfo struct {
+	UserID    uint       `gorm:"column:user_id"`
+	Gold      int64      `gorm:"column:gold"`
+	ExpiredAt *time.Time `gorm:"column:expired_at"` // 会员过期时间
+}
+
+// GetMembersInGracePeriod 获取在宽限期内的过期会员（有经费）
+// graceDays: 宽限期天数
+// 返回：会员已过期但还在宽限期内，且有经费的用户
+func (r *Repository) GetMembersInGracePeriod(graceDays int) ([]MembersInGracePeriodInfo, error) {
+	now := time.Now()
+	// 宽限期截止时间（当前时间减去宽限期天数）
+	graceDeadline := now.AddDate(0, 0, -graceDays)
+
+	var results []MembersInGracePeriodInfo
+
+	// 查询在宽限期内的过期会员
+	// 条件：
+	// 1. 用户钱包中有经费（gold > 0）
+	// 2. 用户当前没有活跃的 pro/max 订阅
+	// 3. 用户曾经有过 pro/max 订阅
+	// 4. 最后一次订阅结束时间在宽限期截止时间之后（即还在宽限期内）
+	err := r.db.Raw(`
+		SELECT w.user_id, w.gold,
+		       (SELECT MAX(us.end_date) FROM user_subscriptions us 
+		        WHERE us.user_id = w.user_id AND us.plan_code IN ('pro', 'max')) as expired_at
+		FROM wallets w
+		WHERE w.gold > 0
+		  AND NOT EXISTS (
+			SELECT 1 FROM user_subscriptions active_sub
+			WHERE active_sub.user_id = w.user_id
+			  AND active_sub.plan_code IN ('pro', 'max')
+			  AND active_sub.status = 'active'
+		  )
+		  AND EXISTS (
+			SELECT 1 FROM user_subscriptions past_sub
+			WHERE past_sub.user_id = w.user_id
+			  AND past_sub.plan_code IN ('pro', 'max')
+			  AND past_sub.end_date IS NOT NULL
+			  AND past_sub.end_date < ?
+			  AND past_sub.end_date >= ?
+		  )
+		ORDER BY w.user_id ASC
+	`, now, graceDeadline).Scan(&results).Error
+
+	return results, err
+}
+
+// GetNonMembersWithGoldAfterGrace 获取超过宽限期的非会员用户（有经费）
+// graceDays: 宽限期天数
+// 返回：会员已过期且超过宽限期，或者从未开通过会员，且有经费的用户
+func (r *Repository) GetNonMembersWithGoldAfterGrace(graceDays int) ([]NonMemberInfo, error) {
+	// 宽限期截止时间（当前时间减去宽限期天数）
+	graceDeadline := time.Now().AddDate(0, 0, -graceDays)
+
+	var results []NonMemberInfo
+
+	// 查询超过宽限期的非会员用户
+	// 条件：
+	// 1. 用户钱包中有经费（gold > 0）
+	// 2. 用户当前没有活跃的 pro/max 订阅
+	// 3. 用户从未开通过会员，或者会员过期时间在宽限期截止时间之前
+	err := r.db.Raw(`
+		SELECT w.user_id, w.gold,
+		       (SELECT MAX(us.end_date) FROM user_subscriptions us 
+		        WHERE us.user_id = w.user_id AND us.plan_code IN ('pro', 'max')) as last_subscription_end
+		FROM wallets w
+		WHERE w.gold > 0
+		  AND NOT EXISTS (
+			SELECT 1 FROM user_subscriptions active_sub
+			WHERE active_sub.user_id = w.user_id
+			  AND active_sub.plan_code IN ('pro', 'max')
+			  AND active_sub.status = 'active'
+		  )
+		  AND (
+		    -- 从未开通过会员
+		    NOT EXISTS (
+		      SELECT 1 FROM user_subscriptions past_sub
+		      WHERE past_sub.user_id = w.user_id
+		        AND past_sub.plan_code IN ('pro', 'max')
+		    )
+		    OR
+		    -- 会员过期时间在宽限期截止时间之前（超过宽限期）
+		    (SELECT MAX(us.end_date) FROM user_subscriptions us 
+		     WHERE us.user_id = w.user_id AND us.plan_code IN ('pro', 'max')) < ?
+		  )
+		ORDER BY w.user_id ASC
+	`, graceDeadline).Scan(&results).Error
+
+	return results, err
+}
+
 // CheckAndIncrementQuota atomically checks if user has quota and increments if available
 // This prevents race conditions in concurrent scenarios
 func (r *Repository) CheckAndIncrementQuota(userID uint, date string, usageType string, limit int) error {

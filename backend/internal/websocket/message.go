@@ -24,6 +24,7 @@ const (
 	// 业务消息类型
 	MessageTypeNotification MessageType = "notification" // 站内信通知
 	MessageTypeUnreadCount  MessageType = "unread_count" // 未读消息数量更新
+	MessageTypeToast        MessageType = "toast"        // 纯 toast 提示（无站内信记录，不可点击）
 )
 
 // Message WebSocket 消息基础结构
@@ -46,6 +47,14 @@ type NotificationData struct {
 // UnreadCountData 未读消息数量数据
 type UnreadCountData struct {
 	Count int `json:"count"`
+}
+
+// ToastData 纯 toast 提示数据（无站内信记录，不可点击）
+type ToastData struct {
+	Title     string    `json:"title"`
+	Content   string    `json:"content"`
+	Category  string    `json:"category"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // ErrorData 错误数据
@@ -87,6 +96,16 @@ func NewNotificationMessage(id uint, title, content, category, linkURL, linkText
 func NewUnreadCountMessage(count int) (*Message, error) {
 	return NewMessage(MessageTypeUnreadCount, UnreadCountData{
 		Count: count,
+	})
+}
+
+// NewToastMessage 创建纯 toast 提示消息（无站内信记录，不可点击）
+func NewToastMessage(title, content, category string) (*Message, error) {
+	return NewMessage(MessageTypeToast, ToastData{
+		Title:     title,
+		Content:   content,
+		Category:  category,
+		CreatedAt: time.Now(),
 	})
 }
 

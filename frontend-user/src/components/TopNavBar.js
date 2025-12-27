@@ -25,6 +25,7 @@ import EntcoinIcon from './EntcoinIcon';
 import { NormalSearchIcon } from './SearchIcons';
 import MessageDropdown from './MessageDropdown';
 import api, { walletAPI, checkinAPI, messageAPI } from '../services/api';
+import wsClient from '../services/websocket';
 import logger from '../utils/logger';
 import './styles/TopNavBar.css';
 import './MessageDropdown.css';
@@ -68,6 +69,17 @@ const TopNavBar = ({
     } catch (error) {
       logger.error('Failed to fetch unread message count:', error);
     }
+  }, []);
+
+  // 监听 WebSocket 未读数更新（实时更新小红点）
+  useEffect(() => {
+    const unsubscribe = wsClient.on('unreadCount', (data) => {
+      logger.debug('[TopNavBar] WebSocket unread count update:', data);
+      if (data && typeof data.count === 'number') {
+        setUnreadMessageCount(data.count);
+      }
+    });
+    return unsubscribe;
   }, []);
 
   // 获取订阅信息、钱包余额、邀请统计、签到信息、未读消息

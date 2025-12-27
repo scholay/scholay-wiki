@@ -368,6 +368,51 @@ func (s *Service) GetNonMembersWithGold() ([]NonMemberForCurrency, error) {
 	return result, nil
 }
 
+// MemberInGracePeriod 宽限期内的会员信息（用于货币系统）
+type MemberInGracePeriod struct {
+	UserID    uint
+	Gold      int64
+	ExpiredAt *time.Time // 会员过期时间
+}
+
+// GetMembersInGracePeriod 获取在宽限期内的过期会员（有经费）
+// graceDays: 宽限期天数
+func (s *Service) GetMembersInGracePeriod(graceDays int) ([]MemberInGracePeriod, error) {
+	members, err := s.repo.GetMembersInGracePeriod(graceDays)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]MemberInGracePeriod, len(members))
+	for i, m := range members {
+		result[i] = MemberInGracePeriod{
+			UserID:    m.UserID,
+			Gold:      m.Gold,
+			ExpiredAt: m.ExpiredAt,
+		}
+	}
+	return result, nil
+}
+
+// GetNonMembersWithGoldAfterGrace 获取超过宽限期的非会员用户（有经费）
+// graceDays: 宽限期天数
+func (s *Service) GetNonMembersWithGoldAfterGrace(graceDays int) ([]NonMemberForCurrency, error) {
+	members, err := s.repo.GetNonMembersWithGoldAfterGrace(graceDays)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]NonMemberForCurrency, len(members))
+	for i, m := range members {
+		result[i] = NonMemberForCurrency{
+			UserID:              m.UserID,
+			Gold:                m.Gold,
+			LastSubscriptionEnd: m.LastSubscriptionEnd,
+		}
+	}
+	return result, nil
+}
+
 // GetAllActiveSubscriptions 获取所有活跃订阅
 func (s *Service) GetAllActiveSubscriptions() ([]UserSubscription, error) {
 	return s.repo.GetAllActiveSubscriptions()

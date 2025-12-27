@@ -54,6 +54,11 @@ func (a *MessageServiceAdapter) SendToUser(userID uint, title, content string, c
 	return a.service.SendToUserWithCategory(userID, title, content, category, linkURL, linkText)
 }
 
+// SendToast 发送纯 toast 提示给用户（不创建站内信记录，不可点击）
+func (a *MessageServiceAdapter) SendToast(userID uint, title, content, category string) error {
+	return a.service.SendToastToUser(userID, title, content, category)
+}
+
 // GetAdapter 获取消息服务适配器
 func (h *Handler) GetAdapter() *MessageServiceAdapter {
 	return NewMessageServiceAdapter(h.service)
@@ -72,7 +77,7 @@ func (h *Handler) GetAdapter() *MessageServiceAdapter {
 // @Success 200 {object} utils.Response{data=UserMessageListResponse}
 // @Router /api/v1/user/messages [get]
 func (h *Handler) GetMessages(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		utils.Error(c, http.StatusUnauthorized, "未登录")
 		return
@@ -101,7 +106,7 @@ func (h *Handler) GetMessages(c *gin.Context) {
 // @Success 200 {object} utils.Response{data=UserMessageResponse}
 // @Router /api/v1/user/messages/{id} [get]
 func (h *Handler) GetMessage(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		utils.Error(c, http.StatusUnauthorized, "未登录")
 		return
@@ -129,7 +134,7 @@ func (h *Handler) GetMessage(c *gin.Context) {
 // @Success 200 {object} utils.Response{data=UnreadCountResponse}
 // @Router /api/v1/user/messages/unread-count [get]
 func (h *Handler) GetUnreadCount(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		utils.Error(c, http.StatusUnauthorized, "未登录")
 		return
@@ -152,7 +157,7 @@ func (h *Handler) GetUnreadCount(c *gin.Context) {
 // @Success 200 {object} utils.Response
 // @Router /api/v1/user/messages/{id}/read [put]
 func (h *Handler) MarkAsRead(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		utils.Error(c, http.StatusUnauthorized, "未登录")
 		return
@@ -179,7 +184,7 @@ func (h *Handler) MarkAsRead(c *gin.Context) {
 // @Success 200 {object} utils.Response{data=map[string]int64}
 // @Router /api/v1/user/messages/read-all [put]
 func (h *Handler) MarkAllAsRead(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		utils.Error(c, http.StatusUnauthorized, "未登录")
 		return
@@ -202,7 +207,7 @@ func (h *Handler) MarkAllAsRead(c *gin.Context) {
 // @Success 200 {object} utils.Response
 // @Router /api/v1/user/messages/{id} [delete]
 func (h *Handler) DeleteMessage(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
 		utils.Error(c, http.StatusUnauthorized, "未登录")
 		return

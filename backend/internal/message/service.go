@@ -21,6 +21,7 @@ import (
 type WebSocketHub interface {
 	SendNotification(userID uint, msgID uint, title, content, category, linkURL, linkText string) error
 	SendUnreadCount(userID uint, count int) error
+	SendToast(userID uint, title, content, category string) error
 }
 
 // Service 消息服务
@@ -663,5 +664,34 @@ func (s *Service) SendToUserWithCategory(userID uint, title, content string, cat
 		msgCategory = CategorySystem // 默认使用系统分类
 	}
 	return s.SendToUser(userID, title, content, msgCategory, linkURL, linkText)
+}
+
+// SendToastToUser 发送纯 toast 提示给用户（不创建站内信记录，不可点击）
+// 用于轻量级的即时提示，如奖励到账提醒等
+func (s *Service) SendToastToUser(userID uint, title, content, category string) error {
+	if s.wsHub == nil {
+		fmt.Printf("[Message] WebSocket hub not set, cannot send toast to user %d\n", userID)
+		return nil
+	}
+
+	// 验证分类
+	switch MessageCategory(category) {
+	case CategorySystem, CategoryPromotion, CategoryTransaction:
+		// 有效分类
+	default:
+		category = string(CategorySystem) // 默认使用系统分类
+	}
+
+	fmt.Printf("[Message] Sending toast to user %d: title=%s, content=%s\n", userID, title, content)
+
+	go func() {
+		if err := s.wsHub.SendToast(userID, title, content, category); err != nil {
+			fmt.Printf("[Message] Failed to send toast to user %d: %v\n", userID, err)
+		} else {
+			fmt.Printf("[Message] Toast sent successfully to user %d\n", userID)
+		}
+	}()
+
+	return nil
 }
 

@@ -36,6 +36,7 @@ const MESSAGE_TYPES = {
   ERROR: 'error',
   NOTIFICATION: 'notification',
   UNREAD_COUNT: 'unread_count',
+  TOAST: 'toast',  // 纯 toast 提示（无站内信记录，不可点击）
 };
 
 class WebSocketClient {
@@ -53,6 +54,7 @@ class WebSocketClient {
     this.listeners = {
       notification: [],
       unreadCount: [],
+      toast: [],  // 纯 toast 提示事件
       connect: [],
       disconnect: [],
       error: [],
@@ -185,6 +187,11 @@ class WebSocketClient {
           
         case MESSAGE_TYPES.UNREAD_COUNT:
           this.emit('unreadCount', message.data);
+          break;
+        
+        case MESSAGE_TYPES.TOAST:
+          // 纯 toast 提示，不创建站内信记录，不可点击
+          this.emit('toast', message.data);
           break;
           
         case MESSAGE_TYPES.ERROR:

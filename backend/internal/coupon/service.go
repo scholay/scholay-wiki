@@ -26,9 +26,10 @@ type CurrencyService interface {
 	GiftDiamond(ctx context.Context, userID uint, amount int64, bizType, bizID, desc string) (any, error)
 }
 
-// MessageService 消息服务接口（用于发送站内信）
+// MessageService 消息服务接口（用于发送站内信和 toast）
 type MessageService interface {
 	SendToUser(userID uint, title, content string, category string, linkURL, linkText string) error
+	SendToast(userID uint, title, content, category string) error
 }
 
 type Service struct {
@@ -592,15 +593,18 @@ func (s *Service) RegisterWithInvitation(invitationCode string, inviteeID uint64
 	}
 
 	// 异步发放邀请恩特币奖励给邀请人
+	log.Printf("[Coupon] Starting async gift diamond to inviter %d (invite count: %d)", invitation.UserID, invitation.SuccessfulInvites+1)
 	go s.giftInviteDiamond(invitation.UserID, invitation.SuccessfulInvites+1)
 
-	// 异步发送站内信通知给被邀请人
+	// 异步发送 toast 通知给被邀请人
+	log.Printf("[Coupon] Starting async toast notification to invitee %d", inviteeID)
 	go s.sendInviteeCouponNotification(inviteeID)
 
 	return nil
 }
 
 // sendInviteeCouponNotification 发送邀请奖励站内信给被邀请人
+// 发送站内信（持久化存储），同时通过 WebSocket 推送实时通知
 func (s *Service) sendInviteeCouponNotification(inviteeID uint64) {
 	if s.messageService == nil {
 		log.Printf("[Coupon] Message service not set, cannot send notification to invitee %d", inviteeID)
@@ -611,44 +615,48 @@ func (s *Service) sendInviteeCouponNotification(inviteeID uint64) {
 	coupons, _, err := s.repo.ListUserCoupons(inviteeID, nil, 0, 10)
 	if err != nil {
 		log.Printf("[Coupon] Failed to get invitee coupons: %v", err)
-		return
 	}
 
 	// 查找邀请来源的折扣券
 	var inviteCoupon *UserCoupon
-	for _, c := range coupons {
-		if c.SourceType == SourceTypeInvite {
-			inviteCoupon = c
-			break
+	if coupons != nil {
+		for _, c := range coupons {
+			if c.SourceType == SourceTypeInvite {
+				inviteCoupon = c
+				break
+			}
 		}
 	}
 
-	if inviteCoupon == nil {
-		log.Printf("[Coupon] No invite coupon found for invitee %d", inviteeID)
-		return
-	}
-
 	// 构建通知内容
-	title := "邀请奖励到账"
-	var content string
+	var title, content string
 	
-	// 根据折扣类型构建内容
-	switch inviteCoupon.DiscountType {
-	case string(DiscountTypePercentage):
-		content = fmt.Sprintf("恭喜您获得邀请专属折扣券！\n\n优惠内容：%d%% 折扣\n有效期至：%s\n\n快去使用吧！",
-			int(inviteCoupon.DiscountValue),
-			inviteCoupon.ValidUntil.Format("2006-01-02"))
-	case string(DiscountTypeFixed):
-		content = fmt.Sprintf("恭喜您获得邀请专属折扣券！\n\n优惠内容：减免 %.2f 元\n有效期至：%s\n\n快去使用吧！",
-			inviteCoupon.DiscountValue,
-			inviteCoupon.ValidUntil.Format("2006-01-02"))
-	default:
-		content = fmt.Sprintf("恭喜您获得邀请专属折扣券！\n\n有效期至：%s\n\n快去使用吧！",
-			inviteCoupon.ValidUntil.Format("2006-01-02"))
+	if inviteCoupon != nil {
+		// 有折扣券，发送折扣券通知
+		title = "邀请奖励到账"
+		switch inviteCoupon.DiscountType {
+		case string(DiscountTypePercentage):
+			content = fmt.Sprintf("恭喜您获得邀请专属折扣券！\n\n优惠内容：%d%% 折扣\n有效期至：%s\n\n快去使用吧！",
+				int(inviteCoupon.DiscountValue),
+				inviteCoupon.ValidUntil.Format("2006-01-02"))
+		case string(DiscountTypeFixed):
+			content = fmt.Sprintf("恭喜您获得邀请专属折扣券！\n\n优惠内容：减免 %.2f 元\n有效期至：%s\n\n快去使用吧！",
+				inviteCoupon.DiscountValue,
+				inviteCoupon.ValidUntil.Format("2006-01-02"))
+		default:
+			content = fmt.Sprintf("恭喜您获得邀请专属折扣券！\n\n有效期至：%s\n\n快去使用吧！",
+				inviteCoupon.ValidUntil.Format("2006-01-02"))
+		}
+	} else {
+		// 没有折扣券，发送欢迎通知
+		log.Printf("[Coupon] No invite coupon found for invitee %d, sending welcome message instead", inviteeID)
+		title = "欢迎加入"
+		content = "感谢您通过好友邀请加入！\n\n开始探索学术世界吧！"
 	}
 
-	// 发送站内信（category = promotion）
-	err = s.messageService.SendToUser(uint(inviteeID), title, content, "promotion", "/pricing", "查看会员方案")
+	// 发送站内信（会持久化存储，同时通过 WebSocket 推送实时通知）
+	log.Printf("[Coupon] Sending invite notification to invitee %d: title=%s", inviteeID, title)
+	err = s.messageService.SendToUser(uint(inviteeID), title, content, "promotion", "/", "开始使用")
 	if err != nil {
 		log.Printf("[Coupon] Failed to send invite notification to user %d: %v", inviteeID, err)
 	} else {
@@ -659,9 +667,17 @@ func (s *Service) sendInviteeCouponNotification(inviteeID uint64) {
 // giftInviteDiamond 发放邀请恩特币奖励
 // inviteCount: 当前是第几个成功邀请（包含本次）
 func (s *Service) giftInviteDiamond(inviterID uint64, inviteCount int) {
+	log.Printf("[Coupon] giftInviteDiamond called for inviter %d, inviteCount %d", inviterID, inviteCount)
+	
 	if s.currencyService == nil {
-		log.Printf("Warning: Currency service not set, cannot gift invite diamond to user %d", inviterID)
+		log.Printf("[Coupon] Warning: Currency service not set, cannot gift invite diamond to user %d", inviterID)
 		return
+	}
+	
+	if s.messageService == nil {
+		log.Printf("[Coupon] Warning: Message service not set for inviter %d", inviterID)
+	} else {
+		log.Printf("[Coupon] Message service is set for inviter %d", inviterID)
 	}
 
 	ctx := context.Background()
@@ -700,9 +716,28 @@ func (s *Service) giftInviteDiamond(inviterID uint64, inviteCount int) {
 	_, err = s.currencyService.GiftDiamond(ctx, uint(inviterID), totalReward, "invite_reward", bizID, desc)
 	if err != nil {
 		log.Printf("Failed to gift invite diamond to user %d: %v", inviterID, err)
-	} else {
-		log.Printf("Successfully gifted %d diamond to user %d for invite (count: %d, milestone: %v)", 
-			totalReward, inviterID, inviteCount, isMilestone)
+		return
+	}
+
+	log.Printf("Successfully gifted %d diamond to user %d for invite (count: %d, milestone: %v)", 
+		totalReward, inviterID, inviteCount, isMilestone)
+
+	// 发送站内信通知给邀请人（持久化存储，同时通过 WebSocket 推送实时通知）
+	if s.messageService != nil {
+		var title, content string
+		if isMilestone {
+			title = "邀请里程碑达成"
+			content = fmt.Sprintf("恭喜您成功邀请第 %d 位用户！\n\n本次获得 %d 恩特币奖励（含里程碑奖励）。\n\n继续邀请好友，获得更多奖励！", inviteCount, totalReward)
+		} else {
+			title = "邀请奖励到账"
+			content = fmt.Sprintf("恭喜您成功邀请新用户！\n\n本次获得 %d 恩特币奖励。\n\n继续邀请好友，获得更多奖励！", totalReward)
+		}
+		log.Printf("[Coupon] Sending invite notification to inviter %d: title=%s", inviterID, title)
+		if err := s.messageService.SendToUser(uint(inviterID), title, content, "promotion", "/invite", "邀请更多好友"); err != nil {
+			log.Printf("[Coupon] Failed to send invite notification to inviter %d: %v", inviterID, err)
+		} else {
+			log.Printf("[Coupon] Sent invite notification to inviter %d", inviterID)
+		}
 	}
 }
 

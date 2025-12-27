@@ -328,7 +328,7 @@ func main() {
 		return result, nil
 	})
 	
-	// 设置非会员用户获取函数（用于清空经费）
+	// 设置非会员用户获取函数（用于清空经费）- 已废弃，保留兼容
 	// 获取所有当前没有活跃 pro/max 订阅且有经费的用户
 	membershipGiftService.SetNonMemberGetter(func() ([]currency.NonMember, error) {
 		members, err := subscriptionService.GetNonMembersWithGold()
@@ -345,6 +345,43 @@ func main() {
 		}
 		return result, nil
 	})
+
+	// 设置宽限期内会员获取函数（用于发送宽限期提醒）
+	membershipGiftService.SetMembersInGracePeriodGetter(func(graceDays int) ([]currency.MemberInGracePeriod, error) {
+		members, err := subscriptionService.GetMembersInGracePeriod(graceDays)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]currency.MemberInGracePeriod, len(members))
+		for i, m := range members {
+			result[i] = currency.MemberInGracePeriod{
+				UserID:    m.UserID,
+				Gold:      m.Gold,
+				ExpiredAt: m.ExpiredAt,
+			}
+		}
+		return result, nil
+	})
+
+	// 设置超过宽限期的非会员获取函数（用于清空经费）
+	membershipGiftService.SetNonMembersAfterGraceGetter(func(graceDays int) ([]currency.NonMember, error) {
+		members, err := subscriptionService.GetNonMembersWithGoldAfterGrace(graceDays)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]currency.NonMember, len(members))
+		for i, m := range members {
+			result[i] = currency.NonMember{
+				UserID:              m.UserID,
+				Gold:                m.Gold,
+				LastSubscriptionEnd: m.LastSubscriptionEnd,
+			}
+		}
+		return result, nil
+	})
+	
+	// 设置消息服务（用于发送会员相关站内信通知）
+	membershipGiftService.SetMessageService(messageHandler.GetAdapter())
 	
 	// 设置会员激活回调 - 当用户开通会员时自动发放奖励
 	// 这是解耦支付方式和奖励发放的关键：无论通过何种支付方式开通会员，

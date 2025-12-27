@@ -18,6 +18,11 @@ export const logger = {
       console.log(...args);
     }
   },
+  debug: (...args) => {
+    if (isDevelopment) {
+      console.debug(...args);
+    }
+  },
   error: (...args) => {
     // Always log errors, even in production
     console.error(...args);

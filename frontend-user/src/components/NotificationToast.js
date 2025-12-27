@@ -6,12 +6,14 @@
  * All Rights Reserved.
  * ============================================================================
  * 
- * NotificationToast - 站内信到达通知组件
+ * NotificationToast - 通知提示组件
  * 
  * 功能：
- * 1. 右上角显示站内信到达通知
- * 2. 显示标题和简要内容
- * 3. 点击打开消息列表
+ * 1. 右上角显示通知提示
+ * 2. 支持两种类型：
+ *    - notification: 站内信通知，可点击打开消息列表
+ *    - toast: 纯 toast 提示，不可点击，无站内信记录
+ * 3. 显示标题和简要内容
  * 4. 8秒自动关闭
  */
 
@@ -48,7 +50,8 @@ const getCategoryName = (category) => {
 };
 
 // 单个通知项
-const NotificationItem = ({ notification, onClose, onClick }) => {
+// isToast: true 表示纯 toast 提示，不可点击
+const NotificationItem = ({ notification, onClose, onClick, isToast = false }) => {
   const [isClosing, setIsClosing] = useState(false);
 
   useEffect(() => {
@@ -68,9 +71,13 @@ const NotificationItem = ({ notification, onClose, onClick }) => {
   }, [notification.id, onClose]);
 
   const handleClick = useCallback(() => {
+    // 纯 toast 不支持点击跳转
+    if (isToast) {
+      return;
+    }
     handleClose();
     onClick(notification);
-  }, [notification, onClick, handleClose]);
+  }, [notification, onClick, handleClose, isToast]);
 
   // 截取内容预览
   const contentPreview = notification.content
@@ -79,8 +86,9 @@ const NotificationItem = ({ notification, onClose, onClick }) => {
 
   return (
     <div 
-      className={`notification-toast-item ${isClosing ? 'closing' : ''}`}
+      className={`notification-toast-item ${isClosing ? 'closing' : ''} ${isToast ? 'toast-only' : ''}`}
       onClick={handleClick}
+      style={isToast ? { cursor: 'default' } : undefined}
     >
       <div className={`notification-toast-icon ${notification.category || 'system'}`}>
         {getCategoryIcon(notification.category)}
@@ -115,14 +123,15 @@ const NotificationItem = ({ notification, onClose, onClick }) => {
 const NotificationToastContainer = ({ onOpenMessageList }) => {
   const [notifications, setNotifications] = useState([]);
 
-  // 添加通知
-  const addNotification = useCallback((data) => {
+  // 添加通知（支持站内信通知和纯 toast）
+  const addNotification = useCallback((data, isToast = false) => {
     const notification = {
       id: data.id || Date.now(),
       title: data.title,
       content: data.content,
       category: data.category,
       createdAt: data.created_at || new Date().toISOString(),
+      isToast, // 标记是否为纯 toast
     };
 
     setNotifications(prev => {
@@ -151,9 +160,15 @@ const NotificationToastContainer = ({ onOpenMessageList }) => {
     }
   }, [onOpenMessageList]);
 
-  // 监听 WebSocket 通知
+  // 监听 WebSocket 站内信通知
   useEffect(() => {
-    const unsubscribe = wsClient.on('notification', addNotification);
+    const unsubscribe = wsClient.on('notification', (data) => addNotification(data, false));
+    return unsubscribe;
+  }, [addNotification]);
+
+  // 监听 WebSocket 纯 toast 提示
+  useEffect(() => {
+    const unsubscribe = wsClient.on('toast', (data) => addNotification(data, true));
     return unsubscribe;
   }, [addNotification]);
 
@@ -169,6 +184,7 @@ const NotificationToastContainer = ({ onOpenMessageList }) => {
           notification={notification}
           onClose={removeNotification}
           onClick={handleClick}
+          isToast={notification.isToast}
         />
       ))}
     </div>,

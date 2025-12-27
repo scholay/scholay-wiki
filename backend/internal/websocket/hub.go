@@ -127,12 +127,16 @@ func (h *Hub) SendToUser(userID uint, msg *Message) error {
 
 	h.mu.RLock()
 	sessions, exists := h.userSessions[userID]
+	sessionCount := len(sessions)
 	h.mu.RUnlock()
 
-	if !exists || len(sessions) == 0 {
-		// 用户不在线，不是错误
+	if !exists || sessionCount == 0 {
+		// 用户不在线，记录日志
+		fmt.Printf("[WebSocket] User %d is not online (sessions: %d), message not sent: %s\n", userID, sessionCount, msg.Type)
 		return nil
 	}
+
+	fmt.Printf("[WebSocket] Sending message to user %d (sessions: %d): type=%s\n", userID, sessionCount, msg.Type)
 
 	for session := range sessions {
 		if err := session.Write(data); err != nil {
@@ -155,6 +159,15 @@ func (h *Hub) SendNotification(userID uint, msgID uint, title, content, category
 // SendUnreadCount 向用户发送未读消息数量
 func (h *Hub) SendUnreadCount(userID uint, count int) error {
 	msg, err := NewUnreadCountMessage(count)
+	if err != nil {
+		return err
+	}
+	return h.SendToUser(userID, msg)
+}
+
+// SendToast 向用户发送纯 toast 提示（无站内信记录，不可点击）
+func (h *Hub) SendToast(userID uint, title, content, category string) error {
+	msg, err := NewToastMessage(title, content, category)
 	if err != nil {
 		return err
 	}
