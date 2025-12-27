@@ -500,6 +500,32 @@
   font-size: 15px;
   font-weight: 600;
   color: #1a1a1a;
+  min-width: 32px;
+  text-align: center;
+}
+
+/* 钱包加载状态 */
+.um-wallet.loading {
+  opacity: 0.8;
+}
+
+.um-wallet-skeleton {
+  display: inline-block;
+  width: 32px;
+  height: 16px;
+  background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+  background-size: 200% 100%;
+  animation: um-wallet-shimmer 1.2s infinite;
+  border-radius: 4px;
+}
+
+@keyframes um-wallet-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* 签到区域 */
@@ -805,6 +831,11 @@
 
 [data-theme="dark"] .um-wallet-value {
   color: #ffffff;
+}
+
+[data-theme="dark"] .um-wallet-skeleton {
+  background: linear-gradient(90deg, #3a3a3a 25%, #4a4a4a 50%, #3a3a3a 75%);
+  background-size: 200% 100%;
 }
 
 [data-theme="dark"] .um-checkin-section:hover {

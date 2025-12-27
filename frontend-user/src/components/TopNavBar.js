@@ -47,6 +47,7 @@ const TopNavBar = ({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [subscription, setSubscription] = useState(null);
   const [wallet, setWallet] = useState(null);
+  const [walletLoading, setWalletLoading] = useState(false); // 钱包加载状态
   // 签到相关状态
   const [checkinHistory, setCheckinHistory] = useState([]);
   const [checkinDetails, setCheckinDetails] = useState([]);
@@ -205,8 +206,29 @@ const TopNavBar = ({
     return '用户';
   };
 
-  const handleAvatarClick = () => {
-    setShowUserMenu(!showUserMenu);
+  // 获取钱包余额
+  const fetchWallet = useCallback(async () => {
+    setWalletLoading(true);
+    try {
+      const walletResponse = await walletAPI.getWallet();
+      if (walletResponse.data.code === 0) {
+        setWallet(walletResponse.data.data);
+      }
+    } catch (error) {
+      logger.error('Failed to fetch wallet:', error);
+    } finally {
+      setWalletLoading(false);
+    }
+  }, []);
+
+  const handleAvatarClick = async () => {
+    const willOpen = !showUserMenu;
+    setShowUserMenu(willOpen);
+    
+    // 打开菜单时立即刷新钱包数据
+    if (willOpen && user) {
+      fetchWallet();
+    }
   };
 
   return (
@@ -327,15 +349,19 @@ const TopNavBar = ({
             </div>
             
             {/* 余额展示 - 紧凑型 */}
-            <div className="um-wallet">
+            <div className={`um-wallet ${walletLoading ? 'loading' : ''}`}>
               <div className="um-wallet-item">
                 <GoldIcon size="sm" />
-                <span className="um-wallet-value">{(wallet?.gold || 0).toLocaleString()}</span>
+                <span className="um-wallet-value">
+                  {walletLoading ? <span className="um-wallet-skeleton"></span> : (wallet?.gold || 0).toLocaleString()}
+                </span>
               </div>
               <div className="um-wallet-divider"></div>
               <div className="um-wallet-item">
                 <EntcoinIcon size="sm" />
-                <span className="um-wallet-value">{(wallet?.diamond || 0).toLocaleString()}</span>
+                <span className="um-wallet-value">
+                  {walletLoading ? <span className="um-wallet-skeleton"></span> : (wallet?.diamond || 0).toLocaleString()}
+                </span>
               </div>
             </div>
           </div>
