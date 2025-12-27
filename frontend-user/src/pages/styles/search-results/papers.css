@@ -1821,10 +1821,20 @@ a.meta-item.pdf-link:hover {
   right: 0;
   transform: translateY(-50%);
   z-index: 50;
+}
+
+/* 收起状态下，只有 collapsed-tab 可以接收鼠标事件 */
+.dimension-float-panel.collapsed {
   pointer-events: none;
 }
 
-.dimension-float-panel > * {
+.dimension-float-panel.collapsed .dimension-float-collapsed-tab {
+  pointer-events: auto;
+}
+
+/* 展开状态下，整个面板可以接收鼠标事件 */
+.dimension-float-panel:not(.collapsed),
+.dimension-float-panel.collapsed.expanded {
   pointer-events: auto;
 }
 

@@ -1749,19 +1749,17 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                   
                   {/* 右侧悬浮面板 - AI 分析维度入口 */}
                   {papers.length > 0 && (
-                    <div className={`dimension-float-panel ${selectedDimensions.length > 0 ? 'collapsed' : ''} ${floatPanelExpanded ? 'expanded' : ''}`}>
-                      {/* 收起状态的侧边标签 - hover 时展开面板 */}
-                      <div 
-                        className="dimension-float-collapsed-tab"
-                        onMouseEnter={() => setFloatPanelExpanded(true)}
-                      >
+                    <div 
+                      className={`dimension-float-panel ${selectedDimensions.length > 0 && !floatPanelExpanded ? 'collapsed' : ''} ${floatPanelExpanded ? 'expanded' : ''}`}
+                      onMouseEnter={() => setFloatPanelExpanded(true)}
+                      onMouseLeave={() => setFloatPanelExpanded(false)}
+                    >
+                      {/* 收起状态的侧边标签 */}
+                      <div className="dimension-float-collapsed-tab">
                         <span>智能矩阵分析</span>
                       </div>
-                      {/* 展开状态的完整内容 - 鼠标离开时收起 */}
-                      <div 
-                        className="dimension-float-content"
-                        onMouseLeave={() => setFloatPanelExpanded(false)}
-                      >
+                      {/* 展开状态的完整内容 */}
+                      <div className="dimension-float-content">
                         {floatPanelView === 'list' && (
                           <>
                             {/* 列表视图 - 与学术检索页面保持一致 */}

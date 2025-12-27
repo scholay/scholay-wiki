@@ -43,11 +43,6 @@
   right: 420px;
   transform: translateY(-50%);
   z-index: 50;
-  pointer-events: none;
-}
-
-.as-results-layout .papers-container .dimension-float-panel > * {
-  pointer-events: auto;
 }
 
 /* 收起状态下完全隐藏内容区域，避免阻挡滚动 */
