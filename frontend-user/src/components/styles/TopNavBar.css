@@ -546,6 +546,12 @@
   margin-bottom: 12px;
 }
 
+.um-checkin-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .um-checkin-title {
   font-size: 14px;
   font-weight: 600;
@@ -556,6 +562,20 @@
   font-size: 12px;
   color: #10a37f;
   font-weight: 500;
+}
+
+.um-checkin-next-reward {
+  font-size: 11px;
+  color: #f59e0b;
+  font-weight: 500;
+  background: rgba(245, 158, 11, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+[data-theme="dark"] .um-checkin-next-reward {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
 }
 
 /* 星期标题 */

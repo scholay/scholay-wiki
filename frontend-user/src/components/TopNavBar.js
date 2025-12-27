@@ -369,8 +369,23 @@ const TopNavBar = ({
           {/* 签到区域 - 显示本周，点击跳转到设置页面 */}
           <div className="um-checkin-section" onClick={() => { setShowUserMenu(false); navigate('/settings?tab=profile'); }}>
             <div className="um-checkin-header">
-              <span className="um-checkin-title">签到</span>
-              <span className="um-checkin-streak">连续{checkinStats.consecutiveDays}天</span>
+              <div className="um-checkin-header-left">
+                <span className="um-checkin-title">签到</span>
+                <span className="um-checkin-streak">连续{checkinStats.consecutiveDays}天</span>
+              </div>
+              {(() => {
+                // 找到下一个里程碑奖励
+                const nextMilestone = futureRewards.find(r => r.is_milestone && r.consecutive_day > checkinStats.consecutiveDays);
+                if (nextMilestone) {
+                  const daysToMilestone = nextMilestone.consecutive_day - checkinStats.consecutiveDays;
+                  return (
+                    <span className="um-checkin-next-reward">
+                      {daysToMilestone}天后+{nextMilestone.expected_gold}经费
+                    </span>
+                  );
+                }
+                return null;
+              })()}
             </div>
             <div className="um-checkin-week-header">
               {['日', '一', '二', '三', '四', '五', '六'].map(d => <span key={d}>{d}</span>)}
