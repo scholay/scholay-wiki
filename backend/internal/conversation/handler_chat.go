@@ -9,6 +9,7 @@ package conversation
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"scholar-backend/internal/ai"
@@ -72,20 +73,31 @@ func (h *ChatHandler) checkBalanceForChat(userID uint, modelLevel string) error 
 	return nil
 }
 
-// deductForChatAfterSuccess 成功后扣费
-func (h *ChatHandler) deductForChatAfterSuccess(userID uint, modelLevel string) {
+// deductForChatAfterSuccess 成功后扣费，返回扣费金额
+func (h *ChatHandler) deductForChatAfterSuccess(userID uint, modelLevel string) int64 {
 	if h.currencyService == nil {
-		return
+		log.Printf("[AI Chat] Currency service not set, skip deduct")
+		return 0
 	}
 
 	bizType := h.getBizTypeForChat(modelLevel)
 	ctx := context.Background()
-	_, err := h.currencyService.DeductByBizType(ctx, userID, bizType, "")
+	transaction, err := h.currencyService.DeductByBizType(ctx, userID, bizType, "")
 	if err != nil {
 		log.Printf("[AI Chat] Deduct failed after success: userID=%d, bizType=%s, err=%v", userID, bizType, err)
-	} else {
-		log.Printf("[AI Chat] Deduct success: userID=%d, bizType=%s", userID, bizType)
+		return 0
 	}
+	if transaction == nil {
+		log.Printf("[AI Chat] No deduct config or disabled: userID=%d, bizType=%s", userID, bizType)
+		return 0
+	}
+	// transaction.Amount 是负数（扣费），取绝对值返回
+	amount := transaction.Amount
+	if amount < 0 {
+		amount = -amount
+	}
+	log.Printf("[AI Chat] Deduct success: userID=%d, bizType=%s, amount=%d", userID, bizType, amount)
+	return amount
 }
 
 // StreamChatMessage handles streaming chat requests
@@ -141,7 +153,12 @@ func (h *ChatHandler) StreamChatMessage(c *gin.Context) {
 	}
 
 	// 3. 成功后扣费
-	h.deductForChatAfterSuccess(userID, modelLevel)
+	deductedAmount := h.deductForChatAfterSuccess(userID, modelLevel)
+
+	// 4. 发送扣费信息事件
+	deductEvent := fmt.Sprintf("data: {\"type\":\"deduct_info\",\"deducted_amount\":%d}\n\n", deductedAmount)
+	c.Writer.Write([]byte(deductEvent))
+	c.Writer.(http.Flusher).Flush()
 
 	c.Status(http.StatusOK)
 }
@@ -340,7 +357,12 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 	}
 
 	// 3. 成功后扣费
-	h.deductForChatAfterSuccess(userID, modelLevel)
+	deductedAmount := h.deductForChatAfterSuccess(userID, modelLevel)
+
+	// 4. 发送扣费信息事件
+	deductEvent := fmt.Sprintf("data: {\"type\":\"deduct_info\",\"deducted_amount\":%d}\n\n", deductedAmount)
+	c.Writer.Write([]byte(deductEvent))
+	c.Writer.(http.Flusher).Flush()
 
 	c.Status(http.StatusOK)
 }

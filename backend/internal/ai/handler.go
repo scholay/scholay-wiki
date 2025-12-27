@@ -158,11 +158,19 @@ type AnalyzePaperRequest struct {
 	Abstract string `json:"abstract" binding:"required"`
 }
 
+// AnalyzePaperResponse 分析论文响应结构（包含扣费信息）
+type AnalyzePaperResponse struct {
+	Data           map[string]string `json:"data"`
+	Dimensions     []DimensionInfo   `json:"dimensions"`
+	DeductedAmount int64             `json:"deducted_amount"` // 实际扣费金额，0表示未扣费（缓存命中或无需扣费）
+}
+
 // AnalyzePaper 分析论文摘要，提取结构化信息
 // POST /api/v1/public/papers/analyze (公共接口，使用系统默认维度)
 // POST /api/v1/analysis/paper (需登录，使用用户自定义维度)
 // 优先从数据库缓存获取，如果没有则调用AI分析并保存结果
 // 扣费逻辑：同一篇论文 + 同一维度配置 只扣一次费
+// 响应中包含 deducted_amount 字段，表示本次请求实际扣费金额
 func (h *Handler) AnalyzePaper(c *gin.Context) {
 	var req AnalyzePaperRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -195,6 +203,12 @@ func (h *Handler) AnalyzePaper(c *gin.Context) {
 		return
 	}
 
+	// 获取配置的扣费金额（由中间件设置）
+	var deductedAmount int64 = 0
+	if amt, exists := c.Get("deduct_amount_config"); exists {
+		deductedAmount = amt.(int64)
+	}
+
 	// 设置扣费相关的上下文信息
 	// bizID = paperId_dimensionHash，用于去重扣费
 	if req.PaperID != "" && analysisCtx != nil {
@@ -204,10 +218,16 @@ func (h *Handler) AnalyzePaper(c *gin.Context) {
 		// 如果结果来自缓存，说明之前已经分析过（已扣费），跳过本次扣费
 		if analysisCtx.FromCache {
 			c.Set("skip_deduct", true)
+			deductedAmount = 0 // 缓存命中，不扣费
 		}
 	}
 
-	utils.Success(c, result)
+	// 返回结果，包含扣费金额
+	utils.Success(c, AnalyzePaperResponse{
+		Data:           result.Data,
+		Dimensions:     result.Dimensions,
+		DeductedAmount: deductedAmount,
+	})
 }
 
 // GetAnalysisDimensions 获取分析维度列表

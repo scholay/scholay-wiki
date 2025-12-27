@@ -15,9 +15,11 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
-import api, { subscriptionAPI } from '../services/api';
+import api, { subscriptionAPI, walletAPI } from '../services/api';
 import { trackAIChat, EntryPoint } from '../utils/usageTracker';
 import logger from '../utils/logger';
+import wsClient from '../services/websocket';
+import InsufficientBalanceModal from '../components/InsufficientBalanceModal';
 import './ChatPageNew.css';
 import 'highlight.js/styles/github-dark.css';
 
@@ -96,6 +98,8 @@ function ChatPage() {
   const [quota, setQuota] = useState(null); // AI Chat quota limits
   const [usage, setUsage] = useState(null); // AI Chat usage counts
   const [showAuthModal, setShowAuthModal] = useState(false); // 登录弹窗
+  const [showBalanceModal, setShowBalanceModal] = useState(false); // 余额不足弹窗
+  const [balanceError, setBalanceError] = useState(null); // 余额不足详情
   const [hoveredMessage, setHoveredMessage] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
   const [editContent, setEditContent] = useState('');
@@ -292,6 +296,27 @@ function ChatPage() {
       setShowAuthModal(true);
       return;
     }
+
+    // 先检查余额是否充足
+    try {
+      const checkResult = await walletAPI.checkBalanceByBizType(getChatBizType(modelLevel));
+      if (checkResult.data.code === 0 && checkResult.data.data) {
+        if (!checkResult.data.data.sufficient) {
+          // 余额不足，显示弹窗
+          setBalanceError({
+            balance: checkResult.data.data.balance || 0,
+            required: checkResult.data.data.required || 0,
+            shortage: checkResult.data.data.shortage || 0,
+            alreadyDeducted: 0
+          });
+          setShowBalanceModal(true);
+          return;
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to check balance:', error);
+      // 检查失败时继续执行，让后端处理
+    }
     
     try {
       setIsStreaming(true);
@@ -324,6 +349,22 @@ function ChatPage() {
         signal: abortControllerRef.current.signal
       });
 
+      // 检查余额不足错误
+      if (response.status === 402) {
+        const errorData = await response.json();
+        // 移除临时用户消息
+        setMessages([]);
+        // 显示余额不足弹窗
+        setBalanceError({
+          balance: errorData.data?.balance || 0,
+          required: errorData.data?.required || 0,
+          shortage: errorData.data?.shortage || 0,
+          alreadyDeducted: 0
+        });
+        setShowBalanceModal(true);
+        return;
+      }
+
       await handleStreamResponse(response);
       // Reload conversations to update sidebar history
       await loadConversations();
@@ -344,6 +385,15 @@ function ChatPage() {
     }
   };
 
+  // 根据模型级别获取业务类型
+  const getChatBizType = (level) => {
+    switch (level) {
+      case 'mid': return 'ai_chat_mid';
+      case 'high': return 'ai_chat_high';
+      default: return 'ai_chat_low';
+    }
+  };
+
   const sendMessage = async (content) => {
     if (!content.trim()) return;
 
@@ -351,6 +401,27 @@ function ChatPage() {
     if (!isAuthenticated) {
       setShowAuthModal(true);
       return;
+    }
+
+    // 先检查余额是否充足
+    try {
+      const checkResult = await walletAPI.checkBalanceByBizType(getChatBizType(modelLevel));
+      if (checkResult.data.code === 0 && checkResult.data.data) {
+        if (!checkResult.data.data.sufficient) {
+          // 余额不足，显示弹窗
+          setBalanceError({
+            balance: checkResult.data.data.balance || 0,
+            required: checkResult.data.data.required || 0,
+            shortage: checkResult.data.data.shortage || 0,
+            alreadyDeducted: 0
+          });
+          setShowBalanceModal(true);
+          return;
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to check balance:', error);
+      // 检查失败时继续执行，让后端处理
     }
 
     if (!currentConversation) {
@@ -406,6 +477,22 @@ function ChatPage() {
         signal: abortControllerRef.current.signal
       });
 
+      // 检查余额不足错误
+      if (response.status === 402) {
+        const errorData = await response.json();
+        // 移除临时用户消息
+        setMessages(prev => prev.filter(msg => !msg.message_id.startsWith('temp-')));
+        // 显示余额不足弹窗
+        setBalanceError({
+          balance: errorData.data?.balance || 0,
+          required: errorData.data?.required || 0,
+          shortage: errorData.data?.shortage || 0,
+          alreadyDeducted: 0
+        });
+        setShowBalanceModal(true);
+        return;
+      }
+
       await handleStreamResponse(response);
     } catch (error) {
       if (error.name !== 'AbortError') {
@@ -460,6 +547,7 @@ function ChatPage() {
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
+          logger.log('[AI Chat] Stream done');
           // Final update to ensure all content is displayed
           if (animationFrameId) {
             cancelAnimationFrame(animationFrameId);
@@ -469,12 +557,15 @@ function ChatPage() {
         }
 
         const chunk = decoder.decode(value, { stream: true });
+        logger.log('[AI Chat] Received chunk, length:', chunk.length);
         const lines = chunk.split('\n');
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             try {
-              const data = JSON.parse(line.slice(6));
+              const jsonStr = line.slice(6);
+              logger.log('[AI Chat] Received SSE line:', jsonStr.substring(0, 100));
+              const data = JSON.parse(jsonStr);
 
               if (data.type === 'conversation_created') {
                 const newConvId = data.metadata.conversation_id;
@@ -540,6 +631,20 @@ function ChatPage() {
                 fullContent = '';
                 parentMessageId = null;  // Reset for next message
                 messageEndReceived = true;
+              } else if (data.type === 'deduct_info') {
+                // 处理扣费信息
+                logger.log('[AI Chat] Received deduct_info:', data);
+                const deductedAmount = data.deducted_amount || 0;
+                logger.log('[AI Chat] Deducted amount:', deductedAmount);
+                if (deductedAmount > 0) {
+                  logger.log('[AI Chat] Emitting toast for deduction');
+                  wsClient.emit('toast', {
+                    title: '扣费提醒',
+                    content: `本次对话消耗 ${deductedAmount} 经费`,
+                    category: 'transaction',
+                    created_at: new Date().toISOString()
+                  });
+                }
               } else if (data.type === 'error') {
                 logger.error('Stream error:', data.error);
               }
@@ -1394,6 +1499,19 @@ function ChatPage() {
           />
         </Suspense>
       )}
+      
+      {/* 经费不足弹窗 */}
+      <InsufficientBalanceModal
+        isOpen={showBalanceModal}
+        onClose={() => {
+          setShowBalanceModal(false);
+          setBalanceError(null);
+        }}
+        balance={balanceError?.balance || 0}
+        required={balanceError?.required || 0}
+        shortage={balanceError?.shortage || 0}
+        alreadyDeducted={balanceError?.alreadyDeducted || 0}
+      />
     </div>
   );
 }

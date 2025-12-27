@@ -62,20 +62,31 @@ func (h *Handler) checkBalanceForSmartAnalysis(userID uint, modelLevel string) e
 	return nil
 }
 
-// deductForSmartAnalysisAfterSuccess 成功后扣费
-func (h *Handler) deductForSmartAnalysisAfterSuccess(userID uint, modelLevel string) {
+// deductForSmartAnalysisAfterSuccess 成功后扣费，返回扣费金额
+func (h *Handler) deductForSmartAnalysisAfterSuccess(userID uint, modelLevel string) int64 {
 	if h.currencyService == nil {
-		return
+		fmt.Printf("[Smart Analysis] Currency service not set, skip deduct\n")
+		return 0
 	}
 
 	bizType := h.getBizTypeForSmartAnalysis(modelLevel)
 	ctx := context.Background()
-	_, err := h.currencyService.DeductByBizType(ctx, userID, bizType, "")
+	transaction, err := h.currencyService.DeductByBizType(ctx, userID, bizType, "")
 	if err != nil {
 		fmt.Printf("[Smart Analysis] Deduct failed after success: userID=%d, bizType=%s, err=%v\n", userID, bizType, err)
-	} else {
-		fmt.Printf("[Smart Analysis] Deduct success: userID=%d, bizType=%s\n", userID, bizType)
+		return 0
 	}
+	if transaction == nil {
+		fmt.Printf("[Smart Analysis] No deduct config or disabled: userID=%d, bizType=%s\n", userID, bizType)
+		return 0
+	}
+	// transaction.Amount 是负数（扣费），取绝对值返回
+	amount := transaction.Amount
+	if amount < 0 {
+		amount = -amount
+	}
+	fmt.Printf("[Smart Analysis] Deduct success: userID=%d, bizType=%s, amount=%d\n", userID, bizType, amount)
+	return amount
 }
 
 // CreateConversation creates a new conversation
@@ -355,10 +366,10 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 	}
 
 	// 3. 成功后扣费
-	h.deductForSmartAnalysisAfterSuccess(userID.(uint), modelLevel)
+	deductedAmount := h.deductForSmartAnalysisAfterSuccess(userID.(uint), modelLevel)
 
-	// Send done signal
-	c.Writer.Write([]byte("data: [DONE]\n\n"))
+	// Send done signal with deducted amount
+	c.Writer.Write([]byte(fmt.Sprintf("data: [DONE] {\"deducted_amount\": %d}\n\n", deductedAmount)))
 	c.Writer.(http.Flusher).Flush()
 }
 
@@ -442,10 +453,10 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 	}
 
 	// 3. 成功后扣费
-	h.deductForSmartAnalysisAfterSuccess(userID.(uint), modelLevel)
+	deductedAmount := h.deductForSmartAnalysisAfterSuccess(userID.(uint), modelLevel)
 
-	// Send done signal
-	c.Writer.Write([]byte("data: [DONE]\n\n"))
+	// Send done signal with deducted amount
+	c.Writer.Write([]byte(fmt.Sprintf("data: [DONE] {\"deducted_amount\": %d}\n\n", deductedAmount)))
 	c.Writer.(http.Flusher).Flush()
 }
 

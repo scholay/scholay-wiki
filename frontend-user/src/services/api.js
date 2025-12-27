@@ -669,6 +669,10 @@ export const walletAPI = {
   checkBalance: (currencyType, amount) =>
     api.post('/user/wallet/check-balance', { currency_type: currencyType, amount }),
 
+  // 按业务类型检查余额是否充足
+  checkBalanceByBizType: (bizType) =>
+    api.get('/user/wallet/check-by-biz', { params: { biz_type: bizType } }),
+
   // 获取充值信息（恩特币单价等）
   getRechargeInfo: () => api.get('/user/wallet/recharge-info'),
 

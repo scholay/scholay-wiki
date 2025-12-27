@@ -635,6 +635,7 @@ func main() {
 			// Wallet routes (钱包)
 			userProtected.GET("/wallet", currencyHandler.GetWallet)
 			userProtected.GET("/wallet/check", currencyHandler.CheckBalance)
+			userProtected.GET("/wallet/check-by-biz", currencyHandler.CheckBalanceByBizType)
 			userProtected.GET("/wallet/transactions", currencyHandler.ListTransactions)
 			userProtected.GET("/wallet/transactions/:transaction_no", currencyHandler.GetTransaction)
 			userProtected.GET("/wallet/recharge-info", currencyHandler.GetRechargeInfo)

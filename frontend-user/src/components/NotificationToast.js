@@ -26,7 +26,7 @@ import './NotificationToast.css';
 // 通知配置
 const NOTIFICATION_CONFIG = {
   AUTO_CLOSE_DELAY: 8000,  // 自动关闭延迟 8秒
-  MAX_NOTIFICATIONS: 5,    // 最多同时显示 5 条
+  MAX_NOTIFICATIONS: 3,    // 最多同时显示 3 条（堆栈限制）
 };
 
 // 获取分类图标

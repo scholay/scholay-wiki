@@ -19,9 +19,11 @@ import AIPaperList from './AIPaperList';
 import PaperCitationMarkdown from './PaperCitationMarkdown';
 import AIHistoryDropdown from './AIHistoryDropdown';
 import CiteModal from './CiteModal';
+import InsufficientBalanceModal from './InsufficientBalanceModal';
 import './QACard.css'; // 对话区域样式
-import { conversationAPI, subscriptionAPI, publicScholarAPI, analysisDimensionAPI } from '../services/api';
+import { conversationAPI, subscriptionAPI, publicScholarAPI, analysisDimensionAPI, walletAPI } from '../services/api';
 import AnalysisCellText from './AnalysisCellText';
+import wsClient from '../services/websocket';
 import { trackSmartAnalysis, EntryPoint } from '../utils/usageTracker';
 import { getSearchQuery, getAIModelLevel, getAIConversationId, setAIConversationId, clearSearchQuery } from '../utils/searchStorage';
 import { organizeMessagesByParentId } from '../utils/messageUtils';
@@ -92,6 +94,12 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
   const [editingDimension, setEditingDimension] = useState(null); // 正在编辑的维度
   const [viewingDimension, setViewingDimension] = useState(null); // 正在查看的维度
   const [editForm, setEditForm] = useState({ name: '', description: '' }); // 编辑表单
+  
+  // 扣费相关状态
+  const [totalDeducted, setTotalDeducted] = useState(0); // 累计扣费金额
+  const [showBalanceModal, setShowBalanceModal] = useState(false); // 是否显示余额不足弹窗
+  const [balanceError, setBalanceError] = useState(null); // 余额不足的详细信息
+  const analysisAbortedRef = useRef(false); // 是否已中止分析
 
   const eventSourceRef = useRef(null);
   const textareaRef = useRef(null);
@@ -496,15 +504,19 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
   };
 
   // 为论文分析所有维度（智能分析页面始终使用带 JWT 验证的接口）
+  // 返回: { success: boolean, aborted: boolean, deducted: number }
   const analyzePaper = async (paper) => {
     const abstractText = paper.abstract || paper.tldr?.text;
-    if (!abstractText) return;
+    if (!abstractText) return { success: false, aborted: false, deducted: 0 };
 
     // 智能分析页面需要登录，未登录时不执行分析
     if (!isAuthenticated) {
       logger.warn('User not authenticated, skipping paper analysis');
-      return;
+      return { success: false, aborted: false, deducted: 0 };
     }
+    
+    // 如果已中止，跳过
+    if (analysisAbortedRef.current) return { success: false, aborted: true, deducted: 0 };
 
     setAnalyzingPapers(prev => ({
       ...prev,
@@ -516,34 +528,56 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       const response = await analysisDimensionAPI.analyzePaper(paper.paperId, paper.title, abstractText);
 
       if (response.data.code === 0 && response.data.data) {
-        // 接口返回格式: { data: { data: { key: value }, dimensions: [...] } }
-        // 提取 data.data 作为维度键值对
+        // 接口返回格式: { data: { data: { key: value }, dimensions: [...], deducted_amount: number } }
         const responseData = response.data.data;
         const dimensionData = responseData.data || responseData;
+        const deductedAmount = responseData.deducted_amount || 0;
         
         console.log('[AISearchView] analyzePaper response:', {
           paperId: paper.paperId,
           responseData,
           dimensionData,
+          deductedAmount,
           keys: Object.keys(dimensionData)
         });
+        
+        // 累计扣费金额
+        if (deductedAmount > 0) {
+          setTotalDeducted(prev => prev + deductedAmount);
+        }
         
         setAnalysisResults(prev => ({
           ...prev,
           [paper.paperId]: dimensionData
         }));
+        
+        return { success: true, aborted: false, deducted: deductedAmount };
       } else {
         setAnalysisResults(prev => ({
           ...prev,
           [paper.paperId]: { _error: true, _message: response.data.message || '分析失败' }
         }));
+        return { success: false, aborted: false, deducted: 0 };
       }
     } catch (error) {
       logger.error('Failed to analyze paper:', paper.paperId, error);
+      
+      // 检查是否是余额不足错误
+      if (error.response?.data?.code === 4020) {
+        analysisAbortedRef.current = true;
+        setBalanceError({
+          ...error.response.data.data,
+          alreadyDeducted: totalDeducted
+        });
+        setShowBalanceModal(true);
+        return { success: false, aborted: true, deducted: 0 };
+      }
+      
       setAnalysisResults(prev => ({
         ...prev,
         [paper.paperId]: { _error: true, _message: error.response?.data?.message || '分析失败' }
       }));
+      return { success: false, aborted: false, deducted: 0 };
     } finally {
       setAnalyzingPapers(prev => ({
         ...prev,
@@ -553,21 +587,33 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
   };
 
   // 并发控制分析
+  // 分析完成后显示扣费提示 toast
   const analyzeWithConcurrency = async (papersToAnalyze, maxConcurrent = 5) => {
+    // 重置中止标记和累计扣费
+    analysisAbortedRef.current = false;
+    setTotalDeducted(0);
+    
     const queue = [...papersToAnalyze];
     const inProgress = new Set();
+    let aborted = false;
+    let totalDeductedInBatch = 0;
 
     const processNext = async () => {
-      if (queue.length === 0) return;
+      if (queue.length === 0 || analysisAbortedRef.current) return;
       
       const paper = queue.shift();
       inProgress.add(paper.paperId);
       
       try {
-        await analyzePaper(paper);
+        const result = await analyzePaper(paper);
+        if (result.aborted) {
+          aborted = true;
+          return;
+        }
+        totalDeductedInBatch += result.deducted || 0;
       } finally {
         inProgress.delete(paper.paperId);
-        if (queue.length > 0) {
+        if (queue.length > 0 && !analysisAbortedRef.current) {
           await processNext();
         }
       }
@@ -579,6 +625,19 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     }
     
     await Promise.all(initialBatch);
+    
+    // 分析完成后，如果有扣费且未中止，发送 toast 通知
+    if (!aborted && totalDeductedInBatch > 0) {
+      wsClient.emit('toast', {
+        title: '扣费提醒',
+        content: `本次分析共消耗 ${totalDeductedInBatch} 经费`,
+        category: 'transaction',
+        created_at: new Date().toISOString()
+      });
+    }
+    
+    // 重置累计扣费
+    setTotalDeducted(0);
   };
 
   // 当选中维度变化时，为当前论文执行分析
@@ -1097,6 +1156,36 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       return;
     }
 
+    // 根据模型级别确定业务类型
+    const getBizType = (level) => {
+      switch (level) {
+        case 'mid': return 'smart_analysis_mid';
+        case 'high': return 'smart_analysis_high';
+        default: return 'smart_analysis_low';
+      }
+    };
+
+    // 先检查余额是否充足
+    try {
+      const checkResult = await walletAPI.checkBalanceByBizType(getBizType(modelLevel));
+      if (checkResult.data.code === 0 && checkResult.data.data) {
+        if (!checkResult.data.data.sufficient) {
+          // 余额不足，显示弹窗
+          setBalanceError({
+            balance: checkResult.data.data.balance || 0,
+            required: checkResult.data.data.required || 0,
+            shortage: checkResult.data.data.shortage || 0,
+            alreadyDeducted: 0
+          });
+          setShowBalanceModal(true);
+          return;
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to check balance:', error);
+      // 检查失败时继续执行，让后端处理
+    }
+
     const userMessage = query.trim();
 
     setSearchQuery('');
@@ -1132,8 +1221,6 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
     setPapersTotal(0);
 
     try {
-      // 配额检查已废弃，现在使用货币系统进行扣费控制（在后端处理）
-
       let conversationId = currentConversationId;
 
       if (!conversationId) {
@@ -1240,8 +1327,8 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         isFirstMessage = false;
         try {
           const data = JSON.parse(event.data);
-          if (data.code === 403 || data.message?.includes('配额不足')) {
-            // 配额不足错误
+          // 检查余额不足错误 (code 4020)
+          if (data.code === 4020 || data.message?.includes('经费不足')) {
             eventSource.close();
             setIsStreaming(false);
             setShowAIThinking(false);
@@ -1253,8 +1340,37 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
             // 移除添加的论文集合占位符
             setPaperSets(prevSets => prevSets.slice(1));
             
-            // 显示配额不足的提示
-            alert('配额不足，请升级订阅');
+            // 显示经费不足弹窗
+            setBalanceError({
+              balance: data.data?.balance || 0,
+              required: data.data?.required || 0,
+              shortage: data.data?.shortage || 0,
+              alreadyDeducted: 0
+            });
+            setShowBalanceModal(true);
+            return;
+          }
+          // 兼容旧的配额不足错误
+          if (data.code === 403 || data.message?.includes('配额不足')) {
+            eventSource.close();
+            setIsStreaming(false);
+            setShowAIThinking(false);
+            setLoading(false);
+            
+            // 删除刚添加的用户消息
+            setMessages(prev => prev.filter(msg => msg.id !== messageId));
+            
+            // 移除添加的论文集合占位符
+            setPaperSets(prevSets => prevSets.slice(1));
+            
+            // 显示经费不足弹窗
+            setBalanceError({
+              balance: 0,
+              required: 0,
+              shortage: 0,
+              alreadyDeducted: 0
+            });
+            setShowBalanceModal(true);
             return;
           }
         } catch (e) {
@@ -1263,8 +1379,23 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
       }
       
       if (event.data.startsWith('[DONE]')) {
-        logger.log('Advanced search completed');
+        logger.log('Advanced search completed, raw data:', event.data);
         eventSource.close();
+
+        // 解析扣费金额
+        // 格式: [DONE] {"deducted_amount": 10}
+        let deductedAmount = 0;
+        try {
+          const doneData = event.data.substring(6).trim(); // Remove '[DONE] ' prefix
+          logger.log('DONE data after trim:', doneData);
+          if (doneData) {
+            const parsed = JSON.parse(doneData);
+            logger.log('Parsed DONE data:', parsed);
+            deductedAmount = parsed.deducted_amount || 0;
+          }
+        } catch (e) {
+          logger.error('Failed to parse DONE data:', e);
+        }
 
         // 先清空流式内容和停止状态，避免重复显示
         const finalContent = streamingContentRef.current;
@@ -1304,6 +1435,18 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         
         // 刷新对话列表以获取最新标题
         loadConversations();
+        
+        // 显示扣费提示 toast
+        logger.log('Deducted amount:', deductedAmount);
+        if (deductedAmount > 0) {
+          logger.log('Emitting toast for deduction');
+          wsClient.emit('toast', {
+            title: '扣费提醒',
+            content: `本次分析消耗 ${deductedAmount} 经费`,
+            category: 'transaction',
+            created_at: new Date().toISOString()
+          });
+        }
         return;
       }
 
@@ -2070,6 +2213,21 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
           onClose={() => setCitePaper(null)}
         />
       )}
+      
+      {/* 经费不足弹窗 */}
+      <InsufficientBalanceModal
+        isOpen={showBalanceModal}
+        onClose={() => {
+          setShowBalanceModal(false);
+          setBalanceError(null);
+          // 重置中止标记，允许用户充值后继续
+          analysisAbortedRef.current = false;
+        }}
+        balance={balanceError?.balance || 0}
+        required={balanceError?.required || 0}
+        shortage={balanceError?.shortage || 0}
+        alreadyDeducted={balanceError?.alreadyDeducted || 0}
+      />
     </div>
   );
 };

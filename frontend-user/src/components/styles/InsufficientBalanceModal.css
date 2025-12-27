@@ -1,0 +1,402 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ * 
+ * InsufficientBalanceModal 样式 - 经费不足弹窗（液态玻璃效果）
+ */
+
+/* ========== 遮罩层 ========== */
+.insufficient-balance-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  animation: ib-overlay-in 0.3s ease;
+}
+
+[data-theme="dark"] .insufficient-balance-overlay {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+}
+
+[data-theme="light"] .insufficient-balance-overlay {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+}
+
+.insufficient-balance-overlay.closing {
+  animation: ib-overlay-out 0.2s ease forwards;
+}
+
+@keyframes ib-overlay-in {
+  from { opacity: 0; backdrop-filter: blur(0); }
+  to { opacity: 1; backdrop-filter: blur(8px); }
+}
+
+@keyframes ib-overlay-out {
+  from { opacity: 1; backdrop-filter: blur(8px); }
+  to { opacity: 0; backdrop-filter: blur(0); }
+}
+
+/* ========== 弹窗主体 ========== */
+.insufficient-balance-modal {
+  border-radius: 24px;
+  padding: 40px 36px;
+  width: 380px;
+  max-width: calc(100vw - 48px);
+  text-align: center;
+  animation: ib-modal-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+[data-theme="dark"] .insufficient-balance-modal {
+  background: rgba(30, 30, 40, 0.85);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 24px 80px rgba(0, 0, 0, 0.5),
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .insufficient-balance-modal {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 
+    0 24px 80px rgba(0, 0, 0, 0.12),
+    0 8px 32px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.03);
+}
+
+.insufficient-balance-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
+  border-radius: 24px 24px 0 0;
+  pointer-events: none;
+}
+
+[data-theme="light"] .insufficient-balance-modal::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, transparent 100%);
+}
+
+.insufficient-balance-modal.closing {
+  animation: ib-modal-out 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes ib-modal-in {
+  0% { opacity: 0; transform: scale(0.85) translateY(-30px); filter: blur(8px); }
+  60% { transform: scale(1.02) translateY(4px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+
+@keyframes ib-modal-out {
+  0% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+  100% { opacity: 0; transform: scale(0.9) translateY(-20px); filter: blur(8px); }
+}
+
+/* ========== 图标 ========== */
+.insufficient-balance-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(239, 68, 68, 0.1) 100%);
+  color: #ef4444;
+  box-shadow: 
+    0 8px 24px rgba(239, 68, 68, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  animation: ib-icon-bounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+}
+
+@keyframes ib-icon-bounce {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ========== 标题 ========== */
+.insufficient-balance-title {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 20px 0;
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="dark"] .insufficient-balance-title {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="light"] .insufficient-balance-title {
+  color: #1a1a1a;
+}
+
+/* ========== 已消耗提示 ========== */
+.insufficient-balance-deducted {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="dark"] .insufficient-balance-deducted {
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+[data-theme="light"] .insufficient-balance-deducted {
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.insufficient-balance-deducted > span {
+  font-size: 13px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+[data-theme="dark"] .insufficient-balance-deducted > span {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .insufficient-balance-deducted > span {
+  color: #666;
+}
+
+.deducted-amount {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.deducted-amount .amount-value {
+  font-size: 24px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.deducted-amount .amount-unit {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+[data-theme="dark"] .deducted-amount .amount-unit {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="light"] .deducted-amount .amount-unit {
+  color: #666;
+}
+
+/* ========== 余额信息 ========== */
+.insufficient-balance-info {
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="dark"] .insufficient-balance-info {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="light"] .insufficient-balance-info {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.balance-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.balance-row:not(:last-child) {
+  border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+}
+
+.balance-row.shortage {
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
+.balance-label {
+  font-size: 14px;
+}
+
+[data-theme="dark"] .balance-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .balance-label {
+  color: #666;
+}
+
+.balance-value {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .balance-value {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .balance-value {
+  color: #333;
+}
+
+.balance-value.required {
+  color: #ef4444;
+}
+
+.balance-row.shortage .balance-value {
+  color: #ef4444;
+  font-size: 18px;
+}
+
+/* ========== 操作按钮 ========== */
+.insufficient-balance-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.action-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, transparent 100%);
+  border-radius: 12px 12px 0 0;
+  pointer-events: none;
+}
+
+.recharge-btn {
+  background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(16, 163, 127, 0.35);
+}
+
+.recharge-btn:hover {
+  box-shadow: 0 8px 24px rgba(16, 163, 127, 0.45);
+  transform: translateY(-2px);
+}
+
+.exchange-btn {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+}
+
+.exchange-btn:hover {
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.45);
+  transform: translateY(-2px);
+}
+
+.action-btn:active {
+  transform: scale(0.98) translateY(0);
+}
+
+/* ========== 提示文字 ========== */
+.insufficient-balance-tip {
+  font-size: 13px;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="dark"] .insufficient-balance-tip {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="light"] .insufficient-balance-tip {
+  color: #999;
+}
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 480px) {
+  .insufficient-balance-modal {
+    padding: 32px 24px;
+    border-radius: 20px;
+    width: calc(100vw - 32px);
+  }
+
+  .insufficient-balance-icon {
+    width: 68px;
+    height: 68px;
+    border-radius: 20px;
+  }
+
+  .insufficient-balance-icon svg {
+    width: 30px;
+    height: 30px;
+  }
+
+  .insufficient-balance-title {
+    font-size: 20px;
+  }
+
+  .insufficient-balance-actions {
+    flex-direction: column;
+  }
+
+  .action-btn {
+    padding: 14px 20px;
+  }
+}
+

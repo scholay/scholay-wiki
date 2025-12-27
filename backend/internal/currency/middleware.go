@@ -346,6 +346,8 @@ func (m *DeductMiddleware) DeductOncePerBizID(bizType, bizIDKey string) gin.Hand
 // handler 需要在处理过程中设置 c.Set("deduct_biz_id", bizID) 来指定去重的业务ID
 // 适用于需要结合多个因素（如 paperId + dimensionHash）生成 bizID 的场景
 // 如果 handler 未设置 deduct_biz_id，则每次都扣费（不去重）
+// 中间件会设置 c.Set("deduct_amount_config", amount) 供 handler 读取预期扣费金额
+// handler 应根据 skip_deduct 判断是否实际扣费，并在响应中返回实际扣费金额
 func (m *DeductMiddleware) DeductAfterWithDynamicBizID(bizType string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. 获取用户ID
@@ -364,8 +366,9 @@ func (m *DeductMiddleware) DeductAfterWithDynamicBizID(bizType string) gin.Handl
 			return
 		}
 
-		// 3. 没有配置或金额为0，跳过扣费检查
+		// 3. 没有配置或金额为0，跳过扣费检查，设置扣费金额为0
 		if config == nil || config.Amount == 0 {
+			c.Set("deduct_amount_config", int64(0))
 			c.Next()
 			return
 		}
@@ -397,6 +400,8 @@ func (m *DeductMiddleware) DeductAfterWithDynamicBizID(bizType string) gin.Handl
 		c.Set("deduct_user_id", userID.(uint))
 		c.Set("deduct_config", config)
 		c.Set("deduct_biz_type", bizType)
+		// 设置配置的扣费金额，供 handler 读取
+		c.Set("deduct_amount_config", config.Amount)
 
 		// 6. 执行 handler
 		c.Next()
@@ -405,6 +410,7 @@ func (m *DeductMiddleware) DeductAfterWithDynamicBizID(bizType string) gin.Handl
 		if c.Writer.Status() >= 200 && c.Writer.Status() < 300 {
 			// 检查是否已经被标记为跳过扣费（handler 可能已经判断过）
 			if skipDeduct, exists := c.Get("skip_deduct"); exists && skipDeduct.(bool) {
+				// 跳过扣费
 				return
 			}
 
@@ -421,6 +427,7 @@ func (m *DeductMiddleware) DeductAfterWithDynamicBizID(bizType string) gin.Handl
 					fmt.Printf("[Currency] Check deduction failed: userID=%d, bizType=%s, bizID=%s, err=%v\n", userID.(uint), bizType, bizID, err)
 				} else if alreadyDeducted {
 					fmt.Printf("[Currency] Already deducted, skip: userID=%d, bizType=%s, bizID=%s\n", userID.(uint), bizType, bizID)
+					// 已扣过费
 					return
 				}
 			}

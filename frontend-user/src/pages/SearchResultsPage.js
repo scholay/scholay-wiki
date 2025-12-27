@@ -24,6 +24,8 @@ import FilterSidebar from '../components/FilterSidebar';
 import Pagination from '../components/Pagination';
 import SEO from '../components/SEO';
 import SearchToAITransition from '../components/SearchToAITransition';
+import InsufficientBalanceModal from '../components/InsufficientBalanceModal';
+import wsClient from '../services/websocket';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
 import { trackAcademicSearch, EntryPoint } from '../utils/usageTracker';
 import { getSearchQuery, setSearchQuery as saveSearchQuery, getSearchFilters, setSearchFilters as saveSearchFilters, setSearchMode as saveSearchMode, getAIModelLevel, setAIConversationId } from '../utils/searchStorage';
@@ -187,6 +189,12 @@ const SearchResultsPage = () => {
   const [editingDimension, setEditingDimension] = useState(null); // 编辑中的维度，null 表示新增
   const [editForm, setEditForm] = useState({ name: '', description: '' }); // 编辑表单
   const [isSavingDimension, setIsSavingDimension] = useState(false); // 保存中状态
+  
+  // 扣费相关状态
+  const [totalDeducted, setTotalDeducted] = useState(0); // 累计扣费金额
+  const [showBalanceModal, setShowBalanceModal] = useState(false); // 是否显示余额不足弹窗
+  const [balanceError, setBalanceError] = useState(null); // 余额不足的详细信息
+  const analysisAbortedRef = useRef(false); // 是否已中止分析
   // showCustomYearRange, customYearFrom, customYearTo, showAllFields 已移至 FilterSidebar 组件
   const dimensionDropdownRef = useRef(null);
   const [showPaperDrawer, setShowPaperDrawer] = useState(false); // 论文预览抽屉
@@ -655,13 +663,17 @@ const SearchResultsPage = () => {
 
   // 为论文分析所有维度（一次请求返回所有维度结果）
   // 注意：此功能需要登录，未登录用户在选择维度时会被拦截并弹出登录框
+  // 返回: { success: boolean, aborted: boolean } - aborted 表示因余额不足中止
   const analyzePaper = useCallback(async (paper) => {
     // 未登录不执行分析
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) return { success: false, aborted: false };
+    
+    // 如果已中止，跳过
+    if (analysisAbortedRef.current) return { success: false, aborted: true };
     
     // 优先使用 abstract，如果没有则使用 TLDR
     const abstractText = paper.abstract || paper.tldr?.text;
-    if (!abstractText) return;
+    if (!abstractText) return { success: false, aborted: false };
 
     // 标记为正在分析
     setAnalyzingPapers(prev => ({
@@ -673,46 +685,106 @@ const SearchResultsPage = () => {
       const response = await analysisDimensionAPI.analyzePaper(paper.paperId, paper.title, abstractText);
 
       if (response.data.code === 0 && response.data.data) {
-        // 接口返回格式: { data: { data: { key: value }, dimensions: [...] } }
-        // 提取 data.data 作为维度键值对
+        // 接口返回格式: { data: { data: { key: value }, dimensions: [...], deducted_amount: number } }
         const responseData = response.data.data;
         const dimensionData = responseData.data || responseData;
+        const deductedAmount = responseData.deducted_amount || 0;
+        
+        // 累计扣费金额
+        if (deductedAmount > 0) {
+          setTotalDeducted(prev => prev + deductedAmount);
+        }
         
         // 保存所有维度的分析结果
         setAnalysisResults(prev => ({
           ...prev,
           [paper.paperId]: dimensionData
         }));
+        
+        return { success: true, aborted: false };
       } else {
         // API 返回错误
         setAnalysisResults(prev => ({
           ...prev,
           [paper.paperId]: { _error: true, _message: response.data.message || '分析失败' }
         }));
+        return { success: false, aborted: false };
       }
     } catch (error) {
       logger.error('Failed to analyze paper:', paper.paperId, error);
+      
+      // 检查是否是余额不足错误
+      if (error.response?.data?.code === 4020) {
+        analysisAbortedRef.current = true;
+        setBalanceError({
+          ...error.response.data.data,
+          alreadyDeducted: totalDeducted // 传递当前累计扣费
+        });
+        setShowBalanceModal(true);
+        return { success: false, aborted: true };
+      }
+      
       setAnalysisResults(prev => ({
         ...prev,
         [paper.paperId]: { _error: true, _message: error.response?.data?.message || '分析失败' }
       }));
+      return { success: false, aborted: false };
     } finally {
       setAnalyzingPapers(prev => ({
         ...prev,
         [paper.paperId]: false
       }));
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, totalDeducted]);
 
   // 并发控制：每次最多并发5个请求
+  // 分析完成后显示扣费提示 toast
   const analyzeWithConcurrency = useCallback(async (papersToAnalyze) => {
     const CONCURRENCY_LIMIT = 5;
     
+    // 重置中止标记和累计扣费
+    analysisAbortedRef.current = false;
+    setTotalDeducted(0);
+    
+    let aborted = false;
+    
     for (let i = 0; i < papersToAnalyze.length; i += CONCURRENCY_LIMIT) {
+      // 如果已中止，跳过后续批次
+      if (analysisAbortedRef.current) {
+        aborted = true;
+        break;
+      }
+      
       const batch = papersToAnalyze.slice(i, i + CONCURRENCY_LIMIT);
       // 并发执行这一批
-      await Promise.all(batch.map(paper => analyzePaper(paper)));
+      const results = await Promise.all(batch.map(paper => analyzePaper(paper)));
+      
+      // 检查是否有中止
+      if (results.some(r => r.aborted)) {
+        aborted = true;
+        break;
+      }
     }
+    
+    // 分析完成后，如果有扣费且未中止，发送 toast 通知
+    // 使用 setTimeout 确保 totalDeducted 状态已更新
+    setTimeout(() => {
+      if (!aborted) {
+        // 获取最新的累计扣费金额
+        setTotalDeducted(currentTotal => {
+          if (currentTotal > 0) {
+            // 发送右上角 toast 通知
+            wsClient.emit('toast', {
+              title: '扣费提醒',
+              content: `本次分析共消耗 ${currentTotal} 经费`,
+              category: 'transaction',
+              created_at: new Date().toISOString()
+            });
+          }
+          return 0; // 重置累计扣费
+        });
+      }
+    }, 100);
   }, [analyzePaper]);
 
   // 当选中维度变化时，为当前页面论文执行分析
@@ -3237,6 +3309,21 @@ const SearchResultsPage = () => {
           />
         </Suspense>
       )}
+
+      {/* 经费不足弹窗 */}
+      <InsufficientBalanceModal
+        isOpen={showBalanceModal}
+        onClose={() => {
+          setShowBalanceModal(false);
+          setBalanceError(null);
+          // 重置中止标记，允许用户充值后继续
+          analysisAbortedRef.current = false;
+        }}
+        balance={balanceError?.balance || 0}
+        required={balanceError?.required || 0}
+        shortage={balanceError?.shortage || 0}
+        alreadyDeducted={balanceError?.alreadyDeducted || 0}
+      />
 
       {/* 学术检索到智能分析的过渡动画 */}
       <SearchToAITransition

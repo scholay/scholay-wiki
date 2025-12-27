@@ -65,6 +65,30 @@ func (h *Handler) CheckBalance(c *gin.Context) {
 	utils.Success(c, result)
 }
 
+// CheckBalanceByBizType 按业务类型检查余额
+// GET /api/v1/user/wallet/check-by-biz?biz_type=smart_analysis_low
+func (h *Handler) CheckBalanceByBizType(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Error(c, 4001, "请先登录")
+		return
+	}
+
+	bizType := c.Query("biz_type")
+	if bizType == "" {
+		utils.Error(c, 4000, "请指定业务类型")
+		return
+	}
+
+	result, err := h.service.CheckBalanceByBizType(userID.(uint), bizType)
+	if err != nil {
+		utils.Error(c, 5001, "检查余额失败: "+err.Error())
+		return
+	}
+
+	utils.Success(c, result)
+}
+
 // ListTransactions 获取交易流水
 // GET /api/v1/user/wallet/transactions
 func (h *Handler) ListTransactions(c *gin.Context) {
