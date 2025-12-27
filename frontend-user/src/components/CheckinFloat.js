@@ -335,6 +335,9 @@ const CheckinFloat = () => {
   const fetchCheckinStatusRef = useRef(fetchCheckinStatus);
   fetchCheckinStatusRef.current = fetchCheckinStatus;
 
+  // 记录当前日期，用于检测日期变化
+  const currentDateRef = useRef(new Date().toISOString().split('T')[0]);
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchCheckinStatusRef.current();
@@ -345,6 +348,26 @@ const CheckinFloat = () => {
       setHasCheckedIn(false); // 设为 false 以显示悬浮球
     }
   }, [isAuthenticated]); // 只依赖 isAuthenticated
+
+  // 检测日期变化（跨越24点时自动触发签到检查）
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // 每分钟检查一次日期是否变化
+    const checkDateChange = () => {
+      const today = new Date().toISOString().split('T')[0];
+      if (today !== currentDateRef.current) {
+        logger.log('[CheckinFloat] Date changed from', currentDateRef.current, 'to', today);
+        currentDateRef.current = today;
+        // 日期变化，重新检查签到状态
+        fetchCheckinStatusRef.current();
+      }
+    };
+
+    const intervalId = setInterval(checkDateChange, 60000); // 每60秒检查一次
+
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated]);
 
   // 未登录时只显示悬浮球，已登录且已签到时不显示
   if (isAuthenticated && hasCheckedIn && !showModal) {

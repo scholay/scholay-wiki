@@ -161,9 +161,11 @@ func (h *Handler) GetHistory(c *gin.Context) {
 	status, _ := h.service.GetCheckinStatus(userID.(uint))
 	consecutiveDays := 0
 	totalDays := 0
+	hasCheckedInToday := false
 	if status != nil {
 		consecutiveDays = status.ConsecutiveDays
 		totalDays = status.TotalCheckins
+		hasCheckedInToday = status.HasCheckedIn
 	}
 
 	// 计算到当月最后一天的预计签到奖励
@@ -174,7 +176,7 @@ func (h *Handler) GetHistory(c *gin.Context) {
 	if daysUntilEndOfMonth < 1 {
 		daysUntilEndOfMonth = 1
 	}
-	futureRewards := h.service.GetFutureCheckinRewards(consecutiveDays, daysUntilEndOfMonth)
+	futureRewards := h.service.GetFutureCheckinRewards(consecutiveDays, daysUntilEndOfMonth, hasCheckedInToday)
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    0,

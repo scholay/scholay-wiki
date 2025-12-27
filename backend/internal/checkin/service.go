@@ -299,7 +299,8 @@ type FutureRewardInfo struct {
 }
 
 // GetFutureCheckinRewards 获取未来N天连续签到的预计奖励（包括今天）
-func (s *Service) GetFutureCheckinRewards(currentStreak int, days int) []FutureRewardInfo {
+// hasCheckedInToday: 今天是否已签到，影响连续天数的计算
+func (s *Service) GetFutureCheckinRewards(currentStreak int, days int, hasCheckedInToday bool) []FutureRewardInfo {
 	loc := getLocalLocation()
 	today := time.Now().In(loc)
 	
@@ -312,8 +313,20 @@ func (s *Service) GetFutureCheckinRewards(currentStreak int, days int) []FutureR
 	// 从今天开始（i=0表示今天）
 	for i := 0; i <= days; i++ {
 		futureDate := today.AddDate(0, 0, i)
-		// 今天签到后连续天数+1，未来每天再+1
-		consecutiveDay := currentStreak + 1 + i
+		
+		// 计算该日期签到后的连续天数
+		var consecutiveDay int
+		if hasCheckedInToday {
+			// 今天已签到，currentStreak 已包含今天
+			// i=0（今天）: consecutiveDay = currentStreak（今天的连续天数）
+			// i=1（明天）: consecutiveDay = currentStreak + 1（明天签到后）
+			consecutiveDay = currentStreak + i
+		} else {
+			// 今天未签到，currentStreak 是昨天的连续天数
+			// i=0（今天）: consecutiveDay = currentStreak + 1（今天签到后）
+			// i=1（明天）: consecutiveDay = currentStreak + 2（明天签到后）
+			consecutiveDay = currentStreak + 1 + i
+		}
 		expectedGold := s.getCheckinGoldReward(consecutiveDay)
 		
 		// 判断是否为里程碑日期
