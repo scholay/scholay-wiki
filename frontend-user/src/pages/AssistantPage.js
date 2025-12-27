@@ -25,7 +25,7 @@ function AssistantPage() {
     {
       id: 'chat',
       title: '智能助手',
-      description: '有问题，交给智能助手',
+      description: '选择专属您的人工智能助手，开启今天的智能之旅',
       icon: (
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -38,7 +38,7 @@ function AssistantPage() {
     {
       id: 'peer-review',
       title: '智能审稿',
-      description: '智能预审，明智之举！',
+      description: '大多数的稿件被拒或不达标，往往是缺乏一针见血的修改意见，只需几分钟，您的专属审稿人为您服务。',
       icon: (
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -56,15 +56,7 @@ function AssistantPage() {
     <div className="ast-page">
       {/* 页面标题区域 */}
       <header className="ast-header">
-        <div className="ast-header-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-            <path d="M2 17l10 5 10-5"/>
-            <path d="M2 12l10 5 10-5"/>
-          </svg>
-        </div>
-        <h1 className="ast-title">精品 AI 工具</h1>
-        <p className="ast-subtitle">智能工具助力您的学术研究</p>
+        <h1 className="ast-title">精品AI工具</h1>
       </header>
 
       {/* 工具卡片 */}
@@ -76,13 +68,12 @@ function AssistantPage() {
             onClick={() => navigate(tool.path)}
             style={{ '--card-color': tool.color, '--card-gradient': tool.gradient }}
           >
-            <div className="ast-card-badge">
-              <span>推荐</span>
+            <div className="ast-card-header">
+              <div className="ast-card-icon">
+                {tool.icon}
+              </div>
+              <h2 className="ast-card-title">{tool.title}</h2>
             </div>
-            <div className="ast-card-icon">
-              {tool.icon}
-            </div>
-            <h2 className="ast-card-title">{tool.title}</h2>
             <p className="ast-card-desc">{tool.description}</p>
             <div className="ast-card-action">
               <span>立即使用</span>

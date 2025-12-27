@@ -1755,7 +1755,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                         className="dimension-float-collapsed-tab"
                         onMouseEnter={() => setFloatPanelExpanded(true)}
                       >
-                        <span>AI维度分析</span>
+                        <span>智能矩阵分析</span>
                       </div>
                       {/* 展开状态的完整内容 - 鼠标离开时收起 */}
                       <div 
@@ -1771,7 +1771,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
                                 <path d="M2 17l10 5 10-5"/>
                                 <path d="M2 12l10 5 10-5"/>
                               </svg>
-                              <span>AI 多维度分析</span>
+                              <span>智能矩阵分析</span>
                             </div>
                             <p className="dimension-float-desc">
                               点击维度标签，AI 将从不同角度分析论文

@@ -1821,6 +1821,11 @@ a.meta-item.pdf-link:hover {
   right: 0;
   transform: translateY(-50%);
   z-index: 50;
+  pointer-events: none;
+}
+
+.dimension-float-panel > * {
+  pointer-events: auto;
 }
 
 /* 收起状态的侧边标签 */
@@ -1829,8 +1834,8 @@ a.meta-item.pdf-link:hover {
   right: 0;
   top: 50%;
   transform: translateY(-50%);
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
+  writing-mode: vertical-rl !important;
+  text-orientation: mixed !important;
   padding: 20px 10px;
   background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
   color: white;
@@ -1843,6 +1848,12 @@ a.meta-item.pdf-link:hover {
   pointer-events: none;
   transition: all 0.3s ease;
   box-shadow: -2px 0 12px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+}
+
+.dimension-float-collapsed-tab span {
+  writing-mode: vertical-rl !important;
+  text-orientation: mixed !important;
 }
 
 .dimension-float-collapsed-tab:hover {
@@ -1889,7 +1900,13 @@ a.meta-item.pdf-link:hover {
 .dimension-float-panel.collapsed .dimension-float-content {
   opacity: 0;
   transform: translateX(100%);
-  pointer-events: none;
+  pointer-events: none !important;
+  visibility: hidden;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
 }
 
 /* 收起状态 + JS 控制展开 */
@@ -1901,7 +1918,14 @@ a.meta-item.pdf-link:hover {
 .dimension-float-panel.collapsed.expanded .dimension-float-content {
   opacity: 1;
   transform: translateX(0);
-  pointer-events: auto;
+  pointer-events: auto !important;
+  visibility: visible;
+  width: 300px;
+  height: auto;
+  max-height: 70vh;
+  overflow: visible;
+  padding: 20px;
+  margin-right: 24px;
 }
 
 .dimension-float-header {

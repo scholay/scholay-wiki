@@ -125,11 +125,6 @@ const TaskCard = memo(({ task, onViewDetail, onDelete }) => {
           </span>
         )}
 
-        <span className={`prv-task-meta-tag prv-meta-model prv-meta-model-${task.model_level || 'low'}`}>
-          <ModelIcon level={task.model_level} />
-          {getModelName(task.model_level)}
-        </span>
-
         {task.target_venue && (
           <span className="prv-task-meta-tag prv-meta-venue">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

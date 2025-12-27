@@ -1251,17 +1251,6 @@ function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange,
                       <span className="prv-meta-label">文字输入</span>
                     </span>
                   )}
-
-                  {/* 模型标签已废弃，使用三模型审稿 */}
-                  <span className="prv-task-meta-tag prv-meta-model prv-meta-model-multi">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                      <circle cx="9" cy="7" r="4"/>
-                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
-                    三模型审稿
-                  </span>
                 </div>
 
                 {/* 底部：时间和操作 */}

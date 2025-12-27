@@ -144,7 +144,7 @@ const FilterSidebar = ({ filters, onApplyFilters }) => {
 
       <div className="filter-divider" />
 
-      {/* 开放获取 */}
+      {/* PDF开源 */}
       <div className="filter-group">
         <div className="filter-options">
           <button 
@@ -157,7 +157,7 @@ const FilterSidebar = ({ filters, onApplyFilters }) => {
             className={`filter-option ${filters.openAccessPdf === 'true' ? 'active' : ''}`}
             onClick={() => handleOpenAccessChange('true')}
           >
-            开放获取
+            PDF开源
           </button>
         </div>
       </div>
@@ -171,7 +171,7 @@ const FilterSidebar = ({ filters, onApplyFilters }) => {
             className={`filter-option ${!filters.minCitationCount ? 'active' : ''}`}
             onClick={() => handleCitationChange('')}
           >
-            引用次数不限
+            被引次数不限
           </button>
           {['10', '50', '100', '500'].map(count => (
             <button 

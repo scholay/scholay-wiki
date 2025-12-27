@@ -13,52 +13,34 @@
 .ast-page {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 48px 24px 40px;
+  align-items: flex-start;
+  padding: 24px 32px 40px;
   background: var(--background);
   min-height: 100%;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* ========== 页面标题 ========== */
 .ast-header {
   text-align: center;
-  margin-bottom: 40px;
-}
-
-.ast-header-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, var(--text-accent) 0%, #0D8A6A 100%);
-  color: white;
-  margin-bottom: 20px;
-  box-shadow: 0 8px 24px rgba(16, 163, 127, 0.25);
+  margin-bottom: 24px;
+  width: 100%;
 }
 
 .ast-title {
-  font-size: 32px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 10px;
-  letter-spacing: -0.5px;
-}
-
-.ast-subtitle {
-  font-size: 15px;
-  color: var(--text-secondary);
   margin: 0;
-  font-weight: 400;
+  letter-spacing: -0.3px;
 }
 
 /* ========== 工具卡片容器 ========== */
 .ast-tools {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
-  max-width: 680px;
   width: 100%;
 }
 
@@ -67,13 +49,21 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: 28px 24px;
+  padding: 24px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
+}
+
+/* 卡片头部：图标和标题在同一行 */
+.ast-card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
 }
 
 /* 卡片悬停效果 */
@@ -127,14 +117,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  margin-bottom: 18px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  flex-shrink: 0;
   background: var(--card-gradient);
   color: white;
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--card-color) 30%, transparent);
+}
+
+.ast-card-icon svg {
+  width: 22px;
+  height: 22px;
 }
 
 .ast-card:hover .ast-card-icon {
@@ -147,7 +142,7 @@
   font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 8px;
+  margin: 0;
 }
 
 /* ========== 卡片描述 ========== */
@@ -189,31 +184,15 @@
 /* ========== 响应式布局 ========== */
 @media (max-width: 640px) {
   .ast-page {
-    padding: 32px 16px;
+    padding: 20px 16px;
   }
 
   .ast-header {
-    margin-bottom: 32px;
-  }
-
-  .ast-header-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    margin-bottom: 16px;
-  }
-
-  .ast-header-icon svg {
-    width: 20px;
-    height: 20px;
+    margin-bottom: 20px;
   }
 
   .ast-title {
-    font-size: 26px;
-  }
-
-  .ast-subtitle {
-    font-size: 14px;
+    font-size: 20px;
   }
 
   .ast-tools {

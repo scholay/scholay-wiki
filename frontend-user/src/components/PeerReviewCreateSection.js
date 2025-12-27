@@ -525,7 +525,7 @@ function AttachmentsZone({
             <span className="prv-attachments-count">{attachments.filter(a => !a.uploading).length}/5</span>
           </div>
           {attachments.length === 0 && (
-            <span className="prv-attachments-hint">拖拽或点击添加补充材料</span>
+            <span className="prv-attachments-hint">点击上传或将文件拖拽至此处（图表、量表、数据集等）</span>
           )}
         </div>
 

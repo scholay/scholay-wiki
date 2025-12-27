@@ -43,6 +43,38 @@
   right: 420px;
   transform: translateY(-50%);
   z-index: 50;
+  pointer-events: none;
+}
+
+.as-results-layout .papers-container .dimension-float-panel > * {
+  pointer-events: auto;
+}
+
+/* 收起状态下完全隐藏内容区域，避免阻挡滚动 */
+.as-results-layout .papers-container .dimension-float-panel.collapsed .dimension-float-content {
+  opacity: 0;
+  transform: translateX(100%);
+  pointer-events: none !important;
+  visibility: hidden;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+}
+
+/* 收起状态 + JS 控制展开时恢复 */
+.as-results-layout .papers-container .dimension-float-panel.collapsed.expanded .dimension-float-content {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto !important;
+  visibility: visible;
+  width: 300px;
+  height: auto;
+  max-height: 70vh;
+  overflow: visible;
+  padding: 20px;
+  margin-right: 16px;
 }
 
 /* 智能分析模式下，悬浮面板内容需要与AI面板有间距 */
