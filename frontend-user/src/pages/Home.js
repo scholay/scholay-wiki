@@ -489,8 +489,8 @@ const Home = () => {
                   </svg>
                 </div>
                 <div className="home-shortcut-content">
-                  <h4 className="home-shortcut-title">AI 聊天</h4>
-                  <p className="home-shortcut-desc">与 AI 进行学术对话</p>
+                  <h4 className="home-shortcut-title">智能助手</h4>
+                  <p className="home-shortcut-desc">有问题，交给智能助手！</p>
                 </div>
                 <svg className="home-shortcut-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 18l6-6-6-6"/>
@@ -510,7 +510,7 @@ const Home = () => {
                 </div>
                 <div className="home-shortcut-content">
                   <h4 className="home-shortcut-title">智能审稿</h4>
-                  <p className="home-shortcut-desc">获取专业审稿意见</p>
+                  <p className="home-shortcut-desc">智能预审，明智之举！</p>
                 </div>
                 <svg className="home-shortcut-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 18l6-6-6-6"/>
@@ -563,11 +563,9 @@ const Home = () => {
                                   <div className="home-task-card-header">
                                     <div className={`home-task-card-icon ${item.type === 'smart_analysis' ? 'icon-analysis' : 'icon-review'}`}>
                                       {item.type === 'smart_analysis' ? (
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                          <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                                        </svg>
+                                        <AdvancedSearchIcon size={14} />
                                       ) : (
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                                           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                                           <polyline points="14 2 14 8 20 8"/>
                                           <line x1="16" y1="13" x2="8" y2="13"/>
@@ -575,14 +573,14 @@ const Home = () => {
                                         </svg>
                                       )}
                                     </div>
+                                    <div className="home-task-card-title">{item.title}</div>
+                                  </div>
+                                  <div className="home-task-card-footer">
                                     <div className={`home-task-card-status ${statusInfo.className}`}>
                                       {statusInfo.text}
                                     </div>
-                                  </div>
-                                  <div className="home-task-card-title">{item.title}</div>
-                                  <div className="home-task-card-footer">
                                     <span className="home-task-card-type">
-                                      {item.type === 'smart_analysis' ? '智能分析' : '智能审稿'}
+                                      {item.type === 'smart_analysis' ? '智能检索' : '智能审稿'}
                                     </span>
                                     <span className="home-task-card-time">{formatTime(item.updated_at)}</span>
                                   </div>
