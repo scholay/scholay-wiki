@@ -195,6 +195,8 @@ const SearchResultsPage = () => {
   const [showBalanceModal, setShowBalanceModal] = useState(false); // 是否显示余额不足弹窗
   const [balanceError, setBalanceError] = useState(null); // 余额不足的详细信息
   const analysisAbortedRef = useRef(false); // 是否已中止分析
+  const analysisSessionRef = useRef(0); // 分析会话 ID，用于追踪当前页面的分析
+  const accumulatedDeductRef = useRef(0); // 使用 ref 累计扣费，避免闭包问题
   // showCustomYearRange, customYearFrom, customYearTo, showAllFields 已移至 FilterSidebar 组件
   const dimensionDropdownRef = useRef(null);
   const [showPaperDrawer, setShowPaperDrawer] = useState(false); // 论文预览抽屉
@@ -663,17 +665,17 @@ const SearchResultsPage = () => {
 
   // 为论文分析所有维度（一次请求返回所有维度结果）
   // 注意：此功能需要登录，未登录用户在选择维度时会被拦截并弹出登录框
-  // 返回: { success: boolean, aborted: boolean } - aborted 表示因余额不足中止
+  // 返回: { success: boolean, aborted: boolean, deducted: number } - aborted 表示因余额不足中止
   const analyzePaper = useCallback(async (paper) => {
     // 未登录不执行分析
-    if (!isAuthenticated) return { success: false, aborted: false };
+    if (!isAuthenticated) return { success: false, aborted: false, deducted: 0 };
     
     // 如果已中止，跳过
-    if (analysisAbortedRef.current) return { success: false, aborted: true };
+    if (analysisAbortedRef.current) return { success: false, aborted: true, deducted: 0 };
     
     // 优先使用 abstract，如果没有则使用 TLDR
     const abstractText = paper.abstract || paper.tldr?.text;
-    if (!abstractText) return { success: false, aborted: false };
+    if (!abstractText) return { success: false, aborted: false, deducted: 0 };
 
     // 标记为正在分析
     setAnalyzingPapers(prev => ({
@@ -690,25 +692,20 @@ const SearchResultsPage = () => {
         const dimensionData = responseData.data || responseData;
         const deductedAmount = responseData.deducted_amount || 0;
         
-        // 累计扣费金额
-        if (deductedAmount > 0) {
-          setTotalDeducted(prev => prev + deductedAmount);
-        }
-        
         // 保存所有维度的分析结果
         setAnalysisResults(prev => ({
           ...prev,
           [paper.paperId]: dimensionData
         }));
         
-        return { success: true, aborted: false };
+        return { success: true, aborted: false, deducted: deductedAmount };
       } else {
         // API 返回错误
         setAnalysisResults(prev => ({
           ...prev,
           [paper.paperId]: { _error: true, _message: response.data.message || '分析失败' }
         }));
-        return { success: false, aborted: false };
+        return { success: false, aborted: false, deducted: 0 };
       }
     } catch (error) {
       logger.error('Failed to analyze paper:', paper.paperId, error);
@@ -718,37 +715,47 @@ const SearchResultsPage = () => {
         analysisAbortedRef.current = true;
         setBalanceError({
           ...error.response.data.data,
-          alreadyDeducted: totalDeducted // 传递当前累计扣费
+          alreadyDeducted: accumulatedDeductRef.current // 使用 ref 获取累计扣费
         });
         setShowBalanceModal(true);
-        return { success: false, aborted: true };
+        return { success: false, aborted: true, deducted: 0 };
       }
       
       setAnalysisResults(prev => ({
         ...prev,
         [paper.paperId]: { _error: true, _message: error.response?.data?.message || '分析失败' }
       }));
-      return { success: false, aborted: false };
+      return { success: false, aborted: false, deducted: 0 };
     } finally {
       setAnalyzingPapers(prev => ({
         ...prev,
         [paper.paperId]: false
       }));
     }
-  }, [isAuthenticated, totalDeducted]);
+  }, [isAuthenticated]);
 
   // 并发控制：每次最多并发5个请求
-  // 分析完成后显示扣费提示 toast
+  // 分析完成后显示扣费提示 toast（整页分析完成后才显示一次）
   const analyzeWithConcurrency = useCallback(async (papersToAnalyze) => {
     const CONCURRENCY_LIMIT = 5;
     
+    // 生成新的会话 ID，用于追踪当前分析任务
+    const currentSession = ++analysisSessionRef.current;
+    
     // 重置中止标记和累计扣费
     analysisAbortedRef.current = false;
+    accumulatedDeductRef.current = 0;
     setTotalDeducted(0);
     
     let aborted = false;
+    let totalDeductedInSession = 0;
     
     for (let i = 0; i < papersToAnalyze.length; i += CONCURRENCY_LIMIT) {
+      // 如果会话已过期（被新的分析任务取代），停止当前任务
+      if (analysisSessionRef.current !== currentSession) {
+        return; // 静默退出，不发送 toast
+      }
+      
       // 如果已中止，跳过后续批次
       if (analysisAbortedRef.current) {
         aborted = true;
@@ -759,6 +766,14 @@ const SearchResultsPage = () => {
       // 并发执行这一批
       const results = await Promise.all(batch.map(paper => analyzePaper(paper)));
       
+      // 累计本批次的扣费
+      for (const result of results) {
+        if (result.deducted > 0) {
+          totalDeductedInSession += result.deducted;
+          accumulatedDeductRef.current = totalDeductedInSession;
+        }
+      }
+      
       // 检查是否有中止
       if (results.some(r => r.aborted)) {
         aborted = true;
@@ -766,25 +781,24 @@ const SearchResultsPage = () => {
       }
     }
     
-    // 分析完成后，如果有扣费且未中止，发送 toast 通知
-    // 使用 setTimeout 确保 totalDeducted 状态已更新
-    setTimeout(() => {
-      if (!aborted) {
-        // 获取最新的累计扣费金额
-        setTotalDeducted(currentTotal => {
-          if (currentTotal > 0) {
-            // 发送右上角 toast 通知
-            wsClient.emit('toast', {
-              title: '扣费提醒',
-              content: `本次分析共消耗 ${currentTotal} 经费`,
-              category: 'transaction',
-              created_at: new Date().toISOString()
-            });
-          }
-          return 0; // 重置累计扣费
-        });
-      }
-    }, 100);
+    // 再次检查会话是否有效
+    if (analysisSessionRef.current !== currentSession) {
+      return; // 静默退出，不发送 toast
+    }
+    
+    // 整页分析完成后，如果有扣费且未中止，发送 toast 通知
+    if (!aborted && totalDeductedInSession > 0) {
+      wsClient.emit('toast', {
+        title: '扣费提醒',
+        content: `本次分析共消耗 ${totalDeductedInSession} 经费`,
+        category: 'transaction',
+        created_at: new Date().toISOString()
+      });
+    }
+    
+    // 重置累计扣费
+    accumulatedDeductRef.current = 0;
+    setTotalDeducted(0);
   }, [analyzePaper]);
 
   // 当选中维度变化时，为当前页面论文执行分析
