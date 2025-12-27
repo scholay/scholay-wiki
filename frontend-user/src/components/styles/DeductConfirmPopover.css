@@ -1,0 +1,226 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ * 
+ * DeductConfirmPopover 样式 - 毛玻璃立体风格
+ */
+
+.deduct-popover {
+  position: fixed;
+  z-index: 10000;
+  min-width: 220px;
+  /* 毛玻璃效果 */
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  border-radius: 14px;
+  box-shadow: 
+    0 8px 32px rgba(16, 163, 127, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  animation: popoverSlideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes popoverSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 箭头 */
+.deduct-popover-arrow {
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 7px;
+  overflow: hidden;
+}
+
+.deduct-popover-arrow::before {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  border-radius: 2px;
+  transform: rotate(45deg);
+  top: -6px;
+  left: 2px;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.deduct-popover-content {
+  padding: 14px 16px;
+}
+
+/* 消耗金额行 */
+.deduct-popover-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.08) 0%, 
+    rgba(16, 163, 127, 0.04) 100%);
+  border: 1px solid rgba(16, 163, 127, 0.12);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.deduct-popover-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary, #666);
+}
+
+.deduct-popover-value {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 16px;
+}
+
+.deduct-popover-value strong {
+  font-weight: 600;
+  color: #10A37F;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 余额不足警告 */
+.deduct-popover-warning {
+  font-size: 12px;
+  color: #e53935;
+  text-align: center;
+  padding: 8px 10px;
+  background: rgba(229, 57, 53, 0.08);
+  border: 1px solid rgba(229, 57, 53, 0.15);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+/* 按钮组 */
+.deduct-popover-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.deduct-popover-btn {
+  flex: 1;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+}
+
+/* 取消按钮 */
+.deduct-popover-btn.cancel {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: var(--text-secondary, #666);
+}
+
+.deduct-popover-btn.cancel:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+/* 确认按钮 - 与提交按钮风格一致 */
+.deduct-popover-btn.confirm {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.9) 0%, 
+    rgba(16, 163, 127, 0.75) 100%);
+  border: 1px solid rgba(16, 163, 127, 0.5);
+  color: #fff;
+  box-shadow: 
+    0 2px 8px rgba(16, 163, 127, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.deduct-popover-btn.confirm:hover:not(:disabled) {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 1) 0%, 
+    rgba(16, 163, 127, 0.85) 100%);
+  transform: translateY(-1px);
+  box-shadow: 
+    0 4px 12px rgba(16, 163, 127, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.deduct-popover-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ========== 深色模式 ========== */
+[data-theme="dark"] .deduct-popover {
+  background: rgba(40, 40, 40, 0.92);
+  border-color: rgba(16, 163, 127, 0.25);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .deduct-popover-arrow::before {
+  background: rgba(40, 40, 40, 0.92);
+  border-color: rgba(16, 163, 127, 0.25);
+}
+
+[data-theme="dark"] .deduct-popover-row {
+  background: linear-gradient(135deg, 
+    rgba(16, 163, 127, 0.12) 0%, 
+    rgba(16, 163, 127, 0.06) 100%);
+  border-color: rgba(16, 163, 127, 0.18);
+}
+
+[data-theme="dark"] .deduct-popover-label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .deduct-popover-value strong {
+  color: #2DD4A8;
+}
+
+[data-theme="dark"] .deduct-popover-warning {
+  background: rgba(229, 57, 53, 0.12);
+  border-color: rgba(229, 57, 53, 0.2);
+  color: #ff6b6b;
+}
+
+[data-theme="dark"] .deduct-popover-btn.cancel {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .deduct-popover-btn.cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* 兼容 prefers-color-scheme */
+@media (prefers-color-scheme: dark) {
+  .deduct-popover:not([data-theme="light"] *) {
+    background: rgba(40, 40, 40, 0.92);
+    border-color: rgba(16, 163, 127, 0.25);
+  }
+}

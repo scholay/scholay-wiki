@@ -17,7 +17,8 @@ export default function PeerReviewCreateSection({
   onFileSelect, onAttachmentUpload, onDeleteAttachment,
   onDragEnter, onDragOver, onDragLeave, onDrop,
   onRemoveFile, onSubmit, onClearDraft,
-  isLoggedIn, onRequireLogin
+  isLoggedIn, onRequireLogin,
+  submitBtnRef
 }) {
   const hasContent = manuscriptText.trim().length > 0 || !!fileName;
   const [attachmentDragging, setAttachmentDragging] = useState(false);
@@ -92,6 +93,7 @@ export default function PeerReviewCreateSection({
         onSubmit={onSubmit}
         isLoggedIn={isLoggedIn}
         onRequireLogin={onRequireLogin}
+        submitBtnRef={submitBtnRef}
       />
 
       {/* 底部工具栏已移除（模型选择和投稿期刊） */}
@@ -122,7 +124,8 @@ function InputSplitArea({
   fileInputRef, onFileSelect,
   onDragEnter, onDragOver, onDragLeave, onDrop,
   onRemoveFile, onClearDraft, hasContent, submitting, onSubmit,
-  isLoggedIn, onRequireLogin
+  isLoggedIn, onRequireLogin,
+  submitBtnRef
 }) {
   const [isInputFocused, setIsInputFocused] = useState(false);
   const textareaRef = React.useRef(null);
@@ -323,6 +326,7 @@ function InputSplitArea({
               )}
               {/* 提交按钮 */}
               <button 
+                ref={submitBtnRef}
                 className="prv-submit-btn" 
                 onClick={onSubmit}
                 disabled={submitting || !hasContent || draftLoading}
