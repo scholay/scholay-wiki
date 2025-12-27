@@ -222,7 +222,7 @@ const DrawerSidebar = ({
               onClick={() => handleNavClick('/')}
             >
               <NormalSearchIcon size={20} />
-              <span>搜索</span>
+              <span>学术搜索</span>
             </button>
 
             <button

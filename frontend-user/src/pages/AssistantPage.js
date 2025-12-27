@@ -24,8 +24,8 @@ function AssistantPage() {
   const tools = [
     {
       id: 'chat',
-      title: 'AI 聊天',
-      description: '与 AI 进行学术对话，解答研究问题，获取智能建议',
+      title: '智能助手',
+      description: '有问题，交给智能助手',
       icon: (
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -38,7 +38,7 @@ function AssistantPage() {
     {
       id: 'peer-review',
       title: '智能审稿',
-      description: '上传论文 PDF，获取专业的 AI 审稿意见与修改建议',
+      description: '智能预审，明智之举！',
       icon: (
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>

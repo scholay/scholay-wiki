@@ -253,7 +253,7 @@ const TopNavBar = ({
               className={`nav-menu-item ${location.pathname === '/' || location.pathname === '/search-results' ? 'active' : ''}`}
             >
               <NormalSearchIcon size={18} />
-              <span>搜索</span>
+              <span>学术搜索</span>
             </Link>
             <Link 
               to="/assistant" 

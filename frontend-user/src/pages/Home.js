@@ -387,7 +387,7 @@ const Home = () => {
                           <span className="mode-segment-icon">
                             <NormalSearchIcon size={16} />
                           </span>
-                          <span className="mode-segment-label">学术检索</span>
+                          <span className="mode-segment-label">直接检索</span>
                         </button>
                         <button
                           type="button"
@@ -397,7 +397,7 @@ const Home = () => {
                           <span className="mode-segment-icon">
                             <AdvancedSearchIcon size={16} />
                           </span>
-                          <span className="mode-segment-label">智能分析</span>
+                          <span className="mode-segment-label">智能检索</span>
                         </button>
                       </div>
 
