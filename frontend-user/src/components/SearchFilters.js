@@ -146,7 +146,7 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
 
         {/* Min Citation Count */}
         <div className="filter-group">
-          <label className="filter-label">最小引用次数</label>
+          <label className="filter-label">被引次数不低于</label>
           <div className="citation-options">
             {citationOptions.map(option => (
               <button
@@ -214,7 +214,7 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
           className="apply-filters-btn"
           onClick={onToggle}
         >
-          应用筛选
+          确定
         </button>
         </div>
       </div>
