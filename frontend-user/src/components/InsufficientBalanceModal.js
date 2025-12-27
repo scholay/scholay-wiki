@@ -142,4 +142,3 @@ const InsufficientBalanceModal = memo(({
 InsufficientBalanceModal.displayName = 'InsufficientBalanceModal';
 
 export default InsufficientBalanceModal;
-

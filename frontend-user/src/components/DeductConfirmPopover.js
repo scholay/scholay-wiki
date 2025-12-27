@@ -145,5 +145,3 @@ const DeductConfirmPopover = memo(({
 DeductConfirmPopover.displayName = 'DeductConfirmPopover';
 
 export default DeductConfirmPopover;
-
-
