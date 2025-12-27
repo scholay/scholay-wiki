@@ -1726,7 +1726,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         {/* 主内容区 - 两栏布局：论文列表 + AI聊天 */}
         <div className="results-main ai-results-main">
                 {/* 左侧：论文列表容器 - 复用学术检索样式 */}
-                <div className={`papers-container ${selectedDimensions.length > 0 ? 'has-analysis' : ''}`} ref={papersContainerRef}>
+                <div className={`papers-container ${selectedDimensions.length > 0 ? 'has-analysis has-collapsed-panel' : ''}`} ref={papersContainerRef}>
                   <AIPaperList
                     papers={papers}
                     loading={loading}

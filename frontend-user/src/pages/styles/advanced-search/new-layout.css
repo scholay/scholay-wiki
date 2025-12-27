@@ -82,6 +82,11 @@
   margin-right: 16px; /* 与AI面板的间距 */
 }
 
+/* 智能分析模式下，给表格容器右侧留出空间 */
+.as-results-layout .papers-container.has-collapsed-panel {
+  padding-right: 50px;
+}
+
 /* ========== AI 模式下的表格宽度调整 ========== */
 /* 
  * 智能分析页面的论文列宽度逻辑与学术检索保持一致：

@@ -1897,6 +1897,11 @@ a.meta-item.pdf-link:hover {
   pointer-events: auto;
 }
 
+/* 当智能矩阵分析面板收起时，给表格容器右侧留出空间避免被按钮遮挡 */
+.papers-container.has-collapsed-panel {
+  padding-right: 50px;
+}
+
 .dimension-float-panel.collapsed .dimension-float-content {
   opacity: 0;
   transform: translateX(100%);

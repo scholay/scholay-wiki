@@ -1838,7 +1838,7 @@ const SearchResultsPage = () => {
         )}
 
         {/* 论文列表/详情区域 */}
-        <div className="papers-container" ref={papersContainerRef}>
+        <div className={`papers-container ${selectedDimensions.length > 0 ? 'has-collapsed-panel' : ''}`} ref={papersContainerRef}>
             {viewMode === 'author' ? (
               /* 作者详情视图 - 顶部信息 + 下方论文列表 */
               <div className="author-detail-page">
