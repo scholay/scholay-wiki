@@ -11,6 +11,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useToast } from '../components/ToastContainer';
+import { useOrderModal } from '../contexts/OrderModalContext';
+import { useRechargeModal } from '../contexts/RechargeModalContext';
 // eslint-disable-next-line no-unused-vars
 import api, { orderAPI, paymentAPI, walletAPI } from '../services/api'; // paymentAPI 保留供将来使用
 import CheckinCalendar from '../components/CheckinCalendar';
@@ -25,6 +27,8 @@ const Settings = () => {
   const { isAuthenticated, user, logout, refreshUser } = useAuth();
   // eslint-disable-next-line no-unused-vars
   const { showSuccess, showError, showInfo } = useToast(); // showInfo 保留供将来使用
+  const { openOrderModal } = useOrderModal();
+  const { openRechargeModal } = useRechargeModal();
   const outletContext = useOutletContext();
   // eslint-disable-next-line no-unused-vars
   const onOpenDrawer = outletContext?.onOpenDrawer; // 保留供将来使用
@@ -107,11 +111,6 @@ const Settings = () => {
   const [showExchangeModal, setShowExchangeModal] = useState(false);
   const [rechargeInfo, setRechargeInfo] = useState(null);
   
-  // Recharge modal state - 充值弹窗状态
-  const [showRechargeModal, setShowRechargeModal] = useState(false);
-  const [selectedRechargeAmount, setSelectedRechargeAmount] = useState(null);
-  const [customRechargeAmount, setCustomRechargeAmount] = useState('');
-  const [isCustomRecharge, setIsCustomRecharge] = useState(false);
 
   // Records tab state - 流水/账单切换
   // eslint-disable-next-line no-unused-vars
@@ -1858,8 +1857,16 @@ const Settings = () => {
 
         {/* 主卡片 - 根据会员等级变色 */}
         <div className={`am-card ${currentSubscription?.plan_code || 'free'}`}>
-          {/* 会员行 */}
-          <div className="am-row am-member-row" onClick={() => navigate('/pricing')}>
+          {/* 会员行 - 点击开通会员弹窗，已是会员则跳转管理页面 */}
+          <div className="am-row am-member-row" onClick={() => {
+            if (currentSubscription?.plan_code === 'free') {
+              // 免费用户，打开弹窗选择套餐
+              openOrderModal({ mode: 'subscription' });
+            } else {
+              // 已是会员，跳转到价格页面管理
+              navigate('/pricing');
+            }
+          }}>
             <span className={`am-badge ${currentSubscription?.plan_code || 'free'}`}>
               {currentSubscription?.plan_name || 'FREE'}
             </span>
@@ -1878,7 +1885,7 @@ const Settings = () => {
             <div className="am-bal">
               <span className="am-bal-icon"><EntcoinIcon size="lg" /></span>
               <span className="am-bal-num">{walletLoading ? '-' : (wallet?.diamond || 0)}</span>
-              <button className="am-btn primary" onClick={() => setShowRechargeModal(true)}>充值</button>
+              <button className="am-btn primary" onClick={() => openRechargeModal(() => fetchWalletData())}>充值</button>
             </div>
             <div className="am-bal-sep"></div>
             <div className="am-bal">
@@ -2125,165 +2132,6 @@ const Settings = () => {
           </div>
         )}
 
-        {/* Recharge Modal - 充值弹窗 */}
-        {showRechargeModal && (
-          <div className="modal-overlay" onClick={() => setShowRechargeModal(false)}>
-            <div className="exchange-modal recharge-modal" onClick={e => e.stopPropagation()}>
-              <div className="exchange-modal-header">
-                <h3>恩特币充值</h3>
-                <button className="modal-close" onClick={() => setShowRechargeModal(false)}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                </button>
-              </div>
-              <div className="exchange-modal-body">
-                <div className="exchange-notice">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="16" x2="12" y2="12"/>
-                    <line x1="12" y1="8" x2="12.01" y2="8"/>
-                  </svg>
-                  <span>恩特币可用于兑换经费、解锁高级功能等</span>
-                </div>
-                
-                {/* 快捷充值选项 */}
-                <div className="recharge-options">
-                  {[
-                    { amount: 10, bonus: 0 },
-                    { amount: 50, bonus: 2 },
-                    { amount: 100, bonus: 5 },
-                    { amount: 200, bonus: 12 },
-                    { amount: 500, bonus: 35 },
-                    { amount: 1000, bonus: 80 },
-                  ].map((option) => (
-                    <div
-                      key={option.amount}
-                      className={`recharge-option ${selectedRechargeAmount === option.amount && !isCustomRecharge ? 'selected' : ''}`}
-                      onClick={() => {
-                        setSelectedRechargeAmount(option.amount);
-                        setIsCustomRecharge(false);
-                        setCustomRechargeAmount('');
-                      }}
-                    >
-                      <div className="recharge-option-main">
-                        <span className="recharge-option-icon"><EntcoinIcon size="lg" /></span>
-                        <span className="recharge-option-amount">{option.amount}</span>
-                      </div>
-                      {option.bonus > 0 && (
-                        <div className="recharge-option-bonus">+{option.bonus}</div>
-                      )}
-                      <div className="recharge-option-price">
-                        ¥{((option.amount * (rechargeInfo?.diamond_price || 100)) / 100).toFixed(0)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* 自定义金额 */}
-                <div className="recharge-custom">
-                  <label>自定义数量</label>
-                  <div className="recharge-custom-input">
-                    <span className="recharge-custom-icon"><EntcoinIcon size="md" /></span>
-                    <input
-                      type="text"
-                      placeholder="输入充值数量"
-                      value={customRechargeAmount}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '');
-                        setCustomRechargeAmount(value);
-                        if (value) {
-                          setIsCustomRecharge(true);
-                          setSelectedRechargeAmount(null);
-                        }
-                      }}
-                      onClick={() => {
-                        setIsCustomRecharge(true);
-                        setSelectedRechargeAmount(null);
-                      }}
-                    />
-                    <span className="recharge-custom-unit">个</span>
-                  </div>
-                </div>
-
-                {/* 充值预览 */}
-                {(selectedRechargeAmount || (isCustomRecharge && customRechargeAmount)) && (
-                  <div className="recharge-preview">
-                    <div className="recharge-preview-row">
-                      <span>充值数量</span>
-                      <span>{isCustomRecharge ? customRechargeAmount : selectedRechargeAmount} 恩特币</span>
-                    </div>
-                    {!isCustomRecharge && [
-                      { amount: 10, bonus: 0 },
-                      { amount: 50, bonus: 2 },
-                      { amount: 100, bonus: 5 },
-                      { amount: 200, bonus: 12 },
-                      { amount: 500, bonus: 35 },
-                      { amount: 1000, bonus: 80 },
-                    ].find(o => o.amount === selectedRechargeAmount)?.bonus > 0 && (
-                      <div className="recharge-preview-row bonus">
-                        <span>赠送数量</span>
-                        <span>+{[
-                          { amount: 10, bonus: 0 },
-                          { amount: 50, bonus: 2 },
-                          { amount: 100, bonus: 5 },
-                          { amount: 200, bonus: 12 },
-                          { amount: 500, bonus: 35 },
-                          { amount: 1000, bonus: 80 },
-                        ].find(o => o.amount === selectedRechargeAmount)?.bonus} 恩特币</span>
-                      </div>
-                    )}
-                    <div className="recharge-preview-row total">
-                      <span>支付金额</span>
-                      <span className="recharge-price">
-                        ¥{(((isCustomRecharge ? parseInt(customRechargeAmount, 10) : selectedRechargeAmount) * (rechargeInfo?.diamond_price || 100)) / 100).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="exchange-modal-footer">
-                <button 
-                  className="btn-cancel"
-                  onClick={() => setShowRechargeModal(false)}
-                >
-                  取消
-                </button>
-                <button 
-                  className="btn-confirm"
-                  onClick={() => {
-                    const amount = isCustomRecharge ? parseInt(customRechargeAmount, 10) : selectedRechargeAmount;
-                    const bonus = isCustomRecharge ? 0 : ([
-                      { amount: 10, bonus: 0 },
-                      { amount: 50, bonus: 2 },
-                      { amount: 100, bonus: 5 },
-                      { amount: 200, bonus: 12 },
-                      { amount: 500, bonus: 35 },
-                      { amount: 1000, bonus: 80 },
-                    ].find(o => o.amount === selectedRechargeAmount)?.bonus || 0);
-                    
-                    if (!amount || amount < 1) {
-                      showError('请选择或输入充值数量');
-                      return;
-                    }
-                    
-                    setShowRechargeModal(false);
-                    navigate('/order-confirmation', {
-                      state: {
-                        rechargeAmount: amount,
-                        rechargebonus: bonus
-                      }
-                    });
-                  }}
-                  disabled={!selectedRechargeAmount && (!isCustomRecharge || !customRechargeAmount)}
-                >
-                  去支付
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
 
       </div>

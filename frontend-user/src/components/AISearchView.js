@@ -2221,10 +2221,9 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
           // 重置中止标记，允许用户充值后继续
           analysisAbortedRef.current = false;
         }}
-        balance={balanceError?.balance || 0}
+        featureName="智能检索"
         required={balanceError?.required || 0}
         shortage={balanceError?.shortage || 0}
-        alreadyDeducted={balanceError?.alreadyDeducted || 0}
       />
     </div>
   );

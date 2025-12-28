@@ -145,7 +145,7 @@
 .insufficient-balance-title {
   font-size: 22px;
   font-weight: 600;
-  margin: 0 0 20px 0;
+  margin: 0 0 16px 0;
   position: relative;
   z-index: 1;
 }
@@ -158,134 +158,48 @@
   color: #1a1a1a;
 }
 
-/* ========== 已消耗提示 ========== */
-.insufficient-balance-deducted {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%);
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin-bottom: 20px;
+/* ========== 功能和消耗提示 ========== */
+.insufficient-balance-desc {
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0 0 24px 0;
   position: relative;
   z-index: 1;
 }
 
-[data-theme="dark"] .insufficient-balance-deducted {
-  border: 1px solid rgba(245, 158, 11, 0.2);
-}
-
-[data-theme="light"] .insufficient-balance-deducted {
-  border: 1px solid rgba(245, 158, 11, 0.3);
-}
-
-.insufficient-balance-deducted > span {
-  font-size: 13px;
-  display: block;
-  margin-bottom: 6px;
-}
-
-[data-theme="dark"] .insufficient-balance-deducted > span {
-  color: rgba(255, 255, 255, 0.6);
-}
-
-[data-theme="light"] .insufficient-balance-deducted > span {
-  color: #666;
-}
-
-.deducted-amount {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.deducted-amount .amount-value {
-  font-size: 24px;
-  font-weight: 700;
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.deducted-amount .amount-unit {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-[data-theme="dark"] .deducted-amount .amount-unit {
+[data-theme="dark"] .insufficient-balance-desc {
   color: rgba(255, 255, 255, 0.7);
 }
 
-[data-theme="light"] .deducted-amount .amount-unit {
-  color: #666;
+[data-theme="light"] .insufficient-balance-desc {
+  color: #555;
 }
 
-/* ========== 余额信息 ========== */
-.insufficient-balance-info {
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 24px;
-  position: relative;
-  z-index: 1;
-}
-
-[data-theme="dark"] .insufficient-balance-info {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-[data-theme="light"] .insufficient-balance-info {
-  background: rgba(0, 0, 0, 0.02);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.balance-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-}
-
-.balance-row:not(:last-child) {
-  border-bottom: 1px solid rgba(128, 128, 128, 0.1);
-}
-
-.balance-row.shortage {
-  padding-top: 12px;
-  margin-top: 4px;
-}
-
-.balance-label {
-  font-size: 14px;
-}
-
-[data-theme="dark"] .balance-label {
-  color: rgba(255, 255, 255, 0.6);
-}
-
-[data-theme="light"] .balance-label {
-  color: #666;
-}
-
-.balance-value {
-  font-size: 16px;
+.insufficient-balance-desc .feature-name {
   font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  margin-right: 4px;
 }
 
-[data-theme="dark"] .balance-value {
-  color: rgba(255, 255, 255, 0.9);
+[data-theme="dark"] .insufficient-balance-desc .feature-name {
+  color: #10a37f;
+  background: rgba(16, 163, 127, 0.15);
 }
 
-[data-theme="light"] .balance-value {
-  color: #333;
+[data-theme="light"] .insufficient-balance-desc .feature-name {
+  color: #0d8a6a;
+  background: rgba(16, 163, 127, 0.1);
 }
 
-.balance-value.required {
+.insufficient-balance-desc .cost-amount {
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.insufficient-balance-desc .shortage-amount {
+  font-weight: 700;
   color: #ef4444;
-}
-
-.balance-row.shortage .balance-value {
-  color: #ef4444;
-  font-size: 18px;
 }
 
 /* ========== 操作按钮 ========== */

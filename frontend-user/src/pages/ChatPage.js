@@ -1507,10 +1507,9 @@ function ChatPage() {
           setShowBalanceModal(false);
           setBalanceError(null);
         }}
-        balance={balanceError?.balance || 0}
+        featureName="智能助手"
         required={balanceError?.required || 0}
         shortage={balanceError?.shortage || 0}
-        alreadyDeducted={balanceError?.alreadyDeducted || 0}
       />
     </div>
   );

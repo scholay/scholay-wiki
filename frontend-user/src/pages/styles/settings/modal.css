@@ -615,3 +615,195 @@
   color: #10a37f;
 }
 
+/* ============================================
+   充值弹窗完整流程样式
+   ============================================ */
+
+/* 充值成功状态 */
+.recharge-success {
+  text-align: center;
+  padding: 30px 20px;
+}
+
+.recharge-success-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 20px;
+  background: rgba(16, 163, 127, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recharge-success h4 {
+  margin: 0 0 12px;
+  font-size: 20px;
+  color: #fff;
+}
+
+.recharge-success p {
+  margin: 0 0 24px;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.recharge-success .bonus-text {
+  color: #f59e0b;
+}
+
+.recharge-success .btn-confirm {
+  min-width: 120px;
+}
+
+/* 支付方式选择 */
+.recharge-payment-methods {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.recharge-payment-title {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 12px;
+}
+
+.recharge-payment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.recharge-payment-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.recharge-payment-item:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.recharge-payment-item.selected {
+  border-color: #10a37f;
+  background: rgba(16, 163, 127, 0.08);
+}
+
+.recharge-payment-item .payment-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+}
+
+.recharge-payment-item span {
+  color: #fff;
+  font-size: 15px;
+}
+
+.recharge-payment-item .payment-check {
+  margin-left: auto;
+  color: #10a37f;
+  font-weight: 600;
+}
+
+.recharge-payment-item .payment-dev-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #10a37f, #0d8a6a);
+  border-radius: 6px;
+  font-size: 16px;
+}
+
+.recharge-payment-item .payment-dev-tag {
+  font-size: 11px !important;
+  color: #10a37f !important;
+  margin-left: auto;
+  margin-right: 8px;
+}
+
+/* 轮询等待状态 */
+.recharge-polling {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  margin-top: 16px;
+  background: rgba(16, 163, 127, 0.1);
+  border-radius: 12px;
+}
+
+.recharge-polling-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(16, 163, 127, 0.3);
+  border-top-color: #10a37f;
+  border-radius: 50%;
+  animation: rechargeSpinnerSpin 1s linear infinite;
+}
+
+@keyframes rechargeSpinnerSpin {
+  to { transform: rotate(360deg); }
+}
+
+.recharge-polling span {
+  color: #10a37f;
+  font-size: 14px;
+}
+
+/* 充值弹窗全流程样式调整 */
+.recharge-modal-full {
+  max-width: 480px;
+}
+
+.recharge-modal-full .exchange-modal-body {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* 日间模式 */
+[data-theme="light"] .recharge-success h4 {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .recharge-success p {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .recharge-payment-methods {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .recharge-payment-title {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .recharge-payment-item {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .recharge-payment-item:hover {
+  border-color: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .recharge-payment-item span {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .recharge-polling {
+  background: rgba(16, 163, 127, 0.08);
+}
+

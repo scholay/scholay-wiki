@@ -1,0 +1,946 @@
+/**
+ * OrderModal 订单弹窗样式
+ */
+
+/* ========== 遮罩层 ========== */
+.om-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: omFadeIn 0.2s ease;
+}
+
+.om-overlay.closing {
+  animation: omFadeOut 0.2s ease forwards;
+}
+
+@keyframes omFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes omFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* ========== 弹窗主体 ========== */
+.om-modal {
+  background: linear-gradient(135deg, rgba(40, 40, 40, 0.95) 0%, rgba(30, 30, 30, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: omSlideUp 0.25s ease;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.om-modal.closing {
+  animation: omSlideDown 0.2s ease forwards;
+}
+
+@keyframes omSlideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes omSlideDown {
+  from { 
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to { 
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+}
+
+/* ========== 头部 ========== */
+.om-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.om-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.om-close {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.om-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* ========== 内容区域 ========== */
+.om-content {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.om-loading {
+  text-align: center;
+  padding: 40px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ========== 套餐选择视图 ========== */
+.om-billing-toggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 20px;
+}
+
+.om-billing-toggle button {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.om-billing-toggle button.active {
+  background: rgba(16, 163, 127, 0.2);
+  color: #10a37f;
+}
+
+.om-save-badge {
+  font-size: 11px;
+  background: linear-gradient(135deg, #10a37f, #0d8a6a);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.om-plan-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.om-plan-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.om-plan-card:hover:not(.disabled) {
+  border-color: rgba(16, 163, 127, 0.5);
+  background: rgba(16, 163, 127, 0.05);
+}
+
+.om-plan-card.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.om-plan-card.pro {
+  border-color: rgba(16, 163, 127, 0.3);
+}
+
+.om-popular {
+  position: absolute;
+  top: -10px;
+  right: 12px;
+  background: linear-gradient(135deg, #10a37f, #0d8a6a);
+  color: #fff;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 10px;
+}
+
+.om-plan-card h4 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: #fff;
+}
+
+.om-plan-desc {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 16px;
+}
+
+.om-plan-price {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 16px;
+}
+
+.om-currency {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-right: 2px;
+}
+
+.om-amount {
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.om-period {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-left: 4px;
+}
+
+.om-plan-btn {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: linear-gradient(135deg, #10a37f, #0d8a6a);
+  color: #fff;
+}
+
+.om-plan-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
+}
+
+.om-plan-btn.free {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.om-plan-btn:disabled {
+  cursor: not-allowed;
+}
+
+/* ========== 充值视图 ========== */
+.om-recharge-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.om-recharge-option {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  position: relative;
+}
+
+.om-recharge-option:hover {
+  border-color: rgba(16, 163, 127, 0.5);
+}
+
+.om-recharge-option.selected {
+  border-color: #10a37f;
+  background: rgba(16, 163, 127, 0.1);
+}
+
+.om-recharge-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.om-recharge-amount {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.om-recharge-bonus {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.om-recharge-price {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.om-custom-amount {
+  margin-bottom: 20px;
+}
+
+.om-custom-amount label {
+  display: block;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 8px;
+}
+
+.om-custom-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.om-custom-input input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 16px;
+}
+
+.om-custom-input input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.om-custom-input span {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+}
+
+.om-recharge-preview {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.om-preview-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.om-preview-row.bonus {
+  color: #f59e0b;
+}
+
+.om-preview-row.total {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 8px;
+  padding-top: 16px;
+}
+
+.om-total-price {
+  font-size: 20px;
+  font-weight: 700;
+  color: #10a37f;
+}
+
+.om-recharge-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.om-btn-cancel,
+.om-btn-confirm {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.om-btn-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.om-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.om-btn-confirm {
+  background: linear-gradient(135deg, #10a37f, #0d8a6a);
+  color: #fff;
+}
+
+.om-btn-confirm:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
+}
+
+.om-btn-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ========== 支付视图 ========== */
+.om-order-info {
+  text-align: center;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 20px;
+}
+
+.om-order-info h4 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  color: #fff;
+}
+
+.om-order-info p {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.om-amount-section {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.om-amount-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.om-amount-row.total {
+  font-size: 16px;
+  color: #fff;
+}
+
+.om-final-amount {
+  font-size: 24px;
+  font-weight: 700;
+  color: #10a37f;
+}
+
+.om-amount-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 8px 0;
+}
+
+.om-coupon-section {
+  padding: 10px 0;
+}
+
+.om-coupon-btn {
+  width: 100%;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.om-coupon-btn:hover:not(:disabled) {
+  border-color: #10a37f;
+  color: #10a37f;
+}
+
+.om-coupon-btn:disabled {
+  cursor: not-allowed;
+}
+
+.om-selected-coupon {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(16, 163, 127, 0.1);
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  border-radius: 8px;
+}
+
+.om-selected-coupon span:first-child {
+  flex: 1;
+  color: #fff;
+  font-size: 14px;
+}
+
+.om-discount {
+  color: #10a37f;
+  font-weight: 600;
+}
+
+.om-selected-coupon button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.om-selected-coupon button:hover {
+  color: #fff;
+}
+
+/* 支付方式 */
+.om-payment-methods {
+  margin-bottom: 20px;
+}
+
+.om-payment-methods h5 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.om-method-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.om-method-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.om-method-item:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.om-method-item.selected {
+  border-color: #10a37f;
+  background: rgba(16, 163, 127, 0.05);
+}
+
+.om-method-item img {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+}
+
+.om-method-item span {
+  color: #fff;
+  font-size: 15px;
+}
+
+.om-dev-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #10a37f, #0d8a6a);
+  border-radius: 6px;
+  font-size: 16px;
+}
+
+.om-dev-tag {
+  font-size: 11px !important;
+  color: #10a37f !important;
+  margin-left: auto;
+}
+
+.om-check {
+  margin-left: auto;
+  color: #10a37f;
+  font-weight: 600;
+}
+
+/* 轮询状态 */
+.om-polling {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  background: rgba(16, 163, 127, 0.1);
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.om-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(16, 163, 127, 0.3);
+  border-top-color: #10a37f;
+  border-radius: 50%;
+  animation: omSpin 1s linear infinite;
+}
+
+@keyframes omSpin {
+  to { transform: rotate(360deg); }
+}
+
+.om-polling span {
+  color: #10a37f;
+  font-size: 14px;
+}
+
+/* 支付操作按钮 */
+.om-payment-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.om-btn-back,
+.om-btn-pay {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.om-btn-back {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.om-btn-back:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.om-btn-pay {
+  background: linear-gradient(135deg, #10a37f, #0d8a6a);
+  color: #fff;
+}
+
+.om-btn-pay:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
+}
+
+.om-btn-back:disabled,
+.om-btn-pay:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ========== 优惠券弹窗 ========== */
+.om-coupon-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.om-coupon-modal {
+  background: #2a2a2a;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 60vh;
+  overflow: hidden;
+}
+
+.om-coupon-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.om-coupon-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #fff;
+}
+
+.om-coupon-header button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.om-coupon-list {
+  padding: 16px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.om-no-coupon {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 30px;
+}
+
+.om-coupon-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.om-coupon-item:hover {
+  border-color: #10a37f;
+  background: rgba(16, 163, 127, 0.1);
+}
+
+.om-coupon-info {
+  flex: 1;
+}
+
+.om-coupon-name {
+  display: block;
+  font-size: 14px;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.om-coupon-desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.om-coupon-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #10a37f;
+}
+
+/* ========== 微信二维码弹窗 ========== */
+.om-wechat-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.om-wechat-modal {
+  background: #2a2a2a;
+  border-radius: 16px;
+  padding: 30px;
+  text-align: center;
+}
+
+.om-wechat-modal h4 {
+  margin: 0 0 20px;
+  font-size: 18px;
+  color: #fff;
+}
+
+.om-qr-container {
+  background: #fff;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.om-qr-container img {
+  width: 200px;
+  height: 200px;
+}
+
+.om-wechat-modal p {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.om-wechat-amount {
+  font-size: 16px !important;
+  color: #10a37f !important;
+  font-weight: 600;
+}
+
+/* ========== 响应式 ========== */
+@media (max-width: 640px) {
+  .om-modal {
+    width: 95%;
+    max-height: 90vh;
+  }
+
+  .om-plan-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .om-recharge-options {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ========== 亮色主题 ========== */
+[data-theme="light"] .om-modal {
+  background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .om-header {
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .om-header h3 {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .om-close {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .om-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .om-billing-toggle {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .om-billing-toggle button {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .om-plan-card,
+[data-theme="light"] .om-recharge-option,
+[data-theme="light"] .om-amount-section,
+[data-theme="light"] .om-method-item {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .om-plan-card h4,
+[data-theme="light"] .om-amount,
+[data-theme="light"] .om-recharge-amount,
+[data-theme="light"] .om-order-info h4,
+[data-theme="light"] .om-method-item span {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .om-plan-desc,
+[data-theme="light"] .om-period,
+[data-theme="light"] .om-recharge-price,
+[data-theme="light"] .om-order-info p,
+[data-theme="light"] .om-amount-row {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .om-custom-input {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .om-custom-input input {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .om-recharge-preview {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .om-preview-row,
+[data-theme="light"] .om-amount-row.total {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .om-btn-cancel,
+[data-theme="light"] .om-btn-back {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .om-coupon-modal,
+[data-theme="light"] .om-wechat-modal {
+  background: #fff;
+}
+
+[data-theme="light"] .om-coupon-header h4,
+[data-theme="light"] .om-wechat-modal h4,
+[data-theme="light"] .om-coupon-name {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .om-coupon-item {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+

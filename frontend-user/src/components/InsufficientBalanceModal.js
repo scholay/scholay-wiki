@@ -15,27 +15,26 @@ import React, { useState, useCallback, memo } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, CreditCard, RefreshCw } from 'lucide-react';
-import GoldIcon from './GoldIcon';
+import { useRechargeModal } from '../contexts/RechargeModalContext';
 import './styles/InsufficientBalanceModal.css';
 
 /**
  * 经费不足弹窗组件
  * @param {boolean} isOpen - 是否显示弹窗
  * @param {function} onClose - 关闭回调
- * @param {number} balance - 当前余额
- * @param {number} required - 所需金额
+ * @param {string} featureName - 功能名称（如：智能助手、智能检索、智能矩阵分析）
+ * @param {number} required - 预计消耗金额
  * @param {number} shortage - 缺口金额
- * @param {number} alreadyDeducted - 本次已消耗的经费（可选）
  */
 const InsufficientBalanceModal = memo(({ 
   isOpen, 
   onClose, 
-  balance = 0, 
+  featureName = '',
   required = 0, 
-  shortage = 0,
-  alreadyDeducted = 0 
+  shortage = 0
 }) => {
   const navigate = useNavigate();
+  const { openRechargeModal } = useRechargeModal();
   const [isClosing, setIsClosing] = useState(false);
 
   const handleClose = useCallback(() => {
@@ -49,11 +48,11 @@ const InsufficientBalanceModal = memo(({
   const handleRecharge = useCallback((e) => {
     e.stopPropagation();
     handleClose();
-    // 延迟导航，等待弹窗关闭动画完成
+    // 延迟打开充值弹窗，等待当前弹窗关闭动画完成
     setTimeout(() => {
-      navigate('/pricing');
+      openRechargeModal();
     }, 250);
-  }, [handleClose, navigate]);
+  }, [handleClose, openRechargeModal]);
 
   const handleExchange = useCallback((e) => {
     e.stopPropagation();
@@ -83,33 +82,24 @@ const InsufficientBalanceModal = memo(({
         {/* 标题 */}
         <h2 className="insufficient-balance-title">经费不足</h2>
 
-        {/* 已消耗提示（如果有） */}
-        {alreadyDeducted > 0 && (
-          <div className="insufficient-balance-deducted">
-            <span>本次已消耗</span>
-            <div className="deducted-amount">
-              <GoldIcon size="sm" />
-              <span className="amount-value">{alreadyDeducted}</span>
-              <span className="amount-unit">经费</span>
-            </div>
-          </div>
-        )}
-
-        {/* 余额信息 */}
-        <div className="insufficient-balance-info">
-          <div className="balance-row">
-            <span className="balance-label">当前余额</span>
-            <span className="balance-value">{balance}</span>
-          </div>
-          <div className="balance-row">
-            <span className="balance-label">所需金额</span>
-            <span className="balance-value required">{required}</span>
-          </div>
-          <div className="balance-row shortage">
-            <span className="balance-label">缺口</span>
-            <span className="balance-value">{shortage}</span>
-          </div>
-        </div>
+        {/* 功能和消耗提示 */}
+        <p className="insufficient-balance-desc">
+          {featureName ? (
+            <>
+              <span className="feature-name">{featureName}</span>
+              {required > 0 ? (
+                <>预计消耗 <span className="cost-amount">{required}</span> 经费</>
+              ) : (
+                <>需要经费才能使用</>
+              )}
+            </>
+          ) : (
+            <>当前操作需要 <span className="cost-amount">{required || '一定'}</span> 经费</>
+          )}
+          {shortage > 0 && (
+            <>，还需 <span className="shortage-amount">{shortage}</span> 经费</>
+          )}
+        </p>
 
         {/* 操作按钮 */}
         <div className="insufficient-balance-actions">

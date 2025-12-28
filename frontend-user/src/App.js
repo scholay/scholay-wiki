@@ -15,6 +15,8 @@ import { ToastProvider } from './components/ToastContainer';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { OrderModalProvider } from './contexts/OrderModalContext';
+import { RechargeModalProvider } from './contexts/RechargeModalContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './components/MainLayout';
 import CheckinFloat from './components/CheckinFloat';
@@ -22,6 +24,8 @@ import ErrorBoundary from './components/ErrorBoundary';
 import NetworkStatusBar from './components/NetworkStatusBar';
 import WelcomeCheckinModal from './components/WelcomeCheckinModal';
 import NotificationToast from './components/NotificationToast';
+import OrderModal from './components/OrderModal';
+import RechargeModal from './components/RechargeModal';
 
 // 首页立即加载(最常访问)
 import Home from './pages/Home';
@@ -38,6 +42,7 @@ const FundCenter = lazy(() => import('./pages/FundCenter'));
 const WeChatCallback = lazy(() => import('./pages/WeChatCallback'));
 const GithubCallback = lazy(() => import('./pages/GithubCallback'));
 const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
+const AlipayReturn = lazy(() => import('./pages/AlipayReturn'));
 const FeedbackPage = lazy(() => import('./pages/FeedbackPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const AuthModal = lazy(() => import('./components/AuthModal'));
@@ -160,6 +165,8 @@ function App() {
         <AuthProvider>
           <SubscriptionProvider>
             <SidebarProvider>
+              <OrderModalProvider>
+              <RechargeModalProvider>
               <Router>
                 <Suspense fallback={null}>
                   <Routes>
@@ -204,6 +211,9 @@ function App() {
                       {/* 反馈和关于我们页面 - 公开访问 */}
                       <Route path="/feedback" element={<FeedbackPage />} />
                       <Route path="/about" element={<AboutPage />} />
+                      
+                      {/* 支付宝回调页面 */}
+                      <Route path="/alipay-return" element={<AlipayReturn />} />
                     </Route>
 
                     {/* 不使用 MainLayout 的路由（OAuth回调等） */}
@@ -251,8 +261,16 @@ function App() {
                     checkinDetails={checkinDetailsForModal}
                     futureRewards={futureRewardsForModal}
                   />
+                  
+                  {/* 全局订单弹窗 */}
+                  <OrderModal />
+                  
+                  {/* 全局充值弹窗 */}
+                  <RechargeModal />
                 </Suspense>
               </Router>
+              </RechargeModalProvider>
+              </OrderModalProvider>
             </SidebarProvider>
           </SubscriptionProvider>
         </AuthProvider>

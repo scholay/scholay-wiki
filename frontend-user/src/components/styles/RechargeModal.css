@@ -1,0 +1,475 @@
+/**
+ * RechargeModal 充值弹窗样式（紧凑版）
+ */
+
+/* 遮罩层 */
+.rcm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: rcmFadeIn 0.2s ease;
+}
+
+@keyframes rcmFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 弹窗主体 - 紧凑版 */
+.rcm-modal.rcm-compact {
+  background: linear-gradient(135deg, rgba(40, 40, 40, 0.98) 0%, rgba(28, 28, 28, 0.99) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  width: 360px;
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: rcmSlideUp 0.2s ease;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes rcmSlideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 头部 */
+.rcm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.rcm-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.rcm-close {
+  background: none;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.rcm-close:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.rcm-close:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 内容区域 */
+.rcm-body {
+  padding: 14px 16px 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* 金额选择网格 - 更紧凑 */
+.rcm-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.rcm-option {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+  position: relative;
+}
+
+.rcm-option:hover {
+  border-color: rgba(16, 163, 127, 0.4);
+  background: rgba(16, 163, 127, 0.05);
+}
+
+.rcm-option.selected {
+  border-color: #10a37f;
+  background: rgba(16, 163, 127, 0.12);
+}
+
+.rcm-option-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.rcm-option-amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.rcm-option-bonus {
+  font-size: 10px;
+  color: #f59e0b;
+  font-weight: 600;
+  background: rgba(245, 158, 11, 0.15);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.rcm-option-price {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* 自定义金额 - 内联紧凑 */
+.rcm-custom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.rcm-custom-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+}
+
+.rcm-custom-input {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.rcm-custom-input input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 14px;
+  min-width: 0;
+}
+
+.rcm-custom-input input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* 分隔线 */
+.rcm-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 12px 0;
+}
+
+/* 订单摘要 */
+.rcm-summary {
+  margin-bottom: 12px;
+  transition: opacity 0.2s;
+}
+
+.rcm-summary.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.rcm-summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.rcm-summary-row.bonus {
+  color: #f59e0b;
+}
+
+.rcm-summary-row.total {
+  padding-top: 8px;
+  margin-top: 4px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.rcm-price {
+  font-size: 16px;
+  font-weight: 700;
+  color: #10a37f;
+}
+
+/* 支付方式 */
+.rcm-payment {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  transition: opacity 0.2s;
+}
+
+.rcm-payment.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.rcm-pay-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rcm-pay-item:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.rcm-pay-item.selected {
+  border-color: #10a37f;
+  background: rgba(16, 163, 127, 0.08);
+}
+
+.rcm-pay-item img {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+}
+
+.rcm-pay-item span {
+  color: #fff;
+  font-size: 13px;
+}
+
+.rcm-check {
+  color: #10a37f;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.rcm-dev-icon {
+  font-size: 16px;
+}
+
+/* 轮询状态 */
+.rcm-polling {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(16, 163, 127, 0.1);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.rcm-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(16, 163, 127, 0.3);
+  border-top-color: #10a37f;
+  border-radius: 50%;
+  animation: rcmSpin 0.8s linear infinite;
+}
+
+@keyframes rcmSpin {
+  to { transform: rotate(360deg); }
+}
+
+.rcm-polling span {
+  color: #10a37f;
+  font-size: 13px;
+}
+
+/* 底部按钮 - 内联 */
+.rcm-footer-inline {
+  display: flex;
+  gap: 10px;
+}
+
+.rcm-btn-cancel,
+.rcm-btn-primary {
+  flex: 1;
+  padding: 11px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rcm-btn-cancel {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.rcm-btn-cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.rcm-btn-primary {
+  background: linear-gradient(135deg, #10a37f, #0d8a6a);
+  color: #fff;
+}
+
+.rcm-btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
+}
+
+.rcm-btn-cancel:disabled,
+.rcm-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.rcm-btn-full {
+  width: 100%;
+}
+
+/* 成功状态 */
+.rcm-success {
+  text-align: center;
+  padding: 16px 0;
+}
+
+.rcm-success-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 14px;
+  background: rgba(16, 163, 127, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rcm-success h4 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: #fff;
+}
+
+.rcm-success p {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.rcm-bonus-text {
+  color: #f59e0b;
+}
+
+/* 亮色主题 */
+[data-theme="light"] .rcm-modal.rcm-compact {
+  background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .rcm-header {
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .rcm-header h3 {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .rcm-close {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .rcm-option {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .rcm-option:hover {
+  background: rgba(16, 163, 127, 0.04);
+}
+
+[data-theme="light"] .rcm-option.selected {
+  background: rgba(16, 163, 127, 0.08);
+}
+
+[data-theme="light"] .rcm-option-amount {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .rcm-option-price {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .rcm-custom-label {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .rcm-custom-input {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .rcm-custom-input input {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .rcm-divider {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .rcm-summary-row {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .rcm-pay-item {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .rcm-pay-item span {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .rcm-btn-cancel {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .rcm-success h4 {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .rcm-success p {
+  color: rgba(0, 0, 0, 0.6);
+}

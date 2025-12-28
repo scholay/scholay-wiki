@@ -11,6 +11,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../components/ToastContainer';
+import { useOrderModal } from '../contexts/OrderModalContext';
 import AuthModal from '../components/AuthModal';
 import logger from '../utils/logger';
 import './Pricing.css';
@@ -78,6 +79,7 @@ const getPlanBadge = (planCode) => PLAN_BADGES[planCode];
 const Pricing = () => {
   const navigate = useNavigate();
   const { showError } = useToast();
+  const { openOrderModal } = useOrderModal();
   const outletContext = useOutletContext();
   // outletContext 保留供将来使用
   void outletContext;
@@ -150,12 +152,12 @@ const Pricing = () => {
       return;
     }
 
-    // Navigate to order confirmation page with plan details (order will be created on payment)
-    navigate('/order-confirmation', {
-      state: {
-        planCode,
-        billingCycle
-      }
+    // 打开订单弹窗，传入已选的套餐和计费周期，跳过套餐选择步骤
+    openOrderModal({
+      mode: 'subscription',
+      planCode,
+      billingCycle,
+      skipPlanSelection: true
     });
   };
 
