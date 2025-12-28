@@ -2242,12 +2242,10 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 	fmt.Printf("[PeerReview] Task completed: taskID=%d\n", taskID)
 }
 
-// getBizTypeForPeerReview 根据模型级别获取业务类型
+// getBizTypeForPeerReview 获取审稿业务类型（固定使用 peer_review_mid）
 func (s *Service) getBizTypeForPeerReview(modelLevel string) string {
-	if modelLevel == "high" {
-		return "peer_review_high"
-	}
-	return "peer_review_mid" // AI审稿只有 mid 和 high 两个级别，默认 mid
+	// 智能审稿使用固定扣费配置，不再区分模型级别
+	return "peer_review_mid"
 }
 
 // deductForCompletedReview 审稿完成后扣费（使用统一扣费方法）

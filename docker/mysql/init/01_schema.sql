@@ -1323,9 +1323,8 @@ CREATE TABLE IF NOT EXISTS `currency_configs` (
 -- 扣费配置默认数据
 INSERT IGNORE INTO `currency_deduct_configs` (`biz_type`, `currency_type`, `amount`, `display_name`, `display_remark`, `description`, `enabled`) VALUES
 ('paper_analysis', 'gold', 2, '多维度分析', '论文多维度智能分析', '多维度分析功能扣费', TRUE),
--- AI审稿（按模型级别扣费）
-('peer_review_mid', 'gold', 300, 'AI审稿', '进阶模型审稿', 'AI审稿-进阶模型扣费', TRUE),
-('peer_review_high', 'gold', 500, 'AI审稿', '高级模型审稿', 'AI审稿-高级模型扣费', TRUE),
+-- AI审稿（固定扣费）
+('peer_review_mid', 'gold', 300, 'AI审稿', '智能审稿', 'AI审稿扣费', TRUE),
 -- AI对话（按模型级别扣费）
 ('ai_chat_low', 'gold', 1, 'AI对话', '普通模型对话', 'AI对话-普通模型扣费', TRUE),
 ('ai_chat_mid', 'gold', 3, 'AI对话', '进阶模型对话', 'AI对话-进阶模型扣费', TRUE),
