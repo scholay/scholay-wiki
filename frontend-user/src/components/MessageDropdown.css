@@ -576,10 +576,15 @@
   position: relative;
 }
 
+/* 头像容器需要相对定位，让红点相对于头像定位 */
+.top-nav-avatar {
+  position: relative;
+}
+
 .um-avatar-badge {
   position: absolute;
-  top: -2px;
-  right: -2px;
+  top: -4px;
+  right: -4px;
   min-width: 16px;
   height: 16px;
   background: var(--error);
@@ -593,6 +598,14 @@
   padding: 0 4px;
   border: 2px solid var(--surface);
   box-sizing: border-box;
+  /* 防止头像缩放时红点也跟着缩放 */
+  transform-origin: center;
+  z-index: 1;
+}
+
+/* hover时反向缩放红点，保持红点大小不变 */
+.top-nav-user:hover .um-avatar-badge {
+  transform: scale(0.952); /* 1/1.05 ≈ 0.952，抵消头像的scale(1.05) */
 }
 
 .um-avatar-badge.dot {

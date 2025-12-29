@@ -470,7 +470,7 @@
   color: #1a1a1a;
 }
 
-/* 钱包余额 - 紧凑型 */
+/* 钱包余额 - 紧凑型 (保留旧样式以备用) */
 .um-wallet {
   display: flex;
   align-items: center;
@@ -504,8 +504,59 @@
   text-align: center;
 }
 
+/* 钱包余额 - 竖向排列 */
+.um-wallet-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.um-wallet-item-vertical {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.um-wallet-item-vertical:hover {
+  background: rgba(16, 163, 127, 0.08);
+}
+
+.um-wallet-icon-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.um-wallet-label {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
+.um-wallet-value-vertical {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  min-width: 40px;
+  text-align: right;
+}
+
+.um-wallet-divider-horizontal {
+  height: 1px;
+  background: #e8e8e8;
+  margin: 0 12px;
+}
+
 /* 钱包加载状态 */
-.um-wallet.loading {
+.um-wallet.loading,
+.um-wallet-vertical.loading {
   opacity: 0.8;
 }
 
@@ -624,12 +675,31 @@
   background: rgba(255, 255, 255, 0.05);
 }
 
-/* 今日 - 礼物高亮 */
+/* 今日 - 礼物高亮（未签到） */
 .um-checkin-days .checkin-day.today:not(.checked) {
   background: linear-gradient(135deg, #ff9a56 0%, #ff6b6b 100%);
   color: white;
   font-weight: 700;
   box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4);
+  /* 当天特殊边框标识 */
+  border: 2px solid #ff6b6b;
+  animation: todayPulse 2s ease-in-out infinite;
+}
+
+/* 今日脉冲动画 */
+@keyframes todayPulse {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4);
+  }
+  50% {
+    box-shadow: 0 2px 12px rgba(255, 107, 107, 0.6), 0 0 0 3px rgba(255, 107, 107, 0.2);
+  }
+}
+
+/* 今日已签到 - 保持特殊标识 */
+.um-checkin-days .checkin-day.today.checked {
+  border: 2px solid #10a37f;
+  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.4);
 }
 
 /* 已签到 - 金色礼物 */
@@ -761,6 +831,14 @@
   border-color: rgba(251, 191, 36, 0.4);
 }
 
+/* 深色主题 - 今日特殊标识 */
+[data-theme="dark"] .um-checkin-days .checkin-day.today:not(.checked) {
+  border-color: #ff8a8a;
+}
+
+[data-theme="dark"] .um-checkin-days .checkin-day.today.checked {
+  border-color: #34d399;
+}
 
 
 /* 底部操作区域 */
@@ -851,6 +929,27 @@
 
 [data-theme="dark"] .um-wallet-value {
   color: #ffffff;
+}
+
+/* 深色主题 - 竖向钱包 */
+[data-theme="dark"] .um-wallet-vertical {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .um-wallet-item-vertical:hover {
+  background: rgba(16, 163, 127, 0.15);
+}
+
+[data-theme="dark"] .um-wallet-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .um-wallet-value-vertical {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .um-wallet-divider-horizontal {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 [data-theme="dark"] .um-wallet-skeleton {

@@ -348,19 +348,31 @@ const TopNavBar = ({
               </div>
             </div>
             
-            {/* 余额展示 - 紧凑型 */}
-            <div className={`um-wallet ${walletLoading ? 'loading' : ''}`}>
-              <div className="um-wallet-item">
-                <GoldIcon size="sm" />
-                <span className="um-wallet-value">
-                  {walletLoading ? <span className="um-wallet-skeleton"></span> : (wallet?.gold || 0).toLocaleString()}
+            {/* 余额展示 - 竖向排列 */}
+            <div className={`um-wallet-vertical ${walletLoading ? 'loading' : ''}`}>
+              <div 
+                className="um-wallet-item-vertical" 
+                onClick={(e) => { e.stopPropagation(); setShowUserMenu(false); navigate('/settings?tab=wallet&section=entcoin'); }}
+              >
+                <div className="um-wallet-icon-wrap">
+                  <EntcoinIcon size="md" />
+                  <span className="um-wallet-label">恩特币</span>
+                </div>
+                <span className="um-wallet-value-vertical">
+                  {walletLoading ? <span className="um-wallet-skeleton"></span> : (wallet?.diamond || 0).toLocaleString()}
                 </span>
               </div>
-              <div className="um-wallet-divider"></div>
-              <div className="um-wallet-item">
-                <EntcoinIcon size="sm" />
-                <span className="um-wallet-value">
-                  {walletLoading ? <span className="um-wallet-skeleton"></span> : (wallet?.diamond || 0).toLocaleString()}
+              <div className="um-wallet-divider-horizontal"></div>
+              <div 
+                className="um-wallet-item-vertical"
+                onClick={(e) => { e.stopPropagation(); setShowUserMenu(false); navigate('/settings?tab=wallet&section=gold'); }}
+              >
+                <div className="um-wallet-icon-wrap">
+                  <GoldIcon size="md" />
+                  <span className="um-wallet-label">经费</span>
+                </div>
+                <span className="um-wallet-value-vertical">
+                  {walletLoading ? <span className="um-wallet-skeleton"></span> : (wallet?.gold || 0).toLocaleString()}
                 </span>
               </div>
             </div>
