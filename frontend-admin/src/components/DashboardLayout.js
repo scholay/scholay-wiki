@@ -11,6 +11,7 @@ import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { showToast } from './Toast';
+import { LogoWithBackground } from './Logo';
 import './DashboardLayout.css';
 
 const DashboardLayout = () => {
@@ -96,11 +97,7 @@ const DashboardLayout = () => {
       <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-header">
           <div className="logo">
-            <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
-              <rect width="48" height="48" rx="12" fill="#2563eb"/>
-              <path d="M24 12L32 20H28V32H20V20H16L24 12Z" fill="white"/>
-              <rect x="16" y="34" width="16" height="2" fill="white"/>
-            </svg>
+            <LogoWithBackground size={32} />
           </div>
           <h2>Scholar</h2>
         </div>

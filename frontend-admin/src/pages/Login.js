@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { adminAPI } from '../services/api';
 import SliderCaptcha from '../components/SliderCaptcha';
+import { LogoWithBackground } from '../components/Logo';
 import './Login.css';
 
 const Login = () => {
@@ -85,11 +86,7 @@ const Login = () => {
       <div className="login-card fade-in">
         <div className="login-header">
           <div className="logo">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-              <rect width="48" height="48" rx="12" fill="#2563eb"/>
-              <path d="M24 12L32 20H28V32H20V20H16L24 12Z" fill="white"/>
-              <rect x="16" y="34" width="16" height="2" fill="white"/>
-            </svg>
+            <LogoWithBackground size={48} />
           </div>
           <h1>Scholar Admin</h1>
           <p>Sign in to your account</p>

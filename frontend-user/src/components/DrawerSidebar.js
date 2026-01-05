@@ -15,6 +15,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { NormalSearchIcon } from './SearchIcons';
+import Logo from './Logo';
 import { X } from 'lucide-react';
 import './styles/DrawerSidebar.css';
 
@@ -202,7 +203,7 @@ const DrawerSidebar = ({
         {/* 顶部区域 */}
         <div className="drawer-header">
           <div className="drawer-logo" onClick={() => handleNavClick('/')}>
-            <img src="/logo.png" alt="Scholay" />
+            <Logo size={24} />
             <span>Scholay</span>
           </div>
           <button

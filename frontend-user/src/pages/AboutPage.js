@@ -10,6 +10,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Sparkles, Shield, Globe, Mail } from 'lucide-react';
+import Logo from '../components/Logo';
 import './styles/AboutPage.css';
 
 const AboutPage = () => {
@@ -27,7 +28,7 @@ const AboutPage = () => {
 
         <div className="about-hero">
           <div className="about-logo">
-            <img src="/logo.png" alt="Scholay" />
+            <Logo size={64} />
           </div>
           <h1>Scholay</h1>
           <p className="about-tagline">AI驱动的学术搜索平台</p>

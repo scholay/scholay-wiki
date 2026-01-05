@@ -233,6 +233,38 @@
   margin-bottom: 2rem;
 }
 
+/* 品牌展示区域 - 文字居中，Logo在文字左侧 */
+.welcome-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.welcome-brand-logo {
+  height: 80px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.welcome-brand-text {
+  height: 80px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+/* 右侧空白占位，与Logo等宽，使文字视觉居中 */
+.welcome-brand-spacer {
+  height: 80px;
+  width: 70px; /* 与Logo宽度相同 (80px高度对应约70px宽度，按769:883比例) */
+  flex-shrink: 0;
+}
+
+/* 夜间模式下文字SVG需要反色 - 黑色文字变白色 */
+[data-theme="dark"] .welcome-brand-text {
+  filter: brightness(0) invert(1);
+}
+
 /* Footer Links - 右下角固定 */
 .home-footer-fixed {
   position: fixed;

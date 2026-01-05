@@ -300,9 +300,12 @@ const Home = () => {
         <div className="search-content">
           <div className="home-chat-container">
             <div className="welcome-screen">
-              <h1 className="welcome-title">
-                {sloganText}
-              </h1>
+              <div className="welcome-brand">
+                <img src="/brand-logo.svg" alt="Scholay Logo" className="welcome-brand-logo" />
+                <img src="/brand-text.svg" alt="Scholay" className="welcome-brand-text" />
+                {/* 右侧空白占位，与Logo等宽，使文字视觉居中 */}
+                <div className="welcome-brand-spacer" aria-hidden="true"></div>
+              </div>
             </div>
 
             <form onSubmit={handleSearch} className="home-composer-wrapper" ref={composerRef}>

@@ -11,6 +11,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api, { orderAPI, paymentAPI } from '../services/api';
 import { useToast } from '../components/ToastContainer';
+import Logo from '../components/Logo';
 import logger from '../utils/logger';
 import './OrderConfirmation.css';
 
@@ -498,15 +499,7 @@ const OrderConfirmation = () => {
             width: 'fit-content'
           }}
         >
-          <img
-            src="/logo.png"
-            alt="Scholay"
-            style={{
-              width: '18px',
-              height: '18px',
-              objectFit: 'contain'
-            }}
-          />
+          <Logo size={18} />
           <span style={{
             fontSize: '16px',
             fontWeight: '600',

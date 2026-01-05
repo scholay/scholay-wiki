@@ -13,6 +13,7 @@ import api from '../services/api';
 import { useToast } from '../components/ToastContainer';
 import { useOrderModal } from '../contexts/OrderModalContext';
 import AuthModal from '../components/AuthModal';
+import Logo from '../components/Logo';
 import logger from '../utils/logger';
 import './Pricing.css';
 
@@ -468,7 +469,7 @@ const Pricing = () => {
     <div className="pricing-page">
       <div className="pricing-nav">
         <div className="nav-logo" onClick={() => navigate('/')}>
-          <img src="/logo.png" alt="Scholay" />
+          <Logo size={24} />
           <span>Scholay</span>
         </div>
         <div className="nav-actions">

@@ -110,6 +110,24 @@
   .welcome-screen {
     margin-bottom: 1rem;
   }
+
+  /* 移动端品牌展示 */
+  .welcome-brand {
+    gap: 10px;
+  }
+
+  .welcome-brand-logo {
+    height: 56px;
+  }
+
+  .welcome-brand-text {
+    height: 56px;
+  }
+
+  .welcome-brand-spacer {
+    height: 56px;
+    width: 49px; /* 按比例缩放 */
+  }
   
   .home-chat-container {
     padding-top: 0;
@@ -424,6 +442,23 @@
 @media (max-width: 375px) {
   .welcome-title {
     font-size: 1.25rem;
+  }
+
+  .welcome-brand {
+    gap: 8px;
+  }
+
+  .welcome-brand-logo {
+    height: 44px;
+  }
+
+  .welcome-brand-text {
+    height: 44px;
+  }
+
+  .welcome-brand-spacer {
+    height: 44px;
+    width: 38px; /* 按比例缩放 */
   }
 
   .home .home-composer-wrapper,

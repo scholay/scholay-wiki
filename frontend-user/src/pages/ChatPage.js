@@ -20,6 +20,7 @@ import { trackAIChat, EntryPoint } from '../utils/usageTracker';
 import logger from '../utils/logger';
 import wsClient from '../services/websocket';
 import InsufficientBalanceModal from '../components/InsufficientBalanceModal';
+import Logo from '../components/Logo';
 import './ChatPageNew.css';
 import 'highlight.js/styles/github-dark.css';
 
@@ -1323,7 +1324,7 @@ function ChatPage() {
                             // Assistant message - Full width with avatar
                             <>
                               <div className="message-avatar">
-                                <img src="/logo.png" alt="AI Assistant" className="assistant-logo" />
+                                <Logo size={24} className="assistant-logo" />
                               </div>
 
                               <div className="message-body">
@@ -1397,7 +1398,7 @@ function ChatPage() {
                       <div className="message-wrapper">
                         <div className="message-content-container">
                           <div className="message-avatar">
-                            <img src="/logo.png" alt="AI Assistant" className="assistant-logo" />
+                            <Logo size={24} className="assistant-logo" />
                           </div>
                           <div className="message-body">
                             <div className="thinking-indicator">
@@ -1417,7 +1418,7 @@ function ChatPage() {
                       <div className="message-wrapper">
                         <div className="message-content-container">
                           <div className="message-avatar">
-                            <img src="/logo.png" alt="AI Assistant" className="assistant-logo" />
+                            <Logo size={24} className="assistant-logo" />
                           </div>
                           <div className="message-body">
                             <div className="message-content streaming">

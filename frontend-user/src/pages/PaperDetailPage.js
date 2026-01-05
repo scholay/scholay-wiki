@@ -12,6 +12,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api, { publicScholarAPI } from '../services/api';
 import SEO from '../components/SEO';
 import FloatingGuide from '../components/FloatingGuide';
+import Logo from '../components/Logo';
 import { generateScholarlyArticleSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
 import { trackPaperDetail } from '../utils/usageTracker';
 import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation } from '../utils/searchStorage';
@@ -462,7 +463,7 @@ const PaperDetailPage = () => {
         {/* Logo */}
         <div className="pd-header-left">
           <div className="pd-header-logo" onClick={handleLogoClick}>
-            <img src="/logo.png" alt="Scholay" className="pd-logo-image" />
+            <Logo size={20} className="pd-logo-image" />
             <span className="pd-logo-text">Scholay</span>
           </div>
           <div 
