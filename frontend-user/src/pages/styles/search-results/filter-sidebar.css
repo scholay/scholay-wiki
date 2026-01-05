@@ -30,7 +30,8 @@
 
 /* 筛选分组 */
 .filter-group {
-  margin-bottom: 20px;
+  margin-bottom: 0;
+  padding: 8px 16px;
 }
 
 /* 分组标题 */
@@ -95,7 +96,7 @@
 .filter-divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.08);
-  margin: 16px 0;
+  margin: 8px 0;
 }
 
 [data-theme="light"] .filter-divider {
