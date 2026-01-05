@@ -99,6 +99,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
   const [totalDeducted, setTotalDeducted] = useState(0); // 累计扣费金额
   const [showBalanceModal, setShowBalanceModal] = useState(false); // 是否显示余额不足弹窗
   const [balanceError, setBalanceError] = useState(null); // 余额不足的详细信息
+  const [balanceErrorFeature, setBalanceErrorFeature] = useState('智能检索'); // 触发经费不足的功能名称
   const analysisAbortedRef = useRef(false); // 是否已中止分析
 
   const eventSourceRef = useRef(null);
@@ -569,6 +570,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
           ...error.response.data.data,
           alreadyDeducted: totalDeducted
         });
+        setBalanceErrorFeature('智能矩阵分析');
         setShowBalanceModal(true);
         return { success: false, aborted: true, deducted: 0 };
       }
@@ -1177,6 +1179,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
             shortage: checkResult.data.data.shortage || 0,
             alreadyDeducted: 0
           });
+          setBalanceErrorFeature('智能检索');
           setShowBalanceModal(true);
           return;
         }
@@ -1347,6 +1350,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
               shortage: data.data?.shortage || 0,
               alreadyDeducted: 0
             });
+            setBalanceErrorFeature('智能检索');
             setShowBalanceModal(true);
             return;
           }
@@ -1370,6 +1374,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
               shortage: 0,
               alreadyDeducted: 0
             });
+            setBalanceErrorFeature('智能检索');
             setShowBalanceModal(true);
             return;
           }
@@ -2221,7 +2226,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
           // 重置中止标记，允许用户充值后继续
           analysisAbortedRef.current = false;
         }}
-        featureName="智能检索"
+        featureName={balanceErrorFeature}
         required={balanceError?.required || 0}
         shortage={balanceError?.shortage || 0}
       />
