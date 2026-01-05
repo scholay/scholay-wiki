@@ -1624,11 +1624,7 @@ a.meta-item.pdf-link:hover {
 .unified-header-dims {
   display: flex;
   flex-shrink: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08); /* 分析维度列头下边框 */
-}
-
-[data-theme="light"] .unified-header-dims {
-  border-bottom-color: rgba(0, 0, 0, 0.08);
+  align-items: stretch;
 }
 
 /* 表头 - 每个维度列 */
@@ -1636,23 +1632,40 @@ a.meta-item.pdf-link:hover {
   flex: 0 0 180px;
   width: 180px;
   min-width: 180px;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #10a37f;
+  padding: 10px 16px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 8px;
   box-sizing: border-box;
-  border-right: 1px solid rgba(255, 255, 255, 0.06); /* 改为右边框 */
+  background: linear-gradient(180deg, rgba(16, 163, 127, 0.08) 0%, rgba(16, 163, 127, 0.03) 100%);
+  border-bottom: 2px solid rgba(16, 163, 127, 0.3);
+  position: relative;
+}
+
+.unified-header-dim::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 20%;
+  height: 60%;
+  width: 1px;
+  background: rgba(16, 163, 127, 0.15);
+}
+
+.unified-header-dim:last-child::after {
+  display: none;
 }
 
 .unified-header-dim .dim-header-name {
-  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: #10a37f;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 130px;
+  letter-spacing: 0.3px;
 }
 
 .unified-header-dim .dim-header-remove-btn {
@@ -1660,13 +1673,13 @@ a.meta-item.pdf-link:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   padding: 0;
   background: transparent;
   border: none;
   border-radius: 4px;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(16, 163, 127, 0.4);
   cursor: pointer;
   opacity: 0;
   transition: all 0.2s ease;
@@ -1682,12 +1695,20 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .unified-header-dim {
+  background: linear-gradient(180deg, rgba(16, 163, 127, 0.06) 0%, rgba(16, 163, 127, 0.02) 100%);
+  border-bottom-color: rgba(16, 163, 127, 0.25);
+}
+
+[data-theme="light"] .unified-header-dim::after {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+[data-theme="light"] .unified-header-dim .dim-header-name {
   color: #059669;
-  border-right-color: rgba(0, 0, 0, 0.06);
 }
 
 [data-theme="light"] .unified-header-dim .dim-header-remove-btn {
-  color: rgba(0, 0, 0, 0.3);
+  color: rgba(5, 150, 105, 0.4);
 }
 
 [data-theme="light"] .unified-header-dim .dim-header-remove-btn:hover {
@@ -1743,11 +1764,11 @@ a.meta-item.pdf-link:hover {
 
 /* 有分析时，论文列右边加竖线 */
 .unified-results-table.has-analysis .unified-cell-paper {
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 2px solid rgba(16, 163, 127, 0.15);
 }
 
 [data-theme="light"] .unified-results-table.has-analysis .unified-cell-paper {
-  border-right-color: rgba(0, 0, 0, 0.1);
+  border-right-color: rgba(16, 163, 127, 0.12);
 }
 
 /* 没有分析时，论文列保持40vw宽度，不需要 sticky */
@@ -1763,11 +1784,11 @@ a.meta-item.pdf-link:hover {
 .unified-cell-analysis {
   display: flex;
   flex-shrink: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06); /* 分析列之间的横线 */
+  border-bottom: 1px solid rgba(16, 163, 127, 0.08);
 }
 
 [data-theme="light"] .unified-cell-analysis {
-  border-bottom-color: rgba(0, 0, 0, 0.06);
+  border-bottom-color: rgba(16, 163, 127, 0.06);
 }
 
 /* 每个分析维度单元格 */
@@ -1775,14 +1796,35 @@ a.meta-item.pdf-link:hover {
   flex: 0 0 180px;
   width: 180px;
   min-width: 180px;
-  padding: 16px;
+  padding: 14px 16px;
   font-size: 13px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.8);
   display: flex;
   align-items: flex-start;
-  border-right: 1px solid rgba(255, 255, 255, 0.06); /* 改为右边框 */
   box-sizing: border-box;
+  position: relative;
+  background: rgba(16, 163, 127, 0.02);
+}
+
+.unified-analysis-cell::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 10%;
+  height: 80%;
+  width: 1px;
+  background: rgba(16, 163, 127, 0.1);
+}
+
+.unified-analysis-cell:last-child::after {
+  display: none;
+}
+
+/* 分析中状态 */
+.unified-analysis-cell .analysis-loading {
+  color: rgba(16, 163, 127, 0.6);
+  font-style: italic;
 }
 
 /* 日间模式 - 统一表格 */
@@ -1810,8 +1852,16 @@ a.meta-item.pdf-link:hover {
 }
 
 [data-theme="light"] .unified-analysis-cell {
-  color: rgba(0, 0, 0, 0.7);
-  border-right-color: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.75);
+  background: rgba(16, 163, 127, 0.015);
+}
+
+[data-theme="light"] .unified-analysis-cell::after {
+  background: rgba(16, 163, 127, 0.08);
+}
+
+[data-theme="light"] .unified-analysis-cell .analysis-loading {
+  color: rgba(16, 163, 127, 0.5);
 }
 
 /* ========== 右侧悬浮面板 - AI 分析维度入口 ========== */
