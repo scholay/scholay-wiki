@@ -16,8 +16,22 @@ import ReactDOM from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { NormalSearchIcon } from './SearchIcons';
 import Logo from './Logo';
+import { useTheme } from '../contexts/ThemeContext';
 import { X } from 'lucide-react';
 import './styles/DrawerSidebar.css';
+
+// 抽屉侧边栏专用 Logo 组件 - 黑白切换
+const DrawerLogo = ({ onClick }) => {
+  const { isDark } = useTheme();
+  const textSrc = isDark ? '/brand-text-white.svg' : '/brand-text-black.svg';
+  
+  return (
+    <div className="drawer-logo" onClick={onClick}>
+      <Logo size={22} />
+      <img src={textSrc} alt="Scholay" className="drawer-brand-text" />
+    </div>
+  );
+};
 
 const DrawerSidebar = ({
   isOpen,
@@ -202,10 +216,7 @@ const DrawerSidebar = ({
       >
         {/* 顶部区域 */}
         <div className="drawer-header">
-          <div className="drawer-logo" onClick={() => handleNavClick('/')}>
-            <Logo size={24} />
-            <span>Scholay</span>
-          </div>
+          <DrawerLogo onClick={() => handleNavClick('/')} />
           <button
             className="drawer-close-btn"
             onClick={onClose}

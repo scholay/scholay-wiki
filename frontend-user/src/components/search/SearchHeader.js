@@ -128,7 +128,7 @@ const SearchHeader = memo(({
     <div className="results-search-header">
       {/* 左侧 Logo */}
       <div className="results-logo" onClick={() => navigate('/')}>
-        <span className="results-logo-text">Scholay</span>
+        <img src="/brand-text.svg" alt="Scholay" className="results-brand-text" />
       </div>
       
       {/* 搜索区域 */}

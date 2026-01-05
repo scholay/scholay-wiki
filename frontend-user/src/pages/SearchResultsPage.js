@@ -30,6 +30,7 @@ import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } f
 import { trackAcademicSearch, EntryPoint } from '../utils/usageTracker';
 import { getSearchQuery, setSearchQuery as saveSearchQuery, getSearchFilters, setSearchFilters as saveSearchFilters, setSearchMode as saveSearchMode, getAIModelLevel, setAIConversationId } from '../utils/searchStorage';
 import logger from '../utils/logger';
+import { AdvancedSearchIcon } from '../components/SearchIcons';
 import './styles/search-results/index.css';
 
 // 懒加载 AuthModal 和 AISearchView
@@ -1696,7 +1697,7 @@ const SearchResultsPage = () => {
             <div className="results-search-header">
               {/* 左侧 Logo 文案 */}
               <div className="results-logo" onClick={() => navigate('/')}>
-                <span className="results-logo-text">Scholay</span>
+                <img src="/brand-text.svg" alt="Scholay" className="results-brand-text" />
               </div>
               
               {/* 右侧搜索区域 */}
@@ -1784,7 +1785,7 @@ const SearchResultsPage = () => {
                       disabled={isTransitioningToAI}
                     />
 
-                    <button type="submit" className="btn-send" disabled={!searchQuery.trim() || loading || isTransitioningToAI}>
+                    <button type="submit" className="btn-send" disabled={!searchQuery.trim() || loading || isTransitioningToAI} title="直接检索">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M5 12h14M12 5l7 7-7 7"/>
                       </svg>
@@ -1796,15 +1797,12 @@ const SearchResultsPage = () => {
                         <div className="search-box-divider"></div>
                         <button 
                           type="button"
-                          className="switch-to-ai-btn"
+                          className="switch-to-ai-btn icon-only"
                           onClick={handleSwitchToAI}
                           disabled={isTransitioningToAI}
-                          title="使用当前搜索词进行智能分析"
+                          title="智能检索"
                         >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                          </svg>
-                          <span>智能分析</span>
+                          <AdvancedSearchIcon size={18} />
                         </button>
                       </div>
                     )}

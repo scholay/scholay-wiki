@@ -25,9 +25,9 @@
 /* ========== 搜索头部 - 类似 Google 布局 ========== */
 .results-search-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 16px;
-  padding: 16px 24px;
+  padding: 8px 24px;
   flex-shrink: 0;
 }
 
@@ -35,11 +35,10 @@
 .results-logo {
   display: flex;
   align-items: center;
-  justify-content: center; /* 水平居中 */
+  justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
   width: 160px; /* 与筛选侧边栏宽度一致 */
-  padding-top: 8px;
   transition: opacity 0.2s ease;
 }
 
@@ -53,6 +52,20 @@
   background: linear-gradient(135deg, var(--text-accent) 0%, #1ed79f 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+/* 搜索结果页品牌 Logo */
+.results-brand-logo {
+  height: 28px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+/* 搜索结果页品牌文字 */
+.results-brand-text {
+  height: 28px;
+  width: auto;
+  flex-shrink: 0;
   background-clip: text;
   letter-spacing: -0.5px;
 }
@@ -63,6 +76,7 @@
   max-width: 720px;
   padding: 0;
   margin-bottom: 0;
+  align-self: center;
 }
 
 /* 搜索框右侧 AI 分析按钮区域 */
@@ -135,6 +149,14 @@
 
   .results-logo-text {
     font-size: 20px;
+  }
+
+  .results-brand-logo {
+    height: 24px;
+  }
+
+  .results-brand-text {
+    height: 24px;
   }
 
   .results-search-header .search-results-centered-area {

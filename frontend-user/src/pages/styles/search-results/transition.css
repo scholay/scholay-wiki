@@ -56,6 +56,7 @@
 .switch-to-ai-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 8px 14px;
   border: none;
@@ -67,6 +68,15 @@
   white-space: nowrap;
   position: relative;
   overflow: hidden;
+}
+
+/* 纯图标模式 */
+.switch-to-ai-btn.icon-only {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 12px;
+  margin-top: 6px;
 }
 
 /* 暗色主题 */

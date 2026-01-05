@@ -1710,7 +1710,7 @@ const AISearchView = ({ initialQuery = '', initialModelLevel = 'low', onSwitchTo
         <div className="results-search-header ai-results-header">
           {/* 左侧 Logo - 垂直居中 */}
           <div className="results-logo" onClick={() => navigate('/')}>
-            <span className="results-logo-text">Scholay</span>
+            <img src="/brand-text.svg" alt="Scholay" className="results-brand-text" />
           </div>
           
           {/* 标题区域 - 紧邻Logo，垂直居中 */}
