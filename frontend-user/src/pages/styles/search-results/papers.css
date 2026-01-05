@@ -1821,44 +1821,62 @@ a.meta-item.pdf-link:hover {
   right: 0;
   transform: translateY(-50%);
   z-index: 50;
-}
-
-/* 收起状态下，只有 collapsed-tab 可以接收鼠标事件 */
-.dimension-float-panel.collapsed {
-  pointer-events: none;
-}
-
-.dimension-float-panel.collapsed .dimension-float-collapsed-tab {
   pointer-events: auto;
+  /* 透明容器，用于接收鼠标事件 */
+  background: transparent;
+  padding-right: 20px; /* 透明的右侧热区，防止闪烁 */
 }
 
-/* 展开状态下，整个面板可以接收鼠标事件 */
-.dimension-float-panel:not(.collapsed),
-.dimension-float-panel.collapsed.expanded {
-  pointer-events: auto;
-}
-
-/* 收起状态的侧边标签 */
-.dimension-float-collapsed-tab {
+/* 面板内部实际可见区域 */
+.dimension-float-panel::before {
+  content: '';
   position: absolute;
+  top: 0;
+  left: 0;
+  right: 20px;
+  bottom: 0;
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  z-index: -1;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 收起状态 - 面板变窄变成侧边标签 */
+.dimension-float-panel.collapsed {
+  padding-right: 0;
+}
+
+.dimension-float-panel.collapsed::before {
   right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  border-radius: 8px 0 0 8px;
+  background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+  border: none;
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.2);
+}
+
+.dimension-float-panel.collapsed:hover::before {
+  background: linear-gradient(135deg, #12b88c 0%, #10a37f 100%);
+  box-shadow: -4px 0 20px rgba(16, 163, 127, 0.3);
+}
+
+/* 收起状态的侧边标签 - 默认隐藏 */
+.dimension-float-collapsed-tab {
+  display: none;
   writing-mode: vertical-rl !important;
   text-orientation: mixed !important;
   padding: 20px 10px;
-  background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
   color: white;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 2px;
-  border-radius: 8px 0 0 8px;
-  cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-  transition: all 0.3s ease;
-  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.2);
   white-space: nowrap;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
 }
 
 .dimension-float-collapsed-tab span {
@@ -1866,45 +1884,31 @@ a.meta-item.pdf-link:hover {
   text-orientation: mixed !important;
 }
 
-.dimension-float-collapsed-tab:hover {
-  padding: 20px 12px;
-  background: linear-gradient(135deg, #12b88c 0%, #10a37f 100%);
-  box-shadow: -4px 0 20px rgba(16, 163, 127, 0.3);
+/* 收起状态下显示侧边标签 */
+.dimension-float-panel.collapsed .dimension-float-collapsed-tab {
+  display: flex;
 }
 
 /* 展开状态的完整内容 */
 .dimension-float-content {
-  width: 300px;
-  max-height: 70vh;
-  padding: 20px;
-  margin-right: 24px;
-  background: rgba(30, 30, 30, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: floatPanelFadeIn 0.3s ease;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-}
-
-@keyframes floatPanelFadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* 收起状态 - 当有选中维度时 */
-.dimension-float-panel.collapsed .dimension-float-collapsed-tab {
   opacity: 1;
-  pointer-events: auto;
+  transition: opacity 0.15s ease;
+  overflow-y: auto;
+  max-height: calc(70vh - 32px);
+  width: max-content;
+  min-width: 180px;
+  max-width: 260px;
+  position: relative;
+  z-index: 1;
+}
+
+/* 收起状态下隐藏内容 */
+.dimension-float-panel.collapsed .dimension-float-content {
+  display: none;
+  opacity: 0;
 }
 
 /* 当智能矩阵分析面板收起时，给表格容器右侧留出空间避免被按钮遮挡 */
@@ -1912,35 +1916,26 @@ a.meta-item.pdf-link:hover {
   padding-right: 50px;
 }
 
-.dimension-float-panel.collapsed .dimension-float-content {
-  opacity: 0;
-  transform: translateX(100%);
-  pointer-events: none !important;
-  visibility: hidden;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-  padding: 0;
-  margin: 0;
+/* 收起状态 + hover 展开 */
+.dimension-float-panel.collapsed.expanded {
+  padding-right: 20px;
 }
 
-/* 收起状态 + JS 控制展开 */
+.dimension-float-panel.collapsed.expanded::before {
+  right: 20px;
+  border-radius: 16px;
+  background: rgba(30, 30, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
 .dimension-float-panel.collapsed.expanded .dimension-float-collapsed-tab {
-  opacity: 0;
-  pointer-events: none;
+  display: none;
 }
 
 .dimension-float-panel.collapsed.expanded .dimension-float-content {
+  display: flex;
   opacity: 1;
-  transform: translateX(0);
-  pointer-events: auto !important;
-  visibility: visible;
-  width: 300px;
-  height: auto;
-  max-height: 70vh;
-  overflow: visible;
-  padding: 20px;
-  margin-right: 24px;
 }
 
 .dimension-float-header {
@@ -2118,12 +2113,18 @@ a.meta-item.pdf-link:hover {
 }
 
 /* 日间模式 - 悬浮面板 */
-[data-theme="light"] .dimension-float-collapsed-tab {
-  background: rgba(16, 163, 127, 0.95);
+[data-theme="light"] .dimension-float-panel::before {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .dimension-float-panel.collapsed::before {
+  background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
   box-shadow: -2px 0 12px rgba(0, 0, 0, 0.1);
 }
 
-[data-theme="light"] .dimension-float-content {
+[data-theme="light"] .dimension-float-panel.collapsed.expanded::before {
   background: rgba(255, 255, 255, 0.95);
   border-color: rgba(0, 0, 0, 0.1);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
