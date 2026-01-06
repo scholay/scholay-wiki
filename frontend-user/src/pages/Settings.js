@@ -2160,12 +2160,7 @@ const Settings = () => {
           {/* Left Sidebar */}
           <div className="settings-sidebar">
             <div className="settings-title-row">
-              <button className="settings-back-btn" onClick={() => navigate(-1)} title="返回">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M19 12H5M12 19l-7-7 7-7"/>
-                </svg>
-              </button>
-            <h1 className="settings-title">设置</h1>
+              <h1 className="settings-title">设置</h1>
             </div>
 
             <div className="settings-menu">

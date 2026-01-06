@@ -430,6 +430,7 @@
   min-width: 0;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
 
@@ -440,6 +441,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .um-plan-badge {
@@ -453,6 +456,16 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.um-plan-badge.clickable {
+  cursor: pointer;
+}
+
+.um-plan-badge.clickable:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .um-plan-badge.free {
@@ -505,6 +518,59 @@
 }
 
 /* 钱包余额 - 竖向排列 */
+/* 钱包区域 - 新设计 */
+.um-wallet-section {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.um-wallet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 4px;
+}
+
+.um-wallet-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.um-wallet-label {
+  font-size: 13px;
+  color: #666;
+  min-width: 45px;
+}
+
+.um-wallet-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.um-wallet-action-btn {
+  padding: 5px 14px;
+  background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.um-wallet-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.3);
+}
+
+/* 旧样式保留兼容 */
 .um-wallet-vertical {
   display: flex;
   flex-direction: column;
@@ -534,7 +600,7 @@
   gap: 8px;
 }
 
-.um-wallet-label {
+.um-wallet-label-old {
   font-size: 12px;
   color: #666;
   font-weight: 500;
@@ -558,6 +624,24 @@
 .um-wallet.loading,
 .um-wallet-vertical.loading {
   opacity: 0.8;
+}
+
+/* 查看明细链接 */
+.um-wallet-detail-link {
+  display: inline-block;
+  align-self: flex-end;
+  padding: 0;
+  margin-top: 2px;
+  background: none;
+  border: none;
+  color: rgba(0, 0, 0, 0.4);
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.um-wallet-detail-link:hover {
+  color: #10a37f;
 }
 
 .um-wallet-skeleton {
@@ -955,6 +1039,26 @@
 [data-theme="dark"] .um-wallet-skeleton {
   background: linear-gradient(90deg, #3a3a3a 25%, #4a4a4a 50%, #3a3a3a 75%);
   background-size: 200% 100%;
+}
+
+[data-theme="dark"] .um-wallet-detail-link {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .um-wallet-detail-link:hover {
+  color: #10a37f;
+}
+
+[data-theme="dark"] .um-wallet-section {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .um-wallet-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .um-wallet-value {
+  color: #fff;
 }
 
 [data-theme="dark"] .um-checkin-section:hover {

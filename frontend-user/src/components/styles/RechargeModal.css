@@ -1,16 +1,13 @@
 /**
- * RechargeModal 充值弹窗样式（紧凑版）
+ * RechargeModal 充值弹窗样式 - 左右布局版
  */
 
 /* 遮罩层 */
 .rcm-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -23,23 +20,23 @@
   to { opacity: 1; }
 }
 
-/* 弹窗主体 - 紧凑版 */
+/* 弹窗主体 */
 .rcm-modal.rcm-compact {
-  background: linear-gradient(135deg, rgba(40, 40, 40, 0.98) 0%, rgba(28, 28, 28, 0.99) 100%);
+  background: #1c1c1e;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  width: 360px;
-  max-width: 90vw;
-  max-height: 85vh;
+  border-radius: 16px;
+  width: 580px;
+  max-width: 95vw;
+  max-height: 90vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  animation: rcmSlideUp 0.2s ease;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  animation: rcmSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
 }
 
 @keyframes rcmSlideUp {
-  from { opacity: 0; transform: translateY(20px) scale(0.96); }
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
@@ -48,8 +45,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .rcm-header h3 {
@@ -57,10 +54,13 @@
   font-size: 15px;
   font-weight: 600;
   color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .rcm-close {
-  background: none;
+  background: transparent;
   border: none;
   padding: 6px;
   cursor: pointer;
@@ -70,215 +70,293 @@
 }
 
 .rcm-close:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
 
 .rcm-close:disabled {
-  opacity: 0.4;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
 /* 内容区域 */
 .rcm-body {
-  padding: 14px 16px 16px;
+  padding: 0;
   overflow-y: auto;
   flex: 1;
 }
 
-/* 金额选择网格 - 更紧凑 */
+/* 左右布局 */
+.rcm-layout {
+  display: flex;
+  min-height: 340px;
+}
+
+.rcm-left {
+  flex: 1;
+  padding: 20px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rcm-right {
+  width: 220px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 区域标签 */
+.rcm-section-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 金额选择网格 */
 .rcm-options {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 14px;
 }
 
 .rcm-option {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  padding: 10px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 18px 10px 14px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
   text-align: center;
   position: relative;
 }
 
 .rcm-option:hover {
-  border-color: rgba(16, 163, 127, 0.4);
-  background: rgba(16, 163, 127, 0.05);
+  border-color: rgba(16, 163, 127, 0.5);
+  background: rgba(16, 163, 127, 0.08);
 }
 
 .rcm-option.selected {
   border-color: #10a37f;
   background: rgba(16, 163, 127, 0.12);
+  box-shadow: 0 0 0 1px rgba(16, 163, 127, 0.3);
 }
 
-.rcm-option-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
+/* 推荐标签 */
+.rcm-option-tag {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  background: #10a37f;
+  border-radius: 0 12px 0 8px;
+}
+
+/* 金额数字 */
+.rcm-option-amount {
+  font-size: 26px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.5px;
   margin-bottom: 4px;
 }
 
-.rcm-option-amount {
-  font-size: 16px;
-  font-weight: 700;
-  color: #fff;
-}
-
-.rcm-option-bonus {
-  font-size: 10px;
-  color: #f59e0b;
-  font-weight: 600;
-  background: rgba(245, 158, 11, 0.15);
-  padding: 1px 4px;
-  border-radius: 4px;
-}
-
+/* 价格 */
 .rcm-option-price {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-/* 自定义金额 - 内联紧凑 */
-.rcm-custom {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.rcm-custom-label {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
-  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 500;
 }
 
-.rcm-custom-input {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 8px 12px;
+/* 赠送 */
+.rcm-option-bonus {
+  margin-top: 8px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: #fbbf24;
+  font-weight: 600;
+  background: rgba(251, 191, 36, 0.12);
+  border-radius: 10px;
+  display: inline-block;
 }
 
-.rcm-custom-input input {
-  flex: 1;
+/* 自定义金额输入 */
+.rcm-custom {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  transition: all 0.15s;
+  overflow: hidden;
+}
+
+.rcm-custom:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.rcm-custom.active {
+  border-color: #10a37f;
+  background: rgba(16, 163, 127, 0.08);
+}
+
+.rcm-custom input {
+  width: 100%;
+  padding: 14px 16px;
   background: transparent;
   border: none;
   outline: none;
   color: #fff;
   font-size: 14px;
-  min-width: 0;
+  font-weight: 500;
 }
 
-.rcm-custom-input input::placeholder {
-  color: rgba(255, 255, 255, 0.3);
+.rcm-custom input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 400;
 }
 
-/* 分隔线 */
-.rcm-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.06);
-  margin: 12px 0;
+.rcm-custom input::-webkit-outer-spin-button,
+.rcm-custom input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
-/* 订单摘要 */
-.rcm-summary {
-  margin-bottom: 12px;
-  transition: opacity 0.2s;
+/* 订单卡片 */
+.rcm-order-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 16px;
 }
 
-.rcm-summary.disabled {
-  opacity: 0.4;
-  pointer-events: none;
-}
-
-.rcm-summary-row {
+.rcm-order-item {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: 6px 0;
   font-size: 13px;
   color: rgba(255, 255, 255, 0.6);
 }
 
-.rcm-summary-row.bonus {
-  color: #f59e0b;
+.rcm-order-item span:last-child {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
 }
 
-.rcm-summary-row.total {
-  padding-top: 8px;
-  margin-top: 4px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+.rcm-order-item.bonus span:last-child {
+  color: #fbbf24;
 }
 
-.rcm-price {
-  font-size: 16px;
+.rcm-order-item.total {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rcm-order-item.total span:last-child {
+  color: #10a37f;
+  font-weight: 600;
+}
+
+.rcm-order-price {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.rcm-price-value {
+  font-size: 22px;
   font-weight: 700;
   color: #10a37f;
 }
 
-/* 支付方式 */
-.rcm-payment {
+/* 支付方式选项 */
+.rcm-pay-options {
   display: flex;
   gap: 8px;
-  margin-bottom: 14px;
-  transition: opacity 0.2s;
+  margin-bottom: 16px;
 }
 
-.rcm-payment.disabled {
-  opacity: 0.4;
-  pointer-events: none;
-}
-
-.rcm-pay-item {
+.rcm-pay-option {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   padding: 10px;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
-.rcm-pay-item:hover {
-  border-color: rgba(255, 255, 255, 0.15);
+.rcm-pay-option:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
-.rcm-pay-item.selected {
+.rcm-pay-option.selected {
   border-color: #10a37f;
-  background: rgba(16, 163, 127, 0.08);
+  background: rgba(16, 163, 127, 0.1);
 }
 
-.rcm-pay-item img {
+.rcm-pay-option input {
+  display: none;
+}
+
+.rcm-pay-option img {
   width: 20px;
   height: 20px;
   border-radius: 4px;
 }
 
-.rcm-pay-item span {
+.rcm-pay-option span {
   color: #fff;
-  font-size: 13px;
-}
-
-.rcm-check {
-  color: #10a37f;
-  font-weight: 600;
   font-size: 12px;
+  font-weight: 500;
 }
 
 .rcm-dev-icon {
   font-size: 16px;
+}
+
+/* 提交按钮 */
+.rcm-submit-btn {
+  width: 100%;
+  padding: 14px;
+  margin-top: auto;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, #10a37f 0%, #059669 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.15s;
+}
+
+.rcm-submit-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.rcm-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* 轮询状态 */
@@ -286,20 +364,25 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 10px;
+  gap: 10px;
+  padding: 14px 20px;
   background: rgba(16, 163, 127, 0.1);
-  border-radius: 8px;
-  margin-bottom: 12px;
+  border-top: 1px solid rgba(16, 163, 127, 0.2);
 }
 
-.rcm-spinner {
+.rcm-spinner,
+.rcm-btn-spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(16, 163, 127, 0.3);
+  border: 2px solid rgba(16, 163, 127, 0.25);
   border-top-color: #10a37f;
   border-radius: 50%;
   animation: rcmSpin 0.8s linear infinite;
+}
+
+.rcm-btn-spinner {
+  border-color: rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
 }
 
 @keyframes rcmSpin {
@@ -309,67 +392,46 @@
 .rcm-polling span {
   color: #10a37f;
   font-size: 13px;
-}
-
-/* 底部按钮 - 内联 */
-.rcm-footer-inline {
-  display: flex;
-  gap: 10px;
-}
-
-.rcm-btn-cancel,
-.rcm-btn-primary {
-  flex: 1;
-  padding: 11px;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
   font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.rcm-btn-cancel {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.rcm-btn-cancel:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.rcm-btn-primary {
-  background: linear-gradient(135deg, #10a37f, #0d8a6a);
-  color: #fff;
-}
-
-.rcm-btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
-}
-
-.rcm-btn-cancel:disabled,
-.rcm-btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
 }
 
 .rcm-btn-full {
   width: 100%;
 }
 
+.rcm-btn-primary {
+  width: 100%;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, #10a37f 0%, #059669 100%);
+  color: #fff;
+  transition: all 0.15s;
+}
+
+.rcm-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.rcm-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* 成功状态 */
 .rcm-success {
   text-align: center;
-  padding: 16px 0;
+  padding: 32px 24px;
 }
 
 .rcm-success-icon {
   width: 64px;
   height: 64px;
-  margin: 0 auto 14px;
-  background: rgba(16, 163, 127, 0.1);
+  margin: 0 auto 16px;
+  background: rgba(16, 163, 127, 0.15);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -377,46 +439,128 @@
 }
 
 .rcm-success h4 {
-  margin: 0 0 8px;
-  font-size: 16px;
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 600;
   color: #fff;
 }
 
-.rcm-success p {
-  margin: 0 0 16px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+.rcm-success-amount {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
-.rcm-bonus-text {
-  color: #f59e0b;
+.rcm-success-amount span {
+  font-size: 36px;
+  font-weight: 700;
+  color: #10a37f;
+}
+
+.rcm-success-bonus {
+  margin: 0 0 20px;
+  font-size: 13px;
+  color: #fbbf24;
+}
+
+.rcm-success-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 10px;
+  text-align: left;
+}
+
+.rcm-success-tip svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #fbbf24;
+}
+
+.rcm-success-tip span {
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.rcm-success-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.rcm-btn-secondary {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.15s;
+}
+
+.rcm-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.rcm-success-actions .rcm-btn-primary {
+  flex: 1;
+  padding: 12px 16px;
 }
 
 /* 亮色主题 */
 [data-theme="light"] .rcm-modal.rcm-compact {
-  background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
-  border-color: rgba(0, 0, 0, 0.08);
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.12);
 }
 
 [data-theme="light"] .rcm-header {
-  border-color: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.08);
 }
 
 [data-theme="light"] .rcm-header h3 {
-  color: #1a1a1a;
+  color: #18181b;
 }
 
 [data-theme="light"] .rcm-close {
   color: rgba(0, 0, 0, 0.4);
 }
 
+[data-theme="light"] .rcm-close:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+  color: #18181b;
+}
+
+[data-theme="light"] .rcm-left {
+  border-right-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .rcm-right {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .rcm-section-label {
+  color: rgba(0, 0, 0, 0.4);
+}
+
 [data-theme="light"] .rcm-option {
   background: rgba(0, 0, 0, 0.02);
-  border-color: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.1);
 }
 
 [data-theme="light"] .rcm-option:hover {
-  background: rgba(16, 163, 127, 0.04);
+  background: rgba(16, 163, 127, 0.05);
+  border-color: rgba(16, 163, 127, 0.4);
 }
 
 [data-theme="light"] .rcm-option.selected {
@@ -424,52 +568,129 @@
 }
 
 [data-theme="light"] .rcm-option-amount {
-  color: #1a1a1a;
+  color: #18181b;
 }
 
 [data-theme="light"] .rcm-option-price {
   color: rgba(0, 0, 0, 0.5);
 }
 
-[data-theme="light"] .rcm-custom-label {
-  color: rgba(0, 0, 0, 0.5);
-}
-
-[data-theme="light"] .rcm-custom-input {
-  background: rgba(0, 0, 0, 0.03);
+[data-theme="light"] .rcm-custom {
+  background: rgba(0, 0, 0, 0.02);
   border-color: rgba(0, 0, 0, 0.1);
 }
 
-[data-theme="light"] .rcm-custom-input input {
-  color: #1a1a1a;
+[data-theme="light"] .rcm-custom:hover {
+  border-color: rgba(0, 0, 0, 0.2);
 }
 
-[data-theme="light"] .rcm-divider {
-  background: rgba(0, 0, 0, 0.06);
+[data-theme="light"] .rcm-custom.active {
+  background: rgba(16, 163, 127, 0.05);
 }
 
-[data-theme="light"] .rcm-summary-row {
-  color: rgba(0, 0, 0, 0.6);
+[data-theme="light"] .rcm-custom input {
+  color: #18181b;
 }
 
-[data-theme="light"] .rcm-pay-item {
+[data-theme="light"] .rcm-custom input::placeholder {
+  color: rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] .rcm-order-card {
   background: rgba(0, 0, 0, 0.02);
-  border-color: rgba(0, 0, 0, 0.08);
 }
 
-[data-theme="light"] .rcm-pay-item span {
-  color: #1a1a1a;
+[data-theme="light"] .rcm-order-item {
+  color: rgba(0, 0, 0, 0.5);
 }
 
-[data-theme="light"] .rcm-btn-cancel {
-  background: rgba(0, 0, 0, 0.05);
-  color: rgba(0, 0, 0, 0.7);
+[data-theme="light"] .rcm-order-item span:last-child {
+  color: #18181b;
+}
+
+[data-theme="light"] .rcm-order-item.total,
+[data-theme="light"] .rcm-order-price {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .rcm-order-price {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .rcm-pay-option {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .rcm-pay-option:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .rcm-pay-option.selected {
+  background: rgba(16, 163, 127, 0.08);
+}
+
+[data-theme="light"] .rcm-pay-option span {
+  color: #18181b;
+}
+
+[data-theme="light"] .rcm-polling {
+  background: rgba(16, 163, 127, 0.08);
+  border-top-color: rgba(16, 163, 127, 0.15);
 }
 
 [data-theme="light"] .rcm-success h4 {
-  color: #1a1a1a;
+  color: #18181b;
 }
 
-[data-theme="light"] .rcm-success p {
-  color: rgba(0, 0, 0, 0.6);
+[data-theme="light"] .rcm-success-icon {
+  background: rgba(16, 163, 127, 0.1);
+}
+
+[data-theme="light"] .rcm-success-tip {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.15);
+}
+
+[data-theme="light"] .rcm-success-tip span {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .rcm-btn-secondary {
+  border-color: rgba(0, 0, 0, 0.15);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .rcm-btn-secondary:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+/* 响应式 */
+@media (max-width: 600px) {
+  .rcm-modal.rcm-compact {
+    width: 95vw;
+  }
+  
+  .rcm-layout {
+    flex-direction: column;
+    min-height: auto;
+  }
+  
+  .rcm-left {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  
+  .rcm-right {
+    width: 100%;
+  }
+  
+  .rcm-options {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+[data-theme="light"] .rcm-left {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
 }

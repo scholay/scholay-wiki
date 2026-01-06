@@ -1,0 +1,444 @@
+/**
+ * ExchangeModal 样式 - 恩特币兑换经费弹窗
+ */
+
+/* 遮罩层 */
+.exchange-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  animation: exm-overlay-in 0.3s ease;
+}
+
+.exchange-modal-overlay.closing {
+  animation: exm-overlay-out 0.2s ease forwards;
+}
+
+@keyframes exm-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes exm-overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* 弹窗容器 */
+.exchange-modal-container {
+  background: #1e1e2e;
+  border-radius: 16px;
+  width: 400px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  animation: exm-modal-in 0.3s ease;
+  overflow: hidden;
+}
+
+.exchange-modal-container.closing {
+  animation: exm-modal-out 0.2s ease forwards;
+}
+
+@keyframes exm-modal-in {
+  from { opacity: 0; transform: scale(0.9) translateY(-20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes exm-modal-out {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to { opacity: 0; transform: scale(0.9) translateY(-20px); }
+}
+
+[data-theme="light"] .exchange-modal-container {
+  background: #fff;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+/* 头部 */
+.exchange-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .exchange-modal-header {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+.exchange-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+[data-theme="light"] .exchange-modal-title {
+  color: #1a1a1a;
+}
+
+.exchange-modal-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.15s;
+}
+
+.exchange-modal-close:hover {
+  color: #fff;
+}
+
+[data-theme="light"] .exchange-modal-close {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .exchange-modal-close:hover {
+  color: #1a1a1a;
+}
+
+/* 内容区 */
+.exchange-modal-body {
+  padding: 20px;
+}
+
+.exchange-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 0;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.exchange-loading .spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(16, 163, 127, 0.2);
+  border-top-color: #10a37f;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 余额显示 */
+.exchange-balance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(16, 163, 127, 0.1);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.exchange-balance-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .exchange-balance-label {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.exchange-balance-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #10a37f;
+}
+
+/* 兑换比例 */
+.exchange-rate-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 16px;
+}
+
+[data-theme="light"] .exchange-rate-info {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+/* 快捷选择 */
+.exchange-quick-select {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.exchange-quick-btn {
+  flex: 1;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.exchange-quick-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.exchange-quick-btn.active {
+  background: rgba(16, 163, 127, 0.15);
+  border-color: #10a37f;
+  color: #10a37f;
+}
+
+.exchange-quick-btn.all {
+  background: rgba(16, 163, 127, 0.1);
+  color: #10a37f;
+}
+
+[data-theme="light"] .exchange-quick-btn {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .exchange-quick-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* 输入框 */
+.exchange-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.exchange-input-wrapper:focus-within {
+  border-color: #10a37f;
+  background: rgba(16, 163, 127, 0.05);
+}
+
+.exchange-input-icon {
+  flex-shrink: 0;
+}
+
+.exchange-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  color: #fff;
+}
+
+.exchange-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="light"] .exchange-input-wrapper {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .exchange-input {
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .exchange-input::placeholder {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+/* 错误提示 */
+.exchange-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #ef4444;
+  margin-bottom: 12px;
+}
+
+/* 预览结果 */
+.exchange-preview {
+  padding: 14px 16px;
+  background: rgba(16, 163, 127, 0.08);
+  border: 1px solid rgba(16, 163, 127, 0.15);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.exchange-preview-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.exchange-preview-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .exchange-preview-label {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.exchange-preview-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #f59e0b;
+}
+
+/* 底部按钮 */
+.exchange-modal-footer {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.exchange-btn-cancel {
+  flex: 1;
+  padding: 12px 16px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.exchange-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.exchange-btn-confirm {
+  flex: 1;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.exchange-btn-confirm:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.4);
+}
+
+.exchange-btn-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+[data-theme="light"] .exchange-btn-cancel {
+  border-color: rgba(0, 0, 0, 0.15);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .exchange-btn-cancel:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* 成功状态 */
+.exchange-success {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.exchange-success-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  background: rgba(16, 163, 127, 0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.exchange-success h4 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+
+[data-theme="light"] .exchange-success h4 {
+  color: #1a1a1a;
+}
+
+.exchange-success-amount {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.exchange-success-amount span {
+  font-size: 32px;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.exchange-success-balance {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 20px;
+}
+
+[data-theme="light"] .exchange-success-balance {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.exchange-btn-done {
+  width: 100%;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.exchange-btn-done:hover {
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.4);
+}
+

@@ -202,6 +202,69 @@
   color: #ef4444;
 }
 
+/* ========== 恩特币余额提示 ========== */
+.insufficient-balance-diamond-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="dark"] .insufficient-balance-diamond-info {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.08) 100%);
+  border: 1px solid rgba(16, 163, 127, 0.25);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .insufficient-balance-diamond-info {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.12) 0%, rgba(16, 163, 127, 0.06) 100%);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.diamond-info-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.insufficient-balance-diamond-info strong {
+  font-weight: 700;
+  color: #10a37f;
+  font-size: 16px;
+}
+
+.diamond-exchange-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%);
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.diamond-exchange-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.4);
+}
+
+.diamond-exchange-btn:active {
+  transform: translateY(0);
+}
+
 /* ========== 操作按钮 ========== */
 .insufficient-balance-actions {
   display: flex;
@@ -251,15 +314,9 @@
   transform: translateY(-2px);
 }
 
-.exchange-btn {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: #ffffff;
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
-}
-
-.exchange-btn:hover {
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.45);
-  transform: translateY(-2px);
+.recharge-btn.full-width {
+  flex: 1;
+  width: 100%;
 }
 
 .action-btn:active {

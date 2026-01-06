@@ -11,11 +11,13 @@
  * 用于提示用户经费不足，引导充值或兑换
  */
 
-import React, { useState, useCallback, memo } from 'react';
+import React, { useState, useCallback, useEffect, memo } from 'react';
 import ReactDOM from 'react-dom';
-import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, CreditCard, RefreshCw } from 'lucide-react';
 import { useRechargeModal } from '../contexts/RechargeModalContext';
+import { walletAPI } from '../services/api';
+import EntcoinIcon from './EntcoinIcon';
+import ExchangeModal from './ExchangeModal';
 import './styles/InsufficientBalanceModal.css';
 
 /**
@@ -33,9 +35,31 @@ const InsufficientBalanceModal = memo(({
   required = 0, 
   shortage = 0
 }) => {
-  const navigate = useNavigate();
   const { openRechargeModal } = useRechargeModal();
   const [isClosing, setIsClosing] = useState(false);
+  const [walletInfo, setWalletInfo] = useState(null);
+  const [loadingWallet, setLoadingWallet] = useState(false);
+  const [showExchangeModal, setShowExchangeModal] = useState(false);
+
+  // 获取钱包信息
+  useEffect(() => {
+    if (isOpen) {
+      setLoadingWallet(true);
+      walletAPI.getWallet()
+        .then(res => {
+          // API 返回 code 可能是 0 或 200
+          if (res.data?.code === 200 || res.data?.code === 0) {
+            setWalletInfo(res.data.data);
+          }
+        })
+        .catch(err => {
+          console.error('获取钱包信息失败:', err);
+        })
+        .finally(() => {
+          setLoadingWallet(false);
+        });
+    }
+  }, [isOpen]);
 
   const handleClose = useCallback(() => {
     setIsClosing(true);
@@ -56,12 +80,24 @@ const InsufficientBalanceModal = memo(({
 
   const handleExchange = useCallback((e) => {
     e.stopPropagation();
-    handleClose();
-    // 延迟导航到钱包页面
-    setTimeout(() => {
-      navigate('/settings?tab=subscription');
-    }, 250);
-  }, [handleClose, navigate]);
+    // 打开兑换弹窗
+    setShowExchangeModal(true);
+  }, []);
+
+  const handleExchangeSuccess = useCallback((result) => {
+    // 兑换成功后更新钱包信息
+    if (result) {
+      setWalletInfo(prev => ({
+        ...prev,
+        diamond_balance: result.currentDiamond,
+        gold_balance: result.currentGold
+      }));
+    }
+  }, []);
+
+  const handleExchangeClose = useCallback(() => {
+    setShowExchangeModal(false);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -84,45 +120,53 @@ const InsufficientBalanceModal = memo(({
 
         {/* 功能和消耗提示 */}
         <p className="insufficient-balance-desc">
-          {featureName ? (
-            <>
-              <span className="feature-name">{featureName}</span>
-              {required > 0 ? (
-                <>预计消耗 <span className="cost-amount">{required}</span> 经费</>
-              ) : (
-                <>需要经费才能使用</>
-              )}
-            </>
+          {featureName && <span className="feature-name">{featureName}</span>}
+          {required > 0 ? (
+            <>预计消耗 <span className="cost-amount">{required}</span> 经费</>
           ) : (
-            <>当前操作需要 <span className="cost-amount">{required || '一定'}</span> 经费</>
-          )}
-          {shortage > 0 && (
-            <>，还需 <span className="shortage-amount">{shortage}</span> 经费</>
+            <>需要经费才能使用</>
           )}
         </p>
 
-        {/* 操作按钮 */}
+        {/* 恩特币余额提示 - 带兑换按钮 */}
+        {walletInfo && walletInfo.diamond > 0 && (
+          <div className="insufficient-balance-diamond-info">
+            <div className="diamond-info-left">
+              <EntcoinIcon size="sm" />
+              <span>恩特币余额：<strong>{walletInfo.diamond}</strong></span>
+            </div>
+            <button className="diamond-exchange-btn" onClick={handleExchange}>
+              <RefreshCw size={14} />
+              <span>兑换经费</span>
+            </button>
+          </div>
+        )}
+
+        {/* 操作按钮 - 只保留充值 */}
         <div className="insufficient-balance-actions">
           <button 
-            className="action-btn recharge-btn"
+            className="action-btn recharge-btn full-width"
             onClick={handleRecharge}
           >
             <CreditCard size={18} />
             <span>去充值</span>
           </button>
-          <button 
-            className="action-btn exchange-btn"
-            onClick={handleExchange}
-          >
-            <RefreshCw size={18} />
-            <span>去兑换</span>
-          </button>
         </div>
 
         {/* 提示文字 */}
         <p className="insufficient-balance-tip">
-          您可以购买恩特币或使用恩特币兑换经费
+          {walletInfo && walletInfo.diamond > 0 
+            ? '恩特币可兑换为经费使用' 
+            : '购买恩特币后可兑换为经费'}
         </p>
+
+        {/* 兑换弹窗 */}
+        <ExchangeModal
+          isOpen={showExchangeModal}
+          onClose={handleExchangeClose}
+          onSuccess={handleExchangeSuccess}
+          diamondBalance={walletInfo?.diamond}
+        />
       </div>
     </div>,
     document.body

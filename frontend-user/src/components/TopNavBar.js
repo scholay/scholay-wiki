@@ -26,6 +26,8 @@ import { NormalSearchIcon } from './SearchIcons';
 import MessageDropdown from './MessageDropdown';
 import api, { walletAPI, checkinAPI, messageAPI } from '../services/api';
 import wsClient from '../services/websocket';
+import { useOrderModal } from '../contexts/OrderModalContext';
+import { useRechargeModal } from '../contexts/RechargeModalContext';
 import logger from '../utils/logger';
 import './styles/TopNavBar.css';
 import './MessageDropdown.css';
@@ -44,6 +46,8 @@ const TopNavBar = ({
   const navigate = useNavigate();
   const location = useLocation();
   useTheme(); // 确保主题 context 可用
+  const { openOrderModal } = useOrderModal();
+  const { openRechargeModal } = useRechargeModal();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [subscription, setSubscription] = useState(null);
   const [wallet, setWallet] = useState(null);
@@ -342,39 +346,73 @@ const TopNavBar = ({
               </div>
               <div className="um-user-detail">
                 <span className="um-username">{getUserDisplayName()}</span>
-                <span className={`um-plan-badge ${subscription?.plan_code || 'free'}`}>
+                <span 
+                  className={`um-plan-badge ${subscription?.plan_code || 'free'} clickable`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowUserMenu(false);
+                    openOrderModal({ mode: 'subscription' });
+                  }}
+                  title="点击开通/续费会员"
+                >
                   {subscription?.plan_name || 'FREE'}
                 </span>
               </div>
             </div>
             
-            {/* 余额展示 - 竖向排列 */}
-            <div className={`um-wallet-vertical ${walletLoading ? 'loading' : ''}`}>
-              <div 
-                className="um-wallet-item-vertical" 
-                onClick={(e) => { e.stopPropagation(); setShowUserMenu(false); navigate('/settings?tab=wallet&section=entcoin'); }}
-              >
-                <div className="um-wallet-icon-wrap">
+            {/* 余额展示 - 带快捷操作 */}
+            <div className={`um-wallet-section ${walletLoading ? 'loading' : ''}`}>
+              {/* 恩特币 */}
+              <div className="um-wallet-row">
+                <div className="um-wallet-info">
                   <EntcoinIcon size="md" />
                   <span className="um-wallet-label">恩特币</span>
+                  <span className="um-wallet-value">
+                    {walletLoading ? <span className="um-wallet-skeleton"></span> : (wallet?.diamond || 0).toLocaleString()}
+                  </span>
                 </div>
-                <span className="um-wallet-value-vertical">
-                  {walletLoading ? <span className="um-wallet-skeleton"></span> : (wallet?.diamond || 0).toLocaleString()}
-                </span>
+                <button 
+                  className="um-wallet-action-btn"
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    setShowUserMenu(false); 
+                    openRechargeModal(); 
+                  }}
+                >
+                  充值
+                </button>
               </div>
-              <div className="um-wallet-divider-horizontal"></div>
-              <div 
-                className="um-wallet-item-vertical"
-                onClick={(e) => { e.stopPropagation(); setShowUserMenu(false); navigate('/settings?tab=wallet&section=gold'); }}
-              >
-                <div className="um-wallet-icon-wrap">
+              {/* 经费 */}
+              <div className="um-wallet-row">
+                <div className="um-wallet-info">
                   <GoldIcon size="md" />
                   <span className="um-wallet-label">经费</span>
+                  <span className="um-wallet-value">
+                    {walletLoading ? <span className="um-wallet-skeleton"></span> : (wallet?.gold || 0).toLocaleString()}
+                  </span>
                 </div>
-                <span className="um-wallet-value-vertical">
-                  {walletLoading ? <span className="um-wallet-skeleton"></span> : (wallet?.gold || 0).toLocaleString()}
-                </span>
+                <button 
+                  className="um-wallet-action-btn"
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    setShowUserMenu(false); 
+                    navigate('/settings?tab=wallet&section=gold'); 
+                  }}
+                >
+                  兑换
+                </button>
               </div>
+              {/* 查看明细 */}
+              <button 
+                className="um-wallet-detail-link"
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  setShowUserMenu(false); 
+                  navigate('/settings?tab=wallet'); 
+                }}
+              >
+                查看明细 →
+              </button>
             </div>
           </div>
 

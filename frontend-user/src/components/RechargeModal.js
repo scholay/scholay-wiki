@@ -8,17 +8,18 @@ import api, { orderAPI, paymentAPI } from '../services/api';
 import { useToast } from './ToastContainer';
 import { useRechargeModal } from '../contexts/RechargeModalContext';
 import EntcoinIcon from './EntcoinIcon';
+import ExchangeModal from './ExchangeModal';
 import logger from '../utils/logger';
 import './styles/RechargeModal.css';
 
 // 充值选项配置
 const RECHARGE_OPTIONS = [
-  { amount: 10, bonus: 0 },
-  { amount: 50, bonus: 2 },
-  { amount: 100, bonus: 5 },
-  { amount: 200, bonus: 12 },
-  { amount: 500, bonus: 35 },
-  { amount: 1000, bonus: 80 },
+  { amount: 10, bonus: 0, tag: '' },
+  { amount: 50, bonus: 2, tag: '' },
+  { amount: 100, bonus: 5, tag: '热门' },
+  { amount: 200, bonus: 12, tag: '' },
+  { amount: 500, bonus: 35, tag: '超值' },
+  { amount: 1000, bonus: 80, tag: '最划算' },
 ];
 
 const RechargeModal = () => {
@@ -41,6 +42,9 @@ const RechargeModal = () => {
     window.location.hostname === '127.0.0.1'
   );
 
+  // 兑换弹窗状态
+  const [showExchangeModal, setShowExchangeModal] = useState(false);
+
   // 重置状态
   useEffect(() => {
     if (isOpen) {
@@ -52,6 +56,7 @@ const RechargeModal = () => {
       setPolling(false);
       setOrder(null);
       setPaymentStatus(null);
+      setShowExchangeModal(false);
     }
   }, [isOpen]);
 
@@ -188,7 +193,10 @@ const RechargeModal = () => {
       <div className="rcm-modal rcm-compact" onClick={e => e.stopPropagation()}>
         {/* 头部 */}
         <div className="rcm-header">
-          <h3>{paymentStatus === 'success' ? '充值成功' : '恩特币充值'}</h3>
+          <h3>
+            <EntcoinIcon size="md" />
+            {paymentStatus === 'success' ? '充值成功' : '恩特币充值'}
+          </h3>
           <button className="rcm-close" onClick={handleClose} disabled={paymentLoading || polling}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -201,123 +209,161 @@ const RechargeModal = () => {
           {paymentStatus === 'success' && order && (
             <div className="rcm-success">
               <div className="rcm-success-icon">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#10a37f" strokeWidth="2">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10a37f" strokeWidth="2.5">
                   <path d="M20 6L9 17l-5-5"/>
                 </svg>
               </div>
-              <h4>充值成功！</h4>
-              <p>
-                已充值 {order.diamond_amount + (order.bonus_amount || 0)} 恩特币
-                {order.bonus_amount > 0 && <span className="rcm-bonus-text">（含赠送{order.bonus_amount}个）</span>}
-              </p>
-              <button className="rcm-btn-primary rcm-btn-full" onClick={handleComplete}>完成</button>
+              <h4>充值成功</h4>
+              <div className="rcm-success-amount">
+                <EntcoinIcon size="lg" />
+                <span>{order.diamond_amount + (order.bonus_amount || 0)}</span>
+              </div>
+              {order.bonus_amount > 0 && (
+                <p className="rcm-success-bonus">含赠送 {order.bonus_amount} 个</p>
+              )}
+              <div className="rcm-success-tip">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M12 16v-4M12 8h.01"/>
+                </svg>
+                <span>恩特币需要兑换成经费后才能使用</span>
+              </div>
+              <div className="rcm-success-actions">
+                <button className="rcm-btn-secondary" onClick={handleComplete}>稍后兑换</button>
+                <button className="rcm-btn-primary" onClick={() => setShowExchangeModal(true)}>立即兑换</button>
+              </div>
+
+              {/* 兑换弹窗 */}
+              <ExchangeModal
+                isOpen={showExchangeModal}
+                onClose={() => setShowExchangeModal(false)}
+                onSuccess={() => {
+                  setShowExchangeModal(false);
+                  handleComplete();
+                }}
+                diamondBalance={order ? (order.diamond_amount + (order.bonus_amount || 0)) : undefined}
+              />
             </div>
           )}
 
-          {/* 正常流程 */}
+          {/* 正常流程 - 左右布局 */}
           {paymentStatus !== 'success' && (
             <>
-              {/* 金额选择 - 紧凑网格 */}
-              <div className="rcm-options">
-                {RECHARGE_OPTIONS.map(opt => (
-                  <div
-                    key={opt.amount}
-                    className={`rcm-option ${selectedAmount === opt.amount && !isCustom ? 'selected' : ''}`}
-                    onClick={() => { setSelectedAmount(opt.amount); setIsCustom(false); setCustomAmount(''); }}
-                  >
-                    <div className="rcm-option-row">
-                      <EntcoinIcon size="sm" />
-                      <span className="rcm-option-amount">{opt.amount}</span>
-                      {opt.bonus > 0 && <span className="rcm-option-bonus">+{opt.bonus}</span>}
+              <div className="rcm-layout">
+                {/* 左侧：选择金额 */}
+                <div className="rcm-left">
+                  <div className="rcm-section-label">选择充值金额</div>
+                  <div className="rcm-options">
+                    {RECHARGE_OPTIONS.map(opt => (
+                      <div
+                        key={opt.amount}
+                        className={`rcm-option ${selectedAmount === opt.amount && !isCustom ? 'selected' : ''}`}
+                        onClick={() => { setSelectedAmount(opt.amount); setIsCustom(false); setCustomAmount(''); }}
+                      >
+                        {opt.tag && <span className="rcm-option-tag">{opt.tag}</span>}
+                        <div className="rcm-option-amount">{opt.amount}</div>
+                        <div className="rcm-option-price">¥{opt.amount}</div>
+                        {opt.bonus > 0 && (
+                          <div className="rcm-option-bonus">送{opt.bonus}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 自定义金额 */}
+                  <div className={`rcm-custom ${isCustom ? 'active' : ''}`} onClick={() => { setIsCustom(true); setSelectedAmount(null); }}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="自定义数量（无赠送）"
+                      value={customAmount}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        setCustomAmount(val);
+                        if (val) { setIsCustom(true); setSelectedAmount(null); }
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* 右侧：订单信息 */}
+                <div className="rcm-right">
+                  <div className="rcm-section-label">订单信息</div>
+                  
+                  {/* 订单摘要 */}
+                  <div className="rcm-order-card">
+                    <div className="rcm-order-item">
+                      <span>充值数量</span>
+                      <span>{hasAmount ? `${amount} 个` : '-'}</span>
                     </div>
-                    <div className="rcm-option-price">¥{opt.amount}</div>
+                    {bonus > 0 && (
+                      <div className="rcm-order-item bonus">
+                        <span>赠送</span>
+                        <span>+{bonus} 个</span>
+                      </div>
+                    )}
+                    <div className="rcm-order-item total">
+                      <span>实际到账</span>
+                      <span>{hasAmount ? `${amount + bonus} 个` : '-'}</span>
+                    </div>
+                    <div className="rcm-order-price">
+                      <span>支付金额</span>
+                      <span className="rcm-price-value">{hasAmount ? `¥${amount}` : '¥0'}</span>
+                    </div>
                   </div>
-                ))}
-              </div>
 
-              {/* 自定义金额 - 内联 */}
-              <div className="rcm-custom">
-                <span className="rcm-custom-label">自定义</span>
-                <div className="rcm-custom-input">
-                  <EntcoinIcon size="sm" />
-                  <input
-                    type="text"
-                    placeholder="数量"
-                    value={customAmount}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '');
-                      setCustomAmount(val);
-                      if (val) { setIsCustom(true); setSelectedAmount(null); }
-                    }}
-                    onClick={() => { setIsCustom(true); setSelectedAmount(null); }}
-                  />
-                </div>
-              </div>
-
-              {/* 分隔线 */}
-              <div className="rcm-divider"></div>
-
-              {/* 订单摘要 - 始终显示 */}
-              <div className={`rcm-summary ${!hasAmount ? 'disabled' : ''}`}>
-                <div className="rcm-summary-row">
-                  <span>充值</span>
-                  <span>{hasAmount ? `${amount} 恩特币` : '--'}</span>
-                </div>
-                {bonus > 0 && (
-                  <div className="rcm-summary-row bonus">
-                    <span>赠送</span>
-                    <span>+{bonus}</span>
+                  {/* 支付方式 */}
+                  <div className="rcm-section-label">支付方式</div>
+                  <div className="rcm-pay-options">
+                    <label className={`rcm-pay-option ${paymentMethod === 'alipay' ? 'selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="payment"
+                        checked={paymentMethod === 'alipay'}
+                        onChange={() => setPaymentMethod('alipay')}
+                      />
+                      <img src="/支付宝logo.png" alt="支付宝" />
+                      <span>支付宝</span>
+                    </label>
+                    {isDevMode && (
+                      <label className={`rcm-pay-option ${paymentMethod === 'simulate' ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="payment"
+                          checked={paymentMethod === 'simulate'}
+                          onChange={() => setPaymentMethod('simulate')}
+                        />
+                        <span className="rcm-dev-icon">🧪</span>
+                        <span>测试</span>
+                      </label>
+                    )}
                   </div>
-                )}
-                <div className="rcm-summary-row total">
-                  <span>支付</span>
-                  <span className="rcm-price">{hasAmount ? `¥${amount}` : '--'}</span>
-                </div>
-              </div>
 
-              {/* 支付方式 - 始终显示 */}
-              <div className={`rcm-payment ${!hasAmount ? 'disabled' : ''}`}>
-                <div
-                  className={`rcm-pay-item ${paymentMethod === 'alipay' ? 'selected' : ''}`}
-                  onClick={() => hasAmount && setPaymentMethod('alipay')}
-                >
-                  <img src="/支付宝logo.png" alt="支付宝" />
-                  <span>支付宝</span>
-                  {paymentMethod === 'alipay' && <span className="rcm-check">✓</span>}
-                </div>
-                {isDevMode && (
-                  <div
-                    className={`rcm-pay-item ${paymentMethod === 'simulate' ? 'selected' : ''}`}
-                    onClick={() => hasAmount && setPaymentMethod('simulate')}
+                  {/* 支付按钮 */}
+                  <button
+                    className="rcm-submit-btn"
+                    onClick={handlePayment}
+                    disabled={!hasAmount || paymentLoading || polling}
                   >
-                    <span className="rcm-dev-icon">🧪</span>
-                    <span>手动支付</span>
-                    {paymentMethod === 'simulate' && <span className="rcm-check">✓</span>}
-                  </div>
-                )}
+                    {paymentLoading || polling ? (
+                      <>
+                        <div className="rcm-btn-spinner"></div>
+                        <span>{paymentLoading ? '创建订单...' : '等待支付...'}</span>
+                      </>
+                    ) : (
+                      <span>立即支付 {hasAmount ? `¥${amount}` : ''}</span>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* 轮询状态 */}
               {polling && (
                 <div className="rcm-polling">
                   <div className="rcm-spinner"></div>
-                  <span>等待支付...</span>
+                  <span>正在确认支付结果...</span>
                 </div>
               )}
-
-              {/* 底部按钮 */}
-              <div className="rcm-footer-inline">
-                <button className="rcm-btn-cancel" onClick={handleClose} disabled={paymentLoading || polling}>
-                  取消
-                </button>
-                <button
-                  className="rcm-btn-primary"
-                  onClick={handlePayment}
-                  disabled={!hasAmount || paymentLoading || polling}
-                >
-                  {paymentLoading ? '处理中...' : polling ? '等待中...' : `支付 ${hasAmount ? `¥${amount}` : ''}`}
-                </button>
-              </div>
             </>
           )}
         </div>
