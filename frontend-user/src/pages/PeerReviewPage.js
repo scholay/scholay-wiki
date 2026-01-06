@@ -9,7 +9,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense, useCallback } from 'react';
 import ReactDOM, { flushSync } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { peerReviewAPI, walletAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
@@ -184,6 +184,7 @@ function PreviewCard({ preview, fullText }) {
 
 export default function PeerReviewPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { resetSidebarConfig } = useSidebar();
   
@@ -201,6 +202,9 @@ export default function PeerReviewPage() {
   // 视图状态
   const [viewMode, setViewMode] = useState(VIEW_MODE.HOME);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
+  
+  // 标记是否已处理过 URL 参数（避免重复处理）
+  const urlTaskIdHandled = useRef(false);
 
   // 任务列表状态
   const [tasks, setTasks] = useState([]);
@@ -332,6 +336,21 @@ export default function PeerReviewPage() {
     loadTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // 从 URL 参数加载指定任务
+  useEffect(() => {
+    if (!user || urlTaskIdHandled.current) return;
+    
+    const taskIdFromUrl = searchParams.get('taskId');
+    if (taskIdFromUrl) {
+      urlTaskIdHandled.current = true;
+      // 延迟执行，确保任务列表已加载
+      setTimeout(() => {
+        viewTaskDetail(taskIdFromUrl);
+      }, 100);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, searchParams]);
 
   // 分页变化时重新加载任务列表
   useEffect(() => {
@@ -718,6 +737,9 @@ export default function PeerReviewPage() {
         setSelectedTaskId(taskId);
         setViewMode(VIEW_MODE.DETAIL);
         
+        // 更新 URL，添加 taskId 参数
+        setSearchParams({ taskId });
+        
         // 启动轮询获取进度
         startPolling(taskId);
         
@@ -788,6 +810,10 @@ export default function PeerReviewPage() {
     setTaskDetail(null);
     setSelectedTaskId(taskId);
     setViewMode(VIEW_MODE.DETAIL);
+    
+    // 更新 URL，添加 taskId 参数
+    setSearchParams({ taskId });
+    
     await loadTaskDetail(taskId);
   };
 
@@ -923,6 +949,9 @@ export default function PeerReviewPage() {
           if (selectedTaskId === taskId) {
             setViewMode(VIEW_MODE.HOME);
             setSelectedTaskId(null);
+            // 清除 URL 中的 taskId 参数
+            setSearchParams({});
+            urlTaskIdHandled.current = false;
           }
         }
       } catch (error) {
@@ -938,6 +967,13 @@ export default function PeerReviewPage() {
     setViewMode(VIEW_MODE.HOME);
     setSelectedTaskId(null);
     setTaskDetail(null);
+    
+    // 清除 URL 中的 taskId 参数
+    setSearchParams({});
+    
+    // 重置 URL 处理标记，允许再次从 URL 加载
+    urlTaskIdHandled.current = false;
+    
     loadTasks();
   };
 
