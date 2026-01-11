@@ -308,6 +308,32 @@ const Home = () => {
               </div>
             </div>
 
+            {/* 搜索模式切换 - 放在输入框外部上方 */}
+            <div className="home-search-mode-header">
+              <div className="home-search-mode-segmented">
+                <button
+                  type="button"
+                  className={`mode-segment ${searchMode === 'normal' ? 'active' : ''}`}
+                  onClick={() => setSearchMode('normal')}
+                >
+                  <span className="mode-segment-icon">
+                    <NormalSearchIcon size={16} />
+                  </span>
+                  <span className="mode-segment-label">直接检索</span>
+                </button>
+                <button
+                  type="button"
+                  className={`mode-segment ${searchMode === 'advanced' ? 'active' : ''}`}
+                  onClick={() => setSearchMode('advanced')}
+                >
+                  <span className="mode-segment-icon">
+                    <AdvancedSearchIcon size={16} />
+                  </span>
+                  <span className="mode-segment-label">智能检索</span>
+                </button>
+              </div>
+            </div>
+
             <form onSubmit={handleSearch} className="home-composer-wrapper" ref={composerRef}>
               {/* 输入区域 */}
               <div className="home-composer-input-area">
@@ -380,32 +406,6 @@ const Home = () => {
                   {/* 底部操作栏 */}
                   <div className="home-composer-footer">
                     <div className="home-composer-footer-left">
-                      {/* 搜索模式切换 - 分段控制器设计 */}
-                      <div className="home-search-mode-segmented">
-                        <button
-                          type="button"
-                          className={`mode-segment ${searchMode === 'normal' ? 'active' : ''}`}
-                          onClick={() => setSearchMode('normal')}
-                        >
-                          <span className="mode-segment-icon">
-                            <NormalSearchIcon size={16} />
-                          </span>
-                          <span className="mode-segment-label">直接检索</span>
-                        </button>
-                        <button
-                          type="button"
-                          className={`mode-segment ${searchMode === 'advanced' ? 'active' : ''}`}
-                          onClick={() => setSearchMode('advanced')}
-                        >
-                          <span className="mode-segment-icon">
-                            <AdvancedSearchIcon size={16} />
-                          </span>
-                          <span className="mode-segment-label">智能检索</span>
-                        </button>
-                      </div>
-
-                      {/* 分隔线 */}
-                      <div className="footer-divider"></div>
 
                       {/* 筛选按钮 - 仅在学术检索模式显示 */}
                       {searchMode === 'normal' && (() => {

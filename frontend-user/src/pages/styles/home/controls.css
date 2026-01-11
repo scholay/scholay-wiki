@@ -7,6 +7,17 @@
  * ============================================================================
  */
 
+/* Search Mode Header - 放在输入框外部上方 */
+.home .home-search-mode-header,
+.home-search .home-search-mode-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0 16px 0;
+  width: 100%;
+  max-width: 48rem;
+}
+
 /* Segmented Control for Search Mode - Premium Design */
 .home .home-search-mode-segmented,
 .home-search .home-search-mode-segmented {
