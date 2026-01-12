@@ -24,6 +24,7 @@ import GoldIcon from './GoldIcon';
 import EntcoinIcon from './EntcoinIcon';
 import { NormalSearchIcon } from './SearchIcons';
 import MessageDropdown from './MessageDropdown';
+import ExchangeModal from './ExchangeModal';
 import api, { walletAPI, checkinAPI, messageAPI } from '../services/api';
 import wsClient from '../services/websocket';
 import { useOrderModal } from '../contexts/OrderModalContext';
@@ -60,6 +61,8 @@ const TopNavBar = ({
   const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
   // 站内信相关状态
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  // 兑换弹窗状态
+  const [showExchangeModal, setShowExchangeModal] = useState(false);
   const userMenuRef = useRef(null);
   const avatarRef = useRef(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
@@ -415,7 +418,7 @@ const TopNavBar = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       setShowUserMenu(false);
-                      navigate('/settings?tab=wallet&section=gold');
+                      setShowExchangeModal(true);
                     }}
                   >
                     兑换
@@ -565,6 +568,20 @@ const TopNavBar = ({
         document.body
       )}
 
+      {/* 兑换弹窗 */}
+      <ExchangeModal
+        isOpen={showExchangeModal}
+        onClose={() => setShowExchangeModal(false)}
+        onSuccess={() => {
+          setShowExchangeModal(false);
+          // 刷新钱包余额
+          walletAPI.getWallet().then(res => {
+            if (res.data.code === 0) {
+              setWallet(res.data.data);
+            }
+          });
+        }}
+      />
     </>
   );
 };
