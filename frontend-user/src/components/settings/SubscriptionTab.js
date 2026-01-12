@@ -10,10 +10,11 @@
  * 从 Settings.js 提取，处理订阅、钱包、交易流水
  */
 
-import React, { memo } from 'react';
+import React, { memo, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import EntcoinIcon from '../EntcoinIcon';
 import GoldIcon from '../GoldIcon';
+import { fundAPI } from '../../services/api';
 
 /**
  * 获取交易类型标签
@@ -49,6 +50,28 @@ const SubscriptionTab = memo(({
   onShowExchangeModal,
   onFetchTransactions,
 }) => {
+  // 当月基金状态
+  const [currentFund, setCurrentFund] = useState(null);
+  const [fundLoading, setFundLoading] = useState(true);
+
+  // 获取当月基金
+  useEffect(() => {
+    const fetchCurrentFund = async () => {
+      try {
+        setFundLoading(true);
+        const res = await fundAPI.getCurrentFund();
+        if (res.data?.code === 0 && res.data?.data) {
+          setCurrentFund(res.data.data);
+        }
+      } catch (err) {
+        console.error('获取当月基金失败:', err);
+      } finally {
+        setFundLoading(false);
+      }
+    };
+    fetchCurrentFund();
+  }, []);
+
   // 获取业务类型标签
   const getBizTypeLabel = (bizType) => {
     if (bizDisplayInfos?.[bizType]?.display_name) {
@@ -94,26 +117,94 @@ const SubscriptionTab = memo(({
           <span className="am-action">{currentSubscription?.plan_code === 'free' ? '开通' : '管理'}</span>
         </div>
 
-        <div className="am-row am-balance-row">
-          <div className="am-bal">
-            <span className="am-bal-icon"><EntcoinIcon size="lg" /></span>
-            <span className="am-bal-num">{walletLoading ? '-' : (wallet?.diamond || 0)}</span>
-            <button className="am-btn primary" onClick={onShowRechargeModal}>充值</button>
+        {/* 钱包和基金左右布局 */}
+        <div className="am-wallet-fund-row">
+          {/* 左侧：钱包（上下布局） */}
+          <div className="am-wallet-section">
+            <div className="am-wallet-item">
+              <div className="am-wallet-left">
+                <span className="am-bal-icon"><EntcoinIcon size="lg" /></span>
+                <div className="am-bal-info">
+                  <span className="am-bal-label">恩特币</span>
+                  <span className="am-bal-num">{walletLoading ? '-' : (wallet?.diamond || 0)}</span>
+                </div>
+              </div>
+              <button className="am-btn primary" onClick={onShowRechargeModal}>充值</button>
+            </div>
+            <div className="am-wallet-item">
+              <div className="am-wallet-left">
+                <span className="am-bal-icon"><GoldIcon size="lg" /></span>
+                <div className="am-bal-info">
+                  <span className="am-bal-label">经费</span>
+                  <span className="am-bal-num">{walletLoading ? '-' : (wallet?.gold || 0)}</span>
+                </div>
+              </div>
+              <button className="am-btn" onClick={onShowExchangeModal} disabled={!wallet?.diamond}>兑换</button>
+            </div>
           </div>
-          <div className="am-bal-sep"></div>
-          <div className="am-bal">
-            <span className="am-bal-icon"><GoldIcon size="lg" /></span>
-            <span className="am-bal-num">{walletLoading ? '-' : (wallet?.gold || 0)}</span>
-            <button className="am-btn" onClick={onShowExchangeModal} disabled={!wallet?.diamond}>兑换</button>
-          </div>
-        </div>
 
-        <div className="am-row am-fund-row" onClick={() => onNavigate('/fund-center')}>
-          <span className="am-fund-icon">🏛️</span>
-          <span className="am-text">会员基金</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="9 18 15 12 9 6"/>
-          </svg>
+          {/* 右侧：当月基金 */}
+          <div className="am-fund-section" onClick={() => onNavigate('/fund-center')}>
+            <div className="am-fund-header">
+              <span className="am-fund-title">
+                {currentFund ? '本月基金' : '会员福利'}
+              </span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
+            {fundLoading ? (
+              <div className="am-fund-loading">
+                <div className="spinner small"></div>
+              </div>
+            ) : currentFund ? (
+              <div className="am-fund-content">
+                <div className="am-fund-name">{currentFund.fund_name}</div>
+                <div className="am-fund-table">
+                  {currentFund.pro_gold_amount > 0 && (
+                    <div className="am-fund-row">
+                      <span className="am-fund-badge pro">PRO</span>
+                      <div className="am-fund-rewards">
+                        <span className="am-fund-reward"><GoldIcon size="sm" /><span>+{currentFund.pro_gold_amount}</span></span>
+                      </div>
+                    </div>
+                  )}
+                  {currentFund.max_gold_amount > 0 && (
+                    <div className="am-fund-row">
+                      <span className="am-fund-badge max">MAX</span>
+                      <div className="am-fund-rewards">
+                        <span className="am-fund-reward"><GoldIcon size="sm" /><span>+{currentFund.max_gold_amount}</span></span>
+                        {currentFund.max_diamond_amount > 0 && (
+                          <span className="am-fund-reward"><EntcoinIcon size="sm" /><span>+{currentFund.max_diamond_amount}</span></span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="am-fund-default">
+                <div className="am-fund-table">
+                  <div className="am-fund-row">
+                    <span className="am-fund-badge pro">PRO</span>
+                    <div className="am-fund-rewards">
+                      <span className="am-fund-reward"><GoldIcon size="sm" /><span>+5000</span></span>
+                    </div>
+                    <span className="am-fund-period">/月</span>
+                  </div>
+                  <div className="am-fund-row">
+                    <span className="am-fund-badge max">MAX</span>
+                    <div className="am-fund-rewards">
+                      <span className="am-fund-reward"><GoldIcon size="sm" /><span>+10000</span></span>
+                      <span className="am-fund-reward"><EntcoinIcon size="sm" /><span>+6</span></span>
+                    </div>
+                    <span className="am-fund-period">/月</span>
+                  </div>
+                </div>
+                <div className="am-fund-tip">开通会员每月领取</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -272,14 +272,222 @@
   transform: none;
 }
 
-/* 基金行 */
-.am-fund-row {
+/* ========== 钱包与基金左右布局 ========== */
+.am-wallet-fund-row {
+  display: flex;
+  gap: 20px;
+  padding: 16px 18px;
+  position: relative;
+}
+
+/* 左侧钱包区域（上下布局） */
+.am-wallet-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  justify-content: center;
+}
+
+.am-wallet-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.am-wallet-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.am-bal-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.am-bal-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 500;
+}
+
+/* 左右分隔线 */
+.am-wallet-fund-row::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 20%;
+  bottom: 20%;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  pointer-events: none;
+}
+
+/* 右侧基金区域 - 简洁无边框设计 */
+.am-fund-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0 4px 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  justify-content: center;
+}
+
+.am-fund-section:hover {
+  opacity: 0.85;
+}
+
+.am-fund-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.am-fund-icon {
+  font-size: 14px;
+}
+
+.am-fund-title {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.am-fund-header svg {
+  color: rgba(255, 255, 255, 0.25);
+  width: 12px;
+  height: 12px;
+}
+
+.am-fund-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+.am-fund-loading .spinner.small {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+
+.am-fund-content,
+.am-fund-default {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.am-fund-name {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 4px;
+}
+
+.am-fund-benefits {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.am-fund-benefit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.am-fund-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 32px;
+  text-align: center;
+}
+
+.am-fund-badge.pro {
+  background: linear-gradient(135deg, rgba(217, 175, 107, 0.9), rgba(205, 164, 94, 0.9));
+  color: #3d2e1a;
+}
+
+.am-fund-badge.max {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 1), rgba(245, 158, 11, 1));
+  color: #422006;
+}
+
+.am-fund-amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.am-fund-period {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-left: -2px;
+}
+
+.am-fund-tip {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 6px;
+}
+
+/* 会员福利表格式布局 */
+.am-fund-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.am-fund-table .am-fund-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  cursor: default;
+}
+
+.am-fund-table .am-fund-row::before {
+  display: none;
+}
+
+.am-fund-rewards {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.am-fund-reward {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.am-fund-reward span {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 旧的基金行样式（保留兼容） */
+.am-card > .am-fund-row {
   cursor: pointer;
   padding: 12px 18px;
   transition: background 0.2s ease;
 }
 
-.am-fund-row::before {
+.am-card > .am-fund-row::before {
   content: '';
   position: absolute;
   top: 0;
@@ -289,16 +497,11 @@
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
 }
 
-.am-fund-row:hover {
+.am-card > .am-fund-row:hover {
   background: rgba(255, 255, 255, 0.04);
 }
 
-.am-fund-icon {
-  font-size: 16px;
-  margin-right: 10px;
-}
-
-.am-fund-row svg {
+.am-card > .am-fund-row svg {
   color: rgba(255, 255, 255, 0.25);
 }
 
@@ -708,6 +911,10 @@
   color: #1e293b;
 }
 
+[data-theme="light"] .am-bal-label {
+  color: #6b7280;
+}
+
 [data-theme="light"] .am-btn {
   background: rgba(255, 255, 255, 0.7);
   border-color: rgba(0, 0, 0, 0.12);
@@ -741,6 +948,40 @@
 
 [data-theme="light"] .am-fund-row svg {
   color: #94a3b8;
+}
+
+/* 钱包与基金区域 Light Theme */
+[data-theme="light"] .am-wallet-fund-row::before {
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.06), transparent);
+}
+
+[data-theme="light"] .am-fund-section:hover {
+  opacity: 0.75;
+}
+
+[data-theme="light"] .am-fund-title {
+  color: #6b7280;
+}
+
+[data-theme="light"] .am-fund-header svg {
+  color: #94a3b8;
+}
+
+[data-theme="light"] .am-fund-name {
+  color: #6b7280;
+}
+
+[data-theme="light"] .am-fund-amount {
+  color: #1f2937;
+}
+
+[data-theme="light"] .am-fund-reward span {
+  color: #1f2937;
+}
+
+[data-theme="light"] .am-fund-period,
+[data-theme="light"] .am-fund-tip {
+  color: #9ca3af;
 }
 
 /* 左右分栏 Light Theme */
@@ -3698,6 +3939,33 @@
 
   [data-theme="light"] .transaction-item-right {
     border-top: 1px dashed rgba(0, 0, 0, 0.08);
+  }
+
+  .am-fund-section {
+    padding: 10px 12px;
+  }
+
+  .am-fund-header {
+    margin-bottom: 8px;
+  }
+
+  .am-fund-benefits {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .am-fund-benefit {
+    flex: 1;
+    min-width: 100px;
+  }
+}
+
+/* 钱包与基金区域 - 只在极小屏幕（<480px）才改为纵向布局 */
+@media (max-width: 480px) {
+  .am-wallet-fund-row {
+    flex-direction: column;
+    gap: 12px;
   }
 }
 

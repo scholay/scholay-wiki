@@ -14,7 +14,7 @@ import { useToast } from '../components/ToastContainer';
 import { useOrderModal } from '../contexts/OrderModalContext';
 import { useRechargeModal } from '../contexts/RechargeModalContext';
 // eslint-disable-next-line no-unused-vars
-import api, { orderAPI, paymentAPI, walletAPI } from '../services/api'; // paymentAPI 保留供将来使用
+import api, { orderAPI, paymentAPI, walletAPI, fundAPI } from '../services/api'; // paymentAPI 保留供将来使用
 import CheckinCalendar from '../components/CheckinCalendar';
 import EntcoinIcon from '../components/EntcoinIcon';
 import GoldIcon from '../components/GoldIcon';
@@ -110,7 +110,10 @@ const Settings = () => {
   const [exchangeLoading, setExchangeLoading] = useState(false);
   const [showExchangeModal, setShowExchangeModal] = useState(false);
   const [rechargeInfo, setRechargeInfo] = useState(null);
-  
+
+  // 当月基金状态
+  const [currentFund, setCurrentFund] = useState(null);
+  const [fundLoading, setFundLoading] = useState(true);
 
   // Records tab state - 流水/账单切换
   // eslint-disable-next-line no-unused-vars
@@ -191,6 +194,7 @@ const Settings = () => {
       fetchTransactions(1);
       fetchExchangeInfo();
       fetchBizDisplayInfos(); // 获取业务显示信息
+      fetchCurrentFund(); // 获取当月基金
     } else if (activeTab === 'invitation') {
       fetchInvitationData();
     }
@@ -221,6 +225,12 @@ const Settings = () => {
       return () => clearTimeout(timer);
     }
   }, [modalCodeCountdown]);
+
+  // 切换 Tab 时同步更新 URL 参数
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
 
   const fetchUserProfile = async () => {
     try {
@@ -290,6 +300,21 @@ const Settings = () => {
       logger.error('Failed to fetch wallet:', error);
     } finally {
       setWalletLoading(false);
+    }
+  };
+
+  // 获取当月基金
+  const fetchCurrentFund = async () => {
+    try {
+      setFundLoading(true);
+      const response = await fundAPI.getCurrentFund();
+      if (response.data?.code === 0 && response.data?.data) {
+        setCurrentFund(response.data.data);
+      }
+    } catch (error) {
+      logger.error('Failed to fetch current fund:', error);
+    } finally {
+      setFundLoading(false);
     }
   };
 
@@ -1481,7 +1506,7 @@ const Settings = () => {
             </span>
             <button
               className="membership-manage-btn"
-              onClick={() => setActiveTab('subscription')}
+              onClick={() => handleTabChange('subscription')}
             >
               管理
             </button>
@@ -1916,28 +1941,94 @@ const Settings = () => {
             <span className="am-action">{currentSubscription?.plan_code === 'free' ? '开通' : '管理'}</span>
           </div>
 
-          {/* 余额行 - 并排 */}
-          <div className="am-row am-balance-row">
-            <div className="am-bal">
-              <span className="am-bal-icon"><EntcoinIcon size="lg" /></span>
-              <span className="am-bal-num">{walletLoading ? '-' : (wallet?.diamond || 0)}</span>
-              <button className="am-btn primary" onClick={() => openRechargeModal(() => fetchWalletData())}>充值</button>
+          {/* 钱包和基金左右布局 */}
+          <div className="am-wallet-fund-row">
+            {/* 左侧：钱包（上下布局） */}
+            <div className="am-wallet-section">
+              <div className="am-wallet-item">
+                <div className="am-wallet-left">
+                  <span className="am-bal-icon"><EntcoinIcon size="lg" /></span>
+                  <div className="am-bal-info">
+                    <span className="am-bal-label">恩特币</span>
+                    <span className="am-bal-num">{walletLoading ? '-' : (wallet?.diamond || 0)}</span>
+                  </div>
+                </div>
+                <button className="am-btn primary" onClick={() => openRechargeModal(() => fetchWalletData())}>充值</button>
+              </div>
+              <div className="am-wallet-item">
+                <div className="am-wallet-left">
+                  <span className="am-bal-icon"><GoldIcon size="lg" /></span>
+                  <div className="am-bal-info">
+                    <span className="am-bal-label">经费</span>
+                    <span className="am-bal-num">{walletLoading ? '-' : (wallet?.gold || 0)}</span>
+                  </div>
+                </div>
+                <button className="am-btn" onClick={() => setShowExchangeModal(true)} disabled={!wallet?.diamond}>兑换</button>
+              </div>
             </div>
-            <div className="am-bal-sep"></div>
-            <div className="am-bal">
-              <span className="am-bal-icon"><GoldIcon size="lg" /></span>
-              <span className="am-bal-num">{walletLoading ? '-' : (wallet?.gold || 0)}</span>
-              <button className="am-btn" onClick={() => setShowExchangeModal(true)} disabled={!wallet?.diamond}>兑换</button>
-            </div>
-          </div>
 
-          {/* 基金行 */}
-          <div className="am-row am-fund-row" onClick={() => navigate('/fund-center')}>
-            <span className="am-fund-icon">🏛️</span>
-            <span className="am-text">会员基金</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
+            {/* 右侧：当月基金 */}
+            <div className="am-fund-section" onClick={() => navigate('/fund-center')}>
+              <div className="am-fund-header">
+                <span className="am-fund-title">
+                  {currentFund ? '本月基金' : '会员福利'}
+                </span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </div>
+              {fundLoading ? (
+                <div className="am-fund-loading">
+                  <div className="spinner small"></div>
+                </div>
+              ) : currentFund ? (
+                <div className="am-fund-content">
+                  <div className="am-fund-name">{currentFund.fund_name}</div>
+                  <div className="am-fund-table">
+                    {currentFund.pro_gold_amount > 0 && (
+                      <div className="am-fund-row">
+                        <span className="am-fund-badge pro">PRO</span>
+                        <div className="am-fund-rewards">
+                          <span className="am-fund-reward"><GoldIcon size="sm" /><span>+{currentFund.pro_gold_amount}</span></span>
+                        </div>
+                      </div>
+                    )}
+                    {currentFund.max_gold_amount > 0 && (
+                      <div className="am-fund-row">
+                        <span className="am-fund-badge max">MAX</span>
+                        <div className="am-fund-rewards">
+                          <span className="am-fund-reward"><GoldIcon size="sm" /><span>+{currentFund.max_gold_amount}</span></span>
+                          {currentFund.max_diamond_amount > 0 && (
+                            <span className="am-fund-reward"><EntcoinIcon size="sm" /><span>+{currentFund.max_diamond_amount}</span></span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="am-fund-default">
+                  <div className="am-fund-table">
+                    <div className="am-fund-row">
+                      <span className="am-fund-badge pro">PRO</span>
+                      <div className="am-fund-rewards">
+                        <span className="am-fund-reward"><GoldIcon size="sm" /><span>+5000</span></span>
+                      </div>
+                      <span className="am-fund-period">/月</span>
+                    </div>
+                    <div className="am-fund-row">
+                      <span className="am-fund-badge max">MAX</span>
+                      <div className="am-fund-rewards">
+                        <span className="am-fund-reward"><GoldIcon size="sm" /><span>+10000</span></span>
+                        <span className="am-fund-reward"><EntcoinIcon size="sm" /><span>+6</span></span>
+                      </div>
+                      <span className="am-fund-period">/月</span>
+                    </div>
+                  </div>
+                  <div className="am-fund-tip">开通会员每月领取</div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -2204,7 +2295,7 @@ const Settings = () => {
                 <div className="menu-section-title">我的账户</div>
                 <button
                   className={`menu-item ${activeTab === 'profile' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('profile')}
+                  onClick={() => handleTabChange('profile')}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -2214,7 +2305,7 @@ const Settings = () => {
                 </button>
                 <button
                   className={`menu-item ${activeTab === 'subscription' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('subscription')}
+                  onClick={() => handleTabChange('subscription')}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="8" width="18" height="12" rx="2" ry="2"/>
@@ -2225,7 +2316,7 @@ const Settings = () => {
                 </button>
                 <button
                   className={`menu-item ${activeTab === 'invitation' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('invitation')}
+                  onClick={() => handleTabChange('invitation')}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -2237,7 +2328,7 @@ const Settings = () => {
                 </button>
                 <button
                   className={`menu-item ${activeTab === 'account' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('account')}
+                  onClick={() => handleTabChange('account')}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="3"/>
@@ -2266,7 +2357,7 @@ const Settings = () => {
       <div className="settings-mobile-tabs">
         <button
           className={`mobile-tab-item ${activeTab === 'profile' ? 'active' : ''}`}
-          onClick={() => setActiveTab('profile')}
+          onClick={() => handleTabChange('profile')}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -2276,7 +2367,7 @@ const Settings = () => {
         </button>
         <button
           className={`mobile-tab-item ${activeTab === 'subscription' ? 'active' : ''}`}
-          onClick={() => setActiveTab('subscription')}
+          onClick={() => handleTabChange('subscription')}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="8" width="18" height="12" rx="2" ry="2"/>
@@ -2287,7 +2378,7 @@ const Settings = () => {
         </button>
         <button
           className={`mobile-tab-item ${activeTab === 'invitation' ? 'active' : ''}`}
-          onClick={() => setActiveTab('invitation')}
+          onClick={() => handleTabChange('invitation')}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -2299,7 +2390,7 @@ const Settings = () => {
         </button>
         <button
           className={`mobile-tab-item ${activeTab === 'account' ? 'active' : ''}`}
-          onClick={() => setActiveTab('account')}
+          onClick={() => handleTabChange('account')}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="3"/>
