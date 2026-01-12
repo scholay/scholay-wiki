@@ -326,7 +326,7 @@ const TopNavBar = ({
         </div>
       </header>
 
-      {/* 用户菜单弹窗 - 新设计 */}
+      {/* 用户菜单弹窗 - 卡片分层式设计 */}
       {showUserMenu && isAuthenticated && ReactDOM.createPortal(
         <div
           ref={userMenuRef}
@@ -338,15 +338,15 @@ const TopNavBar = ({
             zIndex: 10000
           }}
         >
-          {/* 顶部用户信息卡片 */}
-          <div className="um-user-card">
+          {/* 卡片1: 用户信息 */}
+          <div className="um-card um-user-card">
             <div className="um-user-info">
               <div className="um-avatar">
                 {getUserInitial()}
               </div>
               <div className="um-user-detail">
                 <span className="um-username">{getUserDisplayName()}</span>
-                <span 
+                <span
                   className={`um-plan-badge ${subscription?.plan_code || 'free'} clickable`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -359,72 +359,86 @@ const TopNavBar = ({
                 </span>
               </div>
             </div>
-            
-            {/* 余额展示 - 带快捷操作 */}
-            <div className={`um-wallet-section ${walletLoading ? 'loading' : ''}`}>
+          </div>
+
+          {/* 卡片2: 钱包 */}
+          <div className={`um-card um-wallet-card ${walletLoading ? 'loading' : ''}`}>
+            {/* 右上角查看明细按钮 - hover时显示 */}
+            <button
+              className="um-wallet-detail-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowUserMenu(false);
+                navigate('/settings?tab=wallet');
+              }}
+            >
+              查看明细
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </button>
+            <div className="um-wallet-grid">
               {/* 恩特币 */}
-              <div className="um-wallet-row">
-                <div className="um-wallet-info">
-                  <EntcoinIcon size="md" />
+              <div className="um-wallet-item">
+                <div className="um-wallet-item-header">
+                  <EntcoinIcon size="sm" />
                   <span className="um-wallet-label">恩特币</span>
+                </div>
+                <div className="um-wallet-value-row">
                   <span className="um-wallet-value">
                     {walletLoading ? <span className="um-wallet-skeleton"></span> : (wallet?.diamond || 0).toLocaleString()}
                   </span>
+                  <button
+                    className="um-wallet-btn um-wallet-btn-primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowUserMenu(false);
+                      openRechargeModal();
+                    }}
+                  >
+                    充值
+                  </button>
                 </div>
-                <button 
-                  className="um-wallet-action-btn"
-                  onClick={(e) => { 
-                    e.stopPropagation(); 
-                    setShowUserMenu(false); 
-                    openRechargeModal(); 
-                  }}
-                >
-                  充值
-                </button>
               </div>
               {/* 经费 */}
-              <div className="um-wallet-row">
-                <div className="um-wallet-info">
-                  <GoldIcon size="md" />
+              <div className="um-wallet-item">
+                <div className="um-wallet-item-header">
+                  <GoldIcon size="sm" />
                   <span className="um-wallet-label">经费</span>
+                </div>
+                <div className="um-wallet-value-row">
                   <span className="um-wallet-value">
                     {walletLoading ? <span className="um-wallet-skeleton"></span> : (wallet?.gold || 0).toLocaleString()}
                   </span>
+                  <button
+                    className="um-wallet-btn um-wallet-btn-secondary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowUserMenu(false);
+                      navigate('/settings?tab=wallet&section=gold');
+                    }}
+                  >
+                    兑换
+                  </button>
                 </div>
-                <button 
-                  className="um-wallet-action-btn"
-                  onClick={(e) => { 
-                    e.stopPropagation(); 
-                    setShowUserMenu(false); 
-                    navigate('/settings?tab=wallet&section=gold'); 
-                  }}
-                >
-                  兑换
-                </button>
               </div>
-              {/* 查看明细 */}
-              <button 
-                className="um-wallet-detail-link"
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  setShowUserMenu(false); 
-                  navigate('/settings?tab=wallet'); 
-                }}
-              >
-                查看明细 →
-              </button>
             </div>
           </div>
 
-          {/* 签到区域 - 显示本周，点击跳转到设置页面 */}
-          <div className="um-checkin-section" onClick={() => { setShowUserMenu(false); navigate('/settings?tab=profile'); }}>
+          {/* 卡片3: 签到 */}
+          <div className="um-card um-checkin-card" onClick={() => { setShowUserMenu(false); navigate('/settings?tab=profile'); }}>
             <div className="um-checkin-header">
               <div className="um-checkin-header-left">
+                <svg className="um-checkin-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
                 <span className="um-checkin-title">签到</span>
                 <span className="um-checkin-streak">连续{checkinStats.consecutiveDays}天</span>
               </div>
               {(() => {
-                // 找到下一个里程碑奖励
                 const nextMilestone = futureRewards.find(r => r.is_milestone && r.consecutive_day > checkinStats.consecutiveDays);
                 if (nextMilestone) {
                   const daysToMilestone = nextMilestone.consecutive_day - checkinStats.consecutiveDays;
@@ -443,10 +457,10 @@ const TopNavBar = ({
             <div className="um-checkin-days">
               {(() => {
                 const today = new Date();
-                const dayOfWeek = today.getDay(); // 0=周日
+                const dayOfWeek = today.getDay();
                 const weekStart = new Date(today);
                 weekStart.setDate(today.getDate() - dayOfWeek);
-                
+
                 const days = [];
                 for (let i = 0; i < 7; i++) {
                   const date = new Date(weekStart);
@@ -463,27 +477,27 @@ const TopNavBar = ({
                   const futureReward = futureRewards.find(r => r.date === dateStr);
                   const expectedGold = futureReward?.expected_gold || 10;
                   const isMilestone = futureReward?.is_milestone || false;
-                  
+
                   days.push(
-                    <div 
-                      key={i} 
-                      className={`checkin-day ${isToday ? 'today' : ''} ${isChecked ? 'checked' : ''} ${isFuture && !isToday ? 'future' : ''} ${isPast && !isChecked ? 'past' : ''} ${isMilestone ? 'milestone' : ''}`}
+                    <div
+                      key={i}
+                      className={`um-day ${isToday ? 'today' : ''} ${isChecked ? 'checked' : ''} ${isFuture && !isToday ? 'future' : ''} ${isPast && !isChecked ? 'past' : ''} ${isMilestone ? 'milestone' : ''}`}
                     >
-                      <span className="day-num">{dayNum}</span>
+                      <span className="um-day-num">{dayNum}</span>
                       {isChecked && goldReward > 0 && (
-                        <span className="gold-reward checked-gold">+{goldReward}</span>
+                        <span className="um-day-reward checked">+{goldReward}</span>
                       )}
                       {isToday && !isChecked && (
-                        <span className={`gold-reward today-gold ${isMilestone ? 'milestone-gold' : ''}`}>+{expectedGold}</span>
+                        <span className={`um-day-reward today ${isMilestone ? 'milestone' : ''}`}>+{expectedGold}</span>
                       )}
                       {isFuture && !isToday && (
-                        <span className={`gold-reward future-gold ${isMilestone ? 'milestone-gold' : ''}`}>+{expectedGold}</span>
+                        <span className={`um-day-reward future ${isMilestone ? 'milestone' : ''}`}>+{expectedGold}</span>
                       )}
                       {isPast && !isChecked && (
-                        <span className="gold-reward past-gold">+10</span>
+                        <span className="um-day-reward past">+10</span>
                       )}
                       {isChecked && (
-                        <div className="check-mark">
+                        <div className="um-day-check">
                           <svg viewBox="0 0 24 24" fill="none">
                             <path d="M9 12L11 14L15 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
@@ -498,16 +512,18 @@ const TopNavBar = ({
           </div>
 
           {/* 消息通知入口 */}
-          <MessageDropdown 
-            unreadCount={unreadMessageCount}
-            onUnreadCountChange={(countOrFn) => {
-              if (typeof countOrFn === 'function') {
-                setUnreadMessageCount(countOrFn);
-              } else {
-                setUnreadMessageCount(countOrFn);
-              }
-            }}
-          />
+          <div className="um-card um-message-card">
+            <MessageDropdown
+              unreadCount={unreadMessageCount}
+              onUnreadCountChange={(countOrFn) => {
+                if (typeof countOrFn === 'function') {
+                  setUnreadMessageCount(countOrFn);
+                } else {
+                  setUnreadMessageCount(countOrFn);
+                }
+              }}
+            />
+          </div>
 
           {/* 底部操作区域 */}
           <div className="um-footer">
@@ -515,7 +531,7 @@ const TopNavBar = ({
               <ThemeToggle />
             </div>
             <button
-              className="um-settings-btn"
+              className="um-footer-btn um-settings-btn"
               onClick={() => {
                 setShowUserMenu(false);
                 navigate('/settings');
@@ -528,7 +544,7 @@ const TopNavBar = ({
               <span>设置</span>
             </button>
             <button
-              className="um-logout-btn"
+              className="um-footer-btn um-logout-btn"
               onClick={() => {
                 setShowUserMenu(false);
                 if (onLogout) {
