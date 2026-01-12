@@ -103,21 +103,187 @@
 .profile-card-header {
   display: flex;
   align-items: center;
-  gap: 24px;
+  justify-content: space-between;
   padding-bottom: 24px;
   margin-bottom: 24px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* 左侧：头像 + 用户名 */
+.profile-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* 右侧：会员 + 管理按钮 */
+.profile-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .profile-basic-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 名字包装器 - hover 编辑 */
+.profile-name-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  /* 固定高度防止编辑时布局跳动 */
+  min-height: 40px;
+}
+
+.profile-name-wrapper:hover:not(.editing) {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.profile-name-wrapper:hover .edit-hint {
+  opacity: 1;
+}
+
+.profile-name-wrapper.editing {
+  background: rgba(16, 163, 127, 0.08);
+  cursor: default;
 }
 
 .profile-name {
   font-size: 24px;
   font-weight: 700;
   color: white;
-  margin: 0 0 6px 0;
+  margin: 0;
+  line-height: 32px;
+}
+
+.edit-hint {
+  opacity: 0;
+  color: rgba(255, 255, 255, 0.4);
+  transition: opacity 0.2s ease;
+  display: flex;
+  align-items: center;
+}
+
+/* 内联编辑名字 */
+.inline-edit-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* 与显示状态保持同样高度 */
+  height: 32px;
+}
+
+.inline-edit-name input {
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  border-radius: 6px;
+  color: white;
+  font-size: 20px;
+  font-weight: 600;
+  width: 180px;
+  height: 32px;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.inline-edit-name input:focus {
+  border-color: rgba(16, 163, 127, 0.6);
+  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.15);
+}
+
+.inline-save-btn,
+.inline-cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.inline-save-btn {
+  background: rgba(16, 163, 127, 0.9);
+  color: white;
+}
+
+.inline-save-btn:hover:not(:disabled) {
+  background: rgba(16, 163, 127, 1);
+  transform: scale(1.05);
+}
+
+.inline-cancel-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.inline-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+}
+
+/* 会员身份展示 */
+.profile-membership {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.membership-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.membership-badge.free {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.membership-badge.pro {
+  background: linear-gradient(135deg, #d9af6b 0%, #cda45e 100%);
+  color: white;
+}
+
+.membership-badge.max {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: #1a1a1a;
+}
+
+.membership-manage-btn {
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.membership-manage-btn:hover {
+  background: rgba(16, 163, 127, 0.1);
+  border-color: rgba(16, 163, 127, 0.4);
+  color: #10a37f;
 }
 
 .profile-id {
@@ -125,6 +291,123 @@
   color: rgba(255, 255, 255, 0.5);
   margin: 0;
   font-family: 'Monaco', 'Menlo', monospace;
+}
+
+/* 简介区域 - hover 编辑 */
+.profile-bio-wrapper {
+  padding: 16px 20px;
+  margin-top: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  /* 固定最小高度，防止编辑时布局跳动 */
+  min-height: 120px;
+}
+
+.profile-bio-wrapper:hover:not(.editing) {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.profile-bio-wrapper:hover .bio-edit-hint {
+  opacity: 1;
+}
+
+.profile-bio-wrapper.editing {
+  background: rgba(16, 163, 127, 0.05);
+  border-color: rgba(16, 163, 127, 0.2);
+  cursor: default;
+}
+
+.profile-bio-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.profile-bio-label svg {
+  opacity: 0.6;
+}
+
+.profile-bio-text {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+  /* 固定最小高度 */
+  min-height: 44px;
+}
+
+.bio-edit-hint {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* 内联编辑简介 */
+.inline-edit-bio {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inline-edit-bio textarea {
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: none;
+  /* 固定高度与显示状态保持一致 */
+  height: 44px;
+  min-height: 44px;
+  outline: none;
+  font-family: inherit;
+}
+
+.inline-edit-bio textarea:focus {
+  outline: none;
+}
+
+.inline-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.inline-edit-actions .inline-save-btn {
+  width: auto;
+  height: auto;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.inline-edit-actions .inline-cancel-btn {
+  width: auto;
+  height: auto;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 /* Profile Display Mode */
@@ -601,7 +884,88 @@
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
+[data-theme="light"] .inline-edit-bio textarea {
+  color: #374151;
+}
+
 [data-theme="light"] .profile-name {
+  color: #1f2937;
+}
+
+[data-theme="light"] .profile-name-wrapper:hover:not(.editing) {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .profile-name-wrapper.editing {
+  background: rgba(16, 163, 127, 0.06);
+}
+
+[data-theme="light"] .edit-hint {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .inline-edit-name input {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  color: #1f2937;
+}
+
+[data-theme="light"] .inline-cancel-btn {
+  background: rgba(0, 0, 0, 0.06);
+  color: #6b7280;
+}
+
+[data-theme="light"] .inline-cancel-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #374151;
+}
+
+[data-theme="light"] .membership-badge.free {
+  background: #e5e7eb;
+  color: #6b7280;
+}
+
+[data-theme="light"] .membership-manage-btn {
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #6b7280;
+}
+
+[data-theme="light"] .membership-manage-btn:hover {
+  background: rgba(16, 163, 127, 0.08);
+  border-color: rgba(16, 163, 127, 0.4);
+  color: #10a37f;
+}
+
+[data-theme="light"] .profile-bio-wrapper {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .profile-bio-wrapper:hover:not(.editing) {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .profile-bio-wrapper.editing {
+  background: rgba(16, 163, 127, 0.04);
+  border-color: rgba(16, 163, 127, 0.2);
+}
+
+[data-theme="light"] .profile-bio-label {
+  color: #6b7280;
+}
+
+[data-theme="light"] .profile-bio-text {
+  color: #374151;
+}
+
+[data-theme="light"] .bio-edit-hint {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .inline-edit-bio textarea {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(16, 163, 127, 0.3);
   color: #1f2937;
 }
 

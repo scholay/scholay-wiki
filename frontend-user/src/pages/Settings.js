@@ -35,7 +35,7 @@ const Settings = () => {
 
   const [activeTab, setActiveTab] = useState('profile'); // profile, account, subscription, invitation
   const [loading, setLoading] = useState(false);
-  const [isEditingProfile, setIsEditingProfile] = useState(false); // 控制个人介绍编辑状态
+  // isEditingProfile 已废弃，改为 hover 原地编辑
 
   // Profile form state
   const [profile, setProfile] = useState({
@@ -517,32 +517,7 @@ const Settings = () => {
   };
 
 
-  const handleProfileSave = async () => {
-    setLoading(true);
-
-    try {
-      // API call to update profile
-      const response = await api.put('/user/profile', {
-        username: profile.name,
-        bio: profile.bio
-      });
-
-      if (response.data.code === 0) {
-        showSuccess('个人信息已保存');
-        // 保存成功后重新获取用户信息
-        await fetchUserProfile();
-        // 退出编辑模式
-        setIsEditingProfile(false);
-      } else {
-        showError('保存失败：' + response.data.message);
-      }
-    } catch (error) {
-      showError('保存失败，请稍后重试');
-      logger.error('Failed to update profile:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // handleProfileSave 已废弃，改为使用 handleSaveName 和 handleSaveBio 进行原地编辑
 
   // 保留供将来使用
   // eslint-disable-next-line no-unused-vars
@@ -1385,126 +1360,187 @@ const Settings = () => {
   };
 
 
+  // 名字编辑状态
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editingName, setEditingName] = useState('');
+
+  // 简介编辑状态
+  const [isEditingBio, setIsEditingBio] = useState(false);
+  const [editingBio, setEditingBio] = useState('');
+
+  // 保存名字
+  const handleSaveName = async () => {
+    if (editingName === profile.name) {
+      setIsEditingName(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      await api.put('/user/profile', { name: editingName });
+      setProfile({ ...profile, name: editingName });
+      setIsEditingName(false);
+      showSuccess('名字已更新');
+      refreshUser();
+    } catch (error) {
+      logger.error('Failed to save name:', error);
+      showError('保存失败，请重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 保存简介
+  const handleSaveBio = async () => {
+    if (editingBio === profile.bio) {
+      setIsEditingBio(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      await api.put('/user/profile', { bio: editingBio });
+      setProfile({ ...profile, bio: editingBio });
+      setIsEditingBio(false);
+      showSuccess('简介已更新');
+    } catch (error) {
+      logger.error('Failed to save bio:', error);
+      showError('保存失败，请重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderProfileTab = () => (
     <div className="settings-section">
       <div className="profile-header">
         <h2>个人资料</h2>
-        {!isEditingProfile && (
-          <button
-            className="btn-edit-profile"
-            onClick={() => setIsEditingProfile(true)}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 20h9"/>
-              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-            </svg>
-            编辑资料
-          </button>
-        )}
       </div>
 
       {/* 个人资料卡片 */}
       <div className="profile-card">
         <div className="profile-card-header">
-          <div className="avatar-wrapper">
-            <div className="avatar-circle">
-              {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
+          {/* 左侧：头像 + 用户名 */}
+          <div className="profile-header-left">
+            <div className="avatar-wrapper">
+              <div className="avatar-circle">
+                {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
+              </div>
+            </div>
+            {/* 名字 - hover显示编辑 */}
+            <div
+              className={`profile-name-wrapper ${isEditingName ? 'editing' : ''}`}
+              onClick={() => {
+                if (!isEditingName) {
+                  setEditingName(profile.name || '');
+                  setIsEditingName(true);
+                }
+              }}
+            >
+              {isEditingName ? (
+                <div className="inline-edit-name">
+                  <input
+                    type="text"
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    placeholder="输入名字"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveName();
+                      if (e.key === 'Escape') setIsEditingName(false);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <button className="inline-save-btn" onClick={(e) => { e.stopPropagation(); handleSaveName(); }} disabled={loading}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </button>
+                  <button className="inline-cancel-btn" onClick={(e) => { e.stopPropagation(); setIsEditingName(false); }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/>
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <h3 className="profile-name">{profile.name || '未设置名字'}</h3>
+                  <span className="edit-hint">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 20h9"/>
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                    </svg>
+                  </span>
+                </>
+              )}
             </div>
           </div>
-          <div className="profile-basic-info">
-            <h3 className="profile-name">{profile.name || '未设置名字'}</h3>
+          {/* 右侧：会员身份 + 管理按钮 */}
+          <div className="profile-header-right">
+            <span className={`membership-badge ${currentSubscription?.plan_code || 'free'}`}>
+              {currentSubscription?.plan_name || 'FREE'}
+            </span>
+            <button
+              className="membership-manage-btn"
+              onClick={() => setActiveTab('subscription')}
+            >
+              管理
+            </button>
           </div>
         </div>
 
-        {isEditingProfile ? (
-          // 编辑模式
-          <div className="profile-edit-form">
-            <div className="form-group">
-              <label>名字</label>
-              <div className="input-with-clear">
-                <input
-                  type="text"
-                  value={profile.name}
-                  onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                  placeholder="输入你的名字"
-                />
-                {profile.name && (
-                  <button
-                    className="clear-btn"
-                    onClick={() => setProfile({ ...profile, name: '' })}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10"/>
-                      <line x1="15" y1="9" x2="9" y2="15"/>
-                      <line x1="9" y1="9" x2="15" y2="15"/>
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>个人简介</label>
+        {/* 个人简介 - hover显示编辑 */}
+        <div
+          className={`profile-bio-wrapper ${isEditingBio ? 'editing' : ''}`}
+          onClick={() => {
+            if (!isEditingBio) {
+              setEditingBio(profile.bio || '');
+              setIsEditingBio(true);
+            }
+          }}
+        >
+          {isEditingBio ? (
+            <div className="inline-edit-bio">
               <textarea
-                value={profile.bio}
-                onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+                value={editingBio}
+                onChange={(e) => setEditingBio(e.target.value)}
                 placeholder="介绍一下自己..."
-                rows="4"
+                rows="3"
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
               />
-            </div>
-
-            <div className="profile-edit-actions">
-              <button
-                className="btn-save"
-                onClick={handleProfileSave}
-                disabled={loading}
-              >
-                {loading ? '保存中...' : '保存更改'}
-              </button>
-              <button
-                className="btn-cancel-edit"
-                onClick={() => {
-                  setIsEditingProfile(false);
-                  fetchUserProfile();
-                }}
-                disabled={loading}
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        ) : (
-          // 展示模式
-          <div className="profile-display">
-            <div className="profile-field">
-              <div className="profile-field-label">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
-                </svg>
-                名字
-              </div>
-              <div className="profile-field-value">
-                {profile.name || <span className="empty-value">未设置</span>}
+              <div className="inline-edit-actions">
+                <button className="inline-save-btn" onClick={(e) => { e.stopPropagation(); handleSaveBio(); }} disabled={loading}>
+                  {loading ? '保存中...' : '保存'}
+                </button>
+                <button className="inline-cancel-btn" onClick={(e) => { e.stopPropagation(); setIsEditingBio(false); }}>
+                  取消
+                </button>
               </div>
             </div>
-
-            <div className="profile-field">
-              <div className="profile-field-label">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          ) : (
+            <>
+              <div className="profile-bio-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="17" y1="10" x2="3" y2="10"/>
                   <line x1="21" y1="6" x2="3" y2="6"/>
                   <line x1="21" y1="14" x2="3" y2="14"/>
                   <line x1="17" y1="18" x2="3" y2="18"/>
                 </svg>
-                个人简介
+                <span>简介</span>
               </div>
-              <div className="profile-field-value bio-value">
-                {profile.bio || <span className="empty-value">未设置简介，点击编辑添加...</span>}
-              </div>
-            </div>
-          </div>
-        )}
+              <p className="profile-bio-text">
+                {profile.bio || <span className="empty-value">点击添加个人简介...</span>}
+              </p>
+              <span className="edit-hint bio-edit-hint">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 20h9"/>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+                编辑
+              </span>
+            </>
+          )}
+        </div>
       </div>
 
       {/* 签到日历 */}
@@ -1514,7 +1550,7 @@ const Settings = () => {
 
   const renderAccountTab = () => (
     <div className="settings-section">
-      <h2>账户管理</h2>
+      <h2>授权管理</h2>
 
       {/* Account Binding Cards */}
       <div className="account-bindings">
@@ -2185,7 +2221,7 @@ const Settings = () => {
                     <path d="M3 8v-2a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/>
                     <line x1="12" y1="16" x2="12.01" y2="16"/>
                   </svg>
-                  <span>管理订阅</span>
+                  <span>资产管理</span>
                 </button>
                 <button
                   className={`menu-item ${activeTab === 'invitation' ? 'active' : ''}`}
@@ -2207,7 +2243,7 @@ const Settings = () => {
                     <circle cx="12" cy="12" r="3"/>
                     <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
                   </svg>
-                  <span>账户管理</span>
+                  <span>授权管理</span>
                 </button>
               </div>
 
@@ -2247,7 +2283,7 @@ const Settings = () => {
             <path d="M3 8v-2a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/>
             <line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
-          <span>订阅</span>
+          <span>资产</span>
         </button>
         <button
           className={`mobile-tab-item ${activeTab === 'invitation' ? 'active' : ''}`}
@@ -2269,7 +2305,7 @@ const Settings = () => {
             <circle cx="12" cy="12" r="3"/>
             <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
           </svg>
-          <span>账户</span>
+          <span>授权</span>
         </button>
       </div>
     </div>
