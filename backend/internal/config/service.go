@@ -269,3 +269,69 @@ func (s *Service) UpdateGithubOAuthConfig(clientID, clientSecret, redirectURI st
 	config.Enabled = enabled
 	return s.repo.UpdateGithubOAuthConfig(config)
 }
+
+// ============================================
+// Code Snippets (SEO/广告) Configuration Methods
+// ============================================
+
+// ListCodeSnippets 获取代码片段列表
+func (s *Service) ListCodeSnippets(category string) ([]model.CodeSnippet, error) {
+	return s.repo.ListCodeSnippets(category)
+}
+
+// GetCodeSnippetByID 根据ID获取代码片段
+func (s *Service) GetCodeSnippetByID(id uint) (*model.CodeSnippet, error) {
+	return s.repo.GetCodeSnippetByID(id)
+}
+
+// CreateCodeSnippet 创建代码片段
+func (s *Service) CreateCodeSnippet(snippet *model.CodeSnippet) error {
+	return s.repo.CreateCodeSnippet(snippet)
+}
+
+// UpdateCodeSnippet 更新代码片段
+func (s *Service) UpdateCodeSnippet(snippet *model.CodeSnippet) error {
+	return s.repo.UpdateCodeSnippet(snippet)
+}
+
+// DeleteCodeSnippet 删除代码片段
+func (s *Service) DeleteCodeSnippet(id uint) error {
+	return s.repo.DeleteCodeSnippet(id)
+}
+
+// GetEnabledCodeSnippets 获取启用的代码片段（用于用户端前端）
+func (s *Service) GetEnabledCodeSnippets() ([]model.CodeSnippet, error) {
+	return s.repo.GetEnabledCodeSnippets()
+}
+
+// GetCodeSnippetsGrouped 获取按位置分组的代码片段（用于用户端前端）
+func (s *Service) GetCodeSnippetsGrouped() (*model.CodeSnippetsGroupedResponse, error) {
+	snippets, err := s.repo.GetEnabledCodeSnippets()
+	if err != nil {
+		return nil, err
+	}
+
+	result := &model.CodeSnippetsGroupedResponse{
+		Head:      []model.CodeSnippetResponse{},
+		BodyStart: []model.CodeSnippetResponse{},
+		BodyEnd:   []model.CodeSnippetResponse{},
+	}
+
+	for _, snippet := range snippets {
+		item := model.CodeSnippetResponse{
+			Position:    snippet.Position,
+			CodeContent: snippet.CodeContent,
+			Priority:    snippet.Priority,
+		}
+		switch snippet.Position {
+		case model.PositionHead:
+			result.Head = append(result.Head, item)
+		case model.PositionBodyStart:
+			result.BodyStart = append(result.BodyStart, item)
+		case model.PositionBodyEnd:
+			result.BodyEnd = append(result.BodyEnd, item)
+		}
+	}
+
+	return result, nil
+}

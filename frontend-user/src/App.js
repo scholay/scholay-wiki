@@ -26,6 +26,7 @@ import WelcomeCheckinModal from './components/WelcomeCheckinModal';
 import NotificationToast from './components/NotificationToast';
 import OrderModal from './components/OrderModal';
 import RechargeModal from './components/RechargeModal';
+import CodeSnippetInjector from './components/CodeSnippetInjector';
 
 // 首页立即加载(最常访问)
 import Home from './pages/Home';
@@ -267,6 +268,9 @@ function App() {
                   
                   {/* 全局充值弹窗 */}
                   <RechargeModal />
+
+                  {/* SEO/广告/统计代码片段注入 */}
+                  <CodeSnippetInjector />
                 </Suspense>
               </Router>
               </RechargeModalProvider>

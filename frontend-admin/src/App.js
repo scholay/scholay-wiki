@@ -31,6 +31,7 @@ const CurrencyConfig = lazy(() => import('./pages/CurrencyConfig'));
 const UsageLogs = lazy(() => import('./pages/UsageLogs'));
 const MessageManagement = lazy(() => import('./pages/MessageManagement'));
 const MessageTemplates = lazy(() => import('./pages/MessageTemplates'));
+const CodeSnippets = lazy(() => import('./pages/CodeSnippets'));
 
 // Loading component for Suspense fallback
 const LoadingFallback = () => (
@@ -79,6 +80,7 @@ function App() {
               <Route path="usage-logs" element={<UsageLogs />} />
               <Route path="messages" element={<MessageManagement />} />
               <Route path="message-templates" element={<MessageTemplates />} />
+              <Route path="code-snippets" element={<CodeSnippets />} />
               <Route path="settings" element={<SystemSettings />} />
               {/* 保留旧路由以防万一，但重定向到设置页 */}
               <Route path="alipay-config" element={<Navigate to="/dashboard/settings?tab=alipay" replace />} />

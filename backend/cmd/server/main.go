@@ -456,6 +456,12 @@ func main() {
 			// GitHub OAuth configuration
 			adminProtected.GET("/github-config", configHandler.GetGithubOAuthConfig)
 			adminProtected.PUT("/github-config", configHandler.UpdateGithubOAuthConfig)
+			// Code Snippets (SEO/广告) management
+			adminProtected.GET("/code-snippets", configHandler.ListCodeSnippets)
+			adminProtected.GET("/code-snippets/:id", configHandler.GetCodeSnippet)
+			adminProtected.POST("/code-snippets", configHandler.CreateCodeSnippet)
+			adminProtected.PUT("/code-snippets/:id", configHandler.UpdateCodeSnippet)
+			adminProtected.DELETE("/code-snippets/:id", configHandler.DeleteCodeSnippet)
 			// User management
 			adminProtected.GET("/users/stats", userHandler.GetUserStatistics)
 			adminProtected.GET("/users", userHandler.GetUserList)

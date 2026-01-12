@@ -452,6 +452,22 @@ export const adminAPI = {
 
   deleteMessageTemplate: (id) =>
     api.delete(`/admin/message-templates/${id}`),
+
+  // Code Snippets management (SEO/广告代码片段管理)
+  getCodeSnippets: (category = '') =>
+    api.get('/admin/code-snippets', { params: category ? { category } : {} }),
+
+  getCodeSnippet: (id) =>
+    api.get(`/admin/code-snippets/${id}`),
+
+  createCodeSnippet: (data) =>
+    api.post('/admin/code-snippets', data),
+
+  updateCodeSnippet: (id, data) =>
+    api.put(`/admin/code-snippets/${id}`, data),
+
+  deleteCodeSnippet: (id) =>
+    api.delete(`/admin/code-snippets/${id}`),
 };
 
 export default api;

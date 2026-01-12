@@ -464,6 +464,10 @@ export const configAPI = {
   // Get system config
   getSystemConfig: () =>
     api.get('/config/system'),
+
+  // Get code snippets for frontend injection (SEO/广告/统计等)
+  getCodeSnippets: () =>
+    api.get('/config/code-snippets'),
 };
 
 export const subscriptionAPI = {

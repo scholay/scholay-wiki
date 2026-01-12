@@ -166,3 +166,71 @@ func (r *Repository) CreateGithubOAuthConfig(config *model.GithubOAuthConfig) er
 func (r *Repository) UpdateGithubOAuthConfig(config *model.GithubOAuthConfig) error {
 	return r.db.Save(config).Error
 }
+
+// ============================================
+// Code Snippets (SEO/广告) Configuration Methods
+// ============================================
+
+// ListCodeSnippets 获取代码片段列表（支持分类筛选）
+func (r *Repository) ListCodeSnippets(category string) ([]model.CodeSnippet, error) {
+	var snippets []model.CodeSnippet
+	query := r.db.Order("priority ASC, created_at DESC")
+	if category != "" && category != "all" {
+		query = query.Where("category = ?", category)
+	}
+	err := query.Find(&snippets).Error
+	return snippets, err
+}
+
+// GetCodeSnippetByID 根据ID获取代码片段
+func (r *Repository) GetCodeSnippetByID(id uint) (*model.CodeSnippet, error) {
+	var snippet model.CodeSnippet
+	err := r.db.First(&snippet, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &snippet, nil
+}
+
+// GetCodeSnippetByKey 根据 code_key 获取代码片段
+func (r *Repository) GetCodeSnippetByKey(key string) (*model.CodeSnippet, error) {
+	var snippet model.CodeSnippet
+	err := r.db.Where("code_key = ?", key).First(&snippet).Error
+	if err != nil {
+		return nil, err
+	}
+	return &snippet, nil
+}
+
+// CreateCodeSnippet 创建代码片段
+func (r *Repository) CreateCodeSnippet(snippet *model.CodeSnippet) error {
+	return r.db.Create(snippet).Error
+}
+
+// UpdateCodeSnippet 更新代码片段
+func (r *Repository) UpdateCodeSnippet(snippet *model.CodeSnippet) error {
+	return r.db.Save(snippet).Error
+}
+
+// DeleteCodeSnippet 删除代码片段
+func (r *Repository) DeleteCodeSnippet(id uint) error {
+	return r.db.Delete(&model.CodeSnippet{}, id).Error
+}
+
+// GetEnabledCodeSnippets 获取启用的代码片段（用于用户端）
+func (r *Repository) GetEnabledCodeSnippets() ([]model.CodeSnippet, error) {
+	var snippets []model.CodeSnippet
+	err := r.db.Where("is_enabled = ?", true).
+		Order("priority ASC").
+		Find(&snippets).Error
+	return snippets, err
+}
+
+// GetEnabledCodeSnippetsByPosition 根据位置获取启用的代码片段
+func (r *Repository) GetEnabledCodeSnippetsByPosition(position string) ([]model.CodeSnippet, error) {
+	var snippets []model.CodeSnippet
+	err := r.db.Where("is_enabled = ? AND position = ?", true, position).
+		Order("priority ASC").
+		Find(&snippets).Error
+	return snippets, err
+}

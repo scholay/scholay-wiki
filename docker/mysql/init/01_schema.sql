@@ -1511,3 +1511,29 @@ CREATE TABLE IF NOT EXISTS `user_messages` (
   CONSTRAINT `fk_user_messages_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_user_messages_message` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户消息状态表';
+
+-- ============================================
+-- SEO与广告代码片段配置表
+-- ============================================
+
+-- 代码片段配置表（用于用户端前端的SEO、广告、统计等代码注入）
+CREATE TABLE IF NOT EXISTS `code_snippets` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(100) NOT NULL COMMENT '配置名称（如：Google Analytics、百度统计、广告代码等）',
+  `code_key` VARCHAR(50) NOT NULL COMMENT '唯一标识键（如：google_analytics, baidu_tongji, ad_header等）',
+  `category` VARCHAR(30) NOT NULL DEFAULT 'other' COMMENT '分类：seo=SEO相关, analytics=统计分析, ad=广告, social=社交, other=其他',
+  `position` VARCHAR(20) NOT NULL DEFAULT 'head' COMMENT '注入位置：head=头部, body_start=body开始, body_end=body结束',
+  `code_content` TEXT NOT NULL COMMENT '代码内容（HTML/JS/CSS代码片段）',
+  `description` VARCHAR(500) COMMENT '配置说明',
+  `is_enabled` BOOLEAN NOT NULL DEFAULT TRUE COMMENT '是否启用',
+  `priority` INT NOT NULL DEFAULT 100 COMMENT '优先级（数字越小越先加载）',
+  `pages` JSON COMMENT '生效页面（null表示全部页面，数组表示指定页面路径）',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_code_key` (`code_key`),
+  INDEX `idx_category` (`category`),
+  INDEX `idx_position` (`position`),
+  INDEX `idx_is_enabled` (`is_enabled`),
+  INDEX `idx_priority` (`priority`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='代码片段配置表（SEO/广告/统计等）';
