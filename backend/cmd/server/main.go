@@ -618,6 +618,7 @@ func main() {
 		wechatPublic := api.Group("/user/wechat")
 		{
 			wechatPublic.GET("/login-url", wechatHandler.GetLoginURL)
+			wechatPublic.GET("/qrcode-config", wechatHandler.GetQRCodeConfig)
 			wechatPublic.POST("/callback", userHandler.WeChatCallback)
 		}
 

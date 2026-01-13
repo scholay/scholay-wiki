@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../utils/AuthContext';
 import { userAPI } from '../services/api';
 import TurnstileCaptcha from './TurnstileCaptcha';
@@ -21,7 +21,7 @@ import './styles/auth-modal/index.css';
 const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const { login } = useAuth();
   const { showError, showSuccess } = useToast();
-  const [mode, setMode] = useState('welcome'); // 'welcome', 'login', 'register', 'phone-welcome', 'phone-login', 'phone-register', 'forgot-password-email', 'forgot-password-phone'
+  const [mode, setMode] = useState('welcome'); // 'welcome', 'login', 'register', 'phone-welcome', 'phone-login', 'phone-register', 'forgot-password-email', 'forgot-password-phone', 'wechat-qrcode'
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -34,6 +34,11 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   // Refs for captcha components
   const emailCaptchaRef = useRef(null);
   const phoneCaptchaRef = useRef(null);
+
+  // 微信二维码相关状态
+  const [wechatQRCodeLoading, setWechatQRCodeLoading] = useState(false);
+  const [wechatState, setWechatState] = useState('');
+  const wechatQRCodeRef = useRef(null);
 
   // 每次打开弹窗时重置条款同意状态
   useEffect(() => {
@@ -150,6 +155,8 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     setPasswordError('');
     setInvitationCode('');
     setUseCodeLogin(false);
+    setWechatQRCodeLoading(false);
+    setWechatState('');
   };
 
   // 清空输入框内容（切换登录方式时使用）
@@ -733,32 +740,33 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     }
   };
 
-  // 微信登录
+  // 微信登录 - 显示内嵌二维码
   const handleWeChatLogin = async () => {
     try {
       // CRITICAL: Clean up any bind-related data from previous operations
-      // This prevents state mismatch when different users attempt login
-      // after a previous bind operation left data in localStorage
       localStorage.removeItem('wechat_bind_state');
       localStorage.removeItem('wechat_bind_mode');
 
-      // Get WeChat login URL from backend (backend will generate state)
-      const response = await userAPI.getWeChatLoginURL();
+      setWechatQRCodeLoading(true);
+      setMode('wechat-qrcode');
+
+      // 获取微信内嵌二维码配置
+      const response = await userAPI.getWeChatQRCodeConfig();
 
       if (response.data.code === 0 && response.data.data) {
-        const loginURL = response.data.data.login_url;
-        const state = response.data.data.state;
+        const { app_id, redirect_uri, state, scope } = response.data.data;
 
-        // Save state for verification after callback
+        // 保存 state 用于回调验证
         localStorage.setItem('wechat_oauth_state', state);
+        setWechatState(state);
 
-        // Save current URL for redirect after login (whitelist check will be done in callback)
+        // 保存当前 URL 用于登录后返回
         const currentPath = window.location.pathname + window.location.search;
         if (currentPath !== '/') {
           localStorage.setItem('wechat_return_url', currentPath);
         }
 
-        // 保存邀请码（如果有）- 用于OAuth回调后处理新用户注册
+        // 保存邀请码（如果有）
         const urlParams = new URLSearchParams(window.location.search);
         const inviteParam = urlParams.get('invite');
         if (inviteParam) {
@@ -767,14 +775,70 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
           localStorage.removeItem('oauth_invitation_code');
         }
 
-        // Redirect to WeChat OAuth page
-        window.location.href = loginURL;
+        // 加载微信 JS SDK 并渲染二维码
+        loadWeChatQRCode(app_id, redirect_uri, state, scope || 'snsapi_login');
       } else {
-        showError(response.data.message || '获取微信登录链接失败');
+        showError(response.data.message || '获取微信登录配置失败');
+        setMode('welcome');
       }
     } catch (err) {
       logger.error('WeChat login error:', err);
-      showError('微信登录失败,请稍后重试');
+      showError('微信登录失败，请稍后重试');
+      setMode('welcome');
+    } finally {
+      setWechatQRCodeLoading(false);
+    }
+  };
+
+  // 加载微信 JS SDK 并渲染内嵌二维码
+  const loadWeChatQRCode = useCallback((appId, redirectUri, state, scope) => {
+    // 清空之前的二维码
+    if (wechatQRCodeRef.current) {
+      wechatQRCodeRef.current.innerHTML = '';
+    }
+
+    // 检查是否已加载微信 JS SDK
+    if (window.WxLogin) {
+      renderWeChatQRCode(appId, redirectUri, state, scope);
+      return;
+    }
+
+    // 动态加载微信 JS SDK
+    const script = document.createElement('script');
+    script.src = 'https://res.wx.qq.com/connect/zh_CN/htmledition/js/wxLogin.js';
+    script.async = true;
+    script.onload = () => {
+      renderWeChatQRCode(appId, redirectUri, state, scope);
+    };
+    script.onerror = () => {
+      showError('加载微信登录组件失败，请刷新页面重试');
+      setMode('welcome');
+    };
+    document.body.appendChild(script);
+  }, [showError]);
+
+  // 渲染微信二维码
+  const renderWeChatQRCode = (appId, redirectUri, state, scope) => {
+    if (!window.WxLogin || !wechatQRCodeRef.current) {
+      return;
+    }
+
+    try {
+      // 使用微信 JS SDK 渲染二维码
+      new window.WxLogin({
+        self_redirect: false, // false 表示在新窗口打开回调页面
+        id: 'wechat-qrcode-container',
+        appid: appId,
+        scope: scope,
+        redirect_uri: encodeURIComponent(redirectUri),
+        state: state,
+        style: 'black', // 二维码样式，black 或 white
+        href: '', // 可以自定义二维码样式的 CSS 链接
+      });
+    } catch (err) {
+      logger.error('Render WeChat QR code error:', err);
+      showError('渲染微信二维码失败');
+      setMode('welcome');
     }
   };
 
@@ -883,6 +947,41 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 disabled={loading}
               >
                 {loading ? '检查中...' : '登录'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 微信二维码页面 */}
+        {mode === 'wechat-qrcode' && (
+          <div className="auth-content">
+            <div className="auth-headline">
+              <h1 className="auth-title">微信扫码登录</h1>
+              <p className="auth-subtitle">请使用微信扫描二维码登录</p>
+            </div>
+
+            <div className="auth-wechat-qrcode-wrapper">
+              {wechatQRCodeLoading ? (
+                <div className="auth-wechat-qrcode-loading">
+                  <div className="auth-loading-spinner"></div>
+                  <span>正在加载二维码...</span>
+                </div>
+              ) : (
+                <div
+                  id="wechat-qrcode-container"
+                  ref={wechatQRCodeRef}
+                  className="auth-wechat-qrcode-container"
+                ></div>
+              )}
+            </div>
+
+            <div className="auth-wechat-tips">
+              <p>打开微信，扫一扫登录</p>
+            </div>
+
+            <div className="auth-divider">
+              <button className="auth-link" onClick={() => { clearInputs(); setMode('welcome'); }}>
+                返回其他登录方式
               </button>
             </div>
           </div>

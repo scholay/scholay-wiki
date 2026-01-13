@@ -265,5 +265,24 @@
     font-size: 0.875rem;
     border-radius: 7px;
   }
+
+  /* 微信二维码移动端适配 */
+  .auth-wechat-qrcode-wrapper {
+    min-height: 260px;
+  }
+
+  .auth-wechat-qrcode-container {
+    min-height: 260px;
+  }
+
+  .auth-wechat-qrcode-container iframe {
+    max-width: 100%;
+    transform: scale(0.85);
+    transform-origin: center center;
+  }
+
+  .auth-wechat-tips {
+    font-size: 0.8rem;
+  }
 }
 

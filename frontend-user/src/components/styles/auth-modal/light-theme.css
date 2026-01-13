@@ -340,3 +340,17 @@
 [data-theme="light"] .policy-body::-webkit-scrollbar-thumb:hover {
   background: var(--text-quaternary);
 }
+
+/* 微信二维码 - 日间模式 */
+[data-theme="light"] .auth-wechat-qrcode-loading {
+  color: #6b7280;
+}
+
+[data-theme="light"] .auth-loading-spinner {
+  border-color: #e5e7eb;
+  border-top-color: #10a37f;
+}
+
+[data-theme="light"] .auth-wechat-tips {
+  color: #6b7280;
+}

@@ -231,9 +231,13 @@ export const userAPI = {
   getWeChatLoginURL: () =>
     api.get('/user/wechat/login-url'),
 
+  // 获取微信内嵌二维码所需配置
+  getWeChatQRCodeConfig: () =>
+    api.get('/user/wechat/qrcode-config'),
+
   wechatCallback: (code, state, invitationCode = null) =>
-    api.post('/user/wechat/callback', { 
-      code, 
+    api.post('/user/wechat/callback', {
+      code,
       state,
       ...(invitationCode && { invitation_code: invitationCode })
     }),

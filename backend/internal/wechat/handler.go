@@ -45,6 +45,30 @@ func (h *Handler) GetLoginURL(c *gin.Context) {
 	})
 }
 
+// GetQRCodeConfig returns the WeChat configuration needed for embedded QR code login
+// GET /api/v1/user/wechat/qrcode-config
+func (h *Handler) GetQRCodeConfig(c *gin.Context) {
+	config, err := h.service.GetActiveConfig()
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			utils.Error(c, 4404, "微信登录未配置")
+			return
+		}
+		utils.Error(c, 5000, "获取微信配置失败: "+err.Error())
+		return
+	}
+
+	state := GenerateState()
+
+	// Only return public information needed for embedded QR code
+	utils.Success(c, gin.H{
+		"app_id":       config.AppID,
+		"redirect_uri": config.RedirectURI,
+		"state":        state,
+		"scope":        config.Scope,
+	})
+}
+
 // GetActiveConfig retrieves the active WeChat configuration (Admin only)
 // GET /api/v1/admin/wechat/config
 func (h *Handler) GetActiveConfig(c *gin.Context) {
