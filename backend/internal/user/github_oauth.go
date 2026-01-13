@@ -371,6 +371,12 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode 
 				_ = h.service.GetCouponService().DistributeRegisterCoupons(uint64(uid))
 			}(user.ID)
 		}
+
+		// 赠送注册经费给新用户
+		go h.service.GiftRegisterGold(user.ID)
+
+		// 发送欢迎站内信（如果没有邀请码的话，有邀请码的在邀请系统中发送）
+		go h.service.SendWelcomeMessage(user.ID, invitationCode != "")
 		// Note: last login time and IP will be updated in GithubCallback after this function returns
 	}
 	// Note: last login time and IP will be updated in GithubCallback after this function returns

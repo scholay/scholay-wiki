@@ -7,11 +7,11 @@
  * ============================================================================
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, memo } from 'react';
 import YearHistogram from './YearHistogram';
 import './SearchFilters.css';
 
-const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
+const SearchFilters = memo(({ filters, onFiltersChange, isExpanded, onToggle }) => {
   const filtersPanelRef = useRef(null);
   const overlayRef = useRef(null);
 
@@ -220,6 +220,6 @@ const SearchFilters = ({ filters, onFiltersChange, isExpanded, onToggle }) => {
       </div>
     </div>
   );
-};
+});
 
 export default SearchFilters;

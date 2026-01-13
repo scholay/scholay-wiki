@@ -418,6 +418,80 @@ func (s *Service) GetAllActiveSubscriptions() ([]UserSubscription, error) {
 	return s.repo.GetAllActiveSubscriptions()
 }
 
+// ExpiringMember 即将到期的会员信息（用于货币系统）
+type ExpiringMember struct {
+	UserID   uint
+	PlanCode string
+	EndDate  *time.Time // 会员到期时间
+}
+
+// GetExpiringMembers 获取即将在N天内到期的活跃会员
+// days: 提前提醒天数
+func (s *Service) GetExpiringMembers(days int) ([]ExpiringMember, error) {
+	members, err := s.repo.GetExpiringMembers(days)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]ExpiringMember, len(members))
+	for i, m := range members {
+		result[i] = ExpiringMember{
+			UserID:   m.UserID,
+			PlanCode: m.PlanCode,
+			EndDate:  m.EndDate,
+		}
+	}
+	return result, nil
+}
+
+// GracePeriodEndingMember 宽限期即将结束的会员信息（用于货币系统）
+type GracePeriodEndingMember struct {
+	UserID       uint
+	Gold         int64
+	ExpiredAt    *time.Time // 会员过期时间
+	GraceEndDate *time.Time // 宽限期结束时间
+}
+
+// GetMembersWithGracePeriodEnding 获取宽限期在N天内结束的会员
+// graceDays: 宽限期天数
+// reminderDays: 提前提醒天数
+func (s *Service) GetMembersWithGracePeriodEnding(graceDays, reminderDays int) ([]GracePeriodEndingMember, error) {
+	members, err := s.repo.GetMembersWithGracePeriodEnding(graceDays, reminderDays)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]GracePeriodEndingMember, len(members))
+	for i, m := range members {
+		result[i] = GracePeriodEndingMember{
+			UserID:       m.UserID,
+			Gold:         m.Gold,
+			ExpiredAt:    m.ExpiredAt,
+			GraceEndDate: m.GraceEndDate,
+		}
+	}
+	return result, nil
+}
+
+// GetNonMembersForMonthEndReminder 获取需要月底提醒的非会员
+// graceDays: 宽限期天数
+func (s *Service) GetNonMembersForMonthEndReminder(graceDays int) ([]NonMemberForCurrency, error) {
+	members, err := s.repo.GetNonMembersForMonthEndReminder(graceDays)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]NonMemberForCurrency, len(members))
+	for i, m := range members {
+		result[i] = NonMemberForCurrency{
+			UserID:              m.UserID,
+			Gold:                m.Gold,
+			LastSubscriptionEnd: m.LastSubscriptionEnd,
+		}
+	}
+	return result, nil
+}
+
 // UpdatePlan updates a subscription plan
 func (s *Service) UpdatePlan(planID uint, planName string, priceMonthly, currentPriceMonthly, priceYearly, currentPriceYearly float64, yearlyDiscountEnabled bool, yearlyDiscountPercent float64, features PlanFeatures) error {
 	// Get the plan

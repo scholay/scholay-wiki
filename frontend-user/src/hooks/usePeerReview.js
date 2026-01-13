@@ -247,6 +247,7 @@ export function usePeerReview({ pageSize = 10, pollingInterval = 5000 } = {}) {
     
     // 立即执行一次
     poll();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchTaskDetail, fetchTaskSteps, pollingInterval]);
   
   /**

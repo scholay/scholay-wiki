@@ -7,8 +7,8 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect, useRef, useMemo, lazy, Suspense, useCallback } from 'react';
-import ReactDOM, { flushSync } from 'react-dom';
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { peerReviewAPI, walletAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
@@ -33,6 +33,10 @@ import PeerReviewCreateSection from '../components/PeerReviewCreateSection';
 import ReviewStepsProgress from '../components/ReviewStepsProgress';
 import { trackAIPeerReview } from '../utils/usageTracker';
 import logger from '../utils/logger';
+
+// 子组件
+import { PreviewCard, HistorySection } from './peer-review/components';
+
 import './styles/PeerReviewPage.css';
 import './styles/ReviewReport.css';
 
@@ -48,141 +52,19 @@ const REVIEWER_NAMES = {
 
 // 获取审稿人信息的辅助函数
 const getReviewerInfo = (reviewerIndex) => {
-  return REVIEWER_NAMES[reviewerIndex] || { 
-    name: `审稿人 ${reviewerIndex}`, 
-    short: String(reviewerIndex), 
-    label: String(reviewerIndex) 
+  return REVIEWER_NAMES[reviewerIndex] || {
+    name: `审稿人 ${reviewerIndex}`,
+    short: String(reviewerIndex),
+    label: String(reviewerIndex)
   };
 };
 
-// 内容预览卡片组件（带弹窗）
-function PreviewCard({ preview, fullText }) {
-  const [showPopup, setShowPopup] = useState(false);
-  const [popupStyle, setPopupStyle] = useState({});
-  const btnRef = useRef(null);
-  const hideTimeoutRef = useRef(null);
-
-  const calculatePosition = () => {
-    if (btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      
-      // 弹窗宽度和高度
-      const popupWidth = 500;
-      const popupMaxHeight = Math.min(500, viewportHeight - 100);
-      
-      // 计算位置：在按钮右侧，顶部对齐
-      let left = rect.right + 16;
-      let top = Math.max(60, rect.top - 100);
-      
-      // 如果右侧空间不够，放在左侧
-      if (left + popupWidth > viewportWidth - 20) {
-        left = rect.left - popupWidth - 16;
-      }
-      
-      // 确保不超出底部
-      if (top + popupMaxHeight > viewportHeight - 20) {
-        top = viewportHeight - popupMaxHeight - 20;
-      }
-      
-      setPopupStyle({
-        position: 'fixed',
-        top: `${top}px`,
-        left: `${left}px`,
-        width: `${popupWidth}px`,
-        maxHeight: `${popupMaxHeight}px`,
-        zIndex: 99999,
-      });
-    }
-  };
-
-  const handleMouseEnter = () => {
-    // 清除隐藏定时器
-    if (hideTimeoutRef.current) {
-      clearTimeout(hideTimeoutRef.current);
-      hideTimeoutRef.current = null;
-    }
-    calculatePosition();
-    setShowPopup(true);
-  };
-
-  const handleMouseLeave = () => {
-    // 延迟隐藏，给用户时间移动到弹窗上
-    hideTimeoutRef.current = setTimeout(() => {
-      setShowPopup(false);
-    }, 150);
-  };
-
-  const handlePopupMouseEnter = () => {
-    // 鼠标进入弹窗，取消隐藏
-    if (hideTimeoutRef.current) {
-      clearTimeout(hideTimeoutRef.current);
-      hideTimeoutRef.current = null;
-    }
-  };
-
-  const handlePopupMouseLeave = () => {
-    // 鼠标离开弹窗，延迟隐藏
-    hideTimeoutRef.current = setTimeout(() => {
-      setShowPopup(false);
-    }, 100);
-  };
-
-  // 清理定时器
-  useEffect(() => {
-    return () => {
-      if (hideTimeoutRef.current) {
-        clearTimeout(hideTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  return (
-    <div className="prvr-card prvr-preview-card">
-      <div className="prvr-card-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
-        内容预览
-      </div>
-      <div className="prvr-preview">
-        {preview}
-      </div>
-      {fullText && fullText.length > 100 && (
-        <div className="prvr-preview-more">
-          <span 
-            ref={btnRef}
-            className="prvr-preview-more-btn"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-          >
-            查看全部
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M7 17l9.2-9.2M17 17V7H7"/>
-            </svg>
-          </span>
-          {showPopup && ReactDOM.createPortal(
-            <div 
-              className="prvr-preview-popup-portal"
-              style={popupStyle}
-              onMouseEnter={handlePopupMouseEnter}
-              onMouseLeave={handlePopupMouseLeave}
-            >
-              <div className="prvr-preview-popup-content">
-                {fullText}
-              </div>
-            </div>,
-            document.body
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+/* PreviewCard 组件已移至 ./peer-review/components/PreviewCard.js */
+/* HistorySection 组件已移至 ./peer-review/components/HistorySection.js */
 
 export default function PeerReviewPage() {
+  // navigate 保留供将来跳转使用
+  // eslint-disable-next-line no-unused-vars
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
@@ -1127,225 +1009,7 @@ export default function PeerReviewPage() {
 // ========== 子组件 ==========
 
 // CreateSection 已移至 components/PeerReviewCreateSection.js
-
-
-// 历史任务区域（下半部分）
-function HistorySection({ tasks, loading, totalTasks, currentPage, onPageChange, onSearch, onViewDetail, onDelete }) {
-  const pageSize = 10;
-  const totalPages = Math.ceil(totalTasks / pageSize);
-  const [localSearch, setLocalSearch] = useState('');
-  const searchTimeoutRef = useRef(null);
-
-  // 获取推荐意见的显示文本和样式类
-  const getRecommendationInfo = (recommendation) => {
-    if (!recommendation) return null;
-    const map = {
-      'Accept': { label: 'Accept', className: 'accept' },
-      'Minor Revision': { label: 'Minor Revision', className: 'minor' },
-      'Major Revision': { label: 'Major Revision', className: 'major' },
-      'Reject': { label: 'Reject', className: 'reject' },
-      'Pending Review': { label: 'Pending', className: 'pending' },
-    };
-    return map[recommendation] || { label: recommendation, className: 'pending' };
-  };
-
-  // 处理搜索输入（防抖）
-  const handleSearchChange = (e) => {
-    const value = e.target.value;
-    setLocalSearch(value);
-    
-    // 清除之前的定时器
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-    
-    // 设置新的定时器，500ms 后触发搜索
-    searchTimeoutRef.current = setTimeout(() => {
-      onSearch(value);
-    }, 500);
-  };
-
-  // 清除搜索
-  const handleClearSearch = () => {
-    setLocalSearch('');
-    onSearch('');
-  };
-
-  // 组件卸载时清除定时器
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-  }
-    };
-  }, []);
-
-  return (
-    <div className="prv-history-section">
-      <div className="prv-section-header">
-        <h2 className="prv-section-title">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10"/>
-            <polyline points="12 6 12 12 16 14"/>
-          </svg>
-          历史任务
-          {totalTasks > 0 && <span className="prv-task-count">({totalTasks})</span>}
-        </h2>
-        
-        {/* 搜索框 */}
-        <div className="prv-search-box">
-          <svg className="prv-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8"/>
-            <path d="M21 21l-4.35-4.35"/>
-          </svg>
-          <input
-            type="text"
-            className="prv-search-input"
-            placeholder="搜索标题、文件名..."
-            value={localSearch}
-            onChange={handleSearchChange}
-          />
-          {localSearch && (
-            <button className="prv-search-clear" onClick={handleClearSearch}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="prv-loading-inline">
-          <div className="prv-spinner-small"></div>
-          <span>加载中...</span>
-        </div>
-      ) : tasks.length === 0 ? (
-        <div className="prv-empty-state">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="9" y1="15" x2="15" y2="15"/>
-          </svg>
-          <p>{localSearch ? `未找到与"${localSearch}"相关的任务` : '暂无历史任务'}</p>
-        </div>
-      ) : (
-        <>
-          <div className="prv-task-list-compact">
-            {tasks.map(task => {
-              const recommendationInfo = getRecommendationInfo(task.final_recommendation);
-              return (
-              <div key={task.id} className={`prv-task-card prv-task-card-${task.status}`} onClick={() => onViewDetail(task.id)}>
-                {/* 盖章 - 绝对定位浮在卡片上 */}
-                {task.status === 'completed' && recommendationInfo && (
-                  <div className={`prv-task-stamp prv-stamp-${recommendationInfo.className}`}>
-                    <span className="prv-stamp-text">{recommendationInfo.label}</span>
-                  </div>
-                )}
-                
-                {/* 顶部：标题和状态 */}
-                <div className="prv-task-card-header">
-                  <h4 className="prv-task-card-title">{task.title || '未命名稿件'}</h4>
-                  <span className={`prv-task-status-badge prv-status-${task.status}`}>
-                    {task.status === 'processing' && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="prv-spin-icon">
-                        <path d="M21 12a9 9 0 11-6.219-8.56"/>
-                      </svg>
-                    )}
-                    {task.status === 'completed' && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="20 6 9 17 4 12"/>
-                      </svg>
-                    )}
-                    {task.status === 'failed' && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-                      </svg>
-                    )}
-                    {STATUS_MAP[task.status]?.label || task.status}
-                    </span>
-                  </div>
-
-                {/* 中部：任务信息标签 */}
-                <div className="prv-task-card-meta">
-                  {/* 输入类型标签 - 文件显示类型，文字显示文字输入 */}
-                  {task.input_type === 'file' ? (
-                    <span className="prv-task-meta-tag prv-meta-file">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                      </svg>
-                      <span className="prv-meta-label">{task.file_ext ? task.file_ext.toUpperCase() : '文件'}</span>
-                    </span>
-                  ) : (
-                    <span className="prv-task-meta-tag prv-meta-text">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                      </svg>
-                      <span className="prv-meta-label">文字输入</span>
-                    </span>
-                  )}
-                </div>
-
-                {/* 底部：时间和操作 */}
-                <div className="prv-task-card-footer">
-                  <span className="prv-task-card-time">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10"/>
-                      <polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                    {new Date(task.created_at).toLocaleString('zh-CN', {
-                      year: 'numeric',
-                      month: '2-digit',
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </span>
-                  {(task.status === 'draft' || task.status === 'failed') && (
-                    <button 
-                      className="prv-task-card-delete" 
-                      onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
-                      title="删除任务"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="3 6 5 6 21 6"/>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-            })}
-          </div>
-
-          {totalPages > 1 && (
-            <div className="prv-pagination-compact">
-              <button 
-                className="prv-page-btn-small" 
-                disabled={currentPage <= 1}
-                onClick={() => onPageChange(currentPage - 1)}
-              >
-                ‹ 上一页
-              </button>
-              <span className="prv-page-info-small">{currentPage} / {totalPages}</span>
-              <button 
-                className="prv-page-btn-small" 
-                disabled={currentPage >= totalPages}
-                onClick={() => onPageChange(currentPage + 1)}
-              >
-                下一页 ›
-              </button>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
+// HistorySection 已移至 ./peer-review/components/HistorySection.js
 
 // 任务详情视图 - 左右分栏布局
 function TaskDetailView({ task, loading, onBack, onDelete, onStartTask, taskSteps, stepsLoading }) {

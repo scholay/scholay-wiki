@@ -10,12 +10,18 @@ import (
 
 // AdminHandler 管理员处理器
 type AdminHandler struct {
-	service *Service
+	service               *Service
+	membershipGiftService *MembershipGiftService
 }
 
 // NewAdminHandler 创建管理员处理器
 func NewAdminHandler(service *Service) *AdminHandler {
 	return &AdminHandler{service: service}
+}
+
+// SetMembershipGiftService 设置会员经费服务（用于触发定时任务）
+func (h *AdminHandler) SetMembershipGiftService(svc *MembershipGiftService) {
+	h.membershipGiftService = svc
 }
 
 // AdminRecharge 管理员充值（给用户充值）
@@ -235,5 +241,39 @@ func (h *AdminHandler) UpdateCurrencyConfig(c *gin.Context) {
 	}
 
 	utils.Success(c, config)
+}
+
+// ========== 定时任务管理 ==========
+
+// TriggerDailyReminders 手动触发每日提醒任务（用于测试）
+// POST /api/v1/admin/currency/trigger-daily-reminders
+func (h *AdminHandler) TriggerDailyReminders(c *gin.Context) {
+	if h.membershipGiftService == nil {
+		utils.Error(c, 5001, "会员经费服务未初始化")
+		return
+	}
+
+	// 异步执行，避免超时
+	go h.membershipGiftService.ExecuteDailyReminders()
+
+	utils.Success(c, gin.H{
+		"message": "每日提醒任务已触发，请查看后台日志了解执行情况",
+	})
+}
+
+// TriggerMonthlyTasks 手动触发月度任务（用于测试或补发）
+// POST /api/v1/admin/currency/trigger-monthly-tasks
+func (h *AdminHandler) TriggerMonthlyTasks(c *gin.Context) {
+	if h.membershipGiftService == nil {
+		utils.Error(c, 5001, "会员经费服务未初始化")
+		return
+	}
+
+	// 异步执行，避免超时
+	go h.membershipGiftService.ExecuteMonthlyTasks()
+
+	utils.Success(c, gin.H{
+		"message": "月度任务已触发，请查看后台日志了解执行情况",
+	})
 }
 

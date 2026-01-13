@@ -291,6 +291,8 @@ func main() {
 
 	// Inject currency service into user service (for register gift)
 	userService.SetCurrencyService(currencyService)
+	// Inject message service into user service (for welcome message)
+	userService.SetMessageService(messageHandler.GetAdapter())
 	// Inject currency service into checkin service (for checkin gold reward)
 	checkinService.SetCurrencyService(currencyService)
 	// Inject currency service into coupon service (for invite diamond reward)
@@ -379,10 +381,65 @@ func main() {
 		}
 		return result, nil
 	})
-	
+
+	// 设置即将到期会员获取函数（用于发送到期提醒）
+	membershipGiftService.SetExpiringMembersGetter(func(days int) ([]currency.ExpiringMember, error) {
+		members, err := subscriptionService.GetExpiringMembers(days)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]currency.ExpiringMember, len(members))
+		for i, m := range members {
+			result[i] = currency.ExpiringMember{
+				UserID:   m.UserID,
+				PlanCode: m.PlanCode,
+				EndDate:  m.EndDate,
+			}
+		}
+		return result, nil
+	})
+
+	// 设置宽限期即将结束会员获取函数（用于发送宽限期结束提醒）
+	membershipGiftService.SetGracePeriodEndingGetter(func(graceDays, reminderDays int) ([]currency.GracePeriodEndingMember, error) {
+		members, err := subscriptionService.GetMembersWithGracePeriodEnding(graceDays, reminderDays)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]currency.GracePeriodEndingMember, len(members))
+		for i, m := range members {
+			result[i] = currency.GracePeriodEndingMember{
+				UserID:       m.UserID,
+				Gold:         m.Gold,
+				ExpiredAt:    m.ExpiredAt,
+				GraceEndDate: m.GraceEndDate,
+			}
+		}
+		return result, nil
+	})
+
+	// 设置月底提醒非会员获取函数（用于发送月底清空提醒，排除宽限期用户）
+	membershipGiftService.SetNonMembersForMonthEndGetter(func(graceDays int) ([]currency.NonMember, error) {
+		members, err := subscriptionService.GetNonMembersForMonthEndReminder(graceDays)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]currency.NonMember, len(members))
+		for i, m := range members {
+			result[i] = currency.NonMember{
+				UserID:              m.UserID,
+				Gold:                m.Gold,
+				LastSubscriptionEnd: m.LastSubscriptionEnd,
+			}
+		}
+		return result, nil
+	})
+
 	// 设置消息服务（用于发送会员相关站内信通知）
 	membershipGiftService.SetMessageService(messageHandler.GetAdapter())
-	
+
+	// 设置会员经费服务到管理员处理器（用于手动触发定时任务）
+	currencyAdminHandler.SetMembershipGiftService(membershipGiftService)
+
 	// 设置会员激活回调 - 当用户开通会员时自动发放奖励
 	// 这是解耦支付方式和奖励发放的关键：无论通过何种支付方式开通会员，
 	// 只要调用 UpgradeSubscription，就会自动触发奖励发放
@@ -564,6 +621,9 @@ func main() {
 			adminProtected.GET("/currency/configs", currencyAdminHandler.ListCurrencyConfigs)
 			adminProtected.GET("/currency/configs/:key", currencyAdminHandler.GetCurrencyConfig)
 			adminProtected.PUT("/currency/configs/:key", currencyAdminHandler.UpdateCurrencyConfig)
+			// 定时任务手动触发（用于测试）
+			adminProtected.POST("/currency/trigger-daily-reminders", currencyAdminHandler.TriggerDailyReminders)
+			adminProtected.POST("/currency/trigger-monthly-tasks", currencyAdminHandler.TriggerMonthlyTasks)
 
 			// Fund management (Admin only) - 会员基金管理
 			adminProtected.GET("/funds", fundAdminHandler.ListFunds)

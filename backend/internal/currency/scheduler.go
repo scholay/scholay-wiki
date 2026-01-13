@@ -41,6 +41,18 @@ func (s *CronScheduler) Start() error {
 	}
 	log.Println("[CronScheduler] Registered monthly membership gift task: 0 0 0 1 * * (every 1st day at 00:00)")
 
+	// 每天09:00执行每日提醒检查
+	// cron 表达式: "0 0 9 * * *" = 每天 09:00:00
+	_, err = s.cron.AddFunc("0 0 9 * * *", func() {
+		log.Println("[CronScheduler] Daily reminder task triggered")
+		s.membershipGiftSvc.ExecuteDailyReminders()
+	})
+	if err != nil {
+		log.Printf("[CronScheduler] Failed to add daily reminder task: %v", err)
+		return err
+	}
+	log.Println("[CronScheduler] Registered daily reminder task: 0 0 9 * * * (every day at 09:00)")
+
 	// 启动 cron 调度器
 	s.cron.Start()
 	log.Println("[CronScheduler] Cron scheduler started")
@@ -66,6 +78,12 @@ func (s *CronScheduler) Stop() {
 func (s *CronScheduler) TriggerMonthlyTaskNow() {
 	log.Println("[CronScheduler] Manually triggering monthly membership gift task")
 	s.membershipGiftSvc.ExecuteMonthlyTasks()
+}
+
+// TriggerDailyRemindersNow 立即触发每日提醒任务（用于测试）
+func (s *CronScheduler) TriggerDailyRemindersNow() {
+	log.Println("[CronScheduler] Manually triggering daily reminders task")
+	s.membershipGiftSvc.ExecuteDailyReminders()
 }
 
 // GetNextRunTime 获取下次执行时间

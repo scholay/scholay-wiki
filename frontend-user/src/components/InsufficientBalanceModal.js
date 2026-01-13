@@ -38,7 +38,7 @@ const InsufficientBalanceModal = memo(({
   const { openRechargeModal } = useRechargeModal();
   const [isClosing, setIsClosing] = useState(false);
   const [walletInfo, setWalletInfo] = useState(null);
-  const [loadingWallet, setLoadingWallet] = useState(false);
+  const [, setLoadingWallet] = useState(false); // 加载状态暂未在UI中使用
   const [showExchangeModal, setShowExchangeModal] = useState(false);
 
   // 获取钱包信息

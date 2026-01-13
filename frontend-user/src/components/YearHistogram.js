@@ -7,10 +7,10 @@
  * ============================================================================
  */
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import './YearHistogram.css';
 
-const YearHistogram = ({ yearFrom, yearTo, onChange }) => {
+const YearHistogram = memo(({ yearFrom, yearTo, onChange }) => {
   // Real data from Semantic Scholar
   const HISTOGRAM_DATA = [
     { key: "1920-1922", docCount: 68980 },
@@ -219,6 +219,6 @@ const YearHistogram = ({ yearFrom, yearTo, onChange }) => {
 
     </div>
   );
-};
+});
 
 export default YearHistogram;

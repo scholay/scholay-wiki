@@ -23,4 +23,4 @@ export { default as useSearch } from './useSearch';
 export { default as usePeerReview } from './usePeerReview';
 export { default as useAuthForm } from './useAuthForm';
 export { default as useChat } from './useChat';
-export { default as usePaperDetail } from './usePaperDetail';
+// usePaperDetail 已移至 pages/search-results/hooks/usePaperDetail.js

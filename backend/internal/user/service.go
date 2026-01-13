@@ -43,12 +43,18 @@ type CurrencyService interface {
 	EnsureWalletExists(userID uint) error
 }
 
+// MessageService interface for sending in-app messages
+type MessageService interface {
+	SendToUser(userID uint, title, content string, category string, linkURL, linkText string) error
+}
+
 // Service handles business logic for user operations
 type Service struct {
 	repo            *Repository
 	configService   ConfigService
 	couponService   CouponService
 	currencyService CurrencyService
+	messageService  MessageService
 }
 
 // NewService creates a new user service
@@ -80,6 +86,11 @@ func (s *Service) SetCurrencyService(currencyService CurrencyService) {
 	s.currencyService = currencyService
 }
 
+// SetMessageService sets the message service (for dependency injection)
+func (s *Service) SetMessageService(messageService MessageService) {
+	s.messageService = messageService
+}
+
 // GetRegisterGiftAmount 获取注册赠送经费金额配置
 func (s *Service) GetRegisterGiftAmount() int64 {
 	if s.currencyService == nil {
@@ -91,6 +102,41 @@ func (s *Service) GetRegisterGiftAmount() int64 {
 		return 0
 	}
 	return amount
+}
+
+// SendWelcomeMessage 发送新用户欢迎站内信
+func (s *Service) SendWelcomeMessage(userID uint, hasInvitation bool) {
+	if s.messageService == nil {
+		return
+	}
+
+	// 如果是通过邀请注册的用户，跳过（邀请系统会发送专门的欢迎信）
+	if hasInvitation {
+		return
+	}
+
+	// 获取注册赠送经费配置
+	var giftAmount int64
+	if s.currencyService != nil {
+		amount, err := s.currencyService.GetCurrencyConfigAmount("register_gift_gold")
+		if err == nil && amount > 0 {
+			giftAmount = amount
+		}
+	}
+
+	title := "欢迎加入 Scholar学术"
+	var content string
+	if giftAmount > 0 {
+		content = fmt.Sprintf("感谢您注册 Scholar学术！\n\n我们已为您发放 %d 经费作为新用户福利。\n\n开始探索学术世界吧！", giftAmount)
+	} else {
+		content = "感谢您注册 Scholar学术！\n\n开始探索学术世界吧！"
+	}
+
+	go func() {
+		if err := s.messageService.SendToUser(userID, title, content, "system", "/", "开始探索"); err != nil {
+			fmt.Printf("[User] Failed to send welcome message to user %d: %v\n", userID, err)
+		}
+	}()
 }
 
 // GiftRegisterGold 赠送注册经费
@@ -283,6 +329,9 @@ func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitati
 
 	// 赠送注册经费给新用户
 	go s.GiftRegisterGold(user.ID)
+
+	// 发送欢迎站内信（如果没有邀请码的话，有邀请码的在邀请系统中发送）
+	go s.SendWelcomeMessage(user.ID, invitationCode != "")
 
 	return user, token, nil
 }
@@ -1637,6 +1686,9 @@ func (s *Service) RegisterWithPhone(phone, password, code, invitationCode, ip st
 	// 赠送注册经费给新用户
 	go s.GiftRegisterGold(user.ID)
 
+	// 发送欢迎站内信（如果没有邀请码的话，有邀请码的在邀请系统中发送）
+	go s.SendWelcomeMessage(user.ID, invitationCode != "")
+
 	return user, token, nil
 }
 
@@ -2299,6 +2351,9 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 
 	// 赠送注册经费给新用户
 	go s.GiftRegisterGold(user.ID)
+
+	// 发送欢迎站内信（如果没有邀请码的话，有邀请码的在邀请系统中发送）
+	go s.SendWelcomeMessage(user.ID, invitationCode != "")
 
 	// Create auth provider entry
 	// Save nickname and avatar in provider_data

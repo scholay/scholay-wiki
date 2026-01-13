@@ -143,6 +143,9 @@ const (
 
 	// 会员过期宽限期配置
 	ConfigKeyMembershipGraceDays = "membership_grace_days" // 会员过期宽限期天数（默认7天）
+
+	// 提前提醒天数配置
+	ConfigKeyReminderDays = "reminder_days" // 提前提醒天数（默认3天）
 )
 
 // CurrencyConfig 货币配置表

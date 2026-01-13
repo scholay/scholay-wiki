@@ -57,7 +57,8 @@ const Home = () => {
   const [taskHistoryLoading, setTaskHistoryLoading] = useState(false);
 
   // Typewriter effect for welcome title
-  // 静态标语
+  // 静态标语（保留供将来使用）
+  // eslint-disable-next-line no-unused-vars
   const sloganText = '科研者的瑞士军刀';
 
   // Placeholder examples carousel

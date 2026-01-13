@@ -57,7 +57,7 @@ const OrderModal = memo(() => {
   // 套餐相关
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [, setSelectedPlan] = useState(null); // 用于跟踪选择的套餐
   const [billingCycle, setBillingCycle] = useState('monthly');
 
   // 充值相关
@@ -120,6 +120,7 @@ const OrderModal = memo(() => {
       setBillingCycle(config.billingCycle || 'monthly');
       fetchPlans();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, config]);
 
   // 获取套餐列表
@@ -596,7 +597,8 @@ const OrderModal = memo(() => {
   const renderPaymentView = () => {
     if (!order) return null;
     const isRecharge = order.order_type === 'recharge';
-    const hasCoupons = !isRecharge && coupons.length > 0;
+    // hasCoupons 用于后续折扣券功能
+    const _hasCoupons = !isRecharge && coupons.length > 0; // eslint-disable-line no-unused-vars
 
     return (
       <div className="om-checkout om-checkout-split">

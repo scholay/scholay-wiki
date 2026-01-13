@@ -14,10 +14,10 @@
  * 3. 右侧：未登录显示登录按钮，已登录显示用户头像
  */
 
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import ThemeToggle from './ThemeToggle';
 import GoldIcon from './GoldIcon';
@@ -58,7 +58,7 @@ const TopNavBar = ({
   const [checkinDetails, setCheckinDetails] = useState([]);
   const [futureRewards, setFutureRewards] = useState([]);
   const [checkinStats, setCheckinStats] = useState({ consecutiveDays: 0, totalDays: 0 });
-  const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
+  const [, setHasCheckedInToday] = useState(false); // 签到状态暂未在UI中使用
   // 站内信相关状态
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   // 兑换弹窗状态
@@ -76,6 +76,28 @@ const TopNavBar = ({
       }
     } catch (error) {
       logger.error('Failed to fetch unread message count:', error);
+    }
+  }, []);
+
+  // 获取签到数据
+  const fetchCheckinData = useCallback(async () => {
+    try {
+      const today = new Date();
+      const checkinRes = await checkinAPI.getHistory(today.getFullYear(), today.getMonth() + 1);
+      if (checkinRes.data.code === 0) {
+        const data = checkinRes.data.data;
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        setCheckinHistory(data.checkin_dates || []);
+        setCheckinDetails(data.checkin_details || []);
+        setFutureRewards(data.future_rewards || []);
+        setCheckinStats({
+          consecutiveDays: data.consecutive_days || 0,
+          totalDays: data.total_days || 0
+        });
+        setHasCheckedInToday(data.checkin_dates?.includes(todayStr) || false);
+      }
+    } catch (error) {
+      logger.error('Failed to fetch checkin data:', error);
     }
   }, []);
 
@@ -107,20 +129,7 @@ const TopNavBar = ({
         }
 
         // 获取签到信息
-        const today = new Date();
-        const checkinRes = await checkinAPI.getHistory(today.getFullYear(), today.getMonth() + 1);
-        if (checkinRes.data.code === 0) {
-          const data = checkinRes.data.data;
-          const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-          setCheckinHistory(data.checkin_dates || []);
-          setCheckinDetails(data.checkin_details || []);
-          setFutureRewards(data.future_rewards || []);
-          setCheckinStats({
-            consecutiveDays: data.consecutive_days || 0,
-            totalDays: data.total_days || 0
-          });
-          setHasCheckedInToday(data.checkin_dates?.includes(todayStr) || false);
-        }
+        await fetchCheckinData();
 
         // 获取未读消息数量
         await fetchUnreadCount();
@@ -135,7 +144,7 @@ const TopNavBar = ({
       const interval = setInterval(fetchUnreadCount, 60000);
       return () => clearInterval(interval);
     }
-  }, [user, fetchUnreadCount]);
+  }, [user, fetchUnreadCount, fetchCheckinData]);
 
 
   // 点击外部关闭用户菜单
@@ -231,10 +240,11 @@ const TopNavBar = ({
   const handleAvatarClick = async () => {
     const willOpen = !showUserMenu;
     setShowUserMenu(willOpen);
-    
-    // 打开菜单时立即刷新钱包数据
+
+    // 打开菜单时立即刷新钱包数据和签到数据
     if (willOpen && user) {
       fetchWallet();
+      fetchCheckinData();
     }
   };
 

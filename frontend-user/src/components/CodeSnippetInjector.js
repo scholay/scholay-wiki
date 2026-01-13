@@ -90,21 +90,26 @@ const CodeSnippetInjector = () => {
 
     injectedRef.current = true;
 
+    // 保存当前 ref 值供清理函数使用
+    const headElements = headContainerRef.current;
+    const bodyStartEl = bodyStartContainerRef.current;
+    const bodyEndEl = bodyEndContainerRef.current;
+
     // 清理函数
     return () => {
       // 移除注入的元素
-      if (headContainerRef.current) {
-        headContainerRef.current.forEach(el => {
+      if (headElements) {
+        headElements.forEach(el => {
           if (el && el.parentNode) {
             el.parentNode.removeChild(el);
           }
         });
       }
-      if (bodyStartContainerRef.current && bodyStartContainerRef.current.parentNode) {
-        bodyStartContainerRef.current.parentNode.removeChild(bodyStartContainerRef.current);
+      if (bodyStartEl && bodyStartEl.parentNode) {
+        bodyStartEl.parentNode.removeChild(bodyStartEl);
       }
-      if (bodyEndContainerRef.current && bodyEndContainerRef.current.parentNode) {
-        bodyEndContainerRef.current.parentNode.removeChild(bodyEndContainerRef.current);
+      if (bodyEndEl && bodyEndEl.parentNode) {
+        bodyEndEl.parentNode.removeChild(bodyEndEl);
       }
     };
   }, [snippets]);

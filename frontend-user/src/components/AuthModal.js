@@ -37,7 +37,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
   // 微信二维码相关状态
   const [wechatQRCodeLoading, setWechatQRCodeLoading] = useState(false);
-  const [wechatState, setWechatState] = useState('');
+  const [, setWechatState] = useState(''); // wechatState 仅用于存储，不需要读取
   const wechatQRCodeRef = useRef(null);
 
   // 每次打开弹窗时重置条款同意状态
@@ -815,10 +815,11 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       setMode('welcome');
     };
     document.body.appendChild(script);
-  }, [showError]);
+  }, [showError, renderWeChatQRCode]);
 
   // 渲染微信二维码
-  const renderWeChatQRCode = (appId, redirectUri, state, scope) => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  function renderWeChatQRCode(appId, redirectUri, state, scope) {
     if (!window.WxLogin || !wechatQRCodeRef.current) {
       return;
     }
@@ -840,7 +841,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       showError('渲染微信二维码失败');
       setMode('welcome');
     }
-  };
+  }
 
   // GitHub 登录
   const handleGithubLogin = async () => {

@@ -17,7 +17,7 @@
  * 4. 8秒自动关闭
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, memo } from 'react';
 import ReactDOM from 'react-dom';
 import { Bell, X, Gift, CreditCard, Mail } from 'lucide-react';
 import wsClient from '../services/websocket';
@@ -51,7 +51,7 @@ const getCategoryName = (category) => {
 
 // 单个通知项
 // isToast: true 表示纯 toast 提示，不可点击
-const NotificationItem = ({ notification, onClose, onClick, isToast = false }) => {
+const NotificationItem = memo(({ notification, onClose, onClick, isToast = false }) => {
   const [isClosing, setIsClosing] = useState(false);
 
   useEffect(() => {
@@ -117,7 +117,7 @@ const NotificationItem = ({ notification, onClose, onClick, isToast = false }) =
       </div>
     </div>
   );
-};
+});
 
 // 通知容器
 const NotificationToastContainer = ({ onOpenMessageList }) => {

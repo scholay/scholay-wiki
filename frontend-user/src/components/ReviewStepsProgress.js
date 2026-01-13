@@ -282,7 +282,7 @@ export default function ReviewStepsProgress({ stepsData, loading }) {
             <div className="process-card-title">
               <h4>三审并行阶段</h4>
               <span className={`process-card-status ${isReviewDone ? 'completed' : 'processing'}`}>
-                {isReviewDone ? '已完成' : processingReviewer ? processingReviewer.reviewer_name || '审稿中' + '...' : '等待中'}
+                {isReviewDone ? '已完成' : processingReviewer ? processingReviewer.reviewer_name || '审稿中...' : '等待中'}
               </span>
             </div>
             <div className="process-card-progress">
