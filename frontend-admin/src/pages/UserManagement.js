@@ -45,6 +45,12 @@ const UserManagement = () => {
   const [subscriptionPlans, setSubscriptionPlans] = useState([]);
   const [grantLoading, setGrantLoading] = useState(false);
 
+  // 搜索和筛选状态
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterPlan, setFilterPlan] = useState('');
+  const [showCharts, setShowCharts] = useState(true);
+
   // 发放货币弹窗状态
   const [currencyModal, setCurrencyModal] = useState({ show: false, user: null });
   const [currencyForm, setCurrencyForm] = useState({
@@ -437,60 +443,49 @@ const UserManagement = () => {
     );
   };
 
-  const renderSubscriptionExpiry = (subscription) => {
-    if (!subscription || !subscription.end_date) {
-      return <span className="um-expiry-none">-</span>;
-    }
+  // 渲染会员/钱包组合单元格
+  const renderMemberWalletCell = (user) => {
+    const subscription = user.subscription;
+    const wallet = user.wallet;
 
-    const endDate = new Date(subscription.end_date);
-    const remainingDays = subscription.remaining_days;
-
-    let expiryClass = 'um-expiry-normal';
-    let warningIcon = null;
-
-    if (remainingDays <= 0) {
-      expiryClass = 'um-expiry-expired';
-      warningIcon = '❌';
-    } else if (remainingDays <= 3) {
-      expiryClass = 'um-expiry-critical';
-      warningIcon = '🔴';
-    } else if (remainingDays <= 7) {
-      expiryClass = 'um-expiry-warning';
-      warningIcon = '⚠️';
-    } else if (remainingDays <= 30) {
-      expiryClass = 'um-expiry-soon';
-    }
+    // 获取剩余天数的样式类
+    const getExpiryClass = (days) => {
+      if (days <= 0) return 'um-days-expired';
+      if (days <= 3) return 'um-days-critical';
+      if (days <= 7) return 'um-days-warning';
+      if (days <= 30) return 'um-days-soon';
+      return 'um-days-normal';
+    };
 
     return (
-      <div className={`um-subscription-expiry ${expiryClass}`}>
-        <div className="um-expiry-date">
-          {warningIcon && <span className="um-expiry-icon">{warningIcon}</span>}
-          {endDate.toLocaleDateString('zh-CN')}
+      <div className="um-member-wallet-cell">
+        {/* 会员信息行 */}
+        <div className="um-mw-plan-row">
+          {subscription ? (
+            <>
+              <span className={`um-mw-plan um-mw-plan-${subscription.plan_code.toLowerCase()}`}>
+                {subscription.plan_name || subscription.plan_code}
+              </span>
+              <span className={`um-mw-days ${getExpiryClass(subscription.remaining_days)}`}>
+                {subscription.remaining_days}天
+              </span>
+              {subscription.auto_renew && <span className="um-mw-renew">续</span>}
+            </>
+          ) : (
+            <span className="um-mw-plan um-mw-plan-free">免费</span>
+          )}
         </div>
-        <div className="um-expiry-days">
-          剩余 {remainingDays} 天
+        {/* 钱包信息行 */}
+        <div className="um-mw-wallet-row">
+          <span className="um-mw-gold">
+            <GoldIcon size="xs" />
+            <span>{wallet?.gold || 0}</span>
+          </span>
+          <span className="um-mw-diamond">
+            <EntcoinIcon size="xs" />
+            <span>{wallet?.diamond || 0}</span>
+          </span>
         </div>
-        {subscription.auto_renew && (
-          <div className="um-expiry-auto-renew">自动续费</div>
-        )}
-      </div>
-    );
-  };
-
-  // 渲染钱包信息
-  const renderWalletInfo = (wallet) => {
-    if (!wallet) {
-      return (
-        <div className="um-wallet-info">
-          <span className="um-wallet-item um-wallet-gold"><GoldIcon size="sm" /> 0</span>
-          <span className="um-wallet-item um-wallet-diamond"><EntcoinIcon size="sm" /> 0</span>
-        </div>
-      );
-    }
-    return (
-      <div className="um-wallet-info">
-        <span className="um-wallet-item um-wallet-gold"><GoldIcon size="sm" /> {wallet.gold}</span>
-        <span className="um-wallet-item um-wallet-diamond"><EntcoinIcon size="sm" /> {wallet.diamond}</span>
       </div>
     );
   };
@@ -556,133 +551,174 @@ const UserManagement = () => {
     );
   };
 
+  // 过滤用户列表
+  const filteredUsers = users.filter(user => {
+    // 搜索关键词过滤
+    if (searchKeyword) {
+      const keyword = searchKeyword.toLowerCase();
+      const matchId = user.id.toString().includes(keyword);
+      const matchName = user.username?.toLowerCase().includes(keyword);
+      const matchEmail = user.email?.toLowerCase().includes(keyword);
+      const matchPhone = user.phone?.includes(keyword);
+      if (!matchId && !matchName && !matchEmail && !matchPhone) {
+        return false;
+      }
+    }
+    // 状态筛选
+    if (filterStatus !== '' && user.status !== parseInt(filterStatus, 10)) {
+      return false;
+    }
+    // 会员筛选
+    if (filterPlan) {
+      if (filterPlan === 'free' && user.subscription) return false;
+      if (filterPlan === 'paid' && !user.subscription) return false;
+    }
+    return true;
+  });
+
   const totalPages = Math.ceil(pagination.total / pagination.pageSize);
 
   return (
     <div className="um-container">
-      <div className="page-header">
-        <div className="page-header-content">
-          <div>
+      {/* 顶部区域：标题 + 统计摘要 */}
+      <div className="um-header-section">
+        <div className="um-header-left">
+          <div className="um-header-title">
             <h1>用户管理</h1>
-            <p>查看和管理注册用户</p>
+            <p>管理和分析平台用户数据</p>
           </div>
-          <div className="page-header-actions">
-            <button
-              className="um-batch-btn"
-              onClick={handleBatchClick}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-              </svg>
-              批量发放
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Statistics Cards */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon stat-icon-success">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M12 6v6l4 2"></path>
-            </svg>
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">在线用户</div>
-            <div className="stat-value">{stats.onlineUsers}</div>
+          <div className="um-quick-stats">
+            <div className="um-quick-stat um-quick-stat-online">
+              <span className="um-quick-stat-value">{stats.onlineUsers}</span>
+              <span className="um-quick-stat-label">在线</span>
+            </div>
+            <div className="um-quick-stat um-quick-stat-today">
+              <span className="um-quick-stat-value">{stats.todayRegistrations}</span>
+              <span className="um-quick-stat-label">今日新增</span>
+            </div>
+            <div className="um-quick-stat um-quick-stat-total">
+              <span className="um-quick-stat-value">{pagination.total}</span>
+              <span className="um-quick-stat-label">总用户</span>
+            </div>
           </div>
         </div>
-
-        <div className="stat-card">
-          <div className="stat-icon stat-icon-primary">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <div className="um-header-right">
+          <button
+            className="um-batch-btn"
+            onClick={handleBatchClick}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
             </svg>
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">今日注册</div>
-            <div className="stat-value">{stats.todayRegistrations}</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon stat-icon-info">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="16" y1="2" x2="16" y2="6"></line>
-              <line x1="8" y1="2" x2="8" y2="6"></line>
-              <line x1="3" y1="10" x2="21" y2="10"></line>
-            </svg>
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">本周注册</div>
-            <div className="stat-value">{stats.weekRegistrations}</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon stat-icon-warning">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="16" y1="2" x2="16" y2="6"></line>
-              <line x1="8" y1="2" x2="8" y2="6"></line>
-            </svg>
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">本月注册</div>
-            <div className="stat-value">{stats.monthRegistrations}</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon stat-icon-danger">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="16" y1="2" x2="16" y2="6"></line>
-              <line x1="8" y1="2" x2="8" y2="6"></line>
-              <path d="M8 14h.01M12 14h.01M16 14h.01"></path>
-            </svg>
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">今年注册</div>
-            <div className="stat-value">{stats.yearRegistrations}</div>
-          </div>
+            批量发放
+          </button>
         </div>
       </div>
 
-      {/* Charts Section */}
-      <div className="um-charts-section">
-        <div className="chart-card">
-          <div className="chart-header">
-            <h3>用户注册趋势</h3>
-          </div>
-          <UserStatisticsChart />
+      {/* 图表区域 - 可折叠 */}
+      <div className="um-charts-wrapper">
+        <div className="um-charts-header" onClick={() => setShowCharts(!showCharts)}>
+          <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            数据趋势
+          </h3>
+          <button className={`um-collapse-btn ${showCharts ? '' : 'collapsed'}`}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
         </div>
-
-        <div className="chart-card">
-          <div className="chart-header">
-            <h3>在线用户趋势</h3>
+        {showCharts && (
+          <div className="um-charts-section">
+            <div className="um-chart-card">
+              <div className="um-chart-title">用户注册趋势</div>
+              <UserStatisticsChart />
+            </div>
+            <div className="um-chart-card">
+              <div className="um-chart-title">在线用户趋势</div>
+              <OnlineUserChart />
+            </div>
           </div>
-          <OnlineUserChart />
-        </div>
+        )}
       </div>
 
-      {/* View Toggle */}
-      <div className="view-toggle">
-        <button
-          className={`toggle-btn ${activeView === 'list' ? 'active' : ''}`}
-          onClick={() => handleViewChange('list')}
-        >
-          全部用户
-        </button>
-        <button
-          className={`toggle-btn ${activeView === 'online' ? 'active' : ''}`}
-          onClick={() => handleViewChange('online')}
-        >
-          在线用户
-        </button>
+      {/* 工具栏：搜索 + 筛选 + 视图切换 */}
+      <div className="um-toolbar">
+        <div className="um-toolbar-left">
+          <div className="um-search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              type="text"
+              placeholder="搜索用户ID、用户名、邮箱、手机号..."
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+            />
+            {searchKeyword && (
+              <button className="um-search-clear" onClick={() => setSearchKeyword('')}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            )}
+          </div>
+          <div className="um-filter-group">
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="um-filter-select"
+            >
+              <option value="">全部状态</option>
+              <option value="1">正常</option>
+              <option value="0">未激活</option>
+              <option value="2">已封禁</option>
+            </select>
+            <select
+              value={filterPlan}
+              onChange={(e) => setFilterPlan(e.target.value)}
+              className="um-filter-select"
+            >
+              <option value="">全部会员</option>
+              <option value="free">免费用户</option>
+              <option value="paid">付费会员</option>
+            </select>
+          </div>
+        </div>
+        <div className="um-toolbar-right">
+          <div className="um-view-toggle">
+            <button
+              className={`um-toggle-btn ${activeView === 'list' ? 'active' : ''}`}
+              onClick={() => handleViewChange('list')}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path>
+              </svg>
+              全部用户
+            </button>
+            <button
+              className={`um-toggle-btn ${activeView === 'online' ? 'active' : ''}`}
+              onClick={() => handleViewChange('online')}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 6v6l4 2"></path>
+              </svg>
+              在线用户
+            </button>
+          </div>
+          <button className="um-refresh-btn" onClick={loadUserList}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"></path>
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* User List */}
@@ -699,18 +735,17 @@ const UserManagement = () => {
                 <table className="um-table">
                   <thead>
                     <tr>
-                      <th>用户</th>
-                      <th>联系方式</th>
-                      <th>会员信息</th>
+                      <th>用户信息</th>
+                      <th>会员/钱包</th>
                       <th>邀请者</th>
                       <th>状态</th>
-                      <th 
+                      <th
                         className="um-sortable-header"
                         onClick={() => handleSort('last_login_at')}
                       >
                         最后登录 {getSortIcon('last_login_at')}
                       </th>
-                      <th 
+                      <th
                         className="um-sortable-header"
                         onClick={() => handleSort('created_at')}
                       >
@@ -720,23 +755,24 @@ const UserManagement = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.length > 0 ? (
-                      users.map(user => (
+                    {filteredUsers.length > 0 ? (
+                      filteredUsers.map(user => (
                         <tr key={user.id}>
                           <td>
-                            <div className="um-user-info-cell">
-                              <span className="um-user-id">#{user.id}</span>
-                              <span className="um-user-name">{user.username || '-'}</span>
+                            <div className="um-user-cell-combined">
+                              <div className="um-user-main">
+                                <span className="um-user-id">#{user.id}</span>
+                                <span className="um-user-name">{user.username || '-'}</span>
+                              </div>
+                              <div className="um-user-contacts">
+                                {user.email && <span className="um-contact-tag um-contact-email">{user.email}</span>}
+                                {user.phone && <span className="um-contact-tag um-contact-phone">{user.phone}</span>}
+                                {user.github_login && <span className="um-contact-tag um-contact-github">{user.github_login}</span>}
+                                {user.wechat_name && <span className="um-contact-tag um-contact-wechat">{user.wechat_name}</span>}
+                              </div>
                             </div>
                           </td>
-                          <td className="um-contact-info-td">{renderContactInfo(user)}</td>
-                          <td>
-                            <div className="um-subscription-info-cell">
-                              {renderSubscriptionPlan(user.subscription)}
-                              {renderSubscriptionExpiry(user.subscription)}
-                              {renderWalletInfo(user.wallet)}
-                            </div>
-                          </td>
+                          <td>{renderMemberWalletCell(user)}</td>
                           <td>
                             {user.invited_by ? (
                               <div className="um-inviter-info-cell">
@@ -826,7 +862,9 @@ const UserManagement = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="8" className="no-data">暂无用户数据</td>
+                        <td colSpan="7" className="no-data">
+                          {searchKeyword || filterStatus || filterPlan ? '没有找到匹配的用户' : '暂无用户数据'}
+                        </td>
                       </tr>
                     )}
                   </tbody>
