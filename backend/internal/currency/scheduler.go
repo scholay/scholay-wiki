@@ -41,6 +41,18 @@ func (s *CronScheduler) Start() error {
 	}
 	log.Println("[CronScheduler] Registered monthly membership gift task: 0 0 0 1 * * (every 1st day at 00:00)")
 
+	// 每天00:00执行每日清空任务（宽限期结束清空）
+	// cron 表达式: "0 0 0 * * *" = 每天 00:00:00
+	_, err = s.cron.AddFunc("0 0 0 * * *", func() {
+		log.Println("[CronScheduler] Daily clear task triggered")
+		s.membershipGiftSvc.ExecuteDailyClearTasks()
+	})
+	if err != nil {
+		log.Printf("[CronScheduler] Failed to add daily clear task: %v", err)
+		return err
+	}
+	log.Println("[CronScheduler] Registered daily clear task: 0 0 0 * * * (every day at 00:00)")
+
 	// 每天09:00执行每日提醒检查
 	// cron 表达式: "0 0 9 * * *" = 每天 09:00:00
 	_, err = s.cron.AddFunc("0 0 9 * * *", func() {
@@ -84,6 +96,12 @@ func (s *CronScheduler) TriggerMonthlyTaskNow() {
 func (s *CronScheduler) TriggerDailyRemindersNow() {
 	log.Println("[CronScheduler] Manually triggering daily reminders task")
 	s.membershipGiftSvc.ExecuteDailyReminders()
+}
+
+// TriggerDailyClearTasksNow 立即触发每日清空任务（用于测试）
+func (s *CronScheduler) TriggerDailyClearTasksNow() {
+	log.Println("[CronScheduler] Manually triggering daily clear tasks")
+	s.membershipGiftSvc.ExecuteDailyClearTasks()
 }
 
 // GetNextRunTime 获取下次执行时间

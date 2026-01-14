@@ -11,6 +11,36 @@ Scholar is an academic search platform with AI-powered features. It consists of:
 - **Infrastructure**: Docker Compose with Nginx reverse proxy
 - **Caching**: Redis for session management and API key caching
 
+## Quick Reference
+
+```bash
+# Start everything
+docker-compose up -d --build
+
+# View logs
+docker logs scholar_backend -f
+
+# Restart after code changes
+docker-compose restart backend
+
+# Access MySQL
+docker exec -it scholar_mysql mysql -u scholar_user -pscholar_pass scholar
+
+# Access Redis
+docker exec -it scholar_redis redis-cli
+
+# Run backend tests
+cd backend && go test ./...
+
+# Run frontend dev server
+cd frontend-user && npm start  # or frontend-admin
+```
+
+**URLs** (check .env for actual ports):
+- User Portal: http://localhost:5411
+- Admin Dashboard: http://localhost:5455
+- Default admin: `admin` / `adminadmin`
+
 ## Essential Commands
 
 ### Development Workflow
@@ -607,6 +637,13 @@ The backend implements several patterns for high performance and reliability:
 - Reduces latency by reusing TCP connections
 - Configurable timeouts, keep-alive, and TLS settings
 
+**Observability with OpenTelemetry/SigNoz**:
+- Distributed tracing with automatic span creation for HTTP requests (via otelgin middleware)
+- Structured logging with trace context correlation
+- Metrics export to SigNoz collector
+- Configuration via `SIGNOZ_*` environment variables
+- Uses OTLP HTTP exporter for trace data
+
 ### Background Tasks & Caching
 
 The backend runs several background tasks for performance and maintenance:
@@ -760,7 +797,14 @@ Key variables in `.env`:
 - `MYSQL_*` - Database credentials
 - `REDIS_PASSWORD` - Redis password (optional, currently empty)
 - `SEMANTIC_SCHOLAR_API_KEY` - Optional (uses free tier if not set)
-- Port mappings: `HTTP_PORT` (user portal port), `ADMIN_PORT` (admin dashboard port)
+- Port mappings: `HTTP_PORT` (user portal port, default: 5411), `ADMIN_PORT` (admin dashboard port, default: 5455)
+
+**SigNoz Observability** (optional):
+- `SIGNOZ_ENDPOINT` - SigNoz collector endpoint (e.g., `198.44.187.186:4318`)
+- `SIGNOZ_SERVICE_NAME` - Service name for tracing (default: `scholar-backend`)
+- `SIGNOZ_ENVIRONMENT` - Environment tag (default: `production`)
+- `SIGNOZ_ENABLE_TRACING` / `SIGNOZ_ENABLE_LOGGING` / `SIGNOZ_ENABLE_METRICS` - Enable/disable features
+- `SIGNOZ_SAMPLING_RATE` - Trace sampling rate (0.0-1.0, default: 1.0)
 
 ### Email Verification Codes
 

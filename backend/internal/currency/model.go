@@ -222,3 +222,128 @@ type BalanceCheckResult struct {
 	Shortage   int64 `json:"shortage"`   // 差额
 }
 
+// ========== 批量发放模型 ==========
+
+// BatchStatus 批次状态
+type BatchStatus string
+
+const (
+	BatchStatusPending    BatchStatus = "pending"     // 待执行
+	BatchStatusProcessing BatchStatus = "processing"  // 执行中
+	BatchStatusCompleted  BatchStatus = "completed"   // 已完成
+	BatchStatusFailed     BatchStatus = "failed"      // 失败
+	BatchStatusCancelled  BatchStatus = "cancelled"   // 已取消
+)
+
+// BatchTargetType 目标用户类型
+type BatchTargetType string
+
+const (
+	BatchTargetAll        BatchTargetType = "all"         // 全部用户
+	BatchTargetMembers    BatchTargetType = "members"     // 会员用户（pro/max）
+	BatchTargetNonMembers BatchTargetType = "non_members" // 非会员用户
+	BatchTargetSpecific   BatchTargetType = "specific"    // 指定用户
+)
+
+// CurrencyBatch 批量发放批次记录
+type CurrencyBatch struct {
+	ID              uint            `gorm:"primaryKey" json:"id"`
+	BatchNo         string          `gorm:"uniqueIndex;size:64;not null" json:"batch_no"`    // 批次号
+	CurrencyType    CurrencyType    `gorm:"size:20;not null" json:"currency_type"`           // 货币类型
+	Amount          int64           `gorm:"not null" json:"amount"`                          // 单人发放金额
+	TargetType      BatchTargetType `gorm:"size:20;not null" json:"target_type"`             // 目标类型
+	TargetUserIDs   string          `gorm:"type:text" json:"target_user_ids"`                // 指定用户ID列表（JSON数组）
+	Title           string          `gorm:"size:200;not null" json:"title"`                  // 发放标题（站内信标题）
+	Description     string          `gorm:"size:500" json:"description"`                     // 发放描述（站内信内容）
+	Remark          string          `gorm:"size:500" json:"remark"`                          // 管理员备注
+	TotalCount      int             `gorm:"default:0" json:"total_count"`                    // 应发放人数
+	SuccessCount    int             `gorm:"default:0" json:"success_count"`                  // 成功人数
+	FailedCount     int             `gorm:"default:0" json:"failed_count"`                   // 失败人数
+	Status          BatchStatus     `gorm:"size:20;not null;default:'pending'" json:"status"` // 状态
+	CreatedBy       uint            `gorm:"index" json:"created_by"`                         // 创建人（管理员ID）
+	CreatedByName   string          `gorm:"size:100" json:"created_by_name"`                 // 创建人名称
+	ExecutedAt      *time.Time      `json:"executed_at"`                                     // 执行时间
+	CompletedAt     *time.Time      `json:"completed_at"`                                    // 完成时间
+	CreatedAt       time.Time       `json:"created_at"`
+	UpdatedAt       time.Time       `json:"updated_at"`
+}
+
+func (CurrencyBatch) TableName() string {
+	return "currency_batches"
+}
+
+// BatchDistribution 批量发放明细记录
+type BatchDistribution struct {
+	ID            uint              `gorm:"primaryKey" json:"id"`
+	BatchID       uint              `gorm:"index;not null" json:"batch_id"`              // 批次ID
+	BatchNo       string            `gorm:"index;size:64;not null" json:"batch_no"`      // 批次号
+	UserID        uint              `gorm:"index;not null" json:"user_id"`               // 用户ID
+	CurrencyType  CurrencyType      `gorm:"size:20;not null" json:"currency_type"`       // 货币类型
+	Amount        int64             `gorm:"not null" json:"amount"`                      // 发放金额
+	TransactionNo string            `gorm:"size:64" json:"transaction_no"`               // 交易流水号
+	Status        TransactionStatus `gorm:"size:20;not null;default:'pending'" json:"status"` // 状态
+	ErrorMsg      string            `gorm:"size:500" json:"error_msg"`                   // 错误信息
+	CreatedAt     time.Time         `json:"created_at"`
+	UpdatedAt     time.Time         `json:"updated_at"`
+}
+
+func (BatchDistribution) TableName() string {
+	return "currency_batch_distributions"
+}
+
+// ========== 批量发放请求/响应结构 ==========
+
+// BatchDistributeRequest 批量发放请求
+type BatchDistributeRequest struct {
+	CurrencyType  CurrencyType    `json:"currency_type" binding:"required,oneof=gold diamond"`
+	Amount        int64           `json:"amount" binding:"required,gt=0"`
+	TargetType    BatchTargetType `json:"target_type" binding:"required,oneof=all members non_members specific"`
+	TargetUserIDs []uint          `json:"target_user_ids"`                    // 指定用户ID列表（target_type=specific时必填）
+	Title         string          `json:"title" binding:"required,max=200"`   // 站内信标题
+	Description   string          `json:"description" binding:"max=500"`      // 站内信内容
+	Remark        string          `json:"remark" binding:"max=500"`           // 管理员备注
+}
+
+// BatchResponse 批次响应
+type BatchResponse struct {
+	ID            uint            `json:"id"`
+	BatchNo       string          `json:"batch_no"`
+	CurrencyType  CurrencyType    `json:"currency_type"`
+	CurrencyName  string          `json:"currency_name"` // 货币名称（经费/恩特币）
+	Amount        int64           `json:"amount"`
+	TargetType    BatchTargetType `json:"target_type"`
+	TargetName    string          `json:"target_name"`   // 目标类型名称
+	Title         string          `json:"title"`
+	Description   string          `json:"description"`
+	Remark        string          `json:"remark"`
+	TotalCount    int             `json:"total_count"`
+	SuccessCount  int             `json:"success_count"`
+	FailedCount   int             `json:"failed_count"`
+	Status        BatchStatus     `json:"status"`
+	StatusName    string          `json:"status_name"`   // 状态名称
+	CreatedBy     uint            `json:"created_by"`
+	CreatedByName string          `json:"created_by_name"`
+	ExecutedAt    *time.Time      `json:"executed_at"`
+	CompletedAt   *time.Time      `json:"completed_at"`
+	CreatedAt     time.Time       `json:"created_at"`
+}
+
+// BatchListRequest 批次列表请求
+type BatchListRequest struct {
+	Page         int          `form:"page" binding:"min=1"`
+	PageSize     int          `form:"page_size" binding:"min=1,max=100"`
+	CurrencyType CurrencyType `form:"currency_type"`
+	Status       BatchStatus  `form:"status"`
+	StartTime    string       `form:"start_time"`
+	EndTime      string       `form:"end_time"`
+}
+
+// BatchListResponse 批次列表响应
+type BatchListResponse struct {
+	Total      int64           `json:"total"`
+	Page       int             `json:"page"`
+	PageSize   int             `json:"page_size"`
+	TotalPages int             `json:"total_pages"`
+	Batches    []BatchResponse `json:"batches"`
+}
+

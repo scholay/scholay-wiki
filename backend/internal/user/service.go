@@ -124,12 +124,12 @@ func (s *Service) SendWelcomeMessage(userID uint, hasInvitation bool) {
 		}
 	}
 
-	title := "欢迎加入 Scholar学术"
+	title := "欢迎加入 Scholay"
 	var content string
 	if giftAmount > 0 {
-		content = fmt.Sprintf("感谢您注册 Scholar学术！\n\n我们已为您发放 %d 经费作为新用户福利。\n\n开始探索学术世界吧！", giftAmount)
+		content = fmt.Sprintf("感谢注册！已为您发放 %d 经费作为新用户福利，开始探索学术世界吧~", giftAmount)
 	} else {
-		content = "感谢您注册 Scholar学术！\n\n开始探索学术世界吧！"
+		content = "感谢注册！开始探索学术世界吧~"
 	}
 
 	go func() {

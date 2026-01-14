@@ -268,6 +268,17 @@
   color: #1a1a1a;
 }
 
+.membership-badge.expired {
+  background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+  color: white;
+  animation: expired-pulse 2s ease-in-out infinite;
+}
+
+@keyframes expired-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
 .membership-manage-btn {
   padding: 4px 12px;
   background: transparent;
@@ -923,6 +934,11 @@
 [data-theme="light"] .membership-badge.free {
   background: #e5e7eb;
   color: #6b7280;
+}
+
+[data-theme="light"] .membership-badge.expired {
+  background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+  color: white;
 }
 
 [data-theme="light"] .membership-manage-btn {

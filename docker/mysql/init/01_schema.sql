@@ -1354,7 +1354,10 @@ INSERT IGNORE INTO `currency_configs` (`config_key`, `config_name`, `currency_ty
 -- 会员月度赠送配置
 ('pro_monthly_gold', 'Pro会员每月赠送经费', 'gold', 5000, '会员福利', 'Pro会员月度赠送', 'Pro会员每月1日自动赠送的经费数量', 'membership', TRUE),
 ('max_monthly_gold', 'Max会员每月赠送经费', 'gold', 10000, '会员福利', 'Max会员月度赠送经费', 'Max会员每月1日自动赠送的经费数量', 'membership', TRUE),
-('max_monthly_diamond', 'Max会员每月赠送恩特币', 'diamond', 6, '会员福利', 'Max会员月度赠送恩特币', 'Max会员每月1日自动赠送的恩特币数量', 'membership', TRUE);
+('max_monthly_diamond', 'Max会员每月赠送恩特币', 'diamond', 6, '会员福利', 'Max会员月度赠送恩特币', 'Max会员每月1日自动赠送的恩特币数量', 'membership', TRUE),
+-- 经费清空配置（用于流水显示）
+('non_member_clear', '非会员月初经费清空', 'gold', 0, '经费清空', '月初自动清空', '非会员用户每月1日经费自动清空', 'system', TRUE),
+('grace_expired_clear', '宽限期结束经费清空', 'gold', 0, '经费清空', '宽限期结束自动清空', '会员宽限期结束后经费自动清空', 'system', TRUE);
 
 -- ============================================
 -- 会员基金默认数据
@@ -1537,3 +1540,59 @@ CREATE TABLE IF NOT EXISTS `code_snippets` (
   INDEX `idx_is_enabled` (`is_enabled`),
   INDEX `idx_priority` (`priority`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='代码片段配置表（SEO/广告/统计等）';
+
+-- ============================================
+-- 批量发放系统表
+-- ============================================
+
+-- 批量发放批次表（记录每次批量发放的批次信息）
+CREATE TABLE IF NOT EXISTS `currency_batches` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `batch_no` VARCHAR(64) NOT NULL COMMENT '批次号（唯一）',
+  `currency_type` VARCHAR(20) NOT NULL COMMENT '货币类型: gold=经费, diamond=恩特币',
+  `amount` BIGINT NOT NULL COMMENT '单人发放金额',
+  `target_type` VARCHAR(20) NOT NULL COMMENT '目标类型: all=全部用户, members=会员用户, non_members=非会员用户, specific=指定用户',
+  `target_user_ids` TEXT COMMENT '指定用户ID列表（JSON数组，target_type=specific时使用）',
+  `title` VARCHAR(200) NOT NULL COMMENT '发放标题（站内信标题）',
+  `description` VARCHAR(500) COMMENT '发放描述（站内信内容）',
+  `remark` VARCHAR(500) COMMENT '管理员备注',
+  `total_count` INT NOT NULL DEFAULT 0 COMMENT '应发放人数',
+  `success_count` INT NOT NULL DEFAULT 0 COMMENT '成功人数',
+  `failed_count` INT NOT NULL DEFAULT 0 COMMENT '失败人数',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '状态: pending=待执行, processing=执行中, completed=已完成, failed=失败, cancelled=已取消',
+  `created_by` BIGINT UNSIGNED COMMENT '创建人（管理员ID）',
+  `created_by_name` VARCHAR(100) COMMENT '创建人名称',
+  `executed_at` DATETIME COMMENT '执行时间',
+  `completed_at` DATETIME COMMENT '完成时间',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_batch_no` (`batch_no`),
+  INDEX `idx_currency_type` (`currency_type`),
+  INDEX `idx_target_type` (`target_type`),
+  INDEX `idx_status` (`status`),
+  INDEX `idx_created_by` (`created_by`),
+  INDEX `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='批量发放批次表';
+
+-- 批量发放明细表（记录每个用户的发放情况）
+CREATE TABLE IF NOT EXISTS `currency_batch_distributions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `batch_id` BIGINT UNSIGNED NOT NULL COMMENT '批次ID',
+  `batch_no` VARCHAR(64) NOT NULL COMMENT '批次号',
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+  `currency_type` VARCHAR(20) NOT NULL COMMENT '货币类型: gold=经费, diamond=恩特币',
+  `amount` BIGINT NOT NULL COMMENT '发放金额',
+  `transaction_no` VARCHAR(64) COMMENT '交易流水号（发放成功后填充）',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '状态: pending=待处理, success=成功, failed=失败',
+  `error_msg` VARCHAR(500) COMMENT '错误信息（失败时填充）',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_batch_id` (`batch_id`),
+  INDEX `idx_batch_no` (`batch_no`),
+  INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_status` (`status`),
+  CONSTRAINT `fk_cbd_batch` FOREIGN KEY (`batch_id`) REFERENCES `currency_batches` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_cbd_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='批量发放明细表';

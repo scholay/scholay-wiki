@@ -307,6 +307,104 @@
   cursor: not-allowed;
 }
 
+/* ========== 套餐状态徽章 ========== */
+.om-status-badge {
+  position: absolute;
+  top: -10px;
+  right: 12px;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.om-status-badge.current {
+  background: linear-gradient(135deg, #10a37f, #0d8a6a);
+  color: #fff;
+}
+
+.om-status-badge.grace-period {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: #fff;
+}
+
+.om-status-badge.disabled-upgrade {
+  background: rgba(100, 116, 139, 0.3);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ========== 当前套餐卡片样式 ========== */
+.om-plan-card.current {
+  border-color: rgba(16, 163, 127, 0.5);
+  background: rgba(16, 163, 127, 0.08);
+}
+
+.om-plan-card.current:hover {
+  border-color: rgba(16, 163, 127, 0.7);
+  background: rgba(16, 163, 127, 0.12);
+}
+
+/* ========== 宽限期卡片样式 ========== */
+.om-plan-card.grace-period {
+  border-color: rgba(249, 115, 22, 0.5);
+  background: rgba(249, 115, 22, 0.08);
+}
+
+.om-plan-card.grace-period:hover {
+  border-color: rgba(249, 115, 22, 0.7);
+  background: rgba(249, 115, 22, 0.12);
+}
+
+.om-plan-card.grace-period .om-plan-btn {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+}
+
+.om-plan-card.grace-period .om-plan-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+}
+
+/* ========== 禁用降级样式 ========== */
+.om-plan-card.disabled-downgrade {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.om-plan-card.disabled-downgrade .om-plan-btn {
+  background: rgba(100, 116, 139, 0.3);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ========== 禁用升级样式 ========== */
+.om-plan-card.disabled-upgrade {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.om-plan-card.disabled-upgrade .om-plan-btn {
+  background: linear-gradient(135deg, rgba(100, 116, 139, 0.5), rgba(71, 85, 105, 0.5));
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.om-plan-card.disabled-upgrade .om-plan-btn:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ========== 按钮下方提示文字 ========== */
+.om-btn-tooltip {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* 宽限期提示文字特殊样式 */
+.om-plan-card.grace-period .om-btn-tooltip,
+.om-plan-card.grace-period-hint .om-btn-tooltip {
+  color: rgba(249, 115, 22, 0.9);
+}
+
 /* ========== 充值视图 ========== */
 .om-recharge-options {
   display: grid;
@@ -1331,6 +1429,31 @@
 [data-theme="light"] .om-recharge-price,
 [data-theme="light"] .om-order-info p,
 [data-theme="light"] .om-amount-row {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+/* 浅色主题 - 套餐状态样式 */
+[data-theme="light"] .om-plan-card.current {
+  border-color: rgba(16, 163, 127, 0.4);
+  background: rgba(16, 163, 127, 0.06);
+}
+
+[data-theme="light"] .om-plan-card.grace-period {
+  border-color: rgba(249, 115, 22, 0.4);
+  background: rgba(249, 115, 22, 0.06);
+}
+
+[data-theme="light"] .om-plan-card.disabled-downgrade,
+[data-theme="light"] .om-plan-card.disabled-upgrade {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .om-btn-tooltip {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .om-status-badge.disabled-upgrade {
+  background: rgba(0, 0, 0, 0.1);
   color: rgba(0, 0, 0, 0.6);
 }
 

@@ -758,8 +758,10 @@ const Settings = () => {
           </div>
           {/* 右侧：会员身份 + 管理按钮 */}
           <div className="profile-header-right">
-            <span className={`membership-badge ${currentSubscription?.plan_code || 'free'}`}>
-              {currentSubscription?.plan_name || 'FREE'}
+            <span className={`membership-badge ${currentSubscription?.expired_membership ? 'expired' : (currentSubscription?.plan_code || 'free')}`}>
+              {currentSubscription?.expired_membership
+                ? `${currentSubscription?.expired_plan_name || 'PRO'}已过期`
+                : (currentSubscription?.plan_name || 'FREE')}
             </span>
             <button
               className="membership-manage-btn"
@@ -891,27 +893,31 @@ const Settings = () => {
       <div className="settings-section subscription-section">
         <h2>资产管理</h2>
 
-        {/* 主卡片 - 根据会员等级变色 */}
-        <div className={`am-card ${currentSubscription?.plan_code || 'free'}`}>
+        {/* 主卡片 - 根据会员等级变色，过期会员使用expired样式 */}
+        <div className={`am-card ${currentSubscription?.expired_membership ? 'expired' : (currentSubscription?.plan_code || 'free')}`}>
           {/* 会员行 - 点击开通会员弹窗，已是会员则跳转管理页面 */}
           <div className="am-row am-member-row" onClick={() => {
             if (currentSubscription?.plan_code === 'free') {
-              // 免费用户，打开弹窗选择套餐
+              // 免费用户或过期用户，打开弹窗选择套餐
               openOrderModal({ mode: 'subscription' });
             } else {
               // 已是会员，跳转到价格页面管理
               navigate('/pricing');
             }
           }}>
-            <span className={`am-badge ${currentSubscription?.plan_code || 'free'}`}>
-              {currentSubscription?.plan_name || 'FREE'}
+            <span className={`am-badge ${currentSubscription?.expired_membership ? 'expired' : (currentSubscription?.plan_code || 'free')}`}>
+              {currentSubscription?.expired_membership
+                ? `${currentSubscription?.expired_plan_name || 'PRO'}已过期`
+                : (currentSubscription?.plan_name || 'FREE')}
             </span>
             <span className="am-text">
-              {currentSubscription?.plan_code === 'free' 
-                ? '开通会员享基金福利' 
-                : currentSubscription?.end_date 
-                  ? `${new Date(currentSubscription.end_date).toLocaleDateString('zh-CN')} 到期`
-                  : '会员生效中'}
+              {currentSubscription?.expired_membership
+                ? `已过期${currentSubscription?.expired_days || 0}天，续费享会员福利`
+                : currentSubscription?.plan_code === 'free'
+                  ? '开通会员享基金福利'
+                  : currentSubscription?.end_date
+                    ? `${new Date(currentSubscription.end_date).toLocaleDateString('zh-CN')} 到期`
+                    : '会员生效中'}
             </span>
             <span className="am-action">{currentSubscription?.plan_code === 'free' ? '开通' : '管理'}</span>
           </div>

@@ -28,6 +28,7 @@ const DistributedCoupons = lazy(() => import('./pages/DistributedCoupons'));
 const DefaultBusinessData = lazy(() => import('./pages/DefaultBusinessData'));
 const FeedbackManagement = lazy(() => import('./pages/FeedbackManagement'));
 const CurrencyConfig = lazy(() => import('./pages/CurrencyConfig'));
+const CurrencyBatchManagement = lazy(() => import('./pages/CurrencyBatchManagement'));
 const UsageLogs = lazy(() => import('./pages/UsageLogs'));
 const MessageManagement = lazy(() => import('./pages/MessageManagement'));
 const MessageTemplates = lazy(() => import('./pages/MessageTemplates'));
@@ -77,6 +78,7 @@ function App() {
               <Route path="default-business-data" element={<DefaultBusinessData />} />
               <Route path="feedbacks" element={<FeedbackManagement />} />
               <Route path="currency-config" element={<CurrencyConfig />} />
+              <Route path="currency-batches" element={<CurrencyBatchManagement />} />
               <Route path="usage-logs" element={<UsageLogs />} />
               <Route path="messages" element={<MessageManagement />} />
               <Route path="message-templates" element={<MessageTemplates />} />

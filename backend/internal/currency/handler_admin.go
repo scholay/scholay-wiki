@@ -12,6 +12,7 @@ import (
 type AdminHandler struct {
 	service               *Service
 	membershipGiftService *MembershipGiftService
+	batchService          *BatchService
 }
 
 // NewAdminHandler 创建管理员处理器
@@ -22,6 +23,11 @@ func NewAdminHandler(service *Service) *AdminHandler {
 // SetMembershipGiftService 设置会员经费服务（用于触发定时任务）
 func (h *AdminHandler) SetMembershipGiftService(svc *MembershipGiftService) {
 	h.membershipGiftService = svc
+}
+
+// SetBatchService 设置批量发放服务
+func (h *AdminHandler) SetBatchService(svc *BatchService) {
+	h.batchService = svc
 }
 
 // AdminRecharge 管理员充值（给用户充值）
@@ -274,6 +280,203 @@ func (h *AdminHandler) TriggerMonthlyTasks(c *gin.Context) {
 
 	utils.Success(c, gin.H{
 		"message": "月度任务已触发，请查看后台日志了解执行情况",
+	})
+}
+
+// ========== 批量发放管理 ==========
+
+// BatchDistribute 批量发放经费/恩特币
+// POST /api/v1/admin/currency/batch-distribute
+func (h *AdminHandler) BatchDistribute(c *gin.Context) {
+	if h.batchService == nil {
+		utils.Error(c, 5001, "批量发放服务未初始化")
+		return
+	}
+
+	var req BatchDistributeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Error(c, 4000, "参数错误: "+err.Error())
+		return
+	}
+
+	// 获取当前管理员信息
+	adminID, _ := c.Get("admin_id")
+	adminName, _ := c.Get("admin_username")
+
+	adminIDUint, ok := adminID.(uint)
+	if !ok {
+		utils.Error(c, 4001, "获取管理员信息失败")
+		return
+	}
+	adminNameStr, _ := adminName.(string)
+
+	ctx := context.Background()
+	batch, err := h.batchService.CreateBatchDistribute(ctx, &req, adminIDUint, adminNameStr)
+	if err != nil {
+		utils.Error(c, 5001, "创建批量发放失败: "+err.Error())
+		return
+	}
+
+	utils.Success(c, batch)
+}
+
+// GetBatch 获取批次详情
+// GET /api/v1/admin/currency/batches/:id
+func (h *AdminHandler) GetBatch(c *gin.Context) {
+	if h.batchService == nil {
+		utils.Error(c, 5001, "批量发放服务未初始化")
+		return
+	}
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		utils.Error(c, 4000, "无效的批次ID")
+		return
+	}
+
+	batch, err := h.batchService.GetBatch(uint(id))
+	if err != nil {
+		utils.Error(c, 5001, "获取批次失败: "+err.Error())
+		return
+	}
+
+	utils.Success(c, batch)
+}
+
+// ListBatches 获取批次列表
+// GET /api/v1/admin/currency/batches
+func (h *AdminHandler) ListBatches(c *gin.Context) {
+	if h.batchService == nil {
+		utils.Error(c, 5001, "批量发放服务未初始化")
+		return
+	}
+
+	var req BatchListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		utils.Error(c, 4000, "参数错误: "+err.Error())
+		return
+	}
+
+	// 设置默认值
+	if req.Page < 1 {
+		req.Page = 1
+	}
+	if req.PageSize < 1 {
+		req.PageSize = 20
+	}
+
+	result, err := h.batchService.ListBatches(&req)
+	if err != nil {
+		utils.Error(c, 5001, "获取批次列表失败: "+err.Error())
+		return
+	}
+
+	utils.Success(c, result)
+}
+
+// CancelBatch 取消批次
+// POST /api/v1/admin/currency/batches/:id/cancel
+func (h *AdminHandler) CancelBatch(c *gin.Context) {
+	if h.batchService == nil {
+		utils.Error(c, 5001, "批量发放服务未初始化")
+		return
+	}
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		utils.Error(c, 4000, "无效的批次ID")
+		return
+	}
+
+	if err := h.batchService.CancelBatch(uint(id)); err != nil {
+		utils.Error(c, 5001, "取消批次失败: "+err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{"message": "批次已取消"})
+}
+
+// GetBatchDistributions 获取批次发放明细
+// GET /api/v1/admin/currency/batches/:id/distributions
+func (h *AdminHandler) GetBatchDistributions(c *gin.Context) {
+	if h.batchService == nil {
+		utils.Error(c, 5001, "批量发放服务未初始化")
+		return
+	}
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		utils.Error(c, 4000, "无效的批次ID")
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	distributions, total, err := h.batchService.GetBatchDistributions(uint(id), page, pageSize)
+	if err != nil {
+		utils.Error(c, 5001, "获取发放明细失败: "+err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{
+		"list":      distributions,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
+}
+
+// GetTargetUserCount 获取目标用户数量预览
+// POST /api/v1/admin/currency/batch-distribute/preview
+func (h *AdminHandler) GetTargetUserCount(c *gin.Context) {
+	if h.batchService == nil {
+		utils.Error(c, 5001, "批量发放服务未初始化")
+		return
+	}
+
+	var req struct {
+		TargetType    BatchTargetType `json:"target_type" binding:"required,oneof=all members non_members specific"`
+		TargetUserIDs []uint          `json:"target_user_ids"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Error(c, 4000, "参数错误: "+err.Error())
+		return
+	}
+
+	var count int
+	var err error
+
+	switch req.TargetType {
+	case BatchTargetAll:
+		var userIDs []uint
+		userIDs, err = h.batchService.repo.GetAllActiveUserIDs()
+		count = len(userIDs)
+	case BatchTargetMembers:
+		var userIDs []uint
+		userIDs, err = h.batchService.repo.GetMemberUserIDs()
+		count = len(userIDs)
+	case BatchTargetNonMembers:
+		var userIDs []uint
+		userIDs, err = h.batchService.repo.GetNonMemberUserIDs()
+		count = len(userIDs)
+	case BatchTargetSpecific:
+		count = len(req.TargetUserIDs)
+	}
+
+	if err != nil {
+		utils.Error(c, 5001, "获取用户数量失败: "+err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{
+		"target_type": req.TargetType,
+		"target_name": getTargetName(req.TargetType),
+		"user_count":  count,
 	})
 }
 

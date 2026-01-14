@@ -266,6 +266,7 @@ func main() {
 	currencyHandler := currency.NewHandler(currencyService)
 	currencyAdminHandler := currency.NewAdminHandler(currencyService)
 	currencyMiddleware := currency.NewDeductMiddleware(currencyService)
+	currencyBatchService := currency.NewBatchService(currencyRepo, currencyService)
 
 	// Initialize Fund module (会员基金)
 	fundRepo := fund.NewRepository(database.GetDB())
@@ -434,11 +435,49 @@ func main() {
 		return result, nil
 	})
 
+	// 设置今天到期会员获取函数（用于发送会员到期当天提醒）
+	membershipGiftService.SetExpiredTodayMembersGetter(func() ([]currency.ExpiredTodayMember, error) {
+		members, err := subscriptionService.GetMembersExpiredToday()
+		if err != nil {
+			return nil, err
+		}
+		result := make([]currency.ExpiredTodayMember, len(members))
+		for i, m := range members {
+			result[i] = currency.ExpiredTodayMember{
+				UserID:   m.UserID,
+				PlanCode: m.PlanCode,
+				EndDate:  m.EndDate,
+			}
+		}
+		return result, nil
+	})
+
+	// 设置宽限期刚结束用户获取函数（用于宽限期结束后清空经费）
+	membershipGiftService.SetGraceExpiredMembersGetter(func(graceDays int) ([]currency.GraceExpiredMember, error) {
+		members, err := subscriptionService.GetMembersWithGraceExpiredYesterday(graceDays)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]currency.GraceExpiredMember, len(members))
+		for i, m := range members {
+			result[i] = currency.GraceExpiredMember{
+				UserID:       m.UserID,
+				Gold:         m.Gold,
+				GraceEndDate: m.GraceEndDate,
+			}
+		}
+		return result, nil
+	})
+
 	// 设置消息服务（用于发送会员相关站内信通知）
 	membershipGiftService.SetMessageService(messageHandler.GetAdapter())
 
 	// 设置会员经费服务到管理员处理器（用于手动触发定时任务）
 	currencyAdminHandler.SetMembershipGiftService(membershipGiftService)
+
+	// 设置批量发放服务的消息发送器并注入到管理员处理器
+	currencyBatchService.SetMessageSender(messageHandler.GetAdapter())
+	currencyAdminHandler.SetBatchService(currencyBatchService)
 
 	// 设置会员激活回调 - 当用户开通会员时自动发放奖励
 	// 这是解耦支付方式和奖励发放的关键：无论通过何种支付方式开通会员，
@@ -624,6 +663,13 @@ func main() {
 			// 定时任务手动触发（用于测试）
 			adminProtected.POST("/currency/trigger-daily-reminders", currencyAdminHandler.TriggerDailyReminders)
 			adminProtected.POST("/currency/trigger-monthly-tasks", currencyAdminHandler.TriggerMonthlyTasks)
+			// 批量发放管理
+			adminProtected.POST("/currency/batch-distribute", currencyAdminHandler.BatchDistribute)
+			adminProtected.POST("/currency/batch-distribute/preview", currencyAdminHandler.GetTargetUserCount)
+			adminProtected.GET("/currency/batches", currencyAdminHandler.ListBatches)
+			adminProtected.GET("/currency/batches/:id", currencyAdminHandler.GetBatch)
+			adminProtected.POST("/currency/batches/:id/cancel", currencyAdminHandler.CancelBatch)
+			adminProtected.GET("/currency/batches/:id/distributions", currencyAdminHandler.GetBatchDistributions)
 
 			// Fund management (Admin only) - 会员基金管理
 			adminProtected.GET("/funds", fundAdminHandler.ListFunds)

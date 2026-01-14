@@ -630,28 +630,28 @@ func (s *Service) sendInviteeCouponNotification(inviteeID uint64) {
 
 	// 构建通知内容
 	var title, content string
-	
+
 	if inviteCoupon != nil {
 		// 有折扣券，发送折扣券通知
-		title = "邀请奖励到账"
+		title = "新人福利到账"
 		switch inviteCoupon.DiscountType {
 		case string(DiscountTypePercentage):
-			content = fmt.Sprintf("恭喜您获得邀请专属折扣券！\n\n优惠内容：%d%% 折扣\n有效期至：%s\n\n快去使用吧！",
+			content = fmt.Sprintf("好友邀请专属福利：%d%%折扣券，有效期至%s，快去使用吧~",
 				int(inviteCoupon.DiscountValue),
-				inviteCoupon.ValidUntil.Format("2006-01-02"))
+				inviteCoupon.ValidUntil.Format("01月02日"))
 		case string(DiscountTypeFixed):
-			content = fmt.Sprintf("恭喜您获得邀请专属折扣券！\n\n优惠内容：减免 %.2f 元\n有效期至：%s\n\n快去使用吧！",
+			content = fmt.Sprintf("好友邀请专属福利：%.0f元优惠券，有效期至%s，快去使用吧~",
 				inviteCoupon.DiscountValue,
-				inviteCoupon.ValidUntil.Format("2006-01-02"))
+				inviteCoupon.ValidUntil.Format("01月02日"))
 		default:
-			content = fmt.Sprintf("恭喜您获得邀请专属折扣券！\n\n有效期至：%s\n\n快去使用吧！",
-				inviteCoupon.ValidUntil.Format("2006-01-02"))
+			content = fmt.Sprintf("好友邀请专属福利已到账，有效期至%s，快去使用吧~",
+				inviteCoupon.ValidUntil.Format("01月02日"))
 		}
 	} else {
 		// 没有折扣券，发送欢迎通知
 		log.Printf("[Coupon] No invite coupon found for invitee %d, sending welcome message instead", inviteeID)
-		title = "欢迎加入"
-		content = "感谢您通过好友邀请加入！\n\n开始探索学术世界吧！"
+		title = "欢迎加入 Scholay"
+		content = "感谢好友邀请加入，开始探索学术世界吧~"
 	}
 
 	// 发送站内信（会持久化存储，同时通过 WebSocket 推送实时通知）
@@ -727,13 +727,13 @@ func (s *Service) giftInviteDiamond(inviterID uint64, inviteCount int) {
 		var title, content string
 		if isMilestone {
 			title = "邀请里程碑达成"
-			content = fmt.Sprintf("恭喜您成功邀请第 %d 位用户！\n\n本次获得 %d 恩特币奖励（含里程碑奖励）。\n\n继续邀请好友，获得更多奖励！", inviteCount, totalReward)
+			content = fmt.Sprintf("成功邀请第%d位好友！获得%d恩特币（含里程碑奖励），继续邀请赢更多", inviteCount, totalReward)
 		} else {
 			title = "邀请奖励到账"
-			content = fmt.Sprintf("恭喜您成功邀请新用户！\n\n本次获得 %d 恩特币奖励。\n\n继续邀请好友，获得更多奖励！", totalReward)
+			content = fmt.Sprintf("成功邀请1位新用户，获得%d恩特币奖励，继续邀请赢更多", totalReward)
 		}
 		log.Printf("[Coupon] Sending invite notification to inviter %d: title=%s", inviterID, title)
-		if err := s.messageService.SendToUser(uint(inviterID), title, content, "promotion", "/invite", "邀请更多好友"); err != nil {
+		if err := s.messageService.SendToUser(uint(inviterID), title, content, "promotion", "/invite", "继续邀请"); err != nil {
 			log.Printf("[Coupon] Failed to send invite notification to inviter %d: %v", inviterID, err)
 		} else {
 			log.Printf("[Coupon] Sent invite notification to inviter %d", inviterID)

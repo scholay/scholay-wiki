@@ -25,6 +25,14 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
+// getTomorrowMidnight 获取明天的00:00:00（当天结束时间）
+// 用于判断会员是否有效：如果 end_date 是1月2日，则1月2日当天仍为会员，1月3日才失效
+// 即 end_date >= 明天00:00 表示今天仍有效
+func getTomorrowMidnight() time.Time {
+	now := time.Now()
+	return time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+}
+
 // GetAllPlans retrieves all active subscription plans
 func (r *Repository) GetAllPlans() ([]SubscriptionPlan, error) {
 	var plans []SubscriptionPlan
@@ -58,13 +66,15 @@ func (r *Repository) UpdatePlan(plan *SubscriptionPlan) error {
 }
 
 // GetUserActiveSubscription retrieves the active subscription for a user
-// 注意：不仅检查 status = 'active'，还要检查 end_date > now（如果有 end_date）
+// 注意：不仅检查 status = 'active'，还要检查 end_date >= 明天00:00（如果有 end_date）
 // 这样即使系统未及时更新 status，也能正确判断会员是否有效
+// 例如：end_date 是1月2日，1月2日当天仍为会员，1月3日才失效
 func (r *Repository) GetUserActiveSubscription(userID uint) (*UserSubscription, error) {
 	var subscription UserSubscription
-	now := time.Now()
-	// 检查 status = 'active' 且 (end_date 为空 或 end_date > 当前时间)
-	err := r.db.Where("user_id = ? AND status = ? AND (end_date IS NULL OR end_date > ?)", userID, "active", now).
+	tomorrowMidnight := getTomorrowMidnight()
+	// 检查 status = 'active' 且 (end_date 为空 或 end_date >= 明天00:00)
+	// 即到期日当天仍为有效会员
+	err := r.db.Where("user_id = ? AND status = ? AND (end_date IS NULL OR end_date >= ?)", userID, "active", tomorrowMidnight).
 		Order("created_at DESC").
 		First(&subscription).Error
 	if err != nil {
@@ -80,6 +90,22 @@ func (r *Repository) GetUserSubscriptionHistory(userID uint) ([]UserSubscription
 		Order("created_at DESC").
 		Find(&subscriptions).Error
 	return subscriptions, err
+}
+
+// GetUserLatestExpiredSubscription 获取用户最近过期的订阅（非free）
+// 用于在用户会员过期后展示过期状态
+func (r *Repository) GetUserLatestExpiredSubscription(userID uint) (*UserSubscription, error) {
+	var subscription UserSubscription
+	tomorrowMidnight := getTomorrowMidnight()
+	// 查找已过期的非免费订阅（end_date < 明天00:00，即今天之前已过期）
+	err := r.db.Where("user_id = ? AND plan_code != ? AND end_date IS NOT NULL AND end_date < ?",
+		userID, "free", tomorrowMidnight).
+		Order("end_date DESC").
+		First(&subscription).Error
+	if err != nil {
+		return nil, err
+	}
+	return &subscription, nil
 }
 
 // HasPreviousPaidSubscription 检查用户是否有过付费会员记录（pro 或 max）
@@ -172,20 +198,22 @@ func (r *Repository) IncrementUsage(userID uint, date string, usageType string) 
 }
 
 // GetActiveSubscriptionsByPlanCodes 获取指定计划代码的所有活跃订阅
-// 注意：不仅检查 status = 'active'，还要检查 end_date > now
+// 注意：不仅检查 status = 'active'，还要检查 end_date >= 明天00:00
+// 到期日当天仍为有效会员
 func (r *Repository) GetActiveSubscriptionsByPlanCodes(planCodes []string) ([]UserSubscription, error) {
 	var subscriptions []UserSubscription
-	now := time.Now()
-	err := r.db.Where("plan_code IN ? AND status = ? AND (end_date IS NULL OR end_date > ?)", planCodes, "active", now).Find(&subscriptions).Error
+	tomorrowMidnight := getTomorrowMidnight()
+	err := r.db.Where("plan_code IN ? AND status = ? AND (end_date IS NULL OR end_date >= ?)", planCodes, "active", tomorrowMidnight).Find(&subscriptions).Error
 	return subscriptions, err
 }
 
 // GetAllActiveSubscriptions 获取所有活跃订阅
-// 注意：不仅检查 status = 'active'，还要检查 end_date > now
+// 注意：不仅检查 status = 'active'，还要检查 end_date >= 明天00:00
+// 到期日当天仍为有效会员
 func (r *Repository) GetAllActiveSubscriptions() ([]UserSubscription, error) {
 	var subscriptions []UserSubscription
-	now := time.Now()
-	err := r.db.Where("status = ? AND (end_date IS NULL OR end_date > ?)", "active", now).Find(&subscriptions).Error
+	tomorrowMidnight := getTomorrowMidnight()
+	err := r.db.Where("status = ? AND (end_date IS NULL OR end_date >= ?)", "active", tomorrowMidnight).Find(&subscriptions).Error
 	return subscriptions, err
 }
 
@@ -196,6 +224,8 @@ func (r *Repository) GetAllActiveSubscriptions() ([]UserSubscription, error) {
 func (r *Repository) GetExpiredMembersWithGracePeriod(graceDays int) ([]ExpiredMemberInfo, error) {
 	// 计算宽限期截止时间（当前时间减去宽限期天数）
 	graceDeadline := time.Now().AddDate(0, 0, -graceDays)
+	// 获取明天00:00，用于判断会员是否有效（到期日当天仍为会员）
+	tomorrowMidnight := getTomorrowMidnight()
 
 	var results []ExpiredMemberInfo
 
@@ -219,10 +249,10 @@ func (r *Repository) GetExpiredMembersWithGracePeriod(graceDays int) ([]ExpiredM
 			WHERE active_sub.user_id = us.user_id
 			  AND active_sub.plan_code IN ('pro', 'max')
 			  AND active_sub.status = 'active'
-			  AND (active_sub.end_date IS NULL OR active_sub.end_date > NOW())
+			  AND (active_sub.end_date IS NULL OR active_sub.end_date >= ?)
 		  )
 		ORDER BY us.end_date ASC
-	`, graceDeadline).Scan(&results).Error
+	`, graceDeadline, tomorrowMidnight).Scan(&results).Error
 
 	return results, err
 }
@@ -232,11 +262,13 @@ func (r *Repository) GetExpiredMembersWithGracePeriod(graceDays int) ([]ExpiredM
 // 包括：从未开通过会员的用户、会员已过期的用户
 func (r *Repository) GetNonMembersWithGold() ([]NonMemberInfo, error) {
 	var results []NonMemberInfo
+	// 获取明天00:00，用于判断会员是否有效（到期日当天仍为会员）
+	tomorrowMidnight := getTomorrowMidnight()
 
 	// 查询所有有经费但没有活跃 pro/max 订阅的用户
 	// 条件：
 	// 1. 用户钱包中有经费（gold > 0）
-	// 2. 用户当前没有活跃的 pro/max 订阅（status = 'active' 且 end_date > now）
+	// 2. 用户当前没有活跃的 pro/max 订阅（status = 'active' 且 end_date >= 明天00:00）
 	err := r.db.Raw(`
 		SELECT w.user_id, w.gold,
 		       COALESCE(
@@ -251,10 +283,10 @@ func (r *Repository) GetNonMembersWithGold() ([]NonMemberInfo, error) {
 			WHERE active_sub.user_id = w.user_id
 			  AND active_sub.plan_code IN ('pro', 'max')
 			  AND active_sub.status = 'active'
-			  AND (active_sub.end_date IS NULL OR active_sub.end_date > NOW())
+			  AND (active_sub.end_date IS NULL OR active_sub.end_date >= ?)
 		  )
 		ORDER BY w.user_id ASC
-	`).Scan(&results).Error
+	`, tomorrowMidnight).Scan(&results).Error
 
 	return results, err
 }
@@ -287,13 +319,15 @@ func (r *Repository) GetMembersInGracePeriod(graceDays int) ([]MembersInGracePer
 	now := time.Now()
 	// 宽限期截止时间（当前时间减去宽限期天数）
 	graceDeadline := now.AddDate(0, 0, -graceDays)
+	// 获取明天00:00，用于判断会员是否有效（到期日当天仍为会员）
+	tomorrowMidnight := getTomorrowMidnight()
 
 	var results []MembersInGracePeriodInfo
 
 	// 查询在宽限期内的过期会员
 	// 条件：
 	// 1. 用户钱包中有经费（gold > 0）
-	// 2. 用户当前没有活跃的 pro/max 订阅（status = 'active' 且 end_date > now）
+	// 2. 用户当前没有活跃的 pro/max 订阅（status = 'active' 且 end_date >= 明天00:00）
 	// 3. 用户曾经有过 pro/max 订阅
 	// 4. 最后一次订阅结束时间在宽限期截止时间之后（即还在宽限期内）
 	err := r.db.Raw(`
@@ -307,7 +341,7 @@ func (r *Repository) GetMembersInGracePeriod(graceDays int) ([]MembersInGracePer
 			WHERE active_sub.user_id = w.user_id
 			  AND active_sub.plan_code IN ('pro', 'max')
 			  AND active_sub.status = 'active'
-			  AND (active_sub.end_date IS NULL OR active_sub.end_date > NOW())
+			  AND (active_sub.end_date IS NULL OR active_sub.end_date >= ?)
 		  )
 		  AND EXISTS (
 			SELECT 1 FROM user_subscriptions past_sub
@@ -318,7 +352,7 @@ func (r *Repository) GetMembersInGracePeriod(graceDays int) ([]MembersInGracePer
 			  AND past_sub.end_date >= ?
 		  )
 		ORDER BY w.user_id ASC
-	`, now, graceDeadline).Scan(&results).Error
+	`, tomorrowMidnight, tomorrowMidnight, graceDeadline).Scan(&results).Error
 
 	return results, err
 }
@@ -329,13 +363,15 @@ func (r *Repository) GetMembersInGracePeriod(graceDays int) ([]MembersInGracePer
 func (r *Repository) GetNonMembersWithGoldAfterGrace(graceDays int) ([]NonMemberInfo, error) {
 	// 宽限期截止时间（当前时间减去宽限期天数）
 	graceDeadline := time.Now().AddDate(0, 0, -graceDays)
+	// 获取明天00:00，用于判断会员是否有效（到期日当天仍为会员）
+	tomorrowMidnight := getTomorrowMidnight()
 
 	var results []NonMemberInfo
 
 	// 查询超过宽限期的非会员用户
 	// 条件：
 	// 1. 用户钱包中有经费（gold > 0）
-	// 2. 用户当前没有活跃的 pro/max 订阅（status = 'active' 且 end_date > now）
+	// 2. 用户当前没有活跃的 pro/max 订阅（status = 'active' 且 end_date >= 明天00:00）
 	// 3. 用户从未开通过会员，或者会员过期时间在宽限期截止时间之前
 	err := r.db.Raw(`
 		SELECT w.user_id, w.gold,
@@ -348,7 +384,7 @@ func (r *Repository) GetNonMembersWithGoldAfterGrace(graceDays int) ([]NonMember
 			WHERE active_sub.user_id = w.user_id
 			  AND active_sub.plan_code IN ('pro', 'max')
 			  AND active_sub.status = 'active'
-			  AND (active_sub.end_date IS NULL OR active_sub.end_date > NOW())
+			  AND (active_sub.end_date IS NULL OR active_sub.end_date >= ?)
 		  )
 		  AND (
 		    -- 从未开通过会员
@@ -363,7 +399,7 @@ func (r *Repository) GetNonMembersWithGoldAfterGrace(graceDays int) ([]NonMember
 		     WHERE us.user_id = w.user_id AND us.plan_code IN ('pro', 'max')) < ?
 		  )
 		ORDER BY w.user_id ASC
-	`, graceDeadline).Scan(&results).Error
+	`, tomorrowMidnight, graceDeadline).Scan(&results).Error
 
 	return results, err
 }
@@ -404,6 +440,98 @@ func (r *Repository) GetExpiringMembers(days int) ([]ExpiringMemberInfo, error) 
 	return results, err
 }
 
+// ExpiredTodayInfo 今天到期的会员信息
+type ExpiredTodayInfo struct {
+	UserID   uint       `gorm:"column:user_id"`
+	PlanCode string     `gorm:"column:plan_code"`
+	EndDate  *time.Time `gorm:"column:end_date"`
+}
+
+// GetMembersExpiredToday 获取今天到期的会员
+// 返回：会员到期时间是今天的活跃会员
+func (r *Repository) GetMembersExpiredToday() ([]ExpiredTodayInfo, error) {
+	now := time.Now()
+	// 今天的开始和结束时间
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	todayEnd := todayStart.AddDate(0, 0, 1)
+
+	var results []ExpiredTodayInfo
+
+	// 查询今天到期的会员
+	// 条件：
+	// 1. plan_code 是 pro 或 max
+	// 2. status 是 active
+	// 3. end_date 在今天（>= todayStart 且 < todayEnd）
+	err := r.db.Raw(`
+		SELECT us.user_id, us.plan_code, us.end_date
+		FROM user_subscriptions us
+		WHERE us.plan_code IN ('pro', 'max')
+		  AND us.status = 'active'
+		  AND us.end_date IS NOT NULL
+		  AND us.end_date >= ?
+		  AND us.end_date < ?
+		ORDER BY us.end_date ASC
+	`, todayStart, todayEnd).Scan(&results).Error
+
+	return results, err
+}
+
+// GraceExpiredInfo 宽限期刚结束的用户信息
+type GraceExpiredInfo struct {
+	UserID       uint       `gorm:"column:user_id"`
+	Gold         int64      `gorm:"column:gold"`
+	GraceEndDate *time.Time `gorm:"column:grace_end_date"` // 宽限期结束时间
+}
+
+// GetMembersWithGraceExpiredYesterday 获取宽限期昨天结束的用户
+// graceDays: 宽限期天数
+// 返回：宽限期结束时间是昨天的用户（即会员过期时间 + graceDays = 昨天）
+func (r *Repository) GetMembersWithGraceExpiredYesterday(graceDays int) ([]GraceExpiredInfo, error) {
+	now := time.Now()
+	// 昨天的开始和结束时间
+	yesterday := now.AddDate(0, 0, -1)
+	yesterdayStart := time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 0, 0, 0, 0, now.Location())
+	yesterdayEnd := yesterdayStart.AddDate(0, 0, 1)
+	// 获取明天00:00，用于判断会员是否有效（到期日当天仍为会员）
+	tomorrowMidnight := getTomorrowMidnight()
+
+	var results []GraceExpiredInfo
+
+	// 查询宽限期昨天结束的用户
+	// 条件：
+	// 1. 用户钱包中有经费（gold > 0）
+	// 2. 用户当前没有活跃的 pro/max 订阅
+	// 3. 用户曾经有过 pro/max 订阅且已过期
+	// 4. 宽限期结束时间（过期时间 + graceDays）是昨天
+	err := r.db.Raw(`
+		SELECT w.user_id, w.gold,
+		       DATE_ADD(
+		           (SELECT MAX(us.end_date) FROM user_subscriptions us
+		            WHERE us.user_id = w.user_id AND us.plan_code IN ('pro', 'max')),
+		           INTERVAL ? DAY
+		       ) as grace_end_date
+		FROM wallets w
+		WHERE w.gold > 0
+		  AND NOT EXISTS (
+			SELECT 1 FROM user_subscriptions active_sub
+			WHERE active_sub.user_id = w.user_id
+			  AND active_sub.plan_code IN ('pro', 'max')
+			  AND active_sub.status = 'active'
+			  AND (active_sub.end_date IS NULL OR active_sub.end_date >= ?)
+		  )
+		  AND EXISTS (
+			SELECT 1 FROM user_subscriptions past_sub
+			WHERE past_sub.user_id = w.user_id
+			  AND past_sub.plan_code IN ('pro', 'max')
+			  AND past_sub.end_date IS NOT NULL
+		  )
+		HAVING grace_end_date >= ? AND grace_end_date < ?
+		ORDER BY grace_end_date ASC
+	`, graceDays, tomorrowMidnight, yesterdayStart, yesterdayEnd).Scan(&results).Error
+
+	return results, err
+}
+
 // GracePeriodEndingInfo 宽限期即将结束的会员信息
 type GracePeriodEndingInfo struct {
 	UserID       uint       `gorm:"column:user_id"`
@@ -420,13 +548,15 @@ func (r *Repository) GetMembersWithGracePeriodEnding(graceDays, reminderDays int
 	now := time.Now()
 	// 提醒截止时间（当前时间加上提醒天数）
 	reminderDeadline := now.AddDate(0, 0, reminderDays)
+	// 获取明天00:00，用于判断会员是否有效（到期日当天仍为会员）
+	tomorrowMidnight := getTomorrowMidnight()
 
 	var results []GracePeriodEndingInfo
 
 	// 查询宽限期即将结束的会员
 	// 条件：
 	// 1. 用户钱包中有经费（gold > 0）
-	// 2. 用户当前没有活跃的 pro/max 订阅（status = 'active' 且 end_date > now）
+	// 2. 用户当前没有活跃的 pro/max 订阅（status = 'active' 且 end_date >= 明天00:00）
 	// 3. 用户曾经有过 pro/max 订阅且已过期
 	// 4. 宽限期结束时间（过期时间 + graceDays）在当前时间到 reminderDeadline 之间
 	err := r.db.Raw(`
@@ -445,7 +575,7 @@ func (r *Repository) GetMembersWithGracePeriodEnding(graceDays, reminderDays int
 			WHERE active_sub.user_id = w.user_id
 			  AND active_sub.plan_code IN ('pro', 'max')
 			  AND active_sub.status = 'active'
-			  AND (active_sub.end_date IS NULL OR active_sub.end_date > NOW())
+			  AND (active_sub.end_date IS NULL OR active_sub.end_date >= ?)
 		  )
 		  AND EXISTS (
 			SELECT 1 FROM user_subscriptions past_sub
@@ -456,7 +586,7 @@ func (r *Repository) GetMembersWithGracePeriodEnding(graceDays, reminderDays int
 		  )
 		HAVING grace_end_date > ? AND grace_end_date <= ?
 		ORDER BY grace_end_date ASC
-	`, graceDays, now, now, reminderDeadline).Scan(&results).Error
+	`, graceDays, tomorrowMidnight, tomorrowMidnight, now, reminderDeadline).Scan(&results).Error
 
 	return results, err
 }
@@ -468,13 +598,15 @@ func (r *Repository) GetNonMembersForMonthEndReminder(graceDays int) ([]NonMembe
 	now := time.Now()
 	// 宽限期截止时间（当前时间减去宽限期天数）
 	graceDeadline := now.AddDate(0, 0, -graceDays)
+	// 获取明天00:00，用于判断会员是否有效（到期日当天仍为会员）
+	tomorrowMidnight := getTomorrowMidnight()
 
 	var results []NonMemberInfo
 
 	// 查询需要月底提醒的非会员
 	// 条件：
 	// 1. 用户钱包中有经费（gold > 0）
-	// 2. 用户当前没有活跃的 pro/max 订阅（status = 'active' 且 end_date > now）
+	// 2. 用户当前没有活跃的 pro/max 订阅（status = 'active' 且 end_date >= 明天00:00）
 	// 3. 排除正在宽限期内的用户（最后订阅结束时间在 graceDeadline 之后）
 	// 4. 用户从未开通过会员，或者会员过期时间在宽限期截止时间之前
 	err := r.db.Raw(`
@@ -488,7 +620,7 @@ func (r *Repository) GetNonMembersForMonthEndReminder(graceDays int) ([]NonMembe
 			WHERE active_sub.user_id = w.user_id
 			  AND active_sub.plan_code IN ('pro', 'max')
 			  AND active_sub.status = 'active'
-			  AND (active_sub.end_date IS NULL OR active_sub.end_date > NOW())
+			  AND (active_sub.end_date IS NULL OR active_sub.end_date >= ?)
 		  )
 		  AND (
 		    -- 从未开通过会员
@@ -503,7 +635,7 @@ func (r *Repository) GetNonMembersForMonthEndReminder(graceDays int) ([]NonMembe
 		     WHERE us.user_id = w.user_id AND us.plan_code IN ('pro', 'max')) < ?
 		  )
 		ORDER BY w.user_id ASC
-	`, graceDeadline).Scan(&results).Error
+	`, tomorrowMidnight, graceDeadline).Scan(&results).Error
 
 	return results, err
 }

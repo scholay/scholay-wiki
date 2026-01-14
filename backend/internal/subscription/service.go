@@ -84,14 +84,47 @@ func (s *Service) GetUserSubscription(userID uint) (map[string]interface{}, erro
 	subscription, err := s.repo.GetUserActiveSubscription(userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// User has no active subscription, return free plan
+			// User has no active subscription, check for expired subscription
+			expiredSub, expErr := s.repo.GetUserLatestExpiredSubscription(userID)
+			if expErr == nil && expiredSub != nil {
+				// 用户有过期的会员订阅，返回过期信息
+				plan, planErr := s.repo.GetPlanByCode(expiredSub.PlanCode)
+				if planErr == nil && plan != nil {
+					// 计算过期天数
+					expiredDays := 0
+					if expiredSub.EndDate != nil {
+						now := time.Now()
+						// 使用明天凌晨来计算，保持与其他判断一致
+						tomorrowMidnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+						expiredDays = int(tomorrowMidnight.Sub(*expiredSub.EndDate).Hours() / 24)
+						if expiredDays < 0 {
+							expiredDays = 0
+						}
+					}
+					return map[string]interface{}{
+						"plan_code":             "free",
+						"plan_name":             "FREE",
+						"status":                "active",
+						"start_date":            nil,
+						"end_date":              nil,
+						"auto_renew":            false,
+						"expired_membership":    true,
+						"expired_plan_code":     expiredSub.PlanCode,
+						"expired_plan_name":     plan.PlanName,
+						"expired_date":          expiredSub.EndDate,
+						"expired_days":          expiredDays,
+					}, nil
+				}
+			}
+			// 没有过期订阅或查询失败，返回普通免费计划
 			return map[string]interface{}{
-				"plan_code":  "free",
-				"plan_name":  "FREE",
-				"status":     "active",
-				"start_date": nil,
-				"end_date":   nil,
-				"auto_renew": false,
+				"plan_code":          "free",
+				"plan_name":          "FREE",
+				"status":             "active",
+				"start_date":         nil,
+				"end_date":           nil,
+				"auto_renew":         false,
+				"expired_membership": false,
 			}, nil
 		}
 		return nil, err
@@ -109,15 +142,16 @@ func (s *Service) GetUserSubscription(userID uint) (map[string]interface{}, erro
 	}
 
 	return map[string]interface{}{
-		"plan_code":     subscription.PlanCode,
-		"plan_name":     plan.PlanName,
-		"status":        subscription.Status,
-		"start_date":    subscription.StartDate,
-		"end_date":      subscription.EndDate,
-		"auto_renew":    subscription.AutoRenew,
-		"price_monthly": plan.PriceMonthly,
-		"price_yearly":  plan.PriceYearly,
-		"features":      features,
+		"plan_code":          subscription.PlanCode,
+		"plan_name":          plan.PlanName,
+		"status":             subscription.Status,
+		"start_date":         subscription.StartDate,
+		"end_date":           subscription.EndDate,
+		"auto_renew":         subscription.AutoRenew,
+		"price_monthly":      plan.PriceMonthly,
+		"price_yearly":       plan.PriceYearly,
+		"features":           features,
+		"expired_membership": false,
 	}, nil
 }
 
@@ -487,6 +521,57 @@ func (s *Service) GetNonMembersForMonthEndReminder(graceDays int) ([]NonMemberFo
 			UserID:              m.UserID,
 			Gold:                m.Gold,
 			LastSubscriptionEnd: m.LastSubscriptionEnd,
+		}
+	}
+	return result, nil
+}
+
+// ExpiredTodayMember 今天到期的会员信息（用于货币系统）
+type ExpiredTodayMember struct {
+	UserID   uint
+	PlanCode string
+	EndDate  *time.Time
+}
+
+// GetMembersExpiredToday 获取今天到期的会员
+func (s *Service) GetMembersExpiredToday() ([]ExpiredTodayMember, error) {
+	members, err := s.repo.GetMembersExpiredToday()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]ExpiredTodayMember, len(members))
+	for i, m := range members {
+		result[i] = ExpiredTodayMember{
+			UserID:   m.UserID,
+			PlanCode: m.PlanCode,
+			EndDate:  m.EndDate,
+		}
+	}
+	return result, nil
+}
+
+// GraceExpiredMember 宽限期刚结束的用户信息（用于货币系统）
+type GraceExpiredMember struct {
+	UserID       uint
+	Gold         int64
+	GraceEndDate *time.Time
+}
+
+// GetMembersWithGraceExpiredYesterday 获取宽限期昨天结束的用户
+// graceDays: 宽限期天数
+func (s *Service) GetMembersWithGraceExpiredYesterday(graceDays int) ([]GraceExpiredMember, error) {
+	members, err := s.repo.GetMembersWithGraceExpiredYesterday(graceDays)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]GraceExpiredMember, len(members))
+	for i, m := range members {
+		result[i] = GraceExpiredMember{
+			UserID:       m.UserID,
+			Gold:         m.Gold,
+			GraceEndDate: m.GraceEndDate,
 		}
 	}
 	return result, nil

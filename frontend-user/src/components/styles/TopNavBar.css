@@ -493,6 +493,17 @@
   color: #1a1a1a;
 }
 
+.um-plan-badge.expired {
+  background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+  color: #ffffff;
+  animation: um-expired-pulse 2s ease-in-out infinite;
+}
+
+@keyframes um-expired-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
 /* 卡片2: 钱包 */
 .um-wallet-card {
   padding: 12px 14px;
@@ -933,6 +944,11 @@
 [data-theme="dark"] .um-plan-badge.free {
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .um-plan-badge.expired {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.9) 0%, rgba(249, 115, 22, 0.9) 100%);
+  color: #ffffff;
 }
 
 /* 深色主题 - 钱包卡片 */

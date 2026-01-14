@@ -47,12 +47,25 @@ const UserManagement = () => {
 
   // 发放货币弹窗状态
   const [currencyModal, setCurrencyModal] = useState({ show: false, user: null });
-  const [currencyForm, setCurrencyForm] = useState({ 
-    currencyType: 'gold', 
-    amount: '', 
-    description: '' 
+  const [currencyForm, setCurrencyForm] = useState({
+    currencyType: 'gold',
+    amount: '',
+    description: ''
   });
   const [currencyLoading, setCurrencyLoading] = useState(false);
+
+  // 批量发放弹窗状态
+  const [batchModal, setBatchModal] = useState({ show: false });
+  const [batchForm, setBatchForm] = useState({
+    currencyType: 'gold',
+    amount: '',
+    targetType: 'all',
+    title: '',
+    description: '',
+    remark: ''
+  });
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchPreview, setBatchPreview] = useState({ loading: false, userCount: 0 });
 
   useEffect(() => {
     loadUserStatistics();
@@ -249,6 +262,100 @@ const UserManagement = () => {
       showToast(err.response?.data?.message || '发放货币失败', 'error');
     } finally {
       setCurrencyLoading(false);
+    }
+  };
+
+  // 批量发放处理函数
+  const handleBatchClick = () => {
+    setBatchModal({ show: true });
+    setBatchForm({
+      currencyType: 'gold',
+      amount: '',
+      targetType: 'all',
+      title: '',
+      description: '',
+      remark: ''
+    });
+    setBatchPreview({ loading: false, userCount: 0 });
+  };
+
+  const handleBatchCancel = () => {
+    setBatchModal({ show: false });
+    setBatchForm({
+      currencyType: 'gold',
+      amount: '',
+      targetType: 'all',
+      title: '',
+      description: '',
+      remark: ''
+    });
+    setBatchPreview({ loading: false, userCount: 0 });
+  };
+
+  // 预览目标用户数量
+  const handleBatchPreview = async (targetType) => {
+    setBatchPreview({ loading: true, userCount: 0 });
+    try {
+      const response = await adminAPI.batchDistributePreview({
+        target_type: targetType
+      });
+      if (response.data.code === 0 && response.data.data) {
+        setBatchPreview({
+          loading: false,
+          userCount: response.data.data.user_count || 0,
+          targetName: response.data.data.target_name || ''
+        });
+      }
+    } catch (err) {
+      showToast('获取用户数量失败', 'error');
+      setBatchPreview({ loading: false, userCount: 0 });
+    }
+  };
+
+  // 目标类型变更时预览用户数量
+  const handleTargetTypeChange = (targetType) => {
+    setBatchForm({ ...batchForm, targetType });
+    handleBatchPreview(targetType);
+  };
+
+  const handleBatchConfirm = async () => {
+    const amount = parseInt(batchForm.amount, 10);
+    if (!amount || amount <= 0) {
+      showToast('请输入有效的发放数量', 'error');
+      return;
+    }
+    if (!batchForm.title.trim()) {
+      showToast('请输入发放标题', 'error');
+      return;
+    }
+    if (batchPreview.userCount === 0) {
+      showToast('没有符合条件的用户', 'error');
+      return;
+    }
+
+    setBatchLoading(true);
+    try {
+      const response = await adminAPI.batchDistribute({
+        currency_type: batchForm.currencyType,
+        amount: amount,
+        target_type: batchForm.targetType,
+        title: batchForm.title.trim(),
+        description: batchForm.description.trim(),
+        remark: batchForm.remark.trim()
+      });
+
+      if (response.data.code === 0) {
+        const data = response.data.data;
+        showToast(`批量发放任务已创建，批次号: ${data.batch_no}，将向 ${data.total_count} 个用户发放`, 'success');
+        handleBatchCancel();
+        loadUserList();
+      } else {
+        showToast(response.data.message || '批量发放失败', 'error');
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || '批量发放失败', 'error');
+    } finally {
+      setBatchLoading(false);
     }
   };
 
@@ -454,8 +561,23 @@ const UserManagement = () => {
   return (
     <div className="um-container">
       <div className="page-header">
-        <h1>用户管理</h1>
-        <p>查看和管理注册用户</p>
+        <div className="page-header-content">
+          <div>
+            <h1>用户管理</h1>
+            <p>查看和管理注册用户</p>
+          </div>
+          <div className="page-header-actions">
+            <button
+              className="um-batch-btn"
+              onClick={handleBatchClick}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              </svg>
+              批量发放
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Statistics Cards */}
@@ -988,6 +1110,153 @@ const UserManagement = () => {
                 disabled={currencyLoading || !currencyForm.amount || parseInt(currencyForm.amount, 10) <= 0}
               >
                 {currencyLoading ? '发放中...' : '确认发放'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Batch Currency Distribution Modal - 批量发放弹窗 */}
+      {batchModal.show && (
+        <div className="modal-overlay" onClick={handleBatchCancel}>
+          <div className="modal-content um-batch-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>批量发放经费/恩特币</h3>
+            </div>
+            <div className="modal-body">
+              <div className="um-form-group">
+                <label>货币类型</label>
+                <div className="um-currency-type-selector">
+                  <button
+                    type="button"
+                    className={`um-currency-type-btn gold ${batchForm.currencyType === 'gold' ? 'active' : ''}`}
+                    onClick={() => setBatchForm({ ...batchForm, currencyType: 'gold' })}
+                  >
+                    <span className="um-currency-icon"><GoldIcon size="lg" /></span>
+                    <span>经费</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`um-currency-type-btn diamond ${batchForm.currencyType === 'diamond' ? 'active' : ''}`}
+                    onClick={() => setBatchForm({ ...batchForm, currencyType: 'diamond' })}
+                  >
+                    <span className="um-currency-icon"><EntcoinIcon size="lg" /></span>
+                    <span>恩特币</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="um-form-group">
+                <label>目标用户</label>
+                <div className="um-target-type-selector">
+                  <button
+                    type="button"
+                    className={`um-target-type-btn ${batchForm.targetType === 'all' ? 'active' : ''}`}
+                    onClick={() => handleTargetTypeChange('all')}
+                  >
+                    全部用户
+                  </button>
+                  <button
+                    type="button"
+                    className={`um-target-type-btn ${batchForm.targetType === 'members' ? 'active' : ''}`}
+                    onClick={() => handleTargetTypeChange('members')}
+                  >
+                    会员用户
+                  </button>
+                  <button
+                    type="button"
+                    className={`um-target-type-btn ${batchForm.targetType === 'non_members' ? 'active' : ''}`}
+                    onClick={() => handleTargetTypeChange('non_members')}
+                  >
+                    非会员用户
+                  </button>
+                </div>
+                <div className="um-target-preview">
+                  {batchPreview.loading ? (
+                    <span className="um-preview-loading">查询中...</span>
+                  ) : batchPreview.userCount > 0 ? (
+                    <span className="um-preview-count">
+                      将向 <strong>{batchPreview.userCount}</strong> 个用户发放
+                    </span>
+                  ) : (
+                    <span className="um-preview-hint">选择目标用户类型后查看用户数量</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="um-form-group">
+                <label>发放数量（每人）</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={batchForm.amount}
+                  onChange={(e) => setBatchForm({ ...batchForm, amount: e.target.value })}
+                  className="um-form-input"
+                  placeholder={`输入每人发放的${batchForm.currencyType === 'gold' ? '经费' : '恩特币'}数量`}
+                />
+                {batchForm.amount && batchPreview.userCount > 0 && (
+                  <div className="um-amount-total">
+                    总计发放: <strong>{parseInt(batchForm.amount, 10) * batchPreview.userCount}</strong> {batchForm.currencyType === 'gold' ? '经费' : '恩特币'}
+                  </div>
+                )}
+              </div>
+
+              <div className="um-form-group">
+                <label>发放标题（必填，用于站内信通知）</label>
+                <input
+                  type="text"
+                  value={batchForm.title}
+                  onChange={(e) => setBatchForm({ ...batchForm, title: e.target.value })}
+                  className="um-form-input"
+                  placeholder="例如：新年福利发放"
+                  maxLength={200}
+                />
+              </div>
+
+              <div className="um-form-group">
+                <label>发放说明（选填，用于站内信通知）</label>
+                <textarea
+                  value={batchForm.description}
+                  onChange={(e) => setBatchForm({ ...batchForm, description: e.target.value })}
+                  className="um-form-textarea"
+                  placeholder="例如：感谢您的支持，特此发放福利"
+                  rows={2}
+                  maxLength={500}
+                />
+              </div>
+
+              <div className="um-form-group">
+                <label>备注（选填，仅管理员可见）</label>
+                <textarea
+                  value={batchForm.remark}
+                  onChange={(e) => setBatchForm({ ...batchForm, remark: e.target.value })}
+                  className="um-form-textarea"
+                  placeholder="例如：2025年新年活动批量发放"
+                  rows={2}
+                  maxLength={500}
+                />
+              </div>
+
+              <div className="um-grant-info-box um-batch-info-box">
+                <p className="um-info-title">发放说明</p>
+                <ul>
+                  <li>批量发放会创建一个发放批次，异步执行发放任务</li>
+                  <li>每个用户发放成功后会收到站内信通知</li>
+                  <li>发放记录会保存在交易流水中，可追溯</li>
+                  <li>发放过程中请勿重复提交</li>
+                </ul>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="modal-btn cancel-btn" onClick={handleBatchCancel} disabled={batchLoading}>
+                取消
+              </button>
+              <button
+                className="modal-btn confirm-btn um-primary-btn"
+                onClick={handleBatchConfirm}
+                disabled={batchLoading || !batchForm.amount || parseInt(batchForm.amount, 10) <= 0 || !batchForm.title.trim() || batchPreview.userCount === 0}
+              >
+                {batchLoading ? '发放中...' : `确认发放`}
               </button>
             </div>
           </div>

@@ -360,15 +360,17 @@ const TopNavBar = ({
               <div className="um-user-detail">
                 <span className="um-username">{getUserDisplayName()}</span>
                 <span
-                  className={`um-plan-badge ${subscription?.plan_code || 'free'} clickable`}
+                  className={`um-plan-badge ${subscription?.expired_membership ? 'expired' : (subscription?.plan_code || 'free')} clickable`}
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowUserMenu(false);
                     openOrderModal({ mode: 'subscription' });
                   }}
-                  title="点击开通/续费会员"
+                  title={subscription?.expired_membership ? `${subscription?.expired_plan_name}已过期${subscription?.expired_days}天，点击续费` : "点击开通/续费会员"}
                 >
-                  {subscription?.plan_name || 'FREE'}
+                  {subscription?.expired_membership
+                    ? `${subscription?.expired_plan_name || 'PRO'}已过期`
+                    : (subscription?.plan_name || 'FREE')}
                 </span>
               </div>
             </div>

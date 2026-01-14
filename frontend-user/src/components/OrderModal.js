@@ -60,6 +60,9 @@ const OrderModal = memo(() => {
   const [, setSelectedPlan] = useState(null); // 用于跟踪选择的套餐
   const [billingCycle, setBillingCycle] = useState('monthly');
 
+  // 当前用户订阅状态
+  const [currentSubscription, setCurrentSubscription] = useState(null);
+
   // 充值相关
   const [rechargeAmount, setRechargeAmount] = useState(null);
   const [customAmount, setCustomAmount] = useState('');
@@ -127,14 +130,23 @@ const OrderModal = memo(() => {
   const fetchPlans = async () => {
     setPlansLoading(true);
     try {
-      const response = await api.get('/user/subscription/plans');
-      if (response.data.code === 0 && response.data.data) {
-        const allPlans = response.data.data;
+      // 同时获取套餐列表和当前订阅状态
+      const [plansRes, subRes] = await Promise.all([
+        api.get('/user/subscription/plans'),
+        api.get('/user/subscription/my')
+      ]);
+
+      if (plansRes.data.code === 0 && plansRes.data.data) {
+        const allPlans = plansRes.data.data;
         // 按顺序排列
         const ordered = PLAN_ORDER
           .map(code => allPlans.find(p => p.plan_code === code))
           .filter(Boolean);
         setPlans(ordered);
+      }
+
+      if (subRes.data.code === 0 && subRes.data.data) {
+        setCurrentSubscription(subRes.data.data);
       }
     } catch (error) {
       logger.error('Failed to fetch plans:', error);
@@ -434,6 +446,79 @@ const OrderModal = memo(() => {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
+  // 获取套餐卡片的状态和显示信息
+  const getPlanCardInfo = (plan) => {
+    const userPlanCode = currentSubscription?.plan_code || 'free';
+    const isExpired = currentSubscription?.expired_membership;
+    const expiredPlanCode = currentSubscription?.expired_plan_code;
+
+    // 判断用户当前会员等级（包括过期情况）
+    // 过期会员：expired_membership = true, expired_plan_code = 'pro'/'max'
+    // 活跃会员：plan_code = 'pro'/'max'
+    const isActiveMember = !isExpired && (userPlanCode === 'pro' || userPlanCode === 'max');
+
+    let isDisabled = false;
+    let buttonText = '选择此套餐';
+    let statusBadge = null;
+    let tooltipText = null;
+    let cardClass = '';
+
+    if (plan.plan_code === 'free') {
+      // FREE 套餐始终禁用
+      isDisabled = true;
+      buttonText = '免费使用';
+    } else if (plan.plan_code === 'pro') {
+      if (isActiveMember && userPlanCode === 'pro') {
+        // 当前是活跃的 PRO 会员 - 可续费
+        buttonText = '续费';
+        statusBadge = '当前套餐';
+        cardClass = 'current';
+      } else if (isExpired && expiredPlanCode === 'pro') {
+        // PRO 会员已过期（在宽限期内） - 可续费
+        buttonText = '续费';
+        statusBadge = '宽限期内';
+        cardClass = 'grace-period';
+        tooltipText = '续费后保留当前经费';
+      } else if (isActiveMember && userPlanCode === 'max') {
+        // 当前是 MAX 会员 - 不能降级
+        isDisabled = true;
+        buttonText = '不可降级';
+        cardClass = 'disabled-downgrade';
+        tooltipText = '当前为MAX会员，无法降级到PRO';
+      } else if (isExpired && expiredPlanCode === 'max') {
+        // MAX 会员过期（宽限期内） - 可以选择续费PRO
+        buttonText = '选择此套餐';
+        tooltipText = '续费后保留当前经费';
+        cardClass = 'grace-period-hint'; // 提示样式但不突出
+      }
+    } else if (plan.plan_code === 'max') {
+      if (isActiveMember && userPlanCode === 'max') {
+        // 当前是活跃的 MAX 会员 - 可续费
+        buttonText = '续费';
+        statusBadge = '当前套餐';
+        cardClass = 'current';
+      } else if (isExpired && expiredPlanCode === 'max') {
+        // MAX 会员已过期（在宽限期内） - 可续费
+        buttonText = '续费';
+        statusBadge = '宽限期内';
+        cardClass = 'grace-period';
+        tooltipText = '续费后保留当前经费';
+      } else if (isActiveMember && userPlanCode === 'pro') {
+        // 当前是 PRO 会员 - 升级功能暂不支持
+        isDisabled = true;
+        buttonText = '升级';
+        statusBadge = '即将支持';
+        cardClass = 'disabled-upgrade';
+        tooltipText = '升级功能即将上线，敬请期待';
+      } else if (isExpired && expiredPlanCode === 'pro') {
+        // PRO 会员过期 - 可选择 MAX（相当于新开通）
+        // 这种情况允许选择，不禁用
+      }
+    }
+
+    return { isDisabled, buttonText, statusBadge, tooltipText, cardClass };
+  };
+
   // 渲染套餐选择视图
   const renderPlanView = () => (
     <div className="om-plan-view">
@@ -459,23 +544,32 @@ const OrderModal = memo(() => {
           {plans.map(plan => {
             const isFree = plan.plan_code === 'free';
             // 原价 (price_monthly/price_yearly) 和现价 (current_price_monthly/current_price_yearly)
-            const originalPrice = billingCycle === 'monthly' 
-              ? plan.price_monthly 
+            const originalPrice = billingCycle === 'monthly'
+              ? plan.price_monthly
               : plan.price_yearly;
-            const currentPrice = billingCycle === 'monthly' 
-              ? plan.current_price_monthly 
+            const currentPrice = billingCycle === 'monthly'
+              ? plan.current_price_monthly
               : plan.current_price_yearly;
             const hasDiscount = originalPrice && originalPrice > currentPrice;
-            
+
             const isFreePrice = currentPrice === 0 || currentPrice === '0';
-            
+
+            // 获取套餐卡片状态
+            const cardInfo = getPlanCardInfo(plan);
+
             return (
               <div
                 key={plan.plan_code}
-                className={`om-plan-card ${plan.plan_code} ${isFree ? 'disabled' : ''}`}
-                onClick={() => !isFree && handleSelectPlan(plan)}
+                className={`om-plan-card ${plan.plan_code} ${cardInfo.isDisabled ? 'disabled' : ''} ${cardInfo.cardClass}`}
+                onClick={() => !cardInfo.isDisabled && handleSelectPlan(plan)}
+                title={cardInfo.tooltipText || ''}
               >
-                {plan.plan_code === 'pro' && <span className="om-popular">最受欢迎</span>}
+                {/* 状态徽章 */}
+                {cardInfo.statusBadge && (
+                  <span className={`om-status-badge ${cardInfo.cardClass}`}>{cardInfo.statusBadge}</span>
+                )}
+                {/* 最受欢迎徽章 - 仅对非当前套餐的PRO显示 */}
+                {plan.plan_code === 'pro' && !cardInfo.statusBadge && <span className="om-popular">最受欢迎</span>}
                 <div className="om-plan-header">
                   <h4>{plan.plan_name}</h4>
                   <p className="om-plan-desc">{PLAN_DESCRIPTIONS[plan.plan_code]}</p>
@@ -497,12 +591,16 @@ const OrderModal = memo(() => {
                   )}
                 </div>
                 <div className="om-plan-footer">
-                  <button 
-                    className={`om-plan-btn ${isFree ? 'free' : ''}`}
-                    disabled={isFree}
+                  <button
+                    className={`om-plan-btn ${isFree ? 'free' : ''} ${cardInfo.cardClass}`}
+                    disabled={cardInfo.isDisabled}
                   >
-                    {isFree ? '免费使用' : '选择此套餐'}
+                    {cardInfo.buttonText}
                   </button>
+                  {/* 提示文字（禁用状态或宽限期提示） */}
+                  {cardInfo.tooltipText && (
+                    <p className="om-btn-tooltip">{cardInfo.tooltipText}</p>
+                  )}
                 </div>
               </div>
             );

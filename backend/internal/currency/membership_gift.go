@@ -22,9 +22,12 @@ const (
 
 	// 分布式锁相关常量（用于每日提醒，防止同月重复发送）
 	lockKeyExpiryReminder      = "lock:reminder:expiry:%d:%s"       // 用户ID:月份 - 会员即将到期提醒
+	lockKeyExpiredTodayReminder = "lock:reminder:expired_today:%d:%s" // 用户ID:日期 - 会员到期当天提醒
 	lockKeyGraceEndingReminder = "lock:reminder:grace_ending:%d:%s" // 用户ID:月份 - 宽限期即将结束提醒
 	lockKeyMonthEndReminder    = "lock:reminder:month_end:%d:%s"    // 用户ID:月份 - 月底清空提醒
+	lockKeyGraceExpiredClear   = "lock:clear:grace_expired:%d:%s"   // 用户ID:日期 - 宽限期结束清空
 	reminderLockExpiration     = 35 * 24 * time.Hour                // 35天，跨月后自动释放
+	dailyLockExpiration        = 48 * time.Hour                     // 48小时，确保当天不重复
 )
 
 // MemberSubscription 会员订阅信息
@@ -94,6 +97,26 @@ type GracePeriodEndingGetter func(graceDays, reminderDays int) ([]GracePeriodEnd
 // NonMembersForMonthEndGetter 获取需要月底提醒的非会员的函数类型
 type NonMembersForMonthEndGetter func(graceDays int) ([]NonMember, error)
 
+// ExpiredTodayMember 今天到期的会员信息
+type ExpiredTodayMember struct {
+	UserID   uint
+	PlanCode string
+	EndDate  *time.Time // 会员到期时间
+}
+
+// ExpiredTodayMembersGetter 获取今天到期会员的函数类型
+type ExpiredTodayMembersGetter func() ([]ExpiredTodayMember, error)
+
+// GraceExpiredMember 宽限期刚结束的用户信息（昨天结束）
+type GraceExpiredMember struct {
+	UserID       uint
+	Gold         int64
+	GraceEndDate *time.Time // 宽限期结束时间
+}
+
+// GraceExpiredMembersGetter 获取宽限期刚结束用户的函数类型
+type GraceExpiredMembersGetter func(graceDays int) ([]GraceExpiredMember, error)
+
 // MembershipGiftService 会员经费发放业务服务
 // 负责处理会员经费/恩特币的发放和清空逻辑
 // 与定时任务调度器解耦，可以被定时任务或其他方式调用
@@ -109,6 +132,9 @@ type MembershipGiftService struct {
 	getExpiringMembers          ExpiringMembersGetter       // 获取即将到期的会员
 	getGracePeriodEndingMembers GracePeriodEndingGetter     // 获取宽限期即将结束的会员
 	getNonMembersForMonthEnd    NonMembersForMonthEndGetter // 获取需要月底提醒的非会员
+	// 新增：到期当天和宽限期结束相关
+	getExpiredTodayMembers ExpiredTodayMembersGetter  // 获取今天到期的会员
+	getGraceExpiredMembers GraceExpiredMembersGetter  // 获取宽限期刚结束的用户
 }
 
 // NewMembershipGiftService 创建会员经费业务服务
@@ -161,6 +187,16 @@ func (s *MembershipGiftService) SetGracePeriodEndingGetter(getter GracePeriodEnd
 // SetNonMembersForMonthEndGetter 设置月底提醒非会员获取函数
 func (s *MembershipGiftService) SetNonMembersForMonthEndGetter(getter NonMembersForMonthEndGetter) {
 	s.getNonMembersForMonthEnd = getter
+}
+
+// SetExpiredTodayMembersGetter 设置今天到期会员获取函数
+func (s *MembershipGiftService) SetExpiredTodayMembersGetter(getter ExpiredTodayMembersGetter) {
+	s.getExpiredTodayMembers = getter
+}
+
+// SetGraceExpiredMembersGetter 设置宽限期刚结束用户获取函数
+func (s *MembershipGiftService) SetGraceExpiredMembersGetter(getter GraceExpiredMembersGetter) {
+	s.getGraceExpiredMembers = getter
 }
 
 // ExecuteMonthlyTasks 执行每月1号的任务
@@ -432,15 +468,13 @@ func (s *MembershipGiftService) sendActivationGiftNotification(userID uint, plan
 	var content string
 
 	if result.DiamondAmount > 0 {
-		content = fmt.Sprintf("恭喜您成为%s会员！\n\n本月会员福利已发放：\n- 经费：%d\n- 恩特币：%d\n\n感谢您的支持！",
-			planName, result.GoldAmount, result.DiamondAmount)
+		content = fmt.Sprintf("欢迎成为%s会员！本月福利已发放：经费%d + 恩特币%d", planName, result.GoldAmount, result.DiamondAmount)
 	} else {
-		content = fmt.Sprintf("恭喜您成为%s会员！\n\n本月会员福利已发放：\n- 经费：%d\n\n感谢您的支持！",
-			planName, result.GoldAmount)
+		content = fmt.Sprintf("欢迎成为%s会员！本月福利已发放：经费%d", planName, result.GoldAmount)
 	}
 
 	if isHalf {
-		content += "\n\n（本月15日后开通，享受半月福利）"
+		content += "（15日后开通享半月福利）"
 	}
 
 	go func() {
@@ -461,15 +495,13 @@ func (s *MembershipGiftService) sendMonthlyGiftNotification(userID uint, planCod
 		planName = "Max"
 	}
 
-	title := "会员月度福利到账"
+	title := "月度福利到账"
 	var content string
 
 	if result.DiamondAmount > 0 {
-		content = fmt.Sprintf("尊敬的%s会员，您的%s月度福利已发放：\n\n- 经费：%d\n- 恩特币：%d\n\n感谢您的支持！",
-			planName, month, result.GoldAmount, result.DiamondAmount)
+		content = fmt.Sprintf("%s会员%s福利已发放：经费%d + 恩特币%d", planName, month, result.GoldAmount, result.DiamondAmount)
 	} else {
-		content = fmt.Sprintf("尊敬的%s会员，您的%s月度福利已发放：\n\n- 经费：%d\n\n感谢您的支持！",
-			planName, month, result.GoldAmount)
+		content = fmt.Sprintf("%s会员%s福利已发放：经费%d", planName, month, result.GoldAmount)
 	}
 
 	go func() {
@@ -486,11 +518,10 @@ func (s *MembershipGiftService) sendGoldClearNotification(userID uint, clearedAm
 	}
 
 	title := "经费已清空"
-	content := fmt.Sprintf("您的账户经费 %d 已于月初清空。\n\n经费为会员专属福利，开通会员即可获得每月经费发放。\n\n立即开通会员，享受更多权益！",
-		clearedAmount)
+	content := fmt.Sprintf("账户%d经费已于月初清空。经费为会员专属福利，开通会员可每月领取~", clearedAmount)
 
 	go func() {
-		if err := s.messageService.SendToUser(userID, title, content, "system", "/pricing", "查看会员方案"); err != nil {
+		if err := s.messageService.SendToUser(userID, title, content, "system", "/pricing", "开通会员"); err != nil {
 			log.Printf("[MembershipGift] Failed to send gold clear notification to user %d: %v", userID, err)
 		}
 	}()
@@ -502,29 +533,134 @@ func (s *MembershipGiftService) sendGracePeriodNotification(userID uint, gold in
 		return
 	}
 
-	title := "会员已到期，经费即将清空"
+	title := "经费即将清空"
 
-	var expiredStr string
 	var remainingDays int
 	if expiredAt != nil {
-		expiredStr = expiredAt.Format("2006年01月02日")
-		// 计算剩余天数
 		deadline := expiredAt.AddDate(0, 0, graceDays)
 		remainingDays = int(time.Until(deadline).Hours() / 24)
 		if remainingDays < 0 {
 			remainingDays = 0
 		}
 	} else {
-		expiredStr = "未知"
 		remainingDays = graceDays
 	}
 
-	content := fmt.Sprintf("您的会员已于%s到期。\n\n您当前账户经费：%d\n\n为保障您的权益，我们提供 %d 天宽限期。宽限期内续费，经费将保留；超过宽限期未续费，经费将被清空。\n\n剩余宽限期：%d 天\n\n请及时续费，以免经费被清空！",
-		expiredStr, gold, graceDays, remainingDays)
+	content := fmt.Sprintf("会员已到期，账户%d经费将在%d天后清空，续费可保留全部经费", gold, remainingDays)
 
 	go func() {
 		if err := s.messageService.SendToUser(userID, title, content, "system", "/pricing", "立即续费"); err != nil {
 			log.Printf("[MembershipGift] Failed to send grace period notification to user %d: %v", userID, err)
+		}
+	}()
+}
+
+// ========== 每日清空任务（00:00执行）==========
+
+// ExecuteDailyClearTasks 执行每日清空任务
+// 每天00:00执行，清空宽限期刚结束（昨天结束）的用户经费
+func (s *MembershipGiftService) ExecuteDailyClearTasks() {
+	now := time.Now()
+	today := now.Format("2006-01-02")
+
+	log.Printf("[MembershipGift] Starting daily clear tasks for %s", today)
+
+	// 获取宽限期天数配置
+	graceDays := s.getGraceDays()
+
+	log.Printf("[MembershipGift] Grace days config: %d", graceDays)
+
+	// 清空宽限期刚结束的用户经费
+	s.clearGraceExpiredMembers(graceDays)
+
+	log.Printf("[MembershipGift] Daily clear tasks completed for %s", today)
+}
+
+// clearGraceExpiredMembers 清空宽限期刚结束的用户经费
+// 发送条件：宽限期昨天结束（即宽限期结束时间是昨天）
+func (s *MembershipGiftService) clearGraceExpiredMembers(graceDays int) {
+	if s.getGraceExpiredMembers == nil {
+		log.Println("[MembershipGift] Warning: grace expired members getter not set, skipping grace expired clear")
+		return
+	}
+
+	log.Println("[MembershipGift] Checking members whose grace period just ended")
+
+	members, err := s.getGraceExpiredMembers(graceDays)
+	if err != nil {
+		log.Printf("[MembershipGift] Failed to get grace expired members: %v", err)
+		return
+	}
+
+	if len(members) == 0 {
+		log.Println("[MembershipGift] No members with grace period just ended")
+		return
+	}
+
+	log.Printf("[MembershipGift] Found %d members whose grace period just ended", len(members))
+
+	ctx := context.Background()
+	today := time.Now().Format("2006-01-02")
+	successCount := 0
+	failCount := 0
+	skipCount := 0
+	totalCleared := int64(0)
+
+	for _, member := range members {
+		// 只处理有经费的用户
+		if member.Gold <= 0 {
+			continue
+		}
+
+		// 使用分布式锁防止当天重复清空
+		lockKey := fmt.Sprintf(lockKeyGraceExpiredClear, member.UserID, today)
+		acquired, err := cache.SetNX(ctx, lockKey, "1", dailyLockExpiration)
+		if err != nil {
+			log.Printf("[MembershipGift] Failed to acquire grace expired clear lock for user %d: %v", member.UserID, err)
+			continue
+		}
+		if !acquired {
+			skipCount++
+			continue // 今天已处理过，跳过
+		}
+
+		// 清空经费
+		bizID := generateBizID("grace_expired_clear", member.UserID)
+		desc := "宽限期结束经费清空"
+		_, err = s.currencyService.doTransaction(ctx, member.UserID, CurrencyGold, -member.Gold, TxTypeDeduct,
+			"grace_expired_clear", bizID, desc)
+		if err != nil {
+			log.Printf("[MembershipGift] Failed to clear gold for user %d (grace expired): %v", member.UserID, err)
+			failCount++
+		} else {
+			successCount++
+			totalCleared += member.Gold
+			log.Printf("[MembershipGift] Cleared %d gold from user %d (grace period ended: %s)",
+				member.Gold, member.UserID, member.GraceEndDate.Format("2006-01-02"))
+
+			// 发送站内信通知
+			s.sendGraceExpiredClearNotification(member.UserID, member.Gold)
+		}
+	}
+
+	log.Printf("[MembershipGift] Grace expired clear completed: cleared=%d users, total_gold=%d, failed=%d, skipped=%d",
+		successCount, totalCleared, failCount, skipCount)
+}
+
+// sendGraceExpiredClearNotification 发送宽限期结束经费清空通知站内信
+func (s *MembershipGiftService) sendGraceExpiredClearNotification(userID uint, gold int64) {
+	if s.messageService == nil {
+		return
+	}
+
+	title := "经费已清空"
+	content := fmt.Sprintf("宽限期已结束，账户%d经费已清空。开通会员可获得新的经费福利~", gold)
+
+	go func() {
+		if err := s.messageService.SendToUser(userID, title, content, "system", "/pricing", "开通会员"); err != nil {
+			log.Printf("[MembershipGift] Failed to send grace expired clear notification to user %d: %v", userID, err)
+		} else {
+			log.Printf("[MembershipGift] Sent grace expired clear notification to user %d", userID)
 		}
 	}()
 }
@@ -534,8 +670,9 @@ func (s *MembershipGiftService) sendGracePeriodNotification(userID uint, gold in
 // ExecuteDailyReminders 执行每日提醒检查
 // 每天09:00执行，检查并发送以下提醒：
 // 1. 会员即将到期提醒（到期前3天）
-// 2. 宽限期即将结束提醒（结束前3天）
-// 3. 非会员月底经费清空提醒（月底前3天，排除宽限期用户）
+// 2. 会员到期当天提醒（告知进入宽限期）
+// 3. 宽限期即将结束提醒（结束前3天）
+// 4. 非会员月底经费清空提醒（月底前3天，排除宽限期用户）
 func (s *MembershipGiftService) ExecuteDailyReminders() {
 	now := time.Now()
 	today := now.Format("2006-01-02")
@@ -551,10 +688,13 @@ func (s *MembershipGiftService) ExecuteDailyReminders() {
 	// 1. 会员即将到期提醒（到期前N天）
 	s.notifyExpiringMembers(reminderDays)
 
-	// 2. 宽限期即将结束提醒（结束前N天）
+	// 2. 会员到期当天提醒（告知进入宽限期）
+	s.notifyExpiredTodayMembers(graceDays)
+
+	// 3. 宽限期即将结束提醒（结束前N天）
 	s.notifyGracePeriodEnding(graceDays, reminderDays)
 
-	// 3. 非会员月底经费清空提醒（月底前N天，排除宽限期用户）
+	// 4. 非会员月底经费清空提醒（月底前N天，排除宽限期用户）
 	s.notifyNonMembersBeforeMonthEnd(graceDays, reminderDays)
 
 	log.Printf("[MembershipGift] Daily reminders completed for %s", today)
@@ -619,6 +759,55 @@ func (s *MembershipGiftService) notifyExpiringMembers(reminderDays int) {
 	log.Printf("[MembershipGift] Expiry reminder completed: sent=%d, skipped=%d", successCount, skipCount)
 }
 
+// notifyExpiredTodayMembers 通知今天到期的会员（告知进入宽限期）
+// 发送条件：会员今天到期
+func (s *MembershipGiftService) notifyExpiredTodayMembers(graceDays int) {
+	if s.getExpiredTodayMembers == nil {
+		log.Println("[MembershipGift] Warning: expired today members getter not set, skipping expired today reminder")
+		return
+	}
+
+	log.Println("[MembershipGift] Checking members expired today")
+
+	members, err := s.getExpiredTodayMembers()
+	if err != nil {
+		log.Printf("[MembershipGift] Failed to get expired today members: %v", err)
+		return
+	}
+
+	if len(members) == 0 {
+		log.Println("[MembershipGift] No members expired today to notify")
+		return
+	}
+
+	log.Printf("[MembershipGift] Found %d members expired today", len(members))
+
+	ctx := context.Background()
+	today := time.Now().Format("2006-01-02")
+	successCount := 0
+	skipCount := 0
+
+	for _, member := range members {
+		// 使用分布式锁防止当天重复发送
+		lockKey := fmt.Sprintf(lockKeyExpiredTodayReminder, member.UserID, today)
+		acquired, err := cache.SetNX(ctx, lockKey, "1", dailyLockExpiration)
+		if err != nil {
+			log.Printf("[MembershipGift] Failed to acquire expired today reminder lock for user %d: %v", member.UserID, err)
+			continue
+		}
+		if !acquired {
+			skipCount++
+			continue // 今天已发送过，跳过
+		}
+
+		// 发送站内信
+		s.sendExpiredTodayReminder(member.UserID, member.PlanCode, member.EndDate, graceDays)
+		successCount++
+	}
+
+	log.Printf("[MembershipGift] Expired today reminder completed: sent=%d, skipped=%d", successCount, skipCount)
+}
+
 // notifyGracePeriodEnding 通知宽限期即将结束的会员
 // 发送条件：宽限期在未来N天内结束 + 有经费
 func (s *MembershipGiftService) notifyGracePeriodEnding(graceDays, reminderDays int) {
@@ -681,7 +870,10 @@ func (s *MembershipGiftService) notifyNonMembersBeforeMonthEnd(graceDays, remind
 	// 获取当月最后一天
 	firstOfNextMonth := time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, now.Location())
 	lastDayOfMonth := firstOfNextMonth.AddDate(0, 0, -1)
-	daysToMonthEnd := int(lastDayOfMonth.Sub(now).Hours()/24) + 1 // +1 因为包含当天
+	// 使用日期差计算，避免时间部分导致的误差
+	// 例如：12月28日到12月31日，应该是 31-28+1=4 天
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	daysToMonthEnd := int(lastDayOfMonth.Sub(today).Hours()/24) + 1
 
 	if daysToMonthEnd > reminderDays {
 		log.Printf("[MembershipGift] Not within %d days of month end (days remaining: %d), skipping month-end reminder", reminderDays, daysToMonthEnd)
@@ -754,14 +946,13 @@ func (s *MembershipGiftService) sendExpiryReminder(userID uint, planCode string,
 
 	var endDateStr string
 	if endDate != nil {
-		endDateStr = endDate.Format("2006年01月02日")
+		endDateStr = endDate.Format("01月02日")
 	} else {
 		endDateStr = "即将"
 	}
 
 	title := "会员即将到期"
-	content := fmt.Sprintf("您的%s会员将于%s到期。\n\n到期后将进入%d天宽限期，宽限期内续费可保留经费。\n超过宽限期未续费，经费将被清空。\n\n立即续费，享受不间断的会员权益！",
-		planName, endDateStr, graceDays)
+	content := fmt.Sprintf("%s会员将于%s到期，届时进入%d天宽限期。续费可保留经费，过期将清空~", planName, endDateStr, graceDays)
 
 	go func() {
 		if err := s.messageService.SendToUser(userID, title, content, "system", "/pricing", "立即续费"); err != nil {
@@ -772,28 +963,51 @@ func (s *MembershipGiftService) sendExpiryReminder(userID uint, planCode string,
 	}()
 }
 
+// sendExpiredTodayReminder 发送会员到期当天提醒站内信（告知进入宽限期）
+func (s *MembershipGiftService) sendExpiredTodayReminder(userID uint, planCode string, endDate *time.Time, graceDays int) {
+	if s.messageService == nil {
+		return
+	}
+
+	planName := "Pro"
+	if planCode == "max" {
+		planName = "Max"
+	}
+
+	// 计算宽限期结束日期
+	graceEndDate := time.Now().AddDate(0, 0, graceDays)
+	graceEndStr := graceEndDate.Format("01月02日")
+
+	title := "会员已到期"
+	content := fmt.Sprintf("%s会员今日到期，已进入%d天宽限期（至%s）。续费可保留经费~", planName, graceDays, graceEndStr)
+
+	go func() {
+		if err := s.messageService.SendToUser(userID, title, content, "system", "/pricing", "立即续费"); err != nil {
+			log.Printf("[MembershipGift] Failed to send expired today reminder to user %d: %v", userID, err)
+		} else {
+			log.Printf("[MembershipGift] Sent expired today reminder to user %d", userID)
+		}
+	}()
+}
+
 // sendGraceEndingReminder 发送宽限期即将结束提醒站内信
 func (s *MembershipGiftService) sendGraceEndingReminder(userID uint, gold int64, graceEndDate *time.Time) {
 	if s.messageService == nil {
 		return
 	}
 
-	var graceEndStr string
 	var remainingDays int
 	if graceEndDate != nil {
-		graceEndStr = graceEndDate.Format("2006年01月02日")
 		remainingDays = int(time.Until(*graceEndDate).Hours()/24) + 1
 		if remainingDays < 0 {
 			remainingDays = 0
 		}
 	} else {
-		graceEndStr = "即将"
 		remainingDays = 0
 	}
 
-	title := "宽限期即将结束，经费将被清空"
-	content := fmt.Sprintf("您的会员已到期，目前处于宽限期。\n\n宽限期将于%s结束，届时您的 %d 经费将被清空。\n\n剩余时间：%d 天\n\n立即续费保留您的经费！",
-		graceEndStr, gold, remainingDays)
+	title := "经费即将清空"
+	content := fmt.Sprintf("宽限期仅剩%d天，届时账户%d经费将清空，续费可保留全部经费", remainingDays, gold)
 
 	go func() {
 		if err := s.messageService.SendToUser(userID, title, content, "system", "/pricing", "立即续费"); err != nil {
@@ -813,11 +1027,10 @@ func (s *MembershipGiftService) sendMonthEndClearReminder(userID uint, gold int6
 	// 计算下月1日的日期
 	now := time.Now()
 	firstOfNextMonth := time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, now.Location())
-	clearDateStr := firstOfNextMonth.Format("2006年01月02日")
+	clearDateStr := firstOfNextMonth.Format("01月02日")
 
-	title := "经费即将清空"
-	content := fmt.Sprintf("您当前账户有 %d 经费，将于%s被清空。\n\n经费为会员专属福利，开通会员即可：\n- 保留当前经费\n- 每月获得会员经费发放\n\n立即开通会员，守护您的经费！",
-		gold, clearDateStr)
+	title := "经费月底清空"
+	content := fmt.Sprintf("账户%d经费将于%s清空，开通会员可保留经费并每月领取福利", gold, clearDateStr)
 
 	go func() {
 		if err := s.messageService.SendToUser(userID, title, content, "system", "/pricing", "开通会员"); err != nil {

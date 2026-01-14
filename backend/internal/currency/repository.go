@@ -525,7 +525,275 @@ func (r *Repository) HasUserReceivedMonthlyGift(userID uint, month string) (bool
 			[]string{"pro_monthly_gold", "max_monthly_gold", "max_monthly_diamond"},
 			"fund_%").
 		Count(&count).Error
-	
+
 	return count > 0, err
+}
+
+// ========== 批量发放操作 ==========
+
+// CreateBatch 创建批量发放批次
+func (r *Repository) CreateBatch(batch *CurrencyBatch) error {
+	return r.db.Create(batch).Error
+}
+
+// GetBatch 获取批次详情
+func (r *Repository) GetBatch(id uint) (*CurrencyBatch, error) {
+	var batch CurrencyBatch
+	err := r.db.First(&batch, id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &batch, nil
+}
+
+// GetBatchByNo 根据批次号获取批次
+func (r *Repository) GetBatchByNo(batchNo string) (*CurrencyBatch, error) {
+	var batch CurrencyBatch
+	err := r.db.Where("batch_no = ?", batchNo).First(&batch).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &batch, nil
+}
+
+// UpdateBatch 更新批次信息
+func (r *Repository) UpdateBatch(batch *CurrencyBatch) error {
+	return r.db.Save(batch).Error
+}
+
+// UpdateBatchStatus 更新批次状态
+func (r *Repository) UpdateBatchStatus(id uint, status BatchStatus) error {
+	updates := map[string]interface{}{
+		"status":     status,
+		"updated_at": time.Now(),
+	}
+	if status == BatchStatusProcessing {
+		now := time.Now()
+		updates["executed_at"] = &now
+	}
+	if status == BatchStatusCompleted || status == BatchStatusFailed {
+		now := time.Now()
+		updates["completed_at"] = &now
+	}
+	return r.db.Model(&CurrencyBatch{}).Where("id = ?", id).Updates(updates).Error
+}
+
+// UpdateBatchCounts 更新批次统计
+func (r *Repository) UpdateBatchCounts(id uint, successCount, failedCount int) error {
+	return r.db.Model(&CurrencyBatch{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"success_count": successCount,
+		"failed_count":  failedCount,
+		"updated_at":    time.Now(),
+	}).Error
+}
+
+// ListBatches 查询批次列表
+func (r *Repository) ListBatches(req *BatchListRequest) (*BatchListResponse, error) {
+	query := r.db.Model(&CurrencyBatch{})
+
+	if req.CurrencyType != "" {
+		query = query.Where("currency_type = ?", req.CurrencyType)
+	}
+	if req.Status != "" {
+		query = query.Where("status = ?", req.Status)
+	}
+	if req.StartTime != "" {
+		query = query.Where("created_at >= ?", req.StartTime)
+	}
+	if req.EndTime != "" {
+		query = query.Where("created_at <= ?", req.EndTime)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, err
+	}
+
+	page := req.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := req.PageSize
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	offset := (page - 1) * pageSize
+	var batches []CurrencyBatch
+	if err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&batches).Error; err != nil {
+		return nil, err
+	}
+
+	totalPages := int(total) / pageSize
+	if int(total)%pageSize > 0 {
+		totalPages++
+	}
+
+	// 转换为响应结构
+	batchResponses := make([]BatchResponse, len(batches))
+	for i, b := range batches {
+		batchResponses[i] = toBatchResponse(&b)
+	}
+
+	return &BatchListResponse{
+		Total:      total,
+		Page:       page,
+		PageSize:   pageSize,
+		TotalPages: totalPages,
+		Batches:    batchResponses,
+	}, nil
+}
+
+// CreateBatchDistribution 创建发放明细记录
+func (r *Repository) CreateBatchDistribution(dist *BatchDistribution) error {
+	return r.db.Create(dist).Error
+}
+
+// CreateBatchDistributionsBulk 批量创建发放明细记录
+func (r *Repository) CreateBatchDistributionsBulk(distributions []BatchDistribution) error {
+	if len(distributions) == 0 {
+		return nil
+	}
+	return r.db.CreateInBatches(distributions, 500).Error
+}
+
+// UpdateBatchDistributionStatus 更新发放明细状态
+func (r *Repository) UpdateBatchDistributionStatus(id uint, status TransactionStatus, transactionNo, errorMsg string) error {
+	return r.db.Model(&BatchDistribution{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"status":         status,
+		"transaction_no": transactionNo,
+		"error_msg":      errorMsg,
+		"updated_at":     time.Now(),
+	}).Error
+}
+
+// ListBatchDistributions 查询批次的发放明细
+func (r *Repository) ListBatchDistributions(batchID uint, page, pageSize int) ([]BatchDistribution, int64, error) {
+	var total int64
+	if err := r.db.Model(&BatchDistribution{}).Where("batch_id = ?", batchID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	offset := (page - 1) * pageSize
+
+	var distributions []BatchDistribution
+	err := r.db.Where("batch_id = ?", batchID).Order("id ASC").Offset(offset).Limit(pageSize).Find(&distributions).Error
+	return distributions, total, err
+}
+
+// GetPendingDistributions 获取待处理的发放明细
+func (r *Repository) GetPendingDistributions(batchID uint, limit int) ([]BatchDistribution, error) {
+	var distributions []BatchDistribution
+	err := r.db.Where("batch_id = ? AND status = ?", batchID, TxStatusPending).
+		Order("id ASC").Limit(limit).Find(&distributions).Error
+	return distributions, err
+}
+
+// ========== 用户筛选查询 ==========
+
+// GetAllActiveUserIDs 获取所有活跃用户ID
+func (r *Repository) GetAllActiveUserIDs() ([]uint, error) {
+	var userIDs []uint
+	err := r.db.Table("users").Where("status = ?", 1).Pluck("id", &userIDs).Error
+	return userIDs, err
+}
+
+// GetMemberUserIDs 获取会员用户ID（pro或max）
+func (r *Repository) GetMemberUserIDs() ([]uint, error) {
+	var userIDs []uint
+	// 获取明天00:00，用于判断会员是否有效
+	now := time.Now()
+	tomorrowMidnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+
+	err := r.db.Table("user_subscriptions").
+		Select("DISTINCT user_id").
+		Where("plan_code IN ? AND status = ? AND (end_date IS NULL OR end_date >= ?)",
+			[]string{"pro", "max"}, "active", tomorrowMidnight).
+		Pluck("user_id", &userIDs).Error
+	return userIDs, err
+}
+
+// GetNonMemberUserIDs 获取非会员用户ID
+func (r *Repository) GetNonMemberUserIDs() ([]uint, error) {
+	var userIDs []uint
+	now := time.Now()
+	tomorrowMidnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+
+	// 获取所有活跃用户中没有有效会员订阅的用户
+	err := r.db.Table("users").
+		Select("users.id").
+		Where("users.status = ?", 1).
+		Where("NOT EXISTS (SELECT 1 FROM user_subscriptions WHERE user_subscriptions.user_id = users.id AND plan_code IN ? AND status = ? AND (end_date IS NULL OR end_date >= ?))",
+			[]string{"pro", "max"}, "active", tomorrowMidnight).
+		Pluck("id", &userIDs).Error
+	return userIDs, err
+}
+
+// toBatchResponse 转换为响应结构
+func toBatchResponse(batch *CurrencyBatch) BatchResponse {
+	currencyName := "经费"
+	if batch.CurrencyType == CurrencyDiamond {
+		currencyName = "恩特币"
+	}
+
+	targetName := "全部用户"
+	switch batch.TargetType {
+	case BatchTargetMembers:
+		targetName = "会员用户"
+	case BatchTargetNonMembers:
+		targetName = "非会员用户"
+	case BatchTargetSpecific:
+		targetName = "指定用户"
+	}
+
+	statusName := "待执行"
+	switch batch.Status {
+	case BatchStatusProcessing:
+		statusName = "执行中"
+	case BatchStatusCompleted:
+		statusName = "已完成"
+	case BatchStatusFailed:
+		statusName = "失败"
+	case BatchStatusCancelled:
+		statusName = "已取消"
+	}
+
+	return BatchResponse{
+		ID:            batch.ID,
+		BatchNo:       batch.BatchNo,
+		CurrencyType:  batch.CurrencyType,
+		CurrencyName:  currencyName,
+		Amount:        batch.Amount,
+		TargetType:    batch.TargetType,
+		TargetName:    targetName,
+		Title:         batch.Title,
+		Description:   batch.Description,
+		Remark:        batch.Remark,
+		TotalCount:    batch.TotalCount,
+		SuccessCount:  batch.SuccessCount,
+		FailedCount:   batch.FailedCount,
+		Status:        batch.Status,
+		StatusName:    statusName,
+		CreatedBy:     batch.CreatedBy,
+		CreatedByName: batch.CreatedByName,
+		ExecutedAt:    batch.ExecutedAt,
+		CompletedAt:   batch.CompletedAt,
+		CreatedAt:     batch.CreatedAt,
+	}
 }
 

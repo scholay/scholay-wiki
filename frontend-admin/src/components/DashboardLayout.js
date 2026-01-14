@@ -187,7 +187,7 @@ const DashboardLayout = () => {
           <div className="nav-group">
             <a
               onClick={() => setBusinessDataMenuOpen(!businessDataMenuOpen)}
-              className={`nav-item ${(isActive('/dashboard/default-business-data') || isActive('/dashboard/prompt-templates') || isActive('/dashboard/currency-config') || isActive('/dashboard/subscription-plans')) ? 'active' : ''}`}
+              className={`nav-item ${(isActive('/dashboard/default-business-data') || isActive('/dashboard/prompt-templates') || isActive('/dashboard/currency-config') || isActive('/dashboard/currency-batches') || isActive('/dashboard/subscription-plans')) ? 'active' : ''}`}
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"/>
@@ -228,6 +228,12 @@ const DashboardLayout = () => {
                   className={`submenu-item ${isActive('/dashboard/currency-config') ? 'active' : ''}`}
                 >
                   货币配置
+                </a>
+                <a
+                  onClick={() => { navigate('/dashboard/currency-batches'); setMobileMenuOpen(false); }}
+                  className={`submenu-item ${isActive('/dashboard/currency-batches') ? 'active' : ''}`}
+                >
+                  货币发放记录
                 </a>
               </div>
             )}

@@ -770,3 +770,218 @@
 .um-currency-modal .um-form-input::placeholder {
   color: var(--text-quaternary);
 }
+
+/* ========== 页面头部样式 ========== */
+.page-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.page-header-actions {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.um-batch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.um-batch-btn:hover {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.um-batch-btn svg {
+  flex-shrink: 0;
+}
+
+/* ========== 批量发放弹窗样式 ========== */
+.um-batch-modal {
+  max-width: 560px;
+  width: 95%;
+}
+
+.um-batch-modal .modal-body {
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.um-target-type-selector {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.um-target-type-btn {
+  flex: 1;
+  min-width: 100px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 2px solid var(--gray-200);
+  background: var(--gray-50);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.um-target-type-btn:hover {
+  border-color: var(--gray-300);
+  background: var(--gray-100);
+}
+
+.um-target-type-btn.active {
+  border-color: var(--brand-500);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(99, 102, 241, 0.05));
+  color: var(--brand-600);
+  font-weight: 600;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.um-target-preview {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--gray-50);
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+}
+
+.um-preview-loading {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+}
+
+.um-preview-count {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.um-preview-count strong {
+  color: var(--brand-600);
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.um-preview-hint {
+  color: var(--text-quaternary);
+  font-size: 0.8rem;
+}
+
+.um-amount-total {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(99, 102, 241, 0.04));
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.um-amount-total strong {
+  color: var(--brand-600);
+  font-weight: 700;
+}
+
+.um-batch-modal .um-form-group {
+  margin-bottom: 1.25rem;
+}
+
+.um-batch-modal .um-form-group label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.um-batch-modal .um-form-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.um-batch-modal .um-form-input:focus {
+  outline: none;
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.um-batch-modal .um-form-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.um-batch-modal .um-form-textarea:focus {
+  outline: none;
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.um-batch-modal .um-form-textarea::placeholder,
+.um-batch-modal .um-form-input::placeholder {
+  color: var(--text-quaternary);
+}
+
+.um-batch-info-box {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(245, 158, 11, 0.04));
+  border-color: rgba(251, 191, 36, 0.2);
+}
+
+.um-batch-info-box .um-info-title {
+  color: #b45309;
+}
+
+@media (max-width: 640px) {
+  .page-header-content {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .page-header-actions {
+    justify-content: flex-start;
+  }
+
+  .um-target-type-selector {
+    flex-direction: column;
+  }
+
+  .um-target-type-btn {
+    min-width: auto;
+  }
+
+  .um-batch-modal {
+    max-width: 100%;
+    margin: 16px;
+  }
+}

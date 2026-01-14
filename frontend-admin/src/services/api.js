@@ -405,6 +405,29 @@ export const adminAPI = {
   deductUser: (data) =>
     api.post('/admin/currency/deduct', data),
 
+  // Batch currency distribution (批量发放经费/恩特币)
+  batchDistribute: (data) =>
+    api.post('/admin/currency/batch-distribute', data),
+
+  batchDistributePreview: (data) =>
+    api.post('/admin/currency/batch-distribute/preview', data),
+
+  getCurrencyBatches: (page = 1, pageSize = 20, status = '', currencyType = '') => {
+    const params = { page, page_size: pageSize };
+    if (status) params.status = status;
+    if (currencyType) params.currency_type = currencyType;
+    return api.get('/admin/currency/batches', { params });
+  },
+
+  getCurrencyBatch: (id) =>
+    api.get(`/admin/currency/batches/${id}`),
+
+  cancelCurrencyBatch: (id) =>
+    api.post(`/admin/currency/batches/${id}/cancel`),
+
+  getCurrencyBatchDistributions: (id, page = 1, pageSize = 20) =>
+    api.get(`/admin/currency/batches/${id}/distributions`, { params: { page, page_size: pageSize } }),
+
   // Message management (站内信管理)
   getMessages: (params = {}) => {
     const queryParams = {

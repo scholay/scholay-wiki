@@ -117,6 +117,25 @@
   );
 }
 
+/* EXPIRED - 红色/橙色警告调 */
+.am-card.expired {
+  background: linear-gradient(
+    135deg,
+    rgba(239, 68, 68, 0.12) 0%,
+    rgba(249, 115, 22, 0.08) 50%,
+    rgba(239, 68, 68, 0.1) 100%
+  );
+}
+
+.am-card.expired::before {
+  background: linear-gradient(
+    135deg,
+    rgba(239, 68, 68, 0.25) 0%,
+    rgba(239, 68, 68, 0.08) 50%,
+    rgba(249, 115, 22, 0.18) 100%
+  );
+}
+
 /* 通用行 */
 .am-row {
   display: flex;
@@ -175,6 +194,13 @@
   box-shadow: 0 2px 12px rgba(251, 191, 36, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
+/* EXPIRED 徽章 - 红色/橙色警告 */
+.am-badge.expired {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(249, 115, 22, 0.9));
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
 .am-text {
   flex: 1;
   font-size: 13px;
@@ -196,6 +222,11 @@
 
 .am-card.max .am-action {
   color: rgba(255, 255, 255, 0.85);
+}
+
+.am-card.expired .am-action {
+  color: #ef4444;
+  font-weight: 700;
 }
 
 /* 余额行 */
@@ -881,6 +912,16 @@
   );
 }
 
+/* EXPIRED - 红色/橙色警告 Light */
+[data-theme="light"] .am-card.expired {
+  background: linear-gradient(
+    135deg,
+    rgba(254, 242, 242, 0.95) 0%,
+    rgba(254, 226, 226, 0.9) 50%,
+    rgba(254, 215, 215, 0.95) 100%
+  );
+}
+
 [data-theme="light"] .am-member-row::after {
   background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.06), transparent);
 }
@@ -893,6 +934,12 @@
   background: rgba(100, 116, 139, 0.15);
   color: #475569;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="light"] .am-badge.expired {
+  background: linear-gradient(135deg, #ef4444, #f97316);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25);
 }
 
 [data-theme="light"] .am-text {
@@ -936,6 +983,11 @@
 [data-theme="light"] .am-card.pro .am-action,
 [data-theme="light"] .am-card.max .am-action {
   color: #92400e;
+}
+
+[data-theme="light"] .am-card.expired .am-action {
+  color: #dc2626;
+  font-weight: 700;
 }
 
 [data-theme="light"] .am-fund-row::before {
