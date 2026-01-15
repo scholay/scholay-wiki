@@ -141,7 +141,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 220px;
+  min-height: 260px;
   margin: 0 auto;
   width: 100%;
   max-width: 100%;
@@ -152,16 +152,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 220px;
-  height: 220px;
+  width: 260px;
+  height: 260px;
   overflow: hidden;
 }
 
-/* 微信 JS SDK 生成的 iframe 样式 */
+/* 微信 JS SDK 生成的 iframe 样式 - 缩放以适应容器 */
 .auth-wechat-qrcode-container iframe {
   border: none !important;
-  width: 220px;
-  height: 220px;
+  width: 300px;
+  height: 400px;
+  transform: scale(0.75);
+  transform-origin: center center;
 }
 
 .auth-wechat-qrcode-loading {
