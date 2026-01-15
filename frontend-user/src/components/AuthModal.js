@@ -38,6 +38,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   // 微信二维码相关状态
   const [wechatQRCodeLoading, setWechatQRCodeLoading] = useState(false);
   const [, setWechatState] = useState(''); // wechatState 仅用于存储，不需要读取
+  const [wechatConfig, setWechatConfig] = useState(null); // 存储微信配置用于重新渲染
   const wechatQRCodeRef = useRef(null);
 
   // 每次打开弹窗时重置条款同意状态
@@ -46,6 +47,38 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       setAgreedToPolicy(false);
     }
   }, [isOpen]);
+
+  // 当切换到微信二维码模式且配置存在时，重新渲染二维码
+  useEffect(() => {
+    if (mode === 'wechat-qrcode' && wechatConfig && !wechatQRCodeLoading && wechatQRCodeRef.current) {
+      // 使用 setTimeout 确保 DOM 已经渲染完成
+      const timer = setTimeout(() => {
+        if (wechatQRCodeRef.current && window.WxLogin) {
+          // 清空之前的二维码
+          wechatQRCodeRef.current.innerHTML = '';
+
+          // 自定义CSS样式URL，用于隐藏二维码以外的元素
+          const qrStyleURL = `${window.location.origin}/wechat-qr-style.css`;
+
+          try {
+            new window.WxLogin({
+              self_redirect: false,
+              id: 'wechat-qrcode-container',
+              appid: wechatConfig.appId,
+              scope: wechatConfig.scope,
+              redirect_uri: encodeURIComponent(wechatConfig.redirectUri),
+              state: wechatConfig.state,
+              style: 'black',
+              href: qrStyleURL,
+            });
+          } catch (err) {
+            logger.error('Re-render WeChat QR code error:', err);
+          }
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [mode, wechatConfig, wechatQRCodeLoading]);
   const [showPolicy, setShowPolicy] = useState(false);
   const [policyType, setPolicyType] = useState('privacy'); // 'privacy' or 'terms'
   const [privacyContent, setPrivacyContent] = useState('');
@@ -775,8 +808,17 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
           localStorage.removeItem('oauth_invitation_code');
         }
 
+        // 保存配置到状态，用于重新渲染
+        const config = {
+          appId: app_id,
+          redirectUri: redirect_uri,
+          state: state,
+          scope: scope || 'snsapi_login'
+        };
+        setWechatConfig(config);
+
         // 加载微信 JS SDK 并渲染二维码
-        loadWeChatQRCode(app_id, redirect_uri, state, scope || 'snsapi_login');
+        loadWeChatQRCode(config.appId, config.redirectUri, config.state, config.scope);
       } else {
         showError(response.data.message || '获取微信登录配置失败');
         setMode('welcome');
@@ -826,6 +868,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
     try {
       // 使用微信 JS SDK 渲染二维码
+      // 自定义CSS样式URL，用于隐藏二维码以外的元素
+      const qrStyleURL = `${window.location.origin}/wechat-qr-style.css`;
+
       new window.WxLogin({
         self_redirect: false, // false 表示在新窗口打开回调页面
         id: 'wechat-qrcode-container',
@@ -834,7 +879,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         redirect_uri: encodeURIComponent(redirectUri),
         state: state,
         style: 'black', // 二维码样式，black 或 white
-        href: '', // 可以自定义二维码样式的 CSS 链接
+        href: qrStyleURL, // 自定义二维码样式的 CSS 链接，只显示二维码
       });
     } catch (err) {
       logger.error('Render WeChat QR code error:', err);

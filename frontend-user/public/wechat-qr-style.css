@@ -1,0 +1,81 @@
+/* 微信扫码登录自定义样式 - 只显示二维码 */
+
+/* 隐藏标题 */
+.title {
+  display: none !important;
+}
+
+/* 隐藏副标题/描述文字 */
+.info {
+  display: none !important;
+}
+
+/* 隐藏底部提示文字 */
+.faq {
+  display: none !important;
+}
+
+/* 隐藏底部链接 */
+.bottom_text {
+  display: none !important;
+}
+
+/* 隐藏"微信登录"文字 */
+.web_qrcode_title {
+  display: none !important;
+}
+
+/* 隐藏扫码提示 */
+.web_qrcode_info {
+  display: none !important;
+}
+
+/* 隐藏"打开微信扫一扫"等提示 */
+.web_qrcode_tips {
+  display: none !important;
+}
+
+/* 调整二维码容器样式 */
+.impowerBox .qrcode {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+}
+
+/* 隐藏可能的其他文字元素 */
+.impowerBox .title,
+.impowerBox .info,
+.impowerBox .status {
+  display: none !important;
+}
+
+/* 确保二维码图片居中显示 */
+.impowerBox .qrcode img {
+  display: block !important;
+  margin: 0 auto !important;
+}
+
+/* 隐藏状态提示 */
+.impowerBox .status_icon,
+.impowerBox .status_txt,
+.impowerBox .status_browser {
+  display: none !important;
+}
+
+/* 调整整体容器 */
+.impowerBox {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 隐藏所有span文字 */
+.impowerBox span {
+  display: none !important;
+}
+
+/* 但保持二维码可见 */
+.impowerBox .qrcode,
+.impowerBox .qrcode img,
+.impowerBox img.qrcode {
+  display: block !important;
+}
