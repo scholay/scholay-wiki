@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../services/api';
 import { showToast } from '../components/Toast';
 import EntcoinIcon from '../components/EntcoinIcon';
@@ -37,11 +37,7 @@ const CurrencyBatchManagement = () => {
   });
   const [distributionsLoading, setDistributionsLoading] = useState(false);
 
-  useEffect(() => {
-    loadBatches();
-  }, [pagination.page, filters]);
-
-  const loadBatches = async () => {
+  const loadBatches = useCallback(async () => {
     setLoading(true);
     try {
       const response = await adminAPI.getCurrencyBatches(
@@ -62,7 +58,11 @@ const CurrencyBatchManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.page, pagination.pageSize, filters.status, filters.currencyType]);
+
+  useEffect(() => {
+    loadBatches();
+  }, [loadBatches]);
 
   const handlePageChange = (newPage) => {
     setPagination(prev => ({ ...prev, page: newPage }));

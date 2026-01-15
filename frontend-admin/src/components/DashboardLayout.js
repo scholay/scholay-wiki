@@ -104,7 +104,8 @@ const DashboardLayout = () => {
 
         <nav className="sidebar-nav">
           <a
-            onClick={() => { navigate('/dashboard'); setMobileMenuOpen(false); }}
+            href="#dashboard"
+            onClick={(e) => { e.preventDefault(); navigate('/dashboard'); setMobileMenuOpen(false); }}
             className={`nav-item ${isActive('/dashboard') ? 'active' : ''}`}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -113,7 +114,8 @@ const DashboardLayout = () => {
             仪表盘
           </a>
           <a
-            onClick={() => { navigate('/dashboard/users'); setMobileMenuOpen(false); }}
+            href="#users"
+            onClick={(e) => { e.preventDefault(); navigate('/dashboard/users'); setMobileMenuOpen(false); }}
             className={`nav-item ${isActive('/dashboard/users') ? 'active' : ''}`}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -122,7 +124,8 @@ const DashboardLayout = () => {
             用户管理
           </a>
           <a
-            onClick={() => { navigate('/dashboard/orders'); setMobileMenuOpen(false); }}
+            href="#orders"
+            onClick={(e) => { e.preventDefault(); navigate('/dashboard/orders'); setMobileMenuOpen(false); }}
             className={`nav-item ${isActive('/dashboard/orders') ? 'active' : ''}`}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -134,7 +137,8 @@ const DashboardLayout = () => {
           {/* Coupon Management Parent Menu */}
           <div className="nav-group">
             <a
-              onClick={() => setCouponMenuOpen(!couponMenuOpen)}
+              href="#coupons"
+              onClick={(e) => { e.preventDefault(); setCouponMenuOpen(!couponMenuOpen); }}
               className={`nav-item ${(isActive('/dashboard/coupons') || isActive('/dashboard/coupon-batches') || isActive('/dashboard/distributed-coupons')) ? 'active' : ''}`}
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -154,19 +158,22 @@ const DashboardLayout = () => {
             {couponMenuOpen && (
               <div className="submenu">
                 <a
-                  onClick={() => { navigate('/dashboard/coupons'); setMobileMenuOpen(false); }}
+                  href="#create-coupons"
+                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/coupons'); setMobileMenuOpen(false); }}
                   className={`submenu-item ${isActive('/dashboard/coupons') ? 'active' : ''}`}
                 >
                   创建折扣券
                 </a>
                 <a
-                  onClick={() => { navigate('/dashboard/coupon-batches'); setMobileMenuOpen(false); }}
+                  href="#coupon-batches"
+                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/coupon-batches'); setMobileMenuOpen(false); }}
                   className={`submenu-item ${isActive('/dashboard/coupon-batches') ? 'active' : ''}`}
                 >
                   批量发放
                 </a>
                 <a
-                  onClick={() => { navigate('/dashboard/distributed-coupons'); setMobileMenuOpen(false); }}
+                  href="#distributed-coupons"
+                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/distributed-coupons'); setMobileMenuOpen(false); }}
                   className={`submenu-item ${isActive('/dashboard/distributed-coupons') ? 'active' : ''}`}
                 >
                   发放列表
@@ -175,7 +182,8 @@ const DashboardLayout = () => {
             )}
           </div>
           <a
-            onClick={() => { navigate('/dashboard/third-party-accounts'); setMobileMenuOpen(false); }}
+            href="#third-party"
+            onClick={(e) => { e.preventDefault(); navigate('/dashboard/third-party-accounts'); setMobileMenuOpen(false); }}
             className={`nav-item ${isActive('/dashboard/third-party-accounts') ? 'active' : ''}`}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -186,7 +194,8 @@ const DashboardLayout = () => {
           {/* 业务数据 - 子菜单 */}
           <div className="nav-group">
             <a
-              onClick={() => setBusinessDataMenuOpen(!businessDataMenuOpen)}
+              href="#business-data"
+              onClick={(e) => { e.preventDefault(); setBusinessDataMenuOpen(!businessDataMenuOpen); }}
               className={`nav-item ${(isActive('/dashboard/default-business-data') || isActive('/dashboard/prompt-templates') || isActive('/dashboard/currency-config') || isActive('/dashboard/currency-batches') || isActive('/dashboard/subscription-plans')) ? 'active' : ''}`}
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -206,31 +215,36 @@ const DashboardLayout = () => {
             {businessDataMenuOpen && (
               <div className="submenu">
                 <a
-                  onClick={() => { navigate('/dashboard/subscription-plans'); setMobileMenuOpen(false); }}
+                  href="#subscription-plans"
+                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/subscription-plans'); setMobileMenuOpen(false); }}
                   className={`submenu-item ${isActive('/dashboard/subscription-plans') ? 'active' : ''}`}
                 >
                   套餐管理
                 </a>
                 <a
-                  onClick={() => { navigate('/dashboard/default-business-data'); setMobileMenuOpen(false); }}
+                  href="#business-data-default"
+                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/default-business-data'); setMobileMenuOpen(false); }}
                   className={`submenu-item ${isActive('/dashboard/default-business-data') ? 'active' : ''}`}
                 >
                   分析维度
                 </a>
                 <a
-                  onClick={() => { navigate('/dashboard/prompt-templates'); setMobileMenuOpen(false); }}
+                  href="#prompt-templates"
+                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/prompt-templates'); setMobileMenuOpen(false); }}
                   className={`submenu-item ${isActive('/dashboard/prompt-templates') ? 'active' : ''}`}
                 >
                   提示词模板
                 </a>
                 <a
-                  onClick={() => { navigate('/dashboard/currency-config'); setMobileMenuOpen(false); }}
+                  href="#currency-config"
+                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/currency-config'); setMobileMenuOpen(false); }}
                   className={`submenu-item ${isActive('/dashboard/currency-config') ? 'active' : ''}`}
                 >
                   货币配置
                 </a>
                 <a
-                  onClick={() => { navigate('/dashboard/currency-batches'); setMobileMenuOpen(false); }}
+                  href="#currency-batches"
+                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/currency-batches'); setMobileMenuOpen(false); }}
                   className={`submenu-item ${isActive('/dashboard/currency-batches') ? 'active' : ''}`}
                 >
                   货币发放记录
@@ -242,7 +256,8 @@ const DashboardLayout = () => {
           {/* 站内信管理 - 子菜单 */}
           <div className="nav-group">
             <a
-              onClick={() => setMessageMenuOpen(!messageMenuOpen)}
+              href="#messages"
+              onClick={(e) => { e.preventDefault(); setMessageMenuOpen(!messageMenuOpen); }}
               className={`nav-item ${(isActive('/dashboard/messages') || isActive('/dashboard/message-templates')) ? 'active' : ''}`}
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -263,13 +278,15 @@ const DashboardLayout = () => {
             {messageMenuOpen && (
               <div className="submenu">
                 <a
-                  onClick={() => { navigate('/dashboard/messages'); setMobileMenuOpen(false); }}
+                  href="#send-messages"
+                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/messages'); setMobileMenuOpen(false); }}
                   className={`submenu-item ${isActive('/dashboard/messages') ? 'active' : ''}`}
                 >
                   发送消息
                 </a>
                 <a
-                  onClick={() => { navigate('/dashboard/message-templates'); setMobileMenuOpen(false); }}
+                  href="#message-templates"
+                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/message-templates'); setMobileMenuOpen(false); }}
                   className={`submenu-item ${isActive('/dashboard/message-templates') ? 'active' : ''}`}
                 >
                   消息模板
@@ -278,7 +295,8 @@ const DashboardLayout = () => {
             )}
           </div>
           <a
-            onClick={() => { navigate('/dashboard/feedbacks'); setMobileMenuOpen(false); }}
+            href="#feedbacks"
+            onClick={(e) => { e.preventDefault(); navigate('/dashboard/feedbacks'); setMobileMenuOpen(false); }}
             className={`nav-item ${isActive('/dashboard/feedbacks') ? 'active' : ''}`}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -287,7 +305,8 @@ const DashboardLayout = () => {
             反馈管理
           </a>
           <a
-            onClick={() => { navigate('/dashboard/usage-logs'); setMobileMenuOpen(false); }}
+            href="#usage-logs"
+            onClick={(e) => { e.preventDefault(); navigate('/dashboard/usage-logs'); setMobileMenuOpen(false); }}
             className={`nav-item ${isActive('/dashboard/usage-logs') ? 'active' : ''}`}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -297,7 +316,8 @@ const DashboardLayout = () => {
             使用统计
           </a>
           <a
-            onClick={() => { navigate('/dashboard/code-snippets'); setMobileMenuOpen(false); }}
+            href="#code-snippets"
+            onClick={(e) => { e.preventDefault(); navigate('/dashboard/code-snippets'); setMobileMenuOpen(false); }}
             className={`nav-item ${isActive('/dashboard/code-snippets') ? 'active' : ''}`}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -306,7 +326,8 @@ const DashboardLayout = () => {
             代码片段
           </a>
           <a
-            onClick={() => { navigate('/dashboard/settings'); setMobileMenuOpen(false); }}
+            href="#settings"
+            onClick={(e) => { e.preventDefault(); navigate('/dashboard/settings'); setMobileMenuOpen(false); }}
             className={`nav-item ${isActive('/dashboard/settings') ? 'active' : ''}`}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">

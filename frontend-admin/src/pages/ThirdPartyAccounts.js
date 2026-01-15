@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../services/api';
 import { showToast } from '../components/Toast';
 import './ThirdPartyAccounts.css';
@@ -37,12 +37,7 @@ const ThirdPartyAccounts = () => {
     priority: 0,
   });
 
-  useEffect(() => {
-    loadAccounts();
-    loadStats();
-  }, [filterType, filterActive]);
-
-  const loadAccounts = async () => {
+  const loadAccounts = useCallback(async () => {
     setLoading(true);
     try {
       const response = await adminAPI.getThirdPartyAccounts(filterType, filterActive);
@@ -54,9 +49,9 @@ const ThirdPartyAccounts = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterType, filterActive]);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const response = await adminAPI.getThirdPartyAccountStats();
       if (response.data.code === 0 && response.data.data) {
@@ -65,7 +60,12 @@ const ThirdPartyAccounts = () => {
     } catch (err) {
       console.error('Failed to load stats:', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadAccounts();
+    loadStats();
+  }, [loadAccounts, loadStats]);
 
   const handleCreate = () => {
     setEditingAccount(null);

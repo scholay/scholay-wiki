@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Send, Mail, Gift, CreditCard, Inbox } from 'lucide-react';
+import { Plus, X, Send, Inbox } from 'lucide-react';
 import { adminAPI } from '../services/api';
 import './MessageManagement.css';
 

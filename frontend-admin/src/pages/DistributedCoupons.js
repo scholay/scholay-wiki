@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../services/api';
 import { showToast } from '../components/Toast';
 import './DistributedCoupons.css';
@@ -27,12 +27,7 @@ const DistributedCoupons = () => {
     userEmail: ''
   });
 
-  useEffect(() => {
-    fetchTemplates();
-    fetchCoupons();
-  }, [page, filters]);
-
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
     try {
       const response = await adminAPI.getCouponTemplates(1, 100);
       if (response.data.code === 0) {
@@ -41,9 +36,9 @@ const DistributedCoupons = () => {
     } catch (error) {
       console.error('Failed to fetch templates:', error);
     }
-  };
+  }, []);
 
-  const fetchCoupons = async () => {
+  const fetchCoupons = useCallback(async () => {
     setLoading(true);
     try {
       const response = await adminAPI.getDistributedCoupons(
@@ -64,7 +59,15 @@ const DistributedCoupons = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize, filters.templateId, filters.status, filters.userEmail]);
+
+  useEffect(() => {
+    fetchTemplates();
+  }, [fetchTemplates]);
+
+  useEffect(() => {
+    fetchCoupons();
+  }, [fetchCoupons]);
 
   const handleFilterChange = (key, value) => {
     setFilters({ ...filters, [key]: value });

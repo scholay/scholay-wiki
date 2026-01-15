@@ -18,16 +18,10 @@ const UserDetailDrawer = ({ userId, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState(null);
 
-  useEffect(() => {
-    if (userId) {
-      loadUserDetail();
-    }
-  }, [userId]);
-
-  const loadUserDetail = async () => {
+  const loadUserDetail = async (id) => {
     setLoading(true);
     try {
-      const response = await adminAPI.getUserDetail(userId);
+      const response = await adminAPI.getUserDetail(id);
       if (response.data.code === 0 && response.data.data) {
         setDetail(response.data.data);
       } else {
@@ -39,6 +33,12 @@ const UserDetailDrawer = ({ userId, onClose }) => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (userId) {
+      loadUserDetail(userId);
+    }
+  }, [userId]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';

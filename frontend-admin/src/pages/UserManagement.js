@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../services/api';
 import { showToast } from '../components/Toast';
 import UserStatisticsChart from '../components/UserStatisticsChart';
@@ -73,13 +73,7 @@ const UserManagement = () => {
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchPreview, setBatchPreview] = useState({ loading: false, userCount: 0 });
 
-  useEffect(() => {
-    loadUserStatistics();
-    loadUserList();
-    loadSubscriptionPlans();
-  }, [pagination.page, sortConfig]);
-
-  const loadSubscriptionPlans = async () => {
+  const loadSubscriptionPlans = useCallback(async () => {
     try {
       const response = await adminAPI.getSubscriptionPlans();
       if (response.data.code === 0 && response.data.data) {
@@ -90,9 +84,9 @@ const UserManagement = () => {
     } catch (err) {
       console.error('Failed to load subscription plans:', err);
     }
-  };
+  }, []);
 
-  const loadUserStatistics = async () => {
+  const loadUserStatistics = useCallback(async () => {
     try {
       const response = await adminAPI.getUserStatistics();
       if (response.data.code === 0 && response.data.data) {
@@ -107,13 +101,13 @@ const UserManagement = () => {
     } catch (err) {
       console.error('Failed to load user statistics:', err);
     }
-  };
+  }, []);
 
-  const loadUserList = async () => {
+  const loadUserList = useCallback(async () => {
     setLoading(true);
     try {
       const response = await adminAPI.getUserList(
-        pagination.page, 
+        pagination.page,
         pagination.pageSize,
         sortConfig.sortBy,
         sortConfig.sortOrder
@@ -130,7 +124,13 @@ const UserManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.page, pagination.pageSize, sortConfig.sortBy, sortConfig.sortOrder]);
+
+  useEffect(() => {
+    loadUserStatistics();
+    loadUserList();
+    loadSubscriptionPlans();
+  }, [loadUserStatistics, loadUserList, loadSubscriptionPlans]);
 
   const loadOnlineUsers = async () => {
     setLoading(true);
@@ -429,7 +429,8 @@ const UserManagement = () => {
     }
   };
 
-  // 渲染联系方式列（包含邮箱、手机号、微信、GitHub）
+  // 渲染会员等级（备用渲染函数）
+  // eslint-disable-next-line no-unused-vars
   const renderSubscriptionPlan = (subscription) => {
     if (!subscription) {
       return <span className="um-plan-badge um-plan-free">免费</span>;
@@ -490,6 +491,7 @@ const UserManagement = () => {
     );
   };
 
+  // eslint-disable-next-line no-unused-vars
   const renderContactInfo = (user) => {
     const contactInfo = [];
 

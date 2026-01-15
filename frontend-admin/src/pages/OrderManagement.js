@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../services/api';
 import { showToast } from '../components/Toast';
 import './OrderManagement.css';
@@ -43,10 +43,6 @@ const OrderManagement = () => {
     loadStatistics();
   }, []);
 
-  useEffect(() => {
-    loadOrders();
-  }, [pagination.page, filters]);
-
   const loadStatistics = async () => {
     try {
       const response = await adminAPI.getOrderStatistics();
@@ -59,7 +55,7 @@ const OrderManagement = () => {
     }
   };
 
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     setLoading(true);
     try {
       const response = await adminAPI.getOrders(
@@ -80,7 +76,11 @@ const OrderManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.page, pagination.pageSize, filters.planCode, filters.userEmail]);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
