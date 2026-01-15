@@ -136,34 +136,47 @@
 /* ============================================
    微信二维码登录样式
    ============================================ */
+
+/* 外层包裹容器 - 控制整体布局 */
 .auth-wechat-qrcode-wrapper {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 320px;
-  margin: 0 auto;
   width: 100%;
+  margin: 0 auto;
 }
 
+/* 二维码容器 - 固定尺寸，裁剪多余内容 */
 .auth-wechat-qrcode-container {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  width: 300px;
-  height: 310px;
+  width: 280px;
+  height: 280px;
+  overflow: hidden;
+  position: relative;
 }
 
 /* 微信 JS SDK 生成的 iframe 样式 */
 .auth-wechat-qrcode-container iframe {
   border: none !important;
+  width: 300px;
+  height: 430px;
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
+/* 加载状态 */
 .auth-wechat-qrcode-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  width: 280px;
+  height: 280px;
   gap: 16px;
   color: var(--auth-text-muted);
   font-size: 0.9rem;
@@ -184,11 +197,12 @@
   }
 }
 
+/* 提示文字 */
 .auth-wechat-tips {
   text-align: center;
   color: var(--auth-text-muted);
   font-size: 0.85rem;
-  margin-top: -8px;
+  margin-top: 8px;
 }
 
 .auth-wechat-tips p {

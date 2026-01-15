@@ -267,13 +267,18 @@
   }
 
   /* 微信二维码移动端适配 */
-  .auth-wechat-qrcode-wrapper {
-    min-height: 320px;
+  .auth-wechat-qrcode-container {
+    width: 260px;
+    height: 260px;
   }
 
-  .auth-wechat-qrcode-container {
-    width: 300px;
-    height: 310px;
+  .auth-wechat-qrcode-container iframe {
+    top: -20px;
+  }
+
+  .auth-wechat-qrcode-loading {
+    width: 260px;
+    height: 260px;
   }
 
   .auth-wechat-tips {
