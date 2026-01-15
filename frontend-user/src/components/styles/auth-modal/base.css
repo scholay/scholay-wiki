@@ -164,7 +164,7 @@
   width: 300px;
   height: 430px;
   position: absolute;
-  top: -15px;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
 }

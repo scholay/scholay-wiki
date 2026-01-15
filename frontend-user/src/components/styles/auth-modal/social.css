@@ -273,7 +273,7 @@
   }
 
   .auth-wechat-qrcode-container iframe {
-    top: -20px;
+    top: 0;
   }
 
   .auth-wechat-qrcode-loading {
