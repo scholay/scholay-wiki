@@ -74,16 +74,20 @@
   margin: 0 auto !important;
   padding: 0 !important;
   border: none !important;
-  width: auto !important;
-  height: auto !important;
+  width: 200px !important;
+  height: 200px !important;
 }
 
-/* 二维码图片样式 - 居中显示 */
+/* 二维码图片样式 - 固定尺寸居中显示 */
 .impowerBox .qrcode img,
 .impowerBox img.qrcode {
   display: block !important;
   margin: 0 auto !important;
   padding: 0 !important;
+  width: 200px !important;
+  height: 200px !important;
+  max-width: 200px !important;
+  max-height: 200px !important;
 }
 
 /* 调整wrp容器减少留白 */

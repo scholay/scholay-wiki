@@ -268,21 +268,20 @@
 
   /* 微信二维码移动端适配 */
   .auth-wechat-qrcode-wrapper {
-    min-height: 260px;
+    min-height: 200px;
     max-width: 100%;
     overflow: hidden;
   }
 
   .auth-wechat-qrcode-container {
-    min-height: 260px;
-    max-width: 280px;
+    width: 200px;
+    height: 200px;
     overflow: hidden;
   }
 
   .auth-wechat-qrcode-container iframe {
-    max-width: 100%;
-    width: 280px;
-    height: 360px;
+    width: 200px;
+    height: 200px;
   }
 
   .auth-wechat-tips {
