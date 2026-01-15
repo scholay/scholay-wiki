@@ -46,46 +46,29 @@ const CodeSnippetInjector = () => {
 
     // 注入 head 代码片段
     if (snippets.head && snippets.head.length > 0) {
-      snippets.head.forEach((snippet, index) => {
-        injectToHead(snippet.code_content, `snippet-head-${index}`);
+      snippets.head.forEach((snippet) => {
+        injectToHead(snippet.code_content);
       });
     }
 
     // 注入 body_start 代码片段（在 body 开始处）
     if (snippets.body_start && snippets.body_start.length > 0) {
-      const container = document.createElement('div');
-      container.id = 'code-snippets-body-start';
-      container.style.display = 'none'; // 隐藏容器本身
+      const injectedElements = [];
       snippets.body_start.forEach((snippet) => {
-        const div = document.createElement('div');
-        div.innerHTML = snippet.code_content;
-        // 执行脚本
-        executeScripts(div);
-        container.appendChild(div);
+        const elements = injectToBody(snippet.code_content, 'start');
+        injectedElements.push(...elements);
       });
-      // 插入到 body 的第一个子元素之前
-      if (document.body.firstChild) {
-        document.body.insertBefore(container, document.body.firstChild);
-      } else {
-        document.body.appendChild(container);
-      }
-      bodyStartContainerRef.current = container;
+      bodyStartContainerRef.current = injectedElements;
     }
 
     // 注入 body_end 代码片段（在 body 结束处）
     if (snippets.body_end && snippets.body_end.length > 0) {
-      const container = document.createElement('div');
-      container.id = 'code-snippets-body-end';
-      container.style.display = 'none'; // 隐藏容器本身
+      const injectedElements = [];
       snippets.body_end.forEach((snippet) => {
-        const div = document.createElement('div');
-        div.innerHTML = snippet.code_content;
-        // 执行脚本
-        executeScripts(div);
-        container.appendChild(div);
+        const elements = injectToBody(snippet.code_content, 'end');
+        injectedElements.push(...elements);
       });
-      document.body.appendChild(container);
-      bodyEndContainerRef.current = container;
+      bodyEndContainerRef.current = injectedElements;
     }
 
     injectedRef.current = true;
@@ -105,11 +88,19 @@ const CodeSnippetInjector = () => {
           }
         });
       }
-      if (bodyStartEl && bodyStartEl.parentNode) {
-        bodyStartEl.parentNode.removeChild(bodyStartEl);
+      if (bodyStartEl && Array.isArray(bodyStartEl)) {
+        bodyStartEl.forEach(el => {
+          if (el && el.parentNode) {
+            el.parentNode.removeChild(el);
+          }
+        });
       }
-      if (bodyEndEl && bodyEndEl.parentNode) {
-        bodyEndEl.parentNode.removeChild(bodyEndEl);
+      if (bodyEndEl && Array.isArray(bodyEndEl)) {
+        bodyEndEl.forEach(el => {
+          if (el && el.parentNode) {
+            el.parentNode.removeChild(el);
+          }
+        });
       }
     };
   }, [snippets]);
@@ -120,17 +111,14 @@ const CodeSnippetInjector = () => {
 /**
  * 注入代码到 head
  */
-function injectToHead(htmlContent, id) {
+function injectToHead(htmlContent) {
   // 创建临时容器解析 HTML
   const temp = document.createElement('div');
   temp.innerHTML = htmlContent;
 
   // 将所有子节点添加到 head
-  Array.from(temp.childNodes).forEach((node, index) => {
+  Array.from(temp.childNodes).forEach((node) => {
     if (node.nodeType === Node.ELEMENT_NODE) {
-      const clone = node.cloneNode(true);
-      clone.setAttribute('data-snippet-id', `${id}-${index}`);
-
       // 如果是 script 标签，需要特殊处理
       if (node.tagName === 'SCRIPT') {
         const script = document.createElement('script');
@@ -138,13 +126,13 @@ function injectToHead(htmlContent, id) {
         Array.from(node.attributes).forEach(attr => {
           script.setAttribute(attr.name, attr.value);
         });
-        script.setAttribute('data-snippet-id', `${id}-${index}`);
         // 复制内联脚本内容
         if (node.textContent) {
           script.textContent = node.textContent;
         }
         document.head.appendChild(script);
       } else {
+        const clone = node.cloneNode(true);
         document.head.appendChild(clone);
       }
     }
@@ -152,21 +140,42 @@ function injectToHead(htmlContent, id) {
 }
 
 /**
- * 执行容器内的脚本
+ * 注入代码到 body（开始或结束位置）
+ * @returns {Array} 注入的元素数组，用于清理
  */
-function executeScripts(container) {
-  const scripts = container.querySelectorAll('script');
-  scripts.forEach(originalScript => {
-    const newScript = document.createElement('script');
-    // 复制所有属性
-    Array.from(originalScript.attributes).forEach(attr => {
-      newScript.setAttribute(attr.name, attr.value);
-    });
-    // 复制脚本内容
-    newScript.textContent = originalScript.textContent;
-    // 替换原脚本（这会触发执行）
-    originalScript.parentNode.replaceChild(newScript, originalScript);
+function injectToBody(htmlContent, position) {
+  const temp = document.createElement('div');
+  temp.innerHTML = htmlContent;
+  const injectedElements = [];
+
+  Array.from(temp.childNodes).forEach((node) => {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      let elementToInsert;
+
+      if (node.tagName === 'SCRIPT') {
+        // script 标签需要特殊处理才能执行
+        const script = document.createElement('script');
+        Array.from(node.attributes).forEach(attr => {
+          script.setAttribute(attr.name, attr.value);
+        });
+        if (node.textContent) {
+          script.textContent = node.textContent;
+        }
+        elementToInsert = script;
+      } else {
+        elementToInsert = node.cloneNode(true);
+      }
+
+      if (position === 'start' && document.body.firstChild) {
+        document.body.insertBefore(elementToInsert, document.body.firstChild);
+      } else {
+        document.body.appendChild(elementToInsert);
+      }
+      injectedElements.push(elementToInsert);
+    }
   });
+
+  return injectedElements;
 }
 
 export default CodeSnippetInjector;
