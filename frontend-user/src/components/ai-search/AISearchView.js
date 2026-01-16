@@ -256,6 +256,8 @@ const AISearchView = () => {
               analyzingPapers={aiSearch.analyzingPapers}
               getDimensionKey={aiSearch.getDimensionKey}
               onDimensionRemove={aiSearch.handleDimensionToggle}
+              isAuthenticated={aiSearch.isAuthenticated}
+              onRequireAuth={() => aiSearch.setShowAuthModal(true)}
             />
 
             {/* 维度面板 */}

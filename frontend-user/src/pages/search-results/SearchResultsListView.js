@@ -28,6 +28,9 @@ const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, tot
     handlePageSizeChange,
     handlePaperClick,
     performSearch,
+    // 鉴权相关
+    isAuthenticated,
+    setShowAuthModal,
   } = searchState;
 
   const {
@@ -163,6 +166,8 @@ const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, tot
                 isAnalyzing={isAnalyzing}
                 hasError={hasError}
                 translation={translation}
+                isAuthenticated={isAuthenticated}
+                setShowAuthModal={setShowAuthModal}
               />
             );
           })}
@@ -226,6 +231,9 @@ const PaperRow = memo(({
   isAnalyzing,
   hasError,
   translation,
+  // 鉴权相关
+  isAuthenticated,
+  setShowAuthModal,
 }) => {
   const hasTldr = paper.tldr?.text;
   const hasAbstract = paper.abstract;
@@ -346,6 +354,11 @@ const PaperRow = memo(({
                     className={`summary-translate-btn ${isTranslating ? 'translating' : ''} ${hasTranslation ? 'has-translation' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
+                      // 鉴权检查：未登录时弹出登录框
+                      if (!isAuthenticated) {
+                        setShowAuthModal && setShowAuthModal(true);
+                        return;
+                      }
                       if (hasTranslation) {
                         translation.toggleDisplayMode(translationKey);
                       } else if (!isTranslating) {

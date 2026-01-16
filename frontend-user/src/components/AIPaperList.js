@@ -28,7 +28,10 @@ const AIPaperList = ({
   analysisResults = {},
   analyzingPapers = {},
   getDimensionKey = (dim) => dim.key || dim.name,
-  onDimensionRemove
+  onDimensionRemove,
+  // 鉴权相关 props
+  isAuthenticated = false,
+  onRequireAuth
 }) => {
   // 展开/收起状态
   const [expandedAbstract, setExpandedAbstract] = useState({});
@@ -289,6 +292,11 @@ const AIPaperList = ({
                             className={`summary-translate-btn ${isTranslating ? 'translating' : ''} ${hasTranslation ? 'has-translation' : ''}`}
                             onClick={(e) => {
                               e.stopPropagation();
+                              // 鉴权检查：未登录时弹出登录框
+                              if (!isAuthenticated) {
+                                onRequireAuth && onRequireAuth();
+                                return;
+                              }
                               if (hasTranslation) {
                                 translation.toggleDisplayMode(translationKey);
                               } else if (!isTranslating) {

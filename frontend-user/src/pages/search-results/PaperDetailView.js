@@ -44,6 +44,9 @@ const PaperDetailView = ({ paperDetail, searchState }) => {
     similarPapersTabRef,
     similarPapersListRef,
     handleSimilarTabClick,
+    // 鉴权相关
+    isAuthenticated,
+    setShowAuthModal,
   } = searchState;
 
   if (detailLoading) {
@@ -179,6 +182,11 @@ const PaperDetailView = ({ paperDetail, searchState }) => {
                     className={`epd-translate-btn ${isTldrTranslating ? 'translating' : ''} ${hasTldrTranslation ? 'has-translation' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
+                      // 鉴权检查：未登录时弹出登录框
+                      if (!isAuthenticated) {
+                        setShowAuthModal && setShowAuthModal(true);
+                        return;
+                      }
                       if (hasTldrTranslation) {
                         translation.toggleDisplayMode(tldrKey);
                       } else if (!isTldrTranslating) {
@@ -269,6 +277,11 @@ const PaperDetailView = ({ paperDetail, searchState }) => {
                     className={`epd-translate-btn ${isAbstractTranslating ? 'translating' : ''} ${hasAbstractTranslation ? 'has-translation' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
+                      // 鉴权检查：未登录时弹出登录框
+                      if (!isAuthenticated) {
+                        setShowAuthModal && setShowAuthModal(true);
+                        return;
+                      }
                       if (hasAbstractTranslation) {
                         translation.toggleDisplayMode(abstractKey);
                       } else if (!isAbstractTranslating) {
