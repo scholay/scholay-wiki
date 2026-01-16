@@ -500,3 +500,50 @@ func (h *Handler) AdminUpdateSystemDimension(c *gin.Context) {
 
 	utils.Success(c, dimension)
 }
+
+// StreamTranslateRequest 流式翻译请求结构
+type StreamTranslateRequest struct {
+	Text string `json:"text" binding:"required"`
+}
+
+// StreamTranslate 流式翻译接口
+// POST /api/v1/public/translate/stream
+// 将非中文文本翻译为中文，使用SSE流式输出
+func (h *Handler) StreamTranslate(c *gin.Context) {
+	var req StreamTranslateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	if req.Text == "" {
+		c.JSON(400, gin.H{"error": "Text is required for translation"})
+		return
+	}
+
+	// 限制文本长度
+	if len(req.Text) > 10000 {
+		c.JSON(400, gin.H{"error": "Text exceeds 10000 characters limit"})
+		return
+	}
+
+	// 设置SSE响应头
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("Transfer-Encoding", "chunked")
+	c.Writer.Header().Set("X-Accel-Buffering", "no")
+
+	// 调用流式翻译服务
+	err := h.service.StreamTranslateToChinese(req.Text, c.Writer)
+	if err != nil {
+		// 如果流已经开始，通过SSE发送错误
+		c.Writer.WriteString("data: {\"error\": \"" + err.Error() + "\"}\n\n")
+		c.Writer.Flush()
+		return
+	}
+
+	// 发送流结束标记
+	c.Writer.WriteString("data: [DONE]\n\n")
+	c.Writer.Flush()
+}

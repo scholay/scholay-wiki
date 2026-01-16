@@ -1774,3 +1774,42 @@ func (s *Service) UpdateSystemDimension(dimensionID uint, name, description stri
 	fmt.Printf("[INFO] Updated system dimension: %s (ID: %d)\n", dimension.DimensionKey, dimension.ID)
 	return &dimension, nil
 }
+
+// StreamTranslateToChinese 流式翻译文本为中文
+// 使用low级别模型进行翻译，通过SSE流式输出翻译结果
+// 使用结构化XML标签约束输入输出格式
+func (s *Service) StreamTranslateToChinese(text string, writer io.Writer) error {
+	if text == "" {
+		return fmt.Errorf("text is required for translation")
+	}
+
+	// 限制文本长度，避免过长的请求
+	if len(text) > 10000 {
+		return fmt.Errorf("text exceeds 10000 characters limit")
+	}
+
+	// 构建翻译提示词，使用结构化标签约束输入输出
+	translatePrompt := fmt.Sprintf(`<translate_input>
+%s
+</translate_input>
+
+你是一位专业的学术翻译专家。请将上述<translate_input>标签中的英文学术文本翻译成流畅、准确的中文。
+
+翻译要求：
+1. 保持学术术语的准确性和专业性
+2. 确保译文通顺自然，符合中文学术表达习惯
+3. 专有名词可保留英文原文或采用通用中文译法
+4. 只输出翻译结果，不要添加任何解释、注释或XML标签
+
+请直接输出翻译后的中文内容：`, text)
+
+	messages := []ChatMessage{
+		{
+			Role:    "user",
+			Content: translatePrompt,
+		},
+	}
+
+	// 使用low级别模型进行流式翻译
+	return s.StreamChatCompletionWithLevel(messages, writer, thirdparty.ModelLevelLow)
+}

@@ -348,6 +348,141 @@
   color: rgba(0, 0, 0, 0.65);
 }
 
+/* 翻译后的文本样式 */
+.summary-text.translated {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="light"] .summary-text.translated {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+/* 翻译光标动画 */
+.translate-cursor {
+  display: inline-block;
+  animation: blink 0.8s infinite;
+  color: #8ab4f8;
+  font-weight: 400;
+  margin-left: 2px;
+}
+
+[data-theme="light"] .translate-cursor {
+  color: #10a37f;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* 展开按钮和翻译按钮容器 */
+.summary-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* 翻译结果区域 - 与原文样式一致 */
+.summary-translation {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .summary-translation {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+.summary-translation .translation-label {
+  background: rgba(16, 185, 129, 0.15);
+  color: rgba(16, 185, 129, 0.9);
+}
+
+[data-theme="light"] .summary-translation .translation-label {
+  background: rgba(5, 150, 105, 0.1);
+  color: #059669;
+}
+
+/* Summary header actions 容器 */
+.summary-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 翻译按钮样式 */
+.summary-translate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #8ab4f8;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.summary-translate-btn:hover {
+  background: rgba(138, 180, 248, 0.1);
+}
+
+.summary-translate-btn:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.summary-translate-btn.translating {
+  color: #f59e0b;
+}
+
+.summary-translate-btn.has-translation {
+  color: #10b981;
+}
+
+.summary-translate-btn.has-translation:hover {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+[data-theme="light"] .summary-translate-btn {
+  color: #2563eb;
+}
+
+[data-theme="light"] .summary-translate-btn:hover {
+  background: rgba(37, 99, 235, 0.08);
+}
+
+[data-theme="light"] .summary-translate-btn.translating {
+  color: #d97706;
+}
+
+[data-theme="light"] .summary-translate-btn.has-translation {
+  color: #059669;
+}
+
+[data-theme="light"] .summary-translate-btn.has-translation:hover {
+  background: rgba(5, 150, 105, 0.08);
+}
+
+/* 翻译按钮内的加载动画 */
+.translate-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .tldr-text {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.8);
@@ -383,7 +518,6 @@
   font-size: 12px;
   cursor: pointer;
   padding: 0;
-  margin-left: 6px;
   transition: color 0.15s ease;
 }
 

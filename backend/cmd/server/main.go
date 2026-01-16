@@ -920,6 +920,9 @@ func main() {
 
 			// Usage log endpoint - for tracking feature usage from frontend
 			publicAPI.POST("/usage-log", usageLogHandler.Log)
+
+			// Public translation endpoint - for translating abstract/TLDR to Chinese (streaming)
+			publicAPI.POST("/translate/stream", aiHandler.StreamTranslate)
 		}
 
 		// Analysis dimensions routes (protected - requires user authentication)

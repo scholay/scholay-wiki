@@ -34,10 +34,10 @@ export const useConversationState = (eventSourceRef) => {
       if (msg.role === 'user') {
         const assistantMsg = messages[i + 1];
         list.push({
-          messageId: msg.id,
+          messageId: msg.message_id || msg.id, // 优先使用 message_id (UUID)
           question: msg.content,
           answer: assistantMsg?.content || '',
-          assistantMsgId: assistantMsg?.id,
+          assistantMsgId: assistantMsg?.message_id || assistantMsg?.id,
           suggestedQuestions: assistantMsg?.suggestedQuestions,
         });
       }
@@ -61,8 +61,9 @@ export const useConversationState = (eventSourceRef) => {
 
     userMessages.forEach(userMsg => {
       organized.push(userMsg);
+      // 使用 message_id (UUID) 来匹配 parent_message_id，而不是 id (数据库自增ID)
       const assistantReply = assistantMessages.find(
-        m => m.parent_message_id === userMsg.id
+        m => m.parent_message_id === userMsg.message_id
       );
       if (assistantReply) {
         organized.push(assistantReply);

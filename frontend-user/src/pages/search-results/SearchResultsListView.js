@@ -5,6 +5,7 @@
 import React, { memo } from 'react';
 import Pagination from '../../components/Pagination';
 import AnalysisCellText from '../../components/AnalysisCellText';
+import { useTranslation } from '../../hooks';
 
 const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, totalPages }) => {
   const {
@@ -51,6 +52,9 @@ const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, tot
     handleSaveDimension,
     handleDeleteDimension,
   } = dimensionAnalysis;
+
+  // 翻译功能
+  const translation = useTranslation();
 
   return (
     <>
@@ -158,6 +162,7 @@ const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, tot
                 paperResults={paperResults}
                 isAnalyzing={isAnalyzing}
                 hasError={hasError}
+                translation={translation}
               />
             );
           })}
@@ -220,6 +225,7 @@ const PaperRow = memo(({
   paperResults,
   isAnalyzing,
   hasError,
+  translation,
 }) => {
   const hasTldr = paper.tldr?.text;
   const hasAbstract = paper.abstract;
@@ -228,6 +234,15 @@ const PaperRow = memo(({
   const showAbstract = currentMode === 'abstract' && hasAbstract;
   const content = showTldr ? paper.tldr.text : (showAbstract ? paper.abstract : '');
   const isExpanded = showTldr ? expandedTldr[paper.paperId] : expandedAbstract[paper.paperId];
+
+  // 翻译功能
+  const translationKey = `${paper.paperId}_${showTldr ? 'tldr' : 'abstract'}`;
+  const translationState = translation.getTranslationState(translationKey);
+  const displayMode = translation.getDisplayMode(translationKey);
+  const shouldShowTranslate = translation.shouldShowTranslateButton(content);
+  const isTranslating = translationState.status === 'translating';
+  const hasTranslation = translationState.status === 'completed' && translationState.text;
+  const translatedText = translationState.text || '';
 
   return (
     <div
@@ -308,20 +323,67 @@ const PaperRow = memo(({
                   ? content
                   : content.substring(0, 100) + '...'}
               </span>
-              {content.length > 120 && (
-                <button
-                  className="expand-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (showTldr) {
-                      toggleTldrExpand(paper.paperId);
-                    } else {
-                      toggleAbstractExpand(paper.paperId);
-                    }
-                  }}
-                >
-                  {isExpanded ? '收起' : '展开'}
-                </button>
+              {/* 展开按钮和翻译按钮 */}
+              <div className="summary-actions">
+                {content.length > 120 && (
+                  <button
+                    className="expand-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (showTldr) {
+                        toggleTldrExpand(paper.paperId);
+                      } else {
+                        toggleAbstractExpand(paper.paperId);
+                      }
+                    }}
+                  >
+                    {isExpanded ? '收起' : '展开'}
+                  </button>
+                )}
+                {/* 翻译按钮 */}
+                {shouldShowTranslate && (
+                  <button
+                    className={`summary-translate-btn ${isTranslating ? 'translating' : ''} ${hasTranslation ? 'has-translation' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (hasTranslation) {
+                        translation.toggleDisplayMode(translationKey);
+                      } else if (!isTranslating) {
+                        translation.translate(translationKey, content);
+                      }
+                    }}
+                    disabled={isTranslating}
+                    title={isTranslating ? '翻译中...' : (hasTranslation ? (displayMode === 'translated' ? '显示原文' : '显示译文') : '翻译为中文')}
+                  >
+                    {isTranslating ? (
+                      <>
+                        <span className="translate-spinner"></span>
+                        翻译中
+                      </>
+                    ) : hasTranslation ? (
+                      displayMode === 'translated' ? '原文' : '译文'
+                    ) : (
+                      '翻译'
+                    )}
+                  </button>
+                )}
+              </div>
+              {/* 翻译结果 - 样式与原文一致 */}
+              {hasTranslation && displayMode === 'translated' && (
+                <div className="summary-translation">
+                  <span className="summary-label translation-label">译文</span>
+                  <span className="summary-text">{translatedText}</span>
+                </div>
+              )}
+              {/* 翻译中的流式显示 */}
+              {isTranslating && (
+                <div className="summary-translation translating">
+                  <span className="summary-label translation-label">译文</span>
+                  <span className="summary-text">
+                    {translatedText}
+                    <span className="translate-cursor">|</span>
+                  </span>
+                </div>
               )}
             </div>
           )}

@@ -92,7 +92,8 @@ const SearchResultsPage = () => {
   // 加载分析维度
   useEffect(() => {
     dimensionAnalysis.loadDimensions();
-  }, [searchState.isAuthenticated, dimensionAnalysis]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchState.isAuthenticated, dimensionAnalysis.loadDimensions]);
 
   // 初始化时设置 refs
   useEffect(() => {

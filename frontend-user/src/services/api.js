@@ -421,6 +421,20 @@ export const publicScholarAPI = {
         fields: fields || 'paperId,title,abstract,authors,year,citationCount,referenceCount,venue,publicationDate,publicationTypes,fieldsOfStudy,s2FieldsOfStudy,externalIds,url,openAccessPdf,influentialCitationCount,isOpenAccess,journal'
       }
     }),
+
+  // Public streaming translation (流式翻译 - 不需要登录)
+  // 将非中文文本翻译为中文，使用SSE流式输出
+  translateStream: (text) => {
+    const token = localStorage.getItem('user_token');
+    return fetch(`${API_URL}/api/v1/public/translate/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      },
+      body: JSON.stringify({ text })
+    });
+  },
 };
 
 // 分析维度API - 需要认证

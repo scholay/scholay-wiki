@@ -8,8 +8,8 @@ import { trackSmartAnalysis, EntryPoint } from '../../../utils/usageTracker';
 import wsClient from '../../../services/websocket';
 import logger from '../../../utils/logger';
 
-// 论文详情字段
-const PAPER_FIELDS = 'paperId,title,authors,year,abstract,citationCount,venue,publicationDate,tldr,openAccessPdf,externalIds,isOpenAccess,fieldsOfStudy';
+// 论文详情字段（后端期望数组格式）
+const PAPER_FIELDS = ['paperId', 'title', 'authors', 'year', 'abstract', 'citationCount', 'venue', 'publicationDate', 'tldr', 'openAccessPdf', 'externalIds', 'isOpenAccess', 'fieldsOfStudy'];
 
 /**
  * 流式搜索 Hook

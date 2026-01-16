@@ -548,6 +548,14 @@
   line-height: 1.7;
 }
 
+/* TLDR 头部（包含badge和翻译按钮）*/
+.epd-tldr-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 8px;
+}
+
 .epd-tldr-badge, .epd-tldr-label {
   display: inline;
   font-size: 11px;
@@ -578,8 +586,29 @@
   color: rgba(0, 0, 0, 0.7);
 }
 
+/* 翻译后的TLDR文本样式 */
+.epd-tldr-text.translated {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .epd-tldr-text.translated {
+  color: rgba(0, 0, 0, 0.85);
+}
+
 /* Abstract 区域 */
 .epd-section { margin-bottom: 20px; }
+
+/* Abstract 标题头部（包含标题和翻译按钮）*/
+.epd-section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.epd-section-header .epd-section-title {
+  margin-bottom: 0;
+}
 
 .epd-section-title {
   font-size: 12px;
@@ -616,12 +645,117 @@
   color: rgba(0, 0, 0, 0.7);
 }
 
+/* 翻译后的摘要样式 */
+.epd-abstract.translated {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .epd-abstract.translated {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+/* 详情页翻译按钮样式 */
+.epd-translate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #8ab4f8;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.epd-translate-btn:hover {
+  background: rgba(138, 180, 248, 0.1);
+}
+
+.epd-translate-btn:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.epd-translate-btn.translating {
+  color: #f59e0b;
+}
+
+.epd-translate-btn.has-translation {
+  color: #10b981;
+}
+
+.epd-translate-btn.has-translation:hover {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+[data-theme="light"] .epd-translate-btn {
+  color: #2563eb;
+}
+
+[data-theme="light"] .epd-translate-btn:hover {
+  background: rgba(37, 99, 235, 0.08);
+}
+
+[data-theme="light"] .epd-translate-btn.translating {
+  color: #d97706;
+}
+
+[data-theme="light"] .epd-translate-btn.has-translation {
+  color: #059669;
+}
+
+[data-theme="light"] .epd-translate-btn.has-translation:hover {
+  background: rgba(5, 150, 105, 0.08);
+}
+
+/* 翻译操作按钮容器 */
+.epd-translate-actions {
+  margin-top: 8px;
+}
+
+/* 摘要操作按钮容器（展开+翻译） */
+.epd-abstract-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+/* 翻译结果区域 */
+.epd-translation-result {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .epd-translation-result {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+.epd-translation-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-bottom: 8px;
+  background: rgba(16, 185, 129, 0.15);
+  color: rgba(16, 185, 129, 0.9);
+}
+
+[data-theme="light"] .epd-translation-label {
+  background: rgba(5, 150, 105, 0.1);
+  color: #059669;
+}
+
 /* 摘要展开/收起按钮 */
 .epd-abstract-toggle {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-top: 8px;
   padding: 0;
   background: none;
   border: none;

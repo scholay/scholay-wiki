@@ -4,8 +4,11 @@
 import React from 'react';
 import PaperDetailSkeleton from '../../components/PaperDetailSkeleton';
 import SimplePaperItem from '../../components/SimplePaperItem';
+import { useTranslation } from '../../hooks';
 
 const PaperDetailView = ({ paperDetail, searchState }) => {
+  // 翻译功能
+  const translation = useTranslation();
   const {
     detailPaper,
     detailPaperId,
@@ -152,44 +155,162 @@ const PaperDetailView = ({ paperDetail, searchState }) => {
         </div>
 
         {/* TLDR */}
-        {!detailHeaderCollapsed && detailPaper.tldr && (
-          <div className="epd-tldr">
-            <span className="epd-tldr-badge">TLDR</span>
-            <p className="epd-tldr-text">{detailPaper.tldr.text}</p>
-          </div>
-        )}
+        {!detailHeaderCollapsed && detailPaper.tldr && (() => {
+          const tldrKey = `${detailPaper.paperId}_detail_tldr`;
+          const tldrState = translation.getTranslationState(tldrKey);
+          const tldrDisplayMode = translation.getDisplayMode(tldrKey);
+          const shouldShowTldrTranslate = translation.shouldShowTranslateButton(detailPaper.tldr.text);
+          const isTldrTranslating = tldrState.status === 'translating';
+          const hasTldrTranslation = tldrState.status === 'completed' && tldrState.text;
+          const translatedTldr = tldrState.text || '';
+          
+          return (
+            <div className="epd-tldr">
+              <div className="epd-tldr-header">
+                <span className="epd-tldr-badge">TLDR</span>
+              </div>
+              <p className="epd-tldr-text">
+                {detailPaper.tldr.text}
+              </p>
+              {/* 翻译按钮放在内容后面 */}
+              {shouldShowTldrTranslate && (
+                <div className="epd-translate-actions">
+                  <button
+                    className={`epd-translate-btn ${isTldrTranslating ? 'translating' : ''} ${hasTldrTranslation ? 'has-translation' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (hasTldrTranslation) {
+                        translation.toggleDisplayMode(tldrKey);
+                      } else if (!isTldrTranslating) {
+                        translation.translate(tldrKey, detailPaper.tldr.text);
+                      }
+                    }}
+                    disabled={isTldrTranslating}
+                    title={isTldrTranslating ? '翻译中...' : (hasTldrTranslation ? (tldrDisplayMode === 'translated' ? '显示原文' : '显示译文') : '翻译为中文')}
+                  >
+                    {isTldrTranslating ? (
+                      <>
+                        <span className="translate-spinner"></span>
+                        翻译中
+                      </>
+                    ) : hasTldrTranslation ? (
+                      tldrDisplayMode === 'translated' ? '原文' : '译文'
+                    ) : (
+                      '翻译'
+                    )}
+                  </button>
+                </div>
+              )}
+              {/* 翻译结果 - 与原文样式一致 */}
+              {hasTldrTranslation && tldrDisplayMode === 'translated' && (
+                <div className="epd-translation-result">
+                  <span className="epd-translation-label">译文</span>
+                  <p className="epd-tldr-text">{translatedTldr}</p>
+                </div>
+              )}
+              {/* 翻译中的流式显示 */}
+              {isTldrTranslating && (
+                <div className="epd-translation-result translating">
+                  <span className="epd-translation-label">译文</span>
+                  <p className="epd-tldr-text">
+                    {translatedTldr}
+                    <span className="translate-cursor">|</span>
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* 摘要 */}
-        {!detailHeaderCollapsed && detailPaper.abstract && (
-          <div className="epd-section">
-            <h2 className="epd-section-title">摘要</h2>
-            <p className={`epd-abstract ${detailAbstractExpanded ? 'epd-abstract-expanded' : ''}`}>
-              {detailPaper.abstract}
-            </p>
-            {detailPaper.abstract.length > 200 && (
-              <button
-                className="epd-abstract-toggle"
-                onClick={() => setDetailAbstractExpanded(!detailAbstractExpanded)}
-              >
-                {detailAbstractExpanded ? (
-                  <>
-                    收起
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="18 15 12 9 6 15"/>
-                    </svg>
-                  </>
-                ) : (
-                  <>
-                    展开全文
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="6 9 12 15 18 9"/>
-                    </svg>
-                  </>
+        {!detailHeaderCollapsed && detailPaper.abstract && (() => {
+          const abstractKey = `${detailPaper.paperId}_detail_abstract`;
+          const abstractState = translation.getTranslationState(abstractKey);
+          const abstractDisplayMode = translation.getDisplayMode(abstractKey);
+          const shouldShowAbstractTranslate = translation.shouldShowTranslateButton(detailPaper.abstract);
+          const isAbstractTranslating = abstractState.status === 'translating';
+          const hasAbstractTranslation = abstractState.status === 'completed' && abstractState.text;
+          const translatedAbstract = abstractState.text || '';
+          
+          return (
+            <div className="epd-section">
+              <div className="epd-section-header">
+                <h2 className="epd-section-title">摘要</h2>
+              </div>
+              <p className={`epd-abstract ${detailAbstractExpanded ? 'epd-abstract-expanded' : ''}`}>
+                {detailPaper.abstract}
+              </p>
+              {/* 展开按钮和翻译按钮放在一起 */}
+              <div className="epd-abstract-actions">
+                {detailPaper.abstract.length > 200 && (
+                  <button
+                    className="epd-abstract-toggle"
+                    onClick={() => setDetailAbstractExpanded(!detailAbstractExpanded)}
+                  >
+                    {detailAbstractExpanded ? (
+                      <>
+                        收起
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="18 15 12 9 6 15"/>
+                        </svg>
+                      </>
+                    ) : (
+                      <>
+                        展开全文
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                      </>
+                    )}
+                  </button>
                 )}
-              </button>
-            )}
-          </div>
-        )}
+                {shouldShowAbstractTranslate && (
+                  <button
+                    className={`epd-translate-btn ${isAbstractTranslating ? 'translating' : ''} ${hasAbstractTranslation ? 'has-translation' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (hasAbstractTranslation) {
+                        translation.toggleDisplayMode(abstractKey);
+                      } else if (!isAbstractTranslating) {
+                        translation.translate(abstractKey, detailPaper.abstract);
+                      }
+                    }}
+                    disabled={isAbstractTranslating}
+                    title={isAbstractTranslating ? '翻译中...' : (hasAbstractTranslation ? (abstractDisplayMode === 'translated' ? '显示原文' : '显示译文') : '翻译为中文')}
+                  >
+                    {isAbstractTranslating ? (
+                      <>
+                        <span className="translate-spinner"></span>
+                        翻译中
+                      </>
+                    ) : hasAbstractTranslation ? (
+                      abstractDisplayMode === 'translated' ? '原文' : '译文'
+                    ) : (
+                      '翻译'
+                    )}
+                  </button>
+                )}
+              </div>
+              {/* 翻译结果 - 与原文样式一致 */}
+              {hasAbstractTranslation && abstractDisplayMode === 'translated' && (
+                <div className="epd-translation-result">
+                  <span className="epd-translation-label">译文</span>
+                  <p className={`epd-abstract ${detailAbstractExpanded ? 'epd-abstract-expanded' : ''}`}>{translatedAbstract}</p>
+                </div>
+              )}
+              {/* 翻译中的流式显示 */}
+              {isAbstractTranslating && (
+                <div className="epd-translation-result translating">
+                  <span className="epd-translation-label">译文</span>
+                  <p className={`epd-abstract ${detailAbstractExpanded ? 'epd-abstract-expanded' : ''}`}>
+                    {translatedAbstract}
+                    <span className="translate-cursor">|</span>
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* 操作按钮 */}
         {!detailHeaderCollapsed && (

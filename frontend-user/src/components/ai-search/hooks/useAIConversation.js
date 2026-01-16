@@ -13,8 +13,8 @@ import {
 } from '../../../utils/searchStorage';
 import logger from '../../../utils/logger';
 
-// 论文详情字段
-const PAPER_FIELDS = 'paperId,title,authors,year,abstract,citationCount,venue,publicationDate,tldr,openAccessPdf,externalIds,isOpenAccess,fieldsOfStudy';
+// 论文详情字段（后端期望数组格式）
+const PAPER_FIELDS = ['paperId', 'title', 'authors', 'year', 'abstract', 'citationCount', 'venue', 'publicationDate', 'tldr', 'openAccessPdf', 'externalIds', 'isOpenAccess', 'fieldsOfStudy'];
 
 /**
  * 对话管理 Hook
@@ -70,110 +70,114 @@ export const useAIConversation = ({
 
     try {
       const response = await conversationAPI.getConversation(conversationId, page, pageSize);
-      if (response.data.code === 0 && response.data.data) {
-        const conv = response.data.data;
+      if (response.data.code !== 0 || !response.data.data) {
+        throw new Error(response.data.message || 'Conversation not found');
+      }
+      
+      const conv = response.data.data;
 
-        if (isInitialLoad) {
-          setCurrentConversationId(conv.id);
-        }
+      if (isInitialLoad) {
+        setCurrentConversationId(conv.id);
+      }
 
-        setMessagePagination({
-          page: conv.page || page,
-          pageSize: conv.page_size || pageSize,
-          total: conv.total || 0,
-          hasMore: conv.has_more || false,
-          isLoadingMore: false,
+      setMessagePagination({
+        page: conv.page || page,
+        pageSize: conv.page_size || pageSize,
+        total: conv.total || 0,
+        hasMore: conv.has_more || false,
+        isLoadingMore: false,
+      });
+
+      const organizedMessages = organizeMessagesByParentId(conv.messages || []);
+
+      if (isInitialLoad) {
+        setMessages(organizedMessages);
+      } else {
+        setMessages(prev => [...organizedMessages, ...prev]);
+      }
+
+      // 查找所有有论文结果的消息，构建 paperSets
+      const messagesWithPapers = organizedMessages.filter(
+        m => m.role === 'user' && (
+          (m.search_paper_ids && m.search_paper_ids.length > 0) ||
+          (m.search_results && m.search_results.length > 0)
+        )
+      );
+
+      if (messagesWithPapers.length > 0) {
+        const sets = messagesWithPapers.map((msg, index) => {
+          const hasNewFormat = msg.search_paper_ids && msg.search_paper_ids.length > 0;
+          const hasOldFormat = msg.search_results && msg.search_results.length > 0;
+
+          return {
+            title: index === messagesWithPapers.length - 1 ? '最新搜索' : `搜索 ${index + 1}`,
+            papers: hasOldFormat ? msg.search_results : [],
+            paperIds: hasNewFormat ? msg.search_paper_ids : [],
+            total: msg.search_results_total || (hasOldFormat ? msg.search_results.length : msg.search_paper_ids?.length || 0),
+            query: msg.search_query,
+            isLoaded: hasOldFormat,
+            isLoading: false
+          };
         });
 
-        const organizedMessages = organizeMessagesByParentId(conv.messages || []);
+        const reversedSets = sets.reverse();
 
-        if (isInitialLoad) {
-          setMessages(organizedMessages);
-        } else {
-          setMessages(prev => [...organizedMessages, ...prev]);
-        }
+        const latestSet = reversedSets[0];
+        if (latestSet.isLoaded) {
+          setPaperSets(reversedSets);
+          setPapers(latestSet.papers);
+          setPapersTotal(latestSet.total);
+        } else if (latestSet.paperIds && latestSet.paperIds.length > 0) {
+          reversedSets[0] = { ...reversedSets[0], isLoading: true };
+          setPaperSets(reversedSets);
 
-        // 查找所有有论文结果的消息，构建 paperSets
-        const messagesWithPapers = organizedMessages.filter(
-          m => m.role === 'user' && (
-            (m.search_paper_ids && m.search_paper_ids.length > 0) ||
-            (m.search_results && m.search_results.length > 0)
-          )
-        );
-
-        if (messagesWithPapers.length > 0) {
-          const sets = messagesWithPapers.map((msg, index) => {
-            const hasNewFormat = msg.search_paper_ids && msg.search_paper_ids.length > 0;
-            const hasOldFormat = msg.search_results && msg.search_results.length > 0;
-
-            return {
-              title: index === messagesWithPapers.length - 1 ? '最新搜索' : `搜索 ${index + 1}`,
-              papers: hasOldFormat ? msg.search_results : [],
-              paperIds: hasNewFormat ? msg.search_paper_ids : [],
-              total: msg.search_results_total || (hasOldFormat ? msg.search_results.length : msg.search_paper_ids?.length || 0),
-              query: msg.search_query,
-              isLoaded: hasOldFormat,
-              isLoading: false
-            };
-          });
-
-          const reversedSets = sets.reverse();
-
-          const latestSet = reversedSets[0];
-          if (latestSet.isLoaded) {
-            setPaperSets(reversedSets);
-            setPapers(latestSet.papers);
-            setPapersTotal(latestSet.total);
-          } else if (latestSet.paperIds && latestSet.paperIds.length > 0) {
-            reversedSets[0] = { ...reversedSets[0], isLoading: true };
-            setPaperSets(reversedSets);
-
-            logger.log(`History: Loading papers for latest QA (${latestSet.paperIds.length} papers)`);
-            try {
-              const response = await publicScholarAPI.getPaperBatch(latestSet.paperIds, PAPER_FIELDS);
-              if (response.data.code === 0 && response.data.data) {
-                const loadedPapers = response.data.data || [];
-                setPapers(loadedPapers);
-                setPapersTotal(latestSet.total);
-                setPaperSets(prev => prev.map((set, idx) =>
-                  idx === 0 ? { ...set, papers: loadedPapers, isLoaded: true, isLoading: false } : set
-                ));
-              }
-            } catch (err) {
-              logger.error('Failed to fetch paper details for latest QA:', err);
+          logger.log(`History: Loading papers for latest QA (${latestSet.paperIds.length} papers)`);
+          try {
+            const paperResponse = await publicScholarAPI.getPaperBatch(latestSet.paperIds, PAPER_FIELDS);
+            if (paperResponse.data.code === 0 && paperResponse.data.data) {
+              const loadedPapers = paperResponse.data.data || [];
+              setPapers(loadedPapers);
+              setPapersTotal(latestSet.total);
               setPaperSets(prev => prev.map((set, idx) =>
-                idx === 0 ? { ...set, isLoading: false } : set
+                idx === 0 ? { ...set, papers: loadedPapers, isLoaded: true, isLoading: false } : set
               ));
             }
-          } else {
-            setPaperSets(reversedSets);
-            setPapers([]);
-            setPapersTotal(0);
+          } catch (err) {
+            logger.error('Failed to fetch paper details for latest QA:', err);
+            setPaperSets(prev => prev.map((set, idx) =>
+              idx === 0 ? { ...set, isLoading: false } : set
+            ));
           }
-
-          // 对于历史对话中的 assistant 消息，只加载已有的推荐问题
-          const assistantMessages = organizedMessages.filter(m => m.role === 'assistant');
-          assistantMessages.forEach((assistantMsg) => {
-            if (assistantMsg.follow_up_questions) {
-              const questions = extractSuggestedQuestions(assistantMsg.follow_up_questions);
-              if (questions.length > 0) {
-                setMessages(prev => prev.map(msg =>
-                  msg.id === assistantMsg.id
-                    ? { ...msg, suggestedQuestions: questions }
-                    : msg
-                ));
-              }
-            }
-          });
         } else {
+          setPaperSets(reversedSets);
           setPapers([]);
           setPapersTotal(0);
         }
+
+        // 对于历史对话中的 assistant 消息，只加载已有的推荐问题
+        const assistantMessages = organizedMessages.filter(m => m.role === 'assistant');
+        assistantMessages.forEach((assistantMsg) => {
+          if (assistantMsg.follow_up_questions) {
+            const questions = extractSuggestedQuestions(assistantMsg.follow_up_questions);
+            if (questions.length > 0) {
+              setMessages(prev => prev.map(msg =>
+                // 使用 message_id (UUID) 来匹配，同时兼容 id
+                (msg.message_id === assistantMsg.message_id) || (msg.id === assistantMsg.id)
+                  ? { ...msg, suggestedQuestions: questions }
+                  : msg
+              ));
+            }
+          }
+        });
+      } else {
+        setPapers([]);
+        setPapersTotal(0);
       }
     } catch (error) {
       logger.error('Failed to load conversation:', error);
       if (isInitialLoad) {
-        alert('加载对话失败');
+        // 抛出错误以便调用方可以处理（如重定向到主页）
+        throw error;
       }
     } finally {
       if (isInitialLoad) {
@@ -258,17 +262,16 @@ export const useAIConversation = ({
       setModelLevel(storedModelLevel);
     }
 
-    if (urlConversationId && isAuthenticated && conversations.length > 0) {
-      const conversation = conversations.find(c => c.id === parseInt(urlConversationId));
-      if (conversation) {
-        if (messages.length === 0 || currentConversationId !== parseInt(urlConversationId)) {
-          hasInitializedFromURLRef.current = true;
-          handleSelectConversation(urlConversationId);
-        }
-      } else {
+    // 如果 URL 中有 conversationId，直接尝试加载（不需要等待 conversations 列表）
+    if (urlConversationId && isAuthenticated) {
+      // 检查是否已经加载了这个对话
+      if (messages.length === 0 || currentConversationId !== parseInt(urlConversationId)) {
         hasInitializedFromURLRef.current = true;
-        logger.log(`Conversation ${urlConversationId} not found, redirecting to home`);
-        navigate('/');
+        // 直接尝试加载对话，API 会验证对话是否存在
+        handleSelectConversation(urlConversationId).catch((error) => {
+          logger.error(`Failed to load conversation ${urlConversationId}:`, error);
+          navigate('/');
+        });
       }
     } else if (storedQuery && isAuthenticated && messages.length === 0 && !urlConversationId && !currentConversationId) {
       hasInitializedFromURLRef.current = true;
@@ -284,7 +287,7 @@ export const useAIConversation = ({
       navigate('/');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, conversations, authLoading]);
+  }, [isAuthenticated, authLoading]);
 
   // 当对话ID变化时，更新 sessionStorage 和 URL 参数
   useEffect(() => {

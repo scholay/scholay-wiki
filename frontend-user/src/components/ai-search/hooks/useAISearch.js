@@ -14,8 +14,8 @@ import { useDimensionState } from './useDimensionState';
 import { useUIState } from './useUIState';
 import { useModalState } from './useModalState';
 
-// 论文详情字段
-const PAPER_FIELDS = 'paperId,title,authors,year,abstract,citationCount,venue,publicationDate,tldr,openAccessPdf,externalIds,isOpenAccess,fieldsOfStudy';
+// 论文详情字段（后端期望数组格式）
+const PAPER_FIELDS = ['paperId', 'title', 'authors', 'year', 'abstract', 'citationCount', 'venue', 'publicationDate', 'tldr', 'openAccessPdf', 'externalIds', 'isOpenAccess', 'fieldsOfStudy'];
 
 /**
  * AI搜索核心 Hook
