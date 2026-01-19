@@ -405,16 +405,18 @@ export const publicScholarAPI = {
   },
 
   // Public get author details (获取作者详情 - 不需要登录)
+  // 路径已重命名为 author-detail，避免旧版本前端循环请求
   getAuthor: (authorId, fields) =>
-    publicApi.get(`/authors/${authorId}`, {
+    publicApi.get(`/author-detail/${authorId}`, {
       params: {
         fields: fields || 'authorId,name,affiliations,paperCount,citationCount,hIndex,homepage,externalIds'
       }
     }),
 
   // Public get author papers (获取作者论文列表 - 不需要登录)
+  // 路径已重命名为 author-detail，避免旧版本前端循环请求
   getAuthorPapers: (authorId, offset = 0, limit = 100, fields) =>
-    publicApi.get(`/authors/${authorId}/papers`, {
+    publicApi.get(`/author-detail/${authorId}/papers`, {
       params: {
         offset,
         limit,
