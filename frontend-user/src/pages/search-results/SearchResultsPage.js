@@ -124,7 +124,7 @@ const SearchResultsPage = () => {
         searchState.setSearchQuery(query);
       }
     }
-  }, [searchState.searchParams, authorDetail, paperDetail, searchState]);
+  }, [searchState.searchParams, authorDetail.loadAuthorDetail, paperDetail.loadPaperDetail, searchState.setViewMode, searchState.setSearchQuery]);
 
   // 相似论文新手引导
   useEffect(() => {
