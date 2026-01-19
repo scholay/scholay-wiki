@@ -513,10 +513,6 @@ func main() {
 	// This prevents DoS attacks and ensures fair resource allocation
 	router.Use(middleware.RateLimitMiddleware(100, 1*time.Second))
 
-	// Add anti-loop middleware to detect and prevent infinite request loops
-	// Blocks clients that make more than 30 identical requests per minute
-	router.Use(middleware.AntiLoopMiddleware())
-
 	// Add adaptive timeout middleware
 	// Automatically adjusts timeout based on endpoint type
 	router.Use(middleware.APITimeoutMiddleware())
