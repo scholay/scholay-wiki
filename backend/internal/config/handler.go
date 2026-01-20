@@ -9,7 +9,14 @@ package config
 
 import (
 	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"regexp"
 	"strings"
+	"sync"
+	"time"
 
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
@@ -20,11 +27,27 @@ import (
 // Handler handles HTTP requests for configuration operations
 type Handler struct {
 	service *Service
+
+	// SSR code snippet injection fields
+	indexHTMLCache     string       // Cached original index.html content
+	indexHTMLCacheMu   sync.RWMutex // Mutex for cache access
+	indexHTMLCacheTime time.Time    // When cache was last updated
+	frontendURL        string       // URL to fetch index.html from frontend container
 }
 
 // NewHandler creates a new config handler
 func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+	// Get frontend URL from environment or use default
+	// Note: Use Docker Compose service name (frontend-user), not container_name
+	frontendURL := os.Getenv("FRONTEND_USER_URL")
+	if frontendURL == "" {
+		frontendURL = "http://frontend-user:80"
+	}
+
+	return &Handler{
+		service:     service,
+		frontendURL: frontendURL,
+	}
 }
 
 // GetPrivacyPolicy handles getting active privacy policy
@@ -656,6 +679,9 @@ func (h *Handler) CreateCodeSnippet(c *gin.Context) {
 		return
 	}
 
+	// Invalidate index.html cache to reflect new code snippet
+	h.InvalidateIndexHTMLCache()
+
 	utils.SuccessWithMessage(c, "代码片段创建成功", snippet)
 }
 
@@ -710,6 +736,9 @@ func (h *Handler) UpdateCodeSnippet(c *gin.Context) {
 		return
 	}
 
+	// Invalidate index.html cache to reflect updated code snippet
+	h.InvalidateIndexHTMLCache()
+
 	utils.SuccessWithMessage(c, "代码片段更新成功", snippet)
 }
 
@@ -726,6 +755,9 @@ func (h *Handler) DeleteCodeSnippet(c *gin.Context) {
 		return
 	}
 
+	// Invalidate index.html cache to reflect deleted code snippet
+	h.InvalidateIndexHTMLCache()
+
 	utils.SuccessWithMessage(c, "代码片段删除成功", nil)
 }
 
@@ -737,6 +769,187 @@ func (h *Handler) GetCodeSnippetsForUser(c *gin.Context) {
 		return
 	}
 	utils.Success(c, result)
+}
+
+// ============================================
+// SSR Code Snippet Injection Methods
+// 服务端渲染代码片段注入 - 让代码在网页源码中可见
+// ============================================
+
+const (
+	// indexHTMLCacheTTL is how long to cache the original index.html
+	indexHTMLCacheTTL = 5 * time.Minute
+)
+
+// ServeIndexHTML serves the index.html with code snippets injected
+// This enables SSR-like behavior for code snippets, making them visible in page source
+func (h *Handler) ServeIndexHTML(c *gin.Context) {
+	// Get the original index.html content
+	indexHTML, err := h.getIndexHTML()
+	if err != nil {
+		log.Printf("Failed to get index.html: %v", err)
+		// Fallback: proxy to frontend container
+		h.proxyToFrontend(c)
+		return
+	}
+
+	// Get code snippets from database
+	snippetsGrouped, err := h.service.GetCodeSnippetsGrouped()
+	if err != nil {
+		log.Printf("Failed to get code snippets: %v", err)
+		// Return original HTML without snippets
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.Header("Cache-Control", "no-cache, must-revalidate")
+		c.String(http.StatusOK, indexHTML)
+		return
+	}
+
+	// Inject code snippets into HTML
+	modifiedHTML := h.injectCodeSnippets(indexHTML, snippetsGrouped)
+
+	// Return the modified HTML
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.Header("Cache-Control", "no-cache, must-revalidate")
+	c.String(http.StatusOK, modifiedHTML)
+}
+
+// getIndexHTML fetches and caches the original index.html from the frontend container
+func (h *Handler) getIndexHTML() (string, error) {
+	h.indexHTMLCacheMu.RLock()
+	if h.indexHTMLCache != "" && time.Since(h.indexHTMLCacheTime) < indexHTMLCacheTTL {
+		cached := h.indexHTMLCache
+		h.indexHTMLCacheMu.RUnlock()
+		return cached, nil
+	}
+	h.indexHTMLCacheMu.RUnlock()
+
+	// Fetch from frontend container
+	h.indexHTMLCacheMu.Lock()
+	defer h.indexHTMLCacheMu.Unlock()
+
+	// Double-check after acquiring write lock
+	if h.indexHTMLCache != "" && time.Since(h.indexHTMLCacheTime) < indexHTMLCacheTTL {
+		return h.indexHTMLCache, nil
+	}
+
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Get(h.frontendURL + "/")
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch index.html from frontend: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("frontend returned status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read index.html body: %w", err)
+	}
+
+	h.indexHTMLCache = string(body)
+	h.indexHTMLCacheTime = time.Now()
+
+	log.Printf("index.html cached successfully (%d bytes)", len(body))
+	return h.indexHTMLCache, nil
+}
+
+// injectCodeSnippets injects code snippets into the HTML at appropriate positions
+func (h *Handler) injectCodeSnippets(html string, snippets *model.CodeSnippetsGroupedResponse) string {
+	if snippets == nil {
+		return html
+	}
+
+	result := html
+
+	// Build head snippets content
+	if len(snippets.Head) > 0 {
+		var headContent strings.Builder
+		headContent.WriteString("\n<!-- SSR Code Snippets: head -->\n")
+		headContent.WriteString("<script>window.__SSR_SNIPPETS_INJECTED__=true;</script>\n")
+		for _, s := range snippets.Head {
+			headContent.WriteString(s.CodeContent)
+			headContent.WriteString("\n")
+		}
+		headContent.WriteString("<!-- End SSR Code Snippets: head -->\n")
+
+		// Inject before </head>
+		result = strings.Replace(result, "</head>", headContent.String()+"</head>", 1)
+	} else {
+		// Still add the flag even if no head snippets
+		flagScript := "\n<!-- SSR Code Snippets -->\n<script>window.__SSR_SNIPPETS_INJECTED__=true;</script>\n<!-- End SSR Code Snippets -->\n"
+		result = strings.Replace(result, "</head>", flagScript+"</head>", 1)
+	}
+
+	// Build body_start snippets content
+	if len(snippets.BodyStart) > 0 {
+		var bodyStartContent strings.Builder
+		bodyStartContent.WriteString("\n<!-- SSR Code Snippets: body_start -->\n")
+		for _, s := range snippets.BodyStart {
+			bodyStartContent.WriteString(s.CodeContent)
+			bodyStartContent.WriteString("\n")
+		}
+		bodyStartContent.WriteString("<!-- End SSR Code Snippets: body_start -->\n")
+
+		// Inject after <body> (handle potential attributes on body tag)
+		bodyTagRegex := regexp.MustCompile(`(?i)(<body[^>]*>)`)
+		result = bodyTagRegex.ReplaceAllString(result, "${1}"+bodyStartContent.String())
+	}
+
+	// Build body_end snippets content
+	if len(snippets.BodyEnd) > 0 {
+		var bodyEndContent strings.Builder
+		bodyEndContent.WriteString("\n<!-- SSR Code Snippets: body_end -->\n")
+		for _, s := range snippets.BodyEnd {
+			bodyEndContent.WriteString(s.CodeContent)
+			bodyEndContent.WriteString("\n")
+		}
+		bodyEndContent.WriteString("<!-- End SSR Code Snippets: body_end -->\n")
+
+		// Inject before </body>
+		result = strings.Replace(result, "</body>", bodyEndContent.String()+"</body>", 1)
+	}
+
+	return result
+}
+
+// proxyToFrontend proxies the request to the frontend container
+func (h *Handler) proxyToFrontend(c *gin.Context) {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	resp, err := client.Get(h.frontendURL + c.Request.URL.Path)
+	if err != nil {
+		c.String(http.StatusBadGateway, "Failed to proxy to frontend")
+		return
+	}
+	defer resp.Body.Close()
+
+	// Copy headers
+	for key, values := range resp.Header {
+		for _, value := range values {
+			c.Header(key, value)
+		}
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), body)
+}
+
+// InvalidateIndexHTMLCache invalidates the cached index.html
+// Call this when code snippets are updated to ensure fresh content
+func (h *Handler) InvalidateIndexHTMLCache() {
+	h.indexHTMLCacheMu.Lock()
+	defer h.indexHTMLCacheMu.Unlock()
+	h.indexHTMLCache = ""
+	h.indexHTMLCacheTime = time.Time{}
+	log.Println("index.html cache invalidated")
 }
 
 // RegisterRoutes registers config routes

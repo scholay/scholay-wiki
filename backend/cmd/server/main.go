@@ -12,8 +12,10 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
+
 	"scholar-backend/internal/admin"
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/checkin"
@@ -994,6 +996,25 @@ func main() {
 		})
 	})
 
+	// SSR Code Snippet Injection - serve index.html with injected code snippets
+	// This handles all non-API routes for the frontend SPA, enabling code snippets
+	// to be visible in page source (for SEO and third-party verification)
+	router.NoRoute(func(c *gin.Context) {
+		path := c.Request.URL.Path
+
+		// Skip API routes and static assets - let Nginx handle them
+		if strings.HasPrefix(path, "/api/") ||
+			strings.HasPrefix(path, "/uploads/") ||
+			strings.HasPrefix(path, "/health") ||
+			isStaticAsset(path) {
+			c.Status(404)
+			return
+		}
+
+		// Serve index.html with SSR code snippets for all other routes
+		configHandler.ServeIndexHTML(c)
+	})
+
 	// Create context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1097,4 +1118,36 @@ func (a *feedbackUserRepoAdapter) FindByIDs(ids []uint) (map[uint]*feedback.User
 		}
 	}
 	return result, nil
+}
+
+// isStaticAsset checks if the path is a static asset (should be served by frontend container)
+func isStaticAsset(path string) bool {
+	staticExtensions := []string{
+		".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
+		".woff", ".woff2", ".ttf", ".eot", ".otf",
+		".map", ".json", ".txt", ".xml", ".webp",
+		".mp3", ".mp4", ".webm", ".ogg", ".wav",
+		".pdf", ".zip", ".bcmap",
+	}
+
+	pathLower := strings.ToLower(path)
+	for _, ext := range staticExtensions {
+		if strings.HasSuffix(pathLower, ext) {
+			return true
+		}
+	}
+
+	// Also check for static directories
+	if strings.HasPrefix(path, "/static/") ||
+		strings.HasPrefix(path, "/assets/") ||
+		strings.HasPrefix(path, "/fonts/") ||
+		strings.HasPrefix(path, "/images/") ||
+		strings.HasPrefix(path, "/favicon") ||
+		strings.HasPrefix(path, "/manifest") ||
+		strings.HasPrefix(path, "/robots") ||
+		strings.HasPrefix(path, "/sitemap") {
+		return true
+	}
+
+	return false
 }

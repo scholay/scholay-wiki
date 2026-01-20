@@ -16,16 +16,29 @@ import { configAPI } from '../services/api';
 /**
  * 代码片段注入组件
  * 自动从后端获取启用的代码片段，并注入到页面对应位置
+ * 
+ * SSR 兼容说明：
+ * 后端在返回 HTML 时会注入代码片段（SSR模式），并设置 window.__SSR_SNIPPETS_INJECTED__ = true
+ * 本组件会检测该标志，如果已通过 SSR 注入则跳过客户端注入，避免重复
  */
 const CodeSnippetInjector = () => {
   const [snippets, setSnippets] = useState(null);
   const injectedRef = useRef(false);
+  const ssrInjectedRef = useRef(false);
   const headContainerRef = useRef(null);
   const bodyStartContainerRef = useRef(null);
   const bodyEndContainerRef = useRef(null);
 
   useEffect(() => {
-    // 只在首次加载时获取代码片段
+    // 检查是否已通过 SSR 注入代码片段
+    if (window.__SSR_SNIPPETS_INJECTED__) {
+      ssrInjectedRef.current = true;
+      // SSR 已注入，跳过客户端注入
+      // 但仍然可以获取 snippets 用于其他目的（如 SPA 路由切换时）
+      return;
+    }
+
+    // 只在首次加载时获取代码片段（CSR 模式）
     const fetchSnippets = async () => {
       try {
         const response = await configAPI.getCodeSnippets();
@@ -42,7 +55,9 @@ const CodeSnippetInjector = () => {
   }, []);
 
   useEffect(() => {
-    if (!snippets || injectedRef.current) return;
+    // 如果已通过 SSR 注入，或已通过客户端注入，则跳过
+    if (ssrInjectedRef.current || injectedRef.current) return;
+    if (!snippets) return;
 
     // 注入 head 代码片段
     if (snippets.head && snippets.head.length > 0) {
