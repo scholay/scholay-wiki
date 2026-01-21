@@ -6,11 +6,21 @@ Allow: /
 Allow: /search-results
 Allow: /paper/*
 Allow: /pricing
+Allow: /about
+Allow: /privacy
+Allow: /terms
+Allow: /feedback
+Allow: /chat
+Allow: /assistant
+Allow: /peer-review
+Allow: /fund-center
 Disallow: /dashboard
 Disallow: /settings
 Disallow: /subscription
 Disallow: /order-confirmation
 Disallow: /wechat/callback
+Disallow: /github/callback
+Disallow: /alipay-return
 Disallow: /api/
 
 # Crawl-delay for respectful crawling

@@ -46,6 +46,8 @@ const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
 const AlipayReturn = lazy(() => import('./pages/AlipayReturn'));
 const FeedbackPage = lazy(() => import('./pages/FeedbackPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const TermsPage = lazy(() => import('./pages/TermsPage'));
 const AuthModal = lazy(() => import('./components/AuthModal'));
 
 function App() {
@@ -212,6 +214,10 @@ function App() {
                       {/* 反馈和关于我们页面 - 公开访问 */}
                       <Route path="/feedback" element={<FeedbackPage />} />
                       <Route path="/about" element={<AboutPage />} />
+                      
+                      {/* 隐私政策和服务条款页面 - 公开访问 (Google AdSense 必需) */}
+                      <Route path="/privacy" element={<PrivacyPage />} />
+                      <Route path="/terms" element={<TermsPage />} />
                       
                       {/* 支付宝回调页面 */}
                       <Route path="/alipay-return" element={<AlipayReturn />} />
