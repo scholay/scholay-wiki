@@ -99,11 +99,13 @@ const AboutPage = () => {
             © {new Date().getFullYear()} Scholay. All rights reserved.
           </p>
           <div className="footer-links">
-            <a href="/terms" target="_blank">服务条款</a>
+            <button onClick={() => navigate('/terms')}>服务条款</button>
             <span>|</span>
-            <a href="/privacy" target="_blank">隐私政策</a>
+            <button onClick={() => navigate('/privacy')}>隐私政策</button>
             <span>|</span>
-            <button onClick={() => navigate('/feedback')}>意见反馈</button>
+            <button onClick={() => navigate('/disclaimer')}>免责声明</button>
+            <span>|</span>
+            <button onClick={() => navigate('/contact')}>联系我们</button>
           </div>
         </div>
       </div>

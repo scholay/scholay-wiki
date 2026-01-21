@@ -92,6 +92,22 @@
     <priority>0.5</priority>
   </url>
 
+  <!-- Contact Page (Recommended for AdSense) -->
+  <url>
+    <loc>https://www.scholay.com/contact</loc>
+    <lastmod>2026-01-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Disclaimer Page (Recommended for AdSense) -->
+  <url>
+    <loc>https://www.scholay.com/disclaimer</loc>
+    <lastmod>2026-01-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
   <!--
     Note: Individual paper pages (/paper/:paperId) are dynamically generated
     and should be added to sitemap through a dynamic sitemap generator or

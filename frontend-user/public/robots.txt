@@ -10,6 +10,8 @@ Allow: /about
 Allow: /privacy
 Allow: /terms
 Allow: /feedback
+Allow: /contact
+Allow: /disclaimer
 Allow: /chat
 Allow: /assistant
 Allow: /peer-review

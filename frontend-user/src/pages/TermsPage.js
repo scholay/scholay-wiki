@@ -96,7 +96,9 @@ const TermsPage = () => {
             <span>|</span>
             <button onClick={() => navigate('/privacy')}>隐私政策</button>
             <span>|</span>
-            <button onClick={() => navigate('/feedback')}>意见反馈</button>
+            <button onClick={() => navigate('/disclaimer')}>免责声明</button>
+            <span>|</span>
+            <button onClick={() => navigate('/contact')}>联系我们</button>
           </div>
         </div>
       </div>
