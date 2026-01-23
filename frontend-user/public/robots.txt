@@ -30,6 +30,7 @@ Crawl-delay: 1
 
 # Sitemaps
 Sitemap: https://www.scholay.com/sitemap.xml
+Sitemap: https://www.scholay.com/sitemap-papers.xml
 
 # Popular search engines
 User-agent: Googlebot

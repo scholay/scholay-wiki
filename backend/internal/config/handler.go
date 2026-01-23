@@ -24,6 +24,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// UsageLogService 定义 usagelog service 接口（避免循环依赖）
+type UsageLogService interface {
+	GetPopularPaperIDs(days int, limit int) ([]PopularPaper, error)
+}
+
+// PopularPaper 热门论文记录（从 usagelog 包复制，避免循环依赖）
+type PopularPaper struct {
+	PaperID string `json:"paper_id"`
+	Count   int64  `json:"count"`
+}
+
 // Handler handles HTTP requests for configuration operations
 type Handler struct {
 	service *Service
@@ -33,6 +44,9 @@ type Handler struct {
 	indexHTMLCacheMu   sync.RWMutex // Mutex for cache access
 	indexHTMLCacheTime time.Time    // When cache was last updated
 	frontendURL        string       // URL to fetch index.html from frontend container
+
+	// Dynamic sitemap fields
+	usageLogService UsageLogService // 用于获取热门论文
 }
 
 // NewHandler creates a new config handler
@@ -48,6 +62,11 @@ func NewHandler(service *Service) *Handler {
 		service:     service,
 		frontendURL: frontendURL,
 	}
+}
+
+// SetUsageLogService 设置 usagelog service（用于动态 sitemap 生成）
+func (h *Handler) SetUsageLogService(service UsageLogService) {
+	h.usageLogService = service
 }
 
 // GetPrivacyPolicy handles getting active privacy policy
@@ -963,4 +982,116 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 		// 用户端代码片段（公开接口）
 		config.GET("/code-snippets", h.GetCodeSnippetsForUser)
 	}
+}
+
+// ============================================
+// Dynamic Sitemap Generation
+// 动态 sitemap 生成 - 包含热门论文页面
+// ============================================
+
+// ServeDynamicSitemap 生成并返回动态 sitemap（XML 格式）
+// 包含静态页面和热门论文页面
+func (h *Handler) ServeDynamicSitemap(c *gin.Context) {
+	baseURL := "https://www.scholay.com"
+	today := time.Now().Format("2006-01-02")
+
+	var sitemapBuilder strings.Builder
+	sitemapBuilder.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+`)
+
+	// 静态页面
+	staticPages := []struct {
+		Path       string
+		ChangeFreq string
+		Priority   string
+	}{
+		{"/", "daily", "1.0"},
+		{"/search-results", "daily", "0.9"},
+		{"/chat", "weekly", "0.8"},
+		{"/assistant", "weekly", "0.8"},
+		{"/peer-review", "weekly", "0.8"},
+		{"/pricing", "monthly", "0.7"},
+		{"/fund-center", "weekly", "0.6"},
+		{"/about", "monthly", "0.6"},
+		{"/privacy", "monthly", "0.5"},
+		{"/terms", "monthly", "0.5"},
+		{"/feedback", "monthly", "0.5"},
+		{"/contact", "monthly", "0.6"},
+		{"/disclaimer", "monthly", "0.5"},
+	}
+
+	for _, page := range staticPages {
+		sitemapBuilder.WriteString(fmt.Sprintf(`
+  <url>
+    <loc>%s%s</loc>
+    <lastmod>%s</lastmod>
+    <changefreq>%s</changefreq>
+    <priority>%s</priority>
+  </url>`, baseURL, page.Path, today, page.ChangeFreq, page.Priority))
+	}
+
+	// 动态论文页面（基于访问统计）
+	if h.usageLogService != nil {
+		papers, err := h.usageLogService.GetPopularPaperIDs(30, 200) // 最近30天，最多200篇
+		if err != nil {
+			log.Printf("Failed to get popular papers for sitemap: %v", err)
+		} else {
+			sitemapBuilder.WriteString(`
+
+  <!-- Popular Paper Pages (dynamically generated based on access statistics) -->`)
+			for i, paper := range papers {
+				// 根据访问量设置优先级
+				priority := "0.6"
+				if i < 10 {
+					priority = "0.8"
+				} else if i < 50 {
+					priority = "0.7"
+				}
+
+				sitemapBuilder.WriteString(fmt.Sprintf(`
+  <url>
+    <loc>%s/paper/%s</loc>
+    <lastmod>%s</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>%s</priority>
+  </url>`, baseURL, paper.PaperID, today, priority))
+			}
+		}
+	}
+
+	sitemapBuilder.WriteString(`
+</urlset>
+`)
+
+	c.Header("Content-Type", "application/xml; charset=utf-8")
+	c.Header("Cache-Control", "public, max-age=3600") // 缓存1小时
+	c.String(http.StatusOK, sitemapBuilder.String())
+}
+
+// ServeSitemapIndex 生成 sitemap 索引文件
+// 用于当 sitemap 太大时分割成多个文件
+func (h *Handler) ServeSitemapIndex(c *gin.Context) {
+	baseURL := "https://www.scholay.com"
+	today := time.Now().Format("2006-01-02")
+
+	sitemapIndex := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>%s/sitemap.xml</loc>
+    <lastmod>%s</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>%s/sitemap-papers.xml</loc>
+    <lastmod>%s</lastmod>
+  </sitemap>
+</sitemapindex>
+`, baseURL, today, baseURL, today)
+
+	c.Header("Content-Type", "application/xml; charset=utf-8")
+	c.Header("Cache-Control", "public, max-age=86400") // 缓存24小时
+	c.String(http.StatusOK, sitemapIndex)
 }

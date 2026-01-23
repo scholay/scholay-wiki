@@ -282,6 +282,9 @@ func main() {
 	usageLogHandler := usagelog.NewHandler(usageLogService)
 	usageLogAdminHandler := usagelog.NewAdminHandler(usageLogService)
 
+	// Inject usageLogService into configHandler (for dynamic sitemap generation)
+	configHandler.SetUsageLogService(&usageLogServiceAdapter{usageLogService})
+
 	// Initialize Message module (站内信)
 	messageHandler := message.NewHandler(database.GetDB())
 
@@ -996,6 +999,10 @@ func main() {
 		})
 	})
 
+	// Dynamic sitemap endpoints (for SEO - includes popular paper pages)
+	router.GET("/sitemap-papers.xml", configHandler.ServeDynamicSitemap)
+	router.GET("/sitemap-index.xml", configHandler.ServeSitemapIndex)
+
 	// SSR Code Snippet Injection - serve index.html with injected code snippets
 	// This handles all non-API routes for the frontend SPA, enabling code snippets
 	// to be visible in page source (for SEO and third-party verification)
@@ -1150,4 +1157,24 @@ func isStaticAsset(path string) bool {
 	}
 
 	return false
+}
+
+// usageLogServiceAdapter adapts usagelog.Service to config.UsageLogService interface
+type usageLogServiceAdapter struct {
+	service *usagelog.Service
+}
+
+func (a *usageLogServiceAdapter) GetPopularPaperIDs(days int, limit int) ([]config.PopularPaper, error) {
+	papers, err := a.service.GetPopularPaperIDs(days, limit)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]config.PopularPaper, len(papers))
+	for i, p := range papers {
+		result[i] = config.PopularPaper{
+			PaperID: p.PaperID,
+			Count:   p.Count,
+		}
+	}
+	return result, nil
 }

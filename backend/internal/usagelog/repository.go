@@ -171,3 +171,43 @@ func (r *Repository) GetDistinctEntryPoints() ([]string, error) {
 	return entryPoints, err
 }
 
+// PopularPaper 热门论文记录
+type PopularPaper struct {
+	PaperID string `json:"paper_id"`
+	Count   int64  `json:"count"`
+}
+
+// GetPopularPaperIDs 获取热门论文ID列表（基于访问统计）
+// 返回最近 days 天内访问量最高的 limit 篇论文
+func (r *Repository) GetPopularPaperIDs(days int, limit int) ([]PopularPaper, error) {
+	var results []PopularPaper
+
+	// 计算起始日期
+	startDate := time.Now().AddDate(0, 0, -days).Format("2006-01-02")
+
+	// 从 extra_data JSON 中提取 paper_id，并统计访问次数
+	err := r.db.Model(&UsageLog{}).
+		Select("JSON_UNQUOTE(JSON_EXTRACT(extra_data, '$.paper_id')) as paper_id, COUNT(*) as count").
+		Where("feature_code = ?", "paper_detail").
+		Where("created_at >= ?", startDate+" 00:00:00").
+		Where("JSON_EXTRACT(extra_data, '$.paper_id') IS NOT NULL").
+		Group("paper_id").
+		Order("count DESC").
+		Limit(limit).
+		Find(&results).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// 过滤掉空的 paper_id
+	filtered := make([]PopularPaper, 0, len(results))
+	for _, r := range results {
+		if r.PaperID != "" && r.PaperID != "null" {
+			filtered = append(filtered, r)
+		}
+	}
+
+	return filtered, nil
+}
+

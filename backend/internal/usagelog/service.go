@@ -117,6 +117,23 @@ func (s *Service) GetFilterOptions() (map[string]interface{}, error) {
 	}, nil
 }
 
+// GetPopularPaperIDs 获取热门论文ID列表
+func (s *Service) GetPopularPaperIDs(days int, limit int) ([]PopularPaper, error) {
+	if days < 1 {
+		days = 30 // 默认30天
+	}
+	if days > 90 {
+		days = 90
+	}
+	if limit < 1 {
+		limit = 100 // 默认100篇
+	}
+	if limit > 500 {
+		limit = 500
+	}
+	return s.repo.GetPopularPaperIDs(days, limit)
+}
+
 // parseUserAgent 解析User-Agent
 func parseUserAgent(ua string) (deviceType, browser, os string) {
 	ua = strings.ToLower(ua)
