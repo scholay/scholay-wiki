@@ -43,6 +43,7 @@ class WebSocketClient {
   constructor() {
     this.ws = null;
     this.token = null;
+    this.isGuest = true;  // 是否为访客连接
     this.isConnecting = false;
     this.isConnected = false;
     this.reconnectAttempts = 0;
@@ -63,34 +64,37 @@ class WebSocketClient {
 
   /**
    * 获取 WebSocket URL
+   * @param {string|null} token - JWT token，null 表示访客连接
    */
   getWebSocketURL(token) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
     // 使用相对路径，通过 Nginx 代理
-    return `${protocol}//${host}/api/v1/ws?token=${encodeURIComponent(token)}`;
+    if (token) {
+      return `${protocol}//${host}/api/v1/ws?token=${encodeURIComponent(token)}`;
+    }
+    // 访客连接，不带 token
+    return `${protocol}//${host}/api/v1/ws`;
   }
 
   /**
    * 连接 WebSocket
+   * @param {string|null} token - JWT token，null 或不传表示访客连接
    */
-  connect(token) {
+  connect(token = null) {
     if (this.isConnecting || this.isConnected) {
       logger.debug('[WebSocket] Already connected or connecting');
       return;
     }
 
-    if (!token) {
-      logger.warn('[WebSocket] No token provided');
-      return;
-    }
-
     this.token = token;
     this.isConnecting = true;
+    this.isGuest = !token;
 
     try {
       const url = this.getWebSocketURL(token);
-      logger.info('[WebSocket] Connecting to', url.replace(/token=.*/, 'token=***'));
+      const logUrl = token ? url.replace(/token=.*/, 'token=***') : url;
+      logger.info(`[WebSocket] Connecting as ${this.isGuest ? 'guest' : 'user'} to`, logUrl);
       
       this.ws = new WebSocket(url);
       
@@ -107,16 +111,23 @@ class WebSocketClient {
 
   /**
    * 断开连接
+   * @param {boolean} preventReconnect - 是否阻止重连（默认 true）
    */
-  disconnect() {
+  disconnect(preventReconnect = true) {
     logger.info('[WebSocket] Disconnecting');
     
     this.clearTimers();
     this.reconnectAttempts = 0;
-    this.token = null;
+    
+    if (preventReconnect) {
+      this.token = null;
+      this.isGuest = true;
+    }
     
     if (this.ws) {
-      this.ws.onclose = null; // 防止触发重连
+      if (preventReconnect) {
+        this.ws.onclose = null; // 防止触发重连
+      }
       this.ws.close();
       this.ws = null;
     }

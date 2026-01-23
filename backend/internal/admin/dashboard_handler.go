@@ -16,14 +16,26 @@ import (
 	"gorm.io/gorm"
 )
 
+// OnlineStatsProvider 提供在线统计的接口（由 WebSocket Hub 实现）
+type OnlineStatsProvider interface {
+	GetOnlineUserCount() int
+	GetOnlineGuestCount() int
+}
+
 // DashboardHandler handles dashboard statistics requests
 type DashboardHandler struct {
-	db *gorm.DB
+	db                  *gorm.DB
+	onlineStatsProvider OnlineStatsProvider
 }
 
 // NewDashboardHandler creates a new dashboard handler
 func NewDashboardHandler(db *gorm.DB) *DashboardHandler {
 	return &DashboardHandler{db: db}
+}
+
+// SetOnlineStatsProvider 设置在线统计提供者（WebSocket Hub）
+func (h *DashboardHandler) SetOnlineStatsProvider(provider OnlineStatsProvider) {
+	h.onlineStatsProvider = provider
 }
 
 // DashboardStatistics represents overall dashboard statistics
@@ -34,7 +46,8 @@ type DashboardStatistics struct {
 	NewUsersToday    int64               `json:"new_users_today"`    // 今日新增
 	NewUsers7d       int64               `json:"new_users_7d"`       // 7天新增
 	NewUsers30d      int64               `json:"new_users_30d"`      // 30天新增
-	OnlineUsers      int64               `json:"online_users"`       // 当前在线用户
+	OnlineUsers      int64               `json:"online_users"`       // 当前在线登录用户（基于 WebSocket）
+	OnlineGuests     int64               `json:"online_guests"`      // 当前在线访客（基于 WebSocket）
 
 	// 订单统计
 	TotalOrders      int64               `json:"total_orders"`       // 总订单数
@@ -113,10 +126,16 @@ func (h *DashboardHandler) GetDashboardStatistics(c *gin.Context) {
 		Distinct("user_id").
 		Count(&stats.ActiveUsers30d)
 
-	// 当前在线用户 (5分钟内活跃)
-	h.db.Table("user_sessions").
-		Where("last_active_at >= ?", time.Now().Add(-5*time.Minute)).
-		Count(&stats.OnlineUsers)
+	// 当前在线用户和访客（基于 WebSocket 连接状态）
+	if h.onlineStatsProvider != nil {
+		stats.OnlineUsers = int64(h.onlineStatsProvider.GetOnlineUserCount())
+		stats.OnlineGuests = int64(h.onlineStatsProvider.GetOnlineGuestCount())
+	} else {
+		// 回退到数据库查询（兼容旧逻辑）
+		h.db.Table("user_sessions").
+			Where("last_active_at >= ?", time.Now().Add(-5*time.Minute)).
+			Count(&stats.OnlineUsers)
+	}
 
 	// ============================================
 	// 订单统计

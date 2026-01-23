@@ -31,36 +31,51 @@ func NewHandler(hub *Hub, jwtSecret string) *Handler {
 }
 
 // HandleWebSocket 处理 WebSocket 连接请求
-// 认证方式：URL 查询参数 ?token=xxx
+// 认证方式：URL 查询参数 ?token=xxx（可选，无 token 则视为访客）
 func (h *Handler) HandleWebSocket(c *gin.Context) {
 	// 从查询参数获取 token
 	token := c.Query("token")
+
+	// 获取客户端 IP
+	clientIP := c.ClientIP()
+
+	// 获取 melody 实例
+	m := h.hub.GetMelody()
+
+	// 如果没有 token，视为访客连接
 	if token == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code":    401,
-			"message": "Missing token",
+		err := m.HandleRequestWithKeys(c.Writer, c.Request, map[string]interface{}{
+			"is_guest":  true,
+			"client_ip": clientIP,
 		})
+		if err != nil {
+			fmt.Printf("[WebSocket] Failed to upgrade guest connection: %v\n", err)
+		}
 		return
 	}
 
 	// 验证 token
 	userID, username, err := h.validateToken(token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code":    401,
-			"message": "Invalid token: " + err.Error(),
+		// Token 无效，也可以作为访客连接
+		fmt.Printf("[WebSocket] Invalid token, connecting as guest: %v\n", err)
+		err = m.HandleRequestWithKeys(c.Writer, c.Request, map[string]interface{}{
+			"is_guest":  true,
+			"client_ip": clientIP,
 		})
+		if err != nil {
+			fmt.Printf("[WebSocket] Failed to upgrade guest connection: %v\n", err)
+		}
 		return
 	}
-
-	// 获取 melody 实例并升级连接
-	m := h.hub.GetMelody()
 
 	// 在升级前设置用户信息到请求上下文
 	// melody 会在 HandleConnect 中通过 session.Get 获取
 	err = m.HandleRequestWithKeys(c.Writer, c.Request, map[string]interface{}{
-		"user_id":  userID,
-		"username": username,
+		"user_id":   userID,
+		"username":  username,
+		"client_ip": clientIP,
+		"is_guest":  false,
 	})
 
 	if err != nil {
@@ -108,5 +123,14 @@ func (h *Handler) validateToken(tokenString string) (uint, string, error) {
 // GetHub 获取 Hub 实例
 func (h *Handler) GetHub() *Hub {
 	return h.hub
+}
+
+// GetOnlineStats 获取在线统计信息（供管理端调用）
+func (h *Handler) GetOnlineStats(c *gin.Context) {
+	stats := h.hub.GetOnlineStats()
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"data": stats,
+	})
 }
 

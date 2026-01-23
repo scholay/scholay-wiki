@@ -14,50 +14,23 @@ import logger from './logger';
 
 const AuthContext = createContext(null);
 
-// 配置常量
-const HEARTBEAT_CONFIG = {
-  ACTIVE_INTERVAL: 30000,      // 活跃状态下的心跳间隔：30秒
-  IDLE_INTERVAL: 120000,       // 空闲状态下的心跳间隔：2分钟
-  IDLE_TIMEOUT: 60000,         // 空闲超时时间：1分钟无操作视为空闲
-  INACTIVE_TIMEOUT: 300000,    // 不活跃超时时间：5分钟无操作停止心跳
-};
-
 // Token 刷新配置
 const TOKEN_REFRESH_CONFIG = {
   CHECK_INTERVAL: 300000,      // 每5分钟检查一次 Token 状态
   REFRESH_THRESHOLD: 7200,     // Token 过期前 2 小时（7200秒）开始刷新
 };
 
-// 需要监听的用户活动事件
-// 注意：
-// - 移除了 mousemove，因为它会非常频繁触发，即使鼠标微小抖动也会触发
-// - 移除了 focus，因为窗口获得焦点时会触发，即使用户没有真正操作页面内容
-// 只保留真正的用户交互事件
-const USER_ACTIVITY_EVENTS = [
-  'mousedown',
-  'keydown',
-  'scroll',
-  'touchstart',
-  'click',
-];
-
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  // 心跳相关的 refs
-  const heartbeatIntervalRef = useRef(null);
-  const lastActivityRef = useRef(Date.now());
-  const isIdleRef = useRef(false);
-  const activityCheckIntervalRef = useRef(null);
   
   // Token 刷新相关的 refs
   const tokenRefreshIntervalRef = useRef(null);
   const isRefreshingTokenRef = useRef(false);
   
   // 使用 ref 存储函数引用，避免循环依赖
-  const startHeartbeatRef = useRef(null);
+  const startSessionRef = useRef(null);
 
   // Token 刷新函数
   const refreshToken = useCallback(async () => {
@@ -73,6 +46,11 @@ export const AuthProvider = ({ children }) => {
         const newToken = response.data.data.token;
         localStorage.setItem('user_token', newToken);
         logger.log('[Token] Token refreshed successfully');
+        
+        // Token 刷新后，重新连接 WebSocket
+        wsClient.disconnect();
+        wsClient.connect(newToken);
+        
         return true;
       }
     } catch (error) {
@@ -128,7 +106,7 @@ export const AuthProvider = ({ children }) => {
     // 立即检查一次
     checkAndRefreshToken();
 
-    // 每分钟检查一次
+    // 每5分钟检查一次
     tokenRefreshIntervalRef.current = setInterval(checkAndRefreshToken, TOKEN_REFRESH_CONFIG.CHECK_INTERVAL);
   }, [checkAndRefreshToken]);
 
@@ -140,172 +118,65 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Heartbeat function to keep session alive
-  const sendHeartbeat = useCallback(async () => {
-    const token = localStorage.getItem('user_token');
-    if (!token) {
-      return false;
-    }
-
-    try {
-      await userAPI.heartbeat();
-      return true;
-    } catch (error) {
-      // If 401, axios interceptor will handle it (clear token, redirect, etc.)
-      // For other errors, just log
-      if (error.response?.status !== 401) {
-        logger.error('Heartbeat error:', error);
-      }
-      return false;
-    }
-  }, []);
-
-  // 重新设置心跳间隔
-  const restartHeartbeatWithInterval = useCallback((interval) => {
-    if (heartbeatIntervalRef.current) {
-      clearInterval(heartbeatIntervalRef.current);
-    }
-    heartbeatIntervalRef.current = setInterval(sendHeartbeat, interval);
-  }, [sendHeartbeat]);
-
-  // Stop heartbeat - 定义在前面以便其他函数使用
-  const stopHeartbeat = useCallback(() => {
-    if (heartbeatIntervalRef.current) {
-      clearInterval(heartbeatIntervalRef.current);
-      heartbeatIntervalRef.current = null;
-    }
-    if (activityCheckIntervalRef.current) {
-      clearInterval(activityCheckIntervalRef.current);
-      activityCheckIntervalRef.current = null;
-    }
-  }, []);
-
-  // 检查用户活动状态
-  const checkActivityStatus = useCallback(() => {
-    const now = Date.now();
-    const timeSinceLastActivity = now - lastActivityRef.current;
-
-    // 如果超过不活跃时间，停止心跳
-    if (timeSinceLastActivity >= HEARTBEAT_CONFIG.INACTIVE_TIMEOUT) {
-      if (heartbeatIntervalRef.current) {
-        stopHeartbeat();
-      }
-      return;
-    }
-
-    // 如果超过空闲时间但未超过不活跃时间，降低心跳频率
-    if (timeSinceLastActivity >= HEARTBEAT_CONFIG.IDLE_TIMEOUT && !isIdleRef.current) {
-      isIdleRef.current = true;
-      restartHeartbeatWithInterval(HEARTBEAT_CONFIG.IDLE_INTERVAL);
-    }
-  }, [stopHeartbeat, restartHeartbeatWithInterval]);
-
-  // 更新最后活动时间
-  const updateLastActivity = useCallback(() => {
-    lastActivityRef.current = Date.now();
-    
-    const token = localStorage.getItem('user_token');
-    if (!token) return;
-    
-    // 如果心跳已经完全停止（5分钟无操作后），需要重新启动
-    if (!heartbeatIntervalRef.current) {
-      // 使用 startHeartbeatRef 重新启动完整的心跳机制
-      if (startHeartbeatRef.current) {
-        startHeartbeatRef.current();
-      }
-      return;
-    }
-    
-    // 如果之前是空闲状态，现在变为活跃
-    if (isIdleRef.current) {
-      isIdleRef.current = false;
-      // 立即发送一次心跳，然后重新设置活跃间隔
-      sendHeartbeat();
-      restartHeartbeatWithInterval(HEARTBEAT_CONFIG.ACTIVE_INTERVAL);
-    }
-  }, [sendHeartbeat, restartHeartbeatWithInterval]);
-
   // Handle page visibility change
-  // 当用户离开当前页面（切换标签页/最小化窗口）时，立即停止心跳
-  // 当用户回到页面时，重新启动心跳
+  // 当用户离开当前页面（切换标签页/最小化窗口）时，断开 WebSocket
+  // 当用户回到页面时，重新连接 WebSocket
   const handleVisibilityChange = useCallback(() => {
-    const token = localStorage.getItem('user_token');
-    if (!token) return;
-
     if (document.visibilityState === 'visible') {
-      // 页面变为可见，重新启动心跳
-      lastActivityRef.current = Date.now();
-      if (!heartbeatIntervalRef.current) {
-        if (startHeartbeatRef.current) {
-          startHeartbeatRef.current();
-        }
+      // 页面变为可见，重新连接 WebSocket
+      if (!wsClient.getStatus().isConnected && !wsClient.getStatus().isConnecting) {
+        const token = localStorage.getItem('user_token');
+        logger.log('[Session] Page visible, reconnecting WebSocket as', token ? 'user' : 'guest');
+        wsClient.connect(token || null);
       }
     } else {
-      // 页面变为隐藏（用户切换到其他标签页/窗口），立即停止心跳
-      stopHeartbeat();
+      // 页面变为隐藏（用户切换到其他标签页/窗口），断开 WebSocket
+      logger.log('[Session] Page hidden, disconnecting WebSocket');
+      wsClient.disconnect(false); // 不阻止重连，允许页面恢复时重连
     }
-  }, [stopHeartbeat]);
+  }, []);
 
-  // Start heartbeat with activity detection
-  const startHeartbeat = useCallback(() => {
-    // Clear any existing intervals
-    if (heartbeatIntervalRef.current) {
-      clearInterval(heartbeatIntervalRef.current);
-    }
-    if (activityCheckIntervalRef.current) {
-      clearInterval(activityCheckIntervalRef.current);
-    }
-
-    // Reset activity state
-    lastActivityRef.current = Date.now();
-    isIdleRef.current = false;
-
-    // Send initial heartbeat
-    sendHeartbeat();
-
-    // Set up interval to send heartbeat (active interval initially)
-    heartbeatIntervalRef.current = setInterval(sendHeartbeat, HEARTBEAT_CONFIG.ACTIVE_INTERVAL);
-
-    // Set up activity status check (every 10 seconds)
-    activityCheckIntervalRef.current = setInterval(checkActivityStatus, 10000);
-
-    // Add activity event listeners
-    USER_ACTIVITY_EVENTS.forEach(event => {
-      window.addEventListener(event, updateLastActivity, { passive: true });
-    });
-
-    // Also listen for visibility change
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // 同时启动 Token 刷新检查
+  // Start session management (WebSocket + Token refresh)
+  // NOTE: HTTP heartbeat 已移除，由 WebSocket 连接替代
+  // WebSocket 在连接建立和心跳时会自动更新服务器端的 session activity
+  const startSession = useCallback(() => {
+    // 启动 Token 刷新检查
     startTokenRefresh();
 
-    // 建立 WebSocket 连接（用于实时消息推送）
+    // 建立 WebSocket 连接（用于实时消息推送 + session 活动追踪）
     const token = localStorage.getItem('user_token');
-    if (token) {
-      wsClient.connect(token);
+    wsClient.connect(token || null);
+
+    // 监听页面可见性变化
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+  }, [startTokenRefresh, handleVisibilityChange]);
+
+  // 启动访客 WebSocket 连接（未登录用户）
+  const startGuestSession = useCallback(() => {
+    // 建立访客 WebSocket 连接
+    if (!wsClient.getStatus().isConnected && !wsClient.getStatus().isConnecting) {
+      wsClient.connect(null);
     }
-  }, [sendHeartbeat, checkActivityStatus, updateLastActivity, handleVisibilityChange, startTokenRefresh]);
+    // 监听页面可见性变化
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+  }, [handleVisibilityChange]);
 
   // 更新 ref
   useEffect(() => {
-    startHeartbeatRef.current = startHeartbeat;
-  }, [startHeartbeat]);
+    startSessionRef.current = startSession;
+  }, [startSession]);
 
-  // 完整的 stopHeartbeat（包含清理事件监听器）
-  const fullStopHeartbeat = useCallback(() => {
-    stopHeartbeat();
+  // Stop session management (登出时调用)
+  const stopSession = useCallback(() => {
     stopTokenRefresh();
     
-    // Remove activity event listeners
-    USER_ACTIVITY_EVENTS.forEach(event => {
-      window.removeEventListener(event, updateLastActivity);
-    });
-    document.removeEventListener('visibilitychange', handleVisibilityChange);
-
-    // 断开 WebSocket 连接
+    // 断开当前 WebSocket 连接，然后重新建立访客连接
     wsClient.disconnect();
-  }, [stopHeartbeat, stopTokenRefresh, updateLastActivity, handleVisibilityChange]);
+    // 短暂延迟后建立访客连接
+    setTimeout(() => {
+      wsClient.connect(null);
+    }, 100);
+  }, [stopTokenRefresh]);
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -341,8 +212,8 @@ export const AuthProvider = ({ children }) => {
               localStorage.setItem('user_data', JSON.stringify(freshUserData));
               setUser(freshUserData);
               
-              // 验证成功后启动心跳（Token 可能已被刷新）
-              startHeartbeat();
+              // 验证成功后启动 session（WebSocket + Token 刷新）
+              startSession();
             } else {
               // API 返回成功但业务失败，清除登录状态
               logger.log('Profile API returned error, clearing auth state');
@@ -350,6 +221,8 @@ export const AuthProvider = ({ children }) => {
               localStorage.removeItem('user_data');
               setIsAuthenticated(false);
               setUser(null);
+              // 启动访客 WebSocket 连接
+              startGuestSession();
             }
           } catch (error) {
             // 如果获取用户信息失败（包括 Token 刷新失败），
@@ -362,9 +235,11 @@ export const AuthProvider = ({ children }) => {
               localStorage.removeItem('user_data');
               setIsAuthenticated(false);
               setUser(null);
+              // 启动访客 WebSocket 连接
+              startGuestSession();
             } else {
               // 其他错误（如网络问题），仍然保持登录状态
-              startHeartbeat();
+              startSession();
             }
           }
         } catch (error) {
@@ -373,7 +248,12 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem('user_data');
           setIsAuthenticated(false);
           setUser(null);
+          // 启动访客 WebSocket 连接
+          startGuestSession();
         }
+      } else {
+        // 未登录用户，启动访客 WebSocket 连接
+        startGuestSession();
       }
       setLoading(false);
     };
@@ -382,8 +262,8 @@ export const AuthProvider = ({ children }) => {
 
     // Listen for auth expiration events
     const handleAuthExpired = (event) => {
-      // Stop heartbeat and clear state
-      fullStopHeartbeat();
+      // Stop session and clear state
+      stopSession();
       setIsAuthenticated(false);
       setUser(null);
 
@@ -403,7 +283,7 @@ export const AuthProvider = ({ children }) => {
 
     // Cleanup on unmount
     return () => {
-      fullStopHeartbeat();
+      stopSession();
       window.removeEventListener('auth:expired', handleAuthExpired);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -414,7 +294,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user_data', JSON.stringify(userData));
     setIsAuthenticated(true);
     setUser(userData);
-    startHeartbeat(); // Start heartbeat when user logs in
+    startSession(); // Start session management when user logs in
     
     // 登录后立即获取订阅信息
     try {
@@ -430,8 +310,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    // Stop heartbeat first
-    fullStopHeartbeat();
+    // Stop session first
+    stopSession();
 
     // Call backend logout API to delete session
     try {

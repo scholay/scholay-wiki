@@ -21,6 +21,7 @@ const UserManagement = () => {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({
     onlineUsers: 0,
+    onlineGuests: 0,
     todayRegistrations: 0,
     weekRegistrations: 0,
     monthRegistrations: 0,
@@ -92,6 +93,7 @@ const UserManagement = () => {
       if (response.data.code === 0 && response.data.data) {
         setStats({
           onlineUsers: response.data.data.online_users || 0,
+          onlineGuests: response.data.data.online_guests || 0,
           todayRegistrations: response.data.data.today_registrations || 0,
           weekRegistrations: response.data.data.week_registrations || 0,
           monthRegistrations: response.data.data.month_registrations || 0,
@@ -444,10 +446,9 @@ const UserManagement = () => {
     );
   };
 
-  // 渲染会员/钱包组合单元格
-  const renderMemberWalletCell = (user) => {
+  // 渲染会员状态单元格（精简版，钱包信息移至详情页）
+  const renderMemberCell = (user) => {
     const subscription = user.subscription;
-    const wallet = user.wallet;
 
     // 获取剩余天数的样式类
     const getExpiryClass = (days) => {
@@ -459,34 +460,20 @@ const UserManagement = () => {
     };
 
     return (
-      <div className="um-member-wallet-cell">
-        {/* 会员信息行 */}
-        <div className="um-mw-plan-row">
-          {subscription ? (
-            <>
-              <span className={`um-mw-plan um-mw-plan-${subscription.plan_code.toLowerCase()}`}>
-                {subscription.plan_name || subscription.plan_code}
-              </span>
-              <span className={`um-mw-days ${getExpiryClass(subscription.remaining_days)}`}>
-                {subscription.remaining_days}天
-              </span>
-              {subscription.auto_renew && <span className="um-mw-renew">续</span>}
-            </>
-          ) : (
-            <span className="um-mw-plan um-mw-plan-free">免费</span>
-          )}
-        </div>
-        {/* 钱包信息行 */}
-        <div className="um-mw-wallet-row">
-          <span className="um-mw-gold">
-            <GoldIcon size="xs" />
-            <span>{wallet?.gold || 0}</span>
-          </span>
-          <span className="um-mw-diamond">
-            <EntcoinIcon size="xs" />
-            <span>{wallet?.diamond || 0}</span>
-          </span>
-        </div>
+      <div className="um-member-cell">
+        {subscription ? (
+          <div className="um-mw-plan-row">
+            <span className={`um-mw-plan um-mw-plan-${subscription.plan_code.toLowerCase()}`}>
+              {subscription.plan_name || subscription.plan_code}
+            </span>
+            <span className={`um-mw-days ${getExpiryClass(subscription.remaining_days)}`}>
+              {subscription.remaining_days}天
+            </span>
+            {subscription.auto_renew && <span className="um-mw-renew">续</span>}
+          </div>
+        ) : (
+          <span className="um-mw-plan um-mw-plan-free">免费</span>
+        )}
       </div>
     );
   };
@@ -592,7 +579,11 @@ const UserManagement = () => {
           <div className="um-quick-stats">
             <div className="um-quick-stat um-quick-stat-online">
               <span className="um-quick-stat-value">{stats.onlineUsers}</span>
-              <span className="um-quick-stat-label">在线</span>
+              <span className="um-quick-stat-label">用户在线</span>
+            </div>
+            <div className="um-quick-stat um-quick-stat-guest">
+              <span className="um-quick-stat-value">{stats.onlineGuests}</span>
+              <span className="um-quick-stat-label">访客在线</span>
             </div>
             <div className="um-quick-stat um-quick-stat-today">
               <span className="um-quick-stat-value">{stats.todayRegistrations}</span>
@@ -738,8 +729,7 @@ const UserManagement = () => {
                   <thead>
                     <tr>
                       <th>用户信息</th>
-                      <th>会员/钱包</th>
-                      <th>邀请者</th>
+                      <th>会员状态</th>
                       <th>状态</th>
                       <th
                         className="um-sortable-header"
@@ -769,39 +759,17 @@ const UserManagement = () => {
                               <div className="um-user-contacts">
                                 {user.email && <span className="um-contact-tag um-contact-email">{user.email}</span>}
                                 {user.phone && <span className="um-contact-tag um-contact-phone">{user.phone}</span>}
-                                {user.github_login && <span className="um-contact-tag um-contact-github">{user.github_login}</span>}
-                                {user.wechat_name && <span className="um-contact-tag um-contact-wechat">{user.wechat_name}</span>}
                               </div>
                             </div>
                           </td>
-                          <td>{renderMemberWalletCell(user)}</td>
-                          <td>
-                            {user.invited_by ? (
-                              <div className="um-inviter-info-cell">
-                                <span className="um-inviter-id">#{user.invited_by.user_id}</span>
-                                <span className="um-inviter-name">{user.invited_by.username || '-'}</span>
-                              </div>
-                            ) : (
-                              <span className="um-no-inviter">-</span>
-                            )}
-                          </td>
+                          <td>{renderMemberCell(user)}</td>
                           <td>{getUserStatusLabel(user.status)}</td>
                           <td>
-                            <div className="um-login-info-cell">
-                              <div 
-                                className="um-relative-time" 
-                                title={formatDate(user.last_login_at)}
-                              >
-                                {formatRelativeTime(user.last_login_at)}
-                              </div>
-                              {user.last_login_ip && (
-                                <div className="um-ip-location-cell">
-                                  <div className="um-ip-address">{user.last_login_ip}</div>
-                                  {user.last_login_ip_info && (
-                                    <div className="um-location-info">{user.last_login_ip_info}</div>
-                                  )}
-                                </div>
-                              )}
+                            <div 
+                              className="um-relative-time" 
+                              title={formatDate(user.last_login_at)}
+                            >
+                              {formatRelativeTime(user.last_login_at)}
                             </div>
                           </td>
                           <td>
@@ -864,7 +832,7 @@ const UserManagement = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="7" className="no-data">
+                        <td colSpan="6" className="no-data">
                           {searchKeyword || filterStatus || filterPlan ? '没有找到匹配的用户' : '暂无用户数据'}
                         </td>
                       </tr>

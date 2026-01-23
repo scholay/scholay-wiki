@@ -27,13 +27,20 @@ type WeChatService interface {
 	GetUserInfo(accessToken, openID string) (nickname, headImgURL, unionID string, err error)
 }
 
+// OnlineStatsProvider 提供在线统计的接口（由 WebSocket Hub 实现）
+type OnlineStatsProvider interface {
+	GetOnlineUserCount() int
+	GetOnlineGuestCount() int
+}
+
 // Handler handles HTTP requests for user operations
 type Handler struct {
-	service         *Service
-	wechatService   WeChatService
-	userRepo        *Repository
-	configRepo      *config.Repository
-	currencyService *currency.Service
+	service             *Service
+	wechatService       WeChatService
+	userRepo            *Repository
+	configRepo          *config.Repository
+	currencyService     *currency.Service
+	onlineStatsProvider OnlineStatsProvider
 }
 
 // NewHandler creates a new user handler
@@ -54,6 +61,11 @@ func (h *Handler) SetWeChatService(wechatService WeChatService) {
 // SetCurrencyService sets the currency service
 func (h *Handler) SetCurrencyService(currencyService *currency.Service) {
 	h.currencyService = currencyService
+}
+
+// SetOnlineStatsProvider 设置在线统计提供者（WebSocket Hub）
+func (h *Handler) SetOnlineStatsProvider(provider OnlineStatsProvider) {
+	h.onlineStatsProvider = provider
 }
 
 // CheckEmailRequest represents a check email request
@@ -629,6 +641,7 @@ func (h *Handler) GetUserStatistics(c *gin.Context) {
 }
 
 // GetUserList handles getting paginated user list (admin only)
+// 性能优化版本：只返回列表必需的数据，详细信息通过 GetUserDetail 获取
 func (h *Handler) GetUserList(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -657,20 +670,13 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		return
 	}
 
-	// Get user IDs for fetching auth providers
+	// Get user IDs for fetching subscriptions
 	userIDs := make([]uint, len(users))
 	for i, user := range users {
 		userIDs[i] = user.ID
 	}
 
-	// Fetch auth providers (including WeChat) for all users
-	authProviders, err := h.service.repo.GetUserAuthProviders(userIDs)
-	if err != nil {
-		// Log error but continue without provider info
-		authProviders = make(map[uint][]UserAuthProvider)
-	}
-
-	// Build response with auth provider info and subscription info
+	// 响应结构体 - 精简版，只包含列表必需的字段
 	type SubscriptionInfo struct {
 		PlanCode      string     `json:"plan_code"`
 		PlanName      string     `json:"plan_name"`
@@ -680,29 +686,12 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		AutoRenew     bool       `json:"auto_renew"`
 	}
 
-	type InviterInfo struct {
-		UserID   uint    `json:"user_id"`
-		Username *string `json:"username"`
-	}
-
-	type WalletInfo struct {
-		Gold    int64 `json:"gold"`
-		Diamond int64 `json:"diamond"`
-	}
-
 	type UserResponse struct {
 		User
-		WeChatOpenID     string            `json:"wechat_openid,omitempty"`
-		WeChatUnionID    string            `json:"wechat_union_id,omitempty"`
-		WeChatName       string            `json:"wechat_name,omitempty"`
-		GithubLogin      string            `json:"github_login,omitempty"`
-		Subscription     *SubscriptionInfo `json:"subscription,omitempty"`
-		Wallet           *WalletInfo       `json:"wallet,omitempty"`              // 钱包信息
-		LastLoginIPInfo  string            `json:"last_login_ip_info,omitempty"`   // IP归属地信息
-		InvitedBy        *InviterInfo      `json:"invited_by,omitempty"`           // 邀请者信息
+		Subscription *SubscriptionInfo `json:"subscription,omitempty"`
 	}
 
-	// Get subscriptions for all users
+	// 只查询订阅信息（会员筛选需要）
 	var subscriptions []struct {
 		UserID    uint       `gorm:"column:user_id"`
 		PlanCode  string     `gorm:"column:plan_code"`
@@ -737,43 +726,7 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		}
 	}
 
-	// Get inviter info for all users
-	var inviterRelations []struct {
-		InviteeID uint    `gorm:"column:invitee_id"`
-		InviterID uint    `gorm:"column:inviter_id"`
-		Username  *string `gorm:"column:username"`
-	}
-	h.service.repo.GetDB().Table("invitation_relationships").
-		Select("invitation_relationships.invitee_id, invitation_relationships.inviter_id, users.username").
-		Joins("LEFT JOIN users ON users.id = invitation_relationships.inviter_id").
-		Where("invitation_relationships.invitee_id IN ?", userIDs).
-		Scan(&inviterRelations)
-
-	// Map inviters by invitee user ID
-	inviterMap := make(map[uint]*InviterInfo)
-	for _, rel := range inviterRelations {
-		if rel.InviterID > 0 {
-			inviterMap[rel.InviteeID] = &InviterInfo{
-				UserID:   rel.InviterID,
-				Username: rel.Username,
-			}
-		}
-	}
-
-	// Get wallet info for all users
-	walletMap := make(map[uint]*WalletInfo)
-	if h.currencyService != nil {
-		wallets, err := h.currencyService.GetWalletsByUserIDs(userIDs)
-		if err == nil {
-			for userID, wallet := range wallets {
-				walletMap[userID] = &WalletInfo{
-					Gold:    wallet.Gold,
-					Diamond: wallet.Diamond,
-				}
-			}
-		}
-	}
-
+	// 构建精简响应
 	userResponses := make([]UserResponse, len(users))
 	for i, user := range users {
 		response := UserResponse{User: user}
@@ -781,53 +734,6 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		// Add subscription info
 		if subInfo, ok := subscriptionMap[user.ID]; ok {
 			response.Subscription = subInfo
-		}
-
-		// Add wallet info
-		if wallet, ok := walletMap[user.ID]; ok {
-			response.Wallet = wallet
-		}
-
-		// Add inviter info
-		if inviter, ok := inviterMap[user.ID]; ok {
-			response.InvitedBy = inviter
-		}
-
-		// Parse IP location
-		if user.LastLoginIP != nil && *user.LastLoginIP != "" {
-			location := utils.ParseIPLocation(*user.LastLoginIP)
-			response.LastLoginIPInfo = utils.GetLocationString(location)
-		}
-
-		// Find auth providers
-		if providers, ok := authProviders[user.ID]; ok {
-			for _, provider := range providers {
-				if provider.Provider == "wechat" {
-					response.WeChatOpenID = provider.ProviderUserID
-					if provider.ProviderUnionID != nil {
-						response.WeChatUnionID = *provider.ProviderUnionID
-					}
-					// Extract nickname from provider_data
-					if provider.ProviderData != nil {
-						var providerData map[string]interface{}
-						if err := json.Unmarshal([]byte(*provider.ProviderData), &providerData); err == nil {
-							if nickname, ok := providerData["nickname"].(string); ok {
-								response.WeChatName = nickname
-							}
-						}
-					}
-				} else if provider.Provider == "github" {
-					// Extract GitHub login from provider_data
-					if provider.ProviderData != nil {
-						var providerData map[string]interface{}
-						if err := json.Unmarshal([]byte(*provider.ProviderData), &providerData); err == nil {
-							if login, ok := providerData["login"].(string); ok {
-								response.GithubLogin = login
-							}
-						}
-					}
-				}
-			}
 		}
 
 		userResponses[i] = response
@@ -842,7 +748,22 @@ func (h *Handler) GetUserList(c *gin.Context) {
 }
 
 // GetOnlineUsers handles getting currently online users (admin only)
+// 基于 WebSocket 连接状态返回在线统计
 func (h *Handler) GetOnlineUsers(c *gin.Context) {
+	if h.onlineStatsProvider != nil {
+		// 使用 WebSocket 连接状态
+		onlineUsers := h.onlineStatsProvider.GetOnlineUserCount()
+		onlineGuests := h.onlineStatsProvider.GetOnlineGuestCount()
+
+		utils.Success(c, gin.H{
+			"online_users":  onlineUsers,
+			"online_guests": onlineGuests,
+			"total_online":  onlineUsers + onlineGuests,
+		})
+		return
+	}
+
+	// 回退到旧逻辑（数据库查询）
 	users, err := h.service.GetOnlineUsers()
 	if err != nil {
 		utils.Error(c, 2009, "Failed to get online users")
@@ -850,7 +771,7 @@ func (h *Handler) GetOnlineUsers(c *gin.Context) {
 	}
 
 	utils.Success(c, gin.H{
-		"online_users": users,
+		"online_users": len(users),
 	})
 }
 
@@ -986,34 +907,8 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 	utils.SuccessWithMessage(c, "Password changed successfully", nil)
 }
 
-// Heartbeat handles heartbeat requests to update session activity
-func (h *Handler) Heartbeat(c *gin.Context) {
-	// Get token from Authorization header
-	token := c.GetHeader("Authorization")
-	if token == "" {
-		utils.Unauthorized(c, "No token provided")
-		return
-	}
-
-	// Remove "Bearer " prefix if present
-	if len(token) > 7 && token[:7] == "Bearer " {
-		token = token[7:]
-	}
-
-	// Get client IP
-	ip := c.ClientIP()
-
-	// Update session activity and user's last login IP
-	err := h.service.UpdateSessionActivity(token, ip)
-	if err != nil {
-		utils.Error(c, 2011, "Failed to update session activity")
-		return
-	}
-
-	utils.Success(c, map[string]interface{}{
-		"timestamp": time.Now(),
-	})
-}
+// NOTE: Heartbeat 接口已移除，由 WebSocket 连接替代
+// WebSocket 在连接建立和收到 ping 消息时会自动更新 session activity
 
 // GetUserStatisticsChart handles getting user statistics chart data (admin only)
 // 支持自定义时间范围和时间粒度

@@ -50,11 +50,12 @@ type MessageService interface {
 
 // Service handles business logic for user operations
 type Service struct {
-	repo            *Repository
-	configService   ConfigService
-	couponService   CouponService
-	currencyService CurrencyService
-	messageService  MessageService
+	repo                *Repository
+	configService       ConfigService
+	couponService       CouponService
+	currencyService     CurrencyService
+	messageService      MessageService
+	onlineStatsProvider OnlineStatsProvider
 }
 
 // NewService creates a new user service
@@ -89,6 +90,11 @@ func (s *Service) SetCurrencyService(currencyService CurrencyService) {
 // SetMessageService sets the message service (for dependency injection)
 func (s *Service) SetMessageService(messageService MessageService) {
 	s.messageService = messageService
+}
+
+// SetOnlineStatsProvider 设置在线统计提供者（WebSocket Hub）
+func (s *Service) SetOnlineStatsProvider(provider OnlineStatsProvider) {
+	s.onlineStatsProvider = provider
 }
 
 // GetRegisterGiftAmount 获取注册赠送经费金额配置
@@ -573,9 +579,19 @@ func (s *Service) UpdateProfile(id uint, username *string, avatarURL *string, bi
 
 // GetUserStatistics returns user statistics
 func (s *Service) GetUserStatistics() (map[string]interface{}, error) {
-	onlineUsers, err := s.repo.GetOnlineUserCount()
-	if err != nil {
-		return nil, err
+	// 在线用户数：优先使用 WebSocket 连接状态
+	var onlineUsers int64
+	var onlineGuests int64
+	if s.onlineStatsProvider != nil {
+		onlineUsers = int64(s.onlineStatsProvider.GetOnlineUserCount())
+		onlineGuests = int64(s.onlineStatsProvider.GetOnlineGuestCount())
+	} else {
+		// 回退到数据库查询
+		count, err := s.repo.GetOnlineUserCount()
+		if err != nil {
+			return nil, err
+		}
+		onlineUsers = count
 	}
 
 	// 获取今日注册用户数
@@ -615,6 +631,7 @@ func (s *Service) GetUserStatistics() (map[string]interface{}, error) {
 
 	stats := map[string]interface{}{
 		"online_users":        onlineUsers,
+		"online_guests":       onlineGuests,
 		"today_registrations": todayRegistrations,
 		"week_registrations":  weekRegistrations,
 		"month_registrations": monthRegistrations,
@@ -642,6 +659,12 @@ func (s *Service) GetOnlineUsers() ([]map[string]interface{}, error) {
 }
 
 // UserDetail represents detailed user information for admin
+// WalletInfo 钱包信息
+type WalletInfo struct {
+	Gold    int64 `json:"gold"`
+	Diamond int64 `json:"diamond"`
+}
+
 type UserDetail struct {
 	// Basic Info
 	ID            uint       `json:"id"`
@@ -653,9 +676,14 @@ type UserDetail struct {
 	Status        int8       `json:"status"`
 	CreatedAt     time.Time  `json:"created_at"`
 	LastLoginAt   *time.Time `json:"last_login_at"`
+	LastLoginIP   *string    `json:"last_login_ip,omitempty"`      // 最后登录IP
+	LastLoginIPInfo string   `json:"last_login_ip_info,omitempty"` // IP归属地
 
 	// Auth Providers
 	AuthProviders []string `json:"auth_providers"`
+
+	// Wallet Info
+	Wallet *WalletInfo `json:"wallet,omitempty"` // 钱包信息
 
 	// Subscription Info
 	CurrentSubscription *SubscriptionInfo `json:"current_subscription,omitempty"`
@@ -762,7 +790,28 @@ func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
 		Status:        user.Status,
 		CreatedAt:     user.CreatedAt,
 		LastLoginAt:   user.LastLoginAt,
+		LastLoginIP:   user.LastLoginIP,
 		AuthProviders: []string{},
+	}
+
+	// Parse IP location
+	if user.LastLoginIP != nil && *user.LastLoginIP != "" {
+		location := utils.ParseIPLocation(*user.LastLoginIP)
+		detail.LastLoginIPInfo = utils.GetLocationString(location)
+	}
+
+	// Get wallet info
+	var wallet struct {
+		Gold    int64 `gorm:"column:gold"`
+		Diamond int64 `gorm:"column:diamond"`
+	}
+	if err := s.repo.GetDB().Table("wallets").
+		Where("user_id = ?", userID).
+		First(&wallet).Error; err == nil {
+		detail.Wallet = &WalletInfo{
+			Gold:    wallet.Gold,
+			Diamond: wallet.Diamond,
+		}
 	}
 
 	// Get auth providers
@@ -1144,6 +1193,11 @@ func (s *Service) CreateSession(userID uint, token, ip, userAgent string, expire
 // UpdateSessionActivity updates the last activity time of a session and user's last login IP
 func (s *Service) UpdateSessionActivity(token, ip string) error {
 	return s.repo.UpdateSessionActivity(token, ip)
+}
+
+// UpdateSessionActivityByUserID updates session activity by user ID (used by WebSocket)
+func (s *Service) UpdateSessionActivityByUserID(userID uint, ip string) error {
+	return s.repo.UpdateSessionActivityByUserID(userID, ip)
 }
 
 // CleanupExpiredSessions deletes expired sessions

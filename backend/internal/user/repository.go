@@ -278,6 +278,37 @@ func (r *Repository) UpdateSessionActivity(token, ip string) error {
 	})
 }
 
+// UpdateSessionActivityByUserID updates session activity and user's last login info by user ID
+// Used by WebSocket connections which don't have access to the original token
+func (r *Repository) UpdateSessionActivityByUserID(userID uint, ip string) error {
+	now := time.Now()
+
+	// Use transaction to update both session and user
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// Update all active sessions for this user
+		if err := tx.Model(&model.UserSession{}).
+			Where("user_id = ? AND expires_at > ?", userID, now).
+			Updates(map[string]interface{}{
+				"last_activity": now,
+				"ip":            ip,
+			}).Error; err != nil {
+			return err
+		}
+
+		// Update user's last_login_at and last_login_ip
+		if err := tx.Model(&User{}).
+			Where("id = ?", userID).
+			Updates(map[string]interface{}{
+				"last_login_at": now,
+				"last_login_ip": ip,
+			}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
 // DeleteExpiredSessions deletes all expired sessions
 func (r *Repository) DeleteExpiredSessions() error {
 	return r.db.Where("expires_at < ?", time.Now()).

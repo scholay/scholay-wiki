@@ -210,8 +210,7 @@ export const userAPI = {
   logout: () =>
     api.post('/user/logout'),
 
-  heartbeat: () =>
-    api.post('/user/heartbeat'),
+  // NOTE: heartbeat 接口已移除，由 WebSocket 连接替代
 
   // Token 刷新接口
   refreshToken: () =>

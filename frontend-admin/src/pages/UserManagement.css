@@ -85,6 +85,14 @@
   color: var(--success-600);
 }
 
+.um-quick-stat-guest {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(139, 92, 246, 0.08));
+}
+
+.um-quick-stat-guest .um-quick-stat-value {
+  color: #8b5cf6;
+}
+
 .um-quick-stat-today {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(99, 102, 241, 0.08));
 }

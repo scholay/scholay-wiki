@@ -295,6 +295,16 @@ func main() {
 	// Inject WebSocket hub into message service for real-time notifications
 	messageHandler.SetWebSocketHub(wsHub)
 
+	// Inject user service into WebSocket hub for session activity updates
+	// This replaces the HTTP heartbeat endpoint with WebSocket-based session tracking
+	wsHub.SetSessionUpdater(userService)
+
+	// Inject WebSocket hub into services for real-time online statistics
+	// This replaces the old session-based online user counting
+	userService.SetOnlineStatsProvider(wsHub)
+	userHandler.SetOnlineStatsProvider(wsHub)
+	dashboardHandler.SetOnlineStatsProvider(wsHub)
+
 	// Inject currency service into user service (for register gift)
 	userService.SetCurrencyService(currencyService)
 	// Inject message service into user service (for welcome message)
@@ -752,7 +762,7 @@ func main() {
 			userProtected.PUT("/profile", userHandler.UpdateProfile)
 			userProtected.POST("/logout", userHandler.Logout)
 			userProtected.POST("/change-password", userHandler.ChangePassword)
-			userProtected.POST("/heartbeat", userHandler.Heartbeat)
+			// NOTE: /heartbeat 接口已移除，由 WebSocket 连接替代
 
 			// Wallet routes (钱包)
 			userProtected.GET("/wallet", currencyHandler.GetWallet)

@@ -52,7 +52,7 @@ const isWhitelistedReturnURL = (url) => {
 };
 
 // CRITICAL: Clear old tokens IMMEDIATELY before component renders
-// This prevents AuthContext from starting heartbeat with expired tokens
+// This prevents AuthContext from starting session with expired tokens
 // Must be outside the component to run before React lifecycle
 // NOTE: We only clear auth tokens, NOT OAuth state which is needed for verification
 const bindMode = localStorage.getItem('wechat_bind_mode');
@@ -117,7 +117,7 @@ const WeChatCallback = () => {
       }
 
       // Note: Old tokens were already cleared at module load time (lines 10-17)
-      // to prevent AuthContext from starting heartbeat with expired tokens
+      // to prevent AuthContext from starting session with expired tokens
 
       try {
         let response;

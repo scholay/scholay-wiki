@@ -10,9 +10,22 @@ package websocket
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/olahol/melody"
 )
+
+// SessionActivityUpdater 定义更新 session activity 的接口
+type SessionActivityUpdater interface {
+	UpdateSessionActivityByUserID(userID uint, ip string) error
+}
+
+// OnlineStats 在线统计信息
+type OnlineStats struct {
+	OnlineUsers  int `json:"online_users"`   // 在线登录用户数
+	OnlineGuests int `json:"online_guests"`  // 在线访客数
+	TotalOnline  int `json:"total_online"`   // 总在线数
+}
 
 // Hub WebSocket 连接管理中心
 // 基于 melody 实现，管理用户连接映射
@@ -22,7 +35,14 @@ type Hub struct {
 	// userSessions 用户ID -> 会话集合的映射
 	// 一个用户可能有多个连接（多设备/多标签页）
 	userSessions map[uint]map[*melody.Session]bool
-	mu           sync.RWMutex
+
+	// guestSessions 访客会话集合（未登录用户）
+	guestSessions map[*melody.Session]bool
+
+	mu sync.RWMutex
+
+	// sessionUpdater 用于更新 session activity
+	sessionUpdater SessionActivityUpdater
 }
 
 // NewHub 创建新的 Hub
@@ -34,8 +54,9 @@ func NewHub() *Hub {
 	m.Config.MessageBufferSize = 256
 
 	hub := &Hub{
-		melody:       m,
-		userSessions: make(map[uint]map[*melody.Session]bool),
+		melody:        m,
+		userSessions:  make(map[uint]map[*melody.Session]bool),
+		guestSessions: make(map[*melody.Session]bool),
 	}
 
 	// 设置事件处理器
@@ -44,13 +65,36 @@ func NewHub() *Hub {
 	return hub
 }
 
+// SetSessionUpdater 设置 session activity 更新器
+func (h *Hub) SetSessionUpdater(updater SessionActivityUpdater) {
+	h.sessionUpdater = updater
+}
+
 // setupHandlers 设置 melody 事件处理器
 func (h *Hub) setupHandlers() {
 	// 连接建立
 	h.melody.HandleConnect(func(s *melody.Session) {
+		// 检查是否是访客连接
+		isGuest, _ := s.Get("is_guest")
+		if isGuest == true {
+			// 访客连接
+			h.mu.Lock()
+			h.guestSessions[s] = true
+			guestCount := len(h.guestSessions)
+			h.mu.Unlock()
+			fmt.Printf("[WebSocket] Guest connected, total guests: %d\n", guestCount)
+			return
+		}
+
 		// 从 session 中获取 userID（在 handler 中设置）
 		userID, ok := s.Get("user_id")
 		if !ok {
+			// 没有 user_id 也视为访客
+			h.mu.Lock()
+			h.guestSessions[s] = true
+			guestCount := len(h.guestSessions)
+			h.mu.Unlock()
+			fmt.Printf("[WebSocket] Guest connected (no user_id), total guests: %d\n", guestCount)
 			return
 		}
 
@@ -63,12 +107,30 @@ func (h *Hub) setupHandlers() {
 		h.mu.Unlock()
 
 		fmt.Printf("[WebSocket] User %d connected, total sessions: %d\n", uid, len(h.userSessions[uid]))
+
+		// 更新 session activity（连接建立时）
+		h.updateSessionActivity(s)
 	})
 
 	// 连接断开
 	h.melody.HandleDisconnect(func(s *melody.Session) {
+		// 检查是否是访客
+		isGuest, _ := s.Get("is_guest")
+		if isGuest == true {
+			h.mu.Lock()
+			delete(h.guestSessions, s)
+			guestCount := len(h.guestSessions)
+			h.mu.Unlock()
+			fmt.Printf("[WebSocket] Guest disconnected, remaining guests: %d\n", guestCount)
+			return
+		}
+
 		userID, ok := s.Get("user_id")
 		if !ok {
+			// 没有 user_id 可能是访客
+			h.mu.Lock()
+			delete(h.guestSessions, s)
+			h.mu.Unlock()
 			return
 		}
 
@@ -98,6 +160,12 @@ func (h *Hub) setupHandlers() {
 
 		// 处理 ping 消息
 		if message.Type == MessageTypePing {
+			// 只对登录用户更新 session activity
+			isGuest, _ := s.Get("is_guest")
+			if isGuest != true {
+				h.updateSessionActivity(s)
+			}
+
 			pong, _ := NewPongMessage()
 			data, _ := pong.ToJSON()
 			s.Write(data)
@@ -111,6 +179,45 @@ func (h *Hub) setupHandlers() {
 	h.melody.HandleError(func(s *melody.Session, err error) {
 		fmt.Printf("[WebSocket] Error: %v\n", err)
 	})
+}
+
+// updateSessionActivity 更新用户的 session activity
+// 节流：每 30 秒最多更新一次
+func (h *Hub) updateSessionActivity(s *melody.Session) {
+	if h.sessionUpdater == nil {
+		return
+	}
+
+	userID, ok := s.Get("user_id")
+	if !ok {
+		return
+	}
+
+	// 节流检查：避免频繁更新数据库
+	lastUpdateKey := "last_activity_update"
+	if lastUpdate, ok := s.Get(lastUpdateKey); ok {
+		if time.Since(lastUpdate.(time.Time)) < 30*time.Second {
+			return // 30秒内已更新过，跳过
+		}
+	}
+
+	// 获取客户端 IP
+	ip := ""
+	if clientIP, ok := s.Get("client_ip"); ok {
+		ip = clientIP.(string)
+	}
+
+	uid := userID.(uint)
+
+	// 异步更新，避免阻塞 WebSocket 消息处理
+	go func() {
+		if err := h.sessionUpdater.UpdateSessionActivityByUserID(uid, ip); err != nil {
+			fmt.Printf("[WebSocket] Failed to update session activity for user %d: %v\n", uid, err)
+		}
+	}()
+
+	// 记录本次更新时间
+	s.Set(lastUpdateKey, time.Now())
 }
 
 // GetMelody 获取 melody 实例（用于 handler）
@@ -191,11 +298,31 @@ func (h *Hub) IsUserOnline(userID uint) bool {
 	return exists && len(sessions) > 0
 }
 
-// GetOnlineUserCount 获取在线用户数量
+// GetOnlineUserCount 获取在线登录用户数量
 func (h *Hub) GetOnlineUserCount() int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return len(h.userSessions)
+}
+
+// GetOnlineGuestCount 获取在线访客数量
+func (h *Hub) GetOnlineGuestCount() int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.guestSessions)
+}
+
+// GetOnlineStats 获取完整的在线统计信息
+func (h *Hub) GetOnlineStats() OnlineStats {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	users := len(h.userSessions)
+	guests := len(h.guestSessions)
+	return OnlineStats{
+		OnlineUsers:  users,
+		OnlineGuests: guests,
+		TotalOnline:  users + guests,
+	}
 }
 
 // GetUserSessionCount 获取用户的会话数量

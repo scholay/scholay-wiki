@@ -334,7 +334,7 @@ const UserDetailDrawer = ({ userId, onClose }) => {
                 </div>
               )}
 
-              {/* 时间信息 */}
+              {/* 时间与登录信息 */}
               <div className="ud-section ud-section-muted">
                 <div className="ud-time-grid">
                   <div className="ud-time-item">
@@ -345,6 +345,17 @@ const UserDetailDrawer = ({ userId, onClose }) => {
                     <span className="ud-time-label">最后登录</span>
                     <span className="ud-time-value">{formatDate(detail.last_login_at)}</span>
                   </div>
+                  {detail.last_login_ip && (
+                    <div className="ud-time-item">
+                      <span className="ud-time-label">登录IP</span>
+                      <span className="ud-time-value">
+                        {detail.last_login_ip}
+                        {detail.last_login_ip_info && (
+                          <span className="ud-ip-location"> ({detail.last_login_ip_info})</span>
+                        )}
+                      </span>
+                    </div>
+                  )}
                   {detail.order_stats?.last_order_at && (
                     <div className="ud-time-item">
                       <span className="ud-time-label">最后订单</span>
