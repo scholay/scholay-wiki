@@ -270,7 +270,13 @@ const Home = () => {
     }
   };
 
-  // FAQ数据用于结构化数据
+  // FAQ 展开状态
+  const [expandedFaq, setExpandedFaq] = useState(null);
+  
+  // 底部 Tab 切换状态
+  const [activeTab, setActiveTab] = useState('features');
+
+  // FAQ数据用于结构化数据和页面展示
   const faqData = [
     {
       question: '什么是Scholay学术搜索平台？',
@@ -282,7 +288,15 @@ const Home = () => {
     },
     {
       question: 'Scholay的数据来源是什么？',
-      answer: 'Scholay基于Semantic Scholay学术图谱API，提供来自计算机科学、生物医学等多个领域的数百万篇学术论文数据。'
+      answer: 'Scholay的学术数据来自于互联网公开数据，覆盖计算机科学、生物医学等多个学科领域的学术论文。'
+    },
+    {
+      question: 'Scholay是免费的吗？',
+      answer: '是的，Scholay提供免费的基础功能，包括学术检索、论文详情查看等。高级功能如智能分析、智能审稿等可能需要订阅会员。'
+    },
+    {
+      question: '如何使用智能助手功能？',
+      answer: '登录后，点击首页的"智能助手"卡片即可进入。您可以向AI提问任何学术相关问题，它会基于学术文献为您提供专业解答。'
     }
   ];
 
@@ -307,6 +321,7 @@ const Home = () => {
                 {/* 右侧空白占位，与Logo等宽，使文字视觉居中 */}
                 <div className="welcome-brand-spacer" aria-hidden="true"></div>
               </div>
+              <p className="welcome-tagline">AI驱动的学术搜索引擎 · 覆盖2亿+学术论文</p>
             </div>
 
             {/* 搜索模式切换 - 放在输入框外部上方 */}
@@ -481,7 +496,32 @@ const Home = () => {
               />
             )}
 
+            {/* 热门搜索标签 - 可点击快速搜索 */}
+            <div className="home-hot-searches">
+              <span className="home-hot-label">热门:</span>
+              {['深度学习', '量子计算', 'CRISPR', '气候变化', 'GPT', '新能源'].map((tag) => (
+                <button
+                  key={tag}
+                  className="home-hot-tag"
+                  onClick={() => {
+                    setSearchQuery(tag);
+                    const targetUrl = prepareSearchNavigation({
+                      query: tag,
+                      filters: filters,
+                      mode: 'normal'
+                    });
+                    navigate(targetUrl);
+                  }}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+
             {/* 精品AI工具快捷入口 - 在输入框下方 */}
+            <div className="home-shortcuts-section">
+              <h3 className="home-shortcuts-title">AI 工具</h3>
+            </div>
             <div className="home-assistant-shortcuts">
               <div 
                 className="home-shortcut-card"
@@ -625,8 +665,203 @@ const Home = () => {
               )}
             </div>
           )}
+
         </div>
       </div>
+
+      {/* Tab 切换区域 - 仅未登录用户显示 */}
+      {!isAuthenticated && (
+        <div className="home-tab-section">
+          {/* Tab 切换按钮 */}
+          <div className="home-tab-header">
+            <button
+              className={`home-tab-btn ${activeTab === 'features' ? 'active' : ''}`}
+              onClick={() => setActiveTab('features')}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+              平台介绍
+            </button>
+            <button
+              className={`home-tab-btn ${activeTab === 'users' ? 'active' : ''}`}
+              onClick={() => setActiveTab('users')}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              适用人群
+            </button>
+            <button
+              className={`home-tab-btn ${activeTab === 'faq' ? 'active' : ''}`}
+              onClick={() => setActiveTab('faq')}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              常见问题
+            </button>
+          </div>
+
+          {/* Tab 内容区域 */}
+          <div className="home-tab-content">
+            {/* 平台介绍 Tab */}
+            {activeTab === 'features' && (
+              <div className="home-tab-panel">
+                <div className="home-stats-row">
+                  <div className="home-stat-card">
+                    <div className="home-stat-number">2亿+</div>
+                    <div className="home-stat-label">学术论文</div>
+                  </div>
+                  <div className="home-stat-card">
+                    <div className="home-stat-number">多学科</div>
+                    <div className="home-stat-label">覆盖领域</div>
+                  </div>
+                  <div className="home-stat-card">
+                    <div className="home-stat-number">AI驱动</div>
+                    <div className="home-stat-label">智能分析</div>
+                  </div>
+                  <div className="home-stat-card">
+                    <div className="home-stat-number">免费</div>
+                    <div className="home-stat-label">基础功能</div>
+                  </div>
+                </div>
+                <div className="home-highlights-row">
+                  <div className="home-highlight-card">
+                    <div className="home-highlight-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="M21 21l-4.35-4.35"/>
+                      </svg>
+                    </div>
+                    <div className="home-highlight-content">
+                      <h4>海量文献检索</h4>
+                      <p>基于互联网公开学术数据，覆盖计算机、生物、医学等多学科领域</p>
+                    </div>
+                  </div>
+                  <div className="home-highlight-card">
+                    <div className="home-highlight-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                        <path d="M2 17l10 5 10-5"/>
+                        <path d="M2 12l10 5 10-5"/>
+                      </svg>
+                    </div>
+                    <div className="home-highlight-content">
+                      <h4>AI 智能分析</h4>
+                      <p>自然语言理解研究需求，AI 智能解析并推荐相关论文，提升检索效率</p>
+                    </div>
+                  </div>
+                  <div className="home-highlight-card">
+                    <div className="home-highlight-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                      </svg>
+                    </div>
+                    <div className="home-highlight-content">
+                      <h4>论文深度解读</h4>
+                      <p>智能助手帮你快速理解论文，智能审稿辅助学术写作，引用分析发现研究脉络</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 适用人群 Tab */}
+            {activeTab === 'users' && (
+              <div className="home-tab-panel">
+                <div className="home-user-types-grid">
+                  <div className="home-user-type-card">
+                    <div className="home-user-type-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M12 14l9-5-9-5-9 5 9 5z"/>
+                        <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/>
+                      </svg>
+                    </div>
+                    <h4>高校学生</h4>
+                    <p>快速查找课题相关文献，完成论文写作与文献综述</p>
+                  </div>
+                  <div className="home-user-type-card">
+                    <div className="home-user-type-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                      </svg>
+                    </div>
+                    <h4>科研人员</h4>
+                    <p>追踪研究前沿，发现高影响力论文，拓展研究思路</p>
+                  </div>
+                  <div className="home-user-type-card">
+                    <div className="home-user-type-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                      </svg>
+                    </div>
+                    <h4>学者教授</h4>
+                    <p>深度分析学术脉络，引用图谱可视化，辅助学术决策</p>
+                  </div>
+                  <div className="home-user-type-card">
+                    <div className="home-user-type-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                      </svg>
+                    </div>
+                    <h4>企业研发</h4>
+                    <p>技术调研与专利分析，了解行业研究动态与技术趋势</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 常见问题 Tab */}
+            {activeTab === 'faq' && (
+              <div className="home-tab-panel">
+                <div className="home-faq-list">
+                  {faqData.map((faq, index) => (
+                    <div 
+                      key={index} 
+                      className={`home-faq-item ${expandedFaq === index ? 'expanded' : ''}`}
+                    >
+                      <button 
+                        className="home-faq-question"
+                        onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
+                      >
+                        <span>{faq.question}</span>
+                        <svg 
+                          className="home-faq-arrow" 
+                          width="16" 
+                          height="16" 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth="2"
+                        >
+                          <path d="M6 9l6 6 6-6"/>
+                        </svg>
+                      </button>
+                      <div className="home-faq-answer">
+                        <p>{faq.answer}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 简洁页脚 */}
+          <div className="home-simple-footer">
+            <p>© 2025 Scholay</p>
+          </div>
+        </div>
+      )}
 
       {/* 条件渲染 AuthModal - 只在需要时加载 */}
       {showAuthModal && (
@@ -669,6 +904,20 @@ const Home = () => {
           onClick={() => navigate('/about')}
         >
           关于我们
+        </button>
+        <span className="footer-link-divider">|</span>
+        <button 
+          className="footer-link-btn"
+          onClick={() => navigate('/privacy')}
+        >
+          隐私政策
+        </button>
+        <span className="footer-link-divider">|</span>
+        <button 
+          className="footer-link-btn"
+          onClick={() => navigate('/terms')}
+        >
+          服务条款
         </button>
       </div>
 

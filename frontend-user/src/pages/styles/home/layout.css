@@ -13,10 +13,12 @@
 
 .home-search {
   display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
   background: var(--background);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .main-container {
@@ -265,6 +267,15 @@
   filter: brightness(0) invert(1);
 }
 
+/* Tagline - 品牌下方简短说明 */
+.welcome-tagline {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: 10px 0 0 0;
+  letter-spacing: 0.02em;
+  font-weight: 400;
+}
+
 /* Footer Links - 右下角固定 */
 .home-footer-fixed {
   position: fixed;
@@ -446,6 +457,23 @@
 /* ============================================
    精品AI工具快捷入口 - 在输入框下方
    ============================================ */
+
+/* 快捷入口区域标题 */
+.home-shortcuts-section {
+  width: calc(100% - 3rem);
+  max-width: 48rem;
+  margin-top: 36px;
+}
+
+.home-shortcuts-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  margin: 0 0 12px 0;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
 .home-assistant-shortcuts {
   display: flex;
   flex-wrap: wrap;
@@ -453,7 +481,7 @@
   justify-content: flex-start; /* 左对齐 */
   width: calc(100% - 3rem);
   max-width: 48rem;
-  margin-top: 40px; /* 与输入框的间距 */
+  margin-top: 0; /* 与标题的间距由标题控制 */
 }
 
 .home-shortcut-card {
@@ -847,5 +875,486 @@
   font-size: 10px;
   color: var(--text-quaternary);
   margin-left: auto;
+}
+
+/* ============================================
+   热门搜索标签
+   ============================================ */
+.home-hot-searches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 3rem);
+  max-width: 48rem;
+  margin-top: 16px;
+}
+
+.home-hot-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-right: 4px;
+}
+
+.home-hot-tag {
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.home-hot-tag:hover {
+  border-color: var(--text-accent);
+  color: var(--text-accent);
+  background: rgba(16, 163, 127, 0.08);
+}
+
+[data-theme="dark"] .home-hot-tag {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="light"] .home-hot-tag {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* ============================================
+   Tab 切换区域 - 未登录用户显示
+   ============================================ */
+.home-tab-section {
+  width: 100%;
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 32px 1.5rem 48px;
+  flex-shrink: 0;
+}
+
+.home-tab-header {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+
+.home-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  transition: all 0.2s ease;
+}
+
+.home-tab-btn:hover {
+  color: var(--text-secondary);
+}
+
+.home-tab-btn.active {
+  color: var(--text-accent);
+  border-bottom-color: var(--text-accent);
+}
+
+.home-tab-btn svg {
+  opacity: 0.7;
+}
+
+.home-tab-btn.active svg {
+  opacity: 1;
+}
+
+.home-tab-content {
+  min-height: 200px;
+}
+
+.home-tab-panel {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.home-simple-footer {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.home-simple-footer p {
+  font-size: 12px;
+  color: var(--text-quaternary);
+  margin: 0;
+}
+
+/* 数据统计卡片行 */
+.home-stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.home-stat-card {
+  text-align: center;
+  padding: 16px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-width: 100px;
+}
+
+[data-theme="dark"] .home-stat-card {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="light"] .home-stat-card {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.home-stat-number {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-accent);
+  margin-bottom: 4px;
+}
+
+.home-stat-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* 功能亮点行 */
+.home-highlights-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.home-highlight-card {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .home-highlight-card {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="light"] .home-highlight-card {
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.home-highlight-card:hover {
+  border-color: var(--text-accent);
+}
+
+[data-theme="dark"] .home-highlight-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.home-highlight-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.08) 100%);
+  color: var(--text-accent);
+}
+
+.home-highlight-content h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 6px 0;
+}
+
+.home-highlight-content p {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ============================================
+   底部区域 - 用户类型 + FAQ + 页脚
+   ============================================ */
+.home-bottom-section {
+  width: 100%;
+  margin-top: 48px;
+  border-top: 1px solid var(--border);
+}
+
+.home-section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  margin: 0 0 24px 0;
+}
+
+/* 用户类型 */
+.home-user-types {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 48px 1.5rem;
+}
+
+.home-user-types-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.home-user-type-card {
+  text-align: center;
+  padding: 24px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .home-user-type-card {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="light"] .home-user-type-card {
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.home-user-type-card:hover {
+  border-color: var(--text-accent);
+  transform: translateY(-2px);
+}
+
+.home-user-type-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.08) 100%);
+  color: var(--text-accent);
+}
+
+.home-user-type-card h4 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.home-user-type-card p {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* FAQ 区域 */
+.home-faq-section {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 48px 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.home-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.home-faq-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .home-faq-item {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="light"] .home-faq-item {
+  background: #fff;
+}
+
+.home-faq-item:hover {
+  border-color: var(--text-accent);
+}
+
+.home-faq-question {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.home-faq-arrow {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+  color: var(--text-tertiary);
+}
+
+.home-faq-item.expanded .home-faq-arrow {
+  transform: rotate(180deg);
+}
+
+.home-faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.home-faq-item.expanded .home-faq-answer {
+  max-height: 200px;
+}
+
+.home-faq-answer p {
+  padding: 0 20px 16px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+/* 完整页脚 */
+.home-full-footer {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 48px 1.5rem 24px;
+}
+
+[data-theme="dark"] .home-full-footer {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .home-full-footer {
+  background: #fafafa;
+}
+
+.home-footer-content {
+  max-width: 64rem;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 40px;
+}
+
+.home-footer-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.home-footer-logo {
+  width: 40px;
+  height: 40px;
+}
+
+.home-footer-slogan {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.home-footer-powered {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.home-footer-links-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.home-footer-links-group h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+}
+
+.home-footer-links-group button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.2s ease;
+}
+
+.home-footer-links-group button:hover {
+  color: var(--text-accent);
+}
+
+.home-footer-bottom {
+  max-width: 64rem;
+  margin: 32px auto 0;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.home-footer-bottom p {
+  font-size: 12px;
+  color: var(--text-quaternary);
+  margin: 0;
+}
+
+.home-footer-icp {
+  font-size: 12px;
+  color: var(--text-quaternary);
 }
 
