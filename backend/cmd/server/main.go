@@ -299,6 +299,10 @@ func main() {
 	// This replaces the HTTP heartbeat endpoint with WebSocket-based session tracking
 	wsHub.SetSessionUpdater(userService)
 
+	// Inject user service into WebSocket hub for real-time snapshot recording
+	// This records online count on every connect/disconnect for accurate tracking
+	wsHub.SetSnapshotRecorder(userService)
+
 	// Inject WebSocket hub into services for real-time online statistics
 	// This replaces the old session-based online user counting
 	userService.SetOnlineStatsProvider(wsHub)

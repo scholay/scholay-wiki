@@ -258,7 +258,7 @@ const OnlineUserChart = () => {
                 color: '#fff'
               }}
               labelStyle={{ color: '#9ca3af' }}
-              formatter={(value) => [value, '在线用户']}
+              formatter={(value, name) => [value, name]}
               labelFormatter={(label, payload) => {
                 if (payload && payload[0]) {
                   return payload[0].payload.time || label;
@@ -275,7 +275,16 @@ const OnlineUserChart = () => {
               dataKey="online_count"
               stroke="#ff7300"
               strokeWidth={2}
-              name="在线用户数"
+              name="在线用户"
+              dot={false}
+              activeDot={{ r: 4, strokeWidth: 0 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="guest_count"
+              stroke="#8b5cf6"
+              strokeWidth={2}
+              name="在线访客"
               dot={false}
               activeDot={{ r: 4, strokeWidth: 0 }}
             />

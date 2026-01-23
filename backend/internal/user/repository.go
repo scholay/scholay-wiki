@@ -518,12 +518,26 @@ func (r *Repository) GetOnlineUserSnapshots(startTime, endTime time.Time) ([]mod
 }
 
 // CreateOnlineUserSnapshot creates a new online user count snapshot
-func (r *Repository) CreateOnlineUserSnapshot(timestamp time.Time, onlineCount int) error {
+func (r *Repository) CreateOnlineUserSnapshot(timestamp time.Time, onlineCount, guestCount int) error {
 	snapshot := &model.OnlineUserSnapshot{
 		Timestamp:   timestamp,
 		OnlineCount: onlineCount,
+		GuestCount:  guestCount,
 	}
 	return r.db.Create(snapshot).Error
+}
+
+// UpsertOnlineSnapshot 插入或更新在线快照（保留峰值）
+// 如果同一分钟已有记录且新值更大，则更新；否则插入新记录
+func (r *Repository) UpsertOnlineSnapshot(timestamp time.Time, onlineCount, guestCount int) error {
+	// MySQL 8.0 兼容语法：使用 AS 别名 + 列引用
+	return r.db.Exec(`
+		INSERT INTO online_user_snapshots (`+"`timestamp`"+`, online_count, guest_count, created_at)
+		VALUES (?, ?, ?, NOW()) AS new_values
+		ON DUPLICATE KEY UPDATE
+			online_count = IF(new_values.online_count > online_user_snapshots.online_count, new_values.online_count, online_user_snapshots.online_count),
+			guest_count = IF(new_values.guest_count > online_user_snapshots.guest_count, new_values.guest_count, online_user_snapshots.guest_count)
+	`, timestamp, onlineCount, guestCount).Error
 }
 
 // FindByPhone finds a user by phone number

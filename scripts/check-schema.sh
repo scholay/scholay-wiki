@@ -4,7 +4,9 @@
 # 自动同步表、字段、索引的变化
 # ============================================
 
+# 严格模式：遇到错误立即退出
 set -e
+# 注意：不使用 set -o pipefail，因为它与脚本中的某些管道操作不兼容
 
 # 数据库连接配置
 DB_HOST="${DB_HOST:-mysql}"
@@ -27,6 +29,12 @@ log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
+# 致命错误（打印并退出）
+fatal_error() {
+    echo -e "${RED}[FATAL]${NC} $1"
+    exit 1
+}
+
 echo "======================================="
 echo "  Scholar Database Schema Auto-Sync   "
 echo "======================================="
@@ -42,8 +50,7 @@ RETRY_COUNT=0
 until mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1" >/dev/null 2>&1; do
   RETRY_COUNT=$((RETRY_COUNT + 1))
   if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
-    log_error "MySQL failed to start after $MAX_RETRIES attempts"
-    exit 1
+    fatal_error "MySQL failed to start after $MAX_RETRIES attempts"
   fi
   echo "MySQL is unavailable - waiting... ($RETRY_COUNT/$MAX_RETRIES)"
   sleep 2
@@ -54,13 +61,48 @@ echo ""
 
 # 检查schema文件是否存在
 if [ ! -f "$SCHEMA_FILE" ]; then
-  log_error "Schema file not found: $SCHEMA_FILE"
-  exit 1
+  fatal_error "Schema file not found: $SCHEMA_FILE"
 fi
 
 # 1. 首先应用CREATE TABLE IF NOT EXISTS（创建不存在的表）
-log_info "Creating tables if not exists..."
-mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$SCHEMA_FILE" 2>&1 | grep -v "Warning" || true
+log_info "Executing schema SQL file..."
+
+# 创建临时文件存储 SQL 执行输出
+SQL_OUTPUT=$(mktemp)
+SQL_ERRORS=$(mktemp)
+
+# 执行 SQL 文件并捕获输出和错误
+if ! mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$SCHEMA_FILE" > "$SQL_OUTPUT" 2> "$SQL_ERRORS"; then
+    echo -e "${RED}[FATAL] SQL execution failed!${NC}"
+    echo -e "${RED}========== SQL Error Output ==========${NC}"
+    cat "$SQL_ERRORS"
+    echo -e "${RED}======================================${NC}"
+    rm -f "$SQL_OUTPUT" "$SQL_ERRORS"
+    exit 1
+fi
+
+# 检查是否有错误信息（即使返回码为0）
+if [ -s "$SQL_ERRORS" ]; then
+    # 过滤掉 Warning 信息，只保留真正的错误
+    # 匹配各种 Warning 格式：Warning, [Warning], mysql: [Warning]
+    REAL_ERRORS=$(grep -viE "warning|insecure" "$SQL_ERRORS" 2>/dev/null || true)
+    if [ -n "$REAL_ERRORS" ]; then
+        echo -e "${RED}[FATAL] SQL execution produced errors!${NC}"
+        echo -e "${RED}========== SQL Error Output ==========${NC}"
+        echo "$REAL_ERRORS"
+        echo -e "${RED}======================================${NC}"
+        rm -f "$SQL_OUTPUT" "$SQL_ERRORS"
+        exit 1
+    fi
+fi
+
+# 显示 Warning（如果有的话，但不中断）- 使用 debug 级别，不打扰正常输出
+# if [ -s "$SQL_ERRORS" ]; then
+#     log_warning "SQL execution produced warnings (ignored)"
+# fi
+
+rm -f "$SQL_OUTPUT" "$SQL_ERRORS"
+log_success "Schema SQL executed successfully!"
 
 # 2. 同步字段和索引
 log_info "Synchronizing columns and indexes..."
@@ -96,13 +138,15 @@ for TABLE in $TABLES; do
             SELECT COUNT(*) FROM information_schema.COLUMNS
             WHERE TABLE_SCHEMA='$DB_NAME'
             AND TABLE_NAME='$TABLE'
-            AND COLUMN_NAME='$FIELD_NAME'" 2>/dev/null)
+            AND COLUMN_NAME='$FIELD_NAME'" 2>&1)
 
         if [ "$EXISTS" = "0" ]; then
             # 字段不存在，添加字段（保留 UNIQUE 约束，确保唯一性不丢失）
             log_info "  Adding column: $FIELD_NAME"
-            mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e "
-                ALTER TABLE \`$TABLE\` ADD COLUMN \`$FIELD_NAME\` $FIELD_DEF" 2>/dev/null || log_warning "  Failed to add column $FIELD_NAME"
+            ADD_RESULT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e "
+                ALTER TABLE \`$TABLE\` ADD COLUMN \`$FIELD_NAME\` $FIELD_DEF" 2>&1) || {
+                log_warning "  Failed to add column $FIELD_NAME: $ADD_RESULT"
+            }
         else
             # 字段存在，跳过 MODIFY 操作（避免重复创建索引）
             # 注意：MODIFY COLUMN 会导致包含 UNIQUE 的字段重复创建索引
@@ -134,18 +178,22 @@ for TABLE in $TABLES; do
             SELECT COUNT(*) FROM information_schema.STATISTICS
             WHERE TABLE_SCHEMA='$DB_NAME'
             AND TABLE_NAME='$TABLE'
-            AND INDEX_NAME='$INDEX_NAME'" 2>/dev/null)
+            AND INDEX_NAME='$INDEX_NAME'" 2>&1)
 
         if [ "$EXISTS" = "0" ]; then
             # 索引不存在，创建索引
             if [ "$IS_UNIQUE" = "1" ]; then
                 log_info "  Adding unique index: $INDEX_NAME"
-                mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e "
-                    CREATE UNIQUE INDEX \`$INDEX_NAME\` ON \`$TABLE\` ($INDEX_COLS)" 2>/dev/null || log_warning "  Failed to add unique index $INDEX_NAME"
+                IDX_RESULT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e "
+                    CREATE UNIQUE INDEX \`$INDEX_NAME\` ON \`$TABLE\` ($INDEX_COLS)" 2>&1) || {
+                    log_warning "  Failed to add unique index $INDEX_NAME: $IDX_RESULT"
+                }
             else
                 log_info "  Adding index: $INDEX_NAME"
-                mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e "
-                    CREATE INDEX \`$INDEX_NAME\` ON \`$TABLE\` ($INDEX_COLS)" 2>/dev/null || log_warning "  Failed to add index $INDEX_NAME"
+                IDX_RESULT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e "
+                    CREATE INDEX \`$INDEX_NAME\` ON \`$TABLE\` ($INDEX_COLS)" 2>&1) || {
+                    log_warning "  Failed to add index $INDEX_NAME: $IDX_RESULT"
+                }
             fi
         else
             echo "  ✓ Index $INDEX_NAME exists"
@@ -159,18 +207,20 @@ done
 log_info "Current database status:"
 echo ""
 
-TABLES=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -sN -e "SHOW TABLES;" 2>/dev/null)
+TABLES=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -sN -e "SHOW TABLES;" 2>&1) || {
+    fatal_error "Failed to list tables: $TABLES"
+}
 TABLE_COUNT=0
 
 echo "Tables in database:"
 for TABLE in $TABLES; do
-    ROW_COUNT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -sN -e "SELECT COUNT(*) FROM \`$TABLE\`;" 2>/dev/null)
+    ROW_COUNT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -sN -e "SELECT COUNT(*) FROM \`$TABLE\`;" 2>&1) || ROW_COUNT="?"
     COL_COUNT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -sN -e "
         SELECT COUNT(*) FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA='$DB_NAME' AND TABLE_NAME='$TABLE';" 2>/dev/null)
+        WHERE TABLE_SCHEMA='$DB_NAME' AND TABLE_NAME='$TABLE';" 2>&1) || COL_COUNT="?"
     IDX_COUNT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -sN -e "
         SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS
-        WHERE TABLE_SCHEMA='$DB_NAME' AND TABLE_NAME='$TABLE';" 2>/dev/null)
+        WHERE TABLE_SCHEMA='$DB_NAME' AND TABLE_NAME='$TABLE';" 2>&1) || IDX_COUNT="?"
 
     printf "  %-30s %6s rows, %3s columns, %2s indexes\n" "$TABLE" "$ROW_COUNT" "$COL_COUNT" "$IDX_COUNT"
     TABLE_COUNT=$((TABLE_COUNT + 1))

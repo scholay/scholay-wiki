@@ -9,6 +9,7 @@ package websocket
 
 import (
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -27,6 +28,11 @@ type OnlineStats struct {
 	TotalOnline  int `json:"total_online"`   // 总在线数
 }
 
+// SnapshotRecorder 快照记录器接口（由 user.Service 实现）
+type SnapshotRecorder interface {
+	RecordOnlineSnapshot(userCount, guestCount int) error
+}
+
 // Hub WebSocket 连接管理中心
 // 基于 melody 实现，管理用户连接映射
 type Hub struct {
@@ -43,6 +49,9 @@ type Hub struct {
 
 	// sessionUpdater 用于更新 session activity
 	sessionUpdater SessionActivityUpdater
+
+	// snapshotRecorder 用于记录在线人数快照
+	snapshotRecorder SnapshotRecorder
 }
 
 // NewHub 创建新的 Hub
@@ -70,6 +79,31 @@ func (h *Hub) SetSessionUpdater(updater SessionActivityUpdater) {
 	h.sessionUpdater = updater
 }
 
+// SetSnapshotRecorder 设置在线快照记录器
+func (h *Hub) SetSnapshotRecorder(recorder SnapshotRecorder) {
+	h.snapshotRecorder = recorder
+}
+
+// recordSnapshot 记录当前在线人数快照（异步执行）
+func (h *Hub) recordSnapshot() {
+	if h.snapshotRecorder == nil {
+		return
+	}
+
+	// 获取当前在线数
+	h.mu.RLock()
+	userCount := len(h.userSessions)
+	guestCount := len(h.guestSessions)
+	h.mu.RUnlock()
+
+	// 异步记录，不阻塞连接处理
+	go func() {
+		if err := h.snapshotRecorder.RecordOnlineSnapshot(userCount, guestCount); err != nil {
+			log.Printf("[WebSocket] Failed to record snapshot: %v", err)
+		}
+	}()
+}
+
 // setupHandlers 设置 melody 事件处理器
 func (h *Hub) setupHandlers() {
 	// 连接建立
@@ -83,6 +117,8 @@ func (h *Hub) setupHandlers() {
 			guestCount := len(h.guestSessions)
 			h.mu.Unlock()
 			fmt.Printf("[WebSocket] Guest connected, total guests: %d\n", guestCount)
+			// 记录在线快照
+			h.recordSnapshot()
 			return
 		}
 
@@ -95,6 +131,8 @@ func (h *Hub) setupHandlers() {
 			guestCount := len(h.guestSessions)
 			h.mu.Unlock()
 			fmt.Printf("[WebSocket] Guest connected (no user_id), total guests: %d\n", guestCount)
+			// 记录在线快照
+			h.recordSnapshot()
 			return
 		}
 
@@ -110,6 +148,8 @@ func (h *Hub) setupHandlers() {
 
 		// 更新 session activity（连接建立时）
 		h.updateSessionActivity(s)
+		// 记录在线快照
+		h.recordSnapshot()
 	})
 
 	// 连接断开
@@ -122,6 +162,8 @@ func (h *Hub) setupHandlers() {
 			guestCount := len(h.guestSessions)
 			h.mu.Unlock()
 			fmt.Printf("[WebSocket] Guest disconnected, remaining guests: %d\n", guestCount)
+			// 记录在线快照
+			h.recordSnapshot()
 			return
 		}
 
@@ -131,6 +173,8 @@ func (h *Hub) setupHandlers() {
 			h.mu.Lock()
 			delete(h.guestSessions, s)
 			h.mu.Unlock()
+			// 记录在线快照
+			h.recordSnapshot()
 			return
 		}
 
@@ -145,6 +189,8 @@ func (h *Hub) setupHandlers() {
 		h.mu.Unlock()
 
 		fmt.Printf("[WebSocket] User %d disconnected\n", uid)
+		// 记录在线快照
+		h.recordSnapshot()
 	})
 
 	// 接收消息

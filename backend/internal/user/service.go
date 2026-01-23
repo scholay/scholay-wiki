@@ -1487,8 +1487,14 @@ func (s *Service) GetOnlineUserChartDataWithGranularity(startTime, endTime time.
 		return nil, err
 	}
 
+	// Aggregated counts struct
+	type aggregatedCounts struct {
+		onlineCounts []int
+		guestCounts  []int
+	}
+
 	// Create a map for aggregating snapshots by interval
-	snapshotsMap := make(map[string][]int)
+	snapshotsMap := make(map[string]*aggregatedCounts)
 	for _, snapshot := range snapshots {
 		var key string
 		switch granularity {
@@ -1500,7 +1506,11 @@ func (s *Service) GetOnlineUserChartDataWithGranularity(startTime, endTime time.
 				snapshot.Timestamp.Hour(), 0, 0, 0, loc)
 			key = roundedTime.Format(timeFormat)
 		}
-		snapshotsMap[key] = append(snapshotsMap[key], snapshot.OnlineCount)
+		if snapshotsMap[key] == nil {
+			snapshotsMap[key] = &aggregatedCounts{}
+		}
+		snapshotsMap[key].onlineCounts = append(snapshotsMap[key].onlineCounts, snapshot.OnlineCount)
+		snapshotsMap[key].guestCounts = append(snapshotsMap[key].guestCounts, snapshot.GuestCount)
 	}
 
 	// Generate result with all time points filled
@@ -1511,20 +1521,31 @@ func (s *Service) GetOnlineUserChartDataWithGranularity(startTime, endTime time.
 		timeStr := currentTime.Format(timeFormat)
 		labelStr := currentTime.Format(labelFormat)
 
-		// Get average online count for this interval
+		// Get average counts for this interval
 		onlineCount := 0
-		if counts, exists := snapshotsMap[timeStr]; exists && len(counts) > 0 {
-			sum := 0
-			for _, c := range counts {
-				sum += c
+		guestCount := 0
+		if agg, exists := snapshotsMap[timeStr]; exists && agg != nil {
+			if len(agg.onlineCounts) > 0 {
+				sum := 0
+				for _, c := range agg.onlineCounts {
+					sum += c
+				}
+				onlineCount = sum / len(agg.onlineCounts)
 			}
-			onlineCount = sum / len(counts)
+			if len(agg.guestCounts) > 0 {
+				sum := 0
+				for _, c := range agg.guestCounts {
+					sum += c
+				}
+				guestCount = sum / len(agg.guestCounts)
+			}
 		}
 
 		result = append(result, map[string]interface{}{
 			"time":         timeStr,
 			"label":        labelStr,
 			"online_count": onlineCount,
+			"guest_count":  guestCount,
 		})
 
 		currentTime = currentTime.Add(interval)
@@ -1535,20 +1556,50 @@ func (s *Service) GetOnlineUserChartDataWithGranularity(startTime, endTime time.
 
 // RecordOnlineUserSnapshot records current online user count (called periodically)
 func (s *Service) RecordOnlineUserSnapshot() error {
-	onlineCount, err := s.repo.GetOnlineUserCount()
-	if err != nil {
-		return err
+	var onlineCount, guestCount int
+
+	// 优先使用 WebSocket 连接状态
+	if s.onlineStatsProvider != nil {
+		onlineCount = s.onlineStatsProvider.GetOnlineUserCount()
+		guestCount = s.onlineStatsProvider.GetOnlineGuestCount()
+	} else {
+		// 回退到数据库查询（不支持访客数）
+		count, err := s.repo.GetOnlineUserCount()
+		if err != nil {
+			return err
+		}
+		onlineCount = int(count)
+		guestCount = 0
 	}
 
 	// Record snapshot
 	now := time.Now()
-	if err := s.repo.CreateOnlineUserSnapshot(now, int(onlineCount)); err != nil {
+	if err := s.repo.CreateOnlineUserSnapshot(now, onlineCount, guestCount); err != nil {
 		return err
 	}
 
-	// Also update peak for today
+	// Also update peak for today (仅统计登录用户)
 	today := now.Format("2006-01-02")
-	_ = s.repo.UpdatePeakOnlineUsers(today, int(onlineCount))
+	_ = s.repo.UpdatePeakOnlineUsers(today, onlineCount)
+
+	return nil
+}
+
+// RecordOnlineSnapshot 实时记录在线快照（WebSocket 连接/断开时调用）
+// 使用 UPSERT 逻辑：同一分钟内只保留峰值
+func (s *Service) RecordOnlineSnapshot(userCount, guestCount int) error {
+	now := time.Now()
+	// 按分钟取整
+	minuteTimestamp := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), 0, 0, now.Location())
+
+	// 使用 UPSERT 记录峰值
+	if err := s.repo.UpsertOnlineSnapshot(minuteTimestamp, userCount, guestCount); err != nil {
+		return err
+	}
+
+	// 更新今日峰值
+	today := now.Format("2006-01-02")
+	_ = s.repo.UpdatePeakOnlineUsers(today, userCount)
 
 	return nil
 }

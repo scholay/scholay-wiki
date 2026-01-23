@@ -124,12 +124,49 @@ CREATE TABLE IF NOT EXISTS `user_statistics` (
 -- 在线用户快照（实时图表数据）
 CREATE TABLE IF NOT EXISTS `online_user_snapshots` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `timestamp` DATETIME NOT NULL COMMENT '快照时间',
-  `online_count` INT NOT NULL DEFAULT 0 COMMENT '在线用户数',
+  `timestamp` DATETIME NOT NULL COMMENT '快照时间（按分钟）',
+  `online_count` INT NOT NULL DEFAULT 0 COMMENT '在线用户数（峰值）',
+  `guest_count` INT NOT NULL DEFAULT 0 COMMENT '在线访客数（峰值）',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  INDEX `idx_timestamp` (`timestamp`)
+  UNIQUE INDEX `uk_timestamp` (`timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='在线用户快照';
+
+-- 在线用户快照表添加访客数字段（如果不存在）
+SET @column_exists = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'online_user_snapshots' AND COLUMN_NAME = 'guest_count'
+);
+SET @sql = IF(@column_exists = 0,
+  'ALTER TABLE `online_user_snapshots` ADD COLUMN `guest_count` INT NOT NULL DEFAULT 0 COMMENT ''在线访客数'' AFTER `online_count`',
+  'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 在线用户快照表添加唯一索引（如果不存在）
+SET @index_exists = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'online_user_snapshots' AND INDEX_NAME = 'uk_timestamp'
+);
+SET @sql = IF(@index_exists = 0,
+  'ALTER TABLE `online_user_snapshots` ADD UNIQUE INDEX `uk_timestamp` (`timestamp`)',
+  'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 删除旧的普通索引（如果存在），因为已经有唯一索引了
+SET @old_index_exists = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'online_user_snapshots' AND INDEX_NAME = 'idx_timestamp'
+);
+SET @sql = IF(@old_index_exists > 0,
+  'ALTER TABLE `online_user_snapshots` DROP INDEX `idx_timestamp`',
+  'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- ============================================
 -- 对话和消息表

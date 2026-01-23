@@ -25,5 +25,6 @@ type OnlineUserSnapshot struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
 	Timestamp    time.Time `gorm:"index;not null" json:"timestamp"`       // Snapshot time
 	OnlineCount  int       `gorm:"default:0" json:"online_count"`         // Number of online users at this time
+	GuestCount   int       `gorm:"default:0" json:"guest_count"`          // Number of online guests at this time
 	CreatedAt    time.Time `json:"created_at"`
 }
