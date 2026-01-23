@@ -16,7 +16,7 @@ import {
   getAIModelLevel,
   setAIConversationId
 } from '../../../utils/searchStorage';
-import { trackAcademicSearch, EntryPoint } from '../../../utils/usageTracker';
+import { trackDirectSearch, EntryPoint } from '../../../utils/usageTracker';
 import logger from '../../../utils/logger';
 
 /**
@@ -319,7 +319,7 @@ export const useSearchState = () => {
       });
     }
 
-    trackAcademicSearch(EntryPoint.RESULT_PAGE, searchQuery);
+    trackDirectSearch(searchQuery, EntryPoint.SEARCH_RESULTS_PAGE);
     updateURL(searchQuery, filters, 1);
     performSearch(searchQuery, filters, 1);
   }, [searchQuery, cachedTranslation.query, filters, updateURL, performSearch]);

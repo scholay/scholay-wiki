@@ -6,6 +6,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { analysisDimensionAPI, publicScholarAPI } from '../../../services/api';
 import wsClient from '../../../services/websocket';
 import logger from '../../../utils/logger';
+import { trackMatrixAnalysis, trackMatrixAddDimension } from '../../../utils/usageTracker';
 
 /**
  * 维度分析管理 Hook
@@ -165,6 +166,10 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
       );
 
       if (response.data.code === 0) {
+        // 记录新增维度使用统计（仅新增时，编辑不记录）
+        if (!editingDimension) {
+          trackMatrixAddDimension(editForm.name.trim());
+        }
         await refreshDimensions();
         handleCloseEditView();
       } else {
@@ -235,6 +240,9 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
           ...prev,
           [paper.paperId]: dimensionData
         }));
+        
+        // 记录智能矩阵分析使用统计
+        trackMatrixAnalysis(paper.paperId);
 
         return { success: true, aborted: false, deducted: deductedAmount };
       } else {

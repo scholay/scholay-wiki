@@ -30,6 +30,161 @@
   margin: 0;
 }
 
+/* 全局控制栏 */
+.ul-global-controls {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  flex-wrap: wrap;
+}
+
+.ul-control-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ul-control-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  white-space: nowrap;
+}
+
+.ul-control-divider {
+  width: 1px;
+  height: 32px;
+  background: #e5e5e5;
+}
+
+/* 时间范围按钮 */
+.ul-date-range-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.ul-date-range-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  color: #666;
+  background: #f5f5f5;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ul-date-range-btn:hover {
+  background: #e5e5e5;
+  color: #333;
+}
+
+.ul-date-range-btn.active {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
+}
+
+/* 保留天数配置 */
+.ul-retention-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ul-retention-value {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.ul-retention-hint {
+  font-size: 12px;
+  color: #f59e0b;
+}
+
+.ul-retention-edit-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #3b82f6;
+  background: transparent;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ul-retention-edit-btn:hover {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.ul-retention-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ul-retention-edit select {
+  padding: 6px 12px;
+  font-size: 13px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+}
+
+.ul-retention-edit select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.ul-retention-save {
+  padding: 6px 14px;
+  font-size: 13px;
+  color: #fff;
+  background: #3b82f6;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ul-retention-save:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.ul-retention-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ul-retention-cancel {
+  padding: 6px 14px;
+  font-size: 13px;
+  color: #666;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ul-retention-cancel:hover:not(:disabled) {
+  background: #e5e5e5;
+  color: #333;
+}
+
+.ul-retention-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* 统计摘要 */
 .ul-summary {
   background: #fff;
@@ -51,6 +206,13 @@
   font-weight: 600;
   color: #1a1a1a;
   margin: 0;
+}
+
+.ul-summary-range {
+  font-size: 13px;
+  font-weight: 400;
+  color: #666;
+  margin-left: 8px;
 }
 
 .ul-summary-toggle,
@@ -378,6 +540,25 @@
   .ul-summary-cards {
     grid-template-columns: repeat(2, 1fr);
   }
+  
+  .ul-global-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .ul-control-divider {
+    display: none;
+  }
+  
+  .ul-control-section {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  
+  .ul-date-range-buttons {
+    flex-wrap: wrap;
+  }
 }
 
 @media (max-width: 768px) {
@@ -405,4 +586,189 @@
     flex-direction: column;
     gap: 12px;
   }
+  
+  .ul-date-range-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  .ul-retention-display {
+    flex-wrap: wrap;
+  }
+  
+  .ul-retention-edit {
+    flex-wrap: wrap;
+  }
+}
+
+/* 清空全部数据按钮 */
+.ul-clear-all-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #fff;
+  background: #ef4444;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ul-clear-all-btn:hover {
+  background: #dc2626;
+}
+
+.ul-clear-all-btn svg {
+  flex-shrink: 0;
+}
+
+/* 刷新按钮 */
+.ul-refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #fff;
+  background: #3b82f6;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ul-refresh-btn:hover {
+  background: #2563eb;
+}
+
+.ul-refresh-btn:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
+
+.ul-refresh-btn svg {
+  flex-shrink: 0;
+}
+
+/* 刷新按钮旋转动画 */
+.ul-spin {
+  animation: ul-spin 1s linear infinite;
+}
+
+@keyframes ul-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 确认对话框 */
+.ul-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.ul-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.ul-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.ul-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.ul-modal-body {
+  padding: 24px;
+  text-align: center;
+}
+
+.ul-modal-warning {
+  margin-bottom: 16px;
+}
+
+.ul-modal-message {
+  font-size: 15px;
+  color: #333;
+  line-height: 1.6;
+  margin: 0 0 12px 0;
+}
+
+.ul-modal-message strong {
+  color: #ef4444;
+}
+
+.ul-modal-hint {
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+}
+
+.ul-modal-footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px;
+  background: #f9fafb;
+  border-top: 1px solid #f0f0f0;
+}
+
+.ul-modal-cancel,
+.ul-modal-confirm {
+  flex: 1;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ul-modal-cancel {
+  color: #666;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+}
+
+.ul-modal-cancel:hover {
+  background: #f5f5f5;
+}
+
+.ul-modal-confirm {
+  color: #fff;
+  background: #ef4444;
+  border: none;
+}
+
+.ul-modal-confirm:hover {
+  background: #dc2626;
+}
+
+.ul-modal-confirm:disabled,
+.ul-modal-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

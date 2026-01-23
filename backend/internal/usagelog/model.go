@@ -55,6 +55,24 @@ func (FeatureConfig) TableName() string {
 	return "feature_configs"
 }
 
+// UsageLogConfig 使用统计配置
+type UsageLogConfig struct {
+	ID            uint      `gorm:"primaryKey" json:"id"`
+	RetentionDays int       `gorm:"default:180" json:"retention_days"` // 数据保留天数，默认180天(半年)
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// TableName 指定表名
+func (UsageLogConfig) TableName() string {
+	return "usage_log_config"
+}
+
+// ConfigUpdateRequest 配置更新请求
+type ConfigUpdateRequest struct {
+	RetentionDays int `json:"retention_days" binding:"required,min=7,max=730"` // 最少7天，最多2年
+}
+
 // UsageLogWithUser 带用户信息的日志
 type UsageLogWithUser struct {
 	UsageLog
@@ -78,13 +96,12 @@ type LogRequest struct {
 type ListQuery struct {
 	Page        int    `form:"page" binding:"min=1"`
 	PageSize    int    `form:"page_size" binding:"min=1,max=100"`
+	Days        int    `form:"days"`      // 查询最近N天的数据，默认7天
 	FeatureCode string `form:"feature_code"`
 	Action      string `form:"action"`
 	EntryPoint  string `form:"entry_point"`
 	UserID      *uint  `form:"user_id"`
 	IPAddress   string `form:"ip_address"`
-	StartDate   string `form:"start_date"`
-	EndDate     string `form:"end_date"`
 	Keyword     string `form:"keyword"`
 }
 

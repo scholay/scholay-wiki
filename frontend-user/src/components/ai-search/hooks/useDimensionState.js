@@ -4,6 +4,7 @@
  */
 import { useState, useCallback, useRef } from 'react';
 import { analysisDimensionAPI } from '../../../services/api';
+import { trackMatrixAddDimension } from '../../../utils/usageTracker';
 import logger from '../../../utils/logger';
 
 export const useDimensionState = (isAuthenticated) => {
@@ -94,6 +95,11 @@ export const useDimensionState = (isAuthenticated) => {
       );
 
       if (response.data.code === 0) {
+        // 记录智能矩阵新增维度使用统计（仅新增时追踪）
+        if (!editingDimension) {
+          trackMatrixAddDimension(editForm.name.trim());
+        }
+        
         await refreshDimensions();
         setFloatPanelView('list');
         setEditingDimension(null);
@@ -109,12 +115,18 @@ export const useDimensionState = (isAuthenticated) => {
 
   // 删除维度
   const handleDeleteDimension = useCallback(async (dimension) => {
+    // 只有用户自定义维度才能删除
+    if (!dimension || !dimension.id || dimension.userId <= 0) {
+      alert('只能删除自定义维度');
+      return;
+    }
+
     if (!window.confirm(`确定要删除维度「${dimension.name}」吗？`)) {
       return;
     }
 
     try {
-      const response = await analysisDimensionAPI.deleteDimension(getDimensionKey(dimension));
+      const response = await analysisDimensionAPI.deleteDimension(dimension.id);
       if (response.data.code === 0) {
         setSelectedDimensions(prev => prev.filter(d => getDimensionKey(d) !== getDimensionKey(dimension)));
         await refreshDimensions();

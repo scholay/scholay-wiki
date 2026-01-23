@@ -5,6 +5,7 @@ import React from 'react';
 import PaperDetailSkeleton from '../../components/PaperDetailSkeleton';
 import SimplePaperItem from '../../components/SimplePaperItem';
 import { useTranslation } from '../../hooks';
+import { trackDetailPageSimilar } from '../../utils/usageTracker';
 
 const PaperDetailView = ({ paperDetail, searchState }) => {
   // 翻译功能
@@ -399,7 +400,14 @@ const PaperDetailView = ({ paperDetail, searchState }) => {
             <button
               ref={similarPapersTabRef}
               className={`epd-tab epd-tab-similar ${detailActiveTab === 'similar' ? 'active' : ''}`}
-              onClick={() => { setDetailActiveTab('similar'); setDetailHeaderCollapsed(true); handleSimilarTabClick(); setSelectedPaper(null); }}
+              onClick={() => { 
+                setDetailActiveTab('similar'); 
+                setDetailHeaderCollapsed(true); 
+                handleSimilarTabClick(); 
+                setSelectedPaper(null);
+                // 记录详情页相似论文 tab 点击
+                trackDetailPageSimilar(detailPaperId);
+              }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '4px' }}>
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -583,10 +591,16 @@ const SimilarPapersTab = ({ similarPapersData, similarPapersLoading, loadSimilar
 
 // 相似论文项组件
 const SimilarPaperItem = ({ paper, itemIndex, selectedPaper, setSelectedPaper, setCitePaper }) => {
+  const handleClick = () => {
+    if (paper?.paperId) {
+      setSelectedPaper(paper);
+    }
+  };
+
   return (
     <div
       className={`search-result-paper-item ${selectedPaper?.paperId === paper?.paperId ? 'selected' : ''}`}
-      onClick={() => paper?.paperId && setSelectedPaper(paper)}
+      onClick={handleClick}
     >
       <div className="search-result-paper-number">{itemIndex}</div>
       <div className="search-result-paper-content">

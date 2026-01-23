@@ -10,7 +10,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { checkinAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
-import { trackUserCheckin } from '../utils/usageTracker';
+import { trackCheckin } from '../utils/usageTracker';
 import GoldIcon from './GoldIcon';
 import logger from '../utils/logger';
 import './CheckinFloat.css';
@@ -170,7 +170,7 @@ const CheckinFloat = () => {
     try {
       const response = await checkinAPI.checkin();
       if (response.data.code === 0) {
-        trackUserCheckin();
+        trackCheckin();
         const result = response.data.data;
         const today = new Date().toISOString().split('T')[0];
         
@@ -284,7 +284,7 @@ const CheckinFloat = () => {
     try {
       const response = await checkinAPI.checkin();
       if (response.data.code === 0) {
-        trackUserCheckin(); // 记录签到统计
+        trackCheckin(); // 记录签到统计
         const result = response.data.data;
         setCheckinResult(result);
         setHasCheckedIn(true);

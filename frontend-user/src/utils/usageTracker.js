@@ -7,69 +7,89 @@
  * ============================================================================
  */
 
-// 功能代码常量
+/**
+ * 功能代码常量 - 15个功能追踪点
+ * 与数据库 feature_configs 表中的定义保持一致
+ */
 export const FeatureCode = {
+  // 用户类
+  USER_CHECKIN: 'user_checkin',                     // 每日签到
+  
   // 检索类
-  ACADEMIC_SEARCH: 'academic_search',
-  PAPER_DETAIL: 'paper_detail',
-  SIMILAR_PAPERS: 'similar_papers',
+  DIRECT_SEARCH: 'direct_search',                   // 直接检索（/papers/search）
+  SMART_SEARCH: 'smart_search',                     // 智能检索（AI搜索模式）
+  SEARCH_SUGGESTION: 'search_suggestion',           // 检索联想（/search/suggestions）
+  
+  // 翻译类
+  ABSTRACT_TRANSLATE: 'abstract_translate',         // 摘要翻译（/translate/stream）
   
   // 分析类
-  SMART_ANALYSIS: 'smart_analysis',
-  PAPER_DIMENSION: 'paper_dimension',
-  
-  // AI类
-  AI_CHAT: 'ai_chat',
-  AI_PEER_REVIEW: 'ai_peer_review',
-  AI_ASSISTANT: 'ai_assistant',
-  
-  // 用户类
-  USER_LOGIN: 'user_login',
-  USER_REGISTER: 'user_register',
-  USER_CHECKIN: 'user_checkin',
+  MATRIX_ANALYSIS: 'matrix_analysis',               // 智能矩阵分析（/analysis/paper）
+  MATRIX_ADD_DIMENSION: 'matrix_add_dimension',     // 智能矩阵新增维度
   
   // 工具类
-  PDF_PREVIEW: 'pdf_preview',
+  PDF_PREVIEW: 'pdf_preview',                       // PDF预览
+  
+  // 对话类
+  AI_ASSISTANT_CHAT: 'ai_assistant_chat',           // 智能助手对话（AssistantPage + ChatPage）
+  AI_PEER_REVIEW: 'ai_peer_review',                 // 智能审稿（PeerReviewPage）
+  
+  // 落地页类（/paper/{id}）
+  LANDING_PAGE_VIEW: 'landing_page_view',           // 落地页详情
+  LANDING_PAGE_SEARCH: 'landing_page_search',       // 落地页搜索
+  LANDING_PAGE_SIMILAR: 'landing_page_similar',     // 落地页相似论文
+  
+  // 详情页类（/search-results?paperId=xxx）
+  DETAIL_PAGE_VIEW: 'detail_page_view',             // 论文详情页
+  DETAIL_PAGE_SIMILAR: 'detail_page_similar',       // 详情页相似论文
 };
 
 // 功能名称映射
 const FeatureNames = {
-  [FeatureCode.ACADEMIC_SEARCH]: '学术检索',
-  [FeatureCode.PAPER_DETAIL]: '论文详情',
-  [FeatureCode.SIMILAR_PAPERS]: '相似论文',
-  [FeatureCode.SMART_ANALYSIS]: '智能分析',
-  [FeatureCode.PAPER_DIMENSION]: '论文多维分析',
-  [FeatureCode.AI_CHAT]: 'AI聊天',
-  [FeatureCode.AI_PEER_REVIEW]: '智能审稿',
-  [FeatureCode.AI_ASSISTANT]: '精品AI工具',
-  [FeatureCode.USER_LOGIN]: '用户登录',
-  [FeatureCode.USER_REGISTER]: '用户注册',
   [FeatureCode.USER_CHECKIN]: '每日签到',
+  [FeatureCode.DIRECT_SEARCH]: '直接检索',
+  [FeatureCode.SMART_SEARCH]: '智能检索',
+  [FeatureCode.SEARCH_SUGGESTION]: '检索联想',
+  [FeatureCode.ABSTRACT_TRANSLATE]: '摘要翻译',
+  [FeatureCode.MATRIX_ANALYSIS]: '智能矩阵分析',
+  [FeatureCode.MATRIX_ADD_DIMENSION]: '智能矩阵新增维度',
   [FeatureCode.PDF_PREVIEW]: 'PDF预览',
+  [FeatureCode.AI_ASSISTANT_CHAT]: '智能助手对话',
+  [FeatureCode.AI_PEER_REVIEW]: '智能审稿',
+  [FeatureCode.LANDING_PAGE_VIEW]: '落地页详情',
+  [FeatureCode.LANDING_PAGE_SEARCH]: '落地页搜索',
+  [FeatureCode.LANDING_PAGE_SIMILAR]: '落地页相似论文',
+  [FeatureCode.DETAIL_PAGE_VIEW]: '论文详情页',
+  [FeatureCode.DETAIL_PAGE_SIMILAR]: '详情页相似论文',
 };
 
 // 操作类型常量
 export const Action = {
-  SEARCH: 'search',
-  SUBMIT: 'submit',
-  VIEW: 'view',
-  CLICK: 'click',
-  LOGIN: 'login',
-  REGISTER: 'register',
-  CHECKIN: 'checkin',
+  VIEW: 'view',           // 查看
+  SEARCH: 'search',       // 搜索
+  CLICK: 'click',         // 点击
+  SUBMIT: 'submit',       // 提交
+  CHECKIN: 'checkin',     // 签到
+  TRANSLATE: 'translate', // 翻译
+  ANALYZE: 'analyze',     // 分析
+  CHAT: 'chat',           // 对话
 };
 
 // 入口位置常量
 export const EntryPoint = {
+  // 页面入口
   HOME_PAGE: 'home_page',
-  SEARCH_PAGE: 'search_page',
-  RESULT_PAGE: 'result_page',
-  PAPER_DETAIL_PAGE: 'paper_detail_page',
-  ADVANCED_SEARCH_PAGE: 'advanced_search_page',
+  SEARCH_RESULTS_PAGE: 'search_results_page',
+  LANDING_PAGE: 'landing_page',                     // /paper/{id}
+  DETAIL_PAGE: 'detail_page',                       // /search-results?paperId=xxx
   CHAT_PAGE: 'chat_page',
-  PEER_REVIEW_PAGE: 'peer_review_page',
   ASSISTANT_PAGE: 'assistant_page',
-  SETTINGS_PAGE: 'settings_page',
+  PEER_REVIEW_PAGE: 'peer_review_page',
+  
+  // 组件入口
+  SEARCH_BOX: 'search_box',
+  SIMILAR_SECTION: 'similar_section',
+  CHECKIN_FLOAT: 'checkin_float',
 };
 
 // 生成或获取会话ID
@@ -83,7 +103,7 @@ const getSessionId = () => {
 };
 
 /**
- * 记录功能使用日志
+ * 记录功能使用日志（核心方法）
  * @param {string} featureCode - 功能代码
  * @param {string} action - 操作类型
  * @param {string} entryPoint - 入口位置
@@ -96,7 +116,7 @@ export const trackUsage = async (featureCode, action, entryPoint = '', extraData
       feature_name: FeatureNames[featureCode] || featureCode,
       action: action,
       entry_point: entryPoint,
-      request_path: window.location.pathname,
+      request_path: window.location.pathname + window.location.search,
       referer_path: document.referrer ? new URL(document.referrer).pathname : '',
       session_id: getSessionId(),
       extra_data: extraData,
@@ -107,124 +127,169 @@ export const trackUsage = async (featureCode, action, entryPoint = '', extraData
       const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
       navigator.sendBeacon('/api/v1/public/usage-log', blob);
     } else {
-      // 降级到 fetch
       fetch('/api/v1/public/usage-log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         keepalive: true,
-      }).catch(() => {
-        // 忽略错误，不影响用户体验
-      });
+      }).catch(() => {});
     }
   } catch (error) {
-    // 忽略错误，不影响用户体验
     console.debug('[UsageTracker] Failed to track:', error);
   }
 };
 
+// =====================
+// 便捷追踪方法
+// =====================
+
 /**
- * 便捷方法：记录学术检索
+ * 记录每日签到
  */
-export const trackAcademicSearch = (entryPoint, query = '') => {
-  trackUsage(FeatureCode.ACADEMIC_SEARCH, Action.SEARCH, entryPoint, query ? { query } : null);
+export const trackCheckin = () => {
+  trackUsage(FeatureCode.USER_CHECKIN, Action.CHECKIN, EntryPoint.CHECKIN_FLOAT);
 };
 
 /**
- * 便捷方法：记录论文详情查看
+ * 记录直接检索（调用 /papers/search 接口时）
+ * @param {string} query - 搜索关键词
+ * @param {string} entryPoint - 入口位置
  */
-export const trackPaperDetail = (paperId) => {
-  trackUsage(FeatureCode.PAPER_DETAIL, Action.VIEW, EntryPoint.PAPER_DETAIL_PAGE, { paper_id: paperId });
+export const trackDirectSearch = (query, entryPoint = EntryPoint.SEARCH_BOX) => {
+  trackUsage(FeatureCode.DIRECT_SEARCH, Action.SEARCH, entryPoint, { query });
 };
 
 /**
- * 便捷方法：记录相似论文获取
+ * 记录智能检索（AI搜索模式）
+ * @param {string} query - 搜索关键词
+ * @param {string} entryPoint - 入口位置
  */
-export const trackSimilarPapers = (paperId) => {
-  trackUsage(FeatureCode.SIMILAR_PAPERS, Action.VIEW, EntryPoint.PAPER_DETAIL_PAGE, { paper_id: paperId });
+export const trackSmartSearch = (query, entryPoint = EntryPoint.HOME_PAGE) => {
+  trackUsage(FeatureCode.SMART_SEARCH, Action.SEARCH, entryPoint, { query });
 };
 
 /**
- * 便捷方法：记录智能分析
+ * 记录检索联想（调用 /search/suggestions 接口时）
+ * @param {string} query - 搜索关键词
  */
-export const trackSmartAnalysis = (entryPoint, query = '') => {
-  trackUsage(FeatureCode.SMART_ANALYSIS, Action.SUBMIT, entryPoint, query ? { query } : null);
+export const trackSearchSuggestion = (query) => {
+  trackUsage(FeatureCode.SEARCH_SUGGESTION, Action.SEARCH, EntryPoint.SEARCH_BOX, { query });
 };
 
 /**
- * 便捷方法：记录论文多维分析
+ * 记录摘要翻译（调用 /translate/stream 接口时）
+ * @param {string} paperId - 论文ID
  */
-export const trackPaperDimension = (paperId) => {
-  trackUsage(FeatureCode.PAPER_DIMENSION, Action.SUBMIT, EntryPoint.PAPER_DETAIL_PAGE, { paper_id: paperId });
+export const trackAbstractTranslate = (paperId) => {
+  trackUsage(FeatureCode.ABSTRACT_TRANSLATE, Action.TRANSLATE, '', { paper_id: paperId });
 };
 
 /**
- * 便捷方法：记录AI聊天
+ * 记录智能矩阵分析（调用 /analysis/paper 接口时）
+ * @param {string} paperId - 论文ID
  */
-export const trackAIChat = (entryPoint) => {
-  trackUsage(FeatureCode.AI_CHAT, Action.SUBMIT, entryPoint);
+export const trackMatrixAnalysis = (paperId) => {
+  trackUsage(FeatureCode.MATRIX_ANALYSIS, Action.ANALYZE, EntryPoint.SEARCH_RESULTS_PAGE, { paper_id: paperId });
 };
 
 /**
- * 便捷方法：记录智能审稿
+ * 记录智能矩阵新增维度
+ * @param {string} dimensionName - 维度名称
+ */
+export const trackMatrixAddDimension = (dimensionName) => {
+  trackUsage(FeatureCode.MATRIX_ADD_DIMENSION, Action.SUBMIT, EntryPoint.SEARCH_RESULTS_PAGE, { dimension_name: dimensionName });
+};
+
+/**
+ * 记录PDF预览
+ * @param {string} pdfUrl - PDF URL
+ * @param {string} entryPoint - 入口位置
+ */
+export const trackPDFPreview = (pdfUrl, entryPoint = '') => {
+  trackUsage(FeatureCode.PDF_PREVIEW, Action.VIEW, entryPoint, { pdf_url: pdfUrl });
+};
+
+/**
+ * 记录智能助手对话（AssistantPage + ChatPage）
+ * @param {string} context - 上下文信息（工具名称或对话场景）
+ */
+export const trackAIAssistantChat = (context = '') => {
+  trackUsage(FeatureCode.AI_ASSISTANT_CHAT, Action.CHAT, EntryPoint.ASSISTANT_PAGE, 
+    context ? { context } : null);
+};
+
+/**
+ * 记录智能审稿（提交审稿时）
  */
 export const trackAIPeerReview = () => {
   trackUsage(FeatureCode.AI_PEER_REVIEW, Action.SUBMIT, EntryPoint.PEER_REVIEW_PAGE);
 };
 
 /**
- * 便捷方法：记录精品AI工具
+ * 记录落地页详情查看（打开 /paper/{id} 时）
+ * @param {string} paperId - 论文ID
  */
-export const trackAIAssistant = () => {
-  trackUsage(FeatureCode.AI_ASSISTANT, Action.SUBMIT, EntryPoint.ASSISTANT_PAGE);
+export const trackLandingPageView = (paperId) => {
+  trackUsage(FeatureCode.LANDING_PAGE_VIEW, Action.VIEW, EntryPoint.LANDING_PAGE, { paper_id: paperId });
 };
 
 /**
- * 便捷方法：记录用户登录
+ * 记录落地页搜索（在落地页顶部搜索框搜索时）
+ * @param {string} query - 搜索关键词
  */
-export const trackUserLogin = () => {
-  trackUsage(FeatureCode.USER_LOGIN, Action.LOGIN, '');
+export const trackLandingPageSearch = (query) => {
+  trackUsage(FeatureCode.LANDING_PAGE_SEARCH, Action.SEARCH, EntryPoint.LANDING_PAGE, { query });
 };
 
 /**
- * 便捷方法：记录用户注册
+ * 记录落地页相似论文点击
+ * @param {string} paperId - 点击的论文ID
+ * @param {string} sourcePaperId - 来源论文ID
  */
-export const trackUserRegister = () => {
-  trackUsage(FeatureCode.USER_REGISTER, Action.REGISTER, '');
+export const trackLandingPageSimilar = (paperId, sourcePaperId) => {
+  trackUsage(FeatureCode.LANDING_PAGE_SIMILAR, Action.CLICK, EntryPoint.SIMILAR_SECTION, 
+    { paper_id: paperId, source_paper_id: sourcePaperId });
 };
 
 /**
- * 便捷方法：记录用户签到
+ * 记录论文详情页查看（打开 /search-results?paperId=xxx 时）
+ * @param {string} paperId - 论文ID
  */
-export const trackUserCheckin = () => {
-  trackUsage(FeatureCode.USER_CHECKIN, Action.CHECKIN, EntryPoint.SETTINGS_PAGE);
+export const trackDetailPageView = (paperId) => {
+  trackUsage(FeatureCode.DETAIL_PAGE_VIEW, Action.VIEW, EntryPoint.DETAIL_PAGE, { paper_id: paperId });
 };
 
 /**
- * 便捷方法：记录PDF预览
+ * 记录详情页相似论文 Tab 点击
+ * @param {string} paperId - 当前论文ID（查看谁的相似论文）
  */
-export const trackPDFPreview = (pdfUrl, entryPoint = '') => {
-  trackUsage(FeatureCode.PDF_PREVIEW, Action.VIEW, entryPoint, { pdf_url: pdfUrl });
+export const trackDetailPageSimilar = (paperId) => {
+  trackUsage(FeatureCode.DETAIL_PAGE_SIMILAR, Action.CLICK, EntryPoint.SIMILAR_SECTION, 
+    { paper_id: paperId });
 };
 
+// 默认导出
 const usageTracker = {
   FeatureCode,
   Action,
   EntryPoint,
   trackUsage,
-  trackAcademicSearch,
-  trackPaperDetail,
-  trackSimilarPapers,
-  trackSmartAnalysis,
-  trackPaperDimension,
-  trackAIChat,
-  trackAIPeerReview,
-  trackAIAssistant,
-  trackUserLogin,
-  trackUserRegister,
-  trackUserCheckin,
+  // 便捷方法
+  trackCheckin,
+  trackDirectSearch,
+  trackSmartSearch,
+  trackSearchSuggestion,
+  trackAbstractTranslate,
+  trackMatrixAnalysis,
+  trackMatrixAddDimension,
   trackPDFPreview,
+  trackAIAssistantChat,
+  trackAIPeerReview,
+  trackLandingPageView,
+  trackLandingPageSearch,
+  trackLandingPageSimilar,
+  trackDetailPageView,
+  trackDetailPageSimilar,
 };
 
 export default usageTracker;
-

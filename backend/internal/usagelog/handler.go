@@ -137,3 +137,72 @@ func (h *AdminHandler) GetFeatureConfigs(c *gin.Context) {
 	utils.Success(c, configs)
 }
 
+// GetConfig 获取使用统计配置
+// GET /api/v1/admin/usage-logs/config
+func (h *AdminHandler) GetConfig(c *gin.Context) {
+	config, err := h.service.GetConfig()
+	if err != nil {
+		utils.Error(c, 5000, "Failed to get config: "+err.Error())
+		return
+	}
+
+	// 获取过期日志数量
+	oldLogsCount, _, err := h.service.CountOldLogs()
+	if err != nil {
+		oldLogsCount = 0
+	}
+
+	utils.Success(c, gin.H{
+		"config":          config,
+		"old_logs_count":  oldLogsCount,
+	})
+}
+
+// UpdateConfig 更新使用统计配置
+// PUT /api/v1/admin/usage-logs/config
+func (h *AdminHandler) UpdateConfig(c *gin.Context) {
+	var req ConfigUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	config, err := h.service.UpdateConfig(&req)
+	if err != nil {
+		utils.Error(c, 5000, "Failed to update config: "+err.Error())
+		return
+	}
+
+	utils.Success(c, config)
+}
+
+// TriggerCleanup 手动触发数据清理
+// POST /api/v1/admin/usage-logs/cleanup
+func (h *AdminHandler) TriggerCleanup(c *gin.Context) {
+	deleted, err := h.service.CleanupOldLogs()
+	if err != nil {
+		utils.Error(c, 5000, "Failed to cleanup: "+err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{
+		"deleted_count": deleted,
+		"message":       "清理完成",
+	})
+}
+
+// ClearAllLogs 清空所有日志数据
+// DELETE /api/v1/admin/usage-logs/all
+func (h *AdminHandler) ClearAllLogs(c *gin.Context) {
+	count, err := h.service.ClearAllLogs()
+	if err != nil {
+		utils.Error(c, 5000, "Failed to clear all logs: "+err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{
+		"deleted_count": count,
+		"message":       "所有数据已清空",
+	})
+}
+

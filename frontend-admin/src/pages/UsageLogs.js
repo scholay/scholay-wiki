@@ -11,6 +11,25 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import './UsageLogs.css';
 
+// 时间范围选项
+const DATE_RANGE_OPTIONS = [
+  { value: 1, label: '今天' },
+  { value: 7, label: '近7天' },
+  { value: 15, label: '近15天' },
+  { value: 30, label: '近30天' },
+  { value: 90, label: '近3个月' },
+];
+
+// 保留天数选项
+const RETENTION_OPTIONS = [
+  { value: 30, label: '30天' },
+  { value: 60, label: '60天' },
+  { value: 90, label: '90天' },
+  { value: 180, label: '180天（半年）' },
+  { value: 365, label: '365天（一年）' },
+  { value: 730, label: '730天（两年）' },
+];
+
 const UsageLogs = () => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -18,14 +37,26 @@ const UsageLogs = () => {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
   
-  // 筛选条件
+  // 全局时间范围控制（默认7天）
+  const [dateRange, setDateRange] = useState(7);
+  
+  // 配置状态
+  const [config, setConfig] = useState(null);
+  const [retentionDays, setRetentionDays] = useState(180);
+  const [configLoading, setConfigLoading] = useState(false);
+  const [showRetentionEdit, setShowRetentionEdit] = useState(false);
+  const [oldLogsCount, setOldLogsCount] = useState(0);
+  
+  // 清空数据确认框状态
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearLoading, setClearLoading] = useState(false);
+  
+  // 筛选条件（移除了时间相关的筛选）
   const [filters, setFilters] = useState({
     feature_code: '',
     action: '',
     entry_point: '',
     ip_address: '',
-    start_date: '',
-    end_date: '',
     keyword: '',
   });
   
@@ -40,6 +71,64 @@ const UsageLogs = () => {
   const [summary, setSummary] = useState(null);
   const [showSummary, setShowSummary] = useState(true);
 
+  // 获取配置
+  const fetchConfig = useCallback(async () => {
+    try {
+      const response = await api.get('/admin/usage-logs/config');
+      if (response.data.code === 0) {
+        setConfig(response.data.data.config);
+        setRetentionDays(response.data.data.config?.retention_days || 180);
+        setOldLogsCount(response.data.data.old_logs_count || 0);
+      }
+    } catch (error) {
+      console.error('获取配置失败:', error);
+    }
+  }, []);
+
+  // 更新配置
+  const handleUpdateConfig = async () => {
+    setConfigLoading(true);
+    try {
+      const response = await api.put('/admin/usage-logs/config', {
+        retention_days: retentionDays
+      });
+      if (response.data.code === 0) {
+        setConfig(response.data.data);
+        setShowRetentionEdit(false);
+        // 刷新配置以获取最新的过期日志数量
+        fetchConfig();
+      }
+    } catch (error) {
+      console.error('更新配置失败:', error);
+      alert('更新配置失败');
+    } finally {
+      setConfigLoading(false);
+    }
+  };
+
+  // 清空全部数据
+  const handleClearAllLogs = async () => {
+    setClearLoading(true);
+    try {
+      const response = await api.delete('/admin/usage-logs/all');
+      if (response.data.code === 0) {
+        alert(`已成功清空 ${response.data.data.deleted_count.toLocaleString()} 条记录`);
+        setShowClearConfirm(false);
+        // 刷新数据
+        fetchLogs();
+        fetchSummary();
+        fetchConfig();
+      } else {
+        alert(response.data.message || '清空数据失败');
+      }
+    } catch (error) {
+      console.error('清空数据失败:', error);
+      alert('清空数据失败: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setClearLoading(false);
+    }
+  };
+
   // 获取筛选选项
   useEffect(() => {
     const fetchFilterOptions = async () => {
@@ -53,13 +142,14 @@ const UsageLogs = () => {
       }
     };
     fetchFilterOptions();
-  }, []);
+    fetchConfig();
+  }, [fetchConfig]);
 
   // 获取统计摘要
   const fetchSummary = useCallback(async () => {
     try {
       const response = await api.get('/admin/usage-logs/summary', {
-        params: { days: 7 }
+        params: { days: dateRange }
       });
       if (response.data.code === 0) {
         setSummary(response.data.data);
@@ -67,7 +157,7 @@ const UsageLogs = () => {
     } catch (error) {
       console.error('获取统计摘要失败:', error);
     }
-  }, []);
+  }, [dateRange]);
 
   useEffect(() => {
     fetchSummary();
@@ -80,6 +170,7 @@ const UsageLogs = () => {
       const params = {
         page,
         page_size: pageSize,
+        days: dateRange,
         ...Object.fromEntries(
           Object.entries(filters).filter(([_, v]) => v !== '')
         ),
@@ -94,11 +185,17 @@ const UsageLogs = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, filters]);
+  }, [page, pageSize, filters, dateRange]);
 
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
+
+  // 处理时间范围变化
+  const handleDateRangeChange = (value) => {
+    setDateRange(value);
+    setPage(1);
+  };
 
   // 处理筛选条件变化
   const handleFilterChange = (key, value) => {
@@ -113,8 +210,6 @@ const UsageLogs = () => {
       action: '',
       entry_point: '',
       ip_address: '',
-      start_date: '',
-      end_date: '',
       keyword: '',
     });
     setPage(1);
@@ -134,20 +229,40 @@ const UsageLogs = () => {
     });
   };
 
-  // 获取功能名称颜色
+  // 刷新所有数据
+  const handleRefresh = useCallback(() => {
+    fetchLogs();
+    fetchSummary();
+    fetchConfig();
+  }, [fetchLogs, fetchSummary, fetchConfig]);
+
+  // 获取功能名称颜色（16个功能追踪点）
   const getFeatureColor = (featureCode) => {
     const colors = {
-      academic_search: '#3b82f6',
-      paper_detail: '#6366f1',
-      similar_papers: '#8b5cf6',
-      smart_analysis: '#ec4899',
-      paper_dimension: '#f43f5e',
-      ai_chat: '#14b8a6',
-      ai_peer_review: '#f59e0b',
-      ai_assistant: '#84cc16',
-      user_login: '#22c55e',
-      user_register: '#10b981',
+      // 用户类 - 青色系
       user_checkin: '#06b6d4',
+      // 检索类 - 蓝色系
+      direct_search: '#3b82f6',
+      smart_search: '#6366f1',
+      search_suggestion: '#818cf8',
+      // 翻译类 - 紫色系
+      abstract_translate: '#a855f7',
+      // 分析类 - 粉色系
+      matrix_analysis: '#ec4899',
+      matrix_add_dimension: '#f472b6',
+      // 工具类 - 橙色系
+      pdf_preview: '#f97316',
+      // 对话类 - 绿色系
+      smart_analysis_chat: '#10b981',
+      ai_assistant_chat: '#22c55e',
+      ai_peer_review: '#84cc16',
+      // 落地页类 - 黄色系
+      landing_page_view: '#eab308',
+      landing_page_search: '#facc15',
+      landing_page_similar: '#fbbf24',
+      // 详情页类 - 红色系
+      detail_page_view: '#ef4444',
+      detail_page_similar: '#f87171',
     };
     return colors[featureCode] || '#6b7280';
   };
@@ -161,11 +276,125 @@ const UsageLogs = () => {
         <p>查看和分析用户的功能使用情况</p>
       </div>
 
+      {/* 全局控制栏 */}
+      <div className="ul-global-controls">
+        <div className="ul-control-section">
+          <div className="ul-control-label">时间范围</div>
+          <div className="ul-date-range-buttons">
+            {DATE_RANGE_OPTIONS.map(option => (
+              <button
+                key={option.value}
+                className={`ul-date-range-btn ${dateRange === option.value ? 'active' : ''}`}
+                onClick={() => handleDateRangeChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        <div className="ul-control-divider" />
+        
+        <div className="ul-control-section">
+          <div className="ul-control-label">数据保留</div>
+          {showRetentionEdit ? (
+            <div className="ul-retention-edit">
+              <select
+                value={retentionDays}
+                onChange={(e) => setRetentionDays(Number(e.target.value))}
+                disabled={configLoading}
+              >
+                {RETENTION_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <button 
+                className="ul-retention-save"
+                onClick={handleUpdateConfig}
+                disabled={configLoading}
+              >
+                {configLoading ? '保存中...' : '保存'}
+              </button>
+              <button 
+                className="ul-retention-cancel"
+                onClick={() => {
+                  setShowRetentionEdit(false);
+                  setRetentionDays(config?.retention_days || 180);
+                }}
+                disabled={configLoading}
+              >
+                取消
+              </button>
+            </div>
+          ) : (
+            <div className="ul-retention-display">
+              <span className="ul-retention-value">
+                保留 {config?.retention_days || 180} 天
+              </span>
+              {oldLogsCount > 0 && (
+                <span className="ul-retention-hint">
+                  (有 {oldLogsCount.toLocaleString()} 条过期数据待清理)
+                </span>
+              )}
+              <button 
+                className="ul-retention-edit-btn"
+                onClick={() => setShowRetentionEdit(true)}
+              >
+                修改
+              </button>
+            </div>
+          )}
+        </div>
+        
+        <div className="ul-control-divider" />
+        
+        <div className="ul-control-section">
+          <div className="ul-control-label">数据管理</div>
+          <button 
+            className="ul-clear-all-btn"
+            onClick={() => setShowClearConfirm(true)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            清空全部数据
+          </button>
+        </div>
+        
+        <div className="ul-control-divider" />
+        
+        <div className="ul-control-section">
+          <button 
+            className="ul-refresh-btn"
+            onClick={handleRefresh}
+            disabled={loading}
+          >
+            <svg 
+              width="16" 
+              height="16" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2"
+              className={loading ? 'ul-spin' : ''}
+            >
+              <path d="M23 4v6h-6"></path>
+              <path d="M1 20v-6h6"></path>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            {loading ? '刷新中...' : '刷新数据'}
+          </button>
+        </div>
+      </div>
+
       {/* 统计摘要 */}
       {showSummary && summary && (
         <div className="ul-summary">
           <div className="ul-summary-header">
-            <h3>统计概览</h3>
+            <h3>统计概览 <span className="ul-summary-range">({DATE_RANGE_OPTIONS.find(o => o.value === dateRange)?.label})</span></h3>
             <button 
               className="ul-summary-toggle"
               onClick={() => setShowSummary(false)}
@@ -286,26 +515,6 @@ const UsageLogs = () => {
               onChange={(e) => handleFilterChange('ip_address', e.target.value)}
             />
           </div>
-        </div>
-        
-        <div className="ul-filters-row">
-          <div className="ul-filter-group">
-            <label>开始日期</label>
-            <input
-              type="date"
-              value={filters.start_date}
-              onChange={(e) => handleFilterChange('start_date', e.target.value)}
-            />
-          </div>
-          
-          <div className="ul-filter-group">
-            <label>结束日期</label>
-            <input
-              type="date"
-              value={filters.end_date}
-              onChange={(e) => handleFilterChange('end_date', e.target.value)}
-            />
-          </div>
           
           <div className="ul-filter-group ul-filter-keyword">
             <label>关键词</label>
@@ -414,6 +623,48 @@ const UsageLogs = () => {
             >
               末页
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 清空数据确认对话框 */}
+      {showClearConfirm && (
+        <div className="ul-modal-overlay">
+          <div className="ul-modal">
+            <div className="ul-modal-header">
+              <h3>确认清空全部数据</h3>
+            </div>
+            <div className="ul-modal-body">
+              <div className="ul-modal-warning">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              </div>
+              <p className="ul-modal-message">
+                此操作将<strong>永久删除</strong>所有使用统计记录，共计 <strong>{total.toLocaleString()}</strong> 条数据。
+              </p>
+              <p className="ul-modal-hint">
+                删除后数据无法恢复，请确认是否继续？
+              </p>
+            </div>
+            <div className="ul-modal-footer">
+              <button 
+                className="ul-modal-cancel"
+                onClick={() => setShowClearConfirm(false)}
+                disabled={clearLoading}
+              >
+                取消
+              </button>
+              <button 
+                className="ul-modal-confirm"
+                onClick={handleClearAllLogs}
+                disabled={clearLoading}
+              >
+                {clearLoading ? '清空中...' : '确认清空'}
+              </button>
+            </div>
           </div>
         </div>
       )}

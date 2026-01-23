@@ -9,6 +9,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { publicScholarAPI } from '../services/api';
+import { trackSearchSuggestion } from '../utils/usageTracker';
 import './SearchSuggestions.css';
 
 /**
@@ -54,10 +55,14 @@ const SearchSuggestions = ({
     try {
       const response = await publicScholarAPI.getSearchSuggestions(searchQuery.trim(), 5, 5);
       if (response.data.code === 0 && response.data.data) {
-        setSuggestions({
-          papers: response.data.data.papers || [],
-          authors: response.data.data.authors || []
-        });
+        const papers = response.data.data.papers || [];
+        const authors = response.data.data.authors || [];
+        setSuggestions({ papers, authors });
+        
+        // 记录检索联想使用统计（只在有结果时记录）
+        if (papers.length > 0 || authors.length > 0) {
+          trackSearchSuggestion(searchQuery.trim());
+        }
       } else {
         setSuggestions({ papers: [], authors: [] });
       }

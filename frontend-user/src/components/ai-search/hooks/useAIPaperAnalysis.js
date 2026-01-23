@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect } from 'react';
 import { analysisDimensionAPI } from '../../../services/api';
+import { trackMatrixAnalysis } from '../../../utils/usageTracker';
 import wsClient from '../../../services/websocket';
 import logger from '../../../utils/logger';
 
@@ -58,6 +59,9 @@ export const useAIPaperAnalysis = ({
           ...prev,
           [paper.paperId]: dimensionData
         }));
+
+        // 记录智能矩阵分析使用统计
+        trackMatrixAnalysis(paper.paperId);
 
         return { success: true, aborted: false, deducted: deductedAmount };
       } else {

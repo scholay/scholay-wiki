@@ -1,106 +1,101 @@
 /**
- * ============================================================================
- * Scholay学术 V1.0
- * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
- * 统一社会信用代码: 91510100MAEEHRNE26
- * All Rights Reserved.
- * ============================================================================
- * 
- * useIntersectionObserver - 交叉观察器 Hook
+ * Intersection Observer Hook
+ * 检测元素是否在可视区域内
  */
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
- * 交叉观察器 Hook
- * @param {Object} options - 配置选项
- * @param {number} options.threshold - 阈值
- * @param {string} options.rootMargin - 根边距
- * @param {boolean} options.triggerOnce - 是否只触发一次
- * @param {Function} options.onIntersect - 进入视口回调
- * @param {Function} options.onLeave - 离开视口回调
+ * 使用 Intersection Observer 检测元素可见性
+ * @param {Object} options - Observer 配置
+ * @param {string} options.root - 根元素选择器
+ * @param {string} options.rootMargin - 根元素边距
+ * @param {number} options.threshold - 可见阈值
+ * @returns {[React.RefObject, boolean]} - [ref, isVisible]
  */
-const useIntersectionObserver = (options = {}) => {
-  const {
-    threshold = 0,
-    rootMargin = '0px',
-    triggerOnce = false,
-    onIntersect,
-    onLeave,
-  } = options;
-
-  const [isIntersecting, setIsIntersecting] = useState(false);
-  const [hasIntersected, setHasIntersected] = useState(false);
-  const targetRef = useRef(null);
+export const useIntersectionObserver = (options = {}) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const elementRef = useRef(null);
   const observerRef = useRef(null);
 
-  const handleIntersect = useCallback((entries) => {
-    entries.forEach(entry => {
-      const isVisible = entry.isIntersecting;
-      
-      if (isVisible) {
-        setIsIntersecting(true);
-        setHasIntersected(true);
-        onIntersect?.(entry);
-        
-        if (triggerOnce && observerRef.current) {
-          observerRef.current.disconnect();
-        }
-      } else {
-        setIsIntersecting(false);
-        onLeave?.(entry);
-      }
-    });
-  }, [triggerOnce, onIntersect, onLeave]);
+  const { root = null, rootMargin = '100px 0px', threshold = 0.1 } = options;
 
   useEffect(() => {
-    const target = targetRef.current;
-    if (!target) return;
+    const element = elementRef.current;
+    if (!element) return;
 
-    observerRef.current = new IntersectionObserver(handleIntersect, {
-      threshold,
-      rootMargin,
-    });
+    // 创建 observer
+    observerRef.current = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting);
+      },
+      {
+        root: root ? document.querySelector(root) : null,
+        rootMargin,
+        threshold,
+      }
+    );
 
-    observerRef.current.observe(target);
+    observerRef.current.observe(element);
 
     return () => {
       if (observerRef.current) {
         observerRef.current.disconnect();
       }
     };
-  }, [threshold, rootMargin, handleIntersect]);
+  }, [root, rootMargin, threshold]);
 
-  // 手动触发观察
-  const observe = useCallback((element) => {
-    if (observerRef.current && element) {
-      observerRef.current.observe(element);
-    }
+  return [elementRef, isVisible];
+};
+
+/**
+ * 使用 Intersection Observer 触发一次性回调
+ * @param {Function} callback - 进入可视区域时的回调
+ * @param {Object} options - Observer 配置
+ * @returns {React.RefObject} - ref
+ */
+export const useVisibilityTrigger = (callback, options = {}) => {
+  const elementRef = useRef(null);
+  const hasTriggeredRef = useRef(false);
+  const callbackRef = useRef(callback);
+
+  // 更新 callback ref
+  useEffect(() => {
+    callbackRef.current = callback;
+  }, [callback]);
+
+  const { root = null, rootMargin = '50px 0px', threshold = 0.1, enabled = true } = options;
+
+  useEffect(() => {
+    const element = elementRef.current;
+    if (!element || !enabled) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasTriggeredRef.current) {
+          hasTriggeredRef.current = true;
+          callbackRef.current?.();
+        }
+      },
+      {
+        root: root ? document.querySelector(root) : null,
+        rootMargin,
+        threshold,
+      }
+    );
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [root, rootMargin, threshold, enabled]);
+
+  // 重置触发状态的方法
+  const reset = useCallback(() => {
+    hasTriggeredRef.current = false;
   }, []);
 
-  // 停止观察
-  const unobserve = useCallback((element) => {
-    if (observerRef.current && element) {
-      observerRef.current.unobserve(element);
-    }
-  }, []);
-
-  // 断开连接
-  const disconnect = useCallback(() => {
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-    }
-  }, []);
-
-  return {
-    ref: targetRef,
-    isIntersecting,
-    hasIntersected,
-    observe,
-    unobserve,
-    disconnect,
-  };
+  return { ref: elementRef, reset };
 };
 
 export default useIntersectionObserver;
-

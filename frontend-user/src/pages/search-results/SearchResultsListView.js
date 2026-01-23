@@ -2,10 +2,11 @@
  * 搜索结果列表视图组件
  * 包含论文列表和维度分析面板
  */
-import React, { memo } from 'react';
+import React, { memo, useEffect, useRef, useCallback } from 'react';
 import Pagination from '../../components/Pagination';
 import AnalysisCellText from '../../components/AnalysisCellText';
 import { useTranslation } from '../../hooks';
+import analysisQueue from '../../utils/analysisQueue';
 
 const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, totalPages }) => {
   const {
@@ -54,6 +55,7 @@ const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, tot
     handleCloseEditView,
     handleSaveDimension,
     handleDeleteDimension,
+    analyzePaper,
   } = dimensionAnalysis;
 
   // 翻译功能
@@ -168,6 +170,8 @@ const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, tot
                 translation={translation}
                 isAuthenticated={isAuthenticated}
                 setShowAuthModal={setShowAuthModal}
+                analyzePaper={analyzePaper}
+                shouldAnalyze={selectedDimensions.length > 0}
               />
             );
           })}
@@ -234,7 +238,13 @@ const PaperRow = memo(({
   // 鉴权相关
   isAuthenticated,
   setShowAuthModal,
+  // 可视区域分析
+  analyzePaper,
+  shouldAnalyze,
 }) => {
+  const rowRef = useRef(null);
+  const hasQueuedRef = useRef(false);
+
   const hasTldr = paper.tldr?.text;
   const hasAbstract = paper.abstract;
   const currentMode = showAbstractMode[paper.paperId] || (hasTldr ? 'tldr' : 'abstract');
@@ -252,8 +262,54 @@ const PaperRow = memo(({
   const hasTranslation = translationState.status === 'completed' && translationState.text;
   const translatedText = translationState.text || '';
 
+  // 可视区域检测 + 分析队列
+  useEffect(() => {
+    const element = rowRef.current;
+    if (!element) return;
+
+    // 检查是否需要分析
+    const needsAnalysis = shouldAnalyze && 
+      (paper.abstract || paper.tldr?.text) && 
+      !paperResults && 
+      !isAnalyzing;
+
+    if (!needsAnalysis) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasQueuedRef.current) {
+          hasQueuedRef.current = true;
+          // 加入分析队列
+          analysisQueue.enqueue(
+            paper.paperId,
+            () => analyzePaper(paper),
+            () => {} // 完成回调（状态由 analyzePaper 内部管理）
+          );
+        }
+      },
+      {
+        rootMargin: '100px 0px', // 提前 100px 开始加载
+        threshold: 0.1,
+      }
+    );
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [paper, paperResults, isAnalyzing, shouldAnalyze, analyzePaper]);
+
+  // 当页面切换或维度取消选择时，重置队列状态
+  useEffect(() => {
+    if (!shouldAnalyze) {
+      hasQueuedRef.current = false;
+    }
+  }, [shouldAnalyze]);
+
   return (
     <div
+      ref={rowRef}
       className={`unified-table-row ${selectedPaper?.paperId === paper.paperId ? 'selected' : ''}`}
       data-paper-index={index}
     >
@@ -522,7 +578,12 @@ const DimensionFloatPanel = memo(({
     <div
       className={`dimension-float-panel ${selectedDimensions.length > 0 && !floatPanelExpanded ? 'collapsed' : ''} ${floatPanelExpanded ? 'expanded' : ''}`}
       onMouseEnter={() => setFloatPanelExpanded(true)}
-      onMouseLeave={() => setFloatPanelExpanded(false)}
+      onMouseLeave={() => {
+        // 在编辑模式下不自动折叠面板
+        if (floatPanelView !== 'edit') {
+          setFloatPanelExpanded(false);
+        }
+      }}
     >
       {/* 收起状态的侧边标签 */}
       <div className="dimension-float-collapsed-tab">

@@ -4,7 +4,7 @@
  */
 import { useCallback } from 'react';
 import { conversationAPI, walletAPI, publicScholarAPI } from '../../../services/api';
-import { trackSmartAnalysis, EntryPoint } from '../../../utils/usageTracker';
+import { trackSmartSearch, EntryPoint } from '../../../utils/usageTracker';
 import wsClient from '../../../services/websocket';
 import logger from '../../../utils/logger';
 
@@ -495,6 +495,9 @@ export const useAIStreamSearch = ({
           msg.id === tempUserMessage.id ? newMessage : msg
         ));
 
+        // 记录智能检索使用统计
+        trackSmartSearch(userMessage, EntryPoint.HOME_PAGE);
+
         startAdvancedSearch(conversationId, newMessage.id, userMessage);
       } else {
         throw new Error(response.data.message || 'Failed to send message');
@@ -533,8 +536,6 @@ export const useAIStreamSearch = ({
     e.preventDefault();
     const query = textareaRef.current?.value || '';
     if (!query.trim()) return;
-
-    trackSmartAnalysis(EntryPoint.ADVANCED_SEARCH_PAGE, query);
 
     await handleInitialSearch(query);
   }, [textareaRef, handleInitialSearch]);

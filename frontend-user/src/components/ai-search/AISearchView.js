@@ -272,7 +272,12 @@ const AISearchView = () => {
                 editForm={aiSearch.editForm}
                 getDimensionKey={aiSearch.getDimensionKey}
                 onPanelExpand={() => aiSearch.setFloatPanelExpanded(true)}
-                onPanelCollapse={() => aiSearch.setFloatPanelExpanded(false)}
+                onPanelCollapse={() => {
+                  // 在编辑/新增模式下不自动折叠面板
+                  if (aiSearch.floatPanelView !== 'create' && aiSearch.floatPanelView !== 'edit') {
+                    aiSearch.setFloatPanelExpanded(false);
+                  }
+                }}
                 onDimensionToggle={aiSearch.handleDimensionToggle}
                 onViewDimension={handleViewDimension}
                 onEditDimension={aiSearch.handleOpenEditView}

@@ -1445,6 +1445,18 @@ INSERT IGNORE INTO `feature_configs` (`feature_code`, `feature_name`, `feature_g
 -- 工具类
 ('pdf_preview', 'PDF预览', 'tool', 'PDF文档预览功能', 40);
 
+-- 使用统计配置表
+CREATE TABLE IF NOT EXISTS `usage_log_config` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `retention_days` INT NOT NULL DEFAULT 180 COMMENT '数据保留天数，默认180天(半年)',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='使用统计配置表';
+
+-- 初始化使用统计配置（默认保留180天）
+INSERT IGNORE INTO `usage_log_config` (`id`, `retention_days`) VALUES (1, 180);
+
 -- ============================================
 -- 站内信系统表
 -- ============================================
@@ -1596,3 +1608,35 @@ CREATE TABLE IF NOT EXISTS `currency_batch_distributions` (
   CONSTRAINT `fk_cbd_batch` FOREIGN KEY (`batch_id`) REFERENCES `currency_batches` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_cbd_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='批量发放明细表';
+
+-- ============================================
+-- 功能配置默认数据
+-- 每次执行先清空再插入，确保数据一致性
+-- ============================================
+
+-- 清空并重新初始化功能配置（16个功能追踪点）
+DELETE FROM feature_configs;
+INSERT INTO feature_configs (feature_code, feature_name, feature_group, description, sort_order) VALUES
+-- 用户类
+('user_checkin', '每日签到', 'user', '用户每日签到功能', 1),
+-- 检索类
+('direct_search', '直接检索', 'search', '调用论文搜索API', 10),
+('search_suggestion', '检索联想', 'search', '搜索建议/自动补全', 11),
+('smart_search', '智能检索', 'search', 'AI智能搜索模式', 12),
+-- 翻译类
+('abstract_translate', '摘要翻译', 'translate', '摘要翻译功能', 20),
+-- 分析类
+('matrix_analysis', '智能矩阵分析', 'analysis', '论文多维分析功能', 30),
+('matrix_add_dimension', '智能矩阵新增维度', 'analysis', '添加自定义分析维度', 31),
+-- 工具类
+('pdf_preview', 'PDF预览', 'tool', 'PDF文档预览功能', 40),
+-- 对话类
+('ai_assistant_chat', '智能助手对话', 'chat', '智能助手对话功能', 50),
+('ai_peer_review', '智能审稿', 'chat', '智能审稿功能', 52),
+-- 落地页类 (/paper/{id})
+('landing_page_view', '落地页详情', 'landing', '打开论文落地页', 60),
+('landing_page_search', '落地页搜索', 'landing', '在落地页顶部搜索框搜索', 61),
+('landing_page_similar', '落地页相似论文', 'landing', '点击落地页相似论文', 62),
+-- 详情页类 (/search-results?paperId=xxx)
+('detail_page_view', '论文详情页', 'detail', '打开搜索结果详情页', 70),
+('detail_page_similar', '详情页相似论文', 'detail', '点击详情页相似论文', 71);

@@ -16,7 +16,7 @@ import rehypeHighlight from 'rehype-highlight';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
 import api, { subscriptionAPI, walletAPI } from '../services/api';
-import { trackAIChat, EntryPoint } from '../utils/usageTracker';
+import { trackAIAssistantChat } from '../utils/usageTracker';
 import logger from '../utils/logger';
 import wsClient from '../services/websocket';
 import InsufficientBalanceModal from '../components/InsufficientBalanceModal';
@@ -692,8 +692,8 @@ function ChatPage() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (inputMessage.trim() && !isStreaming) {
-      // 记录AI聊天使用
-      trackAIChat(EntryPoint.CHAT_PAGE);
+      // 记录智能助手对话使用
+      trackAIAssistantChat('智能助手对话');
       sendMessage(inputMessage);
       setInputMessage('');
       if (textareaRef.current) {

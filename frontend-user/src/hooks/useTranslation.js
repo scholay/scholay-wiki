@@ -4,6 +4,7 @@
  */
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { publicScholarAPI } from '../services/api';
+import { trackAbstractTranslate } from '../utils/usageTracker';
 
 /**
  * 检测文本是否包含中文字符
@@ -177,6 +178,12 @@ export const useTranslation = () => {
         ...prev,
         [key]: { status: 'completed', text: translatedText, error: '' }
       }));
+      
+      // 记录摘要翻译使用统计（从 key 中提取 paperId，格式如 paperId_abstract 或 paperId_tldr）
+      const paperId = key.split('_')[0];
+      if (paperId) {
+        trackAbstractTranslate(paperId);
+      }
 
     } catch (error) {
       // 如果是取消请求，不设置错误状态

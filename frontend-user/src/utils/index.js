@@ -52,21 +52,32 @@ export { organizeMessagesByParentId, messagesToQAList } from './messageUtils';
 // SEO 工具
 export { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from './seoHelpers';
 
-// 使用追踪
+// 使用追踪（15个新功能追踪点）
 export {
   trackUsage,
-  trackAcademicSearch,
-  trackPaperDetail,
-  trackSimilarPapers,
-  trackSmartAnalysis,
-  trackPaperDimension,
-  trackAIChat,
-  trackAIPeerReview,
-  trackAIAssistant,
-  trackUserLogin,
-  trackUserRegister,
-  trackUserCheckin,
+  // 用户类
+  trackCheckin,
+  // 检索类
+  trackDirectSearch,
+  trackSearchSuggestion,
+  // 翻译类
+  trackAbstractTranslate,
+  // 分析类
+  trackMatrixAnalysis,
+  trackMatrixAddDimension,
+  // 工具类
   trackPDFPreview,
+  // 对话类
+  trackAIAssistantChat,
+  trackAIPeerReview,
+  // 落地页类
+  trackLandingPageView,
+  trackLandingPageSearch,
+  trackLandingPageSimilar,
+  // 详情页类
+  trackDetailPageView,
+  trackDetailPageSimilar,
+  // 常量
   FeatureCode,
   Action,
   EntryPoint,

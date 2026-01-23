@@ -689,6 +689,10 @@ func main() {
 			adminProtected.GET("/usage-logs/summary", usageLogAdminHandler.GetStatsSummary)
 			adminProtected.GET("/usage-logs/filter-options", usageLogAdminHandler.GetFilterOptions)
 			adminProtected.GET("/usage-logs/features", usageLogAdminHandler.GetFeatureConfigs)
+			adminProtected.GET("/usage-logs/config", usageLogAdminHandler.GetConfig)
+			adminProtected.PUT("/usage-logs/config", usageLogAdminHandler.UpdateConfig)
+			adminProtected.POST("/usage-logs/cleanup", usageLogAdminHandler.TriggerCleanup)
+			adminProtected.DELETE("/usage-logs/all", usageLogAdminHandler.ClearAllLogs)
 
 			// Message management (站内信管理)
 			adminProtected.POST("/messages", messageHandler.AdminCreateMessage)

@@ -14,7 +14,7 @@ import SEO from '../components/SEO';
 import FloatingGuide from '../components/FloatingGuide';
 import Logo from '../components/Logo';
 import { generateScholarlyArticleSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
-import { trackPaperDetail } from '../utils/usageTracker';
+import { trackLandingPageView, trackLandingPageSearch, trackLandingPageSimilar } from '../utils/usageTracker';
 import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation } from '../utils/searchStorage';
 import logger from '../utils/logger';
 import './PaperDetailPage.css';
@@ -73,8 +73,8 @@ const PaperDetailPage = () => {
 
     if (paperId) {
       fetchPaperDetails();
-      // 记录论文详情查看
-      trackPaperDetail(paperId);
+      // 记录落地页详情查看
+      trackLandingPageView(paperId);
     }
   }, [paperId]);
 
@@ -150,6 +150,8 @@ const PaperDetailPage = () => {
         const total = response.data.data.data?.total || results.length;
         setSearchResults(results);
         setSearchTotal(total);
+        // 记录落地页搜索使用统计
+        trackLandingPageSearch(searchQuery.trim());
       } else {
         setSearchResults([]);
         setSearchTotal(0);
@@ -205,6 +207,8 @@ const PaperDetailPage = () => {
 
   // 点击推荐论文 - 跳转到搜索结果页
   const handleSimilarPaperClick = (similarPaperId) => {
+    // 记录落地页相似论文点击
+    trackLandingPageSimilar(similarPaperId, paperId);
     const targetUrl = preparePaperNavigation(similarPaperId);
     navigate(targetUrl);
   };

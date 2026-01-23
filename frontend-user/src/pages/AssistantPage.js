@@ -7,9 +7,10 @@
  * ============================================================================
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSidebar } from '../contexts/SidebarContext';
+import { trackAIAssistantChat } from '../utils/usageTracker';
 import './styles/AssistantPage.css';
 
 function AssistantPage() {
@@ -20,6 +21,13 @@ function AssistantPage() {
   useEffect(() => {
     resetSidebarConfig();
   }, [resetSidebarConfig]);
+
+  // 处理工具卡片点击
+  const handleToolClick = useCallback((tool) => {
+    // 记录智能助手对话使用统计
+    trackAIAssistantChat(tool.title);
+    navigate(tool.path);
+  }, [navigate]);
 
   const tools = [
     {
@@ -65,7 +73,7 @@ function AssistantPage() {
           <article
             key={tool.id}
             className="ast-card"
-            onClick={() => navigate(tool.path)}
+            onClick={() => handleToolClick(tool)}
             style={{ '--card-color': tool.color, '--card-gradient': tool.gradient }}
           >
             <div className="ast-card-header">

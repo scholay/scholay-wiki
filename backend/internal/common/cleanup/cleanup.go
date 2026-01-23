@@ -43,6 +43,9 @@ func (s *CleanupService) Start() {
 	// Clean old snapshots every day at 3 AM
 	go s.runDaily("old_snapshots", 3, 0, s.cleanOldSnapshots)
 
+	// Clean old usage logs every day at 4 AM
+	go s.runDaily("old_usage_logs", 4, 0, s.cleanOldUsageLogs)
+
 	log.Println("✓ Cleanup service started")
 }
 
@@ -148,6 +151,68 @@ func (s *CleanupService) cleanOldSnapshots() error {
 	return nil
 }
 
+// cleanOldUsageLogs removes old usage logs based on configured retention period
+// Uses batch deletion to avoid performance impact
+func (s *CleanupService) cleanOldUsageLogs() error {
+	// 获取配置的保留天数
+	var retentionDays int
+	err := s.db.Table("usage_log_config").
+		Select("retention_days").
+		Where("id = 1").
+		Scan(&retentionDays).Error
+	if err != nil || retentionDays == 0 {
+		retentionDays = 180 // 默认180天
+	}
+
+	cutoffTime := time.Now().AddDate(0, 0, -retentionDays)
+	log.Printf("Starting cleanup of usage logs older than %d days (before %s)\n",
+		retentionDays, cutoffTime.Format("2006-01-02"))
+
+	// 分批删除参数
+	const batchSize = 1000                    // 每批删除1000条
+	const batchDelay = 100 * time.Millisecond // 批次间隔100ms
+
+	var totalDeleted int64
+
+	for {
+		// 检查是否需要停止
+		select {
+		case <-s.ctx.Done():
+			log.Printf("Usage logs cleanup interrupted, deleted %d records so far\n", totalDeleted)
+			return nil
+		default:
+		}
+
+		// 分批删除
+		result := s.db.Exec(`
+			DELETE FROM usage_logs 
+			WHERE created_at < ? 
+			ORDER BY created_at ASC 
+			LIMIT ?
+		`, cutoffTime, batchSize)
+
+		if result.Error != nil {
+			return fmt.Errorf("failed to clean old usage logs: %w", result.Error)
+		}
+
+		totalDeleted += result.RowsAffected
+
+		// 如果删除的数量小于 batchSize，说明没有更多数据需要删除
+		if result.RowsAffected < int64(batchSize) {
+			break
+		}
+
+		// 批次间休眠，避免对数据库造成压力
+		time.Sleep(batchDelay)
+	}
+
+	if totalDeleted > 0 {
+		log.Printf("✓ Cleaned %d old usage logs (retention: %d days)\n", totalDeleted, retentionDays)
+	}
+
+	return nil
+}
+
 // CleanExpiredSessionsNow runs the expired sessions cleanup immediately
 func (s *CleanupService) CleanExpiredSessionsNow() error {
 	log.Println("Running manual cleanup: expired sessions")
@@ -158,6 +223,12 @@ func (s *CleanupService) CleanExpiredSessionsNow() error {
 func (s *CleanupService) CleanOldSnapshotsNow() error {
 	log.Println("Running manual cleanup: old snapshots")
 	return s.cleanOldSnapshots()
+}
+
+// CleanOldUsageLogsNow runs the old usage logs cleanup immediately
+func (s *CleanupService) CleanOldUsageLogsNow() error {
+	log.Println("Running manual cleanup: old usage logs")
+	return s.cleanOldUsageLogs()
 }
 
 // GetCleanupStats returns statistics about data to be cleaned
@@ -211,6 +282,40 @@ func (s *CleanupService) GetCleanupStats() (map[string]interface{}, error) {
 		return nil, err
 	}
 	stats["total_snapshots_count"] = totalSnapshotsCount
+
+	// Count old usage logs
+	var retentionDays int
+	s.db.Table("usage_log_config").
+		Select("retention_days").
+		Where("id = 1").
+		Scan(&retentionDays)
+	if retentionDays == 0 {
+		retentionDays = 180
+	}
+
+	var oldUsageLogsCount int64
+	usageLogsCutoff := time.Now().AddDate(0, 0, -retentionDays)
+	if err := s.db.Model(&struct {
+		TableName string `gorm:"-" json:"-"`
+	}{}).
+		Table("usage_logs").
+		Where("created_at < ?", usageLogsCutoff).
+		Count(&oldUsageLogsCount).Error; err != nil {
+		return nil, err
+	}
+	stats["old_usage_logs_count"] = oldUsageLogsCount
+	stats["usage_logs_retention_days"] = retentionDays
+
+	// Total usage logs count
+	var totalUsageLogsCount int64
+	if err := s.db.Model(&struct {
+		TableName string `gorm:"-" json:"-"`
+	}{}).
+		Table("usage_logs").
+		Count(&totalUsageLogsCount).Error; err != nil {
+		return nil, err
+	}
+	stats["total_usage_logs_count"] = totalUsageLogsCount
 
 	return stats, nil
 }

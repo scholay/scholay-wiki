@@ -13,6 +13,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { publicScholarAPI } from '../services/api';
 import logger from '../utils/logger';
+import { trackDirectSearch, EntryPoint } from '../utils/usageTracker';
 
 /**
  * 搜索功能 Hook
@@ -99,6 +100,9 @@ export function useSearch({ defaultPageSize = 10 } = {}) {
         setPapers(papersData || []);
         setTotal(totalCount || 0);
         setCurrentPage(page);
+        
+        // 记录直接检索使用统计
+        trackDirectSearch(query.trim(), EntryPoint.SEARCH_BOX);
         
         // 更新查询信息
         if (query_info) {

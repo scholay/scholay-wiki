@@ -74,6 +74,14 @@ func (s *Service) List(query *ListQuery) ([]UsageLogWithUser, int64, error) {
 	if query.PageSize < 1 || query.PageSize > 100 {
 		query.PageSize = 20
 	}
+	// 默认查询最近7天的数据
+	if query.Days < 1 {
+		query.Days = 7
+	}
+	// 最大允许查询180天
+	if query.Days > 180 {
+		query.Days = 180
+	}
 	return s.repo.List(query)
 }
 
@@ -82,8 +90,9 @@ func (s *Service) GetStatsSummary(days int) (*StatsSummary, error) {
 	if days < 1 {
 		days = 7
 	}
-	if days > 90 {
-		days = 90
+	// 最大允许查询180天
+	if days > 180 {
+		days = 180
 	}
 	return s.repo.GetStatsSummary(days)
 }
@@ -182,5 +191,103 @@ func parseUserAgent(ua string) (deviceType, browser, os string) {
 	}
 
 	return
+}
+
+// ========== 配置管理 ==========
+
+// GetConfig 获取使用统计配置
+func (s *Service) GetConfig() (*UsageLogConfig, error) {
+	return s.repo.GetConfig()
+}
+
+// UpdateConfig 更新使用统计配置
+func (s *Service) UpdateConfig(req *ConfigUpdateRequest) (*UsageLogConfig, error) {
+	// 验证保留天数范围
+	if req.RetentionDays < 7 {
+		req.RetentionDays = 7
+	}
+	if req.RetentionDays > 730 { // 最多2年
+		req.RetentionDays = 730
+	}
+
+	config := &UsageLogConfig{
+		RetentionDays: req.RetentionDays,
+	}
+
+	if err := s.repo.UpdateConfig(config); err != nil {
+		return nil, err
+	}
+
+	return s.repo.GetConfig()
+}
+
+// ========== 数据清理 ==========
+
+// CleanupOldLogs 清理过期日志（分批删除，不影响性能）
+// 返回总共删除的数量
+func (s *Service) CleanupOldLogs() (int64, error) {
+	// 获取配置的保留天数
+	config, err := s.repo.GetConfig()
+	if err != nil {
+		return 0, err
+	}
+
+	// 计算截止时间
+	cutoffTime := time.Now().AddDate(0, 0, -config.RetentionDays)
+
+	// 分批删除参数
+	const batchSize = 1000                       // 每批删除1000条
+	const batchDelay = 100 * time.Millisecond    // 批次间隔100ms
+
+	var totalDeleted int64
+
+	for {
+		deleted, hasMore, err := s.repo.DeleteOldLogsBatch(cutoffTime, batchSize)
+		if err != nil {
+			return totalDeleted, err
+		}
+
+		totalDeleted += deleted
+
+		// 如果没有更多数据，退出循环
+		if !hasMore || deleted == 0 {
+			break
+		}
+
+		// 批次间休眠，避免对数据库造成压力
+		time.Sleep(batchDelay)
+	}
+
+	return totalDeleted, nil
+}
+
+// CountOldLogs 统计过期日志数量
+func (s *Service) CountOldLogs() (int64, int, error) {
+	config, err := s.repo.GetConfig()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	cutoffTime := time.Now().AddDate(0, 0, -config.RetentionDays)
+	count, err := s.repo.CountOldLogs(cutoffTime)
+	return count, config.RetentionDays, err
+}
+
+// ClearAllLogs 清空所有日志数据
+// 返回清空前的数量
+func (s *Service) ClearAllLogs() (int64, error) {
+	// 先统计数量
+	count, err := s.repo.CountAllLogs()
+	if err != nil {
+		return 0, err
+	}
+
+	// 清空数据
+	_, err = s.repo.DeleteAllLogs()
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
 

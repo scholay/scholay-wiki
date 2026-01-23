@@ -20,6 +20,8 @@ import SearchToAITransition from '../../components/SearchToAITransition';
 import InsufficientBalanceModal from '../../components/InsufficientBalanceModal';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../../utils/seoHelpers';
 import { setSearchQuery as saveSearchQuery } from '../../utils/searchStorage';
+import { trackDirectSearch, EntryPoint } from '../../utils/usageTracker';
+import analysisQueue from '../../utils/analysisQueue';
 import logger from '../../utils/logger';
 import { AdvancedSearchIcon } from '../../components/SearchIcons';
 
@@ -169,14 +171,19 @@ const SearchResultsPage = () => {
     return () => clearTimeout(timer);
   }, [paperDetail.detailLoading, searchState.selectedPaper, searchState.hasClickedSimilarTabRef, searchState.similarPapersTabRef, paperDetail]);
 
-  // 初始化时从 sessionStorage 加载搜索结果
+  // 初始化时从 sessionStorage 加载搜索结果（从首页跳转过来时触发）
   useEffect(() => {
     const paperId = searchState.searchParams.get('paperId');
     const authorId = searchState.searchParams.get('authorId');
 
     if (paperId || authorId) return;
 
+    // AI 模式不在这里执行搜索（由 AISearchView 处理）
+    if (searchState.isAIMode) return;
+
     if (searchState.searchQuery) {
+      // 记录直接检索使用统计（仅普通搜索模式，从首页跳转）
+      trackDirectSearch(searchState.searchQuery, EntryPoint.HOME_PAGE);
       searchState.performSearch(searchState.searchQuery, searchState.filters, searchState.currentPage);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -286,20 +293,20 @@ const SearchResultsPage = () => {
     }
   }, [searchState.viewMode, authorDetail.authorPapersViewMode, authorDetail.detailAuthorId, authorDetail.allAuthorPapers.length, authorDetail.authorPapersLoading, authorDetail]);
 
-  // 当选中维度变化时，为当前页面论文执行分析
+  // 当页面切换或取消选择维度时，清空分析队列
   useEffect(() => {
-    if (dimensionAnalysis.selectedDimensions.length === 0) return;
+    // 页面切换时清空队列，让新页面的论文重新排队
+    return () => {
+      analysisQueue.clear();
+    };
+  }, [searchState.currentPage]);
 
-    const papersToAnalyze = searchState.papers.filter(paper =>
-      (paper.abstract || paper.tldr?.text) &&
-      !dimensionAnalysis.analysisResults[paper.paperId] &&
-      !dimensionAnalysis.analyzingPapers[paper.paperId]
-    );
-
-    if (papersToAnalyze.length > 0) {
-      dimensionAnalysis.analyzeWithConcurrency(papersToAnalyze);
+  // 当取消选择所有维度时，清空队列
+  useEffect(() => {
+    if (dimensionAnalysis.selectedDimensions.length === 0) {
+      analysisQueue.clear();
     }
-  }, [dimensionAnalysis.selectedDimensions.length, searchState.papers, dimensionAnalysis]);
+  }, [dimensionAnalysis.selectedDimensions.length]);
 
   // 处理选择论文建议
   const handleSelectPaper = async (paper) => {

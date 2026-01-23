@@ -5,6 +5,7 @@
 import { useState, useCallback } from 'react';
 import { publicScholarAPI } from '../../../services/api';
 import logger from '../../../utils/logger';
+import { trackDetailPageView } from '../../../utils/usageTracker';
 
 // 每页显示的引用/参考文献数量
 const REFS_PER_PAGE = 10;
@@ -52,6 +53,8 @@ export const usePaperDetail = () => {
       logger.log('[SearchResultsPage] Paper detail loaded:', response.data);
       setDetailPaper(response.data.data);
       setDetailLoading(false);
+      // 记录论文详情页查看使用统计
+      trackDetailPageView(paperId);
     } catch (error) {
       logger.error('[SearchResultsPage] Failed to load paper details:', error);
       setDetailError('加载论文详情失败');

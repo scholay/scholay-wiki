@@ -19,7 +19,7 @@ import MessageModal from '../components/MessageModal';
 import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons';
 import SEO from '../components/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
-import { trackAcademicSearch, trackSmartAnalysis, EntryPoint } from '../utils/usageTracker';
+// 注：使用追踪已移至 API 调用层，首页无需重复追踪
 import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation } from '../utils/searchStorage';
 import { userAPI } from '../services/api';
 import './styles/home/index.css';
@@ -233,9 +233,6 @@ const Home = () => {
 
     // 学术检索模式：允许未登录用户使用
     if (searchMode === 'normal') {
-      // 记录使用统计
-      trackAcademicSearch(EntryPoint.HOME_PAGE, userMessage);
-
       // 使用 sessionStorage 存储搜索参数
       const targetUrl = prepareSearchNavigation({
         query: userMessage,
@@ -254,9 +251,6 @@ const Home = () => {
         setShowAuthModal(true);
         return;
       }
-
-      // 记录使用统计
-      trackSmartAnalysis(EntryPoint.HOME_PAGE, userMessage);
 
       // 使用 sessionStorage 存储搜索参数
       const targetUrl = prepareSearchNavigation({
