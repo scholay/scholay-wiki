@@ -100,11 +100,26 @@ func (h *AdminHandler) List(c *gin.Context) {
 
 // GetStatsSummary 获取统计摘要
 // GET /api/v1/admin/usage-logs/summary
+// 支持两种查询方式：
+// 1. days 参数：查询最近N天的数据
+// 2. start_date 和 end_date 参数：自定义日期范围（格式：YYYY-MM-DD）
 func (h *AdminHandler) GetStatsSummary(c *gin.Context) {
-	daysStr := c.DefaultQuery("days", "7")
-	days, _ := strconv.Atoi(daysStr)
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
 
-	summary, err := h.service.GetStatsSummary(days)
+	var summary *StatsSummary
+	var err error
+
+	// 如果提供了自定义日期范围
+	if startDate != "" && endDate != "" {
+		summary, err = h.service.GetStatsSummaryByDateRange(startDate, endDate)
+	} else {
+		// 使用 days 参数
+		daysStr := c.DefaultQuery("days", "7")
+		days, _ := strconv.Atoi(daysStr)
+		summary, err = h.service.GetStatsSummary(days)
+	}
+
 	if err != nil {
 		utils.Error(c, 5000, "Failed to get summary: "+err.Error())
 		return

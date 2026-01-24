@@ -37,8 +37,14 @@ func (r *Repository) List(query *ListQuery) ([]UsageLogWithUser, int64, error) {
 		Select("usage_logs.*, users.username, users.email").
 		Joins("LEFT JOIN users ON usage_logs.user_id = users.id")
 
-	// 根据 Days 参数过滤时间范围（默认7天）
-	if query.Days > 0 {
+	// 根据时间范围过滤
+	if query.StartDate != "" && query.EndDate != "" {
+		// 使用自定义日期范围
+		startTime := query.StartDate + " 00:00:00"
+		endTime := query.EndDate + " 23:59:59"
+		db = db.Where("usage_logs.created_at >= ? AND usage_logs.created_at <= ?", startTime, endTime)
+	} else if query.Days > 0 {
+		// 使用 Days 参数过滤时间范围
 		startDate := time.Now().AddDate(0, 0, -query.Days).Format("2006-01-02")
 		db = db.Where("usage_logs.created_at >= ?", startDate+" 00:00:00")
 	}
@@ -114,13 +120,12 @@ func (r *Repository) GetStatsSummary(days int) (*StatsSummary, error) {
 		Distinct("session_id").
 		Count(&summary.UniqueSessions)
 
-	// 时间范围内按功能统计
+	// 时间范围内按功能统计（不限制数量，返回所有功能）
 	r.db.Model(&UsageLog{}).
 		Select("feature_code, feature_name, COUNT(*) as count").
 		Where("created_at >= ?", startTime).
 		Group("feature_code, feature_name").
 		Order("count DESC").
-		Limit(20).
 		Find(&summary.FeatureCounts)
 
 	// 每日趋势
@@ -135,6 +140,68 @@ func (r *Repository) GetStatsSummary(days int) (*StatsSummary, error) {
 	r.db.Model(&UsageLog{}).
 		Select("entry_point, COUNT(*) as count").
 		Where("created_at >= ?", startTime).
+		Where("entry_point != ''").
+		Group("entry_point").
+		Order("count DESC").
+		Limit(10).
+		Find(&summary.EntryPointStats)
+
+	return summary, nil
+}
+
+// GetStatsSummaryByDateRange 根据自定义日期范围获取统计摘要
+func (r *Repository) GetStatsSummaryByDateRange(startDate, endDate string) (*StatsSummary, error) {
+	summary := &StatsSummary{}
+
+	// 构建时间范围
+	startTime := startDate + " 00:00:00"
+	endTime := endDate + " 23:59:59"
+	today := time.Now().Format("2006-01-02")
+
+	// 时间范围内的总数
+	r.db.Model(&UsageLog{}).
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Count(&summary.TotalCount)
+
+	// 今日数量（始终显示今日数据）
+	r.db.Model(&UsageLog{}).
+		Where("DATE(created_at) = ?", today).
+		Count(&summary.TodayCount)
+
+	// 时间范围内的独立用户数
+	r.db.Model(&UsageLog{}).
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Where("user_id IS NOT NULL").
+		Distinct("user_id").
+		Count(&summary.UniqueUsers)
+
+	// 时间范围内的独立会话数
+	r.db.Model(&UsageLog{}).
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Where("session_id != ''").
+		Distinct("session_id").
+		Count(&summary.UniqueSessions)
+
+	// 时间范围内按功能统计（不限制数量，返回所有功能）
+	r.db.Model(&UsageLog{}).
+		Select("feature_code, feature_name, COUNT(*) as count").
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Group("feature_code, feature_name").
+		Order("count DESC").
+		Find(&summary.FeatureCounts)
+
+	// 每日趋势
+	r.db.Model(&UsageLog{}).
+		Select("DATE(created_at) as date, COUNT(*) as count").
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Group("DATE(created_at)").
+		Order("date ASC").
+		Find(&summary.DailyTrend)
+
+	// 时间范围内的入口统计
+	r.db.Model(&UsageLog{}).
+		Select("entry_point, COUNT(*) as count").
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
 		Where("entry_point != ''").
 		Group("entry_point").
 		Order("count DESC").

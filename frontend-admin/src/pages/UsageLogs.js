@@ -18,6 +18,7 @@ const DATE_RANGE_OPTIONS = [
   { value: 15, label: '近15天' },
   { value: 30, label: '近30天' },
   { value: 90, label: '近3个月' },
+  { value: 'custom', label: '自定义' },
 ];
 
 // 保留天数选项
@@ -39,6 +40,11 @@ const UsageLogs = () => {
   
   // 全局时间范围控制（默认7天）
   const [dateRange, setDateRange] = useState(7);
+  
+  // 自定义日期范围
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   
   // 配置状态
   const [config, setConfig] = useState(null);
@@ -148,16 +154,21 @@ const UsageLogs = () => {
   // 获取统计摘要
   const fetchSummary = useCallback(async () => {
     try {
-      const response = await api.get('/admin/usage-logs/summary', {
-        params: { days: dateRange }
-      });
+      let params = {};
+      if (dateRange === 'custom' && customStartDate && customEndDate) {
+        params = { start_date: customStartDate, end_date: customEndDate };
+      } else if (dateRange !== 'custom') {
+        params = { days: dateRange };
+      }
+      
+      const response = await api.get('/admin/usage-logs/summary', { params });
       if (response.data.code === 0) {
         setSummary(response.data.data);
       }
     } catch (error) {
       console.error('获取统计摘要失败:', error);
     }
-  }, [dateRange]);
+  }, [dateRange, customStartDate, customEndDate]);
 
   useEffect(() => {
     fetchSummary();
@@ -167,14 +178,22 @@ const UsageLogs = () => {
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {
+      let params = {
         page,
         page_size: pageSize,
-        days: dateRange,
         ...Object.fromEntries(
           Object.entries(filters).filter(([_, v]) => v !== '')
         ),
       };
+      
+      // 根据时间范围类型添加不同的参数
+      if (dateRange === 'custom' && customStartDate && customEndDate) {
+        params.start_date = customStartDate;
+        params.end_date = customEndDate;
+      } else if (dateRange !== 'custom') {
+        params.days = dateRange;
+      }
+      
       const response = await api.get('/admin/usage-logs', { params });
       if (response.data.code === 0) {
         setLogs(response.data.data.logs || []);
@@ -185,7 +204,7 @@ const UsageLogs = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, filters, dateRange]);
+  }, [page, pageSize, filters, dateRange, customStartDate, customEndDate]);
 
   useEffect(() => {
     fetchLogs();
@@ -193,8 +212,43 @@ const UsageLogs = () => {
 
   // 处理时间范围变化
   const handleDateRangeChange = (value) => {
+    if (value === 'custom') {
+      setShowCustomDatePicker(true);
+      // 如果还没有设置自定义日期，设置默认值（最近7天）
+      if (!customStartDate || !customEndDate) {
+        const today = new Date();
+        const sevenDaysAgo = new Date(today);
+        sevenDaysAgo.setDate(today.getDate() - 7);
+        setCustomEndDate(today.toISOString().split('T')[0]);
+        setCustomStartDate(sevenDaysAgo.toISOString().split('T')[0]);
+      }
+    } else {
+      setShowCustomDatePicker(false);
+    }
     setDateRange(value);
     setPage(1);
+  };
+  
+  // 应用自定义日期范围
+  const handleApplyCustomDate = () => {
+    if (customStartDate && customEndDate) {
+      // 验证日期范围
+      if (new Date(customStartDate) > new Date(customEndDate)) {
+        alert('开始日期不能大于结束日期');
+        return;
+      }
+      // 触发重新获取数据
+      fetchLogs();
+      fetchSummary();
+    }
+  };
+  
+  // 获取当前时间范围的显示文本
+  const getDateRangeLabel = () => {
+    if (dateRange === 'custom' && customStartDate && customEndDate) {
+      return `${customStartDate} 至 ${customEndDate}`;
+    }
+    return DATE_RANGE_OPTIONS.find(o => o.value === dateRange)?.label || '';
   };
 
   // 处理筛选条件变化
@@ -280,16 +334,43 @@ const UsageLogs = () => {
       <div className="ul-global-controls">
         <div className="ul-control-section">
           <div className="ul-control-label">时间范围</div>
-          <div className="ul-date-range-buttons">
-            {DATE_RANGE_OPTIONS.map(option => (
-              <button
-                key={option.value}
-                className={`ul-date-range-btn ${dateRange === option.value ? 'active' : ''}`}
-                onClick={() => handleDateRangeChange(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="ul-date-range-wrapper">
+            <div className="ul-date-range-buttons">
+              {DATE_RANGE_OPTIONS.map(option => (
+                <button
+                  key={option.value}
+                  className={`ul-date-range-btn ${dateRange === option.value ? 'active' : ''}`}
+                  onClick={() => handleDateRangeChange(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            {showCustomDatePicker && (
+              <div className="ul-custom-date-picker">
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  max={customEndDate || new Date().toISOString().split('T')[0]}
+                />
+                <span className="ul-date-separator">至</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  min={customStartDate}
+                  max={new Date().toISOString().split('T')[0]}
+                />
+                <button 
+                  className="ul-apply-date-btn"
+                  onClick={handleApplyCustomDate}
+                  disabled={!customStartDate || !customEndDate}
+                >
+                  应用
+                </button>
+              </div>
+            )}
           </div>
         </div>
         
@@ -394,7 +475,7 @@ const UsageLogs = () => {
       {showSummary && summary && (
         <div className="ul-summary">
           <div className="ul-summary-header">
-            <h3>统计概览 <span className="ul-summary-range">({DATE_RANGE_OPTIONS.find(o => o.value === dateRange)?.label})</span></h3>
+            <h3>统计概览 <span className="ul-summary-range">({getDateRangeLabel()})</span></h3>
             <button 
               className="ul-summary-toggle"
               onClick={() => setShowSummary(false)}
@@ -424,9 +505,9 @@ const UsageLogs = () => {
           {/* 功能使用分布 */}
           {summary.feature_counts && summary.feature_counts.length > 0 && (
             <div className="ul-feature-stats">
-              <h4>功能使用分布</h4>
+              <h4>功能使用分布 <span className="ul-feature-stats-count">（共 {summary.feature_counts.length} 项）</span></h4>
               <div className="ul-feature-bars">
-                {summary.feature_counts.slice(0, 8).map((item, index) => (
+                {summary.feature_counts.map((item, index) => (
                   <div key={index} className="ul-feature-bar-item">
                     <div className="ul-feature-bar-label">
                       <span 

@@ -96,7 +96,9 @@ type LogRequest struct {
 type ListQuery struct {
 	Page        int    `form:"page" binding:"min=1"`
 	PageSize    int    `form:"page_size" binding:"min=1,max=100"`
-	Days        int    `form:"days"`      // 查询最近N天的数据，默认7天
+	Days        int    `form:"days"`       // 查询最近N天的数据，默认7天
+	StartDate   string `form:"start_date"` // 自定义开始日期（YYYY-MM-DD）
+	EndDate     string `form:"end_date"`   // 自定义结束日期（YYYY-MM-DD）
 	FeatureCode string `form:"feature_code"`
 	Action      string `form:"action"`
 	EntryPoint  string `form:"entry_point"`

@@ -63,9 +63,67 @@
 }
 
 /* 时间范围按钮 */
+.ul-date-range-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .ul-date-range-buttons {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 自定义日期选择器 */
+.ul-custom-date-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e5e5e5;
+}
+
+.ul-custom-date-picker input[type="date"] {
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+}
+
+.ul-custom-date-picker input[type="date"]:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.ul-date-separator {
+  color: #666;
+  font-size: 13px;
+}
+
+.ul-apply-date-btn {
+  padding: 6px 16px;
+  font-size: 13px;
+  color: #fff;
+  background: #3b82f6;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ul-apply-date-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.ul-apply-date-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .ul-date-range-btn {
@@ -274,12 +332,43 @@
   font-weight: 600;
   color: #333;
   margin: 0 0 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ul-feature-stats-count {
+  font-size: 12px;
+  font-weight: 400;
+  color: #999;
 }
 
 .ul-feature-bars {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* 自定义滚动条样式 */
+.ul-feature-bars::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ul-feature-bars::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.ul-feature-bars::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.ul-feature-bars::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
 }
 
 .ul-feature-bar-item {
@@ -557,6 +646,10 @@
   }
   
   .ul-date-range-buttons {
+    flex-wrap: wrap;
+  }
+  
+  .ul-custom-date-picker {
     flex-wrap: wrap;
   }
 }

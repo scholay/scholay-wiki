@@ -90,11 +90,16 @@ func (s *Service) GetStatsSummary(days int) (*StatsSummary, error) {
 	if days < 1 {
 		days = 7
 	}
-	// 最大允许查询180天
-	if days > 180 {
-		days = 180
+	// 最大允许查询365天
+	if days > 365 {
+		days = 365
 	}
 	return s.repo.GetStatsSummary(days)
+}
+
+// GetStatsSummaryByDateRange 根据自定义日期范围获取统计摘要
+func (s *Service) GetStatsSummaryByDateRange(startDate, endDate string) (*StatsSummary, error) {
+	return s.repo.GetStatsSummaryByDateRange(startDate, endDate)
 }
 
 // GetFeatureConfigs 获取功能配置列表
