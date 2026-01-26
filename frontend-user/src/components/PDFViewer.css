@@ -485,6 +485,596 @@
   color: var(--text-secondary);
 }
 
+/* ============ 翻译功能提示条 ============ */
+.pdf-translate-tip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.12) 0%, rgba(168, 85, 247, 0.12) 100%);
+  border-bottom: 1px solid rgba(129, 140, 248, 0.2);
+  flex-shrink: 0;
+  animation: tip-slide-in 0.3s ease-out;
+}
+
+@keyframes tip-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tip-float-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes new-badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.pdf-translate-tip-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(167, 139, 250, 0.95);
+}
+
+/* NEW 徽章 */
+.pdf-translate-tip-new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #f43f5e 0%, #ec4899 100%);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(244, 63, 94, 0.4);
+  animation: new-badge-pulse 2s ease-in-out infinite;
+}
+
+/* 翻译图标 */
+.pdf-translate-tip-icon {
+  flex-shrink: 0;
+  color: rgba(139, 92, 246, 0.9);
+}
+
+.pdf-translate-tip-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pdf-translate-tip-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 全屏模式翻译提示 - 浮动在右下角 */
+.pdf-translate-tip-fullscreen {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  left: auto;
+  top: auto;
+  z-index: 10001;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(139, 92, 246, 0.1);
+  backdrop-filter: blur(12px);
+  background: rgba(30, 30, 35, 0.95);
+  animation: tip-float-in 0.4s ease-out;
+}
+
+/* ============ 划线翻译弹窗 ============ */
+.pdf-translate-popup {
+  position: absolute;
+  transform: translateX(-50%);
+  z-index: 100;
+  animation: popup-fade-in 0.15s ease-out;
+}
+
+@keyframes popup-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.pdf-translate-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.pdf-translate-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
+}
+
+.pdf-translate-btn svg {
+  flex-shrink: 0;
+}
+
+/* 翻译结果弹窗 */
+.pdf-translate-result {
+  min-width: 280px;
+  max-width: 400px;
+  background: #1f1f23;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.pdf-translate-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(99, 102, 241, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pdf-translate-result-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(167, 139, 250, 0.9);
+}
+
+.pdf-translate-result-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pdf-translate-result-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.pdf-translate-result-content {
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.9);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.pdf-translate-result-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.pdf-translate-result-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.pdf-translate-error {
+  color: #f87171;
+}
+
+.pdf-translate-original {
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.pdf-translate-original-label {
+  color: rgba(255, 255, 255, 0.4);
+  margin-right: 4px;
+}
+
+.pdf-translate-original-text {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 日间模式 - 翻译提示条 */
+[data-theme="light"] .pdf-translate-tip {
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%);
+  border-bottom-color: rgba(99, 102, 241, 0.15);
+}
+
+[data-theme="light"] .pdf-translate-tip-content {
+  color: #6366f1;
+}
+
+[data-theme="light"] .pdf-translate-tip-icon {
+  color: #7c3aed;
+}
+
+[data-theme="light"] .pdf-translate-tip-close {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .pdf-translate-tip-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #6b7280;
+}
+
+[data-theme="light"] .pdf-translate-tip-fullscreen {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(99, 102, 241, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(99, 102, 241, 0.1);
+}
+
+/* 日间模式 - 翻译弹窗 */
+[data-theme="light"] .pdf-translate-result {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .pdf-translate-result-header {
+  background: rgba(99, 102, 241, 0.08);
+  border-bottom-color: #e5e7eb;
+}
+
+[data-theme="light"] .pdf-translate-result-title {
+  color: #6366f1;
+}
+
+[data-theme="light"] .pdf-translate-result-close {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .pdf-translate-result-close:hover {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+[data-theme="light"] .pdf-translate-result-content {
+  color: #1f2937;
+}
+
+[data-theme="light"] .pdf-translate-result-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .pdf-translate-error {
+  color: #dc2626;
+}
+
+[data-theme="light"] .pdf-translate-original {
+  background: #f9fafb;
+  border-top-color: #e5e7eb;
+}
+
+[data-theme="light"] .pdf-translate-original-label {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .pdf-translate-original-text {
+  color: #6b7280;
+}
+
+/* 下载和全屏按钮 */
+.control-btn.download-btn,
+.control-btn.fullscreen-btn {
+  color: rgba(99, 102, 241, 0.8);
+}
+
+.control-btn.download-btn:hover,
+.control-btn.fullscreen-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: rgb(129, 140, 248);
+}
+
+[data-theme="light"] .control-btn.download-btn,
+[data-theme="light"] .control-btn.fullscreen-btn {
+  color: #6366f1;
+}
+
+[data-theme="light"] .control-btn.download-btn:hover,
+[data-theme="light"] .control-btn.fullscreen-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+}
+
+/* ============ 全屏预览弹窗 ============ */
+.pdf-fullscreen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pdf-fullscreen-fade-in 0.2s ease-out;
+}
+
+@keyframes pdf-fullscreen-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pdf-fullscreen-modal {
+  width: calc(100vw - 40px);
+  height: calc(100vh - 40px);
+  max-width: 1400px;
+  background: #1a1a1a;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: pdf-fullscreen-scale-in 0.2s ease-out;
+}
+
+@keyframes pdf-fullscreen-scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 全屏工具栏 */
+.pdf-fullscreen-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.pdf-fullscreen-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+}
+
+.pdf-fullscreen-title svg {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.pdf-fullscreen-title span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pdf-fullscreen-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fullscreen-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.fullscreen-control-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.fullscreen-control-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.fullscreen-control-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.fullscreen-control-btn.fullscreen-close-btn {
+  color: rgba(239, 68, 68, 0.8);
+  margin-left: 8px;
+}
+
+.fullscreen-control-btn.fullscreen-close-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: rgb(239, 68, 68);
+}
+
+.fullscreen-zoom-level {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  min-width: 48px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.fullscreen-page-info {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 0 8px;
+}
+
+.fullscreen-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 4px;
+}
+
+/* 全屏 PDF 内容区域 */
+.pdf-fullscreen-content {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.pdf-fullscreen-content::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.pdf-fullscreen-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pdf-fullscreen-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+}
+
+.pdf-fullscreen-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.pdf-fullscreen-content .pdf-document {
+  min-width: auto;
+}
+
+.pdf-fullscreen-content .pdf-page {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* 日间模式 - 全屏弹窗 */
+[data-theme="light"] .pdf-fullscreen-overlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .pdf-fullscreen-modal {
+  background: #ffffff;
+}
+
+[data-theme="light"] .pdf-fullscreen-toolbar {
+  background: #f8f9fa;
+  border-bottom-color: #e5e7eb;
+}
+
+[data-theme="light"] .pdf-fullscreen-title {
+  color: #1f2937;
+}
+
+[data-theme="light"] .pdf-fullscreen-title svg {
+  color: #6b7280;
+}
+
+[data-theme="light"] .fullscreen-control-btn {
+  color: #6b7280;
+}
+
+[data-theme="light"] .fullscreen-control-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+[data-theme="light"] .fullscreen-control-btn.fullscreen-close-btn {
+  color: #ef4444;
+}
+
+[data-theme="light"] .fullscreen-control-btn.fullscreen-close-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+[data-theme="light"] .fullscreen-zoom-level {
+  color: #6b7280;
+}
+
+[data-theme="light"] .fullscreen-page-info {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .fullscreen-divider {
+  background: #e5e7eb;
+}
+
+[data-theme="light"] .pdf-fullscreen-content {
+  background: #f5f6f7;
+}
+
+[data-theme="light"] .pdf-fullscreen-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .pdf-fullscreen-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .pdf-fullscreen-content .pdf-page {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
 /* 响应式 */
 @media (max-width: 768px) {
   .pdf-toolbar {
@@ -499,5 +1089,28 @@
 
   .pdf-content {
     padding: 8px;
+  }
+
+  .pdf-fullscreen-modal {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .pdf-fullscreen-toolbar {
+    padding: 10px 12px;
+  }
+
+  .pdf-fullscreen-title {
+    font-size: 13px;
+  }
+
+  .fullscreen-control-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .pdf-fullscreen-content {
+    padding: 12px;
   }
 }
