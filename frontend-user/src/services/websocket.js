@@ -27,6 +27,10 @@ const WS_CONFIG = {
   // 心跳配置
   PING_INTERVAL: 30000,         // 心跳间隔 30秒
   PONG_TIMEOUT: 10000,          // 等待 pong 超时 10秒
+  
+  // 空闲超时配置
+  IDLE_TIMEOUT: 5 * 60 * 1000,  // 用户空闲超时 5分钟
+  ACTIVITY_EVENTS: ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'],
 };
 
 // 消息类型
@@ -51,6 +55,14 @@ class WebSocketClient {
     this.pingTimer = null;
     this.pongTimer = null;
     
+    // 用户活动状态
+    this.lastActivityTime = Date.now();  // 最后活动时间
+    this.isUserActive = true;            // 用户是否活跃
+    this.idleTimer = null;               // 空闲检测定时器
+    this.activityBound = false;          // 是否已绑定活动事件
+    this.idleDisconnected = false;       // 是否因空闲而断开
+    this.isReconnecting = false;         // 是否正在重连（防止重复触发）
+    
     // 事件监听器
     this.listeners = {
       notification: [],
@@ -59,6 +71,7 @@ class WebSocketClient {
       connect: [],
       disconnect: [],
       error: [],
+      idle: [],   // 空闲断开事件
     };
   }
 
@@ -122,6 +135,10 @@ class WebSocketClient {
     if (preventReconnect) {
       this.token = null;
       this.isGuest = true;
+      this.idleDisconnected = false;
+      this.isReconnecting = false;
+      // 完全断开时停止活动检测
+      this.stopActivityDetection();
     }
     
     if (this.ws) {
@@ -246,8 +263,16 @@ class WebSocketClient {
   startPing() {
     this.clearTimers();
     
+    // 启动用户活动检测
+    this.startActivityDetection();
+    
     this.pingTimer = setInterval(() => {
       if (this.isConnected) {
+        // 检查用户是否空闲超时
+        if (this.checkIdleTimeout()) {
+          return; // 空闲超时，已断开连接
+        }
+        
         this.send(MESSAGE_TYPES.PING);
         
         // 设置 pong 超时
@@ -257,6 +282,151 @@ class WebSocketClient {
         }, WS_CONFIG.PONG_TIMEOUT);
       }
     }, WS_CONFIG.PING_INTERVAL);
+  }
+
+  /**
+   * 启动用户活动检测
+   */
+  startActivityDetection() {
+    if (this.activityBound) {
+      return;
+    }
+    
+    // 绑定活动事件 - 只绑定到 document，确保只检测当前页面的活动
+    this.handleActivity = this.handleActivity.bind(this);
+    WS_CONFIG.ACTIVITY_EVENTS.forEach(eventName => {
+      document.addEventListener(eventName, this.handleActivity, { passive: true });
+    });
+    
+    // 监听页面可见性变化
+    this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    
+    this.activityBound = true;
+    this.lastActivityTime = Date.now();
+    this.isUserActive = true;
+    this.idleDisconnected = false;
+    this.isReconnecting = false;  // 防止重复重连的标志
+    
+    logger.debug('[WebSocket] Activity detection started');
+  }
+
+  /**
+   * 停止用户活动检测
+   */
+  stopActivityDetection() {
+    if (!this.activityBound) {
+      return;
+    }
+    
+    WS_CONFIG.ACTIVITY_EVENTS.forEach(eventName => {
+      document.removeEventListener(eventName, this.handleActivity);
+    });
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    
+    this.activityBound = false;
+    logger.debug('[WebSocket] Activity detection stopped');
+  }
+
+  /**
+   * 处理用户活动事件
+   * 只有当页面处于可见状态时，才认为是真正的用户活动
+   */
+  handleActivity() {
+    // 关键检查：只有当页面可见时，才更新活动时间
+    // 这可以防止在其他标签页操作时错误地判定为活跃
+    if (document.visibilityState !== 'visible') {
+      return;
+    }
+    
+    const now = Date.now();
+    this.lastActivityTime = now;
+    
+    // 如果之前因空闲断开，用户活跃后自动重连
+    if (this.idleDisconnected && !this.isConnected && !this.isConnecting && !this.isReconnecting) {
+      logger.info('[WebSocket] User became active after idle disconnect, reconnecting...');
+      this.isReconnecting = true;  // 设置标志防止重复触发
+      this.idleDisconnected = false;
+      this.reconnectAttempts = 0;
+      
+      // 延迟一小段时间再重连，避免短时间内多次触发
+      setTimeout(() => {
+        this.isReconnecting = false;
+        if (!this.isConnected && !this.isConnecting) {
+          // 使用保存的 token 重连（如果有），否则作为访客连接
+          this.connect(this.token);
+        }
+      }, 100);
+    }
+    
+    if (!this.isUserActive) {
+      this.isUserActive = true;
+      logger.debug('[WebSocket] User became active');
+    }
+  }
+
+  /**
+   * 处理页面可见性变化
+   */
+  handleVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+      // 页面变为可见时，只检查是否需要重连，不自动重置活动时间
+      // 需要用户有实际操作才算活跃
+      if (this.idleDisconnected && !this.isConnected && !this.isConnecting && !this.isReconnecting) {
+        logger.info('[WebSocket] Page became visible after idle disconnect, will reconnect on user activity');
+        // 不自动重连，等待用户实际操作
+        // 但如果用户切回来并且有操作，handleActivity 会处理重连
+      }
+    } else {
+      // 页面变为不可见（用户切到其他标签页）
+      // 此时不应该认为用户是活跃的
+      logger.debug('[WebSocket] Page became hidden');
+    }
+  }
+
+  /**
+   * 检查空闲超时
+   * @returns {boolean} 是否因空闲而断开
+   */
+  checkIdleTimeout() {
+    const idleTime = Date.now() - this.lastActivityTime;
+    
+    if (idleTime >= WS_CONFIG.IDLE_TIMEOUT) {
+      logger.info(`[WebSocket] User idle for ${Math.round(idleTime / 1000)}s, disconnecting...`);
+      this.isUserActive = false;
+      this.idleDisconnected = true;
+      
+      // 触发空闲断开事件
+      this.emit('idle', { idleTime });
+      
+      // 断开连接但保留 token，以便用户活跃时重连
+      this.disconnectForIdle();
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * 因空闲而断开连接（保留重连能力）
+   */
+  disconnectForIdle() {
+    logger.info('[WebSocket] Disconnecting due to idle timeout');
+    
+    this.clearTimers();
+    // 不重置 reconnectAttempts，让活动检测处理重连
+    
+    if (this.ws) {
+      this.ws.onclose = null; // 防止触发正常的重连逻辑
+      this.ws.close();
+      this.ws = null;
+    }
+    
+    this.isConnecting = false;
+    this.isConnected = false;
+    
+    // 触发断开事件
+    this.emit('disconnect', { code: 4000, reason: 'idle_timeout' });
   }
 
   /**
@@ -353,7 +523,13 @@ class WebSocketClient {
     return {
       isConnected: this.isConnected,
       isConnecting: this.isConnecting,
+      isReconnecting: this.isReconnecting,
       reconnectAttempts: this.reconnectAttempts,
+      isUserActive: this.isUserActive,
+      idleDisconnected: this.idleDisconnected,
+      lastActivityTime: this.lastActivityTime,
+      idleTime: Date.now() - this.lastActivityTime,
+      pageVisible: document.visibilityState === 'visible',
     };
   }
 }

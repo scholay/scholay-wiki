@@ -279,6 +279,21 @@
   background: rgb(16, 185, 129);
 }
 
+/* Sci-Hub 链接样式 */
+.fallback-link.scihub-link {
+  background: rgba(139, 92, 246, 0.9);
+  margin-top: 8px;
+}
+
+.fallback-link.scihub-link:hover {
+  background: rgb(139, 92, 246);
+}
+
+.fallback-link.scihub-link svg {
+  width: 14px;
+  height: 14px;
+}
+
 /* 自动打开开关 */
 .auto-open-toggle {
   display: inline-flex;
@@ -434,6 +449,14 @@
 
 [data-theme="light"] .fallback-link:hover {
   background: #0d8968;
+}
+
+[data-theme="light"] .fallback-link.scihub-link {
+  background: #7c3aed;
+}
+
+[data-theme="light"] .fallback-link.scihub-link:hover {
+  background: #6d28d9;
 }
 
 [data-theme="light"] .auto-open-toggle input[type="checkbox"] {

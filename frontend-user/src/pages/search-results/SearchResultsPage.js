@@ -37,6 +37,7 @@ import { usePaperDetail } from './hooks/usePaperDetail';
 import { useAuthorDetail } from './hooks/useAuthorDetail';
 import { useDimensionAnalysis } from './hooks/useDimensionAnalysis';
 import { usePreviewResize } from './hooks/usePreviewResize';
+import { usePdfAvailability } from '../../hooks/usePdfAvailability';
 
 // 样式
 import '../styles/search-results/index.css';
@@ -81,6 +82,9 @@ const SearchResultsPage = () => {
 
   // 预览面板调整
   const previewResize = usePreviewResize();
+
+  // PDF 可用性检测
+  const pdfAvailability = usePdfAvailability();
 
   // 搜索示例轮播效果
   useEffect(() => {
@@ -551,6 +555,7 @@ const SearchResultsPage = () => {
                     dimensionAnalysis={dimensionAnalysis}
                     startIndex={startIndex}
                     totalPages={totalPages}
+                    pdfAvailability={pdfAvailability}
                   />
                 )}
               </div>
@@ -564,6 +569,7 @@ const SearchResultsPage = () => {
                   onResizeMouseDown={previewResize.handlePreviewResizeMouseDown}
                   onResizeTouchStart={previewResize.handlePreviewResizeTouchStart}
                   isResizing={previewResize.isResizingPreview}
+                  pdfAvailability={pdfAvailability}
                 />
               )}
             </div>
@@ -578,6 +584,7 @@ const SearchResultsPage = () => {
               onClose={searchState.handleClosePaperDrawer}
               isDrawerMode={true}
               onClick={(e) => e.stopPropagation()}
+              pdfAvailability={pdfAvailability}
             />
           </div>
         )}
@@ -608,6 +615,7 @@ const SearchResultsPage = () => {
                   paper={searchState.selectedPaper}
                   onClose={() => searchState.setSelectedPaper(null)}
                   isMobileModal={true}
+                  pdfAvailability={pdfAvailability}
                 />
               </div>
             </div>

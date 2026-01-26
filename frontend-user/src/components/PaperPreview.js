@@ -12,18 +12,53 @@ import { Link } from 'react-router-dom';
 import PDFViewer from './PDFViewer';
 import './PaperPreview.css';
 
-const PaperPreview = memo(({ paper, onClose, width, onResizeMouseDown, onResizeTouchStart, isResizing, isMobileModal = false, isDrawerMode = false, onClick }) => {
+const PaperPreview = memo(({ paper, onClose, width, onResizeMouseDown, onResizeTouchStart, isResizing, isMobileModal = false, isDrawerMode = false, onClick, pdfAvailability }) => {
   const [activeTab, setActiveTab] = useState('details'); // 'details' or 'pdf'，默认展示详情
   const containerStyle = width && !isMobileModal && !isDrawerMode ? { width: typeof width === 'number' ? `${width}px` : width } : undefined;
 
-  // 当切换论文时，重置为详情 tab
+  // 检查用户是否点击了"获取PDF"按钮
+  const shouldOpenPdf = pdfAvailability?.shouldOpenPdfTab?.(paper?.paperId);
+  const clearPdfRequest = pdfAvailability?.clearPdfRequest;
+
+  // 判断是否有 PDF 可用（开放获取或有 DOI 可尝试获取）
+  const hasOpenAccessPdf = paper?.openAccessPdf && paper.openAccessPdf.url;
+  const doi = paper?.externalIds?.DOI;
+  // 有 DOI 就显示 PDF tab（用户可以点击尝试获取）
+  const hasPDF = hasOpenAccessPdf || doi;
+
+  // 当切换论文时，检查是否应该显示 PDF tab
   useEffect(() => {
     if (paper) {
-      setActiveTab('details');
+      // 如果用户点击了"获取PDF"按钮，直接显示 PDF tab
+      if (shouldOpenPdf) {
+        setActiveTab('pdf');
+        // 使用 setTimeout 延迟清除，避免触发重新渲染导致 tab 切换
+        setTimeout(() => {
+          if (clearPdfRequest) {
+            clearPdfRequest(paper.paperId);
+          }
+        }, 100);
+      } else {
+        // 切换到新论文时，默认显示详情
+        setActiveTab('details');
+      }
     }
-    // 仅在 paperId 变化时重置标签页
+    // 只在 paperId 变化时执行，不依赖 shouldOpenPdf 避免循环
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paper?.paperId]);
+
+  // 单独处理"获取PDF"按钮点击（paperId 不变但 shouldOpenPdf 变为 true）
+  useEffect(() => {
+    if (paper && shouldOpenPdf && activeTab !== 'pdf') {
+      setActiveTab('pdf');
+      setTimeout(() => {
+        if (clearPdfRequest) {
+          clearPdfRequest(paper.paperId);
+        }
+      }, 100);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldOpenPdf]);
 
   if (!paper) {
     return (
@@ -31,8 +66,6 @@ const PaperPreview = memo(({ paper, onClose, width, onResizeMouseDown, onResizeT
       </div>
     );
   }
-
-  const hasPDF = paper.openAccessPdf && paper.openAccessPdf.url;
 
   return (
     <div 
@@ -108,7 +141,12 @@ const PaperPreview = memo(({ paper, onClose, width, onResizeMouseDown, onResizeT
       {/* 内容区域 */}
       <div className="preview-content">
         {hasPDF && activeTab === 'pdf' ? (
-          <PDFViewer pdfUrl={paper.openAccessPdf.url} paperTitle={paper.title} />
+          <PDFViewer 
+            pdfUrl={hasOpenAccessPdf ? paper.openAccessPdf.url : null} 
+            paperTitle={paper.title}
+            doi={doi}
+            isCheckedPdf={!hasOpenAccessPdf && doi}
+          />
         ) : (
           <div className="details-content">
             {/* 作者 */}

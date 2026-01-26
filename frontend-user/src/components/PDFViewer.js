@@ -14,18 +14,33 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { trackPDFPreview, EntryPoint } from '../utils/usageTracker';
 import './PDFViewer.css';
 
-// 为 PDF.js 指定静态 worker 文件
-const publicBase = process.env.PUBLIC_URL || '';
-const pdfWorkerSrc = `${publicBase}/pdf.worker.min.mjs`;
-const pdfAssetsBase = `${publicBase}/pdfjs`;
-pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
+// 使用 CDN 版本的 PDF.js worker（与 pdfjs-dist 版本匹配）
+const PDFJS_VERSION = pdfjs.version;
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
 
-const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
+// PDF 资源路径（仍使用本地 cmaps 和 fonts）
+const publicBase = process.env.PUBLIC_URL || '';
+const pdfAssetsBase = `${publicBase}/pdfjs`;
+
+// PDF 服务配置
+const PDF_API_URL = 'https://pdf.scholay.com/api/v1/pdf';
+const SCIHUB_BASE_URL = 'https://sci-hub.box';
+
+// 生成 Sci-Hub URL
+const getSciHubUrl = (doi) => {
+  if (!doi) return '';
+  return `${SCIHUB_BASE_URL}/${doi}`;
+};
+
+const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false }) => {
   const [numPages, setNumPages] = useState(null);
   const [scale, setScale] = useState(1.0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isUnmounted, setIsUnmounted] = useState(false);
+  const [pdfData, setPdfData] = useState(null); // 存储 PDF blob 数据
+  const [isFetchingDoi, setIsFetchingDoi] = useState(false); // DOI API 请求中
+  const [useFallback, setUseFallback] = useState(false); // 是否使用备用方案
   const [autoOpenOnError, setAutoOpenOnError] = useState(() => {
     // 从 localStorage 读取用户偏好
     const saved = localStorage.getItem('pdf_auto_open_on_error');
@@ -33,27 +48,107 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
   });
   const contentRef = useRef(null);
   const hasAutoOpenedRef = useRef(false); // 防止重复打开
+  const abortControllerRef = useRef(null); // 用于取消请求
 
-  // 使用外部预览服务，使用 useMemo 确保只在 pdfUrl 变化时重新计算
+  // 备用：使用外部预览服务（当 DOI API 不可用时）
   const proxyUrl = useMemo(
-    () => `https://filepreview.scholay.com/api/preview?url=${encodeURIComponent(pdfUrl)}`,
+    () => pdfUrl ? `https://filepreview.scholay.com/api/preview?url=${encodeURIComponent(pdfUrl)}` : null,
     [pdfUrl]
   );
 
-  // 只在 pdfUrl 原始值变化时重置状态
+  // Sci-Hub 链接（当 PDF 加载失败时显示）
+  const sciHubUrl = useMemo(() => getSciHubUrl(doi), [doi]);
+
+  // 通过 DOI 获取 PDF
   useEffect(() => {
+    // 取消之前的请求
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // 重置状态
     setNumPages(null);
     setIsLoading(true);
     setError(null);
     setScale(1.0);
     setIsUnmounted(false);
-    hasAutoOpenedRef.current = false; // 重置自动打开标记
-    
+    setPdfData(null);
+    setUseFallback(false);
+    hasAutoOpenedRef.current = false;
+
     // 记录PDF预览使用统计
     if (pdfUrl) {
       trackPDFPreview(pdfUrl, EntryPoint.PAPER_DETAIL_PAGE);
     }
-  }, [pdfUrl]);
+
+    // 如果有 DOI，使用新的 PDF API
+    // 对于已检测的 PDF（isCheckedPdf），必须使用 DOI API
+    if (doi) {
+      setIsFetchingDoi(true);
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      const fetchPdfByDoi = async () => {
+        try {
+          const response = await fetch(PDF_API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ doi }),
+            signal: controller.signal,
+          });
+
+          if (!response.ok) {
+            throw new Error(`PDF API 返回错误: ${response.status}`);
+          }
+
+          const blob = await response.blob();
+          
+          if (!controller.signal.aborted) {
+            // 将 blob 转换为 ArrayBuffer 给 react-pdf 使用
+            const arrayBuffer = await blob.arrayBuffer();
+            setPdfData({ data: arrayBuffer });
+            setIsFetchingDoi(false);
+          }
+        } catch (err) {
+          if (err.name === 'AbortError') {
+            return; // 请求被取消，忽略
+          }
+          console.warn('DOI PDF API 失败:', err);
+          
+          if (!controller.signal.aborted) {
+            // 如果是已检测的 PDF（非开放获取），没有备用方案，显示错误
+            if (isCheckedPdf || !pdfUrl) {
+              setPdfData(null);
+              setUseFallback(false);
+              setIsFetchingDoi(false);
+              setIsLoading(false);
+              setError('PDF 加载失败，请尝试通过 Sci-Hub 获取');
+            } else {
+              // DOI API 失败，回退到代理服务
+              setPdfData(null);
+              setUseFallback(true);
+              setIsFetchingDoi(false);
+            }
+          }
+        }
+      };
+
+      fetchPdfByDoi();
+
+      return () => {
+        controller.abort();
+      };
+    } else if (pdfUrl) {
+      // 没有 DOI 但有 pdfUrl，使用备用方案
+      setUseFallback(true);
+    } else {
+      // 既没有 DOI 也没有 pdfUrl
+      setIsLoading(false);
+      setError('没有可用的 PDF 来源');
+    }
+  }, [pdfUrl, doi, isCheckedPdf]);
 
   // 切换自动打开设置
   const toggleAutoOpen = () => {
@@ -66,6 +161,10 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
   useEffect(() => {
     return () => {
       setIsUnmounted(true);
+      // 取消正在进行的请求
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
     };
   }, []);
 
@@ -114,10 +213,25 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
   }), []);
 
   // 创建稳定的 file 对象，避免 Document 组件因对象引用变化而重新挂载
-  const fileConfig = useMemo(() => ({
-    url: proxyUrl,
-    ...pdfOptions
-  }), [proxyUrl, pdfOptions]);
+  // 优先使用 DOI API 返回的数据，否则使用代理服务
+  const fileConfig = useMemo(() => {
+    if (pdfData) {
+      // 使用从 DOI API 获取的数据
+      return pdfData;
+    }
+    if (useFallback) {
+      // 回退到代理服务
+      return {
+        url: proxyUrl,
+        ...pdfOptions
+      };
+    }
+    // 还在请求中，返回 null
+    return null;
+  }, [pdfData, useFallback, proxyUrl, pdfOptions]);
+
+  // 是否可以渲染 PDF Document
+  const canRenderDocument = !isFetchingDoi && fileConfig !== null;
 
   const handleZoomIn = () => {
     setScale(prev => Math.min(prev + 0.2, 5.0));
@@ -196,19 +310,21 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
           <div className="divider"></div>
 
           {/* 外部打开 */}
-          <a
-            href={pdfUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="control-btn external-btn"
-            title="在新窗口打开"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-              <polyline points="15 3 21 3 21 9"/>
-              <line x1="10" y1="14" x2="21" y2="3"/>
-            </svg>
-          </a>
+          {(pdfUrl || sciHubUrl) && (
+            <a
+              href={pdfUrl || sciHubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="control-btn external-btn"
+              title={pdfUrl ? "在新窗口打开" : "通过 Sci-Hub 打开"}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+            </a>
+          )}
         </div>
       </div>
 
@@ -235,21 +351,40 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
               <line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
             <p>{error}</p>
-            <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="fallback-link">
-              在新窗口打开PDF
-            </a>
-            <label className="auto-open-toggle">
-              <input
-                type="checkbox"
-                checked={autoOpenOnError}
-                onChange={toggleAutoOpen}
-              />
-              <span className="toggle-label">加载失败时自动打开</span>
-            </label>
+            
+            {/* 如果有原始 PDF URL，显示打开链接 */}
+            {pdfUrl && (
+              <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="fallback-link">
+                在新窗口打开PDF
+              </a>
+            )}
+            
+            {/* 如果有 DOI，显示 Sci-Hub 链接 */}
+            {sciHubUrl && (
+              <a href={sciHubUrl} target="_blank" rel="noopener noreferrer" className="fallback-link scihub-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                  <polyline points="15 3 21 3 21 9"/>
+                  <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+                通过 Sci-Hub 获取
+              </a>
+            )}
+            
+            {pdfUrl && (
+              <label className="auto-open-toggle">
+                <input
+                  type="checkbox"
+                  checked={autoOpenOnError}
+                  onChange={toggleAutoOpen}
+                />
+                <span className="toggle-label">加载失败时自动打开</span>
+              </label>
+            )}
           </div>
         )}
 
-        {!error && (
+        {!error && canRenderDocument && (
           <Document
             file={fileConfig}
             onLoadSuccess={onDocumentLoadSuccess}
@@ -279,9 +414,11 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle }) => {
     </div>
   );
 }, (prevProps, nextProps) => {
-  // 自定义比较函数：只在 pdfUrl 或 paperTitle 实际变化时才重新渲染
+  // 自定义比较函数：只在关键 props 变化时才重新渲染
   return prevProps.pdfUrl === nextProps.pdfUrl &&
-         prevProps.paperTitle === nextProps.paperTitle;
+         prevProps.paperTitle === nextProps.paperTitle &&
+         prevProps.doi === nextProps.doi &&
+         prevProps.isCheckedPdf === nextProps.isCheckedPdf;
 });
 
 export default PDFViewer;

@@ -8,7 +8,7 @@ import AnalysisCellText from '../../components/AnalysisCellText';
 import { useTranslation } from '../../hooks';
 import analysisQueue from '../../utils/analysisQueue';
 
-const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, totalPages }) => {
+const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, totalPages, pdfAvailability }) => {
   const {
     papers,
     total,
@@ -172,6 +172,7 @@ const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, tot
                 setShowAuthModal={setShowAuthModal}
                 analyzePaper={analyzePaper}
                 shouldAnalyze={selectedDimensions.length > 0}
+                pdfAvailability={pdfAvailability}
               />
             );
           })}
@@ -241,6 +242,8 @@ const PaperRow = memo(({
   // 可视区域分析
   analyzePaper,
   shouldAnalyze,
+  // PDF 可用性检测
+  pdfAvailability,
 }) => {
   const rowRef = useRef(null);
   const hasQueuedRef = useRef(false);
@@ -484,7 +487,7 @@ const PaperRow = memo(({
               </a>
             )}
 
-            {paper.openAccessPdf && paper.openAccessPdf.url && (
+            {paper.openAccessPdf && paper.openAccessPdf.url ? (
               <a
                 href={paper.openAccessPdf.url}
                 target="_blank"
@@ -501,6 +504,12 @@ const PaperRow = memo(({
                 </svg>
                 PDF
               </a>
+            ) : paper.externalIds?.DOI && (
+              <PdfCheckButton
+                paper={paper}
+                pdfAvailability={pdfAvailability}
+                handlePaperClick={handlePaperClick}
+              />
             )}
 
             <button
@@ -550,6 +559,37 @@ const PaperRow = memo(({
         </div>
       )}
     </div>
+  );
+});
+
+// 获取 PDF 按钮组件 - 点击后直接打开推屏的 PDF tab
+const PdfCheckButton = memo(({ paper, pdfAvailability, handlePaperClick }) => {
+  const { markPdfRequest } = pdfAvailability;
+  const doi = paper.externalIds?.DOI;
+
+  const handleGetPdf = (e) => {
+    e.stopPropagation();
+    if (!doi) return;
+    // 标记需要打开 PDF tab
+    markPdfRequest(paper.paperId, doi);
+    // 打开论文推屏
+    handlePaperClick(paper);
+  };
+
+  return (
+    <button
+      className="meta-item pdf-check-btn"
+      onClick={handleGetPdf}
+      title="获取PDF并预览"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <path d="M12 18v-6"/>
+        <path d="M9 15l3 3 3-3"/>
+      </svg>
+      获取PDF
+    </button>
   );
 });
 

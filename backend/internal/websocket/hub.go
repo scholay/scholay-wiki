@@ -54,6 +54,15 @@ type Hub struct {
 	snapshotRecorder SnapshotRecorder
 }
 
+// 空闲超时配置
+const (
+	// IdleTimeout 连接空闲超时时间（前端 5 分钟无活动后停止心跳，后端再等 2 分钟后断开）
+	IdleTimeout = 7 * time.Minute
+
+	// IdleCheckInterval 空闲检查间隔
+	IdleCheckInterval = 1 * time.Minute
+)
+
 // NewHub 创建新的 Hub
 func NewHub() *Hub {
 	m := melody.New()
@@ -61,6 +70,10 @@ func NewHub() *Hub {
 	// 配置 melody
 	m.Config.MaxMessageSize = 1024 * 64 // 64KB
 	m.Config.MessageBufferSize = 256
+	// 设置 Pong 等待超时（用于检测连接是否存活）
+	m.Config.PongWait = 2 * time.Minute
+	// 设置 Ping 周期（必须小于 PongWait）
+	m.Config.PingPeriod = 1 * time.Minute
 
 	hub := &Hub{
 		melody:        m,
@@ -70,6 +83,9 @@ func NewHub() *Hub {
 
 	// 设置事件处理器
 	hub.setupHandlers()
+
+	// 启动空闲连接检查器
+	go hub.startIdleChecker()
 
 	return hub
 }
@@ -108,6 +124,11 @@ func (h *Hub) recordSnapshot() {
 func (h *Hub) setupHandlers() {
 	// 连接建立
 	h.melody.HandleConnect(func(s *melody.Session) {
+		// 记录连接时间和最后活动时间
+		now := time.Now()
+		s.Set("connect_time", now)
+		s.Set("last_ping_time", now)
+
 		// 检查是否是访客连接
 		isGuest, _ := s.Get("is_guest")
 		if isGuest == true {
@@ -206,6 +227,9 @@ func (h *Hub) setupHandlers() {
 
 		// 处理 ping 消息
 		if message.Type == MessageTypePing {
+			// 更新最后活动时间（用于空闲检测）
+			s.Set("last_ping_time", time.Now())
+
 			// 只对登录用户更新 session activity
 			isGuest, _ := s.Get("is_guest")
 			if isGuest != true {
@@ -384,5 +408,73 @@ func (h *Hub) GetUserSessionCount(userID uint) int {
 // Close 关闭 Hub
 func (h *Hub) Close() error {
 	return h.melody.Close()
+}
+
+// startIdleChecker 启动空闲连接检查器
+func (h *Hub) startIdleChecker() {
+	ticker := time.NewTicker(IdleCheckInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		h.checkIdleConnections()
+	}
+}
+
+// checkIdleConnections 检查并关闭空闲连接
+func (h *Hub) checkIdleConnections() {
+	now := time.Now()
+	var idleSessions []*melody.Session
+
+	// 收集空闲的访客连接
+	h.mu.RLock()
+	for session := range h.guestSessions {
+		if lastPing, ok := session.Get("last_ping_time"); ok {
+			if now.Sub(lastPing.(time.Time)) > IdleTimeout {
+				idleSessions = append(idleSessions, session)
+			}
+		} else {
+			// 没有 last_ping_time，检查连接时间
+			if connTime, ok := session.Get("connect_time"); ok {
+				if now.Sub(connTime.(time.Time)) > IdleTimeout {
+					idleSessions = append(idleSessions, session)
+				}
+			}
+		}
+	}
+
+	// 收集空闲的用户连接
+	for _, sessions := range h.userSessions {
+		for session := range sessions {
+			if lastPing, ok := session.Get("last_ping_time"); ok {
+				if now.Sub(lastPing.(time.Time)) > IdleTimeout {
+					idleSessions = append(idleSessions, session)
+				}
+			} else {
+				// 没有 last_ping_time，检查连接时间
+				if connTime, ok := session.Get("connect_time"); ok {
+					if now.Sub(connTime.(time.Time)) > IdleTimeout {
+						idleSessions = append(idleSessions, session)
+					}
+				}
+			}
+		}
+	}
+	h.mu.RUnlock()
+
+	// 关闭空闲连接
+	for _, session := range idleSessions {
+		userID, _ := session.Get("user_id")
+		isGuest, _ := session.Get("is_guest")
+		if isGuest == true {
+			fmt.Printf("[WebSocket] Closing idle guest connection\n")
+		} else if userID != nil {
+			fmt.Printf("[WebSocket] Closing idle connection for user %v\n", userID)
+		}
+		session.Close()
+	}
+
+	if len(idleSessions) > 0 {
+		fmt.Printf("[WebSocket] Closed %d idle connections\n", len(idleSessions))
+	}
 }
 
