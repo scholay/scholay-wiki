@@ -112,6 +112,12 @@ export const useAISearch = () => {
     activeTab: paperState.activeTab,
     highlightedPaperIndex: paperState.highlightedPaperIndex,
     scrollToPaperIndex: paperState.scrollToPaperIndex,
+    
+    // 分页相关
+    allPaperIds: paperState.allPaperIds,
+    loadedPaperCount: paperState.loadedPaperCount,
+    loadingMorePapers: paperState.loadingMorePapers,
+    hasMorePapers: paperState.hasMorePapers,
 
     setPapers: paperState.setPapers,
     setPapersTotal: paperState.setPapersTotal,
@@ -119,9 +125,12 @@ export const useAISearch = () => {
     setActiveTab: paperState.setActiveTab,
     setHighlightedPaperIndex: paperState.setHighlightedPaperIndex,
     setScrollToPaperIndex: paperState.setScrollToPaperIndex,
+    setAllPaperIds: paperState.setAllPaperIds,
+    setLoadedPaperCount: paperState.setLoadedPaperCount,
 
     papersContainerRef: paperState.papersContainerRef,
     clearPapers: paperState.clearPapers,
+    loadMorePapers: paperState.loadMorePapers,
 
     // ========== 维度分析相关 ==========
     dimensions: dimensionState.dimensions,

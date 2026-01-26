@@ -31,7 +31,15 @@ const AIPaperList = ({
   onDimensionRemove,
   // 鉴权相关 props
   isAuthenticated = false,
-  onRequireAuth
+  onRequireAuth,
+  // PDF 相关 props
+  pdfAvailability,
+  onGetPdf, // 获取PDF按钮回调
+  // 分页相关 props
+  hasMorePapers = false,
+  loadingMorePapers = false,
+  onLoadMore,
+  loadedPaperCount = 0,
 }) => {
   // 展开/收起状态
   const [expandedAbstract, setExpandedAbstract] = useState({});
@@ -374,8 +382,8 @@ const AIPaperList = ({
                     </a>
                   )}
                   
-                  {/* PDF 链接 */}
-                  {paper.openAccessPdf && paper.openAccessPdf.url && (
+                  {/* PDF 链接 或 获取PDF按钮 */}
+                  {paper.openAccessPdf && paper.openAccessPdf.url ? (
                     <a 
                       href={paper.openAccessPdf.url}
                       target="_blank"
@@ -391,6 +399,23 @@ const AIPaperList = ({
                       </svg>
                       PDF
                     </a>
+                  ) : paper.externalIds?.DOI && onGetPdf && (
+                    <button
+                      className="meta-item pdf-check-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onGetPdf(paper);
+                      }}
+                      title="获取PDF并预览"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <path d="M12 18v-6"/>
+                        <path d="M9 15l3 3 3-3"/>
+                      </svg>
+                      获取PDF
+                    </button>
                   )}
                   
                   {/* 引用按钮 */}
@@ -460,6 +485,28 @@ const AIPaperList = ({
         );
         })}
       </div>
+
+      {/* 加载更多按钮 */}
+      {hasMorePapers && onLoadMore && (
+        <div className="load-more-papers-container">
+          <button 
+            className="load-more-papers-btn"
+            onClick={onLoadMore}
+            disabled={loadingMorePapers}
+          >
+            {loadingMorePapers ? (
+              <>
+                <span className="load-more-spinner"></span>
+                加载中...
+              </>
+            ) : (
+              <>
+                加载更多 ({loadedPaperCount}/{total})
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

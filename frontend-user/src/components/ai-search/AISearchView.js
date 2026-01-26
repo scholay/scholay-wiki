@@ -2,7 +2,7 @@
  * AI智能搜索视图组件 (重构版)
  * 主协调组件，整合所有子组件和 Hooks
  */
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { subscriptionAPI } from '../../services/api';
 import logger from '../../utils/logger';
@@ -15,6 +15,8 @@ import InsufficientBalanceModal from '../InsufficientBalanceModal';
 import AIDimensionPanel from './AIDimensionPanel';
 import AIConversationContent from './AIConversationContent';
 import AISearchInput from './AISearchInput';
+import PaperPreview from '../PaperPreview';
+import { usePdfAvailability } from '../../hooks/usePdfAvailability';
 
 // Hooks
 import { useAISearch } from './hooks/useAISearch';
@@ -40,6 +42,38 @@ const AISearchView = () => {
 
   // 核心状态管理
   const aiSearch = useAISearch();
+
+  // 论文推屏状态
+  const [selectedPaper, setSelectedPaper] = useState(null);
+  const [showPaperDrawer, setShowPaperDrawer] = useState(false);
+
+  // PDF 可用性管理
+  const pdfAvailability = usePdfAvailability();
+
+  // 处理论文点击 - 打开推屏
+  const handlePaperClick = useCallback((paper) => {
+    setSelectedPaper(paper);
+    setShowPaperDrawer(true);
+    // 同时取消高亮
+    aiSearch.setHighlightedPaperIndex(null);
+  }, [aiSearch]);
+
+  // 关闭论文推屏
+  const handleClosePaperDrawer = useCallback(() => {
+    setShowPaperDrawer(false);
+    setSelectedPaper(null);
+  }, []);
+
+  // 处理获取PDF按钮点击
+  const handleGetPdf = useCallback((paper) => {
+    const doi = paper.externalIds?.DOI;
+    if (doi) {
+      // 标记需要打开 PDF tab
+      pdfAvailability.markPdfRequest(paper.paperId, doi);
+    }
+    // 打开论文推屏
+    handlePaperClick(paper);
+  }, [pdfAvailability, handlePaperClick]);
 
   // 论文分析
   useAIPaperAnalysis({
@@ -84,6 +118,9 @@ const AISearchView = () => {
     setIsLoadingSuggestedQuestions: aiSearch.setIsLoadingSuggestedQuestions,
     loadConversations: aiSearch.loadConversations,
     extractSuggestedQuestions: aiSearch.extractSuggestedQuestions,
+    // 分页相关
+    setAllPaperIds: aiSearch.setAllPaperIds,
+    setLoadedPaperCount: aiSearch.setLoadedPaperCount,
   });
 
   // 滚动管理
@@ -247,9 +284,7 @@ const AISearchView = () => {
               highlightedPaperIndex={aiSearch.highlightedPaperIndex}
               scrollToPaperIndex={aiSearch.scrollToPaperIndex}
               onScrollComplete={() => aiSearch.setScrollToPaperIndex(null)}
-              onPaperClick={(paper, index) => {
-                aiSearch.setHighlightedPaperIndex(null);
-              }}
+              onPaperClick={handlePaperClick}
               onCite={(paper) => aiSearch.setCitePaper(paper)}
               selectedDimensions={aiSearch.selectedDimensions}
               analysisResults={aiSearch.analysisResults}
@@ -258,6 +293,13 @@ const AISearchView = () => {
               onDimensionRemove={aiSearch.handleDimensionToggle}
               isAuthenticated={aiSearch.isAuthenticated}
               onRequireAuth={() => aiSearch.setShowAuthModal(true)}
+              pdfAvailability={pdfAvailability}
+              onGetPdf={handleGetPdf}
+              // 分页相关
+              hasMorePapers={aiSearch.hasMorePapers}
+              loadingMorePapers={aiSearch.loadingMorePapers}
+              onLoadMore={aiSearch.loadMorePapers}
+              loadedPaperCount={aiSearch.loadedPaperCount}
             />
 
             {/* 维度面板 */}
@@ -389,6 +431,20 @@ const AISearchView = () => {
         required={aiSearch.balanceError?.required || 0}
         shortage={aiSearch.balanceError?.shortage || 0}
       />
+
+      {/* 论文详情推屏 */}
+      {showPaperDrawer && selectedPaper && (
+        <div className="paper-drawer-overlay" onClick={handleClosePaperDrawer}>
+          <div className="paper-drawer" onClick={(e) => e.stopPropagation()}>
+            <PaperPreview
+              paper={selectedPaper}
+              onClose={handleClosePaperDrawer}
+              isDrawerMode={true}
+              pdfAvailability={pdfAvailability}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

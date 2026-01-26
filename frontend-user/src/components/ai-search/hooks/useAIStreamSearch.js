@@ -7,6 +7,7 @@ import { conversationAPI, walletAPI, publicScholarAPI } from '../../../services/
 import { trackSmartSearch, EntryPoint } from '../../../utils/usageTracker';
 import wsClient from '../../../services/websocket';
 import logger from '../../../utils/logger';
+import { PAPER_PAGE_SIZE } from './usePaperState';
 
 // 论文详情字段（后端期望数组格式）
 const PAPER_FIELDS = ['paperId', 'title', 'authors', 'year', 'abstract', 'citationCount', 'venue', 'publicationDate', 'tldr', 'openAccessPdf', 'externalIds', 'isOpenAccess', 'fieldsOfStudy'];
@@ -39,6 +40,9 @@ export const useAIStreamSearch = ({
   setIsLoadingSuggestedQuestions,
   loadConversations,
   extractSuggestedQuestions,
+  // 分页相关
+  setAllPaperIds,
+  setLoadedPaperCount,
 }) => {
   // 获取延伸问题（通过独立 API）
   const fetchFollowUpQuestions = useCallback(async (conversationId, messageId, message, showLoading = true) => {
@@ -254,15 +258,28 @@ export const useAIStreamSearch = ({
           const isNewFormat = Array.isArray(paperIds) && paperIds.length > 0 && typeof paperIds[0] === 'string';
 
           if (isNewFormat) {
-            logger.log(`Received ${paperIds.length} paper IDs, fetching details...`);
+            logger.log(`Received ${paperIds.length} paper IDs, fetching first page (${PAPER_PAGE_SIZE})...`);
 
-            publicScholarAPI.getPaperBatch(paperIds, PAPER_FIELDS).then(response => {
+            // 存储所有论文 ID（用于分页加载）
+            if (setAllPaperIds) {
+              setAllPaperIds(paperIds);
+            }
+
+            // 只获取第一页的论文详情
+            const firstPageIds = paperIds.slice(0, PAPER_PAGE_SIZE);
+            
+            publicScholarAPI.getPaperBatch(firstPageIds, PAPER_FIELDS).then(response => {
               if (response.data.code === 0 && response.data.data) {
                 const newPapers = response.data.data || [];
-                logger.log(`Fetched ${newPapers.length} paper details`);
+                logger.log(`Fetched first page: ${newPapers.length} papers (total: ${paperIds.length})`);
 
                 setPapers(newPapers);
                 setPapersTotal(newTotal);
+                
+                // 更新已加载数量
+                if (setLoadedPaperCount) {
+                  setLoadedPaperCount(newPapers.length);
+                }
 
                 setPaperSets(prevSets => {
                   const newSets = [...prevSets];
@@ -272,7 +289,8 @@ export const useAIStreamSearch = ({
                       papers: newPapers,
                       total: newTotal,
                       query: query,
-                      isLoading: false
+                      isLoading: false,
+                      allPaperIds: paperIds // 保存所有 ID 用于分页
                     };
                   } else {
                     newSets.unshift({
@@ -280,7 +298,8 @@ export const useAIStreamSearch = ({
                       papers: newPapers,
                       total: newTotal,
                       query: query,
-                      isLoading: false
+                      isLoading: false,
+                      allPaperIds: paperIds
                     });
                   }
                   return newSets;
@@ -293,9 +312,17 @@ export const useAIStreamSearch = ({
               setLoading(false);
             });
           } else {
+            // 旧格式：直接是论文对象数组
             const newPapers = paperIds;
             setPapers(newPapers);
             setPapersTotal(newTotal);
+            
+            if (setAllPaperIds) {
+              setAllPaperIds([]);
+            }
+            if (setLoadedPaperCount) {
+              setLoadedPaperCount(newPapers.length);
+            }
 
             setPaperSets(prevSets => {
               const newSets = [...prevSets];

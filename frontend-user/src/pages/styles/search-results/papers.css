@@ -687,100 +687,73 @@ a.meta-item.pdf-link:hover {
   color: rgb(147, 197, 253);
 }
 
-/* PDF 检测按钮 */
+/* 获取PDF按钮 - 渐变蓝紫色风格 */
 .pdf-check-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   font-size: 13px;
-  line-height: 1.6;
-  padding: 3px 8px;
-  border-radius: 3px;
-  background: rgba(251, 191, 36, 0.1);
-  color: rgba(253, 224, 71, 0.9);
-  border: none;
+  font-weight: 500;
+  line-height: 1.5;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%);
+  color: rgb(165, 180, 252);
+  border: 1px solid rgba(129, 140, 248, 0.25);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   font-family: inherit;
+  position: relative;
+  overflow: hidden;
+}
+
+.pdf-check-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.4s ease;
+}
+
+.pdf-check-btn:hover::before {
+  left: 100%;
 }
 
 .pdf-check-btn svg {
   flex-shrink: 0;
   width: 14px;
   height: 14px;
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 .pdf-check-btn:hover {
-  background: rgba(251, 191, 36, 0.18);
-  color: rgb(253, 224, 71);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(168, 85, 247, 0.25) 100%);
+  color: rgb(199, 210, 254);
+  border-color: rgba(129, 140, 248, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
 }
 
-/* PDF 检测中状态 */
-.pdf-check-btn.checking {
-  background: rgba(251, 191, 36, 0.08);
-  color: rgba(253, 224, 71, 0.6);
-  cursor: wait;
+.pdf-check-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
-.pdf-check-spinner {
-  width: 12px;
-  height: 12px;
-  border: 2px solid rgba(253, 224, 71, 0.3);
-  border-top-color: rgba(253, 224, 71, 0.8);
-  border-radius: 50%;
-  animation: pdf-check-spin 0.8s linear infinite;
-}
-
-@keyframes pdf-check-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* PDF 可用状态 */
-.pdf-check-btn.available {
-  background: rgba(34, 197, 94, 0.1);
-  color: rgba(134, 239, 172, 0.9);
-  cursor: default;
-}
-
-/* PDF 不可用状态 */
-.pdf-check-btn.unavailable {
-  background: rgba(239, 68, 68, 0.08);
-  color: rgba(252, 165, 165, 0.7);
-  cursor: default;
-}
-
-/* 日间模式 - PDF 检测按钮 */
+/* 日间模式 - 获取PDF按钮 */
 [data-theme="light"] .pdf-check-btn {
-  background: rgba(217, 119, 6, 0.08);
-  color: #b45309;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%);
+  color: #6366f1;
+  border-color: rgba(99, 102, 241, 0.2);
 }
 
 [data-theme="light"] .pdf-check-btn:hover {
-  background: rgba(217, 119, 6, 0.15);
-  color: #92400e;
-}
-
-[data-theme="light"] .pdf-check-btn.checking {
-  background: rgba(217, 119, 6, 0.06);
-  color: rgba(180, 83, 9, 0.6);
-}
-
-[data-theme="light"] .pdf-check-spinner {
-  border-color: rgba(217, 119, 6, 0.3);
-  border-top-color: rgba(217, 119, 6, 0.8);
-}
-
-[data-theme="light"] .pdf-check-btn.available {
-  background: rgba(22, 163, 74, 0.08);
-  color: #15803d;
-}
-
-[data-theme="light"] .pdf-check-btn.unavailable {
-  background: rgba(220, 38, 38, 0.06);
-  color: rgba(185, 28, 28, 0.7);
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.15) 0%, rgba(147, 51, 234, 0.15) 100%);
+  color: #4f46e5;
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
 }
 
 /* Cite 按钮 - 独立样式 */
@@ -2976,3 +2949,72 @@ a.meta-item.pdf-link:hover {
   border-color: rgba(239, 68, 68, 0.4);
 }
 
+/* ========== 加载更多论文按钮 ========== */
+.load-more-papers-container {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0 30px;
+  margin-top: 10px;
+}
+
+.load-more-papers-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%);
+  border: 1px solid rgba(129, 140, 248, 0.25);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 160px;
+}
+
+.load-more-papers-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(168, 85, 247, 0.25) 100%);
+  border-color: rgba(129, 140, 248, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+.load-more-papers-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.load-more-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  animation: load-more-spin 0.8s linear infinite;
+}
+
+@keyframes load-more-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 日间模式 - 加载更多按钮 */
+[data-theme="light"] .load-more-papers-btn {
+  color: #6366f1;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+[data-theme="light"] .load-more-papers-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.15) 0%, rgba(147, 51, 234, 0.15) 100%);
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+[data-theme="light"] .load-more-spinner {
+  border-color: rgba(99, 102, 241, 0.3);
+  border-top-color: rgba(99, 102, 241, 0.8);
+}

@@ -206,8 +206,8 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		allPapers = papers
 	}
 
-	// Limit papers to top 100 for frontend display and AI analysis
-	const maxPapersToShow = 100
+	// Limit papers to top 50 for frontend display and AI analysis
+	const maxPapersToShow = 50
 	displayPapers := allPapers
 	if len(displayPapers) > maxPapersToShow {
 		fmt.Printf("[DEBUG] Limiting papers from %d to %d for display and analysis\n", len(allPapers), maxPapersToShow)
@@ -387,18 +387,35 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		fmt.Printf("Warning: failed to save assistant message: %v\n", err)
 	}
 
-	// Step 9: Generate and send new title using AI
-	newTitle, err := s.UpdateConversationTitleWithAI(conversationID)
-	if err != nil {
-		fmt.Printf("[WARN] Failed to generate title with AI: %v\n", err)
-	} else {
-		// Send title update event via SSE
-		titleData := fmt.Sprintf(`[TITLE]{"title":"%s"}`, escapeJSONString(newTitle))
-		fmt.Fprintf(writer, "data: %s\n\n", titleData)
-		if flusher, ok := writer.(interface{ Flush() }); ok {
-			flusher.Flush()
+	// Step 9: Generate title with timeout (3 seconds max)
+	// This prevents title generation from blocking [DONE] signal
+	titleCh := make(chan string, 1)
+	go func() {
+		newTitle, err := s.UpdateConversationTitleWithAI(conversationID)
+		if err != nil {
+			fmt.Printf("[WARN] Failed to generate title with AI: %v\n", err)
+			titleCh <- ""
+		} else {
+			titleCh <- newTitle
 		}
-		fmt.Printf("[TITLE-DEBUG] Sent title event: %s\n", newTitle)
+	}()
+
+	// Wait for title with timeout
+	select {
+	case newTitle := <-titleCh:
+		if newTitle != "" {
+			// Send title update event via SSE
+			titleData := fmt.Sprintf(`[TITLE]{"title":"%s"}`, escapeJSONString(newTitle))
+			fmt.Fprintf(writer, "data: %s\n\n", titleData)
+			if flusher, ok := writer.(interface{ Flush() }); ok {
+				flusher.Flush()
+			}
+			fmt.Printf("[TITLE-DEBUG] Sent title event: %s\n", newTitle)
+		}
+	case <-time.After(3 * time.Second):
+		fmt.Printf("[WARN] Title generation timeout (3s), skipping title\n")
+		// Title will be generated in the background and saved to database
+		// User can see it when they refresh or reload the conversation
 	}
 
 	return nil
@@ -710,7 +727,7 @@ func (s *Service) mergeAndDeduplicatePapers(
 ) *ParallelSearchResult {
 	fmt.Printf("[PARALLEL-DEBUG] ========== 合并去重开始 ==========\n")
 
-	const maxMergedPapers = 100 // 合并后最多返回100篇
+	const maxMergedPapers = 50 // 合并后最多返回50篇
 
 	seen := make(map[string]bool)
 	var merged []map[string]interface{}
