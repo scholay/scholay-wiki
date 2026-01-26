@@ -2,7 +2,7 @@
  * 搜索相关状态管理 Hook
  * 从 useAISearch.js 拆分
  */
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
 export const useSearchState = () => {
   // 搜索输入
@@ -16,6 +16,9 @@ export const useSearchState = () => {
   const [streamingContent, setStreamingContent] = useState('');
   const [showAIThinking, setShowAIThinking] = useState(false);
 
+  // 思考/处理步骤状态
+  const [thinkingSteps, setThinkingSteps] = useState([]);
+
   // 模型级别
   const [modelLevel, setModelLevel] = useState('low');
 
@@ -24,6 +27,26 @@ export const useSearchState = () => {
   const streamingContentRef = useRef('');
   const textareaRef = useRef(null);
 
+  // 添加思考步骤
+  const addThinkingStep = useCallback((step, message, detail = '', completed = false) => {
+    setThinkingSteps(prev => {
+      // 检查是否已存在相同步骤
+      const existingIndex = prev.findIndex(s => s.step === step);
+      if (existingIndex >= 0) {
+        // 更新已存在的步骤
+        const newSteps = [...prev];
+        newSteps[existingIndex] = { ...newSteps[existingIndex], message, detail, completed };
+        return newSteps;
+      }
+      return [...prev, { step, message, detail, completed, timestamp: Date.now() }];
+    });
+  }, []);
+
+  // 清空思考步骤
+  const clearThinkingSteps = useCallback(() => {
+    setThinkingSteps([]);
+  }, []);
+
   return {
     // 状态
     searchQuery,
@@ -31,6 +54,7 @@ export const useSearchState = () => {
     isStreaming,
     streamingContent,
     showAIThinking,
+    thinkingSteps,
     modelLevel,
 
     // Setter
@@ -39,7 +63,12 @@ export const useSearchState = () => {
     setIsStreaming,
     setStreamingContent,
     setShowAIThinking,
+    setThinkingSteps,
     setModelLevel,
+
+    // 方法
+    addThinkingStep,
+    clearThinkingSteps,
 
     // Refs
     eventSourceRef,

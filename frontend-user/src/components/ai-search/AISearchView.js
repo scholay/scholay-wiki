@@ -121,6 +121,9 @@ const AISearchView = () => {
     // 分页相关
     setAllPaperIds: aiSearch.setAllPaperIds,
     setLoadedPaperCount: aiSearch.setLoadedPaperCount,
+    // 思考步骤相关
+    addThinkingStep: aiSearch.addThinkingStep,
+    clearThinkingSteps: aiSearch.clearThinkingSteps,
   });
 
   // 滚动管理
@@ -366,6 +369,7 @@ const AISearchView = () => {
               isStreaming={aiSearch.isStreaming}
               streamingContent={aiSearch.streamingContent}
               showAIThinking={aiSearch.showAIThinking}
+              thinkingSteps={aiSearch.thinkingSteps}
               currentConversationId={aiSearch.currentConversationId}
               expandedQAIndex={aiSearch.expandedQAIndex}
               messagePagination={aiSearch.messagePagination}

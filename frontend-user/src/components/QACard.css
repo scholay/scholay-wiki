@@ -166,6 +166,144 @@
   100% { background-position: -200% 0; }
 }
 
+/* ============ AI 思考过程展示 ============ */
+.qa-thinking-process {
+  padding: 8px 0;
+}
+
+.thinking-steps-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.thinking-step {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-secondary, #999);
+  transition: all 0.3s ease;
+  animation: step-fade-in 0.4s ease-out;
+  padding-left: 4px;
+  border-left: 2px solid transparent;
+}
+
+.thinking-step.active {
+  border-left-color: var(--primary-color, #10a37f);
+  padding-left: 12px;
+}
+
+.thinking-step.completed {
+  border-left-color: rgba(16, 163, 127, 0.3);
+  padding-left: 12px;
+}
+
+@keyframes step-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.thinking-step.active .step-header {
+  color: var(--primary-color, #10a37f);
+}
+
+.thinking-step.completed .step-header {
+  color: var(--text-secondary, #888);
+}
+
+.thinking-step.completed .step-icon {
+  color: var(--success-color, #10a37f);
+}
+
+.step-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.step-icon svg {
+  color: currentColor;
+}
+
+.step-spinner {
+  animation: step-spin 1s linear infinite;
+}
+
+@keyframes step-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.step-message {
+  font-weight: 500;
+}
+
+.step-detail {
+  font-size: 13px;
+  color: var(--text-tertiary, #777);
+  padding-left: 28px;
+  line-height: 1.5;
+  animation: detail-fade-in 0.3s ease-out;
+}
+
+@keyframes detail-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 日间模式 - 思考步骤 */
+[data-theme="light"] .thinking-step {
+  color: #666;
+}
+
+[data-theme="light"] .thinking-step.active {
+  border-left-color: #059669;
+}
+
+[data-theme="light"] .thinking-step.active .step-header {
+  color: #059669;
+}
+
+[data-theme="light"] .thinking-step.completed {
+  border-left-color: rgba(5, 150, 105, 0.3);
+}
+
+[data-theme="light"] .thinking-step.completed .step-header {
+  color: #666;
+}
+
+[data-theme="light"] .thinking-step.completed .step-icon {
+  color: #059669;
+}
+
+[data-theme="light"] .step-detail {
+  color: #888;
+}
+
 /* ============ 延伸问题区域 ============ */
 .qa-suggested {
   margin-top: 20px;

@@ -92,6 +92,7 @@ export const useAISearch = () => {
     isStreaming: searchState.isStreaming,
     streamingContent: searchState.streamingContent,
     showAIThinking: searchState.showAIThinking,
+    thinkingSteps: searchState.thinkingSteps,
     modelLevel: searchState.modelLevel,
 
     setSearchQuery: searchState.setSearchQuery,
@@ -99,7 +100,10 @@ export const useAISearch = () => {
     setIsStreaming: searchState.setIsStreaming,
     setStreamingContent: searchState.setStreamingContent,
     setShowAIThinking: searchState.setShowAIThinking,
+    setThinkingSteps: searchState.setThinkingSteps,
     setModelLevel: searchState.setModelLevel,
+    addThinkingStep: searchState.addThinkingStep,
+    clearThinkingSteps: searchState.clearThinkingSteps,
 
     eventSourceRef: searchState.eventSourceRef,
     streamingContentRef: searchState.streamingContentRef,

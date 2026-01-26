@@ -16,6 +16,7 @@ const QACard = memo(({
   isStreaming,
   streamingContent,
   showAIThinking,
+  thinkingSteps = [],
   isLoadingSuggestedQuestions,
   fromAcademicSearch,
   loading,
@@ -49,11 +50,57 @@ const QACard = memo(({
       {/* 回答内容区域 */}
       <div className="qa-answer-area">
         {isLatest && showAIThinking ? (
-          <div className="qa-thinking-skeleton">
-            <div className="skeleton-line" style={{width: '90%'}}></div>
-            <div className="skeleton-line" style={{width: '95%'}}></div>
-            <div className="skeleton-line" style={{width: '80%'}}></div>
-            <div className="skeleton-line" style={{width: '85%'}}></div>
+          <div className="qa-thinking-process">
+            {/* 思考步骤展示 */}
+            {thinkingSteps.length > 0 ? (
+              <div className="thinking-steps-container">
+                {thinkingSteps.map((step, idx) => {
+                  // 判断步骤状态：已完成、进行中、等待中
+                  const isLastStep = idx === thinkingSteps.length - 1;
+                  const isCompleted = step.completed || !isLastStep;
+                  const isActive = isLastStep && !step.completed;
+                  
+                  return (
+                    <div 
+                      key={step.step} 
+                      className={`thinking-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
+                    >
+                      <div className="step-header">
+                        <span className="step-icon">
+                          {isActive ? (
+                            <svg className="step-spinner" viewBox="0 0 24 24" width="14" height="14">
+                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="31.4 31.4" />
+                            </svg>
+                          ) : (
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </span>
+                        <span className="step-message">{step.message}</span>
+                      </div>
+                      {step.detail && (
+                        <div className="step-detail">{step.detail}</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="thinking-steps-container">
+                <div className="thinking-step active">
+                  <div className="step-header">
+                    <span className="step-icon">
+                      <svg className="step-spinner" viewBox="0 0 24 24" width="14" height="14">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="31.4 31.4" />
+                      </svg>
+                    </span>
+                    <span className="step-message">正在准备</span>
+                  </div>
+                  <div className="step-detail">初始化智能分析引擎...</div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="qa-answer-content">
@@ -125,6 +172,7 @@ const AIConversationContent = forwardRef(({
   isStreaming,
   streamingContent,
   showAIThinking,
+  thinkingSteps = [],
   currentConversationId,
   expandedQAIndex,
   messagePagination,
@@ -191,6 +239,7 @@ const AIConversationContent = forwardRef(({
               isStreaming={isStreaming}
               streamingContent={streamingContent}
               showAIThinking={showAIThinking}
+              thinkingSteps={thinkingSteps}
               isLoadingSuggestedQuestions={isLoadingSuggestedQuestions}
               fromAcademicSearch={fromAcademicSearch}
               loading={loading}

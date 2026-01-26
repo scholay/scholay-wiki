@@ -127,6 +127,14 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	// Step 4: Call AI with tools to get tool calls
 	// Use low-level model for tool calling to save cost (tool selection doesn't need advanced reasoning)
 	fmt.Printf("[DEBUG] Calling AI with tools, initial messages count: %d, tools count: %d\n", len(initialMessages), len(aiTools))
+	
+	// Send step: analyzing search intent
+	fmt.Printf("[STEP-DEBUG] >>> 发送 analyzing 开始事件\n")
+	fmt.Fprintf(writer, "data: [STEP]{\"step\":\"analyzing\",\"message\":\"正在分析检索意图\",\"detail\":\"理解您的查询，生成最佳搜索策略...\"}\n\n")
+	if flusher, ok := writer.(interface{ Flush() }); ok {
+		flusher.Flush()
+	}
+	
 	toolCallResponse, err := s.aiService.ChatCompletionWithTools(initialMessages, aiTools, "auto", thirdparty.ModelLevelLow)
 	if err != nil {
 		fmt.Printf("[ERROR] AI tool call failed: %v\n", err)
@@ -136,6 +144,36 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 
 	// Step 5: Execute tool calls and collect results with enhanced filtering (并行搜索)
 	var allPapers []map[string]interface{}
+	var searchKeywords string
+
+	// Extract search keywords from tool call for display
+	if toolCallResponse != nil && len(toolCallResponse.Choices) > 0 && len(toolCallResponse.Choices[0].Message.ToolCalls) > 0 {
+		for _, toolCall := range toolCallResponse.Choices[0].Message.ToolCalls {
+			var args map[string]interface{}
+			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err == nil {
+				if q, ok := args["query"].(string); ok && q != "" {
+					searchKeywords = q
+					break
+				}
+			}
+		}
+	}
+
+	// Send step: searching papers with keywords
+	searchDetail := "正在从学术数据库检索相关论文..."
+	if searchKeywords != "" {
+		// Truncate keywords if too long
+		displayKeywords := searchKeywords
+		if len(displayKeywords) > 50 {
+			displayKeywords = displayKeywords[:50] + "..."
+		}
+		searchDetail = fmt.Sprintf("搜索关键词: %s", displayKeywords)
+	}
+	fmt.Printf("[STEP-DEBUG] >>> 发送 searching 开始事件, 关键词: %s\n", searchKeywords)
+	fmt.Fprintf(writer, "data: [STEP]{\"step\":\"searching\",\"message\":\"正在检索学术论文\",\"detail\":\"%s\"}\n\n", escapeJSONString(searchDetail))
+	if flusher, ok := writer.(interface{ Flush() }); ok {
+		flusher.Flush()
+	}
 
 	if toolCallResponse != nil && len(toolCallResponse.Choices) > 0 && len(toolCallResponse.Choices[0].Message.ToolCalls) > 0 {
 		fmt.Printf("[PARALLEL-DEBUG] 发现 %d 个工具调用\n", len(toolCallResponse.Choices[0].Message.ToolCalls))
@@ -169,6 +207,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		
 		fmt.Printf("[PARALLEL-DEBUG] 并行搜索完成: bulk=%d篇, relevance=%d篇, 合并去重后=%d篇\n",
 			parallelResult.BulkCount, parallelResult.RelCount, len(allPapers))
+		
 	}
 
 	// If no papers found, try a simple direct search
@@ -204,6 +243,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		// 对直接搜索结果也进行摘要过滤
 		papers = FilterPapersWithAbstract(papers)
 		allPapers = papers
+		
 	}
 
 	// Limit papers to top 50 for frontend display and AI analysis
@@ -212,6 +252,14 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	if len(displayPapers) > maxPapersToShow {
 		fmt.Printf("[DEBUG] Limiting papers from %d to %d for display and analysis\n", len(allPapers), maxPapersToShow)
 		displayPapers = displayPapers[:maxPapersToShow]
+	}
+
+	// 搜索完成，更新步骤（包含筛选结果）
+	fmt.Printf("[STEP-DEBUG] >>> 发送 searching 完成事件, 检索 %d 篇, 筛选 %d 篇\n", len(allPapers), len(displayPapers))
+	searchCompleteDetail := fmt.Sprintf("检索到 %d 篇论文，已筛选出 %d 篇最相关的结果", len(allPapers), len(displayPapers))
+	fmt.Fprintf(writer, "data: [STEP]{\"step\":\"searching\",\"message\":\"检索完成\",\"detail\":\"%s\",\"completed\":true}\n\n", escapeJSONString(searchCompleteDetail))
+	if flusher, ok := writer.(interface{ Flush() }); ok {
+		flusher.Flush()
 	}
 
 	// Step 6: Extract paper IDs and update user message
@@ -241,6 +289,14 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	}
 
 	// Step 7: Generate AI analysis of the papers and save to database
+	// Send step: AI analyzing papers with count
+	fmt.Printf("[STEP-DEBUG] >>> 发送 analyzing_papers 开始事件, 论文数量: %d\n", len(displayPapers))
+	analysisDetail := fmt.Sprintf("正在对 %d 篇论文进行深度解读...", len(displayPapers))
+	fmt.Fprintf(writer, "data: [STEP]{\"step\":\"analyzing_papers\",\"message\":\"AI 深度分析\",\"detail\":\"%s\"}\n\n", escapeJSONString(analysisDetail))
+	if flusher, ok := writer.(interface{ Flush() }); ok {
+		flusher.Flush()
+	}
+	
 	fmt.Printf("[DEBUG] Formatting %d papers for AI analysis\n", len(displayPapers))
 	// Use more papers for analysis (up to 30) with shorter abstracts
 	papersForPrompt := ai.FormatPapersForPromptWithLimit(displayPapers, 30, 200)

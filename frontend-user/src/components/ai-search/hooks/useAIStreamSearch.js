@@ -43,6 +43,9 @@ export const useAIStreamSearch = ({
   // 分页相关
   setAllPaperIds,
   setLoadedPaperCount,
+  // 思考步骤相关
+  addThinkingStep,
+  clearThinkingSteps,
 }) => {
   // 获取延伸问题（通过独立 API）
   const fetchFollowUpQuestions = useCallback(async (conversationId, messageId, message, showLoading = true) => {
@@ -92,6 +95,11 @@ export const useAIStreamSearch = ({
     setStreamingContent('');
     streamingContentRef.current = '';
     setShowAIThinking(true);
+    
+    // 清空思考步骤
+    if (clearThinkingSteps) {
+      clearThinkingSteps();
+    }
 
     // 添加新的论文集合占位符
     setPaperSets(prevSets => [
@@ -223,6 +231,20 @@ export const useAIStreamSearch = ({
             category: 'transaction',
             created_at: new Date().toISOString()
           });
+        }
+        return;
+      }
+
+      // 处理步骤事件
+      if (event.data.startsWith('[STEP]')) {
+        try {
+          const stepData = JSON.parse(event.data.substring(6));
+          logger.log('Received step:', stepData);
+          if (addThinkingStep && stepData.step && stepData.message) {
+            addThinkingStep(stepData.step, stepData.message, stepData.detail || '', stepData.completed || false);
+          }
+        } catch (err) {
+          logger.error('Failed to parse step data:', err);
         }
         return;
       }
