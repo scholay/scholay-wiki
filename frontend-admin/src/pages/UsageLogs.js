@@ -169,6 +169,11 @@ const UsageLogs = () => {
         params = { days: dateRange };
       }
       
+      // 如果有功能筛选，添加到参数中（用于趋势图筛选）
+      if (filters.feature_code) {
+        params.feature_code = filters.feature_code;
+      }
+      
       const response = await api.get('/admin/usage-logs/summary', { params });
       if (response.data.code === 0) {
         setSummary(response.data.data);
@@ -176,7 +181,7 @@ const UsageLogs = () => {
     } catch (error) {
       console.error('获取统计摘要失败:', error);
     }
-  }, [dateRange, customStartDate, customEndDate]);
+  }, [dateRange, customStartDate, customEndDate, filters.feature_code]);
 
   useEffect(() => {
     fetchSummary();
@@ -517,7 +522,15 @@ const UsageLogs = () => {
             {/* 左侧：使用趋势折线图 */}
             {summary.trend_data && summary.trend_data.length > 0 && (
               <div className="ul-chart-section ul-trend-chart">
-                <h4>使用趋势 {summary.trend_granularity === 'hour' && <span className="ul-trend-granularity">（按小时）</span>}</h4>
+                <h4>
+                  使用趋势
+                  {summary.trend_granularity === 'hour' && <span className="ul-trend-granularity">（按小时）</span>}
+                  {filters.feature_code && (
+                    <span className="ul-trend-filter-tag">
+                      {summary.feature_counts?.find(f => f.feature_code === filters.feature_code)?.feature_name || filters.feature_code}
+                    </span>
+                  )}
+                </h4>
                 <div className="ul-chart-wrapper">
                   <ResponsiveContainer width="100%" height={280}>
                     <LineChart 
@@ -579,10 +592,26 @@ const UsageLogs = () => {
             {/* 右侧：功能使用分布 */}
             {summary.feature_counts && summary.feature_counts.length > 0 && (
               <div className="ul-chart-section ul-feature-stats">
-                <h4>功能使用分布 <span className="ul-feature-stats-count">（共 {summary.feature_counts.length} 项）</span></h4>
+                <h4>
+                  功能使用分布 
+                  <span className="ul-feature-stats-count">（共 {summary.feature_counts.length} 项）</span>
+                  {filters.feature_code && (
+                    <button 
+                      className="ul-feature-clear-btn"
+                      onClick={() => handleFilterChange('feature_code', '')}
+                    >
+                      清除筛选
+                    </button>
+                  )}
+                </h4>
                 <div className="ul-feature-bars">
                   {summary.feature_counts.map((item, index) => (
-                    <div key={index} className="ul-feature-bar-item">
+                    <div 
+                      key={index} 
+                      className={`ul-feature-bar-item ul-feature-clickable ${filters.feature_code === item.feature_code ? 'ul-feature-selected' : ''}`}
+                      onClick={() => handleFilterChange('feature_code', filters.feature_code === item.feature_code ? '' : item.feature_code)}
+                      title={`点击${filters.feature_code === item.feature_code ? '取消' : ''}筛选: ${item.feature_name}`}
+                    >
                       <div className="ul-feature-bar-label">
                         <span 
                           className="ul-feature-dot"

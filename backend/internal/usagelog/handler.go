@@ -103,21 +103,23 @@ func (h *AdminHandler) List(c *gin.Context) {
 // 支持两种查询方式：
 // 1. days 参数：查询最近N天的数据
 // 2. start_date 和 end_date 参数：自定义日期范围（格式：YYYY-MM-DD）
+// 可选参数：feature_code - 按功能筛选趋势数据
 func (h *AdminHandler) GetStatsSummary(c *gin.Context) {
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
+	featureCode := c.Query("feature_code")
 
 	var summary *StatsSummary
 	var err error
 
 	// 如果提供了自定义日期范围
 	if startDate != "" && endDate != "" {
-		summary, err = h.service.GetStatsSummaryByDateRange(startDate, endDate)
+		summary, err = h.service.GetStatsSummaryByDateRange(startDate, endDate, featureCode)
 	} else {
 		// 使用 days 参数
 		daysStr := c.DefaultQuery("days", "7")
 		days, _ := strconv.Atoi(daysStr)
-		summary, err = h.service.GetStatsSummary(days)
+		summary, err = h.service.GetStatsSummary(days, featureCode)
 	}
 
 	if err != nil {

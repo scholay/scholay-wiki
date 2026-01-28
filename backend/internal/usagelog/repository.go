@@ -97,7 +97,8 @@ func (r *Repository) List(query *ListQuery) ([]UsageLogWithUser, int64, error) {
 }
 
 // GetStatsSummary 获取统计摘要（所有统计都基于时间范围）
-func (r *Repository) GetStatsSummary(days int) (*StatsSummary, error) {
+// featureCode 可选，用于筛选特定功能的趋势数据
+func (r *Repository) GetStatsSummary(days int, featureCode string) (*StatsSummary, error) {
 	summary := &StatsSummary{}
 
 	// 计算时间范围
@@ -147,15 +148,15 @@ func (r *Repository) GetStatsSummary(days int) (*StatsSummary, error) {
 		Order("date ASC").
 		Find(&summary.DailyTrend)
 
-	// 生成填充后的趋势数据
+	// 生成填充后的趋势数据（支持按功能筛选）
 	if days == 1 {
 		// 今天：按小时统计
 		summary.TrendGranularity = "hour"
-		summary.TrendData = r.getHourlyTrendData(today)
+		summary.TrendData = r.getHourlyTrendDataWithFilter(today, featureCode)
 	} else {
 		// 其他：按天统计，填充所有日期
 		summary.TrendGranularity = "day"
-		summary.TrendData = r.getDailyTrendDataFilled(days)
+		summary.TrendData = r.getDailyTrendDataFilledWithFilter(days, featureCode)
 	}
 
 	// 时间范围内的入口统计
@@ -172,7 +173,8 @@ func (r *Repository) GetStatsSummary(days int) (*StatsSummary, error) {
 }
 
 // GetStatsSummaryByDateRange 根据自定义日期范围获取统计摘要
-func (r *Repository) GetStatsSummaryByDateRange(startDate, endDate string) (*StatsSummary, error) {
+// featureCode 可选，用于筛选特定功能的趋势数据
+func (r *Repository) GetStatsSummaryByDateRange(startDate, endDate string, featureCode string) (*StatsSummary, error) {
 	summary := &StatsSummary{}
 
 	// 构建时间范围
@@ -220,9 +222,9 @@ func (r *Repository) GetStatsSummaryByDateRange(startDate, endDate string) (*Sta
 		Order("date ASC").
 		Find(&summary.DailyTrend)
 
-	// 生成填充后的趋势数据（自定义日期范围）
+	// 生成填充后的趋势数据（自定义日期范围，支持按功能筛选）
 	summary.TrendGranularity = "day"
-	summary.TrendData = r.getCustomDateRangeTrendData(startDate, endDate)
+	summary.TrendData = r.getCustomDateRangeTrendDataWithFilter(startDate, endDate, featureCode)
 
 	// 时间范围内的入口统计
 	r.db.Model(&UsageLog{}).
@@ -487,6 +489,143 @@ func (r *Repository) getDailyTrendDataFilled(days int) []TrendPoint {
 		count := dateMap[dateStr]
 		
 		// 标签格式：月/日
+		label := fmt.Sprintf("%d/%d", d.Month(), d.Day())
+		
+		result = append(result, TrendPoint{
+			Label: label,
+			Value: dateStr,
+			Count: count,
+		})
+	}
+
+	return result
+}
+
+// getHourlyTrendDataWithFilter 获取今天的小时趋势数据（支持按功能筛选）
+func (r *Repository) getHourlyTrendDataWithFilter(today string, featureCode string) []TrendPoint {
+	type HourCount struct {
+		Hour  int   `gorm:"column:hour"`
+		Count int64 `gorm:"column:count"`
+	}
+	var hourCounts []HourCount
+	
+	startTime := today + " 00:00:00"
+	endTime := today + " 23:59:59"
+	
+	db := r.db.Model(&UsageLog{}).
+		Select("HOUR(created_at) as hour, COUNT(*) as count").
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime)
+	
+	// 如果指定了功能筛选
+	if featureCode != "" {
+		db = db.Where("feature_code = ?", featureCode)
+	}
+	
+	db.Group("hour").Order("hour ASC").Find(&hourCounts)
+
+	hourMap := make(map[int]int64)
+	for _, hc := range hourCounts {
+		hourMap[hc.Hour] = hc.Count
+	}
+
+	currentHour := time.Now().Hour()
+	result := make([]TrendPoint, 0, currentHour+1)
+	for h := 0; h <= currentHour; h++ {
+		count := hourMap[h]
+		result = append(result, TrendPoint{
+			Label: fmt.Sprintf("%02d:00", h),
+			Value: fmt.Sprintf("%02d", h),
+			Count: count,
+		})
+	}
+
+	return result
+}
+
+// getDailyTrendDataFilledWithFilter 获取按天的趋势数据（支持按功能筛选）
+func (r *Repository) getDailyTrendDataFilledWithFilter(days int, featureCode string) []TrendPoint {
+	now := time.Now()
+	startDateVal := now.AddDate(0, 0, -(days - 1))
+
+	type DateCount struct {
+		DateStr string `gorm:"column:date_str"`
+		Count   int64  `gorm:"column:count"`
+	}
+	var dateCounts []DateCount
+	startTime := startDateVal.Format("2006-01-02") + " 00:00:00"
+	
+	db := r.db.Model(&UsageLog{}).
+		Select("DATE_FORMAT(created_at, '%Y-%m-%d') as date_str, COUNT(*) as count").
+		Where("created_at >= ?", startTime)
+	
+	// 如果指定了功能筛选
+	if featureCode != "" {
+		db = db.Where("feature_code = ?", featureCode)
+	}
+	
+	db.Group("date_str").Order("date_str ASC").Find(&dateCounts)
+
+	dateMap := make(map[string]int64)
+	for _, dc := range dateCounts {
+		dateMap[dc.DateStr] = dc.Count
+	}
+
+	result := make([]TrendPoint, 0, days)
+	for d := startDateVal; !d.After(now); d = d.AddDate(0, 0, 1) {
+		dateStr := d.Format("2006-01-02")
+		count := dateMap[dateStr]
+		label := fmt.Sprintf("%d/%d", d.Month(), d.Day())
+		
+		result = append(result, TrendPoint{
+			Label: label,
+			Value: dateStr,
+			Count: count,
+		})
+	}
+
+	return result
+}
+
+// getCustomDateRangeTrendDataWithFilter 获取自定义日期范围的趋势数据（支持按功能筛选）
+func (r *Repository) getCustomDateRangeTrendDataWithFilter(startDateStr, endDateStr string, featureCode string) []TrendPoint {
+	startDateVal, err := time.Parse("2006-01-02", startDateStr)
+	if err != nil {
+		return nil
+	}
+	endDateVal, err := time.Parse("2006-01-02", endDateStr)
+	if err != nil {
+		return nil
+	}
+
+	type DateCount struct {
+		DateStr string `gorm:"column:date_str"`
+		Count   int64  `gorm:"column:count"`
+	}
+	var dateCounts []DateCount
+	startTime := startDateStr + " 00:00:00"
+	endTime := endDateStr + " 23:59:59"
+	
+	db := r.db.Model(&UsageLog{}).
+		Select("DATE_FORMAT(created_at, '%Y-%m-%d') as date_str, COUNT(*) as count").
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime)
+	
+	// 如果指定了功能筛选
+	if featureCode != "" {
+		db = db.Where("feature_code = ?", featureCode)
+	}
+	
+	db.Group("date_str").Order("date_str ASC").Find(&dateCounts)
+
+	dateMap := make(map[string]int64)
+	for _, dc := range dateCounts {
+		dateMap[dc.DateStr] = dc.Count
+	}
+
+	days := int(endDateVal.Sub(startDateVal).Hours()/24) + 1
+	result := make([]TrendPoint, 0, days)
+	for d := startDateVal; !d.After(endDateVal); d = d.AddDate(0, 0, 1) {
+		dateStr := d.Format("2006-01-02")
+		count := dateMap[dateStr]
 		label := fmt.Sprintf("%d/%d", d.Month(), d.Day())
 		
 		result = append(result, TrendPoint{

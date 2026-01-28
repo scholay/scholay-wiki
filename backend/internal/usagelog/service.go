@@ -86,7 +86,7 @@ func (s *Service) List(query *ListQuery) ([]UsageLogWithUser, int64, error) {
 }
 
 // GetStatsSummary 获取统计摘要
-func (s *Service) GetStatsSummary(days int) (*StatsSummary, error) {
+func (s *Service) GetStatsSummary(days int, featureCode string) (*StatsSummary, error) {
 	if days < 1 {
 		days = 7
 	}
@@ -94,12 +94,12 @@ func (s *Service) GetStatsSummary(days int) (*StatsSummary, error) {
 	if days > 365 {
 		days = 365
 	}
-	return s.repo.GetStatsSummary(days)
+	return s.repo.GetStatsSummary(days, featureCode)
 }
 
 // GetStatsSummaryByDateRange 根据自定义日期范围获取统计摘要
-func (s *Service) GetStatsSummaryByDateRange(startDate, endDate string) (*StatsSummary, error) {
-	return s.repo.GetStatsSummaryByDateRange(startDate, endDate)
+func (s *Service) GetStatsSummaryByDateRange(startDate, endDate string, featureCode string) (*StatsSummary, error) {
+	return s.repo.GetStatsSummaryByDateRange(startDate, endDate, featureCode)
 }
 
 // GetFeatureConfigs 获取功能配置列表
