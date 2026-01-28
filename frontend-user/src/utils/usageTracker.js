@@ -29,6 +29,7 @@ export const FeatureCode = {
   
   // 工具类
   PDF_PREVIEW: 'pdf_preview',                       // PDF预览
+  PDF_SELECTION_TRANSLATE: 'pdf_selection_translate', // PDF划词翻译
   
   // 对话类
   AI_ASSISTANT_CHAT: 'ai_assistant_chat',           // 智能助手对话（AssistantPage + ChatPage）
@@ -54,6 +55,7 @@ const FeatureNames = {
   [FeatureCode.MATRIX_ANALYSIS]: '智能矩阵分析',
   [FeatureCode.MATRIX_ADD_DIMENSION]: '智能矩阵新增维度',
   [FeatureCode.PDF_PREVIEW]: 'PDF预览',
+  [FeatureCode.PDF_SELECTION_TRANSLATE]: 'PDF划词翻译',
   [FeatureCode.AI_ASSISTANT_CHAT]: '智能助手对话',
   [FeatureCode.AI_PEER_REVIEW]: '智能审稿',
   [FeatureCode.LANDING_PAGE_VIEW]: '落地页详情',
@@ -210,6 +212,20 @@ export const trackPDFPreview = (pdfUrl, entryPoint = '') => {
 };
 
 /**
+ * 记录PDF划词翻译
+ * @param {string} selectedText - 选中的文本（截取前50字符）
+ * @param {boolean} isFullscreen - 是否全屏模式
+ */
+export const trackPDFSelectionTranslate = (selectedText, isFullscreen = false) => {
+  trackUsage(
+    FeatureCode.PDF_SELECTION_TRANSLATE, 
+    Action.TRANSLATE, 
+    isFullscreen ? 'pdf_fullscreen' : 'pdf_preview',
+    { text_length: selectedText?.length || 0, text_preview: selectedText?.slice(0, 50) || '' }
+  );
+};
+
+/**
  * 记录智能助手对话（AssistantPage + ChatPage）
  * @param {string} context - 上下文信息（工具名称或对话场景）
  */
@@ -283,6 +299,7 @@ const usageTracker = {
   trackMatrixAnalysis,
   trackMatrixAddDimension,
   trackPDFPreview,
+  trackPDFSelectionTranslate,
   trackAIAssistantChat,
   trackAIPeerReview,
   trackLandingPageView,

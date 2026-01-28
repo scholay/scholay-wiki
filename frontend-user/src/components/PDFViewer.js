@@ -12,7 +12,7 @@ import { createPortal } from 'react-dom';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { trackPDFPreview, EntryPoint } from '../utils/usageTracker';
+import { trackPDFPreview, trackPDFSelectionTranslate, EntryPoint } from '../utils/usageTracker';
 import { useTranslation, isPrimarilyChinese } from '../hooks/useTranslation';
 import './PDFViewer.css';
 
@@ -398,8 +398,10 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
       translation.translate(key, selectedText);
       // 存储当前翻译的 key
       setSelectionPosition(prev => prev ? { ...prev, translationKey: key } : null);
+      // 记录划词翻译使用统计
+      trackPDFSelectionTranslate(selectedText, isFullscreen);
     }
-  }, [selectedText, translation]);
+  }, [selectedText, translation, isFullscreen]);
 
   // 关闭翻译弹窗
   const handleCloseTranslatePopup = useCallback(() => {

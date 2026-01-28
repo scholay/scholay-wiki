@@ -1667,6 +1667,7 @@ INSERT INTO feature_configs (feature_code, feature_name, feature_group, descript
 ('matrix_add_dimension', '智能矩阵新增维度', 'analysis', '添加自定义分析维度', 31),
 -- 工具类
 ('pdf_preview', 'PDF预览', 'tool', 'PDF文档预览功能', 40),
+('pdf_selection_translate', 'PDF划词翻译', 'tool', 'PDF阅读时划词翻译功能', 41),
 -- 对话类
 ('ai_assistant_chat', '智能助手对话', 'chat', '智能助手对话功能', 50),
 ('ai_peer_review', '智能审稿', 'chat', '智能审稿功能', 52),
