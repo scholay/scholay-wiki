@@ -445,6 +445,7 @@ const AISearchView = () => {
               onClose={handleClosePaperDrawer}
               isDrawerMode={true}
               pdfAvailability={pdfAvailability}
+              entryPoint="smart_search"
             />
           </div>
         </div>

@@ -570,6 +570,7 @@ const SearchResultsPage = () => {
                   onResizeTouchStart={previewResize.handlePreviewResizeTouchStart}
                   isResizing={previewResize.isResizingPreview}
                   pdfAvailability={pdfAvailability}
+                  entryPoint="search_results_page"
                 />
               )}
             </div>
@@ -585,6 +586,7 @@ const SearchResultsPage = () => {
               isDrawerMode={true}
               onClick={(e) => e.stopPropagation()}
               pdfAvailability={pdfAvailability}
+              entryPoint="search_results_page"
             />
           </div>
         )}
@@ -616,6 +618,7 @@ const SearchResultsPage = () => {
                   onClose={() => searchState.setSelectedPaper(null)}
                   isMobileModal={true}
                   pdfAvailability={pdfAvailability}
+                  entryPoint="search_results_page"
                 />
               </div>
             </div>

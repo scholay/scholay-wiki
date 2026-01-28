@@ -10,15 +10,26 @@
 import React, { useState, useEffect, memo } from 'react';
 import { Link } from 'react-router-dom';
 import PDFViewer from './PDFViewer';
+import { trackPDFPreview, EntryPoint } from '../utils/usageTracker';
 import './PaperPreview.css';
 
-const PaperPreview = memo(({ paper, onClose, width, onResizeMouseDown, onResizeTouchStart, isResizing, isMobileModal = false, isDrawerMode = false, onClick, pdfAvailability }) => {
+const PaperPreview = memo(({ paper, onClose, width, onResizeMouseDown, onResizeTouchStart, isResizing, isMobileModal = false, isDrawerMode = false, onClick, pdfAvailability, entryPoint = '' }) => {
   const [activeTab, setActiveTab] = useState('details'); // 'details' or 'pdf'，默认展示详情
   const containerStyle = width && !isMobileModal && !isDrawerMode ? { width: typeof width === 'number' ? `${width}px` : width } : undefined;
 
   // 检查用户是否点击了"获取PDF"按钮
   const shouldOpenPdf = pdfAvailability?.shouldOpenPdfTab?.(paper?.paperId);
   const clearPdfRequest = pdfAvailability?.clearPdfRequest;
+
+  // 处理PDF预览tab点击
+  const handlePdfTabClick = () => {
+    if (activeTab !== 'pdf') {
+      setActiveTab('pdf');
+      // 记录PDF预览使用统计
+      const pdfUrl = paper?.openAccessPdf?.url || paper?.externalIds?.DOI || '';
+      trackPDFPreview(pdfUrl, entryPoint || EntryPoint.SEARCH_RESULTS_PAGE);
+    }
+  };
 
   // 判断是否有 PDF 可用（开放获取或有 DOI 可尝试获取）
   const hasOpenAccessPdf = paper?.openAccessPdf && paper.openAccessPdf.url;
@@ -32,6 +43,9 @@ const PaperPreview = memo(({ paper, onClose, width, onResizeMouseDown, onResizeT
       // 如果用户点击了"获取PDF"按钮，直接显示 PDF tab
       if (shouldOpenPdf) {
         setActiveTab('pdf');
+        // 记录PDF预览使用统计（通过"获取PDF"按钮触发）
+        const pdfUrl = paper?.openAccessPdf?.url || paper?.externalIds?.DOI || '';
+        trackPDFPreview(pdfUrl, entryPoint || EntryPoint.SEARCH_RESULTS_PAGE);
         // 使用 setTimeout 延迟清除，避免触发重新渲染导致 tab 切换
         setTimeout(() => {
           if (clearPdfRequest) {
@@ -51,6 +65,9 @@ const PaperPreview = memo(({ paper, onClose, width, onResizeMouseDown, onResizeT
   useEffect(() => {
     if (paper && shouldOpenPdf && activeTab !== 'pdf') {
       setActiveTab('pdf');
+      // 记录PDF预览使用统计（通过"获取PDF"按钮触发，同一论文）
+      const pdfUrl = paper?.openAccessPdf?.url || paper?.externalIds?.DOI || '';
+      trackPDFPreview(pdfUrl, entryPoint || EntryPoint.SEARCH_RESULTS_PAGE);
       setTimeout(() => {
         if (clearPdfRequest) {
           clearPdfRequest(paper.paperId);
@@ -100,7 +117,7 @@ const PaperPreview = memo(({ paper, onClose, width, onResizeMouseDown, onResizeT
               </button>
             <button
                 className={`tab-btn ${activeTab === 'pdf' ? 'active' : ''}`}
-                onClick={() => setActiveTab('pdf')}
+                onClick={handlePdfTabClick}
             >
                 PDF预览
               </button>
