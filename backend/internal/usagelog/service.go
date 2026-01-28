@@ -124,10 +124,22 @@ func (s *Service) GetFilterOptions() (map[string]interface{}, error) {
 		return nil, err
 	}
 
+	deviceTypes, err := s.repo.GetDistinctDeviceTypes()
+	if err != nil {
+		return nil, err
+	}
+
+	browsers, err := s.repo.GetDistinctBrowsers()
+	if err != nil {
+		return nil, err
+	}
+
 	return map[string]interface{}{
 		"features":     features,
 		"actions":      actions,
 		"entry_points": entryPoints,
+		"device_types": deviceTypes,
+		"browsers":     browsers,
 	}, nil
 }
 

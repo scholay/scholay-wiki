@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '../services/api';
 import './UsageLogs.css';
 
@@ -57,13 +58,15 @@ const UsageLogs = () => {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearLoading, setClearLoading] = useState(false);
   
-  // 筛选条件（移除了时间相关的筛选）
+  // 筛选条件（列级筛选）
   const [filters, setFilters] = useState({
     feature_code: '',
     action: '',
     entry_point: '',
     ip_address: '',
     keyword: '',
+    device_type: '',
+    browser: '',
   });
   
   // 筛选选项
@@ -71,7 +74,12 @@ const UsageLogs = () => {
     features: [],
     actions: [],
     entry_points: [],
+    device_types: [],
+    browsers: [],
   });
+  
+  // 是否有任何筛选条件
+  const hasActiveFilters = Object.values(filters).some(v => v !== '');
   
   // 统计摘要
   const [summary, setSummary] = useState(null);
@@ -265,6 +273,8 @@ const UsageLogs = () => {
       entry_point: '',
       ip_address: '',
       keyword: '',
+      device_type: '',
+      browser: '',
     });
     setPage(1);
   };
@@ -502,35 +512,100 @@ const UsageLogs = () => {
             </div>
           </div>
           
-          {/* 功能使用分布 */}
-          {summary.feature_counts && summary.feature_counts.length > 0 && (
-            <div className="ul-feature-stats">
-              <h4>功能使用分布 <span className="ul-feature-stats-count">（共 {summary.feature_counts.length} 项）</span></h4>
-              <div className="ul-feature-bars">
-                {summary.feature_counts.map((item, index) => (
-                  <div key={index} className="ul-feature-bar-item">
-                    <div className="ul-feature-bar-label">
-                      <span 
-                        className="ul-feature-dot"
-                        style={{ backgroundColor: getFeatureColor(item.feature_code) }}
+          {/* 图表区域 - 左右布局 */}
+          <div className="ul-charts-container">
+            {/* 左侧：使用趋势折线图 */}
+            {summary.trend_data && summary.trend_data.length > 0 && (
+              <div className="ul-chart-section ul-trend-chart">
+                <h4>使用趋势 {summary.trend_granularity === 'hour' && <span className="ul-trend-granularity">（按小时）</span>}</h4>
+                <div className="ul-chart-wrapper">
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart 
+                      data={summary.trend_data} 
+                      margin={{ top: 10, right: 20, left: 0, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis 
+                        dataKey="label" 
+                        tick={{ fontSize: 11, fill: '#666' }}
+                        axisLine={{ stroke: '#e5e5e5' }}
+                        tickLine={{ stroke: '#e5e5e5' }}
+                        interval={summary.trend_data.length > 15 ? Math.floor(summary.trend_data.length / 10) : 0}
                       />
-                      <span>{item.feature_name}</span>
-                    </div>
-                    <div className="ul-feature-bar-wrapper">
-                      <div 
-                        className="ul-feature-bar"
-                        style={{ 
-                          width: `${(item.count / summary.feature_counts[0].count) * 100}%`,
-                          backgroundColor: getFeatureColor(item.feature_code)
+                      <YAxis 
+                        tick={{ fontSize: 11, fill: '#666' }}
+                        axisLine={{ stroke: '#e5e5e5' }}
+                        tickLine={{ stroke: '#e5e5e5' }}
+                        tickFormatter={(value) => value.toLocaleString()}
+                        allowDecimals={false}
+                      />
+                      <Tooltip 
+                        formatter={(value) => [value.toLocaleString(), '使用次数']}
+                        labelFormatter={(label, payload) => {
+                          if (payload && payload.length > 0) {
+                            const data = payload[0].payload;
+                            if (summary.trend_granularity === 'hour') {
+                              return `今天 ${data.label}`;
+                            } else {
+                              // 日期格式：从 value 获取完整日期
+                              const date = new Date(data.value);
+                              return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+                            }
+                          }
+                          return label;
+                        }}
+                        contentStyle={{
+                          backgroundColor: '#fff',
+                          border: '1px solid #e5e5e5',
+                          borderRadius: '8px',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                          fontSize: '13px'
                         }}
                       />
-                    </div>
-                    <span className="ul-feature-count">{item.count.toLocaleString()}</span>
-                  </div>
-                ))}
+                      <Line 
+                        type="monotone" 
+                        dataKey="count" 
+                        stroke="#3b82f6" 
+                        strokeWidth={2}
+                        dot={summary.trend_data.length <= 15 ? { fill: '#3b82f6', strokeWidth: 0, r: 3 } : false}
+                        activeDot={{ r: 5, fill: '#3b82f6', stroke: '#fff', strokeWidth: 2 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+            
+            {/* 右侧：功能使用分布 */}
+            {summary.feature_counts && summary.feature_counts.length > 0 && (
+              <div className="ul-chart-section ul-feature-stats">
+                <h4>功能使用分布 <span className="ul-feature-stats-count">（共 {summary.feature_counts.length} 项）</span></h4>
+                <div className="ul-feature-bars">
+                  {summary.feature_counts.map((item, index) => (
+                    <div key={index} className="ul-feature-bar-item">
+                      <div className="ul-feature-bar-label">
+                        <span 
+                          className="ul-feature-dot"
+                          style={{ backgroundColor: getFeatureColor(item.feature_code) }}
+                        />
+                        <span>{item.feature_name}</span>
+                      </div>
+                      <div className="ul-feature-bar-wrapper">
+                        <div 
+                          className="ul-feature-bar"
+                          style={{ 
+                            width: `${(item.count / summary.feature_counts[0].count) * 100}%`,
+                            backgroundColor: getFeatureColor(item.feature_code)
+                          }}
+                        />
+                      </div>
+                      <span className="ul-feature-count">{item.count.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
       
@@ -543,99 +618,61 @@ const UsageLogs = () => {
         </button>
       )}
 
-      {/* 筛选区域 */}
-      <div className="ul-filters">
-        <div className="ul-filters-row">
-          <div className="ul-filter-group">
-            <label>功能</label>
-            <select
-              value={filters.feature_code}
-              onChange={(e) => handleFilterChange('feature_code', e.target.value)}
-            >
-              <option value="">全部功能</option>
-              {filterOptions.features?.map(f => (
-                <option key={f.feature_code} value={f.feature_code}>
-                  {f.feature_name}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="ul-filter-group">
-            <label>操作类型</label>
-            <select
-              value={filters.action}
-              onChange={(e) => handleFilterChange('action', e.target.value)}
-            >
-              <option value="">全部操作</option>
-              {filterOptions.actions?.map(a => (
-                <option key={a} value={a}>{a}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="ul-filter-group">
-            <label>入口位置</label>
-            <select
-              value={filters.entry_point}
-              onChange={(e) => handleFilterChange('entry_point', e.target.value)}
-            >
-              <option value="">全部入口</option>
-              {filterOptions.entry_points?.map(e => (
-                <option key={e} value={e}>{e}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="ul-filter-group">
-            <label>IP地址</label>
-            <input
-              type="text"
-              placeholder="搜索IP"
-              value={filters.ip_address}
-              onChange={(e) => handleFilterChange('ip_address', e.target.value)}
-            />
-          </div>
-          
-          <div className="ul-filter-group ul-filter-keyword">
-            <label>关键词</label>
-            <input
-              type="text"
-              placeholder="搜索功能名称、路径、用户名..."
-              value={filters.keyword}
-              onChange={(e) => handleFilterChange('keyword', e.target.value)}
-            />
-          </div>
-          
-          <button className="ul-reset-btn" onClick={handleResetFilters}>
-            重置筛选
-          </button>
-        </div>
-      </div>
-
       {/* 日志列表 */}
       <div className="ul-table-container">
+        {/* 筛选状态提示 */}
+        {hasActiveFilters && (
+          <div className="ul-filter-status">
+            <span>已应用筛选条件</span>
+            <button className="ul-clear-filter-btn" onClick={handleResetFilters}>
+              清除筛选
+            </button>
+          </div>
+        )}
         <table className="ul-table">
           <thead>
-            <tr>
+            {/* 表头筛选行 */}
+            <tr className="ul-filter-row">
               <th>时间</th>
-              <th>功能</th>
-              <th>操作</th>
+              <th>
+                <select
+                  className="ul-column-filter"
+                  value={filters.feature_code}
+                  onChange={(e) => handleFilterChange('feature_code', e.target.value)}
+                >
+                  <option value="">全部功能</option>
+                  {filterOptions.features?.map(f => (
+                    <option key={f.feature_code} value={f.feature_code}>
+                      {f.feature_name}
+                    </option>
+                  ))}
+                </select>
+              </th>
               <th>入口</th>
-              <th>用户</th>
               <th>IP地址</th>
-              <th>设备</th>
+              <th>
+                <select
+                  className="ul-column-filter"
+                  value={filters.device_type}
+                  onChange={(e) => handleFilterChange('device_type', e.target.value)}
+                >
+                  <option value="">全部设备</option>
+                  {filterOptions.device_types?.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </th>
               <th>来源页面</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="8" className="ul-loading">加载中...</td>
+                <td colSpan="6" className="ul-loading">加载中...</td>
               </tr>
             ) : logs.length === 0 ? (
               <tr>
-                <td colSpan="8" className="ul-empty">暂无数据</td>
+                <td colSpan="6" className="ul-empty">暂无数据</td>
               </tr>
             ) : (
               logs.map((log) => (
@@ -653,11 +690,7 @@ const UsageLogs = () => {
                       {log.feature_name}
                     </span>
                   </td>
-                  <td>{log.action}</td>
                   <td className="ul-entry">{log.entry_point || '-'}</td>
-                  <td className="ul-user">
-                    {log.username || log.email || (log.user_id ? `用户#${log.user_id}` : '匿名')}
-                  </td>
                   <td className="ul-ip">{log.ip_address || '-'}</td>
                   <td className="ul-device">
                     <span className="ul-device-type">{log.device_type}</span>

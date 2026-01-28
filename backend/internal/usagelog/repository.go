@@ -8,6 +8,7 @@
 package usagelog
 
 import (
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -45,7 +46,9 @@ func (r *Repository) List(query *ListQuery) ([]UsageLogWithUser, int64, error) {
 		db = db.Where("usage_logs.created_at >= ? AND usage_logs.created_at <= ?", startTime, endTime)
 	} else if query.Days > 0 {
 		// 使用 Days 参数过滤时间范围
-		startDate := time.Now().AddDate(0, 0, -query.Days).Format("2006-01-02")
+		// 注意：days=1 表示"今天"，应该从今天0点开始
+		// days=7 表示"近7天"，应该从6天前0点开始（包含今天共7天）
+		startDate := time.Now().AddDate(0, 0, -(query.Days - 1)).Format("2006-01-02")
 		db = db.Where("usage_logs.created_at >= ?", startDate+" 00:00:00")
 	}
 
@@ -68,6 +71,12 @@ func (r *Repository) List(query *ListQuery) ([]UsageLogWithUser, int64, error) {
 	if query.Keyword != "" {
 		db = db.Where("(usage_logs.feature_name LIKE ? OR usage_logs.request_path LIKE ? OR usage_logs.referer_path LIKE ? OR users.username LIKE ?)",
 			"%"+query.Keyword+"%", "%"+query.Keyword+"%", "%"+query.Keyword+"%", "%"+query.Keyword+"%")
+	}
+	if query.DeviceType != "" {
+		db = db.Where("usage_logs.device_type = ?", query.DeviceType)
+	}
+	if query.Browser != "" {
+		db = db.Where("usage_logs.browser = ?", query.Browser)
 	}
 
 	// 统计总数
@@ -92,7 +101,9 @@ func (r *Repository) GetStatsSummary(days int) (*StatsSummary, error) {
 	summary := &StatsSummary{}
 
 	// 计算时间范围
-	startDate := time.Now().AddDate(0, 0, -days).Format("2006-01-02")
+	// 注意：days=1 表示"今天"，应该从今天0点开始
+	// days=7 表示"近7天"，应该从6天前0点开始（包含今天共7天）
+	startDate := time.Now().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
 	startTime := startDate + " 00:00:00"
 	today := time.Now().Format("2006-01-02")
 
@@ -128,13 +139,24 @@ func (r *Repository) GetStatsSummary(days int) (*StatsSummary, error) {
 		Order("count DESC").
 		Find(&summary.FeatureCounts)
 
-	// 每日趋势
+	// 每日趋势（原始数据，保持兼容）
 	r.db.Model(&UsageLog{}).
 		Select("DATE(created_at) as date, COUNT(*) as count").
 		Where("created_at >= ?", startTime).
 		Group("DATE(created_at)").
 		Order("date ASC").
 		Find(&summary.DailyTrend)
+
+	// 生成填充后的趋势数据
+	if days == 1 {
+		// 今天：按小时统计
+		summary.TrendGranularity = "hour"
+		summary.TrendData = r.getHourlyTrendData(today)
+	} else {
+		// 其他：按天统计，填充所有日期
+		summary.TrendGranularity = "day"
+		summary.TrendData = r.getDailyTrendDataFilled(days)
+	}
 
 	// 时间范围内的入口统计
 	r.db.Model(&UsageLog{}).
@@ -190,13 +212,17 @@ func (r *Repository) GetStatsSummaryByDateRange(startDate, endDate string) (*Sta
 		Order("count DESC").
 		Find(&summary.FeatureCounts)
 
-	// 每日趋势
+	// 每日趋势（原始数据）
 	r.db.Model(&UsageLog{}).
 		Select("DATE(created_at) as date, COUNT(*) as count").
 		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
 		Group("DATE(created_at)").
 		Order("date ASC").
 		Find(&summary.DailyTrend)
+
+	// 生成填充后的趋势数据（自定义日期范围）
+	summary.TrendGranularity = "day"
+	summary.TrendData = r.getCustomDateRangeTrendData(startDate, endDate)
 
 	// 时间范围内的入口统计
 	r.db.Model(&UsageLog{}).
@@ -245,6 +271,26 @@ func (r *Repository) GetDistinctEntryPoints() ([]string, error) {
 		Distinct("entry_point").
 		Pluck("entry_point", &entryPoints).Error
 	return entryPoints, err
+}
+
+// GetDistinctDeviceTypes 获取所有不同的设备类型
+func (r *Repository) GetDistinctDeviceTypes() ([]string, error) {
+	var deviceTypes []string
+	err := r.db.Model(&UsageLog{}).
+		Where("device_type != ''").
+		Distinct("device_type").
+		Pluck("device_type", &deviceTypes).Error
+	return deviceTypes, err
+}
+
+// GetDistinctBrowsers 获取所有不同的浏览器
+func (r *Repository) GetDistinctBrowsers() ([]string, error) {
+	var browsers []string
+	err := r.db.Model(&UsageLog{}).
+		Where("browser != ''").
+		Distinct("browser").
+		Pluck("browser", &browsers).Error
+	return browsers, err
 }
 
 // PopularPaper 热门论文记录
@@ -364,5 +410,145 @@ func (r *Repository) CountAllLogs() (int64, error) {
 	var count int64
 	err := r.db.Model(&UsageLog{}).Count(&count).Error
 	return count, err
+}
+
+// getHourlyTrendData 获取今天的小时趋势数据（0-23点，填充空缺）
+func (r *Repository) getHourlyTrendData(today string) []TrendPoint {
+	// 查询今天按小时的统计
+	type HourCount struct {
+		Hour  int   `gorm:"column:hour"`
+		Count int64 `gorm:"column:count"`
+	}
+	var hourCounts []HourCount
+	
+	// 使用时间范围查询，避免 DATE() 函数的格式问题
+	startTime := today + " 00:00:00"
+	endTime := today + " 23:59:59"
+	r.db.Model(&UsageLog{}).
+		Select("HOUR(created_at) as hour, COUNT(*) as count").
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Group("hour").
+		Order("hour ASC").
+		Find(&hourCounts)
+
+	// 创建小时到计数的映射
+	hourMap := make(map[int]int64)
+	for _, hc := range hourCounts {
+		hourMap[hc.Hour] = hc.Count
+	}
+
+	// 获取当前小时
+	currentHour := time.Now().Hour()
+
+	// 生成0点到当前小时的数据（填充空缺为0）
+	result := make([]TrendPoint, 0, currentHour+1)
+	for h := 0; h <= currentHour; h++ {
+		count := hourMap[h]
+		result = append(result, TrendPoint{
+			Label: fmt.Sprintf("%02d:00", h),
+			Value: fmt.Sprintf("%02d", h),
+			Count: count,
+		})
+	}
+
+	return result
+}
+
+// getDailyTrendDataFilled 获取按天的趋势数据（填充所有日期）
+func (r *Repository) getDailyTrendDataFilled(days int) []TrendPoint {
+	// 计算开始日期（包含今天共 days 天）
+	now := time.Now()
+	startDateVal := now.AddDate(0, 0, -(days - 1))
+
+	// 查询日期范围内的每日统计（使用 DATE_FORMAT 确保格式一致）
+	type DateCount struct {
+		DateStr string `gorm:"column:date_str"`
+		Count   int64  `gorm:"column:count"`
+	}
+	var dateCounts []DateCount
+	startTime := startDateVal.Format("2006-01-02") + " 00:00:00"
+	r.db.Model(&UsageLog{}).
+		Select("DATE_FORMAT(created_at, '%Y-%m-%d') as date_str, COUNT(*) as count").
+		Where("created_at >= ?", startTime).
+		Group("date_str").
+		Order("date_str ASC").
+		Find(&dateCounts)
+
+	// 创建日期到计数的映射
+	dateMap := make(map[string]int64)
+	for _, dc := range dateCounts {
+		dateMap[dc.DateStr] = dc.Count
+	}
+
+	// 生成从开始日期到今天的所有日期（填充空缺为0）
+	result := make([]TrendPoint, 0, days)
+	for d := startDateVal; !d.After(now); d = d.AddDate(0, 0, 1) {
+		dateStr := d.Format("2006-01-02")
+		count := dateMap[dateStr]
+		
+		// 标签格式：月/日
+		label := fmt.Sprintf("%d/%d", d.Month(), d.Day())
+		
+		result = append(result, TrendPoint{
+			Label: label,
+			Value: dateStr,
+			Count: count,
+		})
+	}
+
+	return result
+}
+
+// getCustomDateRangeTrendData 获取自定义日期范围的趋势数据（填充所有日期）
+func (r *Repository) getCustomDateRangeTrendData(startDateStr, endDateStr string) []TrendPoint {
+	// 解析日期
+	startDateVal, err := time.Parse("2006-01-02", startDateStr)
+	if err != nil {
+		return nil
+	}
+	endDateVal, err := time.Parse("2006-01-02", endDateStr)
+	if err != nil {
+		return nil
+	}
+
+	// 查询日期范围内的每日统计（使用 DATE_FORMAT 确保格式一致）
+	type DateCount struct {
+		DateStr string `gorm:"column:date_str"`
+		Count   int64  `gorm:"column:count"`
+	}
+	var dateCounts []DateCount
+	startTime := startDateStr + " 00:00:00"
+	endTime := endDateStr + " 23:59:59"
+	r.db.Model(&UsageLog{}).
+		Select("DATE_FORMAT(created_at, '%Y-%m-%d') as date_str, COUNT(*) as count").
+		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Group("date_str").
+		Order("date_str ASC").
+		Find(&dateCounts)
+
+	// 创建日期到计数的映射
+	dateMap := make(map[string]int64)
+	for _, dc := range dateCounts {
+		dateMap[dc.DateStr] = dc.Count
+	}
+
+	// 计算天数
+	days := int(endDateVal.Sub(startDateVal).Hours()/24) + 1
+
+	// 生成从开始日期到结束日期的所有日期（填充空缺为0）
+	result := make([]TrendPoint, 0, days)
+	for d := startDateVal; !d.After(endDateVal); d = d.AddDate(0, 0, 1) {
+		dateStr := d.Format("2006-01-02")
+		count := dateMap[dateStr]
+		label := fmt.Sprintf("%d/%d", d.Month(), d.Day())
+		
+		result = append(result, TrendPoint{
+			Label: label,
+			Value: dateStr,
+			Count: count,
+		})
+	}
+
+	return result
 }
 

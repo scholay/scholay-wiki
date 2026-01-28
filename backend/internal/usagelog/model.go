@@ -105,6 +105,8 @@ type ListQuery struct {
 	UserID      *uint  `form:"user_id"`
 	IPAddress   string `form:"ip_address"`
 	Keyword     string `form:"keyword"`
+	DeviceType  string `form:"device_type"` // 设备类型筛选
+	Browser     string `form:"browser"`     // 浏览器筛选
 }
 
 // StatsSummary 统计摘要
@@ -115,6 +117,8 @@ type StatsSummary struct {
 	UniqueSessions  int64            `json:"unique_sessions"`
 	FeatureCounts   []FeatureCount   `json:"feature_counts"`
 	DailyTrend      []DailyCount     `json:"daily_trend"`
+	TrendData       []TrendPoint     `json:"trend_data"`        // 填充后的趋势数据
+	TrendGranularity string          `json:"trend_granularity"` // 趋势数据粒度: "hour" 或 "day"
 	EntryPointStats []EntryPointStat `json:"entry_point_stats"`
 }
 
@@ -128,6 +132,13 @@ type FeatureCount struct {
 // DailyCount 每日统计
 type DailyCount struct {
 	Date  string `json:"date"`
+	Count int64  `json:"count"`
+}
+
+// TrendPoint 趋势数据点（通用，支持日期或小时）
+type TrendPoint struct {
+	Label string `json:"label"` // 显示标签
+	Value string `json:"value"` // 原始值（日期或小时）
 	Count int64  `json:"count"`
 }
 
