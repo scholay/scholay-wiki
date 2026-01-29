@@ -398,7 +398,7 @@
   gap: 8px;
   max-height: 280px;
   overflow-y: auto;
-  padding-right: 8px;
+  padding-right: 50px; /* 为柱状图外的数字留空间 */
 }
 
 /* 自定义滚动条样式 */
@@ -440,12 +440,19 @@
 }
 
 .ul-feature-selected {
-  background: #e8f4ff !important;
-  box-shadow: inset 0 0 0 2px #3b82f6;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+  border-left: 3px solid #3b82f6;
+  margin-left: -3px;
 }
 
 .ul-feature-selected:hover {
-  background: #dbeafe !important;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%) !important;
+}
+
+.ul-feature-selected .ul-feature-bar-label {
+  font-weight: 600;
+  color: #1e40af;
 }
 
 /* 清除功能筛选按钮 */
@@ -486,24 +493,52 @@
 
 .ul-feature-bar-wrapper {
   flex: 1;
-  height: 20px;
+  height: 22px;
   background: #f0f0f0;
   border-radius: 4px;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
 }
 
 .ul-feature-bar {
   height: 100%;
   border-radius: 4px;
   transition: width 0.3s ease;
+  position: relative;
 }
 
 .ul-feature-count {
-  width: 60px;
-  text-align: right;
-  font-size: 13px;
-  color: #666;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translate(calc(100% + 6px), -50%);
+  color: #555;
+}
+
+/* 当柱状图足够宽时，数字显示在柱状图内部末端 */
+.ul-feature-bar-wide .ul-feature-count {
+  transform: translate(-8px, -50%);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+/* 选中状态的勾选标记 */
+.ul-feature-check {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #3b82f6;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: bold;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
 /* 表头筛选行 */

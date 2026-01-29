@@ -621,14 +621,18 @@ const UsageLogs = () => {
                       </div>
                       <div className="ul-feature-bar-wrapper">
                         <div 
-                          className="ul-feature-bar"
+                          className={`ul-feature-bar ${(item.count / summary.feature_counts[0].count) >= 0.15 ? 'ul-feature-bar-wide' : ''}`}
                           style={{ 
                             width: `${(item.count / summary.feature_counts[0].count) * 100}%`,
                             backgroundColor: getFeatureColor(item.feature_code)
                           }}
-                        />
+                        >
+                          <span className="ul-feature-count">{item.count.toLocaleString()}</span>
+                        </div>
                       </div>
-                      <span className="ul-feature-count">{item.count.toLocaleString()}</span>
+                      {filters.feature_code === item.feature_code && (
+                        <span className="ul-feature-check">✓</span>
+                      )}
                     </div>
                   ))}
                 </div>
