@@ -117,45 +117,7 @@ const QACard = memo(({
           </div>
         )}
 
-        {/* 延伸问题 - 只在最新问答时显示 */}
-        {isLatest &&
-         !isStreaming &&
-         !showAIThinking &&
-         qa.suggestedQuestions !== undefined && (
-          <div className="qa-suggested">
-            <div className="qa-suggested-header">
-              <span className="qa-suggested-title">你可以继续提问</span>
-            </div>
-            <div className="qa-suggested-list">
-              {(isLoadingSuggestedQuestions ||
-                !qa.suggestedQuestions ||
-                qa.suggestedQuestions.length === 0) ? (
-                <>
-                  <div className="qa-suggested-btn skeleton-loading">
-                    <span className="question-text"></span>
-                  </div>
-                  <div className="qa-suggested-btn skeleton-loading">
-                    <span className="question-text"></span>
-                  </div>
-                  <div className="qa-suggested-btn skeleton-loading">
-                    <span className="question-text"></span>
-                  </div>
-                </>
-              ) : (
-                qa.suggestedQuestions.map((q, i) => (
-                  <button
-                    key={i}
-                    className="qa-suggested-btn"
-                    onClick={() => onFollowUpClick(q)}
-                    disabled={loading}
-                  >
-                    <span className="question-text">{q}</span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        )}
+        {/* 延伸问题已移至底部输入框上方显示，此处不再重复渲染 */}
       </div>
     </div>
   );

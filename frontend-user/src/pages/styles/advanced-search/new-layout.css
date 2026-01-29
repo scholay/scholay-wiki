@@ -297,83 +297,134 @@
 }
 
 .ai-chat-panel .as-bottom-input-container {
-  padding: 4px 6px;
+  padding: 6px 8px 8px;
   border-top: none;
   background: var(--background-secondary, #1a1a1a);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* 左边框延续 - 与上方滚动容器的边框对齐 */
+  border-left: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
 }
 
-/* 右侧面板 - 紧凑输入框样式 */
-.ai-chat-panel .advanced-bottom-composer-wrapper {
+/* ========== 推荐问题芯片 ========== */
+.ai-chat-panel .ai-suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 2px;
+}
+
+.ai-chat-panel .ai-suggestion-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 5px 10px;
+  background: rgba(16, 163, 127, 0.08);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.ai-chat-panel .ai-suggestion-chip:hover:not(:disabled) {
+  background: rgba(16, 163, 127, 0.15);
+  border-color: rgba(16, 163, 127, 0.4);
+}
+
+.ai-chat-panel .ai-suggestion-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ai-chat-panel .ai-suggestion-chip .chip-text {
+  font-size: 12px;
+  color: var(--text-primary, #e0e0e0);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ========== VSCode 风格简洁输入框 ========== */
+.ai-chat-panel .ai-chat-input-wrapper {
+  position: relative;
   background: var(--background-tertiary, #252525);
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
-  border-radius: 8px;
-  padding: 0;
-  box-shadow: none;
-  max-width: 100%;
+  border-radius: 10px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.ai-chat-panel .advanced-bottom-composer-wrapper:focus-within {
+.ai-chat-panel .ai-chat-input-wrapper:focus-within {
   border-color: rgba(16, 163, 127, 0.5);
-  box-shadow: none;
-  background: var(--background-tertiary, #252525);
+  box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.1);
 }
 
-.ai-chat-panel .advanced-bottom-composer-input-area {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  padding: 3px 4px;
-  min-height: 32px;
-}
-
-.ai-chat-panel .advanced-bottom-chat-input {
-  flex: 1;
+/* 输入框本身 - 2行默认，3行最大 */
+.ai-chat-panel .ai-chat-textarea {
+  display: block;
+  width: 100%;
   border: none;
   background: transparent;
   color: var(--text-primary, #e5e5e5);
   font-size: 13px;
-  line-height: 1.4;
-  padding: 3px 4px;
+  line-height: 1.5;
+  padding: 10px 12px;
   resize: none;
-  min-height: 20px;
-  max-height: 80px;
+  /* 2 行默认高度 */
+  min-height: 52px;
+  /* 3 行最大高度 */
+  max-height: 72px;
+  overflow-y: auto;
   outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
 }
 
-.ai-chat-panel .advanced-bottom-chat-input::placeholder {
+.ai-chat-panel .ai-chat-textarea::placeholder {
   color: var(--text-tertiary, #666);
-  font-size: 13px;
+  font-size: 12px;
 }
 
-.ai-chat-panel .btn-send {
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 5px;
-  background: var(--primary-color, #10a37f);
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-bottom: 1px;
-  transition: background 0.2s, opacity 0.2s;
+/* 自定义滚动条 */
+.ai-chat-panel .ai-chat-textarea::-webkit-scrollbar {
+  width: 4px;
 }
 
-.ai-chat-panel .btn-send:hover:not(:disabled) {
-  background: #0d8a6a;
+.ai-chat-panel .ai-chat-textarea::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.ai-chat-panel .btn-send:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  background: var(--text-tertiary, #666);
+.ai-chat-panel .ai-chat-textarea::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
 }
 
-.ai-chat-panel .btn-send svg {
-  width: 12px;
-  height: 12px;
+.ai-chat-panel .ai-chat-textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* 加载状态指示器 - 边框发光效果 */
+.ai-chat-panel .ai-chat-loading-indicator {
+  position: absolute;
+  inset: -1px;
+  border-radius: 10px;
+  pointer-events: none;
+  border: 2px solid transparent;
+  background: linear-gradient(var(--background-tertiary, #252525), var(--background-tertiary, #252525)) padding-box,
+              linear-gradient(90deg, rgba(16, 163, 127, 0.6), rgba(59, 130, 246, 0.6), rgba(16, 163, 127, 0.6)) border-box;
+  background-size: 200% 100%;
+  animation: ai-input-loading 1.5s linear infinite;
+}
+
+@keyframes ai-input-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* 新建对话按钮 - 在对话面板头部使用（保留兼容旧版） */
@@ -465,18 +516,6 @@
 
 /* 消息样式已移至 QACard.css */
 
-/* 输入框样式 */
-.ai-chat-panel .advanced-bottom-composer-wrapper {
-  background: var(--background-tertiary, #2a2a2a);
-  border-radius: 12px;
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
-}
-
-.ai-chat-panel .advanced-bottom-chat-input {
-  font-size: 13px;
-  padding: 4px 6px;
-}
-
 /* 响应式 */
 @media (max-width: 1024px) {
   .as-results-layout .results-main.ai-results-main {
@@ -563,24 +602,55 @@
 
 [data-theme="light"] .ai-chat-panel .as-bottom-input-container {
   background: #f8f9fa;
+  border-left-color: #e0e0e0;
 }
 
-[data-theme="light"] .ai-chat-panel .advanced-bottom-composer-wrapper {
+/* 浅色主题 - 推荐问题芯片 */
+[data-theme="light"] .ai-chat-panel .ai-suggestion-chip {
+  background: rgba(16, 163, 127, 0.06);
+  border-color: rgba(16, 163, 127, 0.25);
+}
+
+[data-theme="light"] .ai-chat-panel .ai-suggestion-chip:hover:not(:disabled) {
+  background: rgba(16, 163, 127, 0.12);
+  border-color: rgba(16, 163, 127, 0.4);
+}
+
+[data-theme="light"] .ai-chat-panel .ai-suggestion-chip .chip-text {
+  color: var(--text-primary, #333);
+}
+
+/* 浅色主题 - 输入框 */
+[data-theme="light"] .ai-chat-panel .ai-chat-input-wrapper {
   background: #fff;
   border-color: #e0e0e0;
 }
 
-[data-theme="light"] .ai-chat-panel .advanced-bottom-composer-wrapper:focus-within {
+[data-theme="light"] .ai-chat-panel .ai-chat-input-wrapper:focus-within {
   border-color: var(--primary-color, #10a37f);
-  background: #fff;
+  box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.08);
 }
 
-[data-theme="light"] .ai-chat-panel .advanced-bottom-chat-input {
+[data-theme="light"] .ai-chat-panel .ai-chat-textarea {
   color: var(--text-primary, #333);
 }
 
-[data-theme="light"] .ai-chat-panel .advanced-bottom-chat-input::placeholder {
+[data-theme="light"] .ai-chat-panel .ai-chat-textarea::placeholder {
   color: var(--text-tertiary, #999);
+}
+
+[data-theme="light"] .ai-chat-panel .ai-chat-textarea::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .ai-chat-panel .ai-chat-textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .ai-chat-panel .ai-chat-loading-indicator {
+  background: linear-gradient(#fff, #fff) padding-box,
+              linear-gradient(90deg, rgba(16, 163, 127, 0.6), rgba(59, 130, 246, 0.6), rgba(16, 163, 127, 0.6)) border-box;
+  background-size: 200% 100%;
 }
 
 [data-theme="light"] .ai-new-conversation-btn {

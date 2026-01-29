@@ -391,16 +391,19 @@ const AISearchView = () => {
               onFollowUpClick={streamSearch.handleFollowUpQuestionClick}
             />
 
-            {/* 底部输入框 */}
+            {/* 底部输入框（含推荐问题芯片） */}
             <AISearchInput
               ref={aiSearch.textareaRef}
               searchQuery={aiSearch.searchQuery}
               loading={aiSearch.loading}
               isComposing={aiSearch.isComposing}
+              isStreaming={aiSearch.isStreaming}
               onSearchChange={aiSearch.setSearchQuery}
               onCompositionStart={() => aiSearch.setIsComposing(true)}
               onCompositionEnd={() => aiSearch.setIsComposing(false)}
               onSubmit={streamSearch.handleSearch}
+              suggestedQuestions={aiSearch.qaList.length > 0 ? aiSearch.qaList[aiSearch.qaList.length - 1]?.suggestedQuestions : []}
+              onSuggestionClick={streamSearch.handleFollowUpQuestionClick}
             />
           </div>
         </div>
