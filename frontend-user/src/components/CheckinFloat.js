@@ -339,6 +339,59 @@ const CheckinFloat = () => {
 
   // 记录当前日期，用于检测日期变化
   const currentDateRef = useRef(new Date().toISOString().split('T')[0]);
+  
+  // 用户活跃检测（与 WebSocket 类似的逻辑）
+  const lastActivityTimeRef = useRef(Date.now());
+  const pendingDateChangeRef = useRef(false); // 是否有待处理的日期变化
+  const activityListenerBoundRef = useRef(false); // 是否已绑定活动事件
+  
+  // 活跃超时时间：5分钟（与 WebSocket 一致）
+  const ACTIVITY_TIMEOUT = 5 * 60 * 1000;
+  const ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+
+  // 检查用户是否活跃（最近 N 分钟内有活动）
+  const isUserActive = useCallback(() => {
+    const idleTime = Date.now() - lastActivityTimeRef.current;
+    return idleTime < ACTIVITY_TIMEOUT;
+  }, []);
+
+  // 处理用户活动事件
+  const handleUserActivity = useCallback(() => {
+    // 只有当页面可见时才更新活动时间（与 WebSocket 保持一致）
+    if (document.visibilityState !== 'visible') {
+      return;
+    }
+    
+    lastActivityTimeRef.current = Date.now();
+    
+    // 如果有待处理的日期变化，并且用户现在活跃了，触发签到检查
+    if (pendingDateChangeRef.current && isAuthenticated) {
+      logger.log('[CheckinFloat] User became active, processing pending date change');
+      pendingDateChangeRef.current = false;
+      fetchCheckinStatusRef.current();
+    }
+  }, [isAuthenticated]);
+
+  // 绑定/解绑用户活动事件
+  useEffect(() => {
+    if (!activityListenerBoundRef.current) {
+      ACTIVITY_EVENTS.forEach(eventName => {
+        document.addEventListener(eventName, handleUserActivity, { passive: true });
+      });
+      activityListenerBoundRef.current = true;
+      logger.debug('[CheckinFloat] Activity detection started');
+    }
+    
+    return () => {
+      if (activityListenerBoundRef.current) {
+        ACTIVITY_EVENTS.forEach(eventName => {
+          document.removeEventListener(eventName, handleUserActivity);
+        });
+        activityListenerBoundRef.current = false;
+        logger.debug('[CheckinFloat] Activity detection stopped');
+      }
+    };
+  }, [handleUserActivity]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -352,6 +405,7 @@ const CheckinFloat = () => {
   }, [isAuthenticated]); // 只依赖 isAuthenticated
 
   // 检测日期变化（跨越24点时自动触发签到检查）
+  // 重要：只有当用户活跃时才自动签到，避免长时间离开后自动签到
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -361,15 +415,24 @@ const CheckinFloat = () => {
       if (today !== currentDateRef.current) {
         logger.log('[CheckinFloat] Date changed from', currentDateRef.current, 'to', today);
         currentDateRef.current = today;
-        // 日期变化，重新检查签到状态
-        fetchCheckinStatusRef.current();
+        
+        // 检查用户是否活跃
+        if (isUserActive()) {
+          // 用户活跃，立即触发签到检查
+          logger.log('[CheckinFloat] User is active, checking in immediately');
+          fetchCheckinStatusRef.current();
+        } else {
+          // 用户不活跃，标记待处理，等用户活跃后再触发
+          logger.log('[CheckinFloat] User is inactive, deferring checkin until activity');
+          pendingDateChangeRef.current = true;
+        }
       }
     };
 
     const intervalId = setInterval(checkDateChange, 60000); // 每60秒检查一次
 
     return () => clearInterval(intervalId);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isUserActive]);
 
   // 在 paper 详情页（/paper/:paperId）不显示签到悬浮球
   const isPaperDetailPage = location.pathname.startsWith('/paper/');
