@@ -436,6 +436,20 @@ export const publicScholarAPI = {
       body: JSON.stringify({ text })
     });
   },
+
+  // Public paper streaming translation (论文整体翻译 - 不需要登录)
+  // 一次性翻译标题、摘要、TLDR三个字段，使用SSE流式输出
+  translatePaperStream: (title, abstract, tldr) => {
+    const token = localStorage.getItem('user_token');
+    return fetch(`${API_URL}/api/v1/public/translate/paper/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      },
+      body: JSON.stringify({ title, abstract, tldr })
+    });
+  },
 };
 
 // 分析维度API - 需要认证

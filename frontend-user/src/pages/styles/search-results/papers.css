@@ -155,9 +155,8 @@
   font-size: 18px;
   font-weight: 500;
   color: #4A90D9;
-  margin: 0 0 8px 0;
-  line-height: 1.35;
-  cursor: pointer;
+  margin: 0 0 6px 0;
+  line-height: 1.25;
   transition: color 0.15s ease;
 }
 
@@ -196,15 +195,17 @@
 .search-result-paper-authors-row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   margin-bottom: 6px;
+  overflow: hidden;
 }
 
 .search-result-paper-author-tags {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
+  overflow: hidden;
 }
 
 .author-tag {
@@ -214,11 +215,39 @@
   border-radius: 3px;
   font-size: 13px;
   color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .author-tag.author-more {
   color: rgba(255, 255, 255, 0.5);
   background: transparent;
+  flex-shrink: 0;
+}
+
+/* 学科领域行 */
+.search-result-paper-fields-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+.field-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(16, 163, 127, 0.1);
+  border-radius: 3px;
+  font-size: 12px;
+  color: rgba(16, 163, 127, 0.8);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+[data-theme="light"] .field-tag {
+  background: rgba(16, 163, 127, 0.08);
+  color: rgba(5, 150, 105, 0.85);
 }
 
 .search-result-paper-fields {
@@ -1983,6 +2012,138 @@ a.meta-item.pdf-link:hover {
   position: static;
 }
 
+/* ========== 论文翻译按钮（图标样式，嵌入标题内） ========== */
+.paper-translate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin-right: 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #3b82f6;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+}
+
+.paper-translate-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+.paper-translate-btn:active:not(:disabled) {
+  background: rgba(59, 130, 246, 0.18);
+}
+
+.paper-translate-btn.has-translation {
+  color: #10a37f;
+}
+
+.paper-translate-btn.has-translation:hover:not(:disabled) {
+  background: rgba(16, 163, 127, 0.12);
+  color: #059669;
+}
+
+.paper-translate-btn.translating {
+  color: rgba(59, 130, 246, 0.6);
+  pointer-events: none;
+}
+
+.paper-translate-btn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  color: rgba(128, 128, 128, 0.5);
+}
+
+.paper-translate-btn .translate-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.paper-translate-btn .translate-spinner {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid rgba(59, 130, 246, 0.25);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: translateSpin 0.8s linear infinite;
+}
+
+@keyframes translateSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 标题文本可点击 */
+.paper-title-text {
+  cursor: pointer;
+}
+
+.paper-title-text:hover {
+  text-decoration: underline;
+  text-decoration-color: rgba(74, 144, 217, 0.4);
+  text-underline-offset: 2px;
+}
+
+/* 翻译中提示 */
+.paper-translating-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(59, 130, 246, 0.7);
+}
+
+.paper-translating-hint .translate-cursor {
+  animation: cursorBlink 0.8s infinite;
+  color: #3b82f6;
+}
+
+@keyframes cursorBlink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* 日间模式 - 论文翻译按钮 */
+[data-theme="light"] .paper-translate-btn {
+  color: #3b82f6;
+}
+
+[data-theme="light"] .paper-translate-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+}
+
+[data-theme="light"] .paper-translate-btn.has-translation {
+  color: #10a37f;
+}
+
+[data-theme="light"] .paper-translate-btn.has-translation:hover:not(:disabled) {
+  background: rgba(16, 163, 127, 0.1);
+  color: #059669;
+}
+
+[data-theme="light"] .paper-translate-btn.disabled {
+  color: rgba(128, 128, 128, 0.4);
+}
+
+[data-theme="light"] .paper-translating-hint {
+  color: rgba(59, 130, 246, 0.7);
+}
+
+[data-theme="light"] .paper-translating-hint .translate-cursor {
+  color: #3b82f6;
+}
+
 /* 分析结果列容器 */
 .unified-cell-analysis {
   display: flex;
@@ -2151,7 +2312,7 @@ a.meta-item.pdf-link:hover {
   transition: opacity 0.15s ease;
   overflow: visible;
   max-height: calc(70vh - 32px);
-  width: 220px;
+  width: 260px;
   position: relative;
   z-index: 1;
 }

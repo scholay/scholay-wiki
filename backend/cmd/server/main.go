@@ -947,6 +947,9 @@ func main() {
 
 			// Public translation endpoint - for translating abstract/TLDR to Chinese (streaming)
 			publicAPI.POST("/translate/stream", aiHandler.StreamTranslate)
+
+			// Public paper translation endpoint - for translating title/abstract/TLDR at once (streaming)
+			publicAPI.POST("/translate/paper/stream", aiHandler.StreamTranslatePaper)
 		}
 
 		// Analysis dimensions routes (protected - requires user authentication)

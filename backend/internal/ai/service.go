@@ -1908,3 +1908,32 @@ func (s *Service) StreamTranslateToChinese(text string, writer io.Writer) error 
 	// 使用low级别模型进行流式翻译
 	return s.StreamChatCompletionWithLevel(messages, writer, thirdparty.ModelLevelLow)
 }
+
+// StreamTranslatePaperToChinese 流式翻译论文（标题+摘要+TLDR）为中文
+// 使用low级别模型进行翻译，通过SSE流式输出翻译结果
+// 使用结构化XML标签约束输入输出格式，一次性翻译三个字段
+func (s *Service) StreamTranslatePaperToChinese(title, abstract, tldr string, writer io.Writer) error {
+	// 至少需要一个字段有内容
+	if title == "" && abstract == "" && tldr == "" {
+		return fmt.Errorf("at least one of title, abstract, or tldr is required")
+	}
+
+	// 限制总文本长度，避免过长的请求
+	totalLen := len(title) + len(abstract) + len(tldr)
+	if totalLen > 20000 {
+		return fmt.Errorf("total text exceeds 20000 characters limit")
+	}
+
+	// 使用提示词模板渲染
+	translatePrompt := prompts.RenderPaperTranslationPrompt(title, abstract, tldr)
+
+	messages := []ChatMessage{
+		{
+			Role:    "user",
+			Content: translatePrompt,
+		},
+	}
+
+	// 使用low级别模型进行流式翻译
+	return s.StreamChatCompletionWithLevel(messages, writer, thirdparty.ModelLevelLow)
+}

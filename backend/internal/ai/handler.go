@@ -547,3 +547,54 @@ func (h *Handler) StreamTranslate(c *gin.Context) {
 	c.Writer.WriteString("data: [DONE]\n\n")
 	c.Writer.Flush()
 }
+
+// StreamTranslatePaperRequest 论文翻译请求结构
+type StreamTranslatePaperRequest struct {
+	Title    string `json:"title"`
+	Abstract string `json:"abstract"`
+	TLDR     string `json:"tldr"`
+}
+
+// StreamTranslatePaper 论文整体翻译接口
+// POST /api/v1/public/translate/paper/stream
+// 一次性翻译论文的标题、摘要、TLDR，使用SSE流式输出
+func (h *Handler) StreamTranslatePaper(c *gin.Context) {
+	var req StreamTranslatePaperRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	// 至少需要一个字段有内容
+	if req.Title == "" && req.Abstract == "" && req.TLDR == "" {
+		c.JSON(400, gin.H{"error": "At least one of title, abstract, or tldr is required"})
+		return
+	}
+
+	// 限制总文本长度
+	totalLen := len(req.Title) + len(req.Abstract) + len(req.TLDR)
+	if totalLen > 20000 {
+		c.JSON(400, gin.H{"error": "Total text exceeds 20000 characters limit"})
+		return
+	}
+
+	// 设置SSE响应头
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("Transfer-Encoding", "chunked")
+	c.Writer.Header().Set("X-Accel-Buffering", "no")
+
+	// 调用流式论文翻译服务
+	err := h.service.StreamTranslatePaperToChinese(req.Title, req.Abstract, req.TLDR, c.Writer)
+	if err != nil {
+		// 如果流已经开始，通过SSE发送错误
+		c.Writer.WriteString("data: {\"error\": \"" + err.Error() + "\"}\n\n")
+		c.Writer.Flush()
+		return
+	}
+
+	// 发送流结束标记
+	c.Writer.WriteString("data: [DONE]\n\n")
+	c.Writer.Flush()
+}
