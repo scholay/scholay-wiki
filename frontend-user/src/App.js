@@ -27,33 +27,83 @@ import NotificationToast from './components/NotificationToast';
 import OrderModal from './components/OrderModal';
 import RechargeModal from './components/RechargeModal';
 import CodeSnippetInjector from './components/CodeSnippetInjector';
+import VersionUpdateBar from './components/VersionUpdateBar';
+import { useVersionCheck } from './hooks';
+import logger from './utils/logger';
 
 // 首页立即加载(最常访问)
 import Home from './pages/Home';
 
+/**
+ * 带重试的懒加载函数
+ * 当 chunk 加载失败时（通常是因为版本更新后旧文件已删除），自动刷新页面
+ */
+const lazyWithRetry = (componentImport, componentName = 'Component') => {
+  return lazy(async () => {
+    // 检查是否已经尝试过刷新（防止无限刷新循环）
+    const hasRefreshed = sessionStorage.getItem(`chunk_refresh_${componentName}`);
+    
+    try {
+      const component = await componentImport();
+      // 加载成功，清除刷新标记
+      sessionStorage.removeItem(`chunk_refresh_${componentName}`);
+      return component;
+    } catch (error) {
+      logger.error(`[LazyLoad] Failed to load ${componentName}:`, error);
+      
+      // 检查是否为 ChunkLoadError（webpack 动态导入失败）
+      if (error.name === 'ChunkLoadError' || 
+          error.message?.includes('Loading chunk') ||
+          error.message?.includes('Loading CSS chunk')) {
+        
+        if (!hasRefreshed) {
+          // 标记已尝试刷新，防止循环
+          sessionStorage.setItem(`chunk_refresh_${componentName}`, 'true');
+          logger.log(`[LazyLoad] Chunk load failed for ${componentName}, refreshing page...`);
+          // 延迟刷新，让用户看到错误提示
+          setTimeout(() => {
+            window.location.reload();
+          }, 100);
+        } else {
+          logger.error(`[LazyLoad] Chunk load failed after refresh for ${componentName}`);
+        }
+      }
+      
+      throw error;
+    }
+  });
+};
+
 // 其他页面使用懒加载 - 大幅减少初始bundle大小
-const SearchResultsPage = lazy(() => import('./pages/SearchResultsPage'));
-const PaperDetailPage = lazy(() => import('./pages/PaperDetailPage'));
-const ChatPage = lazy(() => import('./pages/ChatPage'));
-const PeerReviewPage = lazy(() => import('./pages/PeerReviewPage'));
-const AssistantPage = lazy(() => import('./pages/AssistantPage'));
-const Pricing = lazy(() => import('./pages/Pricing'));
-const Settings = lazy(() => import('./pages/Settings'));
-const FundCenter = lazy(() => import('./pages/FundCenter'));
-const WeChatCallback = lazy(() => import('./pages/WeChatCallback'));
-const GithubCallback = lazy(() => import('./pages/GithubCallback'));
-const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
-const AlipayReturn = lazy(() => import('./pages/AlipayReturn'));
-const FeedbackPage = lazy(() => import('./pages/FeedbackPage'));
-const AboutPage = lazy(() => import('./pages/AboutPage'));
-const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
-const TermsPage = lazy(() => import('./pages/TermsPage'));
-const ContactPage = lazy(() => import('./pages/ContactPage'));
-const DisclaimerPage = lazy(() => import('./pages/DisclaimerPage'));
-const AuthModal = lazy(() => import('./components/AuthModal'));
+// 使用 lazyWithRetry 包装，处理 chunk 加载失败的情况
+const SearchResultsPage = lazyWithRetry(() => import('./pages/SearchResultsPage'), 'SearchResultsPage');
+const PaperDetailPage = lazyWithRetry(() => import('./pages/PaperDetailPage'), 'PaperDetailPage');
+const ChatPage = lazyWithRetry(() => import('./pages/ChatPage'), 'ChatPage');
+const PeerReviewPage = lazyWithRetry(() => import('./pages/PeerReviewPage'), 'PeerReviewPage');
+const AssistantPage = lazyWithRetry(() => import('./pages/AssistantPage'), 'AssistantPage');
+const Pricing = lazyWithRetry(() => import('./pages/Pricing'), 'Pricing');
+const Settings = lazyWithRetry(() => import('./pages/Settings'), 'Settings');
+const FundCenter = lazyWithRetry(() => import('./pages/FundCenter'), 'FundCenter');
+const WeChatCallback = lazyWithRetry(() => import('./pages/WeChatCallback'), 'WeChatCallback');
+const GithubCallback = lazyWithRetry(() => import('./pages/GithubCallback'), 'GithubCallback');
+const OrderConfirmation = lazyWithRetry(() => import('./pages/OrderConfirmation'), 'OrderConfirmation');
+const AlipayReturn = lazyWithRetry(() => import('./pages/AlipayReturn'), 'AlipayReturn');
+const FeedbackPage = lazyWithRetry(() => import('./pages/FeedbackPage'), 'FeedbackPage');
+const AboutPage = lazyWithRetry(() => import('./pages/AboutPage'), 'AboutPage');
+const PrivacyPage = lazyWithRetry(() => import('./pages/PrivacyPage'), 'PrivacyPage');
+const TermsPage = lazyWithRetry(() => import('./pages/TermsPage'), 'TermsPage');
+const ContactPage = lazyWithRetry(() => import('./pages/ContactPage'), 'ContactPage');
+const DisclaimerPage = lazyWithRetry(() => import('./pages/DisclaimerPage'), 'DisclaimerPage');
+const AuthModal = lazyWithRetry(() => import('./components/AuthModal'), 'AuthModal');
 
 function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
+  
+  // 版本检测 - 检测到新版本时提示用户刷新
+  const { hasUpdate, confirmUpdate, ignoreUpdate } = useVersionCheck({
+    checkInterval: 5 * 60 * 1000, // 每 5 分钟检查一次
+    enabled: process.env.NODE_ENV === 'production' // 只在生产环境启用
+  });
   
   // OAuth注册后的欢迎弹窗状态（合并弹窗）
   const [showWelcomeCheckinModal, setShowWelcomeCheckinModal] = useState(false);
@@ -281,6 +331,14 @@ function App() {
 
                   {/* SEO/广告/统计代码片段注入 */}
                   <CodeSnippetInjector />
+                  
+                  {/* 版本更新提示条 */}
+                  {hasUpdate && (
+                    <VersionUpdateBar 
+                      onRefresh={confirmUpdate}
+                      onDismiss={ignoreUpdate}
+                    />
+                  )}
                 </Suspense>
               </Router>
               </RechargeModalProvider>

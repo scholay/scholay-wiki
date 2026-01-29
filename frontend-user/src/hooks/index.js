@@ -24,4 +24,5 @@ export { default as usePeerReview } from './usePeerReview';
 export { default as useAuthForm } from './useAuthForm';
 export { default as useChat } from './useChat';
 export { default as useTranslation, containsChinese, isPrimarilyChinese } from './useTranslation';
+export { default as useVersionCheck } from './useVersionCheck';
 // usePaperDetail 已移至 pages/search-results/hooks/usePaperDetail.js

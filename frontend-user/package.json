@@ -36,7 +36,7 @@
     "copy-pdf-worker": "node scripts/copy-pdf-worker.js",
     "prestart": "npm run copy-pdf-worker",
     "start": "react-scripts start",
-    "prebuild": "npm run copy-pdf-worker",
+    "prebuild": "npm run copy-pdf-worker && node scripts/generate-version.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
