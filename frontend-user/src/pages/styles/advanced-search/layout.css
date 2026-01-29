@@ -301,10 +301,10 @@
 .advanced-search-page .advanced-search-composer-input-area,
 .advanced-search-page .advanced-bottom-composer-input-area {
   display: flex;
-  align-items: center;
+  align-items: flex-end; /* 按钮对齐底部 */
   gap: 12px;
   padding: 8px 12px;
-  min-height: 56px;
+  min-height: 64px; /* 适应多行输入框 */
 }
 
 .advanced-search-composer-wrapper .advanced-search-chat-input,
@@ -332,7 +332,7 @@
 .advanced-search-chat-input::placeholder,
 .advanced-bottom-chat-input::placeholder {
   color: var(--text-quaternary);
-  font-size: 0.9375rem;
+  font-size: 14px;
 }
 
 /* 搜索按钮 - 毛玻璃效果 */

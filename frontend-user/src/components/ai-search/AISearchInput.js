@@ -27,8 +27,11 @@ const AISearchInput = forwardRef(({
 
   const handleChange = (e) => {
     onSearchChange(e.target.value);
+    // 自动调整高度，保持最小高度为48px
     e.target.style.height = 'auto';
-    e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+    const minHeight = 48;
+    const newHeight = Math.max(minHeight, Math.min(e.target.scrollHeight, 200));
+    e.target.style.height = newHeight + 'px';
   };
 
   return (
@@ -47,7 +50,7 @@ const AISearchInput = forwardRef(({
             onCompositionEnd={onCompositionEnd}
             onKeyDown={handleKeyDown}
             disabled={loading}
-            rows={1}
+            rows={2}
           />
           <button type="submit" className="btn-send" disabled={loading || !searchQuery.trim()}>
             {loading ? (

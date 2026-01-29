@@ -664,16 +664,16 @@
   border: none;
   background: transparent;
   color: var(--text-primary);
-  font-size: 0.9375rem;
+  font-size: 14px; /* 与AI回答字体大小一致 */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   outline: none;
-  padding: 8px 4px;
+  padding: 10px 6px;
   resize: none;
-  min-height: 24px;
-  max-height: 150px;
-  line-height: 1.5;
+  min-height: 48px; /* 多行输入框默认高度 */
+  max-height: 200px;
+  line-height: 1.8; /* 与AI回答行高一致 */
   overflow-y: auto;
   overflow-x: hidden;
   word-wrap: break-word;
