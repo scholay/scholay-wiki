@@ -2149,11 +2149,9 @@ a.meta-item.pdf-link:hover {
   flex-direction: column;
   opacity: 1;
   transition: opacity 0.15s ease;
-  overflow-y: auto;
+  overflow: visible;
   max-height: calc(70vh - 32px);
-  width: max-content;
-  min-width: 180px;
-  max-width: 260px;
+  width: 220px;
   position: relative;
   z-index: 1;
 }
@@ -2218,7 +2216,7 @@ a.meta-item.pdf-link:hover {
   gap: 8px;
   max-height: 50vh;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: visible;
   padding-right: 4px;
   margin-right: -4px;
 }
@@ -2426,21 +2424,16 @@ a.meta-item.pdf-link:hover {
 
 /* ========== 维度标签行布局 ========== */
 .dimension-tag-row {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
+  display: block;
   position: relative;
+  width: 100%;
 }
 
 .dimension-tag-row .dimension-tag-btn {
-  flex: 1;
+  width: 100%;
   border-radius: 10px;
   justify-content: flex-start;
-  transition: all 0.2s ease, border-radius 0.15s ease;
-}
-
-.dimension-tag-row:hover .dimension-tag-btn {
-  border-radius: 10px 0 0 10px;
+  transition: all 0.2s ease;
 }
 
 .dimension-tag-row .dimension-tag-btn .dimension-tag-name {
@@ -2448,75 +2441,180 @@ a.meta-item.pdf-link:hover {
   text-align: left;
 }
 
-/* 操作按钮容器 - hover 时显示 */
-.dimension-tag-actions {
-  display: flex;
-  align-items: stretch;
-  opacity: 0;
-  max-width: 0;
-  overflow: hidden;
-  transition: all 0.2s ease;
-}
-
-.dimension-tag-row:hover .dimension-tag-actions {
-  opacity: 1;
-  max-width: 120px;
-}
-
-/* 操作按钮通用样式 */
-.dimension-tag-action-btn {
+/* 三点菜单按钮 - hover 时显示，不占据空间 */
+.dimension-more-btn {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(16, 163, 127, 0.25);
-  border-left: none;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 11px;
+  width: 24px;
+  height: 24px;
+  background: rgba(16, 163, 127, 0.2);
+  border: none;
+  border-radius: 4px;
+  color: #10a37f;
   cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.15s ease;
+  z-index: 10;
 }
 
-.dimension-tag-action-btn:last-child {
-  border-radius: 0 10px 10px 0;
+.dimension-tag-row:hover .dimension-more-btn {
+  opacity: 1;
+  pointer-events: auto;
 }
 
-.dimension-tag-action-btn:hover {
-  background: rgba(16, 163, 127, 0.15);
+.dimension-more-btn:hover {
+  background: rgba(16, 163, 127, 0.35);
   color: #10a37f;
 }
 
-/* 自定义维度的操作按钮 */
-.dimension-tag-row.custom .dimension-tag-action-btn {
-  border-color: rgba(139, 92, 246, 0.25);
-}
-
-.dimension-tag-row.custom .dimension-tag-action-btn:hover {
-  background: rgba(139, 92, 246, 0.15);
+/* 自定义维度的三点按钮颜色 - 紫色 */
+.dimension-tag-row.custom .dimension-more-btn {
+  background: rgba(139, 92, 246, 0.2);
   color: #a78bfa;
 }
 
-/* 日间模式 */
-[data-theme="light"] .dimension-tag-action-btn {
-  background: rgba(0, 0, 0, 0.02);
-  border-color: rgba(16, 163, 127, 0.2);
-  color: rgba(0, 0, 0, 0.4);
+.dimension-tag-row.custom .dimension-more-btn:hover {
+  background: rgba(139, 92, 246, 0.35);
+  color: #a78bfa;
 }
 
-[data-theme="light"] .dimension-tag-action-btn:hover {
-  background: rgba(16, 163, 127, 0.1);
+/* 日间模式三点按钮 - 绿色 */
+[data-theme="light"] .dimension-more-btn {
+  background: rgba(16, 163, 127, 0.15);
   color: #059669;
 }
 
-[data-theme="light"] .dimension-tag-row.custom .dimension-tag-action-btn {
-  border-color: rgba(139, 92, 246, 0.2);
+[data-theme="light"] .dimension-more-btn:hover {
+  background: rgba(16, 163, 127, 0.25);
+  color: #059669;
 }
 
-[data-theme="light"] .dimension-tag-row.custom .dimension-tag-action-btn:hover {
-  background: rgba(139, 92, 246, 0.1);
+/* 日间模式 - 自定义维度三点按钮 - 紫色 */
+[data-theme="light"] .dimension-tag-row.custom .dimension-more-btn {
+  background: rgba(139, 92, 246, 0.12);
   color: #7c3aed;
+}
+
+[data-theme="light"] .dimension-tag-row.custom .dimension-more-btn:hover {
+  background: rgba(139, 92, 246, 0.2);
+  color: #7c3aed;
+}
+
+/* ========== 下拉菜单 ========== */
+.dimension-action-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: rgba(32, 32, 32, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  min-width: 120px;
+  z-index: 99999;
+  overflow: hidden;
+  animation: menuFadeIn 0.15s ease;
+}
+
+/* 向上展示的菜单 */
+.dimension-action-menu.show-above {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dimension-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: left;
+}
+
+.dimension-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dimension-menu-item svg {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.dimension-menu-item:hover svg {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 删除按钮特殊样式 */
+.dimension-menu-item.delete {
+  color: #f87171;
+}
+
+.dimension-menu-item.delete svg {
+  color: #f87171;
+}
+
+.dimension-menu-item.delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* 日间模式下拉菜单 */
+[data-theme="light"] .dimension-action-menu {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .dimension-menu-item {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="light"] .dimension-menu-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .dimension-menu-item svg {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .dimension-menu-item:hover svg {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .dimension-menu-item.delete {
+  color: #dc2626;
+}
+
+[data-theme="light"] .dimension-menu-item.delete svg {
+  color: #dc2626;
+}
+
+[data-theme="light"] .dimension-menu-item.delete:hover {
+  background: rgba(239, 68, 68, 0.1);
 }
 
 /* ========== 底部区域 ========== */
@@ -2524,16 +2622,19 @@ a.meta-item.pdf-link:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  width: 100%;
+  flex-wrap: wrap;
 }
 
 .dimension-float-stats {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.4);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .dimension-float-stats .custom-count {

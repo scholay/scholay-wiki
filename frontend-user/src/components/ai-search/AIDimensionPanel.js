@@ -2,7 +2,173 @@
  * AI维度分析面板组件
  * 悬浮面板，用于选择和管理分析维度
  */
-import React, { memo } from 'react';
+import React, { memo, useState, useRef, useEffect, useCallback } from 'react';
+
+/**
+ * 单个维度标签行组件 - 带三点菜单
+ */
+const DimensionTagItem = memo(({
+  dim,
+  isSelected,
+  isCustom,
+  onToggle,
+  onViewDimension,
+  onEditDimension,
+  onDeleteDimension,
+}) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showAbove, setShowAbove] = useState(false);
+  const menuRef = useRef(null);
+  const buttonRef = useRef(null);
+
+  // 点击外部关闭菜单
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuOpen && menuRef.current && !menuRef.current.contains(event.target) && 
+          buttonRef.current && !buttonRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
+  const handleMenuClick = useCallback((e) => {
+    e.stopPropagation();
+    if (!menuOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const menuHeight = isCustom ? 120 : 80;
+      
+      // 查找 footer 元素来确定边界
+      const footer = buttonRef.current.closest('.dimension-float-content')?.querySelector('.dimension-float-footer');
+      let bottomBoundary = window.innerHeight;
+      if (footer) {
+        bottomBoundary = footer.getBoundingClientRect().top;
+      }
+      
+      // 计算按钮底部到边界的距离
+      const spaceBelow = bottomBoundary - rect.bottom;
+      setShowAbove(spaceBelow < menuHeight + 10);
+    }
+    setMenuOpen(!menuOpen);
+  }, [menuOpen, isCustom]);
+
+  const handleAction = useCallback((action) => (e) => {
+    e.stopPropagation();
+    setMenuOpen(false);
+    action(dim);
+  }, [dim]);
+
+  return (
+    <div className={`dimension-tag-row ${isCustom ? 'custom' : ''}`}>
+      <button
+        className={`dimension-tag-btn ${isSelected ? 'selected' : ''} ${isCustom ? 'custom' : ''}`}
+        onClick={() => onToggle(dim)}
+        title={isSelected ? `点击移除 ${dim.name}` : dim.description}
+      >
+        {isSelected && (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        )}
+        <span className="dimension-tag-name">{dim.name}</span>
+      </button>
+      
+      {/* 三点菜单按钮 */}
+      <button
+        ref={buttonRef}
+        className="dimension-more-btn"
+        onClick={handleMenuClick}
+        title="更多操作"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="5" r="2"/>
+          <circle cx="12" cy="12" r="2"/>
+          <circle cx="12" cy="19" r="2"/>
+        </svg>
+      </button>
+
+      {/* 下拉菜单 */}
+      {menuOpen && (
+        <div 
+          ref={menuRef} 
+          className={`dimension-action-menu ${showAbove ? 'show-above' : ''}`}
+        >
+          <button
+            className="dimension-menu-item"
+            onClick={handleAction(onViewDimension)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            <span>详情</span>
+          </button>
+          <button
+            className="dimension-menu-item"
+            onClick={handleAction(onEditDimension)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            <span>{isCustom ? '编辑' : '自定义'}</span>
+          </button>
+          {isCustom && (
+            <button
+              className="dimension-menu-item delete"
+              onClick={handleAction(onDeleteDimension)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+              <span>删除</span>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+DimensionTagItem.displayName = 'DimensionTagItem';
+
+/**
+ * 维度标签列表组件
+ */
+const DimensionTagList = memo(({
+  dimensions,
+  selectedDimensions,
+  getDimensionKey,
+  onDimensionToggle,
+  onViewDimension,
+  onEditDimension,
+  onDeleteDimension,
+}) => {
+  return (
+    <div className="dimension-float-tags">
+      {dimensions.map(dim => {
+        const isSelected = selectedDimensions.some(s => getDimensionKey(s) === getDimensionKey(dim));
+        const isCustom = dim.userId > 0;
+        return (
+          <DimensionTagItem
+            key={getDimensionKey(dim)}
+            dim={dim}
+            isSelected={isSelected}
+            isCustom={isCustom}
+            onToggle={onDimensionToggle}
+            onViewDimension={onViewDimension}
+            onEditDimension={onEditDimension}
+            onDeleteDimension={onDeleteDimension}
+          />
+        );
+      })}
+    </div>
+  );
+});
+
+DimensionTagList.displayName = 'DimensionTagList';
 
 /**
  * 维度面板组件
@@ -53,50 +219,15 @@ const AIDimensionPanel = memo(({
             <p className="dimension-float-desc">
               点击维度标签，AI 将从不同角度分析论文
             </p>
-            <div className="dimension-float-tags">
-              {dimensions.map(dim => {
-                const isSelected = selectedDimensions.some(s => getDimensionKey(s) === getDimensionKey(dim));
-                const isCustom = dim.userId > 0;
-                return (
-                  <div key={getDimensionKey(dim)} className={`dimension-tag-row ${isCustom ? 'custom' : ''}`}>
-                    <button
-                      className={`dimension-tag-btn ${isSelected ? 'selected' : ''} ${isCustom ? 'custom' : ''}`}
-                      onClick={() => onDimensionToggle(dim)}
-                      title={isSelected ? `点击移除 ${dim.name}` : dim.description}
-                    >
-                      {isSelected && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                      )}
-                      <span className="dimension-tag-name">{dim.name}</span>
-                    </button>
-                    <div className="dimension-tag-actions">
-                      <button
-                        className="dimension-tag-action-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onViewDimension(dim);
-                        }}
-                        title="查看维度详情"
-                      >
-                        详情
-                      </button>
-                      <button
-                        className="dimension-tag-action-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEditDimension(dim);
-                        }}
-                        title={isCustom ? "编辑维度" : "自定义此维度"}
-                      >
-                        修改
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <DimensionTagList
+              dimensions={dimensions}
+              selectedDimensions={selectedDimensions}
+              getDimensionKey={getDimensionKey}
+              onDimensionToggle={onDimensionToggle}
+              onViewDimension={onViewDimension}
+              onEditDimension={onEditDimension}
+              onDeleteDimension={onDeleteDimension}
+            />
             {/* 底部统计和新增按钮 */}
             <div className="dimension-float-footer">
               <div className="dimension-float-stats">
