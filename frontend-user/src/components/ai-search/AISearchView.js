@@ -151,6 +151,9 @@ const AISearchView = () => {
     setPapers: aiSearch.setPapers,
     setPapersTotal: aiSearch.setPapersTotal,
     setPaperSets: aiSearch.setPaperSets,
+    setPaperSwitchingLoading: aiSearch.setPaperSwitchingLoading,
+    setAllPaperIds: aiSearch.setAllPaperIds,
+    setLoadedPaperCount: aiSearch.setLoadedPaperCount,
     loadMoreMessages: () => {},
   });
 
@@ -183,6 +186,9 @@ const AISearchView = () => {
     loadConversations: aiSearch.loadConversations,
     handleInitialSearch: streamSearch.handleInitialSearch,
     scrollToBottom: scrollManager.scrollToBottom,
+    // 分页相关
+    setAllPaperIds: aiSearch.setAllPaperIds,
+    setLoadedPaperCount: aiSearch.setLoadedPaperCount,
   });
 
   // 引文高亮
@@ -283,6 +289,7 @@ const AISearchView = () => {
             <AIPaperList
               papers={aiSearch.papers}
               loading={aiSearch.loading}
+              paperSwitchingLoading={aiSearch.paperSwitchingLoading}
               total={aiSearch.papersTotal}
               highlightedPaperIndex={aiSearch.highlightedPaperIndex}
               scrollToPaperIndex={aiSearch.scrollToPaperIndex}

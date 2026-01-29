@@ -17,7 +17,7 @@ const Pagination = ({
   currentPage,
   totalPages,
   pageSize,
-  pageSizeOptions = [20, 50, 100, 200],
+  pageSizeOptions = [20, 50],
   onPageChange,
   onPageSizeChange,
   showPageSize = true,
@@ -121,7 +121,7 @@ Pagination.propTypes = {
 };
 
 Pagination.defaultProps = {
-  pageSizeOptions: [20, 50, 100, 200],
+  pageSizeOptions: [20, 50],
   showPageSize: true,
   maxVisiblePages: 5,
 };

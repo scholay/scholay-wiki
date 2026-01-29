@@ -7,7 +7,7 @@ import { publicScholarAPI } from '../../../services/api';
 import logger from '../../../utils/logger';
 
 // 分页配置
-export const PAPER_PAGE_SIZE = 25;
+export const PAPER_PAGE_SIZE = 20;
 
 // 论文详情字段
 const PAPER_FIELDS = ['paperId', 'title', 'authors', 'year', 'abstract', 'citationCount', 'venue', 'publicationDate', 'tldr', 'openAccessPdf', 'externalIds', 'isOpenAccess', 'fieldsOfStudy'];
@@ -21,6 +21,7 @@ export const usePaperState = () => {
   const [allPaperIds, setAllPaperIds] = useState([]); // 所有论文 ID
   const [loadedPaperCount, setLoadedPaperCount] = useState(0); // 已加载的论文数量
   const [loadingMorePapers, setLoadingMorePapers] = useState(false); // 加载更多状态
+  const [paperSwitchingLoading, setPaperSwitchingLoading] = useState(false); // 切换论文集加载状态
 
   // 论文集合（多批次搜索结果）
   const [paperSets, setPaperSets] = useState([]);
@@ -110,6 +111,7 @@ export const usePaperState = () => {
     loadedPaperCount,
     loadingMorePapers,
     hasMorePapers,
+    paperSwitchingLoading,
 
     // Setter
     setPapers,
@@ -120,6 +122,7 @@ export const usePaperState = () => {
     setScrollToPaperIndex,
     setAllPaperIds,
     setLoadedPaperCount,
+    setPaperSwitchingLoading,
 
     // Refs
     papersContainerRef,

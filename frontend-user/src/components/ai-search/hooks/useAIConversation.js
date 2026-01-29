@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { conversationAPI, publicScholarAPI } from '../../../services/api';
+import { conversationAPI } from '../../../services/api';
 import {
   getSearchQuery,
   clearSearchQuery,
@@ -12,9 +12,6 @@ import {
   setAIConversationId
 } from '../../../utils/searchStorage';
 import logger from '../../../utils/logger';
-
-// 论文详情字段（后端期望数组格式）
-const PAPER_FIELDS = ['paperId', 'title', 'authors', 'year', 'abstract', 'citationCount', 'venue', 'publicationDate', 'tldr', 'openAccessPdf', 'externalIds', 'isOpenAccess', 'fieldsOfStudy'];
 
 /**
  * 对话管理 Hook
@@ -47,6 +44,9 @@ export const useAIConversation = ({
   loadConversations,
   handleInitialSearch,
   scrollToBottom,
+  // 分页相关
+  setAllPaperIds,
+  setLoadedPaperCount,
 }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -122,37 +122,17 @@ export const useAIConversation = ({
 
         const reversedSets = sets.reverse();
 
-        const latestSet = reversedSets[0];
-        if (latestSet.isLoaded) {
-          setPaperSets(reversedSets);
-          setPapers(latestSet.papers);
-          setPapersTotal(latestSet.total);
-        } else if (latestSet.paperIds && latestSet.paperIds.length > 0) {
-          reversedSets[0] = { ...reversedSets[0], isLoading: true };
-          setPaperSets(reversedSets);
-
-          logger.log(`History: Loading papers for latest QA (${latestSet.paperIds.length} papers)`);
-          try {
-            const paperResponse = await publicScholarAPI.getPaperBatch(latestSet.paperIds, PAPER_FIELDS);
-            if (paperResponse.data.code === 0 && paperResponse.data.data) {
-              const loadedPapers = paperResponse.data.data || [];
-              setPapers(loadedPapers);
-              setPapersTotal(latestSet.total);
-              setPaperSets(prev => prev.map((set, idx) =>
-                idx === 0 ? { ...set, papers: loadedPapers, isLoaded: true, isLoading: false } : set
-              ));
-            }
-          } catch (err) {
-            logger.error('Failed to fetch paper details for latest QA:', err);
-            setPaperSets(prev => prev.map((set, idx) =>
-              idx === 0 ? { ...set, isLoading: false } : set
-            ));
-          }
-        } else {
-          setPaperSets(reversedSets);
-          setPapers([]);
-          setPapersTotal(0);
-        }
+        // 历史记录加载时不自动请求论文详情
+        // 只设置 paperSets，论文详情在滚动到对应问答时才懒加载
+        setPaperSets(reversedSets);
+        
+        // 清空当前论文列表，等待用户滚动到具体问答时再加载
+        setPapers([]);
+        setPapersTotal(0);
+        if (setAllPaperIds) setAllPaperIds([]);
+        if (setLoadedPaperCount) setLoadedPaperCount(0);
+        
+        logger.log(`History: Set up ${reversedSets.length} paper sets, papers will be lazy-loaded on scroll`);
 
         // 对于历史对话中的 assistant 消息，只加载已有的推荐问题
         const assistantMessages = organizedMessages.filter(m => m.role === 'assistant');
