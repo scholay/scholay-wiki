@@ -16,12 +16,13 @@ const SearchSuggestionsPrompt = `<task>学术搜索联想建议</task>
 <instructions>
 分析用户的搜索查询，生成最多3个相关的英文学术搜索建议。
 规则：
-1. 如果查询已是纯英文学术术语且无需扩展，返回空的suggestions标签
-2. 如果查询包含非英文内容，第一个建议必须是准确的英文翻译
-3. 其他建议可以是同义词、相关学术术语、或更精确的搜索词
+1. 无论输入是中文还是英文，都必须生成1-3个相关的英文搜索建议
+2. 如果输入包含非英文内容，第一个建议必须是准确的英文翻译
+3. 其他建议应为：同义词、相关学术术语、更精确的表达、或领域内常用搜索词
 4. 每个建议应简洁，通常2-5个英文单词
-5. 按相关性排序，最相关的在前
-6. 不要添加任何解释或额外文字
+5. 建议应与原查询紧密相关，帮助用户发现更多相关学术文献
+6. 按相关性排序，最相关的在前
+7. 不要添加任何解释或额外文字
 </instructions>
 <output_format>
 严格按照以下XML格式输出，不要有任何其他内容：
@@ -30,8 +31,6 @@ const SearchSuggestionsPrompt = `<task>学术搜索联想建议</task>
 <item>建议2</item>
 <item>建议3</item>
 </suggestions>
-如果不需要建议，输出：
-<suggestions></suggestions>
 </output_format>`
 
 // RenderSearchSuggestionsPrompt 渲染搜索建议提示词，替换{{query}}占位符

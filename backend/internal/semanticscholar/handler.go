@@ -108,11 +108,7 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 			fmt.Printf("[WARN] Failed to get search suggestions with AI: %v\n", err)
 		} else {
 			searchSuggestions = suggestions
-			if len(searchSuggestions) == 0 {
-				fmt.Printf("[INFO] Query '%s' is already in English, no suggestions needed\n", req.Query)
-			} else {
-				fmt.Printf("[INFO] Search suggestions for '%s': %v\n", req.Query, searchSuggestions)
-			}
+			fmt.Printf("[INFO] Search suggestions for '%s': %v\n", req.Query, searchSuggestions)
 		}
 	}
 
