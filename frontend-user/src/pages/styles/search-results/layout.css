@@ -644,6 +644,84 @@
   }
 }
 
+/* ============================================
+   搜索建议栏 - 输入框下方展示，与输入框对齐
+   ============================================ */
+.search-suggestions-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* 左边距：24px (header padding) + 160px (logo width) + 16px (gap) = 200px */
+  padding: 6px 24px 6px 200px;
+  background: transparent;
+}
+
+.search-suggestions-bar .suggestions-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.search-suggestions-bar .suggestions-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-suggestions-bar .suggestion-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 0;
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+  transition: color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.search-suggestions-bar .suggestion-tag:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 标签之间的分隔符 */
+.search-suggestions-bar .suggestions-tags .suggestion-tag:not(:last-child)::after {
+  content: "·";
+  margin-left: 6px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* 亮色主题 */
+[data-theme="light"] .search-suggestions-bar {
+  background: transparent;
+}
+
+[data-theme="light"] .search-suggestions-bar .suggestions-label {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] .search-suggestions-bar .suggestion-tag {
+  color: var(--text-accent);
+}
+
+[data-theme="light"] .search-suggestions-bar .suggestion-tag:hover {
+  color: #0d8a6a;
+}
+
+[data-theme="light"] .search-suggestions-bar .suggestions-tags .suggestion-tag:not(:last-child)::after {
+  color: rgba(0, 0, 0, 0.2);
+}
+
 /* 响应式 */
 @media (max-width: 1280px) {
   .results-main {
@@ -662,6 +740,11 @@
 
   .search-results-centered-area {
     padding: 1.5rem 1rem;
+  }
+
+  /* 移动端搜索建议栏 */
+  .search-suggestions-bar {
+    padding: 6px 16px;
   }
 }
 
@@ -699,6 +782,27 @@
 
   .search-result-paper-title {
     font-size: 15px;
+  }
+
+  /* 移动端搜索建议栏 */
+  .search-suggestions-bar {
+    padding: 6px 16px;
+    gap: 8px;
+  }
+
+  .search-suggestions-bar .suggestions-label {
+    font-size: 12px;
+  }
+
+  .search-suggestions-bar .suggestions-tags {
+    gap: 6px;
+  }
+
+  .search-suggestions-bar .suggestion-tag {
+    padding: 3px 10px;
+    font-size: 12px;
+    max-width: 120px;
+    border-radius: 12px;
   }
 
   /* 空状态响应式 */

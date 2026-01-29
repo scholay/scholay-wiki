@@ -2,7 +2,7 @@
  * 搜索结果列表视图组件
  * 包含论文列表和维度分析面板
  */
-import React, { memo, useEffect, useRef, useCallback } from 'react';
+import React, { memo, useEffect, useRef } from 'react';
 import Pagination from '../../components/Pagination';
 import AnalysisCellText from '../../components/AnalysisCellText';
 import { useTranslation } from '../../hooks';
@@ -12,8 +12,6 @@ const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, tot
   const {
     papers,
     total,
-    queryInfo,
-    filters,
     selectedPaper,
     setSelectedPaper,
     setCitePaper,
@@ -28,7 +26,6 @@ const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, tot
     handlePageChange,
     handlePageSizeChange,
     handlePaperClick,
-    performSearch,
     // 鉴权相关
     isAuthenticated,
     setShowAuthModal,
@@ -69,52 +66,9 @@ const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, tot
         <div className="unified-table-header">
           {/* 第一列：搜索结果提示 */}
           <div className="unified-header-info">
-            {queryInfo.translationEnabled && queryInfo.translatedQuery &&
-             queryInfo.searchStrategy !== 'original' &&
-             queryInfo.originalQuery !== queryInfo.translatedQuery ? (
-              <>
-                {(queryInfo.searchStrategy === 'combined' || !queryInfo.searchStrategy) && (
-                  <>
-                    <span className="hint-text">
-                      共找到 <strong>{total.toLocaleString()}</strong> 个 "
-                      <span className="hint-query-original" title={queryInfo.originalQuery}>
-                        {queryInfo.originalQuery}
-                      </span>
-                      {' '}
-                      <span className="hint-query-translated" title={queryInfo.translatedQuery}>
-                        {queryInfo.translatedQuery}
-                      </span>
-                      " 的结果
-                    </span>
-                    <button
-                      className="hint-action-btn"
-                      onClick={() => performSearch(queryInfo.originalQuery, filters, 1, false, false)}
-                      title={`仅按 "${queryInfo.originalQuery}" 查找`}
-                    >
-                      仅按 "<span className="hint-btn-query" title={queryInfo.originalQuery}>{queryInfo.originalQuery}</span>" 查找
-                    </button>
-                  </>
-                )}
-                {queryInfo.searchStrategy === 'translated' && (
-                  <>
-                    <span className="hint-text">
-                      共找到 <strong>{total.toLocaleString()}</strong> 个 "
-                      <span className="hint-query-translated" title={queryInfo.translatedQuery}>
-                        {queryInfo.translatedQuery}
-                      </span>
-                      " 的结果
-                    </span>
-                    <span className="hint-fallback-notice">
-                      原始词 "<span className="hint-query-highlight">{queryInfo.originalQuery}</span>" 无结果，已使用翻译词搜索
-                    </span>
-                  </>
-                )}
-              </>
-            ) : (
-              <span className="hint-text">
-                共找到 <strong>{total.toLocaleString()}</strong> 个结果
-              </span>
-            )}
+            <span className="hint-text">
+              共找到 <strong>{total.toLocaleString()}</strong> 个结果
+            </span>
           </div>
 
           {/* 分析维度列头 */}

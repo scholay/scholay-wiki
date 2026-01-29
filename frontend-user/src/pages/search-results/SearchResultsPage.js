@@ -521,6 +521,31 @@ const SearchResultsPage = () => {
               </>
             )}
 
+            {/* 搜索建议栏 - 在输入框下方展示 */}
+            {searchState.viewMode === 'list' && searchState.queryInfo.hasSuggestions && searchState.queryInfo.searchSuggestions?.length > 0 && (
+              <div className="search-suggestions-bar">
+                <span className="suggestions-label">相关搜索：</span>
+                <div className="suggestions-tags">
+                  {searchState.queryInfo.searchSuggestions.slice(0, 3).map((suggestion, index) => (
+                    <button
+                      key={index}
+                      className="suggestion-tag"
+                      onClick={() => {
+                        // 点击相关搜索词：替换输入框内容，保留筛选条件，生成新的相关搜索词
+                        searchState.setSearchQuery(suggestion);
+                        searchState.updateURL(suggestion, searchState.filters, 1);
+                        // 第5个参数为 true，启用生成新的相关搜索词（循环）
+                        searchState.performSearch(suggestion, searchState.filters, 1, true, true);
+                      }}
+                      title={suggestion}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* 主内容区域 */}
             <div className={`results-main ${dimensionAnalysis.selectedDimensions.length > 0 ? 'has-analysis' : ''}`} ref={searchState.resultsMainRef}>
               {/* 左侧筛选侧边栏 */}

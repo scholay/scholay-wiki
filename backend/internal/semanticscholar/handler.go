@@ -16,22 +16,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// QueryTranslator 定义查询翻译接口（避免循环依赖）
-type QueryTranslator interface {
-	TranslateToEnglish(query string) (string, error)
+// SearchSuggester 定义搜索建议接口（避免循环依赖）
+type SearchSuggester interface {
+	GetSearchSuggestions(query string) ([]string, error)
 }
 
 // Handler handles HTTP requests for Semantic Scholar API
 type Handler struct {
-	manager    *Manager
-	translator QueryTranslator
+	manager   *Manager
+	suggester SearchSuggester
 }
 
 // NewHandler creates a new Semantic Scholar handler with key rotation
-func NewHandler(manager *Manager, translator QueryTranslator) *Handler {
+func NewHandler(manager *Manager, suggester SearchSuggester) *Handler {
 	return &Handler{
-		manager:    manager,
-		translator: translator,
+		manager:   manager,
+		suggester: suggester,
 	}
 }
 
@@ -54,12 +54,12 @@ type SearchPapersRequest struct {
 
 // SearchPapersResponse 定义学术检索的响应结构
 type SearchPapersResponse struct {
-	Data               interface{} `json:"data"`               // 原始搜索结果
-	OriginalQuery      string      `json:"originalQuery"`      // 用户原始输入
-	TranslatedQuery    string      `json:"translatedQuery"`    // AI翻译后的查询
-	ActualQuery        string      `json:"actualQuery"`        // 实际使用的查询（组合后）
-	TranslationEnabled bool        `json:"translationEnabled"` // 是否启用了翻译
-	SearchStrategy     string      `json:"searchStrategy"`     // 搜索策略: combined, original, translated
+	Data              interface{} `json:"data"`              // 原始搜索结果
+	OriginalQuery     string      `json:"originalQuery"`     // 用户原始输入
+	SearchSuggestions []string    `json:"searchSuggestions"` // AI生成的搜索建议（最多3个）
+	ActualQuery       string      `json:"actualQuery"`       // 实际使用的查询
+	HasSuggestions    bool        `json:"hasSuggestions"`    // 是否有搜索建议
+	SearchStrategy    string      `json:"searchStrategy"`    // 搜索策略: original
 }
 
 // SearchPapers handles paper search requests (学术检索)
@@ -86,32 +86,32 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 		return
 	}
 
-	// 使用AI将查询翻译成英文（使用low级别模型）
+	// 使用AI获取搜索建议（使用low级别模型）
 	// 检查请求中的 enableTranslation 参数
-	// nil 表示未设置，默认启用翻译
-	// false 表示显式禁用翻译（用户点击"仅按原始查询"）
-	enableTranslation := true
+	// nil 表示未设置，默认启用建议
+	// false 表示显式禁用建议（用户点击了某个建议进行搜索）
+	enableSuggestions := true
 	if req.EnableTranslation != nil && !*req.EnableTranslation {
-		enableTranslation = false
-		fmt.Printf("[INFO] Translation explicitly disabled by request\n")
-	}
-	
-	// 分页请求时不重新翻译，避免结果不一致
-	if req.Offset > 0 {
-		enableTranslation = false
+		enableSuggestions = false
+		fmt.Printf("[INFO] Suggestions explicitly disabled by request\n")
 	}
 
-	translatedQuery := ""
-	if enableTranslation && h.translator != nil {
-		translated, err := h.translator.TranslateToEnglish(req.Query)
+	// 分页请求时不重新获取建议，避免结果不一致
+	if req.Offset > 0 {
+		enableSuggestions = false
+	}
+
+	var searchSuggestions []string
+	if enableSuggestions && h.suggester != nil {
+		suggestions, err := h.suggester.GetSearchSuggestions(req.Query)
 		if err != nil {
-			fmt.Printf("[WARN] Failed to translate query with AI: %v, using original query\n", err)
+			fmt.Printf("[WARN] Failed to get search suggestions with AI: %v\n", err)
 		} else {
-			translatedQuery = strings.TrimSpace(translated)
-			if translatedQuery == "" {
-				fmt.Printf("[INFO] Query '%s' is already in English, no translation needed\n", req.Query)
+			searchSuggestions = suggestions
+			if len(searchSuggestions) == 0 {
+				fmt.Printf("[INFO] Query '%s' is already in English, no suggestions needed\n", req.Query)
 			} else {
-				fmt.Printf("[INFO] Query translation: '%s' -> '%s'\n", req.Query, translatedQuery)
+				fmt.Printf("[INFO] Search suggestions for '%s': %v\n", req.Query, searchSuggestions)
 			}
 		}
 	}
@@ -146,87 +146,35 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 		baseOpts.Limit = 10
 	}
 
-	// 智能搜索策略
-	var result *SearchResponse
-	var err error
-	var finalQuery string
-	var searchStrategy string
+	// 简化搜索策略：始终使用原始查询搜索，建议仅供用户参考
+	hasSuggestions := len(searchSuggestions) > 0
 
-	// 判断是否有翻译结果且与原始查询不同
-	hasTranslation := translatedQuery != "" && translatedQuery != req.Query
-
-	if hasTranslation {
-		// 策略1: 先用组合查询（原始词 + 翻译词）搜索
-		combinedQuery := req.Query + " " + translatedQuery
-		opts := baseOpts
-		opts.Query = combinedQuery
-		fmt.Printf("[INFO] Strategy 1: Trying combined query: %s\n", combinedQuery)
-		
-		result, err = h.manager.SearchPapers(opts)
-		if err != nil {
-			utils.Error(c, 4002, "Failed to search papers: "+err.Error())
-			return
-		}
-		
-		if result.Total > 0 {
-			finalQuery = combinedQuery
-			searchStrategy = "combined"
-			fmt.Printf("[INFO] Combined query successful, found %d results\n", result.Total)
-		} else {
-			// 策略2: 组合查询没有结果，用原始词搜索
-			opts.Query = req.Query
-			fmt.Printf("[INFO] Strategy 2: Combined query has no results, trying original query: %s\n", req.Query)
-			
-			result, err = h.manager.SearchPapers(opts)
-			if err != nil {
-				utils.Error(c, 4002, "Failed to search papers: "+err.Error())
-				return
-			}
-			
-			if result.Total > 0 {
-				finalQuery = req.Query
-				searchStrategy = "original"
-				fmt.Printf("[INFO] Original query successful, found %d results\n", result.Total)
-			} else {
-				// 策略3: 原始词也没有结果，用翻译词搜索
-				opts.Query = translatedQuery
-				fmt.Printf("[INFO] Strategy 3: Original query has no results, trying translated query: %s\n", translatedQuery)
-				
-				result, err = h.manager.SearchPapers(opts)
-				if err != nil {
-					utils.Error(c, 4002, "Failed to search papers: "+err.Error())
-					return
-				}
-				
-				finalQuery = translatedQuery
-				searchStrategy = "translated"
-				fmt.Printf("[INFO] Translated query result: %d results\n", result.Total)
-			}
-		}
+	// 始终使用原始查询进行搜索
+	opts := baseOpts
+	opts.Query = req.Query
+	if hasSuggestions {
+		fmt.Printf("[INFO] Using original query: %s (suggestions: %v)\n", req.Query, searchSuggestions)
 	} else {
-		// 没有翻译结果，直接用原始查询
-		opts := baseOpts
-		opts.Query = req.Query
-		fmt.Printf("[INFO] No translation available, using original query: %s\n", req.Query)
-		
-		result, err = h.manager.SearchPapers(opts)
-		if err != nil {
-			utils.Error(c, 4002, "Failed to search papers: "+err.Error())
-			return
-		}
-		
-		finalQuery = req.Query
-		searchStrategy = "original"
+		fmt.Printf("[INFO] Using original query: %s\n", req.Query)
 	}
 
+	result, err := h.manager.SearchPapers(opts)
+	if err != nil {
+		utils.Error(c, 4002, "Failed to search papers: "+err.Error())
+		return
+	}
+
+	fmt.Printf("[INFO] Search completed, found %d results\n", result.Total)
+
 	// 构建响应，包含查询信息
+	// searchSuggestions 作为联想建议返回，用户可点击搜索
 	response := SearchPapersResponse{
-		Data:               result,
-		OriginalQuery:      req.Query,
-		TranslatedQuery:    translatedQuery,
-		ActualQuery:        finalQuery,
-		TranslationEnabled: enableTranslation && hasTranslation,
-		SearchStrategy:     searchStrategy,
+		Data:              result,
+		OriginalQuery:     req.Query,
+		SearchSuggestions: searchSuggestions, // 联想搜索建议（如有）
+		ActualQuery:       req.Query,         // 始终是原始查询
+		HasSuggestions:    hasSuggestions,    // 是否有搜索建议
+		SearchStrategy:    "original",        // 始终使用原始查询策略
 	}
 
 	utils.Success(c, response)

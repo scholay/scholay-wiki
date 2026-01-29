@@ -78,18 +78,17 @@ export const useSearchState = () => {
   // 查询信息状态
   const [queryInfo, setQueryInfo] = useState({
     originalQuery: '',
-    translatedQuery: '',
+    searchSuggestions: [],  // AI生成的搜索建议数组
     actualQuery: '',
-    translationEnabled: false,
+    hasSuggestions: false,
     searchStrategy: ''
   });
 
-  // 翻译缓存
-  const [cachedTranslation, setCachedTranslation] = useState({
+  // 建议缓存
+  const [cachedSuggestions, setCachedSuggestions] = useState({
     query: '',
-    translated: '',
-    actual: '',
-    searchStrategy: ''
+    suggestions: [],
+    actual: ''
   });
 
   // 选中的论文和引用
@@ -196,7 +195,7 @@ export const useSearchState = () => {
   }, [setSearchParams]);
 
   // 执行搜索
-  const performSearch = useCallback(async (query, currentFilters, page = 1, isNewSearch = true, enableTranslation = true) => {
+  const performSearch = useCallback(async (query, currentFilters, page = 1, isNewSearch = true, enableSuggestions = true) => {
     if (!query.trim()) return;
 
     if (returnedFromLogin.current) {
@@ -209,22 +208,23 @@ export const useSearchState = () => {
     setSelectedPaper(null);
 
     try {
-      const canReuseTranslation =
-        cachedTranslation.query === query &&
-        cachedTranslation.translated &&
-        enableTranslation &&
+      // 检查是否可以复用缓存的建议
+      const canReuseSuggestions =
+        cachedSuggestions.query === query &&
+        cachedSuggestions.suggestions.length > 0 &&
+        enableSuggestions &&
         (page > 1 || !isNewSearch);
 
       const params = {
         query: query,
         offset: (page - 1) * papersPerPage,
         limit: papersPerPage,
-        enableTranslation: canReuseTranslation ? false : enableTranslation,
+        enableTranslation: canReuseSuggestions ? false : enableSuggestions,  // 复用字段名以兼容后端
         fields: ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
       };
 
-      if (canReuseTranslation) {
-        logger.log('[Search] Reusing cached translation:', cachedTranslation);
+      if (canReuseSuggestions) {
+        logger.log('[Search] Reusing cached suggestions:', cachedSuggestions);
       }
 
       // 添加筛选条件
@@ -259,29 +259,31 @@ export const useSearchState = () => {
         setTotal(resultsTotal);
 
         let finalQueryInfo;
-        if (canReuseTranslation) {
+        if (canReuseSuggestions) {
+          // 复用缓存的建议
           finalQueryInfo = {
             originalQuery: query,
-            translatedQuery: cachedTranslation.translated,
-            actualQuery: cachedTranslation.actual,
-            translationEnabled: true,
-            searchStrategy: cachedTranslation.searchStrategy || 'combined'
+            searchSuggestions: cachedSuggestions.suggestions,
+            actualQuery: cachedSuggestions.actual,
+            hasSuggestions: true,
+            searchStrategy: 'original'
           };
         } else {
+          // 使用后端返回的建议
           finalQueryInfo = {
             originalQuery: responseData.originalQuery || query,
-            translatedQuery: responseData.translatedQuery || '',
+            searchSuggestions: responseData.searchSuggestions || [],
             actualQuery: responseData.actualQuery || query,
-            translationEnabled: responseData.translationEnabled || false,
+            hasSuggestions: responseData.hasSuggestions || false,
             searchStrategy: responseData.searchStrategy || ''
           };
 
-          if (responseData.translationEnabled && responseData.translatedQuery) {
-            setCachedTranslation({
+          // 缓存建议结果
+          if (responseData.hasSuggestions && responseData.searchSuggestions?.length > 0) {
+            setCachedSuggestions({
               query: query,
-              translated: responseData.translatedQuery,
-              actual: responseData.actualQuery,
-              searchStrategy: responseData.searchStrategy || 'combined'
+              suggestions: responseData.searchSuggestions,
+              actual: responseData.actualQuery
             });
           }
         }
@@ -294,7 +296,7 @@ export const useSearchState = () => {
     } finally {
       setLoading(false);
     }
-  }, [cachedTranslation, papersPerPage]);
+  }, [cachedSuggestions, papersPerPage]);
 
   // 处理搜索提交
   const handleSearch = useCallback((e) => {
@@ -309,20 +311,21 @@ export const useSearchState = () => {
 
     setCurrentPage(1);
 
-    if (cachedTranslation.query !== searchQuery) {
-      setCachedTranslation({ query: '', translated: '', actual: '' });
+    // 如果搜索词变化，清空缓存的建议
+    if (cachedSuggestions.query !== searchQuery) {
+      setCachedSuggestions({ query: '', suggestions: [], actual: '' });
       setQueryInfo({
         originalQuery: '',
-        translatedQuery: '',
+        searchSuggestions: [],
         actualQuery: '',
-        translationEnabled: false
+        hasSuggestions: false
       });
     }
 
     trackDirectSearch(searchQuery, EntryPoint.SEARCH_RESULTS_PAGE);
     updateURL(searchQuery, filters, 1);
     performSearch(searchQuery, filters, 1);
-  }, [searchQuery, cachedTranslation.query, filters, updateURL, performSearch]);
+  }, [searchQuery, cachedSuggestions.query, filters, updateURL, performSearch]);
 
   // 应用筛选条件
   const applyFilters = useCallback((newFilters) => {
@@ -456,6 +459,7 @@ export const useSearchState = () => {
     performSearch,
     handleSearch,
     applyFilters,
+    updateURL,
 
     // 论文列表
     papers,
@@ -524,7 +528,6 @@ export const useSearchState = () => {
     handleSimilarTabClick,
 
     // 工具函数
-    updateURL,
     getAIModelLevel,
   };
 };

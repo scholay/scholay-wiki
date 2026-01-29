@@ -17,12 +17,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	"gorm.io/gorm"
 
+	"scholar-backend/internal/ai/prompts"
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/circuitbreaker"
 	"scholar-backend/internal/mcp"
@@ -187,6 +189,99 @@ type translationCacheResult struct {
 func generateTranslationCacheKey(query string) string {
 	hash := md5.Sum([]byte(strings.TrimSpace(strings.ToLower(query))))
 	return hex.EncodeToString(hash[:])
+}
+
+// GetSearchSuggestions 获取搜索联想建议（实现 SearchSuggester 接口）
+// 使用硬编码的结构化提示词，返回最多3个相关的英文搜索建议
+// 使用Redis缓存避免重复调用，缓存时间12小时
+func (s *Service) GetSearchSuggestions(query string) ([]string, error) {
+	ctx := context.Background()
+
+	// 1. 生成缓存key（使用MD5避免特殊字符）
+	cacheKey := "suggestions:" + generateTranslationCacheKey(query)
+
+	// 2. 尝试从Redis缓存获取
+	suggestionsCache := cache.NewQueryCache("search_suggestions", 12*time.Hour)
+	var cachedResult suggestionsCacheResult
+	err := suggestionsCache.Get(ctx, cacheKey, &cachedResult)
+	if err == nil && cachedResult.Cached {
+		fmt.Printf("[Suggestions Cache] Hit for query: '%s' -> %v\n", query, cachedResult.Suggestions)
+		return cachedResult.Suggestions, nil
+	}
+
+	fmt.Printf("[Suggestions Cache] Miss for query: '%s', calling AI...\n", query)
+
+	// 3. 缓存未命中，使用硬编码提示词调用AI
+	suggestionsPrompt := prompts.RenderSearchSuggestionsPrompt(query)
+
+	messages := []ChatMessage{
+		{
+			Role:    "user",
+			Content: suggestionsPrompt,
+		},
+	}
+
+	// 使用low级别模型调用AI
+	response, err := s.ChatCompletionWithTools(messages, nil, "", thirdparty.ModelLevelLow)
+	if err != nil {
+		return nil, fmt.Errorf("AI suggestions failed: %w", err)
+	}
+
+	if len(response.Choices) == 0 {
+		return nil, fmt.Errorf("no response from AI")
+	}
+
+	responseText := strings.TrimSpace(response.Choices[0].Message.Content)
+
+	// 4. 解析XML格式的响应
+	suggestions := parseSearchSuggestions(responseText)
+
+	// 5. 存入Redis缓存（异步，失败不影响返回）
+	go func() {
+		cacheResult := suggestionsCacheResult{
+			Cached:      true,
+			Suggestions: suggestions,
+		}
+		if err := suggestionsCache.Set(context.Background(), cacheKey, cacheResult); err != nil {
+			fmt.Printf("[Suggestions Cache] Failed to cache suggestions: %v\n", err)
+		} else {
+			fmt.Printf("[Suggestions Cache] Cached: '%s' -> %v\n", query, suggestions)
+		}
+	}()
+
+	return suggestions, nil
+}
+
+// suggestionsCacheResult 搜索建议缓存结果结构体
+type suggestionsCacheResult struct {
+	Cached      bool     `json:"cached"`      // 是否已缓存
+	Suggestions []string `json:"suggestions"` // 建议列表
+}
+
+// parseSearchSuggestions 解析AI返回的XML格式搜索建议
+// 提取 <suggestions><item>...</item></suggestions> 中的内容
+func parseSearchSuggestions(responseText string) []string {
+	var suggestions []string
+
+	// 使用正则表达式提取 <item>...</item> 内容
+	itemRegex := regexp.MustCompile(`<item>\s*(.*?)\s*</item>`)
+	matches := itemRegex.FindAllStringSubmatch(responseText, -1)
+
+	for _, match := range matches {
+		if len(match) > 1 {
+			suggestion := strings.TrimSpace(match[1])
+			if suggestion != "" && suggestion != "建议1" && suggestion != "建议2" && suggestion != "建议3" {
+				suggestions = append(suggestions, suggestion)
+			}
+		}
+	}
+
+	// 最多返回3个建议
+	if len(suggestions) > 3 {
+		suggestions = suggestions[:3]
+	}
+
+	return suggestions
 }
 
 // ListPromptTemplates lists all prompt templates
