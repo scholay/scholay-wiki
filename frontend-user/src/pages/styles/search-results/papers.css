@@ -3119,3 +3119,174 @@ a.meta-item.pdf-link:hover {
   border-color: rgba(99, 102, 241, 0.3);
   border-top-color: rgba(99, 102, 241, 0.8);
 }
+
+/* ========== 删除确认弹窗 ========== */
+.delete-confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.delete-confirm-modal {
+  background: rgba(32, 32, 32, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 28px 32px;
+  max-width: 360px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  animation: scaleIn 0.2s ease;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.delete-confirm-icon {
+  margin-bottom: 16px;
+  color: #f87171;
+}
+
+.delete-confirm-icon svg {
+  stroke: currentColor;
+}
+
+.delete-confirm-title {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.delete-confirm-message {
+  margin: 0 0 24px 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.delete-confirm-message strong {
+  color: #10a37f;
+  font-weight: 500;
+}
+
+.delete-confirm-warning {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(248, 113, 113, 0.8);
+}
+
+.delete-confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.delete-confirm-btn {
+  flex: 1;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.delete-confirm-btn.cancel {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.delete-confirm-btn.cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.delete-confirm-btn.confirm {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.delete-confirm-btn.confirm:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.delete-confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 日间模式 - 删除确认弹窗 */
+[data-theme="light"] .delete-confirm-overlay {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .delete-confirm-modal {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .delete-confirm-title {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="light"] .delete-confirm-message {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .delete-confirm-message strong {
+  color: #059669;
+}
+
+[data-theme="light"] .delete-confirm-warning {
+  color: rgba(220, 38, 38, 0.8);
+}
+
+[data-theme="light"] .delete-confirm-btn.cancel {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] .delete-confirm-btn.cancel:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .delete-confirm-btn.confirm {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.25);
+  color: #dc2626;
+}
+
+[data-theme="light"] .delete-confirm-btn.confirm:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.15);
+  border-color: rgba(220, 38, 38, 0.4);
+}

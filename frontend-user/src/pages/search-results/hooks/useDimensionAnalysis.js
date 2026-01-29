@@ -24,6 +24,10 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
   const [editingDimension, setEditingDimension] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', description: '' });
   const [isSavingDimension, setIsSavingDimension] = useState(false);
+  
+  // 删除确认弹窗状态
+  const [deleteConfirmDimension, setDeleteConfirmDimension] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // 扣费相关状态
   const [totalDeducted, setTotalDeducted] = useState(0);
@@ -184,35 +188,44 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
     }
   }, [editForm, editingDimension, getDimensionKey, generateDimensionKey, refreshDimensions, handleCloseEditView]);
 
-  // 删除维度
-  const handleDeleteDimension = useCallback(async (dimension) => {
+  // 打开删除确认弹窗
+  const handleDeleteDimension = useCallback((dimension) => {
     if (!dimension || dimension.userId <= 0) {
       return;
     }
+    setDeleteConfirmDimension(dimension);
+  }, []);
 
-    if (!window.confirm(`确定要删除维度「${dimension.name}」吗？`)) {
-      return;
-    }
-
+  // 确认删除维度
+  const confirmDeleteDimension = useCallback(async () => {
+    if (!deleteConfirmDimension) return;
+    
+    setIsDeleting(true);
     try {
-      const response = await analysisDimensionAPI.deleteDimension(dimension.id);
+      const response = await analysisDimensionAPI.deleteDimension(deleteConfirmDimension.id);
       if (response.data.code === 0) {
         setSelectedDimensions(prev =>
-          prev.filter(d => getDimensionKey(d) !== getDimensionKey(dimension))
+          prev.filter(d => getDimensionKey(d) !== getDimensionKey(deleteConfirmDimension))
         );
         await refreshDimensions();
-        if (floatPanelView === 'detail') {
-          setFloatPanelView('list');
-          setViewingDimension(null);
-        }
+        // 删除成功后返回列表视图
+        setFloatPanelView('list');
+        setViewingDimension(null);
+        setDeleteConfirmDimension(null);
       } else {
-        alert(response.data.message || '删除失败');
+        console.error('删除维度失败:', response.data.message);
       }
     } catch (error) {
       console.error('删除维度失败:', error);
-      alert('删除失败，请稍后重试');
+    } finally {
+      setIsDeleting(false);
     }
-  }, [getDimensionKey, refreshDimensions, floatPanelView]);
+  }, [deleteConfirmDimension, getDimensionKey, refreshDimensions]);
+
+  // 取消删除
+  const cancelDeleteDimension = useCallback(() => {
+    setDeleteConfirmDimension(null);
+  }, []);
 
   // 为论文分析所有维度
   const analyzePaper = useCallback(async (paper) => {
@@ -389,6 +402,12 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
     analyzePaper,
     analyzeWithConcurrency,
     handleCloseBalanceModal,
+    
+    // 删除确认相关
+    deleteConfirmDimension,
+    isDeleting,
+    confirmDeleteDimension,
+    cancelDeleteDimension,
   };
 };
 
