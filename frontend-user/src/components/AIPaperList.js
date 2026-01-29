@@ -13,6 +13,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import AnalysisCellText from './AnalysisCellText';
 import { useTranslation } from '../hooks/useTranslation';
+import { Languages } from 'lucide-react';
 
 const AIPaperList = ({ 
   papers, 
@@ -186,13 +187,61 @@ const AIPaperList = ({
             <div className="unified-cell-paper">
               <div className="search-result-paper-number">{index + 1}</div>
               <div className="search-result-paper-content">
-                {/* 标题 */}
-                <h3 
-                  className="search-result-paper-title"
-                  onClick={() => onPaperClick && onPaperClick(paper, index)}
-                >
-                  {paper.title}
-                </h3>
+                {/* 标题（含翻译按钮） */}
+                {(() => {
+                  const paperTransState = translation.getPaperTranslationState(paper.paperId);
+                  const paperDisplayMode = translation.getPaperDisplayMode(paper.paperId);
+                  const isPaperTranslating = paperTransState.status === 'translating';
+                  const hasPaperTranslation = paperTransState.status === 'completed';
+                  const isTranslateDisabled = translation.shouldDisablePaperTranslate(
+                    paper.title,
+                    paper.abstract,
+                    paper.tldr?.text
+                  );
+                  const displayTitle = (paperDisplayMode === 'translated' && paperTransState.title_zh)
+                    ? paperTransState.title_zh
+                    : paper.title;
+
+                  return (
+                    <h3 className="search-result-paper-title">
+                      <button
+                        className={`paper-translate-btn ${isPaperTranslating ? 'translating' : ''} ${hasPaperTranslation ? 'has-translation' : ''} ${isTranslateDisabled ? 'disabled' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isTranslateDisabled || isPaperTranslating) return;
+                          if (!isAuthenticated) {
+                            onRequireAuth && onRequireAuth();
+                            return;
+                          }
+                          if (hasPaperTranslation) {
+                            translation.togglePaperDisplayMode(paper.paperId);
+                          } else {
+                            translation.translatePaper(paper.paperId, paper.title, paper.abstract, paper.tldr?.text);
+                          }
+                        }}
+                        disabled={isTranslateDisabled || isPaperTranslating}
+                        title={
+                          isTranslateDisabled ? '内容已是中文' :
+                          isPaperTranslating ? '翻译中...' :
+                          hasPaperTranslation ? (paperDisplayMode === 'translated' ? '显示原文' : '显示译文') :
+                          '翻译为中文'
+                        }
+                      >
+                        {isPaperTranslating ? (
+                          <span className="translate-spinner"></span>
+                        ) : (
+                          <Languages className="translate-icon" size={16} />
+                        )}
+                      </button>
+                      <span
+                        className="paper-title-text"
+                        onClick={() => onPaperClick && onPaperClick(paper, index)}
+                      >
+                        {displayTitle}
+                      </span>
+                    </h3>
+                  );
+                })()}
 
                 {/* 作者列表 */}
                 {paper.authors && paper.authors.length > 0 && (
@@ -202,15 +251,18 @@ const AIPaperList = ({
                         <span key={idx} className="author-tag">{author.name}</span>
                       ))}
                       {paper.authors.length > 4 && (
-                        <span className="author-tag author-more">+{paper.authors.length - 4} authors</span>
+                        <span className="author-tag author-more">+{paper.authors.length - 4}</span>
                       )}
                     </div>
-                    {/* 研究领域 */}
-                    {paper.fieldsOfStudy && paper.fieldsOfStudy.length > 0 && (
-                      <span className="search-result-paper-fields">
-                        {paper.fieldsOfStudy.slice(0, 2).join(', ')}
-                      </span>
-                    )}
+                  </div>
+                )}
+
+                {/* 学科领域 - 单独一行 */}
+                {paper.fieldsOfStudy && paper.fieldsOfStudy.length > 0 && (
+                  <div className="search-result-paper-fields-row">
+                    {paper.fieldsOfStudy.slice(0, 3).map((field, idx) => (
+                      <span key={idx} className="field-tag">{field}</span>
+                    ))}
                   </div>
                 )}
 
@@ -238,17 +290,18 @@ const AIPaperList = ({
                   const currentMode = showAbstractMode[paper.paperId] || (hasTldr ? 'tldr' : 'abstract');
                   const showTldr = currentMode === 'tldr' && hasTldr;
                   const showAbstract = currentMode === 'abstract' && hasAbstract;
-                  const content = showTldr ? paper.tldr.text : (showAbstract ? paper.abstract : '');
+                  const originalContent = showTldr ? paper.tldr.text : (showAbstract ? paper.abstract : '');
                   const isExpanded = showTldr ? expandedTldr[paper.paperId] : expandedAbstract[paper.paperId];
                   
-                  // 翻译相关
-                  const translationKey = `ai_${paper.paperId}_${showTldr ? 'tldr' : 'abstract'}`;
-                  const translationState = translation.getTranslationState(translationKey);
-                  const displayMode = translation.getDisplayMode(translationKey);
-                  const shouldShowTranslate = translation.shouldShowTranslateButton(content);
-                  const isTranslating = translationState.status === 'translating';
-                  const hasTranslation = translationState.status === 'completed' && translationState.text;
-                  const translatedText = translationState.text || '';
+                  // 论文整体翻译状态
+                  const paperTransState = translation.getPaperTranslationState(paper.paperId);
+                  const paperDisplayMode = translation.getPaperDisplayMode(paper.paperId);
+                  const isPaperTranslating = paperTransState.status === 'translating';
+                  
+                  // 根据论文翻译状态显示内容
+                  const displayContent = paperDisplayMode === 'translated'
+                    ? (showTldr ? (paperTransState.tldr_zh || originalContent) : (paperTransState.abstract_zh || originalContent))
+                    : originalContent;
                   
                   return (
                     <div className="paper-summary-section">
@@ -272,14 +325,14 @@ const AIPaperList = ({
                         )}
                       </div>
                       <span className="summary-text">
-                        {isExpanded || content.length <= 120
-                          ? content 
-                          : content.substring(0, 100) + '...'
+                        {isExpanded || displayContent.length <= 120
+                          ? displayContent 
+                          : displayContent.substring(0, 100) + '...'
                         }
                       </span>
-                      {/* 展开按钮和翻译按钮 */}
+                      {/* 展开按钮 */}
                       <div className="summary-actions">
-                        {content.length > 120 && (
+                        {displayContent.length > 120 && (
                           <button 
                             className="expand-btn"
                             onClick={(e) => {
@@ -294,54 +347,12 @@ const AIPaperList = ({
                             {isExpanded ? '收起' : '展开'}
                           </button>
                         )}
-                        {/* 翻译按钮 */}
-                        {shouldShowTranslate && (
-                          <button
-                            className={`summary-translate-btn ${isTranslating ? 'translating' : ''} ${hasTranslation ? 'has-translation' : ''}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // 鉴权检查：未登录时弹出登录框
-                              if (!isAuthenticated) {
-                                onRequireAuth && onRequireAuth();
-                                return;
-                              }
-                              if (hasTranslation) {
-                                translation.toggleDisplayMode(translationKey);
-                              } else if (!isTranslating) {
-                                translation.translate(translationKey, content);
-                              }
-                            }}
-                            disabled={isTranslating}
-                            title={isTranslating ? '翻译中...' : (hasTranslation ? (displayMode === 'translated' ? '显示原文' : '显示译文') : '翻译为中文')}
-                          >
-                            {isTranslating ? (
-                              <>
-                                <span className="translate-spinner"></span>
-                                翻译中
-                              </>
-                            ) : hasTranslation ? (
-                              displayMode === 'translated' ? '原文' : '译文'
-                            ) : (
-                              '翻译'
-                            )}
-                          </button>
-                        )}
                       </div>
-                      {/* 翻译结果 - 样式与原文一致 */}
-                      {hasTranslation && displayMode === 'translated' && (
-                        <div className="summary-translation">
-                          <span className="summary-label translation-label">译文</span>
-                          <span className="summary-text">{translatedText}</span>
-                        </div>
-                      )}
-                      {/* 翻译中的流式显示 */}
-                      {isTranslating && (
-                        <div className="summary-translation translating">
-                          <span className="summary-label translation-label">译文</span>
-                          <span className="summary-text">
-                            {translatedText}
-                            <span className="translate-cursor">|</span>
-                          </span>
+                      {/* 翻译中的流式显示提示 */}
+                      {isPaperTranslating && (
+                        <div className="paper-translating-hint">
+                          <span className="translate-cursor">|</span>
+                          <span>正在翻译...</span>
                         </div>
                       )}
                     </div>

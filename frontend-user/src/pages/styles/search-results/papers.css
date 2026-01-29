@@ -2017,40 +2017,48 @@ a.meta-item.pdf-link:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   padding: 0;
-  margin-right: 6px;
+  margin-right: 8px;
   border: none;
-  border-radius: 4px;
-  background: transparent;
+  border-radius: 5px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
   color: #3b82f6;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   vertical-align: middle;
   position: relative;
   top: -1px;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.1);
 }
 
 .paper-translate-btn:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.12);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(139, 92, 246, 0.25) 100%);
   color: #2563eb;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
+  transform: scale(1.05);
 }
 
 .paper-translate-btn:active:not(:disabled) {
-  background: rgba(59, 130, 246, 0.18);
+  transform: scale(0.98);
+  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.15);
 }
 
 .paper-translate-btn.has-translation {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%);
   color: #10a37f;
+  box-shadow: 0 1px 3px rgba(16, 163, 127, 0.1);
 }
 
 .paper-translate-btn.has-translation:hover:not(:disabled) {
-  background: rgba(16, 163, 127, 0.12);
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.25) 0%, rgba(5, 150, 105, 0.25) 100%);
   color: #059669;
+  box-shadow: 0 2px 6px rgba(16, 163, 127, 0.2);
 }
 
 .paper-translate-btn.translating {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
   color: rgba(59, 130, 246, 0.6);
   pointer-events: none;
 }
@@ -2058,7 +2066,9 @@ a.meta-item.pdf-link:hover {
 .paper-translate-btn.disabled {
   opacity: 0.3;
   cursor: not-allowed;
+  background: rgba(128, 128, 128, 0.08);
   color: rgba(128, 128, 128, 0.5);
+  box-shadow: none;
 }
 
 .paper-translate-btn .translate-icon {
@@ -2115,25 +2125,33 @@ a.meta-item.pdf-link:hover {
 
 /* 日间模式 - 论文翻译按钮 */
 [data-theme="light"] .paper-translate-btn {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(139, 92, 246, 0.12) 100%);
   color: #3b82f6;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.08);
 }
 
 [data-theme="light"] .paper-translate-btn:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.1);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
   color: #2563eb;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.15);
 }
 
 [data-theme="light"] .paper-translate-btn.has-translation {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.12) 0%, rgba(5, 150, 105, 0.12) 100%);
   color: #10a37f;
+  box-shadow: 0 1px 3px rgba(16, 163, 127, 0.08);
 }
 
 [data-theme="light"] .paper-translate-btn.has-translation:hover:not(:disabled) {
-  background: rgba(16, 163, 127, 0.1);
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%);
   color: #059669;
+  box-shadow: 0 2px 6px rgba(16, 163, 127, 0.15);
 }
 
 [data-theme="light"] .paper-translate-btn.disabled {
+  background: rgba(128, 128, 128, 0.06);
   color: rgba(128, 128, 128, 0.4);
+  box-shadow: none;
 }
 
 [data-theme="light"] .paper-translating-hint {
