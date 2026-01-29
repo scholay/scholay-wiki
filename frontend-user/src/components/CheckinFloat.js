@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import { useLocation } from 'react-router-dom';
 import { checkinAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
 import { trackCheckin } from '../utils/usageTracker';
@@ -20,6 +21,7 @@ const AuthModal = lazy(() => import('./AuthModal'));
 
 const CheckinFloat = () => {
   const { isAuthenticated, user } = useAuth();
+  const location = useLocation();
   const [showAuthModal, setShowAuthModal] = useState(false); // 登录弹窗状态
   const [hasCheckedIn, setHasCheckedIn] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -368,6 +370,12 @@ const CheckinFloat = () => {
 
     return () => clearInterval(intervalId);
   }, [isAuthenticated]);
+
+  // 在 paper 详情页（/paper/:paperId）不显示签到悬浮球
+  const isPaperDetailPage = location.pathname.startsWith('/paper/');
+  if (isPaperDetailPage) {
+    return null;
+  }
 
   // 未登录时只显示悬浮球，已登录且已签到时不显示
   if (isAuthenticated && hasCheckedIn && !showModal) {

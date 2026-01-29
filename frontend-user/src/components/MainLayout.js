@@ -106,8 +106,10 @@ const MainLayout = () => {
     return breadcrumbs;
   };
 
-  // 所有页面都显示通用顶部栏
-  const showTopNav = true;
+  // 根据路由决定是否显示通用顶部栏
+  // paper 详情页有自己的 pd-top-header，不需要显示 MainLayout 的 TopNavBar
+  const isPaperDetailPage = location.pathname.startsWith('/paper/');
+  const showTopNav = !isPaperDetailPage;
 
   return (
     <div className="main-layout">
