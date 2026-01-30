@@ -17,19 +17,22 @@ import (
 
 // clientLimiter tracks request counts for a single client
 type clientLimiter struct {
-	count      int
-	lastReset  time.Time
-	windowSize time.Duration
+	count       int
+	lastReset   time.Time
+	windowSize  time.Duration
 	maxRequests int
 }
 
 // RateLimiter manages rate limiting for different clients using sliding window
 type RateLimiter struct {
-	clients     map[string]*clientLimiter
-	mu          sync.RWMutex
-	windowSize  time.Duration
-	maxRequests int
-	stopCleanup chan struct{} // Channel to signal cleanup goroutine to stop
+	clients       map[string]*clientLimiter
+	mu            sync.RWMutex
+	windowSize    time.Duration
+	maxRequests   int
+	maxClients    int           // Maximum number of clients to track (LRU-like eviction)
+	cleanupAge    time.Duration // Age after which inactive clients are removed
+	stopCleanup   chan struct{} // Channel to signal cleanup goroutine to stop
+	cleanupOnce   sync.Once     // Ensure cleanup goroutine is stopped only once
 }
 
 // NewRateLimiter creates a new rate limiter
@@ -40,6 +43,8 @@ func NewRateLimiter(maxRequests int, windowSize time.Duration) *RateLimiter {
 		clients:     make(map[string]*clientLimiter),
 		windowSize:  windowSize,
 		maxRequests: maxRequests,
+		maxClients:  50000,              // Limit to 50k clients to prevent memory issues
+		cleanupAge:  2 * time.Minute,    // Clean up clients inactive for 2 minutes (reduced from 5)
 		stopCleanup: make(chan struct{}),
 	}
 }
@@ -53,6 +58,11 @@ func (rl *RateLimiter) Allow(key string) bool {
 	client, exists := rl.clients[key]
 
 	if !exists {
+		// Check if we're at capacity, evict oldest if necessary
+		if len(rl.clients) >= rl.maxClients {
+			rl.evictOldestLocked()
+		}
+		
 		// First request from this client
 		rl.clients[key] = &clientLimiter{
 			count:       1,
@@ -81,6 +91,25 @@ func (rl *RateLimiter) Allow(key string) bool {
 	return false
 }
 
+// evictOldestLocked removes the oldest client entry (must hold write lock)
+func (rl *RateLimiter) evictOldestLocked() {
+	var oldestKey string
+	var oldestTime time.Time
+	first := true
+
+	for key, client := range rl.clients {
+		if first || client.lastReset.Before(oldestTime) {
+			oldestKey = key
+			oldestTime = client.lastReset
+			first = false
+		}
+	}
+
+	if oldestKey != "" {
+		delete(rl.clients, oldestKey)
+	}
+}
+
 // Cleanup removes old client entries
 func (rl *RateLimiter) Cleanup() {
 	rl.mu.Lock()
@@ -88,15 +117,28 @@ func (rl *RateLimiter) Cleanup() {
 
 	now := time.Now()
 	for key, client := range rl.clients {
-		// Remove clients whose window has expired by more than 5 minutes
-		if now.Sub(client.lastReset) > client.windowSize+5*time.Minute {
+		// Remove clients whose window has expired by more than cleanupAge
+		if now.Sub(client.lastReset) > client.windowSize+rl.cleanupAge {
 			delete(rl.clients, key)
 		}
 	}
 }
 
+// GetClientCount returns the current number of tracked clients (for monitoring)
+func (rl *RateLimiter) GetClientCount() int {
+	rl.mu.RLock()
+	defer rl.mu.RUnlock()
+	return len(rl.clients)
+}
+
 // StartCleanup periodically cleans up old entries
+// Uses 1 minute interval instead of 5 minutes for more aggressive cleanup
 func (rl *RateLimiter) StartCleanup(interval time.Duration) {
+	// Use shorter interval for more aggressive cleanup (minimum 1 minute)
+	if interval > time.Minute {
+		interval = time.Minute
+	}
+	
 	ticker := time.NewTicker(interval)
 	go func() {
 		defer ticker.Stop()
@@ -113,6 +155,11 @@ func (rl *RateLimiter) StartCleanup(interval time.Duration) {
 
 // StartCleanupWithContext periodically cleans up old entries, respecting context cancellation
 func (rl *RateLimiter) StartCleanupWithContext(ctx context.Context, interval time.Duration) {
+	// Use shorter interval for more aggressive cleanup (minimum 1 minute)
+	if interval > time.Minute {
+		interval = time.Minute
+	}
+	
 	ticker := time.NewTicker(interval)
 	go func() {
 		defer ticker.Stop()
@@ -129,9 +176,11 @@ func (rl *RateLimiter) StartCleanupWithContext(ctx context.Context, interval tim
 	}()
 }
 
-// StopCleanup signals the cleanup goroutine to stop
+// StopCleanup signals the cleanup goroutine to stop (safe to call multiple times)
 func (rl *RateLimiter) StopCleanup() {
-	close(rl.stopCleanup)
+	rl.cleanupOnce.Do(func() {
+		close(rl.stopCleanup)
+	})
 }
 
 // RateLimitMiddleware creates a rate limiting middleware

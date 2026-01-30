@@ -178,6 +178,46 @@
   height: auto !important;
 }
 
+/* PDF 页面占位符（内存优化：未渲染页面的占位符） */
+.pdf-page-placeholder {
+  background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 10px auto;
+  position: relative;
+  min-height: 200px;
+}
+
+.pdf-page-placeholder::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top-color: rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+  animation: pdf-placeholder-spin 1s linear infinite;
+}
+
+@keyframes pdf-placeholder-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Dark theme placeholder */
+[data-theme="dark"] .pdf-page-placeholder {
+  background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
+}
+
+[data-theme="dark"] .pdf-page-placeholder::after {
+  border-color: rgba(255, 255, 255, 0.1);
+  border-top-color: rgba(255, 255, 255, 0.3);
+}
+
 /* 加载状态 */
 .pdf-skeleton-overlay {
   position: absolute;
@@ -416,18 +456,20 @@
 }
 
 [data-theme="light"] .pdf-skeleton-page {
-  background: var(--surface-hover);
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 [data-theme="light"] .pdf-skeleton-shimmer {
   background: linear-gradient(110deg,
-    rgba(0, 0, 0, 0.02) 25%,
-    rgba(0, 0, 0, 0.06) 50%,
-    rgba(0, 0, 0, 0.02) 75%);
+    rgba(0, 0, 0, 0.04) 25%,
+    rgba(0, 0, 0, 0.08) 50%,
+    rgba(0, 0, 0, 0.04) 75%);
+  background-size: 200% 100%;
 }
 
 [data-theme="light"] .pdf-skeleton-text {
-  color: var(--text-quaternary);
+  color: rgba(0, 0, 0, 0.45);
 }
 
 [data-theme="light"] .pdf-error {

@@ -7,8 +7,8 @@ const cmapsSource = path.join(pdfjsRoot, 'cmaps');
 const standardFontsSource = path.join(pdfjsRoot, 'standard_fonts');
 
 const publicDir = path.join(__dirname, '..', 'public');
-const workerTarget = path.join(publicDir, 'pdf.worker.min.mjs');
 const pdfAssetsDir = path.join(publicDir, 'pdfjs');
+const workerTarget = path.join(pdfAssetsDir, 'pdf.worker.min.mjs'); // 放到 pdfjs 目录下
 const cmapsTarget = path.join(pdfAssetsDir, 'cmaps');
 const standardFontsTarget = path.join(pdfAssetsDir, 'standard_fonts');
 

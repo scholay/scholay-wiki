@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -28,6 +29,35 @@ const (
 	KeepAlive          = 30 * time.Second  // Keep-alive probe interval
 	DefaultLimit       = 100               // API max limit per request
 )
+
+var (
+	// Shared transport for all Semantic Scholar clients
+	// This ensures connection pooling is reused across all client instances
+	sharedTransport     *http.Transport
+	sharedTransportOnce sync.Once
+)
+
+// getSharedTransport returns the shared HTTP transport for connection pooling
+func getSharedTransport() *http.Transport {
+	sharedTransportOnce.Do(func() {
+		sharedTransport = &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   DialTimeout,
+				KeepAlive: KeepAlive,
+			}).DialContext,
+			TLSHandshakeTimeout:   TLSHandshakeTimeout,
+			ResponseHeaderTimeout: 30 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			MaxIdleConns:          100,
+			MaxIdleConnsPerHost:   20,  // Increased for better connection reuse
+			IdleConnTimeout:       90 * time.Second,
+			TLSClientConfig: &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			},
+		}
+	})
+	return sharedTransport
+}
 
 // Client represents a Semantic Scholar API client
 type Client struct {
@@ -53,33 +83,17 @@ func NewClient(apiKey string) *Client {
 }
 
 // NewClientWithBaseURL creates a new Semantic Scholar API client with custom base URL
+// All clients share the same underlying HTTP transport for connection pooling
 func NewClientWithBaseURL(apiKey string, baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = BaseURL
-	}
-
-	// Create a custom transport with proper timeout configurations
-	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   DialTimeout,
-			KeepAlive: KeepAlive,
-		}).DialContext,
-		TLSHandshakeTimeout:   TLSHandshakeTimeout,
-		ResponseHeaderTimeout: 30 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		MaxIdleConns:          100,
-		MaxIdleConnsPerHost:   10,
-		IdleConnTimeout:       90 * time.Second,
-		TLSClientConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
-		},
 	}
 
 	return &Client{
 		apiKey: apiKey,
 		httpClient: &http.Client{
 			Timeout:   DefaultTimeout,
-			Transport: transport,
+			Transport: getSharedTransport(), // Use shared transport for connection pooling
 		},
 		baseURL: baseURL,
 		recURL:  RecommendationsURL,

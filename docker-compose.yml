@@ -15,6 +15,7 @@ services:
     volumes:
       - ./data/mysql:/var/lib/mysql
       - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+      - ./docker/mysql/conf.d:/etc/mysql/conf.d:ro
       - ./scripts:/app/scripts:ro
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
@@ -22,6 +23,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
     networks:
       - scholar-network
 
@@ -41,6 +48,12 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 512M
     networks:
       - scholar-network
 
@@ -95,6 +108,8 @@ services:
       SIGNOZ_ENABLE_LOGGING: ${SIGNOZ_ENABLE_LOGGING:-true}
       SIGNOZ_ENABLE_METRICS: ${SIGNOZ_ENABLE_METRICS:-true}
       SIGNOZ_SAMPLING_RATE: ${SIGNOZ_SAMPLING_RATE:-1.0}
+      # Go memory limit (75% of container memory limit)
+      GOMEMLIMIT: 768MiB
     # Backend不暴露端口,通过Nginx访问
     expose:
       - "8080"
@@ -105,6 +120,12 @@ services:
         condition: service_healthy
       schema-sync:
         condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
     networks:
       - scholar-network
 
@@ -121,6 +142,12 @@ services:
       - "80"
     depends_on:
       - backend
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
     networks:
       - scholar-network
 
@@ -137,6 +164,12 @@ services:
       - "80"
     depends_on:
       - backend
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
     networks:
       - scholar-network
 
@@ -154,6 +187,12 @@ services:
       - backend
       - frontend-admin
       - frontend-user
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
     networks:
       - scholar-network
 

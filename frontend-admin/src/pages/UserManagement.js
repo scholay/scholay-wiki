@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { adminAPI } from '../services/api';
 import { showToast } from '../components/Toast';
 import UserStatisticsChart from '../components/UserStatisticsChart';
@@ -16,6 +16,9 @@ import UserDetailDrawer from '../components/UserDetailDrawer';
 import EntcoinIcon from '../components/EntcoinIcon';
 import GoldIcon from '../components/GoldIcon';
 import './UserManagement.css';
+
+// 内存优化配置
+const MAX_ONLINE_USERS_DISPLAY = 500; // 最多显示 500 个在线用户
 
 const UserManagement = () => {
   const [loading, setLoading] = useState(false);
@@ -29,6 +32,9 @@ const UserManagement = () => {
   });
   const [users, setUsers] = useState([]);
   const [onlineUsersList, setOnlineUsersList] = useState([]);
+  
+  // Mounted ref to prevent state updates after unmount
+  const isMountedRef = useRef(true);
   const [pagination, setPagination] = useState({
     page: 1,
     pageSize: 20,
@@ -114,6 +120,9 @@ const UserManagement = () => {
         sortConfig.sortBy,
         sortConfig.sortOrder
       );
+      // Check if component is still mounted before updating state
+      if (!isMountedRef.current) return;
+      
       if (response.data.code === 0 && response.data.data) {
         setUsers(response.data.data.users || []);
         setPagination(prev => ({
@@ -122,11 +131,22 @@ const UserManagement = () => {
         }));
       }
     } catch (err) {
+      if (!isMountedRef.current) return;
       showToast('加载用户列表失败', 'error');
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [pagination.page, pagination.pageSize, sortConfig.sortBy, sortConfig.sortOrder]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     loadUserStatistics();
@@ -138,13 +158,26 @@ const UserManagement = () => {
     setLoading(true);
     try {
       const response = await adminAPI.getOnlineUsers();
+      // Check if component is still mounted
+      if (!isMountedRef.current) return;
+      
       if (response.data.code === 0 && response.data.data) {
-        setOnlineUsersList(response.data.data.online_users || []);
+        // Limit the number of online users to prevent memory issues
+        const onlineUsers = response.data.data.online_users || [];
+        const limitedUsers = onlineUsers.slice(0, MAX_ONLINE_USERS_DISPLAY);
+        setOnlineUsersList(limitedUsers);
+        
+        if (onlineUsers.length > MAX_ONLINE_USERS_DISPLAY) {
+          showToast(`显示前 ${MAX_ONLINE_USERS_DISPLAY} 个在线用户（共 ${onlineUsers.length} 个）`, 'info');
+        }
       }
     } catch (err) {
+      if (!isMountedRef.current) return;
       showToast('加载在线用户失败', 'error');
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 

@@ -16,13 +16,20 @@ import { trackPDFPreview, trackPDFSelectionTranslate, EntryPoint } from '../util
 import { useTranslation, isPrimarilyChinese } from '../hooks/useTranslation';
 import './PDFViewer.css';
 
-// 使用 CDN 版本的 PDF.js worker（与 pdfjs-dist 版本匹配）
-const PDFJS_VERSION = pdfjs.version;
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
-
-// PDF 资源路径（仍使用本地 cmaps 和 fonts）
+// PDF 资源路径
 const publicBase = process.env.PUBLIC_URL || '';
 const pdfAssetsBase = `${publicBase}/pdfjs`;
+
+// 使用 CDN 加载 worker（更可靠）
+const PDFJS_VERSION = pdfjs.version;
+
+// 优先使用 jsDelivr CDN（国内访问更快），unpkg 作为备用
+pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
+
+// 内存优化配置：只渲染可见页面附近的页面
+const PAGES_TO_RENDER_BEFORE = 1;  // 当前页之前渲染的页数（减少以加快首次渲染）
+const PAGES_TO_RENDER_AFTER = 2;   // 当前页之后渲染的页面
+const MAX_RENDERED_PAGES = 6;      // 最大同时渲染的页数（减少以加快渲染）
 
 // PDF 服务配置
 const PDF_API_URL = 'https://pdf.scholay.com/api/v1/pdf';
@@ -38,11 +45,13 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
   const [numPages, setNumPages] = useState(null);
   const [scale, setScale] = useState(1.0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRendering, setIsRendering] = useState(true); // 页面渲染中状态
   const [error, setError] = useState(null);
   const [isUnmounted, setIsUnmounted] = useState(false);
   const [pdfBlob, setPdfBlob] = useState(null); // 存储 PDF Blob 数据（不存储 ArrayBuffer，避免 detached）
   const [isFetchingDoi, setIsFetchingDoi] = useState(false); // DOI API 请求中
   const [useFallback, setUseFallback] = useState(false); // 是否使用备用方案
+  const [enableTextLayer, setEnableTextLayer] = useState(false); // 延迟启用文本层
   const [autoOpenOnError, setAutoOpenOnError] = useState(() => {
     // 从 localStorage 读取用户偏好
     const saved = localStorage.getItem('pdf_auto_open_on_error');
@@ -54,6 +63,7 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
   const [selectedText, setSelectedText] = useState(''); // 选中的文本
   const [selectionPosition, setSelectionPosition] = useState(null); // 选中位置
   const [showTranslatePopup, setShowTranslatePopup] = useState(false); // 翻译弹窗
+  const [currentVisiblePage, setCurrentVisiblePage] = useState(1); // 当前可见页面（用于懒加载优化）
   const contentRef = useRef(null);
   const fullscreenContentRef = useRef(null);
   const hasAutoOpenedRef = useRef(false); // 防止重复打开
@@ -61,6 +71,73 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
   
   // 翻译 Hook
   const translation = useTranslation();
+
+  // 计算需要渲染的页面范围（内存优化：只渲染可见页面附近的页面）
+  const pagesToRender = useMemo(() => {
+    if (!numPages) return [];
+    
+    // 对于小型 PDF（<=10页），渲染所有页面
+    if (numPages <= MAX_RENDERED_PAGES) {
+      return Array.from({ length: numPages }, (_, i) => i + 1);
+    }
+    
+    // 对于大型 PDF，只渲染当前可见页面附近的页面
+    const startPage = Math.max(1, currentVisiblePage - PAGES_TO_RENDER_BEFORE);
+    const endPage = Math.min(numPages, currentVisiblePage + PAGES_TO_RENDER_AFTER);
+    
+    const pages = [];
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }, [numPages, currentVisiblePage]);
+
+  // 监听滚动以更新当前可见页面（用于懒加载）
+  useEffect(() => {
+    const container = isFullscreen ? fullscreenContentRef.current : contentRef.current;
+    if (!container || !numPages || numPages <= MAX_RENDERED_PAGES) return;
+
+    let ticking = false;
+    const handleScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      
+      requestAnimationFrame(() => {
+        const pages = container.querySelectorAll('.pdf-page');
+        if (pages.length === 0) {
+          ticking = false;
+          return;
+        }
+
+        const containerRect = container.getBoundingClientRect();
+        const containerCenter = containerRect.top + containerRect.height / 2;
+
+        let closestPage = 1;
+        let closestDistance = Infinity;
+
+        pages.forEach((page) => {
+          const pageRect = page.getBoundingClientRect();
+          const pageCenter = pageRect.top + pageRect.height / 2;
+          const distance = Math.abs(pageCenter - containerCenter);
+          
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            // 从 data 属性或页面顺序获取页码
+            const pageNumber = parseInt(page.dataset?.pageNumber || '1', 10);
+            if (!isNaN(pageNumber)) {
+              closestPage = pageNumber;
+            }
+          }
+        });
+
+        setCurrentVisiblePage(closestPage);
+        ticking = false;
+      });
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [isFullscreen, numPages]);
 
   // 备用：使用外部预览服务（当 DOI API 不可用时）
   const proxyUrl = useMemo(
@@ -81,11 +158,13 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
     // 重置状态
     setNumPages(null);
     setIsLoading(true);
+    setIsRendering(true);
     setError(null);
     setScale(1.0);
     setIsUnmounted(false);
     setPdfBlob(null);
     setUseFallback(false);
+    setEnableTextLayer(false);
     hasAutoOpenedRef.current = false;
 
     // 记录PDF预览使用统计
@@ -118,6 +197,19 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
           const blob = await response.blob();
           
           if (!controller.signal.aborted) {
+            // 验证 Blob 有效性
+            if (!blob || blob.size === 0) {
+              throw new Error('PDF 数据为空');
+            }
+            
+            // 检查是否为 PDF 类型（允许 application/pdf 或 application/octet-stream）
+            const validTypes = ['application/pdf', 'application/octet-stream', ''];
+            if (!validTypes.includes(blob.type)) {
+              console.warn('PDF Blob 类型:', blob.type, '大小:', blob.size);
+            }
+            
+            console.log('[PDFViewer] PDF 数据获取成功, 大小:', (blob.size / 1024 / 1024).toFixed(2), 'MB');
+            
             // 存储 Blob，后续需要时再转换为 ArrayBuffer
             setPdfBlob(blob);
             setIsFetchingDoi(false);
@@ -168,7 +260,7 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
     localStorage.setItem('pdf_auto_open_on_error', String(newValue));
   };
 
-  // 组件卸载时的清理
+  // 组件卸载时的清理（内存优化：清理 PDF Blob）
   useEffect(() => {
     return () => {
       setIsUnmounted(true);
@@ -176,34 +268,58 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+      // 清理 PDF Blob 以释放内存
+      setPdfBlob(null);
     };
   }, []);
 
   const onDocumentLoadSuccess = ({ numPages }) => {
     if (isUnmounted) return;
+    console.log('[PDFViewer] PDF 解析成功, 总页数:', numPages);
     setNumPages(numPages);
     setIsLoading(false);
     setError(null);
+    // 延迟启用文本层，让页面先快速渲染出来
+    setTimeout(() => {
+      if (!isUnmounted) {
+        setEnableTextLayer(true);
+      }
+    }, 500);
   };
 
-  const onPageRenderSuccess = () => {
+  const onPageRenderSuccess = useCallback(() => {
     if (isUnmounted) return;
+    // 标记渲染完成
+    setIsRendering(false);
     // 当第一页渲染完成后,初始化滚动位置到中心
     if (contentRef.current) {
       setTimeout(() => {
         if (contentRef.current) {
-        const container = contentRef.current;
-        container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
+          const container = contentRef.current;
+          container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
         }
-      }, 100);
+      }, 50);
     }
-  };
+  }, [isUnmounted]);
 
   const onDocumentLoadError = (error) => {
     if (isUnmounted) return;
-    console.error('PDF加载失败:', error);
-    setError('PDF 暂时无法加载，请点击下方按钮在新窗口中查看');
+    console.error('[PDFViewer] PDF 解析失败:', error);
+    console.error('[PDFViewer] 错误详情:', error?.message || error);
+    
+    // 提供更详细的错误信息
+    let errorMessage = 'PDF 暂时无法加载';
+    if (error?.message?.includes('Invalid PDF')) {
+      errorMessage = 'PDF 文件格式无效';
+    } else if (error?.message?.includes('Missing PDF')) {
+      errorMessage = 'PDF 文件损坏或不完整';
+    } else if (error?.message?.includes('password')) {
+      errorMessage = 'PDF 文件需要密码';
+    }
+    
+    setError(`${errorMessage}，请点击下方按钮在新窗口中查看`);
     setIsLoading(false);
+    setIsRendering(false);
     
     // 如果开启了自动打开，且还未自动打开过，则自动在新窗口打开
     if (autoOpenOnError && !hasAutoOpenedRef.current) {
@@ -228,9 +344,12 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
   
   useEffect(() => {
     if (pdfBlob) {
+      console.log('[PDFViewer] 创建 Blob URL, Blob 大小:', pdfBlob.size);
       const url = URL.createObjectURL(pdfBlob);
+      console.log('[PDFViewer] Blob URL 已创建:', url);
       setBlobUrl(url);
       return () => {
+        console.log('[PDFViewer] 清理 Blob URL');
         URL.revokeObjectURL(url);
       };
     } else {
@@ -242,6 +361,7 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
   // 优先使用 DOI API 返回的数据（Blob URL），否则使用代理服务
   const fileConfig = useMemo(() => {
     if (blobUrl) {
+      console.log('[PDFViewer] 使用 Blob URL 加载 PDF');
       // 使用从 DOI API 获取的 Blob URL
       return {
         url: blobUrl,
@@ -249,6 +369,7 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
       };
     }
     if (useFallback) {
+      console.log('[PDFViewer] 使用代理服务加载 PDF');
       // 回退到代理服务
       return {
         url: proxyUrl,
@@ -261,6 +382,19 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
 
   // 是否可以渲染 PDF Document
   const canRenderDocument = !isFetchingDoi && fileConfig !== null;
+  
+  // Debug: 监控渲染条件
+  useEffect(() => {
+    console.log('[PDFViewer] 渲染条件:', {
+      isFetchingDoi,
+      hasFileConfig: fileConfig !== null,
+      canRenderDocument,
+      hasBlobUrl: !!blobUrl,
+      useFallback,
+      isLoading,
+      error
+    });
+  }, [isFetchingDoi, fileConfig, canRenderDocument, blobUrl, useFallback, isLoading, error]);
 
   const handleZoomIn = () => {
     setScale(prev => Math.min(prev + 0.2, 5.0));
@@ -354,23 +488,27 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
     }
   }, []);
 
-  // 处理文本选择
-  const handleTextSelection = useCallback((containerRef) => {
+  // 处理文本选择（使用鼠标位置定位翻译按钮）
+  const handleTextSelection = useCallback((containerRef, mouseX, mouseY) => {
     const selection = window.getSelection();
     const text = selection?.toString()?.trim();
     
     if (text && text.length > 0 && text.length < 2000) {
       // 检查是否为非中文内容
       if (!isPrimarilyChinese(text)) {
-        // 获取选中位置
-        const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-        const containerRect = containerRef?.current?.getBoundingClientRect() || { top: 0, left: 0 };
+        const container = containerRef?.current;
+        const containerRect = container?.getBoundingClientRect() || { top: 0, left: 0 };
         
+        // 获取容器的滚动位置
+        const scrollTop = container?.scrollTop || 0;
+        const scrollLeft = container?.scrollLeft || 0;
+        
+        // 使用鼠标位置定位翻译按钮（在鼠标下方偏移 8px）
+        // 需要加上滚动偏移量，因为 absolute 定位是相对于容器内容区域
         setSelectedText(text);
         setSelectionPosition({
-          top: rect.bottom - containerRect.top + 8,
-          left: rect.left - containerRect.left + rect.width / 2,
+          top: mouseY - containerRect.top + scrollTop + 8,
+          left: mouseX - containerRect.left + scrollLeft,
         });
         setShowTranslatePopup(true);
       } else {
@@ -417,12 +555,15 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
       if (e.target.closest('.pdf-translate-popup')) {
         return;
       }
+      // 保存鼠标位置
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
       // 延迟处理，确保选择完成
       setTimeout(() => {
         if (isFullscreen) {
-          handleTextSelection(fullscreenContentRef);
+          handleTextSelection(fullscreenContentRef, mouseX, mouseY);
         } else {
-          handleTextSelection(contentRef);
+          handleTextSelection(contentRef, mouseX, mouseY);
         }
       }, 10);
     };
@@ -587,8 +728,8 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
       )}
 
       {/* PDF 内容区域 */}
-      <div ref={contentRef} className={`pdf-content ${isLoading ? 'pdf-content--loading' : ''}`}>
-        {isLoading && !error && (
+      <div ref={contentRef} className={`pdf-content ${isLoading || isRendering ? 'pdf-content--loading' : ''}`}>
+        {(isLoading || (isRendering && numPages)) && !error && (
           <div className="pdf-skeleton-overlay" aria-hidden="true">
             <div className="pdf-skeleton">
               {Array.from({ length: Math.min(numPages || 3, 3) }, (_, index) => (
@@ -596,7 +737,11 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
                   <div className="pdf-skeleton-shimmer" />
                 </div>
               ))}
-              <span className="pdf-skeleton-text">正在准备PDF预览…</span>
+              <span className="pdf-skeleton-text">
+                {isFetchingDoi ? '正在获取PDF数据…' : 
+                 isLoading ? '正在解析PDF…' : 
+                 '正在渲染页面…'}
+              </span>
             </div>
           </div>
         )}
@@ -652,20 +797,39 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
             className="pdf-document"
             options={documentOptions}
           >
+              {/* 内存优化：只渲染可见页面附近的页面，使用占位符保持滚动位置 */}
               {Array.from({ length: numPages || 0 }, (_, index) => index + 1)
-                .map(pageNumber => (
-                  <Page
-                    key={`page_${pageNumber}`}
-                    pageNumber={pageNumber}
-                    scale={scale}
-                    renderTextLayer={true}
-                    renderAnnotationLayer={true}
-                    className="pdf-page"
-                    loading=""
-                    error=""
-                    onRenderSuccess={pageNumber === 1 ? onPageRenderSuccess : undefined}
-                  />
-                ))}
+                .map(pageNumber => {
+                  const shouldRender = pagesToRender.includes(pageNumber);
+                  if (!shouldRender) {
+                    // 渲染占位符以保持滚动高度
+                    return (
+                      <div
+                        key={`placeholder_${pageNumber}`}
+                        className="pdf-page-placeholder"
+                        style={{ 
+                          height: `${Math.round(800 * scale)}px`,
+                          width: `${Math.round(600 * scale)}px`,
+                        }}
+                        data-page-number={pageNumber}
+                      />
+                    );
+                  }
+                  return (
+                    <Page
+                      key={`page_${pageNumber}`}
+                      pageNumber={pageNumber}
+                      scale={scale}
+                      renderTextLayer={enableTextLayer}
+                      renderAnnotationLayer={enableTextLayer}
+                      className="pdf-page"
+                      loading=""
+                      error=""
+                      onRenderSuccess={pageNumber === 1 ? onPageRenderSuccess : undefined}
+                      data-page-number={pageNumber}
+                    />
+                  );
+                })}
           </Document>
         )}
 
@@ -846,8 +1010,8 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
                       key={`fullscreen_page_${pageNumber}`}
                       pageNumber={pageNumber}
                       scale={fullscreenScale}
-                      renderTextLayer={true}
-                      renderAnnotationLayer={true}
+                      renderTextLayer={enableTextLayer}
+                      renderAnnotationLayer={enableTextLayer}
                       className="pdf-page"
                       loading=""
                       error=""

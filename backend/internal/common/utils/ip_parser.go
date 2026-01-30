@@ -8,6 +8,7 @@
 package utils
 
 import (
+	"container/list"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -46,10 +47,150 @@ type IPAPIResponse struct {
 	Zip         string  `json:"zip"`
 }
 
+// ipCacheEntry represents a cached IP location with TTL
+type ipCacheEntry struct {
+	ip        string
+	location  *IPLocation
+	expiresAt time.Time
+}
+
+// ipLRUCache is an LRU cache with TTL for IP locations
+type ipLRUCache struct {
+	maxSize   int
+	ttl       time.Duration
+	cache     map[string]*list.Element
+	lruList   *list.List
+	mu        sync.RWMutex
+}
+
+// newIPLRUCache creates a new LRU cache with TTL
+func newIPLRUCache(maxSize int, ttl time.Duration) *ipLRUCache {
+	c := &ipLRUCache{
+		maxSize: maxSize,
+		ttl:     ttl,
+		cache:   make(map[string]*list.Element),
+		lruList: list.New(),
+	}
+	// Start background cleanup goroutine
+	go c.cleanupLoop()
+	return c
+}
+
+// Get retrieves a value from the cache
+func (c *ipLRUCache) Get(ip string) (*IPLocation, bool) {
+	c.mu.RLock()
+	elem, ok := c.cache[ip]
+	if !ok {
+		c.mu.RUnlock()
+		return nil, false
+	}
+	entry := elem.Value.(*ipCacheEntry)
+	// Check TTL
+	if time.Now().After(entry.expiresAt) {
+		c.mu.RUnlock()
+		// Entry expired, remove it
+		c.mu.Lock()
+		c.removeElement(elem)
+		c.mu.Unlock()
+		return nil, false
+	}
+	c.mu.RUnlock()
+	
+	// Move to front (most recently used)
+	c.mu.Lock()
+	c.lruList.MoveToFront(elem)
+	c.mu.Unlock()
+	
+	return entry.location, true
+}
+
+// Set adds a value to the cache
+func (c *ipLRUCache) Set(ip string, location *IPLocation) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	// Check if already exists
+	if elem, ok := c.cache[ip]; ok {
+		c.lruList.MoveToFront(elem)
+		entry := elem.Value.(*ipCacheEntry)
+		entry.location = location
+		entry.expiresAt = time.Now().Add(c.ttl)
+		return
+	}
+	
+	// Evict oldest if at capacity
+	if c.lruList.Len() >= c.maxSize {
+		c.evictOldest()
+	}
+	
+	// Add new entry
+	entry := &ipCacheEntry{
+		ip:        ip,
+		location:  location,
+		expiresAt: time.Now().Add(c.ttl),
+	}
+	elem := c.lruList.PushFront(entry)
+	c.cache[ip] = elem
+}
+
+// removeElement removes an element from the cache (must hold write lock)
+func (c *ipLRUCache) removeElement(elem *list.Element) {
+	c.lruList.Remove(elem)
+	entry := elem.Value.(*ipCacheEntry)
+	delete(c.cache, entry.ip)
+}
+
+// evictOldest removes the oldest element (must hold write lock)
+func (c *ipLRUCache) evictOldest() {
+	elem := c.lruList.Back()
+	if elem != nil {
+		c.removeElement(elem)
+	}
+}
+
+// cleanupLoop periodically removes expired entries
+func (c *ipLRUCache) cleanupLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		c.cleanupExpired()
+	}
+}
+
+// cleanupExpired removes all expired entries
+func (c *ipLRUCache) cleanupExpired() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	now := time.Now()
+	var next *list.Element
+	for elem := c.lruList.Back(); elem != nil; elem = next {
+		next = elem.Prev()
+		entry := elem.Value.(*ipCacheEntry)
+		if now.After(entry.expiresAt) {
+			c.removeElement(elem)
+		}
+	}
+}
+
+// Size returns the current cache size
+func (c *ipLRUCache) Size() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.lruList.Len()
+}
+
+// Clear clears the cache
+func (c *ipLRUCache) Clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.cache = make(map[string]*list.Element)
+	c.lruList = list.New()
+}
+
 var (
-	// IP 解析缓存
-	ipAPICache     = make(map[string]*IPLocation)
-	ipAPICacheLock sync.RWMutex
+	// IP 解析缓存 - 使用 LRU 缓存，最多 10000 条记录，TTL 1 小时
+	ipAPICache = newIPLRUCache(10000, time.Hour)
 	
 	// HTTP 客户端
 	httpClient = &http.Client{
@@ -120,22 +261,17 @@ func ParseIPLocation(ip string) *IPLocation {
 		}
 	}
 
-	// Check cache first
-	ipAPICacheLock.RLock()
-	if cached, ok := ipAPICache[ip]; ok {
-		ipAPICacheLock.RUnlock()
+	// Check LRU cache first (with TTL)
+	if cached, ok := ipAPICache.Get(ip); ok {
 		return cached
 	}
-	ipAPICacheLock.RUnlock()
 
 	// Query API
 	location := queryIPAPI(ip)
 	
-	// Cache the result
+	// Cache the result in LRU cache (with TTL)
 	if location != nil && location.Country != "未知" {
-		ipAPICacheLock.Lock()
-		ipAPICache[ip] = location
-		ipAPICacheLock.Unlock()
+		ipAPICache.Set(ip, location)
 	}
 
 	return location
@@ -441,16 +577,12 @@ func GetSimpleLocationString(location *IPLocation) string {
 	return strings.Join(parts, " ")
 }
 
-// ClearCache clears the IP location cache
+// ClearIPLocationCache clears the IP location cache
 func ClearIPLocationCache() {
-	ipAPICacheLock.Lock()
-	defer ipAPICacheLock.Unlock()
-	ipAPICache = make(map[string]*IPLocation)
+	ipAPICache.Clear()
 }
 
-// GetCacheSize returns the current cache size
+// GetIPLocationCacheSize returns the current cache size
 func GetIPLocationCacheSize() int {
-	ipAPICacheLock.RLock()
-	defer ipAPICacheLock.RUnlock()
-	return len(ipAPICache)
+	return ipAPICache.Size()
 }
