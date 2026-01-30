@@ -86,7 +86,7 @@ pull_images() {
 restart_services() {
     echo ""
     echo -e "${YELLOW}=== 重启服务 ===${NC}"
-    docker-compose -f ${COMPOSE_FILE} up -d
+    docker compose -f ${COMPOSE_FILE} up -d
     echo -e "${GREEN}✓ 服务重启完成${NC}"
 }
 
@@ -102,7 +102,7 @@ cleanup_images() {
 show_status() {
     echo ""
     echo -e "${YELLOW}=== 服务状态 ===${NC}"
-    docker-compose -f ${COMPOSE_FILE} ps
+    docker compose -f ${COMPOSE_FILE} ps
     
     echo ""
     echo -e "${YELLOW}=== 镜像信息 ===${NC}"
@@ -149,4 +149,4 @@ echo ""
 echo "查看日志:"
 echo "  docker logs -f scholar_backend"
 echo "  docker logs -f scholar_frontend_user"
-echo "  docker-compose -f ${COMPOSE_FILE} logs -f"
+echo "  docker compose -f ${COMPOSE_FILE} logs -f"
