@@ -272,9 +272,16 @@ func (r *Repository) ListDeductConfigs() ([]DeductConfig, error) {
 	return configs, err
 }
 
-// SaveDeductConfig 保存扣费配置
+// SaveDeductConfig 保存扣费配置（支持 upsert）
 func (r *Repository) SaveDeductConfig(config *DeductConfig) error {
-	return r.db.Save(config).Error
+	// 使用 OnConflict 实现 upsert：如果 biz_type 已存在则更新，否则插入
+	return r.db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "biz_type"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"currency_type", "amount", "display_name", "display_remark",
+			"description", "enabled", "updated_at",
+		}),
+	}).Create(config).Error
 }
 
 // ========== 货币配置操作 ==========
