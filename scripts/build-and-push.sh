@@ -157,7 +157,7 @@ build_backend() {
     echo -e "${GREEN}✓ backend 完成${NC}"
 }
 
-# 构建 Frontend (使用普通 docker build，因为只是静态文件 + nginx)
+# 构建 Frontend (需要指定平台为 linux/amd64)
 build_frontend() {
     local service=$1
     local image=$2
@@ -165,12 +165,14 @@ build_frontend() {
     local context=$4
 
     echo ""
-    echo -e "${YELLOW}=== 构建 ${service} ===${NC}"
+    echo -e "${YELLOW}=== 构建 ${service} (${TARGET_PLATFORM}) ===${NC}"
     echo "版本镜像: ${image}"
     echo "Latest:   ${latest}"
     
-    # 使用普通 docker build（前端是静态文件，不需要跨平台编译）
+    # 使用 docker build 指定平台
+    # 注意：需要确保 Docker Desktop 开启了 "Use Rosetta for x86/amd64 emulation"
     docker build \
+        --platform ${TARGET_PLATFORM} \
         -t ${image} \
         --build-arg REACT_APP_API_URL= \
         ${context}
