@@ -18,7 +18,7 @@ REGISTRY="crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com"
 NAMESPACE="scholay"
 ALIYUN_USERNAME="aliyun6925902158"
 VERSION_FILE="VERSION"
-# 目标平台 (服务器架构)
+# 目标平台 (服务器架构) - 仅用于 backend
 TARGET_PLATFORM="linux/amd64"
 # ================================================
 
@@ -35,21 +35,20 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
-# 检查并设置 buildx
+# 检查并设置 buildx (仅用于 backend)
 setup_buildx() {
-    # 检查 buildx 是否可用
     if ! docker buildx version &> /dev/null; then
         echo -e "${RED}错误: docker buildx 不可用，请更新 Docker${NC}"
         exit 1
     fi
     
-    # 检查是否有可用的 builder
-    if ! docker buildx inspect mybuilder &> /dev/null; then
-        echo -e "${YELLOW}创建 buildx builder...${NC}"
-        docker buildx create --name mybuilder --use
-        docker buildx inspect --bootstrap
+    if docker buildx inspect scholar-builder &> /dev/null; then
+        docker buildx use scholar-builder
     else
-        docker buildx use mybuilder
+        echo -e "${YELLOW}创建 buildx builder...${NC}"
+        docker buildx rm mybuilder 2>/dev/null || true
+        docker buildx create --name scholar-builder --driver docker-container --use
+        docker buildx inspect --bootstrap
     fi
 }
 
@@ -66,32 +65,20 @@ get_current_version() {
 increment_version() {
     local version=$1
     local type=$2
-    
-    # 解析版本号 (移除 v 前缀如果有)
     version=${version#v}
     
     local major=$(echo "$version" | cut -d. -f1)
     local minor=$(echo "$version" | cut -d. -f2)
     local patch=$(echo "$version" | cut -d. -f3)
     
-    # 默认值
     major=${major:-0}
     minor=${minor:-0}
     patch=${patch:-0}
     
     case $type in
-        "major")
-            major=$((major + 1))
-            minor=0
-            patch=0
-            ;;
-        "minor")
-            minor=$((minor + 1))
-            patch=0
-            ;;
-        "patch"|*)
-            patch=$((patch + 1))
-            ;;
+        "major") major=$((major + 1)); minor=0; patch=0 ;;
+        "minor") minor=$((minor + 1)); patch=0 ;;
+        "patch"|*) patch=$((patch + 1)) ;;
     esac
     
     echo "${major}.${minor}.${patch}"
@@ -108,10 +95,8 @@ BUILD_TARGET=${2:-"all"}
 
 # 判断是自动递增还是指定版本
 if [[ "$VERSION_ARG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    # 用户指定了具体版本号
     NEW_VERSION=${VERSION_ARG#v}
 else
-    # 自动递增版本
     CURRENT_VERSION=$(get_current_version)
     NEW_VERSION=$(increment_version "$CURRENT_VERSION" "$VERSION_ARG")
 fi
@@ -132,7 +117,6 @@ echo ""
 echo -e "当前版本: ${CYAN}$(get_current_version)${NC}"
 echo -e "新版本:   ${YELLOW}${NEW_VERSION}${NC}"
 echo -e "构建目标: ${YELLOW}${BUILD_TARGET}${NC}"
-echo -e "目标平台: ${YELLOW}${TARGET_PLATFORM}${NC}"
 echo -e "仓库:     ${CYAN}${REGISTRY}/${NAMESPACE}${NC}"
 echo ""
 
@@ -144,46 +128,60 @@ if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# 设置 buildx
-echo ""
-echo -e "${YELLOW}=== 设置 Docker Buildx ===${NC}"
-setup_buildx
-
 # 登录阿里云 ACR
 echo ""
 echo -e "${YELLOW}=== 登录阿里云 ACR ===${NC}"
 docker login --username=${ALIYUN_USERNAME} ${REGISTRY}
 
-# 构建函数 - 使用 buildx 构建并推送
-build_and_push() {
+# 构建 Backend (使用 buildx 跨平台构建)
+build_backend() {
+    local image=$1
+    local latest=$2
+
+    echo ""
+    echo -e "${YELLOW}=== 构建 backend (${TARGET_PLATFORM}) ===${NC}"
+    echo "版本镜像: ${image}"
+    echo "Latest:   ${latest}"
+    
+    # 设置 buildx
+    setup_buildx
+    
+    # 使用 buildx 构建 linux/amd64 并推送
+    docker buildx build \
+        --platform ${TARGET_PLATFORM} \
+        -t ${image} \
+        -t ${latest} \
+        --push \
+        ./backend
+
+    echo -e "${GREEN}✓ backend 完成${NC}"
+}
+
+# 构建 Frontend (使用普通 docker build，因为只是静态文件 + nginx)
+build_frontend() {
     local service=$1
     local image=$2
     local latest=$3
     local context=$4
-    local build_args=$5
 
     echo ""
-    echo -e "${YELLOW}=== 构建 ${service} (${TARGET_PLATFORM}) ===${NC}"
+    echo -e "${YELLOW}=== 构建 ${service} ===${NC}"
     echo "版本镜像: ${image}"
     echo "Latest:   ${latest}"
     
-    # 使用 buildx 构建多平台镜像并直接推送
-    if [ -n "$build_args" ]; then
-        docker buildx build \
-            --platform ${TARGET_PLATFORM} \
-            -t ${image} \
-            -t ${latest} \
-            ${build_args} \
-            --push \
-            ${context}
-    else
-        docker buildx build \
-            --platform ${TARGET_PLATFORM} \
-            -t ${image} \
-            -t ${latest} \
-            --push \
-            ${context}
-    fi
+    # 使用普通 docker build（前端是静态文件，不需要跨平台编译）
+    docker build \
+        -t ${image} \
+        --build-arg REACT_APP_API_URL= \
+        ${context}
+    
+    # 打 latest 标签
+    docker tag ${image} ${latest}
+    
+    # 推送
+    echo -e "${YELLOW}推送镜像...${NC}"
+    docker push ${image}
+    docker push ${latest}
 
     echo -e "${GREEN}✓ ${service} 完成${NC}"
 }
@@ -191,18 +189,18 @@ build_and_push() {
 # 根据目标构建
 case ${BUILD_TARGET} in
     "backend")
-        build_and_push "backend" "${BACKEND_IMAGE}" "${BACKEND_LATEST}" "./backend"
+        build_backend "${BACKEND_IMAGE}" "${BACKEND_LATEST}"
         ;;
     "frontend-user")
-        build_and_push "frontend-user" "${FRONTEND_USER_IMAGE}" "${FRONTEND_USER_LATEST}" "./frontend-user" "--build-arg REACT_APP_API_URL="
+        build_frontend "frontend-user" "${FRONTEND_USER_IMAGE}" "${FRONTEND_USER_LATEST}" "./frontend-user"
         ;;
     "frontend-admin")
-        build_and_push "frontend-admin" "${FRONTEND_ADMIN_IMAGE}" "${FRONTEND_ADMIN_LATEST}" "./frontend-admin" "--build-arg REACT_APP_API_URL="
+        build_frontend "frontend-admin" "${FRONTEND_ADMIN_IMAGE}" "${FRONTEND_ADMIN_LATEST}" "./frontend-admin"
         ;;
     "all")
-        build_and_push "backend" "${BACKEND_IMAGE}" "${BACKEND_LATEST}" "./backend"
-        build_and_push "frontend-user" "${FRONTEND_USER_IMAGE}" "${FRONTEND_USER_LATEST}" "./frontend-user" "--build-arg REACT_APP_API_URL="
-        build_and_push "frontend-admin" "${FRONTEND_ADMIN_IMAGE}" "${FRONTEND_ADMIN_LATEST}" "./frontend-admin" "--build-arg REACT_APP_API_URL="
+        build_backend "${BACKEND_IMAGE}" "${BACKEND_LATEST}"
+        build_frontend "frontend-user" "${FRONTEND_USER_IMAGE}" "${FRONTEND_USER_LATEST}" "./frontend-user"
+        build_frontend "frontend-admin" "${FRONTEND_ADMIN_IMAGE}" "${FRONTEND_ADMIN_LATEST}" "./frontend-admin"
         ;;
     *)
         echo -e "${RED}错误: 未知的构建目标 '${BUILD_TARGET}'${NC}"
@@ -220,11 +218,10 @@ echo -e "${GREEN}  构建推送完成!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "版本号已更新: ${YELLOW}${NEW_VERSION}${NC}"
-echo -e "目标平台: ${YELLOW}${TARGET_PLATFORM}${NC}"
 echo ""
 echo "已推送的镜像:"
 if [ "${BUILD_TARGET}" = "all" ] || [ "${BUILD_TARGET}" = "backend" ]; then
-    echo "  - ${BACKEND_IMAGE}"
+    echo "  - ${BACKEND_IMAGE} (linux/amd64)"
     echo "  - ${BACKEND_LATEST}"
 fi
 if [ "${BUILD_TARGET}" = "all" ] || [ "${BUILD_TARGET}" = "frontend-user" ]; then
