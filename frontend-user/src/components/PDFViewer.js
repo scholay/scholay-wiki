@@ -32,7 +32,8 @@ const PAGES_TO_RENDER_AFTER = 2;   // 当前页之后渲染的页面
 const MAX_RENDERED_PAGES = 6;      // 最大同时渲染的页数（减少以加快渲染）
 
 // PDF 服务配置
-const PDF_API_URL = 'https://pdf.scholay.com/api/v1/pdf';
+// 使用本地后端接口（通过 Nginx 代理）
+const PDF_API_URL = '/api/v1/pdf';
 const SCIHUB_BASE_URL = 'https://sci-hub.box';
 
 // 生成 Sci-Hub URL
@@ -41,6 +42,11 @@ const getSciHubUrl = (doi) => {
   return `${SCIHUB_BASE_URL}/${doi}`;
 };
 
+// PDFViewer 组件
+// pdfUrl: 开放获取的 PDF URL（可选）
+// paperTitle: 论文标题
+// doi: 论文 DOI（必填，用于后端获取 PDF）
+// isCheckedPdf: 是否为已检测的非开放获取 PDF
 const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false }) => {
   const [numPages, setNumPages] = useState(null);
   const [scale, setScale] = useState(1.0);
@@ -181,18 +187,29 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
 
       const fetchPdfByDoi = async () => {
         try {
+          // 构建请求体，如果有 pdfUrl 则传递给后端作为优先来源
+          const requestBody = { doi };
+          if (pdfUrl) {
+            requestBody.pdf_url = pdfUrl;
+          }
+          
           const response = await fetch(PDF_API_URL, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ doi }),
+            body: JSON.stringify(requestBody),
             signal: controller.signal,
           });
 
           if (!response.ok) {
             throw new Error(`PDF API 返回错误: ${response.status}`);
           }
+
+          // 读取自定义响应头（来源和缓存状态）
+          const pdfSource = response.headers.get('X-PDF-Source');
+          const cacheStatus = response.headers.get('X-Cache');
+          console.log('[PDFViewer] PDF Source:', pdfSource, 'Cache:', cacheStatus);
 
           const blob = await response.blob();
           

@@ -35,6 +35,7 @@ import (
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/order"
 	"scholar-backend/internal/payment"
+	"scholar-backend/internal/pdf"
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/proxy"
 	"scholar-backend/internal/semanticscholar"
@@ -234,6 +235,16 @@ func main() {
 
 	// Initialize Proxy module
 	proxyHandler := proxy.NewHandler()
+
+	// Initialize PDF module
+	// Unpaywall API 需要邮箱，从环境变量读取或使用默认值
+	unpaywallEmail := os.Getenv("UNPAYWALL_EMAIL")
+	if unpaywallEmail == "" {
+		unpaywallEmail = "api@scholay.com" // 默认邮箱
+	}
+	pdfService := pdf.NewService(unpaywallEmail)
+	pdfHandler := pdf.NewHandler(pdfService)
+	log.Printf("PDF service initialized (Unpaywall email: %s)", unpaywallEmail)
 
 	// Initialize Order module
 	orderService := order.NewService(database.GetDB(), subscriptionService)
@@ -720,11 +731,17 @@ func main() {
 			adminProtected.GET("/message-templates/:id", messageHandler.AdminGetTemplate)
 			adminProtected.PUT("/message-templates/:id", messageHandler.AdminUpdateTemplate)
 			adminProtected.DELETE("/message-templates/:id", messageHandler.AdminDeleteTemplate)
+
+			// PDF cache management
+			adminProtected.GET("/pdf/cache/stats", pdfHandler.GetCacheStats)
 		}
 
 		// Payment callback routes (public, no auth required)
 		api.POST("/payment/alipay/notify", alipayHandler.HandleCallback)
 		api.POST("/payment/wechat/notify", wechatPayHandler.HandleNotify)
+
+		// PDF download route (public, no auth required for preview)
+		api.POST("/pdf", pdfHandler.GetPDF)
 
 		// WeChat Official Account webhook (public, no auth required)
 		wechatOfficialWebhook := api.Group("/wechat-official")
