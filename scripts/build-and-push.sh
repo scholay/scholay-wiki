@@ -18,6 +18,8 @@ REGISTRY="crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com"
 NAMESPACE="scholay"
 ALIYUN_USERNAME="aliyun6925902158"
 VERSION_FILE="VERSION"
+# 目标平台 (服务器架构)
+TARGET_PLATFORM="linux/amd64"
 # ================================================
 
 # 颜色输出
@@ -32,6 +34,24 @@ if [ ! -f "docker-compose.yml" ]; then
     echo -e "${RED}错误: 请在项目根目录运行此脚本${NC}"
     exit 1
 fi
+
+# 检查并设置 buildx
+setup_buildx() {
+    # 检查 buildx 是否可用
+    if ! docker buildx version &> /dev/null; then
+        echo -e "${RED}错误: docker buildx 不可用，请更新 Docker${NC}"
+        exit 1
+    fi
+    
+    # 检查是否有可用的 builder
+    if ! docker buildx inspect mybuilder &> /dev/null; then
+        echo -e "${YELLOW}创建 buildx builder...${NC}"
+        docker buildx create --name mybuilder --use
+        docker buildx inspect --bootstrap
+    else
+        docker buildx use mybuilder
+    fi
+}
 
 # 读取当前版本
 get_current_version() {
@@ -112,6 +132,7 @@ echo ""
 echo -e "当前版本: ${CYAN}$(get_current_version)${NC}"
 echo -e "新版本:   ${YELLOW}${NEW_VERSION}${NC}"
 echo -e "构建目标: ${YELLOW}${BUILD_TARGET}${NC}"
+echo -e "目标平台: ${YELLOW}${TARGET_PLATFORM}${NC}"
 echo -e "仓库:     ${CYAN}${REGISTRY}/${NAMESPACE}${NC}"
 echo ""
 
@@ -123,12 +144,17 @@ if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
+# 设置 buildx
+echo ""
+echo -e "${YELLOW}=== 设置 Docker Buildx ===${NC}"
+setup_buildx
+
 # 登录阿里云 ACR
 echo ""
 echo -e "${YELLOW}=== 登录阿里云 ACR ===${NC}"
 docker login --username=${ALIYUN_USERNAME} ${REGISTRY}
 
-# 构建函数
+# 构建函数 - 使用 buildx 构建并推送
 build_and_push() {
     local service=$1
     local image=$2
@@ -137,22 +163,27 @@ build_and_push() {
     local build_args=$5
 
     echo ""
-    echo -e "${YELLOW}=== 构建 ${service} ===${NC}"
+    echo -e "${YELLOW}=== 构建 ${service} (${TARGET_PLATFORM}) ===${NC}"
     echo "版本镜像: ${image}"
     echo "Latest:   ${latest}"
     
+    # 使用 buildx 构建多平台镜像并直接推送
     if [ -n "$build_args" ]; then
-        docker build -t ${image} ${build_args} ${context}
+        docker buildx build \
+            --platform ${TARGET_PLATFORM} \
+            -t ${image} \
+            -t ${latest} \
+            ${build_args} \
+            --push \
+            ${context}
     else
-        docker build -t ${image} ${context}
+        docker buildx build \
+            --platform ${TARGET_PLATFORM} \
+            -t ${image} \
+            -t ${latest} \
+            --push \
+            ${context}
     fi
-
-    # 打 latest 标签
-    docker tag ${image} ${latest}
-
-    echo -e "${YELLOW}=== 推送 ${service} ===${NC}"
-    docker push ${image}
-    docker push ${latest}
 
     echo -e "${GREEN}✓ ${service} 完成${NC}"
 }
@@ -189,6 +220,7 @@ echo -e "${GREEN}  构建推送完成!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "版本号已更新: ${YELLOW}${NEW_VERSION}${NC}"
+echo -e "目标平台: ${YELLOW}${TARGET_PLATFORM}${NC}"
 echo ""
 echo "已推送的镜像:"
 if [ "${BUILD_TARGET}" = "all" ] || [ "${BUILD_TARGET}" = "backend" ]; then
@@ -205,4 +237,3 @@ if [ "${BUILD_TARGET}" = "all" ] || [ "${BUILD_TARGET}" = "frontend-admin" ]; th
 fi
 echo ""
 echo "服务器部署: ./scripts/deploy.sh"
-echo "查看版本历史: git log --oneline VERSION"
