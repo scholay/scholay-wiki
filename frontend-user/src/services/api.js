@@ -459,6 +459,12 @@ export const analysisDimensionAPI = {
   analyzePaper: (paperId, title, abstract) =>
     api.post('/analysis/paper', { paperId, title, abstract }),
 
+  // 批量分析论文摘要（最多10篇）
+  // papers: [{ paperId, title, abstract }, ...]
+  // 返回: { results: [...], total_deducted: number }
+  batchAnalyzePapers: (papers) =>
+    api.post('/analysis/papers/batch', { papers }),
+
   // 获取用户的分析维度（合并：系统默认 + 用户自定义覆盖）
   getDimensions: () =>
     api.get('/analysis/dimensions'),

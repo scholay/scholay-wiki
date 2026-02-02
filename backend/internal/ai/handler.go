@@ -8,20 +8,29 @@
 package ai
 
 import (
+	"context"
+	"fmt"
 	"scholar-backend/internal/common/utils"
+	"scholar-backend/internal/currency"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	service *Service
+	service         *Service
+	currencyService *currency.Service
 }
 
 func NewHandler(service *Service) *Handler {
 	return &Handler{
 		service: service,
 	}
+}
+
+// SetCurrencyService 注入货币服务（用于批量分析扣费）
+func (h *Handler) SetCurrencyService(currencyService *currency.Service) {
+	h.currencyService = currencyService
 }
 
 // ListPromptTemplates lists all prompt templates
@@ -163,6 +172,204 @@ type AnalyzePaperResponse struct {
 	Data           map[string]string `json:"data"`
 	Dimensions     []DimensionInfo   `json:"dimensions"`
 	DeductedAmount int64             `json:"deducted_amount"` // 实际扣费金额，0表示未扣费（缓存命中或无需扣费）
+}
+
+// ============ 批量分析相关结构 ============
+
+// BatchAnalyzePapersRequest 批量分析论文请求
+type BatchAnalyzePapersRequest struct {
+	Papers []PaperInput `json:"papers" binding:"required,min=1,max=10"`
+}
+
+// PaperInput 单篇论文输入
+type PaperInput struct {
+	PaperID  string `json:"paperId" binding:"required"`
+	Title    string `json:"title"`
+	Abstract string `json:"abstract" binding:"required,max=5000"`
+}
+
+// BatchAnalyzePapersResponse 批量分析论文响应
+type BatchAnalyzePapersResponse struct {
+	Results       []PaperAnalysisItem `json:"results"`
+	TotalDeducted int64               `json:"total_deducted"` // 总扣费金额
+}
+
+// PaperAnalysisItem 单篇论文分析结果
+type PaperAnalysisItem struct {
+	PaperID        string            `json:"paperId"`
+	Success        bool              `json:"success"`
+	Data           map[string]string `json:"data,omitempty"`
+	Dimensions     []DimensionInfo   `json:"dimensions,omitempty"`
+	DeductedAmount int64             `json:"deducted_amount"` // 该篇论文的扣费金额
+	FromCache      bool              `json:"from_cache"`      // 是否来自缓存
+	Error          string            `json:"error,omitempty"`
+}
+
+// BatchAnalyzePapers 批量分析论文摘要
+// POST /api/v1/analysis/papers/batch
+// 批量分析多篇论文，支持1-10篇
+// 扣费逻辑：每篇论文独立扣费去重（bizID = paperId + dimensionHash）
+// 缓存命中的论文不扣费
+// 响应中包含每篇论文的扣费金额和总扣费金额
+func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
+	var req BatchAnalyzePapersRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Error(c, 400, "Invalid request: "+err.Error())
+		return
+	}
+
+	// 获取用户ID
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.Error(c, 401, "User not authenticated")
+		return
+	}
+	uid := userID.(uint)
+
+	// 检查currencyService是否注入
+	if h.currencyService == nil {
+		utils.Error(c, 500, "Currency service not initialized")
+		return
+	}
+
+	// 1. 获取扣费配置
+	bizType := "paper_analysis"
+	config, err := h.currencyService.GetDeductConfig(bizType)
+	if err != nil {
+		utils.Error(c, 500, "Failed to get deduct config: "+err.Error())
+		return
+	}
+
+	// 如果没有配置或金额为0，跳过扣费
+	deductAmount := int64(0)
+	needDeduct := config != nil && config.Amount > 0
+	if needDeduct {
+		deductAmount = config.Amount
+	}
+
+	// 2. 获取用户的分析维度（所有论文使用相同的维度配置）
+	var userIDPtr *uint = &uid
+	dimensionResult, err := h.service.GetAnalysisDimensions(userIDPtr)
+	if err != nil {
+		utils.Error(c, 500, "Failed to get dimensions: "+err.Error())
+		return
+	}
+	dimensions := dimensionResult.Dimensions
+	if len(dimensions) == 0 {
+		utils.Error(c, 500, "No active analysis dimensions found")
+		return
+	}
+	dimensionHash := h.service.generateDimensionHash(dimensions)
+
+	// 3. 预检查：计算需要扣费的论文数量（排除已扣费和缓存命中的）
+	needDeductCount := 0
+	paperNeedDeduct := make(map[string]bool) // paperId -> 是否需要扣费
+
+	for _, paper := range req.Papers {
+		bizID := paper.PaperID + "_" + dimensionHash
+
+		// 检查是否已经扣过费
+		alreadyDeducted, _ := h.currencyService.HasDeducted(uid, bizType, bizID)
+		if alreadyDeducted {
+			paperNeedDeduct[paper.PaperID] = false
+			continue
+		}
+
+		// 检查缓存
+		fromCache := h.service.checkPaperAnalysisCache(paper.PaperID, dimensionHash)
+		if fromCache {
+			paperNeedDeduct[paper.PaperID] = false
+			continue
+		}
+
+		// 需要扣费
+		paperNeedDeduct[paper.PaperID] = true
+		needDeductCount++
+	}
+
+	// 4. 检查余额是否足够
+	if needDeduct && needDeductCount > 0 {
+		totalRequired := deductAmount * int64(needDeductCount)
+		checkResult, err := h.currencyService.CheckBalance(uid, config.CurrencyType, totalRequired)
+		if err != nil {
+			utils.Error(c, 500, "Failed to check balance: "+err.Error())
+			return
+		}
+		if !checkResult.Sufficient {
+			c.JSON(402, gin.H{
+				"code":    4020,
+				"message": "余额不足",
+				"data": gin.H{
+					"currency_type":   config.CurrencyType,
+					"balance":         checkResult.Balance,
+					"required":        checkResult.Required,
+					"shortage":        checkResult.Shortage,
+					"papers_count":    len(req.Papers),
+					"need_deduct_count": needDeductCount,
+				},
+			})
+			return
+		}
+	}
+
+	// 5. 批量分析论文
+	results := make([]PaperAnalysisItem, 0, len(req.Papers))
+	var totalDeducted int64 = 0
+	ctx := context.Background()
+
+	for _, paper := range req.Papers {
+		item := PaperAnalysisItem{
+			PaperID:        paper.PaperID,
+			DeductedAmount: 0,
+			FromCache:      false,
+		}
+
+		// 分析论文
+		result, analysisCtx, err := h.service.AnalyzePaperAbstract(paper.PaperID, paper.Title, paper.Abstract, userIDPtr)
+		if err != nil {
+			item.Success = false
+			item.Error = err.Error()
+			results = append(results, item)
+			continue
+		}
+
+		item.Success = true
+		item.Data = result.Data
+		item.Dimensions = result.Dimensions
+		item.FromCache = analysisCtx.FromCache
+
+		// 扣费逻辑
+		if needDeduct && paperNeedDeduct[paper.PaperID] && !analysisCtx.FromCache {
+			bizID := paper.PaperID + "_" + analysisCtx.DimensionHash
+
+			// 再次检查是否已扣费（防止并发）
+			alreadyDeducted, _ := h.currencyService.HasDeducted(uid, bizType, bizID)
+			if !alreadyDeducted {
+				// 执行扣费
+				_, err := h.currencyService.Deduct(ctx, uid, &currency.DeductRequest{
+					CurrencyType: config.CurrencyType,
+					Amount:       config.Amount,
+					BizType:      bizType,
+					BizID:        bizID,
+					Description:  config.Description,
+				})
+				if err != nil {
+					fmt.Printf("[BatchAnalyze] Deduct failed for paper %s: %v\n", paper.PaperID, err)
+				} else {
+					item.DeductedAmount = config.Amount
+					totalDeducted += config.Amount
+					fmt.Printf("[BatchAnalyze] Deducted %d for paper %s (bizID: %s)\n", config.Amount, paper.PaperID, bizID)
+				}
+			}
+		}
+
+		results = append(results, item)
+	}
+
+	utils.Success(c, BatchAnalyzePapersResponse{
+		Results:       results,
+		TotalDeducted: totalDeducted,
+	})
 }
 
 // AnalyzePaper 分析论文摘要，提取结构化信息

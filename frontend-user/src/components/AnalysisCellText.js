@@ -17,7 +17,18 @@ const AnalysisCellText = memo(({ text }) => {
   const [isTruncated, setIsTruncated] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
 
+  // 检测是否为"未提及"或"解析失败"等特殊状态
+  const isNotMentioned = text === '未提及' || text === '未提及。';
+  const isParseFailed = text === '解析失败';
+  const isEmptyOrDash = !text || text === '-' || text.trim() === '';
+
   useEffect(() => {
+    // 特殊状态不需要检测截断
+    if (isNotMentioned || isParseFailed || isEmptyOrDash) {
+      setIsTruncated(false);
+      return;
+    }
+
     const checkTruncation = () => {
       const el = textRef.current;
       if (el) {
@@ -36,7 +47,43 @@ const AnalysisCellText = memo(({ text }) => {
       clearTimeout(timer);
       window.removeEventListener('resize', checkTruncation);
     };
-  }, [text]);
+  }, [text, isNotMentioned, isParseFailed, isEmptyOrDash]);
+
+  // 特殊状态：解析失败
+  if (isParseFailed) {
+    return (
+      <span 
+        className="analysis-cell-parse-failed"
+        title="AI分析时JSON解析失败，可能是响应格式异常"
+      >
+        解析失败
+      </span>
+    );
+  }
+
+  // 特殊状态：未提及
+  if (isNotMentioned) {
+    return (
+      <span 
+        className="analysis-cell-not-mentioned"
+        title="论文摘要中未提供此维度的相关信息"
+      >
+        未提及
+      </span>
+    );
+  }
+
+  // 特殊状态：空值
+  if (isEmptyOrDash) {
+    return (
+      <span 
+        className="analysis-cell-empty"
+        title="该维度暂无分析结果"
+      >
+        -
+      </span>
+    );
+  }
 
   return (
     <div className="analysis-cell-text-wrapper">

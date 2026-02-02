@@ -6,7 +6,6 @@ import React, { memo, useEffect, useRef, useState, useCallback } from 'react';
 import Pagination from '../../components/Pagination';
 import AnalysisCellText from '../../components/AnalysisCellText';
 import { useTranslation } from '../../hooks';
-import analysisQueue from '../../utils/analysisQueue';
 import { Languages } from 'lucide-react';
 
 const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, totalPages, pdfAvailability }) => {
@@ -53,7 +52,8 @@ const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, tot
     handleCloseEditView,
     handleSaveDimension,
     handleDeleteDimension,
-    analyzePaper,
+    // 批量分析相关
+    enqueuePaperAnalysis,
     // 删除确认相关
     deleteConfirmDimension,
     isDeleting,
@@ -130,7 +130,7 @@ const SearchResultsListView = ({ searchState, dimensionAnalysis, startIndex, tot
                 translation={translation}
                 isAuthenticated={isAuthenticated}
                 setShowAuthModal={setShowAuthModal}
-                analyzePaper={analyzePaper}
+                enqueuePaperAnalysis={enqueuePaperAnalysis}
                 shouldAnalyze={selectedDimensions.length > 0}
                 pdfAvailability={pdfAvailability}
               />
@@ -209,8 +209,8 @@ const PaperRow = memo(({
   // 鉴权相关
   isAuthenticated,
   setShowAuthModal,
-  // 可视区域分析
-  analyzePaper,
+  // 可视区域分析（批量模式）
+  enqueuePaperAnalysis,
   shouldAnalyze,
   // PDF 可用性检测
   pdfAvailability,
@@ -245,7 +245,7 @@ const PaperRow = memo(({
     ? (showTldr ? (paperTransState.tldr_zh || content) : (paperTransState.abstract_zh || content))
     : content;
 
-  // 可视区域检测 + 分析队列
+  // 可视区域检测 + 批量分析队列
   useEffect(() => {
     const element = rowRef.current;
     if (!element) return;
@@ -262,12 +262,8 @@ const PaperRow = memo(({
       ([entry]) => {
         if (entry.isIntersecting && !hasQueuedRef.current) {
           hasQueuedRef.current = true;
-          // 加入分析队列
-          analysisQueue.enqueue(
-            paper.paperId,
-            () => analyzePaper(paper),
-            () => {} // 完成回调（状态由 analyzePaper 内部管理）
-          );
+          // 加入批量分析队列（队列会自动收集论文，达到阈值或超时后批量请求）
+          enqueuePaperAnalysis(paper);
         }
       },
       {
@@ -281,7 +277,7 @@ const PaperRow = memo(({
     return () => {
       observer.disconnect();
     };
-  }, [paper, paperResults, isAnalyzing, shouldAnalyze, analyzePaper]);
+  }, [paper, paperResults, isAnalyzing, shouldAnalyze, enqueuePaperAnalysis]);
 
   // 当页面切换或维度取消选择时，重置队列状态
   useEffect(() => {

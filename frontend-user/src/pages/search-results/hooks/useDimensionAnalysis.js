@@ -1,12 +1,15 @@
 /**
  * 维度分析管理 Hook
  * 处理AI分析维度的选择、分析结果等
+ * 
+ * 改为批量模式：通过 analysisQueue 批量请求，每次最多5篇
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { analysisDimensionAPI, publicScholarAPI } from '../../../services/api';
 import wsClient from '../../../services/websocket';
 import logger from '../../../utils/logger';
 import { trackMatrixAnalysis, trackMatrixAddDimension } from '../../../utils/usageTracker';
+import analysisQueue from '../../../utils/analysisQueue';
 
 /**
  * 维度分析管理 Hook
@@ -227,125 +230,137 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
     setDeleteConfirmDimension(null);
   }, []);
 
-  // 为论文分析所有维度
-  const analyzePaper = useCallback(async (paper) => {
-    if (!isAuthenticated) return { success: false, aborted: false, deducted: 0 };
+  // ============ 批量分析队列相关 ============
 
-    if (analysisAbortedRef.current) return { success: false, aborted: true, deducted: 0 };
+  // 初始化队列回调（只在组件挂载时设置一次）
+  useEffect(() => {
+    // 批量完成回调：更新扣费统计，显示Toast，记录埋点
+    analysisQueue.setOnBatchComplete((results, totalDeducted) => {
+      // 累计本次会话的扣费
+      accumulatedDeductRef.current += totalDeducted;
+
+      // 记录埋点（每篇成功的论文）
+      results
+        .filter(r => r.success)
+        .forEach(r => trackMatrixAnalysis(r.paperId));
+
+      // 如果有扣费，显示Toast提示
+      if (totalDeducted > 0) {
+        wsClient.emit('toast', {
+          title: '扣费提醒',
+          content: `本批分析消耗 ${totalDeducted} 经费`,
+          category: 'transaction',
+          created_at: new Date().toISOString()
+        });
+      }
+    });
+
+    // 余额不足回调
+    analysisQueue.setOnInsufficientBalance((errorData) => {
+      analysisAbortedRef.current = true;
+      setBalanceError({
+        ...errorData,
+        alreadyDeducted: accumulatedDeductRef.current
+      });
+      setShowBalanceModal(true);
+    });
+
+    // 组件卸载时清理队列
+    return () => {
+      analysisQueue.clear();
+    };
+  }, []);
+
+  // 将论文加入分析队列（供IntersectionObserver调用）
+  const enqueuePaperAnalysis = useCallback((paper) => {
+    if (!isAuthenticated) {
+      console.log('[Analysis] Not authenticated, skip');
+      return;
+    }
+    if (analysisAbortedRef.current) {
+      console.log('[Analysis] Aborted, skip');
+      return;
+    }
 
     const abstractText = paper.abstract || paper.tldr?.text;
-    if (!abstractText) return { success: false, aborted: false, deducted: 0 };
+    if (!abstractText) {
+      console.log('[Analysis] No abstract, skip:', paper.paperId);
+      return;
+    }
 
+    console.log('[Analysis] Enqueueing paper:', paper.paperId);
+
+    // 设置分析中状态
     setAnalyzingPapers(prev => ({
       ...prev,
       [paper.paperId]: true
     }));
 
-    try {
-      const response = await analysisDimensionAPI.analyzePaper(paper.paperId, paper.title, abstractText);
-
-      if (response.data.code === 0 && response.data.data) {
-        const responseData = response.data.data;
-        const dimensionData = responseData.data || responseData;
-        const deductedAmount = responseData.deducted_amount || 0;
-
-        setAnalysisResults(prev => ({
-          ...prev,
-          [paper.paperId]: dimensionData
-        }));
+    // 加入队列
+    analysisQueue.enqueue(
+      {
+        paperId: paper.paperId,
+        title: paper.title,
+        abstract: abstractText
+      },
+      // 成功回调
+      (result) => {
+        console.log('[Analysis] Success callback for:', paper.paperId, 'result:', result);
         
-        // 记录智能矩阵分析使用统计
-        trackMatrixAnalysis(paper.paperId);
+        setAnalyzingPapers(prev => ({
+          ...prev,
+          [paper.paperId]: false
+        }));
 
-        return { success: true, aborted: false, deducted: deductedAmount };
-      } else {
+        if (result.success) {
+          console.log('[Analysis] Setting result data for:', paper.paperId, 'data:', result.data);
+          setAnalysisResults(prev => ({
+            ...prev,
+            [paper.paperId]: result.data
+          }));
+        } else {
+          setAnalysisResults(prev => ({
+            ...prev,
+            [paper.paperId]: { _error: true, _message: result.error || '分析失败' }
+          }));
+        }
+      },
+      // 失败回调
+      (error) => {
+        console.log('[Analysis] Error callback for:', paper.paperId, 'error:', error);
+        
+        setAnalyzingPapers(prev => ({
+          ...prev,
+          [paper.paperId]: false
+        }));
+
+        logger.error('Failed to analyze paper:', paper.paperId, error);
+
         setAnalysisResults(prev => ({
           ...prev,
-          [paper.paperId]: { _error: true, _message: response.data.message || '分析失败' }
+          [paper.paperId]: { _error: true, _message: error?.message || '分析失败' }
         }));
-        return { success: false, aborted: false, deducted: 0 };
       }
-    } catch (error) {
-      logger.error('Failed to analyze paper:', paper.paperId, error);
-
-      if (error.response?.data?.code === 4020) {
-        analysisAbortedRef.current = true;
-        setBalanceError({
-          ...error.response.data.data,
-          alreadyDeducted: accumulatedDeductRef.current
-        });
-        setShowBalanceModal(true);
-        return { success: false, aborted: true, deducted: 0 };
-      }
-
-      setAnalysisResults(prev => ({
-        ...prev,
-        [paper.paperId]: { _error: true, _message: error.response?.data?.message || '分析失败' }
-      }));
-      return { success: false, aborted: false, deducted: 0 };
-    } finally {
-      setAnalyzingPapers(prev => ({
-        ...prev,
-        [paper.paperId]: false
-      }));
-    }
+    );
   }, [isAuthenticated]);
 
-  // 并发控制分析
-  const analyzeWithConcurrency = useCallback(async (papersToAnalyze) => {
-    const CONCURRENCY_LIMIT = 5;
+  // 检查论文是否已有分析结果（用于判断是否需要入队）
+  const hasAnalysisResult = useCallback((paperId) => {
+    return analysisResults[paperId] || analysisQueue.hasResult(paperId);
+  }, [analysisResults]);
 
-    const currentSession = ++analysisSessionRef.current;
+  // 检查论文是否正在分析中
+  const isAnalyzing = useCallback((paperId) => {
+    return analyzingPapers[paperId] || analysisQueue.isInQueue(paperId);
+  }, [analyzingPapers]);
 
+  // 清空分析队列和结果（页面切换时调用）
+  const clearAnalysisQueue = useCallback(() => {
+    analysisQueue.clear();
     analysisAbortedRef.current = false;
     accumulatedDeductRef.current = 0;
     setTotalDeducted(0);
-
-    let aborted = false;
-    let totalDeductedInSession = 0;
-
-    for (let i = 0; i < papersToAnalyze.length; i += CONCURRENCY_LIMIT) {
-      if (analysisSessionRef.current !== currentSession) {
-        return;
-      }
-
-      if (analysisAbortedRef.current) {
-        aborted = true;
-        break;
-      }
-
-      const batch = papersToAnalyze.slice(i, i + CONCURRENCY_LIMIT);
-      const results = await Promise.all(batch.map(paper => analyzePaper(paper)));
-
-      for (const result of results) {
-        if (result.deducted > 0) {
-          totalDeductedInSession += result.deducted;
-          accumulatedDeductRef.current = totalDeductedInSession;
-        }
-      }
-
-      if (results.some(r => r.aborted)) {
-        aborted = true;
-        break;
-      }
-    }
-
-    if (analysisSessionRef.current !== currentSession) {
-      return;
-    }
-
-    if (!aborted && totalDeductedInSession > 0) {
-      wsClient.emit('toast', {
-        title: '扣费提醒',
-        content: `本次分析共消耗 ${totalDeductedInSession} 经费`,
-        category: 'transaction',
-        created_at: new Date().toISOString()
-      });
-    }
-
-    accumulatedDeductRef.current = 0;
-    setTotalDeducted(0);
-  }, [analyzePaper]);
+  }, []);
 
   // 关闭余额不足弹窗
   const handleCloseBalanceModal = useCallback(() => {
@@ -399,9 +414,13 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
     handleCloseEditView,
     handleSaveDimension,
     handleDeleteDimension,
-    analyzePaper,
-    analyzeWithConcurrency,
     handleCloseBalanceModal,
+    
+    // 批量分析相关
+    enqueuePaperAnalysis,  // 将论文加入分析队列
+    hasAnalysisResult,     // 检查是否已有结果
+    isAnalyzing,           // 检查是否正在分析
+    clearAnalysisQueue,    // 清空队列
     
     // 删除确认相关
     deleteConfirmDimension,

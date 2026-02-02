@@ -1337,6 +1337,17 @@ func (s *Service) generateDimensionHash(dimensions []AnalysisDimension) string {
 	return hex.EncodeToString(hash[:8]) // 只取前8字节，生成16位哈希
 }
 
+// checkPaperAnalysisCache 检查论文分析缓存是否存在
+// 用于批量分析时预判断是否需要扣费
+func (s *Service) checkPaperAnalysisCache(paperId, dimensionHash string) bool {
+	if paperId == "" {
+		return false
+	}
+	var count int64
+	s.db.Model(&PaperAnalysis{}).Where("paper_id = ? AND dimension_hash = ?", paperId, dimensionHash).Count(&count)
+	return count > 0
+}
+
 // buildAnalysisPrompt 动态构建分析提示词
 // 优先从数据库获取提示词模板，本地兜底
 func (s *Service) buildAnalysisPrompt(paperTitle, abstract string, dimensions []AnalysisDimension) string {

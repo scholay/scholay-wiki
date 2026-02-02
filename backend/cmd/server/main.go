@@ -340,6 +340,8 @@ func main() {
 	orderService.SetCurrencyService(currencyService)
 	// Inject currency service into peer review service (for review completion deduction)
 	peerReviewService.SetCurrencyService(currencyService)
+	// Inject currency service into ai handler (for batch analysis deduction)
+	aiHandler.SetCurrencyService(currencyService)
 
 	// Initialize Membership Gift Service (会员经费业务服务)
 	// 负责处理会员经费/恩特币的发放和清空逻辑，与定时任务调度器解耦
@@ -976,6 +978,9 @@ func main() {
 			// Analyze paper with user's custom dimensions (需扣费，同一篇论文+同一维度配置只扣一次)
 			// handler 会设置 deduct_biz_id = paperId + "_" + dimensionHash
 			analysisGroup.POST("/paper", currencyMiddleware.DeductAfterWithDynamicBizID("paper_analysis"), aiHandler.AnalyzePaper)
+			// Batch analyze multiple papers (批量分析，扣费在handler中手动处理)
+			// 支持1-10篇论文，每篇独立扣费去重
+			analysisGroup.POST("/papers/batch", aiHandler.BatchAnalyzePapers)
 			// Get user's dimensions (custom or system default)
 			analysisGroup.GET("/dimensions", aiHandler.GetAnalysisDimensions)
 			// Create custom dimension

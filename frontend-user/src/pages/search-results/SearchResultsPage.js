@@ -21,7 +21,6 @@ import InsufficientBalanceModal from '../../components/InsufficientBalanceModal'
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../../utils/seoHelpers';
 import { setSearchQuery as saveSearchQuery } from '../../utils/searchStorage';
 import { trackDirectSearch, EntryPoint } from '../../utils/usageTracker';
-import analysisQueue from '../../utils/analysisQueue';
 import logger from '../../utils/logger';
 import { AdvancedSearchIcon } from '../../components/SearchIcons';
 
@@ -297,20 +296,23 @@ const SearchResultsPage = () => {
     }
   }, [searchState.viewMode, authorDetail.authorPapersViewMode, authorDetail.detailAuthorId, authorDetail.allAuthorPapers.length, authorDetail.authorPapersLoading, authorDetail]);
 
-  // 当页面切换或取消选择维度时，清空分析队列
+  // 获取清空队列的函数引用（避免依赖整个 dimensionAnalysis 对象）
+  const { clearAnalysisQueue, selectedDimensions } = dimensionAnalysis;
+
+  // 当页面切换时，清空分析队列
   useEffect(() => {
     // 页面切换时清空队列，让新页面的论文重新排队
     return () => {
-      analysisQueue.clear();
+      clearAnalysisQueue?.();
     };
-  }, [searchState.currentPage]);
+  }, [searchState.currentPage, clearAnalysisQueue]);
 
   // 当取消选择所有维度时，清空队列
   useEffect(() => {
-    if (dimensionAnalysis.selectedDimensions.length === 0) {
-      analysisQueue.clear();
+    if (selectedDimensions.length === 0) {
+      clearAnalysisQueue?.();
     }
-  }, [dimensionAnalysis.selectedDimensions.length]);
+  }, [selectedDimensions.length, clearAnalysisQueue]);
 
   // 处理选择论文建议
   const handleSelectPaper = async (paper) => {
