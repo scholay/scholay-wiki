@@ -543,3 +543,119 @@ func (c *Client) PaperAutocomplete(query string) (*AutocompleteResponse, error) 
 
 	return &result, nil
 }
+
+// SnippetSearch searches for papers by text snippet/quote
+// API: GET /snippet/search
+// Use when user provides a piece of text and wants to find the source paper
+func (c *Client) SnippetSearch(opts SnippetSearchOptions) (*SnippetSearchResponse, error) {
+	if opts.Query == "" {
+		return nil, fmt.Errorf("query is required")
+	}
+
+	// Build query parameters
+	params := map[string]string{
+		"query": opts.Query,
+	}
+
+	if opts.Year != "" {
+		params["year"] = opts.Year
+	}
+	if opts.MinCitationCount > 0 {
+		params["minCitationCount"] = strconv.Itoa(opts.MinCitationCount)
+	}
+	if len(opts.Venue) > 0 {
+		params["venue"] = joinStrings(opts.Venue, ",")
+	}
+	if len(opts.FieldsOfStudy) > 0 {
+		params["fieldsOfStudy"] = joinStrings(opts.FieldsOfStudy, ",")
+	}
+	if len(opts.Fields) > 0 {
+		params["fields"] = joinStrings(opts.Fields, ",")
+	}
+	if opts.Limit > 0 {
+		if opts.Limit > 1000 {
+			opts.Limit = 1000 // API max is 1000
+		}
+		params["limit"] = strconv.Itoa(opts.Limit)
+	}
+
+	// Build URL
+	urlStr := c.baseURL + "/snippet/search" + buildQueryString(params)
+
+	fmt.Printf("[Semantic Scholar DEBUG] ============ Snippet Search API Call ============\n")
+	fmt.Printf("[Semantic Scholar DEBUG] URL: %s\n", urlStr)
+	fmt.Printf("[Semantic Scholar DEBUG] Query: %s\n", opts.Query)
+	fmt.Printf("[Semantic Scholar DEBUG] ================================================\n")
+
+	// Perform request
+	resp, err := c.doRequest("GET", urlStr, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse response
+	var result SnippetSearchResponse
+	if err := unmarshalResponse(resp, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// PaperTitleMatch finds paper by exact title match
+// API: GET /paper/search/match
+// Use when user provides a complete paper title for precise lookup
+func (c *Client) PaperTitleMatch(opts TitleMatchOptions) (*SearchResponse, error) {
+	if opts.Query == "" {
+		return nil, fmt.Errorf("query (paper title) is required")
+	}
+
+	// Build query parameters
+	params := map[string]string{
+		"query": opts.Query,
+	}
+
+	if opts.Year != "" {
+		params["year"] = opts.Year
+	}
+	if opts.MinCitationCount > 0 {
+		params["minCitationCount"] = strconv.Itoa(opts.MinCitationCount)
+	}
+	if opts.OpenAccessPDF != "" {
+		params["openAccessPdf"] = opts.OpenAccessPDF
+	}
+	if len(opts.PublicationTypes) > 0 {
+		params["publicationTypes"] = joinStrings(opts.PublicationTypes, ",")
+	}
+	if len(opts.Venue) > 0 {
+		params["venue"] = joinStrings(opts.Venue, ",")
+	}
+	if len(opts.FieldsOfStudy) > 0 {
+		params["fieldsOfStudy"] = joinStrings(opts.FieldsOfStudy, ",")
+	}
+	if len(opts.Fields) > 0 {
+		params["fields"] = joinStrings(opts.Fields, ",")
+	}
+
+	// Build URL
+	urlStr := c.baseURL + "/paper/search/match" + buildQueryString(params)
+
+	fmt.Printf("[Semantic Scholar DEBUG] ============ Title Match API Call ============\n")
+	fmt.Printf("[Semantic Scholar DEBUG] URL: %s\n", urlStr)
+	fmt.Printf("[Semantic Scholar DEBUG] Title Query: %s\n", opts.Query)
+	fmt.Printf("[Semantic Scholar DEBUG] ==============================================\n")
+
+	// Perform request
+	resp, err := c.doRequest("GET", urlStr, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse response
+	var result SearchResponse
+	if err := unmarshalResponse(resp, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}

@@ -344,6 +344,27 @@ type ToolCall struct {
 	} `json:"function"`
 }
 
+// ToolResult represents the result of a tool execution
+// Used in tool call loop to pass results back to the AI
+type ToolResult struct {
+	ToolCallID string `json:"tool_call_id"` // ID of the tool call this result is for
+	Content    string `json:"content"`      // Result content (usually JSON string)
+}
+
+// ToolMessage represents a message with tool role for OpenAI API
+type ToolMessage struct {
+	Role       string `json:"role"`         // "tool"
+	Content    string `json:"content"`      // Tool execution result
+	ToolCallID string `json:"tool_call_id"` // ID of the tool call this message is responding to
+}
+
+// AssistantMessageWithToolCalls represents an assistant message that contains tool calls
+type AssistantMessageWithToolCalls struct {
+	Role      string     `json:"role"`       // "assistant"
+	Content   string     `json:"content"`    // Can be empty when there are tool calls
+	ToolCalls []ToolCall `json:"tool_calls"` // Tool calls made by the assistant
+}
+
 // ChatCompletionResponse represents a non-streaming response
 type ChatCompletionResponse struct {
 	ID      string `json:"id"`

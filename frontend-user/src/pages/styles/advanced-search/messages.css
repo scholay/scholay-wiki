@@ -106,9 +106,10 @@
 /* AI 回答样式 - 标准阅读体验 */
 .message-assistant .message-text {
   font-size: 0.9375rem;
-  line-height: 1.75;
+  line-height: 1.9;
   color: rgba(209, 213, 219, 0.95);
   margin-bottom: 0.5rem;
+  letter-spacing: 0.01em;
 }
 
 /* 日间模式 - AI助手消息文本 */
@@ -155,7 +156,7 @@
 }
 
 .message-assistant .message-markdown {
-  line-height: 1.75;
+  line-height: 1.9;
 }
 
 /* 消息之间的分隔 */

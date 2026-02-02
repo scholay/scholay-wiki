@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/ai/prompts"
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/semanticscholar"
 	"scholar-backend/internal/thirdparty"
@@ -474,6 +475,273 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		// User can see it when they refresh or reload the conversation
 	}
 
+	return nil
+}
+
+// AdvancedSearchAndAnalyzeV2 执行基于AI的智能分析（使用工具调用循环优化版）
+// 将工具调用决策和深度分析合并为一次逻辑对话，提升上下文连贯性并减少延迟
+// 根据用户订阅使用相应的模型级别
+func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, writer io.Writer, userID uint, modelLevel thirdparty.ModelLevel) error {
+	fmt.Printf("[AdvancedV2] ========== 智能分析V2开始 ==========\n")
+	fmt.Printf("[AdvancedV2] 用户查询: %s, 模型级别: %s\n", query, modelLevel)
+
+	// Step 1: 获取用户消息
+	var userMessage *ConversationMessage
+	messages, err := s.repo.GetConversationMessages(conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to get conversation messages: %w", err)
+	}
+
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == MessageRoleUser && messages[i].SearchQuery == query {
+			userMessage = &messages[i]
+			break
+		}
+	}
+
+	if userMessage == nil {
+		return fmt.Errorf("user message not found")
+	}
+
+	userMessageID := userMessage.MessageID
+	fmt.Printf("[AdvancedV2] 找到用户消息 ID: %s\n", userMessageID)
+
+	// Step 2: 创建 MCP 服务器
+	mcpServer := mcp.NewMCPServer(s.scholarManager)
+
+	// Step 3: 获取 MCP 工具列表
+	mcpTools := mcpServer.ListTools()
+	aiTools := ai.ConvertMCPToolsToOpenAIFormat(mcpTools)
+	fmt.Printf("[AdvancedV2] 获取到 %d 个MCP工具\n", len(aiTools))
+
+	// Step 4: 构建消息（使用统一的硬编码提示词）
+	currentYear := time.Now().Year()
+	systemPrompt := prompts.RenderAdvancedSearchSystemPrompt(currentYear-5, currentYear)
+
+	contextMessages := s.buildContextMessages(messages, 5)
+	contextMessages = append(contextMessages, ai.ChatMessage{
+		Role:    "user",
+		Content: query,
+	})
+
+	initialMessages := append([]ai.ChatMessage{{Role: "system", Content: systemPrompt}}, contextMessages...)
+	fmt.Printf("[AdvancedV2] 构建消息完成，共 %d 条\n", len(initialMessages))
+
+	// Step 5: 发送分析意图步骤
+	fmt.Fprintf(writer, "data: [STEP]{\"step\":\"analyzing\",\"message\":\"正在分析检索意图\",\"detail\":\"理解您的查询，生成最佳搜索策略...\"}\n\n")
+	if flusher, ok := writer.(interface{ Flush() }); ok {
+		flusher.Flush()
+	}
+
+	// Step 6: 创建工具执行器（捕获必要的上下文）
+	var displayPapers []map[string]interface{}
+	var paperIDs []string
+
+	toolExecutor := func(toolCalls []ai.ToolCall) ([]ai.ToolResult, error) {
+		fmt.Printf("[AdvancedV2-ToolExecutor] 收到 %d 个工具调用\n", len(toolCalls))
+
+		// 发送搜索中步骤
+		fmt.Fprintf(writer, "data: [STEP]{\"step\":\"searching\",\"message\":\"正在检索学术论文\",\"detail\":\"正在从学术数据库检索相关论文...\"}\n\n")
+		if flusher, ok := writer.(interface{ Flush() }); ok {
+			flusher.Flush()
+		}
+
+		// 解析工具调用参数
+		var bulkArgs, relevanceArgs map[string]interface{}
+		var searchKeywords string
+
+		for _, tc := range toolCalls {
+			fmt.Printf("[AdvancedV2-ToolExecutor] 工具: %s\n", tc.Function.Name)
+
+			var args map[string]interface{}
+			if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+				fmt.Printf("[AdvancedV2-ToolExecutor] 解析参数失败: %v\n", err)
+				continue
+			}
+
+			switch tc.Function.Name {
+			case "search_papers_advanced", "search_papers":
+				bulkArgs = args
+			case "search_papers_relevance":
+				relevanceArgs = args
+				if q, ok := args["query"].(string); ok {
+					searchKeywords = q
+				}
+			}
+		}
+
+		// 更新搜索步骤详情
+		if searchKeywords != "" {
+			displayKeywords := searchKeywords
+			if len(displayKeywords) > 50 {
+				displayKeywords = displayKeywords[:50] + "..."
+			}
+			fmt.Fprintf(writer, "data: [STEP]{\"step\":\"searching\",\"message\":\"正在检索学术论文\",\"detail\":\"搜索关键词: %s\"}\n\n", escapeJSONString(displayKeywords))
+			if flusher, ok := writer.(interface{ Flush() }); ok {
+				flusher.Flush()
+			}
+		}
+
+		// 执行并行搜索
+		parallelResult := s.parallelSearchPapers(mcpServer, query, bulkArgs, relevanceArgs)
+		allPapers := parallelResult.Papers
+
+		fmt.Printf("[AdvancedV2-ToolExecutor] 并行搜索完成: bulk=%d, relevance=%d, 合并后=%d\n",
+			parallelResult.BulkCount, parallelResult.RelCount, len(allPapers))
+
+		// 如果没有找到论文，尝试直接搜索
+		if len(allPapers) == 0 {
+			fmt.Printf("[AdvancedV2-ToolExecutor] 无结果，尝试直接搜索\n")
+			papers, _, err := s.mcpSearch(query, mcpServer)
+			if err != nil {
+				return nil, fmt.Errorf("search failed: %w", err)
+			}
+			allPapers = FilterPapersWithAbstract(papers)
+		}
+
+		// 限制论文数量
+		const maxPapersToShow = 50
+		displayPapers = allPapers
+		if len(displayPapers) > maxPapersToShow {
+			displayPapers = displayPapers[:maxPapersToShow]
+		}
+
+		// 发送搜索完成步骤
+		searchCompleteDetail := fmt.Sprintf("检索到 %d 篇论文，已筛选出 %d 篇最相关的结果", len(allPapers), len(displayPapers))
+		fmt.Fprintf(writer, "data: [STEP]{\"step\":\"searching\",\"message\":\"检索完成\",\"detail\":\"%s\",\"completed\":true}\n\n", escapeJSONString(searchCompleteDetail))
+		if flusher, ok := writer.(interface{ Flush() }); ok {
+			flusher.Flush()
+		}
+
+		// 提取论文ID
+		paperIDs = make([]string, 0, len(displayPapers))
+		for _, paper := range displayPapers {
+			if paperID, ok := paper["paperId"].(string); ok && paperID != "" {
+				paperIDs = append(paperIDs, paperID)
+			}
+		}
+
+		// 保存论文ID到数据库
+		if err := s.repo.UpdateMessageSearchPaperIDs(userMessage.ID, paperIDs, len(paperIDs)); err != nil {
+			fmt.Printf("[AdvancedV2-ToolExecutor] 保存论文ID失败: %v\n", err)
+		}
+
+		// 发送论文ID到前端
+		papersData := map[string]interface{}{
+			"paperIds": paperIDs,
+			"total":    len(paperIDs),
+		}
+		papersJSON, _ := json.Marshal(papersData)
+		fmt.Fprintf(writer, "data: [PAPERS]%s\n\n", string(papersJSON))
+		if flusher, ok := writer.(interface{ Flush() }); ok {
+			flusher.Flush()
+		}
+
+		// 发送AI分析步骤
+		analysisDetail := fmt.Sprintf("正在对 %d 篇论文进行深度解读...", len(displayPapers))
+		fmt.Fprintf(writer, "data: [STEP]{\"step\":\"analyzing_papers\",\"message\":\"AI 深度分析\",\"detail\":\"%s\"}\n\n", escapeJSONString(analysisDetail))
+		if flusher, ok := writer.(interface{ Flush() }); ok {
+			flusher.Flush()
+		}
+
+		// 格式化论文数据作为工具结果返回给AI
+		papersForPrompt := ai.FormatPapersForPromptWithLimit(displayPapers, 30, 200)
+
+		// 为每个工具调用返回相同的论文结果
+		results := make([]ai.ToolResult, len(toolCalls))
+		for i, tc := range toolCalls {
+			results[i] = ai.ToolResult{
+				ToolCallID: tc.ID,
+				Content:    fmt.Sprintf("搜索完成，找到 %d 篇相关论文。论文列表：\n%s", len(displayPapers), papersForPrompt),
+			}
+		}
+
+		fmt.Printf("[AdvancedV2-ToolExecutor] 工具执行完成，返回 %d 个结果\n", len(results))
+		return results, nil
+	}
+
+	// Step 7: 执行工具调用循环（一次对话完成工具调用+分析）
+	fmt.Printf("[AdvancedV2] 开始工具调用循环...\n")
+	fullContent, err := s.aiService.StreamChatCompletionWithToolLoop(
+		initialMessages,
+		aiTools,
+		toolExecutor,
+		writer,
+		modelLevel,
+	)
+
+	if err != nil {
+		fmt.Printf("[AdvancedV2] 工具调用循环失败: %v\n", err)
+
+		// 发送错误消息
+		friendlyError := "网络异常，请稍后重试。如果问题持续，请联系管理员。"
+		errorMessage := &ConversationMessage{
+			ConversationID:    conversationID,
+			ParentMessageID:   &userMessageID,
+			Role:              MessageRoleAssistant,
+			Content:           friendlyError,
+			FollowUpQuestions: "",
+		}
+
+		if saveErr := s.repo.CreateMessage(errorMessage); saveErr != nil {
+			fmt.Printf("[AdvancedV2] 保存错误消息失败: %v\n", saveErr)
+		}
+
+		fmt.Fprintf(writer, "data: [ERROR] %s\n\n", friendlyError)
+		if flusher, ok := writer.(interface{ Flush() }); ok {
+			flusher.Flush()
+		}
+
+		return fmt.Errorf("tool loop failed: %w", err)
+	}
+
+	fmt.Printf("[AdvancedV2] 工具调用循环完成，内容长度: %d\n", len(fullContent))
+
+	// Step 8: 清除旧的跟进问题
+	if err := s.repo.ClearOldFollowUpQuestions(conversationID); err != nil {
+		fmt.Printf("[AdvancedV2] 清除旧跟进问题失败: %v\n", err)
+	}
+
+	// Step 9: 保存助手消息
+	assistantMessage := &ConversationMessage{
+		ConversationID:    conversationID,
+		ParentMessageID:   &userMessageID,
+		Role:              MessageRoleAssistant,
+		Content:           fullContent,
+		FollowUpQuestions: "",
+	}
+
+	if err := s.repo.CreateMessage(assistantMessage); err != nil {
+		fmt.Printf("[AdvancedV2] 保存助手消息失败: %v\n", err)
+	}
+
+	// Step 10: 生成标题（带超时）
+	titleCh := make(chan string, 1)
+	go func() {
+		newTitle, err := s.UpdateConversationTitleWithAI(conversationID)
+		if err != nil {
+			fmt.Printf("[AdvancedV2] 生成标题失败: %v\n", err)
+			titleCh <- ""
+		} else {
+			titleCh <- newTitle
+		}
+	}()
+
+	select {
+	case newTitle := <-titleCh:
+		if newTitle != "" {
+			titleData := fmt.Sprintf(`[TITLE]{"title":"%s"}`, escapeJSONString(newTitle))
+			fmt.Fprintf(writer, "data: %s\n\n", titleData)
+			if flusher, ok := writer.(interface{ Flush() }); ok {
+				flusher.Flush()
+			}
+			fmt.Printf("[AdvancedV2] 发送标题: %s\n", newTitle)
+		}
+	case <-time.After(3 * time.Second):
+		fmt.Printf("[AdvancedV2] 标题生成超时\n")
+	}
+
+	fmt.Printf("[AdvancedV2] ========== 智能分析V2完成 ==========\n")
 	return nil
 }
 

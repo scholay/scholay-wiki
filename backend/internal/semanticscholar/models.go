@@ -236,3 +236,48 @@ type SearchSuggestionsResponse struct {
 	Papers  []AutocompleteMatch `json:"papers"`  // Paper title suggestions
 	Authors []Author            `json:"authors"` // Author suggestions
 }
+
+// SnippetSearchOptions contains options for snippet search
+// API: GET /graph/v1/snippet/search
+type SnippetSearchOptions struct {
+	Query            string   // Plain-text search query string
+	Year             string   // Publication year or range (e.g., "2020" or "2019-2021")
+	FieldsOfStudy    []string // Fields of study filter
+	Venue            []string // Venue filter
+	MinCitationCount int      // Minimum citation count
+	Fields           []string // Fields to return
+	Limit            int      // Max 1000
+}
+
+// Snippet represents a text snippet from a paper
+type Snippet struct {
+	Text    string `json:"text,omitempty"`    // The matched text snippet
+	Section string `json:"section,omitempty"` // Section where snippet was found
+	Score   float64 `json:"score,omitempty"`  // Relevance score
+}
+
+// SnippetPaper represents a paper with its matching snippets
+type SnippetPaper struct {
+	Paper    Paper     `json:"paper"`
+	Snippets []Snippet `json:"snippets,omitempty"`
+	Score    float64   `json:"score,omitempty"`
+}
+
+// SnippetSearchResponse represents snippet search response
+type SnippetSearchResponse struct {
+	Total int            `json:"total"`
+	Data  []SnippetPaper `json:"data"`
+}
+
+// TitleMatchOptions contains options for paper title match search
+// API: GET /graph/v1/paper/search/match
+type TitleMatchOptions struct {
+	Query            string   // Paper title to search
+	Year             string   // Publication year or range
+	FieldsOfStudy    []string // Fields of study filter
+	Venue            []string // Venue filter
+	PublicationTypes []string // Publication type filter
+	OpenAccessPDF    string   // Filter for open access papers
+	MinCitationCount int      // Minimum citation count
+	Fields           []string // Fields to return
+}

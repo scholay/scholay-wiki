@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/currency"
 	"scholar-backend/internal/thirdparty"
@@ -18,6 +19,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// useAdvancedSearchV2 检查是否使用优化版的智能检索
+// 通过环境变量 USE_ADVANCED_SEARCH_V2 控制，默认为 true（使用优化版）
+func useAdvancedSearchV2() bool {
+	v := os.Getenv("USE_ADVANCED_SEARCH_V2")
+	// 默认使用 V2，除非明确设置为 "false" 或 "0"
+	return v != "false" && v != "0"
+}
 
 type Handler struct {
 	service         *Service
@@ -351,13 +360,26 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 	c.Header("X-Accel-Buffering", "no")
 
 	// 2. 执行智能分析并流式返回结果（使用指定的模型级别）
-	err = h.service.AdvancedSearchAndAnalyze(
-		uint(conversationID),
-		targetMessage.SearchQuery,
-		c.Writer,
-		userID.(uint),
-		thirdparty.ModelLevel(modelLevel),
-	)
+	// 根据环境变量选择使用 V1 或 V2 版本
+	if useAdvancedSearchV2() {
+		fmt.Printf("[Handler] 使用优化版智能检索 V2\n")
+		err = h.service.AdvancedSearchAndAnalyzeV2(
+			uint(conversationID),
+			targetMessage.SearchQuery,
+			c.Writer,
+			userID.(uint),
+			thirdparty.ModelLevel(modelLevel),
+		)
+	} else {
+		fmt.Printf("[Handler] 使用原版智能检索 V1\n")
+		err = h.service.AdvancedSearchAndAnalyze(
+			uint(conversationID),
+			targetMessage.SearchQuery,
+			c.Writer,
+			userID.(uint),
+			thirdparty.ModelLevel(modelLevel),
+		)
+	}
 	if err != nil {
 		// Error handling for streaming - write error as SSE, do not deduct
 		c.Writer.Write([]byte(fmt.Sprintf("data: [ERROR] %s\n\n", err.Error())))

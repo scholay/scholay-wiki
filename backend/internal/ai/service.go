@@ -479,6 +479,217 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 	return nil, fmt.Errorf("all %d AI retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
 }
 
+// ToolExecutor is a callback function type for executing tool calls
+// It receives the tool calls from AI and returns the results
+type ToolExecutor func(toolCalls []ToolCall) ([]ToolResult, error)
+
+// StreamChatCompletionWithToolLoop performs a complete tool call loop:
+// 1. First phase: Send request with tools, get tool call decisions (non-streaming)
+// 2. Execute tools via callback, inject results into context
+// 3. Second phase: Continue requesting AI, stream the final analysis
+//
+// This method enables a single logical conversation that includes both tool execution and analysis,
+// improving context coherence and reducing latency compared to separate calls.
+func (s *Service) StreamChatCompletionWithToolLoop(
+	messages []ChatMessage,
+	tools []Tool,
+	toolExecutor ToolExecutor,
+	writer io.Writer,
+	modelLevel thirdparty.ModelLevel,
+) (string, error) {
+	fmt.Printf("[ToolLoop] Starting tool call loop, messages: %d, tools: %d, modelLevel: %s\n",
+		len(messages), len(tools), modelLevel)
+
+	// Phase 1: Call AI with tools to get tool call decisions (non-streaming)
+	fmt.Printf("[ToolLoop] Phase 1: Getting tool call decisions...\n")
+	toolCallResponse, err := s.ChatCompletionWithTools(messages, tools, "auto", modelLevel)
+	if err != nil {
+		fmt.Printf("[ToolLoop] Error getting tool call decisions: %v\n", err)
+		return "", fmt.Errorf("failed to get tool call decisions: %w", err)
+	}
+
+	// Check if AI returned tool calls
+	if toolCallResponse == nil || len(toolCallResponse.Choices) == 0 {
+		return "", fmt.Errorf("no response from AI for tool call phase")
+	}
+
+	choice := toolCallResponse.Choices[0]
+	
+	// If no tool calls, AI responded directly - stream the content
+	if len(choice.Message.ToolCalls) == 0 {
+		fmt.Printf("[ToolLoop] No tool calls, AI responded directly\n")
+		if choice.Message.Content != "" {
+			// Stream the direct response
+			chunk := ChatCompletionChunk{
+				Choices: []struct {
+					Index int `json:"index"`
+					Delta struct {
+						Role      string     `json:"role,omitempty"`
+						Content   string     `json:"content,omitempty"`
+						ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+					} `json:"delta"`
+					FinishReason string `json:"finish_reason,omitempty"`
+				}{
+					{
+						Index: 0,
+						Delta: struct {
+							Role      string     `json:"role,omitempty"`
+							Content   string     `json:"content,omitempty"`
+							ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+						}{
+							Content: choice.Message.Content,
+						},
+					},
+				},
+			}
+			chunkJSON, _ := json.Marshal(chunk)
+			fmt.Fprintf(writer, "data: %s\n\n", string(chunkJSON))
+			if flusher, ok := writer.(interface{ Flush() }); ok {
+				flusher.Flush()
+			}
+		}
+		return choice.Message.Content, nil
+	}
+
+	fmt.Printf("[ToolLoop] AI requested %d tool calls\n", len(choice.Message.ToolCalls))
+	for i, tc := range choice.Message.ToolCalls {
+		fmt.Printf("[ToolLoop]   Tool %d: %s (ID: %s)\n", i+1, tc.Function.Name, tc.ID)
+	}
+
+	// Phase 2: Execute tools via callback
+	fmt.Printf("[ToolLoop] Phase 2: Executing tools...\n")
+	toolResults, err := toolExecutor(choice.Message.ToolCalls)
+	if err != nil {
+		fmt.Printf("[ToolLoop] Error executing tools: %v\n", err)
+		return "", fmt.Errorf("failed to execute tools: %w", err)
+	}
+
+	fmt.Printf("[ToolLoop] Tools executed, got %d results\n", len(toolResults))
+
+	// Phase 3: Build new messages with tool results
+	// Add the assistant message with tool calls
+	assistantMsg := map[string]interface{}{
+		"role":       "assistant",
+		"content":    choice.Message.Content, // Can be empty
+		"tool_calls": choice.Message.ToolCalls,
+	}
+
+	// Convert to interface for message building
+	newMessages := make([]interface{}, 0, len(messages)+1+len(toolResults))
+	for _, msg := range messages {
+		newMessages = append(newMessages, msg)
+	}
+	newMessages = append(newMessages, assistantMsg)
+
+	// Add tool results as tool messages
+	for _, result := range toolResults {
+		toolMsg := map[string]interface{}{
+			"role":         "tool",
+			"content":      result.Content,
+			"tool_call_id": result.ToolCallID,
+		}
+		newMessages = append(newMessages, toolMsg)
+	}
+
+	fmt.Printf("[ToolLoop] Built %d messages for streaming phase\n", len(newMessages))
+
+	// Phase 4: Stream the final analysis
+	fmt.Printf("[ToolLoop] Phase 3: Streaming final analysis...\n")
+	fullContent, err := s.streamChatCompletionWithRawMessages(newMessages, writer, modelLevel)
+	if err != nil {
+		fmt.Printf("[ToolLoop] Error streaming analysis: %v\n", err)
+		return "", fmt.Errorf("failed to stream analysis: %w", err)
+	}
+
+	fmt.Printf("[ToolLoop] Completed, content length: %d\n", len(fullContent))
+	return fullContent, nil
+}
+
+// streamChatCompletionWithRawMessages streams chat completion with raw interface{} messages
+// This is needed to support tool messages which have a different structure
+func (s *Service) streamChatCompletionWithRawMessages(messages []interface{}, writer io.Writer, modelLevel thirdparty.ModelLevel) (string, error) {
+	var lastErr error
+	var excludeAccountIDs []uint
+
+	for attempt := 0; attempt <= AIMaxRetries; attempt++ {
+		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
+		if err != nil {
+			fmt.Printf("[ToolLoop-Stream] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
+			lastErr = err
+			continue
+		}
+
+		if attempt > 0 {
+			fmt.Printf("[ToolLoop-Stream] Retry %d/%d with account ID: %d\n", attempt+1, AIMaxRetries+1, accountID)
+		}
+
+		modelCode := config.ModelLow
+		if modelCode == "" {
+			modelCode = "gpt-3.5-turbo"
+		}
+
+		// Build request with raw messages
+		reqBody := map[string]interface{}{
+			"model":       modelCode,
+			"messages":    messages,
+			"stream":      true,
+			"temperature": 0.7,
+		}
+
+		jsonData, err := json.Marshal(reqBody)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal request: %w", err)
+		}
+
+		url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		if err != nil {
+			return "", fmt.Errorf("failed to create request: %w", err)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+config.APIKey)
+
+		client := GetStreamingHTTPClient()
+
+		resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
+			resp, err := client.Do(req)
+			if err != nil {
+				return nil, fmt.Errorf("failed to send request: %w", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(resp.Body)
+				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+			}
+
+			// Stream response and collect content
+			return s.streamResponseAndCollect(resp.Body, writer)
+		})
+
+		if err != nil {
+			lastErr = err
+
+			if circuitbreaker.IsCircuitBreakerError(err) {
+				return "", fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+			}
+
+			if isAIRetryableError(err) {
+				fmt.Printf("[ToolLoop-Stream] Retryable error with account %d: %v\n", accountID, err)
+				excludeAccountIDs = append(excludeAccountIDs, accountID)
+				continue
+			}
+
+			return "", err
+		}
+
+		return resultInterface.(string), nil
+	}
+
+	return "", fmt.Errorf("all %d retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
+}
+
 // ChatCompletionWithModel sends a chat completion request with a specific model (non-streaming)
 // This method directly uses the provided baseURL, apiKey and modelName without account selection
 func (s *Service) ChatCompletionWithModel(messages []ChatMessage, tools []Tool, toolChoice string, baseURL, apiKey, modelName string) (*ChatCompletionResponse, error) {

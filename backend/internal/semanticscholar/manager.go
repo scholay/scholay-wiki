@@ -412,6 +412,44 @@ func (m *Manager) PaperAutocomplete(query string) (*AutocompleteResponse, error)
 	return result.(*AutocompleteResponse), nil
 }
 
+// SnippetSearch searches for papers by text snippet with key rotation, retry logic and circuit breaker protection
+// Use when user provides a piece of text and wants to find the source paper
+func (m *Manager) SnippetSearch(opts SnippetSearchOptions) (*SnippetSearchResponse, error) {
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
+		return m.executeWithRetry(func(client *Client) (interface{}, error) {
+			return client.SnippetSearch(opts)
+		})
+	})
+
+	if err != nil {
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			return nil, fmt.Errorf("Semantic Scholar service temporarily unavailable (circuit breaker open): %w", err)
+		}
+		return nil, err
+	}
+
+	return result.(*SnippetSearchResponse), nil
+}
+
+// PaperTitleMatch finds paper by exact title match with key rotation, retry logic and circuit breaker protection
+// Use when user provides a complete paper title for precise lookup
+func (m *Manager) PaperTitleMatch(opts TitleMatchOptions) (*SearchResponse, error) {
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
+		return m.executeWithRetry(func(client *Client) (interface{}, error) {
+			return client.PaperTitleMatch(opts)
+		})
+	})
+
+	if err != nil {
+		if circuitbreaker.IsCircuitBreakerError(err) {
+			return nil, fmt.Errorf("Semantic Scholar service temporarily unavailable (circuit breaker open): %w", err)
+		}
+		return nil, err
+	}
+
+	return result.(*SearchResponse), nil
+}
+
 // GetSearchSuggestions returns combined paper and author suggestions by querying both APIs in parallel
 func (m *Manager) GetSearchSuggestions(query string, paperLimit, authorLimit int) (*SearchSuggestionsResponse, error) {
 	if query == "" {

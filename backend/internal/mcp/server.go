@@ -323,6 +323,101 @@ func (s *MCPServer) ListTools() []Tool {
 				"required": []string{"paperId"},
 			},
 		},
+		{
+			Name:        "snippet_search",
+			Description: "Search papers by text snippet or quote. Use when user provides a piece of text (e.g., a paragraph, citation, or abstract fragment) and wants to find the source paper or related papers.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"query": map[string]interface{}{
+						"type":        "string",
+						"description": "The text snippet to search for",
+					},
+					"year": map[string]interface{}{
+						"type":        "string",
+						"description": "Publication year or range (e.g., '2020' or '2019-2021')",
+					},
+					"fieldsOfStudy": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]string{"type": "string"},
+						"description": "Fields of study filter",
+					},
+					"minCitationCount": map[string]interface{}{
+						"type":        "number",
+						"description": "Minimum citation count filter",
+						"default":     0,
+					},
+					"limit": map[string]interface{}{
+						"type":        "number",
+						"description": "Number of results to return (max 1000)",
+						"default":     20,
+					},
+				},
+				"required": []string{"query"},
+			},
+		},
+		{
+			Name:        "paper_title_match",
+			Description: "Find paper by exact title. Use when user provides a complete or near-complete paper title (e.g., 'Attention is All You Need') for precise lookup.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"query": map[string]interface{}{
+						"type":        "string",
+						"description": "The paper title to search for",
+					},
+					"year": map[string]interface{}{
+						"type":        "string",
+						"description": "Publication year or range (e.g., '2017' or '2015-2020')",
+					},
+					"fieldsOfStudy": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]string{"type": "string"},
+						"description": "Fields of study filter",
+					},
+				},
+				"required": []string{"query"},
+			},
+		},
+		{
+			Name:        "recommendations_by_examples",
+			Description: "Get paper recommendations based on liked and disliked papers. Use when user provides positive examples (papers they like) and optionally negative examples (papers they don't like).",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"positivePaperIds": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]string{"type": "string"},
+						"description": "Paper IDs the user likes (positive examples)",
+					},
+					"negativePaperIds": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]string{"type": "string"},
+						"description": "Paper IDs the user dislikes (negative examples, optional)",
+					},
+					"limit": map[string]interface{}{
+						"type":        "number",
+						"description": "Number of recommendations to return (max 500)",
+						"default":     20,
+					},
+				},
+				"required": []string{"positivePaperIds"},
+			},
+		},
+		{
+			Name:        "paper_autocomplete",
+			Description: "Get search suggestions for partial query. Use to understand ambiguous user intent or suggest search terms.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"query": map[string]interface{}{
+						"type":        "string",
+						"description": "Partial search query (will be truncated to 100 characters)",
+					},
+				},
+				"required": []string{"query"},
+			},
+		},
 	}
 }
 
@@ -349,6 +444,14 @@ func (s *MCPServer) CallTool(req ToolRequest) (*ToolResponse, error) {
 		return s.handleGetAuthorPapers(req.Arguments)
 	case "get_recommendations":
 		return s.handleGetRecommendations(req.Arguments)
+	case "snippet_search":
+		return s.handleSnippetSearch(req.Arguments)
+	case "paper_title_match":
+		return s.handlePaperTitleMatch(req.Arguments)
+	case "recommendations_by_examples":
+		return s.handleRecommendationsByExamples(req.Arguments)
+	case "paper_autocomplete":
+		return s.handlePaperAutocomplete(req.Arguments)
 	default:
 		return nil, fmt.Errorf("unknown tool: %s", req.Name)
 	}
@@ -674,6 +777,125 @@ func (s *MCPServer) handleGetRecommendations(args map[string]interface{}) (*Tool
 	}
 
 	result, err := s.manager.GetRecommendationsForPaper(paperID, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return createJSONResponse(result)
+}
+
+func (s *MCPServer) handleSnippetSearch(args map[string]interface{}) (*ToolResponse, error) {
+	query, ok := args["query"].(string)
+	if !ok {
+		return nil, fmt.Errorf("query is required")
+	}
+
+	// Default fields to return
+	defaultFields := []string{
+		"paperId", "title", "abstract", "year", "authors",
+		"citationCount", "venue", "publicationDate", "url",
+		"referenceCount", "fieldsOfStudy", "externalIds", "tldr",
+	}
+
+	opts := semanticscholar.SnippetSearchOptions{
+		Query:            query,
+		Limit:            getIntArg(args, "limit", 20),
+		MinCitationCount: getIntArg(args, "minCitationCount", 0),
+		Fields:           defaultFields,
+	}
+
+	if year, ok := args["year"].(string); ok {
+		opts.Year = year
+	}
+	if fields, ok := args["fieldsOfStudy"].([]interface{}); ok {
+		opts.FieldsOfStudy = interfaceSliceToStringSlice(fields)
+	}
+
+	fmt.Printf("[MCP] snippet_search called with query: %s\n", query)
+
+	result, err := s.manager.SnippetSearch(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return createJSONResponse(result)
+}
+
+func (s *MCPServer) handlePaperTitleMatch(args map[string]interface{}) (*ToolResponse, error) {
+	query, ok := args["query"].(string)
+	if !ok {
+		return nil, fmt.Errorf("query (paper title) is required")
+	}
+
+	// Default fields to return
+	defaultFields := []string{
+		"paperId", "title", "abstract", "year", "authors",
+		"citationCount", "venue", "publicationDate", "url",
+		"referenceCount", "fieldsOfStudy", "externalIds", "tldr",
+	}
+
+	opts := semanticscholar.TitleMatchOptions{
+		Query:  query,
+		Fields: defaultFields,
+	}
+
+	if year, ok := args["year"].(string); ok {
+		opts.Year = year
+	}
+	if fields, ok := args["fieldsOfStudy"].([]interface{}); ok {
+		opts.FieldsOfStudy = interfaceSliceToStringSlice(fields)
+	}
+
+	fmt.Printf("[MCP] paper_title_match called with title: %s\n", query)
+
+	result, err := s.manager.PaperTitleMatch(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return createJSONResponse(result)
+}
+
+func (s *MCPServer) handleRecommendationsByExamples(args map[string]interface{}) (*ToolResponse, error) {
+	positivePaperIds, ok := args["positivePaperIds"].([]interface{})
+	if !ok || len(positivePaperIds) == 0 {
+		return nil, fmt.Errorf("positivePaperIds is required and must not be empty")
+	}
+
+	opts := semanticscholar.RecommendationsOptions{
+		PositivePaperIDs: interfaceSliceToStringSlice(positivePaperIds),
+		Limit:            getIntArg(args, "limit", 20),
+	}
+
+	if negativePaperIds, ok := args["negativePaperIds"].([]interface{}); ok {
+		opts.NegativePaperIDs = interfaceSliceToStringSlice(negativePaperIds)
+	}
+
+	fmt.Printf("[MCP] recommendations_by_examples called with %d positive, %d negative papers\n",
+		len(opts.PositivePaperIDs), len(opts.NegativePaperIDs))
+
+	result, err := s.manager.GetRecommendations(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return createJSONResponse(result)
+}
+
+func (s *MCPServer) handlePaperAutocomplete(args map[string]interface{}) (*ToolResponse, error) {
+	query, ok := args["query"].(string)
+	if !ok {
+		return nil, fmt.Errorf("query is required")
+	}
+
+	// Truncate to 100 characters as per API spec
+	if len(query) > 100 {
+		query = query[:100]
+	}
+
+	fmt.Printf("[MCP] paper_autocomplete called with query: %s\n", query)
+
+	result, err := s.manager.PaperAutocomplete(query)
 	if err != nil {
 		return nil, err
 	}

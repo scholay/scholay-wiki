@@ -76,13 +76,15 @@
 /* Markdown 样式 - ChatGPT 风格 */
 .message-markdown {
   font-size: 0.9375rem;
-  line-height: 1.75;
+  line-height: 1.9;
   color: rgba(209, 213, 219, 0.95);
+  letter-spacing: 0.01em;
 }
 
-/* 段落间距 */
+/* 段落间距 - 增加可读性 */
 .message-markdown p {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.9;
 }
 
 .message-markdown p:last-child {
@@ -93,9 +95,9 @@
 .message-markdown h1 {
   font-size: 1.5rem;
   font-weight: 600;
-  margin: 1.5rem 0 1rem;
+  margin: 2rem 0 1.25rem;
   color: var(--text-primary);
-  line-height: 1.3;
+  line-height: 1.4;
   padding-bottom: 0.5rem;
   border-bottom: 2px solid rgba(148, 163, 184, 0.15);
 }
@@ -103,9 +105,9 @@
 .message-markdown h2 {
   font-size: 1.25rem;
   font-weight: 600;
-  margin: 1.5rem 0 0.875rem;
+  margin: 1.75rem 0 1rem;
   color: var(--text-primary);
-  line-height: 1.4;
+  line-height: 1.5;
   padding-left: 0.75rem;
   border-left: 4px solid var(--primary-solid);
 }
@@ -113,9 +115,9 @@
 .message-markdown h3 {
   font-size: 1.0625rem;
   font-weight: 600;
-  margin: 1rem 0 0.625rem;
+  margin: 1.5rem 0 0.875rem;
   color: rgba(209, 213, 219, 0.95);
-  line-height: 1.4;
+  line-height: 1.5;
   padding-left: 1rem;
   position: relative;
 }
@@ -134,9 +136,9 @@
 .message-markdown h4 {
   font-size: 0.9375rem;
   font-weight: 600;
-  margin: 0.75rem 0 0.5rem;
+  margin: 1.25rem 0 0.75rem;
   color: rgba(148, 163, 184, 0.95);
-  line-height: 1.5;
+  line-height: 1.6;
   font-style: italic;
 }
 
@@ -144,13 +146,13 @@
 .message-markdown ul,
 .message-markdown ol {
   margin-left: 1.5rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
   padding-left: 0.5rem;
 }
 
 .message-markdown li {
-  margin-bottom: 0.5rem;
-  line-height: 1.75;
+  margin-bottom: 0.75rem;
+  line-height: 1.9;
 }
 
 .message-markdown ul li {
