@@ -132,6 +132,20 @@
   height: 22px;
 }
 
+/* 视频图标 - 全尺寸显示，无背景容器 */
+.ast-card-icon-video {
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+
+.ast-card-video {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
 .ast-card:hover .ast-card-icon {
   transform: scale(1.05);
   box-shadow: 0 6px 20px color-mix(in srgb, var(--card-color) 40%, transparent);

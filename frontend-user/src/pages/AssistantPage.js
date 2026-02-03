@@ -60,19 +60,23 @@ function AssistantPage() {
     },
     {
       id: 'latex-writer',
-      title: 'LaTeX论文编辑',
-      description: '使用AI对话方式撰写LaTeX论文，实时预览PDF，智能修改建议，让论文写作更高效。',
+      title: 'ScholayPrism',
+      description: '全新推出原生支持 LaTeX 的免费工作空间，将 GPT‑5.2 无缝融入你的科研写作与协作流程。',
       icon: (
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M4 4h16v16H4V4z"/>
-          <path d="M8 8h2v8H8z"/>
-          <path d="M12 8h1l2 4-2 4h-1l2-4-2-4z"/>
-          <path d="M16 8h2v8h-2z"/>
-        </svg>
+        <video
+          className="ast-card-video"
+          autoPlay
+          loop
+          muted
+          playsInline
+        >
+          <source src="https://cdn.openai.com/ctf-cdn/260126_Prism_Logo_SL_v04.mp4" type="video/mp4" />
+        </video>
       ),
       path: '/latex-writer',
       color: '#E74C3C',
       gradient: 'linear-gradient(135deg, #E74C3C 0%, #C0392B 100%)',
+      isVideo: true,
     },
   ];
 
@@ -93,7 +97,7 @@ function AssistantPage() {
             style={{ '--card-color': tool.color, '--card-gradient': tool.gradient }}
           >
             <div className="ast-card-header">
-              <div className="ast-card-icon">
+              <div className={`ast-card-icon ${tool.isVideo ? 'ast-card-icon-video' : ''}`}>
                 {tool.icon}
               </div>
               <h2 className="ast-card-title">{tool.title}</h2>

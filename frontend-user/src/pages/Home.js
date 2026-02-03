@@ -519,6 +519,30 @@ const Home = () => {
             <div className="home-assistant-shortcuts">
               <div 
                 className="home-shortcut-card"
+                onClick={() => navigate('/latex-writer')}
+              >
+                <div className="home-shortcut-icon home-shortcut-icon-video">
+                  <video
+                    className="home-shortcut-video"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                  >
+                    <source src="https://cdn.openai.com/ctf-cdn/260126_Prism_Logo_SL_v04.mp4" type="video/mp4" />
+                  </video>
+                </div>
+                <div className="home-shortcut-content">
+                  <h4 className="home-shortcut-title">ScholayPrism</h4>
+                  <p className="home-shortcut-desc">LaTeX 写作 + GPT-5.2</p>
+                </div>
+                <svg className="home-shortcut-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 18l6-6-6-6"/>
+                </svg>
+              </div>
+
+              <div 
+                className="home-shortcut-card"
                 onClick={() => navigate('/chat')}
               >
                 <div className="home-shortcut-icon" style={{ background: 'linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.08) 100%)', color: '#10A37F' }}>

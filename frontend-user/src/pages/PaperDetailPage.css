@@ -936,6 +936,70 @@
   flex-shrink: 0;
 }
 
+/* ScholayPrism 入口卡片 */
+.pd-prism-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.pd-prism-card:hover {
+  background: linear-gradient(135deg, #fff 0%, #fafafa 100%);
+  border-color: #E74C3C;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(231, 76, 60, 0.15);
+}
+
+.pd-prism-icon {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.pd-prism-icon video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pd-prism-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.pd-prism-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 4px 0;
+}
+
+.pd-prism-desc {
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.pd-prism-arrow {
+  color: #999;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.pd-prism-card:hover .pd-prism-arrow {
+  color: #E74C3C;
+  transform: translateX(4px);
+}
+
 /* 研究领域列表 */
 .pd-fields-list {
   display: flex;

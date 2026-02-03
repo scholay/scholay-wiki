@@ -1145,6 +1145,30 @@ const PaperDetailPage = () => {
               Similar Papers
             </button>
           </div>
+
+          {/* ScholayPrism 入口 */}
+          <div 
+            className="pd-prism-card"
+            onClick={() => navigate('/latex-writer')}
+          >
+            <div className="pd-prism-icon">
+              <video
+                autoPlay
+                loop
+                muted
+                playsInline
+              >
+                <source src="https://cdn.openai.com/ctf-cdn/260126_Prism_Logo_SL_v04.mp4" type="video/mp4" />
+              </video>
+            </div>
+            <div className="pd-prism-content">
+              <h3 className="pd-prism-title">ScholayPrism</h3>
+              <p className="pd-prism-desc">原生支持 LaTeX 的 AI 写作空间</p>
+            </div>
+            <svg className="pd-prism-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </div>
         </div>
       </div>
       )}

@@ -530,6 +530,19 @@
   flex-shrink: 0;
 }
 
+/* 视频图标 - 全尺寸显示，无背景容器 */
+.home-shortcut-icon-video {
+  background: transparent !important;
+  overflow: hidden;
+}
+
+.home-shortcut-video {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
 .home-shortcut-content {
   flex: 1;
   min-width: 0;

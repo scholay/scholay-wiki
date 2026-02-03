@@ -10,7 +10,7 @@
  * 三栏布局：左侧文件树、中间编辑区（代码+对话）、右侧PDF预览
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useAuth } from '../../utils/AuthContext';
 import FileTree from '../../components/latex-writer/FileTree';
@@ -22,6 +22,9 @@ import LatexToolbar from '../../components/latex-writer/LatexToolbar';
 import LatexCompiler from '../../components/latex-writer/LatexCompiler';
 import { userAPI } from '../../services/api';
 import './LaTeXWriterPage.css';
+
+// 懒加载 AuthModal
+const AuthModal = lazy(() => import('../../components/AuthModal'));
 
 // 默认 LaTeX 模板（英文）
 const DEFAULT_LATEX_TEMPLATE = `\\documentclass{article}
@@ -99,7 +102,10 @@ const CHINESE_LATEX_TEMPLATE = `\\documentclass{article}
 
 function LaTeXWriterPage() {
   const { resetSidebarConfig } = useSidebar();
-  const { isAuthenticated, showAuthModal } = useAuth();
+  const { isAuthenticated } = useAuth();
+  
+  // 登录弹窗状态
+  const [showAuthModal, setShowAuthModal] = useState(false);
   
   // 项目/文档状态
   const [projects, setProjects] = useState([]);
@@ -716,10 +722,10 @@ Final section.
             </svg>
           </div>
           <h2>需要登录</h2>
-          <p>使用 LaTeX AI 论文编辑器需要先登录账号</p>
+          <p>使用 ScholayPrism 需要先登录账号</p>
           <button 
             className="latex-writer-login-btn"
-            onClick={() => showAuthModal('login')}
+            onClick={() => setShowAuthModal(true)}
           >
             立即登录
           </button>
@@ -727,12 +733,23 @@ Final section.
             还没有账号？
             <button 
               className="latex-writer-register-link"
-              onClick={() => showAuthModal('register')}
+              onClick={() => setShowAuthModal(true)}
             >
               免费注册
             </button>
           </p>
         </div>
+        
+        {/* 登录/注册弹窗 */}
+        {showAuthModal && (
+          <Suspense fallback={null}>
+            <AuthModal
+              isOpen={showAuthModal}
+              onClose={() => setShowAuthModal(false)}
+              onLoginSuccess={() => setShowAuthModal(false)}
+            />
+          </Suspense>
+        )}
       </div>
     );
   }
@@ -752,8 +769,8 @@ Final section.
     return (
       <div className="latex-writer-page latex-writer-project-select">
         <div className="latex-writer-project-header">
-          <h1>LaTeX AI 论文编辑器</h1>
-          <p>使用 AI 对话方式撰写学术论文</p>
+          <h1>ScholayPrism</h1>
+          <p>全新推出原生支持 LaTeX 的免费工作空间，将 GPT‑5.2 无缝融入你的科研写作与协作流程</p>
         </div>
         
         {/* 创建新项目 */}

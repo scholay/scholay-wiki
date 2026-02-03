@@ -703,7 +703,7 @@ const AiChatPanel = forwardRef(function AiChatPanel({
             <path d="M12 2a10 10 0 0 1 10 10"/>
             <circle cx="12" cy="12" r="6"/>
           </svg>
-          LaTeX AI 助手
+          Prism AI 助手
         </div>
         <div className="ai-chat-header-actions">
           {/* 命令菜单 */}
