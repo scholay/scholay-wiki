@@ -182,25 +182,8 @@ func (e *ReasoningEngine) ExecuteReasoning(ctx context.Context, req *ReasoningRe
 		// 3. 提取代码并验证
 		parsed := ParseAIResponse(response)
 		if parsed.Code != "" {
-			step.State = StateValidating
-			e.writeStatus(writer, "✅ 验证 LaTeX 代码...")
-			
-			validationResult := e.validator.Validate(parsed.Code)
-			
-			if !validationResult.Valid && e.config.AutoFixErrors {
-				// 自动修复
-				step.State = StateFixing
-				e.writeStatus(writer, "🔧 自动修复语法错误...")
-				
-				fixedCode := e.autoFixCode(ctx, parsed.Code, validationResult, req.ModelLevel, writer)
-				if fixedCode != "" {
-					parsed.Code = fixedCode
-					// 重新验证
-					validationResult = e.validator.Validate(fixedCode)
-				}
-			}
-			
-			result.ValidationOK = validationResult.Valid
+			// 自动验证已禁用 - 用户通过对话或点击"让 AI 修复"按钮手动触发
+			result.ValidationOK = true // 跳过验证
 			result.Code = parsed.Code
 		}
 

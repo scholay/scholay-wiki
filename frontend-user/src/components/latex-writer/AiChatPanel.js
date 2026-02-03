@@ -423,6 +423,54 @@ const AiChatPanel = forwardRef(function AiChatPanel({
   // 获取快捷命令
   const quickCommands = useMemo(() => LatexCommands.getQuickCommands(), []);
 
+  // 提取额外内容（不在结构化标签内的内容，如状态消息）
+  const getExtraContent = useCallback((fullText, parsed) => {
+    if (!fullText) return null;
+    
+    // 移除所有结构化标签及其内容
+    let extra = fullText;
+    extra = extra.replace(/<think>[\s\S]*?<\/think>/gi, '');
+    extra = extra.replace(/<reply>[\s\S]*?<\/reply>/gi, '');
+    extra = extra.replace(/<code>[\s\S]*?<\/code>/gi, '');
+    
+    // 移除未闭合的标签内容
+    if (parsed.currentSection === 'think' && parsed.thinkText) {
+      const thinkIdx = extra.indexOf('<think>');
+      if (thinkIdx !== -1) {
+        extra = extra.substring(0, thinkIdx);
+      }
+    }
+    if (parsed.currentSection === 'reply' && parsed.replyText) {
+      const replyIdx = extra.indexOf('<reply>');
+      if (replyIdx !== -1) {
+        extra = extra.substring(0, replyIdx);
+      }
+    }
+    if (parsed.currentSection === 'code' && parsed.codeText) {
+      const codeIdx = extra.indexOf('<code>');
+      if (codeIdx !== -1) {
+        extra = extra.substring(0, codeIdx);
+      }
+    }
+    
+    // 清理并返回
+    extra = extra.trim();
+    
+    // 只返回有意义的额外内容（包含状态标志如 🔧 ✅ ⚠️ --- 等）
+    if (extra && (
+      extra.includes('---') ||
+      extra.includes('🔧') ||
+      extra.includes('✅') ||
+      extra.includes('⚠️') ||
+      extra.includes('🔍') ||
+      extra.length > 10
+    )) {
+      return extra;
+    }
+    
+    return null;
+  }, []);
+
   // 发送指定消息的函数（供外部调用或 pendingMessage 使用）
   const sendMessage = useCallback(async (message) => {
     if (!message?.trim() || isLoading) return;
@@ -655,6 +703,10 @@ const AiChatPanel = forwardRef(function AiChatPanel({
         );
       }
       
+      // 检测是否有额外内容（不在结构化标签内的内容，如状态消息）
+      // 例如：自动修复的状态消息 "🔧 检测到语法问题..."
+      const extraContent = getExtraContent(currentResponse, streamParsed);
+      
       return (
         <div className="ai-chat-parsed-content">
           {/* 显示正在执行的工具调用 */}
@@ -686,8 +738,15 @@ const AiChatPanel = forwardRef(function AiChatPanel({
               onApply={onApplySuggestion}
             />
           )}
+          {/* 显示额外内容（状态消息、修复提示等） */}
+          {extraContent && (
+            <div className="ai-chat-extra-content">
+              {extraContent}
+              {!streamParsed.isComplete && <span className="ai-chat-cursor">▋</span>}
+            </div>
+          )}
           {/* 如果还没有任何内容，显示等待光标 */}
-          {!streamParsed.thinkText && !streamParsed.replyText && !streamParsed.codeText && (
+          {!streamParsed.thinkText && !streamParsed.replyText && !streamParsed.codeText && !extraContent && (
             <span className="ai-chat-cursor">▋</span>
           )}
         </div>

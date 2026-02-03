@@ -315,19 +315,6 @@ export const userAPI = {
   getStreamChatWithContextUrl: (documentId) =>
     `/api/v1/user/latex-writer/documents/${documentId}/chat/stream`,
 
-  // ========== LaTeX 验证与修复 API ==========
-  
-  // 验证 LaTeX 代码
-  validateLatex: (content) =>
-    api.post('/user/latex-writer/validate', { content }),
-  
-  // 自动修复 LaTeX 代码（流式）
-  getAutoFixUrl: () =>
-    '/api/v1/user/latex-writer/auto-fix',
-  
-  // 验证并修复 LaTeX 代码（流式）
-  getValidateFixUrl: (documentId) =>
-    `/api/v1/user/latex-writer/documents/${documentId}/validate-fix`,
 
   // ============================================================================
   // MCP 工具系统 API

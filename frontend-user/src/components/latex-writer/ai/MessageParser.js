@@ -13,20 +13,21 @@
 /**
  * 解析后的消息结构
  * @typedef {Object} ParsedMessage
- * @property {string|null} think - 思考过程
- * @property {string|null} reply - 给用户的回复
- * @property {string|null} code - LaTeX 代码
+ * @property {string|null} think - 思考过程（多轮合并）
+ * @property {string|null} reply - 给用户的回复（多轮合并）
+ * @property {string|null} code - LaTeX 代码（取最后一个，通常是最终版本）
  * @property {string} raw - 原始内容
+ * @property {Array} sections - 按顺序排列的所有段落
  */
 
 /**
- * 解析 AI 的结构化输出
+ * 解析 AI 的结构化输出（支持多轮 think/reply/code）
  * @param {string} content - AI 输出的原始内容
  * @returns {ParsedMessage}
  */
 export function parseAiMessage(content) {
   if (!content) {
-    return { think: null, reply: null, code: null, raw: '' };
+    return { think: null, reply: null, code: null, raw: '', sections: [] };
   }
 
   const result = {
@@ -34,26 +35,51 @@ export function parseAiMessage(content) {
     reply: null,
     code: null,
     raw: content,
+    sections: [], // 按顺序存储所有段落
   };
 
-  // 提取 <think>...</think>
-  const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/i);
-  if (thinkMatch) {
-    result.think = thinkMatch[1].trim();
+  // 提取所有 <think>...</think>（支持多个）
+  const thinkMatches = content.matchAll(/<think>([\s\S]*?)<\/think>/gi);
+  const thinkParts = [];
+  for (const match of thinkMatches) {
+    const text = match[1].trim();
+    if (text) {
+      thinkParts.push(text);
+      result.sections.push({ type: 'think', content: text });
+    }
+  }
+  if (thinkParts.length > 0) {
+    result.think = thinkParts.join('\n\n---\n\n'); // 用分隔线连接多轮思考
   }
 
-  // 提取 <reply>...</reply>
-  const replyMatch = content.match(/<reply>([\s\S]*?)<\/reply>/i);
-  if (replyMatch) {
-    result.reply = replyMatch[1].trim();
+  // 提取所有 <reply>...</reply>（支持多个）
+  const replyMatches = content.matchAll(/<reply>([\s\S]*?)<\/reply>/gi);
+  const replyParts = [];
+  for (const match of replyMatches) {
+    const text = match[1].trim();
+    if (text) {
+      replyParts.push(text);
+      result.sections.push({ type: 'reply', content: text });
+    }
+  }
+  if (replyParts.length > 0) {
+    result.reply = replyParts.join('\n\n'); // 合并多轮回复
   }
 
-  // 提取 <code>...</code>
-  const codeMatch = content.match(/<code>([\s\S]*?)<\/code>/i);
-  if (codeMatch) {
-    result.code = codeMatch[1].trim();
-    // 清理可能混入的标签
-    result.code = result.code.replace(/<\/?(?:think|reply)>/gi, '').trim();
+  // 提取所有 <code>...</code>（取最后一个作为最终代码）
+  const codeMatches = [...content.matchAll(/<code>([\s\S]*?)<\/code>/gi)];
+  if (codeMatches.length > 0) {
+    // 取最后一个 code 作为最终代码
+    const lastCode = codeMatches[codeMatches.length - 1][1].trim();
+    result.code = lastCode.replace(/<\/?(?:think|reply)>/gi, '').trim();
+    
+    // 记录所有代码段
+    for (const match of codeMatches) {
+      const text = match[1].trim().replace(/<\/?(?:think|reply)>/gi, '').trim();
+      if (text) {
+        result.sections.push({ type: 'code', content: text });
+      }
+    }
   }
 
   // 如果没有找到结构化标记，尝试提取 markdown 代码块
@@ -79,7 +105,40 @@ export function parseAiMessage(content) {
     }
   }
 
+  // 按在原文中出现的顺序重新排序 sections
+  result.sections = reorderSectionsByPosition(content, result.sections);
+
   return result;
+}
+
+/**
+ * 根据标签在原文中的位置重新排序 sections
+ */
+function reorderSectionsByPosition(content, sections) {
+  // 找到每个标签在原文中的位置
+  const positions = [];
+  
+  const thinkRegex = /<think>([\s\S]*?)<\/think>/gi;
+  const replyRegex = /<reply>([\s\S]*?)<\/reply>/gi;
+  const codeRegex = /<code>([\s\S]*?)<\/code>/gi;
+  
+  let match;
+  while ((match = thinkRegex.exec(content)) !== null) {
+    positions.push({ type: 'think', content: match[1].trim(), index: match.index });
+  }
+  while ((match = replyRegex.exec(content)) !== null) {
+    positions.push({ type: 'reply', content: match[1].trim(), index: match.index });
+  }
+  while ((match = codeRegex.exec(content)) !== null) {
+    const text = match[1].trim().replace(/<\/?(?:think|reply)>/gi, '').trim();
+    positions.push({ type: 'code', content: text, index: match.index });
+  }
+  
+  // 按位置排序
+  positions.sort((a, b) => a.index - b.index);
+  
+  // 返回排序后的 sections（不包含 index）
+  return positions.map(({ type, content }) => ({ type, content }));
 }
 
 /**
@@ -170,18 +229,37 @@ export function formatThinking(think) {
 function cleanCodeContent(code) {
   if (!code) return '';
   
-  let cleaned = code;
+  let cleaned = code.trim();
   
-  // 移除可能混入的 XML 标签（如 </think>, </reply>, <code>, </code> 等）
+  // 1. 移除可能混入的 XML 标签
   cleaned = cleaned.replace(/<\/?(?:think|reply|code)>/gi, '');
+  
+  // 2. 如果代码不是以 LaTeX 命令开头，尝试找到第一个有效的 LaTeX 行
+  const trimmed = cleaned.trim();
+  const startsWithLatex = /^[\\%]/.test(trimmed);
+  
+  if (!startsWithLatex && trimmed.length > 0) {
+    // 按行查找第一个以 \ 或 % 开头的行
+    const lines = cleaned.split('\n');
+    let startIndex = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.startsWith('\\') || line.startsWith('%')) {
+        startIndex = i;
+        break;
+      }
+    }
+    if (startIndex > 0) {
+      cleaned = lines.slice(startIndex).join('\n');
+    }
+  }
   
   return cleaned.trim();
 }
 
 /**
  * 实时解析流式输出（用于流式显示）
- * 采用增量式解析，不等待标签闭合就开始显示内容
- * 关键：在标签不完整时也要显示原始内容，避免"突然"出现
+ * 支持多轮 think/reply/code 标签
  * @param {string} partialContent - 部分内容
  * @returns {Object} 当前可显示的各部分
  */
@@ -196,6 +274,7 @@ export function parseStreamingMessage(partialContent) {
       hasCode: false, 
       isComplete: false,
       currentSection: 'none',
+      sections: [], // 多轮内容
     };
   }
 
@@ -204,89 +283,113 @@ export function parseStreamingMessage(partialContent) {
     thinkText: '',
     replyText: '',
     codeText: '',
-    rawText: partialContent, // 始终保留原始内容用于显示
+    rawText: partialContent,
     hasCode: false,
     isComplete: false,
     currentSection: 'none',
+    sections: [], // 存储所有已完成的段落
   };
 
-  // 检测标签位置
-  const thinkOpenIdx = partialContent.indexOf('<think>');
-  const thinkCloseIdx = partialContent.indexOf('</think>');
-  const replyOpenIdx = partialContent.indexOf('<reply>');
-  const replyCloseIdx = partialContent.indexOf('</reply>');
-  const codeOpenIdx = partialContent.indexOf('<code>');
-  const codeCloseIdx = partialContent.indexOf('</code>');
-
-  // 检测是否正在输入标签（部分标签，如 "<th" 或 "<thi"）
-  const possiblePartialTag = /<[a-z]*$/i.test(partialContent);
+  // 提取所有已完成的标签内容（按顺序）
+  const tagRegex = /<(think|reply|code)>([\s\S]*?)<\/\1>/gi;
+  let match;
+  const completedTags = [];
+  while ((match = tagRegex.exec(partialContent)) !== null) {
+    completedTags.push({
+      type: match[1].toLowerCase(),
+      content: match[2].trim(),
+      endIndex: match.index + match[0].length
+    });
+  }
   
-  // 判断当前正在输出的部分
-  if (codeOpenIdx !== -1 && codeCloseIdx === -1) {
-    result.currentSection = 'code';
-  } else if (replyOpenIdx !== -1 && replyCloseIdx === -1) {
-    result.currentSection = 'reply';
-  } else if (thinkOpenIdx !== -1 && thinkCloseIdx === -1) {
-    result.currentSection = 'think';
-  } else if (codeCloseIdx !== -1) {
-    result.currentSection = 'done';
-  } else if (possiblePartialTag) {
-    // 正在输入标签，显示为等待状态
-    result.currentSection = 'waiting';
-  } else {
-    // 没有检测到任何标签，显示原始内容
-    result.currentSection = 'raw';
+  // 存储已完成的段落
+  result.sections = completedTags.map(t => ({ type: t.type, content: t.content }));
+
+  // 合并所有 think 内容
+  const thinkParts = completedTags.filter(t => t.type === 'think').map(t => t.content);
+  if (thinkParts.length > 0) {
+    result.thinkText = thinkParts.join('\n\n---\n\n');
   }
 
-  // 提取 think 内容（实时显示，不等闭合）
-  if (thinkOpenIdx !== -1) {
-    const thinkStart = thinkOpenIdx + 7;
-    const thinkEnd = thinkCloseIdx !== -1 ? thinkCloseIdx : partialContent.length;
-    let thinkContent = partialContent.substring(thinkStart, thinkEnd);
-    // 如果还没闭合，移除可能的部分标签
-    thinkContent = thinkContent.replace(/<\/?[a-z]*$/i, '').trim();
-    result.thinkText = thinkContent;
+  // 合并所有 reply 内容
+  const replyParts = completedTags.filter(t => t.type === 'reply').map(t => t.content);
+  if (replyParts.length > 0) {
+    result.replyText = replyParts.join('\n\n');
   }
 
-  // 提取 reply 内容（实时显示，不等闭合）
-  if (replyOpenIdx !== -1) {
-    const replyStart = replyOpenIdx + 7;
-    let replyEnd;
-    if (replyCloseIdx !== -1) {
-      replyEnd = replyCloseIdx;
-    } else if (codeOpenIdx !== -1 && codeOpenIdx > replyOpenIdx) {
-      replyEnd = codeOpenIdx;
-    } else {
-      replyEnd = partialContent.length;
-    }
-    let replyContent = partialContent.substring(replyStart, replyEnd);
-    // 移除可能的部分标签
-    replyContent = replyContent.replace(/<\/?[a-z]*$/i, '').trim();
-    result.replyText = replyContent;
-  }
-
-  // 提取 code 内容（实时显示，不等闭合）
-  if (codeOpenIdx !== -1) {
-    const codeStart = codeOpenIdx + 6;
-    const codeEnd = codeCloseIdx !== -1 ? codeCloseIdx : partialContent.length;
-    let codeContent = partialContent.substring(codeStart, codeEnd);
-    // 清理内容
-    codeContent = cleanCodeContent(codeContent);
-    result.codeText = codeContent;
+  // 取最后一个 code 作为当前代码
+  const codeParts = completedTags.filter(t => t.type === 'code');
+  if (codeParts.length > 0) {
+    result.codeText = cleanCodeContent(codeParts[codeParts.length - 1].content);
     result.hasCode = true;
   }
 
-  // 构建显示文本（移除 XML 标签后的纯文本）
+  // 检测当前正在输出的部分（未闭合的标签）
+  const lastCompletedIdx = completedTags.length > 0 
+    ? Math.max(...completedTags.map(t => t.endIndex))
+    : 0;
+  const remainingContent = partialContent.substring(lastCompletedIdx);
+
+  // 检测未闭合的标签
+  const unclosedThinkMatch = remainingContent.match(/<think>([^]*?)$/i);
+  const unclosedReplyMatch = remainingContent.match(/<reply>([^]*?)$/i);
+  const unclosedCodeMatch = remainingContent.match(/<code>([^]*?)$/i);
+  
+  // 检测部分标签
+  const possiblePartialTag = /<[a-z]*$/i.test(remainingContent);
+
+  if (unclosedCodeMatch) {
+    result.currentSection = 'code';
+    // 追加正在输出的代码
+    const currentCode = cleanCodeContent(unclosedCodeMatch[1].replace(/<\/?[a-z]*$/i, ''));
+    if (currentCode) {
+      result.codeText = result.codeText 
+        ? result.codeText + '\n' + currentCode 
+        : currentCode;
+      result.hasCode = true;
+    }
+  } else if (unclosedReplyMatch) {
+    result.currentSection = 'reply';
+    // 追加正在输出的回复
+    const currentReply = unclosedReplyMatch[1].replace(/<\/?[a-z]*$/i, '').trim();
+    if (currentReply) {
+      result.replyText = result.replyText 
+        ? result.replyText + '\n\n' + currentReply 
+        : currentReply;
+    }
+  } else if (unclosedThinkMatch) {
+    result.currentSection = 'think';
+    // 追加正在输出的思考
+    const currentThink = unclosedThinkMatch[1].replace(/<\/?[a-z]*$/i, '').trim();
+    if (currentThink) {
+      result.thinkText = result.thinkText 
+        ? result.thinkText + '\n\n---\n\n' + currentThink 
+        : currentThink;
+    }
+  } else if (result.hasCode || codeParts.length > 0) {
+    result.currentSection = 'done';
+  } else if (possiblePartialTag) {
+    result.currentSection = 'waiting';
+  } else if (completedTags.length === 0) {
+    result.currentSection = 'raw';
+  } else {
+    // 有已完成的标签，判断当前状态
+    const lastTag = completedTags[completedTags.length - 1];
+    if (lastTag.type === 'code') {
+      result.currentSection = 'done';
+    } else {
+      result.currentSection = lastTag.type;
+    }
+  }
+
+  // 构建显示文本
   let displayText = partialContent;
   displayText = displayText.replace(/<\/?(?:think|reply|code)>/gi, '');
-  displayText = displayText.replace(/<\/?[a-z]*$/i, ''); // 移除末尾不完整的标签
+  displayText = displayText.replace(/<\/?[a-z]*$/i, '');
   result.displayText = displayText.trim();
 
-  // 判断是否完成
-  const hasUnclosedThink = thinkOpenIdx !== -1 && thinkCloseIdx === -1;
-  const hasUnclosedReply = replyOpenIdx !== -1 && replyCloseIdx === -1;
-  const hasUnclosedCode = codeOpenIdx !== -1 && codeCloseIdx === -1;
-  result.isComplete = !hasUnclosedThink && !hasUnclosedReply && !hasUnclosedCode;
+  // 判断是否完成（没有未闭合的标签）
+  result.isComplete = !unclosedThinkMatch && !unclosedReplyMatch && !unclosedCodeMatch && !possiblePartialTag;
 
   return result;
 }

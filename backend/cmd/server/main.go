@@ -985,11 +985,6 @@ func main() {
 				latexWriterGroup.POST("/documents/:id/chat/stream", latexWriterHandler.StreamChatWithContext)
 				latexWriterGroup.DELETE("/documents/:id/conversation", latexWriterHandler.ClearConversation)
 
-				// LaTeX 验证与自动修复
-				latexWriterGroup.POST("/validate", latexWriterHandler.ValidateLatex)
-				latexWriterGroup.POST("/auto-fix", latexWriterHandler.AutoFixLatex)
-				latexWriterGroup.POST("/documents/:id/validate-fix", latexWriterHandler.ValidateAndFixLatex)
-				
 				// 导出功能
 				latexWriterGroup.POST("/export/word", latexWriterHandler.ExportToWord)
 			}

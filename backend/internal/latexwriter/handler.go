@@ -60,8 +60,9 @@ func (h *Handler) StreamChat(c *gin.Context) {
 		// 将错误信息转换为用户友好的提示
 		errorMsg := h.formatUserFriendlyError(err)
 		
-		// 以 SSE data 格式发送错误消息，前端可以直接显示
-		c.Writer.Write([]byte(fmt.Sprintf("data: \n\n⚠️ **AI 服务异常**\n\n%s\n\n", errorMsg)))
+		// 以结构化格式发送错误消息（使用 <br> 转义换行符）
+		escapedMsg := strings.ReplaceAll(errorMsg, "\n", "<br>")
+		c.Writer.Write([]byte(fmt.Sprintf("data: <reply><br>⚠️ **AI 服务异常**<br><br>%s<br></reply><br>", escapedMsg)))
 		c.Writer.Flush()
 	}
 
@@ -408,35 +409,57 @@ func (h *Handler) GetConversationHistory(c *gin.Context) {
 // StreamChatWithContext 流式对话（带上下文）
 // POST /api/v1/user/latex-writer/documents/:id/chat/stream
 func (h *Handler) StreamChatWithContext(c *gin.Context) {
+	fmt.Println("\n" + strings.Repeat("=", 80))
+	fmt.Println("[HANDLER] ==================== 📨 收到 AI 对话请求 ====================")
+	
 	userID, exists := c.Get("user_id")
 	if !exists {
+		fmt.Println("[HANDLER] ❌ 用户未登录")
 		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
 		return
 	}
+	fmt.Printf("[HANDLER] 👤 用户ID: %v\n", userID)
 
 	idStr := c.Param("id")
 	documentID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
+		fmt.Printf("[HANDLER] ❌ 无效的文档ID: %s\n", idStr)
 		utils.ErrorResponse(c, http.StatusBadRequest, "无效的文档 ID")
 		return
 	}
+	fmt.Printf("[HANDLER] 📄 文档ID: %d\n", documentID)
 
 	// 验证文档所有权
 	_, err = h.service.GetDocument(uint(documentID), userID.(uint))
 	if err != nil {
+		fmt.Printf("[HANDLER] ❌ 文档不存在或无权访问: %v\n", err)
 		utils.ErrorResponse(c, http.StatusNotFound, "文档不存在")
 		return
 	}
+	fmt.Println("[HANDLER] ✅ 文档权限验证通过")
 
 	// 解析请求
 	var req ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		fmt.Printf("[HANDLER] ❌ 请求参数解析失败: %v\n", err)
 		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
 
-	fmt.Printf("[LaTeXWriter] StreamChatWithContext called by user %v, document %d, prompt length: %d\n",
-		userID, documentID, len(req.Prompt))
+	fmt.Printf("[HANDLER] 📝 请求参数:\n")
+	fmt.Printf("[HANDLER]   - Prompt长度: %d 字符\n", len(req.Prompt))
+	fmt.Printf("[HANDLER]   - Context长度: %d 字符\n", len(req.Context))
+	fmt.Printf("[HANDLER]   - FullContent长度: %d 字符\n", len(req.FullContent))
+	fmt.Printf("[HANDLER]   - ModelID: %d\n", req.ModelID)
+	
+	// 打印 Prompt 预览
+	promptPreview := req.Prompt
+	if len(promptPreview) > 100 {
+		promptPreview = promptPreview[:100] + "..."
+	}
+	fmt.Printf("[HANDLER]   - Prompt预览: %s\n", promptPreview)
+	fmt.Println("[HANDLER] 📡 开始 SSE 流...")
+	fmt.Println(strings.Repeat("=", 80))
 
 	// 设置 SSE 响应头
 	c.Header("Content-Type", "text/event-stream")
@@ -446,19 +469,23 @@ func (h *Handler) StreamChatWithContext(c *gin.Context) {
 
 	// 流式输出（带上下文）
 	if err := h.service.StreamChatWithContext(userID.(uint), uint(documentID), &req, c.Writer); err != nil {
-		fmt.Printf("[LaTeXWriter] StreamChatWithContext error: %v\n", err)
+		fmt.Printf("[HANDLER] ❌ StreamChatWithContext 错误: %v\n", err)
 		
 		// 将错误信息转换为用户友好的提示
 		errorMsg := h.formatUserFriendlyError(err)
 		
-		// 以 SSE data 格式发送错误消息，前端可以直接显示
-		c.Writer.Write([]byte(fmt.Sprintf("data: \n\n⚠️ **AI 服务异常**\n\n%s\n\n", errorMsg)))
+		// 以结构化格式发送错误消息（使用 <br> 转义换行符）
+		escapedMsg := strings.ReplaceAll(errorMsg, "\n", "<br>")
+		c.Writer.Write([]byte(fmt.Sprintf("data: <reply><br>⚠️ **AI 服务异常**<br><br>%s<br></reply><br>", escapedMsg)))
 		c.Writer.Flush()
 	}
 
 	// 发送结束标记
+	fmt.Println("[HANDLER] 🏁 发送 [DONE] 标记")
 	c.Writer.Write([]byte("data: [DONE]\n\n"))
 	c.Writer.Flush()
+	fmt.Println("[HANDLER] ✅ SSE 流结束")
+	fmt.Println(strings.Repeat("=", 80) + "\n")
 }
 
 // ClearConversation 清空对话
@@ -726,4 +753,58 @@ func (h *Handler) formatUserFriendlyError(err error) string {
 	
 	// 默认错误消息
 	return "AI 服务出现异常，请稍后重试。如果问题持续，请联系管理员。"
+}
+
+// FixCompileError 根据编译错误修复 LaTeX 代码
+// POST /api/v1/user/latex-writer/documents/:id/fix-compile-error/stream
+func (h *Handler) FixCompileError(c *gin.Context) {
+	// 获取用户 ID
+	userID, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+		return
+	}
+
+	// 获取文档 ID
+	idStr := c.Param("id")
+	documentID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "无效的文档 ID")
+		return
+	}
+
+	// 解析请求
+	var req FixCompileErrorRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
+		return
+	}
+
+	fmt.Printf("[LaTeXWriter] FixCompileError called by user %v, doc %d, log length: %d\n", 
+		userID, documentID, len(req.CompileLog))
+
+	// 设置 SSE 响应头
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	fmt.Println("[Handler] 📡 SSE Stream started (FixCompileError)")
+
+	// 调用 service 修复编译错误
+	if err := h.service.AutoFixCompileError(req.Content, req.CompileLog, req.Engine, c.Writer); err != nil {
+		fmt.Printf("[LaTeXWriter] FixCompileError error: %v\n", err)
+		
+		errorMsg := h.formatUserFriendlyError(err)
+		// 使用 <br> 转义换行符
+		escapedMsg := strings.ReplaceAll(errorMsg, "\n", "<br>")
+		c.Writer.Write([]byte(fmt.Sprintf("data: <reply><br>⚠️ **AI 服务异常**<br><br>%s<br></reply><br>", escapedMsg)))
+		c.Writer.Flush()
+	}
+
+	// 发送结束标记
+	fmt.Println("[Handler] 🏁 Sending [DONE] marker (FixCompileError)")
+	c.Writer.Write([]byte("data: [DONE]\n\n"))
+	c.Writer.Flush()
+	fmt.Println("[Handler] ✅ SSE Stream ended (FixCompileError)")
 }

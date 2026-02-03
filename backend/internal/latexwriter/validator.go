@@ -73,6 +73,9 @@ func (v *LatexValidator) Validate(content string) *ValidationResult {
 	// 7. 检查宏包使用
 	v.checkPackageUsage(content, lines, result)
 
+	// 8. 检查参数完整性
+	v.checkParameterCompleteness(content, lines, result)
+
 	// 生成摘要
 	if len(result.Errors) > 0 {
 		result.Valid = false
@@ -570,6 +573,149 @@ func (v *LatexValidator) checkPackageUsage(content string, lines []string, resul
 					Message: fmt.Sprintf("使用了 %s 命令但可能未加载 %s 宏包", strings.Replace(cmd, `\`, "", -1), pkg),
 				})
 			}
+		}
+	}
+}
+
+// checkParameterCompleteness 检查参数完整性
+func (v *LatexValidator) checkParameterCompleteness(content string, lines []string, result *ValidationResult) {
+	// 检查不完整的 documentclass 参数
+	// 例如: [pt,apaper] 应该是 [12pt,a4paper]
+	docclassRegex := regexp.MustCompile(`\\documentclass\[([^\]]*)\]`)
+	for i, line := range lines {
+		if matches := docclassRegex.FindStringSubmatch(line); len(matches) > 1 {
+			opts := matches[1]
+			// 检查常见的不完整参数
+			if regexp.MustCompile(`\bpt\b`).MatchString(opts) && !regexp.MustCompile(`\d+pt`).MatchString(opts) {
+				result.Errors = append(result.Errors, ValidationError{
+					Line:    i + 1,
+					Type:    "error",
+					Code:    "PRM001",
+					Message: "字体大小参数不完整：'pt' 应该是 '10pt', '11pt' 或 '12pt'",
+					Context: line,
+				})
+			}
+			if regexp.MustCompile(`\bapaper\b`).MatchString(opts) {
+				result.Errors = append(result.Errors, ValidationError{
+					Line:    i + 1,
+					Type:    "error",
+					Code:    "PRM002",
+					Message: "纸张大小参数错误：'apaper' 应该是 'a4paper' 或 'letterpaper'",
+					Context: line,
+				})
+			}
+		}
+	}
+
+	// 检查 geometry 包的不完整参数
+	// 例如: margin=in 应该是 margin=1in
+	geometryRegex := regexp.MustCompile(`\\usepackage\[([^\]]*)\]\{geometry\}`)
+	for i, line := range lines {
+		if matches := geometryRegex.FindStringSubmatch(line); len(matches) > 1 {
+			opts := matches[1]
+			// 检查缺少数值的参数
+			if regexp.MustCompile(`margin\s*=\s*in\b`).MatchString(opts) ||
+				regexp.MustCompile(`margin\s*=\s*cm\b`).MatchString(opts) ||
+				regexp.MustCompile(`margin\s*=\s*mm\b`).MatchString(opts) {
+				result.Errors = append(result.Errors, ValidationError{
+					Line:    i + 1,
+					Type:    "error",
+					Code:    "PRM003",
+					Message: "geometry 参数不完整：缺少数值，例如应该是 'margin=1in' 而不是 'margin=in'",
+					Context: line,
+				})
+			}
+		}
+	}
+
+	// 检查不完整的下标/上标
+	// 例如: \beta_ 没有内容
+	incompleteSubscript := regexp.MustCompile(`\\[a-zA-Z]+_\s*[^{a-zA-Z0-9]|\\[a-zA-Z]+_$`)
+	incompleteSuperscript := regexp.MustCompile(`\\[a-zA-Z]+\^\s*[^{a-zA-Z0-9]|\\[a-zA-Z]+\^$`)
+	for i, line := range lines {
+		// 跳过注释
+		if strings.HasPrefix(strings.TrimSpace(line), "%") {
+			continue
+		}
+		if incompleteSubscript.MatchString(line) {
+			result.Errors = append(result.Errors, ValidationError{
+				Line:    i + 1,
+				Type:    "error",
+				Code:    "PRM004",
+				Message: "下标不完整：'_' 后面应该有内容，例如 \\beta_0 或 \\beta_{ij}",
+				Context: line,
+			})
+		}
+		if incompleteSuperscript.MatchString(line) {
+			result.Errors = append(result.Errors, ValidationError{
+				Line:    i + 1,
+				Type:    "error",
+				Code:    "PRM005",
+				Message: "上标不完整：'^' 后面应该有内容，例如 x^2 或 x^{n+1}",
+				Context: line,
+			})
+		}
+	}
+
+	// 检查空的命令参数
+	// 例如: \SI{}{...} 或 \textbf{} 等
+	emptyParamRegex := regexp.MustCompile(`\\(SI|textbf|textit|emph|href|url|section|subsection|caption|label)\{\s*\}`)
+	for i, line := range lines {
+		if matches := emptyParamRegex.FindStringSubmatch(line); len(matches) > 0 {
+			result.Errors = append(result.Errors, ValidationError{
+				Line:    i + 1,
+				Type:    "error",
+				Code:    "PRM006",
+				Message: fmt.Sprintf("命令 \\%s 的参数为空", matches[1]),
+				Context: line,
+			})
+		}
+	}
+
+	// 检查参考文献中的不完整内容
+	// 检查 bibitem 后的内容是否有明显缺失
+	bibitemContentRegex := regexp.MustCompile(`\\bibitem\{[^}]+\}`)
+	for i, line := range lines {
+		if bibitemContentRegex.MatchString(line) {
+			// 检查年份缺失：如 "(), " 或 ", ."
+			if regexp.MustCompile(`\(\s*\)`).MatchString(line) ||
+				regexp.MustCompile(`\(\s*\d\s*\)`).MatchString(line) {
+				result.Warnings = append(result.Warnings, ValidationError{
+					Line:    i + 1,
+					Type:    "warning",
+					Code:    "PRM007",
+					Message: "参考文献年份可能不完整",
+					Context: line,
+				})
+			}
+		}
+	}
+
+	// 检查页码范围格式：应该是 pages 123--145 而不是 pages --
+	pageRangeRegex := regexp.MustCompile(`pages?\s*:?\s*--\s*[,.\s]|pages?\s*:?\s*\d+\s*--\s*[,.\s]|pages?\s*:?\s*--\s*\d+`)
+	for i, line := range lines {
+		if pageRangeRegex.MatchString(line) {
+			result.Warnings = append(result.Warnings, ValidationError{
+				Line:    i + 1,
+				Type:    "warning",
+				Code:    "PRM008",
+				Message: "页码范围可能不完整，格式应为 'pages 123--145'",
+				Context: line,
+			})
+		}
+	}
+
+	// 检查 \mathcal{N}(,) 这样的不完整分布参数
+	incompleteDistRegex := regexp.MustCompile(`\\mathcal\{[A-Z]\}\s*\(\s*,|\\mathcal\{[A-Z]\}\s*\([^)]*,\s*\)`)
+	for i, line := range lines {
+		if incompleteDistRegex.MatchString(line) {
+			result.Errors = append(result.Errors, ValidationError{
+				Line:    i + 1,
+				Type:    "error",
+				Code:    "PRM009",
+				Message: "数学分布参数不完整，例如 \\mathcal{N}(0,\\sigma^2) 缺少参数值",
+				Context: line,
+			})
 		}
 	}
 }

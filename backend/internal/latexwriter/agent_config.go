@@ -38,8 +38,8 @@ type AgentConfig struct {
 
 	// Agent 行为配置
 	MaxIterations         uint    `gorm:"column:max_iterations;default:10" json:"max_iterations"`
-	AutoValidateLatex     bool    `gorm:"column:auto_validate_latex;default:true" json:"auto_validate_latex"`
-	AutoFixErrors         bool    `gorm:"column:auto_fix_errors;default:true" json:"auto_fix_errors"`
+	AutoValidateLatex     bool    `gorm:"column:auto_validate_latex;default:false" json:"auto_validate_latex"` // 已禁用，用户通过对话修复
+	AutoFixErrors         bool    `gorm:"column:auto_fix_errors;default:false" json:"auto_fix_errors"` // 已禁用，用户通过对话修复
 	EnableToolCalling     bool    `gorm:"column:enable_tool_calling;default:true" json:"enable_tool_calling"`
 	EnabledToolCategories *string `gorm:"column:enabled_tool_categories;type:json" json:"-"`
 
@@ -148,8 +148,8 @@ func (r *AgentConfigRepository) GetConfig() (*AgentConfig, error) {
 			TruncationStrategy:    "sliding_window",
 			TopP:                  0.9,
 			MaxIterations:         10,
-			AutoValidateLatex:     true,
-			AutoFixErrors:         true,
+			AutoValidateLatex:     false, // 已禁用，用户通过对话修复
+			AutoFixErrors:         false, // 已禁用，用户通过对话修复
 			EnableToolCalling:     true,
 			IsActive:              true,
 		}

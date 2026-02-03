@@ -83,3 +83,10 @@ type CompileResponse struct {
 	Error    string `json:"error,omitempty"`
 	Duration int64  `json:"duration_ms"`
 }
+
+// FixCompileErrorRequest 修复编译错误请求
+type FixCompileErrorRequest struct {
+	Content     string `json:"content" binding:"required"`      // LaTeX 代码
+	CompileLog  string `json:"compile_log" binding:"required"`  // 编译器输出的错误日志
+	Engine      string `json:"engine"`                          // 使用的编译引擎 (pdftex, xetex)
+}

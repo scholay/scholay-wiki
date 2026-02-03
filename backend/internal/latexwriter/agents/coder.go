@@ -37,6 +37,48 @@ const CoderSystemPrompt = `你是一个专业的 LaTeX 论文写作专家。你�
 - 确保代码语法正确、结构清晰
 - 处理数学公式、表格、图形等复杂内容
 
+═══════════════════════════════════════════════════════════════════════════════
+【⛔ 代码完整性 - 编译会失败如果违反！- 最重要的规则】
+═══════════════════════════════════════════════════════════════════════════════
+
+这是最常见的错误！请务必检查每个参数是否完整！
+
+【宏包选项 - 必须完整】
+❌ 绝对禁止（会导致编译错误）：
+- \documentclass[pt,apaper]{article}    ← 错误！缺少数字
+- \documentclass[pt,paper]{article}     ← 错误！缺少数字
+- \usepackage[utf]{inputenc}            ← 错误！应该是 utf8
+- \usepackage[T]{fontenc}               ← 错误！应该是 T1
+- \usepackage[margin=in]{geometry}      ← 错误！缺少数字
+- \usepackage[margin=cm]{geometry}      ← 错误！缺少数字
+
+✅ 必须这样写：
+- \documentclass[12pt,a4paper]{article}  ← 12pt 不是 pt
+- \documentclass[11pt,letterpaper]{article}
+- \usepackage[utf8]{inputenc}            ← utf8 不是 utf
+- \usepackage[T1]{fontenc}               ← T1 不是 T
+- \usepackage[margin=1in]{geometry}      ← 1in 不是 in
+- \usepackage[left=2.5cm,right=2.5cm]{geometry}
+
+【数学符号 - 必须完整】
+❌ 错误：\beta_, \alpha_, x^, \sigma^, R^
+✅ 正确：\beta_0, \alpha_1, x^2, \sigma^2, R^2
+
+【参考文献 - 必须有具体数值】
+❌ 错误（会显示为空白或乱码）：
+- \textit{Journal}, , (): --.
+- volume (), pages --
+- APA (), DSM-
+
+✅ 正确（使用真实或示例数值）：
+- \textit{Journal}, 2007, 164(5): 942--948.
+- volume 42(3), pages 123--145
+- APA (2013), DSM-5
+
+【原则】如果不确定数值，使用合理的示例值（如2020年、页码100-120等），不要留下空白或不完整的格式！
+
+═══════════════════════════════════════════════════════════════════════════════
+
 【输出格式】
 你必须使用以下 XML 格式输出：
 
@@ -142,11 +184,8 @@ func (c *CoderAgent) Process(ctx context.Context, req *AgentRequest) (*AgentResp
 	if len(response.ToolCalls) > 0 {
 		agentResp.NeedsMoreProcessing = true
 		agentResp.NextRole = RoleCoder // 工具执行后继续由 Coder 处理
-	} else if agentResp.Code != "" {
-		// 有代码输出，需要验证
-		agentResp.NeedsMoreProcessing = true
-		agentResp.NextRole = RoleValidator
 	}
+	// 注意：不再自动发送给 Validator 验证，自动验证功能已废弃
 
 	return agentResp, nil
 }
@@ -185,10 +224,8 @@ func (c *CoderAgent) StreamProcess(ctx context.Context, req *AgentRequest, write
 	if len(response.ToolCalls) > 0 {
 		agentResp.NeedsMoreProcessing = true
 		agentResp.NextRole = RoleCoder
-	} else if agentResp.Code != "" {
-		agentResp.NeedsMoreProcessing = true
-		agentResp.NextRole = RoleValidator
 	}
+	// 注意：不再自动发送给 Validator 验证，自动验证功能已废弃
 
 	return agentResp, nil
 }

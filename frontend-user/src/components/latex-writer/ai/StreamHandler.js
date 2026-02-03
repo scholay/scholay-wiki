@@ -26,6 +26,7 @@ export class StreamHandler {
   constructor() {
     this.abortController = null;
     this.reader = null;
+    this.stopped = false; // 防止重复调用 onStop
   }
 
   /**
@@ -38,8 +39,19 @@ export class StreamHandler {
   async stream(url, payload, listener, options = {}) {
     const { headers = {}, token } = options;
 
+    // 重置状态
+    this.stopped = false;
+    
     // 创建中止控制器
     this.abortController = new AbortController();
+
+    // 安全的 onStop 调用（只调用一次）
+    const safeOnStop = () => {
+      if (!this.stopped) {
+        this.stopped = true;
+        listener.onStop?.();
+      }
+    };
 
     try {
       listener.onStart?.();
@@ -73,7 +85,7 @@ export class StreamHandler {
         const { done, value } = await this.reader.read();
         
         if (done) {
-          listener.onStop?.();
+          safeOnStop();
           break;
         }
 
@@ -90,45 +102,65 @@ export class StreamHandler {
           
           // 处理可能的多行 data 消息
           // SSE 规范：多行数据每行以 data: 开头
-          const dataLines = message.split('\n')
-            .filter(line => line.startsWith('data: '))
-            .map(line => line.slice(6));
+          const lines = message.split('\n');
+          const dataLines = [];
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              dataLines.push(line.slice(6));
+            } else if (line.startsWith('data:')) {
+              // 处理 "data:" 后面没有空格的情况
+              dataLines.push(line.slice(5));
+            }
+          }
           
           // 如果没有 data: 行，跳过
           if (dataLines.length === 0) continue;
           
-          // 合并所有 data 行（用换行连接）
+          // 合并所有 data 行（用换行连接，保留原始换行）
           const data = dataLines.join('\n');
             
           if (data === '[DONE]') {
-            listener.onStop?.();
+            safeOnStop();
             return;
           }
 
+          // 尝试解析为 JSON（OpenAI 格式）
+          let handled = false;
           try {
             const parsed = JSON.parse(data);
-            const content = parsed.choices?.[0]?.delta?.content || '';
-            const finishReason = parsed.choices?.[0]?.finish_reason;
-            
-            if (content) {
-              listener.onMessage?.(content, finishReason === 'stop' ? 2 : 1);
-            }
+            // 必须是对象且有 choices 字段才认为是有效的 JSON 响应
+            if (parsed && typeof parsed === 'object' && parsed.choices) {
+              const content = parsed.choices?.[0]?.delta?.content || '';
+              const finishReason = parsed.choices?.[0]?.finish_reason;
+              
+              if (content) {
+                // 解码转义的换行符：<br> -> \n
+                const decoded = content.replace(/<br>/g, '\n');
+                listener.onMessage?.(decoded, finishReason === 'stop' ? 2 : 1);
+              }
 
-            if (finishReason === 'stop') {
-              listener.onStop?.();
-              return;
+              if (finishReason === 'stop') {
+                safeOnStop();
+                return;
+              }
+              handled = true;
             }
           } catch (e) {
-            // 解析失败，可能是非标准格式，尝试直接使用
-            if (data && data !== '[DONE]') {
-              listener.onMessage?.(data, 1);
-            }
+            // JSON 解析失败，将在下面作为纯文本处理
+          }
+          
+          // 非 JSON 格式或不是有效的 OpenAI 格式，作为纯文本处理
+          if (!handled && data && data !== '[DONE]') {
+            // 解码转义的换行符：<br> -> \n
+            const decoded = data.replace(/<br>/g, '\n');
+            listener.onMessage?.(decoded, 1);
           }
         }
       }
     } catch (error) {
       if (error.name === 'AbortError') {
-        listener.onStop?.();
+        safeOnStop();
       } else {
         listener.onError?.(error);
       }

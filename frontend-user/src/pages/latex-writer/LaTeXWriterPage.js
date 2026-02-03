@@ -174,6 +174,7 @@ function LaTeXWriterPage() {
   const [pdfUrl, setPdfUrl] = useState(null);
   const [isCompiling, setIsCompiling] = useState(false);
   const [compileError, setCompileError] = useState(null);
+  const [compileLog, setCompileLog] = useState(null); // 完整编译日志（用于 AI 修复）
   const [hasCompiledOnce, setHasCompiledOnce] = useState(false); // 是否已经编译过（用于显示初始化状态）
   
   // AI 对话状态
@@ -479,34 +480,35 @@ function LaTeXWriterPage() {
   // AI 聊天面板引用
   const aiChatRef = useRef(null);
   
-  // 让 AI 修复编译错误
+  // 让 AI 修复编译错误（通过普通对话方式）
   const handleAiFixError = useCallback((errorMessage) => {
     if (!errorMessage) return;
     
+    // 使用完整的编译日志（如果有），否则使用错误消息
+    const logToSend = compileLog || errorMessage;
+    
+    // 截取错误日志的关键部分（避免太长）
+    const truncatedLog = logToSend.length > 1500 
+      ? logToSend.substring(0, 1500) + '\n... (日志已截断)'
+      : logToSend;
+    
     // 构造修复请求消息
-    const fixPrompt = `我的 LaTeX 代码编译出错了，请帮我修复。
+    const fixPrompt = `我的 LaTeX 代码编译出错了，请帮我分析并修复。
 
-错误信息:
+**编译错误：**
 \`\`\`
-${errorMessage}
+${truncatedLog}
 \`\`\`
 
-请分析错误原因并提供修复后的完整 LaTeX 代码。`;
+请分析错误原因，并提供修复后的完整代码。`;
     
-    // 触发 AI 聊天发送消息（通过设置一个状态来触发）
-    // 这里我们使用一个简单的方式：将错误信息放到 selectedText 中触发对话
-    setSelectedText(content.substring(0, Math.min(content.length, 500))); // 选中部分代码作为上下文
-    
-    // 模拟用户在 AI 聊天面板中输入修复请求
-    // 由于 AiChatPanel 是独立组件，我们通过 props 传递一个触发消息
+    // 通过正常对话方式发送
     if (aiChatRef.current && aiChatRef.current.sendMessage) {
       aiChatRef.current.sendMessage(fixPrompt);
     } else {
-      // 如果没有直接的 ref 方法，我们使用事件或状态
-      // 这里简化处理：设置一个待发送的消息状态
       setAiPendingMessage(fixPrompt);
     }
-  }, [content]);
+  }, [compileLog]);
 
   // AI 待发送消息（用于 AI 修复功能）
   const [aiPendingMessage, setAiPendingMessage] = useState(null);
@@ -560,6 +562,7 @@ ${errorMessage}
     
     setIsCompiling(true);
     setCompileError(null);
+    setCompileLog(null);
     setHasCompiledOnce(true); // 标记已经开始编译过
     
     try {
@@ -569,13 +572,16 @@ ${errorMessage}
         // 编译成功：更新 PDF URL，清除错误
         setPdfUrl(result.pdfUrl);
         setCompileError(null);
+        setCompileLog(null);
       } else {
-        // 编译失败：只设置错误，不更新 pdfUrl（保持当前显示）
+        // 编译失败：保存完整日志用于 AI 修复
         setCompileError(result.error || '编译失败，请检查 LaTeX 语法');
+        setCompileLog(result.log || result.error || '编译失败'); // 保存完整日志
       }
     } catch (error) {
       console.error('编译失败:', error);
       setCompileError(error.message || '编译过程中发生错误');
+      setCompileLog(error.message || '编译过程中发生错误');
     } finally {
       setIsCompiling(false);
     }

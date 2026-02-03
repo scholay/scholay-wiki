@@ -126,11 +126,7 @@ func (s *Service) streamWithModel(messages []ai.ChatMessage, writer io.Writer, m
 			return fmt.Errorf("AI 响应错误: %w", chunk.Error)
 		}
 		if chunk.Delta != "" {
-			sseData := fmt.Sprintf("data: %s\n\n", chunk.Delta)
-			writer.Write([]byte(sseData))
-			if flusher, ok := writer.(http.Flusher); ok {
-				flusher.Flush()
-			}
+			writeSSEData(writer, chunk.Delta)
 		}
 	}
 	
@@ -200,11 +196,7 @@ func (s *Service) streamWithModelAndCollect(messages []ai.ChatMessage, writer io
 		}
 		if chunk.Delta != "" {
 			content.WriteString(chunk.Delta)
-			sseData := fmt.Sprintf("data: %s\n\n", chunk.Delta)
-			writer.Write([]byte(sseData))
-			if flusher, ok := writer.(http.Flusher); ok {
-				flusher.Flush()
-			}
+			writeSSEData(writer, chunk.Delta)
 		}
 	}
 	
@@ -253,8 +245,6 @@ func (s *Service) GetOrCreateOrchestrator(modelID uint) (*AgentOrchestrator, err
 	orchConfig := &OrchestratorConfig{
 		EnableMultiAgent: agentConfig != nil && agentConfig.EnableMultiAgent,
 		MaxIterations:    10,
-		AutoValidate:     agentConfig == nil || agentConfig.AutoValidateLatex,
-		AutoFix:          agentConfig == nil || agentConfig.AutoFixErrors,
 		MaxContextTokens: int(modelConfig.MaxContextTokens),
 	}
 	
@@ -314,14 +304,6 @@ func initMCPRegistry() *mcp.Registry {
 	}
 	
 	return registry
-}
-
-// min helper function
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 // GetAvailableModels 获取可用模型列表（用户端）
@@ -632,38 +614,59 @@ func (s *Service) DeleteDocument(id uint, userID uint) error {
 // StreamChatWithContext 流式 AI 对话（带上下文历史）
 // 包含自动验证和修复闭环
 func (s *Service) StreamChatWithContext(userID, documentID uint, req *ChatRequest, writer io.Writer) error {
+	startTime := time.Now()
+	
 	fmt.Println("\n" + strings.Repeat("=", 80))
-	fmt.Println("[LaTeXWriter] 🚀 StreamChatWithContext started")
-	fmt.Printf("[LaTeXWriter] 📝 User: %d, Doc: %d, ModelID: %d\n", userID, documentID, req.ModelID)
-	fmt.Printf("[LaTeXWriter] 💬 Prompt: %.100s...\n", req.Prompt)
-	fmt.Println(strings.Repeat("=", 80))
+	fmt.Println("[AI-FLOW] ==================== 🚀 AI 对话流程开始 ====================")
+	fmt.Printf("[AI-FLOW] 📍 Step 1: 请求接收\n")
+	fmt.Printf("[AI-FLOW]   - 时间: %s\n", startTime.Format("2006-01-02 15:04:05.000"))
+	fmt.Printf("[AI-FLOW]   - 用户ID: %d\n", userID)
+	fmt.Printf("[AI-FLOW]   - 文档ID: %d\n", documentID)
+	fmt.Printf("[AI-FLOW]   - 模型ID: %d\n", req.ModelID)
+	fmt.Printf("[AI-FLOW]   - Prompt长度: %d 字符\n", len(req.Prompt))
+	fmt.Printf("[AI-FLOW]   - Context长度: %d 字符\n", len(req.Context))
+	fmt.Printf("[AI-FLOW]   - FullContent长度: %d 字符\n", len(req.FullContent))
+	
+	// 打印 Prompt 前200字符
+	promptPreview := req.Prompt
+	if len(promptPreview) > 200 {
+		promptPreview = promptPreview[:200] + "..."
+	}
+	fmt.Printf("[AI-FLOW]   - Prompt预览: %s\n", promptPreview)
+	fmt.Println(strings.Repeat("-", 80))
 	
 	// 0. 获取 Agent 配置
+	fmt.Printf("[AI-FLOW] 📍 Step 2: 加载 Agent 配置\n")
 	agentConfig, err := s.configRepo.GetConfig()
 	if err != nil {
-		fmt.Printf("[LaTeXWriter] Warning: Failed to get agent config, using defaults: %v\n", err)
+		fmt.Printf("[AI-FLOW]   ⚠️ 获取配置失败，使用默认值: %v\n", err)
 		// 使用默认配置
 		agentConfig = &AgentConfig{
 			ContextWindowMessages: 50,
-			AutoValidateLatex:     true,
-			AutoFixErrors:         true,
+			AutoValidateLatex:     false, // 已禁用，用户通过对话修复
+			AutoFixErrors:         false, // 已禁用，用户通过对话修复
 		}
+	} else {
+		fmt.Printf("[AI-FLOW]   ✅ Agent配置加载成功\n")
+		fmt.Printf("[AI-FLOW]   - ContextWindowMessages: %d\n", agentConfig.ContextWindowMessages)
+		fmt.Printf("[AI-FLOW]   - EnableMultiAgent: %v\n", agentConfig.EnableMultiAgent)
 	}
 
 	// 获取模型配置
+	fmt.Printf("[AI-FLOW] 📍 Step 3: 加载模型配置\n")
 	var modelConfig *AgentModel
 	if req.ModelID > 0 {
 		// 如果请求指定了模型 ID
 		modelConfig, err = s.modelRepo.GetModelByID(req.ModelID)
 		if err != nil {
-			fmt.Printf("[LaTeXWriter] Warning: Requested model %d not found, using default\n", req.ModelID)
+			fmt.Printf("[AI-FLOW]   ⚠️ 指定模型 %d 未找到，使用默认模型\n", req.ModelID)
 		}
 	}
 	if modelConfig == nil {
 		// 使用默认模型
 		modelConfig, err = s.modelRepo.GetDefaultModel()
 		if err != nil {
-			fmt.Printf("[LaTeXWriter] Warning: No default model found, using fallback\n")
+			fmt.Printf("[AI-FLOW]   ⚠️ 无默认模型，使用内置配置\n")
 			modelConfig = &AgentModel{
 				MaxContextTokens: 128000,
 				MaxOutputTokens:  16384,
@@ -671,45 +674,80 @@ func (s *Service) StreamChatWithContext(userID, documentID uint, req *ChatReques
 			}
 		}
 	}
+	fmt.Printf("[AI-FLOW]   ✅ 模型配置加载成功\n")
+	fmt.Printf("[AI-FLOW]   - 模型名称: %s\n", modelConfig.DisplayName)
+	fmt.Printf("[AI-FLOW]   - 模型ID: %s\n", modelConfig.ModelName)
+	fmt.Printf("[AI-FLOW]   - API端点: %s\n", modelConfig.APIEndpoint)
+	fmt.Printf("[AI-FLOW]   - API格式: %s\n", modelConfig.APIFormat)
+	fmt.Printf("[AI-FLOW]   - 最大上下文: %d tokens\n", modelConfig.MaxContextTokens)
+	fmt.Printf("[AI-FLOW]   - 最大输出: %d tokens\n", modelConfig.MaxOutputTokens)
+	fmt.Printf("[AI-FLOW]   - Temperature: %.2f\n", modelConfig.Temperature)
+	fmt.Println(strings.Repeat("-", 80))
 
 	// 1. 获取或创建对话
+	fmt.Printf("[AI-FLOW] 📍 Step 4: 对话管理\n")
 	conv, err := s.convService.GetOrCreateConversation(userID, documentID)
 	if err != nil {
+		fmt.Printf("[AI-FLOW]   ❌ 获取对话失败: %v\n", err)
 		return fmt.Errorf("获取对话失败: %w", err)
 	}
+	fmt.Printf("[AI-FLOW]   ✅ 对话ID: %d\n", conv.ID)
 
 	// 2. 保存用户消息
 	_, err = s.convService.AddUserMessage(conv.ID, req.Prompt)
 	if err != nil {
+		fmt.Printf("[AI-FLOW]   ❌ 保存用户消息失败: %v\n", err)
 		return fmt.Errorf("保存用户消息失败: %w", err)
 	}
+	fmt.Printf("[AI-FLOW]   ✅ 用户消息已保存\n")
 
 	// 3. 构建上下文（使用配置的消息数量限制）
 	contextStr, err := s.convService.BuildContextStringWithLimit(conv.ID, int(agentConfig.ContextWindowMessages))
 	if err != nil {
+		fmt.Printf("[AI-FLOW]   ❌ 构建上下文失败: %v\n", err)
 		return fmt.Errorf("构建上下文失败: %w", err)
 	}
+	fmt.Printf("[AI-FLOW]   ✅ 历史上下文长度: %d 字符\n", len(contextStr))
+	fmt.Println(strings.Repeat("-", 80))
 
 	// 4. 获取系统提示词
+	fmt.Printf("[AI-FLOW] 📍 Step 5: 构建系统提示词 (System Prompt)\n")
 	systemPrompt := GetSystemPrompt("base")
+	basePromptLen := len(systemPrompt)
+	fmt.Printf("[AI-FLOW]   - 基础提示词长度: %d 字符\n", basePromptLen)
+	
+	// 检查基础提示词是否包含关键规则
+	if strings.Contains(systemPrompt, "第一优先级规则") {
+		fmt.Printf("[AI-FLOW]   ✅ 基础提示词包含【第一优先级规则】\n")
+	} else {
+		fmt.Printf("[AI-FLOW]   ⚠️ 基础提示词缺少【第一优先级规则】\n")
+	}
+	if strings.Contains(systemPrompt, "参数必须完整") {
+		fmt.Printf("[AI-FLOW]   ✅ 基础提示词包含【参数必须完整】规则\n")
+	} else {
+		fmt.Printf("[AI-FLOW]   ⚠️ 基础提示词缺少【参数必须完整】规则\n")
+	}
 	
 	// 如果配置了自定义系统提示词，使用它
 	if agentConfig.SystemPromptOverride != nil && *agentConfig.SystemPromptOverride != "" {
 		systemPrompt = *agentConfig.SystemPromptOverride
+		fmt.Printf("[AI-FLOW]   🔄 使用自定义系统提示词 (override)\n")
 	} else if agentConfig.SystemPromptAppend != nil && *agentConfig.SystemPromptAppend != "" {
 		// 追加额外提示词
 		systemPrompt = systemPrompt + "\n\n" + *agentConfig.SystemPromptAppend
+		fmt.Printf("[AI-FLOW]   ➕ 追加自定义提示词: %d 字符\n", len(*agentConfig.SystemPromptAppend))
 	}
 
 	// 添加工具能力说明（帮助模型理解可用的功能）
 	toolDescription := getToolCapabilitiesDescription()
 	systemPrompt = systemPrompt + "\n\n" + toolDescription
+	fmt.Printf("[AI-FLOW]   ➕ 添加工具能力说明: %d 字符\n", len(toolDescription))
 	
 	// 添加 MCP 工具描述（动态从注册表获取）
 	mcpToolsDescription := s.getMCPToolsDescription()
 	if mcpToolsDescription != "" {
 		systemPrompt = systemPrompt + mcpToolsDescription
-		fmt.Println("[LaTeXWriter] ✅ MCP tools description added to system prompt")
+		fmt.Printf("[AI-FLOW]   ➕ 添加MCP工具描述: %d 字符\n", len(mcpToolsDescription))
 	}
 	
 	// 添加多轮对话的特殊说明
@@ -728,8 +766,19 @@ func (s *Service) StreamChatWithContext(userID, documentID uint, req *ChatReques
 6. 如果用户只是问问题，只输出 <reply>，不需要输出 <code>
 `
 	systemPrompt = systemPrompt + multiTurnInstruction
+	fmt.Printf("[AI-FLOW]   ➕ 添加多轮对话规则: %d 字符\n", len(multiTurnInstruction))
+	fmt.Printf("[AI-FLOW]   📊 系统提示词总长度: %d 字符\n", len(systemPrompt))
+	
+	// 打印系统提示词的前500字符（用于验证关键规则是否在开头）
+	promptHead := systemPrompt
+	if len(promptHead) > 500 {
+		promptHead = promptHead[:500] + "..."
+	}
+	fmt.Printf("[AI-FLOW]   📄 系统提示词开头预览:\n%s\n", promptHead)
+	fmt.Println(strings.Repeat("-", 80))
 
 	// 5. 构建用户消息（包含上下文和当前请求）
+	fmt.Printf("[AI-FLOW] 📍 Step 6: 构建用户消息 (User Message)\n")
 	var userMessage strings.Builder
 
 	// 添加历史上下文（用清晰的标记）
@@ -740,6 +789,7 @@ func (s *Service) StreamChatWithContext(userID, documentID uint, req *ChatReques
 		userMessage.WriteString("═══════════════════════════════════════════════════════════════════════════════\n")
 		userMessage.WriteString(contextStr)
 		userMessage.WriteString("\n\n")
+		fmt.Printf("[AI-FLOW]   ➕ 添加历史对话: %d 字符\n", len(contextStr))
 	}
 
 	// 添加当前选中的代码上下文
@@ -751,6 +801,7 @@ func (s *Service) StreamChatWithContext(userID, documentID uint, req *ChatReques
 		userMessage.WriteString("```latex\n")
 		userMessage.WriteString(req.Context)
 		userMessage.WriteString("\n```\n\n")
+		fmt.Printf("[AI-FLOW]   ➕ 添加选中代码: %d 字符\n", len(req.Context))
 	}
 
 	// 如果有完整文档上下文（根据配置的上下文大小动态调整）
@@ -771,10 +822,12 @@ func (s *Service) StreamChatWithContext(userID, documentID uint, req *ChatReques
 			userMessage.WriteString("```latex\n")
 			userMessage.WriteString(req.FullContent[:maxDocContext])
 			userMessage.WriteString("\n...[文档过长，已截断]...\n```\n\n")
+			fmt.Printf("[AI-FLOW]   ➕ 添加完整文档(截断): %d -> %d 字符\n", len(req.FullContent), maxDocContext)
 		} else if len(req.FullContent) > 0 {
 			userMessage.WriteString("```latex\n")
 			userMessage.WriteString(req.FullContent)
 			userMessage.WriteString("\n```\n\n")
+			fmt.Printf("[AI-FLOW]   ➕ 添加完整文档: %d 字符\n", len(req.FullContent))
 		}
 	}
 
@@ -786,34 +839,58 @@ func (s *Service) StreamChatWithContext(userID, documentID uint, req *ChatReques
 	userMessage.WriteString("\n\n")
 	userMessage.WriteString("请按照系统提示词的格式要求回复。记住：<code> 标签内只能有纯净的 LaTeX 代码！")
 
+	fmt.Printf("[AI-FLOW]   📊 用户消息总长度: %d 字符\n", len(userMessage.String()))
+	fmt.Println(strings.Repeat("-", 80))
+
 	messages := []ai.ChatMessage{
 		{Role: "system", Content: systemPrompt},
 		{Role: "user", Content: userMessage.String()},
 	}
 
-	// Debug: 打印系统提示词长度和用户消息长度
-	fmt.Printf("[LaTeXWriter] 📄 System prompt length: %d chars\n", len(systemPrompt))
-	fmt.Printf("[LaTeXWriter] 📄 User message length: %d chars\n", len(userMessage.String()))
+	// 汇总打印
+	fmt.Printf("[AI-FLOW] 📍 Step 7: 消息汇总\n")
+	fmt.Printf("[AI-FLOW]   📄 System Prompt: %d 字符\n", len(systemPrompt))
+	fmt.Printf("[AI-FLOW]   📄 User Message: %d 字符\n", len(userMessage.String()))
+	fmt.Printf("[AI-FLOW]   📄 总输入: %d 字符 (约 %d tokens)\n", 
+		len(systemPrompt)+len(userMessage.String()), 
+		(len(systemPrompt)+len(userMessage.String()))/4)
 	
-	// Debug: 检查 MCP 工具是否在提示词中
-	if strings.Contains(systemPrompt, "MCP 工具") || strings.Contains(systemPrompt, "可用的 MCP 工具") {
-		fmt.Println("[LaTeXWriter] ✅ MCP tools description IS included in system prompt")
+	// 检查关键规则
+	fmt.Printf("[AI-FLOW]   🔍 关键规则检查:\n")
+	if strings.Contains(systemPrompt, "🚨") {
+		fmt.Printf("[AI-FLOW]      ✅ 包含警告符号 🚨\n")
 	} else {
-		fmt.Println("[LaTeXWriter] ⚠️ MCP tools description NOT found in system prompt")
+		fmt.Printf("[AI-FLOW]      ⚠️ 缺少警告符号 🚨\n")
 	}
+	if strings.Contains(systemPrompt, "documentclass[pt,apaper]") {
+		fmt.Printf("[AI-FLOW]      ✅ 包含错误示例 documentclass[pt,apaper]\n")
+	} else {
+		fmt.Printf("[AI-FLOW]      ⚠️ 缺少错误示例\n")
+	}
+	if strings.Contains(systemPrompt, "MCP 工具") || strings.Contains(systemPrompt, "可用的 MCP 工具") {
+		fmt.Printf("[AI-FLOW]      ✅ 包含MCP工具描述\n")
+	} else {
+		fmt.Printf("[AI-FLOW]      ⚠️ 缺少MCP工具描述\n")
+	}
+	fmt.Println(strings.Repeat("-", 80))
 
 	// 6. 创建纯文本内容收集器（用于保存到数据库）
 	var pureContent strings.Builder
 
 	// 7. 检查模型配置
+	fmt.Printf("[AI-FLOW] 📍 Step 8: 准备 AI 调用\n")
 	if modelConfig == nil || modelConfig.APIEndpoint == "" || modelConfig.APIKey == "" || modelConfig.ModelName == "" {
+		fmt.Printf("[AI-FLOW]   ❌ 模型配置不完整\n")
 		return fmt.Errorf("LaTeX Agent 模型未配置，请在后台管理中配置 AI 模型")
 	}
 	
 	// 使用配置的模型
 	modelName := modelConfig.DisplayName
-	fmt.Printf("[LaTeXWriter] 🎯 Using model: %s (%s @ %s)\n", 
-		modelName, modelConfig.ModelName, modelConfig.APIEndpoint)
+	fmt.Printf("[AI-FLOW]   🎯 目标模型: %s\n", modelName)
+	fmt.Printf("[AI-FLOW]   🔗 API端点: %s\n", modelConfig.APIEndpoint)
+	fmt.Printf("[AI-FLOW]   🔑 API Key: %s...%s\n", 
+		modelConfig.APIKey[:8], 
+		modelConfig.APIKey[len(modelConfig.APIKey)-4:])
 	
 	// 更新对话的模型级别为模型名称
 	s.convService.UpdateModelLevel(conv.ID, modelConfig.DisplayName)
@@ -827,11 +904,13 @@ func (s *Service) StreamChatWithContext(userID, documentID uint, req *ChatReques
 	}
 	
 	// 创建 provider 实例
+	fmt.Printf("[AI-FLOW]   🔧 创建 Provider (格式: %s)\n", modelConfig.APIFormat)
 	provider, providerErr := ai.CreateProviderFromConfig(providerConfig)
 	if providerErr != nil {
-		fmt.Printf("[LaTeXWriter] ❌ Failed to create provider: %v\n", providerErr)
+		fmt.Printf("[AI-FLOW]   ❌ Provider 创建失败: %v\n", providerErr)
 		return fmt.Errorf("创建 AI 模型失败: %w", providerErr)
 	}
+	fmt.Printf("[AI-FLOW]   ✅ Provider 创建成功\n")
 	
 	// 转换消息格式
 	llmMessages := make([]ai.LLMMessage, len(messages))
@@ -847,183 +926,201 @@ func (s *Service) StreamChatWithContext(userID, documentID uint, req *ChatReques
 		Temperature: modelConfig.Temperature,
 		MaxTokens:   int(modelConfig.MaxOutputTokens),
 	}
+	fmt.Printf("[AI-FLOW]   📝 LLM请求参数: Temperature=%.2f, MaxTokens=%d\n", 
+		modelConfig.Temperature, modelConfig.MaxOutputTokens)
+	fmt.Println(strings.Repeat("-", 80))
 	
 	// 流式调用
+	fmt.Printf("[AI-FLOW] 📍 Step 9: 发起 AI 流式调用\n")
+	aiCallStart := time.Now()
 	ctx := context.Background()
+	fmt.Printf("[AI-FLOW]   🚀 开始调用 AI... (时间: %s)\n", aiCallStart.Format("15:04:05.000"))
 	streamCh, streamErr := provider.StreamChat(ctx, llmReq)
 	if streamErr != nil {
-		fmt.Printf("[LaTeXWriter] ❌ Stream error: %v\n", streamErr)
+		fmt.Printf("[AI-FLOW]   ❌ AI 调用失败: %v\n", streamErr)
 		return fmt.Errorf("AI 模型调用失败: %w", streamErr)
 	}
+	fmt.Printf("[AI-FLOW]   ✅ AI 流开始 (首字节时间: %dms)\n", time.Since(aiCallStart).Milliseconds())
 	
 	// 收集流式响应
+	fmt.Printf("[AI-FLOW] 📍 Step 10: 接收流式响应\n")
+	chunkCount := 0
 	for chunk := range streamCh {
 		if chunk.Error != nil {
-			fmt.Printf("[LaTeXWriter] ❌ Stream chunk error: %v\n", chunk.Error)
+			fmt.Printf("[AI-FLOW]   ❌ 流式响应错误: %v\n", chunk.Error)
 			return fmt.Errorf("AI 响应错误: %w", chunk.Error)
 		}
 		if chunk.Delta != "" {
+			chunkCount++
+			if chunkCount == 1 {
+				fmt.Printf("[AI-FLOW]   📦 收到首个 chunk (首字节延迟: %dms)\n", 
+					time.Since(aiCallStart).Milliseconds())
+			}
 			// 收集纯文本内容
 			pureContent.WriteString(chunk.Delta)
-			// 写入 SSE 格式到前端
-			sseData := fmt.Sprintf("data: %s\n\n", chunk.Delta)
-			writer.Write([]byte(sseData))
-			// 立即刷新，确保流式输出
-			if flusher, ok := writer.(http.Flusher); ok {
-				flusher.Flush()
-			}
+			// 写入 SSE 格式到前端（处理多行内容）
+			writeSSEData(writer, chunk.Delta)
 		}
 	}
+	aiCallEnd := time.Now()
+	fmt.Printf("[AI-FLOW]   🏁 流式响应完成\n")
+	fmt.Printf("[AI-FLOW]   - 总 chunks: %d\n", chunkCount)
+	fmt.Printf("[AI-FLOW]   - AI 调用总耗时: %dms\n", aiCallEnd.Sub(aiCallStart).Milliseconds())
+	fmt.Printf("[AI-FLOW]   - 响应内容长度: %d 字符\n", len(pureContent.String()))
+	fmt.Println(strings.Repeat("-", 80))
 
 	// 8. 解析 AI 回复（使用纯文本内容）
-	fmt.Println("\n" + strings.Repeat("-", 40))
-	fmt.Println("[LaTeXWriter] 📥 AI Response received")
-	fmt.Printf("[LaTeXWriter] 📄 Response length: %d chars\n", len(pureContent.String()))
+	fmt.Printf("[AI-FLOW] 📍 Step 11: 解析 AI 响应\n")
 	
 	parsed := ParseAIResponse(pureContent.String())
 	
-	fmt.Printf("[LaTeXWriter] 🧠 Parsed - Think: %d chars, Reply: %d chars, Code: %d chars\n", 
-		len(parsed.Think), len(parsed.Reply), len(parsed.Code))
+	fmt.Printf("[AI-FLOW]   📊 解析结果:\n")
+	fmt.Printf("[AI-FLOW]   - Think: %d 字符\n", len(parsed.Think))
+	fmt.Printf("[AI-FLOW]   - Reply: %d 字符\n", len(parsed.Reply))
+	fmt.Printf("[AI-FLOW]   - Code: %d 字符\n", len(parsed.Code))
+	
+	// 检查 Code 中是否有问题格式
+	if parsed.Code != "" {
+		fmt.Printf("[AI-FLOW]   🔍 代码质量检查:\n")
+		if strings.Contains(parsed.Code, "\\documentclass[pt,") {
+			fmt.Printf("[AI-FLOW]      ⚠️ 发现问题: documentclass[pt,...] (缺少数字)\n")
+		}
+		if strings.Contains(parsed.Code, "\\documentclass[12pt,") || strings.Contains(parsed.Code, "\\documentclass[11pt,") {
+			fmt.Printf("[AI-FLOW]      ✅ documentclass 参数正确\n")
+		}
+		if strings.Contains(parsed.Code, "margin=in") && !strings.Contains(parsed.Code, "margin=1in") {
+			fmt.Printf("[AI-FLOW]      ⚠️ 发现问题: margin=in (缺少数字)\n")
+		}
+		if strings.Contains(parsed.Code, "\\usepackage[utf]") {
+			fmt.Printf("[AI-FLOW]      ⚠️ 发现问题: usepackage[utf] (缺少数字)\n")
+		}
+		if strings.Contains(parsed.Code, "\\usepackage[utf8]") {
+			fmt.Printf("[AI-FLOW]      ✅ inputenc 参数正确\n")
+		}
+		
+		// 打印代码前200字符预览
+		codePreview := parsed.Code
+		if len(codePreview) > 300 {
+			codePreview = codePreview[:300] + "..."
+		}
+		fmt.Printf("[AI-FLOW]   📄 代码预览:\n%s\n", codePreview)
+	}
 
 	// 9.5 清理代码（移除可能混入的思考/说明内容）
 	if parsed.Code != "" {
 		originalLen := len(parsed.Code)
 		cleanedCode := SanitizeLatexCode(parsed.Code)
 		if cleanedCode != parsed.Code {
-			fmt.Printf("[LaTeXWriter] 🧹 Code sanitized: %d → %d chars\n", originalLen, len(cleanedCode))
+			fmt.Printf("[AI-FLOW]   🧹 代码清理: %d → %d 字符\n", originalLen, len(cleanedCode))
 			parsed.Code = cleanedCode
 		} else {
-			fmt.Println("[LaTeXWriter] ✅ Code is clean, no sanitization needed")
+			fmt.Printf("[AI-FLOW]   ✅ 代码无需清理\n")
 		}
 	}
+	fmt.Println(strings.Repeat("-", 80))
 
-	// 10. 自动验证和修复闭环（根据配置决定是否启用）
-	if parsed.Code != "" && agentConfig.AutoValidateLatex {
-		fmt.Println("\n[LaTeXWriter] 🔍 Starting LaTeX validation...")
-		validator := NewLatexValidator()
-		result := validator.Validate(parsed.Code)
-		fmt.Printf("[LaTeXWriter] 📊 Validation result: Valid=%v, Errors=%d, Warnings=%d\n", 
-			result.Valid, len(result.Errors), len(result.Warnings))
-
-		// 如果有错误且启用了自动修复，让 AI 修复
-		maxRetries := int(agentConfig.MaxIterations / 3) // 使用配置的迭代次数的 1/3
-		if maxRetries < 2 {
-			maxRetries = 2
-		}
-		if maxRetries > 5 {
-			maxRetries = 5
-		}
-		retryCount := 0
-		currentCode := parsed.Code
-
-		for !result.Valid && len(result.Errors) > 0 && retryCount < maxRetries && agentConfig.AutoFixErrors {
-			retryCount++
-			fmt.Printf("[LaTeXWriter] Code validation failed (attempt %d), auto-fixing...\n", retryCount)
-
-			// 发送分隔符和提示
-			writer.Write([]byte(fmt.Sprintf("data: \n\n---\n\n🔧 检测到语法问题，正在自动修复（第 %d 次）...\n\n", retryCount)))
-
-			// 构建修复请求
-			validationReport := validator.FormatValidationResult(result)
-			fixMessages := []ai.ChatMessage{
-				{Role: "system", Content: `你是 LaTeX 语法修复专家。
-
-【重要规则】
-1. 只修复语法问题，不要改变内容
-2. 输出完整的修复后代码，使用 <code>...</code> 包裹
-3. <code> 标签内只能有纯 LaTeX 代码
-4. 不要添加任何解释、说明、注释
-5. 不要有中文占位符
-
-输出格式：
-<code>
-修复后的完整 LaTeX 代码
-</code>`},
-				{Role: "user", Content: fmt.Sprintf("验证报告：\n%s\n\n原始代码：\n```latex\n%s\n```\n\n请直接修复并输出完整代码（只输出 <code> 标签）。", validationReport, currentCode)},
-			}
-
-			// 使用配置的模型进行修复
-			var fixResponse strings.Builder
-			
-			// 转换消息格式
-			fixLLMMessages := make([]ai.LLMMessage, len(fixMessages))
-			for i, msg := range fixMessages {
-				fixLLMMessages[i] = ai.LLMMessage{
-					Role:    msg.Role,
-					Content: msg.Content,
-				}
-			}
-			
-			fixReq := &ai.LLMRequest{
-				Messages:    fixLLMMessages,
-				Temperature: modelConfig.Temperature,
-				MaxTokens:   int(modelConfig.MaxOutputTokens),
-			}
-			
-			// 流式调用修复
-			fixStreamCh, fixErr := provider.StreamChat(ctx, fixReq)
-			if fixErr != nil {
-				fmt.Printf("[LaTeXWriter] Auto-fix failed: %v\n", fixErr)
-				break
-			}
-			
-			// 收集修复响应
-			for chunk := range fixStreamCh {
-				if chunk.Error != nil {
-					fmt.Printf("[LaTeXWriter] Auto-fix chunk error: %v\n", chunk.Error)
-					break
-				}
-				if chunk.Delta != "" {
-					fixResponse.WriteString(chunk.Delta)
-					// 写入 SSE 格式到前端
-					sseData := fmt.Sprintf("data: %s\n\n", chunk.Delta)
-					writer.Write([]byte(sseData))
-					if flusher, ok := writer.(http.Flusher); ok {
-						flusher.Flush()
-					}
-				}
-			}
-
-			// 解析修复后的代码
-			fixParsed := ParseAIResponse(fixResponse.String())
-			if fixParsed.Code != "" {
-				// 清理修复后的代码
-				currentCode = SanitizeLatexCode(fixParsed.Code)
-				// 重新验证
-				result = validator.Validate(currentCode)
-
-				// 更新 parsed 的 code
-				parsed.Code = currentCode
-			} else {
-				// 无法解析出代码，停止重试
-				break
-			}
-		}
-
-		if result.Valid || len(result.Errors) == 0 {
-			if retryCount > 0 {
-				writer.Write([]byte("data: \n\n✅ 代码已自动修复完成！\n\n"))
-			}
-		} else {
-			writer.Write([]byte(fmt.Sprintf("data: \n\n⚠️ 仍有 %d 个问题未能自动修复，请手动检查。\n\n", len(result.Errors))))
-		}
-	}
+	// 10. 自动验证和修复闭环 - 已禁用
+	// 用户遇到编译错误时，通过点击"让 AI 修复"按钮手动触发修复
+	// 这样更灵活，也避免了不必要的等待
 
 	// 10. 构建格式化的内容字符串（用于保存和历史渲染）
+	fmt.Printf("[AI-FLOW] 📍 Step 12: 保存响应\n")
 	formattedContent := buildFormattedContent(parsed)
+	fmt.Printf("[AI-FLOW]   📄 格式化内容长度: %d 字符\n", len(formattedContent))
 
 	// 11. 保存最终的 AI 回复
 	_, err = s.convService.AddAssistantMessage(conv.ID, formattedContent, parsed, modelName)
 	if err != nil {
-		fmt.Printf("[LaTeXWriter] Failed to save assistant message: %v\n", err)
+		fmt.Printf("[AI-FLOW]   ❌ 保存 AI 回复失败: %v\n", err)
+	} else {
+		fmt.Printf("[AI-FLOW]   ✅ AI 回复已保存到对话 %d\n", conv.ID)
 	}
 
+	// 流程结束统计
+	totalDuration := time.Since(startTime)
 	fmt.Println("\n" + strings.Repeat("=", 80))
-	fmt.Println("[LaTeXWriter] ✅ StreamChatWithContext completed successfully")
-	fmt.Printf("[LaTeXWriter] 📊 Summary: Code=%d chars, Reply=%d chars\n", len(parsed.Code), len(parsed.Reply))
+	fmt.Println("[AI-FLOW] ==================== ✅ AI 对话流程完成 ====================")
+	fmt.Printf("[AI-FLOW] 📊 流程统计:\n")
+	fmt.Printf("[AI-FLOW]   - 总耗时: %dms (%.2f秒)\n", totalDuration.Milliseconds(), totalDuration.Seconds())
+	fmt.Printf("[AI-FLOW]   - 输入 tokens (估算): %d\n", (len(systemPrompt)+len(userMessage.String()))/4)
+	fmt.Printf("[AI-FLOW]   - 输出 tokens (估算): %d\n", len(pureContent.String())/4)
+	fmt.Printf("[AI-FLOW]   - Code 长度: %d 字符\n", len(parsed.Code))
+	fmt.Printf("[AI-FLOW]   - Reply 长度: %d 字符\n", len(parsed.Reply))
+	if parsed.Code != "" {
+		// 最终代码质量检查
+		hasIssue := false
+		if strings.Contains(parsed.Code, "\\documentclass[pt,") {
+			fmt.Printf("[AI-FLOW]   ⚠️ 最终代码问题: documentclass[pt,...]\n")
+			hasIssue = true
+		}
+		if strings.Contains(parsed.Code, "margin=in") && !strings.Contains(parsed.Code, "margin=1in") {
+			fmt.Printf("[AI-FLOW]   ⚠️ 最终代码问题: margin=in\n")
+			hasIssue = true
+		}
+		if strings.Contains(parsed.Code, "\\usepackage[utf]") {
+			fmt.Printf("[AI-FLOW]   ⚠️ 最终代码问题: usepackage[utf]\n")
+			hasIssue = true
+		}
+		if !hasIssue {
+			fmt.Printf("[AI-FLOW]   ✅ 代码质量检查通过\n")
+		}
+	}
 	fmt.Println(strings.Repeat("=", 80) + "\n")
 
 	return nil
+}
+
+// SSE 日志计数器（用于调试）
+var sseLogCounter int64 = 0
+
+// writeSSEData 正确处理内容的 SSE 写入
+// 使用 <br> 处理换行符，避免与 LaTeX 命令冲突（如 \newcommand）
+func writeSSEData(writer io.Writer, content string) {
+	if content == "" {
+		return
+	}
+	
+	// 转义换行符：\n -> <br>
+	// 注意：不能用 \\n，因为会与 \newcommand 等 LaTeX 命令冲突！
+	escaped := strings.ReplaceAll(content, "\n", "<br>")
+	
+	// 日志打点：记录发送的内容（前50个字符）
+	sseLogCounter++
+	logContent := escaped
+	if len(logContent) > 50 {
+		logContent = logContent[:50] + "..."
+	}
+	// 只记录每10次或包含换行的内容
+	if sseLogCounter%10 == 0 || strings.Contains(content, "\n") {
+		fmt.Printf("[SSE #%d] 📤 Sending: %q (original has %d newlines)\n", 
+			sseLogCounter, logContent, strings.Count(content, "\n"))
+	}
+	
+	// 写入 SSE 格式
+	sseData := fmt.Sprintf("data: %s\n\n", escaped)
+	writer.Write([]byte(sseData))
+	
+	// 立即刷新
+	if flusher, ok := writer.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+// writeSSEStatus 写入状态消息（带转义换行）
+func writeSSEStatus(writer io.Writer, message string) {
+	// 转义换行符：\n -> <br>
+	escaped := strings.ReplaceAll(message, "\n", "<br>")
+	sseData := fmt.Sprintf("data: %s\n\n", escaped)
+	writer.Write([]byte(sseData))
+	if flusher, ok := writer.(http.Flusher); ok {
+		flusher.Flush()
+	}
+	// 日志打点
+	logMsg := message
+	if len(logMsg) > 50 {
+		logMsg = logMsg[:50]
+	}
+	fmt.Printf("[SSE] 📢 Status: %s\n", logMsg)
 }
 
 // responseCollectorWriter 同时写入响应和收集内容
@@ -1090,29 +1187,14 @@ func (w *pureContentWriter) Write(p []byte) (n int, err error) {
 				extractedContent := chunk.Choices[0].Delta.Content
 				// 收集纯文本内容
 				w.pureContent.WriteString(extractedContent)
-				// 以纯文本格式发送到前端
-				sseData := fmt.Sprintf("data: %s\n\n", extractedContent)
-				_, err = w.writer.Write([]byte(sseData))
-				if err != nil {
-					return n, err
-				}
-				// 立即刷新
-				if flusher, ok := w.writer.(http.Flusher); ok {
-					flusher.Flush()
-				}
+				// 以纯文本格式发送到前端（处理多行内容）
+				writeSSEData(w.writer, extractedContent)
 			}
 		} else {
 			// 不是 JSON 格式，直接作为纯文本处理
 			w.pureContent.WriteString(data)
-			// 直接写入原始数据
-			_, err = w.writer.Write(p)
-			if err != nil {
-				return n, err
-			}
-			// 立即刷新
-			if flusher, ok := w.writer.(http.Flusher); ok {
-				flusher.Flush()
-			}
+			// 使用正确的多行 SSE 格式写入
+			writeSSEData(w.writer, data)
 		}
 	}
 
@@ -1164,7 +1246,7 @@ func (s *Service) AutoFixLatex(content string, writer io.Writer, modelLevel stri
 
 	// 如果没有问题，直接返回
 	if result.Valid && len(result.Warnings) == 0 {
-		writer.Write([]byte("data: " + "✅ LaTeX 代码验证通过，无需修复。\n\n"))
+		writeSSEData(writer, "<reply>\n✅ LaTeX 代码验证通过，无需修复。\n</reply>\n")
 		return nil
 	}
 
@@ -1230,6 +1312,121 @@ func (s *Service) AutoFixLatexWithValidation(content string, result *ValidationR
 func (s *Service) ValidateLatex(content string) *ValidationResult {
 	validator := NewLatexValidator()
 	return validator.Validate(content)
+}
+
+// AutoFixCompileError 根据编译器错误日志自动修复 LaTeX 代码
+// 这是最准确的修复方式，因为它使用真正的 TeX 编译器输出
+func (s *Service) AutoFixCompileError(content string, compileLog string, engine string, writer io.Writer) error {
+	if engine == "" {
+		engine = "pdftex"
+	}
+
+	systemPrompt := `你是一个专业的 LaTeX 编译错误修复专家。用户会提供：
+1. 有编译错误的 LaTeX 代码
+2. TeX 编译器（` + engine + `）输出的实际错误日志
+
+你的任务是分析编译器的错误信息，找出并修复问题。
+
+【重要】常见编译错误及修复方法：
+
+1. **参数不完整**
+   - "Missing number, treated as zero" → 检查数字参数是否缺失
+   - 例如：\documentclass[pt,apaper] → \documentclass[12pt,a4paper]
+   - 例如：margin=in → margin=1in
+   
+2. **命令未定义**
+   - "Undefined control sequence" → 检查宏包是否导入或命令拼写
+   - 例如：需要 \usepackage{siunitx} 才能使用 \SI
+   
+3. **数学模式错误**
+   - "Missing $ inserted" → 检查数学模式是否正确闭合
+   - "Missing } inserted" → 检查括号是否匹配
+   
+4. **下标/上标问题**
+   - 空的下标 \beta_ 或上标 x^ → 必须有内容
+   
+5. **环境不匹配**
+   - "Environment xxx undefined" → 检查环境名称和宏包
+   - "\begin{xxx} ended by \end{yyy}" → 环境配对错误
+
+6. **编码/字体问题**
+   - 包含中文但缺少 xeCJK 等宏包
+
+【输出格式】
+<think>
+分析编译器的错误信息...
+找出具体问题所在...
+</think>
+
+<reply>
+🔧 修复说明：
+1. 第 N 行：问题描述 → 修复方法
+2. ...
+</reply>
+
+<code>
+修复后的完整 LaTeX 代码（必须完整，不能省略任何部分）
+</code>
+
+【注意】
+- 必须根据实际的编译器错误信息来修复，不要猜测
+- <code> 中必须输出完整的修复后代码
+- 只修复导致编译错误的问题，保持其他内容不变
+- 确保修复后的代码可以正常编译`
+
+	// 截取错误日志的关键部分（避免太长）
+	logSummary := compileLog
+	if len(compileLog) > 3000 {
+		// 优先保留包含错误的部分
+		lines := strings.Split(compileLog, "\n")
+		var errorLines []string
+		for i, line := range lines {
+			if strings.HasPrefix(line, "!") || strings.HasPrefix(line, "l.") || 
+			   strings.Contains(line, "Error") || strings.Contains(line, "error") {
+				// 取错误行前后的上下文
+				start := i - 2
+				if start < 0 {
+					start = 0
+				}
+				end := i + 3
+				if end > len(lines) {
+					end = len(lines)
+				}
+				for j := start; j < end; j++ {
+					errorLines = append(errorLines, lines[j])
+				}
+				errorLines = append(errorLines, "---")
+			}
+		}
+		if len(errorLines) > 0 {
+			logSummary = strings.Join(errorLines, "\n")
+		} else {
+			// 如果没找到明显错误标记，取最后1000字符
+			logSummary = compileLog[len(compileLog)-1000:]
+		}
+	}
+
+	userMessage := fmt.Sprintf(`请修复以下 LaTeX 代码的编译错误。
+
+【编译引擎】%s
+
+【编译器错误日志】
+%s
+
+【原始代码】
+`+"```latex"+`
+%s
+`+"```"+`
+
+请根据编译器的错误信息修复代码，输出完整的修复后代码。`, engine, logSummary, content)
+
+	messages := []ai.ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: userMessage},
+	}
+
+	// 使用 LaTeX Agent 配置的默认模型
+	return s.streamWithModel(messages, writer, 0)
 }
 
 // StreamChatWithValidation 流式对话，完成后自动验证并修复
@@ -1310,23 +1507,7 @@ func (s *Service) StreamChatWithValidation(userID, documentID uint, req *ChatReq
 	aiResponse := fullResponse.String()
 	parsed := ParseAIResponse(aiResponse)
 
-	// 3. 如果有代码输出，验证它
-	if parsed.Code != "" {
-		validator := NewLatexValidator()
-		result := validator.Validate(parsed.Code)
-
-		// 如果有错误，自动修复
-		if !result.Valid {
-			// 发送分隔消息
-			writer.Write([]byte("data: \n\n---\n\n🔍 检测到代码存在语法问题，正在自动修复...\n\n"))
-
-			// 调用自动修复
-			err = s.AutoFixLatexWithValidation(parsed.Code, result, writer, req.ModelLevel)
-			if err != nil {
-				fmt.Printf("[LaTeXWriter] Auto-fix failed: %v\n", err)
-			}
-		}
-	}
+	// 3. 自动验证已禁用 - 用户通过对话或点击"让 AI 修复"按钮手动触发
 
 	// 4. 保存 AI 回复
 	_, err = s.convService.AddAssistantMessage(conv.ID, aiResponse, parsed, modelName)

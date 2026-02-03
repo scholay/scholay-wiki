@@ -173,7 +173,7 @@ func TestValidatorAgent(t *testing.T) {
 </warnings>
 </validation>`)
 
-	validator := NewValidatorAgent(provider)
+	validator := NewValidatorAgent(provider, false)
 
 	// 测试基本属性
 	if validator.GetRole() != RoleValidator {
@@ -202,7 +202,7 @@ Hello, World!
 // TestValidatorProgrammaticChecks 测试验证器的程序化检查
 func TestValidatorProgrammaticChecks(t *testing.T) {
 	provider := NewMockProvider()
-	validator := NewValidatorAgent(provider)
+	validator := NewValidatorAgent(provider, false)
 
 	tests := []struct {
 		name     string

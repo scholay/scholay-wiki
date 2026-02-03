@@ -27,9 +27,8 @@ import (
 // AgentOrchestrator 代理编排器
 type AgentOrchestrator struct {
 	// Agents
-	planner   *agents.PlannerAgent
-	coder     *agents.CoderAgent
-	validator *agents.ValidatorAgent
+	planner *agents.PlannerAgent
+	coder   *agents.CoderAgent
 
 	// 工具系统
 	functionCaller *FunctionCaller
@@ -53,16 +52,9 @@ type OrchestratorConfig struct {
 	// 最大迭代次数
 	MaxIterations int `json:"max_iterations"`
 
-	// 是否自动验证
-	AutoValidate bool `json:"auto_validate"`
-
-	// 是否自动修复
-	AutoFix bool `json:"auto_fix"`
-
 	// 各 Agent 的模型配置
-	PlannerModelID   uint `json:"planner_model_id"`
-	CoderModelID     uint `json:"coder_model_id"`
-	ValidatorModelID uint `json:"validator_model_id"`
+	PlannerModelID uint `json:"planner_model_id"`
+	CoderModelID   uint `json:"coder_model_id"`
 
 	// 上下文配置
 	MaxContextTokens int `json:"max_context_tokens"`
@@ -72,8 +64,6 @@ type OrchestratorConfig struct {
 var DefaultOrchestratorConfig = &OrchestratorConfig{
 	EnableMultiAgent: true,
 	MaxIterations:    10,
-	AutoValidate:     true,
-	AutoFix:          true,
 	MaxContextTokens: 128000,
 }
 
@@ -97,12 +87,9 @@ type OrchestratorRequest struct {
 // OrchestratorResult 编排器结果
 type OrchestratorResult struct {
 	// 最终输出
-	Think   string `json:"think"`
-	Reply   string `json:"reply"`
-	Code    string `json:"code"`
-
-	// 验证结果
-	ValidationResult *agents.ValidationResult `json:"validation_result,omitempty"`
+	Think string `json:"think"`
+	Reply string `json:"reply"`
+	Code  string `json:"code"`
 
 	// 执行计划
 	Plan *agents.Plan `json:"plan,omitempty"`
@@ -141,7 +128,6 @@ func NewAgentOrchestrator(
 	// 创建各个 Agent
 	planner := agents.NewPlannerAgent(provider)
 	coder := agents.NewCoderAgent(provider, tools)
-	validator := agents.NewValidatorAgent(provider, config.AutoFix)
 
 	// 创建上下文管理器
 	contextManager := NewEnhancedContextManager(
@@ -153,7 +139,6 @@ func NewAgentOrchestrator(
 	return &AgentOrchestrator{
 		planner:           planner,
 		coder:             coder,
-		validator:         validator,
 		functionCaller:    functionCaller,
 		mcpRegistry:       mcpRegistry,
 		contextManager:    contextManager,
@@ -227,21 +212,6 @@ func (o *AgentOrchestrator) executeSingleAgent(
 	result.Reply = coderResp.Reply
 	result.Code = coderResp.Code
 
-	// 自动验证
-	if o.config.AutoValidate && coderResp.Code != "" {
-		agentReq.PreviousOutput = coderResp
-		validatorResp, err := o.validator.Process(ctx, agentReq)
-		if err == nil {
-			result.Trace = append(result.Trace, validatorResp)
-			result.ValidationResult = validatorResp.ValidationResult
-
-			// 如果有修复的代码
-			if validatorResp.Code != "" {
-				result.Code = validatorResp.Code
-			}
-		}
-	}
-
 	result.TotalDuration = time.Since(startTime).Milliseconds()
 	return result, nil
 }
@@ -293,81 +263,10 @@ func (o *AgentOrchestrator) executeMultiAgent(
 		}
 	}
 
-	// 4. Validator 验证
-	if o.config.AutoValidate && coderResp.Code != "" {
-		fmt.Printf("[Orchestrator] Step 3: Validating\n")
-		agentReq.PreviousOutput = coderResp
-		validatorResp, err := o.validator.Process(ctx, agentReq)
-		if err != nil {
-			fmt.Printf("[Orchestrator] Validation failed: %v\n", err)
-		} else {
-			result.Trace = append(result.Trace, validatorResp)
-			result.ValidationResult = validatorResp.ValidationResult
-
-			// 自动修复循环
-			if o.config.AutoFix && !validatorResp.ValidationResult.Valid {
-				result = o.autoFixLoop(ctx, agentReq, result, coderResp.Code)
-			}
-		}
-	}
-
 	result.TotalDuration = time.Since(startTime).Milliseconds()
 	result.Iterations = len(result.Trace)
 
 	return result, nil
-}
-
-// autoFixLoop 自动修复循环
-func (o *AgentOrchestrator) autoFixLoop(
-	ctx context.Context,
-	agentReq *agents.AgentRequest,
-	result *OrchestratorResult,
-	originalCode string,
-) *OrchestratorResult {
-	maxFixAttempts := 3
-	currentCode := originalCode
-
-	for attempt := 0; attempt < maxFixAttempts; attempt++ {
-		if result.ValidationResult != nil && result.ValidationResult.Valid {
-			break
-		}
-
-		fmt.Printf("[Orchestrator] Auto-fix attempt %d\n", attempt+1)
-
-		// 构建修复请求
-		fixPrompt := fmt.Sprintf(
-			"请修复以下 LaTeX 代码中的问题：\n\n问题列表：\n%s\n\n代码：\n```latex\n%s\n```",
-			o.formatValidationErrors(result.ValidationResult),
-			currentCode,
-		)
-
-		fixReq := &agents.AgentRequest{
-			UserID:     agentReq.UserID,
-			DocumentID: agentReq.DocumentID,
-			Prompt:     fixPrompt,
-		}
-
-		coderResp, err := o.coder.Process(ctx, fixReq)
-		if err != nil || coderResp.Code == "" {
-			break
-		}
-
-		result.Trace = append(result.Trace, coderResp)
-		currentCode = coderResp.Code
-
-		// 重新验证
-		agentReq.PreviousOutput = coderResp
-		validatorResp, err := o.validator.Process(ctx, agentReq)
-		if err != nil {
-			break
-		}
-
-		result.Trace = append(result.Trace, validatorResp)
-		result.ValidationResult = validatorResp.ValidationResult
-		result.Code = currentCode
-	}
-
-	return result
 }
 
 // streamSingleAgent 单 Agent 流式模式
@@ -433,24 +332,6 @@ func (o *AgentOrchestrator) streamMultiAgent(
 	result.Reply = coderResp.Reply
 	result.Code = coderResp.Code
 
-	// 3. Validator（非流式）
-	if o.config.AutoValidate && coderResp.Code != "" {
-		agentReq.PreviousOutput = coderResp
-		validatorResp, err := o.validator.Process(ctx, agentReq)
-		if err == nil {
-			result.Trace = append(result.Trace, validatorResp)
-			result.ValidationResult = validatorResp.ValidationResult
-
-			// 输出验证结果
-			if validatorResp.ValidationResult.Valid {
-				writeStreamMessage(writer, "\n\n✅ **验证通过**：代码语法正确！")
-			} else {
-				errMsg := o.formatValidationErrors(validatorResp.ValidationResult)
-				writeStreamMessage(writer, "\n\n⚠️ **验证发现问题**：\n"+errMsg)
-			}
-		}
-	}
-
 	result.TotalDuration = time.Since(startTime).Milliseconds()
 	result.Iterations = len(result.Trace)
 
@@ -470,30 +351,6 @@ func (o *AgentOrchestrator) buildAgentRequest(req *OrchestratorRequest) *agents.
 		ModelID:     req.ModelID,
 		Temperature: req.Temperature,
 	}
-}
-
-// formatValidationErrors 格式化验证错误
-func (o *AgentOrchestrator) formatValidationErrors(result *agents.ValidationResult) string {
-	if result == nil {
-		return ""
-	}
-
-	var sb strings.Builder
-	for _, err := range result.Errors {
-		sb.WriteString(fmt.Sprintf("- [%s] %s", err.Code, err.Message))
-		if err.Line > 0 {
-			sb.WriteString(fmt.Sprintf(" (行 %d)", err.Line))
-		}
-		sb.WriteString("\n")
-	}
-	for _, warn := range result.Warnings {
-		sb.WriteString(fmt.Sprintf("- [警告] %s", warn.Message))
-		if warn.Suggestion != "" {
-			sb.WriteString(fmt.Sprintf(" 建议: %s", warn.Suggestion))
-		}
-		sb.WriteString("\n")
-	}
-	return sb.String()
 }
 
 // writeStreamMessage 写入流式消息

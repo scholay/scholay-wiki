@@ -17,19 +17,16 @@ import (
 
 // TestOrchestratorConfig 测试配置
 func TestOrchestratorConfig(t *testing.T) {
-	config := DefaultOrchestratorConfig()
+	config := DefaultOrchestratorConfig
 
-	if config.MaxIterations != 5 {
-		t.Errorf("Expected MaxIterations 5, got %d", config.MaxIterations)
+	if config.MaxIterations != 10 {
+		t.Errorf("Expected MaxIterations 10, got %d", config.MaxIterations)
 	}
-	if config.EnablePlanning != false {
-		t.Errorf("Expected EnablePlanning false by default")
+	if config.EnableMultiAgent != true {
+		t.Errorf("Expected EnableMultiAgent true by default")
 	}
-	if config.AutoFix != true {
-		t.Errorf("Expected AutoFix true by default")
-	}
-	if config.MaxAutoFixAttempts != 3 {
-		t.Errorf("Expected MaxAutoFixAttempts 3, got %d", config.MaxAutoFixAttempts)
+	if config.MaxContextTokens != 128000 {
+		t.Errorf("Expected MaxContextTokens 128000, got %d", config.MaxContextTokens)
 	}
 }
 
@@ -37,7 +34,7 @@ func TestOrchestratorConfig(t *testing.T) {
 func TestOrchestratorCreation(t *testing.T) {
 	provider := &MockLLMProvider{}
 	registry := mcp.NewRegistry()
-	config := DefaultOrchestratorConfig()
+	config := DefaultOrchestratorConfig
 
 	orchestrator := NewAgentOrchestrator(provider, registry, config)
 
@@ -50,9 +47,6 @@ func TestOrchestratorCreation(t *testing.T) {
 	if orchestrator.coder == nil {
 		t.Error("Expected coder to be initialized")
 	}
-	if orchestrator.validator == nil {
-		t.Error("Expected validator to be initialized")
-	}
 	if orchestrator.functionCaller == nil {
 		t.Error("Expected functionCaller to be initialized")
 	}
@@ -61,15 +55,15 @@ func TestOrchestratorCreation(t *testing.T) {
 // TestOrchestratorRequest 测试请求结构
 func TestOrchestratorRequest(t *testing.T) {
 	req := &OrchestratorRequest{
-		UserPrompt:          "Test prompt",
-		CurrentCode:         "\\documentclass{article}",
+		Prompt:              "Test prompt",
+		FullContent:        "\\documentclass{article}",
 		ConversationHistory: []ai.LLMMessage{},
-		DocumentContext:     "Test context",
-		ModelID:             1,
+		Context:            "Test context",
+		ModelID:            1,
 	}
 
-	if req.UserPrompt != "Test prompt" {
-		t.Errorf("Expected UserPrompt 'Test prompt', got %s", req.UserPrompt)
+	if req.Prompt != "Test prompt" {
+		t.Errorf("Expected Prompt 'Test prompt', got %s", req.Prompt)
 	}
 	if req.ModelID != 1 {
 		t.Errorf("Expected ModelID 1, got %d", req.ModelID)
@@ -79,16 +73,14 @@ func TestOrchestratorRequest(t *testing.T) {
 // TestOrchestratorResult 测试结果结构
 func TestOrchestratorResult(t *testing.T) {
 	result := &OrchestratorResult{
-		Success:       true,
-		GeneratedCode: "\\documentclass{article}",
-		Reply:         "Here is your document",
-		ThinkProcess:  "Analyzing request...",
-		ToolCalls:     []ToolCallRecord{},
-		Iterations:    2,
+		Code:       "\\documentclass{article}",
+		Reply:      "Here is your document",
+		Think:      "Analyzing request...",
+		Iterations: 2,
 	}
 
-	if !result.Success {
-		t.Error("Expected Success true")
+	if result.Code == "" {
+		t.Error("Expected non-empty Code")
 	}
 	if result.Iterations != 2 {
 		t.Errorf("Expected 2 iterations, got %d", result.Iterations)
@@ -111,13 +103,16 @@ Hello, World!
 		},
 	}
 	registry := mcp.NewRegistry()
-	config := DefaultOrchestratorConfig()
-	config.EnablePlanning = false // 单 Agent 模式
+	config := &OrchestratorConfig{
+		EnableMultiAgent: false, // 单 Agent 模式
+		MaxIterations:    10,
+		MaxContextTokens: 128000,
+	}
 
 	orchestrator := NewAgentOrchestrator(provider, registry, config)
 
 	req := &OrchestratorRequest{
-		UserPrompt: "创建一个简单的文档",
+		Prompt: "创建一个简单的文档",
 	}
 
 	result, err := orchestrator.Execute(context.Background(), req)
@@ -127,26 +122,7 @@ Hello, World!
 	if result == nil {
 		t.Fatal("Expected non-nil result")
 	}
-	if result.GeneratedCode == "" {
+	if result.Code == "" {
 		t.Error("Expected generated code")
-	}
-}
-
-// TestToolCallRecord 测试工具调用记录
-func TestToolCallRecord(t *testing.T) {
-	record := ToolCallRecord{
-		ID:        "test-1",
-		ToolName:  "validate_latex",
-		Arguments: map[string]interface{}{"code": "test"},
-		Result:    "valid",
-		Success:   true,
-		Duration:  100,
-	}
-
-	if record.ID != "test-1" {
-		t.Errorf("Expected ID 'test-1', got %s", record.ID)
-	}
-	if record.Duration != 100 {
-		t.Errorf("Expected Duration 100, got %d", record.Duration)
 	}
 }
