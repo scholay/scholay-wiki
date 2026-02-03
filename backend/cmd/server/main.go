@@ -22,6 +22,7 @@ import (
 	"scholar-backend/internal/currency"
 	"scholar-backend/internal/feedback"
 	"scholar-backend/internal/fund"
+	"scholar-backend/internal/latexwriter"
 	"scholar-backend/internal/message"
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/cleanup"
@@ -222,6 +223,10 @@ func main() {
 	mcpServer := mcp.NewMCPServer(scholarManager)
 	peerReviewService := peerreview.NewService(database.GetDB(), aiService, mcpServer, thirdPartyService)
 	peerReviewHandler := peerreview.NewHandler(peerReviewService)
+
+	// Initialize LaTeX Writer module
+	latexWriterService := latexwriter.NewService(database.GetDB(), aiService)
+	latexWriterHandler := latexwriter.NewHandler(latexWriterService)
 
 	// Initialize Subscription module
 	subscriptionService := subscription.NewService(database.GetDB())
@@ -925,6 +930,25 @@ func main() {
 
 				// 文件下载
 				peerReviewGroup.GET("/files/:id/download", peerReviewHandler.DownloadFile)
+			}
+
+			// LaTeX Writer routes (AI论文编辑器)
+			latexWriterGroup := userProtected.Group("/latex-writer")
+			{
+				// AI 对话
+				latexWriterGroup.POST("/chat/stream", latexWriterHandler.StreamChat)
+				// AI 任务执行
+				latexWriterGroup.POST("/task/stream", latexWriterHandler.ExecuteTask)
+				latexWriterGroup.POST("/section/stream", latexWriterHandler.ExecuteSection)
+				// 获取可用任务和章节列表
+				latexWriterGroup.GET("/tasks", latexWriterHandler.GetAvailableTasks)
+				latexWriterGroup.GET("/sections", latexWriterHandler.GetAvailableSections)
+				// 文档管理
+				latexWriterGroup.GET("/files", latexWriterHandler.GetDocuments)
+				latexWriterGroup.POST("/files", latexWriterHandler.CreateDocument)
+				latexWriterGroup.GET("/files/:id", latexWriterHandler.GetDocument)
+				latexWriterGroup.PUT("/files/:id", latexWriterHandler.UpdateDocument)
+				latexWriterGroup.DELETE("/files/:id", latexWriterHandler.DeleteDocument)
 			}
 		}
 

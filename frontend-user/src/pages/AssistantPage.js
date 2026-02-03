@@ -58,6 +58,22 @@ function AssistantPage() {
       color: '#6366f1',
       gradient: 'linear-gradient(135deg, #6366f1 0%, #4F46E5 100%)',
     },
+    {
+      id: 'latex-writer',
+      title: 'LaTeX论文编辑',
+      description: '使用AI对话方式撰写LaTeX论文，实时预览PDF，智能修改建议，让论文写作更高效。',
+      icon: (
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M4 4h16v16H4V4z"/>
+          <path d="M8 8h2v8H8z"/>
+          <path d="M12 8h1l2 4-2 4h-1l2-4-2-4z"/>
+          <path d="M16 8h2v8h-2z"/>
+        </svg>
+      ),
+      path: '/latex-writer',
+      color: '#E74C3C',
+      gradient: 'linear-gradient(135deg, #E74C3C 0%, #C0392B 100%)',
+    },
   ];
 
   return (

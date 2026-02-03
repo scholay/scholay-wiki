@@ -95,6 +95,7 @@ const TermsPage = lazyWithRetry(() => import('./pages/TermsPage'), 'TermsPage');
 const ContactPage = lazyWithRetry(() => import('./pages/ContactPage'), 'ContactPage');
 const DisclaimerPage = lazyWithRetry(() => import('./pages/DisclaimerPage'), 'DisclaimerPage');
 const AuthModal = lazyWithRetry(() => import('./components/AuthModal'), 'AuthModal');
+const LaTeXWriterPage = lazyWithRetry(() => import('./pages/latex-writer'), 'LaTeXWriterPage');
 
 function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -239,6 +240,8 @@ function App() {
                       <Route path="/chat" element={<ChatPage />} />
                       {/* 智能审稿页面 - 允许未登录访问 */}
                       <Route path="/peer-review" element={<PeerReviewPage />} />
+                      {/* LaTeX论文编辑器页面 - 允许未登录访问 */}
+                      <Route path="/latex-writer" element={<LaTeXWriterPage />} />
 
                       {/* 定价页面 */}
                       <Route path="/pricing" element={<Pricing />} />

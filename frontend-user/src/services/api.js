@@ -268,6 +268,28 @@ export const userAPI = {
   // 获取任务历史（智能分析 + 智能审稿），按天分组
   getTaskHistory: (days = 3, limitPerDay = 20) =>
     api.get('/user/task-history', { params: { days, limit_per_day: limitPerDay } }),
+
+  // ========== LaTeX Writer API ==========
+  
+  // 获取 LaTeX 文档列表
+  getLatexDocuments: (tree = false) =>
+    api.get('/user/latex-writer/files', { params: { tree: tree ? 'true' : 'false' } }),
+  
+  // 获取单个文档详情
+  getLatexDocument: (id) =>
+    api.get(`/user/latex-writer/files/${id}`),
+  
+  // 创建文档/文件夹
+  createLatexDocument: (data) =>
+    api.post('/user/latex-writer/files', data),
+  
+  // 更新文档
+  updateLatexDocument: (id, data) =>
+    api.put(`/user/latex-writer/files/${id}`, data),
+  
+  // 删除文档
+  deleteLatexDocument: (id) =>
+    api.delete(`/user/latex-writer/files/${id}`),
 };
 
 export const conversationAPI = {

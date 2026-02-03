@@ -922,6 +922,10 @@ NULL,
 '{"query": {"type": "string", "description": "User query", "example": "Transformer架构"}, "analysis": {"type": "string", "description": "Completed analysis content", "example": "## 研究领域概览\\n..."}}',
 1);
 
+-- 注意: LaTeX Writer 提示词已迁移到代码中管理
+-- 参见: backend/internal/latexwriter/prompts.go
+-- 和: frontend-user/src/components/latex-writer/ai/LatexPrompts.js
+
 -- ============================================
 -- 论文分析维度表
 -- ============================================
@@ -1192,6 +1196,29 @@ CREATE TABLE IF NOT EXISTS `feedback_attachments` (
   INDEX `idx_created_at` (`created_at`),
   CONSTRAINT `fk_attachment_feedback` FOREIGN KEY (`feedback_id`) REFERENCES `feedbacks` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='反馈附件表';
+
+-- ============================================
+-- LaTeX Writer 文档表
+-- ============================================
+
+-- LaTeX 文档表（存储用户的 LaTeX 文档和文件夹）
+CREATE TABLE IF NOT EXISTS `latex_documents` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+  `title` VARCHAR(255) NOT NULL COMMENT '文档/文件夹标题',
+  `content` LONGTEXT COMMENT 'LaTeX 文档内容',
+  `parent_id` BIGINT UNSIGNED COMMENT '父文件夹ID（NULL表示根级）',
+  `is_folder` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否为文件夹',
+  `sort_order` INT NOT NULL DEFAULT 0 COMMENT '排序顺序',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_parent_id` (`parent_id`),
+  INDEX `idx_sort_order` (`sort_order`),
+  CONSTRAINT `fk_latex_doc_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_latex_doc_parent` FOREIGN KEY (`parent_id`) REFERENCES `latex_documents` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LaTeX文档表';
 
 -- 默认系统配置
 INSERT IGNORE INTO `system_configs` (`id`, `require_email_verification`) VALUES

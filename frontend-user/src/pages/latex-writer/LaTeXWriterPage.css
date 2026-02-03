@@ -1,0 +1,552 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ * 
+ * LaTeX Writer 页面样式
+ */
+
+.latex-writer-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 60px); /* 减去顶部导航栏高度 */
+  background: var(--bg-primary, #f8f9fa);
+  overflow: hidden;
+}
+
+/* 主内容区三栏布局 */
+.latex-writer-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 左侧面板 - 文件树 */
+.latex-writer-left-panel {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 240px;
+  background: var(--bg-secondary, #fff);
+  border-right: 1px solid var(--border-color, #e0e0e0);
+  overflow: hidden;
+  transition: width 0.2s ease;
+}
+
+/* 中间面板 - 编辑器 + 对话 */
+.latex-writer-center-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 300px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* 编辑器区域 */
+.latex-writer-editor-area {
+  flex: 1;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  background: var(--bg-secondary, #fff);
+}
+
+/* AI 对话区域 */
+.latex-writer-chat-area {
+  min-height: 200px;
+  max-height: 50%;
+  background: var(--bg-secondary, #fff);
+  border-top: 1px solid var(--border-color, #e0e0e0);
+  overflow: hidden;
+}
+
+/* 右侧面板 - PDF 预览 */
+.latex-writer-right-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  background: var(--bg-secondary, #fff);
+  border-left: 1px solid var(--border-color, #e0e0e0);
+  min-width: 250px;
+  overflow: hidden;
+}
+
+/* 面板分隔条（可拖拽调整大小） */
+.latex-writer-resizer {
+  flex-shrink: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: var(--border-color, #e0e0e0);
+  transition: background 0.2s ease;
+  position: relative;
+}
+
+.latex-writer-resizer::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 32px;
+  background: var(--text-tertiary, #ccc);
+  border-radius: 1px;
+}
+
+.latex-writer-resizer:hover,
+.latex-writer-resizer.active {
+  background: var(--primary-color, #10A37F);
+}
+
+.latex-writer-resizer:hover::before,
+.latex-writer-resizer.active::before {
+  background: #fff;
+}
+
+.latex-writer-resizer-horizontal {
+  height: 4px;
+  width: 100%;
+  cursor: row-resize;
+}
+
+/* 深色模式适配 */
+[data-theme="dark"] .latex-writer-page {
+  background: var(--bg-primary, #1a1a1a);
+}
+
+[data-theme="dark"] .latex-writer-left-panel,
+[data-theme="dark"] .latex-writer-center-panel,
+[data-theme="dark"] .latex-writer-right-panel,
+[data-theme="dark"] .latex-writer-editor-area,
+[data-theme="dark"] .latex-writer-chat-area {
+  background: var(--bg-secondary, #2a2a2a);
+  border-color: var(--border-color, #404040);
+}
+
+/* 响应式布局 */
+@media (max-width: 1024px) {
+  .latex-writer-left-panel {
+    width: 180px !important;
+  }
+  
+  .latex-writer-right-panel {
+    width: 300px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .latex-writer-content {
+    flex-direction: column;
+  }
+  
+  .latex-writer-left-panel,
+  .latex-writer-right-panel {
+    width: 100% !important;
+    max-width: none;
+    height: auto;
+    border: none;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+  }
+  
+  .latex-writer-center-panel {
+    min-width: auto;
+  }
+  
+  .latex-writer-editor-area {
+    height: 300px !important;
+  }
+  
+  .latex-writer-chat-area {
+    height: 200px !important;
+  }
+}
+
+/* ============================================
+   登录提示状态
+   ============================================ */
+
+.latex-writer-auth-required {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.latex-writer-auth-card {
+  text-align: center;
+  padding: 48px 64px;
+  background: var(--bg-secondary, #fff);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+}
+
+.latex-writer-auth-icon {
+  color: var(--text-tertiary, #999);
+  margin-bottom: 24px;
+}
+
+.latex-writer-auth-card h2 {
+  margin: 0 0 12px;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+.latex-writer-auth-card > p {
+  margin: 0 0 24px;
+  color: var(--text-secondary, #666);
+}
+
+.latex-writer-login-btn {
+  display: inline-block;
+  padding: 12px 48px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #10A37F 0%, #0d8a6a 100%);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.latex-writer-login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(16, 163, 127, 0.3);
+}
+
+.latex-writer-auth-hint {
+  margin-top: 16px;
+  font-size: 14px;
+  color: var(--text-tertiary, #999);
+}
+
+.latex-writer-register-link {
+  background: none;
+  border: none;
+  color: var(--primary-color, #10A37F);
+  cursor: pointer;
+  font-size: 14px;
+  margin-left: 4px;
+}
+
+.latex-writer-register-link:hover {
+  text-decoration: underline;
+}
+
+/* ============================================
+   加载状态
+   ============================================ */
+
+.latex-writer-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: 16px;
+  color: var(--text-secondary, #666);
+}
+
+.latex-writer-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color, #e0e0e0);
+  border-top-color: var(--primary-color, #10A37F);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================
+   项目选择页面
+   ============================================ */
+
+.latex-writer-project-select {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 24px;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.latex-writer-project-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.latex-writer-project-header h1 {
+  margin: 0 0 12px;
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+.latex-writer-project-header p {
+  margin: 0;
+  color: var(--text-secondary, #666);
+  font-size: 16px;
+}
+
+/* 创建项目表单 */
+.latex-writer-create-project {
+  width: 100%;
+  max-width: 500px;
+  padding: 32px;
+  background: var(--bg-secondary, #fff);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.latex-writer-create-project h3 {
+  margin: 0 0 20px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+.latex-writer-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.latex-writer-create-form input {
+  padding: 14px 16px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.latex-writer-create-form input:focus {
+  border-color: var(--primary-color, #10A37F);
+  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
+}
+
+.latex-writer-create-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.latex-writer-create-btn {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.latex-writer-create-btn.primary {
+  background: var(--primary-color, #10A37F);
+  color: #fff;
+}
+
+.latex-writer-create-btn.primary:hover:not(:disabled) {
+  background: #0d8a6a;
+}
+
+.latex-writer-create-btn.primary:disabled {
+  background: var(--text-tertiary, #999);
+  cursor: not-allowed;
+}
+
+.latex-writer-create-btn.secondary {
+  background: var(--bg-tertiary, #f0f0f0);
+  color: var(--text-secondary, #666);
+}
+
+.latex-writer-create-btn.secondary:hover {
+  background: var(--border-color, #e0e0e0);
+}
+
+/* 项目列表 */
+.latex-writer-project-list {
+  width: 100%;
+  max-width: 900px;
+}
+
+.latex-writer-project-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.latex-writer-project-list-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+.latex-writer-new-project-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--primary-color, #10A37F);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--primary-color, #10A37F);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.latex-writer-new-project-btn:hover {
+  background: var(--primary-color, #10A37F);
+  color: #fff;
+}
+
+.latex-writer-project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.latex-writer-project-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: var(--bg-secondary, #fff);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.latex-writer-project-card:hover {
+  border-color: var(--primary-color, #10A37F);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.latex-writer-project-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #10A37F20 0%, #10A37F10 100%);
+  border-radius: 10px;
+  color: var(--primary-color, #10A37F);
+}
+
+.latex-writer-project-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.latex-writer-project-info h4 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.latex-writer-project-date {
+  font-size: 12px;
+  color: var(--text-tertiary, #999);
+}
+
+.latex-writer-empty-projects {
+  text-align: center;
+  padding: 48px;
+  color: var(--text-tertiary, #999);
+}
+
+/* ============================================
+   无文件选中状态
+   ============================================ */
+
+.latex-writer-no-file {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 48px;
+  text-align: center;
+  color: var(--text-secondary, #666);
+}
+
+.latex-writer-no-file-icon {
+  color: var(--text-tertiary, #ccc);
+  margin-bottom: 20px;
+}
+
+.latex-writer-no-file h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+.latex-writer-no-file p {
+  margin: 0 0 24px;
+  color: var(--text-secondary, #666);
+}
+
+.latex-writer-create-file-btn {
+  padding: 10px 24px;
+  border: 1px solid var(--primary-color, #10A37F);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--primary-color, #10A37F);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.latex-writer-create-file-btn:hover {
+  background: var(--primary-color, #10A37F);
+  color: #fff;
+}
+
+/* ============================================
+   深色模式适配
+   ============================================ */
+
+[data-theme="dark"] .latex-writer-auth-required {
+  background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+}
+
+[data-theme="dark"] .latex-writer-auth-card,
+[data-theme="dark"] .latex-writer-create-project,
+[data-theme="dark"] .latex-writer-project-card {
+  background: var(--bg-secondary, #2a2a2a);
+  border-color: var(--border-color, #404040);
+}
+
+[data-theme="dark"] .latex-writer-project-select {
+  background: var(--bg-primary, #1a1a1a);
+}
+
+[data-theme="dark"] .latex-writer-create-form input {
+  background: var(--bg-primary, #1a1a1a);
+  border-color: var(--border-color, #404040);
+  color: var(--text-primary, #e0e0e0);
+}
+
+[data-theme="dark"] .latex-writer-create-btn.secondary {
+  background: var(--bg-primary, #1a1a1a);
+}
