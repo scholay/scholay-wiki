@@ -115,6 +115,10 @@ function LaTeXWriterPage() {
   const [newProjectName, setNewProjectName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   
+  // 删除项目状态
+  const [deleteConfirmProject, setDeleteConfirmProject] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
   // 编辑器状态
   const [content, setContent] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
@@ -238,6 +242,34 @@ function LaTeXWriterPage() {
       alert('创建项目失败，请重试');
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  // 删除项目
+  const handleDeleteProject = async (project) => {
+    if (!project) return;
+    
+    try {
+      setIsDeleting(true);
+      // 删除项目文件夹（后端会级联删除子文件和相关对话）
+      await userAPI.deleteLatexDocument(project.id);
+      
+      // 从列表中移除
+      setProjects(prev => prev.filter(p => p.id !== project.id));
+      setDeleteConfirmProject(null);
+      
+      // 如果删除的是当前选中的项目，清空选中状态
+      if (selectedProject?.id === project.id) {
+        setSelectedProject(null);
+        setSelectedFile(null);
+        setContent('');
+        setFiles([]);
+      }
+    } catch (error) {
+      console.error('删除项目失败:', error);
+      alert('删除项目失败，请重试');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -842,6 +874,22 @@ Final section.
                           {new Date(project.updated_at).toLocaleDateString()}
                         </span>
                       </div>
+                      {/* 删除按钮 - hover 时显示 */}
+                      <button
+                        className="latex-writer-project-delete-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteConfirmProject(project);
+                        }}
+                        title="删除项目"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"/>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                          <line x1="10" y1="11" x2="10" y2="17"/>
+                          <line x1="14" y1="11" x2="14" y2="17"/>
+                        </svg>
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -852,6 +900,44 @@ Final section.
               )}
             </div>
           </>
+        )}
+
+        {/* 删除确认弹窗 */}
+        {deleteConfirmProject && (
+          <div className="latex-writer-delete-modal-overlay" onClick={() => setDeleteConfirmProject(null)}>
+            <div className="latex-writer-delete-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="latex-writer-delete-modal-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              </div>
+              <h3>确认删除项目</h3>
+              <p>
+                确定要删除项目 <strong>"{deleteConfirmProject.title}"</strong> 吗？
+              </p>
+              <p className="latex-writer-delete-warning">
+                此操作将永久删除该项目下的所有文件和 AI 对话记录，且无法恢复。
+              </p>
+              <div className="latex-writer-delete-modal-actions">
+                <button 
+                  className="latex-writer-delete-cancel-btn"
+                  onClick={() => setDeleteConfirmProject(null)}
+                  disabled={isDeleting}
+                >
+                  取消
+                </button>
+                <button 
+                  className="latex-writer-delete-confirm-btn"
+                  onClick={() => handleDeleteProject(deleteConfirmProject)}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? '删除中...' : '确认删除'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     );

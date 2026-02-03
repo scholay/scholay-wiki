@@ -936,24 +936,77 @@
   flex-shrink: 0;
 }
 
-/* ScholayPrism 入口卡片 */
+/* ScholayPrism 入口卡片 - 优雅跑马灯边框效果 */
 .pd-prism-card {
+  position: relative;
+  padding: 1.5px;
+  border-radius: 14px;
+  cursor: pointer;
+  overflow: hidden;
+  background: transparent;
+}
+
+/* 跑马灯边框 - 蓝紫色调 */
+.pd-prism-border {
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  background: conic-gradient(
+    from 0deg,
+    #6366f1,
+    #818cf8,
+    #a5b4fc,
+    #c4b5fd,
+    #a78bfa,
+    #8b5cf6,
+    #7c3aed,
+    #6366f1
+  );
+  animation: pd-prism-rotate 8s linear infinite;
+  opacity: 0.7;
+}
+
+@keyframes pd-prism-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 为了让渐变边框效果更好看，放大伪元素 */
+.pd-prism-border::before {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background: inherit;
+  animation: inherit;
+}
+
+/* 内部容器 */
+.pd-prism-inner {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
-  border: 1px solid #e8e8e8;
+  background: linear-gradient(135deg, #fafafe 0%, #f8f7ff 100%);
   border-radius: 12px;
-  cursor: pointer;
   transition: all 0.3s ease;
 }
 
+.pd-prism-card:hover .pd-prism-inner {
+  background: linear-gradient(135deg, #fff 0%, #fafafe 100%);
+}
+
+.pd-prism-card:hover .pd-prism-border {
+  opacity: 1;
+}
+
 .pd-prism-card:hover {
-  background: linear-gradient(135deg, #fff 0%, #fafafa 100%);
-  border-color: #E74C3C;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(231, 76, 60, 0.15);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2);
 }
 
 .pd-prism-icon {
@@ -990,14 +1043,15 @@
 }
 
 .pd-prism-arrow {
-  color: #999;
+  color: #8b5cf6;
   flex-shrink: 0;
   transition: all 0.2s;
+  opacity: 0.7;
 }
 
 .pd-prism-card:hover .pd-prism-arrow {
-  color: #E74C3C;
   transform: translateX(4px);
+  opacity: 1;
 }
 
 /* 研究领域列表 */

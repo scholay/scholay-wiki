@@ -468,6 +468,160 @@
   color: var(--text-tertiary, #999);
 }
 
+/* 删除按钮 - hover 时显示 */
+.latex-writer-project-delete-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(239, 68, 68, 0.1);
+  border: none;
+  border-radius: 8px;
+  color: #ef4444;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.2s ease;
+}
+
+.latex-writer-project-card {
+  position: relative;
+}
+
+.latex-writer-project-card:hover .latex-writer-project-delete-btn {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.latex-writer-project-delete-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+
+/* 删除确认弹窗 */
+.latex-writer-delete-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.latex-writer-delete-modal {
+  background: var(--bg-primary, #fff);
+  border-radius: 16px;
+  padding: 32px;
+  width: 100%;
+  max-width: 400px;
+  margin: 20px;
+  text-align: center;
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.latex-writer-delete-modal-icon {
+  color: #ef4444;
+  margin-bottom: 16px;
+}
+
+.latex-writer-delete-modal h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+.latex-writer-delete-modal p {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+  line-height: 1.5;
+}
+
+.latex-writer-delete-modal p strong {
+  color: var(--text-primary, #333);
+}
+
+.latex-writer-delete-warning {
+  color: #ef4444 !important;
+  font-size: 13px !important;
+  margin-top: 12px !important;
+}
+
+.latex-writer-delete-modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.latex-writer-delete-cancel-btn,
+.latex-writer-delete-confirm-btn {
+  flex: 1;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.latex-writer-delete-cancel-btn {
+  background: var(--bg-secondary, #f5f5f5);
+  border: 1px solid var(--border-color, #e0e0e0);
+  color: var(--text-primary, #333);
+}
+
+.latex-writer-delete-cancel-btn:hover:not(:disabled) {
+  background: var(--bg-tertiary, #e8e8e8);
+}
+
+.latex-writer-delete-confirm-btn {
+  background: #ef4444;
+  border: none;
+  color: white;
+}
+
+.latex-writer-delete-confirm-btn:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.latex-writer-delete-confirm-btn:disabled,
+.latex-writer-delete-cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 暗色主题 */
+[data-theme="dark"] .latex-writer-delete-modal {
+  background: var(--bg-secondary, #2a2a2a);
+}
+
+[data-theme="dark"] .latex-writer-project-delete-btn {
+  background: rgba(239, 68, 68, 0.2);
+}
+
 .latex-writer-empty-projects {
   text-align: center;
   padding: 48px;

@@ -37,11 +37,11 @@ type AgentConfig struct {
 	PresencePenalty  float64 `gorm:"column:presence_penalty;default:0.0" json:"presence_penalty"`
 
 	// Agent 行为配置
-	MaxIterations         uint   `gorm:"column:max_iterations;default:10" json:"max_iterations"`
-	AutoValidateLatex     bool   `gorm:"column:auto_validate_latex;default:true" json:"auto_validate_latex"`
-	AutoFixErrors         bool   `gorm:"column:auto_fix_errors;default:true" json:"auto_fix_errors"`
-	EnableToolCalling     bool   `gorm:"column:enable_tool_calling;default:true" json:"enable_tool_calling"`
-	EnabledToolCategories string `gorm:"column:enabled_tool_categories;type:json" json:"-"`
+	MaxIterations         uint    `gorm:"column:max_iterations;default:10" json:"max_iterations"`
+	AutoValidateLatex     bool    `gorm:"column:auto_validate_latex;default:true" json:"auto_validate_latex"`
+	AutoFixErrors         bool    `gorm:"column:auto_fix_errors;default:true" json:"auto_fix_errors"`
+	EnableToolCalling     bool    `gorm:"column:enable_tool_calling;default:true" json:"enable_tool_calling"`
+	EnabledToolCategories *string `gorm:"column:enabled_tool_categories;type:json" json:"-"`
 
 	// 多 Agent 配置（新增）
 	EnableMultiAgent       bool    `gorm:"column:enable_multi_agent;default:false" json:"enable_multi_agent"`
@@ -49,7 +49,7 @@ type AgentConfig struct {
 	AutoCompactThreshold   float64 `gorm:"column:auto_compact_threshold;default:0.85" json:"auto_compact_threshold"`
 	PlannerModelID         *uint   `gorm:"column:planner_model_id" json:"planner_model_id,omitempty"`
 	ValidatorModelID       *uint   `gorm:"column:validator_model_id" json:"validator_model_id,omitempty"`
-	DefaultToolPermissions string  `gorm:"column:default_tool_permissions;type:json" json:"-"`
+	DefaultToolPermissions *string `gorm:"column:default_tool_permissions;type:json" json:"-"`
 
 	// 系统提示词配置
 	SystemPromptOverride *string `gorm:"column:system_prompt_override;type:text" json:"system_prompt_override,omitempty"`
@@ -61,11 +61,11 @@ type AgentConfig struct {
 
 // GetDefaultToolPermissions 获取默认工具权限
 func (c *AgentConfig) GetDefaultToolPermissions() map[string]string {
-	if c.DefaultToolPermissions == "" {
+	if c.DefaultToolPermissions == nil || *c.DefaultToolPermissions == "" {
 		return make(map[string]string)
 	}
 	var permissions map[string]string
-	if err := json.Unmarshal([]byte(c.DefaultToolPermissions), &permissions); err != nil {
+	if err := json.Unmarshal([]byte(*c.DefaultToolPermissions), &permissions); err != nil {
 		return make(map[string]string)
 	}
 	return permissions
@@ -77,7 +77,8 @@ func (c *AgentConfig) SetDefaultToolPermissions(permissions map[string]string) e
 	if err != nil {
 		return err
 	}
-	c.DefaultToolPermissions = string(data)
+	s := string(data)
+	c.DefaultToolPermissions = &s
 	return nil
 }
 
@@ -88,11 +89,11 @@ func (AgentConfig) TableName() string {
 
 // GetEnabledToolCategories 获取启用的工具分类
 func (c *AgentConfig) GetEnabledToolCategories() []string {
-	if c.EnabledToolCategories == "" {
+	if c.EnabledToolCategories == nil || *c.EnabledToolCategories == "" {
 		return []string{"latex", "search", "bibtex", "file", "convert"}
 	}
 	var categories []string
-	if err := json.Unmarshal([]byte(c.EnabledToolCategories), &categories); err != nil {
+	if err := json.Unmarshal([]byte(*c.EnabledToolCategories), &categories); err != nil {
 		return []string{"latex", "search", "bibtex", "file", "convert"}
 	}
 	return categories
@@ -104,7 +105,8 @@ func (c *AgentConfig) SetEnabledToolCategories(categories []string) error {
 	if err != nil {
 		return err
 	}
-	c.EnabledToolCategories = string(data)
+	s := string(data)
+	c.EnabledToolCategories = &s
 	return nil
 }
 

@@ -83,7 +83,11 @@ pull_images() {
 
 # 重启服务
 restart_services() {
-    echo -e "${YELLOW}=== 重启服务 ===${NC}"
+    echo -e "${YELLOW}=== 停止旧服务 ===${NC}"
+    docker compose -f ${COMPOSE_FILE} down
+    echo ""
+    
+    echo -e "${YELLOW}=== 启动新服务 ===${NC}"
     docker compose -f ${COMPOSE_FILE} up -d
     echo ""
 }
