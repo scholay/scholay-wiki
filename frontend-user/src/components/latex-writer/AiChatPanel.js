@@ -19,6 +19,7 @@ import DiffViewer from './DiffViewer';
 import PermissionDialog from './PermissionDialog';
 import ToolCallDisplay, { ToolCallIndicator } from './ToolCallDisplay';
 import { userAPI } from '../../services/api';
+import { trackScholayPrism } from '../../utils/usageTracker';
 import './AiChatPanel.css';
 
 const AiChatPanel = forwardRef(function AiChatPanel({ 
@@ -453,6 +454,9 @@ const AiChatPanel = forwardRef(function AiChatPanel({
     const prompt = inputValue.trim();
     setInputValue('');
 
+    // 记录 ScholayPrism 使用统计
+    trackScholayPrism(documentId);
+
     // 添加用户消息
     const userMessage = {
       role: 'user',
@@ -473,7 +477,7 @@ const AiChatPanel = forwardRef(function AiChatPanel({
       fullContent,
       modelId: selectedModelId,
     });
-  }, [inputValue, isLoading, isAuthenticated, selectedText, fullContent, selectedModelId]);
+  }, [inputValue, isLoading, isAuthenticated, selectedText, fullContent, selectedModelId, documentId]);
 
   // 执行快捷命令
   const handleQuickCommand = useCallback(async (command) => {

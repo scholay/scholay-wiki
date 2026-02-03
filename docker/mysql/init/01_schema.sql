@@ -1678,7 +1678,7 @@ CREATE TABLE IF NOT EXISTS `currency_batch_distributions` (
 -- 每次执行先清空再插入，确保数据一致性
 -- ============================================
 
--- 清空并重新初始化功能配置（16个功能追踪点）
+-- 清空并重新初始化功能配置（17个功能追踪点）
 DELETE FROM feature_configs;
 INSERT INTO feature_configs (feature_code, feature_name, feature_group, description, sort_order) VALUES
 -- 用户类
@@ -1698,6 +1698,7 @@ INSERT INTO feature_configs (feature_code, feature_name, feature_group, descript
 -- 对话类
 ('ai_assistant_chat', '智能助手对话', 'chat', '智能助手对话功能', 50),
 ('ai_peer_review', '智能审稿', 'chat', '智能审稿功能', 52),
+('scholay_prism', 'ScholayPrism对话', 'chat', 'ScholayPrism LaTeX AI写作助手对话', 53),
 -- 落地页类 (/paper/{id})
 ('landing_page_view', '落地页详情', 'landing', '打开论文落地页', 60),
 ('landing_page_search', '落地页搜索', 'landing', '在落地页顶部搜索框搜索', 61),

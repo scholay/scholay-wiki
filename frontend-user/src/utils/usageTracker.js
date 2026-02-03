@@ -8,7 +8,7 @@
  */
 
 /**
- * 功能代码常量 - 15个功能追踪点
+ * 功能代码常量 - 17个功能追踪点
  * 与数据库 feature_configs 表中的定义保持一致
  */
 export const FeatureCode = {
@@ -34,6 +34,7 @@ export const FeatureCode = {
   // 对话类
   AI_ASSISTANT_CHAT: 'ai_assistant_chat',           // 智能助手对话（AssistantPage + ChatPage）
   AI_PEER_REVIEW: 'ai_peer_review',                 // 智能审稿（PeerReviewPage）
+  SCHOLAY_PRISM: 'scholay_prism',                   // ScholayPrism LaTeX 对话
   
   // 落地页类（/paper/{id}）
   LANDING_PAGE_VIEW: 'landing_page_view',           // 落地页详情
@@ -58,6 +59,7 @@ const FeatureNames = {
   [FeatureCode.PDF_SELECTION_TRANSLATE]: 'PDF划词翻译',
   [FeatureCode.AI_ASSISTANT_CHAT]: '智能助手对话',
   [FeatureCode.AI_PEER_REVIEW]: '智能审稿',
+  [FeatureCode.SCHOLAY_PRISM]: 'ScholayPrism对话',
   [FeatureCode.LANDING_PAGE_VIEW]: '落地页详情',
   [FeatureCode.LANDING_PAGE_SEARCH]: '落地页搜索',
   [FeatureCode.LANDING_PAGE_SIMILAR]: '落地页相似论文',
@@ -87,6 +89,7 @@ export const EntryPoint = {
   CHAT_PAGE: 'chat_page',
   ASSISTANT_PAGE: 'assistant_page',
   PEER_REVIEW_PAGE: 'peer_review_page',
+  LATEX_WRITER_PAGE: 'latex_writer_page',           // /latex-writer
   
   // 组件入口
   SEARCH_BOX: 'search_box',
@@ -242,6 +245,15 @@ export const trackAIPeerReview = () => {
 };
 
 /**
+ * 记录 ScholayPrism 对话（LaTeX AI 写作助手）
+ * @param {string} documentId - 文档ID
+ */
+export const trackScholayPrism = (documentId = '') => {
+  trackUsage(FeatureCode.SCHOLAY_PRISM, Action.CHAT, EntryPoint.LATEX_WRITER_PAGE, 
+    documentId ? { document_id: documentId } : null);
+};
+
+/**
  * 记录落地页详情查看（打开 /paper/{id} 时）
  * @param {string} paperId - 论文ID
  */
@@ -302,6 +314,7 @@ const usageTracker = {
   trackPDFSelectionTranslate,
   trackAIAssistantChat,
   trackAIPeerReview,
+  trackScholayPrism,
   trackLandingPageView,
   trackLandingPageSearch,
   trackLandingPageSimilar,
