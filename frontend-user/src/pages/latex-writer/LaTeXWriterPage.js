@@ -24,13 +24,26 @@ import './LaTeXWriterPage.css';
 // 懒加载 AuthModal
 const AuthModal = lazy(() => import('../../components/AuthModal'));
 
-// 默认 LaTeX 模板（英文）
-const DEFAULT_LATEX_TEMPLATE = `\\documentclass{article}
-\\usepackage{amsmath}
+// 默认 LaTeX 模板（兼容在线编译器的标准学术论文格式）
+const DEFAULT_LATEX_TEMPLATE = `\\documentclass[12pt,a4paper]{article}
+
+% 基础宏包
+\\usepackage[utf8]{inputenc}
+\\usepackage[T1]{fontenc}
+\\usepackage{amsmath,amssymb,amsfonts}
 \\usepackage{graphicx}
+\\usepackage{booktabs}
+\\usepackage[hidelinks]{hyperref}
+\\usepackage[margin=1in]{geometry}
+\\usepackage{setspace}
+
+% 设置行距
+\\onehalfspacing
 
 \\title{My Paper Title}
-\\author{Author Name}
+\\author{Author Name\\\\
+\\small Institution Name\\\\
+\\small \\texttt{email@example.com}}
 \\date{\\today}
 
 \\begin{document}
@@ -38,20 +51,55 @@ const DEFAULT_LATEX_TEMPLATE = `\\documentclass{article}
 \\maketitle
 
 \\begin{abstract}
-Your abstract goes here.
+Your abstract goes here. This should be a concise summary of your research, including the background, methods, results, and conclusions. Typically 150-300 words.
 \\end{abstract}
 
+\\textbf{Keywords:} keyword1, keyword2, keyword3
+
 \\section{Introduction}
-Start writing your introduction here.
+Start writing your introduction here. Introduce the background, motivation, and objectives of your research.
+
+\\section{Related Work}
+Review relevant literature and previous studies in this area.
 
 \\section{Methods}
-Describe your methods.
+Describe your methodology in detail. Include any mathematical formulations if necessary:
+
+\\begin{equation}
+E = mc^2
+\\end{equation}
 
 \\section{Results}
-Present your results.
+Present your experimental or theoretical results. You can use tables like this:
+
+\\begin{table}[h]
+\\centering
+\\caption{Sample Results}
+\\begin{tabular}{lcc}
+\\toprule
+Method & Accuracy & Time (s) \\\\
+\\midrule
+Method A & 0.85 & 1.2 \\\\
+Method B & 0.92 & 2.5 \\\\
+\\bottomrule
+\\end{tabular}
+\\end{table}
+
+\\section{Discussion}
+Discuss the implications of your results and compare with previous work.
 
 \\section{Conclusion}
-Summarize your findings.
+Summarize your findings and suggest future research directions.
+
+\\section*{Acknowledgments}
+Thank those who contributed to this work.
+
+\\begin{thebibliography}{9}
+\\bibitem{ref1}
+Author A, Author B.
+\\textit{Title of the Paper}.
+Journal Name, Vol. X, No. Y, pp. 1-10, 2024.
+\\end{thebibliography}
 
 \\end{document}
 `;

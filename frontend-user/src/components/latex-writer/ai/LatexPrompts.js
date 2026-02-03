@@ -27,7 +27,58 @@ export const SYSTEM_PROMPTS = {
 - 当用户请求修改或生成代码时，直接给出完整的 LaTeX 代码，使用 \`\`\`latex 代码块包裹
 - 保持学术论文的严谨性和专业性
 - 解释和交流使用中文，论文内容根据用户要求使用相应语言
-- 注意 LaTeX 特殊字符的转义（如 %, $, &, #, _ 等）`,
+- 注意 LaTeX 特殊字符的转义（如 %, $, &, #, _ 等）
+
+【重要】LaTeX 编译环境限制：
+当前使用的是在线 LaTeX 编译器（基于 pdfLaTeX），有以下限制：
+- 不支持 xeCJK、fontspec、ctex 等需要 XeLaTeX 的宏包
+- 不支持自定义系统字体（如 Noto, 思源字体等）
+- 建议使用英文撰写论文以获得最佳兼容性
+
+除非用户明确要求使用特定宏包，否则请使用以下标准模板格式：
+
+\`\`\`latex
+\\documentclass[12pt,a4paper]{article}
+
+% 基础宏包（兼容性好）
+\\usepackage[utf8]{inputenc}
+\\usepackage[T1]{fontenc}
+\\usepackage{amsmath,amssymb,amsfonts}
+\\usepackage{graphicx}
+\\usepackage{booktabs}
+\\usepackage{hyperref}
+\\usepackage[margin=1in]{geometry}
+\\usepackage{natbib}
+\\usepackage{setspace}
+
+% 可选宏包
+\\usepackage{algorithm}
+\\usepackage{algpseudocode}
+\\usepackage{listings}
+\\usepackage{xcolor}
+\\usepackage{subcaption}
+
+\\title{论文标题}
+\\author{作者姓名}
+\\date{\\today}
+
+\\begin{document}
+\\maketitle
+
+\\begin{abstract}
+摘要内容...
+\\end{abstract}
+
+\\section{Introduction}
+...
+
+\\bibliographystyle{plainnat}
+\\bibliography{references}
+
+\\end{document}
+\`\`\`
+
+如果用户需要中文支持且愿意接受可能的编译问题，可以告知他们需要使用本地 TeX Live 或 Overleaf 进行编译。`,
 
   // 论文写作专家
   writing_expert: `你是一位资深的学术论文写作专家，专注于帮助研究者撰写高质量的学术论文。

@@ -299,7 +299,28 @@ TexLive 服务器正在启动中，请稍后重试。
 3. 如需完整中文支持，请使用本地 TeX Live`;
   }
 
-  // 检查字体找不到错误
+  // 检查 fontspec 字体找不到错误
+  if (log.includes('fontspec') && log.includes('cannot be found')) {
+    // 提取字体名称
+    const fontMatch = log.match(/font "([^"]+)" cannot be found/i);
+    const fontName = fontMatch ? fontMatch[1] : '指定的字体';
+    
+    return `字体 "${fontName}" 无法加载
+
+在线编译器运行在浏览器中，无法访问系统字体。
+
+解决方案：
+1. 移除 xeCJK 和自定义字体设置，使用纯英文模板
+2. 使用 CJKutf8 包替代（有限的中文支持）
+3. 如需完整中文支持，请使用本地 TeX Live 或 Overleaf
+
+示例（纯英文模板）：
+\\documentclass{article}
+\\usepackage{amsmath}
+\\usepackage{graphicx}`;
+  }
+
+  // 检查字体找不到错误（通用）
   if (log.includes('Font') && (log.includes('not found') || log.includes('not loadable'))) {
     return `字体加载错误
 
@@ -307,7 +328,8 @@ TexLive 服务器正在启动中，请稍后重试。
 
 解决方案：
 1. 使用基础字体（如 Computer Modern）
-2. 或者使用本地 TeX Live 编译`;
+2. 移除 fontspec/xeCJK 相关设置
+3. 或者使用本地 TeX Live 编译`;
   }
   
   // 尝试提取错误信息
