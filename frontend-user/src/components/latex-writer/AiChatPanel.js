@@ -30,6 +30,8 @@ const AiChatPanel = forwardRef(function AiChatPanel({
   cursorPosition,
   pendingMessage,  // 新增：外部触发的待发送消息
   onPendingMessageSent,  // 新增：消息发送后的回调
+  isCollapsed = false,  // 是否折叠
+  onToggleCollapse,  // 切换折叠状态
 }, ref) {
   const { isAuthenticated, token } = useAuth();
   
@@ -607,7 +609,11 @@ const AiChatPanel = forwardRef(function AiChatPanel({
           {streamParsed.thinkText && (
             <div className="ai-chat-thinking">
               <div className="ai-chat-thinking-header">
-                <span className="ai-chat-thinking-icon">💭</span>
+                <span className="ai-chat-thinking-icon">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                </span>
                 <span>思考中...</span>
               </div>
               <div className="ai-chat-thinking-content">{streamParsed.thinkText}</div>
@@ -618,7 +624,13 @@ const AiChatPanel = forwardRef(function AiChatPanel({
           )}
           {streamParsed.codeText && (
             <div className="ai-chat-code-preview">
-              <div className="ai-chat-code-header">📝 LaTeX 代码</div>
+              <div className="ai-chat-code-header">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                LaTeX
+              </div>
               <pre className="ai-chat-code">{streamParsed.codeText}</pre>
             </div>
           )}
@@ -648,7 +660,11 @@ const AiChatPanel = forwardRef(function AiChatPanel({
             {thinkContent && (
               <details className="ai-chat-thinking-details">
                 <summary className="ai-chat-thinking-summary">
-                  <span className="ai-chat-thinking-icon">💭</span>
+                  <span className="ai-chat-thinking-icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                  </span>
                   <span>查看思考过程</span>
                 </summary>
                 <div className="ai-chat-thinking-content">{thinkContent}</div>
@@ -660,7 +676,13 @@ const AiChatPanel = forwardRef(function AiChatPanel({
             {codeContent && !msg.hasDiff && (
               <div className="ai-chat-code-preview">
                 <div className="ai-chat-code-header">
-                  <span>📝 LaTeX 代码</span>
+                  <span className="ai-chat-code-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    LaTeX
+                  </span>
                   <button 
                     className="ai-chat-code-apply-btn"
                     onClick={() => onApplySuggestion?.(codeContent)}
@@ -697,17 +719,53 @@ const AiChatPanel = forwardRef(function AiChatPanel({
     return msg.content || '';
   };
 
+  // 折叠状态渲染
+  if (isCollapsed) {
+    return (
+      <div className="ai-chat-panel ai-chat-panel-collapsed">
+        <div className="ai-chat-header ai-chat-header-collapsed" onClick={onToggleCollapse}>
+          <div className="ai-chat-collapsed-bar">
+            <div className="ai-chat-collapsed-handle" />
+          </div>
+          <div className="ai-chat-collapsed-content">
+            <span className="ai-chat-collapsed-hint">Thought for 19 seconds...</span>
+            <div className="ai-chat-collapsed-actions">
+              <button className="ai-chat-collapsed-btn" title="展开">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="9" y1="3" x2="9" y2="21"/>
+                </svg>
+              </button>
+              <button className="ai-chat-collapsed-btn" title="代码视图">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="16 18 22 12 16 6"/>
+                  <polyline points="8 6 2 12 8 18"/>
+                </svg>
+              </button>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="ai-chat-panel">
       {/* 头部 */}
       <div className="ai-chat-header">
-        <div className="ai-chat-title">
+        <div className="ai-chat-title" onClick={onToggleCollapse} style={{ cursor: 'pointer' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 2a10 10 0 1 0 10 10H12V2z"/>
             <path d="M12 2a10 10 0 0 1 10 10"/>
             <circle cx="12" cy="12" r="6"/>
           </svg>
           Prism AI 助手
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: 4 }}>
+            <polyline points="18 15 12 9 6 15"/>
+          </svg>
         </div>
         <div className="ai-chat-header-actions">
           {/* 命令菜单 */}
@@ -842,7 +900,7 @@ const AiChatPanel = forwardRef(function AiChatPanel({
           <div className="ai-chat-empty">
             <p>输入问题或选中 LaTeX 代码后使用快捷命令</p>
             <div className="ai-chat-tips">
-              <p>💡 提示：</p>
+              <p>提示：</p>
               <ul>
                 <li>选中代码后可使用快捷命令（续写、润色、翻译等）</li>
                 <li>点击消息中的"应用"可将修改插入编辑器</li>

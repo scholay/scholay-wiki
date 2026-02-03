@@ -26,8 +26,8 @@ function PdfPreview({
   error, 
   onCompile, 
   engineStatus,
-  onAiFixError,  // 新增：让 AI 修复错误的回调
-  lastSuccessfulPdf,  // 新增：上一次成功的 PDF URL
+  onAiFixError,  // 让 AI 修复错误的回调
+  lastSuccessfulPdf,  // 上一次成功的 PDF URL
 }) {
   const [numPages, setNumPages] = useState(null);
   const [scale, setScale] = useState(1.0);
@@ -101,7 +101,15 @@ function PdfPreview({
     setShowError(false);
   }, []);
 
-  // 渲染空状态（无 PDF）
+  // 渲染编译中状态（首次加载和手动编译都用这个）
+  const renderCompiling = () => (
+    <div className="pdf-preview-loading">
+      <div className="pdf-preview-spinner" />
+      <p>正在编译...</p>
+    </div>
+  );
+
+  // 渲染空状态（编译完成后没有 PDF 时显示）
   const renderEmptyState = () => (
     <div className="pdf-preview-empty">
       <div className="pdf-preview-empty-icon">
@@ -115,32 +123,6 @@ function PdfPreview({
       </div>
       <h3>PDF 预览</h3>
       <p>点击"编译"按钮生成 PDF</p>
-      {engineStatus && engineStatus !== 'ready' && (
-        <p className="pdf-preview-engine-status">
-          {engineStatus === 'loading' && (
-            <>
-              <span className="pdf-preview-status-loading" />
-              {getEngineStatusText()}
-            </>
-          )}
-          {engineStatus === 'unloaded' && '首次编译需加载引擎（约2MB）'}
-        </p>
-      )}
-      <button 
-        className="pdf-preview-compile-btn"
-        onClick={onCompile}
-        disabled={isCompiling || engineStatus === 'loading'}
-      >
-        {isCompiling ? '编译中...' : engineStatus === 'loading' ? '引擎加载中...' : '编译 PDF'}
-      </button>
-    </div>
-  );
-
-  // 渲染编译中状态
-  const renderCompiling = () => (
-    <div className="pdf-preview-loading">
-      <div className="pdf-preview-spinner" />
-      <p>正在编译 LaTeX 文档...</p>
     </div>
   );
 
@@ -247,11 +229,66 @@ function PdfPreview({
     )
   );
 
+  // 页面导航状态
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // 滚动到指定页面
+  const scrollToPage = useCallback((pageNum) => {
+    const pageElement = containerRef.current?.querySelector(`[data-page-number="${pageNum}"]`);
+    if (pageElement) {
+      pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    setCurrentPage(pageNum);
+  }, []);
+
+  // 下载 PDF
+  const handleDownload = useCallback(() => {
+    if (displayPdfUrl) {
+      const link = document.createElement('a');
+      link.href = displayPdfUrl;
+      link.download = 'document.pdf';
+      link.click();
+    }
+  }, [displayPdfUrl]);
+
   return (
     <div className="pdf-preview">
       {/* 工具栏 */}
       <div className="pdf-preview-toolbar">
+        {/* 编译按钮 */}
+        <button
+          className="pdf-preview-toolbar-compile-btn"
+          onClick={onCompile}
+          disabled={isCompiling || engineStatus === 'loading'}
+          title="编译 (Ctrl+Enter)"
+        >
+          {isCompiling ? (
+            <span className="pdf-preview-toolbar-spinner" />
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22 6 12 13 2 6"/>
+            </svg>
+          )}
+          <span>{isCompiling ? '编译中' : '编译'}</span>
+        </button>
+
+        <div className="pdf-preview-toolbar-divider" />
+
+        {/* 页码显示 */}
+        {displayPdfUrl && numPages && (
+          <div className="pdf-preview-page-label">
+            {currentPage} / {numPages} 页
+          </div>
+        )}
+
+        <div className="pdf-preview-toolbar-spacer" />
+
+        {/* 缩放控制 */}
         <div className="pdf-preview-toolbar-group">
+          <span className="pdf-preview-zoom-label" onClick={handleZoomReset} title="重置缩放">
+            {Math.round(scale * 100)}%
+          </span>
           <button
             className="pdf-preview-toolbar-btn"
             onClick={handleZoomOut}
@@ -259,14 +296,9 @@ function PdfPreview({
             title="缩小"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              <line x1="8" y1="11" x2="14" y2="11"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
           </button>
-          <span className="pdf-preview-zoom-label" onClick={handleZoomReset}>
-            {Math.round(scale * 100)}%
-          </span>
           <button
             className="pdf-preview-toolbar-btn"
             onClick={handleZoomIn}
@@ -274,40 +306,39 @@ function PdfPreview({
             title="放大"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              <line x1="11" y1="8" x2="11" y2="14"/>
-              <line x1="8" y1="11" x2="14" y2="11"/>
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
           </button>
         </div>
 
-        {displayPdfUrl && numPages && (
-          <div className="pdf-preview-toolbar-group">
-            <span className="pdf-preview-page-label">
-              共 {numPages} 页
-            </span>
-          </div>
-        )}
+        <div className="pdf-preview-toolbar-divider" />
 
-        {/* 编译按钮 */}
-        <div className="pdf-preview-toolbar-group">
-          <button
-            className="pdf-preview-toolbar-compile-btn"
-            onClick={onCompile}
-            disabled={isCompiling || engineStatus === 'loading'}
-            title="编译"
-          >
-            {isCompiling ? (
-              <span className="pdf-preview-toolbar-spinner" />
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-              </svg>
-            )}
-            <span>{isCompiling ? '编译中' : '编译'}</span>
-          </button>
-        </div>
+        {/* 下载按钮 */}
+        <button
+          className="pdf-preview-download-btn"
+          onClick={handleDownload}
+          disabled={!displayPdfUrl}
+          title="下载 PDF"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </button>
+
+        {/* 更多选项 */}
+        <button
+          className="pdf-preview-more-btn"
+          title="更多选项"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="1"/>
+            <circle cx="19" cy="12" r="1"/>
+            <circle cx="5" cy="12" r="1"/>
+          </svg>
+        </button>
       </div>
 
       {/* 错误提示条 */}
@@ -315,6 +346,7 @@ function PdfPreview({
 
       {/* 内容区域 */}
       <div className="pdf-preview-content">
+        {/* 编译中状态 */}
         {isCompiling && !displayPdfUrl && renderCompiling()}
         {/* 如果有 PDF 正在编译，显示覆盖层 */}
         {isCompiling && displayPdfUrl && (
@@ -323,9 +355,72 @@ function PdfPreview({
             <p>正在编译...</p>
           </div>
         )}
+        {/* 错误状态 */}
         {!isCompiling && (error || loadError) && !displayPdfUrl && renderError()}
+        {/* 空状态（没有 PDF 且未在编译） */}
         {!displayPdfUrl && !isCompiling && !error && !loadError && renderEmptyState()}
+        {/* 显示 PDF */}
         {displayPdfUrl && !loadError && renderPdf()}
+
+        {/* 页码导航 - 悬浮在右下角 */}
+        {displayPdfUrl && numPages && numPages > 1 && (
+          <div className="pdf-preview-nav">
+            <button 
+              className="pdf-preview-nav-btn"
+              onClick={() => scrollToPage(1)}
+              disabled={currentPage === 1}
+              title="第一页"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="11 17 6 12 11 7"/>
+                <polyline points="18 17 13 12 18 7"/>
+              </svg>
+            </button>
+            <button 
+              className="pdf-preview-nav-btn"
+              onClick={() => scrollToPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+              title="上一页"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+            <div className="pdf-preview-nav-divider" />
+            <button 
+              className="pdf-preview-nav-btn"
+              onClick={() => {}} // 刷新
+              title="刷新"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+            </button>
+            <div className="pdf-preview-nav-divider" />
+            <button 
+              className="pdf-preview-nav-btn"
+              onClick={() => scrollToPage(Math.min(numPages, currentPage + 1))}
+              disabled={currentPage === numPages}
+              title="下一页"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </button>
+            <button 
+              className="pdf-preview-nav-btn"
+              onClick={() => scrollToPage(numPages)}
+              disabled={currentPage === numPages}
+              title="最后一页"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="13 17 18 12 13 7"/>
+                <polyline points="6 17 11 12 6 7"/>
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -45,7 +45,17 @@ const MessageBubble = ({ message, onApplyChange, onRejectChange, currentContent 
   return (
     <div className={`chat-message chat-message-${role}`}>
       <div className="chat-message-avatar">
-        {role === 'user' ? '👤' : '🤖'}
+        {role === 'user' ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        )}
       </div>
       <div className="chat-message-content">
         <div className="chat-message-text">{content}</div>
@@ -288,7 +298,7 @@ function LatexAiChat({
     onApplyChange?.(newContent);
     setMessages(prev => [...prev, {
       role: 'system',
-      content: '✅ 修改已应用到编辑器',
+      content: '修改已应用到编辑器',
     }]);
   }, [onApplyChange]);
 
@@ -296,7 +306,7 @@ function LatexAiChat({
   const handleRejectChange = useCallback(() => {
     setMessages(prev => [...prev, {
       role: 'system',
-      content: '❌ 已放弃修改',
+      content: '已放弃修改',
     }]);
   }, []);
 
@@ -333,7 +343,12 @@ function LatexAiChat({
       {/* 头部 */}
       <div className="chat-header">
         <div className="chat-header-title">
-          <span className="chat-header-icon">🤖</span>
+          <span className="chat-header-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </span>
           <span>AI 写作助手</span>
         </div>
         <div className="chat-header-actions">
@@ -342,7 +357,10 @@ function LatexAiChat({
             onClick={handleClear}
             title="清空对话"
           >
-            🗑️
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
           </button>
           {onClose && (
             <button
@@ -350,7 +368,10 @@ function LatexAiChat({
               onClick={onClose}
               title="关闭"
             >
-              ✕
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
             </button>
           )}
         </div>
@@ -385,7 +406,12 @@ function LatexAiChat({
         {/* 流式输出 */}
         {streamingContent && (
           <div className="chat-message chat-message-assistant streaming">
-            <div className="chat-message-avatar">🤖</div>
+            <div className="chat-message-avatar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </div>
             <div className="chat-message-content">
               <div className="chat-message-text">{streamingContent}</div>
               <div className="streaming-indicator">
@@ -419,7 +445,9 @@ function LatexAiChat({
               onClick={handleStop}
               title="停止生成"
             >
-              ⏹️
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="6" width="12" height="12" rx="2"/>
+              </svg>
             </button>
           ) : (
             <button
@@ -428,7 +456,10 @@ function LatexAiChat({
               disabled={!inputValue.trim()}
               title="发送 (Enter)"
             >
-              ➤
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
             </button>
           )}
         </div>

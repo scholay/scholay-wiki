@@ -5,24 +5,66 @@
  * 统一社会信用代码: 91510100MAEEHRNE26
  * All Rights Reserved.
  * ============================================================================
+ * 
+ * PdfPreview 组件样式 - Prism 风格深色主题
  */
+
+/* 深色主题（默认） */
+[data-theme="dark"] .pdf-preview,
+.pdf-preview {
+  --pdf-bg: #1a1a1a;
+  --pdf-toolbar-bg: #0f0f0f;
+  --pdf-content-bg: #0f0f0f;
+  --pdf-border: #2d2d2d;
+  --pdf-text: #e0e0e0;
+  --pdf-text-muted: #888888;
+  --pdf-text-dim: #555555;
+  --pdf-accent: #10b981;
+  --pdf-accent-hover: #059669;
+  --pdf-error: #ef4444;
+  --pdf-purple: #8b5cf6;
+  --pdf-btn-hover-bg: #252525;
+  --pdf-label-bg: #252525;
+  --pdf-page-label-bg: #1a1a1a;
+  --pdf-overlay-bg: rgba(15, 15, 15, 0.9);
+}
+
+/* 浅色主题 */
+[data-theme="light"] .pdf-preview {
+  --pdf-bg: #f8f9fa;
+  --pdf-toolbar-bg: #ffffff;
+  --pdf-content-bg: #e9ecef;
+  --pdf-border: #dee2e6;
+  --pdf-text: #212529;
+  --pdf-text-muted: #6c757d;
+  --pdf-text-dim: #adb5bd;
+  --pdf-accent: #10b981;
+  --pdf-accent-hover: #059669;
+  --pdf-error: #dc3545;
+  --pdf-purple: #8b5cf6;
+  --pdf-btn-hover-bg: #e9ecef;
+  --pdf-label-bg: #e9ecef;
+  --pdf-page-label-bg: #f1f3f5;
+  --pdf-overlay-bg: rgba(255, 255, 255, 0.9);
+}
 
 .pdf-preview {
   display: flex;
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  background: var(--pdf-bg);
+  color: var(--pdf-text);
 }
 
 /* 工具栏 */
 .pdf-preview-toolbar {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 16px;
+  gap: 8px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color, #e0e0e0);
-  background: var(--bg-secondary, #fff);
+  border-bottom: 1px solid var(--pdf-border);
+  background: var(--pdf-toolbar-bg);
   flex-shrink: 0;
 }
 
@@ -36,19 +78,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   background: transparent;
-  color: var(--text-secondary, #666);
+  color: var(--pdf-text-muted);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .pdf-preview-toolbar-btn:hover:not(:disabled) {
-  background: var(--bg-hover, #f0f0f0);
-  color: var(--text-primary, #333);
+  background: var(--pdf-btn-hover-bg);
+  color: var(--pdf-text);
 }
 
 .pdf-preview-toolbar-btn:disabled {
@@ -56,17 +98,114 @@
   cursor: not-allowed;
 }
 
-.pdf-preview-zoom-label,
-.pdf-preview-page-label {
-  min-width: 60px;
+.pdf-preview-zoom-label {
+  min-width: 52px;
+  padding: 6px 8px;
   text-align: center;
   font-size: 13px;
-  color: var(--text-secondary, #666);
+  font-weight: 500;
+  color: var(--pdf-text);
+  background: var(--pdf-label-bg);
+  border-radius: 6px;
   cursor: pointer;
+  transition: background 0.15s ease;
 }
 
 .pdf-preview-zoom-label:hover {
-  color: var(--primary-color, #10A37F);
+  background: var(--pdf-btn-hover-bg);
+}
+
+.pdf-preview-page-label {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--pdf-text-muted);
+  background: var(--pdf-page-label-bg);
+  border-radius: 6px;
+}
+
+.pdf-preview-toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--pdf-border);
+  margin: 0 4px;
+}
+
+.pdf-preview-toolbar-spacer {
+  flex: 1;
+}
+
+/* 编译按钮 */
+.pdf-preview-toolbar-compile-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--pdf-accent);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pdf-preview-toolbar-compile-btn:hover:not(:disabled) {
+  background: var(--pdf-accent-hover);
+}
+
+.pdf-preview-toolbar-compile-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pdf-preview-toolbar-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: pdf-preview-spin 0.8s linear infinite;
+}
+
+/* 下载按钮 */
+.pdf-preview-download-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pdf-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pdf-preview-download-btn:hover {
+  background: var(--pdf-btn-hover-bg);
+  color: var(--pdf-text);
+}
+
+/* 更多选项按钮 */
+.pdf-preview-more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pdf-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pdf-preview-more-btn:hover {
+  background: var(--pdf-btn-hover-bg);
+  color: var(--pdf-text);
 }
 
 /* 内容区域 */
@@ -76,8 +215,9 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 16px;
-  background: var(--bg-tertiary, #f5f5f5);
+  padding: 24px;
+  background: var(--pdf-content-bg);
+  position: relative;
 }
 
 /* PDF 文档 - 滚动容器 */
@@ -92,7 +232,7 @@
 
 .pdf-preview-page-wrapper {
   position: relative;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
   border-radius: 4px;
   overflow: hidden;
   background: white;
@@ -108,7 +248,7 @@
   left: 50%;
   transform: translateX(-50%);
   padding: 4px 12px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
   color: white;
   font-size: 12px;
   border-radius: 12px;
@@ -120,6 +260,65 @@
   opacity: 1;
 }
 
+/* 初始化状态 */
+.pdf-preview-initializing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px;
+  width: 100%;
+  height: 100%;
+}
+
+.pdf-preview-init-content {
+  max-width: 320px;
+}
+
+.pdf-preview-init-icon {
+  margin-bottom: 20px;
+  opacity: 0.5;
+  color: var(--pdf-accent);
+}
+
+.pdf-preview-initializing h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--pdf-text);
+}
+
+.pdf-preview-initializing p {
+  margin: 0 0 24px;
+  font-size: 13px;
+  color: var(--pdf-text-muted);
+}
+
+.pdf-preview-init-progress {
+  width: 100%;
+}
+
+.pdf-preview-init-progress-bar {
+  height: 4px;
+  background: var(--pdf-border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.pdf-preview-init-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--pdf-accent) 0%, var(--pdf-purple) 100%);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+.pdf-preview-init-status {
+  font-size: 12px;
+  color: var(--pdf-text-dim);
+}
+
 /* 空状态 */
 .pdf-preview-empty {
   display: flex;
@@ -127,25 +326,27 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 32px;
-  color: var(--text-tertiary, #999);
+  padding: 48px;
+  color: var(--pdf-text-muted);
 }
 
 .pdf-preview-empty-icon {
-  margin-bottom: 16px;
-  opacity: 0.5;
+  margin-bottom: 20px;
+  opacity: 0.4;
+  color: var(--pdf-text-dim);
 }
 
 .pdf-preview-empty h3 {
   margin: 0 0 8px;
   font-size: 16px;
   font-weight: 500;
-  color: var(--text-secondary, #666);
+  color: var(--pdf-text);
 }
 
 .pdf-preview-empty p {
-  margin: 0 0 16px;
+  margin: 0;
   font-size: 13px;
+  color: var(--pdf-text-muted);
 }
 
 /* 引擎状态 */
@@ -155,33 +356,34 @@
   justify-content: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--text-tertiary, #999);
-  margin-bottom: 12px;
+  color: var(--pdf-text-dim);
+  margin-bottom: 16px;
 }
 
 .pdf-preview-status-loading {
   width: 12px;
   height: 12px;
-  border: 2px solid var(--border-color, #e0e0e0);
-  border-top-color: var(--primary-color, #10A37F);
+  border: 2px solid var(--pdf-border);
+  border-top-color: var(--pdf-accent);
   border-radius: 50%;
   animation: pdf-preview-spin 0.8s linear infinite;
 }
 
 /* 编译按钮 */
 .pdf-preview-compile-btn {
-  padding: 8px 20px;
+  padding: 10px 24px;
   border: none;
-  border-radius: 6px;
-  background: var(--primary-color, #10A37F);
+  border-radius: 8px;
+  background: var(--pdf-accent);
   color: white;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   transition: background 0.2s ease;
 }
 
 .pdf-preview-compile-btn:hover:not(:disabled) {
-  background: var(--primary-dark, #0D8A6A);
+  background: var(--pdf-accent-hover);
 }
 
 .pdf-preview-compile-btn:disabled {
@@ -195,18 +397,18 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px;
-  color: var(--text-tertiary, #999);
+  padding: 48px;
+  color: var(--pdf-text-muted);
 }
 
 .pdf-preview-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--border-color, #e0e0e0);
-  border-top-color: var(--primary-color, #10A37F);
+  border: 3px solid var(--pdf-border);
+  border-top-color: var(--pdf-accent);
   border-radius: 50%;
   animation: pdf-preview-spin 0.8s linear infinite;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 @keyframes pdf-preview-spin {
@@ -222,32 +424,33 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 32px;
-  color: var(--text-tertiary, #999);
+  padding: 48px;
+  color: var(--pdf-text-muted);
 }
 
 .pdf-preview-error-icon {
   margin-bottom: 16px;
-  color: var(--error-color, #dc3545);
+  color: var(--pdf-error);
 }
 
 .pdf-preview-error h3 {
-  margin: 0 0 8px;
+  margin: 0 0 12px;
   font-size: 16px;
   font-weight: 500;
-  color: var(--error-color, #dc3545);
+  color: var(--pdf-error);
 }
 
 .pdf-preview-error-text {
-  margin: 0 0 16px;
+  margin: 0 0 20px;
   font-size: 13px;
   max-width: 400px;
   word-break: break-word;
-  line-height: 1.5;
-  background: rgba(220, 53, 69, 0.08);
+  line-height: 1.6;
+  background: rgba(239, 68, 68, 0.1);
   padding: 12px 16px;
   border-radius: 8px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: "JetBrains Mono", monospace;
+  color: #f87171;
 }
 
 .pdf-preview-error-actions {
@@ -260,20 +463,21 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 20px;
+  padding: 10px 20px;
   border: none;
-  border-radius: 6px;
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--pdf-purple) 0%, #7c3aed 100%);
   color: white;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
 }
 
 .pdf-preview-fix-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4);
 }
 
 .pdf-preview-fix-btn:disabled {
@@ -287,8 +491,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-  border-bottom: 1px solid rgba(220, 53, 69, 0.2);
+  background: rgba(239, 68, 68, 0.1);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.2);
   flex-shrink: 0;
 }
 
@@ -298,7 +502,7 @@
   gap: 8px;
   flex: 1;
   min-width: 0;
-  color: #dc2626;
+  color: #f87171;
 }
 
 .pdf-preview-error-banner-text {
@@ -319,7 +523,7 @@
   padding: 4px 12px;
   border: none;
   border-radius: 4px;
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  background: var(--pdf-purple);
   color: white;
   font-size: 12px;
   font-weight: 500;
@@ -328,7 +532,7 @@
 }
 
 .pdf-preview-banner-fix-btn:hover:not(:disabled) {
-  transform: scale(1.02);
+  background: #7c3aed;
 }
 
 .pdf-preview-banner-dismiss-btn {
@@ -340,13 +544,13 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: #dc2626;
+  color: #f87171;
   cursor: pointer;
   transition: background 0.2s ease;
 }
 
 .pdf-preview-banner-dismiss-btn:hover {
-  background: rgba(220, 38, 38, 0.1);
+  background: rgba(239, 68, 68, 0.15);
 }
 
 /* 编译覆盖层 */
@@ -357,77 +561,54 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--pdf-overlay-bg);
   backdrop-filter: blur(4px);
   z-index: 10;
-  color: var(--text-secondary, #666);
+  color: var(--pdf-text-muted);
 }
 
-/* 工具栏编译按钮 */
-.pdf-preview-toolbar-compile-btn {
+/* 页码导航 - 底部悬浮 */
+.pdf-preview-nav {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(30, 30, 30, 0.95);
+  border: 1px solid var(--pdf-border);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.pdf-preview-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
   border: none;
-  border-radius: 6px;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-  font-size: 12px;
-  font-weight: 500;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--pdf-text-muted);
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+  transition: all 0.15s ease;
 }
 
-.pdf-preview-toolbar-compile-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+.pdf-preview-nav-btn:hover:not(:disabled) {
+  background: var(--pdf-btn-hover-bg);
+  color: var(--pdf-text);
 }
 
-.pdf-preview-toolbar-compile-btn:disabled {
-  opacity: 0.6;
+.pdf-preview-nav-btn:disabled {
+  opacity: 0.3;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
-.pdf-preview-toolbar-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: pdf-preview-spin 0.8s linear infinite;
-}
-
-/* 深色模式 */
-[data-theme="dark"] .pdf-preview-toolbar {
-  background: var(--bg-secondary, #2a2a2a);
-  border-bottom-color: var(--border-color, #404040);
-}
-
-[data-theme="dark"] .pdf-preview-content {
-  background: var(--bg-tertiary, #1f1f1f);
-}
-
-[data-theme="dark"] .pdf-preview-page-wrapper {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="dark"] .pdf-preview-error-banner {
-  background: linear-gradient(135deg, rgba(220, 38, 38, 0.15) 0%, rgba(185, 28, 28, 0.15) 100%);
-  border-bottom-color: rgba(220, 38, 38, 0.3);
-}
-
-[data-theme="dark"] .pdf-preview-error-banner-content {
-  color: #f87171;
-}
-
-[data-theme="dark"] .pdf-preview-compiling-overlay {
-  background: rgba(26, 26, 26, 0.9);
-}
-
-[data-theme="dark"] .pdf-preview-error-text {
-  background: rgba(220, 38, 38, 0.15);
+.pdf-preview-nav-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--pdf-border);
+  margin: 0 4px;
 }

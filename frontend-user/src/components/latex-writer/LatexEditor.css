@@ -5,52 +5,197 @@
  * 统一社会信用代码: 91510100MAEEHRNE26
  * All Rights Reserved.
  * ============================================================================
+ * 
+ * LatexEditor 组件样式 - Prism 风格深色主题
  */
+
+/* 深色主题（默认） */
+[data-theme="dark"] .latex-editor,
+.latex-editor {
+  --editor-bg: #1e1e1e;
+  --editor-gutter-bg: #171717;
+  --editor-gutter-active-bg: #252525;
+  --editor-line-number: #555555;
+  --editor-line-number-active: #888888;
+  --editor-border: #2d2d2d;
+  --editor-text: #d4d4d4;
+  --editor-selection: rgba(100, 150, 200, 0.3);
+  --editor-active-line-bg: rgba(255, 255, 255, 0.03);
+  /* Diff 主题变量 */
+  --diff-bg: #1a1a1a;
+  --diff-content-bg: #1e1e1e;
+  --diff-gutter-bg: #171717;
+  --diff-border: #2d2d2d;
+  --diff-text: #d4d4d4;
+  --diff-add-bg: rgba(46, 160, 67, 0.15);
+  --diff-add-gutter-bg: rgba(46, 160, 67, 0.1);
+  --diff-add-color: #2ea043;
+  --diff-remove-bg: rgba(248, 81, 73, 0.15);
+  --diff-remove-gutter-bg: rgba(248, 81, 73, 0.1);
+  --diff-remove-color: #f85149;
+  --diff-btn-bg: #2a2a2a;
+  --diff-btn-text: #a0a0a0;
+  --diff-btn-hover-bg: #333333;
+  --diff-actions-bg: #171717;
+  --editor-cursor: #ffffff;
+  --editor-keyword: #c586c0;
+  --editor-command: #4ec9b0;
+  --editor-string: #ce9178;
+  --editor-comment: #6a9955;
+  --editor-bracket: #ffd700;
+}
+
+/* 浅色主题 */
+[data-theme="light"] .latex-editor {
+  --editor-bg: #ffffff;
+  --editor-gutter-bg: #f8f8f8;
+  --editor-gutter-active-bg: #e8e8e8;
+  --editor-line-number: #999999;
+  --editor-line-number-active: #333333;
+  --editor-border: #e0e0e0;
+  --editor-text: #1a1a1a;
+  --editor-selection: rgba(100, 150, 200, 0.3);
+  --editor-active-line-bg: rgba(0, 0, 0, 0.03);
+  /* Diff 主题变量 */
+  --diff-bg: #ffffff;
+  --diff-content-bg: #fafafa;
+  --diff-gutter-bg: #f0f0f0;
+  --diff-border: #e0e0e0;
+  --diff-text: #1a1a1a;
+  --diff-add-bg: rgba(46, 160, 67, 0.12);
+  --diff-add-gutter-bg: rgba(46, 160, 67, 0.15);
+  --diff-add-color: #1a7f37;
+  --diff-remove-bg: rgba(248, 81, 73, 0.12);
+  --diff-remove-gutter-bg: rgba(248, 81, 73, 0.15);
+  --diff-remove-color: #cf222e;
+  --diff-btn-bg: #f0f0f0;
+  --diff-btn-text: #666666;
+  --diff-btn-hover-bg: #e0e0e0;
+  --diff-actions-bg: #f5f5f5;
+  --editor-cursor: #000000;
+  --editor-keyword: #af00db;
+  --editor-command: #008080;
+  --editor-string: #a31515;
+  --editor-comment: #008000;
+  --editor-bracket: #c49000;
+}
 
 .latex-editor {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  background: var(--editor-bg);
 }
 
 .latex-editor .cm-editor {
   height: 100%;
+  background: var(--editor-bg);
 }
 
 .latex-editor .cm-scroller {
   overflow: auto !important;
+  font-family: "JetBrains Mono", "Fira Code", "Source Code Pro", "Consolas", monospace;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
-/* LaTeX 语法高亮主题 */
+/* 行号栏 */
+.latex-editor .cm-gutters {
+  background-color: var(--editor-gutter-bg);
+  border-right: 1px solid var(--editor-border);
+  color: var(--editor-line-number);
+}
+
+.latex-editor .cm-gutter-lineNumbers {
+  min-width: 48px;
+}
+
+.latex-editor .cm-lineNumbers .cm-gutterElement {
+  padding: 0 8px 0 12px;
+  min-width: auto;
+  font-size: 13px;
+}
+
+.latex-editor .cm-activeLineGutter {
+  background-color: var(--editor-gutter-active-bg);
+  color: var(--editor-line-number-active);
+}
+
+/* 内容区域 */
 .latex-editor .cm-content {
-  caret-color: var(--text-primary, #333);
+  caret-color: var(--editor-cursor);
+  padding: 4px 0;
 }
 
 .latex-editor .cm-line {
-  padding-left: 4px;
+  padding-left: 8px;
+  padding-right: 16px;
 }
 
-/* 深色模式 */
-[data-theme="dark"] .latex-editor .cm-editor {
-  background: var(--bg-secondary, #2a2a2a);
+/* 当前行高亮 */
+.latex-editor .cm-activeLine {
+  background-color: var(--editor-active-line-bg);
 }
 
-[data-theme="dark"] .latex-editor .cm-gutters {
-  background-color: var(--bg-tertiary, #1f1f1f);
-  border-right-color: var(--border-color, #404040);
+/* 选择高亮 */
+.latex-editor .cm-selectionBackground,
+.latex-editor .cm-focused .cm-selectionBackground {
+  background: var(--editor-selection) !important;
 }
 
-[data-theme="dark"] .latex-editor .cm-activeLineGutter {
-  background-color: var(--bg-hover, #333);
+/* 匹配括号高亮 */
+.latex-editor .cm-matchingBracket {
+  background-color: rgba(255, 215, 0, 0.2);
+  color: var(--editor-bracket) !important;
+  outline: 1px solid var(--editor-bracket);
 }
 
-[data-theme="dark"] .latex-editor .cm-content {
-  caret-color: var(--text-primary, #e0e0e0);
+/* 光标样式 */
+.latex-editor .cm-cursor {
+  border-left-color: var(--editor-cursor);
+  border-left-width: 2px;
 }
 
-[data-theme="dark"] .latex-editor .cm-selectionBackground,
-[data-theme="dark"] .latex-editor .cm-focused .cm-selectionBackground {
-  background: rgba(100, 150, 200, 0.3) !important;
+/* LaTeX 语法高亮 - 使用 stex 模式的类名 */
+.latex-editor .cm-content {
+  color: var(--editor-text);
+}
+
+/* 命令（\command） */
+.latex-editor .cm-tag,
+.latex-editor .cm-keyword {
+  color: var(--editor-command);
+}
+
+/* 注释 */
+.latex-editor .cm-comment {
+  color: var(--editor-comment);
+  font-style: italic;
+}
+
+/* 字符串/参数 */
+.latex-editor .cm-string {
+  color: var(--editor-string);
+}
+
+/* 数学模式 */
+.latex-editor .cm-atom {
+  color: #dcdcaa;
+}
+
+/* 括号 */
+.latex-editor .cm-bracket {
+  color: #d4d4d4;
+}
+
+/* 特殊字符 */
+.latex-editor .cm-special {
+  color: #d7ba7d;
+}
+
+/* 数字 */
+.latex-editor .cm-number {
+  color: #b5cea8;
 }
 
 /* ============================================
@@ -61,8 +206,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bg-primary, #fff);
-  border: 2px solid #667eea;
+  background: var(--diff-bg);
+  border: 2px solid #8b5cf6;
   border-radius: 8px;
   overflow: hidden;
 }
@@ -72,8 +217,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
   color: white;
 }
 
@@ -108,9 +253,10 @@
 .latex-diff-content {
   flex: 1;
   overflow: auto;
-  font-family: "Fira Code", "Source Code Pro", "Consolas", monospace;
+  font-family: "JetBrains Mono", "Fira Code", "Source Code Pro", "Consolas", monospace;
   font-size: 13px;
   line-height: 1.6;
+  background: var(--diff-content-bg);
 }
 
 /* Diff 行 */
@@ -125,11 +271,11 @@
 }
 
 .latex-diff-line-add {
-  background: rgba(46, 160, 67, 0.15);
+  background: var(--diff-add-bg);
 }
 
 .latex-diff-line-remove {
-  background: rgba(248, 81, 73, 0.15);
+  background: var(--diff-remove-bg);
   text-decoration: line-through;
   opacity: 0.7;
 }
@@ -139,21 +285,21 @@
   min-width: 50px;
   padding: 0 8px;
   text-align: right;
-  color: var(--text-tertiary, #999);
-  background: var(--bg-tertiary, #f5f5f5);
-  border-right: 1px solid var(--border-color, #e0e0e0);
+  color: var(--editor-line-number);
+  background: var(--diff-gutter-bg);
+  border-right: 1px solid var(--diff-border);
   font-size: 12px;
   user-select: none;
 }
 
 .latex-diff-line-add .latex-diff-line-gutter {
-  background: rgba(46, 160, 67, 0.1);
-  color: #2ea043;
+  background: var(--diff-add-gutter-bg);
+  color: var(--diff-add-color);
 }
 
 .latex-diff-line-remove .latex-diff-line-gutter {
-  background: rgba(248, 81, 73, 0.1);
-  color: #f85149;
+  background: var(--diff-remove-gutter-bg);
+  color: var(--diff-remove-color);
 }
 
 /* 行标记 (+/-) */
@@ -166,11 +312,11 @@
 }
 
 .latex-diff-line-add .latex-diff-line-marker {
-  color: #2ea043;
+  color: var(--diff-add-color);
 }
 
 .latex-diff-line-remove .latex-diff-line-marker {
-  color: #f85149;
+  color: var(--diff-remove-color);
 }
 
 /* 行内容 */
@@ -178,6 +324,7 @@
   flex: 1;
   padding: 0 8px;
   overflow-x: auto;
+  color: var(--diff-text);
 }
 
 /* Diff 操作按钮 */
@@ -186,8 +333,8 @@
   justify-content: flex-end;
   gap: 12px;
   padding: 12px 16px;
-  background: var(--bg-secondary, #f8f9fa);
-  border-top: 1px solid var(--border-color, #e0e0e0);
+  background: var(--diff-actions-bg);
+  border-top: 1px solid var(--diff-border);
 }
 
 .latex-diff-btn {
@@ -209,13 +356,13 @@
 }
 
 .latex-diff-btn-reject {
-  background: var(--bg-tertiary, #f0f0f0);
-  color: var(--text-secondary, #666);
+  background: var(--diff-btn-bg);
+  color: var(--diff-btn-text);
 }
 
 .latex-diff-btn-reject:hover {
-  background: #e0e0e0;
-  color: #f85149;
+  background: var(--diff-btn-hover-bg);
+  color: var(--diff-remove-color);
 }
 
 .latex-diff-btn-accept {
@@ -228,40 +375,4 @@
   background: linear-gradient(135deg, #238636 0%, #1a7f37 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(46, 160, 67, 0.4);
-}
-
-/* 深色模式 Diff 样式 */
-[data-theme="dark"] .latex-editor-diff-mode {
-  background: var(--bg-secondary, #2a2a2a);
-}
-
-[data-theme="dark"] .latex-diff-content {
-  background: var(--bg-primary, #1e1e1e);
-}
-
-[data-theme="dark"] .latex-diff-line-gutter {
-  background: var(--bg-tertiary, #252525);
-  border-right-color: var(--border-color, #404040);
-}
-
-[data-theme="dark"] .latex-diff-line-add {
-  background: rgba(46, 160, 67, 0.2);
-}
-
-[data-theme="dark"] .latex-diff-line-remove {
-  background: rgba(248, 81, 73, 0.2);
-}
-
-[data-theme="dark"] .latex-diff-actions {
-  background: var(--bg-tertiary, #252525);
-  border-top-color: var(--border-color, #404040);
-}
-
-[data-theme="dark"] .latex-diff-btn-reject {
-  background: var(--bg-primary, #333);
-  color: var(--text-secondary, #aaa);
-}
-
-[data-theme="dark"] .latex-diff-btn-reject:hover {
-  background: #404040;
 }

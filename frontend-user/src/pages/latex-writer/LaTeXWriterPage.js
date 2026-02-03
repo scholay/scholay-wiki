@@ -10,15 +10,13 @@
  * 三栏布局：左侧文件树、中间编辑区（代码+对话）、右侧PDF预览
  */
 
-import React, { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useCallback, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useAuth } from '../../utils/AuthContext';
 import FileTree from '../../components/latex-writer/FileTree';
 import LatexEditor from '../../components/latex-writer/LatexEditor';
 import AiChatPanel from '../../components/latex-writer/AiChatPanel';
 import PdfPreview from '../../components/latex-writer/PdfPreview';
-// DiffViewer 已改为使用编辑器内的 inline diff 模式
-import LatexToolbar from '../../components/latex-writer/LatexToolbar';
 import LatexCompiler from '../../components/latex-writer/LatexCompiler';
 import { userAPI } from '../../services/api';
 import './LaTeXWriterPage.css';
@@ -129,8 +127,7 @@ function LaTeXWriterPage() {
   const [lastSuccessfulPdf, setLastSuccessfulPdf] = useState(null); // 保存上一次成功的 PDF
   const [isCompiling, setIsCompiling] = useState(false);
   const [compileError, setCompileError] = useState(null);
-  const [autoCompileEnabled, setAutoCompileEnabled] = useState(true); // 自动编译开关
-  const [hasInitialCompiled, setHasInitialCompiled] = useState(false); // 是否已执行初始编译
+  const [hasCompiledOnce, setHasCompiledOnce] = useState(false); // 是否已经编译过（用于显示初始化状态）
   
   // AI 对话状态
   const [selectedText, setSelectedText] = useState('');
@@ -148,6 +145,12 @@ function LaTeXWriterPage() {
   // 可调整宽度状态
   const [centerWidth, setCenterWidth] = useState(50); // 中间区域占比 (%)
   const [isResizing, setIsResizing] = useState(false);
+  
+  // 打开的文件标签页
+  const [openTabs, setOpenTabs] = useState([]);
+  
+  // AI 聊天面板折叠状态
+  const [isChatCollapsed, setIsChatCollapsed] = useState(false);
   
   // 编辑器引用
   const editorRef = useRef(null);
@@ -334,6 +337,38 @@ function LaTeXWriterPage() {
     }
   }, []);
 
+  // 当选择文件时，添加到标签页
+  useEffect(() => {
+    if (selectedFile && !openTabs.find(tab => tab.id === selectedFile.id)) {
+      setOpenTabs(prev => [...prev, selectedFile]);
+    }
+  }, [selectedFile, openTabs]);
+
+  // 关闭标签页
+  const handleCloseTab = useCallback((e, tabId) => {
+    e.stopPropagation();
+    const newTabs = openTabs.filter(tab => tab.id !== tabId);
+    setOpenTabs(newTabs);
+    
+    // 如果关闭的是当前选中的文件
+    if (selectedFile?.id === tabId) {
+      if (newTabs.length > 0) {
+        // 选择最后一个标签页
+        const lastTab = newTabs[newTabs.length - 1];
+        handleFileSelect(lastTab);
+      } else {
+        setSelectedFile(null);
+        setContent('');
+      }
+    }
+  }, [openTabs, selectedFile, handleFileSelect]);
+
+  // 切换标签页
+  const handleTabClick = useCallback((tab) => {
+    handleFileSelect(tab);
+  }, [handleFileSelect]);
+
+  // 从 LaTeX 内容中提取大纲
   // 处理内容变化（带防抖保存）
   const saveTimeoutRef = useRef(null);
   const handleContentChange = useCallback((newContent) => {
@@ -521,6 +556,7 @@ Final section.
     
     setIsCompiling(true);
     setCompileError(null);
+    setHasCompiledOnce(true); // 标记已经开始编译过
     
     try {
       const result = await LatexCompiler.compileLaTeX(content, selectedFile?.title || 'main.tex');
@@ -533,7 +569,6 @@ Final section.
         }
         setPdfUrl(result.pdfUrl);
         setCompileError(null);
-        setHasInitialCompiled(true);
       } else {
         // 编译失败时保留上一次成功的 PDF
         setCompileError(result.error || '编译失败，请检查 LaTeX 语法');
@@ -550,91 +585,80 @@ Final section.
     }
   }, [content, selectedFile, pdfUrl, lastSuccessfulPdf]);
 
-  // 自动编译定时器引用
-  const autoCompileTimeoutRef = useRef(null);
-  // 使用 ref 存储编译函数，避免依赖循环
-  const handleCompileRef = useRef(handleCompile);
-  handleCompileRef.current = handleCompile;
-  
-  // 追踪上一次编译的内容，避免重复编译相同内容
-  const lastCompiledContentRef = useRef('');
-  
-  // 代码变动后自动编译（防抖 3 秒）
+  // 选择新文件时重置编译状态
   useEffect(() => {
-    // 不自动编译的条件
-    if (!autoCompileEnabled || !selectedFile || isCompiling) {
-      return;
-    }
-    
-    const trimmedContent = content.trim();
-    
-    // 内容太短或为空，不编译
-    if (trimmedContent.length < 50) {
-      return;
-    }
-    
-    // 如果内容与上次编译的相同，不重复编译
-    if (trimmedContent === lastCompiledContentRef.current) {
-      return;
-    }
-    
-    // 清除之前的定时器
-    if (autoCompileTimeoutRef.current) {
-      clearTimeout(autoCompileTimeoutRef.current);
-    }
-    
-    // 设置新的定时器（3 秒后自动编译）
-    autoCompileTimeoutRef.current = setTimeout(() => {
-      // 再次检查条件
-      if (engineStatus === 'ready' && !isCompiling) {
-        console.log('[LaTeX] 自动编译触发');
-        lastCompiledContentRef.current = trimmedContent;
-        handleCompileRef.current();
-      }
-    }, 3000);
-    
-    return () => {
-      if (autoCompileTimeoutRef.current) {
-        clearTimeout(autoCompileTimeoutRef.current);
-      }
-    };
-  }, [content, autoCompileEnabled, selectedFile, isCompiling, engineStatus]); // 移除 handleCompile 依赖
-
-  // 首次选择文件后自动编译（只执行一次）
-  const initialCompileTriggeredRef = useRef(false);
-  
-  useEffect(() => {
-    // 重置初始编译标记
     if (!selectedFile) {
-      initialCompileTriggeredRef.current = false;
-      setHasInitialCompiled(false);
-      lastCompiledContentRef.current = '';
+      setHasCompiledOnce(false);
+      setPdfUrl(null);
+      setLastSuccessfulPdf(null);
+      setCompileError(null);
+    }
+  }, [selectedFile]);
+
+  // 首次加载时自动编译
+  // 使用 ref 追踪当前文件 ID，避免重复编译
+  const lastAutoCompiledFileIdRef = useRef(null);
+  
+  // 选择新文件时，立即显示"正在编译"状态
+  useEffect(() => {
+    if (!selectedFile) {
       return;
     }
     
-    // 已经触发过初始编译，不再触发
-    if (initialCompileTriggeredRef.current || hasInitialCompiled) {
+    // 同一个文件已经处理过，不再触发
+    if (lastAutoCompiledFileIdRef.current === selectedFile.id) {
       return;
     }
     
+    // 内容为空或太短，不处理
     const trimmedContent = content.trim();
-    if (!trimmedContent || trimmedContent.length < 50) {
+    if (!trimmedContent || trimmedContent.length < 30) {
       return;
     }
     
-    if (engineStatus === 'ready' && !isCompiling) {
-      // 标记已触发，防止重复
-      initialCompileTriggeredRef.current = true;
-      
-      // 延迟一点时间确保内容已加载
-      const timer = setTimeout(() => {
-        console.log('[LaTeX] 首次加载自动编译');
-        lastCompiledContentRef.current = trimmedContent;
-        handleCompileRef.current();
-      }, 1000);
-      return () => clearTimeout(timer);
+    // 立即设置编译状态，让 UI 显示"正在编译"
+    setIsCompiling(true);
+    
+  }, [selectedFile, content]);
+  
+  // 引擎就绪后执行实际编译
+  useEffect(() => {
+    // 没有选择文件或不在编译状态，不处理
+    if (!selectedFile || !isCompiling) {
+      return;
     }
-  }, [selectedFile, content, engineStatus, hasInitialCompiled, isCompiling]); // 移除 handleCompile 依赖
+    
+    // 同一个文件已经自动编译过，不再触发
+    if (lastAutoCompiledFileIdRef.current === selectedFile.id) {
+      return;
+    }
+    
+    // 内容为空或太短，取消编译状态
+    const trimmedContent = content.trim();
+    if (!trimmedContent || trimmedContent.length < 30) {
+      setIsCompiling(false);
+      return;
+    }
+    
+    // 引擎还没就绪，继续等待
+    if (engineStatus !== 'ready') {
+      return;
+    }
+    
+    // 标记当前文件已自动编译
+    lastAutoCompiledFileIdRef.current = selectedFile.id;
+    
+    // 执行实际编译（handleCompile 内部会再次设置 isCompiling，但这没关系）
+    console.log('[LaTeX] 首次加载自动编译，文件:', selectedFile.title);
+    
+    // 使用一个小延迟确保状态稳定
+    const timer = setTimeout(() => {
+      handleCompile();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+    
+  }, [selectedFile, content, engineStatus, isCompiling, handleCompile]);
 
   // 处理工具栏操作
   const handleToolbarAction = useCallback((action, value) => {
@@ -711,14 +735,21 @@ Final section.
     const container = contentRef.current;
     const rect = container.getBoundingClientRect();
     const leftPanelWidth = isLeftPanelCollapsed ? 0 : 240; // 左侧面板宽度
-    const availableWidth = rect.width - leftPanelWidth;
-    const mouseX = e.clientX - rect.left - leftPanelWidth;
+    const containerWidth = rect.width;
     
-    // 计算中间区域的百分比 (最小 30%, 最大 70%)
-    let newWidth = (mouseX / availableWidth) * 100;
-    newWidth = Math.max(30, Math.min(70, newWidth));
+    // 鼠标相对于容器左边缘的位置
+    const mouseX = e.clientX - rect.left;
     
-    setCenterWidth(newWidth);
+    // center-panel 的宽度应该是：mouseX - leftPanelWidth
+    // center-panel 的百分比是相对于整个容器的，所以：
+    // centerWidth% * containerWidth = mouseX - leftPanelWidth
+    // centerWidth = ((mouseX - leftPanelWidth) / containerWidth) * 100
+    let newWidthPercent = ((mouseX - leftPanelWidth) / containerWidth) * 100;
+    
+    // 限制范围：最小 20%, 最大 60%（相对于整个容器）
+    newWidthPercent = Math.max(20, Math.min(60, newWidthPercent));
+    
+    setCenterWidth(newWidthPercent);
   }, [isResizing, isLeftPanelCollapsed]);
 
   const handleResizeEnd = useCallback(() => {
@@ -946,19 +977,6 @@ Final section.
   // 主编辑界面
   return (
     <div className="latex-writer-page">
-      {/* 工具栏 */}
-      <LatexToolbar 
-        onAction={handleToolbarAction}
-        onCompile={handleCompile}
-        isCompiling={isCompiling}
-        onToggleLeftPanel={() => setIsLeftPanelCollapsed(!isLeftPanelCollapsed)}
-        onToggleRightPanel={() => setIsRightPanelCollapsed(!isRightPanelCollapsed)}
-        isLeftPanelCollapsed={isLeftPanelCollapsed}
-        isRightPanelCollapsed={isRightPanelCollapsed}
-        projectName={selectedProject?.title}
-        onBackToProjects={() => setSelectedProject(null)}
-      />
-      
       {/* 主内容区 */}
       <div className="latex-writer-content" ref={contentRef}>
         {/* 左侧：文件树 */}
@@ -971,6 +989,10 @@ Final section.
               onCreateFile={handleCreateFile}
               onCreateFolder={handleCreateFolder}
               onDelete={handleDeleteFile}
+              projectName={selectedProject?.title}
+              onBackToProjects={() => setSelectedProject(null)}
+              isAuthenticated={isAuthenticated}
+              onLoginClick={() => setShowAuthModal(true)}
             />
           </div>
         )}
@@ -985,6 +1007,57 @@ Final section.
         >
           {selectedFile ? (
             <>
+              {/* 文件标签页 */}
+              <div className="latex-writer-tabs">
+                {openTabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    className={`latex-writer-tab ${selectedFile?.id === tab.id ? 'active' : ''}`}
+                    onClick={() => handleTabClick(tab)}
+                  >
+                    <span className="latex-writer-tab-icon">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                      </svg>
+                    </span>
+                    <span>{tab.title}</span>
+                    <button 
+                      className="latex-writer-tab-close"
+                      onClick={(e) => handleCloseTab(e, tab.id)}
+                    >
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </button>
+                ))}
+                <div className="latex-writer-tabs-spacer" />
+                <div className="latex-writer-tabs-tools">
+                  <button 
+                    className="latex-writer-tabs-btn"
+                    onClick={() => setIsLeftPanelCollapsed(!isLeftPanelCollapsed)}
+                    title={isLeftPanelCollapsed ? '显示侧边栏' : '隐藏侧边栏'}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                      <line x1="9" y1="3" x2="9" y2="21"/>
+                    </svg>
+                  </button>
+                  <button 
+                    className="latex-writer-tabs-btn"
+                    onClick={() => setIsRightPanelCollapsed(!isRightPanelCollapsed)}
+                    title={isRightPanelCollapsed ? '显示 PDF 预览' : '隐藏 PDF 预览'}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                      <line x1="15" y1="3" x2="15" y2="21"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
               {/* 代码编辑器 - 支持 inline diff 模式 */}
               <div className="latex-writer-editor-area">
                 <LatexEditor
@@ -1001,7 +1074,7 @@ Final section.
               </div>
               
               {/* AI 对话面板 */}
-              <div className="latex-writer-chat-area">
+              <div className={`latex-writer-chat-area ${isChatCollapsed ? 'collapsed' : ''}`}>
                 <AiChatPanel
                   ref={aiChatRef}
                   documentId={selectedFile?.id}
@@ -1011,6 +1084,8 @@ Final section.
                   cursorPosition={cursorPosition}
                   pendingMessage={aiPendingMessage}
                   onPendingMessageSent={() => setAiPendingMessage(null)}
+                  isCollapsed={isChatCollapsed}
+                  onToggleCollapse={() => setIsChatCollapsed(!isChatCollapsed)}
                 />
               </div>
             </>
@@ -1059,6 +1134,17 @@ Final section.
           </div>
         )}
       </div>
+      
+      {/* 登录弹窗 - 确保在主编辑界面也可以显示 */}
+      {showAuthModal && (
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
+            onLoginSuccess={() => setShowAuthModal(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

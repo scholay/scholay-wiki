@@ -6,18 +6,66 @@
  * All Rights Reserved.
  * ============================================================================
  * 
- * LaTeX Writer 页面样式
+ * LaTeX Writer 页面样式 - Prism 风格深色主题
  */
+
+/* CSS 变量 - 深色主题配色（默认） */
+[data-theme="dark"] .latex-writer-page,
+.latex-writer-page {
+  --lw-bg-app: #0d0d0d;
+  --lw-bg-sidebar: #141414;
+  --lw-bg-panel: #1a1a1a;
+  --lw-bg-editor: #1e1e1e;
+  --lw-bg-hover: #2a2a2a;
+  --lw-bg-active: #333333;
+  --lw-border: #2d2d2d;
+  --lw-border-light: #3d3d3d;
+  --lw-text-primary: #e8e8e8;
+  --lw-text-secondary: #a0a0a0;
+  --lw-text-tertiary: #666666;
+  --lw-text-muted: #4a4a4a;
+  --lw-accent: #10b981;
+  --lw-accent-hover: #059669;
+  --lw-warning: #f59e0b;
+  --lw-error: #ef4444;
+  --lw-purple: #8b5cf6;
+}
+
+/* CSS 变量 - 浅色主题配色 */
+[data-theme="light"] .latex-writer-page {
+  --lw-bg-app: #f8f9fa;
+  --lw-bg-sidebar: #ffffff;
+  --lw-bg-panel: #ffffff;
+  --lw-bg-editor: #ffffff;
+  --lw-bg-hover: #f0f0f0;
+  --lw-bg-active: #e5e5e5;
+  --lw-border: #e0e0e0;
+  --lw-border-light: #d0d0d0;
+  --lw-text-primary: #1a1a1a;
+  --lw-text-secondary: #555555;
+  --lw-text-tertiary: #888888;
+  --lw-text-muted: #aaaaaa;
+  --lw-accent: #10b981;
+  --lw-accent-hover: #059669;
+  --lw-warning: #f59e0b;
+  --lw-error: #ef4444;
+  --lw-purple: #8b5cf6;
+}
 
 .latex-writer-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 60px); /* 减去顶部导航栏高度 */
-  background: var(--bg-primary, #f8f9fa);
+  height: 100vh;
+  background: var(--lw-bg-app);
+  color: var(--lw-text-primary);
   overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
-/* 主内容区三栏布局 */
+/* ============================================
+   主内容区三栏布局
+   ============================================ */
+
 .latex-writer-content {
   display: flex;
   flex: 1;
@@ -31,8 +79,8 @@
   flex-direction: column;
   flex-shrink: 0;
   width: 240px;
-  background: var(--bg-secondary, #fff);
-  border-right: 1px solid var(--border-color, #e0e0e0);
+  background: var(--lw-bg-sidebar);
+  border-right: 1px solid var(--lw-border);
   overflow: hidden;
   transition: width 0.2s ease;
 }
@@ -44,23 +92,136 @@
   min-width: 300px;
   overflow: hidden;
   flex-shrink: 0;
+  background: var(--lw-bg-editor);
 }
 
 /* 编辑器区域 */
 .latex-writer-editor-area {
   flex: 1;
   overflow: hidden;
-  border-bottom: 1px solid var(--border-color, #e0e0e0);
-  background: var(--bg-secondary, #fff);
+  display: flex;
+  flex-direction: column;
+  background: var(--lw-bg-editor);
+}
+
+/* 文件标签页区域 */
+.latex-writer-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
+  background: var(--lw-bg-panel);
+  border-bottom: 1px solid var(--lw-border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.latex-writer-tabs::-webkit-scrollbar {
+  height: 0;
+}
+
+.latex-writer-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--lw-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.latex-writer-tab:hover {
+  background: var(--lw-bg-hover);
+  color: var(--lw-text-primary);
+}
+
+.latex-writer-tab.active {
+  background: var(--lw-bg-active);
+  color: var(--lw-text-primary);
+}
+
+.latex-writer-tab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+}
+
+.latex-writer-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--lw-text-tertiary);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s ease;
+}
+
+.latex-writer-tab:hover .latex-writer-tab-close {
+  opacity: 1;
+}
+
+.latex-writer-tab-close:hover {
+  background: var(--lw-bg-hover);
+  color: var(--lw-text-primary);
+}
+
+.latex-writer-tabs-spacer {
+  flex: 1;
+}
+
+.latex-writer-tabs-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.latex-writer-tabs-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--lw-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.latex-writer-tabs-btn:hover {
+  background: var(--lw-bg-hover);
+  color: var(--lw-text-primary);
 }
 
 /* AI 对话区域 */
 .latex-writer-chat-area {
-  min-height: 200px;
+  height: 280px;
+  min-height: 120px;
   max-height: 50%;
-  background: var(--bg-secondary, #fff);
-  border-top: 1px solid var(--border-color, #e0e0e0);
+  background: var(--lw-bg-panel);
+  border-top: 1px solid var(--lw-border);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.latex-writer-chat-area.collapsed {
+  height: auto;
+  min-height: auto;
 }
 
 /* 右侧面板 - PDF 预览 */
@@ -68,100 +229,25 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  background: var(--bg-secondary, #fff);
-  border-left: 1px solid var(--border-color, #e0e0e0);
-  min-width: 250px;
+  background: var(--lw-bg-panel);
+  border-left: 1px solid var(--lw-border);
+  min-width: 300px;
   overflow: hidden;
 }
 
 /* 面板分隔条（可拖拽调整大小） */
 .latex-writer-resizer {
   flex-shrink: 0;
-  width: 6px;
+  width: 4px;
   cursor: col-resize;
-  background: var(--border-color, #e0e0e0);
+  background: var(--lw-border);
   transition: background 0.2s ease;
   position: relative;
 }
 
-.latex-writer-resizer::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 2px;
-  height: 32px;
-  background: var(--text-tertiary, #ccc);
-  border-radius: 1px;
-}
-
 .latex-writer-resizer:hover,
 .latex-writer-resizer.active {
-  background: var(--primary-color, #10A37F);
-}
-
-.latex-writer-resizer:hover::before,
-.latex-writer-resizer.active::before {
-  background: #fff;
-}
-
-.latex-writer-resizer-horizontal {
-  height: 4px;
-  width: 100%;
-  cursor: row-resize;
-}
-
-/* 深色模式适配 */
-[data-theme="dark"] .latex-writer-page {
-  background: var(--bg-primary, #1a1a1a);
-}
-
-[data-theme="dark"] .latex-writer-left-panel,
-[data-theme="dark"] .latex-writer-center-panel,
-[data-theme="dark"] .latex-writer-right-panel,
-[data-theme="dark"] .latex-writer-editor-area,
-[data-theme="dark"] .latex-writer-chat-area {
-  background: var(--bg-secondary, #2a2a2a);
-  border-color: var(--border-color, #404040);
-}
-
-/* 响应式布局 */
-@media (max-width: 1024px) {
-  .latex-writer-left-panel {
-    width: 180px !important;
-  }
-  
-  .latex-writer-right-panel {
-    width: 300px !important;
-  }
-}
-
-@media (max-width: 768px) {
-  .latex-writer-content {
-    flex-direction: column;
-  }
-  
-  .latex-writer-left-panel,
-  .latex-writer-right-panel {
-    width: 100% !important;
-    max-width: none;
-    height: auto;
-    border: none;
-    border-bottom: 1px solid var(--border-color, #e0e0e0);
-  }
-  
-  .latex-writer-center-panel {
-    min-width: auto;
-  }
-  
-  .latex-writer-editor-area {
-    height: 300px !important;
-  }
-  
-  .latex-writer-chat-area {
-    height: 200px !important;
-  }
+  background: var(--lw-accent);
 }
 
 /* ============================================
@@ -173,20 +259,20 @@
   align-items: center;
   justify-content: center;
   height: 100vh;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: var(--lw-bg-app);
 }
 
 .latex-writer-auth-card {
   text-align: center;
   padding: 48px 64px;
-  background: var(--bg-secondary, #fff);
+  background: var(--lw-bg-panel);
+  border: 1px solid var(--lw-border);
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   max-width: 400px;
 }
 
 .latex-writer-auth-icon {
-  color: var(--text-tertiary, #999);
+  color: var(--lw-text-tertiary);
   margin-bottom: 24px;
 }
 
@@ -194,12 +280,12 @@
   margin: 0 0 12px;
   font-size: 24px;
   font-weight: 600;
-  color: var(--text-primary, #333);
+  color: var(--lw-text-primary);
 }
 
 .latex-writer-auth-card > p {
   margin: 0 0 24px;
-  color: var(--text-secondary, #666);
+  color: var(--lw-text-secondary);
 }
 
 .latex-writer-login-btn {
@@ -207,29 +293,28 @@
   padding: 12px 48px;
   border: none;
   border-radius: 8px;
-  background: linear-gradient(135deg, #10A37F 0%, #0d8a6a 100%);
+  background: var(--lw-accent);
   color: #fff;
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: background 0.2s;
 }
 
 .latex-writer-login-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(16, 163, 127, 0.3);
+  background: var(--lw-accent-hover);
 }
 
 .latex-writer-auth-hint {
   margin-top: 16px;
   font-size: 14px;
-  color: var(--text-tertiary, #999);
+  color: var(--lw-text-tertiary);
 }
 
 .latex-writer-register-link {
   background: none;
   border: none;
-  color: var(--primary-color, #10A37F);
+  color: var(--lw-accent);
   cursor: pointer;
   font-size: 14px;
   margin-left: 4px;
@@ -250,14 +335,14 @@
   justify-content: center;
   height: 100vh;
   gap: 16px;
-  color: var(--text-secondary, #666);
+  color: var(--lw-text-secondary);
 }
 
 .latex-writer-loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid var(--border-color, #e0e0e0);
-  border-top-color: var(--primary-color, #10A37F);
+  border: 3px solid var(--lw-border);
+  border-top-color: var(--lw-accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -277,6 +362,7 @@
   padding: 48px 24px;
   height: 100vh;
   overflow-y: auto;
+  background: var(--lw-bg-app);
 }
 
 .latex-writer-project-header {
@@ -288,13 +374,14 @@
   margin: 0 0 12px;
   font-size: 32px;
   font-weight: 600;
-  color: var(--text-primary, #333);
+  color: var(--lw-text-primary);
 }
 
 .latex-writer-project-header p {
   margin: 0;
-  color: var(--text-secondary, #666);
+  color: var(--lw-text-secondary);
   font-size: 16px;
+  max-width: 600px;
 }
 
 /* 创建项目表单 */
@@ -302,16 +389,16 @@
   width: 100%;
   max-width: 500px;
   padding: 32px;
-  background: var(--bg-secondary, #fff);
+  background: var(--lw-bg-panel);
+  border: 1px solid var(--lw-border);
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .latex-writer-create-project h3 {
   margin: 0 0 20px;
   font-size: 18px;
   font-weight: 600;
-  color: var(--text-primary, #333);
+  color: var(--lw-text-primary);
 }
 
 .latex-writer-create-form {
@@ -322,16 +409,21 @@
 
 .latex-writer-create-form input {
   padding: 14px 16px;
-  border: 1px solid var(--border-color, #e0e0e0);
+  border: 1px solid var(--lw-border);
   border-radius: 8px;
   font-size: 15px;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  background: var(--lw-bg-editor);
+  color: var(--lw-text-primary);
+  transition: border-color 0.2s;
 }
 
 .latex-writer-create-form input:focus {
-  border-color: var(--primary-color, #10A37F);
-  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
+  border-color: var(--lw-accent);
+}
+
+.latex-writer-create-form input::placeholder {
+  color: var(--lw-text-tertiary);
 }
 
 .latex-writer-create-actions {
@@ -347,30 +439,30 @@
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s, transform 0.2s;
+  transition: background 0.2s;
 }
 
 .latex-writer-create-btn.primary {
-  background: var(--primary-color, #10A37F);
+  background: var(--lw-accent);
   color: #fff;
 }
 
 .latex-writer-create-btn.primary:hover:not(:disabled) {
-  background: #0d8a6a;
+  background: var(--lw-accent-hover);
 }
 
 .latex-writer-create-btn.primary:disabled {
-  background: var(--text-tertiary, #999);
+  background: var(--lw-text-tertiary);
   cursor: not-allowed;
 }
 
 .latex-writer-create-btn.secondary {
-  background: var(--bg-tertiary, #f0f0f0);
-  color: var(--text-secondary, #666);
+  background: var(--lw-bg-hover);
+  color: var(--lw-text-secondary);
 }
 
 .latex-writer-create-btn.secondary:hover {
-  background: var(--border-color, #e0e0e0);
+  background: var(--lw-bg-active);
 }
 
 /* 项目列表 */
@@ -390,7 +482,7 @@
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--text-primary, #333);
+  color: var(--lw-text-primary);
 }
 
 .latex-writer-new-project-btn {
@@ -398,17 +490,17 @@
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  border: 1px solid var(--primary-color, #10A37F);
+  border: 1px solid var(--lw-accent);
   border-radius: 6px;
   background: transparent;
-  color: var(--primary-color, #10A37F);
+  color: var(--lw-accent);
   font-size: 14px;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: all 0.2s;
 }
 
 .latex-writer-new-project-btn:hover {
-  background: var(--primary-color, #10A37F);
+  background: var(--lw-accent);
   color: #fff;
 }
 
@@ -419,21 +511,20 @@
 }
 
 .latex-writer-project-card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 20px;
-  background: var(--bg-secondary, #fff);
-  border: 1px solid var(--border-color, #e0e0e0);
+  background: var(--lw-bg-panel);
+  border: 1px solid var(--lw-border);
   border-radius: 10px;
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  transition: all 0.2s;
 }
 
 .latex-writer-project-card:hover {
-  border-color: var(--primary-color, #10A37F);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transform: translateY(-2px);
+  border-color: var(--lw-accent);
 }
 
 .latex-writer-project-icon {
@@ -443,9 +534,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #10A37F20 0%, #10A37F10 100%);
+  background: rgba(16, 185, 129, 0.15);
   border-radius: 10px;
-  color: var(--primary-color, #10A37F);
+  color: var(--lw-accent);
 }
 
 .latex-writer-project-info {
@@ -457,7 +548,7 @@
   margin: 0 0 4px;
   font-size: 15px;
   font-weight: 600;
-  color: var(--text-primary, #333);
+  color: var(--lw-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -465,10 +556,10 @@
 
 .latex-writer-project-date {
   font-size: 12px;
-  color: var(--text-tertiary, #999);
+  color: var(--lw-text-tertiary);
 }
 
-/* 删除按钮 - hover 时显示 */
+/* 删除按钮 */
 .latex-writer-project-delete-btn {
   position: absolute;
   top: 12px;
@@ -481,15 +572,11 @@
   background: rgba(239, 68, 68, 0.1);
   border: none;
   border-radius: 8px;
-  color: #ef4444;
+  color: var(--lw-error);
   cursor: pointer;
   opacity: 0;
   transform: scale(0.8);
   transition: all 0.2s ease;
-}
-
-.latex-writer-project-card {
-  position: relative;
 }
 
 .latex-writer-project-card:hover .latex-writer-project-delete-btn {
@@ -498,7 +585,7 @@
 }
 
 .latex-writer-project-delete-btn:hover {
-  background: #ef4444;
+  background: var(--lw-error);
   color: white;
 }
 
@@ -506,7 +593,7 @@
 .latex-writer-delete-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -520,7 +607,8 @@
 }
 
 .latex-writer-delete-modal {
-  background: var(--bg-primary, #fff);
+  background: var(--lw-bg-panel);
+  border: 1px solid var(--lw-border);
   border-radius: 16px;
   padding: 32px;
   width: 100%;
@@ -542,7 +630,7 @@
 }
 
 .latex-writer-delete-modal-icon {
-  color: #ef4444;
+  color: var(--lw-error);
   margin-bottom: 16px;
 }
 
@@ -550,22 +638,22 @@
   margin: 0 0 12px;
   font-size: 18px;
   font-weight: 600;
-  color: var(--text-primary, #333);
+  color: var(--lw-text-primary);
 }
 
 .latex-writer-delete-modal p {
   margin: 0 0 8px;
   font-size: 14px;
-  color: var(--text-secondary, #666);
+  color: var(--lw-text-secondary);
   line-height: 1.5;
 }
 
 .latex-writer-delete-modal p strong {
-  color: var(--text-primary, #333);
+  color: var(--lw-text-primary);
 }
 
 .latex-writer-delete-warning {
-  color: #ef4444 !important;
+  color: var(--lw-error) !important;
   font-size: 13px !important;
   margin-top: 12px !important;
 }
@@ -588,17 +676,17 @@
 }
 
 .latex-writer-delete-cancel-btn {
-  background: var(--bg-secondary, #f5f5f5);
-  border: 1px solid var(--border-color, #e0e0e0);
-  color: var(--text-primary, #333);
+  background: var(--lw-bg-hover);
+  border: 1px solid var(--lw-border);
+  color: var(--lw-text-primary);
 }
 
 .latex-writer-delete-cancel-btn:hover:not(:disabled) {
-  background: var(--bg-tertiary, #e8e8e8);
+  background: var(--lw-bg-active);
 }
 
 .latex-writer-delete-confirm-btn {
-  background: #ef4444;
+  background: var(--lw-error);
   border: none;
   color: white;
 }
@@ -613,19 +701,10 @@
   cursor: not-allowed;
 }
 
-/* 暗色主题 */
-[data-theme="dark"] .latex-writer-delete-modal {
-  background: var(--bg-secondary, #2a2a2a);
-}
-
-[data-theme="dark"] .latex-writer-project-delete-btn {
-  background: rgba(239, 68, 68, 0.2);
-}
-
 .latex-writer-empty-projects {
   text-align: center;
   padding: 48px;
-  color: var(--text-tertiary, #999);
+  color: var(--lw-text-tertiary);
 }
 
 /* ============================================
@@ -640,11 +719,11 @@
   height: 100%;
   padding: 48px;
   text-align: center;
-  color: var(--text-secondary, #666);
+  color: var(--lw-text-secondary);
 }
 
 .latex-writer-no-file-icon {
-  color: var(--text-tertiary, #ccc);
+  color: var(--lw-text-tertiary);
   margin-bottom: 20px;
 }
 
@@ -652,55 +731,63 @@
   margin: 0 0 8px;
   font-size: 18px;
   font-weight: 600;
-  color: var(--text-primary, #333);
+  color: var(--lw-text-primary);
 }
 
 .latex-writer-no-file p {
   margin: 0 0 24px;
-  color: var(--text-secondary, #666);
+  color: var(--lw-text-secondary);
 }
 
 .latex-writer-create-file-btn {
   padding: 10px 24px;
-  border: 1px solid var(--primary-color, #10A37F);
+  border: 1px solid var(--lw-accent);
   border-radius: 6px;
   background: transparent;
-  color: var(--primary-color, #10A37F);
+  color: var(--lw-accent);
   font-size: 14px;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: all 0.2s;
 }
 
 .latex-writer-create-file-btn:hover {
-  background: var(--primary-color, #10A37F);
+  background: var(--lw-accent);
   color: #fff;
 }
 
 /* ============================================
-   深色模式适配
+   响应式布局
    ============================================ */
 
-[data-theme="dark"] .latex-writer-auth-required {
-  background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+@media (max-width: 1024px) {
+  .latex-writer-left-panel {
+    width: 200px !important;
+  }
 }
 
-[data-theme="dark"] .latex-writer-auth-card,
-[data-theme="dark"] .latex-writer-create-project,
-[data-theme="dark"] .latex-writer-project-card {
-  background: var(--bg-secondary, #2a2a2a);
-  border-color: var(--border-color, #404040);
-}
-
-[data-theme="dark"] .latex-writer-project-select {
-  background: var(--bg-primary, #1a1a1a);
-}
-
-[data-theme="dark"] .latex-writer-create-form input {
-  background: var(--bg-primary, #1a1a1a);
-  border-color: var(--border-color, #404040);
-  color: var(--text-primary, #e0e0e0);
-}
-
-[data-theme="dark"] .latex-writer-create-btn.secondary {
-  background: var(--bg-primary, #1a1a1a);
+@media (max-width: 768px) {
+  .latex-writer-content {
+    flex-direction: column;
+  }
+  
+  .latex-writer-left-panel,
+  .latex-writer-right-panel {
+    width: 100% !important;
+    max-width: none;
+    height: auto;
+    border: none;
+    border-bottom: 1px solid var(--lw-border);
+  }
+  
+  .latex-writer-center-panel {
+    min-width: auto;
+  }
+  
+  .latex-writer-editor-area {
+    height: 300px !important;
+  }
+  
+  .latex-writer-chat-area {
+    height: 200px !important;
+  }
 }

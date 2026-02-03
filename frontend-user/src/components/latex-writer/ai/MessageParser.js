@@ -219,7 +219,7 @@ export function parseStreamingMessage(partialContent) {
 
   // 构建显示文本
   if (result.thinkText) {
-    result.displayText += `💭 思考中...\n${result.thinkText}\n\n`;
+    result.displayText += `[思考中...]\n${result.thinkText}\n\n`;
   }
   if (result.replyText) {
     result.displayText += result.replyText;

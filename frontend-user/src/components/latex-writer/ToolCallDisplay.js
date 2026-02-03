@@ -6,28 +6,28 @@
 import React, { useState } from 'react';
 import './ToolCallDisplay.css';
 
-// 工具状态图标
+// 工具状态图标（使用文字符号）
 const STATUS_ICONS = {
-  pending: '⏳',
-  running: '⚙️',
-  success: '✓',
-  error: '✗',
-  waiting: '⏸'
+  pending: '...',
+  running: '*',
+  success: '+',
+  error: 'x',
+  waiting: '||'
 };
 
-// 工具分类图标
+// 工具分类图标（使用文字标识）
 const CATEGORY_ICONS = {
-  latex: '📝',
-  search: '🔍',
-  bibtex: '📚',
-  file: '📁',
-  convert: '🔄',
-  math: '∑',
-  image: '🖼️',
-  code: '💻',
-  template: '📋',
-  web: '🌐',
-  default: '🔧'
+  latex: 'TEX',
+  search: 'Q',
+  bibtex: 'BIB',
+  file: 'F',
+  convert: 'C',
+  math: 'M',
+  image: 'IMG',
+  code: '</>',
+  template: 'T',
+  web: 'W',
+  default: '*'
 };
 
 /**
@@ -174,7 +174,11 @@ const ToolCallDisplay = ({
         className="tool-call-display-header"
         onClick={() => setIsCollapsed(!isCollapsed)}
       >
-        <span className="tool-call-display-icon">🔧</span>
+        <span className="tool-call-display-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+        </span>
         <span className="tool-call-display-title">{title}</span>
         
         {/* 摘要统计 */}
@@ -182,13 +186,13 @@ const ToolCallDisplay = ({
           <div className="tool-call-display-summary">
             <span className="summary-total">{stats.total} 个调用</span>
             {stats.success > 0 && (
-              <span className="summary-success">✓ {stats.success}</span>
+              <span className="summary-success">+ {stats.success}</span>
             )}
             {stats.error > 0 && (
-              <span className="summary-error">✗ {stats.error}</span>
+              <span className="summary-error">x {stats.error}</span>
             )}
             {stats.running > 0 && (
-              <span className="summary-running">⚙️ {stats.running}</span>
+              <span className="summary-running">* {stats.running}</span>
             )}
           </div>
         )}
