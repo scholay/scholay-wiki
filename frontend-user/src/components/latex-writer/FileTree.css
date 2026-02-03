@@ -20,6 +20,7 @@
   --ft-text-muted: #888888;
   --ft-text-dim: #555555;
   --ft-accent: #10b981;
+  --ft-accent-bg: rgba(16, 185, 129, 0.1);
   --ft-warning: #f59e0b;
 }
 
@@ -33,6 +34,7 @@
   --ft-text-muted: #666666;
   --ft-text-dim: #999999;
   --ft-accent: #10b981;
+  --ft-accent-bg: rgba(16, 185, 129, 0.1);
   --ft-warning: #f59e0b;
 }
 
@@ -50,6 +52,7 @@
 .file-tree-project-header {
   padding: 12px;
   border-bottom: 1px solid var(--ft-border);
+  position: relative;
 }
 
 .file-tree-project-btn {
@@ -73,13 +76,22 @@
   background: var(--ft-bg-hover);
 }
 
+.file-tree-project-btn.active {
+  background: var(--ft-bg-hover);
+}
+
 .file-tree-project-btn svg:first-child {
   color: var(--ft-text-muted);
 }
 
-.file-tree-project-btn svg:last-child {
+.file-tree-project-arrow {
   margin-left: auto;
   color: var(--ft-text-dim);
+  transition: transform 0.2s ease;
+}
+
+.file-tree-project-arrow.rotated {
+  transform: rotate(180deg);
 }
 
 .file-tree-project-name {
@@ -87,6 +99,110 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 项目下拉菜单 */
+.file-tree-project-menu {
+  position: absolute;
+  top: 100%;
+  left: 12px;
+  right: 12px;
+  margin-top: 4px;
+  background: var(--ft-bg);
+  border: 1px solid var(--ft-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.file-tree-project-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ft-border);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ft-text-muted);
+}
+
+.file-tree-project-menu-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ft-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.file-tree-project-menu-back:hover {
+  background: var(--ft-bg-hover);
+  color: var(--ft-text);
+}
+
+.file-tree-project-menu-list {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.file-tree-project-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ft-text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.file-tree-project-menu-item:hover {
+  background: var(--ft-bg-hover);
+}
+
+.file-tree-project-menu-item.active {
+  background: var(--ft-accent-bg);
+  color: var(--ft-accent);
+}
+
+.file-tree-project-menu-item svg:first-child {
+  color: var(--ft-text-muted);
+  flex-shrink: 0;
+}
+
+.file-tree-project-menu-item.active svg:first-child {
+  color: var(--ft-accent);
+}
+
+.file-tree-project-menu-item svg:last-child {
+  margin-left: auto;
+  color: var(--ft-accent);
+}
+
+.file-tree-project-menu-item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-tree-project-menu-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ft-text-muted);
 }
 
 /* 标签页切换 */

@@ -1035,6 +1035,13 @@ ${errorMessage}
               onBackToProjects={() => setSelectedProject(null)}
               isAuthenticated={isAuthenticated}
               onLoginClick={() => setShowAuthModal(true)}
+              projects={projects}
+              currentProjectId={selectedProject?.id}
+              onSelectProject={(project) => {
+                setSelectedProject(project);
+                setSelectedFile(null);
+                setContent('');
+              }}
             />
           </div>
         )}

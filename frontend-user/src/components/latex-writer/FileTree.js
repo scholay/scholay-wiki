@@ -185,13 +185,41 @@ function FileTree({
   projectName,
   onBackToProjects,
   isAuthenticated = true,
-  onLoginClick
+  onLoginClick,
+  // 新增：项目列表和切换
+  projects = [],
+  currentProjectId,
+  onSelectProject,
 }) {
   const [showNewMenu, setShowNewMenu] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemType, setNewItemType] = useState(null);
   const [activeTab, setActiveTab] = useState('files'); // 'files' | 'chats'
   const [showLoginCard, setShowLoginCard] = useState(true);
+  const [showProjectMenu, setShowProjectMenu] = useState(false);
+  const projectMenuRef = React.useRef(null);
+  
+  // 点击外部关闭项目菜单
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (projectMenuRef.current && !projectMenuRef.current.contains(event.target)) {
+        setShowProjectMenu(false);
+      }
+    };
+    
+    if (showProjectMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showProjectMenu]);
+  
+  // 切换项目
+  const handleProjectSelect = useCallback((project) => {
+    setShowProjectMenu(false);
+    if (project.id !== currentProjectId && onSelectProject) {
+      onSelectProject(project);
+    }
+  }, [currentProjectId, onSelectProject]);
 
   const handleCreateNew = useCallback((type) => {
     setNewItemType(type);
@@ -238,21 +266,66 @@ function FileTree({
 
   return (
     <div className="file-tree">
-      {/* 项目头部 */}
-      <div className="file-tree-project-header">
+      {/* 项目头部 - 可下拉切换项目 */}
+      <div className="file-tree-project-header" ref={projectMenuRef}>
         <button 
-          className="file-tree-project-btn"
-          onClick={onBackToProjects}
-          title="返回项目列表"
+          className={`file-tree-project-btn ${showProjectMenu ? 'active' : ''}`}
+          onClick={() => setShowProjectMenu(!showProjectMenu)}
+          title="切换项目"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
           </svg>
           <span className="file-tree-project-name">{projectName || '新建项目'}</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg 
+            className={`file-tree-project-arrow ${showProjectMenu ? 'rotated' : ''}`}
+            width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+          >
             <polyline points="6 9 12 15 18 9"/>
           </svg>
         </button>
+        
+        {/* 项目下拉菜单 */}
+        {showProjectMenu && (
+          <div className="file-tree-project-menu">
+            <div className="file-tree-project-menu-header">
+              <span>切换项目</span>
+              <button 
+                className="file-tree-project-menu-back"
+                onClick={() => { setShowProjectMenu(false); onBackToProjects?.(); }}
+                title="管理所有项目"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+              </button>
+            </div>
+            <div className="file-tree-project-menu-list">
+              {projects.length > 0 ? (
+                projects.map(project => (
+                  <button
+                    key={project.id}
+                    className={`file-tree-project-menu-item ${project.id === currentProjectId ? 'active' : ''}`}
+                    onClick={() => handleProjectSelect(project)}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <span className="file-tree-project-menu-item-name">{project.title}</span>
+                    {project.id === currentProjectId && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    )}
+                  </button>
+                ))
+              ) : (
+                <div className="file-tree-project-menu-empty">暂无其他项目</div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 标签页切换 */}
