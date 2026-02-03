@@ -628,3 +628,42 @@ func (h *Handler) GetAvailableModels(c *gin.Context) {
 		"total":  len(models),
 	})
 }
+
+// ExportToWord 将 LaTeX 导出为 Word 文档
+// POST /api/v1/user/latex-writer/export/word
+func (h *Handler) ExportToWord(c *gin.Context) {
+	// 获取用户 ID（验证登录状态）
+	_, exists := c.Get("user_id")
+	if !exists {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+		return
+	}
+
+	// 解析请求
+	var req struct {
+		Content  string `json:"content" binding:"required"`
+		Filename string `json:"filename"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
+		return
+	}
+
+	// 使用 Pandoc 转换
+	docxBytes, err := h.service.ConvertLatexToWord(req.Content, req.Filename)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "转换失败: "+err.Error())
+		return
+	}
+
+	// 设置下载响应头
+	filename := req.Filename
+	if filename == "" {
+		filename = "document"
+	}
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.docx\"", filename))
+	c.Header("Content-Length", strconv.Itoa(len(docxBytes)))
+	
+	c.Data(http.StatusOK, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", docxBytes)
+}

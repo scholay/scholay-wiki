@@ -11,7 +11,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -669,47 +672,121 @@ func (s *Service) StreamChatWithContext(userID, documentID uint, req *ChatReques
 		fmt.Println("[LaTeXWriter] ⚠️ MCP tools description NOT found in system prompt")
 	}
 
-	// 6. 确定模型级别（使用配置或请求中的设置）
-	// 注意：这里仍然使用 thirdparty 的模型级别，因为实际 API 调用需要这个
-	// 未来可以根据 agentConfig.ModelProvider 和 agentConfig.ModelName 直接调用对应的 API
+	// 6. 创建纯文本内容收集器（用于保存到数据库）
+	var pureContent strings.Builder
+
+	// 7. 根据模型配置选择调用方式
+	modelName := "default"
+	// 定义 modelLevel 供自动修复使用（默认 mid）
 	modelLevel := thirdparty.ModelLevelMid
-	modelName := "mid"
-	switch req.ModelLevel {
-	case "low":
-		modelLevel = thirdparty.ModelLevelLow
-		modelName = "low"
-	case "high":
-		modelLevel = thirdparty.ModelLevelHigh
-		modelName = "high"
+	
+	// 检查是否有完整的自定义模型配置
+	useCustomModel := modelConfig != nil && 
+		modelConfig.APIEndpoint != "" && 
+		modelConfig.APIKey != "" && 
+		modelConfig.ModelName != ""
+	
+	if useCustomModel {
+		// 使用用户配置的模型
+		fmt.Printf("[LaTeXWriter] 🎯 Using custom model: %s (%s @ %s)\n", 
+			modelConfig.DisplayName, modelConfig.ModelName, modelConfig.APIEndpoint)
+		modelName = modelConfig.ModelName
+		
+		// 更新对话的模型级别为模型名称
+		s.convService.UpdateModelLevel(conv.ID, modelConfig.DisplayName)
+		
+		// 创建 provider 配置
+		providerConfig := &ai.ProviderConfig{
+			Provider: modelConfig.APIFormat,
+			Model:    modelConfig.ModelName,
+			BaseURL:  modelConfig.APIEndpoint,
+			APIKey:   modelConfig.APIKey,
+		}
+		
+		// 创建 provider 实例
+		provider, providerErr := ai.CreateProviderFromConfig(providerConfig)
+		if providerErr != nil {
+			fmt.Printf("[LaTeXWriter] ⚠️ Failed to create custom provider, falling back to default: %v\n", providerErr)
+			// 回退到默认方式
+			useCustomModel = false
+		} else {
+			// 使用自定义 provider 调用 AI
+			// 转换消息格式
+			llmMessages := make([]ai.LLMMessage, len(messages))
+			for i, msg := range messages {
+				llmMessages[i] = ai.LLMMessage{
+					Role:    msg.Role,
+					Content: msg.Content,
+				}
+			}
+			
+			llmReq := &ai.LLMRequest{
+				Messages:    llmMessages,
+				Temperature: modelConfig.Temperature,
+				MaxTokens:   int(modelConfig.MaxOutputTokens),
+			}
+			
+			// 流式调用
+			ctx := context.Background()
+			streamCh, streamErr := provider.StreamChat(ctx, llmReq)
+			if streamErr != nil {
+				fmt.Printf("[LaTeXWriter] ❌ Custom model stream error: %v\n", streamErr)
+				return fmt.Errorf("AI 模型调用失败: %w", streamErr)
+			}
+			
+			// 收集流式响应
+			for chunk := range streamCh {
+				if chunk.Error != nil {
+					fmt.Printf("[LaTeXWriter] ❌ Stream chunk error: %v\n", chunk.Error)
+					return fmt.Errorf("AI 响应错误: %w", chunk.Error)
+				}
+				if chunk.Delta != "" {
+					// 收集纯文本内容
+					pureContent.WriteString(chunk.Delta)
+					// 写入 SSE 格式到前端
+					sseData := fmt.Sprintf("data: %s\n\n", chunk.Delta)
+					writer.Write([]byte(sseData))
+				}
+			}
+		}
 	}
 	
-	// 如果配置了特定模型，记录日志
-	if modelConfig != nil && modelConfig.ModelName != "" {
-		fmt.Printf("[LaTeXWriter] Using configured model: %s/%s\n", modelConfig.APIFormat, modelConfig.ModelName)
+	// 如果没有自定义模型或自定义模型创建失败，使用默认的 thirdparty 系统
+	if !useCustomModel {
+		// 确定模型级别
+		switch req.ModelLevel {
+		case "low":
+			modelLevel = thirdparty.ModelLevelLow
+			modelName = "low"
+		case "high":
+			modelLevel = thirdparty.ModelLevelHigh
+			modelName = "high"
+		default:
+			modelName = "mid"
+		}
+		
+		fmt.Printf("[LaTeXWriter] 📡 Using thirdparty model level: %s\n", modelName)
+		
+		// 更新对话的模型级别
+		s.convService.UpdateModelLevel(conv.ID, req.ModelLevel)
+		
+		// 使用纯内容收集器调用 AI 服务
+		pureContentCollector := &pureContentWriter{
+			writer:      writer,
+			pureContent: &pureContent,
+		}
+		err = s.aiService.StreamChatCompletionWithLevel(messages, pureContentCollector, modelLevel)
+		if err != nil {
+			return err
+		}
 	}
 
-	// 更新对话的模型级别
-	s.convService.UpdateModelLevel(conv.ID, req.ModelLevel)
-
-	// 7. 创建一个收集器来收集完整响应
-	var fullResponse strings.Builder
-	responseCollector := &responseCollectorWriter{
-		writer:    writer,
-		collector: &fullResponse,
-	}
-
-	// 8. 调用 AI 服务
-	err = s.aiService.StreamChatCompletionWithLevel(messages, responseCollector, modelLevel)
-	if err != nil {
-		return err
-	}
-
-	// 9. 解析 AI 回复
+	// 8. 解析 AI 回复（使用纯文本内容）
 	fmt.Println("\n" + strings.Repeat("-", 40))
 	fmt.Println("[LaTeXWriter] 📥 AI Response received")
-	fmt.Printf("[LaTeXWriter] 📄 Response length: %d chars\n", len(fullResponse.String()))
+	fmt.Printf("[LaTeXWriter] 📄 Response length: %d chars\n", len(pureContent.String()))
 	
-	parsed := ParseAIResponse(fullResponse.String())
+	parsed := ParseAIResponse(pureContent.String())
 	
 	fmt.Printf("[LaTeXWriter] 🧠 Parsed - Think: %d chars, Reply: %d chars, Code: %d chars\n", 
 		len(parsed.Think), len(parsed.Reply), len(parsed.Code))
@@ -794,8 +871,6 @@ func (s *Service) StreamChatWithContext(userID, documentID uint, req *ChatReques
 
 				// 更新 parsed 的 code
 				parsed.Code = currentCode
-				fullResponse.WriteString("\n\n[自动修复后的代码]\n")
-				fullResponse.WriteString(fixResponse.String())
 			} else {
 				// 无法解析出代码，停止重试
 				break
@@ -811,8 +886,11 @@ func (s *Service) StreamChatWithContext(userID, documentID uint, req *ChatReques
 		}
 	}
 
+	// 10. 构建格式化的内容字符串（用于保存和历史渲染）
+	formattedContent := buildFormattedContent(parsed)
+
 	// 11. 保存最终的 AI 回复
-	_, err = s.convService.AddAssistantMessage(conv.ID, fullResponse.String(), parsed, modelName)
+	_, err = s.convService.AddAssistantMessage(conv.ID, formattedContent, parsed, modelName)
 	if err != nil {
 		fmt.Printf("[LaTeXWriter] Failed to save assistant message: %v\n", err)
 	}
@@ -850,6 +928,66 @@ func (w *responseCollectorWriter) Write(p []byte) (n int, err error) {
 	}
 
 	return n, nil
+}
+
+// pureContentWriter 纯文本内容收集器
+// 同时输出 SSE 格式到前端，并收集纯文本内容用于保存
+type pureContentWriter struct {
+	writer      io.Writer
+	pureContent *strings.Builder
+}
+
+func (w *pureContentWriter) Write(p []byte) (n int, err error) {
+	// 写入原始 writer（SSE 格式输出到前端）
+	n, err = w.writer.Write(p)
+	if err != nil {
+		return n, err
+	}
+
+	// 收集纯文本内容（解析 SSE 数据，只保留实际内容）
+	content := string(p)
+	if strings.HasPrefix(content, "data: ") {
+		data := strings.TrimPrefix(content, "data: ")
+		data = strings.TrimSuffix(data, "\n\n")
+		if data != "[DONE]" {
+			w.pureContent.WriteString(data)
+		}
+	}
+
+	return n, nil
+}
+
+// buildFormattedContent 构建格式化的内容字符串
+// 用于保存到数据库，保持与实时渲染一致的格式
+func buildFormattedContent(parsed *ParsedMessage) string {
+	if parsed == nil {
+		return ""
+	}
+	
+	var builder strings.Builder
+	
+	// 添加思考内容
+	if parsed.Think != "" {
+		builder.WriteString("<think>\n")
+		builder.WriteString(parsed.Think)
+		builder.WriteString("\n</think>\n\n")
+	}
+	
+	// 添加回复内容
+	if parsed.Reply != "" {
+		builder.WriteString("<reply>\n")
+		builder.WriteString(parsed.Reply)
+		builder.WriteString("\n</reply>\n\n")
+	}
+	
+	// 添加代码内容
+	if parsed.Code != "" {
+		builder.WriteString("<code>\n")
+		builder.WriteString(parsed.Code)
+		builder.WriteString("\n</code>")
+	}
+	
+	return builder.String()
 }
 
 // ============================================
@@ -1168,4 +1306,53 @@ func (s *Service) UseEnhancedAgent(modelID uint) bool {
 // GetMCPRegistry 获取 MCP 注册表（供外部使用）
 func (s *Service) GetMCPRegistry() *mcp.Registry {
 	return s.mcpRegistry
+}
+
+// ConvertLatexToWord 将 LaTeX 转换为 Word 文档
+// 使用 Pandoc 进行转换
+func (s *Service) ConvertLatexToWord(latexContent string, filename string) ([]byte, error) {
+	// 创建临时文件
+	tmpDir := "/tmp/latex-export"
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return nil, fmt.Errorf("创建临时目录失败: %w", err)
+	}
+	
+	// 生成唯一文件名
+	timestamp := fmt.Sprintf("%d", time.Now().UnixNano())
+	texFile := fmt.Sprintf("%s/%s_%s.tex", tmpDir, filename, timestamp)
+	docxFile := fmt.Sprintf("%s/%s_%s.docx", tmpDir, filename, timestamp)
+	
+	// 写入 LaTeX 文件
+	if err := os.WriteFile(texFile, []byte(latexContent), 0644); err != nil {
+		return nil, fmt.Errorf("写入 LaTeX 文件失败: %w", err)
+	}
+	defer os.Remove(texFile)
+	
+	// 检查 Pandoc 是否可用
+	checkCmd := exec.Command("which", "pandoc")
+	if err := checkCmd.Run(); err != nil {
+		return nil, fmt.Errorf("Pandoc 未安装，无法进行转换。请在服务器上安装 Pandoc")
+	}
+	
+	// 使用 Pandoc 转换
+	cmd := exec.Command("pandoc", 
+		"-f", "latex",
+		"-t", "docx",
+		"-o", docxFile,
+		texFile,
+	)
+	
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("Pandoc 转换失败: %s, 输出: %s", err.Error(), string(output))
+	}
+	defer os.Remove(docxFile)
+	
+	// 读取生成的 Word 文件
+	docxBytes, err := os.ReadFile(docxFile)
+	if err != nil {
+		return nil, fmt.Errorf("读取 Word 文件失败: %w", err)
+	}
+	
+	return docxBytes, nil
 }

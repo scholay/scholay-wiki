@@ -172,7 +172,6 @@ function LaTeXWriterPage() {
   
   // PDF 预览状态
   const [pdfUrl, setPdfUrl] = useState(null);
-  const [lastSuccessfulPdf, setLastSuccessfulPdf] = useState(null); // 保存上一次成功的 PDF
   const [isCompiling, setIsCompiling] = useState(false);
   const [compileError, setCompileError] = useState(null);
   const [hasCompiledOnce, setHasCompiledOnce] = useState(false); // 是否已经编译过（用于显示初始化状态）
@@ -196,6 +195,11 @@ function LaTeXWriterPage() {
   
   // 打开的文件标签页
   const [openTabs, setOpenTabs] = useState([]);
+  
+  // 编辑器和聊天区域高度比例（编辑器占比，默认 66.67% 即 2:1）
+  const [editorHeightRatio, setEditorHeightRatio] = useState(66.67);
+  const [isVerticalResizing, setIsVerticalResizing] = useState(false);
+  const centerPanelRef = useRef(null);
   
   // AI 聊天面板折叠状态
   const [isChatCollapsed, setIsChatCollapsed] = useState(false);
@@ -509,7 +513,6 @@ ${errorMessage}
 
   // 编译引擎状态
   const [engineStatus, setEngineStatus] = useState('unloaded');
-  const [isPreloading, setIsPreloading] = useState(false);
   
   // 监听编译引擎状态
   useEffect(() => {
@@ -519,76 +522,29 @@ ${errorMessage}
     return unsubscribe;
   }, []);
   
-  // 页面加载时立即预加载编译引擎和常用宏包
+  // 页面加载时初始化编译引擎（不进行预热编译，宏包在首次编译时自动加载）
   useEffect(() => {
     let isMounted = true;
     
-    const preloadEngine = async () => {
-      // 延迟 500ms 避免阻塞初始渲染
-      await new Promise(resolve => setTimeout(resolve, 500));
+    const initEngine = async () => {
+      // 延迟 300ms 避免阻塞初始渲染
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       if (!isMounted) return;
       
-      console.log('[LaTeX] 开始预加载编译引擎...');
-      setIsPreloading(true);
+      console.log('[LaTeX] 开始初始化编译引擎...');
       
       try {
-        // 初始化引擎
-        const initialized = await LatexCompiler.initializeEngine();
-        
-        if (initialized && isMounted) {
-          console.log('[LaTeX] 引擎初始化完成，开始预热编译...');
-          
-          // 使用与默认模板相同的结构预热，预加载所有需要的宏包和字体
-          const warmupDoc = `\\documentclass{article}
-\\usepackage[utf8]{inputenc}
-\\usepackage{amsmath}
-\\usepackage{graphicx}
-
-\\title{Warmup}
-\\author{System}
-\\date{\\today}
-
-\\begin{document}
-
-\\maketitle
-
-\\begin{abstract}
-Abstract text.
-\\end{abstract}
-
-\\section{Section One}
-Text with \\textbf{bold} and \\textit{italic}.
-
-\\section{Section Two}
-More text here.
-
-\\section{Section Three}
-Additional content.
-
-\\section{Section Four}
-Final section.
-
-\\end{document}`;
-          
-          // 静默预热编译（不显示结果）
-          try {
-            await LatexCompiler.compileLaTeX(warmupDoc, '_warmup.tex');
-            console.log('[LaTeX] 预热编译完成，常用宏包和字体已缓存');
-          } catch (e) {
-            console.log('[LaTeX] 预热编译完成（可能有警告）');
-          }
-        }
+        // 只初始化引擎，不进行预热编译
+        // 宏包会在首次实际编译时由引擎自动从 TexLive 服务器并行获取
+        await LatexCompiler.initializeEngine();
+        console.log('[LaTeX] 引擎初始化完成，宏包将在首次编译时自动加载');
       } catch (error) {
-        console.error('[LaTeX] 引擎预加载失败:', error);
-      } finally {
-        if (isMounted) {
-          setIsPreloading(false);
-        }
+        console.error('[LaTeX] 引擎初始化失败:', error);
       }
     };
     
-    preloadEngine();
+    initEngine();
     
     return () => {
       isMounted = false;
@@ -610,20 +566,12 @@ Final section.
       const result = await LatexCompiler.compileLaTeX(content, selectedFile?.title || 'main.tex');
       
       if (result.success) {
-        // 保存当前成功的 PDF 作为备份
-        if (pdfUrl) {
-          // 不立即释放旧的 PDF URL，将其作为上一次成功的 PDF 保存
-          setLastSuccessfulPdf(pdfUrl);
-        }
+        // 编译成功：更新 PDF URL，清除错误
         setPdfUrl(result.pdfUrl);
         setCompileError(null);
       } else {
-        // 编译失败时保留上一次成功的 PDF
+        // 编译失败：只设置错误，不更新 pdfUrl（保持当前显示）
         setCompileError(result.error || '编译失败，请检查 LaTeX 语法');
-        // 如果这是第一次编译失败，将当前 PDF 设为上一次成功的
-        if (pdfUrl && !lastSuccessfulPdf) {
-          setLastSuccessfulPdf(pdfUrl);
-        }
       }
     } catch (error) {
       console.error('编译失败:', error);
@@ -631,14 +579,13 @@ Final section.
     } finally {
       setIsCompiling(false);
     }
-  }, [content, selectedFile, pdfUrl, lastSuccessfulPdf]);
+  }, [content, selectedFile]);
 
   // 选择新文件时重置编译状态
   useEffect(() => {
     if (!selectedFile) {
       setHasCompiledOnce(false);
       setPdfUrl(null);
-      setLastSuccessfulPdf(null);
       setCompileError(null);
     }
   }, [selectedFile]);
@@ -804,7 +751,7 @@ Final section.
     setIsResizing(false);
   }, []);
 
-  // 监听鼠标事件
+  // 监听鼠标事件（水平拖拽）
   useEffect(() => {
     if (isResizing) {
       window.addEventListener('mousemove', handleResizeMove);
@@ -820,6 +767,53 @@ Final section.
       };
     }
   }, [isResizing, handleResizeMove, handleResizeEnd]);
+
+  // 垂直拖拽调整编辑器和聊天区域高度
+  const handleVerticalResizeStart = useCallback((e) => {
+    e.preventDefault();
+    setIsVerticalResizing(true);
+  }, []);
+
+  const handleVerticalResizeMove = useCallback((e) => {
+    if (!isVerticalResizing || !centerPanelRef.current) return;
+    
+    const container = centerPanelRef.current;
+    const rect = container.getBoundingClientRect();
+    const toolbarHeight = 40; // 顶部工具栏高度
+    const availableHeight = rect.height - toolbarHeight;
+    
+    // 鼠标相对于可用区域顶部的位置
+    const mouseY = e.clientY - rect.top - toolbarHeight;
+    
+    // 计算编辑器高度百分比
+    let newHeightPercent = (mouseY / availableHeight) * 100;
+    
+    // 限制范围：编辑器最小 30%, 最大 85%
+    newHeightPercent = Math.max(30, Math.min(85, newHeightPercent));
+    
+    setEditorHeightRatio(newHeightPercent);
+  }, [isVerticalResizing]);
+
+  const handleVerticalResizeEnd = useCallback(() => {
+    setIsVerticalResizing(false);
+  }, []);
+
+  // 监听鼠标事件（垂直拖拽）
+  useEffect(() => {
+    if (isVerticalResizing) {
+      window.addEventListener('mousemove', handleVerticalResizeMove);
+      window.addEventListener('mouseup', handleVerticalResizeEnd);
+      document.body.style.cursor = 'row-resize';
+      document.body.style.userSelect = 'none';
+      
+      return () => {
+        window.removeEventListener('mousemove', handleVerticalResizeMove);
+        window.removeEventListener('mouseup', handleVerticalResizeEnd);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+    }
+  }, [isVerticalResizing, handleVerticalResizeMove, handleVerticalResizeEnd]);
 
   // 未登录状态
   if (!isAuthenticated) {
@@ -1047,6 +1041,7 @@ Final section.
         
         {/* 中间：编辑区 + AI对话 */}
         <div 
+          ref={centerPanelRef}
           className="latex-writer-center-panel"
           style={{ 
             width: isRightPanelCollapsed ? '100%' : `${centerWidth}%`,
@@ -1107,7 +1102,13 @@ Final section.
               </div>
               
               {/* 代码编辑器 - 支持 inline diff 模式 */}
-              <div className="latex-writer-editor-area">
+              <div 
+                className="latex-writer-editor-area"
+                style={{ 
+                  flex: isChatCollapsed ? 1 : 'none',
+                  height: isChatCollapsed ? '100%' : `${editorHeightRatio}%`
+                }}
+              >
                 <LatexEditor
                   ref={editorRef}
                   value={content}
@@ -1121,8 +1122,22 @@ Final section.
                 />
               </div>
               
+              {/* 垂直分割线 - 可拖拽调整编辑器和聊天区域高度 */}
+              {!isChatCollapsed && (
+                <div 
+                  className={`latex-writer-vertical-resizer ${isVerticalResizing ? 'active' : ''}`}
+                  onMouseDown={handleVerticalResizeStart}
+                />
+              )}
+              
               {/* AI 对话面板 */}
-              <div className={`latex-writer-chat-area ${isChatCollapsed ? 'collapsed' : ''}`}>
+              <div 
+                className={`latex-writer-chat-area ${isChatCollapsed ? 'collapsed' : ''}`}
+                style={!isChatCollapsed ? { 
+                  flex: 'none',
+                  height: `calc(${100 - editorHeightRatio}% - 4px)` // 4px 是分割线高度
+                } : undefined}
+              >
                 <AiChatPanel
                   ref={aiChatRef}
                   documentId={selectedFile?.id}
@@ -1172,12 +1187,13 @@ Final section.
           <div className="latex-writer-right-panel">
             <PdfPreview 
               pdfUrl={pdfUrl}
-              lastSuccessfulPdf={lastSuccessfulPdf}
               isCompiling={isCompiling}
               error={compileError}
               onCompile={handleCompile}
               engineStatus={engineStatus}
               onAiFixError={handleAiFixError}
+              latexContent={content}
+              fileName={selectedFile?.title?.replace(/\.tex$/, '') || 'document'}
             />
           </div>
         )}

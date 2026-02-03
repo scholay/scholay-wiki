@@ -13,11 +13,13 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { useAuth } from '../../utils/AuthContext';
 import { LatexAiAgent, LatexCommands } from './ai';
-import { parseAiMessage, parseStreamingMessage } from './ai/MessageParser';
+import { parseAiMessage, parseStreamingMessage, calculateCodeDiff } from './ai/MessageParser';
 import { useLatexConversation } from './hooks/useLatexConversation';
 import DiffViewer from './DiffViewer';
 import PermissionDialog from './PermissionDialog';
 import ToolCallDisplay, { ToolCallIndicator } from './ToolCallDisplay';
+import ThinkingPanel from './ThinkingPanel';
+import CodePreview from './CodePreview';
 import { userAPI } from '../../services/api';
 import { trackScholayPrism } from '../../utils/usageTracker';
 import './AiChatPanel.css';
@@ -68,6 +70,10 @@ const AiChatPanel = forwardRef(function AiChatPanel({
   const [permissionRequest, setPermissionRequest] = useState(null); // 待确认的权限请求
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   
+  // 思考时间跟踪状态
+  const [thinkingStartTime, setThinkingStartTime] = useState(null);
+  const [thinkingDuration, setThinkingDuration] = useState(0);
+  
   // 当 documentId 变化时清空本地消息，以便显示新项目的历史消息
   const prevDocumentIdRef = useRef(documentId);
   useEffect(() => {
@@ -99,6 +105,10 @@ const AiChatPanel = forwardRef(function AiChatPanel({
         const codeContent = msg.code_content || null;
         const hasStructured = !!(thinkContent || replyContent || codeContent);
         
+        // 获取思考时间和代码统计（如果后端有保存的话）
+        const msgThinkingDuration = msg.thinking_duration || 0;
+        const msgCodeStats = msg.code_stats || null;
+        
         // 调试日志
         if (msg.role === 'assistant') {
           console.log('[AiChatPanel] Assistant message:', {
@@ -108,6 +118,8 @@ const AiChatPanel = forwardRef(function AiChatPanel({
             thinkContent: !!thinkContent,
             replyContent: !!replyContent,
             codeContent: !!codeContent,
+            thinkingDuration: msgThinkingDuration,
+            codeStats: msgCodeStats,
           });
         }
         
@@ -117,6 +129,9 @@ const AiChatPanel = forwardRef(function AiChatPanel({
           thinkContent,
           replyContent,
           codeContent,
+          // 思考时间和代码统计
+          thinkingDuration: msgThinkingDuration,
+          codeStats: msgCodeStats,
           // 对于助理消息，始终创建 parsed 对象以便渲染逻辑正确处理
           parsed: msg.role === 'assistant' ? {
             think: thinkContent,
@@ -248,6 +263,8 @@ const AiChatPanel = forwardRef(function AiChatPanel({
     agent.on('onStart', () => {
       setIsLoading(true);
       setCurrentResponse('');
+      setThinkingStartTime(Date.now());
+      setThinkingDuration(0);
     });
 
     agent.on('onMessage', (text, isComplete) => {
@@ -273,11 +290,22 @@ const AiChatPanel = forwardRef(function AiChatPanel({
       setIsLoading(false);
       setCurrentResponse('');
       
+      // 计算思考时间
+      const duration = thinkingStartTime ? Math.round((Date.now() - thinkingStartTime) / 1000) : 0;
+      setThinkingDuration(duration);
+      setThinkingStartTime(null);
+      
       // 解析结构化输出
       const parsed = parseAiMessage(fullText);
       
       // 提取代码
       const extractedCode = parsed.code || extractLatexCodeFn(fullText);
+      
+      // 计算代码 diff 统计
+      let codeStats = null;
+      if (extractedCode && fullContent) {
+        codeStats = calculateCodeDiff(fullContent, extractedCode);
+      }
       
       // 如果有代码，自动应用到编辑器（通过 diff 确认）
       if (extractedCode && onApplySuggestion) {
@@ -299,6 +327,9 @@ const AiChatPanel = forwardRef(function AiChatPanel({
             thinkContent: parsed.think,
             replyContent: parsed.reply,
             codeContent: parsed.code,
+            // 思考时间和代码统计
+            thinkingDuration: duration,
+            codeStats: codeStats,
             // 代码已自动触发 diff
             hasDiff: false,
           };
@@ -314,6 +345,8 @@ const AiChatPanel = forwardRef(function AiChatPanel({
     agent.on('onError', (error) => {
       setIsLoading(false);
       setCurrentToolCall(null);
+      setThinkingStartTime(null);
+      setThinkingDuration(0);
       setLocalMessages(prev => {
         const updated = [...prev];
         const lastIndex = updated.length - 1;
@@ -606,35 +639,31 @@ const AiChatPanel = forwardRef(function AiChatPanel({
           {currentToolCall && (
             <ToolCallIndicator toolCall={currentToolCall} />
           )}
+          {/* 思考内容 - 使用 ThinkingPanel */}
           {streamParsed.thinkText && (
-            <div className="ai-chat-thinking">
-              <div className="ai-chat-thinking-header">
-                <span className="ai-chat-thinking-icon">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                  </svg>
-                </span>
-                <span>思考中...</span>
-              </div>
-              <div className="ai-chat-thinking-content">{streamParsed.thinkText}</div>
-            </div>
+            <ThinkingPanel
+              content={streamParsed.thinkText}
+              isStreaming={true}
+              duration={thinkingDuration}
+              defaultOpen={true}
+            />
           )}
+          {/* 回复内容 */}
           {streamParsed.replyText && (
             <div className="ai-chat-reply">{streamParsed.replyText}</div>
           )}
+          {/* 代码预览 - 使用 CodePreview */}
           {streamParsed.codeText && (
-            <div className="ai-chat-code-preview">
-              <div className="ai-chat-code-header">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                </svg>
-                LaTeX
-              </div>
-              <pre className="ai-chat-code">{streamParsed.codeText}</pre>
-            </div>
+            <CodePreview
+              code={streamParsed.codeText}
+              originalCode={fullContent}
+              isStreaming={true}
+              onApply={onApplySuggestion}
+            />
           )}
-          {!streamParsed.displayText && <span className="ai-chat-cursor">▋</span>}
+          {!streamParsed.displayText && !streamParsed.thinkText && !streamParsed.codeText && (
+            <span className="ai-chat-cursor">▋</span>
+          )}
         </div>
       );
     }
@@ -650,6 +679,8 @@ const AiChatPanel = forwardRef(function AiChatPanel({
       const replyContent = msg.replyContent || msg.parsed?.reply;
       const codeContent = msg.codeContent || msg.parsed?.code;
       const rawContent = msg.content || msg.parsed?.raw || '';
+      const msgThinkingDuration = msg.thinkingDuration || 0;
+      const msgCodeStats = msg.codeStats || null;
       
       const hasStructuredContent = !!(thinkContent || replyContent || codeContent);
       
@@ -657,53 +688,31 @@ const AiChatPanel = forwardRef(function AiChatPanel({
       if (hasStructuredContent) {
         return (
           <div className="ai-chat-parsed-content">
+            {/* 思考内容 - 使用 ThinkingPanel */}
             {thinkContent && (
-              <details className="ai-chat-thinking-details">
-                <summary className="ai-chat-thinking-summary">
-                  <span className="ai-chat-thinking-icon">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                    </svg>
-                  </span>
-                  <span>查看思考过程</span>
-                </summary>
-                <div className="ai-chat-thinking-content">{thinkContent}</div>
-              </details>
+              <ThinkingPanel
+                content={thinkContent}
+                isStreaming={false}
+                duration={msgThinkingDuration}
+                defaultOpen={false}
+              />
             )}
+            {/* 回复内容 */}
             {replyContent && (
               <div className="ai-chat-reply">{replyContent}</div>
             )}
+            {/* 代码预览 - 使用 CodePreview */}
             {codeContent && !msg.hasDiff && (
-              <div className="ai-chat-code-preview">
-                <div className="ai-chat-code-header">
-                  <span className="ai-chat-code-label">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                      <polyline points="14 2 14 8 20 8"/>
-                    </svg>
-                    LaTeX
-                  </span>
-                  <button 
-                    className="ai-chat-code-apply-btn"
-                    onClick={() => onApplySuggestion?.(codeContent)}
-                    title="点击查看变更并应用到编辑器"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                    应用到编辑器
-                  </button>
-                </div>
-                <pre className="ai-chat-code">{codeContent}</pre>
-              </div>
+              <CodePreview
+                code={codeContent}
+                originalCode={fullContent}
+                isStreaming={false}
+                onApply={onApplySuggestion}
+                preCalculatedStats={msgCodeStats}
+              />
             )}
           </div>
         );
-      }
-      
-      // 没有结构化内容，显示原始内容
-      if (rawContent) {
-        return <div className="ai-chat-reply">{rawContent}</div>;
       }
       
       // 流式输出中的占位符
@@ -711,8 +720,8 @@ const AiChatPanel = forwardRef(function AiChatPanel({
         return <span className="ai-chat-cursor">▋</span>;
       }
       
-      // 没有内容，显示占位
-      return <div className="ai-chat-reply ai-chat-empty-message">（无内容）</div>;
+      // 没有结构化内容的旧数据，不显示
+      return <div className="ai-chat-reply ai-chat-empty-message">（历史消息格式不兼容）</div>;
     }
     
     // 其他角色（如 system），显示原始内容

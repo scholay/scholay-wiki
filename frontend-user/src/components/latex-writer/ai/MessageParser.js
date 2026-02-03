@@ -230,10 +230,110 @@ export function parseStreamingMessage(partialContent) {
   return result;
 }
 
+/**
+ * 计算两段代码之间的 diff 统计
+ * 使用简化的 LCS（最长公共子序列）算法来计算新增和删除的行数
+ * @param {string} originalCode - 原始代码
+ * @param {string} newCode - 新代码
+ * @returns {Object} { added: number, removed: number, total: number }
+ */
+export function calculateCodeDiff(originalCode, newCode) {
+  const originalLines = (originalCode || '').split('\n').filter(line => line.trim() !== '');
+  const newLines = (newCode || '').split('\n').filter(line => line.trim() !== '');
+
+  // 如果原始代码为空，所有新行都是新增的
+  if (originalLines.length === 0) {
+    return {
+      added: newLines.length,
+      removed: 0,
+      total: newLines.length,
+    };
+  }
+
+  // 如果新代码为空，所有原始行都是删除的
+  if (newLines.length === 0) {
+    return {
+      added: 0,
+      removed: originalLines.length,
+      total: 0,
+    };
+  }
+
+  // 使用简化的 diff 算法
+  // 创建原始行的 Set 用于快速查找
+  const originalSet = new Set(originalLines.map(line => line.trim()));
+  const newSet = new Set(newLines.map(line => line.trim()));
+
+  // 计算新增行（在新代码中但不在原始代码中）
+  let added = 0;
+  for (const line of newLines) {
+    if (!originalSet.has(line.trim())) {
+      added++;
+    }
+  }
+
+  // 计算删除行（在原始代码中但不在新代码中）
+  let removed = 0;
+  for (const line of originalLines) {
+    if (!newSet.has(line.trim())) {
+      removed++;
+    }
+  }
+
+  return {
+    added,
+    removed,
+    total: newLines.length,
+  };
+}
+
+/**
+ * 使用更精确的 LCS 算法计算 diff
+ * 适用于需要精确行级别比较的场景
+ * @param {string} originalCode - 原始代码
+ * @param {string} newCode - 新代码
+ * @returns {Object} { added: number, removed: number, unchanged: number, total: number }
+ */
+export function calculatePreciseDiff(originalCode, newCode) {
+  const originalLines = (originalCode || '').split('\n');
+  const newLines = (newCode || '').split('\n');
+
+  const m = originalLines.length;
+  const n = newLines.length;
+
+  // 创建 LCS 矩阵
+  const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+
+  // 填充 LCS 矩阵
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (originalLines[i - 1].trim() === newLines[j - 1].trim()) {
+        dp[i][j] = dp[i - 1][j - 1] + 1;
+      } else {
+        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+      }
+    }
+  }
+
+  const lcsLength = dp[m][n];
+  const unchanged = lcsLength;
+  const removed = m - lcsLength;
+  const added = n - lcsLength;
+
+  return {
+    added,
+    removed,
+    unchanged,
+    total: n,
+  };
+}
+
 export default {
   parseAiMessage,
   parseStreamingMessage,
   isLatexCode,
   cleanLatexCode,
   formatThinking,
+  calculateCodeDiff,
+  calculatePreciseDiff,
 };

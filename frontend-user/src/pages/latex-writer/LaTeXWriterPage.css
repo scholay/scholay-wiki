@@ -97,11 +97,51 @@
 
 /* 编辑器区域 */
 .latex-writer-editor-area {
-  flex: 1;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   background: var(--lw-bg-editor);
+  min-height: 150px;
+}
+
+/* 垂直分割线 - 可拖拽调整编辑器和聊天区域高度 */
+.latex-writer-vertical-resizer {
+  height: 4px;
+  background: var(--lw-border);
+  cursor: row-resize;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.15s ease;
+}
+
+.latex-writer-vertical-resizer::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 2px;
+  background: var(--lw-text-muted);
+  border-radius: 1px;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+.latex-writer-vertical-resizer:hover {
+  background: var(--lw-accent);
+}
+
+.latex-writer-vertical-resizer:hover::before {
+  opacity: 1;
+}
+
+.latex-writer-vertical-resizer.active {
+  background: var(--lw-accent);
+}
+
+.latex-writer-vertical-resizer.active::before {
+  opacity: 1;
 }
 
 /* 文件标签页区域 */
@@ -209,19 +249,17 @@
 
 /* AI 对话区域 */
 .latex-writer-chat-area {
-  height: 280px;
-  min-height: 120px;
-  max-height: 50%;
+  min-height: 100px;
   background: var(--lw-bg-panel);
-  border-top: 1px solid var(--lw-border);
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 .latex-writer-chat-area.collapsed {
-  height: auto;
+  height: auto !important;
   min-height: auto;
+  flex: none !important;
 }
 
 /* 右侧面板 - PDF 预览 */
@@ -784,10 +822,16 @@
   }
   
   .latex-writer-editor-area {
-    height: 300px !important;
+    height: 60% !important;
+    min-height: 200px;
   }
   
   .latex-writer-chat-area {
-    height: 200px !important;
+    height: 40% !important;
+    min-height: 150px;
+  }
+  
+  .latex-writer-vertical-resizer {
+    display: none; /* 移动端不显示拖拽分割线 */
   }
 }

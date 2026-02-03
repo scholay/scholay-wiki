@@ -10,7 +10,7 @@
  * 基于 react-pdf 实现，支持上下滚动翻页
  */
 
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 // react-pdf 10.x 使用新的样式导入方式
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -27,13 +27,17 @@ function PdfPreview({
   onCompile, 
   engineStatus,
   onAiFixError,  // 让 AI 修复错误的回调
-  lastSuccessfulPdf,  // 上一次成功的 PDF URL
+  latexContent,  // LaTeX 源码内容
+  fileName = 'document',  // 文件名（用于导出）
 }) {
   const [numPages, setNumPages] = useState(null);
   const [scale, setScale] = useState(1.0);
   const [loadError, setLoadError] = useState(null);
   const [showError, setShowError] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const containerRef = useRef(null);
+  const exportMenuRef = useRef(null);
   
   // 引擎状态文本
   const getEngineStatusText = () => {
@@ -51,13 +55,8 @@ function PdfPreview({
     }
   };
 
-  // 决定要显示的 PDF URL：如果有错误但有上一次成功的 PDF，显示上一次的
-  const displayPdfUrl = useMemo(() => {
-    if (error && lastSuccessfulPdf) {
-      return lastSuccessfulPdf;
-    }
-    return pdfUrl;
-  }, [pdfUrl, error, lastSuccessfulPdf]);
+  // 直接使用当前的 PDF URL（编译失败时保持原有显示）
+  const displayPdfUrl = pdfUrl;
 
   // 当有错误时显示错误提示
   useEffect(() => {
@@ -100,6 +99,85 @@ function PdfPreview({
   const handleDismissError = useCallback(() => {
     setShowError(false);
   }, []);
+
+  // 点击外部关闭导出菜单
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target)) {
+        setShowExportMenu(false);
+      }
+    };
+    
+    if (showExportMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showExportMenu]);
+
+  // 下载 LaTeX 源码
+  const handleDownloadLatex = useCallback(() => {
+    if (!latexContent) {
+      alert('没有可导出的内容');
+      return;
+    }
+    
+    const blob = new Blob([latexContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${fileName}.tex`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setShowExportMenu(false);
+  }, [latexContent, fileName]);
+
+  // 导出为 Word（通过后端 API）
+  const handleExportWord = useCallback(async () => {
+    if (!latexContent) {
+      alert('没有可导出的内容');
+      return;
+    }
+    
+    setIsExporting(true);
+    setShowExportMenu(false);
+    
+    try {
+      const response = await fetch('/api/v1/latex-writer/export/word', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('user_token')}`,
+        },
+        body: JSON.stringify({ 
+          content: latexContent,
+          filename: fileName 
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || '导出失败');
+      }
+      
+      // 下载文件
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fileName}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export to Word failed:', err);
+      alert(`导出 Word 失败: ${err.message}`);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [latexContent, fileName]);
 
   // 渲染编译中状态（首次加载和手动编译都用这个）
   const renderCompiling = () => (
@@ -328,17 +406,58 @@ function PdfPreview({
           </svg>
         </button>
 
-        {/* 更多选项 */}
-        <button
-          className="pdf-preview-more-btn"
-          title="更多选项"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="1"/>
-            <circle cx="19" cy="12" r="1"/>
-            <circle cx="5" cy="12" r="1"/>
-          </svg>
-        </button>
+        {/* 导出菜单 */}
+        <div className="pdf-preview-export-wrapper" ref={exportMenuRef}>
+          <button
+            className={`pdf-preview-export-btn ${showExportMenu ? 'active' : ''}`}
+            onClick={() => setShowExportMenu(!showExportMenu)}
+            disabled={!latexContent || isExporting}
+            title="导出"
+          >
+            {isExporting ? (
+              <div className="pdf-preview-export-spinner" />
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1"/>
+                <polyline points="8 8 12 4 16 8"/>
+                <line x1="12" y1="4" x2="12" y2="16"/>
+              </svg>
+            )}
+            <span className="pdf-preview-export-text">导出</span>
+            <svg className="pdf-preview-export-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          
+          {showExportMenu && (
+            <div className="pdf-preview-export-menu">
+              <button 
+                className="pdf-preview-export-item"
+                onClick={handleDownloadLatex}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                  <polyline points="10 9 9 9 8 9"/>
+                </svg>
+                <span>下载 LaTeX 源码 (.tex)</span>
+              </button>
+              <button 
+                className="pdf-preview-export-item"
+                onClick={handleExportWord}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <path d="M9 15l2 2 4-4"/>
+                </svg>
+                <span>导出为 Word (.docx)</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 错误提示条 */}
@@ -362,65 +481,6 @@ function PdfPreview({
         {/* 显示 PDF */}
         {displayPdfUrl && !loadError && renderPdf()}
 
-        {/* 页码导航 - 悬浮在右下角 */}
-        {displayPdfUrl && numPages && numPages > 1 && (
-          <div className="pdf-preview-nav">
-            <button 
-              className="pdf-preview-nav-btn"
-              onClick={() => scrollToPage(1)}
-              disabled={currentPage === 1}
-              title="第一页"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="11 17 6 12 11 7"/>
-                <polyline points="18 17 13 12 18 7"/>
-              </svg>
-            </button>
-            <button 
-              className="pdf-preview-nav-btn"
-              onClick={() => scrollToPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              title="上一页"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-            </button>
-            <div className="pdf-preview-nav-divider" />
-            <button 
-              className="pdf-preview-nav-btn"
-              onClick={() => {}} // 刷新
-              title="刷新"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="23 4 23 10 17 10"/>
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-              </svg>
-            </button>
-            <div className="pdf-preview-nav-divider" />
-            <button 
-              className="pdf-preview-nav-btn"
-              onClick={() => scrollToPage(Math.min(numPages, currentPage + 1))}
-              disabled={currentPage === numPages}
-              title="下一页"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
-            </button>
-            <button 
-              className="pdf-preview-nav-btn"
-              onClick={() => scrollToPage(numPages)}
-              disabled={currentPage === numPages}
-              title="最后一页"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="13 17 18 12 13 7"/>
-                <polyline points="6 17 11 12 6 7"/>
-              </svg>
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
