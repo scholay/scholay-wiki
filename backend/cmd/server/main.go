@@ -216,7 +216,16 @@ func main() {
 	// Initialize Semantic Scholar module with key rotation
 	scholarManager := semanticscholar.NewManager(thirdPartyService)
 	scholarHandler := semanticscholar.NewHandler(scholarManager, aiService) // 传入aiService用于查询翻译
-	mcpHandler := mcp.NewHandler(scholarManager) // MCP uses manager for dynamic API key access
+	
+	// Initialize unified MCP handler with all tool providers
+	mcpUnifiedHandler := mcp.NewUnifiedHandler(mcp.HandlerConfig{
+		DB:             database.GetDB(),
+		ScholarManager: scholarManager,
+		SerperAPIKey:   os.Getenv("SERPER_API_KEY"),   // 可选：网络搜索 API
+		CrossrefEmail:  os.Getenv("CROSSREF_EMAIL"),   // 可选：Crossref Polite Pool
+	})
+	// 保留旧的 handler 以保持向后兼容
+	mcpHandler := mcp.NewHandler(scholarManager)
 	aiHandler := ai.NewHandler(aiService)
 
 	// Initialize Peer Review module
@@ -227,6 +236,9 @@ func main() {
 	// Initialize LaTeX Writer module
 	latexWriterService := latexwriter.NewService(database.GetDB(), aiService)
 	latexWriterHandler := latexwriter.NewHandler(latexWriterService)
+	// LaTeX Agent 管理员配置
+	latexAgentConfigRepo := latexwriter.NewAgentConfigRepository(database.GetDB())
+	latexAgentAdminHandler := latexwriter.NewAdminHandler(latexAgentConfigRepo, database.GetDB())
 
 	// Initialize Subscription module
 	subscriptionService := subscription.NewService(database.GetDB())
@@ -658,6 +670,21 @@ func main() {
 			adminProtected.GET("/wechat-official/config", wechatOfficialHandler.GetConfig)
 			adminProtected.PUT("/wechat-official/config", wechatOfficialHandler.UpdateConfig)
 
+			// LaTeX Agent configuration (Admin only)
+			adminProtected.GET("/latex-agent/config", latexAgentAdminHandler.GetAgentConfig)
+			adminProtected.PUT("/latex-agent/config", latexAgentAdminHandler.UpdateAgentConfig)
+			adminProtected.GET("/latex-agent/model-presets", latexAgentAdminHandler.GetModelPresets)
+			adminProtected.GET("/latex-agent/config-options", latexAgentAdminHandler.GetConfigOptions)
+			adminProtected.GET("/latex-agent/api-formats", latexAgentAdminHandler.GetAPIFormats)
+			adminProtected.POST("/latex-agent/apply-preset", latexAgentAdminHandler.ApplyModelPreset)
+			adminProtected.POST("/latex-agent/test-connection", latexAgentAdminHandler.TestConnection)
+			// LaTeX Agent 模型管理
+			adminProtected.GET("/latex-agent/models", latexAgentAdminHandler.ListModels)
+			adminProtected.POST("/latex-agent/models", latexAgentAdminHandler.CreateModel)
+			adminProtected.PUT("/latex-agent/models/:id", latexAgentAdminHandler.UpdateModel)
+			adminProtected.DELETE("/latex-agent/models/:id", latexAgentAdminHandler.DeleteModel)
+			adminProtected.POST("/latex-agent/models/:id/set-default", latexAgentAdminHandler.SetDefaultModel)
+
 			// Coupon management (Admin only)
 			adminProtected.POST("/coupon-templates", couponHandler.CreateTemplate)
 			adminProtected.GET("/coupon-templates", couponHandler.ListTemplates)
@@ -935,7 +962,9 @@ func main() {
 			// LaTeX Writer routes (AI论文编辑器)
 			latexWriterGroup := userProtected.Group("/latex-writer")
 			{
-				// AI 对话
+				// 获取可用模型列表
+				latexWriterGroup.GET("/models", latexWriterHandler.GetAvailableModels)
+				// AI 对话（无上下文）
 				latexWriterGroup.POST("/chat/stream", latexWriterHandler.StreamChat)
 				// AI 任务执行
 				latexWriterGroup.POST("/task/stream", latexWriterHandler.ExecuteTask)
@@ -949,6 +978,17 @@ func main() {
 				latexWriterGroup.GET("/files/:id", latexWriterHandler.GetDocument)
 				latexWriterGroup.PUT("/files/:id", latexWriterHandler.UpdateDocument)
 				latexWriterGroup.DELETE("/files/:id", latexWriterHandler.DeleteDocument)
+
+				// 文档对话管理（带历史上下文）
+				latexWriterGroup.GET("/documents/:id/conversation", latexWriterHandler.GetDocumentConversation)
+				latexWriterGroup.GET("/documents/:id/conversation/messages", latexWriterHandler.GetConversationHistory)
+				latexWriterGroup.POST("/documents/:id/chat/stream", latexWriterHandler.StreamChatWithContext)
+				latexWriterGroup.DELETE("/documents/:id/conversation", latexWriterHandler.ClearConversation)
+
+				// LaTeX 验证与自动修复
+				latexWriterGroup.POST("/validate", latexWriterHandler.ValidateLatex)
+				latexWriterGroup.POST("/auto-fix", latexWriterHandler.AutoFixLatex)
+				latexWriterGroup.POST("/documents/:id/validate-fix", latexWriterHandler.ValidateAndFixLatex)
 			}
 		}
 
@@ -1044,11 +1084,27 @@ func main() {
 		}
 
 		// MCP endpoints (protected - requires user authentication)
+		// 新版统一 MCP 工具系统
 		mcpGroup := api.Group("/mcp")
 		mcpGroup.Use(middleware.UserAuthMiddleware())
 		{
-			mcpGroup.GET("/tools", mcpHandler.ListTools)
-			mcpGroup.POST("/call", mcpHandler.CallTool)
+			// 工具列表和详情
+			mcpGroup.GET("/tools", mcpUnifiedHandler.ListAllTools)           // 列出所有工具
+			mcpGroup.GET("/tools/llm", mcpUnifiedHandler.GetToolsForLLM)     // 获取 LLM 格式工具定义
+			mcpGroup.GET("/tools/category/:category", mcpUnifiedHandler.ListToolsByCategory) // 按分类列出
+			mcpGroup.GET("/tools/:name", mcpUnifiedHandler.GetTool)          // 获取工具详情
+			
+			// 工具调用
+			mcpGroup.POST("/call", mcpUnifiedHandler.CallTool)               // 调用单个工具
+			mcpGroup.POST("/batch", mcpUnifiedHandler.BatchCallTools)        // 批量调用工具
+		}
+		
+		// 保留旧版 MCP 端点以保持向后兼容
+		mcpLegacy := api.Group("/mcp-legacy")
+		mcpLegacy.Use(middleware.UserAuthMiddleware())
+		{
+			mcpLegacy.GET("/tools", mcpHandler.ListTools)
+			mcpLegacy.POST("/call", mcpHandler.CallTool)
 		}
 
 		// Proxy endpoints (protected - requires user authentication)

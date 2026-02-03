@@ -12,22 +12,25 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
 }
 
 .file-tree-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 12px 8px;
-  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
 }
 
 .file-tree-title {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  color: var(--text-secondary, #666);
-  letter-spacing: 0.5px;
+  color: #64748b;
+  letter-spacing: 1px;
 }
 
 .file-tree-actions {
@@ -38,49 +41,54 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-secondary, #666);
+  border-radius: 6px;
+  background: rgba(100, 116, 139, 0.08);
+  color: #64748b;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .file-tree-action-btn:hover {
-  background: var(--bg-hover, #f0f0f0);
-  color: var(--text-primary, #333);
+  background: #7c3aed;
+  color: #fff;
+  transform: scale(1.05);
 }
 
 .file-tree-content {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 0;
+  padding: 6px 8px;
 }
 
 /* 文件项 */
 .file-tree-item-wrapper {
   position: relative;
+  margin-bottom: 2px;
 }
 
 .file-tree-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 8px;
+  gap: 6px;
+  padding: 8px 10px;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: all 0.2s ease;
   user-select: none;
+  border-radius: 8px;
+  margin: 0 4px;
 }
 
 .file-tree-item:hover {
-  background: var(--bg-hover, #f0f0f0);
+  background: rgba(124, 58, 237, 0.08);
 }
 
 .file-tree-item.selected {
-  background: var(--primary-light, #e8f5f1);
-  color: var(--primary-color, #10A37F);
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
 }
 
 .file-tree-arrow {
@@ -89,11 +97,20 @@
   justify-content: center;
   width: 16px;
   height: 16px;
-  transition: transform 0.15s ease;
+  transition: transform 0.2s ease;
+  color: #94a3b8;
 }
 
 .file-tree-arrow.expanded {
   transform: rotate(90deg);
+}
+
+.file-tree-item:hover .file-tree-arrow {
+  color: #7c3aed;
+}
+
+.file-tree-item.selected .file-tree-arrow {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .file-tree-icon {
@@ -102,19 +119,35 @@
   justify-content: center;
   width: 20px;
   height: 20px;
-  color: var(--text-secondary, #666);
+  color: #64748b;
+  transition: color 0.2s ease;
+}
+
+.file-tree-item:hover .file-tree-icon {
+  color: #7c3aed;
 }
 
 .file-tree-item.selected .file-tree-icon {
-  color: var(--primary-color, #10A37F);
+  color: #fff;
 }
 
 .file-tree-name {
   flex: 1;
   font-size: 13px;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: #334155;
+}
+
+.file-tree-item:hover .file-tree-name {
+  color: #7c3aed;
+}
+
+.file-tree-item.selected .file-tree-name {
+  color: #fff;
+  font-weight: 600;
 }
 
 /* 编辑表单 */
@@ -204,7 +237,7 @@
   align-items: center;
   justify-content: center;
   padding: 32px 16px;
-  color: var(--text-tertiary, #999);
+  color: #94a3b8;
 }
 
 .file-tree-empty p {
@@ -213,32 +246,71 @@
 }
 
 .file-tree-empty button {
-  padding: 6px 12px;
-  border: 1px solid var(--border-color, #e0e0e0);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary, #666);
+  padding: 8px 16px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  background: rgba(124, 58, 237, 0.05);
+  color: #7c3aed;
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .file-tree-empty button:hover {
-  border-color: var(--primary-color, #10A37F);
-  color: var(--primary-color, #10A37F);
+  border-color: #7c3aed;
+  border-style: solid;
+  background: rgba(124, 58, 237, 0.1);
+  transform: translateY(-1px);
 }
 
 /* 深色模式 */
+[data-theme="dark"] .file-tree {
+  background: linear-gradient(180deg, #1e1e2e 0%, #181825 100%);
+}
+
 [data-theme="dark"] .file-tree-header {
-  border-bottom-color: var(--border-color, #404040);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+  background: rgba(30, 30, 46, 0.8);
+}
+
+[data-theme="dark"] .file-tree-title {
+  color: #a6adc8;
+}
+
+[data-theme="dark"] .file-tree-action-btn {
+  background: rgba(166, 173, 200, 0.1);
+  color: #a6adc8;
+}
+
+[data-theme="dark"] .file-tree-action-btn:hover {
+  background: #7c3aed;
+  color: #fff;
+}
+
+[data-theme="dark"] .file-tree-item {
+  color: #cdd6f4;
 }
 
 [data-theme="dark"] .file-tree-item:hover {
-  background: var(--bg-hover, #3a3a3a);
+  background: rgba(124, 58, 237, 0.15);
 }
 
 [data-theme="dark"] .file-tree-item.selected {
-  background: rgba(16, 163, 127, 0.15);
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4);
+}
+
+[data-theme="dark"] .file-tree-name {
+  color: #cdd6f4;
+}
+
+[data-theme="dark"] .file-tree-icon {
+  color: #a6adc8;
+}
+
+[data-theme="dark"] .file-tree-arrow {
+  color: #6c7086;
 }
 
 [data-theme="dark"] .file-tree-context-menu,

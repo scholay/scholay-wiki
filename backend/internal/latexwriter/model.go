@@ -34,7 +34,8 @@ type ChatRequest struct {
 	Prompt         string `json:"prompt" binding:"required"`
 	Context        string `json:"context"`
 	FullContent    string `json:"full_content"`
-	ModelLevel     string `json:"model_level"` // low, mid, high
+	ModelLevel     string `json:"model_level"`    // low, mid, high（兼容旧版）
+	ModelID        uint   `json:"model_id"`       // 新版：指定模型 ID
 	CursorPosition struct {
 		Line int `json:"line"`
 		Ch   int `json:"ch"`

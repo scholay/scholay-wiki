@@ -1,0 +1,331 @@
+/**
+ * PermissionDialog 样式
+ */
+
+.permission-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.permission-dialog {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow: hidden;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* 头部 */
+.permission-dialog-header {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  gap: 12px;
+}
+
+.permission-dialog-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.permission-dialog-title-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.permission-dialog-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.permission-dialog-risk-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.permission-dialog-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.permission-dialog-close:hover {
+  color: #333;
+}
+
+/* 内容 */
+.permission-dialog-content {
+  padding: 20px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.permission-dialog-tool-info {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.permission-dialog-tool-name,
+.permission-dialog-tool-desc {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.permission-dialog-tool-name:last-child,
+.permission-dialog-tool-desc:last-child {
+  margin-bottom: 0;
+}
+
+.permission-dialog-tool-info .label {
+  color: #666;
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.permission-dialog-tool-info .value {
+  color: #1a1a1a;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+/* 参数详情 */
+.permission-dialog-args {
+  margin-bottom: 16px;
+}
+
+.permission-dialog-args h4 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+}
+
+.permission-dialog-args-list {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 12px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.permission-dialog-arg-item {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.permission-dialog-arg-item:last-child {
+  margin-bottom: 0;
+}
+
+.arg-key {
+  color: #7c3aed;
+  flex-shrink: 0;
+}
+
+.arg-value {
+  color: #059669;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+/* 风险说明 */
+.permission-dialog-risk-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #fafafa;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #666;
+}
+
+.permission-dialog-risk-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* 记住选择 */
+.permission-dialog-remember h4 {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+}
+
+.permission-dialog-remember-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.permission-dialog-remember-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.permission-dialog-remember-option:hover {
+  border-color: #7c3aed;
+  background: #faf5ff;
+}
+
+.permission-dialog-remember-option.selected {
+  border-color: #7c3aed;
+  background: #faf5ff;
+}
+
+.permission-dialog-remember-option input {
+  margin: 3px 0 0 0;
+  accent-color: #7c3aed;
+}
+
+.option-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.option-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.option-desc {
+  font-size: 12px;
+  color: #888;
+}
+
+/* 底部按钮 */
+.permission-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.permission-dialog-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.permission-dialog-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.permission-dialog-btn-deny {
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  color: #666;
+}
+
+.permission-dialog-btn-deny:hover:not(:disabled) {
+  border-color: #ff4d4f;
+  color: #ff4d4f;
+}
+
+.permission-dialog-btn-approve {
+  background: #7c3aed;
+  color: #fff;
+}
+
+.permission-dialog-btn-approve:hover:not(:disabled) {
+  background: #6d28d9;
+}
+
+/* 移动端适配 */
+@media (max-width: 640px) {
+  .permission-dialog {
+    width: 95%;
+    max-height: 90vh;
+  }
+
+  .permission-dialog-header {
+    padding: 12px 16px;
+  }
+
+  .permission-dialog-content {
+    padding: 16px;
+  }
+
+  .permission-dialog-footer {
+    padding: 12px 16px;
+  }
+
+  .permission-dialog-btn {
+    flex: 1;
+  }
+}

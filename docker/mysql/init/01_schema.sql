@@ -1705,3 +1705,188 @@ INSERT INTO feature_configs (feature_code, feature_name, feature_group, descript
 -- 详情页类 (/search-results?paperId=xxx)
 ('detail_page_view', '论文详情页', 'detail', '打开搜索结果详情页', 70),
 ('detail_page_similar', '详情页相似论文', 'detail', '点击详情页相似论文', 71);
+
+-- ============================================
+-- LaTeX Agent 配置表（管理员配置）
+-- ============================================
+
+-- LaTeX Agent 可用模型表（支持多模型配置，直接配置密钥）
+CREATE TABLE IF NOT EXISTS `latex_agent_models` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `display_name` VARCHAR(100) NOT NULL COMMENT '显示名称（如：GPT-4o 高级版）',
+  `api_format` VARCHAR(50) NOT NULL DEFAULT 'openai' COMMENT 'API接口格式: openai, anthropic, google, azure',
+  `model_name` VARCHAR(100) NOT NULL COMMENT '模型标识（如：gpt-4o, claude-3-5-sonnet）',
+  `api_endpoint` VARCHAR(500) NOT NULL DEFAULT 'https://api.openai.com/v1' COMMENT 'API端点',
+  `api_key` VARCHAR(500) NOT NULL COMMENT 'API密钥（加密存储）',
+  `max_context_tokens` INT UNSIGNED DEFAULT 128000 COMMENT '最大上下文Token数',
+  `max_output_tokens` INT UNSIGNED DEFAULT 16384 COMMENT '最大输出Token数',
+  `temperature` DECIMAL(3,2) DEFAULT 0.7 COMMENT '温度参数',
+  `description` VARCHAR(500) DEFAULT NULL COMMENT '模型描述',
+  `sort_order` INT DEFAULT 0 COMMENT '排序顺序（越小越靠前）',
+  `is_default` BOOLEAN DEFAULT FALSE COMMENT '是否为默认模型',
+  `is_enabled` BOOLEAN DEFAULT TRUE COMMENT '是否启用',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_latex_model_enabled` (`is_enabled`),
+  INDEX `idx_latex_model_sort` (`sort_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LaTeX Agent可用模型表';
+
+-- LaTeX Agent 全局配置表
+CREATE TABLE IF NOT EXISTS `latex_agent_config` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  -- 默认模型
+  `default_model_id` INT UNSIGNED DEFAULT 1 COMMENT '默认模型ID',
+  -- 上下文配置
+  `context_window_messages` INT UNSIGNED DEFAULT 50 COMMENT '对话历史保留消息数',
+  `truncation_strategy` VARCHAR(50) DEFAULT 'sliding_window' COMMENT '截断策略: sliding_window, summarize, hybrid',
+  -- 生成参数（全局默认，可被模型配置覆盖）
+  `top_p` DECIMAL(3,2) DEFAULT 0.9 COMMENT 'Top-P 采样',
+  `frequency_penalty` DECIMAL(3,2) DEFAULT 0.0 COMMENT '频率惩罚 0-2',
+  `presence_penalty` DECIMAL(3,2) DEFAULT 0.0 COMMENT '存在惩罚 0-2',
+  -- Agent 行为配置
+  `max_iterations` INT UNSIGNED DEFAULT 10 COMMENT 'Agent最大迭代次数',
+  `auto_validate_latex` BOOLEAN DEFAULT TRUE COMMENT '自动验证LaTeX语法',
+  `auto_fix_errors` BOOLEAN DEFAULT TRUE COMMENT '自动修复语法错误',
+  `enable_tool_calling` BOOLEAN DEFAULT TRUE COMMENT '启用工具调用（Function Calling）',
+  -- 多 Agent 配置（新增）
+  `enable_multi_agent` BOOLEAN DEFAULT FALSE COMMENT '启用多Agent模式',
+  `auto_compact_enabled` BOOLEAN DEFAULT TRUE COMMENT '启用自动上下文压缩',
+  `auto_compact_threshold` DECIMAL(3,2) DEFAULT 0.85 COMMENT '自动压缩触发阈值(0-1)',
+  `planner_model_id` INT UNSIGNED DEFAULT NULL COMMENT '规划Agent使用的模型ID',
+  `validator_model_id` INT UNSIGNED DEFAULT NULL COMMENT '验证Agent使用的模型ID',
+  `default_tool_permissions` JSON DEFAULT NULL COMMENT '默认工具权限配置',
+  `enabled_tool_categories` JSON DEFAULT NULL COMMENT '启用的工具分类 ["latex","search","bibtex"]',
+  -- 系统提示词配置
+  `system_prompt_override` TEXT DEFAULT NULL COMMENT '自定义系统提示词（覆盖默认）',
+  `system_prompt_append` TEXT DEFAULT NULL COMMENT '追加到系统提示词',
+  -- 元数据
+  `is_active` BOOLEAN DEFAULT TRUE COMMENT '是否启用',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `updated_by` INT UNSIGNED DEFAULT NULL COMMENT '最后更新的管理员ID',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LaTeX Agent全局配置表';
+
+-- 插入默认配置
+INSERT IGNORE INTO `latex_agent_config` (
+  `id`, `default_model_id`, `context_window_messages`, `max_iterations`, `enabled_tool_categories`
+) VALUES (
+  1, 1, 50, 10, '["latex","search","bibtex","file","convert"]'
+);
+
+-- ============================================
+-- LaTeX AI 对话系统表（独立于通用对话系统）
+-- ============================================
+
+-- LaTeX 对话表
+CREATE TABLE IF NOT EXISTS `latex_conversations` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+  `document_id` BIGINT UNSIGNED NOT NULL COMMENT 'LaTeX文档ID',
+  `title` VARCHAR(255) DEFAULT 'LaTeX 对话' COMMENT '对话标题',
+  `model_level` VARCHAR(20) DEFAULT 'mid' COMMENT '模型级别: low, mid, high',
+  `message_count` INT UNSIGNED DEFAULT 0 COMMENT '消息数量',
+  `total_tokens` INT UNSIGNED DEFAULT 0 COMMENT '总Token数',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_latex_conv_user_id` (`user_id`),
+  INDEX `idx_latex_conv_document_id` (`document_id`),
+  UNIQUE INDEX `idx_latex_conv_user_document` (`user_id`, `document_id`),
+  CONSTRAINT `fk_latex_conv_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_latex_conv_document` FOREIGN KEY (`document_id`) REFERENCES `latex_documents` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LaTeX AI对话表';
+
+-- LaTeX 对话消息表
+CREATE TABLE IF NOT EXISTS `latex_chat_messages` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `conversation_id` BIGINT UNSIGNED NOT NULL COMMENT '对话ID',
+  `role` ENUM('user', 'assistant', 'system') NOT NULL COMMENT '消息角色',
+  `content` TEXT NOT NULL COMMENT '消息内容',
+  `think_content` TEXT COMMENT '思考过程（AI回复）',
+  `reply_content` TEXT COMMENT '回复内容（AI回复）',
+  `code_content` TEXT COMMENT 'LaTeX代码（AI回复）',
+  `token_count` INT UNSIGNED DEFAULT 0 COMMENT 'Token数量',
+  `model` VARCHAR(100) COMMENT '使用的模型',
+  `is_truncated` BOOLEAN DEFAULT FALSE COMMENT '是否被截断',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_latex_msg_conversation_id` (`conversation_id`),
+  INDEX `idx_latex_msg_role` (`role`),
+  INDEX `idx_latex_msg_created_at` (`created_at`),
+  CONSTRAINT `fk_latex_msg_conversation` FOREIGN KEY (`conversation_id`) REFERENCES `latex_conversations` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LaTeX AI对话消息表';
+
+-- ============================================
+-- Agent 架构升级相关表
+-- ============================================
+
+-- Agent 工具权限表
+CREATE TABLE IF NOT EXISTS `agent_tool_permissions` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL COMMENT '用户ID',
+  `tool_name` VARCHAR(100) NOT NULL COMMENT '工具名称',
+  `permission` ENUM('allow', 'ask', 'deny') NOT NULL DEFAULT 'ask' COMMENT '权限级别',
+  `scope` ENUM('global', 'session') NOT NULL DEFAULT 'global' COMMENT '作用域',
+  `session_id` VARCHAR(100) DEFAULT NULL COMMENT '会话ID（scope=session时使用）',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_user_tool_scope` (`user_id`, `tool_name`, `scope`, `session_id`),
+  INDEX `idx_tool_permissions_user` (`user_id`),
+  INDEX `idx_tool_permissions_tool` (`tool_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent工具权限表';
+
+-- 对话摘要表（用于上下文压缩）
+CREATE TABLE IF NOT EXISTS `conversation_summaries` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `conversation_id` BIGINT UNSIGNED NOT NULL COMMENT '对话ID',
+  `summary` TEXT NOT NULL COMMENT '摘要内容',
+  `token_count_before` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '压缩前Token数',
+  `token_count_after` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '压缩后Token数',
+  `messages_summarized` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '被摘要的消息数量',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_conv_summary_conversation` (`conversation_id`),
+  INDEX `idx_conv_summary_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对话摘要表';
+
+-- ============================================
+-- 安全添加新列（仅当列不存在时）
+-- 用于表已存在的情况下的迁移
+-- ============================================
+
+-- 创建安全添加列的存储过程
+DROP PROCEDURE IF EXISTS add_column_if_not_exists;
+DELIMITER //
+CREATE PROCEDURE add_column_if_not_exists(
+    IN p_table_name VARCHAR(64),
+    IN p_column_name VARCHAR(64),
+    IN p_column_definition VARCHAR(500)
+)
+BEGIN
+    IF NOT EXISTS (
+        SELECT * FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = p_table_name 
+        AND COLUMN_NAME = p_column_name
+    ) THEN
+        SET @sql = CONCAT('ALTER TABLE `', p_table_name, '` ADD COLUMN `', p_column_name, '` ', p_column_definition);
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+    END IF;
+END //
+DELIMITER ;
+
+-- 为 latex_agent_config 表添加新列（如果不存在）
+CALL add_column_if_not_exists('latex_agent_config', 'enable_multi_agent', "BOOLEAN DEFAULT FALSE COMMENT '启用多Agent模式'");
+CALL add_column_if_not_exists('latex_agent_config', 'auto_compact_enabled', "BOOLEAN DEFAULT TRUE COMMENT '启用自动上下文压缩'");
+CALL add_column_if_not_exists('latex_agent_config', 'auto_compact_threshold', "DECIMAL(3,2) DEFAULT 0.85 COMMENT '自动压缩触发阈值(0-1)'");
+CALL add_column_if_not_exists('latex_agent_config', 'planner_model_id', "INT UNSIGNED DEFAULT NULL COMMENT '规划Agent使用的模型ID'");
+CALL add_column_if_not_exists('latex_agent_config', 'validator_model_id', "INT UNSIGNED DEFAULT NULL COMMENT '验证Agent使用的模型ID'");
+CALL add_column_if_not_exists('latex_agent_config', 'default_tool_permissions', "JSON DEFAULT NULL COMMENT '默认工具权限配置'");
+
+-- 清理存储过程
+DROP PROCEDURE IF EXISTS add_column_if_not_exists;

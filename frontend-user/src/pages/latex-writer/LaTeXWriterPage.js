@@ -17,15 +17,14 @@ import FileTree from '../../components/latex-writer/FileTree';
 import LatexEditor from '../../components/latex-writer/LatexEditor';
 import AiChatPanel from '../../components/latex-writer/AiChatPanel';
 import PdfPreview from '../../components/latex-writer/PdfPreview';
-import DiffViewer from '../../components/latex-writer/DiffViewer';
+// DiffViewer 已改为使用编辑器内的 inline diff 模式
 import LatexToolbar from '../../components/latex-writer/LatexToolbar';
 import LatexCompiler from '../../components/latex-writer/LatexCompiler';
 import { userAPI } from '../../services/api';
 import './LaTeXWriterPage.css';
 
-// 默认 LaTeX 模板
+// 默认 LaTeX 模板（英文）
 const DEFAULT_LATEX_TEMPLATE = `\\documentclass{article}
-\\usepackage[utf8]{inputenc}
 \\usepackage{amsmath}
 \\usepackage{graphicx}
 
@@ -56,6 +55,48 @@ Summarize your findings.
 \\end{document}
 `;
 
+// 中文 LaTeX 模板（使用 xeCJK，需要 XeTeX 引擎）
+const CHINESE_LATEX_TEMPLATE = `\\documentclass{article}
+\\usepackage{xeCJK}
+\\usepackage{amsmath}
+\\usepackage{graphicx}
+\\usepackage{geometry}
+
+% 设置中文字体（使用 Noto 字体，在线编译器支持）
+\\setCJKmainfont{Noto Serif CJK SC}
+\\setCJKsansfont{Noto Sans CJK SC}
+\\setCJKmonofont{Noto Sans Mono CJK SC}
+
+% 页面设置
+\\geometry{a4paper, margin=2.5cm}
+
+\\title{论文标题}
+\\author{作者姓名}
+\\date{\\today}
+
+\\begin{document}
+
+\\maketitle
+
+\\begin{abstract}
+在此处填写摘要内容。
+\\end{abstract}
+
+\\section{引言}
+在此处开始撰写引言部分。
+
+\\section{方法}
+描述您的研究方法。
+
+\\section{结果}
+展示您的研究结果。
+
+\\section{结论}
+总结您的研究发现。
+
+\\end{document}
+`;
+
 function LaTeXWriterPage() {
   const { resetSidebarConfig } = useSidebar();
   const { isAuthenticated, showAuthModal } = useAuth();
@@ -75,8 +116,11 @@ function LaTeXWriterPage() {
   
   // PDF 预览状态
   const [pdfUrl, setPdfUrl] = useState(null);
+  const [lastSuccessfulPdf, setLastSuccessfulPdf] = useState(null); // 保存上一次成功的 PDF
   const [isCompiling, setIsCompiling] = useState(false);
   const [compileError, setCompileError] = useState(null);
+  const [autoCompileEnabled, setAutoCompileEnabled] = useState(true); // 自动编译开关
+  const [hasInitialCompiled, setHasInitialCompiled] = useState(false); // 是否已执行初始编译
   
   // AI 对话状态
   const [selectedText, setSelectedText] = useState('');
@@ -282,35 +326,69 @@ function LaTeXWriterPage() {
     }
   }, []);
 
-  // 处理 AI 建议应用
+  // 处理 AI 建议应用 - 使用编辑器内的 inline diff 模式
   const handleApplySuggestion = useCallback((suggestion) => {
-    setDiffOldContent(selectedText || content);
+    // 直接在编辑器中显示 diff，不使用弹窗
     setDiffNewContent(suggestion);
     setShowDiff(true);
-  }, [selectedText, content]);
+  }, []);
 
   // 确认应用 diff
   const handleAcceptDiff = useCallback(() => {
-    if (selectedText) {
-      const newContent = content.replace(selectedText, diffNewContent);
-      handleContentChange(newContent);
-    } else {
-      handleContentChange(diffNewContent);
-    }
+    // 应用新内容到编辑器
+    handleContentChange(diffNewContent);
+    // 退出 diff 模式
     setShowDiff(false);
     setDiffOldContent('');
     setDiffNewContent('');
-  }, [content, selectedText, diffNewContent, handleContentChange]);
+  }, [diffNewContent, handleContentChange]);
 
   // 拒绝 diff
   const handleRejectDiff = useCallback(() => {
+    // 退出 diff 模式，保持原内容不变
     setShowDiff(false);
     setDiffOldContent('');
     setDiffNewContent('');
   }, []);
 
+  // AI 聊天面板引用
+  const aiChatRef = useRef(null);
+  
+  // 让 AI 修复编译错误
+  const handleAiFixError = useCallback((errorMessage) => {
+    if (!errorMessage) return;
+    
+    // 构造修复请求消息
+    const fixPrompt = `我的 LaTeX 代码编译出错了，请帮我修复。
+
+错误信息:
+\`\`\`
+${errorMessage}
+\`\`\`
+
+请分析错误原因并提供修复后的完整 LaTeX 代码。`;
+    
+    // 触发 AI 聊天发送消息（通过设置一个状态来触发）
+    // 这里我们使用一个简单的方式：将错误信息放到 selectedText 中触发对话
+    setSelectedText(content.substring(0, Math.min(content.length, 500))); // 选中部分代码作为上下文
+    
+    // 模拟用户在 AI 聊天面板中输入修复请求
+    // 由于 AiChatPanel 是独立组件，我们通过 props 传递一个触发消息
+    if (aiChatRef.current && aiChatRef.current.sendMessage) {
+      aiChatRef.current.sendMessage(fixPrompt);
+    } else {
+      // 如果没有直接的 ref 方法，我们使用事件或状态
+      // 这里简化处理：设置一个待发送的消息状态
+      setAiPendingMessage(fixPrompt);
+    }
+  }, [content]);
+
+  // AI 待发送消息（用于 AI 修复功能）
+  const [aiPendingMessage, setAiPendingMessage] = useState(null);
+
   // 编译引擎状态
   const [engineStatus, setEngineStatus] = useState('unloaded');
+  const [isPreloading, setIsPreloading] = useState(false);
   
   // 监听编译引擎状态
   useEffect(() => {
@@ -320,27 +398,87 @@ function LaTeXWriterPage() {
     return unsubscribe;
   }, []);
   
-  // 预加载编译引擎
+  // 页面加载时立即预加载编译引擎和常用宏包
   useEffect(() => {
-    if (selectedFile && content) {
-      // 延迟加载引擎，避免阻塞渲染
-      const timer = setTimeout(() => {
-        LatexCompiler.initializeEngine();
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [selectedFile, content]);
+    let isMounted = true;
+    
+    const preloadEngine = async () => {
+      // 延迟 500ms 避免阻塞初始渲染
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      if (!isMounted) return;
+      
+      console.log('[LaTeX] 开始预加载编译引擎...');
+      setIsPreloading(true);
+      
+      try {
+        // 初始化引擎
+        const initialized = await LatexCompiler.initializeEngine();
+        
+        if (initialized && isMounted) {
+          console.log('[LaTeX] 引擎初始化完成，开始预热编译...');
+          
+          // 使用与默认模板相同的结构预热，预加载所有需要的宏包和字体
+          const warmupDoc = `\\documentclass{article}
+\\usepackage[utf8]{inputenc}
+\\usepackage{amsmath}
+\\usepackage{graphicx}
+
+\\title{Warmup}
+\\author{System}
+\\date{\\today}
+
+\\begin{document}
+
+\\maketitle
+
+\\begin{abstract}
+Abstract text.
+\\end{abstract}
+
+\\section{Section One}
+Text with \\textbf{bold} and \\textit{italic}.
+
+\\section{Section Two}
+More text here.
+
+\\section{Section Three}
+Additional content.
+
+\\section{Section Four}
+Final section.
+
+\\end{document}`;
+          
+          // 静默预热编译（不显示结果）
+          try {
+            await LatexCompiler.compileLaTeX(warmupDoc, '_warmup.tex');
+            console.log('[LaTeX] 预热编译完成，常用宏包和字体已缓存');
+          } catch (e) {
+            console.log('[LaTeX] 预热编译完成（可能有警告）');
+          }
+        }
+      } catch (error) {
+        console.error('[LaTeX] 引擎预加载失败:', error);
+      } finally {
+        if (isMounted) {
+          setIsPreloading(false);
+        }
+      }
+    };
+    
+    preloadEngine();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []); // 只在组件挂载时运行一次
   
   // 编译 PDF（使用 SwiftLaTeX WASM）
   const handleCompile = useCallback(async () => {
     if (!content.trim()) {
       setCompileError('请先编写 LaTeX 内容');
       return;
-    }
-    
-    // 释放之前的 PDF URL
-    if (pdfUrl) {
-      LatexCompiler.revokePdfUrl(pdfUrl);
     }
     
     setIsCompiling(true);
@@ -350,9 +488,21 @@ function LaTeXWriterPage() {
       const result = await LatexCompiler.compileLaTeX(content, selectedFile?.title || 'main.tex');
       
       if (result.success) {
+        // 保存当前成功的 PDF 作为备份
+        if (pdfUrl) {
+          // 不立即释放旧的 PDF URL，将其作为上一次成功的 PDF 保存
+          setLastSuccessfulPdf(pdfUrl);
+        }
         setPdfUrl(result.pdfUrl);
+        setCompileError(null);
+        setHasInitialCompiled(true);
       } else {
+        // 编译失败时保留上一次成功的 PDF
         setCompileError(result.error || '编译失败，请检查 LaTeX 语法');
+        // 如果这是第一次编译失败，将当前 PDF 设为上一次成功的
+        if (pdfUrl && !lastSuccessfulPdf) {
+          setLastSuccessfulPdf(pdfUrl);
+        }
       }
     } catch (error) {
       console.error('编译失败:', error);
@@ -360,7 +510,93 @@ function LaTeXWriterPage() {
     } finally {
       setIsCompiling(false);
     }
-  }, [content, selectedFile, pdfUrl]);
+  }, [content, selectedFile, pdfUrl, lastSuccessfulPdf]);
+
+  // 自动编译定时器引用
+  const autoCompileTimeoutRef = useRef(null);
+  // 使用 ref 存储编译函数，避免依赖循环
+  const handleCompileRef = useRef(handleCompile);
+  handleCompileRef.current = handleCompile;
+  
+  // 追踪上一次编译的内容，避免重复编译相同内容
+  const lastCompiledContentRef = useRef('');
+  
+  // 代码变动后自动编译（防抖 3 秒）
+  useEffect(() => {
+    // 不自动编译的条件
+    if (!autoCompileEnabled || !selectedFile || isCompiling) {
+      return;
+    }
+    
+    const trimmedContent = content.trim();
+    
+    // 内容太短或为空，不编译
+    if (trimmedContent.length < 50) {
+      return;
+    }
+    
+    // 如果内容与上次编译的相同，不重复编译
+    if (trimmedContent === lastCompiledContentRef.current) {
+      return;
+    }
+    
+    // 清除之前的定时器
+    if (autoCompileTimeoutRef.current) {
+      clearTimeout(autoCompileTimeoutRef.current);
+    }
+    
+    // 设置新的定时器（3 秒后自动编译）
+    autoCompileTimeoutRef.current = setTimeout(() => {
+      // 再次检查条件
+      if (engineStatus === 'ready' && !isCompiling) {
+        console.log('[LaTeX] 自动编译触发');
+        lastCompiledContentRef.current = trimmedContent;
+        handleCompileRef.current();
+      }
+    }, 3000);
+    
+    return () => {
+      if (autoCompileTimeoutRef.current) {
+        clearTimeout(autoCompileTimeoutRef.current);
+      }
+    };
+  }, [content, autoCompileEnabled, selectedFile, isCompiling, engineStatus]); // 移除 handleCompile 依赖
+
+  // 首次选择文件后自动编译（只执行一次）
+  const initialCompileTriggeredRef = useRef(false);
+  
+  useEffect(() => {
+    // 重置初始编译标记
+    if (!selectedFile) {
+      initialCompileTriggeredRef.current = false;
+      setHasInitialCompiled(false);
+      lastCompiledContentRef.current = '';
+      return;
+    }
+    
+    // 已经触发过初始编译，不再触发
+    if (initialCompileTriggeredRef.current || hasInitialCompiled) {
+      return;
+    }
+    
+    const trimmedContent = content.trim();
+    if (!trimmedContent || trimmedContent.length < 50) {
+      return;
+    }
+    
+    if (engineStatus === 'ready' && !isCompiling) {
+      // 标记已触发，防止重复
+      initialCompileTriggeredRef.current = true;
+      
+      // 延迟一点时间确保内容已加载
+      const timer = setTimeout(() => {
+        console.log('[LaTeX] 首次加载自动编译');
+        lastCompiledContentRef.current = trimmedContent;
+        handleCompileRef.current();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedFile, content, engineStatus, hasInitialCompiled, isCompiling]); // 移除 handleCompile 依赖
 
   // 处理工具栏操作
   const handleToolbarAction = useCallback((action, value) => {
@@ -646,23 +882,32 @@ function LaTeXWriterPage() {
         >
           {selectedFile ? (
             <>
-              {/* 代码编辑器 */}
+              {/* 代码编辑器 - 支持 inline diff 模式 */}
               <div className="latex-writer-editor-area">
                 <LatexEditor
                   ref={editorRef}
                   value={content}
                   onChange={handleContentChange}
                   onTextSelect={handleTextSelect}
+                  // Diff 模式属性
+                  diffMode={showDiff}
+                  diffNewContent={diffNewContent}
+                  onAcceptDiff={handleAcceptDiff}
+                  onRejectDiff={handleRejectDiff}
                 />
               </div>
               
               {/* AI 对话面板 */}
               <div className="latex-writer-chat-area">
                 <AiChatPanel
+                  ref={aiChatRef}
+                  documentId={selectedFile?.id}
                   selectedText={selectedText}
                   fullContent={content}
                   onApplySuggestion={handleApplySuggestion}
                   cursorPosition={cursorPosition}
+                  pendingMessage={aiPendingMessage}
+                  onPendingMessageSent={() => setAiPendingMessage(null)}
                 />
               </div>
             </>
@@ -701,25 +946,16 @@ function LaTeXWriterPage() {
           <div className="latex-writer-right-panel">
             <PdfPreview 
               pdfUrl={pdfUrl}
+              lastSuccessfulPdf={lastSuccessfulPdf}
               isCompiling={isCompiling}
               error={compileError}
               onCompile={handleCompile}
               engineStatus={engineStatus}
+              onAiFixError={handleAiFixError}
             />
           </div>
         )}
       </div>
-      
-      {/* Diff 对比弹窗 */}
-      {showDiff && (
-        <DiffViewer
-          oldContent={diffOldContent}
-          newContent={diffNewContent}
-          onAccept={handleAcceptDiff}
-          onReject={handleRejectDiff}
-          title="AI 修改建议"
-        />
-      )}
     </div>
   );
 }

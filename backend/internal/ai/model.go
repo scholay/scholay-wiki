@@ -336,6 +336,7 @@ type ChatCompletionRequest struct {
 
 // ToolCall represents a tool call in the response
 type ToolCall struct {
+	Index    int    `json:"index"` // 工具调用索引（流式响应中使用）
 	ID       string `json:"id"`
 	Type     string `json:"type"`
 	Function struct {

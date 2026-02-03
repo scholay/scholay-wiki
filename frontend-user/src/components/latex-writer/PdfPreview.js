@@ -7,24 +7,33 @@
  * ============================================================================
  * 
  * PDF 预览组件
- * 基于 react-pdf 实现
+ * 基于 react-pdf 实现，支持上下滚动翻页
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 // react-pdf 10.x 使用新的样式导入方式
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import './PdfPreview.css';
 
-// 设置 PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+// 设置 PDF.js worker（从 pdfjs 目录加载）
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
 
-function PdfPreview({ pdfUrl, isCompiling, error, onCompile, engineStatus }) {
+function PdfPreview({ 
+  pdfUrl, 
+  isCompiling, 
+  error, 
+  onCompile, 
+  engineStatus,
+  onAiFixError,  // 新增：让 AI 修复错误的回调
+  lastSuccessfulPdf,  // 新增：上一次成功的 PDF URL
+}) {
   const [numPages, setNumPages] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1.0);
   const [loadError, setLoadError] = useState(null);
+  const [showError, setShowError] = useState(false);
+  const containerRef = useRef(null);
   
   // 引擎状态文本
   const getEngineStatusText = () => {
@@ -42,14 +51,28 @@ function PdfPreview({ pdfUrl, isCompiling, error, onCompile, engineStatus }) {
     }
   };
 
+  // 决定要显示的 PDF URL：如果有错误但有上一次成功的 PDF，显示上一次的
+  const displayPdfUrl = useMemo(() => {
+    if (error && lastSuccessfulPdf) {
+      return lastSuccessfulPdf;
+    }
+    return pdfUrl;
+  }, [pdfUrl, error, lastSuccessfulPdf]);
+
+  // 当有错误时显示错误提示
+  useEffect(() => {
+    if (error) {
+      setShowError(true);
+    }
+  }, [error]);
+
   const onDocumentLoadSuccess = useCallback(({ numPages }) => {
     setNumPages(numPages);
-    setCurrentPage(1);
     setLoadError(null);
   }, []);
 
-  const onDocumentLoadError = useCallback((error) => {
-    console.error('PDF load error:', error);
+  const onDocumentLoadError = useCallback((err) => {
+    console.error('PDF load error:', err);
     setLoadError('PDF 加载失败');
   }, []);
 
@@ -65,13 +88,18 @@ function PdfPreview({ pdfUrl, isCompiling, error, onCompile, engineStatus }) {
     setScale(1.0);
   }, []);
 
-  const handlePrevPage = useCallback(() => {
-    setCurrentPage(prev => Math.max(prev - 1, 1));
-  }, []);
+  // 让 AI 修复错误
+  const handleAiFixError = useCallback(() => {
+    setShowError(false);
+    if (onAiFixError && error) {
+      onAiFixError(error);
+    }
+  }, [error, onAiFixError]);
 
-  const handleNextPage = useCallback(() => {
-    setCurrentPage(prev => Math.min(prev + 1, numPages || 1));
-  }, [numPages]);
+  // 关闭错误提示
+  const handleDismissError = useCallback(() => {
+    setShowError(false);
+  }, []);
 
   // 渲染空状态（无 PDF）
   const renderEmptyState = () => (
@@ -116,7 +144,7 @@ function PdfPreview({ pdfUrl, isCompiling, error, onCompile, engineStatus }) {
     </div>
   );
 
-  // 渲染错误状态
+  // 渲染错误状态（全屏，没有上一次的 PDF 时显示）
   const renderError = () => (
     <div className="pdf-preview-error">
       <div className="pdf-preview-error-icon">
@@ -127,34 +155,96 @@ function PdfPreview({ pdfUrl, isCompiling, error, onCompile, engineStatus }) {
         </svg>
       </div>
       <h3>编译错误</h3>
-      <p>{error || loadError || '未知错误'}</p>
-      <button 
-        className="pdf-preview-compile-btn"
-        onClick={onCompile}
-        disabled={isCompiling}
-      >
-        重新编译
-      </button>
+      <p className="pdf-preview-error-text">{error || loadError || '未知错误'}</p>
+      <div className="pdf-preview-error-actions">
+        <button 
+          className="pdf-preview-compile-btn"
+          onClick={onCompile}
+          disabled={isCompiling}
+        >
+          重新编译
+        </button>
+        {onAiFixError && (
+          <button 
+            className="pdf-preview-fix-btn"
+            onClick={handleAiFixError}
+            disabled={isCompiling}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+              <path d="M9 12l2 2 4-4"/>
+            </svg>
+            让 AI 修复
+          </button>
+        )}
+      </div>
     </div>
   );
 
-  // 渲染 PDF 内容
+  // 渲染 PDF 内容（滚动显示所有页面）
   const renderPdf = () => (
-    <div className="pdf-preview-document">
+    <div className="pdf-preview-document" ref={containerRef}>
       <Document
-        file={pdfUrl}
+        file={displayPdfUrl}
         onLoadSuccess={onDocumentLoadSuccess}
         onLoadError={onDocumentLoadError}
         loading={<div className="pdf-preview-loading"><div className="pdf-preview-spinner" /></div>}
       >
-        <Page
-          pageNumber={currentPage}
-          scale={scale}
-          renderTextLayer={true}
-          renderAnnotationLayer={true}
-        />
+        {/* 渲染所有页面，支持滚动翻页 */}
+        {Array.from({ length: numPages || 0 }, (_, index) => (
+          <div key={`page-${index + 1}`} className="pdf-preview-page-wrapper">
+            <Page
+              pageNumber={index + 1}
+              scale={scale}
+              renderTextLayer={true}
+              renderAnnotationLayer={true}
+            />
+            <div className="pdf-preview-page-number">
+              {index + 1} / {numPages}
+            </div>
+          </div>
+        ))}
       </Document>
     </div>
+  );
+
+  // 渲染错误提示条（有上一次的 PDF 时显示在顶部）
+  const renderErrorBanner = () => (
+    showError && error && (
+      <div className="pdf-preview-error-banner">
+        <div className="pdf-preview-error-banner-content">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span className="pdf-preview-error-banner-text">
+            编译失败: {error.substring(0, 100)}{error.length > 100 ? '...' : ''}
+          </span>
+        </div>
+        <div className="pdf-preview-error-banner-actions">
+          {onAiFixError && (
+            <button 
+              className="pdf-preview-banner-fix-btn"
+              onClick={handleAiFixError}
+              disabled={isCompiling}
+            >
+              AI 修复
+            </button>
+          )}
+          <button 
+            className="pdf-preview-banner-dismiss-btn"
+            onClick={handleDismissError}
+            title="关闭"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    )
   );
 
   return (
@@ -165,7 +255,7 @@ function PdfPreview({ pdfUrl, isCompiling, error, onCompile, engineStatus }) {
           <button
             className="pdf-preview-toolbar-btn"
             onClick={handleZoomOut}
-            disabled={!pdfUrl || scale <= 0.5}
+            disabled={!displayPdfUrl || scale <= 0.5}
             title="缩小"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -180,7 +270,7 @@ function PdfPreview({ pdfUrl, isCompiling, error, onCompile, engineStatus }) {
           <button
             className="pdf-preview-toolbar-btn"
             onClick={handleZoomIn}
-            disabled={!pdfUrl || scale >= 3.0}
+            disabled={!displayPdfUrl || scale >= 3.0}
             title="放大"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -192,41 +282,50 @@ function PdfPreview({ pdfUrl, isCompiling, error, onCompile, engineStatus }) {
           </button>
         </div>
 
-        {pdfUrl && numPages && (
+        {displayPdfUrl && numPages && (
           <div className="pdf-preview-toolbar-group">
-            <button
-              className="pdf-preview-toolbar-btn"
-              onClick={handlePrevPage}
-              disabled={currentPage <= 1}
-              title="上一页"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-            </button>
             <span className="pdf-preview-page-label">
-              {currentPage} / {numPages}
+              共 {numPages} 页
             </span>
-            <button
-              className="pdf-preview-toolbar-btn"
-              onClick={handleNextPage}
-              disabled={currentPage >= numPages}
-              title="下一页"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
-            </button>
           </div>
         )}
+
+        {/* 编译按钮 */}
+        <div className="pdf-preview-toolbar-group">
+          <button
+            className="pdf-preview-toolbar-compile-btn"
+            onClick={onCompile}
+            disabled={isCompiling || engineStatus === 'loading'}
+            title="编译"
+          >
+            {isCompiling ? (
+              <span className="pdf-preview-toolbar-spinner" />
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+            )}
+            <span>{isCompiling ? '编译中' : '编译'}</span>
+          </button>
+        </div>
       </div>
+
+      {/* 错误提示条 */}
+      {renderErrorBanner()}
 
       {/* 内容区域 */}
       <div className="pdf-preview-content">
-        {isCompiling && renderCompiling()}
-        {!isCompiling && (error || loadError) && renderError()}
-        {!isCompiling && !error && !loadError && !pdfUrl && renderEmptyState()}
-        {!isCompiling && !error && !loadError && pdfUrl && renderPdf()}
+        {isCompiling && !displayPdfUrl && renderCompiling()}
+        {/* 如果有 PDF 正在编译，显示覆盖层 */}
+        {isCompiling && displayPdfUrl && (
+          <div className="pdf-preview-compiling-overlay">
+            <div className="pdf-preview-spinner" />
+            <p>正在编译...</p>
+          </div>
+        )}
+        {!isCompiling && (error || loadError) && !displayPdfUrl && renderError()}
+        {!displayPdfUrl && !isCompiling && !error && !loadError && renderEmptyState()}
+        {displayPdfUrl && !loadError && renderPdf()}
       </div>
     </div>
   );

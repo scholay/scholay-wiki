@@ -491,6 +491,54 @@ export const adminAPI = {
 
   deleteCodeSnippet: (id) =>
     api.delete(`/admin/code-snippets/${id}`),
+
+  // ============================================================================
+  // LaTeX Agent 配置管理
+  // ============================================================================
+
+  // 获取 LaTeX Agent 配置
+  getLatexAgentConfig: () =>
+    api.get('/admin/latex-agent/config'),
+
+  // 更新 LaTeX Agent 配置
+  updateLatexAgentConfig: (data) =>
+    api.put('/admin/latex-agent/config', data),
+
+  // 获取模型预设列表
+  getLatexAgentModelPresets: () =>
+    api.get('/admin/latex-agent/model-presets'),
+
+  // 获取配置选项（截断策略、工具分类等）
+  getLatexAgentConfigOptions: () =>
+    api.get('/admin/latex-agent/config-options'),
+
+  // 应用模型预设
+  applyLatexAgentModelPreset: (provider, name) =>
+    api.post('/admin/latex-agent/apply-preset', { provider, name }),
+
+  // 测试模型连接
+  testLatexAgentConnection: () =>
+    api.post('/admin/latex-agent/test-connection'),
+
+  // 获取支持的 API 格式
+  getLatexAgentApiFormats: () =>
+    api.get('/admin/latex-agent/api-formats'),
+
+  // LaTeX Agent 模型管理
+  getLatexAgentModels: () =>
+    api.get('/admin/latex-agent/models'),
+
+  createLatexAgentModel: (data) =>
+    api.post('/admin/latex-agent/models', data),
+
+  updateLatexAgentModel: (id, data) =>
+    api.put(`/admin/latex-agent/models/${id}`, data),
+
+  deleteLatexAgentModel: (id) =>
+    api.delete(`/admin/latex-agent/models/${id}`),
+
+  setDefaultLatexAgentModel: (id) =>
+    api.post(`/admin/latex-agent/models/${id}/set-default`),
 };
 
 export default api;

@@ -7,6 +7,7 @@
  * ============================================================================
  * 
  * LaTeX 编译器 - 基于 SwiftLaTeX WASM
+ * 支持 pdfTeX 和 XeTeX 两种引擎
  */
 
 // 使用绝对路径
@@ -14,6 +15,8 @@ const BASE_PATH = '/core/swiftlatex';
 
 // 全局引擎实例
 let pdfTeXEngine = null;
+let xeTeXEngine = null;
+let currentEngine = 'pdftex'; // pdftex 或 xetex
 let engineStatus = 'unloaded'; // unloaded, loading, ready, compiling, error
 
 // 状态监听器
@@ -57,8 +60,24 @@ export const addStatusListener = (listener) => {
 // 获取当前状态
 export const getStatus = () => engineStatus;
 
+// 获取当前引擎类型
+export const getCurrentEngineType = () => currentEngine;
+
+// 设置引擎类型
+export const setEngineType = (type) => {
+  if (type === 'pdftex' || type === 'xetex') {
+    currentEngine = type;
+    console.log(`[LatexCompiler] Engine type set to: ${type}`);
+  }
+};
+
 // 初始化引擎
-export const initializeEngine = async () => {
+export const initializeEngine = async (engineType = null) => {
+  // 如果指定了引擎类型，更新当前引擎
+  if (engineType) {
+    currentEngine = engineType;
+  }
+
   if (engineStatus === 'ready') return true;
   if (engineStatus === 'loading') {
     // 等待加载完成
@@ -79,37 +98,66 @@ export const initializeEngine = async () => {
   setStatus('loading');
 
   try {
-    // 设置引擎路径（供 PdfTeXEngine.js 使用）
-    window.ENGINE_PATH = `${BASE_PATH}/texlyrepdftex.js`;
-    
-    // 加载 PdfTeXEngine 脚本
-    await loadScript(`${BASE_PATH}/PdfTeXEngine.js`);
-
-    // 等待引擎类可用
-    let attempts = 0;
-    while (typeof window.PdfTeXEngine !== 'function' && attempts < 50) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      attempts++;
-    }
-
-    if (typeof window.PdfTeXEngine !== 'function') {
-      throw new Error('PdfTeXEngine not available after loading scripts');
-    }
-
-    // 创建引擎实例
-    pdfTeXEngine = new window.PdfTeXEngine();
-    
-    // 加载引擎（创建 Worker）
-    await pdfTeXEngine.loadEngine();
-    
-    // 使用 texlyre.org 公共 TexLive 服务器
     const texliveEndpoint = 'https://texlive.texlyre.org/';
-    pdfTeXEngine.setTexliveEndpoint(texliveEndpoint);
-    
-    console.log(`[LatexCompiler] Engine loaded. Using TexLive server: ${texliveEndpoint}`);
+
+    if (currentEngine === 'xetex') {
+      // 加载 XeTeX 引擎（支持中文）
+      console.log('[LatexCompiler] Loading XeTeX engine for Chinese support...');
+      
+      // 设置引擎路径
+      window.ENGINE_PATH = `${BASE_PATH}/texlyrexetex.js`;
+      
+      // 加载 XeTeXEngine 脚本
+      await loadScript(`${BASE_PATH}/XeTeXEngine.js`);
+
+      // 等待引擎类可用
+      let attempts = 0;
+      while (typeof window.XeTeXEngine !== 'function' && attempts < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+
+      if (typeof window.XeTeXEngine !== 'function') {
+        throw new Error('XeTeXEngine not available after loading scripts');
+      }
+
+      // 创建引擎实例
+      xeTeXEngine = new window.XeTeXEngine();
+      await xeTeXEngine.loadEngine();
+      xeTeXEngine.setTexliveEndpoint(texliveEndpoint);
+      
+      console.log(`[LatexCompiler] XeTeX engine loaded. Using TexLive server: ${texliveEndpoint}`);
+    } else {
+      // 加载 pdfTeX 引擎（默认）
+      console.log('[LatexCompiler] Loading pdfTeX engine...');
+      
+      // 设置引擎路径（供 PdfTeXEngine.js 使用）
+      window.ENGINE_PATH = `${BASE_PATH}/texlyrepdftex.js`;
+      
+      // 加载 PdfTeXEngine 脚本
+      await loadScript(`${BASE_PATH}/PdfTeXEngine.js`);
+
+      // 等待引擎类可用
+      let attempts = 0;
+      while (typeof window.PdfTeXEngine !== 'function' && attempts < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+
+      if (typeof window.PdfTeXEngine !== 'function') {
+        throw new Error('PdfTeXEngine not available after loading scripts');
+      }
+
+      // 创建引擎实例
+      pdfTeXEngine = new window.PdfTeXEngine();
+      await pdfTeXEngine.loadEngine();
+      pdfTeXEngine.setTexliveEndpoint(texliveEndpoint);
+      
+      console.log(`[LatexCompiler] pdfTeX engine loaded. Using TexLive server: ${texliveEndpoint}`);
+    }
 
     setStatus('ready');
-    console.log('[LatexCompiler] Engine initialized successfully');
+    console.log(`[LatexCompiler] ${currentEngine} engine initialized successfully`);
     return true;
   } catch (error) {
     console.error('[LatexCompiler] Failed to initialize engine:', error);
@@ -118,8 +166,34 @@ export const initializeEngine = async () => {
   }
 };
 
+// 检测内容是否包含中文
+const containsChinese = (content) => {
+  return /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/.test(content);
+};
+
+// 检测是否使用了需要 XeTeX 的宏包
+const requiresXeTeX = (content) => {
+  return content.includes('\\usepackage{ctex}') ||
+         content.includes('\\usepackage{xeCJK}') ||
+         content.includes('\\documentclass{ctexart}') ||
+         content.includes('\\documentclass{ctexbook}') ||
+         content.includes('\\documentclass{ctexrep}') ||
+         content.includes('\\usepackage{fontspec}');
+};
+
 // 编译 LaTeX
-export const compileLaTeX = async (content, mainFileName = 'main.tex') => {
+export const compileLaTeX = async (content, mainFileName = 'main.tex', options = {}) => {
+  // 自动检测是否需要 XeTeX
+  const needXeTeX = options.forceXeTeX || requiresXeTeX(content) || (options.autoChinese && containsChinese(content));
+  
+  if (needXeTeX && currentEngine !== 'xetex') {
+    console.log('[LatexCompiler] Content requires XeTeX, switching engine...');
+    // 需要重新初始化 XeTeX 引擎
+    engineStatus = 'unloaded';
+    currentEngine = 'xetex';
+    xeTeXEngine = null;
+  }
+
   // 确保引擎已初始化
   if (engineStatus !== 'ready') {
     const initialized = await initializeEngine();
@@ -128,26 +202,39 @@ export const compileLaTeX = async (content, mainFileName = 'main.tex') => {
     }
   }
 
-  if (!pdfTeXEngine) {
-    throw new Error('编译引擎未初始化');
+  // 获取当前使用的引擎
+  const engine = currentEngine === 'xetex' ? xeTeXEngine : pdfTeXEngine;
+  
+  if (!engine) {
+    throw new Error(`编译引擎未初始化 (${currentEngine})`);
   }
 
   setStatus('compiling');
 
   try {
-    // 写入文件到虚拟文件系统
-    pdfTeXEngine.writeMemFSFile(mainFileName, content);
-    pdfTeXEngine.setEngineMainFile(mainFileName);
+    // 写入文件到虚拟文件系统（必须使用 /work/ 前缀）
+    // 注意：不要调用 flushCache()，否则会清除已缓存的宏包
+    const workPath = `/work/${mainFileName}`;
+    engine.writeMemFSFile(workPath, content);
+    engine.setEngineMainFile(mainFileName);
+    console.log(`[LatexCompiler] File written to: ${workPath}, content length: ${content.length}, engine: ${currentEngine}`);
+
+    // 等待 Worker 处理消息（确保文件写入完成）
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // 编译（运行三次以处理引用和目录）
-    console.log('[LatexCompiler] Starting compilation...');
-    await pdfTeXEngine.compileLaTeX();
-    await pdfTeXEngine.compileLaTeX();
-    const result = await pdfTeXEngine.compileLaTeX();
+    console.log(`[LatexCompiler] Starting compilation with ${currentEngine}...`);
+    const result1 = await engine.compileLaTeX();
+    console.log('[LatexCompiler] First pass:', result1.status);
+    const result2 = await engine.compileLaTeX();
+    console.log('[LatexCompiler] Second pass:', result2.status);
+    const result = await engine.compileLaTeX();
+    console.log('[LatexCompiler] Third pass:', result.status);
 
     setStatus('ready');
 
     console.log('[LatexCompiler] Compilation result:', {
+      engine: currentEngine,
       status: result.status,
       hasPdf: !!result.pdf,
       pdfSize: result.pdf?.length,
@@ -161,13 +248,15 @@ export const compileLaTeX = async (content, mainFileName = 'main.tex') => {
       return {
         success: true,
         pdfUrl: url,
-        log: result.log
+        log: result.log,
+        engine: currentEngine
       };
     } else {
       return {
         success: false,
-        error: parseCompileError(result.log),
-        log: result.log
+        error: parseCompileError(result.log, currentEngine),
+        log: result.log,
+        engine: currentEngine
       };
     }
   } catch (error) {
@@ -178,12 +267,13 @@ export const compileLaTeX = async (content, mainFileName = 'main.tex') => {
 };
 
 // 解析编译错误
-const parseCompileError = (log) => {
+const parseCompileError = (log, engineType = 'pdftex') => {
   if (!log) return '编译失败，未知错误';
   
   // 检查是否是 TexLive 服务器不可用的错误
-  if (log.includes("can't find the format file") || log.includes('swiftlatexpdftex.fmt')) {
-    return `LaTeX 编译引擎初始化失败
+  const fmtFile = engineType === 'xetex' ? 'swiftlatexxetex.fmt' : 'swiftlatexpdftex.fmt';
+  if (log.includes("can't find the format file") || log.includes(fmtFile)) {
+    return `LaTeX 编译引擎 (${engineType}) 初始化失败
 
 TexLive 服务器正在启动中，请稍后重试。
 
@@ -195,6 +285,29 @@ TexLive 服务器正在启动中，请稍后重试。
     return `无法连接到 TexLive 服务器
 
 请检查网络连接后重试。`;
+  }
+
+  // 检查 CTeX 字体错误
+  if (log.includes('CTeX fontset') && log.includes('unavailable')) {
+    return `CTeX 字体错误
+
+当前在线编译服务不支持 CTeX 字体。
+
+解决方案：
+1. 使用 xeCJK 宏包替代 ctex（如果服务器支持）
+2. 或者将内容改为英文
+3. 如需完整中文支持，请使用本地 TeX Live`;
+  }
+
+  // 检查字体找不到错误
+  if (log.includes('Font') && (log.includes('not found') || log.includes('not loadable'))) {
+    return `字体加载错误
+
+在线编译服务缺少所需字体。
+
+解决方案：
+1. 使用基础字体（如 Computer Modern）
+2. 或者使用本地 TeX Live 编译`;
   }
   
   // 尝试提取错误信息
@@ -227,24 +340,29 @@ TexLive 服务器正在启动中，请稍后重试。
 
 // 写入附加文件
 export const writeFile = (filename, content) => {
-  if (!pdfTeXEngine || engineStatus !== 'ready') {
+  const engine = currentEngine === 'xetex' ? xeTeXEngine : pdfTeXEngine;
+  if (!engine || engineStatus !== 'ready') {
     throw new Error('引擎未就绪');
   }
-  pdfTeXEngine.writeMemFSFile(filename, content);
+  engine.writeMemFSFile(filename, content);
 };
 
 // 创建文件夹
 export const makeFolder = (folderPath) => {
-  if (!pdfTeXEngine || engineStatus !== 'ready') {
+  const engine = currentEngine === 'xetex' ? xeTeXEngine : pdfTeXEngine;
+  if (!engine || engineStatus !== 'ready') {
     throw new Error('引擎未就绪');
   }
-  pdfTeXEngine.makeMemFSFolder(folderPath);
+  engine.makeMemFSFolder(folderPath);
 };
 
 // 清除缓存
 export const flushCache = () => {
   if (pdfTeXEngine) {
     pdfTeXEngine.flushCache();
+  }
+  if (xeTeXEngine) {
+    xeTeXEngine.flushCache();
   }
 };
 
@@ -263,5 +381,7 @@ export default {
   flushCache,
   revokePdfUrl,
   getStatus,
-  addStatusListener
+  addStatusListener,
+  setEngineType,
+  getCurrentEngineType
 };

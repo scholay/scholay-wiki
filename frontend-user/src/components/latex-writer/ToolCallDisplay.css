@@ -1,0 +1,378 @@
+/**
+ * ToolCallDisplay 样式
+ */
+
+.tool-call-display {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.tool-call-display.collapsed {
+  background: #fafafa;
+}
+
+/* 头部 */
+.tool-call-display-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: linear-gradient(to right, #f1f5f9, #e2e8f0);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.tool-call-display-header:hover {
+  background: linear-gradient(to right, #e2e8f0, #cbd5e1);
+}
+
+.tool-call-display-icon {
+  font-size: 16px;
+}
+
+.tool-call-display-title {
+  font-weight: 600;
+  color: #334155;
+}
+
+.tool-call-display-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.summary-total {
+  color: #64748b;
+}
+
+.summary-success {
+  color: #059669;
+}
+
+.summary-error {
+  color: #dc2626;
+}
+
+.summary-running {
+  color: #d97706;
+}
+
+.tool-call-display-collapse-icon {
+  font-size: 10px;
+  color: #94a3b8;
+  transition: transform 0.2s;
+}
+
+.tool-call-display-collapse-icon.expanded {
+  transform: rotate(180deg);
+}
+
+/* 内容区 */
+.tool-call-display-content {
+  border-top: 1px solid #e2e8f0;
+}
+
+/* 工具栏 */
+.tool-call-display-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tool-call-toolbar-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  color: #64748b;
+  background: #f1f5f9;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tool-call-toolbar-btn:hover {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+/* 工具调用列表 */
+.tool-call-list {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #fff;
+}
+
+/* 单个工具调用项 */
+.tool-call-item {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.tool-call-item:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+/* 不同状态的样式 */
+.tool-call-status-success {
+  border-left: 3px solid #10b981;
+}
+
+.tool-call-status-error {
+  border-left: 3px solid #ef4444;
+}
+
+.tool-call-status-running {
+  border-left: 3px solid #f59e0b;
+}
+
+.tool-call-status-pending,
+.tool-call-status-waiting {
+  border-left: 3px solid #94a3b8;
+}
+
+/* 工具调用头部 */
+.tool-call-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+  background: #fafafa;
+  transition: background 0.2s;
+}
+
+.tool-call-header:hover {
+  background: #f5f5f5;
+}
+
+.tool-call-category-icon {
+  font-size: 14px;
+}
+
+.tool-call-name {
+  font-weight: 500;
+  color: #1f2937;
+  flex: 1;
+}
+
+.tool-call-status-icon {
+  font-size: 14px;
+  width: 20px;
+  text-align: center;
+}
+
+.tool-call-status-icon.status-success {
+  color: #10b981;
+}
+
+.tool-call-status-icon.status-error {
+  color: #ef4444;
+}
+
+.tool-call-status-icon.status-running {
+  color: #f59e0b;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.tool-call-status-icon.status-pending,
+.tool-call-status-icon.status-waiting {
+  color: #94a3b8;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.tool-call-duration {
+  font-size: 11px;
+  color: #9ca3af;
+  padding: 2px 6px;
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.tool-call-expand-icon {
+  font-size: 10px;
+  color: #9ca3af;
+  transition: transform 0.2s;
+}
+
+.tool-call-expand-icon.expanded {
+  transform: rotate(90deg);
+}
+
+/* 工具调用详情 */
+.tool-call-details {
+  padding: 12px;
+  border-top: 1px solid #f3f4f6;
+  background: #fff;
+}
+
+.tool-call-description {
+  color: #6b7280;
+  font-size: 12px;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.tool-call-section {
+  margin-bottom: 12px;
+}
+
+.tool-call-section:last-child {
+  margin-bottom: 0;
+}
+
+.tool-call-section-title {
+  margin: 0 0 6px 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tool-call-code {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-x: auto;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.tool-call-code.error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.tool-call-param {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.tool-call-param:last-child {
+  margin-bottom: 0;
+}
+
+.param-key {
+  color: #7c3aed;
+  flex-shrink: 0;
+}
+
+.param-value {
+  color: #059669;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.tool-call-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  color: #9ca3af;
+  padding-top: 8px;
+  border-top: 1px dashed #e5e7eb;
+  margin-top: 12px;
+}
+
+/* 实时工具调用指示器 */
+.tool-call-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(to right, #fef3c7, #fde68a);
+  border: 1px solid #fcd34d;
+  border-radius: 20px;
+  font-size: 12px;
+  color: #92400e;
+  margin: 4px 0;
+}
+
+.indicator-icon {
+  font-size: 14px;
+}
+
+.indicator-text {
+  color: #78350f;
+}
+
+.indicator-text strong {
+  font-weight: 600;
+}
+
+.indicator-status {
+  font-size: 12px;
+}
+
+.indicator-status.status-running {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.indicator-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fcd34d;
+  border-top-color: #d97706;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 移动端适配 */
+@media (max-width: 640px) {
+  .tool-call-display-summary {
+    display: none;
+  }
+
+  .tool-call-header {
+    padding: 8px 10px;
+  }
+
+  .tool-call-details {
+    padding: 10px;
+  }
+
+  .tool-call-code {
+    font-size: 10px;
+    padding: 8px;
+  }
+
+  .tool-call-meta {
+    flex-direction: column;
+    gap: 4px;
+  }
+}

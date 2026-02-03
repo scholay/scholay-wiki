@@ -87,6 +87,14 @@ const useVersionCheck = (options = {}) => {
   }, []);
 
   /**
+   * 检查是否是页面刚加载（用于区分刷新和后台检测）
+   */
+  const isPageJustLoaded = useCallback(() => {
+    // 如果页面加载时间小于 10 秒，认为是刚刷新
+    return performance.now() < 10000;
+  }, []);
+
+  /**
    * 检查版本更新
    */
   const checkVersion = useCallback(async () => {
@@ -132,13 +140,22 @@ const useVersionCheck = (options = {}) => {
         setCurrentVersion(fetchedVersion);
         logger.log('[VersionCheck] First visit, saved version:', fetchedVersion);
       } else if (localVersion !== fetchedVersion) {
-        // 版本不一致，检测到更新
-        setCurrentVersion(localVersion);
-        setHasUpdate(true);
-        logger.log('[VersionCheck] Update detected!', {
-          local: localVersion,
-          server: fetchedVersion
-        });
+        // 版本不一致
+        // 如果页面刚加载（可能是用户刚刷新），自动更新版本号，不显示提示
+        if (isPageJustLoaded()) {
+          saveLocalVersion(fetchedVersion);
+          setCurrentVersion(fetchedVersion);
+          setHasUpdate(false);
+          logger.log('[VersionCheck] Page just loaded, auto-updated version:', fetchedVersion);
+        } else {
+          // 后台检测到更新，显示提示
+          setCurrentVersion(localVersion);
+          setHasUpdate(true);
+          logger.log('[VersionCheck] Update detected!', {
+            local: localVersion,
+            server: fetchedVersion
+          });
+        }
       } else {
         // 版本一致
         setCurrentVersion(localVersion);
@@ -152,7 +169,7 @@ const useVersionCheck = (options = {}) => {
       checkInProgressRef.current = false;
       setIsChecking(false);
     }
-  }, [getLocalVersion, saveLocalVersion, isInIgnorePeriod]);
+  }, [getLocalVersion, saveLocalVersion, isInIgnorePeriod, isPageJustLoaded]);
 
   /**
    * 用户忽略更新

@@ -22,6 +22,7 @@ const ThirdPartyAccounts = lazy(() => import('./pages/ThirdPartyAccounts'));
 const PromptTemplates = lazy(() => import('./pages/PromptTemplates'));
 const SubscriptionPlans = lazy(() => import('./pages/SubscriptionPlans'));
 const OrderManagement = lazy(() => import('./pages/OrderManagement'));
+const LatexAgentConfig = lazy(() => import('./pages/LatexAgentConfig'));
 const CouponManagement = lazy(() => import('./pages/CouponManagement'));
 const CouponBatchManagement = lazy(() => import('./pages/CouponBatchManagement'));
 const DistributedCoupons = lazy(() => import('./pages/DistributedCoupons'));
@@ -74,6 +75,7 @@ function App() {
               <Route path="distributed-coupons" element={<DistributedCoupons />} />
               <Route path="third-party-accounts" element={<ThirdPartyAccounts />} />
               <Route path="prompt-templates" element={<PromptTemplates />} />
+              <Route path="latex-agent-config" element={<LatexAgentConfig />} />
               <Route path="subscription-plans" element={<SubscriptionPlans />} />
               <Route path="default-business-data" element={<DefaultBusinessData />} />
               <Route path="feedbacks" element={<FeedbackManagement />} />

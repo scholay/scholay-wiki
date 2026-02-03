@@ -52,3 +52,216 @@
 [data-theme="dark"] .latex-editor .cm-focused .cm-selectionBackground {
   background: rgba(100, 150, 200, 0.3) !important;
 }
+
+/* ============================================
+   Diff 模式样式
+   ============================================ */
+
+.latex-editor-diff-mode {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary, #fff);
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Diff 头部 */
+.latex-diff-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.latex-diff-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.latex-diff-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.latex-diff-additions {
+  padding: 2px 8px;
+  background: rgba(46, 160, 67, 0.9);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.latex-diff-deletions {
+  padding: 2px 8px;
+  background: rgba(248, 81, 73, 0.9);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Diff 内容区域 */
+.latex-diff-content {
+  flex: 1;
+  overflow: auto;
+  font-family: "Fira Code", "Source Code Pro", "Consolas", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* Diff 行 */
+.latex-diff-line {
+  display: flex;
+  min-height: 24px;
+  white-space: pre;
+}
+
+.latex-diff-line-same {
+  background: transparent;
+}
+
+.latex-diff-line-add {
+  background: rgba(46, 160, 67, 0.15);
+}
+
+.latex-diff-line-remove {
+  background: rgba(248, 81, 73, 0.15);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+/* 行号 */
+.latex-diff-line-gutter {
+  min-width: 50px;
+  padding: 0 8px;
+  text-align: right;
+  color: var(--text-tertiary, #999);
+  background: var(--bg-tertiary, #f5f5f5);
+  border-right: 1px solid var(--border-color, #e0e0e0);
+  font-size: 12px;
+  user-select: none;
+}
+
+.latex-diff-line-add .latex-diff-line-gutter {
+  background: rgba(46, 160, 67, 0.1);
+  color: #2ea043;
+}
+
+.latex-diff-line-remove .latex-diff-line-gutter {
+  background: rgba(248, 81, 73, 0.1);
+  color: #f85149;
+}
+
+/* 行标记 (+/-) */
+.latex-diff-line-marker {
+  min-width: 20px;
+  padding: 0 4px;
+  text-align: center;
+  font-weight: 600;
+  user-select: none;
+}
+
+.latex-diff-line-add .latex-diff-line-marker {
+  color: #2ea043;
+}
+
+.latex-diff-line-remove .latex-diff-line-marker {
+  color: #f85149;
+}
+
+/* 行内容 */
+.latex-diff-line-content {
+  flex: 1;
+  padding: 0 8px;
+  overflow-x: auto;
+}
+
+/* Diff 操作按钮 */
+.latex-diff-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-secondary, #f8f9fa);
+  border-top: 1px solid var(--border-color, #e0e0e0);
+}
+
+.latex-diff-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.latex-diff-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.latex-diff-btn-reject {
+  background: var(--bg-tertiary, #f0f0f0);
+  color: var(--text-secondary, #666);
+}
+
+.latex-diff-btn-reject:hover {
+  background: #e0e0e0;
+  color: #f85149;
+}
+
+.latex-diff-btn-accept {
+  background: linear-gradient(135deg, #2ea043 0%, #238636 100%);
+  color: white;
+  box-shadow: 0 2px 4px rgba(46, 160, 67, 0.3);
+}
+
+.latex-diff-btn-accept:hover {
+  background: linear-gradient(135deg, #238636 0%, #1a7f37 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(46, 160, 67, 0.4);
+}
+
+/* 深色模式 Diff 样式 */
+[data-theme="dark"] .latex-editor-diff-mode {
+  background: var(--bg-secondary, #2a2a2a);
+}
+
+[data-theme="dark"] .latex-diff-content {
+  background: var(--bg-primary, #1e1e1e);
+}
+
+[data-theme="dark"] .latex-diff-line-gutter {
+  background: var(--bg-tertiary, #252525);
+  border-right-color: var(--border-color, #404040);
+}
+
+[data-theme="dark"] .latex-diff-line-add {
+  background: rgba(46, 160, 67, 0.2);
+}
+
+[data-theme="dark"] .latex-diff-line-remove {
+  background: rgba(248, 81, 73, 0.2);
+}
+
+[data-theme="dark"] .latex-diff-actions {
+  background: var(--bg-tertiary, #252525);
+  border-top-color: var(--border-color, #404040);
+}
+
+[data-theme="dark"] .latex-diff-btn-reject {
+  background: var(--bg-primary, #333);
+  color: var(--text-secondary, #aaa);
+}
+
+[data-theme="dark"] .latex-diff-btn-reject:hover {
+  background: #404040;
+}

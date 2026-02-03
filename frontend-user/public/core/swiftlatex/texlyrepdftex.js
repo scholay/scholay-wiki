@@ -208,9 +208,9 @@ function writeFileRoutine(filename, content) {
             "result": "ok",
             "cmd": "writefile"
         })
-        // console.warn("wrote to mem file", filename);
+        console.log("Wrote file to: " + filename);
     } catch (err) {
-        console.error("Unable to write mem file", filename);
+        console.error("Unable to write mem file", filename, err);
         self.postMessage({
             "result": "failed",
             "cmd": "writefile"

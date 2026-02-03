@@ -271,6 +271,10 @@ export const userAPI = {
 
   // ========== LaTeX Writer API ==========
   
+  // 获取可用的 AI 模型列表
+  getLatexAgentModels: () =>
+    api.get('/user/latex-writer/models'),
+  
   // 获取 LaTeX 文档列表
   getLatexDocuments: (tree = false) =>
     api.get('/user/latex-writer/files', { params: { tree: tree ? 'true' : 'false' } }),
@@ -290,6 +294,68 @@ export const userAPI = {
   // 删除文档
   deleteLatexDocument: (id) =>
     api.delete(`/user/latex-writer/files/${id}`),
+
+  // ========== LaTeX 对话历史 API ==========
+  
+  // 获取文档对话信息
+  getDocumentConversation: (documentId) =>
+    api.get(`/user/latex-writer/documents/${documentId}/conversation`),
+  
+  // 获取对话历史（分页）
+  getConversationHistory: (documentId, page = 1, pageSize = 20) =>
+    api.get(`/user/latex-writer/documents/${documentId}/conversation/messages`, {
+      params: { page, page_size: pageSize }
+    }),
+  
+  // 清空对话
+  clearConversation: (documentId) =>
+    api.delete(`/user/latex-writer/documents/${documentId}/conversation`),
+  
+  // 获取带上下文的流式对话 URL
+  getStreamChatWithContextUrl: (documentId) =>
+    `/api/v1/user/latex-writer/documents/${documentId}/chat/stream`,
+
+  // ========== LaTeX 验证与修复 API ==========
+  
+  // 验证 LaTeX 代码
+  validateLatex: (content) =>
+    api.post('/user/latex-writer/validate', { content }),
+  
+  // 自动修复 LaTeX 代码（流式）
+  getAutoFixUrl: () =>
+    '/api/v1/user/latex-writer/auto-fix',
+  
+  // 验证并修复 LaTeX 代码（流式）
+  getValidateFixUrl: (documentId) =>
+    `/api/v1/user/latex-writer/documents/${documentId}/validate-fix`,
+
+  // ============================================================================
+  // MCP 工具系统 API
+  // ============================================================================
+
+  // 获取所有 MCP 工具列表
+  getMCPTools: () =>
+    api.get('/mcp/tools'),
+
+  // 获取 LLM 格式的工具定义
+  getMCPToolsForLLM: () =>
+    api.get('/mcp/tools/llm'),
+
+  // 按分类获取工具
+  getMCPToolsByCategory: (category) =>
+    api.get(`/mcp/tools/category/${category}`),
+
+  // 获取工具详情
+  getMCPTool: (name) =>
+    api.get(`/mcp/tools/${name}`),
+
+  // 调用单个 MCP 工具
+  callMCPTool: (name, args = {}) =>
+    api.post('/mcp/call', { name, arguments: args }),
+
+  // 批量调用 MCP 工具
+  batchCallMCPTools: (calls) =>
+    api.post('/mcp/batch', calls),
 };
 
 export const conversationAPI = {
