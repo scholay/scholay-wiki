@@ -34,8 +34,10 @@ function ThinkingPanel({
   defaultOpen = true 
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [liveSeconds, setLiveSeconds] = useState(0);
   const contentRef = useRef(null);
   const prevContentLengthRef = useRef(0);
+  const startTimeRef = useRef(null);
 
   // 自动滚动到底部
   const scrollToBottom = useCallback(() => {
@@ -60,10 +62,33 @@ function ThinkingPanel({
     }
   }, [isStreaming, isOpen, scrollToBottom]);
 
+  // 流式输出时，实时更新秒数
+  useEffect(() => {
+    if (isStreaming) {
+      if (!startTimeRef.current) {
+        startTimeRef.current = Date.now();
+      }
+      const intervalId = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        setLiveSeconds(elapsed);
+      }, 1000);
+      return () => clearInterval(intervalId);
+    } else {
+      // 停止流式时，重置开始时间
+      startTimeRef.current = null;
+    }
+  }, [isStreaming]);
+
   // 格式化持续时间显示
   const formatDuration = () => {
-    if (isStreaming || duration === 0) {
-      return 'Thinking...';
+    if (isStreaming) {
+      if (liveSeconds === 0) {
+        return 'Thinking...';
+      }
+      return `Thinking for ${liveSeconds}s...`;
+    }
+    if (duration === 0) {
+      return 'Thought';
     }
     if (duration === 1) {
       return 'Thought for 1 second';

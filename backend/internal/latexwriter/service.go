@@ -9,8 +9,10 @@ package latexwriter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -20,7 +22,6 @@ import (
 
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/mcp"
-	"scholar-backend/internal/thirdparty"
 )
 
 // Service 提供 LaTeX Writer 业务逻辑
@@ -54,6 +55,160 @@ func NewService(db *gorm.DB, aiService *ai.Service) *Service {
 	// 因为 LLM Provider 需要模型配置
 	
 	return service
+}
+
+// streamWithModel 使用 LaTeX Agent 配置的模型进行流式 AI 调用
+// 这是所有 AI 调用的统一入口，不使用 thirdparty
+func (s *Service) streamWithModel(messages []ai.ChatMessage, writer io.Writer, modelID uint) error {
+	// 获取模型配置
+	var modelConfig *AgentModel
+	var err error
+	
+	if modelID > 0 {
+		modelConfig, err = s.modelRepo.GetModelByID(modelID)
+		if err != nil {
+			fmt.Printf("[LaTeXWriter] Model %d not found, using default\n", modelID)
+		}
+	}
+	
+	if modelConfig == nil {
+		modelConfig, err = s.modelRepo.GetDefaultModel()
+		if err != nil {
+			return fmt.Errorf("未配置 LaTeX Agent 模型，请在后台管理中配置")
+		}
+	}
+	
+	// 检查模型配置完整性
+	if modelConfig.APIEndpoint == "" || modelConfig.APIKey == "" || modelConfig.ModelName == "" {
+		return fmt.Errorf("模型 %s 配置不完整，请检查 API 端点、密钥和模型名称", modelConfig.DisplayName)
+	}
+	
+	fmt.Printf("[LaTeXWriter] 🎯 Using model: %s (%s)\n", modelConfig.DisplayName, modelConfig.ModelName)
+	
+	// 创建 provider
+	providerConfig := &ai.ProviderConfig{
+		Provider: modelConfig.APIFormat,
+		Model:    modelConfig.ModelName,
+		BaseURL:  modelConfig.APIEndpoint,
+		APIKey:   modelConfig.APIKey,
+	}
+	
+	provider, err := ai.CreateProviderFromConfig(providerConfig)
+	if err != nil {
+		return fmt.Errorf("创建 AI 模型失败: %w", err)
+	}
+	
+	// 转换消息格式
+	llmMessages := make([]ai.LLMMessage, len(messages))
+	for i, msg := range messages {
+		llmMessages[i] = ai.LLMMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		}
+	}
+	
+	llmReq := &ai.LLMRequest{
+		Messages:    llmMessages,
+		Temperature: modelConfig.Temperature,
+		MaxTokens:   int(modelConfig.MaxOutputTokens),
+	}
+	
+	// 流式调用
+	ctx := context.Background()
+	streamCh, err := provider.StreamChat(ctx, llmReq)
+	if err != nil {
+		return fmt.Errorf("AI 模型调用失败: %w", err)
+	}
+	
+	// 处理流式响应
+	for chunk := range streamCh {
+		if chunk.Error != nil {
+			return fmt.Errorf("AI 响应错误: %w", chunk.Error)
+		}
+		if chunk.Delta != "" {
+			sseData := fmt.Sprintf("data: %s\n\n", chunk.Delta)
+			writer.Write([]byte(sseData))
+			if flusher, ok := writer.(http.Flusher); ok {
+				flusher.Flush()
+			}
+		}
+	}
+	
+	return nil
+}
+
+// streamWithModelAndCollect 使用配置的模型进行流式调用并收集响应
+func (s *Service) streamWithModelAndCollect(messages []ai.ChatMessage, writer io.Writer, modelID uint) (string, error) {
+	var modelConfig *AgentModel
+	var err error
+	
+	if modelID > 0 {
+		modelConfig, err = s.modelRepo.GetModelByID(modelID)
+		if err != nil {
+			fmt.Printf("[LaTeXWriter] Model %d not found, using default\n", modelID)
+		}
+	}
+	
+	if modelConfig == nil {
+		modelConfig, err = s.modelRepo.GetDefaultModel()
+		if err != nil {
+			return "", fmt.Errorf("未配置 LaTeX Agent 模型，请在后台管理中配置")
+		}
+	}
+	
+	if modelConfig.APIEndpoint == "" || modelConfig.APIKey == "" || modelConfig.ModelName == "" {
+		return "", fmt.Errorf("模型 %s 配置不完整", modelConfig.DisplayName)
+	}
+	
+	// 创建 provider
+	providerConfig := &ai.ProviderConfig{
+		Provider: modelConfig.APIFormat,
+		Model:    modelConfig.ModelName,
+		BaseURL:  modelConfig.APIEndpoint,
+		APIKey:   modelConfig.APIKey,
+	}
+	
+	provider, err := ai.CreateProviderFromConfig(providerConfig)
+	if err != nil {
+		return "", fmt.Errorf("创建 AI 模型失败: %w", err)
+	}
+	
+	llmMessages := make([]ai.LLMMessage, len(messages))
+	for i, msg := range messages {
+		llmMessages[i] = ai.LLMMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		}
+	}
+	
+	llmReq := &ai.LLMRequest{
+		Messages:    llmMessages,
+		Temperature: modelConfig.Temperature,
+		MaxTokens:   int(modelConfig.MaxOutputTokens),
+	}
+	
+	ctx := context.Background()
+	streamCh, err := provider.StreamChat(ctx, llmReq)
+	if err != nil {
+		return "", fmt.Errorf("AI 模型调用失败: %w", err)
+	}
+	
+	var content strings.Builder
+	for chunk := range streamCh {
+		if chunk.Error != nil {
+			return "", fmt.Errorf("AI 响应错误: %w", chunk.Error)
+		}
+		if chunk.Delta != "" {
+			content.WriteString(chunk.Delta)
+			sseData := fmt.Sprintf("data: %s\n\n", chunk.Delta)
+			writer.Write([]byte(sseData))
+			if flusher, ok := writer.(http.Flusher); ok {
+				flusher.Flush()
+			}
+		}
+	}
+	
+	return content.String(), nil
 }
 
 // GetOrCreateOrchestrator 获取或创建 Orchestrator
@@ -211,17 +366,8 @@ func (s *Service) StreamChat(req *ChatRequest, writer io.Writer) error {
 		},
 	}
 
-	// 确定模型级别
-	modelLevel := thirdparty.ModelLevelMid
-	switch req.ModelLevel {
-	case "low":
-		modelLevel = thirdparty.ModelLevelLow
-	case "high":
-		modelLevel = thirdparty.ModelLevelHigh
-	}
-
-	// 调用 AI 服务
-	return s.aiService.StreamChatCompletionWithLevel(messages, writer, modelLevel)
+	// 使用 LaTeX Agent 配置的模型（modelID 为 0 表示使用默认模型）
+	return s.streamWithModel(messages, writer, 0)
 }
 
 // ExecuteTask 执行特定任务
@@ -244,16 +390,8 @@ func (s *Service) ExecuteTask(taskType string, content string, writer io.Writer,
 		{Role: "user", Content: prompt},
 	}
 
-	// 确定模型级别
-	level := thirdparty.ModelLevelMid
-	switch modelLevel {
-	case "low":
-		level = thirdparty.ModelLevelLow
-	case "high":
-		level = thirdparty.ModelLevelHigh
-	}
-
-	return s.aiService.StreamChatCompletionWithLevel(messages, writer, level)
+	// 使用 LaTeX Agent 配置的默认模型
+	return s.streamWithModel(messages, writer, 0)
 }
 
 // ExecuteSectionTask 执行章节写作任务
@@ -276,16 +414,8 @@ func (s *Service) ExecuteSectionTask(sectionType string, content string, writer 
 		{Role: "user", Content: prompt},
 	}
 
-	// 章节写作默认使用高级模型
-	level := thirdparty.ModelLevelHigh
-	switch modelLevel {
-	case "low":
-		level = thirdparty.ModelLevelLow
-	case "mid":
-		level = thirdparty.ModelLevelMid
-	}
-
-	return s.aiService.StreamChatCompletionWithLevel(messages, writer, level)
+	// 使用 LaTeX Agent 配置的默认模型
+	return s.streamWithModel(messages, writer, 0)
 }
 
 // replaceVariable 替换模板中的变量
@@ -675,109 +805,73 @@ func (s *Service) StreamChatWithContext(userID, documentID uint, req *ChatReques
 	// 6. 创建纯文本内容收集器（用于保存到数据库）
 	var pureContent strings.Builder
 
-	// 7. 根据模型配置选择调用方式
-	modelName := "default"
-	// 定义 modelLevel 供自动修复使用（默认 mid）
-	modelLevel := thirdparty.ModelLevelMid
+	// 7. 检查模型配置
+	if modelConfig == nil || modelConfig.APIEndpoint == "" || modelConfig.APIKey == "" || modelConfig.ModelName == "" {
+		return fmt.Errorf("LaTeX Agent 模型未配置，请在后台管理中配置 AI 模型")
+	}
 	
-	// 检查是否有完整的自定义模型配置
-	useCustomModel := modelConfig != nil && 
-		modelConfig.APIEndpoint != "" && 
-		modelConfig.APIKey != "" && 
-		modelConfig.ModelName != ""
+	// 使用配置的模型
+	modelName := modelConfig.DisplayName
+	fmt.Printf("[LaTeXWriter] 🎯 Using model: %s (%s @ %s)\n", 
+		modelName, modelConfig.ModelName, modelConfig.APIEndpoint)
 	
-	if useCustomModel {
-		// 使用用户配置的模型
-		fmt.Printf("[LaTeXWriter] 🎯 Using custom model: %s (%s @ %s)\n", 
-			modelConfig.DisplayName, modelConfig.ModelName, modelConfig.APIEndpoint)
-		modelName = modelConfig.ModelName
-		
-		// 更新对话的模型级别为模型名称
-		s.convService.UpdateModelLevel(conv.ID, modelConfig.DisplayName)
-		
-		// 创建 provider 配置
-		providerConfig := &ai.ProviderConfig{
-			Provider: modelConfig.APIFormat,
-			Model:    modelConfig.ModelName,
-			BaseURL:  modelConfig.APIEndpoint,
-			APIKey:   modelConfig.APIKey,
-		}
-		
-		// 创建 provider 实例
-		provider, providerErr := ai.CreateProviderFromConfig(providerConfig)
-		if providerErr != nil {
-			fmt.Printf("[LaTeXWriter] ⚠️ Failed to create custom provider, falling back to default: %v\n", providerErr)
-			// 回退到默认方式
-			useCustomModel = false
-		} else {
-			// 使用自定义 provider 调用 AI
-			// 转换消息格式
-			llmMessages := make([]ai.LLMMessage, len(messages))
-			for i, msg := range messages {
-				llmMessages[i] = ai.LLMMessage{
-					Role:    msg.Role,
-					Content: msg.Content,
-				}
-			}
-			
-			llmReq := &ai.LLMRequest{
-				Messages:    llmMessages,
-				Temperature: modelConfig.Temperature,
-				MaxTokens:   int(modelConfig.MaxOutputTokens),
-			}
-			
-			// 流式调用
-			ctx := context.Background()
-			streamCh, streamErr := provider.StreamChat(ctx, llmReq)
-			if streamErr != nil {
-				fmt.Printf("[LaTeXWriter] ❌ Custom model stream error: %v\n", streamErr)
-				return fmt.Errorf("AI 模型调用失败: %w", streamErr)
-			}
-			
-			// 收集流式响应
-			for chunk := range streamCh {
-				if chunk.Error != nil {
-					fmt.Printf("[LaTeXWriter] ❌ Stream chunk error: %v\n", chunk.Error)
-					return fmt.Errorf("AI 响应错误: %w", chunk.Error)
-				}
-				if chunk.Delta != "" {
-					// 收集纯文本内容
-					pureContent.WriteString(chunk.Delta)
-					// 写入 SSE 格式到前端
-					sseData := fmt.Sprintf("data: %s\n\n", chunk.Delta)
-					writer.Write([]byte(sseData))
-				}
-			}
+	// 更新对话的模型级别为模型名称
+	s.convService.UpdateModelLevel(conv.ID, modelConfig.DisplayName)
+	
+	// 创建 provider 配置
+	providerConfig := &ai.ProviderConfig{
+		Provider: modelConfig.APIFormat,
+		Model:    modelConfig.ModelName,
+		BaseURL:  modelConfig.APIEndpoint,
+		APIKey:   modelConfig.APIKey,
+	}
+	
+	// 创建 provider 实例
+	provider, providerErr := ai.CreateProviderFromConfig(providerConfig)
+	if providerErr != nil {
+		fmt.Printf("[LaTeXWriter] ❌ Failed to create provider: %v\n", providerErr)
+		return fmt.Errorf("创建 AI 模型失败: %w", providerErr)
+	}
+	
+	// 转换消息格式
+	llmMessages := make([]ai.LLMMessage, len(messages))
+	for i, msg := range messages {
+		llmMessages[i] = ai.LLMMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
 		}
 	}
 	
-	// 如果没有自定义模型或自定义模型创建失败，使用默认的 thirdparty 系统
-	if !useCustomModel {
-		// 确定模型级别
-		switch req.ModelLevel {
-		case "low":
-			modelLevel = thirdparty.ModelLevelLow
-			modelName = "low"
-		case "high":
-			modelLevel = thirdparty.ModelLevelHigh
-			modelName = "high"
-		default:
-			modelName = "mid"
+	llmReq := &ai.LLMRequest{
+		Messages:    llmMessages,
+		Temperature: modelConfig.Temperature,
+		MaxTokens:   int(modelConfig.MaxOutputTokens),
+	}
+	
+	// 流式调用
+	ctx := context.Background()
+	streamCh, streamErr := provider.StreamChat(ctx, llmReq)
+	if streamErr != nil {
+		fmt.Printf("[LaTeXWriter] ❌ Stream error: %v\n", streamErr)
+		return fmt.Errorf("AI 模型调用失败: %w", streamErr)
+	}
+	
+	// 收集流式响应
+	for chunk := range streamCh {
+		if chunk.Error != nil {
+			fmt.Printf("[LaTeXWriter] ❌ Stream chunk error: %v\n", chunk.Error)
+			return fmt.Errorf("AI 响应错误: %w", chunk.Error)
 		}
-		
-		fmt.Printf("[LaTeXWriter] 📡 Using thirdparty model level: %s\n", modelName)
-		
-		// 更新对话的模型级别
-		s.convService.UpdateModelLevel(conv.ID, req.ModelLevel)
-		
-		// 使用纯内容收集器调用 AI 服务
-		pureContentCollector := &pureContentWriter{
-			writer:      writer,
-			pureContent: &pureContent,
-		}
-		err = s.aiService.StreamChatCompletionWithLevel(messages, pureContentCollector, modelLevel)
-		if err != nil {
-			return err
+		if chunk.Delta != "" {
+			// 收集纯文本内容
+			pureContent.WriteString(chunk.Delta)
+			// 写入 SSE 格式到前端
+			sseData := fmt.Sprintf("data: %s\n\n", chunk.Delta)
+			writer.Write([]byte(sseData))
+			// 立即刷新，确保流式输出
+			if flusher, ok := writer.(http.Flusher); ok {
+				flusher.Flush()
+			}
 		}
 	}
 
@@ -848,17 +942,46 @@ func (s *Service) StreamChatWithContext(userID, documentID uint, req *ChatReques
 				{Role: "user", Content: fmt.Sprintf("验证报告：\n%s\n\n原始代码：\n```latex\n%s\n```\n\n请直接修复并输出完整代码（只输出 <code> 标签）。", validationReport, currentCode)},
 			}
 
-			// 收集修复响应
+			// 使用配置的模型进行修复
 			var fixResponse strings.Builder
-			fixCollector := &responseCollectorWriter{
-				writer:    writer,
-				collector: &fixResponse,
+			
+			// 转换消息格式
+			fixLLMMessages := make([]ai.LLMMessage, len(fixMessages))
+			for i, msg := range fixMessages {
+				fixLLMMessages[i] = ai.LLMMessage{
+					Role:    msg.Role,
+					Content: msg.Content,
+				}
 			}
-
-			err = s.aiService.StreamChatCompletionWithLevel(fixMessages, fixCollector, modelLevel)
-			if err != nil {
-				fmt.Printf("[LaTeXWriter] Auto-fix failed: %v\n", err)
+			
+			fixReq := &ai.LLMRequest{
+				Messages:    fixLLMMessages,
+				Temperature: modelConfig.Temperature,
+				MaxTokens:   int(modelConfig.MaxOutputTokens),
+			}
+			
+			// 流式调用修复
+			fixStreamCh, fixErr := provider.StreamChat(ctx, fixReq)
+			if fixErr != nil {
+				fmt.Printf("[LaTeXWriter] Auto-fix failed: %v\n", fixErr)
 				break
+			}
+			
+			// 收集修复响应
+			for chunk := range fixStreamCh {
+				if chunk.Error != nil {
+					fmt.Printf("[LaTeXWriter] Auto-fix chunk error: %v\n", chunk.Error)
+					break
+				}
+				if chunk.Delta != "" {
+					fixResponse.WriteString(chunk.Delta)
+					// 写入 SSE 格式到前端
+					sseData := fmt.Sprintf("data: %s\n\n", chunk.Delta)
+					writer.Write([]byte(sseData))
+					if flusher, ok := writer.(http.Flusher); ok {
+						flusher.Flush()
+					}
+				}
 			}
 
 			// 解析修复后的代码
@@ -931,26 +1054,65 @@ func (w *responseCollectorWriter) Write(p []byte) (n int, err error) {
 }
 
 // pureContentWriter 纯文本内容收集器
-// 同时输出 SSE 格式到前端，并收集纯文本内容用于保存
+// 从 AI 服务的 JSON 格式 SSE 中提取内容，以纯文本格式输出到前端
 type pureContentWriter struct {
 	writer      io.Writer
 	pureContent *strings.Builder
 }
 
-func (w *pureContentWriter) Write(p []byte) (n int, err error) {
-	// 写入原始 writer（SSE 格式输出到前端）
-	n, err = w.writer.Write(p)
-	if err != nil {
-		return n, err
-	}
+// openAIChunk OpenAI 风格的流式响应结构
+type openAIChunk struct {
+	Choices []struct {
+		Delta struct {
+			Content string `json:"content"`
+		} `json:"delta"`
+	} `json:"choices"`
+}
 
-	// 收集纯文本内容（解析 SSE 数据，只保留实际内容）
+func (w *pureContentWriter) Write(p []byte) (n int, err error) {
+	n = len(p)
 	content := string(p)
+	
+	// 处理 SSE 数据
 	if strings.HasPrefix(content, "data: ") {
 		data := strings.TrimPrefix(content, "data: ")
 		data = strings.TrimSuffix(data, "\n\n")
-		if data != "[DONE]" {
+		
+		if data == "[DONE]" {
+			return n, nil
+		}
+		
+		// 尝试解析 JSON 格式（OpenAI 风格）
+		var chunk openAIChunk
+		if err := json.Unmarshal([]byte(data), &chunk); err == nil {
+			// 成功解析 JSON，提取 content
+			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+				extractedContent := chunk.Choices[0].Delta.Content
+				// 收集纯文本内容
+				w.pureContent.WriteString(extractedContent)
+				// 以纯文本格式发送到前端
+				sseData := fmt.Sprintf("data: %s\n\n", extractedContent)
+				_, err = w.writer.Write([]byte(sseData))
+				if err != nil {
+					return n, err
+				}
+				// 立即刷新
+				if flusher, ok := w.writer.(http.Flusher); ok {
+					flusher.Flush()
+				}
+			}
+		} else {
+			// 不是 JSON 格式，直接作为纯文本处理
 			w.pureContent.WriteString(data)
+			// 直接写入原始数据
+			_, err = w.writer.Write(p)
+			if err != nil {
+				return n, err
+			}
+			// 立即刷新
+			if flusher, ok := w.writer.(http.Flusher); ok {
+				flusher.Flush()
+			}
 		}
 	}
 
@@ -1060,16 +1222,8 @@ func (s *Service) AutoFixLatexWithValidation(content string, result *ValidationR
 		{Role: "user", Content: userMessage},
 	}
 
-	// 确定模型级别
-	level := thirdparty.ModelLevelMid
-	switch modelLevel {
-	case "low":
-		level = thirdparty.ModelLevelLow
-	case "high":
-		level = thirdparty.ModelLevelHigh
-	}
-
-	return s.aiService.StreamChatCompletionWithLevel(messages, writer, level)
+	// 使用 LaTeX Agent 配置的默认模型
+	return s.streamWithModel(messages, writer, 0)
 }
 
 // ValidateLatex 验证 LaTeX 代码
@@ -1137,22 +1291,17 @@ func (s *Service) StreamChatWithValidation(userID, documentID uint, req *ChatReq
 		{Role: "user", Content: userMessage.String()},
 	}
 
-	// 确定模型级别
-	modelLevel := thirdparty.ModelLevelMid
-	modelName := "mid"
-	switch req.ModelLevel {
-	case "low":
-		modelLevel = thirdparty.ModelLevelLow
-		modelName = "low"
-	case "high":
-		modelLevel = thirdparty.ModelLevelHigh
-		modelName = "high"
+	// 获取 LaTeX Agent 配置的默认模型名称
+	modelConfig, _ := s.modelRepo.GetDefaultModel()
+	modelName := "default"
+	if modelConfig != nil {
+		modelName = modelConfig.DisplayName
 	}
 
-	s.convService.UpdateModelLevel(conv.ID, req.ModelLevel)
+	s.convService.UpdateModelLevel(conv.ID, modelName)
 
-	// 调用 AI
-	err = s.aiService.StreamChatCompletionWithLevel(messages, responseCollector, modelLevel)
+	// 使用 LaTeX Agent 配置的默认模型
+	err = s.streamWithModel(messages, responseCollector, 0)
 	if err != nil {
 		return err
 	}

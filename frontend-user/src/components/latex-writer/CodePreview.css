@@ -172,7 +172,7 @@
 /* Content */
 .code-preview-content {
   position: relative;
-  max-height: 250px;
+  max-height: 150px;
   overflow-y: auto;
   background: var(--code-bg);
   scroll-behavior: smooth;

@@ -78,38 +78,50 @@ export class StreamHandler {
         }
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
         
-        // 保留最后一个可能不完整的行
-        buffer = lines.pop() || '';
+        // SSE 消息以 \n\n 分隔，按此分割
+        const messages = buffer.split('\n\n');
+        
+        // 保留最后一个可能不完整的消息
+        buffer = messages.pop() || '';
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
+        for (const message of messages) {
+          if (!message.trim()) continue;
+          
+          // 处理可能的多行 data 消息
+          // SSE 规范：多行数据每行以 data: 开头
+          const dataLines = message.split('\n')
+            .filter(line => line.startsWith('data: '))
+            .map(line => line.slice(6));
+          
+          // 如果没有 data: 行，跳过
+          if (dataLines.length === 0) continue;
+          
+          // 合并所有 data 行（用换行连接）
+          const data = dataLines.join('\n');
             
-            if (data === '[DONE]') {
+          if (data === '[DONE]') {
+            listener.onStop?.();
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices?.[0]?.delta?.content || '';
+            const finishReason = parsed.choices?.[0]?.finish_reason;
+            
+            if (content) {
+              listener.onMessage?.(content, finishReason === 'stop' ? 2 : 1);
+            }
+
+            if (finishReason === 'stop') {
               listener.onStop?.();
               return;
             }
-
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content || '';
-              const finishReason = parsed.choices?.[0]?.finish_reason;
-              
-              if (content) {
-                listener.onMessage?.(content, finishReason === 'stop' ? 2 : 1);
-              }
-
-              if (finishReason === 'stop') {
-                listener.onStop?.();
-                return;
-              }
-            } catch (e) {
-              // 解析失败，可能是非标准格式，尝试直接使用
-              if (data && data !== '[DONE]') {
-                listener.onMessage?.(data, 1);
-              }
+          } catch (e) {
+            // 解析失败，可能是非标准格式，尝试直接使用
+            if (data && data !== '[DONE]') {
+              listener.onMessage?.(data, 1);
             }
           }
         }

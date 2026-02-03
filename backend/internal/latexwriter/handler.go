@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -55,8 +56,13 @@ func (h *Handler) StreamChat(c *gin.Context) {
 	// 流式输出
 	if err := h.service.StreamChat(&req, c.Writer); err != nil {
 		fmt.Printf("[LaTeXWriter] StreamChat error: %v\n", err)
-		// 错误时发送错误事件
-		c.SSEvent("error", err.Error())
+		
+		// 将错误信息转换为用户友好的提示
+		errorMsg := h.formatUserFriendlyError(err)
+		
+		// 以 SSE data 格式发送错误消息，前端可以直接显示
+		c.Writer.Write([]byte(fmt.Sprintf("data: \n\n⚠️ **AI 服务异常**\n\n%s\n\n", errorMsg)))
+		c.Writer.Flush()
 	}
 
 	// 发送结束标记
@@ -441,7 +447,13 @@ func (h *Handler) StreamChatWithContext(c *gin.Context) {
 	// 流式输出（带上下文）
 	if err := h.service.StreamChatWithContext(userID.(uint), uint(documentID), &req, c.Writer); err != nil {
 		fmt.Printf("[LaTeXWriter] StreamChatWithContext error: %v\n", err)
-		c.SSEvent("error", err.Error())
+		
+		// 将错误信息转换为用户友好的提示
+		errorMsg := h.formatUserFriendlyError(err)
+		
+		// 以 SSE data 格式发送错误消息，前端可以直接显示
+		c.Writer.Write([]byte(fmt.Sprintf("data: \n\n⚠️ **AI 服务异常**\n\n%s\n\n", errorMsg)))
+		c.Writer.Flush()
 	}
 
 	// 发送结束标记
@@ -666,4 +678,52 @@ func (h *Handler) ExportToWord(c *gin.Context) {
 	c.Header("Content-Length", strconv.Itoa(len(docxBytes)))
 	
 	c.Data(http.StatusOK, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", docxBytes)
+}
+
+// formatUserFriendlyError 将技术性错误转换为用户友好的提示
+func (h *Handler) formatUserFriendlyError(err error) string {
+	errStr := err.Error()
+	
+	// API 错误（404, 401, 403 等）
+	if strings.Contains(errStr, "404") || strings.Contains(errStr, "not found") {
+		return "当前 AI 模型服务不可用，请稍后重试或联系管理员切换模型配置。"
+	}
+	
+	if strings.Contains(errStr, "401") || strings.Contains(errStr, "Unauthorized") || strings.Contains(errStr, "unauthorized") {
+		return "AI 模型认证失败，请联系管理员检查 API 密钥配置。"
+	}
+	
+	if strings.Contains(errStr, "403") || strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "forbidden") {
+		return "AI 模型访问被拒绝，请联系管理员检查账户权限。"
+	}
+	
+	if strings.Contains(errStr, "429") || strings.Contains(errStr, "rate limit") || strings.Contains(errStr, "Too Many Requests") {
+		return "AI 服务请求过于频繁，请稍后再试。"
+	}
+	
+	if strings.Contains(errStr, "500") || strings.Contains(errStr, "502") || strings.Contains(errStr, "503") || strings.Contains(errStr, "504") {
+		return "AI 服务暂时不可用，请稍后重试。"
+	}
+	
+	// 网络错误
+	if strings.Contains(errStr, "timeout") || strings.Contains(errStr, "Timeout") {
+		return "AI 服务响应超时，请稍后重试。"
+	}
+	
+	if strings.Contains(errStr, "connection") || strings.Contains(errStr, "network") || strings.Contains(errStr, "dial") {
+		return "无法连接到 AI 服务，请检查网络后重试。"
+	}
+	
+	// 熔断器错误
+	if strings.Contains(errStr, "circuit breaker") || strings.Contains(errStr, "Circuit Breaker") {
+		return "AI 服务暂时熔断保护中，请稍后重试。"
+	}
+	
+	// 配额/余额错误
+	if strings.Contains(errStr, "quota") || strings.Contains(errStr, "balance") || strings.Contains(errStr, "insufficient") {
+		return "AI 服务配额不足，请联系管理员。"
+	}
+	
+	// 默认错误消息
+	return "AI 服务出现异常，请稍后重试。如果问题持续，请联系管理员。"
 }

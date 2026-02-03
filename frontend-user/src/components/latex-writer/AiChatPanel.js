@@ -633,6 +633,28 @@ const AiChatPanel = forwardRef(function AiChatPanel({
     // 如果是流式输出中
     if (isLastAssistant && currentResponse) {
       const streamParsed = parseStreamingMessage(currentResponse);
+      // 根据 currentSection 判断各部分的流式状态
+      const isThinkStreaming = streamParsed.currentSection === 'think';
+      const isReplyStreaming = streamParsed.currentSection === 'reply';
+      const isCodeStreaming = streamParsed.currentSection === 'code';
+      const isWaiting = streamParsed.currentSection === 'waiting';
+      const isRawMode = streamParsed.currentSection === 'raw' || streamParsed.currentSection === 'none';
+      
+      // 如果是原始模式（没有检测到标签）或等待模式（标签不完整），显示原始文本
+      if (isRawMode || isWaiting) {
+        return (
+          <div className="ai-chat-parsed-content">
+            {currentToolCall && (
+              <ToolCallIndicator toolCall={currentToolCall} />
+            )}
+            <div className="ai-chat-reply ai-chat-streaming-raw">
+              {streamParsed.displayText || currentResponse}
+              <span className="ai-chat-cursor">▋</span>
+            </div>
+          </div>
+        );
+      }
+      
       return (
         <div className="ai-chat-parsed-content">
           {/* 显示正在执行的工具调用 */}
@@ -643,25 +665,29 @@ const AiChatPanel = forwardRef(function AiChatPanel({
           {streamParsed.thinkText && (
             <ThinkingPanel
               content={streamParsed.thinkText}
-              isStreaming={true}
+              isStreaming={isThinkStreaming}
               duration={thinkingDuration}
               defaultOpen={true}
             />
           )}
-          {/* 回复内容 */}
+          {/* 回复内容 - 带流式光标 */}
           {streamParsed.replyText && (
-            <div className="ai-chat-reply">{streamParsed.replyText}</div>
+            <div className="ai-chat-reply">
+              {streamParsed.replyText}
+              {isReplyStreaming && <span className="ai-chat-cursor">▋</span>}
+            </div>
           )}
           {/* 代码预览 - 使用 CodePreview */}
           {streamParsed.codeText && (
             <CodePreview
               code={streamParsed.codeText}
               originalCode={fullContent}
-              isStreaming={true}
+              isStreaming={isCodeStreaming}
               onApply={onApplySuggestion}
             />
           )}
-          {!streamParsed.displayText && !streamParsed.thinkText && !streamParsed.codeText && (
+          {/* 如果还没有任何内容，显示等待光标 */}
+          {!streamParsed.thinkText && !streamParsed.replyText && !streamParsed.codeText && (
             <span className="ai-chat-cursor">▋</span>
           )}
         </div>
