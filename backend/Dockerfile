@@ -27,7 +27,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/server
 # Runtime stage
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates mysql-client tzdata
+RUN apk --no-cache add ca-certificates mysql-client tzdata pandoc
 ENV TZ=Asia/Shanghai
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8

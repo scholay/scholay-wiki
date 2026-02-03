@@ -144,7 +144,7 @@ function PdfPreview({
     setShowExportMenu(false);
     
     try {
-      const response = await fetch('/api/v1/latex-writer/export/word', {
+      const response = await fetch('/api/v1/user/latex-writer/export/word', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -22,6 +22,23 @@ let engineStatus = 'unloaded'; // unloaded, loading, ready, compiling, error
 // 状态监听器
 const statusListeners = new Set();
 
+// 注册 TexLive 缓存 Service Worker
+const registerTexLiveCacheSW = async () => {
+  if ('serviceWorker' in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.register('/texlive-cache-sw.js', {
+        scope: '/'
+      });
+      console.log('[LatexCompiler] TexLive cache Service Worker registered:', registration.scope);
+    } catch (error) {
+      console.warn('[LatexCompiler] Service Worker registration failed:', error);
+    }
+  }
+};
+
+// 立即尝试注册
+registerTexLiveCacheSW();
+
 // 加载脚本
 const loadScript = (src) => {
   return new Promise((resolve, reject) => {
@@ -98,7 +115,8 @@ export const initializeEngine = async (engineType = null) => {
   setStatus('loading');
 
   try {
-    const texliveEndpoint = 'https://texlive.texlyre.org/';
+    // 使用本站 Nginx 代理获取 TexLive 资源，启用浏览器 disk cache
+    const texliveEndpoint = `${window.location.origin}/texlive-proxy/`;
 
     if (currentEngine === 'xetex') {
       // 加载 XeTeX 引擎（支持中文）
