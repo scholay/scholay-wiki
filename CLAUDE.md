@@ -171,6 +171,7 @@ docker exec -it scholar_redis redis-cli MONITOR
 ./scripts/monitor-memory.sh -c     # Check against alert thresholds
 ./scripts/monitor-memory.sh -r     # Show Redis memory details
 ./scripts/monitor-memory.sh -m     # Show MySQL memory details
+
 ```
 
 ### Testing API Endpoints

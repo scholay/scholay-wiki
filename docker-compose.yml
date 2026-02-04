@@ -1,8 +1,17 @@
+# 全局日志配置: 每个容器最多保留 7 个日志文件，每个文件最大 10MB
+# 日志自动轮转，相当于保留约 7 天的日志（取决于日志量）
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "7"
+
 services:
   mysql:
     image: mysql:8.0
     container_name: scholar_mysql
     restart: unless-stopped
+    logging: *default-logging
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-scholar}
@@ -37,6 +46,7 @@ services:
     image: redis:7-alpine
     container_name: scholar_redis
     restart: unless-stopped
+    logging: *default-logging
     # Redis不暴露端口到主机,仅容器内部访问
     expose:
       - "6379"
@@ -61,6 +71,7 @@ services:
   schema-sync:
     image: mysql:8.0
     container_name: scholar_schema_sync
+    logging: *default-logging
     environment:
       DB_HOST: mysql
       DB_PORT: 3306
@@ -84,6 +95,7 @@ services:
       dockerfile: Dockerfile
     container_name: scholar_backend
     restart: unless-stopped
+    logging: *default-logging
     environment:
       DB_HOST: mysql
       DB_PORT: 3306
@@ -137,6 +149,7 @@ services:
         REACT_APP_API_URL: ""
     container_name: scholar_frontend_admin
     restart: unless-stopped
+    logging: *default-logging
     # Frontend不暴露端口,通过Nginx访问
     expose:
       - "80"
@@ -159,6 +172,7 @@ services:
         REACT_APP_API_URL: ""
     container_name: scholar_frontend_user
     restart: unless-stopped
+    logging: *default-logging
     # Frontend不暴露端口,通过Nginx访问
     expose:
       - "80"
@@ -177,6 +191,7 @@ services:
     image: nginx:alpine
     container_name: scholar_nginx
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "${HTTP_PORT:-5411}:80"
       - "${ADMIN_PORT:-5455}:8001"
