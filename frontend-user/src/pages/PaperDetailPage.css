@@ -1197,6 +1197,71 @@
   opacity: 1;
 }
 
+/* AI 对话入口卡片 */
+.pd-chat-card {
+  text-decoration: none;
+  margin-top: 12px;
+}
+
+.pd-chat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+}
+
+/* GPT 样式 */
+.pd-chat-border-gpt {
+  background: conic-gradient(
+    from 0deg,
+    #10a37f,
+    #1a7f64,
+    #10a37f,
+    #0d8c6d,
+    #10a37f,
+    #15b88a,
+    #10a37f
+  );
+}
+
+.pd-chat-gpt:hover {
+  box-shadow: 0 8px 24px rgba(16, 163, 127, 0.25);
+}
+
+.pd-chat-gpt .pd-prism-inner {
+  background: linear-gradient(135deg, #f0fdf9 0%, #f7fdfb 100%);
+}
+
+.pd-chat-gpt:hover .pd-prism-inner {
+  background: linear-gradient(135deg, #fff 0%, #f0fdf9 100%);
+}
+
+/* Gemini 样式 */
+.pd-chat-border-gemini {
+  background: conic-gradient(
+    from 0deg,
+    #4285F4,
+    #9B72CB,
+    #D96570,
+    #E8710A,
+    #F9AB00,
+    #34A853,
+    #4285F4
+  );
+}
+
+.pd-chat-gemini:hover {
+  box-shadow: 0 8px 24px rgba(66, 133, 244, 0.25);
+}
+
+.pd-chat-gemini .pd-prism-inner {
+  background: linear-gradient(135deg, #f0f7ff 0%, #fdf7ff 100%);
+}
+
+.pd-chat-gemini:hover .pd-prism-inner {
+  background: linear-gradient(135deg, #fff 0%, #f5f0ff 100%);
+}
+
 /* 研究领域列表 */
 .pd-fields-list {
   display: flex;
