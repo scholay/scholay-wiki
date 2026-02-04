@@ -13,14 +13,17 @@ import (
 	"log"
 	"time"
 
+	"scholar-backend/internal/hotcontent"
+
 	"gorm.io/gorm"
 )
 
 // CleanupService handles periodic database cleanup tasks
 type CleanupService struct {
-	db     *gorm.DB
-	ctx    context.Context
-	cancel context.CancelFunc
+	db                *gorm.DB
+	ctx               context.Context
+	cancel            context.CancelFunc
+	hotContentService *hotcontent.Service
 }
 
 // NewCleanupService creates a new cleanup service
@@ -31,6 +34,11 @@ func NewCleanupService(db *gorm.DB) *CleanupService {
 		ctx:    ctx,
 		cancel: cancel,
 	}
+}
+
+// SetHotContentService 设置热门内容服务
+func (s *CleanupService) SetHotContentService(service *hotcontent.Service) {
+	s.hotContentService = service
 }
 
 // Start starts all cleanup tasks as background goroutines
@@ -45,6 +53,9 @@ func (s *CleanupService) Start() {
 
 	// Clean old usage logs every day at 4 AM
 	go s.runDaily("old_usage_logs", 4, 0, s.cleanOldUsageLogs)
+
+	// Clean hot content data every day at 4:30 AM
+	go s.runDaily("hot_content", 4, 30, s.cleanHotContent)
 
 	log.Println("✓ Cleanup service started")
 }
@@ -208,6 +219,29 @@ func (s *CleanupService) cleanOldUsageLogs() error {
 
 	if totalDeleted > 0 {
 		log.Printf("✓ Cleaned %d old usage logs (retention: %d days)\n", totalDeleted, retentionDays)
+	}
+
+	return nil
+}
+
+// cleanHotContent removes old hot content data based on retention period and max records limit
+func (s *CleanupService) cleanHotContent() error {
+	if s.hotContentService == nil {
+		log.Println("Warning: hot content service not configured, skipping cleanup")
+		return nil
+	}
+
+	log.Printf("Starting cleanup of hot content data (retention: %d days, max: %d records)\n",
+		hotcontent.HotContentRetentionDays, hotcontent.HotContentMaxRecords)
+
+	stats, err := s.hotContentService.Cleanup()
+	if err != nil {
+		return fmt.Errorf("failed to clean hot content: %w", err)
+	}
+
+	if stats.KeywordsDeleted > 0 || stats.PapersDeleted > 0 {
+		log.Printf("✓ Cleaned hot content: keywords=%d, papers=%d\n",
+			stats.KeywordsDeleted, stats.PapersDeleted)
 	}
 
 	return nil

@@ -14,8 +14,10 @@ import SEO from '../components/SEO';
 import FloatingGuide from '../components/FloatingGuide';
 import Logo from '../components/Logo';
 import { generateScholarlyArticleSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
-import { trackLandingPageView, trackLandingPageSearch, trackLandingPageSimilar } from '../utils/usageTracker';
+import { trackLandingPageView, trackLandingPageSearch, trackLandingPageSimilar, trackLandingPageTranslate } from '../utils/usageTracker';
 import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation } from '../utils/searchStorage';
+import { useTranslation, isPrimarilyChinese } from '../hooks/useTranslation';
+import { Languages } from 'lucide-react';
 import logger from '../utils/logger';
 import './PaperDetailPage.css';
 
@@ -47,6 +49,14 @@ const PaperDetailPage = () => {
   const [similarPapersLoaded, setSimilarPapersLoaded] = useState(false);
   const isHoveringTitleRef = useRef(false); // 使用 ref 来跟踪 hover 状态，避免闭包问题
 
+  // 翻译相关
+  const translation = useTranslation();
+  const paperTransState = translation.getPaperTranslationState(paperId);
+  const paperDisplayMode = translation.getPaperDisplayMode(paperId);
+  const isPaperTranslating = paperTransState.status === 'translating';
+  const hasPaperTranslation = paperTransState.status === 'completed' && 
+    (paperTransState.title_zh || paperTransState.abstract_zh);
+
   // 构建 Semantic Scholar 的 URL
   const semanticScholarUrl = `https://www.semanticscholar.org/paper/${paperId}`;
 
@@ -61,11 +71,24 @@ const PaperDetailPage = () => {
           }
         });
         // API返回格式: { code: 0, message: "success", data: {...} }
-        setPaper(response.data.data);
+        const paperData = response.data.data;
+        setPaper(paperData);
         setError(null);
+        
+        // 记录落地页详情查看（包含论文元数据）
+        trackLandingPageView(paperId, {
+          doi: paperData.externalIds?.DOI,
+          title: paperData.title,
+          abstract: paperData.abstract,
+          authors: paperData.authors,
+          year: paperData.year,
+          venue: paperData.venue
+        });
       } catch (err) {
         logger.error('Failed to fetch paper details:', err);
         setError(err.response?.data?.message || 'Failed to load paper details');
+        // 即使获取失败，也记录一次访问（仅包含paperId）
+        trackLandingPageView(paperId);
       } finally {
         setIsLoading(false);
       }
@@ -73,8 +96,6 @@ const PaperDetailPage = () => {
 
     if (paperId) {
       fetchPaperDetails();
-      // 记录落地页详情查看
-      trackLandingPageView(paperId);
     }
   }, [paperId]);
 
@@ -470,21 +491,6 @@ const PaperDetailPage = () => {
             <Logo size={20} className="pd-logo-image" />
             <span className="pd-logo-text">Scholay</span>
           </div>
-          <div 
-            className="pd-new-feature-tag"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (window.openFloatingGuide) {
-                window.openFloatingGuide();
-              }
-            }}
-          >
-            <span className="pd-new-badge">NEW</span>
-            <span className="pd-feature-text">AI Analysis</span>
-            <svg className="pd-feature-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 18l6-6-6-6"/>
-            </svg>
-          </div>
         </div>
 
         {/* 搜索框 - 居中 */}
@@ -701,12 +707,34 @@ const PaperDetailPage = () => {
             </div>
 
             {/* 标题 - 带相似论文hover弹窗 */}
-            <div 
-              className="pd-title-wrapper"
-              onMouseEnter={handleTitleMouseEnter}
-              onMouseLeave={handleTitleMouseLeave}
-            >
-            <h1 className="pd-paper-title">{paper.title}</h1>
+            <div className="pd-title-wrapper">
+              <div className="pd-title-row">
+                {/* 翻译按钮 */}
+                <button
+                  className={`pd-translate-btn ${isPaperTranslating ? 'translating' : ''} ${hasPaperTranslation ? 'has-translation' : ''} ${isPrimarilyChinese(paper.title) ? 'disabled' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (isPrimarilyChinese(paper.title) || isPaperTranslating) return;
+                    if (hasPaperTranslation) {
+                      translation.togglePaperDisplayMode(paperId);
+                    } else {
+                      trackLandingPageTranslate(paperId, 'paper');
+                      translation.translatePaper(paperId, paper.title, paper.abstract, paper.tldr?.text);
+                    }
+                  }}
+                  disabled={isPrimarilyChinese(paper.title) || isPaperTranslating}
+                  title={isPrimarilyChinese(paper.title) ? '内容已是中文' : isPaperTranslating ? '翻译中...' : hasPaperTranslation ? (paperDisplayMode === 'translated' ? '显示原文' : '显示译文') : '翻译为中文'}
+                >
+                  {isPaperTranslating ? <span className="pd-translate-spinner"></span> : <Languages size={16} />}
+                </button>
+                <h1 
+                  className="pd-paper-title"
+                  onMouseEnter={handleTitleMouseEnter}
+                  onMouseLeave={handleTitleMouseLeave}
+                >
+                  {paperDisplayMode === 'translated' && paperTransState.title_zh ? paperTransState.title_zh : paper.title}
+                </h1>
+              </div>
               
               {/* 相似论文弹窗 - hover后立即显示，内部处理loading状态 */}
               {showSimilarPopup && (
@@ -826,7 +854,29 @@ const PaperDetailPage = () => {
           {paper.abstract && (
             <div className="pd-content-section">
               <h2 className="pd-section-heading">Abstract</h2>
-              <p className="pd-abstract-text">{paper.abstract}</p>
+              <div className="pd-abstract-row">
+                {/* 翻译按钮 */}
+                <button
+                  className={`pd-translate-btn ${isPaperTranslating ? 'translating' : ''} ${hasPaperTranslation ? 'has-translation' : ''} ${isPrimarilyChinese(paper.abstract) ? 'disabled' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (isPrimarilyChinese(paper.abstract) || isPaperTranslating) return;
+                    if (hasPaperTranslation) {
+                      translation.togglePaperDisplayMode(paperId);
+                    } else {
+                      trackLandingPageTranslate(paperId, 'paper');
+                      translation.translatePaper(paperId, paper.title, paper.abstract, paper.tldr?.text);
+                    }
+                  }}
+                  disabled={isPrimarilyChinese(paper.abstract) || isPaperTranslating}
+                  title={isPrimarilyChinese(paper.abstract) ? '内容已是中文' : isPaperTranslating ? '翻译中...' : hasPaperTranslation ? (paperDisplayMode === 'translated' ? '显示原文' : '显示译文') : '翻译为中文'}
+                >
+                  {isPaperTranslating ? <span className="pd-translate-spinner"></span> : <Languages size={16} />}
+                </button>
+                <p className="pd-abstract-text">
+                  {paperDisplayMode === 'translated' && paperTransState.abstract_zh ? paperTransState.abstract_zh : paper.abstract}
+                </p>
+              </div>
             </div>
           )}
 

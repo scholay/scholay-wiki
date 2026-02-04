@@ -1854,6 +1854,46 @@ CREATE TABLE IF NOT EXISTS `conversation_summaries` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对话摘要表';
 
 -- ============================================
+-- 热门内容统计表
+-- ============================================
+
+-- 热门搜索关键词统计表
+CREATE TABLE IF NOT EXISTS `hot_search_keywords` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `keyword` VARCHAR(500) NOT NULL COMMENT '搜索关键词（标准化后）',
+  `keyword_hash` CHAR(32) NOT NULL COMMENT '关键词MD5哈希（用于唯一索引）',
+  `search_count` INT UNSIGNED NOT NULL DEFAULT 1 COMMENT '搜索次数',
+  `first_searched_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次搜索时间',
+  `last_searched_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最近搜索时间',
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_keyword_hash` (`keyword_hash`),
+  INDEX `idx_search_count` (`search_count` DESC),
+  INDEX `idx_last_searched` (`last_searched_at`),
+  INDEX `idx_first_searched` (`first_searched_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='热门搜索关键词统计';
+
+-- 热门论文统计表
+CREATE TABLE IF NOT EXISTS `hot_papers` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `paper_id` VARCHAR(64) NOT NULL COMMENT 'Semantic Scholar Paper ID',
+  `doi` VARCHAR(255) DEFAULT NULL COMMENT 'DOI号',
+  `title` TEXT COMMENT '论文标题',
+  `abstract` TEXT COMMENT '论文摘要',
+  `authors` TEXT COMMENT '作者列表（JSON）',
+  `year` INT DEFAULT NULL COMMENT '发表年份',
+  `venue` VARCHAR(500) DEFAULT NULL COMMENT '发表会议/期刊',
+  `view_count` INT UNSIGNED NOT NULL DEFAULT 1 COMMENT '查看次数',
+  `first_viewed_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次查看时间',
+  `last_viewed_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最近查看时间',
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_paper_id` (`paper_id`),
+  INDEX `idx_doi` (`doi`),
+  INDEX `idx_view_count` (`view_count` DESC),
+  INDEX `idx_last_viewed` (`last_viewed_at`),
+  INDEX `idx_first_viewed` (`first_viewed_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='热门论文统计';
+
+-- ============================================
 -- 安全添加新列（仅当列不存在时）
 -- 用于表已存在的情况下的迁移
 -- ============================================

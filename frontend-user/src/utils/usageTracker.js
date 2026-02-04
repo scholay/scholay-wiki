@@ -40,6 +40,7 @@ export const FeatureCode = {
   LANDING_PAGE_VIEW: 'landing_page_view',           // 落地页详情
   LANDING_PAGE_SEARCH: 'landing_page_search',       // 落地页搜索
   LANDING_PAGE_SIMILAR: 'landing_page_similar',     // 落地页相似论文
+  LANDING_PAGE_TRANSLATE: 'landing_page_translate', // 落地页翻译
   
   // 详情页类（/search-results?paperId=xxx）
   DETAIL_PAGE_VIEW: 'detail_page_view',             // 论文详情页
@@ -63,6 +64,7 @@ const FeatureNames = {
   [FeatureCode.LANDING_PAGE_VIEW]: '落地页详情',
   [FeatureCode.LANDING_PAGE_SEARCH]: '落地页搜索',
   [FeatureCode.LANDING_PAGE_SIMILAR]: '落地页相似论文',
+  [FeatureCode.LANDING_PAGE_TRANSLATE]: '落地页翻译',
   [FeatureCode.DETAIL_PAGE_VIEW]: '论文详情页',
   [FeatureCode.DETAIL_PAGE_SIMILAR]: '详情页相似论文',
 };
@@ -256,9 +258,25 @@ export const trackScholayPrism = (documentId = '') => {
 /**
  * 记录落地页详情查看（打开 /paper/{id} 时）
  * @param {string} paperId - 论文ID
+ * @param {object} paperData - 论文元数据（可选）
  */
-export const trackLandingPageView = (paperId) => {
-  trackUsage(FeatureCode.LANDING_PAGE_VIEW, Action.VIEW, EntryPoint.LANDING_PAGE, { paper_id: paperId });
+export const trackLandingPageView = (paperId, paperData = null) => {
+  const extraData = { paper_id: paperId };
+  if (paperData) {
+    if (paperData.doi) extraData.doi = paperData.doi;
+    if (paperData.title) extraData.title = paperData.title;
+    if (paperData.abstract) extraData.abstract = paperData.abstract?.substring(0, 500); // 截取前500字
+    if (paperData.authors) {
+      // 只保存前5个作者
+      const authorsData = Array.isArray(paperData.authors) 
+        ? paperData.authors.slice(0, 5).map(a => a.name || a).join(', ')
+        : paperData.authors;
+      extraData.authors = authorsData;
+    }
+    if (paperData.year) extraData.year = paperData.year;
+    if (paperData.venue) extraData.venue = paperData.venue;
+  }
+  trackUsage(FeatureCode.LANDING_PAGE_VIEW, Action.VIEW, EntryPoint.LANDING_PAGE, extraData);
 };
 
 /**
@@ -280,11 +298,37 @@ export const trackLandingPageSimilar = (paperId, sourcePaperId) => {
 };
 
 /**
+ * 记录落地页翻译（点击翻译按钮时）
+ * @param {string} paperId - 论文ID
+ * @param {string} translateType - 翻译类型 (paper/title/abstract)
+ */
+export const trackLandingPageTranslate = (paperId, translateType = 'paper') => {
+  trackUsage(FeatureCode.LANDING_PAGE_TRANSLATE, Action.TRANSLATE, EntryPoint.LANDING_PAGE, 
+    { paper_id: paperId, translate_type: translateType });
+};
+
+/**
  * 记录论文详情页查看（打开 /search-results?paperId=xxx 时）
  * @param {string} paperId - 论文ID
+ * @param {object} paperData - 论文元数据（可选）
  */
-export const trackDetailPageView = (paperId) => {
-  trackUsage(FeatureCode.DETAIL_PAGE_VIEW, Action.VIEW, EntryPoint.DETAIL_PAGE, { paper_id: paperId });
+export const trackDetailPageView = (paperId, paperData = null) => {
+  const extraData = { paper_id: paperId };
+  if (paperData) {
+    if (paperData.doi) extraData.doi = paperData.doi;
+    if (paperData.title) extraData.title = paperData.title;
+    if (paperData.abstract) extraData.abstract = paperData.abstract?.substring(0, 500); // 截取前500字
+    if (paperData.authors) {
+      // 只保存前5个作者
+      const authorsData = Array.isArray(paperData.authors) 
+        ? paperData.authors.slice(0, 5).map(a => a.name || a).join(', ')
+        : paperData.authors;
+      extraData.authors = authorsData;
+    }
+    if (paperData.year) extraData.year = paperData.year;
+    if (paperData.venue) extraData.venue = paperData.venue;
+  }
+  trackUsage(FeatureCode.DETAIL_PAGE_VIEW, Action.VIEW, EntryPoint.DETAIL_PAGE, extraData);
 };
 
 /**
@@ -318,6 +362,7 @@ const usageTracker = {
   trackLandingPageView,
   trackLandingPageSearch,
   trackLandingPageSimilar,
+  trackLandingPageTranslate,
   trackDetailPageView,
   trackDetailPageSimilar,
 };

@@ -41,6 +41,7 @@ import (
 	"scholar-backend/internal/proxy"
 	"scholar-backend/internal/semanticscholar"
 	"scholar-backend/internal/subscription"
+	"scholar-backend/internal/hotcontent"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/user"
 	"scholar-backend/internal/usagelog"
@@ -312,6 +313,17 @@ func main() {
 
 	// Inject usageLogService into configHandler (for dynamic sitemap generation)
 	configHandler.SetUsageLogService(&usageLogServiceAdapter{usageLogService})
+
+	// Initialize HotContent module (热门内容统计)
+	hotContentRepo := hotcontent.NewRepository(database.GetDB())
+	hotContentService := hotcontent.NewService(hotContentRepo)
+	hotContentHandler := hotcontent.NewHandler(hotContentService)
+
+	// Inject hotContentService into usageLogService (for recording hot content)
+	usageLogService.SetHotContentService(hotContentService)
+
+	// Inject hotContentService into cleanupService (for scheduled cleanup)
+	cleanupService.SetHotContentService(hotContentService)
 
 	// Initialize Message module (站内信)
 	messageHandler := message.NewHandler(database.GetDB())
@@ -753,6 +765,12 @@ func main() {
 			adminProtected.POST("/usage-logs/cleanup", usageLogAdminHandler.TriggerCleanup)
 			adminProtected.DELETE("/usage-logs/all", usageLogAdminHandler.ClearAllLogs)
 
+			// Hot content admin routes (热门内容统计)
+			adminProtected.GET("/hot-content/keywords", hotContentHandler.GetHotKeywords)
+			adminProtected.GET("/hot-content/papers", hotContentHandler.GetHotPapers)
+			adminProtected.GET("/hot-content/stats", hotContentHandler.GetStats)
+			adminProtected.POST("/hot-content/cleanup", hotContentHandler.ManualCleanup)
+
 			// Message management (站内信管理)
 			adminProtected.POST("/messages", messageHandler.AdminCreateMessage)
 			adminProtected.GET("/messages", messageHandler.AdminGetMessages)
@@ -1031,6 +1049,10 @@ func main() {
 
 			// Public paper translation endpoint - for translating title/abstract/TLDR at once (streaming)
 			publicAPI.POST("/translate/paper/stream", aiHandler.StreamTranslatePaper)
+
+			// Public hot content endpoints - for anonymous access to hot search keywords and papers
+			publicAPI.GET("/hot-content/keywords", hotContentHandler.GetRecentKeywords)
+			publicAPI.GET("/hot-content/papers", hotContentHandler.GetRecentPapers)
 		}
 
 		// Analysis dimensions routes (protected - requires user authentication)

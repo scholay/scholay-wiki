@@ -51,14 +51,24 @@ export const usePaperDetail = () => {
     try {
       const response = await publicScholarAPI.getPaper(paperId);
       logger.log('[SearchResultsPage] Paper detail loaded:', response.data);
-      setDetailPaper(response.data.data);
+      const paperData = response.data.data;
+      setDetailPaper(paperData);
       setDetailLoading(false);
-      // 记录论文详情页查看使用统计
-      trackDetailPageView(paperId);
+      // 记录论文详情页查看使用统计（包含论文元数据）
+      trackDetailPageView(paperId, {
+        doi: paperData?.externalIds?.DOI,
+        title: paperData?.title,
+        abstract: paperData?.abstract,
+        authors: paperData?.authors,
+        year: paperData?.year,
+        venue: paperData?.venue
+      });
     } catch (error) {
       logger.error('[SearchResultsPage] Failed to load paper details:', error);
       setDetailError('加载论文详情失败');
       setDetailLoading(false);
+      // 即使失败也记录一次访问（仅包含paperId）
+      trackDetailPageView(paperId);
     }
   }, []);
 

@@ -1,0 +1,425 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ */
+
+.hc-container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* 页面标题 */
+.hc-header {
+  margin-bottom: 24px;
+}
+
+.hc-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 8px 0;
+}
+
+.hc-subtitle {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+/* 统计卡片 */
+.hc-stats-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.hc-stat-card {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+}
+
+.hc-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1890ff;
+  margin-bottom: 4px;
+}
+
+.hc-stat-label {
+  font-size: 13px;
+  color: #666;
+}
+
+/* 工具栏 */
+.hc-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.hc-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.hc-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Tab切换 */
+.hc-tabs {
+  display: flex;
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.hc-tab {
+  padding: 8px 20px;
+  border: none;
+  background: transparent;
+  color: #666;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.hc-tab:hover {
+  color: #1890ff;
+}
+
+.hc-tab.active {
+  background: #fff;
+  color: #1890ff;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 下拉选择 */
+.hc-select {
+  padding: 8px 32px 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #333;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M2 4l4 4 4-4z'/%3E%3C/svg%3E") no-repeat right 10px center;
+  appearance: none;
+  cursor: pointer;
+}
+
+.hc-select:focus {
+  outline: none;
+  border-color: #1890ff;
+}
+
+/* 清理按钮 */
+.hc-cleanup-btn {
+  padding: 8px 16px;
+  background: #ff4d4f;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.hc-cleanup-btn:hover:not(:disabled) {
+  background: #ff7875;
+}
+
+.hc-cleanup-btn:disabled {
+  background: #d9d9d9;
+  cursor: not-allowed;
+}
+
+/* 表格容器 */
+.hc-table-container {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* 加载和空状态 */
+.hc-loading,
+.hc-empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+/* 表格 */
+.hc-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.hc-table th,
+.hc-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.hc-table th {
+  background: #fafafa;
+  font-weight: 500;
+  color: #666;
+  font-size: 13px;
+}
+
+.hc-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+/* 排名徽章 */
+.hc-rank {
+  text-align: center;
+}
+
+.hc-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 500;
+  background: #f5f5f5;
+  color: #666;
+}
+
+.hc-rank-badge.top-1 {
+  background: linear-gradient(135deg, #ffd700 0%, #ffb800 100%);
+  color: #fff;
+}
+
+.hc-rank-badge.top-2 {
+  background: linear-gradient(135deg, #c0c0c0 0%, #a8a8a8 100%);
+  color: #fff;
+}
+
+.hc-rank-badge.top-3 {
+  background: linear-gradient(135deg, #cd7f32 0%, #b8722e 100%);
+  color: #fff;
+}
+
+/* 关键词 */
+.hc-keyword {
+  font-weight: 500;
+  color: #1a1a1a;
+  word-break: break-all;
+}
+
+/* 论文标题 */
+.hc-paper-title {
+  max-width: 400px;
+}
+
+.hc-paper-title-text {
+  font-weight: 500;
+  color: #1a1a1a;
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.hc-paper-id {
+  font-size: 12px;
+  color: #999;
+  font-family: monospace;
+}
+
+/* DOI链接 */
+.hc-doi-link {
+  color: #1890ff;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.hc-doi-link:hover {
+  text-decoration: underline;
+}
+
+/* 数量 */
+.hc-count {
+  font-weight: 600;
+  color: #1890ff;
+  text-align: center;
+}
+
+/* 时间 */
+.hc-time {
+  font-size: 13px;
+  color: #666;
+}
+
+/* 年份 */
+.hc-year {
+  text-align: center;
+  color: #666;
+}
+
+/* 分页 */
+.hc-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.hc-page-btn {
+  padding: 6px 16px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: #fff;
+  color: #333;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hc-page-btn:hover:not(:disabled) {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.hc-page-btn:disabled {
+  color: #d9d9d9;
+  cursor: not-allowed;
+}
+
+.hc-page-info {
+  font-size: 14px;
+  color: #666;
+}
+
+/* 弹窗 */
+.hc-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.hc-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 400px;
+  max-width: 90%;
+}
+
+.hc-modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 12px 0;
+}
+
+.hc-modal-text {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+  margin: 0 0 20px 0;
+}
+
+.hc-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.hc-modal-btn {
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hc-modal-btn.cancel {
+  background: #f5f5f5;
+  border: 1px solid #d9d9d9;
+  color: #666;
+}
+
+.hc-modal-btn.cancel:hover {
+  background: #e8e8e8;
+}
+
+.hc-modal-btn.confirm {
+  background: #ff4d4f;
+  border: none;
+  color: #fff;
+}
+
+.hc-modal-btn.confirm:hover:not(:disabled) {
+  background: #ff7875;
+}
+
+.hc-modal-btn.confirm:disabled {
+  background: #d9d9d9;
+  cursor: not-allowed;
+}
+
+/* 响应式 */
+@media (max-width: 1024px) {
+  .hc-stats-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .hc-container {
+    padding: 16px;
+  }
+
+  .hc-stats-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .hc-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hc-toolbar-left,
+  .hc-toolbar-right {
+    justify-content: space-between;
+  }
+
+  .hc-table-container {
+    overflow-x: auto;
+  }
+
+  .hc-table {
+    min-width: 600px;
+  }
+}

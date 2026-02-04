@@ -9,18 +9,27 @@ package usagelog
 
 import (
 	"encoding/json"
+	"log"
 	"strings"
 	"time"
+
+	"scholar-backend/internal/hotcontent"
 )
 
 // Service 业务逻辑层
 type Service struct {
-	repo *Repository
+	repo              *Repository
+	hotContentService *hotcontent.Service
 }
 
 // NewService 创建Service
 func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetHotContentService 设置热门内容服务（用于解决循环依赖）
+func (s *Service) SetHotContentService(hotContentService *hotcontent.Service) {
+	s.hotContentService = hotContentService
 }
 
 // Log 记录使用日志
@@ -45,7 +54,7 @@ func (s *Service) Log(req *LogRequest, userID *uint, ipAddress, userAgent string
 		extraData = data
 	}
 
-	log := &UsageLog{
+	usageLog := &UsageLog{
 		UserID:      userID,
 		SessionID:   req.SessionID,
 		FeatureCode: req.FeatureCode,
@@ -63,7 +72,39 @@ func (s *Service) Log(req *LogRequest, userID *uint, ipAddress, userAgent string
 		CreatedAt:   time.Now(),
 	}
 
-	return s.repo.Create(log)
+	// 保存使用日志
+	if err := s.repo.Create(usageLog); err != nil {
+		return err
+	}
+
+	// 同步记录到热门内容统计（异步，不影响主流程）
+	if s.hotContentService != nil && req.ExtraData != nil {
+		go s.recordHotContent(req.FeatureCode, req.ExtraData)
+	}
+
+	return nil
+}
+
+// recordHotContent 记录热门内容（异步调用）
+func (s *Service) recordHotContent(featureCode string, extraData map[string]interface{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[UsageLog] Panic in recordHotContent: %v", r)
+		}
+	}()
+
+	switch featureCode {
+	case "direct_search", "smart_search":
+		// 记录热门搜索关键词
+		if err := s.hotContentService.RecordSearchFromExtraData(extraData); err != nil {
+			log.Printf("[UsageLog] Failed to record hot search keyword: %v", err)
+		}
+	case "landing_page_view", "detail_page_view":
+		// 记录热门论文
+		if err := s.hotContentService.RecordPaperViewFromExtraData(extraData); err != nil {
+			log.Printf("[UsageLog] Failed to record hot paper view: %v", err)
+		}
+	}
 }
 
 // List 分页查询日志

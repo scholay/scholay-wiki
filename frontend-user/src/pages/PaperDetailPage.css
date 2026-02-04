@@ -351,6 +351,7 @@
 /* 论文头部 */
 .pd-header-section {
   margin-bottom: 24px;
+  padding-left: 40px; /* 为翻译按钮留出空间 */
 }
 
 /* 顶部元信息 (DOI, Corpus ID) */
@@ -431,6 +432,104 @@
   word-wrap: break-word;
   letter-spacing: -0.02em;
   cursor: default;
+}
+
+/* 标题行 - 包含翻译按钮 */
+.pd-title-row {
+  position: relative;
+}
+
+.pd-title-row .pd-paper-title {
+  margin: 0 0 16px 0;
+}
+
+/* 摘要行 - 包含翻译按钮 */
+.pd-abstract-row {
+  position: relative;
+}
+
+.pd-abstract-row .pd-abstract-text {
+  /* 保持原有样式 */
+}
+
+/* 翻译按钮样式 */
+.pd-translate-btn {
+  position: absolute;
+  left: -36px;
+  top: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
+  color: #3b82f6;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.1);
+  flex-shrink: 0;
+}
+
+/* 摘要区域的翻译按钮位置调整 */
+.pd-abstract-row .pd-translate-btn {
+  top: 0;
+}
+
+.pd-translate-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(139, 92, 246, 0.25) 100%);
+  color: #2563eb;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
+  transform: scale(1.05);
+}
+
+.pd-translate-btn:active:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.15);
+}
+
+.pd-translate-btn.has-translation {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%);
+  color: #10a37f;
+  box-shadow: 0 1px 3px rgba(16, 163, 127, 0.1);
+}
+
+.pd-translate-btn.has-translation:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.25) 0%, rgba(5, 150, 105, 0.25) 100%);
+  color: #059669;
+  box-shadow: 0 2px 6px rgba(16, 163, 127, 0.2);
+}
+
+.pd-translate-btn.translating {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+  color: rgba(59, 130, 246, 0.6);
+  pointer-events: none;
+}
+
+.pd-translate-btn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: rgba(128, 128, 128, 0.08);
+  color: rgba(128, 128, 128, 0.5);
+  box-shadow: none;
+}
+
+.pd-translate-spinner {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid rgba(59, 130, 246, 0.25);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: pdTranslateSpin 0.8s linear infinite;
+}
+
+@keyframes pdTranslateSpin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 相似论文弹窗 */
@@ -686,8 +785,11 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin: 24px 0;
-  padding-bottom: 24px;
+  margin: 16px 0;
+  margin-left: 40px; /* 与标题/摘要对齐 */
+  padding-top: 16px;
+  padding-bottom: 16px;
+  border-top: 1px solid #e8e8e8;
   border-bottom: 1px solid #e8e8e8;
 }
 
@@ -745,11 +847,23 @@
 .pd-content-section {
   margin: 40px 0;
   padding-bottom: 40px;
+  padding-left: 40px; /* 为翻译按钮留出空间 */
   border-bottom: 1px solid #e8e8e8;
 }
 
 .pd-content-section:last-child {
   border-bottom: none;
+}
+
+/* Abstract后面紧跟操作按钮时，去掉边框并减小间距 */
+.pd-content-section + .pd-action-buttons {
+  margin-top: 0;
+}
+
+.pd-content-section:has(+ .pd-action-buttons) {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 16px;
 }
 
 .pd-section-heading {
@@ -1849,6 +1963,18 @@
     padding: 160px 16px 32px; /* 移动端也要适配横幅 */
   }
 
+  .pd-header-section,
+  .pd-content-section {
+    padding-left: 32px; /* 移动端减小左边距 */
+  }
+
+  .pd-translate-btn {
+    left: -28px; /* 移动端调整按钮位置 */
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+  }
+
   .pd-paper-title {
     font-size: 24px;
   }
@@ -1921,6 +2047,7 @@
 
   .pd-action-buttons {
     flex-direction: column;
+    margin-left: 32px; /* 移动端减小左边距 */
   }
 
   .pd-action-btn {

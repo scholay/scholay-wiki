@@ -31,6 +31,7 @@ const FeedbackManagement = lazy(() => import('./pages/FeedbackManagement'));
 const CurrencyConfig = lazy(() => import('./pages/CurrencyConfig'));
 const CurrencyBatchManagement = lazy(() => import('./pages/CurrencyBatchManagement'));
 const UsageLogs = lazy(() => import('./pages/UsageLogs'));
+const HotContent = lazy(() => import('./pages/HotContent'));
 const MessageManagement = lazy(() => import('./pages/MessageManagement'));
 const MessageTemplates = lazy(() => import('./pages/MessageTemplates'));
 const CodeSnippets = lazy(() => import('./pages/CodeSnippets'));
@@ -82,6 +83,7 @@ function App() {
               <Route path="currency-config" element={<CurrencyConfig />} />
               <Route path="currency-batches" element={<CurrencyBatchManagement />} />
               <Route path="usage-logs" element={<UsageLogs />} />
+              <Route path="hot-content" element={<HotContent />} />
               <Route path="messages" element={<MessageManagement />} />
               <Route path="message-templates" element={<MessageTemplates />} />
               <Route path="code-snippets" element={<CodeSnippets />} />
