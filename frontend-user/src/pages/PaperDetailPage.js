@@ -21,6 +21,34 @@ import { Languages } from 'lucide-react';
 import logger from '../utils/logger';
 import './PaperDetailPage.css';
 
+// Sci-Hub 域名列表
+const SCIHUB_DOMAINS = [
+  'www.sci-hub.email',
+  'www.sci-hub.store',
+  'www.sci-hub.bond'
+];
+
+// 获取或生成持久化的 Sci-Hub 域名（同一浏览器使用同一域名）
+const getSciHubDomain = () => {
+  const storageKey = 'scihub_domain';
+  let domain = localStorage.getItem(storageKey);
+  
+  if (!domain || !SCIHUB_DOMAINS.includes(domain)) {
+    // 随机选择一个域名并保存
+    domain = SCIHUB_DOMAINS[Math.floor(Math.random() * SCIHUB_DOMAINS.length)];
+    localStorage.setItem(storageKey, domain);
+  }
+  
+  return domain;
+};
+
+// 生成 Sci-Hub URL
+const getSciHubUrl = (doi, title) => {
+  const domain = getSciHubDomain();
+  const identifier = doi || title || '';
+  return `https://${domain}/paper.html?doi=${encodeURIComponent(identifier)}`;
+};
+
 const PaperDetailPage = () => {
   const { paperId } = useParams();
   const navigate = useNavigate();
@@ -928,6 +956,19 @@ const PaperDetailPage = () => {
                 View PDF
               </a>
             )}
+            <a
+              href={getSciHubUrl(paper.externalIds?.DOI, paper.title)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pd-action-btn pd-scihub-btn"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Download PDF
+            </a>
           </div>
 
           {/* Citations & References Tab */}

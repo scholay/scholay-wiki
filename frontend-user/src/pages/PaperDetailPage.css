@@ -839,6 +839,20 @@
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
 }
 
+.pd-action-btn.pd-scihub-btn {
+  background: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+  font-weight: 500;
+}
+
+.pd-action-btn.pd-scihub-btn:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+}
+
 .pd-action-btn svg {
   flex-shrink: 0;
 }
@@ -1044,6 +1058,21 @@
   color: #fff;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+}
+
+.pd-sidebar-action-btn.pd-scihub-btn {
+  background: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+  font-weight: 500;
+}
+
+.pd-sidebar-action-btn.pd-scihub-btn:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
 }
 
 .pd-sidebar-action-btn svg {
