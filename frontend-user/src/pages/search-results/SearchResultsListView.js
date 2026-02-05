@@ -447,7 +447,7 @@ const PaperRow = memo(({
               <a
                 href={`https://doi.org/${paper.externalIds.DOI}`}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener"
                 className="search-result-paper-doi-link"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -462,7 +462,7 @@ const PaperRow = memo(({
               <a
                 href={paper.openAccessPdf.url}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener"
                 className="meta-item pdf-link"
                 onClick={(e) => e.stopPropagation()}
               >

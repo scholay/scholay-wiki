@@ -229,7 +229,7 @@ const PaperItem = memo(({
           <a 
             href={paper.openAccessPdf.url}
             target="_blank"
-            rel="noopener noreferrer"
+            rel="noopener"
             className="action-btn pdf-btn"
             onClick={(e) => e.stopPropagation()}
             title="查看 PDF"

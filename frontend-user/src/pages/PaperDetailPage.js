@@ -254,27 +254,27 @@ const PaperDetailPage = () => {
     setShowSimilarPopup(false);
   };
 
-  // 点击推荐论文 - 跳转到搜索结果页
+  // 点击推荐论文 - 新标签页跳转到搜索结果页
   const handleSimilarPaperClick = (similarPaperId) => {
     // 记录落地页相似论文点击
     trackLandingPageSimilar(similarPaperId, paperId);
     const targetUrl = preparePaperNavigation(similarPaperId);
-    navigate(targetUrl);
+    window.open(targetUrl, '_blank', 'noopener');
   };
 
-  // 查看更多相似论文
+  // 查看更多相似论文 - 新标签页
   const handleViewMoreSimilar = () => {
     const targetUrl = preparePaperNavigation(paperId);
-    navigate(targetUrl);
+    window.open(targetUrl, '_blank', 'noopener');
   };
 
-  // 点击作者 - 跳转到作者页面
+  // 点击作者 - 新标签页跳转到作者页面
   const handleAuthorClick = (authorId, e) => {
     e.preventDefault();
     e.stopPropagation();
     if (authorId) {
       const targetUrl = prepareAuthorNavigation(authorId);
-      navigate(targetUrl);
+      window.open(targetUrl, '_blank', 'noopener');
     }
   };
 
@@ -588,7 +588,7 @@ const PaperDetailPage = () => {
                     className="pd-search-result-item"
                   >
                     <h4 className="pd-result-title">
-                      <a href={`/paper/${result.paperId}`} className="pd-result-link">
+                      <a href={`/paper/${result.paperId}`} target="_blank" rel="noopener" className="pd-result-link">
                         {result.title || 'Untitled'}
                       </a>
                     </h4>
@@ -933,7 +933,7 @@ const PaperDetailPage = () => {
               <a
                 href={`https://doi.org/${paper.externalIds.DOI}`}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener"
                 className="pd-action-btn"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -946,7 +946,7 @@ const PaperDetailPage = () => {
               <a
                 href={paper.openAccessPdf.url}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener"
                 className="pd-action-btn pd-pdf-btn"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -959,7 +959,7 @@ const PaperDetailPage = () => {
             <a
               href={getSciHubUrl(paper.externalIds?.DOI, paper.title)}
               target="_blank"
-              rel="noopener noreferrer"
+              rel="noopener"
               className="pd-action-btn pd-scihub-btn"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -999,7 +999,7 @@ const PaperDetailPage = () => {
                     paper.citations.map((citation, index) => (
                       <div key={citation.paperId || index} className="pd-citation-item">
                         <h3 className="pd-citation-title">
-                          <a href={`/paper/${citation.paperId}`} className="pd-citation-link">
+                          <a href={`/paper/${citation.paperId}`} target="_blank" rel="noopener" className="pd-citation-link">
                             {citation.title || 'Untitled'}
                           </a>
                         </h3>
@@ -1057,7 +1057,7 @@ const PaperDetailPage = () => {
                         {/* 底部操作 */}
                         {citation.openAccessPdf?.url && (
                           <div className="pd-citation-actions">
-                            <a href={citation.openAccessPdf.url} target="_blank" rel="noopener noreferrer" className="pd-citation-action-btn">
+                            <a href={citation.openAccessPdf.url} target="_blank" rel="noopener" className="pd-citation-action-btn">
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
                                 <polyline points="14 2 14 8 20 8"/>
@@ -1080,7 +1080,7 @@ const PaperDetailPage = () => {
                     paper.references.map((reference, index) => (
                       <div key={reference.paperId || index} className="pd-citation-item">
                         <h3 className="pd-citation-title">
-                          <a href={`/paper/${reference.paperId}`} className="pd-citation-link">
+                          <a href={`/paper/${reference.paperId}`} target="_blank" rel="noopener" className="pd-citation-link">
                             {reference.title || 'Untitled'}
                           </a>
                         </h3>
@@ -1138,7 +1138,7 @@ const PaperDetailPage = () => {
                         {/* 底部操作 */}
                         {reference.openAccessPdf?.url && (
                           <div className="pd-citation-actions">
-                            <a href={reference.openAccessPdf.url} target="_blank" rel="noopener noreferrer" className="pd-citation-action-btn">
+                            <a href={reference.openAccessPdf.url} target="_blank" rel="noopener" className="pd-citation-action-btn">
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
                                 <polyline points="14 2 14 8 20 8"/>
@@ -1202,7 +1202,7 @@ const PaperDetailPage = () => {
               <a
                 href={`https://doi.org/${paper.externalIds.DOI}`}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener"
                 className="pd-sidebar-action-btn"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1215,7 +1215,7 @@ const PaperDetailPage = () => {
               <a
                 href={paper.openAccessPdf.url}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener"
                 className="pd-sidebar-action-btn pd-pdf-btn"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1240,7 +1240,7 @@ const PaperDetailPage = () => {
           {/* ScholayPrism 入口 */}
           <div 
             className="pd-prism-card"
-            onClick={() => navigate('/latex-writer')}
+            onClick={() => window.open('/latex-writer', '_blank', 'noopener')}
           >
             <div className="pd-prism-border"></div>
             <div className="pd-prism-inner">
@@ -1268,7 +1268,7 @@ const PaperDetailPage = () => {
           <a 
             href="https://chat.scholay.com"
             target="_blank"
-            rel="noopener noreferrer"
+            rel="noopener"
             className="pd-prism-card pd-chat-card pd-chat-gpt"
           >
             <div className="pd-prism-border pd-chat-border-gpt"></div>
@@ -1292,7 +1292,7 @@ const PaperDetailPage = () => {
           <a 
             href="https://chat.scholay.com"
             target="_blank"
-            rel="noopener noreferrer"
+            rel="noopener"
             className="pd-prism-card pd-chat-card pd-chat-gemini"
           >
             <div className="pd-prism-border pd-chat-border-gemini"></div>

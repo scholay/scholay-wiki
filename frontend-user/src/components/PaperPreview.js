@@ -143,7 +143,7 @@ const PaperPreview = memo(({ paper, onClose, width, onResizeMouseDown, onResizeT
             to={`/search-results?paperId=${paper.paperId}`} 
             className="view-detail-link"
             target="_blank"
-            rel="noopener noreferrer"
+            rel="noopener"
           >
             查看详情
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

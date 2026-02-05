@@ -341,7 +341,7 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
     // 如果开启了自动打开，且还未自动打开过，则自动在新窗口打开
     if (autoOpenOnError && !hasAutoOpenedRef.current) {
       hasAutoOpenedRef.current = true;
-      window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+      window.open(pdfUrl, '_blank', 'noopener');
     }
   };
 
@@ -710,7 +710,7 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
             <a
               href={pdfUrl || sciHubUrl}
               target="_blank"
-              rel="noopener noreferrer"
+              rel="noopener"
               className="control-btn external-btn"
               title={pdfUrl ? "在新窗口打开" : "通过 Sci-Hub 打开"}
             >
@@ -774,14 +774,14 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
             
             {/* 如果有原始 PDF URL，显示打开链接 */}
             {pdfUrl && (
-              <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="fallback-link">
+              <a href={pdfUrl} target="_blank" rel="noopener" className="fallback-link">
                 在新窗口打开PDF
               </a>
             )}
             
             {/* 如果有 DOI，显示 Sci-Hub 链接 */}
             {sciHubUrl && (
-              <a href={sciHubUrl} target="_blank" rel="noopener noreferrer" className="fallback-link scihub-link">
+              <a href={sciHubUrl} target="_blank" rel="noopener" className="fallback-link scihub-link">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
                   <polyline points="15 3 21 3 21 9"/>

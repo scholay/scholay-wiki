@@ -42,7 +42,7 @@ const AuthorProfileCard = memo(({ author }) => {
             <a 
               href={author.homepage} 
               target="_blank" 
-              rel="noopener noreferrer" 
+              rel="noopener" 
               className="author-profile-homepage"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
