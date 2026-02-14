@@ -44,6 +44,7 @@
     "start": "react-scripts start",
     "prebuild": "npm run copy-pdf-worker && node scripts/generate-version.js",
     "build": "react-scripts build",
+    "postbuild": "node scripts/generate-seo-pages.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

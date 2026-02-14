@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { fundAPI } from '../services/api';
 import EntcoinIcon from '../components/EntcoinIcon';
+import SEO from '../components/SEO';
 import './styles/FundCenter.css';
 
 const FundCenter = () => {
@@ -73,6 +74,12 @@ const FundCenter = () => {
 
   return (
     <div className="fund-center-page">
+      <SEO
+        title="基金中心 - Scholay | 学术基金与资助信息"
+        description="Scholay 基金中心，查看最新学术基金发放记录和资助信息。"
+        keywords="学术基金,科研资助,基金发放,学术奖励"
+        canonical="/fund-center"
+      />
       {/* Header */}
       <div className="fund-center-header">
         <button className="back-btn" onClick={() => navigate(-1)}>

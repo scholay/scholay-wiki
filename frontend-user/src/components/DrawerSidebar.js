@@ -249,6 +249,19 @@ const DrawerSidebar = ({
           </div>
         </div>
 
+        {/* 底部法律链接区域 */}
+        <div className="drawer-legal-section">
+          <div className="drawer-legal-links">
+            <button onClick={() => handleNavClick('/about')}>关于我们</button>
+            <span className="drawer-legal-divider">·</span>
+            <button onClick={() => handleNavClick('/contact')}>联系我们</button>
+            <span className="drawer-legal-divider">·</span>
+            <button onClick={() => handleNavClick('/privacy')}>隐私政策</button>
+            <span className="drawer-legal-divider">·</span>
+            <button onClick={() => handleNavClick('/terms')}>服务条款</button>
+          </div>
+        </div>
+
         {/* 历史记录区域 */}
         {showHistory && (
           <div className="drawer-history-section">

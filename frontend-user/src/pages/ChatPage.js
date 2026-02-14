@@ -21,6 +21,7 @@ import logger from '../utils/logger';
 import wsClient from '../services/websocket';
 import InsufficientBalanceModal from '../components/InsufficientBalanceModal';
 import Logo from '../components/Logo';
+import SEO from '../components/SEO';
 import './ChatPageNew.css';
 import 'highlight.js/styles/github-dark.css';
 
@@ -950,6 +951,12 @@ function ChatPage() {
 
   return (
     <div className="chat-page-wrapper chat-page">
+      <SEO
+        title="AI 智能助手 - Scholay | 学术问答与研究对话"
+        description="Scholay AI 智能助手，提供多模型学术问答、研究讨论和知识探索，支持普通、进阶和高级AI模型选择。"
+        keywords="AI学术助手,AI问答,学术对话,研究助手,智能问答,GPT学术"
+        canonical="/chat"
+      />
       {/* Main Chat Area - Completely Rewritten */}
       <div className={`main-container ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
         <div className="search-content">
@@ -1083,6 +1090,9 @@ function ChatPage() {
                 <h1 className="welcome-title">
                   {getGreeting()}, 开始你的AI聊天
                 </h1>
+                <p className="welcome-subtitle" style={{ color: '#9e9e9e', fontSize: '0.95rem', maxWidth: '600px', margin: '0 auto 24px', lineHeight: '1.6', textAlign: 'center' }}>
+                  Scholay AI 助手可以帮您解答学术问题、讨论研究方向、分析论文观点、生成文献综述等。支持普通、进阶和高级三种AI模型，满足不同深度的学术对话需求。
+                </p>
                 <form onSubmit={handleSubmit} className="welcome-composer">
                   <div className="composer-input-area">
                     <textarea

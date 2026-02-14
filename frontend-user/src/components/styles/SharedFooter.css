@@ -1,0 +1,94 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ */
+
+/* ========== SharedFooter - 全局底部栏 ========== */
+.shared-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(26, 26, 26, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 6px 16px;
+  pointer-events: auto;
+}
+
+.shared-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.shared-footer-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.shared-footer-links button {
+  background: none;
+  border: none;
+  color: #9e9e9e;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.2s;
+  white-space: nowrap;
+}
+
+.shared-footer-links button:hover {
+  color: #e0e0e0;
+}
+
+.shared-footer-divider {
+  color: #555;
+  font-size: 0.7rem;
+  user-select: none;
+}
+
+.shared-footer-copyright {
+  color: #666;
+  font-size: 0.7rem;
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .shared-footer {
+    padding: 4px 12px;
+  }
+
+  .shared-footer-inner {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .shared-footer-links {
+    gap: 2px;
+  }
+
+  .shared-footer-links button {
+    font-size: 0.7rem;
+    padding: 2px 3px;
+  }
+
+  .shared-footer-copyright {
+    font-size: 0.65rem;
+  }
+}

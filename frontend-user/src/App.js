@@ -96,6 +96,7 @@ const ContactPage = lazyWithRetry(() => import('./pages/ContactPage'), 'ContactP
 const DisclaimerPage = lazyWithRetry(() => import('./pages/DisclaimerPage'), 'DisclaimerPage');
 const AuthModal = lazyWithRetry(() => import('./components/AuthModal'), 'AuthModal');
 const LaTeXWriterPage = lazyWithRetry(() => import('./pages/latex-writer'), 'LaTeXWriterPage');
+const NotFoundPage = lazyWithRetry(() => import('./pages/NotFoundPage'), 'NotFoundPage');
 
 function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -289,8 +290,8 @@ function App() {
                     {/* GitHub callback - PUBLIC route (must be accessible without login for OAuth flow) */}
                     <Route path="/github/callback" element={<GithubCallback />} />
 
-                    {/* 404 redirect to home */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
+                    {/* 404 页面 - 显示自定义 404 页面，利于 SEO 和 AdSense 审核 */}
+                    <Route path="*" element={<NotFoundPage />} />
                   </Routes>
 
                   {/* Global auth modal for session expiry - 条件渲染避免不必要的组件加载 */}

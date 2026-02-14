@@ -926,6 +926,13 @@ const Home = () => {
         <span className="footer-link-divider">|</span>
         <button 
           className="footer-link-btn"
+          onClick={() => navigate('/contact')}
+        >
+          联系我们
+        </button>
+        <span className="footer-link-divider">|</span>
+        <button 
+          className="footer-link-btn"
           onClick={() => navigate('/privacy')}
         >
           隐私政策

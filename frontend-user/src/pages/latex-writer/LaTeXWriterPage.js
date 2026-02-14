@@ -19,6 +19,7 @@ import AiChatPanel from '../../components/latex-writer/AiChatPanel';
 import PdfPreview from '../../components/latex-writer/PdfPreview';
 import LatexCompiler from '../../components/latex-writer/LatexCompiler';
 import { userAPI } from '../../services/api';
+import SEO from '../../components/SEO';
 import './LaTeXWriterPage.css';
 
 // 懒加载 AuthModal
@@ -1025,6 +1026,12 @@ ${truncatedLog}
   // 主编辑界面
   return (
     <div className="latex-writer-page">
+      <SEO
+        title="ScholayPrism - 在线LaTeX编辑器 | AI辅助科研写作"
+        description="ScholayPrism 是 Scholay 推出的在线 LaTeX 编辑器，原生支持 LaTeX 编译，集成AI辅助写作，帮助研究者高效撰写学术论文。"
+        keywords="LaTeX编辑器,在线LaTeX,学术写作,AI写作助手,论文编辑器,ScholayPrism"
+        canonical="/latex-writer"
+      />
       {/* 主内容区 */}
       <div className="latex-writer-content" ref={contentRef}>
         {/* 左侧：文件树 */}

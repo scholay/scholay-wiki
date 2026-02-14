@@ -14,6 +14,7 @@ import { useToast } from '../components/ToastContainer';
 import { useOrderModal } from '../contexts/OrderModalContext';
 import AuthModal from '../components/AuthModal';
 import Logo from '../components/Logo';
+import SEO from '../components/SEO';
 import logger from '../utils/logger';
 import './Pricing.css';
 
@@ -460,13 +461,70 @@ const Pricing = () => {
   if (loading) {
     return (
       <div className="pricing-page">
-        <div className="loading">加载中...</div>
+        <SEO
+          title="订阅方案 - Scholay | AI学术搜索定价"
+          description="Scholay 提供灵活的订阅方案，从免费版到专业版和旗舰版，覆盖基础检索、AI智能分析、智能审稿等功能，满足不同层次的学术研究需求。"
+          keywords="Scholay订阅,学术搜索定价,AI论文分析价格,学术工具订阅,科研工具价格"
+          canonical="/pricing"
+        />
+        <div className="pricing-nav">
+          <div className="nav-logo" onClick={() => navigate('/')}>
+            <Logo size={24} />
+            <span>Scholay</span>
+          </div>
+          <div className="nav-actions">
+            <button type="button" className="nav-link" onClick={() => navigate('/')}>
+              返回首页
+            </button>
+          </div>
+        </div>
+        <main className="pricing-main">
+          <section className="pricing-hero">
+            <div className="hero-grid">
+              <div className="hero-content">
+                <span className="hero-pill">针对学术研究优化</span>
+                <h1>升级到更懂你的 AI 学术助手</h1>
+                <p className="hero-subtitle">
+                  多模型协作、深度引用链追踪与团队共享，帮助你更快完成文献筛选、综述撰写与灵感验证。
+                </p>
+                <div className="hero-meta">
+                  {HERO_STATS.map(stat => (
+                    <div key={stat.label} className="hero-meta-item">
+                      <span className="hero-meta-value">{stat.value}</span>
+                      <span className="hero-meta-label">{stat.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+          <section className="pricing-faq">
+            <div className="section-heading">
+              <p className="section-eyebrow">常见问题</p>
+              <h2>关于订阅的更多解答</h2>
+            </div>
+            <div className="faq-grid">
+              {FAQ_ITEMS.map(item => (
+                <div key={item.question} className="faq-item">
+                  <h3>{item.question}</h3>
+                  <p>{item.answer}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </main>
       </div>
     );
   }
 
   return (
     <div className="pricing-page">
+      <SEO
+        title="订阅方案 - Scholay | AI学术搜索定价"
+        description="Scholay 提供灵活的订阅方案，从免费版到专业版和旗舰版，覆盖基础检索、AI智能分析、智能审稿等功能，满足不同层次的学术研究需求。"
+        keywords="Scholay订阅,学术搜索定价,AI论文分析价格,学术工具订阅,科研工具价格"
+        canonical="/pricing"
+      />
       <div className="pricing-nav">
         <div className="nav-logo" onClick={() => navigate('/')}>
           <Logo size={24} />

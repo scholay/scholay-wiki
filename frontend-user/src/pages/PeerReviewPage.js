@@ -32,6 +32,7 @@ import { exportToWord, exportToPDF, exportToPPT } from '../utils/peer-review/exp
 import PeerReviewCreateSection from '../components/PeerReviewCreateSection';
 import ReviewStepsProgress from '../components/ReviewStepsProgress';
 import { trackAIPeerReview } from '../utils/usageTracker';
+import SEO from '../components/SEO';
 import logger from '../utils/logger';
 
 // 子组件
@@ -895,6 +896,12 @@ export default function PeerReviewPage() {
 
   return (
     <div className="prv-page">
+      <SEO
+        title="智能审稿 - Scholay | AI论文评审与修改建议"
+        description="Scholay 智能审稿服务，AI 多角度评审您的论文，提供专业的修改意见和改进建议，帮助提升论文质量和录用率。"
+        keywords="AI审稿,智能审稿,论文评审,学术审稿,论文修改建议,peer review"
+        canonical="/peer-review"
+      />
       {/* 详情视图时显示返回按钮 */}
       {viewMode === VIEW_MODE.DETAIL && (
         <div className="prv-detail-header">

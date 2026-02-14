@@ -38,6 +38,22 @@ const EmptyState = ({ searchState }) => {
           使用智能分析
         </button>
       </div>
+
+      {/* 搜索引导内容 - 帮助用户和爬虫了解平台功能 */}
+      <div className="empty-state-guide" style={{ marginTop: '40px', textAlign: 'left', maxWidth: '600px', margin: '40px auto 0' }}>
+        <h4 style={{ color: '#bdbdbd', fontSize: '1rem', marginBottom: '16px', textAlign: 'center' }}>Scholay 学术搜索使用指南</h4>
+        <div style={{ color: '#9e9e9e', fontSize: '0.9rem', lineHeight: '1.8' }}>
+          <p style={{ marginBottom: '12px' }}>
+            <strong style={{ color: '#e0e0e0' }}>直接检索</strong> - 输入论文标题、作者名称、关键词或 DOI，快速从超过 2 亿篇学术论文中找到您需要的文献。
+          </p>
+          <p style={{ marginBottom: '12px' }}>
+            <strong style={{ color: '#e0e0e0' }}>智能分析</strong> - 使用 AI 驱动的智能分析模式，获取深度文献综述、研究趋势分析和相关论文推荐。
+          </p>
+          <p style={{ marginBottom: '0' }}>
+            <strong style={{ color: '#e0e0e0' }}>热门研究领域</strong> - 深度学习、量子计算、CRISPR 基因编辑、气候变化、大语言模型、新能源技术等前沿领域均有丰富收录。
+          </p>
+        </div>
+      </div>
     </div>
   );
 };

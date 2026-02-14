@@ -10,7 +10,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mail, MessageSquare, MapPin, Phone, Send, CheckCircle } from 'lucide-react';
+import { publicApi } from '../services/api';
 import Logo from '../components/Logo';
+import SEO from '../components/SEO';
 import './styles/LegalPage.css';
 
 const ContactPage = () => {
@@ -23,6 +25,7 @@ const ContactPage = () => {
   });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -32,16 +35,35 @@ const ContactPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     
-    // 模拟提交 - 实际可以对接后端API
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setSubmitted(true);
-    setLoading(false);
+    try {
+      // 使用反馈 API 提交联系表单
+      const response = await publicApi.post('/feedback', {
+        email: formData.email.trim(),
+        content: `[联系表单] 姓名: ${formData.name}\n主题: ${formData.subject}\n\n${formData.message}`,
+      });
+      
+      if (response.data.code === 0) {
+        setSubmitted(true);
+      } else {
+        setError(response.data.message || '发送失败，请稍后重试');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || '发送失败，请稍后重试或直接发送邮件至 support@scholay.com');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="legal-page">
+      <SEO
+        title="联系我们 - Scholay | 客服支持与商务合作"
+        description="联系 Scholay 团队，获取技术支持、提交反馈或商务合作。邮箱：support@scholay.com，工作时间：周一至周五 9:00-18:00。"
+        keywords="联系Scholay,客户支持,技术支持,商务合作,学术搜索客服"
+        canonical="/contact"
+      />
       <div className="legal-container">
         <div className="legal-header">
           <button className="back-btn" onClick={() => navigate(-1)}>
@@ -74,7 +96,8 @@ const ContactPage = () => {
               <div className="contact-card" style={{ background: '#2a2a2a', padding: '24px', borderRadius: '12px', textAlign: 'center' }}>
                 <MapPin size={32} style={{ color: '#64b5f6', marginBottom: '12px' }} />
                 <h3 style={{ color: '#fff', marginBottom: '8px', fontSize: '1.1rem' }}>地址</h3>
-                <p style={{ color: '#9e9e9e', margin: 0 }}>中国四川省成都市</p>
+                <p style={{ color: '#9e9e9e', margin: 0 }}>中国四川省成都市高新区</p>
+                <p style={{ color: '#757575', margin: '4px 0 0', fontSize: '0.85rem' }}>成都恩特罐罐文化科技有限公司</p>
               </div>
               
               <div className="contact-card" style={{ background: '#2a2a2a', padding: '24px', borderRadius: '12px', textAlign: 'center' }}>
@@ -153,6 +176,12 @@ const ContactPage = () => {
                   />
                 </div>
                 
+                {error && (
+                  <p style={{ color: '#ef5350', fontSize: '0.9rem', marginBottom: '16px', padding: '10px', background: 'rgba(239,83,80,0.1)', borderRadius: '8px' }}>
+                    {error}
+                  </p>
+                )}
+
                 <button 
                   type="submit" 
                   disabled={loading}

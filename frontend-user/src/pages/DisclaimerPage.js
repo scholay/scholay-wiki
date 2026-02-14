@@ -11,6 +11,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle } from 'lucide-react';
 import Logo from '../components/Logo';
+import SEO from '../components/SEO';
 import './styles/LegalPage.css';
 
 const DisclaimerPage = () => {
@@ -18,6 +19,12 @@ const DisclaimerPage = () => {
 
   return (
     <div className="legal-page">
+      <SEO
+        title="免责声明 - Scholay | AI学术搜索平台法律声明"
+        description="Scholay 免责声明，涵盖内容准确性、AI生成内容、知识产权、服务可用性和责任限制等重要法律说明。"
+        keywords="Scholay免责声明,法律声明,AI生成内容声明,学术搜索免责,知识产权声明"
+        canonical="/disclaimer"
+      />
       <div className="legal-container">
         <div className="legal-header">
           <button className="back-btn" onClick={() => navigate(-1)}>

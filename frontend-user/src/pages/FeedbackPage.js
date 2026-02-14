@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { Upload, File, Image, Trash2, Loader2, CheckCircle, ArrowLeft } from 'lucide-react';
 import api, { publicApi } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
+import SEO from '../components/SEO';
 import './styles/FeedbackPage.css';
 
 // 文件限制常量
@@ -173,6 +174,12 @@ const FeedbackPage = () => {
 
   return (
     <div className="feedback-page">
+      <SEO
+        title="意见反馈 - Scholay | 帮助我们改进"
+        description="向 Scholay 团队提交您的反馈意见、功能建议或问题报告，帮助我们持续改进学术搜索服务。"
+        keywords="Scholay反馈,意见建议,功能建议,问题报告,用户反馈"
+        canonical="/feedback"
+      />
       <div className="feedback-container">
         <div className="feedback-header">
           <button className="back-btn" onClick={() => navigate(-1)}>

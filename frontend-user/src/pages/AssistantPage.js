@@ -11,6 +11,7 @@ import React, { useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSidebar } from '../contexts/SidebarContext';
 import { trackAIAssistantChat } from '../utils/usageTracker';
+import SEO from '../components/SEO';
 import './styles/AssistantPage.css';
 
 function AssistantPage() {
@@ -82,6 +83,12 @@ function AssistantPage() {
 
   return (
     <div className="ast-page">
+      <SEO
+        title="精品AI工具 - Scholay | 智能助手、智能审稿、LaTeX编辑器"
+        description="Scholay 精品AI工具集，包括AI智能助手对话、智能审稿论文评审、ScholayPrism LaTeX编辑器，助力高效学术研究。"
+        keywords="AI学术助手,智能审稿,LaTeX编辑器,AI论文分析,学术工具,ScholayPrism"
+        canonical="/assistant"
+      />
       {/* 页面标题区域 */}
       <header className="ast-header">
         <h1 className="ast-title">精品AI工具</h1>

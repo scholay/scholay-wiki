@@ -15,6 +15,7 @@ Allow: /disclaimer
 Allow: /chat
 Allow: /assistant
 Allow: /peer-review
+Allow: /latex-writer
 Allow: /fund-center
 Disallow: /dashboard
 Disallow: /settings
@@ -24,9 +25,6 @@ Disallow: /wechat/callback
 Disallow: /github/callback
 Disallow: /alipay-return
 Disallow: /api/
-
-# Crawl-delay for respectful crawling
-Crawl-delay: 1
 
 # Sitemaps
 Sitemap: https://www.scholay.com/sitemap.xml

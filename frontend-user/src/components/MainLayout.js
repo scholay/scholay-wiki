@@ -28,6 +28,7 @@ import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
 import TopNavBar from './TopNavBar';
 import DrawerSidebar from './DrawerSidebar';
+import SharedFooter from './SharedFooter';
 import './styles/MainLayout.css';
 
 // 懒加载 AuthModal
@@ -149,6 +150,9 @@ const MainLayout = () => {
         historyLoading={sidebarConfig.historyLoading}
       />
       
+      {/* 全局底部导航栏 - 法律链接和版权信息 */}
+      <SharedFooter />
+
       {/* 登录弹窗 */}
       {showAuthModal && (
         <Suspense fallback={<div>Loading...</div>}>

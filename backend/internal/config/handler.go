@@ -35,15 +35,20 @@ type PopularPaper struct {
 	Count   int64  `json:"count"`
 }
 
+// htmlCacheEntry stores a cached HTML page with its expiry time
+type htmlCacheEntry struct {
+	html      string
+	fetchedAt time.Time
+}
+
 // Handler handles HTTP requests for configuration operations
 type Handler struct {
 	service *Service
 
-	// SSR code snippet injection fields
-	indexHTMLCache     string       // Cached original index.html content
-	indexHTMLCacheMu   sync.RWMutex // Mutex for cache access
-	indexHTMLCacheTime time.Time    // When cache was last updated
-	frontendURL        string       // URL to fetch index.html from frontend container
+	// SSR code snippet injection fields - 按路由缓存 HTML
+	htmlCacheMap map[string]*htmlCacheEntry // key: request path (e.g. "/about"), value: cached HTML
+	htmlCacheMu  sync.RWMutex              // Mutex for cache access
+	frontendURL  string                     // URL to fetch HTML from frontend container
 
 	// Dynamic sitemap fields
 	usageLogService UsageLogService // 用于获取热门论文
@@ -59,8 +64,9 @@ func NewHandler(service *Service) *Handler {
 	}
 
 	return &Handler{
-		service:     service,
-		frontendURL: frontendURL,
+		service:      service,
+		frontendURL:  frontendURL,
+		htmlCacheMap: make(map[string]*htmlCacheEntry),
 	}
 }
 
@@ -800,14 +806,21 @@ const (
 	indexHTMLCacheTTL = 5 * time.Minute
 )
 
-// ServeIndexHTML serves the index.html with code snippets injected
-// This enables SSR-like behavior for code snippets, making them visible in page source
+// ServeIndexHTML serves the route-specific HTML with code snippets injected.
+// For each request path (e.g. /about, /privacy), it fetches the corresponding
+// pre-rendered HTML from the frontend container, which has unique title,
+// description, canonical URL and noscript content for SEO/AdSense compliance.
 func (h *Handler) ServeIndexHTML(c *gin.Context) {
-	// Get the original index.html content
-	indexHTML, err := h.getIndexHTML()
+	requestPath := c.Request.URL.Path
+	if requestPath == "" {
+		requestPath = "/"
+	}
+
+	// Get the route-specific HTML content from frontend
+	pageHTML, err := h.getPageHTML(requestPath)
 	if err != nil {
-		log.Printf("Failed to get index.html: %v", err)
-		// Fallback: proxy to frontend container
+		log.Printf("Failed to get HTML for %s: %v", requestPath, err)
+		// Fallback: proxy to frontend container directly
 		h.proxyToFrontend(c)
 		return
 	}
@@ -819,12 +832,12 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 		// Return original HTML without snippets
 		c.Header("Content-Type", "text/html; charset=utf-8")
 		c.Header("Cache-Control", "no-cache, must-revalidate")
-		c.String(http.StatusOK, indexHTML)
+		c.String(http.StatusOK, pageHTML)
 		return
 	}
 
 	// Inject code snippets into HTML
-	modifiedHTML := h.injectCodeSnippets(indexHTML, snippetsGrouped)
+	modifiedHTML := h.injectCodeSnippets(pageHTML, snippetsGrouped)
 
 	// Return the modified HTML
 	c.Header("Content-Type", "text/html; charset=utf-8")
@@ -832,50 +845,62 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 	c.String(http.StatusOK, modifiedHTML)
 }
 
-// getIndexHTML fetches and caches the original index.html from the frontend container
-func (h *Handler) getIndexHTML() (string, error) {
-	h.indexHTMLCacheMu.RLock()
-	if h.indexHTMLCache != "" && time.Since(h.indexHTMLCacheTime) < indexHTMLCacheTTL {
-		cached := h.indexHTMLCache
-		h.indexHTMLCacheMu.RUnlock()
+// getPageHTML fetches and caches the HTML for a specific route from the frontend container.
+// Each route (e.g. /about, /privacy) may have its own pre-rendered HTML with unique
+// meta tags (title, description, canonical) and noscript content for SEO.
+func (h *Handler) getPageHTML(requestPath string) (string, error) {
+	// Normalize path
+	if requestPath == "" {
+		requestPath = "/"
+	}
+
+	// Check cache first (read lock)
+	h.htmlCacheMu.RLock()
+	if entry, ok := h.htmlCacheMap[requestPath]; ok && time.Since(entry.fetchedAt) < indexHTMLCacheTTL {
+		cached := entry.html
+		h.htmlCacheMu.RUnlock()
 		return cached, nil
 	}
-	h.indexHTMLCacheMu.RUnlock()
+	h.htmlCacheMu.RUnlock()
 
-	// Fetch from frontend container
-	h.indexHTMLCacheMu.Lock()
-	defer h.indexHTMLCacheMu.Unlock()
+	// Cache miss or expired - fetch from frontend (write lock)
+	h.htmlCacheMu.Lock()
+	defer h.htmlCacheMu.Unlock()
 
 	// Double-check after acquiring write lock
-	if h.indexHTMLCache != "" && time.Since(h.indexHTMLCacheTime) < indexHTMLCacheTTL {
-		return h.indexHTMLCache, nil
+	if entry, ok := h.htmlCacheMap[requestPath]; ok && time.Since(entry.fetchedAt) < indexHTMLCacheTTL {
+		return entry.html, nil
 	}
 
-	// Create HTTP client with timeout
+	// Fetch the route-specific HTML from frontend container
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
 
-	resp, err := client.Get(h.frontendURL + "/")
+	fetchURL := h.frontendURL + requestPath
+	resp, err := client.Get(fetchURL)
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch index.html from frontend: %w", err)
+		return "", fmt.Errorf("failed to fetch HTML for %s from frontend: %w", requestPath, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("frontend returned status %d", resp.StatusCode)
+		return "", fmt.Errorf("frontend returned status %d for %s", resp.StatusCode, requestPath)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read index.html body: %w", err)
+		return "", fmt.Errorf("failed to read HTML body for %s: %w", requestPath, err)
 	}
 
-	h.indexHTMLCache = string(body)
-	h.indexHTMLCacheTime = time.Now()
+	html := string(body)
+	h.htmlCacheMap[requestPath] = &htmlCacheEntry{
+		html:      html,
+		fetchedAt: time.Now(),
+	}
 
-	log.Printf("index.html cached successfully (%d bytes)", len(body))
-	return h.indexHTMLCache, nil
+	log.Printf("HTML for %s cached successfully (%d bytes)", requestPath, len(body))
+	return html, nil
 }
 
 // injectCodeSnippets injects code snippets into the HTML at appropriate positions
@@ -961,14 +986,13 @@ func (h *Handler) proxyToFrontend(c *gin.Context) {
 	c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), body)
 }
 
-// InvalidateIndexHTMLCache invalidates the cached index.html
-// Call this when code snippets are updated to ensure fresh content
+// InvalidateIndexHTMLCache invalidates all cached HTML pages.
+// Call this when code snippets are updated to ensure fresh content.
 func (h *Handler) InvalidateIndexHTMLCache() {
-	h.indexHTMLCacheMu.Lock()
-	defer h.indexHTMLCacheMu.Unlock()
-	h.indexHTMLCache = ""
-	h.indexHTMLCacheTime = time.Time{}
-	log.Println("index.html cache invalidated")
+	h.htmlCacheMu.Lock()
+	defer h.htmlCacheMu.Unlock()
+	h.htmlCacheMap = make(map[string]*htmlCacheEntry)
+	log.Println("All HTML page caches invalidated")
 }
 
 // RegisterRoutes registers config routes
