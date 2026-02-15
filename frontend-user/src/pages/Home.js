@@ -908,6 +908,50 @@ const Home = () => {
         confirmText="知道了"
       />
 
+      {/* 学术资源推荐 - 所有用户可见，增加首页内容密度 (Google AdSense) */}
+      <div className="home-resources-section">
+        <div className="home-resources-header">
+          <h2>学术资源推荐</h2>
+          <button className="home-resources-more" onClick={() => navigate('/resources')}>
+            查看全部 →
+          </button>
+        </div>
+        <p className="home-resources-desc">
+          精选学术指南与教程，帮助你提升文献检索、论文写作和科研工具使用技能
+        </p>
+        <div className="home-resources-grid">
+          <div className="home-resource-item" onClick={() => navigate('/resources/how-to-search')} role="link" tabIndex={0}>
+            <h4>如何高效检索学术文献</h4>
+            <p>掌握布尔运算符、关键词策略和数据库筛选技巧</p>
+          </div>
+          <div className="home-resource-item" onClick={() => navigate('/resources/literature-review-guide')} role="link" tabIndex={0}>
+            <h4>文献综述撰写全攻略</h4>
+            <p>结构、方法与常见误区，三种综述类型的写作要点</p>
+          </div>
+          <div className="home-resource-item" onClick={() => navigate('/resources/ai-in-research')} role="link" tabIndex={0}>
+            <h4>AI 在学术研究中的应用</h4>
+            <p>从文献检索到论文写作，AI 工具的机遇与伦理思考</p>
+          </div>
+          <div className="home-resource-item" onClick={() => navigate('/resources/latex-tutorial')} role="link" tabIndex={0}>
+            <h4>LaTeX 入门教程</h4>
+            <p>学术排版必备技能，从文档结构到参考文献管理</p>
+          </div>
+        </div>
+        <div className="home-resources-links">
+          <button onClick={() => navigate('/help')}>帮助中心</button>
+          <span>·</span>
+          <button onClick={() => navigate('/resources')}>学术资源</button>
+          <span>·</span>
+          <button onClick={() => navigate('/about')}>关于我们</button>
+          <span>·</span>
+          <button onClick={() => navigate('/contact')}>联系我们</button>
+          <span>·</span>
+          <button onClick={() => navigate('/privacy')}>隐私政策</button>
+          <span>·</span>
+          <button onClick={() => navigate('/terms')}>服务条款</button>
+        </div>
+      </div>
+
       {/* 右下角固定链接 */}
       <div className="home-footer-fixed">
         <button 

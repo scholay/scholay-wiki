@@ -17,6 +17,9 @@ Allow: /assistant
 Allow: /peer-review
 Allow: /latex-writer
 Allow: /fund-center
+Allow: /resources
+Allow: /resources/*
+Allow: /help
 Disallow: /dashboard
 Disallow: /settings
 Disallow: /subscription

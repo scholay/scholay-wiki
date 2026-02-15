@@ -97,6 +97,9 @@ const DisclaimerPage = lazyWithRetry(() => import('./pages/DisclaimerPage'), 'Di
 const AuthModal = lazyWithRetry(() => import('./components/AuthModal'), 'AuthModal');
 const LaTeXWriterPage = lazyWithRetry(() => import('./pages/latex-writer'), 'LaTeXWriterPage');
 const NotFoundPage = lazyWithRetry(() => import('./pages/NotFoundPage'), 'NotFoundPage');
+const ResourceCenterPage = lazyWithRetry(() => import('./pages/ResourceCenterPage'), 'ResourceCenterPage');
+const ResourceArticlePage = lazyWithRetry(() => import('./pages/ResourceArticlePage'), 'ResourceArticlePage');
+const HelpCenterPage = lazyWithRetry(() => import('./pages/HelpCenterPage'), 'HelpCenterPage');
 
 function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -276,6 +279,11 @@ function App() {
                       <Route path="/terms" element={<TermsPage />} />
                       <Route path="/contact" element={<ContactPage />} />
                       <Route path="/disclaimer" element={<DisclaimerPage />} />
+                      
+                      {/* 学术资源中心和帮助中心 - 公开访问 (Google AdSense 原创内容页面) */}
+                      <Route path="/resources" element={<ResourceCenterPage />} />
+                      <Route path="/resources/:slug" element={<ResourceArticlePage />} />
+                      <Route path="/help" element={<HelpCenterPage />} />
                       
                       {/* 支付宝回调页面 */}
                       <Route path="/alipay-return" element={<AlipayReturn />} />

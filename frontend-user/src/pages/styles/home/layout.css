@@ -1371,3 +1371,125 @@
   color: var(--text-quaternary);
 }
 
+/* ============ Resources Recommendation Section ============ */
+.home-resources-section {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 48px 24px 32px;
+}
+
+.home-resources-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.home-resources-header h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.home-resources-more {
+  background: none;
+  border: none;
+  color: var(--primary-color, #6366f1);
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.home-resources-more:hover {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.home-resources-desc {
+  font-size: 0.9375rem;
+  color: var(--text-tertiary);
+  margin: 0 0 20px 0;
+  line-height: 1.6;
+}
+
+.home-resources-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.home-resource-item {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 12px;
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.home-resource-item:hover {
+  border-color: var(--primary-color, #6366f1);
+  transform: translateY(-1px);
+}
+
+.home-resource-item h4 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 6px 0;
+  line-height: 1.4;
+}
+
+.home-resource-item p {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.home-resources-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-primary);
+}
+
+.home-resources-links button {
+  background: none;
+  border: none;
+  color: var(--text-quaternary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.home-resources-links button:hover {
+  color: var(--primary-color, #6366f1);
+}
+
+.home-resources-links span {
+  color: var(--text-quaternary);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .home-resources-section {
+    padding: 32px 16px 24px;
+  }
+  
+  .home-resources-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .home-resources-links {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+

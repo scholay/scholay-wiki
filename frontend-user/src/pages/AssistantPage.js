@@ -94,6 +94,11 @@ function AssistantPage() {
         <h1 className="ast-title">精品AI工具</h1>
       </header>
 
+      {/* 简介文字 - 增加页面内容密度 */}
+      <p className="ast-intro-text" style={{ maxWidth: '680px', margin: '0 auto 32px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.9375rem', lineHeight: 1.7, padding: '0 16px' }}>
+        Scholay 将先进的人工智能技术与学术研究深度融合，打造了一套专业的 AI 学术工具集。从智能对话到论文评审，从 LaTeX 排版到文献分析，为研究人员提供全方位的科研辅助支持。
+      </p>
+
       {/* 工具卡片 */}
       <div className="ast-tools">
         {tools.map((tool) => (
@@ -119,6 +124,24 @@ function AssistantPage() {
           </article>
         ))}
       </div>
+
+      {/* 详细功能说明 - 为搜索引擎提供丰富的文本内容 */}
+      <section style={{ maxWidth: '680px', margin: '40px auto 0', padding: '0 16px' }}>
+        <div style={{ background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-primary)', padding: '28px 24px' }}>
+          <h3 style={{ color: 'var(--text-primary)', fontSize: '1.125rem', fontWeight: 700, marginTop: 0, marginBottom: 16 }}>AI 学术工具如何帮助你的研究？</h3>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem', lineHeight: 1.85 }}>
+            <p style={{ marginBottom: 14 }}>
+              <strong style={{ color: 'var(--text-primary)' }}>智能助手</strong>支持多种大语言模型（包括高级和进阶模型），可以帮助你解答学术问题、讨论研究方向、分析论文观点、生成文献综述框架、改善英文学术写作表达。对话内容支持上下文连续交流，AI 会记住你的研究背景和之前的讨论。
+            </p>
+            <p style={{ marginBottom: 14 }}>
+              <strong style={{ color: 'var(--text-primary)' }}>智能审稿</strong>模拟同行评审流程，从论文结构、方法论严谨性、论证逻辑、写作质量等多个维度对论文进行全面评估。审稿报告按问题严重性分级，并提供具体的修改建议和改进方向，特别适合在正式投稿前进行自我审查。
+            </p>
+            <p style={{ marginBottom: 0 }}>
+              <strong style={{ color: 'var(--text-primary)' }}>ScholayPrism</strong> 是专为学术写作打造的在线 LaTeX 编辑器，支持实时编译预览和 AI 辅助写作。内置 IEEE、ACM、Springer 等主流期刊和会议的 LaTeX 模板，无需安装任何本地软件即可开始论文写作。
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

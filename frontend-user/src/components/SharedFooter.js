@@ -32,9 +32,12 @@ const SharedFooter = memo(() => {
     return null;
   }
 
-  // 法律/关于类页面已有自己的 footer
+  // 法律/关于类页面和资源文章页面已有自己的 footer
   const legalPaths = ['/about', '/privacy', '/terms', '/contact', '/disclaimer'];
   if (legalPaths.includes(location.pathname)) {
+    return null;
+  }
+  if (location.pathname.startsWith('/resources') || location.pathname === '/help') {
     return null;
   }
 
@@ -47,6 +50,8 @@ const SharedFooter = memo(() => {
     <footer className="shared-footer" role="contentinfo">
       <div className="shared-footer-inner">
         <nav className="shared-footer-links" aria-label="底部导航">
+          <button onClick={() => navigate('/resources')}>学术资源</button>
+          <span className="shared-footer-divider" aria-hidden="true">|</span>
           <button onClick={() => navigate('/about')}>关于我们</button>
           <span className="shared-footer-divider" aria-hidden="true">|</span>
           <button onClick={() => navigate('/contact')}>联系我们</button>
