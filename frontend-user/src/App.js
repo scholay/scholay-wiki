@@ -283,11 +283,6 @@ function App() {
                       <Route path="/contact" element={<ContactPage />} />
                       <Route path="/disclaimer" element={<DisclaimerPage />} />
                       
-                      {/* 功能宣传页面 - 独立设计的工具介绍落地页 */}
-                      <Route path="/features/search" element={<SearchFeaturePage />} />
-                      <Route path="/features/peer-review" element={<PeerReviewFeaturePage />} />
-                      <Route path="/features/latex-writer" element={<LaTeXFeaturePage />} />
-
                       {/* 学术资源中心和帮助中心 - 公开访问 (Google AdSense 原创内容页面) */}
                       <Route path="/resources" element={<ResourceCenterPage />} />
                       <Route path="/resources/:slug" element={<ResourceArticlePage />} />
@@ -296,6 +291,11 @@ function App() {
                       {/* 支付宝回调页面 */}
                       <Route path="/alipay-return" element={<AlipayReturn />} />
                     </Route>
+
+                    {/* 功能宣传页面 - 独立落地页，不使用 MainLayout，有自己的导航和布局 */}
+                    <Route path="/features/search" element={<SearchFeaturePage />} />
+                    <Route path="/features/peer-review" element={<PeerReviewFeaturePage />} />
+                    <Route path="/features/latex-writer" element={<LaTeXFeaturePage />} />
 
                     {/* 不使用 MainLayout 的路由（OAuth回调等） */}
                     <Route path="/search" element={<Navigate to="/" replace />} />
