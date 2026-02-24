@@ -12,8 +12,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"runtime"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -40,11 +43,70 @@ type Logger struct {
 	endpoint string
 }
 
-var globalEndpoint string
+var (
+	globalEndpoint string
+	sigNozClient   *http.Client
+	sigNozOnce     sync.Once
+	sigNozDropped  atomic.Int64
+	sigNozCh       chan []byte
+	sigNozEnabled  atomic.Bool
+)
+
+const (
+	sigNozQueueSize   = 1024
+	sigNozWorkerCount = 2
+)
 
 // SetGlobalEndpoint sets the global SigNoz endpoint
 func SetGlobalEndpoint(endpoint string) {
 	globalEndpoint = endpoint
+}
+
+func getSigNozClient() *http.Client {
+	sigNozOnce.Do(func() {
+		sigNozClient = &http.Client{
+			Timeout: 3 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        10,
+				MaxIdleConnsPerHost: 10,
+				IdleConnTimeout:     30 * time.Second,
+				DialContext: (&net.Dialer{
+					Timeout:   2 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+			},
+		}
+		sigNozCh = make(chan []byte, sigNozQueueSize)
+		sigNozEnabled.Store(true)
+		for i := 0; i < sigNozWorkerCount; i++ {
+			go sigNozWorker()
+		}
+	})
+	return sigNozClient
+}
+
+func sigNozWorker() {
+	for data := range sigNozCh {
+		if !sigNozEnabled.Load() {
+			continue
+		}
+		req, err := http.NewRequest("POST", globalEndpoint+"/v1/logs", bytes.NewReader(data))
+		if err != nil {
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := getSigNozClient().Do(req)
+		if resp != nil {
+			resp.Body.Close()
+		}
+		if err != nil {
+			sigNozEnabled.Store(false)
+			go func() {
+				time.Sleep(30 * time.Second)
+				sigNozEnabled.Store(true)
+			}()
+		}
+	}
 }
 
 // NewLogger creates a new logger instance
@@ -53,6 +115,10 @@ func NewLogger(name string) *Logger {
 	logger.SetFormatter(&logrus.JSONFormatter{
 		TimestampFormat: time.RFC3339Nano,
 	})
+	
+	if globalEndpoint != "" {
+		getSigNozClient()
+	}
 	
 	return &Logger{
 		logger:   logger,
@@ -212,29 +278,17 @@ func (l *Logger) log(ctx context.Context, level LogLevel, msg string, err error,
 		entry.Fatal(msg)
 	}
 	
-	// Send to SigNoz if endpoint is configured
-	if l.endpoint != "" {
-		go l.sendToSigNoz(fields)
+	// Send to SigNoz if endpoint is configured (non-blocking queue)
+	if l.endpoint != "" && sigNozEnabled.Load() {
+		data, err := json.Marshal(fields)
+		if err == nil {
+			select {
+			case sigNozCh <- data:
+			default:
+				sigNozDropped.Add(1)
+			}
+		}
 	}
-}
-
-// sendToSigNoz sends log to SigNoz via HTTP
-func (l *Logger) sendToSigNoz(fields logrus.Fields) {
-	// Convert to JSON
-	data, err := json.Marshal(fields)
-	if err != nil {
-		return
-	}
-	
-	// Send HTTP request
-	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequest("POST", l.endpoint+"/v1/logs", bytes.NewBuffer(data))
-	if err != nil {
-		return
-	}
-	
-	req.Header.Set("Content-Type", "application/json")
-	_, _ = client.Do(req)
 }
 
 // getStackTrace returns the current stack trace

@@ -94,12 +94,12 @@ func Load() *Config {
 			InitialPassword: getEnv("ADMIN_INITIAL_PASSWORD", "adminadmin"),
 		},
 		SigNoz: SigNozConfig{
-			Endpoint:      getEnv("SIGNOZ_ENDPOINT", "198.44.187.186:4318"),
+			Endpoint:      getEnv("SIGNOZ_ENDPOINT", ""),
 			ServiceName:   getEnv("SIGNOZ_SERVICE_NAME", "scholar-backend"),
 			Environment:   getEnv("SIGNOZ_ENVIRONMENT", "production"),
-			EnableTracing: getEnvAsBool("SIGNOZ_ENABLE_TRACING", true),
-			EnableLogging: getEnvAsBool("SIGNOZ_ENABLE_LOGGING", true),
-			EnableMetrics: getEnvAsBool("SIGNOZ_ENABLE_METRICS", true),
+			EnableTracing: getEnvAsBool("SIGNOZ_ENABLE_TRACING", false),
+			EnableLogging: getEnvAsBool("SIGNOZ_ENABLE_LOGGING", false),
+			EnableMetrics: getEnvAsBool("SIGNOZ_ENABLE_METRICS", false),
 			SamplingRate:  getEnvAsFloat("SIGNOZ_SAMPLING_RATE", 1.0),
 		},
 	}

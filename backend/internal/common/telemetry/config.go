@@ -31,14 +31,13 @@ type Config struct {
 func LoadConfig() *Config {
 	cfg := appconfig.AppConfig
 	if cfg == nil {
-		// Fallback to defaults if config not loaded yet
 		return &Config{
-			Endpoint:      "http://198.44.187.186:4318",
+			Endpoint:      "",
 			ServiceName:   "scholar-backend",
 			Environment:   "production",
-			EnableTracing: true,
-			EnableLogging: true,
-			EnableMetrics: true,
+			EnableTracing: false,
+			EnableLogging: false,
+			EnableMetrics: false,
 			SamplingRate:  1.0,
 		}
 	}

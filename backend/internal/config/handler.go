@@ -806,6 +806,32 @@ const (
 	indexHTMLCacheTTL = 5 * time.Minute
 )
 
+// isSuspiciousPath returns true for paths that are clearly not valid frontend routes
+// (e.g., scanner/bot probes like .php, .asp, .env, wp-admin, etc.)
+func isSuspiciousPath(path string) bool {
+	suspiciousSuffixes := []string{
+		".php", ".asp", ".aspx", ".jsp", ".cgi", ".pl",
+		".env", ".git", ".bak", ".sql", ".yml", ".yaml",
+		".xml", ".log", ".ini", ".conf", ".config",
+	}
+	suspiciousPrefixes := []string{
+		"/wp-", "/wordpress", "/admin/", "/cgi-bin/",
+		"/.well-known/", "/vendor/", "/node_modules/",
+	}
+	lowerPath := strings.ToLower(path)
+	for _, suffix := range suspiciousSuffixes {
+		if strings.HasSuffix(lowerPath, suffix) {
+			return true
+		}
+	}
+	for _, prefix := range suspiciousPrefixes {
+		if strings.HasPrefix(lowerPath, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // ServeIndexHTML serves the route-specific HTML with code snippets injected.
 // For each request path (e.g. /about, /privacy), it fetches the corresponding
 // pre-rendered HTML from the frontend container, which has unique title,
@@ -814,6 +840,11 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 	requestPath := c.Request.URL.Path
 	if requestPath == "" {
 		requestPath = "/"
+	}
+
+	if isSuspiciousPath(requestPath) {
+		c.String(http.StatusNotFound, "Not Found")
+		return
 	}
 
 	// Get the route-specific HTML content from frontend
@@ -848,11 +879,20 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 	c.String(http.StatusOK, modifiedHTML)
 }
 
+// ssrHTTPClient is a shared HTTP client for SSR fetches with sensible limits
+var ssrHTTPClient = &http.Client{
+	Timeout: 5 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        20,
+		MaxIdleConnsPerHost: 20,
+		IdleConnTimeout:     60 * time.Second,
+	},
+}
+
 // getPageHTML fetches and caches the HTML for a specific route from the frontend container.
 // Each route (e.g. /about, /privacy) may have its own pre-rendered HTML with unique
 // meta tags (title, description, canonical) and noscript content for SEO.
 func (h *Handler) getPageHTML(requestPath string) (string, error) {
-	// Normalize path
 	if requestPath == "" {
 		requestPath = "/"
 	}
@@ -866,41 +906,33 @@ func (h *Handler) getPageHTML(requestPath string) (string, error) {
 	}
 	h.htmlCacheMu.RUnlock()
 
-	// Cache miss or expired - fetch from frontend (write lock)
-	h.htmlCacheMu.Lock()
-	defer h.htmlCacheMu.Unlock()
-
-	// Double-check after acquiring write lock
-	if entry, ok := h.htmlCacheMap[requestPath]; ok && time.Since(entry.fetchedAt) < indexHTMLCacheTTL {
-		return entry.html, nil
-	}
-
-	// Fetch the route-specific HTML from frontend container
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
+	// Fetch from frontend WITHOUT holding the lock to avoid blocking all requests
 	fetchURL := h.frontendURL + requestPath
-	resp, err := client.Get(fetchURL)
+	resp, err := ssrHTTPClient.Get(fetchURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch HTML for %s from frontend: %w", requestPath, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body)
 		return "", fmt.Errorf("frontend returned status %d for %s", resp.StatusCode, requestPath)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
 	if err != nil {
 		return "", fmt.Errorf("failed to read HTML body for %s: %w", requestPath, err)
 	}
 
 	html := string(body)
+
+	// Now take write lock only for the cache update (fast operation)
+	h.htmlCacheMu.Lock()
 	h.htmlCacheMap[requestPath] = &htmlCacheEntry{
 		html:      html,
 		fetchedAt: time.Now(),
 	}
+	h.htmlCacheMu.Unlock()
 
 	log.Printf("HTML for %s cached successfully (%d bytes)", requestPath, len(body))
 	return html, nil
@@ -1111,25 +1143,20 @@ func getArticleNoscript(slug, baseStyle, headingStyle, textStyle string) string 
 
 // proxyToFrontend proxies the request to the frontend container
 func (h *Handler) proxyToFrontend(c *gin.Context) {
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	resp, err := client.Get(h.frontendURL + c.Request.URL.Path)
+	resp, err := ssrHTTPClient.Get(h.frontendURL + c.Request.URL.Path)
 	if err != nil {
 		c.String(http.StatusBadGateway, "Failed to proxy to frontend")
 		return
 	}
 	defer resp.Body.Close()
 
-	// Copy headers
 	for key, values := range resp.Header {
 		for _, value := range values {
 			c.Header(key, value)
 		}
 	}
 
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
 	c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), body)
 }
 
