@@ -687,8 +687,7 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Tab 切换区域 - 仅未登录用户显示 */}
-      {!isAuthenticated && (
+      {/* Tab 切换区域 - 所有用户可见，增加内容密度 */}
         <div className="home-tab-section">
           {/* Tab 切换按钮 */}
           <div className="home-tab-header">
@@ -879,7 +878,6 @@ const Home = () => {
             <p>© 2025 Scholay</p>
           </div>
         </div>
-      )}
 
       {/* 条件渲染 AuthModal - 只在需要时加载 */}
       {showAuthModal && (

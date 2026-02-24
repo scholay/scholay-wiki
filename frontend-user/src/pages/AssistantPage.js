@@ -56,6 +56,7 @@ function AssistantPage() {
         </svg>
       ),
       path: '/peer-review',
+      featurePath: '/features/peer-review',
       color: '#6366f1',
       gradient: 'linear-gradient(135deg, #6366f1 0%, #4F46E5 100%)',
     },
@@ -75,6 +76,7 @@ function AssistantPage() {
         </video>
       ),
       path: '/latex-writer',
+      featurePath: '/features/latex-writer',
       color: '#E74C3C',
       gradient: 'linear-gradient(135deg, #E74C3C 0%, #C0392B 100%)',
       isVideo: true,
@@ -121,6 +123,17 @@ function AssistantPage() {
                 <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>
             </div>
+            {tool.featurePath && (
+              <div
+                className="ast-card-learn-more"
+                onClick={(e) => { e.stopPropagation(); navigate(tool.featurePath); }}
+                style={{ marginTop: 8, fontSize: 13, color: 'var(--text-tertiary)', cursor: 'pointer', transition: 'color 0.2s ease' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = tool.color; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-tertiary)'; }}
+              >
+                了解更多 →
+              </div>
+            )}
           </article>
         ))}
       </div>

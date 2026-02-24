@@ -1,0 +1,143 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * All Rights Reserved.
+ * ============================================================================
+ */
+
+.feat-search-page {
+  background: radial-gradient(120% 120% at 50% -10%, rgba(16, 163, 127, 0.18) 0%, #04110c 48%, #010302 100%);
+}
+
+.feat-search-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.feat-mode-card {
+  padding: 32px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  transition: all 0.3s ease;
+}
+
+.feat-mode-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.feat-mode-card.mode-direct {
+  background: linear-gradient(160deg, rgba(16, 163, 127, 0.12) 0%, rgba(4, 14, 10, 0.8) 60%);
+}
+
+.feat-mode-card.mode-ai {
+  background: linear-gradient(160deg, rgba(99, 102, 241, 0.12) 0%, rgba(6, 6, 20, 0.8) 60%);
+}
+
+.feat-mode-badge {
+  display: inline-flex;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.mode-direct .feat-mode-badge {
+  background: rgba(16, 163, 127, 0.2);
+  color: #6ef2c6;
+  border: 1px solid rgba(16, 163, 127, 0.3);
+}
+
+.mode-ai .feat-mode-badge {
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.feat-mode-card h3 {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 10px;
+  color: #fff;
+}
+
+.feat-mode-card p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.7;
+  margin: 0 0 20px;
+}
+
+.feat-mode-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feat-mode-features li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.feat-search-mockup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.feat-mockup-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 14px;
+}
+
+.feat-mockup-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feat-mockup-result {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.feat-mockup-result-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 4px;
+}
+
+.feat-mockup-result-meta {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+@media (max-width: 768px) {
+  .feat-search-modes {
+    grid-template-columns: 1fr;
+  }
+
+  .feat-mode-card {
+    padding: 24px;
+  }
+}

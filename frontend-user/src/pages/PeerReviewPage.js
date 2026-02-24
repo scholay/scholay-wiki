@@ -902,6 +902,50 @@ export default function PeerReviewPage() {
         keywords="AI审稿,智能审稿,论文评审,学术审稿,论文修改建议,peer review"
         canonical="/peer-review"
       />
+      {/* 未登录用户的宣传横幅 */}
+      {!user && viewMode === VIEW_MODE.HOME && (
+        <div style={{
+          margin: '0 0 20px',
+          padding: '16px 20px',
+          borderRadius: 14,
+          background: 'linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(79,70,229,0.05) 100%)',
+          border: '1px solid rgba(99,102,241,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text-primary)', marginBottom: 4 }}>
+              AI 智能审稿 — 三位审稿人，五大维度全面评审
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
+              上传论文即可获取结构化审稿报告，包含评分雷达图和分级修改建议。
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/features/peer-review')}
+            style={{
+              padding: '8px 18px',
+              borderRadius: 999,
+              border: '1px solid rgba(99,102,241,0.3)',
+              background: 'rgba(99,102,241,0.1)',
+              color: '#818cf8',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.2)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.1)'; }}
+          >
+            了解全部功能 →
+          </button>
+        </div>
+      )}
+
       {/* 详情视图时显示返回按钮 */}
       {viewMode === VIEW_MODE.DETAIL && (
         <div className="prv-detail-header">

@@ -100,6 +100,9 @@ const NotFoundPage = lazyWithRetry(() => import('./pages/NotFoundPage'), 'NotFou
 const ResourceCenterPage = lazyWithRetry(() => import('./pages/ResourceCenterPage'), 'ResourceCenterPage');
 const ResourceArticlePage = lazyWithRetry(() => import('./pages/ResourceArticlePage'), 'ResourceArticlePage');
 const HelpCenterPage = lazyWithRetry(() => import('./pages/HelpCenterPage'), 'HelpCenterPage');
+const SearchFeaturePage = lazyWithRetry(() => import('./pages/features/SearchFeaturePage'), 'SearchFeaturePage');
+const PeerReviewFeaturePage = lazyWithRetry(() => import('./pages/features/PeerReviewFeaturePage'), 'PeerReviewFeaturePage');
+const LaTeXFeaturePage = lazyWithRetry(() => import('./pages/features/LaTeXFeaturePage'), 'LaTeXFeaturePage');
 
 function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -280,6 +283,11 @@ function App() {
                       <Route path="/contact" element={<ContactPage />} />
                       <Route path="/disclaimer" element={<DisclaimerPage />} />
                       
+                      {/* 功能宣传页面 - 独立设计的工具介绍落地页 */}
+                      <Route path="/features/search" element={<SearchFeaturePage />} />
+                      <Route path="/features/peer-review" element={<PeerReviewFeaturePage />} />
+                      <Route path="/features/latex-writer" element={<LaTeXFeaturePage />} />
+
                       {/* 学术资源中心和帮助中心 - 公开访问 (Google AdSense 原创内容页面) */}
                       <Route path="/resources" element={<ResourceCenterPage />} />
                       <Route path="/resources/:slug" element={<ResourceArticlePage />} />

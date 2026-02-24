@@ -833,8 +833,8 @@ ${truncatedLog}
               <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </svg>
           </div>
-          <h2>需要登录</h2>
-          <p>使用 ScholayPrism 需要先登录账号</p>
+          <h2>ScholayPrism</h2>
+          <p style={{ marginBottom: 8 }}>专为学术写作打造的在线 LaTeX 编辑器，支持实时编译预览和 AI 辅助写作。登录即可免费使用。</p>
           <button 
             className="latex-writer-login-btn"
             onClick={() => setShowAuthModal(true)}
@@ -850,6 +850,21 @@ ${truncatedLog}
               免费注册
             </button>
           </p>
+          <a
+            href="/features/latex-writer"
+            style={{
+              display: 'inline-block',
+              marginTop: 12,
+              fontSize: 13,
+              color: 'var(--text-tertiary)',
+              textDecoration: 'none',
+              transition: 'color 0.2s ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#E74C3C'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; }}
+          >
+            了解 ScholayPrism 全部功能 →
+          </a>
         </div>
         
         {/* 登录/注册弹窗 */}
