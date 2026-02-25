@@ -97,6 +97,11 @@ const MainLayout = () => {
       breadcrumbs.push({ label: '意见反馈' });
     } else if (path === '/about') {
       breadcrumbs.push({ label: '关于我们' });
+    } else if (path === '/blog') {
+      breadcrumbs.push({ label: '博客' });
+    } else if (path.startsWith('/blog/')) {
+      breadcrumbs.push({ label: '博客', path: '/blog' });
+      breadcrumbs.push({ label: '文章详情' });
     }
     
     // 首页不显示面包屑

@@ -134,6 +134,39 @@ const AboutPage = () => {
         </div>
 
         <div className="about-section">
+          <h2>核心团队</h2>
+          <div className="about-content">
+            <p>Scholay 的核心团队由来自学术搜索、自然语言处理和信息检索领域的专业人士组成，兼具技术深度和学术行业理解。</p>
+          </div>
+          <div className="about-team-grid">
+            <div className="about-team-card">
+              <div className="about-team-avatar">刘</div>
+              <h4>刘晨</h4>
+              <p className="about-team-role">技术总监</p>
+              <p className="about-team-bio">前 Semantic Scholar 研究工程师，长期关注 AI 与学术搜索交叉领域，负责平台核心搜索和 AI 系统架构。</p>
+            </div>
+            <div className="about-team-card">
+              <div className="about-team-avatar">张</div>
+              <h4>张薇</h4>
+              <p className="about-team-role">首席研究员</p>
+              <p className="about-team-bio">信息科学博士，专注于学术信息检索和知识图谱研究，主持多项国家级科研项目，为产品提供学术顾问支持。</p>
+            </div>
+            <div className="about-team-card">
+              <div className="about-team-avatar">王</div>
+              <h4>王明</h4>
+              <p className="about-team-role">产品经理</p>
+              <p className="about-team-bio">计算机科学硕士，全栈开发者，热衷于用技术提升科研效率，负责 Scholay 产品设计和用户体验优化。</p>
+            </div>
+            <div className="about-team-card">
+              <div className="about-team-avatar">陈</div>
+              <h4>陈晓</h4>
+              <p className="about-team-role">内容编辑</p>
+              <p className="about-team-bio">学术出版行业从业 10 年，熟悉同行评审、期刊投稿和开放获取出版流程，负责学术内容质量把控。</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="about-section">
           <h2>发展历程</h2>
           <div className="about-content">
             <p>

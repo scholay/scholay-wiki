@@ -129,6 +129,8 @@ const ResourceCenterPage = () => {
         <footer className="article-footer">
           <p className="copyright">&copy; {new Date().getFullYear()} Scholay. All rights reserved.</p>
           <nav className="footer-links">
+            <button onClick={() => navigate('/blog')}>博客</button>
+            <span>|</span>
             <button onClick={() => navigate('/about')}>关于我们</button>
             <span>|</span>
             <button onClick={() => navigate('/contact')}>联系我们</button>

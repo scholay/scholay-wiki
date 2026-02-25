@@ -936,265 +936,116 @@
 }
 
 /* ============================================
-   Tab 切换区域 - 未登录用户显示
+   平台能力 - 流式平铺展示
    ============================================ */
-.home-tab-section {
+.home-about-flow {
   width: 100%;
-  max-width: 56rem;
+  max-width: 52rem;
   margin: 0 auto;
-  padding: 32px 1.5rem 48px;
+  padding: 24px 1.5rem 0;
+}
+
+.home-flow-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 16px 0;
+  letter-spacing: 0.02em;
+}
+
+/* 核心数据 */
+.home-flow-stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 28px 0;
+  margin-bottom: 8px;
+}
+
+.home-flow-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.home-flow-stat-num {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-accent);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.home-flow-stat-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.home-flow-stat-divider {
+  width: 1px;
+  height: 32px;
+  background: var(--border);
   flex-shrink: 0;
 }
 
-.home-tab-header {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 0;
-}
-
-.home-tab-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 12px 20px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  transition: all 0.2s ease;
-}
-
-.home-tab-btn:hover {
-  color: var(--text-secondary);
-}
-
-.home-tab-btn.active {
-  color: var(--text-accent);
-  border-bottom-color: var(--text-accent);
-}
-
-.home-tab-btn svg {
-  opacity: 0.7;
-}
-
-.home-tab-btn.active svg {
-  opacity: 1;
-}
-
-.home-tab-content {
-  min-height: 200px;
-}
-
-.home-tab-panel {
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.home-simple-footer {
-  margin-top: 32px;
-  padding-top: 16px;
+/* 适用人群 - 紧凑横排 */
+.home-flow-users {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 20px 0 28px;
   border-top: 1px solid var(--border);
-  text-align: center;
+  border-bottom: 1px solid var(--border);
 }
 
-.home-simple-footer p {
-  font-size: 12px;
-  color: var(--text-quaternary);
-  margin: 0;
-}
-
-/* 数据统计卡片行 */
-.home-stats-row {
+.home-flow-user {
   display: flex;
-  justify-content: center;
-  gap: 24px;
-  margin-bottom: 32px;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  transition: background 0.15s;
 }
 
-.home-stat-card {
-  text-align: center;
-  padding: 16px 24px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  min-width: 100px;
-}
-
-[data-theme="dark"] .home-stat-card {
+.home-flow-user:hover {
   background: rgba(255, 255, 255, 0.03);
 }
 
-[data-theme="light"] .home-stat-card {
+[data-theme="light"] .home-flow-user:hover {
   background: rgba(0, 0, 0, 0.02);
 }
 
-.home-stat-number {
+.home-flow-user-emoji {
   font-size: 20px;
-  font-weight: 600;
-  color: var(--text-accent);
-  margin-bottom: 4px;
-}
-
-.home-stat-label {
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-/* 功能亮点行 */
-.home-highlights-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-.home-highlight-card {
-  display: flex;
-  gap: 12px;
-  padding: 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  transition: all 0.2s ease;
-}
-
-[data-theme="dark"] .home-highlight-card {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-[data-theme="light"] .home-highlight-card {
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-}
-
-.home-highlight-card:hover {
-  border-color: var(--text-accent);
-}
-
-[data-theme="dark"] .home-highlight-card:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.home-highlight-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  line-height: 1.4;
   flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.08) 100%);
-  color: var(--text-accent);
 }
 
-.home-highlight-content h4 {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 6px 0;
+.home-flow-user div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
-.home-highlight-content p {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  margin: 0;
-  line-height: 1.5;
-}
-
-/* ============================================
-   底部区域 - 用户类型 + FAQ + 页脚
-   ============================================ */
-.home-bottom-section {
-  width: 100%;
-  margin-top: 48px;
-  border-top: 1px solid var(--border);
-}
-
-.home-section-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
-  text-align: center;
-  margin: 0 0 24px 0;
-}
-
-/* 用户类型 */
-.home-user-types {
-  max-width: 64rem;
-  margin: 0 auto;
-  padding: 48px 1.5rem;
-}
-
-.home-user-types-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-}
-
-.home-user-type-card {
-  text-align: center;
-  padding: 24px 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  transition: all 0.2s ease;
-}
-
-[data-theme="dark"] .home-user-type-card {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-[data-theme="light"] .home-user-type-card {
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-}
-
-.home-user-type-card:hover {
-  border-color: var(--text-accent);
-  transform: translateY(-2px);
-}
-
-.home-user-type-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  margin-bottom: 12px;
-  background: linear-gradient(135deg, rgba(16, 163, 127, 0.15) 0%, rgba(16, 163, 127, 0.08) 100%);
-  color: var(--text-accent);
-}
-
-.home-user-type-card h4 {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 8px 0;
-}
-
-.home-user-type-card p {
+.home-flow-user strong {
   font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.home-flow-user span {
+  font-size: 11.5px;
   color: var(--text-tertiary);
-  margin: 0;
   line-height: 1.5;
+}
+
+/* FAQ */
+.home-flow-faq {
+  padding: 28px 0 20px;
 }
 
 /* FAQ 区域 */
@@ -1371,125 +1222,168 @@
   color: var(--text-quaternary);
 }
 
-/* ============ Resources Recommendation Section ============ */
-.home-resources-section {
-  max-width: 56rem;
+/* ============ Testimonials ============ */
+.home-testimonials-section {
+  max-width: 52rem;
   margin: 0 auto;
-  padding: 48px 24px 32px;
+  padding: 8px 1.5rem 28px;
 }
 
-.home-resources-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.home-resources-header h2 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.home-resources-more {
-  background: none;
-  border: none;
-  color: var(--primary-color, #6366f1);
-  font-size: 0.875rem;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: background 0.2s;
-}
-
-.home-resources-more:hover {
-  background: rgba(99, 102, 241, 0.08);
-}
-
-.home-resources-desc {
-  font-size: 0.9375rem;
-  color: var(--text-tertiary);
-  margin: 0 0 20px 0;
-  line-height: 1.6;
-}
-
-.home-resources-grid {
+.home-testimonials-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
-  margin-bottom: 24px;
 }
 
-.home-resource-item {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
-  border-radius: 12px;
-  padding: 16px 18px;
-  cursor: pointer;
-  transition: all 0.2s;
+.home-testimonial-card {
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
 }
 
-.home-resource-item:hover {
-  border-color: var(--primary-color, #6366f1);
-  transform: translateY(-1px);
+[data-theme="dark"] .home-testimonial-card {
+  background: rgba(255, 255, 255, 0.02);
 }
 
-.home-resource-item h4 {
-  font-size: 0.9375rem;
+[data-theme="light"] .home-testimonial-card {
+  background: #fff;
+}
+
+.home-testimonial-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin: 0 0 12px 0;
+  flex: 1;
+}
+
+.home-testimonial-author {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.home-testimonial-name {
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 6px 0;
-  line-height: 1.4;
 }
 
-.home-resource-item p {
-  font-size: 0.8125rem;
-  color: var(--text-tertiary);
-  margin: 0;
-  line-height: 1.5;
+.home-testimonial-title {
+  font-size: 11px;
+  color: var(--text-quaternary);
 }
 
-.home-resources-links {
+/* ============ Bottom Footer Section ============ */
+.home-bottom-section {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 32px 1.5rem 40px;
+  border-top: 1px solid var(--border);
+}
+
+.home-bottom-resources {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 40px;
+  margin-bottom: 32px;
+}
+
+.home-bottom-res-col {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border-primary);
+  flex-direction: column;
+  gap: 8px;
 }
 
-.home-resources-links button {
+.home-bottom-res-col h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 4px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.home-bottom-res-col button {
   background: none;
   border: none;
-  color: var(--text-quaternary);
-  font-size: 0.8125rem;
-  cursor: pointer;
   padding: 0;
-  transition: color 0.2s;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.15s;
+  line-height: 1.8;
 }
 
-.home-resources-links button:hover {
-  color: var(--primary-color, #6366f1);
+.home-bottom-res-col button:hover {
+  color: var(--text-accent);
 }
 
-.home-resources-links span {
+.home-bottom-copy {
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.home-bottom-copy p {
+  font-size: 12px;
   color: var(--text-quaternary);
-  font-size: 0.75rem;
+  margin: 0;
+  text-align: center;
 }
 
-@media (max-width: 640px) {
-  .home-resources-section {
-    padding: 32px 16px 24px;
+/* ============ Bottom Responsive ============ */
+@media (max-width: 768px) {
+  .home-flow-stats {
+    gap: 20px;
   }
   
-  .home-resources-grid {
-    grid-template-columns: 1fr;
+  .home-flow-stat-num {
+    font-size: 22px;
   }
-  
-  .home-resources-links {
-    flex-wrap: wrap;
+
+  .home-flow-users {
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
+  }
+
+  .home-testimonials-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .home-bottom-resources {
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-flow-stats {
+    gap: 16px;
+    padding: 20px 0;
+  }
+
+  .home-flow-stat-num {
+    font-size: 20px;
+  }
+
+  .home-flow-users {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .home-flow-user {
+    padding: 8px;
+  }
+
+  .home-bottom-resources {
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
 }
 

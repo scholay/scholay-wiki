@@ -14,6 +14,84 @@ const path = require('path');
 const BUILD_DIR = path.join(__dirname, '..', 'build');
 const SITE_URL = 'https://www.scholay.com';
 
+// ===================== 加载博客文章数据 =====================
+
+function loadBlogArticles() {
+  const filePath = path.join(__dirname, '..', 'src', 'pages', 'blog', 'blogArticles.js');
+  const raw = fs.readFileSync(filePath, 'utf-8');
+  const match = raw.match(/const blogArticles\s*=\s*(\[[\s\S]*?\n\]);/);
+  if (!match) {
+    console.warn('⚠️  Could not parse blogArticles.js, skipping blog pages');
+    return [];
+  }
+  try {
+    return eval(match[1]);
+  } catch (e) {
+    console.warn('⚠️  Failed to evaluate blogArticles data:', e.message);
+    return [];
+  }
+}
+
+function loadBlogAuthors() {
+  const filePath = path.join(__dirname, '..', 'src', 'pages', 'blog', 'blogArticles.js');
+  const raw = fs.readFileSync(filePath, 'utf-8');
+  const match = raw.match(/export const AUTHORS\s*=\s*(\{[\s\S]*?\n\});/);
+  if (!match) return {};
+  try {
+    return eval('(' + match[1] + ')');
+  } catch (e) {
+    return {};
+  }
+}
+
+function generateBlogArticleRoutes(articles, authors) {
+  return articles.map(article => {
+    const author = authors[article.author] || { name: 'Scholay' };
+    return {
+      path: `/blog/${article.slug}`,
+      title: `${article.title} - Scholay 博客`,
+      description: article.excerpt,
+      keywords: `${article.tags.join(',')},Scholay博客,学术研究`,
+      noscriptBody:
+        `<article style="line-height:1.8">` +
+        `<div style="margin-bottom:12px;color:#666"><span>${article.category}</span> · <span>${author.name}</span> · <span>${article.readTime}阅读</span> · <span>${article.date}</span></div>` +
+        `<div style="background:#f5f5f5;padding:12px 16px;border-radius:8px;margin-bottom:20px"><strong style="color:#111">${author.name}</strong><span style="color:#666;margin-left:8px;font-size:0.9rem">${author.role || ''}</span><br/><span style="color:#666;font-size:0.85rem">${author.bio || ''}</span></div>` +
+        articleContentToHtml(article.content) +
+        `</article>` +
+        section('更多文章', p('访问 <a href="/blog" style="color:#1a73e8">Scholay 博客</a> 阅读更多学术搜索技巧和 AI 研究工具使用指南。') +
+          p('浏览 <a href="/resources" style="color:#1a73e8">学术资源中心</a> 获取深度学术教程。') +
+          p('使用 <a href="/" style="color:#1a73e8">Scholay 学术搜索</a> 检索超过 2 亿篇学术论文。'))
+    };
+  });
+}
+
+function generateBlogListRoute(articles, authors) {
+  const articleList = articles.map(a => {
+    const author = authors[a.author] || { name: 'Scholay' };
+    return `<li style="margin-bottom:16px"><a href="/blog/${a.slug}" style="color:#1a73e8;font-size:1.1rem;font-weight:600">${a.title}</a><br/><span style="color:#666;font-size:0.9rem">${a.category} · ${author.name} · ${a.readTime}阅读 · ${a.date}</span><br/><span style="line-height:1.6">${a.excerpt}</span></li>`;
+  }).join('');
+
+  return {
+    path: '/blog',
+    title: 'Scholay 博客 | 学术搜索技巧、AI 研究工具与论文写作指南',
+    description: 'Scholay 博客分享学术搜索技巧、AI 研究工具使用方法、论文写作指南和学术行业观察。原创深度文章助力科研工作者提升效率。',
+    keywords: '学术博客,AI学术工具,论文写作技巧,文献检索方法,学术搜索,科研效率,Scholay博客',
+    noscriptBody:
+      section('Scholay 博客', p('分享学术搜索技巧、AI 研究工具实践、论文写作方法和行业深度观察，帮助研究者用更聪明的方式做科研。')) +
+      section(`全部文章（${articles.length} 篇）`, `<ul style="list-style:none;padding:0">${articleList}</ul>`) +
+      section('分类浏览', ul([
+        '<strong>学术搜索</strong> — AI 文献检索技巧、搜索工具对比、跨学科搜索策略',
+        '<strong>AI与学术</strong> — AI 工具在科研中的应用、学术伦理和工作流优化',
+        '<strong>论文写作</strong> — 文献综述方法、学术写作技巧和排版工具选择',
+        '<strong>研究方法</strong> — 论文评估方法、引文分析和研究趋势发现',
+        '<strong>工具教程</strong> — Scholay 平台使用指南、LaTeX 与 Word 选择',
+        '<strong>行业观察</strong> — 同行评审流程、学术出版趋势和搜索工具对比',
+      ])) +
+      section('更多资源', p('访问 <a href="/resources" style="color:#1a73e8">学术资源中心</a> 获取系统化的学术指南和教程。') +
+        p('使用 <a href="/" style="color:#1a73e8">Scholay 学术搜索引擎</a> 检索超过 2 亿篇学术论文。'))
+  };
+}
+
 // ===================== 加载资源文章数据 =====================
 
 function loadResourceArticles() {
@@ -36,11 +114,11 @@ function articleContentToHtml(contentArray) {
   return contentArray.map(item => {
     switch (item.type) {
       case 'heading':
-        return `<h3 style="color:#fff;margin-top:24px;margin-bottom:12px">${item.text}</h3>`;
+        return `<h3 style="color:#111;margin-top:24px;margin-bottom:12px">${item.text}</h3>`;
       case 'paragraph':
         return p(item.text);
       case 'tip':
-        return `<div style="background:#333;padding:16px 20px;border-radius:8px;border-left:4px solid #64b5f6;margin:16px 0"><strong style="color:#64b5f6">${item.title}：</strong><span style="line-height:1.8">${item.text}</span></div>`;
+        return `<div style="background:#f5f5f5;padding:16px 20px;border-radius:8px;border-left:4px solid #64b5f6;margin:16px 0"><strong style="color:#1a73e8">${item.title}：</strong><span style="line-height:1.8">${item.text}</span></div>`;
       default:
         return p(item.text || '');
     }
@@ -55,17 +133,17 @@ function generateArticleRoutes(articles) {
     keywords: `${article.category},学术指南,${article.title},Scholay,学术研究,论文写作`,
     noscriptBody:
       `<article style="line-height:1.8">` +
-      `<div style="margin-bottom:20px;color:#9e9e9e"><span>${article.category}</span> · <span>${article.readTime}阅读</span> · <span>${article.date}</span></div>` +
+      `<div style="margin-bottom:20px;color:#666"><span>${article.category}</span> · <span>${article.readTime}阅读</span> · <span>${article.date}</span></div>` +
       articleContentToHtml(article.content) +
       `</article>` +
-      section('相关资源', p('访问 <a href="/resources" style="color:#64b5f6">Scholay 学术资源中心</a> 查看更多学术指南和教程。') +
-        p('使用 <a href="/" style="color:#64b5f6">Scholay 学术搜索</a> 检索超过 2 亿篇学术论文。'))
+      section('相关资源', p('访问 <a href="/resources" style="color:#1a73e8">Scholay 学术资源中心</a> 查看更多学术指南和教程。') +
+        p('使用 <a href="/" style="color:#1a73e8">Scholay 学术搜索</a> 检索超过 2 亿篇学术论文。'))
   }));
 }
 
 function generateResourceCenterRoute(articles) {
   const articleList = articles.map(a =>
-    `<li style="margin-bottom:16px"><a href="/resources/${a.slug}" style="color:#64b5f6;font-size:1.1rem;font-weight:600">${a.title}</a><br/><span style="color:#9e9e9e;font-size:0.9rem">${a.category} · ${a.readTime}阅读</span><br/><span style="line-height:1.6">${a.excerpt}</span></li>`
+    `<li style="margin-bottom:16px"><a href="/resources/${a.slug}" style="color:#1a73e8;font-size:1.1rem;font-weight:600">${a.title}</a><br/><span style="color:#666;font-size:0.9rem">${a.category} · ${a.readTime}阅读</span><br/><span style="line-height:1.6">${a.excerpt}</span></li>`
   ).join('');
 
   return {
@@ -83,7 +161,7 @@ function generateResourceCenterRoute(articles) {
         '<strong>AI与学术</strong> — AI 在学术研究中的应用与伦理思考',
         '<strong>工具教程</strong> — LaTeX 入门教程、ScholayPrism 使用指南',
       ])) +
-      section('开始探索', p('使用 <a href="/" style="color:#64b5f6">Scholay 学术搜索引擎</a> 检索超过 2 亿篇学术论文，结合 AI 智能分析，让你的研究更高效。'))
+      section('开始探索', p('使用 <a href="/" style="color:#1a73e8">Scholay 学术搜索引擎</a> 检索超过 2 亿篇学术论文，结合 AI 智能分析，让你的研究更高效。'))
   };
 }
 
@@ -94,7 +172,7 @@ function generateHelpCenterRoute() {
     description: 'Scholay 帮助中心提供详细的平台使用教程、功能介绍和常见问题解答，帮助你快速上手 AI 学术搜索、论文分析、智能审稿和 LaTeX 编辑等功能。',
     keywords: 'Scholay帮助,使用教程,常见问题,FAQ,学术搜索帮助,AI论文分析教程',
     noscriptBody:
-      section('帮助中心', p('欢迎来到 Scholay 帮助中心。在这里你可以了解平台的核心功能、使用方法，以及查阅常见问题的解答。如果需要更详细的学术指南，请访问 <a href="/resources" style="color:#64b5f6">学术资源中心</a>。')) +
+      section('帮助中心', p('欢迎来到 Scholay 帮助中心。在这里你可以了解平台的核心功能、使用方法，以及查阅常见问题的解答。如果需要更详细的学术指南，请访问 <a href="/resources" style="color:#1a73e8">学术资源中心</a>。')) +
       section('功能使用指南', ul([
         '<strong>学术文献检索</strong> — Scholay 整合了 Semantic Scholar 超过 2 亿篇学术论文的数据库，提供直接检索和智能检索两种模式。直接检索支持关键词、论文标题和作者名搜索，智能检索支持自然语言描述研究问题，AI 理解意图后返回最相关文献。',
         '<strong>AI 论文分析</strong> — 在论文详情页点击"AI 分析"按钮，即可获取论文的结构化分析报告，包括核心贡献总结、研究方法概述、主要发现、创新点和局限性分析。',
@@ -104,55 +182,96 @@ function generateHelpCenterRoute() {
         '<strong>订阅与充值</strong> — 免费版提供基础检索和有限 AI 分析次数，付费订阅解锁高级 AI 模型和更多配额，支持支付宝和微信支付。',
       ])) +
       section('常见问题', `<dl style="line-height:1.8">` +
-        `<dt style="color:#fff;font-weight:700;margin-top:16px">Scholay 是什么？它有什么特点？</dt>` +
+        `<dt style="color:#111;font-weight:700;margin-top:16px">Scholay 是什么？它有什么特点？</dt>` +
         `<dd style="margin-left:0;margin-bottom:12px">Scholay 是一个 AI 驱动的学术搜索平台，整合了 Semantic Scholar 超过 2 亿篇学术论文资源。核心特点包括 AI 智能文献检索、AI 论文深度分析、AI 学术聊天助手、AI 智能审稿和 ScholayPrism 在线 LaTeX 编辑器。</dd>` +
-        `<dt style="color:#fff;font-weight:700;margin-top:16px">Scholay 支持哪些学科领域？</dt>` +
+        `<dt style="color:#111;font-weight:700;margin-top:16px">Scholay 支持哪些学科领域？</dt>` +
         `<dd style="margin-left:0;margin-bottom:12px">覆盖计算机科学、生物医学、物理学、化学、数学、工程学、环境科学、材料科学、心理学、经济学、社会学、教育学、语言学等广泛学科领域。</dd>` +
-        `<dt style="color:#fff;font-weight:700;margin-top:16px">Scholay 是免费的吗？</dt>` +
+        `<dt style="color:#111;font-weight:700;margin-top:16px">Scholay 是免费的吗？</dt>` +
         `<dd style="margin-left:0;margin-bottom:12px">Scholay 提供免费基础版，可使用基础学术检索和有限次数的 AI 分析。高级 AI 模型、更多分析配额等需订阅付费方案。还可通过每日签到和邀请好友获取免费额度。</dd>` +
-        `<dt style="color:#fff;font-weight:700;margin-top:16px">如何注册和登录？</dt>` +
+        `<dt style="color:#111;font-weight:700;margin-top:16px">如何注册和登录？</dt>` +
         `<dd style="margin-left:0;margin-bottom:12px">支持邮箱注册（接收验证码完成注册）、GitHub 账号一键登录、微信扫码授权登录。注册后即可享受免费版功能。</dd>` +
-        `<dt style="color:#fff;font-weight:700;margin-top:16px">直接检索和智能检索有什么区别？</dt>` +
+        `<dt style="color:#111;font-weight:700;margin-top:16px">直接检索和智能检索有什么区别？</dt>` +
         `<dd style="margin-left:0;margin-bottom:12px">直接检索输入关键词/论文标题/作者名精确匹配，适合已知目标。智能检索由 AI 驱动，可用自然语言描述研究问题（如"有哪些方法减少神经网络过拟合？"），AI 理解意图后返回相关文献。</dd>` +
-        `<dt style="color:#fff;font-weight:700;margin-top:16px">AI 分析的结果准确吗？</dt>` +
+        `<dt style="color:#111;font-weight:700;margin-top:16px">AI 分析的结果准确吗？</dt>` +
         `<dd style="margin-left:0;margin-bottom:12px">AI 分析基于先进的大语言模型技术，能较好地理解和总结学术论文。但 AI 生成的分析仅供参考，建议将其作为快速了解论文的起点，对于正式研究内容务必结合原文人工验证。</dd>` +
-        `<dt style="color:#fff;font-weight:700;margin-top:16px">我的搜索记录和对话内容会被保存吗？</dt>` +
+        `<dt style="color:#111;font-weight:700;margin-top:16px">我的搜索记录和对话内容会被保存吗？</dt>` +
         `<dd style="margin-left:0;margin-bottom:12px">AI 聊天对话历史保存在你的账户中方便回顾，搜索记录不会被长期保存。所有用户数据受严格隐私保护，不会用于广告投放或分享给第三方。</dd>` +
-        `<dt style="color:#fff;font-weight:700;margin-top:16px">如何取消订阅或申请退款？</dt>` +
+        `<dt style="color:#111;font-weight:700;margin-top:16px">如何取消订阅或申请退款？</dt>` +
         `<dd style="margin-left:0;margin-bottom:12px">在"设置"页面的"订阅管理"部分查看订阅状态。订阅到期后不会自动续费。购买后 7 天内可联系客服 support@scholay.com 申请退款。</dd>` +
-        `<dt style="color:#fff;font-weight:700;margin-top:16px">什么是基金中心？如何获取免费额度？</dt>` +
+        `<dt style="color:#111;font-weight:700;margin-top:16px">什么是基金中心？如何获取免费额度？</dt>` +
         `<dd style="margin-left:0;margin-bottom:12px">基金中心是虚拟钱包功能，可通过每日签到（连续签到递增奖励）、邀请好友（双方获得奖励）、参与平台活动获取免费额度，用于抵扣订阅费用。</dd>` +
-        `<dt style="color:#fff;font-weight:700;margin-top:16px">遇到问题如何获取帮助？</dt>` +
-        `<dd style="margin-left:0;margin-bottom:12px">可查阅帮助中心使用指南和 FAQ、访问 <a href="/resources" style="color:#64b5f6">学术资源中心</a> 获取教程、通过"意见反馈"页面提交问题、或发送邮件至 support@scholay.com。工作时间周一至周五 9:00-18:00，通常 24 小时内回复。</dd>` +
+        `<dt style="color:#111;font-weight:700;margin-top:16px">遇到问题如何获取帮助？</dt>` +
+        `<dd style="margin-left:0;margin-bottom:12px">可查阅帮助中心使用指南和 FAQ、访问 <a href="/resources" style="color:#1a73e8">学术资源中心</a> 获取教程、通过"意见反馈"页面提交问题、或发送邮件至 support@scholay.com。工作时间周一至周五 9:00-18:00，通常 24 小时内回复。</dd>` +
         `</dl>`) +
-      section('更多资源', p('访问 <a href="/resources" style="color:#64b5f6">学术资源中心</a> 获取详细的学术指南和教程文章，涵盖文献检索、论文写作、引用格式、研究方法论等主题。'))
+      section('更多资源', p('访问 <a href="/resources" style="color:#1a73e8">学术资源中心</a> 获取详细的学术指南和教程文章，涵盖文献检索、论文写作、引用格式、研究方法论等主题。'))
   };
 }
 
 // ===================== 通用 noscript 组件 =====================
 
 function navFooter() {
-  return `<footer style="text-align:center;margin-top:40px;padding-top:20px;border-top:1px solid #424242"><p style="color:#9e9e9e">&copy; 2026 成都恩特罐罐文化科技有限公司 版权所有</p><nav style="margin-top:10px"><a href="/" style="color:#64b5f6;margin:0 10px">首页</a><a href="/about" style="color:#64b5f6;margin:0 10px">关于我们</a><a href="/pricing" style="color:#64b5f6;margin:0 10px">定价方案</a><a href="/resources" style="color:#64b5f6;margin:0 10px">学术资源</a><a href="/help" style="color:#64b5f6;margin:0 10px">帮助中心</a><a href="/privacy" style="color:#64b5f6;margin:0 10px">隐私政策</a><a href="/terms" style="color:#64b5f6;margin:0 10px">服务条款</a><a href="/disclaimer" style="color:#64b5f6;margin:0 10px">免责声明</a><a href="/contact" style="color:#64b5f6;margin:0 10px">联系我们</a><a href="/feedback" style="color:#64b5f6;margin:0 10px">意见反馈</a></nav></footer>`;
+  return `<footer style="text-align:center;margin-top:40px;padding-top:20px;border-top:1px solid #e0e0e0"><p style="color:#888">&copy; 2026 成都恩特罐罐文化科技有限公司 版权所有</p><nav style="margin-top:10px"><a href="/" style="color:#1a73e8;margin:0 10px">首页</a><a href="/blog" style="color:#1a73e8;margin:0 10px">博客</a><a href="/about" style="color:#1a73e8;margin:0 10px">关于我们</a><a href="/pricing" style="color:#1a73e8;margin:0 10px">定价方案</a><a href="/resources" style="color:#1a73e8;margin:0 10px">学术资源</a><a href="/help" style="color:#1a73e8;margin:0 10px">帮助中心</a><a href="/privacy" style="color:#1a73e8;margin:0 10px">隐私政策</a><a href="/terms" style="color:#1a73e8;margin:0 10px">服务条款</a><a href="/disclaimer" style="color:#1a73e8;margin:0 10px">免责声明</a><a href="/contact" style="color:#1a73e8;margin:0 10px">联系我们</a><a href="/feedback" style="color:#1a73e8;margin:0 10px">意见反馈</a></nav></footer>`;
 }
 
 function wrapNoscript(title, subtitle, bodyHtml) {
-  return `<noscript><div style="max-width:1000px;margin:0 auto;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e0e0e0;background:#212121;min-height:100vh"><header style="text-align:center;margin-bottom:40px"><h1 style="font-size:2rem;color:#fff;margin-bottom:10px">${title}</h1><p style="font-size:1.1rem;color:#9e9e9e">${subtitle}</p></header><main>${bodyHtml}</main>${navFooter()}<p style="text-align:center;margin-top:30px;padding:20px;background:#333;border-radius:8px">为获得最佳体验，请启用 JavaScript 或使用支持 JavaScript 的现代浏览器访问本站。</p></div></noscript>`;
+  return `<noscript><div style="max-width:1000px;margin:0 auto;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#222;background:#fff;min-height:100vh"><header style="text-align:center;margin-bottom:40px"><h1 style="font-size:2rem;color:#111;margin-bottom:10px">${title}</h1><p style="font-size:1.1rem;color:#555">${subtitle}</p></header><main>${bodyHtml}</main>${navFooter()}<p style="text-align:center;margin-top:30px;padding:20px;background:#f5f5f5;border-radius:8px;color:#333">为获得最佳体验，请启用 JavaScript 或使用支持 JavaScript 的现代浏览器访问本站。</p></div></noscript>`;
 }
 
 function wrapPreRendered(title, subtitle, bodyHtml) {
-  return `<div id="seo-prerender" style="max-width:1000px;margin:0 auto;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e0e0e0;background:#1a1a1a;min-height:100vh"><header style="text-align:center;margin-bottom:40px"><h1 style="font-size:2rem;color:#fff;margin-bottom:10px">${title}</h1><p style="font-size:1.1rem;color:#9e9e9e">${subtitle}</p></header><main>${bodyHtml}</main>${navFooter()}</div>`;
+  return `<div id="seo-prerender" style="max-width:1000px;margin:0 auto;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#222;background:#fff;min-height:100vh"><header style="text-align:center;margin-bottom:40px"><h2 style="font-size:2rem;color:#111;margin-bottom:10px">${title}</h2><p style="font-size:1.1rem;color:#555">${subtitle}</p></header><main>${bodyHtml}</main>${navFooter()}</div>`;
 }
 
 function section(title, content) {
-  return `<section style="margin-bottom:30px"><h2 style="color:#fff;border-bottom:1px solid #424242;padding-bottom:10px">${title}</h2>${content}</section>`;
+  return `<section style="margin-bottom:30px"><h2 style="color:#111;border-bottom:1px solid #e0e0e0;padding-bottom:10px">${title}</h2>${content}</section>`;
 }
 
-function p(text) { return `<p style="line-height:1.8">${text}</p>`; }
-function ul(items) { return `<ul style="line-height:2">${items.map(i => `<li>${i}</li>`).join('')}</ul>`; }
+function p(text) { return `<p style="line-height:1.8;color:#333">${text}</p>`; }
+function ul(items) { return `<ul style="line-height:2;color:#333">${items.map(i => `<li>${i}</li>`).join('')}</ul>`; }
 
 // ===================== 路由定义 =====================
 
 const routes = [
+  {
+    path: '/',
+    title: 'Scholay - AI驱动的学术搜索平台 | 智能文献检索与分析',
+    description: 'Scholay是创新的学术搜索平台，提供AI驱动的文献检索、智能论文分析、AI学术聊天、智能审稿和ScholayPrism在线LaTeX编辑器。覆盖超过2亿篇学术论文，涵盖19个学科领域。',
+    keywords: '学术搜索,论文检索,文献查找,AI论文分析,学术资源,科研工具,Semantic Scholar,论文引用,学术数据库,研究助手,智能搜索,LaTeX编辑器,智能审稿',
+    noscriptBody:
+      section('Scholay — AI驱动的学术搜索引擎', p('Scholay 是一个创新的学术搜索平台，整合 Semantic Scholar 超过 2 亿篇学术论文数据库，结合先进的大语言模型技术，为研究人员、学生和学者提供智能化的文献检索与分析服务。') + p('我们提供两种搜索模式：<strong>直接检索</strong>通过关键词、论文标题或作者名精准定位文献；<strong>AI 智能检索</strong>用自然语言描述研究需求，AI 理解意图后推荐最相关文献。')) +
+      `<section style="margin-bottom:30px"><div style="display:flex;justify-content:center;gap:40px;padding:20px 0;font-size:1.1rem"><div style="text-align:center"><strong style="font-size:1.5rem;color:#10a37f">200M+</strong><br/>学术论文覆盖</div><div style="text-align:center"><strong style="font-size:1.5rem;color:#10a37f">19</strong><br/>学科领域</div><div style="text-align:center"><strong style="font-size:1.5rem;color:#10a37f">5</strong><br/>AI 工具模块</div></div></section>` +
+      section('核心功能', ul([
+        '<strong>海量文献检索</strong> — 覆盖计算机科学、生物医学、物理学、化学、数学、工程学等 19 个学科领域的超过 2 亿篇学术论文',
+        '<strong>AI 智能分析</strong> — 自然语言理解研究意图，AI 智能解析并推荐相关论文，突破传统关键词匹配的局限',
+        '<strong>论文深度解读</strong> — AI 自动分析论文的核心贡献、研究方法、主要发现和创新点',
+        '<strong><a href="/chat" style="color:#1a73e8">AI 学术聊天</a></strong> — 与 AI 助手进行学术对话，获取文献推荐、论文解读和写作指导',
+        '<strong><a href="/peer-review" style="color:#1a73e8">AI 智能审稿</a></strong> — 三位 AI 审稿人从学术规范、方法论、创新性等维度全面评审论文',
+        '<strong><a href="/latex-writer" style="color:#1a73e8">ScholayPrism LaTeX 编辑器</a></strong> — 在线 LaTeX 编辑器，集成 AI 辅助写作，支持实时预览和期刊模板',
+      ])) +
+      section('适用人群', ul([
+        '<strong>高校学生</strong> — 课题文献、论文写作、文献综述',
+        '<strong>科研人员</strong> — 追踪前沿、发现高引论文、拓展思路',
+        '<strong>学者教授</strong> — 学术脉络、引用分析、学术决策',
+        '<strong>企业研发</strong> — 技术调研、行业动态、趋势分析',
+      ])) +
+      section('来自研究者的反馈', `<div style="line-height:1.8">` +
+        `<blockquote style="margin:0 0 16px 0;padding:12px 16px;border-left:3px solid #10a37f;background:rgba(0,0,0,0.02)">"智能检索帮我在博士论文文献综述阶段节省了大量时间，AI 分析功能让我快速判断论文价值。"<br/><strong>— 李同学</strong>，计算机科学博士生</blockquote>` +
+        `<blockquote style="margin:0 0 16px 0;padding:12px 16px;border-left:3px solid #10a37f;background:rgba(0,0,0,0.02)">"AI 搜索能理解我的研究意图，帮我发现了很多之前遗漏的跨学科相关论文。"<br/><strong>— 王研究员</strong>，生物信息学方向</blockquote>` +
+        `<blockquote style="margin:0 0 16px 0;padding:12px 16px;border-left:3px solid #10a37f;background:rgba(0,0,0,0.02)">"AI 辅助写作功能对于英文非母语的研究者来说非常实用，效率提升显著。"<br/><strong>— 张老师</strong>，材料科学副教授</blockquote>` +
+        `</div>`) +
+      section('常见问题', `<dl style="line-height:1.8">` +
+        `<dt style="font-weight:700;margin-top:16px">什么是Scholay学术搜索平台？</dt>` +
+        `<dd style="margin-left:0;margin-bottom:12px">Scholay是一个AI驱动的学术搜索平台，提供智能文献检索、论文分析、引用图谱可视化等功能，帮助研究人员快速找到高质量学术资源。</dd>` +
+        `<dt style="font-weight:700;margin-top:16px">Scholay支持哪些搜索模式？</dt>` +
+        `<dd style="margin-left:0;margin-bottom:12px">Scholay支持学术检索和智能分析两种模式。学术检索可以快速检索论文标题、作者和关键词；智能分析使用AI智能理解并解析您的研究需求，提供更精准的结果。</dd>` +
+        `<dt style="font-weight:700;margin-top:16px">Scholay的数据来源是什么？</dt>` +
+        `<dd style="margin-left:0;margin-bottom:12px">Scholay的学术数据来自于互联网公开数据，覆盖计算机科学、生物医学等多个学科领域的学术论文。</dd>` +
+        `<dt style="font-weight:700;margin-top:16px">Scholay是免费的吗？</dt>` +
+        `<dd style="margin-left:0;margin-bottom:12px">是的，Scholay提供免费的基础功能，包括学术检索、论文详情查看等。高级功能如智能分析、智能审稿等可能需要订阅会员。</dd>` +
+        `<dt style="font-weight:700;margin-top:16px">如何使用智能助手功能？</dt>` +
+        `<dd style="margin-left:0;margin-bottom:12px">登录后，点击首页的"智能助手"卡片即可进入。您可以向AI提问任何学术相关问题，它会基于学术文献为您提供专业解答。</dd>` +
+        `</dl>`) +
+      section('学术资源', p('访问 <a href="/resources" style="color:#1a73e8">学术资源中心</a> 获取原创学术指南和教程文章。阅读 <a href="/blog" style="color:#1a73e8">Scholay 博客</a> 了解学术搜索技巧和AI研究动态。') + p('更多帮助请查阅 <a href="/help" style="color:#1a73e8">帮助中心</a>，或 <a href="/contact" style="color:#1a73e8">联系我们</a> 获取支持。'))
+  },
   {
     path: '/search-results',
     title: '学术论文搜索 - Scholay | AI智能文献检索',
@@ -257,7 +376,7 @@ const routes = [
         '提前体验新功能',
         '专属技术支持',
       ]) + p('¥199/月起，为高频科研用户和团队提供最强大的学术研究能力。')) +
-      section('常见问题', `<dl style="line-height:1.8"><dt style="color:#fff;font-weight:700;margin-top:16px">如何升级订阅？</dt><dd style="margin-left:0;margin-bottom:12px">点击任意付费方案的"立即订阅"按钮即可完成升级，支付成功后立即生效。</dd><dt style="color:#fff;font-weight:700;margin-top:16px">订阅会自动续费吗？</dt><dd style="margin-left:0;margin-bottom:12px">目前订阅不会自动续费，到期前我们会提醒您手动续费。</dd><dt style="color:#fff;font-weight:700;margin-top:16px">支持哪些支付方式？</dt><dd style="margin-left:0;margin-bottom:12px">我们支持支付宝等方式，陆续推出更多支付方式。</dd></dl>`)
+      section('常见问题', `<dl style="line-height:1.8"><dt style="color:#111;font-weight:700;margin-top:16px">如何升级订阅？</dt><dd style="margin-left:0;margin-bottom:12px">点击任意付费方案的"立即订阅"按钮即可完成升级，支付成功后立即生效。</dd><dt style="color:#111;font-weight:700;margin-top:16px">订阅会自动续费吗？</dt><dd style="margin-left:0;margin-bottom:12px">目前订阅不会自动续费，到期前我们会提醒您手动续费。</dd><dt style="color:#111;font-weight:700;margin-top:16px">支持哪些支付方式？</dt><dd style="margin-left:0;margin-bottom:12px">我们支持支付宝等方式，陆续推出更多支付方式。</dd></dl>`)
   },
   {
     path: '/fund-center',
@@ -293,7 +412,7 @@ const routes = [
         '<strong>跨领域搜索</strong> - 支持多学科、多语言的学术文献检索',
         '<strong>隐私保护</strong> - 严格保护用户数据安全和研究隐私',
       ])) +
-      section('联系我们', p('公司名称：成都恩特罐罐文化科技有限公司') + p('邮箱：<a href="mailto:support@scholay.com" style="color:#64b5f6">support@scholay.com</a>') + p('地址：中国四川省成都市高新区') + p('工作时间：周一至周五 9:00-18:00'))
+      section('联系我们', p('公司名称：成都恩特罐罐文化科技有限公司') + p('邮箱：<a href="mailto:support@scholay.com" style="color:#1a73e8">support@scholay.com</a>') + p('地址：中国四川省成都市高新区') + p('工作时间：周一至周五 9:00-18:00'))
   },
   {
     path: '/privacy',
@@ -320,7 +439,7 @@ const routes = [
       section('4. 信息共享', p('我们不会将您的个人信息出售给第三方。在以下情况下，我们可能会共享您的信息：经您明确同意；为完成交易或提供服务所必需；法律法规要求或政府部门依法要求。')) +
       section('5. 用户权利', p('您有权访问、更正、删除您的个人信息。您可以在账户设置中管理您的个人信息，或通过 support@scholay.com 联系我们行使您的权利。')) +
       section('6. Cookie 政策', p('我们使用 Cookie 和类似技术来改善您的使用体验、分析网站流量和提供个性化内容。您可以通过浏览器设置管理 Cookie 偏好。')) +
-      section('7. 联系方式', p('如您对本隐私政策有任何疑问，请联系我们：') + p('邮箱：<a href="mailto:support@scholay.com" style="color:#64b5f6">support@scholay.com</a>') + p('地址：中国四川省成都市高新区'))
+      section('7. 联系方式', p('如您对本隐私政策有任何疑问，请联系我们：') + p('邮箱：<a href="mailto:support@scholay.com" style="color:#1a73e8">support@scholay.com</a>') + p('地址：中国四川省成都市高新区'))
   },
   {
     path: '/terms',
@@ -342,7 +461,7 @@ const routes = [
       section('5. 订阅与付费', p('付费功能采用订阅制，具体价格和权益以定价页面为准。订阅成功后不支持无理由退款，如遇特殊情况可联系客服协商处理。')) +
       section('6. 免责声明', p('AI 分析和审稿结果仅供参考，不构成专业学术建议。我们不对基于平台服务做出的决策承担责任。平台可能因维护、升级等原因临时中断服务。')) +
       section('7. 争议解决', p('因使用本平台产生的争议，双方应友好协商解决。协商不成的，任何一方可向成都恩特罐罐文化科技有限公司所在地有管辖权的人民法院提起诉讼。')) +
-      section('8. 联系方式', p('如您对本服务条款有任何疑问，请联系：<a href="mailto:support@scholay.com" style="color:#64b5f6">support@scholay.com</a>'))
+      section('8. 联系方式', p('如您对本服务条款有任何疑问，请联系：<a href="mailto:support@scholay.com" style="color:#1a73e8">support@scholay.com</a>'))
   },
   {
     path: '/feedback',
@@ -358,8 +477,8 @@ const routes = [
         '<strong>内容质量</strong> — 对搜索结果相关性、AI 分析准确度、翻译质量等方面的反馈。帮助我们提升核心服务质量',
         '<strong>其他</strong> — 任何其他想要告诉我们的内容',
       ])) +
-      section('提交方式', p('您可以通过本页面的反馈表单直接提交（支持文件和图片附件），也可以发送邮件至 <a href="mailto:support@scholay.com" style="color:#64b5f6">support@scholay.com</a>。') + p('已登录用户提交的反馈会自动关联账号信息，方便我们更精准地了解问题和回复。')) +
-      section('更多帮助', p('如果您的问题属于常见问题，建议先查阅 <a href="/help" style="color:#64b5f6">帮助中心</a>，那里有详细的功能使用指南和 FAQ。') + p('工作时间：周一至周五 9:00-18:00'))
+      section('提交方式', p('您可以通过本页面的反馈表单直接提交（支持文件和图片附件），也可以发送邮件至 <a href="mailto:support@scholay.com" style="color:#1a73e8">support@scholay.com</a>。') + p('已登录用户提交的反馈会自动关联账号信息，方便我们更精准地了解问题和回复。')) +
+      section('更多帮助', p('如果您的问题属于常见问题，建议先查阅 <a href="/help" style="color:#1a73e8">帮助中心</a>，那里有详细的功能使用指南和 FAQ。') + p('工作时间：周一至周五 9:00-18:00'))
   },
   {
     path: '/contact',
@@ -375,9 +494,9 @@ const routes = [
         '<strong>商务合作</strong> — 学术机构合作、API 接入、定制化解决方案、学术会议赞助等',
         '<strong>数据与隐私</strong> — 数据导出请求、账户注销、隐私相关咨询',
       ])) +
-      section('联系方式', `<div style="line-height:2"><p><strong>公司名称：</strong>成都恩特罐罐文化科技有限公司</p><p><strong>电子邮箱：</strong><a href="mailto:support@scholay.com" style="color:#64b5f6">support@scholay.com</a></p><p><strong>公司地址：</strong>中国四川省成都市高新区</p><p><strong>工作时间：</strong>周一至周五 9:00-18:00</p></div>`) +
+      section('联系方式', `<div style="line-height:2"><p><strong>公司名称：</strong>成都恩特罐罐文化科技有限公司</p><p><strong>电子邮箱：</strong><a href="mailto:support@scholay.com" style="color:#1a73e8">support@scholay.com</a></p><p><strong>公司地址：</strong>中国四川省成都市高新区</p><p><strong>工作时间：</strong>周一至周五 9:00-18:00</p></div>`) +
       section('在线留言', p('您也可以通过本页面的在线留言表单直接向我们发送消息。请填写您的姓名、邮箱、主题和消息内容，我们将在 1-3 个工作日内回复。')) +
-      section('更多帮助', p('如果您的问题属于常见问题，建议先查阅 <a href="/help" style="color:#64b5f6">帮助中心</a>，也许能帮您快速找到答案。您还可以通过 <a href="/feedback" style="color:#64b5f6">意见反馈</a> 页面提交详细的功能建议或 Bug 报告。'))
+      section('更多帮助', p('如果您的问题属于常见问题，建议先查阅 <a href="/help" style="color:#1a73e8">帮助中心</a>，也许能帮您快速找到答案。您还可以通过 <a href="/feedback" style="color:#1a73e8">意见反馈</a> 页面提交详细的功能建议或 Bug 报告。'))
   },
   {
     path: '/disclaimer',
@@ -395,7 +514,7 @@ const routes = [
         '因依赖 AI 分析结果而产生的任何损失，本平台不承担责任',
       ])) +
       section('4. 服务可用性', p('我们努力确保平台的稳定运行，但不保证服务不会中断。因系统维护、升级、网络故障或不可抗力等原因导致的服务中断，本平台不承担责任。')) +
-      section('5. 联系方式', p('如对本免责声明有任何疑问，请联系：<a href="mailto:support@scholay.com" style="color:#64b5f6">support@scholay.com</a>'))
+      section('5. 联系方式', p('如对本免责声明有任何疑问，请联系：<a href="mailto:support@scholay.com" style="color:#1a73e8">support@scholay.com</a>'))
   },
   {
     path: '/features/search',
@@ -417,7 +536,7 @@ const routes = [
         '<strong>开放获取筛选</strong> — 一键筛选免费全文论文',
       ])) +
       section('覆盖学科', p('计算机科学、生物医学、物理学、化学、数学、工程学、经济学、心理学、社会学、政治学、商业、环境科学、地理学、历史学、哲学、艺术、材料科学、地质学、语言学')) +
-      section('开始搜索', p('访问 <a href="/" style="color:#64b5f6">Scholay 首页</a> 立即体验 AI 学术搜索，基础功能完全免费。'))
+      section('开始搜索', p('访问 <a href="/" style="color:#1a73e8">Scholay 首页</a> 立即体验 AI 学术搜索，基础功能完全免费。'))
   },
   {
     path: '/features/peer-review',
@@ -439,7 +558,7 @@ const routes = [
         '<strong>创新性与贡献</strong> — 原创性、理论/实践贡献、学术影响力',
       ])) +
       section('支持格式', p('上传 PDF、Word、TXT 文件或直接粘贴论文文本。审稿报告可导出为 Word、PDF 或 PPT 格式。')) +
-      section('开始审稿', p('访问 <a href="/peer-review" style="color:#64b5f6">智能审稿</a> 上传论文，几分钟即可获取详细的审稿报告。'))
+      section('开始审稿', p('访问 <a href="/peer-review" style="color:#1a73e8">智能审稿</a> 上传论文，几分钟即可获取详细的审稿报告。'))
   },
   {
     path: '/features/latex-writer',
@@ -463,7 +582,7 @@ const routes = [
         '<strong>语法修正</strong> — 检测并修正 LaTeX 语法错误',
       ])) +
       section('支持模板', p('IEEE 期刊/会议论文、ACM 会议论文、Springer LNCS、Elsevier 期刊、通用硕博论文模板等。')) +
-      section('开始写作', p('访问 <a href="/latex-writer" style="color:#64b5f6">ScholayPrism</a> 免费使用在线 LaTeX 编辑器，无需安装任何本地软件。'))
+      section('开始写作', p('访问 <a href="/latex-writer" style="color:#1a73e8">ScholayPrism</a> 免费使用在线 LaTeX 编辑器，无需安装任何本地软件。'))
   },
 ];
 
@@ -563,11 +682,15 @@ function main() {
 
   // Load resource articles and generate dynamic routes
   const articles = loadResourceArticles();
+  const blogArticles = loadBlogArticles();
+  const blogAuthors = loadBlogAuthors();
   const allRoutes = [
     ...routes,
     ...(articles.length > 0 ? [generateResourceCenterRoute(articles)] : []),
     generateHelpCenterRoute(),
     ...generateArticleRoutes(articles),
+    ...(blogArticles.length > 0 ? [generateBlogListRoute(blogArticles, blogAuthors)] : []),
+    ...generateBlogArticleRoutes(blogArticles, blogAuthors),
   ];
 
   let generated = 0;
@@ -591,6 +714,9 @@ function main() {
   console.log(`\n✨ Generated ${generated}/${allRoutes.length} SEO pages successfully.`);
   if (articles.length > 0) {
     console.log(`  📝 Including ${articles.length} resource article pages with full content.`);
+  }
+  if (blogArticles.length > 0) {
+    console.log(`  📰 Including ${blogArticles.length} blog article pages with full content.`);
   }
 }
 

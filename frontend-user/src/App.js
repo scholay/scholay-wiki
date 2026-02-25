@@ -100,6 +100,8 @@ const NotFoundPage = lazyWithRetry(() => import('./pages/NotFoundPage'), 'NotFou
 const ResourceCenterPage = lazyWithRetry(() => import('./pages/ResourceCenterPage'), 'ResourceCenterPage');
 const ResourceArticlePage = lazyWithRetry(() => import('./pages/ResourceArticlePage'), 'ResourceArticlePage');
 const HelpCenterPage = lazyWithRetry(() => import('./pages/HelpCenterPage'), 'HelpCenterPage');
+const BlogListPage = lazyWithRetry(() => import('./pages/blog/BlogListPage'), 'BlogListPage');
+const BlogArticlePage = lazyWithRetry(() => import('./pages/blog/BlogArticlePage'), 'BlogArticlePage');
 const SearchFeaturePage = lazyWithRetry(() => import('./pages/features/SearchFeaturePage'), 'SearchFeaturePage');
 const PeerReviewFeaturePage = lazyWithRetry(() => import('./pages/features/PeerReviewFeaturePage'), 'PeerReviewFeaturePage');
 const LaTeXFeaturePage = lazyWithRetry(() => import('./pages/features/LaTeXFeaturePage'), 'LaTeXFeaturePage');
@@ -287,6 +289,10 @@ function App() {
                       <Route path="/resources" element={<ResourceCenterPage />} />
                       <Route path="/resources/:slug" element={<ResourceArticlePage />} />
                       <Route path="/help" element={<HelpCenterPage />} />
+                      
+                      {/* 博客 - 公开访问 (Google AdSense 原创内容) */}
+                      <Route path="/blog" element={<BlogListPage />} />
+                      <Route path="/blog/:slug" element={<BlogArticlePage />} />
                       
                       {/* 支付宝回调页面 */}
                       <Route path="/alipay-return" element={<AlipayReturn />} />

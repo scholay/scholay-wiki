@@ -327,11 +327,6 @@
     align-items: center;
   }
 
-  /* 移动端右下角链接 - 隐藏 */
-  .home-footer-fixed {
-    display: none;
-  }
-
   /* 移动端精品AI工具快捷入口 - 隐藏 */
   .home-assistant-shortcuts {
     display: none;
@@ -352,10 +347,6 @@
     display: none;
   }
 
-  /* 移动端 Tab 区域 - 隐藏 */
-  .home-tab-section {
-    display: none;
-  }
 
   .search-mode-selector {
     width: 100%;
@@ -370,44 +361,9 @@
   }
 }
 
-/* 平板端响应式 - 显示但调整布局 */
+/* 平板端响应式 */
 @media (min-width: 769px) and (max-width: 1023px) {
-  .home-highlights-row {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .home-stats-row {
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-
-  .home-stat-card {
-    min-width: 80px;
-    padding: 12px 16px;
-  }
-
-  .home-stat-number {
-    font-size: 18px;
-  }
-
-  .home-user-types-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .home-tab-header {
-    gap: 4px;
-  }
-
-  .home-tab-btn {
-    padding: 10px 14px;
-    font-size: 13px;
-  }
-}
-
-/* 中等屏幕 - Tab 区域调整 */
-@media (min-width: 1024px) and (max-width: 1279px) {
-  .home-user-types-grid {
+  .home-flow-users {
     grid-template-columns: repeat(2, 1fr);
   }
 }

@@ -20,6 +20,8 @@ Allow: /fund-center
 Allow: /resources
 Allow: /resources/*
 Allow: /help
+Allow: /blog
+Allow: /blog/*
 Disallow: /dashboard
 Disallow: /settings
 Disallow: /subscription

@@ -267,9 +267,6 @@ const Home = () => {
   // FAQ 展开状态
   const [expandedFaq, setExpandedFaq] = useState(null);
   
-  // 底部 Tab 切换状态
-  const [activeTab, setActiveTab] = useState('features');
-
   // FAQ数据用于结构化数据和页面展示
   const faqData = [
     {
@@ -687,197 +684,80 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Tab 切换区域 - 所有用户可见，增加内容密度 */}
-        <div className="home-tab-section">
-          {/* Tab 切换按钮 */}
-          <div className="home-tab-header">
-            <button
-              className={`home-tab-btn ${activeTab === 'features' ? 'active' : ''}`}
-              onClick={() => setActiveTab('features')}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-              </svg>
-              平台介绍
-            </button>
-            <button
-              className={`home-tab-btn ${activeTab === 'users' ? 'active' : ''}`}
-              onClick={() => setActiveTab('users')}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-              </svg>
-              适用人群
-            </button>
-            <button
-              className={`home-tab-btn ${activeTab === 'faq' ? 'active' : ''}`}
-              onClick={() => setActiveTab('faq')}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                <line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-              常见问题
-            </button>
+      {/* 平台能力 - 平铺展示，所有内容对爬虫可见 */}
+      <div className="home-about-flow">
+        {/* 核心数据 */}
+        <div className="home-flow-stats">
+          <div className="home-flow-stat">
+            <span className="home-flow-stat-num">200M+</span>
+            <span className="home-flow-stat-label">学术论文覆盖</span>
           </div>
-
-          {/* Tab 内容区域 */}
-          <div className="home-tab-content">
-            {/* 平台介绍 Tab */}
-            {activeTab === 'features' && (
-              <div className="home-tab-panel">
-                <div className="home-stats-row">
-                  <div className="home-stat-card">
-                    <div className="home-stat-number">2亿+</div>
-                    <div className="home-stat-label">学术论文</div>
-                  </div>
-                  <div className="home-stat-card">
-                    <div className="home-stat-number">多学科</div>
-                    <div className="home-stat-label">覆盖领域</div>
-                  </div>
-                  <div className="home-stat-card">
-                    <div className="home-stat-number">AI驱动</div>
-                    <div className="home-stat-label">智能分析</div>
-                  </div>
-                  <div className="home-stat-card">
-                    <div className="home-stat-number">免费</div>
-                    <div className="home-stat-label">基础功能</div>
-                  </div>
-                </div>
-                <div className="home-highlights-row">
-                  <div className="home-highlight-card">
-                    <div className="home-highlight-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <circle cx="11" cy="11" r="8"/>
-                        <path d="M21 21l-4.35-4.35"/>
-                      </svg>
-                    </div>
-                    <div className="home-highlight-content">
-                      <h4>海量文献检索</h4>
-                      <p>基于互联网公开学术数据，覆盖计算机、生物、医学等多学科领域</p>
-                    </div>
-                  </div>
-                  <div className="home-highlight-card">
-                    <div className="home-highlight-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                        <path d="M2 17l10 5 10-5"/>
-                        <path d="M2 12l10 5 10-5"/>
-                      </svg>
-                    </div>
-                    <div className="home-highlight-content">
-                      <h4>AI 智能分析</h4>
-                      <p>自然语言理解研究需求，AI 智能解析并推荐相关论文，提升检索效率</p>
-                    </div>
-                  </div>
-                  <div className="home-highlight-card">
-                    <div className="home-highlight-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                      </svg>
-                    </div>
-                    <div className="home-highlight-content">
-                      <h4>论文深度解读</h4>
-                      <p>智能助手帮你快速理解论文，智能审稿辅助学术写作，引用分析发现研究脉络</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 适用人群 Tab */}
-            {activeTab === 'users' && (
-              <div className="home-tab-panel">
-                <div className="home-user-types-grid">
-                  <div className="home-user-type-card">
-                    <div className="home-user-type-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M12 14l9-5-9-5-9 5 9 5z"/>
-                        <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/>
-                      </svg>
-                    </div>
-                    <h4>高校学生</h4>
-                    <p>快速查找课题相关文献，完成论文写作与文献综述</p>
-                  </div>
-                  <div className="home-user-type-card">
-                    <div className="home-user-type-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                      </svg>
-                    </div>
-                    <h4>科研人员</h4>
-                    <p>追踪研究前沿，发现高影响力论文，拓展研究思路</p>
-                  </div>
-                  <div className="home-user-type-card">
-                    <div className="home-user-type-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                      </svg>
-                    </div>
-                    <h4>学者教授</h4>
-                    <p>深度分析学术脉络，引用图谱可视化，辅助学术决策</p>
-                  </div>
-                  <div className="home-user-type-card">
-                    <div className="home-user-type-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                      </svg>
-                    </div>
-                    <h4>企业研发</h4>
-                    <p>技术调研与专利分析，了解行业研究动态与技术趋势</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 常见问题 Tab */}
-            {activeTab === 'faq' && (
-              <div className="home-tab-panel">
-                <div className="home-faq-list">
-                  {faqData.map((faq, index) => (
-                    <div 
-                      key={index} 
-                      className={`home-faq-item ${expandedFaq === index ? 'expanded' : ''}`}
-                    >
-                      <button 
-                        className="home-faq-question"
-                        onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
-                      >
-                        <span>{faq.question}</span>
-                        <svg 
-                          className="home-faq-arrow" 
-                          width="16" 
-                          height="16" 
-                          viewBox="0 0 24 24" 
-                          fill="none" 
-                          stroke="currentColor" 
-                          strokeWidth="2"
-                        >
-                          <path d="M6 9l6 6 6-6"/>
-                        </svg>
-                      </button>
-                      <div className="home-faq-answer">
-                        <p>{faq.answer}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+          <div className="home-flow-stat-divider" />
+          <div className="home-flow-stat">
+            <span className="home-flow-stat-num">19</span>
+            <span className="home-flow-stat-label">学科领域</span>
           </div>
-
-          {/* 简洁页脚 */}
-          <div className="home-simple-footer">
-            <p>© 2025 Scholay</p>
+          <div className="home-flow-stat-divider" />
+          <div className="home-flow-stat">
+            <span className="home-flow-stat-num">5</span>
+            <span className="home-flow-stat-label">AI 工具模块</span>
           </div>
         </div>
+
+        {/* 适用人群 - 紧凑横排 */}
+        <div className="home-flow-users">
+          <div className="home-flow-user">
+            <span className="home-flow-user-emoji">🎓</span>
+            <div><strong>高校学生</strong><span>课题文献 · 论文写作 · 文献综述</span></div>
+          </div>
+          <div className="home-flow-user">
+            <span className="home-flow-user-emoji">🔬</span>
+            <div><strong>科研人员</strong><span>追踪前沿 · 发现高引论文 · 拓展思路</span></div>
+          </div>
+          <div className="home-flow-user">
+            <span className="home-flow-user-emoji">📚</span>
+            <div><strong>学者教授</strong><span>学术脉络 · 引用分析 · 学术决策</span></div>
+          </div>
+          <div className="home-flow-user">
+            <span className="home-flow-user-emoji">💼</span>
+            <div><strong>企业研发</strong><span>技术调研 · 行业动态 · 趋势分析</span></div>
+          </div>
+        </div>
+
+        {/* FAQ */}
+        <div className="home-flow-faq">
+          <h3 className="home-flow-section-title">常见问题</h3>
+          <div className="home-faq-list">
+            {faqData.map((faq, index) => (
+              <div 
+                key={index} 
+                className={`home-faq-item ${expandedFaq === index ? 'expanded' : ''}`}
+              >
+                <button 
+                  className="home-faq-question"
+                  onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
+                >
+                  <span>{faq.question}</span>
+                  <svg 
+                    className="home-faq-arrow" 
+                    width="16" 
+                    height="16" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2"
+                  >
+                    <path d="M6 9l6 6 6-6"/>
+                  </svg>
+                </button>
+                <div className="home-faq-answer">
+                  <p>{faq.answer}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* 条件渲染 AuthModal - 只在需要时加载 */}
       {showAuthModal && (
@@ -906,87 +786,64 @@ const Home = () => {
         confirmText="知道了"
       />
 
-      {/* 学术资源推荐 - 所有用户可见，增加首页内容密度 (Google AdSense) */}
-      <div className="home-resources-section">
-        <div className="home-resources-header">
-          <h2>学术资源推荐</h2>
-          <button className="home-resources-more" onClick={() => navigate('/resources')}>
-            查看全部 →
-          </button>
-        </div>
-        <p className="home-resources-desc">
-          精选学术指南与教程，帮助你提升文献检索、论文写作和科研工具使用技能
-        </p>
-        <div className="home-resources-grid">
-          <div className="home-resource-item" onClick={() => navigate('/resources/how-to-search')} role="link" tabIndex={0}>
-            <h4>如何高效检索学术文献</h4>
-            <p>掌握布尔运算符、关键词策略和数据库筛选技巧</p>
+      {/* 用户评价 - EEAT 信号 */}
+      <div className="home-testimonials-section">
+        <h3 className="home-flow-section-title">来自研究者的反馈</h3>
+        <div className="home-testimonials-grid">
+          <div className="home-testimonial-card">
+            <p className="home-testimonial-text">"智能检索帮我在博士论文文献综述阶段节省了大量时间，AI 分析功能让我快速判断论文价值。"</p>
+            <div className="home-testimonial-author">
+              <span className="home-testimonial-name">李同学</span>
+              <span className="home-testimonial-title">计算机科学博士生</span>
+            </div>
           </div>
-          <div className="home-resource-item" onClick={() => navigate('/resources/literature-review-guide')} role="link" tabIndex={0}>
-            <h4>文献综述撰写全攻略</h4>
-            <p>结构、方法与常见误区，三种综述类型的写作要点</p>
+          <div className="home-testimonial-card">
+            <p className="home-testimonial-text">"AI 搜索能理解我的研究意图，帮我发现了很多之前遗漏的跨学科相关论文。"</p>
+            <div className="home-testimonial-author">
+              <span className="home-testimonial-name">王研究员</span>
+              <span className="home-testimonial-title">生物信息学方向</span>
+            </div>
           </div>
-          <div className="home-resource-item" onClick={() => navigate('/resources/ai-in-research')} role="link" tabIndex={0}>
-            <h4>AI 在学术研究中的应用</h4>
-            <p>从文献检索到论文写作，AI 工具的机遇与伦理思考</p>
+          <div className="home-testimonial-card">
+            <p className="home-testimonial-text">"AI 辅助写作功能对于英文非母语的研究者来说非常实用，效率提升显著。"</p>
+            <div className="home-testimonial-author">
+              <span className="home-testimonial-name">张老师</span>
+              <span className="home-testimonial-title">材料科学副教授</span>
+            </div>
           </div>
-          <div className="home-resource-item" onClick={() => navigate('/resources/latex-tutorial')} role="link" tabIndex={0}>
-            <h4>LaTeX 入门教程</h4>
-            <p>学术排版必备技能，从文档结构到参考文献管理</p>
-          </div>
-        </div>
-        <div className="home-resources-links">
-          <button onClick={() => navigate('/help')}>帮助中心</button>
-          <span>·</span>
-          <button onClick={() => navigate('/resources')}>学术资源</button>
-          <span>·</span>
-          <button onClick={() => navigate('/about')}>关于我们</button>
-          <span>·</span>
-          <button onClick={() => navigate('/contact')}>联系我们</button>
-          <span>·</span>
-          <button onClick={() => navigate('/privacy')}>隐私政策</button>
-          <span>·</span>
-          <button onClick={() => navigate('/terms')}>服务条款</button>
         </div>
       </div>
 
-      {/* 右下角固定链接 */}
-      <div className="home-footer-fixed">
-        <button 
-          className="footer-link-btn"
-          onClick={() => navigate('/feedback')}
-        >
-          反馈
-        </button>
-        <span className="footer-link-divider">|</span>
-        <button 
-          className="footer-link-btn"
-          onClick={() => navigate('/about')}
-        >
-          关于我们
-        </button>
-        <span className="footer-link-divider">|</span>
-        <button 
-          className="footer-link-btn"
-          onClick={() => navigate('/contact')}
-        >
-          联系我们
-        </button>
-        <span className="footer-link-divider">|</span>
-        <button 
-          className="footer-link-btn"
-          onClick={() => navigate('/privacy')}
-        >
-          隐私政策
-        </button>
-        <span className="footer-link-divider">|</span>
-        <button 
-          className="footer-link-btn"
-          onClick={() => navigate('/terms')}
-        >
-          服务条款
-        </button>
+      {/* 底部资源 + 导航 */}
+      <div className="home-bottom-section">
+        <div className="home-bottom-resources">
+          <div className="home-bottom-res-col">
+            <h4>学术资源</h4>
+            <button onClick={() => navigate('/resources/how-to-search')}>如何高效检索学术文献</button>
+            <button onClick={() => navigate('/resources/literature-review-guide')}>文献综述撰写全攻略</button>
+            <button onClick={() => navigate('/resources/ai-in-research')}>AI 在学术研究中的应用</button>
+            <button onClick={() => navigate('/resources/latex-tutorial')}>LaTeX 入门教程</button>
+          </div>
+          <div className="home-bottom-res-col">
+            <h4>了解更多</h4>
+            <button onClick={() => navigate('/blog')}>博客文章</button>
+            <button onClick={() => navigate('/resources')}>资源中心</button>
+            <button onClick={() => navigate('/help')}>帮助中心</button>
+            <button onClick={() => navigate('/about')}>关于我们</button>
+          </div>
+          <div className="home-bottom-res-col">
+            <h4>法律</h4>
+            <button onClick={() => navigate('/privacy')}>隐私政策</button>
+            <button onClick={() => navigate('/terms')}>服务条款</button>
+            <button onClick={() => navigate('/contact')}>联系我们</button>
+            <button onClick={() => navigate('/feedback')}>问题反馈</button>
+          </div>
+        </div>
+        <div className="home-bottom-copy">
+          <p>© {new Date().getFullYear()} Scholay · 让学术研究更高效</p>
+        </div>
       </div>
+
 
     </div>
   );

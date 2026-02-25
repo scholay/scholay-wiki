@@ -50,6 +50,8 @@ const SharedFooter = memo(() => {
     <footer className="shared-footer" role="contentinfo">
       <div className="shared-footer-inner">
         <nav className="shared-footer-links" aria-label="底部导航">
+          <button onClick={() => navigate('/blog')}>博客</button>
+          <span className="shared-footer-divider" aria-hidden="true">|</span>
           <button onClick={() => navigate('/resources')}>学术资源</button>
           <span className="shared-footer-divider" aria-hidden="true">|</span>
           <button onClick={() => navigate('/about')}>关于我们</button>
