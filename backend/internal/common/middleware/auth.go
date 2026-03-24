@@ -199,9 +199,13 @@ func AuthMiddleware(requiredType string) gin.HandlerFunc {
 			if globalSessionValidator == nil {
 				log.Println("[SSO] Warning: globalSessionValidator is nil")
 			} else {
-				valid := globalSessionValidator.ValidateSession(token)
-				if !valid {
-					log.Printf("[SSO] Session not found for token: %s...", token[:50])
+			valid := globalSessionValidator.ValidateSession(token)
+			if !valid {
+					preview := token
+					if len(preview) > 50 {
+						preview = preview[:50]
+					}
+					log.Printf("[SSO] Session not found for token: %s...", preview)
 					utils.Error(c, 2019, "您的账号已在其他设备登录")
 					c.Abort()
 					return

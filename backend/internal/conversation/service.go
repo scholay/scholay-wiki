@@ -9,6 +9,7 @@ package conversation
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"scholar-backend/internal/ai"
@@ -144,7 +145,7 @@ func (s *Service) AddMessage(conversationID uint, userID uint, req CreateMessage
 		searchResults, total, err := s.searchPapers(req.SearchQuery)
 		if err != nil {
 			// Don't fail the message creation if search fails
-			fmt.Printf("Warning: failed to search papers: %v\n", err)
+			log.Printf("Warning: failed to search papers: %v\n", err)
 		} else {
 			message.SearchResults = searchResults
 			message.SearchResultsTotal = total
@@ -158,7 +159,7 @@ func (s *Service) AddMessage(conversationID uint, userID uint, req CreateMessage
 
 	// Update conversation's updated_at timestamp
 	if err := s.repo.TouchConversation(conversationID); err != nil {
-		fmt.Printf("Warning: failed to update conversation timestamp: %v\n", err)
+		log.Printf("Warning: failed to update conversation timestamp: %v\n", err)
 	}
 
 	// Auto-update conversation title if this is the first message
@@ -271,9 +272,9 @@ func (s *Service) GenerateTitleWithAI(conversationID uint) (string, error) {
 		return "", fmt.Errorf("no user questions found in conversation")
 	}
 
-	fmt.Printf("[TITLE-DEBUG] Found %d user questions for conversation %d:\n", len(userQuestions), conversationID)
+	log.Printf("[TITLE-DEBUG] Found %d user questions for conversation %d:\n", len(userQuestions), conversationID)
 	for i, q := range userQuestions {
-		fmt.Printf("[TITLE-DEBUG]   Question %d: %s\n", i+1, q)
+		log.Printf("[TITLE-DEBUG]   Question %d: %s\n", i+1, q)
 	}
 
 	// Build the prompt - emphasize the latest question
@@ -340,6 +341,6 @@ func (s *Service) UpdateConversationTitleWithAI(conversationID uint) (string, er
 		return "", fmt.Errorf("failed to update conversation title: %w", err)
 	}
 
-	fmt.Printf("[TITLE-DEBUG] Generated and updated title for conversation %d: %s\n", conversationID, newTitle)
+	log.Printf("[TITLE-DEBUG] Generated and updated title for conversation %d: %s\n", conversationID, newTitle)
 	return newTitle, nil
 }

@@ -10,12 +10,15 @@ package conversation
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
+	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/currency"
 	"scholar-backend/internal/thirdparty"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -74,7 +77,7 @@ func (h *Handler) checkBalanceForSmartAnalysis(userID uint, modelLevel string) e
 // deductForSmartAnalysisAfterSuccess 成功后扣费，返回扣费金额
 func (h *Handler) deductForSmartAnalysisAfterSuccess(userID uint, modelLevel string) int64 {
 	if h.currencyService == nil {
-		fmt.Printf("[Smart Analysis] Currency service not set, skip deduct\n")
+		log.Printf("[Smart Analysis] Currency service not set, skip deduct\n")
 		return 0
 	}
 
@@ -82,11 +85,11 @@ func (h *Handler) deductForSmartAnalysisAfterSuccess(userID uint, modelLevel str
 	ctx := context.Background()
 	transaction, err := h.currencyService.DeductByBizType(ctx, userID, bizType, "")
 	if err != nil {
-		fmt.Printf("[Smart Analysis] Deduct failed after success: userID=%d, bizType=%s, err=%v\n", userID, bizType, err)
+		log.Printf("[Smart Analysis] Deduct failed after success: userID=%d, bizType=%s, err=%v\n", userID, bizType, err)
 		return 0
 	}
 	if transaction == nil {
-		fmt.Printf("[Smart Analysis] No deduct config or disabled: userID=%d, bizType=%s\n", userID, bizType)
+		log.Printf("[Smart Analysis] No deduct config or disabled: userID=%d, bizType=%s\n", userID, bizType)
 		return 0
 	}
 	// transaction.Amount 是负数（扣费），取绝对值返回
@@ -94,7 +97,7 @@ func (h *Handler) deductForSmartAnalysisAfterSuccess(userID uint, modelLevel str
 	if amount < 0 {
 		amount = -amount
 	}
-	fmt.Printf("[Smart Analysis] Deduct success: userID=%d, bizType=%s, amount=%d\n", userID, bizType, amount)
+	log.Printf("[Smart Analysis] Deduct success: userID=%d, bizType=%s, amount=%d\n", userID, bizType, amount)
 	return amount
 }
 
@@ -359,40 +362,38 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 
+	hw := sse.NewHeartbeatWriter(c.Writer, 15*time.Second)
+	defer hw.Stop()
+
 	// 2. 执行智能分析并流式返回结果（使用指定的模型级别）
-	// 根据环境变量选择使用 V1 或 V2 版本
 	if useAdvancedSearchV2() {
-		fmt.Printf("[Handler] 使用优化版智能检索 V2\n")
 		err = h.service.AdvancedSearchAndAnalyzeV2(
 			uint(conversationID),
 			targetMessage.SearchQuery,
-			c.Writer,
+			hw,
 			userID.(uint),
 			thirdparty.ModelLevel(modelLevel),
 		)
 	} else {
-		fmt.Printf("[Handler] 使用原版智能检索 V1\n")
 		err = h.service.AdvancedSearchAndAnalyze(
 			uint(conversationID),
 			targetMessage.SearchQuery,
-			c.Writer,
+			hw,
 			userID.(uint),
 			thirdparty.ModelLevel(modelLevel),
 		)
 	}
 	if err != nil {
-		// Error handling for streaming - write error as SSE, do not deduct
-		c.Writer.Write([]byte(fmt.Sprintf("data: [ERROR] %s\n\n", err.Error())))
-		c.Writer.(http.Flusher).Flush()
+		hw.WriteString(fmt.Sprintf("data: [ERROR] %s\n\n", err.Error()))
+		hw.Flush()
 		return
 	}
 
 	// 3. 成功后扣费
 	deductedAmount := h.deductForSmartAnalysisAfterSuccess(userID.(uint), modelLevel)
 
-	// Send done signal with deducted amount
-	c.Writer.Write([]byte(fmt.Sprintf("data: [DONE] {\"deducted_amount\": %d}\n\n", deductedAmount)))
-	c.Writer.(http.Flusher).Flush()
+	hw.WriteString(fmt.Sprintf("data: [DONE] {\"deducted_amount\": %d}\n\n", deductedAmount))
+	hw.Flush()
 }
 
 // StreamContinueConversation handles continuing the conversation with context
@@ -459,27 +460,28 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 
+	hw := sse.NewHeartbeatWriter(c.Writer, 15*time.Second)
+	defer hw.Stop()
+
 	// 2. Continue the conversation with specified model level
 	err = h.service.ContinueConversation(
 		uint(conversationID),
 		req.Query,
-		c.Writer,
+		hw,
 		userID.(uint),
 		thirdparty.ModelLevel(modelLevel),
 	)
 	if err != nil {
-		// Error handling for streaming - write error as SSE, do not deduct
-		c.Writer.Write([]byte(fmt.Sprintf("data: [ERROR] %s\n\n", err.Error())))
-		c.Writer.(http.Flusher).Flush()
+		hw.WriteString(fmt.Sprintf("data: [ERROR] %s\n\n", err.Error()))
+		hw.Flush()
 		return
 	}
 
 	// 3. 成功后扣费
 	deductedAmount := h.deductForSmartAnalysisAfterSuccess(userID.(uint), modelLevel)
 
-	// Send done signal with deducted amount
-	c.Writer.Write([]byte(fmt.Sprintf("data: [DONE] {\"deducted_amount\": %d}\n\n", deductedAmount)))
-	c.Writer.(http.Flusher).Flush()
+	hw.WriteString(fmt.Sprintf("data: [DONE] {\"deducted_amount\": %d}\n\n", deductedAmount))
+	hw.Flush()
 }
 
 

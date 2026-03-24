@@ -64,10 +64,24 @@ type SigNozConfig struct {
 
 var AppConfig *Config
 
+const defaultJWTSecret = "default-secret-change-in-production"
+
 // Load loads configuration from environment variables
 func Load() *Config {
 	// Try to load .env file (optional in production)
 	_ = godotenv.Load()
+
+	jwtSecret := getEnv("JWT_SECRET", defaultJWTSecret)
+	env := getEnv("SIGNOZ_ENVIRONMENT", "production")
+
+	if env == "production" && (jwtSecret == defaultJWTSecret || len(jwtSecret) < 16) {
+		log.Fatal("FATAL: JWT_SECRET must be set to a strong value (>=16 chars) in production. " +
+			"Set the JWT_SECRET environment variable.")
+	}
+
+	if jwtSecret == defaultJWTSecret {
+		log.Println("WARNING: Using default JWT secret — do NOT use this in production")
+	}
 
 	AppConfig = &Config{
 		Server: ServerConfig{
@@ -87,7 +101,7 @@ func Load() *Config {
 			DB:       getEnvAsInt("REDIS_DB", 0),
 		},
 		JWT: JWTConfig{
-			Secret: getEnv("JWT_SECRET", "default-secret-change-in-production"),
+			Secret: jwtSecret,
 		},
 		Admin: AdminConfig{
 			InitialUsername: getEnv("ADMIN_INITIAL_USERNAME", "admin"),
@@ -96,7 +110,7 @@ func Load() *Config {
 		SigNoz: SigNozConfig{
 			Endpoint:      getEnv("SIGNOZ_ENDPOINT", ""),
 			ServiceName:   getEnv("SIGNOZ_SERVICE_NAME", "scholar-backend"),
-			Environment:   getEnv("SIGNOZ_ENVIRONMENT", "production"),
+			Environment:   env,
 			EnableTracing: getEnvAsBool("SIGNOZ_ENABLE_TRACING", false),
 			EnableLogging: getEnvAsBool("SIGNOZ_ENABLE_LOGGING", false),
 			EnableMetrics: getEnvAsBool("SIGNOZ_ENABLE_METRICS", false),

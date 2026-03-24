@@ -28,7 +28,6 @@ export const withRenderCount = (WrappedComponent, componentName) => {
     
     useEffect(() => {
       renderCount.current += 1;
-      console.log(`[Render] ${componentName}: ${renderCount.current} times`);
     });
 
     return <WrappedComponent {...props} />;
@@ -135,7 +134,7 @@ export const logPropsChanges = (prevProps, nextProps, componentName) => {
   });
 
   if (Object.keys(changedProps).length > 0) {
-    console.log(`[Props Changed] ${componentName}:`, changedProps);
+    // Props changes detected - available in changedProps for debugging tools
   }
 };
 

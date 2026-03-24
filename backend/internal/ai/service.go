@@ -15,6 +15,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"io"
 	"net/http"
 	"regexp"
@@ -99,14 +100,14 @@ func (s *Service) TranslateToEnglish(query string) (string, error) {
 	err := translationCache.Get(ctx, cacheKey, &cachedResult)
 	if err == nil && cachedResult.Cached {
 		if cachedResult.Translation == "" {
-			fmt.Printf("[Translation Cache] Hit for query: '%s' -> (empty, no translation needed)\n", query)
+			log.Printf("[Translation Cache] Hit for query: '%s' -> (empty, no translation needed)\n", query)
 		} else {
-			fmt.Printf("[Translation Cache] Hit for query: '%s' -> '%s'\n", query, cachedResult.Translation)
+			log.Printf("[Translation Cache] Hit for query: '%s' -> '%s'\n", query, cachedResult.Translation)
 		}
 		return cachedResult.Translation, nil
 	}
 	
-	fmt.Printf("[Translation Cache] Miss for query: '%s', calling AI...\n", query)
+	log.Printf("[Translation Cache] Miss for query: '%s', calling AI...\n", query)
 	
 	// 3. 缓存未命中，调用AI翻译
 	// 优先从数据库读取提示词模版，本地兜底
@@ -119,7 +120,7 @@ func (s *Service) TranslateToEnglish(query string) (string, error) {
 	
 	if err != nil || template == nil {
 		// 数据库获取失败，使用本地兜底提示词
-		fmt.Printf("[WARN] Failed to get prompt template from DB: %v, using fallback\n", err)
+		log.Printf("[WARN] Failed to get prompt template from DB: %v, using fallback\n", err)
 		translatePrompt = fmt.Sprintf(`你是一个专业的学术翻译助手。请将以下查询关键词翻译成准确的英文学术术语。
 
 要求：
@@ -134,7 +135,7 @@ func (s *Service) TranslateToEnglish(query string) (string, error) {
 	} else {
 		// 成功从数据库获取提示词模版
 		translatePrompt = renderedPrompt
-		fmt.Printf("[INFO] Using prompt template from DB: '%s' (ID: %d)\n", template.Name, template.ID)
+		log.Printf("[INFO] Using prompt template from DB: '%s' (ID: %d)\n", template.Name, template.ID)
 	}
 
 	messages := []ChatMessage{
@@ -164,12 +165,12 @@ func (s *Service) TranslateToEnglish(query string) (string, error) {
 			Translation: translatedText,
 		}
 		if err := translationCache.Set(context.Background(), cacheKey, cacheResult); err != nil {
-			fmt.Printf("[Translation Cache] Failed to cache translation: %v\n", err)
+			log.Printf("[Translation Cache] Failed to cache translation: %v\n", err)
 		} else {
 			if translatedText == "" {
-				fmt.Printf("[Translation Cache] Cached: '%s' -> (empty, no translation needed)\n", query)
+				log.Printf("[Translation Cache] Cached: '%s' -> (empty, no translation needed)\n", query)
 			} else {
-				fmt.Printf("[Translation Cache] Cached: '%s' -> '%s'\n", query, translatedText)
+				log.Printf("[Translation Cache] Cached: '%s' -> '%s'\n", query, translatedText)
 			}
 		}
 	}()
@@ -205,11 +206,11 @@ func (s *Service) GetSearchSuggestions(query string) ([]string, error) {
 	var cachedResult suggestionsCacheResult
 	err := suggestionsCache.Get(ctx, cacheKey, &cachedResult)
 	if err == nil && cachedResult.Cached {
-		fmt.Printf("[Suggestions Cache] Hit for query: '%s' -> %v\n", query, cachedResult.Suggestions)
+		log.Printf("[Suggestions Cache] Hit for query: '%s' -> %v\n", query, cachedResult.Suggestions)
 		return cachedResult.Suggestions, nil
 	}
 
-	fmt.Printf("[Suggestions Cache] Miss for query: '%s', calling AI...\n", query)
+	log.Printf("[Suggestions Cache] Miss for query: '%s', calling AI...\n", query)
 
 	// 3. 缓存未命中，使用硬编码提示词调用AI
 	suggestionsPrompt := prompts.RenderSearchSuggestionsPrompt(query)
@@ -243,9 +244,9 @@ func (s *Service) GetSearchSuggestions(query string) ([]string, error) {
 			Suggestions: suggestions,
 		}
 		if err := suggestionsCache.Set(context.Background(), cacheKey, cacheResult); err != nil {
-			fmt.Printf("[Suggestions Cache] Failed to cache suggestions: %v\n", err)
+			log.Printf("[Suggestions Cache] Failed to cache suggestions: %v\n", err)
 		} else {
-			fmt.Printf("[Suggestions Cache] Cached: '%s' -> %v\n", query, suggestions)
+			log.Printf("[Suggestions Cache] Cached: '%s' -> %v\n", query, suggestions)
 		}
 	}()
 
@@ -348,7 +349,7 @@ func (s *Service) GetAndRenderPrompt(key string, variables map[string]string) (s
 // ChatCompletionWithTools sends a chat completion request with tools (non-streaming)
 // Includes automatic retry logic with account switching on 403/429 errors
 func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, toolChoice string, modelLevel thirdparty.ModelLevel) (*ChatCompletionResponse, error) {
-	fmt.Printf("[DEBUG] ChatCompletionWithTools called, messages: %d, tools: %d, modelLevel: %s\n", len(messages), len(tools), modelLevel)
+	log.Printf("[DEBUG] ChatCompletionWithTools called, messages: %d, tools: %d, modelLevel: %s\n", len(messages), len(tools), modelLevel)
 
 	var lastErr error
 	var excludeAccountIDs []uint
@@ -357,15 +358,15 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 		// Get AI model config by level, excluding previously failed accounts
 		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
 		if err != nil {
-			fmt.Printf("[ERROR] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
+			log.Printf("[ERROR] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
 			lastErr = err
 			continue
 		}
 
 		if attempt > 0 {
-			fmt.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
+			log.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
 		} else {
-			fmt.Printf("[DEBUG] Got AI config, BaseURL: %s, Model: %s, AccountID: %d\n", config.BaseURL, config.ModelLow, accountID)
+			log.Printf("[DEBUG] Got AI config, BaseURL: %s, Model: %s, AccountID: %d\n", config.BaseURL, config.ModelLow, accountID)
 		}
 
 		// ModelLow field contains the actual model code for the requested level
@@ -395,9 +396,9 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 
 		// Debug: Print tool request details
 		if attempt == 0 {
-			fmt.Printf("[DEBUG] Tool call request body (first 500 chars): %s\n", string(jsonData[:min(500, len(jsonData))]))
+			log.Printf("[DEBUG] Tool call request body (first 500 chars): %s\n", string(jsonData[:min(500, len(jsonData))]))
 			if len(tools) > 0 {
-				fmt.Printf("[DEBUG] First tool: name=%s, description=%s\n", tools[0].Function.Name, tools[0].Function.Description)
+				log.Printf("[DEBUG] First tool: name=%s, description=%s\n", tools[0].Function.Name, tools[0].Function.Description)
 			}
 		}
 
@@ -415,37 +416,37 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 		// (e.g., peer review with PDF processing)
 		client := GetLongRunningHTTPClient()
 
-		fmt.Printf("[DEBUG] Sending tool call request to: %s, model: %s\n", url, modelCode)
+		log.Printf("[DEBUG] Sending tool call request to: %s, model: %s\n", url, modelCode)
 
 		// Execute with circuit breaker protection
 		resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
 			resp, err := client.Do(req)
 			if err != nil {
-				fmt.Printf("[ERROR] Tool call request failed: %v\n", err)
+				log.Printf("[ERROR] Tool call request failed: %v\n", err)
 				return nil, fmt.Errorf("failed to send request: %w", err)
 			}
 			defer resp.Body.Close()
-			fmt.Printf("[DEBUG] Tool call response status: %d\n", resp.StatusCode)
+			log.Printf("[DEBUG] Tool call response status: %d\n", resp.StatusCode)
 
 			if resp.StatusCode != http.StatusOK {
 				body, _ := io.ReadAll(resp.Body)
-				fmt.Printf("[ERROR] Tool call API error, status %d: %s\n", resp.StatusCode, string(body))
+				log.Printf("[ERROR] Tool call API error, status %d: %s\n", resp.StatusCode, string(body))
 				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 			}
 
 			// Parse response
 			var result ChatCompletionResponse
 			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-				fmt.Printf("[ERROR] Failed to decode tool call response: %v\n", err)
+				log.Printf("[ERROR] Failed to decode tool call response: %v\n", err)
 				return nil, fmt.Errorf("failed to decode response: %w", err)
 			}
 
-			fmt.Printf("[DEBUG] Tool call completed successfully, got %d choices\n", len(result.Choices))
+			log.Printf("[DEBUG] Tool call completed successfully, got %d choices\n", len(result.Choices))
 			if len(result.Choices) > 0 {
-				fmt.Printf("[DEBUG] First choice has %d tool calls\n", len(result.Choices[0].Message.ToolCalls))
+				log.Printf("[DEBUG] First choice has %d tool calls\n", len(result.Choices[0].Message.ToolCalls))
 				// Debug: Print the AI's response message
 				if result.Choices[0].Message.Content != "" {
-					fmt.Printf("[DEBUG] AI response content (no tool call): %s\n", result.Choices[0].Message.Content[:min(200, len(result.Choices[0].Message.Content))])
+					log.Printf("[DEBUG] AI response content (no tool call): %s\n", result.Choices[0].Message.Content[:min(200, len(result.Choices[0].Message.Content))])
 				}
 			}
 
@@ -462,13 +463,13 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 
 			// Check if error is retryable (403/429)
 			if isAIRetryableError(err) {
-				fmt.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
+				log.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
 				excludeAccountIDs = append(excludeAccountIDs, accountID)
 				continue
 			}
 
 			// Non-retryable error, return immediately
-			fmt.Printf("[ERROR] Non-retryable AI error: %v\n", err)
+			log.Printf("[ERROR] Non-retryable AI error: %v\n", err)
 			return nil, err
 		}
 
@@ -497,14 +498,14 @@ func (s *Service) StreamChatCompletionWithToolLoop(
 	writer io.Writer,
 	modelLevel thirdparty.ModelLevel,
 ) (string, error) {
-	fmt.Printf("[ToolLoop] Starting tool call loop, messages: %d, tools: %d, modelLevel: %s\n",
+	log.Printf("[ToolLoop] Starting tool call loop, messages: %d, tools: %d, modelLevel: %s\n",
 		len(messages), len(tools), modelLevel)
 
 	// Phase 1: Call AI with tools to get tool call decisions (non-streaming)
-	fmt.Printf("[ToolLoop] Phase 1: Getting tool call decisions...\n")
+	log.Printf("[ToolLoop] Phase 1: Getting tool call decisions...\n")
 	toolCallResponse, err := s.ChatCompletionWithTools(messages, tools, "auto", modelLevel)
 	if err != nil {
-		fmt.Printf("[ToolLoop] Error getting tool call decisions: %v\n", err)
+		log.Printf("[ToolLoop] Error getting tool call decisions: %v\n", err)
 		return "", fmt.Errorf("failed to get tool call decisions: %w", err)
 	}
 
@@ -517,7 +518,7 @@ func (s *Service) StreamChatCompletionWithToolLoop(
 	
 	// If no tool calls, AI responded directly - stream the content
 	if len(choice.Message.ToolCalls) == 0 {
-		fmt.Printf("[ToolLoop] No tool calls, AI responded directly\n")
+		log.Printf("[ToolLoop] No tool calls, AI responded directly\n")
 		if choice.Message.Content != "" {
 			// Stream the direct response
 			chunk := ChatCompletionChunk{
@@ -551,20 +552,20 @@ func (s *Service) StreamChatCompletionWithToolLoop(
 		return choice.Message.Content, nil
 	}
 
-	fmt.Printf("[ToolLoop] AI requested %d tool calls\n", len(choice.Message.ToolCalls))
+	log.Printf("[ToolLoop] AI requested %d tool calls\n", len(choice.Message.ToolCalls))
 	for i, tc := range choice.Message.ToolCalls {
-		fmt.Printf("[ToolLoop]   Tool %d: %s (ID: %s)\n", i+1, tc.Function.Name, tc.ID)
+		log.Printf("[ToolLoop]   Tool %d: %s (ID: %s)\n", i+1, tc.Function.Name, tc.ID)
 	}
 
 	// Phase 2: Execute tools via callback
-	fmt.Printf("[ToolLoop] Phase 2: Executing tools...\n")
+	log.Printf("[ToolLoop] Phase 2: Executing tools...\n")
 	toolResults, err := toolExecutor(choice.Message.ToolCalls)
 	if err != nil {
-		fmt.Printf("[ToolLoop] Error executing tools: %v\n", err)
+		log.Printf("[ToolLoop] Error executing tools: %v\n", err)
 		return "", fmt.Errorf("failed to execute tools: %w", err)
 	}
 
-	fmt.Printf("[ToolLoop] Tools executed, got %d results\n", len(toolResults))
+	log.Printf("[ToolLoop] Tools executed, got %d results\n", len(toolResults))
 
 	// Phase 3: Build new messages with tool results
 	// Add the assistant message with tool calls
@@ -591,17 +592,17 @@ func (s *Service) StreamChatCompletionWithToolLoop(
 		newMessages = append(newMessages, toolMsg)
 	}
 
-	fmt.Printf("[ToolLoop] Built %d messages for streaming phase\n", len(newMessages))
+	log.Printf("[ToolLoop] Built %d messages for streaming phase\n", len(newMessages))
 
 	// Phase 4: Stream the final analysis
-	fmt.Printf("[ToolLoop] Phase 3: Streaming final analysis...\n")
+	log.Printf("[ToolLoop] Phase 3: Streaming final analysis...\n")
 	fullContent, err := s.streamChatCompletionWithRawMessages(newMessages, writer, modelLevel)
 	if err != nil {
-		fmt.Printf("[ToolLoop] Error streaming analysis: %v\n", err)
+		log.Printf("[ToolLoop] Error streaming analysis: %v\n", err)
 		return "", fmt.Errorf("failed to stream analysis: %w", err)
 	}
 
-	fmt.Printf("[ToolLoop] Completed, content length: %d\n", len(fullContent))
+	log.Printf("[ToolLoop] Completed, content length: %d\n", len(fullContent))
 	return fullContent, nil
 }
 
@@ -614,13 +615,13 @@ func (s *Service) streamChatCompletionWithRawMessages(messages []interface{}, wr
 	for attempt := 0; attempt <= AIMaxRetries; attempt++ {
 		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
 		if err != nil {
-			fmt.Printf("[ToolLoop-Stream] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
+			log.Printf("[ToolLoop-Stream] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
 			lastErr = err
 			continue
 		}
 
 		if attempt > 0 {
-			fmt.Printf("[ToolLoop-Stream] Retry %d/%d with account ID: %d\n", attempt+1, AIMaxRetries+1, accountID)
+			log.Printf("[ToolLoop-Stream] Retry %d/%d with account ID: %d\n", attempt+1, AIMaxRetries+1, accountID)
 		}
 
 		modelCode := config.ModelLow
@@ -676,7 +677,7 @@ func (s *Service) streamChatCompletionWithRawMessages(messages []interface{}, wr
 			}
 
 			if isAIRetryableError(err) {
-				fmt.Printf("[ToolLoop-Stream] Retryable error with account %d: %v\n", accountID, err)
+				log.Printf("[ToolLoop-Stream] Retryable error with account %d: %v\n", accountID, err)
 				excludeAccountIDs = append(excludeAccountIDs, accountID)
 				continue
 			}
@@ -693,7 +694,7 @@ func (s *Service) streamChatCompletionWithRawMessages(messages []interface{}, wr
 // ChatCompletionWithModel sends a chat completion request with a specific model (non-streaming)
 // This method directly uses the provided baseURL, apiKey and modelName without account selection
 func (s *Service) ChatCompletionWithModel(messages []ChatMessage, tools []Tool, toolChoice string, baseURL, apiKey, modelName string) (*ChatCompletionResponse, error) {
-	fmt.Printf("[DEBUG] ChatCompletionWithModel called, messages: %d, tools: %d, model: %s\n", len(messages), len(tools), modelName)
+	log.Printf("[DEBUG] ChatCompletionWithModel called, messages: %d, tools: %d, model: %s\n", len(messages), len(tools), modelName)
 
 	// 根据模型类型转换消息格式（Claude vs OpenAI）
 	convertedMessages := ConvertMessagesForModel(messages, modelName)
@@ -715,9 +716,9 @@ func (s *Service) ChatCompletionWithModel(messages []ChatMessage, tools []Tool, 
 	}
 
 	// Debug: Print tool request details
-	fmt.Printf("[DEBUG] Tool call request body (first 500 chars): %s\n", string(jsonData[:min(500, len(jsonData))]))
+	log.Printf("[DEBUG] Tool call request body (first 500 chars): %s\n", string(jsonData[:min(500, len(jsonData))]))
 	if len(tools) > 0 {
-		fmt.Printf("[DEBUG] First tool: name=%s, description=%s\n", tools[0].Function.Name, tools[0].Function.Description)
+		log.Printf("[DEBUG] First tool: name=%s, description=%s\n", tools[0].Function.Name, tools[0].Function.Description)
 	}
 
 	// Create HTTP request
@@ -733,40 +734,40 @@ func (s *Service) ChatCompletionWithModel(messages []ChatMessage, tools []Tool, 
 	// Send request using long-running HTTP client
 	client := GetLongRunningHTTPClient()
 
-	fmt.Printf("[DEBUG] Sending tool call request to: %s, model: %s\n", url, modelName)
+	log.Printf("[DEBUG] Sending tool call request to: %s, model: %s\n", url, modelName)
 
 	// Execute with circuit breaker protection
 	resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Printf("[ERROR] Tool call request failed: %v\n", err)
+			log.Printf("[ERROR] Tool call request failed: %v\n", err)
 			return nil, fmt.Errorf("failed to send request: %w", err)
 		}
 		defer resp.Body.Close()
-		fmt.Printf("[DEBUG] Tool call response status: %d\n", resp.StatusCode)
+		log.Printf("[DEBUG] Tool call response status: %d\n", resp.StatusCode)
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
-			fmt.Printf("[ERROR] Tool call API error, status %d: %s\n", resp.StatusCode, string(body))
+			log.Printf("[ERROR] Tool call API error, status %d: %s\n", resp.StatusCode, string(body))
 			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 		}
 
 		// Parse response
 		var result ChatCompletionResponse
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			fmt.Printf("[ERROR] Failed to decode tool call response: %v\n", err)
+			log.Printf("[ERROR] Failed to decode tool call response: %v\n", err)
 			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
 
-		fmt.Printf("[DEBUG] Tool call completed successfully, got %d choices\n", len(result.Choices))
+		log.Printf("[DEBUG] Tool call completed successfully, got %d choices\n", len(result.Choices))
 		if len(result.Choices) > 0 {
-			fmt.Printf("[DEBUG] First choice has %d tool calls\n", len(result.Choices[0].Message.ToolCalls))
+			log.Printf("[DEBUG] First choice has %d tool calls\n", len(result.Choices[0].Message.ToolCalls))
 			if result.Choices[0].Message.Content != "" {
 				contentPreview := result.Choices[0].Message.Content
 				if len(contentPreview) > 200 {
 					contentPreview = contentPreview[:200]
 				}
-				fmt.Printf("[DEBUG] AI response content (no tool call): %s\n", contentPreview)
+				log.Printf("[DEBUG] AI response content (no tool call): %s\n", contentPreview)
 			}
 		}
 
@@ -794,13 +795,13 @@ func (s *Service) StreamChatCompletionWithLevel(messages []ChatMessage, writer i
 		// Get AI model config by level, excluding previously failed accounts
 		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
 		if err != nil {
-			fmt.Printf("[AI Retry] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
+			log.Printf("[AI Retry] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
 			lastErr = err
 			continue
 		}
 
 		if attempt > 0 {
-			fmt.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
+			log.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
 		}
 
 		// Prepare request - ModelLow field contains the actual model code for this level
@@ -861,7 +862,7 @@ func (s *Service) StreamChatCompletionWithLevel(messages []ChatMessage, writer i
 
 			// Check if error is retryable (403/429)
 			if isAIRetryableError(err) {
-				fmt.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
+				log.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
 				excludeAccountIDs = append(excludeAccountIDs, accountID)
 				continue
 			}
@@ -887,25 +888,25 @@ func (s *Service) StreamChatCompletion(messages []ChatMessage, writer io.Writer)
 // StreamChatCompletionAndCollectWithLevel streams chat completion with specific model level and collects full content
 // Includes automatic retry logic with account switching on 403/429 errors
 func (s *Service) StreamChatCompletionAndCollectWithLevel(messages []ChatMessage, writer io.Writer, modelLevel thirdparty.ModelLevel) (string, error) {
-	fmt.Printf("[DEBUG] StreamChatCompletionAndCollectWithLevel called, modelLevel: %s, messages count: %d\n", modelLevel, len(messages))
+	log.Printf("[DEBUG] StreamChatCompletionAndCollectWithLevel called, modelLevel: %s, messages count: %d\n", modelLevel, len(messages))
 
 	var lastErr error
 	var excludeAccountIDs []uint
 
 	for attempt := 0; attempt <= AIMaxRetries; attempt++ {
 		// Get AI model config by level, excluding previously failed accounts
-		fmt.Printf("[DEBUG] Getting AI model config for level: %s (attempt %d)\n", modelLevel, attempt+1)
+		log.Printf("[DEBUG] Getting AI model config for level: %s (attempt %d)\n", modelLevel, attempt+1)
 		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
 		if err != nil {
-			fmt.Printf("[ERROR] Attempt %d: Failed to get AI model config: %v\n", attempt+1, err)
+			log.Printf("[ERROR] Attempt %d: Failed to get AI model config: %v\n", attempt+1, err)
 			lastErr = err
 			continue
 		}
 
 		if attempt > 0 {
-			fmt.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
+			log.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
 		} else {
-			fmt.Printf("[DEBUG] Got AI model config, BaseURL: %s, Model: %s, AccountID: %d\n", config.BaseURL, config.ModelLow, accountID)
+			log.Printf("[DEBUG] Got AI model config, BaseURL: %s, Model: %s, AccountID: %d\n", config.BaseURL, config.ModelLow, accountID)
 		}
 
 		// Create request - ModelLow field contains the actual model code for this level
@@ -921,24 +922,24 @@ func (s *Service) StreamChatCompletionAndCollectWithLevel(messages []ChatMessage
 			Temperature: 0.7,
 		}
 
-		fmt.Printf("[DEBUG] Final model for request: %s\n", reqBody.Model)
+		log.Printf("[DEBUG] Final model for request: %s\n", reqBody.Model)
 
 		jsonData, err := json.Marshal(reqBody)
 		if err != nil {
-			fmt.Printf("[ERROR] Failed to marshal request: %v\n", err)
+			log.Printf("[ERROR] Failed to marshal request: %v\n", err)
 			return "", fmt.Errorf("failed to marshal request: %w", err)
 		}
-		fmt.Printf("[DEBUG] Request marshaled successfully, size: %d bytes\n", len(jsonData))
+		log.Printf("[DEBUG] Request marshaled successfully, size: %d bytes\n", len(jsonData))
 
 		// Create HTTP request
 		url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
-		fmt.Printf("[DEBUG] Creating request to URL: %s\n", url)
+		log.Printf("[DEBUG] Creating request to URL: %s\n", url)
 		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 		if err != nil {
-			fmt.Printf("[ERROR] Failed to create HTTP request: %v\n", err)
+			log.Printf("[ERROR] Failed to create HTTP request: %v\n", err)
 			return "", fmt.Errorf("failed to create request: %w", err)
 		}
-		fmt.Printf("[DEBUG] HTTP request created successfully\n")
+		log.Printf("[DEBUG] HTTP request created successfully\n")
 
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+config.APIKey)
@@ -946,24 +947,24 @@ func (s *Service) StreamChatCompletionAndCollectWithLevel(messages []ChatMessage
 		// Send request with streaming HTTP client (no timeout) for long-running streaming requests
 		client := GetStreamingHTTPClient()
 
-		fmt.Printf("[DEBUG] Sending AI request, model: %s, url: %s, level: %s\n", reqBody.Model, url, modelLevel)
+		log.Printf("[DEBUG] Sending AI request, model: %s, url: %s, level: %s\n", reqBody.Model, url, modelLevel)
 
 		// Execute with circuit breaker protection
 		resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
 			resp, err := client.Do(req)
 			if err != nil {
-				fmt.Printf("[ERROR] AI request failed: %v\n", err)
+				log.Printf("[ERROR] AI request failed: %v\n", err)
 				return nil, fmt.Errorf("failed to send request: %w", err)
 			}
 			defer resp.Body.Close()
 
 			if resp.StatusCode != http.StatusOK {
 				body, _ := io.ReadAll(resp.Body)
-				fmt.Printf("[ERROR] AI API returned status %d, model: %s, body: %s\n", resp.StatusCode, reqBody.Model, string(body))
+				log.Printf("[ERROR] AI API returned status %d, model: %s, body: %s\n", resp.StatusCode, reqBody.Model, string(body))
 				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 			}
 
-			fmt.Printf("[DEBUG] AI API call successful, model: %s, starting to stream response\n", reqBody.Model)
+			log.Printf("[DEBUG] AI API call successful, model: %s, starting to stream response\n", reqBody.Model)
 			// Stream response and collect content
 			return s.streamResponseAndCollect(resp.Body, writer)
 		})
@@ -978,7 +979,7 @@ func (s *Service) StreamChatCompletionAndCollectWithLevel(messages []ChatMessage
 
 			// Check if error is retryable (403/429)
 			if isAIRetryableError(err) {
-				fmt.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
+				log.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
 				excludeAccountIDs = append(excludeAccountIDs, accountID)
 				continue
 			}
@@ -1032,7 +1033,7 @@ func (s *Service) streamResponse(reader io.Reader, writer io.Writer) error {
 		var chunk ChatCompletionChunk
 		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 			// Log error but continue
-			fmt.Printf("Warning: failed to parse chunk: %v\n", err)
+			log.Printf("Warning: failed to parse chunk: %v\n", err)
 			continue
 		}
 
@@ -1041,7 +1042,7 @@ func (s *Service) streamResponse(reader io.Reader, writer io.Writer) error {
 			// Marshal the chunk back to JSON
 			chunkJSON, err := json.Marshal(chunk)
 			if err != nil {
-				fmt.Printf("Warning: failed to marshal chunk: %v\n", err)
+				log.Printf("Warning: failed to marshal chunk: %v\n", err)
 				continue
 			}
 
@@ -1097,7 +1098,7 @@ func (s *Service) streamResponseAndCollect(reader io.Reader, writer io.Writer) (
 		var chunk ChatCompletionChunk
 		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 			// Log error but continue
-			fmt.Printf("Warning: failed to parse chunk: %v\n", err)
+			log.Printf("Warning: failed to parse chunk: %v\n", err)
 			continue
 		}
 
@@ -1111,7 +1112,7 @@ func (s *Service) streamResponseAndCollect(reader io.Reader, writer io.Writer) (
 			// Marshal the chunk back to JSON
 			chunkJSON, err := json.Marshal(chunk)
 			if err != nil {
-				fmt.Printf("Warning: failed to marshal chunk: %v\n", err)
+				log.Printf("Warning: failed to marshal chunk: %v\n", err)
 				continue
 			}
 
@@ -1351,12 +1352,12 @@ func (s *Service) AnalyzePaperAbstract(paperId string, paperTitle string, abstra
 		var cachedAnalysis PaperAnalysis
 		if err := s.db.Where("paper_id = ? AND dimension_hash = ?", paperId, dimensionHash).First(&cachedAnalysis).Error; err == nil {
 			// 找到匹配的缓存，直接返回
-			fmt.Printf("[INFO] Found cached analysis for paper: %s (dimension_hash: %s)\n", paperId, dimensionHash)
+			log.Printf("[INFO] Found cached analysis for paper: %s (dimension_hash: %s)\n", paperId, dimensionHash)
 			analysisCtx.FromCache = true
 			return s.convertCachedAnalysisToResult(cachedAnalysis, dimensions), analysisCtx, nil
 		}
 		// 没找到匹配的缓存，继续调用AI分析
-		fmt.Printf("[INFO] No cached analysis found for paper: %s with dimension_hash: %s, calling AI...\n", paperId, dimensionHash)
+		log.Printf("[INFO] No cached analysis found for paper: %s with dimension_hash: %s, calling AI...\n", paperId, dimensionHash)
 	}
 
 	// 3. 首先尝试一次性分析所有维度（带重试）
@@ -1364,7 +1365,7 @@ func (s *Service) AnalyzePaperAbstract(paperId string, paperTitle string, abstra
 	
 	// 4. 如果一次性分析失败，尝试分批请求
 	if !parseSuccess {
-		fmt.Printf("[INFO] Full analysis failed, trying batch analysis for paper: %s\n", paperId)
+		log.Printf("[INFO] Full analysis failed, trying batch analysis for paper: %s\n", paperId)
 		resultMap, parseSuccess = s.analyzeInBatches(paperTitle, abstract, dimensions, paperId)
 	}
 
@@ -1381,12 +1382,12 @@ func (s *Service) AnalyzePaperAbstract(paperId string, paperTitle string, abstra
 		
 		if err := s.db.Where("paper_id = ? AND dimension_hash = ?", paperId, dimensionHash).
 			Assign(paperAnalysis).FirstOrCreate(&paperAnalysis).Error; err != nil {
-			fmt.Printf("[WARN] Failed to save paper analysis to database: %v\n", err)
+			log.Printf("[WARN] Failed to save paper analysis to database: %v\n", err)
 		} else {
-			fmt.Printf("[INFO] Saved paper analysis to database for paper: %s (dimension_hash: %s)\n", paperId, dimensionHash)
+			log.Printf("[INFO] Saved paper analysis to database for paper: %s (dimension_hash: %s)\n", paperId, dimensionHash)
 		}
 	} else if !parseSuccess {
-		fmt.Printf("[WARN] Analysis failed for paper: %s, not saving to database\n", paperId)
+		log.Printf("[WARN] Analysis failed for paper: %s, not saving to database\n", paperId)
 	}
 
 	// 6. 转换为 PaperAnalysisResult 返回
@@ -1406,17 +1407,17 @@ func (s *Service) analyzeWithRetry(paperTitle, abstract string, dimensions []Ana
 
 	for attempt := 1; attempt <= AnalysisMaxRetries; attempt++ {
 		if attempt > 1 {
-			fmt.Printf("[Analysis Retry] Attempt %d/%d for paper: %s\n", attempt, AnalysisMaxRetries, paperId)
+			log.Printf("[Analysis Retry] Attempt %d/%d for paper: %s\n", attempt, AnalysisMaxRetries, paperId)
 		}
 		
 		response, err := s.ChatCompletionWithTools(messages, nil, "", thirdparty.ModelLevelLow)
 		if err != nil {
-			fmt.Printf("[ERROR] AI analysis failed on attempt %d: %v\n", attempt, err)
+			log.Printf("[ERROR] AI analysis failed on attempt %d: %v\n", attempt, err)
 			continue
 		}
 
 		if len(response.Choices) == 0 {
-			fmt.Printf("[ERROR] No response from AI on attempt %d\n", attempt)
+			log.Printf("[ERROR] No response from AI on attempt %d\n", attempt)
 			continue
 		}
 
@@ -1425,23 +1426,23 @@ func (s *Service) analyzeWithRetry(paperTitle, abstract string, dimensions []Ana
 
 		resultMap := make(map[string]string)
 		if err := json.Unmarshal([]byte(content), &resultMap); err != nil {
-			fmt.Printf("[WARN] Attempt %d: Failed to parse AI response as JSON: %v\n", attempt, err)
-			fmt.Printf("[DEBUG] Raw content length: %d\n", len(content))
+			log.Printf("[WARN] Attempt %d: Failed to parse AI response as JSON: %v\n", attempt, err)
+			log.Printf("[DEBUG] Raw content length: %d\n", len(content))
 			if len(content) > 0 {
-				fmt.Printf("[DEBUG] Raw content (first 2000 chars): %s\n", content[:min(2000, len(content))])
+				log.Printf("[DEBUG] Raw content (first 2000 chars): %s\n", content[:min(2000, len(content))])
 			}
 			continue
 		}
 
 		// 解析成功
 		if attempt > 1 {
-			fmt.Printf("[Analysis Retry] Successfully parsed on attempt %d for paper: %s\n", attempt, paperId)
+			log.Printf("[Analysis Retry] Successfully parsed on attempt %d for paper: %s\n", attempt, paperId)
 		}
 		return resultMap, true
 	}
 
 	// 所有重试都失败
-	fmt.Printf("[ERROR] All %d attempts failed for paper: %s\n", AnalysisMaxRetries, paperId)
+	log.Printf("[ERROR] All %d attempts failed for paper: %s\n", AnalysisMaxRetries, paperId)
 	return nil, false
 }
 
@@ -1461,7 +1462,7 @@ func (s *Service) analyzeInBatches(paperTitle, abstract string, dimensions []Ana
 		batchNum := (i / DimensionsPerBatch) + 1
 		totalBatches := (len(dimensions) + DimensionsPerBatch - 1) / DimensionsPerBatch
 		
-		fmt.Printf("[Batch Analysis] Processing batch %d/%d (%d dimensions) for paper: %s\n", 
+		log.Printf("[Batch Analysis] Processing batch %d/%d (%d dimensions) for paper: %s\n", 
 			batchNum, totalBatches, len(batchDimensions), paperId)
 		
 		// 对每个批次进行分析（带重试）
@@ -1478,14 +1479,14 @@ func (s *Service) analyzeInBatches(paperTitle, abstract string, dimensions []Ana
 			for _, dim := range batchDimensions {
 				resultMap[dim.DimensionKey] = "解析失败"
 			}
-			fmt.Printf("[WARN] Batch %d failed for paper: %s\n", batchNum, paperId)
+			log.Printf("[WARN] Batch %d failed for paper: %s\n", batchNum, paperId)
 		}
 	}
 	
 	if allSuccess {
-		fmt.Printf("[Batch Analysis] All batches completed successfully for paper: %s\n", paperId)
+		log.Printf("[Batch Analysis] All batches completed successfully for paper: %s\n", paperId)
 	} else {
-		fmt.Printf("[WARN] Some batches failed for paper: %s\n", paperId)
+		log.Printf("[WARN] Some batches failed for paper: %s\n", paperId)
 	}
 	
 	// 只要有部分成功就返回true（部分结果总比没有好）
@@ -1578,11 +1579,11 @@ func (s *Service) buildAnalysisPrompt(paperTitle, abstract string, dimensions []
 	
 	if err != nil || template == nil {
 		// 数据库获取失败，使用本地兜底提示词
-		fmt.Printf("[WARN] Failed to get prompt template 'dimensions_paper_analysis' from DB: %v, using fallback\n", err)
+		log.Printf("[WARN] Failed to get prompt template 'dimensions_paper_analysis' from DB: %v, using fallback\n", err)
 		return s.buildAnalysisPromptFallback(paperTitle, abstract, dimensionList, jsonFormat)
 	}
 	
-	fmt.Printf("[INFO] Using prompt template from DB: '%s' (ID: %d)\n", template.Name, template.ID)
+	log.Printf("[INFO] Using prompt template from DB: '%s' (ID: %d)\n", template.Name, template.ID)
 	return renderedPrompt
 }
 
@@ -1676,7 +1677,7 @@ func (s *Service) convertMapToResult(dataMap map[string]string, dimensions []Ana
 // Used for non-streaming operations like generating follow-up questions
 // Includes automatic retry logic with account switching on 403/429 errors
 func (s *Service) ChatCompletionWithLevel(messages []ChatMessage, modelLevel thirdparty.ModelLevel) (string, error) {
-	fmt.Printf("[DEBUG] ChatCompletionWithLevel called, modelLevel: %s, messages count: %d\n", modelLevel, len(messages))
+	log.Printf("[DEBUG] ChatCompletionWithLevel called, modelLevel: %s, messages count: %d\n", modelLevel, len(messages))
 
 	var lastErr error
 	var excludeAccountIDs []uint
@@ -1685,13 +1686,13 @@ func (s *Service) ChatCompletionWithLevel(messages []ChatMessage, modelLevel thi
 		// Get AI model config by level, excluding previously failed accounts
 		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
 		if err != nil {
-			fmt.Printf("[AI Retry] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
+			log.Printf("[AI Retry] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
 			lastErr = err
 			continue
 		}
 
 		if attempt > 0 {
-			fmt.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
+			log.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
 		}
 
 		// ModelLow field now contains the actual model code for the requested level
@@ -1762,7 +1763,7 @@ func (s *Service) ChatCompletionWithLevel(messages []ChatMessage, modelLevel thi
 
 			// Check if error is retryable (403/429)
 			if isAIRetryableError(err) {
-				fmt.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
+				log.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
 				excludeAccountIDs = append(excludeAccountIDs, accountID)
 				continue
 			}
@@ -1798,7 +1799,7 @@ func (s *Service) GetAnalysisDimensions(userID *uint) (*GetAnalysisDimensionsRes
 
 	// 如果没有用户ID，直接返回系统默认维度
 	if userID == nil || *userID == 0 {
-		fmt.Printf("[INFO] Using %d system default dimensions (no user)\n", len(systemDimensions))
+		log.Printf("[INFO] Using %d system default dimensions (no user)\n", len(systemDimensions))
 		return &GetAnalysisDimensionsResult{
 			Dimensions: systemDimensions,
 			IsCustom:   false,
@@ -1815,7 +1816,7 @@ func (s *Service) GetAnalysisDimensions(userID *uint) (*GetAnalysisDimensionsRes
 
 	// 如果用户没有任何自定义维度，直接返回系统默认
 	if len(userDimensions) == 0 {
-		fmt.Printf("[INFO] Using %d system default dimensions for user %d (no customization)\n", len(systemDimensions), *userID)
+		log.Printf("[INFO] Using %d system default dimensions for user %d (no customization)\n", len(systemDimensions), *userID)
 		return &GetAnalysisDimensionsResult{
 			Dimensions: systemDimensions,
 			IsCustom:   false,
@@ -1862,7 +1863,7 @@ func (s *Service) GetAnalysisDimensions(userID *uint) (*GetAnalysisDimensionsRes
 		return mergedDimensions[i].SortOrder < mergedDimensions[j].SortOrder
 	})
 
-	fmt.Printf("[INFO] Merged dimensions for user %d: %d total (%d customized)\n", *userID, len(mergedDimensions), customCount)
+	log.Printf("[INFO] Merged dimensions for user %d: %d total (%d customized)\n", *userID, len(mergedDimensions), customCount)
 	return &GetAnalysisDimensionsResult{
 		Dimensions: mergedDimensions,
 		IsCustom:   customCount > 0, // 只有当实际有自定义维度时才为true
@@ -1914,7 +1915,7 @@ func (s *Service) CreateUserDimension(userID uint, dimensionKey, name, descripti
 		if err := s.db.Save(&existingDimension).Error; err != nil {
 			return nil, fmt.Errorf("failed to update dimension: %w", err)
 		}
-		fmt.Printf("[INFO] Updated user dimension: %s for user %d\n", dimensionKey, userID)
+		log.Printf("[INFO] Updated user dimension: %s for user %d\n", dimensionKey, userID)
 		return &existingDimension, nil
 	}
 
@@ -1951,9 +1952,9 @@ func (s *Service) CreateUserDimension(userID uint, dimensionKey, name, descripti
 	}
 
 	if isModifyingSystemDimension {
-		fmt.Printf("[INFO] Created user override for system dimension: %s for user %d\n", dimensionKey, userID)
+		log.Printf("[INFO] Created user override for system dimension: %s for user %d\n", dimensionKey, userID)
 	} else {
-		fmt.Printf("[INFO] Created new user dimension: %s for user %d\n", dimensionKey, userID)
+		log.Printf("[INFO] Created new user dimension: %s for user %d\n", dimensionKey, userID)
 	}
 	return dimension, nil
 }
@@ -1987,7 +1988,7 @@ func (s *Service) GetUserDimensionCount(userID uint) (int, error) {
 
 	// 总数 = 系统维度数量 + 用户新增的自定义维度数量
 	totalCount := len(systemDimensions) + customCount
-	fmt.Printf("[INFO] User %d dimension count: %d (system: %d, custom: %d)\n", 
+	log.Printf("[INFO] User %d dimension count: %d (system: %d, custom: %d)\n", 
 		userID, totalCount, len(systemDimensions), customCount)
 	return totalCount, nil
 }
@@ -2028,7 +2029,7 @@ func (s *Service) ResetUserDimensionToDefault(userID uint, dimensionKey string) 
 	if result.Error != nil {
 		return fmt.Errorf("failed to reset dimension: %w", result.Error)
 	}
-	fmt.Printf("[INFO] Reset dimension %s to default for user %d\n", dimensionKey, userID)
+	log.Printf("[INFO] Reset dimension %s to default for user %d\n", dimensionKey, userID)
 	return nil
 }
 
@@ -2038,7 +2039,7 @@ func (s *Service) ResetAllUserDimensions(userID uint) error {
 	if result.Error != nil {
 		return fmt.Errorf("failed to reset all dimensions: %w", result.Error)
 	}
-	fmt.Printf("[INFO] Reset all dimensions to default for user %d (deleted %d)\n", userID, result.RowsAffected)
+	log.Printf("[INFO] Reset all dimensions to default for user %d (deleted %d)\n", userID, result.RowsAffected)
 	return nil
 }
 
@@ -2067,7 +2068,7 @@ func (s *Service) CopySystemDimensionsToUser(userID uint) ([]AnalysisDimension, 
 		userDimensions = append(userDimensions, ud)
 	}
 
-	fmt.Printf("[INFO] Copied %d system dimensions to user %d\n", len(userDimensions), userID)
+	log.Printf("[INFO] Copied %d system dimensions to user %d\n", len(userDimensions), userID)
 	return userDimensions, nil
 }
 
@@ -2088,7 +2089,7 @@ func (s *Service) UpdateSystemDimension(dimensionID uint, name, description stri
 		return nil, fmt.Errorf("failed to update dimension: %w", err)
 	}
 
-	fmt.Printf("[INFO] Updated system dimension: %s (ID: %d)\n", dimension.DimensionKey, dimension.ID)
+	log.Printf("[INFO] Updated system dimension: %s (ID: %d)\n", dimension.DimensionKey, dimension.ID)
 	return &dimension, nil
 }
 

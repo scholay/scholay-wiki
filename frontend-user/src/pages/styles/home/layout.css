@@ -936,6 +936,25 @@
 }
 
 /* ============================================
+   底部 SEO 区块：初始隐藏，首帧后淡入
+   避免用户看到静态文案闪烁
+   ============================================ */
+.home-about-flow,
+.home-testimonials-section,
+.home-bottom-section {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.home-about-flow.home-seo-visible,
+.home-testimonials-section.home-seo-visible,
+.home-bottom-section.home-seo-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================
    平台能力 - 流式平铺展示
    ============================================ */
 .home-about-flow {

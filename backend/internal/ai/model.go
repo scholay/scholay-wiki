@@ -11,6 +11,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 )
@@ -235,7 +236,7 @@ func ConvertMessagesForModel(messages []ChatMessage, modelName string) []ChatMes
 						} else {
 							// 其他文档格式（Word、Excel等）GPT不支持直接传递
 							// 跳过这些文件，让上层逻辑改用文本模式处理
-							fmt.Printf("[AI Warning] GPT model does not support file type: %s, skipping file\n", mimeType)
+							log.Printf("[AI Warning] GPT model does not support file type: %s, skipping file\n", mimeType)
 						}
 					}
 						continue
@@ -281,7 +282,7 @@ func ConvertMessagesForModel(messages []ChatMessage, modelName string) []ChatMes
 						} else {
 							// 其他文档格式（Word、Excel等）GPT不支持直接传递
 							// 跳过这些文件，让上层逻辑改用文本模式处理
-							fmt.Printf("[AI Warning] GPT model does not support file type: %s, skipping file\n", fileMeta.MimeType)
+							log.Printf("[AI Warning] GPT model does not support file type: %s, skipping file\n", fileMeta.MimeType)
 						}
 					}
 					continue

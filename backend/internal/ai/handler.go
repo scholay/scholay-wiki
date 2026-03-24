@@ -9,10 +9,12 @@ package ai
 
 import (
 	"context"
-	"fmt"
+	"log"
+	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/currency"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -354,11 +356,11 @@ func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 					Description:  config.Description,
 				})
 				if err != nil {
-					fmt.Printf("[BatchAnalyze] Deduct failed for paper %s: %v\n", paper.PaperID, err)
+					log.Printf("[BatchAnalyze] Deduct failed for paper %s: %v\n", paper.PaperID, err)
 				} else {
 					item.DeductedAmount = config.Amount
 					totalDeducted += config.Amount
-					fmt.Printf("[BatchAnalyze] Deducted %d for paper %s (bizID: %s)\n", config.Amount, paper.PaperID, bizID)
+					log.Printf("[BatchAnalyze] Deducted %d for paper %s (bizID: %s)\n", config.Amount, paper.PaperID, bizID)
 				}
 			}
 		}
@@ -741,18 +743,18 @@ func (h *Handler) StreamTranslate(c *gin.Context) {
 	c.Writer.Header().Set("Transfer-Encoding", "chunked")
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
 
-	// 调用流式翻译服务
-	err := h.service.StreamTranslateToChinese(req.Text, c.Writer)
+	hw := sse.NewHeartbeatWriter(c.Writer, 15*time.Second)
+	defer hw.Stop()
+
+	err := h.service.StreamTranslateToChinese(req.Text, hw)
 	if err != nil {
-		// 如果流已经开始，通过SSE发送错误
-		c.Writer.WriteString("data: {\"error\": \"" + err.Error() + "\"}\n\n")
-		c.Writer.Flush()
+		hw.WriteString("data: {\"error\": \"" + err.Error() + "\"}\n\n")
+		hw.Flush()
 		return
 	}
 
-	// 发送流结束标记
-	c.Writer.WriteString("data: [DONE]\n\n")
-	c.Writer.Flush()
+	hw.WriteString("data: [DONE]\n\n")
+	hw.Flush()
 }
 
 // StreamTranslatePaperRequest 论文翻译请求结构
@@ -792,16 +794,16 @@ func (h *Handler) StreamTranslatePaper(c *gin.Context) {
 	c.Writer.Header().Set("Transfer-Encoding", "chunked")
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
 
-	// 调用流式论文翻译服务
-	err := h.service.StreamTranslatePaperToChinese(req.Title, req.Abstract, req.TLDR, c.Writer)
+	hw := sse.NewHeartbeatWriter(c.Writer, 15*time.Second)
+	defer hw.Stop()
+
+	err := h.service.StreamTranslatePaperToChinese(req.Title, req.Abstract, req.TLDR, hw)
 	if err != nil {
-		// 如果流已经开始，通过SSE发送错误
-		c.Writer.WriteString("data: {\"error\": \"" + err.Error() + "\"}\n\n")
-		c.Writer.Flush()
+		hw.WriteString("data: {\"error\": \"" + err.Error() + "\"}\n\n")
+		hw.Flush()
 		return
 	}
 
-	// 发送流结束标记
-	c.Writer.WriteString("data: [DONE]\n\n")
-	c.Writer.Flush()
+	hw.WriteString("data: [DONE]\n\n")
+	hw.Flush()
 }

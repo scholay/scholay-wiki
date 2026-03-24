@@ -7,7 +7,8 @@
  * ============================================================================
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { adminAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -16,17 +17,42 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const clearAuth = useCallback(() => {
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
+    setIsAuthenticated(false);
+    setUser(null);
+  }, []);
+
   useEffect(() => {
-    // Check for existing token on mount
     const token = localStorage.getItem('admin_token');
     const userData = localStorage.getItem('admin_user');
 
     if (token && userData) {
-      setIsAuthenticated(true);
-      setUser(JSON.parse(userData));
+      // Validate token against the server
+      adminAPI.getProfile()
+        .then((res) => {
+          const profile = res.data?.data || JSON.parse(userData);
+          setIsAuthenticated(true);
+          setUser(profile);
+          localStorage.setItem('admin_user', JSON.stringify(profile));
+        })
+        .catch(() => {
+          clearAuth();
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
-  }, []);
+  }, [clearAuth]);
+
+  useEffect(() => {
+    const handleExpired = () => clearAuth();
+    window.addEventListener('admin:auth:expired', handleExpired);
+    return () => window.removeEventListener('admin:auth:expired', handleExpired);
+  }, [clearAuth]);
 
   const login = (token, userData) => {
     localStorage.setItem('admin_token', token);

@@ -122,7 +122,12 @@ All Rights Reserved.
     </style>
   </head>
   <body>
-    <noscript>
+    <!--
+      SEO fallback: display:none 保证 JS 可用时绝不渲染此内容。
+      当 JS 不可用时，<noscript> 中的 <style> 覆盖为 display:block。
+      搜索引擎仍可在 HTML 源码中抓取文本。
+    -->
+    <div id="seo-fallback" style="display:none">
       <div style="max-width: 1000px; margin: 0 auto; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e0e0e0; background: #212121; min-height: 100vh;">
         <header style="text-align: center; margin-bottom: 40px;">
           <h1 style="font-size: 2.5rem; color: #ffffff; margin-bottom: 10px;">Scholay - AI驱动的学术搜索平台</h1>
@@ -238,11 +243,12 @@ All Rights Reserved.
           </footer>
         </main>
         
-        <p style="text-align: center; margin-top: 30px; padding: 20px; background: #333; border-radius: 8px;">
+        <p id="seo-js-notice" style="text-align: center; margin-top: 30px; padding: 20px; background: #333; border-radius: 8px;">
           为获得最佳体验，请启用 JavaScript 或使用支持 JavaScript 的现代浏览器访问本站。
         </p>
       </div>
-    </noscript>
+    </div>
+    <noscript><style>#seo-fallback{display:block!important}</style></noscript>
     <div id="root"></div>
   </body>
 </html>

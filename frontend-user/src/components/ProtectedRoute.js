@@ -20,9 +20,13 @@ const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
-  // 等待认证状态加载完成
   if (loading) {
-    return null; // 或者返回一个加载指示器
+    return (
+      <div style={{display:'flex',justifyContent:'center',alignItems:'center',height:'60vh',opacity:0.5}}>
+        <div style={{width:28,height:28,border:'3px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.8s linear infinite'}} />
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
   }
 
   // 如果未登录，重定向到首页

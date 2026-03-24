@@ -43,14 +43,6 @@ class PerformanceTimer {
     const endTime = performance.now();
     const duration = endTime - this.startTime;
     
-    if (isDevelopment) {
-      console.group(`⏱️ ${this.name}: ${duration.toFixed(2)}ms`);
-      this.marks.forEach(mark => {
-        console.log(`  📍 ${mark.label}: ${mark.time.toFixed(2)}ms`);
-      });
-      console.groupEnd();
-    }
-    
     this.startTime = null;
     return duration;
   }
@@ -272,11 +264,6 @@ export const logPerformanceReport = () => {
   const metrics = getPerformanceMetrics();
   const memory = getMemoryUsage();
   
-  console.group('📊 Performance Report');
-  console.log('Metrics:', metrics);
-  if (memory) {
-    console.log('Memory:', memory);
-  }
-  console.groupEnd();
+  // Metrics and memory data available via getPerformanceMetrics() and getMemoryUsage()
 };
 

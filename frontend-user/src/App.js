@@ -140,7 +140,6 @@ function App() {
     const pendingWelcomeData = localStorage.getItem('pending_welcome_modal');
     const pendingCheckinData = localStorage.getItem('pending_checkin_result');
     
-    console.log('[App] checkPendingWelcomeCheckinModal:', { pendingWelcomeData, pendingCheckinData });
     
     let hasWelcome = false;
     let hasCheckin = false;
@@ -151,12 +150,11 @@ function App() {
         const { giftAmount, timestamp } = JSON.parse(pendingWelcomeData);
         // 只在5分钟内有效
         if (Date.now() - timestamp < 5 * 60 * 1000 && giftAmount > 0) {
-          console.log('[App] Welcome gift amount:', giftAmount);
           setWelcomeGiftAmount(giftAmount);
           hasWelcome = true;
         }
       } catch (e) {
-        console.error('[App] Failed to parse welcome modal data:', e);
+        // Ignore malformed cached data and proceed.
       }
       localStorage.removeItem('pending_welcome_modal');
     }
@@ -167,7 +165,6 @@ function App() {
         const checkinData = JSON.parse(pendingCheckinData);
         // 只在1分钟内有效
         if (Date.now() - checkinData.timestamp < 60 * 1000) {
-          console.log('[App] Checkin result:', checkinData);
           setCheckinResultForModal(checkinData);
           setCheckinHistoryForModal(checkinData.checkinHistory || []);
           setCheckinDetailsForModal(checkinData.checkinDetails || []);
@@ -175,14 +172,13 @@ function App() {
           hasCheckin = true;
         }
       } catch (e) {
-        console.error('[App] Failed to parse checkin result data:', e);
+        // Ignore malformed cached data and proceed.
       }
       localStorage.removeItem('pending_checkin_result');
     }
     
     // 如果有任一数据，显示合并弹窗
     if (hasWelcome || hasCheckin) {
-      console.log('[App] Showing welcome checkin modal');
       setShowWelcomeCheckinModal(true);
     }
   };
@@ -200,7 +196,6 @@ function App() {
     const handleShowWelcomeModal = () => {
       // 注册成功后，不立即显示弹窗
       // 等待 CheckinFloat 完成签到后触发 show:welcome_checkin_modal 事件
-      console.log('[App] show:welcome_modal received, waiting for checkin to complete...');
     };
 
     window.addEventListener('show:welcome_modal', handleShowWelcomeModal);
@@ -212,7 +207,6 @@ function App() {
   // 监听合并弹窗事件（签到完成后触发，此时欢迎数据和签到数据都已准备好）
   useEffect(() => {
     const handleShowWelcomeCheckinModal = () => {
-      console.log('[App] show:welcome_checkin_modal received, showing combined modal');
       checkPendingWelcomeCheckinModal();
     };
 
@@ -233,7 +227,10 @@ function App() {
               <OrderModalProvider>
               <RechargeModalProvider>
               <Router>
-                <Suspense fallback={null}>
+                <Suspense fallback={<div style={{display:'flex',justifyContent:'center',alignItems:'center',height:'100vh',opacity:0.5}}>
+                  <div style={{width:32,height:32,border:'3px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.8s linear infinite'}} />
+                  <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+                </div>}>
                   <Routes>
                     {/* 所有页面都使用 MainLayout 包裹，显示通用顶部栏 */}
                     <Route element={<MainLayout />}>

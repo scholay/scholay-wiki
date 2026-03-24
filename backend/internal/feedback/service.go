@@ -10,6 +10,7 @@ package feedback
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"scholar-backend/internal/common/model"
@@ -204,17 +205,17 @@ func (s *Service) ReplyFeedback(id uint, replyContent, repliedBy string) error {
 	}
 
 	// 发送回复邮件
-	fmt.Printf("[Feedback Reply] Starting email send process for feedback #%d to %s\n", id, feedback.Email)
+	log.Printf("[Feedback Reply] Starting email send process for feedback #%d to %s", id, feedback.Email)
 	
 	if s.configService != nil {
-		fmt.Printf("[Feedback Reply] ConfigService is available, getting email config...\n")
+		log.Printf("[Feedback Reply] ConfigService is available, getting email config...")
 		emailConfig, err := s.configService.GetActiveEmailConfig()
 		if err != nil {
-			fmt.Printf("[Feedback Reply] Error getting email config: %v\n", err)
+			log.Printf("[Feedback Reply] Error getting email config: %v", err)
 		} else if emailConfig == nil {
-			fmt.Printf("[Feedback Reply] Email config is nil (not configured)\n")
+			log.Printf("[Feedback Reply] Email config is nil (not configured)")
 		} else {
-			fmt.Printf("[Feedback Reply] Email config loaded: host=%s, port=%d, from=%s\n", 
+			log.Printf("[Feedback Reply] Email config loaded: host=%s, port=%d, from=%s",
 				emailConfig.SMTPHost, emailConfig.SMTPPort, emailConfig.FromEmail)
 			
 			subject := "您的反馈已收到回复 - Scholay"
@@ -229,16 +230,16 @@ func (s *Service) ReplyFeedback(id uint, replyContent, repliedBy string) error {
 				FromName:     emailConfig.FromName,
 			}
 
-			fmt.Printf("[Feedback Reply] Sending email to %s...\n", feedback.Email)
+			log.Printf("[Feedback Reply] Sending email to %s...", feedback.Email)
 			if err := utils.SendEmailWithTLS(config, []string{feedback.Email}, subject, body); err != nil {
 				// 记录错误但不影响主流程
-				fmt.Printf("[Feedback Reply] ✗ Failed to send reply email to %s: %v\n", feedback.Email, err)
+				log.Printf("[Feedback Reply] ✗ Failed to send reply email to %s: %v", feedback.Email, err)
 			} else {
-				fmt.Printf("[Feedback Reply] ✓ Reply email sent successfully to %s for feedback #%d\n", feedback.Email, id)
+				log.Printf("[Feedback Reply] ✓ Reply email sent successfully to %s for feedback #%d", feedback.Email, id)
 			}
 		}
 	} else {
-		fmt.Printf("[Feedback Reply] ✗ ConfigService not set, skipping reply email for feedback #%d\n", id)
+		log.Printf("[Feedback Reply] ✗ ConfigService not set, skipping reply email for feedback #%d", id)
 	}
 
 	return nil
@@ -368,7 +369,7 @@ func (s *Service) CreateFeedbackWithAttachments(email, content *string, userID *
 	if attachmentsKey != "" {
 		if err := s.repo.BindAttachmentsToFeedback(attachmentsKey, feedback.ID); err != nil {
 			// 记录错误但不影响主流程
-			fmt.Printf("Failed to bind attachments to feedback %d: %v\n", feedback.ID, err)
+			log.Printf("Failed to bind attachments to feedback %d: %v", feedback.ID, err)
 		}
 	}
 

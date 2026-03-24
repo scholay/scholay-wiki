@@ -62,7 +62,7 @@ const AUTH_WHITELIST_PATHS = [
 ];
 
 // 检查当前页面是否在白名单中
-const isInAuthWhitelist = () => {
+export const isInAuthWhitelist = () => {
   const currentPath = window.location.pathname;
   return AUTH_WHITELIST_PATHS.some(path => currentPath === path || currentPath.startsWith(path + '/'));
 };

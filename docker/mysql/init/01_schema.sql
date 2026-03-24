@@ -117,8 +117,7 @@ CREATE TABLE IF NOT EXISTS `user_statistics` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE INDEX `uk_date` (`date`),
-  INDEX `idx_date` (`date`)
+  UNIQUE INDEX `uk_date` (`date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='每日用户统计';
 
 -- 在线用户快照（实时图表数据）
@@ -266,6 +265,7 @@ CREATE TABLE IF NOT EXISTS `user_subscriptions` (
   INDEX `idx_end_date` (`end_date`),
   INDEX `idx_user_status` (`user_id`, `status`),
   INDEX `idx_user_active` (`user_id`, `status`, `end_date`),
+  INDEX `idx_plan_code` (`plan_code`),
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户订阅记录';
 
@@ -341,6 +341,7 @@ CREATE TABLE IF NOT EXISTS `payment_transactions` (
   PRIMARY KEY (`id`),
   INDEX `idx_order_id` (`order_id`),
   INDEX `idx_transaction_no` (`transaction_no`),
+  INDEX `idx_status_created` (`status`, `created_at`),
   CONSTRAINT `fk_payment_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='支付交易记录';
 
@@ -1182,7 +1183,8 @@ CREATE TABLE IF NOT EXISTS `feedback_attachments` (
   `upload_key` VARCHAR(36) NOT NULL COMMENT '上传批次key（UUID），用于关联未提交的附件',
   `feedback_id` BIGINT UNSIGNED COMMENT '关联的反馈ID（提交后填充）',
   `original_name` VARCHAR(255) NOT NULL COMMENT '原始文件名',
-  `file_data` LONGBLOB NOT NULL COMMENT '文件二进制数据',
+  `file_data` LONGBLOB COMMENT '文件二进制数据（deprecated: 新上传使用 file_path）',
+  `file_path` VARCHAR(500) COMMENT '文件存储路径（优先使用，为空时回退到 file_data）',
   `file_size` BIGINT UNSIGNED NOT NULL COMMENT '文件大小（字节）',
   `file_type` VARCHAR(20) NOT NULL COMMENT '文件类型: image=图片, file=文件',
   `mime_type` VARCHAR(100) NOT NULL COMMENT 'MIME类型',
@@ -1299,6 +1301,8 @@ CREATE TABLE IF NOT EXISTS `currency_transactions` (
   INDEX `idx_transaction_type` (`transaction_type`),
   INDEX `idx_biz_type` (`biz_type`),
   INDEX `idx_created_at` (`created_at`),
+  INDEX `idx_status_created` (`status`, `created_at`),
+  INDEX `idx_user_created` (`user_id`, `created_at`),
   CONSTRAINT `fk_transaction_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='货币交易流水表';
 
@@ -1471,7 +1475,8 @@ CREATE TABLE IF NOT EXISTS `usage_logs` (
   INDEX `idx_ip_address` (`ip_address`),
   INDEX `idx_created_at` (`created_at`),
   INDEX `idx_feature_created` (`feature_code`, `created_at`),
-  INDEX `idx_user_feature` (`user_id`, `feature_code`)
+  INDEX `idx_user_feature` (`user_id`, `feature_code`),
+  INDEX `idx_user_created` (`user_id`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='功能使用统计日志';
 
 -- 功能代码配置表（用于展示和统计）
@@ -1569,7 +1574,8 @@ CREATE TABLE IF NOT EXISTS `messages` (
   INDEX `idx_status` (`status`),
   INDEX `idx_send_at` (`send_at`),
   INDEX `idx_expire_at` (`expire_at`),
-  INDEX `idx_sender_id` (`sender_id`)
+  INDEX `idx_sender_id` (`sender_id`),
+  INDEX `idx_status_send_at` (`status`, `send_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='站内信主表';
 
 -- 用户消息状态表（记录每个用户的消息接收和阅读状态）
@@ -1675,12 +1681,10 @@ CREATE TABLE IF NOT EXISTS `currency_batch_distributions` (
 
 -- ============================================
 -- 功能配置默认数据
--- 每次执行先清空再插入，确保数据一致性
+-- 使用 INSERT IGNORE 保持幂等性，不覆盖管理员修改
 -- ============================================
 
--- 清空并重新初始化功能配置（17个功能追踪点）
-DELETE FROM feature_configs;
-INSERT INTO feature_configs (feature_code, feature_name, feature_group, description, sort_order) VALUES
+INSERT IGNORE INTO feature_configs (feature_code, feature_name, feature_group, description, sort_order) VALUES
 -- 用户类
 ('user_checkin', '每日签到', 'user', '用户每日签到功能', 1),
 -- 检索类
@@ -1826,7 +1830,7 @@ CREATE TABLE IF NOT EXISTS `latex_chat_messages` (
 -- Agent 工具权限表
 CREATE TABLE IF NOT EXISTS `agent_tool_permissions` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `user_id` INT UNSIGNED NOT NULL COMMENT '用户ID',
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
   `tool_name` VARCHAR(100) NOT NULL COMMENT '工具名称',
   `permission` ENUM('allow', 'ask', 'deny') NOT NULL DEFAULT 'ask' COMMENT '权限级别',
   `scope` ENUM('global', 'session') NOT NULL DEFAULT 'global' COMMENT '作用域',

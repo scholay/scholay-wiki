@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -547,11 +548,11 @@ func (s *Service) filterPapersWithAI(papers []map[string]interface{}, query Sear
 	}
 
 	if err := json.Unmarshal([]byte(content), &filterResult); err != nil {
-		fmt.Printf("[PeerReview] Failed to parse AI filter result: %v, content: %s\n", err, content[:min(200, len(content))])
+		log.Printf("[PeerReview] Failed to parse AI filter result: %v, content: %s\n", err, content[:min(200, len(content))])
 		return nil, err
 	}
 
-	fmt.Printf("[PeerReview] AI filter reason: %s\n", filterResult.FilterReason)
+	log.Printf("[PeerReview] AI filter reason: %s\n", filterResult.FilterReason)
 
 	// 根据选中的索引提取论文
 	selectedPapers := make([]map[string]interface{}, 0)
@@ -651,11 +652,11 @@ func (s *Service) callSemanticScholarSearchWithAIFilterNoWriter(queries []Search
 		// 1. 调用MCP检索
 		rawPapers, err := s.searchSingleQuery(q)
 		if err != nil {
-			fmt.Printf("[PeerReview] Search failed for %s: %v\n", q.ID, err)
+			log.Printf("[PeerReview] Search failed for %s: %v\n", q.ID, err)
 			continue
 		}
 
-		fmt.Printf("[PeerReview] Query '%s' returned %d papers\n", q.ID, len(rawPapers))
+		log.Printf("[PeerReview] Query '%s' returned %d papers\n", q.ID, len(rawPapers))
 
 		if len(rawPapers) == 0 {
 			continue
@@ -663,7 +664,7 @@ func (s *Service) callSemanticScholarSearchWithAIFilterNoWriter(queries []Search
 
 		// 2. 过滤掉没有摘要的论文
 		papersWithAbstract := s.filterPapersWithAbstract(rawPapers)
-		fmt.Printf("[PeerReview] After filtering papers without abstract: %d papers\n", len(papersWithAbstract))
+		log.Printf("[PeerReview] After filtering papers without abstract: %d papers\n", len(papersWithAbstract))
 
 		if len(papersWithAbstract) == 0 {
 			results[q.ID] = topN(rawPapers, 10)
@@ -676,12 +677,12 @@ func (s *Service) callSemanticScholarSearchWithAIFilterNoWriter(queries []Search
 		}
 		filteredPapers, err := s.filterPapersWithAI(papersWithAbstract, q, meta, modelLevel)
 		if err != nil {
-			fmt.Printf("[PeerReview] AI filter failed for %s: %v, using raw results\n", q.ID, err)
+			log.Printf("[PeerReview] AI filter failed for %s: %v, using raw results\n", q.ID, err)
 			results[q.ID] = topN(papersWithAbstract, 15)
 			continue
 		}
 
-		fmt.Printf("[PeerReview] After AI filtering: %d papers selected\n", len(filteredPapers))
+		log.Printf("[PeerReview] After AI filtering: %d papers selected\n", len(filteredPapers))
 		results[q.ID] = filteredPapers
 	}
 
@@ -793,8 +794,8 @@ func (s *Service) summarizeLiterature(ctx *LiteratureContext, meta *ManuscriptMe
 	var summary LiteratureSummary
 	if err := json.Unmarshal([]byte(content), &summary); err != nil {
 		// 记录原始内容便于调试
-		fmt.Printf("[PeerReview] Failed to parse summary JSON, content (first 500 chars): %s\n", content[:min(500, len(content))])
-		fmt.Printf("[PeerReview] JSON parse error: %v\n", err)
+		log.Printf("[PeerReview] Failed to parse summary JSON, content (first 500 chars): %s\n", content[:min(500, len(content))])
+		log.Printf("[PeerReview] JSON parse error: %v\n", err)
 		return nil, fmt.Errorf("failed to parse summary: %w", err)
 	}
 
@@ -830,7 +831,7 @@ func (s *Service) callAIWithContinuation(messages []ai.ChatMessage, level thirdp
 		fullContent.WriteString(content)
 		previousContent = content // 保存当前内容用于下一轮去重
 
-		fmt.Printf("[PeerReview] AI response chunk %d, length: %d, finish_reason: %s\n", i+1, len(content), finishReason)
+		log.Printf("[PeerReview] AI response chunk %d, length: %d, finish_reason: %s\n", i+1, len(content), finishReason)
 
 		// 如果正常结束（不是因为长度被截断），直接返回
 		if finishReason != "length" {
@@ -839,7 +840,7 @@ func (s *Service) callAIWithContinuation(messages []ai.ChatMessage, level thirdp
 
 		// 如果是因为长度被截断，需要续写
 		if i < maxContinuations {
-			fmt.Printf("[PeerReview] Response truncated, requesting continuation...\n")
+			log.Printf("[PeerReview] Response truncated, requesting continuation...\n")
 
 			// 构建续写请求：把当前的部分响应加入对话，让 AI 继续
 			currentMessages = append(currentMessages, ai.ChatMessage{
@@ -886,7 +887,7 @@ func (s *Service) callAIWithContinuationMultimodal(messages []ai.ChatMessage, le
 		fullContent.WriteString(content)
 		previousContent = content // 保存当前内容用于下一轮去重
 
-		fmt.Printf("[PeerReview] Multimodal AI response chunk %d, length: %d, finish_reason: %s\n", i+1, len(content), finishReason)
+		log.Printf("[PeerReview] Multimodal AI response chunk %d, length: %d, finish_reason: %s\n", i+1, len(content), finishReason)
 
 		// 如果正常结束（不是因为长度被截断），直接返回
 		if finishReason != "length" {
@@ -895,7 +896,7 @@ func (s *Service) callAIWithContinuationMultimodal(messages []ai.ChatMessage, le
 
 		// 如果是因为长度被截断，需要续写
 		if i < maxContinuations {
-			fmt.Printf("[PeerReview] Multimodal response truncated, requesting continuation...\n")
+			log.Printf("[PeerReview] Multimodal response truncated, requesting continuation...\n")
 
 			// 构建续写请求：把当前的部分响应加入对话，让 AI 继续
 			// 注意：续写请求不再包含文件，只需要文本
@@ -939,7 +940,7 @@ func removeOverlappingContent(previous, current string) string {
 			prefix := current[:overlapLen]
 			if suffix == prefix {
 				// 找到重叠部分，去除 current 开头的重复内容
-				fmt.Printf("[PeerReview] Detected overlap of %d chars, removing duplicate\n", overlapLen)
+				log.Printf("[PeerReview] Detected overlap of %d chars, removing duplicate\n", overlapLen)
 				return current[overlapLen:]
 			}
 		}
@@ -1021,7 +1022,7 @@ func removeRepeatedJSONKeys(previous, current string) string {
 				remaining := strings.TrimSpace(trimmedCurrent[i+1:])
 				if strings.HasPrefix(remaining, `"`) && !strings.Contains(previous, remaining[:strings.Index(remaining[1:], `"`)+2]) {
 					// 下一个 key 在 previous 中不存在，返回从这里开始
-					fmt.Printf("[PeerReview] Removed repeated JSON key: %s\n", firstKey)
+					log.Printf("[PeerReview] Removed repeated JSON key: %s\n", firstKey)
 					return trimmedCurrent[i:]
 				}
 			}

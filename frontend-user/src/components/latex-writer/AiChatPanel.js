@@ -78,7 +78,6 @@ const AiChatPanel = forwardRef(function AiChatPanel({
   const prevDocumentIdRef = useRef(documentId);
   useEffect(() => {
     if (documentId !== prevDocumentIdRef.current) {
-      console.log('[AiChatPanel] documentId changed, clearing local messages');
       setLocalMessages([]);
       setCurrentResponse('');
       setToolCalls([]);
@@ -98,7 +97,6 @@ const AiChatPanel = forwardRef(function AiChatPanel({
     // 如果本地没有消息，显示历史消息
     if (documentId && historyMessages.length > 0) {
       // 将历史消息转换为本地消息格式
-      console.log('[AiChatPanel] Rendering history messages:', historyMessages.length);
       return historyMessages.map(msg => {
         const thinkContent = msg.think_content || null;
         const replyContent = msg.reply_content || null;
@@ -108,20 +106,6 @@ const AiChatPanel = forwardRef(function AiChatPanel({
         // 获取思考时间和代码统计（如果后端有保存的话）
         const msgThinkingDuration = msg.thinking_duration || 0;
         const msgCodeStats = msg.code_stats || null;
-        
-        // 调试日志
-        if (msg.role === 'assistant') {
-          console.log('[AiChatPanel] Assistant message:', {
-            hasContent: !!msg.content,
-            contentLength: msg.content?.length,
-            hasStructured,
-            thinkContent: !!thinkContent,
-            replyContent: !!replyContent,
-            codeContent: !!codeContent,
-            thinkingDuration: msgThinkingDuration,
-            codeStats: msgCodeStats,
-          });
-        }
         
         return {
           role: msg.role,

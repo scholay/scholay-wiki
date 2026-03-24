@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -95,7 +96,7 @@ func (fc *FunctionCaller) ProcessToolCalls(ctx context.Context, toolCalls []ai.L
 		return nil, nil
 	}
 
-	fmt.Printf("[FunctionCaller] Processing %d tool calls\n", len(toolCalls))
+	log.Printf("[FunctionCaller] Processing %d tool calls\n", len(toolCalls))
 
 	results := make([]*ToolCallResult, len(toolCalls))
 	var wg sync.WaitGroup
@@ -167,7 +168,7 @@ func (fc *FunctionCaller) executeToolCall(ctx context.Context, call ai.LLMToolCa
 	}
 
 	// 4. 执行工具
-	fmt.Printf("[FunctionCaller] Executing tool: %s with args: %v\n", toolName, args)
+	log.Printf("[FunctionCaller] Executing tool: %s with args: %v\n", toolName, args)
 	
 	execResult, err := fc.registry.CallTool(ctx, toolName, args)
 	if err != nil {
@@ -193,7 +194,7 @@ func (fc *FunctionCaller) executeToolCall(ctx context.Context, call ai.LLMToolCa
 	result.Duration = time.Since(startTime)
 	fc.recordSuccess(toolName, result.Duration)
 
-	fmt.Printf("[FunctionCaller] Tool %s completed in %v\n", toolName, result.Duration)
+	log.Printf("[FunctionCaller] Tool %s completed in %v\n", toolName, result.Duration)
 	return result
 }
 
@@ -212,10 +213,10 @@ func (fc *FunctionCaller) ExecuteFunctionCallLoop(
 	messages := make([]ai.LLMMessage, len(initialMessages))
 	copy(messages, initialMessages)
 
-	fmt.Printf("[FunctionCaller] Starting function call loop with %d tools\n", len(tools))
+	log.Printf("[FunctionCaller] Starting function call loop with %d tools\n", len(tools))
 
 	for iteration := 0; iteration < config.MaxIterations; iteration++ {
-		fmt.Printf("[FunctionCaller] Iteration %d/%d\n", iteration+1, config.MaxIterations)
+		log.Printf("[FunctionCaller] Iteration %d/%d\n", iteration+1, config.MaxIterations)
 
 		// 1. 调用 LLM
 		llmReq := &ai.LLMRequest{
@@ -232,11 +233,11 @@ func (fc *FunctionCaller) ExecuteFunctionCallLoop(
 		// 2. 检查是否需要执行工具
 		if len(response.ToolCalls) == 0 {
 			// 没有工具调用，对话完成
-			fmt.Printf("[FunctionCaller] No tool calls, conversation complete\n")
+			log.Printf("[FunctionCaller] No tool calls, conversation complete\n")
 			return response, messages, nil
 		}
 
-		fmt.Printf("[FunctionCaller] LLM requested %d tool calls\n", len(response.ToolCalls))
+		log.Printf("[FunctionCaller] LLM requested %d tool calls\n", len(response.ToolCalls))
 
 		// 3. 添加助手消息（包含工具调用）
 		assistantMsg := ai.LLMMessage{

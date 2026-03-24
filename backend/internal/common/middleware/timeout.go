@@ -9,6 +9,7 @@ package middleware
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -80,10 +81,18 @@ func APITimeoutMiddleware() gin.HandlerFunc {
 		// Determine timeout based on endpoint
 		var timeout time.Duration
 
-		// Streaming endpoints need longer timeout
-		if c.GetHeader("Accept") == "text/event-stream" ||
-			c.Request.URL.Path == "/api/v1/conversation/messages/stream" ||
-			c.Request.URL.Path == "/api/v1/conversation/messages/advanced-search/stream" {
+		path := c.Request.URL.Path
+		isStreaming := c.GetHeader("Accept") == "text/event-stream" ||
+			strings.Contains(path, "/chat/stream") ||
+			strings.Contains(path, "/advanced-search") ||
+			strings.Contains(path, "/continue") ||
+			strings.Contains(path, "/task/stream") ||
+			strings.Contains(path, "/section/stream") ||
+			strings.Contains(path, "/translate/stream") ||
+			strings.Contains(path, "/watch") ||
+			strings.HasPrefix(path, "/api/v1/ws")
+
+		if isStreaming {
 			timeout = 5 * time.Minute // 5 minutes for streaming
 		} else if c.Request.Method == "POST" || c.Request.Method == "PUT" {
 			timeout = 30 * time.Second // 30 seconds for write operations

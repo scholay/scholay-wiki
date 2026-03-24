@@ -10,6 +10,7 @@ package latexwriter
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -89,7 +90,7 @@ func (ac *AutoCompactor) CheckAndCompact(
 	currentTokens := ac.estimateTokens(messages)
 	usageRatio := float64(currentTokens) / float64(maxContextTokens)
 
-	fmt.Printf("[AutoCompactor] Token usage: %d / %d (%.1f%%)\n", 
+	log.Printf("[AutoCompactor] Token usage: %d / %d (%.1f%%)\n", 
 		currentTokens, maxContextTokens, usageRatio*100)
 
 	// 2. 检查是否需要压缩
@@ -100,12 +101,12 @@ func (ac *AutoCompactor) CheckAndCompact(
 
 	// 3. 检查消息数量是否足够压缩
 	if len(messages) < ac.minMessages {
-		fmt.Printf("[AutoCompactor] Not enough messages to compact (%d < %d)\n", 
+		log.Printf("[AutoCompactor] Not enough messages to compact (%d < %d)\n", 
 			len(messages), ac.minMessages)
 		return messages, nil, nil
 	}
 
-	fmt.Printf("[AutoCompactor] Threshold reached (%.1f%% >= %.1f%%), starting compression...\n", 
+	log.Printf("[AutoCompactor] Threshold reached (%.1f%% >= %.1f%%), starting compression...\n", 
 		usageRatio*100, ac.threshold*100)
 
 	// 4. 执行压缩
@@ -182,7 +183,7 @@ func (ac *AutoCompactor) compact(ctx context.Context, messages []ai.LLMMessage) 
 	result.CompactedMessages = len(compactedMessages)
 	result.CompactedTokens = ac.estimateTokens(compactedMessages)
 
-	fmt.Printf("[AutoCompactor] Compression complete: %d -> %d messages, %d -> %d tokens\n",
+	log.Printf("[AutoCompactor] Compression complete: %d -> %d messages, %d -> %d tokens\n",
 		result.OriginalMessages, result.CompactedMessages,
 		result.OriginalTokens, result.CompactedTokens)
 
@@ -338,7 +339,7 @@ func (cm *EnhancedContextManager) PrepareContext(
 	compactedMessages, result, err := cm.compactor.CheckAndCompact(ctx, messages, cm.maxContextTokens)
 	if err != nil {
 		// 压缩失败，使用原始消息但记录警告
-		fmt.Printf("[ContextManager] Warning: compression failed: %v\n", err)
+		log.Printf("[ContextManager] Warning: compression failed: %v\n", err)
 		return messages, nil, nil
 	}
 
@@ -384,6 +385,6 @@ func (cm *EnhancedContextManager) TruncateToFit(messages []ai.LLMMessage) []ai.L
 		}
 	}
 
-	fmt.Printf("[ContextManager] Truncated messages from %d to %d\n", len(messages), len(result))
+	log.Printf("[ContextManager] Truncated messages from %d to %d\n", len(messages), len(result))
 	return result
 }

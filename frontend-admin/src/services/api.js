@@ -40,10 +40,11 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Unauthorized - clear token and redirect to login
       localStorage.removeItem('admin_token');
       localStorage.removeItem('admin_user');
-      window.location.href = '/login';
+      // Dispatch event so AuthContext can handle the state update cleanly
+      // instead of hard-reloading the page (which loses SPA state).
+      window.dispatchEvent(new CustomEvent('admin:auth:expired'));
     }
     return Promise.reject(error);
   }

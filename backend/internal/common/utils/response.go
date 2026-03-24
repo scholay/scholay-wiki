@@ -70,6 +70,30 @@ func BadRequest(c *gin.Context, message string) {
 	})
 }
 
+// Forbidden sends a 403 response
+func Forbidden(c *gin.Context, message string) {
+	c.JSON(http.StatusForbidden, Response{
+		Code:    403,
+		Message: message,
+	})
+}
+
+// TooManyRequests sends a 429 response
+func TooManyRequests(c *gin.Context, message string) {
+	c.JSON(http.StatusTooManyRequests, Response{
+		Code:    429,
+		Message: message,
+	})
+}
+
+// InternalError sends a 500 response
+func InternalError(c *gin.Context, message string) {
+	c.JSON(http.StatusInternalServerError, Response{
+		Code:    500,
+		Message: message,
+	})
+}
+
 // ErrorResponse sends an error response with custom status code
 func ErrorResponse(c *gin.Context, statusCode int, message string) {
 	c.JSON(statusCode, Response{

@@ -997,8 +997,9 @@ func (h *Handler) injectCodeSnippets(html string, snippets *model.CodeSnippetsGr
 	return result
 }
 
-// injectRouteNoscript replaces or appends route-specific noscript content
-// so each page has unique text content visible to crawlers that don't execute JS.
+// injectRouteNoscript injects route-specific SEO text into the #seo-fallback div.
+// The div uses display:none so JS-enabled browsers never render it;
+// a <noscript><style> override makes it visible when JS is unavailable.
 // This is critical for Google AdSense "low value content" compliance.
 func injectRouteNoscript(html string, path string) string {
 	routeContent := getRouteNoscriptContent(path)
@@ -1006,16 +1007,15 @@ func injectRouteNoscript(html string, path string) string {
 		return html
 	}
 
-	// Find existing noscript and append route-specific content BEFORE the closing </noscript>
-	noscriptEnd := "</noscript>"
-	insertBefore := `<p style="text-align: center; margin-top: 30px;`
-	if idx := strings.Index(html, insertBefore); idx > 0 {
-		// Insert route-specific section before the "enable JavaScript" message
+	// Insert before the #seo-js-notice paragraph inside #seo-fallback
+	marker := `<p id="seo-js-notice"`
+	if idx := strings.Index(html, marker); idx > 0 {
 		return html[:idx] + routeContent + "\n" + html[idx:]
 	}
 
-	// Fallback: insert before </noscript>
-	if idx := strings.Index(html, noscriptEnd); idx > 0 {
+	// Fallback: insert before closing </div> of #seo-fallback
+	fallbackEnd := `</div>` + "\n" + `    <noscript>`
+	if idx := strings.Index(html, fallbackEnd); idx > 0 {
 		return html[:idx] + routeContent + "\n" + html[idx:]
 	}
 

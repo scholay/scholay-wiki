@@ -107,7 +107,6 @@ class ToolManager {
         this.loaded = true;
         this.lastLoadTime = Date.now();
 
-        console.log(`[ToolManager] Loaded ${this.tools.size} tools`);
       }
 
       return this.getAllTools();
@@ -156,8 +155,6 @@ class ToolManager {
       throw new Error(`Tool not found: ${name}`);
     }
 
-    console.log(`[ToolManager] Calling tool: ${name}`, args);
-
     try {
       const response = await userAPI.callMCPTool(name, args);
       
@@ -165,7 +162,6 @@ class ToolManager {
         throw new Error(response.data.error || 'Tool call failed');
       }
 
-      console.log(`[ToolManager] Tool ${name} completed`);
       return response.data;
     } catch (error) {
       console.error(`[ToolManager] Tool ${name} failed:`, error);
@@ -177,8 +173,6 @@ class ToolManager {
    * 批量调用工具
    */
   async batchCallTools(calls) {
-    console.log(`[ToolManager] Batch calling ${calls.length} tools`);
-
     try {
       const response = await userAPI.batchCallMCPTools(calls);
       return response.data?.results || [];

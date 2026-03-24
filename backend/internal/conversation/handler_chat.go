@@ -13,6 +13,7 @@ import (
 	"log"
 	"net/http"
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/currency"
 	"strconv"
@@ -139,16 +140,17 @@ func (h *ChatHandler) StreamChatMessage(c *gin.Context) {
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no") // Disable nginx buffering
+	c.Header("X-Accel-Buffering", "no")
 
-	// Create context with timeout
+	hw := sse.NewHeartbeatWriter(c.Writer, 15*time.Second)
+	defer hw.Stop()
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
 	defer cancel()
 
 	// 2. 执行流式对话
-	if err := h.chatService.StreamChat(ctx, userID, req, c.Writer); err != nil {
+	if err := h.chatService.StreamChat(ctx, userID, req, hw); err != nil {
 		log.Printf("Stream chat error: %v", err)
-		// Error already sent via SSE, do not deduct
 		return
 	}
 
@@ -156,9 +158,8 @@ func (h *ChatHandler) StreamChatMessage(c *gin.Context) {
 	deductedAmount := h.deductForChatAfterSuccess(userID, modelLevel)
 
 	// 4. 发送扣费信息事件
-	deductEvent := fmt.Sprintf("data: {\"type\":\"deduct_info\",\"deducted_amount\":%d}\n\n", deductedAmount)
-	c.Writer.Write([]byte(deductEvent))
-	c.Writer.(http.Flusher).Flush()
+	hw.WriteString(fmt.Sprintf("data: {\"type\":\"deduct_info\",\"deducted_amount\":%d}\n\n", deductedAmount))
+	hw.Flush()
 
 	c.Status(http.StatusOK)
 }
@@ -200,10 +201,13 @@ func (h *ChatHandler) RegenerateMessage(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 
+	hw := sse.NewHeartbeatWriter(c.Writer, 15*time.Second)
+	defer hw.Stop()
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
 	defer cancel()
 
-	if err := h.chatService.RegenerateMessage(ctx, userID, messageID, c.Writer); err != nil {
+	if err := h.chatService.RegenerateMessage(ctx, userID, messageID, hw); err != nil {
 		log.Printf("Regenerate message error: %v", err)
 		return
 	}
@@ -237,10 +241,13 @@ func (h *ChatHandler) EditMessage(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 
+	hw := sse.NewHeartbeatWriter(c.Writer, 15*time.Second)
+	defer hw.Stop()
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
 	defer cancel()
 
-	if err := h.chatService.EditMessage(ctx, userID, messageID, req.Content, c.Writer); err != nil {
+	if err := h.chatService.EditMessage(ctx, userID, messageID, req.Content, hw); err != nil {
 		log.Printf("Edit message error: %v", err)
 		return
 	}

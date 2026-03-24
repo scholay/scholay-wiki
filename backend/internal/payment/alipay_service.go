@@ -17,6 +17,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"log"
 	"io"
 	"net/url"
 	"scholar-backend/internal/common/model"
@@ -120,8 +121,8 @@ func (s *AlipayService) VerifyCallback(params map[string]string) (bool, error) {
 	// Build sign content
 	signContent := s.buildSignContent(params)
 
-	fmt.Printf("[ALIPAY_VERIFY] Sign content: %s\n", signContent)
-	fmt.Printf("[ALIPAY_VERIFY] Sign to verify: %s...\n", sign[:50])
+	log.Printf("[ALIPAY_VERIFY] Sign content: %s\n", signContent)
+	log.Printf("[ALIPAY_VERIFY] Sign to verify: %s...\n", sign[:50])
 
 	// Verify signature
 	return s.verifySign(signContent, sign, config.AlipayPublicKey)
@@ -226,8 +227,8 @@ func (s *AlipayService) signParams(params map[string]string, privateKeyStr strin
 	signContent := s.buildSignContent(params)
 
 	// Debug: Print sign content and its length
-	fmt.Printf("🔐 Sign content (%d bytes): %s\n", len(signContent), signContent)
-	fmt.Printf("🔐 Sign content (first 100 chars): %s\n", signContent[:min(100, len(signContent))])
+	log.Printf("🔐 Sign content (%d bytes): %s\n", len(signContent), signContent)
+	log.Printf("🔐 Sign content (first 100 chars): %s\n", signContent[:min(100, len(signContent))])
 
 	// Parse private key
 	privateKey, err := s.parsePrivateKey(privateKeyStr)
@@ -239,7 +240,7 @@ func (s *AlipayService) signParams(params map[string]string, privateKeyStr strin
 	hash := sha256.New()
 	hash.Write([]byte(signContent))
 	hashed := hash.Sum(nil)
-	fmt.Printf("🔐 SHA256 hash: %x\n", hashed)
+	log.Printf("🔐 SHA256 hash: %x\n", hashed)
 
 	// Sign with RSA
 	signature, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, hashed)
@@ -249,7 +250,7 @@ func (s *AlipayService) signParams(params map[string]string, privateKeyStr strin
 
 	// Encode to base64
 	signStr := base64.StdEncoding.EncodeToString(signature)
-	fmt.Printf("🔐 Generated signature (%d chars): %s...\n", len(signStr), signStr[:min(50, len(signStr))])
+	log.Printf("🔐 Generated signature (%d chars): %s...\n", len(signStr), signStr[:min(50, len(signStr))])
 	return signStr, nil
 }
 
@@ -301,12 +302,12 @@ func (s *AlipayService) buildPaymentURL(gateway string, params map[string]string
 
 		// Debug: Show encoding
 		if params[k] != encodedValue {
-			fmt.Printf("🔗 URL encoding: %s = %s -> %s\n", k, params[k], encodedValue)
+			log.Printf("🔗 URL encoding: %s = %s -> %s\n", k, params[k], encodedValue)
 		}
 	}
 
 	fullURL := gateway + "?" + strings.Join(urlParams, "&")
-	fmt.Printf("🔗 Payment URL length: %d\n", len(fullURL))
+	log.Printf("🔗 Payment URL length: %d\n", len(fullURL))
 	return fullURL
 }
 

@@ -9,6 +9,7 @@ package payment
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
@@ -89,15 +90,15 @@ func (h *AlipayHandler) CreatePayment(c *gin.Context) {
 // POST /api/v1/payment/alipay/notify
 func (h *AlipayHandler) HandleCallback(c *gin.Context) {
 	// ========== [ALIPAY_CALLBACK_START] ==========
-	fmt.Printf("\n========== [ALIPAY_CALLBACK_START] Time: %s ==========\n", time.Now().Format("2006-01-02 15:04:05"))
-	fmt.Printf("[ALIPAY_CALLBACK] Remote IP: %s\n", c.ClientIP())
-	fmt.Printf("[ALIPAY_CALLBACK] User-Agent: %s\n", c.Request.UserAgent())
+	log.Printf("\n========== [ALIPAY_CALLBACK_START] Time: %s ==========\n", time.Now().Format("2006-01-02 15:04:05"))
+	log.Printf("[ALIPAY_CALLBACK] Remote IP: %s\n", c.ClientIP())
+	log.Printf("[ALIPAY_CALLBACK] User-Agent: %s\n", c.Request.UserAgent())
 
 	// Parse callback parameters
 	params := make(map[string]string)
 	if err := c.Request.ParseForm(); err != nil {
-		fmt.Printf("[ALIPAY_CALLBACK_ERROR] Failed to parse form: %v\n", err)
-		fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: PARSE_FAILED ==========\n\n")
+		log.Printf("[ALIPAY_CALLBACK_ERROR] Failed to parse form: %v\n", err)
+		log.Printf("========== [ALIPAY_CALLBACK_END] Result: PARSE_FAILED ==========\n\n")
 		c.String(400, "fail")
 		return
 	}
@@ -109,25 +110,25 @@ func (h *AlipayHandler) HandleCallback(c *gin.Context) {
 	}
 
 	// Log all received parameters
-	fmt.Printf("[ALIPAY_CALLBACK] Received %d parameters:\n", len(params))
+	log.Printf("[ALIPAY_CALLBACK] Received %d parameters:\n", len(params))
 	for k, v := range params {
 		if k == "sign" {
-			fmt.Printf("  - %s: %s...(truncated)\n", k, v[:50])
+			log.Printf("  - %s: %s...(truncated)\n", k, v[:50])
 		} else {
-			fmt.Printf("  - %s: %s\n", k, v)
+			log.Printf("  - %s: %s\n", k, v)
 		}
 	}
 
 	// Verify signature
-	fmt.Printf("[ALIPAY_CALLBACK] Verifying signature...\n")
+	log.Printf("[ALIPAY_CALLBACK] Verifying signature...\n")
 	valid, err := h.alipayService.VerifyCallback(params)
 	if err != nil || !valid {
-		fmt.Printf("[ALIPAY_CALLBACK_ERROR] Signature verification failed: %v\n", err)
-		fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: VERIFY_FAILED ==========\n\n")
+		log.Printf("[ALIPAY_CALLBACK_ERROR] Signature verification failed: %v\n", err)
+		log.Printf("========== [ALIPAY_CALLBACK_END] Result: VERIFY_FAILED ==========\n\n")
 		c.String(400, "fail")
 		return
 	}
-	fmt.Printf("[ALIPAY_CALLBACK] Signature verified successfully ✓\n")
+	log.Printf("[ALIPAY_CALLBACK] Signature verified successfully ✓\n")
 
 	// Extract payment information
 	orderNo := params["out_trade_no"]
@@ -135,27 +136,27 @@ func (h *AlipayHandler) HandleCallback(c *gin.Context) {
 	tradeStatus := params["trade_status"]
 	totalAmount := params["total_amount"]
 
-	fmt.Printf("[ALIPAY_CALLBACK] Payment Info:\n")
-	fmt.Printf("  - Order No: %s\n", orderNo)
-	fmt.Printf("  - Trade No: %s\n", tradeNo)
-	fmt.Printf("  - Trade Status: %s\n", tradeStatus)
-	fmt.Printf("  - Total Amount: %s\n", totalAmount)
+	log.Printf("[ALIPAY_CALLBACK] Payment Info:\n")
+	log.Printf("  - Order No: %s\n", orderNo)
+	log.Printf("  - Trade No: %s\n", tradeNo)
+	log.Printf("  - Trade Status: %s\n", tradeStatus)
+	log.Printf("  - Total Amount: %s\n", totalAmount)
 
 	// Check trade status
 	if tradeStatus == "TRADE_SUCCESS" || tradeStatus == "TRADE_FINISHED" {
-		fmt.Printf("[ALIPAY_CALLBACK] Processing successful payment...\n")
+		log.Printf("[ALIPAY_CALLBACK] Processing successful payment...\n")
 		// Process successful payment with complete callback data
 		if err := h.processSuccessfulPayment(orderNo, tradeNo, totalAmount, params); err != nil {
-			fmt.Printf("[ALIPAY_CALLBACK_ERROR] Failed to process payment: %v\n", err)
-			fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: PROCESS_FAILED ==========\n\n")
+			log.Printf("[ALIPAY_CALLBACK_ERROR] Failed to process payment: %v\n", err)
+			log.Printf("========== [ALIPAY_CALLBACK_END] Result: PROCESS_FAILED ==========\n\n")
 			c.String(500, "fail")
 			return
 		}
-		fmt.Printf("[ALIPAY_CALLBACK] Payment processed successfully ✓\n")
-		fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: SUCCESS ==========\n\n")
+		log.Printf("[ALIPAY_CALLBACK] Payment processed successfully ✓\n")
+		log.Printf("========== [ALIPAY_CALLBACK_END] Result: SUCCESS ==========\n\n")
 	} else {
-		fmt.Printf("[ALIPAY_CALLBACK] Trade status is %s, not processing\n", tradeStatus)
-		fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: STATUS_IGNORED ==========\n\n")
+		log.Printf("[ALIPAY_CALLBACK] Trade status is %s, not processing\n", tradeStatus)
+		log.Printf("========== [ALIPAY_CALLBACK_END] Result: STATUS_IGNORED ==========\n\n")
 	}
 
 	// Return success response to Alipay
@@ -172,7 +173,7 @@ func (h *AlipayHandler) processSuccessfulPayment(orderNo, transactionNo, amountS
 
 	// Check if already processed
 	if orderRecord.Status == "paid" {
-		fmt.Printf("✓ Order %s already processed\n", orderNo)
+		log.Printf("✓ Order %s already processed\n", orderNo)
 		return nil
 	}
 
@@ -193,7 +194,7 @@ func (h *AlipayHandler) processSuccessfulPayment(orderNo, transactionNo, amountS
 		return fmt.Errorf("failed to process payment: %w", err)
 	}
 
-	fmt.Printf("✓ Payment processed successfully for order %s\n", orderNo)
+	log.Printf("✓ Payment processed successfully for order %s\n", orderNo)
 	return nil
 }
 
@@ -466,20 +467,20 @@ func (h *AlipayHandler) SimulatePayment(c *gin.Context) {
 	}
 
 	// Process the simulated payment
-	fmt.Printf("\n========== [SIMULATE_PAYMENT_START] Time: %s ==========\n", time.Now().Format("2006-01-02 15:04:05"))
-	fmt.Printf("[SIMULATE_PAYMENT] Order No: %s\n", req.OrderNo)
-	fmt.Printf("[SIMULATE_PAYMENT] Amount: %.2f\n", req.Amount)
-	fmt.Printf("[SIMULATE_PAYMENT] Mock Transaction No: %s\n", mockTransactionNo)
+	log.Printf("\n========== [SIMULATE_PAYMENT_START] Time: %s ==========\n", time.Now().Format("2006-01-02 15:04:05"))
+	log.Printf("[SIMULATE_PAYMENT] Order No: %s\n", req.OrderNo)
+	log.Printf("[SIMULATE_PAYMENT] Amount: %.2f\n", req.Amount)
+	log.Printf("[SIMULATE_PAYMENT] Mock Transaction No: %s\n", mockTransactionNo)
 
 	if err := h.orderService.ProcessAlipayCallback(req.OrderNo, mockTransactionNo, req.Amount, mockCallbackData); err != nil {
-		fmt.Printf("[SIMULATE_PAYMENT_ERROR] Failed to process: %v\n", err)
-		fmt.Printf("========== [SIMULATE_PAYMENT_END] Result: FAILED ==========\n\n")
+		log.Printf("[SIMULATE_PAYMENT_ERROR] Failed to process: %v\n", err)
+		log.Printf("========== [SIMULATE_PAYMENT_END] Result: FAILED ==========\n\n")
 		utils.Error(c, 5000, "Failed to simulate payment: "+err.Error())
 		return
 	}
 
-	fmt.Printf("[SIMULATE_PAYMENT] Payment processed successfully ✓\n")
-	fmt.Printf("========== [SIMULATE_PAYMENT_END] Result: SUCCESS ==========\n\n")
+	log.Printf("[SIMULATE_PAYMENT] Payment processed successfully ✓\n")
+	log.Printf("========== [SIMULATE_PAYMENT_END] Result: SUCCESS ==========\n\n")
 
 	utils.Success(c, gin.H{
 		"message":        "Payment simulated successfully",

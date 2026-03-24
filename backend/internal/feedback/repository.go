@@ -144,7 +144,7 @@ func (r *Repository) GetAttachmentsByUploadKey(uploadKey string) ([]FeedbackAtta
 func (r *Repository) GetAttachmentsByFeedbackID(feedbackID uint) ([]FeedbackAttachment, error) {
 	var attachments []FeedbackAttachment
 	// 不查询 file_data 字段以提高性能
-	err := r.db.Select("id, upload_key, feedback_id, original_name, file_size, file_type, mime_type, is_used, created_at, updated_at").
+	err := r.db.Select("id, upload_key, feedback_id, original_name, file_path, file_size, file_type, mime_type, is_used, created_at, updated_at").
 		Where("feedback_id = ?", feedbackID).Find(&attachments).Error
 	return attachments, err
 }

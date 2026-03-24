@@ -9,6 +9,8 @@ package middleware
 
 import (
 	"context"
+	"fmt"
+	"scholar-backend/internal/common/utils"
 	"sync"
 	"time"
 
@@ -192,15 +194,10 @@ func RateLimitMiddleware(maxRequests int, windowSize time.Duration) gin.HandlerF
 	rl.StartCleanup(5 * time.Minute)
 
 	return func(c *gin.Context) {
-		// Use IP address as key
 		key := c.ClientIP()
 
 		if !rl.Allow(key) {
-			c.JSON(429, gin.H{
-				"code":    429,
-				"message": "Too many requests",
-				"error":   "Rate limit exceeded. Please slow down your requests.",
-			})
+			utils.TooManyRequests(c, "Too many requests, please slow down")
 			c.Abort()
 			return
 		}
@@ -226,7 +223,7 @@ func UserRateLimitMiddleware(maxRequests int, windowSize time.Duration) gin.Hand
 			case string:
 				key = v
 			case uint:
-				key = string(rune(v))
+				key = fmt.Sprintf("user:%d", v)
 			default:
 				key = c.ClientIP()
 			}
@@ -236,11 +233,7 @@ func UserRateLimitMiddleware(maxRequests int, windowSize time.Duration) gin.Hand
 		}
 
 		if !rl.Allow(key) {
-			c.JSON(429, gin.H{
-				"code":    429,
-				"message": "Too many requests",
-				"error":   "Rate limit exceeded. Please slow down your requests.",
-			})
+			utils.TooManyRequests(c, "Too many requests, please slow down")
 			c.Abort()
 			return
 		}

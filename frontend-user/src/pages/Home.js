@@ -52,6 +52,15 @@ const Home = () => {
   const composerRef = useRef(null); // 用于定位搜索建议下拉框
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
   
+  // 延迟显示底部 SEO 内容，避免首屏闪烁
+  const [seoVisible, setSeoVisible] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      setSeoVisible(true);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   // 任务历史状态
   const [taskHistory, setTaskHistory] = useState([]);
   const [taskHistoryLoading, setTaskHistoryLoading] = useState(false);
@@ -684,8 +693,8 @@ const Home = () => {
         </div>
       </div>
 
-      {/* 平台能力 - 平铺展示，所有内容对爬虫可见 */}
-      <div className="home-about-flow">
+      {/* 平台能力 - 延迟显示避免首屏闪烁，内容仍在 DOM 中供爬虫索引 */}
+      <div className={`home-about-flow${seoVisible ? ' home-seo-visible' : ''}`}>
         {/* 核心数据 */}
         <div className="home-flow-stats">
           <div className="home-flow-stat">
@@ -787,7 +796,7 @@ const Home = () => {
       />
 
       {/* 用户评价 - EEAT 信号 */}
-      <div className="home-testimonials-section">
+      <div className={`home-testimonials-section${seoVisible ? ' home-seo-visible' : ''}`}>
         <h3 className="home-flow-section-title">来自研究者的反馈</h3>
         <div className="home-testimonials-grid">
           <div className="home-testimonial-card">
@@ -815,7 +824,7 @@ const Home = () => {
       </div>
 
       {/* 底部资源 + 导航 */}
-      <div className="home-bottom-section">
+      <div className={`home-bottom-section${seoVisible ? ' home-seo-visible' : ''}`}>
         <div className="home-bottom-resources">
           <div className="home-bottom-res-col">
             <h4>学术资源</h4>

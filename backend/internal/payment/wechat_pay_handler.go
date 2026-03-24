@@ -9,6 +9,7 @@ package payment
 
 import (
 	"fmt"
+	"log"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/order"
 	"strconv"
@@ -142,12 +143,12 @@ func (h *WeChatPayHandler) CreatePayment(c *gin.Context) {
 	var req WeChatPaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		// Log the detailed error for debugging
-		fmt.Printf("[WECHAT_PAY] Request binding error: %v\n", err)
+		log.Printf("[WECHAT_PAY] Request binding error: %v\n", err)
 		utils.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
 
-	fmt.Printf("[WECHAT_PAY] Creating payment - OrderNo: %s, Amount: %.2f\n", req.OrderNo, req.Amount)
+	log.Printf("[WECHAT_PAY] Creating payment - OrderNo: %s, Amount: %.2f\n", req.OrderNo, req.Amount)
 
 	// Get user ID from context
 	userID, exists := c.Get("user_id")
@@ -212,11 +213,11 @@ func (h *WeChatPayHandler) HandleNotify(c *gin.Context) {
 	}
 
 	// 打印回调日志
-	fmt.Printf("\n========== [WECHAT_PAY_CALLBACK] Time: %s ==========\n", time.Now().Format("2006-01-02 15:04:05"))
-	fmt.Printf("[WECHAT_PAY] Order No: %s\n", decrypted.OutTradeNo)
-	fmt.Printf("[WECHAT_PAY] Transaction ID: %s\n", decrypted.TransactionID)
-	fmt.Printf("[WECHAT_PAY] Amount: %d (分)\n", decrypted.Amount.Total)
-	fmt.Printf("[WECHAT_PAY] Trade State: %s\n", decrypted.TradeState)
+	log.Printf("\n========== [WECHAT_PAY_CALLBACK] Time: %s ==========\n", time.Now().Format("2006-01-02 15:04:05"))
+	log.Printf("[WECHAT_PAY] Order No: %s\n", decrypted.OutTradeNo)
+	log.Printf("[WECHAT_PAY] Transaction ID: %s\n", decrypted.TransactionID)
+	log.Printf("[WECHAT_PAY] Amount: %d (分)\n", decrypted.Amount.Total)
+	log.Printf("[WECHAT_PAY] Trade State: %s\n", decrypted.TradeState)
 
 	// 转换金额为元（微信支付金额以分为单位）
 	amountInYuan := float64(decrypted.Amount.Total) / 100.0
@@ -245,13 +246,13 @@ func (h *WeChatPayHandler) HandleNotify(c *gin.Context) {
 		callbackData,
 	)
 	if err != nil {
-		fmt.Printf("[WECHAT_PAY_ERROR] Failed to process payment: %v\n", err)
+		log.Printf("[WECHAT_PAY_ERROR] Failed to process payment: %v\n", err)
 		utils.Error(c, 3009, "Failed to process payment: "+err.Error())
 		return
 	}
 
-	fmt.Printf("[WECHAT_PAY] Payment processed successfully\n")
-	fmt.Printf("========== [WECHAT_PAY_CALLBACK_END] ==========\n\n")
+	log.Printf("[WECHAT_PAY] Payment processed successfully\n")
+	log.Printf("========== [WECHAT_PAY_CALLBACK_END] ==========\n\n")
 
 	// 返回成功响应给微信
 	c.JSON(200, gin.H{

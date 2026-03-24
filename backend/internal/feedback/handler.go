@@ -12,7 +12,10 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -23,14 +26,21 @@ import (
 
 // Handler 反馈处理器
 type Handler struct {
-	service *Service
+	service    *Service
+	uploadPath string
 }
 
 // NewHandler 创建反馈处理器
 func NewHandler(service *Service, uploadPath string) *Handler {
 	handler := &Handler{
-		service: service,
+		service:    service,
+		uploadPath: uploadPath,
 	}
+
+	if handler.uploadPath == "" {
+		handler.uploadPath = "./uploads"
+	}
+	_ = os.MkdirAll(filepath.Join(handler.uploadPath, "feedback"), 0o755)
 
 	// 启动定时清理未使用附件的任务
 	go handler.startCleanupTask()
@@ -221,7 +231,7 @@ func (h *Handler) UploadAttachments(c *gin.Context) {
 		}
 		defer file.Close()
 
-		// 读取整个文件到内存
+		// 读取文件用于 MIME 检测和落盘
 		fileData, err := io.ReadAll(file)
 		if err != nil {
 			utils.Error(c, 5003, "读取文件失败")
@@ -260,11 +270,20 @@ func (h *Handler) UploadAttachments(c *gin.Context) {
 			fileType = "image"
 		}
 
-		// 保存到数据库
+		ext := filepath.Ext(fileHeader.Filename)
+		storedName := fmt.Sprintf("%d_%s%s", time.Now().UnixNano(), uuid.New().String(), ext)
+		relativePath := filepath.Join("feedback", storedName)
+		absolutePath := filepath.Join(h.uploadPath, relativePath)
+		if err := os.WriteFile(absolutePath, fileData, 0o644); err != nil {
+			utils.Error(c, 5007, "保存文件失败")
+			return
+		}
+
+		// 保存到数据库（路径优先；file_data 用于旧数据兼容）
 		attachment := &FeedbackAttachment{
 			UploadKey:    uploadKey,
 			OriginalName: fileHeader.Filename,
-			FileData:     fileData,
+			FilePath:     "/" + strings.ReplaceAll(relativePath, "\\", "/"),
 			FileSize:     fileHeader.Size,
 			FileType:     fileType,
 			MimeType:     contentType,
@@ -321,7 +340,21 @@ func (h *Handler) GetAttachment(c *gin.Context) {
 		c.Header("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", attachment.OriginalName))
 	}
 
-	// 写入文件数据
+	// 优先读取磁盘文件（新上传）；兼容旧数据回退读取 file_data
+	if attachment.FilePath != "" {
+		relativePath := strings.TrimPrefix(attachment.FilePath, "/")
+		absolutePath := filepath.Join(h.uploadPath, relativePath)
+		data, readErr := os.ReadFile(absolutePath)
+		if readErr == nil {
+			c.Data(http.StatusOK, attachment.MimeType, data)
+			return
+		}
+	}
+
+	if len(attachment.FileData) == 0 {
+		utils.Error(c, 5001, "附件文件不存在")
+		return
+	}
 	c.Data(http.StatusOK, attachment.MimeType, attachment.FileData)
 }
 
@@ -435,10 +468,19 @@ func (h *Handler) DeleteFeedback(c *gin.Context) {
 	}
 
 	// 删除反馈及其附件记录（附件数据在数据库中，会级联删除）
-	_, err = h.service.DeleteFeedbackWithAttachments(uint(id))
+	attachments, err := h.service.DeleteFeedbackWithAttachments(uint(id))
 	if err != nil {
 		utils.Error(c, 5001, "删除反馈失败: "+err.Error())
 		return
+	}
+
+	for _, att := range attachments {
+		if att.FilePath == "" {
+			continue
+		}
+		relativePath := strings.TrimPrefix(att.FilePath, "/")
+		absolutePath := filepath.Join(h.uploadPath, relativePath)
+		_ = os.Remove(absolutePath)
 	}
 
 	utils.Success(c, nil)

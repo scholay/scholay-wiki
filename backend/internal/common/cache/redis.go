@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -41,7 +42,7 @@ func InitRedis(host string, port string, password string, db int) error {
 		return fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
-	fmt.Printf("✓ Redis connected successfully at %s\n", addr)
+	log.Printf("Redis connected successfully at %s", addr)
 	return nil
 }
 
@@ -137,7 +138,7 @@ func GetOrSet(ctx context.Context, key string, expiration time.Duration, fetch f
 	// Store in cache
 	if err := Set(ctx, key, value, expiration); err != nil {
 		// Log error but don't fail the request
-		fmt.Printf("Warning: failed to cache value for key %s: %v\n", key, err)
+		log.Printf("Warning: failed to cache value for key %s: %v", key, err)
 	}
 
 	// Marshal and unmarshal to populate result

@@ -12,6 +12,7 @@ package conversation
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"sync"
@@ -73,7 +74,7 @@ func (s *Service) FilterRelevantPapers(papers []map[string]interface{}, userQuer
 	
 	// 如果论文数量超过 batchSize，分批处理
 	if len(papers) > batchSize {
-		fmt.Printf("[DEBUG] 论文数量 %d 超过批次大小 %d，分批筛选\n", len(papers), batchSize)
+		log.Printf("[DEBUG] 论文数量 %d 超过批次大小 %d，分批筛选\n", len(papers), batchSize)
 		return s.filterPapersInBatches(papers, userQuery, maxPapers, batchSize)
 	}
 
@@ -93,7 +94,7 @@ type ScoredPaper struct {
 func (s *Service) filterPapersInBatches(papers []map[string]interface{}, userQuery string, maxPapers int, batchSize int) ([]map[string]interface{}, error) {
 	totalBatches := (len(papers) + batchSize - 1) / batchSize
 	
-	fmt.Printf("[DEBUG] 分批评分(并行): 共 %d 篇论文，分 %d 批处理\n", len(papers), totalBatches)
+	log.Printf("[DEBUG] 分批评分(并行): 共 %d 篇论文，分 %d 批处理\n", len(papers), totalBatches)
 	startTime := time.Now()
 	
 	// 准备批次
@@ -136,7 +137,7 @@ func (s *Service) filterPapersInBatches(papers []map[string]interface{}, userQue
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
 			
-			fmt.Printf("[DEBUG] 评分第 %d/%d 批 (%d 篇) [并行]\n", b.batchNum, totalBatches, len(b.papers))
+			log.Printf("[DEBUG] 评分第 %d/%d 批 (%d 篇) [并行]\n", b.batchNum, totalBatches, len(b.papers))
 			
 			scoredPapers, err := s.scoreSingleBatch(b.papers, userQuery)
 			resultChan <- batchResult{
@@ -157,15 +158,15 @@ func (s *Service) filterPapersInBatches(papers []map[string]interface{}, userQue
 	var allScoredPapers []ScoredPaper
 	for result := range resultChan {
 		if result.err != nil {
-			fmt.Printf("[DEBUG] 第 %d 批评分失败: %v\n", result.batchNum, result.err)
+			log.Printf("[DEBUG] 第 %d 批评分失败: %v\n", result.batchNum, result.err)
 			continue
 		}
-		fmt.Printf("[DEBUG] 第 %d 批评分完成: %d 篇论文获得评分\n", result.batchNum, len(result.papers))
+		log.Printf("[DEBUG] 第 %d 批评分完成: %d 篇论文获得评分\n", result.batchNum, len(result.papers))
 		allScoredPapers = append(allScoredPapers, result.papers...)
 	}
 	
 	parallelDuration := time.Since(startTime)
-	fmt.Printf("[DEBUG] 所有批次评分完成: 共 %d 篇论文获得评分, 耗时 %.2f 秒\n", len(allScoredPapers), parallelDuration.Seconds())
+	log.Printf("[DEBUG] 所有批次评分完成: 共 %d 篇论文获得评分, 耗时 %.2f 秒\n", len(allScoredPapers), parallelDuration.Seconds())
 	
 	// 第二阶段：按分数排序
 	sort.Slice(allScoredPapers, func(i, j int) bool {
@@ -189,13 +190,13 @@ func (s *Service) filterPapersInBatches(papers []map[string]interface{}, userQue
 		}
 	}
 	
-	fmt.Printf("[DEBUG] 分批筛选完成: 从 %d 篇评分论文中选出 %d 篇 (score >= 5)\n", len(allScoredPapers), len(result))
+	log.Printf("[DEBUG] 分批筛选完成: 从 %d 篇评分论文中选出 %d 篇 (score >= 5)\n", len(allScoredPapers), len(result))
 	
 	// 打印前5篇的评分详情
 	for i := 0; i < len(result) && i < 5; i++ {
 		score := result[i]["_relevanceScore"]
 		reason := result[i]["_relevanceReason"]
-		fmt.Printf("[DEBUG]   Top %d: score=%v, reason=%v\n", i+1, score, reason)
+		log.Printf("[DEBUG]   Top %d: score=%v, reason=%v\n", i+1, score, reason)
 	}
 	
 	return result, nil
@@ -404,7 +405,7 @@ func (s *Service) filterSingleBatch(papers []map[string]interface{}, userQuery s
 
 	response, err := s.aiService.ChatCompletionWithLevel(messages, thirdparty.ModelLevelLow)
 	if err != nil {
-		fmt.Printf("[WARN] AI filtering failed, returning all papers: %v\n", err)
+		log.Printf("[WARN] AI filtering failed, returning all papers: %v\n", err)
 		// 如果AI筛选失败，返回原始论文（限制数量）
 		if len(papers) > maxPapers {
 			return papers[:maxPapers], nil
@@ -414,7 +415,7 @@ func (s *Service) filterSingleBatch(papers []map[string]interface{}, userQuery s
 
 	// 解析AI返回的结构化JSON
 	if response == "" {
-		fmt.Printf("[WARN] AI returned empty response, returning all papers\n")
+		log.Printf("[WARN] AI returned empty response, returning all papers\n")
 		if len(papers) > maxPapers {
 			return papers[:maxPapers], nil
 		}
@@ -426,7 +427,7 @@ func (s *Service) filterSingleBatch(papers []map[string]interface{}, userQuery s
 	startIdx := strings.Index(content, "{")
 	endIdx := strings.LastIndex(content, "}")
 	if startIdx == -1 || endIdx == -1 || startIdx >= endIdx {
-		fmt.Printf("[WARN] AI response not valid JSON object: %s\n", content)
+		log.Printf("[WARN] AI response not valid JSON object: %s\n", content)
 		// 尝试兼容旧格式（纯数组）
 		return s.parseOldFormatResponse(content, papers, maxPapers)
 	}
@@ -445,7 +446,7 @@ func (s *Service) filterSingleBatch(papers []map[string]interface{}, userQuery s
 	
 	var filterResp FilterResponse
 	if err := json.Unmarshal([]byte(jsonContent), &filterResp); err != nil {
-		fmt.Printf("[WARN] Failed to parse AI response as structured JSON: %v, content: %s\n", err, jsonContent)
+		log.Printf("[WARN] Failed to parse AI response as structured JSON: %v, content: %s\n", err, jsonContent)
 		// 尝试兼容旧格式
 		return s.parseOldFormatResponse(content, papers, maxPapers)
 	}
@@ -466,14 +467,14 @@ func (s *Service) filterSingleBatch(papers []map[string]interface{}, userQuery s
 		}
 	}
 
-	fmt.Printf("[DEBUG] AI scored and filtered %d papers from %d candidates (score >= 5)\n", len(selectedPapers), len(papersToFilter))
+	log.Printf("[DEBUG] AI scored and filtered %d papers from %d candidates (score >= 5)\n", len(selectedPapers), len(papersToFilter))
 	
 	// 打印前5篇的评分详情
 	for i, ps := range filterResp.Papers {
 		if i >= 5 {
 			break
 		}
-		fmt.Printf("[DEBUG]   #%d: index=%d, score=%d, reason=%s\n", i+1, ps.Index, ps.Score, ps.Reason)
+		log.Printf("[DEBUG]   #%d: index=%d, score=%d, reason=%s\n", i+1, ps.Index, ps.Score, ps.Reason)
 	}
 	
 	return selectedPapers, nil
@@ -484,7 +485,7 @@ func (s *Service) parseOldFormatResponse(content string, papers []map[string]int
 	startIdx := strings.Index(content, "[")
 	endIdx := strings.LastIndex(content, "]")
 	if startIdx == -1 || endIdx == -1 || startIdx >= endIdx {
-		fmt.Printf("[WARN] AI response not valid JSON array either: %s\n", content)
+		log.Printf("[WARN] AI response not valid JSON array either: %s\n", content)
 		if len(papers) > maxPapers {
 			return papers[:maxPapers], nil
 		}
@@ -494,7 +495,7 @@ func (s *Service) parseOldFormatResponse(content string, papers []map[string]int
 	jsonContent := content[startIdx : endIdx+1]
 	var selectedIndices []int
 	if err := json.Unmarshal([]byte(jsonContent), &selectedIndices); err != nil {
-		fmt.Printf("[WARN] Failed to parse AI response as JSON array: %v, content: %s\n", err, jsonContent)
+		log.Printf("[WARN] Failed to parse AI response as JSON array: %v, content: %s\n", err, jsonContent)
 		if len(papers) > maxPapers {
 			return papers[:maxPapers], nil
 		}
@@ -511,7 +512,7 @@ func (s *Service) parseOldFormatResponse(content string, papers []map[string]int
 		}
 	}
 
-	fmt.Printf("[DEBUG] AI filtered %d papers from %d candidates (old format)\n", len(selectedPapers), len(papers))
+	log.Printf("[DEBUG] AI filtered %d papers from %d candidates (old format)\n", len(selectedPapers), len(papers))
 	return selectedPapers, nil
 }
 
@@ -523,7 +524,7 @@ func (s *Service) SearchAndFilterPapers(
 	userQuery string,
 	config PaperFilterConfig,
 ) (*PaperFilterResult, error) {
-	fmt.Printf("[PARALLEL-DEBUG] Bulk通道: 开始搜索，目标筛选 %d 篇，最大获取 %d 篇\n", 
+	log.Printf("[PARALLEL-DEBUG] Bulk通道: 开始搜索，目标筛选 %d 篇，最大获取 %d 篇\n", 
 		config.TargetRelevantPapers, config.MaxTotalPapers)
 
 	var allPapersWithAbstract []map[string]interface{}
@@ -546,20 +547,20 @@ func (s *Service) SearchAndFilterPapers(
 	for pagesUsed < config.MaxPagesPerSearch {
 		// 检查停止条件1：筛选后论文已达到目标
 		if len(allRelevantPapers) >= config.TargetRelevantPapers {
-			fmt.Printf("[PARALLEL-DEBUG] Bulk通道: 筛选后论文已达到目标 (%d >= %d)，停止分页\n",
+			log.Printf("[PARALLEL-DEBUG] Bulk通道: 筛选后论文已达到目标 (%d >= %d)，停止分页\n",
 				len(allRelevantPapers), config.TargetRelevantPapers)
 			break
 		}
 
 		// 检查停止条件2：总获取论文已达到最大值
 		if totalFetched >= config.MaxTotalPapers {
-			fmt.Printf("[PARALLEL-DEBUG] Bulk通道: 总获取论文已达到最大值 (%d >= %d)，停止分页\n",
+			log.Printf("[PARALLEL-DEBUG] Bulk通道: 总获取论文已达到最大值 (%d >= %d)，停止分页\n",
 				totalFetched, config.MaxTotalPapers)
 			break
 		}
 
 		pagesUsed++
-		fmt.Printf("[PARALLEL-DEBUG] Bulk通道: 获取第 %d 页...\n", pagesUsed)
+		log.Printf("[PARALLEL-DEBUG] Bulk通道: 获取第 %d 页...\n", pagesUsed)
 
 		// 设置分页token
 		if currentToken != "" {
@@ -574,7 +575,7 @@ func (s *Service) SearchAndFilterPapers(
 
 		papers, total, nextToken, err := s.executeMCPToolCallWithToken(mcpServer, toolRequest)
 		if err != nil {
-			fmt.Printf("[PARALLEL-DEBUG] Bulk通道: MCP调用失败 (第 %d 页): %v\n", pagesUsed, err)
+			log.Printf("[PARALLEL-DEBUG] Bulk通道: MCP调用失败 (第 %d 页): %v\n", pagesUsed, err)
 			break
 		}
 
@@ -583,19 +584,19 @@ func (s *Service) SearchAndFilterPapers(
 		}
 		totalFetched += len(papers)
 
-		fmt.Printf("[PARALLEL-DEBUG] Bulk通道: 第 %d 页获取 %d 篇，累计获取 %d 篇，总可用 %d 篇\n",
+		log.Printf("[PARALLEL-DEBUG] Bulk通道: 第 %d 页获取 %d 篇，累计获取 %d 篇，总可用 %d 篇\n",
 			pagesUsed, len(papers), totalFetched, total)
 
 		// 过滤掉没有摘要的论文
 		papersWithAbstract := FilterPapersWithAbstract(papers)
-		fmt.Printf("[PARALLEL-DEBUG] Bulk通道: 第 %d 页有摘要 %d 篇 (过滤前 %d 篇)\n",
+		log.Printf("[PARALLEL-DEBUG] Bulk通道: 第 %d 页有摘要 %d 篇 (过滤前 %d 篇)\n",
 			pagesUsed, len(papersWithAbstract), len(papers))
 
 		if len(papersWithAbstract) > 0 {
 			allPapersWithAbstract = append(allPapersWithAbstract, papersWithAbstract...)
 
 			// 对本页论文进行AI筛选
-			fmt.Printf("[PARALLEL-DEBUG] Bulk通道: 对第 %d 页的 %d 篇论文进行AI筛选...\n",
+			log.Printf("[PARALLEL-DEBUG] Bulk通道: 对第 %d 页的 %d 篇论文进行AI筛选...\n",
 				pagesUsed, len(papersWithAbstract))
 			
 			// 计算还需要多少篇论文
@@ -606,9 +607,9 @@ func (s *Service) SearchAndFilterPapers(
 			
 			relevantPapers, err := s.FilterRelevantPapers(papersWithAbstract, userQuery, remaining)
 			if err != nil {
-				fmt.Printf("[PARALLEL-DEBUG] Bulk通道: AI筛选失败: %v\n", err)
+				log.Printf("[PARALLEL-DEBUG] Bulk通道: AI筛选失败: %v\n", err)
 			} else {
-				fmt.Printf("[PARALLEL-DEBUG] Bulk通道: 第 %d 页筛选出 %d 篇相关论文\n",
+				log.Printf("[PARALLEL-DEBUG] Bulk通道: 第 %d 页筛选出 %d 篇相关论文\n",
 					pagesUsed, len(relevantPapers))
 				allRelevantPapers = append(allRelevantPapers, relevantPapers...)
 			}
@@ -616,19 +617,19 @@ func (s *Service) SearchAndFilterPapers(
 
 		// 检查是否还有更多页
 		if nextToken == "" {
-			fmt.Printf("[PARALLEL-DEBUG] Bulk通道: 没有更多页面\n")
+			log.Printf("[PARALLEL-DEBUG] Bulk通道: 没有更多页面\n")
 			break
 		}
 
 		currentToken = nextToken
 	}
 
-	fmt.Printf("[PARALLEL-DEBUG] Bulk通道: 搜索完成，共 %d 页，获取 %d 篇，有摘要 %d 篇，筛选后 %d 篇\n",
+	log.Printf("[PARALLEL-DEBUG] Bulk通道: 搜索完成，共 %d 页，获取 %d 篇，有摘要 %d 篇，筛选后 %d 篇\n",
 		pagesUsed, totalFetched, len(allPapersWithAbstract), len(allRelevantPapers))
 
 	// 如果没有筛选到任何论文，返回所有有摘要的论文（限制数量）
 	if len(allRelevantPapers) == 0 && len(allPapersWithAbstract) > 0 {
-		fmt.Printf("[PARALLEL-DEBUG] Bulk通道: 未筛选到相关论文，返回所有有摘要的论文\n")
+		log.Printf("[PARALLEL-DEBUG] Bulk通道: 未筛选到相关论文，返回所有有摘要的论文\n")
 		if len(allPapersWithAbstract) > config.TargetRelevantPapers {
 			allRelevantPapers = allPapersWithAbstract[:config.TargetRelevantPapers]
 		} else {
@@ -651,11 +652,11 @@ func (s *Service) SearchAndFilterPapersRelevance(
 	userQuery string,
 	config PaperFilterConfig,
 ) (*PaperFilterResult, error) {
-	fmt.Printf("[PARALLEL-DEBUG] ========== Relevance通道开始 ==========\n")
-	fmt.Printf("[PARALLEL-DEBUG] Relevance通道: 用户查询: %s\n", userQuery)
+	log.Printf("[PARALLEL-DEBUG] ========== Relevance通道开始 ==========\n")
+	log.Printf("[PARALLEL-DEBUG] Relevance通道: 用户查询: %s\n", userQuery)
 	
 	const maxBatchFetch = 300 // 最多批量获取300篇（降低以减少耗时）
-	fmt.Printf("[PARALLEL-DEBUG] Relevance通道: 批量获取最多 %d 篇，然后统一AI筛选\n", maxBatchFetch)
+	log.Printf("[PARALLEL-DEBUG] Relevance通道: 批量获取最多 %d 篇，然后统一AI筛选\n", maxBatchFetch)
 
 	var allPapersWithAbstract []map[string]interface{}
 	var totalCount int
@@ -672,10 +673,10 @@ func (s *Service) SearchAndFilterPapersRelevance(
 	startTime := time.Now()
 
 	// 第一阶段：批量获取论文（最多500篇）
-	fmt.Printf("[PARALLEL-DEBUG] Relevance通道: 开始批量获取论文...\n")
+	log.Printf("[PARALLEL-DEBUG] Relevance通道: 开始批量获取论文...\n")
 	for pagesUsed < config.MaxPagesPerSearch && totalFetched < maxBatchFetch {
 		pagesUsed++
-		fmt.Printf("[PARALLEL-DEBUG] Relevance通道: 获取第 %d 页, offset=%d, limit=%d\n", pagesUsed, currentOffset, limit)
+		log.Printf("[PARALLEL-DEBUG] Relevance通道: 获取第 %d 页, offset=%d, limit=%d\n", pagesUsed, currentOffset, limit)
 
 		// 设置分页参数
 		toolArgs["offset"] = float64(currentOffset)
@@ -689,7 +690,7 @@ func (s *Service) SearchAndFilterPapersRelevance(
 
 		papers, total, _, err := s.executeMCPToolCallWithToken(mcpServer, toolRequest)
 		if err != nil {
-			fmt.Printf("[PARALLEL-DEBUG] Relevance通道: MCP调用失败 (第 %d 页): %v\n", pagesUsed, err)
+			log.Printf("[PARALLEL-DEBUG] Relevance通道: MCP调用失败 (第 %d 页): %v\n", pagesUsed, err)
 			break
 		}
 
@@ -698,18 +699,18 @@ func (s *Service) SearchAndFilterPapersRelevance(
 		}
 		totalFetched += len(papers)
 
-		fmt.Printf("[PARALLEL-DEBUG] Relevance通道: 第 %d 页获取 %d 篇，累计获取 %d 篇，总可用 %d 篇\n",
+		log.Printf("[PARALLEL-DEBUG] Relevance通道: 第 %d 页获取 %d 篇，累计获取 %d 篇，总可用 %d 篇\n",
 			pagesUsed, len(papers), totalFetched, total)
 
 		// 过滤掉没有摘要的论文
 		papersWithAbstract := FilterPapersWithAbstract(papers)
-		fmt.Printf("[PARALLEL-DEBUG] Relevance通道: 第 %d 页有摘要 %d 篇\n", pagesUsed, len(papersWithAbstract))
+		log.Printf("[PARALLEL-DEBUG] Relevance通道: 第 %d 页有摘要 %d 篇\n", pagesUsed, len(papersWithAbstract))
 
 		allPapersWithAbstract = append(allPapersWithAbstract, papersWithAbstract...)
 
 		// 检查是否还有更多页
 		if len(papers) < limit {
-			fmt.Printf("[PARALLEL-DEBUG] Relevance通道: 没有更多页面\n")
+			log.Printf("[PARALLEL-DEBUG] Relevance通道: 没有更多页面\n")
 			break
 		}
 
@@ -717,30 +718,30 @@ func (s *Service) SearchAndFilterPapersRelevance(
 	}
 
 	fetchDuration := time.Since(startTime)
-	fmt.Printf("[PARALLEL-DEBUG] Relevance通道: 批量获取完成，共 %d 页，获取 %d 篇，有摘要 %d 篇，耗时 %.2f 秒\n",
+	log.Printf("[PARALLEL-DEBUG] Relevance通道: 批量获取完成，共 %d 页，获取 %d 篇，有摘要 %d 篇，耗时 %.2f 秒\n",
 		pagesUsed, totalFetched, len(allPapersWithAbstract), fetchDuration.Seconds())
 
 	// 第二阶段：统一进行AI筛选（利用并行评分）
 	var allRelevantPapers []map[string]interface{}
 	if len(allPapersWithAbstract) > 0 {
-		fmt.Printf("[PARALLEL-DEBUG] Relevance通道: 开始AI筛选 %d 篇论文...\n", len(allPapersWithAbstract))
+		log.Printf("[PARALLEL-DEBUG] Relevance通道: 开始AI筛选 %d 篇论文...\n", len(allPapersWithAbstract))
 		filterStartTime := time.Now()
 		
 		relevantPapers, err := s.FilterRelevantPapers(allPapersWithAbstract, userQuery, config.TargetRelevantPapers)
 		if err != nil {
-			fmt.Printf("[PARALLEL-DEBUG] Relevance通道: AI筛选失败: %v\n", err)
+			log.Printf("[PARALLEL-DEBUG] Relevance通道: AI筛选失败: %v\n", err)
 		} else {
 			allRelevantPapers = relevantPapers
 		}
 		
 		filterDuration := time.Since(filterStartTime)
-		fmt.Printf("[PARALLEL-DEBUG] Relevance通道: AI筛选完成，筛选出 %d 篇，耗时 %.2f 秒\n",
+		log.Printf("[PARALLEL-DEBUG] Relevance通道: AI筛选完成，筛选出 %d 篇，耗时 %.2f 秒\n",
 			len(allRelevantPapers), filterDuration.Seconds())
 	}
 
 	// 如果没有筛选到任何论文，返回所有有摘要的论文（限制数量）
 	if len(allRelevantPapers) == 0 && len(allPapersWithAbstract) > 0 {
-		fmt.Printf("[PARALLEL-DEBUG] Relevance通道: 未筛选到相关论文，返回所有有摘要的论文\n")
+		log.Printf("[PARALLEL-DEBUG] Relevance通道: 未筛选到相关论文，返回所有有摘要的论文\n")
 		if len(allPapersWithAbstract) > config.TargetRelevantPapers {
 			allRelevantPapers = allPapersWithAbstract[:config.TargetRelevantPapers]
 		} else {
@@ -749,8 +750,8 @@ func (s *Service) SearchAndFilterPapersRelevance(
 	}
 
 	totalDuration := time.Since(startTime)
-	fmt.Printf("[PARALLEL-DEBUG] Relevance通道: 总耗时 %.2f 秒\n", totalDuration.Seconds())
-	fmt.Printf("[PARALLEL-DEBUG] ========== Relevance通道完成 ==========\n")
+	log.Printf("[PARALLEL-DEBUG] Relevance通道: 总耗时 %.2f 秒\n", totalDuration.Seconds())
+	log.Printf("[PARALLEL-DEBUG] ========== Relevance通道完成 ==========\n")
 
 	return &PaperFilterResult{
 		Papers:     allRelevantPapers,

@@ -217,8 +217,8 @@ function wrapNoscript(title, subtitle, bodyHtml) {
   return `<noscript><div style="max-width:1000px;margin:0 auto;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#222;background:#fff;min-height:100vh"><header style="text-align:center;margin-bottom:40px"><h1 style="font-size:2rem;color:#111;margin-bottom:10px">${title}</h1><p style="font-size:1.1rem;color:#555">${subtitle}</p></header><main>${bodyHtml}</main>${navFooter()}<p style="text-align:center;margin-top:30px;padding:20px;background:#f5f5f5;border-radius:8px;color:#333">为获得最佳体验，请启用 JavaScript 或使用支持 JavaScript 的现代浏览器访问本站。</p></div></noscript>`;
 }
 
-function wrapPreRendered(title, subtitle, bodyHtml) {
-  return `<div id="seo-prerender" style="max-width:1000px;margin:0 auto;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#222;background:#fff;min-height:100vh"><header style="text-align:center;margin-bottom:40px"><h2 style="font-size:2rem;color:#111;margin-bottom:10px">${title}</h2><p style="font-size:1.1rem;color:#555">${subtitle}</p></header><main>${bodyHtml}</main>${navFooter()}</div>`;
+function wrapSeoFallback(title, subtitle, bodyHtml) {
+  return `<div id="seo-fallback" style="display:none"><div style="max-width:1000px;margin:0 auto;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#222;background:#fff;min-height:100vh"><header style="text-align:center;margin-bottom:40px"><h2 style="font-size:2rem;color:#111;margin-bottom:10px">${title}</h2><p style="font-size:1.1rem;color:#555">${subtitle}</p></header><main>${bodyHtml}</main>${navFooter()}<p id="seo-js-notice" style="text-align:center;margin-top:30px;padding:20px;background:#f5f5f5;border-radius:8px;color:#333">为获得最佳体验，请启用 JavaScript 或使用支持 JavaScript 的现代浏览器访问本站。</p></div></div><noscript><style>#seo-fallback{display:block!important}</style></noscript>`;
 }
 
 function section(title, content) {
@@ -646,15 +646,11 @@ function generatePageHtml(templateHtml, route) {
     `$1${escapeAttr(route.description)}$2`
   );
 
-  // Replace noscript block with page-specific content
-  const noscriptHtml = wrapNoscript(route.title, route.description, route.noscriptBody);
-  html = html.replace(/<noscript>[\s\S]*?<\/noscript>/, noscriptHtml);
-
-  // Inject pre-rendered content inside <div id="root"> as fallback for crawlers
-  // that execute JS but fail to fully render the React SPA.
-  // React.createRoot will replace this content when it mounts.
-  const preRenderedHtml = wrapPreRendered(route.title, route.description, route.noscriptBody);
-  html = html.replace('<div id="root"></div>', `<div id="root">${preRenderedHtml}</div>`);
+  // Replace #seo-fallback + <noscript> block with page-specific hidden content.
+  // display:none ensures no flash for JS-enabled users;
+  // <noscript><style> override makes it visible when JS is unavailable.
+  const seoFallbackHtml = wrapSeoFallback(route.title, route.description, route.noscriptBody);
+  html = html.replace(/<div id="seo-fallback"[\s\S]*?<\/noscript>/, seoFallbackHtml);
 
   return html;
 }

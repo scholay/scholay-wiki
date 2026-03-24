@@ -10,6 +10,7 @@ package conversation
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"io"
 	"strings"
 	"sync"
@@ -87,7 +88,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	}
 	
 	userMessageID := userMessage.MessageID
-	fmt.Printf("[DEBUG] Found user message with ID: %s\n", userMessageID)
+	log.Printf("[DEBUG] Found user message with ID: %s\n", userMessageID)
 
 	// Create MCP server with manager
 	// Manager will automatically get API key and base URL from backend config
@@ -95,9 +96,9 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 
 	// Step 1: Build context from conversation history (last 5 rounds)
 	// We already have messages from above, no need to fetch again
-	fmt.Printf("[DEBUG] Got %d messages for conversation %d\n", len(messages), conversationID)
+	log.Printf("[DEBUG] Got %d messages for conversation %d\n", len(messages), conversationID)
 	contextMessages := s.buildContextMessages(messages, 5)
-	fmt.Printf("[DEBUG] Built context with %d messages\n", len(contextMessages))
+	log.Printf("[DEBUG] Built context with %d messages\n", len(contextMessages))
 
 	// Step 2: Get available MCP tools
 	mcpTools := mcpServer.ListTools()
@@ -105,10 +106,10 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 
 	// Step 3: Create messages with system prompt
 	// 使用动态生成的并行搜索系统提示词（年份根据当前时间计算）
-	fmt.Printf("[PARALLEL-DEBUG] ========== 智能分析开始 ==========\n")
-	fmt.Printf("[PARALLEL-DEBUG] 用户查询: %s\n", query)
+	log.Printf("[PARALLEL-DEBUG] ========== 智能分析开始 ==========\n")
+	log.Printf("[PARALLEL-DEBUG] 用户查询: %s\n", query)
 	currentYear := time.Now().Year()
-	fmt.Printf("[PARALLEL-DEBUG] 使用并行搜索系统提示词，年份范围: %d-%d\n", currentYear-5, currentYear)
+	log.Printf("[PARALLEL-DEBUG] 使用并行搜索系统提示词，年份范围: %d-%d\n", currentYear-5, currentYear)
 	mcpSystemPrompt := getParallelSearchSystemPrompt()
 
 	systemMessage := ai.ChatMessage{
@@ -127,10 +128,10 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 
 	// Step 4: Call AI with tools to get tool calls
 	// Use low-level model for tool calling to save cost (tool selection doesn't need advanced reasoning)
-	fmt.Printf("[DEBUG] Calling AI with tools, initial messages count: %d, tools count: %d\n", len(initialMessages), len(aiTools))
+	log.Printf("[DEBUG] Calling AI with tools, initial messages count: %d, tools count: %d\n", len(initialMessages), len(aiTools))
 	
 	// Send step: analyzing search intent
-	fmt.Printf("[STEP-DEBUG] >>> 发送 analyzing 开始事件\n")
+	log.Printf("[STEP-DEBUG] >>> 发送 analyzing 开始事件\n")
 	fmt.Fprintf(writer, "data: [STEP]{\"step\":\"analyzing\",\"message\":\"正在分析检索意图\",\"detail\":\"理解您的查询，生成最佳搜索策略...\"}\n\n")
 	if flusher, ok := writer.(interface{ Flush() }); ok {
 		flusher.Flush()
@@ -138,7 +139,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	
 	toolCallResponse, err := s.aiService.ChatCompletionWithTools(initialMessages, aiTools, "auto", thirdparty.ModelLevelLow)
 	if err != nil {
-		fmt.Printf("[ERROR] AI tool call failed: %v\n", err)
+		log.Printf("[ERROR] AI tool call failed: %v\n", err)
 		// Still try fallback search below, don't send error to frontend yet
 		toolCallResponse = nil
 	}
@@ -170,35 +171,35 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		}
 		searchDetail = fmt.Sprintf("搜索关键词: %s", displayKeywords)
 	}
-	fmt.Printf("[STEP-DEBUG] >>> 发送 searching 开始事件, 关键词: %s\n", searchKeywords)
+	log.Printf("[STEP-DEBUG] >>> 发送 searching 开始事件, 关键词: %s\n", searchKeywords)
 	fmt.Fprintf(writer, "data: [STEP]{\"step\":\"searching\",\"message\":\"正在检索学术论文\",\"detail\":\"%s\"}\n\n", escapeJSONString(searchDetail))
 	if flusher, ok := writer.(interface{ Flush() }); ok {
 		flusher.Flush()
 	}
 
 	if toolCallResponse != nil && len(toolCallResponse.Choices) > 0 && len(toolCallResponse.Choices[0].Message.ToolCalls) > 0 {
-		fmt.Printf("[PARALLEL-DEBUG] 发现 %d 个工具调用\n", len(toolCallResponse.Choices[0].Message.ToolCalls))
+		log.Printf("[PARALLEL-DEBUG] 发现 %d 个工具调用\n", len(toolCallResponse.Choices[0].Message.ToolCalls))
 		
 		// 收集两种搜索的参数
 		var bulkArgs, relevanceArgs map[string]interface{}
 		
 		for _, toolCall := range toolCallResponse.Choices[0].Message.ToolCalls {
-			fmt.Printf("[PARALLEL-DEBUG] 工具调用: %s\n", toolCall.Function.Name)
-			fmt.Printf("[PARALLEL-DEBUG] 工具参数: %s\n", toolCall.Function.Arguments)
+			log.Printf("[PARALLEL-DEBUG] 工具调用: %s\n", toolCall.Function.Name)
+			log.Printf("[PARALLEL-DEBUG] 工具参数: %s\n", toolCall.Function.Arguments)
 
 			var args map[string]interface{}
 			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
-				fmt.Printf("[PARALLEL-DEBUG] 解析工具参数失败: %v\n", err)
+				log.Printf("[PARALLEL-DEBUG] 解析工具参数失败: %v\n", err)
 				continue
 			}
 
 			switch toolCall.Function.Name {
 			case "search_papers_advanced", "search_papers":
 				bulkArgs = args
-				fmt.Printf("[PARALLEL-DEBUG] 收集到 bulk 通道参数\n")
+				log.Printf("[PARALLEL-DEBUG] 收集到 bulk 通道参数\n")
 			case "search_papers_relevance":
 				relevanceArgs = args
-				fmt.Printf("[PARALLEL-DEBUG] 收集到 relevance 通道参数\n")
+				log.Printf("[PARALLEL-DEBUG] 收集到 relevance 通道参数\n")
 			}
 		}
 
@@ -206,17 +207,17 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		parallelResult := s.parallelSearchPapers(mcpServer, query, bulkArgs, relevanceArgs)
 		allPapers = parallelResult.Papers
 		
-		fmt.Printf("[PARALLEL-DEBUG] 并行搜索完成: bulk=%d篇, relevance=%d篇, 合并去重后=%d篇\n",
+		log.Printf("[PARALLEL-DEBUG] 并行搜索完成: bulk=%d篇, relevance=%d篇, 合并去重后=%d篇\n",
 			parallelResult.BulkCount, parallelResult.RelCount, len(allPapers))
 		
 	}
 
 	// If no papers found, try a simple direct search
 	if len(allPapers) == 0 {
-		fmt.Printf("[DEBUG] No papers from tool calls, doing direct search\n")
+		log.Printf("[DEBUG] No papers from tool calls, doing direct search\n")
 		papers, _, err := s.mcpSearch(query, mcpServer)
 		if err != nil {
-			fmt.Printf("[ERROR] Direct search failed: %v\n", err)
+			log.Printf("[ERROR] Direct search failed: %v\n", err)
 			// Send friendly error message
 			friendlyError := "网络异常，请稍后重试。如果问题持续，请联系管理员。"
 			
@@ -230,7 +231,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 			}
 			
 			if saveErr := s.repo.CreateMessage(errorMessage); saveErr != nil {
-				fmt.Printf("[WARN] Failed to save error message: %v\n", saveErr)
+				log.Printf("[WARN] Failed to save error message: %v\n", saveErr)
 			}
 			
 			// Send error to frontend
@@ -251,12 +252,12 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	const maxPapersToShow = 50
 	displayPapers := allPapers
 	if len(displayPapers) > maxPapersToShow {
-		fmt.Printf("[DEBUG] Limiting papers from %d to %d for display and analysis\n", len(allPapers), maxPapersToShow)
+		log.Printf("[DEBUG] Limiting papers from %d to %d for display and analysis\n", len(allPapers), maxPapersToShow)
 		displayPapers = displayPapers[:maxPapersToShow]
 	}
 
 	// 搜索完成，更新步骤（包含筛选结果）
-	fmt.Printf("[STEP-DEBUG] >>> 发送 searching 完成事件, 检索 %d 篇, 筛选 %d 篇\n", len(allPapers), len(displayPapers))
+	log.Printf("[STEP-DEBUG] >>> 发送 searching 完成事件, 检索 %d 篇, 筛选 %d 篇\n", len(allPapers), len(displayPapers))
 	searchCompleteDetail := fmt.Sprintf("检索到 %d 篇论文，已筛选出 %d 篇最相关的结果", len(allPapers), len(displayPapers))
 	fmt.Fprintf(writer, "data: [STEP]{\"step\":\"searching\",\"message\":\"检索完成\",\"detail\":\"%s\",\"completed\":true}\n\n", escapeJSONString(searchCompleteDetail))
 	if flusher, ok := writer.(interface{ Flush() }); ok {
@@ -274,7 +275,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	// Save only paper IDs to database (optimized storage)
 	// 保存实际筛选后的数量
 	if err := s.repo.UpdateMessageSearchPaperIDs(userMessage.ID, paperIDs, len(paperIDs)); err != nil {
-		fmt.Printf("Warning: failed to update user message with paper IDs: %v\n", err)
+		log.Printf("Warning: failed to update user message with paper IDs: %v\n", err)
 	}
 
 	// Send only paper IDs to frontend (frontend will fetch details via batch API)
@@ -291,22 +292,22 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 
 	// Step 7: Generate AI analysis of the papers and save to database
 	// Send step: AI analyzing papers with count
-	fmt.Printf("[STEP-DEBUG] >>> 发送 analyzing_papers 开始事件, 论文数量: %d\n", len(displayPapers))
+	log.Printf("[STEP-DEBUG] >>> 发送 analyzing_papers 开始事件, 论文数量: %d\n", len(displayPapers))
 	analysisDetail := fmt.Sprintf("正在对 %d 篇论文进行深度解读...", len(displayPapers))
 	fmt.Fprintf(writer, "data: [STEP]{\"step\":\"analyzing_papers\",\"message\":\"AI 深度分析\",\"detail\":\"%s\"}\n\n", escapeJSONString(analysisDetail))
 	if flusher, ok := writer.(interface{ Flush() }); ok {
 		flusher.Flush()
 	}
 	
-	fmt.Printf("[DEBUG] Formatting %d papers for AI analysis\n", len(displayPapers))
+	log.Printf("[DEBUG] Formatting %d papers for AI analysis\n", len(displayPapers))
 	// Use more papers for analysis (up to 30) with shorter abstracts
 	papersForPrompt := ai.FormatPapersForPromptWithLimit(displayPapers, 30, 200)
-	fmt.Printf("[DEBUG] Formatted papers, length: %d characters\n", len(papersForPrompt))
+	log.Printf("[DEBUG] Formatted papers, length: %d characters\n", len(papersForPrompt))
 
 	// Get analysis prompt templates
 	analysisSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_analysis_system", nil)
 	if err != nil {
-		fmt.Printf("[WARN] Failed to get analysis system prompt template, using fallback: %v\n", err)
+		log.Printf("[WARN] Failed to get analysis system prompt template, using fallback: %v\n", err)
 		analysisSystemPrompt = "你是一名具有深厚研究背景的高级学术分析专家，能够对多篇论文进行深入解读、方法分析、研究发现抽象、理论联系与批判性整合，并以学术写作风格输出高质量分析报告。"
 	}
 
@@ -316,7 +317,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	})
 	if err != nil {
 		// Fallback to hardcoded prompt if template not found
-		fmt.Printf("[WARN] Failed to get analysis prompt template, using fallback: %v\n", err)
+		log.Printf("[WARN] Failed to get analysis prompt template, using fallback: %v\n", err)
 		analysisPrompt = fmt.Sprintf(`用户查询：%s
 找到的论文：%s
 
@@ -390,7 +391,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	const max128K = 128000 * 4 // Roughly 128K tokens * 4 chars per token
 	analysisMessages = ai.TruncateContextForLimit(analysisMessages, max128K)
 
-	fmt.Printf("[DEBUG] About to call StreamChatCompletionAndCollectWithLevel, modelLevel: %s, messages count: %d, prompt length: %d\n",
+	log.Printf("[DEBUG] About to call StreamChatCompletionAndCollectWithLevel, modelLevel: %s, messages count: %d, prompt length: %d\n",
 		modelLevel, len(analysisMessages), len(analysisPrompt))
 
 	// Stream AI response and collect full content using specified model level
@@ -398,7 +399,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	if err != nil {
 		// 生成友好的错误消息
 		friendlyError := "网络异常，请稍后重试。如果问题持续，请联系管理员。"
-		fmt.Printf("[ERROR] AI analysis failed: %v\n", err)
+		log.Printf("[ERROR] AI analysis failed: %v\n", err)
 
 		// 将错误消息保存为 assistant 消息，以便历史记录中显示
 		errorMessage := &ConversationMessage{
@@ -410,7 +411,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 		}
 
 		if saveErr := s.repo.CreateMessage(errorMessage); saveErr != nil {
-			fmt.Printf("[WARN] Failed to save error message: %v\n", saveErr)
+			log.Printf("[WARN] Failed to save error message: %v\n", saveErr)
 		}
 
 		// 通过流式接口发送错误消息
@@ -426,7 +427,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 
 	// Step 8: Clear old follow-up questions from previous messages in this conversation
 	if err := s.repo.ClearOldFollowUpQuestions(conversationID); err != nil {
-		fmt.Printf("[WARN] Failed to clear old follow-up questions: %v\n", err)
+		log.Printf("[WARN] Failed to clear old follow-up questions: %v\n", err)
 	}
 
 	// Save assistant message to conversation with parent_message_id
@@ -441,7 +442,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 
 	if err := s.repo.CreateMessage(assistantMessage); err != nil {
 		// Log error but don't fail the request
-		fmt.Printf("Warning: failed to save assistant message: %v\n", err)
+		log.Printf("Warning: failed to save assistant message: %v\n", err)
 	}
 
 	// Step 9: Generate title with timeout (3 seconds max)
@@ -450,7 +451,7 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 	go func() {
 		newTitle, err := s.UpdateConversationTitleWithAI(conversationID)
 		if err != nil {
-			fmt.Printf("[WARN] Failed to generate title with AI: %v\n", err)
+			log.Printf("[WARN] Failed to generate title with AI: %v\n", err)
 			titleCh <- ""
 		} else {
 			titleCh <- newTitle
@@ -467,10 +468,10 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 			if flusher, ok := writer.(interface{ Flush() }); ok {
 				flusher.Flush()
 			}
-			fmt.Printf("[TITLE-DEBUG] Sent title event: %s\n", newTitle)
+			log.Printf("[TITLE-DEBUG] Sent title event: %s\n", newTitle)
 		}
 	case <-time.After(3 * time.Second):
-		fmt.Printf("[WARN] Title generation timeout (3s), skipping title\n")
+		log.Printf("[WARN] Title generation timeout (3s), skipping title\n")
 		// Title will be generated in the background and saved to database
 		// User can see it when they refresh or reload the conversation
 	}
@@ -482,8 +483,8 @@ func (s *Service) AdvancedSearchAndAnalyze(conversationID uint, query string, wr
 // 将工具调用决策和深度分析合并为一次逻辑对话，提升上下文连贯性并减少延迟
 // 根据用户订阅使用相应的模型级别
 func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, writer io.Writer, userID uint, modelLevel thirdparty.ModelLevel) error {
-	fmt.Printf("[AdvancedV2] ========== 智能分析V2开始 ==========\n")
-	fmt.Printf("[AdvancedV2] 用户查询: %s, 模型级别: %s\n", query, modelLevel)
+	log.Printf("[AdvancedV2] ========== 智能分析V2开始 ==========\n")
+	log.Printf("[AdvancedV2] 用户查询: %s, 模型级别: %s\n", query, modelLevel)
 
 	// Step 1: 获取用户消息
 	var userMessage *ConversationMessage
@@ -504,7 +505,7 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, 
 	}
 
 	userMessageID := userMessage.MessageID
-	fmt.Printf("[AdvancedV2] 找到用户消息 ID: %s\n", userMessageID)
+	log.Printf("[AdvancedV2] 找到用户消息 ID: %s\n", userMessageID)
 
 	// Step 2: 创建 MCP 服务器
 	mcpServer := mcp.NewMCPServer(s.scholarManager)
@@ -512,7 +513,7 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, 
 	// Step 3: 获取 MCP 工具列表
 	mcpTools := mcpServer.ListTools()
 	aiTools := ai.ConvertMCPToolsToOpenAIFormat(mcpTools)
-	fmt.Printf("[AdvancedV2] 获取到 %d 个MCP工具\n", len(aiTools))
+	log.Printf("[AdvancedV2] 获取到 %d 个MCP工具\n", len(aiTools))
 
 	// Step 4: 构建消息（使用统一的硬编码提示词）
 	currentYear := time.Now().Year()
@@ -525,7 +526,7 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, 
 	})
 
 	initialMessages := append([]ai.ChatMessage{{Role: "system", Content: systemPrompt}}, contextMessages...)
-	fmt.Printf("[AdvancedV2] 构建消息完成，共 %d 条\n", len(initialMessages))
+	log.Printf("[AdvancedV2] 构建消息完成，共 %d 条\n", len(initialMessages))
 
 	// Step 5: 发送分析意图步骤
 	fmt.Fprintf(writer, "data: [STEP]{\"step\":\"analyzing\",\"message\":\"正在分析检索意图\",\"detail\":\"理解您的查询，生成最佳搜索策略...\"}\n\n")
@@ -538,7 +539,7 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, 
 	var paperIDs []string
 
 	toolExecutor := func(toolCalls []ai.ToolCall) ([]ai.ToolResult, error) {
-		fmt.Printf("[AdvancedV2-ToolExecutor] 收到 %d 个工具调用\n", len(toolCalls))
+		log.Printf("[AdvancedV2-ToolExecutor] 收到 %d 个工具调用\n", len(toolCalls))
 
 		// 发送搜索中步骤
 		fmt.Fprintf(writer, "data: [STEP]{\"step\":\"searching\",\"message\":\"正在检索学术论文\",\"detail\":\"正在从学术数据库检索相关论文...\"}\n\n")
@@ -551,11 +552,11 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, 
 		var searchKeywords string
 
 		for _, tc := range toolCalls {
-			fmt.Printf("[AdvancedV2-ToolExecutor] 工具: %s\n", tc.Function.Name)
+			log.Printf("[AdvancedV2-ToolExecutor] 工具: %s\n", tc.Function.Name)
 
 			var args map[string]interface{}
 			if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
-				fmt.Printf("[AdvancedV2-ToolExecutor] 解析参数失败: %v\n", err)
+				log.Printf("[AdvancedV2-ToolExecutor] 解析参数失败: %v\n", err)
 				continue
 			}
 
@@ -586,12 +587,12 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, 
 		parallelResult := s.parallelSearchPapers(mcpServer, query, bulkArgs, relevanceArgs)
 		allPapers := parallelResult.Papers
 
-		fmt.Printf("[AdvancedV2-ToolExecutor] 并行搜索完成: bulk=%d, relevance=%d, 合并后=%d\n",
+		log.Printf("[AdvancedV2-ToolExecutor] 并行搜索完成: bulk=%d, relevance=%d, 合并后=%d\n",
 			parallelResult.BulkCount, parallelResult.RelCount, len(allPapers))
 
 		// 如果没有找到论文，尝试直接搜索
 		if len(allPapers) == 0 {
-			fmt.Printf("[AdvancedV2-ToolExecutor] 无结果，尝试直接搜索\n")
+			log.Printf("[AdvancedV2-ToolExecutor] 无结果，尝试直接搜索\n")
 			papers, _, err := s.mcpSearch(query, mcpServer)
 			if err != nil {
 				return nil, fmt.Errorf("search failed: %w", err)
@@ -623,7 +624,7 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, 
 
 		// 保存论文ID到数据库
 		if err := s.repo.UpdateMessageSearchPaperIDs(userMessage.ID, paperIDs, len(paperIDs)); err != nil {
-			fmt.Printf("[AdvancedV2-ToolExecutor] 保存论文ID失败: %v\n", err)
+			log.Printf("[AdvancedV2-ToolExecutor] 保存论文ID失败: %v\n", err)
 		}
 
 		// 发送论文ID到前端
@@ -656,12 +657,12 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, 
 			}
 		}
 
-		fmt.Printf("[AdvancedV2-ToolExecutor] 工具执行完成，返回 %d 个结果\n", len(results))
+		log.Printf("[AdvancedV2-ToolExecutor] 工具执行完成，返回 %d 个结果\n", len(results))
 		return results, nil
 	}
 
 	// Step 7: 执行工具调用循环（一次对话完成工具调用+分析）
-	fmt.Printf("[AdvancedV2] 开始工具调用循环...\n")
+	log.Printf("[AdvancedV2] 开始工具调用循环...\n")
 	fullContent, err := s.aiService.StreamChatCompletionWithToolLoop(
 		initialMessages,
 		aiTools,
@@ -671,7 +672,7 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, 
 	)
 
 	if err != nil {
-		fmt.Printf("[AdvancedV2] 工具调用循环失败: %v\n", err)
+		log.Printf("[AdvancedV2] 工具调用循环失败: %v\n", err)
 
 		// 发送错误消息
 		friendlyError := "网络异常，请稍后重试。如果问题持续，请联系管理员。"
@@ -684,7 +685,7 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, 
 		}
 
 		if saveErr := s.repo.CreateMessage(errorMessage); saveErr != nil {
-			fmt.Printf("[AdvancedV2] 保存错误消息失败: %v\n", saveErr)
+			log.Printf("[AdvancedV2] 保存错误消息失败: %v\n", saveErr)
 		}
 
 		fmt.Fprintf(writer, "data: [ERROR] %s\n\n", friendlyError)
@@ -695,11 +696,11 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, 
 		return fmt.Errorf("tool loop failed: %w", err)
 	}
 
-	fmt.Printf("[AdvancedV2] 工具调用循环完成，内容长度: %d\n", len(fullContent))
+	log.Printf("[AdvancedV2] 工具调用循环完成，内容长度: %d\n", len(fullContent))
 
 	// Step 8: 清除旧的跟进问题
 	if err := s.repo.ClearOldFollowUpQuestions(conversationID); err != nil {
-		fmt.Printf("[AdvancedV2] 清除旧跟进问题失败: %v\n", err)
+		log.Printf("[AdvancedV2] 清除旧跟进问题失败: %v\n", err)
 	}
 
 	// Step 9: 保存助手消息
@@ -712,7 +713,7 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, 
 	}
 
 	if err := s.repo.CreateMessage(assistantMessage); err != nil {
-		fmt.Printf("[AdvancedV2] 保存助手消息失败: %v\n", err)
+		log.Printf("[AdvancedV2] 保存助手消息失败: %v\n", err)
 	}
 
 	// Step 10: 生成标题（带超时）
@@ -720,7 +721,7 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, 
 	go func() {
 		newTitle, err := s.UpdateConversationTitleWithAI(conversationID)
 		if err != nil {
-			fmt.Printf("[AdvancedV2] 生成标题失败: %v\n", err)
+			log.Printf("[AdvancedV2] 生成标题失败: %v\n", err)
 			titleCh <- ""
 		} else {
 			titleCh <- newTitle
@@ -735,13 +736,13 @@ func (s *Service) AdvancedSearchAndAnalyzeV2(conversationID uint, query string, 
 			if flusher, ok := writer.(interface{ Flush() }); ok {
 				flusher.Flush()
 			}
-			fmt.Printf("[AdvancedV2] 发送标题: %s\n", newTitle)
+			log.Printf("[AdvancedV2] 发送标题: %s\n", newTitle)
 		}
 	case <-time.After(3 * time.Second):
-		fmt.Printf("[AdvancedV2] 标题生成超时\n")
+		log.Printf("[AdvancedV2] 标题生成超时\n")
 	}
 
-	fmt.Printf("[AdvancedV2] ========== 智能分析V2完成 ==========\n")
+	log.Printf("[AdvancedV2] ========== 智能分析V2完成 ==========\n")
 	return nil
 }
 
@@ -761,7 +762,7 @@ func (s *Service) generateFollowUpQuestions(query string, analysisContent string
 	// Get follow-up questions prompt from database
 	followUpSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("follow_up_questions_system", nil)
 	if err != nil {
-		fmt.Printf("[WARN] Failed to get follow-up questions system prompt, using fallback: %v\n", err)
+		log.Printf("[WARN] Failed to get follow-up questions system prompt, using fallback: %v\n", err)
 		followUpSystemPrompt = "你是一位专业的学术研究助手，擅长基于研究分析提出有深度的延伸问题。"
 	}
 
@@ -771,7 +772,7 @@ func (s *Service) generateFollowUpQuestions(query string, analysisContent string
 	})
 	if err != nil {
 		// Fallback to hardcoded prompt
-		fmt.Printf("[WARN] Failed to get follow-up questions prompt, using fallback: %v\n", err)
+		log.Printf("[WARN] Failed to get follow-up questions prompt, using fallback: %v\n", err)
 		followUpPrompt = fmt.Sprintf(`用户查询：%s
 
 已完成的分析：
@@ -958,7 +959,7 @@ func (s *Service) GetFollowUpQuestions(conversationID uint, messageID uint, user
 
 	// Check if follow-up questions already exist in assistant message
 	if assistantMessage.FollowUpQuestions != "" {
-		fmt.Printf("[DEBUG] Returning cached follow-up questions for assistant message %d\n", assistantMessage.ID)
+		log.Printf("[DEBUG] Returning cached follow-up questions for assistant message %d\n", assistantMessage.ID)
 		return assistantMessage.FollowUpQuestions, nil
 	}
 
@@ -973,10 +974,10 @@ func (s *Service) GetFollowUpQuestions(conversationID uint, messageID uint, user
 	}
 
 	// Generate follow-up questions based on user query and assistant response
-	fmt.Printf("[DEBUG] Generating follow-up questions for user query: %s, assistant message ID: %d\n", searchQuery, assistantMessage.ID)
+	log.Printf("[DEBUG] Generating follow-up questions for user query: %s, assistant message ID: %d\n", searchQuery, assistantMessage.ID)
 	followUpQuestions, err := s.generateFollowUpQuestions(searchQuery, assistantMessage.Content)
 	if err != nil {
-		fmt.Printf("[ERROR] Failed to generate follow-up questions: %v\n", err)
+		log.Printf("[ERROR] Failed to generate follow-up questions: %v\n", err)
 		// 返回友好的错误提示，而不是空字符串
 		// 这样前端可以显示有意义的错误信息
 		return "", fmt.Errorf("网络异常，暂时无法生成延伸问题。请稍后重试")
@@ -984,7 +985,7 @@ func (s *Service) GetFollowUpQuestions(conversationID uint, messageID uint, user
 
 	// Save to database for caching (save to assistant message)
 	if err := s.repo.UpdateMessageFollowUpQuestions(assistantMessage.ID, followUpQuestions); err != nil {
-		fmt.Printf("[WARN] Failed to cache follow-up questions: %v\n", err)
+		log.Printf("[WARN] Failed to cache follow-up questions: %v\n", err)
 		// Don't fail the request, just log the warning
 	}
 
@@ -998,9 +999,9 @@ func (s *Service) parallelSearchPapers(
 	bulkArgs map[string]interface{},
 	relevanceArgs map[string]interface{},
 ) *ParallelSearchResult {
-	fmt.Printf("[PARALLEL-DEBUG] ========== 并行搜索开始 ==========\n")
-	fmt.Printf("[PARALLEL-DEBUG] bulk 参数: %+v\n", bulkArgs)
-	fmt.Printf("[PARALLEL-DEBUG] relevance 参数: %+v\n", relevanceArgs)
+	log.Printf("[PARALLEL-DEBUG] ========== 并行搜索开始 ==========\n")
+	log.Printf("[PARALLEL-DEBUG] bulk 参数: %+v\n", bulkArgs)
+	log.Printf("[PARALLEL-DEBUG] relevance 参数: %+v\n", relevanceArgs)
 
 	var wg sync.WaitGroup
 	var bulkResult, relevanceResult *PaperFilterResult
@@ -1011,12 +1012,12 @@ func (s *Service) parallelSearchPapers(
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			fmt.Printf("[PARALLEL-DEBUG] 通道1 (bulk) 开始执行...\n")
+			log.Printf("[PARALLEL-DEBUG] 通道1 (bulk) 开始执行...\n")
 			bulkResult, bulkErr = s.SearchAndFilterPapers(mcpServer, bulkArgs, userQuery, DefaultPaperFilterConfig)
 			if bulkErr != nil {
-				fmt.Printf("[PARALLEL-DEBUG] 通道1 (bulk) 错误: %v\n", bulkErr)
+				log.Printf("[PARALLEL-DEBUG] 通道1 (bulk) 错误: %v\n", bulkErr)
 			} else {
-				fmt.Printf("[PARALLEL-DEBUG] 通道1 (bulk) 完成: %d 篇论文\n", len(bulkResult.Papers))
+				log.Printf("[PARALLEL-DEBUG] 通道1 (bulk) 完成: %d 篇论文\n", len(bulkResult.Papers))
 			}
 		}()
 	}
@@ -1026,19 +1027,19 @@ func (s *Service) parallelSearchPapers(
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			fmt.Printf("[PARALLEL-DEBUG] 通道2 (relevance) 开始执行...\n")
+			log.Printf("[PARALLEL-DEBUG] 通道2 (relevance) 开始执行...\n")
 			relevanceResult, relevanceErr = s.SearchAndFilterPapersRelevance(mcpServer, relevanceArgs, userQuery, DefaultPaperFilterConfig)
 			if relevanceErr != nil {
-				fmt.Printf("[PARALLEL-DEBUG] 通道2 (relevance) 错误: %v\n", relevanceErr)
+				log.Printf("[PARALLEL-DEBUG] 通道2 (relevance) 错误: %v\n", relevanceErr)
 			} else {
-				fmt.Printf("[PARALLEL-DEBUG] 通道2 (relevance) 完成: %d 篇论文\n", len(relevanceResult.Papers))
+				log.Printf("[PARALLEL-DEBUG] 通道2 (relevance) 完成: %d 篇论文\n", len(relevanceResult.Papers))
 			}
 		}()
 	}
 
 	// 等待两个通道完成
 	wg.Wait()
-	fmt.Printf("[PARALLEL-DEBUG] 两个通道都已完成\n")
+	log.Printf("[PARALLEL-DEBUG] 两个通道都已完成\n")
 
 	// 合并结果并去重
 	return s.mergeAndDeduplicatePapers(bulkResult, relevanceResult, bulkErr, relevanceErr)
@@ -1049,7 +1050,7 @@ func (s *Service) mergeAndDeduplicatePapers(
 	bulkResult, relevanceResult *PaperFilterResult,
 	bulkErr, relevanceErr error,
 ) *ParallelSearchResult {
-	fmt.Printf("[PARALLEL-DEBUG] ========== 合并去重开始 ==========\n")
+	log.Printf("[PARALLEL-DEBUG] ========== 合并去重开始 ==========\n")
 
 	const maxMergedPapers = 50 // 合并后最多返回50篇
 
@@ -1060,7 +1061,7 @@ func (s *Service) mergeAndDeduplicatePapers(
 
 	// 优先保留 bulk 结果（高引用论文）
 	if bulkErr == nil && bulkResult != nil {
-		fmt.Printf("[PARALLEL-DEBUG] 处理 bulk 结果: %d 篇论文\n", len(bulkResult.Papers))
+		log.Printf("[PARALLEL-DEBUG] 处理 bulk 结果: %d 篇论文\n", len(bulkResult.Papers))
 		for _, paper := range bulkResult.Papers {
 			if len(merged) >= maxMergedPapers {
 				break
@@ -1075,7 +1076,7 @@ func (s *Service) mergeAndDeduplicatePapers(
 
 	// 补充 relevance 结果（语义相关论文）
 	if relevanceErr == nil && relevanceResult != nil {
-		fmt.Printf("[PARALLEL-DEBUG] 处理 relevance 结果: %d 篇论文\n", len(relevanceResult.Papers))
+		log.Printf("[PARALLEL-DEBUG] 处理 relevance 结果: %d 篇论文\n", len(relevanceResult.Papers))
 		for _, paper := range relevanceResult.Papers {
 			if len(merged) >= maxMergedPapers {
 				break
@@ -1088,9 +1089,9 @@ func (s *Service) mergeAndDeduplicatePapers(
 		}
 	}
 
-	fmt.Printf("[PARALLEL-DEBUG] 合并完成: bulk贡献=%d篇, relevance贡献=%d篇, 总计=%d篇 (最大%d篇)\n",
+	log.Printf("[PARALLEL-DEBUG] 合并完成: bulk贡献=%d篇, relevance贡献=%d篇, 总计=%d篇 (最大%d篇)\n",
 		bulkCount, relCount, len(merged), maxMergedPapers)
-	fmt.Printf("[PARALLEL-DEBUG] ========== 合并去重完成 ==========\n")
+	log.Printf("[PARALLEL-DEBUG] ========== 合并去重完成 ==========\n")
 
 	// TotalCount 返回实际合并后的数量，而不是 API 查找的总数
 	return &ParallelSearchResult{

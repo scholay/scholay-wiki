@@ -274,21 +274,16 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
   // 将论文加入分析队列（供IntersectionObserver调用）
   const enqueuePaperAnalysis = useCallback((paper) => {
     if (!isAuthenticated) {
-      console.log('[Analysis] Not authenticated, skip');
       return;
     }
     if (analysisAbortedRef.current) {
-      console.log('[Analysis] Aborted, skip');
       return;
     }
 
     const abstractText = paper.abstract || paper.tldr?.text;
     if (!abstractText) {
-      console.log('[Analysis] No abstract, skip:', paper.paperId);
       return;
     }
-
-    console.log('[Analysis] Enqueueing paper:', paper.paperId);
 
     // 设置分析中状态
     setAnalyzingPapers(prev => ({
@@ -305,15 +300,12 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
       },
       // 成功回调
       (result) => {
-        console.log('[Analysis] Success callback for:', paper.paperId, 'result:', result);
-        
         setAnalyzingPapers(prev => ({
           ...prev,
           [paper.paperId]: false
         }));
 
         if (result.success) {
-          console.log('[Analysis] Setting result data for:', paper.paperId, 'data:', result.data);
           setAnalysisResults(prev => ({
             ...prev,
             [paper.paperId]: result.data
@@ -327,8 +319,6 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
       },
       // 失败回调
       (error) => {
-        console.log('[Analysis] Error callback for:', paper.paperId, 'error:', error);
-        
         setAnalyzingPapers(prev => ({
           ...prev,
           [paper.paperId]: false

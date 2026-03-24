@@ -86,9 +86,9 @@ func TelemetryMiddleware() gin.HandlerFunc {
 		// Calculate latency
 		latency := time.Since(startTime)
 		
-		// Get user ID from context if available
+		// Get user ID from context if available (auth middleware sets "user_id")
 		userID := ""
-		if uid, exists := c.Get("userID"); exists {
+		if uid, exists := c.Get("user_id"); exists {
 			userID = fmt.Sprintf("%v", uid)
 			span.SetAttributes(attribute.String("user.id", userID))
 		}

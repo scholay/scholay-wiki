@@ -59,7 +59,8 @@ type FeedbackAttachment struct {
 	UploadKey    string    `gorm:"size:36;not null;index" json:"uploadKey"`       // 上传批次key
 	FeedbackID   *uint     `gorm:"index" json:"feedbackId"`                       // 关联的反馈ID
 	OriginalName string    `gorm:"size:255;not null" json:"originalName"`         // 原始文件名
-	FileData     []byte    `gorm:"type:longblob;not null" json:"-"`               // 文件二进制数据（不返回给前端）
+	FileData     []byte    `gorm:"type:longblob" json:"-"`                        // 文件二进制数据（兼容旧数据）
+	FilePath     string    `gorm:"size:500" json:"-"`                             // 文件路径（新上传优先使用）
 	FileSize     int64     `gorm:"not null" json:"fileSize"`                      // 文件大小
 	FileType     string    `gorm:"size:20;not null" json:"fileType"`              // 文件类型 image/file
 	MimeType     string    `gorm:"size:100;not null" json:"mimeType"`             // MIME类型

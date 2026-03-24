@@ -207,10 +207,6 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
           }
 
           // 读取自定义响应头（来源和缓存状态）
-          const pdfSource = response.headers.get('X-PDF-Source');
-          const cacheStatus = response.headers.get('X-Cache');
-          console.log('[PDFViewer] PDF Source:', pdfSource, 'Cache:', cacheStatus);
-
           const blob = await response.blob();
           
           if (!controller.signal.aborted) {
@@ -224,8 +220,6 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
             if (!validTypes.includes(blob.type)) {
               console.warn('PDF Blob 类型:', blob.type, '大小:', blob.size);
             }
-            
-            console.log('[PDFViewer] PDF 数据获取成功, 大小:', (blob.size / 1024 / 1024).toFixed(2), 'MB');
             
             // 存储 Blob，后续需要时再转换为 ArrayBuffer
             setPdfBlob(blob);
@@ -292,7 +286,6 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
 
   const onDocumentLoadSuccess = ({ numPages }) => {
     if (isUnmounted) return;
-    console.log('[PDFViewer] PDF 解析成功, 总页数:', numPages);
     setNumPages(numPages);
     setIsLoading(false);
     setError(null);
@@ -361,12 +354,9 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
   
   useEffect(() => {
     if (pdfBlob) {
-      console.log('[PDFViewer] 创建 Blob URL, Blob 大小:', pdfBlob.size);
       const url = URL.createObjectURL(pdfBlob);
-      console.log('[PDFViewer] Blob URL 已创建:', url);
       setBlobUrl(url);
       return () => {
-        console.log('[PDFViewer] 清理 Blob URL');
         URL.revokeObjectURL(url);
       };
     } else {
@@ -378,7 +368,6 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
   // 优先使用 DOI API 返回的数据（Blob URL），否则使用代理服务
   const fileConfig = useMemo(() => {
     if (blobUrl) {
-      console.log('[PDFViewer] 使用 Blob URL 加载 PDF');
       // 使用从 DOI API 获取的 Blob URL
       return {
         url: blobUrl,
@@ -386,7 +375,6 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
       };
     }
     if (useFallback) {
-      console.log('[PDFViewer] 使用代理服务加载 PDF');
       // 回退到代理服务
       return {
         url: proxyUrl,
@@ -399,19 +387,6 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
 
   // 是否可以渲染 PDF Document
   const canRenderDocument = !isFetchingDoi && fileConfig !== null;
-  
-  // Debug: 监控渲染条件
-  useEffect(() => {
-    console.log('[PDFViewer] 渲染条件:', {
-      isFetchingDoi,
-      hasFileConfig: fileConfig !== null,
-      canRenderDocument,
-      hasBlobUrl: !!blobUrl,
-      useFallback,
-      isLoading,
-      error
-    });
-  }, [isFetchingDoi, fileConfig, canRenderDocument, blobUrl, useFallback, isLoading, error]);
 
   const handleZoomIn = () => {
     setScale(prev => Math.min(prev + 0.2, 5.0));
