@@ -12,19 +12,15 @@
  * 模块说明:
  * - base.css: 基础布局、头部、左侧边栏
  * - profile.css: 个人资料卡片、头像
- * - subscription.css: 订阅套餐、升级相关
- * - account.css: 账号绑定、邀请码
+ * - account.css: 账号绑定
  * - modal.css: 弹窗样式
  * - legal.css: 法律文档样式
- * - billing.css: 账单历史
  * - responsive.css: 响应式/移动端样式
  */
 
 @import './base.css';
 @import './profile.css';
-@import './subscription.css';
 @import './account.css';
 @import './modal.css';
 @import './legal.css';
-@import './billing.css';
 @import './responsive.css';

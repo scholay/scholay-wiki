@@ -9,6 +9,4 @@
  * Settings 页面自定义 Hooks 导出
  */
 
-export { default as useSubscriptionData } from './useSubscriptionData';
-export { default as useInvitationData } from './useInvitationData';
 export { default as useAccountData } from './useAccountData';

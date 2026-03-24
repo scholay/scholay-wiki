@@ -49,7 +49,7 @@ func NewMessageServiceAdapter(service *Service) *MessageServiceAdapter {
 	return &MessageServiceAdapter{service: service}
 }
 
-// SendToUser 发送消息给用户（实现 coupon.MessageService 接口）
+// SendToUser 发送消息给用户
 func (a *MessageServiceAdapter) SendToUser(userID uint, title, content string, category string, linkURL, linkText string) error {
 	return a.service.SendToUserWithCategory(userID, title, content, category, linkURL, linkText)
 }

@@ -10,6 +10,7 @@ package thirdparty
 import (
 	"context"
 	"fmt"
+	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -169,7 +170,7 @@ func (s *Service) GetRandomAPIKey(accountType AccountType) (string, uint, error)
 	// Increment usage count
 	if err := s.repo.IncrementUsage(selected.ID); err != nil {
 		// Log error but don't fail the request
-		fmt.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
+		log.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
 	}
 
 	// Extract API key based on type
@@ -210,7 +211,7 @@ func (s *Service) GetRandomAIModelConfig() (*AIModelConfig, uint, error) {
 
 	// Increment usage count
 	if err := s.repo.IncrementUsage(selected.ID); err != nil {
-		fmt.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
+		log.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
 	}
 
 	config, err := selected.GetAIModelConfig()
@@ -364,7 +365,7 @@ func (s *Service) StartCacheRefreshTask(interval time.Duration) {
 			select {
 			case <-ticker.C:
 				if err := s.RefreshCache(); err != nil {
-					fmt.Printf("Warning: failed to refresh account cache: %v\n", err)
+					log.Printf("Warning: failed to refresh account cache: %v\n", err)
 				}
 			case <-s.ctx.Done():
 				fmt.Println("Third-party account cache refresh task stopped")
@@ -439,7 +440,7 @@ func (s *Service) GetRandomAIModelConfigByLevelExcluding(modelLevel ModelLevel, 
 
 	// Increment usage count
 	if err := s.repo.IncrementUsage(selected.ID); err != nil {
-		fmt.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
+		log.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
 	}
 
 	config, err := selected.GetAIModelConfig()
@@ -496,7 +497,7 @@ func (s *Service) GetRandomAPIKeyByLevel(modelLevel ModelLevel) (string, uint, e
 
 	// Increment usage count
 	if err := s.repo.IncrementUsage(selected.ID); err != nil {
-		fmt.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
+		log.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
 	}
 
 	config, err := selected.GetAIModelConfig()
@@ -564,7 +565,7 @@ func (s *Service) GetPeerReviewModels() (*PeerReviewModelConfig, uint, error) {
 
 	// Increment usage count
 	if err := s.repo.IncrementUsage(selected.ID); err != nil {
-		fmt.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
+		log.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
 	}
 
 	config, err := selected.GetAIModelConfig()

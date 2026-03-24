@@ -14,23 +14,20 @@ import (
 
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/semanticscholar"
-	"scholar-backend/internal/subscription"
 	"scholar-backend/internal/thirdparty"
 )
 
 type Service struct {
-	repo                *Repository
-	scholarManager      *semanticscholar.Manager
-	aiService           *ai.Service
-	subscriptionService *subscription.Service
+	repo           *Repository
+	scholarManager *semanticscholar.Manager
+	aiService      *ai.Service
 }
 
-func NewService(repo *Repository, scholarManager *semanticscholar.Manager, aiService *ai.Service, subscriptionService *subscription.Service) *Service {
+func NewService(repo *Repository, scholarManager *semanticscholar.Manager, aiService *ai.Service) *Service {
 	return &Service{
-		repo:                repo,
-		scholarManager:      scholarManager,
-		aiService:           aiService,
-		subscriptionService: subscriptionService,
+		repo:           repo,
+		scholarManager: scholarManager,
+		aiService:      aiService,
 	}
 }
 

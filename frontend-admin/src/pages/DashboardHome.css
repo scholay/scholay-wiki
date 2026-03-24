@@ -38,10 +38,6 @@
   min-height: 320px;
 }
 
-.dashboard-home .chart-card.full-width {
-  min-height: 360px;
-}
-
 @media (max-width: 768px) {
   .dashboard-home {
     gap: var(--space-4);

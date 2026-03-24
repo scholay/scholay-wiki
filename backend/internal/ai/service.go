@@ -32,14 +32,6 @@ import (
 	"scholar-backend/internal/thirdparty"
 )
 
-// min returns the smaller of two integers
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 type Service struct {
 	db             *gorm.DB
 	accountService *thirdparty.Service
@@ -62,9 +54,141 @@ func isAIRetryableError(err error) bool {
 		return false
 	}
 	errStr := err.Error()
-	// 所有 "API error (status xxx)" 格式的错误都是非200响应，都应该重试
-	// 这包括 401/403/429/500/502/503 等所有非 200 错误
 	return strings.Contains(errStr, "API error (status")
+}
+
+// aiConfig holds resolved AI model connection parameters.
+type aiConfig struct {
+	BaseURL string
+	APIKey  string
+	Model   string
+}
+
+// executeWithRetry runs fn with automatic retry and account-switching on retryable errors.
+func (s *Service) executeWithRetry(
+	modelLevel thirdparty.ModelLevel,
+	fn func(cfg aiConfig) (interface{}, error),
+) (interface{}, error) {
+	var lastErr error
+	var excludeAccountIDs []uint
+
+	for attempt := 0; attempt <= AIMaxRetries; attempt++ {
+		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
+		if err != nil {
+			log.Printf("[AI Retry] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
+			lastErr = err
+			continue
+		}
+
+		if attempt > 0 {
+			log.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n",
+				attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
+		}
+
+		modelCode := config.ModelLow
+		if modelCode == "" {
+			modelCode = "gpt-3.5-turbo"
+		}
+
+		result, err := fn(aiConfig{
+			BaseURL: config.BaseURL,
+			APIKey:  config.APIKey,
+			Model:   modelCode,
+		})
+
+		if err != nil {
+			lastErr = err
+			if circuitbreaker.IsCircuitBreakerError(err) {
+				return nil, fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
+			}
+			if isAIRetryableError(err) {
+				log.Printf("[AI Retry] Retryable error with account %d: %v\n", accountID, err)
+				excludeAccountIDs = append(excludeAccountIDs, accountID)
+				continue
+			}
+			return nil, err
+		}
+		return result, nil
+	}
+	return nil, fmt.Errorf("all %d AI retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
+}
+
+// doAIRequest builds an HTTP request, executes it with the circuit breaker, and returns the raw response body.
+// The caller is responsible for reading/closing the body.
+func (s *Service) doAIRequest(cfg aiConfig, jsonData []byte, client *http.Client) (*http.Response, error) {
+	url := strings.TrimSuffix(cfg.BaseURL, "/") + "/v1/chat/completions"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+
+	resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to send request: %w", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		}
+		return resp, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resultInterface.(*http.Response), nil
+}
+
+// streamSSE reads an SSE stream, writes chunks to writer, and optionally collects full content.
+func (s *Service) streamSSE(reader io.Reader, writer io.Writer, collect bool) (string, error) {
+	scanner := bufio.NewScanner(reader)
+	const maxScannerBuffer = 1024 * 1024
+	scanner.Buffer(make([]byte, maxScannerBuffer), maxScannerBuffer)
+	var fullContent strings.Builder
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		data := strings.TrimPrefix(line, "data: ")
+		if data == "[DONE]" {
+			break
+		}
+
+		var chunk ChatCompletionChunk
+		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+			log.Printf("Warning: failed to parse chunk: %v\n", err)
+			continue
+		}
+
+		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+			if collect {
+				fullContent.WriteString(chunk.Choices[0].Delta.Content)
+			}
+			chunkJSON, err := json.Marshal(chunk)
+			if err != nil {
+				log.Printf("Warning: failed to marshal chunk: %v\n", err)
+				continue
+			}
+			if _, err = fmt.Fprintf(writer, "data: %s\n\n", string(chunkJSON)); err != nil {
+				return "", err
+			}
+			if flusher, ok := writer.(http.Flusher); ok {
+				flusher.Flush()
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("error reading stream: %w", err)
+	}
+	return fullContent.String(), nil
 }
 
 // RetryableError 包装可重试的错误，用于告诉熔断器这不应该计入失败
@@ -347,46 +471,21 @@ func (s *Service) GetAndRenderPrompt(key string, variables map[string]string) (s
 }
 
 // ChatCompletionWithTools sends a chat completion request with tools (non-streaming)
-// Includes automatic retry logic with account switching on 403/429 errors
+// Includes automatic retry logic with account switching on retryable errors
 func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, toolChoice string, modelLevel thirdparty.ModelLevel) (*ChatCompletionResponse, error) {
 	log.Printf("[DEBUG] ChatCompletionWithTools called, messages: %d, tools: %d, modelLevel: %s\n", len(messages), len(tools), modelLevel)
 
-	var lastErr error
-	var excludeAccountIDs []uint
+	result, err := s.executeWithRetry(modelLevel, func(cfg aiConfig) (interface{}, error) {
+		convertedMessages := ConvertMessagesForModel(messages, cfg.Model)
 
-	for attempt := 0; attempt <= AIMaxRetries; attempt++ {
-		// Get AI model config by level, excluding previously failed accounts
-		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
-		if err != nil {
-			log.Printf("[ERROR] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
-			lastErr = err
-			continue
-		}
-
-		if attempt > 0 {
-			log.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
-		} else {
-			log.Printf("[DEBUG] Got AI config, BaseURL: %s, Model: %s, AccountID: %d\n", config.BaseURL, config.ModelLow, accountID)
-		}
-
-		// ModelLow field contains the actual model code for the requested level
-		modelCode := config.ModelLow
-		if modelCode == "" {
-			modelCode = "gpt-3.5-turbo" // Final fallback
-		}
-
-		// 根据模型类型转换消息格式（Claude vs OpenAI）
-		convertedMessages := ConvertMessagesForModel(messages, modelCode)
-
-		// Prepare request
 		reqBody := ChatCompletionRequest{
-			Model:       modelCode,
+			Model:       cfg.Model,
 			Messages:    convertedMessages,
 			Tools:       tools,
 			ToolChoice:  toolChoice,
 			Stream:      false,
 			Temperature: 0.7,
-			MaxTokens:   8192, // 增加输出 token 限制，避免被截断
+			MaxTokens:   8192,
 		}
 
 		jsonData, err := json.Marshal(reqBody)
@@ -394,90 +493,22 @@ func (s *Service) ChatCompletionWithTools(messages []ChatMessage, tools []Tool, 
 			return nil, fmt.Errorf("failed to marshal request: %w", err)
 		}
 
-		// Debug: Print tool request details
-		if attempt == 0 {
-			log.Printf("[DEBUG] Tool call request body (first 500 chars): %s\n", string(jsonData[:min(500, len(jsonData))]))
-			if len(tools) > 0 {
-				log.Printf("[DEBUG] First tool: name=%s, description=%s\n", tools[0].Function.Name, tools[0].Function.Description)
-			}
-		}
-
-		// Create HTTP request
-		url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
-		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		resp, err := s.doAIRequest(cfg, jsonData, GetLongRunningHTTPClient())
 		if err != nil {
-			return nil, fmt.Errorf("failed to create request: %w", err)
-		}
-
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+config.APIKey)
-
-		// Send request using long-running HTTP client for AI tasks that may take a while
-		// (e.g., peer review with PDF processing)
-		client := GetLongRunningHTTPClient()
-
-		log.Printf("[DEBUG] Sending tool call request to: %s, model: %s\n", url, modelCode)
-
-		// Execute with circuit breaker protection
-		resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
-			resp, err := client.Do(req)
-			if err != nil {
-				log.Printf("[ERROR] Tool call request failed: %v\n", err)
-				return nil, fmt.Errorf("failed to send request: %w", err)
-			}
-			defer resp.Body.Close()
-			log.Printf("[DEBUG] Tool call response status: %d\n", resp.StatusCode)
-
-			if resp.StatusCode != http.StatusOK {
-				body, _ := io.ReadAll(resp.Body)
-				log.Printf("[ERROR] Tool call API error, status %d: %s\n", resp.StatusCode, string(body))
-				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
-			}
-
-			// Parse response
-			var result ChatCompletionResponse
-			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-				log.Printf("[ERROR] Failed to decode tool call response: %v\n", err)
-				return nil, fmt.Errorf("failed to decode response: %w", err)
-			}
-
-			log.Printf("[DEBUG] Tool call completed successfully, got %d choices\n", len(result.Choices))
-			if len(result.Choices) > 0 {
-				log.Printf("[DEBUG] First choice has %d tool calls\n", len(result.Choices[0].Message.ToolCalls))
-				// Debug: Print the AI's response message
-				if result.Choices[0].Message.Content != "" {
-					log.Printf("[DEBUG] AI response content (no tool call): %s\n", result.Choices[0].Message.Content[:min(200, len(result.Choices[0].Message.Content))])
-				}
-			}
-
-			return &result, nil
-		})
-
-		if err != nil {
-			lastErr = err
-
-			// Check if circuit breaker is open
-			if circuitbreaker.IsCircuitBreakerError(err) {
-				return nil, fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
-			}
-
-			// Check if error is retryable (403/429)
-			if isAIRetryableError(err) {
-				log.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
-				excludeAccountIDs = append(excludeAccountIDs, accountID)
-				continue
-			}
-
-			// Non-retryable error, return immediately
-			log.Printf("[ERROR] Non-retryable AI error: %v\n", err)
 			return nil, err
 		}
+		defer resp.Body.Close()
 
-		// Success
-		return resultInterface.(*ChatCompletionResponse), nil
+		var chatResp ChatCompletionResponse
+		if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+		return &chatResp, nil
+	})
+	if err != nil {
+		return nil, err
 	}
-
-	return nil, fmt.Errorf("all %d AI retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
+	return result.(*ChatCompletionResponse), nil
 }
 
 // ToolExecutor is a callback function type for executing tool calls
@@ -609,86 +640,30 @@ func (s *Service) StreamChatCompletionWithToolLoop(
 // streamChatCompletionWithRawMessages streams chat completion with raw interface{} messages
 // This is needed to support tool messages which have a different structure
 func (s *Service) streamChatCompletionWithRawMessages(messages []interface{}, writer io.Writer, modelLevel thirdparty.ModelLevel) (string, error) {
-	var lastErr error
-	var excludeAccountIDs []uint
-
-	for attempt := 0; attempt <= AIMaxRetries; attempt++ {
-		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
-		if err != nil {
-			log.Printf("[ToolLoop-Stream] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
-			lastErr = err
-			continue
-		}
-
-		if attempt > 0 {
-			log.Printf("[ToolLoop-Stream] Retry %d/%d with account ID: %d\n", attempt+1, AIMaxRetries+1, accountID)
-		}
-
-		modelCode := config.ModelLow
-		if modelCode == "" {
-			modelCode = "gpt-3.5-turbo"
-		}
-
-		// Build request with raw messages
+	result, err := s.executeWithRetry(modelLevel, func(cfg aiConfig) (interface{}, error) {
 		reqBody := map[string]interface{}{
-			"model":       modelCode,
+			"model":       cfg.Model,
 			"messages":    messages,
 			"stream":      true,
 			"temperature": 0.7,
 		}
-
 		jsonData, err := json.Marshal(reqBody)
 		if err != nil {
-			return "", fmt.Errorf("failed to marshal request: %w", err)
+			return nil, fmt.Errorf("failed to marshal request: %w", err)
 		}
 
-		url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
-		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		resp, err := s.doAIRequest(cfg, jsonData, GetStreamingHTTPClient())
 		if err != nil {
-			return "", fmt.Errorf("failed to create request: %w", err)
+			return nil, err
 		}
+		defer resp.Body.Close()
 
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+config.APIKey)
-
-		client := GetStreamingHTTPClient()
-
-		resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
-			resp, err := client.Do(req)
-			if err != nil {
-				return nil, fmt.Errorf("failed to send request: %w", err)
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode != http.StatusOK {
-				body, _ := io.ReadAll(resp.Body)
-				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
-			}
-
-			// Stream response and collect content
-			return s.streamResponseAndCollect(resp.Body, writer)
-		})
-
-		if err != nil {
-			lastErr = err
-
-			if circuitbreaker.IsCircuitBreakerError(err) {
-				return "", fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
-			}
-
-			if isAIRetryableError(err) {
-				log.Printf("[ToolLoop-Stream] Retryable error with account %d: %v\n", accountID, err)
-				excludeAccountIDs = append(excludeAccountIDs, accountID)
-				continue
-			}
-
-			return "", err
-		}
-
-		return resultInterface.(string), nil
+		return s.streamSSE(resp.Body, writer, true)
+	})
+	if err != nil {
+		return "", err
 	}
-
-	return "", fmt.Errorf("all %d retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
+	return result.(string), nil
 }
 
 // ChatCompletionWithModel sends a chat completion request with a specific model (non-streaming)
@@ -786,96 +761,30 @@ func (s *Service) ChatCompletionWithModel(messages []ChatMessage, tools []Tool, 
 }
 
 // StreamChatCompletionWithLevel sends a streaming chat completion request with a specific model level
-// Includes automatic retry logic with account switching on 403/429 errors
+// Includes automatic retry logic with account switching on retryable errors
 func (s *Service) StreamChatCompletionWithLevel(messages []ChatMessage, writer io.Writer, modelLevel thirdparty.ModelLevel) error {
-	var lastErr error
-	var excludeAccountIDs []uint
-
-	for attempt := 0; attempt <= AIMaxRetries; attempt++ {
-		// Get AI model config by level, excluding previously failed accounts
-		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
-		if err != nil {
-			log.Printf("[AI Retry] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
-			lastErr = err
-			continue
-		}
-
-		if attempt > 0 {
-			log.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
-		}
-
-		// Prepare request - ModelLow field contains the actual model code for this level
-		modelCode := config.ModelLow
-		if modelCode == "" {
-			modelCode = "gpt-3.5-turbo"
-		}
-
+	_, err := s.executeWithRetry(modelLevel, func(cfg aiConfig) (interface{}, error) {
 		reqBody := ChatCompletionRequest{
-			Model:       modelCode,
+			Model:       cfg.Model,
 			Messages:    messages,
 			Stream:      true,
 			Temperature: 0.7,
 		}
-
 		jsonData, err := json.Marshal(reqBody)
 		if err != nil {
-			return fmt.Errorf("failed to marshal request: %w", err)
+			return nil, fmt.Errorf("failed to marshal request: %w", err)
 		}
 
-		// Create HTTP request
-		url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
-		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		resp, err := s.doAIRequest(cfg, jsonData, GetStreamingHTTPClient())
 		if err != nil {
-			return fmt.Errorf("failed to create request: %w", err)
+			return nil, err
 		}
+		defer resp.Body.Close()
 
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+config.APIKey)
-
-		// Send request using streaming HTTP client (no timeout) for long-running streaming requests
-		client := GetStreamingHTTPClient()
-
-		// Execute with circuit breaker protection
-		_, err = circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
-			resp, err := client.Do(req)
-			if err != nil {
-				return nil, fmt.Errorf("failed to send request: %w", err)
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode != http.StatusOK {
-				body, _ := io.ReadAll(resp.Body)
-				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
-			}
-
-			// Stream response
-			return nil, s.streamResponse(resp.Body, writer)
-		})
-
-		if err != nil {
-			lastErr = err
-
-			// Check if circuit breaker is open
-			if circuitbreaker.IsCircuitBreakerError(err) {
-				return fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
-			}
-
-			// Check if error is retryable (403/429)
-			if isAIRetryableError(err) {
-				log.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
-				excludeAccountIDs = append(excludeAccountIDs, accountID)
-				continue
-			}
-
-			// Non-retryable error, return immediately
-			return err
-		}
-
-		// Success
-		return nil
-	}
-
-	return fmt.Errorf("all %d AI retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
+		_, err = s.streamSSE(resp.Body, writer, false)
+		return nil, err
+	})
+	return err
 }
 
 // StreamChatCompletion sends a streaming chat completion request
@@ -886,113 +795,32 @@ func (s *Service) StreamChatCompletion(messages []ChatMessage, writer io.Writer)
 }
 
 // StreamChatCompletionAndCollectWithLevel streams chat completion with specific model level and collects full content
-// Includes automatic retry logic with account switching on 403/429 errors
+// Includes automatic retry logic with account switching on retryable errors
 func (s *Service) StreamChatCompletionAndCollectWithLevel(messages []ChatMessage, writer io.Writer, modelLevel thirdparty.ModelLevel) (string, error) {
-	log.Printf("[DEBUG] StreamChatCompletionAndCollectWithLevel called, modelLevel: %s, messages count: %d\n", modelLevel, len(messages))
-
-	var lastErr error
-	var excludeAccountIDs []uint
-
-	for attempt := 0; attempt <= AIMaxRetries; attempt++ {
-		// Get AI model config by level, excluding previously failed accounts
-		log.Printf("[DEBUG] Getting AI model config for level: %s (attempt %d)\n", modelLevel, attempt+1)
-		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
-		if err != nil {
-			log.Printf("[ERROR] Attempt %d: Failed to get AI model config: %v\n", attempt+1, err)
-			lastErr = err
-			continue
-		}
-
-		if attempt > 0 {
-			log.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
-		} else {
-			log.Printf("[DEBUG] Got AI model config, BaseURL: %s, Model: %s, AccountID: %d\n", config.BaseURL, config.ModelLow, accountID)
-		}
-
-		// Create request - ModelLow field contains the actual model code for this level
-		modelCode := config.ModelLow
-		if modelCode == "" {
-			modelCode = "gpt-3.5-turbo"
-		}
-
+	result, err := s.executeWithRetry(modelLevel, func(cfg aiConfig) (interface{}, error) {
 		reqBody := ChatCompletionRequest{
-			Model:       modelCode,
+			Model:       cfg.Model,
 			Messages:    messages,
 			Stream:      true,
 			Temperature: 0.7,
 		}
-
-		log.Printf("[DEBUG] Final model for request: %s\n", reqBody.Model)
-
 		jsonData, err := json.Marshal(reqBody)
 		if err != nil {
-			log.Printf("[ERROR] Failed to marshal request: %v\n", err)
-			return "", fmt.Errorf("failed to marshal request: %w", err)
+			return nil, fmt.Errorf("failed to marshal request: %w", err)
 		}
-		log.Printf("[DEBUG] Request marshaled successfully, size: %d bytes\n", len(jsonData))
 
-		// Create HTTP request
-		url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
-		log.Printf("[DEBUG] Creating request to URL: %s\n", url)
-		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		resp, err := s.doAIRequest(cfg, jsonData, GetStreamingHTTPClient())
 		if err != nil {
-			log.Printf("[ERROR] Failed to create HTTP request: %v\n", err)
-			return "", fmt.Errorf("failed to create request: %w", err)
+			return nil, err
 		}
-		log.Printf("[DEBUG] HTTP request created successfully\n")
+		defer resp.Body.Close()
 
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+config.APIKey)
-
-		// Send request with streaming HTTP client (no timeout) for long-running streaming requests
-		client := GetStreamingHTTPClient()
-
-		log.Printf("[DEBUG] Sending AI request, model: %s, url: %s, level: %s\n", reqBody.Model, url, modelLevel)
-
-		// Execute with circuit breaker protection
-		resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
-			resp, err := client.Do(req)
-			if err != nil {
-				log.Printf("[ERROR] AI request failed: %v\n", err)
-				return nil, fmt.Errorf("failed to send request: %w", err)
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode != http.StatusOK {
-				body, _ := io.ReadAll(resp.Body)
-				log.Printf("[ERROR] AI API returned status %d, model: %s, body: %s\n", resp.StatusCode, reqBody.Model, string(body))
-				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
-			}
-
-			log.Printf("[DEBUG] AI API call successful, model: %s, starting to stream response\n", reqBody.Model)
-			// Stream response and collect content
-			return s.streamResponseAndCollect(resp.Body, writer)
-		})
-
-		if err != nil {
-			lastErr = err
-
-			// Check if circuit breaker is open
-			if circuitbreaker.IsCircuitBreakerError(err) {
-				return "", fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
-			}
-
-			// Check if error is retryable (403/429)
-			if isAIRetryableError(err) {
-				log.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
-				excludeAccountIDs = append(excludeAccountIDs, accountID)
-				continue
-			}
-
-			// Non-retryable error, return immediately
-			return "", err
-		}
-
-		// Success
-		return resultInterface.(string), nil
+		return s.streamSSE(resp.Body, writer, true)
+	})
+	if err != nil {
+		return "", err
 	}
-
-	return "", fmt.Errorf("all %d AI retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
+	return result.(string), nil
 }
 
 // StreamChatCompletionAndCollect streams chat completion and collects full content
@@ -1002,139 +830,6 @@ func (s *Service) StreamChatCompletionAndCollect(messages []ChatMessage, writer 
 	return s.StreamChatCompletionAndCollectWithLevel(messages, writer, thirdparty.ModelLevelMid)
 }
 
-// streamResponse reads SSE stream and writes to output
-func (s *Service) streamResponse(reader io.Reader, writer io.Writer) error {
-	scanner := bufio.NewScanner(reader)
-	// Increase buffer size to handle large SSE messages (1MB)
-	const maxScannerBuffer = 1024 * 1024
-	scanner.Buffer(make([]byte, maxScannerBuffer), maxScannerBuffer)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		// Skip empty lines
-		if line == "" {
-			continue
-		}
-
-		// Check for SSE data line
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-
-		data := strings.TrimPrefix(line, "data: ")
-
-		// Check for stream end
-		if data == "[DONE]" {
-			break
-		}
-
-		// Parse JSON chunk
-		var chunk ChatCompletionChunk
-		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-			// Log error but continue
-			log.Printf("Warning: failed to parse chunk: %v\n", err)
-			continue
-		}
-
-		// Extract content and forward the entire chunk as JSON
-		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-			// Marshal the chunk back to JSON
-			chunkJSON, err := json.Marshal(chunk)
-			if err != nil {
-				log.Printf("Warning: failed to marshal chunk: %v\n", err)
-				continue
-			}
-
-			// Write SSE formatted data
-			_, err = fmt.Fprintf(writer, "data: %s\n\n", string(chunkJSON))
-			if err != nil {
-				return err
-			}
-
-			// Flush if writer is a flusher
-			if flusher, ok := writer.(http.Flusher); ok {
-				flusher.Flush()
-			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error reading stream: %w", err)
-	}
-
-	return nil
-}
-
-// streamResponseAndCollect reads SSE stream, writes to output, and collects full content
-func (s *Service) streamResponseAndCollect(reader io.Reader, writer io.Writer) (string, error) {
-	scanner := bufio.NewScanner(reader)
-	// Increase buffer size to handle large SSE messages (1MB)
-	const maxScannerBuffer = 1024 * 1024
-	scanner.Buffer(make([]byte, maxScannerBuffer), maxScannerBuffer)
-	var fullContent strings.Builder
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		// Skip empty lines
-		if line == "" {
-			continue
-		}
-
-		// Check for SSE data line
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-
-		data := strings.TrimPrefix(line, "data: ")
-
-		// Check for stream end
-		if data == "[DONE]" {
-			break
-		}
-
-		// Parse JSON chunk
-		var chunk ChatCompletionChunk
-		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-			// Log error but continue
-			log.Printf("Warning: failed to parse chunk: %v\n", err)
-			continue
-		}
-
-		// Extract content and forward the entire chunk as JSON
-		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-			content := chunk.Choices[0].Delta.Content
-
-			// Collect content
-			fullContent.WriteString(content)
-
-			// Marshal the chunk back to JSON
-			chunkJSON, err := json.Marshal(chunk)
-			if err != nil {
-				log.Printf("Warning: failed to marshal chunk: %v\n", err)
-				continue
-			}
-
-			// Write SSE formatted data
-			_, err = fmt.Fprintf(writer, "data: %s\n\n", string(chunkJSON))
-			if err != nil {
-				return "", err
-			}
-
-			// Flush if writer is a flusher
-			if flusher, ok := writer.(http.Flusher); ok {
-				flusher.Flush()
-			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return "", fmt.Errorf("error reading stream: %w", err)
-	}
-
-	return fullContent.String(), nil
-}
 
 // ConvertMCPToolsToOpenAIFormat converts MCP tools to OpenAI function calling format
 func ConvertMCPToolsToOpenAIFormat(mcpTools []mcp.Tool) []Tool {
@@ -1675,108 +1370,39 @@ func (s *Service) convertMapToResult(dataMap map[string]string, dimensions []Ana
 
 // ChatCompletionWithLevel calls AI model without streaming and returns the complete response
 // Used for non-streaming operations like generating follow-up questions
-// Includes automatic retry logic with account switching on 403/429 errors
+// Includes automatic retry logic with account switching on retryable errors
 func (s *Service) ChatCompletionWithLevel(messages []ChatMessage, modelLevel thirdparty.ModelLevel) (string, error) {
-	log.Printf("[DEBUG] ChatCompletionWithLevel called, modelLevel: %s, messages count: %d\n", modelLevel, len(messages))
-
-	var lastErr error
-	var excludeAccountIDs []uint
-
-	for attempt := 0; attempt <= AIMaxRetries; attempt++ {
-		// Get AI model config by level, excluding previously failed accounts
-		config, accountID, err := s.accountService.GetRandomAIModelConfigByLevelExcluding(modelLevel, excludeAccountIDs)
-		if err != nil {
-			log.Printf("[AI Retry] Attempt %d: Failed to get AI config: %v\n", attempt+1, err)
-			lastErr = err
-			continue
-		}
-
-		if attempt > 0 {
-			log.Printf("[AI Retry] Attempt %d/%d with account ID: %d, model: %s\n", attempt+1, AIMaxRetries+1, accountID, config.ModelLow)
-		}
-
-		// ModelLow field now contains the actual model code for the requested level
-		modelCode := config.ModelLow
-		if modelCode == "" {
-			modelCode = "gpt-3.5-turbo" // Final fallback
-		}
-
-		// Prepare request (NO streaming)
+	result, err := s.executeWithRetry(modelLevel, func(cfg aiConfig) (interface{}, error) {
 		reqBody := ChatCompletionRequest{
-			Model:       modelCode,
+			Model:       cfg.Model,
 			Messages:    messages,
-			Stream:      false, // Non-streaming
+			Stream:      false,
 			Temperature: 0.7,
 		}
-
 		jsonData, err := json.Marshal(reqBody)
 		if err != nil {
-			return "", fmt.Errorf("failed to marshal request: %w", err)
+			return nil, fmt.Errorf("failed to marshal request: %w", err)
 		}
 
-		// Create HTTP request
-		url := strings.TrimSuffix(config.BaseURL, "/") + "/v1/chat/completions"
-		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		resp, err := s.doAIRequest(cfg, jsonData, GetLongRunningHTTPClient())
 		if err != nil {
-			return "", fmt.Errorf("failed to create request: %w", err)
+			return nil, err
 		}
+		defer resp.Body.Close()
 
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+config.APIKey)
-
-		// Send request using long-running HTTP client for AI tasks
-		client := GetLongRunningHTTPClient()
-
-		// Execute with circuit breaker protection
-		resultInterface, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
-			resp, err := client.Do(req)
-			if err != nil {
-				return nil, fmt.Errorf("failed to send request: %w", err)
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode != http.StatusOK {
-				body, _ := io.ReadAll(resp.Body)
-				return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
-			}
-
-			// Parse non-streaming response
-			var response ChatCompletionResponse
-			if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-				return nil, fmt.Errorf("failed to decode response: %w", err)
-			}
-
-			if len(response.Choices) == 0 {
-				return nil, fmt.Errorf("no response choices returned")
-			}
-
-			return response.Choices[0].Message.Content, nil
-		})
-
-		if err != nil {
-			lastErr = err
-
-			// Check if circuit breaker is open
-			if circuitbreaker.IsCircuitBreakerError(err) {
-				return "", fmt.Errorf("AI service temporarily unavailable (circuit breaker open): %w", err)
-			}
-
-			// Check if error is retryable (403/429)
-			if isAIRetryableError(err) {
-				log.Printf("[AI Retry] Retryable error (403/429) with account %d: %v\n", accountID, err)
-				excludeAccountIDs = append(excludeAccountIDs, accountID)
-				continue
-			}
-
-			// Non-retryable error, return immediately
-			return "", err
+		var response ChatCompletionResponse
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
-
-		// Success
-		return resultInterface.(string), nil
+		if len(response.Choices) == 0 {
+			return nil, fmt.Errorf("no response choices returned")
+		}
+		return response.Choices[0].Message.Content, nil
+	})
+	if err != nil {
+		return "", err
 	}
-
-	return "", fmt.Errorf("all %d AI retry attempts failed, last error: %w", AIMaxRetries+1, lastErr)
+	return result.(string), nil
 }
 
 // GetAnalysisDimensions 获取用户的分析维度

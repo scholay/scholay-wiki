@@ -125,13 +125,6 @@ export const adminAPI = {
   deleteUser: (userId) =>
     api.delete(`/admin/users/${userId}`),
 
-  grantSubscription: (userId, planCode, billingCycle, reason = '') =>
-    api.post(`/admin/users/${userId}/grant-subscription`, {
-      plan_code: planCode,
-      billing_cycle: billingCycle,
-      reason: reason,
-    }),
-
   // Third-party account management
   getThirdPartyAccounts: (type = '', activeOnly = false) =>
     api.get('/admin/third-party-accounts', { params: { type, active: activeOnly } }),
@@ -173,55 +166,6 @@ export const adminAPI = {
   deletePromptTemplate: (id) =>
     api.delete(`/admin/prompt-templates/${id}`),
 
-  // Subscription plan management
-  getSubscriptionPlans: () =>
-    api.get('/user/subscription/plans'),
-
-  updateSubscriptionPlan: (id, data) =>
-    api.put(`/admin/subscription-plans/${id}`, data),
-
-  // Alipay payment configuration management
-  getAlipayConfigs: (showKeys = false) =>
-    api.get('/admin/payment/alipay/configs', {
-      params: showKeys ? { show_keys: 'true' } : {}
-    }),
-
-  getAlipayConfig: () =>
-    api.get('/admin/payment/alipay/config'),
-
-  createAlipayConfig: (data) =>
-    api.post('/admin/payment/alipay/config', data),
-
-  updateAlipayConfig: (id, data) =>
-    api.put(`/admin/payment/alipay/config/${id}`, data),
-
-  deleteAlipayConfig: (id) =>
-    api.delete(`/admin/payment/alipay/config/${id}`),
-
-  activateAlipayConfig: (id) =>
-    api.post(`/admin/payment/alipay/config/${id}/activate`),
-
-  // WeChat Pay configuration management
-  getWeChatPayConfigs: (showKeys = false) =>
-    api.get('/admin/payment/wechat/configs', {
-      params: showKeys ? { show_keys: 'true' } : {}
-    }),
-
-  getWeChatPayConfig: () =>
-    api.get('/admin/payment/wechat/config'),
-
-  createWeChatPayConfig: (data) =>
-    api.post('/admin/payment/wechat/config', data),
-
-  updateWeChatPayConfig: (id, data) =>
-    api.put(`/admin/payment/wechat/config/${id}`, data),
-
-  deleteWeChatPayConfig: (id) =>
-    api.delete(`/admin/payment/wechat/config/${id}`),
-
-  activateWeChatPayConfig: (id) =>
-    api.post(`/admin/payment/wechat/config/${id}/activate`),
-
   // WeChat OAuth configuration management
   getWeChatConfigs: (showSecret = false) =>
     api.get('/admin/wechat/configs', {
@@ -251,75 +195,6 @@ export const adminAPI = {
 
   updateWeChatOfficialConfig: (data) =>
     api.put('/admin/wechat-official/config', data),
-
-  // Order management
-  getOrderStatistics: () =>
-    api.get('/admin/orders/statistics'),
-
-  getOrders: (page = 1, pageSize = 20, planCode = '', userEmail = '') => {
-    const params = { page, page_size: pageSize };
-    if (planCode) params.plan_code = planCode;
-    if (userEmail) params.user_email = userEmail;
-    return api.get('/admin/orders', { params });
-  },
-
-  // Coupon management
-  getCouponTemplates: (page = 1, pageSize = 20, status = '', distributionType = '') => {
-    const params = { page, page_size: pageSize };
-    if (status) params.status = status;
-    if (distributionType) params.distribution_type = distributionType;
-    return api.get('/admin/coupon-templates', { params });
-  },
-
-  getCouponTemplate: (id) =>
-    api.get(`/admin/coupon-templates/${id}`),
-
-  createCouponTemplate: (data) =>
-    api.post('/admin/coupon-templates', data),
-
-  updateCouponTemplate: (id, data) =>
-    api.put(`/admin/coupon-templates/${id}`, data),
-
-  deleteCouponTemplate: (id) =>
-    api.delete(`/admin/coupon-templates/${id}`),
-
-  activateCouponTemplate: (id) =>
-    api.post(`/admin/coupon-templates/${id}/activate`),
-
-  pauseCouponTemplate: (id) =>
-    api.post(`/admin/coupon-templates/${id}/pause`),
-
-  distributeCoupons: (data) =>
-    api.post('/admin/coupons/distribute', data),
-
-  getDistributedCoupons: (page = 1, pageSize = 20, templateId = '', status = '', userEmail = '') => {
-    const params = { page, page_size: pageSize };
-    if (templateId) params.template_id = templateId;
-    if (status) params.status = status;
-    if (userEmail) params.user_email = userEmail;
-    return api.get('/admin/coupons/distributed', { params });
-  },
-
-  getCouponStatistics: () =>
-    api.get('/admin/coupons/statistics'),
-
-  getCouponBatches: (page = 1, pageSize = 20, status = '') => {
-    const params = { page, page_size: pageSize };
-    if (status) params.status = status;
-    return api.get('/admin/coupon-batches', { params });
-  },
-
-  getCouponBatch: (id) =>
-    api.get(`/admin/coupon-batches/${id}`),
-
-  createCouponBatch: (data) =>
-    api.post('/admin/coupon-batches', data),
-
-  executeCouponBatch: (id) =>
-    api.post(`/admin/coupon-batches/${id}/execute`),
-
-  cancelCouponBatch: (id) =>
-    api.post(`/admin/coupon-batches/${id}/cancel`),
 
   // Analysis dimensions management (默认业务数据)
   getAnalysisDimensions: () =>
@@ -356,78 +231,6 @@ export const adminAPI = {
 
   deleteFeedback: (id) =>
     api.delete(`/admin/feedbacks/${id}`),
-
-  // Currency configuration management
-  getCurrencyConfigs: (category = '') => {
-    const params = {};
-    if (category) params.category = category;
-    return api.get('/admin/currency/configs', { params });
-  },
-
-  getCurrencyConfig: (key) =>
-    api.get(`/admin/currency/configs/${key}`),
-
-  updateCurrencyConfig: (key, data) =>
-    api.put(`/admin/currency/configs/${key}`, data),
-
-  // Deduct configuration management (扣费配置)
-  getDeductConfigs: () =>
-    api.get('/admin/currency/deduct-configs'),
-
-  updateDeductConfig: (data) =>
-    api.post('/admin/currency/deduct-configs', data),
-
-  // Fund management (会员基金)
-  getFunds: (params = {}) =>
-    api.get('/admin/funds', { params }),
-
-  getFundStats: () =>
-    api.get('/admin/funds/stats'),
-
-  getFund: (id) =>
-    api.get(`/admin/funds/${id}`),
-
-  createFund: (data) =>
-    api.post('/admin/funds', data),
-
-  updateFund: (id, data) =>
-    api.put(`/admin/funds/${id}`, data),
-
-  deleteFund: (id) =>
-    api.delete(`/admin/funds/${id}`),
-
-  // Currency wallet management
-  getUserWallet: (userId) =>
-    api.get(`/admin/currency/wallet/${userId}`),
-
-  rechargeUser: (data) =>
-    api.post('/admin/currency/recharge', data),
-
-  deductUser: (data) =>
-    api.post('/admin/currency/deduct', data),
-
-  // Batch currency distribution (批量发放经费/恩特币)
-  batchDistribute: (data) =>
-    api.post('/admin/currency/batch-distribute', data),
-
-  batchDistributePreview: (data) =>
-    api.post('/admin/currency/batch-distribute/preview', data),
-
-  getCurrencyBatches: (page = 1, pageSize = 20, status = '', currencyType = '') => {
-    const params = { page, page_size: pageSize };
-    if (status) params.status = status;
-    if (currencyType) params.currency_type = currencyType;
-    return api.get('/admin/currency/batches', { params });
-  },
-
-  getCurrencyBatch: (id) =>
-    api.get(`/admin/currency/batches/${id}`),
-
-  cancelCurrencyBatch: (id) =>
-    api.post(`/admin/currency/batches/${id}/cancel`),
-
-  getCurrencyBatchDistributions: (id, page = 1, pageSize = 20) =>
-    api.get(`/admin/currency/batches/${id}/distributions`, { params: { page, page_size: pageSize } }),
 
   // Message management (站内信管理)
   getMessages: (params = {}) => {

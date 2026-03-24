@@ -60,14 +60,6 @@
     <priority>0.7</priority>
   </url>
 
-  <!-- Fund Center -->
-  <url>
-    <loc>https://www.scholay.com/fund-center</loc>
-    <lastmod>2026-02-24</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>
-
   <!-- About Us (Required for AdSense) -->
   <url>
     <loc>https://www.scholay.com/about</loc>

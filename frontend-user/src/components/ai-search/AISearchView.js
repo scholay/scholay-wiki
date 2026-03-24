@@ -4,14 +4,10 @@
  */
 import React, { Suspense, lazy, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { subscriptionAPI } from '../../services/api';
-import logger from '../../utils/logger';
-
 // 子组件
 import AIPaperList from '../AIPaperList';
 import AIHistoryDropdown from '../AIHistoryDropdown';
 import CiteModal from '../CiteModal';
-import InsufficientBalanceModal from '../InsufficientBalanceModal';
 import AIDimensionPanel from './AIDimensionPanel';
 import AIConversationContent from './AIConversationContent';
 import AISearchInput from './AISearchInput';
@@ -81,15 +77,10 @@ const AISearchView = () => {
     selectedDimensions: aiSearch.selectedDimensions,
     analysisResults: aiSearch.analysisResults,
     analyzingPapers: aiSearch.analyzingPapers,
-    totalDeducted: aiSearch.totalDeducted,
     analysisAbortedRef: aiSearch.analysisAbortedRef,
     isAuthenticated: aiSearch.isAuthenticated,
     setAnalysisResults: aiSearch.setAnalysisResults,
     setAnalyzingPapers: aiSearch.setAnalyzingPapers,
-    setTotalDeducted: aiSearch.setTotalDeducted,
-    setBalanceError: aiSearch.setBalanceError,
-    setBalanceErrorFeature: aiSearch.setBalanceErrorFeature,
-    setShowBalanceModal: aiSearch.setShowBalanceModal,
   });
 
   // 流式搜索
@@ -112,9 +103,6 @@ const AISearchView = () => {
     setSearchQuery: aiSearch.setSearchQuery,
     setConversations: aiSearch.setConversations,
     setShowAuthModal: aiSearch.setShowAuthModal,
-    setBalanceError: aiSearch.setBalanceError,
-    setBalanceErrorFeature: aiSearch.setBalanceErrorFeature,
-    setShowBalanceModal: aiSearch.setShowBalanceModal,
     setIsLoadingSuggestedQuestions: aiSearch.setIsLoadingSuggestedQuestions,
     loadConversations: aiSearch.loadConversations,
     extractSuggestedQuestions: aiSearch.extractSuggestedQuestions,
@@ -203,40 +191,6 @@ const AISearchView = () => {
     setScrollToPaperIndex: aiSearch.setScrollToPaperIndex,
   });
 
-  // 获取配额和使用情况
-  useEffect(() => {
-    const fetchQuotaAndUsage = async () => {
-      try {
-        const response = await subscriptionAPI.getUsage();
-
-        if (response.data.code === 0) {
-          const data = response.data.data;
-          const quotaData = {
-            advancedSearchLowQuota: data.limits?.advanced_search_low?.limit ?? -1,
-            advancedSearchMidQuota: data.limits?.advanced_search_mid?.limit ?? -1,
-            advancedSearchHighQuota: data.limits?.advanced_search_high?.limit ?? -1,
-          };
-
-          const usageData = {
-            advancedSearchLowCount: data.usage?.advanced_search_low ?? 0,
-            advancedSearchMidCount: data.usage?.advanced_search_mid ?? 0,
-            advancedSearchHighCount: data.usage?.advanced_search_high ?? 0,
-          };
-
-          aiSearch.setQuota(quotaData);
-          aiSearch.setUsage(usageData);
-        }
-      } catch (error) {
-        logger.error('Failed to fetch quota/usage:', error);
-      }
-    };
-
-    if (aiSearch.isAuthenticated && aiSearch.user) {
-      fetchQuotaAndUsage();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aiSearch.isAuthenticated, aiSearch.user, aiSearch.setQuota, aiSearch.setUsage]);
-
   // 加载维度列表
   useEffect(() => {
     if (aiSearch.isAuthenticated && !aiSearch.hasLoadedDimensionsRef.current) {
@@ -265,7 +219,7 @@ const AISearchView = () => {
         {/* 顶部导航栏 */}
         <div className="results-search-header ai-results-header">
           {/* 左侧 Logo */}
-          <div className="results-logo" onClick={() => navigate('/')}>
+          <div className="results-logo" onClick={() => navigate('/search')}>
             <img src="/brand-text.svg" alt="Scholay" className="results-brand-text" />
           </div>
 
@@ -432,19 +386,6 @@ const AISearchView = () => {
           onClose={() => aiSearch.setCitePaper(null)}
         />
       )}
-
-      {/* 经费不足弹窗 */}
-      <InsufficientBalanceModal
-        isOpen={aiSearch.showBalanceModal}
-        onClose={() => {
-          aiSearch.setShowBalanceModal(false);
-          aiSearch.setBalanceError(null);
-          aiSearch.analysisAbortedRef.current = false;
-        }}
-        featureName={aiSearch.balanceErrorFeature}
-        required={aiSearch.balanceError?.required || 0}
-        shortage={aiSearch.balanceError?.shortage || 0}
-      />
 
       {/* 论文详情推屏 */}
       {showPaperDrawer && selectedPaper && (

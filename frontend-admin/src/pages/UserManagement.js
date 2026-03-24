@@ -13,8 +13,6 @@ import { showToast } from '../components/Toast';
 import UserStatisticsChart from '../components/UserStatisticsChart';
 import OnlineUserChart from '../components/OnlineUserChart';
 import UserDetailDrawer from '../components/UserDetailDrawer';
-import EntcoinIcon from '../components/EntcoinIcon';
-import GoldIcon from '../components/GoldIcon';
 import './UserManagement.css';
 
 // 内存优化配置
@@ -26,9 +24,6 @@ const UserManagement = () => {
     onlineUsers: 0,
     onlineGuests: 0,
     todayRegistrations: 0,
-    weekRegistrations: 0,
-    monthRegistrations: 0,
-    yearRegistrations: 0,
   });
   const [users, setUsers] = useState([]);
   const [onlineUsersList, setOnlineUsersList] = useState([]);
@@ -47,51 +42,11 @@ const UserManagement = () => {
   const [activeView, setActiveView] = useState('list'); // 'list' or 'online'
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, userId: null, userEmail: '' });
   const [selectedUserId, setSelectedUserId] = useState(null);
-  const [grantModal, setGrantModal] = useState({ show: false, user: null });
-  const [grantForm, setGrantForm] = useState({ planCode: '', billingCycle: 'monthly', reason: '' });
-  const [subscriptionPlans, setSubscriptionPlans] = useState([]);
-  const [grantLoading, setGrantLoading] = useState(false);
 
   // 搜索和筛选状态
   const [searchKeyword, setSearchKeyword] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const [filterPlan, setFilterPlan] = useState('');
   const [showCharts, setShowCharts] = useState(true);
-
-  // 发放货币弹窗状态
-  const [currencyModal, setCurrencyModal] = useState({ show: false, user: null });
-  const [currencyForm, setCurrencyForm] = useState({
-    currencyType: 'gold',
-    amount: '',
-    description: ''
-  });
-  const [currencyLoading, setCurrencyLoading] = useState(false);
-
-  // 批量发放弹窗状态
-  const [batchModal, setBatchModal] = useState({ show: false });
-  const [batchForm, setBatchForm] = useState({
-    currencyType: 'gold',
-    amount: '',
-    targetType: 'all',
-    title: '',
-    description: '',
-    remark: ''
-  });
-  const [batchLoading, setBatchLoading] = useState(false);
-  const [batchPreview, setBatchPreview] = useState({ loading: false, userCount: 0 });
-
-  const loadSubscriptionPlans = useCallback(async () => {
-    try {
-      const response = await adminAPI.getSubscriptionPlans();
-      if (response.data.code === 0 && response.data.data) {
-        // Filter out free plan
-        const paidPlans = response.data.data.filter(plan => plan.plan_code !== 'FREE');
-        setSubscriptionPlans(paidPlans);
-      }
-    } catch (err) {
-      console.error('Failed to load subscription plans:', err);
-    }
-  }, []);
 
   const loadUserStatistics = useCallback(async () => {
     try {
@@ -101,9 +56,6 @@ const UserManagement = () => {
           onlineUsers: response.data.data.online_users || 0,
           onlineGuests: response.data.data.online_guests || 0,
           todayRegistrations: response.data.data.today_registrations || 0,
-          weekRegistrations: response.data.data.week_registrations || 0,
-          monthRegistrations: response.data.data.month_registrations || 0,
-          yearRegistrations: response.data.data.year_registrations || 0,
         });
       }
     } catch (err) {
@@ -151,8 +103,7 @@ const UserManagement = () => {
   useEffect(() => {
     loadUserStatistics();
     loadUserList();
-    loadSubscriptionPlans();
-  }, [loadUserStatistics, loadUserList, loadSubscriptionPlans]);
+  }, [loadUserStatistics, loadUserList]);
 
   const loadOnlineUsers = async () => {
     setLoading(true);
@@ -223,183 +174,6 @@ const UserManagement = () => {
     setDeleteConfirm({ show: false, userId: null, userEmail: '' });
   };
 
-  // Grant subscription handlers
-  const handleGrantClick = (user) => {
-    setGrantModal({ show: true, user });
-    setGrantForm({ planCode: subscriptionPlans[0]?.plan_code || '', billingCycle: 'monthly', reason: '' });
-  };
-
-  const handleGrantCancel = () => {
-    setGrantModal({ show: false, user: null });
-    setGrantForm({ planCode: '', billingCycle: 'monthly', reason: '' });
-  };
-
-  const handleGrantConfirm = async () => {
-    if (!grantModal.user || !grantForm.planCode) {
-      showToast('请选择会员套餐', 'error');
-      return;
-    }
-
-    setGrantLoading(true);
-    try {
-      const response = await adminAPI.grantSubscription(
-        grantModal.user.id,
-        grantForm.planCode,
-        grantForm.billingCycle,
-        grantForm.reason
-      );
-      if (response.data.code === 0) {
-        showToast('会员套餐发放成功', 'success');
-        handleGrantCancel();
-        // Refresh the user list
-        loadUserList();
-      } else {
-        showToast(response.data.message || '发放失败', 'error');
-      }
-    } catch (err) {
-      showToast(err.response?.data?.message || '发放会员套餐失败', 'error');
-    } finally {
-      setGrantLoading(false);
-    }
-  };
-
-  // 发放货币处理函数
-  const handleCurrencyClick = (user) => {
-    setCurrencyModal({ show: true, user });
-    setCurrencyForm({ currencyType: 'gold', amount: '', description: '' });
-  };
-
-  const handleCurrencyCancel = () => {
-    setCurrencyModal({ show: false, user: null });
-    setCurrencyForm({ currencyType: 'gold', amount: '', description: '' });
-  };
-
-  const handleCurrencyConfirm = async () => {
-    if (!currencyModal.user) return;
-    
-    const amount = parseInt(currencyForm.amount, 10);
-    if (!amount || amount <= 0) {
-      showToast('请输入有效的发放数量', 'error');
-      return;
-    }
-
-    setCurrencyLoading(true);
-    try {
-      const response = await adminAPI.rechargeUser({
-        user_id: currencyModal.user.id,
-        currency_type: currencyForm.currencyType,
-        amount: amount,
-        description: currencyForm.description || `系统赠送${currencyForm.currencyType === 'gold' ? '经费' : '恩特币'}`
-      });
-      
-      if (response.data.code === 0) {
-        showToast(`成功发放 ${amount} ${currencyForm.currencyType === 'gold' ? '经费' : '恩特币'}`, 'success');
-        handleCurrencyCancel();
-        loadUserList();
-      } else {
-        showToast(response.data.message || '发放失败', 'error');
-      }
-    } catch (err) {
-      showToast(err.response?.data?.message || '发放货币失败', 'error');
-    } finally {
-      setCurrencyLoading(false);
-    }
-  };
-
-  // 批量发放处理函数
-  const handleBatchClick = () => {
-    setBatchModal({ show: true });
-    setBatchForm({
-      currencyType: 'gold',
-      amount: '',
-      targetType: 'all',
-      title: '',
-      description: '',
-      remark: ''
-    });
-    setBatchPreview({ loading: false, userCount: 0 });
-  };
-
-  const handleBatchCancel = () => {
-    setBatchModal({ show: false });
-    setBatchForm({
-      currencyType: 'gold',
-      amount: '',
-      targetType: 'all',
-      title: '',
-      description: '',
-      remark: ''
-    });
-    setBatchPreview({ loading: false, userCount: 0 });
-  };
-
-  // 预览目标用户数量
-  const handleBatchPreview = async (targetType) => {
-    setBatchPreview({ loading: true, userCount: 0 });
-    try {
-      const response = await adminAPI.batchDistributePreview({
-        target_type: targetType
-      });
-      if (response.data.code === 0 && response.data.data) {
-        setBatchPreview({
-          loading: false,
-          userCount: response.data.data.user_count || 0,
-          targetName: response.data.data.target_name || ''
-        });
-      }
-    } catch (err) {
-      showToast('获取用户数量失败', 'error');
-      setBatchPreview({ loading: false, userCount: 0 });
-    }
-  };
-
-  // 目标类型变更时预览用户数量
-  const handleTargetTypeChange = (targetType) => {
-    setBatchForm({ ...batchForm, targetType });
-    handleBatchPreview(targetType);
-  };
-
-  const handleBatchConfirm = async () => {
-    const amount = parseInt(batchForm.amount, 10);
-    if (!amount || amount <= 0) {
-      showToast('请输入有效的发放数量', 'error');
-      return;
-    }
-    if (!batchForm.title.trim()) {
-      showToast('请输入发放标题', 'error');
-      return;
-    }
-    if (batchPreview.userCount === 0) {
-      showToast('没有符合条件的用户', 'error');
-      return;
-    }
-
-    setBatchLoading(true);
-    try {
-      const response = await adminAPI.batchDistribute({
-        currency_type: batchForm.currencyType,
-        amount: amount,
-        target_type: batchForm.targetType,
-        title: batchForm.title.trim(),
-        description: batchForm.description.trim(),
-        remark: batchForm.remark.trim()
-      });
-
-      if (response.data.code === 0) {
-        const data = response.data.data;
-        showToast(`批量发放任务已创建，批次号: ${data.batch_no}，将向 ${data.total_count} 个用户发放`, 'success');
-        handleBatchCancel();
-        loadUserList();
-      } else {
-        showToast(response.data.message || '批量发放失败', 'error');
-      }
-    } catch (err) {
-      showToast(err.response?.data?.message || '批量发放失败', 'error');
-    } finally {
-      setBatchLoading(false);
-    }
-  };
-
   // 格式化为相对时间
   const formatRelativeTime = (dateString) => {
     if (!dateString) return '从未登录';
@@ -464,115 +238,6 @@ const UserManagement = () => {
     }
   };
 
-  // 渲染会员等级（备用渲染函数）
-  // eslint-disable-next-line no-unused-vars
-  const renderSubscriptionPlan = (subscription) => {
-    if (!subscription) {
-      return <span className="um-plan-badge um-plan-free">免费</span>;
-    }
-
-    const planClass = `um-plan-badge um-plan-${subscription.plan_code.toLowerCase()}`;
-    return (
-      <span className={planClass}>
-        {subscription.plan_name || subscription.plan_code}
-      </span>
-    );
-  };
-
-  // 渲染会员状态单元格（精简版，钱包信息移至详情页）
-  const renderMemberCell = (user) => {
-    const subscription = user.subscription;
-
-    // 获取剩余天数的样式类
-    const getExpiryClass = (days) => {
-      if (days <= 0) return 'um-days-expired';
-      if (days <= 3) return 'um-days-critical';
-      if (days <= 7) return 'um-days-warning';
-      if (days <= 30) return 'um-days-soon';
-      return 'um-days-normal';
-    };
-
-    return (
-      <div className="um-member-cell">
-        {subscription ? (
-          <div className="um-mw-plan-row">
-            <span className={`um-mw-plan um-mw-plan-${subscription.plan_code.toLowerCase()}`}>
-              {subscription.plan_name || subscription.plan_code}
-            </span>
-            <span className={`um-mw-days ${getExpiryClass(subscription.remaining_days)}`}>
-              {subscription.remaining_days}天
-            </span>
-            {subscription.auto_renew && <span className="um-mw-renew">续</span>}
-          </div>
-        ) : (
-          <span className="um-mw-plan um-mw-plan-free">免费</span>
-        )}
-      </div>
-    );
-  };
-
-  // eslint-disable-next-line no-unused-vars
-  const renderContactInfo = (user) => {
-    const contactInfo = [];
-
-    if (user.email) {
-      contactInfo.push(
-        <div key="email" className="um-contact-info-detail">
-          <span className="um-info-label">邮箱:</span> {user.email}
-        </div>
-      );
-    }
-    if (user.phone) {
-      contactInfo.push(
-        <div key="phone" className="um-contact-info-detail">
-          <span className="um-info-label">手机:</span> {user.phone}
-        </div>
-      );
-    }
-    if (user.wechat_name) {
-      contactInfo.push(
-        <div key="wechat_name" className="um-contact-info-detail">
-          <span className="um-info-label">微信:</span> {user.wechat_name}
-        </div>
-      );
-    } else if (user.wechat_openid) {
-      contactInfo.push(
-        <div key="wechat_openid" className="um-contact-info-detail">
-          <span className="um-info-label">微信:</span> 微信用户
-        </div>
-      );
-    }
-    if (user.wechat_union_id) {
-      contactInfo.push(
-        <div key="wechat_union_id" className="um-contact-info-detail">
-          <span className="um-info-label">UnionID:</span> {user.wechat_union_id}
-        </div>
-      );
-    }
-    if (user.github_login) {
-      contactInfo.push(
-        <div key="github_login" className="um-contact-info-detail">
-          <span className="um-info-label">GitHub:</span> {user.github_login}
-        </div>
-      );
-    }
-
-    if (contactInfo.length === 0) {
-      return <span className="um-empty-contact">-</span>;
-    }
-
-    return (
-      <div className="um-contact-info-cell">
-        {contactInfo.map((info, index) => (
-          <React.Fragment key={index}>
-            {index > 0 && <div className="um-contact-info-divider"></div>}
-            {info}
-          </React.Fragment>
-        ))}
-      </div>
-    );
-  };
-
   // 过滤用户列表
   const filteredUsers = users.filter(user => {
     // 搜索关键词过滤
@@ -589,11 +254,6 @@ const UserManagement = () => {
     // 状态筛选
     if (filterStatus !== '' && user.status !== parseInt(filterStatus, 10)) {
       return false;
-    }
-    // 会员筛选
-    if (filterPlan) {
-      if (filterPlan === 'free' && user.subscription) return false;
-      if (filterPlan === 'paid' && !user.subscription) return false;
     }
     return true;
   });
@@ -629,15 +289,6 @@ const UserManagement = () => {
           </div>
         </div>
         <div className="um-header-right">
-          <button
-            className="um-batch-btn"
-            onClick={handleBatchClick}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-            </svg>
-            批量发放
-          </button>
         </div>
       </div>
 
@@ -706,15 +357,6 @@ const UserManagement = () => {
               <option value="0">未激活</option>
               <option value="2">已封禁</option>
             </select>
-            <select
-              value={filterPlan}
-              onChange={(e) => setFilterPlan(e.target.value)}
-              className="um-filter-select"
-            >
-              <option value="">全部会员</option>
-              <option value="free">免费用户</option>
-              <option value="paid">付费会员</option>
-            </select>
           </div>
         </div>
         <div className="um-toolbar-right">
@@ -762,7 +404,6 @@ const UserManagement = () => {
                   <thead>
                     <tr>
                       <th>用户信息</th>
-                      <th>会员状态</th>
                       <th>状态</th>
                       <th
                         className="um-sortable-header"
@@ -795,7 +436,6 @@ const UserManagement = () => {
                               </div>
                             </div>
                           </td>
-                          <td>{renderMemberCell(user)}</td>
                           <td>{getUserStatusLabel(user.status)}</td>
                           <td>
                             <div 
@@ -827,28 +467,6 @@ const UserManagement = () => {
                                 详情
                               </button>
                               <button
-                                className="um-action-btn um-grant-btn"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  handleGrantClick(user);
-                                }}
-                                title="发放会员"
-                              >
-                                会员
-                              </button>
-                              <button
-                                className="um-action-btn um-currency-btn"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  handleCurrencyClick(user);
-                                }}
-                                title="发放经费/恩特币"
-                              >
-                                货币
-                              </button>
-                              <button
                                 className="um-action-btn um-delete-btn"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -865,8 +483,8 @@ const UserManagement = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="6" className="no-data">
-                          {searchKeyword || filterStatus || filterPlan ? '没有找到匹配的用户' : '暂无用户数据'}
+                        <td colSpan="5" className="no-data">
+                          {searchKeyword || filterStatus ? '没有找到匹配的用户' : '暂无用户数据'}
                         </td>
                       </tr>
                     )}
@@ -962,9 +580,6 @@ const UserManagement = () => {
                 <li>登录认证信息</li>
                 <li>会话记录</li>
                 <li>对话历史和消息</li>
-                <li>订阅记录</li>
-                <li>订单和支付记录</li>
-                <li>使用配额记录</li>
               </ul>
               <p className="um-warning-text">此操作<strong>不可撤销</strong>！</p>
             </div>
@@ -988,321 +603,6 @@ const UserManagement = () => {
         />
       )}
 
-      {/* Grant Subscription Modal */}
-      {grantModal.show && (
-        <div className="modal-overlay" onClick={handleGrantCancel}>
-          <div className="modal-content um-grant-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>发放会员套餐</h3>
-            </div>
-            <div className="modal-body">
-              <p>为用户 <strong>{grantModal.user?.email || grantModal.user?.username || `ID: ${grantModal.user?.id}`}</strong> 发放会员套餐</p>
-              
-              <div className="um-form-group">
-                <label>选择套餐</label>
-                <select
-                  value={grantForm.planCode}
-                  onChange={(e) => setGrantForm({ ...grantForm, planCode: e.target.value })}
-                  className="um-form-select"
-                >
-                  <option value="">请选择套餐</option>
-                  {subscriptionPlans.map(plan => (
-                    <option key={plan.plan_code} value={plan.plan_code}>
-                      {plan.plan_name} - 月付 ¥{plan.current_price_monthly} / 年付 ¥{plan.current_price_yearly}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="um-form-group">
-                <label>计费周期</label>
-                <div className="um-radio-group">
-                  <label className="um-radio-label">
-                    <input
-                      type="radio"
-                      name="billingCycle"
-                      value="monthly"
-                      checked={grantForm.billingCycle === 'monthly'}
-                      onChange={(e) => setGrantForm({ ...grantForm, billingCycle: e.target.value })}
-                    />
-                    <span>月付（1个月）</span>
-                  </label>
-                  <label className="um-radio-label">
-                    <input
-                      type="radio"
-                      name="billingCycle"
-                      value="yearly"
-                      checked={grantForm.billingCycle === 'yearly'}
-                      onChange={(e) => setGrantForm({ ...grantForm, billingCycle: e.target.value })}
-                    />
-                    <span>年付（12个月）</span>
-                  </label>
-                </div>
-              </div>
-
-              <div className="um-form-group">
-                <label>发放原因（选填）</label>
-                <textarea
-                  value={grantForm.reason}
-                  onChange={(e) => setGrantForm({ ...grantForm, reason: e.target.value })}
-                  className="um-form-textarea"
-                  placeholder="例如：活动赠送、客服补偿、测试账号等"
-                  rows={3}
-                />
-              </div>
-
-              <div className="um-grant-info-box">
-                <p className="um-info-title">📋 发放说明</p>
-                <ul>
-                  <li>系统将创建一笔订单记录，支付方式为"系统发放"</li>
-                  <li>订单金额显示为套餐原价，折扣为100%，实付金额为0</li>
-                  <li>用户会员状态将立即生效</li>
-                  <li>此操作会记录管理员ID和发放原因</li>
-                </ul>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="modal-btn cancel-btn" onClick={handleGrantCancel} disabled={grantLoading}>
-                取消
-              </button>
-              <button 
-                className="modal-btn confirm-btn um-primary-btn" 
-                onClick={handleGrantConfirm}
-                disabled={grantLoading || !grantForm.planCode}
-              >
-                {grantLoading ? '发放中...' : '确认发放'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Currency Grant Modal - 发放货币弹窗 */}
-      {currencyModal.show && (
-        <div className="modal-overlay" onClick={handleCurrencyCancel}>
-          <div className="modal-content um-currency-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>发放经费/恩特币</h3>
-            </div>
-            <div className="modal-body">
-              <p>为用户 <strong>{currencyModal.user?.email || currencyModal.user?.username || `ID: ${currencyModal.user?.id}`}</strong> 发放货币</p>
-              
-              <div className="um-form-group">
-                <label>货币类型</label>
-                <div className="um-currency-type-selector">
-                  <button
-                    type="button"
-                    className={`um-currency-type-btn gold ${currencyForm.currencyType === 'gold' ? 'active' : ''}`}
-                    onClick={() => setCurrencyForm({ ...currencyForm, currencyType: 'gold' })}
-                  >
-                    <span className="um-currency-icon"><GoldIcon size="lg" /></span>
-                    <span>经费</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`um-currency-type-btn diamond ${currencyForm.currencyType === 'diamond' ? 'active' : ''}`}
-                    onClick={() => setCurrencyForm({ ...currencyForm, currencyType: 'diamond' })}
-                  >
-                    <span className="um-currency-icon"><EntcoinIcon size="lg" /></span>
-                    <span>恩特币</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="um-form-group">
-                <label>发放数量</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={currencyForm.amount}
-                  onChange={(e) => setCurrencyForm({ ...currencyForm, amount: e.target.value })}
-                  className="um-form-input"
-                  placeholder={`输入${currencyForm.currencyType === 'gold' ? '经费' : '恩特币'}数量`}
-                />
-              </div>
-
-              <div className="um-form-group">
-                <label>发放说明（选填）</label>
-                <textarea
-                  value={currencyForm.description}
-                  onChange={(e) => setCurrencyForm({ ...currencyForm, description: e.target.value })}
-                  className="um-form-textarea"
-                  placeholder="例如：活动赠送、客服补偿、测试账号等"
-                  rows={3}
-                />
-              </div>
-
-              <div className="um-grant-info-box">
-                <p className="um-info-title">📋 发放说明</p>
-                <ul>
-                  <li>发放类型为"系统赠送"，将记录在用户的交易流水中</li>
-                  <li>发放后用户余额将立即增加</li>
-                  <li>此操作会记录管理员信息和发放原因</li>
-                </ul>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="modal-btn cancel-btn" onClick={handleCurrencyCancel} disabled={currencyLoading}>
-                取消
-              </button>
-              <button 
-                className="modal-btn confirm-btn um-primary-btn" 
-                onClick={handleCurrencyConfirm}
-                disabled={currencyLoading || !currencyForm.amount || parseInt(currencyForm.amount, 10) <= 0}
-              >
-                {currencyLoading ? '发放中...' : '确认发放'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Batch Currency Distribution Modal - 批量发放弹窗 */}
-      {batchModal.show && (
-        <div className="modal-overlay" onClick={handleBatchCancel}>
-          <div className="modal-content um-batch-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>批量发放经费/恩特币</h3>
-            </div>
-            <div className="modal-body">
-              <div className="um-form-group">
-                <label>货币类型</label>
-                <div className="um-currency-type-selector">
-                  <button
-                    type="button"
-                    className={`um-currency-type-btn gold ${batchForm.currencyType === 'gold' ? 'active' : ''}`}
-                    onClick={() => setBatchForm({ ...batchForm, currencyType: 'gold' })}
-                  >
-                    <span className="um-currency-icon"><GoldIcon size="lg" /></span>
-                    <span>经费</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`um-currency-type-btn diamond ${batchForm.currencyType === 'diamond' ? 'active' : ''}`}
-                    onClick={() => setBatchForm({ ...batchForm, currencyType: 'diamond' })}
-                  >
-                    <span className="um-currency-icon"><EntcoinIcon size="lg" /></span>
-                    <span>恩特币</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="um-form-group">
-                <label>目标用户</label>
-                <div className="um-target-type-selector">
-                  <button
-                    type="button"
-                    className={`um-target-type-btn ${batchForm.targetType === 'all' ? 'active' : ''}`}
-                    onClick={() => handleTargetTypeChange('all')}
-                  >
-                    全部用户
-                  </button>
-                  <button
-                    type="button"
-                    className={`um-target-type-btn ${batchForm.targetType === 'members' ? 'active' : ''}`}
-                    onClick={() => handleTargetTypeChange('members')}
-                  >
-                    会员用户
-                  </button>
-                  <button
-                    type="button"
-                    className={`um-target-type-btn ${batchForm.targetType === 'non_members' ? 'active' : ''}`}
-                    onClick={() => handleTargetTypeChange('non_members')}
-                  >
-                    非会员用户
-                  </button>
-                </div>
-                <div className="um-target-preview">
-                  {batchPreview.loading ? (
-                    <span className="um-preview-loading">查询中...</span>
-                  ) : batchPreview.userCount > 0 ? (
-                    <span className="um-preview-count">
-                      将向 <strong>{batchPreview.userCount}</strong> 个用户发放
-                    </span>
-                  ) : (
-                    <span className="um-preview-hint">选择目标用户类型后查看用户数量</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="um-form-group">
-                <label>发放数量（每人）</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={batchForm.amount}
-                  onChange={(e) => setBatchForm({ ...batchForm, amount: e.target.value })}
-                  className="um-form-input"
-                  placeholder={`输入每人发放的${batchForm.currencyType === 'gold' ? '经费' : '恩特币'}数量`}
-                />
-                {batchForm.amount && batchPreview.userCount > 0 && (
-                  <div className="um-amount-total">
-                    总计发放: <strong>{parseInt(batchForm.amount, 10) * batchPreview.userCount}</strong> {batchForm.currencyType === 'gold' ? '经费' : '恩特币'}
-                  </div>
-                )}
-              </div>
-
-              <div className="um-form-group">
-                <label>发放标题（必填，用于站内信通知）</label>
-                <input
-                  type="text"
-                  value={batchForm.title}
-                  onChange={(e) => setBatchForm({ ...batchForm, title: e.target.value })}
-                  className="um-form-input"
-                  placeholder="例如：新年福利发放"
-                  maxLength={200}
-                />
-              </div>
-
-              <div className="um-form-group">
-                <label>发放说明（选填，用于站内信通知）</label>
-                <textarea
-                  value={batchForm.description}
-                  onChange={(e) => setBatchForm({ ...batchForm, description: e.target.value })}
-                  className="um-form-textarea"
-                  placeholder="例如：感谢您的支持，特此发放福利"
-                  rows={2}
-                  maxLength={500}
-                />
-              </div>
-
-              <div className="um-form-group">
-                <label>备注（选填，仅管理员可见）</label>
-                <textarea
-                  value={batchForm.remark}
-                  onChange={(e) => setBatchForm({ ...batchForm, remark: e.target.value })}
-                  className="um-form-textarea"
-                  placeholder="例如：2025年新年活动批量发放"
-                  rows={2}
-                  maxLength={500}
-                />
-              </div>
-
-              <div className="um-grant-info-box um-batch-info-box">
-                <p className="um-info-title">发放说明</p>
-                <ul>
-                  <li>批量发放会创建一个发放批次，异步执行发放任务</li>
-                  <li>每个用户发放成功后会收到站内信通知</li>
-                  <li>发放记录会保存在交易流水中，可追溯</li>
-                  <li>发放过程中请勿重复提交</li>
-                </ul>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="modal-btn cancel-btn" onClick={handleBatchCancel} disabled={batchLoading}>
-                取消
-              </button>
-              <button
-                className="modal-btn confirm-btn um-primary-btn"
-                onClick={handleBatchConfirm}
-                disabled={batchLoading || !batchForm.amount || parseInt(batchForm.amount, 10) <= 0 || !batchForm.title.trim() || batchPreview.userCount === 0}
-              >
-                {batchLoading ? '发放中...' : `确认发放`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

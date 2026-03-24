@@ -9,6 +9,4 @@
  * Settings 页面子标签组件导出
  */
 
-export { default as SubscriptionTab } from './SubscriptionTab';
-export { default as InvitationTab } from './InvitationTab';
 export { default as AccountTab } from './AccountTab';

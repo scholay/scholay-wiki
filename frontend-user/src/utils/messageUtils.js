@@ -75,31 +75,3 @@ export const organizeMessagesByParentId = (messages) => {
   
   return organized;
 };
-
-/**
- * 将消息数组转换为问答对列表
- * @param {Array} messages - 消息数组
- * @returns {Array} 问答对列表
- */
-export const messagesToQAList = (messages) => {
-  const list = [];
-  let currentUserMessage = null;
-  
-  for (const msg of messages) {
-    if (msg.role === 'user') {
-      currentUserMessage = msg;
-    } else if (msg.role === 'assistant' && currentUserMessage) {
-      list.push({
-        question: currentUserMessage.content,
-        answer: msg.content,
-        suggested_questions: msg.suggested_questions || [],
-        userMessage: currentUserMessage,
-        assistantMessage: msg,
-      });
-      currentUserMessage = null;
-    }
-  }
-  
-  return list;
-};
-

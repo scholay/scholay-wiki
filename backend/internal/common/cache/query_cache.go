@@ -88,31 +88,10 @@ func (qc *QueryCache) DeletePattern(ctx context.Context, pattern string) error {
 
 // CachedQuery 带缓存的查询执行器
 // 先尝试从缓存获取,如果miss则执行查询函数并缓存结果
+// 底层复用 GetOrSet 以获得分布式锁保护（防止缓存击穿）
 func (qc *QueryCache) CachedQuery(ctx context.Context, key string, result interface{}, queryFunc func() (interface{}, error)) error {
-	// 尝试从缓存获取
-	err := qc.Get(ctx, key, result)
-	if err == nil {
-		return nil // 缓存命中
-	}
-
-	// 缓存miss,执行查询
-	data, err := queryFunc()
-	if err != nil {
-		return err
-	}
-
-	// 缓存结果
-	if err := qc.Set(ctx, key, data); err != nil {
-		// 缓存失败不影响业务,只记录日志
-		// log.Printf("Failed to cache query result: %v", err)
-	}
-
-	// 将查询结果复制到result
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(jsonData, result)
+	cacheKey := fmt.Sprintf("%s:%s", qc.prefix, key)
+	return GetOrSet(ctx, cacheKey, qc.ttl, queryFunc, result)
 }
 
 // 预定义的常用缓存实例
@@ -125,7 +104,4 @@ var (
 
 	// 论文详情缓存 - 30分钟
 	PaperCache = NewQueryCache("paper", 30*time.Minute)
-
-	// 订阅信息缓存 - 5分钟
-	SubscriptionCache = NewQueryCache("subscription", 5*time.Minute)
 )

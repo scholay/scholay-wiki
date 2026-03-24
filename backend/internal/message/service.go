@@ -212,13 +212,6 @@ func (s *Service) CreateMessage(req *CreateMessageRequest, senderID uint, sender
 
 	// 设置目标
 	switch req.SendType {
-	case SendTypeByPlan:
-		if len(req.TargetPlans) == 0 {
-			return nil, errors.New("按会员等级发送时需要指定目标等级")
-		}
-		data, _ := json.Marshal(req.TargetPlans)
-		str := string(data)
-		message.TargetPlans = &str
 	case SendTypeBatch, SendTypeSingle:
 		if len(req.TargetUserIDs) == 0 {
 			return nil, errors.New("批量/单个发送时需要指定目标用户")
@@ -286,12 +279,6 @@ func (s *Service) SendMessage(messageID uint) error {
 	switch message.SendType {
 	case SendTypeAll:
 		userIDs, err = s.repo.GetAllActiveUserIDs()
-	case SendTypeByPlan:
-		plans := message.GetTargetPlans()
-		if len(plans) == 0 {
-			return errors.New("目标会员等级为空")
-		}
-		userIDs, err = s.repo.GetUserIDsByPlan(plans)
 	case SendTypeBatch, SendTypeSingle:
 		userIDs = message.GetTargetUserIDs()
 	}

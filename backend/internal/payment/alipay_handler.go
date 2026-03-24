@@ -183,7 +183,7 @@ func (h *AlipayHandler) processSuccessfulPayment(orderNo, transactionNo, amountS
 		return fmt.Errorf("invalid amount: %w", err)
 	}
 
-	// Compare amounts with final amount (after coupon discount) with 0.01 tolerance for floating point precision
+	// Compare amounts with final amount with 0.01 tolerance for floating point precision
 	if math.Abs(amount-orderRecord.FinalAmount) > 0.01 {
 		return fmt.Errorf("amount mismatch: expected %.2f, got %.2f", orderRecord.FinalAmount, amount)
 	}
@@ -443,7 +443,7 @@ func (h *AlipayHandler) SimulatePayment(c *gin.Context) {
 		return
 	}
 
-	// Verify amount matches final amount (with coupon discount) (with 0.01 tolerance)
+	// Verify amount matches final amount (with 0.01 tolerance)
 	if math.Abs(req.Amount-orderRecord.FinalAmount) > 0.01 {
 		utils.Error(c, 4005, fmt.Sprintf("Amount mismatch: expected %.2f, got %.2f", orderRecord.FinalAmount, req.Amount))
 		return

@@ -8,7 +8,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { userAPI, subscriptionAPI } from '../services/api';
+import { userAPI } from '../services/api';
 import wsClient from '../services/websocket';
 import logger from './logger';
 
@@ -193,21 +193,10 @@ export const AuthProvider = ({ children }) => {
           // 立即获取最新的用户信息和订阅信息
           // 如果 Token 已过期，API 拦截器会自动尝试刷新
           try {
-            const [profileResponse, subscriptionResponse] = await Promise.all([
-              userAPI.getProfile(),
-              subscriptionAPI.getMySubscription().catch(err => {
-                logger.error('Failed to fetch subscription:', err);
-                return null;
-              })
-            ]);
+            const profileResponse = await userAPI.getProfile();
 
             if (profileResponse.data.code === 0 && profileResponse.data.data) {
               const freshUserData = profileResponse.data.data;
-              
-              // 如果成功获取订阅信息，将其添加到用户数据中
-              if (subscriptionResponse && subscriptionResponse.data.code === 0) {
-                freshUserData.subscription = subscriptionResponse.data.data;
-              }
               
               localStorage.setItem('user_data', JSON.stringify(freshUserData));
               setUser(freshUserData);
@@ -296,17 +285,6 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
     startSession(); // Start session management when user logs in
     
-    // 登录后立即获取订阅信息
-    try {
-      const subscriptionResponse = await subscriptionAPI.getMySubscription();
-      if (subscriptionResponse.data.code === 0) {
-        const updatedUserData = { ...userData, subscription: subscriptionResponse.data.data };
-        localStorage.setItem('user_data', JSON.stringify(updatedUserData));
-        setUser(updatedUserData);
-      }
-    } catch (error) {
-      logger.error('Failed to fetch subscription after login:', error);
-    }
   };
 
   const logout = async () => {
@@ -336,22 +314,10 @@ export const AuthProvider = ({ children }) => {
   // Refresh user data from backend
   const refreshUser = async () => {
     try {
-      // 同时获取用户信息和订阅信息
-      const [profileResponse, subscriptionResponse] = await Promise.all([
-        userAPI.getProfile(),
-        subscriptionAPI.getMySubscription().catch(err => {
-          logger.error('Failed to fetch subscription:', err);
-          return null;
-        })
-      ]);
+      const profileResponse = await userAPI.getProfile();
 
       if (profileResponse.data.code === 0 && profileResponse.data.data) {
         const userData = profileResponse.data.data;
-        
-        // 如果成功获取订阅信息，将其添加到用户数据中
-        if (subscriptionResponse && subscriptionResponse.data.code === 0) {
-          userData.subscription = subscriptionResponse.data.data;
-        }
         
         updateUser(userData);
         return userData;

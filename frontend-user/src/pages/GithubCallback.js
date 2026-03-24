@@ -15,13 +15,10 @@ import logger from '../utils/logger';
 
 // Whitelist of allowed return URLs
 const RETURN_URL_WHITELIST = [
-  '/pricing',
   '/search-results',
   '/advanced-search',
   '/chat',
   '/settings',
-  '/dashboard',
-  '/order-confirmation',
 ];
 
 /**
@@ -68,7 +65,7 @@ const GithubCallback = () => {
 
       if (!code || !state) {
         logger.error('Invalid GitHub callback parameters');
-        navigate('/');
+        navigate('/search');
         return;
       }
 
@@ -98,7 +95,7 @@ const GithubCallback = () => {
           });
           navigate(`/settings?${params.toString()}`);
         } else {
-          navigate('/');
+          navigate('/search');
         }
         return;
       }
@@ -128,24 +125,14 @@ const GithubCallback = () => {
           }
         } else {
           // Login mode
-          // 获取保存的邀请码（如果有）
-          const invitationCode = localStorage.getItem('oauth_invitation_code');
-          response = await userAPI.githubCallback(code, state, invitationCode);
+          response = await userAPI.githubCallback(code, state);
 
           if (response.data.code === 0 && response.data.data) {
-            const { token, user, is_new_user, register_gift_gold } = response.data.data;
+            const { token, user } = response.data.data;
 
             // Save token and user data
             localStorage.setItem('user_token', token);
             localStorage.setItem('user_data', JSON.stringify(user));
-
-            // 如果是新用户且有注册赠送经费，保存到localStorage供后续显示欢迎弹窗
-            if (is_new_user && register_gift_gold && register_gift_gold > 0) {
-              localStorage.setItem('pending_welcome_modal', JSON.stringify({
-                giftAmount: register_gift_gold,
-                timestamp: Date.now()
-              }));
-            }
 
             // Check for return URL
             const returnURL = localStorage.getItem('github_return_url');
@@ -161,7 +148,6 @@ const GithubCallback = () => {
             // Clean up
             localStorage.removeItem('github_oauth_state');
             localStorage.removeItem('github_return_url');
-            localStorage.removeItem('oauth_invitation_code'); // 清理邀请码
 
             // Update auth context
             login(token, user);
@@ -192,8 +178,7 @@ const GithubCallback = () => {
         } else {
           localStorage.removeItem('github_oauth_state');
           localStorage.removeItem('github_return_url');
-          localStorage.removeItem('oauth_invitation_code'); // 清理邀请码
-          navigate('/');
+          navigate('/search');
         }
       }
     };

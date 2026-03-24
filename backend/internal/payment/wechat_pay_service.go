@@ -8,23 +8,32 @@
 package payment
 
 import (
+	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
+	crand "crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
+	"math/big"
 	"net/http"
 	"strings"
 	"time"
 )
+
+var wechatPayHTTPClient = &http.Client{
+	Timeout: 30 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        20,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+	},
+}
 
 // WeChatPayService 微信支付服务
 type WeChatPayService struct {
@@ -126,23 +135,9 @@ func (s *WeChatPayService) ActivateConfig(id uint64) error {
 	return s.repo.ActivateConfig(id)
 }
 
-// validatePrivateKey 验证私钥格式
 func (s *WeChatPayService) validatePrivateKey(privateKeyStr string) error {
-	block, _ := pem.Decode([]byte(privateKeyStr))
-	if block == nil {
-		return errors.New("failed to decode PEM block")
-	}
-
-	_, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
-		// 尝试解析为PKCS1格式
-		_, err = x509.ParsePKCS1PrivateKey(block.Bytes)
-		if err != nil {
-			return errors.New("failed to parse private key")
-		}
-	}
-
-	return nil
+	_, err := ParseRSAPrivateKey(privateKeyStr)
+	return err
 }
 
 // CreateNativeOrder 创建Native支付订单（扫码支付）
@@ -213,8 +208,7 @@ func (s *WeChatPayService) sendRequest(config *WeChatPayConfig, method, url stri
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", authorization)
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := wechatPayHTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to send request: %w", err)
 	}
@@ -246,25 +240,9 @@ func (s *WeChatPayService) sendRequest(config *WeChatPayConfig, method, url stri
 
 // generateSignature 生成签名
 func (s *WeChatPayService) generateSignature(privateKeyStr, method, url string, timestamp int64, nonce, body string) (string, error) {
-	// 解析私钥
-	block, _ := pem.Decode([]byte(privateKeyStr))
-	if block == nil {
-		return "", errors.New("failed to decode PEM block")
-	}
-
-	privateKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	rsaPrivateKey, err := ParseRSAPrivateKey(privateKeyStr)
 	if err != nil {
-		// 尝试PKCS1格式
-		rsaKey, err2 := x509.ParsePKCS1PrivateKey(block.Bytes)
-		if err2 != nil {
-			return "", fmt.Errorf("failed to parse private key: %w", err)
-		}
-		privateKey = rsaKey
-	}
-
-	rsaPrivateKey, ok := privateKey.(*rsa.PrivateKey)
-	if !ok {
-		return "", errors.New("not an RSA private key")
+		return "", err
 	}
 
 	// 构建待签名字符串
@@ -278,7 +256,7 @@ func (s *WeChatPayService) generateSignature(privateKeyStr, method, url string, 
 	digest := hash.Sum(nil)
 
 	// RSA签名
-	signature, err := rsa.SignPKCS1v15(rand.New(rand.NewSource(time.Now().UnixNano())), rsaPrivateKey, 0, digest)
+	signature, err := rsa.SignPKCS1v15(crand.Reader, rsaPrivateKey, crypto.SHA256, digest)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign: %w", err)
 	}
@@ -348,7 +326,8 @@ func generateNonce(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, length)
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		n, _ := crand.Int(crand.Reader, big.NewInt(int64(len(charset))))
+		b[i] = charset[n.Int64()]
 	}
 	return string(b)
 }

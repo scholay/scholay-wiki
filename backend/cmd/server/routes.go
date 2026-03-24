@@ -10,13 +10,9 @@ package main
 import (
 	"scholar-backend/internal/admin"
 	"scholar-backend/internal/ai"
-	"scholar-backend/internal/checkin"
 	"scholar-backend/internal/config"
 	"scholar-backend/internal/conversation"
-	"scholar-backend/internal/coupon"
-	"scholar-backend/internal/currency"
 	"scholar-backend/internal/feedback"
-	"scholar-backend/internal/fund"
 	"scholar-backend/internal/hotcontent"
 	"scholar-backend/internal/latexwriter"
 	"scholar-backend/internal/mcp"
@@ -27,7 +23,6 @@ import (
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/proxy"
 	"scholar-backend/internal/semanticscholar"
-	"scholar-backend/internal/subscription"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/user"
@@ -47,20 +42,13 @@ type routeHandlers struct {
 	user               *user.Handler
 	thirdParty         *thirdparty.Handler
 	ai                 *ai.Handler
-	subscription       *subscription.Handler
 	order              *order.Handler
 	alipay             *payment.AlipayHandler
 	wechatPay          *payment.WeChatPayHandler
 	wechatOAuth        *wechat.Handler
 	wechatOfficial     *wechatofficial.Handler
 	latexAgentAdmin    *latexwriter.AdminHandler
-	coupon             *coupon.Handler
 	feedback           *feedback.Handler
-	currencyAdmin      *currency.AdminHandler
-	currency           *currency.Handler
-	currencyMiddleware *currency.DeductMiddleware
-	fundAdmin          *fund.AdminHandler
-	fund               *fund.Handler
 	usageLogAdmin      *usagelog.AdminHandler
 	usageLog           *usagelog.Handler
 	hotContent         *hotcontent.Handler
@@ -70,7 +58,6 @@ type routeHandlers struct {
 	chat               *conversation.ChatHandler
 	peerReview         *peerreview.Handler
 	latexWriter        *latexwriter.Handler
-	checkin            *checkin.Handler
 	scholar            *semanticscholar.Handler
 	mcpUnified         *mcp.UnifiedHandler
 	mcpLegacy          *mcp.Handler
@@ -90,6 +77,7 @@ func registerAPIRoutes(api *gin.RouterGroup, h *routeHandlers) {
 
 	registerAdminRoutes(api, h)
 	registerPaymentCallbackRoutes(api, h)
+	registerPDFRoutes(api, h)
 	registerUserPublicRoutes(api, h)
 	registerUserProtectedRoutes(api, h)
 	registerPublicAPIRoutes(api, h)
@@ -141,7 +129,6 @@ func registerAdminRoutes(api *gin.RouterGroup, h *routeHandlers) {
 		g.GET("/users/online", h.user.GetOnlineUsers)
 		g.GET("/users/:id", h.user.GetUserDetail)
 		g.DELETE("/users/:id", h.user.DeleteUser)
-		g.POST("/users/:id/grant-subscription", h.order.AdminGrantSubscription)
 
 		// Statistics charts
 		g.GET("/statistics/users", h.user.GetUserStatisticsChart)
@@ -167,9 +154,6 @@ func registerAdminRoutes(api *gin.RouterGroup, h *routeHandlers) {
 		// Analysis dimensions (admin)
 		g.GET("/analysis/dimensions", h.ai.AdminGetSystemDimensions)
 		g.PUT("/analysis/dimensions/:id", h.ai.AdminUpdateSystemDimension)
-
-		// Subscription plans
-		g.PUT("/subscription-plans/:id", h.subscription.UpdatePlan)
 
 		// Orders
 		g.GET("/orders/statistics", h.order.GetOrderStatistics)
@@ -217,27 +201,6 @@ func registerAdminRoutes(api *gin.RouterGroup, h *routeHandlers) {
 		g.DELETE("/latex-agent/models/:id", h.latexAgentAdmin.DeleteModel)
 		g.POST("/latex-agent/models/:id/set-default", h.latexAgentAdmin.SetDefaultModel)
 
-		// Coupon templates
-		g.POST("/coupon-templates", h.coupon.CreateTemplate)
-		g.GET("/coupon-templates", h.coupon.ListTemplates)
-		g.GET("/coupon-templates/:id", h.coupon.GetTemplate)
-		g.PUT("/coupon-templates/:id", h.coupon.UpdateTemplate)
-		g.DELETE("/coupon-templates/:id", h.coupon.DeleteTemplate)
-		g.POST("/coupon-templates/:id/activate", h.coupon.ActivateTemplate)
-		g.POST("/coupon-templates/:id/pause", h.coupon.PauseTemplate)
-
-		// Coupon distribution
-		g.POST("/coupons/distribute", h.coupon.DistributeCoupons)
-		g.GET("/coupons/distributed", h.coupon.AdminListAllDistributedCoupons)
-		g.GET("/coupons/statistics", h.coupon.GetStatistics)
-
-		// Batch distribution
-		g.POST("/coupon-batches", h.coupon.CreateBatch)
-		g.GET("/coupon-batches", h.coupon.ListBatches)
-		g.GET("/coupon-batches/:id", h.coupon.GetBatch)
-		g.POST("/coupon-batches/:id/execute", h.coupon.ExecuteBatch)
-		g.POST("/coupon-batches/:id/cancel", h.coupon.CancelBatch)
-
 		// Feedback management
 		g.GET("/feedbacks", h.feedback.ListFeedbacks)
 		g.GET("/feedbacks/stats", h.feedback.GetStats)
@@ -245,32 +208,6 @@ func registerAdminRoutes(api *gin.RouterGroup, h *routeHandlers) {
 		g.PUT("/feedbacks/:id/status", h.feedback.UpdateStatus)
 		g.POST("/feedbacks/:id/reply", h.feedback.ReplyFeedback)
 		g.DELETE("/feedbacks/:id", h.feedback.DeleteFeedback)
-
-		// Currency management
-		g.POST("/currency/recharge", h.currencyAdmin.AdminRecharge)
-		g.POST("/currency/deduct", h.currencyAdmin.AdminDeduct)
-		g.GET("/currency/wallet/:user_id", h.currencyAdmin.GetUserWallet)
-		g.GET("/currency/deduct-configs", h.currencyAdmin.ListDeductConfigs)
-		g.POST("/currency/deduct-configs", h.currencyAdmin.SaveDeductConfig)
-		g.GET("/currency/configs", h.currencyAdmin.ListCurrencyConfigs)
-		g.GET("/currency/configs/:key", h.currencyAdmin.GetCurrencyConfig)
-		g.PUT("/currency/configs/:key", h.currencyAdmin.UpdateCurrencyConfig)
-		g.POST("/currency/trigger-daily-reminders", h.currencyAdmin.TriggerDailyReminders)
-		g.POST("/currency/trigger-monthly-tasks", h.currencyAdmin.TriggerMonthlyTasks)
-		g.POST("/currency/batch-distribute", h.currencyAdmin.BatchDistribute)
-		g.POST("/currency/batch-distribute/preview", h.currencyAdmin.GetTargetUserCount)
-		g.GET("/currency/batches", h.currencyAdmin.ListBatches)
-		g.GET("/currency/batches/:id", h.currencyAdmin.GetBatch)
-		g.POST("/currency/batches/:id/cancel", h.currencyAdmin.CancelBatch)
-		g.GET("/currency/batches/:id/distributions", h.currencyAdmin.GetBatchDistributions)
-
-		// Fund management
-		g.GET("/funds", h.fundAdmin.ListFunds)
-		g.GET("/funds/stats", h.fundAdmin.GetStats)
-		g.GET("/funds/:id", h.fundAdmin.GetFund)
-		g.POST("/funds", h.fundAdmin.CreateFund)
-		g.PUT("/funds/:id", h.fundAdmin.UpdateFund)
-		g.DELETE("/funds/:id", h.fundAdmin.DeleteFund)
 
 		// Usage logs
 		g.GET("/usage-logs", h.usageLogAdmin.List)
@@ -309,8 +246,6 @@ func registerPaymentCallbackRoutes(api *gin.RouterGroup, h *routeHandlers) {
 	api.POST("/payment/alipay/notify", h.alipay.HandleCallback)
 	api.POST("/payment/wechat/notify", h.wechatPay.HandleNotify)
 
-	api.POST("/pdf", h.pdf.GetPDF)
-
 	wechatWebhook := api.Group("/wechat-official")
 	{
 		wechatWebhook.GET("/webhook", h.wechatOfficial.HandleVerification)
@@ -318,14 +253,12 @@ func registerPaymentCallbackRoutes(api *gin.RouterGroup, h *routeHandlers) {
 	}
 }
 
+func registerPDFRoutes(api *gin.RouterGroup, h *routeHandlers) {
+	api.POST("/pdf", h.pdf.GetPDF)
+}
+
 func registerUserPublicRoutes(api *gin.RouterGroup, h *routeHandlers) {
 	h.user.RegisterRoutes(api)
-
-	subPublic := api.Group("/user/subscription")
-	{
-		subPublic.GET("/plans", h.subscription.GetPlans)
-		subPublic.GET("/plans/:code", h.subscription.GetPlanByCode)
-	}
 
 	wechatPublic := api.Group("/user/wechat")
 	{
@@ -350,21 +283,6 @@ func registerUserProtectedRoutes(api *gin.RouterGroup, h *routeHandlers) {
 		g.POST("/logout", h.user.Logout)
 		g.POST("/change-password", h.user.ChangePassword)
 
-		// Wallet
-		g.GET("/wallet", h.currency.GetWallet)
-		g.GET("/wallet/check", h.currency.CheckBalance)
-		g.GET("/wallet/check-by-biz", h.currency.CheckBalanceByBizType)
-		g.GET("/wallet/transactions", h.currency.ListTransactions)
-		g.GET("/wallet/transactions/:transaction_no", h.currency.GetTransaction)
-		g.GET("/wallet/recharge-info", h.currency.GetRechargeInfo)
-		g.GET("/wallet/exchange-info", h.currency.GetExchangeInfo)
-		g.GET("/wallet/exchange/preview", h.currency.PreviewExchange)
-		g.POST("/wallet/exchange", h.currency.ExchangeDiamondToGold)
-		g.GET("/wallet/biz-display-infos", h.currency.GetBizDisplayInfos)
-
-		// Funds
-		g.GET("/funds/distributions", h.fund.GetMyDistributions)
-
 		// Account availability checks
 		g.POST("/check-email-availability", h.user.CheckEmailAvailability)
 		g.POST("/check-phone-availability", h.user.CheckPhoneAvailability)
@@ -383,16 +301,8 @@ func registerUserProtectedRoutes(api *gin.RouterGroup, h *routeHandlers) {
 		g.POST("/unbind-wechat", h.user.UnbindWeChat)
 		g.POST("/unbind-github", h.user.UnbindGitHub)
 
-		// Subscription
-		g.GET("/subscription/my", h.subscription.GetMySubscription)
-		g.GET("/subscription/usage", h.subscription.GetMyUsageQuota)
-		g.POST("/subscription/upgrade", h.subscription.UpgradeSubscription)
-		g.POST("/subscription/renew", h.subscription.RenewSubscription)
-		g.GET("/subscription/check-quota", h.subscription.CheckQuota)
-
 		// Orders
 		g.POST("/orders/create", h.order.CreateOrder)
-		g.POST("/orders/recharge", h.order.CreateRechargeOrder)
 		g.GET("/orders/my", h.order.GetMyOrders)
 		g.GET("/orders/:order_no", h.order.GetOrderDetail)
 		g.POST("/orders/pay", h.order.ProcessPayment)
@@ -406,26 +316,11 @@ func registerUserProtectedRoutes(api *gin.RouterGroup, h *routeHandlers) {
 		// Payment - WeChat Pay
 		g.POST("/payment/wechat/create", h.wechatPay.CreatePayment)
 
-		// Coupons
-		g.GET("/coupons", h.coupon.GetMyCoupons)
-		g.GET("/coupons/available", h.coupon.GetAvailableCoupons)
-		g.POST("/coupons/claim", h.coupon.ClaimCoupon)
-		g.POST("/coupons/apply", h.coupon.ApplyCoupon)
-		g.GET("/coupons/calculate-discount", h.coupon.CalculateDiscount)
-
-		// Invitations
-		g.POST("/invitation/generate", h.coupon.GenerateInvitation)
-		g.GET("/invitation/my", h.coupon.GetMyInvitation)
-		g.GET("/invitation/statistics", h.coupon.GetInvitationStatistics)
-
 		// Feedback (authenticated)
 		g.POST("/feedback", h.feedback.CreateFeedbackWithUser)
 
 		// Task history
 		g.GET("/task-history", h.user.GetTaskHistory)
-
-		// Check-in
-		h.checkin.RegisterRoutes(g)
 
 		// Messages
 		g.GET("/messages", h.message.GetMessages)
@@ -517,11 +412,6 @@ func registerLatexWriterRoutes(userGroup *gin.RouterGroup, h *routeHandlers) {
 func registerPublicAPIRoutes(api *gin.RouterGroup, h *routeHandlers) {
 	g := api.Group("/public")
 	{
-		// Funds
-		g.GET("/funds", h.fund.ListFunds)
-		g.GET("/funds/current", h.fund.GetCurrentFund)
-		g.GET("/funds/:id", h.fund.GetFundDetail)
-
 		// Papers (anonymous access)
 		g.GET("/papers/:paperId", h.scholar.GetPaper)
 		g.POST("/papers/search", h.scholar.SearchPapers)
@@ -557,7 +447,7 @@ func registerAnalysisRoutes(api *gin.RouterGroup, h *routeHandlers) {
 	g := api.Group("/analysis")
 	g.Use(middleware.UserAuthMiddleware())
 	{
-		g.POST("/paper", h.currencyMiddleware.DeductAfterWithDynamicBizID("paper_analysis"), h.ai.AnalyzePaper)
+		g.POST("/paper", h.ai.AnalyzePaper)
 		g.POST("/papers/batch", h.ai.BatchAnalyzePapers)
 		g.GET("/dimensions", h.ai.GetAnalysisDimensions)
 		g.POST("/dimensions", h.ai.CreateUserDimension)

@@ -10,8 +10,6 @@
 import React, { useState, useEffect } from 'react';
 import { adminAPI } from '../services/api';
 import { showToast } from './Toast';
-import GoldIcon from './GoldIcon';
-import EntcoinIcon from './EntcoinIcon';
 import './UserDetailDrawer.css';
 
 const UserDetailDrawer = ({ userId, onClose }) => {
@@ -51,15 +49,6 @@ const UserDetailDrawer = ({ userId, onClose }) => {
     });
   };
 
-  const formatShortDate = (dateStr) => {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('zh-CN');
-  };
-
-  const formatCurrency = (amount) => {
-    return `¥${(amount || 0).toFixed(2)}`;
-  };
-
   const getStatusBadge = (status) => {
     switch (status) {
       case 1:
@@ -71,18 +60,6 @@ const UserDetailDrawer = ({ userId, onClose }) => {
       default:
         return <span className="ud-badge">未知</span>;
     }
-  };
-
-  const getPlanBadge = (subscription) => {
-    if (!subscription) {
-      return <span className="ud-plan ud-plan-free">免费</span>;
-    }
-    const code = subscription.plan_code?.toLowerCase();
-    return (
-      <span className={`ud-plan ud-plan-${code}`}>
-        {subscription.plan_name || subscription.plan_code}
-      </span>
-    );
   };
 
   if (!userId) return null;
@@ -157,90 +134,12 @@ const UserDetailDrawer = ({ userId, onClose }) => {
                 )}
               </div>
 
-              {/* 会员与钱包 */}
-              <div className="ud-section">
-                <div className="ud-section-header">
-                  <span className="ud-section-title">会员与钱包</span>
-                </div>
-                <div className="ud-membership-grid">
-                  <div className="ud-membership-card">
-                    <div className="ud-mc-header">
-                      {getPlanBadge(detail.current_subscription)}
-                      {detail.current_subscription && (
-                        <span className={`ud-billing ${detail.current_subscription.billing_cycle}`}>
-                          {detail.current_subscription.billing_cycle === 'monthly' ? '月付' : '年付'}
-                        </span>
-                      )}
-                    </div>
-                    {detail.current_subscription ? (
-                      <div className="ud-mc-details">
-                        <div className="ud-mc-row">
-                          <span>到期时间</span>
-                          <span>{formatShortDate(detail.current_subscription.end_date)}</span>
-                        </div>
-                        <div className="ud-mc-row">
-                          <span>剩余天数</span>
-                          <span className={detail.current_subscription.remaining_days <= 7 ? 'ud-warn' : ''}>
-                            {detail.current_subscription.remaining_days}天
-                          </span>
-                        </div>
-                        <div className="ud-mc-row">
-                          <span>自动续费</span>
-                          <span className={detail.current_subscription.auto_renew ? 'ud-on' : 'ud-off'}>
-                            {detail.current_subscription.auto_renew ? '已开启' : '未开启'}
-                          </span>
-                        </div>
-                        {detail.current_subscription.total_quota > 0 && (
-                          <div className="ud-mc-quota">
-                            <div className="ud-quota-bar">
-                              <div
-                                className="ud-quota-fill"
-                                style={{ width: `${Math.min((detail.current_subscription.used_quota / detail.current_subscription.total_quota) * 100, 100)}%` }}
-                              ></div>
-                            </div>
-                            <span className="ud-quota-text">
-                              {detail.current_subscription.used_quota}/{detail.current_subscription.total_quota}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="ud-mc-empty">暂无订阅</div>
-                    )}
-                  </div>
-                  <div className="ud-wallet-card">
-                    <div className="ud-wallet-item">
-                      <GoldIcon size="md" />
-                      <div className="ud-wallet-info">
-                        <span className="ud-wallet-label">经费</span>
-                        <span className="ud-wallet-value ud-gold">{detail.wallet?.gold || 0}</span>
-                      </div>
-                    </div>
-                    <div className="ud-wallet-item">
-                      <EntcoinIcon size="md" />
-                      <div className="ud-wallet-info">
-                        <span className="ud-wallet-label">恩特币</span>
-                        <span className="ud-wallet-value ud-diamond">{detail.wallet?.diamond || 0}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               {/* 数据统计 - 紧凑网格 */}
               <div className="ud-section">
                 <div className="ud-section-header">
                   <span className="ud-section-title">数据统计</span>
                 </div>
                 <div className="ud-stats-compact">
-                  <div className="ud-stat-item">
-                    <span className="ud-stat-num">{detail.order_stats?.total_orders || 0}</span>
-                    <span className="ud-stat-label">订单数</span>
-                  </div>
-                  <div className="ud-stat-item">
-                    <span className="ud-stat-num">{formatCurrency(detail.order_stats?.total_amount)}</span>
-                    <span className="ud-stat-label">消费金额</span>
-                  </div>
                   <div className="ud-stat-item">
                     <span className="ud-stat-num">{detail.ai_conversation_stats?.total_conversations || 0}</span>
                     <span className="ud-stat-label">AI对话</span>
@@ -251,88 +150,6 @@ const UserDetailDrawer = ({ userId, onClose }) => {
                   </div>
                 </div>
               </div>
-
-              {/* 折扣券统计 */}
-              <div className="ud-section">
-                <div className="ud-section-header">
-                  <span className="ud-section-title">折扣券</span>
-                </div>
-                <div className="ud-coupon-row">
-                  <div className="ud-coupon-item">
-                    <span className="ud-coupon-num">{detail.coupon_stats?.total_coupons || 0}</span>
-                    <span className="ud-coupon-label">总领取</span>
-                  </div>
-                  <div className="ud-coupon-item ud-coupon-available">
-                    <span className="ud-coupon-num">{detail.coupon_stats?.available_coupons || 0}</span>
-                    <span className="ud-coupon-label">可用</span>
-                  </div>
-                  <div className="ud-coupon-item ud-coupon-used">
-                    <span className="ud-coupon-num">{detail.coupon_stats?.used_coupons || 0}</span>
-                    <span className="ud-coupon-label">已使用</span>
-                  </div>
-                  <div className="ud-coupon-item ud-coupon-expired">
-                    <span className="ud-coupon-num">{detail.coupon_stats?.expired_coupons || 0}</span>
-                    <span className="ud-coupon-label">已过期</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 邀请信息 */}
-              {(detail.invitation_stats?.invitation_code || detail.invited_by) && (
-                <div className="ud-section">
-                  <div className="ud-section-header">
-                    <span className="ud-section-title">邀请关系</span>
-                  </div>
-                  <div className="ud-invite-content">
-                    {/* 邀请码和统计 */}
-                    {detail.invitation_stats?.invitation_code && (
-                      <div className="ud-invite-code-box">
-                        <div className="ud-invite-code">
-                          <span className="ud-code-label">邀请码</span>
-                          <span className="ud-code-value">{detail.invitation_stats.invitation_code}</span>
-                        </div>
-                        <div className="ud-invite-stats">
-                          <span>{detail.invitation_stats.total_invited || 0} 邀请</span>
-                          <span>{detail.invitation_stats.success_invited || 0} 成功</span>
-                          <span>{detail.invitation_stats.rewards_earned || 0} 奖励</span>
-                        </div>
-                      </div>
-                    )}
-                    {/* 邀请人 */}
-                    {detail.invited_by && (
-                      <div className="ud-inviter-box">
-                        <span className="ud-inviter-label">邀请人:</span>
-                        <span className="ud-inviter-name">
-                          {detail.invited_by.username || detail.invited_by.email || `用户${detail.invited_by.user_id}`}
-                        </span>
-                        <span className="ud-inviter-id">#{detail.invited_by.user_id}</span>
-                      </div>
-                    )}
-                    {/* 已邀请用户列表 */}
-                    {detail.invited_users && detail.invited_users.length > 0 && (
-                      <div className="ud-invited-list">
-                        <div className="ud-invited-header">已邀请 {detail.invited_users.length} 人</div>
-                        <div className="ud-invited-items">
-                          {detail.invited_users.slice(0, 5).map(user => (
-                            <div key={user.user_id} className="ud-invited-item">
-                              <span className="ud-invited-name">
-                                {user.username || user.email || `用户${user.user_id}`}
-                              </span>
-                              <div className="ud-invited-badges">
-                                {user.is_registered && <span className="ud-mini-badge ud-mini-reg">注册</span>}
-                                {user.has_ordered && <span className="ud-mini-badge ud-mini-order">下单</span>}
-                              </div>
-                            </div>
-                          ))}
-                          {detail.invited_users.length > 5 && (
-                            <div className="ud-invited-more">还有 {detail.invited_users.length - 5} 人...</div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* 时间与登录信息 */}
               <div className="ud-section ud-section-muted">
@@ -354,12 +171,6 @@ const UserDetailDrawer = ({ userId, onClose }) => {
                           <span className="ud-ip-location"> ({detail.last_login_ip_info})</span>
                         )}
                       </span>
-                    </div>
-                  )}
-                  {detail.order_stats?.last_order_at && (
-                    <div className="ud-time-item">
-                      <span className="ud-time-label">最后订单</span>
-                      <span className="ud-time-value">{formatDate(detail.order_stats.last_order_at)}</span>
                     </div>
                   )}
                 </div>

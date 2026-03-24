@@ -25,10 +25,9 @@ const (
 type SendType string
 
 const (
-	SendTypeAll    SendType = "all"     // 全站广播
-	SendTypeBatch  SendType = "batch"   // 批量用户
-	SendTypeSingle SendType = "single"  // 单个用户
-	SendTypeByPlan SendType = "by_plan" // 按会员等级
+	SendTypeAll    SendType = "all"    // 全站广播
+	SendTypeBatch  SendType = "batch"  // 批量用户
+	SendTypeSingle SendType = "single" // 单个用户
 )
 
 // MessageStatus 消息状态

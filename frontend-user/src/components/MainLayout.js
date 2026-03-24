@@ -89,10 +89,6 @@ const MainLayout = () => {
       breadcrumbs.push({ label: '设置' });
     } else if (path.startsWith('/paper/')) {
       breadcrumbs.push({ label: '论文详情' });
-    } else if (path === '/pricing') {
-      breadcrumbs.push({ label: '订阅方案' });
-    } else if (path === '/fund-center') {
-      breadcrumbs.push({ label: '基金中心' });
     } else if (path === '/feedback') {
       breadcrumbs.push({ label: '意见反馈' });
     } else if (path === '/about') {

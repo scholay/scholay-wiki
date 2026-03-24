@@ -9,13 +9,7 @@ package order
 
 import "time"
 
-// OrderType 订单类型
-const (
-	OrderTypeSubscription = "subscription" // 会员订阅
-	OrderTypeRecharge     = "recharge"     // 恩特币充值
-)
-
-// Order represents an order (subscription or recharge)
+// Order represents an order
 type Order struct {
 	ID             uint       `gorm:"primaryKey" json:"id"`
 	UserID         uint       `gorm:"not null;index" json:"user_id"`

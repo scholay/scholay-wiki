@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // GetRecommendationsForPaper gets paper recommendations based on a single paper
@@ -23,7 +24,7 @@ func (c *Client) GetRecommendationsForPaper(paperID string, opts Recommendations
 	// Build query parameters
 	params := map[string]string{}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 	if opts.Limit > 0 {
 		params["limit"] = strconv.Itoa(opts.Limit)
@@ -62,7 +63,7 @@ func (c *Client) GetRecommendations(opts RecommendationsOptions) (*Recommendatio
 	// Build query parameters
 	params := map[string]string{}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 	if opts.Limit > 0 {
 		params["limit"] = strconv.Itoa(opts.Limit)

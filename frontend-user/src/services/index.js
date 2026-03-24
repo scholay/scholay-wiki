@@ -20,13 +20,7 @@ export {
   publicScholarAPI,
   analysisDimensionAPI,
   configAPI,
-  subscriptionAPI,
-  orderAPI,
-  paymentAPI,
-  checkinAPI,
   peerReviewAPI,
-  walletAPI,
-  fundAPI,
 } from './api';
 
 // 默认导出主 API 客户端

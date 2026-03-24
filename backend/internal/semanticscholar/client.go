@@ -15,7 +15,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 )
@@ -159,9 +158,4 @@ func unmarshalResponse(resp *http.Response, target interface{}) error {
 	}
 
 	return nil
-}
-
-// Helper function to join string slices
-func joinStrings(items []string, sep string) string {
-	return strings.Join(items, sep)
 }

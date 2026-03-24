@@ -89,21 +89,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const [requireEmailVerification, setRequireEmailVerification] = useState(true);
   const [enableTurnstile, setEnableTurnstile] = useState(false);
   const [enableGithubOAuth, setEnableGithubOAuth] = useState(false);
-  const [invitationCode, setInvitationCode] = useState('');
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
-
-  // 读取URL中的邀请码参数
-  useEffect(() => {
-    if (isOpen) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const inviteParam = urlParams.get('invite');
-      if (inviteParam) {
-        setInvitationCode(inviteParam);
-        // 可以在这里调用API验证邀请码并获取邀请人信息
-        // 暂时不验证,直接使用
-      }
-    }
-  }, [isOpen]);
 
   // 获取隐私协议、用户协议和系统配置
   useEffect(() => {
@@ -186,7 +172,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     setTurnstileToken('');
     setAgreedToPolicy(false);
     setPasswordError('');
-    setInvitationCode('');
     setUseCodeLogin(false);
     setWechatQRCodeLoading(false);
     setWechatState('');
@@ -367,11 +352,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         turnstile_token: turnstileToken
       };
 
-      // 如果有邀请码，添加到请求中
-      if (invitationCode) {
-        requestBody.invitation_code = invitationCode;
-      }
-
       const response = await fetch('/api/v1/user/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -381,22 +361,8 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       const data = await response.json();
 
       if (data.code === 0) {
-        logger.log('[AuthModal] Registration success, register_gift_gold:', data.data.register_gift_gold);
         login(data.data.token, data.data.user);
         if (onLoginSuccess) onLoginSuccess(data.data.user);
-        
-        // 如果有注册赠送经费，保存到localStorage供App层显示欢迎弹窗
-        if (data.data.register_gift_gold && data.data.register_gift_gold > 0) {
-          logger.log('[AuthModal] Saving welcome modal data to localStorage');
-          localStorage.setItem('pending_welcome_modal', JSON.stringify({
-            giftAmount: data.data.register_gift_gold,
-            timestamp: Date.now()
-          }));
-          // 触发自定义事件通知App层显示欢迎弹窗
-          logger.log('[AuthModal] Dispatching show:welcome_modal event');
-          window.dispatchEvent(new CustomEvent('show:welcome_modal'));
-        }
-        
         handleClose();
       } else {
         showError(data.message || '注册失败');
@@ -575,11 +541,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         code
       };
 
-      // 如果有邀请码，添加到请求中
-      if (invitationCode) {
-        requestBody.invitation_code = invitationCode;
-      }
-
       const response = await fetch('/api/v1/user/register-phone', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -591,17 +552,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       if (data.code === 0) {
         login(data.data.token, data.data.user);
         if (onLoginSuccess) onLoginSuccess(data.data.user);
-        
-        // 如果有注册赠送经费，保存到localStorage供App层显示欢迎弹窗
-        if (data.data.register_gift_gold && data.data.register_gift_gold > 0) {
-          localStorage.setItem('pending_welcome_modal', JSON.stringify({
-            giftAmount: data.data.register_gift_gold,
-            timestamp: Date.now()
-          }));
-          // 触发自定义事件通知App层显示欢迎弹窗
-          window.dispatchEvent(new CustomEvent('show:welcome_modal'));
-        }
-        
         handleClose();
       } else {
         showError(data.message || '注册失败');
@@ -794,15 +744,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
           localStorage.setItem('wechat_return_url', currentPath);
         }
 
-        // 保存邀请码（如果有）
-        const urlParams = new URLSearchParams(window.location.search);
-        const inviteParam = urlParams.get('invite');
-        if (inviteParam) {
-          localStorage.setItem('oauth_invitation_code', inviteParam);
-        } else {
-          localStorage.removeItem('oauth_invitation_code');
-        }
-
         // 保存配置到状态，用于重新渲染
         const config = {
           appId: app_id,
@@ -900,15 +841,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         const currentPath = window.location.pathname + window.location.search;
         if (currentPath !== '/') {
           localStorage.setItem('github_return_url', currentPath);
-        }
-
-        // 保存邀请码（如果有）- 用于OAuth回调后处理新用户注册
-        const urlParams = new URLSearchParams(window.location.search);
-        const inviteParam = urlParams.get('invite');
-        if (inviteParam) {
-          localStorage.setItem('oauth_invitation_code', inviteParam);
-        } else {
-          localStorage.removeItem('oauth_invitation_code');
         }
 
         // Redirect to GitHub OAuth page
@@ -1175,15 +1107,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 </div>
               )}
 
-              <input
-                type="text"
-                className={`auth-input ${invitationCode ? 'auth-input-highlight' : ''}`}
-                value={invitationCode}
-                onChange={(e) => setInvitationCode(e.target.value.toUpperCase())}
-                placeholder="邀请码（可选）"
-                maxLength={20}
-              />
-
               <div className="auth-turnstile">
                 <TurnstileCaptcha
                   ref={emailCaptchaRef}
@@ -1437,15 +1360,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   {countdown > 0 ? `${countdown}秒` : '发送'}
                 </button>
               </div>
-
-              <input
-                type="text"
-                className={`auth-input ${invitationCode ? 'auth-input-highlight' : ''}`}
-                value={invitationCode}
-                onChange={(e) => setInvitationCode(e.target.value.toUpperCase())}
-                placeholder="邀请码（可选）"
-                maxLength={20}
-              />
 
               <div className="auth-turnstile">
                 <TurnstileCaptcha

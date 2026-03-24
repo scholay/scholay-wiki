@@ -8,6 +8,7 @@
 package circuitbreaker
 
 import (
+	"log"
 	"time"
 
 	"github.com/sony/gobreaker"
@@ -27,9 +28,7 @@ var (
 			return counts.Requests >= 3 && failureRatio >= 0.6
 		},
 		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
-			// Log state changes for monitoring
-			// In production, send metrics to monitoring system
-			// log.Printf("[Circuit Breaker] %s: %s -> %s\n", name, from, to)
+			log.Printf("[Circuit Breaker] %s: %s -> %s\n", name, from, to)
 		},
 	})
 
@@ -49,7 +48,7 @@ var (
 			return counts.Requests >= 10 && failureRatio >= 0.8
 		},
 		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
-			// log.Printf("[Circuit Breaker] %s: %s -> %s\n", name, from, to)
+			log.Printf("[Circuit Breaker] %s: %s -> %s\n", name, from, to)
 		},
 	})
 
@@ -64,7 +63,7 @@ var (
 			return counts.Requests >= 10 && failureRatio >= 0.7
 		},
 		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
-			// log.Printf("[Circuit Breaker] %s: %s -> %s\n", name, from, to)
+			log.Printf("[Circuit Breaker] %s: %s -> %s\n", name, from, to)
 		},
 	})
 )

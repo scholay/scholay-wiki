@@ -20,21 +20,24 @@ import (
 // kept for direct-access and development scenarios.
 func CORSMiddleware() gin.HandlerFunc {
 	allowedOrigins := parseAllowedOrigins()
+	if len(allowedOrigins) == 0 {
+		allowedOrigins = []string{
+			"http://localhost:3000",
+			"http://localhost:5411",
+			"http://localhost:5455",
+			"http://127.0.0.1:3000",
+			"http://127.0.0.1:5411",
+			"http://127.0.0.1:5455",
+		}
+	}
 
 	return func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
 
-		if origin != "" {
-			if len(allowedOrigins) == 0 {
-				// No explicit list configured — allow the requesting origin
-				// but WITHOUT credentials (spec-compliant wildcard behaviour).
-				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-				c.Writer.Header().Set("Vary", "Origin")
-			} else if isOriginAllowed(origin, allowedOrigins) {
-				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-				c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-				c.Writer.Header().Set("Vary", "Origin")
-			}
+		if origin != "" && isOriginAllowed(origin, allowedOrigins) {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+			c.Writer.Header().Set("Vary", "Origin")
 		}
 
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")

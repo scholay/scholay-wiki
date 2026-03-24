@@ -92,61 +92,57 @@ func GetString(ctx context.Context, key string) (string, error) {
 	return rdb.Get(ctx, key).Result()
 }
 
+// releaseLockScript atomically releases a lock only if the caller still owns it.
+var releaseLockScript = redis.NewScript(`
+if redis.call("get", KEYS[1]) == ARGV[1] then
+	return redis.call("del", KEYS[1])
+end
+return 0
+`)
+
 // GetOrSet retrieves from cache or fetches and caches the value with distributed locking
 func GetOrSet(ctx context.Context, key string, expiration time.Duration, fetch func() (interface{}, error), result interface{}) error {
-	// Try to get from cache
 	err := Get(ctx, key, result)
 	if err == nil {
-		return nil // Cache hit
+		return nil
 	}
-
 	if err != redis.Nil {
-		// Redis error, not a cache miss
 		return fmt.Errorf("redis error: %w", err)
 	}
 
-	// Cache miss - use distributed lock to prevent stampede
 	lockKey := "lock:" + key
 	lockValue := fmt.Sprintf("%d", time.Now().UnixNano())
 	lockExpiration := 10 * time.Second
 
-	// Try to acquire lock
 	acquired, err := SetNX(ctx, lockKey, lockValue, lockExpiration)
 	if err != nil {
 		return fmt.Errorf("lock error: %w", err)
 	}
 
 	if !acquired {
-		// Another process is fetching, wait and retry cache read
 		time.Sleep(100 * time.Millisecond)
-		err := Get(ctx, key, result)
-		if err == nil {
+		if err := Get(ctx, key, result); err == nil {
 			return nil
 		}
-		// If still not cached, proceed to fetch
 	}
 
-	// Ensure lock is released
-	defer Delete(ctx, lockKey)
+	defer func() {
+		releaseLockScript.Run(ctx, rdb, []string{lockKey}, lockValue)
+	}()
 
-	// Fetch the value
 	value, err := fetch()
 	if err != nil {
 		return fmt.Errorf("fetch error: %w", err)
 	}
 
-	// Store in cache
 	if err := Set(ctx, key, value, expiration); err != nil {
-		// Log error but don't fail the request
 		log.Printf("Warning: failed to cache value for key %s: %v", key, err)
 	}
 
-	// Marshal and unmarshal to populate result
 	data, err := json.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("marshal error: %w", err)
 	}
-
 	return json.Unmarshal(data, result)
 }
 

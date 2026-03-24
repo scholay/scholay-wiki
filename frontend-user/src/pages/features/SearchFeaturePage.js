@@ -83,8 +83,6 @@ export default function SearchFeaturePage() {
           subtitle="Scholay 将大语言模型与 Semantic Scholar 学术图谱深度融合，提供直接检索和 AI 智能检索两种模式，让文献发现变得前所未有的高效。"
           ctaText="立即搜索"
           ctaTo="/"
-          secondaryText="查看定价"
-          secondaryTo="/pricing"
           accentColor={ACCENT}
         />
 

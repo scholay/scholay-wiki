@@ -20,7 +20,6 @@ const DashboardLayout = () => {
   const location = useLocation();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [couponMenuOpen, setCouponMenuOpen] = useState(false);
   const [businessDataMenuOpen, setBusinessDataMenuOpen] = useState(false);
   const [messageMenuOpen, setMessageMenuOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
@@ -124,64 +123,6 @@ const DashboardLayout = () => {
             用户管理
           </a>
           <a
-            href="#orders"
-            onClick={(e) => { e.preventDefault(); navigate('/dashboard/orders'); setMobileMenuOpen(false); }}
-            className={`nav-item ${isActive('/dashboard/orders') ? 'active' : ''}`}
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
-            </svg>
-            订单管理
-          </a>
-
-          {/* Coupon Management Parent Menu */}
-          <div className="nav-group">
-            <a
-              href="#coupons"
-              onClick={(e) => { e.preventDefault(); setCouponMenuOpen(!couponMenuOpen); }}
-              className={`nav-item ${(isActive('/dashboard/coupons') || isActive('/dashboard/coupon-batches') || isActive('/dashboard/distributed-coupons')) ? 'active' : ''}`}
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05L11.949 18H6.051L.333 13.98a1 1 0 01-.285-1.049l1.738-5.42-1.233-.617a1 1 0 11.894-1.788l1.599.799L7 4.323V3a1 1 0 011-1h2zm0 2.274L7 5.607v3.893a1 1 0 01-1 1H4.268l-1.2 3.748L7.586 17h4.828l4.519-2.752-1.2-3.748H14a1 1 0 01-1-1V5.607L10 4.274z"/>
-              </svg>
-              <span>折扣券管理</span>
-              <svg
-                className={`submenu-arrow ${couponMenuOpen ? 'open' : ''}`}
-                width="16"
-                height="16"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
-              </svg>
-            </a>
-            {couponMenuOpen && (
-              <div className="submenu">
-                <a
-                  href="#create-coupons"
-                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/coupons'); setMobileMenuOpen(false); }}
-                  className={`submenu-item ${isActive('/dashboard/coupons') ? 'active' : ''}`}
-                >
-                  创建折扣券
-                </a>
-                <a
-                  href="#coupon-batches"
-                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/coupon-batches'); setMobileMenuOpen(false); }}
-                  className={`submenu-item ${isActive('/dashboard/coupon-batches') ? 'active' : ''}`}
-                >
-                  批量发放
-                </a>
-                <a
-                  href="#distributed-coupons"
-                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/distributed-coupons'); setMobileMenuOpen(false); }}
-                  className={`submenu-item ${isActive('/dashboard/distributed-coupons') ? 'active' : ''}`}
-                >
-                  发放列表
-                </a>
-              </div>
-            )}
-          </div>
-          <a
             href="#third-party"
             onClick={(e) => { e.preventDefault(); navigate('/dashboard/third-party-accounts'); setMobileMenuOpen(false); }}
             className={`nav-item ${isActive('/dashboard/third-party-accounts') ? 'active' : ''}`}
@@ -196,7 +137,7 @@ const DashboardLayout = () => {
             <a
               href="#business-data"
               onClick={(e) => { e.preventDefault(); setBusinessDataMenuOpen(!businessDataMenuOpen); }}
-              className={`nav-item ${(isActive('/dashboard/default-business-data') || isActive('/dashboard/prompt-templates') || isActive('/dashboard/latex-agent-config') || isActive('/dashboard/currency-config') || isActive('/dashboard/currency-batches') || isActive('/dashboard/subscription-plans')) ? 'active' : ''}`}
+              className={`nav-item ${(isActive('/dashboard/default-business-data') || isActive('/dashboard/prompt-templates') || isActive('/dashboard/latex-agent-config')) ? 'active' : ''}`}
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"/>
@@ -214,13 +155,6 @@ const DashboardLayout = () => {
             </a>
             {businessDataMenuOpen && (
               <div className="submenu">
-                <a
-                  href="#subscription-plans"
-                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/subscription-plans'); setMobileMenuOpen(false); }}
-                  className={`submenu-item ${isActive('/dashboard/subscription-plans') ? 'active' : ''}`}
-                >
-                  套餐管理
-                </a>
                 <a
                   href="#business-data-default"
                   onClick={(e) => { e.preventDefault(); navigate('/dashboard/default-business-data'); setMobileMenuOpen(false); }}
@@ -241,20 +175,6 @@ const DashboardLayout = () => {
                   className={`submenu-item ${isActive('/dashboard/latex-agent-config') ? 'active' : ''}`}
                 >
                   LaTeX Agent 配置
-                </a>
-                <a
-                  href="#currency-config"
-                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/currency-config'); setMobileMenuOpen(false); }}
-                  className={`submenu-item ${isActive('/dashboard/currency-config') ? 'active' : ''}`}
-                >
-                  货币配置
-                </a>
-                <a
-                  href="#currency-batches"
-                  onClick={(e) => { e.preventDefault(); navigate('/dashboard/currency-batches'); setMobileMenuOpen(false); }}
-                  className={`submenu-item ${isActive('/dashboard/currency-batches') ? 'active' : ''}`}
-                >
-                  货币发放记录
                 </a>
               </div>
             )}
@@ -310,17 +230,6 @@ const DashboardLayout = () => {
               <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd"/>
             </svg>
             反馈管理
-          </a>
-          <a
-            href="#usage-logs"
-            onClick={(e) => { e.preventDefault(); navigate('/dashboard/usage-logs'); setMobileMenuOpen(false); }}
-            className={`nav-item ${isActive('/dashboard/usage-logs') ? 'active' : ''}`}
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
-              <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd"/>
-            </svg>
-            使用统计
           </a>
           <a
             href="#hot-content"

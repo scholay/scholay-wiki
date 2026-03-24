@@ -153,11 +153,7 @@ a {
   .page-shell,
   .dashboard-home,
   .user-management-container,
-  .order-management,
-  .coupon-management,
-  .distributed-coupons-container,
   .third-party-accounts,
-  .subscription-plans,
   .prompt-templates-page,
   .settings-container,
   .batch-management
@@ -173,11 +169,7 @@ a {
     .page-shell,
     .dashboard-home,
     .user-management-container,
-    .order-management,
-    .coupon-management,
-    .distributed-coupons-container,
     .third-party-accounts,
-    .subscription-plans,
     .prompt-templates-page,
     .settings-container,
     .batch-management
@@ -605,9 +597,6 @@ textarea::placeholder {
   .table-wrapper,
   .user-table-container,
   .accounts-table-container,
-  .templates-table,
-  .batches-table,
-  .orders-section,
   .statistics-bar
 ) {
   background: var(--surface-base);
@@ -623,11 +612,7 @@ textarea::placeholder {
 :where(
   .data-table,
   .user-table,
-  .orders-table,
-  .accounts-table,
-  .coupons-table,
-  .templates-table table,
-  .batches-table table
+  .accounts-table
 ) {
   width: 100%;
   border-collapse: collapse;
@@ -637,11 +622,7 @@ textarea::placeholder {
 :where(
   .data-table thead,
   .user-table thead,
-  .orders-table thead,
-  .accounts-table thead,
-  .coupons-table thead,
-  .templates-table thead,
-  .batches-table thead
+  .accounts-table thead
 ) {
   background: var(--surface-muted);
   border-bottom: 1px solid var(--border-subtle);
@@ -650,11 +631,7 @@ textarea::placeholder {
 :where(
   .data-table th,
   .user-table th,
-  .orders-table th,
-  .accounts-table th,
-  .coupons-table th,
-  .templates-table th,
-  .batches-table th
+  .accounts-table th
 ) {
   padding: 0.9rem 1rem;
   text-align: left;
@@ -668,11 +645,7 @@ textarea::placeholder {
 :where(
   .data-table td,
   .user-table td,
-  .orders-table td,
-  .accounts-table td,
-  .coupons-table td,
-  .templates-table td,
-  .batches-table td
+  .accounts-table td
 ) {
   padding: 1rem;
   font-size: 0.9rem;
@@ -683,11 +656,7 @@ textarea::placeholder {
 :where(
   .data-table tbody tr:hover,
   .user-table tbody tr:hover,
-  .orders-table tbody tr:hover,
-  .accounts-table tbody tr:hover,
-  .coupons-table tbody tr:hover,
-  .templates-table tbody tr:hover,
-  .batches-table tbody tr:hover
+  .accounts-table tbody tr:hover
 ) {
   background: var(--gray-50);
 }

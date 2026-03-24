@@ -17,30 +17,19 @@ class BatchAnalysisQueue {
     this.pendingPapers = [];          // 待处理论文 [{ paper, onComplete, onError }]
     this.timeoutId = null;
     this.processing = false;
-    this.paused = false;              // 暂停标志（余额不足时）
     this.results = new Map();         // paperId -> result (缓存已分析的结果)
     this.callbacks = new Map();       // paperId -> [{ onComplete, onError }]
     
-    // 批量完成回调（用于通知hook处理扣费提示等）
+    // 批量完成回调
     this.onBatchComplete = null;
-    // 余额不足回调
-    this.onInsufficientBalance = null;
   }
 
   /**
    * 设置批量完成回调
-   * @param {Function} callback - (batchResults, totalDeducted) => void
+   * @param {Function} callback - (batchResults) => void
    */
   setOnBatchComplete(callback) {
     this.onBatchComplete = callback;
-  }
-
-  /**
-   * 设置余额不足回调
-   * @param {Function} callback - (errorData) => void
-   */
-  setOnInsufficientBalance(callback) {
-    this.onInsufficientBalance = callback;
   }
 
   /**
@@ -50,11 +39,6 @@ class BatchAnalysisQueue {
    * @param {Function} onError - 失败回调 (error) => void
    */
   enqueue(paper, onComplete, onError) {
-    // 暂停状态不接受新任务
-    if (this.paused) {
-      return;
-    }
-
     // 已有结果直接返回
     if (this.results.has(paper.paperId)) {
       setTimeout(() => onComplete?.(this.results.get(paper.paperId)), 0);
@@ -116,15 +100,9 @@ class BatchAnalysisQueue {
       // 调用批量API
       const response = await analysisDimensionAPI.batchAnalyzePapers(papersData);
 
-      // 检查余额不足错误
-      if (response.data.code === 4020) {
-        this.handleInsufficientBalance(response.data.data, batch);
-        return;
-      }
-
       // 处理成功响应
       if (response.data.code === 0 && response.data.data) {
-        const { results, total_deducted } = response.data.data;
+        const { results } = response.data.data;
 
         // 处理每篇论文的结果
         if (results && Array.isArray(results)) {
@@ -145,7 +123,7 @@ class BatchAnalysisQueue {
           });
 
           // 通知批量完成回调
-          this.onBatchComplete?.(results, total_deducted);
+          this.onBatchComplete?.(results);
         }
       } else {
         // 处理其他错误响应（code !== 0）
@@ -160,13 +138,7 @@ class BatchAnalysisQueue {
         });
       }
     } catch (error) {
-      // 检查是否是余额不足错误
-      if (error.response?.data?.code === 4020) {
-        this.handleInsufficientBalance(error.response.data.data, batch);
-        return;
-      }
-
-      // 其他错误，通知所有回调
+      // 错误，通知所有回调
       batch.forEach(paper => {
         const callbacks = this.callbacks.get(paper.paperId) || [];
         callbacks.forEach(({ onError }) => {
@@ -177,42 +149,10 @@ class BatchAnalysisQueue {
     } finally {
       this.processing = false;
 
-      // 如果还有剩余论文且未暂停，继续处理
-      if (this.pendingPapers.length > 0 && !this.paused) {
+      // 如果还有剩余论文，继续处理
+      if (this.pendingPapers.length > 0) {
         this.timeoutId = setTimeout(() => this.processBatch(), this.batchTimeout);
       }
-    }
-  }
-
-  /**
-   * 处理余额不足
-   */
-  handleInsufficientBalance(errorData, batch) {
-    // 暂停队列
-    this.pause();
-
-    // 将批次中的论文放回队列头部（下次恢复时处理）
-    this.pendingPapers = [...batch, ...this.pendingPapers];
-
-    // 通知回调
-    this.onInsufficientBalance?.(errorData);
-  }
-
-  /**
-   * 暂停队列（余额不足时调用）
-   */
-  pause() {
-    this.paused = true;
-    this.clearTimeout();
-  }
-
-  /**
-   * 恢复队列
-   */
-  resume() {
-    this.paused = false;
-    if (this.pendingPapers.length > 0) {
-      this.timeoutId = setTimeout(() => this.processBatch(), this.batchTimeout);
     }
   }
 
@@ -224,7 +164,6 @@ class BatchAnalysisQueue {
     this.pendingPapers = [];
     this.results.clear();
     this.callbacks.clear();
-    this.paused = false;
     this.processing = false;
   }
 
@@ -256,8 +195,7 @@ class BatchAnalysisQueue {
     return {
       pending: this.pendingPapers.length,
       cached: this.results.size,
-      processing: this.processing,
-      paused: this.paused
+      processing: this.processing
     };
   }
 }

@@ -382,15 +382,6 @@ func (r *Repository) GetAllActiveUserIDs() ([]uint, error) {
 	return userIDs, err
 }
 
-// GetUserIDsByPlan 根据会员等级获取用户ID
-func (r *Repository) GetUserIDsByPlan(plans []string) ([]uint, error) {
-	var userIDs []uint
-	err := r.db.Table("users").
-		Where("status = ? AND subscription_plan IN ?", 1, plans).
-		Pluck("id", &userIDs).Error
-	return userIDs, err
-}
-
 // CheckUserExists 检查用户是否存在
 func (r *Repository) CheckUserExists(userID uint) (bool, error) {
 	var count int64

@@ -20,15 +20,10 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import ThemeToggle from './ThemeToggle';
-import GoldIcon from './GoldIcon';
-import EntcoinIcon from './EntcoinIcon';
 import { NormalSearchIcon } from './SearchIcons';
 import MessageDropdown from './MessageDropdown';
-import ExchangeModal from './ExchangeModal';
-import api, { walletAPI, checkinAPI, messageAPI } from '../services/api';
+import { messageAPI } from '../services/api';
 import wsClient from '../services/websocket';
-import { useOrderModal } from '../contexts/OrderModalContext';
-import { useRechargeModal } from '../contexts/RechargeModalContext';
 import logger from '../utils/logger';
 import './styles/TopNavBar.css';
 import './MessageDropdown.css';
@@ -47,22 +42,9 @@ const TopNavBar = ({
   const navigate = useNavigate();
   const location = useLocation();
   useTheme(); // 确保主题 context 可用
-  const { openOrderModal } = useOrderModal();
-  const { openRechargeModal } = useRechargeModal();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [subscription, setSubscription] = useState(null);
-  const [wallet, setWallet] = useState(null);
-  const [walletLoading, setWalletLoading] = useState(false); // 钱包加载状态
-  // 签到相关状态
-  const [checkinHistory, setCheckinHistory] = useState([]);
-  const [checkinDetails, setCheckinDetails] = useState([]);
-  const [futureRewards, setFutureRewards] = useState([]);
-  const [checkinStats, setCheckinStats] = useState({ consecutiveDays: 0, totalDays: 0 });
-  const [, setHasCheckedInToday] = useState(false); // 签到状态暂未在UI中使用
   // 站内信相关状态
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
-  // 兑换弹窗状态
-  const [showExchangeModal, setShowExchangeModal] = useState(false);
   const userMenuRef = useRef(null);
   const avatarRef = useRef(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
@@ -79,28 +61,6 @@ const TopNavBar = ({
     }
   }, []);
 
-  // 获取签到数据
-  const fetchCheckinData = useCallback(async () => {
-    try {
-      const today = new Date();
-      const checkinRes = await checkinAPI.getHistory(today.getFullYear(), today.getMonth() + 1);
-      if (checkinRes.data.code === 0) {
-        const data = checkinRes.data.data;
-        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        setCheckinHistory(data.checkin_dates || []);
-        setCheckinDetails(data.checkin_details || []);
-        setFutureRewards(data.future_rewards || []);
-        setCheckinStats({
-          consecutiveDays: data.consecutive_days || 0,
-          totalDays: data.total_days || 0
-        });
-        setHasCheckedInToday(data.checkin_dates?.includes(todayStr) || false);
-      }
-    } catch (error) {
-      logger.error('Failed to fetch checkin data:', error);
-    }
-  }, []);
-
   // 监听 WebSocket 未读数更新（实时更新小红点）
   useEffect(() => {
     const unsubscribe = wsClient.on('unreadCount', (data) => {
@@ -112,39 +72,14 @@ const TopNavBar = ({
     return unsubscribe;
   }, []);
 
-  // 获取订阅信息、钱包余额、邀请统计、签到信息、未读消息
+  // 获取未读消息
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        // 获取订阅信息
-        const subResponse = await api.get('/user/subscription/my');
-        if (subResponse.data.code === 0) {
-          setSubscription(subResponse.data.data);
-        }
-
-        // 获取钱包余额
-        const walletResponse = await walletAPI.getWallet();
-        if (walletResponse.data.code === 0) {
-          setWallet(walletResponse.data.data);
-        }
-
-        // 获取签到信息
-        await fetchCheckinData();
-
-        // 获取未读消息数量
-        await fetchUnreadCount();
-      } catch (error) {
-        logger.error('Failed to fetch user data:', error);
-      }
-    };
-
     if (user) {
-      fetchUserData();
-      // 每60秒刷新未读消息数量
+      fetchUnreadCount();
       const interval = setInterval(fetchUnreadCount, 60000);
       return () => clearInterval(interval);
     }
-  }, [user, fetchUnreadCount, fetchCheckinData]);
+  }, [user, fetchUnreadCount]);
 
 
   // 点击外部关闭用户菜单
@@ -152,16 +87,13 @@ const TopNavBar = ({
     const handleClickOutside = (event) => {
       // 检查是否点击了消息弹窗（通过 Portal 渲染在 body 上）
       const messageModal = document.querySelector('.msg-modal-overlay');
-      const checkinModal = document.querySelector('.um-checkin-overlay');
       
       if (showUserMenu &&
           userMenuRef.current &&
           !userMenuRef.current.contains(event.target) &&
           avatarRef.current &&
           !avatarRef.current.contains(event.target) &&
-          // 排除消息弹窗和签到弹窗的点击
-          (!messageModal || !messageModal.contains(event.target)) &&
-          (!checkinModal || !checkinModal.contains(event.target))) {
+          (!messageModal || !messageModal.contains(event.target))) {
         setShowUserMenu(false);
       }
     };
@@ -222,30 +154,8 @@ const TopNavBar = ({
     return '用户';
   };
 
-  // 获取钱包余额
-  const fetchWallet = useCallback(async () => {
-    setWalletLoading(true);
-    try {
-      const walletResponse = await walletAPI.getWallet();
-      if (walletResponse.data.code === 0) {
-        setWallet(walletResponse.data.data);
-      }
-    } catch (error) {
-      logger.error('Failed to fetch wallet:', error);
-    } finally {
-      setWalletLoading(false);
-    }
-  }, []);
-
   const handleAvatarClick = async () => {
-    const willOpen = !showUserMenu;
-    setShowUserMenu(willOpen);
-
-    // 打开菜单时立即刷新钱包数据和签到数据
-    if (willOpen && user) {
-      fetchWallet();
-      fetchCheckinData();
-    }
+    setShowUserMenu(!showUserMenu);
   };
 
   return (
@@ -266,8 +176,8 @@ const TopNavBar = ({
           {/* 主导航菜单 */}
           <nav className="top-nav-menu">
             <Link 
-              to="/" 
-              className={`nav-menu-item ${location.pathname === '/' || location.pathname === '/search-results' ? 'active' : ''}`}
+              to="/search" 
+              className={`nav-menu-item ${location.pathname === '/search' || location.pathname === '/search-results' ? 'active' : ''}`}
             >
               <NormalSearchIcon size={18} />
               <span>学术搜索</span>
@@ -312,12 +222,6 @@ const TopNavBar = ({
             // 未登录：显示价格方案、主题切换、登录按钮
             <div className="auth-buttons">
               {/* 桌面端显示的按钮 */}
-              <button
-                onClick={() => navigate('/pricing')}
-                className="btn-auth btn-pricing desktop-only"
-              >
-                价格方案
-              </button>
               <div className="desktop-only">
                 <ThemeToggle />
               </div>
@@ -359,170 +263,7 @@ const TopNavBar = ({
               </div>
               <div className="um-user-detail">
                 <span className="um-username">{getUserDisplayName()}</span>
-                <span
-                  className={`um-plan-badge ${subscription?.expired_membership ? 'expired' : (subscription?.plan_code || 'free')} clickable`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowUserMenu(false);
-                    openOrderModal({ mode: 'subscription' });
-                  }}
-                  title={subscription?.expired_membership ? `${subscription?.expired_plan_name}已过期${subscription?.expired_days}天，点击续费` : "点击开通/续费会员"}
-                >
-                  {subscription?.expired_membership
-                    ? `${subscription?.expired_plan_name || 'PRO'}已过期`
-                    : (subscription?.plan_name || 'FREE')}
-                </span>
               </div>
-            </div>
-          </div>
-
-          {/* 卡片2: 钱包 */}
-          <div className={`um-card um-wallet-card ${walletLoading ? 'loading' : ''}`}>
-            {/* 右上角查看明细按钮 - hover时显示 */}
-            <button
-              className="um-wallet-detail-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowUserMenu(false);
-                navigate('/settings?tab=wallet');
-              }}
-            >
-              查看明细
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
-            </button>
-            <div className="um-wallet-grid">
-              {/* 恩特币 */}
-              <div className="um-wallet-item">
-                <div className="um-wallet-item-header">
-                  <EntcoinIcon size="sm" />
-                  <span className="um-wallet-label">恩特币</span>
-                </div>
-                <div className="um-wallet-value-row">
-                  <span className="um-wallet-value">
-                    {walletLoading ? <span className="um-wallet-skeleton"></span> : (wallet?.diamond || 0).toLocaleString()}
-                  </span>
-                  <button
-                    className="um-wallet-btn um-wallet-btn-primary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowUserMenu(false);
-                      openRechargeModal();
-                    }}
-                  >
-                    充值
-                  </button>
-                </div>
-              </div>
-              {/* 经费 */}
-              <div className="um-wallet-item">
-                <div className="um-wallet-item-header">
-                  <GoldIcon size="sm" />
-                  <span className="um-wallet-label">经费</span>
-                </div>
-                <div className="um-wallet-value-row">
-                  <span className="um-wallet-value">
-                    {walletLoading ? <span className="um-wallet-skeleton"></span> : (wallet?.gold || 0).toLocaleString()}
-                  </span>
-                  <button
-                    className="um-wallet-btn um-wallet-btn-secondary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowUserMenu(false);
-                      setShowExchangeModal(true);
-                    }}
-                  >
-                    兑换
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 卡片3: 签到 */}
-          <div className="um-card um-checkin-card" onClick={() => { setShowUserMenu(false); navigate('/settings?tab=profile'); }}>
-            <div className="um-checkin-header">
-              <div className="um-checkin-header-left">
-                <svg className="um-checkin-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                  <line x1="16" y1="2" x2="16" y2="6"/>
-                  <line x1="8" y1="2" x2="8" y2="6"/>
-                  <line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-                <span className="um-checkin-title">签到</span>
-                <span className="um-checkin-streak">连续{checkinStats.consecutiveDays}天</span>
-              </div>
-              {(() => {
-                const nextMilestone = futureRewards.find(r => r.is_milestone && r.consecutive_day > checkinStats.consecutiveDays);
-                if (nextMilestone) {
-                  const daysToMilestone = nextMilestone.consecutive_day - checkinStats.consecutiveDays;
-                  return (
-                    <span className="um-checkin-next-reward">
-                      {daysToMilestone}天后+{nextMilestone.expected_gold}经费
-                    </span>
-                  );
-                }
-                return null;
-              })()}
-            </div>
-            <div className="um-checkin-week-header">
-              {['日', '一', '二', '三', '四', '五', '六'].map(d => <span key={d}>{d}</span>)}
-            </div>
-            <div className="um-checkin-days">
-              {(() => {
-                const today = new Date();
-                const dayOfWeek = today.getDay();
-                const weekStart = new Date(today);
-                weekStart.setDate(today.getDate() - dayOfWeek);
-
-                const days = [];
-                for (let i = 0; i < 7; i++) {
-                  const date = new Date(weekStart);
-                  date.setDate(weekStart.getDate() + i);
-                  const dayNum = date.getDate();
-                  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-                  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                  const isToday = dateStr === todayStr;
-                  const isPast = date < today && !isToday;
-                  const isFuture = date > today;
-                  const isChecked = checkinHistory.includes(dateStr);
-                  const checkinDetail = checkinDetails.find(d => d.date === dateStr);
-                  const goldReward = checkinDetail?.gold_reward || 0;
-                  const futureReward = futureRewards.find(r => r.date === dateStr);
-                  const expectedGold = futureReward?.expected_gold || 10;
-                  const isMilestone = futureReward?.is_milestone || false;
-
-                  days.push(
-                    <div
-                      key={i}
-                      className={`um-day ${isToday ? 'today' : ''} ${isChecked ? 'checked' : ''} ${isFuture && !isToday ? 'future' : ''} ${isPast && !isChecked ? 'past' : ''} ${isMilestone ? 'milestone' : ''}`}
-                    >
-                      <span className="um-day-num">{dayNum}</span>
-                      {isChecked && goldReward > 0 && (
-                        <span className="um-day-reward checked">+{goldReward}</span>
-                      )}
-                      {isToday && !isChecked && (
-                        <span className={`um-day-reward today ${isMilestone ? 'milestone' : ''}`}>+{expectedGold}</span>
-                      )}
-                      {isFuture && !isToday && (
-                        <span className={`um-day-reward future ${isMilestone ? 'milestone' : ''}`}>+{expectedGold}</span>
-                      )}
-                      {isPast && !isChecked && (
-                        <span className="um-day-reward past">+10</span>
-                      )}
-                      {isChecked && (
-                        <div className="um-day-check">
-                          <svg viewBox="0 0 24 24" fill="none">
-                            <path d="M9 12L11 14L15 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-                return days;
-              })()}
             </div>
           </div>
 
@@ -565,7 +306,7 @@ const TopNavBar = ({
                 if (onLogout) {
                   onLogout();
                 }
-                navigate('/');
+                navigate('/search');
               }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -580,20 +321,6 @@ const TopNavBar = ({
         document.body
       )}
 
-      {/* 兑换弹窗 */}
-      <ExchangeModal
-        isOpen={showExchangeModal}
-        onClose={() => setShowExchangeModal(false)}
-        onSuccess={() => {
-          setShowExchangeModal(false);
-          // 刷新钱包余额
-          walletAPI.getWallet().then(res => {
-            if (res.data.code === 0) {
-              setWallet(res.data.data);
-            }
-          });
-        }}
-      />
     </>
   );
 };

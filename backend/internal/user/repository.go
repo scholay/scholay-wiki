@@ -15,7 +15,6 @@ import (
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 	conversationModel "scholar-backend/internal/conversation"
-	subscriptionModel "scholar-backend/internal/subscription"
 	"gorm.io/gorm"
 )
 
@@ -594,12 +593,7 @@ func (r *Repository) FindAuthProviderByUnionID(provider, unionID string) (*UserA
 // This method performs a cascading delete for all user-related data
 func (r *Repository) DeleteUser(userID uint) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		// 1. Delete usage quotas (not cascaded by FK)
-		if err := tx.Where("user_id = ?", userID).Delete(&subscriptionModel.UsageQuota{}).Error; err != nil {
-			return fmt.Errorf("failed to delete usage quotas: %w", err)
-		}
-
-		// 2. Delete conversation messages (not directly cascaded)
+		// 1. Delete conversation messages (not directly cascaded)
 		// First get all conversation IDs for this user
 		var conversationIDs []uint
 		if err := tx.Model(&conversationModel.Conversation{}).
@@ -620,7 +614,6 @@ func (r *Repository) DeleteUser(userID uint) error {
 		//    - user_auth_providers (ON DELETE CASCADE)
 		//    - user_sessions (ON DELETE CASCADE)
 		//    - conversations (ON DELETE CASCADE)
-		//    - user_subscriptions (ON DELETE CASCADE)
 		//    - orders (ON DELETE CASCADE)
 		//    - payment_transactions (via orders ON DELETE CASCADE)
 		if err := tx.Delete(&User{}, userID).Error; err != nil {

@@ -250,7 +250,7 @@ export const useAIConversation = ({
         // 直接尝试加载对话，API 会验证对话是否存在
         handleSelectConversation(urlConversationId).catch((error) => {
           logger.error(`Failed to load conversation ${urlConversationId}:`, error);
-          navigate('/');
+          navigate('/search');
         });
       }
     } else if (storedQuery && isAuthenticated && messages.length === 0 && !urlConversationId && !currentConversationId) {
@@ -264,7 +264,7 @@ export const useAIConversation = ({
     } else if (!urlConversationId && !storedQuery && isAuthenticated && !authLoading && !loading && !currentConversationId) {
       hasInitializedFromURLRef.current = true;
       logger.log('No conversationId and no stored query, redirecting to home');
-      navigate('/');
+      navigate('/search');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, authLoading]);

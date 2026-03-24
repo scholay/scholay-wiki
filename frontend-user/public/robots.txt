@@ -16,7 +16,6 @@ Allow: /chat
 Allow: /assistant
 Allow: /peer-review
 Allow: /latex-writer
-Allow: /fund-center
 Allow: /resources
 Allow: /resources/*
 Allow: /help

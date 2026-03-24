@@ -176,7 +176,7 @@ const PaperDetailPage = () => {
   }, [paperId]);
 
   const handleLogoClick = () => {
-    navigate('/');
+    navigate('/search');
   };
 
   const handleSearch = async (e) => {
@@ -233,11 +233,11 @@ const PaperDetailPage = () => {
   };
 
   const handleSignIn = () => {
-    navigate('/');
+    navigate('/search');
   };
 
   const handleSignUp = () => {
-    navigate('/');
+    navigate('/search');
   };
 
   // 处理标题hover

@@ -13,6 +13,23 @@ import (
 	"github.com/mileusna/useragent"
 )
 
+const (
+	DeviceTypePC     = "pc"
+	DeviceTypeMobile = "mobile"
+)
+
+// ParseDeviceType returns "pc" or "mobile" based on User-Agent string.
+func ParseDeviceType(userAgent string) string {
+	if userAgent == "" {
+		return DeviceTypePC
+	}
+	ua := useragent.Parse(userAgent)
+	if ua.Mobile || ua.Tablet {
+		return DeviceTypeMobile
+	}
+	return DeviceTypePC
+}
+
 // DeviceInfo represents parsed user agent information
 type DeviceInfo struct {
 	DeviceType string `json:"device_type"` // Desktop, Mobile, Tablet, Bot

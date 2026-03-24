@@ -11,8 +11,11 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -53,20 +56,15 @@ func GetCachedSearchResult(ctx context.Context, params map[string]interface{}, r
 
 	err := Get(ctx, key, result)
 	if err != nil {
-		if err.Error() == "redis: nil" {
-			// Cache miss - caller should use GetOrSetSearchResult for stampede protection
+		if errors.Is(err, redis.Nil) {
 			return false, nil
 		}
-		// Redis error
 		return false, err
 	}
-
-	// Cache hit
 	return true, nil
 }
 
 // GetOrSetSearchResult retrieves from cache or fetches with stampede protection
-// This prevents multiple concurrent requests from hitting the API on cache miss
 func GetOrSetSearchResult(ctx context.Context, params map[string]interface{}, fetchFn func() (interface{}, error), result interface{}) error {
 	key := GenerateCacheKey(scholarSearchPrefix, params)
 	return GetOrSet(ctx, key, searchCacheTTL, fetchFn, result)
@@ -94,12 +92,11 @@ func GetCachedPaperDetails(ctx context.Context, paperId string, fields []string,
 
 	err := Get(ctx, key, result)
 	if err != nil {
-		if err.Error() == "redis: nil" {
+		if errors.Is(err, redis.Nil) {
 			return false, nil
 		}
 		return false, err
 	}
-
 	return true, nil
 }
 
@@ -126,7 +123,7 @@ func GetCachedAuthorDetails(ctx context.Context, authorId string, result interfa
 
 	err := Get(ctx, key, result)
 	if err != nil {
-		if err.Error() == "redis: nil" {
+		if errors.Is(err, redis.Nil) {
 			return false, nil
 		}
 		return false, err

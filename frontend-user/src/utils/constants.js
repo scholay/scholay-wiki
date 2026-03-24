@@ -176,7 +176,6 @@ export const ROUTES = {
   PEER_REVIEW: '/peer-review',
   ASSISTANT: '/assistant',
   SETTINGS: '/settings',
-  PRICING: '/pricing',
   ABOUT: '/about',
   FEEDBACK: '/feedback',
 };

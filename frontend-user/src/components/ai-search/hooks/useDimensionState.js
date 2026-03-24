@@ -15,8 +15,6 @@ export const useDimensionState = (isAuthenticated) => {
   // 分析结果
   const [analysisResults, setAnalysisResults] = useState({});
   const [analyzingPapers, setAnalyzingPapers] = useState({});
-  const [totalDeducted, setTotalDeducted] = useState(0);
-
   // 悬浮面板状态
   const [floatPanelExpanded, setFloatPanelExpanded] = useState(false);
   const [floatPanelView, setFloatPanelView] = useState('list');
@@ -169,7 +167,6 @@ export const useDimensionState = (isAuthenticated) => {
     selectedDimensions,
     analysisResults,
     analyzingPapers,
-    totalDeducted,
     floatPanelExpanded,
     floatPanelView,
     editingDimension,
@@ -181,7 +178,6 @@ export const useDimensionState = (isAuthenticated) => {
     setSelectedDimensions,
     setAnalysisResults,
     setAnalyzingPapers,
-    setTotalDeducted,
     setFloatPanelExpanded,
     setFloatPanelView,
     setEditingDimension,

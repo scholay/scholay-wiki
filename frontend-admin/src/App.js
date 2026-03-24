@@ -20,17 +20,9 @@ const SystemSettings = lazy(() => import('./pages/SystemSettings'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const ThirdPartyAccounts = lazy(() => import('./pages/ThirdPartyAccounts'));
 const PromptTemplates = lazy(() => import('./pages/PromptTemplates'));
-const SubscriptionPlans = lazy(() => import('./pages/SubscriptionPlans'));
-const OrderManagement = lazy(() => import('./pages/OrderManagement'));
 const LatexAgentConfig = lazy(() => import('./pages/LatexAgentConfig'));
-const CouponManagement = lazy(() => import('./pages/CouponManagement'));
-const CouponBatchManagement = lazy(() => import('./pages/CouponBatchManagement'));
-const DistributedCoupons = lazy(() => import('./pages/DistributedCoupons'));
 const DefaultBusinessData = lazy(() => import('./pages/DefaultBusinessData'));
 const FeedbackManagement = lazy(() => import('./pages/FeedbackManagement'));
-const CurrencyConfig = lazy(() => import('./pages/CurrencyConfig'));
-const CurrencyBatchManagement = lazy(() => import('./pages/CurrencyBatchManagement'));
-const UsageLogs = lazy(() => import('./pages/UsageLogs'));
 const HotContent = lazy(() => import('./pages/HotContent'));
 const MessageManagement = lazy(() => import('./pages/MessageManagement'));
 const MessageTemplates = lazy(() => import('./pages/MessageTemplates'));
@@ -70,27 +62,16 @@ function App() {
             >
               <Route index element={<DashboardHome />} />
               <Route path="users" element={<UserManagement />} />
-              <Route path="orders" element={<OrderManagement />} />
-              <Route path="coupons" element={<CouponManagement />} />
-              <Route path="coupon-batches" element={<CouponBatchManagement />} />
-              <Route path="distributed-coupons" element={<DistributedCoupons />} />
               <Route path="third-party-accounts" element={<ThirdPartyAccounts />} />
               <Route path="prompt-templates" element={<PromptTemplates />} />
               <Route path="latex-agent-config" element={<LatexAgentConfig />} />
-              <Route path="subscription-plans" element={<SubscriptionPlans />} />
               <Route path="default-business-data" element={<DefaultBusinessData />} />
               <Route path="feedbacks" element={<FeedbackManagement />} />
-              <Route path="currency-config" element={<CurrencyConfig />} />
-              <Route path="currency-batches" element={<CurrencyBatchManagement />} />
-              <Route path="usage-logs" element={<UsageLogs />} />
               <Route path="hot-content" element={<HotContent />} />
               <Route path="messages" element={<MessageManagement />} />
               <Route path="message-templates" element={<MessageTemplates />} />
               <Route path="code-snippets" element={<CodeSnippets />} />
               <Route path="settings" element={<SystemSettings />} />
-              {/* 保留旧路由以防万一，但重定向到设置页 */}
-              <Route path="alipay-config" element={<Navigate to="/dashboard/settings?tab=alipay" replace />} />
-              <Route path="wechat-config" element={<Navigate to="/dashboard/settings?tab=wechat" replace />} />
             </Route>
             <Route path="/" element={<Navigate to="/dashboard" />} />
           </Routes>

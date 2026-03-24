@@ -16,13 +16,10 @@ import logger from '../utils/logger';
 // Whitelist of allowed return URLs (paths only, no query params validation)
 // Only these paths are allowed for redirect after WeChat login
 const RETURN_URL_WHITELIST = [
-  '/pricing',
   '/search-results',
   '/advanced-search',
   '/chat',
   '/settings',
-  '/dashboard',
-  '/order-confirmation',
 ];
 
 /**
@@ -75,7 +72,7 @@ const WeChatCallback = () => {
 
       if (!code || !state) {
         logger.error('Invalid WeChat callback parameters');
-        navigate('/');
+        navigate('/search');
         return;
       }
 
@@ -111,7 +108,7 @@ const WeChatCallback = () => {
           });
           navigate(`/settings?${params.toString()}`);
         } else {
-          navigate('/');
+          navigate('/search');
         }
         return;
       }
@@ -143,24 +140,14 @@ const WeChatCallback = () => {
           }
         } else {
           // Login mode
-          // 获取保存的邀请码（如果有）
-          const invitationCode = localStorage.getItem('oauth_invitation_code');
-          response = await userAPI.wechatCallback(code, state, invitationCode);
+          response = await userAPI.wechatCallback(code, state);
 
           if (response.data.code === 0 && response.data.data) {
-            const { token, user, is_new_user, register_gift_gold } = response.data.data;
+            const { token, user } = response.data.data;
 
             // Save token and user data
             localStorage.setItem('user_token', token);
             localStorage.setItem('user_data', JSON.stringify(user));
-
-            // 如果是新用户且有注册赠送经费，保存到localStorage供后续显示欢迎弹窗
-            if (is_new_user && register_gift_gold && register_gift_gold > 0) {
-              localStorage.setItem('pending_welcome_modal', JSON.stringify({
-                giftAmount: register_gift_gold,
-                timestamp: Date.now()
-              }));
-            }
 
             // Check for return URL and validate against whitelist
             const returnURL = localStorage.getItem('wechat_return_url');
@@ -178,7 +165,6 @@ const WeChatCallback = () => {
             // Clean up
             localStorage.removeItem('wechat_oauth_state');
             localStorage.removeItem('wechat_return_url');
-            localStorage.removeItem('oauth_invitation_code'); // 清理邀请码
 
             // Update auth context (token first, then user data)
             login(token, user);
@@ -208,8 +194,7 @@ const WeChatCallback = () => {
         } else {
           localStorage.removeItem('wechat_oauth_state');
           localStorage.removeItem('wechat_return_url'); // Clean up return URL on error
-          localStorage.removeItem('oauth_invitation_code'); // 清理邀请码
-          navigate('/');
+          navigate('/search');
         }
       }
     };

@@ -1213,7 +1213,6 @@ func (h *Handler) ServeDynamicSitemap(c *gin.Context) {
 		{"/assistant", "weekly", "0.8"},
 		{"/peer-review", "weekly", "0.8"},
 		{"/pricing", "monthly", "0.7"},
-		{"/fund-center", "weekly", "0.6"},
 		{"/about", "monthly", "0.6"},
 		{"/privacy", "monthly", "0.5"},
 		{"/terms", "monthly", "0.5"},

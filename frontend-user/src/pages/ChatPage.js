@@ -15,11 +15,9 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
-import api, { subscriptionAPI, walletAPI } from '../services/api';
+import api from '../services/api';
 import { trackAIAssistantChat } from '../utils/usageTracker';
 import logger from '../utils/logger';
-import wsClient from '../services/websocket';
-import InsufficientBalanceModal from '../components/InsufficientBalanceModal';
 import Logo from '../components/Logo';
 import SEO from '../components/SEO';
 import './ChatPageNew.css';
@@ -97,11 +95,7 @@ function ChatPage() {
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false); // Loading dots before streaming starts
   const [modelLevel, setModelLevel] = useState('low'); // 'low', 'mid', 'high' - AI chat model level
   const [showModelDropdown, setShowModelDropdown] = useState(false); // Model selector dropdown state
-  const [quota, setQuota] = useState(null); // AI Chat quota limits
-  const [usage, setUsage] = useState(null); // AI Chat usage counts
   const [showAuthModal, setShowAuthModal] = useState(false); // 登录弹窗
-  const [showBalanceModal, setShowBalanceModal] = useState(false); // 余额不足弹窗
-  const [balanceError, setBalanceError] = useState(null); // 余额不足详情
   const [hoveredMessage, setHoveredMessage] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
   const [editContent, setEditContent] = useState('');
@@ -118,40 +112,6 @@ function ChatPage() {
     transform: showModelDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
     transition: 'transform 0.2s ease'
   }), [showModelDropdown]);
-
-  // Fetch AI Chat quota and usage
-  useEffect(() => {
-    const fetchQuotaAndUsage = async () => {
-      // 只在登录状态下获取配额
-      if (!isAuthenticated) return;
-      
-      try {
-        const response = await subscriptionAPI.getUsage();
-        if (response.data.code === 0) {
-          const data = response.data.data;
-          // Map backend data to frontend format for AI Chat quotas
-          const quotaData = {
-            aiChatNormalQuota: data.limits?.ai_chat_normal?.limit ?? -1,
-            aiChatMidQuota: data.limits?.ai_chat_mid?.limit ?? -1,
-            aiChatHighQuota: data.limits?.ai_chat_high?.limit ?? -1,
-          };
-          const usageData = {
-            aiChatNormalCount: data.usage?.ai_chat_normal ?? 0,
-            aiChatMidCount: data.usage?.ai_chat_mid ?? 0,
-            aiChatHighCount: data.usage?.ai_chat_high ?? 0,
-          };
-          setQuota(quotaData);
-          setUsage(usageData);
-        }
-      } catch (error) {
-        logger.error('Failed to fetch AI Chat quota/usage:', error);
-      }
-    };
-
-    if (isAuthenticated) {
-      fetchQuotaAndUsage();
-    }
-  }, [isAuthenticated]);
 
   useEffect(() => {
     // 只在登录状态下加载对话历史
@@ -200,46 +160,6 @@ function ChatPage() {
         });
       }
     }
-  };
-
-  // Get remaining count for a model level
-  const getRemainingCount = (level) => {
-    if (!quota || !usage) return null;
-
-    const quotaMap = {
-      'low': { quota: quota.aiChatNormalQuota, usage: usage.aiChatNormalCount },
-      'mid': { quota: quota.aiChatMidQuota, usage: usage.aiChatMidCount },
-      'high': { quota: quota.aiChatHighQuota, usage: usage.aiChatHighCount }
-    };
-
-    const { quota: quotaValue, usage: usageValue } = quotaMap[level] || {};
-    if (quotaValue === undefined) return null;
-
-    // -1 means unlimited
-    if (quotaValue === -1) return '无限制';
-
-    const remaining = Math.max(0, quotaValue - usageValue);
-    return remaining;
-  };
-
-  // Check if model is available based on user subscription
-  const isModelAvailable = (level) => {
-    if (!user?.subscription) return true;
-
-    const planCode = user.subscription.plan_code;
-
-    // FREE users can only use 'low' (normal)
-    if (planCode === 'FREE' && level !== 'low') {
-      return false;
-    }
-
-    // PRO users can use 'low' and 'mid'
-    if (planCode === 'PRO' && level === 'high') {
-      return false;
-    }
-
-    // MAX users can use all models
-    return true;
   };
 
   const loadConversations = async () => {
@@ -299,27 +219,6 @@ function ChatPage() {
       return;
     }
 
-    // 先检查余额是否充足
-    try {
-      const checkResult = await walletAPI.checkBalanceByBizType(getChatBizType(modelLevel));
-      if (checkResult.data.code === 0 && checkResult.data.data) {
-        if (!checkResult.data.data.sufficient) {
-          // 余额不足，显示弹窗
-          setBalanceError({
-            balance: checkResult.data.data.balance || 0,
-            required: checkResult.data.data.required || 0,
-            shortage: checkResult.data.data.shortage || 0,
-            alreadyDeducted: 0
-          });
-          setShowBalanceModal(true);
-          return;
-        }
-      }
-    } catch (error) {
-      logger.error('Failed to check balance:', error);
-      // 检查失败时继续执行，让后端处理
-    }
-    
     try {
       setIsStreaming(true);
       setStreamingContent('');
@@ -351,22 +250,6 @@ function ChatPage() {
         signal: abortControllerRef.current.signal
       });
 
-      // 检查余额不足错误
-      if (response.status === 402) {
-        const errorData = await response.json();
-        // 移除临时用户消息
-        setMessages([]);
-        // 显示余额不足弹窗
-        setBalanceError({
-          balance: errorData.data?.balance || 0,
-          required: errorData.data?.required || 0,
-          shortage: errorData.data?.shortage || 0,
-          alreadyDeducted: 0
-        });
-        setShowBalanceModal(true);
-        return;
-      }
-
       await handleStreamResponse(response);
       // Reload conversations to update sidebar history
       await loadConversations();
@@ -387,15 +270,6 @@ function ChatPage() {
     }
   };
 
-  // 根据模型级别获取业务类型
-  const getChatBizType = (level) => {
-    switch (level) {
-      case 'mid': return 'ai_chat_mid';
-      case 'high': return 'ai_chat_high';
-      default: return 'ai_chat_low';
-    }
-  };
-
   const sendMessage = async (content) => {
     if (!content.trim()) return;
 
@@ -403,27 +277,6 @@ function ChatPage() {
     if (!isAuthenticated) {
       setShowAuthModal(true);
       return;
-    }
-
-    // 先检查余额是否充足
-    try {
-      const checkResult = await walletAPI.checkBalanceByBizType(getChatBizType(modelLevel));
-      if (checkResult.data.code === 0 && checkResult.data.data) {
-        if (!checkResult.data.data.sufficient) {
-          // 余额不足，显示弹窗
-          setBalanceError({
-            balance: checkResult.data.data.balance || 0,
-            required: checkResult.data.data.required || 0,
-            shortage: checkResult.data.data.shortage || 0,
-            alreadyDeducted: 0
-          });
-          setShowBalanceModal(true);
-          return;
-        }
-      }
-    } catch (error) {
-      logger.error('Failed to check balance:', error);
-      // 检查失败时继续执行，让后端处理
     }
 
     if (!currentConversation) {
@@ -478,22 +331,6 @@ function ChatPage() {
         }),
         signal: abortControllerRef.current.signal
       });
-
-      // 检查余额不足错误
-      if (response.status === 402) {
-        const errorData = await response.json();
-        // 移除临时用户消息
-        setMessages(prev => prev.filter(msg => !msg.message_id.startsWith('temp-')));
-        // 显示余额不足弹窗
-        setBalanceError({
-          balance: errorData.data?.balance || 0,
-          required: errorData.data?.required || 0,
-          shortage: errorData.data?.shortage || 0,
-          alreadyDeducted: 0
-        });
-        setShowBalanceModal(true);
-        return;
-      }
 
       await handleStreamResponse(response);
     } catch (error) {
@@ -633,20 +470,6 @@ function ChatPage() {
                 fullContent = '';
                 parentMessageId = null;  // Reset for next message
                 messageEndReceived = true;
-              } else if (data.type === 'deduct_info') {
-                // 处理扣费信息
-                logger.log('[AI Chat] Received deduct_info:', data);
-                const deductedAmount = data.deducted_amount || 0;
-                logger.log('[AI Chat] Deducted amount:', deductedAmount);
-                if (deductedAmount > 0) {
-                  logger.log('[AI Chat] Emitting toast for deduction');
-                  wsClient.emit('toast', {
-                    title: '扣费提醒',
-                    content: `本次对话消耗 ${deductedAmount} 经费`,
-                    category: 'transaction',
-                    created_at: new Date().toISOString()
-                  });
-                }
               } else if (data.type === 'error') {
                 logger.error('Stream error:', data.error);
               }
@@ -993,7 +816,6 @@ function ChatPage() {
                     <span className="chat-breadcrumb-separator">/</span>
                     <span className="chat-breadcrumb-current">AI 聊天</span>
                   </div>
-                  {/* Lightweight Model Selector with quota display */}
                   <div className="model-selector-simple">
                     <button
                       type="button"
@@ -1020,65 +842,33 @@ function ChatPage() {
                         <div className="model-dropdown-menu">
                           <button
                             type="button"
-                            className={`model-dropdown-item ${modelLevel === 'low' ? 'active' : ''} ${!isModelAvailable('low') ? 'disabled' : ''}`}
+                            className={`model-dropdown-item ${modelLevel === 'low' ? 'active' : ''}`}
                             onClick={() => {
-                              if (isModelAvailable('low')) {
-                                setModelLevel('low');
-                                setShowModelDropdown(false);
-                              }
+                              setModelLevel('low');
+                              setShowModelDropdown(false);
                             }}
-                            disabled={!isModelAvailable('low')}
                           >
                             <span>普通</span>
-                            {getRemainingCount('low') !== null && getRemainingCount('low') !== '无限制' && (
-                              <span className="quota-badge">
-                                剩余 {getRemainingCount('low')} 次
-                              </span>
-                            )}
                           </button>
                           <button
                             type="button"
-                            className={`model-dropdown-item ${modelLevel === 'mid' ? 'active' : ''} ${!isModelAvailable('mid') ? 'disabled' : ''}`}
+                            className={`model-dropdown-item ${modelLevel === 'mid' ? 'active' : ''}`}
                             onClick={() => {
-                              if (isModelAvailable('mid')) {
-                                setModelLevel('mid');
-                                setShowModelDropdown(false);
-                              }
+                              setModelLevel('mid');
+                              setShowModelDropdown(false);
                             }}
-                            disabled={!isModelAvailable('mid')}
                           >
                             <span>进阶</span>
-                            {getRemainingCount('mid') !== null && getRemainingCount('mid') !== '无限制' && (
-                              <span className="quota-badge">
-                                剩余 {getRemainingCount('mid')} 次
-                              </span>
-                            )}
-                            {!isModelAvailable('mid') && user?.subscription?.plan_code === 'FREE' && (
-                              <span className="upgrade-badge">需要升级</span>
-                            )}
                           </button>
                           <button
                             type="button"
-                            className={`model-dropdown-item ${modelLevel === 'high' ? 'active' : ''} ${!isModelAvailable('high') ? 'disabled' : ''}`}
+                            className={`model-dropdown-item ${modelLevel === 'high' ? 'active' : ''}`}
                             onClick={() => {
-                              if (isModelAvailable('high')) {
-                                setModelLevel('high');
-                                setShowModelDropdown(false);
-                              }
+                              setModelLevel('high');
+                              setShowModelDropdown(false);
                             }}
-                            disabled={!isModelAvailable('high')}
                           >
                             <span>高级</span>
-                            {getRemainingCount('high') !== null && getRemainingCount('high') !== '无限制' && (
-                              <span className="quota-badge">
-                                剩余 {getRemainingCount('high')} 次
-                              </span>
-                            )}
-                            {!isModelAvailable('high') && (
-                              <span className="upgrade-badge">
-                                {user?.subscription?.plan_code === 'FREE' ? '需要升级' : '需要 MAX'}
-                              </span>
-                            )}
                           </button>
                         </div>
                       </>
@@ -1159,7 +949,6 @@ function ChatPage() {
                     <span className="chat-breadcrumb-separator">/</span>
                     <span className="chat-breadcrumb-current">AI 聊天</span>
                   </div>
-                  {/* Lightweight Model Selector with quota display */}
                   <div className="model-selector-simple">
                     <button
                       type="button"
@@ -1186,65 +975,33 @@ function ChatPage() {
                         <div className="model-dropdown-menu">
                           <button
                             type="button"
-                            className={`model-dropdown-item ${modelLevel === 'low' ? 'active' : ''} ${!isModelAvailable('low') ? 'disabled' : ''}`}
+                            className={`model-dropdown-item ${modelLevel === 'low' ? 'active' : ''}`}
                             onClick={() => {
-                              if (isModelAvailable('low')) {
-                                setModelLevel('low');
-                                setShowModelDropdown(false);
-                              }
+                              setModelLevel('low');
+                              setShowModelDropdown(false);
                             }}
-                            disabled={!isModelAvailable('low')}
                           >
                             <span>普通</span>
-                            {getRemainingCount('low') !== null && getRemainingCount('low') !== '无限制' && (
-                              <span className="quota-badge">
-                                剩余 {getRemainingCount('low')} 次
-                              </span>
-                            )}
                           </button>
                           <button
                             type="button"
-                            className={`model-dropdown-item ${modelLevel === 'mid' ? 'active' : ''} ${!isModelAvailable('mid') ? 'disabled' : ''}`}
+                            className={`model-dropdown-item ${modelLevel === 'mid' ? 'active' : ''}`}
                             onClick={() => {
-                              if (isModelAvailable('mid')) {
-                                setModelLevel('mid');
-                                setShowModelDropdown(false);
-                              }
+                              setModelLevel('mid');
+                              setShowModelDropdown(false);
                             }}
-                            disabled={!isModelAvailable('mid')}
                           >
                             <span>进阶</span>
-                            {getRemainingCount('mid') !== null && getRemainingCount('mid') !== '无限制' && (
-                              <span className="quota-badge">
-                                剩余 {getRemainingCount('mid')} 次
-                              </span>
-                            )}
-                            {!isModelAvailable('mid') && user?.subscription?.plan_code === 'FREE' && (
-                              <span className="upgrade-badge">需要升级</span>
-                            )}
                           </button>
                           <button
                             type="button"
-                            className={`model-dropdown-item ${modelLevel === 'high' ? 'active' : ''} ${!isModelAvailable('high') ? 'disabled' : ''}`}
+                            className={`model-dropdown-item ${modelLevel === 'high' ? 'active' : ''}`}
                             onClick={() => {
-                              if (isModelAvailable('high')) {
-                                setModelLevel('high');
-                                setShowModelDropdown(false);
-                              }
+                              setModelLevel('high');
+                              setShowModelDropdown(false);
                             }}
-                            disabled={!isModelAvailable('high')}
                           >
                             <span>高级</span>
-                            {getRemainingCount('high') !== null && getRemainingCount('high') !== '无限制' && (
-                              <span className="quota-badge">
-                                剩余 {getRemainingCount('high')} 次
-                              </span>
-                            )}
-                            {!isModelAvailable('high') && (
-                              <span className="upgrade-badge">
-                                {user?.subscription?.plan_code === 'FREE' ? '需要升级' : '需要 MAX'}
-                              </span>
-                            )}
                           </button>
                         </div>
                       </>
@@ -1511,17 +1268,6 @@ function ChatPage() {
         </Suspense>
       )}
       
-      {/* 经费不足弹窗 */}
-      <InsufficientBalanceModal
-        isOpen={showBalanceModal}
-        onClose={() => {
-          setShowBalanceModal(false);
-          setBalanceError(null);
-        }}
-        featureName="智能助手"
-        required={balanceError?.required || 0}
-        shortage={balanceError?.shortage || 0}
-      />
     </div>
   );
 }

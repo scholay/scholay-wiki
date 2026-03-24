@@ -179,7 +179,7 @@ function generateHelpCenterRoute() {
         '<strong>AI 学术聊天</strong> — 与 AI 助手进行学术对话，支持多种 AI 模型选择，对话支持上下文连续交流，可粘贴论文片段让 AI 解读，对话历史自动保存。',
         '<strong>AI 智能审稿</strong> — 上传论文 PDF 或输入文本，获取审稿报告，涵盖论文结构评估、方法论分析、论证逻辑审查、写作质量评价和改进建议。',
         '<strong>ScholayPrism LaTeX 编辑器</strong> — 在线 LaTeX 编辑器，支持实时编译预览、AI 辅助写作、多种学术期刊模板，无需安装本地软件。',
-        '<strong>订阅与充值</strong> — 免费版提供基础检索和有限 AI 分析次数，付费订阅解锁高级 AI 模型和更多配额，支持支付宝和微信支付。',
+        '<strong>订阅</strong> — 免费版提供基础检索和有限 AI 分析次数，付费订阅解锁高级 AI 模型和更多配额，支持支付宝和微信支付。',
       ])) +
       section('常见问题', `<dl style="line-height:1.8">` +
         `<dt style="color:#111;font-weight:700;margin-top:16px">Scholay 是什么？它有什么特点？</dt>` +
@@ -187,7 +187,7 @@ function generateHelpCenterRoute() {
         `<dt style="color:#111;font-weight:700;margin-top:16px">Scholay 支持哪些学科领域？</dt>` +
         `<dd style="margin-left:0;margin-bottom:12px">覆盖计算机科学、生物医学、物理学、化学、数学、工程学、环境科学、材料科学、心理学、经济学、社会学、教育学、语言学等广泛学科领域。</dd>` +
         `<dt style="color:#111;font-weight:700;margin-top:16px">Scholay 是免费的吗？</dt>` +
-        `<dd style="margin-left:0;margin-bottom:12px">Scholay 提供免费基础版，可使用基础学术检索和有限次数的 AI 分析。高级 AI 模型、更多分析配额等需订阅付费方案。还可通过每日签到和邀请好友获取免费额度。</dd>` +
+        `<dd style="margin-left:0;margin-bottom:12px">Scholay 提供免费基础版，可使用基础学术检索和有限次数的 AI 分析。高级 AI 模型、更多分析配额等需订阅付费方案。还可通过邀请好友获取优惠券。</dd>` +
         `<dt style="color:#111;font-weight:700;margin-top:16px">如何注册和登录？</dt>` +
         `<dd style="margin-left:0;margin-bottom:12px">支持邮箱注册（接收验证码完成注册）、GitHub 账号一键登录、微信扫码授权登录。注册后即可享受免费版功能。</dd>` +
         `<dt style="color:#111;font-weight:700;margin-top:16px">直接检索和智能检索有什么区别？</dt>` +
@@ -198,8 +198,6 @@ function generateHelpCenterRoute() {
         `<dd style="margin-left:0;margin-bottom:12px">AI 聊天对话历史保存在你的账户中方便回顾，搜索记录不会被长期保存。所有用户数据受严格隐私保护，不会用于广告投放或分享给第三方。</dd>` +
         `<dt style="color:#111;font-weight:700;margin-top:16px">如何取消订阅或申请退款？</dt>` +
         `<dd style="margin-left:0;margin-bottom:12px">在"设置"页面的"订阅管理"部分查看订阅状态。订阅到期后不会自动续费。购买后 7 天内可联系客服 support@scholay.com 申请退款。</dd>` +
-        `<dt style="color:#111;font-weight:700;margin-top:16px">什么是基金中心？如何获取免费额度？</dt>` +
-        `<dd style="margin-left:0;margin-bottom:12px">基金中心是虚拟钱包功能，可通过每日签到（连续签到递增奖励）、邀请好友（双方获得奖励）、参与平台活动获取免费额度，用于抵扣订阅费用。</dd>` +
         `<dt style="color:#111;font-weight:700;margin-top:16px">遇到问题如何获取帮助？</dt>` +
         `<dd style="margin-left:0;margin-bottom:12px">可查阅帮助中心使用指南和 FAQ、访问 <a href="/resources" style="color:#1a73e8">学术资源中心</a> 获取教程、通过"意见反馈"页面提交问题、或发送邮件至 support@scholay.com。工作时间周一至周五 9:00-18:00，通常 24 小时内回复。</dd>` +
         `</dl>`) +
@@ -377,21 +375,6 @@ const routes = [
         '专属技术支持',
       ]) + p('¥199/月起，为高频科研用户和团队提供最强大的学术研究能力。')) +
       section('常见问题', `<dl style="line-height:1.8"><dt style="color:#111;font-weight:700;margin-top:16px">如何升级订阅？</dt><dd style="margin-left:0;margin-bottom:12px">点击任意付费方案的"立即订阅"按钮即可完成升级，支付成功后立即生效。</dd><dt style="color:#111;font-weight:700;margin-top:16px">订阅会自动续费吗？</dt><dd style="margin-left:0;margin-bottom:12px">目前订阅不会自动续费，到期前我们会提醒您手动续费。</dd><dt style="color:#111;font-weight:700;margin-top:16px">支持哪些支付方式？</dt><dd style="margin-left:0;margin-bottom:12px">我们支持支付宝等方式，陆续推出更多支付方式。</dd></dl>`)
-  },
-  {
-    path: '/fund-center',
-    title: '基金中心 - Scholay | 学术基金与资助信息',
-    description: 'Scholay基金中心汇集国内外学术基金和科研资助信息，帮助研究人员了解和申请各类科研基金项目。',
-    keywords: '学术基金,科研资助,基金中心,科研经费,基金申请,国家自然科学基金,学术资助',
-    noscriptBody:
-      section('基金中心', p('Scholay 基金中心为研究人员提供全面的学术基金和科研资助信息服务，帮助您了解和申请各类基金项目。')) +
-      section('服务内容', ul([
-        '<strong>基金信息汇总</strong> - 收集整理国内外各类学术基金和科研资助信息',
-        '<strong>申请指南</strong> - 提供基金申请的流程指导和注意事项',
-        '<strong>智能匹配</strong> - 根据您的研究方向推荐适合的基金项目',
-        '<strong>截止日期提醒</strong> - 及时通知重要基金的申请截止时间',
-      ])) +
-      section('覆盖范围', p('包括国家自然科学基金、社会科学基金、省部级基金、高校基金、企业基金以及国际合作基金等多种类型的科研资助项目。'))
   },
   {
     path: '/about',

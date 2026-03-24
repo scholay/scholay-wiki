@@ -10,14 +10,12 @@
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { flushSync } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { peerReviewAPI, walletAPI } from '../services/api';
+import { peerReviewAPI } from '../services/api';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import MessageModal from '../components/MessageModal';
 import ReviewRadarChart from '../components/ReviewRadarChart';
-import DeductConfirmPopover from '../components/DeductConfirmPopover';
-import wsClient from '../services/websocket';
 import { 
   STATUS_MAP, 
   VIEW_MODE,
@@ -120,18 +118,12 @@ export default function PeerReviewPage() {
   // 弹窗状态
   const [modal, setModal] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null });
 
-  // 扣费确认弹窗状态
-  const [showDeductConfirm, setShowDeductConfirm] = useState(false);
-  const [deductInfo, setDeductInfo] = useState({ amount: 0, balance: 0 });
-  const [deductConfirmLoading, setDeductConfirmLoading] = useState(false);
-
   // 轮询和防抖相关
   const pollingRef = useRef(null);
   const stepsPollingRef = useRef(null); // 步骤轮询
   const fileInputRef = useRef(null);
   const attachmentInputRef = useRef(null); // 附件上传
   const saveDraftTimeoutRef = useRef(null);
-  const submitBtnRef = useRef(null); // 提交按钮 ref（用于气泡定位）
 
   // 显示弹窗
   const showMessage = (type, title, message) => {
@@ -528,7 +520,7 @@ export default function PeerReviewPage() {
     }
   };
 
-  // 点击开始审稿按钮 - 显示确认弹窗
+  // 点击开始审稿按钮
   const handleSubmitDraft = async () => {
     if (!user) {
       openLoginModal();
@@ -551,50 +543,16 @@ export default function PeerReviewPage() {
       return;
     }
 
-    // 查询扣费信息并显示确认弹窗
-    try {
-      const checkResult = await walletAPI.checkBalanceByBizType('peer_review_mid');
-      if (checkResult.data.code === 0 && checkResult.data.data) {
-        const data = checkResult.data.data;
-        setDeductInfo({
-          amount: data.required || 0,
-          balance: data.balance || 0
-        });
-        setShowDeductConfirm(true);
-      } else {
-        // 查询失败，仍然显示弹窗但金额显示为0
-        setDeductInfo({ amount: 0, balance: 0 });
-        setShowDeductConfirm(true);
-      }
-    } catch (error) {
-      logger.error('查询扣费信息失败:', error);
-      // 查询失败时仍然允许继续，让后端处理
-      setDeductInfo({ amount: 0, balance: 0 });
-      setShowDeductConfirm(true);
-    }
-  };
-
-  // 确认提交审稿
-  const handleConfirmSubmit = async () => {
-    setDeductConfirmLoading(true);
-
     // 记录智能审稿使用
     trackAIPeerReview();
 
     setSubmitting(true);
     try {
-      // targetVenue 和 modelLevel 已废弃，后端使用固定配置
       const response = await peerReviewAPI.submitDraft('', 'mid');
       if (response.data?.code === 0) {
         const taskData = response.data.data;
         const taskId = taskData.task_id;
         
-        // 关闭确认弹窗
-        setShowDeductConfirm(false);
-        setDeductConfirmLoading(false);
-        
-        // 立即构建初始任务对象，让页面能快速显示
-        // 使用后端返回的数据，确保时间等字段准确（由后端生成）
         const initialTask = {
           id: taskId,
           status: 'pending',
@@ -602,48 +560,32 @@ export default function PeerReviewPage() {
           progress_stage: '等待处理',
           input_type: taskData.input_type || (fileName ? 'file' : 'text'),
           manuscript_text: taskData.manuscript_text || manuscriptText,
-          // target_venue 和 model_level 已废弃
-          // 后端返回的 created_at 实际是 submitted_at（提交时间）
           submitted_at: taskData.created_at,
           created_at: taskData.created_at,
-          // 使用后端返回的文件信息
           manuscript_file: taskData.manuscript_file || (fileName ? { file_name: fileName } : null),
-          // 使用后端返回的附件列表
           attachments: taskData.attachments || attachments,
         };
         
-        // 清空本地草稿状态
         clearDraft();
         
-        // 先设置初始任务数据，让左侧信息立即显示
         setTaskDetail(initialTask);
         setSelectedTaskId(taskId);
         setViewMode(VIEW_MODE.DETAIL);
         
-        // 更新 URL，添加 taskId 参数
         setSearchParams({ taskId });
         
-        // 启动轮询获取进度
         startPolling(taskId);
-        
-        // 刷新列表
         loadTasks();
         
-        // 异步加载完整任务详情（不显示 loading）
         setTimeout(() => loadTaskDetail(taskId, false), 500);
       } else {
-        setShowDeductConfirm(false);
-        setDeductConfirmLoading(false);
         showMessage('error', '提交失败', response.data?.message || '提交审稿失败');
       }
     } catch (error) {
       logger.error('提交审稿失败:', error);
-      setShowDeductConfirm(false);
-      setDeductConfirmLoading(false);
       showMessage('error', '提交失败', error.response?.data?.message || error.message);
     } finally {
       setSubmitting(false);
-      setDeductConfirmLoading(false);
     }
   };
 
@@ -765,26 +707,7 @@ export default function PeerReviewPage() {
           if (progress.status === 'completed' || progress.status === 'failed') {
             stopPolling();
             loadTaskDetail(taskId, false);
-            loadTaskSteps(taskId); // 最后获取一次步骤详情
-            
-            // 审稿完成时发送扣费 toast 通知
-            if (progress.status === 'completed') {
-              // 查询实际扣费金额（从任务详情或配置中获取）
-              try {
-                const checkResult = await walletAPI.checkBalanceByBizType('peer_review_mid');
-                const amount = checkResult.data?.data?.required || 0;
-                if (amount > 0) {
-                  wsClient.emit('toast', {
-                    title: '审稿完成',
-                    content: `本次审稿消耗 ${amount} 经费`,
-                    category: 'transaction',
-                    created_at: new Date().toISOString()
-                  });
-                }
-              } catch (e) {
-                // 忽略查询失败
-              }
-            }
+            loadTaskSteps(taskId);
           }
         }
       } catch (error) {
@@ -987,7 +910,6 @@ export default function PeerReviewPage() {
                   onClearDraft={clearDraft}
                   isLoggedIn={!!user}
                   onRequireLogin={openLoginModal}
-                  submitBtnRef={submitBtnRef}
                 />
 
                 {/* 下半部分：历史任务列表 - 仅登录用户显示 */}
@@ -1040,19 +962,6 @@ export default function PeerReviewPage() {
         </Suspense>
       )}
 
-      {/* 扣费确认气泡 */}
-      <DeductConfirmPopover
-        isOpen={showDeductConfirm}
-        onClose={() => {
-          setShowDeductConfirm(false);
-          setDeductConfirmLoading(false);
-        }}
-        onConfirm={handleConfirmSubmit}
-        amount={deductInfo.amount}
-        balance={deductInfo.balance}
-        anchorRef={submitBtnRef}
-        loading={deductConfirmLoading}
-      />
     </div>
   );
 }

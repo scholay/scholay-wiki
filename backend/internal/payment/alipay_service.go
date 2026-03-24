@@ -254,13 +254,6 @@ func (s *AlipayService) signParams(params map[string]string, privateKeyStr strin
 	return signStr, nil
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // verifySign verifies the signature using Alipay's public key
 func (s *AlipayService) verifySign(content, sign, publicKeyStr string) (bool, error) {
 	// Parse public key
@@ -311,37 +304,8 @@ func (s *AlipayService) buildPaymentURL(gateway string, params map[string]string
 	return fullURL
 }
 
-// parsePrivateKey parses a PEM-encoded private key
 func (s *AlipayService) parsePrivateKey(privateKeyStr string) (*rsa.PrivateKey, error) {
-	// Remove header/footer if present
-	privateKeyStr = strings.TrimSpace(privateKeyStr)
-	if !strings.HasPrefix(privateKeyStr, "-----BEGIN") {
-		privateKeyStr = "-----BEGIN RSA PRIVATE KEY-----\n" + privateKeyStr + "\n-----END RSA PRIVATE KEY-----"
-	}
-
-	block, _ := pem.Decode([]byte(privateKeyStr))
-	if block == nil {
-		return nil, errors.New("failed to decode PEM block")
-	}
-
-	// Try PKCS1 format first
-	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err == nil {
-		return privateKey, nil
-	}
-
-	// Try PKCS8 format
-	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse private key: %w", err)
-	}
-
-	rsaKey, ok := key.(*rsa.PrivateKey)
-	if !ok {
-		return nil, errors.New("not an RSA private key")
-	}
-
-	return rsaKey, nil
+	return ParseRSAPrivateKey(privateKeyStr)
 }
 
 // parsePublicKey parses a PEM-encoded public key

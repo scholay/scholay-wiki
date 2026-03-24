@@ -27,8 +27,8 @@ const SharedFooter = memo(() => {
     return null;
   }
 
-  // 首页有自己的 footer，不重复显示
-  if (location.pathname === '/') {
+  // 首页和搜索页有自己的 footer，不重复显示
+  if (location.pathname === '/' || location.pathname === '/search') {
     return null;
   }
 
@@ -38,11 +38,6 @@ const SharedFooter = memo(() => {
     return null;
   }
   if (location.pathname.startsWith('/resources') || location.pathname === '/help') {
-    return null;
-  }
-
-  // Pricing 页面有自己的布局，不显示共享 footer
-  if (location.pathname === '/pricing') {
     return null;
   }
 

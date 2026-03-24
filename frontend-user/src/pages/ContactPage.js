@@ -91,12 +91,11 @@ const ContactPage = () => {
                 Scholay 团队致力于为每一位用户提供及时、专业的支持服务。无论您是在使用学术搜索功能时遇到技术问题，还是对 AI 分析、智能审稿、ScholayPrism LaTeX 编辑器等功能有使用疑问，亦或是有产品改进的建议，我们都乐于倾听并尽快为您解决。
               </p>
               <p style={{ marginBottom: '12px' }}>
-                我们的客服团队工作时间为周一至周五 9:00-18:00（中国标准时间）。在工作时间内提交的咨询，我们承诺在 24 小时内给予初步回复；非工作时间提交的留言，将在下一个工作日优先处理。对于涉及账户安全、支付异常等紧急问题，我们将在收到消息后尽快响应。
+                我们的客服团队工作时间为周一至周五 9:00-18:00（中国标准时间）。在工作时间内提交的咨询，我们承诺在 24 小时内给予初步回复；非工作时间提交的留言，将在下一个工作日优先处理。对于涉及账户安全等紧急问题，我们将在收到消息后尽快响应。
               </p>
               <h3 style={{ color: 'var(--text-primary, #fff)', marginTop: '24px', marginBottom: '12px', fontSize: '1.1rem' }}>我们可以帮助您</h3>
               <ul style={{ paddingLeft: '20px', marginBottom: '16px' }}>
                 <li style={{ marginBottom: '8px' }}><strong>技术支持</strong> — 账户登录问题、功能使用异常、PDF 预览故障、搜索结果异常等技术相关问题</li>
-                <li style={{ marginBottom: '8px' }}><strong>订阅咨询</strong> — 订阅方案对比、升级建议、付款问题、退款申请（购买后 7 天内可申请）</li>
                 <li style={{ marginBottom: '8px' }}><strong>功能建议</strong> — 新功能需求、现有功能改进建议、用户体验优化反馈</li>
                 <li style={{ marginBottom: '8px' }}><strong>商务合作</strong> — 学术机构合作、API 接入、定制化解决方案、学术会议赞助等</li>
                 <li style={{ marginBottom: '8px' }}><strong>数据与隐私</strong> — 数据导出请求、账户注销、隐私相关咨询</li>

@@ -29,7 +29,7 @@ func NewHandler(service *Service) *Handler {
 }
 
 // CreateOrder handles POST /api/v1/user/orders/create
-// Creates a new order for subscription
+// Creates a new order
 func (h *Handler) CreateOrder(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -46,30 +46,6 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 	order, err := h.service.CreateOrder(userID.(uint), req)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to create order: "+err.Error())
-		return
-	}
-
-	utils.SuccessResponse(c, http.StatusOK, "success", order)
-}
-
-// CreateRechargeOrder handles POST /api/v1/user/orders/recharge
-// Creates a new recharge order for diamond
-func (h *Handler) CreateRechargeOrder(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
-	var req CreateRechargeOrderRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid request: "+err.Error())
-		return
-	}
-
-	order, err := h.service.CreateRechargeOrder(userID.(uint), req)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to create recharge order: "+err.Error())
 		return
 	}
 
@@ -251,44 +227,3 @@ func (h *Handler) AdminListOrders(c *gin.Context) {
 	})
 }
 
-// AdminGrantSubscription handles POST /api/v1/admin/users/:id/grant-subscription
-// Grants a subscription to a user (admin only)
-// This creates a complete order and payment record as if the user paid
-func (h *Handler) AdminGrantSubscription(c *gin.Context) {
-	// Get admin ID from context
-	adminID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
-	// Get user ID from URL parameter
-	userIDStr := c.Param("id")
-	userID, err := strconv.ParseUint(userIDStr, 10, 64)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid user ID")
-		return
-	}
-
-	// Parse request body
-	var req AdminGrantSubscriptionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid request: "+err.Error())
-		return
-	}
-
-	// Override user ID from URL (for security)
-	req.UserID = uint(userID)
-
-	// Grant subscription
-	order, err := h.service.AdminGrantSubscription(adminID.(uint), req)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to grant subscription: "+err.Error())
-		return
-	}
-
-	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
-		"message": "Subscription granted successfully",
-		"order":   order,
-	})
-}

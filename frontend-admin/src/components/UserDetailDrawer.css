@@ -239,133 +239,6 @@
   letter-spacing: 0.04em;
 }
 
-/* ========== 会员与钱包 ========== */
-.ud-membership-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.ud-membership-card {
-  background: var(--gray-50);
-  border-radius: 8px;
-  padding: 10px;
-}
-
-.ud-mc-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.ud-plan {
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.68rem;
-  font-weight: 700;
-}
-
-.ud-plan-free { background: var(--gray-100); color: var(--text-tertiary); }
-.ud-plan-pro { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; }
-.ud-plan-max { background: linear-gradient(135deg, #a855f7, #ec4899); color: white; }
-
-.ud-billing {
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 0.62rem;
-  font-weight: 500;
-  background: var(--gray-100);
-  color: var(--text-tertiary);
-}
-
-.ud-mc-details {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.ud-mc-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.72rem;
-}
-
-.ud-mc-row span:first-child { color: var(--text-tertiary); }
-.ud-mc-row span:last-child { color: var(--text-primary); font-weight: 500; }
-
-.ud-warn { color: var(--warning-600) !important; }
-.ud-on { color: var(--success-600) !important; }
-.ud-off { color: var(--text-quaternary) !important; }
-
-.ud-mc-quota {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.ud-quota-bar {
-  flex: 1;
-  height: 4px;
-  background: var(--gray-200);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.ud-quota-fill {
-  height: 100%;
-  background: var(--brand-500);
-  border-radius: 2px;
-  transition: width 0.3s ease;
-}
-
-.ud-quota-text {
-  font-size: 0.68rem;
-  color: var(--text-tertiary);
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.ud-mc-empty {
-  font-size: 0.72rem;
-  color: var(--text-quaternary);
-  text-align: center;
-  padding: 8px 0;
-}
-
-.ud-wallet-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--gray-50);
-  border-radius: 8px;
-  padding: 10px;
-}
-
-.ud-wallet-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.ud-wallet-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.ud-wallet-label {
-  font-size: 0.65rem;
-  color: var(--text-tertiary);
-}
-
-.ud-wallet-value {
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
-.ud-gold { color: #b45309; }
-.ud-diamond { color: #1d4ed8; }
-
 /* ========== 数据统计 ========== */
 .ud-stats-compact {
   display: grid;
@@ -394,38 +267,6 @@
   color: var(--text-tertiary);
   margin-top: 2px;
 }
-
-/* ========== 折扣券 ========== */
-.ud-coupon-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-}
-
-.ud-coupon-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 8px 4px;
-  background: var(--gray-50);
-  border-radius: 6px;
-}
-
-.ud-coupon-num {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.ud-coupon-label {
-  font-size: 0.62rem;
-  color: var(--text-tertiary);
-  margin-top: 2px;
-}
-
-.ud-coupon-available .ud-coupon-num { color: var(--success-600); }
-.ud-coupon-used .ud-coupon-num { color: var(--brand-600); }
-.ud-coupon-expired .ud-coupon-num { color: var(--text-quaternary); }
 
 /* ========== 邀请关系 ========== */
 .ud-invite-content {
@@ -573,13 +414,5 @@
 @media (max-width: 480px) {
   .ud-drawer {
     width: 100%;
-  }
-
-  .ud-membership-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .ud-coupon-row {
-    grid-template-columns: repeat(2, 1fr);
   }
 }

@@ -12,7 +12,6 @@ import (
 	"scholar-backend/internal/common/turnstile"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/config"
-	"scholar-backend/internal/currency"
 	"strconv"
 	"strings"
 	"time"
@@ -39,7 +38,6 @@ type Handler struct {
 	wechatService       WeChatService
 	userRepo            *Repository
 	configRepo          *config.Repository
-	currencyService     *currency.Service
 	onlineStatsProvider OnlineStatsProvider
 }
 
@@ -56,11 +54,6 @@ func NewHandler(service *Service, db *gorm.DB) *Handler {
 // SetWeChatService sets the WeChat service
 func (h *Handler) SetWeChatService(wechatService WeChatService) {
 	h.wechatService = wechatService
-}
-
-// SetCurrencyService sets the currency service
-func (h *Handler) SetCurrencyService(currencyService *currency.Service) {
-	h.currencyService = currencyService
 }
 
 // SetOnlineStatsProvider 设置在线统计提供者（WebSocket Hub）
@@ -102,10 +95,9 @@ type SendPhoneCodeRequest struct {
 
 // RegisterPhoneRequest represents a phone registration request
 type RegisterPhoneRequest struct {
-	Phone          string `json:"phone" binding:"required,len=11"`
-	Password       string `json:"password" binding:"required,min=8"`
-	Code           string `json:"code" binding:"required,len=6"`
-	InvitationCode string `json:"invitation_code"` // 邀请码（可选）
+	Phone    string `json:"phone" binding:"required,len=11"`
+	Password string `json:"password" binding:"required,min=8"`
+	Code     string `json:"code" binding:"required,len=6"`
 }
 
 // LoginPhoneRequest represents a phone login request
@@ -136,7 +128,6 @@ type RegisterRequest struct {
 	Email          string `json:"email" binding:"required,email"`
 	Password       string `json:"password" binding:"required,min=8"`
 	Code           string `json:"code"`
-	InvitationCode string `json:"invitation_code"` // 邀请码（可选）
 	TurnstileToken string `json:"turnstile_token"`
 }
 
@@ -149,9 +140,8 @@ type LoginRequest struct {
 
 // AuthResponse represents an authentication response
 type AuthResponse struct {
-	Token            string `json:"token"`
-	User             *User  `json:"user"`
-	RegisterGiftGold int64  `json:"register_gift_gold,omitempty"` // 注册赠送经费金额（仅注册时返回）
+	Token string `json:"token"`
+	User  *User  `json:"user"`
 }
 
 // UpdateProfileRequest represents an update profile request
@@ -242,7 +232,7 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.service.RegisterWithEmailAndInvitation(req.Email, req.Password, req.Code, req.InvitationCode, ip)
+	user, token, err := h.service.RegisterWithEmail(req.Email, req.Password, req.Code, ip)
 	if err != nil {
 		utils.Error(c, 2002, err.Error())
 		return
@@ -252,13 +242,9 @@ func (h *Handler) Register(c *gin.Context) {
 	userAgent := c.GetHeader("User-Agent")
 	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
-	// 获取注册赠送经费金额
-	registerGiftGold := h.service.GetRegisterGiftAmount()
-
 	utils.Success(c, AuthResponse{
-		Token:            token,
-		User:             user,
-		RegisterGiftGold: registerGiftGold,
+		Token: token,
+		User:  user,
 	})
 }
 
@@ -458,7 +444,7 @@ func (h *Handler) RegisterWithPhone(c *gin.Context) {
 	// Get client IP
 	ip := c.ClientIP()
 
-	user, token, err := h.service.RegisterWithPhone(req.Phone, req.Password, req.Code, req.InvitationCode, ip)
+	user, token, err := h.service.RegisterWithPhone(req.Phone, req.Password, req.Code, ip)
 	if err != nil {
 		utils.Error(c, 2022, err.Error())
 		return
@@ -468,13 +454,9 @@ func (h *Handler) RegisterWithPhone(c *gin.Context) {
 	userAgent := c.GetHeader("User-Agent")
 	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
-	// 获取注册赠送经费金额
-	registerGiftGold := h.service.GetRegisterGiftAmount()
-
 	utils.Success(c, AuthResponse{
-		Token:            token,
-		User:             user,
-		RegisterGiftGold: registerGiftGold,
+		Token: token,
+		User:  user,
 	})
 }
 
@@ -670,79 +652,10 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		return
 	}
 
-	// Get user IDs for fetching subscriptions
-	userIDs := make([]uint, len(users))
-	for i, user := range users {
-		userIDs[i] = user.ID
-	}
-
-	// 响应结构体 - 精简版，只包含列表必需的字段
-	type SubscriptionInfo struct {
-		PlanCode      string     `json:"plan_code"`
-		PlanName      string     `json:"plan_name"`
-		Status        string     `json:"status"`
-		EndDate       *time.Time `json:"end_date,omitempty"`
-		RemainingDays int        `json:"remaining_days"`
-		AutoRenew     bool       `json:"auto_renew"`
-	}
-
-	type UserResponse struct {
-		User
-		Subscription *SubscriptionInfo `json:"subscription,omitempty"`
-	}
-
-	// 只查询订阅信息（会员筛选需要）
-	var subscriptions []struct {
-		UserID    uint       `gorm:"column:user_id"`
-		PlanCode  string     `gorm:"column:plan_code"`
-		PlanName  string     `gorm:"column:plan_name"`
-		Status    string     `gorm:"column:status"`
-		EndDate   *time.Time `gorm:"column:end_date"`
-		AutoRenew bool       `gorm:"column:auto_renew"`
-	}
-	h.service.repo.GetDB().Table("user_subscriptions").
-		Select("user_subscriptions.user_id, user_subscriptions.plan_code, subscription_plans.plan_name, user_subscriptions.status, user_subscriptions.end_date, user_subscriptions.auto_renew").
-		Joins("LEFT JOIN subscription_plans ON user_subscriptions.plan_code = subscription_plans.plan_code").
-		Where("user_subscriptions.user_id IN ? AND user_subscriptions.status = ?", userIDs, "active").
-		Scan(&subscriptions)
-
-	// Map subscriptions by user ID
-	subscriptionMap := make(map[uint]*SubscriptionInfo)
-	for _, sub := range subscriptions {
-		remainingDays := 0
-		if sub.EndDate != nil {
-			remainingDays = int(time.Until(*sub.EndDate).Hours() / 24)
-			if remainingDays < 0 {
-				remainingDays = 0
-			}
-		}
-		subscriptionMap[sub.UserID] = &SubscriptionInfo{
-			PlanCode:      sub.PlanCode,
-			PlanName:      sub.PlanName,
-			Status:        sub.Status,
-			EndDate:       sub.EndDate,
-			RemainingDays: remainingDays,
-			AutoRenew:     sub.AutoRenew,
-		}
-	}
-
-	// 构建精简响应
-	userResponses := make([]UserResponse, len(users))
-	for i, user := range users {
-		response := UserResponse{User: user}
-
-		// Add subscription info
-		if subInfo, ok := subscriptionMap[user.ID]; ok {
-			response.Subscription = subInfo
-		}
-
-		userResponses[i] = response
-	}
-
 	utils.Success(c, gin.H{
-		"users": userResponses,
-		"total": total,
-		"page":  page,
+		"users":     users,
+		"total":     total,
+		"page":      page,
 		"page_size": pageSize,
 	})
 }
@@ -1238,9 +1151,8 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 
 // WeChatCallbackRequest represents WeChat OAuth callback request
 type WeChatCallbackRequest struct {
-	Code           string `json:"code" binding:"required"`
-	State          string `json:"state" binding:"required"`
-	InvitationCode string `json:"invitation_code"` // 邀请码（可选）
+	Code  string `json:"code" binding:"required"`
+	State string `json:"state" binding:"required"`
 }
 
 // WeChatCallback handles WeChat OAuth callback for login/register
@@ -1287,7 +1199,6 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 		nickname,
 		headImgURL,
 		ip,
-		req.InvitationCode, // 传递邀请码
 	)
 	if err != nil {
 		utils.Error(c, 5003, "微信登录失败："+err.Error())
@@ -1302,11 +1213,6 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 		"token":       token,
 		"user":        user,
 		"is_new_user": isNewUser,
-	}
-
-	// 如果是新用户，返回注册赠送经费金额
-	if isNewUser {
-		response["register_gift_gold"] = h.service.GetRegisterGiftAmount()
 	}
 
 	utils.Success(c, response)

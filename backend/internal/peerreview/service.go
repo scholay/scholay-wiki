@@ -20,7 +20,6 @@ import (
 	"gorm.io/gorm"
 
 	"scholar-backend/internal/ai"
-	"scholar-backend/internal/currency"
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/thirdparty"
 )
@@ -30,9 +29,8 @@ type Service struct {
 	db              *gorm.DB
 	aiService       *ai.Service
 	mcpServer       *mcp.MCPServer
-	accountService  *thirdparty.Service
-	currencyService *currency.Service
-	uploadPath      string // 文件上传路径
+	accountService *thirdparty.Service
+	uploadPath     string // 文件上传路径
 }
 
 // NewService 创建审稿服务
@@ -44,11 +42,6 @@ func NewService(db *gorm.DB, aiService *ai.Service, mcpServer *mcp.MCPServer, ac
 		accountService: accountService,
 		uploadPath:     "/app/uploads", // 默认上传路径
 	}
-}
-
-// SetCurrencyService 设置货币服务（用于审稿完成后扣费）
-func (s *Service) SetCurrencyService(cs *currency.Service) {
-	s.currencyService = cs
 }
 
 // generateManuscriptHash 生成稿件哈希
@@ -211,13 +204,6 @@ func (s *Service) buildSemanticSearchQueries(meta *ManuscriptMeta) []SearchQuery
 	}
 
 	return queries
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func getModelLevel(level string) thirdparty.ModelLevel {

@@ -37,26 +37,15 @@ export {
   logPerformanceReport,
 } from './performance';
 
-// 性能优化 HOC
-export {
-  withPerformance,
-  withMemo,
-  withRenderCount,
-  withRenderTime,
-  logPropsChanges,
-} from './withPerformance';
-
 // 消息工具
-export { organizeMessagesByParentId, messagesToQAList } from './messageUtils';
+export { organizeMessagesByParentId } from './messageUtils';
 
 // SEO 工具
 export { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from './seoHelpers';
 
-// 使用追踪（15个新功能追踪点）
+// 使用追踪
 export {
   trackUsage,
-  // 用户类
-  trackCheckin,
   // 检索类
   trackDirectSearch,
   trackSearchSuggestion,

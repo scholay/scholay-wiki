@@ -15,6 +15,7 @@ import (
 	"log"
 	"scholar-backend/internal/common/cache"
 	"strconv"
+	"strings"
 )
 
 // SearchPapersBulk searches for papers using bulk endpoint with advanced features
@@ -70,16 +71,16 @@ func (c *Client) SearchPapersBulk(opts BulkSearchOptions) (*SearchResponse, erro
 		params["openAccessPdf"] = opts.OpenAccessPDF
 	}
 	if len(opts.PublicationTypes) > 0 {
-		params["publicationTypes"] = joinStrings(opts.PublicationTypes, ",")
+		params["publicationTypes"] = strings.Join(opts.PublicationTypes, ",")
 	}
 	if len(opts.Venue) > 0 {
-		params["venue"] = joinStrings(opts.Venue, ",")
+		params["venue"] = strings.Join(opts.Venue, ",")
 	}
 	if len(opts.FieldsOfStudy) > 0 {
-		params["fieldsOfStudy"] = joinStrings(opts.FieldsOfStudy, ",")
+		params["fieldsOfStudy"] = strings.Join(opts.FieldsOfStudy, ",")
 	}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 
 	// Build URL for bulk endpoint
@@ -175,16 +176,16 @@ func (c *Client) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) 
 		params["openAccessPdf"] = opts.OpenAccessPDF
 	}
 	if len(opts.PublicationTypes) > 0 {
-		params["publicationTypes"] = joinStrings(opts.PublicationTypes, ",")
+		params["publicationTypes"] = strings.Join(opts.PublicationTypes, ",")
 	}
 	if len(opts.Venue) > 0 {
-		params["venue"] = joinStrings(opts.Venue, ",")
+		params["venue"] = strings.Join(opts.Venue, ",")
 	}
 	if len(opts.FieldsOfStudy) > 0 {
-		params["fieldsOfStudy"] = joinStrings(opts.FieldsOfStudy, ",")
+		params["fieldsOfStudy"] = strings.Join(opts.FieldsOfStudy, ",")
 	}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 	if opts.MinCitationCount > 0 {
 		params["minCitationCount"] = strconv.Itoa(opts.MinCitationCount)
@@ -238,7 +239,7 @@ func (c *Client) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, err
 	// Build query parameters
 	params := map[string]string{}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 
 	// Build URL
@@ -275,7 +276,7 @@ func (c *Client) GetPaperBatch(paperIDs []string, fields []string) ([]Paper, err
 	// Build query parameters
 	params := map[string]string{}
 	if len(fields) > 0 {
-		params["fields"] = joinStrings(fields, ",")
+		params["fields"] = strings.Join(fields, ",")
 	}
 
 	// Build request body
@@ -315,7 +316,7 @@ func (c *Client) GetPaperAuthors(paperID string, fields []string, offset, limit 
 		"limit":  strconv.Itoa(limit),
 	}
 	if len(fields) > 0 {
-		params["fields"] = joinStrings(fields, ",")
+		params["fields"] = strings.Join(fields, ",")
 	}
 	if limit == 0 {
 		params["limit"] = strconv.Itoa(DefaultLimit)
@@ -351,7 +352,7 @@ func (c *Client) GetPaperCitations(paperID string, opts CitationsOptions) (*Cita
 		"limit":  strconv.Itoa(opts.Limit),
 	}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 	if opts.Limit == 0 {
 		params["limit"] = strconv.Itoa(DefaultLimit)
@@ -387,7 +388,7 @@ func (c *Client) GetPaperReferences(paperID string, opts CitationsOptions) (*Ref
 		"limit":  strconv.Itoa(opts.Limit),
 	}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 	if opts.Limit == 0 {
 		params["limit"] = strconv.Itoa(DefaultLimit)
@@ -424,7 +425,7 @@ func (c *Client) SearchAuthors(opts AuthorSearchOptions) (*AuthorSearchResponse,
 		"limit":  strconv.Itoa(opts.Limit),
 	}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 	if opts.Limit == 0 {
 		params["limit"] = strconv.Itoa(DefaultLimit)
@@ -457,7 +458,7 @@ func (c *Client) GetAuthor(authorID string, fields []string) (*Author, error) {
 	// Build query parameters
 	params := map[string]string{}
 	if len(fields) > 0 {
-		params["fields"] = joinStrings(fields, ",")
+		params["fields"] = strings.Join(fields, ",")
 	}
 
 	// Build URL
@@ -490,7 +491,7 @@ func (c *Client) GetAuthorPapers(authorID string, fields []string, offset, limit
 		"limit":  strconv.Itoa(limit),
 	}
 	if len(fields) > 0 {
-		params["fields"] = joinStrings(fields, ",")
+		params["fields"] = strings.Join(fields, ",")
 	}
 	if limit == 0 {
 		params["limit"] = strconv.Itoa(DefaultLimit)
@@ -564,13 +565,13 @@ func (c *Client) SnippetSearch(opts SnippetSearchOptions) (*SnippetSearchRespons
 		params["minCitationCount"] = strconv.Itoa(opts.MinCitationCount)
 	}
 	if len(opts.Venue) > 0 {
-		params["venue"] = joinStrings(opts.Venue, ",")
+		params["venue"] = strings.Join(opts.Venue, ",")
 	}
 	if len(opts.FieldsOfStudy) > 0 {
-		params["fieldsOfStudy"] = joinStrings(opts.FieldsOfStudy, ",")
+		params["fieldsOfStudy"] = strings.Join(opts.FieldsOfStudy, ",")
 	}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 	if opts.Limit > 0 {
 		if opts.Limit > 1000 {
@@ -625,16 +626,16 @@ func (c *Client) PaperTitleMatch(opts TitleMatchOptions) (*SearchResponse, error
 		params["openAccessPdf"] = opts.OpenAccessPDF
 	}
 	if len(opts.PublicationTypes) > 0 {
-		params["publicationTypes"] = joinStrings(opts.PublicationTypes, ",")
+		params["publicationTypes"] = strings.Join(opts.PublicationTypes, ",")
 	}
 	if len(opts.Venue) > 0 {
-		params["venue"] = joinStrings(opts.Venue, ",")
+		params["venue"] = strings.Join(opts.Venue, ",")
 	}
 	if len(opts.FieldsOfStudy) > 0 {
-		params["fieldsOfStudy"] = joinStrings(opts.FieldsOfStudy, ",")
+		params["fieldsOfStudy"] = strings.Join(opts.FieldsOfStudy, ",")
 	}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 
 	// Build URL

@@ -8,20 +8,13 @@
  */
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import './MobileHelpModal.css';
 
 const MobileHelpModal = ({ isOpen, onClose }) => {
-  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
 
   if (!isOpen) return null;
-
-  const handlePricingClick = () => {
-    onClose();
-    navigate('/pricing');
-  };
 
   return (
     <>
@@ -42,19 +35,6 @@ const MobileHelpModal = ({ isOpen, onClose }) => {
               <span className="mobile-theme-slider"></span>
             </label>
           </div>
-
-          {/* 分隔线 */}
-          <div className="mobile-help-divider" />
-
-          {/* 价格方案 */}
-          <button className="mobile-help-item" onClick={handlePricingClick}>
-            <span className="mobile-help-label">价格方案</span>
-            <span className="mobile-help-arrow">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 18l6-6-6-6" />
-              </svg>
-            </span>
-          </button>
         </div>
       </div>
     </>

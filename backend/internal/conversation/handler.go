@@ -8,14 +8,10 @@
 package conversation
 
 import (
-	"context"
 	"fmt"
-	"log"
-	"net/http"
 	"os"
 	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
-	"scholar-backend/internal/currency"
 	"scholar-backend/internal/thirdparty"
 	"strconv"
 	"time"
@@ -32,73 +28,11 @@ func useAdvancedSearchV2() bool {
 }
 
 type Handler struct {
-	service         *Service
-	currencyService *currency.Service
+	service *Service
 }
 
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
-}
-
-// SetCurrencyService sets the currency service for deduction
-func (h *Handler) SetCurrencyService(currencyService *currency.Service) {
-	h.currencyService = currencyService
-}
-
-// getBizTypeForSmartAnalysis 根据模型级别获取业务类型
-func (h *Handler) getBizTypeForSmartAnalysis(modelLevel string) string {
-	switch modelLevel {
-	case "mid":
-		return "smart_analysis_mid"
-	case "high":
-		return "smart_analysis_high"
-	default:
-		return "smart_analysis_low"
-	}
-}
-
-// checkBalanceForSmartAnalysis 检查余额是否充足（不扣费）
-func (h *Handler) checkBalanceForSmartAnalysis(userID uint, modelLevel string) error {
-	if h.currencyService == nil {
-		return nil
-	}
-
-	bizType := h.getBizTypeForSmartAnalysis(modelLevel)
-	checkResult, err := h.currencyService.CheckBalanceByBizType(userID, bizType)
-	if err != nil {
-		return err
-	}
-	if !checkResult.Sufficient {
-		return currency.ErrInsufficientBalance
-	}
-	return nil
-}
-
-// deductForSmartAnalysisAfterSuccess 成功后扣费，返回扣费金额
-func (h *Handler) deductForSmartAnalysisAfterSuccess(userID uint, modelLevel string) int64 {
-	if h.currencyService == nil {
-		log.Printf("[Smart Analysis] Currency service not set, skip deduct\n")
-		return 0
-	}
-
-	bizType := h.getBizTypeForSmartAnalysis(modelLevel)
-	ctx := context.Background()
-	transaction, err := h.currencyService.DeductByBizType(ctx, userID, bizType, "")
-	if err != nil {
-		log.Printf("[Smart Analysis] Deduct failed after success: userID=%d, bizType=%s, err=%v\n", userID, bizType, err)
-		return 0
-	}
-	if transaction == nil {
-		log.Printf("[Smart Analysis] No deduct config or disabled: userID=%d, bizType=%s\n", userID, bizType)
-		return 0
-	}
-	// transaction.Amount 是负数（扣费），取绝对值返回
-	amount := transaction.Amount
-	if amount < 0 {
-		amount = -amount
-	}
-	log.Printf("[Smart Analysis] Deduct success: userID=%d, bizType=%s, amount=%d\n", userID, bizType, amount)
-	return amount
 }
 
 // CreateConversation creates a new conversation
@@ -346,16 +280,6 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 		return
 	}
 
-	// 1. 先检查余额（不扣费）
-	if err := h.checkBalanceForSmartAnalysis(userID.(uint), modelLevel); err != nil {
-		if err == currency.ErrInsufficientBalance {
-			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "经费不足"})
-		} else {
-			utils.Error(c, 500, "检查余额失败: "+err.Error())
-		}
-		return
-	}
-
 	// Set headers for SSE
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
@@ -365,7 +289,7 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 	hw := sse.NewHeartbeatWriter(c.Writer, 15*time.Second)
 	defer hw.Stop()
 
-	// 2. 执行智能分析并流式返回结果（使用指定的模型级别）
+	// 执行智能分析并流式返回结果（使用指定的模型级别）
 	if useAdvancedSearchV2() {
 		err = h.service.AdvancedSearchAndAnalyzeV2(
 			uint(conversationID),
@@ -389,10 +313,7 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 		return
 	}
 
-	// 3. 成功后扣费
-	deductedAmount := h.deductForSmartAnalysisAfterSuccess(userID.(uint), modelLevel)
-
-	hw.WriteString(fmt.Sprintf("data: [DONE] {\"deducted_amount\": %d}\n\n", deductedAmount))
+	hw.WriteString("data: [DONE]\n\n")
 	hw.Flush()
 }
 
@@ -444,16 +365,6 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 		return
 	}
 
-	// 1. 先检查余额（不扣费）
-	if err := h.checkBalanceForSmartAnalysis(userID.(uint), modelLevel); err != nil {
-		if err == currency.ErrInsufficientBalance {
-			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "经费不足"})
-		} else {
-			utils.Error(c, 500, "检查余额失败: "+err.Error())
-		}
-		return
-	}
-
 	// Set headers for SSE
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
@@ -463,7 +374,7 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 	hw := sse.NewHeartbeatWriter(c.Writer, 15*time.Second)
 	defer hw.Stop()
 
-	// 2. Continue the conversation with specified model level
+	// Continue the conversation with specified model level
 	err = h.service.ContinueConversation(
 		uint(conversationID),
 		req.Query,
@@ -477,13 +388,9 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 		return
 	}
 
-	// 3. 成功后扣费
-	deductedAmount := h.deductForSmartAnalysisAfterSuccess(userID.(uint), modelLevel)
-
-	hw.WriteString(fmt.Sprintf("data: [DONE] {\"deducted_amount\": %d}\n\n", deductedAmount))
+	hw.WriteString("data: [DONE]\n\n")
 	hw.Flush()
 }
-
 
 // GetFollowUpQuestions handles getting follow-up questions for a message
 // This is a separate endpoint called after the streaming response completes

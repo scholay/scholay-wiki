@@ -17,7 +17,6 @@ import SearchSuggestions from '../../components/SearchSuggestions';
 import FilterSidebar from '../../components/FilterSidebar';
 import SEO from '../../components/SEO';
 import SearchToAITransition from '../../components/SearchToAITransition';
-import InsufficientBalanceModal from '../../components/InsufficientBalanceModal';
 import { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from '../../utils/seoHelpers';
 import { setSearchQuery as saveSearchQuery } from '../../utils/searchStorage';
 import { trackDirectSearch, EntryPoint } from '../../utils/usageTracker';
@@ -405,7 +404,7 @@ const SearchResultsPage = () => {
             {((searchState.viewMode !== 'paper' && searchState.viewMode !== 'author') || searchState.showDetailSearch) && (
               <>
                 <div className="results-search-header">
-                  <div className="results-logo" onClick={() => searchState.navigate('/')}>
+                  <div className="results-logo" onClick={() => searchState.navigate('/search')}>
                     <img src="/brand-text.svg" alt="Scholay" className="results-brand-text" />
                   </div>
 
@@ -688,15 +687,6 @@ const SearchResultsPage = () => {
             />
           </Suspense>
         )}
-
-        {/* 经费不足弹窗 */}
-        <InsufficientBalanceModal
-          isOpen={dimensionAnalysis.showBalanceModal}
-          onClose={dimensionAnalysis.handleCloseBalanceModal}
-          featureName="智能矩阵分析"
-          required={dimensionAnalysis.balanceError?.required || 0}
-          shortage={dimensionAnalysis.balanceError?.shortage || 0}
-        />
 
         {/* 学术检索到智能分析的过渡动画 */}
         <SearchToAITransition
