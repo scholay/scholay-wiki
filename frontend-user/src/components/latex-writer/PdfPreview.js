@@ -39,22 +39,6 @@ function PdfPreview({
   const containerRef = useRef(null);
   const exportMenuRef = useRef(null);
   
-  // 引擎状态文本
-  const getEngineStatusText = () => {
-    switch (engineStatus) {
-      case 'loading':
-        return '编译引擎加载中...';
-      case 'ready':
-        return '引擎就绪';
-      case 'compiling':
-        return '编译中...';
-      case 'error':
-        return '引擎加载失败';
-      default:
-        return '等待加载';
-    }
-  };
-
   // 直接使用当前的 PDF URL（编译失败时保持原有显示）
   const displayPdfUrl = pdfUrl;
 
@@ -307,17 +291,8 @@ function PdfPreview({
     )
   );
 
-  // 页面导航状态
+  // eslint-disable-next-line no-unused-vars
   const [currentPage, setCurrentPage] = useState(1);
-
-  // 滚动到指定页面
-  const scrollToPage = useCallback((pageNum) => {
-    const pageElement = containerRef.current?.querySelector(`[data-page-number="${pageNum}"]`);
-    if (pageElement) {
-      pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    setCurrentPage(pageNum);
-  }, []);
 
   // 下载 PDF
   const handleDownload = useCallback(() => {

@@ -1,0 +1,341 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
+ * 统一社会信用代码: 91510100MAEEHRNE26
+ * All Rights Reserved.
+ * ============================================================================
+ *
+ * Auth Modal - 合并后的样式文件
+ * 配合 antd ConfigProvider dark/light 算法使用
+ */
+
+/* ========== 布局 ========== */
+
+.auth-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: center;
+}
+
+.auth-headline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.auth-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.auth-subtitle {
+  margin: 0;
+  opacity: 0.6;
+  font-size: 0.95rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ========== 邮箱/手机号显示 ========== */
+
+.auth-email-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 4px;
+  font-size: 0.95rem;
+}
+
+.auth-email-display span {
+  font-weight: 500;
+}
+
+.auth-change-email {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #10a37f;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: auto;
+  transition: color 0.2s;
+}
+
+.auth-change-email:hover {
+  color: #0d8a6b;
+}
+
+/* ========== 验证码输入组 ========== */
+
+.auth-code-group {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.auth-code-group > .ant-form-item,
+.auth-code-group > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ========== 忘记密码链接 ========== */
+
+.auth-forgot-password {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -4px;
+  margin-bottom: 4px;
+}
+
+/* ========== 社交登录按钮 ========== */
+
+.auth-social-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.auth-social-button {
+  display: flex;
+  align-items: center;
+  border-radius: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(34, 34, 34, 0.9);
+  min-height: 50px;
+  justify-content: flex-start;
+  gap: 14px;
+  padding: 12px 22px;
+  font-size: 0.93rem;
+  color: rgba(255, 255, 255, 0.92);
+  width: 100%;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.auth-social-button:hover {
+  border-color: rgba(16, 163, 127, 0.8);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.2);
+}
+
+.auth-social-button svg { flex-shrink: 0; }
+.auth-social-button span { flex: 1; text-align: left; }
+
+.auth-wechat-button { border-color: rgba(9, 187, 7, 0.4); }
+.auth-wechat-button svg { fill: #09BB07; }
+.auth-wechat-button:hover {
+  background: rgba(9, 187, 7, 0.1);
+  border-color: rgba(9, 187, 7, 0.6);
+  box-shadow: 0 4px 12px rgba(9, 187, 7, 0.3);
+}
+
+.auth-github-button {
+  background: linear-gradient(135deg, #24292e 0%, #1a1e22 100%);
+  border-color: rgba(36, 41, 46, 0.3);
+}
+.auth-github-button:hover {
+  background: linear-gradient(135deg, #1a1e22 0%, #24292e 100%);
+  border-color: rgba(36, 41, 46, 0.5);
+  box-shadow: 0 4px 12px rgba(36, 41, 46, 0.3);
+}
+
+/* ========== 微信二维码 ========== */
+
+.auth-wechat-qrcode-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.auth-wechat-qrcode-container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 280px;
+  height: 280px;
+  overflow: hidden;
+  position: relative;
+}
+
+.auth-wechat-qrcode-container iframe {
+  border: none !important;
+  width: 300px;
+  height: 430px;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.auth-wechat-qrcode-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 280px;
+  height: 280px;
+  gap: 16px;
+  opacity: 0.6;
+}
+
+.auth-wechat-tips {
+  text-align: center;
+  opacity: 0.6;
+  font-size: 0.85rem;
+}
+
+.auth-wechat-tips p { margin: 0; }
+
+/* ========== 页脚 ========== */
+
+.auth-footer {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  align-items: center;
+  margin-top: 16px;
+  font-size: 0.85rem;
+  opacity: 0.6;
+}
+
+/* ========== antd 覆盖 ========== */
+
+.auth-modal .ant-modal-content {
+  padding: 24px 36px 20px;
+  max-height: min(640px, 90vh);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.auth-modal .ant-segmented {
+  margin-bottom: 8px;
+}
+
+.auth-modal .ant-form-item {
+  margin-bottom: 12px;
+}
+
+.auth-modal .ant-checkbox-wrapper {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.auth-modal .ant-checkbox-wrapper .ant-btn-link {
+  padding: 0 2px;
+  height: auto;
+  font-size: 0.875rem;
+}
+
+.auth-modal .ant-divider-inner-text {
+  font-size: 0.875rem;
+}
+
+/* ========== 移动端适配 ========== */
+
+@media (max-width: 768px) {
+  .auth-modal .ant-modal {
+    max-width: 100% !important;
+    margin: 0 !important;
+    top: auto !important;
+    bottom: 0;
+    padding: 0;
+    position: fixed;
+  }
+
+  .auth-modal .ant-modal-content {
+    border-radius: 24px 24px 0 0;
+    max-height: 92vh;
+    padding: 20px 16px 32px;
+    padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .auth-title { font-size: 1.5rem; }
+
+  .auth-social-button {
+    min-height: 46px;
+    font-size: 0.9rem;
+    gap: 12px;
+    padding: 10px 18px;
+    border-radius: 14px;
+  }
+
+  .auth-social-button svg { width: 22px; height: 22px; }
+
+  .auth-email-display {
+    padding: 10px 14px;
+    font-size: 0.875rem;
+    border-radius: 14px;
+  }
+
+  .auth-wechat-qrcode-container,
+  .auth-wechat-qrcode-loading {
+    width: 260px;
+    height: 260px;
+  }
+}
+
+@media (max-width: 375px) {
+  .auth-modal .ant-modal-content {
+    padding: 16px 12px 28px;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .auth-title { font-size: 1.35rem; }
+  .auth-subtitle { font-size: 0.8rem; }
+
+  .auth-social-button {
+    min-height: 42px;
+    font-size: 0.85rem;
+    padding: 8px 14px;
+    border-radius: 12px;
+  }
+}
+
+/* ========== 日间模式 ========== */
+
+[data-theme="light"] .auth-social-button {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
+}
+[data-theme="light"] .auth-social-button:hover {
+  border-color: #10a37f;
+  background: #fafffe;
+  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.15);
+}
+
+[data-theme="light"] .auth-wechat-button { border-color: rgba(9, 187, 7, 0.3); }
+[data-theme="light"] .auth-wechat-button:hover {
+  background: rgba(9, 187, 7, 0.05);
+  border-color: #09BB07;
+}
+
+[data-theme="light"] .auth-github-button {
+  background: linear-gradient(135deg, #24292e 0%, #1a1e22 100%);
+  color: white;
+}
+
+[data-theme="light"] .auth-email-display {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}

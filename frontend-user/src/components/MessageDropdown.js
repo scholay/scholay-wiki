@@ -98,7 +98,7 @@ const MessageDetailModal = ({ message, onClose, onBack }) => {
           <a 
             href={message.link_url} 
             target="_blank" 
-            rel="noopener"
+            rel="noreferrer"
             className="msg-detail-link"
           >
             {message.link_text || '查看详情'}

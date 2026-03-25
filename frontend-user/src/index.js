@@ -12,5 +12,12 @@ import ReactDOM from 'react-dom/client';
 import './assets/styles/index.css';
 import App from './App';
 
+if (process.env.NODE_ENV === 'production') {
+  const noop = () => {};
+  console.log = noop;
+  console.debug = noop;
+  console.info = noop;
+}
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);

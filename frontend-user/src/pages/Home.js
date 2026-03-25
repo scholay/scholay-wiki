@@ -22,14 +22,69 @@ import { generateFAQSchema } from '../utils/seoHelpers';
 // 注：使用追踪已移至 API 调用层，首页无需重复追踪
 import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation } from '../utils/searchStorage';
 import { userAPI } from '../services/api';
+import { Segmented, Tag, Collapse, Spin } from 'antd';
 import './styles/home/index.css';
 
 // 懒加载 AuthModal - 只在需要时加载
 const AuthModal = lazy(() => import('../components/AuthModal'));
 
+const searchExamples = {
+  normal: [
+    '搜索论文标题、作者、关键词...',
+    '示例：深度学习在医学影像诊断中的应用',
+    '示例：量子纠缠在量子通信中的研究',
+    '示例：CRISPR基因编辑技术的伦理问题',
+    '示例：碳纳米管在新能源电池中的应用',
+    '示例：行为经济学对消费决策的影响',
+    '示例：气候变化对海洋生态系统的影响',
+    '示例：人工智能在药物研发中的应用',
+    '示例：区块链技术在供应链管理中的创新',
+    '示例：纳米机器人在精准医疗中的前景',
+    '示例：社交媒体对青少年心理健康的影响'
+  ],
+  advanced: [
+    '用自然语言描述研究需求，AI 智能解析并搜索...',
+    '示例：帮我找一些关于肿瘤免疫治疗最新突破的高引用论文',
+    '示例：我想了解拓扑量子计算在容错量子计算中的应用研究',
+    '示例：寻找关于可持续城市发展和智慧城市建设的综述文章',
+    '示例：推荐一些讨论人工智能在金融风险预测中的机器学习方法',
+    '示例：我需要了解石墨烯在光电器件中的最新应用进展',
+    '示例：帮我找关于神经退行性疾病发病机制的前沿研究',
+    '示例：想看看生物降解塑料材料的环境友好型设计研究',
+    '示例：寻找探讨社会不平等对教育机会影响的实证研究',
+    '示例：推荐一些关于合成生物学在生物制造中的应用论文',
+    '示例：我想研究脑机接口技术在神经康复中的临床应用'
+  ]
+};
+
+const faqData = [
+  {
+    question: '什么是Scholay学术搜索平台？',
+    answer: 'Scholay是一个AI驱动的学术搜索平台，提供智能文献检索、论文分析、引用图谱可视化等功能，帮助研究人员快速找到高质量学术资源。'
+  },
+  {
+    question: 'Scholay支持哪些搜索模式？',
+    answer: 'Scholay支持学术检索和智能分析两种模式。学术检索可以快速检索论文标题、作者和关键词；智能分析使用AI智能理解并解析您的研究需求，提供更精准的结果。'
+  },
+  {
+    question: 'Scholay的数据来源是什么？',
+    answer: 'Scholay的学术数据来自于互联网公开数据，覆盖计算机科学、生物医学等多个学科领域的学术论文。'
+  },
+  {
+    question: 'Scholay是免费的吗？',
+    answer: '是的，Scholay提供免费的基础功能，包括学术检索、论文详情查看等。高级功能如智能分析、智能审稿等可能需要订阅会员。'
+  },
+  {
+    question: '如何使用智能助手功能？',
+    answer: '登录后，点击首页的"智能助手"卡片即可进入。您可以向AI提问任何学术相关问题，它会基于学术文献为您提供专业解答。'
+  }
+];
+
+const HOT_TAGS = ['深度学习', '量子计算', 'CRISPR', '气候变化', 'GPT', '新能源'];
+
 const Home = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   useTheme(); // 确保主题 context 可用
   
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -72,36 +127,6 @@ const Home = () => {
 
   // Placeholder examples carousel
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
-  
-  // 搜索示例数据 - 覆盖多个学科领域
-  const searchExamples = {
-    normal: [
-      '搜索论文标题、作者、关键词...',                                    // 说明文字
-      '示例：深度学习在医学影像诊断中的应用',                             // 计算机+医学
-      '示例：量子纠缠在量子通信中的研究',                                 // 物理学
-      '示例：CRISPR基因编辑技术的伦理问题',                              // 生物+伦理
-      '示例：碳纳米管在新能源电池中的应用',                               // 材料+化学
-      '示例：行为经济学对消费决策的影响',                                 // 经济学+心理学
-      '示例：气候变化对海洋生态系统的影响',                               // 环境+生态
-      '示例：人工智能在药物研发中的应用',                                 // AI+医药
-      '示例：区块链技术在供应链管理中的创新',                             // 计算机+管理
-      '示例：纳米机器人在精准医疗中的前景',                               // 工程+医学
-      '示例：社交媒体对青少年心理健康的影响'                              // 社会学+心理学
-    ],
-    advanced: [
-      '用自然语言描述研究需求，AI 智能解析并搜索...',                      // 说明文字
-      '示例：帮我找一些关于肿瘤免疫治疗最新突破的高引用论文',              // 医学
-      '示例：我想了解拓扑量子计算在容错量子计算中的应用研究',              // 物理+计算机
-      '示例：寻找关于可持续城市发展和智慧城市建设的综述文章',              // 城市规划+工程
-      '示例：推荐一些讨论人工智能在金融风险预测中的机器学习方法',          // 金融+AI
-      '示例：我需要了解石墨烯在光电器件中的最新应用进展',                  // 材料+物理
-      '示例：帮我找关于神经退行性疾病发病机制的前沿研究',                  // 神经科学+医学
-      '示例：想看看生物降解塑料材料的环境友好型设计研究',                  // 环境+化学
-      '示例：寻找探讨社会不平等对教育机会影响的实证研究',                  // 社会学+教育
-      '示例：推荐一些关于合成生物学在生物制造中的应用论文',                // 生物+工程
-      '示例：我想研究脑机接口技术在神经康复中的临床应用'                   // 神经科学+工程
-    ]
-  };
 
   // 搜索示例轮播效果
   useEffect(() => {
@@ -273,33 +298,6 @@ const Home = () => {
     }
   };
 
-  // FAQ 展开状态
-  const [expandedFaq, setExpandedFaq] = useState(null);
-  
-  // FAQ数据用于结构化数据和页面展示
-  const faqData = [
-    {
-      question: '什么是Scholay学术搜索平台？',
-      answer: 'Scholay是一个AI驱动的学术搜索平台，提供智能文献检索、论文分析、引用图谱可视化等功能，帮助研究人员快速找到高质量学术资源。'
-    },
-    {
-      question: 'Scholay支持哪些搜索模式？',
-      answer: 'Scholay支持学术检索和智能分析两种模式。学术检索可以快速检索论文标题、作者和关键词；智能分析使用AI智能理解并解析您的研究需求，提供更精准的结果。'
-    },
-    {
-      question: 'Scholay的数据来源是什么？',
-      answer: 'Scholay的学术数据来自于互联网公开数据，覆盖计算机科学、生物医学等多个学科领域的学术论文。'
-    },
-    {
-      question: 'Scholay是免费的吗？',
-      answer: '是的，Scholay提供免费的基础功能，包括学术检索、论文详情查看等。高级功能如智能分析、智能审稿等可能需要订阅会员。'
-    },
-    {
-      question: '如何使用智能助手功能？',
-      answer: '登录后，点击首页的"智能助手"卡片即可进入。您可以向AI提问任何学术相关问题，它会基于学术文献为您提供专业解答。'
-    }
-  ];
-
   // Main search interface
   return (
     <div className="home-search">
@@ -326,28 +324,31 @@ const Home = () => {
 
             {/* 搜索模式切换 - 放在输入框外部上方 */}
             <div className="home-search-mode-header">
-              <div className="home-search-mode-segmented">
-                <button
-                  type="button"
-                  className={`mode-segment ${searchMode === 'normal' ? 'active' : ''}`}
-                  onClick={() => setSearchMode('normal')}
-                >
-                  <span className="mode-segment-icon">
-                    <NormalSearchIcon size={16} />
-                  </span>
-                  <span className="mode-segment-label">直接检索</span>
-                </button>
-                <button
-                  type="button"
-                  className={`mode-segment ${searchMode === 'advanced' ? 'active' : ''}`}
-                  onClick={() => setSearchMode('advanced')}
-                >
-                  <span className="mode-segment-icon">
-                    <AdvancedSearchIcon size={16} />
-                  </span>
-                  <span className="mode-segment-label">智能检索</span>
-                </button>
-              </div>
+              <Segmented
+                className="home-search-mode-segmented"
+                value={searchMode}
+                onChange={setSearchMode}
+                options={[
+                  {
+                    value: 'normal',
+                    label: (
+                      <span className="mode-segment-inner">
+                        <NormalSearchIcon size={16} />
+                        <span>直接检索</span>
+                      </span>
+                    ),
+                  },
+                  {
+                    value: 'advanced',
+                    label: (
+                      <span className="mode-segment-inner">
+                        <AdvancedSearchIcon size={16} />
+                        <span>智能检索</span>
+                      </span>
+                    ),
+                  },
+                ]}
+              />
             </div>
 
             <form onSubmit={handleSearch} className="home-composer-wrapper" ref={composerRef}>
@@ -498,8 +499,8 @@ const Home = () => {
             {/* 热门搜索标签 - 可点击快速搜索 */}
             <div className="home-hot-searches">
               <span className="home-hot-label">热门:</span>
-              {['深度学习', '量子计算', 'CRISPR', '气候变化', 'GPT', '新能源'].map((tag) => (
-                <button
+              {HOT_TAGS.map((tag) => (
+                <Tag
                   key={tag}
                   className="home-hot-tag"
                   onClick={() => {
@@ -513,7 +514,7 @@ const Home = () => {
                   }}
                 >
                   {tag}
-                </button>
+                </Tag>
               ))}
             </div>
 
@@ -599,7 +600,7 @@ const Home = () => {
                 </h3>
               </div>
               {taskHistoryLoading ? (
-                <div className="home-task-history-loading">加载中...</div>
+                <div className="home-task-history-loading"><Spin size="small" /> 加载中...</div>
               ) : (
                 <div className="home-task-timeline">
                   {taskHistory.map((dayGroup) => {
@@ -735,35 +736,17 @@ const Home = () => {
         {/* FAQ */}
         <div className="home-flow-faq">
           <h3 className="home-flow-section-title">常见问题</h3>
-          <div className="home-faq-list">
-            {faqData.map((faq, index) => (
-              <div 
-                key={index} 
-                className={`home-faq-item ${expandedFaq === index ? 'expanded' : ''}`}
-              >
-                <button 
-                  className="home-faq-question"
-                  onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
-                >
-                  <span>{faq.question}</span>
-                  <svg 
-                    className="home-faq-arrow" 
-                    width="16" 
-                    height="16" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2"
-                  >
-                    <path d="M6 9l6 6 6-6"/>
-                  </svg>
-                </button>
-                <div className="home-faq-answer">
-                  <p>{faq.answer}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <Collapse
+            className="home-faq-collapse"
+            bordered={false}
+            accordion
+            expandIconPosition="end"
+            items={faqData.map((faq, index) => ({
+              key: String(index),
+              label: faq.question,
+              children: <p>{faq.answer}</p>,
+            }))}
+          />
         </div>
       </div>
 

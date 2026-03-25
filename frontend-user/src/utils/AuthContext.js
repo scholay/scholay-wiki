@@ -9,6 +9,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { userAPI } from '../services/api';
+import { adminAPI } from '../services/adminApi';
 import wsClient from '../services/websocket';
 import logger from './logger';
 
@@ -137,17 +138,24 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Start session management (WebSocket + Token refresh)
-  // NOTE: HTTP heartbeat 已移除，由 WebSocket 连接替代
-  // WebSocket 在连接建立和心跳时会自动更新服务器端的 session activity
+  // Admin users skip session management (no SSO, no WebSocket needed)
   const startSession = useCallback(() => {
-    // 启动 Token 刷新检查
+    const userData = localStorage.getItem('user_data');
+    if (userData) {
+      try {
+        const parsed = JSON.parse(userData);
+        if (parsed?.role === 'admin') {
+          logger.log('[Session] Admin user, skipping session management');
+          return;
+        }
+      } catch (e) { /* ignore parse errors */ }
+    }
+
     startTokenRefresh();
 
-    // 建立 WebSocket 连接（用于实时消息推送 + session 活动追踪）
     const token = localStorage.getItem('user_token');
     wsClient.connect(token || null);
 
-    // 监听页面可见性变化
     document.addEventListener('visibilitychange', handleVisibilityChange);
   }, [startTokenRefresh, handleVisibilityChange]);
 
@@ -186,58 +194,55 @@ export const AuthProvider = ({ children }) => {
 
       if (token && userData && userData !== 'undefined') {
         try {
-          // 先设置本地缓存的用户数据，让页面能快速显示
+          const parsedUser = JSON.parse(userData);
           setIsAuthenticated(true);
-          setUser(JSON.parse(userData));
+          setUser(parsedUser);
           
-          // 立即获取最新的用户信息和订阅信息
-          // 如果 Token 已过期，API 拦截器会自动尝试刷新
+          const isAdmin = parsedUser?.role === 'admin';
+          
           try {
-            const profileResponse = await userAPI.getProfile();
+            // Use admin API for admin tokens, user API for user tokens
+            const profileResponse = isAdmin
+              ? await adminAPI.getProfile()
+              : await userAPI.getProfile();
 
             if (profileResponse.data.code === 0 && profileResponse.data.data) {
               const freshUserData = profileResponse.data.data;
+              // Preserve the role field for admin users
+              if (isAdmin && !freshUserData.role) {
+                freshUserData.role = 'admin';
+              }
               
               localStorage.setItem('user_data', JSON.stringify(freshUserData));
               setUser(freshUserData);
               
-              // 验证成功后启动 session（WebSocket + Token 刷新）
               startSession();
             } else {
-              // API 返回成功但业务失败，清除登录状态
               logger.log('Profile API returned error, clearing auth state');
               localStorage.removeItem('user_token');
               localStorage.removeItem('user_data');
               setIsAuthenticated(false);
               setUser(null);
-              // 启动访客 WebSocket 连接
               startGuestSession();
             }
           } catch (error) {
-            // 如果获取用户信息失败（包括 Token 刷新失败），
-            // API 拦截器会处理登出逻辑
             logger.error('Failed to refresh user data on init:', error);
-            // 如果是 401 错误，清除登录状态（API 拦截器可能已经处理，但这里确保状态一致）
             if (error.response?.status === 401) {
               logger.log('Auth failed (401), clearing auth state');
               localStorage.removeItem('user_token');
               localStorage.removeItem('user_data');
               setIsAuthenticated(false);
               setUser(null);
-              // 启动访客 WebSocket 连接
               startGuestSession();
             } else {
-              // 其他错误（如网络问题），仍然保持登录状态
               startSession();
             }
           }
         } catch (error) {
-          // Clear invalid data
           localStorage.removeItem('user_token');
           localStorage.removeItem('user_data');
           setIsAuthenticated(false);
           setUser(null);
-          // 启动访客 WebSocket 连接
           startGuestSession();
         }
       } else {
@@ -288,17 +293,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    // Stop session first
     stopSession();
 
-    // Call backend logout API to delete session
-    try {
-      await userAPI.logout();
-    } catch (error) {
-      logger.error('Logout API call failed:', error);
+    // Only call user logout API for regular users (admin has no session)
+    const isAdmin = user?.role === 'admin';
+    if (!isAdmin) {
+      try {
+        await userAPI.logout();
+      } catch (error) {
+        logger.error('Logout API call failed:', error);
+      }
     }
 
-    // Clear local storage and state
     localStorage.removeItem('user_token');
     localStorage.removeItem('user_data');
     setIsAuthenticated(false);
@@ -311,16 +317,21 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
   };
 
-  // Refresh user data from backend
+  // Refresh user data from backend (role-aware: admin vs user API)
   const refreshUser = async () => {
     try {
-      const profileResponse = await userAPI.getProfile();
+      const isAdmin = user?.role === 'admin';
+      const profileResponse = isAdmin
+        ? await adminAPI.getProfile()
+        : await userAPI.getProfile();
 
       if (profileResponse.data.code === 0 && profileResponse.data.data) {
-        const userData = profileResponse.data.data;
-        
-        updateUser(userData);
-        return userData;
+        const freshData = profileResponse.data.data;
+        if (isAdmin && !freshData.role) {
+          freshData.role = 'admin';
+        }
+        updateUser(freshData);
+        return freshData;
       }
     } catch (error) {
       logger.error('Failed to refresh user data:', error);

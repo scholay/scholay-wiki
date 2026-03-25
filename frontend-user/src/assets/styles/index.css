@@ -15,79 +15,116 @@
 
 /* 默认为夜间主题（保持向后兼容） */
 :root, [data-theme="dark"] {
-  /* ChatGPT-inspired color scheme - 夜间模式 */
+  /* 品牌色 */
   --primary: linear-gradient(135deg, #10a37f 0%, #1a7f64 100%);
   --primary-solid: #10a37f;
+  --primary-color: #10a37f;
   --primary-dark: #1a7f64;
   --primary-light: #19c37d;
+  --primary-hover: #19c37d;
+  --primary-rgb: 16, 163, 127;
   --accent: #19c37d;
   --accent-2: #10a37f;
+
+  /* 背景色系统 */
   --bg-primary: #212121;
   --bg-secondary: #212121;
+  --bg-tertiary: #1a1a1a;
+  --bg-hover: rgba(255, 255, 255, 0.04);
   --background: #212121;
   --background-light: #212121;
   --surface: #444654;
   --surface-light: #565869;
+  --surface-hover: #3a3a3a;
   
-  /* 统一的字体颜色系统 - 夜间模式 */
-  --text-primary: rgba(255, 255, 255, 0.95);      /* 主要文字：标题、重要内容 */
-  --text-secondary: rgba(255, 255, 255, 0.75);    /* 次要文字：描述、说明 */
-  --text-tertiary: rgba(255, 255, 255, 0.55);     /* 三级文字：辅助信息、提示 */
-  --text-quaternary: rgba(255, 255, 255, 0.35);   /* 四级文字：占位符、禁用状态 */
-  --text-accent: rgb(16, 163, 127);               /* 强调文字：品牌色 */
-  --text-success: rgb(16, 185, 129);              /* 成功状态 */
-  --text-error: rgb(239, 68, 68);                 /* 错误状态 */
-  --text-warning: rgb(245, 158, 11);              /* 警告状态 */
+  /* 字体颜色系统 */
+  --text-primary: rgba(255, 255, 255, 0.95);
+  --text-secondary: rgba(255, 255, 255, 0.75);
+  --text-tertiary: rgba(255, 255, 255, 0.55);
+  --text-quaternary: rgba(255, 255, 255, 0.35);
+  --text-accent: rgb(16, 163, 127);
+  --text-success: rgb(16, 185, 129);
+  --text-error: rgb(239, 68, 68);
+  --text-warning: rgb(245, 158, 11);
   
+  /* 状态颜色 */
   --success: #10b981;
   --error: #ef4444;
   --warning: #f59e0b;
+  --info: #60a5fa;
+
+  /* 边框颜色 */
   --border: rgba(255, 255, 255, 0.1);
+  --border-light: rgba(255, 255, 255, 0.06);
+  --border-hover: rgba(255, 255, 255, 0.18);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-primary: rgba(16, 163, 127, 0.4);
+
+  /* 阴影系统 */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.7);
+  --shadow-accent: 0 4px 16px rgba(16, 163, 127, 0.25);
   --glow: 0 0 20px rgba(16, 163, 127, 0.3);
+
+  /* 圆角 */
   --radius: 12px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 日间主题 - 全新设计 */
+/* 日间主题 */
 [data-theme="light"] {
-  /* 品牌色 - 保持一致性 */
+  /* 品牌色 */
   --primary: linear-gradient(135deg, #10a37f 0%, #0d8968 100%);
   --primary-solid: #10a37f;
+  --primary-color: #10a37f;
   --primary-dark: #0d8968;
   --primary-light: #19c37d;
+  --primary-hover: #0d8968;
+  --primary-rgb: 16, 163, 127;
   --accent: #10a37f;
   --accent-2: #0d8968;
   
-  /* 背景色系统 - 采用统一的纯色背景 */
-  --bg-primary: #f9fafb;                          /* 主背景：统一的浅灰色 */
-  --bg-secondary: #f5f7fa;                        /* 次级背景：浅灰蓝 */
-  --background: #f9fafb;                           /* 统一背景色，不使用渐变 */
+  /* 背景色系统 */
+  --bg-primary: #f9fafb;
+  --bg-secondary: #f5f7fa;
+  --bg-tertiary: #edf2f7;
+  --bg-hover: rgba(0, 0, 0, 0.03);
+  --background: #f9fafb;
   --background-light: #ffffff;
-  --surface: #ffffff;                             /* 卡片表面：纯白 */
-  --surface-hover: #f8fafb;                       /* 悬停状态 */
-  --surface-light: #f5f7fa;                       /* 浅表面 */
+  --surface: #ffffff;
+  --surface-hover: #f8fafb;
+  --surface-light: #f5f7fa;
   
-  /* 字体颜色系统 - 更高对比度 */
-  --text-primary: #1a202c;                        /* 主要文字：深灰蓝，接近黑色 */
-  --text-secondary: #4a5568;                      /* 次要文字：中灰 */
-  --text-tertiary: #718096;                       /* 三级文字：浅灰 */
-  --text-quaternary: #a0aec0;                     /* 四级文字：更浅的灰 */
-  --text-accent: #10a37f;                         /* 强调文字：品牌绿色 */
-  --text-success: #059669;                        /* 成功状态 */
-  --text-error: #e53e3e;                          /* 错误状态：更鲜艳的红 */
-  --text-warning: #dd6b20;                        /* 警告状态：更鲜艳的橙 */
+  /* 字体颜色系统 */
+  --text-primary: #1a202c;
+  --text-secondary: #4a5568;
+  --text-tertiary: #718096;
+  --text-quaternary: #a0aec0;
+  --text-accent: #10a37f;
+  --text-success: #059669;
+  --text-error: #e53e3e;
+  --text-warning: #dd6b20;
   
   /* 边框颜色 */
-  --border: #e2e8f0;                              /* 默认边框：浅灰 */
-  --border-light: #edf2f7;                        /* 更浅的边框 */
-  --border-hover: #cbd5e0;                        /* 悬停边框 */
+  --border: #e2e8f0;
+  --border-light: #edf2f7;
+  --border-hover: #cbd5e0;
+  --border-color: #e2e8f0;
+  --border-primary: rgba(16, 163, 127, 0.3);
   
   /* 阴影系统 */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
   --shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12), 0 6px 12px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1);
   --shadow-accent: 0 4px 16px rgba(16, 163, 127, 0.15);
   --glow: 0 0 0 3px rgba(16, 163, 127, 0.12);
   
@@ -97,8 +134,12 @@
   --warning: #dd6b20;
   --info: #3182ce;
   
-  /* 其他 */
+  /* 圆角 */
   --radius: 12px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -290,11 +331,11 @@ body {
 .btn-primary {
   background: var(--primary);
   color: white;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 15px rgba(var(--primary-rgb), 0.4);
 }
 
 .btn-primary:hover:not(:disabled) {
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+  box-shadow: 0 6px 20px rgba(var(--primary-rgb), 0.6);
   transform: translateY(-2px);
 }
 
@@ -474,7 +515,7 @@ body {
 }
 
 .glow-text {
-  text-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+  text-shadow: 0 0 20px rgba(var(--primary-rgb), 0.5);
 }
 
 /* Responsive */

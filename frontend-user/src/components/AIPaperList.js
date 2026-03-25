@@ -12,7 +12,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import AnalysisCellText from './AnalysisCellText';
-import { useTranslation } from '../hooks/useTranslation';
+import { usePaperTranslation } from '../hooks/usePaperTranslation';
 import { Languages } from 'lucide-react';
 
 const AIPaperList = ({ 
@@ -51,7 +51,7 @@ const AIPaperList = ({
   const paperRefs = useRef({});
 
   // 翻译功能
-  const translation = useTranslation();
+  const translation = usePaperTranslation();
 
   // 展开/收起摘要
   const toggleAbstractExpand = (paperId) => {
@@ -383,7 +383,7 @@ const AIPaperList = ({
                     <a
                       href={`https://doi.org/${paper.externalIds.DOI}`}
                       target="_blank"
-                      rel="noopener"
+                      rel="noreferrer"
                       className="search-result-paper-doi-link"
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -399,7 +399,7 @@ const AIPaperList = ({
                     <a 
                       href={paper.openAccessPdf.url}
                       target="_blank"
-                      rel="noopener"
+                      rel="noreferrer"
                       className="meta-item pdf-link"
                       onClick={(e) => e.stopPropagation()}
                     >

@@ -79,7 +79,7 @@ const AuthorDetailView = ({ authorDetail, searchState, dimensionAnalysis }) => {
               </p>
             )}
             {detailAuthor.homepage && (
-              <a href={detailAuthor.homepage} target="_blank" rel="noopener" className="author-profile-homepage">
+              <a href={detailAuthor.homepage} target="_blank" rel="noreferrer" className="author-profile-homepage">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="10"/>
                   <line x1="2" y1="12" x2="22" y2="12"/>
@@ -290,7 +290,7 @@ const PaperItem = ({
             <a
               href={`https://doi.org/${paper.externalIds.DOI}`}
               target="_blank"
-              rel="noopener"
+              rel="noreferrer"
               className="search-result-paper-doi-link"
               onClick={(e) => e.stopPropagation()}
             >
@@ -305,7 +305,7 @@ const PaperItem = ({
             <a
               href={paper.openAccessPdf.url}
               target="_blank"
-              rel="noopener"
+              rel="noreferrer"
               className="meta-item pdf-link"
               onClick={(e) => e.stopPropagation()}
             >

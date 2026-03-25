@@ -7,11 +7,12 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, memo, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import PDFViewer from './PDFViewer';
 import { trackPDFPreview, EntryPoint } from '../utils/usageTracker';
 import './PaperPreview.css';
+
+const PDFViewer = lazy(() => import('./PDFViewer'));
 
 const PaperPreview = memo(({ paper, onClose, width, onResizeMouseDown, onResizeTouchStart, isResizing, isMobileModal = false, isDrawerMode = false, onClick, pdfAvailability, entryPoint = '' }) => {
   const [activeTab, setActiveTab] = useState('details'); // 'details' or 'pdf'，默认展示详情
@@ -158,12 +159,14 @@ const PaperPreview = memo(({ paper, onClose, width, onResizeMouseDown, onResizeT
       {/* 内容区域 */}
       <div className="preview-content">
         {hasPDF && activeTab === 'pdf' ? (
-          <PDFViewer 
-            pdfUrl={hasOpenAccessPdf ? paper.openAccessPdf.url : null} 
-            paperTitle={paper.title}
-            doi={doi}
-            isCheckedPdf={!hasOpenAccessPdf && doi}
-          />
+          <Suspense fallback={<div style={{display:'flex',justifyContent:'center',alignItems:'center',padding:'2rem'}}><div className="pdf-loading-spinner" /></div>}>
+            <PDFViewer 
+              pdfUrl={hasOpenAccessPdf ? paper.openAccessPdf.url : null} 
+              paperTitle={paper.title}
+              doi={doi}
+              isCheckedPdf={!hasOpenAccessPdf && doi}
+            />
+          </Suspense>
         ) : (
           <div className="details-content">
             {/* 作者 */}

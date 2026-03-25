@@ -200,11 +200,38 @@ export const userAPI = {
   sendVerificationCode: (email, purpose) =>
     api.post('/user/send-code', { email, purpose }),
 
+  checkEmail: (email) =>
+    api.post('/user/check-email', { email }),
+
+  checkPhone: (phone) =>
+    api.post('/user/check-phone', { phone }),
+
+  sendPhoneCode: (phone, purpose) =>
+    api.post('/user/send-phone-code', { phone, purpose }),
+
+  resetPassword: (email, code, new_password) =>
+    api.post('/user/reset-password', { email, code, new_password }),
+
+  resetPasswordPhone: (phone, code, new_password) =>
+    api.post('/user/reset-password-phone', { phone, code, new_password }),
+
   register: (email, password, code) =>
     api.post('/user/register', { email, password, code }),
 
-  login: (email, password) =>
-    api.post('/user/login', { email, password }),
+  login: (email, password, turnstile_token) =>
+    api.post('/user/login', { email, password, turnstile_token }),
+
+  loginWithUsername: (username, password) =>
+    api.post('/user/login', { username, password }),
+
+  loginPhone: (phone, password) =>
+    api.post('/user/login-phone', { phone, password }),
+
+  loginPhoneWithCode: (phone, code, turnstile_token) =>
+    api.post('/user/login-phone-with-code', { phone, code, turnstile_token }),
+
+  registerPhone: (phone, password, code) =>
+    api.post('/user/register-phone', { phone, password, code }),
 
   logout: () =>
     api.post('/user/logout'),
@@ -565,11 +592,12 @@ export const analysisDimensionAPI = {
 };
 
 export const configAPI = {
-  // Get privacy policy
   getPrivacyPolicy: () =>
     api.get('/config/privacy-policy'),
 
-  // Get system config
+  getTermsOfService: () =>
+    api.get('/config/terms-of-service'),
+
   getSystemConfig: () =>
     api.get('/config/system'),
 

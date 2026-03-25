@@ -10,7 +10,7 @@
  * 基于 CodeMirror 6，支持 LaTeX 语法高亮和 Inline Diff 模式
  */
 
-import React, { useRef, useEffect, useImperativeHandle, forwardRef, useCallback, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useImperativeHandle, forwardRef, useCallback, useMemo } from 'react';
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
@@ -226,7 +226,8 @@ const LatexEditor = forwardRef(({
       view.destroy();
       editorViewRef.current = null;
     };
-  }, [diffMode]); // 只在挂载时或 diffMode 变化时创建
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diffMode]);
 
   // 同步外部 value 变化
   useEffect(() => {

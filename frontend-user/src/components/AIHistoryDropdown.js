@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, memo, useCallback, useMemo } from 'react';
+import { Modal } from 'antd';
 import './AIHistoryDropdown.css';
 
 const AIHistoryDropdown = memo(({
@@ -128,9 +129,14 @@ const AIHistoryDropdown = memo(({
                       className="ai-history-item-delete"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (window.confirm('确定要删除这个对话吗？')) {
-                          onDeleteConversation(conv.id);
-                        }
+                        Modal.confirm({
+                          title: '确认',
+                          content: '确定要删除这个对话吗？',
+                          okText: '确认',
+                          cancelText: '取消',
+                          okButtonProps: { danger: true },
+                          onOk: () => onDeleteConversation(conv.id),
+                        });
                       }}
                       title="删除对话"
                     >

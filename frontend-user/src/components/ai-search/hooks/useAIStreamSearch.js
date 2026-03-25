@@ -370,6 +370,7 @@ export const useAIStreamSearch = ({
       setMessages(prev => prev.filter(msg => msg.id !== messageId));
       setPaperSets(prevSets => prevSets.slice(1));
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     modelLevel,
     eventSourceRef,
@@ -468,10 +469,10 @@ export const useAIStreamSearch = ({
       setLoading(false);
       setShowAIThinking(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isAuthenticated,
     currentConversationId,
-    modelLevel,
     textareaRef,
     streamingContentRef,
     setShowAuthModal,

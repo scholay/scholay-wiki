@@ -11,5 +11,6 @@
 
 export { default as useNetworkStatus } from './useNetworkStatus';
 export { default as useAuthForm } from './useAuthForm';
-export { default as useTranslation, containsChinese, isPrimarilyChinese } from './useTranslation';
+export { default as usePaperTranslation, containsChinese, isPrimarilyChinese } from './usePaperTranslation';
+export { default as usePdfAvailability, getSciHubUrl, SCIHUB_BASE_URL } from './usePdfAvailability';
 export { default as useVersionCheck } from './useVersionCheck';

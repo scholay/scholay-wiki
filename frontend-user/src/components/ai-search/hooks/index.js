@@ -6,7 +6,7 @@ export { useAISearch } from './useAISearch';
 
 // 子状态 Hooks
 export { useConversationState } from './useConversationState';
-export { useSearchState } from './useSearchState';
+export { useAISearchStreamState } from './useAISearchStreamState';
 export { usePaperState } from './usePaperState';
 export { useDimensionState } from './useDimensionState';
 export { useUIState } from './useUIState';

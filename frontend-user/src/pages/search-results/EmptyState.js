@@ -3,25 +3,31 @@
  * 显示搜索无结果时的提示
  */
 import React from 'react';
+import { Empty, Button } from 'antd';
 import { setSearchMode as saveSearchMode } from '../../utils/searchStorage';
 
 const EmptyState = ({ searchState }) => {
   return (
     <div className="empty-state">
-      <div className="empty-state-icon">
-        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="11" cy="11" r="8"/>
-          <path d="m21 21-4.35-4.35"/>
-        </svg>
-      </div>
-      <h3 className="empty-state-title">未找到相关论文</h3>
-      <p className="empty-state-description">
-        请尝试使用其他关键词或调整筛选条件
-      </p>
-
-      <div className="empty-state-actions">
-        <button
-          className="empty-state-button primary"
+      <Empty
+        image={
+          <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--text-tertiary)' }}>
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.35-4.35"/>
+          </svg>
+        }
+        description={
+          <>
+            <h3 className="empty-state-title">未找到相关论文</h3>
+            <p className="empty-state-description">
+              请尝试使用其他关键词或调整筛选条件
+            </p>
+          </>
+        }
+      >
+        <Button
+          type="primary"
+          className="empty-state-button"
           onClick={() => {
             if (!searchState.isAuthenticated) {
               searchState.setShowAuthModal(true);
@@ -36,8 +42,8 @@ const EmptyState = ({ searchState }) => {
           }}
         >
           使用智能分析
-        </button>
-      </div>
+        </Button>
+      </Empty>
 
       {/* 搜索引导内容 - 帮助用户和爬虫了解平台功能 */}
       <div className="empty-state-guide" style={{ marginTop: '40px', textAlign: 'left', maxWidth: '680px', margin: '40px auto 0' }}>

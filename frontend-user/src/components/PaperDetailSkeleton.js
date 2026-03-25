@@ -1,78 +1,49 @@
-/**
- * ============================================================================
- * Scholay学术 V1.0
- * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
- * 统一社会信用代码: 91510100MAEEHRNE26
- * All Rights Reserved.
- * ============================================================================
- */
-
 import React, { memo } from 'react';
-import './PaperDetailSkeleton.css';
+import { Skeleton, Card } from 'antd';
 
 const PaperDetailSkeleton = memo(() => {
   return (
-    <div className="paper-detail-skeleton">
-      {/* DOI 和 Corpus ID */}
-      <div className="pds-meta-ids">
-        <div className="pds-meta-id skeleton-shimmer"></div>
-        <div className="pds-meta-id skeleton-shimmer"></div>
+    <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <Skeleton.Button active size="small" style={{ width: 100 }} />
+        <Skeleton.Button active size="small" style={{ width: 120 }} />
       </div>
 
-      {/* 标题 */}
-      <div className="pds-title skeleton-shimmer"></div>
-      <div className="pds-title-second skeleton-shimmer"></div>
+      <Skeleton active title={{ width: '80%' }} paragraph={false} />
+      <Skeleton active title={false} paragraph={{ rows: 1, width: ['60%'] }} style={{ marginTop: 4 }} />
 
-      {/* 作者和出版信息 */}
-      <div className="pds-pub-meta">
-        <div className="pds-author skeleton-shimmer"></div>
-        <div className="pds-author skeleton-shimmer"></div>
-        <div className="pds-author skeleton-shimmer"></div>
-        <div className="pds-venue skeleton-shimmer"></div>
+      <div style={{ display: 'flex', gap: 8, margin: '16px 0' }}>
+        {[1, 2, 3].map(i => (
+          <Skeleton.Button active key={i} size="small" style={{ width: 80 }} />
+        ))}
+        <Skeleton.Button active size="small" style={{ width: 140 }} />
       </div>
 
-      {/* TLDR */}
-      <div className="pds-tldr">
-        <div className="pds-tldr-badge skeleton-shimmer"></div>
-        <div className="pds-tldr-text skeleton-shimmer"></div>
-        <div className="pds-tldr-text skeleton-shimmer" style={{ width: '80%' }}></div>
-      </div>
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Skeleton active title={{ width: 60 }} paragraph={{ rows: 2, width: ['95%', '80%'] }} />
+      </Card>
 
-      {/* 摘要 */}
-      <div className="pds-section">
-        <div className="pds-section-title skeleton-shimmer"></div>
-        <div className="pds-abstract-line skeleton-shimmer"></div>
-        <div className="pds-abstract-line skeleton-shimmer"></div>
-        <div className="pds-abstract-line skeleton-shimmer"></div>
-        <div className="pds-abstract-line skeleton-shimmer" style={{ width: '70%' }}></div>
-      </div>
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Skeleton active title={{ width: 50 }} paragraph={{ rows: 3, width: ['100%', '100%', '70%'] }} />
+      </Card>
 
-      {/* 操作按钮 */}
-      <div className="pds-actions">
-        <div className="pds-action-btn skeleton-shimmer"></div>
-        <div className="pds-action-btn skeleton-shimmer"></div>
-        <div className="pds-action-btn skeleton-shimmer"></div>
-        <div className="pds-action-btn skeleton-shimmer"></div>
-      </div>
-
-      {/* Tabs */}
-      <div className="pds-tabs">
-        <div className="pds-tab skeleton-shimmer"></div>
-        <div className="pds-tab skeleton-shimmer"></div>
-        <div className="pds-tab skeleton-shimmer"></div>
-      </div>
-
-      {/* 论文列表骨架 */}
-      <div className="pds-papers-list">
-        {[1, 2, 3, 4, 5].map((item) => (
-          <div key={item} className="pds-paper-item">
-            <div className="pds-paper-title skeleton-shimmer"></div>
-            <div className="pds-paper-authors skeleton-shimmer"></div>
-            <div className="pds-paper-abstract skeleton-shimmer"></div>
-            <div className="pds-paper-abstract skeleton-shimmer" style={{ width: '85%' }}></div>
-          </div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        {[1, 2, 3, 4].map(i => (
+          <Skeleton.Button active key={i} style={{ width: 90, height: 36 }} />
         ))}
       </div>
+
+      <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+        <Skeleton.Button active style={{ width: 80 }} />
+        <Skeleton.Button active style={{ width: 80 }} />
+        <Skeleton.Button active style={{ width: 80 }} />
+      </div>
+
+      {[1, 2, 3, 4, 5].map(i => (
+        <Card key={i} size="small" style={{ marginBottom: 8 }}>
+          <Skeleton active title={{ width: '75%' }} paragraph={{ rows: 2, width: ['90%', '85%'] }} />
+        </Card>
+      ))}
     </div>
   );
 });

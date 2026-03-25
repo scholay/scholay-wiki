@@ -12,42 +12,8 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { userAPI } from '../services/api';
+import { isValidEmail, isValidPhone, getPasswordError } from '../utils/validators';
 import logger from '../utils/logger';
-
-/**
- * 密码验证规则
- */
-const validatePassword = (password) => {
-  if (password.length < 8) {
-    return '密码长度至少8位';
-  }
-  if (password.length > 32) {
-    return '密码长度不能超过32位';
-  }
-  if (!/[a-zA-Z]/.test(password)) {
-    return '密码必须包含字母';
-  }
-  if (!/[0-9]/.test(password)) {
-    return '密码必须包含数字';
-  }
-  return '';
-};
-
-/**
- * 邮箱验证
- */
-const validateEmail = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-};
-
-/**
- * 手机号验证（中国大陆）
- */
-const validatePhone = (phone) => {
-  const phoneRegex = /^1[3-9]\d{9}$/;
-  return phoneRegex.test(phone);
-};
 
 /**
  * useAuthForm Hook
@@ -96,7 +62,7 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
   const handlePasswordChange = useCallback((value) => {
     setPassword(value);
     if (value) {
-      setPasswordError(validatePassword(value));
+      setPasswordError(getPasswordError(value));
     } else {
       setPasswordError('');
     }
@@ -108,7 +74,7 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
       showError('请输入邮箱地址');
       return false;
     }
-    if (!validateEmail(email)) {
+    if (!isValidEmail(email)) {
       showError('请输入有效的邮箱地址');
       return false;
     }
@@ -139,7 +105,7 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
       showError('请输入手机号码');
       return false;
     }
-    if (!validatePhone(phone)) {
+    if (!isValidPhone(phone)) {
       showError('请输入有效的手机号码');
       return false;
     }
@@ -244,7 +210,7 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
       return false;
     }
 
-    const pwdError = validatePassword(password);
+    const pwdError = getPasswordError(password);
     if (pwdError) {
       showError(pwdError);
       return false;
@@ -295,7 +261,7 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
       return false;
     }
 
-    const pwdError = validatePassword(password);
+    const pwdError = getPasswordError(password);
     if (pwdError) {
       showError(pwdError);
       return false;
@@ -370,10 +336,10 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
     registerWithEmail,
     registerWithPhone,
     
-    // 验证函数
-    validateEmail,
-    validatePhone,
-    validatePassword,
+    // 验证函数（来自 utils/validators）
+    validateEmail: isValidEmail,
+    validatePhone: isValidPhone,
+    validatePassword: getPasswordError,
   };
 };
 

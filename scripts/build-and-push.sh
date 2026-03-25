@@ -104,11 +104,8 @@ fi
 # 镜像完整名称
 BACKEND_IMAGE="${REGISTRY}/${NAMESPACE}/backend:${NEW_VERSION}"
 FRONTEND_USER_IMAGE="${REGISTRY}/${NAMESPACE}/frontend-user:${NEW_VERSION}"
-FRONTEND_ADMIN_IMAGE="${REGISTRY}/${NAMESPACE}/frontend-admin:${NEW_VERSION}"
-
 BACKEND_LATEST="${REGISTRY}/${NAMESPACE}/backend:latest"
 FRONTEND_USER_LATEST="${REGISTRY}/${NAMESPACE}/frontend-user:latest"
-FRONTEND_ADMIN_LATEST="${REGISTRY}/${NAMESPACE}/frontend-admin:latest"
 
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  Scholar 镜像构建推送工具${NC}"
@@ -196,17 +193,13 @@ case ${BUILD_TARGET} in
     "frontend-user")
         build_frontend "frontend-user" "${FRONTEND_USER_IMAGE}" "${FRONTEND_USER_LATEST}" "./frontend-user"
         ;;
-    "frontend-admin")
-        build_frontend "frontend-admin" "${FRONTEND_ADMIN_IMAGE}" "${FRONTEND_ADMIN_LATEST}" "./frontend-admin"
-        ;;
     "all")
         build_backend "${BACKEND_IMAGE}" "${BACKEND_LATEST}"
         build_frontend "frontend-user" "${FRONTEND_USER_IMAGE}" "${FRONTEND_USER_LATEST}" "./frontend-user"
-        build_frontend "frontend-admin" "${FRONTEND_ADMIN_IMAGE}" "${FRONTEND_ADMIN_LATEST}" "./frontend-admin"
         ;;
     *)
         echo -e "${RED}错误: 未知的构建目标 '${BUILD_TARGET}'${NC}"
-        echo "可用选项: backend, frontend-user, frontend-admin, all"
+        echo "可用选项: backend, frontend-user, all"
         exit 1
         ;;
 esac
@@ -229,10 +222,6 @@ fi
 if [ "${BUILD_TARGET}" = "all" ] || [ "${BUILD_TARGET}" = "frontend-user" ]; then
     echo "  - ${FRONTEND_USER_IMAGE}"
     echo "  - ${FRONTEND_USER_LATEST}"
-fi
-if [ "${BUILD_TARGET}" = "all" ] || [ "${BUILD_TARGET}" = "frontend-admin" ]; then
-    echo "  - ${FRONTEND_ADMIN_IMAGE}"
-    echo "  - ${FRONTEND_ADMIN_LATEST}"
 fi
 echo ""
 echo "服务器部署: ./scripts/deploy.sh"

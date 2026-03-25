@@ -181,6 +181,7 @@ export const useAIConversation = ({
         }, 100);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     qaSnapContainerRef,
     prevScrollHeightRef,

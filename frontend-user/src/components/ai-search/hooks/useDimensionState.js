@@ -3,6 +3,7 @@
  * 从 useAISearch.js 拆分
  */
 import { useState, useCallback, useRef } from 'react';
+import { Modal } from 'antd';
 import { analysisDimensionAPI } from '../../../services/api';
 import { trackMatrixAddDimension } from '../../../utils/usageTracker';
 import logger from '../../../utils/logger';
@@ -112,33 +113,37 @@ export const useDimensionState = (isAuthenticated) => {
   }, [editForm, editingDimension, getDimensionKey, refreshDimensions]);
 
   // 删除维度
-  const handleDeleteDimension = useCallback(async (dimension) => {
-    // 只有用户自定义维度才能删除
+  const handleDeleteDimension = useCallback((dimension) => {
     if (!dimension || !dimension.id || dimension.userId <= 0) {
       alert('只能删除自定义维度');
       return;
     }
 
-    if (!window.confirm(`确定要删除维度「${dimension.name}」吗？`)) {
-      return;
-    }
-
-    try {
-      const response = await analysisDimensionAPI.deleteDimension(dimension.id);
-      if (response.data.code === 0) {
-        setSelectedDimensions(prev => prev.filter(d => getDimensionKey(d) !== getDimensionKey(dimension)));
-        await refreshDimensions();
-        if (floatPanelView === 'edit' && editingDimension && getDimensionKey(editingDimension) === getDimensionKey(dimension)) {
-          setFloatPanelView('list');
-          setEditingDimension(null);
+    Modal.confirm({
+      title: '确认',
+      content: `确定要删除维度「${dimension.name}」吗？`,
+      okText: '确认',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          const response = await analysisDimensionAPI.deleteDimension(dimension.id);
+          if (response.data.code === 0) {
+            setSelectedDimensions(prev => prev.filter(d => getDimensionKey(d) !== getDimensionKey(dimension)));
+            await refreshDimensions();
+            if (floatPanelView === 'edit' && editingDimension && getDimensionKey(editingDimension) === getDimensionKey(dimension)) {
+              setFloatPanelView('list');
+              setEditingDimension(null);
+            }
+          } else {
+            alert(response.data.message || '删除失败');
+          }
+        } catch (error) {
+          console.error('删除维度失败:', error);
+          alert('删除失败，请稍后重试');
         }
-      } else {
-        alert(response.data.message || '删除失败');
-      }
-    } catch (error) {
-      console.error('删除维度失败:', error);
-      alert('删除失败，请稍后重试');
-    }
+      },
+    });
   }, [getDimensionKey, refreshDimensions, floatPanelView, editingDimension]);
 
   // 打开编辑视图

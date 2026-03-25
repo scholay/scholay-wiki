@@ -9,6 +9,7 @@
 
 import React, { useEffect, lazy, Suspense } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { Spin } from 'antd';
 import PaperPreview from '../../components/PaperPreview';
 import PaperListSkeleton from '../../components/PaperListSkeleton';
 import CiteModal from '../../components/CiteModal';
@@ -128,6 +129,7 @@ const SearchResultsPage = () => {
         searchState.setSearchQuery(query);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchState.searchParams, authorDetail.loadAuthorDetail, paperDetail.loadPaperDetail, searchState.setViewMode, searchState.setSearchQuery]);
 
   // 相似论文新手引导
@@ -361,7 +363,7 @@ const SearchResultsPage = () => {
   if (searchState.isAIMode) {
     return (
       <div className={`search-results-page ai-mode ${searchState.justSwitchedToAI ? 'from-academic-search' : ''}`}>
-        <Suspense fallback={<div className="loading-placeholder">加载中...</div>}>
+        <Suspense fallback={<div className="loading-placeholder"><Spin size="large" /></div>}>
           <AISearchView
             initialQuery={searchState.searchQuery}
             initialModelLevel={searchState.getAIModelLevel()}
@@ -571,7 +573,9 @@ const SearchResultsPage = () => {
                     dimensionAnalysis={dimensionAnalysis}
                   />
                 ) : searchState.loading ? (
-                  <PaperListSkeleton />
+                  <Spin spinning tip="正在搜索..." size="large">
+                    <PaperListSkeleton />
+                  </Spin>
                 ) : searchState.papers.length === 0 ? (
                   <EmptyState searchState={searchState} />
                 ) : (

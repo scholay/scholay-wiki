@@ -6,6 +6,7 @@
     "baseline-browser-mapping": "^2.9.14"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.1.0",
     "@codemirror/commands": "^6.8.0",
     "@codemirror/language": "^6.10.8",
     "@codemirror/legacy-modes": "^6.5.2",
@@ -15,8 +16,10 @@
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "antd": "^6.3.4",
     "axios": "^1.6.2",
     "codemirror": "^6.0.1",
+    "dayjs": "^1.11.20",
     "docx": "^8.5.0",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.23.26",
@@ -34,6 +37,7 @@
     "react-router-dom": "^6.20.1",
     "react-scripts": "5.0.1",
     "react-scroll-to-bottom": "^4.2.0",
+    "recharts": "^3.8.0",
     "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.1",
     "web-vitals": "^2.1.4"

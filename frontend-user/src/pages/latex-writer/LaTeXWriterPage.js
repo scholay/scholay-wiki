@@ -10,7 +10,7 @@
  * 三栏布局：左侧文件树、中间编辑区（代码+对话）、右侧PDF预览
  */
 
-import React, { useState, useCallback, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useAuth } from '../../utils/AuthContext';
 import FileTree from '../../components/latex-writer/FileTree';
@@ -20,132 +20,10 @@ import PdfPreview from '../../components/latex-writer/PdfPreview';
 import LatexCompiler from '../../components/latex-writer/LatexCompiler';
 import { userAPI } from '../../services/api';
 import SEO from '../../components/SEO';
+import { DEFAULT_LATEX_TEMPLATE } from './latexTemplates';
 import './LaTeXWriterPage.css';
 
-// 懒加载 AuthModal
 const AuthModal = lazy(() => import('../../components/AuthModal'));
-
-// 默认 LaTeX 模板（兼容在线编译器的标准学术论文格式）
-const DEFAULT_LATEX_TEMPLATE = `\\documentclass[12pt,a4paper]{article}
-
-% 基础宏包
-\\usepackage[utf8]{inputenc}
-\\usepackage[T1]{fontenc}
-\\usepackage{amsmath,amssymb,amsfonts}
-\\usepackage{graphicx}
-\\usepackage{booktabs}
-\\usepackage[hidelinks]{hyperref}
-\\usepackage[margin=1in]{geometry}
-\\usepackage{setspace}
-
-% 设置行距
-\\onehalfspacing
-
-\\title{My Paper Title}
-\\author{Author Name\\\\
-\\small Institution Name\\\\
-\\small \\texttt{email@example.com}}
-\\date{\\today}
-
-\\begin{document}
-
-\\maketitle
-
-\\begin{abstract}
-Your abstract goes here. This should be a concise summary of your research, including the background, methods, results, and conclusions. Typically 150-300 words.
-\\end{abstract}
-
-\\textbf{Keywords:} keyword1, keyword2, keyword3
-
-\\section{Introduction}
-Start writing your introduction here. Introduce the background, motivation, and objectives of your research.
-
-\\section{Related Work}
-Review relevant literature and previous studies in this area.
-
-\\section{Methods}
-Describe your methodology in detail. Include any mathematical formulations if necessary:
-
-\\begin{equation}
-E = mc^2
-\\end{equation}
-
-\\section{Results}
-Present your experimental or theoretical results. You can use tables like this:
-
-\\begin{table}[h]
-\\centering
-\\caption{Sample Results}
-\\begin{tabular}{lcc}
-\\toprule
-Method & Accuracy & Time (s) \\\\
-\\midrule
-Method A & 0.85 & 1.2 \\\\
-Method B & 0.92 & 2.5 \\\\
-\\bottomrule
-\\end{tabular}
-\\end{table}
-
-\\section{Discussion}
-Discuss the implications of your results and compare with previous work.
-
-\\section{Conclusion}
-Summarize your findings and suggest future research directions.
-
-\\section*{Acknowledgments}
-Thank those who contributed to this work.
-
-\\begin{thebibliography}{9}
-\\bibitem{ref1}
-Author A, Author B.
-\\textit{Title of the Paper}.
-Journal Name, Vol. X, No. Y, pp. 1-10, 2024.
-\\end{thebibliography}
-
-\\end{document}
-`;
-
-// 中文 LaTeX 模板（使用 xeCJK，需要 XeTeX 引擎）
-const CHINESE_LATEX_TEMPLATE = `\\documentclass{article}
-\\usepackage{xeCJK}
-\\usepackage{amsmath}
-\\usepackage{graphicx}
-\\usepackage{geometry}
-
-% 设置中文字体（使用 Noto 字体，在线编译器支持）
-\\setCJKmainfont{Noto Serif CJK SC}
-\\setCJKsansfont{Noto Sans CJK SC}
-\\setCJKmonofont{Noto Sans Mono CJK SC}
-
-% 页面设置
-\\geometry{a4paper, margin=2.5cm}
-
-\\title{论文标题}
-\\author{作者姓名}
-\\date{\\today}
-
-\\begin{document}
-
-\\maketitle
-
-\\begin{abstract}
-在此处填写摘要内容。
-\\end{abstract}
-
-\\section{引言}
-在此处开始撰写引言部分。
-
-\\section{方法}
-描述您的研究方法。
-
-\\section{结果}
-展示您的研究结果。
-
-\\section{结论}
-总结您的研究发现。
-
-\\end{document}
-`;
 
 function LaTeXWriterPage() {
   const { resetSidebarConfig } = useSidebar();
@@ -176,7 +54,8 @@ function LaTeXWriterPage() {
   const [isCompiling, setIsCompiling] = useState(false);
   const [compileError, setCompileError] = useState(null);
   const [compileLog, setCompileLog] = useState(null); // 完整编译日志（用于 AI 修复）
-  const [hasCompiledOnce, setHasCompiledOnce] = useState(false); // 是否已经编译过（用于显示初始化状态）
+  // eslint-disable-next-line no-unused-vars
+  const [hasCompiledOnce, setHasCompiledOnce] = useState(false);
   
   // AI 对话状态
   const [selectedText, setSelectedText] = useState('');
@@ -184,6 +63,7 @@ function LaTeXWriterPage() {
   
   // Diff 对比状态
   const [showDiff, setShowDiff] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [diffOldContent, setDiffOldContent] = useState('');
   const [diffNewContent, setDiffNewContent] = useState('');
   
@@ -655,7 +535,7 @@ ${truncatedLog}
     
   }, [selectedFile, content, engineStatus, isCompiling, handleCompile]);
 
-  // 处理工具栏操作
+  // eslint-disable-next-line no-unused-vars
   const handleToolbarAction = useCallback((action, value) => {
     if (editorRef.current) {
       editorRef.current.insertText(value);

@@ -814,184 +814,143 @@ a.meta-item.pdf-link:hover {
   color: rgb(196, 181, 253);
 }
 
-/* 分页器 - 放在第一列论文正下方 */
-.pagination {
+/* Antd Pagination wrapper */
+.antd-pagination-wrapper {
   display: flex;
-  justify-content: flex-start; /* 左对齐 */
+  justify-content: flex-start;
   align-items: center;
-  gap: 16px;
-  padding: 32px 28px; /* 与论文列padding一致 */
-  width: 40vw; /* 与论文列宽度一致 */
+  padding: 32px 28px;
+  width: 40vw;
   box-sizing: border-box;
   position: sticky;
-  left: 0; /* 横向滚动时保持在左侧固定 */
-  background: var(--background, #0d0d0d); /* 需要背景色遮挡滚动内容 */
+  left: 0;
+  background: var(--background, #0d0d0d);
 }
 
-/* 日间模式分页器背景 */
-[data-theme="light"] .pagination {
+[data-theme="light"] .antd-pagination-wrapper {
   background: var(--background, #ffffff);
   border-top: 1px solid rgba(0, 0, 0, 0.06);
-  margin: 0;
-  border-radius: 0;
 }
 
-/* 每页数量选择器 */
-.page-size-selector {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* 日间模式每页数量选择器 */
-[data-theme="light"] .page-size-selector {
-  color: rgba(0, 0, 0, 0.7);
-}
-
-[data-theme="light"] .page-size-selector select {
-  background: #fff;
-  color: rgba(0, 0, 0, 0.85);
-  border: 1px solid rgba(0, 0, 0, 0.15);
-}
-
-[data-theme="light"] .page-size-selector select:hover {
-  border-color: rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="light"] .page-size-selector select:focus {
-  border-color: #10a37f;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.1);
-}
-
-.page-size-label {
+.antd-pagination-wrapper .ant-pagination {
   font-size: 13px;
+}
+
+.antd-pagination-wrapper .ant-pagination-item {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: transparent;
+}
+
+.antd-pagination-wrapper .ant-pagination-item a {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.antd-pagination-wrapper .ant-pagination-item:hover {
+  border-color: #10a37f;
+}
+
+.antd-pagination-wrapper .ant-pagination-item:hover a {
+  color: #10a37f;
+}
+
+.antd-pagination-wrapper .ant-pagination-item-active {
+  background: rgba(16, 163, 127, 0.15);
+  border-color: #10a37f;
+}
+
+.antd-pagination-wrapper .ant-pagination-item-active a {
+  color: #10a37f;
+}
+
+.antd-pagination-wrapper .ant-pagination-prev .ant-pagination-item-link,
+.antd-pagination-wrapper .ant-pagination-next .ant-pagination-item-link {
+  color: rgba(255, 255, 255, 0.5);
+  border-color: rgba(255, 255, 255, 0.1);
+  background: transparent;
+}
+
+.antd-pagination-wrapper .ant-pagination-prev:hover .ant-pagination-item-link,
+.antd-pagination-wrapper .ant-pagination-next:hover .ant-pagination-item-link {
+  color: #10a37f;
+  border-color: #10a37f;
+}
+
+.antd-pagination-wrapper .ant-pagination-disabled .ant-pagination-item-link {
+  color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.antd-pagination-wrapper .ant-pagination-total-text {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+}
+
+.antd-pagination-wrapper .ant-select-selector {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 13px;
+}
+
+.antd-pagination-wrapper .ant-select-arrow {
   color: rgba(255, 255, 255, 0.4);
 }
 
-[data-theme="light"] .page-size-label {
-  color: rgba(0, 0, 0, 0.65);
+.antd-pagination-wrapper .ant-pagination-options {
+  margin-inline-start: 12px;
 }
 
-.page-size-select {
-  padding: 5px 24px 5px 10px;
-  background: rgba(255, 255, 255, 0.06);
-  border: none;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
-  cursor: pointer;
-  outline: none;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 6px center;
-}
-
-.page-size-select:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.page-size-select option {
-  background: var(--surface);
-  color: var(--text-primary);
-}
-
-.pagination-btn {
-  padding: 6px 12px;
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.5);
-  border-radius: 4px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.pagination-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.pagination-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-/* 日间模式分页按钮 */
-[data-theme="light"] .pagination-btn {
-  background: #fff;
-  color: rgba(0, 0, 0, 0.65);
-  border: 1px solid rgba(0, 0, 0, 0.15);
-}
-
-[data-theme="light"] .pagination-btn:hover:not(:disabled) {
-  background: #f5f5f5;
-  color: rgba(0, 0, 0, 0.85);
-  border-color: rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="light"] .pagination-btn:disabled {
-  background: #fafafa;
-  color: rgba(0, 0, 0, 0.25);
-  border-color: rgba(0, 0, 0, 0.1);
-  opacity: 0.6;
-}
-
-.pagination-pages {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.pagination-page {
-  min-width: 32px;
-  height: 32px;
-  padding: 0 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.5);
-  border-radius: 4px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.pagination-page:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.pagination-page.active {
-  background: rgba(59, 130, 246, 0.15);
-  color: rgba(147, 197, 253, 1);
-}
-
-/* 日间模式分页页码 */
-[data-theme="light"] .pagination-page {
-  background: transparent;
-  color: rgba(0, 0, 0, 0.65);
-  border: 1px solid transparent;
-}
-
-[data-theme="light"] .pagination-page:hover {
-  background: #f5f5f5;
-  color: rgba(0, 0, 0, 0.85);
+/* Light theme antd pagination */
+[data-theme="light"] .antd-pagination-wrapper .ant-pagination-item {
   border-color: rgba(0, 0, 0, 0.15);
+  background: transparent;
 }
 
-[data-theme="light"] .pagination-page.active {
-  background: #10a37f;
-  color: white;
+[data-theme="light"] .antd-pagination-wrapper .ant-pagination-item a {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+[data-theme="light"] .antd-pagination-wrapper .ant-pagination-item:hover {
   border-color: #10a37f;
-  font-weight: 600;
+}
+
+[data-theme="light"] .antd-pagination-wrapper .ant-pagination-item:hover a {
+  color: #10a37f;
+}
+
+[data-theme="light"] .antd-pagination-wrapper .ant-pagination-item-active {
+  background: #10a37f;
+  border-color: #10a37f;
+}
+
+[data-theme="light"] .antd-pagination-wrapper .ant-pagination-item-active a {
+  color: white;
+}
+
+[data-theme="light"] .antd-pagination-wrapper .ant-pagination-prev .ant-pagination-item-link,
+[data-theme="light"] .antd-pagination-wrapper .ant-pagination-next .ant-pagination-item-link {
+  color: rgba(0, 0, 0, 0.65);
+  border-color: rgba(0, 0, 0, 0.15);
+  background: #fff;
+}
+
+[data-theme="light"] .antd-pagination-wrapper .ant-pagination-prev:hover .ant-pagination-item-link,
+[data-theme="light"] .antd-pagination-wrapper .ant-pagination-next:hover .ant-pagination-item-link {
+  color: #10a37f;
+  border-color: #10a37f;
+}
+
+[data-theme="light"] .antd-pagination-wrapper .ant-pagination-total-text {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] .antd-pagination-wrapper .ant-select-selector {
+  background: #fff !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
+  color: rgba(0, 0, 0, 0.85) !important;
+}
+
+[data-theme="light"] .antd-pagination-wrapper .ant-select-arrow {
+  color: rgba(0, 0, 0, 0.45);
 }
 
 /* ========== 分析维度选择器 ========== */

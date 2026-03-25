@@ -24,10 +24,10 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// FindByUsername finds an admin user by username
+// FindByUsername finds an admin user by username (role='admin')
 func (r *Repository) FindByUsername(username string) (*AdminUser, error) {
 	var admin AdminUser
-	err := r.db.Where("username = ?", username).First(&admin).Error
+	err := r.db.Where("username = ? AND role = 'admin'", username).First(&admin).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -37,10 +37,10 @@ func (r *Repository) FindByUsername(username string) (*AdminUser, error) {
 	return &admin, nil
 }
 
-// FindByID finds an admin user by ID
+// FindByID finds an admin user by ID (role='admin')
 func (r *Repository) FindByID(id uint) (*AdminUser, error) {
 	var admin AdminUser
-	err := r.db.First(&admin, id).Error
+	err := r.db.Where("id = ? AND role = 'admin'", id).First(&admin).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -48,6 +48,19 @@ func (r *Repository) FindByID(id uint) (*AdminUser, error) {
 		return nil, err
 	}
 	return &admin, nil
+}
+
+// FindUserByUsername finds any user by username (regardless of role)
+func (r *Repository) FindUserByUsername(username string) (*AdminUser, error) {
+	var user AdminUser
+	err := r.db.Where("username = ?", username).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &user, nil
 }
 
 // Create creates a new admin user
@@ -62,11 +75,16 @@ func (r *Repository) Update(admin *AdminUser) error {
 
 // UpdatePassword updates an admin user's password
 func (r *Repository) UpdatePassword(id uint, passwordHash string) error {
-	return r.db.Model(&AdminUser{}).Where("id = ?", id).Update("password_hash", passwordHash).Error
+	return r.db.Model(&AdminUser{}).Where("id = ? AND role = 'admin'", id).Update("password_hash", passwordHash).Error
 }
 
 // UpdateLastLogin updates the last login timestamp
 func (r *Repository) UpdateLastLogin(id uint) error {
 	now := time.Now()
-	return r.db.Model(&AdminUser{}).Where("id = ?", id).Update("last_login_at", now).Error
+	return r.db.Model(&AdminUser{}).Where("id = ? AND role = 'admin'", id).Update("last_login_at", now).Error
+}
+
+// UpdateRole updates a user's role
+func (r *Repository) UpdateRole(id uint, role string) error {
+	return r.db.Model(&AdminUser{}).Where("id = ?", id).Update("role", role).Error
 }

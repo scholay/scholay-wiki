@@ -11,6 +11,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
+import { Modal } from 'antd';
 import './FileTree.css';
 
 // 文件图标
@@ -104,10 +105,15 @@ function FileTreeItem({ item, level = 0, selectedFile, onSelect, onDelete, onRen
   }, [item.id, editName, onRename]);
 
   const handleDelete = useCallback(() => {
-    if (window.confirm(`确定要删除 "${item.title}" 吗？`)) {
-      onDelete?.(item.id);
-    }
     setShowContextMenu(false);
+    Modal.confirm({
+      title: '确认',
+      content: `确定要删除 "${item.title}" 吗？`,
+      okText: '确认',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: () => onDelete?.(item.id),
+    });
   }, [item, onDelete]);
 
   return (

@@ -32,6 +32,19 @@ export const isValidPhone = (phone) => {
 };
 
 /**
+ * 严格密码验证（注册/修改密码用）
+ * @param {string} password - 密码
+ * @returns {string} 错误信息，空字符串表示通过
+ */
+export const getPasswordError = (password) => {
+  if (password.length < 8) return '密码长度至少8位';
+  if (password.length > 32) return '密码长度不能超过32位';
+  if (!/[a-zA-Z]/.test(password)) return '密码必须包含字母';
+  if (!/[0-9]/.test(password)) return '密码必须包含数字';
+  return '';
+};
+
+/**
  * 验证密码强度
  * @param {string} password - 密码
  * @returns {Object} 验证结果 { valid, strength, message }

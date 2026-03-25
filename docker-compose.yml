@@ -149,29 +149,6 @@ services:
     networks:
       - scholar-network
 
-  frontend-admin:
-    build:
-      context: ./frontend-admin
-      dockerfile: Dockerfile
-      args:
-        REACT_APP_API_URL: ""
-    container_name: scholar_frontend_admin
-    restart: unless-stopped
-    logging: *default-logging
-    # Frontend不暴露端口,通过Nginx访问
-    expose:
-      - "80"
-    depends_on:
-      - backend
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-        reservations:
-          memory: 64M
-    networks:
-      - scholar-network
-
   frontend-user:
     build:
       context: ./frontend-user
@@ -202,14 +179,12 @@ services:
     logging: *default-logging
     ports:
       - "${HTTP_PORT:-5411}:80"
-      - "${ADMIN_PORT:-5455}:8001"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./data/nginx-cache:/var/cache/nginx
     depends_on:
       - backend
-      - frontend-admin
       - frontend-user
     deploy:
       resources:

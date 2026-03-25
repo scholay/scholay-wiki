@@ -492,7 +492,7 @@ export function calculatePreciseDiff(originalCode, newCode) {
   };
 }
 
-export default {
+const MessageParser = {
   parseAiMessage,
   parseStreamingMessage,
   isLatexCode,
@@ -501,3 +501,5 @@ export default {
   calculateCodeDiff,
   calculatePreciseDiff,
 };
+
+export default MessageParser;

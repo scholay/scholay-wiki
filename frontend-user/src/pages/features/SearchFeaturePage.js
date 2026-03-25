@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Search, Brain, Filter, BookOpen, Users, GitBranch, Database, Globe, Check } from 'lucide-react';
+import { Brain, Filter, BookOpen, Users, GitBranch, Database, Check } from 'lucide-react';
 import {
   FeatureNav, FeatureHero, FeatureStats, FeatureSectionHeader,
   FeatureGrid, FeatureSteps, FeatureCTA, FeatureFAQ, FeatureTags, SEO,

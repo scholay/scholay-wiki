@@ -6,26 +6,25 @@
  * All Rights Reserved.
  * ============================================================================
  * 
- * TopNavBar - 通用顶部导航栏组件
- * 
- * 功能：
- * 1. 左侧：菜单按钮（点击打开侧边栏）+ Logo
- * 2. 中间：面包屑导航 或 自定义内容
- * 3. 右侧：未登录显示登录按钮，已登录显示用户头像
+ * TopNavBar - 通用顶部导航栏组件（Ant Design 版）
  */
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import ReactDOM from 'react-dom';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Menu } from 'lucide-react';
+import { Dropdown, Badge, Button, Space } from 'antd';
+import {
+  MenuOutlined,
+  SettingOutlined,
+  LogoutOutlined,
+  SearchOutlined,
+  ToolOutlined,
+} from '@ant-design/icons';
 import { useTheme } from '../contexts/ThemeContext';
 import ThemeToggle from './ThemeToggle';
-import { NormalSearchIcon } from './SearchIcons';
 import MessageDropdown from './MessageDropdown';
 import { messageAPI } from '../services/api';
 import wsClient from '../services/websocket';
 import logger from '../utils/logger';
-import './styles/TopNavBar.css';
 import './MessageDropdown.css';
 
 const TopNavBar = ({
@@ -34,22 +33,15 @@ const TopNavBar = ({
   onMenuClick,
   onShowLogin,
   onLogout,
-  // 额外的右侧按钮
   rightButtons,
-  // 是否显示菜单按钮
   showMenuButton = true,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  useTheme(); // 确保主题 context 可用
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  // 站内信相关状态
+  const { theme: currentTheme } = useTheme();
+  const isDark = currentTheme === 'dark';
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
-  const userMenuRef = useRef(null);
-  const avatarRef = useRef(null);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
 
-  // 获取未读消息数量
   const fetchUnreadCount = useCallback(async () => {
     try {
       const response = await messageAPI.getUnreadCount();
@@ -61,7 +53,6 @@ const TopNavBar = ({
     }
   }, []);
 
-  // 监听 WebSocket 未读数更新（实时更新小红点）
   useEffect(() => {
     const unsubscribe = wsClient.on('unreadCount', (data) => {
       logger.debug('[TopNavBar] WebSocket unread count update:', data);
@@ -72,7 +63,6 @@ const TopNavBar = ({
     return unsubscribe;
   }, []);
 
-  // 获取未读消息
   useEffect(() => {
     if (user) {
       fetchUnreadCount();
@@ -81,51 +71,6 @@ const TopNavBar = ({
     }
   }, [user, fetchUnreadCount]);
 
-
-  // 点击外部关闭用户菜单
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // 检查是否点击了消息弹窗（通过 Portal 渲染在 body 上）
-      const messageModal = document.querySelector('.msg-modal-overlay');
-      
-      if (showUserMenu &&
-          userMenuRef.current &&
-          !userMenuRef.current.contains(event.target) &&
-          avatarRef.current &&
-          !avatarRef.current.contains(event.target) &&
-          (!messageModal || !messageModal.contains(event.target))) {
-        setShowUserMenu(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showUserMenu]);
-
-  // 更新菜单位置
-  const updateMenuPosition = () => {
-    if (avatarRef.current) {
-      const rect = avatarRef.current.getBoundingClientRect();
-      setMenuPosition({
-        top: rect.bottom + 8,
-        right: window.innerWidth - rect.right
-      });
-    }
-  };
-
-  useEffect(() => {
-    if (showUserMenu) {
-      updateMenuPosition();
-      window.addEventListener('resize', updateMenuPosition);
-      window.addEventListener('scroll', updateMenuPosition);
-      return () => {
-        window.removeEventListener('resize', updateMenuPosition);
-        window.removeEventListener('scroll', updateMenuPosition);
-      };
-    }
-  }, [showUserMenu]);
-
-  // 获取用户头像首字母
   const getUserInitial = () => {
     if (!user) return '?';
     const displayName = user.username || user.email;
@@ -133,194 +78,357 @@ const TopNavBar = ({
     return displayName.charAt(0).toUpperCase();
   };
 
-  // 获取用户显示名（简短，用于顶部导航）
   const getUserDisplayName = () => {
     if (!user) return '用户';
-    // 优先使用用户名
     if (user.username) return user.username;
-    // 其次使用邮箱前缀
     if (user.email) {
       const emailPrefix = user.email.split('@')[0];
       return emailPrefix.length > 10 ? emailPrefix.substring(0, 10) + '...' : emailPrefix;
     }
-    // 手机号隐藏中间4位
     if (user.phone) {
       return user.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
     }
-    // 微信名
     if (user.wechat_name) return user.wechat_name;
-    // GitHub 用户名
     if (user.github_login) return user.github_login;
     return '用户';
   };
 
-  const handleAvatarClick = async () => {
-    setShowUserMenu(!showUserMenu);
-  };
+  const navItems = useMemo(() => [
+    {
+      key: 'search',
+      to: '/search',
+      icon: <SearchOutlined style={{ fontSize: 16 }} />,
+      label: '学术搜索',
+      active: location.pathname === '/search' || location.pathname === '/search-results',
+    },
+    {
+      key: 'assistant',
+      to: '/assistant',
+      icon: <ToolOutlined style={{ fontSize: 16 }} />,
+      label: '精品AI工具',
+      active: location.pathname === '/assistant' || location.pathname.startsWith('/chat') || location.pathname.startsWith('/peer-review'),
+    },
+  ], [location.pathname]);
+
+  const userDropdownItems = useMemo(() => ({
+    items: [
+      {
+        key: 'user-info',
+        type: 'group',
+        label: (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0' }}>
+            <div className="tnb-avatar-lg">{getUserInitial()}</div>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>{getUserDisplayName()}</span>
+          </div>
+        ),
+      },
+      { type: 'divider' },
+      {
+        key: 'messages',
+        label: (
+          <MessageDropdown
+            unreadCount={unreadMessageCount}
+            onUnreadCountChange={(countOrFn) => {
+              if (typeof countOrFn === 'function') {
+                setUnreadMessageCount(countOrFn);
+              } else {
+                setUnreadMessageCount(countOrFn);
+              }
+            }}
+          />
+        ),
+      },
+      { type: 'divider' },
+      {
+        key: 'theme',
+        label: (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={e => e.stopPropagation()}>
+            <ThemeToggle />
+            <span>主题切换</span>
+          </div>
+        ),
+      },
+      {
+        key: 'settings',
+        icon: <SettingOutlined />,
+        label: '设置',
+        onClick: () => navigate('/settings'),
+      },
+      { type: 'divider' },
+      {
+        key: 'logout',
+        icon: <LogoutOutlined />,
+        label: '退出登录',
+        danger: true,
+        onClick: () => {
+          if (onLogout) onLogout();
+          navigate('/search');
+        },
+      },
+    ],
+  }), [unreadMessageCount, navigate, onLogout, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
-      <header className="top-nav-bar">
-        {/* 左侧区域：菜单按钮 + 导航菜单 */}
-        <div className="top-nav-left navbar-left">
+      <header className="tnb-header">
+        {/* 左侧：菜单按钮 + 导航 */}
+        <div className="tnb-left">
           {showMenuButton && (
-            <button
-              className="top-nav-menu-btn"
+            <Button
+              type="text"
+              icon={<MenuOutlined />}
               onClick={onMenuClick}
+              className="tnb-menu-btn"
               aria-label="打开菜单"
-            >
-              <Menu size={22} />
-            </button>
+            />
           )}
-          
-          {/* 主导航菜单 */}
-          <nav className="top-nav-menu">
-            <Link 
-              to="/search" 
-              className={`nav-menu-item ${location.pathname === '/search' || location.pathname === '/search-results' ? 'active' : ''}`}
-            >
-              <NormalSearchIcon size={18} />
-              <span>学术搜索</span>
-            </Link>
-            <Link 
-              to="/assistant" 
-              className={`nav-menu-item ${location.pathname === '/assistant' || location.pathname.startsWith('/chat') || location.pathname.startsWith('/peer-review') ? 'active' : ''}`}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-              </svg>
-              <span>精品AI工具</span>
-            </Link>
+
+          {/* 桌面端导航菜单 */}
+          <nav className="tnb-nav">
+            {navItems.map(item => (
+              <Link
+                key={item.key}
+                to={item.to}
+                className={`tnb-nav-item ${item.active ? 'active' : ''}`}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </Link>
+            ))}
           </nav>
         </div>
 
-        {/* 右侧区域 */}
-        <div className="top-nav-right navbar-right">
-          {/* 额外的右侧按钮 */}
-          {rightButtons}
+        {/* 右侧 */}
+        <div className="tnb-right">
+          <Space size={8}>
+            {rightButtons}
 
-          {/* 用户区域 */}
-          {isAuthenticated ? (
-            // 已登录：显示用户头像 + 用户名
-            <div
-              ref={avatarRef}
-              className="top-nav-user"
-              onClick={handleAvatarClick}
-            >
-              <div className="top-nav-avatar">
-                {getUserInitial()}
-                {/* 未读消息红点 */}
-                {unreadMessageCount > 0 && (
-                  <span className={`um-avatar-badge ${unreadMessageCount > 99 ? '' : unreadMessageCount > 9 ? '' : 'dot'}`}>
-                    {unreadMessageCount > 99 ? '99+' : unreadMessageCount > 9 ? unreadMessageCount : ''}
-                  </span>
-                )}
-              </div>
-              <span className="top-nav-username">{getUserDisplayName()}</span>
-            </div>
-          ) : (
-            // 未登录：显示价格方案、主题切换、登录按钮
-            <div className="auth-buttons">
-              {/* 桌面端显示的按钮 */}
-              <div className="desktop-only">
-                <ThemeToggle />
-              </div>
-              <button
-                onClick={onShowLogin}
-                className="btn-auth btn-login-register desktop-only"
+            {isAuthenticated ? (
+              <Dropdown
+                menu={userDropdownItems}
+                trigger={['click']}
+                placement="bottomRight"
+                overlayClassName="tnb-user-dropdown"
+                overlayStyle={{ minWidth: 280 }}
               >
-                登录 / 注册
-              </button>
-              {/* 移动端显示的按钮 */}
-              <button
-                onClick={onShowLogin}
-                className="btn-auth btn-login-mobile mobile-only"
-              >
-                登录
-              </button>
-            </div>
-          )}
+                <div className="tnb-user-trigger">
+                  <Badge
+                    count={unreadMessageCount}
+                    size="small"
+                    offset={[-2, 2]}
+                    overflowCount={99}
+                  >
+                    <div className="tnb-avatar">{getUserInitial()}</div>
+                  </Badge>
+                  <span className="tnb-username">{getUserDisplayName()}</span>
+                </div>
+              </Dropdown>
+            ) : (
+              <Space size={8}>
+                <span className="tnb-desktop-only">
+                  <ThemeToggle />
+                </span>
+                <Button
+                  type="primary"
+                  onClick={onShowLogin}
+                  className="tnb-login-btn tnb-desktop-only"
+                >
+                  登录 / 注册
+                </Button>
+                <Button
+                  type="primary"
+                  size="small"
+                  onClick={onShowLogin}
+                  className="tnb-login-btn tnb-mobile-only"
+                  shape="round"
+                >
+                  登录
+                </Button>
+              </Space>
+            )}
+          </Space>
         </div>
       </header>
 
-      {/* 用户菜单弹窗 - 卡片分层式设计 */}
-      {showUserMenu && isAuthenticated && ReactDOM.createPortal(
-        <div
-          ref={userMenuRef}
-          className="top-nav-user-menu"
-          style={{
-            position: 'fixed',
-            top: `${menuPosition.top}px`,
-            right: `${menuPosition.right}px`,
-            zIndex: 10000
-          }}
-        >
-          {/* 卡片1: 用户信息 */}
-          <div className="um-card um-user-card">
-            <div className="um-user-info">
-              <div className="um-avatar">
-                {getUserInitial()}
-              </div>
-              <div className="um-user-detail">
-                <span className="um-username">{getUserDisplayName()}</span>
-              </div>
-            </div>
-          </div>
+      <style>{`
+        /* ===== TopNavBar 内联样式 ===== */
+        .tnb-header {
+          height: 56px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 1.5rem;
+          background: transparent;
+          flex-shrink: 0;
+          z-index: 100;
+        }
 
-          {/* 消息通知入口 */}
-          <div className="um-card um-message-card">
-            <MessageDropdown
-              unreadCount={unreadMessageCount}
-              onUnreadCountChange={(countOrFn) => {
-                if (typeof countOrFn === 'function') {
-                  setUnreadMessageCount(countOrFn);
-                } else {
-                  setUnreadMessageCount(countOrFn);
-                }
-              }}
-            />
-          </div>
+        .tnb-left {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
 
-          {/* 底部操作区域 */}
-          <div className="um-footer">
-            <div className="um-theme-toggle">
-              <ThemeToggle />
-            </div>
-            <button
-              className="um-footer-btn um-settings-btn"
-              onClick={() => {
-                setShowUserMenu(false);
-                navigate('/settings');
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-              </svg>
-              <span>设置</span>
-            </button>
-            <button
-              className="um-footer-btn um-logout-btn"
-              onClick={() => {
-                setShowUserMenu(false);
-                if (onLogout) {
-                  onLogout();
-                }
-                navigate('/search');
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-              <span>退出</span>
-            </button>
-          </div>
-        </div>,
-        document.body
-      )}
+        .tnb-menu-btn {
+          color: ${isDark ? 'rgba(255,255,255,0.7)' : 'var(--text-secondary, #666)'} !important;
+          width: 36px;
+          height: 36px;
+          border-radius: 8px !important;
+        }
+        .tnb-menu-btn:hover {
+          color: ${isDark ? '#fff' : 'var(--text-primary, #1a1a1a)'} !important;
+          background: ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)'} !important;
+        }
 
+        .tnb-nav {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          margin-left: 8px;
+        }
+
+        .tnb-nav-item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 14px;
+          font-size: 14px;
+          font-weight: 500;
+          color: ${isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)'};
+          text-decoration: none;
+          border-radius: 8px;
+          transition: all 0.2s ease;
+          white-space: nowrap;
+        }
+        .tnb-nav-item:hover {
+          color: ${isDark ? '#fff' : '#1a1a1a'};
+          background: ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)'};
+        }
+        .tnb-nav-item.active {
+          color: ${isDark ? '#fff' : 'var(--primary-solid, #10a37f)'};
+          background: ${isDark ? 'rgba(16,163,127,0.2)' : 'rgba(16,163,127,0.1)'};
+        }
+
+        .tnb-right {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .tnb-user-trigger {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+          padding: 4px 12px 4px 4px;
+          border-radius: 20px;
+          transition: all 0.2s ease;
+        }
+        .tnb-user-trigger:hover {
+          background: ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)'};
+        }
+
+        .tnb-avatar {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, var(--primary-solid, #10a37f) 0%, var(--primary-dark, #0d8a6a) 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          font-size: 13px;
+          font-weight: 600;
+          border: 2px solid rgba(16,163,127,0.3);
+          transition: all 0.2s ease;
+        }
+        .tnb-user-trigger:hover .tnb-avatar {
+          transform: scale(1.05);
+          box-shadow: 0 2px 12px rgba(16,163,127,0.4);
+          border-color: rgba(16,163,127,0.5);
+        }
+
+        .tnb-avatar-lg {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, var(--primary-solid, #10a37f) 0%, var(--primary-dark, #0d8a6a) 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          font-size: 17px;
+          font-weight: 600;
+          flex-shrink: 0;
+          box-shadow: 0 4px 12px rgba(16,163,127,0.3);
+        }
+
+        .tnb-username {
+          font-size: 14px;
+          font-weight: 500;
+          color: ${isDark ? 'rgba(255,255,255,0.9)' : '#1a1a1a'};
+          max-width: 120px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .tnb-login-btn {
+          border-radius: 12px !important;
+          font-weight: 500 !important;
+        }
+
+        .tnb-desktop-only { display: inline-flex; }
+        .tnb-mobile-only { display: none !important; }
+
+        /* Dropdown 样式覆盖 */
+        .tnb-user-dropdown .ant-dropdown-menu {
+          padding: 8px;
+          border-radius: 16px !important;
+          min-width: 280px;
+        }
+        .tnb-user-dropdown .ant-dropdown-menu-item {
+          border-radius: 10px;
+        }
+        .tnb-user-dropdown .ant-dropdown-menu-item-group-title {
+          padding: 8px 12px;
+        }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 768px) {
+          .tnb-header {
+            padding: 0 12px;
+            height: 52px;
+          }
+          .tnb-nav {
+            display: none;
+          }
+          .tnb-username {
+            display: none;
+          }
+          .tnb-avatar {
+            width: 30px;
+            height: 30px;
+            font-size: 12px;
+          }
+          .tnb-user-trigger {
+            padding: 4px;
+          }
+          .tnb-desktop-only {
+            display: none !important;
+          }
+          .tnb-mobile-only {
+            display: inline-flex !important;
+          }
+        }
+
+        @media (max-width: 375px) {
+          .tnb-login-btn.tnb-mobile-only {
+            padding: 4px 14px !important;
+            font-size: 13px !important;
+          }
+        }
+      `}</style>
     </>
   );
 };

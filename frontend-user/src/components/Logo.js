@@ -6,7 +6,7 @@
  * All Rights Reserved.
  * ============================================================================
  * 
- * Logo 组件 - 根据主题自动切换日间/夜间模式的 Logo
+ * Logo 组件 - 统一的 Logo，支持 user / admin 变体
  */
 
 import React from 'react';
@@ -17,15 +17,21 @@ import { useTheme } from '../contexts/ThemeContext';
  * @param {number} size - Logo 尺寸（宽度，高度会按比例自动计算）
  * @param {string} className - 额外的 CSS 类名
  * @param {object} style - 额外的内联样式
+ * @param {'user'|'admin'} variant - 变体: 'user' (跟随主题) 或 'admin' (手动控制颜色)
+ * @param {string} strokeOverride - 手动指定描边颜色（仅 variant='admin' 时生效）
  */
-const Logo = ({ size = 32, className = '', style = {}, ...props }) => {
+const Logo = ({ size = 32, className = '', style = {}, variant = 'user', strokeOverride, ...props }) => {
   const { isDark } = useTheme();
   
-  // 根据宽度计算高度，保持原始比例 (771:900 ≈ 0.857)
   const width = size;
   const height = Math.round(size * (900 / 771));
   
-  const strokeColor = isDark ? 'white' : 'black';
+  let strokeColor;
+  if (variant === 'admin' && strokeOverride) {
+    strokeColor = strokeOverride;
+  } else {
+    strokeColor = isDark ? 'white' : 'black';
+  }
   
   return (
     <svg 
@@ -79,5 +85,38 @@ export const LogoWithText = ({
   );
 };
 
-export default Logo;
+/**
+ * LogoWithBackground 组件 - 带背景的 Logo（用于登录页等）
+ * @param {number} size - 整体尺寸
+ * @param {string} bgColor - 背景颜色
+ * @param {number} borderRadius - 圆角大小
+ */
+export const LogoWithBackground = ({ 
+  size = 48, 
+  bgColor = '#2563eb', 
+  borderRadius = 12,
+  className = '',
+  style = {}
+}) => {
+  const logoSize = Math.round(size * 0.6);
+  
+  return (
+    <div 
+      className={className}
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: bgColor,
+        borderRadius: borderRadius,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...style
+      }}
+    >
+      <Logo size={logoSize} variant="admin" strokeOverride="white" />
+    </div>
+  );
+};
 
+export default Logo;

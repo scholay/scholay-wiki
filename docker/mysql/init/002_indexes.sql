@@ -40,6 +40,8 @@ CALL safe_create_index('admin_users', 'idx_status',
 -- ============================================
 CALL safe_create_index('users', 'idx_status',
     'CREATE INDEX `idx_status` ON `users` (`status`)');
+CALL safe_create_index('users', 'idx_users_role',
+    'CREATE INDEX `idx_users_role` ON `users` (`role`)');
 CALL safe_create_index('users', 'idx_subscription_plan',
     'CREATE INDEX `idx_subscription_plan` ON `users` (`subscription_plan`)');
 CALL safe_create_index('users', 'idx_location',

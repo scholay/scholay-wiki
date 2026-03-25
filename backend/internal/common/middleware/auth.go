@@ -154,8 +154,11 @@ func (v *DBSessionValidator) InvalidateSession(token string) {}
 // InvalidateUserSessions 数据库验证器不需要缓存失效
 func (v *DBSessionValidator) InvalidateUserSessions(userID uint) {}
 
-// AuthMiddleware validates JWT tokens
-func AuthMiddleware(requiredType string) gin.HandlerFunc {
+// AuthMiddleware validates JWT tokens.
+// allowedTypes specifies which JWT types are accepted (e.g. "user", "admin").
+// If no types are specified, any valid JWT is accepted.
+// Session validation only applies to tokens with type "user".
+func AuthMiddleware(allowedTypes ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var token string
 
@@ -186,21 +189,30 @@ func AuthMiddleware(requiredType string) gin.HandlerFunc {
 			return
 		}
 
-		// Check user type if required
-		if requiredType != "" && claims.Type != requiredType {
-			utils.Unauthorized(c, "Insufficient permissions")
-			c.Abort()
-			return
+		// Check user type against allowed types
+		if len(allowedTypes) > 0 {
+			typeAllowed := false
+			for _, t := range allowedTypes {
+				if claims.Type == t {
+					typeAllowed = true
+					break
+				}
+			}
+			if !typeAllowed {
+				utils.Unauthorized(c, "Insufficient permissions")
+				c.Abort()
+				return
+			}
 		}
 
-		// 验证会话是否存在（单点登录检查）
-		// 只对用户端进行会话验证，管理端不验证
-		if requiredType == "user" {
+		// Session validation for "user" type tokens only (SSO check).
+		// Admin tokens do not use session management.
+		if claims.Type == "user" {
 			if globalSessionValidator == nil {
 				log.Println("[SSO] Warning: globalSessionValidator is nil")
 			} else {
-			valid := globalSessionValidator.ValidateSession(token)
-			if !valid {
+				valid := globalSessionValidator.ValidateSession(token)
+				if !valid {
 					preview := token
 					if len(preview) > 50 {
 						preview = preview[:50]
@@ -217,7 +229,7 @@ func AuthMiddleware(requiredType string) gin.HandlerFunc {
 		c.Set("user_id", claims.UserID)
 		c.Set("username", claims.Username)
 		c.Set("user_type", claims.Type)
-		c.Set("token", token) // 保存 token 供后续使用
+		c.Set("token", token)
 
 		c.Next()
 	}
@@ -228,7 +240,7 @@ func AdminAuthMiddleware() gin.HandlerFunc {
 	return AuthMiddleware("admin")
 }
 
-// UserAuthMiddleware validates user JWT tokens
+// UserAuthMiddleware validates user JWT tokens (also allows admin access)
 func UserAuthMiddleware() gin.HandlerFunc {
-	return AuthMiddleware("user")
+	return AuthMiddleware("user", "admin")
 }

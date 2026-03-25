@@ -131,9 +131,10 @@ type RegisterRequest struct {
 	TurnstileToken string `json:"turnstile_token"`
 }
 
-// LoginRequest represents a login request
+// LoginRequest represents a login request (supports email or username)
 type LoginRequest struct {
-	Email          string `json:"email" binding:"required,email"`
+	Email          string `json:"email"`
+	Username       string `json:"username"`
 	Password       string `json:"password" binding:"required"`
 	TurnstileToken string `json:"turnstile_token"`
 }
@@ -248,7 +249,7 @@ func (h *Handler) Register(c *gin.Context) {
 	})
 }
 
-// Login handles user login
+// Login handles user login (supports both email and username)
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -256,35 +257,47 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	// Get system configuration
-	systemConfig, err := h.service.GetSystemConfig()
-	if err != nil {
-		utils.Error(c, 5000, "Failed to get system configuration")
-		return
-	}
-
-	// Verify Turnstile token (if enabled)
 	ip := c.ClientIP()
-	if valid, err := turnstile.VerifyWithConfig(req.TurnstileToken, ip, systemConfig); !valid {
-		errMsg := "人机验证失败"
+	var user *User
+	var token string
+	var loginErr error
+
+	if req.Username != "" {
+		// Username-based login (admin) — no Turnstile, no session
+		user, token, loginErr = h.service.LoginWithUsername(req.Username, req.Password, ip)
+	} else if req.Email != "" {
+		// Email-based login (regular user) — with Turnstile + session
+		systemConfig, err := h.service.GetSystemConfig()
 		if err != nil {
-			errMsg = err.Error()
+			utils.Error(c, 5000, "Failed to get system configuration")
+			return
 		}
-		utils.Error(c, 4001, errMsg)
+
+		if valid, err := turnstile.VerifyWithConfig(req.TurnstileToken, ip, systemConfig); !valid {
+			errMsg := "人机验证失败"
+			if err != nil {
+				errMsg = err.Error()
+			}
+			utils.Error(c, 4001, errMsg)
+			return
+		}
+
+		user, token, loginErr = h.service.LoginWithEmail(req.Email, req.Password, ip)
+	} else {
+		utils.BadRequest(c, "Email or username is required")
 		return
 	}
 
-	user, token, err := h.service.LoginWithEmail(req.Email, req.Password, ip)
-	if err != nil {
-		utils.Error(c, 2003, err.Error())
+	if loginErr != nil {
+		utils.Error(c, 2003, loginErr.Error())
 		return
 	}
 
-	// Create session for the user
-	// Session expires in 30 days, but token expires in 2 hours
-	// Client should refresh token before it expires
-	userAgent := c.GetHeader("User-Agent")
-	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
+	// Create session only for regular users (admin tokens skip SSO)
+	if user.Role == "user" {
+		userAgent := c.GetHeader("User-Agent")
+		_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour)
+	}
 
 	utils.Success(c, AuthResponse{
 		Token: token,

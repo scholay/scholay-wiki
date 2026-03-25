@@ -25,6 +25,7 @@ export function useLatexConversation(documentId) {
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [isInitialized, setIsInitialized] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState(null);

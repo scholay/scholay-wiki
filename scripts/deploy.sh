@@ -35,8 +35,6 @@ NC='\033[0m'
 # 镜像完整名称
 BACKEND_IMAGE="${REGISTRY}/${NAMESPACE}/backend:${VERSION}"
 FRONTEND_USER_IMAGE="${REGISTRY}/${NAMESPACE}/frontend-user:${VERSION}"
-FRONTEND_ADMIN_IMAGE="${REGISTRY}/${NAMESPACE}/frontend-admin:${VERSION}"
-
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  Scholar 服务器部署工具${NC}"
 echo -e "${GREEN}========================================${NC}"
@@ -71,10 +69,6 @@ pull_images() {
     
     echo "拉取 frontend-user..."
     docker pull ${FRONTEND_USER_IMAGE}
-    echo ""
-    
-    echo "拉取 frontend-admin..."
-    docker pull ${FRONTEND_ADMIN_IMAGE}
     echo ""
     
     echo -e "${GREEN}镜像拉取完成${NC}"

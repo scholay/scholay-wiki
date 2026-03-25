@@ -427,62 +427,34 @@
   }
 
   /* ============================================
-     移动端分页器优化
+     移动端 antd 分页器优化
      ============================================ */
-  .pagination {
-    flex-wrap: wrap;
-    gap: 12px;
+  .antd-pagination-wrapper {
+    width: 100%;
     padding: 20px 16px 24px;
     justify-content: center;
   }
 
-  .page-size-selector {
-    width: 100%;
+  .antd-pagination-wrapper .ant-pagination {
+    flex-wrap: wrap;
     justify-content: center;
-    order: 3;
-    padding-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    margin-top: 4px;
-  }
-
-  [data-theme="light"] .page-size-selector {
-    border-top-color: rgba(0, 0, 0, 0.06);
-  }
-
-  .page-size-label {
-    font-size: 12px;
-  }
-
-  .page-size-select {
-    font-size: 12px;
-    padding: 6px 28px 6px 12px;
-  }
-
-  .pagination-btn {
-    padding: 10px 16px;
-    font-size: 14px;
-    min-height: 44px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.06);
-  }
-
-  .pagination-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  [data-theme="light"] .pagination-btn {
-    background: var(--surface);
-  }
-
-  .pagination-pages {
     gap: 4px;
   }
 
-  .pagination-page {
-    min-width: 40px;
-    height: 40px;
+  .antd-pagination-wrapper .ant-pagination-item {
+    min-width: 36px;
+    height: 36px;
+    line-height: 36px;
     font-size: 14px;
     border-radius: 8px;
+  }
+
+  .antd-pagination-wrapper .ant-pagination-options {
+    margin-inline-start: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: 8px;
   }
 
   /* ============================================

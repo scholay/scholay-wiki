@@ -10,7 +10,7 @@
  * 定义所有可用的 AI 操作命令
  */
 
-import { TASK_PROMPTS, SECTION_PROMPTS } from './LatexPrompts';
+import { SECTION_PROMPTS } from './LatexPrompts';
 
 /**
  * 命令图标 SVG

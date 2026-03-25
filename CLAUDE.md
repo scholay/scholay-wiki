@@ -6,8 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Scholar is an academic search platform with AI-powered features. It consists of:
 - **Backend**: Go (Gin framework) + MySQL + GORM + Redis
-- **Frontend User Portal**: React 18 (modern, innovative design)
-- **Frontend Admin Dashboard**: React 18 (flat, professional design)
+- **Frontend**: React 18 (unified user portal + admin dashboard, admin accessible at `/admin`)
 - **Infrastructure**: Docker Compose with Nginx reverse proxy
 - **Caching**: Redis for session management and API key caching
 
@@ -33,12 +32,12 @@ docker exec -it scholar_redis redis-cli
 cd backend && go test ./...
 
 # Run frontend dev server
-cd frontend-user && npm start  # or frontend-admin
+cd frontend-user && npm start
 ```
 
 **URLs** (check .env for actual ports):
 - User Portal: http://localhost:5411
-- Admin Dashboard: http://localhost:5455
+- Admin Dashboard: http://localhost:5411/admin
 - Default admin: `admin` / `adminadmin`
 
 ## Essential Commands
@@ -58,14 +57,12 @@ docker-compose logs -f
 # View logs for specific service
 docker logs scholar_backend -f
 docker logs scholar_frontend_user -f
-docker logs scholar_frontend_admin -f
 docker logs scholar_mysql -f
 docker logs scholar_redis -f
 
 # Restart specific service after code changes
 docker-compose restart backend
 docker-compose restart frontend-user
-docker-compose restart frontend-admin
 
 # Rebuild specific service after major changes
 docker-compose up -d --build backend
@@ -97,13 +94,7 @@ go tool cover -html=coverage.out
 ### Frontend Development
 
 ```bash
-# Admin Dashboard
-cd frontend-admin
-npm install
-npm start        # Development server on port 3000
-npm run build    # Production build (optimized, no source maps)
-
-# User Portal
+# Frontend (User Portal + Admin Dashboard)
 cd frontend-user
 npm install
 npm run copy-pdf-worker  # Copy PDF.js worker (required for PDF preview)
@@ -180,8 +171,8 @@ docker exec -it scholar_redis redis-cli MONITOR
 # Health check (via Nginx - check actual port from .env)
 curl http://localhost:5411/health
 
-# Admin login (use actual ADMIN_PORT from .env)
-curl -X POST http://localhost:5455/api/v1/admin/login \
+# Admin login (use actual HTTP_PORT from .env)
+curl -X POST http://localhost:5411/api/v1/admin/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"adminadmin"}'
 
@@ -260,17 +251,15 @@ curl -X PUT "http://localhost:5455/api/v1/admin/github-oauth/config" \
 
 The project uses Nginx as a reverse proxy to provide unified entry points and solve CORS issues:
 
-- **HTTP_PORT** (configured in .env) → User Portal (frontend-user + backend API via `/api/*`)
+- **HTTP_PORT** (configured in .env) → Unified Frontend (frontend-user + backend API via `/api/*`)
   - Nginx listens on port 80 internally, mapped to HTTP_PORT (default: 5411) on host
   - Config: `nginx/conf.d/user.conf`
-- **ADMIN_PORT** (configured in .env) → Admin Dashboard (frontend-admin + backend API via `/api/*`)
-  - Nginx listens on port 8001 internally, mapped to ADMIN_PORT (default: 5455) on host
-  - Config: `nginx/conf.d/admin.conf`
+  - Admin dashboard accessible at `/admin` path (same port, same frontend)
 - **Internal**: MySQL (3306), Backend (8080), Redis (6379) are NOT exposed to host
 
 **How it works**:
-- User requests → Nginx:80 (HTTP_PORT) → Routes `/api/*` to backend:8080, `/` to frontend-user:80
-- Admin requests → Nginx:8001 (ADMIN_PORT) → Routes `/api/*` to backend:8080, `/` to frontend-admin:80
+- All requests → Nginx:80 (HTTP_PORT) → Routes `/api/*` to backend:8080, `/` to frontend-user:80
+- Admin pages at `/admin/*` are part of the same React SPA, handled by React Router
 - All frontend-to-backend API calls go through Nginx, enabling same-origin requests
 - Backend containers communicate via internal Docker network (`scholar-network`)
 
@@ -723,7 +712,7 @@ The backend runs several background tasks for performance and maintenance:
 1. Create component in `src/pages/`
 2. Add route in `src/App.js`
 3. Create API service method in `src/services/api.js` if needed
-4. Rebuild container: `docker-compose up -d --build frontend-user` (or frontend-admin)
+4. Rebuild container: `docker-compose up -d --build frontend-user`
 
 ### Working with Third-party API Keys
 
@@ -805,7 +794,7 @@ Key variables in `.env`:
 - `MYSQL_*` - Database credentials
 - `REDIS_PASSWORD` - Redis password (optional, currently empty)
 - `SEMANTIC_SCHOLAR_API_KEY` - Optional (uses free tier if not set)
-- Port mappings: `HTTP_PORT` (user portal port, default: 5411), `ADMIN_PORT` (admin dashboard port, default: 5455)
+- Port mappings: `HTTP_PORT` (unified frontend port, default: 5411)
 
 **SigNoz Observability** (optional):
 - `SIGNOZ_ENDPOINT` - SigNoz collector endpoint (e.g., `198.44.187.186:4318`)
@@ -899,7 +888,7 @@ The following tools are used in various operations:
 
 **Development URLs** (check `.env` for actual port configuration):
 - User Portal: http://localhost:${HTTP_PORT} (default in current setup: 5411)
-- Admin Dashboard: http://localhost:${ADMIN_PORT} (default in current setup: 5455)
+- Admin Dashboard: http://localhost:${HTTP_PORT}/admin (default in current setup: 5411/admin)
 - Backend API: http://localhost:8080 (internal only, access via Nginx)
 - Health Check: http://localhost:8080/health (internal only)
 
@@ -919,8 +908,7 @@ The following tools are used in various operations:
 
 If you encounter port conflicts, edit `.env` and change port mappings:
 ```
-HTTP_PORT=5411    # Change to any available port for user portal
-ADMIN_PORT=5455   # Change to any available port for admin dashboard
+HTTP_PORT=5411    # Change to any available port
 ```
 Then restart services: `docker-compose down && docker-compose up -d --build`
 
@@ -934,7 +922,7 @@ Then restart services: `docker-compose down && docker-compose up -d --build`
 ### Frontend Build Fails
 
 ```bash
-cd frontend-user  # or frontend-admin
+cd frontend-user
 rm -rf node_modules package-lock.json
 npm install
 docker-compose up -d --build frontend-user

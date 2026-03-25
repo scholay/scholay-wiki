@@ -11,62 +11,15 @@
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
+import { computeSimpleDiff } from '../../utils/diff';
 import './DiffViewer.css';
-
-// 简单的 diff 算法
-function computeDiff(oldText, newText) {
-  const oldLines = oldText.split('\n');
-  const newLines = newText.split('\n');
-  const result = [];
-  
-  let i = 0, j = 0;
-  
-  while (i < oldLines.length || j < newLines.length) {
-    if (i >= oldLines.length) {
-      // 新增的行
-      result.push({ type: 'add', content: newLines[j], lineNumber: j + 1 });
-      j++;
-    } else if (j >= newLines.length) {
-      // 删除的行
-      result.push({ type: 'remove', content: oldLines[i], lineNumber: i + 1 });
-      i++;
-    } else if (oldLines[i] === newLines[j]) {
-      // 相同的行
-      result.push({ type: 'same', content: oldLines[i], lineNumber: i + 1 });
-      i++;
-      j++;
-    } else {
-      // 找到下一个匹配点
-      let foundInNew = newLines.slice(j).indexOf(oldLines[i]);
-      let foundInOld = oldLines.slice(i).indexOf(newLines[j]);
-      
-      if (foundInNew === -1 && foundInOld === -1) {
-        // 都找不到，标记为修改
-        result.push({ type: 'remove', content: oldLines[i], lineNumber: i + 1 });
-        result.push({ type: 'add', content: newLines[j], lineNumber: j + 1 });
-        i++;
-        j++;
-      } else if (foundInNew === -1 || (foundInOld !== -1 && foundInOld < foundInNew)) {
-        // 在旧文本中找到，说明新文本有新增
-        result.push({ type: 'add', content: newLines[j], lineNumber: j + 1 });
-        j++;
-      } else {
-        // 在新文本中找到，说明旧文本有删除
-        result.push({ type: 'remove', content: oldLines[i], lineNumber: i + 1 });
-        i++;
-      }
-    }
-  }
-  
-  return result;
-}
 
 function DiffViewer({ oldContent, newContent, onAccept, onReject, title = 'Diff 对比' }) {
   const [viewMode, setViewMode] = useState('split'); // 'split' | 'unified'
   
   // 计算 diff
   const diffResult = useMemo(() => {
-    return computeDiff(oldContent, newContent);
+    return computeSimpleDiff(oldContent, newContent);
   }, [oldContent, newContent]);
   
   // 统计变化
@@ -99,7 +52,6 @@ function DiffViewer({ oldContent, newContent, onAccept, onReject, title = 'Diff 
   const renderSplitView = useCallback(() => {
     const oldLines = oldContent.split('\n');
     const newLines = newContent.split('\n');
-    const maxLines = Math.max(oldLines.length, newLines.length);
     
     return (
       <div className="diff-viewer-split">

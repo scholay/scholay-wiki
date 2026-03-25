@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `bio` TEXT COMMENT '用户简介',
   `location` VARCHAR(100) COMMENT '用户位置',
   `website` VARCHAR(255) COMMENT '个人网站',
+  `role` VARCHAR(20) NOT NULL DEFAULT 'user' COMMENT 'user, admin',
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '1=active, 0=inactive, 2=suspended',
   `email_verified` BOOLEAN NOT NULL DEFAULT FALSE,
   `phone_verified` BOOLEAN NOT NULL DEFAULT FALSE,

@@ -1,42 +1,18 @@
-/**
- * ============================================================================
- * Scholay学术 V1.0
- * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
- * 统一社会信用代码: 91510100MAEEHRNE26
- * All Rights Reserved.
- * ============================================================================
- */
-
 import React, { memo } from 'react';
-import './PaperListSkeleton.css';
+import { Skeleton, Card } from 'antd';
 
 const PaperListSkeleton = memo(() => {
-  // Create an array of 10 skeleton items
-  const skeletonItems = Array(10).fill(null);
-
   return (
-    <div className="paper-list-skeleton">
-      {skeletonItems.map((_, index) => (
-        <div key={index} className="skeleton-paper-card">
-          <div className="skeleton-content">
-          <div className="skeleton-header">
-            <div className="skeleton-title skeleton-shimmer"></div>
-            <div className="skeleton-title-second skeleton-shimmer"></div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {Array(8).fill(null).map((_, index) => (
+        <Card key={index} size="small" style={{ borderRadius: 'var(--radius)' }}>
+          <Skeleton active title={{ width: '70%' }} paragraph={{ rows: 2, width: ['90%', '60%'] }} />
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <Skeleton.Button active size="small" style={{ width: 60 }} />
+            <Skeleton.Button active size="small" style={{ width: 60 }} />
+            <Skeleton.Button active size="small" style={{ width: 60 }} />
           </div>
-          <div className="skeleton-meta">
-            <div className="skeleton-authors skeleton-shimmer"></div>
-          </div>
-          <div className="skeleton-abstract">
-            <div className="skeleton-line skeleton-shimmer"></div>
-              <div className="skeleton-line skeleton-shimmer" style={{ width: '90%' }}></div>
-          </div>
-          <div className="skeleton-footer">
-            <div className="skeleton-badge skeleton-shimmer"></div>
-            <div className="skeleton-badge skeleton-shimmer"></div>
-            <div className="skeleton-badge skeleton-shimmer"></div>
-            </div>
-          </div>
-        </div>
+        </Card>
       ))}
     </div>
   );

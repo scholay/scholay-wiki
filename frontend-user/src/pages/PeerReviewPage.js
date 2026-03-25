@@ -30,6 +30,8 @@ import { exportToWord, exportToPDF, exportToPPT } from '../utils/peer-review/exp
 import PeerReviewCreateSection from '../components/PeerReviewCreateSection';
 import ReviewStepsProgress from '../components/ReviewStepsProgress';
 import { trackAIPeerReview } from '../utils/usageTracker';
+import { Spin, Result, Dropdown, Tag, Button } from 'antd';
+import { DownloadOutlined, FileWordOutlined, FilePdfOutlined, DesktopOutlined } from '@ant-design/icons';
 import SEO from '../components/SEO';
 import logger from '../utils/logger';
 
@@ -1106,9 +1108,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask, taskStep
       <div className="prvr-page">
         <div className="prvr-loading">
           <div className="prvr-loading-content">
-            <div className="prvr-spinner"></div>
-            <h3>正在加载审稿报告...</h3>
-            <p>请稍候</p>
+            <Spin size="large" tip="正在加载审稿报告..." />
           </div>
         </div>
       </div>
@@ -1120,13 +1120,12 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask, taskStep
     return (
       <div className="prvr-page">
         <div className="prvr-loading">
-          <div className="prvr-loading-content">
-            <h3>未找到任务</h3>
-            <p>任务可能已被删除</p>
-            <button className="prvr-btn prvr-btn-secondary" onClick={onBack}>
-              返回列表
-            </button>
-          </div>
+          <Result
+            status="404"
+            title="未找到任务"
+            subTitle="任务可能已被删除"
+            extra={<Button onClick={onBack}>返回列表</Button>}
+          />
         </div>
       </div>
     );
@@ -1363,7 +1362,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask, taskStep
                   <span className="prvr-analysis-label">关键词</span>
                   <div className="prvr-analysis-tags">
                     {task.manuscript_meta.keywords.map((keyword, idx) => (
-                      <span key={idx} className="prvr-analysis-tag">{keyword}</span>
+                      <Tag key={idx} color="blue">{keyword}</Tag>
                     ))}
                   </div>
                 </div>
@@ -1443,51 +1442,18 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask, taskStep
                 )}
                 
                 {/* 导出按钮 */}
-                <div className="prvr-export-dropdown">
-                  <button className="prvr-export-btn" title="导出报告">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="7 10 12 15 17 10"/>
-                      <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    导出
-                  </button>
-                  <div className="prvr-export-menu">
-                    <button 
-                      className="prvr-export-item"
-                      onClick={() => exportToWord(task, parsedReport)}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                      </svg>
-                      Word 文档
-                    </button>
-                    <button 
-                      className="prvr-export-item"
-                      onClick={() => exportToPDF(task, parsedReport)}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                      </svg>
-                      PDF 文档
-                    </button>
-                    <button 
-                      className="prvr-export-item"
-                      onClick={() => exportToPPT(task, parsedReport)}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                        <line x1="8" y1="21" x2="16" y2="21"/>
-                        <line x1="12" y1="17" x2="12" y2="21"/>
-                      </svg>
-                      PPT 演示
-                    </button>
-                  </div>
-                </div>
+                <Dropdown
+                  menu={{
+                    items: [
+                      { key: 'word', icon: <FileWordOutlined />, label: 'Word 文档', onClick: () => exportToWord(task, parsedReport) },
+                      { key: 'pdf', icon: <FilePdfOutlined />, label: 'PDF 文档', onClick: () => exportToPDF(task, parsedReport) },
+                      { key: 'ppt', icon: <DesktopOutlined />, label: 'PPT 演示', onClick: () => exportToPPT(task, parsedReport) },
+                    ],
+                  }}
+                  trigger={['click']}
+                >
+                  <Button className="prvr-export-btn" icon={<DownloadOutlined />}>导出</Button>
+                </Dropdown>
               </div>
             )}
           </div>
@@ -1503,18 +1469,12 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask, taskStep
         {/* 错误状态 */}
         {isFailed && (
           <div className="prvr-error">
-            <div className="prvr-error-icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="15" y1="9" x2="9" y2="15"/>
-                <line x1="9" y1="9" x2="15" y2="15"/>
-              </svg>
-            </div>
-            <h3>审稿失败</h3>
-            <p>{task.error_message || '处理过程中发生错误，请重试'}</p>
-            <button className="prvr-btn prvr-btn-secondary" onClick={onDelete}>
-              删除任务
-            </button>
+            <Result
+              status="error"
+              title="审稿失败"
+              subTitle={task.error_message || '处理过程中发生错误，请重试'}
+              extra={<Button danger onClick={onDelete}>删除任务</Button>}
+            />
           </div>
         )}
 

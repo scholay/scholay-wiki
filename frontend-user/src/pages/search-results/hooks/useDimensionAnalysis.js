@@ -32,6 +32,7 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const analysisAbortedRef = useRef(false);
+  // eslint-disable-next-line no-unused-vars
   const analysisSessionRef = useRef(0);
 
   const dimensionDropdownRef = useRef(null);

@@ -14,10 +14,11 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Languages, BarChart3, BookOpen,
-  MessageSquare, FileCheck2, Check, ChevronDown, ArrowRight,
+  MessageSquare, FileCheck2, Check, ArrowRight,
   Sparkles, Shield, Zap, GraduationCap, FlaskConical, Building2,
   UserPlus, Target, Upload, TrendingUp, Star
 } from 'lucide-react';
+import { Button, Collapse } from 'antd';
 import SEO from '../components/SEO';
 import './styles/LandingPage.css';
 
@@ -483,7 +484,6 @@ function MockReviewReport() {
    ═══════════════════════════════════════════ */
 export default function LandingPage() {
   const navigate = useNavigate();
-  const [expandedFaq, setExpandedFaq] = useState(null);
   const toolsRef = useRef(null);
 
   const scrollToTools = () => toolsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -548,8 +548,8 @@ export default function LandingPage() {
               ))}
             </motion.div>
             <motion.div className="landing-hero-actions" variants={fadeUp}>
-              <button className="landing-btn-primary landing-btn-lg" onClick={() => navigate('/peer-review')}>立即体验智能审稿 <ArrowRight size={18} /></button>
-              <button className="landing-btn-secondary" onClick={scrollToTools}>了解全部 7 大功能</button>
+              <Button type="primary" size="large" className="landing-btn-primary landing-btn-lg" onClick={() => navigate('/peer-review')}>立即体验智能审稿 <ArrowRight size={18} /></Button>
+              <Button size="large" className="landing-btn-secondary" onClick={scrollToTools}>了解全部 7 大功能</Button>
             </motion.div>
             <motion.div className="landing-hero-trust" variants={fadeUp}>
               <div className="landing-trust-avatars">
@@ -592,7 +592,7 @@ export default function LandingPage() {
                 </motion.div>
               ))}
               <motion.div className="landing-star-cta" variants={fadeUp}>
-                <button className="landing-btn-star" onClick={() => navigate('/peer-review')}>立即体验智能审稿 <ArrowRight size={18} /></button>
+                <Button type="primary" size="large" className="landing-btn-star" onClick={() => navigate('/peer-review')}>立即体验智能审稿 <ArrowRight size={18} /></Button>
                 <span className="landing-star-note">免费试用 · 无需绑定支付方式</span>
               </motion.div>
             </motion.div>
@@ -763,15 +763,18 @@ export default function LandingPage() {
             <span className="landing-section-eyebrow">常见问题</span>
             <h2 className="landing-section-title">有疑问？这里有答案</h2>
           </motion.div>
-          <motion.div className="landing-faq-list" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-40px' }} variants={stagger}>
-            {FAQ_DATA.map((faq, i) => (
-              <motion.div key={i} className={`landing-faq-item ${expandedFaq === i ? 'expanded' : ''}`} variants={fadeUp}>
-                <button className="landing-faq-question" onClick={() => setExpandedFaq(expandedFaq === i ? null : i)}>
-                  <span>{faq.q}</span><ChevronDown size={20} className="landing-faq-chevron" />
-                </button>
-                <div className="landing-faq-answer"><p>{faq.a}</p></div>
-              </motion.div>
-            ))}
+          <motion.div className="landing-faq-list" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-40px' }} variants={fadeUp}>
+            <Collapse
+              accordion
+              ghost
+              className="landing-faq-collapse"
+              expandIconPosition="end"
+              items={FAQ_DATA.map((faq, i) => ({
+                key: String(i),
+                label: <span className="landing-faq-question-text">{faq.q}</span>,
+                children: <p className="landing-faq-answer-text">{faq.a}</p>,
+              }))}
+            />
           </motion.div>
         </section>
 
@@ -781,8 +784,8 @@ export default function LandingPage() {
           <h2>开启你的 AI 科研之旅</h2>
           <p>免费注册即可使用基础功能，立即体验 AI 如何改变你的研究方式。</p>
           <div className="landing-cta-buttons">
-            <button className="landing-btn-primary landing-btn-lg" onClick={() => navigate('/search')}>免费开始使用 <ArrowRight size={18} /></button>
-            <button className="landing-btn-secondary" onClick={() => navigate('/peer-review')}>体验智能审稿</button>
+            <Button type="primary" size="large" className="landing-btn-primary landing-btn-lg" onClick={() => navigate('/search')}>免费开始使用 <ArrowRight size={18} /></Button>
+            <Button size="large" className="landing-btn-secondary" onClick={() => navigate('/peer-review')}>体验智能审稿</Button>
           </div>
         </motion.section>
       </main>

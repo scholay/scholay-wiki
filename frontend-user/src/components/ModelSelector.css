@@ -12,100 +12,26 @@
   display: inline-block;
 }
 
-/* 紧凑模式的选择器 */
 .model-selector.compact {
   display: inline-flex;
 }
 
-/* 模型选择器按钮 - Premium Glassmorphism (与筛选按钮一致) */
-.model-selector-btn {
+/* Show-only display */
+.model-selector.show-only .model-selector-display {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 11px 18px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  color: rgba(255, 255, 255, 0.7);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  flex-shrink: 0;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  white-space: nowrap;
-  font-family: inherit;
-  position: relative;
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  letter-spacing: 0.2px;
-}
-
-/* 紧凑模式按钮样式 */
-.model-selector-btn.compact {
   padding: 6px 10px;
-  border-radius: 12px;
   font-size: 12px;
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: none;
-  gap: 5px;
+  font-weight: 500;
   color: rgba(255, 255, 255, 0.7);
 }
 
-.model-selector-btn.compact:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.9);
+[data-theme="light"] .model-selector.show-only .model-selector-display {
+  color: #374151;
 }
 
-.model-selector-btn.compact .model-icon svg {
-  width: 13px;
-  height: 13px;
-}
-
-.model-selector-btn.compact .model-label {
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.model-selector-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.85);
-  border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.model-selector-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* 展开状态样式 (与筛选按钮一致) */
-.model-selector-btn.open {
-  background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 0.25) 0%, 
-    rgba(16, 163, 127, 0.15) 100%);
-  color: var(--text-primary);
-  border-color: rgba(16, 163, 127, 0.3);
-  box-shadow: 
-    0 2px 8px rgba(16, 163, 127, 0.3),
-    0 0 0 1px rgba(16, 163, 127, 0.3),
-    inset 0 1px 2px rgba(255, 255, 255, 0.15);
-}
-
-.model-selector-btn.open:hover {
-  background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 0.3) 0%, 
-    rgba(16, 163, 127, 0.2) 100%);
-}
-
+/* Common icon & label styles */
 .model-icon {
   display: flex;
   align-items: center;
@@ -113,7 +39,6 @@
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .model-icon svg {
@@ -122,706 +47,225 @@
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
 }
 
-.model-selector-btn.open .model-icon {
-  color: var(--text-accent);
-  transform: scale(1.08);
-  filter: drop-shadow(0 2px 4px rgba(16, 163, 127, 0.4));
-}
-
 .model-label {
   line-height: 1;
   font-size: 13px;
   letter-spacing: 0.2px;
 }
 
-.dropdown-arrow {
-  flex-shrink: 0;
-  transition: transform 0.2s;
-  opacity: 0.6;
+/* Antd Select - brand styling */
+.model-antd-select.ant-select {
+  min-width: 120px;
 }
 
-.dropdown-arrow.open {
-  transform: rotate(180deg);
-  opacity: 1;
+.model-antd-select .ant-select-selector {
+  padding: 4px 8px !important;
+  height: auto !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 24px !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-.model-selector-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1002;
-  background: transparent;
-  cursor: default;
+.model-antd-select .ant-select-selection-item {
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 13px;
+  font-weight: 500;
 }
 
-.model-selector-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  min-width: 240px;
-  background: linear-gradient(135deg, 
-    rgb(26, 26, 28) 0%, 
-    rgb(20, 20, 22) 100%);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
+.model-antd-select .ant-select-arrow {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 10px;
+}
+
+.model-antd-select.ant-select:hover .ant-select-selector {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.model-antd-select.ant-select-open .ant-select-selector {
+  background: linear-gradient(135deg,
+    rgba(16, 163, 127, 0.25) 0%,
+    rgba(16, 163, 127, 0.15) 100%) !important;
+  border-color: rgba(16, 163, 127, 0.3) !important;
+  box-shadow:
+    0 2px 8px rgba(16, 163, 127, 0.3),
+    0 0 0 1px rgba(16, 163, 127, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.15) !important;
+}
+
+.model-antd-select.ant-select-open .ant-select-selection-item {
+  color: var(--text-primary) !important;
+}
+
+.model-antd-select.ant-select-open .ant-select-arrow {
+  color: var(--text-accent);
+}
+
+/* Select option label inner */
+.model-select-option-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Dropdown popup styling */
+.model-antd-dropdown.ant-select-dropdown {
+  background: linear-gradient(135deg,
+    rgb(26, 26, 28) 0%,
+    rgb(20, 20, 22) 100%) !important;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   padding: 4px;
-  box-shadow: 
-    0 20px 50px rgba(0, 0, 0, 0.6), 
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.6),
     0 0 0 1px rgba(16, 163, 127, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  z-index: 1003;
-  animation: popupFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  /* 防止闪烁和布局抖动 */
-  will-change: transform, opacity;
-  transform-origin: top left;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  /* 初始状态 - 防止未渲染前可见 */
-  opacity: 0;
-  transform: translateY(-8px) scale(0.96);
+  min-width: 240px !important;
 }
 
-/* 右对齐下拉菜单 */
-.model-selector-dropdown.align-right {
-  left: auto;
-  right: 0;
-  transform-origin: top right;
-}
-
-@keyframes popupFadeIn {
-  0% {
-    opacity: 0;
-    transform: translateY(-8px) scale(0.96);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.dropdown-header {
-  display: none; /* 隐藏标题，减少冗余 */
-}
-
-.model-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  background: transparent;
-  border: none;
+.model-antd-dropdown .ant-select-item {
   border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.15s ease;
-  width: 100%;
-  text-align: left;
+  padding: 8px 10px;
   margin-bottom: 2px;
 }
 
-.model-option:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
+.model-antd-dropdown .ant-select-item-option-active:not(.ant-select-item-option-selected) {
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 
-.model-option.selected {
-  background: rgba(16, 163, 127, 0.15);
+.model-antd-dropdown .ant-select-item-option-selected {
+  background: rgba(16, 163, 127, 0.15) !important;
+  font-weight: 500;
 }
 
-.model-option:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+/* Custom option render */
+.model-option-render {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.model-option-header {
-  flex: 1;
-  min-width: 0;
+.model-option-info {
   display: flex;
   flex-direction: column;
   gap: 1px;
 }
 
-.model-option-icon-wrapper {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
-}
-
-.model-option.selected .model-option-icon-wrapper {
-  background: rgba(16, 163, 127, 0.18);
-}
-
-.model-option-icon-wrapper svg {
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.model-option.selected .model-option-icon-wrapper svg {
-  color: var(--text-accent);
-}
-
-.model-option-top {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.model-option-label {
+.model-option-info .model-option-label {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
   line-height: 1.2;
-  flex: 1;
 }
 
-.check-icon {
-  color: #10a37f;
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  filter: drop-shadow(0 1px 2px rgba(16, 163, 127, 0.3));
-}
-
-.model-option-desc {
+.model-option-info .model-option-desc {
   font-size: 11px;
   color: var(--text-tertiary);
   line-height: 1.2;
 }
 
-
-/* 响应式 - 平板 */
-@media (max-width: 768px) {
-  .model-selector-btn {
-    padding: 8px 12px;
-    font-size: 12px;
-    gap: 5px;
-    border-radius: 18px;
-  }
-
-  .model-icon {
-    width: 14px;
-    height: 14px;
-  }
-
-  .model-icon svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  .model-label {
-    font-size: 12px;
-  }
-
-  .dropdown-arrow svg {
-    width: 12px;
-    height: 12px;
-  }
-
-  .model-selector-dropdown {
-    min-width: 280px;
-    left: auto;
-    right: 0;
-    padding: 4px;
-    border-radius: 14px;
-  }
-
-  .model-option {
-    padding: 8px;
-    gap: 8px;
-    border-radius: 8px;
-  }
-
-  .model-option-icon-wrapper {
-    width: 36px;
-    height: 36px;
-  }
-
-  .model-option-label {
-    font-size: 13px;
-  }
-
-  .model-option-desc {
-    font-size: 12px;
-  }
-
-  .dropdown-header {
-    padding: 10px 12px 6px;
-    font-size: 10px;
-  }
-}
-
-/* 响应式 - 手机 */
-@media (max-width: 640px) {
-  .model-selector-btn {
-    padding: 0 10px;
-    font-size: 12px;
-    border-radius: 14px;
-    gap: 4px;
-    height: 32px;
-    line-height: 1;
-  }
-
-  .model-icon {
-    width: 14px;
-    height: 14px;
-  }
-
-  .model-icon svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  .model-label {
-    font-size: 12px;
-  }
-
-  .dropdown-arrow svg {
-    width: 10px;
-    height: 10px;
-  }
-
-  /* 移动端弹窗 - 底部弹出样式 */
-  .model-selector-overlay {
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-  }
-
-  .model-selector-dropdown {
-    position: fixed;
-    left: 12px !important;
-    right: 12px !important;
-    bottom: 12px !important;
-    top: auto !important;
-    transform: none !important;
-    min-width: auto;
-    max-width: calc(100% - 24px);
-    max-height: 60vh;
-    overflow-y: auto;
-    border-radius: 20px;
-    padding: 0;
-    animation: slideUpModal 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    border: none;
-  }
-
-  [data-theme="dark"] .model-selector-dropdown {
-    background: rgba(28, 28, 30, 0.98);
-    box-shadow: 
-      0 25px 50px rgba(0, 0, 0, 0.5),
-      0 0 0 1px rgba(255, 255, 255, 0.08);
-  }
-
-  [data-theme="light"] .model-selector-dropdown {
-    background: rgba(255, 255, 255, 0.98);
-    box-shadow: 
-      0 25px 50px rgba(0, 0, 0, 0.2),
-      0 0 0 1px rgba(0, 0, 0, 0.05);
-  }
-
-  @keyframes slideUpModal {
-    from {
-      opacity: 0;
-      transform: translateY(20px) scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-
-  /* 弹窗头部 */
-  .dropdown-header {
-    padding: 16px 20px 12px;
-    font-size: 13px;
-    font-weight: 600;
-    text-align: center;
-    text-transform: none;
-    letter-spacing: 0;
-    border-bottom: none;
-  }
-
-  [data-theme="dark"] .dropdown-header {
-    color: rgba(255, 255, 255, 0.9);
-  }
-
-  [data-theme="light"] .dropdown-header {
-    color: #1a1a1a;
-  }
-
-  /* 模型选项列表 */
-  .model-selector-dropdown .model-option {
-    display: flex;
-    align-items: center;
-    padding: 14px 16px;
-    margin: 0;
-    border-radius: 0;
-    gap: 14px;
-    border-bottom: 1px solid rgba(128, 128, 128, 0.1);
-    background: transparent;
-  }
-
-  .model-selector-dropdown .model-option:last-child {
-    border-bottom: none;
-  }
-
-  .model-selector-dropdown .model-option:active {
-    background: rgba(128, 128, 128, 0.1);
-  }
-
-  /* 选中状态 */
-  .model-selector-dropdown .model-option.selected {
-    background: rgba(16, 163, 127, 0.08);
-    border: none;
-    border-bottom: 1px solid rgba(128, 128, 128, 0.1);
-  }
-
-  [data-theme="dark"] .model-selector-dropdown .model-option.selected {
-    background: rgba(16, 163, 127, 0.12);
-  }
-
-  /* 图标包装器 - 更简洁 */
-  .model-selector-dropdown .model-option-icon-wrapper {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    flex-shrink: 0;
-  }
-
-  [data-theme="dark"] .model-selector-dropdown .model-option-icon-wrapper {
-    background: rgba(255, 255, 255, 0.06);
-    border: none;
-  }
-
-  [data-theme="light"] .model-selector-dropdown .model-option-icon-wrapper {
-    background: rgba(0, 0, 0, 0.04);
-  }
-
-  .model-selector-dropdown .model-option.selected .model-option-icon-wrapper {
-    background: rgba(16, 163, 127, 0.15);
-  }
-
-  .model-selector-dropdown .model-option-icon-wrapper svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  /* 文字区域 */
-  .model-selector-dropdown .model-option-header {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .model-selector-dropdown .model-option-label {
-    font-size: 15px;
-    font-weight: 500;
-    margin-bottom: 2px;
-  }
-
-  [data-theme="dark"] .model-selector-dropdown .model-option-label {
-    color: rgba(255, 255, 255, 0.95);
-  }
-
-  [data-theme="light"] .model-selector-dropdown .model-option-label {
-    color: #1a1a1a;
-  }
-
-  .model-selector-dropdown .model-option.selected .model-option-label {
-    color: #10a37f;
-    font-weight: 600;
-  }
-
-  .model-selector-dropdown .model-option-desc {
-    font-size: 13px;
-    line-height: 1.3;
-  }
-
-  [data-theme="dark"] .model-selector-dropdown .model-option-desc {
-    color: rgba(255, 255, 255, 0.5);
-  }
-
-  [data-theme="light"] .model-selector-dropdown .model-option-desc {
-    color: rgba(0, 0, 0, 0.5);
-  }
-
-  /* 勾选图标 */
-  .model-selector-dropdown .check-icon {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-  }
-
-}
-
-/* 小屏手机 */
-@media (max-width: 375px) {
-  .model-selector-btn {
-    padding: 5px 8px;
-    font-size: 10px;
-  }
-
-  .model-label {
-    font-size: 10px;
-  }
-
-  .model-selector-dropdown {
-    min-width: 240px;
-  }
-}
-
-/* ============================================
-   暗色主题样式
-   ============================================ */
-
-/* 模型选择器按钮 - 暗色主题 (与筛选按钮一致) */
-[data-theme="dark"] .model-selector-btn {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.7);
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-[data-theme="dark"] .model-selector-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.85);
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-[data-theme="dark"] .model-selector-btn.open {
-  background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 0.25) 0%, 
-    rgba(16, 163, 127, 0.15) 100%);
-  border-color: rgba(16, 163, 127, 0.3);
-  color: var(--text-primary);
-  box-shadow: 
-    0 2px 8px rgba(16, 163, 127, 0.3),
-    0 0 0 1px rgba(16, 163, 127, 0.3),
-    inset 0 1px 2px rgba(255, 255, 255, 0.15);
-}
-
-/* 下拉菜单 - 暗色主题完全不透明背景 */
-[data-theme="dark"] .model-selector-dropdown {
-  background: linear-gradient(135deg, 
-    rgb(26, 26, 28) 0%, 
-    rgb(20, 20, 22) 100%);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 
-    0 40px 100px rgba(0, 0, 0, 0.9),
-    0 0 0 1px rgba(16, 163, 127, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-/* 下拉头部 - 暗色主题 */
-[data-theme="dark"] .dropdown-header {
-  display: none;
-}
-
-/* 模型选项 - 暗色主题 */
-[data-theme="dark"] .model-option {
-  background: rgba(255, 255, 255, 0.03);
-  transition: all 0.15s ease;
-  border-radius: 8px;
-}
-
-[data-theme="dark"] .model-option:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="dark"] .model-option.selected {
-  background: linear-gradient(135deg,
-    rgba(16, 163, 127, 0.15) 0%,
-    rgba(16, 163, 127, 0.08) 100%);
-  border: 1px solid rgba(16, 163, 127, 0.2);
-  box-shadow: 
-    0 2px 8px rgba(16, 163, 127, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-[data-theme="dark"] .model-option-icon-wrapper {
-  background: rgba(255, 255, 255, 0.04);
-  border: none;
-}
-
-[data-theme="dark"] .model-option.selected .model-option-icon-wrapper {
-  background: rgba(16, 163, 127, 0.12);
-}
-
-/* 文字颜色 - 暗色主题 */
-[data-theme="dark"] .model-option-label {
-  color: rgba(255, 255, 255, 0.9);
-}
-
-[data-theme="dark"] .model-option-desc {
-  color: rgba(255, 255, 255, 0.6);
-}
-
-[data-theme="dark"] .model-option.selected .model-option-label {
-  color: rgba(255, 255, 255, 0.95);
+.ant-select-item-option-selected .model-option-info .model-option-label {
+  color: #10a37f;
   font-weight: 600;
 }
 
-[data-theme="dark"] .model-option.selected .model-option-desc {
-  color: rgba(16, 163, 127, 0.9);
+.ant-select-item-option-selected .model-option-info .model-option-desc {
+  color: rgba(16, 163, 127, 0.8);
 }
 
-
-/* 紧凑模式 - 暗色主题 */
-[data-theme="dark"] .model-selector-btn.compact {
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.7);
+/* Compact mode */
+.model-selector.compact .model-antd-select .ant-select-selector {
+  padding: 2px 6px !important;
+  border-radius: 12px !important;
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
-[data-theme="dark"] .model-selector-btn.compact:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.9);
+.model-selector.compact .model-antd-select .ant-select-selection-item {
+  font-size: 12px;
 }
 
-[data-theme="dark"] .model-selector-btn.compact.open {
-  background: rgba(16, 163, 127, 0.15);
-  border-color: rgba(16, 163, 127, 0.25);
-  color: rgba(255, 255, 255, 0.95);
+.model-selector.compact .model-icon svg {
+  width: 13px;
+  height: 13px;
 }
-
-/* 禁用状态 - 暗色主题 */
-[data-theme="dark"] .model-option:disabled {
-  opacity: 0.3;
-  background: rgba(255, 255, 255, 0.02);
-}
-
 
 /* ============================================
-   日间模式样式
+   Light theme
    ============================================ */
-
-/* 模型选择器按钮 - 日间模式 */
-[data-theme="light"] .model-selector-btn {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(0, 0, 0, 0.1);
-  color: #374151;
-  box-shadow: 
+[data-theme="light"] .model-antd-select .ant-select-selector {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.1),
     0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
-[data-theme="light"] .model-selector-btn:hover:not(:disabled) {
-  background: #ffffff;
-  border-color: #10a37f;
-  color: #111827;
-  box-shadow: 
-    0 4px 6px rgba(0, 0, 0, 0.1),
-    0 2px 4px rgba(0, 0, 0, 0.06);
+[data-theme="light"] .model-antd-select .ant-select-selection-item {
+  color: #374151 !important;
 }
 
-[data-theme="light"] .model-selector-btn.open {
-  background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 0.1) 0%, 
-    rgba(16, 163, 127, 0.05) 100%);
-  color: #10a37f;
-  border-color: #10a37f;
-  box-shadow: 
-    0 2px 8px rgba(16, 163, 127, 0.2),
-    0 0 0 1px rgba(16, 163, 127, 0.2);
-}
-
-[data-theme="light"] .model-selector-btn.open:hover {
-  background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 0.15) 0%, 
-    rgba(16, 163, 127, 0.08) 100%);
-}
-
-/* 紧凑模式按钮 - 日间模式 */
-[data-theme="light"] .model-selector-btn.compact {
-  background: transparent;
+[data-theme="light"] .model-antd-select .ant-select-arrow {
   color: #6b7280;
 }
 
-[data-theme="light"] .model-selector-btn.compact:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.05);
-  color: #374151;
+[data-theme="light"] .model-antd-select.ant-select:hover .ant-select-selector {
+  background: #ffffff !important;
+  border-color: #10a37f !important;
 }
 
-/* 下拉菜单 - 日间模式 */
-[data-theme="light"] .model-selector-dropdown {
-  background: #ffffff;
+[data-theme="light"] .model-antd-select.ant-select-open .ant-select-selector {
+  background: linear-gradient(135deg,
+    rgba(16, 163, 127, 0.1) 0%,
+    rgba(16, 163, 127, 0.05) 100%) !important;
+  border-color: #10a37f !important;
+  box-shadow:
+    0 2px 8px rgba(16, 163, 127, 0.2),
+    0 0 0 1px rgba(16, 163, 127, 0.2) !important;
+}
+
+[data-theme="light"] .model-antd-select.ant-select-open .ant-select-selection-item {
+  color: #10a37f !important;
+}
+
+[data-theme="light"] .model-antd-dropdown.ant-select-dropdown {
+  background: #ffffff !important;
   border: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 
+  box-shadow:
     0 20px 25px -5px rgba(0, 0, 0, 0.1),
     0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
-/* 模型选项 - 日间模式 */
-[data-theme="light"] .model-option {
-  color: #374151;
-  border: 1px solid transparent;
-  background: #ffffff;
+[data-theme="light"] .model-antd-dropdown .ant-select-item-option-active:not(.ant-select-item-option-selected) {
+  background: #f3f4f6 !important;
 }
 
-[data-theme="light"] .model-option:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
+[data-theme="light"] .model-antd-dropdown .ant-select-item-option-selected {
+  background: linear-gradient(135deg,
+    rgba(16, 163, 127, 0.12) 0%,
+    rgba(16, 163, 127, 0.08) 100%) !important;
 }
 
-[data-theme="light"] .model-option.selected {
-  background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 0.12) 0%, 
-    rgba(16, 163, 127, 0.08) 100%);
-  border-color: #10a37f;
-}
-
-[data-theme="light"] .model-option.selected:hover {
-  background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 0.18) 0%, 
-    rgba(16, 163, 127, 0.12) 100%);
-}
-
-[data-theme="light"] .model-option.selected .model-option-label {
-  color: #0d8a6b;
-  font-weight: 600;
-}
-
-[data-theme="light"] .model-option.selected .model-option-desc {
-  color: #10a37f;
-}
-
-[data-theme="light"] .model-option-label {
+[data-theme="light"] .model-option-info .model-option-label {
   color: #111827;
-  font-weight: 600;
 }
 
-[data-theme="light"] .model-option-desc {
+[data-theme="light"] .model-option-info .model-option-desc {
   color: #4b5563;
-  font-weight: 500;
 }
 
-[data-theme="light"] .model-badge {
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  color: #ffffff;
+[data-theme="light"] .ant-select-item-option-selected .model-option-info .model-option-label {
+  color: #0d8a6b;
 }
 
-[data-theme="light"] .dropdown-arrow {
-  color: #6b7280;
-}
-
-[data-theme="light"] .dropdown-arrow.open {
+[data-theme="light"] .ant-select-item-option-selected .model-option-info .model-option-desc {
   color: #10a37f;
 }
 
@@ -829,40 +273,78 @@
   color: #6b7280;
 }
 
-[data-theme="light"] .model-selector-btn.open .model-icon {
+[data-theme="light"] .model-antd-select.ant-select-open .model-icon {
   color: #10a37f;
-  filter: drop-shadow(0 2px 4px rgba(16, 163, 127, 0.2));
 }
 
-[data-theme="light"] .model-label {
-  color: inherit;
-}
-
-/* 下拉菜单标题 - 日间模式 */
-[data-theme="light"] .dropdown-header {
-  color: #6b7280;
-  font-weight: 700;
-}
-
-/* 模型选项图标包装器 - 日间模式 */
-[data-theme="light"] .model-option-icon-wrapper {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-[data-theme="light"] .model-option.selected .model-option-icon-wrapper {
-  background: rgba(16, 163, 127, 0.15);
-}
-
-[data-theme="light"] .model-option-icon-wrapper svg {
+/* Compact light */
+[data-theme="light"] .model-selector.compact .model-antd-select .ant-select-selector {
+  background: transparent !important;
   color: #6b7280;
 }
 
-[data-theme="light"] .model-option.selected .model-option-icon-wrapper svg {
-  color: #10a37f;
+[data-theme="light"] .model-selector.compact .model-antd-select:hover .ant-select-selector {
+  background: rgba(0, 0, 0, 0.05) !important;
 }
 
-/* 勾选图标 - 日间模式 */
-[data-theme="light"] .check-icon {
-  color: #10a37f;
+/* Responsive */
+@media (max-width: 768px) {
+  .model-antd-select .ant-select-selector {
+    padding: 2px 6px !important;
+    border-radius: 18px !important;
+  }
+
+  .model-antd-select .ant-select-selection-item {
+    font-size: 12px;
+  }
+
+  .model-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .model-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .model-label {
+    font-size: 12px;
+  }
 }
 
+@media (max-width: 640px) {
+  .model-antd-select .ant-select-selector {
+    padding: 0 6px !important;
+    border-radius: 14px !important;
+    min-height: 32px !important;
+  }
+
+  .model-antd-select .ant-select-selection-item {
+    font-size: 12px;
+  }
+
+  .model-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .model-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .model-label {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 375px) {
+  .model-antd-select .ant-select-selector {
+    padding: 0 4px !important;
+  }
+
+  .model-label {
+    font-size: 10px;
+  }
+}

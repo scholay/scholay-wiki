@@ -226,8 +226,8 @@ export const compileLaTeX = async (content, mainFileName = 'main.tex', options =
     await new Promise(resolve => setTimeout(resolve, 100));
 
     // 编译（运行三次以处理引用和目录）
-    const result1 = await engine.compileLaTeX();
-    const result2 = await engine.compileLaTeX();
+    await engine.compileLaTeX();
+    await engine.compileLaTeX();
     const result = await engine.compileLaTeX();
 
     setStatus('ready');
@@ -386,7 +386,7 @@ export const revokePdfUrl = (url) => {
   }
 };
 
-export default {
+const LatexCompiler = {
   initializeEngine,
   compileLaTeX,
   writeFile,
@@ -398,3 +398,5 @@ export default {
   setEngineType,
   getCurrentEngineType
 };
+
+export default LatexCompiler;

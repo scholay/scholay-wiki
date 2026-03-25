@@ -24,7 +24,7 @@
 
 .ai-history-dropdown-btn:hover {
   background: var(--background-hover, #333);
-  border-color: var(--border-color-hover, rgba(255, 255, 255, 0.2));
+  border-color: var(--border-hover, rgba(255, 255, 255, 0.2));
 }
 
 .ai-history-dropdown-btn.open {

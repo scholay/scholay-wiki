@@ -261,7 +261,48 @@ func (s *Service) LoginWithEmail(email, password, ip string) (*User, string, err
 	if user.Username != nil {
 		username = *user.Username
 	}
-	token, err := utils.GenerateToken(user.ID, username, "user")
+	role := user.Role
+	if role == "" {
+		role = "user"
+	}
+	token, err := utils.GenerateToken(user.ID, username, role)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return user, token, nil
+}
+
+// LoginWithUsername logs in a user with username and password (used for admin login)
+func (s *Service) LoginWithUsername(username, password, ip string) (*User, string, error) {
+	user, err := s.repo.FindByUsername(username)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if user == nil {
+		return nil, "", errors.New("invalid username or password")
+	}
+
+	if user.Status != 1 {
+		return nil, "", errors.New("account is inactive or suspended")
+	}
+
+	if user.PasswordHash == nil {
+		return nil, "", errors.New("password login not available for this account")
+	}
+
+	if !utils.CheckPassword(password, *user.PasswordHash) {
+		return nil, "", errors.New("invalid username or password")
+	}
+
+	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
+
+	role := user.Role
+	if role == "" {
+		role = "user"
+	}
+	token, err := utils.GenerateToken(user.ID, username, role)
 	if err != nil {
 		return nil, "", err
 	}

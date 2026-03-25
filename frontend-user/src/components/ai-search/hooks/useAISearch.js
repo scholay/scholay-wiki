@@ -8,7 +8,7 @@ import { useAuth } from '../../../utils/AuthContext';
 
 // 子 Hooks
 import { useConversationState } from './useConversationState';
-import { useSearchState } from './useSearchState';
+import { useAISearchStreamState } from './useAISearchStreamState';
 import { usePaperState } from './usePaperState';
 import { useDimensionState } from './useDimensionState';
 import { useUIState } from './useUIState';
@@ -26,7 +26,7 @@ export const useAISearch = () => {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
 
   // 搜索状态（包含 eventSourceRef）
-  const searchState = useSearchState();
+  const searchState = useAISearchStreamState();
 
   // 对话状态
   const conversationState = useConversationState(searchState.eventSourceRef);

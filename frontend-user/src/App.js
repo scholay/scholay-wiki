@@ -10,10 +10,13 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
-import { AuthProvider } from './utils/AuthContext';
+import { ConfigProvider, App as AntdApp, Spin } from 'antd';
+import zhCN from 'antd/locale/zh_CN';
+import { AuthProvider, useAuth } from './utils/AuthContext';
 import { ToastProvider } from './components/ToastContainer';
 import { SidebarProvider } from './contexts/SidebarContext';
-import { ThemeProvider } from './contexts/ThemeContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { darkTheme, lightTheme, adminTheme } from './theme/antdTheme';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './components/MainLayout';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -97,17 +100,47 @@ const SearchFeaturePage = lazyWithRetry(() => import('./pages/features/SearchFea
 const PeerReviewFeaturePage = lazyWithRetry(() => import('./pages/features/PeerReviewFeaturePage'), 'PeerReviewFeaturePage');
 const LaTeXFeaturePage = lazyWithRetry(() => import('./pages/features/LaTeXFeaturePage'), 'LaTeXFeaturePage');
 
-function App() {
+// Admin pages
+const AdminDashboardLayout = lazyWithRetry(() => import('./components/admin/DashboardLayout'), 'AdminDashboardLayout');
+const AdminDashboardHome = lazyWithRetry(() => import('./pages/admin/DashboardHome'), 'AdminDashboardHome');
+const AdminUserManagement = lazyWithRetry(() => import('./pages/admin/UserManagement'), 'AdminUserManagement');
+const AdminThirdPartyAccounts = lazyWithRetry(() => import('./pages/admin/ThirdPartyAccounts'), 'AdminThirdPartyAccounts');
+const AdminPromptTemplates = lazyWithRetry(() => import('./pages/admin/PromptTemplates'), 'AdminPromptTemplates');
+const AdminLatexAgentConfig = lazyWithRetry(() => import('./pages/admin/LatexAgentConfig'), 'AdminLatexAgentConfig');
+const AdminDefaultBusinessData = lazyWithRetry(() => import('./pages/admin/DefaultBusinessData'), 'AdminDefaultBusinessData');
+const AdminFeedbackManagement = lazyWithRetry(() => import('./pages/admin/FeedbackManagement'), 'AdminFeedbackManagement');
+const AdminHotContent = lazyWithRetry(() => import('./pages/admin/HotContent'), 'AdminHotContent');
+const AdminMessageManagement = lazyWithRetry(() => import('./pages/admin/MessageManagement'), 'AdminMessageManagement');
+const AdminMessageTemplates = lazyWithRetry(() => import('./pages/admin/MessageTemplates'), 'AdminMessageTemplates');
+const AdminCodeSnippets = lazyWithRetry(() => import('./pages/admin/CodeSnippets'), 'AdminCodeSnippets');
+const AdminSystemSettings = lazyWithRetry(() => import('./pages/admin/SystemSettings'), 'AdminSystemSettings');
+const AdminPrivateRoute = ({ children }) => {
+  const { isAuthenticated, user, loading } = useAuth();
+  if (loading) {
+    return <div style={{display:'flex',justifyContent:'center',alignItems:'center',height:'100vh'}}>
+      <Spin size="large" />
+    </div>;
+  }
+  if (!isAuthenticated || user?.role !== 'admin') {
+    return <Navigate to="/" />;
+  }
+  return (
+    <ConfigProvider theme={{ ...adminTheme }}>
+      {children}
+    </ConfigProvider>
+  );
+};
+
+function ThemedApp() {
+  const { isDark } = useTheme();
   const [showAuthModal, setShowAuthModal] = useState(false);
   
-  // 版本检测 - 检测到新版本时提示用户刷新
   const { hasUpdate, confirmUpdate, ignoreUpdate } = useVersionCheck({
-    checkInterval: 5 * 60 * 1000, // 每 5 分钟检查一次
-    enabled: process.env.NODE_ENV === 'production' // 只在生产环境启用
+    checkInterval: 5 * 60 * 1000,
+    enabled: process.env.NODE_ENV === 'production'
   });
   
   useEffect(() => {
-    // Listen for auth:required event from API interceptor
     const handleAuthRequired = () => {
       setShowAuthModal(true);
     };
@@ -119,17 +152,15 @@ function App() {
   }, []);
 
   return (
-    <ErrorBoundary showDetails={process.env.NODE_ENV === 'development'}>
-    <HelmetProvider>
-      <ThemeProvider>
-      <ToastProvider>
+    <ConfigProvider theme={isDark ? darkTheme : lightTheme} locale={zhCN}>
+      <AntdApp>
+        <ToastProvider>
         <AuthProvider>
-            <SidebarProvider>
-              <Router>
-                <Suspense fallback={<div style={{display:'flex',justifyContent:'center',alignItems:'center',height:'100vh',opacity:0.5}}>
-                  <div style={{width:32,height:32,border:'3px solid currentColor',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.8s linear infinite'}} />
-                  <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-                </div>}>
+          <SidebarProvider>
+            <Router>
+              <Suspense fallback={<div style={{display:'flex',justifyContent:'center',alignItems:'center',height:'100vh'}}>
+                <Spin size="large" />
+              </div>}>
                   <Routes>
                     {/* 营销落地页 - 独立布局，不使用 MainLayout */}
                     <Route path="/" element={<LandingPage />} />
@@ -195,6 +226,28 @@ function App() {
                     {/* GitHub callback - PUBLIC route (must be accessible without login for OAuth flow) */}
                     <Route path="/github/callback" element={<GithubCallback />} />
 
+                    {/* 管理台路由 - 通过统一登录，role=admin 才可访问 */}
+                    <Route path="/admin/login" element={<Navigate to="/" />} />
+                    <Route path="/admin/dashboard" element={
+                      <AdminPrivateRoute>
+                        <AdminDashboardLayout />
+                      </AdminPrivateRoute>
+                    }>
+                      <Route index element={<AdminDashboardHome />} />
+                      <Route path="users" element={<AdminUserManagement />} />
+                      <Route path="third-party-accounts" element={<AdminThirdPartyAccounts />} />
+                      <Route path="prompt-templates" element={<AdminPromptTemplates />} />
+                      <Route path="latex-agent-config" element={<AdminLatexAgentConfig />} />
+                      <Route path="default-business-data" element={<AdminDefaultBusinessData />} />
+                      <Route path="feedbacks" element={<AdminFeedbackManagement />} />
+                      <Route path="hot-content" element={<AdminHotContent />} />
+                      <Route path="messages" element={<AdminMessageManagement />} />
+                      <Route path="message-templates" element={<AdminMessageTemplates />} />
+                      <Route path="code-snippets" element={<AdminCodeSnippets />} />
+                      <Route path="settings" element={<AdminSystemSettings />} />
+                    </Route>
+                    <Route path="/admin" element={<Navigate to="/admin/dashboard" />} />
+
                     {/* 404 页面 - 显示自定义 404 页面，利于 SEO 和 AdSense 审核 */}
                     <Route path="*" element={<NotFoundPage />} />
                   </Routes>
@@ -229,9 +282,20 @@ function App() {
               </Router>
             </SidebarProvider>
         </AuthProvider>
-      </ToastProvider>
-    </ThemeProvider>
-    </HelmetProvider>
+        </ToastProvider>
+      </AntdApp>
+    </ConfigProvider>
+  );
+}
+
+function App() {
+  return (
+    <ErrorBoundary showDetails={process.env.NODE_ENV === 'development'}>
+      <HelmetProvider>
+        <ThemeProvider>
+          <ThemedApp />
+        </ThemeProvider>
+      </HelmetProvider>
     </ErrorBoundary>
   );
 }

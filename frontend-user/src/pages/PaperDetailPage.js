@@ -16,8 +16,9 @@ import Logo from '../components/Logo';
 import { generateScholarlyArticleSchema, generateBreadcrumbSchema, truncateText } from '../utils/seoHelpers';
 import { trackLandingPageView, trackLandingPageSearch, trackLandingPageSimilar, trackLandingPageTranslate } from '../utils/usageTracker';
 import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation } from '../utils/searchStorage';
-import { useTranslation, isPrimarilyChinese } from '../hooks/useTranslation';
+import { usePaperTranslation, isPrimarilyChinese } from '../hooks/usePaperTranslation';
 import { Languages } from 'lucide-react';
+import { Spin, Result, Tabs, Tag, Button, Space } from 'antd';
 import logger from '../utils/logger';
 import './PaperDetailPage.css';
 
@@ -78,7 +79,7 @@ const PaperDetailPage = () => {
   const isHoveringTitleRef = useRef(false); // 使用 ref 来跟踪 hover 状态，避免闭包问题
 
   // 翻译相关
-  const translation = useTranslation();
+  const translation = usePaperTranslation();
   const paperTransState = translation.getPaperTranslationState(paperId);
   const paperDisplayMode = translation.getPaperDisplayMode(paperId);
   const isPaperTranslating = paperTransState.status === 'translating';
@@ -452,8 +453,7 @@ const PaperDetailPage = () => {
     return (
       <div className="pd-page">
         <div className="pd-loading">
-          <div className="pd-loading-spinner"></div>
-          <p>Loading paper details...</p>
+          <Spin size="large" tip="Loading paper details..." />
         </div>
       </div>
     );
@@ -463,21 +463,17 @@ const PaperDetailPage = () => {
     return (
       <div className="pd-page">
         <div className="pd-error">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          <h2>Failed to load</h2>
-          <p>{error || 'Paper not found'}</p>
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-            <button onClick={handleLogoClick} className="pd-error-btn">
-              Back to Home
-            </button>
-            <button onClick={() => window.open(semanticScholarUrl, '_blank')} className="pd-error-btn secondary">
-              View on Semantic Scholar
-            </button>
-          </div>
+          <Result
+            status="warning"
+            title="Failed to load"
+            subTitle={error || 'Paper not found'}
+            extra={
+              <Space>
+                <Button type="primary" onClick={handleLogoClick}>Back to Home</Button>
+                <Button onClick={() => window.open(semanticScholarUrl, '_blank')}>View on Semantic Scholar</Button>
+              </Space>
+            }
+          />
         </div>
       </div>
     );
@@ -572,7 +568,7 @@ const PaperDetailPage = () => {
             
             {isSearching ? (
               <div className="pd-search-loading">
-                <div className="pd-loading-spinner small"></div>
+                <Spin size="small" />
                 <span>正在搜索...</span>
               </div>
             ) : searchError ? (
@@ -588,7 +584,7 @@ const PaperDetailPage = () => {
                     className="pd-search-result-item"
                   >
                     <h4 className="pd-result-title">
-                      <a href={`/paper/${result.paperId}`} target="_blank" rel="noopener" className="pd-result-link">
+                      <a href={`/paper/${result.paperId}`} target="_blank" rel="noreferrer" className="pd-result-link">
                         {result.title || 'Untitled'}
                       </a>
                     </h4>
@@ -872,7 +868,7 @@ const PaperDetailPage = () => {
           {paper.tldr && (
             <div className="pd-tldr-section">
               <div className="pd-tldr-header">
-                <span className="pd-tldr-badge">TLDR</span>
+                <Tag color="blue" className="pd-tldr-badge">TLDR</Tag>
               </div>
               <p className="pd-tldr-text">{paper.tldr.text}</p>
             </div>
@@ -933,7 +929,7 @@ const PaperDetailPage = () => {
               <a
                 href={`https://doi.org/${paper.externalIds.DOI}`}
                 target="_blank"
-                rel="noopener"
+                rel="noreferrer"
                 className="pd-action-btn"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -946,7 +942,7 @@ const PaperDetailPage = () => {
               <a
                 href={paper.openAccessPdf.url}
                 target="_blank"
-                rel="noopener"
+                rel="noreferrer"
                 className="pd-action-btn pd-pdf-btn"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -959,7 +955,7 @@ const PaperDetailPage = () => {
             <a
               href={getSciHubUrl(paper.externalIds?.DOI, paper.title)}
               target="_blank"
-              rel="noopener"
+              rel="noreferrer"
               className="pd-action-btn pd-scihub-btn"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -973,188 +969,157 @@ const PaperDetailPage = () => {
 
           {/* Citations & References Tab */}
           <div className="pd-content-section pd-citations-references-section">
-            {/* Tab 头部 */}
-            <div className="pd-tab-header">
-              <button
-                className={`pd-tab-btn ${activeTab === 'citations' ? 'active' : ''}`}
-                onClick={() => setActiveTab('citations')}
-              >
-                Citations
-                <span className="pd-tab-count">{paper.citationCount || 0}</span>
-              </button>
-              <button
-                className={`pd-tab-btn ${activeTab === 'references' ? 'active' : ''}`}
-                onClick={() => setActiveTab('references')}
-              >
-                References
-                <span className="pd-tab-count">{paper.referenceCount || 0}</span>
-              </button>
-            </div>
-
-            {/* Tab 内容 */}
-            <div className="pd-tab-content">
-              {activeTab === 'citations' && (
-                <div className="pd-citations-list">
-                  {paper.citations && paper.citations.length > 0 ? (
-                    paper.citations.map((citation, index) => (
-                      <div key={citation.paperId || index} className="pd-citation-item">
-                        <h3 className="pd-citation-title">
-                          <a href={`/paper/${citation.paperId}`} target="_blank" rel="noopener" className="pd-citation-link">
-                            {citation.title || 'Untitled'}
-                          </a>
-                        </h3>
-
-                        <div className="pd-citation-meta">
-                          {/* 作者 */}
-                          {citation.authors && citation.authors.length > 0 && (
-                            <>
-                              {citation.authors.slice(0, 5).map((author, i) => (
-                                <React.Fragment key={i}>
-                                  <span className="pd-citation-author">{author.name}</span>
-                                  {i < Math.min(citation.authors.length - 1, 4) && <span className="pd-author-separator">, </span>}
-                                </React.Fragment>
-                              ))}
-                              {citation.authors.length > 5 && <span className="pd-citation-author"> et al.</span>}
-                              <span className="pd-meta-dot"> · </span>
-                            </>
-                          )}
-
-                          {/* 出版信息 */}
-                          {citation.venue && (
-                            <>
-                              <span className="pd-citation-venue">{citation.venue}</span>
-                              {citation.year && <span> </span>}
-                            </>
-                          )}
-                          {citation.year && (
-                            <>
-                              <span className="pd-citation-year">{citation.year}</span>
-                              <span className="pd-meta-dot"> · </span>
-                            </>
-                          )}
-
-                          {/* 研究领域 */}
-                          {citation.s2FieldsOfStudy && citation.s2FieldsOfStudy.length > 0 && (
-                            <span className="pd-citation-fields">
-                              {citation.s2FieldsOfStudy.map(f => f.category).join(', ')}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* TLDR */}
-                        {citation.tldr && (
-                          <div className="pd-citation-tldr">
-                            <span className="pd-tldr-label">TLDR</span>
-                            <span className="pd-tldr-text-inline">{citation.tldr.text}</span>
+            <Tabs
+              activeKey={activeTab}
+              onChange={setActiveTab}
+              className="pd-tabs"
+              items={[
+                {
+                  key: 'citations',
+                  label: <span>Citations <span className="pd-tab-count">{paper.citationCount || 0}</span></span>,
+                  children: (
+                    <div className="pd-citations-list">
+                      {paper.citations && paper.citations.length > 0 ? (
+                        paper.citations.map((citation, index) => (
+                          <div key={citation.paperId || index} className="pd-citation-item">
+                            <h3 className="pd-citation-title">
+                              <a href={`/paper/${citation.paperId}`} target="_blank" rel="noreferrer" className="pd-citation-link">
+                                {citation.title || 'Untitled'}
+                              </a>
+                            </h3>
+                            <div className="pd-citation-meta">
+                              {citation.authors && citation.authors.length > 0 && (
+                                <>
+                                  {citation.authors.slice(0, 5).map((author, i) => (
+                                    <React.Fragment key={i}>
+                                      <span className="pd-citation-author">{author.name}</span>
+                                      {i < Math.min(citation.authors.length - 1, 4) && <span className="pd-author-separator">, </span>}
+                                    </React.Fragment>
+                                  ))}
+                                  {citation.authors.length > 5 && <span className="pd-citation-author"> et al.</span>}
+                                  <span className="pd-meta-dot"> · </span>
+                                </>
+                              )}
+                              {citation.venue && (
+                                <>
+                                  <span className="pd-citation-venue">{citation.venue}</span>
+                                  {citation.year && <span> </span>}
+                                </>
+                              )}
+                              {citation.year && (
+                                <>
+                                  <span className="pd-citation-year">{citation.year}</span>
+                                  <span className="pd-meta-dot"> · </span>
+                                </>
+                              )}
+                              {citation.s2FieldsOfStudy && citation.s2FieldsOfStudy.length > 0 && (
+                                <span className="pd-citation-fields">
+                                  {citation.s2FieldsOfStudy.map(f => f.category).join(', ')}
+                                </span>
+                              )}
+                            </div>
+                            {citation.tldr && (
+                              <div className="pd-citation-tldr">
+                                <span className="pd-tldr-label">TLDR</span>
+                                <span className="pd-tldr-text-inline">{citation.tldr.text}</span>
+                              </div>
+                            )}
+                            {citation.abstract && (
+                              <p className="pd-citation-abstract">{citation.abstract}</p>
+                            )}
+                            {citation.openAccessPdf?.url && (
+                              <div className="pd-citation-actions">
+                                <a href={citation.openAccessPdf.url} target="_blank" rel="noreferrer" className="pd-citation-action-btn">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                  </svg>
+                                  PDF
+                                </a>
+                              </div>
+                            )}
                           </div>
-                        )}
-
-                        {/* Abstract摘要 */}
-                        {citation.abstract && (
-                          <p className="pd-citation-abstract">{citation.abstract}</p>
-                        )}
-
-                        {/* 底部操作 */}
-                        {citation.openAccessPdf?.url && (
-                          <div className="pd-citation-actions">
-                            <a href={citation.openAccessPdf.url} target="_blank" rel="noopener" className="pd-citation-action-btn">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                                <polyline points="14 2 14 8 20 8"/>
-                              </svg>
-                              PDF
-                            </a>
+                        ))
+                      ) : (
+                        <p className="pd-placeholder-text">No citations found.</p>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  key: 'references',
+                  label: <span>References <span className="pd-tab-count">{paper.referenceCount || 0}</span></span>,
+                  children: (
+                    <div className="pd-references-list">
+                      {paper.references && paper.references.length > 0 ? (
+                        paper.references.map((reference, index) => (
+                          <div key={reference.paperId || index} className="pd-citation-item">
+                            <h3 className="pd-citation-title">
+                              <a href={`/paper/${reference.paperId}`} target="_blank" rel="noreferrer" className="pd-citation-link">
+                                {reference.title || 'Untitled'}
+                              </a>
+                            </h3>
+                            <div className="pd-citation-meta">
+                              {reference.authors && reference.authors.length > 0 && (
+                                <>
+                                  {reference.authors.slice(0, 5).map((author, i) => (
+                                    <React.Fragment key={i}>
+                                      <span className="pd-citation-author">{author.name}</span>
+                                      {i < Math.min(reference.authors.length - 1, 4) && <span className="pd-author-separator">, </span>}
+                                    </React.Fragment>
+                                  ))}
+                                  {reference.authors.length > 5 && <span className="pd-citation-author"> et al.</span>}
+                                  <span className="pd-meta-dot"> · </span>
+                                </>
+                              )}
+                              {reference.venue && (
+                                <>
+                                  <span className="pd-citation-venue">{reference.venue}</span>
+                                  {reference.year && <span> </span>}
+                                </>
+                              )}
+                              {reference.year && (
+                                <>
+                                  <span className="pd-citation-year">{reference.year}</span>
+                                  <span className="pd-meta-dot"> · </span>
+                                </>
+                              )}
+                              {reference.s2FieldsOfStudy && reference.s2FieldsOfStudy.length > 0 && (
+                                <span className="pd-citation-fields">
+                                  {reference.s2FieldsOfStudy.map(f => f.category).join(', ')}
+                                </span>
+                              )}
+                            </div>
+                            {reference.tldr && (
+                              <div className="pd-citation-tldr">
+                                <span className="pd-tldr-label">TLDR</span>
+                                <span className="pd-tldr-text-inline">{reference.tldr.text}</span>
+                              </div>
+                            )}
+                            {reference.abstract && (
+                              <p className="pd-citation-abstract">{reference.abstract}</p>
+                            )}
+                            {reference.openAccessPdf?.url && (
+                              <div className="pd-citation-actions">
+                                <a href={reference.openAccessPdf.url} target="_blank" rel="noreferrer" className="pd-citation-action-btn">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                  </svg>
+                                  PDF
+                                </a>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="pd-placeholder-text">No citations found.</p>
-                  )}
-                </div>
-              )}
-
-              {activeTab === 'references' && (
-                <div className="pd-references-list">
-                  {paper.references && paper.references.length > 0 ? (
-                    paper.references.map((reference, index) => (
-                      <div key={reference.paperId || index} className="pd-citation-item">
-                        <h3 className="pd-citation-title">
-                          <a href={`/paper/${reference.paperId}`} target="_blank" rel="noopener" className="pd-citation-link">
-                            {reference.title || 'Untitled'}
-                          </a>
-                        </h3>
-
-                        <div className="pd-citation-meta">
-                          {/* 作者 */}
-                          {reference.authors && reference.authors.length > 0 && (
-                            <>
-                              {reference.authors.slice(0, 5).map((author, i) => (
-                                <React.Fragment key={i}>
-                                  <span className="pd-citation-author">{author.name}</span>
-                                  {i < Math.min(reference.authors.length - 1, 4) && <span className="pd-author-separator">, </span>}
-                                </React.Fragment>
-                              ))}
-                              {reference.authors.length > 5 && <span className="pd-citation-author"> et al.</span>}
-                              <span className="pd-meta-dot"> · </span>
-                            </>
-                          )}
-
-                          {/* 出版信息 */}
-                          {reference.venue && (
-                            <>
-                              <span className="pd-citation-venue">{reference.venue}</span>
-                              {reference.year && <span> </span>}
-                            </>
-                          )}
-                          {reference.year && (
-                            <>
-                              <span className="pd-citation-year">{reference.year}</span>
-                              <span className="pd-meta-dot"> · </span>
-                            </>
-                          )}
-
-                          {/* 研究领域 */}
-                          {reference.s2FieldsOfStudy && reference.s2FieldsOfStudy.length > 0 && (
-                            <span className="pd-citation-fields">
-                              {reference.s2FieldsOfStudy.map(f => f.category).join(', ')}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* TLDR */}
-                        {reference.tldr && (
-                          <div className="pd-citation-tldr">
-                            <span className="pd-tldr-label">TLDR</span>
-                            <span className="pd-tldr-text-inline">{reference.tldr.text}</span>
-                          </div>
-                        )}
-
-                        {/* Abstract摘要 */}
-                        {reference.abstract && (
-                          <p className="pd-citation-abstract">{reference.abstract}</p>
-                        )}
-
-                        {/* 底部操作 */}
-                        {reference.openAccessPdf?.url && (
-                          <div className="pd-citation-actions">
-                            <a href={reference.openAccessPdf.url} target="_blank" rel="noopener" className="pd-citation-action-btn">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                                <polyline points="14 2 14 8 20 8"/>
-                              </svg>
-                              PDF
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="pd-placeholder-text">No references found.</p>
-                  )}
-                </div>
-              )}
-            </div>
+                        ))
+                      ) : (
+                        <p className="pd-placeholder-text">No references found.</p>
+                      )}
+                    </div>
+                  ),
+                },
+              ]}
+            />
           </div>
         </div>
 
@@ -1202,7 +1167,7 @@ const PaperDetailPage = () => {
               <a
                 href={`https://doi.org/${paper.externalIds.DOI}`}
                 target="_blank"
-                rel="noopener"
+                rel="noreferrer"
                 className="pd-sidebar-action-btn"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1215,7 +1180,7 @@ const PaperDetailPage = () => {
               <a
                 href={paper.openAccessPdf.url}
                 target="_blank"
-                rel="noopener"
+                rel="noreferrer"
                 className="pd-sidebar-action-btn pd-pdf-btn"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1268,7 +1233,7 @@ const PaperDetailPage = () => {
           <a 
             href="https://chat.scholay.com"
             target="_blank"
-            rel="noopener"
+            rel="noreferrer"
             className="pd-prism-card pd-chat-card pd-chat-gpt"
           >
             <div className="pd-prism-border pd-chat-border-gpt"></div>
@@ -1292,7 +1257,7 @@ const PaperDetailPage = () => {
           <a 
             href="https://chat.scholay.com"
             target="_blank"
-            rel="noopener"
+            rel="noreferrer"
             className="pd-prism-card pd-chat-card pd-chat-gemini"
           >
             <div className="pd-prism-border pd-chat-border-gemini"></div>

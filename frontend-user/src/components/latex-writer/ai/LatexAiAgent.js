@@ -15,9 +15,8 @@
  * 4. 支持多种预设操作（优化、翻译、解释等）
  */
 
-import { TASK_PROMPTS, SECTION_PROMPTS, SYSTEM_PROMPTS } from './LatexPrompts';
+import { TASK_PROMPTS, SECTION_PROMPTS } from './LatexPrompts';
 import StreamHandler from './StreamHandler';
-import SmoothAppender from './SmoothAppender';
 
 // LaTeX 专用提示词模板
 export const LATEX_PROMPTS = {

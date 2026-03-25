@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FileText, Shield, Lightbulb, PenTool, BarChart3, Languages, Upload, Check } from 'lucide-react';
+import { FileText, Shield, Lightbulb, PenTool, BarChart3, Languages } from 'lucide-react';
 import {
   FeatureNav, FeatureHero, FeatureStats, FeatureSectionHeader,
   FeatureGrid, FeatureSteps, FeatureShowcase, FeatureCTA, FeatureFAQ, SEO,

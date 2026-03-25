@@ -9,71 +9,72 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  Tabs, Card, Avatar, Input, Button, Typography, Space, App, Grid,
+} from 'antd';
+import {
+  UserOutlined, SafetyOutlined, EditOutlined,
+  CheckOutlined, CloseOutlined, LogoutOutlined,
+  FileTextOutlined,
+} from '@ant-design/icons';
 import { useAuth } from '../utils/AuthContext';
-import { useToast } from '../components/ToastContainer';
 import api from '../services/api';
 import logger from '../utils/logger';
-import './styles/settings/index.css';
-
 import { AccountTab } from './settings/tabs';
 import { useAccountData } from './settings/hooks';
+
+const { Title, Text } = Typography;
+const { TextArea } = Input;
+const { useBreakpoint } = Grid;
 
 const Settings = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user, logout, refreshUser } = useAuth();
-  const { showSuccess, showError } = useToast();
+  const { message, modal } = App.useApp();
+  const screens = useBreakpoint();
 
-  const [activeTab, setActiveTab] = useState('profile'); // profile, account
+  const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
-  // isEditingProfile 已废弃，改为 hover 原地编辑
 
-  // Profile form state
-  const [profile, setProfile] = useState({
-    name: '',
-    userId: '',
-    bio: ''
-  });
+  const [profile, setProfile] = useState({ name: '', userId: '', bio: '' });
 
-  // Account security form state
+  // 保留供将来使用
+  // eslint-disable-next-line no-unused-vars
   const [accountForm, setAccountForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
+    currentPassword: '', newPassword: '', confirmPassword: '',
   });
-
-  // Binding form state
+  // eslint-disable-next-line no-unused-vars
   const [bindPhone, setBindPhone] = useState('');
+  // eslint-disable-next-line no-unused-vars
   const [bindEmail, setBindEmail] = useState('');
+  // eslint-disable-next-line no-unused-vars
   const [bindPhoneCode, setBindPhoneCode] = useState('');
+  // eslint-disable-next-line no-unused-vars
   const [bindEmailCode, setBindEmailCode] = useState('');
   const [phoneCodeCountdown, setPhoneCodeCountdown] = useState(0);
   const [emailCodeCountdown, setEmailCodeCountdown] = useState(0);
 
-  // Account management - 使用提取的 hook
   const accountData = useAccountData(user);
 
-  // Handle URL parameters for WeChat/GitHub binding feedback and tab switching
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editingName, setEditingName] = useState('');
+  const [isEditingBio, setIsEditingBio] = useState(false);
+  const [editingBio, setEditingBio] = useState('');
+
   useEffect(() => {
     const tab = searchParams.get('tab');
     const wechatBindStatus = searchParams.get('wechat_bind_status');
     const githubBindStatus = searchParams.get('github_bind_status');
-    const message = searchParams.get('message');
+    const msg = searchParams.get('message');
 
-    // Switch to specified tab if provided
     if (tab && ['profile', 'account'].includes(tab)) {
       setActiveTab(tab);
     }
 
-    // Show WeChat binding feedback
-    if (wechatBindStatus && message) {
-      if (wechatBindStatus === 'success') {
-        showSuccess(message);
-      } else if (wechatBindStatus === 'error') {
-        showError(message);
-      }
-
-      // Clean up URL parameters after showing toast
+    if (wechatBindStatus && msg) {
+      if (wechatBindStatus === 'success') message.success(msg);
+      else if (wechatBindStatus === 'error') message.error(msg);
       const newParams = new URLSearchParams(searchParams);
       newParams.delete('wechat_bind_status');
       newParams.delete('message');
@@ -81,17 +82,13 @@ const Settings = () => {
       setSearchParams(newParams);
     }
 
-    // Show GitHub binding feedback
-    if (githubBindStatus && message) {
+    if (githubBindStatus && msg) {
       if (githubBindStatus === 'success') {
-        showSuccess(message);
-        // Refresh user profile to show updated GitHub binding
+        message.success(msg);
         fetchUserProfile();
       } else if (githubBindStatus === 'error') {
-        showError(message);
+        message.error(msg);
       }
-
-      // Clean up URL parameters after showing toast
       const newParams = new URLSearchParams(searchParams);
       newParams.delete('github_bind_status');
       newParams.delete('message');
@@ -99,18 +96,13 @@ const Settings = () => {
       setSearchParams(newParams);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, setSearchParams, showSuccess, showError]);
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
-    // Allow authenticated users to stay on this page
-    // No redirect needed - if not authenticated, they can still view the page structure
-    if (isAuthenticated) {
-      fetchUserProfile();
-    }
+    if (isAuthenticated) fetchUserProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
-  // Countdown for phone code
   useEffect(() => {
     if (phoneCodeCountdown > 0) {
       const timer = setTimeout(() => setPhoneCodeCountdown(phoneCodeCountdown - 1), 1000);
@@ -118,7 +110,6 @@ const Settings = () => {
     }
   }, [phoneCodeCountdown]);
 
-  // Countdown for email code
   useEffect(() => {
     if (emailCodeCountdown > 0) {
       const timer = setTimeout(() => setEmailCodeCountdown(emailCodeCountdown - 1), 1000);
@@ -126,9 +117,6 @@ const Settings = () => {
     }
   }, [emailCodeCountdown]);
 
-  // modalCodeCountdown 的倒计时已移至 useAccountData hook
-
-  // 切换 Tab 时同步更新 URL 参数
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     setSearchParams({ tab });
@@ -136,20 +124,18 @@ const Settings = () => {
 
   const fetchUserProfile = async () => {
     try {
-      // Call refreshUser to get latest data from backend
       const userData = await refreshUser();
       if (userData) {
         setProfile({
           name: userData.username || userData.email || '',
           userId: userData.id || '',
-          bio: userData.bio || ''
+          bio: userData.bio || '',
         });
       } else if (user) {
-        // Fallback to cached user data
         setProfile({
           name: user.username || user.email || '',
           userId: user.id || '',
-          bio: user.bio || ''
+          bio: user.bio || '',
         });
       }
     } catch (error) {
@@ -157,478 +143,390 @@ const Settings = () => {
     }
   };
 
-  // 设置账号管理成功后的回调
   useEffect(() => {
     accountData.setOnSuccess(fetchUserProfile);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountData.setOnSuccess]);
 
   const handleLogout = () => {
-    logout();
-    navigate('/search');
+    modal.confirm({
+      title: '确认退出',
+      content: '确定要退出登录吗？',
+      okText: '确认',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: () => {
+        logout();
+        navigate('/search');
+      },
+    });
   };
-
-
-  // handleProfileSave 已废弃，改为使用 handleSaveName 和 handleSaveBio 进行原地编辑
 
   // 保留供将来使用
   // eslint-disable-next-line no-unused-vars
   const handlePasswordChange = async () => {
     if (accountForm.newPassword !== accountForm.confirmPassword) {
-      showError('两次输入的密码不一致');
+      message.error('两次输入的密码不一致');
       return;
     }
-
     if (accountForm.newPassword.length < 8) {
-      showError('新密码长度至少为8个字符');
+      message.error('新密码长度至少为8个字符');
       return;
     }
-
     setLoading(true);
-
     try {
       const response = await api.post('/user/change-password', {
         current_password: accountForm.currentPassword,
-        new_password: accountForm.newPassword
+        new_password: accountForm.newPassword,
       });
-
       if (response.data.code === 0) {
-        showSuccess('密码修改成功');
-        setAccountForm({
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: ''
-        });
+        message.success('密码修改成功');
+        setAccountForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       } else {
-        showError('密码修改失败：' + response.data.message);
+        message.error('密码修改失败：' + response.data.message);
       }
     } catch (error) {
-      showError('密码修改失败,请稍后重试');
+      message.error('密码修改失败,请稍后重试');
       logger.error('Failed to change password:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Send phone verification code - 保留供将来使用
   // eslint-disable-next-line no-unused-vars
   const handleSendPhoneCode = async () => {
     if (!bindPhone || !/^1[3-9]\d{9}$/.test(bindPhone)) {
-      showError('请输入有效的手机号码');
+      message.error('请输入有效的手机号码');
       return;
     }
-
     if (phoneCodeCountdown > 0) return;
-
     setLoading(true);
-
     try {
-      const response = await api.post('/user/send-phone-code', {
-        phone: bindPhone,
-        purpose: 'bind'
-      });
-
+      const response = await api.post('/user/send-phone-code', { phone: bindPhone, purpose: 'bind' });
       if (response.data.code === 0) {
         setPhoneCodeCountdown(60);
-        showSuccess('验证码已发送');
+        message.success('验证码已发送');
       } else {
-        showError('发送验证码失败：' + response.data.message);
+        message.error('发送验证码失败：' + response.data.message);
       }
     } catch (error) {
-      showError('发送验证码失败,请稍后重试');
+      message.error('发送验证码失败,请稍后重试');
       logger.error('Failed to send phone code:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Send email verification code - 保留供将来使用
   // eslint-disable-next-line no-unused-vars
   const handleSendEmailCode = async () => {
     if (!bindEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bindEmail)) {
-      showError('请输入有效的邮箱地址');
+      message.error('请输入有效的邮箱地址');
       return;
     }
-
     if (emailCodeCountdown > 0) return;
-
     setLoading(true);
-
     try {
-      const response = await api.post('/user/send-code', {
-        email: bindEmail,
-        purpose: 'bind'
-      });
-
+      const response = await api.post('/user/send-code', { email: bindEmail, purpose: 'bind' });
       if (response.data.code === 0) {
         setEmailCodeCountdown(60);
-        showSuccess('验证码已发送');
+        message.success('验证码已发送');
       } else {
-        showError('发送验证码失败：' + response.data.message);
+        message.error('发送验证码失败：' + response.data.message);
       }
     } catch (error) {
-      showError('发送验证码失败,请稍后重试');
+      message.error('发送验证码失败,请稍后重试');
       logger.error('Failed to send email code:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Bind phone - 保留供将来使用
   // eslint-disable-next-line no-unused-vars
   const handleBindPhone = async () => {
     if (!bindPhone || !/^1[3-9]\d{9}$/.test(bindPhone)) {
-      showError('请输入有效的手机号码');
+      message.error('请输入有效的手机号码');
       return;
     }
-
-    if (!bindPhoneCode) {
-      showError('请输入验证码');
-      return;
-    }
-
+    if (!bindPhoneCode) { message.error('请输入验证码'); return; }
     setLoading(true);
-
     try {
-      const response = await api.post('/user/bind-phone', {
-        phone: bindPhone,
-        code: bindPhoneCode
-      });
-
+      const response = await api.post('/user/bind-phone', { phone: bindPhone, code: bindPhoneCode });
       if (response.data.code === 0) {
-        showSuccess('手机号绑定成功');
+        message.success('手机号绑定成功');
         setBindPhone('');
         setBindPhoneCode('');
-        // Refresh user profile
         fetchUserProfile();
       } else {
-        showError('绑定失败：' + response.data.message);
+        message.error('绑定失败：' + response.data.message);
       }
     } catch (error) {
-      showError('绑定失败,请稍后重试');
+      message.error('绑定失败,请稍后重试');
       logger.error('Failed to bind phone:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Bind email - 保留供将来使用
   // eslint-disable-next-line no-unused-vars
   const handleBindEmail = async () => {
     if (!bindEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bindEmail)) {
-      showError('请输入有效的邮箱地址');
+      message.error('请输入有效的邮箱地址');
       return;
     }
-
-    if (!bindEmailCode) {
-      showError('请输入验证码');
-      return;
-    }
-
+    if (!bindEmailCode) { message.error('请输入验证码'); return; }
     setLoading(true);
-
     try {
-      const response = await api.post('/user/bind-email', {
-        email: bindEmail,
-        code: bindEmailCode
-      });
-
+      const response = await api.post('/user/bind-email', { email: bindEmail, code: bindEmailCode });
       if (response.data.code === 0) {
-        showSuccess('邮箱绑定成功');
+        message.success('邮箱绑定成功');
         setBindEmail('');
         setBindEmailCode('');
-        // Refresh user profile
         fetchUserProfile();
       } else {
-        showError('绑定失败：' + response.data.message);
+        message.error('绑定失败：' + response.data.message);
       }
     } catch (error) {
-      showError('绑定失败,请稍后重试');
+      message.error('绑定失败,请稍后重试');
       logger.error('Failed to bind email:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // 账号管理相关函数已移至 useAccountData hook
-
-  // 名字编辑状态
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [editingName, setEditingName] = useState('');
-
-  // 简介编辑状态
-  const [isEditingBio, setIsEditingBio] = useState(false);
-  const [editingBio, setEditingBio] = useState('');
-
-  // 保存名字
   const handleSaveName = async () => {
-    if (editingName === profile.name) {
-      setIsEditingName(false);
-      return;
-    }
+    if (editingName === profile.name) { setIsEditingName(false); return; }
     try {
       setLoading(true);
       await api.put('/user/profile', { name: editingName });
-      setProfile({ ...profile, name: editingName });
+      setProfile((prev) => ({ ...prev, name: editingName }));
       setIsEditingName(false);
-      showSuccess('名字已更新');
+      message.success('名字已更新');
       refreshUser();
     } catch (error) {
       logger.error('Failed to save name:', error);
-      showError('保存失败，请重试');
+      message.error('保存失败，请重试');
     } finally {
       setLoading(false);
     }
   };
 
-  // 保存简介
   const handleSaveBio = async () => {
-    if (editingBio === profile.bio) {
-      setIsEditingBio(false);
-      return;
-    }
+    if (editingBio === profile.bio) { setIsEditingBio(false); return; }
     try {
       setLoading(true);
       await api.put('/user/profile', { bio: editingBio });
-      setProfile({ ...profile, bio: editingBio });
+      setProfile((prev) => ({ ...prev, bio: editingBio }));
       setIsEditingBio(false);
-      showSuccess('简介已更新');
+      message.success('简介已更新');
     } catch (error) {
       logger.error('Failed to save bio:', error);
-      showError('保存失败，请重试');
+      message.error('保存失败，请重试');
     } finally {
       setLoading(false);
     }
   };
 
-  const renderProfileTab = () => (
-    <div className="settings-section">
-      <div className="profile-header">
-        <h2>个人资料</h2>
-      </div>
+  const isMobile = !screens.md;
 
-      {/* 个人资料卡片 */}
-      <div className="profile-card">
-        <div className="profile-card-header">
-          {/* 左侧：头像 + 用户名 */}
-          <div className="profile-header-left">
-            <div className="avatar-wrapper">
-              <div className="avatar-circle">
-                {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
-              </div>
-            </div>
-            {/* 名字 - hover显示编辑 */}
-            <div
-              className={`profile-name-wrapper ${isEditingName ? 'editing' : ''}`}
-              onClick={() => {
-                if (!isEditingName) {
+  const profileTab = (
+    <div style={{ maxWidth: 700 }}>
+      <Card>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+          <Avatar
+            size={80}
+            style={{
+              background: 'linear-gradient(135deg, #10a37f, #1a7f64)',
+              fontSize: 32,
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
+          </Avatar>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {isEditingName ? (
+              <Space wrap>
+                <Input
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  placeholder="输入名字"
+                  autoFocus
+                  onPressEnter={handleSaveName}
+                  onKeyDown={(e) => e.key === 'Escape' && setIsEditingName(false)}
+                  style={{ width: 200 }}
+                />
+                <Button
+                  type="primary"
+                  icon={<CheckOutlined />}
+                  onClick={handleSaveName}
+                  loading={loading}
+                  size="small"
+                />
+                <Button
+                  icon={<CloseOutlined />}
+                  onClick={() => setIsEditingName(false)}
+                  size="small"
+                />
+              </Space>
+            ) : (
+              <div
+                onClick={() => {
                   setEditingName(profile.name || '');
                   setIsEditingName(true);
-                }
-              }}
-            >
-              {isEditingName ? (
-                <div className="inline-edit-name">
-                  <input
-                    type="text"
-                    value={editingName}
-                    onChange={(e) => setEditingName(e.target.value)}
-                    placeholder="输入名字"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveName();
-                      if (e.key === 'Escape') setIsEditingName(false);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <button className="inline-save-btn" onClick={(e) => { e.stopPropagation(); handleSaveName(); }} disabled={loading}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                  </button>
-                  <button className="inline-cancel-btn" onClick={(e) => { e.stopPropagation(); setIsEditingName(false); }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="18" y1="6" x2="6" y2="18"/>
-                      <line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <h3 className="profile-name">{profile.name || '未设置名字'}</h3>
-                  <span className="edit-hint">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 20h9"/>
-                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                    </svg>
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 个人简介 - hover显示编辑 */}
-        <div
-          className={`profile-bio-wrapper ${isEditingBio ? 'editing' : ''}`}
-          onClick={() => {
-            if (!isEditingBio) {
-              setEditingBio(profile.bio || '');
-              setIsEditingBio(true);
-            }
-          }}
-        >
-          {isEditingBio ? (
-            <div className="inline-edit-bio">
-              <textarea
-                value={editingBio}
-                onChange={(e) => setEditingBio(e.target.value)}
-                placeholder="介绍一下自己..."
-                rows="3"
-                autoFocus
-                onClick={(e) => e.stopPropagation()}
-              />
-              <div className="inline-edit-actions">
-                <button className="inline-save-btn" onClick={(e) => { e.stopPropagation(); handleSaveBio(); }} disabled={loading}>
-                  {loading ? '保存中...' : '保存'}
-                </button>
-                <button className="inline-cancel-btn" onClick={(e) => { e.stopPropagation(); setIsEditingBio(false); }}>
-                  取消
-                </button>
+                }}
+                style={{
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '4px 8px',
+                  borderRadius: 8,
+                  transition: 'background 0.2s',
+                }}
+              >
+                <Title level={4} style={{ margin: 0 }}>
+                  {profile.name || '未设置名字'}
+                </Title>
+                <EditOutlined style={{ opacity: 0.4, fontSize: 14 }} />
               </div>
-            </div>
-          ) : (
-            <>
-              <div className="profile-bio-label">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="17" y1="10" x2="3" y2="10"/>
-                  <line x1="21" y1="6" x2="3" y2="6"/>
-                  <line x1="21" y1="14" x2="3" y2="14"/>
-                  <line x1="17" y1="18" x2="3" y2="18"/>
-                </svg>
-                <span>简介</span>
-              </div>
-              <p className="profile-bio-text">
-                {profile.bio || <span className="empty-value">点击添加个人简介...</span>}
-              </p>
-              <span className="edit-hint bio-edit-hint">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 20h9"/>
-                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                </svg>
-                编辑
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderExternalLinks = () => null;
-
-  const renderLogoutSection = () => (
-    <div className="settings-section logout-section">
-      <button className="btn-logout" onClick={handleLogout}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-          <polyline points="16 17 21 12 16 7"/>
-          <line x1="21" y1="12" x2="9" y2="12"/>
-        </svg>
-        <span>注销登录</span>
-      </button>
-    </div>
-  );
-
-  return (
-    <div className="settings-page">
-      <div className="settings-container">
-        <div className="settings-layout">
-          {/* Left Sidebar */}
-          <div className="settings-sidebar">
-            <div className="settings-title-row">
-              <h1 className="settings-title">设置</h1>
-            </div>
-
-            <div className="settings-menu">
-              <div className="menu-section">
-                <div className="menu-section-title">我的账户</div>
-                <button
-                  className={`menu-item ${activeTab === 'profile' ? 'active' : ''}`}
-                  onClick={() => handleTabChange('profile')}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
-                  </svg>
-                  <span>个人资料</span>
-                </button>
-                <button
-                  className={`menu-item ${activeTab === 'account' ? 'active' : ''}`}
-                  onClick={() => handleTabChange('account')}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="3"/>
-                    <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
-                  </svg>
-                  <span>授权管理</span>
-                </button>
-              </div>
-
-              {renderExternalLinks()}
-              {renderLogoutSection()}
-            </div>
-          </div>
-
-          {/* Right Content */}
-          <div className="settings-content">
-            {activeTab === 'profile' && renderProfileTab()}
-            {activeTab === 'account' && (
-              <AccountTab
-                user={user}
-                loading={accountData.loading}
-                accountModal={accountData.accountModal}
-                setAccountModal={accountData.setAccountModal}
-                modalForm={accountData.modalForm}
-                setModalForm={accountData.setModalForm}
-                modalCodeCountdown={accountData.modalCodeCountdown}
-                getLoginMethodCount={accountData.getLoginMethodCount}
-                handleOpenModal={accountData.handleOpenModal}
-                handleCloseModal={accountData.handleCloseModal}
-                handleBindWeChat={accountData.handleBindWeChat}
-                handleBindGitHub={accountData.handleBindGitHub}
-                handleCheckAvailability={accountData.handleCheckAvailability}
-                handleSendModalCode={accountData.handleSendModalCode}
-                handleSendUnbindCode={accountData.handleSendUnbindCode}
-                handleModalSubmit={accountData.handleModalSubmit}
-              />
             )}
           </div>
         </div>
-      </div>
 
-      {/* Mobile Bottom Tab Bar */}
-      <div className="settings-mobile-tabs">
-        <button
-          className={`mobile-tab-item ${activeTab === 'profile' ? 'active' : ''}`}
-          onClick={() => handleTabChange('profile')}
+        <div>
+          <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <FileTextOutlined style={{ opacity: 0.5 }} />
+            <Text
+              type="secondary"
+              strong
+              style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}
+            >
+              简介
+            </Text>
+          </div>
+          {isEditingBio ? (
+            <div>
+              <TextArea
+                value={editingBio}
+                onChange={(e) => setEditingBio(e.target.value)}
+                placeholder="介绍一下自己..."
+                rows={3}
+                autoFocus
+              />
+              <Space style={{ marginTop: 8 }}>
+                <Button type="primary" onClick={handleSaveBio} loading={loading} size="small">
+                  保存
+                </Button>
+                <Button onClick={() => setIsEditingBio(false)} size="small">
+                  取消
+                </Button>
+              </Space>
+            </div>
+          ) : (
+            <div
+              onClick={() => {
+                setEditingBio(profile.bio || '');
+                setIsEditingBio(true);
+              }}
+              style={{
+                cursor: 'pointer',
+                padding: '12px 16px',
+                borderRadius: 8,
+                minHeight: 60,
+                transition: 'all 0.2s',
+              }}
+            >
+              {profile.bio ? (
+                <Text style={{ whiteSpace: 'pre-wrap' }}>{profile.bio}</Text>
+              ) : (
+                <Text type="secondary" italic>
+                  点击添加个人简介...
+                </Text>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+
+  const accountTabContent = (
+    <div style={{ maxWidth: 700 }}>
+      <AccountTab
+        user={user}
+        loading={accountData.loading}
+        accountModal={accountData.accountModal}
+        setAccountModal={accountData.setAccountModal}
+        modalForm={accountData.modalForm}
+        setModalForm={accountData.setModalForm}
+        modalCodeCountdown={accountData.modalCodeCountdown}
+        getLoginMethodCount={accountData.getLoginMethodCount}
+        handleOpenModal={accountData.handleOpenModal}
+        handleCloseModal={accountData.handleCloseModal}
+        handleBindWeChat={accountData.handleBindWeChat}
+        handleBindGitHub={accountData.handleBindGitHub}
+        handleCheckAvailability={accountData.handleCheckAvailability}
+        handleSendModalCode={accountData.handleSendModalCode}
+        handleSendUnbindCode={accountData.handleSendUnbindCode}
+        handleModalSubmit={accountData.handleModalSubmit}
+      />
+    </div>
+  );
+
+  const tabItems = [
+    {
+      key: 'profile',
+      label: (
+        <span>
+          <UserOutlined style={{ marginRight: 8 }} />
+          个人资料
+        </span>
+      ),
+      children: profileTab,
+    },
+    {
+      key: 'account',
+      label: (
+        <span>
+          <SafetyOutlined style={{ marginRight: 8 }} />
+          授权管理
+        </span>
+      ),
+      children: accountTabContent,
+    },
+  ];
+
+  return (
+    <div style={{ flex: 1, height: '100%', overflow: 'auto' }}>
+      <div
+        style={{
+          maxWidth: 1200,
+          margin: '0 auto',
+          padding: isMobile ? '16px' : '32px 48px',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 24,
+          }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
-          </svg>
-          <span>资料</span>
-        </button>
-        <button
-          className={`mobile-tab-item ${activeTab === 'account' ? 'active' : ''}`}
-          onClick={() => handleTabChange('account')}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
-          </svg>
-          <span>授权</span>
-        </button>
+          <Title level={3} style={{ margin: 0 }}>
+            设置
+          </Title>
+          <Button danger icon={<LogoutOutlined />} onClick={handleLogout}>
+            退出登录
+          </Button>
+        </div>
+        <Tabs
+          tabPosition={isMobile ? 'top' : 'left'}
+          activeKey={activeTab}
+          onChange={handleTabChange}
+          items={tabItems}
+          style={{ minHeight: isMobile ? 'auto' : 'calc(100vh - 200px)' }}
+        />
       </div>
     </div>
   );

@@ -8,6 +8,7 @@
  */
 
 import React, { useRef, useEffect, memo } from 'react';
+import { Switch, Checkbox, Button } from 'antd';
 import YearHistogram from './YearHistogram';
 import './SearchFilters.css';
 
@@ -124,13 +125,15 @@ const SearchFilters = memo(({ filters, onFiltersChange, isExpanded, onToggle }) 
       <div className="search-filters" ref={filtersPanelRef}>
       <div className="filters-header">
         <h3>筛选条件</h3>
-        <button
+        <Button
+          type="link"
+          size="small"
           className={`clear-filters-btn ${hasActiveFilters() ? 'visible' : ''}`}
           onClick={handleClearFilters}
           disabled={!hasActiveFilters()}
         >
           清除全部
-        </button>
+        </Button>
       </div>
 
       <div className="filters-content">
@@ -165,14 +168,11 @@ const SearchFilters = memo(({ filters, onFiltersChange, isExpanded, onToggle }) 
         <div className="filter-group">
           <div className="open-access-switch-container">
             <span className="switch-label">仅显示开放获取论文 (Open Access)</span>
-            <label className="toggle-switch">
-              <input
-                type="checkbox"
-                checked={filters.openAccessPdf === 'true'}
-                onChange={handleOpenAccessToggle}
-              />
-              <span className="toggle-slider"></span>
-            </label>
+            <Switch
+              size="small"
+              checked={filters.openAccessPdf === 'true'}
+              onChange={handleOpenAccessToggle}
+            />
           </div>
         </div>
 
@@ -181,27 +181,28 @@ const SearchFilters = memo(({ filters, onFiltersChange, isExpanded, onToggle }) 
           <div className="filter-label-row">
             <label className="filter-label">研究领域</label>
             {filters.fieldsOfStudy && filters.fieldsOfStudy.length > 0 && (
-              <button
-                type="button"
+              <Button
+                type="link"
+                size="small"
                 className="clear-section-btn"
                 onClick={handleClearFieldsOfStudy}
               >
                 清除
-              </button>
+              </Button>
             )}
           </div>
           <div className="checkbox-list scrollable">
             {fieldsOfStudy.map(field => {
               const isChecked = (filters.fieldsOfStudy || []).includes(field.value);
               return (
-                <label key={field.value} className="checkbox-item">
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => handleFieldOfStudyToggle(field.value)}
-                  />
-                  <span>{field.label}</span>
-                </label>
+                <Checkbox
+                  key={field.value}
+                  className="checkbox-item"
+                  checked={isChecked}
+                  onChange={() => handleFieldOfStudyToggle(field.value)}
+                >
+                  {field.label}
+                </Checkbox>
               );
             })}
           </div>
@@ -210,12 +211,14 @@ const SearchFilters = memo(({ filters, onFiltersChange, isExpanded, onToggle }) 
 
       {/* 底部应用按钮 */}
       <div className="filters-footer">
-        <button
+        <Button
+          type="primary"
           className="apply-filters-btn"
           onClick={onToggle}
+          block
         >
           确定
-        </button>
+        </Button>
         </div>
       </div>
     </div>
