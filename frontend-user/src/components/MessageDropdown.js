@@ -18,7 +18,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { Bell, X, Mail, Gift, CreditCard, ExternalLink, Inbox, ChevronRight, Check } from 'lucide-react';
-import { messageAPI } from '../services/api';
+import { messageApi as messageAPI } from 'features/settings/api/settingsApi';
 import logger from '../utils/logger';
 import './MessageDropdown.css';
 

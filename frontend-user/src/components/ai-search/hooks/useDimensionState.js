@@ -4,7 +4,7 @@
  */
 import { useState, useCallback, useRef } from 'react';
 import { Modal } from 'antd';
-import { analysisDimensionAPI } from '../../../services/api';
+import { analysisDimensionApi as analysisDimensionAPI } from 'features/search/api/scholarApi';
 import { trackMatrixAddDimension } from '../../../utils/usageTracker';
 import logger from '../../../utils/logger';
 

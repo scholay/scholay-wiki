@@ -1,0 +1,1 @@
+export { QueryGuard } from './QueryGuard';

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Form, Input, InputNumber, Button, Card, Spin, Descriptions, Tag, Space, App } from 'antd';
 import { EditOutlined, PlusOutlined, CheckCircleOutlined, SendOutlined } from '@ant-design/icons';
-import { adminAPI } from '../../../services/adminApi';
+import { adminAPI } from 'features/admin/api/adminApi';
 import SensitiveField from '../../../components/admin/SensitiveField';
 
 const EmailSettings = ({ isVerified, onRequestVerify }) => {

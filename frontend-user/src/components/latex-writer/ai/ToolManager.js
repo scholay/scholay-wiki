@@ -15,7 +15,7 @@
  * 4. 工具结果缓存
  */
 
-import { userAPI } from '../../../services/api';
+import { latexApi as userAPI } from 'features/latex-writer/api/latexApi';
 
 /**
  * 工具分类

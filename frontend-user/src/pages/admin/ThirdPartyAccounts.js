@@ -16,7 +16,7 @@ import {
   PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined,
   ExperimentOutlined,
 } from '@ant-design/icons';
-import { adminAPI } from '../../services/adminApi';
+import { adminAPI } from 'features/admin/api/adminApi';
 
 const { Text } = Typography;
 

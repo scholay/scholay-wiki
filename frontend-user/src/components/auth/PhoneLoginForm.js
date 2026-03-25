@@ -13,7 +13,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Form, Input, Button, Checkbox } from 'antd';
 import TurnstileCaptcha from '../TurnstileCaptcha';
 import { useToast } from '../ToastContainer';
-import { userAPI } from '../../services/api';
+import { authApi as userAPI } from 'features/auth/api/authApi';
 
 const PhoneLoginForm = ({ phone, config, onLoginSuccess, onModeChange, onShowPolicy }) => {
   const [form] = Form.useForm();

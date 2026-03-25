@@ -7,7 +7,7 @@ import {
   EditOutlined, PlusOutlined, DeleteOutlined,
   ThunderboltOutlined, CopyOutlined,
 } from '@ant-design/icons';
-import { adminAPI } from '../../../services/adminApi';
+import { adminAPI } from 'features/admin/api/adminApi';
 import SensitiveField from '../../../components/admin/SensitiveField';
 
 const { Text } = Typography;

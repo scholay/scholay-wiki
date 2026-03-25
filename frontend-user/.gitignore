@@ -6,7 +6,8 @@
 # Testing
 /coverage
 
-# Production
+# Production (Vite outDir)
+/dist
 /build
 
 # Misc

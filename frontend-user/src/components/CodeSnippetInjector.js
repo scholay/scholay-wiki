@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import { configAPI } from '../services/api';
+import { configApi as configAPI } from 'features/settings/api/settingsApi';
 
 /**
  * 代码片段注入组件

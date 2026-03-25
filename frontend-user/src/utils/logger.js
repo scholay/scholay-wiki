@@ -10,7 +10,7 @@
 // Production-safe logging utility
 // This utility will only log in development mode
 
-const isDevelopment = process.env.NODE_ENV === 'development' || process.env.REACT_APP_ENABLE_LOGS === 'true';
+const isDevelopment = import.meta.env.DEV || import.meta.env.VITE_ENABLE_LOGS === 'true';
 
 export const logger = {
   log: (...args) => {

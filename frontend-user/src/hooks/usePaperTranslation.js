@@ -4,7 +4,7 @@
  * (重命名自 useTranslation，避免与 i18n 库混淆)
  */
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { publicScholarAPI } from '../services/api';
+import { publicScholarApi as publicScholarAPI } from 'features/search/api/scholarApi';
 import { trackAbstractTranslate } from '../utils/usageTracker';
 
 /**

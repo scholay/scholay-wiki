@@ -3,7 +3,8 @@
  * 处理 SSE 流式搜索和消息管理
  */
 import { useCallback } from 'react';
-import { conversationAPI, publicScholarAPI } from '../../../services/api';
+import { conversationApi as conversationAPI } from 'features/ai-chat/api/conversationApi';
+import { publicScholarApi as publicScholarAPI } from 'features/search/api/scholarApi';
 import { trackSmartSearch, EntryPoint } from '../../../utils/usageTracker';
 import logger from '../../../utils/logger';
 import { PAPER_PAGE_SIZE } from './usePaperState';

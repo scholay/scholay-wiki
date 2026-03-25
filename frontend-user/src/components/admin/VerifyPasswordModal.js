@@ -10,7 +10,7 @@
 import React, { useState } from 'react';
 import { Modal, Form, Input, App } from 'antd';
 import { LockOutlined } from '@ant-design/icons';
-import { adminAPI } from '../../services/adminApi';
+import { adminAPI } from 'features/admin/api/adminApi';
 
 const VerifyPasswordModal = ({ isOpen, onClose, onVerified }) => {
   const { message } = App.useApp();

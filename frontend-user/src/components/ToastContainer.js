@@ -4,7 +4,7 @@
  * 保持原有 API 不变，底层使用 antd message / Modal.confirm
  */
 
-import React, { createContext, useContext, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useCallback, useMemo, useEffect } from 'react';
 import { App } from 'antd';
 
 const ToastContext = createContext();
@@ -19,6 +19,21 @@ export const useToast = () => {
 
 export const ToastProvider = ({ children }) => {
   const { message, modal } = App.useApp();
+
+  useEffect(() => {
+    const handler = (e) => {
+      const { message: msg, type = 'error' } = e.detail || {};
+      if (!msg) return;
+      switch (type) {
+        case 'success': message.success(msg); break;
+        case 'warning': message.warning(msg); break;
+        case 'info':    message.info(msg);    break;
+        default:        message.error(msg);   break;
+      }
+    };
+    window.addEventListener('app:toast', handler);
+    return () => window.removeEventListener('app:toast', handler);
+  }, [message]);
 
   const showToast = useCallback((msg, type = 'info', duration = 5) => {
     const sec = duration > 100 ? duration / 1000 : duration;

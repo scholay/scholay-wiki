@@ -18,7 +18,7 @@ import {
   FileTextOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../utils/AuthContext';
-import api from '../services/api';
+import { httpClient as api } from 'shared/api/client';
 import logger from '../utils/logger';
 import { AccountTab } from './settings/tabs';
 import { useAccountData } from './settings/hooks';

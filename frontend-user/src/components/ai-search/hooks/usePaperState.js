@@ -8,7 +8,7 @@
  * - 单个集合最多保留 200 篇论文详情
  */
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { publicScholarAPI } from '../../../services/api';
+import { publicScholarApi as publicScholarAPI } from 'features/search/api/scholarApi';
 import logger from '../../../utils/logger';
 
 // 分页配置

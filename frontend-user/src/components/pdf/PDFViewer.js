@@ -19,7 +19,7 @@ import PDFTranslatePopup from './PDFTranslatePopup';
 import PDFFullscreenModal from './PDFFullscreenModal';
 import '../PDFViewer.css';
 
-const publicBase = process.env.PUBLIC_URL || '';
+const publicBase = import.meta.env.BASE_URL || '';
 const pdfAssetsBase = `${publicBase}/pdfjs`;
 
 const PDFJS_VERSION = pdfjs.version;

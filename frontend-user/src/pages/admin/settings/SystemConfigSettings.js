@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Form, Button, Card, Switch, App } from 'antd';
-import { adminAPI } from '../../../services/adminApi';
+import { adminAPI } from 'features/admin/api/adminApi';
 
 const SystemConfigSettings = () => {
   const { message } = App.useApp();

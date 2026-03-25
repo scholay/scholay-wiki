@@ -5,7 +5,7 @@
  * 改为批量模式：通过 analysisQueue 批量请求，每次最多5篇
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { analysisDimensionAPI, publicScholarAPI } from '../../../services/api';
+import { analysisDimensionApi as analysisDimensionAPI, publicScholarApi as publicScholarAPI } from 'features/search/api/scholarApi';
 import logger from '../../../utils/logger';
 import { trackMatrixAnalysis, trackMatrixAddDimension } from '../../../utils/usageTracker';
 import analysisQueue from '../../../utils/analysisQueue';

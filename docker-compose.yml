@@ -154,7 +154,7 @@ services:
       context: ./frontend-user
       dockerfile: Dockerfile
       args:
-        REACT_APP_API_URL: ""
+        VITE_API_URL: ""
     container_name: scholar_frontend_user
     restart: unless-stopped
     logging: *default-logging

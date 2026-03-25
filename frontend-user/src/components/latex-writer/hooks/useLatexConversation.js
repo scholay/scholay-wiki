@@ -11,7 +11,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '../../../utils/AuthContext';
-import { userAPI } from '../../../services/api';
+import { latexApi as userAPI } from 'features/latex-writer/api/latexApi';
 
 /**
  * LaTeX 对话历史管理 Hook

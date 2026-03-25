@@ -11,7 +11,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Spin, Empty, Button, Modal, Form, DatePicker, Select, Space, Tag } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { adminAPI } from '../../services/adminApi';
+import { adminAPI } from 'features/admin/api/adminApi';
 import dayjs from 'dayjs';
 
 const UserStatisticsChart = () => {

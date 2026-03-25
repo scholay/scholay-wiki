@@ -8,7 +8,7 @@
  * - 倒计时结束 → 无论多少篇都发送（哪怕只有1篇）
  */
 
-import { analysisDimensionAPI } from '../services/api';
+import { analysisDimensionApi as analysisDimensionAPI } from 'features/search/api/scholarApi';
 
 class BatchAnalysisQueue {
   constructor(batchSize = 5, batchTimeout = 300) {

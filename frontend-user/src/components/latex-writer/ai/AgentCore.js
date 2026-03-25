@@ -15,7 +15,7 @@
  * 4. 上下文管理
  */
 
-import { userAPI } from '../../../services/api';
+import { latexApi as userAPI } from 'features/latex-writer/api/latexApi';
 
 /**
  * Agent 状态

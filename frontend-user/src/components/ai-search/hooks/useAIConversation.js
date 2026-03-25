@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { conversationAPI } from '../../../services/api';
+import { conversationApi as conversationAPI } from 'features/ai-chat/api/conversationApi';
 import {
   getSearchQuery,
   clearSearchQuery,

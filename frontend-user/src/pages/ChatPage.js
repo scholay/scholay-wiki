@@ -15,7 +15,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
-import api from '../services/api';
+import { httpClient as api } from 'shared/api/client';
 import { trackAIAssistantChat } from '../utils/usageTracker';
 import logger from '../utils/logger';
 import { Spin, Select, Breadcrumb } from 'antd';

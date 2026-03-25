@@ -11,7 +11,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { App } from 'antd';
-import api from '../../../services/api';
+import { httpClient as api } from 'shared/api/client';
 import logger from '../../../utils/logger';
 
 const useAccountData = (user) => {

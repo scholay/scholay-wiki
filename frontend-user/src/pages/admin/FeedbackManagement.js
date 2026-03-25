@@ -16,7 +16,7 @@ import {
   EyeOutlined, MessageOutlined, DeleteOutlined, SearchOutlined,
   DownloadOutlined, FileOutlined, SendOutlined,
 } from '@ant-design/icons';
-import { adminAPI } from '../../services/adminApi';
+import { adminAPI } from 'features/admin/api/adminApi';
 
 const { TextArea } = Input;
 const { Text, Paragraph } = Typography;

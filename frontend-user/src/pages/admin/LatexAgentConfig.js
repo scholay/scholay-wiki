@@ -19,7 +19,7 @@ import {
   PlusOutlined, EditOutlined, DeleteOutlined, StarOutlined,
   SaveOutlined,
 } from '@ant-design/icons';
-import { adminAPI } from '../../services/adminApi';
+import { adminAPI } from 'features/admin/api/adminApi';
 
 const { Text, Paragraph } = Typography;
 

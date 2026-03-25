@@ -21,7 +21,7 @@ import SEO from '../components/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
 // 注：使用追踪已移至 API 调用层，首页无需重复追踪
 import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation } from '../utils/searchStorage';
-import { userAPI } from '../services/api';
+import { authApi as userAPI } from 'features/auth/api/authApi';
 import { Segmented, Tag, Collapse, Spin } from 'antd';
 import './styles/home/index.css';
 

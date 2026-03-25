@@ -12,7 +12,7 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button } from 'antd';
 import { useToast } from '../ToastContainer';
-import { userAPI } from '../../services/api';
+import { authApi as userAPI } from 'features/auth/api/authApi';
 
 const ForgotPasswordForm = ({ type, identifier, onModeChange }) => {
   const [form] = Form.useForm();

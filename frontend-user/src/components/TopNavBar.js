@@ -22,7 +22,7 @@ import {
 import { useTheme } from '../contexts/ThemeContext';
 import ThemeToggle from './ThemeToggle';
 import MessageDropdown from './MessageDropdown';
-import { messageAPI } from '../services/api';
+import { messageApi as messageAPI } from 'features/settings/api/settingsApi';
 import wsClient from '../services/websocket';
 import logger from '../utils/logger';
 import './MessageDropdown.css';

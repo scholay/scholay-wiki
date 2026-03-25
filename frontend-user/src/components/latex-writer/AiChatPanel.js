@@ -17,7 +17,7 @@ import { parseAiMessage, calculateCodeDiff } from './ai/MessageParser';
 import { useLatexConversation } from './hooks/useLatexConversation';
 import PermissionDialog from './PermissionDialog';
 import ToolCallDisplay from './ToolCallDisplay';
-import { userAPI } from '../../services/api';
+import { latexApi as userAPI } from 'features/latex-writer/api/latexApi';
 import { trackScholayPrism } from '../../utils/usageTracker';
 import CollapsedView from './ai-chat/CollapsedView';
 import ChatHeader from './ai-chat/ChatHeader';

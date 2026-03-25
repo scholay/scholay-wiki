@@ -21,6 +21,14 @@
   --width-chat-md: 52rem;
   --width-chat-sm: 48rem;
 
+  /* 响应式断点（仅做记录，CSS @media 不支持 var() ）
+   * mobile: 480px, tablet: 768px, desktop: 1024px, wide: 1440px
+   */
+  --bp-mobile: 480px;
+  --bp-tablet: 768px;
+  --bp-desktop: 1024px;
+  --bp-wide: 1440px;
+
   /* z-index 层级 */
   --z-base: 1;
   --z-dropdown: 100;

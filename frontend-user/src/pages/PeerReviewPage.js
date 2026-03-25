@@ -10,7 +10,7 @@
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { flushSync } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { peerReviewAPI } from '../services/api';
+import { peerReviewApi as peerReviewAPI } from 'features/peer-review/api/peerReviewApi';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
 import MarkdownRenderer from '../components/MarkdownRenderer';

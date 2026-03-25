@@ -3,7 +3,7 @@
  * 处理作者详情加载、作者论文列表等
  */
 import { useState, useCallback } from 'react';
-import { publicScholarAPI } from '../../../services/api';
+import { publicScholarApi as publicScholarAPI } from 'features/search/api/scholarApi';
 import logger from '../../../utils/logger';
 
 /**

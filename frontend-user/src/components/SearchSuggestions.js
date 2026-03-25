@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { publicScholarAPI } from '../services/api';
+import { publicScholarApi as publicScholarAPI } from 'features/search/api/scholarApi';
 import { trackSearchSuggestion } from '../utils/usageTracker';
 import './SearchSuggestions.css';
 

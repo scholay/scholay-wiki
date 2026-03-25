@@ -9,7 +9,8 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api, { publicScholarAPI } from '../services/api';
+import { httpClient as api } from 'shared/api/client';
+import { publicScholarApi as publicScholarAPI } from 'features/search/api/scholarApi';
 import SEO from '../components/SEO';
 import FloatingGuide from '../components/FloatingGuide';
 import Logo from '../components/Logo';

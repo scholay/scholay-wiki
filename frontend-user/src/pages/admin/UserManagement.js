@@ -39,7 +39,7 @@ import {
   ClockCircleOutlined,
   UserAddOutlined,
 } from '@ant-design/icons';
-import { adminAPI } from '../../services/adminApi';
+import { adminAPI } from 'features/admin/api/adminApi';
 import UserStatisticsChart from '../../components/admin/UserStatisticsChart';
 import OnlineUserChart from '../../components/admin/OnlineUserChart';
 import UserDetailDrawer from '../../components/admin/UserDetailDrawer';

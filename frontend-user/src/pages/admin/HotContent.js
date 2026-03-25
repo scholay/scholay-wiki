@@ -13,7 +13,7 @@ import {
   Tag, Typography, Popconfirm, Tooltip,
 } from 'antd';
 import { ClearOutlined, LinkOutlined } from '@ant-design/icons';
-import api from '../../services/adminApi';
+import { adminHttpClient as api } from 'shared/api/client';
 
 const { Text } = Typography;
 

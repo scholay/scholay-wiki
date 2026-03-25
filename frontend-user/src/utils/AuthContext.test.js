@@ -2,8 +2,8 @@ import React from 'react';
 import { render, act } from '@testing-library/react';
 import { AuthProvider, useAuth } from './AuthContext';
 
-jest.mock('../services/api', () => ({
-  userAPI: {
+jest.mock('features/auth/api/authApi', () => ({
+  authApi: {
     getProfile: jest.fn(),
     logout: jest.fn(),
     refreshToken: jest.fn(),
@@ -11,7 +11,7 @@ jest.mock('../services/api', () => ({
   },
 }));
 
-jest.mock('../services/adminApi', () => ({
+jest.mock('features/admin/api/adminApi', () => ({
   adminAPI: {
     getProfile: jest.fn(),
   },
@@ -35,8 +35,8 @@ jest.mock('./logger', () => ({
   debug: jest.fn(),
 }));
 
-const { userAPI } = require('../services/api');
-const { adminAPI } = require('../services/adminApi');
+const { authApi: userAPI } = require('features/auth/api/authApi');
+const { adminAPI } = require('features/admin/api/adminApi');
 
 const TestConsumer = ({ onRender }) => {
   const auth = useAuth();

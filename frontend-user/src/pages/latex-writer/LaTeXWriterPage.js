@@ -18,7 +18,7 @@ import LatexEditor from '../../components/latex-writer/LatexEditor';
 import AiChatPanel from '../../components/latex-writer/AiChatPanel';
 import PdfPreview from '../../components/latex-writer/PdfPreview';
 import LatexCompiler from '../../components/latex-writer/LatexCompiler';
-import { userAPI } from '../../services/api';
+import { latexApi as userAPI } from 'features/latex-writer/api/latexApi';
 import SEO from '../../components/SEO';
 import { DEFAULT_LATEX_TEMPLATE } from './latexTemplates';
 import './LaTeXWriterPage.css';

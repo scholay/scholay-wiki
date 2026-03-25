@@ -99,7 +99,7 @@ const DashboardLayout = () => {
     }
     setPasswordLoading(true);
     try {
-      const { adminAPI } = await import('../../services/adminApi');
+      const { adminAPI } = await import('features/admin/api/adminApi');
       const response = await adminAPI.updatePassword(values.oldPassword, values.newPassword);
       if (response.data.code === 0) {
         message.success('密码修改成功');

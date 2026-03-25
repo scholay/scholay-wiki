@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Form, Input, Button, Card, Tabs, App } from 'antd';
-import { adminAPI } from '../../../services/adminApi';
+import { adminAPI } from 'features/admin/api/adminApi';
 
 const PrivacyTab = () => {
   const { message } = App.useApp();

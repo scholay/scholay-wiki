@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Form, Input, Button, Card, Space, Alert, Typography, App } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
-import { adminAPI } from '../../../services/adminApi';
+import { adminAPI } from 'features/admin/api/adminApi';
 
 const { Text } = Typography;
 

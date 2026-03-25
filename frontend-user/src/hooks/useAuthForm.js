@@ -11,7 +11,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { userAPI } from '../services/api';
+import { authApi as userAPI } from 'features/auth/api/authApi';
 import { isValidEmail, isValidPhone, getPasswordError } from '../utils/validators';
 import logger from '../utils/logger';
 

@@ -13,7 +13,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Input, Button, Divider, Segmented, ConfigProvider, theme } from 'antd';
 import { useAuth } from '../utils/AuthContext';
-import { userAPI, configAPI } from '../services/api';
+import { authApi as userAPI } from 'features/auth/api/authApi';
+import { configApi as configAPI } from 'features/settings/api/settingsApi';
 import { useToast } from './ToastContainer';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';

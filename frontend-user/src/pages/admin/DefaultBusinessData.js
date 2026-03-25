@@ -13,7 +13,7 @@ import {
   Form, Input, InputNumber, Tabs, Typography, List, Badge
 } from 'antd';
 import { EditOutlined, TableOutlined } from '@ant-design/icons';
-import { adminAPI } from '../../services/adminApi';
+import { adminAPI } from 'features/admin/api/adminApi';
 
 const { Text, Paragraph } = Typography;
 const { TextArea } = Input;

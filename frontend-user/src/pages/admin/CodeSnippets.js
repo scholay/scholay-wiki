@@ -16,7 +16,7 @@ import {
   InputNumber, Tag, Empty, Segmented, Typography,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { adminAPI } from '../../services/adminApi';
+import { adminAPI } from 'features/admin/api/adminApi';
 
 const { TextArea } = Input;
 const { Text } = Typography;

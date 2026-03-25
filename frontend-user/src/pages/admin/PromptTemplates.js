@@ -15,7 +15,7 @@ import {
 import {
   PlusOutlined, EditOutlined, DeleteOutlined
 } from '@ant-design/icons';
-import { adminAPI } from '../../services/adminApi';
+import { adminAPI } from 'features/admin/api/adminApi';
 
 const { Text, Paragraph } = Typography;
 const { TextArea } = Input;

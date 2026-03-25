@@ -23,6 +23,7 @@ frontend-admin/.pnp
 frontend-admin/.pnp.js
 frontend-user/node_modules/
 frontend-user/build/
+frontend-user/dist/
 frontend-user/.pnp
 frontend-user/.pnp.js
 

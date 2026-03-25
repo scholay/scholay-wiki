@@ -11,7 +11,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button, Spin } from 'antd';
-import { userAPI } from '../../services/api';
+import { authApi as userAPI } from 'features/auth/api/authApi';
 import { useToast } from '../ToastContainer';
 import logger from '../../utils/logger';
 
