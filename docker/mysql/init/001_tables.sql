@@ -1149,4 +1149,21 @@ CREATE TABLE IF NOT EXISTS `hot_papers` (
   UNIQUE INDEX `uk_paper_id` (`paper_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='热门论文统计';
 
+-- ============================================================================
+-- 增量列迁移：确保已有表包含新增列（CREATE TABLE IF NOT EXISTS 不会修改已有表）
+-- ============================================================================
+SET @col_exists = (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'users'
+    AND COLUMN_NAME = 'role'
+);
+SET @ddl = IF(@col_exists = 0,
+    'ALTER TABLE `users` ADD COLUMN `role` VARCHAR(20) NOT NULL DEFAULT ''user'' COMMENT ''user, admin'' AFTER `website`',
+    'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 SET foreign_key_checks = 1;
