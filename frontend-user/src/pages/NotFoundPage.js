@@ -18,13 +18,13 @@ const NotFoundPage = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="not-found-page">
+    <div className="not-found-page page-shell-centered">
       <SEO
         title="404 - 页面未找到 | Scholay"
         description="您访问的页面不存在。请返回首页继续使用 Scholay 学术搜索平台。"
         canonical="/"
       />
-      <div className="not-found-container">
+      <div className="not-found-container page-container--narrow">
         <div className="not-found-logo">
           <Logo size={56} />
         </div>

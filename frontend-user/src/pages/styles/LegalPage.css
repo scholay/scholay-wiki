@@ -8,17 +8,11 @@
  * LegalPage.css - 隐私政策和服务条款页面样式
  */
 
-.legal-page {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  background: var(--bg-primary);
-  padding: 40px 20px;
-}
+/* NOTE: This page uses shared .page-shell + .page-container from assets/styles/layouts/containers.css */
 
+/* Shared: `.page-shell` */
 .legal-container {
-  max-width: 1000px;
-  margin: 0 auto;
+  /* max-width and margin now from .page-container */
 }
 
 /* Header */
@@ -26,24 +20,6 @@
   margin-bottom: 32px;
 }
 
-.legal-page .back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  color: var(--text-tertiary);
-  font-size: 0.9375rem;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.legal-page .back-btn:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-}
 
 /* Hero */
 .legal-hero {
@@ -72,7 +48,7 @@
 }
 
 .legal-icon {
-  color: var(--primary-color);
+  color: var(--primary-solid);
 }
 
 .legal-hero h1 {
@@ -94,7 +70,7 @@
   background: var(--bg-secondary);
   border-radius: 16px;
   padding: 32px;
-  border: 1px solid var(--border-primary);
+  border: 1px solid var(--border);
   margin-bottom: 40px;
   min-height: 300px;
 }
@@ -111,15 +87,11 @@
 .legal-loading .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--border-primary);
-  border-top-color: var(--primary-color);
+  border: 3px solid var(--border);
+  border-top-color: var(--primary-solid);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin-bottom: 16px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 .legal-text {
@@ -157,7 +129,7 @@
 }
 
 .legal-text a {
-  color: var(--primary-color);
+  color: var(--primary-solid);
   text-decoration: none;
 }
 
@@ -174,7 +146,7 @@
   margin: 16px 0;
   padding: 12px 20px;
   background: var(--bg-tertiary);
-  border-left: 4px solid var(--primary-color);
+  border-left: 4px solid var(--primary-solid);
   border-radius: 0 8px 8px 0;
 }
 
@@ -195,7 +167,7 @@
 .legal-text th,
 .legal-text td {
   padding: 12px;
-  border: 1px solid var(--border-primary);
+  border: 1px solid var(--border);
   text-align: left;
 }
 
@@ -209,7 +181,7 @@
 .legal-footer {
   text-align: center;
   padding-top: 32px;
-  border-top: 1px solid var(--border-primary);
+  border-top: 1px solid var(--border);
 }
 
 .legal-footer .copyright {
@@ -237,7 +209,7 @@
 }
 
 .legal-footer .footer-links button:hover {
-  color: var(--primary-color);
+  color: var(--primary-solid);
 }
 
 .legal-footer .footer-links span {
@@ -246,9 +218,6 @@
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
-  .legal-page {
-    padding: 20px 16px;
-  }
 
   .legal-hero {
     padding: 24px 0 32px;

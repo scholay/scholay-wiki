@@ -45,7 +45,7 @@
 }
 
 .pdf-title {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -74,7 +74,7 @@
   height: 28px;
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
   transition: all 0.15s ease;
@@ -87,7 +87,7 @@
 }
 
 .control-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--border-light);
   color: rgba(255, 255, 255, 0.8);
 }
 
@@ -105,7 +105,7 @@
 }
 
 .zoom-level {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: rgba(255, 255, 255, 0.5);
   min-width: 40px;
   text-align: center;
@@ -113,7 +113,7 @@
 }
 
 .page-info {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: rgba(255, 255, 255, 0.5);
   padding: 0 4px;
 }
@@ -121,7 +121,7 @@
 .divider {
   width: 1px;
   height: 16px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--border-light);
   margin: 0 4px;
 }
 
@@ -168,7 +168,7 @@
 
 .pdf-page {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  background: white;
+  background: var(--surface);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -180,7 +180,7 @@
 
 /* PDF 页面占位符（内存优化：未渲染页面的占位符） */
 .pdf-page-placeholder {
-  background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--border) 100%);
   border-radius: 2px;
   display: flex;
   align-items: center;
@@ -200,7 +200,7 @@
   margin: -20px 0 0 -20px;
   border: 3px solid rgba(0, 0, 0, 0.1);
   border-top-color: rgba(0, 0, 0, 0.3);
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   animation: pdf-placeholder-spin 1s linear infinite;
 }
 
@@ -214,7 +214,7 @@
 }
 
 [data-theme="dark"] .pdf-page-placeholder::after {
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: var(--border);
   border-top-color: rgba(255, 255, 255, 0.3);
 }
 
@@ -245,7 +245,7 @@
 .pdf-skeleton-page {
   width: 100%;
   aspect-ratio: 1 / 1.414;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   overflow: hidden;
   background: rgba(255, 255, 255, 0.03);
 }
@@ -255,7 +255,7 @@
   height: 100%;
   background: linear-gradient(110deg,
     rgba(255, 255, 255, 0.02) 25%,
-    rgba(255, 255, 255, 0.06) 50%,
+    var(--border-light) 50%,
     rgba(255, 255, 255, 0.02) 75%);
   background-size: 200% 100%;
   animation: pdf-skeleton-loading 1.5s ease-in-out infinite;
@@ -271,8 +271,8 @@
 }
 
 .pdf-skeleton-text {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.35);
+  font-size: var(--text-xs);
+  color: var(--text-quaternary);
 }
 
 /* 错误状态 */
@@ -294,7 +294,7 @@
 }
 
 .pdf-error p {
-  font-size: 13px;
+  font-size: var(--text-xs);
   margin: 0;
   max-width: 260px;
   line-height: 1.5;
@@ -306,10 +306,10 @@
   gap: 6px;
   padding: 8px 14px;
   background: rgba(16, 185, 129, 0.9);
-  color: white;
+  color: var(--surface);
   text-decoration: none;
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: var(--radius-xs);
+  font-size: var(--text-xs);
   font-weight: 500;
   transition: all 0.15s ease;
   margin-top: 4px;
@@ -369,7 +369,7 @@
   width: 16px;
   height: 16px;
   background: rgba(255, 255, 255, 0.5);
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   transition: all 0.2s ease;
 }
 
@@ -383,7 +383,7 @@
 }
 
 .toggle-label {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: rgba(255, 255, 255, 0.5);
 }
 
@@ -427,7 +427,7 @@
 }
 
 [data-theme="light"] .control-btn.external-btn:hover {
-  background: rgba(16, 163, 127, 0.1);
+  background: rgba(var(--primary-rgb), 0.1);
 }
 
 [data-theme="light"] .zoom-level,
@@ -486,11 +486,11 @@
 
 [data-theme="light"] .fallback-link {
   background: var(--text-accent);
-  color: white;
+  color: var(--surface);
 }
 
 [data-theme="light"] .fallback-link:hover {
-  background: #0d8968;
+  background: var(--primary-hover);
 }
 
 [data-theme="light"] .fallback-link.scihub-link {
@@ -511,7 +511,7 @@
 }
 
 [data-theme="light"] .auto-open-toggle input[type="checkbox"]:checked {
-  background: rgba(16, 163, 127, 0.2);
+  background: rgba(var(--primary-rgb), 0.2);
   border-color: var(--text-accent);
 }
 
@@ -574,7 +574,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: var(--text-xs);
   font-weight: 500;
   color: rgba(167, 139, 250, 0.95);
 }
@@ -586,11 +586,11 @@
   justify-content: center;
   padding: 2px 8px;
   background: linear-gradient(135deg, #f43f5e 0%, #ec4899 100%);
-  color: white;
+  color: var(--surface);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.5px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   text-transform: uppercase;
   box-shadow: 0 2px 8px rgba(244, 63, 94, 0.4);
   animation: new-badge-pulse 2s ease-in-out infinite;
@@ -610,7 +610,7 @@
   height: 24px;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   color: rgba(255, 255, 255, 0.4);
   cursor: pointer;
   transition: all 0.15s ease;
@@ -629,7 +629,7 @@
   left: auto;
   top: auto;
   z-index: 10001;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   border: 1px solid rgba(139, 92, 246, 0.3);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(139, 92, 246, 0.1);
   backdrop-filter: blur(12px);
@@ -662,10 +662,10 @@
   gap: 6px;
   padding: 8px 14px;
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  color: white;
+  color: var(--surface);
   border: none;
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
   font-weight: 500;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
@@ -687,8 +687,8 @@
   min-width: 280px;
   max-width: 400px;
   background: #1f1f23;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   overflow: hidden;
 }
@@ -699,11 +699,11 @@
   justify-content: space-between;
   padding: 10px 14px;
   background: rgba(99, 102, 241, 0.15);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border-light);
 }
 
 .pdf-translate-result-title {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
   color: rgba(167, 139, 250, 0.9);
 }
@@ -716,7 +716,7 @@
   height: 20px;
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: rgba(255, 255, 255, 0.4);
   cursor: pointer;
   transition: all 0.15s ease;
@@ -729,7 +729,7 @@
 
 .pdf-translate-result-content {
   padding: 12px 14px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.9);
   max-height: 200px;
@@ -752,8 +752,8 @@
 .pdf-translate-original {
   padding: 10px 14px;
   background: rgba(0, 0, 0, 0.2);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  font-size: 12px;
+  border-top: 1px solid var(--border-light);
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 
@@ -797,14 +797,14 @@
 
 /* 日间模式 - 翻译弹窗 */
 [data-theme="light"] .pdf-translate-result {
-  background: #ffffff;
-  border-color: #e5e7eb;
+  background: var(--surface);
+  border-color: var(--border);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
 }
 
 [data-theme="light"] .pdf-translate-result-header {
   background: rgba(99, 102, 241, 0.08);
-  border-bottom-color: #e5e7eb;
+  border-bottom-color: var(--border);
 }
 
 [data-theme="light"] .pdf-translate-result-title {
@@ -833,8 +833,8 @@
 }
 
 [data-theme="light"] .pdf-translate-original {
-  background: #f9fafb;
-  border-top-color: #e5e7eb;
+  background: var(--bg-primary);
+  border-top-color: var(--border);
 }
 
 [data-theme="light"] .pdf-translate-original-label {
@@ -897,7 +897,7 @@
   height: calc(100vh - 40px);
   max-width: 1400px;
   background: #1a1a1a;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -923,7 +923,7 @@
   justify-content: space-between;
   padding: 12px 20px;
   background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border-light);
   flex-shrink: 0;
 }
 
@@ -932,7 +932,7 @@
   align-items: center;
   gap: 12px;
   color: rgba(255, 255, 255, 0.9);
-  font-size: 15px;
+  font-size: var(--text-sm);
   font-weight: 500;
   flex: 1;
   min-width: 0;
@@ -963,7 +963,7 @@
   height: 36px;
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
   transition: all 0.15s ease;
@@ -995,7 +995,7 @@
 }
 
 .fullscreen-zoom-level {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: rgba(255, 255, 255, 0.6);
   min-width: 48px;
   text-align: center;
@@ -1003,7 +1003,7 @@
 }
 
 .fullscreen-page-info {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: rgba(255, 255, 255, 0.5);
   padding: 0 8px;
 }
@@ -1052,16 +1052,16 @@
 
 /* 日间模式 - 全屏弹窗 */
 [data-theme="light"] .pdf-fullscreen-overlay {
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--overlay-bg);
 }
 
 [data-theme="light"] .pdf-fullscreen-modal {
-  background: #ffffff;
+  background: var(--surface);
 }
 
 [data-theme="light"] .pdf-fullscreen-toolbar {
-  background: #f8f9fa;
-  border-bottom-color: #e5e7eb;
+  background: var(--bg-primary);
+  border-bottom-color: var(--border);
 }
 
 [data-theme="light"] .pdf-fullscreen-title {
@@ -1082,7 +1082,7 @@
 }
 
 [data-theme="light"] .fullscreen-control-btn.fullscreen-close-btn {
-  color: #ef4444;
+  color: var(--error);
 }
 
 [data-theme="light"] .fullscreen-control-btn.fullscreen-close-btn:hover {
@@ -1098,7 +1098,7 @@
 }
 
 [data-theme="light"] .fullscreen-divider {
-  background: #e5e7eb;
+  background: var(--border);
 }
 
 [data-theme="light"] .pdf-fullscreen-content {
@@ -1144,7 +1144,7 @@
   }
 
   .pdf-fullscreen-title {
-    font-size: 13px;
+    font-size: var(--text-xs);
   }
 
   .fullscreen-control-btn {

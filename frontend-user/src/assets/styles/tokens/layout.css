@@ -1,0 +1,39 @@
+/**
+ * Design Tokens - Layout
+ * 布局宽度与层级令牌
+ */
+
+:root {
+  /* 内容宽度阶梯 */
+  --width-narrow: 520px;
+  --width-article: 800px;
+  --width-content: 900px;
+  --width-page: 1000px;
+  --width-wide: 1200px;
+  --width-max: 1400px;
+  --width-full: 1920px;
+
+  /* 聊天/阅读宽度 */
+  --width-chat: 56rem;
+  --width-reading: 48rem;
+  --width-chat-xl: 64rem;
+  --width-chat-lg: 60rem;
+  --width-chat-md: 52rem;
+  --width-chat-sm: 48rem;
+
+  /* z-index 层级 */
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-fixed: 500;
+  --z-sidebar: 900;
+  --z-modal: 1000;
+  --z-popover: 2000;
+  --z-toast: 5000;
+  --z-tooltip: 10000;
+  --z-top: 100000;
+
+  /* 侧边栏宽度 */
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 0px;
+}

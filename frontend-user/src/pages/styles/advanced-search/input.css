@@ -173,10 +173,6 @@
   border-top-color: var(--text-accent);
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
 /* Input with filters wrapper */
 .input-with-filters {
   display: flex;

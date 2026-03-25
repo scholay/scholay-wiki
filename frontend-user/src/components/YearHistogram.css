@@ -166,7 +166,7 @@
 }
 
 [data-theme="light"] .year-value {
-  color: #0d8c6c;
+  color: var(--primary-hover);
 }
 
 [data-theme="light"] .year-separator-display {
@@ -185,7 +185,7 @@
 
 [data-theme="light"] .handle-label {
   background: rgba(16, 163, 127, 0.1);
-  color: #0d8c6c;
+  color: var(--primary-hover);
   border: 1px solid rgba(16, 163, 127, 0.2);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }

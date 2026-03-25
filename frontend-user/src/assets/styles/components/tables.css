@@ -1,0 +1,81 @@
+/**
+ * Component - Tables
+ * 统一表格样式 (HTML table 和 flex 模拟表格)
+ */
+
+/* HTML table */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  text-align: left;
+  font-size: var(--text-sm);
+}
+
+.table th {
+  background: var(--bg-hover);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+}
+
+.table td {
+  color: var(--text-secondary);
+}
+
+.table tr:hover td {
+  background: var(--bg-hover);
+}
+
+[data-theme="light"] .table th {
+  background: var(--bg-secondary);
+}
+
+/* Flex table (for custom layouts) */
+.flex-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.flex-table-header {
+  display: flex;
+  align-items: center;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.flex-table-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border-light);
+  transition: var(--transition-fast);
+}
+
+.flex-table-row:last-child {
+  border-bottom: none;
+}
+
+.flex-table-row:hover {
+  background: var(--bg-hover);
+}
+
+.flex-table-cell {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

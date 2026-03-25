@@ -18,14 +18,14 @@ const AboutPage = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="about-page">
+    <div className="about-page page-shell">
       <SEO
         title="关于我们 - Scholay | AI驱动的学术搜索平台"
         description="了解 Scholay 的使命、团队和发展历程。Scholay 由成都恩特罐罐文化科技有限公司运营，致力于通过AI技术提升学术研究效率。"
         keywords="关于Scholay,学术搜索平台,AI学术工具,成都恩特罐罐文化科技,学术研究助手"
         canonical="/about"
       />
-      <div className="about-container">
+      <div className="about-container page-container">
         <div className="about-header">
           <button className="back-btn" onClick={() => navigate(-1)}>
             <ArrowLeft size={20} />

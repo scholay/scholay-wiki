@@ -57,14 +57,14 @@ const ContactPage = () => {
   };
 
   return (
-    <div className="legal-page">
+    <div className="legal-page page-shell">
       <SEO
         title="联系我们 - Scholay | 客服支持与商务合作"
         description="联系 Scholay 团队，获取技术支持、提交反馈或商务合作。邮箱：support@scholay.com，工作时间：周一至周五 9:00-18:00。"
         keywords="联系Scholay,客户支持,技术支持,商务合作,学术搜索客服"
         canonical="/contact"
       />
-      <div className="legal-container">
+      <div className="legal-container page-container">
         <div className="legal-header">
           <button className="back-btn" onClick={() => navigate(-1)}>
             <ArrowLeft size={20} />

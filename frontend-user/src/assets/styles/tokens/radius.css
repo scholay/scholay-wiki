@@ -1,0 +1,16 @@
+/**
+ * Design Tokens - Border Radius
+ * 统一圆角令牌
+ */
+
+:root {
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-full: 999px;
+  --radius-circle: 50%;
+}

@@ -180,17 +180,6 @@
   box-shadow: var(--shadow-lg);
 }
 
-@keyframes dropdownFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .dropdown-item {
   display: flex;
   align-items: center;

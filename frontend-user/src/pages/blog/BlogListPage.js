@@ -64,7 +64,7 @@ const BlogListPage = () => {
   };
 
   return (
-    <div className="resource-center-page">
+    <div className="resource-center-page page-shell">
       <SEO
         title="Scholay 博客 | 学术搜索技巧、AI 研究工具与论文写作指南"
         description="Scholay 博客分享学术搜索技巧、AI 研究工具使用方法、论文写作指南和学术行业观察。原创深度文章助力科研工作者提升效率。"
@@ -73,7 +73,7 @@ const BlogListPage = () => {
         structuredData={structuredData}
       />
 
-      <div className="resource-center-container">
+      <div className="resource-center-container page-container">
         <div className="resource-center-header">
           <button className="back-btn" onClick={() => navigate('/')}>
             <ArrowLeft size={20} />

@@ -1,0 +1,170 @@
+/**
+ * Base - Reset & Global Element Styles
+ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  background: var(--background);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  background: var(--background);
+  min-height: 100%;
+  color: var(--text-primary);
+  line-height: var(--leading-relaxed);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+}
+
+/* Animated Background */
+.animated-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  background: var(--background);
+  overflow: hidden;
+}
+
+[data-theme="dark"] .animated-bg::before,
+[data-theme="dark"] .animated-bg::after {
+  content: '';
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: var(--radius-circle);
+  filter: blur(100px);
+  opacity: 0.15;
+  animation: float 20s ease-in-out infinite;
+}
+
+[data-theme="dark"] .animated-bg::before {
+  background: var(--primary);
+  top: -200px;
+  left: -200px;
+  animation-delay: -10s;
+}
+
+[data-theme="dark"] .animated-bg::after {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  bottom: -200px;
+  right: -200px;
+}
+
+[data-theme="light"] .animated-bg {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .animated-bg::before,
+[data-theme="light"] .animated-bg::after {
+  content: '';
+  position: absolute;
+  border-radius: var(--radius-circle);
+  filter: blur(100px);
+  opacity: 0.08;
+  animation: float 30s ease-in-out infinite;
+}
+
+[data-theme="light"] .animated-bg::before {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(var(--primary-rgb), 0.3) 0%, transparent 70%);
+  top: -200px;
+  right: -100px;
+  animation-delay: -15s;
+}
+
+[data-theme="light"] .animated-bg::after {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, transparent 70%);
+  bottom: -150px;
+  left: -100px;
+}
+
+/* Utility classes */
+.text-center {
+  text-align: center;
+}
+
+.text-gradient {
+  background: var(--primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glow-text {
+  text-shadow: 0 0 20px rgba(var(--primary-rgb), 0.5);
+}
+
+/* View Transitions API */
+@supports (view-transition-name: search-composer) {
+  ::view-transition-old(search-composer),
+  ::view-transition-new(search-composer) {
+    animation-duration: 0.4s;
+    animation-timing-function: var(--ease-default);
+    mix-blend-mode: normal;
+  }
+
+  ::view-transition-old(search-composer) {
+    animation-name: composer-fade-out;
+  }
+
+  ::view-transition-new(search-composer) {
+    animation-name: composer-fade-in;
+  }
+
+  @keyframes composer-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  @keyframes composer-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.25s;
+    animation-timing-function: var(--ease-default);
+  }
+
+  ::view-transition-old(root) {
+    animation-name: root-fade-out;
+  }
+
+  ::view-transition-new(root) {
+    animation-name: root-fade-in;
+  }
+
+  @keyframes root-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  @keyframes root-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}

@@ -52,7 +52,7 @@ const ResourceCenterPage = () => {
   };
 
   return (
-    <div className="resource-center-page">
+    <div className="resource-center-page page-shell">
       <SEO
         title="学术资源中心 - Scholay | 文献检索、论文写作与研究方法指南"
         description="Scholay 学术资源中心提供原创学术指南，涵盖文献检索技巧、论文写作方法、引用格式规范、研究方法论和 AI 学术工具使用教程，助力科研工作者提升效率。"
@@ -61,7 +61,7 @@ const ResourceCenterPage = () => {
         structuredData={structuredData}
       />
 
-      <div className="resource-center-container">
+      <div className="resource-center-container page-container">
         <div className="resource-center-header">
           <button className="back-btn" onClick={() => navigate('/')}>
             <ArrowLeft size={20} />

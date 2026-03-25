@@ -1,0 +1,87 @@
+/**
+ * Shared - Floating Cards
+ * 装饰性浮动卡片（合并 home/base.css 与 advanced-search/base.css 中重复部分）
+ */
+
+.floating-cards {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  max-width: var(--width-max);
+  height: 600px;
+  pointer-events: none;
+  z-index: var(--z-base);
+}
+
+.floating-card {
+  position: absolute;
+  padding: 1.5rem;
+  min-width: 200px;
+  pointer-events: auto;
+  animation: float 6s ease-in-out infinite;
+}
+
+[data-theme="dark"] .floating-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .floating-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+.floating-card:hover {
+  border-color: rgba(var(--primary-rgb), 0.3);
+  transform: scale(1.02);
+  transition: var(--transition);
+}
+
+.card-icon {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.card-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: 0.375rem;
+}
+
+.card-desc {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+/* Card positions */
+.card-1 {
+  top: 8%;
+  left: 8%;
+  animation-delay: 0s;
+}
+
+.card-2 {
+  top: 15%;
+  right: 10%;
+  animation-delay: -2s;
+}
+
+.card-3 {
+  bottom: 15%;
+  left: 5%;
+  animation-delay: -4s;
+}
+
+@media (max-width: 768px) {
+  .floating-cards {
+    display: none;
+  }
+}

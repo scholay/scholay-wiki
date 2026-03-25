@@ -77,7 +77,7 @@
 }
 
 .auth-change-email:hover {
-  color: #0d8a6b;
+  color: var(--primary-hover);
 }
 
 /* ========== 验证码输入组 ========== */

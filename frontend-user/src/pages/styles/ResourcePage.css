@@ -8,18 +8,12 @@
  * ResourcePage.css - 学术资源中心与文章页面样式
  */
 
-/* ============ Resource Center (List) ============ */
-.resource-center-page {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  background: var(--bg-primary);
-  padding: 40px 20px;
-}
+/* NOTE: This page uses shared .page-shell + .page-container from assets/styles/layouts/containers.css */
 
+/* ============ Resource Center (List) ============ */
+/* Shared: `.page-shell` */
 .resource-center-container {
-  max-width: 1000px;
-  margin: 0 auto;
+  /* max-width and margin now from .page-container */
 }
 
 .resource-center-header {
@@ -61,7 +55,7 @@
 .category-tag {
   padding: 8px 18px;
   border-radius: 20px;
-  border: 1px solid var(--border-primary);
+  border: 1px solid var(--border);
   background: var(--bg-secondary);
   color: var(--text-secondary);
   font-size: 0.9375rem;
@@ -70,13 +64,13 @@
 }
 
 .category-tag:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  border-color: var(--primary-solid);
+  color: var(--primary-solid);
 }
 
 .category-tag.active {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
+  background: var(--primary-solid);
+  border-color: var(--primary-solid);
   color: #fff;
 }
 
@@ -92,7 +86,7 @@
   background: var(--bg-secondary);
   border-radius: 16px;
   padding: 28px;
-  border: 1px solid var(--border-primary);
+  border: 1px solid var(--border);
   cursor: pointer;
   transition: all 0.25s;
   display: flex;
@@ -100,8 +94,8 @@
 }
 
 .resource-card:hover {
-  border-color: var(--primary-color);
-  box-shadow: 0 4px 24px rgba(99, 102, 241, 0.12);
+  border-color: var(--primary-solid);
+  box-shadow: 0 4px 24px rgba(var(--accent-secondary-rgb), 0.12);
   transform: translateY(-2px);
 }
 
@@ -110,7 +104,7 @@
   align-items: center;
   gap: 6px;
   font-size: 0.8125rem;
-  color: var(--primary-color);
+  color: var(--primary-solid);
   margin-bottom: 12px;
   font-weight: 500;
 }
@@ -150,6 +144,7 @@
 }
 
 /* ============ Article Detail ============ */
+/* Shared: `.page-shell` */
 .article-page {
   flex: 1;
   min-height: 0;
@@ -158,6 +153,7 @@
   padding: 40px 20px;
 }
 
+/* Shared: `.page-container--article` */
 .article-container {
   max-width: 800px;
   margin: 0 auto;
@@ -190,7 +186,7 @@
 
 .article-breadcrumb a:hover,
 .article-breadcrumb button:hover {
-  color: var(--primary-color);
+  color: var(--primary-solid);
 }
 
 .article-hero {
@@ -203,8 +199,8 @@
   gap: 6px;
   padding: 6px 14px;
   border-radius: 16px;
-  background: rgba(99, 102, 241, 0.1);
-  color: var(--primary-color);
+  background: rgba(var(--accent-secondary-rgb), 0.1);
+  color: var(--primary-solid);
   font-size: 0.8125rem;
   font-weight: 500;
   margin-bottom: 16px;
@@ -238,7 +234,7 @@
   background: var(--bg-secondary);
   border-radius: 16px;
   padding: 36px 32px;
-  border: 1px solid var(--border-primary);
+  border: 1px solid var(--border);
   margin-bottom: 40px;
 }
 
@@ -248,7 +244,7 @@
   color: var(--text-primary);
   margin: 36px 0 16px 0;
   padding-bottom: 10px;
-  border-bottom: 1px solid var(--border-primary);
+  border-bottom: 1px solid var(--border);
 }
 
 .article-body h2:first-child {
@@ -291,7 +287,7 @@
   margin: 20px 0;
   padding: 16px 24px;
   background: var(--bg-tertiary);
-  border-left: 4px solid var(--primary-color);
+  border-left: 4px solid var(--primary-solid);
   border-radius: 0 12px 12px 0;
   font-style: italic;
   color: var(--text-secondary);
@@ -302,15 +298,15 @@
 }
 
 .article-tip-box {
-  background: rgba(99, 102, 241, 0.06);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: rgba(var(--accent-secondary-rgb), 0.06);
+  border: 1px solid rgba(var(--accent-secondary-rgb), 0.2);
   border-radius: 12px;
   padding: 20px 24px;
   margin: 20px 0;
 }
 
 .article-tip-box h4 {
-  color: var(--primary-color);
+  color: var(--primary-solid);
   font-size: 0.9375rem;
   font-weight: 600;
   margin: 0 0 8px 0;
@@ -343,13 +339,13 @@
   background: var(--bg-secondary);
   border-radius: 12px;
   padding: 20px;
-  border: 1px solid var(--border-primary);
+  border: 1px solid var(--border);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .related-article-card:hover {
-  border-color: var(--primary-color);
+  border-color: var(--primary-solid);
 }
 
 .related-article-card h4 {
@@ -370,7 +366,7 @@
 .article-footer {
   text-align: center;
   padding-top: 32px;
-  border-top: 1px solid var(--border-primary);
+  border-top: 1px solid var(--border);
 }
 
 .article-footer .copyright {
@@ -398,7 +394,7 @@
 }
 
 .article-footer .footer-links button:hover {
-  color: var(--primary-color);
+  color: var(--primary-solid);
 }
 
 .article-footer .footer-links span {
@@ -407,8 +403,8 @@
 
 /* CTA Section */
 .article-cta {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.06));
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: linear-gradient(135deg, rgba(var(--accent-secondary-rgb), 0.08), rgba(139, 92, 246, 0.06));
+  border: 1px solid rgba(var(--accent-secondary-rgb), 0.2);
   border-radius: 16px;
   padding: 32px;
   text-align: center;
@@ -433,7 +429,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 28px;
-  background: var(--primary-color);
+  background: var(--primary-solid);
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -460,7 +456,7 @@
 .blog-page-btn {
   padding: 8px 16px;
   border-radius: 8px;
-  border: 1px solid var(--border-primary);
+  border: 1px solid var(--border);
   background: var(--bg-secondary);
   color: var(--text-secondary);
   font-size: 0.875rem;
@@ -469,13 +465,13 @@
 }
 
 .blog-page-btn:hover:not(:disabled) {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  border-color: var(--primary-solid);
+  color: var(--primary-solid);
 }
 
 .blog-page-btn.active {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
+  background: var(--primary-solid);
+  border-color: var(--primary-solid);
   color: #fff;
 }
 
@@ -492,14 +488,14 @@
   padding: 16px 20px;
   background: var(--bg-secondary);
   border-radius: 12px;
-  border: 1px solid var(--border-primary);
+  border: 1px solid var(--border);
 }
 
 .blog-author-avatar {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary-color), #8b5cf6);
+  background: linear-gradient(135deg, var(--primary-solid), var(--accent-secondary-hover));
   color: #fff;
   display: flex;
   align-items: center;
@@ -549,7 +545,7 @@
   padding: 5px 14px;
   border-radius: 16px;
   background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
+  border: 1px solid var(--border);
   color: var(--text-tertiary);
   font-size: 0.8125rem;
 }

@@ -138,14 +138,14 @@ const PrivacyPage = () => {
   };
 
   return (
-    <div className="legal-page">
+    <div className="legal-page page-shell">
       <SEO
         title="隐私政策 - Scholay | 用户数据保护说明"
         description="Scholay 隐私政策详细说明了我们如何收集、使用、存储和保护您的个人信息，保障您的隐私权益。"
         keywords="Scholay隐私政策,数据保护,个人信息,用户隐私,Cookie政策"
         canonical="/privacy"
       />
-      <div className="legal-container">
+      <div className="legal-container page-container">
         <div className="legal-header">
           <button className="back-btn" onClick={() => navigate(-1)}>
             <ArrowLeft size={20} />

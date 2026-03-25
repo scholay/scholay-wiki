@@ -22,6 +22,7 @@ import api from '../services/api';
 import logger from '../utils/logger';
 import { AccountTab } from './settings/tabs';
 import { useAccountData } from './settings/hooks';
+import './styles/SettingsPage.css';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -329,21 +330,16 @@ const Settings = () => {
   const isMobile = !screens.md;
 
   const profileTab = (
-    <div style={{ maxWidth: 700 }}>
+    <div className="settings-tab-panel">
       <Card>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+        <div className="settings-profile-top">
           <Avatar
             size={80}
-            style={{
-              background: 'linear-gradient(135deg, #10a37f, #1a7f64)',
-              fontSize: 32,
-              fontWeight: 700,
-              flexShrink: 0,
-            }}
+            className="settings-avatar"
           >
             {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
           </Avatar>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="settings-profile-info">
             {isEditingName ? (
               <Space wrap>
                 <Input
@@ -370,37 +366,25 @@ const Settings = () => {
               </Space>
             ) : (
               <div
+                className="settings-name-display"
                 onClick={() => {
                   setEditingName(profile.name || '');
                   setIsEditingName(true);
-                }}
-                style={{
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '4px 8px',
-                  borderRadius: 8,
-                  transition: 'background 0.2s',
                 }}
               >
                 <Title level={4} style={{ margin: 0 }}>
                   {profile.name || '未设置名字'}
                 </Title>
-                <EditOutlined style={{ opacity: 0.4, fontSize: 14 }} />
+                <EditOutlined />
               </div>
             )}
           </div>
         </div>
 
         <div>
-          <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <FileTextOutlined style={{ opacity: 0.5 }} />
-            <Text
-              type="secondary"
-              strong
-              style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}
-            >
+          <div className="settings-bio-label">
+            <FileTextOutlined />
+            <Text type="secondary" strong>
               简介
             </Text>
           </div>
@@ -424,16 +408,10 @@ const Settings = () => {
             </div>
           ) : (
             <div
+              className="settings-bio-display"
               onClick={() => {
                 setEditingBio(profile.bio || '');
                 setIsEditingBio(true);
-              }}
-              style={{
-                cursor: 'pointer',
-                padding: '12px 16px',
-                borderRadius: 8,
-                minHeight: 60,
-                transition: 'all 0.2s',
               }}
             >
               {profile.bio ? (
@@ -451,7 +429,7 @@ const Settings = () => {
   );
 
   const accountTabContent = (
-    <div style={{ maxWidth: 700 }}>
+    <div className="settings-tab-panel">
       <AccountTab
         user={user}
         loading={accountData.loading}
@@ -478,7 +456,7 @@ const Settings = () => {
       key: 'profile',
       label: (
         <span>
-          <UserOutlined style={{ marginRight: 8 }} />
+          <UserOutlined className="settings-tab-icon" />
           个人资料
         </span>
       ),
@@ -488,7 +466,7 @@ const Settings = () => {
       key: 'account',
       label: (
         <span>
-          <SafetyOutlined style={{ marginRight: 8 }} />
+          <SafetyOutlined className="settings-tab-icon" />
           授权管理
         </span>
       ),
@@ -497,23 +475,10 @@ const Settings = () => {
   ];
 
   return (
-    <div style={{ flex: 1, height: '100%', overflow: 'auto' }}>
-      <div
-        style={{
-          maxWidth: 1200,
-          margin: '0 auto',
-          padding: isMobile ? '16px' : '32px 48px',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 24,
-          }}
-        >
-          <Title level={3} style={{ margin: 0 }}>
+    <div className="settings-page">
+      <div className="settings-container">
+        <div className="settings-header">
+          <Title level={3}>
             设置
           </Title>
           <Button danger icon={<LogoutOutlined />} onClick={handleLogout}>
@@ -525,7 +490,7 @@ const Settings = () => {
           activeKey={activeTab}
           onChange={handleTabChange}
           items={tabItems}
-          style={{ minHeight: isMobile ? 'auto' : 'calc(100vh - 200px)' }}
+          className="settings-tabs"
         />
       </div>
     </div>

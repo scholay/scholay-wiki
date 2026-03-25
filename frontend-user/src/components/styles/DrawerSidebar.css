@@ -80,7 +80,7 @@
   transition: opacity 0.15s ease;
   flex-shrink: 0;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 4px;
 }
 
@@ -104,7 +104,7 @@
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   color: rgba(175, 175, 175, 0.8);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -112,10 +112,10 @@
 }
 
 .drawer-close-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--border-light);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--text-primary);
   box-shadow: 
     0 1px 3px rgba(0, 0, 0, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
@@ -141,13 +141,13 @@
   align-items: center;
   gap: 12px;
   padding: 0 12px 0 13px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: transparent;
   border: none;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   color: var(--text-secondary);
-  font-size: 15px;
+  font-size: var(--text-sm);
   font-weight: 400;
   text-align: left;
   width: 100%;
@@ -157,7 +157,7 @@
 }
 
 .drawer-nav-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--border-light);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   color: var(--text-primary);
@@ -169,15 +169,15 @@
 
 .drawer-nav-item.active {
   background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 0.25) 0%, 
-    rgba(16, 163, 127, 0.15) 100%);
+    rgba(var(--primary-rgb), 0.25) 0%, 
+    rgba(var(--primary-rgb), 0.15) 100%);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   color: var(--text-accent);
   font-weight: 500;
   box-shadow: 
-    0 2px 8px rgba(16, 163, 127, 0.3),
-    0 0 0 1px rgba(16, 163, 127, 0.3),
+    0 2px 8px rgba(var(--primary-rgb), 0.3),
+    0 0 0 1px rgba(var(--primary-rgb), 0.3),
     inset 0 1px 2px rgba(255, 255, 255, 0.15);
 }
 
@@ -219,14 +219,14 @@
   border: none;
   cursor: pointer;
   transition: none;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   margin-bottom: 4px;
   width: 100%;
   text-align: left;
 }
 
 .drawer-history-title {
-  font-size: 13px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
@@ -286,7 +286,7 @@
   justify-content: center;
   padding: 20px 16px;
   color: var(--text-tertiary);
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 /* 历史记录项 */
@@ -296,7 +296,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -307,7 +307,7 @@
 }
 
 .drawer-history-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--border-light);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   box-shadow: 
@@ -318,13 +318,13 @@
 
 .drawer-history-item.active {
   background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 0.25) 0%, 
-    rgba(16, 163, 127, 0.15) 100%);
+    rgba(var(--primary-rgb), 0.25) 0%, 
+    rgba(var(--primary-rgb), 0.15) 100%);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   box-shadow: 
-    0 2px 8px rgba(16, 163, 127, 0.3),
-    0 0 0 1px rgba(16, 163, 127, 0.3),
+    0 2px 8px rgba(var(--primary-rgb), 0.3),
+    0 0 0 1px rgba(var(--primary-rgb), 0.3),
     inset 0 1px 2px rgba(255, 255, 255, 0.15);
 }
 
@@ -335,7 +335,7 @@
 
 /* 当菜单打开时，保持该历史项的hover状态 */
 .drawer-history-item.menu-open {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--border-light);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   box-shadow: 
@@ -352,7 +352,7 @@
 
 .drawer-history-item-title {
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -367,9 +367,9 @@
   padding: 4px 8px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-  color: #FFFFFF;
-  font-size: 14px;
+  border-radius: var(--radius-xs);
+  color: var(--surface);
+  font-size: var(--text-sm);
   font-weight: 400;
   outline: none;
   transition: all 0.15s ease;
@@ -377,8 +377,8 @@
 
 .drawer-history-edit-input:focus {
   background: rgba(255, 255, 255, 0.12);
-  border-color: #10a37f;
-  box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.2);
+  border-color: var(--primary-solid);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
 }
 
 /* 历史项菜单按钮 */
@@ -391,7 +391,7 @@
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: rgba(236, 236, 241, 0.5);
   cursor: pointer;
   opacity: 0;
@@ -418,7 +418,7 @@
 }
 
 .drawer-history-menu-btn svg {
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 /* ========== 历史菜单弹窗 - 与 AppSidebar 一致 ========== */
@@ -426,8 +426,8 @@
   background: rgba(47, 47, 47, 0.9);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   padding: 6px;
   min-width: 160px;
   box-shadow: 
@@ -435,17 +435,6 @@
     0 2px 8px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   animation: menuFadeIn 0.15s ease;
-}
-
-@keyframes menuFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
 }
 
 .drawer-menu-item {
@@ -456,9 +445,9 @@
   padding: 10px 12px;
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 400;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -514,7 +503,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--overlay-bg);
   z-index: 10003;
   display: flex;
   align-items: center;
@@ -528,8 +517,8 @@
   background: rgba(47, 47, 47, 0.9);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 24px;
   text-align: center;
   box-shadow: 
@@ -540,19 +529,19 @@
 }
 
 .drawer-delete-icon {
-  color: #f59e0b;
+  color: var(--warning);
   margin-bottom: 16px;
 }
 
 .drawer-delete-title {
-  font-size: 18px;
+  font-size: var(--text-lg);
   font-weight: 600;
   color: var(--text-primary, #ffffff);
   margin: 0 0 12px 0;
 }
 
 .drawer-delete-message {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--text-secondary, rgba(255, 255, 255, 0.7));
   line-height: 1.5;
   margin: 0 0 24px 0;
@@ -568,8 +557,8 @@
   flex: 1;
   padding: 12px 20px;
   border: none;
-  border-radius: 10px;
-  font-size: 14px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -595,7 +584,7 @@
     rgba(255, 99, 99, 0.7) 100%);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  color: #ffffff;
+  color: var(--surface);
   border: 1px solid rgba(255, 99, 99, 0.3);
   box-shadow: 
     0 2px 12px rgba(255, 99, 99, 0.3),
@@ -634,12 +623,12 @@
 
 [data-theme="light"] .drawer-nav-item.active {
   background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 0.15) 0%, 
-    rgba(16, 163, 127, 0.08) 100%);
+    rgba(var(--primary-rgb), 0.15) 0%, 
+    rgba(var(--primary-rgb), 0.08) 100%);
   color: var(--primary-solid);
   box-shadow: 
-    0 2px 8px rgba(16, 163, 127, 0.15),
-    0 0 0 1px rgba(16, 163, 127, 0.2);
+    0 2px 8px rgba(var(--primary-rgb), 0.15),
+    0 0 0 1px rgba(var(--primary-rgb), 0.2);
 }
 
 [data-theme="light"] .drawer-history-toggle {
@@ -653,11 +642,11 @@
 
 [data-theme="light"] .drawer-history-item.active {
   background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 0.15) 0%, 
-    rgba(16, 163, 127, 0.08) 100%);
+    rgba(var(--primary-rgb), 0.15) 0%, 
+    rgba(var(--primary-rgb), 0.08) 100%);
   box-shadow: 
-    0 2px 8px rgba(16, 163, 127, 0.15),
-    0 0 0 1px rgba(16, 163, 127, 0.2);
+    0 2px 8px rgba(var(--primary-rgb), 0.15),
+    0 0 0 1px rgba(var(--primary-rgb), 0.2);
 }
 
 [data-theme="light"] .drawer-history-item-title {
@@ -736,7 +725,7 @@
 /* ========== 底部法律链接 ========== */
 .drawer-legal-section {
   padding: 12px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border-light);
   margin-top: auto;
 }
 
@@ -759,7 +748,7 @@
 }
 
 .drawer-legal-links button:hover {
-  color: #e0e0e0;
+  color: var(--border);
 }
 
 .drawer-legal-divider {

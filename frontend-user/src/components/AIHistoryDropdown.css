@@ -99,17 +99,6 @@
   animation: dropdownFadeIn 0.15s ease;
 }
 
-@keyframes dropdownFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* 下拉框头部 */
 .ai-dropdown-header {
   display: flex;
@@ -138,7 +127,7 @@
 }
 
 .ai-dropdown-new-btn:hover {
-  background: var(--primary-hover, #0d8c6d);
+  background: var(--primary-hover);
 }
 
 /* 历史列表 */

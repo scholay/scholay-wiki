@@ -126,7 +126,7 @@ const HelpCenterPage = () => {
   };
 
   return (
-    <div className="resource-center-page">
+    <div className="resource-center-page page-shell">
       <SEO
         title="帮助中心 - Scholay | 使用指南与常见问题解答"
         description="Scholay 帮助中心提供详细的平台使用教程、功能介绍和常见问题解答，帮助你快速上手 AI 学术搜索、论文分析、智能审稿和 LaTeX 编辑等功能。"
@@ -135,7 +135,7 @@ const HelpCenterPage = () => {
         structuredData={structuredData}
       />
 
-      <div className="resource-center-container">
+      <div className="resource-center-container page-container">
         <div className="resource-center-header">
           <button className="back-btn" onClick={() => navigate('/')}>
             <ArrowLeft size={20} />
@@ -149,7 +149,7 @@ const HelpCenterPage = () => {
             了解 Scholay 的核心功能和使用方法，快速解决常见问题。如果需要更详细的学术指南，请访问我们的
             <button
               onClick={() => navigate('/resources')}
-              style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: 'inherit', padding: '0 4px' }}
+              style={{ background: 'none', border: 'none', color: 'var(--primary-solid)', cursor: 'pointer', fontSize: 'inherit', padding: '0 4px' }}
             >
               学术资源中心
             </button>。
@@ -175,7 +175,7 @@ const HelpCenterPage = () => {
                     border: '1px solid var(--border-primary)',
                     overflow: 'hidden',
                     transition: 'border-color 0.2s',
-                    borderColor: isExpanded ? 'var(--primary-color)' : undefined,
+                    borderColor: isExpanded ? 'var(--primary-solid)' : undefined,
                   }}
                 >
                   <button
@@ -196,7 +196,7 @@ const HelpCenterPage = () => {
                       width: 44, height: 44, borderRadius: 12,
                       background: 'rgba(99, 102, 241, 0.1)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: 'var(--primary-color)', flexShrink: 0,
+                      color: 'var(--primary-solid)', flexShrink: 0,
                     }}>
                       <Icon size={20} />
                     </div>

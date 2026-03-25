@@ -1,0 +1,48 @@
+/**
+ * Shared - Responsive Utilities
+ * 共享响应式断点规则（合并 home/responsive.css 与 advanced-search/responsive.css 的公共部分）
+ */
+
+/* 思考动画 - thinking dots */
+.thinking-indicator {
+  display: flex;
+  gap: 4px;
+  padding: 8px 0;
+}
+
+.thinking-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--text-tertiary);
+  border-radius: var(--radius-circle);
+  animation: thinkingBounce 1.4s infinite ease-in-out;
+}
+
+.thinking-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.thinking-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+/* 移动端隐藏 */
+@media (max-width: 768px) {
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+/* 桌面端隐藏 */
+@media (min-width: 769px) {
+  .hide-desktop {
+    display: none !important;
+  }
+}
+
+/* 平板断点 */
+@media (max-width: 1024px) {
+  .hide-tablet {
+    display: none !important;
+  }
+}

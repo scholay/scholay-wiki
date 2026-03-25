@@ -1,0 +1,122 @@
+/**
+ * Design Tokens - Colors
+ * 统一颜色令牌，消除近似重复色值
+ */
+
+:root, [data-theme="dark"] {
+  /* 品牌色 */
+  --primary: linear-gradient(135deg, #10a37f 0%, #1a7f64 100%);
+  --primary-solid: #10a37f;
+  --primary-dark: #1a7f64;
+  --primary-light: #19c37d;
+  --primary-hover: #19c37d;
+  --primary-rgb: 16, 163, 127;
+  --accent: #19c37d;
+  --accent-secondary: #6366f1;
+  --accent-secondary-rgb: 99, 102, 241;
+  --accent-secondary-hover: #818cf8;
+  --accent-secondary-dark: #4f46e5;
+
+  /* 背景色系统 */
+  --bg-primary: #212121;
+  --bg-secondary: #2a2a2a;
+  --bg-tertiary: #1a1a1a;
+  --bg-hover: rgba(255, 255, 255, 0.04);
+  --background: #212121;
+  --surface: #444654;
+  --surface-light: #565869;
+  --surface-hover: #3a3a3a;
+
+  /* 字体颜色系统 */
+  --text-primary: rgba(255, 255, 255, 0.95);
+  --text-secondary: rgba(255, 255, 255, 0.75);
+  --text-tertiary: rgba(255, 255, 255, 0.55);
+  --text-quaternary: rgba(255, 255, 255, 0.35);
+  --text-accent: rgb(16, 163, 127);
+  --text-success: rgb(16, 185, 129);
+  --text-error: rgb(239, 68, 68);
+  --text-warning: rgb(245, 158, 11);
+
+  /* 状态颜色 */
+  --success: #10b981;
+  --error: #ef4444;
+  --warning: #f59e0b;
+  --info: #60a5fa;
+
+  /* 边框颜色 */
+  --border: rgba(255, 255, 255, 0.1);
+  --border-light: rgba(255, 255, 255, 0.06);
+  --border-hover: rgba(255, 255, 255, 0.18);
+  --border-primary: rgba(16, 163, 127, 0.4);
+
+  /* 状态消息背景 */
+  --msg-error-bg: rgba(255, 107, 107, 0.1);
+  --msg-error-border: rgba(255, 107, 107, 0.3);
+  --msg-success-bg: rgba(0, 245, 160, 0.1);
+  --msg-success-border: rgba(0, 245, 160, 0.3);
+  --msg-info-bg: rgba(79, 172, 254, 0.1);
+  --msg-info-border: rgba(79, 172, 254, 0.3);
+
+  /* overlay */
+  --overlay-bg: rgba(0, 0, 0, 0.6);
+  --overlay-bg-heavy: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="light"] {
+  /* 品牌色 */
+  --primary: linear-gradient(135deg, #10a37f 0%, #0d8968 100%);
+  --primary-solid: #10a37f;
+  --primary-dark: #0d8968;
+  --primary-light: #19c37d;
+  --primary-hover: #0d8968;
+  --primary-rgb: 16, 163, 127;
+  --accent: #10a37f;
+  --accent-secondary: #6366f1;
+  --accent-secondary-rgb: 99, 102, 241;
+  --accent-secondary-hover: #4f46e5;
+  --accent-secondary-dark: #4338ca;
+
+  /* 背景色系统 */
+  --bg-primary: #f9fafb;
+  --bg-secondary: #f5f7fa;
+  --bg-tertiary: #edf2f7;
+  --bg-hover: rgba(0, 0, 0, 0.03);
+  --background: #f9fafb;
+  --surface: #ffffff;
+  --surface-hover: #f8fafb;
+  --surface-light: #f5f7fa;
+
+  /* 字体颜色系统 */
+  --text-primary: #1a202c;
+  --text-secondary: #4a5568;
+  --text-tertiary: #718096;
+  --text-quaternary: #a0aec0;
+  --text-accent: #10a37f;
+  --text-success: #059669;
+  --text-error: #e53e3e;
+  --text-warning: #dd6b20;
+
+  /* 边框颜色 */
+  --border: #e2e8f0;
+  --border-light: #edf2f7;
+  --border-hover: #cbd5e0;
+  --border-primary: rgba(16, 163, 127, 0.3);
+
+  /* 状态颜色 */
+  --success: #059669;
+  --error: #e53e3e;
+  --warning: #dd6b20;
+  --info: #3182ce;
+
+  /* 状态消息背景 */
+  --msg-error-bg: #fef2f2;
+  --msg-error-border: #fecaca;
+  --msg-success-bg: #f0fdf4;
+  --msg-success-border: #bbf7d0;
+  --msg-info-bg: #f0fdfa;
+  --msg-info-border: #99f6e4;
+
+  /* overlay */
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+  --overlay-bg-heavy: rgba(0, 0, 0, 0.6);
+}

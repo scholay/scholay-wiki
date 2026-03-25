@@ -359,18 +359,6 @@
   background: var(--background);
 }
 
-/* 三栏布局淡入向上动画 */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .filter-sidebar-wrapper {
   width: 280px;
   max-width: 280px;

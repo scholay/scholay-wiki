@@ -1,0 +1,115 @@
+/**
+ * Component - Cards
+ * 统一卡片/面板样式
+ */
+
+/* Glassmorphism card */
+[data-theme="dark"] .glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  transition: var(--transition);
+}
+
+[data-theme="dark"] .glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  border-color: rgba(var(--primary-rgb), 0.3);
+}
+
+[data-theme="light"] .glass-card {
+  background: var(--surface);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  transition: var(--transition);
+}
+
+[data-theme="light"] .glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-hover);
+  background: var(--surface-hover);
+}
+
+/* Base card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: var(--transition);
+  overflow: hidden;
+}
+
+[data-theme="dark"] .card {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.card:hover {
+  border-color: var(--border-hover);
+}
+
+.card-body {
+  padding: var(--space-6);
+}
+
+.card-header {
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.card-footer {
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--border-light);
+}
+
+/* Interactive card */
+.card-interactive {
+  cursor: pointer;
+}
+
+.card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Feature card (used in landing areas) */
+.feature-card {
+  padding: 2rem;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: var(--transition);
+}
+
+.feature-card:hover {
+  background: var(--border-light);
+  border-color: var(--border-hover);
+  transform: translateY(-4px);
+}
+
+[data-theme="light"] .feature-card {
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .feature-card:hover {
+  box-shadow: var(--shadow-md);
+  background: var(--surface-hover);
+}
+
+/* Panel (no hover effects) */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-6);
+}
+
+[data-theme="dark"] .panel {
+  background: rgba(255, 255, 255, 0.03);
+}

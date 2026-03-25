@@ -346,12 +346,6 @@
   animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* 移动端适配 */
 @media (max-width: 640px) {
   .tool-call-display-summary {

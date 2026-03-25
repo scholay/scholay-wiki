@@ -1,0 +1,76 @@
+/**
+ * Component - Toast Notifications
+ * 统一通知提示样式
+ */
+
+.toast-container {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 380px;
+  pointer-events: none;
+}
+
+.toast-item {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3-5) var(--space-4);
+  border-radius: var(--radius);
+  cursor: pointer;
+  pointer-events: auto;
+  animation: slideInRight 0.3s ease-out;
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+[data-theme="dark"] .toast-item {
+  background: rgba(45, 45, 45, 0.95);
+}
+
+[data-theme="light"] .toast-item {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.toast-item-success {
+  border-left: 3px solid var(--success);
+}
+
+.toast-item-error {
+  border-left: 3px solid var(--error);
+}
+
+.toast-item-warning {
+  border-left: 3px solid var(--warning);
+}
+
+.toast-item-info {
+  border-left: 3px solid var(--info);
+}
+
+.toast-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.toast-message {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: var(--leading-normal);
+}
+
+@media (max-width: 480px) {
+  .toast-container {
+    top: auto;
+    bottom: 20px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+}

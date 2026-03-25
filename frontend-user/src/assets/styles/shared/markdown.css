@@ -1,0 +1,418 @@
+/**
+ * Shared - Markdown Rendering
+ * 统一 Markdown 渲染样式（合并 home/markdown.css 与 advanced-search/markdown.css）
+ */
+
+/* Markdown 样式 - ChatGPT 风格 */
+.message-markdown {
+  font-size: 0.9375rem;
+  line-height: 1.9;
+  color: rgba(209, 213, 219, 0.95);
+  letter-spacing: 0.01em;
+}
+
+[data-theme="light"] .message-markdown {
+  color: var(--text-primary);
+}
+
+/* 段落间距 */
+.message-markdown p {
+  margin-bottom: 1.5rem;
+  line-height: 1.9;
+}
+
+.message-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+/* 标题样式 */
+.message-markdown h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 2rem 0 1.25rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid rgba(148, 163, 184, 0.15);
+}
+
+.message-markdown h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 1.75rem 0 1rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+  padding-left: 0.75rem;
+  border-left: 4px solid var(--primary-solid);
+}
+
+.message-markdown h3 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  margin: 1.5rem 0 0.875rem;
+  color: rgba(209, 213, 219, 0.95);
+  line-height: 1.5;
+  padding-left: 1rem;
+  position: relative;
+}
+
+[data-theme="light"] .message-markdown h3 {
+  color: var(--text-primary);
+}
+
+.message-markdown h3::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.5em;
+  width: 6px;
+  height: 6px;
+  background: rgba(var(--primary-rgb), 0.5);
+  border-radius: var(--radius-circle);
+}
+
+.message-markdown h4 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.75rem;
+  color: rgba(148, 163, 184, 0.95);
+  line-height: 1.6;
+  font-style: italic;
+}
+
+[data-theme="light"] .message-markdown h4 {
+  color: var(--text-secondary);
+}
+
+/* 列表样式 */
+.message-markdown ul,
+.message-markdown ol {
+  margin-left: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding-left: 0.5rem;
+}
+
+.message-markdown li {
+  margin-bottom: 0.75rem;
+  line-height: 1.9;
+}
+
+.message-markdown ul li {
+  list-style-type: disc;
+}
+
+.message-markdown ol li {
+  list-style-type: decimal;
+}
+
+.message-markdown ul ul,
+.message-markdown ol ul {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* 行内代码 */
+.message-markdown code {
+  background: rgba(var(--primary-rgb), 0.1);
+  color: rgba(var(--primary-rgb), 0.9);
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-xs);
+  font-size: 0.875em;
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+[data-theme="light"] .message-markdown code {
+  background: rgba(var(--primary-rgb), 0.08);
+  color: var(--primary-solid);
+}
+
+/* 代码块 */
+.message-markdown pre {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin-bottom: 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+[data-theme="light"] .message-markdown pre {
+  background: var(--bg-tertiary);
+  border-color: var(--border);
+}
+
+.message-markdown pre code {
+  background: transparent;
+  color: rgba(209, 213, 219, 0.95);
+  padding: 0;
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+[data-theme="light"] .message-markdown pre code {
+  color: var(--text-primary);
+}
+
+/* 引用块 */
+.message-markdown blockquote {
+  border-left: 3px solid rgba(var(--primary-rgb), 0.5);
+  padding-left: 1rem;
+  margin: 1.25rem 0;
+  color: rgba(148, 163, 184, 0.9);
+  font-style: italic;
+}
+
+[data-theme="light"] .message-markdown blockquote {
+  color: var(--text-tertiary);
+  border-left-color: var(--primary-solid);
+}
+
+/* 强调文本 */
+.message-markdown strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.message-markdown em {
+  font-style: italic;
+}
+
+/* 链接 */
+.message-markdown a {
+  color: var(--primary-solid);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(var(--primary-rgb), 0.3);
+  transition: var(--transition-fast);
+}
+
+.message-markdown a:hover {
+  color: rgba(var(--primary-rgb), 0.8);
+  border-bottom-color: var(--primary-solid);
+}
+
+/* 表格 */
+.message-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+}
+
+.message-markdown th,
+.message-markdown td {
+  padding: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  text-align: left;
+}
+
+[data-theme="light"] .message-markdown th,
+[data-theme="light"] .message-markdown td {
+  border-color: var(--border);
+}
+
+.message-markdown th {
+  background: rgba(255, 255, 255, 0.03);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .message-markdown th {
+  background: var(--bg-secondary);
+}
+
+/* 水平线 */
+.message-markdown hr {
+  border: none;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  margin: 1.5rem 0;
+}
+
+[data-theme="light"] .message-markdown hr {
+  border-top-color: var(--border);
+}
+
+/* 打字光标 */
+.typing-cursor {
+  display: inline-block;
+  width: 0.5rem;
+  height: 1rem;
+  background: var(--primary);
+  margin-left: 2px;
+  animation: blink 1s infinite;
+}
+
+/* 搜索结果信息 */
+.search-info {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid rgba(var(--primary-rgb), 0.5);
+  margin-top: 0.75rem;
+  transition: var(--transition);
+  position: relative;
+  padding-right: 2.5rem;
+}
+
+[data-theme="light"] .search-info {
+  background: var(--bg-secondary);
+}
+
+.search-info:hover {
+  background: rgba(var(--primary-rgb), 0.08);
+  border-left-color: var(--primary-solid);
+  transform: translateX(2px);
+}
+
+.search-info::after {
+  content: '→';
+  position: absolute;
+  right: 1rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  color: var(--primary-solid);
+  font-weight: bold;
+}
+
+.search-info:hover::after {
+  opacity: 1;
+}
+
+.result-count {
+  color: var(--primary-solid);
+  font-weight: 500;
+}
+
+.result-loading {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.loading-dots::after {
+  content: '...';
+  animation: dots 1.5s steps(4, end) infinite;
+}
+
+/* 推荐问题 */
+.suggested-questions-inline {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.06);
+  animation: fadeIn 0.3s ease-in;
+}
+
+[data-theme="light"] .suggested-questions-inline {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+.suggested-questions-header {
+  margin-bottom: 0.625rem;
+}
+
+.suggested-questions-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: rgba(148, 163, 184, 0.75);
+  letter-spacing: 0.2px;
+}
+
+[data-theme="light"] .suggested-questions-title {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.suggested-questions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.suggested-question-btn {
+  display: flex;
+  align-items: flex-start;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: var(--radius-sm);
+  color: rgba(209, 213, 219, 0.85);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+  width: 100%;
+}
+
+[data-theme="light"] .suggested-question-btn {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.suggested-question-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.suggested-question-btn:disabled:hover {
+  transform: none;
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(148, 163, 184, 0.08);
+}
+
+.question-text {
+  flex: 1;
+  word-wrap: break-word;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.suggested-question-btn:hover {
+  background: var(--bg-hover);
+  border-color: rgba(var(--primary-rgb), 0.3);
+  color: var(--text-primary);
+  transform: translateX(4px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .suggested-question-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(var(--primary-rgb), 0.4);
+  color: rgba(0, 0, 0, 0.85);
+  box-shadow: 0 2px 12px rgba(var(--primary-rgb), 0.15);
+}
+
+.suggested-question-btn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--primary-solid);
+  opacity: 0;
+  transition: opacity 0.2s;
+  border-radius: 10px 0 0 10px;
+}
+
+.suggested-question-btn:hover::before {
+  opacity: 1;
+}
+
+.suggested-question-btn:active {
+  transform: translateX(2px) scale(0.99);
+}
+
+.suggested-question-btn svg {
+  flex-shrink: 0;
+  color: var(--primary-solid);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: var(--transition);
+}
+
+.suggested-question-btn:hover svg {
+  opacity: 1;
+  transform: translateX(0);
+}

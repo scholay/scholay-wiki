@@ -1,0 +1,151 @@
+/**
+ * Component - Forms
+ * 统一表单控件样式
+ */
+
+.input {
+  width: 100%;
+  padding: 0.875rem 1.125rem;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  outline: none;
+  transition: var(--transition);
+  font-family: inherit;
+}
+
+[data-theme="dark"] .input {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] .input {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+[data-theme="dark"] .input:focus {
+  border-color: var(--primary-solid);
+  box-shadow: var(--glow);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .input:focus {
+  border-color: var(--primary-solid);
+  box-shadow: var(--glow);
+  background: var(--surface);
+}
+
+.input::placeholder {
+  color: var(--text-quaternary);
+}
+
+.input-sm {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+  border-radius: var(--radius-sm);
+}
+
+/* Textarea */
+.textarea {
+  width: 100%;
+  padding: var(--space-3-5) var(--space-4);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  transition: var(--transition);
+  font-family: inherit;
+  resize: vertical;
+  min-height: 120px;
+  line-height: var(--leading-relaxed);
+}
+
+.textarea:focus {
+  border-color: var(--primary-solid);
+  box-shadow: var(--glow);
+  outline: none;
+}
+
+[data-theme="light"] .textarea {
+  background: var(--surface);
+}
+
+/* Form group */
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.625rem;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+
+/* Form field (alternative to form-group) */
+.form-field {
+  margin-bottom: var(--space-5);
+}
+
+.form-field-label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+}
+
+/* Form message (renamed from .message to avoid conflict with chat .message) */
+.form-message {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 1rem;
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  margin-bottom: 1.25rem;
+  animation: slideIn 0.3s ease-out;
+}
+
+.form-message-error {
+  background: var(--msg-error-bg);
+  border: 1px solid var(--msg-error-border);
+  color: var(--error);
+}
+
+.form-message-success {
+  background: var(--msg-success-bg);
+  border: 1px solid var(--msg-success-border);
+  color: var(--success);
+}
+
+.form-message-info {
+  background: var(--msg-info-bg);
+  border: 1px solid var(--msg-info-border);
+  color: var(--accent);
+}
+
+/* Form error/note text */
+.form-error {
+  color: var(--error);
+  font-size: var(--text-xs);
+  margin-top: var(--space-1);
+}
+
+.form-note {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  margin-top: var(--space-1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .input {
+    padding: 0.75rem 1rem;
+    font-size: var(--text-sm);
+  }
+}

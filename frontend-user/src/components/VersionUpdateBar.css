@@ -22,17 +22,6 @@
   animation: slideDown 0.3s ease-out;
 }
 
-@keyframes slideDown {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
 .version-update-content {
   max-width: 1200px;
   margin: 0 auto;

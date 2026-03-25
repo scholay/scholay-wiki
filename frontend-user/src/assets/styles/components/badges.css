@@ -1,0 +1,114 @@
+/**
+ * Component - Badges & Tags
+ * 统一 badge/tag/label 样式
+ */
+
+/* Badge - 小型状态标记 */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.badge-success {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+}
+
+.badge-error,
+.badge-danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error);
+}
+
+.badge-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+}
+
+.badge-info {
+  background: rgba(96, 165, 250, 0.15);
+  color: var(--info);
+}
+
+.badge-primary {
+  background: rgba(var(--primary-rgb), 0.15);
+  color: var(--primary-solid);
+}
+
+.badge-neutral {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .badge-success {
+  background: rgba(5, 150, 105, 0.1);
+  color: var(--success);
+}
+
+[data-theme="light"] .badge-error,
+[data-theme="light"] .badge-danger {
+  background: rgba(229, 62, 62, 0.1);
+  color: var(--error);
+}
+
+[data-theme="light"] .badge-warning {
+  background: rgba(221, 107, 32, 0.1);
+  color: var(--warning);
+}
+
+[data-theme="light"] .badge-info {
+  background: rgba(49, 130, 206, 0.1);
+  color: var(--info);
+}
+
+/* Tag - 可选择/可移除的标签 */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--font-normal);
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-light);
+  transition: var(--transition-fast);
+  white-space: nowrap;
+}
+
+.tag:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.tag-active {
+  background: rgba(var(--primary-rgb), 0.15);
+  border-color: rgba(var(--primary-rgb), 0.3);
+  color: var(--primary-solid);
+}
+
+.tag-sm {
+  padding: 1px var(--space-2);
+  font-size: var(--text-xs);
+  border-radius: var(--radius-xs);
+}
+
+/* Pill (rounded tag) */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}

@@ -1,0 +1,133 @@
+/**
+ * Layout - Page Containers
+ * 统一页面外壳与内容容器
+ *
+ * 使用: .page-shell > .page-container(.page-container--{variant})
+ *
+ * 替代: .legal-page/.about-page/.resource-center-page/.feedback-page/.not-found-page 等
+ *       .legal-container/.about-container/.resource-center-container 等
+ */
+
+/* 页面外壳 - 滚动容器 */
+.page-shell {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg-primary);
+  padding: var(--space-10) var(--space-5);
+}
+
+/* 页面外壳 - 居中布局 (用于 404 等需要垂直居中的页面) */
+.page-shell-centered {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg-primary);
+  padding: var(--space-10) var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 页面外壳 - 渐变背景 */
+.page-shell-gradient {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-10) var(--space-5);
+}
+
+[data-theme="dark"] .page-shell-gradient {
+  background: linear-gradient(180deg, #0f1419 0%, #15202b 100%);
+}
+
+[data-theme="light"] .page-shell-gradient {
+  background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+}
+
+/* 全屏页面 (聊天/搜索等无 padding 页面) */
+.page-shell-full {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  background: var(--background);
+  position: relative;
+}
+
+/* 内容容器 - 默认 1000px (Legal/About 等) */
+.page-container {
+  max-width: var(--width-page);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* 窄容器 - 520px (404 等) */
+.page-container--narrow {
+  max-width: var(--width-narrow);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* 文章容器 - 800px */
+.page-container--article {
+  max-width: var(--width-article);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* 内容容器 - 900px (反馈等) */
+.page-container--content {
+  max-width: var(--width-content);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* 宽容器 - 1200px (Landing/详情) */
+.page-container--wide {
+  max-width: var(--width-wide);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* 最大容器 - 1400px */
+.page-container--max {
+  max-width: var(--width-max);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* 主内容区域 (有侧边栏时的主体) */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left 0.3s ease;
+  margin-left: 0;
+  background: var(--background);
+}
+
+.main-content.sidebar-open {
+  margin-left: var(--sidebar-width);
+}
+
+/* Flex column 容器 */
+.content-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .page-shell,
+  .page-shell-centered,
+  .page-shell-gradient {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .main-content.sidebar-open {
+    margin-left: 0;
+  }
+}

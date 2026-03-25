@@ -1,0 +1,68 @@
+/**
+ * Layout - Navbar
+ * 统一导航栏布局
+ *
+ * 替代: home/base.css、advanced-search/base.css、search-results/base.css 中重复的 .navbar-content
+ */
+
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  background: var(--background);
+  border-bottom: 1px solid var(--border-light);
+  backdrop-filter: blur(12px);
+}
+
+[data-theme="dark"] .navbar {
+  background: rgba(33, 33, 33, 0.85);
+}
+
+[data-theme="light"] .navbar {
+  background: rgba(249, 250, 251, 0.85);
+}
+
+.navbar-content {
+  max-width: var(--width-wide);
+  margin: 0 auto;
+  padding: 1.25rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navbar-content-full {
+  max-width: var(--width-full);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-3) var(--space-6);
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-decoration: none;
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+  font-size: var(--text-lg);
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .navbar-content {
+    padding: 0.75rem 1rem;
+  }
+
+  .navbar-content-full {
+    padding: var(--space-3) var(--space-4);
+  }
+}

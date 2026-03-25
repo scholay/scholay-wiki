@@ -168,7 +168,7 @@
 }
 
 [data-theme="light"] .expand-btn:hover {
-  color: #0d8c6c;
+  color: var(--primary-hover);
 }
 
 /* 论文期刊链接 */
@@ -197,7 +197,7 @@
 }
 
 [data-theme="light"] .search-result-paper-expand:hover {
-  color: #0d8c6c;
+  color: var(--primary-hover);
 }
 
 /* 元数据项 */

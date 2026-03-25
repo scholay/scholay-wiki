@@ -173,14 +173,14 @@ const FeedbackPage = () => {
   };
 
   return (
-    <div className="feedback-page">
+    <div className="feedback-page page-shell-gradient">
       <SEO
         title="意见反馈 - Scholay | 帮助我们改进"
         description="向 Scholay 团队提交您的反馈意见、功能建议或问题报告，帮助我们持续改进学术搜索服务。"
         keywords="Scholay反馈,意见建议,功能建议,问题报告,用户反馈"
         canonical="/feedback"
       />
-      <div className="feedback-container">
+      <div className="feedback-container page-container--content">
         <div className="feedback-header">
           <button className="back-btn" onClick={() => navigate(-1)}>
             <ArrowLeft size={20} />
@@ -190,23 +190,23 @@ const FeedbackPage = () => {
           <p>您的反馈对我们非常重要，我们会认真对待每一条意见</p>
         </div>
 
-        <div className="feedback-info" style={{ marginBottom: '32px', lineHeight: '1.8', color: 'var(--text-secondary, #bdbdbd)', padding: '24px', background: 'var(--bg-secondary, #2a2a2a)', borderRadius: '12px', border: '1px solid var(--border-primary, #333)' }}>
-          <h2 style={{ color: 'var(--text-primary, #fff)', marginBottom: '12px', fontSize: '1.15rem' }}>我们如何处理您的反馈</h2>
-          <p style={{ marginBottom: '12px' }}>
+        <div className="feedback-info">
+          <h2>我们如何处理您的反馈</h2>
+          <p>
             Scholay 团队非常重视每一位用户的意见和建议。您的反馈是我们不断改进产品和优化用户体验的核心驱动力。自平台上线以来，我们已根据用户反馈完成了多项功能改进和性能优化。
           </p>
-          <p style={{ marginBottom: '16px' }}>
+          <p>
             提交反馈后，我们的团队会在 1-3 个工作日内通过邮件回复您。如果您的建议被采纳，我们会在后续版本更新中注明感谢。对于 Bug 报告，修复后我们会通知您确认问题已解决。
           </p>
-          <h3 style={{ color: 'var(--text-primary, #fff)', marginBottom: '10px', fontSize: '1.05rem' }}>反馈类型指南</h3>
-          <ul style={{ paddingLeft: '20px', marginBottom: '12px' }}>
-            <li style={{ marginBottom: '6px' }}><strong>功能建议</strong> — 希望 Scholay 增加哪些新功能，或现有功能需要怎样改进。例如：新增某学科领域的筛选、AI 分析增加某种输出格式等。</li>
-            <li style={{ marginBottom: '6px' }}><strong>Bug 报告</strong> — 使用过程中遇到的异常、错误或崩溃。请尽量附带操作步骤和截图，以便我们快速定位和修复问题。</li>
-            <li style={{ marginBottom: '6px' }}><strong>使用体验</strong> — 对界面设计、交互流程、加载速度等方面的优化建议。帮助我们打造更流畅的学术搜索体验。</li>
-            <li style={{ marginBottom: '6px' }}><strong>内容质量</strong> — 对搜索结果相关性、AI 分析准确度、翻译质量等方面的反馈。帮助我们提升核心服务质量。</li>
+          <h3>反馈类型指南</h3>
+          <ul>
+            <li><strong>功能建议</strong> — 希望 Scholay 增加哪些新功能，或现有功能需要怎样改进。例如：新增某学科领域的筛选、AI 分析增加某种输出格式等。</li>
+            <li><strong>Bug 报告</strong> — 使用过程中遇到的异常、错误或崩溃。请尽量附带操作步骤和截图，以便我们快速定位和修复问题。</li>
+            <li><strong>使用体验</strong> — 对界面设计、交互流程、加载速度等方面的优化建议。帮助我们打造更流畅的学术搜索体验。</li>
+            <li><strong>内容质量</strong> — 对搜索结果相关性、AI 分析准确度、翻译质量等方面的反馈。帮助我们提升核心服务质量。</li>
           </ul>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-tertiary, #9e9e9e)' }}>
-            您也可以直接发送邮件至 <a href="mailto:support@scholay.com" style={{ color: '#64b5f6' }}>support@scholay.com</a> 提交反馈，或访问<button onClick={() => navigate('/contact')} style={{ background: 'none', border: 'none', color: '#64b5f6', cursor: 'pointer', fontSize: 'inherit', padding: '0 2px' }}>联系我们</button>页面了解更多联系方式。
+          <p className="feedback-info-footer">
+            您也可以直接发送邮件至 <a href="mailto:support@scholay.com">support@scholay.com</a> 提交反馈，或访问<button onClick={() => navigate('/contact')} className="feedback-info-link">联系我们</button>页面了解更多联系方式。
           </p>
         </div>
 
@@ -215,7 +215,7 @@ const FeedbackPage = () => {
             <CheckCircle size={64} className="success-icon" />
             <h2>感谢您的反馈！</h2>
             <p>我们已收到您的意见，会尽快处理并通过邮件回复您。</p>
-            <button className="btn-primary" onClick={() => navigate('/')}>
+            <button className="feedback-btn-primary" onClick={() => navigate('/')}>
               返回首页
             </button>
           </div>
@@ -352,7 +352,7 @@ const FeedbackPage = () => {
             <div className="form-actions">
               <button 
                 type="button" 
-                className="btn-secondary"
+                className="feedback-btn-secondary"
                 onClick={() => navigate(-1)}
                 disabled={submitting}
               >
@@ -360,7 +360,7 @@ const FeedbackPage = () => {
               </button>
               <button 
                 type="submit" 
-                className="btn-primary"
+                className="feedback-btn-primary"
                 disabled={submitting || uploading}
               >
                 {submitting ? (

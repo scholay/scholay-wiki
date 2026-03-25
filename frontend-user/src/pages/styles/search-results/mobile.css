@@ -158,7 +158,7 @@
 
 .mobile-preview-body .paper-preview .view-detail-link:active {
   transform: scale(0.97);
-  background: #0d8a6a;
+  background: var(--primary-hover);
 }
 
 /* 内容区域 */
@@ -372,7 +372,7 @@
 
 [data-theme="light"] .mobile-preview-body .paper-preview .field-tag {
   background: rgba(16, 163, 127, 0.1);
-  color: #0d8a6a;
+  color: var(--primary-hover);
 }
 
 [data-theme="light"] .mobile-preview-body .paper-preview .metrics-row {
@@ -397,7 +397,7 @@
 }
 
 [data-theme="light"] .mobile-preview-body .paper-preview .tldr-block .block-label {
-  color: #0d8a6a;
+  color: var(--primary-hover);
 }
 
 [data-theme="light"] .mobile-preview-body .paper-preview .tldr-block .block-text {

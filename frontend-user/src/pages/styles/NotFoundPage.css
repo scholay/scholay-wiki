@@ -8,20 +8,9 @@
  * NotFoundPage.css - 404 页面样式
  */
 
-.not-found-page {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  background: var(--bg-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-}
+/* NOTE: This page uses shared .page-shell-centered + .page-container--narrow from assets/styles/layouts/containers.css */
 
 .not-found-container {
-  max-width: 520px;
-  width: 100%;
   text-align: center;
 }
 
@@ -87,7 +76,7 @@
 }
 
 .not-found-btn.primary {
-  background: var(--primary-color);
+  background: var(--primary-solid);
   color: #fff;
 }
 
@@ -99,7 +88,7 @@
 .not-found-btn.secondary {
   background: var(--bg-secondary);
   color: var(--text-secondary);
-  border: 1px solid var(--border-primary);
+  border: 1px solid var(--border);
 }
 
 .not-found-btn.secondary:hover {
@@ -110,7 +99,7 @@
 .not-found-footer {
   margin-top: 60px;
   padding-top: 24px;
-  border-top: 1px solid var(--border-primary);
+  border-top: 1px solid var(--border);
 }
 
 .not-found-footer p {
@@ -121,9 +110,6 @@
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
-  .not-found-page {
-    padding: 24px 16px;
-  }
 
   .not-found-code {
     font-size: 5rem;

@@ -1,0 +1,275 @@
+/**
+ * Component - Buttons
+ * 统一按钮体系，消除跨文件同名冲突
+ *
+ * 变体: .btn-primary / .btn-secondary / .btn-outline / .btn-ghost / .btn-danger / .btn-indigo
+ * 尺寸: .btn-sm / .btn-lg
+ * 特殊: .btn-icon (图标按钮)
+ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0.875rem 1.75rem;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
+  transition: var(--transition);
+  outline: none;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: var(--radius-circle);
+  background: rgba(255, 255, 255, 0.1);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Primary */
+.btn-primary {
+  background: var(--primary);
+  color: var(--surface);
+  box-shadow: 0 4px 15px rgba(var(--primary-rgb), 0.4);
+}
+
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(var(--primary-rgb), 0.6);
+  transform: translateY(-2px);
+}
+
+/* Secondary */
+.btn-secondary {
+  padding: var(--space-3-5) var(--space-7);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .btn-secondary {
+  background: var(--bg-secondary);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .btn-secondary:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  border-color: var(--border-hover);
+}
+
+/* Outline */
+.btn-outline {
+  background: transparent;
+  color: var(--text-primary);
+  border: 2px solid var(--border);
+}
+
+[data-theme="dark"] .btn-outline:hover:not(:disabled) {
+  border-color: var(--primary-solid);
+  box-shadow: var(--glow);
+  background: rgba(var(--primary-rgb), 0.1);
+}
+
+[data-theme="light"] .btn-outline {
+  border-color: var(--border);
+}
+
+[data-theme="light"] .btn-outline:hover:not(:disabled) {
+  border-color: var(--primary-solid);
+  background: rgba(var(--primary-rgb), 0.05);
+  box-shadow: var(--shadow-accent);
+  color: var(--text-accent);
+}
+
+/* Ghost */
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  padding: var(--space-2) var(--space-3);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Danger */
+.btn-danger {
+  background: var(--error);
+  color: var(--surface);
+  border: none;
+}
+
+.btn-danger:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Indigo (用于特色功能如反馈页) */
+.btn-indigo {
+  background: linear-gradient(135deg, var(--accent-secondary) 0%, var(--accent-secondary-dark) 100%);
+  color: var(--surface);
+  border: none;
+}
+
+.btn-indigo:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(var(--accent-secondary-rgb), 0.4);
+  transform: translateY(-2px);
+}
+
+/* 尺寸变体 */
+.btn-sm {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-xs);
+  border-radius: var(--radius-sm);
+}
+
+.btn-lg {
+  padding: var(--space-4) var(--space-8);
+  font-size: var(--text-base);
+  border-radius: var(--radius-md);
+}
+
+/* Icon button */
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: var(--transition-fast);
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="light"] .btn-icon {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .btn-icon:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.1);
+  color: var(--text-primary);
+}
+
+.btn-icon.btn-icon-lg {
+  width: 40px;
+  height: 40px;
+}
+
+.btn-icon.btn-icon-sm {
+  width: 24px;
+  height: 24px;
+}
+
+/* Auth buttons */
+.btn-auth {
+  padding: var(--space-2) 1.25rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: var(--transition);
+  border: none;
+  white-space: nowrap;
+}
+
+.btn-login {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.btn-login:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-hover);
+}
+
+.btn-register {
+  background: var(--primary-solid);
+  color: var(--surface);
+  border: none;
+  box-shadow: var(--shadow-accent-sm);
+}
+
+.btn-register:hover {
+  box-shadow: var(--shadow-accent);
+  transform: translateY(-1px);
+}
+
+/* Back button - 页面返回按钮 */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 0.9375rem;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+
+.back-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .back-btn:hover {
+  background: var(--bg-secondary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .btn {
+    padding: 0.75rem 1.5rem;
+    font-size: var(--text-sm);
+  }
+}

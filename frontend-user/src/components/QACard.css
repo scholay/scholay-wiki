@@ -206,11 +206,6 @@
   border-radius: 4px;
 }
 
-@keyframes skeleton-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
 /* ============ AI 思考过程展示 ============ */
 .qa-thinking-process {
   padding: 4px 0;
@@ -562,12 +557,6 @@
   border-top-color: var(--primary-color, #4a90d9);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .qa-load-more-btn {

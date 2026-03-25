@@ -132,14 +132,14 @@ const TermsPage = () => {
   };
 
   return (
-    <div className="legal-page">
+    <div className="legal-page page-shell">
       <SEO
         title="服务条款 - Scholay | 使用条件与规则"
         description="Scholay 服务条款详细说明了使用本平台的条件、用户权利与义务及知识产权相关事宜。"
         keywords="Scholay服务条款,使用条款,用户协议,知识产权"
         canonical="/terms"
       />
-      <div className="legal-container">
+      <div className="legal-container page-container">
         <div className="legal-header">
           <button className="back-btn" onClick={() => navigate(-1)}>
             <ArrowLeft size={20} />

@@ -17,18 +17,6 @@
   animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s both;
 }
 
-/* 淡入向上动画 */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* 左侧消息容器 */
 .as-messages-container {
   flex: 1 1 auto;

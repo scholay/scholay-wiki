@@ -1,0 +1,85 @@
+/**
+ * Layout - Chat Layout
+ * 统一聊天/Composer 容器布局
+ *
+ * 替代: home/layout.css 的 .home-chat-container
+ *       advanced-search/layout.css 的 .chat-container
+ *       home/responsive.css、advanced-search/responsive.css 的重复断点
+ */
+
+/* 聊天主容器 */
+.chat-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  max-width: var(--width-chat);
+  width: 100%;
+  padding: 0 1.5rem;
+  margin: 0 auto;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* 聊天消息列表容器 */
+.chat-messages-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: var(--width-chat);
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 1.5rem;
+}
+
+/* 消息阅读宽度 */
+.reading-width {
+  max-width: var(--width-reading);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* 聊天消息滚动区域 */
+.chat-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Responsive breakpoints for chat container */
+@media (min-width: 1920px) {
+  .chat-layout,
+  .chat-messages-container {
+    max-width: var(--width-chat-xl);
+  }
+}
+
+@media (min-width: 1440px) and (max-width: 1919px) {
+  .chat-layout,
+  .chat-messages-container {
+    max-width: var(--width-chat-lg);
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .chat-layout,
+  .chat-messages-container {
+    max-width: var(--width-chat-md);
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1023px) {
+  .chat-layout,
+  .chat-messages-container {
+    max-width: var(--width-chat-sm);
+    padding: 0 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .chat-layout,
+  .chat-messages-container {
+    max-width: 100%;
+    padding: 0 0.75rem;
+  }
+}

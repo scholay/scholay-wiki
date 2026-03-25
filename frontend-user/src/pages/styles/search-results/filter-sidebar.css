@@ -181,7 +181,7 @@
 }
 
 .filter-year-apply:hover {
-  background: #0d8a6a;
+  background: var(--primary-hover);
 }
 
 /* ========== 复选框筛选项 ========== */
@@ -352,7 +352,7 @@
 }
 
 .filter-show-more:hover {
-  color: #0d8a6a;
+  color: var(--primary-hover);
   text-decoration: underline;
 }
 

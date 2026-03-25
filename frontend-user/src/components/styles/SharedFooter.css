@@ -68,6 +68,28 @@
   white-space: nowrap;
 }
 
+/* ========== 浅色模式 ========== */
+[data-theme="light"] .shared-footer {
+  background: rgba(255, 255, 255, 0.92);
+  border-top-color: var(--border);
+}
+
+[data-theme="light"] .shared-footer-links button {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .shared-footer-links button:hover {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .shared-footer-divider {
+  color: var(--text-quaternary);
+}
+
+[data-theme="light"] .shared-footer-copyright {
+  color: var(--text-quaternary);
+}
+
 /* 移动端适配 */
 @media (max-width: 768px) {
   .shared-footer {

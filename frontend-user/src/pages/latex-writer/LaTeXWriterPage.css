@@ -385,10 +385,6 @@
   animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
 /* ============================================
    项目选择页面
    ============================================ */
@@ -637,11 +633,6 @@
   justify-content: center;
   z-index: 1000;
   animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .latex-writer-delete-modal {

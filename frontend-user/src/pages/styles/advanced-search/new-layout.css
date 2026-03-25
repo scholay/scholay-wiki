@@ -444,7 +444,7 @@
 }
 
 .ai-chat-header .ai-new-conversation-btn:hover {
-  background: var(--primary-hover, #0d8c6d);
+  background: var(--primary-hover);
 }
 
 .ai-chat-header .ai-new-conversation-btn:disabled {
@@ -483,7 +483,7 @@
 }
 
 .ai-new-conversation-btn:hover {
-  background: var(--primary-hover, #0d8c6d);
+  background: var(--primary-hover);
 }
 
 .ai-new-conversation-btn:disabled {
@@ -501,11 +501,6 @@
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s infinite;
   border-radius: 4px;
-}
-
-@keyframes skeleton-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
 }
 
 /* 高亮论文 */
@@ -713,12 +708,6 @@
   border-top-color: #10a37f;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .ai-papers-loading-text {

@@ -41,7 +41,7 @@
 .process-card {
   background: var(--bg-primary, #fff);
   border: 1px solid var(--border, #e5e7eb);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -57,7 +57,7 @@
 .process-card-icon {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -66,11 +66,11 @@
 }
 
 .process-card-icon svg {
-  color: #fff;
+  color: var(--surface);
 }
 
 .process-card-icon.completed {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, var(--success), #059669);
 }
 
 .process-card-icon.processing {
@@ -78,7 +78,7 @@
 }
 
 .process-card-icon.reviewers.completed {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, var(--success), #059669);
 }
 
 .process-card-icon.reviewers.processing {
@@ -90,14 +90,14 @@
 }
 
 .process-card-title h4 {
-  font-size: 15px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-primary, #1a1a1a);
   margin: 0 0 2px 0;
 }
 
 .process-card-status {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
 }
 
@@ -110,12 +110,12 @@
 }
 
 .process-card-progress {
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-secondary, #4b5563);
   background: var(--bg-primary, #fff);
   padding: 6px 14px;
-  border-radius: 20px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--border, #e5e7eb);
 }
 
@@ -148,7 +148,7 @@
 }
 
 .step-icon.completed {
-  color: #10b981;
+  color: var(--success);
 }
 
 .step-icon.processing {
@@ -156,7 +156,7 @@
 }
 
 .step-icon.failed {
-  color: #ef4444;
+  color: var(--error);
 }
 
 .step-icon.pending {
@@ -165,11 +165,6 @@
 
 .step-icon.spin {
   animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 
 .step-line {
@@ -194,7 +189,7 @@
 }
 
 .step-name {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--text-primary, #1a1a1a);
   font-weight: 500;
 }
@@ -204,18 +199,18 @@
 }
 
 .step-duration {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--text-tertiary, #9ca3af);
   white-space: nowrap;
 }
 
 .step-error {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: #dc2626;
   margin-top: 4px;
   padding: 6px 8px;
   background: rgba(239, 68, 68, 0.08);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
 }
 
 /* 步骤结果展示 */
@@ -223,8 +218,8 @@
   margin-top: 8px;
   padding: 10px 12px;
   background: var(--bg-secondary, #f8f9fa);
-  border-radius: 8px;
-  font-size: 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
 }
 
 .result-item {
@@ -273,8 +268,8 @@
   padding: 2px 8px;
   background: rgba(99, 102, 241, 0.1);
   color: #6366f1;
-  border-radius: 4px;
-  font-size: 11px;
+  border-radius: var(--radius-xs);
+  font-size: var(--text-2xs);
 }
 
 /* 审稿人列表 */
@@ -288,7 +283,7 @@
 /* 审稿人内嵌卡片 */
 .reviewer-inline-card {
   background: var(--bg-secondary, #f8f9fa);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   padding: 12px 14px;
   transition: all 0.2s ease;
 }
@@ -298,11 +293,11 @@
 }
 
 .reviewer-inline-card.completed {
-  border-left: 3px solid #10b981;
+  border-left: 3px solid var(--success);
 }
 
 .reviewer-inline-card.failed {
-  border-left: 3px solid #ef4444;
+  border-left: 3px solid var(--error);
 }
 
 .reviewer-inline-card.processing {
@@ -322,7 +317,7 @@
 .reviewer-inline-avatar {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -330,8 +325,8 @@
 }
 
 .reviewer-inline-avatar span {
-  color: #fff;
-  font-size: 14px;
+  color: var(--surface);
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
@@ -342,14 +337,14 @@
 
 .reviewer-inline-name {
   display: block;
-  font-size: 13px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--text-primary, #1a1a1a);
 }
 
 .reviewer-inline-model {
   display: block;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--text-tertiary, #9ca3af);
   margin-top: 1px;
 }
@@ -358,10 +353,10 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
   padding: 4px 10px;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   white-space: nowrap;
 }
 
@@ -404,10 +399,10 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   padding: 4px 8px;
   background: var(--bg-primary, #fff);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
 }
 
 .reviewer-step-item .step-icon {
@@ -416,7 +411,7 @@
 }
 
 .reviewer-step-item .step-name {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 400;
 }
 
@@ -434,18 +429,18 @@
   margin-top: 10px;
   padding: 8px 10px;
   background: rgba(239, 68, 68, 0.08);
-  border-radius: 6px;
-  font-size: 12px;
+  border-radius: var(--radius-xs);
+  font-size: var(--text-xs);
   color: #dc2626;
 }
 
 /* 汇总阶段图标 */
 .process-card-icon.summarize.completed {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, var(--success), #059669);
 }
 
 .process-card-icon.summarize.processing {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  background: linear-gradient(135deg, var(--warning), #d97706);
 }
 
 .process-card-icon.summarize.pending {
@@ -461,14 +456,14 @@
   background: rgba(16, 185, 129, 0.1);
   color: #059669;
   padding: 6px 10px;
-  border-radius: 20px;
+  border-radius: var(--radius-xl);
 }
 
 /* 汇总结果 */
 .summarize-result {
   padding: 12px 16px;
   background: var(--bg-secondary, #f8f9fa);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   margin: 0 16px 16px;
 }
 
@@ -480,14 +475,14 @@
 
 .summarize-result .result-label {
   color: var(--text-tertiary, #9ca3af);
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 .summarize-result .result-value.recommendation {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--text-sm);
   padding: 4px 12px;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
 }
 
 .recommendation.accept {
@@ -497,7 +492,7 @@
 
 .recommendation.minor-revision {
   background: rgba(59, 130, 246, 0.15);
-  color: #2563eb;
+  color: var(--info);
 }
 
 .recommendation.major-revision {
@@ -517,7 +512,7 @@
   gap: 12px;
   padding: 16px;
   color: var(--text-secondary, #6b7280);
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 .processing-dots {
@@ -528,8 +523,8 @@
 .processing-dots span {
   width: 6px;
   height: 6px;
-  background: #f59e0b;
-  border-radius: 50%;
+  background: var(--warning);
+  border-radius: var(--radius-circle);
   animation: dotPulse 1.4s infinite ease-in-out both;
 }
 
@@ -557,8 +552,8 @@
   margin: 0 16px 16px;
   padding: 10px 12px;
   background: rgba(239, 68, 68, 0.08);
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
   color: #dc2626;
 }
 
@@ -577,7 +572,7 @@
   height: 20px;
   border: 2px solid var(--border, #e5e7eb);
   border-top-color: var(--primary, #6366f1);
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   animation: spin 0.8s linear infinite;
 }
 
@@ -593,7 +588,7 @@
   }
   
   .process-card-title h4 {
-    font-size: 14px;
+    font-size: var(--text-sm);
   }
   
   .process-steps-list {
@@ -614,6 +609,6 @@
   
   .reviewer-step-item {
     padding: 3px 6px;
-    font-size: 11px;
+    font-size: var(--text-2xs);
   }
 }

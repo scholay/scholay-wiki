@@ -262,7 +262,7 @@
 }
 
 [data-theme="light"] .ant-select-item-option-selected .model-option-info .model-option-label {
-  color: #0d8a6b;
+  color: var(--primary-hover);
 }
 
 [data-theme="light"] .ant-select-item-option-selected .model-option-info .model-option-desc {

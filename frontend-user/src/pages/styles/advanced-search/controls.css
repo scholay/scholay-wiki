@@ -18,7 +18,7 @@
   padding: 4px;
   gap: 4px;
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
   box-shadow: 
     0 2px 8px rgba(0, 0, 0, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -30,11 +30,11 @@
   gap: 7px;
   padding: 7px 18px;
   border: none;
-  border-radius: 20px;
+  border-radius: var(--radius-xl);
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-xs);
   font-weight: 500;
   font-family: inherit;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -54,9 +54,9 @@
 /* 激活状态按钮 - 使用::before伪元素实现绿色背景（高度比按钮小） */
 .advanced-search-mode-segmented .mode-segment.active {
   background: transparent;
-  color: rgb(255, 255, 255);
+  color: var(--surface);
   font-weight: 600;
-  text-shadow: 0 1px 3px rgba(16, 163, 127, 0.5);
+  text-shadow: 0 1px 3px rgba(var(--primary-rgb), 0.5);
 }
 
 .advanced-search-mode-segmented .mode-segment.active::before {
@@ -68,14 +68,14 @@
   height: 30px;
   transform: translateY(-50%);
   background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 0.25) 0%, 
-    rgba(16, 163, 127, 0.15) 100%);
+    rgba(var(--primary-rgb), 0.25) 0%, 
+    rgba(var(--primary-rgb), 0.15) 100%);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   box-shadow: 
-    0 2px 8px rgba(16, 163, 127, 0.3),
-    0 0 0 1px rgba(16, 163, 127, 0.3),
+    0 2px 8px rgba(var(--primary-rgb), 0.3),
+    0 0 0 1px rgba(var(--primary-rgb), 0.3),
     inset 0 1px 2px rgba(255, 255, 255, 0.15);
   z-index: -1;
 }
@@ -101,13 +101,13 @@
 
 .advanced-search-mode-segmented .mode-segment:hover:not(.active) {
   color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-hover);
 }
 
 .advanced-search-mode-segmented .mode-segment.active .mode-segment-icon {
-  color: rgb(16, 163, 127);
+  color: var(--primary-solid);
   transform: scale(1.08);
-  filter: drop-shadow(0 2px 4px rgba(16, 163, 127, 0.4));
+  filter: drop-shadow(0 2px 4px rgba(var(--primary-rgb), 0.4));
 }
 
 .advanced-search-mode-segmented .mode-segment:active {
@@ -126,26 +126,26 @@
 
 [data-theme="light"] .advanced-search-mode-segmented .mode-segment:hover:not(.active) {
   color: rgba(0, 0, 0, 0.8);
-  background: rgba(16, 163, 127, 0.08);
+  background: rgba(var(--primary-rgb), 0.08);
 }
 
 [data-theme="light"] .advanced-search-mode-segmented .mode-segment.active {
   background: transparent;
-  color: white;
+  color: var(--surface);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 [data-theme="light"] .advanced-search-mode-segmented .mode-segment.active::before {
   background: linear-gradient(135deg, 
-    rgba(16, 163, 127, 0.85) 0%, 
-    rgba(16, 163, 127, 0.75) 100%);
+    rgba(var(--primary-rgb), 0.85) 0%, 
+    rgba(var(--primary-rgb), 0.75) 100%);
   box-shadow: 
-    0 2px 8px rgba(16, 163, 127, 0.3),
-    0 0 0 1px rgba(16, 163, 127, 0.4);
+    0 2px 8px rgba(var(--primary-rgb), 0.3),
+    0 0 0 1px rgba(var(--primary-rgb), 0.4);
 }
 
 [data-theme="light"] .advanced-search-mode-segmented .mode-segment.active .mode-segment-icon {
-  color: white;
+  color: var(--surface);
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.2));
 }
 
@@ -201,7 +201,7 @@
 /* ========== 液态玻璃按钮样式 ========== */
 .as-navbar-auth-buttons .btn-auth {
   padding: 0.5rem 1.25rem;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -213,43 +213,43 @@
 
 /* 登录/注册合并按钮 - 液态玻璃效果 + 主色调 */
 .as-navbar-auth-buttons .btn-login-register {
-  color: white;
+  color: var(--surface);
 }
 
 [data-theme="dark"] .as-navbar-auth-buttons .btn-login-register {
-  background: linear-gradient(135deg, rgba(16, 163, 127, 0.9) 0%, rgba(16, 163, 127, 0.7) 100%);
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.9) 0%, rgba(var(--primary-rgb), 0.7) 100%);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(16, 163, 127, 0.3);
+  border: 1px solid rgba(var(--primary-rgb), 0.3);
   box-shadow: 
-    0 2px 12px rgba(16, 163, 127, 0.3),
+    0 2px 12px rgba(var(--primary-rgb), 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 [data-theme="light"] .as-navbar-auth-buttons .btn-login-register {
-  background: linear-gradient(135deg, rgba(16, 163, 127, 0.95) 0%, rgba(16, 163, 127, 0.85) 100%);
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.95) 0%, rgba(var(--primary-rgb), 0.85) 100%);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(16, 163, 127, 0.2);
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
   box-shadow: 
-    0 2px 12px rgba(16, 163, 127, 0.25),
+    0 2px 12px rgba(var(--primary-rgb), 0.25),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 [data-theme="dark"] .as-navbar-auth-buttons .btn-login-register:hover {
-  background: linear-gradient(135deg, rgba(16, 163, 127, 1) 0%, rgba(16, 163, 127, 0.85) 100%);
-  border-color: rgba(16, 163, 127, 0.5);
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 1) 0%, rgba(var(--primary-rgb), 0.85) 100%);
+  border-color: rgba(var(--primary-rgb), 0.5);
   box-shadow: 
-    0 6px 20px rgba(16, 163, 127, 0.4),
+    0 6px 20px rgba(var(--primary-rgb), 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
   transform: translateY(-2px);
 }
 
 [data-theme="light"] .as-navbar-auth-buttons .btn-login-register:hover {
-  background: linear-gradient(135deg, rgba(16, 163, 127, 1) 0%, rgba(16, 163, 127, 0.9) 100%);
-  border-color: rgba(16, 163, 127, 0.4);
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 1) 0%, rgba(var(--primary-rgb), 0.9) 100%);
+  border-color: rgba(var(--primary-rgb), 0.4);
   box-shadow: 
-    0 6px 20px rgba(16, 163, 127, 0.35),
+    0 6px 20px rgba(var(--primary-rgb), 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.25);
   transform: translateY(-2px);
 }
@@ -286,11 +286,11 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.02);
   color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
+  font-size: var(--text-xs);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -304,14 +304,14 @@
 
 /* 日间模式 - 问题历史下拉按钮 */
 [data-theme="light"] .as-question-dropdown-btn {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(0, 0, 0, 0.15);
   color: #4a5568;
 }
 
 [data-theme="light"] .as-question-dropdown-btn:hover {
   background: #f8fafb;
-  border-color: rgba(16, 163, 127, 0.4);
+  border-color: rgba(var(--primary-rgb), 0.4);
   color: #1a202c;
 }
 
@@ -332,7 +332,7 @@
 }
 
 .as-question-count {
-  font-size: 12px;
+  font-size: var(--text-xs);
   opacity: 0.8;
 }
 
@@ -360,11 +360,11 @@
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   padding: 6px;
   box-shadow: 
     0 40px 100px rgba(0, 0, 0, 0.9), 
-    0 0 0 1px rgba(16, 163, 127, 0.15),
+    0 0 0 1px rgba(var(--primary-rgb), 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   z-index: 999;
   overflow: hidden;
@@ -384,7 +384,7 @@
 
 /* 日间模式 - 问题下拉菜单 */
 [data-theme="light"] .as-question-dropdown-menu {
-  background: #ffffff;
+  background: var(--surface);
   backdrop-filter: none;
   border: 1px solid rgba(0, 0, 0, 0.1);
   box-shadow: 
@@ -394,8 +394,8 @@
 
 .as-dropdown-header {
   padding: 12px 14px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  font-size: 11px;
+  border-bottom: 1px solid var(--border-light);
+  font-size: var(--text-2xs);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.5);
   background: transparent;
@@ -422,7 +422,7 @@
   align-items: flex-start;
   gap: 12px;
   padding: 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.03);
   transition: all 0.15s ease;
   cursor: pointer;
@@ -436,7 +436,7 @@
 
 /* 日间模式 - 问题项悬停 */
 [data-theme="light"] .as-question-item {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid transparent;
 }
 
@@ -453,16 +453,16 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: rgba(16, 163, 127, 0.15);
+  background: rgba(var(--primary-rgb), 0.15);
   color: var(--text-accent);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   flex-shrink: 0;
 }
 
 .as-question-text {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: rgba(255, 255, 255, 0.8);
   line-height: 1.5;
   overflow: hidden;
@@ -482,7 +482,7 @@
   padding: 24px;
   text-align: center;
   color: rgba(255, 255, 255, 0.4);
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 /* 日间模式 - 空状态文本 */
@@ -517,7 +517,7 @@
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: none !important;
-  font-size: 12px !important;
+  font-size: var(--text-xs) !important;
   color: rgba(255, 255, 255, 0.6) !important;
   cursor: default !important;
   opacity: 1 !important;
@@ -543,7 +543,7 @@
 }
 
 .as-results-navbar .as-page-title {
-  font-size: 20px;
+  font-size: var(--text-xl);
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
@@ -556,7 +556,7 @@
   padding: 6px;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -599,16 +599,3 @@
 .as-results-composer-wrapper:focus-within {
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
 }
-
-/* 搜索框滑动动画 */
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-

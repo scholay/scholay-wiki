@@ -18,6 +18,11 @@
  * - responsive.css: 响应式/移动端样式
  */
 
+/* Shared styles from style library */
+@import '../../../assets/styles/shared/markdown.css';
+@import '../../../assets/styles/shared/floating-cards.css';
+@import '../../../assets/styles/shared/responsive.css';
+
 @import './base.css';
 @import './layout.css';
 @import './markdown.css';

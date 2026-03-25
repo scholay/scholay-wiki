@@ -1,0 +1,28 @@
+/**
+ * Design Tokens - Shadows
+ * 统一阴影令牌
+ */
+
+:root, [data-theme="dark"] {
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.7);
+  --shadow-accent: 0 4px 16px rgba(16, 163, 127, 0.25);
+  --shadow-accent-sm: 0 2px 8px rgba(16, 163, 127, 0.3);
+  --shadow-accent-lg: 0 6px 20px rgba(16, 163, 127, 0.6);
+  --glow: 0 0 20px rgba(16, 163, 127, 0.3);
+}
+
+[data-theme="light"] {
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12), 0 6px 12px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1);
+  --shadow-accent: 0 4px 16px rgba(16, 163, 127, 0.15);
+  --shadow-accent-sm: 0 2px 8px rgba(16, 163, 127, 0.2);
+  --shadow-accent-lg: 0 6px 20px rgba(16, 163, 127, 0.4);
+  --glow: 0 0 0 3px rgba(16, 163, 127, 0.12);
+}

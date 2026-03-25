@@ -195,6 +195,70 @@
   transform: translateX(4px);
 }
 
+/* ========== 简介文本 ========== */
+.ast-intro-text {
+  max-width: 680px;
+  margin: 0 auto 32px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  padding: 0 16px;
+}
+
+/* ========== "了解更多" 链接 ========== */
+.ast-card-learn-more {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.ast-card-learn-more:hover {
+  color: var(--card-color);
+}
+
+/* ========== 底部详情区块 ========== */
+.ast-detail-section {
+  max-width: 680px;
+  margin: 40px auto 0;
+  padding: 0 16px;
+}
+
+.ast-detail-card {
+  background: var(--bg-secondary);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  padding: 28px 24px;
+}
+
+.ast-detail-card h3 {
+  color: var(--text-primary);
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.ast-detail-card .ast-detail-body {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.85;
+}
+
+.ast-detail-card .ast-detail-body p {
+  margin-bottom: 14px;
+}
+
+.ast-detail-card .ast-detail-body p:last-child {
+  margin-bottom: 0;
+}
+
+.ast-detail-card .ast-detail-body strong {
+  color: var(--text-primary);
+}
+
 /* ========== 响应式布局 ========== */
 @media (max-width: 640px) {
   .ast-page {

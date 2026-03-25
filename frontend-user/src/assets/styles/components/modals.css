@@ -1,0 +1,123 @@
+/**
+ * Component - Modals
+ * 统一弹窗 overlay + 内容体系
+ *
+ * 使用: .modal-overlay > .modal-content.modal-{sm|md|lg|xl}
+ */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  animation: fadeIn 0.2s ease;
+  padding: var(--space-5);
+}
+
+.modal-overlay-heavy {
+  background: var(--overlay-bg-heavy);
+}
+
+.modal-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  max-height: 80vh;
+  overflow: hidden;
+  animation: scaleIn 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+[data-theme="dark"] .modal-content {
+  background: rgba(32, 32, 32, 0.98);
+}
+
+[data-theme="light"] .modal-content {
+  background: var(--surface);
+  box-shadow: var(--shadow-xl);
+}
+
+/* Modal sizes */
+.modal-sm {
+  width: 90%;
+  max-width: 360px;
+}
+
+.modal-md {
+  width: 90%;
+  max-width: 500px;
+}
+
+.modal-lg {
+  width: 90%;
+  max-width: 600px;
+}
+
+.modal-xl {
+  width: 90%;
+  max-width: 800px;
+}
+
+/* Modal parts */
+.modal-header {
+  padding: var(--space-6) var(--space-6) var(--space-4);
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-header-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: var(--space-6);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+/* Close button */
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-fast);
+}
+
+.modal-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Drawer overlay (side panel) */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  z-index: var(--z-sidebar);
+  animation: fadeIn 0.2s ease;
+}
