@@ -25,6 +25,7 @@ frontend-user/node_modules/
 frontend-user/build/
 frontend-user/.pnp
 frontend-user/.pnp.js
+frontend-user/dist/
 
 # Testing
 coverage/
