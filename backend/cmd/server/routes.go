@@ -9,6 +9,7 @@ package main
 
 import (
 	"scholar-backend/internal/admin"
+	"scholar-backend/internal/agent"
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/config"
 	"scholar-backend/internal/conversation"
@@ -63,6 +64,7 @@ type routeHandlers struct {
 	mcpLegacy          *mcp.Handler
 	proxy              *proxy.Handler
 	ws                 *websocket.Handler
+	agent              *agent.Handler
 }
 
 func registerAPIRoutes(api *gin.RouterGroup, h *routeHandlers) {
@@ -357,6 +359,9 @@ func registerUserProtectedRoutes(api *gin.RouterGroup, h *routeHandlers) {
 
 		// LaTeX Writer
 		registerLatexWriterRoutes(g, h)
+
+		// Agent Proxy (V2 review via agent.scholay.com)
+		h.agent.RegisterRoutes(g)
 	}
 }
 

@@ -5,7 +5,6 @@ User-agent: *
 Allow: /
 Allow: /search-results
 Allow: /paper/*
-Allow: /pricing
 Allow: /about
 Allow: /privacy
 Allow: /terms
@@ -21,6 +20,14 @@ Allow: /resources/*
 Allow: /help
 Allow: /blog
 Allow: /blog/*
+Allow: /features/ai-review
+Allow: /features/ai-search
+Allow: /features/ai-writing
+Allow: /features/ai-translation
+Allow: /features/data-extraction
+Allow: /features/journal-matcher
+Allow: /features/ai-assistant
+Allow: /review
 Disallow: /dashboard
 Disallow: /settings
 Disallow: /subscription

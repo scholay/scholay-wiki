@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/admin"
+	"scholar-backend/internal/agent"
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/feedback"
 	"scholar-backend/internal/latexwriter"
@@ -239,6 +240,9 @@ func main() {
 	// Initialize Proxy module
 	proxyHandler := proxy.NewHandler()
 
+	// Initialize Agent proxy module (V2 review via agent.scholay.com)
+	agentHandler := agent.NewHandler()
+
 	// Initialize PDF module
 	// Unpaywall API 需要邮箱，从环境变量读取或使用默认值
 	unpaywallEmail := os.Getenv("UNPAYWALL_EMAIL")
@@ -351,6 +355,7 @@ func main() {
 		mcpLegacy:          mcpHandler,
 		proxy:              proxyHandler,
 		ws:                 wsHandler,
+		agent:              agentHandler,
 	})
 
 	registerOperationalRoutes(

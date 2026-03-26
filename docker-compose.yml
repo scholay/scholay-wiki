@@ -110,6 +110,9 @@ services:
       SERVER_PORT: 8080
       ADMIN_INITIAL_USERNAME: ${ADMIN_INITIAL_USERNAME:-admin}
       ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-adminadmin}
+      # Agent API Configuration (V2 review via agent.scholay.com)
+      AGENT_API_URL: ${AGENT_API_URL:-https://agent.scholay.com}
+      AGENT_API_TOKEN: ${AGENT_API_TOKEN:-}
       # Frontend URL for SSR code snippet injection (use service name, not container_name)
       FRONTEND_USER_URL: http://frontend-user:80
       # SigNoz Configuration
@@ -122,6 +125,8 @@ services:
       SIGNOZ_SAMPLING_RATE: ${SIGNOZ_SAMPLING_RATE:-1.0}
       # Go memory limit (75% of container memory limit)
       GOMEMLIMIT: 768MiB
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./data/uploads:/app/uploads
     # Backend不暴露端口,通过Nginx访问

@@ -191,6 +191,47 @@ export const PeerReviewFeaturePage = lazyWithRetry(
 );
 
 /* ----------------------------------------------------------------
+ * Feature Landing Pages V2 (dark theme)
+ * ---------------------------------------------------------------- */
+
+export const AiReviewFeaturePageV2 = lazyWithRetry(
+  () => import('../../pages/features/v2/AiReviewFeaturePage'),
+  'AiReviewFeaturePageV2'
+);
+export const AiSearchFeaturePageV2 = lazyWithRetry(
+  () => import('../../pages/features/v2/AiSearchFeaturePage'),
+  'AiSearchFeaturePageV2'
+);
+export const AiWritingFeaturePageV2 = lazyWithRetry(
+  () => import('../../pages/features/v2/AiWritingFeaturePage'),
+  'AiWritingFeaturePageV2'
+);
+export const AiTranslationFeaturePageV2 = lazyWithRetry(
+  () => import('../../pages/features/v2/AiTranslationFeaturePage'),
+  'AiTranslationFeaturePageV2'
+);
+export const DataExtractionFeaturePageV2 = lazyWithRetry(
+  () => import('../../pages/features/v2/DataExtractionFeaturePage'),
+  'DataExtractionFeaturePageV2'
+);
+export const JournalMatcherFeaturePageV2 = lazyWithRetry(
+  () => import('../../pages/features/v2/JournalMatcherFeaturePage'),
+  'JournalMatcherFeaturePageV2'
+);
+export const AiAssistantFeaturePageV2 = lazyWithRetry(
+  () => import('../../pages/features/v2/AiAssistantFeaturePage'),
+  'AiAssistantFeaturePageV2'
+);
+
+/* ----------------------------------------------------------------
+ * V2 Review (Agent-based)
+ * ---------------------------------------------------------------- */
+export const ReviewPageV2 = lazyWithRetry(
+  () => import('../../pages/ReviewPageV2'),
+  'ReviewPageV2'
+);
+
+/* ----------------------------------------------------------------
  * Blog
  * ---------------------------------------------------------------- */
 

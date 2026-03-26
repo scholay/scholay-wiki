@@ -45,6 +45,14 @@ import {
   SearchFeaturePage,
   PeerReviewFeaturePage,
   LaTeXFeaturePage,
+  AiReviewFeaturePageV2,
+  AiSearchFeaturePageV2,
+  AiWritingFeaturePageV2,
+  AiTranslationFeaturePageV2,
+  DataExtractionFeaturePageV2,
+  JournalMatcherFeaturePageV2,
+  AiAssistantFeaturePageV2,
+  ReviewPageV2,
   AdminDashboardLayout,
   AdminDashboardHome,
   AdminUserManagement,
@@ -139,6 +147,18 @@ export const AppRouter: React.FC = () => {
           path="/features/latex-writer"
           element={<LaTeXFeaturePage />}
         />
+
+        {/* 功能宣传页 V2（深色主题，独立布局） */}
+        <Route path="/features/ai-review" element={<AiReviewFeaturePageV2 />} />
+        <Route path="/features/ai-search" element={<AiSearchFeaturePageV2 />} />
+        <Route path="/features/ai-writing" element={<AiWritingFeaturePageV2 />} />
+        <Route path="/features/ai-translation" element={<AiTranslationFeaturePageV2 />} />
+        <Route path="/features/data-extraction" element={<DataExtractionFeaturePageV2 />} />
+        <Route path="/features/journal-matcher" element={<JournalMatcherFeaturePageV2 />} />
+        <Route path="/features/ai-assistant" element={<AiAssistantFeaturePageV2 />} />
+
+        {/* V2 审稿功能页（独立布局） */}
+        <Route path="/review" element={<ReviewPageV2 />} />
 
         {/* OAuth 回调 */}
         <Route path="/wechat/callback" element={<WeChatCallback />} />

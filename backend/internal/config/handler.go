@@ -1042,6 +1042,9 @@ func getRouteNoscriptContent(path string) string {
 <li><a href="/resources/ai-in-research" style="color: #64b5f6;">AI 在学术研究中的应用</a> - 机遇、实践与伦理思考</li>
 <li><a href="/resources/peer-review-guide" style="color: #64b5f6;">同行评审完全指南</a> - 如何写出高质量的审稿意见</li>
 <li><a href="/resources/latex-tutorial" style="color: #64b5f6;">LaTeX 入门教程</a> - 学术排版的必备技能</li>
+<li><a href="/resources/ai-review-tutorial" style="color: #64b5f6;">AI 智能审稿使用教程</a> - 从上传到获取专业审稿报告</li>
+<li><a href="/resources/online-latex-quickstart" style="color: #64b5f6;">在线 LaTeX 编辑器快速入门</a> - ScholayPrism 使用指南</li>
+<li><a href="/resources/academic-ai-tools-compliance-guide" style="color: #64b5f6;">学术 AI 工具合规使用指南</a> - 伦理与最佳实践</li>
 </ul>
 </section>`, baseStyle, headingStyle, textStyle)
 
@@ -1105,10 +1108,52 @@ func getRouteNoscriptContent(path string) string {
 <p %s>Scholay 智能审稿服务模拟同行评审流程，从论文结构、方法论严谨性、论证逻辑、写作质量等多个维度对论文进行全面评估。支持 PDF 上传和文本粘贴两种方式提交论文，审稿报告按问题严重性分级，并提供具体的修改建议和改进方向。</p>
 </section>`, baseStyle, headingStyle, textStyle)
 
-	case path == "/pricing":
+	case path == "/features/ai-review":
 		return fmt.Sprintf(`<section %s>
-<h2 %s>订阅方案</h2>
-<p %s>Scholay 提供灵活的订阅方案，从免费体验到专业版和旗舰版，满足不同层次的学术研究需求。免费用户可使用基础检索和有限次数的 AI 分析功能，付费订阅解锁高级 AI 模型、更多使用配额和专属功能。支持支付宝和微信支付。</p>
+<h2 %s>AI 智能审稿 - Scholay 学术论文审稿工具</h2>
+<p %s>Scholay AI 智能审稿工具为研究人员提供专业的论文评估服务。上传 PDF 或粘贴文本，AI 将从论文结构、方法论严谨性、论证逻辑、统计分析、参考文献质量等多维度进行全面评估。支持 SCI/SSCI 期刊投稿标准审查，生成结构化审稿报告，帮助研究者在正式提交前发现并修正论文不足。</p>
+</section>`, baseStyle, headingStyle, textStyle)
+
+	case path == "/features/ai-search":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>AI 学术搜索 - 智能文献检索引擎</h2>
+<p %s>Scholay AI 学术搜索整合超过 2 亿篇学术论文，支持自然语言查询和语义检索。通过 AI 理解研究意图，自动展开同义词和相关概念搜索，提供精准的学术文献推荐。支持按引用网络发现关键论文，帮助快速构建完整的文献图谱。</p>
+</section>`, baseStyle, headingStyle, textStyle)
+
+	case path == "/features/ai-writing":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>AI 学术写作助手 - ScholayPrism LaTeX 编辑器</h2>
+<p %s>ScholayPrism 是 Scholay 推出的在线 LaTeX 学术写作工作空间，集成 AI 辅助写作功能。支持实时编译预览、多种学术期刊模板、智能公式补全、参考文献自动管理。AI 可协助润色学术表达、检查语法错误、优化段落结构，帮助研究者高效完成高质量学术论文。</p>
+</section>`, baseStyle, headingStyle, textStyle)
+
+	case path == "/features/ai-translation":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>AI 学术翻译 - 专业论文翻译工具</h2>
+<p %s>Scholay AI 学术翻译专为学术场景优化，准确翻译论文摘要、全文和技术术语。支持中英双向翻译，保持学术文体和专业表达，自动识别并保留公式、引用格式和专有名词。适用于论文投稿前的英文润色、外文文献快速阅读和跨语言学术交流。</p>
+</section>`, baseStyle, headingStyle, textStyle)
+
+	case path == "/features/data-extraction":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>AI 数据提取 - 学术论文表格与数据提取工具</h2>
+<p %s>Scholay AI 数据提取工具自动识别论文中的表格、图表和实验数据，将其转换为结构化格式（CSV/Excel）。支持从 PDF 论文中批量提取统计数据、实验结果和对比表格，帮助研究者快速完成系统综述和荟萃分析的数据收集工作。</p>
+</section>`, baseStyle, headingStyle, textStyle)
+
+	case path == "/features/journal-matcher":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>AI 期刊推荐 - 智能期刊匹配工具</h2>
+<p %s>Scholay AI 期刊推荐系统分析论文的研究主题、方法论和目标受众，智能匹配最适合投稿的学术期刊。提供期刊影响因子、审稿周期、接收率等关键信息，帮助研究者选择合适的 SCI/SSCI/EI 期刊，提升投稿成功率。</p>
+</section>`, baseStyle, headingStyle, textStyle)
+
+	case path == "/review":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>AI 深度审稿 - Scholay V2 学术论文审稿工具</h2>
+<p %s>Scholay V2 AI 深度审稿工具利用先进的 AI Agent 技术和联网搜索能力，对学术论文进行五维度深度审查。与传统 AI 审稿不同，Scholay 可以实时联网验证每一条参考文献的真实性，检测伪造引用；搜索该领域的里程碑论文，发现文献覆盖度不足；并从方法论严谨性、统计分析合理性、逻辑推理完整性等维度进行尖锐评估。审稿报告按严重程度分级，给出明确的发表建议（Accept/Revision/Reject）。支持 PDF、DOCX、LaTeX 格式论文上传，适用于 SCI/SSCI/EI 期刊投稿前的自查。</p>
+</section>`, baseStyle, headingStyle, textStyle)
+
+	case path == "/features/ai-assistant":
+		return fmt.Sprintf(`<section %s>
+<h2 %s>AI 学术对话 - 智能研究助手</h2>
+<p %s>Scholay AI 学术对话助手支持自然语言交互，帮助研究者解答学术问题、讨论研究方向、分析论文观点、生成文献综述。支持多种大语言模型选择，可进行连续上下文对话，理解复杂的学术讨论。适用于科研灵感探索、论文写作辅导和学术概念解释。</p>
 </section>`, baseStyle, headingStyle, textStyle)
 
 	default:
@@ -1126,7 +1171,10 @@ func getArticleNoscript(slug, baseStyle, headingStyle, textStyle string) string 
 		"research-methodology":    {"研究方法论入门：定量、定性与混合方法的选择", "系统介绍三大研究方法范式的核心理念、适用场景和实施步骤。包括定量研究的实验设计和样本量计算、定性研究的扎根理论和现象学方法、混合方法的设计类型，以及如何根据研究问题选择最合适的方法和研究伦理考量。"},
 		"ai-in-research":          {"AI 在学术研究中的应用：机遇、实践与伦理思考", "探讨人工智能如何改变学术研究的方方面面。从 AI 驱动的语义检索到辅助论文分析、从机器学习数据分析到 AI 辅助写作，以及使用 AI 工具时需要注意的学术诚信、数据隐私和偏见等伦理问题和最佳实践。"},
 		"peer-review-guide":       {"同行评审完全指南：如何写出高质量的审稿意见", "从审稿人视角解析同行评审流程。包括审稿前的准备工作和评审清单、论文评审的核心标准、如何撰写具体且建设性的审稿意见、保持客观和专业的原则，以及如何利用 AI 工具辅助审稿提升效率。"},
-		"latex-tutorial":          {"LaTeX 入门教程：学术排版的必备技能", "从零开始学习 LaTeX 学术排版。涵盖 LaTeX 的基本概念与环境搭建、文档结构与章节组织、数学公式排版、图表与浮动体插入、BibTeX 参考文献管理，以及中文支持和常见问题解决等实用技巧。"},
+		"latex-tutorial":                      {"LaTeX 入门教程：学术排版的必备技能", "从零开始学习 LaTeX 学术排版。涵盖 LaTeX 的基本概念与环境搭建、文档结构与章节组织、数学公式排版、图表与浮动体插入、BibTeX 参考文献管理，以及中文支持和常见问题解决等实用技巧。"},
+		"ai-review-tutorial":                  {"AI 智能审稿使用教程：从上传到获取专业审稿报告", "详细介绍如何使用 Scholay AI 智能审稿功能，包括支持的文件格式、审稿维度解析、报告解读方法和常见问题解答，帮助研究者在投稿前全面优化论文质量。"},
+		"online-latex-quickstart":             {"在线 LaTeX 编辑器快速入门：ScholayPrism 使用指南", "从零开始使用 ScholayPrism 在线 LaTeX 编辑器的完整教程，涵盖项目创建、模板选择、实时预览、AI 辅助写作功能和协作编辑等核心功能的使用方法。"},
+		"academic-ai-tools-compliance-guide":  {"学术 AI 工具合规使用指南：伦理与最佳实践", "系统介绍在学术研究中合规使用 AI 工具的原则和方法，包括各大出版商的 AI 使用政策、论文中 AI 辅助的披露规范、避免学术不端的最佳实践，以及 AI 时代的学术诚信建设。"},
 	}
 
 	meta, ok := articleMeta[slug]
@@ -1212,7 +1260,6 @@ func (h *Handler) ServeDynamicSitemap(c *gin.Context) {
 		{"/chat", "weekly", "0.8"},
 		{"/assistant", "weekly", "0.8"},
 		{"/peer-review", "weekly", "0.8"},
-		{"/pricing", "monthly", "0.7"},
 		{"/about", "monthly", "0.6"},
 		{"/privacy", "monthly", "0.5"},
 		{"/terms", "monthly", "0.5"},
@@ -1228,7 +1275,34 @@ func (h *Handler) ServeDynamicSitemap(c *gin.Context) {
 		{"/resources/ai-in-research", "monthly", "0.7"},
 		{"/resources/peer-review-guide", "monthly", "0.7"},
 		{"/resources/latex-tutorial", "monthly", "0.7"},
+		{"/resources/ai-review-tutorial", "monthly", "0.7"},
+		{"/resources/online-latex-quickstart", "monthly", "0.7"},
+		{"/resources/academic-ai-tools-compliance-guide", "monthly", "0.7"},
 		{"/help", "monthly", "0.7"},
+		// V2 Feature Pages
+		{"/features/ai-review", "monthly", "0.8"},
+		{"/features/ai-search", "monthly", "0.8"},
+		{"/features/ai-writing", "monthly", "0.8"},
+		{"/features/ai-translation", "monthly", "0.8"},
+		{"/features/data-extraction", "monthly", "0.8"},
+		{"/features/journal-matcher", "monthly", "0.8"},
+		{"/features/ai-assistant", "monthly", "0.8"},
+		// Old Feature Pages
+		{"/features/search", "monthly", "0.7"},
+		{"/features/peer-review", "monthly", "0.7"},
+		{"/features/latex-writer", "monthly", "0.7"},
+		// V2 Review
+		{"/review", "monthly", "0.8"},
+		// Blog
+		{"/blog", "weekly", "0.8"},
+		{"/blog/ai-peer-review-tools-guide", "monthly", "0.7"},
+		{"/blog/online-latex-editor-comparison", "monthly", "0.7"},
+		{"/blog/ai-paper-search-tools-2026", "monthly", "0.7"},
+		{"/blog/systematic-review-meta-analysis-practical", "monthly", "0.7"},
+		{"/blog/how-to-write-peer-review-comments", "monthly", "0.7"},
+		{"/blog/sci-submission-ai-compliance-2026", "monthly", "0.7"},
+		{"/blog/academic-ai-workflow-complete-guide", "monthly", "0.7"},
+		{"/blog/thesis-latex-or-word-2026", "monthly", "0.7"},
 	}
 
 	for _, page := range staticPages {
