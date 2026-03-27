@@ -7,6 +7,7 @@
  * ============================================================================
  */
 
+/* 页面整体 */
 .pricing-page {
   flex: 1;
   min-height: 0;
@@ -16,31 +17,11 @@
   font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-/* 菜单按钮 */
-.pricing-menu-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.7);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
+body.pricing-page-active {
+  background: radial-gradient(120% 120% at 50% -10%, rgba(16, 163, 127, 0.18) 0%, #04110c 48%, #010302 100%);
 }
 
-.pricing-menu-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
-}
-
-.pricing-menu-btn:active {
-  transform: scale(0.95);
-}
-
+/* 顶部导航 */
 .pricing-nav {
   position: sticky;
   top: 16px;
@@ -48,7 +29,6 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  align-items: center;
   max-width: 1200px;
   margin: 0 auto;
   margin-top: 24px;
@@ -67,11 +47,6 @@
   cursor: pointer;
 }
 
-.nav-logo img {
-  width: 22px;
-  height: 22px;
-}
-
 .nav-logo span {
   font-size: 16px;
   font-weight: 600;
@@ -84,8 +59,7 @@
   gap: 12px;
 }
 
-.nav-link,
-.nav-cta {
+.nav-link {
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: transparent;
   color: #f5fffb;
@@ -101,717 +75,252 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-.nav-cta {
-  border-color: transparent;
-  background: linear-gradient(120deg, #10a37f 0%, #1c7f63 100%);
-  box-shadow: 0 10px 30px rgba(16, 163, 127, 0.35);
-}
-
-.nav-cta:hover {
-  transform: translateY(-1px);
-}
-
+/* 主内容区域 */
 .pricing-main {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 24px 120px;
 }
 
+/* 主视觉区域 */
 .pricing-hero {
-  padding: 140px 0 80px;
+  padding: 120px 0 60px;
+  text-align: center;
 }
 
-.hero-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 48px;
-  align-items: stretch;
-}
-
-.hero-content h1 {
-  font-size: 48px;
-  font-weight: 700;
-  margin-bottom: 16px;
-  line-height: 1.1;
+.hero-center {
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .hero-pill {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 14px;
+  padding: 6px 16px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(16, 163, 127, 0.35);
+  background: rgba(16, 163, 127, 0.1);
   font-size: 13px;
   letter-spacing: 0.4px;
-  text-transform: uppercase;
-  margin-bottom: 18px;
+  color: #6ef2c6;
+  margin-bottom: 24px;
+}
+
+.pricing-hero h1 {
+  font-size: 52px;
+  font-weight: 700;
+  margin: 0 0 20px;
+  line-height: 1.15;
+  background: linear-gradient(135deg, #ffffff 0%, #6ef2c6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .hero-subtitle {
   font-size: 18px;
-  color: rgba(255, 255, 255, 0.78);
-  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.7;
+  margin: 0 0 36px;
 }
 
-.hero-actions {
-  margin-top: 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.billing-toggle {
-  display: inline-flex;
-  gap: 6px;
-  padding: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-}
-
-.billing-toggle button {
-  padding: 12px 28px;
+.hero-start-btn {
+  padding: 14px 36px;
   border-radius: 999px;
   border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.7);
+  background: linear-gradient(120deg, #10a37f 0%, #1c7f63 100%);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 12px 36px rgba(16, 163, 127, 0.35);
+  transition: all 0.25s ease;
+}
+
+.hero-start-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 44px rgba(16, 163, 127, 0.45);
+}
+
+.hero-start-btn:active {
+  transform: translateY(0);
+}
+
+/* 平台数据展示 */
+.stats-section {
+  padding: 20px 0 60px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.stat-item {
+  padding: 24px 20px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 功能区域 */
+.features-section {
+  padding: 40px 0 60px;
+}
+
+.section-heading {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.section-heading h2 {
+  font-size: 36px;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.section-description {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+/* 功能卡片网格 */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.feature-card {
+  padding: 32px 28px;
+  border-radius: 22px;
+  background: rgba(10, 18, 14, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(16, 163, 127, 0.4);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.feature-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: rgba(16, 163, 127, 0.12);
+  border: 1px solid rgba(16, 163, 127, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.feature-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  color: #ffffff;
+}
+
+.feature-card .feature-desc {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.65;
+  margin: 0;
+  text-align: left;
+}
+
+/* 底部提示 */
+.future-notice {
+  padding: 40px 0 0;
+}
+
+.notice-card {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px 36px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  text-align: center;
+}
+
+.notice-card h3 {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 14px;
+  color: #ffffff;
+}
+
+.notice-card p {
   font-size: 15px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.7;
+  margin: 0 0 28px;
+}
+
+.notice-btn {
+  padding: 12px 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.billing-toggle button.active {
-  background: linear-gradient(120deg, #10a37f 0%, #1a7f64 100%);
-  box-shadow: 0 8px 24px rgba(16, 163, 127, 0.3);
-  color: #fff;
-}
-
-.billing-hint {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.65);
-}
-
-.save-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: #10b981;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.hero-meta {
-  margin-top: 40px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.hero-meta-item {
-  padding: 18px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(10px);
-}
-
-.hero-meta-value {
-  font-size: 24px;
-  font-weight: 600;
-}
-
-.hero-meta-label {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.65);
-}
-
-.hero-card {
-  height: 100%;
-  padding: 32px;
-  border-radius: 28px;
-  background: radial-gradient(circle at top, rgba(16, 163, 127, 0.35) 0%, rgba(4, 14, 10, 0.9) 55%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.45);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.hero-card-header span {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.hero-card-header p {
-  margin-top: 4px;
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.hero-card-body h3 {
-  font-size: 24px;
-  margin-bottom: 12px;
-}
-
-.hero-card-price {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin-bottom: 16px;
-}
-
-.hero-card-body ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 15px;
-}
-
-.hero-card-body li {
-  display: flex;
-  align-items: center;
-}
-
-.hero-card-body li::before {
-  content: '•';
-  margin-right: 8px;
-  color: #10b981;
-}
-
-.hero-card-footer {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.hero-card-footer button {
-  align-self: flex-start;
-  padding: 12px 24px;
-  border-radius: 999px;
-  border: none;
+.notice-btn:hover {
   background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease;
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
-.hero-card-footer button:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.plan-grid-section,
-.plan-comparison,
-.pricing-faq {
-  padding: 20px 0 80px;
-}
-
-.section-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 24px;
-  margin-bottom: 32px;
-}
-
-.section-eyebrow {
-  font-size: 12px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
-  margin-bottom: 8px;
-}
-
-.section-heading h2 {
-  font-size: 40px;
-  margin: 0;
-}
-
-.section-description {
-  font-size: 15px;
-  color: rgba(255, 255, 255, 0.65);
-  max-width: 420px;
-  line-height: 1.6;
-}
-
-.plan-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 24px;
-}
-
-.plan-card {
-  border-radius: 24px;
-  padding: 28px;
-  background: rgba(10, 18, 14, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(18px);
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  transition: transform 0.2s ease, border-color 0.2s ease;
-}
-
-.plan-card:hover {
-  transform: translateY(-6px);
-  border-color: rgba(16, 163, 127, 0.4);
-}
-
-.plan-card.plan-pro {
-  background: linear-gradient(140deg, rgba(16, 163, 127, 0.18) 0%, rgba(8, 18, 14, 0.95) 60%);
-  border: 1px solid rgba(16, 163, 127, 0.6);
-}
-
-.plan-card.plan-max {
-  background: linear-gradient(140deg, rgba(59, 130, 246, 0.18) 0%, rgba(6, 12, 20, 0.95) 60%);
-  border: 1px solid rgba(59, 130, 246, 0.4);
-}
-
-.plan-card.is-current {
-  box-shadow: 0 0 0 1px rgba(16, 163, 127, 0.4), 0 20px 60px rgba(0, 0, 0, 0.45);
-}
-
-.plan-name-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.plan-name {
-  font-size: 24px;
-  font-weight: 600;
-}
-
-.plan-badge {
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(16, 163, 127, 0.2);
-  border: 1px solid rgba(16, 163, 127, 0.4);
-  font-size: 12px;
-  color: #6ef2c6;
-}
-
-.plan-description {
-  margin: 6px 0 12px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 14px;
-}
-
-.current-chip {
-  display: inline-flex;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  font-size: 12px;
-  color: #6ef2c6;
-}
-
-.plan-price-block {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.price-amount,
-.original-price {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.original-price {
-  text-decoration: line-through;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.currency {
-  font-size: 20px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.amount {
-  font-size: 44px;
-  font-weight: 700;
-}
-
-.period {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.plan-total {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.plan-savings {
-  display: inline-flex;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(16, 163, 127, 0.18);
-  color: #6ef2c6;
-  font-size: 12px;
-}
-
-.plan-feature-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.plan-feature-list li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.75);
-}
-
-.feature-name {
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.feature-desc {
-  text-align: right;
-}
-
-.plan-cta {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: auto;
-}
-
-.plan-cta button {
-  width: 100%;
-  padding: 14px 20px;
-  border-radius: 12px;
-  border: none;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.btn-upgrade {
-  background: linear-gradient(120deg, #10a37f 0%, #1a7f64 100%);
-  color: #fff;
-  box-shadow: 0 15px 35px rgba(16, 163, 127, 0.35);
-}
-
-.btn-renew {
-  background: linear-gradient(120deg, #3b82f6 0%, #2563eb 100%);
-  color: #fff;
-  box-shadow: 0 15px 35px rgba(37, 99, 235, 0.35);
-}
-
-.btn-current {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  cursor: not-allowed;
-}
-
-.btn-free {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.55);
-  border: 1px dashed rgba(255, 255, 255, 0.15);
-  cursor: not-allowed;
-}
-
-.plan-cta button:hover:not(:disabled) {
-  transform: translateY(-2px);
-}
-
-.plan-cta-note {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.empty-state {
-  grid-column: 1 / -1;
-  padding: 40px;
-  text-align: center;
-  border-radius: 16px;
-  border: 1px dashed rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.plan-comparison {
-  margin-top: 60px;
-}
-
-.comparison-heading {
-  text-align: center;
-  margin-bottom: 32px;
-}
-
-.comparison-plan-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-  margin-bottom: 32px;
-}
-
-.comparison-plan-card {
-  padding: 20px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  text-align: center;
-  backdrop-filter: blur(12px);
-}
-
-.plan-tier-label {
-  font-size: 14px;
-  letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.75);
-}
-
-.plan-tier-price {
-  font-size: 20px;
-  font-weight: 600;
-  margin: 8px 0 16px;
-  color: #fff;
-}
-
-.plan-tier-btn {
-  width: 100%;
-  padding: 10px 0;
-  border-radius: 999px;
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.plan-tier-btn.btn-free {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.plan-tier-btn.btn-upgrade {
-  background: linear-gradient(120deg, #10a37f 0%, #1a7f64 100%);
-  color: #fff;
-  box-shadow: 0 12px 24px rgba(16, 163, 127, 0.25);
-}
-
-.plan-tier-btn:hover {
-  transform: translateY(-2px);
-}
-
-.comparison-table {
-  border-radius: 0;
-  border: none;
-  background: transparent;
-  overflow: hidden;
-  box-shadow: none;
-}
-
-.table-header {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
-  padding: 20px 32px;
-  background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  font-weight: 600;
-  backdrop-filter: blur(10px);
-}
-
-.table-header-cell:first-child {
-  text-align: left;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
-  letter-spacing: 1px;
-}
-
-.table-header-cell:not(:first-child) {
-  text-align: center;
-}
-
-.table-section + .table-section {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.section-title {
-  padding: 18px 32px 8px;
-  font-size: 18px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
-  text-transform: none;
-  text-align: left;
-  letter-spacing: 0.5px;
-}
-
-.table-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
-  padding: 14px 32px;
-  gap: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
-  background: rgba(2, 6, 4, 0.35);
-}
-
-.table-row:nth-child(even) {
-  background: rgba(5, 14, 10, 0.25);
-}
-
-.table-cell {
-  display: flex;
-  align-items: center;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.75);
-}
-
-.table-cell:first-child {
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.table-cell:not(:first-child) {
-  justify-content: center;
-}
-
-.check-icon {
-  color: #10b981;
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.cross-icon {
-  color: rgba(255, 255, 255, 0.35);
-  font-size: 20px;
-}
-
-.feature-text {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.65);
-}
-
-.pricing-faq {
-  margin-top: 40px;
-}
-
-.faq-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 20px;
-}
-
-.faq-item {
-  padding: 24px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-}
-
-.faq-item h3 {
-  margin-bottom: 10px;
-  font-size: 18px;
-}
-
-.faq-item p {
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1.6;
-  font-size: 14px;
-}
-
-.loading {
-  min-height: 60vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  color: rgba(255, 255, 255, 0.65);
-}
-
-body.pricing-page-active {
-  background: radial-gradient(120% 120% at 50% -10%, rgba(16, 163, 127, 0.18) 0%, #04110c 48%, #010302 100%);
-}
-
+/* ============================================
+   响应式适配 - 1024px 以下
+   ============================================ */
 @media (max-width: 1024px) {
-  .pricing-nav {
-    flex-direction: column;
-    border-radius: 28px;
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
-  .section-heading {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .plan-grid {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  }
-}
-
-@media (max-width: 768px) {
-  .pricing-main {
-    padding: 0 16px 80px;
-  }
-
-  .hero-content h1 {
-    font-size: 36px;
-  }
-
-  .hero-meta {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .table-header,
-  .table-row {
-    grid-template-columns: 1.5fr 1fr 1fr 1fr;
-    padding: 14px 16px;
-  }
-}
-
-@media (max-width: 600px) {
-  .nav-actions {
-    width: 100%;
-    flex-direction: column;
-  }
-
-  .hero-meta {
-    grid-template-columns: 1fr;
-  }
-
-  .plan-card {
-    padding: 22px;
-  }
-
-  .table-header,
-  .table-row {
-    min-width: 560px;
-  }
-
-  .comparison-table {
-    overflow-x: auto;
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
 /* ============================================
-   移动端适配 - 768px 以下
+   响应式适配 - 768px 以下
    ============================================ */
 @media (max-width: 768px) {
   .pricing-page {
@@ -825,17 +334,11 @@ body.pricing-page-active {
     gap: 12px;
   }
 
-  .nav-logo img {
-    width: 20px;
-    height: 20px;
-  }
-
   .nav-logo span {
     font-size: 14px;
   }
 
-  .nav-link,
-  .nav-cta {
+  .nav-link {
     padding: 8px 14px;
     font-size: 13px;
   }
@@ -848,266 +351,95 @@ body.pricing-page-active {
     padding: 80px 0 40px;
   }
 
-  .hero-grid {
-    gap: 32px;
-  }
-
-  .hero-pill {
-    font-size: 11px;
-    padding: 5px 12px;
-    margin-bottom: 14px;
-  }
-
-  .hero-content h1 {
-    font-size: 28px;
-    line-height: 1.2;
+  .pricing-hero h1 {
+    font-size: 32px;
   }
 
   .hero-subtitle {
     font-size: 15px;
-    line-height: 1.5;
+    line-height: 1.6;
   }
 
-  .hero-actions {
-    margin-top: 24px;
-    gap: 10px;
+  .hero-start-btn {
+    padding: 12px 28px;
+    font-size: 15px;
   }
 
-  .billing-toggle {
-    width: 100%;
-    padding: 4px;
-    gap: 4px;
+  .stats-section {
+    padding: 16px 0 40px;
   }
 
-  .billing-toggle button {
-    flex: 1;
-    padding: 10px 12px;
-    font-size: 13px;
-    white-space: nowrap;
+  .stat-item {
+    padding: 18px 14px;
+    border-radius: 14px;
   }
 
-  .save-badge {
-    font-size: 10px;
-    padding: 2px 6px;
-    margin-left: 4px;
+  .stat-value {
+    font-size: 22px;
   }
 
-  .billing-hint {
-    font-size: 12px;
-    text-align: center;
-  }
-
-  .hero-meta {
-    margin-top: 28px;
-    gap: 12px;
-  }
-
-  .hero-meta-item {
-    padding: 14px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .hero-meta-value {
-    font-size: 20px;
-  }
-
-  .hero-meta-label {
+  .stat-label {
     font-size: 12px;
   }
 
-  .hero-card {
-    padding: 24px;
-    border-radius: 20px;
-    gap: 20px;
-  }
-
-  .hero-card-header span {
-    font-size: 12px;
-  }
-
-  .hero-card-header p {
-    font-size: 14px;
-  }
-
-  .hero-card-body h3 {
-    font-size: 20px;
-    margin-bottom: 10px;
-  }
-
-  .hero-card-body ul {
-    gap: 10px;
-    font-size: 14px;
-  }
-
-  .hero-card-footer {
-    font-size: 13px;
-    gap: 10px;
-  }
-
-  .hero-card-footer button {
-    padding: 10px 20px;
-    font-size: 14px;
-  }
-
-  /* 套餐网格区域 */
-  .plan-grid-section,
-  .plan-comparison,
-  .pricing-faq {
-    padding: 16px 0 50px;
+  .features-section {
+    padding: 24px 0 40px;
   }
 
   .section-heading {
-    margin-bottom: 24px;
-    gap: 16px;
+    margin-bottom: 32px;
   }
 
   .section-heading h2 {
-    font-size: 24px;
-    line-height: 1.3;
+    font-size: 26px;
   }
 
   .section-description {
     font-size: 14px;
-    max-width: 100%;
   }
 
-  .section-eyebrow {
-    font-size: 11px;
-  }
-
-  .plan-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .plan-card {
-    padding: 20px;
-    border-radius: 18px;
-    gap: 20px;
-  }
-
-  .plan-name {
-    font-size: 20px;
-  }
-
-  .plan-badge {
-    font-size: 11px;
-    padding: 3px 8px;
-  }
-
-  .plan-description {
-    font-size: 13px;
-  }
-
-  .current-chip {
-    font-size: 11px;
-    padding: 3px 8px;
-  }
-
-  .amount {
-    font-size: 36px;
-  }
-
-  .currency {
-    font-size: 18px;
-  }
-
-  .period {
-    font-size: 14px;
-  }
-
-  .plan-total {
-    font-size: 13px;
-  }
-
-  .plan-savings {
-    font-size: 11px;
-  }
-
-  .plan-feature-list {
-    gap: 10px;
-  }
-
-  .plan-feature-list li {
-    font-size: 13px;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
-
-  .feature-desc {
-    text-align: left;
-    color: rgba(255, 255, 255, 0.6);
-  }
-
-  .plan-cta button {
-    padding: 12px 16px;
-    font-size: 14px;
-    border-radius: 10px;
-  }
-
-  /* 对比区域 */
-  .comparison-heading {
-    margin-bottom: 24px;
-  }
-
-  .comparison-heading h2 {
-    font-size: 22px;
-  }
-
-  .comparison-heading p {
-    font-size: 14px;
-    padding: 0 8px;
-  }
-
-  .comparison-plan-cards {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin-bottom: 24px;
-  }
-
-  .comparison-plan-card {
-    padding: 14px 8px;
-    border-radius: 12px;
-  }
-
-  .plan-tier-label {
-    font-size: 12px;
-  }
-
-  .plan-tier-price {
-    font-size: 14px;
-    margin: 6px 0 12px;
-  }
-
-  .plan-tier-btn {
-    padding: 8px 0;
-    font-size: 12px;
-    border-radius: 8px;
-  }
-
-  /* FAQ区域 */
-  .faq-grid {
+  .features-grid {
     grid-template-columns: 1fr;
     gap: 14px;
   }
 
-  .faq-item {
-    padding: 18px;
-    border-radius: 14px;
+  .feature-card {
+    padding: 24px 22px;
+    border-radius: 16px;
+    gap: 12px;
   }
 
-  .faq-item h3 {
-    font-size: 15px;
-    margin-bottom: 8px;
+  .feature-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
   }
 
-  .faq-item p {
+  .feature-icon svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .feature-title {
+    font-size: 17px;
+  }
+
+  .feature-card .feature-desc {
     font-size: 13px;
-    line-height: 1.5;
+  }
+
+  .notice-card {
+    padding: 28px 24px;
+    border-radius: 18px;
+  }
+
+  .notice-card h3 {
+    font-size: 18px;
+  }
+
+  .notice-card p {
+    font-size: 14px;
+    margin-bottom: 22px;
   }
 }
 
@@ -1125,8 +457,7 @@ body.pricing-page-active {
     font-size: 13px;
   }
 
-  .nav-link,
-  .nav-cta {
+  .nav-link {
     padding: 7px 12px;
     font-size: 12px;
   }
@@ -1139,93 +470,56 @@ body.pricing-page-active {
     padding: 60px 0 30px;
   }
 
-  .hero-content h1 {
-    font-size: 24px;
+  .pricing-hero h1 {
+    font-size: 26px;
   }
 
   .hero-subtitle {
     font-size: 14px;
   }
 
-  .billing-toggle button {
-    padding: 8px 10px;
-    font-size: 12px;
-  }
-
-  .save-badge {
-    font-size: 9px;
-    padding: 1px 5px;
-  }
-
-  .hero-meta-item {
-    padding: 12px;
-  }
-
-  .hero-meta-value {
-    font-size: 18px;
-  }
-
-  .hero-meta-label {
+  .hero-pill {
     font-size: 11px;
+    padding: 5px 12px;
   }
 
-  .hero-card {
-    padding: 20px;
-    border-radius: 16px;
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
   }
 
-  .section-heading h2 {
+  .stat-item {
+    padding: 14px 10px;
+  }
+
+  .stat-value {
     font-size: 20px;
   }
 
-  .plan-card {
-    padding: 16px;
+  .section-heading h2 {
+    font-size: 22px;
+  }
+
+  .feature-card {
+    padding: 20px 18px;
     border-radius: 14px;
   }
 
-  .plan-name {
-    font-size: 18px;
+  .notice-card {
+    padding: 24px 18px;
+    border-radius: 14px;
   }
 
-  .amount {
-    font-size: 32px;
+  .notice-card h3 {
+    font-size: 16px;
   }
 
-  .plan-feature-list li {
-    font-size: 12px;
-  }
-
-  .plan-cta button {
-    padding: 11px 14px;
+  .notice-card p {
     font-size: 13px;
   }
 
-  .comparison-plan-card {
-    padding: 10px 6px;
-  }
-
-  .plan-tier-label {
-    font-size: 11px;
-  }
-
-  .plan-tier-price {
-    font-size: 12px;
-  }
-
-  .plan-tier-btn {
-    font-size: 11px;
-    padding: 6px 0;
-  }
-
-  .faq-item {
-    padding: 14px;
-  }
-
-  .faq-item h3 {
-    font-size: 14px;
-  }
-
-  .faq-item p {
-    font-size: 12px;
+  .notice-btn {
+    padding: 10px 22px;
+    font-size: 13px;
   }
 }

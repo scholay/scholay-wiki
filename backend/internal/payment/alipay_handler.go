@@ -14,7 +14,6 @@ import (
 	"scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
-	"scholar-backend/internal/order"
 	"strconv"
 	"time"
 
@@ -22,14 +21,30 @@ import (
 	"gorm.io/gorm"
 )
 
+// OrderRecord 支付所需的订单信息（解耦 order 包）
+type OrderRecord struct {
+	UserID      uint
+	Status      string
+	Amount      float64
+	FinalAmount float64
+	PlanCode    string
+}
+
+// OrderServiceInterface 支付模块所需的订单服务接口（订单模块已移除，当前未实现）
+type OrderServiceInterface interface {
+	GetOrderByOrderNo(orderNo string) (*OrderRecord, error)
+	ProcessAlipayCallback(orderNo, transactionNo string, amount float64, callbackData map[string]string) error
+	ProcessWeChatPayCallback(orderNo, transactionID string, amount float64, callbackData map[string]any) error
+}
+
 // AlipayHandler handles HTTP requests for Alipay operations
 type AlipayHandler struct {
 	alipayService *AlipayService
-	orderService  *order.Service
+	orderService  OrderServiceInterface
 }
 
 // NewAlipayHandler creates a new Alipay handler with pre-built services
-func NewAlipayHandler(alipayService *AlipayService, orderService *order.Service) *AlipayHandler {
+func NewAlipayHandler(alipayService *AlipayService, orderService OrderServiceInterface) *AlipayHandler {
 	return &AlipayHandler{
 		alipayService: alipayService,
 		orderService:  orderService,
@@ -39,20 +54,23 @@ func NewAlipayHandler(alipayService *AlipayService, orderService *order.Service)
 // CreatePayment handles creating a payment request
 // POST /api/v1/user/payment/alipay/create
 func (h *AlipayHandler) CreatePayment(c *gin.Context) {
+	if h.orderService == nil {
+		utils.Error(c, 5000, "支付功能暂未开放")
+		return
+	}
+
 	var req PaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
 
-	// Get user ID from context
 	userID, exists := c.Get("user_id")
 	if !exists {
 		utils.Unauthorized(c, "User not authenticated")
 		return
 	}
 
-	// Verify order exists and belongs to user
 	orderRecord, err := h.orderService.GetOrderByOrderNo(req.OrderNo)
 	if err != nil {
 		utils.Error(c, 4001, "Order not found")
@@ -64,19 +82,16 @@ func (h *AlipayHandler) CreatePayment(c *gin.Context) {
 		return
 	}
 
-	// Check order status
 	if orderRecord.Status != "pending" {
 		utils.Error(c, 4004, "Order is not in pending status")
 		return
 	}
 
-	// Verify amount matches (skip in non-production for testing with small amounts)
 	if config.AppConfig != nil && config.AppConfig.App.IsRelease && req.Amount != orderRecord.Amount {
 		utils.Error(c, 4005, "Amount does not match order")
 		return
 	}
 
-	// Create payment
 	response, err := h.alipayService.CreatePayment(req)
 	if err != nil {
 		utils.Error(c, 4002, "Failed to create payment: "+err.Error())
@@ -89,6 +104,12 @@ func (h *AlipayHandler) CreatePayment(c *gin.Context) {
 // HandleCallback handles Alipay payment callback
 // POST /api/v1/payment/alipay/notify
 func (h *AlipayHandler) HandleCallback(c *gin.Context) {
+	if h.orderService == nil {
+		slog.Warn("alipay callback received but order service not available")
+		c.String(200, "success")
+		return
+	}
+
 	slog.Info("alipay callback received", "ip", c.ClientIP())
 
 	params := make(map[string]string)
@@ -141,7 +162,6 @@ func (h *AlipayHandler) HandleCallback(c *gin.Context) {
 
 // processSuccessfulPayment processes a successful payment from Alipay callback
 func (h *AlipayHandler) processSuccessfulPayment(orderNo, transactionNo, amountStr string, callbackData map[string]string) error {
-	// Get order
 	orderRecord, err := h.orderService.GetOrderByOrderNo(orderNo)
 	if err != nil {
 		return fmt.Errorf("order not found: %w", err)
@@ -152,19 +172,15 @@ func (h *AlipayHandler) processSuccessfulPayment(orderNo, transactionNo, amountS
 		return nil
 	}
 
-	// Verify amount - CRITICAL SECURITY CHECK
 	amount, err := strconv.ParseFloat(amountStr, 64)
 	if err != nil {
 		return fmt.Errorf("invalid amount: %w", err)
 	}
 
-	// Compare amounts with final amount (after coupon discount) with 0.01 tolerance for floating point precision
 	if math.Abs(amount-orderRecord.FinalAmount) > 0.01 {
 		return fmt.Errorf("amount mismatch: expected %.2f, got %.2f", orderRecord.FinalAmount, amount)
 	}
 
-	// Process Alipay callback using the dedicated method
-	// This will create a payment transaction record with complete callback data
 	if err := h.orderService.ProcessAlipayCallback(orderNo, transactionNo, amount, callbackData); err != nil {
 		return fmt.Errorf("failed to process payment: %w", err)
 	}
@@ -174,7 +190,6 @@ func (h *AlipayHandler) processSuccessfulPayment(orderNo, transactionNo, amountS
 }
 
 // GetActiveConfig retrieves the active Alipay configuration (Admin only)
-// GET /api/v1/admin/payment/alipay/config
 func (h *AlipayHandler) GetActiveConfig(c *gin.Context) {
 	config, err := h.alipayService.GetActiveConfig()
 	if err != nil {
@@ -186,7 +201,6 @@ func (h *AlipayHandler) GetActiveConfig(c *gin.Context) {
 		return
 	}
 
-	// Mask sensitive information
 	config.PrivateKey = "********"
 	config.AlipayPublicKey = "********"
 
@@ -194,7 +208,6 @@ func (h *AlipayHandler) GetActiveConfig(c *gin.Context) {
 }
 
 // ListConfigs retrieves all Alipay configurations (Admin only)
-// GET /api/v1/admin/payment/alipay/configs
 func (h *AlipayHandler) ListConfigs(c *gin.Context) {
 	configs, err := h.alipayService.ListConfigs()
 	if err != nil {
@@ -202,17 +215,13 @@ func (h *AlipayHandler) ListConfigs(c *gin.Context) {
 		return
 	}
 
-	// Check if client requests unmasked keys (via query parameter)
 	showKeys := c.Query("show_keys") == "true"
-
 	if !showKeys {
-		// Mask sensitive information
 		for i := range configs {
 			configs[i].PrivateKey = "********"
 			configs[i].AlipayPublicKey = "********"
 		}
 	}
-	// If show_keys=true, return the real keys (client should verify admin first)
 
 	utils.Success(c, configs)
 }
@@ -229,7 +238,6 @@ type CreateConfigRequest struct {
 }
 
 // CreateConfig creates a new Alipay configuration (Admin only)
-// POST /api/v1/admin/payment/alipay/config
 func (h *AlipayHandler) CreateConfig(c *gin.Context) {
 	var req CreateConfigRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -237,7 +245,6 @@ func (h *AlipayHandler) CreateConfig(c *gin.Context) {
 		return
 	}
 
-	// Determine gateway URL based on sandbox flag
 	gatewayURL := "https://openapi.alipay.com/gateway.do"
 	if req.IsSandbox {
 		gatewayURL = "https://openapi.alipaydev.com/gateway.do"
@@ -259,7 +266,6 @@ func (h *AlipayHandler) CreateConfig(c *gin.Context) {
 		return
 	}
 
-	// Mask sensitive information before returning
 	config.PrivateKey = "********"
 	config.AlipayPublicKey = "********"
 
@@ -278,7 +284,6 @@ type UpdateConfigRequest struct {
 }
 
 // UpdateConfig updates an Alipay configuration (Admin only)
-// PUT /api/v1/admin/payment/alipay/config/:id
 func (h *AlipayHandler) UpdateConfig(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -293,14 +298,12 @@ func (h *AlipayHandler) UpdateConfig(c *gin.Context) {
 		return
 	}
 
-	// Get config by target ID (not active config) to avoid cross-updating
 	config, err := h.alipayService.GetConfigByID(uint(id))
 	if err != nil {
 		utils.Error(c, 4404, "Configuration not found")
 		return
 	}
 
-	// Update fields
 	if req.AppID != "" {
 		config.AppID = req.AppID
 	}
@@ -333,7 +336,6 @@ func (h *AlipayHandler) UpdateConfig(c *gin.Context) {
 		return
 	}
 
-	// Mask sensitive information before returning
 	config.PrivateKey = "********"
 	config.AlipayPublicKey = "********"
 
@@ -341,7 +343,6 @@ func (h *AlipayHandler) UpdateConfig(c *gin.Context) {
 }
 
 // DeleteConfig deletes an Alipay configuration (Admin only)
-// DELETE /api/v1/admin/payment/alipay/config/:id
 func (h *AlipayHandler) DeleteConfig(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -359,7 +360,6 @@ func (h *AlipayHandler) DeleteConfig(c *gin.Context) {
 }
 
 // SetActiveConfig sets a specific configuration as active (Admin only)
-// POST /api/v1/admin/payment/alipay/config/:id/activate
 func (h *AlipayHandler) SetActiveConfig(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -377,8 +377,12 @@ func (h *AlipayHandler) SetActiveConfig(c *gin.Context) {
 }
 
 // SimulatePayment simulates a successful payment for development/testing
-// POST /api/v1/user/payment/simulate
 func (h *AlipayHandler) SimulatePayment(c *gin.Context) {
+	if h.orderService == nil {
+		utils.Error(c, 5000, "支付功能暂未开放")
+		return
+	}
+
 	var req struct {
 		OrderNo string  `json:"order_no" binding:"required"`
 		Amount  float64 `json:"amount" binding:"required,gt=0"`
@@ -389,7 +393,6 @@ func (h *AlipayHandler) SimulatePayment(c *gin.Context) {
 		return
 	}
 
-	// Get user ID from context
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		utils.Unauthorized(c, "User not authenticated")
@@ -397,7 +400,6 @@ func (h *AlipayHandler) SimulatePayment(c *gin.Context) {
 	}
 	userID := userIDInterface.(uint)
 
-	// Verify order exists and belongs to user
 	orderRecord, err := h.orderService.GetOrderByOrderNo(req.OrderNo)
 	if err != nil {
 		utils.Error(c, 4001, "Order not found")
@@ -409,32 +411,28 @@ func (h *AlipayHandler) SimulatePayment(c *gin.Context) {
 		return
 	}
 
-	// Check order status
 	if orderRecord.Status != "pending" {
 		utils.Error(c, 4004, "Order is not in pending status")
 		return
 	}
 
-	// Verify amount matches final amount (with coupon discount) (with 0.01 tolerance)
 	if math.Abs(req.Amount-orderRecord.FinalAmount) > 0.01 {
 		utils.Error(c, 4005, fmt.Sprintf("Amount mismatch: expected %.2f, got %.2f", orderRecord.FinalAmount, req.Amount))
 		return
 	}
 
-	// Generate a mock transaction number
 	mockTransactionNo := fmt.Sprintf("MOCK_%s_%d", req.OrderNo, time.Now().Unix())
 
-	// Create mock callback data
 	mockCallbackData := map[string]string{
-		"out_trade_no": req.OrderNo,
-		"trade_no":     mockTransactionNo,
-		"trade_status": "TRADE_SUCCESS",
-		"total_amount": fmt.Sprintf("%.2f", req.Amount),
-		"notify_time":  time.Now().Format("2006-01-02 15:04:05"),
-		"notify_type":  "trade_status_sync",
-		"app_id":       "MOCK_DEV_APP",
-		"seller_id":    "MOCK_SELLER",
-		"buyer_id":     "MOCK_BUYER",
+		"out_trade_no":   req.OrderNo,
+		"trade_no":       mockTransactionNo,
+		"trade_status":   "TRADE_SUCCESS",
+		"total_amount":   fmt.Sprintf("%.2f", req.Amount),
+		"notify_time":    time.Now().Format("2006-01-02 15:04:05"),
+		"notify_type":    "trade_status_sync",
+		"app_id":         "MOCK_DEV_APP",
+		"seller_id":      "MOCK_SELLER",
+		"buyer_id":       "MOCK_BUYER",
 		"receipt_amount": fmt.Sprintf("%.2f", req.Amount),
 	}
 

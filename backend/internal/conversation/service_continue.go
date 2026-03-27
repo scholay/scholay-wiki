@@ -21,8 +21,7 @@ import (
 )
 
 // ContinueConversation 继续对话并使用之前消息的上下文
-// 现在使用与智能分析相同的逻辑：始终执行MCP搜索并结合历史查询
-// 注意：配额检查已废弃，现在使用货币系统进行扣费控制
+// 现在使用与智能分析相同的逻辑：始终执行 MCP 搜索并结合历史查询
 func (s *Service) ContinueConversation(ctx context.Context, conversationID uint, userQuery string, writer io.Writer, userID uint, modelLevel thirdparty.ModelLevel) error {
 	// Get the user message (it should already exist, created by frontend)
 	// We need to find the latest user message with this query

@@ -22,8 +22,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// ChatService handles chat-style conversations with message chains
-// 注意：配额检查已废弃，现在使用货币系统进行扣费控制
+// ChatService 处理带消息链的聊天式对话
 type ChatService struct {
 	repo         *Repository
 	aiService    *ai.Service
@@ -58,8 +57,7 @@ type ChatResponse struct {
 	Metadata  map[string]any `json:"metadata,omitempty"`
 }
 
-// StreamChat handles a chat request with streaming response
-// 注意：配额检查已废弃，现在使用货币系统进行扣费控制（在 handler 层处理）
+// StreamChat 以流式 SSE 处理单次聊天请求并写入 writer
 func (s *ChatService) StreamChat(ctx context.Context, userID uint, req ChatRequest, writer io.Writer) error {
 	// 1. Verify conversation ownership and update model level
 	conversation, err := s.repo.GetConversationByID(req.ConversationID, userID)

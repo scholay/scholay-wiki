@@ -13,7 +13,6 @@ import (
 	"scholar-backend/internal/conversation"
 	"scholar-backend/internal/feedback"
 	"scholar-backend/internal/peerreview"
-	"scholar-backend/internal/subscription"
 	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/user"
 )
@@ -70,30 +69,6 @@ func (a *usageLogServiceAdapter) GetPopularPaperIDs(days int, limit int) ([]conf
 		result[i] = config.PopularPaper{
 			PaperID: p.PaperID,
 			Count:   p.Count,
-		}
-	}
-	return result, nil
-}
-
-// subscriptionQueryAdapter 将 subscription.Service 适配为 user.SubscriptionQueryService
-type subscriptionQueryAdapter struct {
-	svc *subscription.Service
-}
-
-func (a *subscriptionQueryAdapter) GetActiveSubscriptionsByUserIDs(userIDs []uint) ([]user.SubscriptionSummaryDTO, error) {
-	subs, err := a.svc.GetActiveSubscriptionsByUserIDs(userIDs)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]user.SubscriptionSummaryDTO, len(subs))
-	for i, s := range subs {
-		result[i] = user.SubscriptionSummaryDTO{
-			UserID:    s.UserID,
-			PlanCode:  s.PlanCode,
-			PlanName:  s.PlanName,
-			Status:    s.Status,
-			EndDate:   s.EndDate,
-			AutoRenew: s.AutoRenew,
 		}
 	}
 	return result, nil

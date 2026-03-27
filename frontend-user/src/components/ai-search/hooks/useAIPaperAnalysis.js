@@ -5,7 +5,6 @@
 import { useCallback, useEffect } from 'react';
 import { analysisDimensionAPI } from '../../../services/api';
 import { trackMatrixAnalysis } from '../../../utils/usageTracker';
-import wsClient from '../../../services/websocket';
 import logger from '../../../utils/logger';
 
 /**
@@ -22,9 +21,6 @@ export const useAIPaperAnalysis = ({
   setAnalysisResults,
   setAnalyzingPapers,
   setTotalDeducted,
-  setBalanceError,
-  setBalanceErrorFeature,
-  setShowBalanceModal,
 }) => {
   // 为单个论文分析所有维度
   const analyzePaper = useCallback(async (paper) => {
@@ -49,11 +45,6 @@ export const useAIPaperAnalysis = ({
       if (response.data.code === 0 && response.data.data) {
         const responseData = response.data.data;
         const dimensionData = responseData.data || responseData;
-        const deductedAmount = responseData.deducted_amount || 0;
-
-        if (deductedAmount > 0) {
-          setTotalDeducted(prev => prev + deductedAmount);
-        }
 
         setAnalysisResults(prev => ({
           ...prev,
@@ -63,7 +54,7 @@ export const useAIPaperAnalysis = ({
         // 记录智能矩阵分析使用统计
         trackMatrixAnalysis(paper.paperId);
 
-        return { success: true, aborted: false, deducted: deductedAmount };
+        return { success: true, aborted: false, deducted: 0 };
       } else {
         setAnalysisResults(prev => ({
           ...prev,
@@ -73,18 +64,6 @@ export const useAIPaperAnalysis = ({
       }
     } catch (error) {
       logger.error('Failed to analyze paper:', paper.paperId, error);
-
-      // 检查是否是余额不足错误
-      if (error.response?.data?.code === 4020) {
-        analysisAbortedRef.current = true;
-        setBalanceError({
-          ...error.response.data.data,
-          alreadyDeducted: totalDeducted
-        });
-        setBalanceErrorFeature('智能矩阵分析');
-        setShowBalanceModal(true);
-        return { success: false, aborted: true, deducted: 0 };
-      }
 
       setAnalysisResults(prev => ({
         ...prev,
@@ -104,9 +83,6 @@ export const useAIPaperAnalysis = ({
     setAnalysisResults,
     setAnalyzingPapers,
     setTotalDeducted,
-    setBalanceError,
-    setBalanceErrorFeature,
-    setShowBalanceModal,
   ]);
 
   // 并发控制分析
@@ -146,16 +122,6 @@ export const useAIPaperAnalysis = ({
     }
 
     await Promise.all(initialBatch);
-
-    // 分析完成后，如果有扣费且未中止，发送 toast 通知
-    if (!aborted && totalDeductedInBatch > 0) {
-      wsClient.emit('toast', {
-        title: '扣费提醒',
-        content: `本次分析共消耗 ${totalDeductedInBatch} 经费`,
-        category: 'transaction',
-        created_at: new Date().toISOString()
-      });
-    }
 
     setTotalDeducted(0);
   }, [analyzePaper, analysisAbortedRef, setTotalDeducted]);

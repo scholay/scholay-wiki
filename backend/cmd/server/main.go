@@ -19,10 +19,7 @@ import (
 
 	"scholar-backend/internal/admin"
 	"scholar-backend/internal/ai"
-	"scholar-backend/internal/checkin"
-	"scholar-backend/internal/currency"
 	"scholar-backend/internal/feedback"
-	"scholar-backend/internal/fund"
 	"scholar-backend/internal/latexwriter"
 	"scholar-backend/internal/message"
 	"scholar-backend/internal/common/cache"
@@ -34,15 +31,12 @@ import (
 	"scholar-backend/internal/common/telemetry"
 	"scholar-backend/internal/config"
 	"scholar-backend/internal/conversation"
-	"scholar-backend/internal/coupon"
 	"scholar-backend/internal/mcp"
-	"scholar-backend/internal/order"
 	"scholar-backend/internal/payment"
 	"scholar-backend/internal/pdf"
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/proxy"
 	"scholar-backend/internal/semanticscholar"
-	"scholar-backend/internal/subscription"
 	"scholar-backend/internal/hotcontent"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/user"
@@ -168,12 +162,6 @@ func main() {
 	configService := config.NewService(configRepo)
 	configHandler := config.NewHandler(configService)
 
-	// Initialize coupon module
-	baseURL := "http://localhost:" + cfg.Server.Port // TODO: Configure from env
-	redisClient := cache.GetRedis()
-	couponService := coupon.NewService(database.GetDB(), userRepo, redisClient, baseURL)
-	couponHandler := coupon.NewHandler(couponService)
-
 	// Inject config service into user service (for email sending)
 	userService.SetConfigService(configService)
 
@@ -182,9 +170,6 @@ func main() {
 
 	// Inject user repository into feedback service (for user info lookup)
 	feedbackService.SetUserRepository(&feedbackUserRepoAdapter{userRepo: userRepo})
-
-	// Inject coupon service into user service (for invitation handling)
-	userService.SetCouponService(couponService)
 
 	// Initialize default privacy policy
 	if err := configService.InitializeDefaultPrivacyPolicy(); err != nil {
@@ -221,7 +206,7 @@ func main() {
 	
 	// Initialize Semantic Scholar module with key rotation
 	scholarManager := semanticscholar.NewManager(thirdPartyService)
-	scholarHandler := semanticscholar.NewHandler(scholarManager, aiService) // 传入aiService用于查询翻译
+	scholarHandler := semanticscholar.NewHandler(scholarManager, aiService)
 	
 	// Initialize unified MCP handler with all tool providers
 	mcpUnifiedHandler := mcp.NewUnifiedHandler(mcp.HandlerConfig{
@@ -246,10 +231,6 @@ func main() {
 	latexAgentConfigRepo := latexwriter.NewAgentConfigRepository(database.GetDB())
 	latexAgentAdminHandler := latexwriter.NewAdminHandler(latexAgentConfigRepo, database.GetDB())
 
-	// Initialize Subscription module
-	subscriptionService := subscription.NewService(database.GetDB())
-	subscriptionHandler := subscription.NewHandler(subscriptionService)
-
 	// Initialize Conversation module
 	conversationRepo := conversation.NewRepository(database.GetDB())
 	conversationService := conversation.NewService(conversationRepo, scholarManager, aiService)
@@ -268,16 +249,12 @@ func main() {
 	pdfHandler := pdf.NewHandler(pdfService)
 	slog.Info("PDF service initialized", "unpaywall_email", unpaywallEmail)
 
-	// Initialize Order module
-	orderService := order.NewService(database.GetDB(), subscriptionService)
-	orderHandler := order.NewHandler(orderService)
-
-	// Initialize Payment module
+	// Initialize Payment module (保留支付宝支付逻辑)
 	alipayService := payment.NewAlipayService(database.GetDB())
-	alipayHandler := payment.NewAlipayHandler(alipayService, orderService)
+	alipayHandler := payment.NewAlipayHandler(alipayService, nil)
 	wechatPayRepo := payment.NewWeChatPayRepository(database.GetDB())
 	wechatPayService := payment.NewWeChatPayService(wechatPayRepo)
-	wechatPayHandler := payment.NewWeChatPayHandler(wechatPayService, orderService)
+	wechatPayHandler := payment.NewWeChatPayHandler(wechatPayService, nil)
 
 	// Initialize WeChat module
 	wechatService := wechat.NewService(database.GetDB())
@@ -290,25 +267,6 @@ func main() {
 	// Initialize WeChat Official Account module
 	wechatOfficialService := wechatofficial.NewService(database.GetDB(), aiService)
 	wechatOfficialHandler := wechatofficial.NewHandler(wechatOfficialService)
-
-	// Initialize Check-in module
-	checkinRepo := checkin.NewRepository(database.GetDB())
-	checkinService := checkin.NewService(checkinRepo)
-	checkinHandler := checkin.NewHandler(checkinService)
-
-	// Initialize Currency module (货币系统)
-	currencyRepo := currency.NewRepository(database.GetDB(), cache.GetRedis())
-	currencyService := currency.NewService(currencyRepo)
-	currencyHandler := currency.NewHandler(currencyService)
-	currencyAdminHandler := currency.NewAdminHandler(currencyService)
-	currencyMiddleware := currency.NewDeductMiddleware(currencyService)
-	currencyBatchService := currency.NewBatchService(currencyRepo, currencyService)
-
-	// Initialize Fund module (会员基金)
-	fundRepo := fund.NewRepository(database.GetDB())
-	fundService := fund.NewService(fundRepo)
-	fundHandler := fund.NewHandler(fundService)
-	fundAdminHandler := fund.NewAdminHandler(fundService)
 
 	// Initialize UsageLog module (功能使用统计)
 	usageLogRepo := usagelog.NewRepository(database.GetDB())
@@ -341,226 +299,21 @@ func main() {
 	messageHandler.SetWebSocketHub(wsHub)
 
 	// Inject user service into WebSocket hub for session activity updates
-	// This replaces the HTTP heartbeat endpoint with WebSocket-based session tracking
 	wsHub.SetSessionUpdater(userService)
 
 	// Inject user service into WebSocket hub for real-time snapshot recording
-	// This records online count on every connect/disconnect for accurate tracking
 	wsHub.SetSnapshotRecorder(userService)
 
 	// Inject WebSocket hub into services for real-time online statistics
-	// This replaces the old session-based online user counting
 	userService.SetOnlineStatsProvider(wsHub)
 	userHandler.SetOnlineStatsProvider(wsHub)
 	dashboardHandler.SetOnlineStatsProvider(wsHub)
 
-	// Inject currency service into user service (for register gift)
-	userService.SetCurrencyService(currencyService)
 	// Inject message service into user service (for welcome message)
 	userService.SetMessageService(messageHandler.GetAdapter())
-	// Inject currency service into checkin service (for checkin gold reward)
-	checkinService.SetCurrencyService(currencyService)
-	// Inject currency service into coupon service (for invite diamond reward)
-	couponService.SetCurrencyService(currencyService)
-	// Inject message service into coupon service (for invite notification)
-	couponService.SetMessageService(messageHandler.GetAdapter())
-	// Inject currency service into chat handler (for AI chat deduction)
-	chatHandler.SetCurrencyService(currencyService)
-	// Inject currency service into conversation handler (for smart analysis deduction)
-	conversationHandler.SetCurrencyService(currencyService)
-	// Inject currency service into user handler (for user list wallet info)
-	userHandler.SetCurrencyService(currencyService)
-	// Inject currency service into order service (for recharge order)
-	orderService.SetCurrencyService(currencyService)
-	// Inject currency service into peer review service (for review completion deduction)
-	peerReviewService.SetCurrencyService(currencyService)
-	// Inject currency service into ai handler (for batch analysis deduction)
-	aiHandler.SetCurrencyService(currencyService)
-	// Inject query services into user handler (move DB queries out of handler)
-	userHandler.SetSubscriptionQueryService(&subscriptionQueryAdapter{svc: subscriptionService})
+	// Inject query services into user handler
 	userHandler.SetConversationQueryService(&conversationQueryAdapter{svc: conversationService})
 	userHandler.SetPeerReviewQueryService(&peerReviewQueryAdapter{svc: peerReviewService})
-
-	// Initialize Membership Gift Service (会员经费业务服务)
-	// 负责处理会员经费/恩特币的发放和清空逻辑，与定时任务调度器解耦
-	membershipGiftService := currency.NewMembershipGiftService(currencyService)
-	
-	// 设置订阅获取函数（用于月度发放）
-	membershipGiftService.SetSubscriptionGetter(func(planCodes []string) ([]currency.MemberSubscription, error) {
-		subs, err := subscriptionService.GetActiveSubscriptionsByPlanCodes(planCodes)
-		if err != nil {
-			return nil, err
-		}
-		result := make([]currency.MemberSubscription, len(subs))
-		for i, sub := range subs {
-			result[i] = currency.MemberSubscription{
-				UserID:   sub.UserID,
-				PlanCode: sub.PlanCode,
-			}
-		}
-		return result, nil
-	})
-	
-	// 设置非会员用户获取函数（用于清空经费）- 已废弃，保留兼容
-	// 获取所有当前没有活跃 pro/max 订阅且有经费的用户
-	membershipGiftService.SetNonMemberGetter(func() ([]currency.NonMember, error) {
-		members, err := subscriptionService.GetNonMembersWithGold()
-		if err != nil {
-			return nil, err
-		}
-		result := make([]currency.NonMember, len(members))
-		for i, m := range members {
-			result[i] = currency.NonMember{
-				UserID:              m.UserID,
-				Gold:                m.Gold,
-				LastSubscriptionEnd: m.LastSubscriptionEnd,
-			}
-		}
-		return result, nil
-	})
-
-	// 设置宽限期内会员获取函数（用于发送宽限期提醒）
-	membershipGiftService.SetMembersInGracePeriodGetter(func(graceDays int) ([]currency.MemberInGracePeriod, error) {
-		members, err := subscriptionService.GetMembersInGracePeriod(graceDays)
-		if err != nil {
-			return nil, err
-		}
-		result := make([]currency.MemberInGracePeriod, len(members))
-		for i, m := range members {
-			result[i] = currency.MemberInGracePeriod{
-				UserID:    m.UserID,
-				Gold:      m.Gold,
-				ExpiredAt: m.ExpiredAt,
-			}
-		}
-		return result, nil
-	})
-
-	// 设置超过宽限期的非会员获取函数（用于清空经费）
-	membershipGiftService.SetNonMembersAfterGraceGetter(func(graceDays int) ([]currency.NonMember, error) {
-		members, err := subscriptionService.GetNonMembersWithGoldAfterGrace(graceDays)
-		if err != nil {
-			return nil, err
-		}
-		result := make([]currency.NonMember, len(members))
-		for i, m := range members {
-			result[i] = currency.NonMember{
-				UserID:              m.UserID,
-				Gold:                m.Gold,
-				LastSubscriptionEnd: m.LastSubscriptionEnd,
-			}
-		}
-		return result, nil
-	})
-
-	// 设置即将到期会员获取函数（用于发送到期提醒）
-	membershipGiftService.SetExpiringMembersGetter(func(days int) ([]currency.ExpiringMember, error) {
-		members, err := subscriptionService.GetExpiringMembers(days)
-		if err != nil {
-			return nil, err
-		}
-		result := make([]currency.ExpiringMember, len(members))
-		for i, m := range members {
-			result[i] = currency.ExpiringMember{
-				UserID:   m.UserID,
-				PlanCode: m.PlanCode,
-				EndDate:  m.EndDate,
-			}
-		}
-		return result, nil
-	})
-
-	// 设置宽限期即将结束会员获取函数（用于发送宽限期结束提醒）
-	membershipGiftService.SetGracePeriodEndingGetter(func(graceDays, reminderDays int) ([]currency.GracePeriodEndingMember, error) {
-		members, err := subscriptionService.GetMembersWithGracePeriodEnding(graceDays, reminderDays)
-		if err != nil {
-			return nil, err
-		}
-		result := make([]currency.GracePeriodEndingMember, len(members))
-		for i, m := range members {
-			result[i] = currency.GracePeriodEndingMember{
-				UserID:       m.UserID,
-				Gold:         m.Gold,
-				ExpiredAt:    m.ExpiredAt,
-				GraceEndDate: m.GraceEndDate,
-			}
-		}
-		return result, nil
-	})
-
-	// 设置月底提醒非会员获取函数（用于发送月底清空提醒，排除宽限期用户）
-	membershipGiftService.SetNonMembersForMonthEndGetter(func(graceDays int) ([]currency.NonMember, error) {
-		members, err := subscriptionService.GetNonMembersForMonthEndReminder(graceDays)
-		if err != nil {
-			return nil, err
-		}
-		result := make([]currency.NonMember, len(members))
-		for i, m := range members {
-			result[i] = currency.NonMember{
-				UserID:              m.UserID,
-				Gold:                m.Gold,
-				LastSubscriptionEnd: m.LastSubscriptionEnd,
-			}
-		}
-		return result, nil
-	})
-
-	// 设置今天到期会员获取函数（用于发送会员到期当天提醒）
-	membershipGiftService.SetExpiredTodayMembersGetter(func() ([]currency.ExpiredTodayMember, error) {
-		members, err := subscriptionService.GetMembersExpiredToday()
-		if err != nil {
-			return nil, err
-		}
-		result := make([]currency.ExpiredTodayMember, len(members))
-		for i, m := range members {
-			result[i] = currency.ExpiredTodayMember{
-				UserID:   m.UserID,
-				PlanCode: m.PlanCode,
-				EndDate:  m.EndDate,
-			}
-		}
-		return result, nil
-	})
-
-	// 设置宽限期刚结束用户获取函数（用于宽限期结束后清空经费）
-	membershipGiftService.SetGraceExpiredMembersGetter(func(graceDays int) ([]currency.GraceExpiredMember, error) {
-		members, err := subscriptionService.GetMembersWithGraceExpiredYesterday(graceDays)
-		if err != nil {
-			return nil, err
-		}
-		result := make([]currency.GraceExpiredMember, len(members))
-		for i, m := range members {
-			result[i] = currency.GraceExpiredMember{
-				UserID:       m.UserID,
-				Gold:         m.Gold,
-				GraceEndDate: m.GraceEndDate,
-			}
-		}
-		return result, nil
-	})
-
-	// 设置消息服务（用于发送会员相关站内信通知）
-	membershipGiftService.SetMessageService(messageHandler.GetAdapter())
-
-	// 设置会员经费服务到管理员处理器（用于手动触发定时任务）
-	currencyAdminHandler.SetMembershipGiftService(membershipGiftService)
-
-	// 设置批量发放服务的消息发送器并注入到管理员处理器
-	currencyBatchService.SetMessageSender(messageHandler.GetAdapter())
-	currencyAdminHandler.SetBatchService(currencyBatchService)
-
-	// 设置会员激活回调 - 当用户开通会员时自动发放奖励
-	// 这是解耦支付方式和奖励发放的关键：无论通过何种支付方式开通会员，
-	// 只要调用 UpgradeSubscription，就会自动触发奖励发放
-	subscriptionService.SetActivationCallback(membershipGiftService.OnSubscriptionActivated)
-	
-	// Initialize Cron Scheduler (定时任务调度器)
-	// 使用 robfig/cron 库实现稳定的定时任务调度
-	cronScheduler := currency.NewCronScheduler(membershipGiftService)
-	if err := cronScheduler.Start(); err != nil {
-		log.Fatalf("Failed to start cron scheduler: %v", err)
-	}
-	defer cronScheduler.Stop()
 
 	// Setup Gin router
 	router := gin.Default()
@@ -580,41 +333,32 @@ func main() {
 
 	// 注册所有路由（已拆分至 routes.go）
 	registerRoutes(router, &allHandlers{
-		admin:              adminHandler,
-		dashboard:          dashboardHandler,
-		user:               userHandler,
-		config:             configHandler,
-		scholar:            scholarHandler,
-		ai:                 aiHandler,
-		conversation:       conversationHandler,
-		chat:               chatHandler,
-		proxy:              proxyHandler,
-		pdf:                pdfHandler,
-		subscription:       subscriptionHandler,
-		order:              orderHandler,
-		alipay:             alipayHandler,
-		wechatPay:          wechatPayHandler,
-		wechat:             wechatHandler,
-		wechatOfficial:     wechatOfficialHandler,
-		checkin:            checkinHandler,
-		currency:           currencyHandler,
-		currencyAdmin:      currencyAdminHandler,
-		currencyMiddleware: currencyMiddleware,
-		fund:               fundHandler,
-		fundAdmin:          fundAdminHandler,
-		usageLog:           usageLogHandler,
-		usageLogAdmin:      usageLogAdminHandler,
-		hotContent:         hotContentHandler,
-		message:            messageHandler,
-		feedback:           feedbackHandler,
-		coupon:             couponHandler,
-		peerReview:         peerReviewHandler,
-		latexWriter:        latexWriterHandler,
-		latexAgentAdmin:    latexAgentAdminHandler,
-		ws:                 wsHandler,
-		thirdParty:         thirdPartyHandler,
-		mcpUnified:         mcpUnifiedHandler,
-		mcpLegacy:          mcpHandler,
+		admin:           adminHandler,
+		dashboard:       dashboardHandler,
+		user:            userHandler,
+		config:          configHandler,
+		scholar:         scholarHandler,
+		ai:              aiHandler,
+		conversation:    conversationHandler,
+		chat:            chatHandler,
+		proxy:           proxyHandler,
+		pdf:             pdfHandler,
+		alipay:          alipayHandler,
+		wechatPay:       wechatPayHandler,
+		wechat:          wechatHandler,
+		wechatOfficial:  wechatOfficialHandler,
+		usageLog:        usageLogHandler,
+		usageLogAdmin:   usageLogAdminHandler,
+		hotContent:      hotContentHandler,
+		message:         messageHandler,
+		feedback:        feedbackHandler,
+		peerReview:      peerReviewHandler,
+		latexWriter:     latexWriterHandler,
+		latexAgentAdmin: latexAgentAdminHandler,
+		ws:              wsHandler,
+		thirdParty:      thirdPartyHandler,
+		mcpUnified:      mcpUnifiedHandler,
+		mcpLegacy:       mcpHandler,
 	})
 
 	// 启动后台任务（已拆分至 background.go）
@@ -670,4 +414,3 @@ func main() {
 
 	slog.Info("Server stopped")
 }
-

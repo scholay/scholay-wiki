@@ -3,9 +3,8 @@
  * 处理 SSE 流式搜索和消息管理
  */
 import { useCallback } from 'react';
-import { conversationAPI, walletAPI, publicScholarAPI } from '../../../services/api';
+import { conversationAPI, publicScholarAPI } from '../../../services/api';
 import { trackSmartSearch, EntryPoint } from '../../../utils/usageTracker';
-import wsClient from '../../../services/websocket';
 import logger from '../../../utils/logger';
 import { PAPER_PAGE_SIZE } from './usePaperState';
 
@@ -34,9 +33,6 @@ export const useAIStreamSearch = ({
   setSearchQuery,
   setConversations,
   setShowAuthModal,
-  setBalanceError,
-  setBalanceErrorFeature,
-  setShowBalanceModal,
   setIsLoadingSuggestedQuestions,
   loadConversations,
   extractSuggestedQuestions,
@@ -129,8 +125,8 @@ export const useAIStreamSearch = ({
         isFirstMessage = false;
         try {
           const data = JSON.parse(event.data);
-          // 检查余额不足错误 (code 4020)
-          if (data.code === 4020 || data.message?.includes('经费不足')) {
+          // 检查服务端错误
+          if (data.code && data.code !== 0) {
             eventSource.close();
             setIsStreaming(false);
             setShowAIThinking(false);
@@ -138,35 +134,7 @@ export const useAIStreamSearch = ({
 
             setMessages(prev => prev.filter(msg => msg.id !== messageId));
             setPaperSets(prevSets => prevSets.slice(1));
-
-            setBalanceError({
-              balance: data.data?.balance || 0,
-              required: data.data?.required || 0,
-              shortage: data.data?.shortage || 0,
-              alreadyDeducted: 0
-            });
-            setBalanceErrorFeature('智能检索');
-            setShowBalanceModal(true);
-            return;
-          }
-          // 兼容旧的配额不足错误
-          if (data.code === 403 || data.message?.includes('配额不足')) {
-            eventSource.close();
-            setIsStreaming(false);
-            setShowAIThinking(false);
-            setLoading(false);
-
-            setMessages(prev => prev.filter(msg => msg.id !== messageId));
-            setPaperSets(prevSets => prevSets.slice(1));
-
-            setBalanceError({
-              balance: 0,
-              required: 0,
-              shortage: 0,
-              alreadyDeducted: 0
-            });
-            setBalanceErrorFeature('智能检索');
-            setShowBalanceModal(true);
+            logger.error('服务端返回错误:', data.message);
             return;
           }
         } catch (e) {
@@ -175,22 +143,8 @@ export const useAIStreamSearch = ({
       }
 
       if (event.data.startsWith('[DONE]')) {
-        logger.log('Advanced search completed, raw data:', event.data);
+        logger.log('Advanced search completed');
         eventSource.close();
-
-        // 解析扣费金额
-        let deductedAmount = 0;
-        try {
-          const doneData = event.data.substring(6).trim();
-          logger.log('DONE data after trim:', doneData);
-          if (doneData) {
-            const parsed = JSON.parse(doneData);
-            logger.log('Parsed DONE data:', parsed);
-            deductedAmount = parsed.deducted_amount || 0;
-          }
-        } catch (e) {
-          logger.error('Failed to parse DONE data:', e);
-        }
 
         const finalContent = streamingContentRef.current;
 
@@ -221,17 +175,6 @@ export const useAIStreamSearch = ({
         setLoading(false);
         setShowAIThinking(false);
         loadConversations();
-
-        logger.log('Deducted amount:', deductedAmount);
-        if (deductedAmount > 0) {
-          logger.log('Emitting toast for deduction');
-          wsClient.emit('toast', {
-            title: '扣费提醒',
-            content: `本次分析消耗 ${deductedAmount} 经费`,
-            category: 'transaction',
-            created_at: new Date().toISOString()
-          });
-        }
         return;
       }
 
@@ -442,9 +385,6 @@ export const useAIStreamSearch = ({
     setLoading,
     setMessages,
     setConversations,
-    setBalanceError,
-    setBalanceErrorFeature,
-    setShowBalanceModal,
     loadConversations,
     fetchFollowUpQuestions,
     extractSuggestedQuestions,
@@ -457,34 +397,6 @@ export const useAIStreamSearch = ({
     if (!isAuthenticated) {
       setShowAuthModal(true);
       return;
-    }
-
-    const getBizType = (level) => {
-      switch (level) {
-        case 'mid': return 'smart_analysis_mid';
-        case 'high': return 'smart_analysis_high';
-        default: return 'smart_analysis_low';
-      }
-    };
-
-    // 先检查余额是否充足
-    try {
-      const checkResult = await walletAPI.checkBalanceByBizType(getBizType(modelLevel));
-      if (checkResult.data.code === 0 && checkResult.data.data) {
-        if (!checkResult.data.data.sufficient) {
-          setBalanceError({
-            balance: checkResult.data.data.balance || 0,
-            required: checkResult.data.data.required || 0,
-            shortage: checkResult.data.data.shortage || 0,
-            alreadyDeducted: 0
-          });
-          setBalanceErrorFeature('智能检索');
-          setShowBalanceModal(true);
-          return;
-        }
-      }
-    } catch (error) {
-      logger.error('Failed to check balance:', error);
     }
 
     const userMessage = query.trim();
@@ -565,9 +477,6 @@ export const useAIStreamSearch = ({
     textareaRef,
     streamingContentRef,
     setShowAuthModal,
-    setBalanceError,
-    setBalanceErrorFeature,
-    setShowBalanceModal,
     setSearchQuery,
     setMessages,
     setLoading,

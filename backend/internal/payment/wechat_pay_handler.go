@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"log/slog"
 	"scholar-backend/internal/common/utils"
-	"scholar-backend/internal/order"
 	"strconv"
 	"time"
 
@@ -21,11 +20,11 @@ import (
 // WeChatPayHandler 微信支付处理器
 type WeChatPayHandler struct {
 	service      *WeChatPayService
-	orderService *order.Service
+	orderService OrderServiceInterface
 }
 
 // NewWeChatPayHandler 创建微信支付处理器
-func NewWeChatPayHandler(service *WeChatPayService, orderService *order.Service) *WeChatPayHandler {
+func NewWeChatPayHandler(service *WeChatPayService, orderService OrderServiceInterface) *WeChatPayHandler {
 	return &WeChatPayHandler{
 		service:      service,
 		orderService: orderService,
@@ -47,14 +46,13 @@ func (h *WeChatPayHandler) GetAllConfigs(c *gin.Context) {
 
 // GetActiveConfig 获取激活的微信支付配置
 func (h *WeChatPayHandler) GetActiveConfig(c *gin.Context) {
-	showKeys := c.Query("show_keys") == "true"
-
 	config, err := h.service.GetActiveConfig()
 	if err != nil {
 		utils.Error(c, 3002, "Failed to get active WeChat Pay config: "+err.Error())
 		return
 	}
 
+	showKeys := c.Query("show_keys") == "true"
 	utils.Success(c, config.ToDTO(showKeys))
 }
 
@@ -138,8 +136,12 @@ type WeChatPaymentRequest struct {
 }
 
 // CreatePayment 创建微信支付订单
-// POST /api/v1/user/payment/wechat/create
 func (h *WeChatPayHandler) CreatePayment(c *gin.Context) {
+	if h.orderService == nil {
+		utils.Error(c, 5000, "支付功能暂未开放")
+		return
+	}
+
 	var req WeChatPaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		slog.Error("wechat pay request binding error", "err", err)
@@ -149,14 +151,12 @@ func (h *WeChatPayHandler) CreatePayment(c *gin.Context) {
 
 	slog.Info("creating wechat payment", "order_no", req.OrderNo, "amount", req.Amount)
 
-	// Get user ID from context
 	userID, exists := c.Get("user_id")
 	if !exists {
 		utils.Unauthorized(c, "User not authenticated")
 		return
 	}
 
-	// Verify order exists and belongs to user
 	orderRecord, err := h.orderService.GetOrderByOrderNo(req.OrderNo)
 	if err != nil {
 		utils.Error(c, 5001, "Order not found")
@@ -168,13 +168,11 @@ func (h *WeChatPayHandler) CreatePayment(c *gin.Context) {
 		return
 	}
 
-	// Check order status
 	if orderRecord.Status != "pending" {
 		utils.Error(c, 5004, "Order is not in pending status")
 		return
 	}
 
-	// Create WeChat Native payment (QR code)
 	description := fmt.Sprintf("订阅套餐-%s", orderRecord.PlanCode)
 	codeURL, err := h.service.CreateNativeOrder(req.OrderNo, req.Amount, description)
 	if err != nil {
@@ -192,20 +190,24 @@ func (h *WeChatPayHandler) CreatePayment(c *gin.Context) {
 
 // HandleNotify 处理微信支付回调
 func (h *WeChatPayHandler) HandleNotify(c *gin.Context) {
+	if h.orderService == nil {
+		slog.Warn("wechat pay callback received but order service not available")
+		c.JSON(200, gin.H{"code": "SUCCESS", "message": ""})
+		return
+	}
+
 	var req WeChatPayNotifyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.BadRequest(c, "Invalid notify request: "+err.Error())
 		return
 	}
 
-	// 验证并解密回调数据
 	decrypted, err := h.service.VerifyNotify(&req)
 	if err != nil {
 		utils.Error(c, 3007, "Failed to verify notify: "+err.Error())
 		return
 	}
 
-	// 检查支付状态
 	if decrypted.TradeState != "SUCCESS" {
 		utils.Error(c, 3008, "Payment not successful: "+decrypted.TradeStateDesc)
 		return
@@ -218,26 +220,23 @@ func (h *WeChatPayHandler) HandleNotify(c *gin.Context) {
 		"trade_state", decrypted.TradeState,
 	)
 
-	// 转换金额为元（微信支付金额以分为单位）
 	amountInYuan := float64(decrypted.Amount.Total) / 100.0
 
-	// 构建回调数据
 	callbackData := map[string]any{
-		"mchid":           decrypted.MchID,
-		"appid":           decrypted.AppID,
-		"out_trade_no":    decrypted.OutTradeNo,
-		"transaction_id":  decrypted.TransactionID,
-		"trade_type":      decrypted.TradeType,
-		"trade_state":     decrypted.TradeState,
+		"mchid":            decrypted.MchID,
+		"appid":            decrypted.AppID,
+		"out_trade_no":     decrypted.OutTradeNo,
+		"transaction_id":   decrypted.TransactionID,
+		"trade_type":       decrypted.TradeType,
+		"trade_state":      decrypted.TradeState,
 		"trade_state_desc": decrypted.TradeStateDesc,
-		"bank_type":       decrypted.BankType,
-		"success_time":    decrypted.SuccessTime,
-		"payer_openid":    decrypted.Payer.OpenID,
-		"amount_total":    decrypted.Amount.Total,
-		"amount_currency": decrypted.Amount.Currency,
+		"bank_type":        decrypted.BankType,
+		"success_time":     decrypted.SuccessTime,
+		"payer_openid":     decrypted.Payer.OpenID,
+		"amount_total":     decrypted.Amount.Total,
+		"amount_currency":  decrypted.Amount.Currency,
 	}
 
-	// 处理微信支付回调
 	err = h.orderService.ProcessWeChatPayCallback(
 		decrypted.OutTradeNo,
 		decrypted.TransactionID,
@@ -252,7 +251,6 @@ func (h *WeChatPayHandler) HandleNotify(c *gin.Context) {
 
 	slog.Info("wechat pay payment processed successfully")
 
-	// 返回成功响应给微信
 	c.JSON(200, gin.H{
 		"code":    "SUCCESS",
 		"message": "",

@@ -64,7 +64,6 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [code, setCode] = useState('');
-  const [invitationCode, setInvitationCode] = useState('');
   const [agreedToPolicy, setAgreedToPolicy] = useState(false);
   const [useCodeLogin, setUseCodeLogin] = useState(false);
   
@@ -267,7 +266,7 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
         email, 
         password, 
         code, 
-        invitationCode || undefined,
+        undefined,
         turnstileToken
       );
       if (response.data.code === 0) {
@@ -287,7 +286,7 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
     } finally {
       setLoading(false);
     }
-  }, [email, password, confirmPassword, code, invitationCode, agreedToPolicy, login, showError, showSuccess, onSuccess]);
+  }, [email, password, confirmPassword, code, agreedToPolicy, login, showError, showSuccess, onSuccess]);
 
   // 手机号注册
   const registerWithPhone = useCallback(async (turnstileToken) => {
@@ -318,7 +317,7 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
         phone, 
         password, 
         code, 
-        invitationCode || undefined,
+        undefined,
         turnstileToken
       );
       if (response.data.code === 0) {
@@ -338,7 +337,7 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
     } finally {
       setLoading(false);
     }
-  }, [phone, password, confirmPassword, code, invitationCode, agreedToPolicy, login, showError, showSuccess, onSuccess]);
+  }, [phone, password, confirmPassword, code, agreedToPolicy, login, showError, showSuccess, onSuccess]);
 
   return {
     // 表单状态
@@ -351,8 +350,6 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
     setConfirmPassword,
     code,
     setCode,
-    invitationCode,
-    setInvitationCode,
     agreedToPolicy,
     setAgreedToPolicy,
     useCodeLogin,

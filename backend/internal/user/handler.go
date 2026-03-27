@@ -15,7 +15,6 @@ import (
 	"scholar-backend/internal/common/turnstile"
 	"scholar-backend/internal/common/utils"
 
-	"scholar-backend/internal/currency"
 	"strconv"
 	"strings"
 	"time"
@@ -30,21 +29,6 @@ type WeChatService interface {
 	GetUserInfo(accessToken, openID string) (nickname, headImgURL, unionID string, err error)
 }
 
-
-// SubscriptionQueryService provides subscription queries needed by user handler
-type SubscriptionQueryService interface {
-	GetActiveSubscriptionsByUserIDs(userIDs []uint) ([]SubscriptionSummaryDTO, error)
-}
-
-// SubscriptionSummaryDTO mirrors subscription.SubscriptionSummary to avoid direct package dependency
-type SubscriptionSummaryDTO struct {
-	UserID    uint       `json:"user_id"`
-	PlanCode  string     `json:"plan_code"`
-	PlanName  string     `json:"plan_name"`
-	Status    string     `json:"status"`
-	EndDate   *time.Time `json:"end_date"`
-	AutoRenew bool       `json:"auto_renew"`
-}
 
 // ConversationQueryService provides conversation queries needed by user handler
 type ConversationQueryService interface {
@@ -73,13 +57,11 @@ type PeerReviewItemDTO struct {
 
 // Handler handles HTTP requests for user operations
 type Handler struct {
-	service              *Service
-	wechatService        WeChatService
-	currencyService      *currency.Service
-	onlineStatsProvider  ifaces.OnlineStatsProvider
-	subscriptionQuery    SubscriptionQueryService
-	conversationQuery    ConversationQueryService
-	peerReviewQuery      PeerReviewQueryService
+	service             *Service
+	wechatService       WeChatService
+	onlineStatsProvider ifaces.OnlineStatsProvider
+	conversationQuery   ConversationQueryService
+	peerReviewQuery     PeerReviewQueryService
 }
 
 // NewHandler creates a new user handler
@@ -95,19 +77,9 @@ func (h *Handler) SetWeChatService(wechatService WeChatService) {
 	h.wechatService = wechatService
 }
 
-// SetCurrencyService sets the currency service
-func (h *Handler) SetCurrencyService(currencyService *currency.Service) {
-	h.currencyService = currencyService
-}
-
 // SetOnlineStatsProvider 设置在线统计提供者（WebSocket Hub）
 func (h *Handler) SetOnlineStatsProvider(provider ifaces.OnlineStatsProvider) {
 	h.onlineStatsProvider = provider
-}
-
-// SetSubscriptionQueryService sets the subscription query service
-func (h *Handler) SetSubscriptionQueryService(svc SubscriptionQueryService) {
-	h.subscriptionQuery = svc
 }
 
 // SetConversationQueryService sets the conversation query service
@@ -201,9 +173,8 @@ type LoginRequest struct {
 
 // AuthResponse represents an authentication response
 type AuthResponse struct {
-	Token            string `json:"token"`
-	User             *User  `json:"user"`
-	RegisterGiftGold int64  `json:"register_gift_gold,omitempty"` // 注册赠送经费金额（仅注册时返回）
+	Token string `json:"token"`
+	User  *User  `json:"user"`
 }
 
 // UpdateProfileRequest represents an update profile request
@@ -304,13 +275,9 @@ func (h *Handler) Register(c *gin.Context) {
 	userAgent := c.GetHeader("User-Agent")
 	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
-	// 获取注册赠送经费金额
-	registerGiftGold := h.service.GetRegisterGiftAmount()
-
 	utils.Success(c, AuthResponse{
-		Token:            token,
-		User:             user,
-		RegisterGiftGold: registerGiftGold,
+		Token: token,
+		User:  user,
 	})
 }
 
@@ -520,13 +487,9 @@ func (h *Handler) RegisterWithPhone(c *gin.Context) {
 	userAgent := c.GetHeader("User-Agent")
 	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour) // 30 days session
 
-	// 获取注册赠送经费金额
-	registerGiftGold := h.service.GetRegisterGiftAmount()
-
 	utils.Success(c, AuthResponse{
-		Token:            token,
-		User:             user,
-		RegisterGiftGold: registerGiftGold,
+		Token: token,
+		User:  user,
 	})
 }
 
@@ -722,65 +685,8 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		return
 	}
 
-	// Get user IDs for fetching subscriptions
-	userIDs := make([]uint, len(users))
-	for i, user := range users {
-		userIDs[i] = user.ID
-	}
-
-	// 响应结构体 - 精简版，只包含列表必需的字段
-	type SubscriptionInfo struct {
-		PlanCode      string     `json:"plan_code"`
-		PlanName      string     `json:"plan_name"`
-		Status        string     `json:"status"`
-		EndDate       *time.Time `json:"end_date,omitempty"`
-		RemainingDays int        `json:"remaining_days"`
-		AutoRenew     bool       `json:"auto_renew"`
-	}
-
-	type UserResponse struct {
-		User
-		Subscription *SubscriptionInfo `json:"subscription,omitempty"`
-	}
-
-	// Fetch subscriptions via service layer
-	subscriptionMap := make(map[uint]*SubscriptionInfo)
-	if h.subscriptionQuery != nil && len(userIDs) > 0 {
-		subs, _ := h.subscriptionQuery.GetActiveSubscriptionsByUserIDs(userIDs)
-		for _, sub := range subs {
-			remainingDays := 0
-			if sub.EndDate != nil {
-				remainingDays = int(time.Until(*sub.EndDate).Hours() / 24)
-				if remainingDays < 0 {
-					remainingDays = 0
-				}
-			}
-			subscriptionMap[sub.UserID] = &SubscriptionInfo{
-				PlanCode:      sub.PlanCode,
-				PlanName:      sub.PlanName,
-				Status:        sub.Status,
-				EndDate:       sub.EndDate,
-				RemainingDays: remainingDays,
-				AutoRenew:     sub.AutoRenew,
-			}
-		}
-	}
-
-	// 构建精简响应
-	userResponses := make([]UserResponse, len(users))
-	for i, user := range users {
-		response := UserResponse{User: user}
-
-		// Add subscription info
-		if subInfo, ok := subscriptionMap[user.ID]; ok {
-			response.Subscription = subInfo
-		}
-
-		userResponses[i] = response
-	}
-
 	utils.Success(c, gin.H{
-		"users": userResponses,
+		"users": users,
 		"total": total,
 		"page":  page,
 		"page_size": pageSize,
@@ -1336,18 +1242,11 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 	userAgent := c.GetHeader("User-Agent")
 	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour)
 
-	response := gin.H{
+	utils.Success(c, gin.H{
 		"token":       token,
 		"user":        user,
 		"is_new_user": isNewUser,
-	}
-
-	// 如果是新用户，返回注册赠送经费金额
-	if isNewUser {
-		response["register_gift_gold"] = h.service.GetRegisterGiftAmount()
-	}
-
-	utils.Success(c, response)
+	})
 }
 
 // BindWeChatRequest represents WeChat binding request

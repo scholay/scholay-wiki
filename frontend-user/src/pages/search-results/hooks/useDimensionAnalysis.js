@@ -6,7 +6,6 @@
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { analysisDimensionAPI, publicScholarAPI } from '../../../services/api';
-import wsClient from '../../../services/websocket';
 import logger from '../../../utils/logger';
 import { trackMatrixAnalysis, trackMatrixAddDimension } from '../../../utils/usageTracker';
 import analysisQueue from '../../../utils/analysisQueue';
@@ -32,10 +31,8 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
   const [deleteConfirmDimension, setDeleteConfirmDimension] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // 扣费相关状态
+  // 分析相关状态
   const [totalDeducted, setTotalDeducted] = useState(0);
-  const [showBalanceModal, setShowBalanceModal] = useState(false);
-  const [balanceError, setBalanceError] = useState(null);
   const analysisAbortedRef = useRef(false);
   const analysisSessionRef = useRef(0);
   const accumulatedDeductRef = useRef(0);
@@ -234,7 +231,7 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
 
   // 初始化队列回调（只在组件挂载时设置一次）
   useEffect(() => {
-    // 批量完成回调：更新扣费统计，显示Toast，记录埋点
+    // 批量完成回调：记录埋点
     analysisQueue.setOnBatchComplete((results, totalDeducted) => {
       // 累计本次会话的扣费
       accumulatedDeductRef.current += totalDeducted;
@@ -243,26 +240,6 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
       results
         .filter(r => r.success)
         .forEach(r => trackMatrixAnalysis(r.paperId));
-
-      // 如果有扣费，显示Toast提示
-      if (totalDeducted > 0) {
-        wsClient.emit('toast', {
-          title: '扣费提醒',
-          content: `本批分析消耗 ${totalDeducted} 经费`,
-          category: 'transaction',
-          created_at: new Date().toISOString()
-        });
-      }
-    });
-
-    // 余额不足回调
-    analysisQueue.setOnInsufficientBalance((errorData) => {
-      analysisAbortedRef.current = true;
-      setBalanceError({
-        ...errorData,
-        alreadyDeducted: accumulatedDeductRef.current
-      });
-      setShowBalanceModal(true);
     });
 
     // 组件卸载时清理队列
@@ -362,13 +339,6 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
     setTotalDeducted(0);
   }, []);
 
-  // 关闭余额不足弹窗
-  const handleCloseBalanceModal = useCallback(() => {
-    setShowBalanceModal(false);
-    setBalanceError(null);
-    analysisAbortedRef.current = false;
-  }, []);
-
   return {
     // 维度状态
     dimensions,
@@ -395,10 +365,8 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
     analyzingPapers,
     setAnalyzingPapers,
 
-    // 扣费相关
+    // 分析相关
     totalDeducted,
-    showBalanceModal,
-    balanceError,
     analysisAbortedRef,
 
     // Refs
@@ -414,8 +382,6 @@ export const useDimensionAnalysis = ({ isAuthenticated, setShowAuthModal }) => {
     handleCloseEditView,
     handleSaveDimension,
     handleDeleteDimension,
-    handleCloseBalanceModal,
-    
     // 批量分析相关
     enqueuePaperAnalysis,  // 将论文加入分析队列
     hasAnalysisResult,     // 检查是否已有结果

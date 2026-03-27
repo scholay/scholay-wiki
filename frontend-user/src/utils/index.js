@@ -52,11 +52,9 @@ export { organizeMessagesByParentId, messagesToQAList } from './messageUtils';
 // SEO 工具
 export { generateSearchResultsSchema, generateBreadcrumbSchema, truncateText } from './seoHelpers';
 
-// 使用追踪（15个新功能追踪点）
+// 使用追踪
 export {
   trackUsage,
-  // 用户类
-  trackCheckin,
   // 检索类
   trackDirectSearch,
   trackSearchSuggestion,

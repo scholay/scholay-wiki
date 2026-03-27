@@ -21,10 +21,6 @@ export const useUIState = () => {
   // 输入法状态
   const [isComposing, setIsComposing] = useState(false);
 
-  // 配额
-  const [quota, setQuota] = useState(null);
-  const [usage, setUsage] = useState(null);
-
   // 来源标记（从学术搜索跳转）
   const [fromAcademicSearch] = useState(() => {
     const stored = sessionStorage.getItem('ai_search_from_academic');
@@ -50,8 +46,6 @@ export const useUIState = () => {
     disableSnapTemporarily,
     isLoadingSuggestedQuestions,
     isComposing,
-    quota,
-    usage,
     fromAcademicSearch,
 
     // Setter
@@ -61,8 +55,6 @@ export const useUIState = () => {
     setDisableSnapTemporarily,
     setIsLoadingSuggestedQuestions,
     setIsComposing,
-    setQuota,
-    setUsage,
 
     // Refs
     qaSnapContainerRef,

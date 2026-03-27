@@ -139,27 +139,6 @@
     font-size: 15px;
   }
 
-  /* 订阅卡片移动端 */
-  .subscription-card {
-    padding: 20px 16px;
-  }
-
-  .subscription-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  /* 邀请区域移动端 */
-  .invite-code-box {
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .invite-code-box .copy-btn {
-    width: 100%;
-  }
-
   /* 账户管理移动端 */
   .account-item {
     flex-direction: column;

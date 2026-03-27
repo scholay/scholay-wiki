@@ -44,26 +44,6 @@ type DashboardStatistics struct {
 	OnlineUsers      int64               `json:"online_users"`       // 当前在线登录用户（基于 WebSocket）
 	OnlineGuests     int64               `json:"online_guests"`      // 当前在线访客（基于 WebSocket）
 
-	// 订单统计
-	TotalOrders      int64               `json:"total_orders"`       // 总订单数
-	PendingOrders    int64               `json:"pending_orders"`     // 待支付订单
-	PaidOrders       int64               `json:"paid_orders"`        // 已支付订单
-	TotalRevenue     float64             `json:"total_revenue"`      // 总收入
-	RevenueToday     float64             `json:"revenue_today"`      // 今日收入
-	Revenue7d        float64             `json:"revenue_7d"`         // 7天收入
-	Revenue30d       float64             `json:"revenue_30d"`        // 30天收入
-
-	// 订阅统计
-	ActiveSubscriptions int64            `json:"active_subscriptions"` // 活跃订阅数
-	FreeUsers           int64            `json:"free_users"`           // 免费用户
-	PaidUsers           int64            `json:"paid_users"`           // 付费用户
-
-	// 优惠券统计
-	TotalCoupons        int64            `json:"total_coupons"`        // 总优惠券数
-	UsedCoupons         int64            `json:"used_coupons"`         // 已使用
-	UnusedCoupons       int64            `json:"unused_coupons"`       // 未使用
-	ExpiredCoupons      int64            `json:"expired_coupons"`      // 已过期
-
 	// 会话统计
 	TotalConversations  int64            `json:"total_conversations"`  // 总对话数
 	ConversationsToday  int64            `json:"conversations_today"`  // 今日对话
@@ -75,8 +55,6 @@ type DashboardStatistics struct {
 
 	// 趋势数据 (用于图表)
 	UserGrowthChart     []ChartDataPoint `json:"user_growth_chart"`    // 用户增长趋势
-	OrderTrendChart     []ChartDataPoint `json:"order_trend_chart"`    // 订单趋势
-	RevenueTrendChart   []ChartDataPoint `json:"revenue_trend_chart"`  // 收入趋势
 }
 
 // ChartDataPoint represents a point in time-series chart
@@ -133,90 +111,6 @@ func (h *DashboardHandler) GetDashboardStatistics(c *gin.Context) {
 	}
 
 	// ============================================
-	// 订单统计
-	// ============================================
-
-	// 总订单数
-	h.db.Table("orders").Count(&stats.TotalOrders)
-
-	// 待支付订单
-	h.db.Table("orders").
-		Where("status = ?", "pending").
-		Count(&stats.PendingOrders)
-
-	// 已支付订单
-	h.db.Table("orders").
-		Where("status = ?", "paid").
-		Count(&stats.PaidOrders)
-
-	// 总收入
-	h.db.Table("orders").
-		Where("status = ?", "paid").
-		Select("COALESCE(SUM(final_amount), 0)").
-		Scan(&stats.TotalRevenue)
-
-	// 今日收入
-	h.db.Table("orders").
-		Where("status = ? AND DATE(paid_at) = ?", "paid", today).
-		Select("COALESCE(SUM(final_amount), 0)").
-		Scan(&stats.RevenueToday)
-
-	// 7天收入
-	h.db.Table("orders").
-		Where("status = ? AND DATE(paid_at) >= ?", "paid", date7dAgo).
-		Select("COALESCE(SUM(final_amount), 0)").
-		Scan(&stats.Revenue7d)
-
-	// 30天收入
-	h.db.Table("orders").
-		Where("status = ? AND DATE(paid_at) >= ?", "paid", date30dAgo).
-		Select("COALESCE(SUM(final_amount), 0)").
-		Scan(&stats.Revenue30d)
-
-	// ============================================
-	// 订阅统计
-	// ============================================
-
-	// 活跃订阅数 (未过期)
-	h.db.Table("user_subscriptions").
-		Where("status = ? AND (expired_at IS NULL OR expired_at > ?)", "active", now).
-		Count(&stats.ActiveSubscriptions)
-
-	// 免费用户 (订阅计划为免费)
-	h.db.Table("user_subscriptions").
-		Joins("JOIN subscription_plans ON user_subscriptions.plan_id = subscription_plans.id").
-		Where("subscription_plans.price = 0 AND user_subscriptions.status = ?", "active").
-		Count(&stats.FreeUsers)
-
-	// 付费用户
-	h.db.Table("user_subscriptions").
-		Joins("JOIN subscription_plans ON user_subscriptions.plan_id = subscription_plans.id").
-		Where("subscription_plans.price > 0 AND user_subscriptions.status = ?", "active").
-		Count(&stats.PaidUsers)
-
-	// ============================================
-	// 优惠券统计
-	// ============================================
-
-	// 总优惠券数
-	h.db.Table("user_coupons").Count(&stats.TotalCoupons)
-
-	// 已使用优惠券
-	h.db.Table("user_coupons").
-		Where("status = ?", "used").
-		Count(&stats.UsedCoupons)
-
-	// 未使用优惠券
-	h.db.Table("user_coupons").
-		Where("status = ?", "unused").
-		Count(&stats.UnusedCoupons)
-
-	// 已过期优惠券
-	h.db.Table("user_coupons").
-		Where("status = ?", "expired").
-		Count(&stats.ExpiredCoupons)
-
-	// ============================================
 	// 会话统计
 	// ============================================
 
@@ -248,12 +142,6 @@ func (h *DashboardHandler) GetDashboardStatistics(c *gin.Context) {
 	// 用户增长趋势 (最近30天)
 	stats.UserGrowthChart = h.getUserGrowthChart(30)
 
-	// 订单趋势 (最近30天)
-	stats.OrderTrendChart = h.getOrderTrendChart(30)
-
-	// 收入趋势 (最近30天)
-	stats.RevenueTrendChart = h.getRevenueTrendChart(30)
-
 	utils.SuccessResponse(c, http.StatusOK, "Dashboard statistics retrieved successfully", stats)
 }
 
@@ -282,52 +170,3 @@ func (h *DashboardHandler) getUserGrowthChart(days int) []ChartDataPoint {
 	return chart
 }
 
-// getOrderTrendChart 获取订单趋势图表数据
-func (h *DashboardHandler) getOrderTrendChart(days int) []ChartDataPoint {
-	var results []struct {
-		Date  string
-		Count int64
-	}
-
-	h.db.Table("orders").
-		Select("DATE(created_at) as date, COUNT(*) as count").
-		Where("created_at >= ? AND status = ?", time.Now().AddDate(0, 0, -days), "paid").
-		Group("DATE(created_at)").
-		Order("date ASC").
-		Scan(&results)
-
-	chart := make([]ChartDataPoint, 0, len(results))
-	for _, r := range results {
-		chart = append(chart, ChartDataPoint{
-			Date:  r.Date,
-			Value: float64(r.Count),
-		})
-	}
-
-	return chart
-}
-
-// getRevenueTrendChart 获取收入趋势图表数据
-func (h *DashboardHandler) getRevenueTrendChart(days int) []ChartDataPoint {
-	var results []struct {
-		Date   string
-		Amount float64
-	}
-
-	h.db.Table("orders").
-		Select("DATE(paid_at) as date, COALESCE(SUM(final_amount), 0) as amount").
-		Where("paid_at >= ? AND status = ?", time.Now().AddDate(0, 0, -days), "paid").
-		Group("DATE(paid_at)").
-		Order("date ASC").
-		Scan(&results)
-
-	chart := make([]ChartDataPoint, 0, len(results))
-	for _, r := range results {
-		chart = append(chart, ChartDataPoint{
-			Date:  r.Date,
-			Value: r.Amount,
-		})
-	}
-
-	return chart
-}

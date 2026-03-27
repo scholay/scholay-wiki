@@ -14,7 +14,6 @@ import (
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
-	"scholar-backend/internal/currency"
 	"strconv"
 	"time"
 
@@ -24,9 +23,8 @@ import (
 
 // ChatHandler handles chat-related HTTP requests
 type ChatHandler struct {
-	chatService     *ChatService
-	service         *Service
-	currencyService *currency.Service
+	chatService *ChatService
+	service     *Service
 }
 
 // NewChatHandler 创建聊天处理器
@@ -36,66 +34,6 @@ func NewChatHandler(repo *Repository, aiService *ai.Service, service *Service) *
 		chatService: chatService,
 		service:     service,
 	}
-}
-
-// SetCurrencyService sets the currency service for deduction
-func (h *ChatHandler) SetCurrencyService(currencyService *currency.Service) {
-	h.currencyService = currencyService
-}
-
-// getBizTypeForChat 根据模型级别获取业务类型
-func (h *ChatHandler) getBizTypeForChat(modelLevel string) string {
-	switch modelLevel {
-	case "mid":
-		return "ai_chat_mid"
-	case "high":
-		return "ai_chat_high"
-	default:
-		return "ai_chat_low"
-	}
-}
-
-// checkBalanceForChat 检查余额是否充足（不扣费）
-func (h *ChatHandler) checkBalanceForChat(userID uint, modelLevel string) error {
-	if h.currencyService == nil {
-		return nil
-	}
-
-	bizType := h.getBizTypeForChat(modelLevel)
-	checkResult, err := h.currencyService.CheckBalanceByBizType(userID, bizType)
-	if err != nil {
-		return err
-	}
-	if !checkResult.Sufficient {
-		return currency.ErrInsufficientBalance
-	}
-	return nil
-}
-
-// deductForChatAfterSuccess 成功后扣费，返回扣费金额
-func (h *ChatHandler) deductForChatAfterSuccess(ctx context.Context, userID uint, modelLevel string) int64 {
-	if h.currencyService == nil {
-		slog.Info("currency service not set, skip deduct")
-		return 0
-	}
-
-	bizType := h.getBizTypeForChat(modelLevel)
-	transaction, err := h.currencyService.DeductByBizType(ctx, userID, bizType, "")
-	if err != nil {
-		slog.Error("deduct failed after success", "userID", userID, "bizType", bizType, "err", err)
-		return 0
-	}
-	if transaction == nil {
-		slog.Info("no deduct config or disabled", "userID", userID, "bizType", bizType)
-		return 0
-	}
-	// transaction.Amount 是负数（扣费），取绝对值返回
-	amount := transaction.Amount
-	if amount < 0 {
-		amount = -amount
-	}
-	slog.Info("deduct success", "userID", userID, "bizType", bizType, "amount", amount)
-	return amount
 }
 
 // StreamChatMessage handles streaming chat requests
@@ -119,41 +57,17 @@ func (h *ChatHandler) StreamChatMessage(c *gin.Context) {
 
 	req.ConversationID = uint(conversationID)
 
-	// 1. 先检查余额（不扣费）
-	modelLevel := req.ModelLevel
-	if modelLevel == "" {
-		modelLevel = "low"
-	}
-	if err := h.checkBalanceForChat(userID, modelLevel); err != nil {
-		if err == currency.ErrInsufficientBalance {
-			utils.PaymentRequired(c, "经费不足", nil)
-		} else {
-			utils.ServerError(c, "检查余额失败: "+err.Error())
-		}
-		return
-	}
-
 	sse.SetHeaders(c)
 
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
 	defer cancel()
 
-	// 2. 执行流式对话
 	if err := h.chatService.StreamChat(ctx, userID, req, c.Writer); err != nil {
 		slog.Error("stream chat error", "err", err)
-		// Error already sent via SSE, do not deduct
+		// 错误已通过 SSE 下发给客户端
 		return
 	}
-
-	// 3. 成功后扣费
-	deductedAmount := h.deductForChatAfterSuccess(c.Request.Context(), userID, modelLevel)
-
-	// 4. 发送扣费信息事件
-	sse.WriteJSONEvent(c.Writer, map[string]any{
-		"type":            "deduct_info",
-		"deducted_amount": deductedAmount,
-	})
 
 	c.Status(http.StatusOK)
 }
@@ -284,20 +198,6 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 		return
 	}
 
-	// 1. 先检查余额（不扣费）
-	modelLevel := req.ModelLevel
-	if modelLevel == "" {
-		modelLevel = "low"
-	}
-	if err := h.checkBalanceForChat(userID, modelLevel); err != nil {
-		if err == currency.ErrInsufficientBalance {
-			utils.PaymentRequired(c, "经费不足", nil)
-		} else {
-			utils.ServerError(c, "检查余额失败: "+err.Error())
-		}
-		return
-	}
-
 	// Generate title from first message if not provided
 	title := req.Title
 	if title == "" {
@@ -336,18 +236,8 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 
 	if err := h.chatService.StreamChat(ctx, userID, chatReq, c.Writer); err != nil {
 		slog.Error("stream chat error", "err", err)
-		// Error occurred, do not deduct
 		return
 	}
-
-	// 3. 成功后扣费
-	deductedAmount := h.deductForChatAfterSuccess(c.Request.Context(), userID, modelLevel)
-
-	// 4. 发送扣费信息事件
-	sse.WriteJSONEvent(c.Writer, map[string]any{
-		"type":            "deduct_info",
-		"deducted_amount": deductedAmount,
-	})
 
 	c.Status(http.StatusOK)
 }

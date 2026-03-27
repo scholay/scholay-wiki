@@ -63,10 +63,9 @@ type ParallelSearchResult struct {
 	RelCount   int // relevance通道获取的论文数
 }
 
-// AdvancedSearchAndAnalyze 执行基于AI的智能分析（使用MCP工具）并流式返回结果
+// AdvancedSearchAndAnalyze 执行基于 AI 的智能分析（使用 MCP 工具）并流式返回结果
 // 根据用户订阅使用相应的模型级别
 // 支持对话上下文以便进行后续分析
-// 注意：配额检查已废弃，现在使用货币系统进行扣费控制
 func (s *Service) AdvancedSearchAndAnalyze(ctx context.Context, conversationID uint, query string, writer io.Writer, userID uint, modelLevel thirdparty.ModelLevel) error {
 	// Get the user message (it should already exist, created by AddMessage)
 	// We need to find the latest user message with this query

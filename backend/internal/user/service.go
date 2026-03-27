@@ -29,19 +29,6 @@ type ConfigService interface {
 	GetGithubOAuthConfig() (*model.GithubOAuthConfig, error)
 }
 
-// CouponService interface for coupon operations
-type CouponService interface {
-	RegisterWithInvitation(invitationCode string, inviteeID uint64) error
-	DistributeRegisterCoupons(userID uint64) error
-}
-
-// CurrencyService interface for currency operations
-type CurrencyService interface {
-	GetCurrencyConfigAmount(configKey string) (int64, error)
-	GiftGold(ctx context.Context, userID uint, amount int64, bizType, bizID, desc string) (any, error)
-	EnsureWalletExists(userID uint) error
-}
-
 // MessageService interface for sending in-app messages
 type MessageService interface {
 	SendToUser(userID uint, title, content string, category string, linkURL, linkText string) error
@@ -58,8 +45,6 @@ var (
 type Service struct {
 	repo                *Repository
 	configService       ConfigService
-	couponService       CouponService
-	currencyService     CurrencyService
 	messageService      MessageService
 	onlineStatsProvider ifaces.OnlineStatsProvider
 }
@@ -68,29 +53,13 @@ type Service struct {
 func NewService(repo *Repository) *Service {
 	return &Service{
 		repo:          repo,
-		configService: nil, // Will be set via SetConfigService
-		couponService: nil, // Will be set via SetCouponService
+		configService: nil, // 通过 SetConfigService 注入
 	}
 }
 
 // SetConfigService sets the config service (for dependency injection)
 func (s *Service) SetConfigService(configService ConfigService) {
 	s.configService = configService
-}
-
-// SetCouponService sets the coupon service (for dependency injection)
-func (s *Service) SetCouponService(couponService CouponService) {
-	s.couponService = couponService
-}
-
-// GetCouponService returns the coupon service
-func (s *Service) GetCouponService() CouponService {
-	return s.couponService
-}
-
-// SetCurrencyService sets the currency service (for dependency injection)
-func (s *Service) SetCurrencyService(currencyService CurrencyService) {
-	s.currencyService = currencyService
 }
 
 // SetMessageService sets the message service (for dependency injection)
@@ -103,78 +72,20 @@ func (s *Service) SetOnlineStatsProvider(provider ifaces.OnlineStatsProvider) {
 	s.onlineStatsProvider = provider
 }
 
-// GetRegisterGiftAmount 获取注册赠送经费金额配置
-func (s *Service) GetRegisterGiftAmount() int64 {
-	if s.currencyService == nil {
-		return 0
-	}
-
-	amount, err := s.currencyService.GetCurrencyConfigAmount("register_gift_gold")
-	if err != nil || amount <= 0 {
-		return 0
-	}
-	return amount
-}
-
 // SendWelcomeMessage 发送新用户欢迎站内信
-func (s *Service) SendWelcomeMessage(userID uint, hasInvitation bool) {
+func (s *Service) SendWelcomeMessage(userID uint) {
 	if s.messageService == nil {
 		return
 	}
 
-	// 如果是通过邀请注册的用户，跳过（邀请系统会发送专门的欢迎信）
-	if hasInvitation {
-		return
-	}
-
-	// 获取注册赠送经费配置
-	var giftAmount int64
-	if s.currencyService != nil {
-		amount, err := s.currencyService.GetCurrencyConfigAmount("register_gift_gold")
-		if err == nil && amount > 0 {
-			giftAmount = amount
-		}
-	}
-
 	title := "欢迎加入 Scholay"
-	var content string
-	if giftAmount > 0 {
-		content = fmt.Sprintf("感谢注册！已为您发放 %d 经费作为新用户福利，开始探索学术世界吧~", giftAmount)
-	} else {
-		content = "感谢注册！开始探索学术世界吧~"
-	}
+	content := "感谢注册！开始探索学术世界吧~"
 
 	go func() {
 		if err := s.messageService.SendToUser(userID, title, content, "system", "/", "开始探索"); err != nil {
 			slog.Error("failed to send welcome message", "user_id", userID, "err", err)
 		}
 	}()
-}
-
-// GiftRegisterGold 赠送注册经费
-func (s *Service) GiftRegisterGold(userID uint) {
-	if s.currencyService == nil {
-		return
-	}
-
-	// 获取注册赠送经费配置
-	amount, err := s.currencyService.GetCurrencyConfigAmount("register_gift_gold")
-	if err != nil || amount <= 0 {
-		return
-	}
-
-	// 确保钱包存在
-	if err := s.currencyService.EnsureWalletExists(userID); err != nil {
-		slog.Error("failed to ensure wallet", "user_id", userID, "err", err)
-		return
-	}
-
-	// 赠送经费
-	ctx := context.Background()
-	_, err = s.currencyService.GiftGold(ctx, userID, amount, "register_gift", fmt.Sprintf("user_%d", userID), "新用户注册赠送")
-	if err != nil {
-		slog.Error("failed to gift register gold", "user_id", userID, "err", err)
-	}
 }
 
 // GetSystemConfig gets the system configuration
@@ -232,6 +143,8 @@ func (s *Service) RegisterWithEmail(email, password, code, ip string) (*User, st
 
 // RegisterWithEmailAndInvitation registers a new user with email, password and optional invitation code
 func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitationCode, ip string) (*User, string, error) {
+	_ = invitationCode // 邀请业务已移除，参数保留以兼容 API
+
 	// Verify the email code using Redis (only if code is provided)
 	if code != "" {
 		valid, err := cache.VerifyCode(context.Background(), email, code, "register")
@@ -327,26 +240,8 @@ func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitati
 		_ = s.repo.IncrementNewUsers(today)
 	}()
 
-	// Handle invitation code if provided
-	if invitationCode != "" && s.couponService != nil {
-		// Process invitation in background to not block registration
-		go func() {
-			_ = s.couponService.RegisterWithInvitation(invitationCode, uint64(user.ID))
-		}()
-	}
-
-	// Distribute register coupons to new user (auto_register type)
-	if s.couponService != nil {
-		go func() {
-			_ = s.couponService.DistributeRegisterCoupons(uint64(user.ID))
-		}()
-	}
-
-	// 赠送注册经费给新用户
-	go s.GiftRegisterGold(user.ID)
-
-	// 发送欢迎站内信（如果没有邀请码的话，有邀请码的在邀请系统中发送）
-	go s.SendWelcomeMessage(user.ID, invitationCode != "")
+	// 发送欢迎站内信
+	go s.SendWelcomeMessage(user.ID)
 
 	return user, token, nil
 }
@@ -653,12 +548,6 @@ func (s *Service) GetOnlineUsers() ([]map[string]any, error) {
 }
 
 // UserDetail represents detailed user information for admin
-// WalletInfo 钱包信息
-type WalletInfo struct {
-	Gold    int64 `json:"gold"`
-	Diamond int64 `json:"diamond"`
-}
-
 type UserDetail struct {
 	// Basic Info
 	ID            uint       `json:"id"`
@@ -676,80 +565,9 @@ type UserDetail struct {
 	// Auth Providers
 	AuthProviders []string `json:"auth_providers"`
 
-	// Wallet Info
-	Wallet *WalletInfo `json:"wallet,omitempty"` // 钱包信息
-
-	// Subscription Info
-	CurrentSubscription *SubscriptionInfo `json:"current_subscription,omitempty"`
-
-	// Order Statistics
-	OrderStats OrderStats `json:"order_stats"`
-
-	// Invitation Statistics
-	InvitationStats InvitationStats `json:"invitation_stats"`
-
-	// Coupon Statistics
-	CouponStats CouponStats `json:"coupon_stats"`
-
-	// NEW: Invitation Relationships
-	InvitedBy    *InviterInfo   `json:"invited_by,omitempty"`     // 谁邀请了我
-	InvitedUsers []InvitedUser  `json:"invited_users,omitempty"`  // 我邀请的人
-
-	// NEW: Conversation Statistics
+	// Conversation Statistics
 	AIConversationStats     ConversationStats `json:"ai_conversation_stats"`      // AI对话统计
 	AnalysisConversationStats ConversationStats `json:"analysis_conversation_stats"` // 智能分析统计
-}
-
-type SubscriptionInfo struct {
-	PlanName      string    `json:"plan_name"`
-	PlanCode      string    `json:"plan_code"`
-	BillingCycle  string    `json:"billing_cycle"`
-	Status        string    `json:"status"`
-	StartDate     time.Time `json:"start_date"`
-	EndDate       time.Time `json:"end_date"`
-	AutoRenew     bool      `json:"auto_renew"`
-	TotalQuota    int       `json:"total_quota"`
-	UsedQuota     int       `json:"used_quota"`
-	RemainingDays int       `json:"remaining_days"`
-}
-
-type OrderStats struct {
-	TotalOrders  int     `json:"total_orders"`
-	TotalAmount  float64 `json:"total_amount"`
-	TotalSaved   float64 `json:"total_saved"`
-	LastOrderAt  *time.Time `json:"last_order_at,omitempty"`
-}
-
-type InvitationStats struct {
-	InvitationCode   string `json:"invitation_code"`
-	TotalInvited     int    `json:"total_invited"`
-	SuccessInvited   int    `json:"success_invited"`
-	RewardsEarned    int    `json:"rewards_earned"`
-}
-
-type CouponStats struct {
-	TotalCoupons     int `json:"total_coupons"`
-	UsedCoupons      int `json:"used_coupons"`
-	AvailableCoupons int `json:"available_coupons"`
-	ExpiredCoupons   int `json:"expired_coupons"`
-}
-
-// InviterInfo represents the person who invited this user
-type InviterInfo struct {
-	UserID    uint    `json:"user_id"`
-	Username  *string `json:"username"`
-	Email     *string `json:"email"`
-	InvitedAt time.Time `json:"invited_at"`
-}
-
-// InvitedUser represents a user that was invited by this user
-type InvitedUser struct {
-	UserID       uint      `json:"user_id"`
-	Username     *string   `json:"username"`
-	Email        *string   `json:"email"`
-	InvitedAt    time.Time `json:"invited_at"`
-	IsRegistered bool      `json:"is_registered"` // 是否已注册
-	HasOrdered   bool      `json:"has_ordered"`   // 是否已下单
 }
 
 // ConversationStats represents conversation statistics
@@ -794,181 +612,11 @@ func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
 		detail.LastLoginIPInfo = utils.GetLocationString(location)
 	}
 
-	// Get wallet info
-	walletRow, err := s.repo.GetUserWallet(userID)
-	if err == nil && walletRow != nil {
-		detail.Wallet = &WalletInfo{
-			Gold:    walletRow.Gold,
-			Diamond: walletRow.Diamond,
-		}
-	}
-
 	// Get auth providers
 	authProviders, err := s.repo.GetUserAuthProviders([]uint{userID})
 	if err == nil && len(authProviders[userID]) > 0 {
 		for _, provider := range authProviders[userID] {
 			detail.AuthProviders = append(detail.AuthProviders, provider.Provider)
-		}
-	}
-
-	// Get subscription info
-	subscription, err := s.repo.GetActiveSubscription(userID)
-	if err == nil && subscription != nil {
-		plan, _ := s.repo.GetSubscriptionPlanInfo(subscription.PlanCode)
-
-		remainingDays := 0
-		endDate := time.Time{}
-
-		if subscription.EndDate != nil {
-			endDate = *subscription.EndDate
-			remainingDays = int(time.Until(endDate).Hours() / 24)
-			if remainingDays < 0 {
-				remainingDays = 0
-			}
-		}
-
-		billingCycle := "monthly"
-		if subscription.EndDate != nil {
-			duration := subscription.EndDate.Sub(subscription.StartDate)
-			if duration.Hours() > 40*24 {
-				billingCycle = "yearly"
-			}
-		}
-
-		planName := ""
-		featuresJSON := ""
-		if plan != nil {
-			planName = plan.PlanName
-			featuresJSON = plan.Features
-		}
-
-		detail.CurrentSubscription = &SubscriptionInfo{
-			PlanName:      planName,
-			PlanCode:      subscription.PlanCode,
-			BillingCycle:  billingCycle,
-			Status:        subscription.Status,
-			StartDate:     subscription.StartDate,
-			EndDate:       endDate,
-			AutoRenew:     subscription.AutoRenew,
-			RemainingDays: remainingDays,
-		}
-
-		today := time.Now().Format("2006-01-02")
-		todayUsed, _ := s.repo.GetDailyQuotaUsage(userID, today)
-
-		var features struct {
-			NormalSearch struct {
-				Limit int `json:"limit"`
-			} `json:"normal_search"`
-			AdvancedSearchLow struct {
-				Limit int `json:"limit"`
-			} `json:"advanced_search_low"`
-			AdvancedSearchMid struct {
-				Limit int `json:"limit"`
-			} `json:"advanced_search_mid"`
-			AdvancedSearchHigh struct {
-				Limit int `json:"limit"`
-			} `json:"advanced_search_high"`
-			AIChatNormal struct {
-				Limit int `json:"limit"`
-			} `json:"ai_chat_normal"`
-			AIChatMid struct {
-				Limit int `json:"limit"`
-			} `json:"ai_chat_mid"`
-			AIChatHigh struct {
-				Limit int `json:"limit"`
-			} `json:"ai_chat_high"`
-		}
-
-		totalQuota := 0
-		if featuresJSON != "" {
-			json.Unmarshal([]byte(featuresJSON), &features)
-			limits := []int{
-				features.NormalSearch.Limit,
-				features.AdvancedSearchLow.Limit,
-				features.AdvancedSearchMid.Limit,
-				features.AdvancedSearchHigh.Limit,
-				features.AIChatNormal.Limit,
-				features.AIChatMid.Limit,
-				features.AIChatHigh.Limit,
-			}
-			for _, limit := range limits {
-				if limit > totalQuota && limit != -1 {
-					totalQuota = limit
-				}
-			}
-		}
-
-		detail.CurrentSubscription.TotalQuota = totalQuota
-		detail.CurrentSubscription.UsedQuota = todayUsed
-	}
-
-	// Get order statistics
-	orderStatsRow, _ := s.repo.GetPaidOrderStats(userID)
-	if orderStatsRow != nil {
-		detail.OrderStats = OrderStats{
-			TotalOrders: orderStatsRow.TotalOrders,
-			TotalAmount: orderStatsRow.TotalAmount,
-			TotalSaved:  orderStatsRow.TotalSaved,
-			LastOrderAt: orderStatsRow.LastOrderAt,
-		}
-	}
-
-	// Get invitation statistics
-	invInfo, err := s.repo.GetUserInvitationInfo(userID)
-	if err == nil && invInfo != nil {
-		detail.InvitationStats = InvitationStats{
-			InvitationCode: invInfo.Code,
-			TotalInvited:   invInfo.TotalInvited,
-			SuccessInvited: invInfo.SuccessInvited,
-			RewardsEarned:  invInfo.SuccessInvited,
-		}
-	}
-
-	// Get coupon statistics
-	now := time.Now()
-	couponStatsRow, _ := s.repo.GetUserCouponStats(userID, now)
-	if couponStatsRow != nil {
-		detail.CouponStats = CouponStats{
-			TotalCoupons:     couponStatsRow.Total,
-			UsedCoupons:      couponStatsRow.Used,
-			AvailableCoupons: couponStatsRow.Available,
-			ExpiredCoupons:   couponStatsRow.Expired,
-		}
-	}
-
-	// Get inviter information (who invited this user)
-	inviterData, err := s.repo.GetUserInviter(userID)
-	if err == nil && inviterData != nil {
-		invitedAt := user.CreatedAt
-		if inviterData.RegisteredAt != nil {
-			invitedAt = *inviterData.RegisteredAt
-		}
-		detail.InvitedBy = &InviterInfo{
-			UserID:    inviterData.InviterID,
-			Username:  inviterData.Username,
-			Email:     inviterData.Email,
-			InvitedAt: invitedAt,
-		}
-	}
-
-	// Get list of users invited by this user
-	invitedUsersData, err := s.repo.GetInvitedUsers(userID)
-	if err == nil && len(invitedUsersData) > 0 {
-		detail.InvitedUsers = make([]InvitedUser, len(invitedUsersData))
-		for i, invitee := range invitedUsersData {
-			invitedAt := user.CreatedAt
-			if invitee.RegisteredAt != nil {
-				invitedAt = *invitee.RegisteredAt
-			}
-			detail.InvitedUsers[i] = InvitedUser{
-				UserID:       invitee.UserID,
-				Username:     invitee.Username,
-				Email:        invitee.Email,
-				InvitedAt:    invitedAt,
-				IsRegistered: invitee.Status != "pending",
-				HasOrdered:   invitee.HasOrdered,
-			}
 		}
 	}
 
@@ -1532,6 +1180,8 @@ func (s *Service) SendPhoneVerificationCode(phone, purpose string) error {
 // RegisterWithPhone registers a new user with phone and password
 // Enhanced with transaction support for concurrency safety
 func (s *Service) RegisterWithPhone(phone, password, code, invitationCode, ip string) (*User, string, error) {
+	_ = invitationCode // 邀请业务已移除，参数保留以兼容 API
+
 	// Verify the phone code using Redis
 	valid, err := cache.VerifyCode(context.Background(), phone, code, "register")
 	if err != nil {
@@ -1619,26 +1269,7 @@ func (s *Service) RegisterWithPhone(phone, password, code, invitationCode, ip st
 		return nil, "", err
 	}
 
-	// Handle invitation code if provided (same logic as email registration)
-	if invitationCode != "" && s.couponService != nil {
-		// Process invitation in background to not block registration
-		go func() {
-			_ = s.couponService.RegisterWithInvitation(invitationCode, uint64(user.ID))
-		}()
-	}
-
-	// Distribute register coupons to new user (auto_register type)
-	if s.couponService != nil {
-		go func() {
-			_ = s.couponService.DistributeRegisterCoupons(uint64(user.ID))
-		}()
-	}
-
-	// 赠送注册经费给新用户
-	go s.GiftRegisterGold(user.ID)
-
-	// 发送欢迎站内信（如果没有邀请码的话，有邀请码的在邀请系统中发送）
-	go s.SendWelcomeMessage(user.ID, invitationCode != "")
+	go s.SendWelcomeMessage(user.ID)
 
 	return user, token, nil
 }
@@ -1971,6 +1602,7 @@ func (s *Service) UnbindGitHub(userID uint) error {
 
 // LoginOrRegisterWithWeChat handles WeChat login or registration
 func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL, ip, invitationCode string) (*User, string, bool, error) {
+	_ = invitationCode // 邀请业务已移除，参数保留以兼容前端传参
 	var authProvider *UserAuthProvider
 	var err error
 	
@@ -2043,26 +1675,7 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	// Update last login time and IP (registration counts as first login)
 	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
 
-	// 处理邀请码 - 如果是新用户且有邀请码
-	if invitationCode != "" {
-		if err := s.ProcessInvitationForOAuth(user.ID, invitationCode, ip); err != nil {
-			// 邀请码处理失败不影响注册，只记录日志
-			slog.Error("failed to process invitation code for WeChat user", "user_id", user.ID, "err", err)
-		}
-	}
-
-	// 发放注册自动折扣券给新用户
-	if s.couponService != nil {
-		go func() {
-			_ = s.couponService.DistributeRegisterCoupons(uint64(user.ID))
-		}()
-	}
-
-	// 赠送注册经费给新用户
-	go s.GiftRegisterGold(user.ID)
-
-	// 发送欢迎站内信（如果没有邀请码的话，有邀请码的在邀请系统中发送）
-	go s.SendWelcomeMessage(user.ID, invitationCode != "")
+	go s.SendWelcomeMessage(user.ID)
 
 	// Create auth provider entry
 	providerData := map[string]string{
@@ -2098,16 +1711,6 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	return user, token, isNewUser, nil
 }
 
-// ProcessInvitationForOAuth processes invitation code for OAuth (WeChat/GitHub) registration
-// This is called after a new user is created via OAuth login
-func (s *Service) ProcessInvitationForOAuth(userID uint, invitationCode, ip string) error {
-	if invitationCode == "" || s.couponService == nil {
-		return nil
-	}
-
-	// Process invitation (same logic as email/phone registration)
-	return s.couponService.RegisterWithInvitation(invitationCode, uint64(userID))
-}
 
 // BindWeChat binds a WeChat account to an existing user
 func (s *Service) BindWeChat(userID uint, openID, unionID, nickname, avatarURL string) error {

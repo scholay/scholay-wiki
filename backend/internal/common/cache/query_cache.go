@@ -126,7 +126,4 @@ var (
 
 	// 论文详情缓存 - 30分钟
 	PaperCache = NewQueryCache("paper", 30*time.Minute)
-
-	// 订阅信息缓存 - 5分钟
-	SubscriptionCache = NewQueryCache("subscription", 5*time.Minute)
 )

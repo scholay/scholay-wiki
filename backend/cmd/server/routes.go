@@ -10,27 +10,21 @@ package main
 import (
 	"scholar-backend/internal/admin"
 	"scholar-backend/internal/ai"
-	"scholar-backend/internal/checkin"
 	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/config"
 	"scholar-backend/internal/conversation"
-	"scholar-backend/internal/coupon"
-	"scholar-backend/internal/currency"
 	"scholar-backend/internal/feedback"
-	"scholar-backend/internal/fund"
 	"scholar-backend/internal/hotcontent"
 	"scholar-backend/internal/latexwriter"
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/message"
-	"scholar-backend/internal/order"
 	"scholar-backend/internal/payment"
 	"scholar-backend/internal/pdf"
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/proxy"
 	"scholar-backend/internal/semanticscholar"
-	"scholar-backend/internal/subscription"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/user"
@@ -43,41 +37,32 @@ import (
 
 // allHandlers 聚合所有 handler 实例，用于路由注册
 type allHandlers struct {
-	admin              *admin.Handler
-	dashboard          *admin.DashboardHandler
-	user               *user.Handler
-	config             *config.Handler
-	scholar            *semanticscholar.Handler
-	ai                 *ai.Handler
-	conversation       *conversation.Handler
-	chat               *conversation.ChatHandler
-	proxy              *proxy.Handler
-	pdf                *pdf.Handler
-	subscription       *subscription.Handler
-	order              *order.Handler
-	alipay             *payment.AlipayHandler
-	wechatPay          *payment.WeChatPayHandler
-	wechat             *wechat.Handler
-	wechatOfficial     *wechatofficial.Handler
-	checkin            *checkin.Handler
-	currency           *currency.Handler
-	currencyAdmin      *currency.AdminHandler
-	currencyMiddleware *currency.DeductMiddleware
-	fund               *fund.Handler
-	fundAdmin          *fund.AdminHandler
-	usageLog           *usagelog.Handler
-	usageLogAdmin      *usagelog.AdminHandler
-	hotContent         *hotcontent.Handler
-	message            *message.Handler
-	feedback           *feedback.Handler
-	coupon             *coupon.Handler
-	peerReview         *peerreview.Handler
-	latexWriter        *latexwriter.Handler
-	latexAgentAdmin    *latexwriter.AdminHandler
-	ws                 *websocket.Handler
-	thirdParty  *thirdparty.Handler
-	mcpUnified  *mcp.UnifiedHandler
-	mcpLegacy  *mcp.Handler
+	admin          *admin.Handler
+	dashboard      *admin.DashboardHandler
+	user           *user.Handler
+	config         *config.Handler
+	scholar        *semanticscholar.Handler
+	ai             *ai.Handler
+	conversation   *conversation.Handler
+	chat           *conversation.ChatHandler
+	proxy          *proxy.Handler
+	pdf            *pdf.Handler
+	alipay         *payment.AlipayHandler
+	wechatPay      *payment.WeChatPayHandler
+	wechat         *wechat.Handler
+	wechatOfficial *wechatofficial.Handler
+	usageLog       *usagelog.Handler
+	usageLogAdmin  *usagelog.AdminHandler
+	hotContent     *hotcontent.Handler
+	message        *message.Handler
+	feedback       *feedback.Handler
+	peerReview     *peerreview.Handler
+	latexWriter    *latexwriter.Handler
+	latexAgentAdmin *latexwriter.AdminHandler
+	ws             *websocket.Handler
+	thirdParty     *thirdparty.Handler
+	mcpUnified     *mcp.UnifiedHandler
+	mcpLegacy      *mcp.Handler
 }
 
 // registerRoutes 注册所有 API 路由
@@ -170,7 +155,6 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.GET("/users/online", h.user.GetOnlineUsers)
 		adminProtected.GET("/users/:id", h.user.GetUserDetail)
 		adminProtected.DELETE("/users/:id", h.user.DeleteUser)
-		adminProtected.POST("/users/:id/grant-subscription", h.order.AdminGrantSubscription)
 
 		// 统计图表
 		adminProtected.GET("/statistics/users", h.user.GetUserStatisticsChart)
@@ -196,13 +180,6 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		// 分析维度管理
 		adminProtected.GET("/analysis/dimensions", h.ai.AdminGetSystemDimensions)
 		adminProtected.PUT("/analysis/dimensions/:id", h.ai.AdminUpdateSystemDimension)
-
-		// 订阅计划管理
-		adminProtected.PUT("/subscription-plans/:id", h.subscription.UpdatePlan)
-
-		// 订单管理
-		adminProtected.GET("/orders/statistics", h.order.GetOrderStatistics)
-		adminProtected.GET("/orders", h.order.AdminListOrders)
 
 		// 支付宝配置
 		adminProtected.GET("/payment/alipay/config", h.alipay.GetActiveConfig)
@@ -246,23 +223,6 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.DELETE("/latex-agent/models/:id", h.latexAgentAdmin.DeleteModel)
 		adminProtected.POST("/latex-agent/models/:id/set-default", h.latexAgentAdmin.SetDefaultModel)
 
-		// 优惠券管理
-		adminProtected.POST("/coupon-templates", h.coupon.CreateTemplate)
-		adminProtected.GET("/coupon-templates", h.coupon.ListTemplates)
-		adminProtected.GET("/coupon-templates/:id", h.coupon.GetTemplate)
-		adminProtected.PUT("/coupon-templates/:id", h.coupon.UpdateTemplate)
-		adminProtected.DELETE("/coupon-templates/:id", h.coupon.DeleteTemplate)
-		adminProtected.POST("/coupon-templates/:id/activate", h.coupon.ActivateTemplate)
-		adminProtected.POST("/coupon-templates/:id/pause", h.coupon.PauseTemplate)
-		adminProtected.POST("/coupons/distribute", h.coupon.DistributeCoupons)
-		adminProtected.GET("/coupons/distributed", h.coupon.AdminListAllDistributedCoupons)
-		adminProtected.GET("/coupons/statistics", h.coupon.GetStatistics)
-		adminProtected.POST("/coupon-batches", h.coupon.CreateBatch)
-		adminProtected.GET("/coupon-batches", h.coupon.ListBatches)
-		adminProtected.GET("/coupon-batches/:id", h.coupon.GetBatch)
-		adminProtected.POST("/coupon-batches/:id/execute", h.coupon.ExecuteBatch)
-		adminProtected.POST("/coupon-batches/:id/cancel", h.coupon.CancelBatch)
-
 		// 反馈管理
 		adminProtected.GET("/feedbacks", h.feedback.ListFeedbacks)
 		adminProtected.GET("/feedbacks/stats", h.feedback.GetStats)
@@ -270,32 +230,6 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.PUT("/feedbacks/:id/status", h.feedback.UpdateStatus)
 		adminProtected.POST("/feedbacks/:id/reply", h.feedback.ReplyFeedback)
 		adminProtected.DELETE("/feedbacks/:id", h.feedback.DeleteFeedback)
-
-		// 货币系统管理
-		adminProtected.POST("/currency/recharge", h.currencyAdmin.AdminRecharge)
-		adminProtected.POST("/currency/deduct", h.currencyAdmin.AdminDeduct)
-		adminProtected.GET("/currency/wallet/:user_id", h.currencyAdmin.GetUserWallet)
-		adminProtected.GET("/currency/deduct-configs", h.currencyAdmin.ListDeductConfigs)
-		adminProtected.POST("/currency/deduct-configs", h.currencyAdmin.SaveDeductConfig)
-		adminProtected.GET("/currency/configs", h.currencyAdmin.ListCurrencyConfigs)
-		adminProtected.GET("/currency/configs/:key", h.currencyAdmin.GetCurrencyConfig)
-		adminProtected.PUT("/currency/configs/:key", h.currencyAdmin.UpdateCurrencyConfig)
-		adminProtected.POST("/currency/trigger-daily-reminders", h.currencyAdmin.TriggerDailyReminders)
-		adminProtected.POST("/currency/trigger-monthly-tasks", h.currencyAdmin.TriggerMonthlyTasks)
-		adminProtected.POST("/currency/batch-distribute", h.currencyAdmin.BatchDistribute)
-		adminProtected.POST("/currency/batch-distribute/preview", h.currencyAdmin.GetTargetUserCount)
-		adminProtected.GET("/currency/batches", h.currencyAdmin.ListBatches)
-		adminProtected.GET("/currency/batches/:id", h.currencyAdmin.GetBatch)
-		adminProtected.POST("/currency/batches/:id/cancel", h.currencyAdmin.CancelBatch)
-		adminProtected.GET("/currency/batches/:id/distributions", h.currencyAdmin.GetBatchDistributions)
-
-		// 会员基金管理
-		adminProtected.GET("/funds", h.fundAdmin.ListFunds)
-		adminProtected.GET("/funds/stats", h.fundAdmin.GetStats)
-		adminProtected.GET("/funds/:id", h.fundAdmin.GetFund)
-		adminProtected.POST("/funds", h.fundAdmin.CreateFund)
-		adminProtected.PUT("/funds/:id", h.fundAdmin.UpdateFund)
-		adminProtected.DELETE("/funds/:id", h.fundAdmin.DeleteFund)
 
 		// 使用日志管理
 		adminProtected.GET("/usage-logs", h.usageLogAdmin.List)
@@ -350,12 +284,6 @@ func registerPaymentCallbackRoutes(api *gin.RouterGroup, h *allHandlers) {
 func registerPublicUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 	h.user.RegisterRoutes(api)
 
-	subscriptionPublic := api.Group("/user/subscription")
-	{
-		subscriptionPublic.GET("/plans", h.subscription.GetPlans)
-		subscriptionPublic.GET("/plans/:code", h.subscription.GetPlanByCode)
-	}
-
 	wechatPublic := api.Group("/user/wechat")
 	{
 		wechatPublic.GET("/login-url", h.wechat.GetLoginURL)
@@ -380,21 +308,6 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 		userProtected.POST("/logout", h.user.Logout)
 		userProtected.POST("/change-password", h.user.ChangePassword)
 
-		// 钱包
-		userProtected.GET("/wallet", h.currency.GetWallet)
-		userProtected.GET("/wallet/check", h.currency.CheckBalance)
-		userProtected.GET("/wallet/check-by-biz", h.currency.CheckBalanceByBizType)
-		userProtected.GET("/wallet/transactions", h.currency.ListTransactions)
-		userProtected.GET("/wallet/transactions/:transaction_no", h.currency.GetTransaction)
-		userProtected.GET("/wallet/recharge-info", h.currency.GetRechargeInfo)
-		userProtected.GET("/wallet/exchange-info", h.currency.GetExchangeInfo)
-		userProtected.GET("/wallet/exchange/preview", h.currency.PreviewExchange)
-		userProtected.POST("/wallet/exchange", h.currency.ExchangeDiamondToGold)
-		userProtected.GET("/wallet/biz-display-infos", h.currency.GetBizDisplayInfos)
-
-		// 会员基金
-		userProtected.GET("/funds/distributions", h.fund.GetMyDistributions)
-
 		// 账号可用性检查
 		userProtected.POST("/check-email-availability", h.user.CheckEmailAvailability)
 		userProtected.POST("/check-phone-availability", h.user.CheckPhoneAvailability)
@@ -413,48 +326,18 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 		userProtected.POST("/unbind-wechat", h.user.UnbindWeChat)
 		userProtected.POST("/unbind-github", h.user.UnbindGitHub)
 
-		// 订阅
-		userProtected.GET("/subscription/my", h.subscription.GetMySubscription)
-		userProtected.GET("/subscription/usage", h.subscription.GetMyUsageQuota)
-		userProtected.POST("/subscription/upgrade", h.subscription.UpgradeSubscription)
-		userProtected.POST("/subscription/renew", h.subscription.RenewSubscription)
-
-		// 订单
-		userProtected.POST("/orders/create", h.order.CreateOrder)
-		userProtected.POST("/orders/recharge", h.order.CreateRechargeOrder)
-		userProtected.GET("/orders/my", h.order.GetMyOrders)
-		userProtected.GET("/orders/:order_no", h.order.GetOrderDetail)
-		userProtected.POST("/orders/pay", h.order.ProcessPayment)
-		userProtected.POST("/orders/cancel", h.order.CancelOrder)
-		userProtected.GET("/orders/billing-history", h.order.GetBillingHistory)
-
-		// 支付
+		// 支付（保留支付宝支付逻辑）
 		userProtected.POST("/payment/alipay/create", h.alipay.CreatePayment)
 		if appconfig.AppConfig != nil && !appconfig.AppConfig.App.IsRelease {
 			userProtected.POST("/payment/simulate", h.alipay.SimulatePayment)
 		}
 		userProtected.POST("/payment/wechat/create", h.wechatPay.CreatePayment)
 
-		// 优惠券
-		userProtected.GET("/coupons", h.coupon.GetMyCoupons)
-		userProtected.GET("/coupons/available", h.coupon.GetAvailableCoupons)
-		userProtected.POST("/coupons/claim", h.coupon.ClaimCoupon)
-		userProtected.POST("/coupons/apply", h.coupon.ApplyCoupon)
-		userProtected.GET("/coupons/calculate-discount", h.coupon.CalculateDiscount)
-
-		// 邀请
-		userProtected.POST("/invitation/generate", h.coupon.GenerateInvitation)
-		userProtected.GET("/invitation/my", h.coupon.GetMyInvitation)
-		userProtected.GET("/invitation/statistics", h.coupon.GetInvitationStatistics)
-
 		// 反馈
 		userProtected.POST("/feedback", h.feedback.CreateFeedbackWithUser)
 
 		// 任务历史
 		userProtected.GET("/task-history", h.user.GetTaskHistory)
-
-		// 签到
-		h.checkin.RegisterRoutes(userProtected)
 
 		// 站内信
 		userProtected.GET("/messages", h.message.GetMessages)
@@ -545,9 +428,6 @@ func registerLatexWriterRoutes(parent *gin.RouterGroup, h *allHandlers) {
 func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers) {
 	publicAPI := api.Group("/public")
 	{
-		publicAPI.GET("/funds", h.fund.ListFunds)
-		publicAPI.GET("/funds/current", h.fund.GetCurrentFund)
-		publicAPI.GET("/funds/:id", h.fund.GetFundDetail)
 		publicAPI.GET("/papers/:paperId", h.scholar.GetPaper)
 		publicAPI.POST("/papers/search", h.scholar.SearchPapers)
 		publicAPI.POST("/papers/batch", h.scholar.GetPaperBatch)
@@ -568,12 +448,12 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers) {
 	}
 }
 
-// registerAnalysisRoutes 注册论文分析路由
+// registerAnalysisRoutes 注册论文分析路由（已移除扣费中间件）
 func registerAnalysisRoutes(api *gin.RouterGroup, h *allHandlers) {
 	analysisGroup := api.Group("/analysis")
 	analysisGroup.Use(middleware.UserAuthMiddleware())
 	{
-		analysisGroup.POST("/paper", h.currencyMiddleware.DeductAfterWithDynamicBizID("paper_analysis"), h.ai.AnalyzePaper)
+		analysisGroup.POST("/paper", h.ai.AnalyzePaper)
 		analysisGroup.POST("/papers/batch", h.ai.BatchAnalyzePapers)
 		analysisGroup.GET("/dimensions", h.ai.GetAnalysisDimensions)
 		analysisGroup.POST("/dimensions", h.ai.CreateUserDimension)

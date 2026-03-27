@@ -8,12 +8,10 @@
 package conversation
 
 import (
-	"context"
 	"log/slog"
 	"scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
-	"scholar-backend/internal/currency"
 	"scholar-backend/internal/thirdparty"
 	"strconv"
 
@@ -30,72 +28,11 @@ func useAdvancedSearchV2() bool {
 }
 
 type Handler struct {
-	service         *Service
-	currencyService *currency.Service
+	service *Service
 }
 
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
-}
-
-// SetCurrencyService sets the currency service for deduction
-func (h *Handler) SetCurrencyService(currencyService *currency.Service) {
-	h.currencyService = currencyService
-}
-
-// getBizTypeForSmartAnalysis 根据模型级别获取业务类型
-func (h *Handler) getBizTypeForSmartAnalysis(modelLevel string) string {
-	switch modelLevel {
-	case "mid":
-		return "smart_analysis_mid"
-	case "high":
-		return "smart_analysis_high"
-	default:
-		return "smart_analysis_low"
-	}
-}
-
-// checkBalanceForSmartAnalysis 检查余额是否充足（不扣费）
-func (h *Handler) checkBalanceForSmartAnalysis(userID uint, modelLevel string) error {
-	if h.currencyService == nil {
-		return nil
-	}
-
-	bizType := h.getBizTypeForSmartAnalysis(modelLevel)
-	checkResult, err := h.currencyService.CheckBalanceByBizType(userID, bizType)
-	if err != nil {
-		return err
-	}
-	if !checkResult.Sufficient {
-		return currency.ErrInsufficientBalance
-	}
-	return nil
-}
-
-// deductForSmartAnalysisAfterSuccess 成功后扣费，返回扣费金额
-func (h *Handler) deductForSmartAnalysisAfterSuccess(ctx context.Context, userID uint, modelLevel string) int64 {
-	if h.currencyService == nil {
-		slog.Info("currency service not set, skip deduct")
-		return 0
-	}
-
-	bizType := h.getBizTypeForSmartAnalysis(modelLevel)
-	transaction, err := h.currencyService.DeductByBizType(ctx, userID, bizType, "")
-	if err != nil {
-		slog.Error("deduct failed after success", "userID", userID, "bizType", bizType, "err", err)
-		return 0
-	}
-	if transaction == nil {
-		slog.Info("no deduct config or disabled", "userID", userID, "bizType", bizType)
-		return 0
-	}
-	// transaction.Amount 是负数（扣费），取绝对值返回
-	amount := transaction.Amount
-	if amount < 0 {
-		amount = -amount
-	}
-	slog.Info("deduct success", "userID", userID, "bizType", bizType, "amount", amount)
-	return amount
 }
 
 // CreateConversation creates a new conversation
@@ -343,19 +280,9 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 		return
 	}
 
-	// 1. 先检查余额（不扣费）
-	if err := h.checkBalanceForSmartAnalysis(userID.(uint), modelLevel); err != nil {
-		if err == currency.ErrInsufficientBalance {
-			utils.PaymentRequired(c, "经费不足", nil)
-		} else {
-			utils.Error(c, 500, "检查余额失败: "+err.Error())
-		}
-		return
-	}
-
 	sse.SetHeaders(c)
 
-	// 2. 执行智能分析并流式返回结果（使用指定的模型级别）
+	// 执行智能分析并流式返回结果（使用指定的模型级别）
 	// 根据环境变量选择使用 V1 或 V2 版本
 	if useAdvancedSearchV2() {
 		slog.Info("using optimized advanced search V2")
@@ -383,10 +310,7 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 		return
 	}
 
-	// 3. 成功后扣费
-	deductedAmount := h.deductForSmartAnalysisAfterSuccess(c.Request.Context(), userID.(uint), modelLevel)
-
-	sse.WriteDoneWithData(c.Writer, map[string]int64{"deducted_amount": deductedAmount})
+	sse.WriteDone(c.Writer)
 }
 
 // StreamContinueConversation handles continuing the conversation with context
@@ -437,19 +361,9 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 		return
 	}
 
-	// 1. 先检查余额（不扣费）
-	if err := h.checkBalanceForSmartAnalysis(userID.(uint), modelLevel); err != nil {
-		if err == currency.ErrInsufficientBalance {
-			utils.PaymentRequired(c, "经费不足", nil)
-		} else {
-			utils.Error(c, 500, "检查余额失败: "+err.Error())
-		}
-		return
-	}
-
 	sse.SetHeaders(c)
 
-	// 2. Continue the conversation with specified model level
+	// 按指定模型级别继续对话
 	err = h.service.ContinueConversation(
 		c.Request.Context(),
 		uint(conversationID),
@@ -463,12 +377,8 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 		return
 	}
 
-	// 3. 成功后扣费
-	deductedAmount := h.deductForSmartAnalysisAfterSuccess(c.Request.Context(), userID.(uint), modelLevel)
-
-	sse.WriteDoneWithData(c.Writer, map[string]int64{"deducted_amount": deductedAmount})
+	sse.WriteDone(c.Writer)
 }
-
 
 // GetFollowUpQuestions handles getting follow-up questions for a message
 // This is a separate endpoint called after the streaming response completes

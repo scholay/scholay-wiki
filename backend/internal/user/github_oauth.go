@@ -13,7 +13,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"scholar-backend/internal/common/cache"
@@ -177,18 +176,11 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 	// Update last login time and IP
 	_ = h.service.UpdateLastLoginWithIP(user.ID, ip)
 
-	response := gin.H{
+	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
 		"token":       token,
 		"user":        user,
 		"is_new_user": isNewUser,
-	}
-
-	// 如果是新用户，返回注册赠送经费金额
-	if isNewUser {
-		response["register_gift_gold"] = h.service.GetRegisterGiftAmount()
-	}
-
-	utils.SuccessResponse(c, http.StatusOK, "success", response)
+	})
 }
 
 // exchangeGithubCode exchanges authorization code for access token
@@ -330,6 +322,8 @@ func (h *Handler) getGithubUserEmail(ctx context.Context, accessToken string) (s
 
 // findOrCreateGithubUser finds existing user or creates new one
 func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode string, ip string) (*User, bool, error) {
+	_ = invitationCode // 邀请业务已移除，参数保留以兼容回调 URL
+
 	// Check if user already exists with this GitHub ID
 	providerUserID := fmt.Sprintf("%d", githubUser.ID)
 	authProvider, err := h.service.FindAuthProvider("github", providerUserID)
@@ -384,26 +378,7 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode 
 			return nil, false, err
 		}
 
-		// 处理邀请码 - 如果是新用户且有邀请码
-		if invitationCode != "" {
-			if err := h.service.ProcessInvitationForOAuth(user.ID, invitationCode, ip); err != nil {
-				// 邀请码处理失败不影响注册，只记录日志
-				slog.Error("failed to process invitation code for GitHub user", "user_id", user.ID, "err", err)
-			}
-		}
-
-		// 发放注册自动折扣券给新用户
-		if h.service.GetCouponService() != nil {
-			go func(uid uint) {
-				_ = h.service.GetCouponService().DistributeRegisterCoupons(uint64(uid))
-			}(user.ID)
-		}
-
-		// 赠送注册经费给新用户
-		go h.service.GiftRegisterGold(user.ID)
-
-		// 发送欢迎站内信（如果没有邀请码的话，有邀请码的在邀请系统中发送）
-		go h.service.SendWelcomeMessage(user.ID, invitationCode != "")
+		go h.service.SendWelcomeMessage(user.ID)
 		// Note: last login time and IP will be updated in GithubCallback after this function returns
 	}
 	// Note: last login time and IP will be updated in GithubCallback after this function returns

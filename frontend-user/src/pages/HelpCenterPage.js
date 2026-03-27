@@ -12,7 +12,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, MessageSquare, FileCheck, Code, CreditCard, Shield, ChevronDown, ChevronUp, HelpCircle, BookOpen, Sparkles } from 'lucide-react';
+import { ArrowLeft, Search, MessageSquare, FileCheck, Code, Shield, ChevronDown, ChevronUp, HelpCircle, BookOpen, Sparkles } from 'lucide-react';
 import SEO from '../components/SEO';
 import './styles/ResourcePage.css';
 
@@ -42,7 +42,7 @@ const features = [
     title: 'AI 学术聊天',
     description: '与 AI 助手进行学术对话，获取研究灵感、解答学术疑问、辅助论文写作。',
     details: [
-      '支持多种 AI 模型选择，可根据需求和订阅等级切换不同模型。',
+      '支持多种 AI 模型选择，可根据需求切换不同模型。',
       '对话支持上下文连续交流，AI 会记住你之前的问题和讨论内容。',
       '可以直接粘贴论文片段让 AI 解读，或请 AI 帮助改善论文表达。',
       '对话历史自动保存，随时可以回顾之前的交流内容。',
@@ -70,17 +70,6 @@ const features = [
       '支持导出为 PDF 格式，可直接用于投稿。',
     ],
   },
-  {
-    icon: CreditCard,
-    title: '订阅与充值',
-    description: '灵活的订阅方案，从免费体验到专业版和旗舰版，满足不同层次的学术研究需求。',
-    details: [
-      '免费版：基础检索功能和有限次数的 AI 分析，适合轻度使用。',
-      '付费订阅：解锁高级 AI 模型、更多使用配额和专属功能。',
-      '支持支付宝和微信支付，订阅后即时生效。',
-      '基金中心：通过签到、邀请好友等方式获取免费额度，用于抵扣订阅费用。',
-    ],
-  },
 ];
 
 const faqs = [
@@ -94,7 +83,7 @@ const faqs = [
   },
   {
     question: 'Scholay 是免费的吗？',
-    answer: 'Scholay 提供免费基础版，你可以使用基础的学术检索功能和有限次数的 AI 分析。如果需要使用高级 AI 模型、更多的分析配额、AI 审稿、ScholayPrism 完整功能等，则需要订阅付费方案。我们提供多种订阅档次，你可以在"定价"页面查看详细的方案对比。此外，你还可以通过每日签到和邀请好友获取免费额度。'
+    answer: 'Scholay 目前完全免费，你可以使用学术检索、AI 分析、AI 审稿、ScholayPrism 等所有功能，无需支付任何费用。'
   },
   {
     question: '如何注册和登录？',
@@ -111,14 +100,6 @@ const faqs = [
   {
     question: '我的搜索记录和对话内容会被保存吗？',
     answer: '你的 AI 聊天对话历史会保存在你的账户中，方便后续回顾。搜索记录不会被长期保存。所有用户数据都受到严格的隐私保护，我们不会将你的个人搜索和对话内容用于广告投放或分享给第三方。详细的数据处理政策请参阅我们的隐私政策页面。'
-  },
-  {
-    question: '如何取消订阅或申请退款？',
-    answer: '你可以在"设置"页面的"订阅管理"部分查看当前订阅状态和到期时间。订阅到期后不会自动续费，无需手动取消。如果你对服务不满意，可以在购买后 7 天内联系客服（support@scholay.com）申请退款。退款将原路返回到支付账户。'
-  },
-  {
-    question: '什么是基金中心？如何获取免费额度？',
-    answer: '基金中心是 Scholay 的虚拟钱包功能。你可以通过以下方式获取免费额度：1) 每日签到——连续签到可获得递增奖励；2) 邀请好友——通过你的专属邀请链接注册的新用户，双方都可获得优惠券或额度奖励；3) 参与平台活动。获得的额度可用于抵扣订阅费用或购买 AI 分析次数。'
   },
   {
     question: '遇到问题如何获取帮助？',

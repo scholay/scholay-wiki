@@ -234,11 +234,10 @@ export const userAPI = {
   getWeChatQRCodeConfig: () =>
     api.get('/user/wechat/qrcode-config'),
 
-  wechatCallback: (code, state, invitationCode = null) =>
+  wechatCallback: (code, state) =>
     api.post('/user/wechat/callback', {
       code,
       state,
-      ...(invitationCode && { invitation_code: invitationCode })
     }),
 
   bindWeChatAccount: (code, state) =>
@@ -248,12 +247,8 @@ export const userAPI = {
   getGithubLoginURL: () =>
     api.get('/user/github/login-url'),
 
-  githubCallback: (code, state, invitationCode = null) => {
-    let url = `/user/github/callback?code=${code}&state=${state}`;
-    if (invitationCode) {
-      url += `&invitation_code=${encodeURIComponent(invitationCode)}`;
-    }
-    return api.get(url);
+  githubCallback: (code, state) => {
+    return api.get(`/user/github/callback?code=${code}&state=${state}`);
   },
 
   bindGitHubAccount: (code, state) =>
@@ -584,62 +579,6 @@ export const configAPI = {
     api.get('/config/code-snippets'),
 };
 
-export const subscriptionAPI = {
-  // Get user's quota information
-  getQuota: () =>
-    api.get('/user/subscription/quota'),
-
-  // Get user's usage information
-  getUsage: () =>
-    api.get('/user/subscription/usage'),
-
-  // Get user's active subscription
-  getMySubscription: () =>
-    api.get('/user/subscription/my'),
-
-  // Check if user has quota for a feature
-  // Deprecated: 配额检查已废弃，现在使用货币系统进行扣费控制。此方法始终返回 has_quota: true
-  checkQuota: (featureType) =>
-    api.get('/user/subscription/check-quota', { params: { feature_type: featureType } }),
-};
-
-export const orderAPI = {
-  // Create a new order with optional coupon
-  createOrder: (planCode, billingCycle, couponId = null) =>
-    api.post('/user/orders/create', {
-      plan_code: planCode,
-      billing_cycle: billingCycle,
-      coupon_id: couponId // Optional coupon_id parameter
-    }),
-
-  // Create a recharge order for diamond
-  createRechargeOrder: (diamondAmount, bonusAmount = 0) =>
-    api.post('/user/orders/recharge', {
-      diamond_amount: diamondAmount,
-      bonus_amount: bonusAmount
-    }),
-
-  // Get user's orders with pagination
-  getMyOrders: (page = 1, pageSize = 20) =>
-    api.get('/user/orders/my', { params: { page, page_size: pageSize } }),
-
-  // Get user's billing history (paid orders only)
-  getBillingHistory: (page = 1, pageSize = 20) =>
-    api.get('/user/orders/billing-history', { params: { page, page_size: pageSize } }),
-
-  // Get order detail by order number
-  getOrderDetail: (orderNo) =>
-    api.get(`/user/orders/${orderNo}`),
-
-  // Cancel an order
-  cancelOrder: (orderNo) =>
-    api.post('/user/orders/cancel', { order_no: orderNo }),
-
-  // Process payment (for mock/testing)
-  processPayment: (orderNo, paymentMethod) =>
-    api.post('/user/orders/pay', { order_no: orderNo, payment_method: paymentMethod }),
-};
-
 export const paymentAPI = {
   // Create Alipay payment
   createAlipayPayment: (orderNo, subject, amount, returnURL, description) =>
@@ -657,22 +596,6 @@ export const paymentAPI = {
       order_no: orderNo,
       amount,
     }),
-};
-
-// 智能审稿人 API
-// 签到 API
-export const checkinAPI = {
-  // 执行签到
-  checkin: () =>
-    api.post('/user/checkin'),
-
-  // 获取签到状态
-  getStatus: () =>
-    api.get('/user/checkin/status'),
-
-  // 获取签到历史（按月）
-  getHistory: (year, month) =>
-    api.get('/user/checkin/history', { params: { year, month } }),
 };
 
 // 智能审稿人 API
@@ -758,70 +681,6 @@ export const peerReviewAPI = {
   // 清空草稿（删除主稿件和所有附件）
   clearDraft: () =>
     api.delete('/user/peer-review/draft'),
-};
-
-// Wallet API - 钱包相关
-export const walletAPI = {
-  // 获取钱包余额
-  getWallet: () => api.get('/user/wallet'),
-
-  // 获取交易流水
-  getTransactions: (params = {}) => {
-    const queryParams = {
-      page: params.page || 1,
-      page_size: params.pageSize || 20,
-    };
-    if (params.currencyType) queryParams.currency_type = params.currencyType;
-    if (params.transactionType) queryParams.transaction_type = params.transactionType;
-    if (params.bizType) queryParams.biz_type = params.bizType;
-    if (params.startTime) queryParams.start_time = params.startTime;
-    if (params.endTime) queryParams.end_time = params.endTime;
-    return api.get('/user/wallet/transactions', { params: queryParams });
-  },
-
-  // 获取交易详情
-  getTransactionDetail: (transactionNo) =>
-    api.get(`/user/wallet/transactions/${transactionNo}`),
-
-  // 检查余额是否充足
-  checkBalance: (currencyType, amount) =>
-    api.post('/user/wallet/check-balance', { currency_type: currencyType, amount }),
-
-  // 按业务类型检查余额是否充足
-  checkBalanceByBizType: (bizType) =>
-    api.get('/user/wallet/check-by-biz', { params: { biz_type: bizType } }),
-
-  // 获取充值信息（恩特币单价等）
-  getRechargeInfo: () => api.get('/user/wallet/recharge-info'),
-
-  // 获取兑换信息（兑换比例等）
-  getExchangeInfo: () => api.get('/user/wallet/exchange-info'),
-
-  // 预览兑换结果
-  previewExchange: (diamondAmount) =>
-    api.get('/user/wallet/exchange/preview', { params: { diamond_amount: diamondAmount } }),
-
-  // 执行恩特币兑换经费
-  exchangeDiamondToGold: (diamondAmount) =>
-    api.post('/user/wallet/exchange', { diamond_amount: diamondAmount }),
-
-  // 获取所有业务类型的显示信息（用于交易流水动态展示）
-  getBizDisplayInfos: () => api.get('/user/wallet/biz-display-infos'),
-};
-
-// Fund API - 会员基金相关
-export const fundAPI = {
-  // 获取基金列表（公开）
-  getFunds: () => api.get('/public/funds'),
-
-  // 获取当前月份基金（公开）
-  getCurrentFund: () => api.get('/public/funds/current'),
-
-  // 获取基金详情（公开）
-  getFundDetail: (id) => api.get(`/public/funds/${id}`),
-
-  // 获取我的基金领取记录（需登录）
-  getMyDistributions: () => api.get('/user/funds/distributions'),
 };
 
 // Message API - 站内信相关

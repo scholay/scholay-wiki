@@ -12,9 +12,6 @@
  * 与数据库 feature_configs 表中的定义保持一致
  */
 export const FeatureCode = {
-  // 用户类
-  USER_CHECKIN: 'user_checkin',                     // 每日签到
-  
   // 检索类
   DIRECT_SEARCH: 'direct_search',                   // 直接检索（/papers/search）
   SMART_SEARCH: 'smart_search',                     // 智能检索（AI搜索模式）
@@ -49,7 +46,6 @@ export const FeatureCode = {
 
 // 功能名称映射
 const FeatureNames = {
-  [FeatureCode.USER_CHECKIN]: '每日签到',
   [FeatureCode.DIRECT_SEARCH]: '直接检索',
   [FeatureCode.SMART_SEARCH]: '智能检索',
   [FeatureCode.SEARCH_SUGGESTION]: '检索联想',
@@ -75,7 +71,6 @@ export const Action = {
   SEARCH: 'search',       // 搜索
   CLICK: 'click',         // 点击
   SUBMIT: 'submit',       // 提交
-  CHECKIN: 'checkin',     // 签到
   TRANSLATE: 'translate', // 翻译
   ANALYZE: 'analyze',     // 分析
   CHAT: 'chat',           // 对话
@@ -96,7 +91,6 @@ export const EntryPoint = {
   // 组件入口
   SEARCH_BOX: 'search_box',
   SIMILAR_SECTION: 'similar_section',
-  CHECKIN_FLOAT: 'checkin_float',
 };
 
 // 生成或获取会话ID
@@ -149,13 +143,6 @@ export const trackUsage = async (featureCode, action, entryPoint = '', extraData
 // =====================
 // 便捷追踪方法
 // =====================
-
-/**
- * 记录每日签到
- */
-export const trackCheckin = () => {
-  trackUsage(FeatureCode.USER_CHECKIN, Action.CHECKIN, EntryPoint.CHECKIN_FLOAT);
-};
 
 /**
  * 记录直接检索（调用 /papers/search 接口时）
@@ -347,7 +334,6 @@ const usageTracker = {
   EntryPoint,
   trackUsage,
   // 便捷方法
-  trackCheckin,
   trackDirectSearch,
   trackSmartSearch,
   trackSearchSuggestion,

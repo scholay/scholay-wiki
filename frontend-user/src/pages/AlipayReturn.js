@@ -60,10 +60,6 @@ const AlipayReturn = () => {
     navigate('/');
   };
 
-  const handleGoOrders = () => {
-    navigate('/settings?tab=subscription');
-  };
-
   return (
     <div className="alipay-return-page">
       <div className="alipay-return-card">
@@ -89,11 +85,8 @@ const AlipayReturn = () => {
               <>
                 <p>请手动关闭此页面，返回原页面查看结果</p>
                 <div className="alipay-return-actions">
-                  <button className="btn-secondary" onClick={handleGoHome}>
+                  <button className="btn-primary" onClick={handleGoHome}>
                     返回首页
-                  </button>
-                  <button className="btn-primary" onClick={handleGoOrders}>
-                    查看订单
                   </button>
                 </div>
               </>

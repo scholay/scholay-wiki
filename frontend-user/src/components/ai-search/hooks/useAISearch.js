@@ -178,8 +178,6 @@ export const useAISearch = () => {
     disableSnapTemporarily: uiState.disableSnapTemporarily,
     isLoadingSuggestedQuestions: uiState.isLoadingSuggestedQuestions,
     isComposing: uiState.isComposing,
-    quota: uiState.quota,
-    usage: uiState.usage,
     fromAcademicSearch: uiState.fromAcademicSearch,
 
     setExpandedQAIndex: uiState.setExpandedQAIndex,
@@ -188,8 +186,6 @@ export const useAISearch = () => {
     setDisableSnapTemporarily: uiState.setDisableSnapTemporarily,
     setIsLoadingSuggestedQuestions: uiState.setIsLoadingSuggestedQuestions,
     setIsComposing: uiState.setIsComposing,
-    setQuota: uiState.setQuota,
-    setUsage: uiState.setUsage,
 
     qaSnapContainerRef: uiState.qaSnapContainerRef,
     lastScrollTimeRef: uiState.lastScrollTimeRef,
@@ -202,15 +198,9 @@ export const useAISearch = () => {
 
     // ========== 弹窗状态 ==========
     showAuthModal: modalState.showAuthModal,
-    showBalanceModal: modalState.showBalanceModal,
-    balanceError: modalState.balanceError,
-    balanceErrorFeature: modalState.balanceErrorFeature,
     citePaper: modalState.citePaper,
 
     setShowAuthModal: modalState.setShowAuthModal,
-    setShowBalanceModal: modalState.setShowBalanceModal,
-    setBalanceError: modalState.setBalanceError,
-    setBalanceErrorFeature: modalState.setBalanceErrorFeature,
     setCitePaper: modalState.setCitePaper,
 
     // ========== 认证相关 ==========
