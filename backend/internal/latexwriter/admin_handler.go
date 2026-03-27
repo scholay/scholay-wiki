@@ -164,7 +164,7 @@ func (h *AdminHandler) UpdateAgentConfig(c *gin.Context) {
 // GetModelPresets 获取模型预设列表
 // GET /api/v1/admin/latex-agent/model-presets
 func (h *AdminHandler) GetModelPresets(c *gin.Context) {
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"presets": GetModelPresets(),
 	})
 }
@@ -172,7 +172,7 @@ func (h *AdminHandler) GetModelPresets(c *gin.Context) {
 // GetConfigOptions 获取配置选项（截断策略、工具分类等）
 // GET /api/v1/admin/latex-agent/config-options
 func (h *AdminHandler) GetConfigOptions(c *gin.Context) {
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"truncation_strategies": GetTruncationStrategies(),
 		"tool_categories":       GetToolCategories(),
 	})
@@ -205,7 +205,7 @@ func (h *AdminHandler) ApplyModelPreset(c *gin.Context) {
 	}
 
 	// 返回预设信息供前端填充表单（不直接创建，需要用户填写密钥）
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"display_name":       preset.DisplayName,
 		"api_format":         preset.Provider,
 		"model_name":         preset.Name,
@@ -246,7 +246,7 @@ func (h *AdminHandler) TestConnection(c *gin.Context) {
 
 	// TODO: 实现实际的连接测试
 	// 目前返回模型信息
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"success":      true,
 		"api_format":   model.APIFormat,
 		"model_name":   model.ModelName,
@@ -275,7 +275,7 @@ func (h *AdminHandler) ListModels(c *gin.Context) {
 		responses = append(responses, m.ToResponse())
 	}
 
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"models": responses,
 		"total":  len(responses),
 	})
@@ -437,7 +437,7 @@ func (h *AdminHandler) UpdateModel(c *gin.Context) {
 // GetAPIFormats 获取支持的 API 格式列表
 // GET /api/v1/admin/latex-agent/api-formats
 func (h *AdminHandler) GetAPIFormats(c *gin.Context) {
-	formats := []map[string]interface{}{
+	formats := []map[string]any{
 		{
 			"value":           "openai",
 			"label":           "OpenAI 格式",
@@ -463,7 +463,7 @@ func (h *AdminHandler) GetAPIFormats(c *gin.Context) {
 			"default_endpoint": "https://YOUR_RESOURCE.openai.azure.com",
 		},
 	}
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"formats": formats,
 	})
 }
@@ -483,7 +483,7 @@ func (h *AdminHandler) DeleteModel(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"message": "模型已删除",
 	})
 }
@@ -510,7 +510,7 @@ func (h *AdminHandler) SetDefaultModel(c *gin.Context) {
 		h.configRepo.UpdateConfig(config)
 	}
 
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"message": "默认模型已设置",
 	})
 }

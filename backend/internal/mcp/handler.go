@@ -9,7 +9,7 @@ package mcp
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/semanticscholar"
 
@@ -40,57 +40,57 @@ func NewUnifiedHandler(config HandlerConfig) *UnifiedHandler {
 	// 注册 LaTeX 工具
 	latexProvider := NewLaTeXToolProvider()
 	if err := registry.RegisterProvider(latexProvider); err != nil {
-		fmt.Printf("[MCP] Failed to register LaTeX tools: %v\n", err)
+		slog.Error("failed to register LaTeX tools", "err", err)
 	}
 
 	// 注册搜索工具
 	searchProvider := NewSearchToolProvider(config.SerperAPIKey, config.CrossrefEmail)
 	if err := registry.RegisterProvider(searchProvider); err != nil {
-		fmt.Printf("[MCP] Failed to register Search tools: %v\n", err)
+		slog.Error("failed to register Search tools", "err", err)
 	}
 
 	// 注册 BibTeX 工具
 	bibtexProvider := NewBibTeXToolProvider()
 	if err := registry.RegisterProvider(bibtexProvider); err != nil {
-		fmt.Printf("[MCP] Failed to register BibTeX tools: %v\n", err)
+		slog.Error("failed to register BibTeX tools", "err", err)
 	}
 
 	// 注册文件工具（需要数据库）
 	if config.DB != nil {
 		fileProvider := NewFileToolProvider(config.DB)
 		if err := registry.RegisterProvider(fileProvider); err != nil {
-			fmt.Printf("[MCP] Failed to register File tools: %v\n", err)
+			slog.Error("failed to register File tools", "err", err)
 		}
 	}
 
 	// 注册格式转换工具
 	convertProvider := NewConvertToolProvider()
 	if err := registry.RegisterProvider(convertProvider); err != nil {
-		fmt.Printf("[MCP] Failed to register Convert tools: %v\n", err)
+		slog.Error("failed to register Convert tools", "err", err)
 	}
 
 	// 注册数学工具
 	mathProvider := NewMathToolProvider()
 	if err := registry.RegisterProvider(mathProvider); err != nil {
-		fmt.Printf("[MCP] Failed to register Math tools: %v\n", err)
+		slog.Error("failed to register Math tools", "err", err)
 	}
 
 	// 注册模板工具
 	templateProvider := NewTemplateToolProvider()
 	if err := registry.RegisterProvider(templateProvider); err != nil {
-		fmt.Printf("[MCP] Failed to register Template tools: %v\n", err)
+		slog.Error("failed to register Template tools", "err", err)
 	}
 
 	// 注册图片工具
 	imageProvider := NewImageToolProvider()
 	if err := registry.RegisterProvider(imageProvider); err != nil {
-		fmt.Printf("[MCP] Failed to register Image tools: %v\n", err)
+		slog.Error("failed to register Image tools", "err", err)
 	}
 
 	// 注册代码工具
 	codeProvider := NewCodeToolProvider()
 	if err := registry.RegisterProvider(codeProvider); err != nil {
-		fmt.Printf("[MCP] Failed to register Code tools: %v\n", err)
+		slog.Error("failed to register Code tools", "err", err)
 	}
 
 	// 创建处理器
@@ -104,7 +104,7 @@ func NewUnifiedHandler(config HandlerConfig) *UnifiedHandler {
 		handler.legacyServer = NewMCPServer(config.ScholarManager)
 	}
 
-	fmt.Printf("[MCP] Unified handler initialized with %d tools\n", len(registry.ListTools()))
+	slog.Info("unified MCP handler initialized", "toolCount", len(registry.ListTools()))
 
 	return handler
 }
@@ -122,11 +122,11 @@ func (h *UnifiedHandler) ListAllTools(c *gin.Context) {
 	}
 
 	// 合并工具列表
-	allTools := make([]map[string]interface{}, 0, len(newTools)+len(scholarTools))
+	allTools := make([]map[string]any, 0, len(newTools)+len(scholarTools))
 
 	// 添加新工具
 	for _, tool := range newTools {
-		allTools = append(allTools, map[string]interface{}{
+		allTools = append(allTools, map[string]any{
 			"name":            tool.Name,
 			"description":     tool.Description,
 			"category":        tool.Category,
@@ -140,7 +140,7 @@ func (h *UnifiedHandler) ListAllTools(c *gin.Context) {
 
 	// 添加 Semantic Scholar 工具（标记分类）
 	for _, tool := range scholarTools {
-		allTools = append(allTools, map[string]interface{}{
+		allTools = append(allTools, map[string]any{
 			"name":          tool.Name,
 			"description":   tool.Description,
 			"category":      "search", // Semantic Scholar 属于搜索类
@@ -150,7 +150,7 @@ func (h *UnifiedHandler) ListAllTools(c *gin.Context) {
 		})
 	}
 
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"total":      len(allTools),
 		"tools":      allTools,
 		"categories": h.registry.GetCategories(),
@@ -179,7 +179,7 @@ func (h *UnifiedHandler) ListToolsByCategory(c *gin.Context) {
 		}
 	}
 
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"category": category,
 		"count":    len(tools),
 		"tools":    tools,
@@ -213,7 +213,7 @@ func (h *UnifiedHandler) GetTool(c *gin.Context) {
 // CallToolRequest 工具调用请求
 type CallToolRequest struct {
 	Name      string                 `json:"name" binding:"required"`
-	Arguments map[string]interface{} `json:"arguments"`
+	Arguments map[string]any `json:"arguments"`
 }
 
 // CallTool 调用工具
@@ -244,7 +244,7 @@ func (h *UnifiedHandler) CallTool(c *gin.Context) {
 			Name:      req.Name,
 			Arguments: req.Arguments,
 		}
-		result, err := h.legacyServer.CallTool(legacyReq)
+		result, err := h.legacyServer.CallTool(ctx, legacyReq)
 		if err != nil {
 			utils.Error(c, 5002, "Tool call failed: "+err.Error())
 			return
@@ -265,9 +265,9 @@ func (h *UnifiedHandler) GetToolsForLLM(c *gin.Context) {
 	// 添加 Semantic Scholar 工具
 	if h.legacyServer != nil {
 		for _, tool := range h.legacyServer.ListTools() {
-			tools = append(tools, map[string]interface{}{
+			tools = append(tools, map[string]any{
 				"type": "function",
-				"function": map[string]interface{}{
+				"function": map[string]any{
 					"name":        tool.Name,
 					"description": tool.Description,
 					"parameters":  tool.InputSchema,
@@ -276,7 +276,7 @@ func (h *UnifiedHandler) GetToolsForLLM(c *gin.Context) {
 		}
 	}
 
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"tools": tools,
 	})
 }
@@ -291,10 +291,10 @@ func (h *UnifiedHandler) BatchCallTools(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	results := make([]map[string]interface{}, 0, len(requests))
+	results := make([]map[string]any, 0, len(requests))
 
 	for _, req := range requests {
-		result := map[string]interface{}{
+		result := map[string]any{
 			"tool": req.Name,
 		}
 
@@ -311,7 +311,7 @@ func (h *UnifiedHandler) BatchCallTools(c *gin.Context) {
 		} else if h.legacyServer != nil {
 			// 尝试 Semantic Scholar
 			legacyReq := ToolRequest{Name: req.Name, Arguments: req.Arguments}
-			toolResult, err := h.legacyServer.CallTool(legacyReq)
+			toolResult, err := h.legacyServer.CallTool(ctx, legacyReq)
 			if err != nil {
 				result["success"] = false
 				result["error"] = err.Error()
@@ -327,7 +327,7 @@ func (h *UnifiedHandler) BatchCallTools(c *gin.Context) {
 		results = append(results, result)
 	}
 
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"results": results,
 	})
 }
@@ -351,7 +351,7 @@ func NewHandler(manager *semanticscholar.Manager) *Handler {
 // ListTools handles GET /api/v1/mcp/tools (legacy)
 func (h *Handler) ListTools(c *gin.Context) {
 	tools := h.server.ListTools()
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"tools": tools,
 	})
 }
@@ -364,7 +364,7 @@ func (h *Handler) CallTool(c *gin.Context) {
 		return
 	}
 
-	result, err := h.server.CallTool(req)
+	result, err := h.server.CallTool(c.Request.Context(), req)
 	if err != nil {
 		utils.Error(c, 5002, "Tool call failed: "+err.Error())
 		return
@@ -414,13 +414,13 @@ func (p *SemanticScholarProvider) GetTools() []ToolDefinition {
 }
 
 // ExecuteTool 执行工具
-func (p *SemanticScholarProvider) ExecuteTool(ctx context.Context, name string, args map[string]interface{}) (*ToolResult, error) {
+func (p *SemanticScholarProvider) ExecuteTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error) {
 	req := ToolRequest{
 		Name:      name,
 		Arguments: args,
 	}
 	
-	resp, err := p.server.CallTool(req)
+	resp, err := p.server.CallTool(ctx, req)
 	if err != nil {
 		return CreateErrorResult(err), nil
 	}

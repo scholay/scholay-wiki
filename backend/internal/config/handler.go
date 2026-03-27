@@ -8,16 +8,19 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
+
+	appconfig "scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 
@@ -58,7 +61,10 @@ type Handler struct {
 func NewHandler(service *Service) *Handler {
 	// Get frontend URL from environment or use default
 	// Note: Use Docker Compose service name (frontend-user), not container_name
-	frontendURL := os.Getenv("FRONTEND_USER_URL")
+	frontendURL := ""
+	if appconfig.AppConfig != nil {
+		frontendURL = appconfig.AppConfig.App.FrontendUserURL
+	}
 	if frontendURL == "" {
 		frontendURL = "http://frontend-user:80"
 	}
@@ -327,7 +333,7 @@ func (h *Handler) GetSystemConfig(c *gin.Context) {
 	}
 
 	// Build response with system config and GitHub config
-	response := map[string]interface{}{
+	response := map[string]any{
 		"id":                         config.ID,
 		"require_email_verification": config.RequireEmailVerification,
 		"enable_turnstile":           config.EnableTurnstile,
@@ -696,7 +702,8 @@ func (h *Handler) CreateCodeSnippet(c *gin.Context) {
 	}
 
 	if err := h.service.CreateCodeSnippet(snippet); err != nil {
-		if strings.Contains(err.Error(), "Duplicate") || strings.Contains(err.Error(), "uk_code_key") {
+		var mysqlErr *mysql.MySQLError
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 			utils.Error(c, 3032, "代码标识键已存在")
 			return
 		}
@@ -850,7 +857,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 	// Get the route-specific HTML content from frontend
 	pageHTML, err := h.getPageHTML(requestPath)
 	if err != nil {
-		log.Printf("Failed to get HTML for %s: %v", requestPath, err)
+		slog.Error("failed to get HTML for route", "path", requestPath, "err", err)
 		// Fallback: proxy to frontend container directly
 		h.proxyToFrontend(c)
 		return
@@ -859,7 +866,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 	// Get code snippets from database
 	snippetsGrouped, err := h.service.GetCodeSnippetsGrouped()
 	if err != nil {
-		log.Printf("Failed to get code snippets: %v", err)
+		slog.Error("failed to get code snippets", "err", err)
 		// Return original HTML without snippets
 		c.Header("Content-Type", "text/html; charset=utf-8")
 		c.Header("Cache-Control", "no-cache, must-revalidate")
@@ -934,7 +941,7 @@ func (h *Handler) getPageHTML(requestPath string) (string, error) {
 	}
 	h.htmlCacheMu.Unlock()
 
-	log.Printf("HTML for %s cached successfully (%d bytes)", requestPath, len(body))
+	slog.Info("HTML cached successfully", "path", requestPath, "bytes", len(body))
 	return html, nil
 }
 
@@ -1166,7 +1173,7 @@ func (h *Handler) InvalidateIndexHTMLCache() {
 	h.htmlCacheMu.Lock()
 	defer h.htmlCacheMu.Unlock()
 	h.htmlCacheMap = make(map[string]*htmlCacheEntry)
-	log.Println("All HTML page caches invalidated")
+	slog.Info("all HTML page caches invalidated")
 }
 
 // RegisterRoutes registers config routes
@@ -1246,7 +1253,7 @@ func (h *Handler) ServeDynamicSitemap(c *gin.Context) {
 	if h.usageLogService != nil {
 		papers, err := h.usageLogService.GetPopularPaperIDs(30, 200) // 最近30天，最多200篇
 		if err != nil {
-			log.Printf("Failed to get popular papers for sitemap: %v", err)
+			slog.Error("failed to get popular papers for sitemap", "err", err)
 		} else {
 			sitemapBuilder.WriteString(`
 

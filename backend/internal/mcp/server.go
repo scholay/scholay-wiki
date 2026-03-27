@@ -8,9 +8,10 @@
 package mcp
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"scholar-backend/internal/semanticscholar"
 )
@@ -31,18 +32,18 @@ func NewMCPServer(manager *semanticscholar.Manager) *MCPServer {
 type Tool struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
-	InputSchema map[string]interface{} `json:"inputSchema"`
+	InputSchema map[string]any `json:"inputSchema"`
 }
 
 // ToolRequest represents an MCP tool call request
 type ToolRequest struct {
 	Name      string                 `json:"name"`
-	Arguments map[string]interface{} `json:"arguments"`
+	Arguments map[string]any `json:"arguments"`
 }
 
 // ToolResponse represents an MCP tool call response
 type ToolResponse struct {
-	Content []map[string]interface{} `json:"content"`
+	Content []map[string]any `json:"content"`
 }
 
 // ListTools returns available MCP tools
@@ -51,28 +52,28 @@ func (s *MCPServer) ListTools() []Tool {
 		{
 			Name:        "search_papers",
 			Description: "Search for academic papers by query",
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"query": map[string]interface{}{
+				"properties": map[string]any{
+					"query": map[string]any{
 						"type":        "string",
 						"description": "Search query string",
 					},
-					"year": map[string]interface{}{
+					"year": map[string]any{
 						"type":        "string",
 						"description": "Publication year or range (e.g., '2020' or '2019-2021')",
 					},
-					"fieldsOfStudy": map[string]interface{}{
+					"fieldsOfStudy": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
 						"description": "Fields of study filter",
 					},
-					"limit": map[string]interface{}{
+					"limit": map[string]any{
 						"type":        "number",
 						"description": "Number of results to return (max 100)",
 						"default":     10,
 					},
-					"offset": map[string]interface{}{
+					"offset": map[string]any{
 						"type":        "number",
 						"description": "Pagination offset",
 						"default":     0,
@@ -84,46 +85,46 @@ func (s *MCPServer) ListTools() []Tool {
 		{
 			Name:        "search_papers_advanced",
 			Description: "Advanced paper search with multiple keywords (OR operation), quality filters, and sorting",
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"keywords": map[string]interface{}{
+				"properties": map[string]any{
+					"keywords": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
 						"description": "Multiple keywords to search (combined with OR operator)",
 					},
-					"year_from": map[string]interface{}{
+					"year_from": map[string]any{
 						"type":        "string",
 						"description": "Start year (e.g., '2020')",
 						"default":     "2020",
 					},
-					"year_to": map[string]interface{}{
+					"year_to": map[string]any{
 						"type":        "string",
 						"description": "End year (e.g., '2024')",
 						"default":     "2024",
 					},
-					"min_citations": map[string]interface{}{
+					"min_citations": map[string]any{
 						"type":        "number",
 						"description": "Minimum citation count for quality filtering",
 						"default":     10,
 					},
-					"sort_by": map[string]interface{}{
+					"sort_by": map[string]any{
 						"type":        "string",
 						"enum":        []string{"citationCount:desc", "publicationDate:desc", "paperId"},
 						"description": "Sort order for results",
 						"default":     "citationCount:desc",
 					},
-					"fields_of_study": map[string]interface{}{
+					"fields_of_study": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
 						"description": "Fields of study filter (e.g., ['Computer Science', 'Medicine'])",
 					},
-					"limit": map[string]interface{}{
+					"limit": map[string]any{
 						"type":        "number",
 						"description": "Number of results to return (max 100)",
 						"default":     50,
 					},
-					"token": map[string]interface{}{
+					"token": map[string]any{
 						"type":        "string",
 						"description": "Pagination token for fetching next page of results",
 					},
@@ -134,34 +135,34 @@ func (s *MCPServer) ListTools() []Tool {
 		{
 			Name:        "search_papers_relevance",
 			Description: "Search papers by semantic relevance using natural language query. Best for finding conceptually related papers that may not have high citations yet.",
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"query": map[string]interface{}{
+				"properties": map[string]any{
+					"query": map[string]any{
 						"type":        "string",
 						"description": "Natural language search query in English academic terms (e.g., 'mitigating hallucination in large language models')",
 					},
-					"year_from": map[string]interface{}{
+					"year_from": map[string]any{
 						"type":        "string",
 						"description": "Start year (e.g., '2020')",
 						"default":     "2020",
 					},
-					"year_to": map[string]interface{}{
+					"year_to": map[string]any{
 						"type":        "string",
 						"description": "End year (e.g., '2024')",
 						"default":     "2024",
 					},
-					"fields_of_study": map[string]interface{}{
+					"fields_of_study": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
 						"description": "Fields of study filter (e.g., ['Computer Science', 'Medicine'])",
 					},
-					"limit": map[string]interface{}{
+					"limit": map[string]any{
 						"type":        "number",
 						"description": "Number of results to return (max 100)",
 						"default":     50,
 					},
-					"offset": map[string]interface{}{
+					"offset": map[string]any{
 						"type":        "number",
 						"description": "Pagination offset",
 						"default":     0,
@@ -173,14 +174,14 @@ func (s *MCPServer) ListTools() []Tool {
 		{
 			Name:        "get_paper",
 			Description: "Get detailed information about a specific paper",
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"paperId": map[string]interface{}{
+				"properties": map[string]any{
+					"paperId": map[string]any{
 						"type":        "string",
 						"description": "Paper ID (Semantic Scholar ID, DOI, ArXiv ID, or PubMed ID)",
 					},
-					"fields": map[string]interface{}{
+					"fields": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
 						"description": "Fields to return (e.g., ['title', 'abstract', 'authors'])",
@@ -192,19 +193,19 @@ func (s *MCPServer) ListTools() []Tool {
 		{
 			Name:        "get_paper_citations",
 			Description: "Get citations for a specific paper",
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"paperId": map[string]interface{}{
+				"properties": map[string]any{
+					"paperId": map[string]any{
 						"type":        "string",
 						"description": "Paper ID",
 					},
-					"limit": map[string]interface{}{
+					"limit": map[string]any{
 						"type":        "number",
 						"description": "Number of citations to return",
 						"default":     100,
 					},
-					"offset": map[string]interface{}{
+					"offset": map[string]any{
 						"type":        "number",
 						"description": "Pagination offset",
 						"default":     0,
@@ -216,19 +217,19 @@ func (s *MCPServer) ListTools() []Tool {
 		{
 			Name:        "get_paper_references",
 			Description: "Get references for a specific paper",
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"paperId": map[string]interface{}{
+				"properties": map[string]any{
+					"paperId": map[string]any{
 						"type":        "string",
 						"description": "Paper ID",
 					},
-					"limit": map[string]interface{}{
+					"limit": map[string]any{
 						"type":        "number",
 						"description": "Number of references to return",
 						"default":     100,
 					},
-					"offset": map[string]interface{}{
+					"offset": map[string]any{
 						"type":        "number",
 						"description": "Pagination offset",
 						"default":     0,
@@ -240,19 +241,19 @@ func (s *MCPServer) ListTools() []Tool {
 		{
 			Name:        "search_authors",
 			Description: "Search for authors by name",
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"query": map[string]interface{}{
+				"properties": map[string]any{
+					"query": map[string]any{
 						"type":        "string",
 						"description": "Author name search query",
 					},
-					"limit": map[string]interface{}{
+					"limit": map[string]any{
 						"type":        "number",
 						"description": "Number of results to return",
 						"default":     10,
 					},
-					"offset": map[string]interface{}{
+					"offset": map[string]any{
 						"type":        "number",
 						"description": "Pagination offset",
 						"default":     0,
@@ -264,14 +265,14 @@ func (s *MCPServer) ListTools() []Tool {
 		{
 			Name:        "get_author",
 			Description: "Get detailed information about a specific author",
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"authorId": map[string]interface{}{
+				"properties": map[string]any{
+					"authorId": map[string]any{
 						"type":        "string",
 						"description": "Author ID",
 					},
-					"fields": map[string]interface{}{
+					"fields": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
 						"description": "Fields to return",
@@ -283,19 +284,19 @@ func (s *MCPServer) ListTools() []Tool {
 		{
 			Name:        "get_author_papers",
 			Description: "Get papers authored by a specific author",
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"authorId": map[string]interface{}{
+				"properties": map[string]any{
+					"authorId": map[string]any{
 						"type":        "string",
 						"description": "Author ID",
 					},
-					"limit": map[string]interface{}{
+					"limit": map[string]any{
 						"type":        "number",
 						"description": "Number of papers to return",
 						"default":     100,
 					},
-					"offset": map[string]interface{}{
+					"offset": map[string]any{
 						"type":        "number",
 						"description": "Pagination offset",
 						"default":     0,
@@ -307,14 +308,14 @@ func (s *MCPServer) ListTools() []Tool {
 		{
 			Name:        "get_recommendations",
 			Description: "Get paper recommendations based on a paper",
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"paperId": map[string]interface{}{
+				"properties": map[string]any{
+					"paperId": map[string]any{
 						"type":        "string",
 						"description": "Paper ID to base recommendations on",
 					},
-					"limit": map[string]interface{}{
+					"limit": map[string]any{
 						"type":        "number",
 						"description": "Number of recommendations to return",
 						"default":     10,
@@ -326,28 +327,28 @@ func (s *MCPServer) ListTools() []Tool {
 		{
 			Name:        "snippet_search",
 			Description: "Search papers by text snippet or quote. Use when user provides a piece of text (e.g., a paragraph, citation, or abstract fragment) and wants to find the source paper or related papers.",
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"query": map[string]interface{}{
+				"properties": map[string]any{
+					"query": map[string]any{
 						"type":        "string",
 						"description": "The text snippet to search for",
 					},
-					"year": map[string]interface{}{
+					"year": map[string]any{
 						"type":        "string",
 						"description": "Publication year or range (e.g., '2020' or '2019-2021')",
 					},
-					"fieldsOfStudy": map[string]interface{}{
+					"fieldsOfStudy": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
 						"description": "Fields of study filter",
 					},
-					"minCitationCount": map[string]interface{}{
+					"minCitationCount": map[string]any{
 						"type":        "number",
 						"description": "Minimum citation count filter",
 						"default":     0,
 					},
-					"limit": map[string]interface{}{
+					"limit": map[string]any{
 						"type":        "number",
 						"description": "Number of results to return (max 1000)",
 						"default":     20,
@@ -359,18 +360,18 @@ func (s *MCPServer) ListTools() []Tool {
 		{
 			Name:        "paper_title_match",
 			Description: "Find paper by exact title. Use when user provides a complete or near-complete paper title (e.g., 'Attention is All You Need') for precise lookup.",
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"query": map[string]interface{}{
+				"properties": map[string]any{
+					"query": map[string]any{
 						"type":        "string",
 						"description": "The paper title to search for",
 					},
-					"year": map[string]interface{}{
+					"year": map[string]any{
 						"type":        "string",
 						"description": "Publication year or range (e.g., '2017' or '2015-2020')",
 					},
-					"fieldsOfStudy": map[string]interface{}{
+					"fieldsOfStudy": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
 						"description": "Fields of study filter",
@@ -382,20 +383,20 @@ func (s *MCPServer) ListTools() []Tool {
 		{
 			Name:        "recommendations_by_examples",
 			Description: "Get paper recommendations based on liked and disliked papers. Use when user provides positive examples (papers they like) and optionally negative examples (papers they don't like).",
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"positivePaperIds": map[string]interface{}{
+				"properties": map[string]any{
+					"positivePaperIds": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
 						"description": "Paper IDs the user likes (positive examples)",
 					},
-					"negativePaperIds": map[string]interface{}{
+					"negativePaperIds": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
 						"description": "Paper IDs the user dislikes (negative examples, optional)",
 					},
-					"limit": map[string]interface{}{
+					"limit": map[string]any{
 						"type":        "number",
 						"description": "Number of recommendations to return (max 500)",
 						"default":     20,
@@ -407,10 +408,10 @@ func (s *MCPServer) ListTools() []Tool {
 		{
 			Name:        "paper_autocomplete",
 			Description: "Get search suggestions for partial query. Use to understand ambiguous user intent or suggest search terms.",
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"query": map[string]interface{}{
+				"properties": map[string]any{
+					"query": map[string]any{
 						"type":        "string",
 						"description": "Partial search query (will be truncated to 100 characters)",
 					},
@@ -422,42 +423,42 @@ func (s *MCPServer) ListTools() []Tool {
 }
 
 // CallTool executes an MCP tool call
-func (s *MCPServer) CallTool(req ToolRequest) (*ToolResponse, error) {
+func (s *MCPServer) CallTool(ctx context.Context, req ToolRequest) (*ToolResponse, error) {
 	switch req.Name {
 	case "search_papers":
-		return s.handleSearchPapers(req.Arguments)
+		return s.handleSearchPapers(ctx, req.Arguments)
 	case "search_papers_advanced":
-		return s.handleSearchPapersAdvanced(req.Arguments)
+		return s.handleSearchPapersAdvanced(ctx, req.Arguments)
 	case "search_papers_relevance":
-		return s.handleSearchPapersRelevance(req.Arguments)
+		return s.handleSearchPapersRelevance(ctx, req.Arguments)
 	case "get_paper":
-		return s.handleGetPaper(req.Arguments)
+		return s.handleGetPaper(ctx, req.Arguments)
 	case "get_paper_citations":
-		return s.handleGetPaperCitations(req.Arguments)
+		return s.handleGetPaperCitations(ctx, req.Arguments)
 	case "get_paper_references":
-		return s.handleGetPaperReferences(req.Arguments)
+		return s.handleGetPaperReferences(ctx, req.Arguments)
 	case "search_authors":
-		return s.handleSearchAuthors(req.Arguments)
+		return s.handleSearchAuthors(ctx, req.Arguments)
 	case "get_author":
-		return s.handleGetAuthor(req.Arguments)
+		return s.handleGetAuthor(ctx, req.Arguments)
 	case "get_author_papers":
-		return s.handleGetAuthorPapers(req.Arguments)
+		return s.handleGetAuthorPapers(ctx, req.Arguments)
 	case "get_recommendations":
-		return s.handleGetRecommendations(req.Arguments)
+		return s.handleGetRecommendations(ctx, req.Arguments)
 	case "snippet_search":
-		return s.handleSnippetSearch(req.Arguments)
+		return s.handleSnippetSearch(ctx, req.Arguments)
 	case "paper_title_match":
-		return s.handlePaperTitleMatch(req.Arguments)
+		return s.handlePaperTitleMatch(ctx, req.Arguments)
 	case "recommendations_by_examples":
-		return s.handleRecommendationsByExamples(req.Arguments)
+		return s.handleRecommendationsByExamples(ctx, req.Arguments)
 	case "paper_autocomplete":
-		return s.handlePaperAutocomplete(req.Arguments)
+		return s.handlePaperAutocomplete(ctx, req.Arguments)
 	default:
 		return nil, fmt.Errorf("unknown tool: %s", req.Name)
 	}
 }
 
-func (s *MCPServer) handleSearchPapers(args map[string]interface{}) (*ToolResponse, error) {
+func (s *MCPServer) handleSearchPapers(ctx context.Context, args map[string]any) (*ToolResponse, error) {
 	query, ok := args["query"].(string)
 	if !ok {
 		return nil, fmt.Errorf("query is required")
@@ -480,12 +481,12 @@ func (s *MCPServer) handleSearchPapers(args map[string]interface{}) (*ToolRespon
 	if year, ok := args["year"].(string); ok {
 		opts.Year = year
 	}
-	if fields, ok := args["fieldsOfStudy"].([]interface{}); ok {
+	if fields, ok := args["fieldsOfStudy"].([]any); ok {
 		opts.FieldsOfStudy = interfaceSliceToStringSlice(fields)
 	}
 
 	// Use manager which will automatically get API key from backend config
-	result, err := s.manager.SearchPapers(opts)
+	result, err := s.manager.SearchPapers(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -493,15 +494,14 @@ func (s *MCPServer) handleSearchPapers(args map[string]interface{}) (*ToolRespon
 	return createJSONResponse(result)
 }
 
-func (s *MCPServer) handleSearchPapersAdvanced(args map[string]interface{}) (*ToolResponse, error) {
+func (s *MCPServer) handleSearchPapersAdvanced(ctx context.Context, args map[string]any) (*ToolResponse, error) {
 	// Get keywords array
-	keywords, ok := args["keywords"].([]interface{})
+	keywords, ok := args["keywords"].([]any)
 	if !ok || len(keywords) == 0 {
 		return nil, fmt.Errorf("keywords array is required")
 	}
 
-	fmt.Printf("[MCP DEBUG] ============ search_papers_advanced called ============\n")
-	fmt.Printf("[MCP DEBUG] Raw keywords from AI: %v\n", keywords)
+	slog.Debug("search_papers_advanced called", "keywords", keywords)
 
 	// Get parameters with defaults
 	yearFrom := getStringArg(args, "year_from", "2020")
@@ -511,12 +511,15 @@ func (s *MCPServer) handleSearchPapersAdvanced(args map[string]interface{}) (*To
 	limit := getIntArg(args, "limit", 50)
 	token := getStringArg(args, "token", "") // 分页token
 
-	fmt.Printf("[MCP DEBUG] Parameters: yearFrom=%s, yearTo=%s, minCitations=%d, sortBy=%s, limit=%d, token=%s\n",
-		yearFrom, yearTo, minCitations, sortBy, limit, token)
+	slog.Debug("search_papers_advanced params",
+		"yearFrom", yearFrom, "yearTo", yearTo,
+		"minCitations", minCitations, "sortBy", sortBy,
+		"limit", limit, "token", token,
+	)
 
 	// Get optional fields of study
 	var fieldsOfStudy []string
-	if fields, ok := args["fields_of_study"].([]interface{}); ok {
+	if fields, ok := args["fields_of_study"].([]any); ok {
 		fieldsOfStudy = interfaceSliceToStringSlice(fields)
 	}
 
@@ -527,9 +530,11 @@ func (s *MCPServer) handleSearchPapersAdvanced(args map[string]interface{}) (*To
 	keywordStrings := interfaceSliceToStringSlice(keywords)
 	query := strings.Join(keywordStrings, " | ")
 
-	fmt.Printf("[MCP DEBUG] Converted keywords to strings: %v\n", keywordStrings)
-	fmt.Printf("[MCP DEBUG] Final query with OR operator: %s\n", query)
-	fmt.Printf("[MCP DEBUG] Year range: %s\n", yearRange)
+	slog.Debug("search_papers_advanced query built",
+		"keywordStrings", keywordStrings,
+		"query", query,
+		"yearRange", yearRange,
+	)
 
 	// Default fields to return
 	// Note: tldr is not supported in bulk search API, only in regular search
@@ -552,17 +557,17 @@ func (s *MCPServer) handleSearchPapersAdvanced(args map[string]interface{}) (*To
 	}
 
 	// Use manager which will handle API key rotation
-	result, err := s.manager.SearchPapersBulk(opts)
+	result, err := s.manager.SearchPapersBulk(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 
 	// Add search parameters to response for transparency
-	responseData := map[string]interface{}{
+	responseData := map[string]any{
 		"data":  result.Data,
 		"total": result.Total,
 		"token": result.Token, // 返回下一页token
-		"search_params": map[string]interface{}{
+		"search_params": map[string]any{
 			"keywords":      keywordStrings,
 			"query":         query,
 			"year_range":    yearRange,
@@ -577,14 +582,13 @@ func (s *MCPServer) handleSearchPapersAdvanced(args map[string]interface{}) (*To
 
 // handleSearchPapersRelevance handles the search_papers_relevance tool call
 // Uses /paper/search API which returns results sorted by relevance
-func (s *MCPServer) handleSearchPapersRelevance(args map[string]interface{}) (*ToolResponse, error) {
+func (s *MCPServer) handleSearchPapersRelevance(ctx context.Context, args map[string]any) (*ToolResponse, error) {
 	query, ok := args["query"].(string)
 	if !ok || query == "" {
 		return nil, fmt.Errorf("query is required")
 	}
 
-	fmt.Printf("[PARALLEL-DEBUG] ============ search_papers_relevance called ============\n")
-	fmt.Printf("[PARALLEL-DEBUG] Query: %s\n", query)
+	slog.Debug("search_papers_relevance called", "query", query)
 
 	// Get parameters with defaults
 	yearFrom := getStringArg(args, "year_from", "2020")
@@ -595,15 +599,17 @@ func (s *MCPServer) handleSearchPapersRelevance(args map[string]interface{}) (*T
 	// Build year range
 	yearRange := fmt.Sprintf("%s-%s", yearFrom, yearTo)
 
-	fmt.Printf("[PARALLEL-DEBUG] Parameters: yearFrom=%s, yearTo=%s, limit=%d, offset=%d\n",
-		yearFrom, yearTo, limit, offset)
-	fmt.Printf("[PARALLEL-DEBUG] Year range: %s\n", yearRange)
+	slog.Debug("search_papers_relevance params",
+		"yearFrom", yearFrom, "yearTo", yearTo,
+		"limit", limit, "offset", offset,
+		"yearRange", yearRange,
+	)
 
 	// Get optional fields of study
 	var fieldsOfStudy []string
-	if fields, ok := args["fields_of_study"].([]interface{}); ok {
+	if fields, ok := args["fields_of_study"].([]any); ok {
 		fieldsOfStudy = interfaceSliceToStringSlice(fields)
-		fmt.Printf("[PARALLEL-DEBUG] Fields of study: %v\n", fieldsOfStudy)
+		slog.Debug("search_papers_relevance fields of study", "fieldsOfStudy", fieldsOfStudy)
 	}
 
 	// Default fields to return - includes tldr which is supported by /paper/search
@@ -624,23 +630,23 @@ func (s *MCPServer) handleSearchPapersRelevance(args map[string]interface{}) (*T
 		FieldsOfStudy: fieldsOfStudy,
 	}
 
-	fmt.Printf("[PARALLEL-DEBUG] Calling SearchPapers with opts: %+v\n", opts)
+	slog.Debug("calling SearchPapers", "opts", opts)
 
 	// Use manager which will handle API key rotation
-	result, err := s.manager.SearchPapers(opts)
+	result, err := s.manager.SearchPapers(ctx, opts)
 	if err != nil {
-		fmt.Printf("[PARALLEL-DEBUG] SearchPapers error: %v\n", err)
+		slog.Error("SearchPapers error", "err", err)
 		return nil, err
 	}
 
-	fmt.Printf("[PARALLEL-DEBUG] SearchPapers returned %d papers, total: %d\n", len(result.Data), result.Total)
+	slog.Debug("SearchPapers returned", "paperCount", len(result.Data), "total", result.Total)
 
 	// Add search parameters to response for transparency
-	responseData := map[string]interface{}{
+	responseData := map[string]any{
 		"data":   result.Data,
 		"total":  result.Total,
 		"offset": result.Offset,
-		"search_params": map[string]interface{}{
+		"search_params": map[string]any{
 			"query":      query,
 			"year_range": yearRange,
 			"limit":      limit,
@@ -648,23 +654,23 @@ func (s *MCPServer) handleSearchPapersRelevance(args map[string]interface{}) (*T
 		},
 	}
 
-	fmt.Printf("[PARALLEL-DEBUG] ============ search_papers_relevance completed ============\n")
+	slog.Debug("search_papers_relevance completed")
 
 	return createJSONResponse(responseData)
 }
 
-func (s *MCPServer) handleGetPaper(args map[string]interface{}) (*ToolResponse, error) {
+func (s *MCPServer) handleGetPaper(ctx context.Context, args map[string]any) (*ToolResponse, error) {
 	paperID, ok := args["paperId"].(string)
 	if !ok {
 		return nil, fmt.Errorf("paperId is required")
 	}
 
 	opts := semanticscholar.PaperDetailsOptions{}
-	if fields, ok := args["fields"].([]interface{}); ok {
+	if fields, ok := args["fields"].([]any); ok {
 		opts.Fields = interfaceSliceToStringSlice(fields)
 	}
 
-	result, err := s.manager.GetPaper(paperID, opts)
+	result, err := s.manager.GetPaper(ctx, paperID, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -672,7 +678,7 @@ func (s *MCPServer) handleGetPaper(args map[string]interface{}) (*ToolResponse, 
 	return createJSONResponse(result)
 }
 
-func (s *MCPServer) handleGetPaperCitations(args map[string]interface{}) (*ToolResponse, error) {
+func (s *MCPServer) handleGetPaperCitations(ctx context.Context, args map[string]any) (*ToolResponse, error) {
 	paperID, ok := args["paperId"].(string)
 	if !ok {
 		return nil, fmt.Errorf("paperId is required")
@@ -683,7 +689,7 @@ func (s *MCPServer) handleGetPaperCitations(args map[string]interface{}) (*ToolR
 		Offset: getIntArg(args, "offset", 0),
 	}
 
-	result, err := s.manager.GetPaperCitations(paperID, opts)
+	result, err := s.manager.GetPaperCitations(ctx, paperID, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -691,7 +697,7 @@ func (s *MCPServer) handleGetPaperCitations(args map[string]interface{}) (*ToolR
 	return createJSONResponse(result)
 }
 
-func (s *MCPServer) handleGetPaperReferences(args map[string]interface{}) (*ToolResponse, error) {
+func (s *MCPServer) handleGetPaperReferences(ctx context.Context, args map[string]any) (*ToolResponse, error) {
 	paperID, ok := args["paperId"].(string)
 	if !ok {
 		return nil, fmt.Errorf("paperId is required")
@@ -702,7 +708,7 @@ func (s *MCPServer) handleGetPaperReferences(args map[string]interface{}) (*Tool
 		Offset: getIntArg(args, "offset", 0),
 	}
 
-	result, err := s.manager.GetPaperReferences(paperID, opts)
+	result, err := s.manager.GetPaperReferences(ctx, paperID, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -710,7 +716,7 @@ func (s *MCPServer) handleGetPaperReferences(args map[string]interface{}) (*Tool
 	return createJSONResponse(result)
 }
 
-func (s *MCPServer) handleSearchAuthors(args map[string]interface{}) (*ToolResponse, error) {
+func (s *MCPServer) handleSearchAuthors(ctx context.Context, args map[string]any) (*ToolResponse, error) {
 	query, ok := args["query"].(string)
 	if !ok {
 		return nil, fmt.Errorf("query is required")
@@ -722,7 +728,7 @@ func (s *MCPServer) handleSearchAuthors(args map[string]interface{}) (*ToolRespo
 		Offset: getIntArg(args, "offset", 0),
 	}
 
-	result, err := s.manager.SearchAuthors(opts)
+	result, err := s.manager.SearchAuthors(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -730,18 +736,18 @@ func (s *MCPServer) handleSearchAuthors(args map[string]interface{}) (*ToolRespo
 	return createJSONResponse(result)
 }
 
-func (s *MCPServer) handleGetAuthor(args map[string]interface{}) (*ToolResponse, error) {
+func (s *MCPServer) handleGetAuthor(ctx context.Context, args map[string]any) (*ToolResponse, error) {
 	authorID, ok := args["authorId"].(string)
 	if !ok {
 		return nil, fmt.Errorf("authorId is required")
 	}
 
 	var fields []string
-	if f, ok := args["fields"].([]interface{}); ok {
+	if f, ok := args["fields"].([]any); ok {
 		fields = interfaceSliceToStringSlice(f)
 	}
 
-	result, err := s.manager.GetAuthor(authorID, fields)
+	result, err := s.manager.GetAuthor(ctx, authorID, fields)
 	if err != nil {
 		return nil, err
 	}
@@ -749,7 +755,7 @@ func (s *MCPServer) handleGetAuthor(args map[string]interface{}) (*ToolResponse,
 	return createJSONResponse(result)
 }
 
-func (s *MCPServer) handleGetAuthorPapers(args map[string]interface{}) (*ToolResponse, error) {
+func (s *MCPServer) handleGetAuthorPapers(ctx context.Context, args map[string]any) (*ToolResponse, error) {
 	authorID, ok := args["authorId"].(string)
 	if !ok {
 		return nil, fmt.Errorf("authorId is required")
@@ -758,7 +764,7 @@ func (s *MCPServer) handleGetAuthorPapers(args map[string]interface{}) (*ToolRes
 	limit := getIntArg(args, "limit", 100)
 	offset := getIntArg(args, "offset", 0)
 
-	result, err := s.manager.GetAuthorPapers(authorID, nil, offset, limit)
+	result, err := s.manager.GetAuthorPapers(ctx, authorID, nil, offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -766,7 +772,7 @@ func (s *MCPServer) handleGetAuthorPapers(args map[string]interface{}) (*ToolRes
 	return createJSONResponse(result)
 }
 
-func (s *MCPServer) handleGetRecommendations(args map[string]interface{}) (*ToolResponse, error) {
+func (s *MCPServer) handleGetRecommendations(ctx context.Context, args map[string]any) (*ToolResponse, error) {
 	paperID, ok := args["paperId"].(string)
 	if !ok {
 		return nil, fmt.Errorf("paperId is required")
@@ -776,7 +782,7 @@ func (s *MCPServer) handleGetRecommendations(args map[string]interface{}) (*Tool
 		Limit: getIntArg(args, "limit", 10),
 	}
 
-	result, err := s.manager.GetRecommendationsForPaper(paperID, opts)
+	result, err := s.manager.GetRecommendationsForPaper(ctx, paperID, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -784,7 +790,7 @@ func (s *MCPServer) handleGetRecommendations(args map[string]interface{}) (*Tool
 	return createJSONResponse(result)
 }
 
-func (s *MCPServer) handleSnippetSearch(args map[string]interface{}) (*ToolResponse, error) {
+func (s *MCPServer) handleSnippetSearch(ctx context.Context, args map[string]any) (*ToolResponse, error) {
 	query, ok := args["query"].(string)
 	if !ok {
 		return nil, fmt.Errorf("query is required")
@@ -807,13 +813,13 @@ func (s *MCPServer) handleSnippetSearch(args map[string]interface{}) (*ToolRespo
 	if year, ok := args["year"].(string); ok {
 		opts.Year = year
 	}
-	if fields, ok := args["fieldsOfStudy"].([]interface{}); ok {
+	if fields, ok := args["fieldsOfStudy"].([]any); ok {
 		opts.FieldsOfStudy = interfaceSliceToStringSlice(fields)
 	}
 
-	fmt.Printf("[MCP] snippet_search called with query: %s\n", query)
+	slog.Debug("snippet_search called", "query", query)
 
-	result, err := s.manager.SnippetSearch(opts)
+	result, err := s.manager.SnippetSearch(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -821,7 +827,7 @@ func (s *MCPServer) handleSnippetSearch(args map[string]interface{}) (*ToolRespo
 	return createJSONResponse(result)
 }
 
-func (s *MCPServer) handlePaperTitleMatch(args map[string]interface{}) (*ToolResponse, error) {
+func (s *MCPServer) handlePaperTitleMatch(ctx context.Context, args map[string]any) (*ToolResponse, error) {
 	query, ok := args["query"].(string)
 	if !ok {
 		return nil, fmt.Errorf("query (paper title) is required")
@@ -842,13 +848,13 @@ func (s *MCPServer) handlePaperTitleMatch(args map[string]interface{}) (*ToolRes
 	if year, ok := args["year"].(string); ok {
 		opts.Year = year
 	}
-	if fields, ok := args["fieldsOfStudy"].([]interface{}); ok {
+	if fields, ok := args["fieldsOfStudy"].([]any); ok {
 		opts.FieldsOfStudy = interfaceSliceToStringSlice(fields)
 	}
 
-	fmt.Printf("[MCP] paper_title_match called with title: %s\n", query)
+	slog.Debug("paper_title_match called", "title", query)
 
-	result, err := s.manager.PaperTitleMatch(opts)
+	result, err := s.manager.PaperTitleMatch(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -856,8 +862,8 @@ func (s *MCPServer) handlePaperTitleMatch(args map[string]interface{}) (*ToolRes
 	return createJSONResponse(result)
 }
 
-func (s *MCPServer) handleRecommendationsByExamples(args map[string]interface{}) (*ToolResponse, error) {
-	positivePaperIds, ok := args["positivePaperIds"].([]interface{})
+func (s *MCPServer) handleRecommendationsByExamples(ctx context.Context, args map[string]any) (*ToolResponse, error) {
+	positivePaperIds, ok := args["positivePaperIds"].([]any)
 	if !ok || len(positivePaperIds) == 0 {
 		return nil, fmt.Errorf("positivePaperIds is required and must not be empty")
 	}
@@ -867,14 +873,16 @@ func (s *MCPServer) handleRecommendationsByExamples(args map[string]interface{})
 		Limit:            getIntArg(args, "limit", 20),
 	}
 
-	if negativePaperIds, ok := args["negativePaperIds"].([]interface{}); ok {
+	if negativePaperIds, ok := args["negativePaperIds"].([]any); ok {
 		opts.NegativePaperIDs = interfaceSliceToStringSlice(negativePaperIds)
 	}
 
-	fmt.Printf("[MCP] recommendations_by_examples called with %d positive, %d negative papers\n",
-		len(opts.PositivePaperIDs), len(opts.NegativePaperIDs))
+	slog.Debug("recommendations_by_examples called",
+		"positiveCount", len(opts.PositivePaperIDs),
+		"negativeCount", len(opts.NegativePaperIDs),
+	)
 
-	result, err := s.manager.GetRecommendations(opts)
+	result, err := s.manager.GetRecommendations(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -882,7 +890,7 @@ func (s *MCPServer) handleRecommendationsByExamples(args map[string]interface{})
 	return createJSONResponse(result)
 }
 
-func (s *MCPServer) handlePaperAutocomplete(args map[string]interface{}) (*ToolResponse, error) {
+func (s *MCPServer) handlePaperAutocomplete(ctx context.Context, args map[string]any) (*ToolResponse, error) {
 	query, ok := args["query"].(string)
 	if !ok {
 		return nil, fmt.Errorf("query is required")
@@ -893,9 +901,9 @@ func (s *MCPServer) handlePaperAutocomplete(args map[string]interface{}) (*ToolR
 		query = query[:100]
 	}
 
-	fmt.Printf("[MCP] paper_autocomplete called with query: %s\n", query)
+	slog.Debug("paper_autocomplete called", "query", query)
 
-	result, err := s.manager.PaperAutocomplete(query)
+	result, err := s.manager.PaperAutocomplete(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -905,7 +913,7 @@ func (s *MCPServer) handlePaperAutocomplete(args map[string]interface{}) (*ToolR
 
 // Helper functions
 
-func getIntArg(args map[string]interface{}, key string, defaultValue int) int {
+func getIntArg(args map[string]any, key string, defaultValue int) int {
 	if val, ok := args[key]; ok {
 		switch v := val.(type) {
 		case float64:
@@ -917,7 +925,7 @@ func getIntArg(args map[string]interface{}, key string, defaultValue int) int {
 	return defaultValue
 }
 
-func getStringArg(args map[string]interface{}, key string, defaultValue string) string {
+func getStringArg(args map[string]any, key string, defaultValue string) string {
 	if val, ok := args[key]; ok {
 		if str, ok := val.(string); ok {
 			return str
@@ -926,7 +934,7 @@ func getStringArg(args map[string]interface{}, key string, defaultValue string) 
 	return defaultValue
 }
 
-func interfaceSliceToStringSlice(slice []interface{}) []string {
+func interfaceSliceToStringSlice(slice []any) []string {
 	result := make([]string, 0, len(slice))
 	for _, item := range slice {
 		if str, ok := item.(string); ok {
@@ -936,15 +944,15 @@ func interfaceSliceToStringSlice(slice []interface{}) []string {
 	return result
 }
 
-func createJSONResponse(data interface{}) (*ToolResponse, error) {
+func createJSONResponse(data any) (*ToolResponse, error) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		log.Printf("Failed to marshal response: %v", err)
+		slog.Error("failed to marshal response", "err", err)
 		return nil, fmt.Errorf("failed to marshal response: %w", err)
 	}
 
 	return &ToolResponse{
-		Content: []map[string]interface{}{
+		Content: []map[string]any{
 			{
 				"type": "text",
 				"text": string(jsonData),

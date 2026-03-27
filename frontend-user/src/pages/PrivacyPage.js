@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Shield } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -187,7 +188,7 @@ const PrivacyPage = () => {
           ) : (
             <div 
               className="legal-text"
-              dangerouslySetInnerHTML={{ __html: content }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content) }}
             />
           )}
         </div>

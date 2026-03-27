@@ -8,7 +8,6 @@
 package usagelog
 
 import (
-	"net/http"
 	"strconv"
 
 	"scholar-backend/internal/common/utils"
@@ -50,12 +49,11 @@ func (h *Handler) Log(c *gin.Context) {
 
 	// 记录日志
 	if err := h.service.Log(&req, userID, ipAddress, userAgent); err != nil {
-		// 日志记录失败不影响用户体验，只记录错误
-		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "logged"})
+		utils.SuccessWithMessage(c, "logged", nil)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "logged"})
+	utils.SuccessWithMessage(c, "logged", nil)
 }
 
 // AdminHandler 管理后台处理器

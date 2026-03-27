@@ -85,7 +85,7 @@ func (r *Repository) IncrementUsage(id uint) error {
 	now := time.Now()
 	return r.db.Model(&ThirdPartyAccount{}).
 		Where("id = ?", id).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"usage_count":  gorm.Expr("usage_count + ?", 1),
 			"last_used_at": now,
 		}).Error
@@ -109,7 +109,7 @@ type TypeStats struct {
 }
 
 // GetStats retrieves usage statistics
-func (r *Repository) GetStats() (map[string]interface{}, error) {
+func (r *Repository) GetStats() (map[string]any, error) {
 	// 按类型统计（这是最准确的统计方式）
 	typeStats, err := r.GetStatsByType()
 	if err != nil {
@@ -140,7 +140,7 @@ func (r *Repository) GetStats() (map[string]interface{}, error) {
 		}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"total":                          total,
 		"active_count":                   activeCount,
 		"semantic_scholar_count":         semanticScholarActive, // 保持兼容：启用数

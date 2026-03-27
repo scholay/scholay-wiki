@@ -328,7 +328,7 @@ func (r *Repository) MarkAsRead(userID, id uint) error {
 	now := time.Now()
 	result := r.db.Model(&UserMessage{}).
 		Where("id = ? AND user_id = ? AND is_read = ?", id, userID, false).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"is_read": true,
 			"read_at": now,
 		})
@@ -353,7 +353,7 @@ func (r *Repository) MarkAllAsRead(userID uint) (int64, error) {
 	now := time.Now()
 	result := r.db.Model(&UserMessage{}).
 		Where("user_id = ? AND is_read = ? AND is_deleted = ?", userID, false, false).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"is_read": true,
 			"read_at": now,
 		})
@@ -365,7 +365,7 @@ func (r *Repository) DeleteUserMessage(userID, id uint) error {
 	now := time.Now()
 	return r.db.Model(&UserMessage{}).
 		Where("id = ? AND user_id = ?", id, userID).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"is_deleted": true,
 			"deleted_at": now,
 		}).Error

@@ -14,7 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/thirdparty"
 	"strings"
@@ -55,7 +55,7 @@ type ChatResponse struct {
 	MessageID string `json:"message_id,omitempty"`
 	Content   string `json:"content,omitempty"`
 	Error     string `json:"error,omitempty"`
-	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+	Metadata  map[string]any `json:"metadata,omitempty"`
 }
 
 // StreamChat handles a chat request with streaming response
@@ -71,7 +71,7 @@ func (s *ChatService) StreamChat(ctx context.Context, userID uint, req ChatReque
 	if modelLevel := req.ModelLevel; modelLevel != "" && conversation.ModelLevel != modelLevel {
 		conversation.ModelLevel = modelLevel
 		if err := s.repo.UpdateConversation(conversation); err != nil {
-			log.Printf("Failed to update conversation model level: %v", err)
+			slog.Error("failed to update conversation model level", "err", err)
 		}
 	}
 
@@ -124,7 +124,7 @@ func (s *ChatService) StreamChat(ctx context.Context, userID uint, req ChatReque
 	s.sendEvent(writer, ChatResponse{
 		Type:      "user_message_created",
 		MessageID: userMessageID,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"content": req.Content,
 		},
 	})
@@ -133,7 +133,7 @@ func (s *ChatService) StreamChat(ctx context.Context, userID uint, req ChatReque
 	s.sendEvent(writer, ChatResponse{
 		Type:      "message_start",
 		MessageID: assistantMessageID,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"parent_message_id": userMessageID,  // Frontend needs this for context chain
 		},
 	})
@@ -163,7 +163,7 @@ func (s *ChatService) StreamChat(ctx context.Context, userID uint, req ChatReque
 		})
 	}}
 
-	err = s.aiService.StreamChatCompletionWithLevel(aiMessages, customWriter, modelLevel)
+	err = s.aiService.StreamChatCompletionWithLevel(ctx, aiMessages, customWriter, modelLevel)
 	if err != nil {
 		s.sendEvent(writer, ChatResponse{
 			Type:  "error",
@@ -182,7 +182,7 @@ func (s *ChatService) StreamChat(ctx context.Context, userID uint, req ChatReque
 	assistantMessage.TokenCount = s.tokenCounter.EstimateTokenCount(fullContent) + 4
 
 	if err := s.repo.UpdateMessage(assistantMessage); err != nil {
-		log.Printf("Failed to update assistant message: %v", err)
+		slog.Error("failed to update assistant message", "err", err)
 	}
 
 	// 10. Touch conversation to update timestamp
@@ -192,7 +192,7 @@ func (s *ChatService) StreamChat(ctx context.Context, userID uint, req ChatReque
 	s.sendEvent(writer, ChatResponse{
 		Type:      "message_end",
 		MessageID: assistantMessageID,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"token_count":   assistantMessage.TokenCount,
 			"finish_reason": assistantMessage.FinishReason,
 		},
@@ -268,7 +268,7 @@ func (s *ChatService) convertToAIMessages(messages []ConversationMessage) []ai.M
 func (s *ChatService) sendEvent(writer io.Writer, response ChatResponse) {
 	data, err := json.Marshal(response)
 	if err != nil {
-		log.Printf("Failed to marshal response: %v", err)
+		slog.Error("failed to marshal response", "err", err)
 		return
 	}
 
@@ -282,7 +282,7 @@ func (s *ChatService) sendEvent(writer io.Writer, response ChatResponse) {
 }
 
 // GetMessageTree returns the complete message tree for a conversation
-func (s *ChatService) GetMessageTree(conversationID uint, userID uint) (map[string]MessageChainResponse, error) {
+func (s *ChatService) GetMessageTree(ctx context.Context, conversationID uint, userID uint) (map[string]MessageChainResponse, error) {
 	// Verify ownership
 	_, err := s.repo.GetConversationByID(conversationID, userID)
 	if err != nil {
@@ -378,7 +378,7 @@ func (s *ChatService) RegenerateMessage(ctx context.Context, userID uint, messag
 	s.sendEvent(writer, ChatResponse{
 		Type:      "message_start",
 		MessageID: assistantMessageID,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"parent_message_id": *message.ParentMessageID,
 		},
 	})
@@ -396,7 +396,7 @@ func (s *ChatService) RegenerateMessage(ctx context.Context, userID uint, messag
 		})
 	}}
 
-	err = s.aiService.StreamChatCompletion(aiMessages, customWriter)
+	err = s.aiService.StreamChatCompletion(ctx, aiMessages, customWriter)
 	if err != nil {
 		s.sendEvent(writer, ChatResponse{
 			Type:  "error",
@@ -415,7 +415,7 @@ func (s *ChatService) RegenerateMessage(ctx context.Context, userID uint, messag
 	assistantMessage.TokenCount = s.tokenCounter.CountMessageTokens(assistantMessage)
 
 	if err := s.repo.UpdateMessage(assistantMessage); err != nil {
-		log.Printf("Warning: Failed to update assistant message: %v", err)
+		slog.Warn("failed to update assistant message", "err", err)
 	}
 
 	// Send message_end event
@@ -459,7 +459,7 @@ func (s *ChatService) EditMessage(ctx context.Context, userID uint, messageID st
 }
 
 // GetConversationHistory returns the main conversation path (no branches)
-func (s *ChatService) GetConversationHistory(conversationID uint, userID uint) ([]ConversationMessage, error) {
+func (s *ChatService) GetConversationHistory(ctx context.Context, conversationID uint, userID uint) ([]ConversationMessage, error) {
 	// Verify ownership
 	_, err := s.repo.GetConversationByID(conversationID, userID)
 	if err != nil {
@@ -474,8 +474,7 @@ func (s *ChatService) GetConversationHistory(conversationID uint, userID uint) (
 		return []ConversationMessage{}, nil
 	}
 
-	log.Printf("[DEBUG] Latest message ID: %s, Role: %s, Content preview: %.50s",
-		latestMessage.MessageID, latestMessage.Role, latestMessage.Content)
+	slog.Debug("latest message found", "messageID", latestMessage.MessageID, "role", latestMessage.Role)
 
 	// Build chain from latest message (optimized version)
 	chain, err := s.repo.BuildMessageChainOptimized(latestMessage.MessageID)
@@ -483,19 +482,25 @@ func (s *ChatService) GetConversationHistory(conversationID uint, userID uint) (
 		return nil, err
 	}
 
-	log.Printf("[DEBUG] Built chain for conversation %d: %d messages", conversationID, len(chain))
-	for i, msg := range chain {
-		log.Printf("[DEBUG]   Message %d: ID=%s, Role=%s, ParentID=%v, Content preview=%.30s",
-			i, msg.MessageID, msg.Role, msg.ParentMessageID, msg.Content)
-	}
+	slog.Debug("built message chain", "conversationID", conversationID, "messageCount", len(chain))
 
 	return chain, nil
+}
+
+// GetConversationByID retrieves a conversation by ID and verifies user ownership
+func (s *ChatService) GetConversationByID(ctx context.Context, conversationID uint, userID uint) (*Conversation, error) {
+	return s.repo.GetConversationByID(conversationID, userID)
+}
+
+// GetSiblingMessages returns all sibling messages sharing the same parent
+func (s *ChatService) GetSiblingMessages(ctx context.Context, messageID string) ([]ConversationMessage, error) {
+	return s.repo.GetSiblingMessages(messageID)
 }
 
 // GetBranchChain returns the complete chain from root to the deepest leaf of a specific branch
 // This is used when navigating to a sibling message - we want to show the complete conversation
 // path for that branch, not just the sibling message itself
-func (s *ChatService) GetBranchChain(messageID string, userID uint) ([]ConversationMessage, error) {
+func (s *ChatService) GetBranchChain(ctx context.Context, messageID string, userID uint) ([]ConversationMessage, error) {
 	// Get the starting message
 	message, err := s.repo.GetMessageByMessageID(messageID)
 	if err != nil {

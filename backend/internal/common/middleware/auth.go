@@ -11,7 +11,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"log"
+	"log/slog"
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
@@ -34,10 +34,8 @@ const (
 
 // SessionValidator 会话验证器接口
 type SessionValidator interface {
-	ValidateSession(token string) bool
-	// InvalidateSession 使会话缓存失效（登录时调用）
+	ValidateSession(ctx context.Context, token string) bool
 	InvalidateSession(token string)
-	// InvalidateUserSessions 使用户的所有会话缓存失效
 	InvalidateUserSessions(userID uint)
 }
 
@@ -62,8 +60,7 @@ func hashToken(token string) string {
 }
 
 // ValidateSession 验证会话是否存在（带缓存）
-func (v *CachedSessionValidator) ValidateSession(token string) bool {
-	ctx := context.Background()
+func (v *CachedSessionValidator) ValidateSession(ctx context.Context, token string) bool {
 	cacheKey := SessionCachePrefix + hashToken(token)
 
 	// 1. 先查 Redis 缓存
@@ -85,7 +82,7 @@ func (v *CachedSessionValidator) ValidateSession(token string) bool {
 		cacheValue = "1"
 	}
 	if err := v.redis.Set(ctx, cacheKey, cacheValue, SessionCacheTTL).Err(); err != nil {
-		log.Printf("[SSO] Warning: failed to cache session: %v", err)
+		slog.Warn("Failed to cache session", "err", err)
 	}
 
 	return valid
@@ -96,7 +93,7 @@ func (v *CachedSessionValidator) InvalidateSession(token string) {
 	ctx := context.Background()
 	cacheKey := SessionCachePrefix + hashToken(token)
 	if err := v.redis.Del(ctx, cacheKey).Err(); err != nil {
-		log.Printf("[SSO] Warning: failed to invalidate session cache: %v", err)
+		slog.Warn("Failed to invalidate session cache", "err", err)
 	}
 }
 
@@ -130,29 +127,6 @@ func SetSessionValidator(v SessionValidator) {
 func GetSessionValidator() SessionValidator {
 	return globalSessionValidator
 }
-
-// DBSessionValidator 基于数据库的会话验证器（保留兼容性）
-type DBSessionValidator struct {
-	db *gorm.DB
-}
-
-// NewDBSessionValidator 创建数据库会话验证器
-func NewDBSessionValidator(db *gorm.DB) *DBSessionValidator {
-	return &DBSessionValidator{db: db}
-}
-
-// ValidateSession 验证会话是否存在
-func (v *DBSessionValidator) ValidateSession(token string) bool {
-	var count int64
-	v.db.Model(&model.UserSession{}).Where("token = ?", token).Count(&count)
-	return count > 0
-}
-
-// InvalidateSession 数据库验证器不需要缓存失效
-func (v *DBSessionValidator) InvalidateSession(token string) {}
-
-// InvalidateUserSessions 数据库验证器不需要缓存失效
-func (v *DBSessionValidator) InvalidateUserSessions(userID uint) {}
 
 // AuthMiddleware validates JWT tokens
 func AuthMiddleware(requiredType string) gin.HandlerFunc {
@@ -197,11 +171,15 @@ func AuthMiddleware(requiredType string) gin.HandlerFunc {
 		// 只对用户端进行会话验证，管理端不验证
 		if requiredType == "user" {
 			if globalSessionValidator == nil {
-				log.Println("[SSO] Warning: globalSessionValidator is nil")
+				slog.Warn("Global session validator is nil")
 			} else {
-				valid := globalSessionValidator.ValidateSession(token)
-				if !valid {
-					log.Printf("[SSO] Session not found for token: %s...", token[:50])
+			valid := globalSessionValidator.ValidateSession(c.Request.Context(), token)
+			if !valid {
+				tokenPreview := token
+				if len(tokenPreview) > 50 {
+					tokenPreview = tokenPreview[:50]
+				}
+				slog.Warn("Session not found for token", "tokenPreview", tokenPreview)
 					utils.Error(c, 2019, "您的账号已在其他设备登录")
 					c.Abort()
 					return

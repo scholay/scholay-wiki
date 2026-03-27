@@ -45,7 +45,7 @@ func (r *Repository) UpdateConfig(config *WeChatOfficialConfig) error {
 	}
 
 	// Update existing config - use Updates to avoid overwriting timestamps
-	return r.db.Model(&existingConfig).Updates(map[string]interface{}{
+	return r.db.Model(&existingConfig).Updates(map[string]any{
 		"app_id":             config.AppID,
 		"app_secret":         config.AppSecret,
 		"token":              config.Token,

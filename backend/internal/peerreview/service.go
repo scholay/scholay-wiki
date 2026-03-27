@@ -8,10 +8,12 @@
 package peerreview
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -48,6 +50,25 @@ func NewService(db *gorm.DB, aiService *ai.Service, mcpServer *mcp.MCPServer, ac
 // SetCurrencyService 设置货币服务（用于审稿完成后扣费）
 func (s *Service) SetCurrencyService(cs *currency.Service) {
 	s.currencyService = cs
+}
+
+// RecentPeerReviewItem is a lightweight DTO for task history
+type RecentPeerReviewItem struct {
+	ID        uint      `json:"id"`
+	Title     string    `json:"title"`
+	Status    string    `json:"status"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// GetRecentNonDraftTasks returns recent non-draft peer review tasks for a user since a given date
+func (s *Service) GetRecentNonDraftTasks(userID uint, since time.Time) ([]RecentPeerReviewItem, error) {
+	var items []RecentPeerReviewItem
+	err := s.db.Table("peer_review_tasks").
+		Select("id, title, status, updated_at").
+		Where("user_id = ? AND status != ? AND updated_at >= ?", userID, TaskStatusDraft, since).
+		Order("updated_at DESC").
+		Scan(&items).Error
+	return items, err
 }
 
 // generateManuscriptHash 生成稿件哈希
@@ -91,7 +112,7 @@ func (s *Service) extractBasicInfo(manuscriptText, modelLevel string) (*Manuscri
 	}
 
 	level := getModelLevel(modelLevel)
-	response, err := s.aiService.ChatCompletionWithTools(messages, nil, "", level)
+	response, err := s.aiService.ChatCompletionWithTools(context.Background(), messages, nil, "", level)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +154,7 @@ func (s *Service) extractBasicInfoFromFile(fileBase64 string, fileName string, m
 
 	// 构建多模态消息，使用 FileInputMeta 作为中间格式
 	// AI service 会根据实际使用的模型自动转换为对应格式
-	contentParts := []interface{}{
+	contentParts := []any{
 		ai.FileInputMeta{
 			Type:     "file_input_meta",
 			MimeType: mimeType,
@@ -150,7 +171,7 @@ func (s *Service) extractBasicInfoFromFile(fileBase64 string, fileName string, m
 	}
 
 	level := getModelLevel(modelLevel)
-	response, err := s.aiService.ChatCompletionWithTools(messages, nil, "", level)
+	response, err := s.aiService.ChatCompletionWithTools(context.Background(), messages, nil, "", level)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +286,7 @@ func extractJSON(content string) string {
 // tryFixTruncatedJSON 尝试修复被截断的 JSON
 func tryFixTruncatedJSON(content string) string {
 	// 如果 JSON 已经有效，直接返回
-	var test interface{}
+	var test any
 	if json.Unmarshal([]byte(content), &test) == nil {
 		return content
 	}
@@ -418,7 +439,7 @@ func getMinCitationsByField(field string) int {
 }
 
 // searchSingleQuery 执行单个查询
-func (s *Service) searchSingleQuery(q SearchQuery) ([]map[string]interface{}, error) {
+func (s *Service) searchSingleQuery(ctx context.Context, q SearchQuery) ([]map[string]any, error) {
 	// 动态计算年份范围：当前年份-5 到 当前年份
 	currentYear := time.Now().Year()
 	yearFrom := strconv.Itoa(currentYear - 5)
@@ -427,7 +448,7 @@ func (s *Service) searchSingleQuery(q SearchQuery) ([]map[string]interface{}, er
 	// 根据领域动态调整引用计数阈值
 	minCitations := getMinCitationsByField(q.Field)
 
-	args := map[string]interface{}{
+	args := map[string]any{
 		"keywords":      strings.Split(q.Query, " "),
 		"year_from":     yearFrom,
 		"year_to":       yearTo,
@@ -441,7 +462,7 @@ func (s *Service) searchSingleQuery(q SearchQuery) ([]map[string]interface{}, er
 		Arguments: args,
 	}
 
-	resp, err := s.mcpServer.CallTool(toolReq)
+	resp, err := s.mcpServer.CallTool(ctx, toolReq)
 	if err != nil {
 		return nil, err
 	}
@@ -449,7 +470,7 @@ func (s *Service) searchSingleQuery(q SearchQuery) ([]map[string]interface{}, er
 	if len(resp.Content) > 0 {
 		if textContent, ok := resp.Content[0]["text"].(string); ok {
 			var searchResult struct {
-				Data  []map[string]interface{} `json:"data"`
+				Data  []map[string]any `json:"data"`
 				Total int                      `json:"total"`
 			}
 			if err := json.Unmarshal([]byte(textContent), &searchResult); err == nil {
@@ -462,8 +483,8 @@ func (s *Service) searchSingleQuery(q SearchQuery) ([]map[string]interface{}, er
 }
 
 // filterPapersWithAbstract 过滤掉没有摘要的论文
-func (s *Service) filterPapersWithAbstract(papers []map[string]interface{}) []map[string]interface{} {
-	filtered := make([]map[string]interface{}, 0)
+func (s *Service) filterPapersWithAbstract(papers []map[string]any) []map[string]any {
+	filtered := make([]map[string]any, 0)
 	for _, p := range papers {
 		abstract, ok := p["abstract"].(string)
 		if ok && strings.TrimSpace(abstract) != "" && len(abstract) > 50 {
@@ -476,7 +497,7 @@ func (s *Service) filterPapersWithAbstract(papers []map[string]interface{}) []ma
 // filterPapersWithAI 使用AI筛选论文
 // 输入：有摘要的论文列表（最多50篇）
 // 输出：AI认为与研究高度相关的论文（通常10-20篇）
-func (s *Service) filterPapersWithAI(papers []map[string]interface{}, query SearchQuery, meta *ManuscriptMeta, modelLevel string) ([]map[string]interface{}, error) {
+func (s *Service) filterPapersWithAI(papers []map[string]any, query SearchQuery, meta *ManuscriptMeta, modelLevel string) ([]map[string]any, error) {
 	// 构建论文列表字符串
 	papersInfo := s.formatPapersForAIFilter(papers)
 
@@ -528,7 +549,7 @@ func (s *Service) filterPapersWithAI(papers []map[string]interface{}, query Sear
 	}
 
 	level := getModelLevel(modelLevel)
-	response, err := s.aiService.ChatCompletionWithTools(messages, nil, "", level)
+	response, err := s.aiService.ChatCompletionWithTools(context.Background(), messages, nil, "", level)
 	if err != nil {
 		return nil, err
 	}
@@ -547,14 +568,14 @@ func (s *Service) filterPapersWithAI(papers []map[string]interface{}, query Sear
 	}
 
 	if err := json.Unmarshal([]byte(content), &filterResult); err != nil {
-		fmt.Printf("[PeerReview] Failed to parse AI filter result: %v, content: %s\n", err, content[:min(200, len(content))])
+		slog.Error("failed to parse AI filter result", "err", err, "content_prefix", content[:min(200, len(content))])
 		return nil, err
 	}
 
-	fmt.Printf("[PeerReview] AI filter reason: %s\n", filterResult.FilterReason)
+	slog.Info("AI filter reason", "reason", filterResult.FilterReason)
 
 	// 根据选中的索引提取论文
-	selectedPapers := make([]map[string]interface{}, 0)
+	selectedPapers := make([]map[string]any, 0)
 	for _, idx := range filterResult.SelectedIndices {
 		if idx >= 1 && idx <= len(papers) {
 			selectedPapers = append(selectedPapers, papers[idx-1])
@@ -565,7 +586,7 @@ func (s *Service) filterPapersWithAI(papers []map[string]interface{}, query Sear
 }
 
 // formatPapersForAIFilter 格式化论文列表供AI筛选
-func (s *Service) formatPapersForAIFilter(papers []map[string]interface{}) string {
+func (s *Service) formatPapersForAIFilter(papers []map[string]any) string {
 	var sb strings.Builder
 
 	for i, p := range papers {
@@ -640,8 +661,8 @@ func (s *Service) buildFilterContext(query SearchQuery, meta *ManuscriptMeta) st
 }
 
 // callSemanticScholarSearchWithAIFilterNoWriter 调用MCP搜索文献并进行AI筛选（无 writer 版本，用于后台任务）
-func (s *Service) callSemanticScholarSearchWithAIFilterNoWriter(queries []SearchQuery, meta *ManuscriptMeta, modelLevel string, progressCallback func(string)) (map[string][]map[string]interface{}, error) {
-	results := make(map[string][]map[string]interface{})
+func (s *Service) callSemanticScholarSearchWithAIFilterNoWriter(queries []SearchQuery, meta *ManuscriptMeta, modelLevel string, progressCallback func(string)) (map[string][]map[string]any, error) {
+	results := make(map[string][]map[string]any)
 
 	for _, q := range queries {
 		if progressCallback != nil {
@@ -649,13 +670,13 @@ func (s *Service) callSemanticScholarSearchWithAIFilterNoWriter(queries []Search
 		}
 
 		// 1. 调用MCP检索
-		rawPapers, err := s.searchSingleQuery(q)
+		rawPapers, err := s.searchSingleQuery(context.Background(), q)
 		if err != nil {
-			fmt.Printf("[PeerReview] Search failed for %s: %v\n", q.ID, err)
+			slog.Error("search failed", "query_id", q.ID, "err", err)
 			continue
 		}
 
-		fmt.Printf("[PeerReview] Query '%s' returned %d papers\n", q.ID, len(rawPapers))
+		slog.Info("query returned papers", "query_id", q.ID, "count", len(rawPapers))
 
 		if len(rawPapers) == 0 {
 			continue
@@ -663,7 +684,7 @@ func (s *Service) callSemanticScholarSearchWithAIFilterNoWriter(queries []Search
 
 		// 2. 过滤掉没有摘要的论文
 		papersWithAbstract := s.filterPapersWithAbstract(rawPapers)
-		fmt.Printf("[PeerReview] After filtering papers without abstract: %d papers\n", len(papersWithAbstract))
+		slog.Info("filtered papers without abstract", "remaining", len(papersWithAbstract))
 
 		if len(papersWithAbstract) == 0 {
 			results[q.ID] = topN(rawPapers, 10)
@@ -676,12 +697,12 @@ func (s *Service) callSemanticScholarSearchWithAIFilterNoWriter(queries []Search
 		}
 		filteredPapers, err := s.filterPapersWithAI(papersWithAbstract, q, meta, modelLevel)
 		if err != nil {
-			fmt.Printf("[PeerReview] AI filter failed for %s: %v, using raw results\n", q.ID, err)
+			slog.Warn("AI filter failed, using raw results", "query_id", q.ID, "err", err)
 			results[q.ID] = topN(papersWithAbstract, 15)
 			continue
 		}
 
-		fmt.Printf("[PeerReview] After AI filtering: %d papers selected\n", len(filteredPapers))
+		slog.Info("AI filtering complete", "selected", len(filteredPapers))
 		results[q.ID] = filteredPapers
 	}
 
@@ -689,8 +710,8 @@ func (s *Service) callSemanticScholarSearchWithAIFilterNoWriter(queries []Search
 }
 
 // normalizeAndSelectPapers 整理和筛选论文
-func (s *Service) normalizeAndSelectPapers(resultsByID map[string][]map[string]interface{}) *LiteratureContext {
-	allPapersMap := make(map[string]map[string]interface{})
+func (s *Service) normalizeAndSelectPapers(resultsByID map[string][]map[string]any) *LiteratureContext {
+	allPapersMap := make(map[string]map[string]any)
 
 	// 去重
 	for _, papers := range resultsByID {
@@ -712,7 +733,7 @@ func (s *Service) normalizeAndSelectPapers(resultsByID map[string][]map[string]i
 	}
 
 	// 转为列表
-	allPapers := make([]map[string]interface{}, 0, len(allPapersMap))
+	allPapers := make([]map[string]any, 0, len(allPapersMap))
 	for _, p := range allPapersMap {
 		allPapers = append(allPapers, p)
 	}
@@ -726,7 +747,7 @@ func (s *Service) normalizeAndSelectPapers(resultsByID map[string][]map[string]i
 	}
 }
 
-func topN(papers []map[string]interface{}, n int) []map[string]interface{} {
+func topN(papers []map[string]any, n int) []map[string]any {
 	if len(papers) <= n {
 		return papers
 	}
@@ -793,8 +814,7 @@ func (s *Service) summarizeLiterature(ctx *LiteratureContext, meta *ManuscriptMe
 	var summary LiteratureSummary
 	if err := json.Unmarshal([]byte(content), &summary); err != nil {
 		// 记录原始内容便于调试
-		fmt.Printf("[PeerReview] Failed to parse summary JSON, content (first 500 chars): %s\n", content[:min(500, len(content))])
-		fmt.Printf("[PeerReview] JSON parse error: %v\n", err)
+		slog.Error("failed to parse summary JSON", "content_prefix", content[:min(500, len(content))], "err", err)
 		return nil, fmt.Errorf("failed to parse summary: %w", err)
 	}
 
@@ -810,7 +830,7 @@ func (s *Service) callAIWithContinuation(messages []ai.ChatMessage, level thirdp
 	copy(currentMessages, messages)
 
 	for i := 0; i <= maxContinuations; i++ {
-		response, err := s.aiService.ChatCompletionWithTools(currentMessages, nil, "", level)
+		response, err := s.aiService.ChatCompletionWithTools(context.Background(), currentMessages, nil, "", level)
 		if err != nil {
 			return "", err
 		}
@@ -830,7 +850,7 @@ func (s *Service) callAIWithContinuation(messages []ai.ChatMessage, level thirdp
 		fullContent.WriteString(content)
 		previousContent = content // 保存当前内容用于下一轮去重
 
-		fmt.Printf("[PeerReview] AI response chunk %d, length: %d, finish_reason: %s\n", i+1, len(content), finishReason)
+		slog.Debug("AI response chunk", "chunk", i+1, "length", len(content), "finish_reason", finishReason)
 
 		// 如果正常结束（不是因为长度被截断），直接返回
 		if finishReason != "length" {
@@ -839,7 +859,7 @@ func (s *Service) callAIWithContinuation(messages []ai.ChatMessage, level thirdp
 
 		// 如果是因为长度被截断，需要续写
 		if i < maxContinuations {
-			fmt.Printf("[PeerReview] Response truncated, requesting continuation...\n")
+			slog.Info("response truncated, requesting continuation")
 
 			// 构建续写请求：把当前的部分响应加入对话，让 AI 继续
 			currentMessages = append(currentMessages, ai.ChatMessage{
@@ -866,7 +886,7 @@ func (s *Service) callAIWithContinuationMultimodal(messages []ai.ChatMessage, le
 	copy(currentMessages, messages)
 
 	for i := 0; i <= maxContinuations; i++ {
-		response, err := s.aiService.ChatCompletionWithTools(currentMessages, nil, "", level)
+		response, err := s.aiService.ChatCompletionWithTools(context.Background(), currentMessages, nil, "", level)
 		if err != nil {
 			return "", err
 		}
@@ -886,7 +906,7 @@ func (s *Service) callAIWithContinuationMultimodal(messages []ai.ChatMessage, le
 		fullContent.WriteString(content)
 		previousContent = content // 保存当前内容用于下一轮去重
 
-		fmt.Printf("[PeerReview] Multimodal AI response chunk %d, length: %d, finish_reason: %s\n", i+1, len(content), finishReason)
+		slog.Debug("multimodal AI response chunk", "chunk", i+1, "length", len(content), "finish_reason", finishReason)
 
 		// 如果正常结束（不是因为长度被截断），直接返回
 		if finishReason != "length" {
@@ -895,7 +915,7 @@ func (s *Service) callAIWithContinuationMultimodal(messages []ai.ChatMessage, le
 
 		// 如果是因为长度被截断，需要续写
 		if i < maxContinuations {
-			fmt.Printf("[PeerReview] Multimodal response truncated, requesting continuation...\n")
+			slog.Info("multimodal response truncated, requesting continuation")
 
 			// 构建续写请求：把当前的部分响应加入对话，让 AI 继续
 			// 注意：续写请求不再包含文件，只需要文本
@@ -939,7 +959,7 @@ func removeOverlappingContent(previous, current string) string {
 			prefix := current[:overlapLen]
 			if suffix == prefix {
 				// 找到重叠部分，去除 current 开头的重复内容
-				fmt.Printf("[PeerReview] Detected overlap of %d chars, removing duplicate\n", overlapLen)
+				slog.Debug("detected overlap, removing duplicate", "overlap_chars", overlapLen)
 				return current[overlapLen:]
 			}
 		}
@@ -1021,7 +1041,7 @@ func removeRepeatedJSONKeys(previous, current string) string {
 				remaining := strings.TrimSpace(trimmedCurrent[i+1:])
 				if strings.HasPrefix(remaining, `"`) && !strings.Contains(previous, remaining[:strings.Index(remaining[1:], `"`)+2]) {
 					// 下一个 key 在 previous 中不存在，返回从这里开始
-					fmt.Printf("[PeerReview] Removed repeated JSON key: %s\n", firstKey)
+					slog.Debug("removed repeated JSON key", "key", firstKey)
 					return trimmedCurrent[i:]
 				}
 			}
@@ -1032,7 +1052,7 @@ func removeRepeatedJSONKeys(previous, current string) string {
 }
 
 // compactPapersForLLM 压缩论文列表供LLM使用
-func (s *Service) compactPapersForLLM(papers []map[string]interface{}, maxPapers int) string {
+func (s *Service) compactPapersForLLM(papers []map[string]any, maxPapers int) string {
 	var sb strings.Builder
 
 	for i, p := range papers {
@@ -1065,7 +1085,7 @@ func (s *Service) compactPapersForLLM(papers []map[string]interface{}, maxPapers
 }
 
 // buildReferenceList 构建参考文献列表
-func (s *Service) buildReferenceList(papers []map[string]interface{}) []ReferenceForReviewer {
+func (s *Service) buildReferenceList(papers []map[string]any) []ReferenceForReviewer {
 	refs := make([]ReferenceForReviewer, 0, len(papers))
 
 	for i, p := range papers {
@@ -1083,14 +1103,14 @@ func (s *Service) buildReferenceList(papers []map[string]interface{}) []Referenc
 
 		// 提取作者
 		authors := ""
-		if authorList, ok := p["authors"].([]interface{}); ok && len(authorList) > 0 {
+		if authorList, ok := p["authors"].([]any); ok && len(authorList) > 0 {
 			authorNames := []string{}
 			for j, a := range authorList {
 				if j >= 3 {
 					authorNames = append(authorNames, "et al.")
 					break
 				}
-				if authorMap, ok := a.(map[string]interface{}); ok {
+				if authorMap, ok := a.(map[string]any); ok {
 					if name, ok := authorMap["name"].(string); ok {
 						authorNames = append(authorNames, name)
 					}

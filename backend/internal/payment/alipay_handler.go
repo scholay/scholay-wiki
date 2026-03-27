@@ -9,7 +9,9 @@ package payment
 
 import (
 	"fmt"
+	"log/slog"
 	"math"
+	"scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/order"
@@ -26,10 +28,10 @@ type AlipayHandler struct {
 	orderService  *order.Service
 }
 
-// NewAlipayHandler creates a new Alipay handler
-func NewAlipayHandler(db *gorm.DB, orderService *order.Service) *AlipayHandler {
+// NewAlipayHandler creates a new Alipay handler with pre-built services
+func NewAlipayHandler(alipayService *AlipayService, orderService *order.Service) *AlipayHandler {
 	return &AlipayHandler{
-		alipayService: NewAlipayService(db),
+		alipayService: alipayService,
 		orderService:  orderService,
 	}
 }
@@ -68,12 +70,11 @@ func (h *AlipayHandler) CreatePayment(c *gin.Context) {
 		return
 	}
 
-	// Verify amount matches
-	// Temporary: Comment out for testing with 0.01
-	// if req.Amount != orderRecord.Amount {
-	// 	utils.Error(c, 4005, "Amount does not match order")
-	// 	return
-	// }
+	// Verify amount matches (skip in non-production for testing with small amounts)
+	if config.AppConfig != nil && config.AppConfig.App.IsRelease && req.Amount != orderRecord.Amount {
+		utils.Error(c, 4005, "Amount does not match order")
+		return
+	}
 
 	// Create payment
 	response, err := h.alipayService.CreatePayment(req)
@@ -88,16 +89,11 @@ func (h *AlipayHandler) CreatePayment(c *gin.Context) {
 // HandleCallback handles Alipay payment callback
 // POST /api/v1/payment/alipay/notify
 func (h *AlipayHandler) HandleCallback(c *gin.Context) {
-	// ========== [ALIPAY_CALLBACK_START] ==========
-	fmt.Printf("\n========== [ALIPAY_CALLBACK_START] Time: %s ==========\n", time.Now().Format("2006-01-02 15:04:05"))
-	fmt.Printf("[ALIPAY_CALLBACK] Remote IP: %s\n", c.ClientIP())
-	fmt.Printf("[ALIPAY_CALLBACK] User-Agent: %s\n", c.Request.UserAgent())
+	slog.Info("alipay callback received", "ip", c.ClientIP())
 
-	// Parse callback parameters
 	params := make(map[string]string)
 	if err := c.Request.ParseForm(); err != nil {
-		fmt.Printf("[ALIPAY_CALLBACK_ERROR] Failed to parse form: %v\n", err)
-		fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: PARSE_FAILED ==========\n\n")
+		slog.Error("alipay callback failed to parse form", "err", err)
 		c.String(400, "fail")
 		return
 	}
@@ -108,57 +104,38 @@ func (h *AlipayHandler) HandleCallback(c *gin.Context) {
 		}
 	}
 
-	// Log all received parameters
-	fmt.Printf("[ALIPAY_CALLBACK] Received %d parameters:\n", len(params))
-	for k, v := range params {
-		if k == "sign" {
-			fmt.Printf("  - %s: %s...(truncated)\n", k, v[:50])
-		} else {
-			fmt.Printf("  - %s: %s\n", k, v)
-		}
-	}
+	slog.Info("alipay callback parameters received",
+		"param_count", len(params),
+		"order_no", params["out_trade_no"],
+		"trade_status", params["trade_status"],
+	)
 
-	// Verify signature
-	fmt.Printf("[ALIPAY_CALLBACK] Verifying signature...\n")
 	valid, err := h.alipayService.VerifyCallback(params)
 	if err != nil || !valid {
-		fmt.Printf("[ALIPAY_CALLBACK_ERROR] Signature verification failed: %v\n", err)
-		fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: VERIFY_FAILED ==========\n\n")
+		slog.Error("alipay callback signature verification failed",
+			"order_no", params["out_trade_no"],
+			"err", err,
+		)
 		c.String(400, "fail")
 		return
 	}
-	fmt.Printf("[ALIPAY_CALLBACK] Signature verified successfully ✓\n")
 
-	// Extract payment information
 	orderNo := params["out_trade_no"]
 	tradeNo := params["trade_no"]
 	tradeStatus := params["trade_status"]
 	totalAmount := params["total_amount"]
 
-	fmt.Printf("[ALIPAY_CALLBACK] Payment Info:\n")
-	fmt.Printf("  - Order No: %s\n", orderNo)
-	fmt.Printf("  - Trade No: %s\n", tradeNo)
-	fmt.Printf("  - Trade Status: %s\n", tradeStatus)
-	fmt.Printf("  - Total Amount: %s\n", totalAmount)
-
-	// Check trade status
 	if tradeStatus == "TRADE_SUCCESS" || tradeStatus == "TRADE_FINISHED" {
-		fmt.Printf("[ALIPAY_CALLBACK] Processing successful payment...\n")
-		// Process successful payment with complete callback data
 		if err := h.processSuccessfulPayment(orderNo, tradeNo, totalAmount, params); err != nil {
-			fmt.Printf("[ALIPAY_CALLBACK_ERROR] Failed to process payment: %v\n", err)
-			fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: PROCESS_FAILED ==========\n\n")
+			slog.Error("alipay callback failed to process order", "order_no", orderNo, "err", err)
 			c.String(500, "fail")
 			return
 		}
-		fmt.Printf("[ALIPAY_CALLBACK] Payment processed successfully ✓\n")
-		fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: SUCCESS ==========\n\n")
+		slog.Info("alipay callback order processed successfully", "order_no", orderNo)
 	} else {
-		fmt.Printf("[ALIPAY_CALLBACK] Trade status is %s, not processing\n", tradeStatus)
-		fmt.Printf("========== [ALIPAY_CALLBACK_END] Result: STATUS_IGNORED ==========\n\n")
+		slog.Info("alipay callback order status skipped", "order_no", orderNo, "trade_status", tradeStatus)
 	}
 
-	// Return success response to Alipay
 	c.String(200, "success")
 }
 
@@ -170,9 +147,8 @@ func (h *AlipayHandler) processSuccessfulPayment(orderNo, transactionNo, amountS
 		return fmt.Errorf("order not found: %w", err)
 	}
 
-	// Check if already processed
 	if orderRecord.Status == "paid" {
-		fmt.Printf("✓ Order %s already processed\n", orderNo)
+		slog.Info("alipay order already processed", "order_no", orderNo)
 		return nil
 	}
 
@@ -193,7 +169,7 @@ func (h *AlipayHandler) processSuccessfulPayment(orderNo, transactionNo, amountS
 		return fmt.Errorf("failed to process payment: %w", err)
 	}
 
-	fmt.Printf("✓ Payment processed successfully for order %s\n", orderNo)
+	slog.Info("alipay payment processed", "order_no", orderNo, "amount", amount)
 	return nil
 }
 
@@ -317,8 +293,8 @@ func (h *AlipayHandler) UpdateConfig(c *gin.Context) {
 		return
 	}
 
-	// Get existing config
-	config, err := h.alipayService.GetActiveConfig()
+	// Get config by target ID (not active config) to avoid cross-updating
+	config, err := h.alipayService.GetConfigByID(uint(id))
 	if err != nil {
 		utils.Error(c, 4404, "Configuration not found")
 		return
@@ -342,7 +318,6 @@ func (h *AlipayHandler) UpdateConfig(c *gin.Context) {
 	}
 	if req.IsSandbox != nil {
 		config.IsSandbox = *req.IsSandbox
-		// Update gateway URL based on sandbox flag
 		if config.IsSandbox {
 			config.GatewayURL = "https://openapi.alipaydev.com/gateway.do"
 		} else {
@@ -352,8 +327,6 @@ func (h *AlipayHandler) UpdateConfig(c *gin.Context) {
 	if req.IsActive != nil {
 		config.IsActive = *req.IsActive
 	}
-
-	config.ID = uint(id)
 
 	if err := h.alipayService.UpdateConfig(config); err != nil {
 		utils.Error(c, 5002, "Failed to update configuration: "+err.Error())
@@ -465,21 +438,15 @@ func (h *AlipayHandler) SimulatePayment(c *gin.Context) {
 		"receipt_amount": fmt.Sprintf("%.2f", req.Amount),
 	}
 
-	// Process the simulated payment
-	fmt.Printf("\n========== [SIMULATE_PAYMENT_START] Time: %s ==========\n", time.Now().Format("2006-01-02 15:04:05"))
-	fmt.Printf("[SIMULATE_PAYMENT] Order No: %s\n", req.OrderNo)
-	fmt.Printf("[SIMULATE_PAYMENT] Amount: %.2f\n", req.Amount)
-	fmt.Printf("[SIMULATE_PAYMENT] Mock Transaction No: %s\n", mockTransactionNo)
+	slog.Info("simulating payment", "order_no", req.OrderNo, "amount", req.Amount, "transaction_no", mockTransactionNo)
 
 	if err := h.orderService.ProcessAlipayCallback(req.OrderNo, mockTransactionNo, req.Amount, mockCallbackData); err != nil {
-		fmt.Printf("[SIMULATE_PAYMENT_ERROR] Failed to process: %v\n", err)
-		fmt.Printf("========== [SIMULATE_PAYMENT_END] Result: FAILED ==========\n\n")
+		slog.Error("simulate payment failed", "order_no", req.OrderNo, "err", err)
 		utils.Error(c, 5000, "Failed to simulate payment: "+err.Error())
 		return
 	}
 
-	fmt.Printf("[SIMULATE_PAYMENT] Payment processed successfully ✓\n")
-	fmt.Printf("========== [SIMULATE_PAYMENT_END] Result: SUCCESS ==========\n\n")
+	slog.Info("simulate payment processed successfully", "order_no", req.OrderNo)
 
 	utils.Success(c, gin.H{
 		"message":        "Payment simulated successfully",

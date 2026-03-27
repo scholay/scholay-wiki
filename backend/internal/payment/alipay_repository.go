@@ -59,7 +59,7 @@ func (r *AlipayRepository) CreateConfig(config *model.AlipayConfig) error {
 func (r *AlipayRepository) UpdateConfig(config *model.AlipayConfig) error {
 	// Use Updates instead of Save to avoid updating created_at
 	// and to allow selective field updates
-	updates := map[string]interface{}{
+	updates := map[string]any{
 		"app_id":     config.AppID,
 		"notify_url": config.NotifyURL,
 		"return_url": config.ReturnURL,

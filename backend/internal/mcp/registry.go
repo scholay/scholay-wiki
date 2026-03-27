@@ -37,7 +37,7 @@ type ToolDefinition struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	Category    ToolCategory           `json:"category"`
-	InputSchema map[string]interface{} `json:"inputSchema"`
+	InputSchema map[string]any `json:"inputSchema"`
 	// 工具行为提示（遵循 MCP 规范）
 	ReadOnlyHint     bool `json:"readOnlyHint,omitempty"`     // 是否只读
 	DestructiveHint  bool `json:"destructiveHint,omitempty"`  // 是否可能删除/覆盖数据
@@ -48,15 +48,15 @@ type ToolDefinition struct {
 // ToolExecutor 工具执行器接口
 type ToolExecutor interface {
 	// Execute 执行工具调用
-	Execute(ctx context.Context, args map[string]interface{}) (*ToolResult, error)
+	Execute(ctx context.Context, args map[string]any) (*ToolResult, error)
 }
 
 // ToolResult 工具执行结果
 type ToolResult struct {
 	Success bool                     `json:"success"`
-	Data    interface{}              `json:"data,omitempty"`
+	Data    any              `json:"data,omitempty"`
 	Error   string                   `json:"error,omitempty"`
-	Content []map[string]interface{} `json:"content,omitempty"` // MCP 格式内容
+	Content []map[string]any `json:"content,omitempty"` // MCP 格式内容
 }
 
 // ToolProvider 工具提供者接口
@@ -66,7 +66,7 @@ type ToolProvider interface {
 	// GetCategory 获取工具分类
 	GetCategory() ToolCategory
 	// ExecuteTool 执行工具
-	ExecuteTool(ctx context.Context, name string, args map[string]interface{}) (*ToolResult, error)
+	ExecuteTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error)
 }
 
 // Registry 工具注册表
@@ -151,7 +151,7 @@ func (r *Registry) GetTool(name string) (*ToolDefinition, bool) {
 }
 
 // CallTool 调用工具
-func (r *Registry) CallTool(ctx context.Context, name string, args map[string]interface{}) (*ToolResult, error) {
+func (r *Registry) CallTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error) {
 	r.mu.RLock()
 	rt, exists := r.tools[name]
 	r.mu.RUnlock()
@@ -164,15 +164,15 @@ func (r *Registry) CallTool(ctx context.Context, name string, args map[string]in
 }
 
 // GetToolsForLLM 获取 LLM 可用的工具定义（OpenAI/Anthropic 格式）
-func (r *Registry) GetToolsForLLM() []map[string]interface{} {
+func (r *Registry) GetToolsForLLM() []map[string]any {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	tools := make([]map[string]interface{}, 0, len(r.tools))
+	tools := make([]map[string]any, 0, len(r.tools))
 	for _, rt := range r.tools {
-		tool := map[string]interface{}{
+		tool := map[string]any{
 			"type": "function",
-			"function": map[string]interface{}{
+			"function": map[string]any{
 				"name":        rt.Definition.Name,
 				"description": rt.Definition.Description,
 				"parameters":  rt.Definition.InputSchema,
@@ -202,12 +202,12 @@ func (r *Registry) ToJSON() ([]byte, error) {
 }
 
 // CreateSuccessResult 创建成功结果
-func CreateSuccessResult(data interface{}) *ToolResult {
+func CreateSuccessResult(data any) *ToolResult {
 	jsonData, _ := json.Marshal(data)
 	return &ToolResult{
 		Success: true,
 		Data:    data,
-		Content: []map[string]interface{}{
+		Content: []map[string]any{
 			{
 				"type": "text",
 				"text": string(jsonData),
@@ -221,7 +221,7 @@ func CreateErrorResult(err error) *ToolResult {
 	return &ToolResult{
 		Success: false,
 		Error:   err.Error(),
-		Content: []map[string]interface{}{
+		Content: []map[string]any{
 			{
 				"type": "text",
 				"text": fmt.Sprintf("Error: %s", err.Error()),
@@ -235,7 +235,7 @@ func CreateTextResult(text string) *ToolResult {
 	return &ToolResult{
 		Success: true,
 		Data:    text,
-		Content: []map[string]interface{}{
+		Content: []map[string]any{
 			{
 				"type": "text",
 				"text": text,

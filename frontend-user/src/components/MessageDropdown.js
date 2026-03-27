@@ -17,6 +17,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
+import DOMPurify from 'dompurify';
 import { Bell, X, Mail, Gift, CreditCard, ExternalLink, Inbox, ChevronRight, Check } from 'lucide-react';
 import { messageAPI } from '../services/api';
 import logger from '../utils/logger';
@@ -66,7 +67,7 @@ const MessageDetailModal = ({ message, onClose, onBack }) => {
     html = html.split('\n').map((line, i) => 
       `<p key="${i}">${line || '&nbsp;'}</p>`
     ).join('');
-    return <div dangerouslySetInnerHTML={{ __html: html }} />;
+    return <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }} />;
   };
 
   return (

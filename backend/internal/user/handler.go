@@ -8,10 +8,13 @@
 package user
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	ifaces "scholar-backend/internal/common/interfaces"
 	"scholar-backend/internal/common/turnstile"
 	"scholar-backend/internal/common/utils"
-	"scholar-backend/internal/config"
+
 	"scholar-backend/internal/currency"
 	"strconv"
 	"strings"
@@ -27,20 +30,56 @@ type WeChatService interface {
 	GetUserInfo(accessToken, openID string) (nickname, headImgURL, unionID string, err error)
 }
 
-// OnlineStatsProvider 提供在线统计的接口（由 WebSocket Hub 实现）
-type OnlineStatsProvider interface {
-	GetOnlineUserCount() int
-	GetOnlineGuestCount() int
+
+// SubscriptionQueryService provides subscription queries needed by user handler
+type SubscriptionQueryService interface {
+	GetActiveSubscriptionsByUserIDs(userIDs []uint) ([]SubscriptionSummaryDTO, error)
+}
+
+// SubscriptionSummaryDTO mirrors subscription.SubscriptionSummary to avoid direct package dependency
+type SubscriptionSummaryDTO struct {
+	UserID    uint       `json:"user_id"`
+	PlanCode  string     `json:"plan_code"`
+	PlanName  string     `json:"plan_name"`
+	Status    string     `json:"status"`
+	EndDate   *time.Time `json:"end_date"`
+	AutoRenew bool       `json:"auto_renew"`
+}
+
+// ConversationQueryService provides conversation queries needed by user handler
+type ConversationQueryService interface {
+	GetRecentByUser(ctx context.Context, userID uint, convType string, since time.Time) ([]ConversationItemDTO, error)
+}
+
+// ConversationItemDTO mirrors conversation.RecentConversationItem
+type ConversationItemDTO struct {
+	ID        uint      `json:"id"`
+	Title     string    `json:"title"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// PeerReviewQueryService provides peer review queries needed by user handler
+type PeerReviewQueryService interface {
+	GetRecentNonDraftTasks(userID uint, since time.Time) ([]PeerReviewItemDTO, error)
+}
+
+// PeerReviewItemDTO mirrors peerreview.RecentPeerReviewItem
+type PeerReviewItemDTO struct {
+	ID        uint      `json:"id"`
+	Title     string    `json:"title"`
+	Status    string    `json:"status"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // Handler handles HTTP requests for user operations
 type Handler struct {
-	service             *Service
-	wechatService       WeChatService
-	userRepo            *Repository
-	configRepo          *config.Repository
-	currencyService     *currency.Service
-	onlineStatsProvider OnlineStatsProvider
+	service              *Service
+	wechatService        WeChatService
+	currencyService      *currency.Service
+	onlineStatsProvider  ifaces.OnlineStatsProvider
+	subscriptionQuery    SubscriptionQueryService
+	conversationQuery    ConversationQueryService
+	peerReviewQuery      PeerReviewQueryService
 }
 
 // NewHandler creates a new user handler
@@ -48,8 +87,6 @@ func NewHandler(service *Service, db *gorm.DB) *Handler {
 	return &Handler{
 		service:       service,
 		wechatService: nil, // Will be set via SetWeChatService
-		userRepo:      NewRepository(db),
-		configRepo:    config.NewRepository(db),
 	}
 }
 
@@ -64,8 +101,23 @@ func (h *Handler) SetCurrencyService(currencyService *currency.Service) {
 }
 
 // SetOnlineStatsProvider 设置在线统计提供者（WebSocket Hub）
-func (h *Handler) SetOnlineStatsProvider(provider OnlineStatsProvider) {
+func (h *Handler) SetOnlineStatsProvider(provider ifaces.OnlineStatsProvider) {
 	h.onlineStatsProvider = provider
+}
+
+// SetSubscriptionQueryService sets the subscription query service
+func (h *Handler) SetSubscriptionQueryService(svc SubscriptionQueryService) {
+	h.subscriptionQuery = svc
+}
+
+// SetConversationQueryService sets the conversation query service
+func (h *Handler) SetConversationQueryService(svc ConversationQueryService) {
+	h.conversationQuery = svc
+}
+
+// SetPeerReviewQueryService sets the peer review query service
+func (h *Handler) SetPeerReviewQueryService(svc PeerReviewQueryService) {
+	h.peerReviewQuery = svc
 }
 
 // CheckEmailRequest represents a check email request
@@ -233,7 +285,7 @@ func (h *Handler) Register(c *gin.Context) {
 
 	// Verify Turnstile token (if enabled)
 	ip := c.ClientIP()
-	if valid, err := turnstile.VerifyWithConfig(req.TurnstileToken, ip, systemConfig); !valid {
+	if valid, err := turnstile.VerifyWithConfig(c.Request.Context(), req.TurnstileToken, ip, systemConfig); !valid {
 		errMsg := "人机验证失败"
 		if err != nil {
 			errMsg = err.Error()
@@ -279,7 +331,7 @@ func (h *Handler) Login(c *gin.Context) {
 
 	// Verify Turnstile token (if enabled)
 	ip := c.ClientIP()
-	if valid, err := turnstile.VerifyWithConfig(req.TurnstileToken, ip, systemConfig); !valid {
+	if valid, err := turnstile.VerifyWithConfig(c.Request.Context(), req.TurnstileToken, ip, systemConfig); !valid {
 		errMsg := "人机验证失败"
 		if err != nil {
 			errMsg = err.Error()
@@ -328,14 +380,14 @@ func (h *Handler) GetProfile(c *gin.Context) {
 	// Check if WeChat is bound
 	var wechatOpenID *string
 	var wechatName *string
-	wechatProvider, err := h.service.repo.FindAuthProviderByUserAndProvider(userID.(uint), "wechat")
+	wechatProvider, err := h.service.FindAuthProviderByUserAndProvider(userID.(uint), "wechat")
 	if err == nil && wechatProvider != nil {
 		wechatOpenID = &wechatProvider.ProviderUserID
 		// Try to get WeChat nickname from provider_data first
 		if wechatProvider.ProviderData != nil {
 			// Parse JSON to extract nickname field
 			// Expected format: {"nickname":"xxx","avatar_url":"xxx"}
-			var providerData map[string]interface{}
+			var providerData map[string]any
 			if err := json.Unmarshal([]byte(*wechatProvider.ProviderData), &providerData); err == nil {
 				if nickname, ok := providerData["nickname"].(string); ok && nickname != "" {
 					wechatName = &nickname
@@ -351,14 +403,14 @@ func (h *Handler) GetProfile(c *gin.Context) {
 	// Check if GitHub is bound
 	var githubID *string
 	var githubLogin *string
-	githubProvider, err := h.service.repo.FindAuthProviderByUserAndProvider(userID.(uint), "github")
+	githubProvider, err := h.service.FindAuthProviderByUserAndProvider(userID.(uint), "github")
 	if err == nil && githubProvider != nil {
 		githubID = &githubProvider.ProviderUserID
 		// Try to extract GitHub login from provider_data JSON
 		if githubProvider.ProviderData != nil {
 			// Parse JSON to extract login field
 			// Expected format: {"login":"username","name":"Full Name","avatar_url":"..."}
-			var providerData map[string]interface{}
+			var providerData map[string]any
 			if err := json.Unmarshal([]byte(*githubProvider.ProviderData), &providerData); err == nil {
 				if login, ok := providerData["login"].(string); ok && login != "" {
 					githubLogin = &login
@@ -691,38 +743,26 @@ func (h *Handler) GetUserList(c *gin.Context) {
 		Subscription *SubscriptionInfo `json:"subscription,omitempty"`
 	}
 
-	// 只查询订阅信息（会员筛选需要）
-	var subscriptions []struct {
-		UserID    uint       `gorm:"column:user_id"`
-		PlanCode  string     `gorm:"column:plan_code"`
-		PlanName  string     `gorm:"column:plan_name"`
-		Status    string     `gorm:"column:status"`
-		EndDate   *time.Time `gorm:"column:end_date"`
-		AutoRenew bool       `gorm:"column:auto_renew"`
-	}
-	h.service.repo.GetDB().Table("user_subscriptions").
-		Select("user_subscriptions.user_id, user_subscriptions.plan_code, subscription_plans.plan_name, user_subscriptions.status, user_subscriptions.end_date, user_subscriptions.auto_renew").
-		Joins("LEFT JOIN subscription_plans ON user_subscriptions.plan_code = subscription_plans.plan_code").
-		Where("user_subscriptions.user_id IN ? AND user_subscriptions.status = ?", userIDs, "active").
-		Scan(&subscriptions)
-
-	// Map subscriptions by user ID
+	// Fetch subscriptions via service layer
 	subscriptionMap := make(map[uint]*SubscriptionInfo)
-	for _, sub := range subscriptions {
-		remainingDays := 0
-		if sub.EndDate != nil {
-			remainingDays = int(time.Until(*sub.EndDate).Hours() / 24)
-			if remainingDays < 0 {
-				remainingDays = 0
+	if h.subscriptionQuery != nil && len(userIDs) > 0 {
+		subs, _ := h.subscriptionQuery.GetActiveSubscriptionsByUserIDs(userIDs)
+		for _, sub := range subs {
+			remainingDays := 0
+			if sub.EndDate != nil {
+				remainingDays = int(time.Until(*sub.EndDate).Hours() / 24)
+				if remainingDays < 0 {
+					remainingDays = 0
+				}
 			}
-		}
-		subscriptionMap[sub.UserID] = &SubscriptionInfo{
-			PlanCode:      sub.PlanCode,
-			PlanName:      sub.PlanName,
-			Status:        sub.Status,
-			EndDate:       sub.EndDate,
-			RemainingDays: remainingDays,
-			AutoRenew:     sub.AutoRenew,
+			subscriptionMap[sub.UserID] = &SubscriptionInfo{
+				PlanCode:      sub.PlanCode,
+				PlanName:      sub.PlanName,
+				Status:        sub.Status,
+				EndDate:       sub.EndDate,
+				RemainingDays: remainingDays,
+				AutoRenew:     sub.AutoRenew,
+			}
 		}
 	}
 
@@ -831,13 +871,11 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 
 	newToken, err := h.service.RefreshToken(token)
 	if err != nil {
-		if err.Error() == "session expired, please login again" {
-			// 会话超过30天，需要重新登录
+		if errors.Is(err, ErrSessionExpired) {
 			utils.Error(c, 2016, err.Error())
 			return
 		}
-		if err.Error() == "session not found" {
-			// 会话不存在，可能是被其他设备登录踢出
+		if errors.Is(err, ErrSessionNotFound) {
 			utils.Error(c, 2019, "您的账号已在其他设备登录")
 			return
 		}
@@ -845,7 +883,7 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"token": newToken,
 	})
 }
@@ -896,7 +934,7 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 
 	err := h.service.ChangePassword(userID.(uint), req.CurrentPassword, req.NewPassword)
 	if err != nil {
-		if err.Error() == "current password is incorrect" {
+		if errors.Is(err, ErrCurrentPasswordInvalid) {
 			utils.Error(c, 2012, "Current password is incorrect")
 			return
 		}
@@ -973,7 +1011,7 @@ func (h *Handler) GetUserStatisticsChart(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"statistics":  data,
 		"start_time":  startTime.Format("2006-01-02 15:04:05"),
 		"end_time":    endTime.Format("2006-01-02 15:04:05"),
@@ -1054,7 +1092,7 @@ func (h *Handler) GetOnlineUserChart(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"snapshots":   data,
 		"start_time":  startTime.Format("2006-01-02 15:04:05"),
 		"end_time":    endTime.Format("2006-01-02 15:04:05"),
@@ -1141,7 +1179,7 @@ func (h *Handler) LoginWithCode(c *gin.Context) {
 
 	// Verify Turnstile token (if enabled)
 	ip := c.ClientIP()
-	if valid, err := turnstile.VerifyWithConfig(req.TurnstileToken, ip, systemConfig); !valid {
+	if valid, err := turnstile.VerifyWithConfig(c.Request.Context(), req.TurnstileToken, ip, systemConfig); !valid {
 		errMsg := "人机验证失败"
 		if err != nil {
 			errMsg = err.Error()
@@ -1183,7 +1221,7 @@ func (h *Handler) LoginPhoneWithCode(c *gin.Context) {
 
 	// Verify Turnstile token (if enabled)
 	ip := c.ClientIP()
-	if valid, err := turnstile.VerifyWithConfig(req.TurnstileToken, ip, systemConfig); !valid {
+	if valid, err := turnstile.VerifyWithConfig(c.Request.Context(), req.TurnstileToken, ip, systemConfig); !valid {
 		errMsg := "人机验证失败"
 		if err != nil {
 			errMsg = err.Error()
@@ -1557,56 +1595,39 @@ func (h *Handler) GetTaskHistory(c *gin.Context) {
 	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	startDate := startOfToday.AddDate(0, 0, -(days - 1)) // 包含今天
 
-	// Query conversations (type=search) - 智能分析
-	var conversations []struct {
-		ID        uint      `gorm:"column:id"`
-		Title     string    `gorm:"column:title"`
-		UpdatedAt time.Time `gorm:"column:updated_at"`
-	}
-	h.userRepo.GetDB().Table("conversations").
-		Select("id, title, updated_at").
-		Where("user_id = ? AND conversation_type = ? AND updated_at >= ?", userID.(uint), "search", startDate).
-		Order("updated_at DESC").
-		Scan(&conversations)
+	// Query conversations via service layer
+	var allItems []TaskHistoryItem
+	uid := userID.(uint)
 
-	// Query peer_review_tasks (non-draft) - AI审稿
-	var peerReviewTasks []struct {
-		ID        uint      `gorm:"column:id"`
-		Title     string    `gorm:"column:title"`
-		Status    string    `gorm:"column:status"`
-		UpdatedAt time.Time `gorm:"column:updated_at"`
-	}
-	h.userRepo.GetDB().Table("peer_review_tasks").
-		Select("id, title, status, updated_at").
-		Where("user_id = ? AND status != ? AND updated_at >= ?", userID.(uint), "draft", startDate).
-		Order("updated_at DESC").
-		Scan(&peerReviewTasks)
-
-	// 合并所有任务
-	allItems := make([]TaskHistoryItem, 0, len(conversations)+len(peerReviewTasks))
-
-	for _, conv := range conversations {
-		allItems = append(allItems, TaskHistoryItem{
-			ID:        conv.ID,
-			Type:      "smart_analysis",
-			Title:     conv.Title,
-			Status:    "completed",
-			UpdatedAt: conv.UpdatedAt,
-		})
-	}
-
-	for _, task := range peerReviewTasks {
-		title := task.Title
-		if title == "" {
-			title = "AI审稿任务"
+	if h.conversationQuery != nil {
+		convItems, _ := h.conversationQuery.GetRecentByUser(c.Request.Context(), uid, "search", startDate)
+		for _, conv := range convItems {
+			allItems = append(allItems, TaskHistoryItem{
+				ID:        conv.ID,
+				Type:      "smart_analysis",
+				Title:     conv.Title,
+				Status:    "completed",
+				UpdatedAt: conv.UpdatedAt,
+			})
 		}
-		allItems = append(allItems, TaskHistoryItem{
-			ID:        task.ID,
-			Type:      "peer_review",
-			Title:     title,
-			Status:    task.Status,
-			UpdatedAt: task.UpdatedAt,
-		})
+	}
+
+	// Query peer review tasks via service layer
+	if h.peerReviewQuery != nil {
+		prItems, _ := h.peerReviewQuery.GetRecentNonDraftTasks(uid, startDate)
+		for _, task := range prItems {
+			title := task.Title
+			if title == "" {
+				title = "AI审稿任务"
+			}
+			allItems = append(allItems, TaskHistoryItem{
+				ID:        task.ID,
+				Type:      "peer_review",
+				Title:     title,
+				Status:    task.Status,
+				UpdatedAt: task.UpdatedAt,
+			})
+		}
 	}
 
 	// 按天分组

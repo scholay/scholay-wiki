@@ -10,12 +10,12 @@ package peerreview
 import (
 	"fmt"
 	"io"
-	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
 )
 
@@ -506,26 +506,21 @@ func (h *Handler) ClearDraft(c *gin.Context) {
 func (h *Handler) WatchTaskProgress(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "请先登录"})
+		utils.Unauthorized(c, "请先登录")
 		return
 	}
 
 	taskID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务ID"})
+		utils.BadRequest(c, "无效的任务ID")
 		return
 	}
 
-	// 设置 SSE 响应头
-	c.Writer.Header().Set("Content-Type", "text/event-stream")
-	c.Writer.Header().Set("Cache-Control", "no-cache")
-	c.Writer.Header().Set("Connection", "keep-alive")
-	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+	sse.SetHeaders(c)
 
-	// 监听任务进度
 	err = h.service.WatchTaskProgress(userID.(uint), uint(taskID), c.Writer)
 	if err != nil {
-		fmt.Fprintf(c.Writer, "data: {\"type\":\"error\",\"data\":\"%s\"}\n\n", err.Error())
+		sse.WriteError(c.Writer, err.Error())
 	}
 }
 

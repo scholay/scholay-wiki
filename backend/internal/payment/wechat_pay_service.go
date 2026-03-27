@@ -8,31 +8,45 @@
 package payment
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	crand "crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"math/big"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"strings"
 	"time"
 )
 
+// WeChatPayRepo defines the data-access contract consumed by WeChatPayService.
+type WeChatPayRepo interface {
+	GetAllConfigs() ([]*WeChatPayConfig, error)
+	GetActiveConfig() (*WeChatPayConfig, error)
+	GetConfigByID(id uint64) (*WeChatPayConfig, error)
+	CreateConfig(config *WeChatPayConfig) error
+	UpdateConfig(config *WeChatPayConfig) error
+	DeleteConfig(id uint64) error
+	DeactivateAllConfigs() error
+	ActivateConfig(id uint64) error
+}
+
 // WeChatPayService 微信支付服务
 type WeChatPayService struct {
-	repo *WeChatPayRepository
+	repo WeChatPayRepo
 }
 
 // NewWeChatPayService 创建微信支付服务
-func NewWeChatPayService(repo *WeChatPayRepository) *WeChatPayService {
+func NewWeChatPayService(repo WeChatPayRepo) *WeChatPayService {
 	return &WeChatPayService{repo: repo}
 }
 
@@ -154,13 +168,13 @@ func (s *WeChatPayService) CreateNativeOrder(orderNo string, amount float64, des
 
 	// 构建请求参数
 	amountInCents := int(amount * 100) // 转换为分
-	requestBody := map[string]interface{}{
+	requestBody := map[string]any{
 		"appid":        config.AppID,
 		"mchid":        config.MchID,
 		"description":  description,
 		"out_trade_no": orderNo,
 		"notify_url":   config.NotifyURL,
-		"amount": map[string]interface{}{
+		"amount": map[string]any{
 			"total":    amountInCents,
 			"currency": "CNY",
 		},
@@ -173,7 +187,7 @@ func (s *WeChatPayService) CreateNativeOrder(orderNo string, amount float64, des
 	}
 
 	// 发送请求
-	codeURL, err := s.sendRequest(config, "POST", url, requestBody)
+	codeURL, err := s.sendRequest(context.Background(), config, "POST", url, requestBody)
 	if err != nil {
 		return "", err
 	}
@@ -182,7 +196,7 @@ func (s *WeChatPayService) CreateNativeOrder(orderNo string, amount float64, des
 }
 
 // sendRequest 发送微信支付请求
-func (s *WeChatPayService) sendRequest(config *WeChatPayConfig, method, url string, body interface{}) (string, error) {
+func (s *WeChatPayService) sendRequest(ctx context.Context, config *WeChatPayConfig, method, url string, body any) (string, error) {
 	// 序列化请求体
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
@@ -204,7 +218,7 @@ func (s *WeChatPayService) sendRequest(config *WeChatPayConfig, method, url stri
 	)
 
 	// 发送HTTP请求
-	req, err := http.NewRequest(method, url, strings.NewReader(string(bodyBytes)))
+	req, err := http.NewRequestWithContext(ctx, method, url, strings.NewReader(string(bodyBytes)))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -231,7 +245,7 @@ func (s *WeChatPayService) sendRequest(config *WeChatPayConfig, method, url stri
 	}
 
 	// 解析响应
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
@@ -278,7 +292,7 @@ func (s *WeChatPayService) generateSignature(privateKeyStr, method, url string, 
 	digest := hash.Sum(nil)
 
 	// RSA签名
-	signature, err := rsa.SignPKCS1v15(rand.New(rand.NewSource(time.Now().UnixNano())), rsaPrivateKey, 0, digest)
+	signature, err := rsa.SignPKCS1v15(crand.Reader, rsaPrivateKey, 0, digest)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign: %w", err)
 	}
@@ -343,12 +357,20 @@ func (s *WeChatPayService) decryptNotify(apiV3Key string, resource *WeChatPayNot
 	return string(plaintext), nil
 }
 
-// generateNonce 生成随机字符串
+// generateNonce 使用 crypto/rand 生成安全随机字符串
 func generateNonce(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, length)
+	max := big.NewInt(int64(len(charset)))
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		idx, err := crand.Int(crand.Reader, max)
+		if err != nil {
+			raw := make([]byte, 1)
+			crand.Read(raw)
+			b[i] = charset[int(raw[0])%len(charset)]
+			continue
+		}
+		b[i] = charset[idx.Int64()]
 	}
 	return string(b)
 }

@@ -37,20 +37,20 @@ func (p *ConvertToolProvider) GetTools() []ToolDefinition {
 			Name:        "markdown_to_latex",
 			Description: "将 Markdown 格式转换为 LaTeX 格式",
 			Category:    CategoryConvert,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"markdown": map[string]interface{}{
+				"properties": map[string]any{
+					"markdown": map[string]any{
 						"type":        "string",
 						"description": "Markdown 内容",
 					},
-					"document_class": map[string]interface{}{
+					"document_class": map[string]any{
 						"type":        "string",
 						"enum":        []string{"article", "report", "book", "beamer"},
 						"description": "文档类型（默认 article）",
 						"default":     "article",
 					},
-					"include_preamble": map[string]interface{}{
+					"include_preamble": map[string]any{
 						"type":        "boolean",
 						"description": "是否包含完整的文档前言",
 						"default":     false,
@@ -65,14 +65,14 @@ func (p *ConvertToolProvider) GetTools() []ToolDefinition {
 			Name:        "html_to_latex",
 			Description: "将 HTML 格式转换为 LaTeX 格式",
 			Category:    CategoryConvert,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"html": map[string]interface{}{
+				"properties": map[string]any{
+					"html": map[string]any{
 						"type":        "string",
 						"description": "HTML 内容",
 					},
-					"include_preamble": map[string]interface{}{
+					"include_preamble": map[string]any{
 						"type":        "boolean",
 						"description": "是否包含完整的文档前言",
 						"default":     false,
@@ -87,10 +87,10 @@ func (p *ConvertToolProvider) GetTools() []ToolDefinition {
 			Name:        "latex_to_markdown",
 			Description: "将 LaTeX 格式转换为 Markdown 格式（简化转换）",
 			Category:    CategoryConvert,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"latex": map[string]interface{}{
+				"properties": map[string]any{
+					"latex": map[string]any{
 						"type":        "string",
 						"description": "LaTeX 内容",
 					},
@@ -104,7 +104,7 @@ func (p *ConvertToolProvider) GetTools() []ToolDefinition {
 }
 
 // ExecuteTool 执行工具
-func (p *ConvertToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]interface{}) (*ToolResult, error) {
+func (p *ConvertToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error) {
 	switch name {
 	case "markdown_to_latex":
 		return p.markdownToLaTeX(ctx, args)
@@ -118,7 +118,7 @@ func (p *ConvertToolProvider) ExecuteTool(ctx context.Context, name string, args
 }
 
 // markdownToLaTeX 将 Markdown 转换为 LaTeX
-func (p *ConvertToolProvider) markdownToLaTeX(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *ConvertToolProvider) markdownToLaTeX(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	markdown, ok := args["markdown"].(string)
 	if !ok || markdown == "" {
 		return CreateErrorResult(fmt.Errorf("markdown is required")), nil
@@ -141,7 +141,7 @@ func (p *ConvertToolProvider) markdownToLaTeX(ctx context.Context, args map[stri
 		latex = preamble + "\n\\begin{document}\n\n" + latex + "\n\n\\end{document}"
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"latex":            latex,
 		"document_class":   docClass,
 		"include_preamble": includePreamble,
@@ -149,7 +149,7 @@ func (p *ConvertToolProvider) markdownToLaTeX(ctx context.Context, args map[stri
 }
 
 // htmlToLaTeX 将 HTML 转换为 LaTeX
-func (p *ConvertToolProvider) htmlToLaTeX(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *ConvertToolProvider) htmlToLaTeX(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	html, ok := args["html"].(string)
 	if !ok || html == "" {
 		return CreateErrorResult(fmt.Errorf("html is required")), nil
@@ -167,14 +167,14 @@ func (p *ConvertToolProvider) htmlToLaTeX(ctx context.Context, args map[string]i
 		latex = preamble + "\n\\begin{document}\n\n" + latex + "\n\n\\end{document}"
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"latex":            latex,
 		"include_preamble": includePreamble,
 	}), nil
 }
 
 // latexToMarkdown 将 LaTeX 转换为 Markdown
-func (p *ConvertToolProvider) latexToMarkdown(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *ConvertToolProvider) latexToMarkdown(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	latex, ok := args["latex"].(string)
 	if !ok || latex == "" {
 		return CreateErrorResult(fmt.Errorf("latex is required")), nil
@@ -182,7 +182,7 @@ func (p *ConvertToolProvider) latexToMarkdown(ctx context.Context, args map[stri
 
 	markdown := convertLaTeXToMarkdown(latex)
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"markdown": markdown,
 	}), nil
 }

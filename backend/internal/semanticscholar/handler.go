@@ -8,7 +8,8 @@
 package semanticscholar
 
 import (
-	"fmt"
+	"context"
+	"log/slog"
 	"scholar-backend/internal/common/utils"
 	"strconv"
 	"strings"
@@ -18,7 +19,7 @@ import (
 
 // SearchSuggester 定义搜索建议接口（避免循环依赖）
 type SearchSuggester interface {
-	GetSearchSuggestions(query string) ([]string, error)
+	GetSearchSuggestions(ctx context.Context, query string) ([]string, error)
 }
 
 // Handler handles HTTP requests for Semantic Scholar API
@@ -54,7 +55,7 @@ type SearchPapersRequest struct {
 
 // SearchPapersResponse 定义学术检索的响应结构
 type SearchPapersResponse struct {
-	Data              interface{} `json:"data"`              // 原始搜索结果
+	Data              any `json:"data"`              // 原始搜索结果
 	OriginalQuery     string      `json:"originalQuery"`     // 用户原始输入
 	SearchSuggestions []string    `json:"searchSuggestions"` // AI生成的搜索建议（最多3个）
 	ActualQuery       string      `json:"actualQuery"`       // 实际使用的查询
@@ -93,7 +94,7 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 	enableSuggestions := true
 	if req.EnableTranslation != nil && !*req.EnableTranslation {
 		enableSuggestions = false
-		fmt.Printf("[INFO] Suggestions explicitly disabled by request\n")
+		slog.Info("suggestions explicitly disabled by request")
 	}
 
 	// 分页请求时不重新获取建议，避免结果不一致
@@ -103,12 +104,12 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 
 	var searchSuggestions []string
 	if enableSuggestions && h.suggester != nil {
-		suggestions, err := h.suggester.GetSearchSuggestions(req.Query)
+		suggestions, err := h.suggester.GetSearchSuggestions(c.Request.Context(), req.Query)
 		if err != nil {
-			fmt.Printf("[WARN] Failed to get search suggestions with AI: %v\n", err)
+			slog.Warn("failed to get search suggestions with AI", "err", err)
 		} else {
 			searchSuggestions = suggestions
-			fmt.Printf("[INFO] Search suggestions for '%s': %v\n", req.Query, searchSuggestions)
+			slog.Info("search suggestions generated", "query", req.Query, "suggestions", searchSuggestions)
 		}
 	}
 
@@ -149,18 +150,18 @@ func (h *Handler) SearchPapers(c *gin.Context) {
 	opts := baseOpts
 	opts.Query = req.Query
 	if hasSuggestions {
-		fmt.Printf("[INFO] Using original query: %s (suggestions: %v)\n", req.Query, searchSuggestions)
+		slog.Info("using original query", "query", req.Query, "suggestions", searchSuggestions)
 	} else {
-		fmt.Printf("[INFO] Using original query: %s\n", req.Query)
+		slog.Info("using original query", "query", req.Query)
 	}
 
-	result, err := h.manager.SearchPapers(opts)
+	result, err := h.manager.SearchPapers(c.Request.Context(), opts)
 	if err != nil {
 		utils.Error(c, 4002, "Failed to search papers: "+err.Error())
 		return
 	}
 
-	fmt.Printf("[INFO] Search completed, found %d results\n", result.Total)
+	slog.Info("search completed", "totalResults", result.Total)
 
 	// 构建响应，包含查询信息
 	// searchSuggestions 作为联想建议返回，用户可点击搜索
@@ -192,7 +193,7 @@ func (h *Handler) GetPaper(c *gin.Context) {
 	}
 
 	// Call API
-	result, err := h.manager.GetPaper(paperID, opts)
+	result, err := h.manager.GetPaper(c.Request.Context(), paperID, opts)
 	if err != nil {
 		utils.Error(c, 4004, "Failed to get paper: "+err.Error())
 		return
@@ -220,7 +221,7 @@ func (h *Handler) GetPaperCitations(c *gin.Context) {
 	}
 
 	// Call API
-	result, err := h.manager.GetPaperCitations(paperID, opts)
+	result, err := h.manager.GetPaperCitations(c.Request.Context(), paperID, opts)
 	if err != nil {
 		utils.Error(c, 4006, "Failed to get citations: "+err.Error())
 		return
@@ -248,7 +249,7 @@ func (h *Handler) GetPaperReferences(c *gin.Context) {
 	}
 
 	// Call API
-	result, err := h.manager.GetPaperReferences(paperID, opts)
+	result, err := h.manager.GetPaperReferences(c.Request.Context(), paperID, opts)
 	if err != nil {
 		utils.Error(c, 4008, "Failed to get references: "+err.Error())
 		return
@@ -275,7 +276,7 @@ func (h *Handler) GetPaperAuthors(c *gin.Context) {
 	}
 
 	// Call API
-	result, err := h.manager.GetPaperAuthors(paperID, fields, offset, limit)
+	result, err := h.manager.GetPaperAuthors(c.Request.Context(), paperID, fields, offset, limit)
 	if err != nil {
 		utils.Error(c, 4010, "Failed to get authors: "+err.Error())
 		return
@@ -304,7 +305,7 @@ func (h *Handler) SearchAuthors(c *gin.Context) {
 	}
 
 	// Call API
-	result, err := h.manager.SearchAuthors(opts)
+	result, err := h.manager.SearchAuthors(c.Request.Context(), opts)
 	if err != nil {
 		utils.Error(c, 4012, "Failed to search authors: "+err.Error())
 		return
@@ -329,7 +330,7 @@ func (h *Handler) GetAuthor(c *gin.Context) {
 	}
 
 	// Call API
-	result, err := h.manager.GetAuthor(authorID, fields)
+	result, err := h.manager.GetAuthor(c.Request.Context(), authorID, fields)
 	if err != nil {
 		utils.Error(c, 4014, "Failed to get author: "+err.Error())
 		return
@@ -356,7 +357,7 @@ func (h *Handler) GetAuthorPapers(c *gin.Context) {
 	}
 
 	// Call API
-	result, err := h.manager.GetAuthorPapers(authorID, fields, offset, limit)
+	result, err := h.manager.GetAuthorPapers(c.Request.Context(), authorID, fields, offset, limit)
 	if err != nil {
 		utils.Error(c, 4016, "Failed to get author papers: "+err.Error())
 		return
@@ -383,7 +384,7 @@ func (h *Handler) GetRecommendationsForPaper(c *gin.Context) {
 	}
 
 	// Call API
-	result, err := h.manager.GetRecommendationsForPaper(paperID, opts)
+	result, err := h.manager.GetRecommendationsForPaper(c.Request.Context(), paperID, opts)
 	if err != nil {
 		utils.Error(c, 4018, "Failed to get recommendations: "+err.Error())
 		return
@@ -418,7 +419,7 @@ func (h *Handler) GetRecommendations(c *gin.Context) {
 	}
 
 	// Call API
-	result, err := h.manager.GetRecommendations(opts)
+	result, err := h.manager.GetRecommendations(c.Request.Context(), opts)
 	if err != nil {
 		utils.Error(c, 4020, "Failed to get recommendations: "+err.Error())
 		return
@@ -443,7 +444,7 @@ func (h *Handler) GetPaperBatch(c *gin.Context) {
 	}
 
 	// Call API
-	result, err := h.manager.GetPaperBatch(req.PaperIDs, req.Fields)
+	result, err := h.manager.GetPaperBatch(c.Request.Context(), req.PaperIDs, req.Fields)
 	if err != nil {
 		utils.Error(c, 4022, "Failed to get batch papers: "+err.Error())
 		return
@@ -489,7 +490,7 @@ func (h *Handler) GetSearchSuggestions(c *gin.Context) {
 	}
 
 	// Call manager to get combined suggestions
-	result, err := h.manager.GetSearchSuggestions(query, paperLimit, authorLimit)
+	result, err := h.manager.GetSearchSuggestions(c.Request.Context(), query, paperLimit, authorLimit)
 	if err != nil {
 		utils.Error(c, 4024, "Failed to get search suggestions: "+err.Error())
 		return
@@ -513,7 +514,7 @@ func (h *Handler) PaperAutocomplete(c *gin.Context) {
 	}
 
 	// Call manager to get paper autocomplete
-	result, err := h.manager.PaperAutocomplete(query)
+	result, err := h.manager.PaperAutocomplete(c.Request.Context(), query)
 	if err != nil {
 		utils.Error(c, 4026, "Failed to get paper autocomplete: "+err.Error())
 		return

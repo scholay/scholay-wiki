@@ -8,6 +8,7 @@
  */
 
 import React, { useState } from 'react';
+import DOMPurify from 'dompurify';
 import './CiteModal.css';
 
 const STORAGE_KEY = 'scholar_default_citation_format';
@@ -230,7 +231,7 @@ const CiteModal = ({ paper, onClose }) => {
           <div className="cite-content-wrapper">
             <pre 
               className={citationFormat === 'bibtex' ? 'bibtex' : ''}
-              dangerouslySetInnerHTML={{ __html: generateCitation(citationFormat) }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(generateCitation(citationFormat)) }}
             />
             <button className={`cite-inline-copy ${copied ? 'copied' : ''}`} onClick={copyCitation}>
               {copied ? (

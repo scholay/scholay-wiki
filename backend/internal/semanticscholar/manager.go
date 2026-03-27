@@ -8,7 +8,9 @@
 package semanticscholar
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"scholar-backend/internal/common/circuitbreaker"
@@ -44,7 +46,7 @@ func isRetryableError(err error) bool {
 
 // executeWithRetry 执行带重试逻辑的操作
 // 当遇到 403 或 429 错误时，会随机获取另一个 API key 重试，最多重试 MaxRetries 次
-func (m *Manager) executeWithRetry(operation func(client *Client) (interface{}, error)) (interface{}, error) {
+func (m *Manager) executeWithRetry(operation func(client *Client) (any, error)) (any, error) {
 	var lastErr error
 	usedAccountIDs := make(map[uint]bool) // 记录已使用过的账号ID，避免重复使用同一个失效的key
 
@@ -53,14 +55,14 @@ func (m *Manager) executeWithRetry(operation func(client *Client) (interface{}, 
 		client, accountID, err := m.getClientWithAccountID()
 		if err != nil {
 			// 如果获取客户端失败，记录错误并继续尝试
-			fmt.Printf("[Manager] Attempt %d: Failed to get client: %v\n", attempt+1, err)
+			slog.Warn("failed to get client", "attempt", attempt+1, "err", err)
 			lastErr = err
 			continue
 		}
 
 		// 检查是否已经使用过这个账号（如果是重试的话）
 		if attempt > 0 && usedAccountIDs[accountID] {
-			fmt.Printf("[Manager] Attempt %d: Account %d already tried, skipping\n", attempt+1, accountID)
+			slog.Debug("account already tried, skipping", "attempt", attempt+1, "accountID", accountID)
 			// 直接继续尝试获取其他账号，不等待
 			continue
 		}
@@ -69,7 +71,7 @@ func (m *Manager) executeWithRetry(operation func(client *Client) (interface{}, 
 		usedAccountIDs[accountID] = true
 
 		if attempt > 0 {
-			fmt.Printf("[Manager] Retry attempt %d/%d with account ID: %d\n", attempt, MaxRetries, accountID)
+			slog.Info("retry attempt", "attempt", attempt, "maxRetries", MaxRetries, "accountID", accountID)
 		}
 
 		// 执行操作
@@ -82,13 +84,13 @@ func (m *Manager) executeWithRetry(operation func(client *Client) (interface{}, 
 
 		// 检查是否是可重试的错误
 		if isRetryableError(err) {
-			fmt.Printf("[Manager] Attempt %d: Retryable error (403/429) with account %d: %v\n", attempt+1, accountID, err)
+			slog.Warn("retryable error (403/429)", "attempt", attempt+1, "accountID", accountID, "err", err)
 			// 立即重试，不等待
 			continue
 		}
 
 		// 其他错误不重试
-		fmt.Printf("[Manager] Attempt %d: Non-retryable error: %v\n", attempt+1, err)
+		slog.Error("non-retryable error", "attempt", attempt+1, "err", err)
 		return nil, err
 	}
 
@@ -100,16 +102,16 @@ func (m *Manager) getClientWithAccountID() (*Client, uint, error) {
 	apiKey, accountID, err := m.accountService.GetRandomAPIKey(thirdparty.AccountTypeSemanticScholar)
 	if err != nil {
 		// Fallback to empty API key (free tier)
-		fmt.Printf("[Manager] Failed to get API key, using free tier: %v\n", err)
+		slog.Warn("failed to get API key, using free tier", "err", err)
 		return NewClient(""), 0, nil
 	}
 
-	fmt.Printf("[Manager] Got API key (length: %d) from account ID: %d\n", len(apiKey), accountID)
+	slog.Debug("got API key", "keyLength", len(apiKey), "accountID", accountID)
 
 	// Get the account to retrieve base URL configuration
 	accounts, err := m.accountService.GetActiveAccountsByType(thirdparty.AccountTypeSemanticScholar)
 	if err != nil || len(accounts) == 0 {
-		fmt.Printf("[Manager] Failed to get accounts or no accounts found, using default base URL\n")
+		slog.Debug("no accounts found, using default base URL")
 		return NewClient(apiKey), accountID, nil
 	}
 
@@ -120,14 +122,14 @@ func (m *Manager) getClientWithAccountID() (*Client, uint, error) {
 			config, err := account.GetSemanticScholarConfig()
 			if err == nil && config.BaseURL != "" {
 				baseURL = config.BaseURL
-				fmt.Printf("[Manager] Using custom base URL: %s\n", baseURL)
+				slog.Debug("using custom base URL", "baseURL", baseURL)
 			}
 			break
 		}
 	}
 
 	if baseURL == "" {
-		fmt.Printf("[Manager] No custom base URL, using default\n")
+		slog.Debug("no custom base URL, using default")
 	}
 
 	return NewClientWithBaseURL(apiKey, baseURL), accountID, nil
@@ -172,11 +174,11 @@ func (m *Manager) GetAPIConfig() (apiKey string, baseURL string, accountID uint,
 }
 
 // SearchPapersBulk searches for papers using bulk endpoint with key rotation, retry logic and circuit breaker protection
-func (m *Manager) SearchPapersBulk(opts BulkSearchOptions) (*SearchResponse, error) {
+func (m *Manager) SearchPapersBulk(ctx context.Context, opts BulkSearchOptions) (*SearchResponse, error) {
 	// Execute with circuit breaker protection
-	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		return m.executeWithRetry(func(client *Client) (interface{}, error) {
-			return client.SearchPapersBulk(opts)
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+			return client.SearchPapersBulk(ctx, opts)
 		})
 	})
 
@@ -192,11 +194,11 @@ func (m *Manager) SearchPapersBulk(opts BulkSearchOptions) (*SearchResponse, err
 }
 
 // SearchPapers searches for papers using key rotation, retry logic and circuit breaker protection
-func (m *Manager) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) {
+func (m *Manager) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*SearchResponse, error) {
 	// Execute with circuit breaker protection
-	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		return m.executeWithRetry(func(client *Client) (interface{}, error) {
-			return client.SearchPapers(opts)
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+			return client.SearchPapers(ctx, opts)
 		})
 	})
 
@@ -212,10 +214,10 @@ func (m *Manager) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error)
 }
 
 // GetPaper retrieves paper details using key rotation, retry logic and circuit breaker protection
-func (m *Manager) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, error) {
-	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		return m.executeWithRetry(func(client *Client) (interface{}, error) {
-			return client.GetPaper(paperID, opts)
+func (m *Manager) GetPaper(ctx context.Context, paperID string, opts PaperDetailsOptions) (*Paper, error) {
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+			return client.GetPaper(ctx, paperID, opts)
 		})
 	})
 
@@ -230,13 +232,13 @@ func (m *Manager) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, er
 }
 
 // GetPaperBatch retrieves multiple papers using key rotation, retry logic and circuit breaker protection
-func (m *Manager) GetPaperBatch(paperIDs []string, fields []string) ([]Paper, error) {
-	fmt.Printf("[Manager] GetPaperBatch called with %d paperIDs\n", len(paperIDs))
+func (m *Manager) GetPaperBatch(ctx context.Context, paperIDs []string, fields []string) ([]Paper, error) {
+	slog.Debug("GetPaperBatch called", "paperIDCount", len(paperIDs))
 	
-	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		return m.executeWithRetry(func(client *Client) (interface{}, error) {
-		fmt.Printf("[Manager] GetPaperBatch - Client has API key: %v, length: %d\n", client.HasAPIKey(), client.GetAPIKeyLength())
-			return client.GetPaperBatch(paperIDs, fields)
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+		slog.Debug("GetPaperBatch client info", "hasAPIKey", client.HasAPIKey(), "keyLength", client.GetAPIKeyLength())
+			return client.GetPaperBatch(ctx, paperIDs, fields)
 		})
 	})
 
@@ -251,10 +253,10 @@ func (m *Manager) GetPaperBatch(paperIDs []string, fields []string) ([]Paper, er
 }
 
 // GetPaperAuthors retrieves paper authors using key rotation, retry logic and circuit breaker protection
-func (m *Manager) GetPaperAuthors(paperID string, fields []string, offset, limit int) (*AuthorSearchResponse, error) {
-	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		return m.executeWithRetry(func(client *Client) (interface{}, error) {
-			return client.GetPaperAuthors(paperID, fields, offset, limit)
+func (m *Manager) GetPaperAuthors(ctx context.Context, paperID string, fields []string, offset, limit int) (*AuthorSearchResponse, error) {
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+			return client.GetPaperAuthors(ctx, paperID, fields, offset, limit)
 		})
 	})
 
@@ -269,10 +271,10 @@ func (m *Manager) GetPaperAuthors(paperID string, fields []string, offset, limit
 }
 
 // GetPaperCitations retrieves paper citations using key rotation, retry logic and circuit breaker protection
-func (m *Manager) GetPaperCitations(paperID string, opts CitationsOptions) (*CitationsResponse, error) {
-	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		return m.executeWithRetry(func(client *Client) (interface{}, error) {
-			return client.GetPaperCitations(paperID, opts)
+func (m *Manager) GetPaperCitations(ctx context.Context, paperID string, opts CitationsOptions) (*CitationsResponse, error) {
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+			return client.GetPaperCitations(ctx, paperID, opts)
 		})
 	})
 
@@ -287,10 +289,10 @@ func (m *Manager) GetPaperCitations(paperID string, opts CitationsOptions) (*Cit
 }
 
 // GetPaperReferences retrieves paper references using key rotation, retry logic and circuit breaker protection
-func (m *Manager) GetPaperReferences(paperID string, opts CitationsOptions) (*ReferencesResponse, error) {
-	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		return m.executeWithRetry(func(client *Client) (interface{}, error) {
-			return client.GetPaperReferences(paperID, opts)
+func (m *Manager) GetPaperReferences(ctx context.Context, paperID string, opts CitationsOptions) (*ReferencesResponse, error) {
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+			return client.GetPaperReferences(ctx, paperID, opts)
 		})
 	})
 
@@ -305,10 +307,10 @@ func (m *Manager) GetPaperReferences(paperID string, opts CitationsOptions) (*Re
 }
 
 // SearchAuthors searches for authors using key rotation, retry logic and circuit breaker protection
-func (m *Manager) SearchAuthors(opts AuthorSearchOptions) (*AuthorSearchResponse, error) {
-	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		return m.executeWithRetry(func(client *Client) (interface{}, error) {
-		return client.SearchAuthors(opts)
+func (m *Manager) SearchAuthors(ctx context.Context, opts AuthorSearchOptions) (*AuthorSearchResponse, error) {
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+		return client.SearchAuthors(ctx, opts)
 		})
 	})
 
@@ -323,10 +325,10 @@ func (m *Manager) SearchAuthors(opts AuthorSearchOptions) (*AuthorSearchResponse
 }
 
 // GetAuthor retrieves author details using key rotation, retry logic and circuit breaker protection
-func (m *Manager) GetAuthor(authorID string, fields []string) (*Author, error) {
-	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		return m.executeWithRetry(func(client *Client) (interface{}, error) {
-		return client.GetAuthor(authorID, fields)
+func (m *Manager) GetAuthor(ctx context.Context, authorID string, fields []string) (*Author, error) {
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+		return client.GetAuthor(ctx, authorID, fields)
 		})
 	})
 
@@ -341,10 +343,10 @@ func (m *Manager) GetAuthor(authorID string, fields []string) (*Author, error) {
 }
 
 // GetAuthorPapers retrieves author papers using key rotation, retry logic and circuit breaker protection
-func (m *Manager) GetAuthorPapers(authorID string, fields []string, offset, limit int) (*SearchResponse, error) {
-	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		return m.executeWithRetry(func(client *Client) (interface{}, error) {
-		return client.GetAuthorPapers(authorID, fields, offset, limit)
+func (m *Manager) GetAuthorPapers(ctx context.Context, authorID string, fields []string, offset, limit int) (*SearchResponse, error) {
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+		return client.GetAuthorPapers(ctx, authorID, fields, offset, limit)
 		})
 	})
 
@@ -359,10 +361,10 @@ func (m *Manager) GetAuthorPapers(authorID string, fields []string, offset, limi
 }
 
 // GetRecommendationsForPaper gets recommendations using key rotation, retry logic and circuit breaker protection
-func (m *Manager) GetRecommendationsForPaper(paperID string, opts RecommendationsOptions) (*RecommendationsResponse, error) {
-	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		return m.executeWithRetry(func(client *Client) (interface{}, error) {
-		return client.GetRecommendationsForPaper(paperID, opts)
+func (m *Manager) GetRecommendationsForPaper(ctx context.Context, paperID string, opts RecommendationsOptions) (*RecommendationsResponse, error) {
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+		return client.GetRecommendationsForPaper(ctx, paperID, opts)
 		})
 	})
 
@@ -377,10 +379,10 @@ func (m *Manager) GetRecommendationsForPaper(paperID string, opts Recommendation
 }
 
 // GetRecommendations gets recommendations using key rotation, retry logic and circuit breaker protection
-func (m *Manager) GetRecommendations(opts RecommendationsOptions) (*RecommendationsResponse, error) {
-	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		return m.executeWithRetry(func(client *Client) (interface{}, error) {
-		return client.GetRecommendations(opts)
+func (m *Manager) GetRecommendations(ctx context.Context, opts RecommendationsOptions) (*RecommendationsResponse, error) {
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+		return client.GetRecommendations(ctx, opts)
 		})
 	})
 
@@ -395,10 +397,10 @@ func (m *Manager) GetRecommendations(opts RecommendationsOptions) (*Recommendati
 }
 
 // PaperAutocomplete returns paper title suggestions with key rotation, retry logic and circuit breaker protection
-func (m *Manager) PaperAutocomplete(query string) (*AutocompleteResponse, error) {
-	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		return m.executeWithRetry(func(client *Client) (interface{}, error) {
-			return client.PaperAutocomplete(query)
+func (m *Manager) PaperAutocomplete(ctx context.Context, query string) (*AutocompleteResponse, error) {
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+			return client.PaperAutocomplete(ctx, query)
 		})
 	})
 
@@ -414,10 +416,10 @@ func (m *Manager) PaperAutocomplete(query string) (*AutocompleteResponse, error)
 
 // SnippetSearch searches for papers by text snippet with key rotation, retry logic and circuit breaker protection
 // Use when user provides a piece of text and wants to find the source paper
-func (m *Manager) SnippetSearch(opts SnippetSearchOptions) (*SnippetSearchResponse, error) {
-	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		return m.executeWithRetry(func(client *Client) (interface{}, error) {
-			return client.SnippetSearch(opts)
+func (m *Manager) SnippetSearch(ctx context.Context, opts SnippetSearchOptions) (*SnippetSearchResponse, error) {
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+			return client.SnippetSearch(ctx, opts)
 		})
 	})
 
@@ -433,10 +435,10 @@ func (m *Manager) SnippetSearch(opts SnippetSearchOptions) (*SnippetSearchRespon
 
 // PaperTitleMatch finds paper by exact title match with key rotation, retry logic and circuit breaker protection
 // Use when user provides a complete paper title for precise lookup
-func (m *Manager) PaperTitleMatch(opts TitleMatchOptions) (*SearchResponse, error) {
-	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (interface{}, error) {
-		return m.executeWithRetry(func(client *Client) (interface{}, error) {
-			return client.PaperTitleMatch(opts)
+func (m *Manager) PaperTitleMatch(ctx context.Context, opts TitleMatchOptions) (*SearchResponse, error) {
+	result, err := circuitbreaker.SemanticScholarBreaker.Execute(func() (any, error) {
+		return m.executeWithRetry(func(client *Client) (any, error) {
+			return client.PaperTitleMatch(ctx, opts)
 		})
 	})
 
@@ -451,7 +453,7 @@ func (m *Manager) PaperTitleMatch(opts TitleMatchOptions) (*SearchResponse, erro
 }
 
 // GetSearchSuggestions returns combined paper and author suggestions by querying both APIs in parallel
-func (m *Manager) GetSearchSuggestions(query string, paperLimit, authorLimit int) (*SearchSuggestionsResponse, error) {
+func (m *Manager) GetSearchSuggestions(ctx context.Context, query string, paperLimit, authorLimit int) (*SearchSuggestionsResponse, error) {
 	if query == "" {
 		return nil, fmt.Errorf("query is required")
 	}
@@ -479,7 +481,7 @@ func (m *Manager) GetSearchSuggestions(query string, paperLimit, authorLimit int
 
 	// Fetch paper autocomplete in parallel
 	go func() {
-		result, err := m.PaperAutocomplete(query)
+		result, err := m.PaperAutocomplete(ctx, query)
 		paperChan <- paperResult{data: result, err: err}
 	}()
 
@@ -490,7 +492,7 @@ func (m *Manager) GetSearchSuggestions(query string, paperLimit, authorLimit int
 			Limit:  authorLimit,
 			Offset: 0,
 		}
-		result, err := m.SearchAuthors(opts)
+		result, err := m.SearchAuthors(ctx, opts)
 		authorChan <- authorResult{data: result, err: err}
 	}()
 
@@ -513,7 +515,7 @@ func (m *Manager) GetSearchSuggestions(query string, paperLimit, authorLimit int
 		}
 		response.Papers = paperRes.data.Matches[:count]
 	} else if paperRes.err != nil {
-		fmt.Printf("[Manager] Paper autocomplete failed: %v\n", paperRes.err)
+		slog.Warn("paper autocomplete failed", "err", paperRes.err)
 	}
 
 	// Process author results
@@ -525,7 +527,7 @@ func (m *Manager) GetSearchSuggestions(query string, paperLimit, authorLimit int
 		}
 		response.Authors = authorRes.data.Data[:count]
 	} else if authorRes.err != nil {
-		fmt.Printf("[Manager] Author search failed: %v\n", authorRes.err)
+		slog.Warn("author search failed", "err", authorRes.err)
 	}
 
 	// If both failed, return an error

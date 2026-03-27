@@ -319,7 +319,7 @@ type ReviewResultInfo struct {
 	Recommendation  string                 `json:"recommendation,omitempty"`
 	ConfidenceScore float64                `json:"confidence_score,omitempty"`
 	ReviewContent   string                 `json:"review_content,omitempty"`
-	DimensionScores map[string]interface{} `json:"dimension_scores,omitempty"`
+	DimensionScores map[string]any `json:"dimension_scores,omitempty"`
 	StepsDetail     []StepInfo             `json:"steps_detail,omitempty"`     // 步骤详情
 	CompletedAt     *time.Time             `json:"completed_at,omitempty"`
 }
@@ -375,7 +375,7 @@ type StepInfo struct {
 	StartTime *time.Time  `json:"start_time,omitempty"` // 开始时间
 	EndTime   *time.Time  `json:"end_time,omitempty"`   // 结束时间
 	Duration  int64       `json:"duration_ms"`          // 耗时（毫秒）
-	Result    interface{} `json:"result,omitempty"`     // 步骤结果（可选）
+	Result    any `json:"result,omitempty"`     // 步骤结果（可选）
 	ErrorMsg  string      `json:"error_msg,omitempty"`  // 错误信息
 }
 
@@ -408,7 +408,7 @@ const (
 // StreamEvent SSE 事件
 type StreamEvent struct {
 	Type     string      `json:"type"`
-	Data     interface{} `json:"data"`
+	Data     any `json:"data"`
 	Progress int         `json:"progress,omitempty"`
 	Message  string      `json:"message,omitempty"`
 }
@@ -435,11 +435,11 @@ type SearchQuery struct {
 
 // LiteratureContext 文献上下文
 type LiteratureContext struct {
-	AllPapers []map[string]interface{} `json:"all_papers"`
-	ByTopic   []map[string]interface{} `json:"by_topic"`
-	ByMethod  []map[string]interface{} `json:"by_method"`
-	ByNovelty []map[string]interface{} `json:"by_novelty"`
-	ByTheory  []map[string]interface{} `json:"by_theory"`
+	AllPapers []map[string]any `json:"all_papers"`
+	ByTopic   []map[string]any `json:"by_topic"`
+	ByMethod  []map[string]any `json:"by_method"`
+	ByNovelty []map[string]any `json:"by_novelty"`
+	ByTheory  []map[string]any `json:"by_theory"`
 }
 
 // LiteratureSummary 文献总结
@@ -460,7 +460,7 @@ type ClosestPaper struct {
 // GapLiterature 研究空白相关文献
 type GapLiterature struct {
 	Gap    string                   `json:"gap"`
-	Papers []map[string]interface{} `json:"papers"`
+	Papers []map[string]any `json:"papers"`
 }
 
 // ReferenceForReviewer 供审稿人使用的参考文献

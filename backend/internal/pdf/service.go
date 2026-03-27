@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -54,7 +54,7 @@ func (s *Service) GetPDF(ctx context.Context, req *PDFRequest) (*PDFResult, erro
 
 	// 标准化 DOI
 	doi := normalizeDOI(req.DOI)
-	log.Printf("[PDF] Request: DOI=%s, PDFURL=%s", doi, req.PDFURL)
+	slog.Info("PDF request", "doi", doi, "pdf_url", req.PDFURL)
 
 	// 1. 检查本地缓存
 	cacheKey := doi
@@ -63,7 +63,7 @@ func (s *Service) GetPDF(ctx context.Context, req *PDFRequest) (*PDFResult, erro
 	}
 	
 	if cached, ok := s.cache.Get(cacheKey); ok {
-		log.Printf("[PDF] Cache HIT for DOI: %s", doi)
+		slog.Debug("PDF cache hit", "doi", doi)
 		return &PDFResult{
 			Data:        cached.Data,
 			Source:      cached.Source,
@@ -72,7 +72,7 @@ func (s *Service) GetPDF(ctx context.Context, req *PDFRequest) (*PDFResult, erro
 			Size:        cached.Size,
 		}, nil
 	}
-	log.Printf("[PDF] Cache MISS for DOI: %s", doi)
+	slog.Debug("PDF cache miss", "doi", doi)
 
 	// 2. 转发请求到外部 PDF 服务
 	result, err := s.forwardToExternalService(ctx, doi, req.PDFURL)
@@ -98,7 +98,7 @@ func (s *Service) forwardToExternalService(ctx context.Context, doi string, pdfU
 		return nil, fmt.Errorf("marshal request failed: %v", err)
 	}
 
-	log.Printf("[PDF] Forwarding to external service: %s, body: %s", ExternalPDFServiceURL, string(jsonBody))
+	slog.Info("forwarding to external PDF service", "url", ExternalPDFServiceURL, "body", string(jsonBody))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", ExternalPDFServiceURL, bytes.NewReader(jsonBody))
 	if err != nil {
@@ -118,12 +118,12 @@ func (s *Service) forwardToExternalService(ctx context.Context, doi string, pdfU
 	// 读取外部服务的响应头
 	externalSource := resp.Header.Get("X-PDF-Source")
 	externalCache := resp.Header.Get("X-Cache")
-	log.Printf("[PDF] External service response: status=%d, source=%s, cache=%s", resp.StatusCode, externalSource, externalCache)
+	slog.Info("external PDF service response", "status", resp.StatusCode, "source", externalSource, "cache", externalCache)
 
 	if resp.StatusCode != http.StatusOK {
 		// 读取错误信息
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("[PDF] External service error: %s", string(body))
+		slog.Error("external PDF service error", "body", string(body))
 		return nil, fmt.Errorf("external service returned HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -132,7 +132,7 @@ func (s *Service) forwardToExternalService(ctx context.Context, doi string, pdfU
 		return nil, fmt.Errorf("read response failed: %v", err)
 	}
 
-	log.Printf("[PDF] Received %d bytes from external service", len(data))
+	slog.Info("received PDF data from external service", "bytes", len(data))
 
 	// 验证是否为 PDF
 	if !isPDFMagicBytes(data) {
@@ -170,7 +170,7 @@ func (s *Service) cacheResult(cacheKey string, result *PDFResult) {
 		CreatedAt:   time.Now(),
 		ExpiresAt:   time.Now().Add(24 * time.Hour),
 	})
-	log.Printf("[PDF] Cached: key=%s, source=%s, size=%d bytes", cacheKey, result.Source, result.Size)
+	slog.Info("PDF cached", "key", cacheKey, "source", result.Source, "size", result.Size)
 }
 
 // normalizeDOI 标准化 DOI

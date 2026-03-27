@@ -10,6 +10,7 @@ package thirdparty
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"sync"
 	"time"
@@ -169,7 +170,7 @@ func (s *Service) GetRandomAPIKey(accountType AccountType) (string, uint, error)
 	// Increment usage count
 	if err := s.repo.IncrementUsage(selected.ID); err != nil {
 		// Log error but don't fail the request
-		fmt.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
+		slog.Warn("failed to increment usage count", "account_id", selected.ID, "err", err)
 	}
 
 	// Extract API key based on type
@@ -210,7 +211,7 @@ func (s *Service) GetRandomAIModelConfig() (*AIModelConfig, uint, error) {
 
 	// Increment usage count
 	if err := s.repo.IncrementUsage(selected.ID); err != nil {
-		fmt.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
+		slog.Warn("failed to increment usage count", "account_id", selected.ID, "err", err)
 	}
 
 	config, err := selected.GetAIModelConfig()
@@ -349,7 +350,7 @@ func (s *Service) RefreshCache() error {
 }
 
 // GetStats retrieves usage statistics
-func (s *Service) GetStats() (map[string]interface{}, error) {
+func (s *Service) GetStats() (map[string]any, error) {
 	return s.repo.GetStats()
 }
 
@@ -358,16 +359,16 @@ func (s *Service) StartCacheRefreshTask(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	go func() {
 		defer ticker.Stop()
-		fmt.Println("Third-party account cache refresh task started")
+		slog.Info("third-party account cache refresh task started")
 
 		for {
 			select {
 			case <-ticker.C:
 				if err := s.RefreshCache(); err != nil {
-					fmt.Printf("Warning: failed to refresh account cache: %v\n", err)
+					slog.Warn("failed to refresh account cache", "err", err)
 				}
 			case <-s.ctx.Done():
-				fmt.Println("Third-party account cache refresh task stopped")
+				slog.Info("third-party account cache refresh task stopped")
 				return
 			}
 		}
@@ -376,9 +377,9 @@ func (s *Service) StartCacheRefreshTask(interval time.Duration) {
 
 // Stop gracefully stops the cache refresh task
 func (s *Service) Stop() {
-	fmt.Println("Stopping third-party service...")
+	slog.Info("stopping third-party service")
 	s.cancel()
-	fmt.Println("✓ Third-party service stopped")
+	slog.Info("third-party service stopped")
 }
 
 // GetActiveAccountsByType retrieves active accounts of a specific type (public method for AI service)
@@ -439,7 +440,7 @@ func (s *Service) GetRandomAIModelConfigByLevelExcluding(modelLevel ModelLevel, 
 
 	// Increment usage count
 	if err := s.repo.IncrementUsage(selected.ID); err != nil {
-		fmt.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
+		slog.Warn("failed to increment usage count", "account_id", selected.ID, "err", err)
 	}
 
 	config, err := selected.GetAIModelConfig()
@@ -496,7 +497,7 @@ func (s *Service) GetRandomAPIKeyByLevel(modelLevel ModelLevel) (string, uint, e
 
 	// Increment usage count
 	if err := s.repo.IncrementUsage(selected.ID); err != nil {
-		fmt.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
+		slog.Warn("failed to increment usage count", "account_id", selected.ID, "err", err)
 	}
 
 	config, err := selected.GetAIModelConfig()
@@ -564,7 +565,7 @@ func (s *Service) GetPeerReviewModels() (*PeerReviewModelConfig, uint, error) {
 
 	// Increment usage count
 	if err := s.repo.IncrementUsage(selected.ID); err != nil {
-		fmt.Printf("Warning: failed to increment usage count for account %d: %v\n", selected.ID, err)
+		slog.Warn("failed to increment usage count", "account_id", selected.ID, "err", err)
 	}
 
 	config, err := selected.GetAIModelConfig()

@@ -70,7 +70,7 @@ func (m *MockLLMProvider) ChatWithTools(ctx context.Context, req *ai.LLMRequest,
 	return m.Chat(ctx, req)
 }
 
-func (m *MockLLMProvider) StreamChatWithTools(ctx context.Context, req *ai.LLMRequest, tools []ai.LLMTool, writer interface{}) (*ai.LLMResponse, error) {
+func (m *MockLLMProvider) StreamChatWithTools(ctx context.Context, req *ai.LLMRequest, tools []ai.LLMTool, writer any) (*ai.LLMResponse, error) {
 	return m.Chat(ctx, req)
 }
 

@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -439,7 +440,7 @@ func (s *Service) AddAttachmentToDraft(userID uint, fileName string, fileExt str
 		const maxAttachmentLength = 50000
 		if len(extractedText) > maxAttachmentLength {
 			extractedText = extractedText[:maxAttachmentLength]
-			fmt.Printf("[PeerReview] Attachment text truncated to %d chars: %s\n", maxAttachmentLength, fileName)
+			slog.Warn("attachment text truncated", "max_chars", maxAttachmentLength, "file_name", fileName)
 		}
 	}
 
@@ -951,7 +952,7 @@ func (s *Service) GetTaskDetail(userID uint, taskID uint) (*TaskDetailResponse, 
 }
 
 // GetTaskProgress 获取任务进度
-func (s *Service) GetTaskProgress(userID uint, taskID uint) (map[string]interface{}, error) {
+func (s *Service) GetTaskProgress(userID uint, taskID uint) (map[string]any, error) {
 	var task PeerReviewTask
 	if err := s.db.Select("id, status, progress, progress_stage, error_message, completed_at").
 		Where("id = ? AND user_id = ?", taskID, userID).First(&task).Error; err != nil {
@@ -961,7 +962,7 @@ func (s *Service) GetTaskProgress(userID uint, taskID uint) (map[string]interfac
 		return nil, err
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"id":             task.ID,
 		"status":         task.Status,
 		"progress":       task.Progress,
@@ -1036,7 +1037,7 @@ func (s *Service) buildSummarizeStep(task *PeerReviewTask) *StepInfo {
 		step.Status = StepStatusCompleted
 		// 可以添加一些汇总结果信息
 		if task.FinalRecommendation != "" {
-			step.Result = map[string]interface{}{
+			step.Result = map[string]any{
 				"recommendation": task.FinalRecommendation,
 			}
 		}
@@ -1070,7 +1071,7 @@ func (s *Service) buildPreprocessSteps(task *PeerReviewTask) []StepInfo {
 		// 解析元信息作为结果
 		var meta ManuscriptMeta
 		if err := json.Unmarshal([]byte(task.ManuscriptMeta), &meta); err == nil {
-			manuscriptStep.Result = map[string]interface{}{
+			manuscriptStep.Result = map[string]any{
 				"title":      meta.Title,
 				"field":      meta.Field,
 				"main_topic": meta.MainTopic,
@@ -1135,7 +1136,7 @@ func (s *Service) buildPreprocessSteps(task *PeerReviewTask) []StepInfo {
 				}
 				totalPapers = len(paperSet)
 			}
-			literatureSearchStep.Result = map[string]interface{}{
+			literatureSearchStep.Result = map[string]any{
 				"total_papers": totalPapers,
 			}
 		}
@@ -1157,7 +1158,7 @@ func (s *Service) buildPreprocessSteps(task *PeerReviewTask) []StepInfo {
 		// 解析文献总结作为结果
 		var summary LiteratureSummary
 		if err := json.Unmarshal([]byte(task.LiteratureSummary), &summary); err == nil {
-			literatureSummaryStep.Result = map[string]interface{}{
+			literatureSummaryStep.Result = map[string]any{
 				"closest_papers": len(summary.ClosestPapers),
 			}
 		}
@@ -1323,7 +1324,7 @@ func (s *Service) StartDraftTask(userID uint, taskID uint, _ string, modelLevel 
 	}
 
 	// 更新任务状态为待处理（target_venue 已废弃）
-	updates := map[string]interface{}{
+	updates := map[string]any{
 		"status":        TaskStatusPending,
 		"model_level":   modelLevel,
 		"progress":      0,
@@ -2101,12 +2102,11 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 
 	var task PeerReviewTask
 	if err := s.db.First(&task, taskID).Error; err != nil {
-		fmt.Printf("[PeerReview] ERROR: Failed to find task: taskID=%d, error=%v\n", taskID, err)
+		slog.Error("failed to find task", "task_id", taskID, "err", err)
 		return
 	}
 
-	fmt.Printf("[PeerReview] processTaskAsync started: taskID=%d, inputType=%s, modelLevel=%s\n", 
-		taskID, task.InputType, task.ModelLevel)
+	slog.Info("processTaskAsync started", "task_id", taskID, "input_type", task.InputType, "model_level", task.ModelLevel)
 
 	// 更新状态为处理中
 	now := time.Now()
@@ -2116,41 +2116,37 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 	// 获取三个审稿模型配置
 	prModelConfig, _, err := s.accountService.GetPeerReviewModels()
 	if err != nil {
-		fmt.Printf("[PeerReview] ERROR: Failed to get peer review models: taskID=%d, error=%v\n", taskID, err)
+		slog.Error("failed to get peer review models", "task_id", taskID, "err", err)
 		s.updateTaskFailed(taskID, fmt.Sprintf("获取审稿模型配置失败: %v", err))
 		return
 	}
 	
 	// 构建每个审稿人的模型配置
 	reviewerModels := []string{prModelConfig.Model1, prModelConfig.Model2, prModelConfig.Model3}
-	fmt.Printf("[PeerReview] Using three models for review: taskID=%d, models=[%s, %s, %s]\n", 
-		taskID, reviewerModels[0], reviewerModels[1], reviewerModels[2])
+	slog.Info("using three models for review", "task_id", taskID, "model1", reviewerModels[0], "model2", reviewerModels[1], "model3", reviewerModels[2])
 
 	// 加载关联文件
 	s.loadTaskFiles(&task)
 	
 	if task.ManuscriptFile != nil {
-		fmt.Printf("[PeerReview] Manuscript file loaded: taskID=%d, fileName=%s, processMode=%s, filePath=%s\n", 
-			taskID, task.ManuscriptFile.FileName, task.ManuscriptFile.ProcessMode, task.ManuscriptFile.FilePath)
+		slog.Info("manuscript file loaded", "task_id", taskID, "file_name", task.ManuscriptFile.FileName, "process_mode", task.ManuscriptFile.ProcessMode, "file_path", task.ManuscriptFile.FilePath)
 	} else {
-		fmt.Printf("[PeerReview] No manuscript file, using text mode: taskID=%d, textLength=%d\n", 
-			taskID, len(task.ManuscriptText))
+		slog.Info("no manuscript file, using text mode", "task_id", taskID, "text_length", len(task.ManuscriptText))
 	}
 
 	// 1. 预处理阶段（共享）：提取元信息、检索文献 (5%-50%)
-	fmt.Printf("[PeerReview] Starting preprocessing: taskID=%d\n", taskID)
+	slog.Info("starting preprocessing", "task_id", taskID)
 	meta, literatureSummary, refs, err := s.preprocessTask(&task)
 	if err != nil {
-		fmt.Printf("[PeerReview] ERROR: Preprocessing failed: taskID=%d, error=%v\n", taskID, err)
+		slog.Error("preprocessing failed", "task_id", taskID, "err", err)
 		s.updateTaskFailed(taskID, err.Error())
 		return
 	}
-	fmt.Printf("[PeerReview] Preprocessing completed: taskID=%d, metaTitle=%s, refsCount=%d\n", 
-		taskID, meta.Title, len(refs))
+	slog.Info("preprocessing completed", "task_id", taskID, "meta_title", meta.Title, "refs_count", len(refs))
 
 	// 2. 三审并行阶段 (50%-90%)
 	s.updateTaskProgress(taskID, TaskStatusProcessing, 50, "三位审稿人并行审稿中...")
-	fmt.Printf("[PeerReview] Starting parallel review: taskID=%d\n", taskID)
+	slog.Info("starting parallel review", "task_id", taskID)
 
 	// 设置每个审稿人的超时时间（10分钟）
 	const reviewerTimeout = 10 * time.Minute
@@ -2191,7 +2187,7 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 				reviewErrors[idx] = fmt.Errorf("%s 审稿超时（超过 %v）", ReviewerNames[idx+1], reviewerTimeout)
 				// 更新该审稿人状态为超时
 				s.db.Model(&PeerReviewResult{}).Where("task_id = ? AND reviewer_index = ?", task.ID, idx+1).
-					Updates(map[string]interface{}{
+					Updates(map[string]any{
 						"status":        TaskStatusFailed,
 						"error_message": reviewErrors[idx].Error(),
 					})
@@ -2200,31 +2196,31 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 	}
 
 	wg.Wait()
-	fmt.Printf("[PeerReview] All reviewers finished: taskID=%d\n", taskID)
+	slog.Info("all reviewers finished", "task_id", taskID)
 
 	// 检查是否有审稿人超时
 	timeoutCount := 0
 	for idx, err := range reviewErrors {
 		if err != nil {
 			timeoutCount++
-			fmt.Printf("[PeerReview] Reviewer %d timeout/error: taskID=%d, error=%v\n", idx+1, taskID, err)
+			slog.Error("reviewer timeout/error", "reviewer", idx+1, "task_id", taskID, "err", err)
 		}
 	}
 	
 	// 检查每个审稿人的结果长度
 	for idx, result := range reviewResults {
-		fmt.Printf("[PeerReview] Reviewer %d result: taskID=%d, contentLength=%d\n", idx+1, taskID, result.Len())
+		slog.Info("reviewer result", "reviewer", idx+1, "task_id", taskID, "content_length", result.Len())
 	}
 	
 	// 如果全部超时，标记任务失败
 	if timeoutCount == ReviewerCount {
-		fmt.Printf("[PeerReview] ERROR: All reviewers timeout: taskID=%d\n", taskID)
+		slog.Error("all reviewers timeout", "task_id", taskID)
 		s.updateTaskFailed(taskID, "所有审稿人均超时，请重试")
 		return
 	}
 
 	// 3. 汇总阶段 (90%-100%)
-	fmt.Printf("[PeerReview] Starting summarization: taskID=%d\n", taskID)
+	slog.Info("starting summarization", "task_id", taskID)
 	s.updateTaskProgress(taskID, TaskStatusProcessing, 90, "汇总审稿结果...")
 	s.summarizeReviews(taskID, reviewResults)
 
@@ -2233,13 +2229,13 @@ func (s *Service) processTaskAsyncWithThreeReviewers(taskID uint) {
 
 	// 完成
 	completedAt := time.Now()
-	s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]interface{}{
+	s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]any{
 		"status":         TaskStatusCompleted,
 		"progress":       100,
 		"progress_stage": "审稿完成",
 		"completed_at":   completedAt,
 	})
-	fmt.Printf("[PeerReview] Task completed: taskID=%d\n", taskID)
+	slog.Info("task completed", "task_id", taskID)
 }
 
 // getBizTypeForPeerReview 获取审稿业务类型（固定使用 peer_review_mid）
@@ -2251,7 +2247,7 @@ func (s *Service) getBizTypeForPeerReview(modelLevel string) string {
 // deductForCompletedReview 审稿完成后扣费（使用统一扣费方法）
 func (s *Service) deductForCompletedReview(taskID uint, userID uint, modelLevel string) {
 	if s.currencyService == nil {
-		fmt.Printf("[PeerReview] Currency service not configured, skipping deduction: taskID=%d\n", taskID)
+		slog.Warn("currency service not configured, skipping deduction", "task_id", taskID)
 		return
 	}
 
@@ -2263,9 +2259,9 @@ func (s *Service) deductForCompletedReview(taskID uint, userID uint, modelLevel 
 	_, err := s.currencyService.DeductByBizType(ctx, userID, bizType, bizID)
 	if err != nil {
 		// 扣费失败只记录日志，不影响审稿结果
-		fmt.Printf("[PeerReview] Failed to deduct for task %d: %v\n", taskID, err)
+		slog.Error("failed to deduct for task", "task_id", taskID, "err", err)
 	} else {
-		fmt.Printf("[PeerReview] Successfully deducted for task %d, bizType=%s\n", taskID, bizType)
+		slog.Info("successfully deducted for task", "task_id", taskID, "biz_type", bizType)
 	}
 }
 
@@ -2284,7 +2280,7 @@ func (s *Service) preprocessTask(task *PeerReviewTask) (*ManuscriptMeta, *Litera
 	// ProcessModeExtract (Word/RTF/ODT/XML/HTML/TXT 等)：使用上传时提取的文本
 	if task.ManuscriptFile != nil && task.ManuscriptFile.ProcessMode == ProcessModeDirect {
 		// PDF 文件直传模式：读取文件并传递给AI
-		fmt.Printf("[PeerReview] Using PDF direct mode for preprocessing: taskID=%d, fileName=%s\n", task.ID, task.ManuscriptFile.FileName)
+		slog.Info("using PDF direct mode for preprocessing", "task_id", task.ID, "file_name", task.ManuscriptFile.FileName)
 		fileContent, readErr := os.ReadFile(task.ManuscriptFile.FilePath)
 		if readErr != nil {
 			return nil, nil, nil, fmt.Errorf("读取文件失败: %w", readErr)
@@ -2301,7 +2297,7 @@ func (s *Service) preprocessTask(task *PeerReviewTask) (*ManuscriptMeta, *Litera
 		// 如果有主稿件文件，使用其提取的文本（Word/RTF/ODT/XML/HTML/TXT 在上传时已提取）
 		if task.ManuscriptFile != nil && task.ManuscriptFile.ExtractedText != "" {
 			manuscriptText = task.ManuscriptFile.ExtractedText
-			fmt.Printf("[PeerReview] Using extracted text for preprocessing: taskID=%d, length=%d\n", task.ID, len(manuscriptText))
+			slog.Info("using extracted text for preprocessing", "task_id", task.ID, "length", len(manuscriptText))
 		}
 		if len(manuscriptText) < 100 {
 			return nil, nil, nil, fmt.Errorf("稿件内容太短，请提供更完整的内容")
@@ -2314,7 +2310,7 @@ func (s *Service) preprocessTask(task *PeerReviewTask) (*ManuscriptMeta, *Litera
 	}
 
 	metaJSON, _ := json.Marshal(meta)
-	s.db.Model(task).Updates(map[string]interface{}{
+	s.db.Model(task).Updates(map[string]any{
 		"manuscript_meta": string(metaJSON),
 		"title":           meta.Title,
 	})
@@ -2356,24 +2352,24 @@ func (s *Service) preprocessTask(task *PeerReviewTask) (*ManuscriptMeta, *Litera
 
 // runSingleReview 执行单个审稿人的审稿
 func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta *ManuscriptMeta, summary *LiteratureSummary, refs []ReferenceForReviewer, writer *strings.Builder) {
-	fmt.Printf("[PeerReview] runSingleReview started: taskID=%d, reviewerIndex=%d\n", task.ID, reviewerIndex)
+	slog.Info("runSingleReview started", "task_id", task.ID, "reviewer_index", reviewerIndex)
 	
 	// 更新审稿人状态
 	s.db.Model(&PeerReviewResult{}).Where("task_id = ? AND reviewer_index = ?", task.ID, reviewerIndex).
-		Updates(map[string]interface{}{"status": TaskStatusProcessing, "progress": 10})
+		Updates(map[string]any{"status": TaskStatusProcessing, "progress": 10})
 
 	var err error
 
 	// 收集文本模式附件的内容（Word/RTF/ODT 等格式提取的文本）
 	attachmentTexts := s.collectAttachmentTexts(task)
 	if len(attachmentTexts) > 0 {
-		fmt.Printf("[PeerReview] Collected %d text attachments: taskID=%d, reviewerIndex=%d\n", len(attachmentTexts), task.ID, reviewerIndex)
+		slog.Debug("collected text attachments", "count", len(attachmentTexts), "task_id", task.ID, "reviewer_index", reviewerIndex)
 	}
 
 	// 收集 PDF 附件（无论主稿件是什么模式，PDF 附件都需要以文件形式传递）
 	pdfAttachments := s.collectPDFAttachments(task)
 	if len(pdfAttachments) > 0 {
-		fmt.Printf("[PeerReview] Collected %d PDF attachments: taskID=%d, reviewerIndex=%d\n", len(pdfAttachments), task.ID, reviewerIndex)
+		slog.Debug("collected PDF attachments", "count", len(pdfAttachments), "task_id", task.ID, "reviewer_index", reviewerIndex)
 	}
 
 	// 根据处理模式选择不同的处理方式
@@ -2381,14 +2377,13 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 	// ProcessModeExtract (Word/RTF/ODT/XML/HTML/TXT 等)：使用上传时提取的文本
 	if task.ManuscriptFile != nil && task.ManuscriptFile.ProcessMode == ProcessModeDirect {
 		// PDF 主稿件直传模式：收集主稿件和 PDF 附件
-		fmt.Printf("[PeerReview] Using PDF direct mode: taskID=%d, reviewerIndex=%d, fileName=%s\n", 
-			task.ID, reviewerIndex, task.ManuscriptFile.FileName)
+		slog.Info("using PDF direct mode", "task_id", task.ID, "reviewer_index", reviewerIndex, "file_name", task.ManuscriptFile.FileName)
 		files := s.collectFilesForAI(task)
 		if len(files) == 0 {
 			err = fmt.Errorf("无法读取稿件文件")
-			fmt.Printf("[PeerReview] ERROR: Failed to collect files: taskID=%d, reviewerIndex=%d\n", task.ID, reviewerIndex)
+			slog.Error("failed to collect files", "task_id", task.ID, "reviewer_index", reviewerIndex)
 		} else {
-			fmt.Printf("[PeerReview] Collected %d files for AI: taskID=%d, reviewerIndex=%d\n", len(files), task.ID, reviewerIndex)
+			slog.Debug("collected files for AI", "count", len(files), "task_id", task.ID, "reviewer_index", reviewerIndex)
 			err = s.generateReviewForTaskWithFile(files, attachmentTexts,
 				meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
 		}
@@ -2402,24 +2397,23 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 		
 		// 如果有 PDF 附件，需要使用混合模式（文本主稿件 + PDF 附件文件）
 		if len(pdfAttachments) > 0 {
-			fmt.Printf("[PeerReview] Using hybrid mode (text + PDF attachments): taskID=%d, reviewerIndex=%d\n", task.ID, reviewerIndex)
-			fmt.Printf("[PeerReview] Text length: %d chars, PDF attachments: %d, taskID=%d, reviewerIndex=%d\n", 
-				len(manuscriptText), len(pdfAttachments), task.ID, reviewerIndex)
+			slog.Info("using hybrid mode (text + PDF attachments)", "task_id", task.ID, "reviewer_index", reviewerIndex)
+			slog.Info("hybrid mode details", "text_length", len(manuscriptText), "pdf_count", len(pdfAttachments), "task_id", task.ID, "reviewer_index", reviewerIndex)
 			err = s.generateReviewForTaskHybrid(manuscriptText, pdfAttachments, attachmentTexts,
 				meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
 		} else {
 			// 纯文本模式
-			fmt.Printf("[PeerReview] Using text mode: taskID=%d, reviewerIndex=%d\n", task.ID, reviewerIndex)
-			fmt.Printf("[PeerReview] Text length: %d chars, taskID=%d, reviewerIndex=%d\n", len(manuscriptText), task.ID, reviewerIndex)
+			slog.Info("using text mode", "task_id", task.ID, "reviewer_index", reviewerIndex)
+			slog.Debug("text mode details", "text_length", len(manuscriptText), "task_id", task.ID, "reviewer_index", reviewerIndex)
 			err = s.generateReviewForTask(manuscriptText, attachmentTexts, meta, summary, refs, task.ModelLevel, writer, task.ID, reviewerIndex)
 		}
 	}
 
 	now := time.Now()
 	if err != nil {
-		fmt.Printf("[PeerReview] ERROR in runSingleReview: taskID=%d, reviewerIndex=%d, error=%v\n", task.ID, reviewerIndex, err)
+		slog.Error("runSingleReview failed", "task_id", task.ID, "reviewer_index", reviewerIndex, "err", err)
 		s.db.Model(&PeerReviewResult{}).Where("task_id = ? AND reviewer_index = ?", task.ID, reviewerIndex).
-			Updates(map[string]interface{}{
+			Updates(map[string]any{
 				"status":        TaskStatusFailed,
 				"error_message": err.Error(),
 				"completed_at":  now,
@@ -2427,8 +2421,7 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 		return
 	}
 	
-	fmt.Printf("[PeerReview] runSingleReview completed successfully: taskID=%d, reviewerIndex=%d, contentLength=%d\n", 
-		task.ID, reviewerIndex, writer.Len())
+	slog.Info("runSingleReview completed", "task_id", task.ID, "reviewer_index", reviewerIndex, "content_length", writer.Len())
 
 	// 解析 JSON 响应
 	rawContent := writer.String()
@@ -2454,13 +2447,13 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 		dimensionScoresJSON = string(scoresBytes)
 	} else {
 		// JSON 解析失败，使用旧的文本提取方式
-		fmt.Printf("[PeerReview] Failed to parse review JSON for task %d reviewer %d: %v\n", task.ID, reviewerIndex, parseErr)
+		slog.Warn("failed to parse review JSON", "task_id", task.ID, "reviewer_index", reviewerIndex, "err", parseErr)
 		recommendation = extractRecommendation(rawContent)
 	}
 
 	// 保存结果
 	s.db.Model(&PeerReviewResult{}).Where("task_id = ? AND reviewer_index = ?", task.ID, reviewerIndex).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"status":           TaskStatusCompleted,
 			"progress":         100,
 			"recommendation":   recommendation,
@@ -2473,8 +2466,7 @@ func (s *Service) runSingleReview(task *PeerReviewTask, reviewerIndex int, meta 
 // runSingleReviewWithModel 单个审稿人的审稿流程（使用指定模型，记录步骤详情）
 func (s *Service) runSingleReviewWithModel(task *PeerReviewTask, reviewerIndex int, meta *ManuscriptMeta, summary *LiteratureSummary, refs []ReferenceForReviewer, writer *strings.Builder, modelConfig *ReviewerModelConfig) {
 	reviewerName := ReviewerNames[reviewerIndex]
-	fmt.Printf("[PeerReview] runSingleReviewWithModel started: taskID=%d, reviewer=%s, model=%s\n", 
-		task.ID, reviewerName, modelConfig.ModelName)
+	slog.Info("runSingleReviewWithModel started", "task_id", task.ID, "reviewer", reviewerName, "model", modelConfig.ModelName)
 	
 	// 初始化步骤记录
 	stepStartTime := time.Now()
@@ -2493,7 +2485,7 @@ func (s *Service) runSingleReviewWithModel(task *PeerReviewTask, reviewerIndex i
 	
 	// 更新审稿人状态和模型名称，同时保存步骤信息
 	s.db.Model(&PeerReviewResult{}).Where("task_id = ? AND reviewer_index = ?", task.ID, reviewerIndex).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"status":       TaskStatusProcessing, 
 			"progress":     10,
 			"model_name":   modelConfig.ModelName,
@@ -2505,26 +2497,25 @@ func (s *Service) runSingleReviewWithModel(task *PeerReviewTask, reviewerIndex i
 	// 收集文本模式附件的内容（Word/RTF/ODT 等格式提取的文本）
 	attachmentTexts := s.collectAttachmentTexts(task)
 	if len(attachmentTexts) > 0 {
-		fmt.Printf("[PeerReview] Collected %d text attachments: taskID=%d, reviewer=%s\n", len(attachmentTexts), task.ID, reviewerName)
+		slog.Debug("collected text attachments", "count", len(attachmentTexts), "task_id", task.ID, "reviewer", reviewerName)
 	}
 
 	// 收集 PDF 附件（无论主稿件是什么模式，PDF 附件都需要以文件形式传递）
 	pdfAttachments := s.collectPDFAttachments(task)
 	if len(pdfAttachments) > 0 {
-		fmt.Printf("[PeerReview] Collected %d PDF attachments: taskID=%d, reviewer=%s\n", len(pdfAttachments), task.ID, reviewerName)
+		slog.Debug("collected PDF attachments", "count", len(pdfAttachments), "task_id", task.ID, "reviewer", reviewerName)
 	}
 
 	// 根据处理模式选择不同的处理方式
 	if task.ManuscriptFile != nil && task.ManuscriptFile.ProcessMode == ProcessModeDirect {
 		// PDF 主稿件直传模式
-		fmt.Printf("[PeerReview] Using PDF direct mode: taskID=%d, reviewer=%s, fileName=%s\n", 
-			task.ID, reviewerName, task.ManuscriptFile.FileName)
+		slog.Info("using PDF direct mode", "task_id", task.ID, "reviewer", reviewerName, "file_name", task.ManuscriptFile.FileName)
 		files := s.collectFilesForAI(task)
 		if len(files) == 0 {
 			err = fmt.Errorf("无法读取稿件文件")
-			fmt.Printf("[PeerReview] ERROR: Failed to collect files: taskID=%d, reviewer=%s\n", task.ID, reviewerName)
+			slog.Error("failed to collect files", "task_id", task.ID, "reviewer", reviewerName)
 		} else {
-			fmt.Printf("[PeerReview] Collected %d files for AI: taskID=%d, reviewer=%s\n", len(files), task.ID, reviewerName)
+			slog.Debug("collected files for AI", "count", len(files), "task_id", task.ID, "reviewer", reviewerName)
 			err = s.generateReviewForTaskWithFileAndModel(files, attachmentTexts,
 				meta, summary, refs, writer, task.ID, reviewerIndex, modelConfig)
 		}
@@ -2537,12 +2528,12 @@ func (s *Service) runSingleReviewWithModel(task *PeerReviewTask, reviewerIndex i
 		
 		// 如果有 PDF 附件，需要使用混合模式
 		if len(pdfAttachments) > 0 {
-			fmt.Printf("[PeerReview] Using hybrid mode (text + PDF attachments): taskID=%d, reviewer=%s\n", task.ID, reviewerName)
+			slog.Info("using hybrid mode (text + PDF attachments)", "task_id", task.ID, "reviewer", reviewerName)
 			err = s.generateReviewForTaskHybridWithModel(manuscriptText, pdfAttachments, attachmentTexts,
 				meta, summary, refs, writer, task.ID, reviewerIndex, modelConfig)
 		} else {
 			// 纯文本模式
-			fmt.Printf("[PeerReview] Using text mode: taskID=%d, reviewer=%s, textLength=%d\n", task.ID, reviewerName, len(manuscriptText))
+			slog.Info("using text mode", "task_id", task.ID, "reviewer", reviewerName, "text_length", len(manuscriptText))
 			err = s.generateReviewForTaskWithModel(manuscriptText, attachmentTexts, meta, summary, refs, writer, task.ID, reviewerIndex, modelConfig)
 		}
 	}
@@ -2554,14 +2545,14 @@ func (s *Service) runSingleReviewWithModel(task *PeerReviewTask, reviewerIndex i
 	if err != nil {
 		currentStep.Status = StepStatusFailed
 		currentStep.ErrorMsg = err.Error()
-		fmt.Printf("[PeerReview] ERROR in runSingleReviewWithModel: taskID=%d, reviewer=%s, error=%v\n", task.ID, reviewerName, err)
+		slog.Error("runSingleReviewWithModel failed", "task_id", task.ID, "reviewer", reviewerName, "err", err)
 		
 		// 更新步骤状态
 		steps[0] = currentStep
 		stepsJSON, _ = json.Marshal(steps)
 		
 		s.db.Model(&PeerReviewResult{}).Where("task_id = ? AND reviewer_index = ?", task.ID, reviewerIndex).
-			Updates(map[string]interface{}{
+			Updates(map[string]any{
 				"status":        TaskStatusFailed,
 				"error_message": err.Error(),
 				"completed_at":  now,
@@ -2571,8 +2562,7 @@ func (s *Service) runSingleReviewWithModel(task *PeerReviewTask, reviewerIndex i
 	}
 	
 	currentStep.Status = StepStatusCompleted
-	fmt.Printf("[PeerReview] runSingleReviewWithModel completed: taskID=%d, reviewer=%s, duration=%dms, contentLength=%d\n", 
-		task.ID, reviewerName, currentStep.Duration, writer.Len())
+	slog.Info("runSingleReviewWithModel completed", "task_id", task.ID, "reviewer", reviewerName, "duration_ms", currentStep.Duration, "content_length", writer.Len())
 
 	// 解析 JSON 响应
 	rawContent := writer.String()
@@ -2594,7 +2584,7 @@ func (s *Service) runSingleReviewWithModel(task *PeerReviewTask, reviewerIndex i
 		scoresBytes, _ := json.Marshal(dimensionScores)
 		dimensionScoresJSON = string(scoresBytes)
 	} else {
-		fmt.Printf("[PeerReview] Failed to parse review JSON for task %d reviewer %s: %v\n", task.ID, reviewerName, parseErr)
+		slog.Warn("failed to parse review JSON", "task_id", task.ID, "reviewer", reviewerName, "err", parseErr)
 		recommendation = extractRecommendation(rawContent)
 	}
 
@@ -2604,7 +2594,7 @@ func (s *Service) runSingleReviewWithModel(task *PeerReviewTask, reviewerIndex i
 
 	// 保存结果
 	s.db.Model(&PeerReviewResult{}).Where("task_id = ? AND reviewer_index = ?", task.ID, reviewerIndex).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"status":           TaskStatusCompleted,
 			"progress":         100,
 			"recommendation":   recommendation,
@@ -2715,18 +2705,18 @@ func (s *Service) collectPDFAttachments(task *PeerReviewTask) []FileForAI {
 
 // summarizeReviews 汇总三审结果（使用 AI Meta-Review）
 func (s *Service) summarizeReviews(taskID uint, reviewResults []*strings.Builder) {
-	fmt.Printf("[PeerReview] summarizeReviews started: taskID=%d\n", taskID)
+	slog.Info("summarizeReviews started", "task_id", taskID)
 	
 	// 获取任务信息
 	var task PeerReviewTask
 	if err := s.db.First(&task, taskID).Error; err != nil {
-		fmt.Printf("[PeerReview] Failed to get task for summarize: %v\n", err)
+		slog.Error("failed to get task for summarize", "err", err)
 		return
 	}
 
 	var results []PeerReviewResult
 	s.db.Where("task_id = ?", taskID).Find(&results)
-	fmt.Printf("[PeerReview] Found %d review results in DB: taskID=%d\n", len(results), taskID)
+	slog.Info("found review results in DB", "count", len(results), "task_id", taskID)
 
 	// 收集已完成的审稿结果
 	var reviewContents []string
@@ -2734,8 +2724,7 @@ func (s *Service) summarizeReviews(taskID uint, reviewResults []*strings.Builder
 	completedCount := 0
 
 	for _, r := range results {
-		fmt.Printf("[PeerReview] Review result: taskID=%d, reviewerIndex=%d, status=%s, contentLength=%d, recommendation=%s\n", 
-			taskID, r.ReviewerIndex, r.Status, len(r.ReviewContent), r.Recommendation)
+		slog.Debug("review result", "task_id", taskID, "reviewer_index", r.ReviewerIndex, "status", r.Status, "content_length", len(r.ReviewContent), "recommendation", r.Recommendation)
 		if r.Status == TaskStatusCompleted {
 			completedCount++
 			recommendations[r.Recommendation]++
@@ -2743,12 +2732,12 @@ func (s *Service) summarizeReviews(taskID uint, reviewResults []*strings.Builder
 		}
 	}
 	
-	fmt.Printf("[PeerReview] Completed reviews: taskID=%d, completedCount=%d\n", taskID, completedCount)
+	slog.Info("completed reviews", "task_id", taskID, "completed_count", completedCount)
 
 	// 如果没有完成的审稿，直接返回
 	if completedCount == 0 {
-		fmt.Printf("[PeerReview] WARNING: No completed reviews, setting final as Pending Review: taskID=%d\n", taskID)
-		s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]interface{}{
+		slog.Warn("no completed reviews, setting final as Pending Review", "task_id", taskID)
+		s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]any{
 			"final_recommendation": "Pending Review",
 			"final_review_content": "",
 			"consensus_score":      0,
@@ -2768,7 +2757,7 @@ func (s *Service) summarizeReviews(taskID uint, reviewResults []*strings.Builder
 	// 使用 AI 进行 Meta-Review 汇总
 	metaReviewContent, err := s.generateMetaReview(reviewContents, task.ModelLevel)
 	if err != nil {
-		fmt.Printf("[PeerReview] Failed to generate meta-review: %v\n", err)
+		slog.Error("failed to generate meta-review", "err", err)
 		// 回退到简单拼接方式
 		var allContent strings.Builder
 		for i, content := range reviewContents {
@@ -2784,7 +2773,7 @@ func (s *Service) summarizeReviews(taskID uint, reviewResults []*strings.Builder
 				finalRec = rec
 			}
 		}
-		s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]interface{}{
+		s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]any{
 			"final_recommendation": finalRec,
 			"final_review_content": allContent.String(),
 			"consensus_score":      consensusScore,
@@ -2800,7 +2789,7 @@ func (s *Service) summarizeReviews(taskID uint, reviewResults []*strings.Builder
 	}
 
 	// 更新任务
-	s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]interface{}{
+	s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]any{
 		"final_recommendation": finalRec,
 		"final_review_content": metaReviewContent,
 		"consensus_score":      consensusScore,
@@ -3072,13 +3061,11 @@ func (s *Service) generateReviewForTask(
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, "正在生成审稿报告...")
 
-		fmt.Printf("[PeerReview] Calling AI for text review: taskID=%d, reviewerIndex=%d, attempt=%d/%d, level=%s, textLength=%d\n", 
-			taskID, reviewerIndex, attempt, maxRetries, level, len(truncatedText))
+		slog.Info("calling AI for text review", "task_id", taskID, "reviewer_index", reviewerIndex, "attempt", attempt, "max_retries", maxRetries, "level", level, "text_length", len(truncatedText))
 
-		response, err := s.aiService.ChatCompletionWithTools(convertMessages(messages), nil, "", level)
+		response, err := s.aiService.ChatCompletionWithTools(context.Background(), convertMessages(messages), nil, "", level)
 		if err != nil {
-			fmt.Printf("[PeerReview] AI text call failed: taskID=%d, reviewerIndex=%d, attempt=%d, error=%v\n", 
-				taskID, reviewerIndex, attempt, err)
+			slog.Error("AI text call failed", "task_id", taskID, "reviewer_index", reviewerIndex, "attempt", attempt, "err", err)
 			if attempt == maxRetries {
 				return err
 			}
@@ -3086,8 +3073,7 @@ func (s *Service) generateReviewForTask(
 		}
 
 		if len(response.Choices) == 0 {
-			fmt.Printf("[PeerReview] AI returned empty choices (text mode): taskID=%d, reviewerIndex=%d, attempt=%d\n", 
-				taskID, reviewerIndex, attempt)
+			slog.Warn("AI returned empty choices (text mode)", "task_id", taskID, "reviewer_index", reviewerIndex, "attempt", attempt)
 			if attempt == maxRetries {
 				return fmt.Errorf("no response from AI after %d attempts", maxRetries)
 			}
@@ -3095,26 +3081,22 @@ func (s *Service) generateReviewForTask(
 		}
 
 		content := response.Choices[0].Message.Content
-		fmt.Printf("[PeerReview] AI text response received: taskID=%d, reviewerIndex=%d, attempt=%d, contentLength=%d\n", 
-			taskID, reviewerIndex, attempt, len(content))
+		slog.Debug("AI text response received", "task_id", taskID, "reviewer_index", reviewerIndex, "attempt", attempt, "content_length", len(content))
 		
 		// 检查JSON是否完整
 		if s.isValidReviewJSON(content) {
 			writer.WriteString(content)
-			fmt.Printf("[PeerReview] Text review complete: taskID=%d, reviewerIndex=%d, totalLength=%d\n", 
-				taskID, reviewerIndex, writer.Len())
+			slog.Info("text review complete", "task_id", taskID, "reviewer_index", reviewerIndex, "total_length", writer.Len())
 			return nil
 		}
 		
 		// JSON不完整，记录日志并重试
-		fmt.Printf("[PeerReview] Invalid JSON response, will retry: taskID=%d, reviewerIndex=%d, attempt=%d\n", 
-			taskID, reviewerIndex, attempt)
+		slog.Warn("invalid JSON response, will retry", "task_id", taskID, "reviewer_index", reviewerIndex, "attempt", attempt)
 		
 		if attempt == maxRetries {
 			// 最后一次尝试，即使JSON不完整也接受
 			writer.WriteString(content)
-			fmt.Printf("[PeerReview] Using incomplete JSON after %d attempts: taskID=%d, reviewerIndex=%d\n", 
-				maxRetries, taskID, reviewerIndex)
+			slog.Warn("using incomplete JSON after max attempts", "max_retries", maxRetries, "task_id", taskID, "reviewer_index", reviewerIndex)
 			return nil
 		}
 	}
@@ -3194,13 +3176,11 @@ func (s *Service) generateReviewForTaskWithModel(
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, fmt.Sprintf("%s 正在生成审稿报告...", reviewerName))
 
-		fmt.Printf("[PeerReview] Calling AI for text review with model: taskID=%d, reviewer=%s, attempt=%d/%d, model=%s, textLength=%d\n", 
-			taskID, reviewerName, attempt, maxRetries, modelConfig.ModelName, len(truncatedText))
+		slog.Info("calling AI for text review with model", "task_id", taskID, "reviewer", reviewerName, "attempt", attempt, "max_retries", maxRetries, "model", modelConfig.ModelName, "text_length", len(truncatedText))
 
-		response, err := s.aiService.ChatCompletionWithModel(messages, nil, "", modelConfig.BaseURL, modelConfig.APIKey, modelConfig.ModelName)
+		response, err := s.aiService.ChatCompletionWithModel(context.Background(), messages, nil, "", modelConfig.BaseURL, modelConfig.APIKey, modelConfig.ModelName)
 		if err != nil {
-			fmt.Printf("[PeerReview] AI text call failed: taskID=%d, reviewer=%s, attempt=%d, error=%v\n", 
-				taskID, reviewerName, attempt, err)
+			slog.Error("AI text call failed", "task_id", taskID, "reviewer", reviewerName, "attempt", attempt, "err", err)
 			if attempt == maxRetries {
 				return err
 			}
@@ -3208,8 +3188,7 @@ func (s *Service) generateReviewForTaskWithModel(
 		}
 
 		if len(response.Choices) == 0 {
-			fmt.Printf("[PeerReview] AI returned empty choices (text mode): taskID=%d, reviewer=%s, attempt=%d\n", 
-				taskID, reviewerName, attempt)
+			slog.Warn("AI returned empty choices (text mode)", "task_id", taskID, "reviewer", reviewerName, "attempt", attempt)
 			if attempt == maxRetries {
 				return fmt.Errorf("no response from AI after %d attempts", maxRetries)
 			}
@@ -3217,26 +3196,22 @@ func (s *Service) generateReviewForTaskWithModel(
 		}
 
 		content := response.Choices[0].Message.Content
-		fmt.Printf("[PeerReview] AI text response received: taskID=%d, reviewer=%s, attempt=%d, contentLength=%d\n", 
-			taskID, reviewerName, attempt, len(content))
+		slog.Debug("AI text response received", "task_id", taskID, "reviewer", reviewerName, "attempt", attempt, "content_length", len(content))
 		
 		// 检查JSON是否完整
 		if s.isValidReviewJSON(content) {
 			writer.WriteString(content)
-			fmt.Printf("[PeerReview] Text review complete: taskID=%d, reviewer=%s, totalLength=%d\n", 
-				taskID, reviewerName, writer.Len())
+			slog.Info("text review complete", "task_id", taskID, "reviewer", reviewerName, "total_length", writer.Len())
 			return nil
 		}
 		
 		// JSON不完整，记录日志并重试
-		fmt.Printf("[PeerReview] Invalid JSON response, will retry: taskID=%d, reviewer=%s, attempt=%d\n", 
-			taskID, reviewerName, attempt)
+		slog.Warn("invalid JSON response, will retry", "task_id", taskID, "reviewer", reviewerName, "attempt", attempt)
 		
 		if attempt == maxRetries {
 			// 最后一次尝试，即使JSON不完整也接受
 			writer.WriteString(content)
-			fmt.Printf("[PeerReview] Using incomplete JSON after %d attempts: taskID=%d, reviewer=%s\n", 
-				maxRetries, taskID, reviewerName)
+			slog.Warn("using incomplete JSON after max attempts", "max_retries", maxRetries, "task_id", taskID, "reviewer", reviewerName)
 			return nil
 		}
 	}
@@ -3348,7 +3323,7 @@ func (s *Service) generateReviewForTaskHybrid(
 		refsStr)
 
 	// 构建多模态消息
-	contentParts := make([]interface{}, 0, len(pdfAttachments)+1)
+	contentParts := make([]any, 0, len(pdfAttachments)+1)
 	
 	// 先添加 PDF 附件文件
 	for _, f := range pdfAttachments {
@@ -3379,13 +3354,11 @@ func (s *Service) generateReviewForTaskHybrid(
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, "正在生成审稿报告...")
 
-		fmt.Printf("[PeerReview] Calling AI for hybrid review: taskID=%d, reviewerIndex=%d, attempt=%d/%d, level=%s, textLength=%d, pdfCount=%d\n", 
-			taskID, reviewerIndex, attempt, maxRetries, level, len(truncatedText), len(pdfAttachments))
+		slog.Info("calling AI for hybrid review", "task_id", taskID, "reviewer_index", reviewerIndex, "attempt", attempt, "max_retries", maxRetries, "level", level, "text_length", len(truncatedText), "pdf_count", len(pdfAttachments))
 
-		response, err := s.aiService.ChatCompletionWithTools(messages, nil, "", level)
+		response, err := s.aiService.ChatCompletionWithTools(context.Background(), messages, nil, "", level)
 		if err != nil {
-			fmt.Printf("[PeerReview] AI hybrid call failed: taskID=%d, reviewerIndex=%d, attempt=%d, error=%v\n", 
-				taskID, reviewerIndex, attempt, err)
+			slog.Error("AI hybrid call failed", "task_id", taskID, "reviewer_index", reviewerIndex, "attempt", attempt, "err", err)
 			if attempt == maxRetries {
 				return err
 			}
@@ -3393,8 +3366,7 @@ func (s *Service) generateReviewForTaskHybrid(
 		}
 
 		if len(response.Choices) == 0 {
-			fmt.Printf("[PeerReview] AI returned empty choices (hybrid mode): taskID=%d, reviewerIndex=%d, attempt=%d\n", 
-				taskID, reviewerIndex, attempt)
+			slog.Warn("AI returned empty choices (hybrid mode)", "task_id", taskID, "reviewer_index", reviewerIndex, "attempt", attempt)
 			if attempt == maxRetries {
 				return fmt.Errorf("no response from AI after %d attempts", maxRetries)
 			}
@@ -3402,25 +3374,21 @@ func (s *Service) generateReviewForTaskHybrid(
 		}
 
 		content := response.Choices[0].Message.Content
-		fmt.Printf("[PeerReview] AI hybrid response received: taskID=%d, reviewerIndex=%d, attempt=%d, contentLength=%d\n", 
-			taskID, reviewerIndex, attempt, len(content))
+		slog.Debug("AI hybrid response received", "task_id", taskID, "reviewer_index", reviewerIndex, "attempt", attempt, "content_length", len(content))
 		
 		// 检查JSON是否完整
 		if s.isValidReviewJSON(content) {
 			writer.WriteString(content)
-			fmt.Printf("[PeerReview] Hybrid review complete: taskID=%d, reviewerIndex=%d, totalLength=%d\n", 
-				taskID, reviewerIndex, writer.Len())
+			slog.Info("hybrid review complete", "task_id", taskID, "reviewer_index", reviewerIndex, "total_length", writer.Len())
 			return nil
 		}
 		
 		// JSON不完整，记录日志并重试
-		fmt.Printf("[PeerReview] Invalid JSON response (hybrid), will retry: taskID=%d, reviewerIndex=%d, attempt=%d\n", 
-			taskID, reviewerIndex, attempt)
+		slog.Warn("invalid JSON response (hybrid), will retry", "task_id", taskID, "reviewer_index", reviewerIndex, "attempt", attempt)
 		
 		if attempt == maxRetries {
 			writer.WriteString(content)
-			fmt.Printf("[PeerReview] Using incomplete JSON after %d attempts (hybrid): taskID=%d, reviewerIndex=%d\n", 
-				maxRetries, taskID, reviewerIndex)
+			slog.Warn("using incomplete JSON after max attempts (hybrid)", "max_retries", maxRetries, "task_id", taskID, "reviewer_index", reviewerIndex)
 			return nil
 		}
 	}
@@ -3497,7 +3465,7 @@ func (s *Service) generateReviewForTaskHybridWithModel(
 		refsStr) + attachmentTextContent + attachmentPrompt
 
 	// 构建多模态消息
-	contentParts := []interface{}{}
+	contentParts := []any{}
 	
 	// 添加 PDF 附件
 	for _, f := range pdfAttachments {
@@ -3526,13 +3494,11 @@ func (s *Service) generateReviewForTaskHybridWithModel(
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, fmt.Sprintf("%s 正在生成审稿报告...", reviewerName))
 
-		fmt.Printf("[PeerReview] Calling AI for hybrid review with model: taskID=%d, reviewer=%s, attempt=%d/%d, model=%s, textLength=%d, pdfCount=%d\n", 
-			taskID, reviewerName, attempt, maxRetries, modelConfig.ModelName, len(truncatedText), len(pdfAttachments))
+		slog.Info("calling AI for hybrid review with model", "task_id", taskID, "reviewer", reviewerName, "attempt", attempt, "max_retries", maxRetries, "model", modelConfig.ModelName, "text_length", len(truncatedText), "pdf_count", len(pdfAttachments))
 
-		response, err := s.aiService.ChatCompletionWithModel(messages, nil, "", modelConfig.BaseURL, modelConfig.APIKey, modelConfig.ModelName)
+		response, err := s.aiService.ChatCompletionWithModel(context.Background(), messages, nil, "", modelConfig.BaseURL, modelConfig.APIKey, modelConfig.ModelName)
 		if err != nil {
-			fmt.Printf("[PeerReview] AI hybrid call failed: taskID=%d, reviewer=%s, attempt=%d, error=%v\n", 
-				taskID, reviewerName, attempt, err)
+			slog.Error("AI hybrid call failed", "task_id", taskID, "reviewer", reviewerName, "attempt", attempt, "err", err)
 			if attempt == maxRetries {
 				return err
 			}
@@ -3540,8 +3506,7 @@ func (s *Service) generateReviewForTaskHybridWithModel(
 		}
 
 		if len(response.Choices) == 0 {
-			fmt.Printf("[PeerReview] AI returned empty choices (hybrid mode): taskID=%d, reviewer=%s, attempt=%d\n", 
-				taskID, reviewerName, attempt)
+			slog.Warn("AI returned empty choices (hybrid mode)", "task_id", taskID, "reviewer", reviewerName, "attempt", attempt)
 			if attempt == maxRetries {
 				return fmt.Errorf("no response from AI after %d attempts", maxRetries)
 			}
@@ -3549,25 +3514,21 @@ func (s *Service) generateReviewForTaskHybridWithModel(
 		}
 
 		content := response.Choices[0].Message.Content
-		fmt.Printf("[PeerReview] AI hybrid response received: taskID=%d, reviewer=%s, attempt=%d, contentLength=%d\n", 
-			taskID, reviewerName, attempt, len(content))
+		slog.Debug("AI hybrid response received", "task_id", taskID, "reviewer", reviewerName, "attempt", attempt, "content_length", len(content))
 		
 		// 检查JSON是否完整
 		if s.isValidReviewJSON(content) {
 			writer.WriteString(content)
-			fmt.Printf("[PeerReview] Hybrid review complete: taskID=%d, reviewer=%s, totalLength=%d\n", 
-				taskID, reviewerName, writer.Len())
+			slog.Info("hybrid review complete", "task_id", taskID, "reviewer", reviewerName, "total_length", writer.Len())
 			return nil
 		}
 		
 		// JSON不完整，记录日志并重试
-		fmt.Printf("[PeerReview] Invalid JSON response (hybrid), will retry: taskID=%d, reviewer=%s, attempt=%d\n", 
-			taskID, reviewerName, attempt)
+		slog.Warn("invalid JSON response (hybrid), will retry", "task_id", taskID, "reviewer", reviewerName, "attempt", attempt)
 		
 		if attempt == maxRetries {
 			writer.WriteString(content)
-			fmt.Printf("[PeerReview] Using incomplete JSON after %d attempts (hybrid): taskID=%d, reviewer=%s\n", 
-				maxRetries, taskID, reviewerName)
+			slog.Warn("using incomplete JSON after max attempts (hybrid)", "max_retries", maxRetries, "task_id", taskID, "reviewer", reviewerName)
 			return nil
 		}
 	}
@@ -3774,7 +3735,7 @@ func (s *Service) generateReviewForTaskWithFile(
 
 	// 构建多模态消息，使用 FileInputMeta 作为中间格式
 	// AI service 会根据实际使用的模型自动转换为对应格式
-	contentParts := make([]interface{}, 0, len(files)+1)
+	contentParts := make([]any, 0, len(files)+1)
 	
 	// 先添加所有文件（主稿件在前，附件在后）
 	for _, f := range files {
@@ -3805,13 +3766,11 @@ func (s *Service) generateReviewForTaskWithFile(
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, "正在生成审稿报告...")
 
-		fmt.Printf("[PeerReview] Calling AI for review: taskID=%d, reviewerIndex=%d, attempt=%d/%d, level=%s, fileCount=%d\n", 
-			taskID, reviewerIndex, attempt, maxRetries, level, len(files))
+		slog.Info("calling AI for file review", "task_id", taskID, "reviewer_index", reviewerIndex, "attempt", attempt, "max_retries", maxRetries, "level", level, "file_count", len(files))
 
-		response, err := s.aiService.ChatCompletionWithTools(messages, nil, "", level)
+		response, err := s.aiService.ChatCompletionWithTools(context.Background(), messages, nil, "", level)
 		if err != nil {
-			fmt.Printf("[PeerReview] AI call failed: taskID=%d, reviewerIndex=%d, attempt=%d, error=%v\n", 
-				taskID, reviewerIndex, attempt, err)
+			slog.Error("AI call failed", "task_id", taskID, "reviewer_index", reviewerIndex, "attempt", attempt, "err", err)
 			if attempt == maxRetries {
 				return err
 			}
@@ -3819,8 +3778,7 @@ func (s *Service) generateReviewForTaskWithFile(
 		}
 
 		if len(response.Choices) == 0 {
-			fmt.Printf("[PeerReview] AI returned empty choices: taskID=%d, reviewerIndex=%d, attempt=%d\n", 
-				taskID, reviewerIndex, attempt)
+			slog.Warn("AI returned empty choices", "task_id", taskID, "reviewer_index", reviewerIndex, "attempt", attempt)
 			if attempt == maxRetries {
 				return fmt.Errorf("no response from AI after %d attempts", maxRetries)
 			}
@@ -3828,26 +3786,22 @@ func (s *Service) generateReviewForTaskWithFile(
 		}
 
 		content := response.Choices[0].Message.Content
-		fmt.Printf("[PeerReview] AI response received: taskID=%d, reviewerIndex=%d, attempt=%d, contentLength=%d\n", 
-			taskID, reviewerIndex, attempt, len(content))
+		slog.Debug("AI response received", "task_id", taskID, "reviewer_index", reviewerIndex, "attempt", attempt, "content_length", len(content))
 		
 		// 检查JSON是否完整
 		if s.isValidReviewJSON(content) {
 			writer.WriteString(content)
-			fmt.Printf("[PeerReview] Review content complete: taskID=%d, reviewerIndex=%d, totalLength=%d\n", 
-				taskID, reviewerIndex, writer.Len())
+			slog.Info("review content complete", "task_id", taskID, "reviewer_index", reviewerIndex, "total_length", writer.Len())
 			return nil
 		}
 		
 		// JSON不完整，记录日志并重试
-		fmt.Printf("[PeerReview] Invalid JSON response, will retry: taskID=%d, reviewerIndex=%d, attempt=%d\n", 
-			taskID, reviewerIndex, attempt)
+		slog.Warn("invalid JSON response, will retry", "task_id", taskID, "reviewer_index", reviewerIndex, "attempt", attempt)
 		
 		if attempt == maxRetries {
 			// 最后一次尝试，即使JSON不完整也接受
 			writer.WriteString(content)
-			fmt.Printf("[PeerReview] Using incomplete JSON after %d attempts: taskID=%d, reviewerIndex=%d\n", 
-				maxRetries, taskID, reviewerIndex)
+			slog.Warn("using incomplete JSON after max attempts", "max_retries", maxRetries, "task_id", taskID, "reviewer_index", reviewerIndex)
 			return nil
 		}
 	}
@@ -3928,7 +3882,7 @@ func (s *Service) generateReviewForTaskWithFileAndModel(
 		refsStr)
 
 	// 构建多模态消息
-	contentParts := make([]interface{}, 0, len(files)+1)
+	contentParts := make([]any, 0, len(files)+1)
 	
 	// 先添加所有文件
 	for _, f := range files {
@@ -3957,13 +3911,11 @@ func (s *Service) generateReviewForTaskWithFileAndModel(
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		s.updateTaskProgress(taskID, TaskStatusProcessing, 70, fmt.Sprintf("%s 正在生成审稿报告...", reviewerName))
 
-		fmt.Printf("[PeerReview] Calling AI for file review with model: taskID=%d, reviewer=%s, attempt=%d/%d, model=%s, fileCount=%d\n", 
-			taskID, reviewerName, attempt, maxRetries, modelConfig.ModelName, len(files))
+		slog.Info("calling AI for file review with model", "task_id", taskID, "reviewer", reviewerName, "attempt", attempt, "max_retries", maxRetries, "model", modelConfig.ModelName, "file_count", len(files))
 
-		response, err := s.aiService.ChatCompletionWithModel(messages, nil, "", modelConfig.BaseURL, modelConfig.APIKey, modelConfig.ModelName)
+		response, err := s.aiService.ChatCompletionWithModel(context.Background(), messages, nil, "", modelConfig.BaseURL, modelConfig.APIKey, modelConfig.ModelName)
 		if err != nil {
-			fmt.Printf("[PeerReview] AI call failed: taskID=%d, reviewer=%s, attempt=%d, error=%v\n", 
-				taskID, reviewerName, attempt, err)
+			slog.Error("AI call failed", "task_id", taskID, "reviewer", reviewerName, "attempt", attempt, "err", err)
 			if attempt == maxRetries {
 				return err
 			}
@@ -3971,8 +3923,7 @@ func (s *Service) generateReviewForTaskWithFileAndModel(
 		}
 
 		if len(response.Choices) == 0 {
-			fmt.Printf("[PeerReview] AI returned empty choices: taskID=%d, reviewer=%s, attempt=%d\n", 
-				taskID, reviewerName, attempt)
+			slog.Warn("AI returned empty choices", "task_id", taskID, "reviewer", reviewerName, "attempt", attempt)
 			if attempt == maxRetries {
 				return fmt.Errorf("no response from AI after %d attempts", maxRetries)
 			}
@@ -3980,25 +3931,21 @@ func (s *Service) generateReviewForTaskWithFileAndModel(
 		}
 
 		content := response.Choices[0].Message.Content
-		fmt.Printf("[PeerReview] AI response received: taskID=%d, reviewer=%s, attempt=%d, contentLength=%d\n", 
-			taskID, reviewerName, attempt, len(content))
+		slog.Debug("AI response received", "task_id", taskID, "reviewer", reviewerName, "attempt", attempt, "content_length", len(content))
 		
 		// 检查JSON是否完整
 		if s.isValidReviewJSON(content) {
 			writer.WriteString(content)
-			fmt.Printf("[PeerReview] File review complete: taskID=%d, reviewer=%s, totalLength=%d\n", 
-				taskID, reviewerName, writer.Len())
+			slog.Info("file review complete", "task_id", taskID, "reviewer", reviewerName, "total_length", writer.Len())
 			return nil
 		}
 		
 		// JSON不完整，记录日志并重试
-		fmt.Printf("[PeerReview] Invalid JSON response, will retry: taskID=%d, reviewer=%s, attempt=%d\n", 
-			taskID, reviewerName, attempt)
+		slog.Warn("invalid JSON response, will retry", "task_id", taskID, "reviewer", reviewerName, "attempt", attempt)
 		
 		if attempt == maxRetries {
 			writer.WriteString(content)
-			fmt.Printf("[PeerReview] Using incomplete JSON after %d attempts: taskID=%d, reviewer=%s\n", 
-				maxRetries, taskID, reviewerName)
+			slog.Warn("using incomplete JSON after max attempts", "max_retries", maxRetries, "task_id", taskID, "reviewer", reviewerName)
 			return nil
 		}
 	}
@@ -4105,7 +4052,7 @@ func (s *Service) needsContinuation(content string) bool {
 
 	// 如果内容太短，需要续写
 	if contentLen < 500 {
-		fmt.Printf("[PeerReview] needsContinuation: content too short (%d < 500)\n", contentLen)
+		slog.Debug("needsContinuation: content too short", "content_length", contentLen)
 		return true
 	}
 
@@ -4130,7 +4077,7 @@ func (s *Service) needsContinuation(content string) bool {
 		if len(suffix) > 50 {
 			suffix = suffix[len(suffix)-50:]
 		}
-		fmt.Printf("[PeerReview] needsContinuation: not ending with }, last 50 chars: ...%s\n", suffix)
+		slog.Debug("needsContinuation: not ending with }", "suffix", suffix)
 		return true // JSON 不完整，需要续写
 	}
 
@@ -4138,25 +4085,25 @@ func (s *Service) needsContinuation(content string) bool {
 	openBraces := strings.Count(trimmed, "{")
 	closeBraces := strings.Count(trimmed, "}")
 	if openBraces != closeBraces {
-		fmt.Printf("[PeerReview] needsContinuation: brace mismatch, open=%d, close=%d\n", openBraces, closeBraces)
+		slog.Debug("needsContinuation: brace mismatch", "open_braces", openBraces, "close_braces", closeBraces)
 		return true // 括号不匹配，需要续写
 	}
 
 	// 尝试解析 JSON 验证完整性
-	var test interface{}
+	var test any
 	if err := json.Unmarshal([]byte(trimmed), &test); err != nil {
-		fmt.Printf("[PeerReview] needsContinuation: JSON parse failed: %v\n", err)
+		slog.Debug("needsContinuation: JSON parse failed", "err", err)
 		return true // JSON 解析失败，可能不完整
 	}
 
 	// JSON 完整
-	fmt.Printf("[PeerReview] needsContinuation: JSON complete, length=%d\n", contentLen)
+	slog.Debug("needsContinuation: JSON complete", "content_length", contentLen)
 	return false
 }
 
 // updateTaskProgress 更新任务进度
 func (s *Service) updateTaskProgress(taskID uint, status string, progress int, stage string) {
-	s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]interface{}{
+	s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]any{
 		"status":         status,
 		"progress":       progress,
 		"progress_stage": stage,
@@ -4165,7 +4112,7 @@ func (s *Service) updateTaskProgress(taskID uint, status string, progress int, s
 
 // updateTaskFailed 更新任务失败状态
 func (s *Service) updateTaskFailed(taskID uint, errMsg string) {
-	s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]interface{}{
+	s.db.Model(&PeerReviewTask{}).Where("id = ?", taskID).Updates(map[string]any{
 		"status":        TaskStatusFailed,
 		"error_message": errMsg,
 	})
@@ -4653,7 +4600,7 @@ func (s *Service) isValidReviewJSON(content string) bool {
 	}
 	
 	// 尝试解析JSON以验证其有效性
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal([]byte(content), &result); err != nil {
 		return false
 	}

@@ -1,7 +1,7 @@
 package currency
 
 import (
-	"context"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"scholar-backend/internal/common/utils"
@@ -50,9 +50,14 @@ func (h *Handler) CheckBalance(c *gin.Context) {
 		return
 	}
 
-	var amount int64
-	if _, err := c.GetQuery("amount"); err {
+	amountStr := c.Query("amount")
+	if amountStr == "" {
 		utils.Error(c, 4000, "请指定金额")
+		return
+	}
+	amount, parseErr := strconv.ParseInt(amountStr, 10, 64)
+	if parseErr != nil {
+		utils.Error(c, 4000, "金额格式错误")
 		return
 	}
 
@@ -183,7 +188,7 @@ func (h *Handler) ExchangeDiamondToGold(c *gin.Context) {
 		return
 	}
 
-	goldAmount, diamondTx, goldTx, err := h.service.ExchangeDiamondToGold(context.Background(), userID.(uint), req.DiamondAmount)
+	goldAmount, diamondTx, goldTx, err := h.service.ExchangeDiamondToGold(c.Request.Context(), userID.(uint), req.DiamondAmount)
 	if err != nil {
 		if err == ErrInsufficientBalance {
 			utils.Error(c, 4002, "恩特币余额不足")
@@ -248,14 +253,11 @@ func (h *Handler) PreviewExchange(c *gin.Context) {
 	})
 }
 
-// parseInt64 解析int64
+// parseInt64 解析 int64，仅接受纯数字
 func parseInt64(s string) (int64, error) {
-	var n int64
-	for _, ch := range s {
-		if ch < '0' || ch > '9' {
-			return 0, ErrInvalidAmount
-		}
-		n = n*10 + int64(ch-'0')
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, ErrInvalidAmount
 	}
 	return n, nil
 }

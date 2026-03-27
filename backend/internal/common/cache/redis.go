@@ -11,12 +11,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 )
 
 var rdb *redis.Client
+
+var sfGroup singleflight.Group
 
 // InitRedis initializes the Redis client
 func InitRedis(host string, port string, password string, db int) error {
@@ -41,7 +45,7 @@ func InitRedis(host string, port string, password string, db int) error {
 		return fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
-	fmt.Printf("✓ Redis connected successfully at %s\n", addr)
+	slog.Info("Redis connected successfully", "addr", addr)
 	return nil
 }
 
@@ -51,7 +55,7 @@ func GetRedis() *redis.Client {
 }
 
 // Set sets a key-value pair with expiration
-func Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+func Set(ctx context.Context, key string, value any, expiration time.Duration) error {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("failed to marshal value: %w", err)
@@ -61,7 +65,7 @@ func Set(ctx context.Context, key string, value interface{}, expiration time.Dur
 }
 
 // Get retrieves a value by key and unmarshals it into result
-func Get(ctx context.Context, key string, result interface{}) error {
+func Get(ctx context.Context, key string, result any) error {
 	val, err := rdb.Get(ctx, key).Result()
 	if err != nil {
 		return err
@@ -91,62 +95,44 @@ func GetString(ctx context.Context, key string) (string, error) {
 	return rdb.Get(ctx, key).Result()
 }
 
-// GetOrSet retrieves from cache or fetches and caches the value with distributed locking
-func GetOrSet(ctx context.Context, key string, expiration time.Duration, fetch func() (interface{}, error), result interface{}) error {
+// GetOrSet retrieves from cache or fetches and caches the value.
+// Uses singleflight to coalesce concurrent requests for the same key within a single process.
+func GetOrSet(ctx context.Context, key string, expiration time.Duration, fetch func() (any, error), result any) error {
 	// Try to get from cache
 	err := Get(ctx, key, result)
 	if err == nil {
-		return nil // Cache hit
+		return nil
 	}
-
 	if err != redis.Nil {
-		// Redis error, not a cache miss
 		return fmt.Errorf("redis error: %w", err)
 	}
 
-	// Cache miss - use distributed lock to prevent stampede
-	lockKey := "lock:" + key
-	lockValue := fmt.Sprintf("%d", time.Now().UnixNano())
-	lockExpiration := 10 * time.Second
-
-	// Try to acquire lock
-	acquired, err := SetNX(ctx, lockKey, lockValue, lockExpiration)
-	if err != nil {
-		return fmt.Errorf("lock error: %w", err)
-	}
-
-	if !acquired {
-		// Another process is fetching, wait and retry cache read
-		time.Sleep(100 * time.Millisecond)
-		err := Get(ctx, key, result)
-		if err == nil {
-			return nil
+	// Cache miss — use singleflight to deduplicate concurrent fetches for the same key
+	value, sferr, _ := sfGroup.Do(key, func() (any, error) {
+		// Double-check cache (another goroutine in this flight may have populated it)
+		if err := Get(ctx, key, result); err == nil {
+			data, _ := json.Marshal(result)
+			return data, nil
 		}
-		// If still not cached, proceed to fetch
+
+		v, err := fetch()
+		if err != nil {
+			return nil, fmt.Errorf("fetch error: %w", err)
+		}
+		if err := Set(ctx, key, v, expiration); err != nil {
+			slog.Warn("Failed to cache value", "key", key, "err", err)
+		}
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("marshal error: %w", err)
+		}
+		return data, nil
+	})
+	if sferr != nil {
+		return sferr
 	}
 
-	// Ensure lock is released
-	defer Delete(ctx, lockKey)
-
-	// Fetch the value
-	value, err := fetch()
-	if err != nil {
-		return fmt.Errorf("fetch error: %w", err)
-	}
-
-	// Store in cache
-	if err := Set(ctx, key, value, expiration); err != nil {
-		// Log error but don't fail the request
-		fmt.Printf("Warning: failed to cache value for key %s: %v\n", key, err)
-	}
-
-	// Marshal and unmarshal to populate result
-	data, err := json.Marshal(value)
-	if err != nil {
-		return fmt.Errorf("marshal error: %w", err)
-	}
-
-	return json.Unmarshal(data, result)
+	return json.Unmarshal(value.([]byte), result)
 }
 
 // InvalidatePattern deletes all keys matching a pattern
@@ -181,12 +167,12 @@ func TTL(ctx context.Context, key string) (time.Duration, error) {
 }
 
 // SAdd adds members to a set
-func SAdd(ctx context.Context, key string, members ...interface{}) error {
+func SAdd(ctx context.Context, key string, members ...any) error {
 	return rdb.SAdd(ctx, key, members...).Err()
 }
 
 // SRem removes members from a set
-func SRem(ctx context.Context, key string, members ...interface{}) error {
+func SRem(ctx context.Context, key string, members ...any) error {
 	return rdb.SRem(ctx, key, members...).Err()
 }
 
@@ -198,6 +184,28 @@ func SMembers(ctx context.Context, key string) ([]string, error) {
 // SCard returns the number of members in a set
 func SCard(ctx context.Context, key string) (int64, error) {
 	return rdb.SCard(ctx, key).Result()
+}
+
+// TryLock attempts to acquire a distributed lock.
+// Returns true if lock was acquired. Caller should defer Unlock.
+func TryLock(ctx context.Context, key string, ttl time.Duration) (bool, error) {
+	return rdb.SetNX(ctx, "dlock:"+key, "1", ttl).Result()
+}
+
+// Unlock releases a distributed lock.
+func Unlock(ctx context.Context, key string) {
+	rdb.Del(ctx, "dlock:"+key)
+}
+
+// RunWithLock runs fn only if the distributed lock is acquired.
+// Useful for ensuring only one instance runs a scheduled task.
+func RunWithLock(ctx context.Context, lockKey string, ttl time.Duration, fn func()) {
+	acquired, err := TryLock(ctx, lockKey, ttl)
+	if err != nil || !acquired {
+		return
+	}
+	defer Unlock(ctx, lockKey)
+	fn()
 }
 
 // Close closes the Redis connection

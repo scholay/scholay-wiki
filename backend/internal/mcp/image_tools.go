@@ -50,34 +50,34 @@ func (p *ImageToolProvider) GetTools() []ToolDefinition {
 			Name:        "generate_tikz_chart",
 			Description: "生成 TikZ 图表代码（柱状图、折线图、饼图等）",
 			Category:    CategoryImage,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"chart_type": map[string]interface{}{
+				"properties": map[string]any{
+					"chart_type": map[string]any{
 						"type":        "string",
 						"enum":        []string{"bar", "line", "pie", "scatter", "area"},
 						"description": "图表类型",
 					},
-					"data": map[string]interface{}{
+					"data": map[string]any{
 						"type":        "array",
 						"description": "数据点数组，每个元素包含 label 和 value",
-						"items": map[string]interface{}{
+						"items": map[string]any{
 							"type": "object",
-							"properties": map[string]interface{}{
+							"properties": map[string]any{
 								"label": map[string]string{"type": "string"},
 								"value": map[string]string{"type": "number"},
 							},
 						},
 					},
-					"title": map[string]interface{}{
+					"title": map[string]any{
 						"type":        "string",
 						"description": "图表标题",
 					},
-					"x_label": map[string]interface{}{
+					"x_label": map[string]any{
 						"type":        "string",
 						"description": "X轴标签",
 					},
-					"y_label": map[string]interface{}{
+					"y_label": map[string]any{
 						"type":        "string",
 						"description": "Y轴标签",
 					},
@@ -90,39 +90,39 @@ func (p *ImageToolProvider) GetTools() []ToolDefinition {
 			Name:        "generate_tikz_diagram",
 			Description: "生成 TikZ 流程图/结构图代码",
 			Category:    CategoryImage,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"diagram_type": map[string]interface{}{
+				"properties": map[string]any{
+					"diagram_type": map[string]any{
 						"type":        "string",
 						"enum":        []string{"flowchart", "tree", "network", "block", "timeline"},
 						"description": "图表类型",
 					},
-					"nodes": map[string]interface{}{
+					"nodes": map[string]any{
 						"type":        "array",
 						"description": "节点数组",
-						"items": map[string]interface{}{
+						"items": map[string]any{
 							"type": "object",
-							"properties": map[string]interface{}{
+							"properties": map[string]any{
 								"id":    map[string]string{"type": "string"},
 								"label": map[string]string{"type": "string"},
 								"shape": map[string]string{"type": "string"},
 							},
 						},
 					},
-					"edges": map[string]interface{}{
+					"edges": map[string]any{
 						"type":        "array",
 						"description": "边/连接数组",
-						"items": map[string]interface{}{
+						"items": map[string]any{
 							"type": "object",
-							"properties": map[string]interface{}{
+							"properties": map[string]any{
 								"from":  map[string]string{"type": "string"},
 								"to":    map[string]string{"type": "string"},
 								"label": map[string]string{"type": "string"},
 							},
 						},
 					},
-					"title": map[string]interface{}{
+					"title": map[string]any{
 						"type":        "string",
 						"description": "图表标题",
 					},
@@ -135,27 +135,27 @@ func (p *ImageToolProvider) GetTools() []ToolDefinition {
 			Name:        "generate_figure_code",
 			Description: "生成 LaTeX 图片插入代码（\\includegraphics）",
 			Category:    CategoryImage,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"filename": map[string]interface{}{
+				"properties": map[string]any{
+					"filename": map[string]any{
 						"type":        "string",
 						"description": "图片文件名",
 					},
-					"caption": map[string]interface{}{
+					"caption": map[string]any{
 						"type":        "string",
 						"description": "图片说明",
 					},
-					"label": map[string]interface{}{
+					"label": map[string]any{
 						"type":        "string",
 						"description": "引用标签（如 fig:example）",
 					},
-					"width": map[string]interface{}{
+					"width": map[string]any{
 						"type":        "string",
 						"description": "图片宽度（如 0.8\\textwidth）",
 						"default":     "0.8\\textwidth",
 					},
-					"position": map[string]interface{}{
+					"position": map[string]any{
 						"type":        "string",
 						"enum":        []string{"h", "t", "b", "p", "H", "htbp"},
 						"description": "图片位置",
@@ -170,30 +170,30 @@ func (p *ImageToolProvider) GetTools() []ToolDefinition {
 			Name:        "generate_subfigures",
 			Description: "生成多子图 LaTeX 代码",
 			Category:    CategoryImage,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"figures": map[string]interface{}{
+				"properties": map[string]any{
+					"figures": map[string]any{
 						"type":        "array",
 						"description": "子图数组",
-						"items": map[string]interface{}{
+						"items": map[string]any{
 							"type": "object",
-							"properties": map[string]interface{}{
+							"properties": map[string]any{
 								"filename": map[string]string{"type": "string"},
 								"caption":  map[string]string{"type": "string"},
 								"label":    map[string]string{"type": "string"},
 							},
 						},
 					},
-					"main_caption": map[string]interface{}{
+					"main_caption": map[string]any{
 						"type":        "string",
 						"description": "主图说明",
 					},
-					"main_label": map[string]interface{}{
+					"main_label": map[string]any{
 						"type":        "string",
 						"description": "主图标签",
 					},
-					"columns": map[string]interface{}{
+					"columns": map[string]any{
 						"type":        "integer",
 						"description": "每行子图数量",
 						"default":     2,
@@ -207,10 +207,10 @@ func (p *ImageToolProvider) GetTools() []ToolDefinition {
 			Name:        "suggest_figure_packages",
 			Description: "根据图片需求建议 LaTeX 宏包",
 			Category:    CategoryImage,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"requirements": map[string]interface{}{
+				"properties": map[string]any{
+					"requirements": map[string]any{
 						"type":        "array",
 						"description": "需求列表：tikz, pgfplots, subfigure, svg, etc.",
 						"items":       map[string]string{"type": "string"},
@@ -224,7 +224,7 @@ func (p *ImageToolProvider) GetTools() []ToolDefinition {
 }
 
 // ExecuteTool 执行工具
-func (p *ImageToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]interface{}) (*ToolResult, error) {
+func (p *ImageToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error) {
 	switch name {
 	case "generate_tikz_chart":
 		return p.generateTikzChart(ctx, args)
@@ -242,13 +242,13 @@ func (p *ImageToolProvider) ExecuteTool(ctx context.Context, name string, args m
 }
 
 // generateTikzChart 生成 TikZ 图表
-func (p *ImageToolProvider) generateTikzChart(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *ImageToolProvider) generateTikzChart(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	chartType, ok := args["chart_type"].(string)
 	if !ok || chartType == "" {
 		return CreateErrorResult(fmt.Errorf("chart_type is required")), nil
 	}
 
-	dataRaw, ok := args["data"].([]interface{})
+	dataRaw, ok := args["data"].([]any)
 	if !ok || len(dataRaw) == 0 {
 		return CreateErrorResult(fmt.Errorf("data is required")), nil
 	}
@@ -257,7 +257,7 @@ func (p *ImageToolProvider) generateTikzChart(ctx context.Context, args map[stri
 	var labels []string
 	var values []float64
 	for _, item := range dataRaw {
-		if m, ok := item.(map[string]interface{}); ok {
+		if m, ok := item.(map[string]any); ok {
 			if label, ok := m["label"].(string); ok {
 				labels = append(labels, label)
 			}
@@ -286,7 +286,7 @@ func (p *ImageToolProvider) generateTikzChart(ctx context.Context, args map[stri
 		code.WriteString(generateBarChart(labels, values, title, xLabel, yLabel))
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"code":       code.String(),
 		"chart_type": chartType,
 		"packages":   []string{"tikz", "pgfplots"},
@@ -406,13 +406,13 @@ func generateScatterChart(labels []string, values []float64, title, xLabel, yLab
 }
 
 // generateTikzDiagram 生成 TikZ 图表
-func (p *ImageToolProvider) generateTikzDiagram(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *ImageToolProvider) generateTikzDiagram(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	diagramType, ok := args["diagram_type"].(string)
 	if !ok || diagramType == "" {
 		return CreateErrorResult(fmt.Errorf("diagram_type is required")), nil
 	}
 
-	nodesRaw, ok := args["nodes"].([]interface{})
+	nodesRaw, ok := args["nodes"].([]any)
 	if !ok || len(nodesRaw) == 0 {
 		return CreateErrorResult(fmt.Errorf("nodes is required")), nil
 	}
@@ -420,7 +420,7 @@ func (p *ImageToolProvider) generateTikzDiagram(ctx context.Context, args map[st
 	// 解析节点
 	var nodes []DiagramNode
 	for _, item := range nodesRaw {
-		if m, ok := item.(map[string]interface{}); ok {
+		if m, ok := item.(map[string]any); ok {
 			node := DiagramNode{
 				ID:    getImageString(m, "id"),
 				Label: getImageString(m, "label"),
@@ -438,9 +438,9 @@ func (p *ImageToolProvider) generateTikzDiagram(ctx context.Context, args map[st
 
 	// 解析边
 	var edges []DiagramEdge
-	if edgesRaw, ok := args["edges"].([]interface{}); ok {
+	if edgesRaw, ok := args["edges"].([]any); ok {
 		for _, item := range edgesRaw {
-			if m, ok := item.(map[string]interface{}); ok {
+			if m, ok := item.(map[string]any); ok {
 				edges = append(edges, DiagramEdge{
 					From:  getImageString(m, "from"),
 					To:    getImageString(m, "to"),
@@ -463,14 +463,14 @@ func (p *ImageToolProvider) generateTikzDiagram(ctx context.Context, args map[st
 		code.WriteString(generateFlowchartCode(nodes, edges, title))
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"code":         code.String(),
 		"diagram_type": diagramType,
 		"packages":     []string{"tikz", "tikz-qtree"},
 	}), nil
 }
 
-func getImageString(m map[string]interface{}, key string) string {
+func getImageString(m map[string]any, key string) string {
 	if v, ok := m[key].(string); ok {
 		return v
 	}
@@ -539,7 +539,7 @@ func generateTreeCode(nodes []DiagramNode, edges []DiagramEdge, title string) st
 }
 
 // generateFigureCode 生成图片插入代码
-func (p *ImageToolProvider) generateFigureCode(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *ImageToolProvider) generateFigureCode(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	filename, ok := args["filename"].(string)
 	if !ok || filename == "" {
 		return CreateErrorResult(fmt.Errorf("filename is required")), nil
@@ -568,7 +568,7 @@ func (p *ImageToolProvider) generateFigureCode(ctx context.Context, args map[str
 	}
 	code.WriteString("\\end{figure}")
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"code":     code.String(),
 		"filename": filename,
 		"packages": []string{"graphicx"},
@@ -576,8 +576,8 @@ func (p *ImageToolProvider) generateFigureCode(ctx context.Context, args map[str
 }
 
 // generateSubfigures 生成多子图代码
-func (p *ImageToolProvider) generateSubfigures(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
-	figuresRaw, ok := args["figures"].([]interface{})
+func (p *ImageToolProvider) generateSubfigures(ctx context.Context, args map[string]any) (*ToolResult, error) {
+	figuresRaw, ok := args["figures"].([]any)
 	if !ok || len(figuresRaw) == 0 {
 		return CreateErrorResult(fmt.Errorf("figures is required")), nil
 	}
@@ -596,7 +596,7 @@ func (p *ImageToolProvider) generateSubfigures(ctx context.Context, args map[str
 	code.WriteString("    \\centering\n")
 
 	for i, item := range figuresRaw {
-		if m, ok := item.(map[string]interface{}); ok {
+		if m, ok := item.(map[string]any); ok {
 			filename := getImageString(m, "filename")
 			caption := getImageString(m, "caption")
 			label := getImageString(m, "label")
@@ -629,15 +629,15 @@ func (p *ImageToolProvider) generateSubfigures(ctx context.Context, args map[str
 	}
 	code.WriteString("\\end{figure}")
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"code":     code.String(),
 		"packages": []string{"graphicx", "subcaption"},
 	}), nil
 }
 
 // suggestFigurePackages 建议图片宏包
-func (p *ImageToolProvider) suggestFigurePackages(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
-	requirementsRaw, ok := args["requirements"].([]interface{})
+func (p *ImageToolProvider) suggestFigurePackages(ctx context.Context, args map[string]any) (*ToolResult, error) {
+	requirementsRaw, ok := args["requirements"].([]any)
 	if !ok || len(requirementsRaw) == 0 {
 		return CreateErrorResult(fmt.Errorf("requirements is required")), nil
 	}
@@ -697,7 +697,7 @@ func (p *ImageToolProvider) suggestFigurePackages(ctx context.Context, args map[
 		"description": "基础图片支持",
 	}}, packages...)
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"packages": packages,
 		"count":    len(packages),
 	}), nil

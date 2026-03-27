@@ -89,7 +89,7 @@ type LogRequest struct {
 	RequestPath string                 `json:"request_path"`
 	RefererPath string                 `json:"referer_path"`
 	SessionID   string                 `json:"session_id"`
-	ExtraData   map[string]interface{} `json:"extra_data"`
+	ExtraData   map[string]any `json:"extra_data"`
 }
 
 // ListQuery 列表查询参数

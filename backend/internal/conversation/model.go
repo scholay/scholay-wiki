@@ -45,10 +45,10 @@ const (
 )
 
 // SearchResults represents Semantic Scholar search results stored as JSON
-type SearchResults []map[string]interface{}
+type SearchResults []map[string]any
 
 // Scan implements sql.Scanner interface
-func (s *SearchResults) Scan(value interface{}) error {
+func (s *SearchResults) Scan(value any) error {
 	if value == nil {
 		*s = nil
 		return nil
@@ -74,7 +74,7 @@ func (s SearchResults) Value() (driver.Value, error) {
 type SearchPaperIDs []string
 
 // Scan implements sql.Scanner interface
-func (s *SearchPaperIDs) Scan(value interface{}) error {
+func (s *SearchPaperIDs) Scan(value any) error {
 	if value == nil {
 		*s = nil
 		return nil

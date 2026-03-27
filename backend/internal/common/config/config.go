@@ -8,7 +8,7 @@
 package config
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"strconv"
 
@@ -16,12 +16,30 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	JWT      JWTConfig
-	Admin    AdminConfig
-	SigNoz   SigNozConfig
+	Server           ServerConfig
+	Database         DatabaseConfig
+	Redis            RedisConfig
+	JWT              JWTConfig
+	Admin            AdminConfig
+	SigNoz           SigNozConfig
+	ExternalServices ExternalServicesConfig
+	App              AppConfig_
+}
+
+// AppConfig_ 通用应用配置（避免与全局变量 AppConfig 冲突）
+type AppConfig_ struct {
+	GinMode              string // GIN_MODE: release / debug
+	CORSAllowedOrigins   string // 逗号分隔的允许 CORS 来源
+	TurnstileSecretKey   string // Cloudflare Turnstile 密钥
+	FrontendUserURL      string // 前端用户门户 URL
+	UseAdvancedSearchV2  bool   // 是否使用 V2 版智能检索
+	IsRelease            bool   // 是否为 release 模式（预计算，方便使用）
+}
+
+type ExternalServicesConfig struct {
+	SerperAPIKey   string
+	CrossrefEmail  string
+	UnpaywallEmail string
 }
 
 type ServerConfig struct {
@@ -102,10 +120,41 @@ func Load() *Config {
 			EnableMetrics: getEnvAsBool("SIGNOZ_ENABLE_METRICS", false),
 			SamplingRate:  getEnvAsFloat("SIGNOZ_SAMPLING_RATE", 1.0),
 		},
+		ExternalServices: ExternalServicesConfig{
+			SerperAPIKey:   getEnv("SERPER_API_KEY", ""),
+			CrossrefEmail:  getEnv("CROSSREF_EMAIL", ""),
+			UnpaywallEmail: getEnv("UNPAYWALL_EMAIL", ""),
+		},
 	}
 
-	log.Println("Configuration loaded successfully")
+	// 通用应用配置
+	ginMode := getEnv("GIN_MODE", "debug")
+	useV2 := getEnv("USE_ADVANCED_SEARCH_V2", "true")
+	AppConfig.App = AppConfig_{
+		GinMode:             ginMode,
+		CORSAllowedOrigins:  getEnv("CORS_ALLOWED_ORIGINS", ""),
+		TurnstileSecretKey:  getEnv("TURNSTILE_SECRET_KEY", ""),
+		FrontendUserURL:     getEnv("FRONTEND_USER_URL", ""),
+		UseAdvancedSearchV2: useV2 != "false" && useV2 != "0",
+		IsRelease:           ginMode == "release",
+	}
+
+	validate(AppConfig)
+	slog.Info("Configuration loaded successfully")
 	return AppConfig
+}
+
+// validate 校验关键配置项，对不安全的默认值发出警告
+func validate(cfg *Config) {
+	if cfg.JWT.Secret == "default-secret-change-in-production" {
+		slog.Warn("JWT_SECRET 使用默认值，生产环境必须设置安全的密钥！")
+	}
+	if cfg.Database.Password == "scholar_pass" {
+		slog.Warn("DB_PASSWORD 使用默认值，生产环境请修改数据库密码")
+	}
+	if cfg.Admin.InitialPassword == "adminadmin" {
+		slog.Warn("ADMIN_INITIAL_PASSWORD 使用默认值，请在管理后台中修改管理员密码")
+	}
 }
 
 func getEnv(key, defaultValue string) string {

@@ -10,7 +10,7 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"regexp"
 	"strings"
 
@@ -74,7 +74,7 @@ func CreateSMSClient(accessKeyID, accessSecret, endpoint string) (*dysmsapi.Clie
 	accessSecret = strings.TrimSpace(accessSecret)
 	endpoint = strings.TrimSpace(endpoint)
 
-	log.Printf("[SMS] Creating client with endpoint: %s, AccessKeyID length: %d", endpoint, len(accessKeyID))
+	slog.Info("creating SMS client", "endpoint", endpoint, "accessKeyIDLength", len(accessKeyID))
 
 	config := &openapi.Config{
 		AccessKeyId:     tea.String(accessKeyID),
@@ -87,7 +87,7 @@ func CreateSMSClient(accessKeyID, accessSecret, endpoint string) (*dysmsapi.Clie
 		return nil, fmt.Errorf("failed to create SMS client: %w", err)
 	}
 
-	log.Printf("[SMS] Client created successfully")
+	slog.Info("SMS client created successfully")
 	return client, nil
 }
 
@@ -106,17 +106,22 @@ func SendSMS(config SMSConfig, phoneNumber string, params map[string]string) err
 		return err
 	}
 
-	log.Printf("[SMS] Sending SMS to: %s", phoneNumber)
-	log.Printf("[SMS] SignName: %s (len: %d)", config.SignName, len(config.SignName))
-	log.Printf("[SMS] TemplateCode: %s (len: %d, bytes: %v)", config.TemplateCode, len(config.TemplateCode), []byte(config.TemplateCode))
-	log.Printf("[SMS] TemplateParam: %s", templateParam)
-	log.Printf("[SMS] Endpoint: %s", config.Endpoint)
+	slog.Info("sending SMS",
+		"phoneNumber", phoneNumber,
+		"signName", config.SignName,
+		"signNameLen", len(config.SignName),
+		"templateCode", config.TemplateCode,
+		"templateCodeLen", len(config.TemplateCode),
+		"templateCodeBytes", []byte(config.TemplateCode),
+		"templateParam", templateParam,
+		"endpoint", config.Endpoint,
+	)
 
 	// Check if TemplateCode needs SMS_ prefix
 	templateCode := config.TemplateCode
 	// If template code is purely numeric and doesn't start with SMS_, log a warning
 	if len(templateCode) > 0 && templateCode[0] >= '0' && templateCode[0] <= '9' {
-		log.Printf("[SMS] Note: TemplateCode is numeric (%s). If this fails, you may need to use format SMS_%s", templateCode, templateCode)
+		slog.Warn("TemplateCode is numeric, may need SMS_ prefix", "templateCode", templateCode)
 	}
 
 	// Create request
@@ -128,49 +133,52 @@ func SendSMS(config SMSConfig, phoneNumber string, params map[string]string) err
 	}
 
 	// Log the actual values being sent
-	log.Printf("[SMS] ========== Request Details ==========")
-	log.Printf("[SMS] PhoneNumbers: %v", tea.StringValue(request.PhoneNumbers))
-	log.Printf("[SMS] SignName: %v", tea.StringValue(request.SignName))
-	log.Printf("[SMS] TemplateCode: %v", tea.StringValue(request.TemplateCode))
-	log.Printf("[SMS] TemplateParam: %v", tea.StringValue(request.TemplateParam))
-	log.Printf("[SMS] TemplateParam bytes: %v", []byte(tea.StringValue(request.TemplateParam)))
-	log.Printf("[SMS] ==========================================")
+	slog.Debug("SMS request details",
+		"phoneNumbers", tea.StringValue(request.PhoneNumbers),
+		"signName", tea.StringValue(request.SignName),
+		"templateCode", tea.StringValue(request.TemplateCode),
+		"templateParam", tea.StringValue(request.TemplateParam),
+		"templateParamBytes", []byte(tea.StringValue(request.TemplateParam)),
+	)
 
 	runtime := &util.RuntimeOptions{}
 
 	// Send SMS
 	resp, err := client.SendSmsWithOptions(request, runtime)
 	if err != nil {
-		log.Printf("[SMS] Send failed with error: %v", err)
+		slog.Error("SMS send failed", "err", err)
 		return fmt.Errorf("failed to send SMS: %w", err)
 	}
 
 	// Log detailed response
-	log.Printf("[SMS] ========== Aliyun SMS Response ==========")
 	if resp != nil {
 		if resp.Body != nil {
-			log.Printf("[SMS] Response Body:")
-			log.Printf("[SMS]   - Code: %s", tea.StringValue(resp.Body.Code))
-			log.Printf("[SMS]   - Message: %s", tea.StringValue(resp.Body.Message))
-			log.Printf("[SMS]   - RequestId: %s", tea.StringValue(resp.Body.RequestId))
-			log.Printf("[SMS]   - BizId: %s", tea.StringValue(resp.Body.BizId))
+			slog.Info("Aliyun SMS response",
+				"code", tea.StringValue(resp.Body.Code),
+				"message", tea.StringValue(resp.Body.Message),
+				"requestId", tea.StringValue(resp.Body.RequestId),
+				"bizId", tea.StringValue(resp.Body.BizId),
+				"statusCode", tea.Int32Value(resp.StatusCode),
+			)
+		} else {
+			slog.Info("Aliyun SMS response", "statusCode", tea.Int32Value(resp.StatusCode))
 		}
-		log.Printf("[SMS] Status Code: %d", tea.Int32Value(resp.StatusCode))
 	}
-	log.Printf("[SMS] ===========================================")
 
 	// Check if SMS was actually sent successfully
 	if resp.Body != nil && resp.Body.Code != nil {
 		code := tea.StringValue(resp.Body.Code)
 		if code != "OK" {
-			log.Printf("[SMS] Warning: SMS may not have been sent successfully. Code: %s, Message: %s",
-				code, tea.StringValue(resp.Body.Message))
+			slog.Warn("SMS may not have been sent successfully",
+				"code", code,
+				"message", tea.StringValue(resp.Body.Message),
+			)
 			return fmt.Errorf("SMS sending failed with code: %s, message: %s",
 				code, tea.StringValue(resp.Body.Message))
 		}
 	}
 
-	log.Printf("[SMS] Send successful!")
+	slog.Info("SMS send successful")
 	return nil
 }
 
@@ -193,7 +201,7 @@ func SendSMSVerifyCodePNS(config SMSConfig, phoneNumber string, params map[strin
 	accessSecret := strings.TrimSpace(config.AccessSecret)
 	endpoint := strings.TrimSpace(config.Endpoint)
 
-	log.Printf("[PNS] Creating client with endpoint: %s", endpoint)
+	slog.Info("creating PNS client", "endpoint", endpoint)
 
 	openapiConfig := &openapi.Config{
 		AccessKeyId:     tea.String(accessKeyID),
@@ -212,10 +220,12 @@ func SendSMSVerifyCodePNS(config SMSConfig, phoneNumber string, params map[strin
 		return err
 	}
 
-	log.Printf("[PNS] Sending SMS verification code to: %s", phoneNumber)
-	log.Printf("[PNS] SignName: %s", config.SignName)
-	log.Printf("[PNS] TemplateCode: %s", config.TemplateCode)
-	log.Printf("[PNS] TemplateParam: %s", templateParam)
+	slog.Info("sending PNS SMS verification code",
+		"phoneNumber", phoneNumber,
+		"signName", config.SignName,
+		"templateCode", config.TemplateCode,
+		"templateParam", templateParam,
+	)
 
 	// Create API params according to official example
 	apiParams := &openapi.Params{
@@ -231,7 +241,7 @@ func SendSMSVerifyCodePNS(config SMSConfig, phoneNumber string, params map[strin
 	}
 
 	// Create request body
-	requestBody := map[string]interface{}{
+	requestBody := map[string]any{
 		"PhoneNumber":   phoneNumber,
 		"SignName":      config.SignName, // SignName is mandatory for PNS
 		"TemplateCode":  config.TemplateCode,
@@ -244,39 +254,37 @@ func SendSMSVerifyCodePNS(config SMSConfig, phoneNumber string, params map[strin
 
 	runtime := &util.RuntimeOptions{}
 
-	log.Printf("[PNS] ========== Request Details ==========")
-	log.Printf("[PNS] PhoneNumber: %s", phoneNumber)
-	log.Printf("[PNS] SignName: %s", config.SignName)
-	log.Printf("[PNS] TemplateCode: %s", config.TemplateCode)
-	log.Printf("[PNS] TemplateParam: %s", templateParam)
-	log.Printf("[PNS] ==========================================")
+	slog.Debug("PNS request details",
+		"phoneNumber", phoneNumber,
+		"signName", config.SignName,
+		"templateCode", config.TemplateCode,
+		"templateParam", templateParam,
+	)
 
 	// Call API
 	resp, err := client.CallApi(apiParams, request, runtime)
 	if err != nil {
-		log.Printf("[PNS] Send failed with error: %v", err)
+		slog.Error("PNS send failed", "err", err)
 		return fmt.Errorf("failed to send SMS verify code: %w", err)
 	}
 
 	// Log response
-	log.Printf("[PNS] ========== Response ==========")
 	if resp != nil {
 		respBody, _ := json.Marshal(resp)
-		log.Printf("[PNS] Response: %s", string(respBody))
+		slog.Info("PNS response", "body", string(respBody))
 	}
-	log.Printf("[PNS] ====================================")
 
 	// Check response code
 	if resp != nil {
-		if bodyMap, ok := resp["body"].(map[string]interface{}); ok {
+		if bodyMap, ok := resp["body"].(map[string]any); ok {
 			if code, exists := bodyMap["Code"]; exists && code != "OK" {
 				message := bodyMap["Message"]
-				log.Printf("[PNS] Error: Code=%v, Message=%v", code, message)
+				slog.Error("PNS SMS sending failed", "code", code, "message", message)
 				return fmt.Errorf("SMS sending failed with code: %v, message: %v", code, message)
 			}
 		}
 	}
 
-	log.Printf("[PNS] Send successful!")
+	slog.Info("PNS send successful")
 	return nil
 }

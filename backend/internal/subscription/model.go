@@ -52,6 +52,16 @@ func (UserSubscription) TableName() string {
 	return "user_subscriptions"
 }
 
+// SubscriptionSummary is a lightweight DTO for admin user list display
+type SubscriptionSummary struct {
+	UserID    uint       `json:"user_id"`
+	PlanCode  string     `json:"plan_code"`
+	PlanName  string     `json:"plan_name"`
+	Status    string     `json:"status"`
+	EndDate   *time.Time `json:"end_date"`
+	AutoRenew bool       `json:"auto_renew"`
+}
+
 // UsageQuota represents daily usage quota tracking
 type UsageQuota struct {
 	ID                      uint      `gorm:"primaryKey" json:"id"`

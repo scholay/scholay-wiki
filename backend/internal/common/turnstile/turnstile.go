@@ -9,11 +9,12 @@ package turnstile
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
+	"scholar-backend/internal/common/config"
 	"scholar-backend/internal/common/model"
 	"time"
 )
@@ -44,10 +45,12 @@ var httpClient = &http.Client{
 }
 
 // VerifyToken verifies a Turnstile token with Cloudflare
-func VerifyToken(token string, remoteIP string) (*VerifyResponse, error) {
-	secretKey := os.Getenv("TURNSTILE_SECRET_KEY")
+func VerifyToken(ctx context.Context, token string, remoteIP string) (*VerifyResponse, error) {
+	secretKey := ""
+	if config.AppConfig != nil {
+		secretKey = config.AppConfig.App.TurnstileSecretKey
+	}
 	if secretKey == "" {
-		// For testing: use test secret key that always passes
 		secretKey = "1x0000000000000000000000000000000AA"
 	}
 
@@ -62,7 +65,7 @@ func VerifyToken(token string, remoteIP string) (*VerifyResponse, error) {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", verifyURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, "POST", verifyURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -89,12 +92,12 @@ func VerifyToken(token string, remoteIP string) (*VerifyResponse, error) {
 }
 
 // Verify is a convenience function that returns true if token is valid
-func Verify(token string, remoteIP string) (bool, error) {
+func Verify(ctx context.Context, token string, remoteIP string) (bool, error) {
 	if token == "" {
 		return false, fmt.Errorf("turnstile token is required")
 	}
 
-	resp, err := VerifyToken(token, remoteIP)
+	resp, err := VerifyToken(ctx, token, remoteIP)
 	if err != nil {
 		return false, err
 	}
@@ -111,7 +114,7 @@ func Verify(token string, remoteIP string) (bool, error) {
 
 // VerifyWithConfig verifies a Turnstile token using system configuration
 // If systemConfig is nil or EnableTurnstile is false, verification is skipped and returns true
-func VerifyWithConfig(token string, remoteIP string, systemConfig *model.SystemConfig) (bool, error) {
+func VerifyWithConfig(ctx context.Context, token string, remoteIP string, systemConfig *model.SystemConfig) (bool, error) {
 	// If system config is nil or Turnstile is disabled, skip verification
 	if systemConfig == nil || !systemConfig.EnableTurnstile {
 		return true, nil
@@ -141,7 +144,7 @@ func VerifyWithConfig(token string, remoteIP string, systemConfig *model.SystemC
 		return false, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", verifyURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, "POST", verifyURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return false, fmt.Errorf("failed to create request: %w", err)
 	}

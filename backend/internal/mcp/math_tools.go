@@ -37,10 +37,10 @@ func (p *MathToolProvider) GetTools() []ToolDefinition {
 			Name:        "validate_math",
 			Description: "验证 LaTeX 数学公式语法，检查括号匹配、环境配对、常见错误",
 			Category:    CategoryMath,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"formula": map[string]interface{}{
+				"properties": map[string]any{
+					"formula": map[string]any{
 						"type":        "string",
 						"description": "要验证的数学公式（可以是行内或块级）",
 					},
@@ -54,14 +54,14 @@ func (p *MathToolProvider) GetTools() []ToolDefinition {
 			Name:        "format_math",
 			Description: "格式化 LaTeX 数学公式，统一风格和排版",
 			Category:    CategoryMath,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"formula": map[string]interface{}{
+				"properties": map[string]any{
+					"formula": map[string]any{
 						"type":        "string",
 						"description": "要格式化的数学公式",
 					},
-					"style": map[string]interface{}{
+					"style": map[string]any{
 						"type":        "string",
 						"enum":        []string{"compact", "readable", "standard"},
 						"description": "格式化风格：compact（紧凑）、readable（易读）、standard（标准）",
@@ -76,14 +76,14 @@ func (p *MathToolProvider) GetTools() []ToolDefinition {
 			Name:        "extract_math",
 			Description: "从 LaTeX 文档中提取所有数学公式",
 			Category:    CategoryMath,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"content": map[string]interface{}{
+				"properties": map[string]any{
+					"content": map[string]any{
 						"type":        "string",
 						"description": "LaTeX 文档内容",
 					},
-					"include_inline": map[string]interface{}{
+					"include_inline": map[string]any{
 						"type":        "boolean",
 						"description": "是否包含行内公式（$...$）",
 						"default":     true,
@@ -97,14 +97,14 @@ func (p *MathToolProvider) GetTools() []ToolDefinition {
 			Name:        "convert_math_delimiters",
 			Description: "转换数学公式定界符格式（如 $...$ 和 \\(...\\) 互转）",
 			Category:    CategoryMath,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"content": map[string]interface{}{
+				"properties": map[string]any{
+					"content": map[string]any{
 						"type":        "string",
 						"description": "包含数学公式的内容",
 					},
-					"target_format": map[string]interface{}{
+					"target_format": map[string]any{
 						"type":        "string",
 						"enum":        []string{"dollar", "paren", "bracket"},
 						"description": "目标格式：dollar（$/$$/）、paren（\\(\\)/\\[\\]）、bracket（\\begin{equation}）",
@@ -118,10 +118,10 @@ func (p *MathToolProvider) GetTools() []ToolDefinition {
 			Name:        "suggest_math_packages",
 			Description: "根据公式内容建议需要的 LaTeX 宏包",
 			Category:    CategoryMath,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"formula": map[string]interface{}{
+				"properties": map[string]any{
+					"formula": map[string]any{
 						"type":        "string",
 						"description": "数学公式内容",
 					},
@@ -134,7 +134,7 @@ func (p *MathToolProvider) GetTools() []ToolDefinition {
 }
 
 // ExecuteTool 执行工具
-func (p *MathToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]interface{}) (*ToolResult, error) {
+func (p *MathToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error) {
 	switch name {
 	case "validate_math":
 		return p.validateMath(ctx, args)
@@ -152,7 +152,7 @@ func (p *MathToolProvider) ExecuteTool(ctx context.Context, name string, args ma
 }
 
 // validateMath 验证数学公式
-func (p *MathToolProvider) validateMath(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *MathToolProvider) validateMath(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	formula, ok := args["formula"].(string)
 	if !ok || formula == "" {
 		return CreateErrorResult(fmt.Errorf("formula is required")), nil
@@ -220,7 +220,7 @@ func (p *MathToolProvider) validateMath(ctx context.Context, args map[string]int
 		}
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"valid":    len(errors) == 0,
 		"errors":   errors,
 		"warnings": warnings,
@@ -229,7 +229,7 @@ func (p *MathToolProvider) validateMath(ctx context.Context, args map[string]int
 }
 
 // formatMath 格式化数学公式
-func (p *MathToolProvider) formatMath(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *MathToolProvider) formatMath(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	formula, ok := args["formula"].(string)
 	if !ok || formula == "" {
 		return CreateErrorResult(fmt.Errorf("formula is required")), nil
@@ -263,7 +263,7 @@ func (p *MathToolProvider) formatMath(ctx context.Context, args map[string]inter
 		result = strings.TrimSpace(result)
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"original":  formula,
 		"formatted": result,
 		"style":     style,
@@ -271,7 +271,7 @@ func (p *MathToolProvider) formatMath(ctx context.Context, args map[string]inter
 }
 
 // extractMath 提取数学公式
-func (p *MathToolProvider) extractMath(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *MathToolProvider) extractMath(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	content, ok := args["content"].(string)
 	if !ok || content == "" {
 		return CreateErrorResult(fmt.Errorf("content is required")), nil
@@ -282,12 +282,12 @@ func (p *MathToolProvider) extractMath(ctx context.Context, args map[string]inte
 		includeInline = inc
 	}
 
-	formulas := []map[string]interface{}{}
+	formulas := []map[string]any{}
 
 	// 提取块级公式 $$...$$
 	displayMatches := regexp.MustCompile(`\$\$[\s\S]+?\$\$`).FindAllStringIndex(content, -1)
 	for _, match := range displayMatches {
-		formulas = append(formulas, map[string]interface{}{
+		formulas = append(formulas, map[string]any{
 			"type":     "display",
 			"content":  content[match[0]:match[1]],
 			"position": match[0],
@@ -297,7 +297,7 @@ func (p *MathToolProvider) extractMath(ctx context.Context, args map[string]inte
 	// 提取 \[...\] 块级公式
 	bracketMatches := regexp.MustCompile(`\\\[[\s\S]+?\\\]`).FindAllStringIndex(content, -1)
 	for _, match := range bracketMatches {
-		formulas = append(formulas, map[string]interface{}{
+		formulas = append(formulas, map[string]any{
 			"type":     "display",
 			"content":  content[match[0]:match[1]],
 			"position": match[0],
@@ -307,7 +307,7 @@ func (p *MathToolProvider) extractMath(ctx context.Context, args map[string]inte
 	// 提取 equation 环境
 	envMatches := regexp.MustCompile(`\\begin\{equation\*?\}[\s\S]+?\\end\{equation\*?\}`).FindAllStringIndex(content, -1)
 	for _, match := range envMatches {
-		formulas = append(formulas, map[string]interface{}{
+		formulas = append(formulas, map[string]any{
 			"type":     "equation",
 			"content":  content[match[0]:match[1]],
 			"position": match[0],
@@ -319,7 +319,7 @@ func (p *MathToolProvider) extractMath(ctx context.Context, args map[string]inte
 		// 单 $ 行内公式（排除 $$）
 		inlineMatches := regexp.MustCompile(`(?<!\$)\$(?!\$)[^$]+?\$(?!\$)`).FindAllStringIndex(content, -1)
 		for _, match := range inlineMatches {
-			formulas = append(formulas, map[string]interface{}{
+			formulas = append(formulas, map[string]any{
 				"type":     "inline",
 				"content":  content[match[0]:match[1]],
 				"position": match[0],
@@ -329,7 +329,7 @@ func (p *MathToolProvider) extractMath(ctx context.Context, args map[string]inte
 		// \(...\) 行内公式
 		parenMatches := regexp.MustCompile(`\\\(.+?\\\)`).FindAllStringIndex(content, -1)
 		for _, match := range parenMatches {
-			formulas = append(formulas, map[string]interface{}{
+			formulas = append(formulas, map[string]any{
 				"type":     "inline",
 				"content":  content[match[0]:match[1]],
 				"position": match[0],
@@ -337,14 +337,14 @@ func (p *MathToolProvider) extractMath(ctx context.Context, args map[string]inte
 		}
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"count":    len(formulas),
 		"formulas": formulas,
 	}), nil
 }
 
 // convertMathDelimiters 转换数学定界符
-func (p *MathToolProvider) convertMathDelimiters(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *MathToolProvider) convertMathDelimiters(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	content, ok := args["content"].(string)
 	if !ok || content == "" {
 		return CreateErrorResult(fmt.Errorf("content is required")), nil
@@ -375,7 +375,7 @@ func (p *MathToolProvider) convertMathDelimiters(ctx context.Context, args map[s
 		result = regexp.MustCompile(`\$\$(.+?)\$\$`).ReplaceAllString(result, `\begin{equation}$1\end{equation}`)
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"original":      content,
 		"converted":     result,
 		"target_format": targetFormat,
@@ -383,7 +383,7 @@ func (p *MathToolProvider) convertMathDelimiters(ctx context.Context, args map[s
 }
 
 // suggestMathPackages 建议数学宏包
-func (p *MathToolProvider) suggestMathPackages(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *MathToolProvider) suggestMathPackages(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	formula, ok := args["formula"].(string)
 	if !ok || formula == "" {
 		return CreateErrorResult(fmt.Errorf("formula is required")), nil
@@ -446,7 +446,7 @@ func (p *MathToolProvider) suggestMathPackages(ctx context.Context, args map[str
 		})
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"formula":            formula,
 		"suggested_packages": packages,
 		"count":              len(packages),

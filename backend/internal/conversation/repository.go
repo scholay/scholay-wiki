@@ -8,6 +8,8 @@
 package conversation
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -153,7 +155,7 @@ func (r *Repository) TouchConversation(id uint) error {
 }
 
 // UpdateMessageSearchResults updates the search results for the latest user message in a conversation
-func (r *Repository) UpdateMessageSearchResults(conversationID uint, query string, papers []map[string]interface{}, total int) error {
+func (r *Repository) UpdateMessageSearchResults(conversationID uint, query string, papers []map[string]any, total int) error {
 	// Find the latest user message with matching query
 	var message ConversationMessage
 	err := r.db.Where("conversation_id = ? AND role = ? AND search_query = ?", conversationID, MessageRoleUser, query).
@@ -170,14 +172,14 @@ func (r *Repository) UpdateMessageSearchResults(conversationID uint, query strin
 	}
 
 	// Update the message with search results
-	return r.db.Model(&message).Updates(map[string]interface{}{
+	return r.db.Model(&message).Updates(map[string]any{
 		"search_results":       searchResults,
 		"search_results_total": total,
 	}).Error
 }
 
 // UpdateMessageSearchResultsByID updates the search results for a specific message by its ID
-func (r *Repository) UpdateMessageSearchResultsByID(messageID uint, papers []map[string]interface{}, total int) error {
+func (r *Repository) UpdateMessageSearchResultsByID(messageID uint, papers []map[string]any, total int) error {
 	// Convert papers to SearchResults
 	searchResults := make(SearchResults, len(papers))
 	for i, paper := range papers {
@@ -185,7 +187,7 @@ func (r *Repository) UpdateMessageSearchResultsByID(messageID uint, papers []map
 	}
 
 	// Update the message with search results
-	return r.db.Model(&ConversationMessage{}).Where("id = ?", messageID).Updates(map[string]interface{}{
+	return r.db.Model(&ConversationMessage{}).Where("id = ?", messageID).Updates(map[string]any{
 		"search_results":       searchResults,
 		"search_results_total": total,
 	}).Error
@@ -194,7 +196,7 @@ func (r *Repository) UpdateMessageSearchResultsByID(messageID uint, papers []map
 // UpdateMessageSearchPaperIDs updates only the paper IDs for a specific message
 // This is used for optimized storage - only IDs are saved, frontend fetches details
 func (r *Repository) UpdateMessageSearchPaperIDs(messageID uint, paperIDs []string, total int) error {
-	return r.db.Model(&ConversationMessage{}).Where("id = ?", messageID).Updates(map[string]interface{}{
+	return r.db.Model(&ConversationMessage{}).Where("id = ?", messageID).Updates(map[string]any{
 		"search_paper_ids":     SearchPaperIDs(paperIDs),
 		"search_results_total": total,
 	}).Error
@@ -384,9 +386,32 @@ func (r *Repository) GetMessageByID(id uint) (*ConversationMessage, error) {
 	return &message, nil
 }
 
+// RecentConversationItem is a lightweight DTO for task history
+type RecentConversationItem struct {
+	ID        uint      `json:"id"`
+	Title     string    `json:"title"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// GetRecentByUserAndType returns recent conversations of a given type for a user since a start date
+func (r *Repository) GetRecentByUserAndType(userID uint, convType string, since time.Time) ([]RecentConversationItem, error) {
+	var items []RecentConversationItem
+	err := r.db.Table("conversations").
+		Select("id, title, updated_at").
+		Where("user_id = ? AND conversation_type = ? AND updated_at >= ?", userID, convType, since).
+		Order("updated_at DESC").
+		Scan(&items).Error
+	return items, err
+}
+
 // UpdateMessageFollowUpQuestions updates the follow_up_questions field of a message
 func (r *Repository) UpdateMessageFollowUpQuestions(messageID uint, questions string) error {
 	return r.db.Model(&ConversationMessage{}).
 		Where("id = ?", messageID).
 		Update("follow_up_questions", questions).Error
+}
+
+// UpdateConversationTitle updates only the title of a conversation
+func (r *Repository) UpdateConversationTitle(conversationID uint, title string) error {
+	return r.db.Model(&Conversation{}).Where("id = ?", conversationID).Update("title", title).Error
 }

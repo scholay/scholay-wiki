@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"scholar-backend/internal/coupon"
@@ -22,12 +23,26 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// OrderRepo defines the data-access contract consumed by Service.
+type OrderRepo interface {
+	CreateOrder(order *Order) error
+	GetOrderByID(orderID uint) (*Order, error)
+	GetOrderByOrderNo(orderNo string) (*Order, error)
+	GetUserOrders(userID uint, limit, offset int) ([]Order, int64, error)
+	GetUserPaidOrders(userID uint, limit, offset int) ([]Order, int64, error)
+	UpdateOrderStatus(orderID uint, status, paymentMethod string) error
+	CreatePaymentTransaction(tx *PaymentTransaction) error
+	UpdatePaymentTransaction(tx *PaymentTransaction) error
+	GetOrderStatistics() (*OrderStatistics, error)
+	AdminListOrders(planCode, userEmail string, limit, offset int) ([]OrderWithUserInfo, int64, error)
+	ExecuteInTransaction(fn func(tx *gorm.DB) error) error
+}
+
 // Service handles business logic for orders
 type Service struct {
-	repo            *Repository
+	repo            OrderRepo
 	subsService     *subscription.Service
 	couponRepo      *coupon.Repository
-	db              *gorm.DB
 	currencyService *currency.Service
 }
 
@@ -38,7 +53,6 @@ func NewService(db *gorm.DB, subsService *subscription.Service) *Service {
 		repo:        NewRepository(db),
 		subsService: subsService,
 		couponRepo:  coupon.NewRepository(db),
-		db:          db,
 	}
 }
 
@@ -83,7 +97,7 @@ func (s *Service) CreateOrder(userID uint, req CreateOrderRequest) (*Order, erro
 	// If coupon is provided, validate and apply it
 	if req.CouponID != nil && *req.CouponID > 0 {
 		// Use a database transaction to ensure atomicity and prevent concurrent usage
-		err := s.db.Transaction(func(tx *gorm.DB) error {
+		err := s.repo.ExecuteInTransaction(func(tx *gorm.DB) error {
 			// Get the coupon with pessimistic lock (SELECT FOR UPDATE)
 			var userCoupon coupon.UserCoupon
 			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
@@ -365,13 +379,13 @@ func (s *Service) CancelOrder(userID uint, orderNo string) error {
 	// If order has a reserved coupon, unreserve it
 	if order.CouponID != nil && *order.CouponID > 0 {
 		// Change coupon status back to unused
-		if err := s.couponRepo.UpdateUserCoupon(*order.CouponID, map[string]interface{}{
+		if err := s.couponRepo.UpdateUserCoupon(*order.CouponID, map[string]any{
 			"status": coupon.CouponStatusUnused,
 		}); err != nil {
-			// Log error but continue with cancellation
-			fmt.Printf("⚠ Warning: Failed to unreserve coupon %d: %v\n", *order.CouponID, err)
+		// Log error but continue with cancellation
+		slog.Warn("failed to unreserve coupon", "coupon_id", *order.CouponID, "err", err)
 		} else {
-			fmt.Printf("✓ Coupon %d unreserved after order cancellation\n", *order.CouponID)
+			slog.Info("coupon unreserved after order cancellation", "coupon_id", *order.CouponID)
 		}
 	}
 
@@ -394,7 +408,7 @@ func (s *Service) ProcessAlipayCallback(orderNo, transactionNo string, amount fl
 
 	// Check if order is already paid
 	if order.Status == "paid" {
-		fmt.Printf("✓ Order %s already processed, skipping\n", orderNo)
+		slog.Info("order already processed, skipping", "order_no", orderNo)
 		return nil
 	}
 
@@ -452,19 +466,19 @@ func (s *Service) ProcessAlipayCallback(orderNo, transactionNo string, amount fl
 	if order.CouponID != nil && *order.CouponID > 0 {
 		if err := s.couponRepo.UseCoupon(*order.CouponID, uint64(order.ID)); err != nil {
 			// Log error but don't fail the payment process
-			fmt.Printf("⚠ Warning: Failed to mark coupon %d as used: %v\n", *order.CouponID, err)
+			slog.Warn("failed to mark coupon as used", "coupon_id", *order.CouponID, "err", err)
 		} else {
-			fmt.Printf("✓ Coupon %d marked as used for order %s\n", *order.CouponID, orderNo)
+			slog.Info("coupon marked as used", "coupon_id", *order.CouponID, "order_no", orderNo)
 		}
 	}
 
-	fmt.Printf("✓ Alipay payment processed successfully for order %s\n", orderNo)
+	slog.Info("alipay payment processed successfully", "order_no", orderNo)
 	return nil
 }
 
 // ProcessWeChatPayCallback processes a WeChat Pay payment callback
 // This is called by the payment handler after signature verification
-func (s *Service) ProcessWeChatPayCallback(orderNo, transactionNo string, amount float64, callbackData map[string]interface{}) error {
+func (s *Service) ProcessWeChatPayCallback(orderNo, transactionNo string, amount float64, callbackData map[string]any) error {
 	// Get order
 	order, err := s.repo.GetOrderByOrderNo(orderNo)
 	if err != nil {
@@ -473,7 +487,7 @@ func (s *Service) ProcessWeChatPayCallback(orderNo, transactionNo string, amount
 
 	// Check if order is already paid
 	if order.Status == "paid" {
-		fmt.Printf("✓ Order %s already processed, skipping\n", orderNo)
+		slog.Info("order already processed, skipping", "order_no", orderNo)
 		return nil
 	}
 
@@ -531,13 +545,13 @@ func (s *Service) ProcessWeChatPayCallback(orderNo, transactionNo string, amount
 	if order.CouponID != nil && *order.CouponID > 0 {
 		if err := s.couponRepo.UseCoupon(*order.CouponID, uint64(order.ID)); err != nil {
 			// Log error but don't fail the payment process
-			fmt.Printf("⚠ Warning: Failed to mark coupon %d as used: %v\n", *order.CouponID, err)
+			slog.Warn("failed to mark coupon as used", "coupon_id", *order.CouponID, "err", err)
 		} else {
-			fmt.Printf("✓ Coupon %d marked as used for order %s\n", *order.CouponID, orderNo)
+			slog.Info("coupon marked as used", "coupon_id", *order.CouponID, "order_no", orderNo)
 		}
 	}
 
-	fmt.Printf("✓ WeChat Pay payment processed successfully for order %s\n", orderNo)
+	slog.Info("wechat pay payment processed successfully", "order_no", orderNo)
 	return nil
 }
 
@@ -629,7 +643,7 @@ func (s *Service) AdminGrantSubscription(adminID uint, req AdminGrantSubscriptio
 	}
 
 	// Prepare payment data with admin info and reason
-	paymentData := map[string]interface{}{
+	paymentData := map[string]any{
 		"admin_id":     adminID,
 		"grant_reason": req.Reason,
 		"grant_type":   "admin_grant",
@@ -676,8 +690,9 @@ func (s *Service) AdminGrantSubscription(adminID uint, req AdminGrantSubscriptio
 		return order, nil // Return original order if refresh fails
 	}
 
-	fmt.Printf("✓ Admin %d granted %s subscription (%s) to user %d, order: %s\n",
-		adminID, req.PlanCode, req.BillingCycle, req.UserID, orderNo)
+	slog.Info("admin granted subscription",
+		"admin_id", adminID, "plan_code", req.PlanCode, "billing_cycle", req.BillingCycle,
+		"user_id", req.UserID, "order_no", orderNo)
 
 	return updatedOrder, nil
 }

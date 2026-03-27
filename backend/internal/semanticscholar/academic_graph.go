@@ -12,15 +12,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
-	"scholar-backend/internal/common/cache"
+	"log/slog"
 	"strconv"
+	"strings"
+
+	"scholar-backend/internal/common/cache"
 )
 
 // SearchPapersBulk searches for papers using bulk endpoint with advanced features
-func (c *Client) SearchPapersBulk(opts BulkSearchOptions) (*SearchResponse, error) {
+func (c *Client) SearchPapersBulk(ctx context.Context, opts BulkSearchOptions) (*SearchResponse, error) {
 	// Build cache key parameters
-	cacheParams := map[string]interface{}{
+	cacheParams := map[string]any{
 		"bulk":  true,
 		"query": opts.Query,
 		"sort":  opts.Sort,
@@ -39,12 +41,12 @@ func (c *Client) SearchPapersBulk(opts BulkSearchOptions) (*SearchResponse, erro
 
 	// Try to get from cache
 	var cachedResult SearchResponse
-	hit, err := cache.GetCachedSearchResult(context.Background(), cacheParams, &cachedResult)
+	hit, err := cache.GetCachedSearchResult(ctx, cacheParams, &cachedResult)
 	if err != nil {
-		log.Printf("Warning: cache error: %v", err)
+		slog.Warn("cache error", "err", err)
 	}
 	if hit {
-		log.Printf("✓ Cache hit for bulk search: %s", opts.Query)
+		slog.Info("cache hit for bulk search", "query", opts.Query)
 		return &cachedResult, nil
 	}
 
@@ -70,33 +72,33 @@ func (c *Client) SearchPapersBulk(opts BulkSearchOptions) (*SearchResponse, erro
 		params["openAccessPdf"] = opts.OpenAccessPDF
 	}
 	if len(opts.PublicationTypes) > 0 {
-		params["publicationTypes"] = joinStrings(opts.PublicationTypes, ",")
+		params["publicationTypes"] = strings.Join(opts.PublicationTypes, ",")
 	}
 	if len(opts.Venue) > 0 {
-		params["venue"] = joinStrings(opts.Venue, ",")
+		params["venue"] = strings.Join(opts.Venue, ",")
 	}
 	if len(opts.FieldsOfStudy) > 0 {
-		params["fieldsOfStudy"] = joinStrings(opts.FieldsOfStudy, ",")
+		params["fieldsOfStudy"] = strings.Join(opts.FieldsOfStudy, ",")
 	}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 
 	// Build URL for bulk endpoint
 	urlStr := c.baseURL + "/paper/search/bulk" + buildQueryString(params)
 
 	// Debug: Log the actual API call
-	fmt.Printf("[Semantic Scholar DEBUG] ============ Bulk Search API Call ============\n")
-	fmt.Printf("[Semantic Scholar DEBUG] URL: %s\n", urlStr)
-	fmt.Printf("[Semantic Scholar DEBUG] Query parameter: %s\n", opts.Query)
-	fmt.Printf("[Semantic Scholar DEBUG] Year range: %s\n", opts.Year)
-	fmt.Printf("[Semantic Scholar DEBUG] Min citations: %d\n", opts.MinCitationCount)
-	fmt.Printf("[Semantic Scholar DEBUG] Sort: %s\n", opts.Sort)
-	fmt.Printf("[Semantic Scholar DEBUG] Fields of study: %v\n", opts.FieldsOfStudy)
-	fmt.Printf("[Semantic Scholar DEBUG] =============================================\n")
+	slog.Debug("bulk search API call",
+		"url", urlStr,
+		"query", opts.Query,
+		"year", opts.Year,
+		"minCitations", opts.MinCitationCount,
+		"sort", opts.Sort,
+		"fieldsOfStudy", opts.FieldsOfStudy,
+	)
 
 	// Perform request
-	resp, err := c.doRequest("GET", urlStr, nil)
+	resp, err := c.doRequest(ctx, "GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -108,21 +110,21 @@ func (c *Client) SearchPapersBulk(opts BulkSearchOptions) (*SearchResponse, erro
 	}
 
 	// Cache the result using worker pool
-	cache.GetWorkerPool().Submit(context.Background(), func() error {
-		return cache.CacheSearchResult(context.Background(), cacheParams, &result)
+	cache.GetWorkerPool().Submit(ctx, func() error {
+		return cache.CacheSearchResult(ctx, cacheParams, &result)
 	})
 
 	return &result, nil
 }
 
 // SearchPapers searches for papers by query
-func (c *Client) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) {
+func (c *Client) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*SearchResponse, error) {
 	if opts.Query == "" {
 		return nil, fmt.Errorf("query is required")
 	}
 
 	// Build cache key parameters
-	cacheParams := map[string]interface{}{
+	cacheParams := map[string]any{
 		"query":  opts.Query,
 		"offset": opts.Offset,
 		"limit":  opts.Limit,
@@ -152,12 +154,12 @@ func (c *Client) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) 
 
 	// Try to get from cache
 	var cachedResult SearchResponse
-	hit, err := cache.GetCachedSearchResult(context.Background(), cacheParams, &cachedResult)
+	hit, err := cache.GetCachedSearchResult(ctx, cacheParams, &cachedResult)
 	if err != nil {
-		log.Printf("Warning: cache error: %v", err)
+		slog.Warn("cache error", "err", err)
 	}
 	if hit {
-		log.Printf("✓ Cache hit for search: %s", opts.Query)
+		slog.Info("cache hit for search", "query", opts.Query)
 		return &cachedResult, nil
 	}
 
@@ -175,16 +177,16 @@ func (c *Client) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) 
 		params["openAccessPdf"] = opts.OpenAccessPDF
 	}
 	if len(opts.PublicationTypes) > 0 {
-		params["publicationTypes"] = joinStrings(opts.PublicationTypes, ",")
+		params["publicationTypes"] = strings.Join(opts.PublicationTypes, ",")
 	}
 	if len(opts.Venue) > 0 {
-		params["venue"] = joinStrings(opts.Venue, ",")
+		params["venue"] = strings.Join(opts.Venue, ",")
 	}
 	if len(opts.FieldsOfStudy) > 0 {
-		params["fieldsOfStudy"] = joinStrings(opts.FieldsOfStudy, ",")
+		params["fieldsOfStudy"] = strings.Join(opts.FieldsOfStudy, ",")
 	}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 	if opts.MinCitationCount > 0 {
 		params["minCitationCount"] = strconv.Itoa(opts.MinCitationCount)
@@ -199,7 +201,7 @@ func (c *Client) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) 
 	urlStr := c.baseURL + "/paper/search" + buildQueryString(params)
 
 	// Perform request
-	resp, err := c.doRequest("GET", urlStr, nil)
+	resp, err := c.doRequest(ctx, "GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -211,41 +213,41 @@ func (c *Client) SearchPapers(opts PaperSearchOptions) (*SearchResponse, error) 
 	}
 
 	// Cache the result using worker pool (prevents goroutine accumulation)
-	cache.GetWorkerPool().Submit(context.Background(), func() error {
-		return cache.CacheSearchResult(context.Background(), cacheParams, &result)
+	cache.GetWorkerPool().Submit(ctx, func() error {
+		return cache.CacheSearchResult(ctx, cacheParams, &result)
 	})
 
 	return &result, nil
 }
 
 // GetPaper retrieves details for a specific paper
-func (c *Client) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, error) {
+func (c *Client) GetPaper(ctx context.Context, paperID string, opts PaperDetailsOptions) (*Paper, error) {
 	if paperID == "" {
 		return nil, fmt.Errorf("paperID is required")
 	}
 
 	// Try to get from cache (with fields parameter to ensure exact match)
 	var cachedPaper Paper
-	hit, err := cache.GetCachedPaperDetails(context.Background(), paperID, opts.Fields, &cachedPaper)
+	hit, err := cache.GetCachedPaperDetails(ctx, paperID, opts.Fields, &cachedPaper)
 	if err != nil {
-		log.Printf("Warning: cache error: %v", err)
+		slog.Warn("cache error", "err", err)
 	}
 	if hit {
-		log.Printf("✓ Cache hit for paper: %s with fields: %v", paperID, opts.Fields)
+		slog.Info("cache hit for paper", "paperID", paperID, "fields", opts.Fields)
 		return &cachedPaper, nil
 	}
 
 	// Build query parameters
 	params := map[string]string{}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 
 	// Build URL
 	urlStr := c.baseURL + "/paper/" + paperID + buildQueryString(params)
 
 	// Perform request
-	resp, err := c.doRequest("GET", urlStr, nil)
+	resp, err := c.doRequest(ctx, "GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +261,7 @@ func (c *Client) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, err
 	// Cache the result (async) with fields parameter for unique cache key
 	go func() {
 		if err := cache.CachePaperDetails(context.Background(), paperID, opts.Fields, &result); err != nil {
-			log.Printf("Warning: failed to cache paper details: %v", err)
+			slog.Warn("failed to cache paper details", "err", err)
 		}
 	}()
 
@@ -267,7 +269,7 @@ func (c *Client) GetPaper(paperID string, opts PaperDetailsOptions) (*Paper, err
 }
 
 // GetPaperBatch retrieves details for multiple papers
-func (c *Client) GetPaperBatch(paperIDs []string, fields []string) ([]Paper, error) {
+func (c *Client) GetPaperBatch(ctx context.Context, paperIDs []string, fields []string) ([]Paper, error) {
 	if len(paperIDs) == 0 {
 		return nil, fmt.Errorf("paperIDs is required")
 	}
@@ -275,7 +277,7 @@ func (c *Client) GetPaperBatch(paperIDs []string, fields []string) ([]Paper, err
 	// Build query parameters
 	params := map[string]string{}
 	if len(fields) > 0 {
-		params["fields"] = joinStrings(fields, ",")
+		params["fields"] = strings.Join(fields, ",")
 	}
 
 	// Build request body
@@ -289,7 +291,7 @@ func (c *Client) GetPaperBatch(paperIDs []string, fields []string) ([]Paper, err
 	urlStr := c.baseURL + "/paper/batch" + buildQueryString(params)
 
 	// Perform request
-	resp, err := c.doRequest("POST", urlStr, bytes.NewReader(bodyBytes))
+	resp, err := c.doRequest(ctx, "POST", urlStr, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +306,7 @@ func (c *Client) GetPaperBatch(paperIDs []string, fields []string) ([]Paper, err
 }
 
 // GetPaperAuthors retrieves authors for a specific paper
-func (c *Client) GetPaperAuthors(paperID string, fields []string, offset, limit int) (*AuthorSearchResponse, error) {
+func (c *Client) GetPaperAuthors(ctx context.Context, paperID string, fields []string, offset, limit int) (*AuthorSearchResponse, error) {
 	if paperID == "" {
 		return nil, fmt.Errorf("paperID is required")
 	}
@@ -315,7 +317,7 @@ func (c *Client) GetPaperAuthors(paperID string, fields []string, offset, limit 
 		"limit":  strconv.Itoa(limit),
 	}
 	if len(fields) > 0 {
-		params["fields"] = joinStrings(fields, ",")
+		params["fields"] = strings.Join(fields, ",")
 	}
 	if limit == 0 {
 		params["limit"] = strconv.Itoa(DefaultLimit)
@@ -325,7 +327,7 @@ func (c *Client) GetPaperAuthors(paperID string, fields []string, offset, limit 
 	urlStr := c.baseURL + "/paper/" + paperID + "/authors" + buildQueryString(params)
 
 	// Perform request
-	resp, err := c.doRequest("GET", urlStr, nil)
+	resp, err := c.doRequest(ctx, "GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -340,7 +342,7 @@ func (c *Client) GetPaperAuthors(paperID string, fields []string, offset, limit 
 }
 
 // GetPaperCitations retrieves citations for a specific paper
-func (c *Client) GetPaperCitations(paperID string, opts CitationsOptions) (*CitationsResponse, error) {
+func (c *Client) GetPaperCitations(ctx context.Context, paperID string, opts CitationsOptions) (*CitationsResponse, error) {
 	if paperID == "" {
 		return nil, fmt.Errorf("paperID is required")
 	}
@@ -351,7 +353,7 @@ func (c *Client) GetPaperCitations(paperID string, opts CitationsOptions) (*Cita
 		"limit":  strconv.Itoa(opts.Limit),
 	}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 	if opts.Limit == 0 {
 		params["limit"] = strconv.Itoa(DefaultLimit)
@@ -361,7 +363,7 @@ func (c *Client) GetPaperCitations(paperID string, opts CitationsOptions) (*Cita
 	urlStr := c.baseURL + "/paper/" + paperID + "/citations" + buildQueryString(params)
 
 	// Perform request
-	resp, err := c.doRequest("GET", urlStr, nil)
+	resp, err := c.doRequest(ctx, "GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -376,7 +378,7 @@ func (c *Client) GetPaperCitations(paperID string, opts CitationsOptions) (*Cita
 }
 
 // GetPaperReferences retrieves references for a specific paper
-func (c *Client) GetPaperReferences(paperID string, opts CitationsOptions) (*ReferencesResponse, error) {
+func (c *Client) GetPaperReferences(ctx context.Context, paperID string, opts CitationsOptions) (*ReferencesResponse, error) {
 	if paperID == "" {
 		return nil, fmt.Errorf("paperID is required")
 	}
@@ -387,7 +389,7 @@ func (c *Client) GetPaperReferences(paperID string, opts CitationsOptions) (*Ref
 		"limit":  strconv.Itoa(opts.Limit),
 	}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 	if opts.Limit == 0 {
 		params["limit"] = strconv.Itoa(DefaultLimit)
@@ -397,7 +399,7 @@ func (c *Client) GetPaperReferences(paperID string, opts CitationsOptions) (*Ref
 	urlStr := c.baseURL + "/paper/" + paperID + "/references" + buildQueryString(params)
 
 	// Perform request
-	resp, err := c.doRequest("GET", urlStr, nil)
+	resp, err := c.doRequest(ctx, "GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +414,7 @@ func (c *Client) GetPaperReferences(paperID string, opts CitationsOptions) (*Ref
 }
 
 // SearchAuthors searches for authors by query
-func (c *Client) SearchAuthors(opts AuthorSearchOptions) (*AuthorSearchResponse, error) {
+func (c *Client) SearchAuthors(ctx context.Context, opts AuthorSearchOptions) (*AuthorSearchResponse, error) {
 	if opts.Query == "" {
 		return nil, fmt.Errorf("query is required")
 	}
@@ -424,7 +426,7 @@ func (c *Client) SearchAuthors(opts AuthorSearchOptions) (*AuthorSearchResponse,
 		"limit":  strconv.Itoa(opts.Limit),
 	}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 	if opts.Limit == 0 {
 		params["limit"] = strconv.Itoa(DefaultLimit)
@@ -434,7 +436,7 @@ func (c *Client) SearchAuthors(opts AuthorSearchOptions) (*AuthorSearchResponse,
 	urlStr := c.baseURL + "/author/search" + buildQueryString(params)
 
 	// Perform request
-	resp, err := c.doRequest("GET", urlStr, nil)
+	resp, err := c.doRequest(ctx, "GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -449,7 +451,7 @@ func (c *Client) SearchAuthors(opts AuthorSearchOptions) (*AuthorSearchResponse,
 }
 
 // GetAuthor retrieves details for a specific author
-func (c *Client) GetAuthor(authorID string, fields []string) (*Author, error) {
+func (c *Client) GetAuthor(ctx context.Context, authorID string, fields []string) (*Author, error) {
 	if authorID == "" {
 		return nil, fmt.Errorf("authorID is required")
 	}
@@ -457,14 +459,14 @@ func (c *Client) GetAuthor(authorID string, fields []string) (*Author, error) {
 	// Build query parameters
 	params := map[string]string{}
 	if len(fields) > 0 {
-		params["fields"] = joinStrings(fields, ",")
+		params["fields"] = strings.Join(fields, ",")
 	}
 
 	// Build URL
 	urlStr := c.baseURL + "/author/" + authorID + buildQueryString(params)
 
 	// Perform request
-	resp, err := c.doRequest("GET", urlStr, nil)
+	resp, err := c.doRequest(ctx, "GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -479,7 +481,7 @@ func (c *Client) GetAuthor(authorID string, fields []string) (*Author, error) {
 }
 
 // GetAuthorPapers retrieves papers for a specific author
-func (c *Client) GetAuthorPapers(authorID string, fields []string, offset, limit int) (*SearchResponse, error) {
+func (c *Client) GetAuthorPapers(ctx context.Context, authorID string, fields []string, offset, limit int) (*SearchResponse, error) {
 	if authorID == "" {
 		return nil, fmt.Errorf("authorID is required")
 	}
@@ -490,7 +492,7 @@ func (c *Client) GetAuthorPapers(authorID string, fields []string, offset, limit
 		"limit":  strconv.Itoa(limit),
 	}
 	if len(fields) > 0 {
-		params["fields"] = joinStrings(fields, ",")
+		params["fields"] = strings.Join(fields, ",")
 	}
 	if limit == 0 {
 		params["limit"] = strconv.Itoa(DefaultLimit)
@@ -500,7 +502,7 @@ func (c *Client) GetAuthorPapers(authorID string, fields []string, offset, limit
 	urlStr := c.baseURL + "/author/" + authorID + "/papers" + buildQueryString(params)
 
 	// Perform request
-	resp, err := c.doRequest("GET", urlStr, nil)
+	resp, err := c.doRequest(ctx, "GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -516,7 +518,7 @@ func (c *Client) GetAuthorPapers(authorID string, fields []string, offset, limit
 
 // PaperAutocomplete returns paper title suggestions based on partial query
 // API: GET /paper/autocomplete?query=xxx
-func (c *Client) PaperAutocomplete(query string) (*AutocompleteResponse, error) {
+func (c *Client) PaperAutocomplete(ctx context.Context, query string) (*AutocompleteResponse, error) {
 	if query == "" {
 		return nil, fmt.Errorf("query is required")
 	}
@@ -530,7 +532,7 @@ func (c *Client) PaperAutocomplete(query string) (*AutocompleteResponse, error) 
 	urlStr := c.baseURL + "/paper/autocomplete" + buildQueryString(params)
 
 	// Perform request
-	resp, err := c.doRequest("GET", urlStr, nil)
+	resp, err := c.doRequest(ctx, "GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -547,7 +549,7 @@ func (c *Client) PaperAutocomplete(query string) (*AutocompleteResponse, error) 
 // SnippetSearch searches for papers by text snippet/quote
 // API: GET /snippet/search
 // Use when user provides a piece of text and wants to find the source paper
-func (c *Client) SnippetSearch(opts SnippetSearchOptions) (*SnippetSearchResponse, error) {
+func (c *Client) SnippetSearch(ctx context.Context, opts SnippetSearchOptions) (*SnippetSearchResponse, error) {
 	if opts.Query == "" {
 		return nil, fmt.Errorf("query is required")
 	}
@@ -564,13 +566,13 @@ func (c *Client) SnippetSearch(opts SnippetSearchOptions) (*SnippetSearchRespons
 		params["minCitationCount"] = strconv.Itoa(opts.MinCitationCount)
 	}
 	if len(opts.Venue) > 0 {
-		params["venue"] = joinStrings(opts.Venue, ",")
+		params["venue"] = strings.Join(opts.Venue, ",")
 	}
 	if len(opts.FieldsOfStudy) > 0 {
-		params["fieldsOfStudy"] = joinStrings(opts.FieldsOfStudy, ",")
+		params["fieldsOfStudy"] = strings.Join(opts.FieldsOfStudy, ",")
 	}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 	if opts.Limit > 0 {
 		if opts.Limit > 1000 {
@@ -582,13 +584,10 @@ func (c *Client) SnippetSearch(opts SnippetSearchOptions) (*SnippetSearchRespons
 	// Build URL
 	urlStr := c.baseURL + "/snippet/search" + buildQueryString(params)
 
-	fmt.Printf("[Semantic Scholar DEBUG] ============ Snippet Search API Call ============\n")
-	fmt.Printf("[Semantic Scholar DEBUG] URL: %s\n", urlStr)
-	fmt.Printf("[Semantic Scholar DEBUG] Query: %s\n", opts.Query)
-	fmt.Printf("[Semantic Scholar DEBUG] ================================================\n")
+	slog.Debug("snippet search API call", "url", urlStr, "query", opts.Query)
 
 	// Perform request
-	resp, err := c.doRequest("GET", urlStr, nil)
+	resp, err := c.doRequest(ctx, "GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -605,7 +604,7 @@ func (c *Client) SnippetSearch(opts SnippetSearchOptions) (*SnippetSearchRespons
 // PaperTitleMatch finds paper by exact title match
 // API: GET /paper/search/match
 // Use when user provides a complete paper title for precise lookup
-func (c *Client) PaperTitleMatch(opts TitleMatchOptions) (*SearchResponse, error) {
+func (c *Client) PaperTitleMatch(ctx context.Context, opts TitleMatchOptions) (*SearchResponse, error) {
 	if opts.Query == "" {
 		return nil, fmt.Errorf("query (paper title) is required")
 	}
@@ -625,28 +624,25 @@ func (c *Client) PaperTitleMatch(opts TitleMatchOptions) (*SearchResponse, error
 		params["openAccessPdf"] = opts.OpenAccessPDF
 	}
 	if len(opts.PublicationTypes) > 0 {
-		params["publicationTypes"] = joinStrings(opts.PublicationTypes, ",")
+		params["publicationTypes"] = strings.Join(opts.PublicationTypes, ",")
 	}
 	if len(opts.Venue) > 0 {
-		params["venue"] = joinStrings(opts.Venue, ",")
+		params["venue"] = strings.Join(opts.Venue, ",")
 	}
 	if len(opts.FieldsOfStudy) > 0 {
-		params["fieldsOfStudy"] = joinStrings(opts.FieldsOfStudy, ",")
+		params["fieldsOfStudy"] = strings.Join(opts.FieldsOfStudy, ",")
 	}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 
 	// Build URL
 	urlStr := c.baseURL + "/paper/search/match" + buildQueryString(params)
 
-	fmt.Printf("[Semantic Scholar DEBUG] ============ Title Match API Call ============\n")
-	fmt.Printf("[Semantic Scholar DEBUG] URL: %s\n", urlStr)
-	fmt.Printf("[Semantic Scholar DEBUG] Title Query: %s\n", opts.Query)
-	fmt.Printf("[Semantic Scholar DEBUG] ==============================================\n")
+	slog.Debug("title match API call", "url", urlStr, "titleQuery", opts.Query)
 
 	// Perform request
-	resp, err := c.doRequest("GET", urlStr, nil)
+	resp, err := c.doRequest(ctx, "GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}

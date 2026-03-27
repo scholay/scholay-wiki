@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"scholar-backend/internal/common/config"
 	"time"
@@ -66,7 +67,7 @@ func Initialize(cfg *config.Config) error {
 	sqlDB.SetConnMaxLifetime(time.Hour)         // 连接最大生命周期
 	sqlDB.SetConnMaxIdleTime(10 * time.Minute) // 空闲连接最大存活时间
 
-	log.Println("Database connection established successfully with optimized pool settings")
+	slog.Info("Database connection established successfully with optimized pool settings")
 	return nil
 }
 
@@ -79,7 +80,7 @@ func GetDB() *gorm.DB {
 func StartConnectionPoolMonitoring(ctx context.Context, interval time.Duration) {
 	sqlDB, err := DB.DB()
 	if err != nil {
-		log.Printf("Warning: Failed to get database instance for monitoring: %v", err)
+		slog.Warn("Failed to get database instance for monitoring", "err", err)
 		return
 	}
 
@@ -90,34 +91,33 @@ func StartConnectionPoolMonitoring(ctx context.Context, interval time.Duration) 
 			select {
 			case <-ticker.C:
 				stats := sqlDB.Stats()
-				log.Printf("[DB Pool Stats] Open: %d/%d | InUse: %d | Idle: %d | WaitCount: %d | WaitDuration: %s | MaxIdleClosed: %d | MaxLifetimeClosed: %d",
-					stats.OpenConnections,
-					stats.MaxOpenConnections,
-					stats.InUse,
-					stats.Idle,
-					stats.WaitCount,
-					stats.WaitDuration,
-					stats.MaxIdleClosed,
-					stats.MaxLifetimeClosed,
+				slog.Info("DB Pool Stats",
+					"open", stats.OpenConnections,
+					"max", stats.MaxOpenConnections,
+					"inUse", stats.InUse,
+					"idle", stats.Idle,
+					"waitCount", stats.WaitCount,
+					"waitDuration", stats.WaitDuration,
+					"maxIdleClosed", stats.MaxIdleClosed,
+					"maxLifetimeClosed", stats.MaxLifetimeClosed,
 				)
 
-				// Alert if pool is under stress
 				if stats.WaitCount > 0 {
-					log.Printf("⚠️  [DB Pool Alert] Connection pool has %d waiting requests, consider increasing MaxOpenConns", stats.WaitCount)
+					slog.Warn("DB pool has waiting requests, consider increasing MaxOpenConns", "waitCount", stats.WaitCount)
 				}
 				if int(stats.OpenConnections) >= int(float64(stats.MaxOpenConnections)*0.9) {
-					log.Printf("⚠️  [DB Pool Alert] Connection pool is at %d%% capacity (%d/%d)",
-						int(float64(stats.OpenConnections)/float64(stats.MaxOpenConnections)*100),
-						stats.OpenConnections,
-						stats.MaxOpenConnections,
+					slog.Warn("DB pool near capacity",
+						"percent", int(float64(stats.OpenConnections)/float64(stats.MaxOpenConnections)*100),
+						"open", stats.OpenConnections,
+						"max", stats.MaxOpenConnections,
 					)
 				}
 			case <-ctx.Done():
-				log.Println("✓ Database connection pool monitoring stopped")
+				slog.Info("Database connection pool monitoring stopped")
 				return
 			}
 		}
 	}()
 
-	log.Printf("✓ Database connection pool monitoring started (interval: %s)", interval)
+	slog.Info("Database connection pool monitoring started", "interval", interval)
 }

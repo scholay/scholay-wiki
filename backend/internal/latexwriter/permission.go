@@ -283,7 +283,7 @@ type PermissionRequest struct {
 	RequestID   string          `json:"request_id"`
 	ToolName    string          `json:"tool_name"`
 	Description string          `json:"description"`
-	Arguments   interface{}     `json:"arguments"`
+	Arguments   any     `json:"arguments"`
 	RiskLevel   string          `json:"risk_level"` // "low", "medium", "high"
 	Timestamp   time.Time       `json:"timestamp"`
 }
@@ -314,7 +314,7 @@ func (pm *PermissionManager) CheckToolPermission(
 	sessionID string,
 	toolName string,
 	description string,
-	arguments interface{},
+	arguments any,
 ) *PermissionCheckResult {
 	permission := pm.GetPermissionForUser(userID, sessionID, toolName)
 

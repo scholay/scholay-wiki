@@ -74,14 +74,14 @@ type ReasoningStep struct {
 // ToolCall 工具调用
 type ToolCall struct {
 	Name      string                 `json:"name"`
-	Arguments map[string]interface{} `json:"arguments"`
+	Arguments map[string]any `json:"arguments"`
 }
 
 // ToolResult 工具结果
 type ToolResult struct {
 	Name    string      `json:"name"`
 	Success bool        `json:"success"`
-	Result  interface{} `json:"result,omitempty"`
+	Result  any `json:"result,omitempty"`
 	Error   string      `json:"error,omitempty"`
 }
 
@@ -148,7 +148,7 @@ func (e *ReasoningEngine) ExecuteReasoning(ctx context.Context, req *ReasoningRe
 		messages := e.buildMessages(systemPrompt, enhancedContext, req.UserMessage, currentOutput)
 		
 		var responseBuilder strings.Builder
-		err := e.aiService.StreamChatCompletionWithLevel(messages, &responseBuilder, req.ModelLevel)
+		err := e.aiService.StreamChatCompletionWithLevel(ctx, messages, &responseBuilder, req.ModelLevel)
 		if err != nil {
 			step.State = StateError
 			step.Error = err.Error()
@@ -292,7 +292,7 @@ func (e *ReasoningEngine) extractToolCalls(response string) []ToolCall {
 			// 解析 JSON
 			var tc struct {
 				Name      string                 `json:"name"`
-				Arguments map[string]interface{} `json:"arguments"`
+				Arguments map[string]any `json:"arguments"`
 			}
 			// 简单的 JSON 解析（实际应该用 encoding/json）
 			jsonStr := match[1]
@@ -300,7 +300,7 @@ func (e *ReasoningEngine) extractToolCalls(response string) []ToolCall {
 			nameRe := regexp.MustCompile(`"name"\s*:\s*"([^"]+)"`)
 			if nameMatch := nameRe.FindStringSubmatch(jsonStr); len(nameMatch) > 1 {
 				tc.Name = nameMatch[1]
-				tc.Arguments = make(map[string]interface{})
+				tc.Arguments = make(map[string]any)
 				calls = append(calls, ToolCall{
 					Name:      tc.Name,
 					Arguments: tc.Arguments,
@@ -369,7 +369,7 @@ func (e *ReasoningEngine) autoFixCode(ctx context.Context, code string, validati
 		}
 
 		var fixResponse strings.Builder
-		err := e.aiService.StreamChatCompletionWithLevel(fixMessages, &fixResponse, modelLevel)
+		err := e.aiService.StreamChatCompletionWithLevel(ctx, fixMessages, &fixResponse, modelLevel)
 		if err != nil {
 			break
 		}

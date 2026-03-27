@@ -8,9 +8,10 @@
 package checkin
 
 import (
-	"net/http"
 	"strconv"
 	"time"
+
+	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -30,32 +31,22 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) Checkin(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code":    401,
-			"message": "未登录",
-		})
+		utils.Unauthorized(c, "未登录")
 		return
 	}
 
 	response, err := h.service.Checkin(userID.(uint))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "签到失败: " + err.Error(),
-		})
+		utils.ServerError(c, "签到失败: "+err.Error())
 		return
 	}
 
-	code := 0
 	if !response.Success {
-		code = 4001 // Already checked in
+		utils.ErrorWithData(c, 4001, response.Message, response)
+		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    code,
-		"message": response.Message,
-		"data":    response,
-	})
+	utils.Success(c, response)
 }
 
 // GetStatus handles get check-in status request
@@ -63,27 +54,17 @@ func (h *Handler) Checkin(c *gin.Context) {
 func (h *Handler) GetStatus(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code":    401,
-			"message": "未登录",
-		})
+		utils.Unauthorized(c, "未登录")
 		return
 	}
 
 	response, err := h.service.GetCheckinStatus(userID.(uint))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "获取签到状态失败: " + err.Error(),
-		})
+		utils.ServerError(c, "获取签到状态失败: "+err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    0,
-		"message": "success",
-		"data":    response,
-	})
+	utils.Success(c, response)
 }
 
 // CheckinDateInfo 签到日期信息（包含经费奖励）
@@ -106,14 +87,10 @@ type FutureDateInfo struct {
 func (h *Handler) GetHistory(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code":    401,
-			"message": "未登录",
-		})
+		utils.Unauthorized(c, "未登录")
 		return
 	}
 
-	// Parse year and month from query params
 	yearStr := c.DefaultQuery("year", strconv.Itoa(time.Now().Year()))
 	monthStr := c.DefaultQuery("month", strconv.Itoa(int(time.Now().Month())))
 
@@ -126,7 +103,6 @@ func (h *Handler) GetHistory(c *gin.Context) {
 		month = int(time.Now().Month())
 	}
 
-	// Calculate date range for the month
 	startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
 	endDate := startDate.AddDate(0, 1, 0).Add(-time.Second)
 
@@ -136,20 +112,15 @@ func (h *Handler) GetHistory(c *gin.Context) {
 		endDate.Format("2006-01-02"),
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "获取签到历史失败: " + err.Error(),
-		})
+		utils.ServerError(c, "获取签到历史失败: "+err.Error())
 		return
 	}
 
-	// Convert to date list with gold rewards for calendar display
 	checkinDates := make([]string, 0, len(history))
 	checkinDetails := make([]CheckinDateInfo, 0, len(history))
 	for _, checkin := range history {
 		dateStr := checkin.GetCheckinDateString()
 		checkinDates = append(checkinDates, dateStr)
-		// 根据连续签到天数计算当天获得的经费
 		goldReward := h.service.GetCheckinGoldRewardPublic(checkin.ConsecutiveDays)
 		checkinDetails = append(checkinDetails, CheckinDateInfo{
 			Date:       dateStr,
@@ -157,7 +128,6 @@ func (h *Handler) GetHistory(c *gin.Context) {
 		})
 	}
 
-	// Get user stats for consecutive and total days
 	status, _ := h.service.GetCheckinStatus(userID.(uint))
 	consecutiveDays := 0
 	totalDays := 0
@@ -168,29 +138,23 @@ func (h *Handler) GetHistory(c *gin.Context) {
 		hasCheckedInToday = status.HasCheckedIn
 	}
 
-	// 计算到当月最后一天的预计签到奖励
-	// 计算当月剩余天数
 	now := time.Now()
 	lastDayOfMonth := time.Date(year, time.Month(month+1), 0, 0, 0, 0, 0, time.Local)
-	daysUntilEndOfMonth := int(lastDayOfMonth.Sub(now).Hours()/24) + 1 // +1 包括今天
+	daysUntilEndOfMonth := int(lastDayOfMonth.Sub(now).Hours()/24) + 1
 	if daysUntilEndOfMonth < 1 {
 		daysUntilEndOfMonth = 1
 	}
 	futureRewards := h.service.GetFutureCheckinRewards(consecutiveDays, daysUntilEndOfMonth, hasCheckedInToday)
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    0,
-		"message": "success",
-		"data": gin.H{
-			"year":             year,
-			"month":            month,
-			"checkin_dates":    checkinDates,
-			"checkin_details":  checkinDetails,
-			"future_rewards":   futureRewards,
-			"total_count":      len(checkinDates),
-			"consecutive_days": consecutiveDays,
-			"total_days":       totalDays,
-		},
+	utils.Success(c, gin.H{
+		"year":             year,
+		"month":            month,
+		"checkin_dates":    checkinDates,
+		"checkin_details":  checkinDetails,
+		"future_rewards":   futureRewards,
+		"total_count":      len(checkinDates),
+		"consecutive_days": consecutiveDays,
+		"total_days":       totalDays,
 	})
 }
 
@@ -203,4 +167,3 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 		checkin.GET("/history", h.GetHistory)
 	}
 }
-

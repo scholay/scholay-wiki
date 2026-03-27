@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"gorm.io/gorm"
@@ -22,10 +23,39 @@ import (
 // isNewActivation: 是否是新开通（true=新开通，false=续费）
 type ActivationCallback func(userID uint, planCode string, isNewActivation bool)
 
+// SubscriptionRepo defines the data-access contract consumed by Service.
+// Keep it in the consumer (Service) per Go convention so Repository stays a plain struct.
+type SubscriptionRepo interface {
+	GetAllPlans() ([]SubscriptionPlan, error)
+	GetPlanByCode(code string) (*SubscriptionPlan, error)
+	GetPlanByID(id uint) (*SubscriptionPlan, error)
+	UpdatePlan(plan *SubscriptionPlan) error
+
+	GetUserActiveSubscription(userID uint) (*UserSubscription, error)
+	GetUserLatestExpiredSubscription(userID uint) (*UserSubscription, error)
+	HasPreviousPaidSubscription(userID uint) (bool, error)
+	CreateSubscription(subscription *UserSubscription) error
+	UpdateSubscription(subscription *UserSubscription) error
+	GetActiveSubscriptionsByUserIDs(userIDs []uint) ([]SubscriptionSummary, error)
+	GetActiveSubscriptionsByPlanCodes(planCodes []string) ([]UserSubscription, error)
+	GetAllActiveSubscriptions() ([]UserSubscription, error)
+
+	GetTodayUsageQuota(userID uint, date string) (*UsageQuota, error)
+
+	GetNonMembersWithGold() ([]NonMemberInfo, error)
+	GetMembersInGracePeriod(graceDays int) ([]MembersInGracePeriodInfo, error)
+	GetNonMembersWithGoldAfterGrace(graceDays int) ([]NonMemberInfo, error)
+	GetExpiringMembers(days int) ([]ExpiringMemberInfo, error)
+	GetMembersExpiredToday() ([]ExpiredTodayInfo, error)
+	GetMembersWithGracePeriodEnding(graceDays, reminderDays int) ([]GracePeriodEndingInfo, error)
+	GetMembersWithGraceExpiredYesterday(graceDays int) ([]GraceExpiredInfo, error)
+	GetNonMembersForMonthEndReminder(graceDays int) ([]NonMemberInfo, error)
+}
+
 // Service handles subscription business logic
 type Service struct {
-	repo               *Repository
-	activationCallback ActivationCallback // 会员激活时的回调
+	repo               SubscriptionRepo
+	activationCallback ActivationCallback
 }
 
 // NewService creates a new subscription service
@@ -42,20 +72,20 @@ func (s *Service) SetActivationCallback(callback ActivationCallback) {
 }
 
 // GetAllPlans retrieves all active subscription plans with parsed features
-func (s *Service) GetAllPlans() ([]map[string]interface{}, error) {
+func (s *Service) GetAllPlans() ([]map[string]any, error) {
 	plans, err := s.repo.GetAllPlans()
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]map[string]interface{}, len(plans))
+	result := make([]map[string]any, len(plans))
 	for i, plan := range plans {
 		var features PlanFeatures
 		if err := json.Unmarshal([]byte(plan.Features), &features); err != nil {
 			return nil, err
 		}
 
-		result[i] = map[string]interface{}{
+		result[i] = map[string]any{
 			"id":                       plan.ID,
 			"plan_code":                plan.PlanCode,
 			"plan_name":                plan.PlanName,
@@ -80,7 +110,7 @@ func (s *Service) GetPlanByCode(planCode string) (*SubscriptionPlan, error) {
 }
 
 // GetUserSubscription retrieves the user's current subscription info
-func (s *Service) GetUserSubscription(userID uint) (map[string]interface{}, error) {
+func (s *Service) GetUserSubscription(userID uint) (map[string]any, error) {
 	subscription, err := s.repo.GetUserActiveSubscription(userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -101,7 +131,7 @@ func (s *Service) GetUserSubscription(userID uint) (map[string]interface{}, erro
 							expiredDays = 0
 						}
 					}
-					return map[string]interface{}{
+					return map[string]any{
 						"plan_code":             "free",
 						"plan_name":             "FREE",
 						"status":                "active",
@@ -117,7 +147,7 @@ func (s *Service) GetUserSubscription(userID uint) (map[string]interface{}, erro
 				}
 			}
 			// 没有过期订阅或查询失败，返回普通免费计划
-			return map[string]interface{}{
+			return map[string]any{
 				"plan_code":          "free",
 				"plan_name":          "FREE",
 				"status":             "active",
@@ -141,7 +171,7 @@ func (s *Service) GetUserSubscription(userID uint) (map[string]interface{}, erro
 		return nil, err
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"plan_code":          subscription.PlanCode,
 		"plan_name":          plan.PlanName,
 		"status":             subscription.Status,
@@ -156,7 +186,7 @@ func (s *Service) GetUserSubscription(userID uint) (map[string]interface{}, erro
 }
 
 // GetUserUsageQuota retrieves the user's current usage quota
-func (s *Service) GetUserUsageQuota(userID uint) (map[string]interface{}, error) {
+func (s *Service) GetUserUsageQuota(userID uint) (map[string]any, error) {
 	today := time.Now().Format("2006-01-02")
 	quota, err := s.repo.GetTodayUsageQuota(userID, today)
 	if err != nil {
@@ -180,9 +210,9 @@ func (s *Service) GetUserUsageQuota(userID uint) (map[string]interface{}, error)
 		return nil, err
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"quota_date": quota.QuotaDate,
-		"usage": map[string]interface{}{
+		"usage": map[string]any{
 			"normal_search":         quota.NormalSearchCount,
 			"advanced_search_low":   quota.AdvancedSearchLowCount,
 			"advanced_search_mid":   quota.AdvancedSearchMidCount,
@@ -191,7 +221,7 @@ func (s *Service) GetUserUsageQuota(userID uint) (map[string]interface{}, error)
 			"ai_chat_mid":           quota.AIChatMidCount,
 			"ai_chat_high":          quota.AIChatHighCount,
 		},
-		"limits": map[string]interface{}{
+		"limits": map[string]any{
 			"normal_search":         features.NormalSearch,
 			"advanced_search_low":   features.AdvancedSearchLow,
 			"advanced_search_mid":   features.AdvancedSearchMid,
@@ -201,27 +231,6 @@ func (s *Service) GetUserUsageQuota(userID uint) (map[string]interface{}, error)
 			"ai_chat_high":          features.AIChatHigh,
 		},
 	}, nil
-}
-
-// CheckQuota checks if user has remaining quota for a specific feature
-// Deprecated: 配额检查已废弃，现在使用货币系统进行扣费控制。此方法始终返回 true
-func (s *Service) CheckQuota(userID uint, featureType string) (bool, error) {
-	// 配额检查已废弃，始终返回 true
-	return true, nil
-}
-
-// IncrementUsage increments usage count for a specific feature
-// Deprecated: 配额统计已废弃，现在使用货币系统进行扣费控制。此方法不再执行任何操作
-func (s *Service) IncrementUsage(userID uint, featureType string) error {
-	// 配额统计已废弃，不再执行任何操作
-	return nil
-}
-
-// CheckAndIncrementQuota atomically checks quota and increments usage in a single transaction
-// Deprecated: 配额检查已废弃，现在使用货币系统进行扣费控制。此方法不再执行任何操作
-func (s *Service) CheckAndIncrementQuota(userID uint, featureType string) error {
-	// 配额检查已废弃，不再执行任何操作
-	return nil
 }
 
 // UpgradeSubscription upgrades or downgrades a user's subscription
@@ -240,7 +249,7 @@ func (s *Service) UpgradeSubscription(userID uint, newPlanCode string, duration 
 	if newPlanCode == "pro" || newPlanCode == "max" {
 		hadPrevious, err := s.repo.HasPreviousPaidSubscription(userID)
 		if err != nil {
-			fmt.Printf("Warning: failed to check previous subscription for user %d: %v\n", userID, err)
+			slog.Warn("failed to check previous subscription", "user_id", userID, "err", err)
 		} else {
 			isNewActivation = !hadPrevious
 		}
@@ -276,8 +285,7 @@ func (s *Service) UpgradeSubscription(userID uint, newPlanCode string, duration 
 			end := baseEndDate.AddDate(0, duration, 0)
 			endDate = &end
 		}
-		fmt.Printf("Renewal: user %d, plan %s, extending from %v by %d months to %v\n", 
-			userID, newPlanCode, baseEndDate, duration, endDate)
+		slog.Info("subscription renewal", "user_id", userID, "plan", newPlanCode, "base_end", baseEndDate, "duration_months", duration, "new_end", endDate)
 	} else {
 		// 新开通或升级/降级：从当前时间开始
 		startDate = time.Now()
@@ -306,7 +314,7 @@ func (s *Service) UpgradeSubscription(userID uint, newPlanCode string, duration 
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
-					fmt.Printf("Warning: activation callback panicked for user %d: %v\n", userID, r)
+					slog.Error("activation callback panicked", "user_id", userID, "recover", r)
 				}
 			}()
 			s.activationCallback(userID, newPlanCode, isNewActivation)
@@ -314,6 +322,14 @@ func (s *Service) UpgradeSubscription(userID uint, newPlanCode string, duration 
 	}
 
 	return nil
+}
+
+// GetActiveSubscriptionsByUserIDs returns active subscription summaries for a batch of user IDs
+func (s *Service) GetActiveSubscriptionsByUserIDs(userIDs []uint) ([]SubscriptionSummary, error) {
+	if len(userIDs) == 0 {
+		return nil, nil
+	}
+	return s.repo.GetActiveSubscriptionsByUserIDs(userIDs)
 }
 
 // GetActiveSubscriptionsByPlanCodes 获取指定计划的所有活跃订阅
@@ -345,32 +361,6 @@ func (s *Service) GetActiveSubscriptionsByPlanCodesForCurrency(planCodes []strin
 		result[i] = SubscriptionInfoForCurrency{
 			UserID:   sub.UserID,
 			PlanCode: sub.PlanCode,
-		}
-	}
-	return result, nil
-}
-
-// ExpiredMemberForCurrency 过期会员信息（用于货币系统）
-type ExpiredMemberForCurrency struct {
-	UserID    uint
-	PlanCode  string
-	ExpiredAt time.Time
-}
-
-// GetExpiredMembersWithGracePeriod 获取过期超过宽限期的会员（用于货币系统）
-// 已废弃：使用 GetNonMembersWithGold 替代
-func (s *Service) GetExpiredMembersWithGracePeriod(graceDays int) ([]ExpiredMemberForCurrency, error) {
-	members, err := s.repo.GetExpiredMembersWithGracePeriod(graceDays)
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]ExpiredMemberForCurrency, len(members))
-	for i, m := range members {
-		result[i] = ExpiredMemberForCurrency{
-			UserID:    m.UserID,
-			PlanCode:  m.PlanCode,
-			ExpiredAt: m.ExpiredAt,
 		}
 	}
 	return result, nil

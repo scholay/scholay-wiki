@@ -9,6 +9,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import api, { publicScholarAPI } from '../services/api';
 import SEO from '../components/SEO';
 import FloatingGuide from '../components/FloatingGuide';
@@ -1366,7 +1367,7 @@ const PaperDetailPage = () => {
             <div className="pd-cite-content">
               <pre 
                 className={citationFormat === 'bibtex' ? 'bibtex' : ''}
-                dangerouslySetInnerHTML={{ __html: generateCitation(citationFormat) }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(generateCitation(citationFormat)) }}
               />
             </div>
 

@@ -41,31 +41,31 @@ func (p *CodeToolProvider) GetTools() []ToolDefinition {
 			Name:        "generate_python_plot",
 			Description: "生成 Python matplotlib 绑定代码（仅生成代码，不执行）",
 			Category:    CategoryCode,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"plot_type": map[string]interface{}{
+				"properties": map[string]any{
+					"plot_type": map[string]any{
 						"type":        "string",
 						"enum":        []string{"line", "bar", "scatter", "pie", "histogram", "heatmap", "boxplot"},
 						"description": "图表类型",
 					},
-					"data": map[string]interface{}{
+					"data": map[string]any{
 						"type":        "object",
 						"description": "数据（x, y 数组或字典）",
 					},
-					"title": map[string]interface{}{
+					"title": map[string]any{
 						"type":        "string",
 						"description": "图表标题",
 					},
-					"x_label": map[string]interface{}{
+					"x_label": map[string]any{
 						"type":        "string",
 						"description": "X轴标签",
 					},
-					"y_label": map[string]interface{}{
+					"y_label": map[string]any{
 						"type":        "string",
 						"description": "Y轴标签",
 					},
-					"output_file": map[string]interface{}{
+					"output_file": map[string]any{
 						"type":        "string",
 						"description": "输出文件名",
 						"default":     "plot.pdf",
@@ -80,19 +80,19 @@ func (p *CodeToolProvider) GetTools() []ToolDefinition {
 			Name:        "generate_data_analysis_code",
 			Description: "生成 Python 数据分析代码（pandas/numpy）",
 			Category:    CategoryCode,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"analysis_type": map[string]interface{}{
+				"properties": map[string]any{
+					"analysis_type": map[string]any{
 						"type":        "string",
 						"enum":        []string{"statistics", "correlation", "regression", "clustering", "pca"},
 						"description": "分析类型",
 					},
-					"data_description": map[string]interface{}{
+					"data_description": map[string]any{
 						"type":        "string",
 						"description": "数据描述",
 					},
-					"columns": map[string]interface{}{
+					"columns": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
 						"description": "要分析的列名",
@@ -107,31 +107,31 @@ func (p *CodeToolProvider) GetTools() []ToolDefinition {
 			Name:        "generate_table_code",
 			Description: "从数据生成 LaTeX 表格代码",
 			Category:    CategoryCode,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"headers": map[string]interface{}{
+				"properties": map[string]any{
+					"headers": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
 						"description": "表头",
 					},
-					"rows": map[string]interface{}{
+					"rows": map[string]any{
 						"type":        "array",
 						"description": "数据行",
-						"items": map[string]interface{}{
+						"items": map[string]any{
 							"type":  "array",
 							"items": map[string]string{"type": "string"},
 						},
 					},
-					"caption": map[string]interface{}{
+					"caption": map[string]any{
 						"type":        "string",
 						"description": "表格标题",
 					},
-					"label": map[string]interface{}{
+					"label": map[string]any{
 						"type":        "string",
 						"description": "引用标签",
 					},
-					"style": map[string]interface{}{
+					"style": map[string]any{
 						"type":        "string",
 						"enum":        []string{"simple", "booktabs", "colored"},
 						"description": "表格样式",
@@ -146,21 +146,21 @@ func (p *CodeToolProvider) GetTools() []ToolDefinition {
 			Name:        "format_numbers",
 			Description: "格式化数字为 LaTeX 科学计数法或带单位格式",
 			Category:    CategoryCode,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"numbers": map[string]interface{}{
+				"properties": map[string]any{
+					"numbers": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "number"},
 						"description": "要格式化的数字",
 					},
-					"format": map[string]interface{}{
+					"format": map[string]any{
 						"type":        "string",
 						"enum":        []string{"scientific", "fixed", "percent", "si"},
 						"description": "格式类型",
 						"default":     "scientific",
 					},
-					"precision": map[string]interface{}{
+					"precision": map[string]any{
 						"type":        "integer",
 						"description": "小数精度",
 						"default":     3,
@@ -174,7 +174,7 @@ func (p *CodeToolProvider) GetTools() []ToolDefinition {
 }
 
 // ExecuteTool 执行工具
-func (p *CodeToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]interface{}) (*ToolResult, error) {
+func (p *CodeToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error) {
 	switch name {
 	case "generate_python_plot":
 		return p.generatePythonPlot(ctx, args)
@@ -190,7 +190,7 @@ func (p *CodeToolProvider) ExecuteTool(ctx context.Context, name string, args ma
 }
 
 // generatePythonPlot 生成 Python 绑定代码
-func (p *CodeToolProvider) generatePythonPlot(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *CodeToolProvider) generatePythonPlot(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	plotType, ok := args["plot_type"].(string)
 	if !ok || plotType == "" {
 		return CreateErrorResult(fmt.Errorf("plot_type is required")), nil
@@ -262,7 +262,7 @@ func (p *CodeToolProvider) generatePythonPlot(ctx context.Context, args map[stri
 	code.WriteString(fmt.Sprintf("plt.savefig('%s', dpi=300, bbox_inches='tight')\n", outputFile))
 	code.WriteString("plt.close()\n")
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"code":        code.String(),
 		"plot_type":   plotType,
 		"output_file": outputFile,
@@ -271,7 +271,7 @@ func (p *CodeToolProvider) generatePythonPlot(ctx context.Context, args map[stri
 }
 
 // generateDataAnalysisCode 生成数据分析代码
-func (p *CodeToolProvider) generateDataAnalysisCode(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *CodeToolProvider) generateDataAnalysisCode(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	analysisType, ok := args["analysis_type"].(string)
 	if !ok || analysisType == "" {
 		return CreateErrorResult(fmt.Errorf("analysis_type is required")), nil
@@ -351,7 +351,7 @@ func (p *CodeToolProvider) generateDataAnalysisCode(ctx context.Context, args ma
 		code.WriteString("plt.savefig('pca.pdf')\n")
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"code":          code.String(),
 		"analysis_type": analysisType,
 		"note":          "此代码需要在 Python 环境中执行，需要安装相应的库",
@@ -359,13 +359,13 @@ func (p *CodeToolProvider) generateDataAnalysisCode(ctx context.Context, args ma
 }
 
 // generateTableCode 生成 LaTeX 表格代码
-func (p *CodeToolProvider) generateTableCode(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
-	headersRaw, ok := args["headers"].([]interface{})
+func (p *CodeToolProvider) generateTableCode(ctx context.Context, args map[string]any) (*ToolResult, error) {
+	headersRaw, ok := args["headers"].([]any)
 	if !ok || len(headersRaw) == 0 {
 		return CreateErrorResult(fmt.Errorf("headers is required")), nil
 	}
 
-	rowsRaw, ok := args["rows"].([]interface{})
+	rowsRaw, ok := args["rows"].([]any)
 	if !ok || len(rowsRaw) == 0 {
 		return CreateErrorResult(fmt.Errorf("rows is required")), nil
 	}
@@ -381,7 +381,7 @@ func (p *CodeToolProvider) generateTableCode(ctx context.Context, args map[strin
 	// 解析数据行
 	rows := [][]string{}
 	for _, row := range rowsRaw {
-		if rowArr, ok := row.([]interface{}); ok {
+		if rowArr, ok := row.([]any); ok {
 			rowData := []string{}
 			for _, cell := range rowArr {
 				if s, ok := cell.(string); ok {
@@ -451,15 +451,15 @@ func (p *CodeToolProvider) generateTableCode(ctx context.Context, args map[strin
 		packages = append(packages, "colortbl", "xcolor")
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"code":     code.String(),
 		"packages": packages,
 	}), nil
 }
 
 // formatNumbers 格式化数字
-func (p *CodeToolProvider) formatNumbers(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
-	numbersRaw, ok := args["numbers"].([]interface{})
+func (p *CodeToolProvider) formatNumbers(ctx context.Context, args map[string]any) (*ToolResult, error) {
+	numbersRaw, ok := args["numbers"].([]any)
 	if !ok || len(numbersRaw) == 0 {
 		return CreateErrorResult(fmt.Errorf("numbers is required")), nil
 	}
@@ -474,7 +474,7 @@ func (p *CodeToolProvider) formatNumbers(ctx context.Context, args map[string]in
 		precision = int(p)
 	}
 
-	results := []map[string]interface{}{}
+	results := []map[string]any{}
 
 	for _, numRaw := range numbersRaw {
 		num, ok := numRaw.(float64)
@@ -513,13 +513,13 @@ func (p *CodeToolProvider) formatNumbers(ctx context.Context, args map[string]in
 			formatted = fmt.Sprintf("$%.*g$", precision, num)
 		}
 
-		results = append(results, map[string]interface{}{
+		results = append(results, map[string]any{
 			"original":  num,
 			"formatted": formatted,
 		})
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"results":   results,
 		"format":    format,
 		"precision": precision,

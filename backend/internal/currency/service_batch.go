@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 )
 
@@ -123,7 +123,7 @@ func (s *BatchService) executeBatch(batchID uint, title, description string) {
 
 	// 更新状态为执行中
 	if err := s.repo.UpdateBatchStatus(batchID, BatchStatusProcessing); err != nil {
-		log.Printf("[BatchService] Failed to update batch status: %v", err)
+		slog.Error("Failed to update batch status", "batchID", batchID, "err", err)
 		return
 	}
 
@@ -134,7 +134,7 @@ func (s *BatchService) executeBatch(batchID uint, title, description string) {
 		// 获取待处理的发放明细
 		distributions, err := s.repo.GetPendingDistributions(batchID, batchSize)
 		if err != nil {
-			log.Printf("[BatchService] Failed to get pending distributions: %v", err)
+			slog.Error("Failed to get pending distributions", "batchID", batchID, "err", err)
 			break
 		}
 		if len(distributions) == 0 {
@@ -148,7 +148,7 @@ func (s *BatchService) executeBatch(batchID uint, title, description string) {
 				// 发放失败
 				failedCount++
 				s.repo.UpdateBatchDistributionStatus(dist.ID, TxStatusFailed, "", err.Error())
-				log.Printf("[BatchService] Failed to distribute to user %d: %v", dist.UserID, err)
+				slog.Error("Failed to distribute to user", "userID", dist.UserID, "err", err)
 			} else {
 				// 发放成功
 				successCount++
@@ -167,7 +167,7 @@ func (s *BatchService) executeBatch(batchID uint, title, description string) {
 	}
 	s.repo.UpdateBatchStatus(batchID, finalStatus)
 
-	log.Printf("[BatchService] Batch %d completed: success=%d, failed=%d", batchID, successCount, failedCount)
+	slog.Info("Batch completed", "batchID", batchID, "success", successCount, "failed", failedCount)
 }
 
 // distributeToUser 向单个用户发放货币
@@ -215,9 +215,24 @@ func (s *BatchService) sendNotification(userID uint, currencyType CurrencyType, 
 
 	go func() {
 		if err := s.messageSender.SendToUser(userID, title, content, "transaction", "/wallet", "查看钱包"); err != nil {
-			log.Printf("[BatchService] Failed to send notification to user %d: %v", userID, err)
+			slog.Error("Failed to send notification to user", "userID", userID, "err", err)
 		}
 	}()
+}
+
+// GetAllActiveUserIDs returns all active user IDs
+func (s *BatchService) GetAllActiveUserIDs() ([]uint, error) {
+	return s.repo.GetAllActiveUserIDs()
+}
+
+// GetMemberUserIDs returns user IDs with active memberships
+func (s *BatchService) GetMemberUserIDs() ([]uint, error) {
+	return s.repo.GetMemberUserIDs()
+}
+
+// GetNonMemberUserIDs returns user IDs without active memberships
+func (s *BatchService) GetNonMemberUserIDs() ([]uint, error) {
+	return s.repo.GetNonMemberUserIDs()
 }
 
 // getTargetUserIDs 获取目标用户ID列表

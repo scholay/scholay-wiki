@@ -43,10 +43,10 @@ func (p *FileToolProvider) GetTools() []ToolDefinition {
 			Name:        "read_document",
 			Description: "读取 LaTeX 文档内容",
 			Category:    CategoryFile,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"document_id": map[string]interface{}{
+				"properties": map[string]any{
+					"document_id": map[string]any{
 						"type":        "integer",
 						"description": "文档 ID",
 					},
@@ -59,14 +59,14 @@ func (p *FileToolProvider) GetTools() []ToolDefinition {
 			Name:        "write_document",
 			Description: "写入/更新 LaTeX 文档内容",
 			Category:    CategoryFile,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"document_id": map[string]interface{}{
+				"properties": map[string]any{
+					"document_id": map[string]any{
 						"type":        "integer",
 						"description": "文档 ID",
 					},
-					"content": map[string]interface{}{
+					"content": map[string]any{
 						"type":        "string",
 						"description": "文档内容",
 					},
@@ -79,14 +79,14 @@ func (p *FileToolProvider) GetTools() []ToolDefinition {
 			Name:        "list_documents",
 			Description: "列出用户的 LaTeX 文档",
 			Category:    CategoryFile,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"user_id": map[string]interface{}{
+				"properties": map[string]any{
+					"user_id": map[string]any{
 						"type":        "integer",
 						"description": "用户 ID",
 					},
-					"project_id": map[string]interface{}{
+					"project_id": map[string]any{
 						"type":        "integer",
 						"description": "项目 ID（可选，筛选特定项目）",
 					},
@@ -99,10 +99,10 @@ func (p *FileToolProvider) GetTools() []ToolDefinition {
 			Name:        "get_document_info",
 			Description: "获取文档的详细信息（不包含内容）",
 			Category:    CategoryFile,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"document_id": map[string]interface{}{
+				"properties": map[string]any{
+					"document_id": map[string]any{
 						"type":        "integer",
 						"description": "文档 ID",
 					},
@@ -115,18 +115,18 @@ func (p *FileToolProvider) GetTools() []ToolDefinition {
 			Name:        "search_in_documents",
 			Description: "在文档中搜索内容",
 			Category:    CategoryFile,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"user_id": map[string]interface{}{
+				"properties": map[string]any{
+					"user_id": map[string]any{
 						"type":        "integer",
 						"description": "用户 ID",
 					},
-					"query": map[string]interface{}{
+					"query": map[string]any{
 						"type":        "string",
 						"description": "搜索关键词",
 					},
-					"document_id": map[string]interface{}{
+					"document_id": map[string]any{
 						"type":        "integer",
 						"description": "限定在特定文档中搜索（可选）",
 					},
@@ -139,7 +139,7 @@ func (p *FileToolProvider) GetTools() []ToolDefinition {
 }
 
 // ExecuteTool 执行工具
-func (p *FileToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]interface{}) (*ToolResult, error) {
+func (p *FileToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error) {
 	switch name {
 	case "read_document":
 		return p.readDocument(ctx, args)
@@ -171,7 +171,7 @@ type LatexDocument struct {
 }
 
 // readDocument 读取文档
-func (p *FileToolProvider) readDocument(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *FileToolProvider) readDocument(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	docID, ok := args["document_id"].(float64)
 	if !ok {
 		return CreateErrorResult(fmt.Errorf("document_id is required")), nil
@@ -182,7 +182,7 @@ func (p *FileToolProvider) readDocument(ctx context.Context, args map[string]int
 		return CreateErrorResult(fmt.Errorf("document not found: %w", err)), nil
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"id":       doc.ID,
 		"title":    doc.Title,
 		"filename": doc.Filename,
@@ -192,7 +192,7 @@ func (p *FileToolProvider) readDocument(ctx context.Context, args map[string]int
 }
 
 // writeDocument 写入文档
-func (p *FileToolProvider) writeDocument(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *FileToolProvider) writeDocument(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	docID, ok := args["document_id"].(float64)
 	if !ok {
 		return CreateErrorResult(fmt.Errorf("document_id is required")), nil
@@ -213,7 +213,7 @@ func (p *FileToolProvider) writeDocument(ctx context.Context, args map[string]in
 		return CreateErrorResult(fmt.Errorf("document not found")), nil
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"success":     true,
 		"document_id": uint(docID),
 		"message":     "Document updated successfully",
@@ -221,7 +221,7 @@ func (p *FileToolProvider) writeDocument(ctx context.Context, args map[string]in
 }
 
 // listDocuments 列出文档
-func (p *FileToolProvider) listDocuments(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *FileToolProvider) listDocuments(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	userID, ok := args["user_id"].(float64)
 	if !ok {
 		return CreateErrorResult(fmt.Errorf("user_id is required")), nil
@@ -239,9 +239,9 @@ func (p *FileToolProvider) listDocuments(ctx context.Context, args map[string]in
 	}
 
 	// 构建文件树结构
-	fileList := make([]map[string]interface{}, 0, len(docs))
+	fileList := make([]map[string]any, 0, len(docs))
 	for _, doc := range docs {
-		fileList = append(fileList, map[string]interface{}{
+		fileList = append(fileList, map[string]any{
 			"id":         doc.ID,
 			"title":      doc.Title,
 			"filename":   doc.Filename,
@@ -252,14 +252,14 @@ func (p *FileToolProvider) listDocuments(ctx context.Context, args map[string]in
 		})
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"count": len(fileList),
 		"files": fileList,
 	}), nil
 }
 
 // getDocumentInfo 获取文档信息
-func (p *FileToolProvider) getDocumentInfo(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *FileToolProvider) getDocumentInfo(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	docID, ok := args["document_id"].(float64)
 	if !ok {
 		return CreateErrorResult(fmt.Errorf("document_id is required")), nil
@@ -274,7 +274,7 @@ func (p *FileToolProvider) getDocumentInfo(ctx context.Context, args map[string]
 	var contentLength int64
 	p.db.Table("latex_documents").Where("id = ?", uint(docID)).Select("LENGTH(content)").Scan(&contentLength)
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"id":           doc.ID,
 		"title":        doc.Title,
 		"filename":     doc.Filename,
@@ -288,7 +288,7 @@ func (p *FileToolProvider) getDocumentInfo(ctx context.Context, args map[string]
 }
 
 // searchInDocuments 在文档中搜索
-func (p *FileToolProvider) searchInDocuments(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *FileToolProvider) searchInDocuments(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	userID, ok := args["user_id"].(float64)
 	if !ok {
 		return CreateErrorResult(fmt.Errorf("user_id is required")), nil
@@ -310,11 +310,11 @@ func (p *FileToolProvider) searchInDocuments(ctx context.Context, args map[strin
 		return CreateErrorResult(fmt.Errorf("search failed: %w", err)), nil
 	}
 
-	results := make([]map[string]interface{}, 0, len(docs))
+	results := make([]map[string]any, 0, len(docs))
 	for _, doc := range docs {
 		// 查找匹配的行
 		matches := findMatchingLines(doc.Content, query)
-		results = append(results, map[string]interface{}{
+		results = append(results, map[string]any{
 			"document_id": doc.ID,
 			"title":       doc.Title,
 			"filename":    doc.Filename,
@@ -322,7 +322,7 @@ func (p *FileToolProvider) searchInDocuments(ctx context.Context, args map[strin
 		})
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"query":   query,
 		"count":   len(results),
 		"results": results,
@@ -330,14 +330,14 @@ func (p *FileToolProvider) searchInDocuments(ctx context.Context, args map[strin
 }
 
 // findMatchingLines 查找匹配的行
-func findMatchingLines(content, query string) []map[string]interface{} {
+func findMatchingLines(content, query string) []map[string]any {
 	lines := strings.Split(content, "\n")
-	matches := []map[string]interface{}{}
+	matches := []map[string]any{}
 	queryLower := strings.ToLower(query)
 
 	for i, line := range lines {
 		if strings.Contains(strings.ToLower(line), queryLower) {
-			matches = append(matches, map[string]interface{}{
+			matches = append(matches, map[string]any{
 				"line":    i + 1,
 				"content": strings.TrimSpace(line),
 			})

@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@codemirror/commands": "^6.8.0",
+    "dompurify": "^2.5.4",
     "@codemirror/language": "^6.10.8",
     "@codemirror/legacy-modes": "^6.5.2",
     "@codemirror/state": "^6.5.2",

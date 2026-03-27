@@ -11,15 +11,16 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 )
 
 // TemplateVariables represents template variables as JSON
-type TemplateVariables map[string]interface{}
+type TemplateVariables map[string]any
 
 // Scan implements sql.Scanner for Variables field
-func (v *TemplateVariables) Scan(value interface{}) error {
+func (v *TemplateVariables) Scan(value any) error {
 	if value == nil {
 		*v = nil
 		return nil
@@ -55,7 +56,7 @@ type PromptTemplate struct {
 }
 
 // MessageContent represents content that can be either text or multimodal
-type MessageContent interface{}
+type MessageContent any
 
 // TextContent represents plain text content
 type TextContent struct {
@@ -187,11 +188,11 @@ func ConvertMessagesForModel(messages []ChatMessage, modelName string) []ChatMes
 		}
 		
 		// 检查 Content 是否是数组类型
-		if contentArray, ok := msg.Content.([]interface{}); ok {
-			newContent := make([]interface{}, 0, len(contentArray))
+		if contentArray, ok := msg.Content.([]any); ok {
+			newContent := make([]any, 0, len(contentArray))
 			for _, part := range contentArray {
 				// 检查是否是 FileInputMeta 类型
-				if partMap, ok := part.(map[string]interface{}); ok {
+				if partMap, ok := part.(map[string]any); ok {
 					if partMap["type"] == "file_input_meta" {
 						// 转换文件内容
 						mimeType, _ := partMap["mime_type"].(string)
@@ -216,26 +217,24 @@ func ConvertMessagesForModel(messages []ChatMessage, modelName string) []ChatMes
 						// 注意：OpenAI 的 file 格式只支持 PDF，不支持 Word 等其他文档格式
 						if strings.HasPrefix(mimeType, "image/") {
 							// 图片使用 image_url 格式
-							newContent = append(newContent, map[string]interface{}{
+							newContent = append(newContent, map[string]any{
 								"type": "image_url",
-								"image_url": map[string]interface{}{
+								"image_url": map[string]any{
 									"url":    fmt.Sprintf("data:%s;base64,%s", mimeType, data),
 									"detail": "high",
 								},
 							})
 						} else if mimeType == "application/pdf" {
 							// 只有 PDF 可以使用 file 格式
-							newContent = append(newContent, map[string]interface{}{
+							newContent = append(newContent, map[string]any{
 								"type": "file",
-								"file": map[string]interface{}{
+								"file": map[string]any{
 									"file_data": fmt.Sprintf("data:%s;base64,%s", mimeType, data),
 									"filename":  fileName,
 								},
 							})
 						} else {
-							// 其他文档格式（Word、Excel等）GPT不支持直接传递
-							// 跳过这些文件，让上层逻辑改用文本模式处理
-							fmt.Printf("[AI Warning] GPT model does not support file type: %s, skipping file\n", mimeType)
+							slog.Warn("GPT model does not support file type, skipping", "mimeType", mimeType)
 						}
 					}
 						continue
@@ -262,26 +261,24 @@ func ConvertMessagesForModel(messages []ChatMessage, modelName string) []ChatMes
 						// 注意：OpenAI 的 file 格式只支持 PDF，不支持 Word 等其他文档格式
 						if strings.HasPrefix(fileMeta.MimeType, "image/") {
 							// 图片使用 image_url 格式
-							newContent = append(newContent, map[string]interface{}{
+							newContent = append(newContent, map[string]any{
 								"type": "image_url",
-								"image_url": map[string]interface{}{
+								"image_url": map[string]any{
 									"url":    fmt.Sprintf("data:%s;base64,%s", fileMeta.MimeType, fileMeta.Data),
 									"detail": "high",
 								},
 							})
 						} else if fileMeta.MimeType == "application/pdf" {
 							// 只有 PDF 可以使用 file 格式
-							newContent = append(newContent, map[string]interface{}{
+							newContent = append(newContent, map[string]any{
 								"type": "file",
-								"file": map[string]interface{}{
+								"file": map[string]any{
 									"file_data": fmt.Sprintf("data:%s;base64,%s", fileMeta.MimeType, fileMeta.Data),
 									"filename":  fileName,
 								},
 							})
-						} else {
-							// 其他文档格式（Word、Excel等）GPT不支持直接传递
-							// 跳过这些文件，让上层逻辑改用文本模式处理
-							fmt.Printf("[AI Warning] GPT model does not support file type: %s, skipping file\n", fileMeta.MimeType)
+					} else {
+						slog.Warn("GPT model does not support file type, skipping", "mimeType", fileMeta.MimeType)
 						}
 					}
 					continue
@@ -320,7 +317,7 @@ type Tool struct {
 type ToolFunction struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters"`
+	Parameters  map[string]any `json:"parameters"`
 }
 
 // ChatCompletionRequest represents OpenAI chat completion request

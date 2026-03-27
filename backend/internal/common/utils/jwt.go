@@ -9,6 +9,7 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"scholar-backend/internal/common/config"
 	"time"
 
@@ -33,7 +34,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// GenerateToken generates a JWT token with default expiration (2 hours)
+// GenerateToken 生成带默认过期时间（48小时）的 JWT token
 func GenerateToken(userID uint, username, userType string) (string, error) {
 	return GenerateTokenWithSession(userID, username, userType, "")
 }
@@ -56,9 +57,13 @@ func GenerateTokenWithSession(userID uint, username, userType, sessionID string)
 	return token.SignedString([]byte(config.AppConfig.JWT.Secret))
 }
 
-// ParseToken parses and validates a JWT token
+// ParseToken parses and validates a JWT token.
+// Explicitly restricts signing method to HMAC to prevent algorithm confusion attacks.
 func ParseToken(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
 		return []byte(config.AppConfig.JWT.Secret), nil
 	})
 
@@ -73,9 +78,13 @@ func ParseToken(tokenString string) (*Claims, error) {
 	return nil, errors.New("invalid token")
 }
 
-// ParseTokenIgnoreExpiry parses a JWT token without checking expiry (for refresh)
+// ParseTokenIgnoreExpiry parses a JWT token without checking expiry (for refresh).
+// Explicitly restricts signing method to HMAC to prevent algorithm confusion attacks.
 func ParseTokenIgnoreExpiry(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
 		return []byte(config.AppConfig.JWT.Secret), nil
 	}, jwt.WithoutClaimsValidation())
 

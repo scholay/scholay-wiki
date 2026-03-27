@@ -10,7 +10,7 @@ package checkin
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"scholar-backend/internal/currency"
@@ -158,9 +158,9 @@ func (s *Service) Checkin(userID uint) (*CheckinResponse, error) {
 			desc := fmt.Sprintf("签到奖励（连续%d天）", consecutiveDays)
 			_, err := s.currencyService.GiftGold(ctx, userID, goldReward, "daily_checkin", bizID, desc)
 			if err != nil {
-				log.Printf("Failed to gift checkin gold to user %d: %v", userID, err)
+				slog.Error("failed to gift checkin gold", "user_id", userID, "err", err)
 			} else {
-				log.Printf("Successfully gifted %d gold to user %d for checkin (day %d)", goldReward, userID, consecutiveDays)
+				slog.Info("checkin gold gifted", "amount", goldReward, "user_id", userID, "day", consecutiveDays)
 			}
 		}()
 	}
@@ -201,7 +201,7 @@ func (s *Service) getCheckinGoldReward(consecutiveDays int) int64 {
 
 	amount, err := s.currencyService.GetCurrencyConfigAmount(configKey)
 	if err != nil {
-		log.Printf("Failed to get checkin gold config %s: %v", configKey, err)
+		slog.Warn("failed to get checkin gold config", "config_key", configKey, "err", err)
 		return getDefaultCheckinGold(consecutiveDays)
 	}
 	return amount

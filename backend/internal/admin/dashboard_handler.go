@@ -9,6 +9,7 @@ package admin
 
 import (
 	"net/http"
+	ifaces "scholar-backend/internal/common/interfaces"
 	"scholar-backend/internal/common/utils"
 	"time"
 
@@ -16,16 +17,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// OnlineStatsProvider 提供在线统计的接口（由 WebSocket Hub 实现）
-type OnlineStatsProvider interface {
-	GetOnlineUserCount() int
-	GetOnlineGuestCount() int
-}
-
 // DashboardHandler handles dashboard statistics requests
 type DashboardHandler struct {
 	db                  *gorm.DB
-	onlineStatsProvider OnlineStatsProvider
+	onlineStatsProvider ifaces.OnlineStatsProvider
 }
 
 // NewDashboardHandler creates a new dashboard handler
@@ -34,7 +29,7 @@ func NewDashboardHandler(db *gorm.DB) *DashboardHandler {
 }
 
 // SetOnlineStatsProvider 设置在线统计提供者（WebSocket Hub）
-func (h *DashboardHandler) SetOnlineStatsProvider(provider OnlineStatsProvider) {
+func (h *DashboardHandler) SetOnlineStatsProvider(provider ifaces.OnlineStatsProvider) {
 	h.onlineStatsProvider = provider
 }
 

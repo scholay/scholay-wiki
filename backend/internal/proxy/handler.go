@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"scholar-backend/internal/common/utils"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,9 +30,7 @@ func (h *Handler) ProxySemanticScholar(c *gin.Context) {
 	// Get the paper ID or full path from the URL parameter
 	paperId := c.Param("paperId")
 	if paperId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Missing paper ID",
-		})
+		utils.BadRequest(c, "Missing paper ID")
 		return
 	}
 
@@ -73,11 +73,9 @@ func (h *Handler) ProxySemanticScholar(c *gin.Context) {
 	}
 
 	// Create request to Semantic Scholar
-	req, err := http.NewRequest("GET", targetURL, nil)
+	req, err := http.NewRequestWithContext(c.Request.Context(), "GET", targetURL, nil)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to create request",
-		})
+		utils.ServerError(c, "Failed to create request")
 		return
 	}
 
@@ -101,24 +99,15 @@ func (h *Handler) ProxySemanticScholar(c *gin.Context) {
 	// Execute request
 	resp, err := client.Do(req)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{
-			"error": "Failed to fetch from Semantic Scholar",
-			"details": err.Error(),
-		})
+		utils.ErrorResponse(c, http.StatusBadGateway, "Failed to fetch from Semantic Scholar")
 		return
 	}
 	defer resp.Body.Close()
 
 	// Check if the response is successful
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		c.JSON(resp.StatusCode, gin.H{
-			"error":  "Semantic Scholar returned error",
-			"status": resp.StatusCode,
-			"url": targetURL,
-			"finalUrl": resp.Request.URL.String(),
-			"body":   string(bodyBytes),
-		})
+		io.ReadAll(resp.Body)
+		utils.ErrorResponse(c, resp.StatusCode, "Semantic Scholar returned error")
 		return
 	}
 

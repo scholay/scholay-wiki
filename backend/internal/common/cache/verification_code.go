@@ -10,6 +10,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -59,7 +60,7 @@ func VerifyCode(ctx context.Context, email, code, purpose string) (bool, error) 
 
 	// Delete the code after verification (one-time use)
 	if err := Delete(ctx, key); err != nil {
-		fmt.Printf("Warning: failed to delete verification code %s: %v\n", key, err)
+		slog.Warn("Failed to delete verification code", "key", key, "err", err)
 	}
 
 	return true, nil

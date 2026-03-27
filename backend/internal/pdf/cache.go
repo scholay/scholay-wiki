@@ -8,7 +8,7 @@
 package pdf
 
 import (
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -76,8 +76,7 @@ func (c *Cache) Set(doi string, entry *PDFCacheEntry) {
 	c.data[doi] = entry
 	c.usedMemory += entry.Size
 
-	log.Printf("[PDF Cache] Set cache for DOI: %s (size: %d bytes, total: %d entries, memory: %d MB)",
-		doi, entry.Size, len(c.data), c.usedMemory/(1024*1024))
+	slog.Info("PDF cache set", "doi", doi, "size", entry.Size, "total_entries", len(c.data), "memory_mb", c.usedMemory/(1024*1024))
 }
 
 // Delete 删除缓存
@@ -122,7 +121,7 @@ func (c *Cache) evictOldest() {
 		entry := c.data[oldestDOI]
 		c.usedMemory -= entry.Size
 		delete(c.data, oldestDOI)
-		log.Printf("[PDF Cache] Evicted cache for DOI: %s (created: %v)", oldestDOI, oldestTime)
+		slog.Info("PDF cache evicted", "doi", oldestDOI, "created", oldestTime)
 	}
 }
 
@@ -157,17 +156,16 @@ func (c *Cache) cleanup() {
 	}
 
 	if len(expiredDOIs) > 0 {
-		log.Printf("[PDF Cache] Cleaned up %d expired entries, remaining: %d entries, memory: %d MB",
-			len(expiredDOIs), len(c.data), c.usedMemory/(1024*1024))
+		slog.Info("PDF cache cleanup", "expired", len(expiredDOIs), "remaining", len(c.data), "memory_mb", c.usedMemory/(1024*1024))
 	}
 }
 
 // Stats 获取缓存统计信息
-func (c *Cache) Stats() map[string]interface{} {
+func (c *Cache) Stats() map[string]any {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	return map[string]interface{}{
+	return map[string]any{
 		"entries":     len(c.data),
 		"max_entries": c.maxSize,
 		"used_memory": c.usedMemory,

@@ -1,5 +1,5 @@
-# Build stage
-FROM node:20-alpine AS builder
+# Build stage - use slim (glibc) to avoid musl native binding issues with rollup
+FROM node:20-slim AS builder
 
 WORKDIR /app
 

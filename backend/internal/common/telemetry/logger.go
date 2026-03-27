@@ -12,14 +12,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -38,7 +39,6 @@ const (
 
 // Logger provides structured logging with SigNoz integration
 type Logger struct {
-	logger   *logrus.Logger
 	tracer   trace.Tracer
 	endpoint string
 }
@@ -111,17 +111,11 @@ func sigNozWorker() {
 
 // NewLogger creates a new logger instance
 func NewLogger(name string) *Logger {
-	logger := logrus.New()
-	logger.SetFormatter(&logrus.JSONFormatter{
-		TimestampFormat: time.RFC3339Nano,
-	})
-	
 	if globalEndpoint != "" {
 		getSigNozClient()
 	}
-	
+
 	return &Logger{
-		logger:   logger,
 		tracer:   GetTracer(),
 		endpoint: globalEndpoint,
 	}
@@ -229,59 +223,65 @@ func (l *Logger) LogRequest(ctx context.Context, entry *LogEntry) {
 
 // log is the internal logging method
 func (l *Logger) log(ctx context.Context, level LogLevel, msg string, err error, attrs ...attribute.KeyValue) {
-	// Get trace and span IDs from context
 	span := trace.SpanFromContext(ctx)
 	spanCtx := span.SpanContext()
-	
-	// Prepare log fields
-	fields := logrus.Fields{
+
+	// Build slog args and a parallel map for SigNoz export
+	slogArgs := []any{"level", string(level)}
+	sigNozFields := map[string]any{
 		"level":   string(level),
 		"message": msg,
 	}
-	
-	// Add trace context
+
 	if spanCtx.HasTraceID() {
-		fields["trace.id"] = spanCtx.TraceID().String()
+		tid := spanCtx.TraceID().String()
+		slogArgs = append(slogArgs, "trace.id", tid)
+		sigNozFields["trace.id"] = tid
 	}
 	if spanCtx.HasSpanID() {
-		fields["span.id"] = spanCtx.SpanID().String()
+		sid := spanCtx.SpanID().String()
+		slogArgs = append(slogArgs, "span.id", sid)
+		sigNozFields["span.id"] = sid
 	}
-	
-	// Add attributes
+
 	for _, attr := range attrs {
-		fields[string(attr.Key)] = attr.Value.AsInterface()
+		k := string(attr.Key)
+		v := attr.Value.AsInterface()
+		slogArgs = append(slogArgs, k, v)
+		sigNozFields[k] = v
 	}
-	
-	// Add error if present
+
 	if err != nil {
-		fields["error.type"] = fmt.Sprintf("%T", err)
-		fields["error.message"] = err.Error()
-		
-		// Add stack trace for errors
+		errType := fmt.Sprintf("%T", err)
+		slogArgs = append(slogArgs, "error.type", errType, "error.message", err.Error())
+		sigNozFields["error.type"] = errType
+		sigNozFields["error.message"] = err.Error()
+
 		if level == LogLevelError || level == LogLevelFatal {
-			fields["error.stack"] = getStackTrace()
+			stack := getStackTrace()
+			slogArgs = append(slogArgs, "error.stack", stack)
+			sigNozFields["error.stack"] = stack
 		}
 	}
-	
-	// Log to local logger
-	entry := l.logger.WithFields(fields)
+
 	switch level {
 	case LogLevelDebug:
-		entry.Debug(msg)
+		slog.DebugContext(ctx, msg, slogArgs...)
 	case LogLevelInfo:
-		entry.Info(msg)
+		slog.InfoContext(ctx, msg, slogArgs...)
 	case LogLevelWarn:
-		entry.Warn(msg)
+		slog.WarnContext(ctx, msg, slogArgs...)
 	case LogLevelError:
-		entry.Error(msg)
+		slog.ErrorContext(ctx, msg, slogArgs...)
 	case LogLevelFatal:
-		entry.Fatal(msg)
+		slog.ErrorContext(ctx, msg, slogArgs...)
+		os.Exit(1)
 	}
-	
+
 	// Send to SigNoz if endpoint is configured (non-blocking queue)
 	if l.endpoint != "" && sigNozEnabled.Load() {
-		data, err := json.Marshal(fields)
-		if err == nil {
+		data, jsonErr := json.Marshal(sigNozFields)
+		if jsonErr == nil {
 			select {
 			case sigNozCh <- data:
 			default:

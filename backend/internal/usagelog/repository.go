@@ -357,7 +357,7 @@ func (r *Repository) UpdateConfig(config *UsageLogConfig) error {
 	// 使用 upsert 逻辑：如果存在则更新，不存在则创建
 	result := r.db.Model(&UsageLogConfig{}).
 		Where("id = ?", 1).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"retention_days": config.RetentionDays,
 			"updated_at":     time.Now(),
 		})

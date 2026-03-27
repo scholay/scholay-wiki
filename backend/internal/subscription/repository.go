@@ -8,11 +8,9 @@
 package subscription
 
 import (
-	"fmt"
 	"time"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 // Repository handles database operations for subscriptions
@@ -31,6 +29,17 @@ func NewRepository(db *gorm.DB) *Repository {
 func getTomorrowMidnight() time.Time {
 	now := time.Now()
 	return time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+}
+
+// GetActiveSubscriptionsByUserIDs returns active subscription summaries for a batch of user IDs
+func (r *Repository) GetActiveSubscriptionsByUserIDs(userIDs []uint) ([]SubscriptionSummary, error) {
+	var results []SubscriptionSummary
+	err := r.db.Table("user_subscriptions").
+		Select("user_subscriptions.user_id, user_subscriptions.plan_code, subscription_plans.plan_name, user_subscriptions.status, user_subscriptions.end_date, user_subscriptions.auto_renew").
+		Joins("LEFT JOIN subscription_plans ON user_subscriptions.plan_code = subscription_plans.plan_code").
+		Where("user_subscriptions.user_id IN ? AND user_subscriptions.status = ?", userIDs, "active").
+		Scan(&results).Error
+	return results, err
 }
 
 // GetAllPlans retrieves all active subscription plans
@@ -154,49 +163,6 @@ func (r *Repository) GetTodayUsageQuota(userID uint, date string) (*UsageQuota, 
 	return &quota, nil
 }
 
-// UpdateUsageQuota updates the usage quota
-func (r *Repository) UpdateUsageQuota(quota *UsageQuota) error {
-	return r.db.Save(quota).Error
-}
-
-// IncrementUsage increments a specific usage counter atomically to prevent race conditions
-func (r *Repository) IncrementUsage(userID uint, date string, usageType string) error {
-	// First ensure the quota record exists for today
-	_, err := r.GetTodayUsageQuota(userID, date)
-	if err != nil {
-		return err
-	}
-
-	// Use atomic UPDATE with database-level increment to prevent race conditions
-	// This ensures that even with concurrent requests, the count is accurate
-	var columnName string
-	switch usageType {
-	case "normal_search":
-		columnName = "normal_search_count"
-	case "advanced_search_low":
-		columnName = "advanced_search_low_count"
-	case "advanced_search_mid":
-		columnName = "advanced_search_mid_count"
-	case "advanced_search_high":
-		columnName = "advanced_search_high_count"
-	case "ai_chat_normal":
-		columnName = "ai_chat_normal_count"
-	case "ai_chat_mid":
-		columnName = "ai_chat_mid_count"
-	case "ai_chat_high":
-		columnName = "ai_chat_high_count"
-	default:
-		return fmt.Errorf("invalid usage type: %s", usageType)
-	}
-
-	// Atomic increment at database level
-	result := r.db.Model(&UsageQuota{}).
-		Where("user_id = ? AND quota_date = ?", userID, date).
-		Update(columnName, gorm.Expr(columnName+" + ?", 1))
-
-	return result.Error
-}
-
 // GetActiveSubscriptionsByPlanCodes 获取指定计划代码的所有活跃订阅
 // 注意：不仅检查 status = 'active'，还要检查 end_date >= 明天00:00
 // 到期日当天仍为有效会员
@@ -215,46 +181,6 @@ func (r *Repository) GetAllActiveSubscriptions() ([]UserSubscription, error) {
 	tomorrowMidnight := getTomorrowMidnight()
 	err := r.db.Where("status = ? AND (end_date IS NULL OR end_date >= ?)", "active", tomorrowMidnight).Find(&subscriptions).Error
 	return subscriptions, err
-}
-
-// GetExpiredMembersWithGracePeriod 获取过期超过宽限期且还有经费的会员
-// graceDays: 宽限期天数
-// 返回：过期时间超过 graceDays 天的用户（原来是 pro/max 会员，现在已过期或取消，且还有经费）
-// 已废弃：使用 GetNonMembersWithGold 替代
-func (r *Repository) GetExpiredMembersWithGracePeriod(graceDays int) ([]ExpiredMemberInfo, error) {
-	// 计算宽限期截止时间（当前时间减去宽限期天数）
-	graceDeadline := time.Now().AddDate(0, 0, -graceDays)
-	// 获取明天00:00，用于判断会员是否有效（到期日当天仍为会员）
-	tomorrowMidnight := getTomorrowMidnight()
-
-	var results []ExpiredMemberInfo
-
-	// 查询已过期或已取消的 pro/max 订阅
-	// 条件：
-	// 1. plan_code 是 pro 或 max
-	// 2. status 是 expired 或 cancelled
-	// 3. end_date 不为空且在宽限期截止时间之前
-	// 4. 用户当前没有活跃的 pro/max 订阅
-	// 5. 用户钱包中还有经费（gold > 0）
-	err := r.db.Raw(`
-		SELECT DISTINCT us.user_id, us.plan_code, us.end_date as expired_at
-		FROM user_subscriptions us
-		INNER JOIN wallets w ON w.user_id = us.user_id AND w.gold > 0
-		WHERE us.plan_code IN ('pro', 'max')
-		  AND us.status IN ('expired', 'cancelled')
-		  AND us.end_date IS NOT NULL
-		  AND us.end_date < ?
-		  AND NOT EXISTS (
-			SELECT 1 FROM user_subscriptions active_sub
-			WHERE active_sub.user_id = us.user_id
-			  AND active_sub.plan_code IN ('pro', 'max')
-			  AND active_sub.status = 'active'
-			  AND (active_sub.end_date IS NULL OR active_sub.end_date >= ?)
-		  )
-		ORDER BY us.end_date ASC
-	`, graceDeadline, tomorrowMidnight).Scan(&results).Error
-
-	return results, err
 }
 
 // GetNonMembersWithGold 获取所有非会员用户（有经费但没有活跃pro/max订阅）
@@ -289,13 +215,6 @@ func (r *Repository) GetNonMembersWithGold() ([]NonMemberInfo, error) {
 	`, tomorrowMidnight).Scan(&results).Error
 
 	return results, err
-}
-
-// ExpiredMemberInfo 过期会员信息
-type ExpiredMemberInfo struct {
-	UserID    uint      `gorm:"column:user_id"`
-	PlanCode  string    `gorm:"column:plan_code"`
-	ExpiredAt time.Time `gorm:"column:expired_at"`
 }
 
 // NonMemberInfo 非会员用户信息
@@ -640,68 +559,3 @@ func (r *Repository) GetNonMembersForMonthEndReminder(graceDays int) ([]NonMembe
 	return results, err
 }
 
-// CheckAndIncrementQuota atomically checks if user has quota and increments if available
-// This prevents race conditions in concurrent scenarios
-func (r *Repository) CheckAndIncrementQuota(userID uint, date string, usageType string, limit int) error {
-	// Map usage type to column name
-	var columnName string
-	switch usageType {
-	case "normal_search":
-		columnName = "normal_search_count"
-	case "advanced_search_low":
-		columnName = "advanced_search_low_count"
-	case "advanced_search_mid":
-		columnName = "advanced_search_mid_count"
-	case "advanced_search_high":
-		columnName = "advanced_search_high_count"
-	case "ai_chat_normal":
-		columnName = "ai_chat_normal_count"
-	case "ai_chat_mid":
-		columnName = "ai_chat_mid_count"
-	case "ai_chat_high":
-		columnName = "ai_chat_high_count"
-	default:
-		return fmt.Errorf("invalid usage type: %s", usageType)
-	}
-
-	// Use transaction to ensure atomicity
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		// First ensure the quota record exists
-		var quota UsageQuota
-		err := tx.Where("user_id = ? AND quota_date = ?", userID, date).First(&quota).Error
-		if err == gorm.ErrRecordNotFound {
-			// Create new quota record
-			quota = UsageQuota{
-				UserID:    userID,
-				QuotaDate: date,
-			}
-			if err := tx.Create(&quota).Error; err != nil {
-				return err
-			}
-		} else if err != nil {
-			return err
-		}
-
-		// Check current count using FOR UPDATE to lock the row
-		var currentCount int
-		err = tx.Model(&UsageQuota{}).
-			Where("user_id = ? AND quota_date = ?", userID, date).
-			Clauses(clause.Locking{Strength: "UPDATE"}).
-			Pluck(columnName, &currentCount).Error
-		if err != nil {
-			return err
-		}
-
-		// Check if quota exceeded
-		if currentCount >= limit {
-			return fmt.Errorf("quota exceeded for %s: %d/%d used", usageType, currentCount, limit)
-		}
-
-		// Increment atomically
-		result := tx.Model(&UsageQuota{}).
-			Where("user_id = ? AND quota_date = ?", userID, date).
-			Update(columnName, gorm.Expr(columnName+" + ?", 1))
-
-		return result.Error
-	})
-}

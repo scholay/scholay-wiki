@@ -64,7 +64,7 @@ type ErrorData struct {
 }
 
 // NewMessage 创建消息
-func NewMessage(msgType MessageType, data interface{}) (*Message, error) {
+func NewMessage(msgType MessageType, data any) (*Message, error) {
 	var rawData json.RawMessage
 	if data != nil {
 		bytes, err := json.Marshal(data)

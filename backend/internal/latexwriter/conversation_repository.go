@@ -147,7 +147,7 @@ func (r *ConversationRepository) UpdateConversationStats(conversationID uint) er
 	// 更新对话统计
 	return r.db.Model(&LatexConversation{}).
 		Where("id = ?", conversationID).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"message_count": stats.Count,
 			"total_tokens":  stats.Tokens,
 		}).Error
@@ -164,7 +164,7 @@ func (r *ConversationRepository) ClearMessages(conversationID uint) error {
 	// 重置统计
 	return r.db.Model(&LatexConversation{}).
 		Where("id = ?", conversationID).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"message_count": 0,
 			"total_tokens":  0,
 		}).Error

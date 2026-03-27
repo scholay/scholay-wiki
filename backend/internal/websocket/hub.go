@@ -8,8 +8,7 @@
 package websocket
 
 import (
-	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -115,7 +114,7 @@ func (h *Hub) recordSnapshot() {
 	// 异步记录，不阻塞连接处理
 	go func() {
 		if err := h.snapshotRecorder.RecordOnlineSnapshot(userCount, guestCount); err != nil {
-			log.Printf("[WebSocket] Failed to record snapshot: %v", err)
+			slog.Error("failed to record online snapshot", "err", err)
 		}
 	}()
 }
@@ -137,7 +136,7 @@ func (h *Hub) setupHandlers() {
 			h.guestSessions[s] = true
 			guestCount := len(h.guestSessions)
 			h.mu.Unlock()
-			fmt.Printf("[WebSocket] Guest connected, total guests: %d\n", guestCount)
+			slog.Info("guest connected", "total_guests", guestCount)
 			// 记录在线快照
 			h.recordSnapshot()
 			return
@@ -151,7 +150,7 @@ func (h *Hub) setupHandlers() {
 			h.guestSessions[s] = true
 			guestCount := len(h.guestSessions)
 			h.mu.Unlock()
-			fmt.Printf("[WebSocket] Guest connected (no user_id), total guests: %d\n", guestCount)
+			slog.Info("guest connected (no user_id)", "total_guests", guestCount)
 			// 记录在线快照
 			h.recordSnapshot()
 			return
@@ -165,7 +164,7 @@ func (h *Hub) setupHandlers() {
 		h.userSessions[uid][s] = true
 		h.mu.Unlock()
 
-		fmt.Printf("[WebSocket] User %d connected, total sessions: %d\n", uid, len(h.userSessions[uid]))
+		slog.Info("user connected", "user_id", uid, "total_sessions", len(h.userSessions[uid]))
 
 		// 更新 session activity（连接建立时）
 		h.updateSessionActivity(s)
@@ -182,7 +181,7 @@ func (h *Hub) setupHandlers() {
 			delete(h.guestSessions, s)
 			guestCount := len(h.guestSessions)
 			h.mu.Unlock()
-			fmt.Printf("[WebSocket] Guest disconnected, remaining guests: %d\n", guestCount)
+			slog.Info("guest disconnected", "remaining_guests", guestCount)
 			// 记录在线快照
 			h.recordSnapshot()
 			return
@@ -209,7 +208,7 @@ func (h *Hub) setupHandlers() {
 		}
 		h.mu.Unlock()
 
-		fmt.Printf("[WebSocket] User %d disconnected\n", uid)
+		slog.Info("user disconnected", "user_id", uid)
 		// 记录在线快照
 		h.recordSnapshot()
 	})
@@ -247,7 +246,7 @@ func (h *Hub) setupHandlers() {
 
 	// 错误处理
 	h.melody.HandleError(func(s *melody.Session, err error) {
-		fmt.Printf("[WebSocket] Error: %v\n", err)
+		slog.Error("WebSocket error", "err", err)
 	})
 }
 
@@ -282,7 +281,7 @@ func (h *Hub) updateSessionActivity(s *melody.Session) {
 	// 异步更新，避免阻塞 WebSocket 消息处理
 	go func() {
 		if err := h.sessionUpdater.UpdateSessionActivityByUserID(uid, ip); err != nil {
-			fmt.Printf("[WebSocket] Failed to update session activity for user %d: %v\n", uid, err)
+			slog.Error("failed to update session activity", "user_id", uid, "err", err)
 		}
 	}()
 
@@ -309,15 +308,15 @@ func (h *Hub) SendToUser(userID uint, msg *Message) error {
 
 	if !exists || sessionCount == 0 {
 		// 用户不在线，记录日志
-		fmt.Printf("[WebSocket] User %d is not online (sessions: %d), message not sent: %s\n", userID, sessionCount, msg.Type)
+		slog.Debug("user not online, message not sent", "user_id", userID, "sessions", sessionCount, "msg_type", msg.Type)
 		return nil
 	}
 
-	fmt.Printf("[WebSocket] Sending message to user %d (sessions: %d): type=%s\n", userID, sessionCount, msg.Type)
+	slog.Debug("sending message to user", "user_id", userID, "sessions", sessionCount, "msg_type", msg.Type)
 
 	for session := range sessions {
 		if err := session.Write(data); err != nil {
-			fmt.Printf("[WebSocket] Failed to send to user %d: %v\n", userID, err)
+			slog.Error("failed to send WebSocket message", "user_id", userID, "err", err)
 		}
 	}
 
@@ -466,15 +465,15 @@ func (h *Hub) checkIdleConnections() {
 		userID, _ := session.Get("user_id")
 		isGuest, _ := session.Get("is_guest")
 		if isGuest == true {
-			fmt.Printf("[WebSocket] Closing idle guest connection\n")
+			slog.Debug("closing idle guest connection")
 		} else if userID != nil {
-			fmt.Printf("[WebSocket] Closing idle connection for user %v\n", userID)
+			slog.Debug("closing idle user connection", "user_id", userID)
 		}
 		session.Close()
 	}
 
 	if len(idleSessions) > 0 {
-		fmt.Printf("[WebSocket] Closed %d idle connections\n", len(idleSessions))
+		slog.Info("closed idle connections", "count", len(idleSessions))
 	}
 }
 

@@ -8,9 +8,11 @@
 package conversation
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 
 	"scholar-backend/internal/ai"
@@ -21,7 +23,7 @@ import (
 // ContinueConversation 继续对话并使用之前消息的上下文
 // 现在使用与智能分析相同的逻辑：始终执行MCP搜索并结合历史查询
 // 注意：配额检查已废弃，现在使用货币系统进行扣费控制
-func (s *Service) ContinueConversation(conversationID uint, userQuery string, writer io.Writer, userID uint, modelLevel thirdparty.ModelLevel) error {
+func (s *Service) ContinueConversation(ctx context.Context, conversationID uint, userQuery string, writer io.Writer, userID uint, modelLevel thirdparty.ModelLevel) error {
 	// Get the user message (it should already exist, created by frontend)
 	// We need to find the latest user message with this query
 	messages, err := s.repo.GetConversationMessages(conversationID)
@@ -43,7 +45,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	}
 	
 	userMessageID := userMessage.MessageID
-	fmt.Printf("[DEBUG] Found user message with ID: %s\n", userMessageID)
+	slog.Debug("found user message", "messageID", userMessageID)
 
 	// Update conversation's model level
 	conversation, err := s.repo.GetConversationByID(conversationID, userID)
@@ -53,7 +55,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	if conversation.ModelLevel != string(modelLevel) {
 		conversation.ModelLevel = string(modelLevel)
 		if err := s.repo.UpdateConversation(conversation); err != nil {
-			fmt.Printf("Warning: failed to update conversation model level: %v\n", err)
+			slog.Warn("failed to update conversation model level", "err", err)
 		}
 	}
 
@@ -61,20 +63,20 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 
 	// Step 2: Build combined query context from historical queries and current query
 	combinedQuery := s.buildHistoryQueriesContext(messages, userQuery, 5)
-	fmt.Printf("[DEBUG] Combined query for continue conversation: %s\n", combinedQuery)
+	slog.Debug("combined query for continue conversation", "query", combinedQuery)
 
 	// Step 3: Create MCP server with manager
 	mcpServer := mcp.NewMCPServer(s.scholarManager)
 
 	// Step 4: Get available MCP tools
 	mcpTools := mcpServer.ListTools()
-	aiTools := ai.ConvertMCPToolsToOpenAIFormat(mcpTools)
+	aiTools := ai.ConvertMCPToolsToOpenAIFormat(convertMCPToolDefs(mcpTools))
 
 	// Step 5: 从模板创建消息和系统提示（与智能分析相同）
 	mcpSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_mcp_system", nil)
 	if err != nil {
 		// 如果未找到模板，使用备用提示（与智能分析相同）
-		fmt.Printf("[WARN] Failed to get MCP system prompt template, using fallback: %v\n", err)
+		slog.Warn("failed to get MCP system prompt template, using fallback", "err", err)
 		mcpSystemPrompt = `你是一名专业学术研究助手。你的唯一职责是根据用户的查询调用 search_papers_advanced 工具检索高质量学术论文。你绝不能直接回答问题，也不能解释概念或提供任何分析。你必须且只能通过 search_papers_advanced 工具返回论文结果。禁止使用 search_papers 工具。
 
 无论用户使用的是中文、英文或任何其他语言，你提取的所有检索关键词必须始终使用标准英文学术术语。
@@ -122,42 +124,40 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 
 	// Step 6: 调用AI获取工具调用（与智能分析相同）
 	// Use low-level model for tool calling to save cost
-	fmt.Printf("[DEBUG] Calling AI with tools, messages count: %d, tools count: %d\n", len(initialMessages), len(aiTools))
-	toolCallResponse, err := s.aiService.ChatCompletionWithTools(initialMessages, aiTools, "auto", thirdparty.ModelLevelLow)
+	slog.Debug("calling AI with tools", "messagesCount", len(initialMessages), "toolsCount", len(aiTools))
+	toolCallResponse, err := s.aiService.ChatCompletionWithTools(ctx, initialMessages, aiTools, "auto", thirdparty.ModelLevelLow)
 	if err != nil {
-		fmt.Printf("[ERROR] AI tool call failed: %v\n", err)
+		slog.Error("AI tool call failed", "err", err)
 		// Still try fallback search below, don't send error to frontend yet
 		toolCallResponse = nil
 	}
 
 	// Step 7: 执行工具调用并收集结果（使用增强的论文筛选逻辑）
-	var allPapers []map[string]interface{}
+	var allPapers []map[string]any
 	var totalCount int
 
 	if toolCallResponse != nil && len(toolCallResponse.Choices) > 0 && len(toolCallResponse.Choices[0].Message.ToolCalls) > 0 {
-		fmt.Printf("[DEBUG] Found %d tool calls\n", len(toolCallResponse.Choices[0].Message.ToolCalls))
+		slog.Debug("found tool calls", "count", len(toolCallResponse.Choices[0].Message.ToolCalls))
 		for _, toolCall := range toolCallResponse.Choices[0].Message.ToolCalls {
-			fmt.Printf("[DEBUG] Tool call name: %s\n", toolCall.Function.Name)
-			fmt.Printf("[DEBUG] Tool call arguments: %s\n", toolCall.Function.Arguments)
+			slog.Debug("tool call", "name", toolCall.Function.Name, "args", toolCall.Function.Arguments)
 
 			// Support both search_papers and search_papers_advanced
 			if toolCall.Function.Name == "search_papers" || toolCall.Function.Name == "search_papers_advanced" {
 				// Parse tool arguments
-				var args map[string]interface{}
+				var args map[string]any
 				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
-					fmt.Printf("[ERROR] Failed to parse tool arguments: %v\n", err)
+					slog.Error("failed to parse tool arguments", "err", err)
 					continue
 				}
 
 				// 使用增强的论文筛选逻辑（分页获取、过滤无摘要、AI相关性筛选）
-				filterResult, err := s.SearchAndFilterPapers(mcpServer, args, userQuery, DefaultPaperFilterConfig)
+				filterResult, err := s.SearchAndFilterPapers(ctx, mcpServer, args, userQuery, DefaultPaperFilterConfig)
 				if err != nil {
-					fmt.Printf("[ERROR] Paper search and filter failed: %v\n", err)
+					slog.Error("paper search and filter failed", "err", err)
 					continue
 				}
 
-				fmt.Printf("[DEBUG] Paper filter result: %d papers after filtering (from %d total, %d pages used)\n",
-					len(filterResult.Papers), filterResult.TotalFound, filterResult.PagesUsed)
+				slog.Debug("paper filter result", "papers", len(filterResult.Papers), "totalFound", filterResult.TotalFound, "pagesUsed", filterResult.PagesUsed)
 
 				allPapers = append(allPapers, filterResult.Papers...)
 				if filterResult.TotalFound > totalCount {
@@ -169,10 +169,10 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 
 	// If no papers found, try a simple direct search with combined query
 	if len(allPapers) == 0 {
-		fmt.Printf("[DEBUG] No papers from tool calls, doing direct search\n")
-		papers, total, err := s.mcpSearch(combinedQuery, mcpServer)
+		slog.Debug("no papers from tool calls, doing direct search")
+		papers, total, err := s.mcpSearch(ctx, combinedQuery, mcpServer)
 		if err != nil {
-			fmt.Printf("[ERROR] Direct search failed: %v\n", err)
+			slog.Error("direct search failed", "err", err)
 			// Send friendly error message
 			friendlyError := "网络异常，请稍后重试。如果问题持续，请联系管理员。"
 			
@@ -186,7 +186,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 			}
 			
 			if saveErr := s.repo.CreateMessage(errorMessage); saveErr != nil {
-				fmt.Printf("[WARN] Failed to save error message: %v\n", saveErr)
+				slog.Warn("failed to save error message", "err", saveErr)
 			}
 			
 			// Send error to frontend
@@ -207,7 +207,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	const maxPapersToShow = 100
 	displayPapers := allPapers
 	if len(displayPapers) > maxPapersToShow {
-		fmt.Printf("[DEBUG] Limiting papers from %d to %d for display and analysis\n", len(allPapers), maxPapersToShow)
+		slog.Debug("limiting papers for display and analysis", "from", len(allPapers), "to", maxPapersToShow)
 		displayPapers = displayPapers[:maxPapersToShow]
 	}
 
@@ -221,7 +221,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 
 	// Send only paper IDs to frontend (frontend will fetch details via batch API)
 	// total 返回实际筛选后的数量，而不是 API 查找的总数
-	papersData := map[string]interface{}{
+	papersData := map[string]any{
 		"paperIds": paperIDs,
 		"total":    len(paperIDs), // 返回实际筛选后的数量
 	}
@@ -233,19 +233,19 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 
 	// Save only paper IDs to database (optimized storage)
 	if err := s.repo.UpdateMessageSearchPaperIDs(userMessage.ID, paperIDs, len(paperIDs)); err != nil {
-		fmt.Printf("Warning: failed to update user message with paper IDs: %v\n", err)
+		slog.Warn("failed to update user message with paper IDs", "err", err)
 	}
 
 	// Step 9: 生成论文的AI分析（与智能分析相同）
-	fmt.Printf("[DEBUG] Formatting %d papers for AI analysis\n", len(displayPapers))
+	slog.Debug("formatting papers for AI analysis", "count", len(displayPapers))
 	// Use more papers for analysis (up to 30) with shorter abstracts
 	papersForPrompt := ai.FormatPapersForPromptWithLimit(displayPapers, 30, 200)
-	fmt.Printf("[DEBUG] Formatted papers, length: %d characters\n", len(papersForPrompt))
+	slog.Debug("formatted papers", "length", len(papersForPrompt))
 
 	// 获取分析提示模板（与智能分析相同）
 	analysisSystemPrompt, _, err := s.aiService.GetAndRenderPrompt("advanced_search_analysis_system", nil)
 	if err != nil {
-		fmt.Printf("[WARN] Failed to get analysis system prompt template, using fallback: %v\n", err)
+		slog.Warn("failed to get analysis system prompt template, using fallback", "err", err)
 		analysisSystemPrompt = "你是一名具有深厚研究背景的高级学术分析专家，能够对多篇论文进行深入解读、方法分析、研究发现抽象、理论联系与批判性整合，并以学术写作风格输出高质量分析报告。"
 	}
 
@@ -255,7 +255,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	})
 	if err != nil {
 		// 如果未找到模板，使用备用提示（与智能分析相同）
-		fmt.Printf("[WARN] Failed to get analysis prompt template, using fallback: %v\n", err)
+		slog.Warn("failed to get analysis prompt template, using fallback", "err", err)
 		analysisPrompt = fmt.Sprintf(`用户查询：%s
 找到的论文：%s
 
@@ -329,15 +329,14 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	const max128K = 128000 * 4 // Roughly 128K tokens * 4 chars per token
 	analysisMessages = ai.TruncateContextForLimit(analysisMessages, max128K)
 
-	fmt.Printf("[DEBUG] About to call StreamChatCompletionAndCollectWithLevel, modelLevel: %s, messages count: %d, prompt length: %d\n",
-		modelLevel, len(analysisMessages), len(analysisPrompt))
+	slog.Debug("about to call StreamChatCompletionAndCollectWithLevel", "modelLevel", modelLevel, "messagesCount", len(analysisMessages), "promptLength", len(analysisPrompt))
 
 	// Step 10: Stream AI response and collect full content using specified model level
-	fullContent, err := s.aiService.StreamChatCompletionAndCollectWithLevel(analysisMessages, writer, modelLevel)
+	fullContent, err := s.aiService.StreamChatCompletionAndCollectWithLevel(ctx, analysisMessages, writer, modelLevel)
 	if err != nil {
 		// 生成友好的错误消息
 		friendlyError := "网络异常，请稍后重试。如果问题持续，请联系管理员。"
-		fmt.Printf("[ERROR] AI analysis failed: %v\n", err)
+		slog.Error("AI analysis failed", "err", err)
 
 		// 将错误消息保存为 assistant 消息，以便历史记录中显示
 		errorMessage := &ConversationMessage{
@@ -349,7 +348,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		}
 
 		if saveErr := s.repo.CreateMessage(errorMessage); saveErr != nil {
-			fmt.Printf("[WARN] Failed to save error message: %v\n", saveErr)
+			slog.Warn("failed to save error message", "err", saveErr)
 		}
 
 		// 通过流式接口发送错误消息
@@ -365,7 +364,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 
 	// Step 11: Clear old follow-up questions from previous messages in this conversation
 	if err := s.repo.ClearOldFollowUpQuestions(conversationID); err != nil {
-		fmt.Printf("[WARN] Failed to clear old follow-up questions: %v\n", err)
+		slog.Warn("failed to clear old follow-up questions", "err", err)
 	}
 
 	// 保存助手消息到对话中（包含parent_message_id）
@@ -379,13 +378,13 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 	}
 
 	if err := s.repo.CreateMessage(assistantMessage); err != nil {
-		fmt.Printf("Warning: failed to save assistant message: %v\n", err)
+		slog.Warn("failed to save assistant message", "err", err)
 	}
 
 	// Step: Generate and send new title using AI
-	newTitle, err := s.UpdateConversationTitleWithAI(conversationID)
+	newTitle, err := s.UpdateConversationTitleWithAI(ctx, conversationID)
 	if err != nil {
-		fmt.Printf("[WARN] Failed to generate title with AI: %v\n", err)
+		slog.Warn("failed to generate title with AI", "err", err)
 	} else {
 		// Send title update event via SSE
 		titleData := fmt.Sprintf(`[TITLE]{"title":"%s"}`, escapeJSONStringContinue(newTitle))
@@ -393,7 +392,7 @@ func (s *Service) ContinueConversation(conversationID uint, userQuery string, wr
 		if flusher, ok := writer.(interface{ Flush() }); ok {
 			flusher.Flush()
 		}
-		fmt.Printf("[TITLE-DEBUG] Sent title event: %s\n", newTitle)
+		slog.Debug("sent title event", "title", newTitle)
 	}
 
 	return nil
@@ -457,7 +456,7 @@ func (s *Service) buildContextMessages(messages []ConversationMessage, maxRounds
 }
 
 // summarizePapers creates a brief summary of papers for context
-func (s *Service) summarizePapers(papers []map[string]interface{}, maxPapers int) string {
+func (s *Service) summarizePapers(papers []map[string]any, maxPapers int) string {
 	var summaries []string
 
 	count := len(papers)

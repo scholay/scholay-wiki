@@ -37,16 +37,16 @@ func (p *TemplateToolProvider) GetTools() []ToolDefinition {
 			Name:        "list_templates",
 			Description: "列出可用的 LaTeX 论文模板（期刊、会议等）",
 			Category:    CategoryTemplate,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"category": map[string]interface{}{
+				"properties": map[string]any{
+					"category": map[string]any{
 						"type":        "string",
 						"enum":        []string{"all", "journal", "conference", "thesis", "report"},
 						"description": "模板类别",
 						"default":     "all",
 					},
-					"field": map[string]interface{}{
+					"field": map[string]any{
 						"type":        "string",
 						"description": "学科领域（可选）：cs, physics, math, biology, etc.",
 					},
@@ -58,10 +58,10 @@ func (p *TemplateToolProvider) GetTools() []ToolDefinition {
 			Name:        "get_template",
 			Description: "获取指定模板的详细信息和使用示例",
 			Category:    CategoryTemplate,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"template_id": map[string]interface{}{
+				"properties": map[string]any{
+					"template_id": map[string]any{
 						"type":        "string",
 						"description": "模板 ID",
 					},
@@ -74,14 +74,14 @@ func (p *TemplateToolProvider) GetTools() []ToolDefinition {
 			Name:        "check_format",
 			Description: "检查 LaTeX 文档是否符合指定格式要求",
 			Category:    CategoryTemplate,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"content": map[string]interface{}{
+				"properties": map[string]any{
+					"content": map[string]any{
 						"type":        "string",
 						"description": "LaTeX 文档内容",
 					},
-					"template_id": map[string]interface{}{
+					"template_id": map[string]any{
 						"type":        "string",
 						"description": "目标模板 ID（可选，不指定则进行通用检查）",
 					},
@@ -94,21 +94,21 @@ func (p *TemplateToolProvider) GetTools() []ToolDefinition {
 			Name:        "generate_preamble",
 			Description: "根据需求生成 LaTeX 文档前言（\\documentclass 到 \\begin{document}）",
 			Category:    CategoryTemplate,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"document_type": map[string]interface{}{
+				"properties": map[string]any{
+					"document_type": map[string]any{
 						"type":        "string",
 						"enum":        []string{"article", "report", "book", "beamer", "letter"},
 						"description": "文档类型",
 						"default":     "article",
 					},
-					"features": map[string]interface{}{
+					"features": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
 						"description": "需要的功能：math, graphics, tables, code, bibliography, etc.",
 					},
-					"language": map[string]interface{}{
+					"language": map[string]any{
 						"type":        "string",
 						"enum":        []string{"english", "chinese"},
 						"description": "文档语言",
@@ -123,10 +123,10 @@ func (p *TemplateToolProvider) GetTools() []ToolDefinition {
 			Name:        "suggest_improvements",
 			Description: "分析 LaTeX 文档并建议改进",
 			Category:    CategoryTemplate,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"content": map[string]interface{}{
+				"properties": map[string]any{
+					"content": map[string]any{
 						"type":        "string",
 						"description": "LaTeX 文档内容",
 					},
@@ -139,7 +139,7 @@ func (p *TemplateToolProvider) GetTools() []ToolDefinition {
 }
 
 // ExecuteTool 执行工具
-func (p *TemplateToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]interface{}) (*ToolResult, error) {
+func (p *TemplateToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error) {
 	switch name {
 	case "list_templates":
 		return p.listTemplates(ctx, args)
@@ -271,7 +271,7 @@ func getTemplates() []JournalTemplate {
 }
 
 // listTemplates 列出模板
-func (p *TemplateToolProvider) listTemplates(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *TemplateToolProvider) listTemplates(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	category := "all"
 	if cat, ok := args["category"].(string); ok {
 		category = cat
@@ -297,14 +297,14 @@ func (p *TemplateToolProvider) listTemplates(ctx context.Context, args map[strin
 		filtered = append(filtered, t)
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"count":     len(filtered),
 		"templates": filtered,
 	}), nil
 }
 
 // getTemplate 获取模板详情
-func (p *TemplateToolProvider) getTemplate(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *TemplateToolProvider) getTemplate(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	templateID, ok := args["template_id"].(string)
 	if !ok || templateID == "" {
 		return CreateErrorResult(fmt.Errorf("template_id is required")), nil
@@ -314,7 +314,7 @@ func (p *TemplateToolProvider) getTemplate(ctx context.Context, args map[string]
 		if t.ID == templateID {
 			// 生成示例代码
 			example := generateTemplateExample(t)
-			return CreateSuccessResult(map[string]interface{}{
+			return CreateSuccessResult(map[string]any{
 				"template": t,
 				"example":  example,
 			}), nil
@@ -423,7 +423,7 @@ Your content here.
 }
 
 // checkFormat 检查格式
-func (p *TemplateToolProvider) checkFormat(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *TemplateToolProvider) checkFormat(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	content, ok := args["content"].(string)
 	if !ok || content == "" {
 		return CreateErrorResult(fmt.Errorf("content is required")), nil
@@ -511,7 +511,7 @@ func (p *TemplateToolProvider) checkFormat(ctx context.Context, args map[string]
 		})
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"valid":       len(issues) == 0,
 		"issues":      issues,
 		"suggestions": suggestions,
@@ -520,14 +520,14 @@ func (p *TemplateToolProvider) checkFormat(ctx context.Context, args map[string]
 }
 
 // generatePreamble 生成文档前言
-func (p *TemplateToolProvider) generatePreamble(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *TemplateToolProvider) generatePreamble(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	docType := "article"
 	if dt, ok := args["document_type"].(string); ok {
 		docType = dt
 	}
 
 	features := []string{}
-	if f, ok := args["features"].([]interface{}); ok {
+	if f, ok := args["features"].([]any); ok {
 		for _, feat := range f {
 			if s, ok := feat.(string); ok {
 				features = append(features, s)
@@ -592,7 +592,7 @@ func (p *TemplateToolProvider) generatePreamble(ctx context.Context, args map[st
 	preamble.WriteString("\\usepackage{geometry}\n")
 	preamble.WriteString("\\geometry{a4paper,margin=1in}\n\n")
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"preamble":      preamble.String(),
 		"document_type": docType,
 		"features":      features,
@@ -601,7 +601,7 @@ func (p *TemplateToolProvider) generatePreamble(ctx context.Context, args map[st
 }
 
 // suggestImprovements 建议改进
-func (p *TemplateToolProvider) suggestImprovements(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *TemplateToolProvider) suggestImprovements(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	content, ok := args["content"].(string)
 	if !ok || content == "" {
 		return CreateErrorResult(fmt.Errorf("content is required")), nil
@@ -662,7 +662,7 @@ func (p *TemplateToolProvider) suggestImprovements(ctx context.Context, args map
 		})
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"improvements": improvements,
 		"count":        len(improvements),
 	}), nil

@@ -8,14 +8,15 @@
 package semanticscholar
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 )
@@ -101,8 +102,8 @@ func NewClientWithBaseURL(apiKey string, baseURL string) *Client {
 }
 
 // doRequest performs an HTTP request with common headers
-func (c *Client) doRequest(method, urlStr string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, urlStr, body)
+func (c *Client) doRequest(ctx context.Context, method, urlStr string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, urlStr, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -110,9 +111,9 @@ func (c *Client) doRequest(method, urlStr string, body io.Reader) (*http.Respons
 	// Add headers
 	if c.apiKey != "" {
 		req.Header.Set("x-api-key", c.apiKey)
-		fmt.Printf("[Client] Using API key (length: %d) for request to: %s\n", len(c.apiKey), urlStr)
+		slog.Debug("using API key for request", "keyLength", len(c.apiKey), "url", urlStr)
 	} else {
-		fmt.Printf("[Client] NO API KEY - Using free tier for request to: %s\n", urlStr)
+		slog.Warn("no API key, using free tier", "url", urlStr)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
@@ -147,7 +148,7 @@ func buildQueryString(params map[string]string) string {
 }
 
 // unmarshalResponse unmarshals JSON response into target struct
-func unmarshalResponse(resp *http.Response, target interface{}) error {
+func unmarshalResponse(resp *http.Response, target any) error {
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -159,9 +160,4 @@ func unmarshalResponse(resp *http.Response, target interface{}) error {
 	}
 
 	return nil
-}
-
-// Helper function to join string slices
-func joinStrings(items []string, sep string) string {
-	return strings.Join(items, sep)
 }

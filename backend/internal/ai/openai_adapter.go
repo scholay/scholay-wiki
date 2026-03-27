@@ -194,7 +194,7 @@ func (a *OpenAIAdapter) SupportsTools() bool {
 // openAIRequest OpenAI API 请求格式
 type openAIRequest struct {
 	Model            string                   `json:"model"`
-	Messages         []map[string]interface{} `json:"messages"`
+	Messages         []map[string]any `json:"messages"`
 	Temperature      float64                  `json:"temperature,omitempty"`
 	MaxTokens        int                      `json:"max_tokens,omitempty"`
 	TopP             float64                  `json:"top_p,omitempty"`
@@ -203,15 +203,15 @@ type openAIRequest struct {
 	FrequencyPenalty float64                  `json:"frequency_penalty,omitempty"`
 	Stream           bool                     `json:"stream"`
 	Tools            []LLMTool                `json:"tools,omitempty"`
-	ToolChoice       interface{}              `json:"tool_choice,omitempty"`
+	ToolChoice       any              `json:"tool_choice,omitempty"`
 }
 
 // buildOpenAIRequest 构建 OpenAI API 请求
 func (a *OpenAIAdapter) buildOpenAIRequest(req *LLMRequest, tools []LLMTool, stream bool) *openAIRequest {
 	// 转换消息格式
-	messages := make([]map[string]interface{}, len(req.Messages))
+	messages := make([]map[string]any, len(req.Messages))
 	for i, msg := range req.Messages {
-		msgMap := map[string]interface{}{
+		msgMap := map[string]any{
 			"role":    msg.Role,
 			"content": msg.Content,
 		}
@@ -226,12 +226,12 @@ func (a *OpenAIAdapter) buildOpenAIRequest(req *LLMRequest, tools []LLMTool, str
 		
 		// 处理带工具调用的助手消息
 		if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
-			toolCalls := make([]map[string]interface{}, len(msg.ToolCalls))
+			toolCalls := make([]map[string]any, len(msg.ToolCalls))
 			for j, tc := range msg.ToolCalls {
-				toolCalls[j] = map[string]interface{}{
+				toolCalls[j] = map[string]any{
 					"id":   tc.ID,
 					"type": tc.Type,
-					"function": map[string]interface{}{
+					"function": map[string]any{
 						"name":      tc.Function.Name,
 						"arguments": tc.Function.Arguments,
 					},
@@ -314,7 +314,7 @@ func (a *OpenAIAdapter) doRequest(ctx context.Context, req *openAIRequest) (io.R
 	}
 
 	// 使用熔断器执行请求
-	result, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
+	result, err := circuitbreaker.AIServiceBreaker.Execute(func() (any, error) {
 		resp, err := a.httpClient.Do(httpReq)
 		if err != nil {
 			return nil, fmt.Errorf("request failed: %w", err)

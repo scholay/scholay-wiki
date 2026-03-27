@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -29,7 +30,7 @@ func NewQueryCache(prefix string, ttl time.Duration) *QueryCache {
 }
 
 // Get 从缓存获取查询结果
-func (qc *QueryCache) Get(ctx context.Context, key string, result interface{}) error {
+func (qc *QueryCache) Get(ctx context.Context, key string, result any) error {
 	cacheKey := fmt.Sprintf("%s:%s", qc.prefix, key)
 
 	data, err := GetRedis().Get(ctx, cacheKey).Bytes()
@@ -41,7 +42,7 @@ func (qc *QueryCache) Get(ctx context.Context, key string, result interface{}) e
 }
 
 // Set 设置查询结果到缓存
-func (qc *QueryCache) Set(ctx context.Context, key string, value interface{}) error {
+func (qc *QueryCache) Set(ctx context.Context, key string, value any) error {
 	cacheKey := fmt.Sprintf("%s:%s", qc.prefix, key)
 
 	data, err := json.Marshal(value)
@@ -88,7 +89,7 @@ func (qc *QueryCache) DeletePattern(ctx context.Context, pattern string) error {
 
 // CachedQuery 带缓存的查询执行器
 // 先尝试从缓存获取,如果miss则执行查询函数并缓存结果
-func (qc *QueryCache) CachedQuery(ctx context.Context, key string, result interface{}, queryFunc func() (interface{}, error)) error {
+func (qc *QueryCache) CachedQuery(ctx context.Context, key string, result any, queryFunc func() (any, error)) error {
 	// 尝试从缓存获取
 	err := qc.Get(ctx, key, result)
 	if err == nil {
@@ -104,7 +105,7 @@ func (qc *QueryCache) CachedQuery(ctx context.Context, key string, result interf
 	// 缓存结果
 	if err := qc.Set(ctx, key, data); err != nil {
 		// 缓存失败不影响业务,只记录日志
-		// log.Printf("Failed to cache query result: %v", err)
+		slog.Warn("failed to cache query result", "err", err)
 	}
 
 	// 将查询结果复制到result

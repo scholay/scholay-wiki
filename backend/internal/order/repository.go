@@ -79,7 +79,7 @@ func (r *Repository) UpdateOrder(order *Order) error {
 
 // UpdateOrderStatus updates order status and payment information
 func (r *Repository) UpdateOrderStatus(orderID uint, status, paymentMethod string) error {
-	updates := map[string]interface{}{
+	updates := map[string]any{
 		"status": status,
 	}
 	if paymentMethod != "" {
@@ -229,4 +229,9 @@ func (r *Repository) AdminListOrders(planCode, userEmail string, limit, offset i
 	}
 
 	return orders, total, nil
+}
+
+// ExecuteInTransaction runs the given function inside a database transaction.
+func (r *Repository) ExecuteInTransaction(fn func(tx *gorm.DB) error) error {
+	return r.db.Transaction(fn)
 }

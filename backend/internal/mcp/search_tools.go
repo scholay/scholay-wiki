@@ -52,23 +52,23 @@ func (p *SearchToolProvider) GetTools() []ToolDefinition {
 			Name:        "arxiv_search",
 			Description: "在 arXiv 搜索学术论文预印本，支持计算机科学、物理、数学等领域",
 			Category:    CategorySearch,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"query": map[string]interface{}{
+				"properties": map[string]any{
+					"query": map[string]any{
 						"type":        "string",
 						"description": "搜索关键词（英文）",
 					},
-					"category": map[string]interface{}{
+					"category": map[string]any{
 						"type":        "string",
 						"description": "arXiv 分类（如 cs.AI, cs.CL, physics.comp-ph）",
 					},
-					"max_results": map[string]interface{}{
+					"max_results": map[string]any{
 						"type":        "integer",
 						"description": "最大返回结果数（默认 10，最大 100）",
 						"default":     10,
 					},
-					"sort_by": map[string]interface{}{
+					"sort_by": map[string]any{
 						"type":        "string",
 						"enum":        []string{"relevance", "lastUpdatedDate", "submittedDate"},
 						"description": "排序方式",
@@ -84,19 +84,19 @@ func (p *SearchToolProvider) GetTools() []ToolDefinition {
 			Name:        "pubmed_search",
 			Description: "在 PubMed 搜索生物医学和生命科学论文",
 			Category:    CategorySearch,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"query": map[string]interface{}{
+				"properties": map[string]any{
+					"query": map[string]any{
 						"type":        "string",
 						"description": "搜索关键词",
 					},
-					"max_results": map[string]interface{}{
+					"max_results": map[string]any{
 						"type":        "integer",
 						"description": "最大返回结果数（默认 10，最大 100）",
 						"default":     10,
 					},
-					"sort": map[string]interface{}{
+					"sort": map[string]any{
 						"type":        "string",
 						"enum":        []string{"relevance", "pub_date"},
 						"description": "排序方式",
@@ -112,23 +112,23 @@ func (p *SearchToolProvider) GetTools() []ToolDefinition {
 			Name:        "crossref_search",
 			Description: "通过 Crossref 搜索学术论文元数据（DOI、引用等）",
 			Category:    CategorySearch,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"query": map[string]interface{}{
+				"properties": map[string]any{
+					"query": map[string]any{
 						"type":        "string",
 						"description": "搜索关键词或论文标题",
 					},
-					"doi": map[string]interface{}{
+					"doi": map[string]any{
 						"type":        "string",
 						"description": "直接通过 DOI 查询（如果提供则忽略 query）",
 					},
-					"rows": map[string]interface{}{
+					"rows": map[string]any{
 						"type":        "integer",
 						"description": "返回结果数（默认 10，最大 100）",
 						"default":     10,
 					},
-					"sort": map[string]interface{}{
+					"sort": map[string]any{
 						"type":        "string",
 						"enum":        []string{"relevance", "published", "indexed"},
 						"description": "排序方式",
@@ -143,19 +143,19 @@ func (p *SearchToolProvider) GetTools() []ToolDefinition {
 			Name:        "web_search",
 			Description: "通用网络搜索，可用于查找学术资源、官方文档等",
 			Category:    CategorySearch,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"query": map[string]interface{}{
+				"properties": map[string]any{
+					"query": map[string]any{
 						"type":        "string",
 						"description": "搜索关键词",
 					},
-					"num_results": map[string]interface{}{
+					"num_results": map[string]any{
 						"type":        "integer",
 						"description": "返回结果数（默认 10）",
 						"default":     10,
 					},
-					"search_type": map[string]interface{}{
+					"search_type": map[string]any{
 						"type":        "string",
 						"enum":        []string{"search", "scholar", "news"},
 						"description": "搜索类型：search(网页)、scholar(学术)、news(新闻)",
@@ -171,7 +171,7 @@ func (p *SearchToolProvider) GetTools() []ToolDefinition {
 }
 
 // ExecuteTool 执行工具
-func (p *SearchToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]interface{}) (*ToolResult, error) {
+func (p *SearchToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error) {
 	switch name {
 	case "arxiv_search":
 		return p.arxivSearch(ctx, args)
@@ -204,7 +204,7 @@ type ArxivEntry struct {
 }
 
 // arxivSearch 搜索 arXiv
-func (p *SearchToolProvider) arxivSearch(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *SearchToolProvider) arxivSearch(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	query, ok := args["query"].(string)
 	if !ok || query == "" {
 		return CreateErrorResult(fmt.Errorf("query is required")), nil
@@ -263,7 +263,7 @@ func (p *SearchToolProvider) arxivSearch(ctx context.Context, args map[string]in
 		return CreateErrorResult(fmt.Errorf("failed to parse arXiv response: %w", err)), nil
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"source":  "arxiv",
 		"query":   query,
 		"total":   len(entries),
@@ -350,7 +350,7 @@ type PubMedArticle struct {
 }
 
 // pubmedSearch 搜索 PubMed
-func (p *SearchToolProvider) pubmedSearch(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *SearchToolProvider) pubmedSearch(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	query, ok := args["query"].(string)
 	if !ok || query == "" {
 		return CreateErrorResult(fmt.Errorf("query is required")), nil
@@ -403,7 +403,7 @@ func (p *SearchToolProvider) pubmedSearch(ctx context.Context, args map[string]i
 	}
 
 	if len(searchResult.ESearchResult.IDList) == 0 {
-		return CreateSuccessResult(map[string]interface{}{
+		return CreateSuccessResult(map[string]any{
 			"source":  "pubmed",
 			"query":   query,
 			"total":   0,
@@ -437,7 +437,7 @@ func (p *SearchToolProvider) pubmedSearch(ctx context.Context, args map[string]i
 
 	articles := parsePubMedResponse(body, searchResult.ESearchResult.IDList)
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"source":  "pubmed",
 		"query":   query,
 		"total":   len(articles),
@@ -447,27 +447,27 @@ func (p *SearchToolProvider) pubmedSearch(ctx context.Context, args map[string]i
 
 // parsePubMedResponse 解析 PubMed 响应
 func parsePubMedResponse(data []byte, pmids []string) []PubMedArticle {
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(data, &result); err != nil {
 		return []PubMedArticle{}
 	}
 
-	resultData, ok := result["result"].(map[string]interface{})
+	resultData, ok := result["result"].(map[string]any)
 	if !ok {
 		return []PubMedArticle{}
 	}
 
 	articles := make([]PubMedArticle, 0, len(pmids))
 	for _, pmid := range pmids {
-		article, ok := resultData[pmid].(map[string]interface{})
+		article, ok := resultData[pmid].(map[string]any)
 		if !ok {
 			continue
 		}
 
 		var authors []string
-		if authorsData, ok := article["authors"].([]interface{}); ok {
+		if authorsData, ok := article["authors"].([]any); ok {
 			for _, a := range authorsData {
-				if author, ok := a.(map[string]interface{}); ok {
+				if author, ok := a.(map[string]any); ok {
 					if name, ok := author["name"].(string); ok {
 						authors = append(authors, name)
 					}
@@ -476,9 +476,9 @@ func parsePubMedResponse(data []byte, pmids []string) []PubMedArticle {
 		}
 
 		var doi string
-		if articleIds, ok := article["articleids"].([]interface{}); ok {
+		if articleIds, ok := article["articleids"].([]any); ok {
 			for _, id := range articleIds {
-				if idMap, ok := id.(map[string]interface{}); ok {
+				if idMap, ok := id.(map[string]any); ok {
 					if idtype, ok := idMap["idtype"].(string); ok && idtype == "doi" {
 						if value, ok := idMap["value"].(string); ok {
 							doi = value
@@ -520,7 +520,7 @@ type CrossrefWork struct {
 }
 
 // crossrefSearch 搜索 Crossref
-func (p *SearchToolProvider) crossrefSearch(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *SearchToolProvider) crossrefSearch(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	// 如果提供了 DOI，直接查询
 	if doi, ok := args["doi"].(string); ok && doi != "" {
 		return p.crossrefGetByDOI(ctx, doi)
@@ -583,7 +583,7 @@ func (p *SearchToolProvider) crossrefSearch(ctx context.Context, args map[string
 
 	works, total := parseCrossrefResponse(body)
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"source":  "crossref",
 		"query":   query,
 		"total":   total,
@@ -621,7 +621,7 @@ func (p *SearchToolProvider) crossrefGetByDOI(ctx context.Context, doi string) (
 
 	var result struct {
 		Status  string                 `json:"status"`
-		Message map[string]interface{} `json:"message"`
+		Message map[string]any `json:"message"`
 	}
 
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -630,7 +630,7 @@ func (p *SearchToolProvider) crossrefGetByDOI(ctx context.Context, doi string) (
 
 	work := parseCrossrefWork(result.Message)
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"source": "crossref",
 		"doi":    doi,
 		"result": work,
@@ -643,7 +643,7 @@ func parseCrossrefResponse(data []byte) ([]CrossrefWork, int) {
 		Status  string `json:"status"`
 		Message struct {
 			TotalResults int                      `json:"total-results"`
-			Items        []map[string]interface{} `json:"items"`
+			Items        []map[string]any `json:"items"`
 		} `json:"message"`
 	}
 
@@ -661,18 +661,18 @@ func parseCrossrefResponse(data []byte) ([]CrossrefWork, int) {
 }
 
 // parseCrossrefWork 解析单个 Crossref 作品
-func parseCrossrefWork(item map[string]interface{}) CrossrefWork {
+func parseCrossrefWork(item map[string]any) CrossrefWork {
 	work := CrossrefWork{}
 
 	work.DOI = getString(item, "DOI")
 	
-	if titles, ok := item["title"].([]interface{}); ok && len(titles) > 0 {
+	if titles, ok := item["title"].([]any); ok && len(titles) > 0 {
 		work.Title = titles[0].(string)
 	}
 
-	if authors, ok := item["author"].([]interface{}); ok {
+	if authors, ok := item["author"].([]any); ok {
 		for _, a := range authors {
-			if author, ok := a.(map[string]interface{}); ok {
+			if author, ok := a.(map[string]any); ok {
 				given := getString(author, "given")
 				family := getString(author, "family")
 				if family != "" {
@@ -693,14 +693,14 @@ func parseCrossrefWork(item map[string]interface{}) CrossrefWork {
 		work.CitationCount = int(citedBy)
 	}
 
-	if containerTitles, ok := item["container-title"].([]interface{}); ok && len(containerTitles) > 0 {
+	if containerTitles, ok := item["container-title"].([]any); ok && len(containerTitles) > 0 {
 		work.ContainerTitle = containerTitles[0].(string)
 	}
 
 	// 解析发布日期
-	if published, ok := item["published"].(map[string]interface{}); ok {
-		if dateParts, ok := published["date-parts"].([]interface{}); ok && len(dateParts) > 0 {
-			if parts, ok := dateParts[0].([]interface{}); ok {
+	if published, ok := item["published"].(map[string]any); ok {
+		if dateParts, ok := published["date-parts"].([]any); ok && len(dateParts) > 0 {
+			if parts, ok := dateParts[0].([]any); ok {
 				var dateStr string
 				for i, p := range parts {
 					if num, ok := p.(float64); ok {
@@ -731,7 +731,7 @@ type WebSearchResult struct {
 }
 
 // webSearch 通用网络搜索
-func (p *SearchToolProvider) webSearch(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *SearchToolProvider) webSearch(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	query, ok := args["query"].(string)
 	if !ok || query == "" {
 		return CreateErrorResult(fmt.Errorf("query is required")), nil
@@ -749,7 +749,7 @@ func (p *SearchToolProvider) webSearch(ctx context.Context, args map[string]inte
 
 	// 如果没有配置 Serper API Key，返回提示
 	if p.serperAPIKey == "" {
-		return CreateSuccessResult(map[string]interface{}{
+		return CreateSuccessResult(map[string]any{
 			"source":  "web_search",
 			"query":   query,
 			"message": "Web search requires Serper API key. Please configure SERPER_API_KEY in admin settings.",
@@ -758,7 +758,7 @@ func (p *SearchToolProvider) webSearch(ctx context.Context, args map[string]inte
 	}
 
 	// 使用 Serper API
-	reqBody := map[string]interface{}{
+	reqBody := map[string]any{
 		"q":   query,
 		"num": numResults,
 	}
@@ -792,7 +792,7 @@ func (p *SearchToolProvider) webSearch(ctx context.Context, args map[string]inte
 
 	results := parseSerperResponse(body)
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"source":      "web_search",
 		"search_type": searchType,
 		"query":       query,
@@ -803,7 +803,7 @@ func (p *SearchToolProvider) webSearch(ctx context.Context, args map[string]inte
 
 // parseSerperResponse 解析 Serper 响应
 func parseSerperResponse(data []byte) []WebSearchResult {
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(data, &result); err != nil {
 		return []WebSearchResult{}
 	}
@@ -811,9 +811,9 @@ func parseSerperResponse(data []byte) []WebSearchResult {
 	results := []WebSearchResult{}
 
 	// 解析 organic 结果
-	if organic, ok := result["organic"].([]interface{}); ok {
+	if organic, ok := result["organic"].([]any); ok {
 		for _, item := range organic {
-			if r, ok := item.(map[string]interface{}); ok {
+			if r, ok := item.(map[string]any); ok {
 				results = append(results, WebSearchResult{
 					Title:   getString(r, "title"),
 					Link:    getString(r, "link"),
@@ -832,7 +832,7 @@ func parseSerperResponse(data []byte) []WebSearchResult {
 // ============================================================================
 
 // getString 安全获取字符串
-func getString(m map[string]interface{}, key string) string {
+func getString(m map[string]any, key string) string {
 	if v, ok := m[key].(string); ok {
 		return v
 	}

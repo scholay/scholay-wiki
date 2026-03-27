@@ -8,12 +8,14 @@
 package wechatofficial
 
 import (
+	"context"
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strings"
@@ -116,7 +118,7 @@ func (s *Service) GetAccessToken() (string, error) {
 	s.accessToken = tokenResp.AccessToken
 	s.accessTokenExpires = time.Now().Add(time.Duration(tokenResp.ExpiresIn-300) * time.Second)
 
-	fmt.Printf("[WeChat] Access token refreshed, expires at: %s\n", s.accessTokenExpires)
+	slog.Info("WeChat access token refreshed", "expires_at", s.accessTokenExpires)
 
 	return s.accessToken, nil
 }
@@ -153,7 +155,7 @@ func (s *Service) DownloadImage(mediaID string) (string, error) {
 	// Encode to base64
 	base64Image := base64.StdEncoding.EncodeToString(imageData)
 
-	fmt.Printf("[WeChat] Downloaded image, size: %d bytes, base64 length: %d\n", len(imageData), len(base64Image))
+	slog.Info("downloaded WeChat image", "size_bytes", len(imageData), "base64_length", len(base64Image))
 
 	return base64Image, nil
 }
@@ -213,7 +215,7 @@ func (s *Service) GetAIReplyWithImage(userMessage string, base64Image string, ai
 	var userContent ai.MessageContent
 	if base64Image != "" {
 		// Multimodal message with image
-		contentParts := []interface{}{
+		contentParts := []any{
 			ai.TextContent{
 				Type: "text",
 				Text: userMessage,
@@ -240,7 +242,7 @@ func (s *Service) GetAIReplyWithImage(userMessage string, base64Image string, ai
 	})
 
 	// Call AI service (non-streaming)
-	response, err := s.aiService.ChatCompletionWithTools(messages, nil, "", level)
+	response, err := s.aiService.ChatCompletionWithTools(context.Background(), messages, nil, "", level)
 	if err != nil {
 		return "", fmt.Errorf("failed to get AI response: %w", err)
 	}

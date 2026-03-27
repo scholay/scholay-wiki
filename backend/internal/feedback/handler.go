@@ -10,7 +10,7 @@ package feedback
 import (
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -27,7 +27,7 @@ type Handler struct {
 }
 
 // NewHandler 创建反馈处理器
-func NewHandler(service *Service, uploadPath string) *Handler {
+func NewHandler(service *Service) *Handler {
 	handler := &Handler{
 		service: service,
 	}
@@ -57,24 +57,24 @@ func (h *Handler) cleanupUnusedAttachments() {
 	olderThan := time.Now().Add(-1 * time.Hour).Format("2006-01-02 15:04:05")
 	count, err := h.service.CleanupOrphanAttachments(olderThan)
 	if err != nil {
-		log.Printf("Failed to cleanup orphan attachments: %v", err)
+		slog.Error("failed to cleanup orphan attachments", "err", err)
 		return
 	}
 
 	if count > 0 {
-		log.Printf("Cleaned up %d orphan attachments from database (older than 1 hour)", count)
+		slog.Info("cleaned up orphan attachments from database", "count", count, "older_than", "1h")
 	}
 
 	// 策略2: 如果游离附件总数超过限制，删除最旧的
 	maxOrphanCount := 100 // 最多保留100个游离附件
 	excessCount, err := h.service.CleanupExcessOrphanAttachments(maxOrphanCount)
 	if err != nil {
-		log.Printf("Failed to cleanup excess orphan attachments: %v", err)
+		slog.Error("failed to cleanup excess orphan attachments", "err", err)
 		return
 	}
 
 	if excessCount > 0 {
-		log.Printf("Cleaned up %d excess orphan attachments (limit: %d)", excessCount, maxOrphanCount)
+		slog.Info("cleaned up excess orphan attachments", "count", excessCount, "limit", maxOrphanCount)
 	}
 }
 

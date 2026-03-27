@@ -86,7 +86,7 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"accounts": accounts,
 		"total":    len(accounts),
 	})
@@ -140,7 +140,7 @@ func (h *Handler) DeleteAccount(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"message": "Account deleted successfully",
 	})
 }
@@ -172,7 +172,7 @@ func (h *Handler) TestAccount(c *gin.Context) {
 	}
 
 	// For now, just return the config (in real implementation, you'd test the API)
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"message":      "Account configuration is valid",
 		"account_name": account.Name,
 		"account_type": account.Type,
@@ -187,7 +187,7 @@ func (h *Handler) RefreshCache(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"message": "Cache refreshed successfully",
 	})
 }

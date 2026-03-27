@@ -71,7 +71,7 @@ type LLMRequest struct {
 // LLMMessage 对话消息
 type LLMMessage struct {
 	Role       string               `json:"role"`                  // system, user, assistant, tool
-	Content    interface{}          `json:"content"`               // 可以是 string 或复杂内容
+	Content    any          `json:"content"`               // 可以是 string 或复杂内容
 	Name       string               `json:"name,omitempty"`        // 工具名称（当 role=tool 时使用）
 	ToolCallID string               `json:"tool_call_id,omitempty"` // 工具调用 ID
 	ToolCalls  []LLMToolCall        `json:"tool_calls,omitempty"`  // AI 返回的工具调用
@@ -132,7 +132,7 @@ type LLMTool struct {
 type LLMFunction struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters"` // JSON Schema
+	Parameters  map[string]any `json:"parameters"` // JSON Schema
 }
 
 // LLMToolCall 工具调用

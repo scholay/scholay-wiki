@@ -3,6 +3,7 @@ package currency
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -246,7 +247,7 @@ func (s *Service) GetMembershipGiftConfigForMonth(planCode, month string, isHalf
 	fund, err := s.repo.GetFundByMonth(month)
 	if err != nil {
 		// 获取基金失败，记录日志但不影响流程，继续使用默认配置
-		fmt.Printf("Warning: failed to get fund for month %s: %v\n", month, err)
+		slog.Warn("Failed to get fund for month", "month", month, "err", err)
 	}
 
 	if fund != nil {
@@ -368,7 +369,7 @@ func (s *Service) GiftMembershipReward(ctx context.Context, userID uint, planCod
 	}
 	if received {
 		// 用户当月已领取过会员赠送，跳过
-		fmt.Printf("User %d already received monthly gift for %s, skip\n", userID, month)
+		slog.Info("User already received monthly gift, skip", "userID", userID, "month", month)
 		return config, nil
 	}
 
@@ -470,13 +471,12 @@ func (s *Service) GiftMembershipReward(ctx context.Context, userID uint, planCod
 			txNo = diamondTxNo
 		}
 		if err := s.repo.RecordFundDistribution(config.FundID, userID, planCode, config.GoldAmount, config.DiamondAmount, txNo); err != nil {
-			// 记录失败不影响主流程，只打印警告
-			fmt.Printf("Warning: failed to record fund distribution for user %d, fund %d: %v\n", userID, config.FundID, err)
+			slog.Warn("Failed to record fund distribution", "userID", userID, "fundID", config.FundID, "err", err)
 		}
 
 		// 更新基金统计
 		if err := s.repo.IncrementFundStats(config.FundID, config.GoldAmount, config.DiamondAmount); err != nil {
-			fmt.Printf("Warning: failed to update fund stats for fund %d: %v\n", config.FundID, err)
+			slog.Warn("Failed to update fund stats", "fundID", config.FundID, "err", err)
 		}
 	}
 

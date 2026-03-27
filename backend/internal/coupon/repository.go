@@ -62,7 +62,7 @@ func (r *Repository) GetActiveTemplateByCode(code string) (*CouponTemplate, erro
 }
 
 // UpdateTemplate 更新模板
-func (r *Repository) UpdateTemplate(id uint64, updates map[string]interface{}) error {
+func (r *Repository) UpdateTemplate(id uint64, updates map[string]any) error {
 	return r.db.Model(&CouponTemplate{}).Where("id = ?", id).Updates(updates).Error
 }
 
@@ -218,7 +218,7 @@ func (r *Repository) GetAvailableCoupons(userID uint64, amount float64) ([]*User
 }
 
 // UpdateUserCoupon 更新用户折扣券
-func (r *Repository) UpdateUserCoupon(id uint64, updates map[string]interface{}) error {
+func (r *Repository) UpdateUserCoupon(id uint64, updates map[string]any) error {
 	return r.db.Model(&UserCoupon{}).Where("id = ?", id).Updates(updates).Error
 }
 
@@ -227,7 +227,7 @@ func (r *Repository) UseCoupon(couponID uint64, orderID uint64) error {
 	now := time.Now()
 	return r.db.Model(&UserCoupon{}).
 		Where("id = ? AND status IN (?)", couponID, []CouponStatus{CouponStatusUnused, CouponStatusReserved}).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"status":        CouponStatusUsed,
 			"used_at":       now,
 			"used_order_id": orderID,
@@ -273,7 +273,7 @@ func (r *Repository) GetUserInvitationByCode(code string) (*UserInvitation, erro
 }
 
 // UpdateUserInvitation 更新邀请信息
-func (r *Repository) UpdateUserInvitation(userID uint64, updates map[string]interface{}) error {
+func (r *Repository) UpdateUserInvitation(userID uint64, updates map[string]any) error {
 	return r.db.Model(&UserInvitation{}).Where("user_id = ?", userID).Updates(updates).Error
 }
 
@@ -299,7 +299,7 @@ func (r *Repository) GetInvitationRelationship(inviteeID uint64) (*InvitationRel
 }
 
 // UpdateInvitationRelationship 更新邀请关系
-func (r *Repository) UpdateInvitationRelationship(id uint64, updates map[string]interface{}) error {
+func (r *Repository) UpdateInvitationRelationship(id uint64, updates map[string]any) error {
 	return r.db.Model(&InvitationRelationship{}).Where("id = ?", id).Updates(updates).Error
 }
 
@@ -341,7 +341,7 @@ func (r *Repository) GetUsageLogByOrderID(orderID uint64) (*CouponUsageLog, erro
 }
 
 // UpdateUsageLog 更新使用记录
-func (r *Repository) UpdateUsageLog(id uint64, updates map[string]interface{}) error {
+func (r *Repository) UpdateUsageLog(id uint64, updates map[string]any) error {
 	return r.db.Model(&CouponUsageLog{}).Where("id = ?", id).Updates(updates).Error
 }
 
@@ -365,7 +365,7 @@ func (r *Repository) GetBatchByID(id uint64) (*CouponBatch, error) {
 }
 
 // UpdateBatch 更新批次
-func (r *Repository) UpdateBatch(id uint64, updates map[string]interface{}) error {
+func (r *Repository) UpdateBatch(id uint64, updates map[string]any) error {
 	return r.db.Model(&CouponBatch{}).Where("id = ?", id).Updates(updates).Error
 }
 
@@ -415,6 +415,50 @@ func (r *Repository) GetStatistics() (*CouponStatistics, error) {
 	stats.TotalDiscountAmount = discountAmount
 
 	return &stats, nil
+}
+
+// GetAllActiveUserIDs returns IDs of all non-deleted users
+func (r *Repository) GetAllActiveUserIDs() ([]uint64, error) {
+	var userIDs []uint64
+	err := r.db.Table("users").
+		Where("deleted_at IS NULL").
+		Pluck("id", &userIDs).Error
+	return userIDs, err
+}
+
+// GetNewUserIDsSince returns IDs of non-deleted users created on or after the given time
+func (r *Repository) GetNewUserIDsSince(since time.Time) ([]uint64, error) {
+	var userIDs []uint64
+	err := r.db.Table("users").
+		Where("deleted_at IS NULL AND created_at >= ?", since).
+		Pluck("id", &userIDs).Error
+	return userIDs, err
+}
+
+// GetPaidUserIDs returns distinct user IDs that have at least one paid order
+func (r *Repository) GetPaidUserIDs() ([]uint64, error) {
+	var userIDs []uint64
+	err := r.db.Table("orders").
+		Where("status = ?", "paid").
+		Distinct("user_id").
+		Pluck("user_id", &userIDs).Error
+	return userIDs, err
+}
+
+// GetUserIDsByConditions returns user IDs matching the given dynamic conditions
+func (r *Repository) GetUserIDsByConditions(conditions map[string]any) ([]uint64, error) {
+	query := r.db.Table("users").Where("deleted_at IS NULL")
+
+	if registeredAfter, ok := conditions["registered_after"].(string); ok {
+		query = query.Where("created_at >= ?", registeredAfter)
+	}
+	if registeredBefore, ok := conditions["registered_before"].(string); ok {
+		query = query.Where("created_at <= ?", registeredBefore)
+	}
+
+	var userIDs []uint64
+	err := query.Pluck("id", &userIDs).Error
+	return userIDs, err
 }
 
 // Transaction 执行事务

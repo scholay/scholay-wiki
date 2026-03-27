@@ -8,8 +8,11 @@
 package pdf
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
+	"strconv"
+
+	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -43,24 +46,18 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) GetPDF(c *gin.Context) {
 	var req PDFRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[PDF Handler] Invalid request: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request",
-			"message": err.Error(),
-		})
+		slog.Warn("invalid PDF request", "err", err)
+		utils.BadRequest(c, "无效的请求参数")
 		return
 	}
 
-	log.Printf("[PDF Handler] Request: DOI=%s, PDFURL=%s", req.DOI, req.PDFURL)
+	slog.Info("PDF request received", "doi", req.DOI, "pdf_url", req.PDFURL)
 
 	// 获取 PDF
 	result, err := h.service.GetPDF(c.Request.Context(), &req)
 	if err != nil {
-		log.Printf("[PDF Handler] Failed to get PDF: %v", err)
-		c.JSON(http.StatusNotFound, gin.H{
-			"error":   "PDF not found",
-			"message": err.Error(),
-		})
+		slog.Error("failed to get PDF", "err", err)
+		utils.NotFound(c, "PDF not found")
 		return
 	}
 
@@ -69,13 +66,12 @@ func (h *Handler) GetPDF(c *gin.Context) {
 	c.Header("Content-Disposition", "inline")
 	c.Header("X-PDF-Source", string(result.Source))
 	c.Header("X-Cache", string(result.CacheStatus))
-	c.Header("Content-Length", string(rune(result.Size)))
+	c.Header("Content-Length", strconv.FormatInt(result.Size, 10))
 	
 	// 允许跨域访问这些自定义响应头
 	c.Header("Access-Control-Expose-Headers", "X-PDF-Source, X-Cache")
 
-	log.Printf("[PDF Handler] Success: DOI=%s, Source=%s, Cache=%s, Size=%d",
-		req.DOI, result.Source, result.CacheStatus, result.Size)
+	slog.Info("PDF served successfully", "doi", req.DOI, "source", result.Source, "cache", result.CacheStatus, "size", result.Size)
 
 	// 写入 PDF 数据
 	c.Data(http.StatusOK, "application/pdf", result.Data)
@@ -85,10 +81,7 @@ func (h *Handler) GetPDF(c *gin.Context) {
 // GET /api/v1/admin/pdf/cache/stats
 func (h *Handler) GetCacheStats(c *gin.Context) {
 	stats := h.service.cache.Stats()
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    stats,
-	})
+	utils.Success(c, stats)
 }
 
 // RegisterRoutes 注册路由

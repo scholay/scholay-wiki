@@ -83,10 +83,10 @@ func TestLLMTool(t *testing.T) {
 		Function: &LLMFunction{
 			Name:        "validate_latex",
 			Description: "Validate LaTeX syntax",
-			Parameters: map[string]interface{}{
+			Parameters: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"code": map[string]interface{}{
+				"properties": map[string]any{
+					"code": map[string]any{
 						"type":        "string",
 						"description": "LaTeX code to validate",
 					},

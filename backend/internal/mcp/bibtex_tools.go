@@ -38,10 +38,10 @@ func (p *BibTeXToolProvider) GetTools() []ToolDefinition {
 			Name:        "parse_bibtex",
 			Description: "解析 BibTeX 字符串，提取结构化的参考文献信息",
 			Category:    CategoryBibtex,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"bibtex": map[string]interface{}{
+				"properties": map[string]any{
+					"bibtex": map[string]any{
 						"type":        "string",
 						"description": "BibTeX 格式的参考文献字符串",
 					},
@@ -55,57 +55,57 @@ func (p *BibTeXToolProvider) GetTools() []ToolDefinition {
 			Name:        "generate_bibtex",
 			Description: "根据论文信息生成 BibTeX 条目",
 			Category:    CategoryBibtex,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"title": map[string]interface{}{
+				"properties": map[string]any{
+					"title": map[string]any{
 						"type":        "string",
 						"description": "论文标题",
 					},
-					"authors": map[string]interface{}{
+					"authors": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
 						"description": "作者列表（格式：'姓, 名' 或 '全名'）",
 					},
-					"year": map[string]interface{}{
+					"year": map[string]any{
 						"type":        "string",
 						"description": "发表年份",
 					},
-					"type": map[string]interface{}{
+					"type": map[string]any{
 						"type":        "string",
 						"enum":        []string{"article", "inproceedings", "book", "phdthesis", "misc"},
 						"description": "文献类型",
 						"default":     "article",
 					},
-					"journal": map[string]interface{}{
+					"journal": map[string]any{
 						"type":        "string",
 						"description": "期刊名称（article 类型）",
 					},
-					"booktitle": map[string]interface{}{
+					"booktitle": map[string]any{
 						"type":        "string",
 						"description": "会议名称（inproceedings 类型）",
 					},
-					"volume": map[string]interface{}{
+					"volume": map[string]any{
 						"type":        "string",
 						"description": "卷号",
 					},
-					"number": map[string]interface{}{
+					"number": map[string]any{
 						"type":        "string",
 						"description": "期号",
 					},
-					"pages": map[string]interface{}{
+					"pages": map[string]any{
 						"type":        "string",
 						"description": "页码范围（如 '1-10'）",
 					},
-					"doi": map[string]interface{}{
+					"doi": map[string]any{
 						"type":        "string",
 						"description": "DOI",
 					},
-					"url": map[string]interface{}{
+					"url": map[string]any{
 						"type":        "string",
 						"description": "URL 链接",
 					},
-					"publisher": map[string]interface{}{
+					"publisher": map[string]any{
 						"type":        "string",
 						"description": "出版商",
 					},
@@ -118,14 +118,14 @@ func (p *BibTeXToolProvider) GetTools() []ToolDefinition {
 			Name:        "format_citation",
 			Description: "将参考文献格式化为指定引用样式",
 			Category:    CategoryBibtex,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"bibtex": map[string]interface{}{
+				"properties": map[string]any{
+					"bibtex": map[string]any{
 						"type":        "string",
 						"description": "BibTeX 格式的参考文献",
 					},
-					"style": map[string]interface{}{
+					"style": map[string]any{
 						"type":        "string",
 						"enum":        []string{"apa", "mla", "chicago", "ieee", "harvard"},
 						"description": "引用样式",
@@ -141,10 +141,10 @@ func (p *BibTeXToolProvider) GetTools() []ToolDefinition {
 			Name:        "validate_bibtex",
 			Description: "验证 BibTeX 格式是否正确",
 			Category:    CategoryBibtex,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"bibtex": map[string]interface{}{
+				"properties": map[string]any{
+					"bibtex": map[string]any{
 						"type":        "string",
 						"description": "BibTeX 字符串",
 					},
@@ -158,10 +158,10 @@ func (p *BibTeXToolProvider) GetTools() []ToolDefinition {
 			Name:        "merge_bibtex",
 			Description: "合并多个 BibTeX 条目，去除重复",
 			Category:    CategoryBibtex,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"entries": map[string]interface{}{
+				"properties": map[string]any{
+					"entries": map[string]any{
 						"type":        "array",
 						"items":       map[string]string{"type": "string"},
 						"description": "BibTeX 条目列表",
@@ -175,7 +175,7 @@ func (p *BibTeXToolProvider) GetTools() []ToolDefinition {
 }
 
 // ExecuteTool 执行工具
-func (p *BibTeXToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]interface{}) (*ToolResult, error) {
+func (p *BibTeXToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error) {
 	switch name {
 	case "parse_bibtex":
 		return p.parseBibTeX(ctx, args)
@@ -209,7 +209,7 @@ type BibEntry struct {
 // ============================================================================
 
 // parseBibTeX 解析 BibTeX
-func (p *BibTeXToolProvider) parseBibTeX(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *BibTeXToolProvider) parseBibTeX(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	bibtex, ok := args["bibtex"].(string)
 	if !ok || bibtex == "" {
 		return CreateErrorResult(fmt.Errorf("bibtex is required")), nil
@@ -217,20 +217,20 @@ func (p *BibTeXToolProvider) parseBibTeX(ctx context.Context, args map[string]in
 
 	entries := parseBibTeXString(bibtex)
 	
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"count":   len(entries),
 		"entries": entries,
 	}), nil
 }
 
 // generateBibTeX 生成 BibTeX
-func (p *BibTeXToolProvider) generateBibTeX(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *BibTeXToolProvider) generateBibTeX(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	title, ok := args["title"].(string)
 	if !ok || title == "" {
 		return CreateErrorResult(fmt.Errorf("title is required")), nil
 	}
 
-	authorsRaw, ok := args["authors"].([]interface{})
+	authorsRaw, ok := args["authors"].([]any)
 	if !ok || len(authorsRaw) == 0 {
 		return CreateErrorResult(fmt.Errorf("authors is required")), nil
 	}
@@ -287,14 +287,14 @@ func (p *BibTeXToolProvider) generateBibTeX(ctx context.Context, args map[string
 
 	bibtex := sb.String()
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"key":    key,
 		"bibtex": bibtex,
 	}), nil
 }
 
 // formatCitation 格式化引用
-func (p *BibTeXToolProvider) formatCitation(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *BibTeXToolProvider) formatCitation(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	bibtex, ok := args["bibtex"].(string)
 	if !ok || bibtex == "" {
 		return CreateErrorResult(fmt.Errorf("bibtex is required")), nil
@@ -316,14 +316,14 @@ func (p *BibTeXToolProvider) formatCitation(ctx context.Context, args map[string
 		formatted = append(formatted, citation)
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"style":    style,
 		"citations": formatted,
 	}), nil
 }
 
 // validateBibTeX 验证 BibTeX
-func (p *BibTeXToolProvider) validateBibTeX(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *BibTeXToolProvider) validateBibTeX(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	bibtex, ok := args["bibtex"].(string)
 	if !ok || bibtex == "" {
 		return CreateErrorResult(fmt.Errorf("bibtex is required")), nil
@@ -362,7 +362,7 @@ func (p *BibTeXToolProvider) validateBibTeX(ctx context.Context, args map[string
 
 	valid := len(errors) == 0
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"valid":    valid,
 		"errors":   errors,
 		"warnings": warnings,
@@ -371,8 +371,8 @@ func (p *BibTeXToolProvider) validateBibTeX(ctx context.Context, args map[string
 }
 
 // mergeBibTeX 合并 BibTeX
-func (p *BibTeXToolProvider) mergeBibTeX(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
-	entriesRaw, ok := args["entries"].([]interface{})
+func (p *BibTeXToolProvider) mergeBibTeX(ctx context.Context, args map[string]any) (*ToolResult, error) {
+	entriesRaw, ok := args["entries"].([]any)
 	if !ok || len(entriesRaw) == 0 {
 		return CreateErrorResult(fmt.Errorf("entries is required")), nil
 	}
@@ -398,7 +398,7 @@ func (p *BibTeXToolProvider) mergeBibTeX(ctx context.Context, args map[string]in
 		merged.WriteString("\n\n")
 	}
 
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"count":  len(allEntries),
 		"merged": strings.TrimSpace(merged.String()),
 	}), nil

@@ -8,8 +8,7 @@
 package hotcontent
 
 import (
-	"encoding/json"
-	"log"
+	"log/slog"
 )
 
 // Service 热门内容服务
@@ -39,7 +38,7 @@ func (s *Service) RecordPaperView(paperData *PaperViewData) error {
 }
 
 // RecordPaperViewFromExtraData 从 extra_data 中解析并记录论文查看
-func (s *Service) RecordPaperViewFromExtraData(extraData map[string]interface{}) error {
+func (s *Service) RecordPaperViewFromExtraData(extraData map[string]any) error {
 	if extraData == nil {
 		return nil
 	}
@@ -79,7 +78,7 @@ func (s *Service) RecordPaperViewFromExtraData(extraData map[string]interface{})
 }
 
 // RecordSearchFromExtraData 从 extra_data 中解析并记录搜索
-func (s *Service) RecordSearchFromExtraData(extraData map[string]interface{}) error {
+func (s *Service) RecordSearchFromExtraData(extraData map[string]any) error {
 	if extraData == nil {
 		return nil
 	}
@@ -165,7 +164,7 @@ func (s *Service) Cleanup() (*CleanupStats, error) {
 	// 清理关键词
 	keywordsDeleted, err := s.repo.CleanupOldKeywords(HotContentRetentionDays, HotContentMaxRecords)
 	if err != nil {
-		log.Printf("[HotContent] Failed to cleanup keywords: %v", err)
+		slog.Error("failed to cleanup hot keywords", "err", err)
 		return nil, err
 	}
 	stats.KeywordsDeleted = keywordsDeleted
@@ -173,20 +172,20 @@ func (s *Service) Cleanup() (*CleanupStats, error) {
 	// 清理论文
 	papersDeleted, err := s.repo.CleanupOldPapers(HotContentRetentionDays, HotContentMaxRecords)
 	if err != nil {
-		log.Printf("[HotContent] Failed to cleanup papers: %v", err)
+		slog.Error("failed to cleanup hot papers", "err", err)
 		return nil, err
 	}
 	stats.PapersDeleted = papersDeleted
 	
 	if keywordsDeleted > 0 || papersDeleted > 0 {
-		log.Printf("[HotContent] Cleanup completed: keywords=%d, papers=%d", keywordsDeleted, papersDeleted)
+		slog.Info("hot content cleanup completed", "keywords_deleted", keywordsDeleted, "papers_deleted", papersDeleted)
 	}
 	
 	return stats, nil
 }
 
 // GetStats 获取统计信息
-func (s *Service) GetStats() (map[string]interface{}, error) {
+func (s *Service) GetStats() (map[string]any, error) {
 	keywordsCount, err := s.repo.GetKeywordsCount()
 	if err != nil {
 		return nil, err
@@ -197,13 +196,10 @@ func (s *Service) GetStats() (map[string]interface{}, error) {
 		return nil, err
 	}
 	
-	return map[string]interface{}{
+	return map[string]any{
 		"keywords_count":   keywordsCount,
 		"papers_count":     papersCount,
 		"retention_days":   HotContentRetentionDays,
 		"max_records":      HotContentMaxRecords,
 	}, nil
 }
-
-// 确保 json 包被使用
-var _ = json.Marshal

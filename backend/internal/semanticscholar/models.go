@@ -29,7 +29,7 @@ type Paper struct {
 	References       []Citation              `json:"references,omitempty"`
 	Embedding        *PaperEmbedding         `json:"embedding,omitempty"`
 	TLDR             *TLDR                   `json:"tldr,omitempty"`
-	ExternalIDs      map[string]interface{}  `json:"externalIds,omitempty"`
+	ExternalIDs      map[string]any  `json:"externalIds,omitempty"`
 	Journal          *Journal                `json:"journal,omitempty"`
 }
 
@@ -48,7 +48,7 @@ type Author struct {
 // Citation represents a citation/reference relationship
 type Citation struct {
 	PaperId                 string                 `json:"paperId,omitempty"`
-	ExternalIDs             map[string]interface{} `json:"externalIds,omitempty"`
+	ExternalIDs             map[string]any `json:"externalIds,omitempty"`
 	URL                     string                 `json:"url,omitempty"`
 	Title                   string                 `json:"title,omitempty"`
 	Abstract                string                 `json:"abstract,omitempty"`

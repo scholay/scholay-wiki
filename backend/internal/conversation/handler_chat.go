@@ -9,10 +9,10 @@ package conversation
 
 import (
 	"context"
-	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/currency"
 	"strconv"
@@ -29,9 +29,8 @@ type ChatHandler struct {
 	currencyService *currency.Service
 }
 
-// NewChatHandler creates a new chat handler
-// 注意：配额检查已废弃，subscriptionService 参数保留用于向后兼容但不再使用
-func NewChatHandler(repo *Repository, aiService *ai.Service, service *Service, subscriptionService interface{}) *ChatHandler {
+// NewChatHandler 创建聊天处理器
+func NewChatHandler(repo *Repository, aiService *ai.Service, service *Service) *ChatHandler {
 	chatService := NewChatService(repo, aiService)
 	return &ChatHandler{
 		chatService: chatService,
@@ -74,21 +73,20 @@ func (h *ChatHandler) checkBalanceForChat(userID uint, modelLevel string) error 
 }
 
 // deductForChatAfterSuccess 成功后扣费，返回扣费金额
-func (h *ChatHandler) deductForChatAfterSuccess(userID uint, modelLevel string) int64 {
+func (h *ChatHandler) deductForChatAfterSuccess(ctx context.Context, userID uint, modelLevel string) int64 {
 	if h.currencyService == nil {
-		log.Printf("[AI Chat] Currency service not set, skip deduct")
+		slog.Info("currency service not set, skip deduct")
 		return 0
 	}
 
 	bizType := h.getBizTypeForChat(modelLevel)
-	ctx := context.Background()
 	transaction, err := h.currencyService.DeductByBizType(ctx, userID, bizType, "")
 	if err != nil {
-		log.Printf("[AI Chat] Deduct failed after success: userID=%d, bizType=%s, err=%v", userID, bizType, err)
+		slog.Error("deduct failed after success", "userID", userID, "bizType", bizType, "err", err)
 		return 0
 	}
 	if transaction == nil {
-		log.Printf("[AI Chat] No deduct config or disabled: userID=%d, bizType=%s", userID, bizType)
+		slog.Info("no deduct config or disabled", "userID", userID, "bizType", bizType)
 		return 0
 	}
 	// transaction.Amount 是负数（扣费），取绝对值返回
@@ -96,7 +94,7 @@ func (h *ChatHandler) deductForChatAfterSuccess(userID uint, modelLevel string) 
 	if amount < 0 {
 		amount = -amount
 	}
-	log.Printf("[AI Chat] Deduct success: userID=%d, bizType=%s, amount=%d", userID, bizType, amount)
+	slog.Info("deduct success", "userID", userID, "bizType", bizType, "amount", amount)
 	return amount
 }
 
@@ -128,18 +126,14 @@ func (h *ChatHandler) StreamChatMessage(c *gin.Context) {
 	}
 	if err := h.checkBalanceForChat(userID, modelLevel); err != nil {
 		if err == currency.ErrInsufficientBalance {
-			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "经费不足"})
+			utils.PaymentRequired(c, "经费不足", nil)
 		} else {
-			utils.ErrorResponse(c, http.StatusInternalServerError, "检查余额失败: "+err.Error())
+			utils.ServerError(c, "检查余额失败: "+err.Error())
 		}
 		return
 	}
 
-	// Set headers for Server-Sent Events
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no") // Disable nginx buffering
+	sse.SetHeaders(c)
 
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
@@ -147,18 +141,19 @@ func (h *ChatHandler) StreamChatMessage(c *gin.Context) {
 
 	// 2. 执行流式对话
 	if err := h.chatService.StreamChat(ctx, userID, req, c.Writer); err != nil {
-		log.Printf("Stream chat error: %v", err)
+		slog.Error("stream chat error", "err", err)
 		// Error already sent via SSE, do not deduct
 		return
 	}
 
 	// 3. 成功后扣费
-	deductedAmount := h.deductForChatAfterSuccess(userID, modelLevel)
+	deductedAmount := h.deductForChatAfterSuccess(c.Request.Context(), userID, modelLevel)
 
 	// 4. 发送扣费信息事件
-	deductEvent := fmt.Sprintf("data: {\"type\":\"deduct_info\",\"deducted_amount\":%d}\n\n", deductedAmount)
-	c.Writer.Write([]byte(deductEvent))
-	c.Writer.(http.Flusher).Flush()
+	sse.WriteJSONEvent(c.Writer, map[string]any{
+		"type":            "deduct_info",
+		"deducted_amount": deductedAmount,
+	})
 
 	c.Status(http.StatusOK)
 }
@@ -174,7 +169,7 @@ func (h *ChatHandler) GetMessageTree(c *gin.Context) {
 		return
 	}
 
-	tree, err := h.chatService.GetMessageTree(uint(conversationID), userID)
+	tree, err := h.chatService.GetMessageTree(c.Request.Context(), uint(conversationID), userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
@@ -194,17 +189,13 @@ func (h *ChatHandler) RegenerateMessage(c *gin.Context) {
 		return
 	}
 
-	// Set SSE headers
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
+	sse.SetHeaders(c)
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
 	defer cancel()
 
 	if err := h.chatService.RegenerateMessage(ctx, userID, messageID, c.Writer); err != nil {
-		log.Printf("Regenerate message error: %v", err)
+		slog.Error("regenerate message error", "err", err)
 		return
 	}
 
@@ -231,17 +222,13 @@ func (h *ChatHandler) EditMessage(c *gin.Context) {
 		return
 	}
 
-	// Set SSE headers
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
+	sse.SetHeaders(c)
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
 	defer cancel()
 
 	if err := h.chatService.EditMessage(ctx, userID, messageID, req.Content, c.Writer); err != nil {
-		log.Printf("Edit message error: %v", err)
+		slog.Error("edit message error", "err", err)
 		return
 	}
 
@@ -259,21 +246,21 @@ func (h *ChatHandler) GetConversationHistory(c *gin.Context) {
 		return
 	}
 
-	messages, err := h.chatService.GetConversationHistory(uint(conversationID), userID)
+	messages, err := h.chatService.GetConversationHistory(c.Request.Context(), uint(conversationID), userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// Also get conversation metadata (including model_level)
-	conversation, err := h.chatService.repo.GetConversationByID(uint(conversationID), userID)
+	conversation, err := h.chatService.GetConversationByID(c.Request.Context(), uint(conversationID), userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// Return both conversation metadata and messages
-	response := map[string]interface{}{
+	response := map[string]any{
 		"conversation": conversation,
 		"messages":     messages,
 	}
@@ -304,9 +291,9 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 	}
 	if err := h.checkBalanceForChat(userID, modelLevel); err != nil {
 		if err == currency.ErrInsufficientBalance {
-			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "经费不足"})
+			utils.PaymentRequired(c, "经费不足", nil)
 		} else {
-			utils.ErrorResponse(c, http.StatusInternalServerError, "检查余额失败: "+err.Error())
+			utils.ServerError(c, "检查余额失败: "+err.Error())
 		}
 		return
 	}
@@ -318,22 +305,19 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 	}
 
 	// Create conversation with chat type
-	conversation, err := h.service.CreateConversation(userID, title, ConversationTypeChat)
+	conversation, err := h.service.CreateConversation(c.Request.Context(), userID, title, ConversationTypeChat)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to create conversation")
 		return
 	}
 
 	// Set SSE headers
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
+	sse.SetHeaders(c)
 
 	// Send conversation ID first
 	h.chatService.sendEvent(c.Writer, ChatResponse{
 		Type: "conversation_created",
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"conversation_id": conversation.ID,
 			"title":           conversation.Title,
 		},
@@ -351,18 +335,19 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 	defer cancel()
 
 	if err := h.chatService.StreamChat(ctx, userID, chatReq, c.Writer); err != nil {
-		log.Printf("Stream chat error: %v", err)
+		slog.Error("stream chat error", "err", err)
 		// Error occurred, do not deduct
 		return
 	}
 
 	// 3. 成功后扣费
-	deductedAmount := h.deductForChatAfterSuccess(userID, modelLevel)
+	deductedAmount := h.deductForChatAfterSuccess(c.Request.Context(), userID, modelLevel)
 
 	// 4. 发送扣费信息事件
-	deductEvent := fmt.Sprintf("data: {\"type\":\"deduct_info\",\"deducted_amount\":%d}\n\n", deductedAmount)
-	c.Writer.Write([]byte(deductEvent))
-	c.Writer.(http.Flusher).Flush()
+	sse.WriteJSONEvent(c.Writer, map[string]any{
+		"type":            "deduct_info",
+		"deducted_amount": deductedAmount,
+	})
 
 	c.Status(http.StatusOK)
 }
@@ -417,7 +402,7 @@ func (h *ChatHandler) GetSiblingMessages(c *gin.Context) {
 		return
 	}
 
-	siblings, err := h.chatService.repo.GetSiblingMessages(messageID)
+	siblings, err := h.chatService.GetSiblingMessages(c.Request.Context(), messageID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
@@ -451,7 +436,7 @@ func (h *ChatHandler) GetBranchChain(c *gin.Context) {
 	}
 
 	// Get complete branch chain
-	chain, err := h.chatService.GetBranchChain(messageID, userID)
+	chain, err := h.chatService.GetBranchChain(c.Request.Context(), messageID, userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return

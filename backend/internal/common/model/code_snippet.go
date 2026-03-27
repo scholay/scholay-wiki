@@ -37,7 +37,7 @@ const (
 type StringArray []string
 
 // Scan 实现 sql.Scanner 接口
-func (s *StringArray) Scan(value interface{}) error {
+func (s *StringArray) Scan(value any) error {
 	if value == nil {
 		*s = nil
 		return nil

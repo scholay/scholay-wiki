@@ -1,7 +1,7 @@
 package currency
 
 import (
-	"log"
+	"log/slog"
 
 	"github.com/robfig/cron/v3"
 )
@@ -32,48 +32,47 @@ func (s *CronScheduler) Start() error {
 	// cron 表达式: 秒 分 时 日 月 周
 	// "0 0 0 1 * *" = 每月1号 00:00:00
 	_, err := s.cron.AddFunc("0 0 0 1 * *", func() {
-		log.Println("[CronScheduler] Monthly membership gift task triggered")
+		slog.Info("Monthly membership gift task triggered")
 		s.membershipGiftSvc.ExecuteMonthlyTasks()
 	})
 	if err != nil {
-		log.Printf("[CronScheduler] Failed to add monthly gift task: %v", err)
+		slog.Error("Failed to add monthly gift task", "err", err)
 		return err
 	}
-	log.Println("[CronScheduler] Registered monthly membership gift task: 0 0 0 1 * * (every 1st day at 00:00)")
+	slog.Info("Registered monthly membership gift task", "cron", "0 0 0 1 * *")
 
 	// 每天00:00执行每日清空任务（宽限期结束清空）
 	// cron 表达式: "0 0 0 * * *" = 每天 00:00:00
 	_, err = s.cron.AddFunc("0 0 0 * * *", func() {
-		log.Println("[CronScheduler] Daily clear task triggered")
+		slog.Info("Daily clear task triggered")
 		s.membershipGiftSvc.ExecuteDailyClearTasks()
 	})
 	if err != nil {
-		log.Printf("[CronScheduler] Failed to add daily clear task: %v", err)
+		slog.Error("Failed to add daily clear task", "err", err)
 		return err
 	}
-	log.Println("[CronScheduler] Registered daily clear task: 0 0 0 * * * (every day at 00:00)")
+	slog.Info("Registered daily clear task", "cron", "0 0 0 * * *")
 
 	// 每天09:00执行每日提醒检查
 	// cron 表达式: "0 0 9 * * *" = 每天 09:00:00
 	_, err = s.cron.AddFunc("0 0 9 * * *", func() {
-		log.Println("[CronScheduler] Daily reminder task triggered")
+		slog.Info("Daily reminder task triggered")
 		s.membershipGiftSvc.ExecuteDailyReminders()
 	})
 	if err != nil {
-		log.Printf("[CronScheduler] Failed to add daily reminder task: %v", err)
+		slog.Error("Failed to add daily reminder task", "err", err)
 		return err
 	}
-	log.Println("[CronScheduler] Registered daily reminder task: 0 0 9 * * * (every day at 09:00)")
+	slog.Info("Registered daily reminder task", "cron", "0 0 9 * * *")
 
 	// 启动 cron 调度器
 	s.cron.Start()
-	log.Println("[CronScheduler] Cron scheduler started")
+	slog.Info("Cron scheduler started")
 
-	// 打印所有已注册的任务
 	entries := s.cron.Entries()
-	log.Printf("[CronScheduler] Total registered tasks: %d", len(entries))
+	slog.Info("Total registered tasks", "count", len(entries))
 	for i, entry := range entries {
-		log.Printf("[CronScheduler] Task %d: Next run at %s", i+1, entry.Next.Format("2006-01-02 15:04:05"))
+		slog.Info("Scheduled task", "task", i+1, "nextRun", entry.Next.Format("2006-01-02 15:04:05"))
 	}
 
 	return nil
@@ -83,24 +82,24 @@ func (s *CronScheduler) Start() error {
 func (s *CronScheduler) Stop() {
 	ctx := s.cron.Stop()
 	<-ctx.Done()
-	log.Println("[CronScheduler] Cron scheduler stopped")
+	slog.Info("Cron scheduler stopped")
 }
 
 // TriggerMonthlyTaskNow 立即触发月度任务（用于测试或手动补发）
 func (s *CronScheduler) TriggerMonthlyTaskNow() {
-	log.Println("[CronScheduler] Manually triggering monthly membership gift task")
+	slog.Info("Manually triggering monthly membership gift task")
 	s.membershipGiftSvc.ExecuteMonthlyTasks()
 }
 
 // TriggerDailyRemindersNow 立即触发每日提醒任务（用于测试）
 func (s *CronScheduler) TriggerDailyRemindersNow() {
-	log.Println("[CronScheduler] Manually triggering daily reminders task")
+	slog.Info("Manually triggering daily reminders task")
 	s.membershipGiftSvc.ExecuteDailyReminders()
 }
 
 // TriggerDailyClearTasksNow 立即触发每日清空任务（用于测试）
 func (s *CronScheduler) TriggerDailyClearTasksNow() {
-	log.Println("[CronScheduler] Manually triggering daily clear tasks")
+	slog.Info("Manually triggering daily clear tasks")
 	s.membershipGiftSvc.ExecuteDailyClearTasks()
 }
 

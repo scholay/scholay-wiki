@@ -9,7 +9,7 @@ package usagelog
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -86,10 +86,10 @@ func (s *Service) Log(req *LogRequest, userID *uint, ipAddress, userAgent string
 }
 
 // recordHotContent 记录热门内容（异步调用）
-func (s *Service) recordHotContent(featureCode string, extraData map[string]interface{}) {
+func (s *Service) recordHotContent(featureCode string, extraData map[string]any) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[UsageLog] Panic in recordHotContent: %v", r)
+			slog.Error("panic in recordHotContent", "recover", r)
 		}
 	}()
 
@@ -97,12 +97,12 @@ func (s *Service) recordHotContent(featureCode string, extraData map[string]inte
 	case "direct_search", "smart_search":
 		// 记录热门搜索关键词
 		if err := s.hotContentService.RecordSearchFromExtraData(extraData); err != nil {
-			log.Printf("[UsageLog] Failed to record hot search keyword: %v", err)
+			slog.Error("failed to record hot search keyword", "err", err)
 		}
 	case "landing_page_view", "detail_page_view":
 		// 记录热门论文
 		if err := s.hotContentService.RecordPaperViewFromExtraData(extraData); err != nil {
-			log.Printf("[UsageLog] Failed to record hot paper view: %v", err)
+			slog.Error("failed to record hot paper view", "err", err)
 		}
 	}
 }
@@ -149,7 +149,7 @@ func (s *Service) GetFeatureConfigs() ([]FeatureConfig, error) {
 }
 
 // GetFilterOptions 获取筛选选项
-func (s *Service) GetFilterOptions() (map[string]interface{}, error) {
+func (s *Service) GetFilterOptions() (map[string]any, error) {
 	features, err := s.repo.GetFeatureConfigs()
 	if err != nil {
 		return nil, err
@@ -175,7 +175,7 @@ func (s *Service) GetFilterOptions() (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"features":     features,
 		"actions":      actions,
 		"entry_points": entryPoints,

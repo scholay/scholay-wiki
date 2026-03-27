@@ -16,11 +16,11 @@ import (
 type Response struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Data    any `json:"data,omitempty"`
 }
 
 // Success sends a success response
-func Success(c *gin.Context, data interface{}) {
+func Success(c *gin.Context, data any) {
 	c.JSON(http.StatusOK, Response{
 		Code:    0,
 		Message: "success",
@@ -29,7 +29,7 @@ func Success(c *gin.Context, data interface{}) {
 }
 
 // SuccessWithMessage sends a success response with custom message
-func SuccessWithMessage(c *gin.Context, message string, data interface{}) {
+func SuccessWithMessage(c *gin.Context, message string, data any) {
 	c.JSON(http.StatusOK, Response{
 		Code:    0,
 		Message: message,
@@ -37,7 +37,8 @@ func SuccessWithMessage(c *gin.Context, message string, data interface{}) {
 	})
 }
 
-// Error sends an error response
+// Error sends an error response with HTTP 200 (legacy behavior for backward compatibility).
+// Prefer NotFound, Forbidden, or ServerError for new code.
 func Error(c *gin.Context, code int, message string) {
 	c.JSON(http.StatusOK, Response{
 		Code:    code,
@@ -46,11 +47,43 @@ func Error(c *gin.Context, code int, message string) {
 }
 
 // ErrorWithData sends an error response with data
-func ErrorWithData(c *gin.Context, code int, message string, data interface{}) {
+func ErrorWithData(c *gin.Context, code int, message string, data any) {
 	c.JSON(http.StatusOK, Response{
 		Code:    code,
 		Message: message,
 		Data:    data,
+	})
+}
+
+// NotFound sends a 404 response
+func NotFound(c *gin.Context, message string) {
+	c.JSON(http.StatusNotFound, Response{
+		Code:    404,
+		Message: message,
+	})
+}
+
+// Forbidden sends a 403 response
+func Forbidden(c *gin.Context, message string) {
+	c.JSON(http.StatusForbidden, Response{
+		Code:    403,
+		Message: message,
+	})
+}
+
+// ServerError sends a 500 response
+func ServerError(c *gin.Context, message string) {
+	c.JSON(http.StatusInternalServerError, Response{
+		Code:    500,
+		Message: message,
+	})
+}
+
+// TooManyRequests sends a 429 response
+func TooManyRequests(c *gin.Context, message string) {
+	c.JSON(http.StatusTooManyRequests, Response{
+		Code:    429,
+		Message: message,
 	})
 }
 
@@ -70,6 +103,15 @@ func BadRequest(c *gin.Context, message string) {
 	})
 }
 
+// PaymentRequired 发送 402 余额不足响应
+func PaymentRequired(c *gin.Context, message string, data any) {
+	c.JSON(http.StatusPaymentRequired, Response{
+		Code:    4020,
+		Message: message,
+		Data:    data,
+	})
+}
+
 // ErrorResponse sends an error response with custom status code
 func ErrorResponse(c *gin.Context, statusCode int, message string) {
 	c.JSON(statusCode, Response{
@@ -79,7 +121,7 @@ func ErrorResponse(c *gin.Context, statusCode int, message string) {
 }
 
 // SuccessResponse sends a success response with custom status code and data
-func SuccessResponse(c *gin.Context, statusCode int, message string, data interface{}) {
+func SuccessResponse(c *gin.Context, statusCode int, message string, data any) {
 	c.JSON(statusCode, Response{
 		Code:    0,
 		Message: message,

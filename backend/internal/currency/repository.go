@@ -119,7 +119,7 @@ func (r *Repository) UpdateWalletBalance(tx *gorm.DB, wallet *Wallet, currencyTy
 	// 使用乐观锁更新
 	result := tx.Model(&Wallet{}).
 		Where("id = ? AND version = ?", wallet.ID, wallet.Version).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			updateField: newBalance,
 			"version":   wallet.Version + 1,
 			"updated_at": time.Now(),
@@ -487,7 +487,7 @@ func (r *Repository) GetFundByMonth(month string) (*FundConfig, error) {
 
 // IncrementFundStats 增加基金统计数据
 func (r *Repository) IncrementFundStats(fundID uint, goldAmount, diamondAmount int64) error {
-	return r.db.Table("membership_funds").Where("id = ?", fundID).Updates(map[string]interface{}{
+	return r.db.Table("membership_funds").Where("id = ?", fundID).Updates(map[string]any{
 		"total_distributed_gold":    gorm.Expr("total_distributed_gold + ?", goldAmount),
 		"total_distributed_diamond": gorm.Expr("total_distributed_diamond + ?", diamondAmount),
 		"beneficiary_count":         gorm.Expr("beneficiary_count + 1"),
@@ -576,7 +576,7 @@ func (r *Repository) UpdateBatch(batch *CurrencyBatch) error {
 
 // UpdateBatchStatus 更新批次状态
 func (r *Repository) UpdateBatchStatus(id uint, status BatchStatus) error {
-	updates := map[string]interface{}{
+	updates := map[string]any{
 		"status":     status,
 		"updated_at": time.Now(),
 	}
@@ -593,7 +593,7 @@ func (r *Repository) UpdateBatchStatus(id uint, status BatchStatus) error {
 
 // UpdateBatchCounts 更新批次统计
 func (r *Repository) UpdateBatchCounts(id uint, successCount, failedCount int) error {
-	return r.db.Model(&CurrencyBatch{}).Where("id = ?", id).Updates(map[string]interface{}{
+	return r.db.Model(&CurrencyBatch{}).Where("id = ?", id).Updates(map[string]any{
 		"success_count": successCount,
 		"failed_count":  failedCount,
 		"updated_at":    time.Now(),
@@ -675,7 +675,7 @@ func (r *Repository) CreateBatchDistributionsBulk(distributions []BatchDistribut
 
 // UpdateBatchDistributionStatus 更新发放明细状态
 func (r *Repository) UpdateBatchDistributionStatus(id uint, status TransactionStatus, transactionNo, errorMsg string) error {
-	return r.db.Model(&BatchDistribution{}).Where("id = ?", id).Updates(map[string]interface{}{
+	return r.db.Model(&BatchDistribution{}).Where("id = ?", id).Updates(map[string]any{
 		"status":         status,
 		"transaction_no": transactionNo,
 		"error_msg":      errorMsg,

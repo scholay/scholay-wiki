@@ -14,10 +14,12 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/url"
 	"scholar-backend/internal/common/model"
 	"sort"
@@ -27,9 +29,21 @@ import (
 	"gorm.io/gorm"
 )
 
+// AlipayRepo defines the data-access contract consumed by AlipayService.
+type AlipayRepo interface {
+	GetActiveConfig() (*model.AlipayConfig, error)
+	GetConfigByID(id uint) (*model.AlipayConfig, error)
+	ListConfigs() ([]model.AlipayConfig, error)
+	CreateConfig(config *model.AlipayConfig) error
+	UpdateConfig(config *model.AlipayConfig) error
+	DeleteConfig(id uint) error
+	DeactivateAllConfigs() error
+	SetActiveConfig(id uint) error
+}
+
 // AlipayService handles Alipay payment operations
 type AlipayService struct {
-	repo *AlipayRepository
+	repo AlipayRepo
 }
 
 // NewAlipayService creates a new Alipay service
@@ -120,8 +134,7 @@ func (s *AlipayService) VerifyCallback(params map[string]string) (bool, error) {
 	// Build sign content
 	signContent := s.buildSignContent(params)
 
-	fmt.Printf("[ALIPAY_VERIFY] Sign content: %s\n", signContent)
-	fmt.Printf("[ALIPAY_VERIFY] Sign to verify: %s...\n", sign[:50])
+	slog.Debug("alipay verify callback", "sign_content", signContent, "sign_prefix", sign[:50])
 
 	// Verify signature
 	return s.verifySign(signContent, sign, config.AlipayPublicKey)
@@ -130,6 +143,11 @@ func (s *AlipayService) VerifyCallback(params map[string]string) (bool, error) {
 // GetActiveConfig retrieves the active Alipay configuration
 func (s *AlipayService) GetActiveConfig() (*model.AlipayConfig, error) {
 	return s.repo.GetActiveConfig()
+}
+
+// GetConfigByID retrieves an Alipay configuration by ID
+func (s *AlipayService) GetConfigByID(id uint) (*model.AlipayConfig, error) {
+	return s.repo.GetConfigByID(id)
 }
 
 // ListConfigs retrieves all Alipay configurations
@@ -191,14 +209,17 @@ func (s *AlipayService) SetActiveConfig(id uint) error {
 	return s.repo.SetActiveConfig(id)
 }
 
-// buildBizContent builds the biz_content JSON string
+// buildBizContent 构建支付宝 biz_content JSON，使用 json.Marshal 防止特殊字符注入
 func (s *AlipayService) buildBizContent(req PaymentRequest) string {
-	return fmt.Sprintf(`{"out_trade_no":"%s","product_code":"FAST_INSTANT_TRADE_PAY","total_amount":"%.2f","subject":"%s","body":"%s"}`,
-		req.OrderNo,
-		req.Amount,
-		req.Subject,
-		req.Description,
-	)
+	content := map[string]any{
+		"out_trade_no": req.OrderNo,
+		"product_code": "FAST_INSTANT_TRADE_PAY",
+		"total_amount": fmt.Sprintf("%.2f", req.Amount),
+		"subject":      req.Subject,
+		"body":         req.Description,
+	}
+	b, _ := json.Marshal(content)
+	return string(b)
 }
 
 // buildSignContent builds the content to be signed
@@ -225,9 +246,10 @@ func (s *AlipayService) signParams(params map[string]string, privateKeyStr strin
 	// Build sign content
 	signContent := s.buildSignContent(params)
 
-	// Debug: Print sign content and its length
-	fmt.Printf("🔐 Sign content (%d bytes): %s\n", len(signContent), signContent)
-	fmt.Printf("🔐 Sign content (first 100 chars): %s\n", signContent[:min(100, len(signContent))])
+	slog.Debug("sign content prepared",
+		"bytes", len(signContent),
+		"content_prefix", signContent[:min(100, len(signContent))],
+	)
 
 	// Parse private key
 	privateKey, err := s.parsePrivateKey(privateKeyStr)
@@ -239,7 +261,7 @@ func (s *AlipayService) signParams(params map[string]string, privateKeyStr strin
 	hash := sha256.New()
 	hash.Write([]byte(signContent))
 	hashed := hash.Sum(nil)
-	fmt.Printf("🔐 SHA256 hash: %x\n", hashed)
+	slog.Debug("SHA256 hash computed", "hash", fmt.Sprintf("%x", hashed))
 
 	// Sign with RSA
 	signature, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, hashed)
@@ -247,9 +269,8 @@ func (s *AlipayService) signParams(params map[string]string, privateKeyStr strin
 		return "", fmt.Errorf("failed to sign: %w", err)
 	}
 
-	// Encode to base64
 	signStr := base64.StdEncoding.EncodeToString(signature)
-	fmt.Printf("🔐 Generated signature (%d chars): %s...\n", len(signStr), signStr[:min(50, len(signStr))])
+	slog.Debug("signature generated", "length", len(signStr), "prefix", signStr[:min(50, len(signStr))])
 	return signStr, nil
 }
 
@@ -299,14 +320,13 @@ func (s *AlipayService) buildPaymentURL(gateway string, params map[string]string
 		encodedValue := url.QueryEscape(params[k])
 		urlParams = append(urlParams, fmt.Sprintf("%s=%s", k, encodedValue))
 
-		// Debug: Show encoding
 		if params[k] != encodedValue {
-			fmt.Printf("🔗 URL encoding: %s = %s -> %s\n", k, params[k], encodedValue)
+			slog.Debug("URL encoding applied", "key", k, "original", params[k], "encoded", encodedValue)
 		}
 	}
 
 	fullURL := gateway + "?" + strings.Join(urlParams, "&")
-	fmt.Printf("🔗 Payment URL length: %d\n", len(fullURL))
+	slog.Debug("payment URL built", "url_length", len(fullURL))
 	return fullURL
 }
 

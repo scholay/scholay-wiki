@@ -41,10 +41,10 @@ func (p *LaTeXToolProvider) GetTools() []ToolDefinition {
 			Name:        "validate_latex",
 			Description: "验证 LaTeX 代码语法，检查环境配对、括号匹配、中文字符、特殊字符转义等问题",
 			Category:    CategoryLatex,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"content": map[string]interface{}{
+				"properties": map[string]any{
+					"content": map[string]any{
 						"type":        "string",
 						"description": "要验证的 LaTeX 代码",
 					},
@@ -58,17 +58,17 @@ func (p *LaTeXToolProvider) GetTools() []ToolDefinition {
 			Name:        "fix_latex_errors",
 			Description: "自动修复 LaTeX 代码中的常见语法错误",
 			Category:    CategoryLatex,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"content": map[string]interface{}{
+				"properties": map[string]any{
+					"content": map[string]any{
 						"type":        "string",
 						"description": "要修复的 LaTeX 代码",
 					},
-					"errors": map[string]interface{}{
+					"errors": map[string]any{
 						"type":        "array",
 						"description": "验证器返回的错误列表（可选）",
-						"items": map[string]interface{}{
+						"items": map[string]any{
 							"type": "object",
 						},
 					},
@@ -80,14 +80,14 @@ func (p *LaTeXToolProvider) GetTools() []ToolDefinition {
 			Name:        "format_latex",
 			Description: "格式化 LaTeX 代码，统一缩进和代码风格",
 			Category:    CategoryLatex,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"content": map[string]interface{}{
+				"properties": map[string]any{
+					"content": map[string]any{
 						"type":        "string",
 						"description": "要格式化的 LaTeX 代码",
 					},
-					"indent_size": map[string]interface{}{
+					"indent_size": map[string]any{
 						"type":        "integer",
 						"description": "缩进空格数（默认 2）",
 						"default":     2,
@@ -100,10 +100,10 @@ func (p *LaTeXToolProvider) GetTools() []ToolDefinition {
 			Name:        "extract_structure",
 			Description: "提取 LaTeX 文档结构，返回章节、公式、图表、表格的层级结构",
 			Category:    CategoryLatex,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"content": map[string]interface{}{
+				"properties": map[string]any{
+					"content": map[string]any{
 						"type":        "string",
 						"description": "LaTeX 文档内容",
 					},
@@ -117,10 +117,10 @@ func (p *LaTeXToolProvider) GetTools() []ToolDefinition {
 			Name:        "check_latex_packages",
 			Description: "检查 LaTeX 文档中使用的命令是否有对应的宏包声明",
 			Category:    CategoryLatex,
-			InputSchema: map[string]interface{}{
+			InputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"content": map[string]interface{}{
+				"properties": map[string]any{
+					"content": map[string]any{
 						"type":        "string",
 						"description": "LaTeX 文档内容",
 					},
@@ -134,7 +134,7 @@ func (p *LaTeXToolProvider) GetTools() []ToolDefinition {
 }
 
 // ExecuteTool 执行工具
-func (p *LaTeXToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]interface{}) (*ToolResult, error) {
+func (p *LaTeXToolProvider) ExecuteTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error) {
 	switch name {
 	case "validate_latex":
 		return p.validateLaTeX(ctx, args)
@@ -152,7 +152,7 @@ func (p *LaTeXToolProvider) ExecuteTool(ctx context.Context, name string, args m
 }
 
 // validateLaTeX 验证 LaTeX 代码
-func (p *LaTeXToolProvider) validateLaTeX(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *LaTeXToolProvider) validateLaTeX(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	content, ok := args["content"].(string)
 	if !ok {
 		return CreateErrorResult(fmt.Errorf("content is required")), nil
@@ -163,7 +163,7 @@ func (p *LaTeXToolProvider) validateLaTeX(ctx context.Context, args map[string]i
 }
 
 // fixLaTeXErrors 修复 LaTeX 错误
-func (p *LaTeXToolProvider) fixLaTeXErrors(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *LaTeXToolProvider) fixLaTeXErrors(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	content, ok := args["content"].(string)
 	if !ok {
 		return CreateErrorResult(fmt.Errorf("content is required")), nil
@@ -174,7 +174,7 @@ func (p *LaTeXToolProvider) fixLaTeXErrors(ctx context.Context, args map[string]
 	// 再次验证修复后的代码
 	validation := p.validator.Validate(fixed)
 	
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"original":   content,
 		"fixed":      fixed,
 		"validation": validation,
@@ -182,7 +182,7 @@ func (p *LaTeXToolProvider) fixLaTeXErrors(ctx context.Context, args map[string]
 }
 
 // formatLaTeX 格式化 LaTeX 代码
-func (p *LaTeXToolProvider) formatLaTeX(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *LaTeXToolProvider) formatLaTeX(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	content, ok := args["content"].(string)
 	if !ok {
 		return CreateErrorResult(fmt.Errorf("content is required")), nil
@@ -194,13 +194,13 @@ func (p *LaTeXToolProvider) formatLaTeX(ctx context.Context, args map[string]int
 	}
 
 	formatted := formatLaTeXCode(content, indentSize)
-	return CreateSuccessResult(map[string]interface{}{
+	return CreateSuccessResult(map[string]any{
 		"formatted": formatted,
 	}), nil
 }
 
 // extractStructure 提取文档结构
-func (p *LaTeXToolProvider) extractStructure(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *LaTeXToolProvider) extractStructure(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	content, ok := args["content"].(string)
 	if !ok {
 		return CreateErrorResult(fmt.Errorf("content is required")), nil
@@ -211,7 +211,7 @@ func (p *LaTeXToolProvider) extractStructure(ctx context.Context, args map[strin
 }
 
 // checkPackages 检查宏包使用
-func (p *LaTeXToolProvider) checkPackages(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+func (p *LaTeXToolProvider) checkPackages(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	content, ok := args["content"].(string)
 	if !ok {
 		return CreateErrorResult(fmt.Errorf("content is required")), nil
@@ -465,7 +465,7 @@ func (v *LaTeXValidator) checkCommonCommandErrors(content string, lines []string
 }
 
 // CheckPackageUsage 检查宏包使用
-func (v *LaTeXValidator) CheckPackageUsage(content string) map[string]interface{} {
+func (v *LaTeXValidator) CheckPackageUsage(content string) map[string]any {
 	packageRegex := regexp.MustCompile(`\\usepackage(?:\[[^\]]*\])?\{([^}]+)\}`)
 	loadedPackages := make(map[string]bool)
 	matches := packageRegex.FindAllStringSubmatch(content, -1)
@@ -497,7 +497,7 @@ func (v *LaTeXValidator) CheckPackageUsage(content string) map[string]interface{
 		}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"loaded_packages":  loadedPackages,
 		"missing_packages": missingPackages,
 	}

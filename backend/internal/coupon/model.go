@@ -67,7 +67,7 @@ const (
 )
 
 // JSONArray 用于处理JSON数组
-type JSONArray []interface{}
+type JSONArray []any
 
 // Value 实现 driver.Valuer 接口
 func (j JSONArray) Value() (driver.Value, error) {
@@ -78,7 +78,7 @@ func (j JSONArray) Value() (driver.Value, error) {
 }
 
 // Scan 实现 sql.Scanner 接口
-func (j *JSONArray) Scan(value interface{}) error {
+func (j *JSONArray) Scan(value any) error {
 	if value == nil {
 		*j = nil
 		return nil
@@ -91,7 +91,7 @@ func (j *JSONArray) Scan(value interface{}) error {
 }
 
 // JSONMap 用于处理JSON对象
-type JSONMap map[string]interface{}
+type JSONMap map[string]any
 
 // Value 实现 driver.Valuer 接口
 func (j JSONMap) Value() (driver.Value, error) {
@@ -102,7 +102,7 @@ func (j JSONMap) Value() (driver.Value, error) {
 }
 
 // Scan 实现 sql.Scanner 接口
-func (j *JSONMap) Scan(value interface{}) error {
+func (j *JSONMap) Scan(value any) error {
 	if value == nil {
 		*j = nil
 		return nil
@@ -327,7 +327,7 @@ type CreateCouponTemplateRequest struct {
 	FirstPurchaseOnly bool             `json:"first_purchase_only"`
 	NewUserOnly       bool             `json:"new_user_only"`
 	IsInviteCoupon    bool             `json:"is_invite_coupon"`
-	InviterBenefit    map[string]interface{} `json:"inviter_benefit"`
+	InviterBenefit    map[string]any `json:"inviter_benefit"`
 }
 
 // UpdateCouponTemplateRequest 更新折扣券模板请求
@@ -399,7 +399,7 @@ type CreateBatchRequest struct {
 	Description      string            `json:"description"`
 	TargetType       string            `json:"target_type" binding:"required,oneof=all new_users paid_users specific_users user_group"`
 	TargetUsers      []uint64          `json:"target_users"`
-	TargetConditions map[string]interface{} `json:"target_conditions"`
+	TargetConditions map[string]any `json:"target_conditions"`
 	TotalQuantity    int               `json:"total_quantity" binding:"required,min=1"`
 	ScheduledAt      *time.Time        `json:"scheduled_at"`
 }

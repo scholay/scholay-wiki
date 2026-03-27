@@ -8,33 +8,63 @@
 package conversation
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"strings"
+	"time"
 
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/semanticscholar"
-	"scholar-backend/internal/subscription"
 	"scholar-backend/internal/thirdparty"
 )
 
-type Service struct {
-	repo                *Repository
-	scholarManager      *semanticscholar.Manager
-	aiService           *ai.Service
-	subscriptionService *subscription.Service
+// ConversationRepo defines the data-access contract consumed by Service.
+type ConversationRepo interface {
+	CreateConversation(conversation *Conversation) error
+	GetConversationByID(id uint, userID uint) (*Conversation, error)
+	GetUserConversations(userID uint, limit, offset int, conversationType *ConversationType) ([]Conversation, int64, error)
+	GetConversationWithMessages(id uint, userID uint) (*ConversationWithMessages, error)
+	UpdateConversation(conversation *Conversation) error
+	UpdateConversationTitle(conversationID uint, title string) error
+	DeleteConversation(id uint, userID uint) error
+	TouchConversation(id uint) error
+
+	CreateMessage(message *ConversationMessage) error
+	UpdateMessage(message *ConversationMessage) error
+	UpsertMessage(message *ConversationMessage) error
+	GetConversationMessages(conversationID uint) ([]ConversationMessage, error)
+	GetConversationMessagesPaginated(conversationID uint, page, pageSize int) ([]ConversationMessage, int64, error)
+	GetMessageByMessageID(messageID string) (*ConversationMessage, error)
+	GetLatestMessageInConversation(conversationID uint) (*ConversationMessage, error)
+	GetAllMessagesForTree(conversationID uint) ([]ConversationMessage, error)
+	GetLatestLeafFromMessage(messageID string) (string, error)
+
+	BuildMessageChainOptimized(messageID string) ([]ConversationMessage, error)
+	UpdateMessageSearchPaperIDs(messageID uint, paperIDs []string, total int) error
+	UpdateMessageFollowUpQuestions(messageID uint, questions string) error
+	ClearOldFollowUpQuestions(conversationID uint) error
+	GetSiblingMessages(messageID string) ([]ConversationMessage, error)
+
+	GetRecentByUserAndType(userID uint, convType string, since time.Time) ([]RecentConversationItem, error)
 }
 
-func NewService(repo *Repository, scholarManager *semanticscholar.Manager, aiService *ai.Service, subscriptionService *subscription.Service) *Service {
+type Service struct {
+	repo           ConversationRepo
+	scholarManager *semanticscholar.Manager
+	aiService      *ai.Service
+}
+
+func NewService(repo ConversationRepo, scholarManager *semanticscholar.Manager, aiService *ai.Service) *Service {
 	return &Service{
-		repo:                repo,
-		scholarManager:      scholarManager,
-		aiService:           aiService,
-		subscriptionService: subscriptionService,
+		repo:           repo,
+		scholarManager: scholarManager,
+		aiService:      aiService,
 	}
 }
 
 // CreateConversation creates a new conversation for a user
-func (s *Service) CreateConversation(userID uint, title string, conversationType ConversationType) (*Conversation, error) {
+func (s *Service) CreateConversation(ctx context.Context, userID uint, title string, conversationType ConversationType) (*Conversation, error) {
 	// Default to search type if not provided
 	if conversationType == "" {
 		conversationType = ConversationTypeSearch
@@ -54,7 +84,7 @@ func (s *Service) CreateConversation(userID uint, title string, conversationType
 }
 
 // GetUserConversations gets all conversations for a user, optionally filtered by type
-func (s *Service) GetUserConversations(userID uint, page, pageSize int, conversationType *ConversationType) (*ConversationListResponse, error) {
+func (s *Service) GetUserConversations(ctx context.Context, userID uint, page, pageSize int, conversationType *ConversationType) (*ConversationListResponse, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -75,14 +105,14 @@ func (s *Service) GetUserConversations(userID uint, page, pageSize int, conversa
 }
 
 // GetConversationWithMessages gets a conversation with all its messages
-func (s *Service) GetConversationWithMessages(conversationID uint, userID uint) (*ConversationWithMessages, error) {
+func (s *Service) GetConversationWithMessages(ctx context.Context, conversationID uint, userID uint) (*ConversationWithMessages, error) {
 	return s.repo.GetConversationWithMessages(conversationID, userID)
 }
 
 // GetConversationWithMessagesPaginated gets a conversation with paginated messages
 // Messages are returned in DESC order (newest first) for pagination
 // Frontend should reverse the order when displaying
-func (s *Service) GetConversationWithMessagesPaginated(conversationID uint, userID uint, page, pageSize int) (*ConversationWithMessagesPaginated, error) {
+func (s *Service) GetConversationWithMessagesPaginated(ctx context.Context, conversationID uint, userID uint, page, pageSize int) (*ConversationWithMessagesPaginated, error) {
 	// Get conversation
 	conversation, err := s.repo.GetConversationByID(conversationID, userID)
 	if err != nil {
@@ -119,12 +149,12 @@ func (s *Service) GetConversationWithMessagesPaginated(conversationID uint, user
 }
 
 // DeleteConversation deletes a conversation
-func (s *Service) DeleteConversation(conversationID uint, userID uint) error {
+func (s *Service) DeleteConversation(ctx context.Context, conversationID uint, userID uint) error {
 	return s.repo.DeleteConversation(conversationID, userID)
 }
 
 // AddMessage adds a message to a conversation and optionally searches papers
-func (s *Service) AddMessage(conversationID uint, userID uint, req CreateMessageRequest) (*ConversationMessage, error) {
+func (s *Service) AddMessage(ctx context.Context, conversationID uint, userID uint, req CreateMessageRequest) (*ConversationMessage, error) {
 	// Verify conversation belongs to user
 	conversation, err := s.repo.GetConversationByID(conversationID, userID)
 	if err != nil {
@@ -141,10 +171,10 @@ func (s *Service) AddMessage(conversationID uint, userID uint, req CreateMessage
 
 	// If search is requested, search papers via Semantic Scholar
 	if req.SearchPapers && req.SearchQuery != "" {
-		searchResults, total, err := s.searchPapers(req.SearchQuery)
+		searchResults, total, err := s.searchPapers(ctx, req.SearchQuery)
 		if err != nil {
 			// Don't fail the message creation if search fails
-			fmt.Printf("Warning: failed to search papers: %v\n", err)
+			slog.Warn("failed to search papers", "err", err)
 		} else {
 			message.SearchResults = searchResults
 			message.SearchResultsTotal = total
@@ -158,7 +188,7 @@ func (s *Service) AddMessage(conversationID uint, userID uint, req CreateMessage
 
 	// Update conversation's updated_at timestamp
 	if err := s.repo.TouchConversation(conversationID); err != nil {
-		fmt.Printf("Warning: failed to update conversation timestamp: %v\n", err)
+		slog.Warn("failed to update conversation timestamp", "err", err)
 	}
 
 	// Auto-update conversation title if this is the first message
@@ -173,9 +203,9 @@ func (s *Service) AddMessage(conversationID uint, userID uint, req CreateMessage
 }
 
 // searchPapers searches papers using Semantic Scholar API
-func (s *Service) searchPapers(query string) (SearchResults, int, error) {
+func (s *Service) searchPapers(ctx context.Context, query string) (SearchResults, int, error) {
 	// Search papers
-	result, err := s.scholarManager.SearchPapers(semanticscholar.PaperSearchOptions{
+	result, err := s.scholarManager.SearchPapers(ctx, semanticscholar.PaperSearchOptions{
 		Query:  query,
 		Limit:  20,
 		Fields: []string{"title", "abstract", "year", "authors", "citationCount", "url", "venue", "publicationDate"},
@@ -188,7 +218,7 @@ func (s *Service) searchPapers(query string) (SearchResults, int, error) {
 	// Convert to SearchResults format
 	var searchResults SearchResults
 	for _, paper := range result.Data {
-		paperMap := map[string]interface{}{
+		paperMap := map[string]any{
 			"paperId":       paper.PaperID,
 			"title":         paper.Title,
 			"abstract":      paper.Abstract,
@@ -200,9 +230,9 @@ func (s *Service) searchPapers(query string) (SearchResults, int, error) {
 		}
 
 		// Convert authors
-		var authors []map[string]interface{}
+		var authors []map[string]any
 		for _, author := range paper.Authors {
-			authors = append(authors, map[string]interface{}{
+			authors = append(authors, map[string]any{
 				"authorId": author.AuthorID,
 				"name":     author.Name,
 			})
@@ -229,7 +259,7 @@ func (s *Service) generateTitle(content string) string {
 }
 
 // UpdateConversationTitle updates the title of a conversation
-func (s *Service) UpdateConversationTitle(conversationID uint, userID uint, title string) error {
+func (s *Service) UpdateConversationTitle(ctx context.Context, conversationID uint, userID uint, title string) error {
 	conversation, err := s.repo.GetConversationByID(conversationID, userID)
 	if err != nil {
 		return err
@@ -241,7 +271,7 @@ func (s *Service) UpdateConversationTitle(conversationID uint, userID uint, titl
 
 // GenerateTitleWithAI generates a conversation title using AI based on conversation history
 // Uses low-level model for cost efficiency
-func (s *Service) GenerateTitleWithAI(conversationID uint) (string, error) {
+func (s *Service) GenerateTitleWithAI(ctx context.Context, conversationID uint) (string, error) {
 	// Get all messages for this conversation
 	messages, err := s.repo.GetConversationMessages(conversationID)
 	if err != nil {
@@ -271,10 +301,7 @@ func (s *Service) GenerateTitleWithAI(conversationID uint) (string, error) {
 		return "", fmt.Errorf("no user questions found in conversation")
 	}
 
-	fmt.Printf("[TITLE-DEBUG] Found %d user questions for conversation %d:\n", len(userQuestions), conversationID)
-	for i, q := range userQuestions {
-		fmt.Printf("[TITLE-DEBUG]   Question %d: %s\n", i+1, q)
-	}
+	slog.Debug("found user questions for title generation", "count", len(userQuestions), "conversationID", conversationID)
 
 	// Build the prompt - emphasize the latest question
 	systemPrompt := `你是一个对话标题生成助手。根据用户的问题历史，生成一个简洁、准确的标题。
@@ -309,7 +336,7 @@ func (s *Service) GenerateTitleWithAI(conversationID uint) (string, error) {
 		{Role: "user", Content: userMessage},
 	}
 
-	response, err := s.aiService.ChatCompletionWithLevel(aiMessages, thirdparty.ModelLevelLow)
+	response, err := s.aiService.ChatCompletionWithLevel(ctx, aiMessages, thirdparty.ModelLevelLow)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate title with AI: %w", err)
 	}
@@ -327,19 +354,24 @@ func (s *Service) GenerateTitleWithAI(conversationID uint) (string, error) {
 }
 
 // UpdateConversationTitleWithAI generates a new title using AI and updates the conversation
-func (s *Service) UpdateConversationTitleWithAI(conversationID uint) (string, error) {
+func (s *Service) UpdateConversationTitleWithAI(ctx context.Context, conversationID uint) (string, error) {
 	// Generate new title using AI
-	newTitle, err := s.GenerateTitleWithAI(conversationID)
+	newTitle, err := s.GenerateTitleWithAI(ctx, conversationID)
 	if err != nil {
 		return "", err
 	}
 
 	// Update the conversation title in database
-	err = s.repo.db.Model(&Conversation{}).Where("id = ?", conversationID).Update("title", newTitle).Error
+	err = s.repo.UpdateConversationTitle(conversationID, newTitle)
 	if err != nil {
 		return "", fmt.Errorf("failed to update conversation title: %w", err)
 	}
 
-	fmt.Printf("[TITLE-DEBUG] Generated and updated title for conversation %d: %s\n", conversationID, newTitle)
+	slog.Debug("generated and updated title", "conversationID", conversationID, "title", newTitle)
 	return newTitle, nil
+}
+
+// GetRecentByUser returns recent conversations of a given type for a user since a start date
+func (s *Service) GetRecentByUser(ctx context.Context, userID uint, convType string, since time.Time) ([]RecentConversationItem, error) {
+	return s.repo.GetRecentByUserAndType(userID, convType, since)
 }

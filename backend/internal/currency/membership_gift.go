@@ -2,12 +2,16 @@ package currency
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"scholar-backend/internal/common/cache"
 )
+
+// ErrAlreadyReceived 表示用户本月已领取过奖励
+var ErrAlreadyReceived = errors.New("已发放过奖励")
 
 // MessageService 消息服务接口（用于发送站内信）
 type MessageService interface {
@@ -207,67 +211,67 @@ func (s *MembershipGiftService) ExecuteMonthlyTasks() {
 	month := now.Format("2006-01")
 	ctx := context.Background()
 
-	log.Printf("[MembershipGift] Starting monthly tasks for %s", month)
+	slog.Info("starting monthly tasks", "month", month)
 
 	// 1. 发放会员经费/恩特币（带分布式锁）
 	giftLockKey := fmt.Sprintf(lockKeyMonthlyGift, month)
 	acquired, err := cache.SetNX(ctx, giftLockKey, "1", monthlyLockExpiration)
 	if err != nil {
-		log.Printf("[MembershipGift] Failed to acquire gift lock: %v", err)
+		slog.Error("failed to acquire gift lock", "err", err)
 	} else if acquired {
-		log.Printf("[MembershipGift] Acquired gift lock for %s", month)
+		slog.Info("acquired gift lock", "month", month)
 		s.GiftToAllMembers(month)
 		// 注意：不主动释放锁，让它自然过期，防止同月重复执行
 	} else {
-		log.Printf("[MembershipGift] Gift task already running or completed for %s, skipping", month)
+		slog.Info("gift task already running or completed, skipping", "month", month)
 	}
 
 	// 2. 处理宽限期内的会员（发送提醒站内信）
 	graceLockKey := fmt.Sprintf("lock:membership:grace_notify:%s", month)
 	acquired, err = cache.SetNX(ctx, graceLockKey, "1", monthlyLockExpiration)
 	if err != nil {
-		log.Printf("[MembershipGift] Failed to acquire grace notify lock: %v", err)
+		slog.Error("failed to acquire grace notify lock", "err", err)
 	} else if acquired {
-		log.Printf("[MembershipGift] Acquired grace notify lock for %s", month)
+		slog.Info("acquired grace notify lock", "month", month)
 		s.NotifyMembersInGracePeriod()
 		// 注意：不主动释放锁，让它自然过期，防止同月重复执行
 	} else {
-		log.Printf("[MembershipGift] Grace notify task already running or completed for %s, skipping", month)
+		slog.Info("grace notify task already running or completed, skipping", "month", month)
 	}
 
 	// 3. 清空超过宽限期的非会员用户经费（带分布式锁）
 	clearLockKey := fmt.Sprintf(lockKeyMonthlyClear, month)
 	acquired, err = cache.SetNX(ctx, clearLockKey, "1", monthlyLockExpiration)
 	if err != nil {
-		log.Printf("[MembershipGift] Failed to acquire clear lock: %v", err)
+		slog.Error("failed to acquire clear lock", "err", err)
 	} else if acquired {
-		log.Printf("[MembershipGift] Acquired clear lock for %s", month)
+		slog.Info("acquired clear lock", "month", month)
 		s.ClearNonMembersGold()
 		// 注意：不主动释放锁，让它自然过期，防止同月重复执行
 	} else {
-		log.Printf("[MembershipGift] Clear task already running or completed for %s, skipping", month)
+		slog.Info("clear task already running or completed, skipping", "month", month)
 	}
 
-	log.Printf("[MembershipGift] Monthly tasks completed for %s", month)
+	slog.Info("monthly tasks completed", "month", month)
 }
 
 // GiftToAllMembers 给所有会员发放经费/恩特币
 func (s *MembershipGiftService) GiftToAllMembers(month string) {
 	if s.getSubscriptions == nil {
-		log.Println("[MembershipGift] Warning: subscription getter not set, skipping monthly gift")
+		slog.Warn("subscription getter not set, skipping monthly gift")
 		return
 	}
 
-	log.Printf("[MembershipGift] Starting to gift all members for %s", month)
+	slog.Info("starting to gift all members", "month", month)
 
 	// 获取所有 pro 和 max 会员
 	subscriptions, err := s.getSubscriptions([]string{"pro", "max"})
 	if err != nil {
-		log.Printf("[MembershipGift] Failed to get active subscriptions: %v", err)
+		slog.Error("failed to get active subscriptions", "err", err)
 		return
 	}
 
-	log.Printf("[MembershipGift] Found %d active subscriptions", len(subscriptions))
+	slog.Info("found active subscriptions", "count", len(subscriptions))
 
 	ctx := context.Background()
 	successCount := 0
@@ -278,35 +282,34 @@ func (s *MembershipGiftService) GiftToAllMembers(month string) {
 		// 月度赠送不减半
 		result, err := s.currencyService.GiftMembershipReward(ctx, sub.UserID, sub.PlanCode, false, "membership_monthly", month)
 		if err != nil {
-			if err.Error() == "本月已发放过会员经费" {
+			if errors.Is(err, ErrAlreadyReceived) {
 				skipCount++
-				log.Printf("[MembershipGift] User %d already received gift this month, skipping", sub.UserID)
+				slog.Info("user already received gift this month, skipping", "user_id", sub.UserID)
 			} else {
-				log.Printf("[MembershipGift] Failed to gift user %d: %v", sub.UserID, err)
+				slog.Error("failed to gift user", "user_id", sub.UserID, "err", err)
 				failCount++
 			}
 		} else {
 			successCount++
-			log.Printf("[MembershipGift] Gifted user %d: gold=%d, diamond=%d", sub.UserID, result.GoldAmount, result.DiamondAmount)
+			slog.Info("gifted user", "user_id", sub.UserID, "gold", result.GoldAmount, "diamond", result.DiamondAmount)
 			
 			// 发送站内信通知
 			s.sendMonthlyGiftNotification(sub.UserID, sub.PlanCode, result, month)
 		}
 	}
 
-	log.Printf("[MembershipGift] Monthly gift completed for %s: success=%d, skipped=%d, failed=%d",
-		month, successCount, skipCount, failCount)
+	slog.Info("monthly gift completed", "month", month, "success", successCount, "skipped", skipCount, "failed", failCount)
 }
 
 // ClearNonMembersGold 清空超过宽限期的非会员用户的经费
 // 包括：从未开通过会员的用户、会员已过期且超过宽限期的用户
 func (s *MembershipGiftService) ClearNonMembersGold() {
 	today := time.Now().Format("2006-01-02")
-	log.Printf("[MembershipGift] Checking non-members to clear gold for %s", today)
+	slog.Info("checking non-members to clear gold", "date", today)
 
 	// 获取宽限期天数配置
 	graceDays := s.getGraceDays()
-	log.Printf("[MembershipGift] Using grace period of %d days", graceDays)
+	slog.Info("using grace period", "grace_days", graceDays)
 
 	var nonMembers []NonMember
 	var err error
@@ -316,24 +319,24 @@ func (s *MembershipGiftService) ClearNonMembersGold() {
 		nonMembers, err = s.getNonMembersAfterGrace(graceDays)
 	} else if s.getNonMembers != nil {
 		// 兼容旧的获取函数（不支持宽限期）
-		log.Println("[MembershipGift] Warning: using legacy non-member getter without grace period support")
+		slog.Warn("using legacy non-member getter without grace period support")
 		nonMembers, err = s.getNonMembers()
 	} else {
-		log.Println("[MembershipGift] Warning: non-member getter not set, skipping gold clear")
+		slog.Warn("non-member getter not set, skipping gold clear")
 		return
 	}
 
 	if err != nil {
-		log.Printf("[MembershipGift] Failed to get non-members: %v", err)
+		slog.Error("failed to get non-members", "err", err)
 		return
 	}
 
 	if len(nonMembers) == 0 {
-		log.Printf("[MembershipGift] No non-members with gold to clear for %s", today)
+		slog.Info("no non-members with gold to clear", "date", today)
 		return
 	}
 
-	log.Printf("[MembershipGift] Found %d non-members with gold to process", len(nonMembers))
+	slog.Info("found non-members with gold to process", "count", len(nonMembers))
 
 	ctx := context.Background()
 	successCount := 0
@@ -347,17 +350,15 @@ func (s *MembershipGiftService) ClearNonMembersGold() {
 		_, err = s.currencyService.doTransaction(ctx, member.UserID, CurrencyGold, -member.Gold, TxTypeDeduct,
 			"non_member_clear", bizID, desc)
 		if err != nil {
-			log.Printf("[MembershipGift] Failed to clear gold for user %d: %v", member.UserID, err)
+			slog.Error("failed to clear gold for user", "user_id", member.UserID, "err", err)
 			failCount++
 		} else {
 			successCount++
 			totalCleared += member.Gold
 			if member.LastSubscriptionEnd != nil {
-				log.Printf("[MembershipGift] Cleared %d gold from user %d (last subscription ended: %s)",
-					member.Gold, member.UserID, member.LastSubscriptionEnd.Format("2006-01-02"))
+				slog.Info("cleared gold from user", "gold", member.Gold, "user_id", member.UserID, "last_subscription_end", member.LastSubscriptionEnd.Format("2006-01-02"))
 			} else {
-				log.Printf("[MembershipGift] Cleared %d gold from user %d (never had subscription)",
-					member.Gold, member.UserID)
+				slog.Info("cleared gold from user", "gold", member.Gold, "user_id", member.UserID, "subscription_history", "never")
 			}
 			
 			// 发送站内信通知
@@ -365,8 +366,7 @@ func (s *MembershipGiftService) ClearNonMembersGold() {
 		}
 	}
 
-	log.Printf("[MembershipGift] Non-member gold clear completed: cleared=%d users, total_gold=%d, failed=%d",
-		successCount, totalCleared, failCount)
+	slog.Info("non-member gold clear completed", "cleared", successCount, "total_gold", totalCleared, "failed", failCount)
 }
 
 // GiftOnActivation 会员激活时发放经费（新开通会员时调用）
@@ -379,7 +379,7 @@ func (s *MembershipGiftService) GiftOnActivation(userID uint, planCode string, i
 	}
 
 	if !isNewActivation {
-		log.Printf("[MembershipGift] User %d is renewing subscription, skip activation gift", userID)
+		slog.Info("user is renewing subscription, skip activation gift", "user_id", userID)
 		return // 续费不赠送
 	}
 
@@ -388,15 +388,13 @@ func (s *MembershipGiftService) GiftOnActivation(userID uint, planCode string, i
 	month := now.Format("2006-01")
 	isHalf := now.Day() > 15
 
-	log.Printf("[MembershipGift] Gifting activation reward to new member user %d, plan %s, month %s, isHalf %v",
-		userID, planCode, month, isHalf)
+	slog.Info("gifting activation reward to new member", "user_id", userID, "plan", planCode, "month", month, "is_half", isHalf)
 
 	result, err := s.currencyService.GiftMembershipReward(ctx, userID, planCode, isHalf, "membership_activate", month)
 	if err != nil {
-		log.Printf("[MembershipGift] Warning: Failed to gift membership reward to user %d: %v", userID, err)
+		slog.Warn("failed to gift membership reward", "user_id", userID, "err", err)
 	} else {
-		log.Printf("[MembershipGift] Activation reward gifted to user %d: gold=%d, diamond=%d",
-			userID, result.GoldAmount, result.DiamondAmount)
+		slog.Info("activation reward gifted", "user_id", userID, "gold", result.GoldAmount, "diamond", result.DiamondAmount)
 		
 		// 发送站内信通知
 		s.sendActivationGiftNotification(userID, planCode, result, isHalf)
@@ -413,25 +411,25 @@ func (s *MembershipGiftService) OnSubscriptionActivated(userID uint, planCode st
 // 发送站内信提醒用户及时续费，宽限期内只发送一次
 func (s *MembershipGiftService) NotifyMembersInGracePeriod() {
 	if s.getMembersInGracePeriod == nil {
-		log.Println("[MembershipGift] Warning: members in grace period getter not set, skipping grace notification")
+		slog.Warn("members in grace period getter not set, skipping grace notification")
 		return
 	}
 
 	graceDays := s.getGraceDays()
-	log.Printf("[MembershipGift] Checking members in grace period (grace days: %d)", graceDays)
+	slog.Info("checking members in grace period", "grace_days", graceDays)
 
 	members, err := s.getMembersInGracePeriod(graceDays)
 	if err != nil {
-		log.Printf("[MembershipGift] Failed to get members in grace period: %v", err)
+		slog.Error("failed to get members in grace period", "err", err)
 		return
 	}
 
 	if len(members) == 0 {
-		log.Println("[MembershipGift] No members in grace period to notify")
+		slog.Info("no members in grace period to notify")
 		return
 	}
 
-	log.Printf("[MembershipGift] Found %d members in grace period to notify", len(members))
+	slog.Info("found members in grace period to notify", "count", len(members))
 
 	successCount := 0
 	for _, member := range members {
@@ -439,7 +437,7 @@ func (s *MembershipGiftService) NotifyMembersInGracePeriod() {
 		successCount++
 	}
 
-	log.Printf("[MembershipGift] Grace period notification completed: notified=%d users", successCount)
+	slog.Info("grace period notification completed", "notified", successCount)
 }
 
 // getGraceDays 获取宽限期天数配置
@@ -479,7 +477,7 @@ func (s *MembershipGiftService) sendActivationGiftNotification(userID uint, plan
 
 	go func() {
 		if err := s.messageService.SendToUser(userID, title, content, "transaction", "/wallet", "查看钱包"); err != nil {
-			log.Printf("[MembershipGift] Failed to send activation notification to user %d: %v", userID, err)
+			slog.Error("failed to send activation notification", "user_id", userID, "err", err)
 		}
 	}()
 }
@@ -506,7 +504,7 @@ func (s *MembershipGiftService) sendMonthlyGiftNotification(userID uint, planCod
 
 	go func() {
 		if err := s.messageService.SendToUser(userID, title, content, "transaction", "/wallet", "查看钱包"); err != nil {
-			log.Printf("[MembershipGift] Failed to send monthly gift notification to user %d: %v", userID, err)
+			slog.Error("failed to send monthly gift notification", "user_id", userID, "err", err)
 		}
 	}()
 }
@@ -522,7 +520,7 @@ func (s *MembershipGiftService) sendGoldClearNotification(userID uint, clearedAm
 
 	go func() {
 		if err := s.messageService.SendToUser(userID, title, content, "system", "/pricing", "开通会员"); err != nil {
-			log.Printf("[MembershipGift] Failed to send gold clear notification to user %d: %v", userID, err)
+			slog.Error("failed to send gold clear notification", "user_id", userID, "err", err)
 		}
 	}()
 }
@@ -550,7 +548,7 @@ func (s *MembershipGiftService) sendGracePeriodNotification(userID uint, gold in
 
 	go func() {
 		if err := s.messageService.SendToUser(userID, title, content, "system", "/pricing", "立即续费"); err != nil {
-			log.Printf("[MembershipGift] Failed to send grace period notification to user %d: %v", userID, err)
+			slog.Error("failed to send grace period notification", "user_id", userID, "err", err)
 		}
 	}()
 }
@@ -563,41 +561,41 @@ func (s *MembershipGiftService) ExecuteDailyClearTasks() {
 	now := time.Now()
 	today := now.Format("2006-01-02")
 
-	log.Printf("[MembershipGift] Starting daily clear tasks for %s", today)
+	slog.Info("starting daily clear tasks", "date", today)
 
 	// 获取宽限期天数配置
 	graceDays := s.getGraceDays()
 
-	log.Printf("[MembershipGift] Grace days config: %d", graceDays)
+	slog.Info("grace days config", "grace_days", graceDays)
 
 	// 清空宽限期刚结束的用户经费
 	s.clearGraceExpiredMembers(graceDays)
 
-	log.Printf("[MembershipGift] Daily clear tasks completed for %s", today)
+	slog.Info("daily clear tasks completed", "date", today)
 }
 
 // clearGraceExpiredMembers 清空宽限期刚结束的用户经费
 // 发送条件：宽限期昨天结束（即宽限期结束时间是昨天）
 func (s *MembershipGiftService) clearGraceExpiredMembers(graceDays int) {
 	if s.getGraceExpiredMembers == nil {
-		log.Println("[MembershipGift] Warning: grace expired members getter not set, skipping grace expired clear")
+		slog.Warn("grace expired members getter not set, skipping grace expired clear")
 		return
 	}
 
-	log.Println("[MembershipGift] Checking members whose grace period just ended")
+	slog.Info("checking members whose grace period just ended")
 
 	members, err := s.getGraceExpiredMembers(graceDays)
 	if err != nil {
-		log.Printf("[MembershipGift] Failed to get grace expired members: %v", err)
+		slog.Error("failed to get grace expired members", "err", err)
 		return
 	}
 
 	if len(members) == 0 {
-		log.Println("[MembershipGift] No members with grace period just ended")
+		slog.Info("no members with grace period just ended")
 		return
 	}
 
-	log.Printf("[MembershipGift] Found %d members whose grace period just ended", len(members))
+	slog.Info("found members whose grace period just ended", "count", len(members))
 
 	ctx := context.Background()
 	today := time.Now().Format("2006-01-02")
@@ -616,7 +614,7 @@ func (s *MembershipGiftService) clearGraceExpiredMembers(graceDays int) {
 		lockKey := fmt.Sprintf(lockKeyGraceExpiredClear, member.UserID, today)
 		acquired, err := cache.SetNX(ctx, lockKey, "1", dailyLockExpiration)
 		if err != nil {
-			log.Printf("[MembershipGift] Failed to acquire grace expired clear lock for user %d: %v", member.UserID, err)
+			slog.Error("failed to acquire grace expired clear lock", "user_id", member.UserID, "err", err)
 			continue
 		}
 		if !acquired {
@@ -630,21 +628,19 @@ func (s *MembershipGiftService) clearGraceExpiredMembers(graceDays int) {
 		_, err = s.currencyService.doTransaction(ctx, member.UserID, CurrencyGold, -member.Gold, TxTypeDeduct,
 			"grace_expired_clear", bizID, desc)
 		if err != nil {
-			log.Printf("[MembershipGift] Failed to clear gold for user %d (grace expired): %v", member.UserID, err)
+			slog.Error("failed to clear gold for user (grace expired)", "user_id", member.UserID, "err", err)
 			failCount++
 		} else {
 			successCount++
 			totalCleared += member.Gold
-			log.Printf("[MembershipGift] Cleared %d gold from user %d (grace period ended: %s)",
-				member.Gold, member.UserID, member.GraceEndDate.Format("2006-01-02"))
+			slog.Info("cleared gold from user (grace period ended)", "gold", member.Gold, "user_id", member.UserID, "grace_end_date", member.GraceEndDate.Format("2006-01-02"))
 
 			// 发送站内信通知
 			s.sendGraceExpiredClearNotification(member.UserID, member.Gold)
 		}
 	}
 
-	log.Printf("[MembershipGift] Grace expired clear completed: cleared=%d users, total_gold=%d, failed=%d, skipped=%d",
-		successCount, totalCleared, failCount, skipCount)
+	slog.Info("grace expired clear completed", "cleared", successCount, "total_gold", totalCleared, "failed", failCount, "skipped", skipCount)
 }
 
 // sendGraceExpiredClearNotification 发送宽限期结束经费清空通知站内信
@@ -658,9 +654,9 @@ func (s *MembershipGiftService) sendGraceExpiredClearNotification(userID uint, g
 
 	go func() {
 		if err := s.messageService.SendToUser(userID, title, content, "system", "/pricing", "开通会员"); err != nil {
-			log.Printf("[MembershipGift] Failed to send grace expired clear notification to user %d: %v", userID, err)
+			slog.Error("failed to send grace expired clear notification", "user_id", userID, "err", err)
 		} else {
-			log.Printf("[MembershipGift] Sent grace expired clear notification to user %d", userID)
+			slog.Info("sent grace expired clear notification", "user_id", userID)
 		}
 	}()
 }
@@ -677,13 +673,13 @@ func (s *MembershipGiftService) ExecuteDailyReminders() {
 	now := time.Now()
 	today := now.Format("2006-01-02")
 
-	log.Printf("[MembershipGift] Starting daily reminders for %s", today)
+	slog.Info("starting daily reminders", "date", today)
 
 	// 获取提醒天数配置（默认3天）
 	reminderDays := s.getReminderDays()
 	graceDays := s.getGraceDays()
 
-	log.Printf("[MembershipGift] Reminder config: reminderDays=%d, graceDays=%d", reminderDays, graceDays)
+	slog.Info("reminder config", "reminder_days", reminderDays, "grace_days", graceDays)
 
 	// 1. 会员即将到期提醒（到期前N天）
 	s.notifyExpiringMembers(reminderDays)
@@ -697,7 +693,7 @@ func (s *MembershipGiftService) ExecuteDailyReminders() {
 	// 4. 非会员月底经费清空提醒（月底前N天，排除宽限期用户）
 	s.notifyNonMembersBeforeMonthEnd(graceDays, reminderDays)
 
-	log.Printf("[MembershipGift] Daily reminders completed for %s", today)
+	slog.Info("daily reminders completed", "date", today)
 }
 
 // getReminderDays 获取提前提醒天数配置
@@ -713,24 +709,24 @@ func (s *MembershipGiftService) getReminderDays() int {
 // 发送条件：会员到期时间在未来N天内（含当天）
 func (s *MembershipGiftService) notifyExpiringMembers(reminderDays int) {
 	if s.getExpiringMembers == nil {
-		log.Println("[MembershipGift] Warning: expiring members getter not set, skipping expiry reminder")
+		slog.Warn("expiring members getter not set, skipping expiry reminder")
 		return
 	}
 
-	log.Printf("[MembershipGift] Checking members expiring within %d days", reminderDays)
+	slog.Info("checking members expiring within days", "reminder_days", reminderDays)
 
 	members, err := s.getExpiringMembers(reminderDays)
 	if err != nil {
-		log.Printf("[MembershipGift] Failed to get expiring members: %v", err)
+		slog.Error("failed to get expiring members", "err", err)
 		return
 	}
 
 	if len(members) == 0 {
-		log.Println("[MembershipGift] No members expiring soon to notify")
+		slog.Info("no members expiring soon to notify")
 		return
 	}
 
-	log.Printf("[MembershipGift] Found %d members expiring soon", len(members))
+	slog.Info("found members expiring soon", "count", len(members))
 
 	ctx := context.Background()
 	month := time.Now().Format("2006-01")
@@ -743,7 +739,7 @@ func (s *MembershipGiftService) notifyExpiringMembers(reminderDays int) {
 		lockKey := fmt.Sprintf(lockKeyExpiryReminder, member.UserID, month)
 		acquired, err := cache.SetNX(ctx, lockKey, "1", reminderLockExpiration)
 		if err != nil {
-			log.Printf("[MembershipGift] Failed to acquire expiry reminder lock for user %d: %v", member.UserID, err)
+			slog.Error("failed to acquire expiry reminder lock", "user_id", member.UserID, "err", err)
 			continue
 		}
 		if !acquired {
@@ -756,31 +752,31 @@ func (s *MembershipGiftService) notifyExpiringMembers(reminderDays int) {
 		successCount++
 	}
 
-	log.Printf("[MembershipGift] Expiry reminder completed: sent=%d, skipped=%d", successCount, skipCount)
+	slog.Info("expiry reminder completed", "sent", successCount, "skipped", skipCount)
 }
 
 // notifyExpiredTodayMembers 通知今天到期的会员（告知进入宽限期）
 // 发送条件：会员今天到期
 func (s *MembershipGiftService) notifyExpiredTodayMembers(graceDays int) {
 	if s.getExpiredTodayMembers == nil {
-		log.Println("[MembershipGift] Warning: expired today members getter not set, skipping expired today reminder")
+		slog.Warn("expired today members getter not set, skipping expired today reminder")
 		return
 	}
 
-	log.Println("[MembershipGift] Checking members expired today")
+	slog.Info("checking members expired today")
 
 	members, err := s.getExpiredTodayMembers()
 	if err != nil {
-		log.Printf("[MembershipGift] Failed to get expired today members: %v", err)
+		slog.Error("failed to get expired today members", "err", err)
 		return
 	}
 
 	if len(members) == 0 {
-		log.Println("[MembershipGift] No members expired today to notify")
+		slog.Info("no members expired today to notify")
 		return
 	}
 
-	log.Printf("[MembershipGift] Found %d members expired today", len(members))
+	slog.Info("found members expired today", "count", len(members))
 
 	ctx := context.Background()
 	today := time.Now().Format("2006-01-02")
@@ -792,7 +788,7 @@ func (s *MembershipGiftService) notifyExpiredTodayMembers(graceDays int) {
 		lockKey := fmt.Sprintf(lockKeyExpiredTodayReminder, member.UserID, today)
 		acquired, err := cache.SetNX(ctx, lockKey, "1", dailyLockExpiration)
 		if err != nil {
-			log.Printf("[MembershipGift] Failed to acquire expired today reminder lock for user %d: %v", member.UserID, err)
+			slog.Error("failed to acquire expired today reminder lock", "user_id", member.UserID, "err", err)
 			continue
 		}
 		if !acquired {
@@ -805,31 +801,31 @@ func (s *MembershipGiftService) notifyExpiredTodayMembers(graceDays int) {
 		successCount++
 	}
 
-	log.Printf("[MembershipGift] Expired today reminder completed: sent=%d, skipped=%d", successCount, skipCount)
+	slog.Info("expired today reminder completed", "sent", successCount, "skipped", skipCount)
 }
 
 // notifyGracePeriodEnding 通知宽限期即将结束的会员
 // 发送条件：宽限期在未来N天内结束 + 有经费
 func (s *MembershipGiftService) notifyGracePeriodEnding(graceDays, reminderDays int) {
 	if s.getGracePeriodEndingMembers == nil {
-		log.Println("[MembershipGift] Warning: grace period ending getter not set, skipping grace ending reminder")
+		slog.Warn("grace period ending getter not set, skipping grace ending reminder")
 		return
 	}
 
-	log.Printf("[MembershipGift] Checking members with grace period ending within %d days", reminderDays)
+	slog.Info("checking members with grace period ending", "reminder_days", reminderDays)
 
 	members, err := s.getGracePeriodEndingMembers(graceDays, reminderDays)
 	if err != nil {
-		log.Printf("[MembershipGift] Failed to get members with grace period ending: %v", err)
+		slog.Error("failed to get members with grace period ending", "err", err)
 		return
 	}
 
 	if len(members) == 0 {
-		log.Println("[MembershipGift] No members with grace period ending soon to notify")
+		slog.Info("no members with grace period ending soon to notify")
 		return
 	}
 
-	log.Printf("[MembershipGift] Found %d members with grace period ending soon", len(members))
+	slog.Info("found members with grace period ending soon", "count", len(members))
 
 	ctx := context.Background()
 	month := time.Now().Format("2006-01")
@@ -846,7 +842,7 @@ func (s *MembershipGiftService) notifyGracePeriodEnding(graceDays, reminderDays 
 		lockKey := fmt.Sprintf(lockKeyGraceEndingReminder, member.UserID, month)
 		acquired, err := cache.SetNX(ctx, lockKey, "1", reminderLockExpiration)
 		if err != nil {
-			log.Printf("[MembershipGift] Failed to acquire grace ending reminder lock for user %d: %v", member.UserID, err)
+			slog.Error("failed to acquire grace ending reminder lock", "user_id", member.UserID, "err", err)
 			continue
 		}
 		if !acquired {
@@ -859,7 +855,7 @@ func (s *MembershipGiftService) notifyGracePeriodEnding(graceDays, reminderDays 
 		successCount++
 	}
 
-	log.Printf("[MembershipGift] Grace ending reminder completed: sent=%d, skipped=%d", successCount, skipCount)
+	slog.Info("grace ending reminder completed", "sent", successCount, "skipped", skipCount)
 }
 
 // notifyNonMembersBeforeMonthEnd 通知非会员月底经费将被清空
@@ -876,29 +872,29 @@ func (s *MembershipGiftService) notifyNonMembersBeforeMonthEnd(graceDays, remind
 	daysToMonthEnd := int(lastDayOfMonth.Sub(today).Hours()/24) + 1
 
 	if daysToMonthEnd > reminderDays {
-		log.Printf("[MembershipGift] Not within %d days of month end (days remaining: %d), skipping month-end reminder", reminderDays, daysToMonthEnd)
+		slog.Info("not within reminder window, skipping month-end reminder", "reminder_days", reminderDays, "days_remaining", daysToMonthEnd)
 		return
 	}
 
 	if s.getNonMembersForMonthEnd == nil {
-		log.Println("[MembershipGift] Warning: non-members for month end getter not set, skipping month-end reminder")
+		slog.Warn("non-members for month end getter not set, skipping month-end reminder")
 		return
 	}
 
-	log.Printf("[MembershipGift] Checking non-members for month-end reminder (days to month end: %d)", daysToMonthEnd)
+	slog.Info("checking non-members for month-end reminder", "days_to_month_end", daysToMonthEnd)
 
 	nonMembers, err := s.getNonMembersForMonthEnd(graceDays)
 	if err != nil {
-		log.Printf("[MembershipGift] Failed to get non-members for month-end reminder: %v", err)
+		slog.Error("failed to get non-members for month-end reminder", "err", err)
 		return
 	}
 
 	if len(nonMembers) == 0 {
-		log.Println("[MembershipGift] No non-members to notify for month-end")
+		slog.Info("no non-members to notify for month-end")
 		return
 	}
 
-	log.Printf("[MembershipGift] Found %d non-members for month-end reminder", len(nonMembers))
+	slog.Info("found non-members for month-end reminder", "count", len(nonMembers))
 
 	ctx := context.Background()
 	month := now.Format("2006-01")
@@ -915,7 +911,7 @@ func (s *MembershipGiftService) notifyNonMembersBeforeMonthEnd(graceDays, remind
 		lockKey := fmt.Sprintf(lockKeyMonthEndReminder, member.UserID, month)
 		acquired, err := cache.SetNX(ctx, lockKey, "1", reminderLockExpiration)
 		if err != nil {
-			log.Printf("[MembershipGift] Failed to acquire month-end reminder lock for user %d: %v", member.UserID, err)
+			slog.Error("failed to acquire month-end reminder lock", "user_id", member.UserID, "err", err)
 			continue
 		}
 		if !acquired {
@@ -928,7 +924,7 @@ func (s *MembershipGiftService) notifyNonMembersBeforeMonthEnd(graceDays, remind
 		successCount++
 	}
 
-	log.Printf("[MembershipGift] Month-end reminder completed: sent=%d, skipped=%d", successCount, skipCount)
+	slog.Info("month-end reminder completed", "sent", successCount, "skipped", skipCount)
 }
 
 // ========== 每日提醒站内信发送方法 ==========
@@ -956,9 +952,9 @@ func (s *MembershipGiftService) sendExpiryReminder(userID uint, planCode string,
 
 	go func() {
 		if err := s.messageService.SendToUser(userID, title, content, "system", "/pricing", "立即续费"); err != nil {
-			log.Printf("[MembershipGift] Failed to send expiry reminder to user %d: %v", userID, err)
+			slog.Error("failed to send expiry reminder", "user_id", userID, "err", err)
 		} else {
-			log.Printf("[MembershipGift] Sent expiry reminder to user %d", userID)
+			slog.Info("sent expiry reminder", "user_id", userID)
 		}
 	}()
 }
@@ -983,9 +979,9 @@ func (s *MembershipGiftService) sendExpiredTodayReminder(userID uint, planCode s
 
 	go func() {
 		if err := s.messageService.SendToUser(userID, title, content, "system", "/pricing", "立即续费"); err != nil {
-			log.Printf("[MembershipGift] Failed to send expired today reminder to user %d: %v", userID, err)
+			slog.Error("failed to send expired today reminder", "user_id", userID, "err", err)
 		} else {
-			log.Printf("[MembershipGift] Sent expired today reminder to user %d", userID)
+			slog.Info("sent expired today reminder", "user_id", userID)
 		}
 	}()
 }
@@ -1011,9 +1007,9 @@ func (s *MembershipGiftService) sendGraceEndingReminder(userID uint, gold int64,
 
 	go func() {
 		if err := s.messageService.SendToUser(userID, title, content, "system", "/pricing", "立即续费"); err != nil {
-			log.Printf("[MembershipGift] Failed to send grace ending reminder to user %d: %v", userID, err)
+			slog.Error("failed to send grace ending reminder", "user_id", userID, "err", err)
 		} else {
-			log.Printf("[MembershipGift] Sent grace ending reminder to user %d", userID)
+			slog.Info("sent grace ending reminder", "user_id", userID)
 		}
 	}()
 }
@@ -1034,9 +1030,9 @@ func (s *MembershipGiftService) sendMonthEndClearReminder(userID uint, gold int6
 
 	go func() {
 		if err := s.messageService.SendToUser(userID, title, content, "system", "/pricing", "开通会员"); err != nil {
-			log.Printf("[MembershipGift] Failed to send month-end clear reminder to user %d: %v", userID, err)
+			slog.Error("failed to send month-end clear reminder", "user_id", userID, "err", err)
 		} else {
-			log.Printf("[MembershipGift] Sent month-end clear reminder to user %d", userID)
+			slog.Info("sent month-end clear reminder", "user_id", userID)
 		}
 	}()
 }

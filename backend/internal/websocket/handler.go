@@ -9,8 +9,10 @@ package websocket
 
 import (
 	"fmt"
-	"net/http"
+	"log/slog"
 	"strings"
+
+	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -44,12 +46,12 @@ func (h *Handler) HandleWebSocket(c *gin.Context) {
 
 	// 如果没有 token，视为访客连接
 	if token == "" {
-		err := m.HandleRequestWithKeys(c.Writer, c.Request, map[string]interface{}{
+		err := m.HandleRequestWithKeys(c.Writer, c.Request, map[string]any{
 			"is_guest":  true,
 			"client_ip": clientIP,
 		})
 		if err != nil {
-			fmt.Printf("[WebSocket] Failed to upgrade guest connection: %v\n", err)
+			slog.Error("failed to upgrade guest WebSocket connection", "err", err)
 		}
 		return
 	}
@@ -58,20 +60,20 @@ func (h *Handler) HandleWebSocket(c *gin.Context) {
 	userID, username, err := h.validateToken(token)
 	if err != nil {
 		// Token 无效，也可以作为访客连接
-		fmt.Printf("[WebSocket] Invalid token, connecting as guest: %v\n", err)
-		err = m.HandleRequestWithKeys(c.Writer, c.Request, map[string]interface{}{
+		slog.Warn("invalid token, connecting as guest", "err", err)
+		err = m.HandleRequestWithKeys(c.Writer, c.Request, map[string]any{
 			"is_guest":  true,
 			"client_ip": clientIP,
 		})
 		if err != nil {
-			fmt.Printf("[WebSocket] Failed to upgrade guest connection: %v\n", err)
+			slog.Error("failed to upgrade guest WebSocket connection", "err", err)
 		}
 		return
 	}
 
 	// 在升级前设置用户信息到请求上下文
 	// melody 会在 HandleConnect 中通过 session.Get 获取
-	err = m.HandleRequestWithKeys(c.Writer, c.Request, map[string]interface{}{
+	err = m.HandleRequestWithKeys(c.Writer, c.Request, map[string]any{
 		"user_id":   userID,
 		"username":  username,
 		"client_ip": clientIP,
@@ -79,7 +81,7 @@ func (h *Handler) HandleWebSocket(c *gin.Context) {
 	})
 
 	if err != nil {
-		fmt.Printf("[WebSocket] Failed to upgrade connection for user %d: %v\n", userID, err)
+		slog.Error("failed to upgrade WebSocket connection", "user_id", userID, "err", err)
 	}
 }
 
@@ -89,7 +91,7 @@ func (h *Handler) validateToken(tokenString string) (uint, string, error) {
 	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
 
 	// 解析 token
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 		// 验证签名方法
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -128,9 +130,6 @@ func (h *Handler) GetHub() *Hub {
 // GetOnlineStats 获取在线统计信息（供管理端调用）
 func (h *Handler) GetOnlineStats(c *gin.Context) {
 	stats := h.hub.GetOnlineStats()
-	c.JSON(http.StatusOK, gin.H{
-		"code": 0,
-		"data": stats,
-	})
+	utils.Success(c, stats)
 }
 

@@ -9,9 +9,9 @@ package conversation
 
 import (
 	"context"
-	"fmt"
-	"net/http"
-	"os"
+	"log/slog"
+	"scholar-backend/internal/common/config"
+	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/currency"
 	"scholar-backend/internal/thirdparty"
@@ -23,9 +23,10 @@ import (
 // useAdvancedSearchV2 检查是否使用优化版的智能检索
 // 通过环境变量 USE_ADVANCED_SEARCH_V2 控制，默认为 true（使用优化版）
 func useAdvancedSearchV2() bool {
-	v := os.Getenv("USE_ADVANCED_SEARCH_V2")
-	// 默认使用 V2，除非明确设置为 "false" 或 "0"
-	return v != "false" && v != "0"
+	if config.AppConfig != nil {
+		return config.AppConfig.App.UseAdvancedSearchV2
+	}
+	return true
 }
 
 type Handler struct {
@@ -72,21 +73,20 @@ func (h *Handler) checkBalanceForSmartAnalysis(userID uint, modelLevel string) e
 }
 
 // deductForSmartAnalysisAfterSuccess 成功后扣费，返回扣费金额
-func (h *Handler) deductForSmartAnalysisAfterSuccess(userID uint, modelLevel string) int64 {
+func (h *Handler) deductForSmartAnalysisAfterSuccess(ctx context.Context, userID uint, modelLevel string) int64 {
 	if h.currencyService == nil {
-		fmt.Printf("[Smart Analysis] Currency service not set, skip deduct\n")
+		slog.Info("currency service not set, skip deduct")
 		return 0
 	}
 
 	bizType := h.getBizTypeForSmartAnalysis(modelLevel)
-	ctx := context.Background()
 	transaction, err := h.currencyService.DeductByBizType(ctx, userID, bizType, "")
 	if err != nil {
-		fmt.Printf("[Smart Analysis] Deduct failed after success: userID=%d, bizType=%s, err=%v\n", userID, bizType, err)
+		slog.Error("deduct failed after success", "userID", userID, "bizType", bizType, "err", err)
 		return 0
 	}
 	if transaction == nil {
-		fmt.Printf("[Smart Analysis] No deduct config or disabled: userID=%d, bizType=%s\n", userID, bizType)
+		slog.Info("no deduct config or disabled", "userID", userID, "bizType", bizType)
 		return 0
 	}
 	// transaction.Amount 是负数（扣费），取绝对值返回
@@ -94,7 +94,7 @@ func (h *Handler) deductForSmartAnalysisAfterSuccess(userID uint, modelLevel str
 	if amount < 0 {
 		amount = -amount
 	}
-	fmt.Printf("[Smart Analysis] Deduct success: userID=%d, bizType=%s, amount=%d\n", userID, bizType, amount)
+	slog.Info("deduct success", "userID", userID, "bizType", bizType, "amount", amount)
 	return amount
 }
 
@@ -118,7 +118,7 @@ func (h *Handler) CreateConversation(c *gin.Context) {
 		conversationType = ConversationTypeSearch
 	}
 
-	conversation, err := h.service.CreateConversation(userID.(uint), req.Title, conversationType)
+	conversation, err := h.service.CreateConversation(c.Request.Context(), userID.(uint), req.Title, conversationType)
 	if err != nil {
 		utils.Error(c, 500, "Failed to create conversation: "+err.Error())
 		return
@@ -145,7 +145,7 @@ func (h *Handler) GetUserConversations(c *gin.Context) {
 		conversationType = &convType
 	}
 
-	result, err := h.service.GetUserConversations(userID.(uint), page, pageSize, conversationType)
+	result, err := h.service.GetUserConversations(c.Request.Context(), userID.(uint), page, pageSize, conversationType)
 	if err != nil {
 		utils.Error(c, 500, "Failed to get conversations: "+err.Error())
 		return
@@ -178,7 +178,7 @@ func (h *Handler) GetConversation(c *gin.Context) {
 
 	// If no pagination params, return all messages (backward compatible)
 	if pageStr == "" && pageSizeStr == "" {
-		conversation, err := h.service.GetConversationWithMessages(uint(conversationID), userID.(uint))
+		conversation, err := h.service.GetConversationWithMessages(c.Request.Context(), uint(conversationID), userID.(uint))
 		if err != nil {
 			utils.Error(c, 500, "Failed to get conversation: "+err.Error())
 			return
@@ -202,7 +202,7 @@ func (h *Handler) GetConversation(c *gin.Context) {
 		}
 	}
 
-	conversation, err := h.service.GetConversationWithMessagesPaginated(uint(conversationID), userID.(uint), page, pageSize)
+	conversation, err := h.service.GetConversationWithMessagesPaginated(c.Request.Context(), uint(conversationID), userID.(uint), page, pageSize)
 	if err != nil {
 		utils.Error(c, 500, "Failed to get conversation: "+err.Error())
 		return
@@ -225,7 +225,7 @@ func (h *Handler) DeleteConversation(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteConversation(uint(conversationID), userID.(uint)); err != nil {
+	if err := h.service.DeleteConversation(c.Request.Context(), uint(conversationID), userID.(uint)); err != nil {
 		utils.Error(c, 500, "Failed to delete conversation: "+err.Error())
 		return
 	}
@@ -253,7 +253,7 @@ func (h *Handler) AddMessage(c *gin.Context) {
 		return
 	}
 
-	message, err := h.service.AddMessage(uint(conversationID), userID.(uint), req)
+	message, err := h.service.AddMessage(c.Request.Context(), uint(conversationID), userID.(uint), req)
 	if err != nil {
 		utils.Error(c, 500, "Failed to add message: "+err.Error())
 		return
@@ -284,7 +284,7 @@ func (h *Handler) UpdateConversationTitle(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.UpdateConversationTitle(uint(conversationID), userID.(uint), req.Title); err != nil {
+	if err := h.service.UpdateConversationTitle(c.Request.Context(), uint(conversationID), userID.(uint), req.Title); err != nil {
 		utils.Error(c, 500, "Failed to update title: "+err.Error())
 		return
 	}
@@ -323,7 +323,7 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 	}
 
 	// Verify conversation belongs to user
-	conversation, err := h.service.GetConversationWithMessages(uint(conversationID), userID.(uint))
+	conversation, err := h.service.GetConversationWithMessages(c.Request.Context(), uint(conversationID), userID.(uint))
 	if err != nil {
 		utils.Error(c, 404, "Conversation not found")
 		return
@@ -346,24 +346,21 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 	// 1. 先检查余额（不扣费）
 	if err := h.checkBalanceForSmartAnalysis(userID.(uint), modelLevel); err != nil {
 		if err == currency.ErrInsufficientBalance {
-			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "经费不足"})
+			utils.PaymentRequired(c, "经费不足", nil)
 		} else {
 			utils.Error(c, 500, "检查余额失败: "+err.Error())
 		}
 		return
 	}
 
-	// Set headers for SSE
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
+	sse.SetHeaders(c)
 
 	// 2. 执行智能分析并流式返回结果（使用指定的模型级别）
 	// 根据环境变量选择使用 V1 或 V2 版本
 	if useAdvancedSearchV2() {
-		fmt.Printf("[Handler] 使用优化版智能检索 V2\n")
+		slog.Info("using optimized advanced search V2")
 		err = h.service.AdvancedSearchAndAnalyzeV2(
+			c.Request.Context(),
 			uint(conversationID),
 			targetMessage.SearchQuery,
 			c.Writer,
@@ -371,8 +368,9 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 			thirdparty.ModelLevel(modelLevel),
 		)
 	} else {
-		fmt.Printf("[Handler] 使用原版智能检索 V1\n")
+		slog.Info("using original advanced search V1")
 		err = h.service.AdvancedSearchAndAnalyze(
+			c.Request.Context(),
 			uint(conversationID),
 			targetMessage.SearchQuery,
 			c.Writer,
@@ -381,18 +379,14 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 		)
 	}
 	if err != nil {
-		// Error handling for streaming - write error as SSE, do not deduct
-		c.Writer.Write([]byte(fmt.Sprintf("data: [ERROR] %s\n\n", err.Error())))
-		c.Writer.(http.Flusher).Flush()
+		sse.WriteErrorText(c.Writer, err.Error())
 		return
 	}
 
 	// 3. 成功后扣费
-	deductedAmount := h.deductForSmartAnalysisAfterSuccess(userID.(uint), modelLevel)
+	deductedAmount := h.deductForSmartAnalysisAfterSuccess(c.Request.Context(), userID.(uint), modelLevel)
 
-	// Send done signal with deducted amount
-	c.Writer.Write([]byte(fmt.Sprintf("data: [DONE] {\"deducted_amount\": %d}\n\n", deductedAmount)))
-	c.Writer.(http.Flusher).Flush()
+	sse.WriteDoneWithData(c.Writer, map[string]int64{"deducted_amount": deductedAmount})
 }
 
 // StreamContinueConversation handles continuing the conversation with context
@@ -431,7 +425,7 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 	}
 
 	// Verify conversation belongs to user
-	conversation, err := h.service.GetConversationWithMessages(uint(conversationID), userID.(uint))
+	conversation, err := h.service.GetConversationWithMessages(c.Request.Context(), uint(conversationID), userID.(uint))
 	if err != nil {
 		utils.Error(c, 404, "Conversation not found")
 		return
@@ -446,21 +440,18 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 	// 1. 先检查余额（不扣费）
 	if err := h.checkBalanceForSmartAnalysis(userID.(uint), modelLevel); err != nil {
 		if err == currency.ErrInsufficientBalance {
-			c.JSON(http.StatusPaymentRequired, gin.H{"code": 4020, "message": "经费不足"})
+			utils.PaymentRequired(c, "经费不足", nil)
 		} else {
 			utils.Error(c, 500, "检查余额失败: "+err.Error())
 		}
 		return
 	}
 
-	// Set headers for SSE
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
+	sse.SetHeaders(c)
 
 	// 2. Continue the conversation with specified model level
 	err = h.service.ContinueConversation(
+		c.Request.Context(),
 		uint(conversationID),
 		req.Query,
 		c.Writer,
@@ -468,18 +459,14 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 		thirdparty.ModelLevel(modelLevel),
 	)
 	if err != nil {
-		// Error handling for streaming - write error as SSE, do not deduct
-		c.Writer.Write([]byte(fmt.Sprintf("data: [ERROR] %s\n\n", err.Error())))
-		c.Writer.(http.Flusher).Flush()
+		sse.WriteErrorText(c.Writer, err.Error())
 		return
 	}
 
 	// 3. 成功后扣费
-	deductedAmount := h.deductForSmartAnalysisAfterSuccess(userID.(uint), modelLevel)
+	deductedAmount := h.deductForSmartAnalysisAfterSuccess(c.Request.Context(), userID.(uint), modelLevel)
 
-	// Send done signal with deducted amount
-	c.Writer.Write([]byte(fmt.Sprintf("data: [DONE] {\"deducted_amount\": %d}\n\n", deductedAmount)))
-	c.Writer.(http.Flusher).Flush()
+	sse.WriteDoneWithData(c.Writer, map[string]int64{"deducted_amount": deductedAmount})
 }
 
 
@@ -505,14 +492,14 @@ func (h *Handler) GetFollowUpQuestions(c *gin.Context) {
 	}
 
 	// Call service to get or generate follow-up questions
-	questions, err := h.service.GetFollowUpQuestions(uint(conversationID), uint(messageID), userID.(uint))
+	questions, err := h.service.GetFollowUpQuestions(c.Request.Context(), uint(conversationID), uint(messageID), userID.(uint))
 	if err != nil {
 		utils.Error(c, 404, err.Error())
 		return
 	}
 
 	// Return questions as JSON
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"questions": questions,
 	})
 }

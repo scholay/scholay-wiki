@@ -12,22 +12,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
+	"log/slog"
 	"scholar-backend/internal/common/cache"
+	ifaces "scholar-backend/internal/common/interfaces"
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 	"time"
-
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
-// ConfigService interface for email and SMS configuration
+// ConfigService interface for email, SMS, and OAuth configuration
 type ConfigService interface {
 	GetActiveEmailConfig() (*model.EmailConfig, error)
 	GetActiveSMSConfig() (*model.SMSConfig, error)
 	GetSystemConfig() (*model.SystemConfig, error)
+	GetGithubOAuthConfig() (*model.GithubOAuthConfig, error)
 }
 
 // CouponService interface for coupon operations
@@ -48,6 +47,13 @@ type MessageService interface {
 	SendToUser(userID uint, title, content string, category string, linkURL, linkText string) error
 }
 
+// 哨兵错误，用于 handler 层的错误类型判断，避免字符串比较
+var (
+	ErrSessionExpired          = errors.New("session expired, please login again")
+	ErrSessionNotFound         = errors.New("session not found")
+	ErrCurrentPasswordInvalid  = errors.New("current password is incorrect")
+)
+
 // Service handles business logic for user operations
 type Service struct {
 	repo                *Repository
@@ -55,7 +61,7 @@ type Service struct {
 	couponService       CouponService
 	currencyService     CurrencyService
 	messageService      MessageService
-	onlineStatsProvider OnlineStatsProvider
+	onlineStatsProvider ifaces.OnlineStatsProvider
 }
 
 // NewService creates a new user service
@@ -93,7 +99,7 @@ func (s *Service) SetMessageService(messageService MessageService) {
 }
 
 // SetOnlineStatsProvider 设置在线统计提供者（WebSocket Hub）
-func (s *Service) SetOnlineStatsProvider(provider OnlineStatsProvider) {
+func (s *Service) SetOnlineStatsProvider(provider ifaces.OnlineStatsProvider) {
 	s.onlineStatsProvider = provider
 }
 
@@ -140,7 +146,7 @@ func (s *Service) SendWelcomeMessage(userID uint, hasInvitation bool) {
 
 	go func() {
 		if err := s.messageService.SendToUser(userID, title, content, "system", "/", "开始探索"); err != nil {
-			fmt.Printf("[User] Failed to send welcome message to user %d: %v\n", userID, err)
+			slog.Error("failed to send welcome message", "user_id", userID, "err", err)
 		}
 	}()
 }
@@ -159,7 +165,7 @@ func (s *Service) GiftRegisterGold(userID uint) {
 
 	// 确保钱包存在
 	if err := s.currencyService.EnsureWalletExists(userID); err != nil {
-		fmt.Printf("Failed to ensure wallet for user %d: %v\n", userID, err)
+		slog.Error("failed to ensure wallet", "user_id", userID, "err", err)
 		return
 	}
 
@@ -167,7 +173,7 @@ func (s *Service) GiftRegisterGold(userID uint) {
 	ctx := context.Background()
 	_, err = s.currencyService.GiftGold(ctx, userID, amount, "register_gift", fmt.Sprintf("user_%d", userID), "新用户注册赠送")
 	if err != nil {
-		fmt.Printf("Failed to gift register gold to user %d: %v\n", userID, err)
+		slog.Error("failed to gift register gold", "user_id", userID, "err", err)
 	}
 }
 
@@ -177,6 +183,11 @@ func (s *Service) GetSystemConfig() (*model.SystemConfig, error) {
 		return nil, fmt.Errorf("config service not initialized")
 	}
 	return s.configService.GetSystemConfig()
+}
+
+// FindAuthProviderByUserAndProvider finds an auth provider record for a user
+func (s *Service) FindAuthProviderByUserAndProvider(userID uint, provider string) (*UserAuthProvider, error) {
+	return s.repo.FindAuthProviderByUserAndProvider(userID, provider)
 }
 
 // CheckEmailExists checks if an email is already registered
@@ -193,7 +204,7 @@ func (s *Service) generateRandomUsername() (string, error) {
 	maxAttempts := 10
 	for i := 0; i < maxAttempts; i++ {
 		// Generate random 6-digit number
-		randomNum := rand.Intn(1000000)
+		randomNum := utils.SecureRandomIntn(1000000)
 		username := fmt.Sprintf("user_%06d", randomNum)
 
 		// Check if username already exists
@@ -209,7 +220,7 @@ func (s *Service) generateRandomUsername() (string, error) {
 
 	// If all attempts failed, use timestamp + random
 	timestamp := time.Now().Unix()
-	randomSuffix := rand.Intn(10000)
+	randomSuffix := utils.SecureRandomIntn(10000)
 	return fmt.Sprintf("user_%d_%04d", timestamp, randomSuffix), nil
 }
 
@@ -251,9 +262,7 @@ func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitati
 	var token string
 
 	// Use transaction for atomic registration
-	err = s.repo.GetDB().Transaction(func(tx *gorm.DB) error {
-		txRepo := NewRepository(tx)
-
+	err = s.repo.ExecuteInTransaction(func(txRepo *Repository) error {
 		// Second check: double-check email availability within transaction (concurrency protection)
 		existing, err := txRepo.FindByEmail(email)
 		if err != nil {
@@ -468,7 +477,7 @@ func (s *Service) SendVerificationCode(email, purpose string) error {
 	}
 
 	// Generate 6-digit code
-	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+	code := utils.SecureRandomDigits(6)
 
 	// Save verification code to Redis (auto-expires in 10 minutes)
 	if err := cache.SaveVerificationCode(context.Background(), email, code, purpose); err != nil {
@@ -491,10 +500,7 @@ func (s *Service) SendVerificationCode(email, purpose string) error {
 
 			// Generate 3-letter reference code to avoid email deduplication
 			// Format: "Scholay 注册验证码 [Ref: ABC]" - professional and unambiguous
-			refCode := fmt.Sprintf("%c%c%c",
-				'A'+rand.Intn(26),
-				'A'+rand.Intn(26),
-				'A'+rand.Intn(26))
+			refCode := utils.SecureRandomString(3, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 			subject := fmt.Sprintf("Scholay %s [Ref: %s]", purposeText, refCode)
 
 			// Add timestamp to body to avoid content deduplication
@@ -532,18 +538,18 @@ func (s *Service) SendVerificationCode(email, purpose string) error {
 
 			if err := utils.SendEmailWithTLS(config, []string{email}, subject, body); err != nil {
 				// Log error but don't fail - still show code in console as fallback
-				fmt.Printf("⚠ Failed to send email: %v\n", err)
-				fmt.Printf("✓ Verification code for %s (%s): %s (expires in 10 min)\n", email, purpose, code)
+				slog.Warn("failed to send email", "err", err)
+				slog.Info("verification code generated (email fallback)", "email", email, "purpose", purpose, "code", code)
 				return nil
 			}
 
-			fmt.Printf("✓ Verification code sent to %s (%s) via email (expires in 10 min)\n", email, purpose)
+			slog.Info("verification code sent via email", "email", email, "purpose", purpose)
 			return nil
 		}
 	}
 
 	// Fallback: If no email config, just log it
-	fmt.Printf("✓ Verification code for %s (%s): %s (expires in 10 min)\n", email, purpose, code)
+	slog.Info("verification code generated (no email config)", "email", email, "purpose", purpose, "code", code)
 
 	return nil
 }
@@ -578,7 +584,7 @@ func (s *Service) UpdateProfile(id uint, username *string, avatarURL *string, bi
 }
 
 // GetUserStatistics returns user statistics
-func (s *Service) GetUserStatistics() (map[string]interface{}, error) {
+func (s *Service) GetUserStatistics() (map[string]any, error) {
 	// 在线用户数：优先使用 WebSocket 连接状态
 	var onlineUsers int64
 	var onlineGuests int64
@@ -597,10 +603,7 @@ func (s *Service) GetUserStatistics() (map[string]interface{}, error) {
 	// 获取今日注册用户数
 	now := time.Now()
 	today := now.Format("2006-01-02")
-	var todayRegistrations int64
-	s.repo.db.Table("users").
-		Where("DATE(created_at) = ?", today).
-		Count(&todayRegistrations)
+	todayRegistrations, _ := s.repo.CountUsersOnDate(today)
 
 	// 获取本周注册用户数 (从周一开始)
 	weekStart := now.AddDate(0, 0, -int(now.Weekday())+1) // 本周一
@@ -608,28 +611,19 @@ func (s *Service) GetUserStatistics() (map[string]interface{}, error) {
 		weekStart = now.AddDate(0, 0, -6) // 如果今天是周日，往前推6天到周一
 	}
 	weekStartStr := weekStart.Format("2006-01-02")
-	var weekRegistrations int64
-	s.repo.db.Table("users").
-		Where("DATE(created_at) >= ?", weekStartStr).
-		Count(&weekRegistrations)
+	weekRegistrations, _ := s.repo.CountUsersSince(weekStartStr)
 
 	// 获取本月注册用户数
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	monthStartStr := monthStart.Format("2006-01-02")
-	var monthRegistrations int64
-	s.repo.db.Table("users").
-		Where("DATE(created_at) >= ?", monthStartStr).
-		Count(&monthRegistrations)
+	monthRegistrations, _ := s.repo.CountUsersSince(monthStartStr)
 
 	// 获取今年注册用户数
 	yearStart := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
 	yearStartStr := yearStart.Format("2006-01-02")
-	var yearRegistrations int64
-	s.repo.db.Table("users").
-		Where("DATE(created_at) >= ?", yearStartStr).
-		Count(&yearRegistrations)
+	yearRegistrations, _ := s.repo.CountUsersSince(yearStartStr)
 
-	stats := map[string]interface{}{
+	stats := map[string]any{
 		"online_users":        onlineUsers,
 		"online_guests":       onlineGuests,
 		"today_registrations": todayRegistrations,
@@ -654,7 +648,7 @@ func (s *Service) GetUserListWithSort(page, pageSize int, sortBy, sortOrder stri
 }
 
 // GetOnlineUsers returns list of currently online users
-func (s *Service) GetOnlineUsers() ([]map[string]interface{}, error) {
+func (s *Service) GetOnlineUsers() ([]map[string]any, error) {
 	return s.repo.GetOnlineUsers()
 }
 
@@ -801,16 +795,11 @@ func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
 	}
 
 	// Get wallet info
-	var wallet struct {
-		Gold    int64 `gorm:"column:gold"`
-		Diamond int64 `gorm:"column:diamond"`
-	}
-	if err := s.repo.GetDB().Table("wallets").
-		Where("user_id = ?", userID).
-		First(&wallet).Error; err == nil {
+	walletRow, err := s.repo.GetUserWallet(userID)
+	if err == nil && walletRow != nil {
 		detail.Wallet = &WalletInfo{
-			Gold:    wallet.Gold,
-			Diamond: wallet.Diamond,
+			Gold:    walletRow.Gold,
+			Diamond: walletRow.Diamond,
 		}
 	}
 
@@ -822,34 +811,14 @@ func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
 		}
 	}
 
-	// Get subscription info using the same logic as GetUserSubscription
-	var subscription struct {
-		PlanCode  string     `gorm:"column:plan_code"`
-		Status    string     `gorm:"column:status"`
-		StartDate time.Time  `gorm:"column:start_date"`
-		EndDate   *time.Time `gorm:"column:end_date"`
-		AutoRenew bool       `gorm:"column:auto_renew"`
-	}
-	
-	err = s.repo.GetDB().Table("user_subscriptions").
-		Where("user_id = ? AND status = ?", userID, "active").
-		Order("created_at DESC").
-		First(&subscription).Error
-
-	if err == nil {
-		// Get plan details
-		var plan struct {
-			PlanName string `gorm:"column:plan_name"`
-			Features string `gorm:"column:features"`
-		}
-		s.repo.GetDB().Table("subscription_plans").
-			Select("plan_name, features").
-			Where("plan_code = ? AND is_active = ?", subscription.PlanCode, true).
-			First(&plan)
+	// Get subscription info
+	subscription, err := s.repo.GetActiveSubscription(userID)
+	if err == nil && subscription != nil {
+		plan, _ := s.repo.GetSubscriptionPlanInfo(subscription.PlanCode)
 
 		remainingDays := 0
 		endDate := time.Time{}
-		
+
 		if subscription.EndDate != nil {
 			endDate = *subscription.EndDate
 			remainingDays = int(time.Until(endDate).Hours() / 24)
@@ -858,18 +827,23 @@ func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
 			}
 		}
 
-		// 计算 billing_cycle (根据订阅时长推断)
-		billingCycle := "monthly" // 默认月付
+		billingCycle := "monthly"
 		if subscription.EndDate != nil {
 			duration := subscription.EndDate.Sub(subscription.StartDate)
-			// 如果订阅期大于40天，认为是年付
 			if duration.Hours() > 40*24 {
 				billingCycle = "yearly"
 			}
 		}
 
+		planName := ""
+		featuresJSON := ""
+		if plan != nil {
+			planName = plan.PlanName
+			featuresJSON = plan.Features
+		}
+
 		detail.CurrentSubscription = &SubscriptionInfo{
-			PlanName:      plan.PlanName,
+			PlanName:      planName,
 			PlanCode:      subscription.PlanCode,
 			BillingCycle:  billingCycle,
 			Status:        subscription.Status,
@@ -879,17 +853,9 @@ func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
 			RemainingDays: remainingDays,
 		}
 
-		// Get today's quota usage
 		today := time.Now().Format("2006-01-02")
-		var todayQuota struct {
-			TotalUsed int `gorm:"column:total_used"`
-		}
-		s.repo.GetDB().Table("usage_quotas").
-			Select("COALESCE(normal_search_count + advanced_search_low_count + advanced_search_mid_count + advanced_search_high_count + ai_chat_normal_count + ai_chat_mid_count + ai_chat_high_count, 0) as total_used").
-			Where("user_id = ? AND quota_date = ?", userID, today).
-			Scan(&todayQuota)
+		todayUsed, _ := s.repo.GetDailyQuotaUsage(userID, today)
 
-		// Parse features to get quota limits
 		var features struct {
 			NormalSearch struct {
 				Limit int `json:"limit"`
@@ -913,11 +879,10 @@ func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
 				Limit int `json:"limit"`
 			} `json:"ai_chat_high"`
 		}
-		
+
 		totalQuota := 0
-		if plan.Features != "" {
-			json.Unmarshal([]byte(plan.Features), &features)
-			// 计算总配额（取最大的作为代表，或者求和）
+		if featuresJSON != "" {
+			json.Unmarshal([]byte(featuresJSON), &features)
 			limits := []int{
 				features.NormalSearch.Limit,
 				features.AdvancedSearchLow.Limit,
@@ -935,82 +900,46 @@ func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
 		}
 
 		detail.CurrentSubscription.TotalQuota = totalQuota
-		detail.CurrentSubscription.UsedQuota = todayQuota.TotalUsed
+		detail.CurrentSubscription.UsedQuota = todayUsed
 	}
 
 	// Get order statistics
-	var orderStats struct {
-		TotalOrders int        `gorm:"column:total_orders"`
-		TotalAmount float64    `gorm:"column:total_amount"`
-		TotalSaved  float64    `gorm:"column:total_saved"`
-		LastOrderAt *time.Time `gorm:"column:last_order_at"`
-	}
-	s.repo.GetDB().Table("orders").
-		Select("COUNT(*) as total_orders, COALESCE(SUM(final_amount), 0) as total_amount, COALESCE(SUM(discount_amount), 0) as total_saved, MAX(payment_time) as last_order_at").
-		Where("user_id = ? AND status = ?", userID, "paid").
-		Scan(&orderStats)
-
-	detail.OrderStats = OrderStats{
-		TotalOrders: orderStats.TotalOrders,
-		TotalAmount: orderStats.TotalAmount,
-		TotalSaved:  orderStats.TotalSaved,
-		LastOrderAt: orderStats.LastOrderAt,
+	orderStatsRow, _ := s.repo.GetPaidOrderStats(userID)
+	if orderStatsRow != nil {
+		detail.OrderStats = OrderStats{
+			TotalOrders: orderStatsRow.TotalOrders,
+			TotalAmount: orderStatsRow.TotalAmount,
+			TotalSaved:  orderStatsRow.TotalSaved,
+			LastOrderAt: orderStatsRow.LastOrderAt,
+		}
 	}
 
 	// Get invitation statistics
-	var invitationData struct {
-		Code           string `gorm:"column:code"`
-		TotalInvited   int    `gorm:"column:total_invited"`
-		SuccessInvited int    `gorm:"column:success_invited"`
-	}
-	err = s.repo.GetDB().Table("user_invitations").
-		Where("inviter_id = ?", userID).
-		First(&invitationData).Error
-
-	if err == nil {
+	invInfo, err := s.repo.GetUserInvitationInfo(userID)
+	if err == nil && invInfo != nil {
 		detail.InvitationStats = InvitationStats{
-			InvitationCode: invitationData.Code,
-			TotalInvited:   invitationData.TotalInvited,
-			SuccessInvited: invitationData.SuccessInvited,
-			RewardsEarned:  invitationData.SuccessInvited, // Assuming 1 reward per successful invite
+			InvitationCode: invInfo.Code,
+			TotalInvited:   invInfo.TotalInvited,
+			SuccessInvited: invInfo.SuccessInvited,
+			RewardsEarned:  invInfo.SuccessInvited,
 		}
 	}
 
 	// Get coupon statistics
-	var couponStats struct {
-		Total     int `gorm:"column:total"`
-		Used      int `gorm:"column:used"`
-		Available int `gorm:"column:available"`
-		Expired   int `gorm:"column:expired"`
-	}
 	now := time.Now()
-	s.repo.GetDB().Table("user_coupons").
-		Select("COUNT(*) as total, SUM(CASE WHEN status = 'used' THEN 1 ELSE 0 END) as used, SUM(CASE WHEN status = 'unused' AND valid_until >= ? THEN 1 ELSE 0 END) as available, SUM(CASE WHEN status = 'expired' OR (status = 'unused' AND valid_until < ?) THEN 1 ELSE 0 END) as expired", now, now).
-		Where("user_id = ?", userID).
-		Scan(&couponStats)
-
-	detail.CouponStats = CouponStats{
-		TotalCoupons:     couponStats.Total,
-		UsedCoupons:      couponStats.Used,
-		AvailableCoupons: couponStats.Available,
-		ExpiredCoupons:   couponStats.Expired,
+	couponStatsRow, _ := s.repo.GetUserCouponStats(userID, now)
+	if couponStatsRow != nil {
+		detail.CouponStats = CouponStats{
+			TotalCoupons:     couponStatsRow.Total,
+			UsedCoupons:      couponStatsRow.Used,
+			AvailableCoupons: couponStatsRow.Available,
+			ExpiredCoupons:   couponStatsRow.Expired,
+		}
 	}
 
-	// NEW: Get inviter information (who invited this user)
-	// 使用 invitation_relationships 表
-	var inviterData struct {
-		InviterID    uint       `gorm:"column:inviter_id"`
-		Username     *string    `gorm:"column:username"`
-		Email        *string    `gorm:"column:email"`
-		RegisteredAt *time.Time `gorm:"column:registered_at"`
-	}
-	err = s.repo.GetDB().Table("invitation_relationships").
-		Select("invitation_relationships.inviter_id, users.username, users.email, invitation_relationships.registered_at").
-		Joins("LEFT JOIN users ON users.id = invitation_relationships.inviter_id").
-		Where("invitation_relationships.invitee_id = ?", userID).
-		First(&inviterData).Error
-	
-	if err == nil && inviterData.InviterID > 0 {
+	// Get inviter information (who invited this user)
+	inviterData, err := s.repo.GetUserInviter(userID)
+	if err == nil && inviterData != nil {
 		invitedAt := user.CreatedAt
 		if inviterData.RegisteredAt != nil {
 			invitedAt = *inviterData.RegisteredAt
@@ -1023,26 +952,8 @@ func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
 		}
 	}
 
-	// NEW: Get list of users invited by this user
-	// 使用 invitation_relationships 表
-	type invitedUserRaw struct {
-		UserID       uint       `gorm:"column:user_id"`
-		Username     *string    `gorm:"column:username"`
-		Email        *string    `gorm:"column:email"`
-		RegisteredAt *time.Time `gorm:"column:registered_at"`
-		Status       string     `gorm:"column:status"`
-		HasOrdered   bool       `gorm:"column:has_ordered"`
-	}
-	var invitedUsersData []invitedUserRaw
-	err = s.repo.GetDB().Table("invitation_relationships").
-		Select("users.id as user_id, users.username, users.email, invitation_relationships.registered_at, "+
-			"invitation_relationships.status, "+
-			"EXISTS(SELECT 1 FROM orders WHERE orders.user_id = users.id AND orders.status = 'paid') as has_ordered").
-		Joins("LEFT JOIN users ON users.id = invitation_relationships.invitee_id").
-		Where("invitation_relationships.inviter_id = ?", userID).
-		Order("invitation_relationships.created_at DESC").
-		Find(&invitedUsersData).Error
-
+	// Get list of users invited by this user
+	invitedUsersData, err := s.repo.GetInvitedUsers(userID)
 	if err == nil && len(invitedUsersData) > 0 {
 		detail.InvitedUsers = make([]InvitedUser, len(invitedUsersData))
 		for i, invitee := range invitedUsersData {
@@ -1055,107 +966,56 @@ func (s *Service) GetUserDetail(userID uint) (*UserDetail, error) {
 				Username:     invitee.Username,
 				Email:        invitee.Email,
 				InvitedAt:    invitedAt,
-				IsRegistered: invitee.Status != "pending", // pending 表示还未注册
+				IsRegistered: invitee.Status != "pending",
 				HasOrdered:   invitee.HasOrdered,
 			}
 		}
 	}
 
-	// NEW: Get AI conversation statistics
-	var aiConvStats struct {
-		TotalConv   int        `gorm:"column:total_conv"`
-		TotalRounds int        `gorm:"column:total_rounds"`
-		LastConvAt  *time.Time `gorm:"column:last_conv_at"`
-	}
-	s.repo.GetDB().Table("conversations").
-		Select("COUNT(DISTINCT id) as total_conv, "+
-			"COALESCE(SUM((SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = conversations.id)), 0) as total_rounds, "+
-			"MAX(updated_at) as last_conv_at").
-		Where("user_id = ? AND conversation_type = ?", userID, "chat").
-		Scan(&aiConvStats)
-
-	// Get time-based statistics for AI conversations
+	// Get AI conversation statistics
 	todayStart := time.Now().Truncate(24 * time.Hour)
 	weekStart := todayStart.AddDate(0, 0, -int(todayStart.Weekday()))
 	monthStart := time.Date(todayStart.Year(), todayStart.Month(), 1, 0, 0, 0, 0, todayStart.Location())
 
-	var todayRounds, weekRounds, monthRounds int64
-	s.repo.GetDB().Table("conversation_messages").
-		Joins("JOIN conversations ON conversations.id = conversation_messages.conversation_id").
-		Where("conversations.user_id = ? AND conversations.conversation_type = ? AND conversation_messages.created_at >= ?", userID, "chat", todayStart).
-		Count(&todayRounds)
+	detail.AIConversationStats = s.buildConversationStats(userID, "chat", user.CreatedAt, todayStart, weekStart, monthStart)
 
-	s.repo.GetDB().Table("conversation_messages").
-		Joins("JOIN conversations ON conversations.id = conversation_messages.conversation_id").
-		Where("conversations.user_id = ? AND conversations.conversation_type = ? AND conversation_messages.created_at >= ?", userID, "chat", weekStart).
-		Count(&weekRounds)
+	// Get Analysis conversation statistics
+	detail.AnalysisConversationStats = s.buildConversationStats(userID, "search", user.CreatedAt, todayStart, weekStart, monthStart)
 
-	s.repo.GetDB().Table("conversation_messages").
-		Joins("JOIN conversations ON conversations.id = conversation_messages.conversation_id").
-		Where("conversations.user_id = ? AND conversations.conversation_type = ? AND conversation_messages.created_at >= ?", userID, "chat", monthStart).
-		Count(&monthRounds)
+	return detail, nil
+}
 
+// buildConversationStats builds ConversationStats for a given conversation type using repository methods.
+func (s *Service) buildConversationStats(userID uint, convType string, userCreatedAt time.Time, todayStart, weekStart, monthStart time.Time) ConversationStats {
+	summary, _ := s.repo.GetConversationSummary(userID, convType)
+
+	todayRounds, _ := s.repo.CountConversationMessagesSince(userID, convType, todayStart)
+	weekRounds, _ := s.repo.CountConversationMessagesSince(userID, convType, weekStart)
+	monthRounds, _ := s.repo.CountConversationMessagesSince(userID, convType, monthStart)
+
+	totalConv := 0
+	totalRounds := 0
+	var lastConvAt *time.Time
 	avgRounds := 0.0
-	if aiConvStats.TotalConv > 0 {
-		avgRounds = float64(aiConvStats.TotalRounds) / float64(aiConvStats.TotalConv)
+
+	if summary != nil {
+		totalConv = summary.TotalConv
+		totalRounds = summary.TotalRounds
+		lastConvAt = summary.LastConvAt
+		if totalConv > 0 {
+			avgRounds = float64(totalRounds) / float64(totalConv)
+		}
 	}
 
-	detail.AIConversationStats = ConversationStats{
-		TotalConversations: aiConvStats.TotalConv,
-		TotalRounds:        aiConvStats.TotalRounds,
+	return ConversationStats{
+		TotalConversations: totalConv,
+		TotalRounds:        totalRounds,
 		TodayRounds:        int(todayRounds),
 		WeekRounds:         int(weekRounds),
 		MonthRounds:        int(monthRounds),
 		AvgRoundsPerConv:   avgRounds,
-		LastConvAt:         aiConvStats.LastConvAt,
+		LastConvAt:         lastConvAt,
 	}
-
-	// NEW: Get Analysis conversation statistics (使用 'search' 作为智能分析类型)
-	var analysisConvStats struct {
-		TotalConv   int        `gorm:"column:total_conv"`
-		TotalRounds int        `gorm:"column:total_rounds"`
-		LastConvAt  *time.Time `gorm:"column:last_conv_at"`
-	}
-	s.repo.GetDB().Table("conversations").
-		Select("COUNT(DISTINCT id) as total_conv, "+
-			"COALESCE(SUM((SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = conversations.id)), 0) as total_rounds, "+
-			"MAX(updated_at) as last_conv_at").
-		Where("user_id = ? AND conversation_type = ?", userID, "search").
-		Scan(&analysisConvStats)
-
-	// Get time-based statistics for Analysis conversations
-	var todayRoundsAnalysis, weekRoundsAnalysis, monthRoundsAnalysis int64
-	s.repo.GetDB().Table("conversation_messages").
-		Joins("JOIN conversations ON conversations.id = conversation_messages.conversation_id").
-		Where("conversations.user_id = ? AND conversations.conversation_type = ? AND conversation_messages.created_at >= ?", userID, "search", todayStart).
-		Count(&todayRoundsAnalysis)
-
-	s.repo.GetDB().Table("conversation_messages").
-		Joins("JOIN conversations ON conversations.id = conversation_messages.conversation_id").
-		Where("conversations.user_id = ? AND conversations.conversation_type = ? AND conversation_messages.created_at >= ?", userID, "search", weekStart).
-		Count(&weekRoundsAnalysis)
-
-	s.repo.GetDB().Table("conversation_messages").
-		Joins("JOIN conversations ON conversations.id = conversation_messages.conversation_id").
-		Where("conversations.user_id = ? AND conversations.conversation_type = ? AND conversation_messages.created_at >= ?", userID, "search", monthStart).
-		Count(&monthRoundsAnalysis)
-
-	avgAnalysisRounds := 0.0
-	if analysisConvStats.TotalConv > 0 {
-		avgAnalysisRounds = float64(analysisConvStats.TotalRounds) / float64(analysisConvStats.TotalConv)
-	}
-
-	detail.AnalysisConversationStats = ConversationStats{
-		TotalConversations: analysisConvStats.TotalConv,
-		TotalRounds:        analysisConvStats.TotalRounds,
-		TodayRounds:        int(todayRoundsAnalysis),
-		WeekRounds:         int(weekRoundsAnalysis),
-		MonthRounds:        int(monthRoundsAnalysis),
-		AvgRoundsPerConv:   avgAnalysisRounds,
-		LastConvAt:         analysisConvStats.LastConvAt,
-	}
-
-	return detail, nil
 }
 
 // CreateSession creates a new user session
@@ -1175,7 +1035,7 @@ func (s *Service) CreateSession(userID uint, token, ip, userAgent string, expire
 	// PC端只能有一个会话，移动端只能有一个会话，但PC和移动端可以同时存在
 	if err := s.repo.DeleteUserSessionsByDeviceType(userID, deviceType); err != nil {
 		// 删除失败不影响创建新会话，只记录日志
-		fmt.Printf("Warning: failed to delete old sessions for user %d device %s: %v\n", userID, deviceType, err)
+		slog.Warn("failed to delete old sessions", "user_id", userID, "device_type", deviceType, "err", err)
 	}
 
 	session := &model.UserSession{
@@ -1229,7 +1089,7 @@ func (s *Service) ChangePassword(userID uint, currentPassword, newPassword strin
 
 	// Verify current password
 	if !utils.CheckPassword(currentPassword, *user.PasswordHash) {
-		return errors.New("current password is incorrect")
+		return ErrCurrentPasswordInvalid
 	}
 
 	// Hash new password
@@ -1261,12 +1121,12 @@ func (s *Service) RefreshToken(oldToken string) (string, error) {
 		return "", fmt.Errorf("failed to get session: %w", err)
 	}
 	if session == nil {
-		return "", errors.New("session not found")
+		return "", ErrSessionNotFound
 	}
 
 	// Check if session can be refreshed (within 30 days of creation)
 	if !session.CanRefresh() {
-		return "", errors.New("session expired, please login again")
+		return "", ErrSessionExpired
 	}
 
 	// Get user info
@@ -1301,7 +1161,7 @@ func (s *Service) RefreshToken(oldToken string) (string, error) {
 }
 
 // GetTokenInfo returns token expiry info for the client
-func (s *Service) GetTokenInfo(token string) (map[string]interface{}, error) {
+func (s *Service) GetTokenInfo(token string) (map[string]any, error) {
 	claims, err := utils.ParseToken(token)
 	if err != nil {
 		return nil, err
@@ -1309,10 +1169,10 @@ func (s *Service) GetTokenInfo(token string) (map[string]interface{}, error) {
 
 	session, err := s.repo.GetUserSession(token)
 	if err != nil || session == nil {
-		return nil, errors.New("session not found")
+		return nil, ErrSessionNotFound
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"expires_at":         claims.ExpiresAt.Time,
 		"remaining_seconds":  int(utils.GetTokenRemainingTime(claims).Seconds()),
 		"should_refresh":     utils.ShouldRefreshToken(claims),
@@ -1322,7 +1182,7 @@ func (s *Service) GetTokenInfo(token string) (map[string]interface{}, error) {
 }
 
 // GetUserStatisticsChart returns user registration statistics for charts (legacy, kept for compatibility)
-func (s *Service) GetUserStatisticsChart(days int) ([]map[string]interface{}, error) {
+func (s *Service) GetUserStatisticsChart(days int) ([]map[string]any, error) {
 	startDate := time.Now().AddDate(0, 0, -days+1)
 	startDate = time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, startDate.Location())
 	endDate := time.Now()
@@ -1331,8 +1191,8 @@ func (s *Service) GetUserStatisticsChart(days int) ([]map[string]interface{}, er
 
 // GetUserStatisticsChartWithGranularity returns user registration statistics with custom time range and granularity
 // granularity: hour, day, week, month
-func (s *Service) GetUserStatisticsChartWithGranularity(startTime, endTime time.Time, granularity string) ([]map[string]interface{}, error) {
-	result := make([]map[string]interface{}, 0)
+func (s *Service) GetUserStatisticsChartWithGranularity(startTime, endTime time.Time, granularity string) ([]map[string]any, error) {
+	result := make([]map[string]any, 0)
 	loc := startTime.Location()
 
 	switch granularity {
@@ -1341,16 +1201,13 @@ func (s *Service) GetUserStatisticsChartWithGranularity(startTime, endTime time.
 		currentTime := time.Date(startTime.Year(), startTime.Month(), startTime.Day(), startTime.Hour(), 0, 0, 0, loc)
 		for currentTime.Before(endTime) || currentTime.Equal(endTime) {
 			nextTime := currentTime.Add(time.Hour)
-			
-			var count int64
-			err := s.repo.GetDB().Model(&User{}).
-				Where("created_at >= ? AND created_at < ?", currentTime, nextTime).
-				Count(&count).Error
+
+			count, err := s.repo.CountUsersInTimeRange(currentTime, nextTime)
 			if err != nil {
 				count = 0
 			}
 
-			result = append(result, map[string]interface{}{
+			result = append(result, map[string]any{
 				"time":      currentTime.Format("2006-01-02 15:04"),
 				"label":     currentTime.Format("01-02 15:00"),
 				"new_users": count,
@@ -1364,16 +1221,13 @@ func (s *Service) GetUserStatisticsChartWithGranularity(startTime, endTime time.
 		endDate := time.Date(endTime.Year(), endTime.Month(), endTime.Day(), 0, 0, 0, 0, loc)
 		for currentDate.Before(endDate) || currentDate.Equal(endDate) {
 			nextDate := currentDate.AddDate(0, 0, 1)
-			
-			var count int64
-			err := s.repo.GetDB().Model(&User{}).
-				Where("created_at >= ? AND created_at < ?", currentDate, nextDate).
-				Count(&count).Error
+
+			count, err := s.repo.CountUsersInTimeRange(currentDate, nextDate)
 			if err != nil {
 				count = 0
 			}
 
-			result = append(result, map[string]interface{}{
+			result = append(result, map[string]any{
 				"time":      currentDate.Format("2006-01-02"),
 				"label":     currentDate.Format("01-02"),
 				"new_users": count,
@@ -1399,15 +1253,12 @@ func (s *Service) GetUserStatisticsChartWithGranularity(startTime, endTime time.
 				weekEnd = endTime.AddDate(0, 0, 1)
 			}
 
-			var count int64
-			err := s.repo.GetDB().Model(&User{}).
-				Where("created_at >= ? AND created_at < ?", currentDate, weekEnd).
-				Count(&count).Error
+			count, err := s.repo.CountUsersInTimeRange(currentDate, weekEnd)
 			if err != nil {
 				count = 0
 			}
 
-			result = append(result, map[string]interface{}{
+			result = append(result, map[string]any{
 				"time":      currentDate.Format("2006-01-02"),
 				"label":     currentDate.Format("01-02") + "周",
 				"new_users": count,
@@ -1427,15 +1278,12 @@ func (s *Service) GetUserStatisticsChartWithGranularity(startTime, endTime time.
 				monthEnd = endTime.AddDate(0, 0, 1)
 			}
 
-			var count int64
-			err := s.repo.GetDB().Model(&User{}).
-				Where("created_at >= ? AND created_at < ?", currentDate, monthEnd).
-				Count(&count).Error
+			count, err := s.repo.CountUsersInTimeRange(currentDate, monthEnd)
 			if err != nil {
 				count = 0
 			}
 
-			result = append(result, map[string]interface{}{
+			result = append(result, map[string]any{
 				"time":      currentDate.Format("2006-01"),
 				"label":     currentDate.Format("2006年01月"),
 				"new_users": count,
@@ -1451,7 +1299,7 @@ func (s *Service) GetUserStatisticsChartWithGranularity(startTime, endTime time.
 }
 
 // GetOnlineUserChartData returns online user count snapshots for charts (legacy, kept for compatibility)
-func (s *Service) GetOnlineUserChartData(hours int) ([]map[string]interface{}, error) {
+func (s *Service) GetOnlineUserChartData(hours int) ([]map[string]any, error) {
 	endTime := time.Now()
 	startTime := endTime.Add(-time.Duration(hours) * time.Hour)
 	return s.GetOnlineUserChartDataWithGranularity(startTime, endTime, "5min")
@@ -1459,7 +1307,7 @@ func (s *Service) GetOnlineUserChartData(hours int) ([]map[string]interface{}, e
 
 // GetOnlineUserChartDataWithGranularity returns online user count snapshots with custom time range and granularity
 // granularity: 5min, hour
-func (s *Service) GetOnlineUserChartDataWithGranularity(startTime, endTime time.Time, granularity string) ([]map[string]interface{}, error) {
+func (s *Service) GetOnlineUserChartDataWithGranularity(startTime, endTime time.Time, granularity string) ([]map[string]any, error) {
 	// Round start time based on granularity
 	loc := startTime.Location()
 	
@@ -1514,7 +1362,7 @@ func (s *Service) GetOnlineUserChartDataWithGranularity(startTime, endTime time.
 	}
 
 	// Generate result with all time points filled
-	result := make([]map[string]interface{}, 0)
+	result := make([]map[string]any, 0)
 	currentTime := startTime
 
 	for currentTime.Before(endTime) || currentTime.Equal(endTime) {
@@ -1541,7 +1389,7 @@ func (s *Service) GetOnlineUserChartDataWithGranularity(startTime, endTime time.
 			}
 		}
 
-		result = append(result, map[string]interface{}{
+		result = append(result, map[string]any{
 			"time":         timeStr,
 			"label":        labelStr,
 			"online_count": onlineCount,
@@ -1624,7 +1472,7 @@ func (s *Service) SendPhoneVerificationCode(phone, purpose string) error {
 	}
 
 	// Generate 6-digit code
-	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+	code := utils.SecureRandomDigits(6)
 
 	// Save verification code to Redis (auto-expires in 10 minutes)
 	if err := cache.SaveVerificationCode(context.Background(), phone, code, purpose); err != nil {
@@ -1665,18 +1513,18 @@ func (s *Service) SendPhoneVerificationCode(phone, purpose string) error {
 
 			if err := utils.SendSMSVerifyCodePNS(config, phone, params); err != nil {
 				// Log error but don't fail - still show code in console as fallback
-				fmt.Printf("⚠ Failed to send SMS: %v\n", err)
-				fmt.Printf("✓ Verification code for %s (%s): %s (expires in 10 min)\n", phone, purpose, code)
+				slog.Warn("failed to send SMS", "err", err)
+				slog.Info("verification code generated (SMS fallback)", "phone", phone, "purpose", purpose, "code", code)
 				return nil
 			}
 
-			fmt.Printf("✓ Verification code sent to %s (%s) via SMS (expires in 10 min)\n", phone, purpose)
+			slog.Info("verification code sent via SMS", "phone", phone, "purpose", purpose)
 			return nil
 		}
 	}
 
 	// Fallback: If no SMS config, just log it
-	fmt.Printf("✓ Verification code for %s (%s): %s (expires in 10 min)\n", phone, purpose, code)
+	slog.Info("verification code generated (no SMS config)", "phone", phone, "purpose", purpose, "code", code)
 
 	return nil
 }
@@ -1712,9 +1560,7 @@ func (s *Service) RegisterWithPhone(phone, password, code, invitationCode, ip st
 	var token string
 
 	// Use transaction for atomic registration
-	err = s.repo.GetDB().Transaction(func(tx *gorm.DB) error {
-		txRepo := NewRepository(tx)
-
+	err = s.repo.ExecuteInTransaction(func(txRepo *Repository) error {
 		// Second check: double-check phone availability within transaction (concurrency protection)
 		existing, err := txRepo.FindByPhone(phone)
 		if err != nil {
@@ -1931,10 +1777,7 @@ func (s *Service) BindPhone(userID uint, phone, code string) error {
 	}
 
 	// Use transaction for atomic binding operation
-	return s.repo.GetDB().Transaction(func(tx *gorm.DB) error {
-		// Create a temporary repository with transaction DB
-		txRepo := NewRepository(tx)
-
+	return s.repo.ExecuteInTransaction(func(txRepo *Repository) error {
 		// Second check: double-check phone availability within transaction (concurrency protection)
 		existing, err := txRepo.FindByPhone(phone)
 		if err != nil {
@@ -1967,7 +1810,6 @@ func (s *Service) BindPhone(userID uint, phone, code string) error {
 		}
 
 		if authProvider == nil {
-			// Create new auth provider
 			authProvider = &UserAuthProvider{
 				UserID:         userID,
 				Provider:       "phone",
@@ -1977,7 +1819,6 @@ func (s *Service) BindPhone(userID uint, phone, code string) error {
 				return err
 			}
 		} else {
-			// Update existing auth provider
 			authProvider.ProviderUserID = phone
 			if err := txRepo.UpdateAuthProvider(authProvider); err != nil {
 				return err
@@ -2010,10 +1851,7 @@ func (s *Service) BindEmail(userID uint, email, code string) error {
 	}
 
 	// Use transaction for atomic binding operation
-	return s.repo.GetDB().Transaction(func(tx *gorm.DB) error {
-		// Create a temporary repository with transaction DB
-		txRepo := NewRepository(tx)
-
+	return s.repo.ExecuteInTransaction(func(txRepo *Repository) error {
 		// Second check: double-check email availability within transaction (concurrency protection)
 		existing, err := txRepo.FindByEmail(email)
 		if err != nil {
@@ -2046,7 +1884,6 @@ func (s *Service) BindEmail(userID uint, email, code string) error {
 		}
 
 		if authProvider == nil {
-			// Create new auth provider
 			authProvider = &UserAuthProvider{
 				UserID:         userID,
 				Provider:       "email",
@@ -2056,7 +1893,6 @@ func (s *Service) BindEmail(userID uint, email, code string) error {
 				return err
 			}
 		} else {
-			// Update existing auth provider
 			authProvider.ProviderUserID = email
 			if err := txRepo.UpdateAuthProvider(authProvider); err != nil {
 				return err
@@ -2092,67 +1928,7 @@ func (s *Service) UnbindPhone(userID uint, code string) error {
 		return errors.New("invalid or expired verification code")
 	}
 
-	// Start transaction with pessimistic locking
-	tx := s.repo.GetDB().Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	// Lock the user row using FOR UPDATE
-	var lockedUser User
-	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("id = ?", userID).First(&lockedUser).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to lock user record: %w", err)
-	}
-
-	// Re-check if phone is still bound (might have been changed by another transaction)
-	if lockedUser.Phone == nil || *lockedUser.Phone == "" {
-		tx.Rollback()
-		return errors.New("phone is not bound")
-	}
-
-	// Check if user has at least one other login method (within transaction)
-	hasEmail := lockedUser.Email != nil && *lockedUser.Email != ""
-
-	var wechatCount int64
-	if err := tx.Model(&UserAuthProvider{}).
-		Where("user_id = ? AND provider = ?", userID, "wechat").
-		Count(&wechatCount).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to check WeChat binding: %w", err)
-	}
-	hasWeChat := wechatCount > 0
-
-	if !hasEmail && !hasWeChat {
-		tx.Rollback()
-		return errors.New("cannot unbind phone: at least one login method must remain")
-	}
-
-	// Remove phone
-	lockedUser.Phone = nil
-	lockedUser.PhoneVerified = false
-
-	if err := tx.Save(&lockedUser).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to unbind phone: %w", err)
-	}
-
-	// Remove auth provider
-	if err := tx.Where("user_id = ? AND provider = ?", userID, "phone").
-		Delete(&UserAuthProvider{}).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete phone auth provider: %w", err)
-	}
-
-	// Commit transaction
-	if err := tx.Commit().Error; err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
+	return s.repo.UnbindPhoneInTx(userID)
 }
 
 // UnbindEmail unbinds email from user account
@@ -2180,189 +1956,17 @@ func (s *Service) UnbindEmail(userID uint, code string) error {
 		return errors.New("invalid or expired verification code")
 	}
 
-	// Start transaction with pessimistic locking
-	tx := s.repo.GetDB().Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	// Lock the user row using FOR UPDATE
-	var lockedUser User
-	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("id = ?", userID).First(&lockedUser).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to lock user record: %w", err)
-	}
-
-	// Re-check if email is still bound (might have been changed by another transaction)
-	if lockedUser.Email == nil || *lockedUser.Email == "" {
-		tx.Rollback()
-		return errors.New("email is not bound")
-	}
-
-	// Check if user has at least one other login method (within transaction)
-	hasPhone := lockedUser.Phone != nil && *lockedUser.Phone != ""
-
-	var wechatCount int64
-	if err := tx.Model(&UserAuthProvider{}).
-		Where("user_id = ? AND provider = ?", userID, "wechat").
-		Count(&wechatCount).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to check WeChat binding: %w", err)
-	}
-	hasWeChat := wechatCount > 0
-
-	if !hasPhone && !hasWeChat {
-		tx.Rollback()
-		return errors.New("cannot unbind email: at least one login method must remain")
-	}
-
-	// Remove email
-	lockedUser.Email = nil
-	lockedUser.EmailVerified = false
-
-	if err := tx.Save(&lockedUser).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to unbind email: %w", err)
-	}
-
-	// Remove auth provider
-	if err := tx.Where("user_id = ? AND provider = ?", userID, "email").
-		Delete(&UserAuthProvider{}).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete email auth provider: %w", err)
-	}
-
-	// Commit transaction
-	if err := tx.Commit().Error; err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
+	return s.repo.UnbindEmailInTx(userID)
 }
 
 // UnbindWeChat unbinds WeChat from user account
 func (s *Service) UnbindWeChat(userID uint) error {
-	// Start transaction with pessimistic locking
-	tx := s.repo.GetDB().Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	// Lock the user row using FOR UPDATE
-	var lockedUser User
-	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("id = ?", userID).First(&lockedUser).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to lock user record: %w", err)
-	}
-
-	// Check if WeChat is bound (within transaction)
-	var wechatCount int64
-	if err := tx.Model(&UserAuthProvider{}).
-		Where("user_id = ? AND provider = ?", userID, "wechat").
-		Count(&wechatCount).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to check WeChat binding: %w", err)
-	}
-
-	if wechatCount == 0 {
-		tx.Rollback()
-		return errors.New("WeChat is not bound")
-	}
-
-	// Check if user has at least one other login method (within transaction)
-	hasEmail := lockedUser.Email != nil && *lockedUser.Email != ""
-	hasPhone := lockedUser.Phone != nil && *lockedUser.Phone != ""
-
-	if !hasEmail && !hasPhone {
-		tx.Rollback()
-		return errors.New("cannot unbind WeChat: at least one login method must remain")
-	}
-
-	// Remove auth provider
-	if err := tx.Where("user_id = ? AND provider = ?", userID, "wechat").
-		Delete(&UserAuthProvider{}).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete WeChat auth provider: %w", err)
-	}
-
-	// Commit transaction
-	if err := tx.Commit().Error; err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
+	return s.repo.UnbindWeChatInTx(userID)
 }
 
 // UnbindGitHub unbinds GitHub from user account
 func (s *Service) UnbindGitHub(userID uint) error {
-	// Start transaction with pessimistic locking
-	tx := s.repo.GetDB().Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	// Lock the user row using FOR UPDATE
-	var lockedUser User
-	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("id = ?", userID).First(&lockedUser).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to lock user record: %w", err)
-	}
-
-	// Check if GitHub is bound (within transaction)
-	var githubCount int64
-	if err := tx.Model(&UserAuthProvider{}).
-		Where("user_id = ? AND provider = ?", userID, "github").
-		Count(&githubCount).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to check GitHub binding: %w", err)
-	}
-
-	if githubCount == 0 {
-		tx.Rollback()
-		return errors.New("GitHub is not bound")
-	}
-
-	// Check if user has at least one other login method (within transaction)
-	hasEmail := lockedUser.Email != nil && *lockedUser.Email != ""
-	hasPhone := lockedUser.Phone != nil && *lockedUser.Phone != ""
-
-	// Check for WeChat binding
-	var wechatCount int64
-	if err := tx.Model(&UserAuthProvider{}).
-		Where("user_id = ? AND provider = ?", userID, "wechat").
-		Count(&wechatCount).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to check WeChat binding: %w", err)
-	}
-	hasWeChat := wechatCount > 0
-
-	if !hasEmail && !hasPhone && !hasWeChat {
-		tx.Rollback()
-		return errors.New("cannot unbind GitHub: at least one login method must remain")
-	}
-
-	// Remove auth provider
-	if err := tx.Where("user_id = ? AND provider = ?", userID, "github").
-		Delete(&UserAuthProvider{}).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete GitHub auth provider: %w", err)
-	}
-
-	// Commit transaction
-	if err := tx.Commit().Error; err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
+	return s.repo.UnbindGitHubInTx(userID)
 }
 
 // LoginOrRegisterWithWeChat handles WeChat login or registration
@@ -2443,7 +2047,7 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	if invitationCode != "" {
 		if err := s.ProcessInvitationForOAuth(user.ID, invitationCode, ip); err != nil {
 			// 邀请码处理失败不影响注册，只记录日志
-			fmt.Printf("Failed to process invitation code for WeChat user %d: %v\n", user.ID, err)
+			slog.Error("failed to process invitation code for WeChat user", "user_id", user.ID, "err", err)
 		}
 	}
 
@@ -2461,14 +2065,18 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	go s.SendWelcomeMessage(user.ID, invitationCode != "")
 
 	// Create auth provider entry
-	// Save nickname and avatar in provider_data
-	providerDataJSON := fmt.Sprintf(`{"nickname":"%s","avatar_url":"%s"}`, nickname, avatarURL)
-	
+	providerData := map[string]string{
+		"nickname":   nickname,
+		"avatar_url": avatarURL,
+	}
+	providerDataBytes, _ := json.Marshal(providerData)
+	providerDataJSON := string(providerDataBytes)
+
 	var unionIDPtr *string
 	if unionID != "" {
 		unionIDPtr = &unionID
 	}
-	
+
 	authProvider = &UserAuthProvider{
 		UserID:          user.ID,
 		Provider:        "wechat",
@@ -2553,13 +2161,18 @@ func (s *Service) BindWeChat(userID uint, openID, unionID, nickname, avatarURL s
 	}
 
 	// Prepare provider data
-	providerDataJSON := fmt.Sprintf(`{"nickname":"%s","avatar_url":"%s"}`, nickname, avatarURL)
-	
+	providerData := map[string]string{
+		"nickname":   nickname,
+		"avatar_url": avatarURL,
+	}
+	providerDataBytes, _ := json.Marshal(providerData)
+	providerDataJSON := string(providerDataBytes)
+
 	var unionIDPtr *string
 	if unionID != "" {
 		unionIDPtr = &unionID
 	}
-	
+
 	if authProvider == nil {
 		// Create new auth provider
 		authProvider = &UserAuthProvider{
@@ -2794,4 +2407,49 @@ func (s *Service) CheckPhoneAvailability(phone string, currentUserID uint) (bool
 
 	// Phone already in use by another user
 	return false, nil
+}
+
+// ==================== Repository delegation methods (for Handler use) ====================
+
+func (s *Service) FindByID(id uint) (*User, error) {
+	return s.repo.FindByID(id)
+}
+
+func (s *Service) FindByEmail(email string) (*User, error) {
+	return s.repo.FindByEmail(email)
+}
+
+func (s *Service) FindByUsername(username string) (*User, error) {
+	return s.repo.FindByUsername(username)
+}
+
+func (s *Service) FindAuthProvider(provider, providerUserID string) (*UserAuthProvider, error) {
+	return s.repo.FindAuthProvider(provider, providerUserID)
+}
+
+func (s *Service) CreateUser(user *User) error {
+	return s.repo.Create(user)
+}
+
+func (s *Service) UpdateUser(user *User) error {
+	return s.repo.Update(user)
+}
+
+func (s *Service) CreateAuthProvider(provider *UserAuthProvider) error {
+	return s.repo.CreateAuthProvider(provider)
+}
+
+func (s *Service) UpdateAuthProvider(provider *UserAuthProvider) error {
+	return s.repo.UpdateAuthProvider(provider)
+}
+
+func (s *Service) UpdateLastLoginWithIP(id uint, ip string) error {
+	return s.repo.UpdateLastLoginWithIP(id, ip)
+}
+
+func (s *Service) GetGithubOAuthConfig() (*model.GithubOAuthConfig, error) {
+	if s.configService == nil {
+		return nil, fmt.Errorf("config service not initialized")
+	}
+	return s.configService.GetGithubOAuthConfig()
 }

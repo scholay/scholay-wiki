@@ -102,7 +102,7 @@ func (r *Repository) DeleteFund(id uint) error {
 
 // IncrementFundStats 增加基金统计数据
 func (r *Repository) IncrementFundStats(fundID uint, goldAmount, diamondAmount int64) error {
-	return r.db.Model(&MembershipFund{}).Where("id = ?", fundID).Updates(map[string]interface{}{
+	return r.db.Model(&MembershipFund{}).Where("id = ?", fundID).Updates(map[string]any{
 		"total_distributed_gold":    gorm.Expr("total_distributed_gold + ?", goldAmount),
 		"total_distributed_diamond": gorm.Expr("total_distributed_diamond + ?", diamondAmount),
 		"beneficiary_count":         gorm.Expr("beneficiary_count + 1"),

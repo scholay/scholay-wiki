@@ -10,7 +10,7 @@ package message
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -623,14 +623,14 @@ func (s *Service) pushNotification(userID uint, msgID uint, title, content, cate
 	go func() {
 		// 推送新消息通知
 		if err := s.wsHub.SendNotification(userID, msgID, title, content, category, linkURL, linkText); err != nil {
-			fmt.Printf("[Message] Failed to push notification to user %d: %v\n", userID, err)
+			slog.Error("failed to push notification", "user_id", userID, "err", err)
 		}
 
 		// 推送未读数量更新
 		count, err := s.repo.GetUnreadCount(userID)
 		if err == nil {
 			if err := s.wsHub.SendUnreadCount(userID, int(count)); err != nil {
-				fmt.Printf("[Message] Failed to push unread count to user %d: %v\n", userID, err)
+				slog.Error("failed to push unread count", "user_id", userID, "err", err)
 			}
 		}
 	}()
@@ -670,7 +670,7 @@ func (s *Service) SendToUserWithCategory(userID uint, title, content string, cat
 // 用于轻量级的即时提示，如奖励到账提醒等
 func (s *Service) SendToastToUser(userID uint, title, content, category string) error {
 	if s.wsHub == nil {
-		fmt.Printf("[Message] WebSocket hub not set, cannot send toast to user %d\n", userID)
+		slog.Warn("WebSocket hub not set, cannot send toast", "user_id", userID)
 		return nil
 	}
 
@@ -682,13 +682,13 @@ func (s *Service) SendToastToUser(userID uint, title, content, category string) 
 		category = string(CategorySystem) // 默认使用系统分类
 	}
 
-	fmt.Printf("[Message] Sending toast to user %d: title=%s, content=%s\n", userID, title, content)
+	slog.Info("sending toast to user", "user_id", userID, "title", title)
 
 	go func() {
 		if err := s.wsHub.SendToast(userID, title, content, category); err != nil {
-			fmt.Printf("[Message] Failed to send toast to user %d: %v\n", userID, err)
+			slog.Error("failed to send toast", "user_id", userID, "err", err)
 		} else {
-			fmt.Printf("[Message] Toast sent successfully to user %d\n", userID)
+			slog.Debug("toast sent successfully", "user_id", userID)
 		}
 	}()
 

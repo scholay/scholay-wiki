@@ -9,13 +9,15 @@ package semanticscholar
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // GetRecommendationsForPaper gets paper recommendations based on a single paper
-func (c *Client) GetRecommendationsForPaper(paperID string, opts RecommendationsOptions) (*RecommendationsResponse, error) {
+func (c *Client) GetRecommendationsForPaper(ctx context.Context, paperID string, opts RecommendationsOptions) (*RecommendationsResponse, error) {
 	if paperID == "" {
 		return nil, fmt.Errorf("paperID is required")
 	}
@@ -23,7 +25,7 @@ func (c *Client) GetRecommendationsForPaper(paperID string, opts Recommendations
 	// Build query parameters
 	params := map[string]string{}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 	if opts.Limit > 0 {
 		params["limit"] = strconv.Itoa(opts.Limit)
@@ -33,7 +35,7 @@ func (c *Client) GetRecommendationsForPaper(paperID string, opts Recommendations
 	urlStr := c.recURL + "/papers/forpaper/" + paperID + buildQueryString(params)
 
 	// Perform request
-	resp, err := c.doRequest("GET", urlStr, nil)
+	resp, err := c.doRequest(ctx, "GET", urlStr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +56,7 @@ type RecommendationRequest struct {
 }
 
 // GetRecommendations gets paper recommendations based on positive and negative paper lists
-func (c *Client) GetRecommendations(opts RecommendationsOptions) (*RecommendationsResponse, error) {
+func (c *Client) GetRecommendations(ctx context.Context, opts RecommendationsOptions) (*RecommendationsResponse, error) {
 	if len(opts.PositivePaperIDs) == 0 {
 		return nil, fmt.Errorf("at least one positive paper ID is required")
 	}
@@ -62,7 +64,7 @@ func (c *Client) GetRecommendations(opts RecommendationsOptions) (*Recommendatio
 	// Build query parameters
 	params := map[string]string{}
 	if len(opts.Fields) > 0 {
-		params["fields"] = joinStrings(opts.Fields, ",")
+		params["fields"] = strings.Join(opts.Fields, ",")
 	}
 	if opts.Limit > 0 {
 		params["limit"] = strconv.Itoa(opts.Limit)
@@ -82,7 +84,7 @@ func (c *Client) GetRecommendations(opts RecommendationsOptions) (*Recommendatio
 	urlStr := c.recURL + "/papers" + buildQueryString(params)
 
 	// Perform request
-	resp, err := c.doRequest("POST", urlStr, bytes.NewReader(bodyBytes))
+	resp, err := c.doRequest(ctx, "POST", urlStr, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, err
 	}

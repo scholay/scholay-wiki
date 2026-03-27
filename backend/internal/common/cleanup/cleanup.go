@@ -10,7 +10,7 @@ package cleanup
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"scholar-backend/internal/hotcontent"
@@ -43,28 +43,21 @@ func (s *CleanupService) SetHotContentService(service *hotcontent.Service) {
 
 // Start starts all cleanup tasks as background goroutines
 func (s *CleanupService) Start() {
-	log.Println("Starting cleanup service...")
+	slog.Info("Starting cleanup service")
 
-	// Clean expired sessions every hour
 	go s.runPeriodic("expired_sessions", 1*time.Hour, s.cleanExpiredSessions)
-
-	// Clean old snapshots every day at 3 AM
 	go s.runDaily("old_snapshots", 3, 0, s.cleanOldSnapshots)
-
-	// Clean old usage logs every day at 4 AM
 	go s.runDaily("old_usage_logs", 4, 0, s.cleanOldUsageLogs)
-
-	// Clean hot content data every day at 4:30 AM
 	go s.runDaily("hot_content", 4, 30, s.cleanHotContent)
 
-	log.Println("✓ Cleanup service started")
+	slog.Info("Cleanup service started")
 }
 
 // Stop gracefully stops all cleanup tasks
 func (s *CleanupService) Stop() {
-	log.Println("Stopping cleanup service...")
+	slog.Info("Stopping cleanup service")
 	s.cancel()
-	log.Println("✓ Cleanup service stopped")
+	slog.Info("Cleanup service stopped")
 }
 
 // runPeriodic runs a cleanup task at regular intervals
@@ -72,19 +65,18 @@ func (s *CleanupService) runPeriodic(name string, interval time.Duration, task f
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	// Run immediately on start
 	if err := task(); err != nil {
-		log.Printf("Warning: cleanup task '%s' failed: %v\n", name, err)
+		slog.Warn("Cleanup task failed", "task", name, "err", err)
 	}
 
 	for {
 		select {
 		case <-ticker.C:
 			if err := task(); err != nil {
-				log.Printf("Warning: cleanup task '%s' failed: %v\n", name, err)
+				slog.Warn("Cleanup task failed", "task", name, "err", err)
 			}
 		case <-s.ctx.Done():
-			log.Printf("Cleanup task '%s' stopped\n", name)
+			slog.Info("Cleanup task stopped", "task", name)
 			return
 		}
 	}
@@ -102,18 +94,17 @@ func (s *CleanupService) runDaily(name string, hour, minute int, task func() err
 		}
 
 		duration := time.Until(next)
-		log.Printf("Next '%s' cleanup scheduled at: %s (in %v)\n", name, next.Format("2006-01-02 15:04:05"), duration)
+		slog.Info("Next cleanup scheduled", "task", name, "at", next.Format("2006-01-02 15:04:05"), "in", duration)
 
-		// Use a timer with context cancellation support
 		timer := time.NewTimer(duration)
 		select {
 		case <-timer.C:
 			if err := task(); err != nil {
-				log.Printf("Warning: cleanup task '%s' failed: %v\n", name, err)
+				slog.Warn("Cleanup task failed", "task", name, "err", err)
 			}
 		case <-s.ctx.Done():
 			timer.Stop()
-			log.Printf("Cleanup task '%s' stopped\n", name)
+			slog.Info("Cleanup task stopped", "task", name)
 			return
 		}
 		timer.Stop()
@@ -135,7 +126,7 @@ func (s *CleanupService) cleanExpiredSessions() error {
 	}
 
 	if result.RowsAffected > 0 {
-		log.Printf("✓ Cleaned %d expired user sessions\n", result.RowsAffected)
+		slog.Info("Cleaned expired user sessions", "count", result.RowsAffected)
 	}
 
 	return nil
@@ -156,7 +147,7 @@ func (s *CleanupService) cleanOldSnapshots() error {
 	}
 
 	if result.RowsAffected > 0 {
-		log.Printf("✓ Cleaned %d old online user snapshots (older than 30 days)\n", result.RowsAffected)
+		slog.Info("Cleaned old online user snapshots", "count", result.RowsAffected, "olderThanDays", 30)
 	}
 
 	return nil
@@ -176,8 +167,7 @@ func (s *CleanupService) cleanOldUsageLogs() error {
 	}
 
 	cutoffTime := time.Now().AddDate(0, 0, -retentionDays)
-	log.Printf("Starting cleanup of usage logs older than %d days (before %s)\n",
-		retentionDays, cutoffTime.Format("2006-01-02"))
+	slog.Info("Starting cleanup of usage logs", "retentionDays", retentionDays, "before", cutoffTime.Format("2006-01-02"))
 
 	// 分批删除参数
 	const batchSize = 1000                    // 每批删除1000条
@@ -189,7 +179,7 @@ func (s *CleanupService) cleanOldUsageLogs() error {
 		// 检查是否需要停止
 		select {
 		case <-s.ctx.Done():
-			log.Printf("Usage logs cleanup interrupted, deleted %d records so far\n", totalDeleted)
+			slog.Info("Usage logs cleanup interrupted", "deletedSoFar", totalDeleted)
 			return nil
 		default:
 		}
@@ -218,7 +208,7 @@ func (s *CleanupService) cleanOldUsageLogs() error {
 	}
 
 	if totalDeleted > 0 {
-		log.Printf("✓ Cleaned %d old usage logs (retention: %d days)\n", totalDeleted, retentionDays)
+		slog.Info("Cleaned old usage logs", "count", totalDeleted, "retentionDays", retentionDays)
 	}
 
 	return nil
@@ -227,12 +217,11 @@ func (s *CleanupService) cleanOldUsageLogs() error {
 // cleanHotContent removes old hot content data based on retention period and max records limit
 func (s *CleanupService) cleanHotContent() error {
 	if s.hotContentService == nil {
-		log.Println("Warning: hot content service not configured, skipping cleanup")
+		slog.Warn("Hot content service not configured, skipping cleanup")
 		return nil
 	}
 
-	log.Printf("Starting cleanup of hot content data (retention: %d days, max: %d records)\n",
-		hotcontent.HotContentRetentionDays, hotcontent.HotContentMaxRecords)
+	slog.Info("Starting cleanup of hot content data", "retentionDays", hotcontent.HotContentRetentionDays, "maxRecords", hotcontent.HotContentMaxRecords)
 
 	stats, err := s.hotContentService.Cleanup()
 	if err != nil {
@@ -240,8 +229,7 @@ func (s *CleanupService) cleanHotContent() error {
 	}
 
 	if stats.KeywordsDeleted > 0 || stats.PapersDeleted > 0 {
-		log.Printf("✓ Cleaned hot content: keywords=%d, papers=%d\n",
-			stats.KeywordsDeleted, stats.PapersDeleted)
+		slog.Info("Cleaned hot content", "keywordsDeleted", stats.KeywordsDeleted, "papersDeleted", stats.PapersDeleted)
 	}
 
 	return nil
@@ -249,25 +237,25 @@ func (s *CleanupService) cleanHotContent() error {
 
 // CleanExpiredSessionsNow runs the expired sessions cleanup immediately
 func (s *CleanupService) CleanExpiredSessionsNow() error {
-	log.Println("Running manual cleanup: expired sessions")
+	slog.Info("Running manual cleanup: expired sessions")
 	return s.cleanExpiredSessions()
 }
 
 // CleanOldSnapshotsNow runs the old snapshots cleanup immediately
 func (s *CleanupService) CleanOldSnapshotsNow() error {
-	log.Println("Running manual cleanup: old snapshots")
+	slog.Info("Running manual cleanup: old snapshots")
 	return s.cleanOldSnapshots()
 }
 
 // CleanOldUsageLogsNow runs the old usage logs cleanup immediately
 func (s *CleanupService) CleanOldUsageLogsNow() error {
-	log.Println("Running manual cleanup: old usage logs")
+	slog.Info("Running manual cleanup: old usage logs")
 	return s.cleanOldUsageLogs()
 }
 
 // GetCleanupStats returns statistics about data to be cleaned
-func (s *CleanupService) GetCleanupStats() (map[string]interface{}, error) {
-	stats := make(map[string]interface{})
+func (s *CleanupService) GetCleanupStats() (map[string]any, error) {
+	stats := make(map[string]any)
 
 	// Count expired sessions
 	var expiredSessionsCount int64

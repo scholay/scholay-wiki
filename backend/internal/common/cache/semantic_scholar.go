@@ -11,8 +11,11 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -28,7 +31,7 @@ const (
 
 // GenerateCacheKey generates a cache key from query parameters
 // Uses MD5 hash of parameters for consistent key generation
-func GenerateCacheKey(prefix string, params map[string]interface{}) string {
+func GenerateCacheKey(prefix string, params map[string]any) string {
 	// Create a stable string representation
 	paramStr := fmt.Sprintf("%v", params)
 
@@ -41,41 +44,38 @@ func GenerateCacheKey(prefix string, params map[string]interface{}) string {
 
 // CacheSearchResult caches a search result
 // params should include: query, year, limit, offset, fields, etc.
-func CacheSearchResult(ctx context.Context, params map[string]interface{}, result interface{}) error {
+func CacheSearchResult(ctx context.Context, params map[string]any, result any) error {
 	key := GenerateCacheKey(scholarSearchPrefix, params)
 	return Set(ctx, key, result, searchCacheTTL)
 }
 
 // GetCachedSearchResult retrieves a cached search result
 // Returns (found, error) - found=true if cache hit, found=false if cache miss
-func GetCachedSearchResult(ctx context.Context, params map[string]interface{}, result interface{}) (bool, error) {
+func GetCachedSearchResult(ctx context.Context, params map[string]any, result any) (bool, error) {
 	key := GenerateCacheKey(scholarSearchPrefix, params)
 
 	err := Get(ctx, key, result)
 	if err != nil {
-		if err.Error() == "redis: nil" {
-			// Cache miss - caller should use GetOrSetSearchResult for stampede protection
+		if errors.Is(err, redis.Nil) {
 			return false, nil
 		}
-		// Redis error
 		return false, err
 	}
 
-	// Cache hit
 	return true, nil
 }
 
 // GetOrSetSearchResult retrieves from cache or fetches with stampede protection
 // This prevents multiple concurrent requests from hitting the API on cache miss
-func GetOrSetSearchResult(ctx context.Context, params map[string]interface{}, fetchFn func() (interface{}, error), result interface{}) error {
+func GetOrSetSearchResult(ctx context.Context, params map[string]any, fetchFn func() (any, error), result any) error {
 	key := GenerateCacheKey(scholarSearchPrefix, params)
 	return GetOrSet(ctx, key, searchCacheTTL, fetchFn, result)
 }
 
 // CachePaperDetails caches paper details by paperId and fields
 // fields parameter ensures different field requests are cached separately
-func CachePaperDetails(ctx context.Context, paperId string, fields []string, paper interface{}) error {
-	params := map[string]interface{}{
+func CachePaperDetails(ctx context.Context, paperId string, fields []string, paper any) error {
+	params := map[string]any{
 		"paperId": paperId,
 		"fields":  fields,
 	}
@@ -85,8 +85,8 @@ func CachePaperDetails(ctx context.Context, paperId string, fields []string, pap
 
 // GetCachedPaperDetails retrieves cached paper details by paperId and fields
 // Only returns cached data if the exact same fields were requested
-func GetCachedPaperDetails(ctx context.Context, paperId string, fields []string, result interface{}) (bool, error) {
-	params := map[string]interface{}{
+func GetCachedPaperDetails(ctx context.Context, paperId string, fields []string, result any) (bool, error) {
+	params := map[string]any{
 		"paperId": paperId,
 		"fields":  fields,
 	}
@@ -94,7 +94,7 @@ func GetCachedPaperDetails(ctx context.Context, paperId string, fields []string,
 
 	err := Get(ctx, key, result)
 	if err != nil {
-		if err.Error() == "redis: nil" {
+		if errors.Is(err, redis.Nil) {
 			return false, nil
 		}
 		return false, err
@@ -105,8 +105,8 @@ func GetCachedPaperDetails(ctx context.Context, paperId string, fields []string,
 
 // GetOrSetPaperDetails retrieves from cache or fetches with stampede protection
 // fields parameter ensures cache key uniqueness for different field requests
-func GetOrSetPaperDetails(ctx context.Context, paperId string, fields []string, fetchFn func() (interface{}, error), result interface{}) error {
-	params := map[string]interface{}{
+func GetOrSetPaperDetails(ctx context.Context, paperId string, fields []string, fetchFn func() (any, error), result any) error {
+	params := map[string]any{
 		"paperId": paperId,
 		"fields":  fields,
 	}
@@ -115,18 +115,18 @@ func GetOrSetPaperDetails(ctx context.Context, paperId string, fields []string, 
 }
 
 // CacheAuthorDetails caches author details by authorId
-func CacheAuthorDetails(ctx context.Context, authorId string, author interface{}) error {
+func CacheAuthorDetails(ctx context.Context, authorId string, author any) error {
 	key := fmt.Sprintf("%s:%s", scholarAuthorPrefix, authorId)
 	return Set(ctx, key, author, authorCacheTTL)
 }
 
 // GetCachedAuthorDetails retrieves cached author details
-func GetCachedAuthorDetails(ctx context.Context, authorId string, result interface{}) (bool, error) {
+func GetCachedAuthorDetails(ctx context.Context, authorId string, result any) (bool, error) {
 	key := fmt.Sprintf("%s:%s", scholarAuthorPrefix, authorId)
 
 	err := Get(ctx, key, result)
 	if err != nil {
-		if err.Error() == "redis: nil" {
+		if errors.Is(err, redis.Nil) {
 			return false, nil
 		}
 		return false, err
@@ -136,7 +136,7 @@ func GetCachedAuthorDetails(ctx context.Context, authorId string, result interfa
 }
 
 // GetOrSetAuthorDetails retrieves from cache or fetches with stampede protection
-func GetOrSetAuthorDetails(ctx context.Context, authorId string, fetchFn func() (interface{}, error), result interface{}) error {
+func GetOrSetAuthorDetails(ctx context.Context, authorId string, fetchFn func() (any, error), result any) error {
 	key := fmt.Sprintf("%s:%s", scholarAuthorPrefix, authorId)
 	return GetOrSet(ctx, key, authorCacheTTL, fetchFn, result)
 }

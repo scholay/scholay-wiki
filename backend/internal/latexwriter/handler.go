@@ -9,12 +9,14 @@ package latexwriter
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
+	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
 )
 
@@ -45,17 +47,12 @@ func (h *Handler) StreamChat(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("[LaTeXWriter] StreamChat called by user %v, prompt length: %d\n", userID, len(req.Prompt))
+	slog.Info("StreamChat called", "user_id", userID, "prompt_length", len(req.Prompt))
 
-	// 设置 SSE 响应头
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
+	sse.SetHeaders(c)
 
-	// 流式输出
-	if err := h.service.StreamChat(&req, c.Writer); err != nil {
-		fmt.Printf("[LaTeXWriter] StreamChat error: %v\n", err)
+	if err := h.service.StreamChat(c.Request.Context(), &req, c.Writer); err != nil {
+		slog.Error("StreamChat error", "err", err)
 		
 		// 将错误信息转换为用户友好的提示
 		errorMsg := h.formatUserFriendlyError(err)
@@ -66,9 +63,7 @@ func (h *Handler) StreamChat(c *gin.Context) {
 		c.Writer.Flush()
 	}
 
-	// 发送结束标记
-	c.Writer.Write([]byte("data: [DONE]\n\n"))
-	c.Writer.Flush()
+	sse.WriteDone(c.Writer)
 }
 
 // CreateDocument 创建文档
@@ -227,22 +222,17 @@ func (h *Handler) ExecuteTask(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("[LaTeXWriter] ExecuteTask called by user %v, task: %s\n", userID, req.TaskType)
+	slog.Info("ExecuteTask called", "user_id", userID, "task_type", req.TaskType)
 
-	// 设置 SSE 响应头
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
+	sse.SetHeaders(c)
 
 	// 执行任务
-	if err := h.service.ExecuteTask(req.TaskType, req.Content, c.Writer, req.ModelLevel); err != nil {
-		fmt.Printf("[LaTeXWriter] ExecuteTask error: %v\n", err)
+	if err := h.service.ExecuteTask(c.Request.Context(), req.TaskType, req.Content, c.Writer, req.ModelLevel); err != nil {
+		slog.Error("ExecuteTask error", "err", err)
 		c.SSEvent("error", err.Error())
 	}
 
-	c.Writer.Write([]byte("data: [DONE]\n\n"))
-	c.Writer.Flush()
+	sse.WriteDone(c.Writer)
 }
 
 // SectionRequest 章节请求
@@ -267,22 +257,17 @@ func (h *Handler) ExecuteSection(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("[LaTeXWriter] ExecuteSection called by user %v, section: %s\n", userID, req.SectionType)
+	slog.Info("ExecuteSection called", "user_id", userID, "section_type", req.SectionType)
 
-	// 设置 SSE 响应头
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
+	sse.SetHeaders(c)
 
 	// 执行章节任务
-	if err := h.service.ExecuteSectionTask(req.SectionType, req.Content, c.Writer, req.ModelLevel); err != nil {
-		fmt.Printf("[LaTeXWriter] ExecuteSection error: %v\n", err)
+	if err := h.service.ExecuteSectionTask(c.Request.Context(), req.SectionType, req.Content, c.Writer, req.ModelLevel); err != nil {
+		slog.Error("ExecuteSection error", "err", err)
 		c.SSEvent("error", err.Error())
 	}
 
-	c.Writer.Write([]byte("data: [DONE]\n\n"))
-	c.Writer.Flush()
+	sse.WriteDone(c.Writer)
 }
 
 // GetAvailableTasks 获取可用任务列表
@@ -409,67 +394,47 @@ func (h *Handler) GetConversationHistory(c *gin.Context) {
 // StreamChatWithContext 流式对话（带上下文）
 // POST /api/v1/user/latex-writer/documents/:id/chat/stream
 func (h *Handler) StreamChatWithContext(c *gin.Context) {
-	fmt.Println("\n" + strings.Repeat("=", 80))
-	fmt.Println("[HANDLER] ==================== 📨 收到 AI 对话请求 ====================")
-	
 	userID, exists := c.Get("user_id")
 	if !exists {
-		fmt.Println("[HANDLER] ❌ 用户未登录")
 		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
 		return
 	}
-	fmt.Printf("[HANDLER] 👤 用户ID: %v\n", userID)
 
 	idStr := c.Param("id")
 	documentID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
-		fmt.Printf("[HANDLER] ❌ 无效的文档ID: %s\n", idStr)
 		utils.ErrorResponse(c, http.StatusBadRequest, "无效的文档 ID")
 		return
 	}
-	fmt.Printf("[HANDLER] 📄 文档ID: %d\n", documentID)
 
 	// 验证文档所有权
 	_, err = h.service.GetDocument(uint(documentID), userID.(uint))
 	if err != nil {
-		fmt.Printf("[HANDLER] ❌ 文档不存在或无权访问: %v\n", err)
 		utils.ErrorResponse(c, http.StatusNotFound, "文档不存在")
 		return
 	}
-	fmt.Println("[HANDLER] ✅ 文档权限验证通过")
 
 	// 解析请求
 	var req ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fmt.Printf("[HANDLER] ❌ 请求参数解析失败: %v\n", err)
 		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
 		return
 	}
 
-	fmt.Printf("[HANDLER] 📝 请求参数:\n")
-	fmt.Printf("[HANDLER]   - Prompt长度: %d 字符\n", len(req.Prompt))
-	fmt.Printf("[HANDLER]   - Context长度: %d 字符\n", len(req.Context))
-	fmt.Printf("[HANDLER]   - FullContent长度: %d 字符\n", len(req.FullContent))
-	fmt.Printf("[HANDLER]   - ModelID: %d\n", req.ModelID)
-	
-	// 打印 Prompt 预览
-	promptPreview := req.Prompt
-	if len(promptPreview) > 100 {
-		promptPreview = promptPreview[:100] + "..."
-	}
-	fmt.Printf("[HANDLER]   - Prompt预览: %s\n", promptPreview)
-	fmt.Println("[HANDLER] 📡 开始 SSE 流...")
-	fmt.Println(strings.Repeat("=", 80))
+	slog.Info("StreamChatWithContext called",
+		"user_id", userID,
+		"document_id", documentID,
+		"model_id", req.ModelID,
+		"prompt_length", len(req.Prompt),
+		"context_length", len(req.Context),
+		"full_content_length", len(req.FullContent),
+	)
 
-	// 设置 SSE 响应头
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
+	sse.SetHeaders(c)
 
 	// 流式输出（带上下文）
-	if err := h.service.StreamChatWithContext(userID.(uint), uint(documentID), &req, c.Writer); err != nil {
-		fmt.Printf("[HANDLER] ❌ StreamChatWithContext 错误: %v\n", err)
+	if err := h.service.StreamChatWithContext(c.Request.Context(), userID.(uint), uint(documentID), &req, c.Writer); err != nil {
+		slog.Error("StreamChatWithContext error", "err", err)
 		
 		// 将错误信息转换为用户友好的提示
 		errorMsg := h.formatUserFriendlyError(err)
@@ -480,12 +445,8 @@ func (h *Handler) StreamChatWithContext(c *gin.Context) {
 		c.Writer.Flush()
 	}
 
-	// 发送结束标记
-	fmt.Println("[HANDLER] 🏁 发送 [DONE] 标记")
-	c.Writer.Write([]byte("data: [DONE]\n\n"))
-	c.Writer.Flush()
-	fmt.Println("[HANDLER] ✅ SSE 流结束")
-	fmt.Println(strings.Repeat("=", 80) + "\n")
+	slog.Debug("sending DONE marker")
+	sse.WriteDone(c.Writer)
 }
 
 // ClearConversation 清空对话
@@ -574,22 +535,17 @@ func (h *Handler) AutoFixLatex(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("[LaTeXWriter] AutoFixLatex called by user %v, content length: %d\n", userID, len(req.Content))
+	slog.Info("AutoFixLatex called", "user_id", userID, "content_length", len(req.Content))
 
-	// 设置 SSE 响应头
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
+	sse.SetHeaders(c)
 
 	// 调用自动修复服务
-	if err := h.service.AutoFixLatex(req.Content, c.Writer, req.ModelLevel); err != nil {
-		fmt.Printf("[LaTeXWriter] AutoFixLatex error: %v\n", err)
+	if err := h.service.AutoFixLatex(c.Request.Context(), req.Content, c.Writer, req.ModelLevel); err != nil {
+		slog.Error("AutoFixLatex error", "err", err)
 		c.SSEvent("error", err.Error())
 	}
 
-	c.Writer.Write([]byte("data: [DONE]\n\n"))
-	c.Writer.Flush()
+	sse.WriteDone(c.Writer)
 }
 
 // ValidateAndFixLatex 验证并自动修复 LaTeX 代码（带上下文的版本）
@@ -635,22 +591,17 @@ func (h *Handler) ValidateAndFixLatex(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("[LaTeXWriter] ValidateAndFixLatex: found %d errors, %d warnings\n", len(result.Errors), len(result.Warnings))
+	slog.Info("ValidateAndFixLatex found issues", "errors", len(result.Errors), "warnings", len(result.Warnings))
 
-	// 设置 SSE 响应头
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
+	sse.SetHeaders(c)
 
 	// 调用带验证结果的自动修复
-	if err := h.service.AutoFixLatexWithValidation(req.Content, result, c.Writer, req.ModelLevel); err != nil {
-		fmt.Printf("[LaTeXWriter] ValidateAndFixLatex error: %v\n", err)
+	if err := h.service.AutoFixLatexWithValidation(c.Request.Context(), req.Content, result, c.Writer, req.ModelLevel); err != nil {
+		slog.Error("ValidateAndFixLatex error", "err", err)
 		c.SSEvent("error", err.Error())
 	}
 
-	c.Writer.Write([]byte("data: [DONE]\n\n"))
-	c.Writer.Flush()
+	sse.WriteDone(c.Writer)
 }
 
 // GetAvailableModels 获取可用模型列表（用户端）
@@ -662,7 +613,7 @@ func (h *Handler) GetAvailableModels(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, map[string]interface{}{
+	utils.Success(c, map[string]any{
 		"models": models,
 		"total":  len(models),
 	})
@@ -780,20 +731,15 @@ func (h *Handler) FixCompileError(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("[LaTeXWriter] FixCompileError called by user %v, doc %d, log length: %d\n", 
-		userID, documentID, len(req.CompileLog))
+	slog.Info("FixCompileError called", "user_id", userID, "document_id", documentID, "log_length", len(req.CompileLog))
 
-	// 设置 SSE 响应头
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
+	sse.SetHeaders(c)
 
-	fmt.Println("[Handler] 📡 SSE Stream started (FixCompileError)")
+	slog.Debug("SSE stream started for FixCompileError")
 
 	// 调用 service 修复编译错误
-	if err := h.service.AutoFixCompileError(req.Content, req.CompileLog, req.Engine, c.Writer); err != nil {
-		fmt.Printf("[LaTeXWriter] FixCompileError error: %v\n", err)
+	if err := h.service.AutoFixCompileError(c.Request.Context(), req.Content, req.CompileLog, req.Engine, c.Writer); err != nil {
+		slog.Error("FixCompileError error", "err", err)
 		
 		errorMsg := h.formatUserFriendlyError(err)
 		// 使用 <br> 转义换行符
@@ -802,9 +748,6 @@ func (h *Handler) FixCompileError(c *gin.Context) {
 		c.Writer.Flush()
 	}
 
-	// 发送结束标记
-	fmt.Println("[Handler] 🏁 Sending [DONE] marker (FixCompileError)")
-	c.Writer.Write([]byte("data: [DONE]\n\n"))
-	c.Writer.Flush()
-	fmt.Println("[Handler] ✅ SSE Stream ended (FixCompileError)")
+	slog.Debug("sending DONE marker for FixCompileError")
+	sse.WriteDone(c.Writer)
 }

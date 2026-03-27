@@ -9,7 +9,7 @@ package cache
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"sync"
 )
 
@@ -44,7 +44,7 @@ func InitWorkerPool(workerCount int, queueSize int) {
 func GetWorkerPool() *WorkerPool {
 	if globalWorkerPool == nil {
 		// Fallback: create a default pool if not initialized
-		log.Println("Warning: WorkerPool not initialized, creating default pool")
+		slog.Warn("WorkerPool not initialized, creating default pool")
 		InitWorkerPool(10, 100)
 	}
 	return globalWorkerPool
@@ -57,7 +57,7 @@ func (wp *WorkerPool) Start() {
 			wp.wg.Add(1)
 			go wp.worker(i)
 		}
-		log.Printf("✓ Cache worker pool started with %d workers", wp.workers)
+		slog.Info("Cache worker pool started", "workers", wp.workers)
 	})
 }
 
@@ -79,7 +79,7 @@ func (wp *WorkerPool) worker(id int) {
 		// Execute the cache operation
 		err := job.Fn()
 		if err != nil {
-			log.Printf("Worker %d: cache operation failed: %v", id, err)
+			slog.Error("Cache operation failed", "worker", id, "err", err)
 		}
 
 		// Send result to error channel if provided
@@ -97,29 +97,8 @@ func (wp *WorkerPool) Submit(ctx context.Context, fn func() error) {
 		// Job queued successfully
 	default:
 		// Queue is full, log warning and drop the job
-		log.Println("Warning: Cache worker pool queue is full, dropping cache write")
+		slog.Warn("Cache worker pool queue is full, dropping cache write")
 	}
-}
-
-// SubmitWithResult submits a cache job and returns a channel to wait for the result
-// Caller can optionally wait on the error channel
-func (wp *WorkerPool) SubmitWithResult(ctx context.Context, fn func() error) <-chan error {
-	errCh := make(chan error, 1)
-	job := CacheJob{
-		Ctx:   ctx,
-		Fn:    fn,
-		ErrCh: errCh,
-	}
-
-	select {
-	case wp.jobs <- job:
-		// Job queued successfully
-	default:
-		// Queue is full
-		errCh <- ErrQueueFull
-	}
-
-	return errCh
 }
 
 // Shutdown gracefully shuts down the worker pool
@@ -127,7 +106,7 @@ func (wp *WorkerPool) SubmitWithResult(ctx context.Context, fn func() error) <-c
 func (wp *WorkerPool) Shutdown() {
 	close(wp.jobs)
 	wp.wg.Wait()
-	log.Println("✓ Cache worker pool shut down gracefully")
+	slog.Info("Cache worker pool shut down gracefully")
 }
 
 // ShutdownGlobalPool shuts down the global worker pool
@@ -137,15 +116,3 @@ func ShutdownGlobalPool() {
 	}
 }
 
-// Error definitions
-var (
-	ErrQueueFull = &WorkerPoolError{"cache worker pool queue is full"}
-)
-
-type WorkerPoolError struct {
-	msg string
-}
-
-func (e *WorkerPoolError) Error() string {
-	return e.msg
-}

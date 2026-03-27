@@ -9,8 +9,8 @@ package wechatofficial
 
 import (
 	"encoding/xml"
-	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -39,17 +39,17 @@ func (h *Handler) HandleVerification(c *gin.Context) {
 	// Get config to retrieve token
 	config, err := h.service.GetConfig()
 	if err != nil {
-		fmt.Printf("[WeChat] Failed to get config: %v\n", err)
+		slog.Error("failed to get WeChat config", "err", err)
 		c.String(http.StatusInternalServerError, "Failed to get config")
 		return
 	}
 
 	// Verify signature
 	if h.service.VerifySignature(signature, timestamp, nonce, config.Token) {
-		fmt.Printf("[WeChat] Verification successful\n")
+		slog.Info("WeChat verification successful")
 		c.String(http.StatusOK, echostr)
 	} else {
-		fmt.Printf("[WeChat] Verification failed\n")
+		slog.Warn("WeChat verification failed")
 		c.String(http.StatusUnauthorized, "Verification failed")
 	}
 }
@@ -59,24 +59,24 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 	// Read request body
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		fmt.Printf("[WeChat] Failed to read body: %v\n", err)
+		slog.Error("failed to read WeChat message body", "err", err)
 		c.String(http.StatusBadRequest, "Failed to read body")
 		return
 	}
 
-	fmt.Printf("[WeChat] Received message: %s\n", string(body))
+	slog.Debug("received WeChat message", "body", string(body))
 
 	// Parse XML to determine message type
 	var baseMsg struct {
 		MsgType string `xml:"MsgType"`
 	}
 	if err := xml.Unmarshal(body, &baseMsg); err != nil {
-		fmt.Printf("[WeChat] Failed to parse XML: %v\n", err)
+		slog.Error("failed to parse WeChat XML", "err", err)
 		c.String(http.StatusBadRequest, "Failed to parse XML")
 		return
 	}
 
-	fmt.Printf("[WeChat] Message type: %s\n", baseMsg.MsgType)
+	slog.Debug("WeChat message type", "msg_type", baseMsg.MsgType)
 
 	var reply string
 	var toUser, fromUser string
@@ -86,12 +86,12 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 		// Handle text message
 		var msg WeChatTextMessage
 		if err := xml.Unmarshal(body, &msg); err != nil {
-			fmt.Printf("[WeChat] Failed to parse text message: %v\n", err)
+			slog.Error("failed to parse WeChat text message", "err", err)
 			c.String(http.StatusBadRequest, "Failed to parse text message")
 			return
 		}
 
-		fmt.Printf("[WeChat] Text message - From: %s, Content: %s\n", msg.FromUserName, msg.Content)
+		slog.Debug("WeChat text message", "from", msg.FromUserName, "content", msg.Content)
 
 		toUser = msg.FromUserName
 		fromUser = msg.ToUserName
@@ -99,7 +99,7 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 		// Get AI reply (text only)
 		reply, err = h.service.GetAIReply(msg.Content, "")
 		if err != nil {
-			fmt.Printf("[WeChat] Failed to get AI reply: %v\n", err)
+			slog.Error("failed to get AI reply", "err", err)
 			reply = "抱歉，我暂时无法处理您的消息，请稍后再试。"
 		}
 
@@ -107,13 +107,12 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 		// Handle image message
 		var msg WeChatImageMessage
 		if err := xml.Unmarshal(body, &msg); err != nil {
-			fmt.Printf("[WeChat] Failed to parse image message: %v\n", err)
+			slog.Error("failed to parse WeChat image message", "err", err)
 			c.String(http.StatusBadRequest, "Failed to parse image message")
 			return
 		}
 
-		fmt.Printf("[WeChat] Image message - From: %s, PicUrl: %s, MediaId: %s\n",
-			msg.FromUserName, msg.PicUrl, msg.MediaId)
+		slog.Debug("WeChat image message", "from", msg.FromUserName, "pic_url", msg.PicUrl, "media_id", msg.MediaId)
 
 		toUser = msg.FromUserName
 		fromUser = msg.ToUserName
@@ -121,26 +120,26 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 		// Download image from WeChat
 		base64Image, err := h.service.DownloadImage(msg.MediaId)
 		if err != nil {
-			fmt.Printf("[WeChat] Failed to download image: %v\n", err)
+			slog.Error("failed to download WeChat image", "err", err)
 			reply = "抱歉，我无法处理这张图片，请稍后再试。"
 		} else {
 			// Get AI reply with image
 			userMessage := "请分析这张图片并回答相关问题。"
 			reply, err = h.service.GetAIReplyWithImage(userMessage, base64Image, "")
 			if err != nil {
-				fmt.Printf("[WeChat] Failed to get AI reply with image: %v\n", err)
+				slog.Error("failed to get AI reply with image", "err", err)
 				reply = "抱歉，我暂时无法处理您的图片，请稍后再试。"
 			}
 		}
 
 	default:
 		// Ignore other message types
-		fmt.Printf("[WeChat] Ignoring message type: %s\n", baseMsg.MsgType)
+		slog.Debug("ignoring WeChat message type", "msg_type", baseMsg.MsgType)
 		c.String(http.StatusOK, "success")
 		return
 	}
 
-	fmt.Printf("[WeChat] AI reply: %s\n", reply)
+	slog.Debug("WeChat AI reply", "reply", reply)
 
 	// Build response
 	response := WeChatTextResponse{
@@ -154,12 +153,12 @@ func (h *Handler) HandleMessage(c *gin.Context) {
 	// Convert to XML
 	xmlData, err := xml.Marshal(response)
 	if err != nil {
-		fmt.Printf("[WeChat] Failed to marshal XML: %v\n", err)
+		slog.Error("failed to marshal WeChat XML response", "err", err)
 		c.String(http.StatusInternalServerError, "Failed to create response")
 		return
 	}
 
-	fmt.Printf("[WeChat] Sending response: %s\n", string(xmlData))
+	slog.Debug("sending WeChat response", "xml", string(xmlData))
 
 	// Return XML response
 	c.Header("Content-Type", "application/xml")

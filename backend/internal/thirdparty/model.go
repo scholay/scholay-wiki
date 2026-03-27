@@ -32,7 +32,7 @@ const (
 )
 
 // AccountConfig represents the configuration stored in JSON
-type AccountConfig map[string]interface{}
+type AccountConfig map[string]any
 
 // Value implements driver.Valuer interface for JSON marshaling
 func (c AccountConfig) Value() (driver.Value, error) {
@@ -40,7 +40,7 @@ func (c AccountConfig) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner interface for JSON unmarshaling
-func (c *AccountConfig) Scan(value interface{}) error {
+func (c *AccountConfig) Scan(value any) error {
 	bytes, ok := value.([]byte)
 	if !ok {
 		return fmt.Errorf("failed to unmarshal JSON value: %v", value)

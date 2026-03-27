@@ -163,7 +163,7 @@ func (r *Repository) GetAttachmentByID(id uint) (*FeedbackAttachment, error) {
 func (r *Repository) BindAttachmentsToFeedback(uploadKey string, feedbackID uint) error {
 	return r.db.Model(&FeedbackAttachment{}).
 		Where("upload_key = ?", uploadKey).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"feedback_id": feedbackID,
 			"is_used":     true,
 		}).Error

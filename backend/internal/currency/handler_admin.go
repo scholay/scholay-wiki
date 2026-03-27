@@ -1,7 +1,6 @@
 package currency
 
 import (
-	"context"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -45,8 +44,7 @@ func (h *AdminHandler) AdminRecharge(c *gin.Context) {
 		return
 	}
 
-	ctx := context.Background()
-	transaction, err := h.service.Recharge(ctx, req.UserID, &RechargeRequest{
+	transaction, err := h.service.Recharge(c.Request.Context(), req.UserID, &RechargeRequest{
 		CurrencyType: req.CurrencyType,
 		Amount:       req.Amount,
 		BizType:      "admin_recharge",
@@ -76,8 +74,7 @@ func (h *AdminHandler) AdminDeduct(c *gin.Context) {
 		return
 	}
 
-	ctx := context.Background()
-	transaction, err := h.service.Deduct(ctx, req.UserID, &DeductRequest{
+	transaction, err := h.service.Deduct(c.Request.Context(), req.UserID, &DeductRequest{
 		CurrencyType: req.CurrencyType,
 		Amount:       req.Amount,
 		BizType:      "admin_deduct",
@@ -310,8 +307,7 @@ func (h *AdminHandler) BatchDistribute(c *gin.Context) {
 	}
 	adminNameStr, _ := adminName.(string)
 
-	ctx := context.Background()
-	batch, err := h.batchService.CreateBatchDistribute(ctx, &req, adminIDUint, adminNameStr)
+	batch, err := h.batchService.CreateBatchDistribute(c.Request.Context(), &req, adminIDUint, adminNameStr)
 	if err != nil {
 		utils.Error(c, 5001, "创建批量发放失败: "+err.Error())
 		return
@@ -454,15 +450,15 @@ func (h *AdminHandler) GetTargetUserCount(c *gin.Context) {
 	switch req.TargetType {
 	case BatchTargetAll:
 		var userIDs []uint
-		userIDs, err = h.batchService.repo.GetAllActiveUserIDs()
+		userIDs, err = h.batchService.GetAllActiveUserIDs()
 		count = len(userIDs)
 	case BatchTargetMembers:
 		var userIDs []uint
-		userIDs, err = h.batchService.repo.GetMemberUserIDs()
+		userIDs, err = h.batchService.GetMemberUserIDs()
 		count = len(userIDs)
 	case BatchTargetNonMembers:
 		var userIDs []uint
-		userIDs, err = h.batchService.repo.GetNonMemberUserIDs()
+		userIDs, err = h.batchService.GetNonMemberUserIDs()
 		count = len(userIDs)
 	case BatchTargetSpecific:
 		count = len(req.TargetUserIDs)

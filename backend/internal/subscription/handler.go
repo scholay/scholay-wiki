@@ -181,23 +181,6 @@ func (h *Handler) RenewSubscription(c *gin.Context) {
 	})
 }
 
-// CheckQuota handles GET /api/v1/user/subscription/check-quota
-// Deprecated: 配额检查已废弃，现在使用货币系统进行扣费控制。此接口始终返回 has_quota: true
-func (h *Handler) CheckQuota(c *gin.Context) {
-	// 配额检查已废弃，始终返回 true
-	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
-		"has_quota": true,
-	})
-}
-
-// IncrementUsage handles POST /api/v1/user/subscription/increment-usage
-// Deprecated: 配额统计已废弃，现在使用货币系统进行扣费控制。此接口不再执行任何操作
-func (h *Handler) IncrementUsage(c *gin.Context) {
-	// 配额统计已废弃，不再执行任何操作
-	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
-		"message": "Usage incremented successfully (deprecated)",
-	})
-}
 
 // UpdatePlan handles PUT /api/v1/admin/subscription-plans/:id
 // Updates a subscription plan (admin only)

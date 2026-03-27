@@ -8,8 +8,8 @@
 package ai
 
 import (
-	"context"
-	"fmt"
+	"log/slog"
+	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/currency"
 	"strconv"
@@ -296,17 +296,13 @@ func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 			return
 		}
 		if !checkResult.Sufficient {
-			c.JSON(402, gin.H{
-				"code":    4020,
-				"message": "余额不足",
-				"data": gin.H{
-					"currency_type":   config.CurrencyType,
-					"balance":         checkResult.Balance,
-					"required":        checkResult.Required,
-					"shortage":        checkResult.Shortage,
-					"papers_count":    len(req.Papers),
-					"need_deduct_count": needDeductCount,
-				},
+			utils.PaymentRequired(c, "余额不足", gin.H{
+				"currency_type":     config.CurrencyType,
+				"balance":           checkResult.Balance,
+				"required":          checkResult.Required,
+				"shortage":          checkResult.Shortage,
+				"papers_count":      len(req.Papers),
+				"need_deduct_count": needDeductCount,
 			})
 			return
 		}
@@ -315,7 +311,7 @@ func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 	// 5. 批量分析论文
 	results := make([]PaperAnalysisItem, 0, len(req.Papers))
 	var totalDeducted int64 = 0
-	ctx := context.Background()
+	ctx := c.Request.Context()
 
 	for _, paper := range req.Papers {
 		item := PaperAnalysisItem{
@@ -325,7 +321,7 @@ func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 		}
 
 		// 分析论文
-		result, analysisCtx, err := h.service.AnalyzePaperAbstract(paper.PaperID, paper.Title, paper.Abstract, userIDPtr)
+		result, analysisCtx, err := h.service.AnalyzePaperAbstract(c.Request.Context(), paper.PaperID, paper.Title, paper.Abstract, userIDPtr)
 		if err != nil {
 			item.Success = false
 			item.Error = err.Error()
@@ -354,11 +350,11 @@ func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 					Description:  config.Description,
 				})
 				if err != nil {
-					fmt.Printf("[BatchAnalyze] Deduct failed for paper %s: %v\n", paper.PaperID, err)
+					slog.Error("BatchAnalyze deduct failed", "paperId", paper.PaperID, "err", err)
 				} else {
 					item.DeductedAmount = config.Amount
 					totalDeducted += config.Amount
-					fmt.Printf("[BatchAnalyze] Deducted %d for paper %s (bizID: %s)\n", config.Amount, paper.PaperID, bizID)
+					slog.Info("BatchAnalyze deducted", "amount", config.Amount, "paperId", paper.PaperID, "bizId", bizID)
 				}
 			}
 		}
@@ -404,7 +400,7 @@ func (h *Handler) AnalyzePaper(c *gin.Context) {
 		}
 	}
 
-	result, analysisCtx, err := h.service.AnalyzePaperAbstract(req.PaperID, req.Title, req.Abstract, userID)
+	result, analysisCtx, err := h.service.AnalyzePaperAbstract(c.Request.Context(), req.PaperID, req.Title, req.Abstract, userID)
 	if err != nil {
 		utils.Error(c, 500, "Failed to analyze paper: "+err.Error())
 		return
@@ -719,40 +715,29 @@ type StreamTranslateRequest struct {
 func (h *Handler) StreamTranslate(c *gin.Context) {
 	var req StreamTranslateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
+		utils.BadRequest(c, "无效的请求参数: "+err.Error())
 		return
 	}
 
 	if req.Text == "" {
-		c.JSON(400, gin.H{"error": "Text is required for translation"})
+		utils.BadRequest(c, "翻译文本不能为空")
 		return
 	}
 
-	// 限制文本长度
 	if len(req.Text) > 10000 {
-		c.JSON(400, gin.H{"error": "Text exceeds 10000 characters limit"})
+		utils.BadRequest(c, "文本长度超过10000字符限制")
 		return
 	}
 
-	// 设置SSE响应头
-	c.Writer.Header().Set("Content-Type", "text/event-stream")
-	c.Writer.Header().Set("Cache-Control", "no-cache")
-	c.Writer.Header().Set("Connection", "keep-alive")
-	c.Writer.Header().Set("Transfer-Encoding", "chunked")
-	c.Writer.Header().Set("X-Accel-Buffering", "no")
+	sse.SetHeaders(c)
 
-	// 调用流式翻译服务
-	err := h.service.StreamTranslateToChinese(req.Text, c.Writer)
+	err := h.service.StreamTranslateToChinese(c.Request.Context(), req.Text, c.Writer)
 	if err != nil {
-		// 如果流已经开始，通过SSE发送错误
-		c.Writer.WriteString("data: {\"error\": \"" + err.Error() + "\"}\n\n")
-		c.Writer.Flush()
+		sse.WriteError(c.Writer, err.Error())
 		return
 	}
 
-	// 发送流结束标记
-	c.Writer.WriteString("data: [DONE]\n\n")
-	c.Writer.Flush()
+	sse.WriteDone(c.Writer)
 }
 
 // StreamTranslatePaperRequest 论文翻译请求结构
@@ -768,40 +753,28 @@ type StreamTranslatePaperRequest struct {
 func (h *Handler) StreamTranslatePaper(c *gin.Context) {
 	var req StreamTranslatePaperRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
+		utils.BadRequest(c, "无效的请求参数: "+err.Error())
 		return
 	}
 
-	// 至少需要一个字段有内容
 	if req.Title == "" && req.Abstract == "" && req.TLDR == "" {
-		c.JSON(400, gin.H{"error": "At least one of title, abstract, or tldr is required"})
+		utils.BadRequest(c, "至少需要提供标题、摘要或TLDR中的一项")
 		return
 	}
 
-	// 限制总文本长度
 	totalLen := len(req.Title) + len(req.Abstract) + len(req.TLDR)
 	if totalLen > 20000 {
-		c.JSON(400, gin.H{"error": "Total text exceeds 20000 characters limit"})
+		utils.BadRequest(c, "总文本长度超过20000字符限制")
 		return
 	}
 
-	// 设置SSE响应头
-	c.Writer.Header().Set("Content-Type", "text/event-stream")
-	c.Writer.Header().Set("Cache-Control", "no-cache")
-	c.Writer.Header().Set("Connection", "keep-alive")
-	c.Writer.Header().Set("Transfer-Encoding", "chunked")
-	c.Writer.Header().Set("X-Accel-Buffering", "no")
+	sse.SetHeaders(c)
 
-	// 调用流式论文翻译服务
-	err := h.service.StreamTranslatePaperToChinese(req.Title, req.Abstract, req.TLDR, c.Writer)
+	err := h.service.StreamTranslatePaperToChinese(c.Request.Context(), req.Title, req.Abstract, req.TLDR, c.Writer)
 	if err != nil {
-		// 如果流已经开始，通过SSE发送错误
-		c.Writer.WriteString("data: {\"error\": \"" + err.Error() + "\"}\n\n")
-		c.Writer.Flush()
+		sse.WriteError(c.Writer, err.Error())
 		return
 	}
 
-	// 发送流结束标记
-	c.Writer.WriteString("data: [DONE]\n\n")
-	c.Writer.Flush()
+	sse.WriteDone(c.Writer)
 }

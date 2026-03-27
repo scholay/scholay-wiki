@@ -11,7 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"scholar-backend/internal/user"
@@ -151,7 +151,7 @@ func (s *Service) UpdateTemplate(id uint64, req *UpdateCouponTemplateRequest) er
 	}
 
 	// 构建更新字段
-	updates := make(map[string]interface{})
+	updates := make(map[string]any)
 	if req.Name != "" {
 		updates["name"] = req.Name
 	}
@@ -205,14 +205,14 @@ func (s *Service) UpdateTemplate(id uint64, req *UpdateCouponTemplateRequest) er
 
 // ActivateTemplate 激活模板
 func (s *Service) ActivateTemplate(id uint64) error {
-	return s.repo.UpdateTemplate(id, map[string]interface{}{
+	return s.repo.UpdateTemplate(id, map[string]any{
 		"status": TemplateStatusActive,
 	})
 }
 
 // PauseTemplate 暂停模板
 func (s *Service) PauseTemplate(id uint64) error {
-	return s.repo.UpdateTemplate(id, map[string]interface{}{
+	return s.repo.UpdateTemplate(id, map[string]any{
 		"status": TemplateStatusPaused,
 	})
 }
@@ -465,7 +465,7 @@ func (s *Service) GenerateInvitation(userID uint64) (*UserInvitation, error) {
 	if existing != nil {
 		// 如果已存在但未激活，重新激活
 		if !existing.IsActive {
-			updates := map[string]interface{}{
+			updates := map[string]any{
 				"is_active": true,
 			}
 			if err := s.repo.UpdateUserInvitation(userID, updates); err != nil {
@@ -577,7 +577,7 @@ func (s *Service) RegisterWithInvitation(invitationCode string, inviteeID uint64
 			}
 
 			// 更新关系记录
-			updates := map[string]interface{}{
+			updates := map[string]any{
 				"invitee_coupon_id": coupon.ID,
 			}
 			if err := txRepo.UpdateInvitationRelationship(relationship.ID, updates); err != nil {
@@ -593,11 +593,11 @@ func (s *Service) RegisterWithInvitation(invitationCode string, inviteeID uint64
 	}
 
 	// 异步发放邀请恩特币奖励给邀请人
-	log.Printf("[Coupon] Starting async gift diamond to inviter %d (invite count: %d)", invitation.UserID, invitation.SuccessfulInvites+1)
+	slog.Info("starting async gift diamond to inviter", "inviter_id", invitation.UserID, "invite_count", invitation.SuccessfulInvites+1)
 	go s.giftInviteDiamond(invitation.UserID, invitation.SuccessfulInvites+1)
 
 	// 异步发送 toast 通知给被邀请人
-	log.Printf("[Coupon] Starting async toast notification to invitee %d", inviteeID)
+	slog.Info("starting async toast notification to invitee", "invitee_id", inviteeID)
 	go s.sendInviteeCouponNotification(inviteeID)
 
 	return nil
@@ -607,14 +607,14 @@ func (s *Service) RegisterWithInvitation(invitationCode string, inviteeID uint64
 // 发送站内信（持久化存储），同时通过 WebSocket 推送实时通知
 func (s *Service) sendInviteeCouponNotification(inviteeID uint64) {
 	if s.messageService == nil {
-		log.Printf("[Coupon] Message service not set, cannot send notification to invitee %d", inviteeID)
+		slog.Warn("message service not set, cannot send notification to invitee", "invitee_id", inviteeID)
 		return
 	}
 
 	// 获取被邀请人的折扣券信息
 	coupons, _, err := s.repo.ListUserCoupons(inviteeID, nil, 0, 10)
 	if err != nil {
-		log.Printf("[Coupon] Failed to get invitee coupons: %v", err)
+		slog.Error("failed to get invitee coupons", "err", err)
 	}
 
 	// 查找邀请来源的折扣券
@@ -649,35 +649,35 @@ func (s *Service) sendInviteeCouponNotification(inviteeID uint64) {
 		}
 	} else {
 		// 没有折扣券，发送欢迎通知
-		log.Printf("[Coupon] No invite coupon found for invitee %d, sending welcome message instead", inviteeID)
+		slog.Info("no invite coupon found for invitee, sending welcome message instead", "invitee_id", inviteeID)
 		title = "欢迎加入 Scholay"
 		content = "感谢好友邀请加入，开始探索学术世界吧~"
 	}
 
 	// 发送站内信（会持久化存储，同时通过 WebSocket 推送实时通知）
-	log.Printf("[Coupon] Sending invite notification to invitee %d: title=%s", inviteeID, title)
+	slog.Info("sending invite notification to invitee", "invitee_id", inviteeID, "title", title)
 	err = s.messageService.SendToUser(uint(inviteeID), title, content, "promotion", "/", "开始使用")
 	if err != nil {
-		log.Printf("[Coupon] Failed to send invite notification to user %d: %v", inviteeID, err)
+		slog.Error("failed to send invite notification", "user_id", inviteeID, "err", err)
 	} else {
-		log.Printf("[Coupon] Sent invite notification to user %d", inviteeID)
+		slog.Info("sent invite notification", "user_id", inviteeID)
 	}
 }
 
 // giftInviteDiamond 发放邀请恩特币奖励
 // inviteCount: 当前是第几个成功邀请（包含本次）
 func (s *Service) giftInviteDiamond(inviterID uint64, inviteCount int) {
-	log.Printf("[Coupon] giftInviteDiamond called for inviter %d, inviteCount %d", inviterID, inviteCount)
+	slog.Debug("giftInviteDiamond called", "inviter_id", inviterID, "invite_count", inviteCount)
 	
 	if s.currencyService == nil {
-		log.Printf("[Coupon] Warning: Currency service not set, cannot gift invite diamond to user %d", inviterID)
+		slog.Warn("currency service not set, cannot gift invite diamond", "inviter_id", inviterID)
 		return
 	}
 	
 	if s.messageService == nil {
-		log.Printf("[Coupon] Warning: Message service not set for inviter %d", inviterID)
+		slog.Warn("message service not set", "inviter_id", inviterID)
 	} else {
-		log.Printf("[Coupon] Message service is set for inviter %d", inviterID)
+		slog.Debug("message service is set", "inviter_id", inviterID)
 	}
 
 	ctx := context.Background()
@@ -715,12 +715,12 @@ func (s *Service) giftInviteDiamond(inviterID uint64, inviteCount int) {
 
 	_, err = s.currencyService.GiftDiamond(ctx, uint(inviterID), totalReward, "invite_reward", bizID, desc)
 	if err != nil {
-		log.Printf("Failed to gift invite diamond to user %d: %v", inviterID, err)
+		slog.Error("failed to gift invite diamond", "inviter_id", inviterID, "err", err)
 		return
 	}
 
-	log.Printf("Successfully gifted %d diamond to user %d for invite (count: %d, milestone: %v)", 
-		totalReward, inviterID, inviteCount, isMilestone)
+	slog.Info("gifted diamond for invite",
+		"amount", totalReward, "inviter_id", inviterID, "invite_count", inviteCount, "milestone", isMilestone)
 
 	// 发送站内信通知给邀请人（持久化存储，同时通过 WebSocket 推送实时通知）
 	if s.messageService != nil {
@@ -732,11 +732,11 @@ func (s *Service) giftInviteDiamond(inviterID uint64, inviteCount int) {
 			title = "邀请奖励到账"
 			content = fmt.Sprintf("成功邀请1位新用户，获得%d恩特币奖励，继续邀请赢更多", totalReward)
 		}
-		log.Printf("[Coupon] Sending invite notification to inviter %d: title=%s", inviterID, title)
+		slog.Info("sending invite notification to inviter", "inviter_id", inviterID, "title", title)
 		if err := s.messageService.SendToUser(uint(inviterID), title, content, "promotion", "/invite", "继续邀请"); err != nil {
-			log.Printf("[Coupon] Failed to send invite notification to inviter %d: %v", inviterID, err)
+			slog.Error("failed to send invite notification to inviter", "inviter_id", inviterID, "err", err)
 		} else {
-			log.Printf("[Coupon] Sent invite notification to inviter %d", inviterID)
+			slog.Info("sent invite notification to inviter", "inviter_id", inviterID)
 		}
 	}
 }
@@ -800,7 +800,7 @@ func (s *Service) DistributeRegisterCoupons(userID uint64) error {
 
 		if err := s.repo.CreateUserCoupon(coupon); err != nil {
 			// 记录错误但继续处理
-			fmt.Printf("Failed to distribute register coupon (template %d) to user %d: %v\n", template.ID, userID, err)
+			slog.Error("failed to distribute register coupon", "template_id", template.ID, "user_id", userID, "err", err)
 			continue
 		}
 	}
@@ -825,7 +825,7 @@ func (s *Service) OnUserFirstPurchase(userID uint64, orderID uint64) error {
 
 	// 更新关系状态
 	now := time.Now()
-	updates := map[string]interface{}{
+	updates := map[string]any{
 		"status":       "activated",
 		"activated_at": now,
 	}
@@ -933,7 +933,7 @@ func (s *Service) ExecuteBatch(batchID uint64) error {
 
 	// 更新批次状态为处理中
 	now := time.Now()
-	if err := s.repo.UpdateBatch(batchID, map[string]interface{}{
+	if err := s.repo.UpdateBatch(batchID, map[string]any{
 		"status":     "processing",
 		"started_at": now,
 	}); err != nil {
@@ -943,7 +943,7 @@ func (s *Service) ExecuteBatch(batchID uint64) error {
 	// 根据目标类型获取用户列表
 	userIDs, err := s.getTargetUsers(batch)
 	if err != nil {
-		s.repo.UpdateBatch(batchID, map[string]interface{}{
+		s.repo.UpdateBatch(batchID, map[string]any{
 			"status": "cancelled",
 		})
 		return err
@@ -989,7 +989,7 @@ func (s *Service) ExecuteBatch(batchID uint64) error {
 
 	// 更新批次完成状态
 	completedAt := time.Now()
-	if err := s.repo.UpdateBatch(batchID, map[string]interface{}{
+	if err := s.repo.UpdateBatch(batchID, map[string]any{
 		"status":               "completed",
 		"distributed_quantity": distributedCount,
 		"completed_at":         completedAt,
@@ -1034,49 +1034,23 @@ func (s *Service) getTargetUsers(batch *CouponBatch) ([]uint64, error) {
 
 // getAllUsers 获取所有用户ID
 func (s *Service) getAllUsers() ([]uint64, error) {
-	var userIDs []uint64
-	err := s.repo.db.Table("users").
-		Where("deleted_at IS NULL").
-		Pluck("id", &userIDs).Error
-	return userIDs, err
+	return s.repo.GetAllActiveUserIDs()
 }
 
 // getNewUsers 获取最近N天注册的新用户
 func (s *Service) getNewUsers(days int) ([]uint64, error) {
-	var userIDs []uint64
 	since := time.Now().AddDate(0, 0, -days)
-	err := s.repo.db.Table("users").
-		Where("deleted_at IS NULL AND created_at >= ?", since).
-		Pluck("id", &userIDs).Error
-	return userIDs, err
+	return s.repo.GetNewUserIDsSince(since)
 }
 
 // getPaidUsers 获取付费用户
 func (s *Service) getPaidUsers() ([]uint64, error) {
-	var userIDs []uint64
-	err := s.repo.db.Table("orders").
-		Where("status = ?", "paid").
-		Distinct("user_id").
-		Pluck("user_id", &userIDs).Error
-	return userIDs, err
+	return s.repo.GetPaidUserIDs()
 }
 
 // getUsersByConditions 根据条件获取用户
 func (s *Service) getUsersByConditions(conditions JSONMap) ([]uint64, error) {
-	// 基于条件构建查询
-	query := s.repo.db.Table("users").Where("deleted_at IS NULL")
-
-	// 示例条件处理
-	if registeredAfter, ok := conditions["registered_after"].(string); ok {
-		query = query.Where("created_at >= ?", registeredAfter)
-	}
-	if registeredBefore, ok := conditions["registered_before"].(string); ok {
-		query = query.Where("created_at <= ?", registeredBefore)
-	}
-
-	var userIDs []uint64
-	err := query.Pluck("id", &userIDs).Error
-	return userIDs, err
+	return s.repo.GetUserIDsByConditions(conditions)
 }
 
 // CancelBatch 取消批次
@@ -1090,7 +1064,7 @@ func (s *Service) CancelBatch(batchID uint64) error {
 		return errors.New("batch cannot be cancelled")
 	}
 
-	return s.repo.UpdateBatch(batchID, map[string]interface{}{
+	return s.repo.UpdateBatch(batchID, map[string]any{
 		"status": "cancelled",
 	})
 }
@@ -1118,7 +1092,7 @@ func (s *Service) MarkCouponAsUsed(couponID uint64, orderID uint, usedAt time.Ti
 
 // UnreserveCoupon unreserves a coupon (called when order is cancelled)
 func (s *Service) UnreserveCoupon(couponID uint64) error {
-	return s.repo.UpdateUserCoupon(couponID, map[string]interface{}{
+	return s.repo.UpdateUserCoupon(couponID, map[string]any{
 		"status": CouponStatusUnused,
 	})
 }

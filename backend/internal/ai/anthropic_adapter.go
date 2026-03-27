@@ -191,14 +191,14 @@ type anthropicRequest struct {
 // anthropicMessage Anthropic 消息格式
 type anthropicMessage struct {
 	Role    string      `json:"role"` // "user" 或 "assistant"
-	Content interface{} `json:"content"`
+	Content any `json:"content"`
 }
 
 // anthropicTool Anthropic 工具定义
 type anthropicTool struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
-	InputSchema map[string]interface{} `json:"input_schema"`
+	InputSchema map[string]any `json:"input_schema"`
 }
 
 // anthropicToolChoice Anthropic 工具选择
@@ -228,7 +228,7 @@ type anthropicContentBlock struct {
 	Text      string      `json:"text,omitempty"`
 	ID        string      `json:"id,omitempty"`   // 工具调用 ID
 	Name      string      `json:"name,omitempty"` // 工具名
-	Input     interface{} `json:"input,omitempty"` // 工具参数
+	Input     any `json:"input,omitempty"` // 工具参数
 }
 
 // anthropicStreamEvent Anthropic 流式事件
@@ -273,7 +273,7 @@ func (a *AnthropicAdapter) buildAnthropicRequest(req *LLMRequest, tools []LLMToo
 			// Anthropic 的工具结果通过 user 消息的 tool_result 类型返回
 			messages = append(messages, anthropicMessage{
 				Role: "user",
-				Content: []map[string]interface{}{
+				Content: []map[string]any{
 					{
 						"type":        "tool_result",
 						"tool_use_id": msg.ToolCallID,
@@ -338,14 +338,14 @@ func (a *AnthropicAdapter) buildAnthropicRequest(req *LLMRequest, tools []LLMToo
 }
 
 // convertContent 转换消息内容
-func (a *AnthropicAdapter) convertContent(msg LLMMessage) interface{} {
+func (a *AnthropicAdapter) convertContent(msg LLMMessage) any {
 	// 如果是带工具调用的助手消息
 	if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
-		blocks := make([]map[string]interface{}, 0)
+		blocks := make([]map[string]any, 0)
 		
 		// 添加文本内容（如果有）
 		if content, ok := msg.Content.(string); ok && content != "" {
-			blocks = append(blocks, map[string]interface{}{
+			blocks = append(blocks, map[string]any{
 				"type": "text",
 				"text": content,
 			})
@@ -353,10 +353,10 @@ func (a *AnthropicAdapter) convertContent(msg LLMMessage) interface{} {
 		
 		// 添加工具调用
 		for _, tc := range msg.ToolCalls {
-			var input interface{}
+			var input any
 			json.Unmarshal([]byte(tc.Function.Arguments), &input)
 			
-			blocks = append(blocks, map[string]interface{}{
+			blocks = append(blocks, map[string]any{
 				"type":  "tool_use",
 				"id":    tc.ID,
 				"name":  tc.Function.Name,
@@ -398,7 +398,7 @@ func (a *AnthropicAdapter) doRequest(ctx context.Context, req *anthropicRequest)
 	}
 
 	// 使用熔断器执行请求
-	result, err := circuitbreaker.AIServiceBreaker.Execute(func() (interface{}, error) {
+	result, err := circuitbreaker.AIServiceBreaker.Execute(func() (any, error) {
 		resp, err := a.httpClient.Do(httpReq)
 		if err != nil {
 			return nil, fmt.Errorf("request failed: %w", err)

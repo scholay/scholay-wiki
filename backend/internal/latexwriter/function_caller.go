@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -48,7 +49,7 @@ type ExecutionStats struct {
 type ToolCallRequest struct {
 	ID        string                 `json:"id"`
 	Name      string                 `json:"name"`
-	Arguments map[string]interface{} `json:"arguments"`
+	Arguments map[string]any `json:"arguments"`
 }
 
 // ToolCallResult 工具调用结果
@@ -95,7 +96,7 @@ func (fc *FunctionCaller) ProcessToolCalls(ctx context.Context, toolCalls []ai.L
 		return nil, nil
 	}
 
-	fmt.Printf("[FunctionCaller] Processing %d tool calls\n", len(toolCalls))
+	slog.Info("processing tool calls", "count", len(toolCalls))
 
 	results := make([]*ToolCallResult, len(toolCalls))
 	var wg sync.WaitGroup
@@ -147,7 +148,7 @@ func (fc *FunctionCaller) executeToolCall(ctx context.Context, call ai.LLMToolCa
 	}
 
 	// 2. 解析参数
-	var args map[string]interface{}
+	var args map[string]any
 	if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err != nil {
 		result.Success = false
 		result.Error = fmt.Sprintf("Failed to parse arguments: %v", err)
@@ -167,7 +168,7 @@ func (fc *FunctionCaller) executeToolCall(ctx context.Context, call ai.LLMToolCa
 	}
 
 	// 4. 执行工具
-	fmt.Printf("[FunctionCaller] Executing tool: %s with args: %v\n", toolName, args)
+	slog.Debug("executing tool", "tool_name", toolName, "args", args)
 	
 	execResult, err := fc.registry.CallTool(ctx, toolName, args)
 	if err != nil {
@@ -193,7 +194,7 @@ func (fc *FunctionCaller) executeToolCall(ctx context.Context, call ai.LLMToolCa
 	result.Duration = time.Since(startTime)
 	fc.recordSuccess(toolName, result.Duration)
 
-	fmt.Printf("[FunctionCaller] Tool %s completed in %v\n", toolName, result.Duration)
+	slog.Info("tool execution completed", "tool_name", toolName, "duration", result.Duration)
 	return result
 }
 
@@ -212,10 +213,10 @@ func (fc *FunctionCaller) ExecuteFunctionCallLoop(
 	messages := make([]ai.LLMMessage, len(initialMessages))
 	copy(messages, initialMessages)
 
-	fmt.Printf("[FunctionCaller] Starting function call loop with %d tools\n", len(tools))
+	slog.Info("starting function call loop", "tool_count", len(tools))
 
 	for iteration := 0; iteration < config.MaxIterations; iteration++ {
-		fmt.Printf("[FunctionCaller] Iteration %d/%d\n", iteration+1, config.MaxIterations)
+		slog.Debug("function call loop iteration", "iteration", iteration+1, "max_iterations", config.MaxIterations)
 
 		// 1. 调用 LLM
 		llmReq := &ai.LLMRequest{
@@ -232,11 +233,11 @@ func (fc *FunctionCaller) ExecuteFunctionCallLoop(
 		// 2. 检查是否需要执行工具
 		if len(response.ToolCalls) == 0 {
 			// 没有工具调用，对话完成
-			fmt.Printf("[FunctionCaller] No tool calls, conversation complete\n")
+			slog.Debug("no tool calls, conversation complete")
 			return response, messages, nil
 		}
 
-		fmt.Printf("[FunctionCaller] LLM requested %d tool calls\n", len(response.ToolCalls))
+		slog.Info("LLM requested tool calls", "count", len(response.ToolCalls))
 
 		// 3. 添加助手消息（包含工具调用）
 		assistantMsg := ai.LLMMessage{
@@ -395,7 +396,7 @@ func ParseToolCallsFromResponse(response *ai.LLMResponse) []ToolCallRequest {
 
 	requests := make([]ToolCallRequest, len(response.ToolCalls))
 	for i, tc := range response.ToolCalls {
-		var args map[string]interface{}
+		var args map[string]any
 		json.Unmarshal([]byte(tc.Function.Arguments), &args)
 
 		requests[i] = ToolCallRequest{

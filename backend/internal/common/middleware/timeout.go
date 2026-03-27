@@ -9,96 +9,49 @@ package middleware
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
-// TimeoutMiddleware adds request timeout to all requests
-// This prevents hanging requests and ensures better resource control
-//
-// IMPORTANT: This implementation has a known limitation where handler goroutines
-// may continue running after timeout. The context cancellation propagates to handlers
-// that properly respect context, but handlers that don't check context.Done() may leak.
-// This is a known Go timeout pattern limitation. Ensure all long-running operations
-// in handlers properly check and respond to context cancellation.
-func TimeoutMiddleware(timeout time.Duration) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Create a context with timeout
-		ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
-		defer cancel()
-
-		// Replace request context with timeout context
-		// This propagates cancellation to handlers that respect context
-		c.Request = c.Request.WithContext(ctx)
-
-		// Channel to signal when request processing is done
-		done := make(chan struct{})
-		panicChan := make(chan interface{}, 1)
-
-		// Process request in goroutine
-		go func() {
-			defer func() {
-				if p := recover(); p != nil {
-					panicChan <- p
-				}
-			}()
-			c.Next()
-			close(done)
-		}()
-
-		// Wait for either completion or timeout
-		select {
-		case p := <-panicChan:
-			// Handler panicked, re-panic after cleanup
-			panic(p)
-		case <-done:
-			// Request completed successfully
-			return
-		case <-ctx.Done():
-			// Timeout occurred
-			// Note: The handler goroutine may still be running. Context cancellation
-			// should trigger cleanup in well-behaved handlers that check ctx.Done().
-			if ctx.Err() == context.DeadlineExceeded {
-				c.JSON(408, gin.H{
-					"code":    408,
-					"message": "Request timeout",
-					"error":   "The request took too long to process and was cancelled",
-				})
-				c.Abort()
-			}
-			// Give handler a brief moment to clean up
-			// This doesn't fully solve goroutine leaks but allows context-aware handlers to exit
-			time.Sleep(100 * time.Millisecond)
+// isStreamingPath checks if the request path is a streaming endpoint
+// that requires a longer timeout (e.g., SSE, AI chat, analysis).
+func isStreamingPath(path string) bool {
+	streamingPatterns := []string{
+		"/chat/stream",
+		"/advanced-search",
+		"/continue",
+		"/analysis",
+		"/translate/stream",
+		"/peer-review/stream",
+	}
+	for _, pattern := range streamingPatterns {
+		if strings.Contains(path, pattern) {
+			return true
 		}
 	}
+	return false
 }
 
-// APITimeoutMiddleware provides different timeouts for different API types
+// APITimeoutMiddleware provides different timeouts for different API types.
+// Streaming endpoints (SSE, AI chat) get 10 minutes; write ops get 30s; reads get 15s.
 func APITimeoutMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Determine timeout based on endpoint
 		var timeout time.Duration
 
-		// Streaming endpoints need longer timeout
-		if c.GetHeader("Accept") == "text/event-stream" ||
-			c.Request.URL.Path == "/api/v1/conversation/messages/stream" ||
-			c.Request.URL.Path == "/api/v1/conversation/messages/advanced-search/stream" {
-			timeout = 5 * time.Minute // 5 minutes for streaming
+		if c.GetHeader("Accept") == "text/event-stream" || isStreamingPath(c.Request.URL.Path) {
+			timeout = 10 * time.Minute
 		} else if c.Request.Method == "POST" || c.Request.Method == "PUT" {
-			timeout = 30 * time.Second // 30 seconds for write operations
+			timeout = 30 * time.Second
 		} else {
-			timeout = 15 * time.Second // 15 seconds for read operations
+			timeout = 15 * time.Second
 		}
 
-		// Create context with timeout
 		ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
 		defer cancel()
 
-		// Replace request context
 		c.Request = c.Request.WithContext(ctx)
-
-		// Continue with request
 		c.Next()
 	}
 }

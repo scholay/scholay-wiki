@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -155,7 +156,7 @@ func (o *AgentOrchestrator) Execute(ctx context.Context, req *OrchestratorReques
 		Trace: make([]*agents.AgentResponse, 0),
 	}
 
-	fmt.Printf("[Orchestrator] Starting execution, multi-agent: %v\n", o.config.EnableMultiAgent)
+	slog.Info("starting orchestrator execution", "multi_agent", o.config.EnableMultiAgent)
 
 	// 如果不启用多 Agent 模式，直接使用 Coder
 	if !o.config.EnableMultiAgent {
@@ -178,7 +179,7 @@ func (o *AgentOrchestrator) StreamExecute(
 		Trace: make([]*agents.AgentResponse, 0),
 	}
 
-	fmt.Printf("[Orchestrator] Starting streaming execution\n")
+	slog.Info("starting streaming execution")
 
 	// 简化模式：直接使用 Coder 进行流式输出
 	if !o.config.EnableMultiAgent {
@@ -227,7 +228,7 @@ func (o *AgentOrchestrator) executeMultiAgent(
 	agentReq := o.buildAgentRequest(req)
 
 	// 1. Planner 分析需求
-	fmt.Printf("[Orchestrator] Step 1: Planning\n")
+	slog.Info("orchestrator step: planning")
 	plannerResp, err := o.planner.Process(ctx, agentReq)
 	if err != nil {
 		result.Error = fmt.Sprintf("Planner failed: %v", err)
@@ -237,7 +238,7 @@ func (o *AgentOrchestrator) executeMultiAgent(
 	result.Plan = plannerResp.Plan
 
 	// 2. Coder 执行计划
-	fmt.Printf("[Orchestrator] Step 2: Coding\n")
+	slog.Info("orchestrator step: coding")
 	agentReq.PreviousOutput = plannerResp
 	coderResp, err := o.coder.Process(ctx, agentReq)
 	if err != nil {
@@ -251,14 +252,13 @@ func (o *AgentOrchestrator) executeMultiAgent(
 
 	// 3. 处理工具调用（如果有）
 	if len(coderResp.ToolCalls) > 0 {
-		fmt.Printf("[Orchestrator] Processing %d tool calls\n", len(coderResp.ToolCalls))
+		slog.Info("processing tool calls", "count", len(coderResp.ToolCalls))
 		toolResults, err := o.functionCaller.ProcessToolCalls(ctx, coderResp.ToolCalls)
 		if err != nil {
-			fmt.Printf("[Orchestrator] Tool execution error: %v\n", err)
+			slog.Error("tool execution error", "err", err)
 		} else {
-			// 将工具结果添加到对话历史
 			for _, tr := range toolResults {
-				fmt.Printf("[Orchestrator] Tool %s: success=%v\n", tr.Name, tr.Success)
+				slog.Debug("tool call result", "tool_name", tr.Name, "success", tr.Success)
 			}
 		}
 	}

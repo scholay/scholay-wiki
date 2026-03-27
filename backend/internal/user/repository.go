@@ -14,9 +14,8 @@ import (
 
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
-	conversationModel "scholar-backend/internal/conversation"
-	subscriptionModel "scholar-backend/internal/subscription"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Repository handles database operations for users
@@ -111,7 +110,7 @@ func (r *Repository) UpdateLastLogin(id uint) error {
 // UpdateLastLoginWithIP updates the last login timestamp and IP
 func (r *Repository) UpdateLastLoginWithIP(id uint, ip string) error {
 	now := time.Now()
-	return r.db.Model(&User{}).Where("id = ?", id).Updates(map[string]interface{}{
+	return r.db.Model(&User{}).Where("id = ?", id).Updates(map[string]any{
 		"last_login_at": now,
 		"last_login_ip": ip,
 	}).Error
@@ -257,7 +256,7 @@ func (r *Repository) UpdateSessionActivity(token, ip string) error {
 		// Update session last_activity and IP
 		if err := tx.Model(&model.UserSession{}).
 			Where("token = ?", token).
-			Updates(map[string]interface{}{
+			Updates(map[string]any{
 				"last_activity": time.Now(),
 				"ip":            ip,
 			}).Error; err != nil {
@@ -267,7 +266,7 @@ func (r *Repository) UpdateSessionActivity(token, ip string) error {
 		// Update user's last_login_at and last_login_ip
 		if err := tx.Model(&User{}).
 			Where("id = ?", session.UserID).
-			Updates(map[string]interface{}{
+			Updates(map[string]any{
 				"last_login_at": time.Now(),
 				"last_login_ip": ip,
 			}).Error; err != nil {
@@ -288,7 +287,7 @@ func (r *Repository) UpdateSessionActivityByUserID(userID uint, ip string) error
 		// Update all active sessions for this user
 		if err := tx.Model(&model.UserSession{}).
 			Where("user_id = ? AND expires_at > ?", userID, now).
-			Updates(map[string]interface{}{
+			Updates(map[string]any{
 				"last_activity": now,
 				"ip":            ip,
 			}).Error; err != nil {
@@ -298,7 +297,7 @@ func (r *Repository) UpdateSessionActivityByUserID(userID uint, ip string) error
 		// Update user's last_login_at and last_login_ip
 		if err := tx.Model(&User{}).
 			Where("id = ?", userID).
-			Updates(map[string]interface{}{
+			Updates(map[string]any{
 				"last_login_at": now,
 				"last_login_ip": ip,
 			}).Error; err != nil {
@@ -367,7 +366,7 @@ func (r *Repository) GetSessionByID(id uint) (*model.UserSession, error) {
 func (r *Repository) UpdateSessionToken(sessionID uint, newToken string, newExpiry time.Time) error {
 	return r.db.Model(&model.UserSession{}).
 		Where("id = ?", sessionID).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"token":         newToken,
 			"expires_at":    newExpiry,
 			"last_activity": time.Now(),
@@ -376,7 +375,7 @@ func (r *Repository) UpdateSessionToken(sessionID uint, newToken string, newExpi
 
 // GetOnlineUsers returns list of currently online users with their session info
 // A user is considered online if they have an active session with activity in the last 2 minutes
-func (r *Repository) GetOnlineUsers() ([]map[string]interface{}, error) {
+func (r *Repository) GetOnlineUsers() ([]map[string]any, error) {
 	type OnlineUserRaw struct {
 		ID           uint      `json:"id"`
 		Email        *string   `json:"email"`
@@ -419,9 +418,9 @@ func (r *Repository) GetOnlineUsers() ([]map[string]interface{}, error) {
 	}
 
 	// Convert to map and add parsed information
-	results := make([]map[string]interface{}, len(rawResults))
+	results := make([]map[string]any, len(rawResults))
 	for i, raw := range rawResults {
-		result := map[string]interface{}{
+		result := map[string]any{
 			"id":            raw.ID,
 			"email":         raw.Email,
 			"username":      raw.Username,
@@ -482,7 +481,7 @@ func (r *Repository) GetOrCreateDailyStatistics(date string) (*model.UserStatist
 func (r *Repository) UpdateDailyStatistics(date string, newUsers, totalUsers, peakOnline int) error {
 	return r.db.Model(&model.UserStatistics{}).
 		Where("date = ?", date).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"new_users":         newUsers,
 			"total_users":       totalUsers,
 			"peak_online_users": peakOnline,
@@ -540,6 +539,24 @@ func (r *Repository) UpsertOnlineSnapshot(timestamp time.Time, onlineCount, gues
 	`, timestamp, onlineCount, guestCount).Error
 }
 
+// CountUsersSince counts non-deleted users created on or after the given date string (YYYY-MM-DD)
+func (r *Repository) CountUsersSince(dateStr string) (int64, error) {
+	var count int64
+	err := r.db.Table("users").
+		Where("DATE(created_at) >= ?", dateStr).
+		Count(&count).Error
+	return count, err
+}
+
+// CountUsersOnDate counts non-deleted users created on a specific date (YYYY-MM-DD)
+func (r *Repository) CountUsersOnDate(dateStr string) (int64, error) {
+	var count int64
+	err := r.db.Table("users").
+		Where("DATE(created_at) = ?", dateStr).
+		Count(&count).Error
+	return count, err
+}
+
 // FindByPhone finds a user by phone number
 func (r *Repository) FindByPhone(phone string) (*User, error) {
 	var user User
@@ -590,45 +607,443 @@ func (r *Repository) FindAuthProviderByUnionID(provider, unionID string) (*UserA
 	return &authProvider, err
 }
 
-// DeleteUser deletes a user and all associated data (except statistics)
-// This method performs a cascading delete for all user-related data
+// DeleteUser 删除用户及所有关联数据（统计数据除外）
+// 使用原生 SQL 操作关联表，避免跨包导入 conversation/subscription 模型
 func (r *Repository) DeleteUser(userID uint) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		// 1. Delete usage quotas (not cascaded by FK)
-		if err := tx.Where("user_id = ?", userID).Delete(&subscriptionModel.UsageQuota{}).Error; err != nil {
+		// 1. 删除使用配额（外键未配置级联）
+		if err := tx.Exec("DELETE FROM usage_quotas WHERE user_id = ?", userID).Error; err != nil {
 			return fmt.Errorf("failed to delete usage quotas: %w", err)
 		}
 
-		// 2. Delete conversation messages (not directly cascaded)
-		// First get all conversation IDs for this user
+		// 2. 删除对话消息（外键未直接级联到用户）
 		var conversationIDs []uint
-		if err := tx.Model(&conversationModel.Conversation{}).
-			Where("user_id = ?", userID).
-			Pluck("id", &conversationIDs).Error; err != nil {
+		if err := tx.Raw("SELECT id FROM conversations WHERE user_id = ?", userID).Scan(&conversationIDs).Error; err != nil {
 			return fmt.Errorf("failed to get conversation IDs: %w", err)
 		}
 
-		// Delete all messages for these conversations
 		if len(conversationIDs) > 0 {
-			if err := tx.Where("conversation_id IN ?", conversationIDs).
-				Delete(&conversationModel.ConversationMessage{}).Error; err != nil {
+			if err := tx.Exec("DELETE FROM conversation_messages WHERE conversation_id IN ?", conversationIDs).Error; err != nil {
 				return fmt.Errorf("failed to delete conversation messages: %w", err)
 			}
 		}
 
-		// 3. Delete the user (this will cascade delete the following via FK constraints):
-		//    - user_auth_providers (ON DELETE CASCADE)
-		//    - user_sessions (ON DELETE CASCADE)
-		//    - conversations (ON DELETE CASCADE)
-		//    - user_subscriptions (ON DELETE CASCADE)
-		//    - orders (ON DELETE CASCADE)
-		//    - payment_transactions (via orders ON DELETE CASCADE)
+		// 3. 删除用户（以下通过外键 ON DELETE CASCADE 自动级联删除）：
+		//    - user_auth_providers
+		//    - user_sessions
+		//    - conversations
+		//    - user_subscriptions
+		//    - orders → payment_transactions
 		if err := tx.Delete(&User{}, userID).Error; err != nil {
 			return fmt.Errorf("failed to delete user: %w", err)
 		}
 
-		// Note: user_statistics and online_user_snapshots are intentionally NOT deleted
-		// as they are kept for historical statistical analysis
+		return nil
+	})
+}
+
+// ==================== Result types for cross-table queries ====================
+
+type WalletRow struct {
+	Gold    int64 `gorm:"column:gold"`
+	Diamond int64 `gorm:"column:diamond"`
+}
+
+type ActiveSubscriptionRow struct {
+	PlanCode  string     `gorm:"column:plan_code"`
+	Status    string     `gorm:"column:status"`
+	StartDate time.Time  `gorm:"column:start_date"`
+	EndDate   *time.Time `gorm:"column:end_date"`
+	AutoRenew bool       `gorm:"column:auto_renew"`
+}
+
+type SubscriptionPlanRow struct {
+	PlanName string `gorm:"column:plan_name"`
+	Features string `gorm:"column:features"`
+}
+
+type PaidOrderStatsRow struct {
+	TotalOrders int        `gorm:"column:total_orders"`
+	TotalAmount float64    `gorm:"column:total_amount"`
+	TotalSaved  float64    `gorm:"column:total_saved"`
+	LastOrderAt *time.Time `gorm:"column:last_order_at"`
+}
+
+type InvitationInfoRow struct {
+	Code           string `gorm:"column:code"`
+	TotalInvited   int    `gorm:"column:total_invited"`
+	SuccessInvited int    `gorm:"column:success_invited"`
+}
+
+type CouponStatsRow struct {
+	Total     int `gorm:"column:total"`
+	Used      int `gorm:"column:used"`
+	Available int `gorm:"column:available"`
+	Expired   int `gorm:"column:expired"`
+}
+
+type InviterInfoRow struct {
+	InviterID    uint       `gorm:"column:inviter_id"`
+	Username     *string    `gorm:"column:username"`
+	Email        *string    `gorm:"column:email"`
+	RegisteredAt *time.Time `gorm:"column:registered_at"`
+}
+
+type InvitedUserRow struct {
+	UserID       uint       `gorm:"column:user_id"`
+	Username     *string    `gorm:"column:username"`
+	Email        *string    `gorm:"column:email"`
+	RegisteredAt *time.Time `gorm:"column:registered_at"`
+	Status       string     `gorm:"column:status"`
+	HasOrdered   bool       `gorm:"column:has_ordered"`
+}
+
+type ConversationSummaryRow struct {
+	TotalConv   int        `gorm:"column:total_conv"`
+	TotalRounds int        `gorm:"column:total_rounds"`
+	LastConvAt  *time.Time `gorm:"column:last_conv_at"`
+}
+
+// ==================== Transaction helper ====================
+
+// ExecuteInTransaction wraps a function in a database transaction,
+// providing a transaction-scoped Repository to the callback.
+func (r *Repository) ExecuteInTransaction(fn func(txRepo *Repository) error) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		return fn(NewRepository(tx))
+	})
+}
+
+// ==================== Cross-table query methods ====================
+
+// GetUserWallet returns the wallet info for a user.
+func (r *Repository) GetUserWallet(userID uint) (*WalletRow, error) {
+	var row WalletRow
+	err := r.db.Table("wallets").Where("user_id = ?", userID).First(&row).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &row, nil
+}
+
+// GetActiveSubscription returns the most recent active subscription for a user.
+func (r *Repository) GetActiveSubscription(userID uint) (*ActiveSubscriptionRow, error) {
+	var row ActiveSubscriptionRow
+	err := r.db.Table("user_subscriptions").
+		Where("user_id = ? AND status = ?", userID, "active").
+		Order("created_at DESC").
+		First(&row).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &row, nil
+}
+
+// GetSubscriptionPlanInfo returns plan name and features for a given plan code.
+func (r *Repository) GetSubscriptionPlanInfo(planCode string) (*SubscriptionPlanRow, error) {
+	var row SubscriptionPlanRow
+	err := r.db.Table("subscription_plans").
+		Select("plan_name, features").
+		Where("plan_code = ? AND is_active = ?", planCode, true).
+		First(&row).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &row, nil
+}
+
+// GetDailyQuotaUsage returns the total quota used by a user on a specific date.
+func (r *Repository) GetDailyQuotaUsage(userID uint, date string) (int, error) {
+	var totalUsed int
+	err := r.db.Table("usage_quotas").
+		Select("COALESCE(normal_search_count + advanced_search_low_count + advanced_search_mid_count + advanced_search_high_count + ai_chat_normal_count + ai_chat_mid_count + ai_chat_high_count, 0)").
+		Where("user_id = ? AND quota_date = ?", userID, date).
+		Scan(&totalUsed).Error
+	if err != nil {
+		return 0, err
+	}
+	return totalUsed, nil
+}
+
+// GetPaidOrderStats returns order statistics for a user's paid orders.
+func (r *Repository) GetPaidOrderStats(userID uint) (*PaidOrderStatsRow, error) {
+	var row PaidOrderStatsRow
+	err := r.db.Table("orders").
+		Select("COUNT(*) as total_orders, COALESCE(SUM(final_amount), 0) as total_amount, COALESCE(SUM(discount_amount), 0) as total_saved, MAX(payment_time) as last_order_at").
+		Where("user_id = ? AND status = ?", userID, "paid").
+		Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	return &row, nil
+}
+
+// GetUserInvitationInfo returns invitation code and stats for a user.
+func (r *Repository) GetUserInvitationInfo(userID uint) (*InvitationInfoRow, error) {
+	var row InvitationInfoRow
+	err := r.db.Table("user_invitations").
+		Where("inviter_id = ?", userID).
+		First(&row).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &row, nil
+}
+
+// GetUserCouponStats returns coupon usage statistics for a user.
+func (r *Repository) GetUserCouponStats(userID uint, now time.Time) (*CouponStatsRow, error) {
+	var row CouponStatsRow
+	err := r.db.Table("user_coupons").
+		Select("COUNT(*) as total, SUM(CASE WHEN status = 'used' THEN 1 ELSE 0 END) as used, SUM(CASE WHEN status = 'unused' AND valid_until >= ? THEN 1 ELSE 0 END) as available, SUM(CASE WHEN status = 'expired' OR (status = 'unused' AND valid_until < ?) THEN 1 ELSE 0 END) as expired", now, now).
+		Where("user_id = ?", userID).
+		Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	return &row, nil
+}
+
+// GetUserInviter returns the user who invited the given user.
+func (r *Repository) GetUserInviter(userID uint) (*InviterInfoRow, error) {
+	var row InviterInfoRow
+	err := r.db.Table("invitation_relationships").
+		Select("invitation_relationships.inviter_id, users.username, users.email, invitation_relationships.registered_at").
+		Joins("LEFT JOIN users ON users.id = invitation_relationships.inviter_id").
+		Where("invitation_relationships.invitee_id = ?", userID).
+		First(&row).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if row.InviterID == 0 {
+		return nil, nil
+	}
+	return &row, nil
+}
+
+// GetInvitedUsers returns the list of users invited by the given user.
+func (r *Repository) GetInvitedUsers(userID uint) ([]InvitedUserRow, error) {
+	var rows []InvitedUserRow
+	err := r.db.Table("invitation_relationships").
+		Select("users.id as user_id, users.username, users.email, invitation_relationships.registered_at, "+
+			"invitation_relationships.status, "+
+			"EXISTS(SELECT 1 FROM orders WHERE orders.user_id = users.id AND orders.status = 'paid') as has_ordered").
+		Joins("LEFT JOIN users ON users.id = invitation_relationships.invitee_id").
+		Where("invitation_relationships.inviter_id = ?", userID).
+		Order("invitation_relationships.created_at DESC").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+// GetConversationSummary returns conversation totals for a user and conversation type.
+func (r *Repository) GetConversationSummary(userID uint, convType string) (*ConversationSummaryRow, error) {
+	var row ConversationSummaryRow
+	err := r.db.Table("conversations").
+		Select("COUNT(DISTINCT id) as total_conv, "+
+			"COALESCE(SUM((SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = conversations.id)), 0) as total_rounds, "+
+			"MAX(updated_at) as last_conv_at").
+		Where("user_id = ? AND conversation_type = ?", userID, convType).
+		Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	return &row, nil
+}
+
+// CountConversationMessagesSince counts conversation messages for a user since a given time.
+func (r *Repository) CountConversationMessagesSince(userID uint, convType string, since time.Time) (int64, error) {
+	var count int64
+	err := r.db.Table("conversation_messages").
+		Joins("JOIN conversations ON conversations.id = conversation_messages.conversation_id").
+		Where("conversations.user_id = ? AND conversations.conversation_type = ? AND conversation_messages.created_at >= ?", userID, convType, since).
+		Count(&count).Error
+	return count, err
+}
+
+// CountUsersInTimeRange counts users created within [start, end).
+func (r *Repository) CountUsersInTimeRange(start, end time.Time) (int64, error) {
+	var count int64
+	err := r.db.Model(&User{}).
+		Where("created_at >= ? AND created_at < ?", start, end).
+		Count(&count).Error
+	return count, err
+}
+
+// ==================== Unbind transaction methods ====================
+
+// UnbindPhoneInTx atomically unbinds phone from a user within a transaction with row locking.
+func (r *Repository) UnbindPhoneInTx(userID uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var lockedUser User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", userID).First(&lockedUser).Error; err != nil {
+			return fmt.Errorf("failed to lock user record: %w", err)
+		}
+
+		if lockedUser.Phone == nil || *lockedUser.Phone == "" {
+			return errors.New("phone is not bound")
+		}
+
+		hasEmail := lockedUser.Email != nil && *lockedUser.Email != ""
+
+		var wechatCount int64
+		if err := tx.Model(&UserAuthProvider{}).
+			Where("user_id = ? AND provider = ?", userID, "wechat").
+			Count(&wechatCount).Error; err != nil {
+			return fmt.Errorf("failed to check WeChat binding: %w", err)
+		}
+
+		if !hasEmail && wechatCount == 0 {
+			return errors.New("cannot unbind phone: at least one login method must remain")
+		}
+
+		lockedUser.Phone = nil
+		lockedUser.PhoneVerified = false
+		if err := tx.Save(&lockedUser).Error; err != nil {
+			return fmt.Errorf("failed to unbind phone: %w", err)
+		}
+
+		if err := tx.Where("user_id = ? AND provider = ?", userID, "phone").
+			Delete(&UserAuthProvider{}).Error; err != nil {
+			return fmt.Errorf("failed to delete phone auth provider: %w", err)
+		}
+
+		return nil
+	})
+}
+
+// UnbindEmailInTx atomically unbinds email from a user within a transaction with row locking.
+func (r *Repository) UnbindEmailInTx(userID uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var lockedUser User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", userID).First(&lockedUser).Error; err != nil {
+			return fmt.Errorf("failed to lock user record: %w", err)
+		}
+
+		if lockedUser.Email == nil || *lockedUser.Email == "" {
+			return errors.New("email is not bound")
+		}
+
+		hasPhone := lockedUser.Phone != nil && *lockedUser.Phone != ""
+
+		var wechatCount int64
+		if err := tx.Model(&UserAuthProvider{}).
+			Where("user_id = ? AND provider = ?", userID, "wechat").
+			Count(&wechatCount).Error; err != nil {
+			return fmt.Errorf("failed to check WeChat binding: %w", err)
+		}
+
+		if !hasPhone && wechatCount == 0 {
+			return errors.New("cannot unbind email: at least one login method must remain")
+		}
+
+		lockedUser.Email = nil
+		lockedUser.EmailVerified = false
+		if err := tx.Save(&lockedUser).Error; err != nil {
+			return fmt.Errorf("failed to unbind email: %w", err)
+		}
+
+		if err := tx.Where("user_id = ? AND provider = ?", userID, "email").
+			Delete(&UserAuthProvider{}).Error; err != nil {
+			return fmt.Errorf("failed to delete email auth provider: %w", err)
+		}
+
+		return nil
+	})
+}
+
+// UnbindWeChatInTx atomically unbinds WeChat from a user within a transaction with row locking.
+func (r *Repository) UnbindWeChatInTx(userID uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var lockedUser User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", userID).First(&lockedUser).Error; err != nil {
+			return fmt.Errorf("failed to lock user record: %w", err)
+		}
+
+		var wechatCount int64
+		if err := tx.Model(&UserAuthProvider{}).
+			Where("user_id = ? AND provider = ?", userID, "wechat").
+			Count(&wechatCount).Error; err != nil {
+			return fmt.Errorf("failed to check WeChat binding: %w", err)
+		}
+
+		if wechatCount == 0 {
+			return errors.New("WeChat is not bound")
+		}
+
+		hasEmail := lockedUser.Email != nil && *lockedUser.Email != ""
+		hasPhone := lockedUser.Phone != nil && *lockedUser.Phone != ""
+
+		if !hasEmail && !hasPhone {
+			return errors.New("cannot unbind WeChat: at least one login method must remain")
+		}
+
+		if err := tx.Where("user_id = ? AND provider = ?", userID, "wechat").
+			Delete(&UserAuthProvider{}).Error; err != nil {
+			return fmt.Errorf("failed to delete WeChat auth provider: %w", err)
+		}
+
+		return nil
+	})
+}
+
+// UnbindGitHubInTx atomically unbinds GitHub from a user within a transaction with row locking.
+func (r *Repository) UnbindGitHubInTx(userID uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var lockedUser User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", userID).First(&lockedUser).Error; err != nil {
+			return fmt.Errorf("failed to lock user record: %w", err)
+		}
+
+		var githubCount int64
+		if err := tx.Model(&UserAuthProvider{}).
+			Where("user_id = ? AND provider = ?", userID, "github").
+			Count(&githubCount).Error; err != nil {
+			return fmt.Errorf("failed to check GitHub binding: %w", err)
+		}
+
+		if githubCount == 0 {
+			return errors.New("GitHub is not bound")
+		}
+
+		hasEmail := lockedUser.Email != nil && *lockedUser.Email != ""
+		hasPhone := lockedUser.Phone != nil && *lockedUser.Phone != ""
+
+		var wechatCount int64
+		if err := tx.Model(&UserAuthProvider{}).
+			Where("user_id = ? AND provider = ?", userID, "wechat").
+			Count(&wechatCount).Error; err != nil {
+			return fmt.Errorf("failed to check WeChat binding: %w", err)
+		}
+
+		if !hasEmail && !hasPhone && wechatCount == 0 {
+			return errors.New("cannot unbind GitHub: at least one login method must remain")
+		}
+
+		if err := tx.Where("user_id = ? AND provider = ?", userID, "github").
+			Delete(&UserAuthProvider{}).Error; err != nil {
+			return fmt.Errorf("failed to delete GitHub auth provider: %w", err)
+		}
 
 		return nil
 	})

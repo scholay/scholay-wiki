@@ -13,8 +13,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
+	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 	"strings"
@@ -23,6 +25,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+var githubHTTPClient = &http.Client{
+	Timeout: 10 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        20,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+	},
+}
 
 // GithubUser represents GitHub user info from API
 type GithubUser struct {
@@ -46,7 +57,7 @@ type GithubTokenResponse struct {
 // GetGithubLoginURL generates GitHub OAuth login URL
 func (h *Handler) GetGithubLoginURL(c *gin.Context) {
 	// Get GitHub OAuth config from dedicated table
-	githubConfig, err := h.configRepo.GetGithubOAuthConfig()
+	githubConfig, err := h.service.GetGithubOAuthConfig()
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get GitHub OAuth config")
 		return
@@ -73,10 +84,13 @@ func (h *Handler) GetGithubLoginURL(c *gin.Context) {
 		}
 	}
 
-	// Generate state token for CSRF protection
+	// Generate state token for CSRF protection and store in Redis
 	state := utils.GenerateRandomString(32)
+	redisClient := cache.GetRedis()
+	if redisClient != nil {
+		redisClient.Set(c.Request.Context(), "oauth_state:"+state, "1", 5*time.Minute)
+	}
 
-	// Build GitHub OAuth URL
 	authURL := fmt.Sprintf(
 		"https://github.com/login/oauth/authorize?client_id=%s&redirect_uri=%s&state=%s&scope=user:email",
 		url.QueryEscape(githubConfig.ClientID),
@@ -93,17 +107,30 @@ func (h *Handler) GetGithubLoginURL(c *gin.Context) {
 // GithubCallback handles GitHub OAuth callback
 func (h *Handler) GithubCallback(c *gin.Context) {
 	code := c.Query("code")
-	// state parameter is validated by frontend
-	// state := c.Query("state")
-	invitationCode := c.Query("invitation_code") // 获取邀请码参数
+	state := c.Query("state")
+	invitationCode := c.Query("invitation_code")
 
 	if code == "" {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Authorization code is required")
 		return
 	}
 
+	// Server-side state validation to prevent CSRF/OAuth account binding attacks
+	if state != "" {
+		redisClient := cache.GetRedis()
+		if redisClient != nil {
+			stateKey := "oauth_state:" + state
+			result, err := redisClient.Get(c.Request.Context(), stateKey).Result()
+			if err != nil || result != "1" {
+				utils.ErrorResponse(c, http.StatusBadRequest, "Invalid or expired OAuth state")
+				return
+			}
+			redisClient.Del(c.Request.Context(), stateKey)
+		}
+	}
+
 	// Get GitHub OAuth config
-	githubConfig, err := h.configRepo.GetGithubOAuthConfig()
+	githubConfig, err := h.service.GetGithubOAuthConfig()
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get GitHub OAuth config")
 		return
@@ -115,14 +142,14 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 	}
 
 	// Exchange code for access token
-	accessToken, err := h.exchangeGithubCode(code, githubConfig)
+	accessToken, err := h.exchangeGithubCode(c.Request.Context(), code, githubConfig)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, fmt.Sprintf("Failed to exchange code: %v", err))
 		return
 	}
 
 	// Get user info from GitHub
-	githubUser, err := h.getGithubUserInfo(accessToken)
+	githubUser, err := h.getGithubUserInfo(c.Request.Context(), accessToken)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, fmt.Sprintf("Failed to get user info: %v", err))
 		return
@@ -148,7 +175,7 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 	}
 
 	// Update last login time and IP
-	_ = h.userRepo.UpdateLastLoginWithIP(user.ID, ip)
+	_ = h.service.UpdateLastLoginWithIP(user.ID, ip)
 
 	response := gin.H{
 		"token":       token,
@@ -165,7 +192,7 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 }
 
 // exchangeGithubCode exchanges authorization code for access token
-func (h *Handler) exchangeGithubCode(code string, config *model.GithubOAuthConfig) (string, error) {
+func (h *Handler) exchangeGithubCode(ctx context.Context, code string, config *model.GithubOAuthConfig) (string, error) {
 	data := url.Values{}
 	data.Set("client_id", config.ClientID)
 	data.Set("client_secret", config.ClientSecret)
@@ -173,7 +200,7 @@ func (h *Handler) exchangeGithubCode(code string, config *model.GithubOAuthConfi
 	data.Set("redirect_uri", config.RedirectURI)
 
 	req, err := http.NewRequestWithContext(
-		context.Background(),
+		ctx,
 		"POST",
 		"https://github.com/login/oauth/access_token",
 		strings.NewReader(data.Encode()),
@@ -185,7 +212,7 @@ func (h *Handler) exchangeGithubCode(code string, config *model.GithubOAuthConfi
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := githubHTTPClient
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -206,9 +233,9 @@ func (h *Handler) exchangeGithubCode(code string, config *model.GithubOAuthConfi
 }
 
 // getGithubUserInfo gets user info from GitHub API
-func (h *Handler) getGithubUserInfo(accessToken string) (*GithubUser, error) {
+func (h *Handler) getGithubUserInfo(ctx context.Context, accessToken string) (*GithubUser, error) {
 	req, err := http.NewRequestWithContext(
-		context.Background(),
+		ctx,
 		"GET",
 		"https://api.github.com/user",
 		nil,
@@ -220,7 +247,7 @@ func (h *Handler) getGithubUserInfo(accessToken string) (*GithubUser, error) {
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := githubHTTPClient
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -239,7 +266,7 @@ func (h *Handler) getGithubUserInfo(accessToken string) (*GithubUser, error) {
 
 	// If primary email is not public, fetch it from emails endpoint
 	if githubUser.Email == "" {
-		email, err := h.getGithubUserEmail(accessToken)
+		email, err := h.getGithubUserEmail(ctx, accessToken)
 		if err == nil && email != "" {
 			githubUser.Email = email
 		}
@@ -249,9 +276,9 @@ func (h *Handler) getGithubUserInfo(accessToken string) (*GithubUser, error) {
 }
 
 // getGithubUserEmail fetches user's primary email from GitHub
-func (h *Handler) getGithubUserEmail(accessToken string) (string, error) {
+func (h *Handler) getGithubUserEmail(ctx context.Context, accessToken string) (string, error) {
 	req, err := http.NewRequestWithContext(
-		context.Background(),
+		ctx,
 		"GET",
 		"https://api.github.com/user/emails",
 		nil,
@@ -263,7 +290,7 @@ func (h *Handler) getGithubUserEmail(accessToken string) (string, error) {
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := githubHTTPClient
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -305,7 +332,7 @@ func (h *Handler) getGithubUserEmail(accessToken string) (string, error) {
 func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode string, ip string) (*User, bool, error) {
 	// Check if user already exists with this GitHub ID
 	providerUserID := fmt.Sprintf("%d", githubUser.ID)
-	authProvider, err := h.userRepo.FindAuthProvider("github", providerUserID)
+	authProvider, err := h.service.FindAuthProvider("github", providerUserID)
 
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, false, err
@@ -313,7 +340,7 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode 
 
 	// User exists, return it
 	if authProvider != nil {
-		user, err := h.userRepo.FindByID(authProvider.UserID)
+		user, err := h.service.FindByID(authProvider.UserID)
 		if err != nil {
 			return nil, false, err
 		}
@@ -323,7 +350,7 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode 
 	// New user - check if email already exists
 	var user *User
 	if githubUser.Email != "" {
-		user, _ = h.userRepo.FindByEmail(githubUser.Email)
+		user, _ = h.service.FindByEmail(githubUser.Email)
 	}
 
 	isNewUser := false
@@ -335,7 +362,7 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode 
 		// Generate username from GitHub login
 		username := githubUser.Login
 		// Ensure username is unique
-		existingUser, _ := h.userRepo.FindByUsername(username)
+		existingUser, _ := h.service.FindByUsername(username)
 		if existingUser != nil {
 			username = fmt.Sprintf("%s_%d", username, time.Now().Unix())
 		}
@@ -353,7 +380,7 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode 
 			EmailVerified: githubUser.Email != "", // GitHub emails are already verified
 		}
 
-		if err := h.userRepo.Create(user); err != nil {
+		if err := h.service.CreateUser(user); err != nil {
 			return nil, false, err
 		}
 
@@ -361,7 +388,7 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode 
 		if invitationCode != "" {
 			if err := h.service.ProcessInvitationForOAuth(user.ID, invitationCode, ip); err != nil {
 				// 邀请码处理失败不影响注册，只记录日志
-				fmt.Printf("Failed to process invitation code for GitHub user %d: %v\n", user.ID, err)
+				slog.Error("failed to process invitation code for GitHub user", "user_id", user.ID, "err", err)
 			}
 		}
 
@@ -382,8 +409,13 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode 
 	// Note: last login time and IP will be updated in GithubCallback after this function returns
 
 	// Create auth provider link
-	providerDataJSON := fmt.Sprintf(`{"login":"%s","name":"%s","avatar_url":"%s"}`,
-		githubUser.Login, githubUser.Name, githubUser.AvatarURL)
+	providerData := map[string]string{
+		"login":      githubUser.Login,
+		"name":       githubUser.Name,
+		"avatar_url": githubUser.AvatarURL,
+	}
+	providerDataBytes, _ := json.Marshal(providerData)
+	providerDataJSON := string(providerDataBytes)
 
 	authProvider = &UserAuthProvider{
 		UserID:         user.ID,
@@ -392,7 +424,7 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode 
 		ProviderData:   &providerDataJSON,
 	}
 
-	if err := h.userRepo.CreateAuthProvider(authProvider); err != nil {
+	if err := h.service.CreateAuthProvider(authProvider); err != nil {
 		return nil, isNewUser, err
 	}
 
@@ -420,7 +452,7 @@ func (h *Handler) BindGitHubAccount(c *gin.Context) {
 	}
 
 	// Get GitHub OAuth config
-	githubConfig, err := h.configRepo.GetGithubOAuthConfig()
+	githubConfig, err := h.service.GetGithubOAuthConfig()
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get GitHub OAuth config")
 		return
@@ -432,14 +464,14 @@ func (h *Handler) BindGitHubAccount(c *gin.Context) {
 	}
 
 	// Exchange code for access token
-	accessToken, err := h.exchangeGithubCode(req.Code, githubConfig)
+	accessToken, err := h.exchangeGithubCode(c.Request.Context(), req.Code, githubConfig)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, fmt.Sprintf("Failed to exchange code: %v", err))
 		return
 	}
 
 	// Get GitHub user info
-	githubUser, err := h.getGithubUserInfo(accessToken)
+	githubUser, err := h.getGithubUserInfo(c.Request.Context(), accessToken)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, fmt.Sprintf("Failed to get user info: %v", err))
 		return
@@ -458,7 +490,7 @@ func (h *Handler) BindGitHubAccount(c *gin.Context) {
 func (h *Handler) bindGitHubToUser(userID uint, githubUser *GithubUser) error {
 	// Check if GitHub is already bound to another user
 	providerUserID := fmt.Sprintf("%d", githubUser.ID)
-	existing, err := h.userRepo.FindAuthProvider("github", providerUserID)
+	existing, err := h.service.FindAuthProvider("github", providerUserID)
 
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return err
@@ -469,7 +501,7 @@ func (h *Handler) bindGitHubToUser(userID uint, githubUser *GithubUser) error {
 	}
 
 	// Get current user
-	user, err := h.userRepo.FindByID(userID)
+	user, err := h.service.FindByID(userID)
 	if err != nil {
 		return err
 	}
@@ -487,18 +519,23 @@ func (h *Handler) bindGitHubToUser(userID uint, githubUser *GithubUser) error {
 		user.AvatarURL = &githubUser.AvatarURL
 	}
 
-	if err := h.userRepo.Update(user); err != nil {
+	if err := h.service.UpdateUser(user); err != nil {
 		return err
 	}
 
 	// Create or update auth provider entry
-	authProvider, err := h.userRepo.FindAuthProviderByUserAndProvider(userID, "github")
+	authProvider, err := h.service.FindAuthProviderByUserAndProvider(userID, "github")
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return err
 	}
 
-	providerDataJSON := fmt.Sprintf(`{"login":"%s","name":"%s","avatar_url":"%s"}`,
-		githubUser.Login, githubUser.Name, githubUser.AvatarURL)
+	providerData := map[string]string{
+		"login":      githubUser.Login,
+		"name":       githubUser.Name,
+		"avatar_url": githubUser.AvatarURL,
+	}
+	providerDataBytes, _ := json.Marshal(providerData)
+	providerDataJSON := string(providerDataBytes)
 
 	if authProvider == nil {
 		// Create new auth provider
@@ -508,14 +545,14 @@ func (h *Handler) bindGitHubToUser(userID uint, githubUser *GithubUser) error {
 			ProviderUserID: providerUserID,
 			ProviderData:   &providerDataJSON,
 		}
-		if err := h.userRepo.CreateAuthProvider(authProvider); err != nil {
+		if err := h.service.CreateAuthProvider(authProvider); err != nil {
 			return err
 		}
 	} else {
 		// Update existing auth provider
 		authProvider.ProviderUserID = providerUserID
 		authProvider.ProviderData = &providerDataJSON
-		if err := h.userRepo.UpdateAuthProvider(authProvider); err != nil {
+		if err := h.service.UpdateAuthProvider(authProvider); err != nil {
 			return err
 		}
 	}

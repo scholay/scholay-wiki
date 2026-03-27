@@ -59,7 +59,7 @@ func (r *Repository) CreateConfig(config *model.WeChatConfig) error {
 func (r *Repository) UpdateConfig(config *model.WeChatConfig) error {
 	// Use Updates instead of Save to avoid updating created_at
 	// and to allow selective field updates
-	updates := map[string]interface{}{
+	updates := map[string]any{
 		"app_id":       config.AppID,
 		"redirect_uri": config.RedirectURI,
 		"scope":        config.Scope,
