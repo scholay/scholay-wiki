@@ -120,7 +120,7 @@ docker exec -it scholar_mysql mysql -u scholar_user -pscholar_pass scholar
 # View schema sync logs
 docker logs scholar_schema_sync
 
-# Manually trigger schema sync
+# 手动触发数据库迁移
 docker-compose restart schema-sync
 
 # Database backup
@@ -366,29 +366,43 @@ The system uses MySQL with the following tables:
 - `conversation_messages` - Individual messages
 - `user_statistics` - User analytics data
 
-### Automatic Database Schema Synchronization
+### 数据库迁移系统（按序重放）
 
-**Critical Feature**: Database schema is automatically synchronized on every startup.
+**核心特性**: 每次启动时，按编号顺序执行 `docker/mysql/migrations/` 下的所有 SQL 文件，通过幂等 SQL 保证可重复执行。
 
-- Schema file: `docker/mysql/init/01_schema.sql` (single consolidated file)
-  - Contains table definitions, indexes, and seed data
-  - Uses `INSERT IGNORE` for seed data to preserve existing records
-- Sync service: `schema-sync` container runs `scripts/check-schema.sh`
-- Backend starts ONLY after schema-sync completes successfully
+**迁移文件目录结构**:
+```
+docker/mysql/migrations/
+├── 0000_utils.sql              # 幂等工具存储过程（每次重放前置执行）
+├── 0001_initial_fields.sql     # 初始表结构（字段 + 主键）
+├── 0002_initial_indexes.sql    # 初始索引（UNIQUE/INDEX/外键约束）
+├── 0003_initial_defaults.sql   # 初始种子数据（INSERT IGNORE）
+├── 0004_iterative_fields.sql   # 迭代: 新增字段迁移
+├── ...（后续迭代按编号追加）
+```
 
-**To add/modify tables**:
-1. Edit `docker/mysql/init/01_schema.sql`
-2. Use `CREATE TABLE IF NOT EXISTS` or `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
-3. Run `docker-compose up -d --build` or `docker-compose restart schema-sync backend`
-4. Check logs: `docker logs scholar_schema_sync`
+**命名规范**:
+- 编号：4位数字前缀 `NNNN_`，按创建顺序递增
+- 后缀类型标识：`_fields`（字段）、`_indexes`（索引）、`_defaults`（默认值/种子数据）
+- 每次迭代按 字段 → 索引 → 默认值 的顺序编号
 
-**To add/modify seed data**:
-1. Edit `docker/mysql/init/01_schema.sql` (scroll to bottom for INSERT statements)
-2. Use `INSERT IGNORE` instead of `ON DUPLICATE KEY UPDATE`
-3. This ensures restarts don't overwrite modified data
-4. Test idempotency: `./scripts/test-seed-data.sh`
+**幂等性保障**:
+- 建表: `CREATE TABLE IF NOT EXISTS`
+- 加字段: `CALL add_column_if_not_exists('表名', '列名', '列定义')`
+- 加索引: `CALL add_index_if_not_exists('表名', '索引名', '列定义', TRUE/FALSE)`
+- 加外键: `CALL add_foreign_key_if_not_exists('表名', '约束名', '外键定义')`
+- 种子数据: `INSERT IGNORE`
 
-**Never** use `DROP TABLE` or destructive operations in init scripts. Always make schema changes idempotent.
+**迁移执行**: `schema-sync` 容器运行 `scripts/run-migrations.sh`，backend 在迁移成功后才启动。
+
+**新增迁移步骤**:
+1. 在 `docker/mysql/migrations/` 下新建编号递增的 SQL 文件
+2. 按类型命名（`_fields` / `_indexes` / `_defaults`）
+3. 使用 `0000_utils.sql` 提供的存储过程保证幂等
+4. 运行 `docker-compose restart schema-sync backend` 验证
+5. 查看日志: `docker logs scholar_schema_sync`
+
+**Never** use `DROP TABLE` or destructive operations in migration files. Always make changes idempotent.
 
 ### Docker Service Architecture
 
@@ -712,11 +726,13 @@ The backend runs several background tasks for performance and maintenance:
 
 ### Adding a New Database Table
 
-1. Edit `docker/mysql/init/01_schema.sql`
-2. Add `CREATE TABLE IF NOT EXISTS` statement
-3. Create corresponding GORM model in backend
-4. Run `docker-compose up -d --build`
-5. Verify: `docker logs scholar_schema_sync`
+1. 在 `docker/mysql/migrations/` 下新建编号递增的迁移文件：
+   - `NNNN_xxx_fields.sql` — 使用 `CREATE TABLE IF NOT EXISTS`（只含字段+主键）
+   - `NNNN_xxx_indexes.sql` — 使用 `CALL add_index_if_not_exists(...)` 添加索引
+   - `NNNN_xxx_defaults.sql` — 使用 `INSERT IGNORE` 添加种子数据（如需要）
+2. Create corresponding GORM model in backend
+3. Run `docker-compose restart schema-sync backend`
+4. Verify: `docker logs scholar_schema_sync`
 
 ### Adding a New Frontend Page
 
@@ -943,10 +959,10 @@ docker-compose up -d --build frontend-user
 ### Database Schema Out of Sync
 
 ```bash
-# View what should be synced
-cat docker/mysql/init/01_schema.sql
+# 查看迁移文件列表
+ls -la docker/mysql/migrations/
 
-# Trigger sync manually
+# 手动触发迁移
 docker-compose restart schema-sync backend
 
 # Test seed data idempotency

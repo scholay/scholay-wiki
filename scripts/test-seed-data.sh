@@ -39,7 +39,7 @@ echo "   修改后名称: $MODIFIED_NAME"
 
 echo ""
 echo -e "${BLUE}4. 重新执行预置数据脚本 (模拟重启)...${NC}"
-mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < /docker-entrypoint-initdb.d/03_seed_data.sql 2>&1 | grep -v "Duplicate entry" || true
+mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < /docker-entrypoint-initdb.d/migrations/0003_initial_defaults.sql 2>&1 | grep -v "Duplicate entry" || true
 
 echo ""
 echo -e "${BLUE}5. 验证数据是否被覆盖...${NC}"

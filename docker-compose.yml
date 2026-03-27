@@ -23,9 +23,7 @@ services:
       - "3306"
     volumes:
       - ./data/mysql:/var/lib/mysql
-      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
       - ./docker/mysql/conf.d:/etc/mysql/conf.d:ro
-      - ./scripts:/app/scripts:ro
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
@@ -67,7 +65,7 @@ services:
     networks:
       - scholar-network
 
-  # Schema sync service - runs once to sync database schema
+  # 数据库迁移服务 - 每次启动按顺序执行 migrations/ 下的 SQL 文件
   schema-sync:
     image: mysql:8.0
     container_name: scholar_schema_sync
@@ -79,14 +77,14 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-scholar_pass}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-scholar}
     volumes:
-      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+      - ./docker/mysql/migrations:/docker-entrypoint-initdb.d/migrations:ro
       - ./scripts:/app/scripts:ro
     depends_on:
       mysql:
         condition: service_healthy
     networks:
       - scholar-network
-    command: bash /app/scripts/check-schema.sh
+    command: bash /app/scripts/run-migrations.sh
     restart: "no"
 
   backend:
