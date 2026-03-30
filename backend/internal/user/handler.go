@@ -192,6 +192,7 @@ type UserProfileResponse struct {
 	Phone         *string    `json:"phone"`
 	AvatarURL     *string    `json:"avatar_url"`
 	Bio           *string    `json:"bio"`
+	Role          string     `json:"role"`
 	Status        int8       `json:"status"`
 	EmailVerified bool       `json:"email_verified"`
 	PhoneVerified bool       `json:"phone_verified"`
@@ -394,6 +395,7 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		Phone:         user.Phone,
 		AvatarURL:     user.AvatarURL,
 		Bio:           user.Bio,
+		Role:          user.Role,
 		Status:        user.Status,
 		EmailVerified: user.EmailVerified,
 		PhoneVerified: user.PhoneVerified,

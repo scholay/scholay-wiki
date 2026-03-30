@@ -518,3 +518,4 @@ func isAPIOrStaticPath(path string) bool {
 	}
 	return isStaticAsset(path)
 }
+

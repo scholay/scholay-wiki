@@ -20,6 +20,8 @@ type User struct {
 	PasswordHash  *string    `gorm:"size:255" json:"-"`
 	AvatarURL     *string    `gorm:"size:255" json:"avatar_url"`
 	Bio           *string    `gorm:"type:text" json:"bio"`
+	Role          string     `gorm:"not null;default:user;size:20" json:"role"`
+	LegacyAdminID *uint      `gorm:"column:legacy_admin_id" json:"legacy_admin_id,omitempty"`
 	Status        int8       `gorm:"not null;default:1" json:"status"` // 1=active, 0=inactive, 2=suspended
 	EmailVerified bool       `gorm:"not null;default:false" json:"email_verified"`
 	PhoneVerified bool       `gorm:"not null;default:false" json:"phone_verified"`

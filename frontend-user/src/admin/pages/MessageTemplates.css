@@ -1,0 +1,169 @@
+/**
+ * MessageTemplates - 消息模板管理页面样式
+ */
+
+.admin-app .template-management{
+  padding: 24px;
+}
+
+.admin-app .template-management h1{
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 24px;
+  color: var(--text-primary);
+}
+
+/* 工具栏 */
+.admin-app .template-toolbar{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.admin-app .template-toolbar .toolbar-filters{
+  display: flex;
+  gap: 12px;
+}
+
+.admin-app .template-toolbar select{
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  min-width: 120px;
+}
+
+/* 模板列表 */
+.admin-app .template-list{
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.admin-app .template-table{
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-app .template-table th, .admin-app .template-table td{
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.admin-app .template-table th{
+  background: #f9fafb;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.admin-app .template-table td{
+  font-size: 14px;
+  color: #374151;
+}
+
+.admin-app .template-table tr:hover{
+  background: #f9fafb;
+}
+
+.admin-app .template-code{
+  background: #f3f4f6;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: monospace;
+}
+
+/* 状态标签 */
+.admin-app .status-badge.active{
+  background: #d1fae5;
+  color: #065f46;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+.admin-app .status-badge.inactive{
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+/* 操作按钮 */
+.admin-app .action-buttons{
+  display: flex;
+  gap: 8px;
+}
+
+.admin-app .btn-action{
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #6b7280;
+}
+
+.admin-app .btn-action:hover{
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.admin-app .btn-action.danger:hover{
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+/* 分页 */
+.admin-app .template-pagination{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.admin-app .pagination-info{
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.admin-app .pagination-buttons{
+  display: flex;
+  gap: 8px;
+}
+
+.admin-app .pagination-buttons button{
+  padding: 8px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.admin-app .pagination-buttons button:hover:not(:disabled){
+  background: #f3f4f6;
+}
+
+.admin-app .pagination-buttons button:disabled{
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 复用 MessageManagement 的样式 */
+.admin-app .template-management .btn-create, .admin-app .template-management .category-badge, .admin-app .template-management .modal-overlay, .admin-app .template-management .modal-content, .admin-app .template-management .modal-header, .admin-app .template-management .modal-body, .admin-app .template-management .modal-footer, .admin-app .template-management .form-group, .admin-app .template-management .form-row, .admin-app .template-management .btn-cancel, .admin-app .template-management .btn-submit, .admin-app .template-management .empty-state, .admin-app .template-management .loading-state, .admin-app .template-management .loading-spinner{
+  /* 继承 MessageManagement.css 的样式 */
+}
+
+
+

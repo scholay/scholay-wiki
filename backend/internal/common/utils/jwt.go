@@ -30,21 +30,37 @@ type Claims struct {
 	UserID    uint   `json:"user_id"`
 	Username  string `json:"username"`
 	Type      string `json:"type"`       // "admin" or "user"
+	Role      string `json:"role"`       // "admin" or "user"
 	SessionID string `json:"session_id"` // 关联的会话ID，用于验证会话有效性
 	jwt.RegisteredClaims
 }
 
 // GenerateToken 生成带默认过期时间（48小时）的 JWT token
 func GenerateToken(userID uint, username, userType string) (string, error) {
-	return GenerateTokenWithSession(userID, username, userType, "")
+	return GenerateTokenWithRole(userID, username, userType, defaultRoleForType(userType))
+}
+
+// GenerateTokenWithRole generates a JWT token with an explicit role.
+func GenerateTokenWithRole(userID uint, username, userType, role string) (string, error) {
+	return GenerateTokenWithSessionAndRole(userID, username, userType, role, "")
 }
 
 // GenerateTokenWithSession generates a JWT token with session ID
 func GenerateTokenWithSession(userID uint, username, userType, sessionID string) (string, error) {
+	return GenerateTokenWithSessionAndRole(userID, username, userType, defaultRoleForType(userType), sessionID)
+}
+
+// GenerateTokenWithSessionAndRole generates a JWT token with session ID and role.
+func GenerateTokenWithSessionAndRole(userID uint, username, userType, role, sessionID string) (string, error) {
+	if role == "" {
+		role = defaultRoleForType(userType)
+	}
+
 	claims := Claims{
 		UserID:    userID,
 		Username:  username,
 		Type:      userType,
+		Role:      role,
 		SessionID: sessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenExpiration)),
@@ -55,6 +71,13 @@ func GenerateTokenWithSession(userID uint, username, userType, sessionID string)
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(config.AppConfig.JWT.Secret))
+}
+
+func defaultRoleForType(userType string) string {
+	if userType == "admin" {
+		return "admin"
+	}
+	return "user"
 }
 
 // ParseToken parses and validates a JWT token.

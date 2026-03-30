@@ -20,6 +20,7 @@ const RETURN_URL_WHITELIST = [
   '/advanced-search',
   '/chat',
   '/settings',
+  '/admin',
   '/dashboard',
   '/order-confirmation',
 ];

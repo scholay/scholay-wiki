@@ -15,6 +15,7 @@ import { ToastProvider } from './components/ToastContainer';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 import MainLayout from './components/MainLayout';
 import ErrorBoundary from './components/ErrorBoundary';
 import NetworkStatusBar from './components/NetworkStatusBar';
@@ -96,6 +97,21 @@ const BlogArticlePage = lazyWithRetry(() => import('./pages/blog/BlogArticlePage
 const SearchFeaturePage = lazyWithRetry(() => import('./pages/features/SearchFeaturePage'), 'SearchFeaturePage');
 const PeerReviewFeaturePage = lazyWithRetry(() => import('./pages/features/PeerReviewFeaturePage'), 'PeerReviewFeaturePage');
 const LaTeXFeaturePage = lazyWithRetry(() => import('./pages/features/LaTeXFeaturePage'), 'LaTeXFeaturePage');
+const AdminRoot = lazyWithRetry(() => import('./admin/AdminRoot'), 'AdminRoot');
+const AdminDashboardLayout = lazyWithRetry(() => import('./admin/components/DashboardLayout'), 'AdminDashboardLayout');
+const AdminDashboardHome = lazyWithRetry(() => import('./admin/pages/DashboardHome'), 'AdminDashboardHome');
+const AdminSystemSettings = lazyWithRetry(() => import('./admin/pages/SystemSettings'), 'AdminSystemSettings');
+const AdminUserManagement = lazyWithRetry(() => import('./admin/pages/UserManagement'), 'AdminUserManagement');
+const AdminThirdPartyAccounts = lazyWithRetry(() => import('./admin/pages/ThirdPartyAccounts'), 'AdminThirdPartyAccounts');
+const AdminPromptTemplates = lazyWithRetry(() => import('./admin/pages/PromptTemplates'), 'AdminPromptTemplates');
+const AdminLatexAgentConfig = lazyWithRetry(() => import('./admin/pages/LatexAgentConfig'), 'AdminLatexAgentConfig');
+const AdminDefaultBusinessData = lazyWithRetry(() => import('./admin/pages/DefaultBusinessData'), 'AdminDefaultBusinessData');
+const AdminFeedbackManagement = lazyWithRetry(() => import('./admin/pages/FeedbackManagement'), 'AdminFeedbackManagement');
+const AdminUsageLogs = lazyWithRetry(() => import('./admin/pages/UsageLogs'), 'AdminUsageLogs');
+const AdminHotContent = lazyWithRetry(() => import('./admin/pages/HotContent'), 'AdminHotContent');
+const AdminMessageManagement = lazyWithRetry(() => import('./admin/pages/MessageManagement'), 'AdminMessageManagement');
+const AdminMessageTemplates = lazyWithRetry(() => import('./admin/pages/MessageTemplates'), 'AdminMessageTemplates');
+const AdminCodeSnippets = lazyWithRetry(() => import('./admin/pages/CodeSnippets'), 'AdminCodeSnippets');
 
 function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -128,6 +144,35 @@ function App() {
               <Router>
                 <Suspense fallback={null}>
                   <Routes>
+                    <Route
+                      path="/admin"
+                      element={
+                        <AdminRoute>
+                          <AdminRoot />
+                        </AdminRoute>
+                      }
+                    >
+                      <Route element={<AdminDashboardLayout />}>
+                        <Route index element={<AdminDashboardHome />} />
+                        <Route path="users" element={<AdminUserManagement />} />
+                        <Route path="third-party-accounts" element={<AdminThirdPartyAccounts />} />
+                        <Route path="prompt-templates" element={<AdminPromptTemplates />} />
+                        <Route path="latex-agent-config" element={<AdminLatexAgentConfig />} />
+                        <Route path="default-business-data" element={<AdminDefaultBusinessData />} />
+                        <Route path="feedbacks" element={<AdminFeedbackManagement />} />
+                        <Route path="usage-logs" element={<AdminUsageLogs />} />
+                        <Route path="hot-content" element={<AdminHotContent />} />
+                        <Route path="messages" element={<AdminMessageManagement />} />
+                        <Route path="message-templates" element={<AdminMessageTemplates />} />
+                        <Route path="code-snippets" element={<AdminCodeSnippets />} />
+                        <Route path="settings" element={<AdminSystemSettings />} />
+                        <Route path="alipay-config" element={<Navigate to="/admin/settings?tab=alipay" replace />} />
+                        <Route path="wechat-config" element={<Navigate to="/admin/settings?tab=wechat" replace />} />
+                      </Route>
+                    </Route>
+
+                    <Route path="/dashboard/*" element={<Navigate to="/admin" replace />} />
+
                     {/* 所有页面都使用 MainLayout 包裹，显示通用顶部栏 */}
                     <Route element={<MainLayout />}>
                       {/* 公开路由 - 无需登录即可访问 */}

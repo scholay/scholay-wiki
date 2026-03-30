@@ -135,6 +135,21 @@ func (s *Service) generateRandomUsername() (string, error) {
 	return fmt.Sprintf("user_%d_%04d", timestamp, randomSuffix), nil
 }
 
+func (s *Service) getUserRole(user *User) string {
+	if user != nil && user.Role != "" {
+		return user.Role
+	}
+	return "user"
+}
+
+func (s *Service) generateTokenForUser(user *User, username string) (string, error) {
+	return utils.GenerateTokenWithRole(user.ID, username, "user", s.getUserRole(user))
+}
+
+func (s *Service) generateSessionTokenForUser(user *User, username, sessionID string) (string, error) {
+	return utils.GenerateTokenWithSessionAndRole(user.ID, username, "user", s.getUserRole(user), sessionID)
+}
+
 // RegisterWithEmail registers a new user with email and password
 // Enhanced with transaction support for concurrency safety
 func (s *Service) RegisterWithEmail(email, password, code, ip string) (*User, string, error) {
@@ -196,6 +211,7 @@ func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitati
 			Email:         &email,
 			Username:      &username,
 			PasswordHash:  &hashedPassword,
+			Role:          "user",
 			Status:        1,
 			EmailVerified: true,
 		}
@@ -229,7 +245,7 @@ func (s *Service) RegisterWithEmailAndInvitation(email, password, code, invitati
 	if user.Username != nil {
 		tokenUsername = *user.Username
 	}
-	token, err = utils.GenerateToken(user.ID, tokenUsername, "user")
+	token, err = s.generateTokenForUser(user, tokenUsername)
 	if err != nil {
 		return nil, "", err
 	}
@@ -277,7 +293,7 @@ func (s *Service) LoginWithEmail(email, password, ip string) (*User, string, err
 	if user.Username != nil {
 		username = *user.Username
 	}
-	token, err := utils.GenerateToken(user.ID, username, "user")
+	token, err := s.generateTokenForUser(user, username)
 	if err != nil {
 		return nil, "", err
 	}
@@ -353,7 +369,7 @@ func (s *Service) LoginWithEmailCode(email, code, ip string) (*User, string, err
 	if user.Username != nil {
 		username = *user.Username
 	}
-	token, err := utils.GenerateToken(user.ID, username, "user")
+	token, err := s.generateTokenForUser(user, username)
 	if err != nil {
 		return nil, "", err
 	}
@@ -788,7 +804,7 @@ func (s *Service) RefreshToken(oldToken string) (string, error) {
 	if user.Username != nil {
 		username = *user.Username
 	}
-	newToken, err := utils.GenerateTokenWithSession(user.ID, username, claims.Type, fmt.Sprintf("%d", session.ID))
+	newToken, err := s.generateSessionTokenForUser(user, username, fmt.Sprintf("%d", session.ID))
 	if err != nil {
 		return "", fmt.Errorf("failed to generate token: %w", err)
 	}
@@ -1231,6 +1247,7 @@ func (s *Service) RegisterWithPhone(phone, password, code, invitationCode, ip st
 			Phone:         &phone,
 			Username:      &username,
 			PasswordHash:  &hashedPassword,
+			Role:          "user",
 			Status:        1,
 			PhoneVerified: true,
 		}
@@ -1264,7 +1281,7 @@ func (s *Service) RegisterWithPhone(phone, password, code, invitationCode, ip st
 	if user.Username != nil {
 		tokenUsername = *user.Username
 	}
-	token, err = utils.GenerateToken(user.ID, tokenUsername, "user")
+	token, err = s.generateTokenForUser(user, tokenUsername)
 	if err != nil {
 		return nil, "", err
 	}
@@ -1304,7 +1321,7 @@ func (s *Service) LoginWithPhone(phone, password, ip string) (*User, string, err
 	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
 
 	// Generate JWT token
-	token, err := utils.GenerateToken(user.ID, "", "user")
+	token, err := s.generateTokenForUser(user, "")
 	if err != nil {
 		return nil, "", err
 	}
@@ -1378,7 +1395,7 @@ func (s *Service) LoginWithPhoneCode(phone, code, ip string) (*User, string, err
 	_ = s.repo.UpdateLastLoginWithIP(user.ID, ip)
 
 	// Generate JWT token
-	token, err := utils.GenerateToken(user.ID, "", "user")
+	token, err := s.generateTokenForUser(user, "")
 	if err != nil {
 		return nil, "", err
 	}
@@ -1650,7 +1667,7 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 		}
 
 		// Generate JWT token
-		token, err := utils.GenerateToken(user.ID, "", "user")
+		token, err := s.generateTokenForUser(user, "")
 		if err != nil {
 			return nil, "", false, err
 		}
@@ -1665,6 +1682,7 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	user := &User{
 		Username:  &nickname,
 		AvatarURL: &avatarURL,
+		Role:      "user",
 		Status:    1,
 	}
 
@@ -1703,7 +1721,7 @@ func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL
 	}
 
 	// Generate JWT token
-	token, err := utils.GenerateToken(user.ID, "", "user")
+	token, err := s.generateTokenForUser(user, "")
 	if err != nil {
 		return nil, "", false, err
 	}
@@ -1950,7 +1968,6 @@ func (s *Service) BindPhoneWithPassword(userID uint, phone, password, code strin
 // DeleteUser deletes a user account and all associated data (admin only)
 // This will remove all user data except statistics (for historical analysis)
 func (s *Service) DeleteUser(userID uint) error {
-	// Verify the user exists
 	user, err := s.repo.FindByID(userID)
 	if err != nil {
 		return fmt.Errorf("failed to find user: %w", err)
@@ -1960,7 +1977,10 @@ func (s *Service) DeleteUser(userID uint) error {
 		return errors.New("user not found")
 	}
 
-	// Delete the user and all associated data
+	if user.Role == "admin" {
+		return errors.New("cannot delete admin accounts through user management")
+	}
+
 	if err := s.repo.DeleteUser(userID); err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}

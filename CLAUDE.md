@@ -6,8 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Scholar is an academic search platform with AI-powered features. It consists of:
 - **Backend**: Go (Gin framework) + MySQL + GORM + Redis
-- **Frontend User Portal**: React 18 (modern, innovative design)
-- **Frontend Admin Dashboard**: React 18 (flat, professional design)
+- **Frontend**: React 18 (user portal + admin dashboard merged into `frontend-user`)
 - **Infrastructure**: Docker Compose with Nginx reverse proxy
 - **Caching**: Redis for session management and API key caching
 
@@ -33,7 +32,7 @@ docker exec -it scholar_redis redis-cli
 cd backend && go test ./...
 
 # Run frontend dev server
-cd frontend-user && npm start  # or frontend-admin
+cd frontend-user && npm start
 ```
 
 **URLs** (check .env for actual ports):
@@ -65,7 +64,6 @@ docker logs scholar_redis -f
 # Restart specific service after code changes
 docker-compose restart backend
 docker-compose restart frontend-user
-docker-compose restart frontend-admin
 
 # Rebuild specific service after major changes
 docker-compose up -d --build backend
@@ -97,8 +95,8 @@ go tool cover -html=coverage.out
 ### Frontend Development
 
 ```bash
-# Admin Dashboard
-cd frontend-admin
+# Admin Dashboard (merged into frontend-user at /admin route)
+cd frontend-user
 npm install
 npm start        # Development server on port 3000
 npm run build    # Production build (optimized, no source maps)
@@ -263,14 +261,15 @@ The project uses Nginx as a reverse proxy to provide unified entry points and so
 - **HTTP_PORT** (configured in .env) → User Portal (frontend-user + backend API via `/api/*`)
   - Nginx listens on port 80 internally, mapped to HTTP_PORT (default: 5411) on host
   - Config: `nginx/conf.d/user.conf`
-- **ADMIN_PORT** (configured in .env) → Admin Dashboard (frontend-admin + backend API via `/api/*`)
+- **ADMIN_PORT** (configured in .env) → Admin Dashboard (frontend-user `/admin` route + backend API via `/api/*`)
   - Nginx listens on port 8001 internally, mapped to ADMIN_PORT (default: 5455) on host
+  - Root path redirects to `/admin`
   - Config: `nginx/conf.d/admin.conf`
 - **Internal**: MySQL (3306), Backend (8080), Redis (6379) are NOT exposed to host
 
 **How it works**:
 - User requests → Nginx:80 (HTTP_PORT) → Routes `/api/*` to backend:8080, `/` to frontend-user:80
-- Admin requests → Nginx:8001 (ADMIN_PORT) → Routes `/api/*` to backend:8080, `/` to frontend-admin:80
+- Admin requests → Nginx:8001 (ADMIN_PORT) → Routes `/api/*` to backend:8080, `/` redirects to `/admin` on frontend-user:80
 - All frontend-to-backend API calls go through Nginx, enabling same-origin requests
 - Backend containers communicate via internal Docker network (`scholar-network`)
 
@@ -326,8 +325,8 @@ internal/
 The system uses MySQL with the following tables:
 
 **Core Tables**:
-- `users` - User accounts
-- `admin_users` - Admin accounts
+- `users` - User accounts (includes admin accounts with `role='admin'`)
+- `admin_users` - **LEGACY, DO NOT USE** — migrated to `users` table via migration 0007; kept for rollback safety only
 - `user_auth_providers` - OAuth provider associations
 - `user_sessions` - Active session tracking
 - `online_user_snapshots` - User activity statistics
@@ -596,10 +595,11 @@ The platform supports GitHub OAuth for user authentication:
 **Two separate authentication flows**:
 
 1. **Admin** (username/password):
-   - Table: `admin_users`
-   - JWT with role="admin"
+   - Table: `users` (filtered by `role='admin'`)
+   - JWT with type="user", role="admin" (unified with user tokens)
    - Middleware: `middleware.AdminAuthMiddleware()`
    - Default: username=`admin`, password=`adminadmin`
+   - Sessions: managed via `user_sessions` (same as regular users)
 
 2. **User** (email/OAuth, extensible):
    - Table: `users` + `user_auth_providers`
@@ -739,7 +739,7 @@ The backend runs several background tasks for performance and maintenance:
 1. Create component in `src/pages/`
 2. Add route in `src/App.js`
 3. Create API service method in `src/services/api.js` if needed
-4. Rebuild container: `docker-compose up -d --build frontend-user` (or frontend-admin)
+4. Rebuild container: `docker-compose up -d --build frontend-user`
 
 ### Working with Third-party API Keys
 
@@ -950,7 +950,7 @@ Then restart services: `docker-compose down && docker-compose up -d --build`
 ### Frontend Build Fails
 
 ```bash
-cd frontend-user  # or frontend-admin
+cd frontend-user
 rm -rf node_modules package-lock.json
 npm install
 docker-compose up -d --build frontend-user

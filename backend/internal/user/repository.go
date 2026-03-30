@@ -28,6 +28,13 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
+// nonAdminScope is a reusable GORM scope that excludes admin accounts from
+// user-facing queries. After the admin-to-users migration every row has an
+// explicit role value, so a simple != check is sufficient.
+func nonAdminScope(db *gorm.DB) *gorm.DB {
+	return db.Where("role != ?", "admin")
+}
+
 // GetDB returns the database instance
 func (r *Repository) GetDB() *gorm.DB {
 	return r.db
@@ -163,10 +170,10 @@ func (r *Repository) FindAuthProvider(provider, providerUserID string) (*UserAut
 	return &ap, nil
 }
 
-// GetTotalUserCount returns the total number of users
+// GetTotalUserCount returns the total number of non-admin users
 func (r *Repository) GetTotalUserCount() (int64, error) {
 	var count int64
-	err := r.db.Model(&User{}).Count(&count).Error
+	err := r.db.Model(&User{}).Scopes(nonAdminScope).Count(&count).Error
 	return count, err
 }
 
@@ -182,18 +189,17 @@ func (r *Repository) GetOnlineUserCount() (int64, error) {
 	return count, err
 }
 
-// GetUserList returns a paginated list of users
+// GetUserList returns a paginated list of non-admin users
 func (r *Repository) GetUserList(offset, limit int) ([]User, int64, error) {
 	var users []User
 	var total int64
 
-	// Get total count
-	if err := r.db.Model(&User{}).Count(&total).Error; err != nil {
+	if err := r.db.Model(&User{}).Scopes(nonAdminScope).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// Get paginated users
-	err := r.db.Order("created_at DESC").
+	err := r.db.Scopes(nonAdminScope).
+		Order("created_at DESC").
 		Offset(offset).
 		Limit(limit).
 		Find(&users).Error
@@ -201,21 +207,19 @@ func (r *Repository) GetUserList(offset, limit int) ([]User, int64, error) {
 	return users, total, err
 }
 
-// GetUserListWithSort returns a paginated list of users with sorting
+// GetUserListWithSort returns a paginated list of non-admin users with sorting
 func (r *Repository) GetUserListWithSort(offset, limit int, sortBy, sortOrder string) ([]User, int64, error) {
 	var users []User
 	var total int64
 
-	// Get total count
-	if err := r.db.Model(&User{}).Count(&total).Error; err != nil {
+	if err := r.db.Model(&User{}).Scopes(nonAdminScope).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// Build order string
 	orderStr := fmt.Sprintf("%s %s", sortBy, sortOrder)
 
-	// Get paginated users with sorting
-	err := r.db.Order(orderStr).
+	err := r.db.Scopes(nonAdminScope).
+		Order(orderStr).
 		Offset(offset).
 		Limit(limit).
 		Find(&users).Error
@@ -539,19 +543,19 @@ func (r *Repository) UpsertOnlineSnapshot(timestamp time.Time, onlineCount, gues
 	`, timestamp, onlineCount, guestCount).Error
 }
 
-// CountUsersSince counts non-deleted users created on or after the given date string (YYYY-MM-DD)
+// CountUsersSince counts non-admin users created on or after the given date string (YYYY-MM-DD)
 func (r *Repository) CountUsersSince(dateStr string) (int64, error) {
 	var count int64
-	err := r.db.Table("users").
+	err := r.db.Table("users").Scopes(nonAdminScope).
 		Where("DATE(created_at) >= ?", dateStr).
 		Count(&count).Error
 	return count, err
 }
 
-// CountUsersOnDate counts non-deleted users created on a specific date (YYYY-MM-DD)
+// CountUsersOnDate counts non-admin users created on a specific date (YYYY-MM-DD)
 func (r *Repository) CountUsersOnDate(dateStr string) (int64, error) {
 	var count int64
-	err := r.db.Table("users").
+	err := r.db.Table("users").Scopes(nonAdminScope).
 		Where("DATE(created_at) = ?", dateStr).
 		Count(&count).Error
 	return count, err
@@ -687,10 +691,10 @@ func (r *Repository) CountConversationMessagesSince(userID uint, convType string
 	return count, err
 }
 
-// CountUsersInTimeRange counts users created within [start, end).
+// CountUsersInTimeRange counts non-admin users created within [start, end).
 func (r *Repository) CountUsersInTimeRange(start, end time.Time) (int64, error) {
 	var count int64
-	err := r.db.Model(&User{}).
+	err := r.db.Model(&User{}).Scopes(nonAdminScope).
 		Where("created_at >= ? AND created_at < ?", start, end).
 		Count(&count).Error
 	return count, err

@@ -160,26 +160,41 @@ func AuthMiddleware(requiredType string) gin.HandlerFunc {
 			return
 		}
 
-		// Check user type if required
-		if requiredType != "" && claims.Type != requiredType {
+		role := claims.Role
+		if role == "" {
+			if claims.Type == "admin" {
+				role = "admin"
+			} else {
+				role = "user"
+			}
+		}
+
+		// Check user type/role if required
+		if requiredType == "user" && claims.Type != "user" {
+			utils.Unauthorized(c, "Insufficient permissions")
+			c.Abort()
+			return
+		}
+		if requiredType == "admin" && !(claims.Type == "admin" || (claims.Type == "user" && role == "admin")) {
 			utils.Unauthorized(c, "Insufficient permissions")
 			c.Abort()
 			return
 		}
 
 		// 验证会话是否存在（单点登录检查）
-		// 只对用户端进行会话验证，管理端不验证
-		if requiredType == "user" {
+		// 统一用户体系中的管理员同样复用 user session。
+		// 兼容旧管理端 token（type=admin）时不做 session 校验。
+		if claims.Type == "user" {
 			if globalSessionValidator == nil {
 				slog.Warn("Global session validator is nil")
 			} else {
-			valid := globalSessionValidator.ValidateSession(c.Request.Context(), token)
-			if !valid {
-				tokenPreview := token
-				if len(tokenPreview) > 50 {
-					tokenPreview = tokenPreview[:50]
-				}
-				slog.Warn("Session not found for token", "tokenPreview", tokenPreview)
+				valid := globalSessionValidator.ValidateSession(c.Request.Context(), token)
+				if !valid {
+					tokenPreview := token
+					if len(tokenPreview) > 50 {
+						tokenPreview = tokenPreview[:50]
+					}
+					slog.Warn("Session not found for token", "tokenPreview", tokenPreview)
 					utils.Error(c, 2019, "您的账号已在其他设备登录")
 					c.Abort()
 					return
@@ -191,6 +206,7 @@ func AuthMiddleware(requiredType string) gin.HandlerFunc {
 		c.Set("user_id", claims.UserID)
 		c.Set("username", claims.Username)
 		c.Set("user_type", claims.Type)
+		c.Set("user_role", role)
 		c.Set("token", token) // 保存 token 供后续使用
 
 		c.Next()

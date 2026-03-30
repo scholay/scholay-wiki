@@ -1,0 +1,447 @@
+/**
+ * ============================================================================
+ * Scholay学术 V1.0
+ * LaTeX Agent 配置页面样式
+ * ============================================================================
+ */
+
+.admin-app .latex-agent-config{
+  padding: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.admin-app .latex-agent-config .loading{
+  text-align: center;
+  padding: 60px;
+  color: #666;
+  font-size: 16px;
+}
+
+.admin-app .latex-agent-config .page-header{
+  margin-bottom: 32px;
+}
+
+.admin-app .latex-agent-config .page-header h1{
+  font-size: 28px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 8px 0;
+}
+
+.admin-app .latex-agent-config .page-header p{
+  color: #666;
+  margin: 0;
+  font-size: 14px;
+}
+
+/* 配置区块 */
+.admin-app .latex-agent-config .config-section{
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.admin-app .latex-agent-config .config-section h2{
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 8px 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.admin-app .latex-agent-config .section-desc{
+  color: #666;
+  font-size: 13px;
+  margin: -4px 0 16px 0;
+}
+
+/* 预设按钮 */
+.admin-app .latex-agent-config .preset-buttons{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.admin-app .latex-agent-config .preset-buttons .label{
+  color: #666;
+  font-size: 13px;
+}
+
+.admin-app .latex-agent-config .preset-btn{
+  padding: 6px 12px;
+  font-size: 12px;
+  border: 1px solid #ddd;
+  background: #f8f9fa;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-app .latex-agent-config .preset-btn:hover{
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+/* 表单行 */
+.admin-app .latex-agent-config .form-row{
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 768px){
+  .admin-app .latex-agent-config .form-row{
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 表单组 */
+.admin-app .latex-agent-config .form-group{
+  margin-bottom: 16px;
+}
+
+.admin-app .latex-agent-config .form-group label{
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.admin-app .latex-agent-config .form-group input[type="text"], .admin-app .latex-agent-config .form-group input[type="number"], .admin-app .latex-agent-config .form-group select, .admin-app .latex-agent-config .form-group textarea{
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.admin-app .latex-agent-config .form-group input:focus, .admin-app .latex-agent-config .form-group select:focus, .admin-app .latex-agent-config .form-group textarea:focus{
+  outline: none;
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.1);
+}
+
+.admin-app .latex-agent-config .form-group textarea{
+  resize: vertical;
+  min-height: 100px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 13px;
+}
+
+.admin-app .latex-agent-config .form-group .hint{
+  display: block;
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+/* 滑块组 */
+.admin-app .latex-agent-config .slider-group input[type="range"]{
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* 复选框组 */
+.admin-app .latex-agent-config .checkbox-group{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.admin-app .latex-agent-config .checkbox-label{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+}
+
+.admin-app .latex-agent-config .checkbox-label input[type="checkbox"]{
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* 工具分类选择 */
+.admin-app .latex-agent-config .tool-categories{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.admin-app .latex-agent-config .tool-category{
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.admin-app .latex-agent-config .tool-category span{
+  font-weight: 500;
+}
+
+.admin-app .latex-agent-config .tool-category small{
+  display: block;
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+  margin-left: 26px;
+}
+
+/* 操作按钮 */
+.admin-app .latex-agent-config .action-buttons{
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.admin-app .latex-agent-config .btn{
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.admin-app .latex-agent-config .btn:disabled{
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-app .latex-agent-config .btn-primary{
+  background: linear-gradient(135deg, #4a90d9, #357abd);
+  color: #fff;
+}
+
+.admin-app .latex-agent-config .btn-primary:hover:not(:disabled){
+  background: linear-gradient(135deg, #357abd, #2968a6);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74, 144, 217, 0.3);
+}
+
+.admin-app .latex-agent-config .btn-secondary{
+  background: #f0f2f5;
+  color: #333;
+  border: 1px solid #ddd;
+}
+
+.admin-app .latex-agent-config .btn-secondary:hover:not(:disabled){
+  background: #e4e7eb;
+}
+
+/* 配置信息 */
+.admin-app .latex-agent-config .config-info{
+  text-align: right;
+  margin-top: 16px;
+  color: #888;
+}
+
+/* 区块头部 */
+.admin-app .latex-agent-config .section-header{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.admin-app .latex-agent-config .section-header h2{
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+/* 模型列表 */
+.admin-app .latex-agent-config .model-list{
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.admin-app .latex-agent-config .no-models{
+  text-align: center;
+  padding: 40px;
+  color: #888;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.admin-app .latex-agent-config .model-card{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.admin-app .latex-agent-config .model-card:hover{
+  border-color: #ced4da;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.admin-app .latex-agent-config .model-card.default{
+  background: linear-gradient(135deg, #e8f4fd, #f0f7ff);
+  border-color: #b8daff;
+}
+
+.admin-app .latex-agent-config .model-card.disabled{
+  opacity: 0.6;
+}
+
+.admin-app .latex-agent-config .model-info{
+  flex: 1;
+}
+
+.admin-app .latex-agent-config .model-name{
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.admin-app .latex-agent-config .model-details{
+  display: flex;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.admin-app .latex-agent-config .detail-item{
+  font-size: 12px;
+  color: #666;
+}
+
+.admin-app .latex-agent-config .model-endpoint{
+  font-size: 11px;
+  color: #999;
+  font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.admin-app .latex-agent-config .model-actions{
+  display: flex;
+  gap: 8px;
+}
+
+.admin-app .latex-agent-config .badge{
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+.admin-app .latex-agent-config .badge.default{
+  background: #4a90d9;
+  color: #fff;
+}
+
+.admin-app .latex-agent-config .badge.disabled{
+  background: #6c757d;
+  color: #fff;
+}
+
+.admin-app .latex-agent-config .badge.warning{
+  background: #ffc107;
+  color: #333;
+}
+
+/* 小按钮 */
+.admin-app .latex-agent-config .btn-sm{
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.admin-app .latex-agent-config .btn-danger{
+  background: #dc3545;
+  color: #fff;
+}
+
+.admin-app .latex-agent-config .btn-danger:hover:not(:disabled){
+  background: #c82333;
+}
+
+/* 弹窗 */
+.admin-app .latex-agent-config .modal-overlay{
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.admin-app .latex-agent-config .modal-content{
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.admin-app .latex-agent-config .modal-content h3{
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 20px 0;
+  color: #1a1a1a;
+}
+
+.admin-app .latex-agent-config .modal-content .form-row{
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 768px){
+  .admin-app .latex-agent-config .modal-content .form-row{
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-app .latex-agent-config .modal-actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+/* 密码输入框 */
+.admin-app .latex-agent-config .form-group input[type="password"]{
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  font-family: 'Monaco', 'Menlo', monospace;
+}

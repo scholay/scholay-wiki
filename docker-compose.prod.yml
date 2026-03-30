@@ -138,24 +138,6 @@ services:
     networks:
       - scholar-network
 
-  frontend-admin:
-    image: crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com/scholay/frontend-admin:latest
-    container_name: scholar_frontend_admin
-    restart: unless-stopped
-    logging: *default-logging
-    expose:
-      - "80"
-    depends_on:
-      - backend
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-        reservations:
-          memory: 64M
-    networks:
-      - scholar-network
-
   frontend-user:
     image: crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com/scholay/frontend-user:latest
     container_name: scholar_frontend_user
@@ -187,7 +169,6 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
     depends_on:
       - backend
-      - frontend-admin
       - frontend-user
     deploy:
       resources:

@@ -9,7 +9,10 @@ package admin
 
 import (
 	"errors"
+	"fmt"
+	"net/mail"
 	"scholar-backend/internal/common/utils"
+	"strings"
 )
 
 // Service handles business logic for admin operations
@@ -22,9 +25,9 @@ func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
 }
 
-// Login authenticates an admin user
-func (s *Service) Login(username, password string) (*AdminUser, string, error) {
-	admin, err := s.repo.FindByUsername(username)
+// Login authenticates an admin user and returns a unified JWT (type=user, role=admin).
+func (s *Service) Login(login, password string) (*AdminUser, string, error) {
+	admin, err := s.repo.FindByLogin(login)
 	if err != nil {
 		return nil, "", err
 	}
@@ -41,13 +44,11 @@ func (s *Service) Login(username, password string) (*AdminUser, string, error) {
 		return nil, "", errors.New("invalid username or password")
 	}
 
-	// Generate JWT token
-	token, err := utils.GenerateToken(admin.ID, admin.Username, "admin")
+	token, err := utils.GenerateTokenWithRole(admin.ID, admin.Username, "user", "admin")
 	if err != nil {
 		return nil, "", err
 	}
 
-	// Update last login time
 	_ = s.repo.UpdateLastLogin(admin.ID)
 
 	return admin, token, nil
@@ -97,9 +98,15 @@ func (s *Service) GetProfile(id uint) (*AdminUser, error) {
 
 // InitializeDefaultAdmin creates the default admin user if not exists
 func (s *Service) InitializeDefaultAdmin(username, password string) error {
-	existing, err := s.repo.FindByUsername(username)
+	existing, err := s.repo.FindByLogin(username)
 	if err != nil {
 		return err
+	}
+	if existing == nil {
+		existing, err = s.repo.FindByLogin(normalizeAdminEmail(username))
+		if err != nil {
+			return err
+		}
 	}
 
 	if existing != nil {
@@ -112,11 +119,43 @@ func (s *Service) InitializeDefaultAdmin(username, password string) error {
 		return err
 	}
 
+	email := normalizeAdminEmail(username)
 	admin := &AdminUser{
-		Username:     username,
-		PasswordHash: hashedPassword,
-		Status:       1,
+		Username:      username,
+		Email:         &email,
+		PasswordHash:  hashedPassword,
+		Role:          "admin",
+		Status:        1,
+		EmailVerified: true,
 	}
 
 	return s.repo.Create(admin)
+}
+
+func normalizeAdminEmail(login string) string {
+	normalized := strings.TrimSpace(strings.ToLower(login))
+	if normalized == "" {
+		return "admin@scholay.com"
+	}
+
+	if _, err := mail.ParseAddress(normalized); err == nil {
+		return normalized
+	}
+
+	return fmt.Sprintf("%s@scholay.com", sanitizeAdminLocalPart(normalized))
+}
+
+func sanitizeAdminLocalPart(value string) string {
+	var builder strings.Builder
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-' {
+			builder.WriteRune(r)
+		}
+	}
+
+	if builder.Len() == 0 {
+		return "admin"
+	}
+
+	return builder.String()
 }

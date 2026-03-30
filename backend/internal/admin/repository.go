@@ -24,10 +24,10 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// FindByUsername finds an admin user by username
-func (r *Repository) FindByUsername(username string) (*AdminUser, error) {
+// FindByLogin finds an admin user by username or email in the unified users table.
+func (r *Repository) FindByLogin(login string) (*AdminUser, error) {
 	var admin AdminUser
-	err := r.db.Where("username = ?", username).First(&admin).Error
+	err := r.db.Where("role = ? AND (username = ? OR email = ?)", "admin", login, login).First(&admin).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -40,7 +40,7 @@ func (r *Repository) FindByUsername(username string) (*AdminUser, error) {
 // FindByID finds an admin user by ID
 func (r *Repository) FindByID(id uint) (*AdminUser, error) {
 	var admin AdminUser
-	err := r.db.First(&admin, id).Error
+	err := r.db.Where("id = ? AND role = ?", id, "admin").First(&admin).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -62,11 +62,11 @@ func (r *Repository) Update(admin *AdminUser) error {
 
 // UpdatePassword updates an admin user's password
 func (r *Repository) UpdatePassword(id uint, passwordHash string) error {
-	return r.db.Model(&AdminUser{}).Where("id = ?", id).Update("password_hash", passwordHash).Error
+	return r.db.Model(&AdminUser{}).Where("id = ? AND role = ?", id, "admin").Update("password_hash", passwordHash).Error
 }
 
 // UpdateLastLogin updates the last login timestamp
 func (r *Repository) UpdateLastLogin(id uint) error {
 	now := time.Now()
-	return r.db.Model(&AdminUser{}).Where("id = ?", id).Update("last_login_at", now).Error
+	return r.db.Model(&AdminUser{}).Where("id = ? AND role = ?", id, "admin").Update("last_login_at", now).Error
 }

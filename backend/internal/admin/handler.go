@@ -8,19 +8,32 @@
 package admin
 
 import (
+	"log/slog"
 	"scholar-backend/internal/common/utils"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
+// SessionCreator creates user sessions (implemented by user.Service).
+type SessionCreator interface {
+	CreateSession(userID uint, token, ip, userAgent string, expiresIn time.Duration) error
+}
+
 // Handler handles HTTP requests for admin operations
 type Handler struct {
-	service *Service
+	service        *Service
+	sessionCreator SessionCreator
 }
 
 // NewHandler creates a new admin handler
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
+}
+
+// SetSessionCreator injects a session creator used during admin login.
+func (h *Handler) SetSessionCreator(sc SessionCreator) {
+	h.sessionCreator = sc
 }
 
 // LoginRequest represents a login request
@@ -58,6 +71,14 @@ func (h *Handler) Login(c *gin.Context) {
 	if err != nil {
 		utils.Error(c, 1001, err.Error())
 		return
+	}
+
+	if h.sessionCreator != nil {
+		ip := c.ClientIP()
+		ua := c.GetHeader("User-Agent")
+		if err := h.sessionCreator.CreateSession(admin.ID, token, ip, ua, utils.MaxSessionAge); err != nil {
+			slog.Error("failed to create admin session", "admin_id", admin.ID, "err", err)
+		}
 	}
 
 	utils.Success(c, LoginResponse{

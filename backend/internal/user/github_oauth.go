@@ -167,7 +167,11 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 	if user.Username != nil {
 		username = *user.Username
 	}
-	token, err := utils.GenerateToken(user.ID, username, "user")
+	role := "user"
+	if user.Role != "" {
+		role = user.Role
+	}
+	token, err := utils.GenerateTokenWithRole(user.ID, username, "user", role)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to generate token")
 		return
@@ -370,6 +374,7 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode 
 			Email:         &email,
 			AvatarURL:     &avatarURL,
 			Bio:           &bio,
+			Role:          "user",
 			Status:        1,
 			EmailVerified: githubUser.Email != "", // GitHub emails are already verified
 		}

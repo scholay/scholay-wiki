@@ -22,7 +22,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import ThemeToggle from './ThemeToggle';
 import { NormalSearchIcon } from './SearchIcons';
 import MessageDropdown from './MessageDropdown';
-import api, { messageAPI } from '../services/api';
+import { messageAPI } from '../services/api';
 import wsClient from '../services/websocket';
 import logger from '../utils/logger';
 import './styles/TopNavBar.css';
@@ -292,6 +292,23 @@ const TopNavBar = ({
             <div className="um-theme-toggle">
               <ThemeToggle />
             </div>
+            {user?.role === 'admin' && (
+              <button
+                className="um-footer-btn um-settings-btn"
+                onClick={() => {
+                  setShowUserMenu(false);
+                  navigate('/admin');
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 3h7v7H3z"/>
+                  <path d="M14 3h7v4h-7z"/>
+                  <path d="M14 10h7v11h-7z"/>
+                  <path d="M3 14h7v7H3z"/>
+                </svg>
+                <span>管理后台</span>
+              </button>
+            )}
             <button
               className="um-footer-btn um-settings-btn"
               onClick={() => {

@@ -157,6 +157,9 @@ func main() {
 	userService := user.NewService(userRepo)
 	userHandler := user.NewHandler(userService, database.GetDB())
 
+	// Inject session creator into admin handler so admin logins create sessions
+	adminHandler.SetSessionCreator(userService)
+
 	// Initialize config module
 	configRepo := config.NewRepository(database.GetDB())
 	configService := config.NewService(configRepo)
