@@ -11,7 +11,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { conversationAPI } from '../services/api';
+import { conversationAPI } from '../services/conversation.api';
 import { organizeMessagesByParentId } from '../utils/messageUtils';
 import logger from '../utils/logger';
 

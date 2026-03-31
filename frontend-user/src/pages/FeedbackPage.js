@@ -10,7 +10,7 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, File, Image, Trash2, Loader2, CheckCircle, ArrowLeft } from 'lucide-react';
-import api, { publicApi } from '../services/api';
+import api, { publicApi } from '../services/client';
 import { useAuth } from '../utils/AuthContext';
 import SEO from '../components/SEO';
 import './styles/FeedbackPage.css';

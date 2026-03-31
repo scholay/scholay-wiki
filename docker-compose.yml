@@ -108,7 +108,6 @@ services:
       SERVER_PORT: 8080
       ADMIN_INITIAL_USERNAME: ${ADMIN_INITIAL_USERNAME:-admin}
       ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-adminadmin}
-      # Frontend URL for SSR code snippet injection (use service name, not container_name)
       FRONTEND_USER_URL: http://frontend-user:80
       # SigNoz Configuration
       SIGNOZ_ENDPOINT: ${SIGNOZ_ENDPOINT:-http://198.44.187.186:4318}
@@ -148,7 +147,6 @@ services:
     container_name: scholar_frontend_user
     restart: unless-stopped
     logging: *default-logging
-    # Frontend不暴露端口,通过Nginx访问
     expose:
       - "80"
     depends_on:

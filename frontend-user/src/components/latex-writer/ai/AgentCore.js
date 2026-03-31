@@ -15,7 +15,8 @@
  * 4. 上下文管理
  */
 
-import { userAPI } from '../../../services/api';
+import { userAPI } from '../../../services/user.api';
+import logger from '../../../utils/logger';
 
 /**
  * Agent 状态
@@ -156,7 +157,7 @@ export class AgentCore {
             },
           });
         });
-        console.log(`[AgentCore] Loaded ${response.data.tools.length} tools from backend`);
+        logger.log(`[AgentCore] Loaded ${response.data.tools.length} tools from backend`);
       }
     } catch (error) {
       console.error('[AgentCore] Failed to load tools:', error);

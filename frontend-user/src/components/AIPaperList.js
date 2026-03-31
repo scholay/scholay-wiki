@@ -14,6 +14,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import AnalysisCellText from './AnalysisCellText';
 import { useTranslation } from '../hooks/useTranslation';
 import { Languages } from 'lucide-react';
+import logger from '../utils/logger';
 
 const AIPaperList = ({ 
   papers, 
@@ -460,7 +461,7 @@ const AIPaperList = ({
                   
                   // 调试日志
                   if (index === 0) {
-                    console.log('[AIPaperList] Rendering analysis cell:', {
+                    logger.log('[AIPaperList] Rendering analysis cell:', {
                       paperId: paper.paperId,
                       dimKey,
                       dim,

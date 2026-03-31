@@ -10,7 +10,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import DOMPurify from 'dompurify';
-import api, { publicScholarAPI } from '../services/api';
+import api from '../services/client';
+import { publicScholarAPI } from '../services/scholar.api';
 import SEO from '../components/SEO';
 import FloatingGuide from '../components/FloatingGuide';
 import Logo from '../components/Logo';

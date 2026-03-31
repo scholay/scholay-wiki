@@ -6,7 +6,7 @@ import { useState, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../utils/AuthContext';
 import { useSidebar } from '../../../contexts/SidebarContext';
-import { publicScholarAPI } from '../../../services/api';
+import { publicScholarAPI } from '../../../services/scholar.api';
 import {
   getSearchQuery,
   setSearchQuery as saveSearchQuery,

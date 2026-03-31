@@ -14,6 +14,7 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { trackPDFPreview, trackPDFSelectionTranslate, EntryPoint } from '../utils/usageTracker';
 import { useTranslation, isPrimarilyChinese } from '../hooks/useTranslation';
+import logger from '../utils/logger';
 import './PDFViewer.css';
 
 // PDF 资源路径
@@ -209,7 +210,7 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
           // 读取自定义响应头（来源和缓存状态）
           const pdfSource = response.headers.get('X-PDF-Source');
           const cacheStatus = response.headers.get('X-Cache');
-          console.log('[PDFViewer] PDF Source:', pdfSource, 'Cache:', cacheStatus);
+          logger.log('[PDFViewer] PDF Source:', pdfSource, 'Cache:', cacheStatus);
 
           const blob = await response.blob();
           
@@ -222,10 +223,10 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
             // 检查是否为 PDF 类型（允许 application/pdf 或 application/octet-stream）
             const validTypes = ['application/pdf', 'application/octet-stream', ''];
             if (!validTypes.includes(blob.type)) {
-              console.warn('PDF Blob 类型:', blob.type, '大小:', blob.size);
+              logger.warn('PDF Blob 类型:', blob.type, '大小:', blob.size);
             }
             
-            console.log('[PDFViewer] PDF 数据获取成功, 大小:', (blob.size / 1024 / 1024).toFixed(2), 'MB');
+            logger.log('[PDFViewer] PDF 数据获取成功, 大小:', (blob.size / 1024 / 1024).toFixed(2), 'MB');
             
             // 存储 Blob，后续需要时再转换为 ArrayBuffer
             setPdfBlob(blob);
@@ -235,7 +236,7 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
           if (err.name === 'AbortError') {
             return; // 请求被取消，忽略
           }
-          console.warn('DOI PDF API 失败:', err);
+          logger.warn('DOI PDF API 失败:', err);
           
           if (!controller.signal.aborted) {
             // 如果是已检测的 PDF（非开放获取），没有备用方案，显示错误
@@ -292,7 +293,7 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
 
   const onDocumentLoadSuccess = ({ numPages }) => {
     if (isUnmounted) return;
-    console.log('[PDFViewer] PDF 解析成功, 总页数:', numPages);
+    logger.log('[PDFViewer] PDF 解析成功, 总页数:', numPages);
     setNumPages(numPages);
     setIsLoading(false);
     setError(null);
@@ -361,12 +362,12 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
   
   useEffect(() => {
     if (pdfBlob) {
-      console.log('[PDFViewer] 创建 Blob URL, Blob 大小:', pdfBlob.size);
+      logger.log('[PDFViewer] 创建 Blob URL, Blob 大小:', pdfBlob.size);
       const url = URL.createObjectURL(pdfBlob);
-      console.log('[PDFViewer] Blob URL 已创建:', url);
+      logger.log('[PDFViewer] Blob URL 已创建:', url);
       setBlobUrl(url);
       return () => {
-        console.log('[PDFViewer] 清理 Blob URL');
+        logger.log('[PDFViewer] 清理 Blob URL');
         URL.revokeObjectURL(url);
       };
     } else {
@@ -378,7 +379,7 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
   // 优先使用 DOI API 返回的数据（Blob URL），否则使用代理服务
   const fileConfig = useMemo(() => {
     if (blobUrl) {
-      console.log('[PDFViewer] 使用 Blob URL 加载 PDF');
+      logger.log('[PDFViewer] 使用 Blob URL 加载 PDF');
       // 使用从 DOI API 获取的 Blob URL
       return {
         url: blobUrl,
@@ -386,7 +387,7 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
       };
     }
     if (useFallback) {
-      console.log('[PDFViewer] 使用代理服务加载 PDF');
+      logger.log('[PDFViewer] 使用代理服务加载 PDF');
       // 回退到代理服务
       return {
         url: proxyUrl,
@@ -402,7 +403,7 @@ const PDFViewer = React.memo(({ pdfUrl, paperTitle, doi, isCheckedPdf = false })
   
   // Debug: 监控渲染条件
   useEffect(() => {
-    console.log('[PDFViewer] 渲染条件:', {
+    logger.log('[PDFViewer] 渲染条件:', {
       isFetchingDoi,
       hasFileConfig: fileConfig !== null,
       canRenderDocument,

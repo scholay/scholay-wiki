@@ -3,7 +3,7 @@
  * 处理滚动、自动滚动、问答卡片切换等
  */
 import { useCallback, useEffect } from 'react';
-import { publicScholarAPI } from '../../../services/api';
+import { publicScholarAPI } from '../../../services/scholar.api';
 import logger from '../../../utils/logger';
 import { PAPER_PAGE_SIZE } from './usePaperState';
 

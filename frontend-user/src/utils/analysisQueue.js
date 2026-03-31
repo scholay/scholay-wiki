@@ -8,7 +8,8 @@
  * - 倒计时结束 → 无论多少篇都发送（哪怕只有1篇）
  */
 
-import { analysisDimensionAPI } from '../services/api';
+import { analysisDimensionAPI } from '../services/payment.api';
+import logger from './logger';
 
 class BatchAnalysisQueue {
   constructor(batchSize = 5, batchTimeout = 300) {
@@ -113,12 +114,12 @@ class BatchAnalysisQueue {
         abstract: p.abstract
       }));
 
-      console.log('[BatchQueue] Sending batch request:', papersData.map(p => p.paperId));
+      logger.log('[BatchQueue] Sending batch request:', papersData.map(p => p.paperId));
 
       // 调用批量API
       const response = await analysisDimensionAPI.batchAnalyzePapers(papersData);
 
-      console.log('[BatchQueue] Response:', response.data);
+      logger.log('[BatchQueue] Response:', response.data);
 
       // 检查余额不足错误
       if (response.data.code === 4020) {
@@ -130,19 +131,19 @@ class BatchAnalysisQueue {
       if (response.data.code === 0 && response.data.data) {
         const { results, total_deducted } = response.data.data;
 
-        console.log('[BatchQueue] Results count:', results?.length, 'Total deducted:', total_deducted);
+        logger.log('[BatchQueue] Results count:', results?.length, 'Total deducted:', total_deducted);
 
         // 处理每篇论文的结果
         if (results && Array.isArray(results)) {
           results.forEach(result => {
-            console.log('[BatchQueue] Processing result for:', result.paperId, 'success:', result.success);
+            logger.log('[BatchQueue] Processing result for:', result.paperId, 'success:', result.success);
             
             // 缓存结果
             this.results.set(result.paperId, result);
 
             // 通知回调
             const callbacks = this.callbacks.get(result.paperId) || [];
-            console.log('[BatchQueue] Found callbacks:', callbacks.length, 'for paperId:', result.paperId);
+            logger.log('[BatchQueue] Found callbacks:', callbacks.length, 'for paperId:', result.paperId);
             
             callbacks.forEach(({ onComplete, onError }) => {
               if (result.success) {

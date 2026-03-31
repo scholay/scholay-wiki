@@ -111,7 +111,7 @@ services:
       SERVER_PORT: 8080
       ADMIN_INITIAL_USERNAME: ${ADMIN_INITIAL_USERNAME:-admin}
       ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-adminadmin}
-      FRONTEND_USER_URL: http://frontend-user:80
+      FRONTEND_USER_URL: http://frontend:3000
       SIGNOZ_ENDPOINT: ${SIGNOZ_ENDPOINT:-http://198.44.187.186:4318}
       SIGNOZ_SERVICE_NAME: ${SIGNOZ_SERVICE_NAME:-scholar-backend}
       SIGNOZ_ENVIRONMENT: ${SIGNOZ_ENVIRONMENT:-production}
@@ -138,21 +138,24 @@ services:
     networks:
       - scholar-network
 
-  frontend-user:
-    image: crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com/scholay/frontend-user:latest
-    container_name: scholar_frontend_user
+  frontend:
+    image: crpi-ebrftpuujezamyxv.cn-shanghai.personal.cr.aliyuncs.com/scholay/frontend:latest
+    container_name: scholar_frontend
     restart: unless-stopped
     logging: *default-logging
     expose:
-      - "80"
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - BACKEND_URL=http://scholar_backend:8080
     depends_on:
       - backend
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 512M
         reservations:
-          memory: 64M
+          memory: 256M
     networks:
       - scholar-network
 
@@ -169,7 +172,7 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
     depends_on:
       - backend
-      - frontend-user
+      - frontend
     deploy:
       resources:
         limits:

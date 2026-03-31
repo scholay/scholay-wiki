@@ -11,7 +11,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { userAPI } from '../services/api';
+import { userAPI } from '../services/user.api';
 import logger from '../utils/logger';
 
 /**

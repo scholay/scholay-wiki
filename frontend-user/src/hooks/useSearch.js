@@ -11,7 +11,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { publicScholarAPI } from '../services/api';
+import { publicScholarAPI } from '../services/scholar.api';
 import logger from '../utils/logger';
 import { trackDirectSearch, EntryPoint } from '../utils/usageTracker';
 

@@ -9,7 +9,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../utils/AuthContext';
-import { userAPI } from '../services/api';
+import { userAPI } from '../services/user.api';
 import TurnstileCaptcha from './TurnstileCaptcha';
 import { useToast } from './ToastContainer';
 import ReactMarkdown from 'react-markdown';

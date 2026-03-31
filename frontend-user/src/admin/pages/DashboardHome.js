@@ -54,14 +54,16 @@ const DashboardHome = () => {
   };
 
   const formatCurrency = (value) => {
-    return `¥${value.toFixed(2)}`;
+    const num = Number(value) || 0;
+    return `¥${num.toFixed(2)}`;
   };
 
   const formatNumber = (value) => {
-    if (value >= 10000) {
-      return `${(value / 10000).toFixed(1)}万`;
+    const num = Number(value) || 0;
+    if (num >= 10000) {
+      return `${(num / 10000).toFixed(1)}万`;
     }
-    return value.toString();
+    return num.toString();
   };
 
   if (loading) {
@@ -231,7 +233,7 @@ const DashboardHome = () => {
           <h3>用户增长趋势</h3>
           <p className="chart-description">最近30天新增用户数</p>
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={stats.user_growth_chart}>
+            <AreaChart data={stats.user_growth_chart || []}>
               <defs>
                 <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
@@ -270,7 +272,7 @@ const DashboardHome = () => {
           <h3>订单趋势</h3>
           <p className="chart-description">最近30天已支付订单数</p>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={stats.order_trend_chart}>
+            <BarChart data={stats.order_trend_chart || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis
                 dataKey="date"
@@ -296,7 +298,7 @@ const DashboardHome = () => {
           <h3>收入趋势</h3>
           <p className="chart-description">最近30天收入统计 (¥)</p>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={stats.revenue_trend_chart}>
+            <LineChart data={stats.revenue_trend_chart || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis
                 dataKey="date"
@@ -310,7 +312,7 @@ const DashboardHome = () => {
               <Tooltip
                 contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
                 labelFormatter={(value) => `日期: ${value}`}
-                formatter={(value) => [`¥${value.toFixed(2)}`, '收入']}
+                formatter={(value) => [`¥${(Number(value) || 0).toFixed(2)}`, '收入']}
               />
               <Line
                 type="monotone"

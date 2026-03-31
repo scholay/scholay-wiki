@@ -11,7 +11,8 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import { configAPI } from '../services/api';
+import { configAPI } from '../services/payment.api';
+import logger from '../utils/logger';
 
 /**
  * 代码片段注入组件
@@ -47,7 +48,7 @@ const CodeSnippetInjector = () => {
         }
       } catch (error) {
         // 静默失败，不影响用户体验
-        console.warn('Failed to load code snippets:', error);
+        logger.warn('Failed to load code snippets:', error);
       }
     };
 

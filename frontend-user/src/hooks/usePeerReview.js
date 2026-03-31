@@ -11,7 +11,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { peerReviewAPI } from '../services/api';
+import { peerReviewAPI } from '../services/payment.api';
 import logger from '../utils/logger';
 
 // 任务状态映射

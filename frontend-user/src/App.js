@@ -9,7 +9,9 @@
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
+import { queryClient } from './services/queryClient';
 import { AuthProvider } from './utils/AuthContext';
 import { ToastProvider } from './components/ToastContainer';
 import { SidebarProvider } from './contexts/SidebarContext';
@@ -136,6 +138,7 @@ function App() {
 
   return (
     <ErrorBoundary showDetails={process.env.NODE_ENV === 'development'}>
+    <QueryClientProvider client={queryClient}>
     <HelmetProvider>
       <ThemeProvider>
       <ToastProvider>
@@ -276,6 +279,7 @@ function App() {
       </ToastProvider>
     </ThemeProvider>
     </HelmetProvider>
+    </QueryClientProvider>
     </ErrorBoundary>
   );
 }

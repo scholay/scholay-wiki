@@ -22,7 +22,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import ThemeToggle from './ThemeToggle';
 import { NormalSearchIcon } from './SearchIcons';
 import MessageDropdown from './MessageDropdown';
-import { messageAPI } from '../services/api';
+import { messageAPI } from '../services/payment.api';
 import wsClient from '../services/websocket';
 import logger from '../utils/logger';
 import './styles/TopNavBar.css';

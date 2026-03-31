@@ -3,7 +3,7 @@
  * 处理论文的维度分析逻辑
  */
 import { useCallback, useEffect } from 'react';
-import { analysisDimensionAPI } from '../../../services/api';
+import { analysisDimensionAPI } from '../../../services/payment.api';
 import { trackMatrixAnalysis } from '../../../utils/usageTracker';
 import logger from '../../../utils/logger';
 

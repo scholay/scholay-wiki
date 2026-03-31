@@ -4,7 +4,7 @@
  */
 import { useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { conversationAPI } from '../../../services/api';
+import { conversationAPI } from '../../../services/conversation.api';
 import { setAIConversationId } from '../../../utils/searchStorage';
 import logger from '../../../utils/logger';
 

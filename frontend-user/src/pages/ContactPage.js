@@ -10,7 +10,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mail, MessageSquare, MapPin, Phone, Send, CheckCircle } from 'lucide-react';
-import { publicApi } from '../services/api';
+import { publicApi } from '../services/client';
 import Logo from '../components/Logo';
 import SEO from '../components/SEO';
 import './styles/LegalPage.css';

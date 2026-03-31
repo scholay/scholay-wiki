@@ -3,7 +3,7 @@
  * 从 useAISearch.js 拆分
  */
 import { useState, useCallback, useRef } from 'react';
-import { analysisDimensionAPI } from '../../../services/api';
+import { analysisDimensionAPI } from '../../../services/payment.api';
 import { trackMatrixAddDimension } from '../../../utils/usageTracker';
 import logger from '../../../utils/logger';
 

@@ -21,7 +21,7 @@ import SEO from '../components/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
 // 注：使用追踪已移至 API 调用层，首页无需重复追踪
 import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation } from '../utils/searchStorage';
-import { userAPI } from '../services/api';
+import { userAPI } from '../services/user.api';
 import './styles/home/index.css';
 
 // 懒加载 AuthModal - 只在需要时加载

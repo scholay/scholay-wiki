@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import logger from '../utils/logger';
 
 /**
  * 预加载单张图片
@@ -69,7 +70,7 @@ const useImagePreload = (sources, options = {}) => {
               setProgress(Math.round((loadedCount / sourceArray.length) * 100));
             }
           } catch (err) {
-            console.warn(`Failed to preload image: ${src}`, err);
+            logger.warn(`Failed to preload image: ${src}`, err);
             // 单个图片加载失败不影响整体
             loadedCount++;
             if (mountedRef.current) {

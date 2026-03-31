@@ -15,7 +15,8 @@
  * 4. 工具结果缓存
  */
 
-import { userAPI } from '../../../services/api';
+import { userAPI } from '../../../services/user.api';
+import logger from '../../../utils/logger';
 
 /**
  * 工具分类
@@ -107,7 +108,7 @@ class ToolManager {
         this.loaded = true;
         this.lastLoadTime = Date.now();
 
-        console.log(`[ToolManager] Loaded ${this.tools.size} tools`);
+        logger.log(`[ToolManager] Loaded ${this.tools.size} tools`);
       }
 
       return this.getAllTools();
@@ -156,7 +157,7 @@ class ToolManager {
       throw new Error(`Tool not found: ${name}`);
     }
 
-    console.log(`[ToolManager] Calling tool: ${name}`, args);
+    logger.log(`[ToolManager] Calling tool: ${name}`, args);
 
     try {
       const response = await userAPI.callMCPTool(name, args);
@@ -165,7 +166,7 @@ class ToolManager {
         throw new Error(response.data.error || 'Tool call failed');
       }
 
-      console.log(`[ToolManager] Tool ${name} completed`);
+      logger.log(`[ToolManager] Tool ${name} completed`);
       return response.data;
     } catch (error) {
       console.error(`[ToolManager] Tool ${name} failed:`, error);
@@ -177,7 +178,7 @@ class ToolManager {
    * 批量调用工具
    */
   async batchCallTools(calls) {
-    console.log(`[ToolManager] Batch calling ${calls.length} tools`);
+    logger.log(`[ToolManager] Batch calling ${calls.length} tools`);
 
     try {
       const response = await userAPI.batchCallMCPTools(calls);

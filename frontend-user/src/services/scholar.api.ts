@@ -1,0 +1,88 @@
+import api, { API_URL, publicApi } from './client';
+import type { SearchParams } from '../types/paper';
+
+export const scholarAPI = {
+  searchPapers: (params: SearchParams) => api.post('/scholar/papers/search', params),
+  getPaper: (paperId: string) => api.get(`/scholar/papers/${paperId}`),
+  getCitations: (paperId: string, params?: Record<string, any>) =>
+    api.get(`/scholar/papers/${paperId}/citations`, { params }),
+  getReferences: (paperId: string, params?: Record<string, any>) =>
+    api.get(`/scholar/papers/${paperId}/references`, { params }),
+  getPaperBatch: (paperIds: string[], fields?: string) =>
+    api.post('/scholar/papers/batch', { paperIds, fields }),
+  getRecommendations: (paperId: string, limit = 100) =>
+    api.get(`/scholar/recommendations/papers/${paperId}`, { params: { limit } }),
+};
+
+export const publicScholarAPI = {
+  searchPapers: (params: SearchParams) => publicApi.post('/papers/search', params),
+
+  getPaper: (paperId: string, fields?: string) =>
+    publicApi.get(`/papers/${paperId}`, {
+      params: {
+        fields:
+          fields ||
+          'paperId,title,abstract,authors,year,citationCount,referenceCount,venue,publicationDate,publicationTypes,fieldsOfStudy,s2FieldsOfStudy,externalIds,url,openAccessPdf,influentialCitationCount,isOpenAccess,tldr,journal,citations.paperId,citations.externalIds,citations.url,citations.title,citations.abstract,citations.venue,citations.publicationVenue,citations.year,citations.referenceCount,citations.citationCount,citations.influentialCitationCount,citations.openAccessPdf,citations.s2FieldsOfStudy,citations.publicationTypes,citations.publicationDate,citations.journal,citations.citationStyles,citations.authors,references.paperId,references.externalIds,references.url,references.title,references.abstract,references.venue,references.publicationVenue,references.year,references.referenceCount,references.citationCount,references.influentialCitationCount,references.openAccessPdf,references.s2FieldsOfStudy,references.publicationTypes,references.publicationDate,references.journal,references.citationStyles,references.authors',
+      },
+    }),
+
+  getSearchSuggestions: (query: string, paperLimit = 5, authorLimit = 5) =>
+    publicApi.get('/search/suggestions', { params: { query, paperLimit, authorLimit } }),
+
+  getSystemDimensions: () => publicApi.get('/analysis/dimensions'),
+
+  getPaperAutocomplete: (query: string) =>
+    publicApi.get('/papers/autocomplete', { params: { query } }),
+
+  getPaperBatch: (paperIds: string[], fields?: string) =>
+    publicApi.post('/papers/batch', { paperIds, fields }),
+
+  getRecommendations: (paperId: string, limit = 100) =>
+    publicApi.get(`/recommendations/papers/${paperId}`, { params: { limit } }),
+
+  getAuthor: (authorId: string, fields?: string) =>
+    publicApi.get(`/author-detail/${authorId}`, {
+      params: {
+        fields:
+          fields ||
+          'authorId,name,affiliations,paperCount,citationCount,hIndex,homepage,externalIds',
+      },
+    }),
+
+  getAuthorPapers: (authorId: string, offset = 0, limit = 100, fields?: string) =>
+    publicApi.get(`/author-detail/${authorId}/papers`, {
+      params: {
+        offset,
+        limit,
+        fields:
+          fields ||
+          'paperId,title,abstract,authors,year,citationCount,referenceCount,venue,publicationDate,publicationTypes,fieldsOfStudy,s2FieldsOfStudy,externalIds,url,openAccessPdf,influentialCitationCount,isOpenAccess,journal',
+      },
+    }),
+
+  translateStream: (text: string) => {
+    const token = localStorage.getItem('user_token');
+    return fetch(`${API_URL}/api/v1/public/translate/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: JSON.stringify({ text }),
+    });
+  },
+
+  translatePaperStream: (title: string, abstract: string, tldr: string) => {
+    const token = localStorage.getItem('user_token');
+    return fetch(`${API_URL}/api/v1/public/translate/paper/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: JSON.stringify({ title, abstract, tldr }),
+    });
+  },
+};
+
+export { publicApi };

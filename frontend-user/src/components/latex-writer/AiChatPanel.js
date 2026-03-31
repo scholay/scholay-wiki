@@ -20,8 +20,9 @@ import PermissionDialog from './PermissionDialog';
 import ToolCallDisplay, { ToolCallIndicator } from './ToolCallDisplay';
 import ThinkingPanel from './ThinkingPanel';
 import CodePreview from './CodePreview';
-import { userAPI } from '../../services/api';
+import { userAPI } from '../../services/user.api';
 import { trackScholayPrism } from '../../utils/usageTracker';
+import logger from '../../utils/logger';
 import './AiChatPanel.css';
 
 const AiChatPanel = forwardRef(function AiChatPanel({ 
@@ -78,7 +79,7 @@ const AiChatPanel = forwardRef(function AiChatPanel({
   const prevDocumentIdRef = useRef(documentId);
   useEffect(() => {
     if (documentId !== prevDocumentIdRef.current) {
-      console.log('[AiChatPanel] documentId changed, clearing local messages');
+      logger.log('[AiChatPanel] documentId changed, clearing local messages');
       setLocalMessages([]);
       setCurrentResponse('');
       setToolCalls([]);
@@ -98,7 +99,7 @@ const AiChatPanel = forwardRef(function AiChatPanel({
     // 如果本地没有消息，显示历史消息
     if (documentId && historyMessages.length > 0) {
       // 将历史消息转换为本地消息格式
-      console.log('[AiChatPanel] Rendering history messages:', historyMessages.length);
+      logger.log('[AiChatPanel] Rendering history messages:', historyMessages.length);
       return historyMessages.map(msg => {
         const thinkContent = msg.think_content || null;
         const replyContent = msg.reply_content || null;
@@ -111,7 +112,7 @@ const AiChatPanel = forwardRef(function AiChatPanel({
         
         // 调试日志
         if (msg.role === 'assistant') {
-          console.log('[AiChatPanel] Assistant message:', {
+          logger.log('[AiChatPanel] Assistant message:', {
             hasContent: !!msg.content,
             contentLength: msg.content?.length,
             hasStructured,

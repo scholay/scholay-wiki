@@ -10,7 +10,8 @@
  * 支持 pdfTeX 和 XeTeX 两种引擎
  */
 
-// 使用绝对路径
+import logger from '../../utils/logger';
+
 const BASE_PATH = '/core/swiftlatex';
 
 // 全局引擎实例
@@ -29,9 +30,9 @@ const registerTexLiveCacheSW = async () => {
       const registration = await navigator.serviceWorker.register('/texlive-cache-sw.js', {
         scope: '/'
       });
-      console.log('[LatexCompiler] TexLive cache Service Worker registered:', registration.scope);
+      logger.log('[LatexCompiler] TexLive cache Service Worker registered:', registration.scope);
     } catch (error) {
-      console.warn('[LatexCompiler] Service Worker registration failed:', error);
+      logger.warn('[LatexCompiler] Service Worker registration failed:', error);
     }
   }
 };
@@ -84,7 +85,7 @@ export const getCurrentEngineType = () => currentEngine;
 export const setEngineType = (type) => {
   if (type === 'pdftex' || type === 'xetex') {
     currentEngine = type;
-    console.log(`[LatexCompiler] Engine type set to: ${type}`);
+    logger.log(`[LatexCompiler] Engine type set to: ${type}`);
   }
 };
 
@@ -120,7 +121,7 @@ export const initializeEngine = async (engineType = null) => {
 
     if (currentEngine === 'xetex') {
       // 加载 XeTeX 引擎（支持中文）
-      console.log('[LatexCompiler] Loading XeTeX engine for Chinese support...');
+      logger.log('[LatexCompiler] Loading XeTeX engine for Chinese support...');
       
       // 设置引擎路径
       window.ENGINE_PATH = `${BASE_PATH}/texlyrexetex.js`;
@@ -144,10 +145,10 @@ export const initializeEngine = async (engineType = null) => {
       await xeTeXEngine.loadEngine();
       xeTeXEngine.setTexliveEndpoint(texliveEndpoint);
       
-      console.log(`[LatexCompiler] XeTeX engine loaded. Using TexLive server: ${texliveEndpoint}`);
+      logger.log(`[LatexCompiler] XeTeX engine loaded. Using TexLive server: ${texliveEndpoint}`);
     } else {
       // 加载 pdfTeX 引擎（默认）
-      console.log('[LatexCompiler] Loading pdfTeX engine...');
+      logger.log('[LatexCompiler] Loading pdfTeX engine...');
       
       // 设置引擎路径（供 PdfTeXEngine.js 使用）
       window.ENGINE_PATH = `${BASE_PATH}/texlyrepdftex.js`;
@@ -171,11 +172,11 @@ export const initializeEngine = async (engineType = null) => {
       await pdfTeXEngine.loadEngine();
       pdfTeXEngine.setTexliveEndpoint(texliveEndpoint);
       
-      console.log(`[LatexCompiler] pdfTeX engine loaded. Using TexLive server: ${texliveEndpoint}`);
+      logger.log(`[LatexCompiler] pdfTeX engine loaded. Using TexLive server: ${texliveEndpoint}`);
     }
 
     setStatus('ready');
-    console.log(`[LatexCompiler] ${currentEngine} engine initialized successfully`);
+    logger.log(`[LatexCompiler] ${currentEngine} engine initialized successfully`);
     return true;
   } catch (error) {
     console.error('[LatexCompiler] Failed to initialize engine:', error);
@@ -205,7 +206,7 @@ export const compileLaTeX = async (content, mainFileName = 'main.tex', options =
   const needXeTeX = options.forceXeTeX || requiresXeTeX(content) || (options.autoChinese && containsChinese(content));
   
   if (needXeTeX && currentEngine !== 'xetex') {
-    console.log('[LatexCompiler] Content requires XeTeX, switching engine...');
+    logger.log('[LatexCompiler] Content requires XeTeX, switching engine...');
     // 需要重新初始化 XeTeX 引擎
     engineStatus = 'unloaded';
     currentEngine = 'xetex';
@@ -235,23 +236,23 @@ export const compileLaTeX = async (content, mainFileName = 'main.tex', options =
     const workPath = `/work/${mainFileName}`;
     engine.writeMemFSFile(workPath, content);
     engine.setEngineMainFile(mainFileName);
-    console.log(`[LatexCompiler] File written to: ${workPath}, content length: ${content.length}, engine: ${currentEngine}`);
+    logger.log(`[LatexCompiler] File written to: ${workPath}, content length: ${content.length}, engine: ${currentEngine}`);
 
     // 等待 Worker 处理消息（确保文件写入完成）
     await new Promise(resolve => setTimeout(resolve, 100));
 
     // 编译（运行三次以处理引用和目录）
-    console.log(`[LatexCompiler] Starting compilation with ${currentEngine}...`);
+    logger.log(`[LatexCompiler] Starting compilation with ${currentEngine}...`);
     const result1 = await engine.compileLaTeX();
-    console.log('[LatexCompiler] First pass:', result1.status);
+    logger.log('[LatexCompiler] First pass:', result1.status);
     const result2 = await engine.compileLaTeX();
-    console.log('[LatexCompiler] Second pass:', result2.status);
+    logger.log('[LatexCompiler] Second pass:', result2.status);
     const result = await engine.compileLaTeX();
-    console.log('[LatexCompiler] Third pass:', result.status);
+    logger.log('[LatexCompiler] Third pass:', result.status);
 
     setStatus('ready');
 
-    console.log('[LatexCompiler] Compilation result:', {
+    logger.log('[LatexCompiler] Compilation result:', {
       engine: currentEngine,
       status: result.status,
       hasPdf: !!result.pdf,

@@ -218,7 +218,7 @@ function wrapNoscript(title, subtitle, bodyHtml) {
 }
 
 function wrapPreRendered(title, subtitle, bodyHtml) {
-  return `<div id="seo-prerender" style="max-width:1000px;margin:0 auto;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#222;background:#fff;min-height:100vh"><header style="text-align:center;margin-bottom:40px"><h2 style="font-size:2rem;color:#111;margin-bottom:10px">${title}</h2><p style="font-size:1.1rem;color:#555">${subtitle}</p></header><main>${bodyHtml}</main>${navFooter()}</div>`;
+  return `<div id="seo-prerender" style="display:none;max-width:1000px;margin:0 auto;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#222;background:#fff;min-height:100vh"><header style="text-align:center;margin-bottom:40px"><h2 style="font-size:2rem;color:#111;margin-bottom:10px">${title}</h2><p style="font-size:1.1rem;color:#555">${subtitle}</p></header><main>${bodyHtml}</main>${navFooter()}</div>`;
 }
 
 function section(title, content) {

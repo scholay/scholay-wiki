@@ -7,6 +7,9 @@
  * ============================================================================
  */
 
+/* Import shared design tokens */
+@import '../../../assets/styles/tokens.css';
+
 .admin-app *, .admin-app *::before, .admin-app *::after{
   margin: 0;
   padding: 0;
@@ -54,23 +57,6 @@
   --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.12);
   --shadow-lg: 0 20px 45px rgba(15, 23, 42, 0.14);
 
-  --radius-sm: 6px;
-  --radius: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --radius-pill: 999px;
-
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-7: 2rem;
-  --space-8: 2.5rem;
-  --space-9: 3rem;
-
-  --page-max-width: 1440px;
   --transition: all 0.2s ease;
 
   /* legacy compatibility */

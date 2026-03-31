@@ -18,8 +18,9 @@ import LatexEditor from '../../components/latex-writer/LatexEditor';
 import AiChatPanel from '../../components/latex-writer/AiChatPanel';
 import PdfPreview from '../../components/latex-writer/PdfPreview';
 import LatexCompiler from '../../components/latex-writer/LatexCompiler';
-import { userAPI } from '../../services/api';
+import { userAPI } from '../../services/user.api';
 import SEO from '../../components/SEO';
+import logger from '../../utils/logger';
 import './LaTeXWriterPage.css';
 
 // 懒加载 AuthModal
@@ -535,13 +536,13 @@ ${truncatedLog}
       
       if (!isMounted) return;
       
-      console.log('[LaTeX] 开始初始化编译引擎...');
+      logger.log('[LaTeX] 开始初始化编译引擎...');
       
       try {
         // 只初始化引擎，不进行预热编译
         // 宏包会在首次实际编译时由引擎自动从 TexLive 服务器并行获取
         await LatexCompiler.initializeEngine();
-        console.log('[LaTeX] 引擎初始化完成，宏包将在首次编译时自动加载');
+        logger.log('[LaTeX] 引擎初始化完成，宏包将在首次编译时自动加载');
       } catch (error) {
         console.error('[LaTeX] 引擎初始化失败:', error);
       }
@@ -651,7 +652,7 @@ ${truncatedLog}
     lastAutoCompiledFileIdRef.current = selectedFile.id;
     
     // 执行实际编译（handleCompile 内部会再次设置 isCompiling，但这没关系）
-    console.log('[LaTeX] 首次加载自动编译，文件:', selectedFile.title);
+    logger.log('[LaTeX] 首次加载自动编译，文件:', selectedFile.title);
     
     // 使用一个小延迟确保状态稳定
     const timer = setTimeout(() => {

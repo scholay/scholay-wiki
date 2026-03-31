@@ -3,8 +3,9 @@
  * 管理文本翻译状态，支持SSE流式翻译
  */
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { publicScholarAPI } from '../services/api';
+import { publicScholarAPI } from '../services/scholar.api';
 import { trackAbstractTranslate } from '../utils/usageTracker';
+import logger from '../utils/logger';
 
 /**
  * 检测文本是否包含中文字符
@@ -172,7 +173,7 @@ export const useTranslation = () => {
               }
             } catch (parseError) {
               // JSON解析错误可能是因为收到了非JSON数据，忽略
-              console.warn('Parse error:', parseError);
+              logger.warn('Parse error:', parseError);
             }
           }
         }
@@ -434,7 +435,7 @@ export const useTranslation = () => {
               }
             } catch (parseError) {
               // JSON解析错误可能是因为收到了非JSON数据，忽略
-              console.warn('Parse error:', parseError);
+              logger.warn('Parse error:', parseError);
             }
           }
         }

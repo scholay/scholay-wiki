@@ -3,9 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "devDependencies": {
-    "baseline-browser-mapping": "^2.9.14"
+    "@types/node": "^25.5.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "baseline-browser-mapping": "^2.9.14",
+    "typescript": "^4.9.5",
+    "vite": "^6.3.0"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.9.0",
+    "@tanstack/react-query": "^5.62.0",
     "@codemirror/commands": "^6.8.0",
     "@codemirror/language": "^6.10.8",
     "@codemirror/legacy-modes": "^6.5.2",
@@ -26,7 +34,6 @@
     "lucide-react": "^0.554.0",
     "pdfjs-dist": "^5.4.296",
     "pptxgenjs": "^3.12.0",
-    "rc-slider-captcha": "^1.8.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-helmet-async": "^2.0.5",
@@ -38,17 +45,20 @@
     "recharts": "^3.8.1",
     "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.1",
-    "web-vitals": "^2.1.4"
+    "react-hook-form": "^7.54.0",
+    "zod": "^3.24.0",
+    "zustand": "^5.0.12"
   },
   "scripts": {
     "copy-pdf-worker": "node scripts/copy-pdf-worker.js",
-    "prestart": "npm run copy-pdf-worker",
-    "start": "react-scripts start",
+    "predev": "npm run copy-pdf-worker",
+    "dev": "vite",
+    "start": "vite",
     "prebuild": "npm run copy-pdf-worker && node scripts/generate-version.js",
-    "build": "react-scripts build",
+    "build": "vite build",
     "postbuild": "node scripts/generate-seo-pages.js",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "preview": "vite preview",
+    "test": "vitest"
   },
   "eslintConfig": {
     "extends": [

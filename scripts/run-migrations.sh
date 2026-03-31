@@ -133,28 +133,9 @@ mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e "
 log_success "存储过程已清理"
 echo ""
 
-# 显示数据库状态统计
-log_info "当前数据库状态:"
-echo ""
-
-TABLES=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -sN -e "SHOW TABLES;" 2>/dev/null) || {
-    fatal_error "无法获取表列表"
-}
-
-TABLE_COUNT=0
-echo "数据库表列表:"
-for TABLE in $TABLES; do
-    ROW_COUNT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -sN -e "SELECT COUNT(*) FROM \`$TABLE\`;" 2>/dev/null) || ROW_COUNT="?"
-    COL_COUNT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -sN -e "
-        SELECT COUNT(*) FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA='$DB_NAME' AND TABLE_NAME='$TABLE';" 2>/dev/null) || COL_COUNT="?"
-    IDX_COUNT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -sN -e "
-        SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS
-        WHERE TABLE_SCHEMA='$DB_NAME' AND TABLE_NAME='$TABLE';" 2>/dev/null) || IDX_COUNT="?"
-
-    printf "  %-35s %6s 行, %3s 列, %2s 索引\n" "$TABLE" "$ROW_COUNT" "$COL_COUNT" "$IDX_COUNT"
-    TABLE_COUNT=$((TABLE_COUNT + 1))
-done
+# 轻量级统计（单次查询）
+TABLE_COUNT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -sN -e "
+    SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='$DB_NAME';" 2>/dev/null) || TABLE_COUNT="?"
 
 echo ""
 echo "======================================="
