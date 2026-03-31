@@ -20,7 +20,7 @@
 
   /* Border radius scale */
   --radius-sm: 6px;
-  --radius: 10px;
+  --radius: 12px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 24px;
@@ -35,12 +35,6 @@
   --font-2xl: 1.5rem;
   --font-3xl: 1.875rem;
 
-  /* Shared semantic colors */
-  --color-success: #10b981;
-  --color-error: #ef4444;
-  --color-warning: #f59e0b;
-  --color-info: #3182ce;
-
   /* Animation timing */
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
@@ -49,12 +43,22 @@
   --duration-normal: 200ms;
   --duration-slow: 300ms;
 
-  /* Z-index scale */
-  --z-dropdown: 100;
-  --z-sticky: 200;
-  --z-modal-backdrop: 300;
-  --z-modal: 400;
-  --z-toast: 500;
+  /* Z-index scale (matches actual usage tiers)
+   * Tier 1 (1000-1003): In-page overlays — dropdowns, sticky headers, popovers
+   * Tier 2 (9000-9999): Page-level overlays — search filters, drawers backdrop, network bars
+   * Tier 3 (10000-10004): Global overlays — modals, nav dropdowns, drawers, guides
+   * Tier 4 (99998-99999): Top-most — toasts, confirm dialogs
+   */
+  --z-dropdown: 1000;
+  --z-sticky: 1001;
+  --z-popover: 1002;
+  --z-page-overlay: 9000;
+  --z-drawer-backdrop: 10000;
+  --z-drawer: 10001;
+  --z-modal-backdrop: 10000;
+  --z-modal: 10001;
+  --z-tooltip: 10002;
+  --z-toast: 99999;
 
   /* Layout */
   --page-max-width: 1440px;

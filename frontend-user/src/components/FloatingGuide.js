@@ -220,6 +220,7 @@ const FloatingGuide = () => {
                 src={activeDemo === 0 ? "/assets/academic-search.gif" : "/assets/smart-analysis.gif"}
                 alt={activeDemo === 0 ? "学术检索演示" : "智能分析演示"}
                 className="demo-gif"
+                loading="lazy"
               />
               <div className="gif-caption">
                 {activeDemo === 0 ? "智能学术检索演示" : "深度智能分析演示"}

@@ -12,12 +12,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import { queryClient } from './services/queryClient';
-import { AuthProvider } from './utils/AuthContext';
-import { ToastProvider } from './components/ToastContainer';
+import { AuthBootstrap } from './utils/AuthContext';
+import { ToastRenderer } from './components/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import MainLayout from './components/MainLayout';
-import ErrorBoundary from './components/ErrorBoundary';
+import ErrorBoundary, { PageErrorBoundary } from './components/ErrorBoundary';
 import NetworkStatusBar from './components/NetworkStatusBar';
 import NotificationToast from './components/NotificationToast';
 import CodeSnippetInjector from './components/CodeSnippetInjector';
@@ -136,144 +136,106 @@ function App() {
 
   return (
     <ErrorBoundary showDetails={process.env.NODE_ENV === 'development'}>
-    <QueryClientProvider client={queryClient}>
-    <HelmetProvider>
-      <ToastProvider>
-        <AuthProvider>
-              <Router>
-                <Suspense fallback={null}>
-                  <Routes>
-                    <Route
-                      path="/admin"
-                      element={
-                        <AdminRoute>
-                          <AdminRoot />
-                        </AdminRoute>
-                      }
-                    >
-                      <Route element={<AdminDashboardLayout />}>
-                        <Route index element={<AdminDashboardHome />} />
-                        <Route path="users" element={<AdminUserManagement />} />
-                        <Route path="third-party-accounts" element={<AdminThirdPartyAccounts />} />
-                        <Route path="prompt-templates" element={<AdminPromptTemplates />} />
-                        <Route path="latex-agent-config" element={<AdminLatexAgentConfig />} />
-                        <Route path="default-business-data" element={<AdminDefaultBusinessData />} />
-                        <Route path="feedbacks" element={<AdminFeedbackManagement />} />
-                        <Route path="usage-logs" element={<AdminUsageLogs />} />
-                        <Route path="hot-content" element={<AdminHotContent />} />
-                        <Route path="messages" element={<AdminMessageManagement />} />
-                        <Route path="message-templates" element={<AdminMessageTemplates />} />
-                        <Route path="code-snippets" element={<AdminCodeSnippets />} />
-                        <Route path="settings" element={<AdminSystemSettings />} />
-                        <Route path="alipay-config" element={<Navigate to="/admin/settings?tab=alipay" replace />} />
-                        <Route path="wechat-config" element={<Navigate to="/admin/settings?tab=wechat" replace />} />
-                      </Route>
-                    </Route>
+      <QueryClientProvider client={queryClient}>
+        <HelmetProvider>
+          <Router>
+            <Suspense fallback={null}>
+              <Routes>
+                <Route
+                  path="/admin"
+                  element={
+                    <AdminRoute>
+                      <PageErrorBoundary>
+                        <AdminRoot />
+                      </PageErrorBoundary>
+                    </AdminRoute>
+                  }
+                >
+                  <Route element={<AdminDashboardLayout />}>
+                    <Route index element={<AdminDashboardHome />} />
+                    <Route path="users" element={<AdminUserManagement />} />
+                    <Route path="third-party-accounts" element={<AdminThirdPartyAccounts />} />
+                    <Route path="prompt-templates" element={<AdminPromptTemplates />} />
+                    <Route path="latex-agent-config" element={<AdminLatexAgentConfig />} />
+                    <Route path="default-business-data" element={<AdminDefaultBusinessData />} />
+                    <Route path="feedbacks" element={<AdminFeedbackManagement />} />
+                    <Route path="usage-logs" element={<AdminUsageLogs />} />
+                    <Route path="hot-content" element={<AdminHotContent />} />
+                    <Route path="messages" element={<AdminMessageManagement />} />
+                    <Route path="message-templates" element={<AdminMessageTemplates />} />
+                    <Route path="code-snippets" element={<AdminCodeSnippets />} />
+                    <Route path="settings" element={<AdminSystemSettings />} />
+                    <Route path="alipay-config" element={<Navigate to="/admin/settings?tab=alipay" replace />} />
+                    <Route path="wechat-config" element={<Navigate to="/admin/settings?tab=wechat" replace />} />
+                  </Route>
+                </Route>
 
-                    <Route path="/dashboard/*" element={<Navigate to="/admin" replace />} />
+                <Route path="/dashboard/*" element={<Navigate to="/admin" replace />} />
 
-                    {/* 所有页面都使用 MainLayout 包裹，显示通用顶部栏 */}
-                    <Route element={<MainLayout />}>
-                      {/* 公开路由 - 无需登录即可访问 */}
-                      <Route path="/" element={<Home />} />
-                      <Route path="/search-results" element={<SearchResultsPage />} />
-                      
-                      {/* 兼容旧链接：智能分析页面重定向到搜索结果页（AI模式） */}
-                      <Route path="/advanced-search" element={<Navigate to="/search-results?mode=ai" replace />} />
-                      {/* 精品AI工具页面 - 允许未登录访问 */}
-                      <Route path="/assistant" element={<AssistantPage />} />
-                      {/* AI聊天页面 - 允许未登录访问 */}
-                      <Route path="/chat" element={<ChatPage />} />
-                      {/* 智能审稿页面 - 允许未登录访问 */}
-                      <Route path="/peer-review" element={<PeerReviewPage />} />
-                      {/* LaTeX论文编辑器页面 - 允许未登录访问 */}
-                      <Route path="/latex-writer" element={<LaTeXWriterPage />} />
+                <Route element={<MainLayout />}>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/search-results" element={<PageErrorBoundary><SearchResultsPage /></PageErrorBoundary>} />
+                  <Route path="/advanced-search" element={<Navigate to="/search-results?mode=ai" replace />} />
+                  <Route path="/assistant" element={<AssistantPage />} />
+                  <Route path="/chat" element={<PageErrorBoundary><ChatPage /></PageErrorBoundary>} />
+                  <Route path="/peer-review" element={<PageErrorBoundary><PeerReviewPage /></PageErrorBoundary>} />
+                  <Route path="/latex-writer" element={<PageErrorBoundary><LaTeXWriterPage /></PageErrorBoundary>} />
+                  <Route path="/pricing" element={<Pricing />} />
+                  <Route path="/settings" element={
+                    <ProtectedRoute>
+                      <Settings />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/paper/:paperId" element={<PaperDetailPage />} />
+                  <Route path="/feedback" element={<FeedbackPage />} />
+                  <Route path="/about" element={<AboutPage />} />
+                  <Route path="/privacy" element={<PrivacyPage />} />
+                  <Route path="/terms" element={<TermsPage />} />
+                  <Route path="/contact" element={<ContactPage />} />
+                  <Route path="/disclaimer" element={<DisclaimerPage />} />
+                  <Route path="/resources" element={<ResourceCenterPage />} />
+                  <Route path="/resources/:slug" element={<ResourceArticlePage />} />
+                  <Route path="/help" element={<HelpCenterPage />} />
+                  <Route path="/blog" element={<BlogListPage />} />
+                  <Route path="/blog/:slug" element={<BlogArticlePage />} />
+                  <Route path="/alipay-return" element={<AlipayReturn />} />
+                </Route>
 
-                      {/* 定价页面 */}
-                      <Route path="/pricing" element={<Pricing />} />
-                      
-                      {/* 设置页面 - 需要登录 */}
-                      <Route path="/settings" element={
-                        <ProtectedRoute>
-                          <Settings />
-                        </ProtectedRoute>
-                      } />
-                      
-                      {/* 论文详情 */}
-                      <Route path="/paper/:paperId" element={<PaperDetailPage />} />
-                      
-                      {/* 反馈和关于我们页面 - 公开访问 */}
-                      <Route path="/feedback" element={<FeedbackPage />} />
-                      <Route path="/about" element={<AboutPage />} />
-                      
-                      {/* 隐私政策和服务条款页面 - 公开访问 (Google AdSense 必需) */}
-                      <Route path="/privacy" element={<PrivacyPage />} />
-                      <Route path="/terms" element={<TermsPage />} />
-                      <Route path="/contact" element={<ContactPage />} />
-                      <Route path="/disclaimer" element={<DisclaimerPage />} />
-                      
-                      {/* 学术资源中心和帮助中心 - 公开访问 (Google AdSense 原创内容页面) */}
-                      <Route path="/resources" element={<ResourceCenterPage />} />
-                      <Route path="/resources/:slug" element={<ResourceArticlePage />} />
-                      <Route path="/help" element={<HelpCenterPage />} />
-                      
-                      {/* 博客 - 公开访问 (Google AdSense 原创内容) */}
-                      <Route path="/blog" element={<BlogListPage />} />
-                      <Route path="/blog/:slug" element={<BlogArticlePage />} />
-                      
-                      {/* 支付宝回调页面 */}
-                      <Route path="/alipay-return" element={<AlipayReturn />} />
-                    </Route>
+                <Route path="/features/search" element={<SearchFeaturePage />} />
+                <Route path="/features/peer-review" element={<PeerReviewFeaturePage />} />
+                <Route path="/features/latex-writer" element={<LaTeXFeaturePage />} />
 
-                    {/* 功能宣传页面 - 独立落地页，不使用 MainLayout，有自己的导航和布局 */}
-                    <Route path="/features/search" element={<SearchFeaturePage />} />
-                    <Route path="/features/peer-review" element={<PeerReviewFeaturePage />} />
-                    <Route path="/features/latex-writer" element={<LaTeXFeaturePage />} />
+                <Route path="/search" element={<Navigate to="/" replace />} />
+                <Route path="/wechat/callback" element={<WeChatCallback />} />
+                <Route path="/github/callback" element={<GithubCallback />} />
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
 
-                    {/* 不使用 MainLayout 的路由（OAuth回调等） */}
-                    <Route path="/search" element={<Navigate to="/" replace />} />
-                    
-                    {/* WeChat callback - PUBLIC route (must be accessible without login for OAuth flow) */}
-                    <Route path="/wechat/callback" element={<WeChatCallback />} />
+              {showAuthModal && (
+                <AuthModal
+                  isOpen={showAuthModal}
+                  onClose={() => setShowAuthModal(false)}
+                  onLoginSuccess={() => setShowAuthModal(false)}
+                />
+              )}
 
-                    {/* GitHub callback - PUBLIC route (must be accessible without login for OAuth flow) */}
-                    <Route path="/github/callback" element={<GithubCallback />} />
+              <NetworkStatusBar />
+              <NotificationToast />
+              <CodeSnippetInjector />
 
-                    {/* 404 页面 - 显示自定义 404 页面，利于 SEO 和 AdSense 审核 */}
-                    <Route path="*" element={<NotFoundPage />} />
-                  </Routes>
+              {hasUpdate && (
+                <VersionUpdateBar
+                  onRefresh={confirmUpdate}
+                  onDismiss={ignoreUpdate}
+                />
+              )}
 
-                  {/* Global auth modal for session expiry - 条件渲染避免不必要的组件加载 */}
-                  {showAuthModal && (
-                    <AuthModal
-                      isOpen={showAuthModal}
-                      onClose={() => setShowAuthModal(false)}
-                      onLoginSuccess={() => setShowAuthModal(false)}
-                    />
-                  )}
-
-                  {/* 网络状态提示栏 */}
-                  <NetworkStatusBar />
-                  
-                  {/* 站内信实时通知 */}
-                  <NotificationToast />
-
-                  {/* SEO/广告/统计代码片段注入 */}
-                  <CodeSnippetInjector />
-                  
-                  {/* 版本更新提示条 */}
-                  {hasUpdate && (
-                    <VersionUpdateBar 
-                      onRefresh={confirmUpdate}
-                      onDismiss={ignoreUpdate}
-                    />
-                  )}
-                </Suspense>
-              </Router>
-        </AuthProvider>
-      </ToastProvider>
-    </HelmetProvider>
-    </QueryClientProvider>
+              <AuthBootstrap />
+              <ToastRenderer />
+            </Suspense>
+          </Router>
+        </HelmetProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }

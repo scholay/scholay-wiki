@@ -36,17 +36,19 @@ const DrawerLogo = ({ onClick }) => {
 const DrawerSidebar = ({
   isOpen,
   onClose,
-  // 历史记录相关 props
-  showHistory = false,
-  historyType = 'conversation',
-  historyItems = [],
-  currentItemId = null,
-  onSelectItem = null,
-  onDeleteItem = null,
-  onRenameItem = null,
-  historyLoading = false,
-  disableActiveState = false,
+  sidebarConfig = {},
 }) => {
+  const {
+    showHistory = false,
+    historyType = 'conversation',
+    historyItems = [],
+    currentItemId = null,
+    onSelectItem = null,
+    onDeleteItem = null,
+    onRenameItem = null,
+    historyLoading = false,
+    disableActiveState = false,
+  } = sidebarConfig;
   const navigate = useNavigate();
   const location = useLocation();
   const [historyExpanded, setHistoryExpanded] = useState(true);
@@ -351,7 +353,6 @@ const DrawerSidebar = ({
             position: 'fixed',
             top: `${historyMenuPosition.top}px`,
             left: `${historyMenuPosition.left}px`,
-            zIndex: 10002
           }}
         >
           <button

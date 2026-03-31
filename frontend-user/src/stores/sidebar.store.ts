@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 
 interface SidebarConfig {
   showHistory: boolean;
@@ -74,24 +75,16 @@ useSidebarStore.subscribe((state) => {
     state.isMobileOpen && state.isMobile ? 'hidden' : '';
 });
 
-export const useSidebar = () => {
-  const sidebarConfig = useSidebarStore((s) => s.sidebarConfig);
-  const updateSidebarConfig = useSidebarStore((s) => s.updateSidebarConfig);
-  const resetSidebarConfig = useSidebarStore((s) => s.resetSidebarConfig);
-  const isMobile = useSidebarStore((s) => s.isMobile);
-  const isMobileOpen = useSidebarStore((s) => s.isMobileOpen);
-  const openMobileSidebar = useSidebarStore((s) => s.openMobileSidebar);
-  const closeMobileSidebar = useSidebarStore((s) => s.closeMobileSidebar);
-  const toggleMobileSidebar = useSidebarStore((s) => s.toggleMobileSidebar);
-
-  return {
-    sidebarConfig,
-    updateSidebarConfig,
-    resetSidebarConfig,
-    isMobile,
-    isMobileOpen,
-    openMobileSidebar,
-    closeMobileSidebar,
-    toggleMobileSidebar,
-  };
-};
+export const useSidebar = () =>
+  useSidebarStore(
+    useShallow((s) => ({
+      sidebarConfig: s.sidebarConfig,
+      updateSidebarConfig: s.updateSidebarConfig,
+      resetSidebarConfig: s.resetSidebarConfig,
+      isMobile: s.isMobile,
+      isMobileOpen: s.isMobileOpen,
+      openMobileSidebar: s.openMobileSidebar,
+      closeMobileSidebar: s.closeMobileSidebar,
+      toggleMobileSidebar: s.toggleMobileSidebar,
+    })),
+  );

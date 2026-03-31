@@ -307,7 +307,7 @@ const FeedbackPage = () => {
                   <div className="upload-images">
                     {images.map((img, idx) => (
                       <div key={idx} className="upload-image-item">
-                        <img src={img.url} alt={img.name} />
+                        <img src={img.url} alt={img.name} loading="lazy" />
                         <button 
                           type="button" 
                           className="upload-image-remove"

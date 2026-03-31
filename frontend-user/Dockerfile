@@ -3,9 +3,9 @@ FROM node:22-slim AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install with deterministic lockfile
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 # Copy source code
 COPY . .

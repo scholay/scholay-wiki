@@ -23,21 +23,19 @@ class ErrorBoundary extends Component {
   }
 
   static getDerivedStateFromError(error) {
-    // 更新 state 使下一次渲染能够显示降级后的 UI
     return { hasError: true, error };
   }
 
   componentDidCatch(error, errorInfo) {
-    // 记录错误信息
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     this.setState({ errorInfo });
-    
-    // 可以在这里将错误上报到错误监控服务
-    // 例如: Sentry, LogRocket 等
   }
 
   handleRetry = () => {
     this.setState({ hasError: false, error: null, errorInfo: null });
+    if (this.props.onReset) {
+      this.props.onReset();
+    }
   };
 
   handleGoHome = () => {
@@ -186,6 +184,49 @@ const styles = {
     wordBreak: 'break-word',
   },
 };
+
+const pageErrorFallback = (
+  <div style={{
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '50vh',
+    padding: '40px 20px',
+    textAlign: 'center',
+    color: 'var(--text-secondary, #9ca3af)',
+  }}>
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary, #6b7280)" strokeWidth="1.5">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+    <p style={{ marginTop: 16, fontSize: 15, lineHeight: 1.6 }}>
+      该模块加载出现问题
+    </p>
+    <button
+      onClick={() => window.location.reload()}
+      style={{
+        marginTop: 16,
+        padding: '8px 20px',
+        fontSize: 14,
+        color: '#fff',
+        backgroundColor: 'var(--primary-solid, #10a37f)',
+        border: 'none',
+        borderRadius: 8,
+        cursor: 'pointer',
+      }}
+    >
+      刷新页面
+    </button>
+  </div>
+);
+
+export const PageErrorBoundary = ({ children }) => (
+  <ErrorBoundary fallback={pageErrorFallback}>
+    {children}
+  </ErrorBoundary>
+);
 
 export default ErrorBoundary;
 

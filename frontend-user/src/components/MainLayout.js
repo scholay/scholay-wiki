@@ -22,7 +22,7 @@
  * - 某些页面可以选择不显示通用顶部栏（通过 hideTopNav 参数）
  */
 
-import React, { useState, lazy, Suspense } from 'react';
+import React, { useState, useCallback, lazy, Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useSidebar } from '../stores/sidebar.store';
@@ -45,75 +45,27 @@ const MainLayout = () => {
   // 登录弹窗状态
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  const handleOpenDrawer = () => {
+  const handleOpenDrawer = useCallback(() => {
     setIsDrawerOpen(true);
-  };
+  }, []);
 
-  const handleCloseDrawer = () => {
+  const handleCloseDrawer = useCallback(() => {
     setIsDrawerOpen(false);
-  };
+  }, []);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     logout();
-  };
+  }, [logout]);
   
-  const handleShowLogin = () => {
+  const handleShowLogin = useCallback(() => {
     setShowAuthModal(true);
-  };
+  }, []);
   
-  const handleLoginSuccess = () => {
+  const handleLoginSuccess = useCallback(() => {
     setShowAuthModal(false);
-  };
+  }, []);
 
-  // 根据当前路径生成面包屑
-  const getBreadcrumbs = () => {
-    const path = location.pathname;
-    const breadcrumbs = [{ label: '首页', path: '/' }];
-    
-    if (path === '/search-results') {
-      const searchParams = new URLSearchParams(window.location.search);
-      if (searchParams.get('mode') === 'ai') {
-        breadcrumbs.push({ label: '智能分析' });
-      } else {
-        breadcrumbs.push({ label: '学术检索' });
-      }
-    } else if (path === '/assistant') {
-      breadcrumbs.push({ label: '精品AI工具' });
-    } else if (path === '/chat') {
-      breadcrumbs.push({ label: '精品AI工具', path: '/assistant' });
-      breadcrumbs.push({ label: 'AI 聊天' });
-    } else if (path === '/peer-review') {
-      breadcrumbs.push({ label: '精品AI工具', path: '/assistant' });
-      breadcrumbs.push({ label: '同行评审' });
-    } else if (path === '/settings') {
-      breadcrumbs.push({ label: '设置' });
-    } else if (path.startsWith('/paper/')) {
-      breadcrumbs.push({ label: '论文详情' });
-    } else if (path === '/pricing') {
-      breadcrumbs.push({ label: '功能介绍' });
-    } else if (path === '/feedback') {
-      breadcrumbs.push({ label: '意见反馈' });
-    } else if (path === '/about') {
-      breadcrumbs.push({ label: '关于我们' });
-    } else if (path === '/blog') {
-      breadcrumbs.push({ label: '博客' });
-    } else if (path.startsWith('/blog/')) {
-      breadcrumbs.push({ label: '博客', path: '/blog' });
-      breadcrumbs.push({ label: '文章详情' });
-    }
-    
-    // 首页不显示面包屑
-    if (path === '/') {
-      return [];
-    }
-    
-    return breadcrumbs;
-  };
-
-  // 根据路由决定是否显示通用顶部栏
-  // paper 详情页有自己的 pd-top-header，不需要显示 MainLayout 的 TopNavBar
-  const isPaperDetailPage = location.pathname.startsWith('/paper/');
-  const showTopNav = !isPaperDetailPage;
+  const showTopNav = !location.pathname.startsWith('/paper/');
 
   return (
     <div className="main-layout">
@@ -125,7 +77,6 @@ const MainLayout = () => {
           onMenuClick={handleOpenDrawer}
           onShowLogin={handleShowLogin}
           onLogout={handleLogout}
-          breadcrumbs={getBreadcrumbs()}
         />
       )}
 
@@ -143,14 +94,7 @@ const MainLayout = () => {
       <DrawerSidebar
         isOpen={isDrawerOpen}
         onClose={handleCloseDrawer}
-        showHistory={sidebarConfig.showHistory}
-        historyType={sidebarConfig.historyType}
-        historyItems={sidebarConfig.historyItems}
-        currentItemId={sidebarConfig.currentItemId}
-        onSelectItem={sidebarConfig.onSelectItem}
-        onDeleteItem={sidebarConfig.onDeleteItem}
-        onRenameItem={sidebarConfig.onRenameItem}
-        historyLoading={sidebarConfig.historyLoading}
+        sidebarConfig={sidebarConfig}
       />
       
       {/* 全局底部导航栏 - 法律链接和版权信息 */}

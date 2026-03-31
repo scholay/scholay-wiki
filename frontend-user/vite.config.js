@@ -41,7 +41,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
-          ui: ['framer-motion', 'lucide-react', 'recharts'],
+          ui: ['framer-motion', 'lucide-react'],
           editor: [
             'codemirror',
             '@codemirror/commands',

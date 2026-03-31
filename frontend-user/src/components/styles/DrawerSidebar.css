@@ -423,6 +423,7 @@
 
 /* ========== 历史菜单弹窗 - 与 AppSidebar 一致 ========== */
 .drawer-history-menu-popup {
+  z-index: var(--z-tooltip);
   background: rgba(47, 47, 47, 0.9);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);

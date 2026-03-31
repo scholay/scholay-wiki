@@ -378,6 +378,7 @@
 
 /* ========== 用户菜单弹窗 - 卡片分层式设计 ========== */
 .top-nav-user-menu {
+  z-index: var(--z-modal);
   width: 320px;
   background: #ffffff;
   border-radius: 20px;

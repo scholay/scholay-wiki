@@ -365,7 +365,7 @@ const FeedbackManagement = () => {
                           className="preview-image-item"
                           onClick={() => setPreviewImage(getFullUrl(att.url))}
                         >
-                          <img src={getFullUrl(att.url)} alt={att.name} />
+                          <img src={getFullUrl(att.url)} alt={att.name} loading="lazy" />
                           <div className="preview-image-overlay">
                             <span>点击预览</span>
                           </div>

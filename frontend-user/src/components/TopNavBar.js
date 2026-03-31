@@ -257,7 +257,6 @@ const TopNavBar = ({
             position: 'fixed',
             top: `${menuPosition.top}px`,
             right: `${menuPosition.right}px`,
-            zIndex: 10000
           }}
         >
           {/* 卡片1: 用户信息 */}

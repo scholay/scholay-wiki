@@ -40,7 +40,6 @@ function PreviewCard({ preview, fullText }) {
         left: `${left}px`,
         width: `${popupWidth}px`,
         maxHeight: `${popupMaxHeight}px`,
-        zIndex: 99999,
       });
     }
   };

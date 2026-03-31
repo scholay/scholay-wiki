@@ -342,6 +342,7 @@
 
 /* Portal 弹窗 - 挂载到 body */
 .prvr-preview-popup-portal {
+  z-index: var(--z-toast);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;

@@ -6,29 +6,37 @@
  * All Rights Reserved.
  * ============================================================================
  *
- * AuthProvider – lifecycle shell for auth init, token refresh & WebSocket.
- * All state lives in useAuthStore (Zustand); this Provider only drives
- * side-effects that require the React tree (init, cleanup, event listeners).
+ * Auth module – pure Zustand, no React Context.
+ *
+ * AuthBootstrap  – side-effect shell (token refresh, WebSocket, visibility).
+ *                  Renders nothing; place as a sibling in the component tree.
+ * useAuth()      – thin wrapper around useAuthStore with shallow equality,
+ *                  drop-in replacement for the old Context-based hook.
  */
 
-import React, { createContext, useContext, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { userAPI } from '../services/user.api';
 import wsClient from '../services/websocket';
 import logger from './logger';
-import { useAuthStore } from '../stores/auth.store';
+import { useAuthStore, registerSessionController } from '../stores/auth.store';
 
-const AuthContext = createContext(null);
-
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
 const TOKEN_REFRESH_CONFIG = {
   CHECK_INTERVAL: 300000,
   REFRESH_THRESHOLD: 7200,
 };
 
-export const AuthProvider = ({ children }) => {
+// ---------------------------------------------------------------------------
+// AuthBootstrap – manages side-effects only, renders null.
+// ---------------------------------------------------------------------------
+export const AuthBootstrap = () => {
   const tokenRefreshIntervalRef = useRef(null);
   const isRefreshingTokenRef = useRef(false);
-  const startSessionRef = useRef(null);
 
+  // ---- token refresh helpers ----
   const refreshToken = useCallback(async () => {
     const token = localStorage.getItem('user_token');
     if (!token || isRefreshingTokenRef.current) return false;
@@ -99,6 +107,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  // ---- visibility / WebSocket helpers ----
   const handleVisibilityChange = useCallback(() => {
     if (document.visibilityState === 'visible') {
       if (!wsClient.getStatus().isConnected && !wsClient.getStatus().isConnecting) {
@@ -126,10 +135,6 @@ export const AuthProvider = ({ children }) => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
   }, [handleVisibilityChange]);
 
-  useEffect(() => {
-    startSessionRef.current = startSession;
-  }, [startSession]);
-
   const stopSession = useCallback(() => {
     stopTokenRefresh();
     document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -137,7 +142,13 @@ export const AuthProvider = ({ children }) => {
     setTimeout(() => wsClient.connect(null), 100);
   }, [stopTokenRefresh, handleVisibilityChange]);
 
-  // ---------- Initialization ----------
+  // ---- Register session controller so store actions can drive side-effects ----
+  useEffect(() => {
+    registerSessionController({ start: startSession, stop: stopSession, startGuest: startGuestSession });
+    return () => registerSessionController(null);
+  }, [startSession, stopSession, startGuestSession]);
+
+  // ---- Initialization ----
   useEffect(() => {
     const { setAuth, clearAuth, setLoading } = useAuthStore.getState();
 
@@ -205,57 +216,23 @@ export const AuthProvider = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---------- Actions exposed via context ----------
-  const login = useCallback(
-    async (token, userData) => {
-      useAuthStore.getState().setAuth(userData, token);
-      startSession();
-    },
-    [startSession],
-  );
-
-  const logout = useCallback(async () => {
-    stopSession();
-    try {
-      await userAPI.logout();
-    } catch (error) {
-      logger.error('Logout API call failed:', error);
-    }
-    useAuthStore.getState().clearAuth();
-  }, [stopSession]);
-
-  const updateUser = useCallback((userData) => {
-    useAuthStore.getState().setUser(userData);
-  }, []);
-
-  const refreshUser = useCallback(async () => {
-    try {
-      const profileResponse = await userAPI.getProfile();
-      if (profileResponse.data.code === 0 && profileResponse.data.data) {
-        const userData = profileResponse.data.data;
-        useAuthStore.getState().setUser(userData);
-        return userData;
-      }
-    } catch (error) {
-      logger.error('Failed to refresh user data:', error);
-    }
-    return null;
-  }, []);
-
-  // Read state from Zustand (single source of truth)
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const user = useAuthStore((s) => s.user);
-  const loading = useAuthStore((s) => s.loading);
-
-  const value = { isAuthenticated, user, login, logout, updateUser, refreshUser, loading };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return null;
 };
 
+// ---------------------------------------------------------------------------
+// useAuth – drop-in replacement, backed by Zustand with shallow equality.
+// ---------------------------------------------------------------------------
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  return useAuthStore(
+    useShallow((s) => ({
+      isAuthenticated: s.isAuthenticated,
+      user: s.user,
+      loading: s.loading,
+      login: s.login,
+      logout: s.logout,
+      updateUser: s.updateUser,
+      refreshUser: s.refreshUser,
+    })),
+  );
 };
+
