@@ -16,7 +16,7 @@ import ReactDOM from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { NormalSearchIcon } from './SearchIcons';
 import Logo from './Logo';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../stores/theme.store';
 import { X } from 'lucide-react';
 import './styles/DrawerSidebar.css';
 

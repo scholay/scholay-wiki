@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../stores/theme.store';
 
 /**
  * Logo 组件

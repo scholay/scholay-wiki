@@ -10,6 +10,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { adminAPI } from '../services/api';
+import { configAPI } from '../../services/payment.api';
 import { showToast } from '../components/Toast';
 import VerifyPasswordModal from '../components/VerifyPasswordModal';
 import SensitiveField from '../components/SensitiveField';
@@ -950,12 +951,11 @@ const SystemSettings = () => {
   // === 隐私政策管理 ===
   const loadPrivacyPolicy = async () => {
     try {
-      const response = await fetch('/api/v1/config/privacy-policy');
-      const data = await response.json();
-      if (data.code === 0 && data.data) {
+      const response = await configAPI.getPrivacyPolicy();
+      if (response.data.code === 0 && response.data.data) {
         setPrivacyPolicy({
-          content: data.data.content || '',
-          version: data.data.version || '',
+          content: response.data.data.content || '',
+          version: response.data.data.version || '',
         });
       }
     } catch (err) {
@@ -995,12 +995,11 @@ const SystemSettings = () => {
   // === 服务条款管理 ===
   const loadTermsOfService = async () => {
     try {
-      const response = await fetch('/api/v1/config/terms-of-service');
-      const data = await response.json();
-      if (data.code === 0 && data.data) {
+      const response = await configAPI.getTermsOfService();
+      if (response.data.code === 0 && response.data.data) {
         setTermsOfService({
-          content: data.data.content || '',
-          version: data.data.version || '',
+          content: response.data.data.content || '',
+          version: response.data.data.version || '',
         });
       }
     } catch (err) {
@@ -1040,14 +1039,14 @@ const SystemSettings = () => {
   // === 系统配置管理 ===
   const loadSystemConfig = async () => {
     try {
-      const response = await fetch('/api/v1/config/system');
-      const data = await response.json();
-      if (data.code === 0 && data.data) {
+      const response = await configAPI.getSystemConfig();
+      if (response.data.code === 0 && response.data.data) {
+        const d = response.data.data;
         setSystemConfig({
-          requireEmailVerification: data.data.require_email_verification ?? true,
-          enableTurnstile: data.data.enable_turnstile ?? false,
-          turnstileSiteKey: data.data.turnstile_site_key ?? '',
-          turnstileSecretKey: data.data.turnstile_secret_key ?? '',
+          requireEmailVerification: d.require_email_verification ?? true,
+          enableTurnstile: d.enable_turnstile ?? false,
+          turnstileSiteKey: d.turnstile_site_key ?? '',
+          turnstileSecretKey: d.turnstile_secret_key ?? '',
         });
       }
     } catch (err) {

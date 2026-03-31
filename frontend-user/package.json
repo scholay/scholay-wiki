@@ -33,6 +33,7 @@
     "jspdf": "^2.5.1",
     "lucide-react": "^0.554.0",
     "pdfjs-dist": "^5.4.296",
+    "prop-types": "^15.8.1",
     "pptxgenjs": "^3.12.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -40,7 +41,6 @@
     "react-markdown": "^10.1.0",
     "react-pdf": "^10.2.0",
     "react-router-dom": "^6.20.1",
-    "react-scripts": "5.0.1",
     "react-scroll-to-bottom": "^4.2.0",
     "recharts": "^3.8.1",
     "rehype-highlight": "^7.0.2",
@@ -59,12 +59,6 @@
     "postbuild": "node scripts/generate-seo-pages.js",
     "preview": "vite preview",
     "test": "vitest"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
   },
   "browserslist": {
     "production": [

@@ -10,6 +10,7 @@
 import React, { forwardRef, useImperativeHandle, useRef, useState, useEffect } from 'react';
 import { Turnstile } from '@marsidev/react-turnstile';
 import logger from '../utils/logger';
+import { configAPI } from '../services';
 import './TurnstileCaptcha.css';
 
 /**
@@ -29,18 +30,16 @@ const TurnstileCaptcha = forwardRef(({ onSuccess, onFail, onExpire, theme = 'dar
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch system configuration on mount
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const response = await fetch('/api/v1/config/system');
-        const data = await response.json();
+        const response = await configAPI.getSystemConfig();
+        const data = response.data;
         if (data.code === 0 && data.data) {
           setConfig(data.data);
         }
       } catch (err) {
         logger.error('[Turnstile] Failed to load system config:', err);
-        // Use fallback config if fetch fails
         setConfig({
           enable_turnstile: false,
           turnstile_site_key: '1x00000000000000000000AA'

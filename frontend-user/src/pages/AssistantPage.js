@@ -9,7 +9,7 @@
 
 import React, { useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSidebar } from '../contexts/SidebarContext';
+import { useSidebar } from '../stores/sidebar.store';
 import { trackAIAssistantChat } from '../utils/usageTracker';
 import SEO from '../components/SEO';
 import './styles/AssistantPage.css';

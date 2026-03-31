@@ -10,7 +10,7 @@
 import React, { useState, useRef, useEffect, lazy, Suspense, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../stores/theme.store';
 import SearchFilters from '../components/SearchFilters';
 import ModelSelector from '../components/ModelSelector';
 import MobileHelpModal from '../components/MobileHelpModal';

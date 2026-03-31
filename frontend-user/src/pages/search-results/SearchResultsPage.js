@@ -42,7 +42,7 @@ import '../styles/search-results/index.css';
 
 // 懒加载组件
 const AuthModal = lazy(() => import('../../components/AuthModal'));
-const AISearchView = lazy(() => import('../../components/AISearchView'));
+const AISearchView = lazy(() => import('../../components/ai-search/AISearchView'));
 
 // 搜索示例数据
 const searchExamples = [

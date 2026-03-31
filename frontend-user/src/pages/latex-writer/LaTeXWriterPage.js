@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef, lazy, Suspense, useMemo } from 'react';
-import { useSidebar } from '../../contexts/SidebarContext';
+import { useSidebar } from '../../stores/sidebar.store';
 import { useAuth } from '../../utils/AuthContext';
 import FileTree from '../../components/latex-writer/FileTree';
 import LatexEditor from '../../components/latex-writer/LatexEditor';

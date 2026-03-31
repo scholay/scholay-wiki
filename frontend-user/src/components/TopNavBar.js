@@ -18,7 +18,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Menu } from 'lucide-react';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../stores/theme.store';
 import ThemeToggle from './ThemeToggle';
 import { NormalSearchIcon } from './SearchIcons';
 import MessageDropdown from './MessageDropdown';

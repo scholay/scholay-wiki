@@ -15,7 +15,7 @@ import { useAuth } from '../../utils/AuthContext';
 import { LatexAiAgent, LatexCommands } from './ai';
 import { parseAiMessage, parseStreamingMessage, calculateCodeDiff } from './ai/MessageParser';
 import { useLatexConversation } from './hooks/useLatexConversation';
-import DiffViewer from './DiffViewer';
+import DiffViewer from './SimpleDiffViewer';
 import PermissionDialog from './PermissionDialog';
 import ToolCallDisplay, { ToolCallIndicator } from './ToolCallDisplay';
 import ThinkingPanel from './ThinkingPanel';

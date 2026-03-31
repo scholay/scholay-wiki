@@ -175,8 +175,8 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
     try {
       const response = await userAPI.loginWithEmail(email, password, turnstileToken);
       if (response.data.code === 0) {
-        const { access_token, refresh_token, user } = response.data.data;
-        login(access_token, refresh_token, user);
+        const { token, user } = response.data.data;
+        login(token, user);
         showSuccess('登录成功');
         onSuccess?.();
         return true;
@@ -219,8 +219,8 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
         : await userAPI.loginWithPhone(phone, password, turnstileToken);
 
       if (response.data.code === 0) {
-        const { access_token, refresh_token, user } = response.data.data;
-        login(access_token, refresh_token, user);
+        const { token, user } = response.data.data;
+        login(token, user);
         showSuccess('登录成功');
         onSuccess?.();
         return true;
@@ -270,8 +270,8 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
         turnstileToken
       );
       if (response.data.code === 0) {
-        const { access_token, refresh_token, user } = response.data.data;
-        login(access_token, refresh_token, user);
+        const { token, user } = response.data.data;
+        login(token, user);
         showSuccess('注册成功');
         onSuccess?.();
         return true;
@@ -321,8 +321,8 @@ const useAuthForm = ({ onSuccess, showError, showSuccess, login }) => {
         turnstileToken
       );
       if (response.data.code === 0) {
-        const { access_token, refresh_token, user } = response.data.data;
-        login(access_token, refresh_token, user);
+        const { token, user } = response.data.data;
+        login(token, user);
         showSuccess('注册成功');
         onSuccess?.();
         return true;

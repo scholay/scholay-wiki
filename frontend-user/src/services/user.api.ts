@@ -3,14 +3,52 @@ import type { ApiResult } from '../types/api';
 import type { User, TokenInfo } from '../types/user';
 
 export const userAPI = {
-  sendVerificationCode: (email: string, purpose: string) =>
-    api.post('/user/send-code', { email, purpose }),
+  sendVerificationCode: (email: string, purpose: string, turnstileToken?: string) =>
+    api.post('/user/send-code', { email, purpose, turnstile_token: turnstileToken }),
 
-  register: (email: string, password: string, code: string) =>
-    api.post('/user/register', { email, password, code }),
+  register: (email: string, password: string, code: string, invitationCode?: string, turnstileToken?: string) =>
+    api.post('/user/register', { email, password, code, invitation_code: invitationCode, turnstile_token: turnstileToken }),
 
-  login: (email: string, password: string): Promise<ApiResult<{ token: string; user: User }>> =>
-    api.post('/user/login', { email, password }),
+  login: (email: string, password: string, turnstileToken?: string): Promise<ApiResult<{ token: string; user: User }>> =>
+    api.post('/user/login', { email, password, turnstile_token: turnstileToken }),
+
+  // Aliases used by useAuthForm hook
+  sendEmailCode: (email: string, purpose: string, turnstileToken?: string) =>
+    api.post('/user/send-code', { email, purpose, turnstile_token: turnstileToken }),
+
+  loginWithEmail: (email: string, password: string, turnstileToken?: string): Promise<ApiResult<{ token: string; user: User }>> =>
+    api.post('/user/login', { email, password, turnstile_token: turnstileToken }),
+
+  registerWithEmail: (email: string, password: string, code: string, invitationCode?: string, turnstileToken?: string) =>
+    api.post('/user/register', { email, password, code, invitation_code: invitationCode, turnstile_token: turnstileToken }),
+
+  // Phone-based auth
+  sendPhoneCode: (phone: string, purpose: string, turnstileToken?: string) =>
+    api.post('/user/send-phone-code', { phone, purpose, turnstile_token: turnstileToken }),
+
+  registerWithPhone: (phone: string, password: string, code: string, invitationCode?: string, turnstileToken?: string) =>
+    api.post('/user/register-phone', { phone, password, code, invitation_code: invitationCode }),
+
+  loginWithPhone: (phone: string, password: string, turnstileToken?: string): Promise<ApiResult<{ token: string; user: User }>> =>
+    api.post('/user/login-phone', { phone, password }),
+
+  loginWithPhoneCode: (phone: string, code: string, turnstileToken?: string): Promise<ApiResult<{ token: string; user: User }>> =>
+    api.post('/user/login-phone-with-code', { phone, code, turnstile_token: turnstileToken }),
+
+  checkEmail: (email: string) =>
+    api.post('/user/check-email', { email }),
+
+  checkPhone: (phone: string) =>
+    api.post('/user/check-phone', { phone }),
+
+  loginWithCode: (email: string, code: string, turnstileToken?: string) =>
+    api.post('/user/login-with-code', { email, code, turnstile_token: turnstileToken }),
+
+  resetPassword: (email: string, code: string, newPassword: string) =>
+    api.post('/user/reset-password', { email, code, new_password: newPassword }),
+
+  resetPasswordPhone: (phone: string, code: string, newPassword: string) =>
+    api.post('/user/reset-password-phone', { phone, code, new_password: newPassword }),
 
   logout: () => api.post('/user/logout'),
 

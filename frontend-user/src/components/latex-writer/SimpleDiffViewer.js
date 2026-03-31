@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
-import './DiffViewer.css';
+import './SimpleDiffViewer.css';
 
 // 简单的 diff 算法
 function computeDiff(oldText, newText) {

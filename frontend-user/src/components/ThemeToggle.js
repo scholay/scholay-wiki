@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../stores/theme.store';
 import './ThemeToggle.css';
 
 const ThemeToggle = () => {

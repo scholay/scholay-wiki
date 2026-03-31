@@ -5,7 +5,7 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../utils/AuthContext';
-import { useSidebar } from '../../../contexts/SidebarContext';
+import { useSidebar } from '../../../stores/sidebar.store';
 import { publicScholarAPI } from '../../../services/scholar.api';
 import {
   getSearchQuery,

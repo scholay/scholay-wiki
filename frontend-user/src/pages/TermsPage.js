@@ -15,6 +15,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Logo from '../components/Logo';
 import SEO from '../components/SEO';
+import { configAPI } from '../services';
 import './styles/LegalPage.css';
 
 // 硬编码的服务条款 fallback 内容，确保页面始终有实质内容
@@ -116,22 +117,20 @@ const TermsPage = () => {
   const [updatedAt, setUpdatedAt] = useState('');
 
   useEffect(() => {
-    fetch('/api/v1/config/terms-of-service')
-      .then(res => res.json())
-      .then(data => {
+    configAPI.getTermsOfService()
+      .then(response => {
+        const data = response.data;
         if (data.code === 0 && data.data && data.data.content) {
           const apiContent = data.data.content;
           setContent(apiContent);
-          // 检测内容是否为 Markdown 格式（以 # 开头或包含 ## 标题标记）
           const looksLikeMarkdown = /^#\s|^##\s|\n##?\s/m.test(apiContent) && !/<h[1-6][\s>]/i.test(apiContent);
           setIsMarkdown(looksLikeMarkdown);
           setVersion(data.data.version || '');
           setUpdatedAt(data.data.updated_at || '');
         }
-        // 如果 API 失败或无内容，保持 fallback 内容（HTML 格式）
       })
       .catch(() => {
-        // 保持 fallback 内容
+        // keep fallback content
       })
       .finally(() => {
         setLoading(false);

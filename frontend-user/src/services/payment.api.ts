@@ -99,6 +99,7 @@ export const analysisDimensionAPI = {
 
 export const configAPI = {
   getPrivacyPolicy: () => api.get('/config/privacy-policy'),
+  getTermsOfService: () => api.get('/config/terms-of-service'),
   getSystemConfig: () => api.get('/config/system'),
   getCodeSnippets: () => api.get('/config/code-snippets'),
 };

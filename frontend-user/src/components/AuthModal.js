@@ -10,11 +10,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../utils/AuthContext';
 import { userAPI } from '../services/user.api';
+import { configAPI } from '../services/payment.api';
 import TurnstileCaptcha from './TurnstileCaptcha';
 import { useToast } from './ToastContainer';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-// 注：登录/注册不在新的15个功能追踪点中
 import logger from '../utils/logger';
 import './styles/auth-modal/index.css';
 
@@ -91,44 +91,36 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const [enableGithubOAuth, setEnableGithubOAuth] = useState(false);
   const [isComposing, setIsComposing] = useState(false); // 跟踪输入法状态
 
-  // 获取隐私协议、用户协议和系统配置
   useEffect(() => {
     if (isOpen) {
-      // 获取隐私协议
-      fetch('/api/v1/config/privacy-policy')
-        .then(res => res.json())
-        .then(data => {
-          if (data.code === 0 && data.data) {
-            setPrivacyContent(data.data.content);
+      configAPI.getPrivacyPolicy()
+        .then(res => {
+          if (res.data.code === 0 && res.data.data) {
+            setPrivacyContent(res.data.data.content);
           }
         })
         .catch(() => {
           setPrivacyContent('隐私协议加载失败');
         });
 
-      // 获取用户协议
-      fetch('/api/v1/config/terms-of-service')
-        .then(res => res.json())
-        .then(data => {
-          if (data.code === 0 && data.data) {
-            setTermsContent(data.data.content);
+      configAPI.getTermsOfService()
+        .then(res => {
+          if (res.data.code === 0 && res.data.data) {
+            setTermsContent(res.data.data.content);
           }
         })
         .catch(() => {
           setTermsContent('用户协议加载失败');
         });
 
-      // 获取系统配置
-      fetch('/api/v1/config/system')
-        .then(res => res.json())
-        .then(data => {
-          if (data.code === 0 && data.data) {
-            setRequireEmailVerification(data.data.require_email_verification ?? true);
-            const turnstileEnabled = data.data.enable_turnstile ?? false;
+      configAPI.getSystemConfig()
+        .then(res => {
+          if (res.data.code === 0 && res.data.data) {
+            const d = res.data.data;
+            setRequireEmailVerification(d.require_email_verification ?? true);
+            const turnstileEnabled = d.enable_turnstile ?? false;
             setEnableTurnstile(turnstileEnabled);
-            // GitHub login is available if client_id is configured
-            setEnableGithubOAuth(!!(data.data.github_client_id && data.data.github_client_id.trim() !== ''));
-            // If Turnstile is disabled, set a placeholder token to allow form submission
+            setEnableGithubOAuth(!!(d.github_client_id && d.github_client_id.trim() !== ''));
             if (!turnstileEnabled) {
               setTurnstileToken('disabled');
             }
@@ -138,7 +130,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
           setRequireEmailVerification(true);
           setEnableTurnstile(false);
           setEnableGithubOAuth(false);
-          // On error, assume Turnstile is disabled and set placeholder token
           setTurnstileToken('disabled');
         });
     }
@@ -209,22 +200,14 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     
 
     try {
-      const response = await fetch('/api/v1/user/check-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (data.code === 0) {
-        // 根据邮箱是否存在决定是登录还是注册
-        setMode(data.data.exists ? 'login' : 'register');
+      const response = await userAPI.checkEmail(email);
+      if (response.data.code === 0) {
+        setMode(response.data.data.exists ? 'login' : 'register');
       } else {
-        showError(data.message || '检查邮箱失败');
+        showError(response.data.message || '检查邮箱失败');
       }
     } catch (err) {
-      showError('网络错误，请稍后重试');
+      showError(err.response?.data?.message || '网络错误，请稍后重试');
     } finally {
       setLoading(false);
     }
@@ -238,22 +221,15 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
 
     try {
-      const response = await fetch('/api/v1/user/send-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, purpose }),
-      });
-
-      const data = await response.json();
-
-      if (data.code === 0) {
+      const response = await userAPI.sendVerificationCode(email, purpose);
+      if (response.data.code === 0) {
         setCountdown(60);
         showSuccess('验证码已发送');
       } else {
-        showError(data.message || '发送验证码失败');
+        showError(response.data.message || '发送验证码失败');
       }
     } catch (err) {
-      showError('网络错误，请稍后重试');
+      showError(err.response?.data?.message || '网络错误，请稍后重试');
     } finally {
       setLoading(false);
     }
@@ -281,20 +257,13 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
 
     try {
-      const response = await fetch('/api/v1/user/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, turnstile_token: turnstileToken }),
-      });
-
-      const data = await response.json();
-
-      if (data.code === 0) {
-        login(data.data.token, data.data.user);
-        if (onLoginSuccess) onLoginSuccess(data.data.user);
+      const response = await userAPI.login(email, password, turnstileToken);
+      if (response.data.code === 0) {
+        login(response.data.data.token, response.data.data.user);
+        if (onLoginSuccess) onLoginSuccess(response.data.data.user);
         handleClose();
       } else {
-        showError(data.message || '登录失败');
+        showError(response.data.message || '登录失败');
         // Reset captcha state to allow re-verification
         setTurnstileToken('');
         if (emailCaptchaRef.current) {
@@ -345,27 +314,13 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
 
     try {
-      const requestBody = {
-        email,
-        password,
-        code,
-        turnstile_token: turnstileToken
-      };
-
-      const response = await fetch('/api/v1/user/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-
-      const data = await response.json();
-
-      if (data.code === 0) {
-        login(data.data.token, data.data.user);
-        if (onLoginSuccess) onLoginSuccess(data.data.user);
+      const response = await userAPI.register(email, password, code, undefined, turnstileToken);
+      if (response.data.code === 0) {
+        login(response.data.data.token, response.data.data.user);
+        if (onLoginSuccess) onLoginSuccess(response.data.data.user);
         handleClose();
       } else {
-        showError(data.message || '注册失败');
+        showError(response.data.message || '注册失败');
         // Reset verification state but keep password and countdown
         setCode('');
         setTurnstileToken('');
@@ -399,22 +354,14 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     
 
     try {
-      const response = await fetch('/api/v1/user/check-phone', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
-      });
-
-      const data = await response.json();
-
-      if (data.code === 0) {
-        // 根据手机号是否存在决定是登录还是注册
-        setMode(data.data.exists ? 'phone-login' : 'phone-register');
+      const response = await userAPI.checkPhone(phone);
+      if (response.data.code === 0) {
+        setMode(response.data.data.exists ? 'phone-login' : 'phone-register');
       } else {
-        showError(data.message || '检查手机号失败');
+        showError(response.data.message || '检查手机号失败');
       }
     } catch (err) {
-      showError('网络错误,请稍后重试');
+      showError(err.response?.data?.message || '网络错误,请稍后重试');
     } finally {
       setLoading(false);
     }
@@ -428,22 +375,14 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     
 
     try {
-      const response = await fetch('/api/v1/user/send-phone-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, purpose }),
-      });
-
-      const data = await response.json();
-
-      if (data.code === 0) {
+      const response = await userAPI.sendPhoneCode(phone, purpose);
+      if (response.data.code === 0) {
         setCountdown(60);
-        
       } else {
-        showError(data.message || '发送验证码失败');
+        showError(response.data.message || '发送验证码失败');
       }
     } catch (err) {
-      showError('网络错误,请稍后重试');
+      showError(err.response?.data?.message || '网络错误,请稍后重试');
     } finally {
       setLoading(false);
     }
@@ -471,20 +410,13 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
 
     try {
-      const response = await fetch('/api/v1/user/login-phone', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password }),
-      });
-
-      const data = await response.json();
-
-      if (data.code === 0) {
-        login(data.data.token, data.data.user);
-        if (onLoginSuccess) onLoginSuccess(data.data.user);
+      const response = await userAPI.loginWithPhone(phone, password);
+      if (response.data.code === 0) {
+        login(response.data.data.token, response.data.data.user);
+        if (onLoginSuccess) onLoginSuccess(response.data.data.user);
         handleClose();
       } else {
-        showError(data.message || '登录失败');
+        showError(response.data.message || '登录失败');
         // Reset captcha state to allow re-verification
         setTurnstileToken('');
         if (phoneCaptchaRef.current) {
@@ -535,26 +467,13 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
 
     try {
-      const requestBody = {
-        phone,
-        password,
-        code
-      };
-
-      const response = await fetch('/api/v1/user/register-phone', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-
-      const data = await response.json();
-
-      if (data.code === 0) {
-        login(data.data.token, data.data.user);
-        if (onLoginSuccess) onLoginSuccess(data.data.user);
+      const response = await userAPI.registerWithPhone(phone, password, code);
+      if (response.data.code === 0) {
+        login(response.data.data.token, response.data.data.user);
+        if (onLoginSuccess) onLoginSuccess(response.data.data.user);
         handleClose();
       } else {
-        showError(data.message || '注册失败');
+        showError(response.data.message || '注册失败');
         setCode('');
         setTurnstileToken('');
         if (phoneCaptchaRef.current) {
@@ -593,25 +512,18 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/v1/user/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code, new_password: password }),
-      });
-
-      const data = await response.json();
-
-      if (data.code === 0) {
+      const response = await userAPI.resetPassword(email, code, password);
+      if (response.data.code === 0) {
         showSuccess('密码重置成功');
         setMode('login');
         setPassword('');
         setConfirmPassword('');
         setCode('');
       } else {
-        showError(data.message || '重置密码失败');
+        showError(response.data.message || '重置密码失败');
       }
     } catch (err) {
-      showError('网络错误，请稍后重试');
+      showError(err.response?.data?.message || '网络错误，请稍后重试');
     } finally {
       setLoading(false);
     }
@@ -637,25 +549,18 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/v1/user/reset-password-phone', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code, new_password: password }),
-      });
-
-      const data = await response.json();
-
-      if (data.code === 0) {
+      const response = await userAPI.resetPasswordPhone(phone, code, password);
+      if (response.data.code === 0) {
         showSuccess('密码重置成功');
         setMode('phone-login');
         setPassword('');
         setConfirmPassword('');
         setCode('');
       } else {
-        showError(data.message || '重置密码失败');
+        showError(response.data.message || '重置密码失败');
       }
     } catch (err) {
-      showError('网络错误，请稍后重试');
+      showError(err.response?.data?.message || '网络错误，请稍后重试');
     } finally {
       setLoading(false);
     }
@@ -682,20 +587,13 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/v1/user/login-phone-with-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code, turnstile_token: turnstileToken }),
-      });
-
-      const data = await response.json();
-
-      if (data.code === 0) {
-        login(data.data.token, data.data.user);
-        if (onLoginSuccess) onLoginSuccess(data.data.user);
+      const response = await userAPI.loginWithPhoneCode(phone, code, turnstileToken);
+      if (response.data.code === 0) {
+        login(response.data.data.token, response.data.data.user);
+        if (onLoginSuccess) onLoginSuccess(response.data.data.user);
         handleClose();
       } else {
-        showError(data.message || '登录失败');
+        showError(response.data.message || '登录失败');
         setCode('');
         setTurnstileToken('');
         if (phoneCaptchaRef.current) {

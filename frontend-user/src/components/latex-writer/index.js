@@ -12,6 +12,6 @@ export { default as LatexToolbar } from './LatexToolbar';
 export { default as FileTree } from './FileTree';
 export { default as PdfPreview } from './PdfPreview';
 export { default as AiChatPanel } from './AiChatPanel';
-export { default as DiffViewer } from './DiffViewer';
+export { default as SimpleDiffViewer } from './SimpleDiffViewer';
 export { default as PermissionDialog } from './PermissionDialog';
 export { default as ToolCallDisplay, ToolCallIndicator } from './ToolCallDisplay';

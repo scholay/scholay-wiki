@@ -12,7 +12,7 @@ import { flushSync } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { peerReviewAPI } from '../services/payment.api';
 import { useAuth } from '../utils/AuthContext';
-import { useSidebar } from '../contexts/SidebarContext';
+import { useSidebar } from '../stores/sidebar.store';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import MessageModal from '../components/MessageModal';
 import ReviewRadarChart from '../components/ReviewRadarChart';

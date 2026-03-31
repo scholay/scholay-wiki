@@ -14,8 +14,6 @@ import { HelmetProvider } from 'react-helmet-async';
 import { queryClient } from './services/queryClient';
 import { AuthProvider } from './utils/AuthContext';
 import { ToastProvider } from './components/ToastContainer';
-import { SidebarProvider } from './contexts/SidebarContext';
-import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import MainLayout from './components/MainLayout';
@@ -72,7 +70,7 @@ const lazyWithRetry = (componentImport, componentName = 'Component') => {
 
 // 其他页面使用懒加载 - 大幅减少初始bundle大小
 // 使用 lazyWithRetry 包装，处理 chunk 加载失败的情况
-const SearchResultsPage = lazyWithRetry(() => import('./pages/SearchResultsPage'), 'SearchResultsPage');
+const SearchResultsPage = lazyWithRetry(() => import('./pages/search-results/SearchResultsPage'), 'SearchResultsPage');
 const PaperDetailPage = lazyWithRetry(() => import('./pages/PaperDetailPage'), 'PaperDetailPage');
 const ChatPage = lazyWithRetry(() => import('./pages/ChatPage'), 'ChatPage');
 const PeerReviewPage = lazyWithRetry(() => import('./pages/PeerReviewPage'), 'PeerReviewPage');
@@ -140,10 +138,8 @@ function App() {
     <ErrorBoundary showDetails={process.env.NODE_ENV === 'development'}>
     <QueryClientProvider client={queryClient}>
     <HelmetProvider>
-      <ThemeProvider>
       <ToastProvider>
         <AuthProvider>
-            <SidebarProvider>
               <Router>
                 <Suspense fallback={null}>
                   <Routes>
@@ -274,10 +270,8 @@ function App() {
                   )}
                 </Suspense>
               </Router>
-            </SidebarProvider>
         </AuthProvider>
       </ToastProvider>
-    </ThemeProvider>
     </HelmetProvider>
     </QueryClientProvider>
     </ErrorBoundary>

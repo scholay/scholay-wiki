@@ -5,55 +5,12 @@
  * 统一社会信用代码: 91510100MAEEHRNE26
  * All Rights Reserved.
  * ============================================================================
+ *
+ * Admin API module – reuses the unified Axios client from services/client.ts
+ * so that token refresh, 401/403 handling, and base URL are consistent.
  */
 
-import axios from 'axios';
-
-// Use relative path so requests go through Nginx reverse proxy
-// In production, this will be '' (empty), making requests to /api/v1/*
-// In development, you can set REACT_APP_API_URL=http://localhost:8080 for direct backend access
-const API_URL = process.env.REACT_APP_API_URL || '';
-
-const api = axios.create({
-  baseURL: `${API_URL}/api/v1`,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-const handleAuthFailure = (message = '登录已失效，请重新登录') => {
-  localStorage.removeItem('user_token');
-  localStorage.removeItem('user_data');
-  window.dispatchEvent(new CustomEvent('auth:expired', {
-    detail: { message }
-  }));
-  window.location.href = '/';
-};
-
-// Request interceptor to add auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('user_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor to handle errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      handleAuthFailure(error.response?.data?.message);
-    }
-    return Promise.reject(error);
-  }
-);
+import api from '../../services/client';
 
 export const adminAPI = {
   login: (username, password) =>
@@ -102,7 +59,6 @@ export const adminAPI = {
   updateSystemConfig: (config) =>
     api.put('/admin/system-config', config),
 
-  // GitHub OAuth configuration
   getGithubConfig: () =>
     api.get('/admin/github-config'),
 
@@ -130,7 +86,6 @@ export const adminAPI = {
   deleteUser: (userId) =>
     api.delete(`/admin/users/${userId}`),
 
-  // 第三方账号管理
   getThirdPartyAccounts: (type = '', activeOnly = false) =>
     api.get('/admin/third-party-accounts', { params: { type, active: activeOnly } }),
 
@@ -155,7 +110,6 @@ export const adminAPI = {
   refreshThirdPartyAccountCache: () =>
     api.post('/admin/third-party-accounts/refresh-cache'),
 
-  // Prompt template management
   getPromptTemplates: () =>
     api.get('/admin/prompt-templates'),
 
@@ -171,7 +125,6 @@ export const adminAPI = {
   deletePromptTemplate: (id) =>
     api.delete(`/admin/prompt-templates/${id}`),
 
-  // 支付宝支付配置管理
   getAlipayConfigs: (showKeys = false) =>
     api.get('/admin/payment/alipay/configs', {
       params: showKeys ? { show_keys: 'true' } : {}
@@ -192,7 +145,6 @@ export const adminAPI = {
   activateAlipayConfig: (id) =>
     api.post(`/admin/payment/alipay/config/${id}/activate`),
 
-  // WeChat Pay configuration management
   getWeChatPayConfigs: (showKeys = false) =>
     api.get('/admin/payment/wechat/configs', {
       params: showKeys ? { show_keys: 'true' } : {}
@@ -213,7 +165,6 @@ export const adminAPI = {
   activateWeChatPayConfig: (id) =>
     api.post(`/admin/payment/wechat/config/${id}/activate`),
 
-  // WeChat OAuth configuration management
   getWeChatConfigs: (showSecret = false) =>
     api.get('/admin/wechat/configs', {
       params: showSecret ? { show_secret: 'true' } : {}
@@ -234,7 +185,6 @@ export const adminAPI = {
   activateWeChatConfig: (id) =>
     api.post(`/admin/wechat/config/${id}/activate`),
 
-  // WeChat Official Account configuration management
   getWeChatOfficialConfig: (showSensitive = false) =>
     api.get('/admin/wechat-official/config', {
       params: showSensitive ? { show_sensitive: 'true' } : {}
@@ -243,14 +193,12 @@ export const adminAPI = {
   updateWeChatOfficialConfig: (data) =>
     api.put('/admin/wechat-official/config', data),
 
-  // Analysis dimensions management (默认业务数据)
   getAnalysisDimensions: () =>
     api.get('/admin/analysis/dimensions'),
 
   updateAnalysisDimension: (id, data) =>
     api.put(`/admin/analysis/dimensions/${id}`, data),
 
-  // Feedback management
   getFeedbacks: (params = {}) => {
     const queryParams = {
       page: params.page || 1,
@@ -279,7 +227,6 @@ export const adminAPI = {
   deleteFeedback: (id) =>
     api.delete(`/admin/feedbacks/${id}`),
 
-  // Message management (站内信管理)
   getMessages: (params = {}) => {
     const queryParams = {
       page: params.page || 1,
@@ -303,7 +250,6 @@ export const adminAPI = {
   getMessageStats: () =>
     api.get('/admin/messages/stats'),
 
-  // Message template management (消息模板管理)
   getMessageTemplates: (params = {}) => {
     const queryParams = {
       page: params.page || 1,
@@ -327,7 +273,6 @@ export const adminAPI = {
   deleteMessageTemplate: (id) =>
     api.delete(`/admin/message-templates/${id}`),
 
-  // Code Snippets management (SEO/广告代码片段管理)
   getCodeSnippets: (category = '') =>
     api.get('/admin/code-snippets', { params: category ? { category } : {} }),
 
@@ -343,39 +288,27 @@ export const adminAPI = {
   deleteCodeSnippet: (id) =>
     api.delete(`/admin/code-snippets/${id}`),
 
-  // ============================================================================
-  // LaTeX Agent 配置管理
-  // ============================================================================
-
-  // 获取 LaTeX Agent 配置
   getLatexAgentConfig: () =>
     api.get('/admin/latex-agent/config'),
 
-  // 更新 LaTeX Agent 配置
   updateLatexAgentConfig: (data) =>
     api.put('/admin/latex-agent/config', data),
 
-  // 获取模型预设列表
   getLatexAgentModelPresets: () =>
     api.get('/admin/latex-agent/model-presets'),
 
-  // 获取配置选项（截断策略、工具分类等）
   getLatexAgentConfigOptions: () =>
     api.get('/admin/latex-agent/config-options'),
 
-  // 应用模型预设
   applyLatexAgentModelPreset: (provider, name) =>
     api.post('/admin/latex-agent/apply-preset', { provider, name }),
 
-  // 测试模型连接
   testLatexAgentConnection: () =>
     api.post('/admin/latex-agent/test-connection'),
 
-  // 获取支持的 API 格式
   getLatexAgentApiFormats: () =>
     api.get('/admin/latex-agent/api-formats'),
 
-  // LaTeX Agent 模型管理
   getLatexAgentModels: () =>
     api.get('/admin/latex-agent/models'),
 

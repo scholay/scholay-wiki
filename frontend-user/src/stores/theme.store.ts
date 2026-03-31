@@ -93,3 +93,15 @@ startAutoThemeTimer();
 // Derived selectors (avoid re-renders for unchanged values)
 export const selectIsDark = (s: ThemeStore) => s.theme === 'dark';
 export const selectIsLight = (s: ThemeStore) => s.theme === 'light';
+
+export const useTheme = () => {
+  const theme = useThemeStore((s) => s.theme);
+  const toggleTheme = useThemeStore((s) => s.toggleTheme);
+  const setTheme = useThemeStore((s) => s.setTheme);
+  const resetToAutoTheme = useThemeStore((s) => s.resetToAutoTheme);
+  const isUserPreference = useThemeStore((s) => s.isUserPreference);
+  const isDark = useThemeStore(selectIsDark);
+  const isLight = useThemeStore(selectIsLight);
+
+  return { theme, toggleTheme, setTheme, resetToAutoTheme, isUserPreference, isDark, isLight };
+};

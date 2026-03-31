@@ -8,14 +8,14 @@
  * 
  * ToastProvider - 统一提示系统
  * 
- * 包含两种提示：
- * 1. Toast - 轻提示（顶部中间，5秒自动关闭，可手动关闭）
- * 2. Confirm - 强制确认弹窗（屏幕中间，必须点击确认/取消）
+ * Toast 状态由 Zustand (toast.store) 驱动，此组件负责渲染 UI 和提供 confirm 弹窗。
+ * 在 React 外部（如 queryClient）可直接调用 useToastStore.getState().addToast()。
  */
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { Info, AlertTriangle, XCircle, CheckCircle, X } from 'lucide-react';
+import { useToastStore } from '../stores/toast.store';
 import './Toast.css';
 
 const ToastContext = createContext();
@@ -28,7 +28,6 @@ export const useToast = () => {
   return context;
 };
 
-// Toast 单个项组件
 const ToastItem = ({ id, message, type, duration, onClose }) => {
   const [isClosing, setIsClosing] = useState(false);
 
@@ -74,7 +73,6 @@ const ToastItem = ({ id, message, type, duration, onClose }) => {
   );
 };
 
-// 确认弹窗组件
 const ConfirmDialog = ({ type, title, message, confirmText, cancelText, showCancel, onConfirm, onCancel }) => {
   const [isClosing, setIsClosing] = useState(false);
 
@@ -124,19 +122,18 @@ const ConfirmDialog = ({ type, title, message, confirmText, cancelText, showCanc
 };
 
 export const ToastProvider = ({ children }) => {
-  const [toasts, setToasts] = useState([]);
+  const toasts = useToastStore((s) => s.toasts);
+  const addToast = useToastStore((s) => s.addToast);
+  const removeToast = useToastStore((s) => s.removeToast);
   const [confirmDialog, setConfirmDialog] = useState(null);
 
-  // Toast 方法
   const showToast = useCallback((message, type = 'info', duration = 5000) => {
-    const id = Date.now() + Math.random();
-    setToasts((prev) => [...prev, { id, message, type, duration }]);
-    return id;
-  }, []);
+    return addToast(type, message, duration);
+  }, [addToast]);
 
   const hideToast = useCallback((id) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  }, []);
+    removeToast(id);
+  }, [removeToast]);
 
   const showSuccess = useCallback((message, duration = 5000) => {
     return showToast(message, 'success', duration);
@@ -154,7 +151,6 @@ export const ToastProvider = ({ children }) => {
     return showToast(message, 'info', duration);
   }, [showToast]);
 
-  // 确认弹窗方法
   const showConfirm = useCallback((options) => {
     return new Promise((resolve) => {
       setConfirmDialog({
@@ -176,7 +172,6 @@ export const ToastProvider = ({ children }) => {
     });
   }, []);
 
-  // 快捷确认方法
   const confirm = {
     show: showConfirm,
     info: (message, options = {}) => showConfirm({ type: 'info', message, ...options }),
@@ -195,19 +190,16 @@ export const ToastProvider = ({ children }) => {
   return (
     <ToastContext.Provider
       value={{
-        // Toast 方法
         showToast,
         hideToast,
         showSuccess,
         showError,
         showWarning,
         showInfo,
-        // 确认弹窗
         confirm,
       }}
     >
       {children}
-      {/* Toast 容器 - 顶部中间 */}
       {ReactDOM.createPortal(
         <div className="toast-container">
           {toasts.map((toast) => (
@@ -223,7 +215,6 @@ export const ToastProvider = ({ children }) => {
         </div>,
         document.body
       )}
-      {/* 确认弹窗 */}
       {confirmDialog && <ConfirmDialog {...confirmDialog} />}
     </ToastContext.Provider>
   );

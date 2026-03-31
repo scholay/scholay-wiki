@@ -14,13 +14,14 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { useAuth } from '../utils/AuthContext';
-import { useSidebar } from '../contexts/SidebarContext';
+import { useSidebar } from '../stores/sidebar.store';
 import api from '../services/client';
+import { conversationAPI } from '../services/conversation.api';
 import { trackAIAssistantChat } from '../utils/usageTracker';
 import logger from '../utils/logger';
 import Logo from '../components/Logo';
 import SEO from '../components/SEO';
-import './ChatPageNew.css';
+import './ChatPage.css';
 import 'highlight.js/styles/github-dark.css';
 
 // 懒加载 AuthModal
@@ -641,20 +642,14 @@ function ChatPage() {
 
   const loadSiblings = async (messageId) => {
     try {
-      const response = await fetch(`/api/v1/user/conversations/messages/${messageId}/siblings`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('user_token')}`
-        }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
+      const response = await conversationAPI.getSiblingMessages(messageId);
+      if (response.data.code === 0) {
         setSiblingInfo(prev => ({
           ...prev,
           [messageId]: {
-            siblings: result.data.siblings,
-            currentIndex: result.data.current_index,
-            total: result.data.total
+            siblings: response.data.data.siblings,
+            currentIndex: response.data.data.current_index,
+            total: response.data.data.total
           }
         }));
       }
@@ -675,20 +670,13 @@ function ChatPage() {
     if (!targetMessage) return;
 
     try {
-      // Load complete branch chain for the target sibling
-      const response = await fetch(`/api/v1/user/conversations/messages/${targetMessage.message_id}/branch`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('user_token')}`
-        }
-      });
-
-      if (!response.ok) {
+      const response = await conversationAPI.getBranchChain(targetMessage.message_id);
+      if (response.data.code !== 0) {
         logger.error('Failed to load branch chain');
         return;
       }
 
-      const result = await response.json();
-      const branchChain = result.data;
+      const branchChain = response.data.data;
 
       if (!branchChain || branchChain.length === 0) {
         logger.error('Empty branch chain returned');
@@ -716,7 +704,7 @@ function ChatPage() {
 
   const deleteConversation = async (conversationId) => {
     try {
-      await api.delete(`/user/conversations/${conversationId}`);
+      await conversationAPI.deleteConversation(conversationId);
       await loadConversations();
       if (currentConversation?.id === conversationId) {
         setCurrentConversation(null);

@@ -25,7 +25,7 @@
 import React, { useState, lazy, Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
-import { useSidebar } from '../contexts/SidebarContext';
+import { useSidebar } from '../stores/sidebar.store';
 import TopNavBar from './TopNavBar';
 import DrawerSidebar from './DrawerSidebar';
 import SharedFooter from './SharedFooter';

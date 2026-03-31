@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../stores/theme.store';
 import './MobileHelpModal.css';
 
 const MobileHelpModal = ({ isOpen, onClose }) => {

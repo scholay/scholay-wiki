@@ -32,6 +32,9 @@ export const conversationAPI = {
   updateTitle: (conversationId: number | string, title: string) =>
     api.put(`/user/conversations/${conversationId}/title`, { title }),
 
+  renameConversation: (conversationId: number | string, title: string) =>
+    api.put(`/user/conversations/${conversationId}/title`, { title }),
+
   getSiblingMessages: (messageId: number | string) =>
     api.get(`/user/conversations/messages/${messageId}/siblings`),
 
