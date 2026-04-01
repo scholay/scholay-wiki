@@ -1,0 +1,32 @@
+# Build artifacts
+tmp/
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Documentation (not needed in Docker build)
+*.md
+SEMANTIC_SCHOLAR_API.md
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Docker
+Dockerfile
+
+# Git
+.git
+.gitignore
+
+# Logs
+*.log

@@ -3,31 +3,26 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /build
 
-# Install build dependencies
 RUN apk add --no-cache git gcc musl-dev
 
-# Set Go proxy for China (multiple fallback proxies)
 ENV GOPROXY=https://goproxy.io,https://goproxy.cn,https://proxy.golang.org,direct
 ENV GO111MODULE=on
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
-# Copy go mod files
-COPY go.mod ./
+# Copy dependency files first for better layer caching
+COPY go.mod go.sum ./
+RUN go mod download
 
-# Copy source code
+# Copy source code (changes more frequently, cached layer above stays)
 COPY . .
 
-# Generate go.sum and download dependencies
-RUN go mod tidy
-
-# Build the application
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/server
 
-# Runtime stage
-FROM alpine:latest
+# Runtime stage — pin Alpine version for reproducible builds
+FROM alpine:3.19
 
-RUN apk --no-cache add ca-certificates mysql-client tzdata pandoc && \
+RUN apk --no-cache add ca-certificates tzdata pandoc && \
     adduser -D -u 1001 appuser
 ENV TZ=Asia/Shanghai
 ENV LANG=C.UTF-8
@@ -35,7 +30,6 @@ ENV LC_ALL=C.UTF-8
 
 WORKDIR /app
 
-# Copy binary from builder
 COPY --from=builder /build/main .
 
 RUN chown appuser:appuser /app/main

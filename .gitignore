@@ -30,13 +30,19 @@ frontend-user/dist/
 # Testing
 coverage/
 
-# IDE
+# IDE and OS
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 .DS_Store
+
+# AI tool configs
+.claude/
+
+# Backup files
+*.bak
 
 # Logs
 logs/
