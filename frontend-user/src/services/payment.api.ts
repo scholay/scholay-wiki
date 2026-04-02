@@ -20,46 +20,78 @@ export const paymentAPI = {
     api.post('/user/payment/wechat/create', { order_no: orderNo, amount }),
 };
 
+// 获取匿名令牌（用于未登录用户的审稿）
+const getAnonToken = () => localStorage.getItem('peer_review_anon_token') || '';
+const setAnonToken = (token: string) => {
+  if (token) localStorage.setItem('peer_review_anon_token', token);
+};
+const clearAnonToken = () => localStorage.removeItem('peer_review_anon_token');
+
 export const peerReviewAPI = {
   getDraft: () => api.get('/user/peer-review/draft'),
   saveDraft: (data: any) => api.put('/user/peer-review/draft', data),
-  submitDraft: (targetVenue = '', modelLevel = 'mid') =>
-    api.post('/user/peer-review/draft/submit', {
+  submitDraft: (targetVenue = '', modelLevel = 'mid', isPrivate = false) => {
+    const anonToken = getAnonToken();
+    return api.post('/user/peer-review/draft/submit', {
       target_venue: targetVenue,
       model_level: modelLevel,
-    }),
+      anon_token: anonToken || undefined,
+      is_private: isPrivate,
+    });
+  },
 
   createTask: (data: any) => api.post('/user/peer-review/tasks', data),
   getTaskList: (page = 1, pageSize = 10, status = '', search = '') =>
     api.get('/user/peer-review/tasks', {
       params: { page, page_size: pageSize, status, search },
     }),
-  getTaskDetail: (taskId: number | string) =>
-    api.get(`/user/peer-review/tasks/${taskId}`),
-  getTaskProgress: (taskId: number | string) =>
-    api.get(`/user/peer-review/tasks/${taskId}/progress`),
-  getTaskSteps: (taskId: number | string) =>
-    api.get(`/user/peer-review/tasks/${taskId}/steps`),
+  getTaskDetail: (taskId: number | string) => {
+    const anonToken = getAnonToken();
+    return api.get(`/user/peer-review/tasks/${taskId}`, {
+      params: anonToken ? { anon_token: anonToken } : {},
+    });
+  },
+  getTaskProgress: (taskId: number | string) => {
+    const anonToken = getAnonToken();
+    return api.get(`/user/peer-review/tasks/${taskId}/progress`, {
+      params: anonToken ? { anon_token: anonToken } : {},
+    });
+  },
+  getTaskSteps: (taskId: number | string) => {
+    const anonToken = getAnonToken();
+    return api.get(`/user/peer-review/tasks/${taskId}/steps`, {
+      params: anonToken ? { anon_token: anonToken } : {},
+    });
+  },
 
   watchTaskProgress: (taskId: number | string) => {
     const token = localStorage.getItem('user_token');
+    const anonToken = getAnonToken();
+    const params = new URLSearchParams();
+    if (token) params.set('token', token);
+    if (anonToken) params.set('anon_token', anonToken);
     return new EventSource(
-      `${API_URL}/api/v1/user/peer-review/tasks/${taskId}/watch?token=${token}`,
+      `${API_URL}/api/v1/user/peer-review/tasks/${taskId}/watch?${params.toString()}`,
     );
   },
 
   deleteTask: (taskId: number | string) =>
     api.delete(`/user/peer-review/tasks/${taskId}`),
-  startTask: (taskId: number | string, targetVenue = '', modelLevel = 'mid') =>
-    api.post(`/user/peer-review/tasks/${taskId}/start`, {
+  startTask: (taskId: number | string, targetVenue = '', modelLevel = 'mid') => {
+    const anonToken = getAnonToken();
+    return api.post(`/user/peer-review/tasks/${taskId}/start`, {
       target_venue: targetVenue,
       model_level: modelLevel,
-    }),
+      anon_token: anonToken || undefined,
+    });
+  },
 
   uploadFile: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post('/user/peer-review/upload', formData, {
+    const anonToken = getAnonToken();
+    const params = anonToken ? `?anon_token=${anonToken}` : '';
+    return api.post(`/user/peer-review/upload${params}`, formData, {
       headers: { 'Content-Type': null as any },
     });
   },
@@ -76,6 +108,15 @@ export const peerReviewAPI = {
     api.delete(`/user/peer-review/attachments/${attachmentId}`),
   deleteManuscript: () => api.delete('/user/peer-review/manuscript'),
   clearDraft: () => api.delete('/user/peer-review/draft'),
+
+  // 认领匿名任务（登录后调用）
+  claimTask: (taskId: number | string, anonToken: string) =>
+    api.post('/user/peer-review/claim-task', { task_id: Number(taskId), anon_token: anonToken }),
+
+  // 工具方法
+  getAnonToken,
+  setAnonToken,
+  clearAnonToken,
 };
 
 export const analysisDimensionAPI = {

@@ -229,3 +229,63 @@ func AdminAuthMiddleware() gin.HandlerFunc {
 func UserAuthMiddleware() gin.HandlerFunc {
 	return AuthMiddleware("user")
 }
+
+// OptionalUserAuthMiddleware extracts user_id from JWT if present, but allows anonymous access.
+// If a valid token is provided, user_id is set in context. Otherwise, request proceeds without user_id.
+func OptionalUserAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var token string
+
+		authHeader := c.GetHeader("Authorization")
+		if authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				token = parts[1]
+			}
+		}
+
+		if token == "" {
+			token = c.Query("token")
+		}
+
+		// No token — proceed as anonymous
+		if token == "" {
+			c.Next()
+			return
+		}
+
+		claims, err := utils.ParseToken(token)
+		if err != nil {
+			// Invalid token — proceed as anonymous (don't reject)
+			c.Next()
+			return
+		}
+
+		if claims.Type != "user" {
+			c.Next()
+			return
+		}
+
+		// Validate session
+		if globalSessionValidator != nil {
+			if !globalSessionValidator.ValidateSession(c.Request.Context(), token) {
+				// Session invalid — proceed as anonymous
+				c.Next()
+				return
+			}
+		}
+
+		role := claims.Role
+		if role == "" {
+			role = "user"
+		}
+
+		c.Set("user_id", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Set("user_type", claims.Type)
+		c.Set("user_role", role)
+		c.Set("token", token)
+
+		c.Next()
+	}
+}

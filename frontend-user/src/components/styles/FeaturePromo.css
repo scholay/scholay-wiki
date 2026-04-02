@@ -1,0 +1,264 @@
+/* ============================================================================
+ * FeaturePromo — 通用功能推广组件样式
+ *
+ * 设计原则:
+ *   1. 使用全局 design tokens，融入任意页面上下文
+ *   2. 卡片支持 accent 色高亮与推荐标记
+ *   3. 响应式: 4-col → 2-col → 1-col
+ * ============================================================================ */
+
+/* ── Section 容器 ─────────────────────────────── */
+.fp-section {
+  margin: var(--space-10) 0;
+  padding: var(--space-9) var(--space-6);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--primary-solid) 5%, var(--bg-secondary));
+  border: 1px solid var(--border-light);
+}
+
+.fp-section--compact {
+  padding: var(--space-6) var(--space-5);
+  margin: var(--space-7) 0;
+}
+
+/* ── Header ───────────────────────────────────── */
+.fp-header {
+  text-align: center;
+  margin-bottom: var(--space-8);
+}
+
+.fp-header-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--primary-solid) 12%, transparent);
+  color: var(--primary-solid);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-bottom: var(--space-4);
+}
+
+.fp-header-title {
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-3);
+  line-height: 1.3;
+}
+
+.fp-header-desc {
+  font-size: var(--font-sm);
+  color: var(--text-tertiary);
+  margin: 0 auto;
+  max-width: var(--content-md);
+  line-height: 1.6;
+}
+
+/* ── Card Grid ────────────────────────────────── */
+.fp-grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.fp-grid--4 { grid-template-columns: repeat(4, 1fr); }
+.fp-grid--3 { grid-template-columns: repeat(3, 1fr); }
+.fp-grid--2 { grid-template-columns: repeat(2, 1fr); }
+.fp-grid--1 { grid-template-columns: 1fr; }
+
+/* ── Card ─────────────────────────────────────── */
+.fp-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition:
+    transform var(--duration-normal) var(--ease-default),
+    border-color var(--duration-normal) var(--ease-default),
+    box-shadow var(--duration-normal) var(--ease-default);
+}
+
+.fp-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--fp-accent, var(--primary-solid));
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.15),
+    0 0 0 1px var(--fp-accent, var(--primary-solid));
+}
+
+.fp-card:focus-visible {
+  outline: 2px solid var(--fp-accent, var(--primary-solid));
+  outline-offset: 2px;
+}
+
+/* Highlighted card */
+.fp-card--highlight {
+  border-color: color-mix(in srgb, var(--fp-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--fp-accent) 6%, var(--surface));
+}
+
+.fp-card--highlight::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--fp-accent) 15%, transparent),
+    transparent 60%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Card Icon ────────────────────────────────── */
+.fp-card-icon {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--fp-accent, var(--primary-solid)) 14%, transparent);
+  color: var(--fp-accent, var(--primary-solid));
+  flex-shrink: 0;
+}
+
+/* ── Card Body ────────────────────────────────── */
+.fp-card-body {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+}
+
+.fp-card-title {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-1);
+  line-height: 1.4;
+}
+
+.fp-card-desc {
+  font-size: var(--font-sm);
+  color: var(--text-tertiary);
+  margin: 0;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Card Actions ─────────────────────────────── */
+.fp-card-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+
+.fp-card-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+  border: none;
+  white-space: nowrap;
+}
+
+.fp-card-btn--primary {
+  background: var(--fp-accent, var(--primary-solid));
+  color: #fff;
+}
+
+.fp-card-btn--primary:hover {
+  filter: brightness(1.12);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--fp-accent, var(--primary-solid)) 35%, transparent);
+}
+
+.fp-card-btn--ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  padding: var(--space-2) var(--space-2);
+}
+
+.fp-card-btn--ghost:hover {
+  color: var(--text-primary);
+}
+
+/* ── Highlight Badge ──────────────────────────── */
+.fp-card-badge {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--fp-accent, var(--primary-solid));
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  z-index: 2;
+}
+
+/* ── Responsive ───────────────────────────────── */
+@media (max-width: 1024px) {
+  .fp-grid--4 { grid-template-columns: repeat(2, 1fr); }
+  .fp-grid--3 { grid-template-columns: repeat(2, 1fr); }
+
+  .fp-header-title { font-size: var(--font-xl); }
+}
+
+@media (max-width: 768px) {
+  .fp-section {
+    padding: var(--space-7) var(--space-4);
+    margin: var(--space-7) 0;
+    border-radius: var(--radius-lg);
+  }
+
+  .fp-grid--4,
+  .fp-grid--3,
+  .fp-grid--2 {
+    grid-template-columns: 1fr;
+  }
+
+  .fp-header { margin-bottom: var(--space-6); }
+  .fp-header-title { font-size: var(--font-lg); }
+
+  .fp-card { padding: var(--space-4); }
+}
+
+@media (max-width: 480px) {
+  .fp-section {
+    padding: var(--space-5) var(--space-3);
+    border-radius: var(--radius);
+  }
+}
+
+/* ── Reduced motion ───────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .fp-card {
+    transition: none;
+  }
+  .fp-card:hover {
+    transform: none;
+  }
+}

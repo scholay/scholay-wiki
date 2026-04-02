@@ -4,75 +4,120 @@
  * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
  * All Rights Reserved.
  * ============================================================================
+ *
+ * LaTeXFeaturePage.css — Styles specific to the ScholayPrism LaTeX Editor feature page
+ *
+ * Extends features-common.css with LaTeX-specific tokens and components.
+ * Uses scoped CSS custom properties for the red accent palette and
+ * code-editor syntax highlighting.
  */
 
+/* ========== LaTeX Page Tokens ========== */
 .feat-latex-page {
-  background: radial-gradient(120% 120% at 50% -10%, rgba(231, 76, 60, 0.14) 0%, #0c0404 48%, #030101 100%);
+  --latex-accent: #e74c3c;
+  --latex-accent-muted: rgba(231, 76, 60, 0.15);
+  --latex-accent-border: rgba(231, 76, 60, 0.3);
+
+  /* Syntax highlighting — scoped to avoid polluting global namespace */
+  --syntax-keyword: #c586c0;
+  --syntax-command: #569cd6;
+  --syntax-string: #ce9178;
+  --syntax-comment: rgba(255, 255, 255, 0.3);
+
+  background: radial-gradient(
+    120% 120% at 50% -10%,
+    rgba(231, 76, 60, 0.14) 0%,
+    #0c0404 48%,
+    var(--feat-bg) 100%
+  );
 }
 
+/* ========== Editor Mockup ========== */
 .feat-editor-mockup {
   display: grid;
   grid-template-columns: 160px 1fr 1fr;
   gap: 2px;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--feat-border);
+  background: var(--feat-surface);
   min-height: 280px;
 }
 
 .feat-mock-panel {
-  padding: 16px;
+  padding: var(--space-4);
   background: rgba(0, 0, 0, 0.3);
 }
 
 .feat-mock-panel-title {
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--feat-text-subtle);
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: 14px;
 }
 
+/* ========== File Tree ========== */
 .feat-mock-filetree {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-1);
 }
 
 .feat-mock-file {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-  transition: background 0.15s ease;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  color: var(--feat-text-subtle);
+  transition: background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
+  cursor: default;
+}
+
+.feat-mock-file:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--feat-text-muted);
 }
 
 .feat-mock-file.active {
-  background: rgba(231, 76, 60, 0.15);
-  color: #fff;
+  background: var(--latex-accent-muted);
+  color: var(--feat-text-bright);
 }
 
+/* ========== Code Panel ========== */
 .feat-mock-code {
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 12px;
+  font-size: var(--font-xs);
   line-height: 1.8;
   color: rgba(255, 255, 255, 0.75);
 }
 
-.feat-mock-code .kw { color: #c586c0; }
-.feat-mock-code .cmd { color: #569cd6; }
-.feat-mock-code .str { color: #ce9178; }
-.feat-mock-code .cmt { color: rgba(255, 255, 255, 0.3); font-style: italic; }
+.feat-mock-code .kw {
+  color: var(--syntax-keyword);
+}
 
+.feat-mock-code .cmd {
+  color: var(--syntax-command);
+}
+
+.feat-mock-code .str {
+  color: var(--syntax-string);
+}
+
+.feat-mock-code .cmt {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+
+/* ========== PDF Preview Panel ========== */
 .feat-mock-pdf {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-2);
   align-items: center;
   justify-content: center;
 }
@@ -80,28 +125,33 @@
 .feat-mock-pdf-line {
   height: 6px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--feat-surface-elevated);
 }
 
+/* ========== Template Cards ========== */
 .feat-templates {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4);
 }
 
 .feat-template-card {
-  padding: 24px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--feat-surface);
+  border: 1px solid var(--feat-border);
   text-align: center;
-  transition: all 0.25s ease;
+  transition: transform var(--duration-normal) var(--ease-default),
+    border-color var(--duration-normal) var(--ease-default),
+    background var(--duration-normal) var(--ease-default),
+    box-shadow var(--duration-normal) var(--ease-default);
 }
 
 .feat-template-card:hover {
   transform: translateY(-3px);
-  border-color: rgba(231, 76, 60, 0.3);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--latex-accent-border);
+  background: var(--feat-surface-hover);
+  box-shadow: 0 8px 24px rgba(231, 76, 60, 0.08);
 }
 
 .feat-template-icon {
@@ -112,82 +162,108 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: var(--font-xl);
   font-weight: 700;
-  color: #fff;
+  color: var(--feat-text-bright);
 }
 
 .feat-template-card h4 {
   font-size: 15px;
   font-weight: 600;
-  margin: 0 0 6px;
-  color: #fff;
+  margin: 0 0 var(--space-1);
+  color: var(--feat-text-bright);
 }
 
 .feat-template-card p {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--feat-text-subtle);
   margin: 0;
   line-height: 1.5;
 }
 
+/* ========== AI Capabilities Grid ========== */
 .feat-ai-capabilities {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .feat-ai-cap {
   display: flex;
   gap: 14px;
-  padding: 20px;
+  padding: var(--space-5);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  transition: all 0.2s ease;
+  border: 1px solid var(--feat-border-subtle);
+  transition: background var(--duration-normal) var(--ease-default),
+    border-color var(--duration-normal) var(--ease-default);
 }
 
 .feat-ai-cap:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: var(--feat-surface-hover);
+  border-color: var(--feat-border);
 }
 
 .feat-ai-cap-icon {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: #fff;
+  color: var(--feat-text-bright);
 }
 
 .feat-ai-cap h4 {
   font-size: 15px;
   font-weight: 600;
-  margin: 0 0 4px;
-  color: #fff;
+  margin: 0 0 var(--space-1);
+  color: var(--feat-text-bright);
 }
 
 .feat-ai-cap p {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--feat-text-subtle);
   margin: 0;
   line-height: 1.6;
 }
 
+/* ========== Reduced Motion ========== */
+@media (prefers-reduced-motion: reduce) {
+  .feat-template-card,
+  .feat-mock-file,
+  .feat-ai-cap {
+    transition: none;
+  }
+
+  .feat-template-card:hover {
+    transform: none;
+  }
+}
+
+/* ========== Responsive — Tablet (1024px) ========== */
 @media (max-width: 1024px) {
+  .feat-editor-mockup {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Hide the file tree panel on tablets — it's the first child */
+  .feat-mock-panel:first-child {
+    display: none;
+  }
+
+  .feat-ai-capabilities {
+    gap: var(--space-3);
+  }
+}
+
+/* ========== Responsive — Mobile (768px) ========== */
+@media (max-width: 768px) {
   .feat-editor-mockup {
     grid-template-columns: 1fr;
   }
 
-  .feat-mock-panel:first-child {
-    display: none;
-  }
-}
-
-@media (max-width: 768px) {
   .feat-ai-capabilities {
     grid-template-columns: 1fr;
   }
@@ -195,10 +271,24 @@
   .feat-templates {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  .feat-ai-cap {
+    padding: var(--space-4);
+  }
+
+  .feat-template-card {
+    padding: var(--space-5);
+  }
 }
 
+/* ========== Responsive — Small Mobile (375px) ========== */
 @media (max-width: 375px) {
   .feat-templates {
     grid-template-columns: 1fr;
+  }
+
+  .feat-ai-cap {
+    flex-direction: column;
+    gap: var(--space-3);
   }
 }

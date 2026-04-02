@@ -320,8 +320,8 @@ const AboutPage = () => {
               <a href="mailto:support@scholay.com">support@scholay.com</a>
             </div>
           </div>
-          <div className="about-content" style={{ marginTop: '12px' }}>
-            <p style={{ color: '#9e9e9e', fontSize: '0.9rem' }}>
+          <div className="about-content about-company-info">
+            <p>
               公司名称：成都恩特罐罐文化科技有限公司<br />
               地址：中国四川省成都市高新区<br />
               工作时间：周一至周五 9:00-18:00

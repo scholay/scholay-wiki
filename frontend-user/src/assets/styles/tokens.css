@@ -34,6 +34,15 @@
   --font-xl: 1.25rem;
   --font-2xl: 1.5rem;
   --font-3xl: 1.875rem;
+  --font-4xl: 2.25rem;
+  --font-5xl: 3rem;
+  --font-6xl: 3.25rem;
+
+  /* Content max-widths */
+  --content-sm: 640px;
+  --content-md: 768px;
+  --content-lg: 1000px;
+  --content-xl: 1200px;
 
   /* Animation timing */
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1);

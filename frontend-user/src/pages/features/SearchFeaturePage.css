@@ -4,72 +4,115 @@
  * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
  * All Rights Reserved.
  * ============================================================================
+ *
+ * SearchFeaturePage.css — Styles specific to the AI Academic Search feature page
+ *
+ * Extends features-common.css with search-specific tokens and components.
+ * Uses scoped CSS custom properties for the green accent palette.
  */
 
+/* ========== Search Page Tokens ========== */
 .feat-search-page {
-  background: radial-gradient(120% 120% at 50% -10%, rgba(16, 163, 127, 0.18) 0%, #04110c 48%, #010302 100%);
+  --search-accent: var(--primary-solid, #10a37f);
+  --search-accent-light: #6ef2c6;
+  --search-mode-direct-bg: rgba(16, 163, 127, 0.12);
+  --search-mode-direct-badge-bg: rgba(16, 163, 127, 0.2);
+  --search-mode-direct-badge-border: rgba(16, 163, 127, 0.3);
+  --search-mode-ai-accent: #6366f1;
+  --search-mode-ai-light: #a5b4fc;
+  --search-mode-ai-bg: rgba(99, 102, 241, 0.12);
+  --search-mode-ai-badge-bg: rgba(99, 102, 241, 0.2);
+  --search-mode-ai-badge-border: rgba(99, 102, 241, 0.3);
+
+  background: radial-gradient(
+    120% 120% at 50% -10%,
+    rgba(16, 163, 127, 0.18) 0%,
+    #04110c 48%,
+    var(--feat-bg) 100%
+  );
 }
 
+/* ========== Dual Mode Cards ========== */
 .feat-search-modes {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  gap: var(--space-6);
 }
 
 .feat-mode-card {
-  padding: 32px;
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-  transition: all 0.3s ease;
+  padding: var(--space-8);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--feat-border);
+  backdrop-filter: var(--feat-backdrop-blur-md);
+  transition: transform var(--duration-slow) var(--ease-default),
+    border-color var(--duration-slow) var(--ease-default),
+    box-shadow var(--duration-slow) var(--ease-default);
 }
 
 .feat-mode-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: var(--feat-border-hover);
 }
 
 .feat-mode-card.mode-direct {
-  background: linear-gradient(160deg, rgba(16, 163, 127, 0.12) 0%, rgba(4, 14, 10, 0.8) 60%);
+  background: linear-gradient(
+    160deg,
+    var(--search-mode-direct-bg) 0%,
+    rgba(4, 14, 10, 0.8) 60%
+  );
+}
+
+.feat-mode-card.mode-direct:hover {
+  box-shadow: 0 8px 32px rgba(16, 163, 127, 0.1);
 }
 
 .feat-mode-card.mode-ai {
-  background: linear-gradient(160deg, rgba(99, 102, 241, 0.12) 0%, rgba(6, 6, 20, 0.8) 60%);
+  background: linear-gradient(
+    160deg,
+    var(--search-mode-ai-bg) 0%,
+    rgba(6, 6, 20, 0.8) 60%
+  );
 }
 
+.feat-mode-card.mode-ai:hover {
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.1);
+}
+
+/* ========== Mode Badges ========== */
 .feat-mode-badge {
   display: inline-flex;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 12px;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-xs);
   font-weight: 600;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .mode-direct .feat-mode-badge {
-  background: rgba(16, 163, 127, 0.2);
-  color: #6ef2c6;
-  border: 1px solid rgba(16, 163, 127, 0.3);
+  background: var(--search-mode-direct-badge-bg);
+  color: var(--search-accent-light);
+  border: 1px solid var(--search-mode-direct-badge-border);
 }
 
 .mode-ai .feat-mode-badge {
-  background: rgba(99, 102, 241, 0.2);
-  color: #a5b4fc;
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: var(--search-mode-ai-badge-bg);
+  color: var(--search-mode-ai-light);
+  border: 1px solid var(--search-mode-ai-badge-border);
 }
 
+/* ========== Mode Card Content ========== */
 .feat-mode-card h3 {
-  font-size: 22px;
+  font-size: var(--font-xl);
   font-weight: 600;
-  margin: 0 0 10px;
-  color: #fff;
+  margin: 0 0 var(--space-2);
+  color: var(--feat-text-bright);
 }
 
 .feat-mode-card p {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.65);
+  font-size: var(--font-sm);
+  color: var(--feat-text-muted);
   line-height: 1.7;
-  margin: 0 0 20px;
+  margin: 0 0 var(--space-5);
 }
 
 .feat-mode-features {
@@ -78,66 +121,112 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .feat-mode-features li {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 14px;
+  gap: var(--space-3);
+  font-size: var(--font-sm);
   color: rgba(255, 255, 255, 0.78);
+  line-height: 1.5;
 }
 
+/* ========== Search Mockup ========== */
 .feat-search-mockup {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .feat-mockup-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 18px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 14px;
+  gap: var(--space-3);
+  padding: 14px var(--space-5);
+  border-radius: var(--radius);
+  background: var(--feat-surface-hover);
+  border: 1px solid var(--feat-border);
+  color: var(--feat-text-subtle);
+  font-size: var(--font-sm);
 }
 
 .feat-mockup-results {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .feat-mockup-result {
-  padding: 14px 16px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 14px var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--feat-surface);
+  border: 1px solid var(--feat-border-subtle);
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+.feat-mockup-result:hover {
+  background: var(--feat-surface-hover);
 }
 
 .feat-mockup-result-title {
-  font-size: 14px;
+  font-size: var(--font-sm);
   font-weight: 500;
   color: rgba(255, 255, 255, 0.85);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
 
 .feat-mockup-result-meta {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  font-size: var(--font-xs);
+  color: var(--feat-text-faint);
 }
 
-@media (max-width: 768px) {
+/* ========== Reduced Motion ========== */
+@media (prefers-reduced-motion: reduce) {
+  .feat-mode-card {
+    transition: none;
+  }
+
+  .feat-mode-card:hover {
+    transform: none;
+  }
+}
+
+/* ========== Responsive — Tablet (1024px) ========== */
+@media (max-width: 1024px) {
   .feat-search-modes {
-    grid-template-columns: 1fr;
+    gap: var(--space-5);
   }
 
   .feat-mode-card {
-    padding: 24px;
+    padding: var(--space-6);
+  }
+}
+
+/* ========== Responsive — Mobile (768px) ========== */
+@media (max-width: 768px) {
+  .feat-search-modes {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  .feat-mode-card {
+    padding: var(--space-6);
+  }
+
+  .feat-mode-card h3 {
+    font-size: var(--font-lg);
+  }
+
+  .feat-mode-features li {
+    font-size: 13px;
+  }
+}
+
+/* ========== Responsive — Small Mobile (375px) ========== */
+@media (max-width: 375px) {
+  .feat-mode-card {
+    padding: var(--space-5);
   }
 }

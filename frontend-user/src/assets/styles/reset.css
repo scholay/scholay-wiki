@@ -9,10 +9,9 @@
 }
 
 html {
-  height: 100%;
+  min-height: 100%;
   background: var(--background);
   overflow-x: hidden;
-  overflow-y: auto;
   overscroll-behavior: none;
   overscroll-behavior-y: none;
 }
@@ -30,7 +29,5 @@ body {
   color: var(--text-primary);
   line-height: 1.6;
   overflow-x: hidden;
-  overflow-y: auto;
   overscroll-behavior: none;
-  overscroll-behavior-y: none;
 }

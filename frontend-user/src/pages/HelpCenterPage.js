@@ -14,7 +14,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, MessageSquare, FileCheck, Code, Shield, ChevronDown, ChevronUp, HelpCircle, BookOpen, Sparkles } from 'lucide-react';
 import SEO from '../components/SEO';
+import FeaturePromo from '../components/FeaturePromo';
 import './styles/ResourcePage.css';
+import './styles/HelpCenterPage.css';
 
 const features = [
   {
@@ -147,76 +149,48 @@ const HelpCenterPage = () => {
           <h1>帮助中心</h1>
           <p className="hero-description">
             了解 Scholay 的核心功能和使用方法，快速解决常见问题。如果需要更详细的学术指南，请访问我们的
-            <button
-              onClick={() => navigate('/resources')}
-              style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: 'inherit', padding: '0 4px' }}
-            >
+            <button className="help-hero-link" onClick={() => navigate('/resources')}>
               学术资源中心
             </button>。
           </p>
         </div>
 
         {/* Features Guide */}
-        <section style={{ marginBottom: 48 }}>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 24, paddingBottom: 12, borderBottom: '2px solid var(--border-primary)' }}>
-            <BookOpen size={22} style={{ verticalAlign: 'middle', marginRight: 8 }} />
+        <section className="help-section">
+          <h2 className="help-section-title">
+            <BookOpen size={22} />
             功能使用指南
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="help-feature-list">
             {features.map((feature, index) => {
               const Icon = feature.icon;
               const isExpanded = expandedFeature === index;
               return (
                 <div
                   key={index}
-                  style={{
-                    background: 'var(--bg-secondary)',
-                    borderRadius: 16,
-                    border: '1px solid var(--border-primary)',
-                    overflow: 'hidden',
-                    transition: 'border-color 0.2s',
-                    borderColor: isExpanded ? 'var(--primary-color)' : undefined,
-                  }}
+                  className={`help-feature-card${isExpanded ? ' expanded' : ''}`}
                 >
                   <button
+                    className="help-feature-toggle"
                     onClick={() => setExpandedFeature(isExpanded ? null : index)}
-                    style={{
-                      width: '100%',
-                      padding: '20px 24px',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 16,
-                      textAlign: 'left',
-                    }}
                   >
-                    <div style={{
-                      width: 44, height: 44, borderRadius: 12,
-                      background: 'rgba(99, 102, 241, 0.1)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: 'var(--primary-color)', flexShrink: 0,
-                    }}>
+                    <div className="help-feature-icon">
                       <Icon size={20} />
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '1.0625rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
-                        {feature.title}
-                      </div>
-                      <div style={{ fontSize: '0.9375rem', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
-                        {feature.description}
-                      </div>
+                    <div className="help-feature-info">
+                      <div className="help-feature-title">{feature.title}</div>
+                      <div className="help-feature-desc">{feature.description}</div>
                     </div>
-                    {isExpanded ? <ChevronUp size={20} style={{ color: 'var(--text-quaternary)', flexShrink: 0 }} /> : <ChevronDown size={20} style={{ color: 'var(--text-quaternary)', flexShrink: 0 }} />}
+                    {isExpanded
+                      ? <ChevronUp size={20} className="help-chevron" />
+                      : <ChevronDown size={20} className="help-chevron" />
+                    }
                   </button>
                   {isExpanded && (
-                    <div style={{ padding: '0 24px 20px 84px' }}>
-                      <ul style={{ margin: 0, paddingLeft: 20 }}>
+                    <div className="help-feature-details">
+                      <ul>
                         {feature.details.map((detail, i) => (
-                          <li key={i} style={{ fontSize: '0.9375rem', color: 'var(--text-secondary)', lineHeight: 1.8, marginBottom: 8 }}>
-                            {detail}
-                          </li>
+                          <li key={i}>{detail}</li>
                         ))}
                       </ul>
                     </div>
@@ -228,49 +202,32 @@ const HelpCenterPage = () => {
         </section>
 
         {/* FAQ Section */}
-        <section style={{ marginBottom: 48 }}>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 24, paddingBottom: 12, borderBottom: '2px solid var(--border-primary)' }}>
-            <HelpCircle size={22} style={{ verticalAlign: 'middle', marginRight: 8 }} />
+        <section className="help-section">
+          <h2 className="help-section-title">
+            <HelpCircle size={22} />
             常见问题
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="help-faq-list">
             {faqs.map((faq, index) => {
               const isOpen = openFaq === index;
               return (
                 <div
                   key={index}
-                  style={{
-                    background: 'var(--bg-secondary)',
-                    borderRadius: 12,
-                    border: '1px solid var(--border-primary)',
-                    overflow: 'hidden',
-                  }}
+                  className={`help-faq-item${isOpen ? ' open' : ''}`}
                 >
                   <button
+                    className="help-faq-toggle"
                     onClick={() => setOpenFaq(isOpen ? null : index)}
-                    style={{
-                      width: '100%',
-                      padding: '16px 20px',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 12,
-                      textAlign: 'left',
-                    }}
                   >
-                    <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5 }}>
-                      {faq.question}
-                    </span>
-                    {isOpen ? <ChevronUp size={18} style={{ color: 'var(--text-quaternary)', flexShrink: 0 }} /> : <ChevronDown size={18} style={{ color: 'var(--text-quaternary)', flexShrink: 0 }} />}
+                    <span className="help-faq-question">{faq.question}</span>
+                    {isOpen
+                      ? <ChevronUp size={18} className="help-chevron" />
+                      : <ChevronDown size={18} className="help-chevron" />
+                    }
                   </button>
                   {isOpen && (
-                    <div style={{ padding: '0 20px 16px 20px' }}>
-                      <p style={{ fontSize: '0.9375rem', color: 'var(--text-secondary)', lineHeight: 1.8, margin: 0 }}>
-                        {faq.answer}
-                      </p>
+                    <div className="help-faq-answer">
+                      <p>{faq.answer}</p>
                     </div>
                   )}
                 </div>
@@ -279,15 +236,11 @@ const HelpCenterPage = () => {
           </div>
         </section>
 
-        {/* Contact CTA */}
-        <div className="article-cta">
-          <h3>没有找到你需要的答案？</h3>
-          <p>欢迎联系我们的客服团队，或发送邮件至 support@scholay.com</p>
-          <button className="article-cta-btn" onClick={() => navigate('/contact')}>
-            <Shield size={16} />
-            联系我们
-          </button>
-        </div>
+        {/* 功能推广 */}
+        <FeaturePromo
+          title="快速体验 Scholay 的核心功能"
+          description="从这里开始，探索我们为科研工作者打造的全套 AI 工具"
+        />
 
         {/* Footer */}
         <footer className="article-footer">

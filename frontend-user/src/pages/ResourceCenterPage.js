@@ -14,6 +14,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, Calendar, Search, FileText, BookOpen, Sparkles, Code } from 'lucide-react';
 import SEO from '../components/SEO';
+import FeaturePromo from '../components/FeaturePromo';
 import resourceArticles, { RESOURCE_CATEGORIES } from './resourceArticles';
 import './styles/ResourcePage.css';
 
@@ -115,15 +116,8 @@ const ResourceCenterPage = () => {
           })}
         </div>
 
-        {/* 页面底部 CTA */}
-        <div className="article-cta">
-          <h3>开始你的学术探索之旅</h3>
-          <p>使用 Scholay 的 AI 智能搜索，覆盖超过 2 亿篇学术论文</p>
-          <button className="article-cta-btn" onClick={() => navigate('/')}>
-            <Search size={16} />
-            开始搜索
-          </button>
-        </div>
+        {/* 功能推广 */}
+        <FeaturePromo compact />
 
         {/* Footer */}
         <footer className="article-footer">

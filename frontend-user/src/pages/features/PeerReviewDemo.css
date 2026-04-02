@@ -5,32 +5,30 @@
 
 /* ===== Wrapper ===== */
 .prd-wrap {
-  max-width: 860px;
+  max-width: 900px;
   margin: 0 auto;
+}
+
+/* ===== Unified stage container ===== */
+.prd-stage {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(139,92,246,0.08),
+    0 24px 72px rgba(0,0,0,0.5);
 }
 
 /* ===== Animation Area (dark terminal) ===== */
 .prd-anim {
-  background: #0a0a0f;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  padding: 24px;
-  min-height: 200px;
+  background: linear-gradient(160deg, #0d0d1a 0%, #06060f 100%);
+  border-radius: 18px;
+  padding: 32px;
+  min-height: 360px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  transition: all 0.5s ease;
+  gap: 20px;
   overflow: hidden;
-  margin-bottom: 20px;
-}
-
-.prd-anim.hide {
-  height: 0;
-  min-height: 0;
-  padding: 0 24px;
-  opacity: 0;
-  margin-bottom: 0;
-  border-width: 0;
 }
 
 /* Paper chip */
@@ -137,11 +135,12 @@
 }
 
 .prd-tl-sec {
-  color: #818cf8;
+  color: #a78bfa;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-top: 8px;
+  letter-spacing: 0.06em;
+  margin-top: 10px;
+  font-size: 10px;
 }
 
 .prd-tl-sec:first-child { margin-top: 0; }
@@ -163,8 +162,7 @@
 
 .prd-doc {
   background: #fff;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 8px 32px rgba(0,0,0,0.08);
+  border-radius: 18px;
   overflow: hidden;
   color: #1a1a2e;
   font-family: 'Georgia', 'Times New Roman', 'Noto Serif SC', serif;
@@ -176,8 +174,9 @@
 }
 
 .prd-doc-hdr-bar {
-  height: 4px;
-  background: linear-gradient(90deg, #6366f1, #3b82f6, #10b981);
+  height: 5px;
+  background: linear-gradient(90deg, #7c3aed 0%, #8b5cf6 25%, #a78bfa 50%, #3b82f6 75%, #10b981 100%);
+  box-shadow: 0 2px 16px rgba(139,92,246,0.45);
 }
 
 .prd-doc-hdr-inner {
@@ -428,13 +427,15 @@
 }
 
 .prd-radar-fill {
-  fill: rgba(99,102,241,0.12);
+  fill: rgba(99,102,241,0.15);
   stroke: #6366f1;
-  stroke-width: 1.5;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 6px rgba(99,102,241,0.35));
 }
 
 .prd-radar-dot {
   fill: #6366f1;
+  filter: drop-shadow(0 0 3px rgba(99,102,241,0.6));
 }
 
 .prd-radar-lbl {

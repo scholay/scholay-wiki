@@ -106,6 +106,7 @@ export default function PeerReviewPage() {
   const [submitting, setSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [draftLoading, setDraftLoading] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false); // 隐私模式
 
   // 任务详情状态
   const [taskDetail, setTaskDetail] = useState(null);
@@ -205,19 +206,37 @@ export default function PeerReviewPage() {
   }, [inputType, manuscriptText, fileName, user, draftLoading]);
 
   // 初始加载：获取草稿和任务列表
+  // 用户登录后自动认领匿名任务
   useEffect(() => {
     if (!user) return;
     loadDraft();
     loadTasks();
+
+    // 认领匿名任务：用户登录后，将之前匿名创建的任务绑定到账户
+    const anonToken = peerReviewAPI.getAnonToken();
+    if (anonToken && selectedTaskId) {
+      peerReviewAPI.claimTask(selectedTaskId, anonToken)
+        .then(() => {
+          peerReviewAPI.clearAnonToken();
+          loadTasks(); // 刷新列表以显示认领的任务
+        })
+        .catch(() => {
+          // 认领失败不影响使用
+        });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // 从 URL 参数加载指定任务
+  // 从 URL 参数加载指定任务（匿名用户也可通过 taskId 查看自己的任务）
   useEffect(() => {
-    if (!user || urlTaskIdHandled.current) return;
-    
+    if (urlTaskIdHandled.current) return;
+
     const taskIdFromUrl = searchParams.get('taskId');
     if (taskIdFromUrl) {
+      // 匿名用户需要有 anon_token 才能查看任务
+      const anonToken = peerReviewAPI.getAnonToken();
+      if (!user && !anonToken) return;
+
       urlTaskIdHandled.current = true;
       // 延迟执行，确保任务列表已加载
       setTimeout(() => {
@@ -293,13 +312,8 @@ export default function PeerReviewPage() {
   };
 
   // 上传文件（解析并保存到草稿）- 异步非阻塞方式
+  // 匿名用户也可上传，后端会生成 anon_token
   const uploadFile = (file) => {
-    if (!user) {
-      showMessage('warning', '请先登录', '上传文件需要登录');
-      openLoginModal();
-      return;
-    }
-
     // 使用 flushSync 强制同步更新 UI，确保 loading 状态立即显示
     flushSync(() => {
       setUploading(true);
@@ -326,21 +340,28 @@ export default function PeerReviewPage() {
         .then(response => {
           clearInterval(progressInterval);
           setUploadProgress(100);
-          
+
           if (response.data?.code === 0) {
             const data = response.data.data;
+            // 匿名用户保存 anon_token
+            if (data.anon_token) {
+              peerReviewAPI.setAnonToken(data.anon_token);
+            }
             // 更新为服务器返回的文件名
             setFileName(data.file_name || file.name);
             // 新结构：process_mode 为 'direct' 表示直接传AI
             const isDirect = data.process_mode === 'direct';
             setUseFileInput(isDirect);
-            
+
             // 文件直传模式（PDF、Word等）不提取文本，使用预览信息
             if (isDirect) {
               setManuscriptText(data.content_preview || '');
-            } else {
-              // 重新加载草稿以获取提取的文本
+            } else if (user) {
+              // 登录用户重新加载草稿以获取提取的文本
               loadDraft();
+            } else {
+              // 匿名用户直接使用返回的预览
+              setManuscriptText(data.content_preview || '');
             }
           } else {
             // 上传失败，清空文件状态
@@ -520,13 +541,8 @@ export default function PeerReviewPage() {
     }
   };
 
-  // 点击开始审稿按钮 - 直接提交
+  // 点击开始审稿按钮 - 直接提交（匿名用户也可使用）
   const handleSubmitDraft = async () => {
-    if (!user) {
-      openLoginModal();
-      return;
-    }
-
     // 验证输入（文件直传模式跳过文本长度验证）
     if (!useFileInput) {
       if (!manuscriptText.trim()) {
@@ -549,11 +565,16 @@ export default function PeerReviewPage() {
     setSubmitting(true);
     try {
       // targetVenue 和 modelLevel 已废弃，后端使用固定配置
-      const response = await peerReviewAPI.submitDraft('', 'mid');
+      const response = await peerReviewAPI.submitDraft('', 'mid', isPrivate);
       if (response.data?.code === 0) {
         const taskData = response.data.data;
         const taskId = taskData.task_id;
-        
+
+        // 匿名用户保存 anon_token
+        if (taskData.anon_token) {
+          peerReviewAPI.setAnonToken(taskData.anon_token);
+        }
+
         // 立即构建初始任务对象，让页面能快速显示
         // 使用后端返回的数据，确保时间等字段准确（由后端生成）
         const initialTask = {
@@ -572,24 +593,35 @@ export default function PeerReviewPage() {
           // 使用后端返回的附件列表
           attachments: taskData.attachments || attachments,
         };
-        
-        // 清空本地草稿状态
-        clearDraft();
-        
+
+        // 清空本地草稿状态（仅清空本地，匿名用户不调用后端清空）
+        if (user) {
+          clearDraft();
+        } else {
+          // 匿名用户仅清空本地状态
+          setManuscriptText('');
+          setFileName('');
+          setInputType('text');
+          setUseFileInput(false);
+          setAttachments([]);
+        }
+
         // 先设置初始任务数据，让左侧信息立即显示
         setTaskDetail(initialTask);
         setSelectedTaskId(taskId);
         setViewMode(VIEW_MODE.DETAIL);
-        
+
         // 更新 URL，添加 taskId 参数
         setSearchParams({ taskId });
-        
+
         // 启动轮询获取进度
         startPolling(taskId);
-        
-        // 刷新列表
-        loadTasks();
-        
+
+        // 已登录用户刷新列表
+        if (user) {
+          loadTasks();
+        }
+
         // 异步加载完整任务详情（不显示 loading）
         setTimeout(() => loadTaskDetail(taskId, false), 500);
       } else {
@@ -823,9 +855,19 @@ export default function PeerReviewPage() {
     return true;
   };
 
-  // 处理文本输入（未登录时弹出登录弹窗）
+  // 构建文件下载 URL（支持匿名用户）
+  const getDownloadUrl = (fileId) => {
+    const params = new URLSearchParams();
+    const token = localStorage.getItem('user_token');
+    if (token) params.set('token', token);
+    const anonToken = peerReviewAPI.getAnonToken();
+    if (anonToken) params.set('anon_token', anonToken);
+    const qs = params.toString();
+    return `/api/v1/user/peer-review/files/${fileId}/download${qs ? '?' + qs : ''}`;
+  };
+
+  // 处理文本输入（匿名用户也可输入）
   const handleTextInput = (e) => {
-    if (!requireLogin('输入文本')) return;
     setManuscriptText(e.target.value);
   };
 
@@ -839,7 +881,7 @@ export default function PeerReviewPage() {
         keywords="AI审稿,智能审稿,论文评审,学术审稿,论文修改建议,peer review"
         canonical="/peer-review"
       />
-      {/* 未登录用户的宣传横幅 */}
+      {/* 未登录用户的提示横幅 */}
       {!user && viewMode === VIEW_MODE.HOME && (
         <div style={{
           margin: '0 0 20px',
@@ -855,14 +897,14 @@ export default function PeerReviewPage() {
         }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text-primary)', marginBottom: 4 }}>
-              AI 智能审稿 — 三位审稿人，五大维度全面评审
+              无需登录，直接体验 AI 智能审稿
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
-              上传论文即可获取结构化审稿报告，包含评分雷达图和分级修改建议。
+              上传论文即可获取结构化审稿报告。登录后可保存审稿历史，方便随时查阅。
             </div>
           </div>
           <button
-            onClick={() => navigate('/features/peer-review')}
+            onClick={openLoginModal}
             style={{
               padding: '8px 18px',
               borderRadius: 999,
@@ -878,7 +920,7 @@ export default function PeerReviewPage() {
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.2)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.1)'; }}
           >
-            了解全部功能 →
+            登录保存历史 →
           </button>
         </div>
       )}
@@ -924,6 +966,8 @@ export default function PeerReviewPage() {
                   onClearDraft={clearDraft}
                   isLoggedIn={!!user}
                   onRequireLogin={openLoginModal}
+                  isPrivate={isPrivate}
+                  onTogglePrivate={() => setIsPrivate(prev => !prev)}
                 />
 
                 {/* 下半部分：历史任务列表 - 仅登录用户显示 */}
@@ -1176,6 +1220,18 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask, taskStep
     <div className="prvr-page">
       {/* 左侧边栏 - 稿件信息 */}
       <aside className="prvr-sidebar">
+        {/* 隐私模式标记 */}
+        {task.is_private && (
+          <div className="prv-private-banner">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            <div className="prv-private-banner-text">
+              <strong>隐私模式</strong>
+              <span>审稿完成后请及时下载报告，数据将在 24 小时内自动删除</span>
+            </div>
+          </div>
+        )}
         {/* 状态卡片 */}
         <div className="prvr-card">
           <div className="prvr-card-title">
@@ -1236,7 +1292,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask, taskStep
                 {task.manuscript_file.id && (
                   <button 
                     className="prvr-download-btn"
-                    onClick={() => window.open(`/api/v1/user/peer-review/files/${task.manuscript_file.id}/download`, '_blank')}
+                    onClick={() => window.open(getDownloadUrl(task.manuscript_file.id), '_blank')}
                     title="下载原文件"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1312,7 +1368,7 @@ function TaskDetailView({ task, loading, onBack, onDelete, onStartTask, taskStep
                   <div 
                     key={att.id || idx} 
                     className="prvr-attachment-item clickable"
-                    onClick={() => att.id && window.open(`/api/v1/user/peer-review/files/${att.id}/download`, '_blank')}
+                    onClick={() => att.id && window.open(getDownloadUrl(att.id), '_blank')}
                     title={`点击下载: ${att.file_name}`}
                   >
                     {getFileIcon(att.file_ext)}

@@ -10,6 +10,7 @@ package peerreview
 import (
 	"context"
 	"crypto/md5"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -43,6 +44,39 @@ func NewService(db *gorm.DB, aiService *ai.Service, mcpServer *mcp.MCPServer, ac
 		accountService: accountService,
 		uploadPath:     "/app/uploads", // 默认上传路径
 	}
+}
+
+// generateAnonToken 生成匿名用户访问令牌
+func generateAnonToken() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+// verifyTaskAccess 验证用户（登录或匿名）是否有权访问任务
+// 登录用户通过 userID 验证，匿名用户通过 anonToken 验证
+func (s *Service) verifyTaskAccess(task *PeerReviewTask, userID uint, anonToken string) bool {
+	// 登录用户：检查 user_id 匹配
+	if userID > 0 && task.UserID == userID {
+		return true
+	}
+	// 匿名用户：检查 anon_token 匹配
+	if anonToken != "" && task.AnonToken != "" && task.AnonToken == anonToken {
+		return true
+	}
+	return false
+}
+
+// findTaskWithAccess 查找任务并验证访问权限
+func (s *Service) findTaskWithAccess(taskID uint, userID uint, anonToken string) (*PeerReviewTask, error) {
+	var task PeerReviewTask
+	if err := s.db.First(&task, taskID).Error; err != nil {
+		return nil, fmt.Errorf("任务不存在")
+	}
+	if !s.verifyTaskAccess(&task, userID, anonToken) {
+		return nil, fmt.Errorf("无权访问此任务")
+	}
+	return &task, nil
 }
 
 // RecentPeerReviewItem is a lightweight DTO for task history

@@ -18,6 +18,7 @@ export default function PeerReviewCreateSection({
   onDragEnter, onDragOver, onDragLeave, onDrop,
   onRemoveFile, onSubmit, onClearDraft,
   isLoggedIn, onRequireLogin,
+  isPrivate, onTogglePrivate,
   submitBtnRef
 }) {
   const hasContent = manuscriptText.trim().length > 0 || !!fileName;
@@ -93,6 +94,8 @@ export default function PeerReviewCreateSection({
         onSubmit={onSubmit}
         isLoggedIn={isLoggedIn}
         onRequireLogin={onRequireLogin}
+        isPrivate={isPrivate}
+        onTogglePrivate={onTogglePrivate}
         submitBtnRef={submitBtnRef}
       />
 
@@ -125,6 +128,7 @@ function InputSplitArea({
   onDragEnter, onDragOver, onDragLeave, onDrop,
   onRemoveFile, onClearDraft, hasContent, submitting, onSubmit,
   isLoggedIn, onRequireLogin,
+  isPrivate, onTogglePrivate,
   submitBtnRef
 }) {
   const [isInputFocused, setIsInputFocused] = useState(false);
@@ -324,10 +328,26 @@ function InputSplitArea({
                   <span> / 50,000</span>
                 </div>
               )}
+              {/* 隐私模式开关 */}
+              <button
+                type="button"
+                className={`prv-private-toggle ${isPrivate ? 'prv-private-toggle--active' : ''}`}
+                onClick={onTogglePrivate}
+                title={isPrivate ? '隐私模式已开启：审稿完成后数据将在24小时内自动删除' : '点击开启隐私模式'}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  {isPrivate ? (
+                    <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>
+                  ) : (
+                    <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></>
+                  )}
+                </svg>
+                {isPrivate ? '隐私模式' : '隐私'}
+              </button>
               {/* 提交按钮 */}
-              <button 
+              <button
                 ref={submitBtnRef}
-                className="prv-submit-btn" 
+                className="prv-submit-btn"
                 onClick={onSubmit}
                 disabled={submitting || !hasContent || draftLoading}
               >

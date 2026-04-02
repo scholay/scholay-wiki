@@ -17,11 +17,20 @@ import {
 } from 'lucide-react';
 import {
   FeatureNav, FeatureHero, FeatureStats, FeatureSectionHeader,
-  FeatureGrid, FeatureSteps, FeatureCTA, FeatureFAQ, SEO,
+  FeatureGrid, FeatureSteps, FeatureCTA, FeatureFAQ, FeatureJumpNav, SEO,
 } from './FeaturePageComponents';
 import './LaTeXFeaturePage.css';
 
 const ACCENT = '#E74C3C';
+
+const JUMP_SECTIONS = [
+  { id: 'latex-features', label: '核心功能' },
+  { id: 'latex-editor', label: '编辑器' },
+  { id: 'latex-ai', label: 'AI 辅助' },
+  { id: 'latex-templates', label: '模板库' },
+  { id: 'latex-steps', label: '使用流程' },
+  { id: 'latex-faq', label: '常见问题' },
+];
 
 const STATS = [
   { value: '实时', label: '编译预览' },
@@ -153,7 +162,7 @@ export default function LaTeXFeaturePage() {
         <FeatureStats stats={STATS} accentColor={ACCENT} />
 
         {/* Editor Mockup */}
-        <section className="feat-section">
+        <section id="latex-editor" className="feat-section">
           <FeatureSectionHeader
             eyebrow="编辑器预览"
             title="三栏布局，高效写作体验"
@@ -167,13 +176,13 @@ export default function LaTeXFeaturePage() {
         </section>
 
         {/* Features */}
-        <section className="feat-section">
+        <section id="latex-features" className="feat-section">
           <FeatureSectionHeader eyebrow="核心功能" title="为学术论文写作量身定制" center accentColor={ACCENT} />
           <FeatureGrid items={FEATURES} accentColor={ACCENT} />
         </section>
 
         {/* AI Capabilities */}
-        <section className="feat-section">
+        <section id="latex-ai" className="feat-section">
           <FeatureSectionHeader
             eyebrow="AI 写作助手"
             title="AI 深度融入你的写作流程"
@@ -196,7 +205,7 @@ export default function LaTeXFeaturePage() {
         </section>
 
         {/* Templates */}
-        <section className="feat-section">
+        <section id="latex-templates" className="feat-section">
           <FeatureSectionHeader eyebrow="模板库" title="主流期刊与会议模板" center accentColor={ACCENT} />
           <motion.div className="feat-templates" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-40px' }} variants={stagger}>
             {TEMPLATES.map((t, i) => (
@@ -212,13 +221,13 @@ export default function LaTeXFeaturePage() {
         </section>
 
         {/* How It Works */}
-        <section className="feat-section">
+        <section id="latex-steps" className="feat-section">
           <FeatureSectionHeader eyebrow="使用流程" title="三步开始你的论文写作" center accentColor={ACCENT} />
           <FeatureSteps steps={STEPS} accentColor={ACCENT} />
         </section>
 
         {/* FAQ */}
-        <section className="feat-section">
+        <section id="latex-faq" className="feat-section">
           <FeatureSectionHeader eyebrow="常见问题" title="关于 ScholayPrism 的更多解答" center accentColor={ACCENT} />
           <FeatureFAQ items={FAQ} />
         </section>
@@ -232,6 +241,7 @@ export default function LaTeXFeaturePage() {
           accentColor={ACCENT}
         />
       </main>
+      <FeatureJumpNav sections={JUMP_SECTIONS} accentColor={ACCENT} />
     </div>
   );
 }

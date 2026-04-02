@@ -14,6 +14,7 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, Calendar, ChevronRight, Search, FileText, BookOpen, Sparkles, Code } from 'lucide-react';
 import SEO from '../components/SEO';
+import FeaturePromo, { matchFeatureByArticle } from '../components/FeaturePromo';
 import { getArticleBySlug, getRelatedArticles } from './resourceArticles';
 import './styles/ResourcePage.css';
 
@@ -150,15 +151,8 @@ const ResourceArticlePage = () => {
           {renderContent(article.content)}
         </div>
 
-        {/* CTA */}
-        <div className="article-cta">
-          <h3>立即体验 Scholay 的 AI 学术工具</h3>
-          <p>智能文献检索、AI 论文分析、在线 LaTeX 编辑器，助力你的科研之路</p>
-          <button className="article-cta-btn" onClick={() => navigate('/')}>
-            <Search size={16} />
-            开始使用
-          </button>
-        </div>
+        {/* 根据文章内容智能匹配推荐功能 */}
+        <FeaturePromo highlight={matchFeatureByArticle(article.category, article.tags)} />
 
         {/* Related Articles */}
         {relatedArticles.length > 0 && (

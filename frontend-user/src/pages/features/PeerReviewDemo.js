@@ -205,43 +205,53 @@ function PeerReviewDemo() {
 
   return (
     <div className="prd-wrap" ref={containerRef}>
-      {/* ---- Animation (dark terminal-like) ---- */}
-      <div className={`prd-anim ${isReady ? 'hide' : ''}`}>
-        <AnimatePresence>
-          {phase >= PHASE.PAPER && phase < PHASE.DONE && (
-            <motion.div className="prd-paper-chip" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
-              <span className="prd-pc-badge">Manuscript Uploaded</span>
-              <div className="prd-pc-title">{DEMO_PAPER.title}</div>
-              <div className="prd-pc-authors">{DEMO_PAPER.authors}</div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {phase >= PHASE.ASSIGN && phase < PHASE.DONE && (
-            <motion.div className="prd-rev-row" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              {REVIEWERS.map((rv, i) => (
-                <div key={rv.key} className={`prd-rev-chip ${i <= activeReviewerIdx ? 'on' : ''}`}>
-                  <span className="prd-rv-dot" style={{ background: rv.color }}>{rv.short}</span>
-                  <span className="prd-rv-name">{rv.key}</span>
-                  <div className="prd-rv-bar"><div className="prd-rv-fill" style={{ width: `${reviewerProgress[i]}%`, background: rv.color }} /></div>
+      {/* ---- Unified container: animation → report, no layout jump ---- */}
+      <div className="prd-stage">
+        <AnimatePresence mode="wait">
+          {!isReady ? (
+            /* Animation panel */
+            <motion.div key="anim" className="prd-anim"
+              initial={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.35 }}
+            >
+              <AnimatePresence>
+                {phase >= PHASE.PAPER && (
+                  <motion.div className="prd-paper-chip" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+                    <span className="prd-pc-badge">Manuscript Uploaded</span>
+                    <div className="prd-pc-title">{DEMO_PAPER.title}</div>
+                    <div className="prd-pc-authors">{DEMO_PAPER.authors}</div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <AnimatePresence>
+                {phase >= PHASE.ASSIGN && (
+                  <motion.div className="prd-rev-row" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    {REVIEWERS.map((rv, i) => (
+                      <div key={rv.key} className={`prd-rev-chip ${i <= activeReviewerIdx ? 'on' : ''}`}>
+                        <span className="prd-rv-dot" style={{ background: rv.color }}>{rv.short}</span>
+                        <span className="prd-rv-name">{rv.key}</span>
+                        <div className="prd-rv-bar"><div className="prd-rv-fill" style={{ width: `${reviewerProgress[i]}%`, background: rv.color }} /></div>
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {phase >= PHASE.TYPING && (
+                <div className="prd-term">
+                  {typedLines.map((l, i) => <TermLine key={i} line={l} />)}
+                  {currentPartial && <TermLine line={currentPartial} typing />}
+                  <span className="prd-blink" />
                 </div>
-              ))}
+              )}
             </motion.div>
-          )}
-        </AnimatePresence>
-        {phase >= PHASE.TYPING && phase < PHASE.DONE && (
-          <div className="prd-term">
-            {typedLines.map((l, i) => <TermLine key={i} line={l} />)}
-            {currentPartial && <TermLine line={currentPartial} typing />}
-            <span className="prd-blink" />
-          </div>
-        )}
-      </div>
-
-      {/* ---- Journal-style Report (white paper) ---- */}
-      <AnimatePresence>
-        {isReady && (
-          <motion.div className="prd-doc" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+          ) : (
+            /* Report panel — same background, cross-fade in */
+            <motion.div key="report" className="prd-doc"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4 }}
+            >
             {/* Document header */}
             <div className="prd-doc-hdr">
               <div className="prd-doc-hdr-bar" />
@@ -417,8 +427,9 @@ function PeerReviewDemo() {
               <p>© 2025 Scholay · scholay.com</p>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

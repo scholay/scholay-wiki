@@ -88,6 +88,7 @@ func registerRoutes(router *gin.Engine, h *allHandlers) {
 		registerPaymentCallbackRoutes(api, h)
 		registerPublicUserRoutes(api, h)
 		registerProtectedUserRoutes(api, h)
+		registerPeerReviewPublicRoutes(api, h)
 		registerPublicAPIRoutes(api, h)
 		registerAnalysisRoutes(api, h)
 		registerScholarRoutes(api, h)
@@ -414,35 +415,48 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 		userProtected.GET("/conversations/messages/:messageId/siblings", h.chat.GetSiblingMessages)
 		userProtected.GET("/conversations/messages/:messageId/branch", h.chat.GetBranchChain)
 
-		// AI 审稿
-		registerPeerReviewRoutes(userProtected, h)
+		// AI 审稿（已移至独立路由组，支持匿名使用）
 
 		// LaTeX Writer
 		registerLatexWriterRoutes(userProtected, h)
 	}
 }
 
-// registerPeerReviewRoutes 注册 AI 审稿路由
-func registerPeerReviewRoutes(parent *gin.RouterGroup, h *allHandlers) {
-	g := parent.Group("/peer-review")
+// registerPeerReviewPublicRoutes 注册 AI 审稿路由（使用 OptionalUserAuth，支持匿名使用）
+// 需要登录的操作（草稿管理、任务列表、认领等）在 handler 内部检查 user_id
+func registerPeerReviewPublicRoutes(api *gin.RouterGroup, h *allHandlers) {
+	g := api.Group("/user/peer-review")
+	g.Use(middleware.OptionalUserAuthMiddleware())
 	{
+		// 草稿管理（handler 内部要求登录）
 		g.GET("/draft", h.peerReview.GetDraft)
 		g.PUT("/draft", h.peerReview.SaveDraft)
 		g.DELETE("/draft", h.peerReview.ClearDraft)
+
+		// 上传和提交（匿名或登录均可）
+		g.POST("/upload", h.peerReview.UploadFile)
 		g.POST("/draft/submit", h.peerReview.SubmitDraft)
-		g.POST("/tasks", h.peerReview.CreateTask)
-		g.GET("/tasks", h.peerReview.GetTaskList)
-		g.GET("/tasks/:id", h.peerReview.GetTaskDetail)
+
+		// 任务管理
+		g.POST("/tasks", h.peerReview.CreateTask)        // handler 内部要求登录
+		g.GET("/tasks", h.peerReview.GetTaskList)         // handler 内部要求登录
+		g.GET("/tasks/:id", h.peerReview.GetTaskDetail)   // 匿名或登录均可（通过 anon_token 验证）
 		g.GET("/tasks/:id/progress", h.peerReview.GetTaskProgress)
 		g.GET("/tasks/:id/steps", h.peerReview.GetTaskSteps)
 		g.GET("/tasks/:id/watch", h.peerReview.WatchTaskProgress)
-		g.DELETE("/tasks/:id", h.peerReview.DeleteTask)
+		g.DELETE("/tasks/:id", h.peerReview.DeleteTask)   // handler 内部要求登录
 		g.POST("/tasks/:id/start", h.peerReview.StartTask)
-		g.POST("/upload", h.peerReview.UploadFile)
+
+		// 附件管理（handler 内部要求登录）
 		g.POST("/attachments", h.peerReview.UploadAttachment)
 		g.DELETE("/attachments/:id", h.peerReview.DeleteAttachment)
 		g.DELETE("/manuscript", h.peerReview.DeleteManuscript)
+
+		// 文件下载（匿名或登录均可）
 		g.GET("/files/:id/download", h.peerReview.DownloadFile)
+
+		// 认领匿名任务（需要登录）
+		g.POST("/claim-task", h.peerReview.ClaimTask)
 	}
 }
 

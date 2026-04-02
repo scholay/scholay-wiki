@@ -227,6 +227,19 @@ func main() {
 	peerReviewService := peerreview.NewService(database.GetDB(), aiService, mcpServer, thirdPartyService)
 	peerReviewHandler := peerreview.NewHandler(peerReviewService)
 
+	// 启动隐私审稿数据定期清理（每小时检查一次过期的隐私任务）
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			if cleaned, err := peerReviewService.CleanupExpiredPrivateTasks(); err != nil {
+				slog.Error("Failed to cleanup expired private tasks", "error", err)
+			} else if cleaned > 0 {
+				slog.Info("Cleaned up expired private review tasks", "count", cleaned)
+			}
+		}
+	}()
+
 	// Initialize LaTeX Writer module
 	latexWriterService := latexwriter.NewService(database.GetDB(), aiService)
 	latexWriterHandler := latexwriter.NewHandler(latexWriterService)

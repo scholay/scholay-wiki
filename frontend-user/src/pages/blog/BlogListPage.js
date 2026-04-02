@@ -13,6 +13,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, Calendar, Search, User } from 'lucide-react';
 import SEO from '../../components/SEO';
+import FeaturePromo from '../../components/FeaturePromo';
 import blogArticles, { BLOG_CATEGORIES, getAuthor } from './blogArticles';
 import '../styles/ResourcePage.css';
 
@@ -157,14 +158,7 @@ const BlogListPage = () => {
           </div>
         )}
 
-        <div className="article-cta">
-          <h3>开始你的学术探索之旅</h3>
-          <p>使用 Scholay 的 AI 智能搜索，覆盖超过 2 亿篇学术论文</p>
-          <button className="article-cta-btn" onClick={() => navigate('/')}>
-            <Search size={16} />
-            开始搜索
-          </button>
-        </div>
+        <FeaturePromo compact />
 
         <footer className="article-footer">
           <p className="copyright">&copy; {new Date().getFullYear()} Scholay. All rights reserved.</p>

@@ -129,11 +129,19 @@ func (s *Service) SaveDraft(userID uint, req *SaveDraftRequest) (*DraftResponse,
 }
 
 // SubmitDraft 提交草稿开始审稿（三审制）
-func (s *Service) SubmitDraft(userID uint, req *SubmitDraftRequest) (*PeerReviewTask, error) {
+// 支持匿名用户：userID=0 时通过 anonToken 查找草稿
+func (s *Service) SubmitDraft(userID uint, anonToken string, req *SubmitDraftRequest) (*PeerReviewTask, error) {
 	var draft PeerReviewTask
 
-	// 查找用户的草稿任务
-	err := s.db.Where("user_id = ? AND status = ?", userID, TaskStatusDraft).First(&draft).Error
+	// 查找草稿任务
+	var err error
+	if userID > 0 {
+		err = s.db.Where("user_id = ? AND status = ?", userID, TaskStatusDraft).First(&draft).Error
+	} else if anonToken != "" {
+		err = s.db.Where("anon_token = ? AND status = ? AND user_id = 0", anonToken, TaskStatusDraft).First(&draft).Error
+	} else {
+		return nil, fmt.Errorf("请先上传稿件文件")
+	}
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("没有找到草稿，请先输入稿件内容")
@@ -183,6 +191,14 @@ func (s *Service) SubmitDraft(userID uint, req *SubmitDraftRequest) (*PeerReview
 	}
 	draft.ContentHash = generateManuscriptHash(hashInput)
 
+	// 设置隐私模式
+	draft.IsPrivate = req.IsPrivate
+	if req.IsPrivate {
+		// 隐私模式：数据在 24 小时后自动过期
+		exp := time.Now().Add(24 * time.Hour)
+		draft.PrivateExpAt = &exp
+	}
+
 	// 更新状态为待处理
 	now := time.Now()
 	draft.Status = TaskStatusPending
@@ -213,10 +229,11 @@ func (s *Service) SubmitDraft(userID uint, req *SubmitDraftRequest) (*PeerReview
 }
 
 // ParseFileAndSaveToDraft 解析文件并保存到草稿
+// 支持匿名用户：userID=0 时使用 anonToken 关联草稿
 // 文件类型处理策略：
 // - PDF：直接传递文件给 AI（支持视觉内容）
 // - Word/RTF/ODT/XML/HTML 等文档：上传时提取文本，检查字符限制（最大 50000），以文本模式传给 AI
-func (s *Service) ParseFileAndSaveToDraft(userID uint, fileName string, fileExt string, content []byte) (*UploadFileResponse, error) {
+func (s *Service) ParseFileAndSaveToDraft(userID uint, anonToken string, fileName string, fileExt string, content []byte) (*UploadFileResponse, error) {
 	// 验证文件大小（最大10MB）
 	const maxFileSize = 10 * 1024 * 1024
 	if len(content) > maxFileSize {
@@ -285,7 +302,11 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, fileName string, fileExt 
 	}
 
 	// 生成唯一文件名
-	uniqueFileName := fmt.Sprintf("%d_%d_%s", userID, time.Now().UnixNano(), fileName)
+	filePrefix := fmt.Sprintf("%d", userID)
+	if userID == 0 {
+		filePrefix = "anon"
+	}
+	uniqueFileName := fmt.Sprintf("%s_%d_%s", filePrefix, time.Now().UnixNano(), fileName)
 	filePath := filepath.Join(uploadDir, uniqueFileName)
 
 	// 写入文件
@@ -318,11 +339,28 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, fileName string, fileExt 
 
 	// 获取或创建草稿
 	var draft PeerReviewTask
-	err = s.db.Where("user_id = ? AND status = ?", userID, TaskStatusDraft).First(&draft).Error
+	var newAnonToken string
+
+	if userID > 0 {
+		// 登录用户：按 user_id 查找草稿
+		err = s.db.Where("user_id = ? AND status = ?", userID, TaskStatusDraft).First(&draft).Error
+	} else if anonToken != "" {
+		// 匿名用户：按 anon_token 查找草稿
+		err = s.db.Where("anon_token = ? AND status = ? AND user_id = 0", anonToken, TaskStatusDraft).First(&draft).Error
+	} else {
+		// 新匿名用户：生成新 token，强制创建新草稿
+		err = gorm.ErrRecordNotFound
+	}
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if userID == 0 && anonToken == "" {
+			newAnonToken = generateAnonToken()
+		} else {
+			newAnonToken = anonToken
+		}
 		draft = PeerReviewTask{
 			UserID:        userID,
+			AnonToken:     newAnonToken,
 			InputType:     InputTypeFile,
 			Status:        TaskStatusDraft,
 			Progress:      0,
@@ -370,14 +408,21 @@ func (s *Service) ParseFileAndSaveToDraft(userID uint, fileName string, fileExt 
 		preview = truncateString(extractedText, 500)
 	}
 
-	return &UploadFileResponse{
+	resp := &UploadFileResponse{
 		FileID:         file.ID,
 		FileName:       fileName,
 		FileExt:        extWithoutDot,
 		FileSize:       int64(len(content)),
 		ProcessMode:    processMode,
 		ContentPreview: preview,
-	}, nil
+	}
+
+	// 匿名用户返回 anon_token
+	if draft.AnonToken != "" && userID == 0 {
+		resp.AnonToken = draft.AnonToken
+	}
+
+	return resp, nil
 }
 
 // AddAttachmentToDraft 添加附件到草稿

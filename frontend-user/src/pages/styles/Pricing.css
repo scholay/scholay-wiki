@@ -7,48 +7,53 @@
  * ============================================================================
  */
 
-/* 页面整体 */
+/* ============================================
+   Page root
+   ============================================ */
 .pricing-page {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  background: radial-gradient(120% 120% at 50% -10%, rgba(16, 163, 127, 0.18) 0%, #04110c 48%, #010302 100%);
-  color: #f5fffb;
+  background:
+    radial-gradient(
+      120% 120% at 50% -10%,
+      color-mix(in srgb, var(--primary-solid) 18%, transparent) 0%,
+      var(--bg-primary) 52%,
+      var(--bg-primary) 100%
+    );
+  color: var(--text-primary);
   font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-body.pricing-page-active {
-  background: radial-gradient(120% 120% at 50% -10%, rgba(16, 163, 127, 0.18) 0%, #04110c 48%, #010302 100%);
-}
-
-/* 顶部导航 */
+/* ============================================
+   Sticky navigation bar
+   ============================================ */
 .pricing-nav {
   position: sticky;
-  top: 16px;
-  z-index: 30;
+  top: var(--space-4);
+  z-index: var(--z-sticky);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  max-width: 1200px;
-  margin: 0 auto;
-  margin-top: 24px;
-  padding: 14px 28px;
-  border-radius: 999px;
-  background: rgba(7, 18, 14, 0.87);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  max-width: var(--content-xl);
+  margin: var(--space-6) auto 0;
+  padding: 14px var(--space-7);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--bg-primary) 87%, transparent);
+  border: 1px solid var(--border-light);
   backdrop-filter: blur(16px);
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .nav-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   cursor: pointer;
 }
 
 .nav-logo span {
-  font-size: 16px;
+  font-size: var(--font-base);
   font-weight: 600;
   letter-spacing: 0.4px;
 }
@@ -56,40 +61,44 @@ body.pricing-page-active {
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .nav-link {
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border);
   background: transparent;
-  color: #f5fffb;
-  padding: 10px 18px;
-  border-radius: 999px;
-  font-size: 14px;
+  color: var(--text-primary);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background var(--duration-normal) var(--ease-default);
 }
 
 .nav-link:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-hover);
 }
 
-/* 主内容区域 */
+/* ============================================
+   Main content wrapper
+   ============================================ */
 .pricing-main {
-  max-width: 1200px;
+  max-width: var(--content-xl);
   margin: 0 auto;
-  padding: 0 24px 120px;
+  padding: 0 var(--space-6) var(--space-12);
 }
 
-/* 主视觉区域 */
+/* ============================================
+   Hero section
+   ============================================ */
 .pricing-hero {
-  padding: 120px 0 60px;
+  padding: var(--space-12) 0 var(--space-10);
   text-align: center;
 }
 
 .hero-center {
-  max-width: 680px;
+  max-width: var(--content-sm);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -99,215 +108,228 @@ body.pricing-page-active {
 .hero-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(16, 163, 127, 0.35);
-  background: rgba(16, 163, 127, 0.1);
-  font-size: 13px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--primary-solid) 35%, transparent);
+  background: color-mix(in srgb, var(--primary-solid) 10%, transparent);
+  font-size: var(--font-xs);
   letter-spacing: 0.4px;
-  color: #6ef2c6;
-  margin-bottom: 24px;
+  color: var(--primary-light);
+  margin-bottom: var(--space-6);
 }
 
 .pricing-hero h1 {
-  font-size: 52px;
+  font-size: clamp(var(--font-4xl), 5vw, var(--font-6xl));
   font-weight: 700;
-  margin: 0 0 20px;
+  margin: 0 0 var(--space-5);
   line-height: 1.15;
-  background: linear-gradient(135deg, #ffffff 0%, #6ef2c6 100%);
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary-light) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .hero-subtitle {
-  font-size: 18px;
-  color: rgba(255, 255, 255, 0.72);
+  font-size: var(--font-lg);
+  color: var(--text-secondary);
   line-height: 1.7;
-  margin: 0 0 36px;
+  margin: 0 0 var(--space-9);
 }
 
 .hero-start-btn {
-  padding: 14px 36px;
-  border-radius: 999px;
+  padding: 14px var(--space-9);
+  border-radius: var(--radius-pill);
   border: none;
-  background: linear-gradient(120deg, #10a37f 0%, #1c7f63 100%);
+  background: var(--primary);
   color: #fff;
-  font-size: 16px;
+  font-size: var(--font-base);
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 12px 36px rgba(16, 163, 127, 0.35);
-  transition: all 0.25s ease;
+  box-shadow: var(--shadow-accent);
+  transition:
+    transform var(--duration-normal) var(--ease-default),
+    box-shadow var(--duration-normal) var(--ease-default);
 }
 
 .hero-start-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 16px 44px rgba(16, 163, 127, 0.45);
+  box-shadow: var(--glow);
 }
 
 .hero-start-btn:active {
   transform: translateY(0);
 }
 
-/* 平台数据展示 */
+/* ============================================
+   Stats section
+   ============================================ */
 .stats-section {
-  padding: 20px 0 60px;
+  padding: var(--space-5) 0 var(--space-10);
 }
 
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .stat-item {
-  padding: 24px 20px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: var(--space-6) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface-hover);
+  border: 1px solid var(--border-light);
   backdrop-filter: blur(10px);
   text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .stat-value {
-  font-size: 28px;
+  font-size: var(--font-4xl);
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .stat-label {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
 }
 
-/* 功能区域 */
+/* ============================================
+   Features section
+   ============================================ */
 .features-section {
-  padding: 40px 0 60px;
+  padding: var(--space-10) 0 var(--space-10);
 }
 
 .section-heading {
   text-align: center;
-  margin-bottom: 48px;
+  margin-bottom: var(--space-10);
 }
 
 .section-heading h2 {
-  font-size: 36px;
+  font-size: var(--font-4xl);
   font-weight: 700;
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-3);
 }
 
 .section-description {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: var(--font-base);
+  color: var(--text-tertiary);
   margin: 0;
 }
 
-/* 功能卡片网格 */
+/* Features card grid */
 .features-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  gap: var(--space-5);
 }
 
 .feature-card {
-  padding: 32px 28px;
-  border-radius: 22px;
-  background: rgba(10, 18, 14, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: var(--space-8) var(--space-7);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--bg-primary) 75%, transparent);
+  border: 1px solid var(--border-light);
   backdrop-filter: blur(18px);
   display: flex;
   flex-direction: column;
   gap: 14px;
-  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  transition:
+    transform var(--duration-normal) var(--ease-default),
+    border-color var(--duration-normal) var(--ease-default),
+    box-shadow var(--duration-normal) var(--ease-default);
 }
 
 .feature-card:hover {
   transform: translateY(-6px);
-  border-color: rgba(16, 163, 127, 0.4);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  border-color: color-mix(in srgb, var(--primary-solid) 40%, transparent);
+  box-shadow: var(--shadow-md);
 }
 
 .feature-icon {
   width: 52px;
   height: 52px;
-  border-radius: 14px;
-  background: rgba(16, 163, 127, 0.12);
-  border: 1px solid rgba(16, 163, 127, 0.25);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--primary-solid) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary-solid) 25%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #10b981;
+  color: var(--success);
   flex-shrink: 0;
 }
 
 .feature-title {
-  font-size: 20px;
+  font-size: var(--font-xl);
   font-weight: 600;
   margin: 0;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .feature-card .feature-desc {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.65);
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
   line-height: 1.65;
   margin: 0;
   text-align: left;
 }
 
-/* 底部提示 */
+/* ============================================
+   Future notice
+   ============================================ */
 .future-notice {
-  padding: 40px 0 0;
+  padding: var(--space-10) 0 0;
 }
 
 .notice-card {
-  max-width: 640px;
+  max-width: var(--content-sm);
   margin: 0 auto;
-  padding: 40px 36px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: var(--space-10) var(--space-9);
+  border-radius: var(--radius-xl);
+  background: var(--surface-hover);
+  border: 1px solid var(--border-light);
   backdrop-filter: blur(12px);
   text-align: center;
 }
 
 .notice-card h3 {
-  font-size: 22px;
+  font-size: var(--font-2xl);
   font-weight: 600;
   margin: 0 0 14px;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .notice-card p {
-  font-size: 15px;
-  color: rgba(255, 255, 255, 0.65);
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
   line-height: 1.7;
-  margin: 0 0 28px;
+  margin: 0 0 var(--space-7);
 }
 
 .notice-btn {
-  padding: 12px 28px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 14px;
+  padding: var(--space-3) var(--space-7);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background var(--duration-normal) var(--ease-default),
+    border-color var(--duration-normal) var(--ease-default);
 }
 
 .notice-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.25);
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+  border-color: var(--border-hover);
 }
 
 /* ============================================
-   响应式适配 - 1024px 以下
+   Responsive -- tablet (1024px)
    ============================================ */
 @media (max-width: 1024px) {
   .features-grid {
@@ -320,7 +342,7 @@ body.pricing-page-active {
 }
 
 /* ============================================
-   响应式适配 - 768px 以下
+   Responsive -- mobile (768px)
    ============================================ */
 @media (max-width: 768px) {
   .pricing-page {
@@ -328,74 +350,74 @@ body.pricing-page-active {
   }
 
   .pricing-nav {
-    margin: 12px 12px 0;
-    padding: 12px 16px;
-    border-radius: 20px;
-    gap: 12px;
+    margin: var(--space-3) var(--space-3) 0;
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    gap: var(--space-3);
   }
 
   .nav-logo span {
-    font-size: 14px;
+    font-size: var(--font-sm);
   }
 
   .nav-link {
-    padding: 8px 14px;
-    font-size: 13px;
+    padding: var(--space-2) 14px;
+    font-size: var(--font-xs);
   }
 
   .pricing-main {
-    padding: 0 16px 60px;
+    padding: 0 var(--space-4) var(--space-10);
   }
 
   .pricing-hero {
-    padding: 80px 0 40px;
+    padding: var(--space-12) 0 var(--space-10);
   }
 
   .pricing-hero h1 {
-    font-size: 32px;
+    font-size: var(--font-3xl);
   }
 
   .hero-subtitle {
-    font-size: 15px;
+    font-size: var(--font-sm);
     line-height: 1.6;
   }
 
   .hero-start-btn {
-    padding: 12px 28px;
-    font-size: 15px;
+    padding: var(--space-3) var(--space-7);
+    font-size: var(--font-sm);
   }
 
   .stats-section {
-    padding: 16px 0 40px;
+    padding: var(--space-4) 0 var(--space-10);
   }
 
   .stat-item {
-    padding: 18px 14px;
-    border-radius: 14px;
+    padding: var(--space-5) var(--space-4);
+    border-radius: var(--radius);
   }
 
   .stat-value {
-    font-size: 22px;
+    font-size: var(--font-2xl);
   }
 
   .stat-label {
-    font-size: 12px;
+    font-size: var(--font-xs);
   }
 
   .features-section {
-    padding: 24px 0 40px;
+    padding: var(--space-6) 0 var(--space-10);
   }
 
   .section-heading {
-    margin-bottom: 32px;
+    margin-bottom: var(--space-8);
   }
 
   .section-heading h2 {
-    font-size: 26px;
+    font-size: var(--font-2xl);
   }
 
   .section-description {
-    font-size: 14px;
+    font-size: var(--font-sm);
   }
 
   .features-grid {
@@ -404,15 +426,15 @@ body.pricing-page-active {
   }
 
   .feature-card {
-    padding: 24px 22px;
-    border-radius: 16px;
-    gap: 12px;
+    padding: var(--space-6) var(--space-5);
+    border-radius: var(--radius-lg);
+    gap: var(--space-3);
   }
 
   .feature-icon {
     width: 44px;
     height: 44px;
-    border-radius: 12px;
+    border-radius: var(--radius);
   }
 
   .feature-icon svg {
@@ -421,105 +443,125 @@ body.pricing-page-active {
   }
 
   .feature-title {
-    font-size: 17px;
+    font-size: var(--font-lg);
   }
 
   .feature-card .feature-desc {
-    font-size: 13px;
+    font-size: var(--font-xs);
   }
 
   .notice-card {
-    padding: 28px 24px;
-    border-radius: 18px;
+    padding: var(--space-7) var(--space-6);
+    border-radius: var(--radius-lg);
   }
 
   .notice-card h3 {
-    font-size: 18px;
+    font-size: var(--font-lg);
   }
 
   .notice-card p {
-    font-size: 14px;
-    margin-bottom: 22px;
+    font-size: var(--font-sm);
+    margin-bottom: var(--space-5);
   }
 }
 
 /* ============================================
-   小屏手机适配 - 375px 以下
+   Responsive -- small phone (375px)
    ============================================ */
 @media (max-width: 375px) {
   .pricing-nav {
-    margin: 8px 8px 0;
-    padding: 10px 12px;
-    border-radius: 16px;
+    margin: var(--space-2) var(--space-2) 0;
+    padding: var(--space-3) var(--space-3);
+    border-radius: var(--radius);
   }
 
   .nav-logo span {
-    font-size: 13px;
+    font-size: var(--font-xs);
   }
 
   .nav-link {
-    padding: 7px 12px;
-    font-size: 12px;
+    padding: 7px var(--space-3);
+    font-size: var(--font-xs);
   }
 
   .pricing-main {
-    padding: 0 12px 50px;
+    padding: 0 var(--space-3) var(--space-10);
   }
 
   .pricing-hero {
-    padding: 60px 0 30px;
+    padding: var(--space-10) 0 var(--space-8);
   }
 
   .pricing-hero h1 {
-    font-size: 26px;
+    font-size: var(--font-2xl);
   }
 
   .hero-subtitle {
-    font-size: 14px;
+    font-size: var(--font-sm);
   }
 
   .hero-pill {
-    font-size: 11px;
-    padding: 5px 12px;
+    font-size: 0.688rem;
+    padding: 5px var(--space-3);
   }
 
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: var(--space-3);
   }
 
   .stat-item {
-    padding: 14px 10px;
+    padding: 14px var(--space-3);
   }
 
   .stat-value {
-    font-size: 20px;
+    font-size: var(--font-xl);
   }
 
   .section-heading h2 {
-    font-size: 22px;
+    font-size: var(--font-2xl);
   }
 
   .feature-card {
-    padding: 20px 18px;
-    border-radius: 14px;
+    padding: var(--space-5) var(--space-5);
+    border-radius: var(--radius);
   }
 
   .notice-card {
-    padding: 24px 18px;
-    border-radius: 14px;
+    padding: var(--space-6) var(--space-5);
+    border-radius: var(--radius);
   }
 
   .notice-card h3 {
-    font-size: 16px;
+    font-size: var(--font-base);
   }
 
   .notice-card p {
-    font-size: 13px;
+    font-size: var(--font-xs);
   }
 
   .notice-btn {
-    padding: 10px 22px;
-    font-size: 13px;
+    padding: var(--space-3) var(--space-5);
+    font-size: var(--font-xs);
+  }
+}
+
+/* ============================================
+   Accessibility -- reduced motion
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  .feature-card,
+  .hero-start-btn,
+  .nav-link,
+  .notice-btn {
+    transition: none;
+  }
+
+  .feature-card:hover {
+    transform: none;
+  }
+
+  .hero-start-btn:hover {
+    transform: none;
   }
 }

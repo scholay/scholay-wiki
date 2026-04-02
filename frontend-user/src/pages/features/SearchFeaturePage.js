@@ -14,8 +14,16 @@ import { motion } from 'framer-motion';
 import { Search, Brain, Filter, BookOpen, Users, GitBranch, Database, Globe, Check } from 'lucide-react';
 import {
   FeatureNav, FeatureHero, FeatureStats, FeatureSectionHeader,
-  FeatureGrid, FeatureSteps, FeatureCTA, FeatureFAQ, FeatureTags, SEO,
+  FeatureGrid, FeatureSteps, FeatureCTA, FeatureFAQ, FeatureTags, FeatureJumpNav, SEO,
 } from './FeaturePageComponents';
+
+const JUMP_SECTIONS = [
+  { id: 'search-modes', label: '检索模式' },
+  { id: 'search-features', label: '核心功能' },
+  { id: 'search-steps', label: '使用流程' },
+  { id: 'search-disciplines', label: '覆盖领域' },
+  { id: 'search-faq', label: '常见问题' },
+];
 import './SearchFeaturePage.css';
 
 const ACCENT = '#10a37f';
@@ -91,7 +99,7 @@ export default function SearchFeaturePage() {
         <FeatureStats stats={STATS} accentColor={ACCENT} />
 
         {/* Dual Mode Showcase */}
-        <section className="feat-section">
+        <section id="search-modes" className="feat-section">
           <FeatureSectionHeader
             eyebrow="两种检索模式"
             title="精确关键词 + AI 语义理解，双管齐下"
@@ -125,7 +133,7 @@ export default function SearchFeaturePage() {
         </section>
 
         {/* Feature Grid */}
-        <section className="feat-section">
+        <section id="search-features" className="feat-section">
           <FeatureSectionHeader
             eyebrow="核心功能"
             title="为学术研究打造的专业搜索体验"
@@ -136,7 +144,7 @@ export default function SearchFeaturePage() {
         </section>
 
         {/* How It Works */}
-        <section className="feat-section">
+        <section id="search-steps" className="feat-section">
           <FeatureSectionHeader
             eyebrow="使用流程"
             title="三步开始你的文献检索"
@@ -147,7 +155,7 @@ export default function SearchFeaturePage() {
         </section>
 
         {/* Disciplines */}
-        <section className="feat-section">
+        <section id="search-disciplines" className="feat-section">
           <FeatureSectionHeader
             eyebrow="覆盖领域"
             title="横跨 19 个学科的全面覆盖"
@@ -159,7 +167,7 @@ export default function SearchFeaturePage() {
         </section>
 
         {/* FAQ */}
-        <section className="feat-section">
+        <section id="search-faq" className="feat-section">
           <FeatureSectionHeader eyebrow="常见问题" title="关于学术搜索的更多解答" center accentColor={ACCENT} />
           <FeatureFAQ items={FAQ} />
         </section>
@@ -173,6 +181,7 @@ export default function SearchFeaturePage() {
           accentColor={ACCENT}
         />
       </main>
+      <FeatureJumpNav sections={JUMP_SECTIONS} accentColor={ACCENT} />
     </div>
   );
 }

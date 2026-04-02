@@ -9,9 +9,9 @@
  * FeaturePageComponents.js — Shared reusable components for feature landing pages
  */
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Check } from 'lucide-react';
 import Logo from '../../components/Logo';
 import SEO from '../../components/SEO';
@@ -203,6 +203,76 @@ export function FeatureTags({ tags }) {
         <motion.span key={i} className="feat-tag" variants={fadeUp}>{tag}</motion.span>
       ))}
     </motion.div>
+  );
+}
+
+/**
+ * FeatureJumpNav — 浮动锚点导航
+ * 在页面右侧显示可快速跳转到各个章节的浮动导航条。
+ *
+ * @param {Array} sections - [{id, label}] 对应页面中 id="xxx" 的 section 元素
+ * @param {string} accentColor - 高亮色
+ */
+export function FeatureJumpNav({ sections = [], accentColor }) {
+  const [activeId, setActiveId] = useState('');
+  const [visible, setVisible] = useState(false);
+
+  const handleScroll = useCallback(() => {
+    const scrollY = window.scrollY;
+    setVisible(scrollY > 400);
+
+    // 找到当前可见的 section
+    let current = '';
+    for (const { id } of sections) {
+      const el = document.getElementById(id);
+      if (el) {
+        const top = el.getBoundingClientRect().top;
+        if (top < window.innerHeight * 0.4) {
+          current = id;
+        }
+      }
+    }
+    setActiveId(current);
+  }, [sections]);
+
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
+
+  const scrollTo = (id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.nav
+          className="feat-jump-nav"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 20 }}
+          transition={{ duration: 0.25 }}
+        >
+          {sections.map(({ id, label }) => (
+            <button
+              key={id}
+              className={`feat-jump-item ${activeId === id ? 'feat-jump-item--active' : ''}`}
+              style={activeId === id ? { color: accentColor, borderColor: accentColor } : undefined}
+              onClick={() => scrollTo(id)}
+              title={label}
+            >
+              <span className="feat-jump-dot" style={activeId === id ? { background: accentColor } : undefined} />
+              <span className="feat-jump-label">{label}</span>
+            </button>
+          ))}
+        </motion.nav>
+      )}
+    </AnimatePresence>
   );
 }
 

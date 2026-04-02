@@ -70,11 +70,9 @@ func (h *Handler) SaveDraft(c *gin.Context) {
 
 // SubmitDraft 提交草稿开始审稿
 // POST /api/v1/user/peer-review/draft/submit
+// 支持匿名用户：未登录时通过 anon_token 提交
 func (h *Handler) SubmitDraft(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
+	userID, _ := utils.GetOptionalUserID(c)
 
 	var req SubmitDraftRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -86,7 +84,7 @@ func (h *Handler) SubmitDraft(c *gin.Context) {
 		req.ModelLevel = "mid"
 	}
 
-	task, err := h.service.SubmitDraft(userID, &req)
+	task, err := h.service.SubmitDraft(userID, req.AnonToken, &req)
 	if err != nil {
 		utils.Error(c, 5001, "提交审稿失败: "+err.Error())
 		return
@@ -101,7 +99,13 @@ func (h *Handler) SubmitDraft(c *gin.Context) {
 		"manuscript_text": task.ManuscriptText,
 		"target_venue":    "", // 已废弃，保持兼容
 		"model_level":     task.ModelLevel,
+		"is_private":      task.IsPrivate,
 		"created_at":      task.SubmittedAt, // 使用提交时间作为创建时间显示
+	}
+
+	// 匿名任务返回 anon_token
+	if task.AnonToken != "" {
+		response["anon_token"] = task.AnonToken
 	}
 
 	// 添加主稿件文件信息
@@ -198,20 +202,18 @@ func (h *Handler) GetTaskList(c *gin.Context) {
 	utils.Success(c, response)
 }
 
-// GetTaskDetail 获取任务详情
+// GetTaskDetail 获取任务详情（支持匿名访问）
 // GET /api/v1/user/peer-review/tasks/:id
 func (h *Handler) GetTaskDetail(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
+	userID, _ := utils.GetOptionalUserID(c)
+	anonToken := c.Query("anon_token")
 
 	taskID, ok := utils.ParseUintParam(c, "id")
 	if !ok {
 		return
 	}
 
-	response, err := h.service.GetTaskDetail(userID, taskID)
+	response, err := h.service.GetTaskDetail(userID, taskID, anonToken)
 	if err != nil {
 		utils.Error(c, 5003, "获取任务详情失败: "+err.Error())
 		return
@@ -220,20 +222,18 @@ func (h *Handler) GetTaskDetail(c *gin.Context) {
 	utils.Success(c, response)
 }
 
-// GetTaskProgress 获取任务进度（用于轮询）
+// GetTaskProgress 获取任务进度（支持匿名访问）
 // GET /api/v1/user/peer-review/tasks/:id/progress
 func (h *Handler) GetTaskProgress(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
+	userID, _ := utils.GetOptionalUserID(c)
+	anonToken := c.Query("anon_token")
 
 	taskID, ok := utils.ParseUintParam(c, "id")
 	if !ok {
 		return
 	}
 
-	progress, err := h.service.GetTaskProgress(userID, taskID)
+	progress, err := h.service.GetTaskProgress(userID, taskID, anonToken)
 	if err != nil {
 		utils.Error(c, 5004, "获取任务进度失败: "+err.Error())
 		return
@@ -242,20 +242,18 @@ func (h *Handler) GetTaskProgress(c *gin.Context) {
 	utils.Success(c, progress)
 }
 
-// GetTaskSteps 获取任务步骤详情（用于轮询展示每步进度）
+// GetTaskSteps 获取任务步骤详情（支持匿名访问）
 // GET /api/v1/user/peer-review/tasks/:id/steps
 func (h *Handler) GetTaskSteps(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
+	userID, _ := utils.GetOptionalUserID(c)
+	anonToken := c.Query("anon_token")
 
 	taskID, ok := utils.ParseUintParam(c, "id")
 	if !ok {
 		return
 	}
 
-	steps, err := h.service.GetTaskSteps(userID, taskID)
+	steps, err := h.service.GetTaskSteps(userID, taskID, anonToken)
 	if err != nil {
 		utils.Error(c, 5004, "获取任务步骤失败: "+err.Error())
 		return
@@ -264,7 +262,7 @@ func (h *Handler) GetTaskSteps(c *gin.Context) {
 	utils.Success(c, steps)
 }
 
-// DeleteTask 删除任务
+// DeleteTask 删除任务（需要登录）
 // DELETE /api/v1/user/peer-review/tasks/:id
 func (h *Handler) DeleteTask(c *gin.Context) {
 	userID, ok := utils.GetUserID(c)
@@ -285,13 +283,10 @@ func (h *Handler) DeleteTask(c *gin.Context) {
 	utils.Success(c, gin.H{"message": "任务已删除"})
 }
 
-// StartTask 启动草稿任务
+// StartTask 启动草稿任务（支持匿名访问）
 // POST /api/v1/user/peer-review/tasks/:id/start
 func (h *Handler) StartTask(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
+	userID, _ := utils.GetOptionalUserID(c)
 
 	taskID, ok := utils.ParseUintParam(c, "id")
 	if !ok {
@@ -308,7 +303,8 @@ func (h *Handler) StartTask(c *gin.Context) {
 		req.ModelLevel = "mid"
 	}
 
-	if err := h.service.StartDraftTask(userID, taskID, "", req.ModelLevel); err != nil {
+	anonToken := req.AnonToken
+	if err := h.service.StartDraftTask(userID, taskID, "", req.ModelLevel, anonToken); err != nil {
 		utils.Error(c, 5006, err.Error())
 		return
 	}
@@ -320,11 +316,10 @@ func (h *Handler) StartTask(c *gin.Context) {
 
 // UploadFile 上传文件（解析文本，不创建任务）
 // POST /api/v1/user/peer-review/upload
+// 支持匿名用户：未登录时使用 anon_token 关联草稿
 func (h *Handler) UploadFile(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
+	userID, _ := utils.GetOptionalUserID(c)
+	anonToken := c.Query("anon_token")
 
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
@@ -367,7 +362,7 @@ func (h *Handler) UploadFile(c *gin.Context) {
 	}
 
 	// 解析文件并保存到草稿
-	response, err := h.service.ParseFileAndSaveToDraft(userID, header.Filename, ext, content)
+	response, err := h.service.ParseFileAndSaveToDraft(userID, anonToken, header.Filename, ext, content)
 	if err != nil {
 		utils.Error(c, 5007, "处理文件失败: "+err.Error())
 		return
@@ -376,7 +371,7 @@ func (h *Handler) UploadFile(c *gin.Context) {
 	utils.Success(c, response)
 }
 
-// UploadAttachment 上传附件到草稿
+// UploadAttachment 上传附件到草稿（需要登录）
 // POST /api/v1/user/peer-review/attachments
 func (h *Handler) UploadAttachment(c *gin.Context) {
 	userID, ok := utils.GetUserID(c)
@@ -478,13 +473,11 @@ func (h *Handler) ClearDraft(c *gin.Context) {
 
 // ========== SSE 流式接口（实时查看进度） ==========
 
-// WatchTaskProgress SSE 流式监听任务进度
+// WatchTaskProgress SSE 流式监听任务进度（支持匿名访问）
 // GET /api/v1/user/peer-review/tasks/:id/watch
 func (h *Handler) WatchTaskProgress(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
+	userID, _ := utils.GetOptionalUserID(c)
+	anonToken := c.Query("anon_token")
 
 	taskID, ok := utils.ParseUintParam(c, "id")
 	if !ok {
@@ -493,26 +486,24 @@ func (h *Handler) WatchTaskProgress(c *gin.Context) {
 
 	sse.SetHeaders(c)
 
-	err := h.service.WatchTaskProgress(userID, taskID, c.Writer)
+	err := h.service.WatchTaskProgress(userID, taskID, anonToken, c.Writer)
 	if err != nil {
 		sse.WriteError(c.Writer, err.Error())
 	}
 }
 
-// DownloadFile 下载文件
+// DownloadFile 下载文件（支持匿名访问）
 // GET /api/v1/user/peer-review/files/:id/download
 func (h *Handler) DownloadFile(c *gin.Context) {
-	userID, ok := utils.GetUserID(c)
-	if !ok {
-		return
-	}
+	userID, _ := utils.GetOptionalUserID(c)
+	anonToken := c.Query("anon_token")
 
 	fileID, ok := utils.ParseUintParam(c, "id")
 	if !ok {
 		return
 	}
 
-	file, filePath, err := h.service.GetFileForDownload(userID, fileID)
+	file, filePath, err := h.service.GetFileForDownload(userID, fileID, anonToken)
 	if err != nil {
 		utils.Error(c, 5008, err.Error())
 		return
@@ -522,4 +513,25 @@ func (h *Handler) DownloadFile(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", file.FileName))
 	c.Header("Content-Type", "application/octet-stream")
 	c.File(filePath)
+}
+
+// ClaimTask 认领匿名任务（将匿名任务绑定到登录用户）
+// POST /api/v1/user/peer-review/claim-task
+func (h *Handler) ClaimTask(c *gin.Context) {
+	userID, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
+
+	var req ClaimTaskRequest
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+
+	if err := h.service.ClaimTask(userID, req.TaskID, req.AnonToken); err != nil {
+		utils.Error(c, 5001, err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{"message": "任务认领成功"})
 }

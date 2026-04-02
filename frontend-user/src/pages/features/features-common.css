@@ -7,52 +7,76 @@
  * ============================================================================
  *
  * features-common.css — Shared styles for feature promotional pages
+ *
+ * Scoped design tokens for the deep-dark premium theme used on feature pages.
+ * These override the app-wide tokens within .feat-page only.
  */
+
+/* ========== Scoped Design Tokens ========== */
+.feat-page {
+  --feat-bg: #0a0a0e;
+  --feat-bg-warm: #071208;
+  --feat-surface: rgba(255, 255, 255, 0.04);
+  --feat-surface-hover: rgba(255, 255, 255, 0.06);
+  --feat-surface-elevated: rgba(255, 255, 255, 0.08);
+  --feat-border: rgba(255, 255, 255, 0.08);
+  --feat-border-hover: rgba(255, 255, 255, 0.16);
+  --feat-border-subtle: rgba(255, 255, 255, 0.05);
+  --feat-text: #f5fffb;
+  --feat-text-bright: #fff;
+  --feat-text-muted: rgba(245, 255, 251, 0.65);
+  --feat-text-subtle: rgba(255, 255, 255, 0.45);
+  --feat-text-faint: rgba(255, 255, 255, 0.35);
+  --feat-nav-bg: rgba(7, 18, 14, 0.87);
+  --feat-backdrop-blur: blur(16px);
+  --feat-backdrop-blur-sm: blur(10px);
+  --feat-backdrop-blur-md: blur(12px);
+}
 
 /* ========== Page Container ========== */
 .feat-page {
-  height: 100vh;
-  overflow-y: auto;
+  min-height: 100vh;
   overflow-x: hidden;
-  color: #f5fffb;
-  font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--feat-text);
+  font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .feat-main {
-  max-width: 1200px;
+  max-width: var(--content-xl);
   margin: 0 auto;
-  padding: 0 24px 120px;
+  padding: 0 var(--space-6) 120px;
 }
 
 /* ========== Navigation ========== */
 .feat-nav {
   position: sticky;
-  top: 16px;
-  z-index: 30;
+  top: var(--space-4);
+  z-index: var(--z-sticky);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  max-width: 1200px;
-  margin: 24px auto 0;
-  padding: 14px 28px;
-  border-radius: 999px;
-  background: rgba(7, 18, 14, 0.87);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
-  gap: 16px;
+  max-width: var(--content-xl);
+  margin: var(--space-6) auto 0;
+  padding: 14px var(--space-7);
+  border-radius: var(--radius-pill);
+  background: var(--feat-nav-bg);
+  border: 1px solid var(--feat-border);
+  backdrop-filter: var(--feat-backdrop-blur);
+  gap: var(--space-4);
 }
 
 .feat-nav-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
   cursor: pointer;
   text-decoration: none;
   color: inherit;
 }
 
 .feat-nav-logo span {
-  font-size: 16px;
+  font-size: var(--font-base);
   font-weight: 600;
   letter-spacing: 0.4px;
 }
@@ -60,40 +84,41 @@
 .feat-nav-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .feat-nav-link {
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: transparent;
-  color: #f5fffb;
-  padding: 10px 18px;
-  border-radius: 999px;
-  font-size: 14px;
+  color: var(--feat-text);
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background var(--duration-normal) var(--ease-default);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
 }
 
 .feat-nav-link:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--feat-surface-elevated);
 }
 
 .feat-nav-cta {
   border: none;
-  padding: 10px 18px;
-  border-radius: 999px;
-  font-size: 14px;
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform var(--duration-normal) var(--ease-default),
+    box-shadow var(--duration-normal) var(--ease-default);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  color: #fff;
+  color: var(--feat-text-bright);
 }
 
 .feat-nav-cta:hover {
@@ -109,32 +134,32 @@
 .feat-hero-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 16px;
-  border-radius: 999px;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-pill);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--feat-surface);
   font-size: 13px;
   letter-spacing: 0.4px;
   text-transform: uppercase;
-  margin-bottom: 20px;
+  margin-bottom: var(--space-5);
   color: rgba(255, 255, 255, 0.85);
 }
 
 .feat-hero h1 {
-  font-size: 52px;
+  font-size: var(--font-6xl);
   font-weight: 700;
   line-height: 1.1;
-  margin: 0 0 20px;
+  margin: 0 0 var(--space-5);
   letter-spacing: -1px;
 }
 
 .feat-hero-sub {
-  font-size: 18px;
-  color: rgba(255, 255, 255, 0.72);
+  font-size: var(--font-lg);
+  color: var(--feat-text-muted);
   line-height: 1.65;
-  max-width: 640px;
-  margin: 0 auto 36px;
+  max-width: var(--content-sm);
+  margin: 0 auto var(--space-9);
 }
 
 .feat-hero-actions {
@@ -145,17 +170,18 @@
 }
 
 .feat-btn-primary {
-  padding: 14px 32px;
-  border-radius: 999px;
+  padding: 14px var(--space-8);
+  border-radius: var(--radius-pill);
   border: none;
-  font-size: 16px;
+  font-size: var(--font-base);
   font-weight: 600;
   cursor: pointer;
-  color: #fff;
-  transition: all 0.25s ease;
+  color: var(--feat-text-bright);
+  transition: transform var(--duration-normal) var(--ease-default),
+    box-shadow var(--duration-normal) var(--ease-default);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .feat-btn-primary:hover {
@@ -163,23 +189,24 @@
 }
 
 .feat-btn-secondary {
-  padding: 14px 32px;
-  border-radius: 999px;
+  padding: 14px var(--space-8);
+  border-radius: var(--radius-pill);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.06);
-  font-size: 16px;
+  background: var(--feat-surface-hover);
+  font-size: var(--font-base);
   font-weight: 500;
   cursor: pointer;
-  color: #f5fffb;
-  transition: all 0.25s ease;
+  color: var(--feat-text);
+  transition: background var(--duration-normal) var(--ease-default),
+    transform var(--duration-normal) var(--ease-default);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   text-decoration: none;
 }
 
 .feat-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--feat-surface-elevated);
   transform: translateY(-1px);
 }
 
@@ -187,65 +214,65 @@
 .feat-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  padding: 48px 0;
+  gap: var(--space-4);
+  padding: var(--space-10) 0;
 }
 
 .feat-stat-item {
-  padding: 20px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(10px);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--feat-surface);
+  border: 1px solid var(--feat-border);
+  backdrop-filter: var(--feat-backdrop-blur-sm);
   text-align: center;
 }
 
 .feat-stat-value {
-  font-size: 28px;
+  font-size: var(--font-3xl);
   font-weight: 700;
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
 
 .feat-stat-label {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--feat-text-subtle);
 }
 
 /* ========== Section Headers ========== */
 .feat-section {
-  padding: 60px 0;
+  padding: var(--space-12) 0;
 }
 
 .feat-section-eyebrow {
-  font-size: 12px;
+  font-size: var(--font-xs);
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  margin-bottom: 10px;
+  margin-bottom: var(--space-2);
   display: block;
 }
 
 .feat-section-title {
-  font-size: 36px;
+  font-size: var(--font-4xl);
   font-weight: 700;
-  margin: 0 0 16px;
+  margin: 0 0 var(--space-4);
   line-height: 1.2;
 }
 
 .feat-section-desc {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.65);
+  font-size: var(--font-base);
+  color: var(--feat-text-muted);
   max-width: 560px;
   line-height: 1.7;
 }
 
 .feat-section-header {
-  margin-bottom: 40px;
+  margin-bottom: var(--space-10);
 }
 
 .feat-section-header-center {
   text-align: center;
-  margin-bottom: 48px;
+  margin-bottom: var(--space-10);
 }
 
 .feat-section-header-center .feat-section-desc {
@@ -256,22 +283,24 @@
 .feat-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  gap: var(--space-5);
 }
 
 .feat-card {
-  padding: 28px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: var(--space-7);
+  border-radius: var(--radius-xl);
+  background: var(--feat-surface);
+  border: 1px solid var(--feat-border);
+  backdrop-filter: var(--feat-backdrop-blur-md);
+  transition: transform var(--duration-slow) var(--ease-default),
+    border-color var(--duration-slow) var(--ease-default),
+    background var(--duration-slow) var(--ease-default);
 }
 
 .feat-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--feat-border-hover);
+  background: var(--feat-surface-hover);
 }
 
 .feat-card-icon {
@@ -281,8 +310,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 16px;
-  color: #fff;
+  margin-bottom: var(--space-4);
+  color: var(--feat-text-bright);
 }
 
 .feat-card-icon svg {
@@ -291,15 +320,15 @@
 }
 
 .feat-card h3 {
-  font-size: 18px;
+  font-size: var(--font-lg);
   font-weight: 600;
-  margin: 0 0 8px;
-  color: #fff;
+  margin: 0 0 var(--space-2);
+  color: var(--feat-text-bright);
 }
 
 .feat-card p {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.65);
+  font-size: var(--font-sm);
+  color: var(--feat-text-muted);
   line-height: 1.7;
   margin: 0;
 }
@@ -308,7 +337,7 @@
 .feat-steps {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 32px;
+  gap: var(--space-8);
   position: relative;
 }
 
@@ -324,20 +353,24 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 20px;
-  font-size: 22px;
+  margin: 0 auto var(--space-5);
+  font-size: var(--font-xl);
   font-weight: 700;
-  color: #fff;
+  color: var(--feat-text-bright);
   position: relative;
 }
 
+/* Connector line between steps — uses a pseudo-element on the step itself
+   instead of the fragile calc() child approach. The line stretches from
+   the right edge of the number circle to the left edge of the next one. */
 .feat-step-connector {
   position: absolute;
   top: 28px;
-  left: calc(50% + 36px);
-  width: calc(100% - 72px);
+  left: calc(50% + 32px);
+  right: calc(-50% + 32px);
   height: 2px;
   background: rgba(255, 255, 255, 0.1);
+  pointer-events: none;
 }
 
 .feat-step:last-child .feat-step-connector {
@@ -345,15 +378,15 @@
 }
 
 .feat-step h3 {
-  font-size: 18px;
+  font-size: var(--font-lg);
   font-weight: 600;
-  margin: 0 0 10px;
-  color: #fff;
+  margin: 0 0 var(--space-2);
+  color: var(--feat-text-bright);
 }
 
 .feat-step p {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: var(--font-sm);
+  color: var(--feat-text-subtle);
   line-height: 1.65;
   margin: 0;
 }
@@ -361,25 +394,25 @@
 /* ========== CTA Section ========== */
 .feat-cta-section {
   text-align: center;
-  padding: 80px 40px;
-  border-radius: 28px;
+  padding: 80px var(--space-10);
+  border-radius: var(--radius-xl);
   position: relative;
   overflow: hidden;
-  margin-top: 40px;
+  margin-top: var(--space-10);
 }
 
 .feat-cta-section h2 {
-  font-size: 36px;
+  font-size: var(--font-4xl);
   font-weight: 700;
-  margin: 0 0 16px;
+  margin: 0 0 var(--space-4);
   position: relative;
   z-index: 1;
 }
 
 .feat-cta-section p {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.7);
-  margin: 0 0 32px;
+  font-size: var(--font-base);
+  color: var(--feat-text-muted);
+  margin: 0 0 var(--space-8);
   position: relative;
   z-index: 1;
 }
@@ -393,29 +426,29 @@
 .feat-showcase {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 48px;
+  gap: var(--space-10);
   align-items: center;
 }
 
 .feat-showcase-text h3 {
-  font-size: 24px;
+  font-size: var(--font-2xl);
   font-weight: 600;
-  margin: 0 0 12px;
-  color: #fff;
+  margin: 0 0 var(--space-3);
+  color: var(--feat-text-bright);
 }
 
 .feat-showcase-text p {
   font-size: 15px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--feat-text-muted);
   line-height: 1.75;
-  margin: 0 0 20px;
+  margin: 0 0 var(--space-5);
 }
 
 .feat-showcase-visual {
-  border-radius: 20px;
-  padding: 32px;
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--feat-border);
 }
 
 .feat-showcase-list {
@@ -424,13 +457,13 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .feat-showcase-list li {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
   font-size: 15px;
   color: rgba(255, 255, 255, 0.8);
 }
@@ -443,55 +476,75 @@
 .feat-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--space-3);
   justify-content: center;
 }
 
 .feat-tag {
-  padding: 8px 18px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 14px;
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-pill);
+  background: var(--feat-surface);
+  border: 1px solid var(--feat-border);
+  font-size: var(--font-sm);
   color: rgba(255, 255, 255, 0.8);
-  transition: all 0.2s ease;
+  transition: background var(--duration-normal) var(--ease-default),
+    border-color var(--duration-normal) var(--ease-default);
 }
 
 .feat-tag:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--feat-surface-elevated);
+  border-color: var(--feat-border-hover);
 }
 
 /* ========== FAQ Section ========== */
 .feat-faq-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-5);
 }
 
 .feat-faq-item {
-  padding: 24px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  background: var(--feat-surface);
+  border: 1px solid var(--feat-border);
+  backdrop-filter: var(--feat-backdrop-blur-md);
 }
 
 .feat-faq-item h3 {
-  font-size: 16px;
+  font-size: var(--font-base);
   font-weight: 600;
-  margin: 0 0 10px;
-  color: #fff;
+  margin: 0 0 var(--space-2);
+  color: var(--feat-text-bright);
 }
 
 .feat-faq-item p {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.65);
+  font-size: var(--font-sm);
+  color: var(--feat-text-muted);
   line-height: 1.65;
   margin: 0;
 }
 
-/* ========== Responsive ========== */
+/* ========== Reduced Motion ========== */
+@media (prefers-reduced-motion: reduce) {
+  .feat-card,
+  .feat-btn-primary,
+  .feat-btn-secondary,
+  .feat-nav-cta,
+  .feat-nav-link,
+  .feat-tag {
+    transition: none;
+  }
+
+  .feat-card:hover,
+  .feat-btn-primary:hover,
+  .feat-btn-secondary:hover,
+  .feat-nav-cta:hover {
+    transform: none;
+  }
+}
+
+/* ========== Responsive — Tablet (1024px) ========== */
 @media (max-width: 1024px) {
   .feat-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -499,30 +552,40 @@
 
   .feat-showcase {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: var(--space-8);
+  }
+
+  .feat-steps {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-5);
+  }
+
+  .feat-hero h1 {
+    font-size: var(--font-5xl);
   }
 }
 
+/* ========== Responsive — Mobile (768px) ========== */
 @media (max-width: 768px) {
   .feat-nav {
-    margin: 12px 12px 0;
-    padding: 12px 16px;
-    border-radius: 20px;
-    gap: 12px;
+    margin: var(--space-3) var(--space-3) 0;
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-xl);
+    gap: var(--space-3);
   }
 
   .feat-nav-logo span {
-    font-size: 14px;
+    font-size: var(--font-sm);
   }
 
   .feat-nav-link,
   .feat-nav-cta {
-    padding: 8px 14px;
+    padding: var(--space-2) 14px;
     font-size: 13px;
   }
 
   .feat-main {
-    padding: 0 16px 80px;
+    padding: 0 var(--space-4) 80px;
   }
 
   .feat-hero {
@@ -530,7 +593,7 @@
   }
 
   .feat-hero h1 {
-    font-size: 32px;
+    font-size: var(--font-4xl);
     letter-spacing: -0.5px;
   }
 
@@ -540,23 +603,27 @@
 
   .feat-stats {
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    gap: var(--space-3);
   }
 
   .feat-stat-item {
-    padding: 16px;
+    padding: var(--space-4);
   }
 
   .feat-stat-value {
-    font-size: 22px;
+    font-size: var(--font-xl);
+  }
+
+  .feat-section {
+    padding: var(--space-10) 0;
   }
 
   .feat-section-title {
-    font-size: 26px;
+    font-size: var(--font-2xl);
   }
 
   .feat-section-desc {
-    font-size: 14px;
+    font-size: var(--font-sm);
   }
 
   .feat-grid {
@@ -565,12 +632,12 @@
   }
 
   .feat-card {
-    padding: 22px;
+    padding: var(--space-5);
   }
 
   .feat-steps {
     grid-template-columns: 1fr;
-    gap: 24px;
+    gap: var(--space-6);
   }
 
   .feat-step-connector {
@@ -578,26 +645,40 @@
   }
 
   .feat-cta-section {
-    padding: 48px 24px;
-    border-radius: 20px;
+    padding: var(--space-10) var(--space-6);
+    border-radius: var(--radius-xl);
   }
 
   .feat-cta-section h2 {
-    font-size: 26px;
+    font-size: var(--font-2xl);
   }
 
   .feat-btn-primary,
   .feat-btn-secondary {
-    padding: 12px 24px;
-    font-size: 14px;
+    padding: var(--space-3) var(--space-6);
+    font-size: var(--font-sm);
+  }
+
+  .feat-faq-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feat-tags {
+    gap: var(--space-2);
+  }
+
+  .feat-tag {
+    padding: var(--space-2) var(--space-4);
+    font-size: 13px;
   }
 }
 
+/* ========== Responsive — Small Mobile (375px) ========== */
 @media (max-width: 375px) {
   .feat-nav {
-    margin: 8px 8px 0;
-    padding: 10px 12px;
-    border-radius: 16px;
+    margin: var(--space-2) var(--space-2) 0;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-lg);
   }
 
   .feat-hero {
@@ -605,11 +686,11 @@
   }
 
   .feat-hero h1 {
-    font-size: 26px;
+    font-size: var(--font-2xl);
   }
 
   .feat-hero-sub {
-    font-size: 14px;
+    font-size: var(--font-sm);
   }
 
   .feat-stats {
@@ -617,10 +698,85 @@
   }
 
   .feat-section-title {
-    font-size: 22px;
+    font-size: var(--font-xl);
   }
 
   .feat-cta-section h2 {
-    font-size: 22px;
+    font-size: var(--font-xl);
   }
+
+  .feat-jump-nav { display: none; }
+}
+
+/* ========== Jump Navigation ========== */
+.feat-jump-nav {
+  position: fixed;
+  right: var(--space-5);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: var(--z-sticky);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2);
+  border-radius: var(--radius);
+  background: var(--feat-nav-bg);
+  backdrop-filter: var(--feat-backdrop-blur);
+  -webkit-backdrop-filter: var(--feat-backdrop-blur);
+  border: 1px solid var(--feat-border);
+}
+
+.feat-jump-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: var(--feat-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+  white-space: nowrap;
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+
+.feat-jump-item:hover {
+  color: var(--feat-text);
+  background: var(--feat-surface-hover);
+}
+
+.feat-jump-item--active {
+  color: var(--feat-text-bright);
+  background: var(--feat-surface);
+}
+
+.feat-jump-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--feat-text-subtle);
+  flex-shrink: 0;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+.feat-jump-item--active .feat-jump-dot {
+  width: 7px;
+  height: 7px;
+}
+
+.feat-jump-label {
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 1400px) {
+  .feat-jump-nav {
+    right: var(--space-2);
+  }
+  .feat-jump-label { display: none; }
+  .feat-jump-item { padding: var(--space-2); }
 }

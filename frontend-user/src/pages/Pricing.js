@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
 import SEO from '../components/SEO';
@@ -88,13 +88,6 @@ const PLATFORM_STATS = [
 
 const Pricing = () => {
   const navigate = useNavigate();
-
-  useEffect(() => {
-    document.body.classList.add('pricing-page-active');
-    return () => {
-      document.body.classList.remove('pricing-page-active');
-    };
-  }, []);
 
   return (
     <div className="pricing-page">

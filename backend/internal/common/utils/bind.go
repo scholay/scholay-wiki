@@ -45,6 +45,20 @@ func GetUserID(c *gin.Context) (uint, bool) {
 	return uid, true
 }
 
+// GetOptionalUserID extracts user ID from context if present.
+// Returns (userID, isAuthenticated). Returns (0, false) for anonymous users without sending an error response.
+func GetOptionalUserID(c *gin.Context) (uint, bool) {
+	id, exists := c.Get("user_id")
+	if !exists {
+		return 0, false
+	}
+	uid, ok := id.(uint)
+	if !ok {
+		return 0, false
+	}
+	return uid, true
+}
+
 // ParseUintParam parses a URL path parameter as uint.
 // Sends a BadRequest response on failure. Returns (value, ok).
 func ParseUintParam(c *gin.Context, name string) (uint, bool) {

@@ -65,6 +65,7 @@ func GetReviewerName(index int) string {
 type PeerReviewTask struct {
 	ID               uint   `json:"id" gorm:"primaryKey"`
 	UserID           uint   `json:"user_id" gorm:"index"`
+	AnonToken        string `json:"anon_token,omitempty" gorm:"size:64;index"` // 匿名用户的访问令牌
 	InputType        string `json:"input_type"`                           // text 或 file
 	ManuscriptText   string `json:"manuscript_text" gorm:"type:longtext"` // 主稿件文本内容
 	ManuscriptFileID *uint  `json:"manuscript_file_id"`                   // 主稿件文件ID
@@ -74,6 +75,10 @@ type PeerReviewTask struct {
 	TargetVenue string `json:"target_venue"` // 目标期刊/会议
 	ModelLevel  string `json:"model_level"`  // 模型级别: low, mid, high
 	ContentHash string `json:"content_hash"` // 内容哈希，用于缓存
+
+	// 隐私模式
+	IsPrivate    bool       `json:"is_private" gorm:"default:false"`      // 隐私模式：完成后不保留数据
+	PrivateExpAt *time.Time `json:"private_exp_at,omitempty"`             // 隐私数据过期时间
 
 	// 任务状态
 	Status        string `json:"status" gorm:"index"` // draft, pending, processing, completed, failed
@@ -188,6 +193,7 @@ type CreateTaskRequest struct {
 type StartTaskRequest struct {
 	TargetVenue string `json:"target_venue"`
 	ModelLevel  string `json:"model_level"`
+	AnonToken   string `json:"anon_token"` // 匿名用户的访问令牌
 }
 
 // PeerReviewRequest 审稿请求（兼容旧接口）
@@ -209,6 +215,8 @@ type SaveDraftRequest struct {
 type SubmitDraftRequest struct {
 	TargetVenue string `json:"target_venue"`
 	ModelLevel  string `json:"model_level"`
+	AnonToken   string `json:"anon_token"`   // 匿名用户的访问令牌
+	IsPrivate   bool   `json:"is_private"`   // 隐私模式
 }
 
 // DraftResponse 草稿响应
@@ -242,6 +250,13 @@ type UploadFileResponse struct {
 	FileSize       int64  `json:"file_size"`
 	ProcessMode    string `json:"process_mode"`
 	ContentPreview string `json:"content_preview,omitempty"`
+	AnonToken      string `json:"anon_token,omitempty"` // 匿名用户的访问令牌
+}
+
+// ClaimTaskRequest 认领匿名任务请求
+type ClaimTaskRequest struct {
+	TaskID    uint   `json:"task_id" binding:"required"`
+	AnonToken string `json:"anon_token" binding:"required"`
 }
 
 // TaskListResponse 任务列表响应
@@ -280,6 +295,7 @@ type TaskDetailResponse struct {
 	Title          string `json:"title"`
 	TargetVenue    string `json:"target_venue"`
 	ModelLevel     string `json:"model_level"`
+	IsPrivate      bool   `json:"is_private"`
 	Status         string `json:"status"`
 	Progress       int    `json:"progress"`
 	ProgressStage  string `json:"progress_stage"`

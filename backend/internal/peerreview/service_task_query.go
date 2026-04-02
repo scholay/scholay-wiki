@@ -9,7 +9,6 @@ package peerreview
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -81,8 +80,8 @@ func (s *Service) GetTaskList(userID uint, page, pageSize int, status string, se
 	var tasks []PeerReviewTask
 	var total int64
 
-	// 排除草稿状态的任务
-	query := s.db.Model(&PeerReviewTask{}).Where("user_id = ? AND status != ?", userID, TaskStatusDraft)
+	// 排除草稿状态和隐私模式的任务
+	query := s.db.Model(&PeerReviewTask{}).Where("user_id = ? AND status != ? AND is_private = ?", userID, TaskStatusDraft, false)
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
@@ -188,24 +187,26 @@ func (s *Service) GetTaskList(userID uint, page, pageSize int, status string, se
 	}, nil
 }
 
-// GetTaskDetail 获取任务详情
-func (s *Service) GetTaskDetail(userID uint, taskID uint) (*TaskDetailResponse, error) {
-	var task PeerReviewTask
-	if err := s.db.Where("id = ? AND user_id = ?", taskID, userID).First(&task).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("任务不存在")
-		}
+// GetTaskDetail 获取任务详情（支持匿名访问）
+func (s *Service) GetTaskDetail(userID uint, taskID uint, anonToken ...string) (*TaskDetailResponse, error) {
+	at := ""
+	if len(anonToken) > 0 {
+		at = anonToken[0]
+	}
+	task, err := s.findTaskWithAccess(taskID, userID, at)
+	if err != nil {
 		return nil, err
 	}
 
 	// 加载关联数据
-	s.loadTaskFiles(&task)
+	s.loadTaskFiles(task)
 
 	response := &TaskDetailResponse{
 		ID:                  task.ID,
 		Title:               task.Title,
 		InputType:           task.InputType,
 		TargetVenue:         "", // 已废弃
+		IsPrivate:           task.IsPrivate,
 		Status:              task.Status,
 		Progress:            task.Progress,
 		ProgressStage:       task.ProgressStage,
@@ -279,15 +280,23 @@ func (s *Service) GetTaskDetail(userID uint, taskID uint) (*TaskDetailResponse, 
 	return response, nil
 }
 
-// GetTaskProgress 获取任务进度
-func (s *Service) GetTaskProgress(userID uint, taskID uint) (map[string]any, error) {
+// GetTaskProgress 获取任务进度（支持匿名访问）
+func (s *Service) GetTaskProgress(userID uint, taskID uint, anonToken ...string) (map[string]any, error) {
+	at := ""
+	if len(anonToken) > 0 {
+		at = anonToken[0]
+	}
+
+	// 先验证访问权限
+	if _, err := s.findTaskWithAccess(taskID, userID, at); err != nil {
+		return nil, err
+	}
+
+	// 查询进度
 	var task PeerReviewTask
 	if err := s.db.Select("id, status, progress, progress_stage, error_message, completed_at").
-		Where("id = ? AND user_id = ?", taskID, userID).First(&task).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("任务不存在")
-		}
-		return nil, err
+		First(&task, taskID).Error; err != nil {
+		return nil, fmt.Errorf("任务不存在")
 	}
 
 	return map[string]any{
@@ -300,13 +309,14 @@ func (s *Service) GetTaskProgress(userID uint, taskID uint) (map[string]any, err
 	}, nil
 }
 
-// GetTaskSteps 获取任务步骤详情（用于前端展示每步进度）
-func (s *Service) GetTaskSteps(userID uint, taskID uint) (*TaskStepsResponse, error) {
-	var task PeerReviewTask
-	if err := s.db.Where("id = ? AND user_id = ?", taskID, userID).First(&task).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("任务不存在")
-		}
+// GetTaskSteps 获取任务步骤详情（支持匿名访问）
+func (s *Service) GetTaskSteps(userID uint, taskID uint, anonToken ...string) (*TaskStepsResponse, error) {
+	at := ""
+	if len(anonToken) > 0 {
+		at = anonToken[0]
+	}
+	task, err := s.findTaskWithAccess(taskID, userID, at)
+	if err != nil {
 		return nil, err
 	}
 
@@ -323,7 +333,7 @@ func (s *Service) GetTaskSteps(userID uint, taskID uint) (*TaskStepsResponse, er
 	}
 
 	// 构建预处理步骤信息
-	response.PreprocessSteps = s.buildPreprocessSteps(&task)
+	response.PreprocessSteps = s.buildPreprocessSteps(task)
 
 	// 构建各审稿人步骤信息
 	for _, review := range reviews {
@@ -347,7 +357,7 @@ func (s *Service) GetTaskSteps(userID uint, taskID uint) (*TaskStepsResponse, er
 	}
 
 	// 构建汇总步骤信息
-	response.SummarizeStep = s.buildSummarizeStep(&task)
+	response.SummarizeStep = s.buildSummarizeStep(task)
 
 	return response, nil
 }
@@ -498,13 +508,16 @@ func (s *Service) buildPreprocessSteps(task *PeerReviewTask) []StepInfo {
 	return steps
 }
 
-// WatchTaskProgress SSE监听任务进度
-func (s *Service) WatchTaskProgress(userID uint, taskID uint, writer io.Writer) error {
+// WatchTaskProgress SSE监听任务进度（支持匿名访问）
+func (s *Service) WatchTaskProgress(userID uint, taskID uint, anonToken string, writer io.Writer) error {
 	// 验证任务归属
-	var task PeerReviewTask
-	if err := s.db.Where("id = ? AND user_id = ?", taskID, userID).First(&task).Error; err != nil {
-		return fmt.Errorf("任务不存在")
+	if _, err := s.findTaskWithAccess(taskID, userID, anonToken); err != nil {
+		return err
 	}
+
+	// 重新查询最新状态
+	var task PeerReviewTask
+	s.db.First(&task, taskID)
 
 	// 如果任务已完成，直接返回结果
 	if task.Status == TaskStatusCompleted || task.Status == TaskStatusFailed {
@@ -566,14 +579,13 @@ func (s *Service) CountDraftTasks(userID uint) (int64, error) {
 	return count, err
 }
 
-// UploadFile 旧版上传文件方法（已弃用，使用 ParseFileAndSaveToDraft 代替）
-// 为了兼容性保留，内部调用新方法
-func (s *Service) UploadFile(userID uint, fileName string, fileExt string, content []byte) (*UploadFileResponse, error) {
-	return s.ParseFileAndSaveToDraft(userID, fileName, fileExt, content)
-}
+// GetFileForDownload 获取文件用于下载（支持匿名访问）
+func (s *Service) GetFileForDownload(userID uint, fileID uint, anonToken ...string) (*PeerReviewFile, string, error) {
+	at := ""
+	if len(anonToken) > 0 {
+		at = anonToken[0]
+	}
 
-// GetFileForDownload 获取文件用于下载
-func (s *Service) GetFileForDownload(userID uint, fileID uint) (*PeerReviewFile, string, error) {
 	var file PeerReviewFile
 	if err := s.db.First(&file, fileID).Error; err != nil {
 		return nil, "", fmt.Errorf("文件不存在")
@@ -581,11 +593,12 @@ func (s *Service) GetFileForDownload(userID uint, fileID uint) (*PeerReviewFile,
 
 	// 验证用户权限：文件必须属于用户的任务
 	if file.TaskID != nil {
-		var task PeerReviewTask
-		if err := s.db.Where("id = ? AND user_id = ?", *file.TaskID, userID).First(&task).Error; err != nil {
+		if _, err := s.findTaskWithAccess(*file.TaskID, userID, at); err != nil {
 			return nil, "", fmt.Errorf("无权访问此文件")
 		}
-	} else if file.UserID != userID {
+	} else if userID > 0 && file.UserID == userID {
+		// 登录用户直接匹配
+	} else {
 		return nil, "", fmt.Errorf("无权访问此文件")
 	}
 
@@ -639,12 +652,16 @@ func (s *Service) DeleteTask(userID uint, taskID uint) error {
 	})
 }
 
-// StartDraftTask 启动草稿任务（开始审稿流程）
+// StartDraftTask 启动草稿任务（支持匿名访问）
 // target_venue 参数已废弃，保留参数签名以兼容旧接口
-func (s *Service) StartDraftTask(userID uint, taskID uint, _ string, modelLevel string) error {
-	var task PeerReviewTask
-	if err := s.db.Where("id = ? AND user_id = ?", taskID, userID).First(&task).Error; err != nil {
-		return fmt.Errorf("任务不存在")
+func (s *Service) StartDraftTask(userID uint, taskID uint, _ string, modelLevel string, anonToken ...string) error {
+	at := ""
+	if len(anonToken) > 0 {
+		at = anonToken[0]
+	}
+	task, err := s.findTaskWithAccess(taskID, userID, at)
+	if err != nil {
+		return err
 	}
 
 	if task.Status != TaskStatusDraft {
@@ -659,7 +676,7 @@ func (s *Service) StartDraftTask(userID uint, taskID uint, _ string, modelLevel 
 		"progress_stage": "等待处理",
 	}
 
-	if err := s.db.Model(&task).Updates(updates).Error; err != nil {
+	if err := s.db.Model(task).Updates(updates).Error; err != nil {
 		return fmt.Errorf("更新任务状态失败: %w", err)
 	}
 
@@ -674,6 +691,44 @@ func (s *Service) StartDraftTask(userID uint, taskID uint, _ string, modelLevel 
 func (s *Service) runTaskPipeline(taskID uint, userID uint, modelLevel string) {
 	// 直接调用三审流程
 	s.processTaskAsyncWithThreeReviewers(taskID)
+}
+
+// ClaimTask 认领匿名任务（将匿名任务绑定到登录用户）
+func (s *Service) ClaimTask(userID uint, taskID uint, anonToken string) error {
+	if anonToken == "" {
+		return fmt.Errorf("缺少匿名令牌")
+	}
+
+	var task PeerReviewTask
+	if err := s.db.First(&task, taskID).Error; err != nil {
+		return fmt.Errorf("任务不存在")
+	}
+
+	// 验证 anon_token 匹配
+	if task.AnonToken == "" || task.AnonToken != anonToken {
+		return fmt.Errorf("无权认领此任务")
+	}
+
+	// 已经被认领（user_id != 0）
+	if task.UserID != 0 {
+		if task.UserID == userID {
+			return nil // 已经是自己的任务
+		}
+		return fmt.Errorf("此任务已被其他用户认领")
+	}
+
+	// 更新任务的 user_id，清空 anon_token
+	if err := s.db.Model(&task).Updates(map[string]any{
+		"user_id":    userID,
+		"anon_token": "",
+	}).Error; err != nil {
+		return fmt.Errorf("认领任务失败: %w", err)
+	}
+
+	// 同时更新关联文件的 user_id
+	s.db.Model(&PeerReviewFile{}).Where("task_id = ?", taskID).Update("user_id", userID)
+
+	return nil
 }
 
 // extractTitle 从稿件内容中提取标题
@@ -700,4 +755,47 @@ func extractTitle(content string) string {
 		return content[:50] + "..."
 	}
 	return content
+}
+
+// CleanupExpiredPrivateTasks 清理已过期的隐私模式任务数据
+// 保留任务记录但清除稿件内容和文件
+func (s *Service) CleanupExpiredPrivateTasks() (int64, error) {
+	now := time.Now()
+
+	// 查找已过期的隐私任务
+	var tasks []PeerReviewTask
+	s.db.Where("is_private = ? AND private_exp_at IS NOT NULL AND private_exp_at < ?", true, now).Find(&tasks)
+
+	var cleaned int64
+	for _, task := range tasks {
+		// 删除关联文件
+		var files []PeerReviewFile
+		s.db.Where("task_id = ?", task.ID).Find(&files)
+		for _, f := range files {
+			os.Remove(f.FilePath)
+		}
+		s.db.Where("task_id = ?", task.ID).Delete(&PeerReviewFile{})
+
+		// 清除敏感内容，保留元数据用于统计
+		s.db.Model(&task).Updates(map[string]any{
+			"manuscript_text":      "",
+			"manuscript_file_id":   nil,
+			"manuscript_meta":      "",
+			"literature_context":   "",
+			"literature_summary":   "",
+			"final_review_content": "",
+			"status":               "expired",
+			"progress_stage":       "隐私数据已清除",
+		})
+
+		// 清除审稿结果内容
+		s.db.Model(&PeerReviewResult{}).Where("task_id = ?", task.ID).Updates(map[string]any{
+			"review_content": "",
+			"steps_detail":   "",
+		})
+
+		cleaned++
+	}
+
+	return cleaned, nil
 }
