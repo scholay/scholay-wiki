@@ -1,0 +1,107 @@
+---
+description: React 18 frontend conventions for Scholar project. Apply when writing or modifying JS/JSX/TS/TSX/CSS files in frontend-user/.
+globs: ["frontend-user/src/**/*.{js,jsx,ts,tsx,css}"]
+alwaysApply: false
+---
+
+# React Frontend Conventions (Scholar)
+
+## Component Patterns
+
+- Use functional components exclusively (no class components)
+- One component per file; filename matches component name in PascalCase
+- Keep components focused — extract sub-components when a file exceeds ~200 lines
+- Use composition over prop drilling; leverage Context API for cross-cutting concerns
+
+```jsx
+function PaperCard({ paper, onSelect }) {
+  // Guard clauses first
+  if (!paper) return null;
+
+  return (
+    <div className="paper-card" onClick={() => onSelect(paper.id)}>
+      <h3>{paper.title}</h3>
+    </div>
+  );
+}
+```
+
+## Directory Structure
+
+```
+src/
+  components/       # Reusable UI components
+    styles/         # Component CSS files (ComponentName.css)
+  pages/            # Route-level page components
+    styles/         # Page CSS files
+    features/       # Feature-specific page components
+  services/         # API service modules (*.api.ts)
+  hooks/            # Custom React hooks (useXxx.js/ts)
+  contexts/         # React Context providers
+  stores/           # State management
+  utils/            # Utility functions
+  assets/           # Static assets (images, fonts)
+  admin/            # Admin dashboard pages and components
+```
+
+## Hooks Best Practices
+
+- Custom hooks start with `use` prefix: `useSearch`, `usePagination`
+- Keep hooks focused on a single concern
+- Use `useCallback` for event handlers passed to child components
+- Use `useMemo` for expensive computations only when profiling shows a need
+- Always specify complete dependency arrays in `useEffect`
+- Clean up side effects in `useEffect` return functions
+
+## API Service Layer
+
+API calls go through service files in `src/services/`:
+
+```typescript
+// services/scholar.api.ts
+import { client } from './client';
+
+export const searchPapers = (query: string, limit: number) =>
+  client.get('/api/v1/scholar/papers/search', { params: { query, limit } });
+```
+
+- Use the shared `client` instance (Axios with interceptors)
+- Group API calls by domain module
+- Handle auth token injection via Axios interceptors (already configured)
+- Never use `fetch()` directly; always use the shared Axios client
+
+## State Management
+
+- **Local state**: `useState` for component-scoped state
+- **Complex state**: `useReducer` for state with multiple sub-values
+- **Shared state**: React Context API via `src/contexts/`
+- **Server state**: React Query via `src/hooks/queries/`
+- Auth state managed by AuthContext (token in localStorage)
+
+## CSS Conventions
+
+- One CSS file per component, placed in adjacent `styles/` directory
+- CSS class names use kebab-case: `.paper-card`, `.search-input`
+- No inline styles unless dynamically computed
+- Use CSS custom properties (variables) for theme values
+- Mobile-first responsive design with breakpoints: 640px, 768px, 1024px
+
+## Error Handling
+
+- Use `ErrorBoundary` component for catching render errors
+- Show user-friendly error messages (never raw error objects)
+- Handle loading/error/empty states in every data-fetching component
+- Use try-catch in async functions; display errors via toast or inline messages
+
+## Performance
+
+- Lazy-load route-level components with `React.lazy` + `Suspense`
+- Use `React.memo` only for components that re-render with unchanged props
+- Virtualize long lists with `useVirtualList` hook
+- Optimize images: use WebP format, set explicit width/height
+
+## Admin Dashboard
+
+- Admin routes live under `src/admin/` and render at `/admin/*`
+- Admin components follow the same patterns as user-facing components
+- Use Recharts for admin analytics visualizations

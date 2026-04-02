@@ -172,6 +172,27 @@
   text-overflow: ellipsis;
 }
 
+/* Modal form layout helpers */
+.admin-app .modal-form{
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.admin-app .modal-form .modal-body{
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Section-level hint (bottom margin instead of top) */
+.admin-app .form-hint-section{
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-4);
+}
+
 .admin-app .model-codes-section{
   background: var(--surface-muted);
   border: 1px solid var(--border-subtle);

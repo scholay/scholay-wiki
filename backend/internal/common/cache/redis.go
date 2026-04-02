@@ -137,13 +137,29 @@ func GetOrSet(ctx context.Context, key string, expiration time.Duration, fetch f
 
 // InvalidatePattern deletes all keys matching a pattern
 func InvalidatePattern(ctx context.Context, pattern string) error {
-	iter := rdb.Scan(ctx, 0, pattern, 0).Iterator()
-	for iter.Next(ctx) {
-		if err := rdb.Del(ctx, iter.Val()).Err(); err != nil {
+	const batchSize = 100
+	var cursor uint64
+
+	for {
+		keys, nextCursor, err := rdb.Scan(ctx, cursor, pattern, int64(batchSize)).Result()
+		if err != nil {
 			return err
 		}
+		if len(keys) > 0 {
+			pipe := rdb.Pipeline()
+			for _, k := range keys {
+				pipe.Del(ctx, k)
+			}
+			if _, err := pipe.Exec(ctx); err != nil {
+				return err
+			}
+		}
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
 	}
-	return iter.Err()
+	return nil
 }
 
 // SetNX sets a key only if it doesn't exist (used for distributed locks)

@@ -9,7 +9,6 @@ package thirdparty
 
 import (
 	"scholar-backend/internal/common/utils"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -43,8 +42,7 @@ type UpdateAccountRequest struct {
 // CreateAccount handles POST /api/v1/admin/third-party-accounts
 func (h *Handler) CreateAccount(c *gin.Context) {
 	var req CreateAccountRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 6001, "Invalid request body: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -59,14 +57,12 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 
 // GetAccount handles GET /api/v1/admin/third-party-accounts/:id
 func (h *Handler) GetAccount(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		utils.Error(c, 6003, "Invalid account ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	account, err := h.service.GetAccount(uint(id))
+	account, err := h.service.GetAccount(id)
 	if err != nil {
 		utils.Error(c, 6004, "Failed to get account: "+err.Error())
 		return
@@ -94,16 +90,13 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 
 // UpdateAccount handles PUT /api/v1/admin/third-party-accounts/:id
 func (h *Handler) UpdateAccount(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		utils.Error(c, 6006, "Invalid account ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	var req UpdateAccountRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 6007, "Invalid request body: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -117,7 +110,7 @@ func (h *Handler) UpdateAccount(c *gin.Context) {
 		priority = *req.Priority
 	}
 
-	account, err := h.service.UpdateAccountWithPriority(uint(id), req.Name, req.Config, status, priority)
+	account, err := h.service.UpdateAccountWithPriority(id, req.Name, req.Config, status, priority)
 	if err != nil {
 		utils.Error(c, 6008, "Failed to update account: "+err.Error())
 		return
@@ -128,14 +121,12 @@ func (h *Handler) UpdateAccount(c *gin.Context) {
 
 // DeleteAccount handles DELETE /api/v1/admin/third-party-accounts/:id
 func (h *Handler) DeleteAccount(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		utils.Error(c, 6009, "Invalid account ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.service.DeleteAccount(uint(id)); err != nil {
+	if err := h.service.DeleteAccount(id); err != nil {
 		utils.Error(c, 6010, "Failed to delete account: "+err.Error())
 		return
 	}
@@ -158,14 +149,12 @@ func (h *Handler) GetStats(c *gin.Context) {
 
 // TestAccount handles POST /api/v1/admin/third-party-accounts/:id/test
 func (h *Handler) TestAccount(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		utils.Error(c, 6012, "Invalid account ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	account, err := h.service.GetAccount(uint(id))
+	account, err := h.service.GetAccount(id)
 	if err != nil {
 		utils.Error(c, 6013, "Failed to get account: "+err.Error())
 		return

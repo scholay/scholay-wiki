@@ -32,13 +32,12 @@ func NewHandler(service *Service) *Handler {
 // GetDraft 获取用户的草稿（每个用户只有一个草稿）
 // GET /api/v1/user/peer-review/draft
 func (h *Handler) GetDraft(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	draft, err := h.service.GetOrCreateDraft(userID.(uint))
+	draft, err := h.service.GetOrCreateDraft(userID)
 	if err != nil {
 		utils.Error(c, 5001, "获取草稿失败: "+err.Error())
 		return
@@ -50,19 +49,17 @@ func (h *Handler) GetDraft(c *gin.Context) {
 // SaveDraft 保存草稿
 // PUT /api/v1/user/peer-review/draft
 func (h *Handler) SaveDraft(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req SaveDraftRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 4002, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	draft, err := h.service.SaveDraft(userID.(uint), &req)
+	draft, err := h.service.SaveDraft(userID, &req)
 	if err != nil {
 		utils.Error(c, 5001, "保存草稿失败: "+err.Error())
 		return
@@ -74,9 +71,8 @@ func (h *Handler) SaveDraft(c *gin.Context) {
 // SubmitDraft 提交草稿开始审稿
 // POST /api/v1/user/peer-review/draft/submit
 func (h *Handler) SubmitDraft(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -90,7 +86,7 @@ func (h *Handler) SubmitDraft(c *gin.Context) {
 		req.ModelLevel = "mid"
 	}
 
-	task, err := h.service.SubmitDraft(userID.(uint), &req)
+	task, err := h.service.SubmitDraft(userID, &req)
 	if err != nil {
 		utils.Error(c, 5001, "提交审稿失败: "+err.Error())
 		return
@@ -140,15 +136,13 @@ func (h *Handler) SubmitDraft(c *gin.Context) {
 // CreateTask 创建审稿任务（保留兼容）
 // POST /api/v1/user/peer-review/tasks
 func (h *Handler) CreateTask(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req CreateTaskRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 4002, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -162,7 +156,7 @@ func (h *Handler) CreateTask(c *gin.Context) {
 		return
 	}
 
-	task, err := h.service.CreateTask(userID.(uint), &req)
+	task, err := h.service.CreateTask(userID, &req)
 	if err != nil {
 		utils.Error(c, 5001, "创建任务失败: "+err.Error())
 		return
@@ -178,9 +172,8 @@ func (h *Handler) CreateTask(c *gin.Context) {
 // GetTaskList 获取任务列表
 // GET /api/v1/user/peer-review/tasks
 func (h *Handler) GetTaskList(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -196,7 +189,7 @@ func (h *Handler) GetTaskList(c *gin.Context) {
 		pageSize = 10
 	}
 
-	response, err := h.service.GetTaskList(userID.(uint), page, pageSize, status, search)
+	response, err := h.service.GetTaskList(userID, page, pageSize, status, search)
 	if err != nil {
 		utils.Error(c, 5002, "获取任务列表失败: "+err.Error())
 		return
@@ -208,19 +201,17 @@ func (h *Handler) GetTaskList(c *gin.Context) {
 // GetTaskDetail 获取任务详情
 // GET /api/v1/user/peer-review/tasks/:id
 func (h *Handler) GetTaskDetail(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	taskID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 4005, "无效的任务ID")
+	taskID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	response, err := h.service.GetTaskDetail(userID.(uint), uint(taskID))
+	response, err := h.service.GetTaskDetail(userID, taskID)
 	if err != nil {
 		utils.Error(c, 5003, "获取任务详情失败: "+err.Error())
 		return
@@ -232,19 +223,17 @@ func (h *Handler) GetTaskDetail(c *gin.Context) {
 // GetTaskProgress 获取任务进度（用于轮询）
 // GET /api/v1/user/peer-review/tasks/:id/progress
 func (h *Handler) GetTaskProgress(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	taskID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 4005, "无效的任务ID")
+	taskID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	progress, err := h.service.GetTaskProgress(userID.(uint), uint(taskID))
+	progress, err := h.service.GetTaskProgress(userID, taskID)
 	if err != nil {
 		utils.Error(c, 5004, "获取任务进度失败: "+err.Error())
 		return
@@ -256,19 +245,17 @@ func (h *Handler) GetTaskProgress(c *gin.Context) {
 // GetTaskSteps 获取任务步骤详情（用于轮询展示每步进度）
 // GET /api/v1/user/peer-review/tasks/:id/steps
 func (h *Handler) GetTaskSteps(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	taskID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 4005, "无效的任务ID")
+	taskID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	steps, err := h.service.GetTaskSteps(userID.(uint), uint(taskID))
+	steps, err := h.service.GetTaskSteps(userID, taskID)
 	if err != nil {
 		utils.Error(c, 5004, "获取任务步骤失败: "+err.Error())
 		return
@@ -280,19 +267,17 @@ func (h *Handler) GetTaskSteps(c *gin.Context) {
 // DeleteTask 删除任务
 // DELETE /api/v1/user/peer-review/tasks/:id
 func (h *Handler) DeleteTask(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	taskID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 4005, "无效的任务ID")
+	taskID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.service.DeleteTask(userID.(uint), uint(taskID)); err != nil {
+	if err := h.service.DeleteTask(userID, taskID); err != nil {
 		utils.Error(c, 5005, "删除任务失败: "+err.Error())
 		return
 	}
@@ -303,15 +288,13 @@ func (h *Handler) DeleteTask(c *gin.Context) {
 // StartTask 启动草稿任务
 // POST /api/v1/user/peer-review/tasks/:id/start
 func (h *Handler) StartTask(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	taskID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 4005, "无效的任务ID")
+	taskID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -325,7 +308,7 @@ func (h *Handler) StartTask(c *gin.Context) {
 		req.ModelLevel = "mid"
 	}
 
-	if err := h.service.StartDraftTask(userID.(uint), uint(taskID), "", req.ModelLevel); err != nil {
+	if err := h.service.StartDraftTask(userID, taskID, "", req.ModelLevel); err != nil {
 		utils.Error(c, 5006, err.Error())
 		return
 	}
@@ -338,9 +321,8 @@ func (h *Handler) StartTask(c *gin.Context) {
 // UploadFile 上传文件（解析文本，不创建任务）
 // POST /api/v1/user/peer-review/upload
 func (h *Handler) UploadFile(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -385,7 +367,7 @@ func (h *Handler) UploadFile(c *gin.Context) {
 	}
 
 	// 解析文件并保存到草稿
-	response, err := h.service.ParseFileAndSaveToDraft(userID.(uint), header.Filename, ext, content)
+	response, err := h.service.ParseFileAndSaveToDraft(userID, header.Filename, ext, content)
 	if err != nil {
 		utils.Error(c, 5007, "处理文件失败: "+err.Error())
 		return
@@ -397,9 +379,8 @@ func (h *Handler) UploadFile(c *gin.Context) {
 // UploadAttachment 上传附件到草稿
 // POST /api/v1/user/peer-review/attachments
 func (h *Handler) UploadAttachment(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -433,7 +414,7 @@ func (h *Handler) UploadAttachment(c *gin.Context) {
 	}
 
 	// 添加附件到草稿
-	response, err := h.service.AddAttachmentToDraft(userID.(uint), header.Filename, ext, content)
+	response, err := h.service.AddAttachmentToDraft(userID, header.Filename, ext, content)
 	if err != nil {
 		utils.Error(c, 5007, err.Error())
 		return
@@ -445,19 +426,17 @@ func (h *Handler) UploadAttachment(c *gin.Context) {
 // DeleteAttachment 从草稿删除附件
 // DELETE /api/v1/user/peer-review/attachments/:id
 func (h *Handler) DeleteAttachment(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	attachmentID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 4005, "无效的附件ID")
+	attachmentID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.service.DeleteAttachmentFromDraft(userID.(uint), uint(attachmentID)); err != nil {
+	if err := h.service.DeleteAttachmentFromDraft(userID, attachmentID); err != nil {
 		utils.Error(c, 5005, err.Error())
 		return
 	}
@@ -468,13 +447,12 @@ func (h *Handler) DeleteAttachment(c *gin.Context) {
 // DeleteManuscript 从草稿删除主稿件文件
 // DELETE /api/v1/user/peer-review/manuscript
 func (h *Handler) DeleteManuscript(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	if err := h.service.DeleteManuscriptFromDraft(userID.(uint)); err != nil {
+	if err := h.service.DeleteManuscriptFromDraft(userID); err != nil {
 		utils.Error(c, 5005, err.Error())
 		return
 	}
@@ -485,13 +463,12 @@ func (h *Handler) DeleteManuscript(c *gin.Context) {
 // ClearDraft 清空草稿（删除主稿件和所有附件）
 // DELETE /api/v1/user/peer-review/draft
 func (h *Handler) ClearDraft(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	if err := h.service.ClearDraft(userID.(uint)); err != nil {
+	if err := h.service.ClearDraft(userID); err != nil {
 		utils.Error(c, 5005, err.Error())
 		return
 	}
@@ -504,21 +481,19 @@ func (h *Handler) ClearDraft(c *gin.Context) {
 // WatchTaskProgress SSE 流式监听任务进度
 // GET /api/v1/user/peer-review/tasks/:id/watch
 func (h *Handler) WatchTaskProgress(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	taskID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.BadRequest(c, "无效的任务ID")
+	taskID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	sse.SetHeaders(c)
 
-	err = h.service.WatchTaskProgress(userID.(uint), uint(taskID), c.Writer)
+	err := h.service.WatchTaskProgress(userID, taskID, c.Writer)
 	if err != nil {
 		sse.WriteError(c.Writer, err.Error())
 	}
@@ -527,19 +502,17 @@ func (h *Handler) WatchTaskProgress(c *gin.Context) {
 // DownloadFile 下载文件
 // GET /api/v1/user/peer-review/files/:id/download
 func (h *Handler) DownloadFile(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 4001, "请先登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	fileID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 4005, "无效的文件ID")
+	fileID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	file, filePath, err := h.service.GetFileForDownload(userID.(uint), uint(fileID))
+	file, filePath, err := h.service.GetFileForDownload(userID, fileID)
 	if err != nil {
 		utils.Error(c, 5008, err.Error())
 		return

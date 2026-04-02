@@ -8,6 +8,8 @@
 package config
 
 import (
+	"errors"
+
 	"scholar-backend/internal/common/model"
 
 	"gorm.io/gorm"
@@ -30,7 +32,7 @@ func (r *Repository) FindActivePrivacyPolicy() (*model.PrivacyPolicy, error) {
 		Order("created_at DESC").
 		First(&policy).Error
 
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	return &policy, err
@@ -55,7 +57,7 @@ func (r *Repository) FindActiveEmailConfig() (*model.EmailConfig, error) {
 		Order("created_at DESC").
 		First(&config).Error
 
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	return &config, err
@@ -77,7 +79,7 @@ func (r *Repository) DeactivateAllEmailConfigs() error {
 func (r *Repository) GetSystemConfig() (*model.SystemConfig, error) {
 	var config model.SystemConfig
 	err := r.db.First(&config).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	return &config, err
@@ -100,7 +102,7 @@ func (r *Repository) FindActiveSMSConfig() (*model.SMSConfig, error) {
 		Order("created_at DESC").
 		First(&config).Error
 
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	return &config, err
@@ -125,7 +127,7 @@ func (r *Repository) FindActiveTermsOfService() (*model.TermsOfService, error) {
 		Order("created_at DESC").
 		First(&terms).Error
 
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	return &terms, err
@@ -151,7 +153,7 @@ func (r *Repository) DeactivateAllTermsOfService() error {
 func (r *Repository) GetGithubOAuthConfig() (*model.GithubOAuthConfig, error) {
 	var config model.GithubOAuthConfig
 	err := r.db.First(&config).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	return &config, err

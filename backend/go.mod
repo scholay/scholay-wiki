@@ -7,6 +7,7 @@ require (
 	github.com/alibabacloud-go/dysmsapi-20170525/v3 v3.0.6
 	github.com/alibabacloud-go/tea v1.2.2
 	github.com/alibabacloud-go/tea-utils/v2 v2.0.6
+	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/golang-jwt/jwt/v5 v5.2.0

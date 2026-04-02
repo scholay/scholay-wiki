@@ -207,16 +207,29 @@ func (r *Repository) GetUserList(offset, limit int) ([]User, int64, error) {
 	return users, total, err
 }
 
-// GetUserListWithSort returns a paginated list of non-admin users with sorting
+var allowedSortColumns = map[string]bool{
+	"last_login_at": true,
+	"created_at":    true,
+}
+
+// GetUserListWithSort returns a paginated list of non-admin users with sorting.
+// sortBy and sortOrder are validated against a whitelist to prevent SQL injection.
 func (r *Repository) GetUserListWithSort(offset, limit int, sortBy, sortOrder string) ([]User, int64, error) {
 	var users []User
 	var total int64
+
+	if !allowedSortColumns[sortBy] {
+		sortBy = "last_login_at"
+	}
+	if sortOrder != "asc" && sortOrder != "desc" {
+		sortOrder = "desc"
+	}
 
 	if err := r.db.Model(&User{}).Scopes(nonAdminScope).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	orderStr := fmt.Sprintf("%s %s", sortBy, sortOrder)
+	orderStr := sortBy + " " + sortOrder
 
 	err := r.db.Scopes(nonAdminScope).
 		Order(orderStr).
@@ -565,7 +578,7 @@ func (r *Repository) CountUsersOnDate(dateStr string) (int64, error) {
 func (r *Repository) FindByPhone(phone string) (*User, error) {
 	var user User
 	err := r.db.Where("phone = ?", phone).First(&user).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	return &user, err
@@ -575,7 +588,7 @@ func (r *Repository) FindByPhone(phone string) (*User, error) {
 func (r *Repository) FindAuthProviderByUserAndProvider(userID uint, provider string) (*UserAuthProvider, error) {
 	var authProvider UserAuthProvider
 	err := r.db.Where("user_id = ? AND provider = ?", userID, provider).First(&authProvider).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	return &authProvider, err
@@ -595,7 +608,7 @@ func (r *Repository) DeleteAuthProvider(id uint) error {
 func (r *Repository) FindAuthProviderByProviderAndProviderUserID(provider, providerUserID string) (*UserAuthProvider, error) {
 	var authProvider UserAuthProvider
 	err := r.db.Where("provider = ? AND provider_user_id = ?", provider, providerUserID).First(&authProvider).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	return &authProvider, err
@@ -605,7 +618,7 @@ func (r *Repository) FindAuthProviderByProviderAndProviderUserID(provider, provi
 func (r *Repository) FindAuthProviderByUnionID(provider, unionID string) (*UserAuthProvider, error) {
 	var authProvider UserAuthProvider
 	err := r.db.Where("provider = ? AND provider_union_id = ?", provider, unionID).First(&authProvider).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	return &authProvider, err

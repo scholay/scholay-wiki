@@ -6,67 +6,79 @@
  * All Rights Reserved.
  * ============================================================================
  * 
- * SharedFooter - 全局共享底部导航栏
- * 在所有 MainLayout 页面底部显示法律链接和版权信息
- * 用于满足 Google AdSense 审核要求：所有页面需可访问隐私政策、服务条款、联系方式
+ * SharedFooter - 全局共享页脚
+ * 多列链接导航 + 品牌信息 + 版权
+ * 在所有 MainLayout 页面底部显示（首屏不可见，滚动后展示）
  */
 
 import React, { memo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import Logo from './Logo';
 import './styles/SharedFooter.css';
 
-// 不显示 footer 的页面路径
 const HIDDEN_PATHS = ['/latex-writer'];
 
 const SharedFooter = memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 某些页面（如 LaTeX 编辑器）不需要 footer
   if (HIDDEN_PATHS.some(p => location.pathname.startsWith(p))) {
     return null;
   }
 
-  // 首页有自己的 footer，不重复显示
-  if (location.pathname === '/') {
-    return null;
-  }
-
-  // 法律/关于类页面和资源文章页面已有自己的 footer
-  const legalPaths = ['/about', '/privacy', '/terms', '/contact', '/disclaimer'];
-  if (legalPaths.includes(location.pathname)) {
-    return null;
-  }
-  if (location.pathname.startsWith('/resources') || location.pathname === '/help') {
-    return null;
-  }
-
-  // Pricing 页面有自己的布局，不显示共享 footer
-  if (location.pathname === '/pricing') {
-    return null;
-  }
+  const go = (path) => (e) => {
+    e.preventDefault();
+    navigate(path);
+  };
 
   return (
-    <footer className="shared-footer" role="contentinfo">
-      <div className="shared-footer-inner">
-        <nav className="shared-footer-links" aria-label="底部导航">
-          <button onClick={() => navigate('/blog')}>博客</button>
-          <span className="shared-footer-divider" aria-hidden="true">|</span>
-          <button onClick={() => navigate('/resources')}>学术资源</button>
-          <span className="shared-footer-divider" aria-hidden="true">|</span>
-          <button onClick={() => navigate('/about')}>关于我们</button>
-          <span className="shared-footer-divider" aria-hidden="true">|</span>
-          <button onClick={() => navigate('/contact')}>联系我们</button>
-          <span className="shared-footer-divider" aria-hidden="true">|</span>
-          <button onClick={() => navigate('/privacy')}>隐私政策</button>
-          <span className="shared-footer-divider" aria-hidden="true">|</span>
-          <button onClick={() => navigate('/terms')}>服务条款</button>
-          <span className="shared-footer-divider" aria-hidden="true">|</span>
-          <button onClick={() => navigate('/disclaimer')}>免责声明</button>
-          <span className="shared-footer-divider" aria-hidden="true">|</span>
-          <button onClick={() => navigate('/feedback')}>意见反馈</button>
-        </nav>
-        <p className="shared-footer-copyright">
+    <footer className="site-footer" role="contentinfo">
+      <div className="site-footer-inner">
+        <div className="site-footer-brand">
+          <div className="site-footer-logo" onClick={go('/')}>
+            <Logo size={24} />
+            <span className="site-footer-logo-text">Scholay</span>
+          </div>
+          <p className="site-footer-tagline">AI 驱动的学术搜索平台</p>
+        </div>
+
+        <div className="site-footer-columns">
+          <div className="site-footer-col">
+            <h4>产品</h4>
+            <a href="/" onClick={go('/')}>学术搜索</a>
+            <a href="/chat" onClick={go('/chat')}>智能助手</a>
+            <a href="/peer-review" onClick={go('/peer-review')}>智能审稿</a>
+            <a href="/latex-writer" onClick={go('/latex-writer')}>ScholayPrism</a>
+            <a href="/pricing" onClick={go('/pricing')}>订阅方案</a>
+          </div>
+
+          <div className="site-footer-col">
+            <h4>资源</h4>
+            <a href="/resources" onClick={go('/resources')}>学术资源中心</a>
+            <a href="/blog" onClick={go('/blog')}>博客</a>
+            <a href="/help" onClick={go('/help')}>帮助中心</a>
+            <a href="/resources/how-to-search" onClick={go('/resources/how-to-search')}>文献检索指南</a>
+            <a href="/resources/latex-tutorial" onClick={go('/resources/latex-tutorial')}>LaTeX 教程</a>
+          </div>
+
+          <div className="site-footer-col">
+            <h4>公司</h4>
+            <a href="/about" onClick={go('/about')}>关于我们</a>
+            <a href="/contact" onClick={go('/contact')}>联系我们</a>
+            <a href="/feedback" onClick={go('/feedback')}>意见反馈</a>
+          </div>
+
+          <div className="site-footer-col">
+            <h4>法律</h4>
+            <a href="/privacy" onClick={go('/privacy')}>隐私政策</a>
+            <a href="/terms" onClick={go('/terms')}>服务条款</a>
+            <a href="/disclaimer" onClick={go('/disclaimer')}>免责声明</a>
+          </div>
+        </div>
+      </div>
+
+      <div className="site-footer-bottom">
+        <p className="site-footer-copyright">
           &copy; {new Date().getFullYear()} Scholay. All rights reserved.
         </p>
       </div>

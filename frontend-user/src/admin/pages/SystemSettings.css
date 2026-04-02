@@ -237,11 +237,6 @@
   resize: vertical;
 }
 
-.admin-app .form-hint{
-  font-size: 0.8rem;
-  color: var(--text-tertiary);
-}
-
 .admin-app .form-actions{
   display: flex;
   justify-content: flex-end;
@@ -326,11 +321,6 @@
   font-weight: 500;
   cursor: pointer;
   transition: var(--transition);
-}
-
-.admin-app .btn-primary{
-  background: var(--brand-500);
-  color: #fff;
 }
 
 .admin-app .btn-secondary{
@@ -431,27 +421,6 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.admin-app .badge{
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.75rem;
-  border-radius: var(--radius-pill);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.admin-app .badge-success{
-  background: var(--success-50);
-  color: var(--success-500);
-}
-
-.admin-app .badge-warning{
-  background: var(--warning-50);
-  color: var(--warning-500);
-}
-
 .admin-app .card-body{
   padding: var(--space-4);
   display: flex;
@@ -473,70 +442,6 @@
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
-}
-
-.admin-app .modal-overlay{
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-4);
-  z-index: 1000;
-  backdrop-filter: blur(6px);
-}
-
-.admin-app .modal-content, .admin-app .modal{
-  width: min(720px, 100%);
-  max-height: 90vh;
-  background: var(--surface-base);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-lg);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.admin-app .modal-header{
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-  background: rgba(255, 255, 255, 0.95);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.admin-app .modal-close{
-  border: none;
-  background: transparent;
-  color: var(--text-tertiary);
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-
-.admin-app .modal-close:hover{
-  background: var(--gray-50);
-  color: var(--text-primary);
-}
-
-.admin-app .modal-content form, .admin-app .modal-body{
-  padding: var(--space-5);
-  overflow-y: auto;
-}
-
-.admin-app .modal-actions{
-  border-top: 1px solid var(--border-subtle);
-  padding: var(--space-4);
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-3);
 }
 
 .admin-app .wechat-sub-nav{

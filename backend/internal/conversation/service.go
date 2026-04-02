@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/semanticscholar"
 	"scholar-backend/internal/thirdparty"
 )
@@ -25,6 +26,7 @@ type ConversationRepo interface {
 	GetConversationByID(id uint, userID uint) (*Conversation, error)
 	GetUserConversations(userID uint, limit, offset int, conversationType *ConversationType) ([]Conversation, int64, error)
 	GetConversationWithMessages(id uint, userID uint) (*ConversationWithMessages, error)
+	GetConversationWithMessagesOptimized(id uint, userID uint) (*ConversationWithMessages, error)
 	UpdateConversation(conversation *Conversation) error
 	UpdateConversationTitle(conversationID uint, title string) error
 	DeleteConversation(id uint, userID uint) error
@@ -85,14 +87,8 @@ func (s *Service) CreateConversation(ctx context.Context, userID uint, title str
 
 // GetUserConversations gets all conversations for a user, optionally filtered by type
 func (s *Service) GetUserConversations(ctx context.Context, userID uint, page, pageSize int, conversationType *ConversationType) (*ConversationListResponse, error) {
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-
-	offset := (page - 1) * pageSize
+	page, pageSize = database.NormalizePage(page, pageSize)
+	offset := database.CalcOffset(page, pageSize)
 	conversations, total, err := s.repo.GetUserConversations(userID, pageSize, offset, conversationType)
 	if err != nil {
 		return nil, err
@@ -104,9 +100,10 @@ func (s *Service) GetUserConversations(ctx context.Context, userID uint, page, p
 	}, nil
 }
 
-// GetConversationWithMessages gets a conversation with all its messages
+// GetConversationWithMessages gets a conversation with all its messages.
+// Uses the optimized single-transaction version to avoid N+1 queries.
 func (s *Service) GetConversationWithMessages(ctx context.Context, conversationID uint, userID uint) (*ConversationWithMessages, error) {
-	return s.repo.GetConversationWithMessages(conversationID, userID)
+	return s.repo.GetConversationWithMessagesOptimized(conversationID, userID)
 }
 
 // GetConversationWithMessagesPaginated gets a conversation with paginated messages

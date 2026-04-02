@@ -8,9 +8,15 @@
 package main
 
 import (
+	"context"
+	"net/http"
+	"time"
+
 	"scholar-backend/internal/admin"
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/common/cache"
 	appconfig "scholar-backend/internal/common/config"
+	"scholar-backend/internal/common/database"
 	"scholar-backend/internal/common/middleware"
 	"scholar-backend/internal/common/utils"
 	"scholar-backend/internal/config"
@@ -94,11 +100,50 @@ func registerRoutes(router *gin.Engine, h *allHandlers) {
 	// 静态文件服务
 	router.Static("/uploads", "./uploads")
 
-	// 健康检查
+	// 健康检查（含 MySQL/Redis 连通性探测）
 	router.GET("/health", func(c *gin.Context) {
-		utils.Success(c, gin.H{
-			"status":  "ok",
-			"service": "scholar-backend",
+		status := "ok"
+		httpStatus := http.StatusOK
+		checks := gin.H{}
+
+		// MySQL ping
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+		defer cancel()
+		sqlDB, err := database.GetDB().DB()
+		if err != nil {
+			checks["mysql"] = "error: " + err.Error()
+			status = "degraded"
+			httpStatus = http.StatusServiceUnavailable
+		} else if err := sqlDB.PingContext(ctx); err != nil {
+			checks["mysql"] = "unreachable"
+			status = "degraded"
+			httpStatus = http.StatusServiceUnavailable
+		} else {
+			checks["mysql"] = "ok"
+		}
+
+		// Redis ping
+		rdb := cache.GetRedis()
+		if rdb != nil {
+			if err := rdb.Ping(ctx).Err(); err != nil {
+				checks["redis"] = "unreachable"
+				status = "degraded"
+				httpStatus = http.StatusServiceUnavailable
+			} else {
+				checks["redis"] = "ok"
+			}
+		} else {
+			checks["redis"] = "not configured"
+		}
+
+		c.JSON(httpStatus, utils.Response{
+			Code:    0,
+			Message: status,
+			Data: gin.H{
+				"status":  status,
+				"service": "scholar-backend",
+				"checks":  checks,
+			},
 		})
 	})
 
@@ -518,6 +563,10 @@ func isAPIOrStaticPath(path string) bool {
 	}
 	return isStaticAsset(path)
 }
+
+
+
+
 
 
 

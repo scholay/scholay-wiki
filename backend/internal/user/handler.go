@@ -208,8 +208,7 @@ type UserProfileResponse struct {
 // CheckEmail handles checking if email exists
 func (h *Handler) CheckEmail(c *gin.Context) {
 	var req CheckEmailRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -225,8 +224,7 @@ func (h *Handler) CheckEmail(c *gin.Context) {
 // SendVerificationCode handles sending verification code
 func (h *Handler) SendVerificationCode(c *gin.Context) {
 	var req SendCodeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -243,8 +241,7 @@ func (h *Handler) SendVerificationCode(c *gin.Context) {
 // Register handles user registration
 func (h *Handler) Register(c *gin.Context) {
 	var req RegisterRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -285,8 +282,7 @@ func (h *Handler) Register(c *gin.Context) {
 // Login handles user login
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -328,13 +324,12 @@ func (h *Handler) Login(c *gin.Context) {
 
 // GetProfile handles getting user profile
 func (h *Handler) GetProfile(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	user, err := h.service.GetProfile(userID.(uint))
+	user, err := h.service.GetProfile(userID)
 	if err != nil {
 		utils.Error(c, 2004, "Failed to get profile")
 		return
@@ -348,7 +343,7 @@ func (h *Handler) GetProfile(c *gin.Context) {
 	// Check if WeChat is bound
 	var wechatOpenID *string
 	var wechatName *string
-	wechatProvider, err := h.service.FindAuthProviderByUserAndProvider(userID.(uint), "wechat")
+	wechatProvider, err := h.service.FindAuthProviderByUserAndProvider(userID, "wechat")
 	if err == nil && wechatProvider != nil {
 		wechatOpenID = &wechatProvider.ProviderUserID
 		// Try to get WeChat nickname from provider_data first
@@ -371,7 +366,7 @@ func (h *Handler) GetProfile(c *gin.Context) {
 	// Check if GitHub is bound
 	var githubID *string
 	var githubLogin *string
-	githubProvider, err := h.service.FindAuthProviderByUserAndProvider(userID.(uint), "github")
+	githubProvider, err := h.service.FindAuthProviderByUserAndProvider(userID, "github")
 	if err == nil && githubProvider != nil {
 		githubID = &githubProvider.ProviderUserID
 		// Try to extract GitHub login from provider_data JSON
@@ -413,19 +408,17 @@ func (h *Handler) GetProfile(c *gin.Context) {
 
 // UpdateProfile handles updating user profile
 func (h *Handler) UpdateProfile(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req UpdateProfileRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	err := h.service.UpdateProfile(userID.(uint), req.Username, req.AvatarURL, req.Bio)
+	err := h.service.UpdateProfile(userID, req.Username, req.AvatarURL, req.Bio)
 	if err != nil {
 		utils.Error(c, 2006, err.Error())
 		return
@@ -437,8 +430,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 // CheckPhone handles checking if phone exists
 func (h *Handler) CheckPhone(c *gin.Context) {
 	var req CheckPhoneRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -454,14 +446,13 @@ func (h *Handler) CheckPhone(c *gin.Context) {
 // SendPhoneVerificationCode handles sending phone verification code
 func (h *Handler) SendPhoneVerificationCode(c *gin.Context) {
 	var req SendPhoneCodeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
 	err := h.service.SendPhoneVerificationCode(req.Phone, req.Purpose)
 	if err != nil {
-		utils.Error(c, 2021, "Failed to send verification code: "+err.Error())
+		utils.InternalError(c, 2021, "Failed to send verification code", err)
 		return
 	}
 
@@ -471,8 +462,7 @@ func (h *Handler) SendPhoneVerificationCode(c *gin.Context) {
 // RegisterWithPhone handles user registration with phone
 func (h *Handler) RegisterWithPhone(c *gin.Context) {
 	var req RegisterPhoneRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -498,8 +488,7 @@ func (h *Handler) RegisterWithPhone(c *gin.Context) {
 // LoginWithPhone handles user login with phone
 func (h *Handler) LoginWithPhone(c *gin.Context) {
 	var req LoginPhoneRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -522,19 +511,17 @@ func (h *Handler) LoginWithPhone(c *gin.Context) {
 
 // BindPhone handles binding phone to user account
 func (h *Handler) BindPhone(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req BindPhoneRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	err := h.service.BindPhone(userID.(uint), req.Phone, req.Code)
+	err := h.service.BindPhone(userID, req.Phone, req.Code)
 	if err != nil {
 		utils.Error(c, 2024, err.Error())
 		return
@@ -545,19 +532,17 @@ func (h *Handler) BindPhone(c *gin.Context) {
 
 // BindEmail handles binding email to user account
 func (h *Handler) BindEmail(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req BindEmailRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	err := h.service.BindEmail(userID.(uint), req.Email, req.Code)
+	err := h.service.BindEmail(userID, req.Email, req.Code)
 	if err != nil {
 		utils.Error(c, 2025, err.Error())
 		return
@@ -568,19 +553,17 @@ func (h *Handler) BindEmail(c *gin.Context) {
 
 // UnbindPhone handles unbinding phone from user account
 func (h *Handler) UnbindPhone(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req UnbindRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	err := h.service.UnbindPhone(userID.(uint), req.Code)
+	err := h.service.UnbindPhone(userID, req.Code)
 	if err != nil {
 		utils.Error(c, 2026, err.Error())
 		return
@@ -591,19 +574,17 @@ func (h *Handler) UnbindPhone(c *gin.Context) {
 
 // UnbindEmail handles unbinding email from user account
 func (h *Handler) UnbindEmail(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req UnbindRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	err := h.service.UnbindEmail(userID.(uint), req.Code)
+	err := h.service.UnbindEmail(userID, req.Code)
 	if err != nil {
 		utils.Error(c, 2027, err.Error())
 		return
@@ -614,13 +595,12 @@ func (h *Handler) UnbindEmail(c *gin.Context) {
 
 // UnbindWeChat handles unbinding WeChat from user account
 func (h *Handler) UnbindWeChat(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	err := h.service.UnbindWeChat(userID.(uint))
+	err := h.service.UnbindWeChat(userID)
 	if err != nil {
 		utils.Error(c, 2028, err.Error())
 		return
@@ -631,13 +611,12 @@ func (h *Handler) UnbindWeChat(c *gin.Context) {
 
 // UnbindGitHub handles unbinding GitHub from user account
 func (h *Handler) UnbindGitHub(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	err := h.service.UnbindGitHub(userID.(uint))
+	err := h.service.UnbindGitHub(userID)
 	if err != nil {
 		utils.Error(c, 2029, err.Error())
 		return
@@ -725,16 +704,14 @@ func (h *Handler) GetOnlineUsers(c *gin.Context) {
 
 // GetUserDetail handles getting detailed user information (admin only)
 func (h *Handler) GetUserDetail(c *gin.Context) {
-	userIDStr := c.Param("id")
-	userID, err := strconv.ParseUint(userIDStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "Invalid user ID")
+	uid, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	detail, err := h.service.GetUserDetail(uint(userID))
+	detail, err := h.service.GetUserDetail(uid)
 	if err != nil {
-		utils.Error(c, 2030, "Failed to get user detail: "+err.Error())
+		utils.InternalError(c, 2030, "Failed to get user detail", err)
 		return
 	}
 
@@ -743,13 +720,12 @@ func (h *Handler) GetUserDetail(c *gin.Context) {
 
 // Logout handles user logout
 func (h *Handler) Logout(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	err := h.service.Logout(userID.(uint))
+	err := h.service.Logout(userID)
 	if err != nil {
 		utils.Error(c, 2010, "Failed to logout")
 		return
@@ -787,7 +763,7 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 			utils.Error(c, 2019, "您的账号已在其他设备登录")
 			return
 		}
-		utils.Error(c, 2017, "Failed to refresh token: "+err.Error())
+		utils.InternalError(c, 2017, "Failed to refresh token", err)
 		return
 	}
 
@@ -815,7 +791,7 @@ func (h *Handler) GetTokenInfo(c *gin.Context) {
 
 	info, err := h.service.GetTokenInfo(token)
 	if err != nil {
-		utils.Error(c, 2018, "Failed to get token info: "+err.Error())
+		utils.InternalError(c, 2018, "Failed to get token info", err)
 		return
 	}
 
@@ -824,9 +800,8 @@ func (h *Handler) GetTokenInfo(c *gin.Context) {
 
 // ChangePassword handles user password change
 func (h *Handler) ChangePassword(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -835,12 +810,11 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		NewPassword     string `json:"new_password" binding:"required,min=8"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	err := h.service.ChangePassword(userID.(uint), req.CurrentPassword, req.NewPassword)
+	err := h.service.ChangePassword(userID, req.CurrentPassword, req.NewPassword)
 	if err != nil {
 		if errors.Is(err, ErrCurrentPasswordInvalid) {
 			utils.Error(c, 2012, "Current password is incorrect")
@@ -915,7 +889,7 @@ func (h *Handler) GetUserStatisticsChart(c *gin.Context) {
 
 	data, err := h.service.GetUserStatisticsChartWithGranularity(startTime, endTime, granularity)
 	if err != nil {
-		utils.Error(c, 2012, "Failed to get user statistics: "+err.Error())
+		utils.InternalError(c, 2012, "Failed to get user statistics", err)
 		return
 	}
 
@@ -996,7 +970,7 @@ func (h *Handler) GetOnlineUserChart(c *gin.Context) {
 
 	data, err := h.service.GetOnlineUserChartDataWithGranularity(startTime, endTime, granularity)
 	if err != nil {
-		utils.Error(c, 2013, "Failed to get online user chart data: "+err.Error())
+		utils.InternalError(c, 2013, "Failed to get online user chart data", err)
 		return
 	}
 
@@ -1039,8 +1013,7 @@ type LoginPhoneWithCodeRequest struct {
 // ResetPassword handles password reset with email verification code
 func (h *Handler) ResetPassword(c *gin.Context) {
 	var req ResetPasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -1056,8 +1029,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 // ResetPasswordPhone handles password reset with phone verification code
 func (h *Handler) ResetPasswordPhone(c *gin.Context) {
 	var req ResetPasswordPhoneRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -1073,8 +1045,7 @@ func (h *Handler) ResetPasswordPhone(c *gin.Context) {
 // LoginWithCode handles login with email verification code
 func (h *Handler) LoginWithCode(c *gin.Context) {
 	var req LoginWithCodeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -1115,8 +1086,7 @@ func (h *Handler) LoginWithCode(c *gin.Context) {
 // LoginPhoneWithCode handles login with phone verification code
 func (h *Handler) LoginPhoneWithCode(c *gin.Context) {
 	var req LoginPhoneWithCodeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -1193,8 +1163,7 @@ type WeChatCallbackRequest struct {
 // POST /api/v1/user/wechat/callback
 func (h *Handler) WeChatCallback(c *gin.Context) {
 	var req WeChatCallbackRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -1208,14 +1177,14 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 	// Exchange code for access token
 	accessToken, openID, unionID1, err := wechatService.GetAccessToken(req.Code)
 	if err != nil {
-		utils.Error(c, 5001, "获取微信访问令牌失败："+err.Error())
+		utils.InternalError(c, 5001, "获取微信访问令牌失败", err)
 		return
 	}
 
 	// Get user info
 	nickname, headImgURL, unionID2, err := wechatService.GetUserInfo(accessToken, openID)
 	if err != nil {
-		utils.Error(c, 5002, "获取微信用户信息失败："+err.Error())
+		utils.InternalError(c, 5002, "获取微信用户信息失败", err)
 		return
 	}
 
@@ -1236,7 +1205,7 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 		req.InvitationCode, // 传递邀请码
 	)
 	if err != nil {
-		utils.Error(c, 5003, "微信登录失败："+err.Error())
+		utils.InternalError(c, 5003, "微信登录失败", err)
 		return
 	}
 
@@ -1260,15 +1229,13 @@ type BindWeChatRequest struct {
 // BindWeChatAccount binds WeChat account to current user
 // POST /api/v1/user/bind-wechat
 func (h *Handler) BindWeChatAccount(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req BindWeChatRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -1282,14 +1249,14 @@ func (h *Handler) BindWeChatAccount(c *gin.Context) {
 	// Exchange code for access token
 	accessToken, openID, unionID1, err := wechatService.GetAccessToken(req.Code)
 	if err != nil {
-		utils.Error(c, 5001, "获取微信访问令牌失败："+err.Error())
+		utils.InternalError(c, 5001, "获取微信访问令牌失败", err)
 		return
 	}
 
 	// Get user info
 	nickname, headImgURL, unionID2, err := wechatService.GetUserInfo(accessToken, openID)
 	if err != nil {
-		utils.Error(c, 5002, "获取微信用户信息失败："+err.Error())
+		utils.InternalError(c, 5002, "获取微信用户信息失败", err)
 		return
 	}
 
@@ -1301,13 +1268,13 @@ func (h *Handler) BindWeChatAccount(c *gin.Context) {
 
 	// Bind WeChat to user
 	if err := h.service.BindWeChat(
-		userID.(uint),
+		userID,
 		openID,
 		unionID,
 		nickname,
 		headImgURL,
 	); err != nil {
-		utils.Error(c, 5003, err.Error())
+		utils.InternalError(c, 5003, "微信绑定失败", err)
 		return
 	}
 
@@ -1324,19 +1291,17 @@ type BindEmailWithPasswordRequest struct {
 // BindEmailWithPassword binds email to WeChat user with password (first-time binding)
 // POST /api/v1/user/bind-email-with-password
 func (h *Handler) BindEmailWithPassword(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req BindEmailWithPasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	if err := h.service.BindEmailWithPassword(userID.(uint), req.Email, req.Password, req.Code); err != nil {
+	if err := h.service.BindEmailWithPassword(userID, req.Email, req.Password, req.Code); err != nil {
 		utils.Error(c, 2010, err.Error())
 		return
 	}
@@ -1354,19 +1319,17 @@ type BindPhoneWithPasswordRequest struct {
 // BindPhoneWithPassword binds phone to WeChat user with password (first-time binding)
 // POST /api/v1/user/bind-phone-with-password
 func (h *Handler) BindPhoneWithPassword(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req BindPhoneWithPasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	if err := h.service.BindPhoneWithPassword(userID.(uint), req.Phone, req.Password, req.Code); err != nil {
+	if err := h.service.BindPhoneWithPassword(userID, req.Phone, req.Password, req.Code); err != nil {
 		utils.Error(c, 2020, err.Error())
 		return
 	}
@@ -1378,15 +1341,13 @@ func (h *Handler) BindPhoneWithPassword(c *gin.Context) {
 // This endpoint removes the user and all associated data except statistics
 func (h *Handler) DeleteUser(c *gin.Context) {
 	// Get user ID from URL parameter
-	userIDStr := c.Param("id")
-	userID, err := strconv.ParseUint(userIDStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "Invalid user ID")
+	uid, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	// Call service to delete the user
-	if err := h.service.DeleteUser(uint(userID)); err != nil {
+	if err := h.service.DeleteUser(uid); err != nil {
 		utils.Error(c, 3001, err.Error())
 		return
 	}
@@ -1401,19 +1362,17 @@ type CheckEmailAvailabilityRequest struct {
 
 // CheckEmailAvailability checks if an email is available for binding
 func (h *Handler) CheckEmailAvailability(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req CheckEmailAvailabilityRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	available, err := h.service.CheckEmailAvailability(req.Email, userID.(uint))
+	available, err := h.service.CheckEmailAvailability(req.Email, userID)
 	if err != nil {
 		utils.Error(c, 2029, "Failed to check email availability")
 		return
@@ -1432,19 +1391,17 @@ type CheckPhoneAvailabilityRequest struct {
 
 // CheckPhoneAvailability checks if a phone is available for binding
 func (h *Handler) CheckPhoneAvailability(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req CheckPhoneAvailabilityRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	available, err := h.service.CheckPhoneAvailability(req.Phone, userID.(uint))
+	available, err := h.service.CheckPhoneAvailability(req.Phone, userID)
 	if err != nil {
 		utils.Error(c, 2030, "Failed to check phone availability")
 		return
@@ -1475,9 +1432,8 @@ type TaskHistoryDayGroup struct {
 // GetTaskHistory gets unified task history for the current user, grouped by day
 // GET /api/v1/user/task-history?days=3&limit_per_day=20
 func (h *Handler) GetTaskHistory(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -1498,7 +1454,7 @@ func (h *Handler) GetTaskHistory(c *gin.Context) {
 
 	// Query conversations via service layer
 	var allItems []TaskHistoryItem
-	uid := userID.(uint)
+	uid := userID
 
 	if h.conversationQuery != nil {
 		convItems, _ := h.conversationQuery.GetRecentByUser(c.Request.Context(), uid, "search", startDate)

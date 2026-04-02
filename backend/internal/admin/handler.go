@@ -62,8 +62,7 @@ type VerifyPasswordRequest struct {
 // Login handles admin login
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -89,13 +88,12 @@ func (h *Handler) Login(c *gin.Context) {
 
 // GetProfile handles getting admin profile
 func (h *Handler) GetProfile(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	admin, err := h.service.GetProfile(userID.(uint))
+	admin, err := h.service.GetProfile(userID)
 	if err != nil {
 		utils.Error(c, 1002, "Failed to get profile")
 		return
@@ -111,19 +109,17 @@ func (h *Handler) GetProfile(c *gin.Context) {
 
 // UpdatePassword handles updating admin password
 func (h *Handler) UpdatePassword(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req UpdatePasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	err := h.service.UpdatePassword(userID.(uint), req.OldPassword, req.NewPassword)
+	err := h.service.UpdatePassword(userID, req.OldPassword, req.NewPassword)
 	if err != nil {
 		utils.Error(c, 1004, err.Error())
 		return
@@ -134,19 +130,17 @@ func (h *Handler) UpdatePassword(c *gin.Context) {
 
 // VerifyPassword handles verifying admin password (for sensitive operations)
 func (h *Handler) VerifyPassword(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req VerifyPasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	valid, err := h.service.VerifyPassword(userID.(uint), req.Password)
+	valid, err := h.service.VerifyPassword(userID, req.Password)
 	if err != nil {
 		utils.Error(c, 1005, err.Error())
 		return

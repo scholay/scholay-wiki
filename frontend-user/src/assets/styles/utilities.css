@@ -315,3 +315,42 @@
     font-size: 0.875rem;
   }
 }
+
+/* ============================================================================
+ * Responsive display utilities
+ * Use these instead of duplicating @media (max-width) in every CSS file.
+ * ============================================================================ */
+
+/* Hide on mobile (≤ 768px) */
+@media (max-width: 768px) {
+  .hide-mobile { display: none !important; }
+}
+
+/* Hide on desktop (> 768px) */
+@media (min-width: 769px) {
+  .hide-desktop { display: none !important; }
+}
+
+/* Hide on small screens (≤ 480px) */
+@media (max-width: 480px) {
+  .hide-sm { display: none !important; }
+}
+
+/* Responsive flex direction */
+@media (max-width: 768px) {
+  .flex-col-mobile {
+    flex-direction: column !important;
+  }
+  .gap-sm-mobile {
+    gap: var(--space-3) !important;
+  }
+  .full-width-mobile {
+    width: 100% !important;
+  }
+  .text-center-mobile {
+    text-align: center !important;
+  }
+  .overflow-x-auto-mobile {
+    overflow-x: auto;
+  }
+}

@@ -37,15 +37,13 @@ func NewHandler(service *Service) *Handler {
 
 // CreateConversation creates a new conversation
 func (h *Handler) CreateConversation(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "Unauthorized")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req CreateConversationRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 400, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -55,7 +53,7 @@ func (h *Handler) CreateConversation(c *gin.Context) {
 		conversationType = ConversationTypeSearch
 	}
 
-	conversation, err := h.service.CreateConversation(c.Request.Context(), userID.(uint), req.Title, conversationType)
+	conversation, err := h.service.CreateConversation(c.Request.Context(), userID, req.Title, conversationType)
 	if err != nil {
 		utils.Error(c, 500, "Failed to create conversation: "+err.Error())
 		return
@@ -66,9 +64,8 @@ func (h *Handler) CreateConversation(c *gin.Context) {
 
 // GetUserConversations gets all conversations for the current user
 func (h *Handler) GetUserConversations(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "Unauthorized")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -82,7 +79,7 @@ func (h *Handler) GetUserConversations(c *gin.Context) {
 		conversationType = &convType
 	}
 
-	result, err := h.service.GetUserConversations(c.Request.Context(), userID.(uint), page, pageSize, conversationType)
+	result, err := h.service.GetUserConversations(c.Request.Context(), userID, page, pageSize, conversationType)
 	if err != nil {
 		utils.Error(c, 500, "Failed to get conversations: "+err.Error())
 		return
@@ -97,15 +94,13 @@ func (h *Handler) GetUserConversations(c *gin.Context) {
 // - page_size: messages per page (default: 20, max: 100)
 // If no pagination params provided, returns all messages (backward compatible)
 func (h *Handler) GetConversation(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "Unauthorized")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	conversationID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 400, "Invalid conversation ID")
+	conversationID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -115,7 +110,7 @@ func (h *Handler) GetConversation(c *gin.Context) {
 
 	// If no pagination params, return all messages (backward compatible)
 	if pageStr == "" && pageSizeStr == "" {
-		conversation, err := h.service.GetConversationWithMessages(c.Request.Context(), uint(conversationID), userID.(uint))
+		conversation, err := h.service.GetConversationWithMessages(c.Request.Context(), conversationID, userID)
 		if err != nil {
 			utils.Error(c, 500, "Failed to get conversation: "+err.Error())
 			return
@@ -139,7 +134,7 @@ func (h *Handler) GetConversation(c *gin.Context) {
 		}
 	}
 
-	conversation, err := h.service.GetConversationWithMessagesPaginated(c.Request.Context(), uint(conversationID), userID.(uint), page, pageSize)
+	conversation, err := h.service.GetConversationWithMessagesPaginated(c.Request.Context(), conversationID, userID, page, pageSize)
 	if err != nil {
 		utils.Error(c, 500, "Failed to get conversation: "+err.Error())
 		return
@@ -150,19 +145,17 @@ func (h *Handler) GetConversation(c *gin.Context) {
 
 // DeleteConversation deletes a conversation
 func (h *Handler) DeleteConversation(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "Unauthorized")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	conversationID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 400, "Invalid conversation ID")
+	conversationID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.service.DeleteConversation(c.Request.Context(), uint(conversationID), userID.(uint)); err != nil {
+	if err := h.service.DeleteConversation(c.Request.Context(), conversationID, userID); err != nil {
 		utils.Error(c, 500, "Failed to delete conversation: "+err.Error())
 		return
 	}
@@ -172,25 +165,22 @@ func (h *Handler) DeleteConversation(c *gin.Context) {
 
 // AddMessage adds a message to a conversation
 func (h *Handler) AddMessage(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "Unauthorized")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	conversationID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 400, "Invalid conversation ID")
+	conversationID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	var req CreateMessageRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 400, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	message, err := h.service.AddMessage(c.Request.Context(), uint(conversationID), userID.(uint), req)
+	message, err := h.service.AddMessage(c.Request.Context(), conversationID, userID, req)
 	if err != nil {
 		utils.Error(c, 500, "Failed to add message: "+err.Error())
 		return
@@ -201,27 +191,24 @@ func (h *Handler) AddMessage(c *gin.Context) {
 
 // UpdateConversationTitle updates the title of a conversation
 func (h *Handler) UpdateConversationTitle(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "Unauthorized")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	conversationID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 400, "Invalid conversation ID")
+	conversationID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	var req struct {
 		Title string `json:"title" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 400, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	if err := h.service.UpdateConversationTitle(c.Request.Context(), uint(conversationID), userID.(uint), req.Title); err != nil {
+	if err := h.service.UpdateConversationTitle(c.Request.Context(), conversationID, userID, req.Title); err != nil {
 		utils.Error(c, 500, "Failed to update title: "+err.Error())
 		return
 	}
@@ -231,21 +218,18 @@ func (h *Handler) UpdateConversationTitle(c *gin.Context) {
 
 // StreamAdvancedSearch 处理基于AI的智能分析请求（使用MCP工具）
 func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "Unauthorized")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	conversationID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 400, "Invalid conversation ID")
+	conversationID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	messageID, err := strconv.ParseUint(c.Param("messageId"), 10, 32)
-	if err != nil {
-		utils.Error(c, 400, "Invalid message ID")
+	messageID, ok := utils.ParseUintParam(c, "messageId")
+	if !ok {
 		return
 	}
 
@@ -260,7 +244,7 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 	}
 
 	// Verify conversation belongs to user
-	conversation, err := h.service.GetConversationWithMessages(c.Request.Context(), uint(conversationID), userID.(uint))
+	conversation, err := h.service.GetConversationWithMessages(c.Request.Context(), conversationID, userID)
 	if err != nil {
 		utils.Error(c, 404, "Conversation not found")
 		return
@@ -269,7 +253,7 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 	// Find the target message
 	var targetMessage *ConversationMessage
 	for i := range conversation.Messages {
-		if conversation.Messages[i].ID == uint(messageID) {
+		if conversation.Messages[i].ID == messageID {
 			targetMessage = &conversation.Messages[i]
 			break
 		}
@@ -288,20 +272,20 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 		slog.Info("using optimized advanced search V2")
 		err = h.service.AdvancedSearchAndAnalyzeV2(
 			c.Request.Context(),
-			uint(conversationID),
+			conversationID,
 			targetMessage.SearchQuery,
 			c.Writer,
-			userID.(uint),
+			userID,
 			thirdparty.ModelLevel(modelLevel),
 		)
 	} else {
 		slog.Info("using original advanced search V1")
 		err = h.service.AdvancedSearchAndAnalyze(
 			c.Request.Context(),
-			uint(conversationID),
+			conversationID,
 			targetMessage.SearchQuery,
 			c.Writer,
-			userID.(uint),
+			userID,
 			thirdparty.ModelLevel(modelLevel),
 		)
 	}
@@ -315,15 +299,13 @@ func (h *Handler) StreamAdvancedSearch(c *gin.Context) {
 
 // StreamContinueConversation handles continuing the conversation with context
 func (h *Handler) StreamContinueConversation(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "Unauthorized")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	conversationID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 400, "Invalid conversation ID")
+	conversationID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -331,8 +313,7 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 		Query      string `json:"query" binding:"required"`
 		ModelLevel string `json:"model_level"` // Optional, defaults to "mid"
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 400, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -349,7 +330,7 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 	}
 
 	// Verify conversation belongs to user
-	conversation, err := h.service.GetConversationWithMessages(c.Request.Context(), uint(conversationID), userID.(uint))
+	conversation, err := h.service.GetConversationWithMessages(c.Request.Context(), conversationID, userID)
 	if err != nil {
 		utils.Error(c, 404, "Conversation not found")
 		return
@@ -366,10 +347,10 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 	// 按指定模型级别继续对话
 	err = h.service.ContinueConversation(
 		c.Request.Context(),
-		uint(conversationID),
+		conversationID,
 		req.Query,
 		c.Writer,
-		userID.(uint),
+		userID,
 		thirdparty.ModelLevel(modelLevel),
 	)
 	if err != nil {
@@ -383,26 +364,23 @@ func (h *Handler) StreamContinueConversation(c *gin.Context) {
 // GetFollowUpQuestions handles getting follow-up questions for a message
 // This is a separate endpoint called after the streaming response completes
 func (h *Handler) GetFollowUpQuestions(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "Unauthorized")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	conversationID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 400, "Invalid conversation ID")
+	conversationID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	messageID, err := strconv.ParseUint(c.Param("messageId"), 10, 32)
-	if err != nil {
-		utils.Error(c, 400, "Invalid message ID")
+	messageID, ok := utils.ParseUintParam(c, "messageId")
+	if !ok {
 		return
 	}
 
 	// Call service to get or generate follow-up questions
-	questions, err := h.service.GetFollowUpQuestions(c.Request.Context(), uint(conversationID), uint(messageID), userID.(uint))
+	questions, err := h.service.GetFollowUpQuestions(c.Request.Context(), conversationID, messageID, userID)
 	if err != nil {
 		utils.Error(c, 404, err.Error())
 		return

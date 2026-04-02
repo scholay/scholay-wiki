@@ -17,6 +17,9 @@ RUN go mod download
 # Copy source code (changes more frequently, cached layer above stays)
 COPY . .
 
+# Ensure go.sum is up to date with any new dependencies
+RUN go mod tidy
+
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/server
 
 # Runtime stage — pin Alpine version for reproducible builds

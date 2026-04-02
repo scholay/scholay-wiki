@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"scholar-backend/internal/ai"
+	"scholar-backend/internal/common/database"
 )
 
 // ConversationService LaTeX 对话服务
@@ -54,10 +55,8 @@ func (s *ConversationService) GetHistory(conversationID uint, page, pageSize int
 		return nil, err
 	}
 
-	// 计算偏移
-	offset := (page - 1) * pageSize
-
 	// 获取消息
+	offset := database.CalcOffset(page, pageSize)
 	messages, total, err := s.repo.GetMessages(conversationID, pageSize, offset)
 	if err != nil {
 		return nil, err

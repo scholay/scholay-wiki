@@ -9,6 +9,8 @@ package hotcontent
 
 import (
 	"log/slog"
+
+	"scholar-backend/internal/common/database"
 )
 
 // Service 热门内容服务
@@ -100,17 +102,8 @@ func (s *Service) GetHotKeywords(days, page, pageSize int) (*HotKeywordsResponse
 	if days > HotContentRetentionDays {
 		days = HotContentRetentionDays
 	}
-	if page <= 0 {
-		page = 1
-	}
-	if pageSize <= 0 {
-		pageSize = 20
-	}
-	if pageSize > 100 {
-		pageSize = 100
-	}
-	
-	offset := (page - 1) * pageSize
+	page, pageSize = database.NormalizePage(page, pageSize)
+	offset := database.CalcOffset(page, pageSize)
 	items, total, err := s.repo.ListHotKeywords(days, pageSize, offset)
 	if err != nil {
 		return nil, err
@@ -133,17 +126,8 @@ func (s *Service) GetHotPapers(days, page, pageSize int) (*HotPapersResponse, er
 	if days > HotContentRetentionDays {
 		days = HotContentRetentionDays
 	}
-	if page <= 0 {
-		page = 1
-	}
-	if pageSize <= 0 {
-		pageSize = 20
-	}
-	if pageSize > 100 {
-		pageSize = 100
-	}
-	
-	offset := (page - 1) * pageSize
+	page, pageSize = database.NormalizePage(page, pageSize)
+	offset := database.CalcOffset(page, pageSize)
 	items, total, err := s.repo.ListHotPapers(days, pageSize, offset)
 	if err != nil {
 		return nil, err

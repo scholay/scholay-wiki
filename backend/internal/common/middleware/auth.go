@@ -108,10 +108,17 @@ func (v *CachedSessionValidator) InvalidateUserSessions(userID uint) {
 		Where("user_id = ?", userID).
 		Pluck("token", &tokens)
 
-	// 删除所有缓存
-	for _, token := range tokens {
-		cacheKey := SessionCachePrefix + hashToken(token)
-		v.redis.Del(ctx, cacheKey)
+	if len(tokens) == 0 {
+		return
+	}
+
+	// 批量删除所有缓存（单次 Redis 往返）
+	keys := make([]string, len(tokens))
+	for i, token := range tokens {
+		keys[i] = SessionCachePrefix + hashToken(token)
+	}
+	if err := v.redis.Del(ctx, keys...).Err(); err != nil {
+		slog.Warn("Failed to batch invalidate session cache", "err", err, "count", len(keys))
 	}
 }
 

@@ -8,6 +8,7 @@
 package wechat
 
 import (
+	"errors"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
 	"strconv"
@@ -50,7 +51,7 @@ func (h *Handler) GetLoginURL(c *gin.Context) {
 func (h *Handler) GetQRCodeConfig(c *gin.Context) {
 	config, err := h.service.GetActiveConfig()
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			utils.Error(c, 4404, "微信登录未配置")
 			return
 		}
@@ -74,7 +75,7 @@ func (h *Handler) GetQRCodeConfig(c *gin.Context) {
 func (h *Handler) GetActiveConfig(c *gin.Context) {
 	config, err := h.service.GetActiveConfig()
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			utils.Error(c, 4404, "No active WeChat configuration found")
 			return
 		}

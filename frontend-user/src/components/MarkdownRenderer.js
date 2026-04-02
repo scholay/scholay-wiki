@@ -8,6 +8,7 @@
  */
 
 import React, { lazy, Suspense, memo } from 'react';
+import './MarkdownRenderer.css';
 
 // Lazy load the heavy markdown library
 const ReactMarkdown = lazy(() => import('react-markdown'));
@@ -26,20 +27,9 @@ const loadPlugins = async () => {
 
 // Loading fallback for markdown content
 const MarkdownLoading = () => (
-  <div style={{ padding: '8px 0' }}>
-    <div style={{
-      height: '1em',
-      background: '#e0e0e0',
-      borderRadius: '4px',
-      marginBottom: '8px',
-      animation: 'pulse 1.5s ease-in-out infinite'
-    }} />
-    <div style={{
-      height: '1em',
-      background: '#e0e0e0',
-      borderRadius: '4px',
-      width: '80%'
-    }} />
+  <div className="md-loading">
+    <div className="md-loading-line" />
+    <div className="md-loading-line md-loading-line-short" />
   </div>
 );
 

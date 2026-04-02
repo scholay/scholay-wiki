@@ -112,8 +112,7 @@ type UpdatePrivacyPolicyRequest struct {
 // UpdatePrivacyPolicy handles updating privacy policy (admin only)
 func (h *Handler) UpdatePrivacyPolicy(c *gin.Context) {
 	var req UpdatePrivacyPolicyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -141,8 +140,7 @@ type UpdateTermsOfServiceRequest struct {
 // UpdateTermsOfService handles updating terms of service (admin only)
 func (h *Handler) UpdateTermsOfService(c *gin.Context) {
 	var req UpdateTermsOfServiceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -200,8 +198,7 @@ type UpdateEmailConfigRequest struct {
 // UpdateEmailConfig handles updating email configuration (admin only)
 func (h *Handler) UpdateEmailConfig(c *gin.Context) {
 	var req UpdateEmailConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -251,8 +248,7 @@ type TestEmailConfigRequest struct {
 // Admin must save the configuration first before testing
 func (h *Handler) TestEmailConfig(c *gin.Context) {
 	var req TestEmailConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -364,8 +360,7 @@ type UpdateSystemConfigRequest struct {
 // This endpoint supports partial updates - only provided fields will be updated
 func (h *Handler) UpdateSystemConfig(c *gin.Context) {
 	var req UpdateSystemConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -425,8 +420,7 @@ type UpdateSMSConfigRequest struct {
 // UpdateSMSConfig handles updating SMS configuration (admin only)
 func (h *Handler) UpdateSMSConfig(c *gin.Context) {
 	var req UpdateSMSConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -487,8 +481,7 @@ type TestSMSConfigRequest struct {
 // TestSMSConfig handles testing SMS configuration by sending a test SMS
 func (h *Handler) TestSMSConfig(c *gin.Context) {
 	var req TestSMSConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -605,8 +598,7 @@ type UpdateGithubOAuthConfigRequest struct {
 // UpdateGithubOAuthConfig handles updating GitHub OAuth configuration (admin only)
 func (h *Handler) UpdateGithubOAuthConfig(c *gin.Context) {
 	var req UpdateGithubOAuthConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -684,8 +676,7 @@ func (h *Handler) GetCodeSnippet(c *gin.Context) {
 // CreateCodeSnippet 创建代码片段（管理端）
 func (h *Handler) CreateCodeSnippet(c *gin.Context) {
 	var req CreateCodeSnippetRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "请求参数无效: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -726,8 +717,7 @@ func (h *Handler) UpdateCodeSnippet(c *gin.Context) {
 	}
 
 	var req UpdateCodeSnippetRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "请求参数无效: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 

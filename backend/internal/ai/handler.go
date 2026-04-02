@@ -10,7 +10,6 @@ package ai
 import (
 	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -41,13 +40,12 @@ func (h *Handler) ListPromptTemplates(c *gin.Context) {
 
 // GetPromptTemplate gets a prompt template by ID
 func (h *Handler) GetPromptTemplate(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 400, "Invalid template ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	template, err := h.service.GetPromptTemplateByID(uint(id))
+	template, err := h.service.GetPromptTemplateByID(id)
 	if err != nil {
 		utils.Error(c, 404, "Template not found")
 		return
@@ -66,8 +64,7 @@ func (h *Handler) CreatePromptTemplate(c *gin.Context) {
 		IsActive    bool   `json:"is_active"` // Frontend sends bool, we'll convert
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 400, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -94,9 +91,8 @@ func (h *Handler) CreatePromptTemplate(c *gin.Context) {
 
 // UpdatePromptTemplate updates a prompt template
 func (h *Handler) UpdatePromptTemplate(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 400, "Invalid template ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
@@ -107,12 +103,11 @@ func (h *Handler) UpdatePromptTemplate(c *gin.Context) {
 		IsActive    bool   `json:"is_active"` // Frontend sends bool, we'll convert
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 400, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	template, err := h.service.GetPromptTemplateByID(uint(id))
+	template, err := h.service.GetPromptTemplateByID(id)
 	if err != nil {
 		utils.Error(c, 404, "Template not found")
 		return
@@ -138,13 +133,12 @@ func (h *Handler) UpdatePromptTemplate(c *gin.Context) {
 
 // DeletePromptTemplate deletes a prompt template
 func (h *Handler) DeletePromptTemplate(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 400, "Invalid template ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.service.DeletePromptTemplate(uint(id)); err != nil {
+	if err := h.service.DeletePromptTemplate(id); err != nil {
 		utils.Error(c, 500, "Failed to delete template: "+err.Error())
 		return
 	}
@@ -199,18 +193,15 @@ type PaperAnalysisItem struct {
 // 批量分析多篇论文，支持1-10篇
 func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 	var req BatchAnalyzePapersRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 400, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
 	// 获取用户ID
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "User not authenticated")
+	uid, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
-	uid := userID.(uint)
 
 	// 获取用户的分析维度（所有论文使用相同的维度配置）
 	userIDPtr := &uid
@@ -259,8 +250,7 @@ func (h *Handler) BatchAnalyzePapers(c *gin.Context) {
 // 优先从数据库缓存获取，如果没有则调用AI分析并保存结果
 func (h *Handler) AnalyzePaper(c *gin.Context) {
 	var req AnalyzePaperRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 400, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -363,19 +353,17 @@ type CreateUserDimensionRequest struct {
 // CreateUserDimension 创建用户自定义维度
 // POST /api/v1/analysis/dimensions
 func (h *Handler) CreateUserDimension(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "Unauthorized")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req CreateUserDimensionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 400, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	dimension, err := h.service.CreateUserDimension(userID.(uint), req.DimensionKey, req.Name, req.Description, req.SortOrder)
+	dimension, err := h.service.CreateUserDimension(userID, req.DimensionKey, req.Name, req.Description, req.SortOrder)
 	if err != nil {
 		utils.Error(c, 500, "Failed to create dimension: "+err.Error())
 		return
@@ -394,25 +382,22 @@ type UpdateUserDimensionRequest struct {
 // UpdateUserDimension 更新用户自定义维度
 // PUT /api/v1/analysis/dimensions/:id
 func (h *Handler) UpdateUserDimension(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "Unauthorized")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	dimensionID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 400, "Invalid dimension ID")
+	dimensionID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	var req UpdateUserDimensionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 400, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	dimension, err := h.service.UpdateUserDimension(userID.(uint), uint(dimensionID), req.Name, req.Description, req.SortOrder)
+	dimension, err := h.service.UpdateUserDimension(userID, dimensionID, req.Name, req.Description, req.SortOrder)
 	if err != nil {
 		utils.Error(c, 500, "Failed to update dimension: "+err.Error())
 		return
@@ -424,19 +409,17 @@ func (h *Handler) UpdateUserDimension(c *gin.Context) {
 // DeleteUserDimension 删除用户自定义维度
 // DELETE /api/v1/analysis/dimensions/:id
 func (h *Handler) DeleteUserDimension(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "Unauthorized")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	dimensionID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 400, "Invalid dimension ID")
+	dimensionID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.service.DeleteUserDimension(userID.(uint), uint(dimensionID)); err != nil {
+	if err := h.service.DeleteUserDimension(userID, dimensionID); err != nil {
 		utils.Error(c, 500, "Failed to delete dimension: "+err.Error())
 		return
 	}
@@ -447,9 +430,8 @@ func (h *Handler) DeleteUserDimension(c *gin.Context) {
 // ResetUserDimension 重置用户的某个维度为系统默认
 // DELETE /api/v1/analysis/dimensions/reset/:dimensionKey
 func (h *Handler) ResetUserDimension(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "Unauthorized")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -459,7 +441,7 @@ func (h *Handler) ResetUserDimension(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.ResetUserDimensionToDefault(userID.(uint), dimensionKey); err != nil {
+	if err := h.service.ResetUserDimensionToDefault(userID, dimensionKey); err != nil {
 		utils.Error(c, 500, "Failed to reset dimension: "+err.Error())
 		return
 	}
@@ -470,13 +452,12 @@ func (h *Handler) ResetUserDimension(c *gin.Context) {
 // ResetAllUserDimensions 重置用户的所有维度为系统默认
 // DELETE /api/v1/analysis/dimensions/reset-all
 func (h *Handler) ResetAllUserDimensions(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "Unauthorized")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	if err := h.service.ResetAllUserDimensions(userID.(uint)); err != nil {
+	if err := h.service.ResetAllUserDimensions(userID); err != nil {
 		utils.Error(c, 500, "Failed to reset all dimensions: "+err.Error())
 		return
 	}
@@ -487,14 +468,13 @@ func (h *Handler) ResetAllUserDimensions(c *gin.Context) {
 // CopySystemDimensionsToUser 将系统默认维度复制给用户
 // POST /api/v1/analysis/dimensions/copy-from-system
 func (h *Handler) CopySystemDimensionsToUser(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, 401, "Unauthorized")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	// 先检查用户是否已有自定义维度
-	existingDimensions, err := h.service.GetUserDimensions(userID.(uint))
+	existingDimensions, err := h.service.GetUserDimensions(userID)
 	if err != nil {
 		utils.Error(c, 500, "Failed to check existing dimensions: "+err.Error())
 		return
@@ -505,7 +485,7 @@ func (h *Handler) CopySystemDimensionsToUser(c *gin.Context) {
 		return
 	}
 
-	dimensions, err := h.service.CopySystemDimensionsToUser(userID.(uint))
+	dimensions, err := h.service.CopySystemDimensionsToUser(userID)
 	if err != nil {
 		utils.Error(c, 500, "Failed to copy dimensions: "+err.Error())
 		return
@@ -545,19 +525,17 @@ type AdminUpdateSystemDimensionRequest struct {
 // AdminUpdateSystemDimension 管理员更新系统默认分析维度
 // PUT /api/v1/admin/analysis/dimensions/:id
 func (h *Handler) AdminUpdateSystemDimension(c *gin.Context) {
-	dimensionID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, 400, "Invalid dimension ID")
+	dimensionID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	var req AdminUpdateSystemDimensionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 400, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	dimension, err := h.service.UpdateSystemDimension(uint(dimensionID), req.Name, req.Description, req.SortOrder, req.IsActive)
+	dimension, err := h.service.UpdateSystemDimension(dimensionID, req.Name, req.Description, req.SortOrder, req.IsActive)
 	if err != nil {
 		utils.Error(c, 500, "Failed to update dimension: "+err.Error())
 		return
@@ -576,8 +554,7 @@ type StreamTranslateRequest struct {
 // 将非中文文本翻译为中文，使用SSE流式输出
 func (h *Handler) StreamTranslate(c *gin.Context) {
 	var req StreamTranslateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "无效的请求参数: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -614,8 +591,7 @@ type StreamTranslatePaperRequest struct {
 // 一次性翻译论文的标题、摘要、TLDR，使用SSE流式输出
 func (h *Handler) StreamTranslatePaper(c *gin.Context) {
 	var req StreamTranslatePaperRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "无效的请求参数: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 

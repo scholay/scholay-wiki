@@ -1,6 +1,8 @@
 package latexwriter
 
 import (
+	"errors"
+
 	"gorm.io/gorm"
 )
 
@@ -24,7 +26,7 @@ func (r *ConversationRepository) GetOrCreateByDocument(userID, documentID uint) 
 		return &conv, nil
 	}
 
-	if err != gorm.ErrRecordNotFound {
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 

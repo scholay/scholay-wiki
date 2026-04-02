@@ -25,10 +25,7 @@ const MaxUserDimensions = 15
 // GetAnalysisDimensions 获取用户的分析维度
 // 采用覆盖式设计：系统默认维度 + 用户自定义维度（用户自定义覆盖同dimension_key的系统默认）
 func (s *Service) GetAnalysisDimensions(userID *uint) (*GetAnalysisDimensionsResult, error) {
-	var systemDimensions []AnalysisDimension
-	err := s.db.Where("user_id = -1 AND is_active = ?", true).
-		Order("sort_order ASC").
-		Find(&systemDimensions).Error
+	systemDimensions, err := s.repo.GetSystemDimensions()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get system dimensions: %w", err)
 	}
@@ -41,9 +38,7 @@ func (s *Service) GetAnalysisDimensions(userID *uint) (*GetAnalysisDimensionsRes
 		}, nil
 	}
 
-	var userDimensions []AnalysisDimension
-	err = s.db.Where("user_id = ?", *userID).
-		Find(&userDimensions).Error
+	userDimensions, err := s.repo.GetAllUserDimensions(*userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user dimensions: %w", err)
 	}
@@ -99,33 +94,18 @@ func (s *Service) GetAnalysisDimensions(userID *uint) (*GetAnalysisDimensionsRes
 
 // GetSystemDimensions 获取系统默认维度（user_id = -1 表示系统级）
 func (s *Service) GetSystemDimensions() ([]AnalysisDimension, error) {
-	var dimensions []AnalysisDimension
-	err := s.db.Where("user_id = -1 AND is_active = ?", true).
-		Order("sort_order ASC").
-		Find(&dimensions).Error
-	if err != nil {
-		return nil, fmt.Errorf("failed to get system dimensions: %w", err)
-	}
-	return dimensions, nil
+	return s.repo.GetSystemDimensions()
 }
 
 // GetUserDimensions 获取用户自定义维度
 func (s *Service) GetUserDimensions(userID uint) ([]AnalysisDimension, error) {
-	var dimensions []AnalysisDimension
-	err := s.db.Where("user_id = ? AND is_active = ?", userID, true).
-		Order("sort_order ASC").
-		Find(&dimensions).Error
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user dimensions: %w", err)
-	}
-	return dimensions, nil
+	return s.repo.GetUserDimensions(userID)
 }
 
 // CreateUserDimension 创建或更新用户自定义维度
 // 如果用户已有该dimension_key的自定义，则更新；否则创建新的
 func (s *Service) CreateUserDimension(userID uint, dimensionKey, name, description string, sortOrder int) (*AnalysisDimension, error) {
-	var existingDimension AnalysisDimension
-	err := s.db.Where("user_id = ? AND dimension_key = ?", userID, dimensionKey).First(&existingDimension).Error
+	existingDimension, err := s.repo.FindDimensionByUserAndKey(userID, dimensionKey)
 
 	if err == nil {
 		existingDimension.Name = name
@@ -133,15 +113,15 @@ func (s *Service) CreateUserDimension(userID uint, dimensionKey, name, descripti
 		existingDimension.SortOrder = sortOrder
 		existingDimension.IsActive = true
 
-		if err := s.db.Save(&existingDimension).Error; err != nil {
+		if err := s.repo.SaveDimension(existingDimension); err != nil {
 			return nil, fmt.Errorf("failed to update dimension: %w", err)
 		}
 		slog.Info("Updated user dimension", "dimensionKey", dimensionKey, "userId", userID)
-		return &existingDimension, nil
+		return existingDimension, nil
 	}
 
-	var systemDimension AnalysisDimension
-	isModifyingSystemDimension := s.db.Where("user_id = -1 AND dimension_key = ?", dimensionKey).First(&systemDimension).Error == nil
+	_, sysErr := s.repo.FindSystemDimensionByKey(dimensionKey)
+	isModifyingSystemDimension := sysErr == nil
 
 	if !isModifyingSystemDimension {
 		currentCount, err := s.GetUserDimensionCount(userID)
@@ -162,7 +142,7 @@ func (s *Service) CreateUserDimension(userID uint, dimensionKey, name, descripti
 		IsActive:     true,
 	}
 
-	if err := s.db.Create(dimension).Error; err != nil {
+	if err := s.repo.CreateDimension(dimension); err != nil {
 		return nil, fmt.Errorf("failed to create dimension: %w", err)
 	}
 
@@ -204,8 +184,8 @@ func (s *Service) GetUserDimensionCount(userID uint) (int, error) {
 
 // UpdateUserDimension 更新用户自定义维度
 func (s *Service) UpdateUserDimension(userID uint, dimensionID uint, name, description string, sortOrder int) (*AnalysisDimension, error) {
-	var dimension AnalysisDimension
-	if err := s.db.Where("id = ? AND user_id = ?", dimensionID, userID).First(&dimension).Error; err != nil {
+	dimension, err := s.repo.FindDimensionByIDAndUser(dimensionID, userID)
+	if err != nil {
 		return nil, fmt.Errorf("dimension not found: %w", err)
 	}
 
@@ -213,20 +193,20 @@ func (s *Service) UpdateUserDimension(userID uint, dimensionID uint, name, descr
 	dimension.Description = description
 	dimension.SortOrder = sortOrder
 
-	if err := s.db.Save(&dimension).Error; err != nil {
+	if err := s.repo.SaveDimension(dimension); err != nil {
 		return nil, fmt.Errorf("failed to update dimension: %w", err)
 	}
 
-	return &dimension, nil
+	return dimension, nil
 }
 
 // DeleteUserDimension 删除用户自定义维度
 func (s *Service) DeleteUserDimension(userID uint, dimensionID uint) error {
-	result := s.db.Where("id = ? AND user_id = ?", dimensionID, userID).Delete(&AnalysisDimension{})
-	if result.Error != nil {
-		return fmt.Errorf("failed to delete dimension: %w", result.Error)
+	rowsAffected, err := s.repo.DeleteDimensionByIDAndUser(dimensionID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete dimension: %w", err)
 	}
-	if result.RowsAffected == 0 {
+	if rowsAffected == 0 {
 		return fmt.Errorf("dimension not found or not owned by user")
 	}
 	return nil
@@ -234,9 +214,8 @@ func (s *Service) DeleteUserDimension(userID uint, dimensionID uint) error {
 
 // ResetUserDimensionToDefault 重置用户的某个维度为系统默认
 func (s *Service) ResetUserDimensionToDefault(userID uint, dimensionKey string) error {
-	result := s.db.Where("user_id = ? AND dimension_key = ?", userID, dimensionKey).Delete(&AnalysisDimension{})
-	if result.Error != nil {
-		return fmt.Errorf("failed to reset dimension: %w", result.Error)
+	if err := s.repo.DeleteDimensionByUserAndKey(userID, dimensionKey); err != nil {
+		return fmt.Errorf("failed to reset dimension: %w", err)
 	}
 	slog.Info("Reset dimension to default", "dimensionKey", dimensionKey, "userId", userID)
 	return nil
@@ -244,11 +223,11 @@ func (s *Service) ResetUserDimensionToDefault(userID uint, dimensionKey string) 
 
 // ResetAllUserDimensions 重置用户的所有维度为系统默认
 func (s *Service) ResetAllUserDimensions(userID uint) error {
-	result := s.db.Where("user_id = ?", userID).Delete(&AnalysisDimension{})
-	if result.Error != nil {
-		return fmt.Errorf("failed to reset all dimensions: %w", result.Error)
+	rowsAffected, err := s.repo.DeleteAllUserDimensions(userID)
+	if err != nil {
+		return fmt.Errorf("failed to reset all dimensions: %w", err)
 	}
-	slog.Info("Reset all dimensions to default", "userId", userID, "deleted", result.RowsAffected)
+	slog.Info("Reset all dimensions to default", "userId", userID, "deleted", rowsAffected)
 	return nil
 }
 
@@ -269,7 +248,7 @@ func (s *Service) CopySystemDimensionsToUser(userID uint) ([]AnalysisDimension, 
 			SortOrder:    sd.SortOrder,
 			IsActive:     true,
 		}
-		if err := s.db.Create(&ud).Error; err != nil {
+		if err := s.repo.CreateDimension(&ud); err != nil {
 			return nil, fmt.Errorf("failed to copy dimension %s: %w", sd.DimensionKey, err)
 		}
 		userDimensions = append(userDimensions, ud)
@@ -281,8 +260,8 @@ func (s *Service) CopySystemDimensionsToUser(userID uint) ([]AnalysisDimension, 
 
 // UpdateSystemDimension 更新系统默认维度（管理员接口）
 func (s *Service) UpdateSystemDimension(dimensionID uint, name, description string, sortOrder int, isActive bool) (*AnalysisDimension, error) {
-	var dimension AnalysisDimension
-	if err := s.db.Where("id = ? AND user_id = -1", dimensionID).First(&dimension).Error; err != nil {
+	dimension, err := s.repo.FindSystemDimensionByID(dimensionID)
+	if err != nil {
 		return nil, fmt.Errorf("system dimension not found: %w", err)
 	}
 
@@ -291,10 +270,10 @@ func (s *Service) UpdateSystemDimension(dimensionID uint, name, description stri
 	dimension.SortOrder = sortOrder
 	dimension.IsActive = isActive
 
-	if err := s.db.Save(&dimension).Error; err != nil {
+	if err := s.repo.SaveDimension(dimension); err != nil {
 		return nil, fmt.Errorf("failed to update dimension: %w", err)
 	}
 
 	slog.Info("Updated system dimension", "dimensionKey", dimension.DimensionKey, "id", dimension.ID)
-	return &dimension, nil
+	return dimension, nil
 }

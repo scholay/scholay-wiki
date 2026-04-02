@@ -1,0 +1,69 @@
+---
+description: Project-wide conventions for the Scholar codebase covering naming, API paths, commits, and general coding discipline.
+globs: []
+alwaysApply: true
+---
+
+# Project Conventions (Scholar)
+
+## Language & Comments
+
+- All code, variable names, function names, and comments MUST be in English
+- Communicate with the user in Chinese (per user preference)
+- Do not add obvious or narrating comments; only explain non-obvious intent or trade-offs
+- Copyright header is required in Go files (see existing files for format)
+
+## API Path Conventions
+
+- User-facing API: `/api/v1/user/...` or `/api/v1/{module}/...`
+- Admin API: `/api/v1/admin/...`
+- All API responses use unified format: `{"code": 200, "data": ..., "message": "..."}`
+- Use kebab-case for URL paths: `/api/v1/user/subscription/usage`
+- Use camelCase for JSON field names in request/response bodies
+
+## File Naming
+
+- Go files: `snake_case.go` (e.g., `github_oauth.go`, `wechat_pay_handler.go`)
+- React components: `PascalCase.js` (e.g., `MainLayout.js`, `PaperCard.js`)
+- CSS files: `PascalCase.css` matching component name, or in `styles/` directory
+- SQL migrations: `NNNN_description_type.sql` (e.g., `0004_iterative_fields.sql`)
+- Shell scripts: `kebab-case.sh` (e.g., `run-migrations.sh`)
+
+## Git Commit Conventions
+
+- Use Conventional Commits format: `type(scope): description`
+- Types: `feat`, `fix`, `refactor`, `docs`, `style`, `test`, `chore`, `perf`
+- Scope: module name (e.g., `user`, `payment`, `frontend`, `docker`)
+- Description in English, concise, imperative mood
+- Example: `feat(peerreview): add peer review submission endpoint`
+
+## Security
+
+- Never commit `.env`, credentials, or API keys
+- Never log passwords, tokens, or secrets
+- Always use parameterized queries (GORM handles this; never use raw string concatenation)
+- JWT secrets must come from environment variables
+
+## Error Response Standards
+
+Backend errors follow this pattern:
+- 400: Bad Request (invalid input, validation failure)
+- 401: Unauthorized (missing or invalid token)
+- 403: Forbidden (insufficient permissions)
+- 404: Not Found
+- 409: Conflict (duplicate resource)
+- 500: Internal Server Error (unexpected failures)
+
+## Testing
+
+- Backend tests: `go test ./...` from `backend/` directory
+- Frontend: component tests with React Testing Library
+- Name test files: `*_test.go` (Go), `*.test.js` (React)
+- Test edge cases: empty input, nil/undefined, boundary values
+
+## Performance Awareness
+
+- Use circuit breakers for all external API calls
+- Use Redis caching for frequently accessed data (5-min TTL default)
+- Use connection pooling for HTTP clients (shared instances)
+- Set appropriate timeouts: reads 15s, writes 30s, streaming 5m

@@ -78,8 +78,7 @@ type UpdateAgentConfigRequest struct {
 // PUT /api/v1/admin/latex-agent/config
 func (h *AdminHandler) UpdateAgentConfig(c *gin.Context) {
 	var req UpdateAgentConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 5001, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -185,8 +184,7 @@ func (h *AdminHandler) ApplyModelPreset(c *gin.Context) {
 		Provider string `json:"provider" binding:"required"`
 		Name     string `json:"name" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 5001, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -301,8 +299,7 @@ type CreateModelRequest struct {
 // POST /api/v1/admin/latex-agent/models
 func (h *AdminHandler) CreateModel(c *gin.Context) {
 	var req CreateModelRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 5001, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -381,8 +378,7 @@ func (h *AdminHandler) UpdateModel(c *gin.Context) {
 	}
 
 	var req UpdateModelRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 5003, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 

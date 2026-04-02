@@ -86,14 +86,19 @@ const processQueue = (error: unknown, token: string | null = null) => {
 // Response interceptor – handle business errors, 401 refresh, 403
 // ---------------------------------------------------------------------------
 api.interceptors.response.use(
-  (response: AxiosResponse) => {
-    if (response.data?.code === 2019) {
+  (response: AxiosResponse) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    const errorCode = error.response?.data?.code;
+
+    // ---- Session kicked (code 2019, HTTP 409) ----
+    if (errorCode === 2019) {
       localStorage.removeItem('user_token');
       localStorage.removeItem('user_data');
       window.dispatchEvent(
         new CustomEvent('auth:expired', {
           detail: {
-            message: response.data?.message || '您的账号已在其他设备登录',
+            message: error.response?.data?.message || '您的账号已在其他设备登录',
             reason: 'kicked',
           },
         }),
@@ -101,14 +106,8 @@ api.interceptors.response.use(
       if (!isInAuthWhitelist()) {
         window.location.href = '/';
       }
-      return Promise.reject(
-        new Error(response.data?.message || '您的账号已在其他设备登录'),
-      );
+      return Promise.reject(error);
     }
-    return response;
-  },
-  async (error) => {
-    const originalRequest = error.config;
 
     // ---- 401: try to refresh token ----
     if (error.response?.status === 401 && !originalRequest._retry) {

@@ -9,7 +9,6 @@ package message
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -77,9 +76,8 @@ func (h *Handler) GetAdapter() *MessageServiceAdapter {
 // @Success 200 {object} utils.Response{data=UserMessageListResponse}
 // @Router /api/v1/user/messages [get]
 func (h *Handler) GetMessages(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -89,7 +87,7 @@ func (h *Handler) GetMessages(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.GetUserMessages(userID.(uint), &req)
+	resp, err := h.service.GetUserMessages(userID, &req)
 	if err != nil {
 		utils.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -106,19 +104,17 @@ func (h *Handler) GetMessages(c *gin.Context) {
 // @Success 200 {object} utils.Response{data=UserMessageResponse}
 // @Router /api/v1/user/messages/{id} [get]
 func (h *Handler) GetMessage(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, http.StatusBadRequest, "无效的消息ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	resp, err := h.service.GetUserMessage(userID.(uint), uint(id))
+	resp, err := h.service.GetUserMessage(userID, id)
 	if err != nil {
 		utils.Error(c, http.StatusNotFound, err.Error())
 		return
@@ -134,13 +130,12 @@ func (h *Handler) GetMessage(c *gin.Context) {
 // @Success 200 {object} utils.Response{data=UnreadCountResponse}
 // @Router /api/v1/user/messages/unread-count [get]
 func (h *Handler) GetUnreadCount(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	resp, err := h.service.GetUnreadCount(userID.(uint))
+	resp, err := h.service.GetUnreadCount(userID)
 	if err != nil {
 		utils.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -157,19 +152,17 @@ func (h *Handler) GetUnreadCount(c *gin.Context) {
 // @Success 200 {object} utils.Response
 // @Router /api/v1/user/messages/{id}/read [put]
 func (h *Handler) MarkAsRead(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, http.StatusBadRequest, "无效的消息ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.service.MarkAsRead(userID.(uint), uint(id)); err != nil {
+	if err := h.service.MarkAsRead(userID, id); err != nil {
 		utils.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -184,13 +177,12 @@ func (h *Handler) MarkAsRead(c *gin.Context) {
 // @Success 200 {object} utils.Response{data=map[string]int64}
 // @Router /api/v1/user/messages/read-all [put]
 func (h *Handler) MarkAllAsRead(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	count, err := h.service.MarkAllAsRead(userID.(uint))
+	count, err := h.service.MarkAllAsRead(userID)
 	if err != nil {
 		utils.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -207,19 +199,17 @@ func (h *Handler) MarkAllAsRead(c *gin.Context) {
 // @Success 200 {object} utils.Response
 // @Router /api/v1/user/messages/{id} [delete]
 func (h *Handler) DeleteMessage(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Error(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, http.StatusBadRequest, "无效的消息ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.service.DeleteUserMessage(userID.(uint), uint(id)); err != nil {
+	if err := h.service.DeleteUserMessage(userID, id); err != nil {
 		utils.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -241,8 +231,7 @@ func (h *Handler) AdminCreateMessage(c *gin.Context) {
 	adminName, _ := c.Get("adminUsername")
 
 	var req CreateMessageRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, http.StatusBadRequest, "参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -269,13 +258,12 @@ func (h *Handler) AdminCreateMessage(c *gin.Context) {
 // @Success 200 {object} utils.Response
 // @Router /api/v1/admin/messages/{id}/send [post]
 func (h *Handler) AdminSendMessage(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, http.StatusBadRequest, "无效的消息ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.service.SendMessage(uint(id)); err != nil {
+	if err := h.service.SendMessage(id); err != nil {
 		utils.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -318,13 +306,12 @@ func (h *Handler) AdminGetMessages(c *gin.Context) {
 // @Success 200 {object} utils.Response{data=MessageResponse}
 // @Router /api/v1/admin/messages/{id} [get]
 func (h *Handler) AdminGetMessage(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, http.StatusBadRequest, "无效的消息ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	resp, err := h.service.GetMessage(uint(id))
+	resp, err := h.service.GetMessage(id)
 	if err != nil {
 		utils.Error(c, http.StatusNotFound, err.Error())
 		return
@@ -360,8 +347,7 @@ func (h *Handler) AdminGetMessageStats(c *gin.Context) {
 // @Router /api/v1/admin/message-templates [post]
 func (h *Handler) AdminCreateTemplate(c *gin.Context) {
 	var req CreateTemplateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, http.StatusBadRequest, "参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -409,13 +395,12 @@ func (h *Handler) AdminGetTemplates(c *gin.Context) {
 // @Success 200 {object} utils.Response{data=TemplateResponse}
 // @Router /api/v1/admin/message-templates/{id} [get]
 func (h *Handler) AdminGetTemplate(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, http.StatusBadRequest, "无效的模板ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	resp, err := h.service.GetTemplate(uint(id))
+	resp, err := h.service.GetTemplate(id)
 	if err != nil {
 		utils.Error(c, http.StatusNotFound, err.Error())
 		return
@@ -433,19 +418,17 @@ func (h *Handler) AdminGetTemplate(c *gin.Context) {
 // @Success 200 {object} utils.Response{data=TemplateResponse}
 // @Router /api/v1/admin/message-templates/{id} [put]
 func (h *Handler) AdminUpdateTemplate(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, http.StatusBadRequest, "无效的模板ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	var req UpdateTemplateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, http.StatusBadRequest, "参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	resp, err := h.service.UpdateTemplate(uint(id), &req)
+	resp, err := h.service.UpdateTemplate(id, &req)
 	if err != nil {
 		utils.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -462,13 +445,12 @@ func (h *Handler) AdminUpdateTemplate(c *gin.Context) {
 // @Success 200 {object} utils.Response
 // @Router /api/v1/admin/message-templates/{id} [delete]
 func (h *Handler) AdminDeleteTemplate(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.Error(c, http.StatusBadRequest, "无效的模板ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.service.DeleteTemplate(uint(id)); err != nil {
+	if err := h.service.DeleteTemplate(id); err != nil {
 		utils.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}

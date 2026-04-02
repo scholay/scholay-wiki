@@ -386,7 +386,7 @@ const DashboardLayout = () => {
                   {loading ? (
                     <>
                       <span className="spinner"></span>
-                      <span style={{ marginLeft: '0.5rem' }}>修改中...</span>
+                      <span className="ml-1">修改中...</span>
                     </>
                   ) : (
                     '确认修改'

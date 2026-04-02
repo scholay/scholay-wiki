@@ -13,7 +13,7 @@
   flex-direction: column;
   height: 100vh;
   background: var(--background);
-  overflow: hidden; /* 防止整体滚动 */
+  overflow: hidden;
 }
 
 /* ========== 正文区域 ========== */
@@ -21,8 +21,45 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0; /* 重要：允许 flex 子元素收缩 */
-  overflow: hidden; /* 防止正文区域产生额外滚动 */
+  min-height: 0;
+  overflow: hidden;
+}
+
+.main-layout-scroll {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;       /* IE/Edge */
+}
+
+.main-layout-scroll::-webkit-scrollbar {
+  width: 6px;
+  background: transparent;
+}
+
+.main-layout-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+  transition: background 0.3s;
+}
+
+.main-layout-scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.main-layout-scroll:hover::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.main-layout-page {
+  flex: 1 0 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* 当有顶部栏时，正文区域需要适应 */

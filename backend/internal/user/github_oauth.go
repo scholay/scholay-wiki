@@ -13,13 +13,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
+	"time"
+
 	"scholar-backend/internal/common/cache"
 	"scholar-backend/internal/common/model"
 	"scholar-backend/internal/common/utils"
-	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -143,14 +145,16 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 	// Exchange code for access token
 	accessToken, err := h.exchangeGithubCode(c.Request.Context(), code, githubConfig)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, fmt.Sprintf("Failed to exchange code: %v", err))
+		slog.Error("github oauth: failed to exchange code", "err", err)
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to exchange authorization code")
 		return
 	}
 
 	// Get user info from GitHub
 	githubUser, err := h.getGithubUserInfo(c.Request.Context(), accessToken)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, fmt.Sprintf("Failed to get user info: %v", err))
+		slog.Error("github oauth: failed to get user info", "err", err)
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get GitHub user info")
 		return
 	}
 
@@ -158,7 +162,8 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 	ip := c.ClientIP()
 	user, isNewUser, err := h.findOrCreateGithubUser(githubUser, invitationCode, ip)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, fmt.Sprintf("Failed to process user: %v", err))
+		slog.Error("github oauth: failed to process user", "err", err)
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to process GitHub login")
 		return
 	}
 
@@ -332,15 +337,15 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode 
 	providerUserID := fmt.Sprintf("%d", githubUser.ID)
 	authProvider, err := h.service.FindAuthProvider("github", providerUserID)
 
-	if err != nil && err != gorm.ErrRecordNotFound {
-		return nil, false, err
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, false, fmt.Errorf("find auth provider: %w", err)
 	}
 
 	// User exists, return it
 	if authProvider != nil {
 		user, err := h.service.FindByID(authProvider.UserID)
 		if err != nil {
-			return nil, false, err
+			return nil, false, fmt.Errorf("find user by id: %w", err)
 		}
 		return user, false, nil
 	}
@@ -348,7 +353,11 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode 
 	// New user - check if email already exists
 	var user *User
 	if githubUser.Email != "" {
-		user, _ = h.service.FindByEmail(githubUser.Email)
+		found, err := h.service.FindByEmail(githubUser.Email)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, false, fmt.Errorf("find user by email: %w", err)
+		}
+		user = found
 	}
 
 	isNewUser := false
@@ -360,7 +369,10 @@ func (h *Handler) findOrCreateGithubUser(githubUser *GithubUser, invitationCode 
 		// Generate username from GitHub login
 		username := githubUser.Login
 		// Ensure username is unique
-		existingUser, _ := h.service.FindByUsername(username)
+		existingUser, err := h.service.FindByUsername(username)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, false, fmt.Errorf("check username uniqueness: %w", err)
+		}
 		if existingUser != nil {
 			username = fmt.Sprintf("%s_%d", username, time.Now().Unix())
 		}
@@ -446,20 +458,23 @@ func (h *Handler) BindGitHubAccount(c *gin.Context) {
 	// Exchange code for access token
 	accessToken, err := h.exchangeGithubCode(c.Request.Context(), req.Code, githubConfig)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, fmt.Sprintf("Failed to exchange code: %v", err))
+		slog.Error("github bind: failed to exchange code", "err", err)
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to exchange authorization code")
 		return
 	}
 
 	// Get GitHub user info
 	githubUser, err := h.getGithubUserInfo(c.Request.Context(), accessToken)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, fmt.Sprintf("Failed to get user info: %v", err))
+		slog.Error("github bind: failed to get user info", "err", err)
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to get GitHub user info")
 		return
 	}
 
 	// Bind GitHub to current user
 	if err := h.bindGitHubToUser(userID.(uint), githubUser); err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, fmt.Sprintf("Failed to bind GitHub: %v", err))
+		slog.Error("github bind: failed to bind account", "err", err, "user_id", userID)
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to bind GitHub account")
 		return
 	}
 
@@ -472,8 +487,8 @@ func (h *Handler) bindGitHubToUser(userID uint, githubUser *GithubUser) error {
 	providerUserID := fmt.Sprintf("%d", githubUser.ID)
 	existing, err := h.service.FindAuthProvider("github", providerUserID)
 
-	if err != nil && err != gorm.ErrRecordNotFound {
-		return err
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("find auth provider: %w", err)
 	}
 
 	if existing != nil && existing.UserID != userID {
@@ -505,8 +520,8 @@ func (h *Handler) bindGitHubToUser(userID uint, githubUser *GithubUser) error {
 
 	// Create or update auth provider entry
 	authProvider, err := h.service.FindAuthProviderByUserAndProvider(userID, "github")
-	if err != nil && err != gorm.ErrRecordNotFound {
-		return err
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("find auth provider by user: %w", err)
 	}
 
 	providerData := map[string]string{

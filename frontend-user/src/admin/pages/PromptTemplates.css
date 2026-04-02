@@ -310,11 +310,6 @@
   accent-color: var(--brand-500);
 }
 
-.admin-app .modal-footer{
-  justify-content: flex-end;
-  gap: var(--space-3);
-}
-
 @media (max-width: 1024px){
   .admin-app .templates-grid{
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));

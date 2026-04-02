@@ -56,11 +56,6 @@ const Home = () => {
   const [taskHistory, setTaskHistory] = useState([]);
   const [taskHistoryLoading, setTaskHistoryLoading] = useState(false);
 
-  // Typewriter effect for welcome title
-  // 静态标语（保留供将来使用）
-  // eslint-disable-next-line no-unused-vars
-  const sloganText = '科研者的瑞士军刀';
-
   // Placeholder examples carousel
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
   
@@ -264,10 +259,7 @@ const Home = () => {
     }
   };
 
-  // FAQ 展开状态
-  const [expandedFaq, setExpandedFaq] = useState(null);
-  
-  // FAQ数据用于结构化数据和页面展示
+  // FAQ数据 — 仅用于 SEO JSON-LD 结构化数据，不在首页渲染
   const faqData = [
     {
       question: '什么是Scholay学术搜索平台？',
@@ -684,81 +676,6 @@ const Home = () => {
         </div>
       </div>
 
-      {/* 平台能力 - 平铺展示，所有内容对爬虫可见 */}
-      <div className="home-about-flow">
-        {/* 核心数据 */}
-        <div className="home-flow-stats">
-          <div className="home-flow-stat">
-            <span className="home-flow-stat-num">200M+</span>
-            <span className="home-flow-stat-label">学术论文覆盖</span>
-          </div>
-          <div className="home-flow-stat-divider" />
-          <div className="home-flow-stat">
-            <span className="home-flow-stat-num">19</span>
-            <span className="home-flow-stat-label">学科领域</span>
-          </div>
-          <div className="home-flow-stat-divider" />
-          <div className="home-flow-stat">
-            <span className="home-flow-stat-num">5</span>
-            <span className="home-flow-stat-label">AI 工具模块</span>
-          </div>
-        </div>
-
-        {/* 适用人群 - 紧凑横排 */}
-        <div className="home-flow-users">
-          <div className="home-flow-user">
-            <span className="home-flow-user-emoji">🎓</span>
-            <div><strong>高校学生</strong><span>课题文献 · 论文写作 · 文献综述</span></div>
-          </div>
-          <div className="home-flow-user">
-            <span className="home-flow-user-emoji">🔬</span>
-            <div><strong>科研人员</strong><span>追踪前沿 · 发现高引论文 · 拓展思路</span></div>
-          </div>
-          <div className="home-flow-user">
-            <span className="home-flow-user-emoji">📚</span>
-            <div><strong>学者教授</strong><span>学术脉络 · 引用分析 · 学术决策</span></div>
-          </div>
-          <div className="home-flow-user">
-            <span className="home-flow-user-emoji">💼</span>
-            <div><strong>企业研发</strong><span>技术调研 · 行业动态 · 趋势分析</span></div>
-          </div>
-        </div>
-
-        {/* FAQ */}
-        <div className="home-flow-faq">
-          <h3 className="home-flow-section-title">常见问题</h3>
-          <div className="home-faq-list">
-            {faqData.map((faq, index) => (
-              <div 
-                key={index} 
-                className={`home-faq-item ${expandedFaq === index ? 'expanded' : ''}`}
-              >
-                <button 
-                  className="home-faq-question"
-                  onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
-                >
-                  <span>{faq.question}</span>
-                  <svg 
-                    className="home-faq-arrow" 
-                    width="16" 
-                    height="16" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2"
-                  >
-                    <path d="M6 9l6 6 6-6"/>
-                  </svg>
-                </button>
-                <div className="home-faq-answer">
-                  <p>{faq.answer}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* 条件渲染 AuthModal - 只在需要时加载 */}
       {showAuthModal && (
         <Suspense fallback={null}>
@@ -785,65 +702,6 @@ const Home = () => {
         message={kickedMessage}
         confirmText="知道了"
       />
-
-      {/* 用户评价 - EEAT 信号 */}
-      <div className="home-testimonials-section">
-        <h3 className="home-flow-section-title">来自研究者的反馈</h3>
-        <div className="home-testimonials-grid">
-          <div className="home-testimonial-card">
-            <p className="home-testimonial-text">"智能检索帮我在博士论文文献综述阶段节省了大量时间，AI 分析功能让我快速判断论文价值。"</p>
-            <div className="home-testimonial-author">
-              <span className="home-testimonial-name">李同学</span>
-              <span className="home-testimonial-title">计算机科学博士生</span>
-            </div>
-          </div>
-          <div className="home-testimonial-card">
-            <p className="home-testimonial-text">"AI 搜索能理解我的研究意图，帮我发现了很多之前遗漏的跨学科相关论文。"</p>
-            <div className="home-testimonial-author">
-              <span className="home-testimonial-name">王研究员</span>
-              <span className="home-testimonial-title">生物信息学方向</span>
-            </div>
-          </div>
-          <div className="home-testimonial-card">
-            <p className="home-testimonial-text">"AI 辅助写作功能对于英文非母语的研究者来说非常实用，效率提升显著。"</p>
-            <div className="home-testimonial-author">
-              <span className="home-testimonial-name">张老师</span>
-              <span className="home-testimonial-title">材料科学副教授</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 底部资源 + 导航 */}
-      <div className="home-bottom-section">
-        <div className="home-bottom-resources">
-          <div className="home-bottom-res-col">
-            <h4>学术资源</h4>
-            <button onClick={() => navigate('/resources/how-to-search')}>如何高效检索学术文献</button>
-            <button onClick={() => navigate('/resources/literature-review-guide')}>文献综述撰写全攻略</button>
-            <button onClick={() => navigate('/resources/ai-in-research')}>AI 在学术研究中的应用</button>
-            <button onClick={() => navigate('/resources/latex-tutorial')}>LaTeX 入门教程</button>
-          </div>
-          <div className="home-bottom-res-col">
-            <h4>了解更多</h4>
-            <button onClick={() => navigate('/blog')}>博客文章</button>
-            <button onClick={() => navigate('/resources')}>资源中心</button>
-            <button onClick={() => navigate('/help')}>帮助中心</button>
-            <button onClick={() => navigate('/about')}>关于我们</button>
-          </div>
-          <div className="home-bottom-res-col">
-            <h4>法律</h4>
-            <button onClick={() => navigate('/privacy')}>隐私政策</button>
-            <button onClick={() => navigate('/terms')}>服务条款</button>
-            <button onClick={() => navigate('/contact')}>联系我们</button>
-            <button onClick={() => navigate('/feedback')}>问题反馈</button>
-          </div>
-        </div>
-        <div className="home-bottom-copy">
-          <p>© {new Date().getFullYear()} Scholay · 让学术研究更高效</p>
-        </div>
-      </div>
-
 
     </div>
   );

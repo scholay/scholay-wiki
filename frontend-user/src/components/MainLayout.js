@@ -80,14 +80,19 @@ const MainLayout = () => {
         />
       )}
 
-      {/* 正文区域 - 占据剩余空间 */}
+      {/* 正文区域 - 占据剩余空间，内部可滚动 */}
       <div className={`main-layout-content ${showTopNav ? 'with-top-nav' : ''}`}>
-        <Outlet context={{ 
-          isAuthenticated,
-          onShowLogin: handleShowLogin,
-          showTopNav: showTopNav,
-          onOpenDrawer: handleOpenDrawer
-        }} />
+        <div className="main-layout-scroll">
+          <div className="main-layout-page">
+            <Outlet context={{ 
+              isAuthenticated,
+              onShowLogin: handleShowLogin,
+              showTopNav: showTopNav,
+              onOpenDrawer: handleOpenDrawer
+            }} />
+          </div>
+          <SharedFooter />
+        </div>
       </div>
 
       {/* 抽屉式侧边栏 - 通过 Portal 渲染 */}
@@ -96,9 +101,6 @@ const MainLayout = () => {
         onClose={handleCloseDrawer}
         sidebarConfig={sidebarConfig}
       />
-      
-      {/* 全局底部导航栏 - 法律链接和版权信息 */}
-      <SharedFooter />
 
       {/* 登录弹窗 */}
       {showAuthModal && (

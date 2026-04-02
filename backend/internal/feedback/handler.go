@@ -117,8 +117,7 @@ type CreateFeedbackRequestWithKey struct {
 // POST /api/v1/public/feedback
 func (h *Handler) CreateFeedback(c *gin.Context) {
 	var req CreateFeedbackRequestWithKey
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 4001, "参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -143,8 +142,7 @@ func (h *Handler) CreateFeedback(c *gin.Context) {
 // POST /api/v1/user/feedback
 func (h *Handler) CreateFeedbackWithUser(c *gin.Context) {
 	var req CreateFeedbackRequestWithKey
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 4001, "参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -296,14 +294,12 @@ func (h *Handler) UploadAttachments(c *gin.Context) {
 // GetAttachment 获取附件（公共接口，用于下载/预览）
 // GET /api/v1/public/feedback/attachment/:id
 func (h *Handler) GetAttachment(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		utils.Error(c, 4001, "无效的附件ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	attachment, err := h.service.GetAttachmentByID(uint(id))
+	attachment, err := h.service.GetAttachmentByID(id)
 	if err != nil {
 		utils.Error(c, 5001, "附件不存在")
 		return
@@ -348,14 +344,12 @@ func (h *Handler) ListFeedbacks(c *gin.Context) {
 // GetFeedback 获取反馈详情（管理端）
 // GET /api/v1/admin/feedbacks/:id
 func (h *Handler) GetFeedback(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		utils.Error(c, 4001, "无效的ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	feedback, err := h.service.GetFeedback(uint(id))
+	feedback, err := h.service.GetFeedback(id)
 	if err != nil {
 		utils.Error(c, 5001, "获取反馈详情失败: "+err.Error())
 		return
@@ -373,20 +367,17 @@ func (h *Handler) GetFeedback(c *gin.Context) {
 // UpdateStatus 更新反馈状态（管理端）
 // PUT /api/v1/admin/feedbacks/:id/status
 func (h *Handler) UpdateStatus(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		utils.Error(c, 4001, "无效的ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	var req UpdateStatusRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 4002, "参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	if err := h.service.UpdateStatus(uint(id), req.Status); err != nil {
+	if err := h.service.UpdateStatus(id, req.Status); err != nil {
 		utils.Error(c, 5001, "更新状态失败: "+err.Error())
 		return
 	}
@@ -397,16 +388,13 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 // ReplyFeedback 回复反馈（管理端）
 // POST /api/v1/admin/feedbacks/:id/reply
 func (h *Handler) ReplyFeedback(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		utils.Error(c, 4001, "无效的ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	var req ReplyFeedbackRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 4002, "参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -416,7 +404,7 @@ func (h *Handler) ReplyFeedback(c *gin.Context) {
 		adminUsername = username.(string)
 	}
 
-	if err := h.service.ReplyFeedback(uint(id), req.ReplyContent, adminUsername); err != nil {
+	if err := h.service.ReplyFeedback(id, req.ReplyContent, adminUsername); err != nil {
 		utils.Error(c, 5001, "回复反馈失败: "+err.Error())
 		return
 	}
@@ -427,15 +415,13 @@ func (h *Handler) ReplyFeedback(c *gin.Context) {
 // DeleteFeedback 删除反馈（管理端）
 // DELETE /api/v1/admin/feedbacks/:id
 func (h *Handler) DeleteFeedback(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		utils.Error(c, 4001, "无效的ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	// 删除反馈及其附件记录（附件数据在数据库中，会级联删除）
-	_, err = h.service.DeleteFeedbackWithAttachments(uint(id))
+	_, err := h.service.DeleteFeedbackWithAttachments(id)
 	if err != nil {
 		utils.Error(c, 5001, "删除反馈失败: "+err.Error())
 		return

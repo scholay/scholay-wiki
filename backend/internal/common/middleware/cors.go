@@ -8,10 +8,13 @@
 package middleware
 
 import (
+	"log/slog"
 	"strings"
+	"time"
 
 	"scholar-backend/internal/common/config"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,23 +25,45 @@ import (
 func CORSMiddleware() gin.HandlerFunc {
 	allowedOrigins := parseAllowedOrigins()
 
-	return func(c *gin.Context) {
-		origin := c.GetHeader("Origin")
-		if origin != "" && isOriginAllowed(origin, allowedOrigins) {
-			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-			c.Writer.Header().Set("Vary", "Origin")
-		}
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
+	corsConfig := cors.Config{
+		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
+		AllowHeaders: []string{
+			"Content-Type", "Content-Length", "Accept-Encoding",
+			"X-CSRF-Token", "Authorization", "Accept", "Origin",
+			"Cache-Control", "X-Requested-With",
+		},
+		MaxAge: 12 * time.Hour,
 	}
+
+	if len(allowedOrigins) > 0 {
+		hasWildcard := false
+		for _, o := range allowedOrigins {
+			if o == "*" {
+				hasWildcard = true
+				break
+			}
+		}
+
+		if hasWildcard {
+			slog.Warn("CORS: wildcard origin (*) configured — credentials disabled. Set explicit origins for production.")
+			corsConfig.AllowAllOrigins = true
+			corsConfig.AllowCredentials = false
+		} else {
+			corsConfig.AllowOrigins = allowedOrigins
+			corsConfig.AllowCredentials = true
+		}
+	} else {
+		// 默认：允许本地开发域名
+		corsConfig.AllowOriginFunc = func(origin string) bool {
+			return strings.HasPrefix(origin, "http://localhost") ||
+				strings.HasPrefix(origin, "http://127.0.0.1") ||
+				strings.HasPrefix(origin, "https://localhost") ||
+				strings.HasPrefix(origin, "https://127.0.0.1")
+		}
+		corsConfig.AllowCredentials = true
+	}
+
+	return cors.New(corsConfig)
 }
 
 func parseAllowedOrigins() []string {
@@ -54,21 +79,4 @@ func parseAllowedOrigins() []string {
 		origins[i] = strings.TrimSpace(origins[i])
 	}
 	return origins
-}
-
-func isOriginAllowed(origin string, allowedOrigins []string) bool {
-	if len(allowedOrigins) > 0 {
-		for _, allowed := range allowedOrigins {
-			if allowed == "*" || origin == allowed {
-				return true
-			}
-		}
-		return false
-	}
-
-	// 默认：允许本地开发域名
-	return strings.HasPrefix(origin, "http://localhost") ||
-		strings.HasPrefix(origin, "http://127.0.0.1") ||
-		strings.HasPrefix(origin, "https://localhost") ||
-		strings.HasPrefix(origin, "https://127.0.0.1")
 }

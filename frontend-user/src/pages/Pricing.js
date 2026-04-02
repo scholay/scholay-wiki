@@ -11,7 +11,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
 import SEO from '../components/SEO';
-import './Pricing.css';
+import './styles/Pricing.css';
 
 /* 当前免费开放的功能列表 */
 const FREE_FEATURES = [

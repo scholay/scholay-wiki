@@ -14,11 +14,7 @@
 .home-search {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
   background: var(--background);
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
 .main-container {

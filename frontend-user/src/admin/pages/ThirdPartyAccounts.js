@@ -466,8 +466,8 @@ const ThirdPartyAccounts = () => {
                 ×
               </button>
             </div>
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-              <div className="modal-body" style={{ flex: 1, overflowY: 'auto' }}>
+            <form onSubmit={handleSubmit} className="modal-form">
+              <div className="modal-body">
               <div className="form-group">
                 <label>账号名称</label>
                 <input
@@ -545,7 +545,7 @@ const ThirdPartyAccounts = () => {
 
                   <div className="model-codes-section">
                     <h4>模型编码配置</h4>
-                    <small style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '1rem', display: 'block' }}>
+                    <small className="form-hint-section">
                       为不同级别的任务配置对应的模型编码。至少配置一个模型编码。
                     </small>
 
@@ -562,7 +562,7 @@ const ThirdPartyAccounts = () => {
                         }
                         placeholder="例如: gpt-3.5-turbo, claude-3-haiku"
                       />
-                      <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                      <small className="form-hint">
                         用于普通任务和基础对话
                       </small>
                     </div>
@@ -580,7 +580,7 @@ const ThirdPartyAccounts = () => {
                         }
                         placeholder="例如: gpt-4, claude-3-sonnet"
                       />
-                      <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                      <small className="form-hint">
                         用于复杂分析和深度对话
                       </small>
                     </div>
@@ -598,15 +598,15 @@ const ThirdPartyAccounts = () => {
                         }
                         placeholder="例如: gpt-4-turbo, claude-3-opus"
                       />
-                      <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                      <small className="form-hint">
                         用于最高质量的任务和专业分析
                       </small>
                     </div>
                   </div>
 
-                  <div className="model-codes-section" style={{ marginTop: '1.5rem' }}>
+                  <div className="model-codes-section">
                     <h4>🔬 智能审稿专用模型</h4>
-                    <small style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '1rem', display: 'block' }}>
+                    <small className="form-hint-section">
                       为智能审稿功能配置三个不同的模型，分别对应三位虚拟审稿人（Alpha、Beta、Gamma）。
                       如果不配置，将回退使用上面的高/中/低级模型。
                     </small>
@@ -624,7 +624,7 @@ const ThirdPartyAccounts = () => {
                         }
                         placeholder="例如: gpt-4-turbo, claude-3-opus"
                       />
-                      <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                      <small className="form-hint">
                         审稿人 Alpha（α）使用的模型
                       </small>
                     </div>
@@ -642,7 +642,7 @@ const ThirdPartyAccounts = () => {
                         }
                         placeholder="例如: gemini-1.5-pro, deepseek-chat"
                       />
-                      <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                      <small className="form-hint">
                         审稿人 Beta（β）使用的模型
                       </small>
                     </div>
@@ -660,7 +660,7 @@ const ThirdPartyAccounts = () => {
                         }
                         placeholder="例如: qwen-max, glm-4"
                       />
-                      <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                      <small className="form-hint">
                         审稿人 Gamma（γ）使用的模型
                       </small>
                     </div>
@@ -677,7 +677,7 @@ const ThirdPartyAccounts = () => {
                   min="0"
                   placeholder="0"
                 />
-                <small style={{ color: '#9ca3af', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                <small className="form-hint">
                   数字越小优先级越高，相同优先级的账号会随机选择
                 </small>
               </div>

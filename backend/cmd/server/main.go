@@ -331,6 +331,7 @@ func main() {
 		router.Use(middleware.TelemetryMiddleware())
 	}
 
+	router.Use(middleware.BodyLimitMiddleware(middleware.DefaultMaxBodySize))
 	router.Use(middleware.RateLimitMiddleware(100, 1*time.Second))
 	router.Use(middleware.APITimeoutMiddleware())
 
@@ -403,6 +404,10 @@ func main() {
 
 	// 取消后台任务 context
 	cancel()
+
+	// 停止后台服务
+	cleanupService.Stop()
+	thirdPartyService.Stop()
 
 	// 优雅关闭缓存工作池
 	cache.ShutdownGlobalPool()

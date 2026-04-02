@@ -7,15 +7,40 @@
  * ============================================================================
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Sparkles, Shield, Globe, Mail, Users, Target, Lightbulb, Award } from 'lucide-react';
 import Logo from '../components/Logo';
 import SEO from '../components/SEO';
+import { generateFAQSchema } from '../utils/seoHelpers';
 import './styles/AboutPage.css';
+
+const faqData = [
+  {
+    question: '什么是Scholay学术搜索平台？',
+    answer: 'Scholay是一个AI驱动的学术搜索平台，提供智能文献检索、论文分析、引用图谱可视化等功能，帮助研究人员快速找到高质量学术资源。'
+  },
+  {
+    question: 'Scholay支持哪些搜索模式？',
+    answer: 'Scholay支持学术检索和智能分析两种模式。学术检索可以快速检索论文标题、作者和关键词；智能分析使用AI智能理解并解析您的研究需求，提供更精准的结果。'
+  },
+  {
+    question: 'Scholay的数据来源是什么？',
+    answer: 'Scholay的学术数据来自于互联网公开数据，覆盖计算机科学、生物医学等多个学科领域的学术论文。'
+  },
+  {
+    question: 'Scholay是免费的吗？',
+    answer: '是的，Scholay提供免费的基础功能，包括学术检索、论文详情查看等。高级功能如智能分析、智能审稿等可能需要订阅会员。'
+  },
+  {
+    question: '如何使用智能助手功能？',
+    answer: '登录后，点击首页的"智能助手"卡片即可进入。您可以向AI提问任何学术相关问题，它会基于学术文献为您提供专业解答。'
+  }
+];
 
 const AboutPage = () => {
   const navigate = useNavigate();
+  const [expandedFaq, setExpandedFaq] = useState(null);
 
   return (
     <div className="about-page">
@@ -24,6 +49,7 @@ const AboutPage = () => {
         description="了解 Scholay 的使命、团队和发展历程。Scholay 由成都恩特罐罐文化科技有限公司运营，致力于通过AI技术提升学术研究效率。"
         keywords="关于Scholay,学术搜索平台,AI学术工具,成都恩特罐罐文化科技,学术研究助手"
         canonical="/about"
+        structuredData={generateFAQSchema(faqData)}
       />
       <div className="about-container">
         <div className="about-header">
@@ -178,6 +204,111 @@ const AboutPage = () => {
           </div>
         </div>
 
+        {/* 平台数据 + 适用人群 */}
+        <div className="about-section">
+          <h2>平台数据</h2>
+          <div className="about-stats-row">
+            <div className="about-stat">
+              <span className="about-stat-num">200M+</span>
+              <span className="about-stat-label">学术论文覆盖</span>
+            </div>
+            <div className="about-stat-divider" />
+            <div className="about-stat">
+              <span className="about-stat-num">19</span>
+              <span className="about-stat-label">学科领域</span>
+            </div>
+            <div className="about-stat-divider" />
+            <div className="about-stat">
+              <span className="about-stat-num">5</span>
+              <span className="about-stat-label">AI 工具模块</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="about-section">
+          <h2>适用人群</h2>
+          <div className="about-users-row">
+            <div className="about-user-card">
+              <span className="about-user-emoji">🎓</span>
+              <div><strong>高校学生</strong><span>课题文献 · 论文写作 · 文献综述</span></div>
+            </div>
+            <div className="about-user-card">
+              <span className="about-user-emoji">🔬</span>
+              <div><strong>科研人员</strong><span>追踪前沿 · 发现高引论文 · 拓展思路</span></div>
+            </div>
+            <div className="about-user-card">
+              <span className="about-user-emoji">📚</span>
+              <div><strong>学者教授</strong><span>学术脉络 · 引用分析 · 学术决策</span></div>
+            </div>
+            <div className="about-user-card">
+              <span className="about-user-emoji">💼</span>
+              <div><strong>企业研发</strong><span>技术调研 · 行业动态 · 趋势分析</span></div>
+            </div>
+          </div>
+        </div>
+
+        {/* 用户评价 */}
+        <div className="about-section">
+          <h2>来自研究者的反馈</h2>
+          <div className="about-testimonials-grid">
+            <div className="about-testimonial-card">
+              <p>"智能检索帮我在博士论文文献综述阶段节省了大量时间，AI 分析功能让我快速判断论文价值。"</p>
+              <div className="about-testimonial-author">
+                <strong>李同学</strong>
+                <span>计算机科学博士生</span>
+              </div>
+            </div>
+            <div className="about-testimonial-card">
+              <p>"AI 搜索能理解我的研究意图，帮我发现了很多之前遗漏的跨学科相关论文。"</p>
+              <div className="about-testimonial-author">
+                <strong>王研究员</strong>
+                <span>生物信息学方向</span>
+              </div>
+            </div>
+            <div className="about-testimonial-card">
+              <p>"AI 辅助写作功能对于英文非母语的研究者来说非常实用，效率提升显著。"</p>
+              <div className="about-testimonial-author">
+                <strong>张老师</strong>
+                <span>材料科学副教授</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* FAQ */}
+        <div className="about-section">
+          <h2>常见问题</h2>
+          <div className="about-faq-list">
+            {faqData.map((faq, index) => (
+              <div
+                key={index}
+                className={`about-faq-item ${expandedFaq === index ? 'expanded' : ''}`}
+              >
+                <button
+                  className="about-faq-question"
+                  onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
+                >
+                  <span>{faq.question}</span>
+                  <svg
+                    className="about-faq-arrow"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M6 9l6 6 6-6"/>
+                  </svg>
+                </button>
+                <div className="about-faq-answer">
+                  <p>{faq.answer}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="about-section">
           <h2>联系我们</h2>
           <div className="about-content">
@@ -198,20 +329,6 @@ const AboutPage = () => {
           </div>
         </div>
 
-        <div className="about-footer">
-          <p className="copyright">
-            © {new Date().getFullYear()} Scholay. All rights reserved.
-          </p>
-          <div className="footer-links">
-            <button onClick={() => navigate('/terms')}>服务条款</button>
-            <span>|</span>
-            <button onClick={() => navigate('/privacy')}>隐私政策</button>
-            <span>|</span>
-            <button onClick={() => navigate('/disclaimer')}>免责声明</button>
-            <span>|</span>
-            <button onClick={() => navigate('/contact')}>联系我们</button>
-          </div>
-        </div>
       </div>
     </div>
   );

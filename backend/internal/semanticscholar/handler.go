@@ -71,8 +71,7 @@ type SearchPapersResponse struct {
 // 3. 如果原始词也没有结果，用翻译词搜索
 func (h *Handler) SearchPapers(c *gin.Context) {
 	var req SearchPapersRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 4001, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -405,8 +404,7 @@ type RecommendationRequestBody struct {
 // POST /api/v1/scholar/recommendations/papers
 func (h *Handler) GetRecommendations(c *gin.Context) {
 	var req RecommendationRequestBody
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 4019, "Invalid request body: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -438,8 +436,7 @@ type BatchPaperRequestBody struct {
 // POST /api/v1/scholar/papers/batch
 func (h *Handler) GetPaperBatch(c *gin.Context) {
 	var req BatchPaperRequestBody
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 4021, "Invalid request body: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 

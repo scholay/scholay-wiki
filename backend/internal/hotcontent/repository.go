@@ -10,6 +10,7 @@ package hotcontent
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"strings"
 	"time"
 
@@ -168,7 +169,7 @@ func (r *Repository) CleanupOldKeywords(retentionDays int, maxRecords int) (int6
 			Limit(1).
 			Select("last_searched_at").
 			First(&threshold).Error; err != nil {
-			if err != gorm.ErrRecordNotFound {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return totalDeleted, err
 			}
 		} else {
@@ -211,7 +212,7 @@ func (r *Repository) CleanupOldPapers(retentionDays int, maxRecords int) (int64,
 			Limit(1).
 			Select("last_viewed_at").
 			First(&threshold).Error; err != nil {
-			if err != gorm.ErrRecordNotFound {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return totalDeleted, err
 			}
 		} else {

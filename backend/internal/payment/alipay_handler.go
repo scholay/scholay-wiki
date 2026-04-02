@@ -8,6 +8,7 @@
 package payment
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -60,14 +61,12 @@ func (h *AlipayHandler) CreatePayment(c *gin.Context) {
 	}
 
 	var req PaymentRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -77,7 +76,7 @@ func (h *AlipayHandler) CreatePayment(c *gin.Context) {
 		return
 	}
 
-	if orderRecord.UserID != userID.(uint) {
+	if orderRecord.UserID != userID {
 		utils.Error(c, 4003, "Order does not belong to user")
 		return
 	}
@@ -193,7 +192,7 @@ func (h *AlipayHandler) processSuccessfulPayment(orderNo, transactionNo, amountS
 func (h *AlipayHandler) GetActiveConfig(c *gin.Context) {
 	config, err := h.alipayService.GetActiveConfig()
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			utils.Error(c, 4404, "No active Alipay configuration found")
 			return
 		}
@@ -240,8 +239,7 @@ type CreateConfigRequest struct {
 // CreateConfig creates a new Alipay configuration (Admin only)
 func (h *AlipayHandler) CreateConfig(c *gin.Context) {
 	var req CreateConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -285,20 +283,17 @@ type UpdateConfigRequest struct {
 
 // UpdateConfig updates an Alipay configuration (Admin only)
 func (h *AlipayHandler) UpdateConfig(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		utils.BadRequest(c, "Invalid configuration ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	var req UpdateConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	config, err := h.alipayService.GetConfigByID(uint(id))
+	config, err := h.alipayService.GetConfigByID(id)
 	if err != nil {
 		utils.Error(c, 4404, "Configuration not found")
 		return
@@ -344,14 +339,12 @@ func (h *AlipayHandler) UpdateConfig(c *gin.Context) {
 
 // DeleteConfig deletes an Alipay configuration (Admin only)
 func (h *AlipayHandler) DeleteConfig(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		utils.BadRequest(c, "Invalid configuration ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.alipayService.DeleteConfig(uint(id)); err != nil {
+	if err := h.alipayService.DeleteConfig(id); err != nil {
 		utils.Error(c, 5003, "Failed to delete configuration: "+err.Error())
 		return
 	}
@@ -361,14 +354,12 @@ func (h *AlipayHandler) DeleteConfig(c *gin.Context) {
 
 // SetActiveConfig sets a specific configuration as active (Admin only)
 func (h *AlipayHandler) SetActiveConfig(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		utils.BadRequest(c, "Invalid configuration ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.alipayService.SetActiveConfig(uint(id)); err != nil {
+	if err := h.alipayService.SetActiveConfig(id); err != nil {
 		utils.Error(c, 5004, "Failed to set active configuration: "+err.Error())
 		return
 	}
@@ -388,17 +379,14 @@ func (h *AlipayHandler) SimulatePayment(c *gin.Context) {
 		Amount  float64 `json:"amount" binding:"required,gt=0"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	userIDInterface, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
-	userID := userIDInterface.(uint)
 
 	orderRecord, err := h.orderService.GetOrderByOrderNo(req.OrderNo)
 	if err != nil {

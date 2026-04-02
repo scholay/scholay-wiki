@@ -8,9 +8,12 @@
 package conversation
 
 import (
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
+
+	"scholar-backend/internal/common/database"
 )
 
 type Repository struct {
@@ -106,14 +109,10 @@ func (r *Repository) GetConversationMessagesPaginated(conversationID uint, page,
 		return nil, 0, err
 	}
 
-	// Calculate offset
-	offset := (page - 1) * pageSize
-
 	// Get messages ordered by created_at DESC (newest first)
 	err := r.db.Where("conversation_id = ?", conversationID).
 		Order("created_at DESC").
-		Offset(offset).
-		Limit(pageSize).
+		Scopes(database.Paginate(page, pageSize)).
 		Find(&messages).Error
 	if err != nil {
 		return nil, 0, err
@@ -234,7 +233,7 @@ func (r *Repository) BuildMessageChain(messageID string) ([]ConversationMessage,
 	for currentMessageID != "" {
 		message, err := r.GetMessageByMessageID(currentMessageID)
 		if err != nil {
-			if err == gorm.ErrRecordNotFound {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
 				break
 			}
 			return nil, err
@@ -277,7 +276,7 @@ func (r *Repository) UpsertMessage(message *ConversationMessage) error {
 	var existing ConversationMessage
 	err := r.db.Where("message_id = ?", message.MessageID).First(&existing).Error
 
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// Create new message
 		return r.db.Create(message).Error
 	} else if err != nil {

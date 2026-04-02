@@ -327,8 +327,10 @@
 }
 
 .admin-app .form-hint{
+  display: block;
   font-size: 0.8rem;
   color: var(--text-tertiary);
+  margin-top: var(--space-1);
 }
 
 .admin-app .checkbox-label{
@@ -401,6 +403,21 @@
 .admin-app .stat-icon-danger{
   background: var(--danger-50);
   color: var(--danger-500);
+}
+
+.admin-app .stat-icon-purple{
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.admin-app .stat-icon-pink{
+  background: #fce7f3;
+  color: #be185d;
+}
+
+.admin-app .stat-icon-orange{
+  background: #ffedd5;
+  color: #c2410c;
 }
 
 .admin-app .stat-label{
@@ -883,3 +900,8 @@
 .admin-app .mt-3{ margin-top: var(--space-4); }
 .admin-app .mt-4{ margin-top: var(--space-5); }
 
+.admin-app .icon-mr{ margin-right: var(--space-2); }
+.admin-app .textarea-sm{ min-height: 60px; }
+.admin-app .textarea-md{ min-height: 80px; }
+.admin-app .ml-1{ margin-left: var(--space-2); }
+.admin-app .ml-2{ margin-left: var(--space-3); }

@@ -21,7 +21,7 @@ import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigatio
 import { useTranslation, isPrimarilyChinese } from '../hooks/useTranslation';
 import { Languages } from 'lucide-react';
 import logger from '../utils/logger';
-import './PaperDetailPage.css';
+import './styles/PaperDetailPage.css';
 
 // Sci-Hub 域名列表
 const SCIHUB_DOMAINS = [

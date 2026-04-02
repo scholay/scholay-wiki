@@ -62,4 +62,12 @@
 
   /* Layout */
   --page-max-width: 1440px;
+
+  /* Breakpoints (reference only — use @media in CSS files)
+   * --bp-sm:  480px  — small mobile
+   * --bp-md:  640px  — large mobile
+   * --bp-lg:  768px  — tablet (most common breakpoint)
+   * --bp-xl:  1024px — small desktop
+   * --bp-2xl: 1280px — large desktop
+   */
 }

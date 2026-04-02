@@ -145,7 +145,7 @@ const MessageManagement = () => {
               </div></div>
             )}
             {formData.send_type === 'batch' && (
-              <div className="form-group"><label>用户ID列表</label><textarea value={formData.target_user_ids} onChange={e => setFormData(f => ({...f, target_user_ids: e.target.value}))} placeholder="每行一个用户ID" style={{minHeight: '80px'}} /></div>
+              <div className="form-group"><label>用户ID列表</label><textarea value={formData.target_user_ids} onChange={e => setFormData(f => ({...f, target_user_ids: e.target.value}))} placeholder="每行一个用户ID" className="textarea-md" /></div>
             )}
             <div className="form-row">
               <div className="form-group"><label>跳转链接（可选）</label><input value={formData.link_url} onChange={e => setFormData(f => ({...f, link_url: e.target.value}))} placeholder="https://" /></div>

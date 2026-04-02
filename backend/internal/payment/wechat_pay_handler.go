@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"log/slog"
 	"scholar-backend/internal/common/utils"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -59,8 +58,7 @@ func (h *WeChatPayHandler) GetActiveConfig(c *gin.Context) {
 // CreateConfig 创建微信支付配置
 func (h *WeChatPayHandler) CreateConfig(c *gin.Context) {
 	var dto WeChatPayConfigDTO
-	if err := c.ShouldBindJSON(&dto); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &dto) {
 		return
 	}
 
@@ -74,20 +72,17 @@ func (h *WeChatPayHandler) CreateConfig(c *gin.Context) {
 
 // UpdateConfig 更新微信支付配置
 func (h *WeChatPayHandler) UpdateConfig(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "Invalid config ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	var dto WeChatPayConfigDTO
-	if err := c.ShouldBindJSON(&dto); err != nil {
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &dto) {
 		return
 	}
 
-	if err := h.service.UpdateConfig(id, &dto); err != nil {
+	if err := h.service.UpdateConfig(uint64(id), &dto); err != nil {
 		utils.Error(c, 3004, "Failed to update WeChat Pay config: "+err.Error())
 		return
 	}
@@ -97,14 +92,12 @@ func (h *WeChatPayHandler) UpdateConfig(c *gin.Context) {
 
 // DeleteConfig 删除微信支付配置
 func (h *WeChatPayHandler) DeleteConfig(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "Invalid config ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.service.DeleteConfig(id); err != nil {
+	if err := h.service.DeleteConfig(uint64(id)); err != nil {
 		utils.Error(c, 3005, "Failed to delete WeChat Pay config: "+err.Error())
 		return
 	}
@@ -114,14 +107,12 @@ func (h *WeChatPayHandler) DeleteConfig(c *gin.Context) {
 
 // ActivateConfig 激活微信支付配置
 func (h *WeChatPayHandler) ActivateConfig(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "Invalid config ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.service.ActivateConfig(id); err != nil {
+	if err := h.service.ActivateConfig(uint64(id)); err != nil {
 		utils.Error(c, 3006, "Failed to activate WeChat Pay config: "+err.Error())
 		return
 	}
@@ -143,17 +134,14 @@ func (h *WeChatPayHandler) CreatePayment(c *gin.Context) {
 	}
 
 	var req WeChatPaymentRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error("wechat pay request binding error", "err", err)
-		utils.BadRequest(c, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
 	slog.Info("creating wechat payment", "order_no", req.OrderNo, "amount", req.Amount)
 
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.Unauthorized(c, "User not authenticated")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
@@ -163,7 +151,7 @@ func (h *WeChatPayHandler) CreatePayment(c *gin.Context) {
 		return
 	}
 
-	if orderRecord.UserID != userID.(uint) {
+	if orderRecord.UserID != userID {
 		utils.Error(c, 5003, "Order does not belong to user")
 		return
 	}
@@ -197,8 +185,7 @@ func (h *WeChatPayHandler) HandleNotify(c *gin.Context) {
 	}
 
 	var req WeChatPayNotifyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "Invalid notify request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 

@@ -8,6 +8,7 @@
 package usagelog
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -341,7 +342,7 @@ func (r *Repository) GetConfig() (*UsageLogConfig, error) {
 	err := r.db.First(&config).Error
 	if err != nil {
 		// 如果不存在，返回默认配置
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &UsageLogConfig{
 				ID:            1,
 				RetentionDays: 180, // 默认180天

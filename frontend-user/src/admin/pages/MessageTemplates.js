@@ -176,7 +176,7 @@ const MessageTemplates = () => {
               </div>
               <div className="form-group"><label>消息标题 *</label><input value={formData.title} onChange={e => setFormData(f => ({...f, title: e.target.value}))} placeholder="消息标题，支持变量如 {{username}}" /></div>
               <div className="form-group"><label>消息内容 *</label><textarea value={formData.content} onChange={e => setFormData(f => ({...f, content: e.target.value}))} placeholder="消息内容，支持Markdown格式和变量" /></div>
-              <div className="form-group"><label>变量说明</label><textarea value={formData.variables} onChange={e => setFormData(f => ({...f, variables: e.target.value}))} placeholder="变量说明，如: username - 用户名, amount - 金额" style={{minHeight: '60px'}} /></div>
+              <div className="form-group"><label>变量说明</label><textarea value={formData.variables} onChange={e => setFormData(f => ({...f, variables: e.target.value}))} placeholder="变量说明，如: username - 用户名, amount - 金额" className="textarea-sm" /></div>
             </div>
             <div className="modal-footer">
               <button className="btn-cancel" onClick={() => setShowModal(false)}>取消</button>

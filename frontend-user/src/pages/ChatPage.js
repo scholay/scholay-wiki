@@ -21,7 +21,7 @@ import { trackAIAssistantChat } from '../utils/usageTracker';
 import logger from '../utils/logger';
 import Logo from '../components/Logo';
 import SEO from '../components/SEO';
-import './ChatPage.css';
+import './styles/ChatPage.css';
 import 'highlight.js/styles/github-dark.css';
 
 // 懒加载 AuthModal

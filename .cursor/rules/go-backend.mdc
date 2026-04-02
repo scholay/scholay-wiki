@@ -1,0 +1,94 @@
+---
+description: Go backend conventions for Scholar project using Gin, GORM, MySQL, and Redis. Apply when writing or modifying Go files in backend/.
+globs: ["backend/**/*.go"]
+alwaysApply: false
+---
+
+# Go Backend Conventions (Scholar)
+
+## Layered Architecture
+
+Each domain module follows Repository -> Service -> Handler:
+
+- **model.go** — GORM struct definitions and request/response DTOs
+- **repository.go** — Database operations only (GORM queries, no business logic)
+- **service.go** — Business logic, calls repository methods, orchestrates workflows
+- **handler.go** — HTTP request parsing, input validation, calls service, returns JSON via `utils.Success` / `utils.Error`
+
+Never put business logic in handlers. Never put HTTP concerns in services.
+
+## Gin Handler Patterns
+
+```go
+func (h *Handler) SomeEndpoint(c *gin.Context) {
+    var req SomeRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        utils.Error(c, http.StatusBadRequest, "Invalid request")
+        return
+    }
+    result, err := h.service.DoSomething(req)
+    if err != nil {
+        utils.Error(c, http.StatusInternalServerError, err.Error())
+        return
+    }
+    utils.Success(c, result)
+}
+```
+
+- Always use `c.ShouldBindJSON` (not `c.BindJSON`) to avoid automatic 400 responses
+- Use `utils.Success(c, data)` and `utils.Error(c, code, msg)` for uniform responses
+- Context first: pass `c.Request.Context()` to service/repository when needed
+
+## GORM Model Conventions
+
+```go
+type MyModel struct {
+    ID        uint           `gorm:"primarykey" json:"id"`
+    CreatedAt time.Time      `json:"created_at"`
+    UpdatedAt time.Time      `json:"updated_at"`
+    DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+    Name      string         `gorm:"size:255;not null" json:"name"`
+}
+```
+
+- Always include `json` tags on model fields
+- Use `gorm:"size:N"` for VARCHAR lengths
+- Use soft delete (`gorm.DeletedAt`) unless hard delete is explicitly needed
+- Use `gorm:"index"` or `gorm:"uniqueIndex"` for frequently queried fields
+
+## GORM Query Patterns
+
+- Always use `db.WithContext(ctx)` when context is available
+- Use `db.Transaction()` for multi-step writes
+- Prefer `db.Where().First()` over raw SQL
+- Use `db.Select()` to avoid SELECT * when only specific fields are needed
+- Use `db.Preload()` for related data, avoid N+1 queries
+
+## Redis Cache Patterns
+
+- Use the `cache` package from `internal/common/cache`
+- Cache keys follow the pattern: `scholar:{module}:{identifier}`
+- Always set TTL on cached values
+- Invalidate cache when the underlying data changes
+
+## Error Handling
+
+- Wrap errors with context: `fmt.Errorf("fetch user %d: %w", id, err)`
+- Use `errors.Is()` / `errors.As()` for error comparison
+- Log errors at the handler level, not in service/repository
+- Never discard errors with `_`
+
+## Route Registration
+
+Routes are registered in `cmd/server/routes.go`:
+- User routes under `/api/v1/user/`
+- Admin routes under `/api/v1/admin/`
+- Public routes have no auth middleware
+- User routes use `middleware.UserAuthMiddleware()`
+- Admin routes use `middleware.AdminAuthMiddleware()`
+
+## Dependencies
+
+- Use existing circuit breakers from `internal/common/circuitbreaker` for external calls
+- Use shared HTTP clients from `internal/ai/httpclient.go` or `internal/proxy/httpclient.go`
+- Never create new `http.Client` per request

@@ -308,6 +308,248 @@
   margin: 0;
 }
 
+/* ========== Stats Row ========== */
+.about-stats-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 32px;
+  padding: 24px 0;
+}
+
+.about-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.about-stat-num {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #10a37f;
+}
+
+.about-stat-label {
+  font-size: 0.875rem;
+  color: var(--text-tertiary, #9e9e9e);
+}
+
+.about-stat-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--border-primary, #333);
+}
+
+/* ========== Users Row ========== */
+.about-users-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.about-user-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--bg-secondary, #1a1a1a);
+  border: 1px solid var(--border-primary, #333);
+}
+
+.about-user-emoji {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.about-user-card div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.about-user-card strong {
+  font-size: 0.9375rem;
+  color: var(--text-primary, #fff);
+}
+
+.about-user-card span {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary, #9e9e9e);
+}
+
+/* ========== Testimonials ========== */
+.about-testimonials-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.about-testimonial-card {
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--bg-secondary, #1a1a1a);
+  border: 1px solid var(--border-primary, #333);
+}
+
+.about-testimonial-card p {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--text-secondary, #ccc);
+  margin: 0 0 16px 0;
+  font-style: italic;
+}
+
+.about-testimonial-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.about-testimonial-author strong {
+  font-size: 0.875rem;
+  color: var(--text-primary, #fff);
+}
+
+.about-testimonial-author span {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary, #9e9e9e);
+}
+
+/* ========== FAQ ========== */
+.about-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.about-faq-item {
+  border: 1px solid var(--border-primary, #333);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-secondary, #1a1a1a);
+}
+
+.about-faq-question {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 16px 20px;
+  background: none;
+  border: none;
+  color: var(--text-primary, #fff);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+
+.about-faq-question:hover {
+  background: var(--bg-hover, rgba(255,255,255,0.04));
+}
+
+.about-faq-arrow {
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+  color: var(--text-tertiary, #9e9e9e);
+}
+
+.about-faq-item.expanded .about-faq-arrow {
+  transform: rotate(180deg);
+}
+
+.about-faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  padding: 0 20px;
+}
+
+.about-faq-item.expanded .about-faq-answer {
+  max-height: 200px;
+  padding: 0 20px 16px;
+}
+
+.about-faq-answer p {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--text-secondary, #ccc);
+}
+
+/* ========== Resources Grid ========== */
+.about-resources-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 32px;
+}
+
+.about-resources-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.about-resources-col h4 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  margin: 0 0 4px 0;
+}
+
+.about-resources-col button {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #ccc);
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: left;
+}
+
+.about-resources-col button:hover {
+  color: #10a37f;
+}
+
+/* ========== Responsive ========== */
+@media (max-width: 768px) {
+  .about-stats-row {
+    gap: 20px;
+  }
+
+  .about-stat-num {
+    font-size: 1.5rem;
+  }
+
+  .about-users-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .about-testimonials-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .about-resources-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .about-users-row {
+    grid-template-columns: 1fr;
+  }
+
+  .about-stats-row {
+    gap: 16px;
+  }
+
+  .about-stat-num {
+    font-size: 1.25rem;
+  }
+}
+
 
 
 

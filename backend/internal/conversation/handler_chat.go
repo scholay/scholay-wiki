@@ -14,7 +14,6 @@ import (
 	"scholar-backend/internal/ai"
 	"scholar-backend/internal/common/sse"
 	"scholar-backend/internal/common/utils"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -39,23 +38,24 @@ func NewChatHandler(repo *Repository, aiService *ai.Service, service *Service) *
 // StreamChatMessage handles streaming chat requests
 // POST /api/v1/conversations/:id/chat/stream
 func (h *ChatHandler) StreamChatMessage(c *gin.Context) {
-	userID := c.GetUint("user_id")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
 
 	// Parse conversation ID
-	conversationID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid conversation ID")
+	conversationID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	// Parse request body
 	var req ChatRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	req.ConversationID = uint(conversationID)
+	req.ConversationID = conversationID
 
 	sse.SetHeaders(c)
 
@@ -75,15 +75,17 @@ func (h *ChatHandler) StreamChatMessage(c *gin.Context) {
 // GetMessageTree retrieves the complete message tree for a conversation
 // GET /api/v1/conversations/:id/tree
 func (h *ChatHandler) GetMessageTree(c *gin.Context) {
-	userID := c.GetUint("user_id")
-
-	conversationID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid conversation ID")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	tree, err := h.chatService.GetMessageTree(c.Request.Context(), uint(conversationID), userID)
+	conversationID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
+		return
+	}
+
+	tree, err := h.chatService.GetMessageTree(c.Request.Context(), conversationID, userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
@@ -95,7 +97,10 @@ func (h *ChatHandler) GetMessageTree(c *gin.Context) {
 // RegenerateMessage regenerates an assistant message
 // POST /api/v1/conversations/messages/:messageId/regenerate
 func (h *ChatHandler) RegenerateMessage(c *gin.Context) {
-	userID := c.GetUint("user_id")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
 	messageID := c.Param("messageId")
 
 	if messageID == "" {
@@ -119,7 +124,10 @@ func (h *ChatHandler) RegenerateMessage(c *gin.Context) {
 // EditMessage edits a user message and creates a new branch
 // POST /api/v1/conversations/messages/:messageId/edit
 func (h *ChatHandler) EditMessage(c *gin.Context) {
-	userID := c.GetUint("user_id")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
 	messageID := c.Param("messageId")
 
 	if messageID == "" {
@@ -131,8 +139,7 @@ func (h *ChatHandler) EditMessage(c *gin.Context) {
 		Content string `json:"content" binding:"required"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -152,22 +159,24 @@ func (h *ChatHandler) EditMessage(c *gin.Context) {
 // GetConversationHistory returns the main conversation path with metadata
 // GET /api/v1/conversations/:id/history
 func (h *ChatHandler) GetConversationHistory(c *gin.Context) {
-	userID := c.GetUint("user_id")
-
-	conversationID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid conversation ID")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	messages, err := h.chatService.GetConversationHistory(c.Request.Context(), uint(conversationID), userID)
+	conversationID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
+		return
+	}
+
+	messages, err := h.chatService.GetConversationHistory(c.Request.Context(), conversationID, userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// Also get conversation metadata (including model_level)
-	conversation, err := h.chatService.GetConversationByID(c.Request.Context(), uint(conversationID), userID)
+	conversation, err := h.chatService.GetConversationByID(c.Request.Context(), conversationID, userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
@@ -185,7 +194,10 @@ func (h *ChatHandler) GetConversationHistory(c *gin.Context) {
 // CreateConversationAndChat creates a new conversation and starts chatting
 // POST /api/v1/conversations/chat/new
 func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
-	userID := c.GetUint("user_id")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
 
 	var req struct {
 		Title      string `json:"title"`
@@ -193,8 +205,7 @@ func (h *ChatHandler) CreateConversationAndChat(c *gin.Context) {
 		ModelLevel string `json:"model_level,omitempty"` // "low", "mid", "high"
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -255,11 +266,11 @@ func (h *ChatHandler) generateTitle(content string) string {
 // QuickChat handles a simple non-streaming chat for backward compatibility
 // POST /api/v1/conversations/:id/chat
 func (h *ChatHandler) QuickChat(c *gin.Context) {
-	_ = c.GetUint("user_id") // userID not used in this simple endpoint
+	if _, ok := utils.GetUserID(c); !ok { // validate auth even though userID unused
+		return
+	}
 
-	_, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid conversation ID")
+	if _, ok := utils.ParseUintParam(c, "id"); !ok {
 		return
 	}
 
@@ -268,8 +279,7 @@ func (h *ChatHandler) QuickChat(c *gin.Context) {
 		ParentMessageID *string `json:"parent_message_id,omitempty"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -317,7 +327,10 @@ func (h *ChatHandler) GetSiblingMessages(c *gin.Context) {
 // GetBranchChain returns the complete chain from root to leaf for a specific branch
 // GET /api/v1/conversations/messages/:messageId/branch
 func (h *ChatHandler) GetBranchChain(c *gin.Context) {
-	userID := c.GetUint("user_id")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
 	messageID := c.Param("messageId")
 
 	if messageID == "" {

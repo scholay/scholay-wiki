@@ -176,7 +176,7 @@ function App() {
                   <Route path="/" element={<Home />} />
                   <Route path="/search-results" element={<PageErrorBoundary><SearchResultsPage /></PageErrorBoundary>} />
                   <Route path="/advanced-search" element={<Navigate to="/search-results?mode=ai" replace />} />
-                  <Route path="/assistant" element={<AssistantPage />} />
+                  <Route path="/assistant" element={<PageErrorBoundary><AssistantPage /></PageErrorBoundary>} />
                   <Route path="/chat" element={<PageErrorBoundary><ChatPage /></PageErrorBoundary>} />
                   <Route path="/peer-review" element={<PageErrorBoundary><PeerReviewPage /></PageErrorBoundary>} />
                   <Route path="/latex-writer" element={<PageErrorBoundary><LaTeXWriterPage /></PageErrorBoundary>} />
@@ -186,7 +186,7 @@ function App() {
                       <Settings />
                     </ProtectedRoute>
                   } />
-                  <Route path="/paper/:paperId" element={<PaperDetailPage />} />
+                  <Route path="/paper/:paperId" element={<PageErrorBoundary><PaperDetailPage /></PageErrorBoundary>} />
                   <Route path="/feedback" element={<FeedbackPage />} />
                   <Route path="/about" element={<AboutPage />} />
                   <Route path="/privacy" element={<PrivacyPage />} />

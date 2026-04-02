@@ -12,6 +12,7 @@ package latexwriter
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -138,7 +139,7 @@ func NewAgentConfigRepository(db *gorm.DB) *AgentConfigRepository {
 func (r *AgentConfigRepository) GetConfig() (*AgentConfig, error) {
 	var config AgentConfig
 	err := r.db.First(&config, 1).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// 如果不存在，创建默认配置
 		defaultModelID := uint(1)
 		config = AgentConfig{

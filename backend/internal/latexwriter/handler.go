@@ -34,16 +34,14 @@ func NewHandler(service *Service) *Handler {
 // POST /api/v1/user/latex-writer/chat/stream
 func (h *Handler) StreamChat(c *gin.Context) {
 	// 获取用户 ID
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	// 解析请求
 	var req ChatRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -69,19 +67,17 @@ func (h *Handler) StreamChat(c *gin.Context) {
 // CreateDocument 创建文档
 // POST /api/v1/user/latex-writer/files
 func (h *Handler) CreateDocument(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req CreateDocumentRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	doc, err := h.service.CreateDocument(userID.(uint), &req)
+	doc, err := h.service.CreateDocument(userID, &req)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "创建文档失败: "+err.Error())
 		return
@@ -93,15 +89,14 @@ func (h *Handler) CreateDocument(c *gin.Context) {
 // GetDocuments 获取文档列表
 // GET /api/v1/user/latex-writer/files
 func (h *Handler) GetDocuments(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	// 检查是否请求树形结构
 	if c.Query("tree") == "true" {
-		tree, err := h.service.GetDocumentTree(userID.(uint))
+		tree, err := h.service.GetDocumentTree(userID)
 		if err != nil {
 			utils.ErrorResponse(c, http.StatusInternalServerError, "获取文档列表失败: "+err.Error())
 			return
@@ -110,7 +105,7 @@ func (h *Handler) GetDocuments(c *gin.Context) {
 		return
 	}
 
-	docs, err := h.service.GetUserDocuments(userID.(uint))
+	docs, err := h.service.GetUserDocuments(userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "获取文档列表失败: "+err.Error())
 		return
@@ -122,20 +117,17 @@ func (h *Handler) GetDocuments(c *gin.Context) {
 // GetDocument 获取单个文档
 // GET /api/v1/user/latex-writer/files/:id
 func (h *Handler) GetDocument(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "无效的文档 ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	doc, err := h.service.GetDocument(uint(id), userID.(uint))
+	doc, err := h.service.GetDocument(id, userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusNotFound, "文档不存在")
 		return
@@ -147,26 +139,22 @@ func (h *Handler) GetDocument(c *gin.Context) {
 // UpdateDocument 更新文档
 // PUT /api/v1/user/latex-writer/files/:id
 func (h *Handler) UpdateDocument(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "无效的文档 ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	var req UpdateDocumentRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
-	doc, err := h.service.UpdateDocument(uint(id), userID.(uint), &req)
+	doc, err := h.service.UpdateDocument(id, userID, &req)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "更新文档失败: "+err.Error())
 		return
@@ -178,20 +166,17 @@ func (h *Handler) UpdateDocument(c *gin.Context) {
 // DeleteDocument 删除文档
 // DELETE /api/v1/user/latex-writer/files/:id
 func (h *Handler) DeleteDocument(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "无效的文档 ID")
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.service.DeleteDocument(uint(id), userID.(uint)); err != nil {
+	if err := h.service.DeleteDocument(id, userID); err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "删除文档失败: "+err.Error())
 		return
 	}
@@ -210,15 +195,13 @@ type TaskRequest struct {
 // ExecuteTask 执行特定任务
 // POST /api/v1/user/latex-writer/task/stream
 func (h *Handler) ExecuteTask(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req TaskRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -245,15 +228,13 @@ type SectionRequest struct {
 // ExecuteSection 执行章节写作任务
 // POST /api/v1/user/latex-writer/section/stream
 func (h *Handler) ExecuteSection(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req SectionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -303,28 +284,25 @@ func (h *Handler) GetAvailableSections(c *gin.Context) {
 // GetDocumentConversation 获取文档对话信息
 // GET /api/v1/user/latex-writer/documents/:id/conversation
 func (h *Handler) GetDocumentConversation(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	idStr := c.Param("id")
-	documentID, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "无效的文档 ID")
+	documentID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	// 验证文档所有权
-	_, err = h.service.GetDocument(uint(documentID), userID.(uint))
+	_, err := h.service.GetDocument(documentID, userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusNotFound, "文档不存在")
 		return
 	}
 
 	// 获取或创建对话
-	conv, err := h.service.convService.GetOrCreateConversation(userID.(uint), uint(documentID))
+	conv, err := h.service.convService.GetOrCreateConversation(userID, documentID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "获取对话失败: "+err.Error())
 		return
@@ -336,21 +314,18 @@ func (h *Handler) GetDocumentConversation(c *gin.Context) {
 // GetConversationHistory 获取对话历史（分页）
 // GET /api/v1/user/latex-writer/documents/:id/conversation/messages
 func (h *Handler) GetConversationHistory(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	idStr := c.Param("id")
-	documentID, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "无效的文档 ID")
+	documentID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	// 验证文档所有权
-	_, err = h.service.GetDocument(uint(documentID), userID.(uint))
+	_, err := h.service.GetDocument(documentID, userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusNotFound, "文档不存在")
 		return
@@ -367,7 +342,7 @@ func (h *Handler) GetConversationHistory(c *gin.Context) {
 	}
 
 	// 获取对话
-	conv, err := h.service.convService.GetConversation(userID.(uint), uint(documentID))
+	conv, err := h.service.convService.GetConversation(userID, documentID)
 	if err != nil {
 		// 如果对话不存在，返回空列表
 		utils.SuccessResponse(c, http.StatusOK, "获取成功", &ConversationHistoryResponse{
@@ -394,21 +369,18 @@ func (h *Handler) GetConversationHistory(c *gin.Context) {
 // StreamChatWithContext 流式对话（带上下文）
 // POST /api/v1/user/latex-writer/documents/:id/chat/stream
 func (h *Handler) StreamChatWithContext(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	idStr := c.Param("id")
-	documentID, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "无效的文档 ID")
+	documentID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	// 验证文档所有权
-	_, err = h.service.GetDocument(uint(documentID), userID.(uint))
+	_, err := h.service.GetDocument(documentID, userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusNotFound, "文档不存在")
 		return
@@ -416,8 +388,7 @@ func (h *Handler) StreamChatWithContext(c *gin.Context) {
 
 	// 解析请求
 	var req ChatRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -433,7 +404,7 @@ func (h *Handler) StreamChatWithContext(c *gin.Context) {
 	sse.SetHeaders(c)
 
 	// 流式输出（带上下文）
-	if err := h.service.StreamChatWithContext(c.Request.Context(), userID.(uint), uint(documentID), &req, c.Writer); err != nil {
+	if err := h.service.StreamChatWithContext(c.Request.Context(), userID, documentID, &req, c.Writer); err != nil {
 		slog.Error("StreamChatWithContext error", "err", err)
 		
 		// 将错误信息转换为用户友好的提示
@@ -452,28 +423,25 @@ func (h *Handler) StreamChatWithContext(c *gin.Context) {
 // ClearConversation 清空对话
 // DELETE /api/v1/user/latex-writer/documents/:id/conversation
 func (h *Handler) ClearConversation(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	idStr := c.Param("id")
-	documentID, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "无效的文档 ID")
+	documentID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	// 验证文档所有权
-	_, err = h.service.GetDocument(uint(documentID), userID.(uint))
+	_, err := h.service.GetDocument(documentID, userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusNotFound, "文档不存在")
 		return
 	}
 
 	// 获取对话
-	conv, err := h.service.convService.GetConversation(userID.(uint), uint(documentID))
+	conv, err := h.service.convService.GetConversation(userID, documentID)
 	if err != nil {
 		// 对话不存在，视为成功
 		utils.SuccessResponse(c, http.StatusOK, "清空成功", gin.H{"message": "对话已清空"})
@@ -502,8 +470,7 @@ type ValidateLatexRequest struct {
 // POST /api/v1/user/latex-writer/validate
 func (h *Handler) ValidateLatex(c *gin.Context) {
 	var req ValidateLatexRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -523,15 +490,13 @@ type AutoFixLatexRequest struct {
 // AutoFixLatex 自动修复 LaTeX 代码
 // POST /api/v1/user/latex-writer/auto-fix
 func (h *Handler) AutoFixLatex(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	var req AutoFixLatexRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -551,29 +516,25 @@ func (h *Handler) AutoFixLatex(c *gin.Context) {
 // ValidateAndFixLatex 验证并自动修复 LaTeX 代码（带上下文的版本）
 // POST /api/v1/user/latex-writer/documents/:id/validate-fix
 func (h *Handler) ValidateAndFixLatex(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
-	idStr := c.Param("id")
-	documentID, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "无效的文档 ID")
+	documentID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	// 验证文档所有权
-	_, err = h.service.GetDocument(uint(documentID), userID.(uint))
+	_, err := h.service.GetDocument(documentID, userID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusNotFound, "文档不存在")
 		return
 	}
 
 	var req AutoFixLatexRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -623,9 +584,7 @@ func (h *Handler) GetAvailableModels(c *gin.Context) {
 // POST /api/v1/user/latex-writer/export/word
 func (h *Handler) ExportToWord(c *gin.Context) {
 	// 获取用户 ID（验证登录状态）
-	_, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	if _, ok := utils.GetUserID(c); !ok {
 		return
 	}
 
@@ -634,8 +593,7 @@ func (h *Handler) ExportToWord(c *gin.Context) {
 		Content  string `json:"content" binding:"required"`
 		Filename string `json:"filename"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -710,24 +668,20 @@ func (h *Handler) formatUserFriendlyError(err error) string {
 // POST /api/v1/user/latex-writer/documents/:id/fix-compile-error/stream
 func (h *Handler) FixCompileError(c *gin.Context) {
 	// 获取用户 ID
-	userID, exists := c.Get("user_id")
-	if !exists {
-		utils.ErrorResponse(c, http.StatusUnauthorized, "未登录")
+	userID, ok := utils.GetUserID(c)
+	if !ok {
 		return
 	}
 
 	// 获取文档 ID
-	idStr := c.Param("id")
-	documentID, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "无效的文档 ID")
+	documentID, ok := utils.ParseUintParam(c, "id")
+	if !ok {
 		return
 	}
 
 	// 解析请求
 	var req FixCompileErrorRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "请求参数错误: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 

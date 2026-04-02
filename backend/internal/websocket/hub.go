@@ -46,6 +46,9 @@ type Hub struct {
 
 	mu sync.RWMutex
 
+	// stopCh signals background goroutines to exit during Close()
+	stopCh chan struct{}
+
 	// sessionUpdater 用于更新 session activity
 	sessionUpdater SessionActivityUpdater
 
@@ -78,6 +81,7 @@ func NewHub() *Hub {
 		melody:        m,
 		userSessions:  make(map[uint]map[*melody.Session]bool),
 		guestSessions: make(map[*melody.Session]bool),
+		stopCh:        make(chan struct{}),
 	}
 
 	// 设置事件处理器
@@ -404,8 +408,9 @@ func (h *Hub) GetUserSessionCount(userID uint) int {
 	return 0
 }
 
-// Close 关闭 Hub
+// Close 关闭 Hub 并停止后台 goroutine
 func (h *Hub) Close() error {
+	close(h.stopCh)
 	return h.melody.Close()
 }
 
@@ -414,8 +419,14 @@ func (h *Hub) startIdleChecker() {
 	ticker := time.NewTicker(IdleCheckInterval)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		h.checkIdleConnections()
+	for {
+		select {
+		case <-ticker.C:
+			h.checkIdleConnections()
+		case <-h.stopCh:
+			slog.Info("WebSocket idle checker stopped")
+			return
+		}
 	}
 }
 

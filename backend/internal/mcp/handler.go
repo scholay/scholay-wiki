@@ -220,8 +220,7 @@ type CallToolRequest struct {
 // POST /api/v1/mcp/call
 func (h *UnifiedHandler) CallTool(c *gin.Context) {
 	var req CallToolRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 5001, "Invalid request body: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 
@@ -285,8 +284,7 @@ func (h *UnifiedHandler) GetToolsForLLM(c *gin.Context) {
 // POST /api/v1/mcp/batch
 func (h *UnifiedHandler) BatchCallTools(c *gin.Context) {
 	var requests []CallToolRequest
-	if err := c.ShouldBindJSON(&requests); err != nil {
-		utils.Error(c, 5001, "Invalid request body: "+err.Error())
+	if !utils.BindJSON(c, &requests) {
 		return
 	}
 
@@ -359,8 +357,7 @@ func (h *Handler) ListTools(c *gin.Context) {
 // CallTool handles POST /api/v1/mcp/call (legacy)
 func (h *Handler) CallTool(c *gin.Context) {
 	var req ToolRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.Error(c, 5001, "Invalid request body: "+err.Error())
+	if !utils.BindJSON(c, &req) {
 		return
 	}
 

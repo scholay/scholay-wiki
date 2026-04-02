@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { Check } from 'lucide-react';
 import { adminAPI } from '../services/api';
 import './PromptTemplates.css';
 
@@ -367,9 +368,7 @@ const PromptTemplates = () => {
                   取消
                 </button>
                 <button type="submit" className="btn-primary">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{marginRight: '6px'}}>
-                    <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"/>
-                  </svg>
+                  <Check size={16} className="icon-mr" />
                   {editingTemplate ? '保存修改' : '创建模板'}
                 </button>
               </div>

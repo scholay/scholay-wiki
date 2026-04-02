@@ -108,7 +108,7 @@ const VerifyPasswordModal = ({ isOpen, onClose, onVerified }) => {
               {loading ? (
                 <>
                   <span className="spinner"></span>
-                  <span style={{ marginLeft: '0.5rem' }}>验证中...</span>
+                  <span className="ml-1">验证中...</span>
                 </>
               ) : (
                 '验证并查看'

@@ -283,11 +283,11 @@ const HotContent = () => {
               <table className="hc-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '60px' }}>排名</th>
+                    <th className="col-rank">排名</th>
                     <th>搜索关键词</th>
-                    <th style={{ width: '120px' }}>搜索次数</th>
-                    <th style={{ width: '180px' }}>首次搜索</th>
-                    <th style={{ width: '180px' }}>最近搜索</th>
+                    <th className="col-count">搜索次数</th>
+                    <th className="col-time-sm">首次搜索</th>
+                    <th className="col-time-sm">最近搜索</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -324,12 +324,12 @@ const HotContent = () => {
               <table className="hc-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '60px' }}>排名</th>
+                    <th className="col-rank">排名</th>
                     <th>论文标题</th>
-                    <th style={{ width: '150px' }}>DOI</th>
-                    <th style={{ width: '80px' }}>年份</th>
-                    <th style={{ width: '100px' }}>查看次数</th>
-                    <th style={{ width: '160px' }}>最近查看</th>
+                    <th className="col-doi">DOI</th>
+                    <th className="col-year">年份</th>
+                    <th className="col-views">查看次数</th>
+                    <th className="col-time">最近查看</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -28,7 +28,7 @@ const PaperListSkeleton = memo(() => {
           </div>
           <div className="skeleton-abstract">
             <div className="skeleton-line skeleton-shimmer"></div>
-              <div className="skeleton-line skeleton-shimmer" style={{ width: '90%' }}></div>
+              <div className="skeleton-line skeleton-shimmer skeleton-line-short"></div>
           </div>
           <div className="skeleton-footer">
             <div className="skeleton-badge skeleton-shimmer"></div>

@@ -420,3 +420,12 @@
     min-width: 600px;
   }
 }
+
+/* Table column widths */
+.admin-app .hc-table th.col-rank  { width: 60px; }
+.admin-app .hc-table th.col-count { width: 120px; }
+.admin-app .hc-table th.col-doi   { width: 150px; }
+.admin-app .hc-table th.col-year  { width: 80px; }
+.admin-app .hc-table th.col-views { width: 100px; }
+.admin-app .hc-table th.col-time  { width: 160px; }
+.admin-app .hc-table th.col-time-sm { width: 180px; }

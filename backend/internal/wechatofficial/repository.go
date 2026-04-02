@@ -8,6 +8,8 @@
 package wechatofficial
 
 import (
+	"errors"
+
 	"gorm.io/gorm"
 )
 
@@ -37,7 +39,7 @@ func (r *Repository) UpdateConfig(config *WeChatOfficialConfig) error {
 	var existingConfig WeChatOfficialConfig
 	err := r.db.First(&existingConfig).Error
 
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// Create new config
 		return r.db.Create(config).Error
 	} else if err != nil {

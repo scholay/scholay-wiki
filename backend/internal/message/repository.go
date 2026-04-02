@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"scholar-backend/internal/common/database"
 )
 
 // Repository 消息数据仓库
@@ -84,17 +86,9 @@ func (r *Repository) ListTemplates(req *TemplateListRequest) ([]MessageTemplate,
 	}
 
 	// 分页
-	page := req.Page
-	if page < 1 {
-		page = 1
-	}
-	pageSize := req.PageSize
-	if pageSize < 1 {
-		pageSize = 20
-	}
-	offset := (page - 1) * pageSize
-
-	err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&templates).Error
+	err := query.Order("created_at DESC").
+		Scopes(database.Paginate(req.Page, req.PageSize)).
+		Find(&templates).Error
 	return templates, total, err
 }
 
@@ -156,17 +150,9 @@ func (r *Repository) ListMessages(req *MessageListRequest) ([]Message, int64, er
 	}
 
 	// 分页
-	page := req.Page
-	if page < 1 {
-		page = 1
-	}
-	pageSize := req.PageSize
-	if pageSize < 1 {
-		pageSize = 20
-	}
-	offset := (page - 1) * pageSize
-
-	err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&messages).Error
+	err := query.Order("created_at DESC").
+		Scopes(database.Paginate(req.Page, req.PageSize)).
+		Find(&messages).Error
 	return messages, total, err
 }
 
@@ -295,19 +281,8 @@ func (r *Repository) ListUserMessages(userID uint, req *UserMessageListRequest) 
 	}
 
 	// 分页
-	page := req.Page
-	if page < 1 {
-		page = 1
-	}
-	pageSize := req.PageSize
-	if pageSize < 1 {
-		pageSize = 20
-	}
-	offset := (page - 1) * pageSize
-
 	err := query.Order("user_messages.created_at DESC").
-		Offset(offset).
-		Limit(pageSize).
+		Scopes(database.Paginate(req.Page, req.PageSize)).
 		Find(&messages).Error
 	return messages, total, err
 }
