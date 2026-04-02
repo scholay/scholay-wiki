@@ -79,6 +79,7 @@ const Pricing = lazyWithRetry(() => import('./pages/Pricing'), 'Pricing');
 const Settings = lazyWithRetry(() => import('./pages/Settings'), 'Settings');
 const WeChatCallback = lazyWithRetry(() => import('./pages/WeChatCallback'), 'WeChatCallback');
 const GithubCallback = lazyWithRetry(() => import('./pages/GithubCallback'), 'GithubCallback');
+const DiscourseCallback = lazyWithRetry(() => import('./pages/DiscourseCallback'), 'DiscourseCallback');
 const AlipayReturn = lazyWithRetry(() => import('./pages/AlipayReturn'), 'AlipayReturn');
 const FeedbackPage = lazyWithRetry(() => import('./pages/FeedbackPage'), 'FeedbackPage');
 const AboutPage = lazyWithRetry(() => import('./pages/AboutPage'), 'AboutPage');
@@ -208,6 +209,7 @@ function App() {
                 <Route path="/search" element={<Navigate to="/" replace />} />
                 <Route path="/wechat/callback" element={<WeChatCallback />} />
                 <Route path="/github/callback" element={<GithubCallback />} />
+                <Route path="/discourse/callback" element={<DiscourseCallback />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
 

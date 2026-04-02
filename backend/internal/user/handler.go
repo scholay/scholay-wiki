@@ -200,6 +200,7 @@ type UserProfileResponse struct {
 	WeChatName    *string    `json:"wechat_name"`     // WeChat nickname if bound
 	GitHubID      *string    `json:"github_id"`       // GitHub ID if bound
 	GitHubLogin   *string    `json:"github_login"`    // GitHub login username if bound
+	DiscourseID   *string    `json:"discourse_id"`    // Discourse external ID if bound
 	LastLoginAt   *time.Time `json:"last_login_at"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
@@ -382,6 +383,13 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		}
 	}
 
+	// Check Discourse binding
+	var discourseID *string
+	discourseProvider, err := h.service.FindAuthProviderByUserAndProvider(userID, "discourse")
+	if err == nil && discourseProvider != nil {
+		discourseID = &discourseProvider.ProviderUserID
+	}
+
 	// Build extended response
 	response := UserProfileResponse{
 		ID:            user.ID,
@@ -398,6 +406,7 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		WeChatName:    wechatName,
 		GitHubID:      githubID,
 		GitHubLogin:   githubLogin,
+		DiscourseID:   discourseID,
 		LastLoginAt:   user.LastLoginAt,
 		CreatedAt:     user.CreatedAt,
 		UpdatedAt:     user.UpdatedAt,
@@ -623,6 +632,22 @@ func (h *Handler) UnbindGitHub(c *gin.Context) {
 	}
 
 	utils.SuccessWithMessage(c, "GitHub unbound successfully", nil)
+}
+
+// UnbindDiscourse handles unbinding Discourse from user account
+func (h *Handler) UnbindDiscourse(c *gin.Context) {
+	userID, ok := utils.GetUserID(c)
+	if !ok {
+		return
+	}
+
+	err := h.service.UnbindDiscourse(userID)
+	if err != nil {
+		utils.Error(c, 2029, err.Error())
+		return
+	}
+
+	utils.SuccessWithMessage(c, "恩特学术账号已解绑", nil)
 }
 
 // GetUserStatistics handles getting user statistics (admin only)

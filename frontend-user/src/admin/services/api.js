@@ -65,6 +65,12 @@ export const adminAPI = {
   updateGithubConfig: (config) =>
     api.put('/admin/github-config', config),
 
+  getDiscourseConfig: () =>
+    api.get('/admin/discourse-config'),
+
+  updateDiscourseConfig: (config) =>
+    api.put('/admin/discourse-config', config),
+
   getUserStatistics: () =>
     api.get('/admin/users/stats'),
 

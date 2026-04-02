@@ -185,6 +185,10 @@ func (h *Handler) GithubCallback(c *gin.Context) {
 	// Update last login time and IP
 	_ = h.service.UpdateLastLoginWithIP(user.ID, ip)
 
+	// Create session (single sign-on)
+	userAgent := c.GetHeader("User-Agent")
+	_ = h.service.CreateSession(user.ID, token, ip, userAgent, 30*24*time.Hour)
+
 	utils.SuccessResponse(c, http.StatusOK, "success", gin.H{
 		"token":       token,
 		"user":        user,

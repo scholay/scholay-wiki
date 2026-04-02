@@ -271,6 +271,41 @@ func (s *Service) UpdateGithubOAuthConfig(clientID, clientSecret, redirectURI st
 }
 
 // ============================================
+// Discourse SSO Configuration Methods
+// ============================================
+
+// GetDiscourseSSOConfig gets the Discourse SSO configuration
+func (s *Service) GetDiscourseSSOConfig() (*model.DiscourseSSOConfig, error) {
+	return s.repo.GetDiscourseSSOConfig()
+}
+
+// UpdateDiscourseSSOConfig updates or creates Discourse SSO configuration
+func (s *Service) UpdateDiscourseSSOConfig(siteURL, ssoSecret, redirectURI string, enabled bool) error {
+	config, err := s.repo.GetDiscourseSSOConfig()
+	if err != nil {
+		return err
+	}
+
+	if config == nil {
+		// Create new config
+		config = &model.DiscourseSSOConfig{
+			SiteURL:     siteURL,
+			SSOSecret:   ssoSecret,
+			RedirectURI: redirectURI,
+			Enabled:     enabled,
+		}
+		return s.repo.CreateDiscourseSSOConfig(config)
+	}
+
+	// Update existing config
+	config.SiteURL = siteURL
+	config.SSOSecret = ssoSecret
+	config.RedirectURI = redirectURI
+	config.Enabled = enabled
+	return s.repo.UpdateDiscourseSSOConfig(config)
+}
+
+// ============================================
 // Code Snippets (SEO/广告) Configuration Methods
 // ============================================
 

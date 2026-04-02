@@ -107,6 +107,27 @@ const useAccountData = (user) => {
     }
   }, [showError]);
 
+  // 恩特学术（Discourse）绑定
+  const handleBindDiscourse = useCallback(async () => {
+    try {
+      const currentPath = window.location.pathname + window.location.search;
+      localStorage.setItem('discourse_return_url', currentPath);
+
+      const response = await api.get('/user/discourse/login-url');
+      if (response.data.code === 0 && response.data.data) {
+        const { url, nonce } = response.data.data;
+        localStorage.setItem('discourse_sso_nonce', nonce);
+        localStorage.setItem('discourse_bind_mode', 'bind');
+        window.location.href = url;
+      } else {
+        showError('获取恩特学术登录链接失败');
+      }
+    } catch (err) {
+      logger.error('Discourse binding error:', err);
+      showError('恩特学术绑定失败，请稍后重试');
+    }
+  }, [showError]);
+
   // Count available login methods
   const getLoginMethodCount = useCallback(() => {
     let count = 0;
@@ -114,6 +135,7 @@ const useAccountData = (user) => {
     if (user?.phone) count++;
     if (user?.wechat_openid) count++;
     if (user?.github_id) count++;
+    if (user?.discourse_id) count++;
     return count;
   }, [user]);
 
@@ -128,6 +150,7 @@ const useAccountData = (user) => {
       'unbind-phone': '解绑手机号',
       'unbind-wechat': '解绑微信',
       'unbind-github': '解绑 GitHub',
+      'unbind-discourse': '解绑恩特学术',
       'change-password': '修改密码'
     };
 
@@ -389,6 +412,10 @@ const useAccountData = (user) => {
           response = await api.post('/user/unbind-github');
           break;
 
+        case 'unbind-discourse':
+          response = await api.post('/user/unbind-discourse');
+          break;
+
         case 'change-password':
           if (!modalForm.password || !modalForm.newPassword || !modalForm.confirmPassword) {
             showError('请填写完整信息');
@@ -455,6 +482,7 @@ const useAccountData = (user) => {
     // Actions
     handleBindWeChat,
     handleBindGitHub,
+    handleBindDiscourse,
     getLoginMethodCount,
     handleOpenModal,
     handleCloseModal,

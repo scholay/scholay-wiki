@@ -22,6 +22,7 @@ type ConfigService interface {
 	GetActiveSMSConfig() (*model.SMSConfig, error)
 	GetSystemConfig() (*model.SystemConfig, error)
 	GetGithubOAuthConfig() (*model.GithubOAuthConfig, error)
+	GetDiscourseSSOConfig() (*model.DiscourseSSOConfig, error)
 }
 
 // MessageService interface for sending in-app messages
@@ -172,4 +173,11 @@ func (s *Service) GetGithubOAuthConfig() (*model.GithubOAuthConfig, error) {
 		return nil, fmt.Errorf("config service not initialized")
 	}
 	return s.configService.GetGithubOAuthConfig()
+}
+
+func (s *Service) GetDiscourseSSOConfig() (*model.DiscourseSSOConfig, error) {
+	if s.configService == nil {
+		return nil, fmt.Errorf("config service not initialized")
+	}
+	return s.configService.GetDiscourseSSOConfig()
 }

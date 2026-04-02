@@ -562,6 +562,7 @@ const Settings = () => {
                 handleCloseModal={accountData.handleCloseModal}
                 handleBindWeChat={accountData.handleBindWeChat}
                 handleBindGitHub={accountData.handleBindGitHub}
+                handleBindDiscourse={accountData.handleBindDiscourse}
                 handleCheckAvailability={accountData.handleCheckAvailability}
                 handleSendModalCode={accountData.handleSendModalCode}
                 handleSendUnbindCode={accountData.handleSendUnbindCode}

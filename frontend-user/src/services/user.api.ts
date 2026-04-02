@@ -77,6 +77,12 @@ export const userAPI = {
   bindGitHubAccount: (code: string, state: string) =>
     api.post('/user/bind-github', { code, state }),
 
+  getDiscourseLoginURL: () => api.get('/user/discourse/login-url'),
+  discourseCallback: (sso: string, sig: string) =>
+    api.get(`/user/discourse/callback?sso=${encodeURIComponent(sso)}&sig=${encodeURIComponent(sig)}`),
+  bindDiscourseAccount: (sso: string, sig: string) =>
+    api.post('/user/bind-discourse', { sso, sig }),
+
   bindEmailWithPassword: (email: string, password: string, code: string) =>
     api.post('/user/bind-email-with-password', { email, password, code }),
   bindPhoneWithPassword: (phone: string, password: string, code: string) =>

@@ -170,6 +170,30 @@ func (r *Repository) UpdateGithubOAuthConfig(config *model.GithubOAuthConfig) er
 }
 
 // ============================================
+// Discourse SSO Configuration Methods
+// ============================================
+
+// GetDiscourseSSOConfig gets the Discourse SSO configuration (singleton pattern - always ID=1)
+func (r *Repository) GetDiscourseSSOConfig() (*model.DiscourseSSOConfig, error) {
+	var config model.DiscourseSSOConfig
+	err := r.db.First(&config).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &config, err
+}
+
+// CreateDiscourseSSOConfig creates a new Discourse SSO configuration
+func (r *Repository) CreateDiscourseSSOConfig(config *model.DiscourseSSOConfig) error {
+	return r.db.Create(config).Error
+}
+
+// UpdateDiscourseSSOConfig updates the Discourse SSO configuration
+func (r *Repository) UpdateDiscourseSSOConfig(config *model.DiscourseSSOConfig) error {
+	return r.db.Save(config).Error
+}
+
+// ============================================
 // Code Snippets (SEO/广告) Configuration Methods
 // ============================================
 

@@ -875,3 +875,42 @@ func (r *Repository) UnbindGitHubInTx(userID uint) error {
 		return nil
 	})
 }
+
+// UnbindProviderInTx atomically unbinds any OAuth provider from a user.
+func (r *Repository) UnbindProviderInTx(userID uint, provider string) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var lockedUser User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", userID).First(&lockedUser).Error; err != nil {
+			return fmt.Errorf("failed to lock user record: %w", err)
+		}
+
+		var providerCount int64
+		if err := tx.Model(&UserAuthProvider{}).
+			Where("user_id = ? AND provider = ?", userID, provider).
+			Count(&providerCount).Error; err != nil {
+			return fmt.Errorf("failed to check binding: %w", err)
+		}
+		if providerCount == 0 {
+			return fmt.Errorf("%s is not bound", provider)
+		}
+
+		hasEmail := lockedUser.Email != nil && *lockedUser.Email != ""
+		hasPhone := lockedUser.Phone != nil && *lockedUser.Phone != ""
+		var otherProviders int64
+		tx.Model(&UserAuthProvider{}).
+			Where("user_id = ? AND provider != ?", userID, provider).
+			Count(&otherProviders)
+
+		if !hasEmail && !hasPhone && otherProviders == 0 {
+			return errors.New("cannot unbind: at least one login method must remain")
+		}
+
+		if err := tx.Where("user_id = ? AND provider = ?", userID, provider).
+			Delete(&UserAuthProvider{}).Error; err != nil {
+			return fmt.Errorf("failed to delete auth provider: %w", err)
+		}
+
+		return nil
+	})
+}

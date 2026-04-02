@@ -187,6 +187,8 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.PUT("/system-config", h.config.UpdateSystemConfig)
 		adminProtected.GET("/github-config", h.config.GetGithubOAuthConfig)
 		adminProtected.PUT("/github-config", h.config.UpdateGithubOAuthConfig)
+		adminProtected.GET("/discourse-config", h.config.GetDiscourseSSOConfig)
+		adminProtected.PUT("/discourse-config", h.config.UpdateDiscourseSSOConfig)
 
 		// 代码片段管理
 		adminProtected.GET("/code-snippets", h.config.ListCodeSnippets)
@@ -342,6 +344,12 @@ func registerPublicUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 		githubPublic.GET("/login-url", h.user.GetGithubLoginURL)
 		githubPublic.GET("/callback", h.user.GithubCallback)
 	}
+
+	discoursePublic := api.Group("/user/discourse")
+	{
+		discoursePublic.GET("/login-url", h.user.GetDiscourseSSOLoginURL)
+		discoursePublic.GET("/callback", h.user.DiscourseSSOCallback)
+	}
 }
 
 // registerProtectedUserRoutes 注册用户受保护路由
@@ -363,6 +371,7 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 		userProtected.POST("/bind-email", h.user.BindEmail)
 		userProtected.POST("/bind-wechat", h.user.BindWeChatAccount)
 		userProtected.POST("/bind-github", h.user.BindGitHubAccount)
+		userProtected.POST("/bind-discourse", h.user.BindDiscourseAccount)
 		userProtected.POST("/bind-email-with-password", h.user.BindEmailWithPassword)
 		userProtected.POST("/bind-phone-with-password", h.user.BindPhoneWithPassword)
 
@@ -371,6 +380,7 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 		userProtected.POST("/unbind-email", h.user.UnbindEmail)
 		userProtected.POST("/unbind-wechat", h.user.UnbindWeChat)
 		userProtected.POST("/unbind-github", h.user.UnbindGitHub)
+		userProtected.POST("/unbind-discourse", h.user.UnbindDiscourse)
 
 		// 支付（保留支付宝支付逻辑）
 		userProtected.POST("/payment/alipay/create", h.alipay.CreatePayment)

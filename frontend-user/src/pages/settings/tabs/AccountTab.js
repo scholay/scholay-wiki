@@ -24,6 +24,7 @@ const AccountTab = memo(({
   handleCloseModal,
   handleBindWeChat,
   handleBindGitHub,
+  handleBindDiscourse,
   handleCheckAvailability,
   handleSendModalCode,
   handleSendUnbindCode,
@@ -260,6 +261,20 @@ const AccountTab = memo(({
       );
     }
 
+    if (type === 'unbind-discourse') {
+      return (
+        <>
+          <div className="modal-info modal-warning">
+            <p>即将解绑恩特学术账号</p>
+            <p className="warning-text">注意：必须至少保留一种登录方式</p>
+          </div>
+          <button className="btn-modal-submit btn-modal-danger" onClick={handleModalSubmit} disabled={loading}>
+            {loading ? '处理中...' : '确认解绑'}
+          </button>
+        </>
+      );
+    }
+
     if (type === 'change-password') {
       return (
         <>
@@ -420,6 +435,38 @@ const AccountTab = memo(({
               </>
             ) : (
               <button className="btn-action btn-action-primary" onClick={handleBindGitHub}>
+                绑定
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 恩特学术 Card */}
+        <div className={`account-binding-card ${user?.discourse_id ? 'bound' : 'unbound'}`}>
+          <div className="binding-icon binding-icon-discourse">
+            <img
+              src="https://enterscholar.com/uploads/default/optimized/1X/c5e85ff2f699b8087f00616b7ea1dbed03d2ba12_2_32x32.svg"
+              alt="恩特学术"
+              width="20"
+              height="20"
+              style={{ borderRadius: 4 }}
+            />
+          </div>
+          <div className="binding-info">
+            <div className="binding-label">恩特学术</div>
+            <div className="binding-value">{user?.discourse_id ? '已绑定' : '未绑定'}</div>
+          </div>
+          <div className="binding-actions">
+            {user?.discourse_id ? (
+              <>
+                {getLoginMethodCount() > 1 && (
+                  <button className="btn-action btn-action-danger" onClick={() => handleOpenModal('unbind-discourse', '')}>
+                    解绑
+                  </button>
+                )}
+              </>
+            ) : (
+              <button className="btn-action btn-action-primary" onClick={handleBindDiscourse}>
                 绑定
               </button>
             )}

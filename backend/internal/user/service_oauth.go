@@ -128,6 +128,11 @@ func (s *Service) UnbindGitHub(userID uint) error {
 	return s.repo.UnbindGitHubInTx(userID)
 }
 
+// UnbindDiscourse unbinds Discourse from user account
+func (s *Service) UnbindDiscourse(userID uint) error {
+	return s.repo.UnbindProviderInTx(userID, "discourse")
+}
+
 // LoginOrRegisterWithWeChat handles WeChat login or registration
 func (s *Service) LoginOrRegisterWithWeChat(openID, unionID, nickname, avatarURL, ip, invitationCode string) (*User, string, bool, error) {
 	_ = invitationCode // 邀请业务已移除，参数保留以兼容前端传参

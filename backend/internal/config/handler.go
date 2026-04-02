@@ -344,6 +344,12 @@ func (h *Handler) GetSystemConfig(c *gin.Context) {
 		response["github_client_id"] = githubConfig.ClientID
 	}
 
+	// Add Discourse site URL if configured and enabled
+	discourseConfig, err := h.service.GetDiscourseSSOConfig()
+	if err == nil && discourseConfig != nil && discourseConfig.Enabled && discourseConfig.SiteURL != "" {
+		response["discourse_site_url"] = discourseConfig.SiteURL
+	}
+
 	utils.Success(c, response)
 }
 
@@ -615,6 +621,83 @@ func (h *Handler) UpdateGithubOAuthConfig(c *gin.Context) {
 	}
 
 	utils.SuccessWithMessage(c, "GitHub OAuth configuration updated successfully", nil)
+}
+
+// ============================================
+// Discourse SSO Configuration Handler Methods
+// ============================================
+
+// GetDiscourseSSOConfig handles getting Discourse SSO configuration (admin only)
+func (h *Handler) GetDiscourseSSOConfig(c *gin.Context) {
+	config, err := h.service.GetDiscourseSSOConfig()
+	if err != nil {
+		utils.Error(c, 3030, "Failed to get Discourse SSO configuration")
+		return
+	}
+
+	if config == nil {
+		// Return default empty config if not found
+		config = &model.DiscourseSSOConfig{
+			SiteURL:     "",
+			SSOSecret:   "",
+			RedirectURI: "",
+			Enabled:     false,
+		}
+	}
+
+	// Mask the SSO secret for security (same pattern as GitHub)
+	maskedConfig := map[string]any{
+		"id":           config.ID,
+		"site_url":     config.SiteURL,
+		"sso_secret":   maskSecret(config.SSOSecret),
+		"redirect_uri": config.RedirectURI,
+		"enabled":      config.Enabled,
+		"created_at":   config.CreatedAt,
+		"updated_at":   config.UpdatedAt,
+	}
+
+	utils.Success(c, maskedConfig)
+}
+
+// UpdateDiscourseSSOConfigRequest represents an update Discourse SSO config request
+type UpdateDiscourseSSOConfigRequest struct {
+	SiteURL     string `json:"site_url"`
+	SSOSecret   string `json:"sso_secret"`
+	RedirectURI string `json:"redirect_uri"`
+	Enabled     bool   `json:"enabled"`
+}
+
+// UpdateDiscourseSSOConfig handles updating Discourse SSO configuration (admin only)
+func (h *Handler) UpdateDiscourseSSOConfig(c *gin.Context) {
+	var req UpdateDiscourseSSOConfigRequest
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+
+	// Generate full callback URL from base domain
+	callbackURL := req.RedirectURI
+	if callbackURL != "" && !strings.HasSuffix(callbackURL, "/discourse/callback") {
+		callbackURL = strings.TrimSuffix(callbackURL, "/") + "/discourse/callback"
+	}
+
+	err := h.service.UpdateDiscourseSSOConfig(req.SiteURL, req.SSOSecret, callbackURL, req.Enabled)
+	if err != nil {
+		utils.Error(c, 3031, "Failed to update Discourse SSO configuration")
+		return
+	}
+
+	utils.SuccessWithMessage(c, "Discourse SSO configuration updated successfully", nil)
+}
+
+// maskSecret masks a secret string for display, showing only first and last 3 characters
+func maskSecret(secret string) string {
+	if secret == "" {
+		return ""
+	}
+	if len(secret) <= 6 {
+		return "******"
+	}
+	return secret[:3] + "******" + secret[len(secret)-3:]
 }
 
 // ============================================

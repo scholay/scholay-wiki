@@ -137,10 +137,11 @@
 .admin-app .main-content{
   flex: 1;
   margin-left: 264px;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background: var(--app-background);
+  overflow: hidden;
 }
 
 .admin-app .top-bar{
@@ -246,6 +247,9 @@
 
 .admin-app .dashboard-content{
   flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
 }
 
 .admin-app .success-message{
