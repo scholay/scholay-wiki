@@ -36,6 +36,7 @@ import (
 	"scholar-backend/internal/pdf"
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/proxy"
+	"scholar-backend/internal/minicod"
 	"scholar-backend/internal/semanticscholar"
 	"scholar-backend/internal/hotcontent"
 	"scholar-backend/internal/thirdparty"
@@ -207,9 +208,12 @@ func main() {
 	// Initialize AI service (需要在scholar handler之前初始化)
 	aiService := ai.NewService(database.GetDB(), thirdPartyService)
 	
-	// Initialize Semantic Scholar module with key rotation
+	// Initialize Semantic Scholar module with key rotation (kept for MCP module)
 	scholarManager := semanticscholar.NewManager(thirdPartyService)
-	scholarHandler := semanticscholar.NewHandler(scholarManager, aiService)
+
+	// Initialize Minicod module (replaces Semantic Scholar for direct search)
+	minicodManager := minicod.NewManager(thirdPartyService)
+	minicodHandler := minicod.NewHandler(minicodManager, aiService)
 	
 	// Initialize unified MCP handler with all tool providers
 	mcpUnifiedHandler := mcp.NewUnifiedHandler(mcp.HandlerConfig{
@@ -354,7 +358,7 @@ func main() {
 		dashboard:       dashboardHandler,
 		user:            userHandler,
 		config:          configHandler,
-		scholar:         scholarHandler,
+		scholar:         minicodHandler,
 		ai:              aiHandler,
 		conversation:    conversationHandler,
 		chat:            chatHandler,

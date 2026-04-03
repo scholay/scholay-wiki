@@ -124,6 +124,8 @@ func (r *Repository) GetStats() (map[string]any, error) {
 	var semanticScholarActive int64
 	var aiModelTotal int64
 	var aiModelActive int64
+	var minicodTotal int64
+	var minicodActive int64
 
 	for _, ts := range typeStats {
 		total += ts.TotalCount
@@ -137,6 +139,9 @@ func (r *Repository) GetStats() (map[string]any, error) {
 		case string(AccountTypeAIModel):
 			aiModelTotal = ts.TotalCount
 			aiModelActive = ts.ActiveCount
+		case string(AccountTypeMinicod):
+			minicodTotal = ts.TotalCount
+			minicodActive = ts.ActiveCount
 		}
 	}
 
@@ -147,6 +152,8 @@ func (r *Repository) GetStats() (map[string]any, error) {
 		"semantic_scholar_total":         semanticScholarTotal,  // 新增：总数
 		"ai_model_count":                 aiModelActive,         // 保持兼容：启用数
 		"ai_model_total":                 aiModelTotal,          // 新增：总数
+		"minicod_count":                  minicodActive,
+		"minicod_total":                  minicodTotal,
 		"total_usage":                    totalUsage,
 		"type_stats":                     typeStats,
 	}, nil
@@ -226,6 +233,11 @@ func ValidateConfig(accountType AccountType, config AccountConfig) error {
 		apiKey, ok := config["api_key"].(string)
 		if !ok || apiKey == "" {
 			return fmt.Errorf("api_key is required for ai_model type")
+		}
+	case AccountTypeMinicod:
+		apiKey, ok := config["api_key"].(string)
+		if !ok || apiKey == "" {
+			return fmt.Errorf("api_key is required for minicod type")
 		}
 	default:
 		return fmt.Errorf("unsupported account type: %s", accountType)

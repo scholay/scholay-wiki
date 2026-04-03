@@ -20,6 +20,7 @@ type AccountType string
 const (
 	AccountTypeSemanticScholar AccountType = "semantic_scholar"
 	AccountTypeAIModel         AccountType = "ai_model"
+	AccountTypeMinicod         AccountType = "minicod"
 )
 
 // ModelLevel represents the AI model capability level
@@ -86,6 +87,31 @@ type AIModelConfig struct {
 	PeerReviewModel1 string `json:"peer_review_model_1,omitempty"` // 审稿人 Alpha 使用的模型
 	PeerReviewModel2 string `json:"peer_review_model_2,omitempty"` // 审稿人 Beta 使用的模型
 	PeerReviewModel3 string `json:"peer_review_model_3,omitempty"` // 审稿人 Gamma 使用的模型
+}
+
+// MinicodConfig represents the config structure for Minicod API
+type MinicodConfig struct {
+	APIKey  string `json:"api_key"`
+	BaseURL string `json:"base_url,omitempty"` // Optional: custom base URL (default: https://open.scholay.com)
+}
+
+// GetMinicodConfig extracts Minicod config
+func (a *ThirdPartyAccount) GetMinicodConfig() (*MinicodConfig, error) {
+	if a.Type != AccountTypeMinicod {
+		return nil, fmt.Errorf("account type is not minicod")
+	}
+
+	var config MinicodConfig
+	configBytes, err := json.Marshal(a.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(configBytes, &config); err != nil {
+		return nil, err
+	}
+
+	return &config, nil
 }
 
 // GetSemanticScholarConfig extracts Semantic Scholar config

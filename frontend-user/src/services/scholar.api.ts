@@ -85,4 +85,15 @@ export const publicScholarAPI = {
   },
 };
 
+// Journal API (JNL endpoints)
+export const journalAPI = {
+  search: (params: Record<string, any>) => publicApi.post('/journals/search', params),
+  list: (params?: Record<string, any>) => publicApi.post('/journals/list', params || {}),
+  get: (id: number, full?: string) => publicApi.post('/journals/get', { id, full: full || '1' }),
+  getFilters: () => publicApi.post('/journals/filters', {}),
+  getStats: () => publicApi.post('/journals/stats', {}),
+  getByISSN: (issn: string, full?: string) => publicApi.post('/journals/byIssn', { issn, full }),
+  compare: (ids: string) => publicApi.post('/journals/compare', { ids }),
+};
+
 export { publicApi };

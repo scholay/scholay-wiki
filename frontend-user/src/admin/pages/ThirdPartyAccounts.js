@@ -154,6 +154,15 @@ const ThirdPartyAccounts = () => {
         return;
       }
       config = { api_key: formData.config.api_key };
+    } else if (formData.type === 'minicod') {
+      if (!formData.config.api_key) {
+        showToast('请输入API Key', 'error');
+        return;
+      }
+      config = { api_key: formData.config.api_key };
+      if (formData.config.base_url) {
+        config.base_url = formData.config.base_url;
+      }
     } else if (formData.type === 'ai_model') {
       if (!formData.config.base_url || !formData.config.api_key) {
         showToast('请输入Base URL和API Key', 'error');
@@ -265,6 +274,8 @@ const ThirdPartyAccounts = () => {
         return <span className="type-badge type-scholar">Semantic Scholar</span>;
       case 'ai_model':
         return <span className="type-badge type-ai">AI模型</span>;
+      case 'minicod':
+        return <span className="type-badge type-minicod">Minicod</span>;
       default:
         return <span className="type-badge">{type}</span>;
     }
@@ -377,6 +388,7 @@ const ThirdPartyAccounts = () => {
           <option value="">全部类型</option>
           <option value="semantic_scholar">Semantic Scholar</option>
           <option value="ai_model">AI模型</option>
+          <option value="minicod">Minicod</option>
         </select>
         <label className="filter-checkbox">
           <input
@@ -489,6 +501,7 @@ const ThirdPartyAccounts = () => {
                 >
                   <option value="semantic_scholar">Semantic Scholar</option>
                   <option value="ai_model">AI模型</option>
+                  <option value="minicod">Minicod</option>
                 </select>
               </div>
 
@@ -508,6 +521,40 @@ const ThirdPartyAccounts = () => {
                     required
                   />
                 </div>
+              )}
+
+              {formData.type === 'minicod' && (
+                <>
+                  <div className="form-group">
+                    <label>API Key <span className="required">*</span></label>
+                    <input
+                      type="text"
+                      value={formData.config.api_key || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          config: { ...formData.config, api_key: e.target.value },
+                        })
+                      }
+                      placeholder="请输入Minicod API Key (sk-xxxxxxxx)"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Base URL (可选)</label>
+                    <input
+                      type="text"
+                      value={formData.config.base_url || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          config: { ...formData.config, base_url: e.target.value },
+                        })
+                      }
+                      placeholder="默认: https://open.scholay.com"
+                    />
+                  </div>
+                </>
               )}
 
               {formData.type === 'ai_model' && (

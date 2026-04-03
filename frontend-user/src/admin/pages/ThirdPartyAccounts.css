@@ -113,6 +113,11 @@
   color: var(--info-500);
 }
 
+.admin-app .type-minicod{
+  background: #f0fdf4;
+  color: #15803d;
+}
+
 .admin-app .status-active{
   background: var(--success-50);
   color: var(--success-500);

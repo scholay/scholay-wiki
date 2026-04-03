@@ -71,7 +71,7 @@ const lazyWithRetry = (componentImport, componentName = 'Component') => {
 // 其他页面使用懒加载 - 大幅减少初始bundle大小
 // 使用 lazyWithRetry 包装，处理 chunk 加载失败的情况
 const SearchResultsPage = lazyWithRetry(() => import('./pages/search-results/SearchResultsPage'), 'SearchResultsPage');
-const PaperDetailPage = lazyWithRetry(() => import('./pages/PaperDetailPage'), 'PaperDetailPage');
+// PaperDetailPage removed - legacy page replaced by search-results detail view
 const ChatPage = lazyWithRetry(() => import('./pages/ChatPage'), 'ChatPage');
 const PeerReviewPage = lazyWithRetry(() => import('./pages/PeerReviewPage'), 'PeerReviewPage');
 const AssistantPage = lazyWithRetry(() => import('./pages/AssistantPage'), 'AssistantPage');
@@ -188,7 +188,7 @@ function App() {
                       <Settings />
                     </ProtectedRoute>
                   } />
-                  <Route path="/paper/:paperId" element={<PageErrorBoundary><PaperDetailPage /></PageErrorBoundary>} />
+                  {/* /paper/:paperId removed - redirect to search results with paperId */}
                   <Route path="/feedback" element={<FeedbackPage />} />
                   <Route path="/about" element={<AboutPage />} />
                   <Route path="/privacy" element={<PrivacyPage />} />

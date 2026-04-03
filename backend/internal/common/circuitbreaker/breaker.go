@@ -55,6 +55,19 @@ var (
 		OnStateChange: onStateChange,
 	})
 
+	// MinicodBreaker protects Minicod API calls
+	MinicodBreaker = gobreaker.NewCircuitBreaker(gobreaker.Settings{
+		Name:        "Minicod",
+		MaxRequests: 3,
+		Interval:    time.Minute,
+		Timeout:     30 * time.Second,
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+			return counts.Requests >= 3 && failureRatio >= 0.6
+		},
+		OnStateChange: onStateChange,
+	})
+
 	// ProxyServiceBreaker protects proxy API calls
 	ProxyServiceBreaker = gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:        "ProxyService",

@@ -188,6 +188,12 @@ func (s *Service) GetRandomAPIKey(accountType AccountType) (string, uint, error)
 			return "", 0, fmt.Errorf("failed to parse config: %w", err)
 		}
 		apiKey = config.APIKey
+	case AccountTypeMinicod:
+		config, err := selected.GetMinicodConfig()
+		if err != nil {
+			return "", 0, fmt.Errorf("failed to parse config: %w", err)
+		}
+		apiKey = config.APIKey
 	default:
 		return "", 0, fmt.Errorf("unsupported account type: %s", accountType)
 	}

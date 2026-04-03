@@ -26,11 +26,11 @@ import (
 	"scholar-backend/internal/latexwriter"
 	"scholar-backend/internal/mcp"
 	"scholar-backend/internal/message"
+	"scholar-backend/internal/minicod"
 	"scholar-backend/internal/payment"
 	"scholar-backend/internal/pdf"
 	"scholar-backend/internal/peerreview"
 	"scholar-backend/internal/proxy"
-	"scholar-backend/internal/semanticscholar"
 	"scholar-backend/internal/thirdparty"
 	"scholar-backend/internal/usagelog"
 	"scholar-backend/internal/user"
@@ -47,7 +47,7 @@ type allHandlers struct {
 	dashboard      *admin.DashboardHandler
 	user           *user.Handler
 	config         *config.Handler
-	scholar        *semanticscholar.Handler
+	scholar        *minicod.Handler
 	ai             *ai.Handler
 	conversation   *conversation.Handler
 	chat           *conversation.ChatHandler
@@ -514,6 +514,15 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers) {
 		publicAPI.POST("/translate/paper/stream", h.ai.StreamTranslatePaper)
 		publicAPI.GET("/hot-content/keywords", h.hotContent.GetRecentKeywords)
 		publicAPI.GET("/hot-content/papers", h.hotContent.GetRecentPapers)
+
+		// Public JNL Journal routes
+		publicAPI.POST("/journals/search", h.scholar.SearchJournals)
+		publicAPI.POST("/journals/list", h.scholar.ListJournals)
+		publicAPI.POST("/journals/get", h.scholar.GetJournal)
+		publicAPI.POST("/journals/filters", h.scholar.GetJournalFilters)
+		publicAPI.POST("/journals/stats", h.scholar.GetJournalStats)
+		publicAPI.POST("/journals/byIssn", h.scholar.GetJournalByISSN)
+		publicAPI.POST("/journals/compare", h.scholar.CompareJournals)
 	}
 }
 
@@ -550,6 +559,15 @@ func registerScholarRoutes(api *gin.RouterGroup, h *allHandlers) {
 		scholar.GET("/authors/:authorId/papers", h.scholar.GetAuthorPapers)
 		scholar.GET("/recommendations/papers/:paperId", h.scholar.GetRecommendationsForPaper)
 		scholar.POST("/recommendations/papers", h.scholar.GetRecommendations)
+
+		// JNL Journal routes
+		scholar.POST("/journals/search", h.scholar.SearchJournals)
+		scholar.POST("/journals/list", h.scholar.ListJournals)
+		scholar.POST("/journals/get", h.scholar.GetJournal)
+		scholar.POST("/journals/filters", h.scholar.GetJournalFilters)
+		scholar.POST("/journals/stats", h.scholar.GetJournalStats)
+		scholar.POST("/journals/byIssn", h.scholar.GetJournalByISSN)
+		scholar.POST("/journals/compare", h.scholar.CompareJournals)
 	}
 }
 
