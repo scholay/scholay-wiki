@@ -75,17 +75,10 @@ const BlogListPage = () => {
       />
 
       <div className="resource-center-container">
-        <div className="resource-center-header">
-          <button className="back-btn" onClick={() => navigate('/')}>
-            <ArrowLeft size={20} />
-            <span>返回首页</span>
-          </button>
-        </div>
-
-        <div className="resource-center-hero">
+        <div className="resource-center-hero" style={{ paddingTop: 'var(--space-6)' }}>
           <h1>Scholay 博客</h1>
           <p className="hero-description">
-            分享学术搜索技巧、AI 研究工具实践、论文写作方法和行业深度观察，帮助研究者用更聪明的方式做科研。
+            学术搜索技巧、AI 工具实践与行业观察。
           </p>
         </div>
 
@@ -158,22 +151,9 @@ const BlogListPage = () => {
           </div>
         )}
 
-        <FeaturePromo compact />
+        {/* FeaturePromo 已移至 DocsLayout 右侧栏 */}
 
-        <footer className="article-footer">
-          <p className="copyright">&copy; {new Date().getFullYear()} Scholay. All rights reserved.</p>
-          <nav className="footer-links">
-            <button onClick={() => navigate('/resources')}>学术资源</button>
-            <span>|</span>
-            <button onClick={() => navigate('/about')}>关于我们</button>
-            <span>|</span>
-            <button onClick={() => navigate('/contact')}>联系我们</button>
-            <span>|</span>
-            <button onClick={() => navigate('/privacy')}>隐私政策</button>
-            <span>|</span>
-            <button onClick={() => navigate('/terms')}>服务条款</button>
-          </nav>
-        </footer>
+
       </div>
     </div>
   );

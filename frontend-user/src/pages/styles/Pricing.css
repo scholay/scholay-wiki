@@ -13,7 +13,6 @@
 .pricing-page {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
   background:
     radial-gradient(
       120% 120% at 50% -10%,

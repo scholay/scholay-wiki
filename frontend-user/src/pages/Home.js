@@ -525,12 +525,13 @@ const Home = () => {
                   <h4 className="home-shortcut-title">ScholayPrism</h4>
                   <p className="home-shortcut-desc">LaTeX 写作 + GPT-5.2</p>
                 </div>
+                <span className="home-shortcut-more" onClick={e => { e.stopPropagation(); navigate('/features/latex-writer'); }}>了解更多</span>
                 <svg className="home-shortcut-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 18l6-6-6-6"/>
                 </svg>
               </div>
 
-              <div 
+              <div
                 className="home-shortcut-card"
                 onClick={() => navigate('/chat')}
               >
@@ -548,7 +549,7 @@ const Home = () => {
                 </svg>
               </div>
 
-              <div 
+              <div
                 className="home-shortcut-card"
                 onClick={() => navigate('/peer-review')}
               >
@@ -563,6 +564,7 @@ const Home = () => {
                   <h4 className="home-shortcut-title">智能审稿</h4>
                   <p className="home-shortcut-desc">智能预审，明智之举！</p>
                 </div>
+                <span className="home-shortcut-more" onClick={e => { e.stopPropagation(); navigate('/features/peer-review'); }}>了解更多</span>
                 <svg className="home-shortcut-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 18l6-6-6-6"/>
                 </svg>

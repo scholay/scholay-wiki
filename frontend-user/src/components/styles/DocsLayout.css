@@ -1,0 +1,231 @@
+/* ============================================================================
+ * DocsLayout — Wiki/文档风格布局
+ * 左侧导航(sticky) | 中间内容 | 右侧快捷入口(sticky)
+ * 不创建独立滚动容器，由 MainLayout 的 .main-layout-scroll 统一滚动
+ * ============================================================================ */
+
+/* ── 布局容器 ─────────────────────────────── */
+.docs-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-primary);
+}
+
+/* ── 左侧导航栏 ──────────────────────────── */
+.docs-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid var(--border-light);
+  background: var(--bg-secondary);
+  scrollbar-width: thin;
+}
+
+.docs-sidebar::-webkit-scrollbar { width: 3px; }
+.docs-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.docs-sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-4) var(--space-3);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  position: sticky;
+  top: 0;
+  background: var(--bg-secondary);
+  z-index: 1;
+}
+
+.docs-sidebar-nav {
+  padding: 0 0 var(--space-6);
+}
+
+/* ── 顶级分区 ─────────────────────────────── */
+.docs-nav-section {
+  margin-bottom: var(--space-1);
+}
+
+.docs-nav-section-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.docs-nav-section-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.docs-nav-section-btn.active {
+  color: var(--primary-solid);
+  font-weight: 600;
+}
+
+/* ── 分组 ─────────────────────────────────── */
+.docs-nav-group {
+  margin-left: var(--space-3);
+}
+
+.docs-nav-group-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: var(--font-xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  text-align: left;
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
+.docs-nav-group-btn:hover { color: var(--text-secondary); }
+.docs-nav-group-btn.open { color: var(--text-secondary); }
+.docs-nav-group-btn svg:last-child { margin-left: auto; opacity: 0.4; }
+
+/* ── 导航项 ───────────────────────────────── */
+.docs-nav-items {
+  padding: var(--space-1) 0;
+}
+
+.docs-nav-item {
+  display: block;
+  width: 100%;
+  padding: 5px var(--space-3) 5px var(--space-6);
+  border: none;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--duration-fast) var(--ease-default);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.docs-nav-item:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.docs-nav-item.active {
+  color: var(--primary-solid);
+  border-left-color: var(--primary-solid);
+  background: color-mix(in srgb, var(--primary-solid) 6%, transparent);
+  font-weight: 500;
+}
+
+/* ── 中间内容区 ──────────────────────────── */
+.docs-content {
+  flex: 1;
+  min-width: 0;
+  /* 不设 overflow — 由 main-layout-scroll 统一滚动 */
+}
+
+/* ── 右侧快捷栏 ──────────────────────────── */
+.docs-aside {
+  width: 260px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  position: sticky;
+  top: var(--space-5);
+  padding: var(--space-5) var(--space-4);
+  border-left: 1px solid var(--border-light);
+}
+
+/* ── Mobile 切换按钮 ──────────────────────── */
+.docs-mobile-toggle {
+  display: none;
+}
+
+.docs-overlay {
+  display: none;
+}
+
+/* ── 响应式 ───────────────────────────────── */
+@media (max-width: 1200px) {
+  .docs-aside { display: none; }
+}
+
+@media (max-width: 1024px) {
+  .docs-sidebar { width: 200px; }
+}
+
+@media (max-width: 768px) {
+  .docs-mobile-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-secondary);
+    border: none;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+    cursor: pointer;
+  }
+
+  .docs-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
+    width: min(260px, 80vw);
+    max-height: 100vh;
+    transform: translateX(-100%);
+    transition: transform var(--duration-slow) var(--ease-default);
+    box-shadow: none;
+  }
+
+  .docs-sidebar.open {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
+  }
+
+  .docs-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  .docs-layout {
+    flex-direction: column;
+  }
+
+  .docs-aside { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .docs-sidebar { transition: none; }
+}

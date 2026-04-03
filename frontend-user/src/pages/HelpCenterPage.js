@@ -138,20 +138,10 @@ const HelpCenterPage = () => {
       />
 
       <div className="resource-center-container">
-        <div className="resource-center-header">
-          <button className="back-btn" onClick={() => navigate('/')}>
-            <ArrowLeft size={20} />
-            <span>返回首页</span>
-          </button>
-        </div>
-
-        <div className="resource-center-hero">
+        <div className="resource-center-hero" style={{ paddingTop: 'var(--space-6)' }}>
           <h1>帮助中心</h1>
           <p className="hero-description">
-            了解 Scholay 的核心功能和使用方法，快速解决常见问题。如果需要更详细的学术指南，请访问我们的
-            <button className="help-hero-link" onClick={() => navigate('/resources')}>
-              学术资源中心
-            </button>。
+            了解 Scholay 的核心功能和使用方法，快速解决常见问题。
           </p>
         </div>
 
@@ -236,27 +226,9 @@ const HelpCenterPage = () => {
           </div>
         </section>
 
-        {/* 功能推广 */}
-        <FeaturePromo
-          title="快速体验 Scholay 的核心功能"
-          description="从这里开始，探索我们为科研工作者打造的全套 AI 工具"
-        />
+        {/* FeaturePromo 已移至 DocsLayout 右侧栏 */}
 
-        {/* Footer */}
-        <footer className="article-footer">
-          <p className="copyright">&copy; {new Date().getFullYear()} Scholay. All rights reserved.</p>
-          <nav className="footer-links">
-            <button onClick={() => navigate('/resources')}>学术资源</button>
-            <span>|</span>
-            <button onClick={() => navigate('/about')}>关于我们</button>
-            <span>|</span>
-            <button onClick={() => navigate('/contact')}>联系我们</button>
-            <span>|</span>
-            <button onClick={() => navigate('/privacy')}>隐私政策</button>
-            <span>|</span>
-            <button onClick={() => navigate('/terms')}>服务条款</button>
-          </nav>
-        </footer>
+
       </div>
     </div>
   );

@@ -11,9 +11,6 @@
 html {
   min-height: 100%;
   background: var(--background);
-  overflow-x: hidden;
-  overscroll-behavior: none;
-  overscroll-behavior-y: none;
 }
 
 body {
@@ -29,5 +26,4 @@ body {
   color: var(--text-primary);
   line-height: 1.6;
   overflow-x: hidden;
-  overscroll-behavior: none;
 }

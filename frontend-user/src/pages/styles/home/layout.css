@@ -14,6 +14,8 @@
 .home-search {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   background: var(--background);
 }
 
@@ -572,6 +574,22 @@
   opacity: 1;
   transform: translateX(0);
   color: var(--text-accent);
+}
+
+.home-shortcut-more {
+  font-size: 11px;
+  color: var(--text-quaternary);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s;
+}
+
+.home-shortcut-more:hover {
+  color: var(--text-accent);
+  background: rgba(16, 163, 127, 0.08);
 }
 
 /* ============================================

@@ -215,18 +215,7 @@ const ContactPage = () => {
           </div>
         </div>
 
-        <div className="legal-footer">
-          <p className="copyright">
-            &copy; {new Date().getFullYear()} Scholay. All rights reserved.
-          </p>
-          <div className="footer-links">
-            <button onClick={() => navigate('/about')}>关于我们</button>
-            <span>|</span>
-            <button onClick={() => navigate('/privacy')}>隐私政策</button>
-            <span>|</span>
-            <button onClick={() => navigate('/terms')}>服务条款</button>
-          </div>
-        </div>
+
       </div>
     </div>
   );

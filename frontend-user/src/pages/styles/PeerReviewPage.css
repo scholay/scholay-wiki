@@ -14,9 +14,9 @@
 .prv-page {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
   background: var(--background);
-  overflow-y: auto;
   /* 智能审稿紫色主题 */
   --prv-accent: #6366f1;
   --prv-accent-light: #818cf8;

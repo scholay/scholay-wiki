@@ -253,6 +253,32 @@
   }
 }
 
+/* ── DocsLayout 右侧栏上下文 ─────────────── */
+.docs-aside .fp-section {
+  margin: 0;
+  padding: var(--space-4);
+  border-radius: var(--radius);
+  background: transparent;
+  border: none;
+}
+
+.docs-aside .fp-grid {
+  grid-template-columns: 1fr !important;
+  gap: var(--space-3);
+}
+
+.docs-aside .fp-card {
+  padding: var(--space-4);
+}
+
+.docs-aside .fp-card-desc {
+  -webkit-line-clamp: 1;
+}
+
+.docs-aside .fp-card-actions {
+  padding-top: var(--space-2);
+}
+
 /* ── Reduced motion ───────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .fp-card {

@@ -1,250 +1,180 @@
 /**
  * ============================================================================
- * Scholay学术 V1.0
- * Copyright (c) 2025 成都恩特罐罐文化科技有限公司
- * 统一社会信用代码: 91510100MAEEHRNE26
- * All Rights Reserved.
+ * AssistantPage.css — AI 工具导航页
+ * 纯功能入口页面，简洁卡片布局
  * ============================================================================
  */
 
-/* 精品AI工具页面样式 - 简洁现代布局 */
-
 /* ========== 页面容器 ========== */
 .ast-page {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  padding: 24px 32px 40px;
+  align-items: center;
+  padding: var(--space-9) var(--space-7);
   background: var(--background);
-  min-height: 100%;
-  width: 100%;
-  box-sizing: border-box;
 }
 
-/* ========== 页面标题 ========== */
+/* ========== 标题 ========== */
 .ast-header {
   text-align: center;
-  margin-bottom: 24px;
-  width: 100%;
+  margin-bottom: var(--space-8);
 }
 
 .ast-title {
-  font-size: 24px;
-  font-weight: 600;
+  font-size: var(--font-2xl);
+  font-weight: 700;
   color: var(--text-primary);
-  margin: 0;
-  letter-spacing: -0.3px;
+  margin: 0 0 var(--space-2);
 }
 
-/* ========== 工具卡片容器 ========== */
+.ast-subtitle {
+  font-size: var(--font-sm);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+/* ========== 卡片网格 ========== */
 .ast-tools {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
   width: 100%;
+  max-width: 900px;
 }
 
-/* ========== 工具卡片 ========== */
+/* ========== 卡片 ========== */
 .ast-card {
-  position: relative;
   display: flex;
   flex-direction: column;
-  padding: 24px;
+  gap: var(--space-4);
+  padding: var(--space-6);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  transition:
+    transform var(--duration-normal) var(--ease-default),
+    border-color var(--duration-normal) var(--ease-default),
+    box-shadow var(--duration-normal) var(--ease-default);
 }
 
-/* 卡片头部：图标和标题在同一行 */
-.ast-card-header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 12px;
-}
-
-/* 卡片悬停效果 */
 .ast-card:hover {
-  transform: translateY(-4px);
-  border-color: color-mix(in srgb, var(--card-color) 40%, transparent);
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--card-color) 50%, transparent);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
 }
 
-[data-theme="dark"] .ast-card {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-[data-theme="dark"] .ast-card:hover {
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="light"] .ast-card {
-  background: #ffffff;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-}
-
-[data-theme="light"] .ast-card:hover {
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1);
-}
-
-/* 卡片推荐标签 */
-.ast-card-badge {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--card-color);
-  background: color-mix(in srgb, var(--card-color) 12%, transparent);
-  border-radius: 20px;
-  opacity: 0;
-  transform: translateY(-4px);
-  transition: all 0.3s ease;
-}
-
-.ast-card:hover .ast-card-badge {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* ========== 卡片图标 ========== */
+/* ========== 图标 ========== */
 .ast-card-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--card-color) 14%, transparent);
+  color: var(--card-color);
   flex-shrink: 0;
-  background: var(--card-gradient);
-  color: white;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--card-color) 30%, transparent);
 }
 
-.ast-card-icon svg {
-  width: 22px;
-  height: 22px;
-}
-
-/* 视频图标 - 全尺寸显示，无背景容器 */
 .ast-card-icon-video {
-  background: transparent !important;
-  box-shadow: none !important;
+  background: transparent;
   overflow: hidden;
 }
 
 .ast-card-video {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: var(--radius);
 }
 
-.ast-card:hover .ast-card-icon {
-  transform: scale(1.05);
-  box-shadow: 0 6px 20px color-mix(in srgb, var(--card-color) 40%, transparent);
-}
-
-/* ========== 卡片标题 ========== */
-.ast-card-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-/* ========== 卡片描述 ========== */
-.ast-card-desc {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin: 0;
-  line-height: 1.6;
+/* ========== 内容 ========== */
+.ast-card-body {
   flex: 1;
 }
 
-/* ========== 卡片操作按钮 ========== */
-.ast-card-action {
+.ast-card-title {
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-1);
+}
+
+.ast-card-desc {
+  font-size: var(--font-sm);
+  color: var(--text-tertiary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ========== 底部操作 ========== */
+.ast-card-footer {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-  font-size: 13px;
+  justify-content: space-between;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-light);
+  margin-top: auto;
+}
+
+.ast-card-go {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-sm);
   font-weight: 500;
   color: var(--card-color);
-  opacity: 0.8;
-  transition: all 0.3s ease;
+  transition: gap var(--duration-fast) var(--ease-default);
 }
 
-.ast-card-action svg {
-  transition: transform 0.3s ease;
+.ast-card:hover .ast-card-go {
+  gap: var(--space-2);
 }
 
-.ast-card:hover .ast-card-action {
-  opacity: 1;
+.ast-card-more {
+  font-size: var(--font-xs);
+  color: var(--text-quaternary);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast) var(--ease-default);
 }
 
-.ast-card:hover .ast-card-action svg {
-  transform: translateX(4px);
+.ast-card-more:hover {
+  color: var(--card-color);
+  background: color-mix(in srgb, var(--card-color) 8%, transparent);
 }
 
-/* ========== 响应式布局 ========== */
+/* ========== 响应式 ========== */
+@media (max-width: 1024px) {
+  .ast-tools {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 640px) {
   .ast-page {
-    padding: 20px 16px;
-  }
-
-  .ast-header {
-    margin-bottom: 20px;
-  }
-
-  .ast-title {
-    font-size: 20px;
+    padding: var(--space-6) var(--space-4);
   }
 
   .ast-tools {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: var(--space-4);
+  }
+
+  .ast-title {
+    font-size: var(--font-xl);
   }
 
   .ast-card {
-    padding: 22px 20px;
+    padding: var(--space-5);
   }
+}
 
-  .ast-card-badge {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  .ast-card-icon {
-    width: 46px;
-    height: 46px;
-    border-radius: 12px;
-    margin-bottom: 14px;
-  }
-
-  .ast-card-icon svg {
-    width: 24px;
-    height: 24px;
-  }
-
-  .ast-card-title {
-    font-size: 16px;
-  }
-
-  .ast-card-desc {
-    font-size: 13px;
-  }
-
-  .ast-card-action {
-    margin-top: 16px;
-    padding-top: 14px;
-  }
+@media (prefers-reduced-motion: reduce) {
+  .ast-card { transition: none; }
+  .ast-card:hover { transform: none; }
 }

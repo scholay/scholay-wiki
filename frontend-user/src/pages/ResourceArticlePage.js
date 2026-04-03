@@ -151,8 +151,7 @@ const ResourceArticlePage = () => {
           {renderContent(article.content)}
         </div>
 
-        {/* 根据文章内容智能匹配推荐功能 */}
-        <FeaturePromo highlight={matchFeatureByArticle(article.category, article.tags)} />
+        {/* FeaturePromo 已移至 DocsLayout 右侧栏 */}
 
         {/* Related Articles */}
         {relatedArticles.length > 0 && (
@@ -176,21 +175,7 @@ const ResourceArticlePage = () => {
           </section>
         )}
 
-        {/* Footer */}
-        <footer className="article-footer">
-          <p className="copyright">&copy; {new Date().getFullYear()} Scholay. All rights reserved.</p>
-          <nav className="footer-links">
-            <button onClick={() => navigate('/resources')}>资源中心</button>
-            <span>|</span>
-            <button onClick={() => navigate('/about')}>关于我们</button>
-            <span>|</span>
-            <button onClick={() => navigate('/contact')}>联系我们</button>
-            <span>|</span>
-            <button onClick={() => navigate('/privacy')}>隐私政策</button>
-            <span>|</span>
-            <button onClick={() => navigate('/terms')}>服务条款</button>
-          </nav>
-        </footer>
+
       </div>
     </div>
   );

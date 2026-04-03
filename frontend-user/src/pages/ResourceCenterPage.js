@@ -63,17 +63,10 @@ const ResourceCenterPage = () => {
       />
 
       <div className="resource-center-container">
-        <div className="resource-center-header">
-          <button className="back-btn" onClick={() => navigate('/')}>
-            <ArrowLeft size={20} />
-            <span>返回首页</span>
-          </button>
-        </div>
-
-        <div className="resource-center-hero">
+        <div className="resource-center-hero" style={{ paddingTop: 'var(--space-6)' }}>
           <h1>学术资源中心</h1>
           <p className="hero-description">
-            精心编写的学术指南与教程，帮助研究者掌握文献检索、论文写作、引用规范和科研工具使用技巧，让学术之路更加顺畅。
+            精心编写的学术指南与教程，助你掌握文献检索、论文写作和科研工具。
           </p>
         </div>
 
@@ -116,26 +109,9 @@ const ResourceCenterPage = () => {
           })}
         </div>
 
-        {/* 功能推广 */}
-        <FeaturePromo compact />
+        {/* FeaturePromo 已移至 DocsLayout 右侧栏 */}
 
-        {/* Footer */}
-        <footer className="article-footer">
-          <p className="copyright">&copy; {new Date().getFullYear()} Scholay. All rights reserved.</p>
-          <nav className="footer-links">
-            <button onClick={() => navigate('/blog')}>博客</button>
-            <span>|</span>
-            <button onClick={() => navigate('/about')}>关于我们</button>
-            <span>|</span>
-            <button onClick={() => navigate('/contact')}>联系我们</button>
-            <span>|</span>
-            <button onClick={() => navigate('/privacy')}>隐私政策</button>
-            <span>|</span>
-            <button onClick={() => navigate('/terms')}>服务条款</button>
-            <span>|</span>
-            <button onClick={() => navigate('/disclaimer')}>免责声明</button>
-          </nav>
-        </footer>
+
       </div>
     </div>
   );

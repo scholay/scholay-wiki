@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import Logo from '../components/Logo';
+// Logo import removed — TopNavBar handles navigation
 import SEO from '../components/SEO';
 import './styles/Pricing.css';
 
@@ -97,19 +97,6 @@ const Pricing = () => {
         keywords="Scholay免费,学术搜索免费,AI论文分析,学术工具,科研工具"
         canonical="/pricing"
       />
-
-      {/* 顶部导航栏 */}
-      <div className="pricing-nav">
-        <div className="nav-logo" onClick={() => navigate('/')}>
-          <Logo size={24} />
-          <span>Scholay</span>
-        </div>
-        <div className="nav-actions">
-          <button type="button" className="nav-link" onClick={() => navigate('/')}>
-            返回首页
-          </button>
-        </div>
-      </div>
 
       <main className="pricing-main">
         {/* 主视觉区域 */}

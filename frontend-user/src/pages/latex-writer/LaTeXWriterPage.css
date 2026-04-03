@@ -55,7 +55,8 @@
 .latex-writer-page {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   background: var(--lw-bg-app);
   color: var(--lw-text-primary);
   overflow: hidden;

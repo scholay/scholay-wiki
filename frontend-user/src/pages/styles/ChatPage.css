@@ -16,7 +16,6 @@
   flex: 1;
   min-height: 0;
   background: var(--background);
-  overflow: hidden;
 }
 
 /* Main Container - Only within chat page */

@@ -90,6 +90,7 @@ const DisclaimerPage = lazyWithRetry(() => import('./pages/DisclaimerPage'), 'Di
 const AuthModal = lazyWithRetry(() => import('./components/AuthModal'), 'AuthModal');
 const LaTeXWriterPage = lazyWithRetry(() => import('./pages/latex-writer'), 'LaTeXWriterPage');
 const NotFoundPage = lazyWithRetry(() => import('./pages/NotFoundPage'), 'NotFoundPage');
+const DocsLayout = lazyWithRetry(() => import('./components/DocsLayout'), 'DocsLayout');
 const ResourceCenterPage = lazyWithRetry(() => import('./pages/ResourceCenterPage'), 'ResourceCenterPage');
 const ResourceArticlePage = lazyWithRetry(() => import('./pages/ResourceArticlePage'), 'ResourceArticlePage');
 const HelpCenterPage = lazyWithRetry(() => import('./pages/HelpCenterPage'), 'HelpCenterPage');
@@ -194,11 +195,14 @@ function App() {
                   <Route path="/terms" element={<TermsPage />} />
                   <Route path="/contact" element={<ContactPage />} />
                   <Route path="/disclaimer" element={<DisclaimerPage />} />
-                  <Route path="/resources" element={<ResourceCenterPage />} />
-                  <Route path="/resources/:slug" element={<ResourceArticlePage />} />
-                  <Route path="/help" element={<HelpCenterPage />} />
-                  <Route path="/blog" element={<BlogListPage />} />
-                  <Route path="/blog/:slug" element={<BlogArticlePage />} />
+                  {/* 文档/Wiki 布局：资源、博客、帮助中心 */}
+                  <Route element={<DocsLayout />}>
+                    <Route path="/resources" element={<ResourceCenterPage />} />
+                    <Route path="/resources/:slug" element={<ResourceArticlePage />} />
+                    <Route path="/help" element={<HelpCenterPage />} />
+                    <Route path="/blog" element={<BlogListPage />} />
+                    <Route path="/blog/:slug" element={<BlogArticlePage />} />
+                  </Route>
                   <Route path="/alipay-return" element={<AlipayReturn />} />
                 </Route>
 

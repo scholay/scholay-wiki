@@ -53,6 +53,13 @@ const SharedFooter = memo(() => {
           </div>
 
           <div className="site-footer-col">
+            <h4>功能介绍</h4>
+            <a href="/features/search" onClick={go('/features/search')}>智能搜索</a>
+            <a href="/features/peer-review" onClick={go('/features/peer-review')}>AI 智能审稿</a>
+            <a href="/features/latex-writer" onClick={go('/features/latex-writer')}>ScholayPrism 编辑器</a>
+          </div>
+
+          <div className="site-footer-col">
             <h4>资源</h4>
             <a href="/resources" onClick={go('/resources')}>学术资源中心</a>
             <a href="/blog" onClick={go('/blog')}>博客</a>

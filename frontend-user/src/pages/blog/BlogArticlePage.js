@@ -166,8 +166,7 @@ const BlogArticlePage = () => {
           </div>
         )}
 
-        {/* 根据文章内容智能匹配推荐功能 */}
-        <FeaturePromo highlight={matchFeatureByArticle(article.category, article.tags)} />
+        {/* FeaturePromo 已移至 DocsLayout 右侧栏 */}
 
         {relatedArticles.length > 0 && (
           <section className="related-articles">
@@ -190,20 +189,7 @@ const BlogArticlePage = () => {
           </section>
         )}
 
-        <footer className="article-footer">
-          <p className="copyright">&copy; {new Date().getFullYear()} Scholay. All rights reserved.</p>
-          <nav className="footer-links">
-            <button onClick={() => navigate('/blog')}>博客</button>
-            <span>|</span>
-            <button onClick={() => navigate('/resources')}>学术资源</button>
-            <span>|</span>
-            <button onClick={() => navigate('/about')}>关于我们</button>
-            <span>|</span>
-            <button onClick={() => navigate('/privacy')}>隐私政策</button>
-            <span>|</span>
-            <button onClick={() => navigate('/terms')}>服务条款</button>
-          </nav>
-        </footer>
+
       </div>
     </div>
   );

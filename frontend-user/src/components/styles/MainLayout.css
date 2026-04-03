@@ -56,10 +56,10 @@
 }
 
 .main-layout-page {
-  flex: 1 0 100%;
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  min-height: 100%;
 }
 
 /* 当有顶部栏时，正文区域需要适应 */
