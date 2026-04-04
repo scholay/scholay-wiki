@@ -18,6 +18,7 @@ import {
 } from '../../../utils/searchStorage';
 import { trackDirectSearch, EntryPoint } from '../../../utils/usageTracker';
 import logger from '../../../utils/logger';
+import { searchResultsCache } from '../../../utils/apiCache';
 
 /**
  * 搜索状态管理 Hook
@@ -194,7 +195,21 @@ export const useSearchState = () => {
     setSearchParams(params);
   }, [setSearchParams]);
 
-  // 执行搜索
+  // 构建搜索结果缓存 key
+  const buildSearchCacheKey = useCallback((query, filters, page) => {
+    const filterStr = JSON.stringify({
+      yf: filters.yearFrom || '',
+      yt: filters.yearTo || '',
+      pt: filters.publicationTypes || [],
+      fs: filters.fieldsOfStudy || [],
+      oa: filters.openAccessPdf || '',
+      v: filters.venue || '',
+      mc: filters.minCitationCount || '',
+    });
+    return `${query}_${filterStr}_p${page}_s${papersPerPage}`;
+  }, [papersPerPage]);
+
+  // 执行搜索（带分页缓存）
   const performSearch = useCallback(async (query, currentFilters, page = 1, isNewSearch = true, enableSuggestions = true) => {
     if (!query.trim()) return;
 
@@ -204,8 +219,20 @@ export const useSearchState = () => {
       setViewMode('list');
     }
 
-    setLoading(true);
     setSelectedPaper(null);
+
+    // 检查搜索结果缓存（翻页 / 返回列表时命中率高）
+    const cacheKey = buildSearchCacheKey(query, currentFilters, page);
+    const cachedResult = searchResultsCache.get(cacheKey);
+    if (cachedResult) {
+      logger.log('[Search] Cache hit:', cacheKey);
+      setPapers(cachedResult.papers);
+      setTotal(cachedResult.total);
+      setQueryInfo(cachedResult.queryInfo);
+      return;
+    }
+
+    setLoading(true);
 
     try {
       // 检查是否可以复用缓存的建议
@@ -219,7 +246,7 @@ export const useSearchState = () => {
         query: query,
         offset: (page - 1) * papersPerPage,
         limit: papersPerPage,
-        enableTranslation: canReuseSuggestions ? false : enableSuggestions,  // 复用字段名以兼容后端
+        enableTranslation: canReuseSuggestions ? false : enableSuggestions,
         fields: ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
       };
 
@@ -260,7 +287,6 @@ export const useSearchState = () => {
 
         let finalQueryInfo;
         if (canReuseSuggestions) {
-          // 复用缓存的建议
           finalQueryInfo = {
             originalQuery: query,
             searchSuggestions: cachedSuggestions.suggestions,
@@ -269,7 +295,6 @@ export const useSearchState = () => {
             searchStrategy: 'original'
           };
         } else {
-          // 使用后端返回的建议
           finalQueryInfo = {
             originalQuery: responseData.originalQuery || query,
             searchSuggestions: responseData.searchSuggestions || [],
@@ -278,7 +303,6 @@ export const useSearchState = () => {
             searchStrategy: responseData.searchStrategy || ''
           };
 
-          // 缓存建议结果
           if (responseData.hasSuggestions && responseData.searchSuggestions?.length > 0) {
             setCachedSuggestions({
               query: query,
@@ -289,6 +313,13 @@ export const useSearchState = () => {
         }
 
         setQueryInfo(finalQueryInfo);
+
+        // 缓存搜索结果（用于翻页回退和返回列表时复用）
+        searchResultsCache.set(cacheKey, {
+          papers: searchResults,
+          total: resultsTotal,
+          queryInfo: finalQueryInfo,
+        });
       }
     } catch (error) {
       logger.error('搜索失败:', error);
@@ -296,7 +327,7 @@ export const useSearchState = () => {
     } finally {
       setLoading(false);
     }
-  }, [cachedSuggestions, papersPerPage]);
+  }, [cachedSuggestions, papersPerPage, buildSearchCacheKey]);
 
   // 处理搜索提交
   const handleSearch = useCallback((e) => {

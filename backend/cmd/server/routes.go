@@ -503,6 +503,8 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, h *allHandlers) {
 		publicAPI.GET("/papers/autocomplete", h.scholar.PaperAutocomplete)
 		publicAPI.GET("/search/suggestions", h.scholar.GetSearchSuggestions)
 		publicAPI.GET("/analysis/dimensions", h.ai.GetSystemDimensions)
+		publicAPI.GET("/papers/:paperId/citations", h.scholar.GetPaperCitations)
+		publicAPI.GET("/papers/:paperId/references", h.scholar.GetPaperReferences)
 		publicAPI.GET("/recommendations/papers/:paperId", h.scholar.GetRecommendationsForPaper)
 		publicAPI.GET("/author-detail/:authorId", h.scholar.GetAuthor)
 		publicAPI.GET("/author-detail/:authorId/papers", h.scholar.GetAuthorPapers)

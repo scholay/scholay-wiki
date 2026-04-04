@@ -123,7 +123,9 @@ const SearchResultsPage = () => {
         searchState.setSearchQuery(query);
       }
     } else if (paperId) {
-      paperDetail.loadPaperDetail(paperId, searchState.setViewMode);
+      // 优化：如果搜索结果中已有该论文数据，直接传入避免重复请求
+      const existingPaper = (searchState.papers || []).find(p => p.paperId === paperId);
+      paperDetail.loadPaperDetail(paperId, searchState.setViewMode, existingPaper || null);
       if (query) {
         searchState.setSearchQuery(query);
       }
@@ -237,17 +239,22 @@ const SearchResultsPage = () => {
     };
   }, [searchState.viewMode, searchState.showDetailSearch, searchState.papersContainerRef, searchState]);
 
-  // 论文详情加载后，自动加载引用文献
+  // 论文详情加载后，重置标签页数据并加载当前 Tab
   useEffect(() => {
     if (paperDetail.detailPaper && searchState.viewMode === 'paper') {
       paperDetail.resetDetailData();
-      if (paperDetail.detailActiveTab === 'citations') {
-        paperDetail.loadCitations(1, searchState.setSelectedPaper);
-      } else if (paperDetail.detailActiveTab === 'references') {
-        paperDetail.loadReferences(1, searchState.setSelectedPaper);
-      } else if (paperDetail.detailActiveTab === 'similar') {
-        paperDetail.loadSimilarPapers(1, false, searchState.setSelectedPaper);
-      }
+      // 加载当前激活 Tab 的数据（默认 citations）
+      const tab = paperDetail.detailActiveTab;
+      // 使用 setTimeout 确保 resetDetailData 状态已更新
+      setTimeout(() => {
+        if (tab === 'citations') {
+          paperDetail.loadCitations(1, searchState.setSelectedPaper);
+        } else if (tab === 'references') {
+          paperDetail.loadReferences(1, searchState.setSelectedPaper);
+        } else if (tab === 'similar') {
+          paperDetail.loadSimilarPapers(1, false, searchState.setSelectedPaper);
+        }
+      }, 0);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paperDetail.detailPaper, searchState.viewMode]);

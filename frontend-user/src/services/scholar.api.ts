@@ -22,9 +22,15 @@ export const publicScholarAPI = {
       params: {
         fields:
           fields ||
-          'paperId,title,abstract,authors,year,citationCount,referenceCount,venue,publicationDate,publicationTypes,fieldsOfStudy,s2FieldsOfStudy,externalIds,url,openAccessPdf,influentialCitationCount,isOpenAccess,tldr,journal,citations.paperId,citations.externalIds,citations.url,citations.title,citations.abstract,citations.venue,citations.publicationVenue,citations.year,citations.referenceCount,citations.citationCount,citations.influentialCitationCount,citations.openAccessPdf,citations.s2FieldsOfStudy,citations.publicationTypes,citations.publicationDate,citations.journal,citations.citationStyles,citations.authors,references.paperId,references.externalIds,references.url,references.title,references.abstract,references.venue,references.publicationVenue,references.year,references.referenceCount,references.citationCount,references.influentialCitationCount,references.openAccessPdf,references.s2FieldsOfStudy,references.publicationTypes,references.publicationDate,references.journal,references.citationStyles,references.authors',
+          'paperId,title,abstract,authors,year,citationCount,referenceCount,venue,publicationDate,fieldsOfStudy,externalIds,url,openAccessPdf,influentialCitationCount,isOpenAccess,tldr,journal',
       },
     }),
+
+  getCitations: (paperId: string, params?: Record<string, any>) =>
+    publicApi.get(`/papers/${paperId}/citations`, { params }),
+
+  getReferences: (paperId: string, params?: Record<string, any>) =>
+    publicApi.get(`/papers/${paperId}/references`, { params }),
 
   getSearchSuggestions: (query: string, paperLimit = 5, authorLimit = 5) =>
     publicApi.get('/search/suggestions', { params: { query, paperLimit, authorLimit } }),
@@ -37,7 +43,7 @@ export const publicScholarAPI = {
   getPaperBatch: (paperIds: string[], fields?: string) =>
     publicApi.post('/papers/batch', { paperIds, fields }),
 
-  getRecommendations: (paperId: string, limit = 100) =>
+  getRecommendations: (paperId: string, limit = 50) =>
     publicApi.get(`/recommendations/papers/${paperId}`, { params: { limit } }),
 
   getAuthor: (authorId: string, fields?: string) =>
