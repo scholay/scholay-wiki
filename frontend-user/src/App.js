@@ -79,6 +79,9 @@ const Pricing = lazyWithRetry(() => import('./pages/Pricing'), 'Pricing');
 const Settings = lazyWithRetry(() => import('./pages/Settings'), 'Settings');
 const WeChatCallback = lazyWithRetry(() => import('./pages/WeChatCallback'), 'WeChatCallback');
 const GithubCallback = lazyWithRetry(() => import('./pages/GithubCallback'), 'GithubCallback');
+const AppleCallback = lazyWithRetry(() => import('./pages/AppleCallback'), 'AppleCallback');
+const OrcidCallback = lazyWithRetry(() => import('./pages/OAuthCallback').then(m => ({ default: m.OrcidCallback })), 'OrcidCallback');
+const MicrosoftCallback = lazyWithRetry(() => import('./pages/OAuthCallback').then(m => ({ default: m.MicrosoftCallback })), 'MicrosoftCallback');
 const DiscourseCallback = lazyWithRetry(() => import('./pages/DiscourseCallback'), 'DiscourseCallback');
 const AlipayReturn = lazyWithRetry(() => import('./pages/AlipayReturn'), 'AlipayReturn');
 const FeedbackPage = lazyWithRetry(() => import('./pages/FeedbackPage'), 'FeedbackPage');
@@ -213,6 +216,9 @@ function App() {
                 <Route path="/search" element={<Navigate to="/" replace />} />
                 <Route path="/wechat/callback" element={<WeChatCallback />} />
                 <Route path="/github/callback" element={<GithubCallback />} />
+                <Route path="/apple/callback" element={<AppleCallback />} />
+                <Route path="/orcid/callback" element={<OrcidCallback />} />
+                <Route path="/microsoft/callback" element={<MicrosoftCallback />} />
                 <Route path="/discourse/callback" element={<DiscourseCallback />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>

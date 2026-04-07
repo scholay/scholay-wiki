@@ -271,6 +271,137 @@ func (s *Service) UpdateGithubOAuthConfig(clientID, clientSecret, redirectURI st
 }
 
 // ============================================
+// Google OAuth Configuration Methods
+// ============================================
+
+// GetGoogleOAuthConfig gets the Google OAuth configuration
+func (s *Service) GetGoogleOAuthConfig() (*model.GoogleOAuthConfig, error) {
+	return s.repo.GetGoogleOAuthConfig()
+}
+
+// UpdateGoogleOAuthConfig updates or creates Google OAuth configuration
+func (s *Service) UpdateGoogleOAuthConfig(clientID, clientSecret string, enabled bool) error {
+	config, err := s.repo.GetGoogleOAuthConfig()
+	if err != nil {
+		return err
+	}
+
+	if config == nil {
+		config = &model.GoogleOAuthConfig{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			Enabled:      enabled,
+		}
+		return s.repo.CreateGoogleOAuthConfig(config)
+	}
+
+	config.ClientID = clientID
+	config.ClientSecret = clientSecret
+	config.Enabled = enabled
+	return s.repo.UpdateGoogleOAuthConfig(config)
+}
+
+// ============================================
+// ORCID OAuth Configuration Methods
+// ============================================
+
+func (s *Service) GetOrcidOAuthConfig() (*model.OrcidOAuthConfig, error) {
+	return s.repo.GetOrcidOAuthConfig()
+}
+
+func (s *Service) UpdateOrcidOAuthConfig(clientID, clientSecret, redirectURI string, useSandbox, enabled bool) error {
+	config, err := s.repo.GetOrcidOAuthConfig()
+	if err != nil {
+		return err
+	}
+	if config == nil {
+		config = &model.OrcidOAuthConfig{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			RedirectURI:  redirectURI,
+			UseSandbox:   useSandbox,
+			Enabled:      enabled,
+		}
+		return s.repo.CreateOrcidOAuthConfig(config)
+	}
+	config.ClientID = clientID
+	config.ClientSecret = clientSecret
+	config.RedirectURI = redirectURI
+	config.UseSandbox = useSandbox
+	config.Enabled = enabled
+	return s.repo.UpdateOrcidOAuthConfig(config)
+}
+
+// ============================================
+// Microsoft OAuth Configuration Methods
+// ============================================
+
+func (s *Service) GetMicrosoftOAuthConfig() (*model.MicrosoftOAuthConfig, error) {
+	return s.repo.GetMicrosoftOAuthConfig()
+}
+
+func (s *Service) UpdateMicrosoftOAuthConfig(clientID, clientSecret, redirectURI, tenant string, enabled bool) error {
+	config, err := s.repo.GetMicrosoftOAuthConfig()
+	if err != nil {
+		return err
+	}
+	if tenant == "" {
+		tenant = "common"
+	}
+	if config == nil {
+		config = &model.MicrosoftOAuthConfig{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			RedirectURI:  redirectURI,
+			Tenant:       tenant,
+			Enabled:      enabled,
+		}
+		return s.repo.CreateMicrosoftOAuthConfig(config)
+	}
+	config.ClientID = clientID
+	config.ClientSecret = clientSecret
+	config.RedirectURI = redirectURI
+	config.Tenant = tenant
+	config.Enabled = enabled
+	return s.repo.UpdateMicrosoftOAuthConfig(config)
+}
+
+// ============================================
+// Apple OAuth Configuration Methods
+// ============================================
+
+func (s *Service) GetAppleOAuthConfig() (*model.AppleOAuthConfig, error) {
+	return s.repo.GetAppleOAuthConfig()
+}
+
+func (s *Service) UpdateAppleOAuthConfig(serviceID, teamID, keyID, privateKey, redirectURI string, enabled bool) error {
+	config, err := s.repo.GetAppleOAuthConfig()
+	if err != nil {
+		return err
+	}
+	if config == nil {
+		config = &model.AppleOAuthConfig{
+			ServiceID:   serviceID,
+			TeamID:      teamID,
+			KeyID:       keyID,
+			PrivateKey:  privateKey,
+			RedirectURI: redirectURI,
+			Enabled:     enabled,
+		}
+		return s.repo.CreateAppleOAuthConfig(config)
+	}
+	config.ServiceID = serviceID
+	config.TeamID = teamID
+	config.KeyID = keyID
+	if privateKey != "" {
+		config.PrivateKey = privateKey
+	}
+	config.RedirectURI = redirectURI
+	config.Enabled = enabled
+	return s.repo.UpdateAppleOAuthConfig(config)
+}
+
+// ============================================
 // Discourse SSO Configuration Methods
 // ============================================
 

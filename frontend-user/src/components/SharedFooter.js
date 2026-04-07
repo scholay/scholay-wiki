@@ -16,13 +16,30 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Logo from './Logo';
 import './styles/SharedFooter.css';
 
-const HIDDEN_PATHS = ['/latex-writer'];
+// 只在首页和宣传介绍类页面显示 footer，功能性页面不显示
+const VISIBLE_PATHS = [
+  '/',
+  '/about',
+  '/privacy',
+  '/terms',
+  '/contact',
+  '/disclaimer',
+  '/pricing',
+  '/feedback',
+  '/resources',
+  '/help',
+  '/blog',
+  '/features/',
+];
 
 const SharedFooter = memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  if (HIDDEN_PATHS.some(p => location.pathname.startsWith(p))) {
+  const shouldShow = VISIBLE_PATHS.some(p =>
+    p === '/' ? location.pathname === '/' : location.pathname.startsWith(p)
+  );
+  if (!shouldShow) {
     return null;
   }
 

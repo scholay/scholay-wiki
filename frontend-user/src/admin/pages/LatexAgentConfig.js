@@ -407,8 +407,11 @@ const LatexAgentConfig = () => {
         {showModelForm && (
           <div className="modal-overlay">
             <div className="modal-content">
-              <h3>{editingModel ? '编辑模型' : '添加模型'}</h3>
-              
+              <div className="modal-header">
+                <h3>{editingModel ? '编辑模型' : '添加模型'}</h3>
+              </div>
+              <div className="modal-body">
+
               <div className="form-row">
                 <div className="form-group">
                   <label>显示名称 *</label>
@@ -534,8 +537,9 @@ const LatexAgentConfig = () => {
                   <span>设为默认模型</span>
                 </label>
               </div>
+              </div>
 
-              <div className="modal-actions">
+              <div className="modal-footer">
                 <button
                   className="btn btn-secondary"
                   onClick={() => {

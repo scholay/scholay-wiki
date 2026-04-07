@@ -58,6 +58,21 @@ export interface Paper {
   references?: Paper[];
 }
 
+// Search source constants
+export type SearchSource = 'stc' | 'olx';
+
+export const SEARCH_SOURCES = {
+  STC: 'stc' as SearchSource,  // Scholay 精选
+  OLX: 'olx' as SearchSource,  // Scholay 全域
+};
+
+export const SEARCH_SOURCE_LABELS: Record<SearchSource, string> = {
+  stc: 'Scholay 精选',
+  olx: 'Scholay 全域',
+};
+
+export const DEFAULT_SEARCH_SOURCE: SearchSource = 'olx';
+
 export interface SearchParams {
   query: string;
   offset?: number;
@@ -68,6 +83,7 @@ export interface SearchParams {
   openAccessPdf?: boolean;
   minCitationCount?: number;
   sort?: string;
+  source?: SearchSource;
 }
 
 export interface SearchResult {

@@ -81,6 +81,7 @@ func (r *Repository) Delete(id uint) error {
 }
 
 // IncrementUsage increments the usage count and updates last used time
+// Deprecated: Use RecordAPIUsage for detailed statistics
 func (r *Repository) IncrementUsage(id uint) error {
 	now := time.Now()
 	return r.db.Model(&ThirdPartyAccount{}).
@@ -88,6 +89,52 @@ func (r *Repository) IncrementUsage(id uint) error {
 		Updates(map[string]any{
 			"usage_count":  gorm.Expr("usage_count + ?", 1),
 			"last_used_at": now,
+		}).Error
+}
+
+// RecordAPIUsage records a single API request's outcome with timing information
+func (r *Repository) RecordAPIUsage(id uint, success bool, latencyMs int64) error {
+	now := time.Now()
+	updates := map[string]any{
+		"total_requests": gorm.Expr("total_requests + 1"),
+		"last_used_at":   now,
+	}
+
+	if success {
+		updates["success_count"] = gorm.Expr("success_count + 1")
+		updates["total_latency_ms"] = gorm.Expr("total_latency_ms + ?", latencyMs)
+		updates["total_latency_sq_ms"] = gorm.Expr("total_latency_sq_ms + ?", latencyMs*latencyMs)
+
+		// Update max latency using GREATEST
+		updates["max_latency_ms"] = gorm.Expr("GREATEST(max_latency_ms, ?)", latencyMs)
+
+		// Track slow requests (> threshold)
+		if latencyMs > int64(SlowThresholdMs) {
+			updates["slow_count"] = gorm.Expr("slow_count + 1")
+			updates["slow_total_latency_ms"] = gorm.Expr("slow_total_latency_ms + ?", latencyMs)
+		}
+	} else {
+		updates["fail_count"] = gorm.Expr("fail_count + 1")
+	}
+
+	return r.db.Model(&ThirdPartyAccount{}).
+		Where("id = ?", id).
+		Updates(updates).Error
+}
+
+// ResetAPIStats resets all API usage statistics for an account
+func (r *Repository) ResetAPIStats(id uint) error {
+	return r.db.Model(&ThirdPartyAccount{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"total_requests":       0,
+			"success_count":        0,
+			"fail_count":           0,
+			"total_latency_ms":     0,
+			"total_latency_sq_ms":  0,
+			"max_latency_ms":       0,
+			"slow_count":           0,
+			"slow_total_latency_ms": 0,
 		}).Error
 }
 

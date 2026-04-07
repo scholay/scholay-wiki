@@ -124,6 +124,42 @@ const SystemSettings = () => {
     turnstileSecretKey: '',
   });
 
+  // Apple Sign In 配置
+  const [appleConfig, setAppleConfig] = useState({
+    appleServiceId: '',
+    appleTeamId: '',
+    appleKeyId: '',
+    applePrivateKey: '',
+    appleRedirectUri: '',
+    appleHasKey: false,
+    appleEnabled: false,
+  });
+
+  // ORCID OAuth 配置
+  const [orcidConfig, setOrcidConfig] = useState({
+    orcidClientId: '',
+    orcidClientSecret: '',
+    orcidRedirectUri: '',
+    orcidUseSandbox: false,
+    orcidEnabled: false,
+  });
+
+  // Microsoft OAuth 配置
+  const [microsoftConfig, setMicrosoftConfig] = useState({
+    msClientId: '',
+    msClientSecret: '',
+    msRedirectUri: '',
+    msTenant: 'common',
+    msEnabled: false,
+  });
+
+  // Google OAuth 配置
+  const [googleConfig, setGoogleConfig] = useState({
+    googleClientId: '',
+    googleClientSecret: '',
+    googleEnabled: false,
+  });
+
   // GitHub OAuth 配置
   const [githubConfig, setGithubConfig] = useState({
     githubClientId: '',
@@ -168,35 +204,49 @@ const SystemSettings = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, wechatSubTab]); // 添加wechatSubTab依赖
 
-  const loadTabData = () => {
+  const loadTabData = (sensitive) => {
+    // 如果已通过密码验证，自动加载真实敏感数据
+    const showSensitive = sensitive !== undefined ? sensitive : isVerified;
     switch (activeTab) {
       case 'alipay':
-        loadAlipayConfigs();
+        loadAlipayConfigs(showSensitive);
         break;
       case 'wechat':
         // 根据子标签加载不同的微信配置
         if (wechatSubTab === 'pay') {
-          loadWechatPayConfigs();
+          loadWechatPayConfigs(showSensitive);
         } else if (wechatSubTab === 'oauth') {
-          loadWechatConfigs();
+          loadWechatConfigs(showSensitive);
         } else if (wechatSubTab === 'official') {
-          loadWechatOfficialConfig();
+          loadWechatOfficialConfig(showSensitive);
         }
         break;
       case 'wechat-official':
-        loadWechatOfficialConfig();
+        loadWechatOfficialConfig(showSensitive);
         break;
       case 'email':
-        loadEmailConfig();
+        loadEmailConfig(showSensitive);
         break;
       case 'sms':
-        loadSMSConfig();
+        loadSMSConfig(showSensitive);
         break;
       case 'github':
-        loadGithubConfig();
+        loadGithubConfig(showSensitive);
+        break;
+      case 'google':
+        loadGoogleConfig(showSensitive);
+        break;
+      case 'apple':
+        loadAppleConfig();
+        break;
+      case 'orcid':
+        loadOrcidConfig(showSensitive);
+        break;
+      case 'microsoft':
+        loadMicrosoftConfig(showSensitive);
         break;
       case 'discourse':
-        loadDiscourseConfig();
+        loadDiscourseConfig(showSensitive);
         break;
       case 'privacy':
         loadPrivacyPolicy();
@@ -205,7 +255,7 @@ const SystemSettings = () => {
         loadTermsOfService();
         break;
       case 'system':
-        loadSystemConfig();
+        loadSystemConfig(showSensitive);
         break;
       default:
         break;
@@ -217,88 +267,17 @@ const SystemSettings = () => {
     setIsVerified(true);
     setShowVerifyModal(false);
 
-    // Load real email password if we're on email tab and config exists
-    if (activeTab === 'email' && savedEmailConfig && !realEmailPassword) {
-      try {
-        const response = await adminAPI.getEmailConfig(true); // true = show_password
-        if (response.data.code === 0 && response.data.data) {
-          setRealEmailPassword(response.data.data.smtp_password);
-        }
-      } catch (err) {
-        console.error('Failed to load real password:', err);
-      }
-    }
-
-    // Load real SMS secret if we're on sms tab and config exists
-    if (activeTab === 'sms' && savedSMSConfig && !realSMSSecret) {
-      try {
-        const response = await adminAPI.getSMSConfig(true); // true = show_secret
-        if (response.data.code === 0 && response.data.data) {
-          setRealSMSSecret(response.data.data.access_secret);
-        }
-      } catch (err) {
-        console.error('Failed to load real secret:', err);
-      }
-    }
-
-    // Load real Alipay keys if we're on alipay tab
-    if (activeTab === 'alipay') {
-      try {
-        const response = await adminAPI.getAlipayConfigs(true); // true = show_keys
-        if (response.data.code === 0 && response.data.data) {
-          setAlipayConfigs(response.data.data);
-        }
-      } catch (err) {
-        console.error('Failed to load real alipay keys:', err);
-      }
-    }
-
-    // Load real WeChat configs if we're on wechat tab (now unified)
-    if (activeTab === 'wechat') {
-      // Load WeChat Pay configs
-      if (wechatSubTab === 'pay') {
-        try {
-          const response = await adminAPI.getWeChatPayConfigs(true); // true = show_keys
-          if (response.data.code === 0 && response.data.data) {
-            setWechatPayConfigs(response.data.data);
-          }
-        } catch (err) {
-          console.error('Failed to load real wechat pay keys:', err);
-        }
-      }
-
-      // Load WeChat OAuth configs
-      if (wechatSubTab === 'oauth') {
-        try {
-          const response = await adminAPI.getWeChatConfigs(true); // true = show_secret
-          if (response.data.code === 0 && response.data.data) {
-            setWechatConfigs(response.data.data);
-          }
-        } catch (err) {
-          console.error('Failed to load real wechat oauth secret:', err);
-        }
-      }
-
-      // Load WeChat Official config
-      if (wechatSubTab === 'official' && savedWechatOfficialConfig && !realWechatOfficialConfig) {
-        try {
-          const response = await adminAPI.getWeChatOfficialConfig(true); // true = show_sensitive
-          if (response.data.code === 0 && response.data.data) {
-            setRealWechatOfficialConfig(response.data.data);
-          }
-        } catch (err) {
-          console.error('Failed to load real wechat official config:', err);
-        }
-      }
-    }
+    // 重新加载当前标签页数据（带真实敏感数据）
+    loadTabData(true);
 
     // Auto-expire verification after 5 minutes
     setTimeout(() => {
       setIsVerified(false);
-      setRealEmailPassword(null); // Clear real password when verification expires
-      setRealSMSSecret(null); // Clear real SMS secret when verification expires
-      // Reload configs to reset masked values
-      loadTabData();
+      setRealEmailPassword(null);
+      setRealSMSSecret(null);
+      setRealWechatOfficialConfig(null);
+      // 重新加载脱敏数据
+      loadTabData(false);
     }, 5 * 60 * 1000);
   };
 
@@ -307,10 +286,10 @@ const SystemSettings = () => {
   };
 
   // === 支付宝配置管理 ===
-  const loadAlipayConfigs = async () => {
+  const loadAlipayConfigs = async (showSensitive = false) => {
     setLoading(true);
     try {
-      const response = await adminAPI.getAlipayConfigs();
+      const response = await adminAPI.getAlipayConfigs(showSensitive);
       if (response.data.code === 0 && response.data.data) {
         setAlipayConfigs(response.data.data || []);
       }
@@ -409,10 +388,10 @@ const SystemSettings = () => {
   };
 
   // === 微信支付配置管理 ===
-  const loadWechatPayConfigs = async () => {
+  const loadWechatPayConfigs = async (showSensitive = false) => {
     setLoading(true);
     try {
-      const response = await adminAPI.getWeChatPayConfigs();
+      const response = await adminAPI.getWeChatPayConfigs(showSensitive);
       if (response.data.code === 0 && response.data.data) {
         setWechatPayConfigs(response.data.data || []);
       }
@@ -513,10 +492,10 @@ const SystemSettings = () => {
   };
 
   // === 微信扫码登录配置管理 ===
-  const loadWechatConfigs = async () => {
+  const loadWechatConfigs = async (showSensitive = false) => {
     setLoading(true);
     try {
-      const response = await adminAPI.getWeChatConfigs();
+      const response = await adminAPI.getWeChatConfigs(showSensitive);
       if (response.data.code === 0 && response.data.data) {
         setWechatConfigs(response.data.data || []);
       }
@@ -610,12 +589,15 @@ const SystemSettings = () => {
   };
 
   // === 邮件配置管理 ===
-  const loadEmailConfig = async () => {
+  const loadEmailConfig = async (showSensitive = false) => {
     setLoadingConfig(true);
     try {
-      const response = await adminAPI.getEmailConfig();
+      const response = await adminAPI.getEmailConfig(showSensitive);
       if (response.data.code === 0 && response.data.data) {
         setSavedEmailConfig(response.data.data);
+        if (showSensitive) {
+          setRealEmailPassword(response.data.data.smtp_password);
+        }
       } else {
         setSavedEmailConfig(null);
       }
@@ -723,13 +705,16 @@ const SystemSettings = () => {
   };
 
   // === 短信配置管理 ===
-  const loadSMSConfig = async () => {
+  const loadSMSConfig = async (showSensitive = false) => {
     setLoadingConfig(true);
     try {
-      const response = await adminAPI.getSMSConfig();
+      const response = await adminAPI.getSMSConfig(showSensitive);
       if (response.data.code === 0 && response.data.data) {
         setSavedSMSConfig(response.data.data);
         setIsEditingSMS(false);
+        if (showSensitive) {
+          setRealSMSSecret(response.data.data.access_secret);
+        }
       } else {
         setSavedSMSConfig(null);
       }
@@ -857,12 +842,15 @@ const SystemSettings = () => {
   };
 
   // === 微信公众号配置管理 ===
-  const loadWechatOfficialConfig = async () => {
+  const loadWechatOfficialConfig = async (showSensitive = false) => {
     setLoadingConfig(true);
     try {
-      const response = await adminAPI.getWeChatOfficialConfig();
+      const response = await adminAPI.getWeChatOfficialConfig(showSensitive);
       if (response.data.code === 0 && response.data.data) {
         setSavedWechatOfficialConfig(response.data.data);
+        if (showSensitive) {
+          setRealWechatOfficialConfig(response.data.data);
+        }
         setIsEditingWechatOfficial(false);
       } else {
         setSavedWechatOfficialConfig(null);
@@ -1048,17 +1036,21 @@ const SystemSettings = () => {
   };
 
   // === 系统配置管理 ===
-  const loadSystemConfig = async () => {
+  const loadSystemConfig = async (showSensitive = false) => {
     try {
-      const response = await configAPI.getSystemConfig();
+      const response = await adminAPI.getSystemConfig(showSensitive);
       if (response.data.code === 0 && response.data.data) {
         const d = response.data.data;
-        setSystemConfig({
+        setSystemConfig(prev => ({
+          ...prev,
           requireEmailVerification: d.require_email_verification ?? true,
           enableTurnstile: d.enable_turnstile ?? false,
           turnstileSiteKey: d.turnstile_site_key ?? '',
-          turnstileSecretKey: d.turnstile_secret_key ?? '',
-        });
+          ...(showSensitive
+            ? { turnstileSecretKey: d.turnstile_secret_key ?? '' }
+            : { turnstileSecretKey: '' }),
+          turnstileHasSecret: !!(d.turnstile_secret_key && d.turnstile_secret_key !== ''),
+        }));
       }
     } catch (err) {
       console.error('Failed to load system config:', err);
@@ -1070,15 +1062,21 @@ const SystemSettings = () => {
     setLoading(true);
 
     try {
-      const response = await adminAPI.updateSystemConfig({
+      const updateData = {
         require_email_verification: systemConfig.requireEmailVerification,
         enable_turnstile: systemConfig.enableTurnstile,
         turnstile_site_key: systemConfig.turnstileSiteKey,
-        turnstile_secret_key: systemConfig.turnstileSecretKey,
-      });
+      };
+      // Only send secret key if user entered a new value
+      if (systemConfig.turnstileSecretKey) {
+        updateData.turnstile_secret_key = systemConfig.turnstileSecretKey;
+      }
+
+      const response = await adminAPI.updateSystemConfig(updateData);
 
       if (response.data.code === 0) {
         showToast('系统配置已成功保存', 'success');
+        loadSystemConfig();
       } else {
         showToast(response.data.message || '保存失败', 'error');
       }
@@ -1090,15 +1088,19 @@ const SystemSettings = () => {
   };
 
   // GitHub OAuth Configuration
-  const loadGithubConfig = async () => {
+  const loadGithubConfig = async (showSensitive = false) => {
     try {
-      const response = await adminAPI.getGithubConfig();
+      const response = await adminAPI.getGithubConfig(showSensitive);
       if (response.data.code === 0 && response.data.data) {
-        setGithubConfig({
-          githubClientId: response.data.data.client_id ?? '',
-          githubClientSecret: response.data.data.client_secret ?? '',
-          githubRedirectUri: response.data.data.redirect_uri ?? '',
-        });
+        const d = response.data.data;
+        setGithubConfig(prev => ({
+          ...prev,
+          githubClientId: d.client_id ?? '',
+          // Only fill secret when showSensitive is true (after verification)
+          ...(showSensitive ? { githubClientSecret: d.client_secret ?? '' } : { githubClientSecret: '' }),
+          githubRedirectUri: d.redirect_uri ?? '',
+          githubHasSecret: !!(d.client_secret && d.client_secret !== ''),
+        }));
       }
     } catch (err) {
       console.error('Failed to load GitHub config:', err);
@@ -1113,15 +1115,215 @@ const SystemSettings = () => {
       // Remove trailing slash from domain
       const domain = githubConfig.githubRedirectUri.replace(/\/$/, '');
 
-      const response = await adminAPI.updateGithubConfig({
+      const updateData = {
         client_id: githubConfig.githubClientId,
-        client_secret: githubConfig.githubClientSecret,
         redirect_uri: domain, // Backend will append /github/callback
         enabled: true,
-      });
+      };
+      // Only send client_secret if user entered a new value
+      if (githubConfig.githubClientSecret) {
+        updateData.client_secret = githubConfig.githubClientSecret;
+      }
+
+      const response = await adminAPI.updateGithubConfig(updateData);
 
       if (response.data.code === 0) {
         showToast('GitHub 配置已成功保存', 'success');
+        loadGithubConfig(); // Reload to get fresh state
+      } else {
+        showToast(response.data.message || '保存失败', 'error');
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || '保存失败，请稍后重试', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Google OAuth Configuration
+  const loadGoogleConfig = async (showSensitive = false) => {
+    try {
+      const response = await adminAPI.getGoogleConfig(showSensitive);
+      if (response.data.code === 0 && response.data.data) {
+        const d = response.data.data;
+        setGoogleConfig(prev => ({
+          ...prev,
+          googleClientId: d.client_id ?? '',
+          ...(showSensitive ? { googleClientSecret: d.client_secret ?? '' } : { googleClientSecret: '' }),
+          googleEnabled: d.enabled ?? false,
+          googleHasSecret: !!(d.client_secret && d.client_secret !== ''),
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to load Google config:', err);
+    }
+  };
+
+  const handleGoogleConfigSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const updateData = {
+        client_id: googleConfig.googleClientId,
+        enabled: googleConfig.googleEnabled,
+      };
+      if (googleConfig.googleClientSecret) {
+        updateData.client_secret = googleConfig.googleClientSecret;
+      }
+
+      const response = await adminAPI.updateGoogleConfig(updateData);
+
+      if (response.data.code === 0) {
+        showToast('Google 配置已成功保存', 'success');
+        loadGoogleConfig();
+      } else {
+        showToast(response.data.message || '保存失败', 'error');
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || '保存失败，请稍后重试', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Apple Sign In Configuration
+  const loadAppleConfig = async () => {
+    try {
+      const response = await adminAPI.getAppleConfig();
+      if (response.data.code === 0 && response.data.data) {
+        const d = response.data.data;
+        setAppleConfig({
+          appleServiceId: d.service_id ?? '',
+          appleTeamId: d.team_id ?? '',
+          appleKeyId: d.key_id ?? '',
+          applePrivateKey: '',
+          appleRedirectUri: d.redirect_uri ?? '',
+          appleHasKey: d.has_key ?? false,
+          appleEnabled: d.enabled ?? false,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load Apple config:', err);
+    }
+  };
+
+  const handleAppleConfigSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const domain = appleConfig.appleRedirectUri.replace(/\/$/, '');
+      const response = await adminAPI.updateAppleConfig({
+        service_id: appleConfig.appleServiceId,
+        team_id: appleConfig.appleTeamId,
+        key_id: appleConfig.appleKeyId,
+        private_key: appleConfig.applePrivateKey,
+        redirect_uri: domain,
+        enabled: appleConfig.appleEnabled,
+      });
+      if (response.data.code === 0) {
+        showToast('Apple 配置已成功保存', 'success');
+        loadAppleConfig();
+      } else {
+        showToast(response.data.message || '保存失败', 'error');
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || '保存失败，请稍后重试', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ORCID OAuth Configuration
+  const loadOrcidConfig = async (showSensitive = false) => {
+    try {
+      const response = await adminAPI.getOrcidConfig(showSensitive);
+      if (response.data.code === 0 && response.data.data) {
+        const d = response.data.data;
+        setOrcidConfig(prev => ({
+          ...prev,
+          orcidClientId: d.client_id ?? '',
+          ...(showSensitive ? { orcidClientSecret: d.client_secret ?? '' } : { orcidClientSecret: '' }),
+          orcidRedirectUri: d.redirect_uri ?? '',
+          orcidUseSandbox: d.use_sandbox ?? false,
+          orcidEnabled: d.enabled ?? false,
+          orcidHasSecret: !!(d.client_secret && d.client_secret !== ''),
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to load ORCID config:', err);
+    }
+  };
+
+  const handleOrcidConfigSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const domain = orcidConfig.orcidRedirectUri.replace(/\/$/, '');
+      const updateData = {
+        client_id: orcidConfig.orcidClientId,
+        redirect_uri: domain,
+        use_sandbox: orcidConfig.orcidUseSandbox,
+        enabled: orcidConfig.orcidEnabled,
+      };
+      if (orcidConfig.orcidClientSecret) {
+        updateData.client_secret = orcidConfig.orcidClientSecret;
+      }
+
+      const response = await adminAPI.updateOrcidConfig(updateData);
+      if (response.data.code === 0) {
+        showToast('ORCID 配置已成功保存', 'success');
+        loadOrcidConfig();
+      } else {
+        showToast(response.data.message || '保存失败', 'error');
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || '保存失败，请稍后重试', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Microsoft OAuth Configuration
+  const loadMicrosoftConfig = async (showSensitive = false) => {
+    try {
+      const response = await adminAPI.getMicrosoftConfig(showSensitive);
+      if (response.data.code === 0 && response.data.data) {
+        const d = response.data.data;
+        setMicrosoftConfig(prev => ({
+          ...prev,
+          msClientId: d.client_id ?? '',
+          ...(showSensitive ? { msClientSecret: d.client_secret ?? '' } : { msClientSecret: '' }),
+          msRedirectUri: d.redirect_uri ?? '',
+          msTenant: d.tenant ?? 'common',
+          msEnabled: d.enabled ?? false,
+          msHasSecret: !!(d.client_secret && d.client_secret !== ''),
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to load Microsoft config:', err);
+    }
+  };
+
+  const handleMicrosoftConfigSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const domain = microsoftConfig.msRedirectUri.replace(/\/$/, '');
+      const updateData = {
+        client_id: microsoftConfig.msClientId,
+        redirect_uri: domain,
+        tenant: microsoftConfig.msTenant,
+        enabled: microsoftConfig.msEnabled,
+      };
+      if (microsoftConfig.msClientSecret) {
+        updateData.client_secret = microsoftConfig.msClientSecret;
+      }
+
+      const response = await adminAPI.updateMicrosoftConfig(updateData);
+      if (response.data.code === 0) {
+        showToast('Microsoft 配置已成功保存', 'success');
+        loadMicrosoftConfig();
       } else {
         showToast(response.data.message || '保存失败', 'error');
       }
@@ -1133,17 +1335,19 @@ const SystemSettings = () => {
   };
 
   // 恩特学术（Discourse SSO）配置
-  const loadDiscourseConfig = async () => {
+  const loadDiscourseConfig = async (showSensitive = false) => {
     try {
-      const response = await adminAPI.getDiscourseConfig();
+      const response = await adminAPI.getDiscourseConfig(showSensitive);
       if (response.data.code === 0 && response.data.data) {
         const d = response.data.data;
-        setDiscourseConfig({
+        setDiscourseConfig(prev => ({
+          ...prev,
           siteUrl: d.site_url ?? '',
-          ssoSecret: d.sso_secret ?? '',
+          ...(showSensitive ? { ssoSecret: d.sso_secret ?? '' } : { ssoSecret: '' }),
           redirectUri: d.redirect_uri ?? '',
           enabled: d.enabled ?? false,
-        });
+          hasSecret: !!(d.sso_secret && d.sso_secret !== ''),
+        }));
       }
     } catch (err) {
       console.error('Failed to load Discourse config:', err);
@@ -1155,15 +1359,20 @@ const SystemSettings = () => {
     setLoading(true);
 
     try {
-      const response = await adminAPI.updateDiscourseConfig({
+      const updateData = {
         site_url: discourseConfig.siteUrl.replace(/\/$/, ''),
-        sso_secret: discourseConfig.ssoSecret,
         redirect_uri: discourseConfig.redirectUri.replace(/\/$/, ''),
         enabled: discourseConfig.enabled,
-      });
+      };
+      if (discourseConfig.ssoSecret) {
+        updateData.sso_secret = discourseConfig.ssoSecret;
+      }
+
+      const response = await adminAPI.updateDiscourseConfig(updateData);
 
       if (response.data.code === 0) {
         showToast('恩特学术登录配置已保存', 'success');
+        loadDiscourseConfig();
       } else {
         showToast(response.data.message || '保存失败', 'error');
       }
@@ -1182,93 +1391,77 @@ const SystemSettings = () => {
       </div>
 
       <div className="settings-tabs">
-        <button
-          className={`tab-button ${activeTab === 'email' ? 'active' : ''}`}
-          onClick={() => setActiveTab('email')}
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
-            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
-          </svg>
-          邮箱服务器
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'sms' ? 'active' : ''}`}
-          onClick={() => setActiveTab('sms')}
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
-          </svg>
-          短信服务
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'alipay' ? 'active' : ''}`}
-          onClick={() => setActiveTab('alipay')}
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/>
-            <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd"/>
-          </svg>
-          支付宝配置
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'wechat' ? 'active' : ''}`}
-          onClick={() => setActiveTab('wechat')}
-        >
-          <svg width="20" height="20" viewBox="0 0 1024 1024" fill="currentColor">
-            <path d="M664.250054 368.541681c10.015098 0 19.892049 0.732687 29.67281 1.795902-26.647917-122.810047-159.358451-214.077703-310.826188-214.077703-169.353083 0-308.085774 114.232694-308.085774 259.274068 0 83.708494 46.165436 152.460344 123.281791 205.78483l-30.80868 92.49925 107.688651-53.455469c38.558178 7.53665 69.459978 15.308661 107.924012 15.308661 9.66308 0 19.230993-0.470721 28.752858-1.225921-6.025227-20.36584-9.521864-41.723264-9.521864-63.862493C402.328693 476.632491 517.908058 368.541681 664.250054 368.541681zM498.62897 285.87389c23.200398 0 38.557154 15.120372 38.557154 38.061874 0 22.846334-15.356756 38.156018-38.557154 38.156018-23.107277 0-46.260603-15.309684-46.260603-38.156018C452.368366 300.994262 475.522716 285.87389 498.62897 285.87389zM283.016307 362.090758c-23.107277 0-46.402843-15.309684-46.402843-38.156018 0-22.941502 23.295566-38.061874 46.402843-38.061874 23.081695 0 38.46301 15.120372 38.46301 38.061874C321.479317 346.782098 306.098002 362.090758 283.016307 362.090758zM945.448458 606.151333c0-121.888048-123.258255-221.236753-261.683954-221.236753-146.57838 0-262.015505 99.348706-262.015505 221.236753 0 122.06508 115.437126 221.200938 262.015505 221.200938 30.66644 0 61.617359-7.609305 92.423993-15.262612l84.513836 45.786813-23.178909-76.17082C899.379213 735.776599 945.448458 674.90216 945.448458 606.151333zM598.803483 567.994292c-15.332197 0-30.807656-15.096836-30.807656-30.501688 0-15.190981 15.47546-30.477129 30.807656-30.477129 23.295566 0 38.558178 15.286148 38.558178 30.477129C637.361661 552.897456 622.099049 567.994292 598.803483 567.994292zM768.25071 567.994292c-15.213493 0-30.594809-15.096836-30.594809-30.501688 0-15.190981 15.381315-30.477129 30.594809-30.477129 23.107277 0 38.558178 15.286148 38.558178 30.477129C806.808888 552.897456 791.357987 567.994292 768.25071 567.994292z"/>
-          </svg>
-          微信开发者配置
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'github' ? 'active' : ''}`}
-          onClick={() => setActiveTab('github')}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-          </svg>
-          GitHub 登录
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'discourse' ? 'active' : ''}`}
-          onClick={() => setActiveTab('discourse')}
-        >
-          <svg width="20" height="20" viewBox="0 0 512 512" fill="none">
-            <path d="M202.332 313.708C203.111 325.894 194.563 330.934 194.868 315.823C194.868 315.823 183.55 162.079 299.559 124.351C299.559 124.351 306.574 122.574 300.239 132.245C300.239 132.243 192.859 165.505 202.332 313.708Z" fill="#428249"/>
-            <path d="M301.956 312.888C308.821 322.982 304.091 331.662 296.623 318.519C296.623 318.519 216.088 216.244 296.474 124.484C296.474 124.484 300.738 120.694 300.241 132.243C300.239 132.243 225.036 199.736 301.956 312.888Z" fill="#428249"/>
-            <path d="M198.147 386.151C221.21 388.52 230.67 379.782 236.404 370.838C240.058 365.138 244.534 356.253 244.534 346.16C244.534 328.073 231.931 313.412 216.383 313.412C209.425 313.412 205.062 315.768 198.145 315.768C191.229 315.768 186.867 313.412 179.907 313.412C164.36 313.412 151.757 328.073 151.757 346.16C151.757 356.251 156.232 365.137 159.887 370.838C165.622 379.784 175.082 388.52 198.147 386.151Z" fill="#E64546"/>
-            <path d="M330.549 381.206C352.441 373.567 357.3 361.639 358.699 351.112C359.592 344.4 359.873 334.456 355.593 325.316C347.921 308.934 330.289 301.008 316.21 307.602C309.908 310.554 306.958 314.538 300.694 317.469C294.431 320.405 289.479 320.123 283.179 323.076C269.101 329.67 263.905 348.291 271.577 364.672C275.858 373.812 283.681 379.957 289.41 383.57C298.394 389.237 310.667 393.137 330.549 381.206Z" fill="#E64546"/>
-            <path d="M307.441 124.946C304.671 120.839 297.194 121.038 290.741 125.39C284.287 129.743 281.301 136.601 284.071 140.708C286.842 144.815 294.319 144.616 300.772 140.263C307.225 135.911 310.211 129.053 307.441 124.946Z" fill="#225E28"/>
-          </svg>
-          恩特学术登录
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'privacy' ? 'active' : ''}`}
-          onClick={() => setActiveTab('privacy')}
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zM4 4h3a3 3 0 006 0h3a2 2 0 012 2v9a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2zm2.5 7a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm2.45 4a2.5 2.5 0 10-4.9 0h4.9zM12 9a1 1 0 100 2h3a1 1 0 100-2h-3zm-1 4a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1z" clipRule="evenodd"/>
-          </svg>
-          隐私协议
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'terms' ? 'active' : ''}`}
-          onClick={() => setActiveTab('terms')}
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/>
-          </svg>
-          用户协议
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'system' ? 'active' : ''}`}
-          onClick={() => setActiveTab('system')}
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd"/>
-          </svg>
-          系统配置
-        </button>
+        {/* 消息服务 */}
+        <div className="tab-group">
+          <span className="tab-group-label">消息服务</span>
+          <button className={`tab-button ${activeTab === 'email' ? 'active' : ''}`} onClick={() => setActiveTab('email')}>
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/></svg>
+            邮箱
+          </button>
+          <button className={`tab-button ${activeTab === 'sms' ? 'active' : ''}`} onClick={() => setActiveTab('sms')}>
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/></svg>
+            短信
+          </button>
+        </div>
+
+        {/* 支付配置 */}
+        <div className="tab-group">
+          <span className="tab-group-label">支付</span>
+          <button className={`tab-button ${activeTab === 'alipay' ? 'active' : ''}`} onClick={() => setActiveTab('alipay')}>
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd"/></svg>
+            支付宝
+          </button>
+          <button className={`tab-button ${activeTab === 'wechat' ? 'active' : ''}`} onClick={() => setActiveTab('wechat')}>
+            <svg viewBox="0 0 1024 1024" fill="currentColor"><path d="M664.250054 368.541681c10.015098 0 19.892049 0.732687 29.67281 1.795902-26.647917-122.810047-159.358451-214.077703-310.826188-214.077703-169.353083 0-308.085774 114.232694-308.085774 259.274068 0 83.708494 46.165436 152.460344 123.281791 205.78483l-30.80868 92.49925 107.688651-53.455469c38.558178 7.53665 69.459978 15.308661 107.924012 15.308661 9.66308 0 19.230993-0.470721 28.752858-1.225921-6.025227-20.36584-9.521864-41.723264-9.521864-63.862493C402.328693 476.632491 517.908058 368.541681 664.250054 368.541681z"/></svg>
+            微信
+          </button>
+        </div>
+
+        {/* 第三方登录 */}
+        <div className="tab-group">
+          <span className="tab-group-label">第三方登录</span>
+          <button className={`tab-button ${activeTab === 'github' ? 'active' : ''}`} onClick={() => setActiveTab('github')}>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            GitHub
+          </button>
+          <button className={`tab-button ${activeTab === 'google' ? 'active' : ''}`} onClick={() => setActiveTab('google')}>
+            <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+            Google
+          </button>
+          <button className={`tab-button ${activeTab === 'apple' ? 'active' : ''}`} onClick={() => setActiveTab('apple')}>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+            Apple
+          </button>
+          <button className={`tab-button ${activeTab === 'microsoft' ? 'active' : ''}`} onClick={() => setActiveTab('microsoft')}>
+            <svg viewBox="0 0 24 24" fill="#00A4EF"><path d="M1 1h10.5v10.5H1V1zm12.5 0H24v10.5H13.5V1zM1 13.5h10.5V24H1V13.5zm12.5 0H24V24H13.5V13.5z"/></svg>
+            Microsoft
+          </button>
+          <button className={`tab-button ${activeTab === 'orcid' ? 'active' : ''}`} onClick={() => setActiveTab('orcid')}>
+            <svg viewBox="0 0 24 24" fill="#A6CE39"><path d="M12 0C5.372 0 0 5.372 0 12s5.372 12 12 12 12-5.372 12-12S18.628 0 12 0zM7.369 4.378c.525 0 .947.431.947.947s-.422.947-.947.947a.95.95 0 0 1-.947-.947c0-.525.422-.947.947-.947zm-.722 3.038h1.444v10.041H6.647V7.416zm3.562 0h3.9c3.712 0 5.344 2.653 5.344 5.025 0 2.578-2.016 5.025-5.325 5.025h-3.919V7.416zm1.444 1.303v7.444h2.297c3.272 0 4.022-2.484 4.022-3.722 0-1.847-1.238-3.722-3.806-3.722h-2.513z"/></svg>
+            ORCID
+          </button>
+          <button className={`tab-button ${activeTab === 'discourse' ? 'active' : ''}`} onClick={() => setActiveTab('discourse')}>
+            <svg viewBox="0 0 512 512" fill="none"><path d="M202.332 313.708C203.111 325.894 194.563 330.934 194.868 315.823C194.868 315.823 183.55 162.079 299.559 124.351C299.559 124.351 306.574 122.574 300.239 132.245C300.239 132.243 192.859 165.505 202.332 313.708Z" fill="#428249"/><path d="M301.956 312.888C308.821 322.982 304.091 331.662 296.623 318.519C296.623 318.519 216.088 216.244 296.474 124.484C296.474 124.484 300.738 120.694 300.241 132.243C300.239 132.243 225.036 199.736 301.956 312.888Z" fill="#428249"/><path d="M198.147 386.151C221.21 388.52 230.67 379.782 236.404 370.838C240.058 365.138 244.534 356.253 244.534 346.16C244.534 328.073 231.931 313.412 216.383 313.412C209.425 313.412 205.062 315.768 198.145 315.768C191.229 315.768 186.867 313.412 179.907 313.412C164.36 313.412 151.757 328.073 151.757 346.16C151.757 356.251 156.232 365.137 159.887 370.838C165.622 379.784 175.082 388.52 198.147 386.151Z" fill="#E64546"/><path d="M330.549 381.206C352.441 373.567 357.3 361.639 358.699 351.112C359.592 344.4 359.873 334.456 355.593 325.316C347.921 308.934 330.289 301.008 316.21 307.602C309.908 310.554 306.958 314.538 300.694 317.469C294.431 320.405 289.479 320.123 283.179 323.076C269.101 329.67 263.905 348.291 271.577 364.672C275.858 373.812 283.681 379.957 289.41 383.57C298.394 389.237 310.667 393.137 330.549 381.206Z" fill="#E64546"/><path d="M307.441 124.946C304.671 120.839 297.194 121.038 290.741 125.39C284.287 129.743 281.301 136.601 284.071 140.708C286.842 144.815 294.319 144.616 300.772 140.263C307.225 135.911 310.211 129.053 307.441 124.946Z" fill="#225E28"/></svg>
+            恩特学术
+          </button>
+        </div>
+
+        {/* 系统与合规 */}
+        <div className="tab-group">
+          <span className="tab-group-label">系统</span>
+          <button className={`tab-button ${activeTab === 'system' ? 'active' : ''}`} onClick={() => setActiveTab('system')}>
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd"/></svg>
+            通用设置
+          </button>
+          <button className={`tab-button ${activeTab === 'privacy' ? 'active' : ''}`} onClick={() => setActiveTab('privacy')}>
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zM4 4h3a3 3 0 006 0h3a2 2 0 012 2v9a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2zm2.5 7a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm2.45 4a2.5 2.5 0 10-4.9 0h4.9zM12 9a1 1 0 100 2h3a1 1 0 100-2h-3zm-1 4a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1z" clipRule="evenodd"/></svg>
+            隐私协议
+          </button>
+          <button className={`tab-button ${activeTab === 'terms' ? 'active' : ''}`} onClick={() => setActiveTab('terms')}>
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/></svg>
+            用户协议
+          </button>
+        </div>
       </div>
 
       <div className="settings-content">
@@ -1859,6 +2052,7 @@ const SystemSettings = () => {
                     <button className="modal-close" onClick={() => setShowAlipayModal(false)}>×</button>
                   </div>
                   <form onSubmit={handleSubmitAlipay}>
+                    <div className="modal-body">
                     <div className="form-group">
                       <label htmlFor="app_id">应用 ID *</label>
                       <input
@@ -1928,7 +2122,8 @@ const SystemSettings = () => {
                         <span>沙箱环境</span>
                       </label>
                     </div>
-                    <div className="modal-actions">
+                    </div>
+                    <div className="modal-footer">
                       <button type="button" className="btn btn-outline" onClick={() => setShowAlipayModal(false)}>
                         取消
                       </button>
@@ -2078,6 +2273,7 @@ const SystemSettings = () => {
                     <button className="modal-close" onClick={() => setShowWechatPayModal(false)}>×</button>
                   </div>
                   <form onSubmit={handleSubmitWechatPay}>
+                    <div className="modal-body">
                     <div className="form-group">
                       <label htmlFor="mch_id">商户号 *</label>
                       <input
@@ -2161,7 +2357,8 @@ const SystemSettings = () => {
                         <span>沙箱环境</span>
                       </label>
                     </div>
-                    <div className="modal-actions">
+                    </div>
+                    <div className="modal-footer">
                       <button type="button" className="btn btn-outline" onClick={() => setShowWechatPayModal(false)}>
                         取消
                       </button>
@@ -2259,6 +2456,7 @@ const SystemSettings = () => {
                         <button className="modal-close" onClick={() => setShowWechatModal(false)}>×</button>
                       </div>
                       <form onSubmit={handleSubmitWechat}>
+                        <div className="modal-body">
                         <div className="form-group">
                           <label htmlFor="wechat_app_id">应用 ID *</label>
                           <input
@@ -2308,7 +2506,8 @@ const SystemSettings = () => {
                             <option value="snsapi_userinfo">用户信息(snsapi_userinfo)</option>
                           </select>
                         </div>
-                        <div className="modal-actions">
+                        </div>
+                        <div className="modal-footer">
                           <button type="button" className="btn btn-outline" onClick={() => setShowWechatModal(false)}>
                             取消
                           </button>
@@ -2650,6 +2849,300 @@ const SystemSettings = () => {
           </div>
         )}
 
+        {/* Google OAuth Configuration Tab */}
+        {activeTab === 'google' && (
+          <div className="settings-section fade-in">
+          <form onSubmit={handleGoogleConfigSubmit} className="settings-form">
+            <div className="section-header">
+              <h2>Google 登录配置</h2>
+              <p>配置 Google OAuth 以支持用户通过 Google 账号登录（支持 One Tap 快捷登录）</p>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="googleClientId">Client ID</label>
+              <input
+                type="text"
+                id="googleClientId"
+                className="input"
+                value={googleConfig.googleClientId}
+                onChange={(e) => setGoogleConfig({ ...googleConfig, googleClientId: e.target.value })}
+                placeholder="xxxxxxxx.apps.googleusercontent.com"
+              />
+              <small className="form-hint">从 Google Cloud Console → APIs & Services → Credentials 获取</small>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="googleClientSecret">Client Secret（可选）</label>
+              {googleConfig.googleHasSecret && (
+                <SensitiveField
+                  value={isVerified ? googleConfig.googleClientSecret : '********'}
+                  isVerified={isVerified}
+                  onRequestVerify={handleRequestVerify}
+                />
+              )}
+              <input
+                type="password"
+                id="googleClientSecret"
+                className="input"
+                value={googleConfig.googleClientSecret}
+                onChange={(e) => setGoogleConfig({ ...googleConfig, googleClientSecret: e.target.value })}
+                placeholder={googleConfig.googleHasSecret ? '留空则不修改现有密钥' : 'ID Token 模式不需要 Client Secret'}
+              />
+              <small className="form-hint">当前使用 ID Token 模式，Client Secret 为可选项</small>
+            </div>
+
+            <div className="form-group">
+              <label className="toggle-label">
+                <input
+                  type="checkbox"
+                  checked={googleConfig.googleEnabled}
+                  onChange={(e) => setGoogleConfig({ ...googleConfig, googleEnabled: e.target.checked })}
+                />
+                <span>启用 Google 登录</span>
+              </label>
+            </div>
+
+            <div className="form-group">
+              <div className="info-box">
+                <h4>配置说明</h4>
+                <ol>
+                  <li>访问 <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Google Cloud Console</a></li>
+                  <li>创建 OAuth 2.0 Client ID（Web application 类型）</li>
+                  <li>在「Authorized JavaScript origins」中添加您的网站域名</li>
+                  <li>复制 Client ID 填入上方</li>
+                  <li>在 OAuth consent screen 中配置应用名称和范围（openid, email, profile）</li>
+                </ol>
+                <h4>登录方式</h4>
+                <ul>
+                  <li><strong>One Tap</strong>：已登录 Google 的用户会在页面右上角看到快捷登录弹窗</li>
+                  <li><strong>按钮登录</strong>：点击 Google 登录按钮进行标准 OAuth 流程</li>
+                </ul>
+              </div>
+            </div>
+
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? '保存中...' : '保存配置'}
+            </button>
+          </form>
+          </div>
+        )}
+
+        {/* ORCID OAuth Configuration Tab */}
+        {activeTab === 'orcid' && (
+          <div className="settings-section fade-in">
+          <form onSubmit={handleOrcidConfigSubmit} className="settings-form">
+            <div className="section-header">
+              <h2>ORCID 登录配置</h2>
+              <p>配置 ORCID OAuth 以支持研究者通过 ORCID iD 登录</p>
+            </div>
+            <div className="form-group">
+              <label>Client ID</label>
+              <input type="text" className="input" value={orcidConfig.orcidClientId}
+                onChange={(e) => setOrcidConfig({ ...orcidConfig, orcidClientId: e.target.value })}
+                placeholder="APP-XXXXXXXXXXXXXXXX" />
+              <small className="form-hint">从 ORCID Developer Tools 获取</small>
+            </div>
+            <div className="form-group">
+              <label>Client Secret</label>
+              {orcidConfig.orcidHasSecret && (
+                <SensitiveField
+                  value={isVerified ? orcidConfig.orcidClientSecret : '********'}
+                  isVerified={isVerified}
+                  onRequestVerify={handleRequestVerify}
+                />
+              )}
+              <input type="password" className="input" value={orcidConfig.orcidClientSecret}
+                onChange={(e) => setOrcidConfig({ ...orcidConfig, orcidClientSecret: e.target.value })}
+                placeholder={orcidConfig.orcidHasSecret ? '留空则不修改现有密钥' : '输入 Client Secret'} />
+            </div>
+            <div className="form-group">
+              <label>网站域名</label>
+              <input type="text" className="input" value={orcidConfig.orcidRedirectUri}
+                onChange={(e) => setOrcidConfig({ ...orcidConfig, orcidRedirectUri: e.target.value })}
+                placeholder="https://yourdomain.com" />
+              <small className="form-hint">系统会自动在域名后拼接 /orcid/callback 作为回调地址</small>
+            </div>
+            <div className="form-group">
+              <label className="toggle-label">
+                <input type="checkbox" checked={orcidConfig.orcidUseSandbox}
+                  onChange={(e) => setOrcidConfig({ ...orcidConfig, orcidUseSandbox: e.target.checked })} />
+                <span>使用 Sandbox 环境（开发测试用）</span>
+              </label>
+            </div>
+            <div className="form-group">
+              <label className="toggle-label">
+                <input type="checkbox" checked={orcidConfig.orcidEnabled}
+                  onChange={(e) => setOrcidConfig({ ...orcidConfig, orcidEnabled: e.target.checked })} />
+                <span>启用 ORCID 登录</span>
+              </label>
+            </div>
+            <div className="form-group">
+              <div className="info-box">
+                <h4>配置说明</h4>
+                <ol>
+                  <li>访问 <a href="https://orcid.org/developer-tools" target="_blank" rel="noopener noreferrer">orcid.org/developer-tools</a> 注册应用</li>
+                  <li>设置 Redirect URI 为上方自动生成的回调地址</li>
+                  <li>复制 Client ID 和 Client Secret</li>
+                  <li>开发阶段可使用 Sandbox 环境 (sandbox.orcid.org)</li>
+                </ol>
+              </div>
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? '保存中...' : '保存配置'}
+            </button>
+          </form>
+          </div>
+        )}
+
+        {/* Apple Sign In Configuration Tab */}
+        {activeTab === 'apple' && (
+          <div className="settings-section fade-in">
+          <form onSubmit={handleAppleConfigSubmit} className="settings-form">
+            <div className="section-header">
+              <h2>Apple 登录配置</h2>
+              <p>配置 Sign in with Apple 以支持 Apple 用户登录</p>
+            </div>
+            <div className="form-group">
+              <label>Service ID (Identifier)</label>
+              <input type="text" className="input" value={appleConfig.appleServiceId}
+                onChange={(e) => setAppleConfig({ ...appleConfig, appleServiceId: e.target.value })}
+                placeholder="com.example.app.signin" />
+              <small className="form-hint">Apple Developer → Certificates, Identifiers & Profiles → Identifiers → Services IDs</small>
+            </div>
+            <div className="form-group">
+              <label>Team ID</label>
+              <input type="text" className="input" value={appleConfig.appleTeamId}
+                onChange={(e) => setAppleConfig({ ...appleConfig, appleTeamId: e.target.value })}
+                placeholder="XXXXXXXXXX" />
+              <small className="form-hint">Apple Developer 右上角 → Membership → Team ID</small>
+            </div>
+            <div className="form-group">
+              <label>Key ID</label>
+              <input type="text" className="input" value={appleConfig.appleKeyId}
+                onChange={(e) => setAppleConfig({ ...appleConfig, appleKeyId: e.target.value })}
+                placeholder="XXXXXXXXXX" />
+              <small className="form-hint">Apple Developer → Keys → 创建 Sign in with Apple Key 后获取</small>
+            </div>
+            <div className="form-group">
+              <label>Private Key (.p8 文件内容) {appleConfig.appleHasKey && <span style={{color:'#22c55e'}}>(已配置)</span>}</label>
+              <textarea className="input" rows={4}
+                value={appleConfig.applePrivateKey}
+                onChange={(e) => setAppleConfig({ ...appleConfig, applePrivateKey: e.target.value })}
+                placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"
+                style={{ fontFamily: 'monospace', fontSize: 12 }} />
+              <small className="form-hint">粘贴 .p8 文件的完整内容。留空则保留现有密钥。</small>
+            </div>
+            <div className="form-group">
+              <label>网站域名</label>
+              <input type="text" className="input" value={appleConfig.appleRedirectUri}
+                onChange={(e) => setAppleConfig({ ...appleConfig, appleRedirectUri: e.target.value })}
+                placeholder="https://yourdomain.com" />
+              <small className="form-hint">系统会自动在域名后拼接 /apple/callback 作为回调地址（需要 HTTPS）</small>
+            </div>
+            <div className="form-group">
+              <label className="toggle-label">
+                <input type="checkbox" checked={appleConfig.appleEnabled}
+                  onChange={(e) => setAppleConfig({ ...appleConfig, appleEnabled: e.target.checked })} />
+                <span>启用 Apple 登录</span>
+              </label>
+            </div>
+            <div className="form-group">
+              <div className="info-box">
+                <h4>配置说明</h4>
+                <ol>
+                  <li>访问 <a href="https://developer.apple.com/account/resources" target="_blank" rel="noopener noreferrer">Apple Developer Portal</a></li>
+                  <li>创建 App ID（需勾选 Sign in with Apple）</li>
+                  <li>创建 Services ID（关联到 App ID，配置域名和回调地址）</li>
+                  <li>创建 Key（勾选 Sign in with Apple，下载 .p8 文件）</li>
+                  <li>回调地址必须使用 HTTPS</li>
+                </ol>
+                <h4>注意事项</h4>
+                <ul>
+                  <li>Apple 只在用户<strong>首次授权</strong>时返回姓名和邮箱</li>
+                  <li>用户可以选择隐藏真实邮箱（Apple 会提供一个中转邮箱）</li>
+                  <li>需要 Apple Developer Program 会员资格（$99/年）</li>
+                </ul>
+              </div>
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? '保存中...' : '保存配置'}
+            </button>
+          </form>
+          </div>
+        )}
+
+        {/* Microsoft OAuth Configuration Tab */}
+        {activeTab === 'microsoft' && (
+          <div className="settings-section fade-in">
+          <form onSubmit={handleMicrosoftConfigSubmit} className="settings-form">
+            <div className="section-header">
+              <h2>Microsoft 登录配置</h2>
+              <p>配置 Microsoft OAuth 以支持用户通过 Microsoft/Office 365 账号登录</p>
+            </div>
+            <div className="form-group">
+              <label>Application (Client) ID</label>
+              <input type="text" className="input" value={microsoftConfig.msClientId}
+                onChange={(e) => setMicrosoftConfig({ ...microsoftConfig, msClientId: e.target.value })}
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+              <small className="form-hint">从 Azure Portal → App registrations 获取</small>
+            </div>
+            <div className="form-group">
+              <label>Client Secret</label>
+              {microsoftConfig.msHasSecret && (
+                <SensitiveField
+                  value={isVerified ? microsoftConfig.msClientSecret : '********'}
+                  isVerified={isVerified}
+                  onRequestVerify={handleRequestVerify}
+                />
+              )}
+              <input type="password" className="input" value={microsoftConfig.msClientSecret}
+                onChange={(e) => setMicrosoftConfig({ ...microsoftConfig, msClientSecret: e.target.value })}
+                placeholder={microsoftConfig.msHasSecret ? '留空则不修改现有密钥' : '输入 Client Secret'} />
+            </div>
+            <div className="form-group">
+              <label>网站域名</label>
+              <input type="text" className="input" value={microsoftConfig.msRedirectUri}
+                onChange={(e) => setMicrosoftConfig({ ...microsoftConfig, msRedirectUri: e.target.value })}
+                placeholder="https://yourdomain.com" />
+              <small className="form-hint">系统会自动在域名后拼接 /microsoft/callback 作为回调地址</small>
+            </div>
+            <div className="form-group">
+              <label>Tenant</label>
+              <select className="input" value={microsoftConfig.msTenant}
+                onChange={(e) => setMicrosoftConfig({ ...microsoftConfig, msTenant: e.target.value })}>
+                <option value="common">common（所有 Microsoft 账号）</option>
+                <option value="organizations">organizations（仅组织账号）</option>
+                <option value="consumers">consumers（仅个人账号）</option>
+              </select>
+              <small className="form-hint">选择 common 支持所有类型的 Microsoft 账号（包括高校 .edu 账号）</small>
+            </div>
+            <div className="form-group">
+              <label className="toggle-label">
+                <input type="checkbox" checked={microsoftConfig.msEnabled}
+                  onChange={(e) => setMicrosoftConfig({ ...microsoftConfig, msEnabled: e.target.checked })} />
+                <span>启用 Microsoft 登录</span>
+              </label>
+            </div>
+            <div className="form-group">
+              <div className="info-box">
+                <h4>配置说明</h4>
+                <ol>
+                  <li>访问 <a href="https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener noreferrer">Azure Portal → App registrations</a></li>
+                  <li>点击 "New registration" 创建应用</li>
+                  <li>Supported account types 选择 "Accounts in any organizational directory and personal Microsoft accounts"</li>
+                  <li>Redirect URI 选 Web，填入上方自动生成的回调地址</li>
+                  <li>在 Certificates & secrets 中创建 Client Secret</li>
+                  <li>API permissions 中添加 User.Read 权限</li>
+                </ol>
+              </div>
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? '保存中...' : '保存配置'}
+            </button>
+          </form>
+          </div>
+        )}
+
         {/* 恩特学术登录（Discourse SSO）Tab */}
         {activeTab === 'discourse' && (
           <div className="settings-section fade-in">
@@ -2674,13 +3167,20 @@ const SystemSettings = () => {
 
               <div className="form-group">
                 <label htmlFor="discourseSsoSecret">SSO 共享密钥</label>
+                {discourseConfig.hasSecret && (
+                  <SensitiveField
+                    value={isVerified ? discourseConfig.ssoSecret : '********'}
+                    isVerified={isVerified}
+                    onRequestVerify={handleRequestVerify}
+                  />
+                )}
                 <input
                   type="password"
                   id="discourseSsoSecret"
                   className="input"
                   value={discourseConfig.ssoSecret}
                   onChange={(e) => setDiscourseConfig(prev => ({ ...prev, ssoSecret: e.target.value }))}
-                  placeholder="至少 10 个字符的随机密钥"
+                  placeholder={discourseConfig.hasSecret ? '留空则不修改现有密钥' : '至少 10 个字符的随机密钥'}
                 />
                 <span className="form-hint">必须与恩特学术后台 discourse connect provider secrets 中填写的密钥完全一致</span>
               </div>
@@ -2728,7 +3228,7 @@ const SystemSettings = () => {
                       fontSize: '13px',
                       wordBreak: 'break-all',
                     }}>
-                      {discourseConfig.redirectUri || 'http://你的域名/discourse/callback'}|{discourseConfig.ssoSecret || '你的密钥'}
+                      {discourseConfig.redirectUri || 'http://你的域名/discourse/callback'}|{(isVerified && discourseConfig.ssoSecret) ? discourseConfig.ssoSecret : '你的密钥'}
                     </code>
                   </li>
                   <li>左边填回调地址的域名（如 <code>localhost</code> 或 <code>scholay.com</code>），右边填密钥</li>
@@ -2737,7 +3237,7 @@ const SystemSettings = () => {
 
               <button
                 type="submit"
-                className="submit-btn"
+                className="btn btn-primary"
                 disabled={loading}
               >
                 {loading ? '保存中...' : '保存配置'}
@@ -2884,6 +3384,13 @@ const SystemSettings = () => {
 
               <div className="form-group">
                 <label htmlFor="githubClientSecret">Client Secret</label>
+                {githubConfig.githubHasSecret && (
+                  <SensitiveField
+                    value={isVerified ? githubConfig.githubClientSecret : '********'}
+                    isVerified={isVerified}
+                    onRequestVerify={handleRequestVerify}
+                  />
+                )}
                 <input
                   type="password"
                   id="githubClientSecret"
@@ -2893,8 +3400,7 @@ const SystemSettings = () => {
                     ...githubConfig,
                     githubClientSecret: e.target.value
                   })}
-                  placeholder="输入 Client Secret"
-                  required
+                  placeholder={githubConfig.githubHasSecret ? '留空则不修改现有密钥' : '输入 Client Secret'}
                 />
                 <small className="form-hint">从 GitHub App 或 OAuth App 设置中获取（请妥善保管，不要泄露）</small>
               </div>
@@ -3072,6 +3578,13 @@ const SystemSettings = () => {
                     </div>
                     <div className="form-group">
                       <label htmlFor="turnstileSecretKey">Turnstile Secret Key (私钥)</label>
+                      {systemConfig.turnstileHasSecret && (
+                        <SensitiveField
+                          value={isVerified ? systemConfig.turnstileSecretKey : '********'}
+                          isVerified={isVerified}
+                          onRequestVerify={handleRequestVerify}
+                        />
+                      )}
                       <input
                         type="password"
                         id="turnstileSecretKey"
@@ -3081,7 +3594,7 @@ const SystemSettings = () => {
                           ...systemConfig,
                           turnstileSecretKey: e.target.value
                         })}
-                        placeholder="1x0000000000000000000000000000000AA (测试密钥)"
+                        placeholder={systemConfig.turnstileHasSecret ? '留空则不修改现有密钥' : '1x0000000000000000000000000000000AA (测试密钥)'}
                       />
                       <small className="form-hint">从 Cloudflare Turnstile 控制台获取</small>
                     </div>

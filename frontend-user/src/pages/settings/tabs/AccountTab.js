@@ -10,6 +10,7 @@
  */
 
 import React, { memo } from 'react';
+import GoogleSignIn from '../../../components/GoogleSignIn';
 
 const AccountTab = memo(({
   user,
@@ -24,6 +25,9 @@ const AccountTab = memo(({
   handleCloseModal,
   handleBindWeChat,
   handleBindGitHub,
+  handleBindApple,
+  handleBindOrcid,
+  handleBindMicrosoft,
   handleBindDiscourse,
   handleCheckAvailability,
   handleSendModalCode,
@@ -261,6 +265,62 @@ const AccountTab = memo(({
       );
     }
 
+    if (type === 'unbind-google') {
+      return (
+        <>
+          <div className="modal-info modal-warning">
+            <p>即将解绑 Google 账号</p>
+            <p className="warning-text">注意：必须至少保留一种登录方式</p>
+          </div>
+          <button className="btn-modal-submit btn-modal-danger" onClick={handleModalSubmit} disabled={loading}>
+            {loading ? '处理中...' : '确认解绑'}
+          </button>
+        </>
+      );
+    }
+
+    if (type === 'unbind-apple') {
+      return (
+        <>
+          <div className="modal-info modal-warning">
+            <p>即将解绑 Apple 账号</p>
+            <p className="warning-text">注意：必须至少保留一种登录方式</p>
+          </div>
+          <button className="btn-modal-submit btn-modal-danger" onClick={handleModalSubmit} disabled={loading}>
+            {loading ? '处理中...' : '确认解绑'}
+          </button>
+        </>
+      );
+    }
+
+    if (type === 'unbind-orcid') {
+      return (
+        <>
+          <div className="modal-info modal-warning">
+            <p>即将解绑 ORCID 账号</p>
+            <p className="warning-text">注意：必须至少保留一种登录方式</p>
+          </div>
+          <button className="btn-modal-submit btn-modal-danger" onClick={handleModalSubmit} disabled={loading}>
+            {loading ? '处理中...' : '确认解绑'}
+          </button>
+        </>
+      );
+    }
+
+    if (type === 'unbind-microsoft') {
+      return (
+        <>
+          <div className="modal-info modal-warning">
+            <p>即将解绑 Microsoft 账号</p>
+            <p className="warning-text">注意：必须至少保留一种登录方式</p>
+          </div>
+          <button className="btn-modal-submit btn-modal-danger" onClick={handleModalSubmit} disabled={loading}>
+            {loading ? '处理中...' : '确认解绑'}
+          </button>
+        </>
+      );
+    }
+
     if (type === 'unbind-discourse') {
       return (
         <>
@@ -435,6 +495,130 @@ const AccountTab = memo(({
               </>
             ) : (
               <button className="btn-action btn-action-primary" onClick={handleBindGitHub}>
+                绑定
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Google Card */}
+        <div className={`account-binding-card ${user?.google_id ? 'bound' : 'unbound'}`}>
+          <div className="binding-icon binding-icon-google">
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+          </div>
+          <div className="binding-info">
+            <div className="binding-label">Google</div>
+            <div className="binding-value">{user?.google_id ? (user?.google_email || '已绑定') : '未绑定'}</div>
+          </div>
+          <div className="binding-actions">
+            {user?.google_id ? (
+              <>
+                {getLoginMethodCount() > 1 && (
+                  <button className="btn-action btn-action-danger" onClick={() => handleOpenModal('unbind-google', '')}>
+                    解绑
+                  </button>
+                )}
+              </>
+            ) : (
+              <GoogleSignIn
+                mode="bind"
+                enableOneTap={false}
+                theme="outline"
+                size="medium"
+                text="signin_with"
+                onSuccess={() => {
+                  showToast('Google 账号绑定成功', 'success');
+                  refreshProfile?.();
+                }}
+                onError={(err) => showToast(typeof err === 'string' ? err : 'Google 绑定失败', 'error')}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Apple Card */}
+        <div className={`account-binding-card ${user?.apple_id ? 'bound' : 'unbound'}`}>
+          <div className="binding-icon binding-icon-apple">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+            </svg>
+          </div>
+          <div className="binding-info">
+            <div className="binding-label">Apple</div>
+            <div className="binding-value">{user?.apple_id ? '已绑定' : '未绑定'}</div>
+          </div>
+          <div className="binding-actions">
+            {user?.apple_id ? (
+              <>
+                {getLoginMethodCount() > 1 && (
+                  <button className="btn-action btn-action-danger" onClick={() => handleOpenModal('unbind-apple', '')}>
+                    解绑
+                  </button>
+                )}
+              </>
+            ) : (
+              <button className="btn-action btn-action-primary" onClick={handleBindApple}>
+                绑定
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ORCID Card */}
+        <div className={`account-binding-card ${user?.orcid_id ? 'bound' : 'unbound'}`}>
+          <div className="binding-icon binding-icon-orcid">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#A6CE39">
+              <path d="M12 0C5.372 0 0 5.372 0 12s5.372 12 12 12 12-5.372 12-12S18.628 0 12 0zM7.369 4.378c.525 0 .947.431.947.947s-.422.947-.947.947a.95.95 0 0 1-.947-.947c0-.525.422-.947.947-.947zm-.722 3.038h1.444v10.041H6.647V7.416zm3.562 0h3.9c3.712 0 5.344 2.653 5.344 5.025 0 2.578-2.016 5.025-5.325 5.025h-3.919V7.416zm1.444 1.303v7.444h2.297c3.272 0 4.022-2.484 4.022-3.722 0-1.847-1.238-3.722-3.806-3.722h-2.513z"/>
+            </svg>
+          </div>
+          <div className="binding-info">
+            <div className="binding-label">ORCID</div>
+            <div className="binding-value">{user?.orcid_id || '未绑定'}</div>
+          </div>
+          <div className="binding-actions">
+            {user?.orcid_id ? (
+              <>
+                {getLoginMethodCount() > 1 && (
+                  <button className="btn-action btn-action-danger" onClick={() => handleOpenModal('unbind-orcid', '')}>
+                    解绑
+                  </button>
+                )}
+              </>
+            ) : (
+              <button className="btn-action btn-action-primary" onClick={handleBindOrcid}>
+                绑定
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Microsoft Card */}
+        <div className={`account-binding-card ${user?.microsoft_id ? 'bound' : 'unbound'}`}>
+          <div className="binding-icon binding-icon-microsoft">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M1 1h10.5v10.5H1V1zm12.5 0H24v10.5H13.5V1zM1 13.5h10.5V24H1V13.5zm12.5 0H24V24H13.5V13.5z" fill="#00A4EF"/>
+            </svg>
+          </div>
+          <div className="binding-info">
+            <div className="binding-label">Microsoft</div>
+            <div className="binding-value">{user?.microsoft_id ? (user?.microsoft_email || '已绑定') : '未绑定'}</div>
+          </div>
+          <div className="binding-actions">
+            {user?.microsoft_id ? (
+              <>
+                {getLoginMethodCount() > 1 && (
+                  <button className="btn-action btn-action-danger" onClick={() => handleOpenModal('unbind-microsoft', '')}>
+                    解绑
+                  </button>
+                )}
+              </>
+            ) : (
+              <button className="btn-action btn-action-primary" onClick={handleBindMicrosoft}>
                 绑定
               </button>
             )}

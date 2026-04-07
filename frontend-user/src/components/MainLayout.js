@@ -25,9 +25,7 @@
 import React, { useState, useCallback, lazy, Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
-import { useSidebar } from '../stores/sidebar.store';
 import TopNavBar from './TopNavBar';
-import DrawerSidebar from './DrawerSidebar';
 import SharedFooter from './SharedFooter';
 import './styles/MainLayout.css';
 
@@ -36,22 +34,10 @@ const AuthModal = lazy(() => import('./AuthModal'));
 
 const MainLayout = () => {
   const { user, isAuthenticated, logout } = useAuth();
-  const { sidebarConfig } = useSidebar();
   const location = useLocation();
-  
-  // 抽屉侧边栏打开状态
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  
+
   // 登录弹窗状态
   const [showAuthModal, setShowAuthModal] = useState(false);
-
-  const handleOpenDrawer = useCallback(() => {
-    setIsDrawerOpen(true);
-  }, []);
-
-  const handleCloseDrawer = useCallback(() => {
-    setIsDrawerOpen(false);
-  }, []);
 
   const handleLogout = useCallback(() => {
     logout();
@@ -67,6 +53,11 @@ const MainLayout = () => {
 
   const showTopNav = !location.pathname.startsWith('/paper/');
 
+  // 功能性页面：禁用外层滚动，让页面内部自行管理滚动
+  const isFullHeightPage = ['/search-results', '/assistant', '/chat', '/peer-review', '/latex-writer'].some(
+    p => location.pathname.startsWith(p)
+  );
+
   return (
     <div className="main-layout">
       {/* 顶部导航栏 - 固定高度 */}
@@ -74,7 +65,6 @@ const MainLayout = () => {
         <TopNavBar
           user={user}
           isAuthenticated={isAuthenticated}
-          onMenuClick={handleOpenDrawer}
           onShowLogin={handleShowLogin}
           onLogout={handleLogout}
         />
@@ -82,25 +72,17 @@ const MainLayout = () => {
 
       {/* 正文区域 - 占据剩余空间，内部可滚动 */}
       <div className={`main-layout-content ${showTopNav ? 'with-top-nav' : ''}`}>
-        <div className="main-layout-scroll">
-          <div className="main-layout-page">
-            <Outlet context={{ 
+        <div className={`main-layout-scroll ${isFullHeightPage ? 'no-scroll' : ''}`}>
+          <div className={`main-layout-page ${isFullHeightPage ? 'full-height' : ''}`}>
+            <Outlet context={{
               isAuthenticated,
               onShowLogin: handleShowLogin,
               showTopNav: showTopNav,
-              onOpenDrawer: handleOpenDrawer
             }} />
           </div>
           <SharedFooter />
         </div>
       </div>
-
-      {/* 抽屉式侧边栏 - 通过 Portal 渲染 */}
-      <DrawerSidebar
-        isOpen={isDrawerOpen}
-        onClose={handleCloseDrawer}
-        sidebarConfig={sidebarConfig}
-      />
 
       {/* 登录弹窗 */}
       {showAuthModal && (

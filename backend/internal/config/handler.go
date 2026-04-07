@@ -328,13 +328,19 @@ func (h *Handler) GetSystemConfig(c *gin.Context) {
 		githubConfig = nil
 	}
 
+	// Always mask sensitive fields on the public endpoint
+	turnstileSecretKey := config.TurnstileSecretKey
+	if turnstileSecretKey != "" {
+		turnstileSecretKey = "********"
+	}
+
 	// Build response with system config and GitHub config
 	response := map[string]any{
 		"id":                         config.ID,
 		"require_email_verification": config.RequireEmailVerification,
 		"enable_turnstile":           config.EnableTurnstile,
 		"turnstile_site_key":         config.TurnstileSiteKey,
-		"turnstile_secret_key":       config.TurnstileSecretKey,
+		"turnstile_secret_key":       turnstileSecretKey,
 		"created_at":                 config.CreatedAt,
 		"updated_at":                 config.UpdatedAt,
 	}
@@ -385,6 +391,40 @@ func (h *Handler) UpdateSystemConfig(c *gin.Context) {
 	}
 
 	utils.SuccessWithMessage(c, "System configuration updated successfully", nil)
+}
+
+// GetSystemConfigAdmin handles getting system configuration (admin only, supports show_sensitive)
+func (h *Handler) GetSystemConfigAdmin(c *gin.Context) {
+	config, err := h.service.GetSystemConfig()
+	if err != nil {
+		utils.Error(c, 3003, "Failed to get system configuration")
+		return
+	}
+
+	if config == nil {
+		config = &model.SystemConfig{
+			RequireEmailVerification: true,
+		}
+	}
+
+	// Mask sensitive fields by default
+	showSensitive := c.Query("show_sensitive") == "true"
+	turnstileSecretKey := config.TurnstileSecretKey
+	if !showSensitive && turnstileSecretKey != "" {
+		turnstileSecretKey = "********"
+	}
+
+	response := map[string]any{
+		"id":                         config.ID,
+		"require_email_verification": config.RequireEmailVerification,
+		"enable_turnstile":           config.EnableTurnstile,
+		"turnstile_site_key":         config.TurnstileSiteKey,
+		"turnstile_secret_key":       turnstileSecretKey,
+		"created_at":                 config.CreatedAt,
+		"updated_at":                 config.UpdatedAt,
+	}
+
+	utils.Success(c, response)
 }
 
 // GetSMSConfig handles getting active SMS configuration (admin only)
@@ -590,6 +630,12 @@ func (h *Handler) GetGithubOAuthConfig(c *gin.Context) {
 		}
 	}
 
+	// Mask sensitive fields by default
+	showSensitive := c.Query("show_sensitive") == "true"
+	if !showSensitive && config.ClientSecret != "" {
+		config.ClientSecret = "********"
+	}
+
 	utils.Success(c, config)
 }
 
@@ -614,13 +660,273 @@ func (h *Handler) UpdateGithubOAuthConfig(c *gin.Context) {
 		callbackURL = strings.TrimSuffix(callbackURL, "/") + "/github/callback"
 	}
 
-	err := h.service.UpdateGithubOAuthConfig(req.ClientID, req.ClientSecret, callbackURL, req.Enabled)
+	// If client_secret is empty, preserve existing value
+	clientSecret := req.ClientSecret
+	if clientSecret == "" {
+		existingConfig, err := h.service.GetGithubOAuthConfig()
+		if err != nil {
+			utils.Error(c, 3021, "Failed to get existing GitHub OAuth configuration")
+			return
+		}
+		if existingConfig != nil {
+			clientSecret = existingConfig.ClientSecret
+		} else {
+			utils.BadRequest(c, "Client Secret is required for new GitHub OAuth configuration")
+			return
+		}
+	}
+
+	err := h.service.UpdateGithubOAuthConfig(req.ClientID, clientSecret, callbackURL, req.Enabled)
 	if err != nil {
 		utils.Error(c, 3021, "Failed to update GitHub OAuth configuration")
 		return
 	}
 
 	utils.SuccessWithMessage(c, "GitHub OAuth configuration updated successfully", nil)
+}
+
+// ============================================
+// Google OAuth Configuration Handler Methods
+// ============================================
+
+// GetGoogleOAuthConfig handles getting Google OAuth configuration (admin only)
+func (h *Handler) GetGoogleOAuthConfig(c *gin.Context) {
+	config, err := h.service.GetGoogleOAuthConfig()
+	if err != nil {
+		utils.Error(c, 3040, "Failed to get Google OAuth configuration")
+		return
+	}
+
+	if config == nil {
+		config = &model.GoogleOAuthConfig{
+			ClientID:     "",
+			ClientSecret: "",
+			Enabled:      false,
+		}
+	}
+
+	// Mask sensitive fields by default
+	showSensitive := c.Query("show_sensitive") == "true"
+	if !showSensitive && config.ClientSecret != "" {
+		config.ClientSecret = "********"
+	}
+
+	utils.Success(c, config)
+}
+
+// UpdateGoogleOAuthConfigRequest represents an update Google OAuth config request
+type UpdateGoogleOAuthConfigRequest struct {
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	Enabled      bool   `json:"enabled"`
+}
+
+// UpdateGoogleOAuthConfig handles updating Google OAuth configuration (admin only)
+func (h *Handler) UpdateGoogleOAuthConfig(c *gin.Context) {
+	var req UpdateGoogleOAuthConfigRequest
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+
+	// If client_secret is empty, preserve existing value
+	clientSecret := req.ClientSecret
+	if clientSecret == "" {
+		existingConfig, err := h.service.GetGoogleOAuthConfig()
+		if err == nil && existingConfig != nil {
+			clientSecret = existingConfig.ClientSecret
+		}
+		// Google OAuth uses ID Token mode, client_secret is optional — no error if empty
+	}
+
+	err := h.service.UpdateGoogleOAuthConfig(req.ClientID, clientSecret, req.Enabled)
+	if err != nil {
+		utils.Error(c, 3041, "Failed to update Google OAuth configuration")
+		return
+	}
+
+	utils.SuccessWithMessage(c, "Google OAuth configuration updated successfully", nil)
+}
+
+// ============================================
+// ORCID OAuth Configuration Handler Methods
+// ============================================
+
+func (h *Handler) GetOrcidOAuthConfig(c *gin.Context) {
+	config, err := h.service.GetOrcidOAuthConfig()
+	if err != nil {
+		utils.Error(c, 3050, "Failed to get ORCID OAuth configuration")
+		return
+	}
+	if config == nil {
+		config = &model.OrcidOAuthConfig{}
+	}
+
+	// Mask sensitive fields by default
+	showSensitive := c.Query("show_sensitive") == "true"
+	if !showSensitive && config.ClientSecret != "" {
+		config.ClientSecret = "********"
+	}
+
+	utils.Success(c, config)
+}
+
+type UpdateOrcidOAuthConfigRequest struct {
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	RedirectURI  string `json:"redirect_uri"`
+	UseSandbox   bool   `json:"use_sandbox"`
+	Enabled      bool   `json:"enabled"`
+}
+
+func (h *Handler) UpdateOrcidOAuthConfig(c *gin.Context) {
+	var req UpdateOrcidOAuthConfigRequest
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+	callbackURL := req.RedirectURI
+	if callbackURL != "" && !strings.HasSuffix(callbackURL, "/orcid/callback") {
+		callbackURL = strings.TrimSuffix(callbackURL, "/") + "/orcid/callback"
+	}
+
+	// If client_secret is empty, preserve existing value
+	clientSecret := req.ClientSecret
+	if clientSecret == "" {
+		existingConfig, err := h.service.GetOrcidOAuthConfig()
+		if err != nil {
+			utils.Error(c, 3051, "Failed to get existing ORCID OAuth configuration")
+			return
+		}
+		if existingConfig != nil {
+			clientSecret = existingConfig.ClientSecret
+		} else {
+			utils.BadRequest(c, "Client Secret is required for new ORCID OAuth configuration")
+			return
+		}
+	}
+
+	err := h.service.UpdateOrcidOAuthConfig(req.ClientID, clientSecret, callbackURL, req.UseSandbox, req.Enabled)
+	if err != nil {
+		utils.Error(c, 3051, "Failed to update ORCID OAuth configuration")
+		return
+	}
+	utils.SuccessWithMessage(c, "ORCID OAuth configuration updated successfully", nil)
+}
+
+// ============================================
+// Microsoft OAuth Configuration Handler Methods
+// ============================================
+
+func (h *Handler) GetMicrosoftOAuthConfig(c *gin.Context) {
+	config, err := h.service.GetMicrosoftOAuthConfig()
+	if err != nil {
+		utils.Error(c, 3060, "Failed to get Microsoft OAuth configuration")
+		return
+	}
+	if config == nil {
+		config = &model.MicrosoftOAuthConfig{Tenant: "common"}
+	}
+
+	// Mask sensitive fields by default
+	showSensitive := c.Query("show_sensitive") == "true"
+	if !showSensitive && config.ClientSecret != "" {
+		config.ClientSecret = "********"
+	}
+
+	utils.Success(c, config)
+}
+
+type UpdateMicrosoftOAuthConfigRequest struct {
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	RedirectURI  string `json:"redirect_uri"`
+	Tenant       string `json:"tenant"`
+	Enabled      bool   `json:"enabled"`
+}
+
+func (h *Handler) UpdateMicrosoftOAuthConfig(c *gin.Context) {
+	var req UpdateMicrosoftOAuthConfigRequest
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+	callbackURL := req.RedirectURI
+	if callbackURL != "" && !strings.HasSuffix(callbackURL, "/microsoft/callback") {
+		callbackURL = strings.TrimSuffix(callbackURL, "/") + "/microsoft/callback"
+	}
+
+	// If client_secret is empty, preserve existing value
+	clientSecret := req.ClientSecret
+	if clientSecret == "" {
+		existingConfig, err := h.service.GetMicrosoftOAuthConfig()
+		if err != nil {
+			utils.Error(c, 3061, "Failed to get existing Microsoft OAuth configuration")
+			return
+		}
+		if existingConfig != nil {
+			clientSecret = existingConfig.ClientSecret
+		} else {
+			utils.BadRequest(c, "Client Secret is required for new Microsoft OAuth configuration")
+			return
+		}
+	}
+
+	err := h.service.UpdateMicrosoftOAuthConfig(req.ClientID, clientSecret, callbackURL, req.Tenant, req.Enabled)
+	if err != nil {
+		utils.Error(c, 3061, "Failed to update Microsoft OAuth configuration")
+		return
+	}
+	utils.SuccessWithMessage(c, "Microsoft OAuth configuration updated successfully", nil)
+}
+
+// ============================================
+// Apple OAuth Configuration Handler Methods
+// ============================================
+
+func (h *Handler) GetAppleOAuthConfig(c *gin.Context) {
+	config, err := h.service.GetAppleOAuthConfig()
+	if err != nil {
+		utils.Error(c, 3070, "Failed to get Apple OAuth configuration")
+		return
+	}
+	if config == nil {
+		config = &model.AppleOAuthConfig{}
+	}
+	// 不返回私钥内容，只返回是否已配置
+	resp := gin.H{
+		"id":           config.ID,
+		"service_id":   config.ServiceID,
+		"team_id":      config.TeamID,
+		"key_id":       config.KeyID,
+		"has_key":      config.PrivateKey != "",
+		"redirect_uri": config.RedirectURI,
+		"enabled":      config.Enabled,
+	}
+	utils.Success(c, resp)
+}
+
+type UpdateAppleOAuthConfigRequest struct {
+	ServiceID   string `json:"service_id"`
+	TeamID      string `json:"team_id"`
+	KeyID       string `json:"key_id"`
+	PrivateKey  string `json:"private_key"`
+	RedirectURI string `json:"redirect_uri"`
+	Enabled     bool   `json:"enabled"`
+}
+
+func (h *Handler) UpdateAppleOAuthConfig(c *gin.Context) {
+	var req UpdateAppleOAuthConfigRequest
+	if !utils.BindJSON(c, &req) {
+		return
+	}
+	callbackURL := req.RedirectURI
+	if callbackURL != "" && !strings.HasSuffix(callbackURL, "/apple/callback") {
+		callbackURL = strings.TrimSuffix(callbackURL, "/") + "/apple/callback"
+	}
+	err := h.service.UpdateAppleOAuthConfig(req.ServiceID, req.TeamID, req.KeyID, req.PrivateKey, callbackURL, req.Enabled)
+	if err != nil {
+		utils.Error(c, 3071, "Failed to update Apple OAuth configuration")
+		return
+	}
+	utils.SuccessWithMessage(c, "Apple OAuth configuration updated successfully", nil)
 }
 
 // ============================================
@@ -645,18 +951,13 @@ func (h *Handler) GetDiscourseSSOConfig(c *gin.Context) {
 		}
 	}
 
-	// Mask the SSO secret for security (same pattern as GitHub)
-	maskedConfig := map[string]any{
-		"id":           config.ID,
-		"site_url":     config.SiteURL,
-		"sso_secret":   maskSecret(config.SSOSecret),
-		"redirect_uri": config.RedirectURI,
-		"enabled":      config.Enabled,
-		"created_at":   config.CreatedAt,
-		"updated_at":   config.UpdatedAt,
+	// Mask sensitive fields by default
+	showSensitive := c.Query("show_sensitive") == "true"
+	if !showSensitive && config.SSOSecret != "" {
+		config.SSOSecret = "********"
 	}
 
-	utils.Success(c, maskedConfig)
+	utils.Success(c, config)
 }
 
 // UpdateDiscourseSSOConfigRequest represents an update Discourse SSO config request
@@ -680,24 +981,29 @@ func (h *Handler) UpdateDiscourseSSOConfig(c *gin.Context) {
 		callbackURL = strings.TrimSuffix(callbackURL, "/") + "/discourse/callback"
 	}
 
-	err := h.service.UpdateDiscourseSSOConfig(req.SiteURL, req.SSOSecret, callbackURL, req.Enabled)
+	// If sso_secret is empty, preserve existing value
+	ssoSecret := req.SSOSecret
+	if ssoSecret == "" {
+		existingConfig, err := h.service.GetDiscourseSSOConfig()
+		if err != nil {
+			utils.Error(c, 3031, "Failed to get existing Discourse SSO configuration")
+			return
+		}
+		if existingConfig != nil {
+			ssoSecret = existingConfig.SSOSecret
+		} else {
+			utils.BadRequest(c, "SSO Secret is required for new Discourse SSO configuration")
+			return
+		}
+	}
+
+	err := h.service.UpdateDiscourseSSOConfig(req.SiteURL, ssoSecret, callbackURL, req.Enabled)
 	if err != nil {
 		utils.Error(c, 3031, "Failed to update Discourse SSO configuration")
 		return
 	}
 
 	utils.SuccessWithMessage(c, "Discourse SSO configuration updated successfully", nil)
-}
-
-// maskSecret masks a secret string for display, showing only first and last 3 characters
-func maskSecret(secret string) string {
-	if secret == "" {
-		return ""
-	}
-	if len(secret) <= 6 {
-		return "******"
-	}
-	return secret[:3] + "******" + secret[len(secret)-3:]
 }
 
 // ============================================
@@ -886,23 +1192,40 @@ const (
 	indexHTMLCacheTTL = 5 * time.Minute
 )
 
+// knownRoutePrefixes lists legitimate frontend route prefixes that should NOT be blocked,
+// even if they match a suspicious prefix pattern (e.g., /admin/ is our real admin dashboard).
+var knownRoutePrefixes = []string{
+	"/admin/",
+}
+
 // isSuspiciousPath returns true for paths that are clearly not valid frontend routes
 // (e.g., scanner/bot probes like .php, .asp, .env, wp-admin, etc.)
 func isSuspiciousPath(path string) bool {
+	lowerPath := strings.ToLower(path)
+
+	// 1. Suspicious suffixes always block (e.g., /admin/login.php is still suspicious)
 	suspiciousSuffixes := []string{
 		".php", ".asp", ".aspx", ".jsp", ".cgi", ".pl",
 		".env", ".git", ".bak", ".sql", ".yml", ".yaml",
 		".xml", ".log", ".ini", ".conf", ".config",
 	}
-	suspiciousPrefixes := []string{
-		"/wp-", "/wordpress", "/admin/", "/cgi-bin/",
-		"/.well-known/", "/vendor/", "/node_modules/",
-	}
-	lowerPath := strings.ToLower(path)
 	for _, suffix := range suspiciousSuffixes {
 		if strings.HasSuffix(lowerPath, suffix) {
 			return true
 		}
+	}
+
+	// 2. Allow our own legitimate route prefixes (before checking suspicious prefixes)
+	for _, known := range knownRoutePrefixes {
+		if strings.HasPrefix(lowerPath, known) || lowerPath == strings.TrimSuffix(known, "/") {
+			return false
+		}
+	}
+
+	// 3. Suspicious prefixes block (scanner probes)
+	suspiciousPrefixes := []string{
+		"/wp-", "/wordpress", "/admin/", "/cgi-bin/",
+		"/.well-known/", "/vendor/", "/node_modules/",
 	}
 	for _, prefix := range suspiciousPrefixes {
 		if strings.HasPrefix(lowerPath, prefix) {
@@ -923,7 +1246,7 @@ func (h *Handler) ServeIndexHTML(c *gin.Context) {
 	}
 
 	if isSuspiciousPath(requestPath) {
-		c.String(http.StatusNotFound, "Not Found")
+		c.Redirect(http.StatusFound, "/")
 		return
 	}
 

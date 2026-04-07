@@ -62,6 +62,17 @@
   min-height: 100%;
 }
 
+/* 功能性页面（搜索、助手、对话等）：禁用外层滚动，让页面内部各区域独立滚动 */
+.main-layout-scroll.no-scroll {
+  overflow: hidden;
+}
+
+.main-layout-page.full-height {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* 当有顶部栏时，正文区域需要适应 */
 .main-layout-content.with-top-nav {
   /* 顶部栏是 flex 布局的一部分，不需要额外处理 */

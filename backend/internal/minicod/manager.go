@@ -211,10 +211,10 @@ func (m *Manager) GetPaperAuthors(ctx context.Context, paperID string, fields []
 	return result.(*AuthorSearchResponse), nil
 }
 
-func (m *Manager) PaperAutocomplete(ctx context.Context, query string) (*AutocompleteResponse, error) {
+func (m *Manager) PaperAutocomplete(ctx context.Context, query, source string) (*AutocompleteResponse, error) {
 	result, err := circuitbreaker.MinicodBreaker.Execute(func() (any, error) {
 		return m.executeWithRetry(func(client *Client) (any, error) {
-			return client.PaperAutocomplete(ctx, query)
+			return client.PaperAutocomplete(ctx, query, source)
 		})
 	})
 	if err != nil {
@@ -308,7 +308,7 @@ func (m *Manager) GetRecommendations(ctx context.Context, opts RecommendationsOp
 // ======================== Search Suggestions ========================
 
 // GetSearchSuggestions returns combined paper and author suggestions
-func (m *Manager) GetSearchSuggestions(ctx context.Context, query string, paperLimit, authorLimit int) (*SearchSuggestionsResponse, error) {
+func (m *Manager) GetSearchSuggestions(ctx context.Context, query, source string, paperLimit, authorLimit int) (*SearchSuggestionsResponse, error) {
 	if query == "" {
 		return nil, fmt.Errorf("query is required")
 	}
@@ -332,12 +332,12 @@ func (m *Manager) GetSearchSuggestions(ctx context.Context, query string, paperL
 	authorChan := make(chan authorResult, 1)
 
 	go func() {
-		result, err := m.PaperAutocomplete(ctx, query)
+		result, err := m.PaperAutocomplete(ctx, query, source)
 		paperChan <- paperResult{data: result, err: err}
 	}()
 
 	go func() {
-		opts := AuthorSearchOptions{Query: query, Limit: authorLimit, Offset: 0}
+		opts := AuthorSearchOptions{Query: query, Limit: authorLimit, Offset: 0, Source: source}
 		result, err := m.SearchAuthors(ctx, opts)
 		authorChan <- authorResult{data: result, err: err}
 	}()

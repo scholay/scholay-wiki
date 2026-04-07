@@ -128,6 +128,11 @@ func (s *Service) UnbindGitHub(userID uint) error {
 	return s.repo.UnbindGitHubInTx(userID)
 }
 
+// UnbindGoogle unbinds Google from user account
+func (s *Service) UnbindGoogle(userID uint) error {
+	return s.repo.UnbindProviderInTx(userID, "google")
+}
+
 // UnbindDiscourse unbinds Discourse from user account
 func (s *Service) UnbindDiscourse(userID uint) error {
 	return s.repo.UnbindProviderInTx(userID, "discourse")

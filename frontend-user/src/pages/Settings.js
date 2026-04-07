@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import api from '../services/client';
@@ -24,10 +24,6 @@ const Settings = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user, logout, refreshUser } = useAuth();
   const { showSuccess, showError } = useToast();
-  const outletContext = useOutletContext();
-  // eslint-disable-next-line no-unused-vars
-  const onOpenDrawer = outletContext?.onOpenDrawer; // 保留供将来使用
-
   const [activeTab, setActiveTab] = useState('profile'); // profile, account
   const [loading, setLoading] = useState(false);
 

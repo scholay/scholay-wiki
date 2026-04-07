@@ -77,6 +77,36 @@ export const userAPI = {
   bindGitHubAccount: (code: string, state: string) =>
     api.post('/user/bind-github', { code, state }),
 
+  // Google OAuth (GIS ID Token flow)
+  getGoogleClientID: () => api.get('/user/google/client-id'),
+  googleIDTokenLogin: (idToken: string) =>
+    api.post('/user/google/id-token-login', { id_token: idToken }),
+  bindGoogleAccount: (idToken: string) =>
+    api.post('/user/bind-google', { id_token: idToken }),
+  unbindGoogleAccount: () => api.post('/user/unbind-google'),
+
+  // Apple Sign In
+  getAppleLoginURL: () => api.get('/user/apple/login-url'),
+  bindAppleAccount: (code: string, idToken: string) =>
+    api.post('/user/bind-apple', { code, id_token: idToken }),
+  unbindAppleAccount: () => api.post('/user/unbind-apple'),
+
+  // ORCID OAuth
+  getOrcidLoginURL: () => api.get('/user/orcid/login-url'),
+  orcidCallback: (code: string, state: string) =>
+    api.get(`/user/orcid/callback?code=${code}&state=${state}`),
+  bindOrcidAccount: (code: string, state: string) =>
+    api.post('/user/bind-orcid', { code, state }),
+  unbindOrcidAccount: () => api.post('/user/unbind-orcid'),
+
+  // Microsoft OAuth
+  getMicrosoftLoginURL: () => api.get('/user/microsoft/login-url'),
+  microsoftCallback: (code: string, state: string) =>
+    api.get(`/user/microsoft/callback?code=${code}&state=${state}`),
+  bindMicrosoftAccount: (code: string, state: string) =>
+    api.post('/user/bind-microsoft', { code, state }),
+  unbindMicrosoftAccount: () => api.post('/user/unbind-microsoft'),
+
   getDiscourseLoginURL: () => api.get('/user/discourse/login-url'),
   discourseCallback: (sso: string, sig: string) =>
     api.get(`/user/discourse/callback?sso=${encodeURIComponent(sso)}&sig=${encodeURIComponent(sig)}`),

@@ -24,11 +24,12 @@ import './SearchSuggestions.css';
  * - visible: 是否显示下拉框
  * - inputRef: 输入框的ref，用于定位下拉框
  */
-const SearchSuggestions = ({ 
-  query, 
-  onSelectPaper, 
-  onSelectAuthor, 
-  onClose, 
+const SearchSuggestions = ({
+  query,
+  source,
+  onSelectPaper,
+  onSelectAuthor,
+  onClose,
   visible,
   inputRef
 }) => {
@@ -53,7 +54,7 @@ const SearchSuggestions = ({
     setError(null);
 
     try {
-      const response = await publicScholarAPI.getSearchSuggestions(searchQuery.trim(), 5, 5);
+      const response = await publicScholarAPI.getSearchSuggestions(searchQuery.trim(), 5, 5, source);
       if (response.data.code === 0 && response.data.data) {
         const papers = response.data.data.papers || [];
         const authors = response.data.data.authors || [];
@@ -95,7 +96,7 @@ const SearchSuggestions = ({
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [query, visible, fetchSuggestions]);
+  }, [query, visible, source, fetchSuggestions]);
 
   // 重置选中索引当建议变化时
   useEffect(() => {

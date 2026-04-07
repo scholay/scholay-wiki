@@ -107,6 +107,66 @@ const useAccountData = (user) => {
     }
   }, [showError]);
 
+  // Apple 绑定
+  const handleBindApple = useCallback(async () => {
+    try {
+      const currentPath = window.location.pathname + window.location.search;
+      localStorage.setItem('apple_return_url', currentPath);
+      const response = await api.get('/user/apple/login-url');
+      if (response.data.code === 0 && response.data.data) {
+        const { url, state } = response.data.data;
+        localStorage.setItem('apple_bind_state', state);
+        localStorage.setItem('apple_bind_mode', 'bind');
+        window.location.href = url;
+      } else {
+        showError('获取 Apple 登录链接失败');
+      }
+    } catch (err) {
+      logger.error('Apple binding error:', err);
+      showError('Apple 绑定失败，请稍后重试');
+    }
+  }, [showError]);
+
+  // ORCID 绑定
+  const handleBindOrcid = useCallback(async () => {
+    try {
+      const currentPath = window.location.pathname + window.location.search;
+      localStorage.setItem('orcid_return_url', currentPath);
+      const response = await api.get('/user/orcid/login-url');
+      if (response.data.code === 0 && response.data.data) {
+        const { url, state } = response.data.data;
+        localStorage.setItem('orcid_bind_state', state);
+        localStorage.setItem('orcid_bind_mode', 'bind');
+        window.location.href = url;
+      } else {
+        showError('获取 ORCID 登录链接失败');
+      }
+    } catch (err) {
+      logger.error('ORCID binding error:', err);
+      showError('ORCID 绑定失败，请稍后重试');
+    }
+  }, [showError]);
+
+  // Microsoft 绑定
+  const handleBindMicrosoft = useCallback(async () => {
+    try {
+      const currentPath = window.location.pathname + window.location.search;
+      localStorage.setItem('microsoft_return_url', currentPath);
+      const response = await api.get('/user/microsoft/login-url');
+      if (response.data.code === 0 && response.data.data) {
+        const { url, state } = response.data.data;
+        localStorage.setItem('microsoft_bind_state', state);
+        localStorage.setItem('microsoft_bind_mode', 'bind');
+        window.location.href = url;
+      } else {
+        showError('获取 Microsoft 登录链接失败');
+      }
+    } catch (err) {
+      logger.error('Microsoft binding error:', err);
+      showError('Microsoft 绑定失败，请稍后重试');
+    }
+  }, [showError]);
+
   // 恩特学术（Discourse）绑定
   const handleBindDiscourse = useCallback(async () => {
     try {
@@ -135,6 +195,10 @@ const useAccountData = (user) => {
     if (user?.phone) count++;
     if (user?.wechat_openid) count++;
     if (user?.github_id) count++;
+    if (user?.google_id) count++;
+    if (user?.apple_id) count++;
+    if (user?.orcid_id) count++;
+    if (user?.microsoft_id) count++;
     if (user?.discourse_id) count++;
     return count;
   }, [user]);
@@ -150,6 +214,10 @@ const useAccountData = (user) => {
       'unbind-phone': '解绑手机号',
       'unbind-wechat': '解绑微信',
       'unbind-github': '解绑 GitHub',
+      'unbind-google': '解绑 Google',
+      'unbind-apple': '解绑 Apple',
+      'unbind-orcid': '解绑 ORCID',
+      'unbind-microsoft': '解绑 Microsoft',
       'unbind-discourse': '解绑恩特学术',
       'change-password': '修改密码'
     };
@@ -412,6 +480,22 @@ const useAccountData = (user) => {
           response = await api.post('/user/unbind-github');
           break;
 
+        case 'unbind-google':
+          response = await api.post('/user/unbind-google');
+          break;
+
+        case 'unbind-apple':
+          response = await api.post('/user/unbind-apple');
+          break;
+
+        case 'unbind-orcid':
+          response = await api.post('/user/unbind-orcid');
+          break;
+
+        case 'unbind-microsoft':
+          response = await api.post('/user/unbind-microsoft');
+          break;
+
         case 'unbind-discourse':
           response = await api.post('/user/unbind-discourse');
           break;
@@ -482,6 +566,9 @@ const useAccountData = (user) => {
     // Actions
     handleBindWeChat,
     handleBindGitHub,
+    handleBindApple,
+    handleBindOrcid,
+    handleBindMicrosoft,
     handleBindDiscourse,
     getLoginMethodCount,
     handleOpenModal,

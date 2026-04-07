@@ -17,10 +17,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Menu } from 'lucide-react';
 import { useTheme } from '../stores/theme.store';
 import ThemeToggle from './ThemeToggle';
-import { NormalSearchIcon } from './SearchIcons';
 import MessageDropdown from './MessageDropdown';
 import { messageAPI } from '../services/payment.api';
 import wsClient from '../services/websocket';
@@ -31,13 +29,10 @@ import './MessageDropdown.css';
 const TopNavBar = ({
   user,
   isAuthenticated,
-  onMenuClick,
   onShowLogin,
   onLogout,
   // 额外的右侧按钮
   rightButtons,
-  // 是否显示菜单按钮
-  showMenuButton = true,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -160,29 +155,25 @@ const TopNavBar = ({
   return (
     <>
       <header className="top-nav-bar">
-        {/* 左侧区域：菜单按钮 + 导航菜单 */}
+        {/* 左侧区域：Logo + 导航菜单 */}
         <div className="top-nav-left navbar-left">
-          {showMenuButton && (
-            <button
-              className="top-nav-menu-btn"
-              onClick={onMenuClick}
-              aria-label="打开菜单"
-            >
-              <Menu size={22} />
-            </button>
-          )}
-          
-          {/* 主导航菜单 */}
+          <Link to="/" className="top-nav-logo" aria-label="返回首页">
+            <img src="/brand-logo.svg" alt="Scholay" className="top-nav-logo-img" />
+          </Link>
+
           <nav className="top-nav-menu">
-            <Link 
-              to="/" 
+            <Link
+              to="/"
               className={`nav-menu-item ${location.pathname === '/' || location.pathname === '/search-results' ? 'active' : ''}`}
             >
-              <NormalSearchIcon size={18} />
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+              </svg>
               <span>学术搜索</span>
             </Link>
-            <Link 
-              to="/assistant" 
+            <Link
+              to="/assistant"
               className={`nav-menu-item ${location.pathname === '/assistant' || location.pathname.startsWith('/chat') || location.pathname.startsWith('/peer-review') ? 'active' : ''}`}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

@@ -200,6 +200,12 @@ type UserProfileResponse struct {
 	WeChatName    *string    `json:"wechat_name"`     // WeChat nickname if bound
 	GitHubID      *string    `json:"github_id"`       // GitHub ID if bound
 	GitHubLogin   *string    `json:"github_login"`    // GitHub login username if bound
+	GoogleID      *string    `json:"google_id"`       // Google sub ID if bound
+	GoogleEmail   *string    `json:"google_email"`    // Google email if bound
+	AppleID       *string    `json:"apple_id"`        // Apple sub ID if bound
+	OrcidID       *string    `json:"orcid_id"`        // ORCID iD if bound
+	MicrosoftID   *string    `json:"microsoft_id"`    // Microsoft ID if bound
+	MicrosoftEmail *string   `json:"microsoft_email"` // Microsoft email if bound
 	DiscourseID   *string    `json:"discourse_id"`    // Discourse external ID if bound
 	LastLoginAt   *time.Time `json:"last_login_at"`
 	CreatedAt     time.Time  `json:"created_at"`
@@ -383,6 +389,52 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		}
 	}
 
+	// Check if Google is bound
+	var googleID *string
+	var googleEmail *string
+	googleProvider, err := h.service.FindAuthProviderByUserAndProvider(userID, "google")
+	if err == nil && googleProvider != nil {
+		googleID = &googleProvider.ProviderUserID
+		if googleProvider.ProviderData != nil {
+			var providerData map[string]any
+			if err := json.Unmarshal([]byte(*googleProvider.ProviderData), &providerData); err == nil {
+				if email, ok := providerData["email"].(string); ok && email != "" {
+					googleEmail = &email
+				}
+			}
+		}
+	}
+
+	// Check if Apple is bound
+	var appleID *string
+	appleProvider, err := h.service.FindAuthProviderByUserAndProvider(userID, "apple")
+	if err == nil && appleProvider != nil {
+		appleID = &appleProvider.ProviderUserID
+	}
+
+	// Check if ORCID is bound
+	var orcidID *string
+	orcidProvider, err := h.service.FindAuthProviderByUserAndProvider(userID, "orcid")
+	if err == nil && orcidProvider != nil {
+		orcidID = &orcidProvider.ProviderUserID
+	}
+
+	// Check if Microsoft is bound
+	var microsoftID *string
+	var microsoftEmail *string
+	microsoftProvider, err := h.service.FindAuthProviderByUserAndProvider(userID, "microsoft")
+	if err == nil && microsoftProvider != nil {
+		microsoftID = &microsoftProvider.ProviderUserID
+		if microsoftProvider.ProviderData != nil {
+			var providerData map[string]any
+			if err := json.Unmarshal([]byte(*microsoftProvider.ProviderData), &providerData); err == nil {
+				if email, ok := providerData["email"].(string); ok && email != "" {
+					microsoftEmail = &email
+				}
+			}
+		}
+	}
+
 	// Check Discourse binding
 	var discourseID *string
 	discourseProvider, err := h.service.FindAuthProviderByUserAndProvider(userID, "discourse")
@@ -406,6 +458,12 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		WeChatName:    wechatName,
 		GitHubID:      githubID,
 		GitHubLogin:   githubLogin,
+		GoogleID:      googleID,
+		GoogleEmail:   googleEmail,
+		AppleID:       appleID,
+		OrcidID:       orcidID,
+		MicrosoftID:   microsoftID,
+		MicrosoftEmail: microsoftEmail,
 		DiscourseID:   discourseID,
 		LastLoginAt:   user.LastLoginAt,
 		CreatedAt:     user.CreatedAt,

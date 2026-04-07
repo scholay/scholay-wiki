@@ -18,6 +18,69 @@
   max-width: 48rem;
 }
 
+/* 数据源选择器 - 输入框底部 */
+.home .home-source-selector,
+.home-search .home-source-selector {
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(16, 163, 127, 0.25);
+  flex-shrink: 0;
+}
+
+.home .home-source-option,
+.home-search .home-source-option {
+  border: none;
+  background: transparent;
+  padding: 5px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(16, 163, 127, 0.6);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  position: relative;
+}
+
+.home .home-source-option:first-child,
+.home-search .home-source-option:first-child {
+  border-right: 1px solid rgba(16, 163, 127, 0.2);
+}
+
+.home .home-source-option:hover,
+.home-search .home-source-option:hover {
+  background: rgba(16, 163, 127, 0.08);
+}
+
+.home .home-source-option.active,
+.home-search .home-source-option.active {
+  background: var(--brand-500, #10a37f);
+  color: #fff;
+}
+
+/* 日间模式 */
+[data-theme="light"] .home .home-source-selector,
+[data-theme="light"] .home-search .home-source-selector {
+  border-color: rgba(16, 163, 127, 0.3);
+}
+
+[data-theme="light"] .home .home-source-option,
+[data-theme="light"] .home-search .home-source-option {
+  color: rgba(16, 163, 127, 0.6);
+}
+
+[data-theme="light"] .home .home-source-option:hover,
+[data-theme="light"] .home-search .home-source-option:hover {
+  background: rgba(16, 163, 127, 0.08);
+}
+
+[data-theme="light"] .home .home-source-option.active,
+[data-theme="light"] .home-search .home-source-option.active {
+  background: var(--brand-500, #10a37f);
+  color: #fff;
+}
+
 /* Segmented Control for Search Mode - Premium Design */
 .home .home-search-mode-segmented,
 .home-search .home-search-mode-segmented {

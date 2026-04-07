@@ -184,9 +184,18 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.GET("/sms-config", h.config.GetSMSConfig)
 		adminProtected.PUT("/sms-config", h.config.UpdateSMSConfig)
 		adminProtected.POST("/sms-config/test", h.config.TestSMSConfig)
+		adminProtected.GET("/system-config", h.config.GetSystemConfigAdmin)
 		adminProtected.PUT("/system-config", h.config.UpdateSystemConfig)
 		adminProtected.GET("/github-config", h.config.GetGithubOAuthConfig)
 		adminProtected.PUT("/github-config", h.config.UpdateGithubOAuthConfig)
+		adminProtected.GET("/google-config", h.config.GetGoogleOAuthConfig)
+		adminProtected.PUT("/google-config", h.config.UpdateGoogleOAuthConfig)
+		adminProtected.GET("/apple-config", h.config.GetAppleOAuthConfig)
+		adminProtected.PUT("/apple-config", h.config.UpdateAppleOAuthConfig)
+		adminProtected.GET("/orcid-config", h.config.GetOrcidOAuthConfig)
+		adminProtected.PUT("/orcid-config", h.config.UpdateOrcidOAuthConfig)
+		adminProtected.GET("/microsoft-config", h.config.GetMicrosoftOAuthConfig)
+		adminProtected.PUT("/microsoft-config", h.config.UpdateMicrosoftOAuthConfig)
 		adminProtected.GET("/discourse-config", h.config.GetDiscourseSSOConfig)
 		adminProtected.PUT("/discourse-config", h.config.UpdateDiscourseSSOConfig)
 
@@ -217,6 +226,7 @@ func registerAdminRoutes(api *gin.RouterGroup, h *allHandlers) {
 		adminProtected.PUT("/third-party-accounts/:id", h.thirdParty.UpdateAccount)
 		adminProtected.DELETE("/third-party-accounts/:id", h.thirdParty.DeleteAccount)
 		adminProtected.POST("/third-party-accounts/:id/test", h.thirdParty.TestAccount)
+		adminProtected.POST("/third-party-accounts/:id/reset-stats", h.thirdParty.ResetAccountStats)
 
 		// Prompt 模板管理
 		adminProtected.GET("/prompt-templates", h.ai.ListPromptTemplates)
@@ -345,6 +355,30 @@ func registerPublicUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 		githubPublic.GET("/callback", h.user.GithubCallback)
 	}
 
+	googlePublic := api.Group("/user/google")
+	{
+		googlePublic.GET("/client-id", h.user.GetGoogleClientID)
+		googlePublic.POST("/id-token-login", h.user.GoogleIDTokenLogin)
+	}
+
+	orcidPublic := api.Group("/user/orcid")
+	{
+		orcidPublic.GET("/login-url", h.user.GetOrcidLoginURL)
+		orcidPublic.GET("/callback", h.user.OrcidCallback)
+	}
+
+	applePublic := api.Group("/user/apple")
+	{
+		applePublic.GET("/login-url", h.user.GetAppleLoginURL)
+		applePublic.POST("/callback", h.user.AppleCallback)
+	}
+
+	microsoftPublic := api.Group("/user/microsoft")
+	{
+		microsoftPublic.GET("/login-url", h.user.GetMicrosoftLoginURL)
+		microsoftPublic.GET("/callback", h.user.MicrosoftCallback)
+	}
+
 	discoursePublic := api.Group("/user/discourse")
 	{
 		discoursePublic.GET("/login-url", h.user.GetDiscourseSSOLoginURL)
@@ -371,6 +405,10 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 		userProtected.POST("/bind-email", h.user.BindEmail)
 		userProtected.POST("/bind-wechat", h.user.BindWeChatAccount)
 		userProtected.POST("/bind-github", h.user.BindGitHubAccount)
+		userProtected.POST("/bind-google", h.user.BindGoogleAccount)
+		userProtected.POST("/bind-apple", h.user.BindAppleAccount)
+		userProtected.POST("/bind-orcid", h.user.BindOrcidAccount)
+		userProtected.POST("/bind-microsoft", h.user.BindMicrosoftAccount)
 		userProtected.POST("/bind-discourse", h.user.BindDiscourseAccount)
 		userProtected.POST("/bind-email-with-password", h.user.BindEmailWithPassword)
 		userProtected.POST("/bind-phone-with-password", h.user.BindPhoneWithPassword)
@@ -380,6 +418,10 @@ func registerProtectedUserRoutes(api *gin.RouterGroup, h *allHandlers) {
 		userProtected.POST("/unbind-email", h.user.UnbindEmail)
 		userProtected.POST("/unbind-wechat", h.user.UnbindWeChat)
 		userProtected.POST("/unbind-github", h.user.UnbindGitHub)
+		userProtected.POST("/unbind-google", h.user.UnbindGoogle)
+		userProtected.POST("/unbind-apple", h.user.UnbindApple)
+		userProtected.POST("/unbind-orcid", h.user.UnbindOrcid)
+		userProtected.POST("/unbind-microsoft", h.user.UnbindMicrosoft)
 		userProtected.POST("/unbind-discourse", h.user.UnbindDiscourse)
 
 		// 支付（保留支付宝支付逻辑）

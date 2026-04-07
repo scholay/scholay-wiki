@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"scholar-backend/internal/common/circuitbreaker"
 	"scholar-backend/internal/thirdparty"
@@ -46,6 +47,7 @@ func isRetryableError(err error) bool {
 
 // executeWithRetry 执行带重试逻辑的操作
 // 当遇到 403 或 429 错误时，会随机获取另一个 API key 重试，最多重试 MaxRetries 次
+// 每次尝试都会记录耗时和成功/失败统计
 func (m *Manager) executeWithRetry(operation func(client *Client) (any, error)) (any, error) {
 	var lastErr error
 	usedAccountIDs := make(map[uint]bool) // 记录已使用过的账号ID，避免重复使用同一个失效的key
@@ -74,12 +76,19 @@ func (m *Manager) executeWithRetry(operation func(client *Client) (any, error)) 
 			slog.Info("retry attempt", "attempt", attempt, "maxRetries", MaxRetries, "accountID", accountID)
 		}
 
-		// 执行操作
+		// 执行操作并计时
+		start := time.Now()
 		result, err := operation(client)
+		latencyMs := time.Since(start).Milliseconds()
+
 		if err == nil {
+			// 记录成功
+			m.accountService.RecordAPIUsage(accountID, true, latencyMs)
 			return result, nil
 		}
 
+		// 记录失败
+		m.accountService.RecordAPIUsage(accountID, false, latencyMs)
 		lastErr = err
 
 		// 检查是否是可重试的错误

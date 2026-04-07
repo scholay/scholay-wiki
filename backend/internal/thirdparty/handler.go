@@ -8,6 +8,8 @@
 package thirdparty
 
 import (
+	"math"
+
 	"scholar-backend/internal/common/utils"
 
 	"github.com/gin-gonic/gin"
@@ -72,6 +74,45 @@ func (h *Handler) GetAccount(c *gin.Context) {
 }
 
 // ListAccounts handles GET /api/v1/admin/third-party-accounts
+// APIStats holds computed statistics for display
+type APIStats struct {
+	SuccessRate    float64 `json:"success_rate"`     // 成功率 (0-1)
+	AvgLatencyMs   float64 `json:"avg_latency_ms"`   // 平均耗时(ms)
+	StdDevMs       float64 `json:"std_dev_ms"`       // 标准差(ms)
+	SlowAvgMs      float64 `json:"slow_avg_ms"`      // 慢请求平均耗时(ms)
+	SlowRate       float64 `json:"slow_rate"`         // 慢请求比率 (0-1)
+}
+
+// computeStats computes derived statistics from raw counters
+func computeStats(a *ThirdPartyAccount) APIStats {
+	stats := APIStats{}
+
+	if a.TotalRequests > 0 {
+		stats.SuccessRate = float64(a.SuccessCount) / float64(a.TotalRequests)
+	}
+
+	if a.SuccessCount > 0 {
+		mean := float64(a.TotalLatencyMs) / float64(a.SuccessCount)
+		stats.AvgLatencyMs = math.Round(mean*100) / 100
+
+		// Variance = E[X²] - E[X]²
+		meanSq := float64(a.TotalLatencySqMs) / float64(a.SuccessCount)
+		variance := meanSq - mean*mean
+		if variance < 0 {
+			variance = 0 // floating point guard
+		}
+		stats.StdDevMs = math.Round(math.Sqrt(variance)*100) / 100
+
+		stats.SlowRate = float64(a.SlowCount) / float64(a.SuccessCount)
+	}
+
+	if a.SlowCount > 0 {
+		stats.SlowAvgMs = math.Round(float64(a.SlowTotalLatencyMs)/float64(a.SlowCount)*100) / 100
+	}
+
+	return stats
+}
+
 func (h *Handler) ListAccounts(c *gin.Context) {
 	accountType := AccountType(c.Query("type"))
 	activeOnly := c.Query("active") == "true"
@@ -82,10 +123,39 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 		return
 	}
 
+	// Build response with computed stats
+	type accountWithStats struct {
+		*ThirdPartyAccount
+		Stats APIStats `json:"stats"`
+	}
+
+	result := make([]accountWithStats, len(accounts))
+	for i := range accounts {
+		result[i] = accountWithStats{
+			ThirdPartyAccount: &accounts[i],
+			Stats:             computeStats(&accounts[i]),
+		}
+	}
+
 	utils.Success(c, map[string]any{
-		"accounts": accounts,
+		"accounts": result,
 		"total":    len(accounts),
 	})
+}
+
+// ResetAccountStats handles POST /api/v1/admin/third-party-accounts/:id/reset-stats
+func (h *Handler) ResetAccountStats(c *gin.Context) {
+	id, ok := utils.ParseUintParam(c, "id")
+	if !ok {
+		return
+	}
+
+	if err := h.service.ResetAPIStats(id); err != nil {
+		utils.Error(c, 6010, "Failed to reset stats: "+err.Error())
+		return
+	}
+
+	utils.SuccessWithMessage(c, "Statistics reset successfully", nil)
 }
 
 // UpdateAccount handles PUT /api/v1/admin/third-party-accounts/:id

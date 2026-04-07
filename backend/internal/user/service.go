@@ -22,6 +22,10 @@ type ConfigService interface {
 	GetActiveSMSConfig() (*model.SMSConfig, error)
 	GetSystemConfig() (*model.SystemConfig, error)
 	GetGithubOAuthConfig() (*model.GithubOAuthConfig, error)
+	GetGoogleOAuthConfig() (*model.GoogleOAuthConfig, error)
+	GetOrcidOAuthConfig() (*model.OrcidOAuthConfig, error)
+	GetMicrosoftOAuthConfig() (*model.MicrosoftOAuthConfig, error)
+	GetAppleOAuthConfig() (*model.AppleOAuthConfig, error)
 	GetDiscourseSSOConfig() (*model.DiscourseSSOConfig, error)
 }
 

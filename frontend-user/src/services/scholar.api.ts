@@ -32,13 +32,13 @@ export const publicScholarAPI = {
   getReferences: (paperId: string, params?: Record<string, any>) =>
     publicApi.get(`/papers/${paperId}/references`, { params }),
 
-  getSearchSuggestions: (query: string, paperLimit = 5, authorLimit = 5) =>
-    publicApi.get('/search/suggestions', { params: { query, paperLimit, authorLimit } }),
+  getSearchSuggestions: (query: string, paperLimit = 5, authorLimit = 5, source?: string) =>
+    publicApi.get('/search/suggestions', { params: { query, paperLimit, authorLimit, ...(source && { source }) } }),
 
   getSystemDimensions: () => publicApi.get('/analysis/dimensions'),
 
-  getPaperAutocomplete: (query: string) =>
-    publicApi.get('/papers/autocomplete', { params: { query } }),
+  getPaperAutocomplete: (query: string, source?: string) =>
+    publicApi.get('/papers/autocomplete', { params: { query, ...(source && { source }) } }),
 
   getPaperBatch: (paperIds: string[], fields?: string) =>
     publicApi.post('/papers/batch', { paperIds, fields }),

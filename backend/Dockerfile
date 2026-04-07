@@ -5,7 +5,7 @@ WORKDIR /build
 
 RUN apk add --no-cache git gcc musl-dev
 
-ENV GOPROXY=https://goproxy.io,https://goproxy.cn,https://proxy.golang.org,direct
+ENV GOPROXY=https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,https://proxy.golang.org,direct
 ENV GO111MODULE=on
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8

@@ -14,7 +14,9 @@ import {
   setSearchFilters as saveSearchFilters,
   setSearchMode as saveSearchMode,
   getAIModelLevel,
-  setAIConversationId
+  setAIConversationId,
+  getSearchSource,
+  setSearchSource as saveSearchSource,
 } from '../../../utils/searchStorage';
 import { trackDirectSearch, EntryPoint } from '../../../utils/usageTracker';
 import logger from '../../../utils/logger';
@@ -70,6 +72,13 @@ export const useSearchState = () => {
       minCitationCount: searchParams.get('minCitationCount') || '',
     };
   });
+
+  // 数据源状态（持久化到 localStorage）
+  const [searchSource, setSearchSourceState] = useState(() => getSearchSource());
+  const setSearchSource = useCallback((source) => {
+    setSearchSourceState(source);
+    saveSearchSource(source);
+  }, []);
 
   // 论文列表状态
   const [papers, setPapers] = useState([]);
@@ -247,6 +256,7 @@ export const useSearchState = () => {
         offset: (page - 1) * papersPerPage,
         limit: papersPerPage,
         enableTranslation: canReuseSuggestions ? false : enableSuggestions,
+        source: searchSource,
         fields: ['paperId', 'title', 'abstract', 'authors', 'year', 'citationCount', 'url', 'venue', 'publicationDate', 'openAccessPdf', 'fieldsOfStudy', 'isOpenAccess', 'referenceCount', 'influentialCitationCount', 'tldr', 'journal', 'externalIds']
       };
 
@@ -478,6 +488,10 @@ export const useSearchState = () => {
     handleSwitchToNormal,
     handleSwitchToAI,
     handleTransitionComplete,
+
+    // 数据源
+    searchSource,
+    setSearchSource,
 
     // 搜索相关
     searchQuery,

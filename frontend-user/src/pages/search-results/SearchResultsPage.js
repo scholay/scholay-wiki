@@ -415,6 +415,37 @@ const SearchResultsPage = () => {
                     <img src="/brand-text.svg" alt="Scholay" className="results-brand-text" />
                   </div>
 
+                  <div className="source-selector">
+                    <button
+                      className={`source-option ${searchState.searchSource === 'olx' ? 'active' : ''}`}
+                      onClick={() => {
+                        if (searchState.searchSource !== 'olx') {
+                          searchState.setSearchSource('olx');
+                          if (searchState.searchQuery.trim()) {
+                            searchState.performSearch(searchState.searchQuery, searchState.filters, 1);
+                          }
+                        }
+                      }}
+                      title="Scholay 全域 - 覆盖更广的学术资源"
+                    >
+                      全域
+                    </button>
+                    <button
+                      className={`source-option ${searchState.searchSource === 'stc' ? 'active' : ''}`}
+                      onClick={() => {
+                        if (searchState.searchSource !== 'stc') {
+                          searchState.setSearchSource('stc');
+                          if (searchState.searchQuery.trim()) {
+                            searchState.performSearch(searchState.searchQuery, searchState.filters, 1);
+                          }
+                        }
+                      }}
+                      title="Scholay 精选 - 高质量核心学术文献"
+                    >
+                      精选
+                    </button>
+                  </div>
+
                   <div
                     className={`search-results-centered-area ${searchState.viewMode === 'table' ? 'table-mode' : ''} ${(searchState.viewMode === 'paper' || searchState.viewMode === 'author') && searchState.showDetailSearch ? 'paper-mode-search' : ''}`}
                     onClick={(e) => e.stopPropagation()}
@@ -490,9 +521,10 @@ const SearchResultsPage = () => {
                             disabled={searchState.isTransitioningToAI}
                           />
 
-                          <button type="submit" className="btn-send" disabled={!searchState.searchQuery.trim() || searchState.loading || searchState.isTransitioningToAI} title="直接检索">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M5 12h14M12 5l7 7-7 7"/>
+                          <button type="submit" className="btn-send" disabled={!searchState.searchQuery.trim() || searchState.loading || searchState.isTransitioningToAI} title="搜索">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="11" cy="11" r="8"/>
+                              <path d="M21 21l-4.35-4.35"/>
                             </svg>
                           </button>
 
@@ -515,6 +547,7 @@ const SearchResultsPage = () => {
                         {!searchState.isTransitioningToAI && (
                           <SearchSuggestions
                             query={searchState.searchQuery}
+                            source={searchState.searchSource}
                             onSelectPaper={handleSelectPaper}
                             onSelectAuthor={handleSelectAuthor}
                             onClose={() => searchState.setShowSuggestions(false)}

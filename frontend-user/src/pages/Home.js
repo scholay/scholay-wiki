@@ -20,7 +20,7 @@ import { NormalSearchIcon, AdvancedSearchIcon } from '../components/SearchIcons'
 import SEO from '../components/SEO';
 import { generateFAQSchema } from '../utils/seoHelpers';
 // 注：使用追踪已移至 API 调用层，首页无需重复追踪
-import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation } from '../utils/searchStorage';
+import { prepareSearchNavigation, preparePaperNavigation, prepareAuthorNavigation, getSearchSource, setSearchSource as saveSearchSource } from '../utils/searchStorage';
 import { userAPI } from '../services/user.api';
 import './styles/home/index.css';
 
@@ -47,6 +47,7 @@ const Home = () => {
     venue: '',
   });
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchSource, setSearchSource] = useState(() => getSearchSource()); // 'stc' | 'olx'
   const [showSuggestions, setShowSuggestions] = useState(false); // 搜索建议下拉框
   const textareaRef = useRef(null);
   const composerRef = useRef(null); // 用于定位搜索建议下拉框
@@ -104,6 +105,14 @@ const Home = () => {
   useEffect(() => {
     setCurrentExampleIndex(0);
   }, [searchMode]);
+
+  // 首页自动聚焦输入框
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   // 检查是否有被踢出的消息
   useEffect(() => {
@@ -331,6 +340,7 @@ const Home = () => {
                   <span className="mode-segment-label">智能检索</span>
                 </button>
               </div>
+
             </div>
 
             <form onSubmit={handleSearch} className="home-composer-wrapper" ref={composerRef}>
@@ -383,17 +393,13 @@ const Home = () => {
                       }}
                       rows={1}
                     />
-                    <button type="submit" className="btn-send" disabled={!searchQuery.trim()}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                      </svg>
-                    </button>
                   </div>
 
               {/* 搜索建议下拉框 - 仅在学术检索模式下显示 */}
               {searchMode === 'normal' && (
                 <SearchSuggestions
                   query={searchQuery}
+                  source={searchSource}
                   onSelectPaper={handleSelectPaper}
                   onSelectAuthor={handleSelectAuthor}
                   onClose={() => setShowSuggestions(false)}
@@ -405,6 +411,24 @@ const Home = () => {
                   {/* 底部操作栏 */}
                   <div className="home-composer-footer">
                     <div className="home-composer-footer-left">
+
+                      {/* 数据源选择 - 仅在直接检索模式显示 */}
+                      {searchMode === 'normal' && (
+                        <div className="home-source-selector">
+                          <button
+                            type="button"
+                            className={`home-source-option ${searchSource === 'olx' ? 'active' : ''}`}
+                            onClick={() => { setSearchSource('olx'); saveSearchSource('olx'); }}
+                            title="Scholay 全域 - 覆盖更广的学术资源"
+                          >全域</button>
+                          <button
+                            type="button"
+                            className={`home-source-option ${searchSource === 'stc' ? 'active' : ''}`}
+                            onClick={() => { setSearchSource('stc'); saveSearchSource('stc'); }}
+                            title="Scholay 精选 - 高质量核心学术文献"
+                          >精选</button>
+                        </div>
+                      )}
 
                       {/* 筛选按钮 - 仅在学术检索模式显示 */}
                       {searchMode === 'normal' && (() => {
@@ -466,6 +490,14 @@ const Home = () => {
                         </div>
                       )}
                     </div>
+
+                    <button type="submit" className="home-search-btn" disabled={!searchQuery.trim()}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="M21 21l-4.35-4.35"/>
+                      </svg>
+                      <span>搜索</span>
+                    </button>
                   </div>
             </form>
 

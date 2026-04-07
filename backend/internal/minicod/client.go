@@ -23,12 +23,27 @@ import (
 )
 
 const (
-	DefaultBaseURL     = "https://open.scholay.com"
-	DefaultTimeout     = 60 * time.Second
-	DialTimeout        = 15 * time.Second
+	DefaultBaseURL      = "https://open.scholay.com"
+	DefaultTimeout      = 60 * time.Second
+	DialTimeout         = 15 * time.Second
 	TLSHandshakeTimeout = 15 * time.Second
-	KeepAlive          = 30 * time.Second
+	KeepAlive           = 30 * time.Second
+
+	// Search source constants
+	SourceSTC = "stc" // Scholay 精选 (Semantic Scholar)
+	SourceOLX = "olx" // Scholay 全域 (OpenAlex)
 )
+
+// sourcePrefix returns the API path prefix for the given source
+// e.g. "stc" → "/v1/stc", "olx" → "/v1/olx"
+func sourcePrefix(source string) string {
+	switch source {
+	case SourceOLX:
+		return "/v1/olx"
+	default:
+		return "/v1/stc"
+	}
+}
 
 var (
 	sharedTransport     *http.Transport
@@ -177,7 +192,8 @@ func (c *Client) SearchPapers(ctx context.Context, opts PaperSearchOptions) (*Se
 		body["fields_of_study"] = strings.Join(opts.FieldsOfStudy, ",")
 	}
 
-	data, err := c.doPost(ctx, "/v1/stc/papers/search", body)
+	prefix := sourcePrefix(opts.Source)
+	data, err := c.doPost(ctx, prefix+"/papers/search", body)
 	if err != nil {
 		return nil, err
 	}
@@ -213,6 +229,8 @@ func (c *Client) GetPaper(ctx context.Context, paperID string, opts PaperDetails
 	path := "/v1/stc/papers/get"
 	if strings.HasPrefix(paperID, "olx:") {
 		path = "/v1/olx/works/get"
+		// Strip prefix — OLX API expects raw ID (e.g., "W2726369860")
+		body["id"] = strings.TrimPrefix(paperID, "olx:")
 		// OLX uses "select" instead of "fields"
 		if len(opts.Fields) > 0 {
 			delete(body, "fields")
@@ -275,6 +293,7 @@ func (c *Client) GetPaperCitations(ctx context.Context, paperID string, opts Cit
 	path := "/v1/stc/papers/citations"
 	if strings.HasPrefix(paperID, "olx:") {
 		path = "/v1/olx/works/citations"
+		body["paper_id"] = strings.TrimPrefix(paperID, "olx:")
 	}
 
 	data, err := c.doPost(ctx, path, body)
@@ -316,6 +335,7 @@ func (c *Client) GetPaperReferences(ctx context.Context, paperID string, opts Ci
 	path := "/v1/stc/papers/references"
 	if strings.HasPrefix(paperID, "olx:") {
 		path = "/v1/olx/works/references"
+		body["paper_id"] = strings.TrimPrefix(paperID, "olx:")
 	}
 
 	data, err := c.doPost(ctx, path, body)
@@ -357,6 +377,7 @@ func (c *Client) GetPaperAuthors(ctx context.Context, paperID string, fields []s
 	path := "/v1/stc/papers/authors"
 	if strings.HasPrefix(paperID, "olx:") {
 		path = "/v1/olx/works/authors"
+		body["paper_id"] = strings.TrimPrefix(paperID, "olx:")
 	}
 
 	data, err := c.doPost(ctx, path, body)
@@ -377,12 +398,13 @@ func (c *Client) GetPaperAuthors(ctx context.Context, paperID string, fields []s
 }
 
 // PaperAutocomplete returns paper title suggestions
-func (c *Client) PaperAutocomplete(ctx context.Context, query string) (*AutocompleteResponse, error) {
+func (c *Client) PaperAutocomplete(ctx context.Context, query, source string) (*AutocompleteResponse, error) {
 	body := map[string]any{
 		"query": query,
 	}
 
-	data, err := c.doPost(ctx, "/v1/stc/papers/autocomplete", body)
+	prefix := sourcePrefix(source)
+	data, err := c.doPost(ctx, prefix+"/papers/autocomplete", body)
 	if err != nil {
 		return nil, err
 	}
@@ -420,7 +442,8 @@ func (c *Client) SearchAuthors(ctx context.Context, opts AuthorSearchOptions) (*
 		body["fields"] = strings.Join(opts.Fields, ",")
 	}
 
-	data, err := c.doPost(ctx, "/v1/stc/authors/search", body)
+	prefix := sourcePrefix(opts.Source)
+	data, err := c.doPost(ctx, prefix+"/authors/search", body)
 	if err != nil {
 		return nil, err
 	}
@@ -449,6 +472,7 @@ func (c *Client) GetAuthor(ctx context.Context, authorID string, fields []string
 	path := "/v1/stc/authors/get"
 	if strings.HasPrefix(authorID, "olx:") {
 		path = "/v1/olx/authors/get"
+		body["id"] = strings.TrimPrefix(authorID, "olx:")
 		if len(fields) > 0 {
 			delete(body, "fields")
 			body["select"] = strings.Join(fields, ",")
@@ -487,6 +511,7 @@ func (c *Client) GetAuthorPapers(ctx context.Context, authorID string, fields []
 	path := "/v1/stc/authors/papers"
 	if strings.HasPrefix(authorID, "olx:") {
 		path = "/v1/olx/authors/papers"
+		body["author_id"] = strings.TrimPrefix(authorID, "olx:")
 	}
 
 	data, err := c.doPost(ctx, path, body)

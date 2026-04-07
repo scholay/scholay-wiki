@@ -16,6 +16,7 @@ const STORAGE_KEYS = {
   MODE: 'search_mode', // 'normal' | 'ai'
   AI_MODEL_LEVEL: 'ai_model_level', // 'low' | 'mid' | 'high'
   AI_CONVERSATION_ID: 'ai_conversation_id',
+  SOURCE: 'search_source', // 'stc' | 'olx'
 };
 
 /**
@@ -190,6 +191,24 @@ export const prepareAuthorNavigation = (authorId, query = '') => {
   return `/search-results?authorId=${authorId}`;
 };
 
+/**
+ * 设置搜索数据源
+ * @param {string} source - 'stc' | 'olx'
+ */
+export const setSearchSource = (source) => {
+  if (source) {
+    localStorage.setItem(STORAGE_KEYS.SOURCE, source);
+  }
+};
+
+/**
+ * 获取搜索数据源（持久化到 localStorage，跨会话保留偏好）
+ * @returns {string} - 'stc' | 'olx'
+ */
+export const getSearchSource = () => {
+  return localStorage.getItem(STORAGE_KEYS.SOURCE) || 'olx';
+};
+
 const searchStorage = {
   setSearchQuery,
   getSearchQuery,
@@ -201,6 +220,8 @@ const searchStorage = {
   getAIModelLevel,
   setAIConversationId,
   getAIConversationId,
+  setSearchSource,
+  getSearchSource,
   clearSearchStorage,
   clearSearchQuery,
   prepareSearchNavigation,

@@ -27,34 +27,83 @@
   gap: 8px;
 }
 
-.top-nav-menu-btn {
+/* 左侧 Logo */
+.top-nav-logo {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.top-nav-logo:hover {
+  opacity: 0.8;
+}
+
+.top-nav-logo-img {
+  height: 28px;
+  width: auto;
+}
+
+/* 导航菜单 */
+.top-nav-menu {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.nav-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
   border-radius: 8px;
-  cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-.top-nav-menu-btn:hover {
+.nav-menu-item svg {
+  flex-shrink: 0;
+}
+
+.nav-menu-item:hover {
+  color: #ffffff;
   background: rgba(255, 255, 255, 0.08);
-  color: var(--text-primary, #ffffff);
 }
 
-.top-nav-menu-btn:active {
-  transform: scale(0.95);
+.nav-menu-item.active {
+  color: #ffffff;
+  background: rgba(16, 163, 127, 0.2);
 }
 
-/* Logo 使用首页原有样式 */
-.top-nav-bar .logo {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+[data-theme="light"] .nav-menu-item {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .nav-menu-item:hover {
+  color: #1a1a1a;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .nav-menu-item.active {
+  color: var(--primary-solid, #10a37f);
+  background: rgba(16, 163, 127, 0.1);
+}
+
+@media (max-width: 768px) {
+  .top-nav-menu {
+    display: none;
+  }
+}
+
+/* ========== 以下为原有样式 ========== */
+.top-nav-logo-img-placeholder {
+  height: 22px;
+  width: auto;
 }
 
 .top-nav-bar .logo .logo-img {
@@ -117,66 +166,6 @@
 }
 
 /* ========== 主导航菜单 ========== */
-.top-nav-menu {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 8px;
-}
-
-.nav-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  font-size: 14px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.7);
-  text-decoration: none;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.nav-menu-item svg {
-  flex-shrink: 0;
-}
-
-.nav-menu-item:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.nav-menu-item.active {
-  color: #ffffff;
-  background: rgba(16, 163, 127, 0.2);
-}
-
-/* 亮色主题导航菜单 */
-[data-theme="light"] .nav-menu-item {
-  color: rgba(0, 0, 0, 0.6);
-}
-
-[data-theme="light"] .nav-menu-item:hover {
-  color: #1a1a1a;
-  background: rgba(0, 0, 0, 0.05);
-}
-
-[data-theme="light"] .nav-menu-item.active {
-  color: var(--primary-solid, #10a37f);
-  background: rgba(16, 163, 127, 0.1);
-}
-
-/* 移动端隐藏导航菜单和首页图标 */
-@media (max-width: 768px) {
-  .top-nav-menu {
-    display: none;
-  }
-  
-  .top-nav-home-btn {
-    display: none;
-  }
-}
 
 /* ========== 中间占位区域 ========== */
 .top-nav-center {
@@ -1092,15 +1081,6 @@
 /* ========== 亮色主题 ========== */
 [data-theme="light"] .top-nav-bar {
   background: transparent;
-}
-
-[data-theme="light"] .top-nav-menu-btn {
-  color: var(--text-secondary, #666666);
-}
-
-[data-theme="light"] .top-nav-menu-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: var(--text-primary, #1a1a1a);
 }
 
 [data-theme="light"] .top-nav-user-menu {

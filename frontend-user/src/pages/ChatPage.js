@@ -82,7 +82,7 @@ const CodeBlock = React.memo(({ inline, className, children, ...props }) => {
 function ChatPage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const { updateSidebarConfig, isMobile, openMobileSidebar } = useSidebar();
+  const { isMobile } = useSidebar();
   const outletContext = useOutletContext();
   const sidebarCollapsed = outletContext?.sidebarCollapsed ?? true;
 
@@ -729,23 +729,6 @@ function ChatPage() {
     }
   };
 
-  // 更新侧边栏配置 - 只在登录状态下更新
-  useEffect(() => {
-    if (isAuthenticated) {
-      updateSidebarConfig({
-        showHistory: true,
-        historyType: 'conversation',
-        historyItems: conversations,
-        currentItemId: currentConversation?.id || null,
-        onSelectItem: loadConversation,
-        onDeleteItem: deleteConversation,
-        onRenameItem: renameConversation,
-        onNewItem: handleNewConversation,
-        historyLoading: loading,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations, currentConversation?.id, loading, updateSidebarConfig, isAuthenticated]);
 
   const handleNewConversation = () => {
     setCurrentConversation(null);
@@ -779,19 +762,6 @@ function ChatPage() {
             /* New Conversation - Centered Layout with navbar */
             <div className="empty-search-layout">
               <nav className="empty-navbar">
-                {/* 移动端菜单按钮 */}
-                {isMobile && (
-                  <button 
-                    className="mobile-menu-btn"
-                    onClick={openMobileSidebar}
-                    aria-label="打开菜单"
-                  >
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                      <line x1="4" y1="8" x2="20" y2="8" />
-                      <line x1="4" y1="16" x2="14" y2="16" />
-                    </svg>
-                  </button>
-                )}
                 <div className="navbar-left-group">
                   {/* 面包屑导航 */}
                   <div className="chat-breadcrumb">
@@ -913,19 +883,6 @@ function ChatPage() {
             /* Existing Conversation - Messages + Fixed Bottom Input */
             <div className="chat-view">
               <nav className="results-navbar">
-                {/* 移动端菜单按钮 */}
-                {isMobile && (
-                  <button 
-                    className="mobile-menu-btn"
-                    onClick={openMobileSidebar}
-                    aria-label="打开菜单"
-                  >
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                      <line x1="4" y1="8" x2="20" y2="8" />
-                      <line x1="4" y1="16" x2="14" y2="16" />
-                    </svg>
-                  </button>
-                )}
                 <div className="navbar-title-group">
                   {/* 面包屑导航 */}
                   <div className="chat-breadcrumb">

@@ -49,6 +49,9 @@ func (c *AccountConfig) Scan(value any) error {
 	return json.Unmarshal(bytes, c)
 }
 
+// SlowThresholdMs defines the latency threshold (in ms) for a request to be considered "slow"
+const SlowThresholdMs = 1000
+
 // ThirdPartyAccount represents a third-party API account configuration
 type ThirdPartyAccount struct {
 	ID          uint          `gorm:"primaryKey" json:"id"`
@@ -61,6 +64,16 @@ type ThirdPartyAccount struct {
 	LastUsedAt  *time.Time    `json:"last_used_at,omitempty"`
 	CreatedAt   time.Time     `json:"created_at"`
 	UpdatedAt   time.Time     `json:"updated_at"`
+
+	// API usage statistics
+	TotalRequests     uint64 `gorm:"default:0" json:"total_requests"`       // 总请求次数（含重试）
+	SuccessCount      uint64 `gorm:"default:0" json:"success_count"`        // 成功次数
+	FailCount         uint64 `gorm:"default:0" json:"fail_count"`           // 失败次数
+	TotalLatencyMs    uint64 `gorm:"default:0" json:"total_latency_ms"`     // 成功请求总耗时(ms)
+	TotalLatencySqMs  uint64 `gorm:"default:0" json:"total_latency_sq_ms"`  // 耗时平方和(ms²) —— Var = E[X²]-E[X]²
+	MaxLatencyMs      uint64 `gorm:"default:0" json:"max_latency_ms"`       // 最大单次耗时(ms)
+	SlowCount         uint64 `gorm:"default:0" json:"slow_count"`           // 慢请求次数(>1s)
+	SlowTotalLatencyMs uint64 `gorm:"default:0" json:"slow_total_latency_ms"` // 慢请求总耗时(ms)
 }
 
 // TableName specifies the table name for GORM

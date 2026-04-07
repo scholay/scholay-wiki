@@ -285,6 +285,36 @@
   flex-wrap: wrap;
 }
 
+/* 搜索按钮 - footer 右侧 */
+.home .home-search-btn,
+.home-search .home-search-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 18px;
+  border: none;
+  border-radius: 20px;
+  background: var(--brand-500, #10a37f);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.home .home-search-btn:hover:not(:disabled),
+.home-search .home-search-btn:hover:not(:disabled) {
+  background: var(--brand-600, #0d8a6a);
+  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.3);
+}
+
+.home .home-search-btn:disabled,
+.home-search .home-search-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Footer Buttons - ChatGPT Style */
 .home .footer-btn,
 .home-search .footer-btn {

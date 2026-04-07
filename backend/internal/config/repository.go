@@ -170,6 +170,93 @@ func (r *Repository) UpdateGithubOAuthConfig(config *model.GithubOAuthConfig) er
 }
 
 // ============================================
+// Google OAuth Configuration Methods
+// ============================================
+
+// GetGoogleOAuthConfig gets the Google OAuth configuration (singleton pattern - always ID=1)
+func (r *Repository) GetGoogleOAuthConfig() (*model.GoogleOAuthConfig, error) {
+	var config model.GoogleOAuthConfig
+	err := r.db.First(&config).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &config, err
+}
+
+// CreateGoogleOAuthConfig creates a new Google OAuth configuration
+func (r *Repository) CreateGoogleOAuthConfig(config *model.GoogleOAuthConfig) error {
+	return r.db.Create(config).Error
+}
+
+// UpdateGoogleOAuthConfig updates the Google OAuth configuration
+func (r *Repository) UpdateGoogleOAuthConfig(config *model.GoogleOAuthConfig) error {
+	return r.db.Save(config).Error
+}
+
+// ============================================
+// ORCID OAuth Configuration Methods
+// ============================================
+
+func (r *Repository) GetOrcidOAuthConfig() (*model.OrcidOAuthConfig, error) {
+	var config model.OrcidOAuthConfig
+	err := r.db.First(&config).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &config, err
+}
+
+func (r *Repository) CreateOrcidOAuthConfig(config *model.OrcidOAuthConfig) error {
+	return r.db.Create(config).Error
+}
+
+func (r *Repository) UpdateOrcidOAuthConfig(config *model.OrcidOAuthConfig) error {
+	return r.db.Save(config).Error
+}
+
+// ============================================
+// Microsoft OAuth Configuration Methods
+// ============================================
+
+func (r *Repository) GetMicrosoftOAuthConfig() (*model.MicrosoftOAuthConfig, error) {
+	var config model.MicrosoftOAuthConfig
+	err := r.db.First(&config).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &config, err
+}
+
+func (r *Repository) CreateMicrosoftOAuthConfig(config *model.MicrosoftOAuthConfig) error {
+	return r.db.Create(config).Error
+}
+
+func (r *Repository) UpdateMicrosoftOAuthConfig(config *model.MicrosoftOAuthConfig) error {
+	return r.db.Save(config).Error
+}
+
+// ============================================
+// Apple OAuth Configuration Methods
+// ============================================
+
+func (r *Repository) GetAppleOAuthConfig() (*model.AppleOAuthConfig, error) {
+	var config model.AppleOAuthConfig
+	err := r.db.First(&config).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &config, err
+}
+
+func (r *Repository) CreateAppleOAuthConfig(config *model.AppleOAuthConfig) error {
+	return r.db.Create(config).Error
+}
+
+func (r *Repository) UpdateAppleOAuthConfig(config *model.AppleOAuthConfig) error {
+	return r.db.Save(config).Error
+}
+
+// ============================================
 // Discourse SSO Configuration Methods
 // ============================================
 

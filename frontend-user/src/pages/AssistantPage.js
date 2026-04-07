@@ -10,20 +10,14 @@
  * 纯功能入口页面，不包含介绍性文字（介绍内容在各 /features/* 宣传页）
  */
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSidebar } from '../stores/sidebar.store';
 import { trackAIAssistantChat } from '../utils/usageTracker';
 import SEO from '../components/SEO';
 import './styles/AssistantPage.css';
 
 function AssistantPage() {
   const navigate = useNavigate();
-  const { resetSidebarConfig } = useSidebar();
-
-  useEffect(() => {
-    resetSidebarConfig();
-  }, [resetSidebarConfig]);
 
   const handleToolClick = useCallback((tool) => {
     trackAIAssistantChat(tool.title);

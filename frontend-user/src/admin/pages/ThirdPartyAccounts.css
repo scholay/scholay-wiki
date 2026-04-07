@@ -412,3 +412,81 @@
     min-width: 880px;
   }
 }
+
+/* ========== API 统计指标 ========== */
+.admin-app .stats-cell{
+  white-space: nowrap;
+}
+
+.admin-app .stats-compact{
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-app .stats-row{
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.admin-app .stats-num{
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.admin-app .stats-label{
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.admin-app .stats-rate{
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 99px;
+  margin-left: 4px;
+}
+
+.admin-app .stats-rate.good{
+  background: rgba(16,185,129,0.12);
+  color: #059669;
+}
+
+.admin-app .stats-rate.warn{
+  background: rgba(245,158,11,0.12);
+  color: #d97706;
+}
+
+.admin-app .stats-rate.bad{
+  background: rgba(239,68,68,0.12);
+  color: #dc2626;
+}
+
+.admin-app .stats-sigma{
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-left: 2px;
+}
+
+.admin-app .stats-detail{
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  line-height: 1.3;
+}
+
+.admin-app .stats-empty{
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+}
+
+.admin-app .btn-reset{
+  color: var(--text-tertiary);
+  border-color: var(--border-subtle);
+}
+
+.admin-app .btn-reset:hover{
+  color: var(--brand-600);
+  border-color: var(--brand-300);
+}

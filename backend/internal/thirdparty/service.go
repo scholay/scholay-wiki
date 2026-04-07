@@ -167,11 +167,8 @@ func (s *Service) GetRandomAPIKey(accountType AccountType) (string, uint, error)
 	// Accounts with lower usage_count have higher probability of being selected
 	selected := s.weightedRandomSelect(accounts)
 
-	// Increment usage count
-	if err := s.repo.IncrementUsage(selected.ID); err != nil {
-		// Log error but don't fail the request
-		slog.Warn("failed to increment usage count", "account_id", selected.ID, "err", err)
-	}
+	// NOTE: Usage counting has been moved to RecordAPIUsage, called after request completes.
+	// This ensures we track success/failure/latency accurately instead of just key acquisition.
 
 	// Extract API key based on type
 	var apiKey string
@@ -201,6 +198,21 @@ func (s *Service) GetRandomAPIKey(accountType AccountType) (string, uint, error)
 	return apiKey, selected.ID, nil
 }
 
+// RecordAPIUsage records the outcome of an API request for an account
+func (s *Service) RecordAPIUsage(accountID uint, success bool, latencyMs int64) {
+	if accountID == 0 {
+		return // free tier, no account to track
+	}
+	if err := s.repo.RecordAPIUsage(accountID, success, latencyMs); err != nil {
+		slog.Warn("failed to record API usage", "account_id", accountID, "err", err)
+	}
+}
+
+// ResetAPIStats resets all API usage statistics for an account
+func (s *Service) ResetAPIStats(accountID uint) error {
+	return s.repo.ResetAPIStats(accountID)
+}
+
 // GetRandomAIModelConfig gets a random AI model configuration
 func (s *Service) GetRandomAIModelConfig() (*AIModelConfig, uint, error) {
 	accounts, err := s.getActiveAccounts(AccountTypeAIModel)
@@ -214,11 +226,6 @@ func (s *Service) GetRandomAIModelConfig() (*AIModelConfig, uint, error) {
 
 	// Use weighted random selection
 	selected := s.weightedRandomSelect(accounts)
-
-	// Increment usage count
-	if err := s.repo.IncrementUsage(selected.ID); err != nil {
-		slog.Warn("failed to increment usage count", "account_id", selected.ID, "err", err)
-	}
 
 	config, err := selected.GetAIModelConfig()
 	if err != nil {
@@ -444,10 +451,7 @@ func (s *Service) GetRandomAIModelConfigByLevelExcluding(modelLevel ModelLevel, 
 		return nil, 0, fmt.Errorf("failed to select AI model account")
 	}
 
-	// Increment usage count
-	if err := s.repo.IncrementUsage(selected.ID); err != nil {
-		slog.Warn("failed to increment usage count", "account_id", selected.ID, "err", err)
-	}
+
 
 	config, err := selected.GetAIModelConfig()
 	if err != nil {
@@ -501,10 +505,7 @@ func (s *Service) GetRandomAPIKeyByLevel(modelLevel ModelLevel) (string, uint, e
 	// Use weighted random selection
 	selected := s.weightedRandomSelect(validAccounts)
 
-	// Increment usage count
-	if err := s.repo.IncrementUsage(selected.ID); err != nil {
-		slog.Warn("failed to increment usage count", "account_id", selected.ID, "err", err)
-	}
+
 
 	config, err := selected.GetAIModelConfig()
 	if err != nil {
@@ -569,10 +570,7 @@ func (s *Service) GetPeerReviewModels() (*PeerReviewModelConfig, uint, error) {
 		return nil, 0, fmt.Errorf("failed to select AI model account for peer review")
 	}
 
-	// Increment usage count
-	if err := s.repo.IncrementUsage(selected.ID); err != nil {
-		slog.Warn("failed to increment usage count", "account_id", selected.ID, "err", err)
-	}
+
 
 	config, err := selected.GetAIModelConfig()
 	if err != nil {

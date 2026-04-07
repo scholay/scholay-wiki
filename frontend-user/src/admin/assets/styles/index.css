@@ -744,6 +744,7 @@
   justify-content: space-between;
   padding: var(--space-5);
   border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 .admin-app .modal-header h2, .admin-app .modal-header h3{
@@ -773,6 +774,32 @@
 .admin-app .modal-body{
   padding: var(--space-5);
   overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* form inside modal: flex layout + scroll so footer stays fixed at bottom */
+.admin-app .modal-shell > form,
+.admin-app .modal-content > form,
+.admin-app .modal > form{
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Footer/actions inside form should not shrink or scroll away */
+.admin-app .modal-shell > form > .modal-footer,
+.admin-app .modal-content > form > .modal-footer,
+.admin-app .modal > form > .modal-footer,
+.admin-app .modal-shell > form > .modal-actions,
+.admin-app .modal-content > form > .modal-actions,
+.admin-app .modal > form > .modal-actions{
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  background: var(--surface-base);
 }
 
 .admin-app .modal-footer, .admin-app .modal-actions{
@@ -782,6 +809,7 @@
   padding: var(--space-4) var(--space-5);
   border-top: 1px solid var(--border-subtle);
   background: var(--surface-base);
+  flex-shrink: 0;
 }
 
 .admin-app .modal-btn, .admin-app .cancel-btn, .admin-app .confirm-btn, .admin-app .danger-btn{

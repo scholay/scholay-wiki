@@ -7,7 +7,10 @@
 
 package minicod
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
 // ======================== Minicod API Raw Response Types ========================
 // These match the JSON format returned by the Minicod API (snake_case)
@@ -246,6 +249,7 @@ type AuthorSearchOptions struct {
 	Fields []string
 	Offset int
 	Limit  int
+	Source string // stc or olx
 }
 
 // CitationsOptions contains options for fetching citations
@@ -335,9 +339,19 @@ type JournalSearchResponse struct {
 // ======================== Conversion Functions ========================
 
 // ConvertPaper converts a Minicod raw paper to frontend-compatible Paper
+// normalizeID ensures paper/author IDs include their source prefix (e.g., "olx:W123")
+// so that downstream GetPaper/GetAuthor calls can route to the correct endpoint.
+// IDs from STC (Semantic Scholar) are left as-is since they're the default.
+func normalizeID(id, source string) string {
+	if source != "" && source != SourceSTC && !strings.Contains(id, ":") {
+		return source + ":" + id
+	}
+	return id
+}
+
 func ConvertPaper(raw RawPaper) Paper {
 	p := Paper{
-		PaperID:         raw.ID,
+		PaperID:         normalizeID(raw.ID, raw.Source),
 		Title:           raw.Title,
 		Abstract:        raw.Abstract,
 		Year:            raw.Year,
@@ -387,7 +401,7 @@ func ConvertPaper(raw RawPaper) Paper {
 // ConvertAuthor converts a Minicod raw author to frontend-compatible Author
 func ConvertAuthor(raw RawAuthor) Author {
 	return Author{
-		AuthorID:      raw.ID,
+		AuthorID:      normalizeID(raw.ID, raw.Source),
 		Name:          raw.Name,
 		URL:           raw.URL,
 		Affiliations:  raw.Affiliations,
@@ -401,7 +415,7 @@ func ConvertAuthor(raw RawAuthor) Author {
 // ConvertPaperToCitation converts a Minicod raw paper to a Citation
 func ConvertPaperToCitation(raw RawPaper) Citation {
 	c := Citation{
-		PaperId:         raw.ID,
+		PaperId:         normalizeID(raw.ID, raw.Source),
 		URL:             raw.URL,
 		Title:           raw.Title,
 		Abstract:        raw.Abstract,

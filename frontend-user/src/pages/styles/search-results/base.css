@@ -13,11 +13,13 @@
   display: flex;
   background: var(--background);
   position: relative;
+  overflow: hidden;
 }
 
 /* 主内容区域 */
 .search-results-content {
   flex: 1;
+  min-height: 0; /* 关键：允许在 flex 容器中收缩，防止整页滚动 */
   display: flex;
   flex-direction: column;
 }
@@ -29,6 +31,45 @@
   gap: 16px;
   padding: 8px 24px;
   flex-shrink: 0;
+}
+
+/* ========== 数据源选择器 ========== */
+.source-selector {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+.source-option {
+  border: none;
+  background: transparent;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.source-option:hover {
+  color: var(--text-secondary);
+}
+
+.source-option.active {
+  background: var(--brand-500, #10a37f);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+[data-theme="light"] .source-option.active {
+  background: var(--brand-500, #10a37f);
+  color: #fff;
 }
 
 /* 左侧 Logo 文案 - 与筛选侧边栏宽度对齐 */
@@ -123,6 +164,7 @@
 /* 论文列表区域 - 筛选侧边栏 + 论文列表 */
 .results-main {
   flex: 1;
+  min-height: 0; /* 关键：让侧边栏和论文列表各自独立滚动 */
   display: flex;
   padding-left: 24px; /* 左边距 */
   overflow: hidden; /* 防止整体溢出 */
@@ -444,81 +486,14 @@
   background: var(--background);
 }
 
-/* Auto-hide scrollbar when not scrolling */
+/* 隐藏滚动条，保留滚动功能（避免与右侧浮动面板重叠） */
 .papers-container {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-  transition: scrollbar-color 0.3s ease;
-}
-
-.papers-container:hover,
-.papers-container:focus,
-.papers-container:active {
-  scrollbar-color: rgba(255, 255, 255, 0.15) rgba(255, 255, 255, 0.05);
-}
-
-/* Webkit scrollbar styling with auto-hide */
-.papers-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.papers-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.papers-container::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 4px;
-  transition: background 0.3s ease;
-}
-
-.papers-container:hover::-webkit-scrollbar-thumb,
-.papers-container:focus::-webkit-scrollbar-thumb,
-.papers-container:active::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.papers-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;       /* IE/Edge */
 }
 
 .papers-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.papers-container::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-}
-
-.papers-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
-}
-
-.papers-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
-}
-
-/* 日间模式滚动条 */
-[data-theme="light"] .papers-container:hover,
-[data-theme="light"] .papers-container:focus,
-[data-theme="light"] .papers-container:active {
-  scrollbar-color: rgba(0, 0, 0, 0.2) rgba(0, 0, 0, 0.05);
-}
-
-[data-theme="light"] .papers-container::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.02);
-}
-
-[data-theme="light"] .papers-container:hover::-webkit-scrollbar-thumb,
-[data-theme="light"] .papers-container:focus::-webkit-scrollbar-thumb,
-[data-theme="light"] .papers-container:active::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
-}
-
-[data-theme="light"] .papers-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.25);
+  display: none;                  /* Chrome/Safari */
 }
 
 /* 加载和空状态 */

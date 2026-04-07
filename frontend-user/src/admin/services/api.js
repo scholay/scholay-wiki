@@ -56,17 +56,56 @@ export const adminAPI = {
   testSMSConfig: (config) =>
     api.post('/admin/sms-config/test', config),
 
+  getSystemConfig: (showSensitive = false) =>
+    api.get('/admin/system-config', {
+      params: showSensitive ? { show_sensitive: 'true' } : {}
+    }),
+
   updateSystemConfig: (config) =>
     api.put('/admin/system-config', config),
 
-  getGithubConfig: () =>
-    api.get('/admin/github-config'),
+  getGithubConfig: (showSensitive = false) =>
+    api.get('/admin/github-config', {
+      params: showSensitive ? { show_sensitive: 'true' } : {}
+    }),
 
   updateGithubConfig: (config) =>
     api.put('/admin/github-config', config),
 
-  getDiscourseConfig: () =>
-    api.get('/admin/discourse-config'),
+  getGoogleConfig: (showSensitive = false) =>
+    api.get('/admin/google-config', {
+      params: showSensitive ? { show_sensitive: 'true' } : {}
+    }),
+
+  updateGoogleConfig: (config) =>
+    api.put('/admin/google-config', config),
+
+  getAppleConfig: () =>
+    api.get('/admin/apple-config'),
+
+  updateAppleConfig: (config) =>
+    api.put('/admin/apple-config', config),
+
+  getOrcidConfig: (showSensitive = false) =>
+    api.get('/admin/orcid-config', {
+      params: showSensitive ? { show_sensitive: 'true' } : {}
+    }),
+
+  updateOrcidConfig: (config) =>
+    api.put('/admin/orcid-config', config),
+
+  getMicrosoftConfig: (showSensitive = false) =>
+    api.get('/admin/microsoft-config', {
+      params: showSensitive ? { show_sensitive: 'true' } : {}
+    }),
+
+  updateMicrosoftConfig: (config) =>
+    api.put('/admin/microsoft-config', config),
+
+  getDiscourseConfig: (showSensitive = false) =>
+    api.get('/admin/discourse-config', {
+      params: showSensitive ? { show_sensitive: 'true' } : {}
+    }),
 
   updateDiscourseConfig: (config) =>
     api.put('/admin/discourse-config', config),
@@ -115,6 +154,9 @@ export const adminAPI = {
 
   refreshThirdPartyAccountCache: () =>
     api.post('/admin/third-party-accounts/refresh-cache'),
+
+  resetThirdPartyAccountStats: (id) =>
+    api.post(`/admin/third-party-accounts/${id}/reset-stats`),
 
   getPromptTemplates: () =>
     api.get('/admin/prompt-templates'),

@@ -264,6 +264,7 @@ func (h *Handler) SearchAuthors(c *gin.Context) {
 		Query:  query,
 		Offset: parseIntQuery(c, "offset", 0),
 		Limit:  parseIntQuery(c, "limit", 10),
+		Source: c.Query("source"),
 	}
 	if fields := c.Query("fields"); fields != "" {
 		opts.Fields = strings.Split(fields, ",")
@@ -418,6 +419,7 @@ func (h *Handler) GetSearchSuggestions(c *gin.Context) {
 		query = query[:100]
 	}
 
+	source := c.Query("source") // stc or olx
 	paperLimit := parseIntQuery(c, "paperLimit", 5)
 	authorLimit := parseIntQuery(c, "authorLimit", 5)
 	if paperLimit > 10 {
@@ -427,7 +429,7 @@ func (h *Handler) GetSearchSuggestions(c *gin.Context) {
 		authorLimit = 10
 	}
 
-	result, err := h.manager.GetSearchSuggestions(c.Request.Context(), query, paperLimit, authorLimit)
+	result, err := h.manager.GetSearchSuggestions(c.Request.Context(), query, source, paperLimit, authorLimit)
 	if err != nil {
 		utils.Error(c, 4024, "Failed to get search suggestions: "+err.Error())
 		return
@@ -448,7 +450,8 @@ func (h *Handler) PaperAutocomplete(c *gin.Context) {
 		query = query[:100]
 	}
 
-	result, err := h.manager.PaperAutocomplete(c.Request.Context(), query)
+	source := c.Query("source") // stc or olx
+	result, err := h.manager.PaperAutocomplete(c.Request.Context(), query, source)
 	if err != nil {
 		utils.Error(c, 4026, "Failed to get paper autocomplete: "+err.Error())
 		return

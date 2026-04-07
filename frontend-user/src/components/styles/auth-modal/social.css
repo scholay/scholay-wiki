@@ -90,21 +90,38 @@
     border-radius: 14px;
   }
 
-  .auth-social-buttons {
-    gap: 10px;
+  .auth-social-primary {
+    gap: 8px;
+  }
+
+  .auth-social-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
   }
 
   .auth-social-button {
-    min-height: 50px;
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    border-radius: 10px;
+    gap: 8px;
+  }
+
+  .auth-social-primary .auth-social-button {
+    min-height: 46px;
+    border-radius: 12px;
     padding: 10px 18px;
     font-size: 0.9rem;
-    border-radius: 14px;
-    gap: 12px;
   }
 
   .auth-social-button svg {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .auth-show-more-btn {
+    padding: 6px;
+    font-size: 0.78rem;
   }
 
   .auth-code-group {

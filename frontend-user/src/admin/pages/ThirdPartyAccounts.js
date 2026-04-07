@@ -117,6 +117,22 @@ const ThirdPartyAccounts = () => {
     }
   };
 
+  const handleResetStats = async (id) => {
+    if (!window.confirm('确认重置此账号的统计数据？')) return;
+
+    try {
+      const response = await adminAPI.resetThirdPartyAccountStats(id);
+      if (response.data.code === 0) {
+        showToast('统计已重置', 'success');
+        loadAccounts();
+      } else {
+        showToast(response.data.message || '重置失败', 'error');
+      }
+    } catch (err) {
+      showToast('重置失败', 'error');
+    }
+  };
+
   const handleTest = async (id) => {
     try {
       const response = await adminAPI.testThirdPartyAccount(id);
@@ -415,9 +431,9 @@ const ThirdPartyAccounts = () => {
                 <th>优先级</th>
                 <th>模型编码</th>
                 <th>状态</th>
-                <th>使用次数</th>
-                <th>最后使用时间</th>
-                <th>创建时间</th>
+                <th>请求统计</th>
+                <th>延迟 / 质量</th>
+                <th>最后使用</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -434,9 +450,42 @@ const ThirdPartyAccounts = () => {
                   </td>
                   <td className="model-codes-cell">{account.type === 'ai_model' ? getModelCodesLabel(account.config) : '-'}</td>
                   <td>{getStatusLabel(account.status)}</td>
-                  <td>{account.usage_count || 0}</td>
+                  <td className="stats-cell">
+                    {account.total_requests > 0 ? (
+                      <div className="stats-compact">
+                        <span className="stats-row">
+                          <span className="stats-num">{account.total_requests}</span>
+                          <span className="stats-label">次</span>
+                          <span className={`stats-rate ${account.stats?.success_rate >= 0.95 ? 'good' : account.stats?.success_rate >= 0.8 ? 'warn' : 'bad'}`}>
+                            {(account.stats?.success_rate * 100 || 0).toFixed(1)}%
+                          </span>
+                        </span>
+                        <span className="stats-detail">
+                          {account.success_count} 成功 / {account.fail_count} 失败
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="stats-empty">暂无数据</span>
+                    )}
+                  </td>
+                  <td className="stats-cell">
+                    {account.success_count > 0 ? (
+                      <div className="stats-compact">
+                        <span className="stats-row">
+                          <span className="stats-num">{account.stats?.avg_latency_ms?.toFixed(0) || 0}</span>
+                          <span className="stats-label">ms</span>
+                          <span className="stats-sigma" title="标准差">±{account.stats?.std_dev_ms?.toFixed(0) || 0}</span>
+                        </span>
+                        <span className="stats-detail">
+                          峰值 {account.max_latency_ms}ms
+                          {account.slow_count > 0 && ` · 慢请求 ${account.slow_count}`}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="stats-empty">-</span>
+                    )}
+                  </td>
                   <td>{formatDate(account.last_used_at)}</td>
-                  <td>{formatDate(account.created_at)}</td>
                   <td>
                     <div className="action-buttons">
                       <button
@@ -453,6 +502,15 @@ const ThirdPartyAccounts = () => {
                       >
                         编辑
                       </button>
+                      {account.total_requests > 0 && (
+                        <button
+                          className="btn-action btn-reset"
+                          onClick={() => handleResetStats(account.id)}
+                          title="重置统计"
+                        >
+                          重置
+                        </button>
+                      )}
                       <button
                         className="btn-action btn-delete"
                         onClick={() => handleDelete(account.id)}
